@@ -451,11 +451,7 @@ func (p *G1Jac) mulWindowed(a *G1Jac, s *big.Int) *G1Jac {
 	var ops [3]G1Jac
 
 	ops[0].Set(a)
-	e := s
 	if s.Sign() == -1 {
-		e = bigIntPool.Get().(*big.Int)
-		defer bigIntPool.Put(e)
-		e.Neg(s)
 		ops[0].Neg(&ops[0])
 	}
 	res.Set(&g1Infinity)

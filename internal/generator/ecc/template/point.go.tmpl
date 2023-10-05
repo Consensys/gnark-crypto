@@ -651,11 +651,7 @@ func (p *{{ $TJacobian }}) mulWindowed(a *{{ $TJacobian }}, s *big.Int) *{{ $TJa
 	var ops [3]{{ $TJacobian }}
 
 	ops[0].Set(a)
-	e := s
 	if s.Sign() == -1 {
-		e = bigIntPool.Get().(*big.Int)
-		defer bigIntPool.Put(e)
-		e.Neg(s)
 		ops[0].Neg(&ops[0])
 	}
 	res.Set(&{{ toLower .PointName}}Infinity)
