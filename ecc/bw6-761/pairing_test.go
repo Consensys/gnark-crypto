@@ -148,6 +148,41 @@ func TestPairing(t *testing.T) {
 		genR2,
 	))
 
+	properties.Property("[BW6-761] bilinearity (optimal ate)", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var res, resa, resb, resab, zero GT
+
+			var ag1 G1Affine
+			var bg2 G2Affine
+
+			var abigint, bbigint, ab big.Int
+
+			a.BigInt(&abigint)
+			b.BigInt(&bbigint)
+			ab.Mul(&abigint, &bbigint)
+
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
+
+			res, _ = MillerLoopOptAte([]G1Affine{g1GenAff}, []G2Affine{g2GenAff})
+			res = FinalExponentiation(&res)
+			resa, _ = MillerLoopOptAte([]G1Affine{ag1}, []G2Affine{g2GenAff})
+			resa = FinalExponentiation(&resa)
+			resb, _ = MillerLoopOptAte([]G1Affine{g1GenAff}, []G2Affine{bg2})
+			resb = FinalExponentiation(&resb)
+
+			resab.Exp(res, &ab)
+			resa.Exp(resa, &bbigint)
+			resb.Exp(resb, &abigint)
+
+			return resab.Equal(&resa) && resab.Equal(&resb) && !res.Equal(&zero)
+
+		},
+		genR1,
+		genR2,
+	))
+
 	properties.Property("[BW6-761] PairingCheck", prop.ForAll(
 		func(a, b fr.Element) bool {
 
