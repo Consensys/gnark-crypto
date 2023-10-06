@@ -47,11 +47,6 @@ type ProvingKey struct {
 	G1 []bls12378.G1Affine // [G₁ [α]G₁ , [α²]G₁, ... ]
 }
 
-// ProvingKey in Lagrange form, useful when the vector to commit is sparse
-type ProvingKeyLagrange struct {
-	G1 []bls12378.G1Affine // [ [L₀(α)]G₁, [L₁(α)]G₁ , ... ]
-}
-
 // VerifyingKey used to verify opening proofs
 type VerifyingKey struct {
 	G2 [2]bls12378.G2Affine // [G₂, [α]G₂ ]
@@ -147,41 +142,6 @@ func Commit(p []fr.Element, pk ProvingKey, nbTasks ...int) (Digest, error) {
 		config.NbTasks = nbTasks[0]
 	}
 	if _, err := res.MultiExp(pk.G1[:len(p)], p, config); err != nil {
-		return Digest{}, err
-	}
-
-	return res, nil
-}
-
-// Commit commits to a polynomial using a multi exponentiation with the SRS.
-// It is assumed that the polynomial is in Lagrange form.
-// To be used when p is sparse.
-func CommitLagrange(p []fr.Element, pk ProvingKeyLagrange, nbTasks ...int) (Digest, error) {
-
-	if len(p) == 0 || len(p) > len(pk.G1) {
-		return Digest{}, ErrInvalidPolynomialSize
-	}
-
-	var res bls12378.G1Affine
-
-	config := ecc.MultiExpConfig{}
-	if len(nbTasks) > 0 {
-		config.NbTasks = nbTasks[0]
-	}
-
-	// filter the zeroes
-	// TODO is there a better way of doing this ?
-	pFiltered := make([]fr.Element, 0, len(p))
-	keyFiltered := make([]bls12378.G1Affine, 0, len(p))
-	for i := 0; i < len(p); i++ {
-		if p[i].IsZero() {
-			continue
-		}
-		pFiltered = append(pFiltered, p[i])
-		keyFiltered = append(keyFiltered, pk.G1[i])
-	}
-
-	if _, err := res.MultiExp(keyFiltered, pFiltered, config); err != nil {
 		return Digest{}, err
 	}
 
@@ -600,4 +560,12 @@ func dividePolyByXminusA(f []fr.Element, fa, a fr.Element) []fr.Element {
 
 	// the result is of degree deg(f)-1
 	return f[1:]
+}
+
+// Clone returns a copy of the ProvingKey
+func (pk *ProvingKey) Clone() ProvingKey {
+	var res ProvingKey
+	res.G1 = make([]bls12378.G1Affine, len(pk.G1))
+	copy(res.G1, pk.G1)
+	return res
 }

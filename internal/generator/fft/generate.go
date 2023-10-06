@@ -50,7 +50,16 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 
 	bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
 
-	return bgen.GenerateWithOptions(conf, conf.Package, "./fft/template/", bavardOpts, entries...)
+	if err := bgen.GenerateWithOptions(conf, conf.Package, "./fft/template/", bavardOpts, entries...); err != nil {
+		return err
+	}
+
+	// put the generator in the parent dir (fr)
+	frDir := filepath.Dir(baseDir)
+	entries = []bavard.Entry{
+		{File: filepath.Join(frDir, "generator.go"), Templates: []string{"fr.generator.go.tmpl"}},
+	}
+	return bgen.GenerateWithOptions(conf, "fr", "./fft/template/", bavardOpts, entries...)
 }
 
 func anyToUint64(x any) uint64 {

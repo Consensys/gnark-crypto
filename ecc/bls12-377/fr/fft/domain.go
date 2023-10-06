@@ -17,7 +17,6 @@
 package fft
 
 import (
-	"fmt"
 	"io"
 	"math/big"
 	"math/bits"
@@ -94,23 +93,7 @@ func NewDomain(m uint64, shift ...fr.Element) *Domain {
 // Generator returns a generator for Z/2^(log(m))Z
 // or an error if m is too big (required root of unity doesn't exist)
 func Generator(m uint64) (fr.Element, error) {
-	x := ecc.NextPowerOfTwo(m)
-
-	var rootOfUnity fr.Element
-
-	rootOfUnity.SetString("8065159656716812877374967518403273466521432693661810619979959746626482506078")
-	const maxOrderRoot uint64 = 47
-
-	// find generator for Z/2^(log(m))Z
-	logx := uint64(bits.TrailingZeros64(x))
-	if logx > maxOrderRoot {
-		return fr.Element{}, fmt.Errorf("m (%d) is too big: the required root of unity does not exist", m)
-	}
-
-	expo := uint64(1 << (maxOrderRoot - logx))
-	var generator fr.Element
-	generator.Exp(rootOfUnity, big.NewInt(int64(expo))) // order x
-	return generator, nil
+	return fr.Generator(m)
 }
 
 func (d *Domain) preComputeTwiddles() {

@@ -1,0 +1,69 @@
+{{ $TAffine := print (toUpper .PointName) "Affine" }}
+{{ $TJacobian := print (toUpper .PointName) "Jac" }}
+{{ $PointName := print (toUpper .PointName) }}
+
+import (
+	"fmt"
+	"math/big"
+	"testing"
+	"math/rand"
+
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
+)
+
+
+
+func TestToLagrange{{$PointName}}(t *testing.T) {
+	const size = 32
+
+	var samplePoints [size]{{ $TAffine }}
+	var g {{ $TJacobian }}
+	g.Set(&{{ toLower $PointName }}Gen)
+	for i := 1; i <= size; i++ {
+		samplePoints[i-1].FromJacobian(&g)
+		g.AddAssign(&{{ toLower $PointName }}Gen)
+	}
+
+	// convert the test SRS to Lagrange form
+	pkLagrange := make([]{{ $TAffine }}, size)
+	copy(pkLagrange, samplePoints[:])
+	err := ToLagrange{{$PointName}}(pkLagrange)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// generate the Lagrange SRS manually and compare
+	w, err := fr.Generator(uint64(size))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var li, n, d, one, acc, alpha fr.Element
+	alpha.SetBigInt(bAlpha)
+	li.SetUint64(uint64(size)).Inverse(&li)
+	one.SetOne()
+	n.Exp(alpha, big.NewInt(int64(size))).Sub(&n, &one)
+	d.Sub(&alpha, &one)
+	li.Mul(&li, &n).Div(&li, &d)
+	expectedSrsLagrange := make([]{{$TAffine}}, size)
+	_, _, g1Gen, _ := Generators()
+	var s big.Int
+	acc.SetOne()
+	for i := 0; i < size; i++ {
+		li.BigInt(&s)
+		expectedSrsLagrange[i].ScalarMultiplication(&g1Gen, &s)
+
+		li.Mul(&li, &w).Mul(&li, &d)
+		acc.Mul(&acc, &w)
+		d.Sub(&alpha, &acc)
+		li.Div(&li, &d)
+	}
+
+	for i := 0; i < size; i++ {
+		if !expectedSrsLagrange[i].Equal(&pkLagrange[i]) {
+			t.Fatal("error lagrange conversion")
+		}
+	}
+}

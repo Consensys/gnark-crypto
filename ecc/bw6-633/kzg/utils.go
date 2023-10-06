@@ -17,6 +17,7 @@
 package kzg
 
 import (
+	"fmt"
 	"math/big"
 	"math/bits"
 	"runtime"
@@ -24,55 +25,117 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	curve "github.com/consensys/gnark-crypto/ecc/bw6-633"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
-	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/fft"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
-// SrsToLagrangeG1 turns an SRS in canonical form into an SRS in Lagrange
-// form.
+// ToLagrangeG1 in place transform of coeffs canonical form into Lagrange form.
 // From the formula Lᵢ(τ) = 1/n∑_{j<n}(τ/ωⁱ)ʲ we
 // see that Lᵢ = FFT_inv(∑_{j<n}τʲXʲ), so it suffices to apply the inverse
 // fft on the vector consisting of the original SRS.
-func SrsToLagrangeG1(powers ProvingKey, size int) ProvingKeyLagrange {
-	coeffs := make([]curve.G1Affine, size)
-	copy(coeffs, powers.G1[:size])
-	domain := fft.NewDomain(uint64(size))
+// Size of coeffs must be a power of 2.
+func ToLagrangeG1(coeffs []curve.G1Affine) error {
+	if bits.OnesCount64(uint64(len(coeffs))) != 1 {
+		return fmt.Errorf("len(coeffs) must be a power of 2")
+	}
+	size := len(coeffs)
+
 	numCPU := uint64(runtime.NumCPU())
 	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(numCPU))
 
-	difFFTG1(coeffs, domain.TwiddlesInv, 0, maxSplits, nil)
+	twiddlesInv, err := computeTwiddlesInv(size)
+	if err != nil {
+		return err
+	}
+
+	difFFTG1(coeffs, twiddlesInv, 0, maxSplits, nil)
 	bitReverse(coeffs)
 
 	var invBigint big.Int
-	domain.CardinalityInv.BigInt(&invBigint)
+	var frCardinality fr.Element
+	frCardinality.SetUint64(uint64(size))
+	frCardinality.Inverse(&frCardinality)
+	frCardinality.BigInt(&invBigint)
 
 	parallel.Execute(size, func(start, end int) {
 		for i := start; i < end; i++ {
 			coeffs[i].ScalarMultiplication(&coeffs[i], &invBigint)
 		}
 	})
-	return ProvingKeyLagrange{G1: coeffs}
+
+	return nil
 }
 
-func SrsToLagrangeG2(powers []curve.G2Affine, size int) []curve.G2Affine {
-	coeffs := make([]curve.G2Affine, size)
-	copy(coeffs, powers[:size])
-	domain := fft.NewDomain(uint64(size))
+func computeTwiddlesInv(cardinality int) ([][]fr.Element, error) {
+	generator, err := fr.Generator(uint64(cardinality))
+	if err != nil {
+		return nil, err
+	}
+
+	// inverse the generator
+	generator.Inverse(&generator)
+
+	// nb fft stages
+	nbStages := uint64(bits.TrailingZeros64(uint64(cardinality)))
+
+	r := make([][]fr.Element, nbStages)
+
+	twiddles := func(t [][]fr.Element, omega fr.Element) {
+		for i := uint64(0); i < nbStages; i++ {
+			t[i] = make([]fr.Element, 1+(1<<(nbStages-i-1)))
+			var w fr.Element
+			if i == 0 {
+				w = omega
+			} else {
+				w = t[i-1][2]
+			}
+			t[i][0] = fr.One()
+			t[i][1] = w
+			for j := 2; j < len(t[i]); j++ {
+				t[i][j].Mul(&t[i][j-1], &w)
+			}
+		}
+	}
+
+	twiddles(r, generator)
+
+	return r, nil
+}
+
+// ToLagrangeG2 in place transform of coeffs canonical form into Lagrange form.
+// From the formula Lᵢ(τ) = 1/n∑_{j<n}(τ/ωⁱ)ʲ we
+// see that Lᵢ = FFT_inv(∑_{j<n}τʲXʲ), so it suffices to apply the inverse
+// fft on the vector consisting of the original SRS.
+// Size of coeffs must be a power of 2.
+func ToLagrangeG2(coeffs []curve.G2Affine) error {
+	if bits.OnesCount64(uint64(len(coeffs))) != 1 {
+		return fmt.Errorf("len(coeffs) must be a power of 2")
+	}
+	size := len(coeffs)
+
 	numCPU := uint64(runtime.NumCPU())
 	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(numCPU))
 
-	difFFTG2(coeffs, domain.TwiddlesInv, 0, maxSplits, nil)
+	twiddlesInv, err := computeTwiddlesInv(size)
+	if err != nil {
+		return err
+	}
+
+	difFFTG2(coeffs, twiddlesInv, 0, maxSplits, nil)
 	bitReverse(coeffs)
 
 	var invBigint big.Int
-	domain.CardinalityInv.BigInt(&invBigint)
+	var frCardinality fr.Element
+	frCardinality.SetUint64(uint64(size))
+	frCardinality.Inverse(&frCardinality)
+	frCardinality.BigInt(&invBigint)
 
 	parallel.Execute(size, func(start, end int) {
 		for i := start; i < end; i++ {
 			coeffs[i].ScalarMultiplication(&coeffs[i], &invBigint)
 		}
 	})
-	return coeffs
+
+	return nil
 }
 
 func bitReverse[T any](a []T) {
