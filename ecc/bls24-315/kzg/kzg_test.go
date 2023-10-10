@@ -93,10 +93,9 @@ func TestCommitLagrange(t *testing.T) {
 	}
 
 	// commitment using Lagrange SRS
-	pkLagrange := testSrs.Pk.Clone()
-	pkLagrange.G1 = pkLagrange.G1[:size]
-	lagrange, err := ToLagrangeG1(pkLagrange.G1)
+	lagrange, err := ToLagrangeG1(testSrs.Pk.G1[:size])
 	assert.NoError(err)
+	var pkLagrange ProvingKey
 	pkLagrange.G1 = lagrange
 
 	digestLagrange, err := Commit(pol, pkLagrange)

@@ -545,12 +545,3 @@ func dividePolyByXminusA(f []fr.Element, fa, a fr.Element) []fr.Element {
 	// the result is of degree deg(f)-1
 	return f[1:]
 }
-
-
-// Clone returns a copy of the ProvingKey
-func (pk *ProvingKey) Clone() ProvingKey {
-	var res ProvingKey
-	res.G1 = make([]{{ .CurvePackage }}.G1Affine, len(pk.G1))
-	copy(res.G1, pk.G1)
-	return res
-}
