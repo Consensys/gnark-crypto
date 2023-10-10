@@ -54,6 +54,8 @@ func ToLagrangeG1(coeffs []curve.G1Affine) ([]curve.G1Affine, error) {
 	}
 
 	difFFTG1(jCoeffs, twiddlesInv, 0, maxSplits, nil)
+
+	// TODO @gbotrel generify the cobra bitreverse function, benchmark it and use it everywhere
 	bitReverse(jCoeffs)
 
 	var invBigint big.Int
