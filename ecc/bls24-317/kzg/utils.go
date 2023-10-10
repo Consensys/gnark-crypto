@@ -33,22 +33,28 @@ import (
 // see that Lᵢ = FFT_inv(∑_{j<n}τʲXʲ), so it suffices to apply the inverse
 // fft on the vector consisting of the original SRS.
 // Size of coeffs must be a power of 2.
-func ToLagrangeG1(coeffs []curve.G1Affine) error {
+func ToLagrangeG1(coeffs []curve.G1Affine) ([]curve.G1Affine, error) {
 	if bits.OnesCount64(uint64(len(coeffs))) != 1 {
-		return fmt.Errorf("len(coeffs) must be a power of 2")
+		return nil, fmt.Errorf("len(coeffs) must be a power of 2")
 	}
 	size := len(coeffs)
 
 	numCPU := uint64(runtime.NumCPU())
-	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(numCPU))
+	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(numCPU)) << 1
 
 	twiddlesInv, err := computeTwiddlesInv(size)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	difFFTG1(coeffs, twiddlesInv, 0, maxSplits, nil)
-	bitReverse(coeffs)
+	// batch convert to Jacobian
+	jCoeffs := make([]curve.G1Jac, len(coeffs))
+	for i := 0; i < len(coeffs); i++ {
+		jCoeffs[i].FromAffine(&coeffs[i])
+	}
+
+	difFFTG1(jCoeffs, twiddlesInv, 0, maxSplits, nil)
+	bitReverse(jCoeffs)
 
 	var invBigint big.Int
 	var frCardinality fr.Element
@@ -58,14 +64,15 @@ func ToLagrangeG1(coeffs []curve.G1Affine) error {
 
 	parallel.Execute(size, func(start, end int) {
 		for i := start; i < end; i++ {
-			coeffs[i].ScalarMultiplication(&coeffs[i], &invBigint)
+			jCoeffs[i].ScalarMultiplication(&jCoeffs[i], &invBigint)
 		}
 	})
 
-	return nil
+	// batch convert to affine
+	return curve.BatchJacobianToAffineG1(jCoeffs), nil
 }
 
-func computeTwiddlesInv(cardinality int) ([][]fr.Element, error) {
+func computeTwiddlesInv(cardinality int) ([]*big.Int, error) {
 	generator, err := fr.Generator(uint64(cardinality))
 	if err != nil {
 		return nil, err
@@ -77,65 +84,19 @@ func computeTwiddlesInv(cardinality int) ([][]fr.Element, error) {
 	// nb fft stages
 	nbStages := uint64(bits.TrailingZeros64(uint64(cardinality)))
 
-	r := make([][]fr.Element, nbStages)
+	r := make([]*big.Int, 1+(1<<(nbStages-1)))
 
-	twiddles := func(t [][]fr.Element, omega fr.Element) {
-		for i := uint64(0); i < nbStages; i++ {
-			t[i] = make([]fr.Element, 1+(1<<(nbStages-i-1)))
-			var w fr.Element
-			if i == 0 {
-				w = omega
-			} else {
-				w = t[i-1][2]
-			}
-			t[i][0] = fr.One()
-			t[i][1] = w
-			for j := 2; j < len(t[i]); j++ {
-				t[i][j].Mul(&t[i][j-1], &w)
-			}
-		}
+	w := generator
+	r[0] = new(big.Int).SetUint64(1)
+	r[1] = new(big.Int)
+	w.BigInt(r[1])
+	for j := 2; j < len(r); j++ {
+		w.Mul(&w, &generator)
+		r[j] = new(big.Int)
+		w.BigInt(r[j])
 	}
-
-	twiddles(r, generator)
 
 	return r, nil
-}
-
-// ToLagrangeG2 in place transform of coeffs canonical form into Lagrange form.
-// From the formula Lᵢ(τ) = 1/n∑_{j<n}(τ/ωⁱ)ʲ we
-// see that Lᵢ = FFT_inv(∑_{j<n}τʲXʲ), so it suffices to apply the inverse
-// fft on the vector consisting of the original SRS.
-// Size of coeffs must be a power of 2.
-func ToLagrangeG2(coeffs []curve.G2Affine) error {
-	if bits.OnesCount64(uint64(len(coeffs))) != 1 {
-		return fmt.Errorf("len(coeffs) must be a power of 2")
-	}
-	size := len(coeffs)
-
-	numCPU := uint64(runtime.NumCPU())
-	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(numCPU))
-
-	twiddlesInv, err := computeTwiddlesInv(size)
-	if err != nil {
-		return err
-	}
-
-	difFFTG2(coeffs, twiddlesInv, 0, maxSplits, nil)
-	bitReverse(coeffs)
-
-	var invBigint big.Int
-	var frCardinality fr.Element
-	frCardinality.SetUint64(uint64(size))
-	frCardinality.Inverse(&frCardinality)
-	frCardinality.BigInt(&invBigint)
-
-	parallel.Execute(size, func(start, end int) {
-		for i := start; i < end; i++ {
-			coeffs[i].ScalarMultiplication(&coeffs[i], &invBigint)
-		}
-	})
-
-	return nil
 }
 
 func bitReverse[T any](a []T) {
@@ -150,75 +111,14 @@ func bitReverse[T any](a []T) {
 	}
 }
 
-func butterflyG1(a *curve.G1Affine, b *curve.G1Affine) {
+func butterflyG1(a *curve.G1Jac, b *curve.G1Jac) {
 	t := *a
-	a.Add(a, b)
-	b.Sub(&t, b)
+	a.AddAssign(b)
+	t.SubAssign(b)
+	b.Set(&t)
 }
 
-func butterflyG2(a *curve.G2Affine, b *curve.G2Affine) {
-	t := *a
-	a.Add(a, b)
-	b.Sub(&t, b)
-}
-
-// kerDIF8 is a kernel that process a FFT of size 8
-func kerDIF8G1(a []curve.G1Affine, twiddles [][]fr.Element, stage int) {
-	butterflyG1(&a[0], &a[4])
-	butterflyG1(&a[1], &a[5])
-	butterflyG1(&a[2], &a[6])
-	butterflyG1(&a[3], &a[7])
-
-	var twiddle big.Int
-	twiddles[stage+0][1].BigInt(&twiddle)
-	a[5].ScalarMultiplication(&a[5], &twiddle)
-	twiddles[stage+0][2].BigInt(&twiddle)
-	a[6].ScalarMultiplication(&a[6], &twiddle)
-	twiddles[stage+0][3].BigInt(&twiddle)
-	a[7].ScalarMultiplication(&a[7], &twiddle)
-	butterflyG1(&a[0], &a[2])
-	butterflyG1(&a[1], &a[3])
-	butterflyG1(&a[4], &a[6])
-	butterflyG1(&a[5], &a[7])
-	twiddles[stage+1][1].BigInt(&twiddle)
-	a[3].ScalarMultiplication(&a[3], &twiddle)
-	twiddles[stage+1][1].BigInt(&twiddle)
-	a[7].ScalarMultiplication(&a[7], &twiddle)
-	butterflyG1(&a[0], &a[1])
-	butterflyG1(&a[2], &a[3])
-	butterflyG1(&a[4], &a[5])
-	butterflyG1(&a[6], &a[7])
-}
-
-// kerDIF8 is a kernel that process a FFT of size 8
-func kerDIF8G2(a []curve.G2Affine, twiddles [][]fr.Element, stage int) {
-	butterflyG2(&a[0], &a[4])
-	butterflyG2(&a[1], &a[5])
-	butterflyG2(&a[2], &a[6])
-	butterflyG2(&a[3], &a[7])
-
-	var twiddle big.Int
-	twiddles[stage+0][1].BigInt(&twiddle)
-	a[5].ScalarMultiplication(&a[5], &twiddle)
-	twiddles[stage+0][2].BigInt(&twiddle)
-	a[6].ScalarMultiplication(&a[6], &twiddle)
-	twiddles[stage+0][3].BigInt(&twiddle)
-	a[7].ScalarMultiplication(&a[7], &twiddle)
-	butterflyG2(&a[0], &a[2])
-	butterflyG2(&a[1], &a[3])
-	butterflyG2(&a[4], &a[6])
-	butterflyG2(&a[5], &a[7])
-	twiddles[stage+1][1].BigInt(&twiddle)
-	a[3].ScalarMultiplication(&a[3], &twiddle)
-	twiddles[stage+1][1].BigInt(&twiddle)
-	a[7].ScalarMultiplication(&a[7], &twiddle)
-	butterflyG2(&a[0], &a[1])
-	butterflyG2(&a[2], &a[3])
-	butterflyG2(&a[4], &a[5])
-	butterflyG2(&a[6], &a[7])
-}
-
-func difFFTG1(a []curve.G1Affine, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}) {
+func difFFTG1(a []curve.G1Jac, twiddles []*big.Int, stage, maxSplits int, chDone chan struct{}) {
 	if chDone != nil {
 		defer close(chDone)
 	}
@@ -226,19 +126,38 @@ func difFFTG1(a []curve.G1Affine, twiddles [][]fr.Element, stage, maxSplits int,
 	n := len(a)
 	if n == 1 {
 		return
-	} else if n == 8 {
-		kerDIF8G1(a, twiddles, stage)
-		return
 	}
 	m := n >> 1
 
 	butterflyG1(&a[0], &a[m])
+	// stage determines the stride
+	// if stage == 0, then we use 1, w, w**2, w**3, w**4, w**5, w**6, ...
+	// if stage == 1, then we use 1, w**2, w**4, w**6, ... that is, indexes 0, 2, 4, 6, ... of stage 0
+	// if stage == 2, then we use 1, w**4, w**8, w**12, ... that is indexes 0, 4, 8, 12, ... of stage 0
+	stride := 1 << stage
 
-	var twiddle big.Int
-	for i := 1; i < m; i++ {
-		butterflyG1(&a[i], &a[i+m])
-		twiddles[stage][i].BigInt(&twiddle)
-		a[i+m].ScalarMultiplication(&a[i+m], &twiddle)
+	const butterflyThreshold = 8
+	if m >= butterflyThreshold {
+		// 1 << stage == estimated used CPUs
+		numCPU := runtime.NumCPU() / (1 << (stage))
+		parallel.Execute(m, func(start, end int) {
+			if start == 0 {
+				start = 1
+			}
+			j := start * stride
+			for i := start; i < end; i++ {
+				butterflyG1(&a[i], &a[i+m])
+				a[i+m].ScalarMultiplication(&a[i+m], twiddles[j])
+				j += stride
+			}
+		}, numCPU)
+	} else {
+		j := stride
+		for i := 1; i < m; i++ {
+			butterflyG1(&a[i], &a[i+m])
+			a[i+m].ScalarMultiplication(&a[i+m], twiddles[j])
+			j += stride
+		}
 	}
 
 	if m == 1 {
@@ -254,43 +173,5 @@ func difFFTG1(a []curve.G1Affine, twiddles [][]fr.Element, stage, maxSplits int,
 	} else {
 		difFFTG1(a[0:m], twiddles, nextStage, maxSplits, nil)
 		difFFTG1(a[m:n], twiddles, nextStage, maxSplits, nil)
-	}
-}
-func difFFTG2(a []curve.G2Affine, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}) {
-	if chDone != nil {
-		defer close(chDone)
-	}
-
-	n := len(a)
-	if n == 1 {
-		return
-	} else if n == 8 {
-		kerDIF8G2(a, twiddles, stage)
-		return
-	}
-	m := n >> 1
-
-	butterflyG2(&a[0], &a[m])
-
-	var twiddle big.Int
-	for i := 1; i < m; i++ {
-		butterflyG2(&a[i], &a[i+m])
-		twiddles[stage][i].BigInt(&twiddle)
-		a[i+m].ScalarMultiplication(&a[i+m], &twiddle)
-	}
-
-	if m == 1 {
-		return
-	}
-
-	nextStage := stage + 1
-	if stage < maxSplits {
-		chDone := make(chan struct{}, 1)
-		go difFFTG2(a[m:n], twiddles, nextStage, maxSplits, chDone)
-		difFFTG2(a[0:m], twiddles, nextStage, maxSplits, nil)
-		<-chDone
-	} else {
-		difFFTG2(a[0:m], twiddles, nextStage, maxSplits, nil)
-		difFFTG2(a[m:n], twiddles, nextStage, maxSplits, nil)
 	}
 }

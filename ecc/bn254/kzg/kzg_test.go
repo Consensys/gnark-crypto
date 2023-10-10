@@ -19,6 +19,7 @@ package kzg
 import (
 	"crypto/sha256"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 
@@ -41,21 +42,17 @@ func init() {
 }
 
 func TestToLagrangeG1(t *testing.T) {
+	assert := require.New(t)
+
 	const size = 32
 
 	// convert the test SRS to Lagrange form
-	pkLagrange := testSrs.Pk.Clone()
-	pkLagrange.G1 = pkLagrange.G1[:size]
-	err := ToLagrangeG1(pkLagrange.G1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	lagrange, err := ToLagrangeG1(testSrs.Pk.G1[:size])
+	assert.NoError(err)
 
 	// generate the Lagrange SRS manually and compare
 	w, err := fr.Generator(uint64(size))
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(err)
 
 	var li, n, d, one, acc, alpha fr.Element
 	alpha.SetBigInt(bAlpha)
@@ -79,13 +76,13 @@ func TestToLagrangeG1(t *testing.T) {
 	}
 
 	for i := 0; i < size; i++ {
-		if !expectedSrsLagrange[i].Equal(&pkLagrange.G1[i]) {
-			t.Fatal("error lagrange conversion")
-		}
+		assert.True(expectedSrsLagrange[i].Equal(&lagrange[i]), "error lagrange conversion")
 	}
 }
 
 func TestCommitLagrange(t *testing.T) {
+
+	assert := require.New(t)
 
 	// sample a sparse polynomial (here in Lagrange form)
 	size := 64
@@ -98,26 +95,22 @@ func TestCommitLagrange(t *testing.T) {
 	// commitment using Lagrange SRS
 	pkLagrange := testSrs.Pk.Clone()
 	pkLagrange.G1 = pkLagrange.G1[:size]
-	ToLagrangeG1(pkLagrange.G1)
+	lagrange, err := ToLagrangeG1(pkLagrange.G1)
+	assert.NoError(err)
+	pkLagrange.G1 = lagrange
+
 	digestLagrange, err := Commit(pol, pkLagrange)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(err)
 
 	// commitment using canonical SRS
 	d := fft.NewDomain(uint64(size))
 	d.FFTInverse(pol, fft.DIF)
 	fft.BitReverse(pol)
 	digestCanonical, err := Commit(pol, testSrs.Pk)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(err)
 
 	// compare the results
-	if !digestCanonical.Equal(&digestLagrange) {
-		t.Fatal("error CommitLagrange ")
-	}
-
+	assert.True(digestCanonical.Equal(&digestLagrange), "error CommitLagrange")
 }
 
 func TestDividePolyByXminusA(t *testing.T) {
@@ -543,4 +536,32 @@ func randomPolynomial(size int) []fr.Element {
 		f[i].SetRandom()
 	}
 	return f
+}
+
+func BenchmarkToLagrangeG1(b *testing.B) {
+	const size = 1 << 14
+
+	var samplePoints [size]bn254.G1Affine
+	fillBenchBasesG1(samplePoints[:])
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		if _, err := ToLagrangeG1(samplePoints[:]); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func fillBenchBasesG1(samplePoints []bn254.G1Affine) {
+	var r big.Int
+	r.SetString("340444420969191673093399857471996460938405", 10)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+
+	one := samplePoints[0].X
+	one.SetOne()
+
+	for i := 1; i < len(samplePoints); i++ {
+		samplePoints[i].X.Add(&samplePoints[i-1].X, &one)
+		samplePoints[i].Y.Sub(&samplePoints[i-1].Y, &one)
+	}
 }
