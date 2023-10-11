@@ -30,7 +30,7 @@ import (
 
 // ToLagrangeG1 in place transform of coeffs canonical form into Lagrange form.
 // From the formula Lᵢ(τ) = 1/n∑_{j<n}(τ/ωⁱ)ʲ we
-// see that Lᵢ = FFT_inv(∑_{j<n}τʲXʲ), so it suffices to apply the inverse
+// see that [L₁(τ),..,Lₙ(τ)] = FFT_inv(∑_{j<n}τʲXʲ), so it suffices to apply the inverse
 // fft on the vector consisting of the original SRS.
 // Size of coeffs must be a power of 2.
 func ToLagrangeG1(coeffs []curve.G1Affine) ([]curve.G1Affine, error) {
