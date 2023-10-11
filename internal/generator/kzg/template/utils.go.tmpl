@@ -72,6 +72,9 @@ func computeTwiddlesInv(cardinality int) ([]*big.Int, error) {
 
 	w := generator
 	r[0] = new(big.Int).SetUint64(1)
+	if len(r) == 1 {
+		return r, nil
+	}
 	r[1] = new(big.Int)
 	w.BigInt(r[1])
 	for j := 2; j < len(r); j++ {
