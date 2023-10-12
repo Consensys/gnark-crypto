@@ -69,11 +69,11 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
     - name: Test (windows / mac)
       # on macOS CI / Windows CI we avoid running the std/ tests (they are run on ubuntu CI)
-      if: matrix.os != 'ubuntu-latest'
+      if: matrix.os != 'ubuntu-22.04-16core'
       run: |
         go test -short -v -timeout=60m ./...
     - name: Test (ubuntu - race and solc)
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-22.04-16core'
       run: |
         set -euo pipefail
         go test -json -v -timeout=30m ./... 2>&1 | gotestfmt -hide=all | tee /tmp/gotest.log
@@ -83,7 +83,7 @@ jobs:
     
     - name: Generate job summary
       id: generate-job-summary
-      if: matrix.os == 'ubuntu-latest' && ${{ always() }}
+      if: matrix.os == 'ubuntu-22.04-16core' && ${{ always() }}
       run: |
         if [ -s /tmp/gotest.log ]; then
           cat /tmp/gotest.log > $GITHUB_STEP_SUMMARY
