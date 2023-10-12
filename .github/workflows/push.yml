@@ -5,7 +5,7 @@ on:
 name: push_master
 jobs:
   staticcheck:
-    runs-on: ubuntu-22.04-16core
+    runs-on: ubuntu-latest
     steps:
     - name: checkout code
       uses: actions/checkout@v4
@@ -47,6 +47,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs:
       - staticcheck
+    outputs:
+      failures: ${{ steps.generate-job-summary.outputs.failures }}
     steps:
     - name: checkout code
       uses: actions/checkout@v4
@@ -54,7 +56,6 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: ${{ matrix.go-version }}
-
 
     - name: install deps
       run: |
@@ -67,21 +68,29 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
     - name: Test (windows / mac)
       # on macOS CI / Windows CI we avoid running the std/ tests (they are run on ubuntu CI)
-      if: matrix.os != 'ubuntu-latest'
+      if: startsWith(matrix.os, 'ubuntu') == false
       run: |
         go test -short -v -timeout=60m ./...
     - name: Test (ubuntu - race and solc)
-      if: matrix.os == 'ubuntu-latest'
+      if: startsWith(matrix.os, 'ubuntu') == true
       run: |
         set -euo pipefail
-        go test -json -v -timeout=30m ./... 2>&1 | tee /tmp/gotest.log | gotestfmt
-        go test -json -v -tags=purego -timeout=30m ./... 2>&1 | tee -a /tmp/gotest.log | gotestfmt
-        go test -json -v -race -timeout=30m ./ecc/bn254/... 2>&1 | tee -a /tmp/gotest.log | gotestfmt
-        GOARCH=386 go test -json -short -v -timeout=30m ./ecc/bn254/... 2>&1 | tee -a /tmp/gotest.log | gotestfmt
+        go test -json -v -timeout=30m ./... 2>&1 | gotestfmt -hide=all | tee /tmp/gotest.log
+        go test -json -v -tags=purego -timeout=30m ./... 2>&1 | gotestfmt -hide=all | tee -a /tmp/gotest.log
+        go test -json -v -race -timeout=30m ./ecc/bn254/... 2>&1 | gotestfmt -hide=all | tee -a /tmp/gotest.log
+        GOARCH=386 go test -json -short -v -timeout=30m ./ecc/bn254/... 2>&1 | gotestfmt -hide=all | tee -a /tmp/gotest.log
+    
     - name: Generate job summary
-      if: matrix.os == 'ubuntu-latest'
+      id: generate-job-summary
+      if: startsWith(matrix.os, 'ubuntu') == true && always()
       run: |
-        cat /tmp/gotest.log | node .github/parse-tests.js > $GITHUB_STEP_SUMMARY
+        if [ -s /tmp/gotest.log ]; then
+          cat /tmp/gotest.log > $GITHUB_STEP_SUMMARY
+          echo "failures=$(cat /tmp/gotest.log | node .github/parse-tests.js)" > $GITHUB_OUTPUT
+        else
+          echo "## Success ✅" > $GITHUB_STEP_SUMMARY
+          echo "failures=" > $GITHUB_OUTPUT
+        fi
   
   slack-workflow-status-failed:
     if: failure()
@@ -102,7 +111,8 @@ jobs:
               "status": "FAIL",
               "title": "push to master ⚠",
               "pr": "",
-              "failed_step_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/"
+              "failed_step_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/",
+              "message": "${{ needs.test.outputs.failures }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

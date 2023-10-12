@@ -43,7 +43,7 @@ func buildPoly(size int, form Form) *Polynomial {
 
 func TestDivideByXMinusOne(t *testing.T) {
 
-	f := func(x ...fr.Element) fr.Element {
+	f := func(_ int, x ...fr.Element) fr.Element {
 		var a, b fr.Element
 		a.Square(&x[0]).Mul(&a, &x[1]).Add(&a, &x[2])
 		b.Square(&x[0]).Mul(&b, &x[0])
@@ -79,7 +79,7 @@ func TestDivideByXMinusOne(t *testing.T) {
 			entries[1].GetCoeff(i),
 			entries[2].GetCoeff(i),
 		}
-		a := f(x...)
+		a := f(0, x...)
 		if !a.IsZero() {
 			t.Fatal("system does not vanish on x^n-1")
 		}
@@ -106,7 +106,7 @@ func TestDivideByXMinusOne(t *testing.T) {
 		ToRegular()
 
 	expectedForm := Form{Layout: BitReverse, Basis: LagrangeCoset}
-	h, err := Evaluate(f, expectedForm, entries...)
+	h, err := Evaluate(f, nil, expectedForm, entries...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestDivideByXMinusOne(t *testing.T) {
 	ax := entries[0].Evaluate(x)
 	bx := entries[1].Evaluate(x)
 	cx := entries[2].Evaluate(x)
-	hx := f(ax, bx, cx)
+	hx := f(0, ax, bx, cx)
 
 	var xnminusone, one fr.Element
 	one.SetOne()

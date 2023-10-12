@@ -25,8 +25,8 @@ import (
 	bls12378 "github.com/consensys/gnark-crypto/ecc/bls12-378"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr/fft"
-	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr/kzg"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr/permutation"
+	"github.com/consensys/gnark-crypto/ecc/bls12-378/kzg"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 
