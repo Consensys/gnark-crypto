@@ -93,10 +93,12 @@ func TestIntegration(t *testing.T) {
 	}
 	packageDir := filepath.Join(wd, rootDir) + string(filepath.Separator) + "..."
 	cmd := exec.Command("go", "test", packageDir)
-	out, err := cmd.CombinedOutput()
-	fmt.Println(string(out))
-	if err != nil {
-		t.Fatal(err)
+	if err := cmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			t.Fatal(string(exitErr.Stderr))
+		} else {
+			t.Fatal(err)
+		}
 	}
 
 }
