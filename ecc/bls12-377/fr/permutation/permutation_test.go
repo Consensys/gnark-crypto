@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/kzg"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/kzg"
 )
 
 func TestProof(t *testing.T) {

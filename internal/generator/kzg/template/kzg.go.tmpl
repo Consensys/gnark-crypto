@@ -26,7 +26,7 @@ type Digest = {{ .CurvePackage }}.G1Affine
 
 // ProvingKey used to create or open commitments
 type ProvingKey struct {
-	G1 []{{ .CurvePackage }}.G1Affine  // [G₁ [α]G₁ , [α²]G₁, ... ]
+	G1 []{{ .CurvePackage }}.G1Affine // [G₁ [α]G₁ , [α²]G₁, ... ]
 }
 
 // VerifyingKey used to verify opening proofs
@@ -129,6 +129,7 @@ func Commit(p []fr.Element, pk ProvingKey, nbTasks ...int) (Digest, error) {
 
 	return res, nil
 }
+
 
 // Open computes an opening proof of polynomial p at given point.
 // fft.Domain Cardinality must be larger than p.Degree()

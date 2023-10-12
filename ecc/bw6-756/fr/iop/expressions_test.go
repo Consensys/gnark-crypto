@@ -24,7 +24,7 @@ import (
 
 func TestEvaluate(t *testing.T) {
 
-	f := func(x ...fr.Element) fr.Element {
+	f := func(_ int, x ...fr.Element) fr.Element {
 		var a fr.Element
 		a.Add(&x[0], &x[1]).Add(&a, &x[2])
 		return a
@@ -48,20 +48,20 @@ func TestEvaluate(t *testing.T) {
 	wv := NewPolynomial(&v, form)
 	ww := NewPolynomial(&w, form)
 
-	rr, err := Evaluate(f, form, wu, wv, ww)
+	rr, err := Evaluate(f, nil, form, wu, wv, ww)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	wu.ToBitReverse()
-	rrb, err := Evaluate(f, form, wu, wv, ww)
+	rrb, err := Evaluate(f, nil, form, wu, wv, ww)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	wv.ToBitReverse()
 	ww.ToBitReverse()
-	rrc, err := Evaluate(f, form, wu, wv, ww)
+	rrc, err := Evaluate(f, nil, form, wu, wv, ww)
 	if err != nil {
 		t.Fatal(err)
 	}

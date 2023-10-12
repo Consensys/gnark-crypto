@@ -19,22 +19,97 @@ package kzg
 import (
 	"crypto/sha256"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/ecc/bls24-317"
-	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/fft"
 
 	"github.com/consensys/gnark-crypto/utils"
 )
 
 // Test SRS re-used across tests of the KZG scheme
 var testSrs *SRS
+var bAlpha *big.Int
 
 func init() {
 	const srsSize = 230
-	testSrs, _ = NewSRS(ecc.NextPowerOfTwo(srsSize), new(big.Int).SetInt64(42))
+	bAlpha = new(big.Int).SetInt64(42) // randomise ?
+	testSrs, _ = NewSRS(ecc.NextPowerOfTwo(srsSize), bAlpha)
+}
+
+func TestToLagrangeG1(t *testing.T) {
+	assert := require.New(t)
+
+	const size = 32
+
+	// convert the test SRS to Lagrange form
+	lagrange, err := ToLagrangeG1(testSrs.Pk.G1[:size])
+	assert.NoError(err)
+
+	// generate the Lagrange SRS manually and compare
+	w, err := fr.Generator(uint64(size))
+	assert.NoError(err)
+
+	var li, n, d, one, acc, alpha fr.Element
+	alpha.SetBigInt(bAlpha)
+	li.SetUint64(uint64(size)).Inverse(&li)
+	one.SetOne()
+	n.Exp(alpha, big.NewInt(int64(size))).Sub(&n, &one)
+	d.Sub(&alpha, &one)
+	li.Mul(&li, &n).Div(&li, &d)
+	expectedSrsLagrange := make([]bls12381.G1Affine, size)
+	_, _, g1Gen, _ := bls12381.Generators()
+	var s big.Int
+	acc.SetOne()
+	for i := 0; i < size; i++ {
+		li.BigInt(&s)
+		expectedSrsLagrange[i].ScalarMultiplication(&g1Gen, &s)
+
+		li.Mul(&li, &w).Mul(&li, &d)
+		acc.Mul(&acc, &w)
+		d.Sub(&alpha, &acc)
+		li.Div(&li, &d)
+	}
+
+	for i := 0; i < size; i++ {
+		assert.True(expectedSrsLagrange[i].Equal(&lagrange[i]), "error lagrange conversion")
+	}
+}
+
+func TestCommitLagrange(t *testing.T) {
+
+	assert := require.New(t)
+
+	// sample a sparse polynomial (here in Lagrange form)
+	size := 64
+	pol := make([]fr.Element, size)
+	pol[0].SetRandom()
+	for i := 0; i < size; i = i + 8 {
+		pol[i].SetRandom()
+	}
+
+	// commitment using Lagrange SRS
+	lagrange, err := ToLagrangeG1(testSrs.Pk.G1[:size])
+	assert.NoError(err)
+	var pkLagrange ProvingKey
+	pkLagrange.G1 = lagrange
+
+	digestLagrange, err := Commit(pol, pkLagrange)
+	assert.NoError(err)
+
+	// commitment using canonical SRS
+	d := fft.NewDomain(uint64(size))
+	d.FFTInverse(pol, fft.DIF)
+	fft.BitReverse(pol)
+	digestCanonical, err := Commit(pol, testSrs.Pk)
+	assert.NoError(err)
+
+	// compare the results
+	assert.True(digestCanonical.Equal(&digestLagrange), "error CommitLagrange")
 }
 
 func TestDividePolyByXminusA(t *testing.T) {
@@ -101,7 +176,7 @@ func TestCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var kzgCommit bls24317.G1Affine
+	var kzgCommit bls12381.G1Affine
 	kzgCommit.Unmarshal(_kzgCommit.Marshal())
 
 	// check commitment using manual commit
@@ -110,7 +185,7 @@ func TestCommit(t *testing.T) {
 	fx := eval(f, x)
 	var fxbi big.Int
 	fx.BigInt(&fxbi)
-	var manualCommit bls24317.G1Affine
+	var manualCommit bls12381.G1Affine
 	manualCommit.Set(&testSrs.Vk.G1)
 	manualCommit.ScalarMultiplication(&manualCommit, &fxbi)
 
@@ -460,4 +535,32 @@ func randomPolynomial(size int) []fr.Element {
 		f[i].SetRandom()
 	}
 	return f
+}
+
+func BenchmarkToLagrangeG1(b *testing.B) {
+	const size = 1 << 14
+
+	var samplePoints [size]bls12381.G1Affine
+	fillBenchBasesG1(samplePoints[:])
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		if _, err := ToLagrangeG1(samplePoints[:]); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func fillBenchBasesG1(samplePoints []bls12381.G1Affine) {
+	var r big.Int
+	r.SetString("340444420969191673093399857471996460938405", 10)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+
+	one := samplePoints[0].X
+	one.SetOne()
+
+	for i := 1; i < len(samplePoints); i++ {
+		samplePoints[i].X.Add(&samplePoints[i-1].X, &one)
+		samplePoints[i].Y.Sub(&samplePoints[i-1].Y, &one)
+	}
 }

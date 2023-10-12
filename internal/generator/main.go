@@ -96,7 +96,7 @@ func main() {
 			}
 
 			// generate kzg on fr
-			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "fr", "kzg"), bgen))
+			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), bgen))
 
 			// generate pedersen on fr
 			assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), bgen))

@@ -25,8 +25,8 @@ import (
 	bls24317 "github.com/consensys/gnark-crypto/ecc/bls24-317"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/fft"
-	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/kzg"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/permutation"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/kzg"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 

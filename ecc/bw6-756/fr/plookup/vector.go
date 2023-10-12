@@ -25,7 +25,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr/fft"
-	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr/kzg"
+	"github.com/consensys/gnark-crypto/ecc/bw6-756/kzg"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 
