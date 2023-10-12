@@ -76,6 +76,8 @@ func eval(p []fr.Element, point fr.Element) fr.Element {
 //
 // In production, a SRS generated through MPC should be used.
 //
+// Set Alpha = 1 to generate quickly a valid SRS (useful for benchmarking).
+//
 // implements io.ReaderFrom and io.WriterTo
 func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 
@@ -89,6 +91,17 @@ func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 	alpha.SetBigInt(bAlpha)
 
 	_, _, gen1Aff, gen2Aff := bw6633.Generators()
+
+	// in this case, the SRS is [G1, .., G1], [G2], no need to use batch scalar multiplication
+	if alpha.IsOne() {
+		for i := 0; i < int(size); i++ {
+			srs.Pk.G1[i] = gen1Aff
+		}
+		srs.Vk.G1 = gen1Aff
+		srs.Vk.G2[0] = gen2Aff
+		srs.Vk.G2[1] = gen2Aff
+		return &srs, nil
+	}
 	srs.Pk.G1[0] = gen1Aff
 	srs.Vk.G1 = gen1Aff
 	srs.Vk.G2[0] = gen2Aff

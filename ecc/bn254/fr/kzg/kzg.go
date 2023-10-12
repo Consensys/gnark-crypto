@@ -91,18 +91,17 @@ func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 	alpha.SetBigInt(bAlpha)
 
 	_, _, gen1Aff, gen2Aff := bn254.Generators()
-	
+
 	// in this case, the SRS is [G1, .., G1], [G2], no need to use batch scalar multiplication
 	if alpha.IsOne() {
-		for i:=0; i<int(size); i++ {
+		for i := 0; i < int(size); i++ {
 			srs.Pk.G1[i] = gen1Aff
 		}
-		srs.Vk.G1= gen1Aff
-		srs.Vk.G2[0]= gen2Aff
-		srs.Vk.G2[1]= gen2Aff
+		srs.Vk.G1 = gen1Aff
+		srs.Vk.G2[0] = gen2Aff
+		srs.Vk.G2[1] = gen2Aff
 		return &srs, nil
 	}
-
 	srs.Pk.G1[0] = gen1Aff
 	srs.Vk.G1 = gen1Aff
 	srs.Vk.G2[0] = gen2Aff

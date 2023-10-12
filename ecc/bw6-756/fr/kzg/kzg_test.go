@@ -172,6 +172,47 @@ func TestVerifySinglePoint(t *testing.T) {
 	}
 }
 
+func TestVerifySinglePointDummySRS(t *testing.T) {
+
+	size := 64
+	srs, err := NewSRS(64, big.NewInt(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// random polynomial
+	p := make([]fr.Element, size)
+	for i := 0; i < size; i++ {
+		p[i].SetRandom()
+	}
+
+	// random value
+	var x fr.Element
+	x.SetRandom()
+
+	// verify valid proof
+	d, err := Commit(p, srs.Pk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proof, err := Open(p, x, srs.Pk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = Verify(&d, &proof, x, srs.Vk)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// verify wrong proof
+	proof.ClaimedValue.SetRandom()
+	err = Verify(&d, &proof, x, srs.Vk)
+	if err == nil {
+		t.Fatal(err)
+	}
+
+}
+
 func TestBatchVerifySinglePoint(t *testing.T) {
 
 	size := 40
@@ -319,6 +360,23 @@ func TestBatchVerifyMultiPoints(t *testing.T) {
 }
 
 const benchSize = 1 << 16
+
+func BenchmarkSRSGen(b *testing.B) {
+
+	b.Run("real SRS", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			NewSRS(ecc.NextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
+		}
+	})
+	b.Run("quick SRS", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			NewSRS(ecc.NextPowerOfTwo(benchSize), big.NewInt(1))
+		}
+	})
+
+}
 
 func BenchmarkKZGCommit(b *testing.B) {
 	srs, err := NewSRS(ecc.NextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
