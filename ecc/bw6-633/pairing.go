@@ -208,30 +208,12 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	// precomputations
 	pProj0 := make([]g1Proj, n)
 	p1 := make([]G1Affine, n)
-	pProj01 := make([]g1Proj, n) // P0+P1
-	pProj10 := make([]g1Proj, n) // P0-P1
-	l01 := make([]lineEvaluation, n)
-	l10 := make([]lineEvaluation, n)
 	for k := 0; k < n; k++ {
 		p1[k].Y.Set(&p0[k].Y)
 		p1[k].X.Mul(&p0[k].X, &thirdRootOneG1)
 		p0[k].Neg(&p0[k])
 		pProj0[k].FromAffine(&p0[k])
-
-		// l_{p0,p1}(q)
-		pProj01[k].Set(&pProj0[k])
-		pProj01[k].addMixedStep(&l01[k], &p1[k])
-		l01[k].r1.Mul(&l01[k].r1, &q[k].X)
-		l01[k].r0.Mul(&l01[k].r0, &q[k].Y)
-
-		// l_{-p0,p1}(q)
-		pProj10[k].Neg(&pProj0[k])
-		pProj10[k].addMixedStep(&l10[k], &p1[k])
-		l10[k].r1.Mul(&l10[k].r1, &q[k].X)
-		l10[k].r0.Mul(&l10[k].r0, &q[k].Y)
 	}
-	p01 := BatchProjectiveToAffineG1(pProj01)
-	p10 := BatchProjectiveToAffineG1(pProj10)
 
 	// f_{a0+λ*a1,P}(Q)
 	var result GT
@@ -299,20 +281,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 			l0.r0.Mul(&l0.r0, &q[k].Y)
 
 			switch j {
-			case -4:
-				tmp.Neg(&p01[k])
-				// pProj0[k] ← pProj0[k]-p01[k] and
-				// l the line ℓ passing pProj0[k] and -p01[k]
-				pProj0[k].addMixedStep(&l, &tmp)
-				// line evaluation at Q[k]
-				l.r1.Mul(&l.r1, &q[k].X)
-				l.r0.Mul(&l.r0, &q[k].Y)
-				// ℓ × ℓ
-				prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l01[k].r0, &l01[k].r1, &l01[k].r2)
-				// ℓ × res
-				result.MulBy034(&l0.r0, &l0.r1, &l0.r2)
-				// (ℓ × ℓ) × res
-				result.MulBy01234(&prodLines)
+			// cases -4, -2, 2, 4 do not occur given the static loopCounters
 			case -3:
 				tmp.Neg(&p1[k])
 				// pProj0[k] ← pProj0[k]-p1[k] and
@@ -323,19 +292,6 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 				l.r0.Mul(&l.r0, &q[k].Y)
 				// ℓ × ℓ
 				prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
-				// (ℓ × ℓ) × res
-				result.MulBy01234(&prodLines)
-			case -2:
-				// pProj0[k] ← pProj0[k]+p10[k] and
-				// l the line ℓ passing pProj0[k] and p10[k]
-				pProj0[k].addMixedStep(&l, &p10[k])
-				// line evaluation at Q[k]
-				l.r1.Mul(&l.r1, &q[k].X)
-				l.r0.Mul(&l.r0, &q[k].Y)
-				// ℓ × ℓ
-				prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l01[k].r0, &l01[k].r1, &l01[k].r2)
-				// ℓ × res
-				result.MulBy034(&l0.r0, &l0.r1, &l0.r2)
 				// (ℓ × ℓ) × res
 				result.MulBy01234(&prodLines)
 			case -1:
@@ -364,20 +320,6 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 				prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
 				// (ℓ × ℓ) × res
 				result.MulBy01234(&prodLines)
-			case 2:
-				tmp.Neg(&p10[k])
-				// pProj0[k] ← pProj0[k]-p10[k] and
-				// l the line ℓ passing pProj0[k] and -p10[k]
-				pProj0[k].addMixedStep(&l, &tmp)
-				// line evaluation at Q[k]
-				l.r1.Mul(&l.r1, &q[k].X)
-				l.r0.Mul(&l.r0, &q[k].Y)
-				// ℓ × ℓ
-				prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l01[k].r0, &l01[k].r1, &l01[k].r2)
-				// ℓ × res
-				result.MulBy034(&l0.r0, &l0.r1, &l0.r2)
-				// (ℓ × ℓ) × res
-				result.MulBy01234(&prodLines)
 			case 3:
 				// pProj0[k] ← pProj0[k]+p1[k] and
 				// l the line ℓ passing pProj0[k] and p1[k]
@@ -387,19 +329,6 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 				l.r0.Mul(&l.r0, &q[k].Y)
 				// (ℓ × ℓ) × res
 				prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l0.r0, &l0.r1, &l0.r2)
-				// (ℓ × ℓ) × res
-				result.MulBy01234(&prodLines)
-			case 4:
-				// pProj0[k] ← pProj0[k]+p01[k] and
-				// l the line ℓ passing pProj0[k] and p01[k]
-				pProj0[k].addMixedStep(&l, &p01[k])
-				// line evaluation at Q[k]
-				l.r1.Mul(&l.r1, &q[k].X)
-				l.r0.Mul(&l.r0, &q[k].Y)
-				// ℓ × ℓ
-				prodLines = fptower.Mul034By034(&l.r0, &l.r1, &l.r2, &l01[k].r0, &l01[k].r1, &l01[k].r2)
-				// ℓ × res
-				result.MulBy034(&l0.r0, &l0.r1, &l0.r2)
 				// (ℓ × ℓ) × res
 				result.MulBy01234(&prodLines)
 			default:
