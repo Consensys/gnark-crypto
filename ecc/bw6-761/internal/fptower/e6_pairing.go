@@ -131,7 +131,7 @@ func (z *E6) Expc1(x *E6) *E6 {
 	return z
 }
 
-// Expx2 set z to z^c2 in E6 and return z
+// Expc2 set z to z^c2 in E6 and return z
 // ht, hy = 13, 9
 // c2 = (ht**2+3*hy**2)/4 = 103
 func (z *E6) Expc2(x *E6) *E6 {

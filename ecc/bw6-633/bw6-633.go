@@ -15,6 +15,8 @@
 //	𝔽p³[u] = 𝔽p/u³-2
 //	𝔽p⁶[v] = 𝔽p²/v²-u
 //
+// case t % r % u = 0
+//
 // optimal Ate loops:
 //
 //	x₀+1, x₀^5-x₀^4-x₀

@@ -59,7 +59,7 @@ func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 // FinalExponentiation computes the exponentiation (∏ᵢ zᵢ)ᵈ
 // where d = (p^6-1)/r = (p^6-1)/Φ_6(p) ⋅ Φ_6(p)/r = (p^3-1)(p+1)(p^2 - p +1)/r
 // we use instead d=s ⋅ (p^3-1)(p+1)(p^2 - p +1)/r
-// where s is the cofactor 3(x_0+1) (El Housni and Guillevic)
+// where s is the cofactor (x^5-x^4-x) (El Housni and Guillevic)
 func FinalExponentiation(z *GT, _z ...*GT) GT {
 
 	var result GT
@@ -86,97 +86,45 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	}
 
 	// Hard part (up to permutation)
-	// El Housni and Guillevic
-	// https://eprint.iacr.org/2021/1359.pdf
-	var m [11]GT
-	var f10, _m1, _m3, _m4, _m5, _m7, _m8, _m8m5, _m6, f11, f11f10, f12, f1, f1u, f1q, f1a GT
-	m[0].Set(&result)
-	for i := 1; i < 11; i++ {
-		m[i].Expt(&m[i-1])
-	}
-	result.Mul(&m[3], &m[1]).
-		Conjugate(&result).
-		Mul(&result, &m[2]).
-		Mul(&result, &m[0]).
-		CyclotomicSquare(&result).
-		Mul(&result, &m[4])
-	buf.Frobenius(&m[0]).Conjugate(&buf)
-	result.Mul(&result, &buf)
-	buf.CyclotomicSquare(&result).
-		CyclotomicSquare(&buf).
-		CyclotomicSquare(&buf)
-	result.Mul(&result, &buf)
-	_m1.Conjugate(&m[1])
-	_m3.Conjugate(&m[3])
-	_m4.Conjugate(&m[4])
-	_m5.Conjugate(&m[5])
-	_m7.Conjugate(&m[7])
-	f10.Mul(&m[4], &_m3).
-		CyclotomicSquare(&f10).
-		Mul(&f10, &m[2]).
-		Mul(&f10, &m[6]).
-		Mul(&f10, &_m5).
-		CyclotomicSquare(&f10).
-		Mul(&f10, &_m1).
-		Mul(&f10, &_m5).
-		Mul(&f10, &_m7).
-		CyclotomicSquare(&f10).
-		Mul(&f10, &m[0]).
-		Mul(&f10, &m[2]).
-		Mul(&f10, &m[3]).
-		Mul(&f10, &_m1).
-		CyclotomicSquare(&f10).
-		Mul(&f10, &m[0]).
-		Mul(&f10, &m[8]).
-		Mul(&f10, &_m4)
-	_m8.Conjugate(&m[8])
-	_m6.Conjugate(&m[6])
-	_m8m5.Mul(&m[5], &_m8)
-	f11.Mul(&m[7], &_m6).
-		CyclotomicSquare(&f11).
-		Mul(&f11, &m[2]).
-		Mul(&f11, &_m3).
-		Mul(&f11, &_m8m5).
-		CyclotomicSquare(&f11).
-		Mul(&f11, &_m8m5).
-		Mul(&f11, &m[9]).
-		Mul(&f11, &_m1)
-	buf.CyclotomicSquare(&f11)
-	f11.Mul(&buf, &f11)
-	f11f10.Mul(&f11, &f10)
-	buf.CyclotomicSquare(&f11f10)
-	f11f10.Mul(&f11f10, &buf)
-	f12.Mul(&m[0], &m[1]).
-		Mul(&f12, &m[2]).
-		Mul(&f12, &m[8]).
-		Mul(&f12, &m[10])
-	buf.CyclotomicSquare(&m[5])
-	f12.Mul(&f12, &buf)
-	buf.CyclotomicSquare(&m[9]).
-		Mul(&buf, &m[6]).
-		Mul(&buf, &m[4]).
-		Conjugate(&buf)
-	f12.Mul(&f12, &buf)
-	buf.CyclotomicSquare(&f12). // cyclo exp by 13: (ht**2+3*hy**2)//4
-					Mul(&buf, &f12).
-					CyclotomicSquare(&buf).
-					CyclotomicSquare(&buf)
-	f12.Mul(&f12, &buf)
-	f1.Mul(&f11f10, &f12)
-	f1u.Expt(&f1)
-	f1q.Mul(&f1u, &f1).
-		Frobenius(&f1q)
-	f1a.Conjugate(&f1u).
-		Mul(&f1a, &f1).
-		Expt(&f1a).
-		Expt(&f1a).
-		Expt(&f1a).
-		Expt(&f1a)
-	f1.Conjugate(&f1)
-	f1a.Mul(&f1a, &f1)
-
-	result.Mul(&result, &f1a).
-		Mul(&result, &f1q)
+	// (x₀^5-x₀^4-x₀)(p²-p+1)/r
+	// Algorithm 4.5 from https://yelhousni.github.io/phd.pdf
+	var a, b, c, d, e, f, g, h, i, t, mp GT
+	mp.Frobenius(&result)
+	a.ExptMinus1Squared(&mp)
+	a.ExptSquarePlus1(&a)
+	a.Mul(&result, &a)
+	t.Conjugate(&mp)
+	b.ExptPlus1(&a).
+		Mul(&b, &t)
+	t.CyclotomicSquare(&a).
+		Mul(&t, &a)
+	a.Conjugate(&t)
+	c.ExptMinus1Div3(&b)
+	d.ExptMinus1(&c)
+	d.ExptSquarePlus1(&d)
+	e.ExptMinus1Squared(&d)
+	e.ExptSquarePlus1(&e)
+	e.Mul(&e, &d)
+	f.ExptPlus1(&e).
+		Mul(&f, &c).
+		Conjugate(&f).
+		Mul(&f, &d)
+	g.Mul(&f, &d).
+		Conjugate(&g)
+	h.ExptPlus1(&g).
+		Mul(&h, &c).
+		Mul(&h, &b)
+	// ht = −7, hy = −1
+	// c1 = (ht-hy)/2 = -3
+	i.Expc1(&f).
+		Mul(&i, &e)
+	// c2 = (ht^2+3*hy^2)/4 = 13
+	t.CyclotomicSquare(&i).
+		Mul(&t, &i).
+		Mul(&t, &b)
+	i.Expc2(&h).
+		Mul(&i, &t)
+	result.Mul(&a, &i)
 
 	return result
 }
