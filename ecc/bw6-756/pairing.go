@@ -59,7 +59,7 @@ func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 // FinalExponentiation computes the exponentiation (∏ᵢ zᵢ)ᵈ
 // where d = (p^6-1)/r = (p^6-1)/Φ_6(p) ⋅ Φ_6(p)/r = (p^3-1)(p+1)(p^2 - p +1)/r
 // we use instead d=s ⋅ (p^3-1)(p+1)(p^2 - p +1)/r
-// where s is the cofactor 12(x_0+1) (El Housni and Guillevic)
+// where s is the cofactor (x_0+1) (El Housni and Guillevic)
 func FinalExponentiation(z *GT, _z ...*GT) GT {
 
 	var result GT
@@ -85,75 +85,41 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 		return result
 	}
 
-	// Hard part (up to permutation)
-	// El Housni and Guillevic
-	// https://eprint.iacr.org/2020/351.pdf
-	var m1, _m1, m2, _m2, m3, f0, f0_36, g0, g1, _g1, g2, g3, _g3, g4, _g4, g5, _g5, g6, gA, gB, g034, _g1g2, gC, h1, h2, h2g2C, h4 GT
-	m1.Expt(&result)
-	_m1.Conjugate(&m1)
-	m2.Expt(&m1)
-	_m2.Conjugate(&m2)
-	m3.Expt(&m2)
-	f0.Frobenius(&result).
-		Mul(&f0, &result).
-		Mul(&f0, &m2)
-	m2.CyclotomicSquare(&_m1)
-	f0.Mul(&f0, &m2)
-	f0_36.CyclotomicSquare(&f0).
-		CyclotomicSquare(&f0_36).
-		CyclotomicSquare(&f0_36).
-		Mul(&f0_36, &f0).
-		CyclotomicSquare(&f0_36).
-		CyclotomicSquare(&f0_36)
-	g0.Mul(&result, &m1).
-		Frobenius(&g0).
-		Mul(&g0, &m3).
-		Mul(&g0, &_m2).
-		Mul(&g0, &_m1)
-	g1.Expt(&g0)
-	_g1.Conjugate(&g1)
-	g2.Expt(&g1)
-	g3.Expt(&g2)
-	_g3.Conjugate(&g3)
-	g4.Expt(&g3)
-	_g4.Conjugate(&g4)
-	g5.Expt(&g4)
-	_g5.Conjugate(&g5)
-	g6.Expt(&g5)
-	gA.Mul(&g3, &_g5).
-		CyclotomicSquare(&gA).
-		Mul(&gA, &g6).
-		Mul(&gA, &g1).
-		Mul(&gA, &g0)
-	g034.Mul(&g0, &g3).
-		Mul(&g034, &_g4)
-	gB.CyclotomicSquare(&g034).
-		Mul(&gB, &g034).
-		Mul(&gB, &g5).
-		Mul(&gB, &_g1)
-	_g1g2.Mul(&_g1, &g2)
-	gC.Mul(&_g3, &_g1g2).
-		CyclotomicSquare(&gC).
-		Mul(&gC, &_g1g2).
-		Mul(&gC, &g0).
-		CyclotomicSquare(&gC).
-		Mul(&gC, &g2).
-		Mul(&gC, &g0).
-		Mul(&gC, &g4)
-		// ht, hy = -1, -1
-		// c1 = ht**2+3*hy**2 = 4
-	h1.CyclotomicSquare(&gA).
-		CyclotomicSquare(&h1)
-	// c2 = ht+hy = -2
-	h2.CyclotomicSquare(&gB).
-		Conjugate(&h2)
-	h2g2C.CyclotomicSquare(&gC).
-		Mul(&h2g2C, &h2)
-	h4.CyclotomicSquare(&h2g2C).
-		Mul(&h4, &h2g2C).
-		CyclotomicSquare(&h4)
-	result.Mul(&h1, &h4).
-		Mul(&result, &f0_36)
+	// 2. Hard part (up to permutation)
+	// (x₀+1)(p²-p+1)/r
+	// Algorithm 4.4 from https://yelhousni.github.io/phd.pdf
+	var a, b, c, d, e, f, g, h, i, j, k, t GT
+	a.ExptMinus1Square(&result)
+	t.Frobenius(&result)
+	a.Mul(&a, &t)
+	b.ExptPlus1(&a)
+	t.Conjugate(&result)
+	b.Mul(&b, &t)
+	t.CyclotomicSquare(&a)
+	a.Mul(&a, &t)
+	c.ExptMinus1Div3(&b)
+	d.ExptMinus1(&c)
+	e.ExptMinus1Square(&d)
+	e.Mul(&e, &d)
+	d.Conjugate(&d)
+	f.Mul(&d, &b)
+	g.ExptPlus1(&e)
+	g.Mul(&g, &f)
+	h.Mul(&g, &c)
+	i.Mul(&g, &d)
+	i.ExptPlus1(&i)
+	t.Conjugate(&f)
+	i.Mul(&i, &t)
+	// ht, hy = -1, -1
+	// c1 = (ht+hy)/2 = -1
+	j.Conjugate(&h)
+	j.Mul(&j, &e)
+	k.CyclotomicSquare(&j)
+	k.Mul(&k, &j)
+	k.Mul(&k, &b)
+	// c2 = (ht**2+3*hy**2)/4 = 1
+	k.Mul(&k, &i)
+	result.Mul(&a, &k)
 
 	return result
 }
@@ -261,6 +227,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 			l0.r0.Mul(&l0.r0, &q[k].Y)
 
 			switch j {
+			// cases -4, -2, 2, 4 do not occur, given the static loopCounters
 			case -3:
 				tmp.Neg(&p1[k])
 				// pProj1[k] ← pProj1[k]-p1[k] and

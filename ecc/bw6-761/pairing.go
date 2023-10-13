@@ -58,7 +58,7 @@ func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 // FinalExponentiation computes the exponentiation (∏ᵢ zᵢ)ᵈ
 // where d = (p^6-1)/r = (p^6-1)/Φ_6(p) ⋅ Φ_6(p)/r = (p^3-1)(p+1)(p^2 - p +1)/r
 // we use instead d=s ⋅ (p^3-1)(p+1)(p^2 - p +1)/r
-// where s is the cofactor 12(x_0+1) (El Housni and Guillevic)
+// where s is the cofactor (x_0+1) (El Housni and Guillevic)
 func FinalExponentiation(z *GT, _z ...*GT) GT {
 
 	var result GT
