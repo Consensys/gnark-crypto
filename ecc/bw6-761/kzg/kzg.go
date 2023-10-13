@@ -76,7 +76,7 @@ func eval(p []fr.Element, point fr.Element) fr.Element {
 //
 // In production, a SRS generated through MPC should be used.
 //
-// Set Alpha = 1 to generate quickly a valid SRS (useful for benchmarking).
+// Set Alpha = -1 to generate quickly a balanced, valid SRS (useful for benchmarking).
 //
 // implements io.ReaderFrom and io.WriterTo
 func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
@@ -90,16 +90,36 @@ func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 	var alpha fr.Element
 	alpha.SetBigInt(bAlpha)
 
+	var bMOne big.Int
+	bMOne.SetInt64(-1)
+
 	_, _, gen1Aff, gen2Aff := bw6761.Generators()
 
-	// in this case, the SRS is [G1, .., G1], [G2], no need to use batch scalar multiplication
-	if alpha.IsOne() {
-		for i := 0; i < int(size); i++ {
-			srs.Pk.G1[i] = gen1Aff
+	// in this case, the SRS is <αⁱ[G₁]> whera α is of order 4
+	// so no need to run the batch scalar multiplication. We cannot use alpha=1
+	// because it tampers the benchmarks (the SRS is not balanced).
+	if bAlpha.Cmp(&bMOne) == 0 {
+
+		t, err := fr.Generator(4)
+		if err != nil {
+			return &srs, nil
 		}
+		var bt big.Int
+		t.BigInt(&bt)
+
+		var g [4]bw6761.G1Affine
+		g[0] = gen1Aff
+		for i := 1; i < 4; i++ {
+			g[i].ScalarMultiplication(&g[i-1], &bt)
+		}
+		parallel.Execute(int(size), func(start, end int) {
+			for i := start; i < int(end); i++ {
+				srs.Pk.G1[i] = g[i%4]
+			}
+		})
 		srs.Vk.G1 = gen1Aff
 		srs.Vk.G2[0] = gen2Aff
-		srs.Vk.G2[1] = gen2Aff
+		srs.Vk.G2[1].ScalarMultiplication(&srs.Vk.G2[0], &bt)
 		return &srs, nil
 	}
 	srs.Pk.G1[0] = gen1Aff

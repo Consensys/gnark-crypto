@@ -247,10 +247,10 @@ func TestVerifySinglePoint(t *testing.T) {
 	}
 }
 
-func TestVerifySinglePointDummySRS(t *testing.T) {
+func TestVerifySinglePointQuickSRS(t *testing.T) {
 
 	size := 64
-	srs, err := NewSRS(64, big.NewInt(1))
+	srs, err := NewSRS(64, big.NewInt(-1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -447,22 +447,35 @@ func BenchmarkSRSGen(b *testing.B) {
 	b.Run("quick SRS", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			NewSRS(ecc.NextPowerOfTwo(benchSize), big.NewInt(1))
+			NewSRS(ecc.NextPowerOfTwo(benchSize), big.NewInt(-1))
 		}
 	})
-
 }
 
 func BenchmarkKZGCommit(b *testing.B) {
-	srs, err := NewSRS(ecc.NextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
-	assert.NoError(b, err)
-	// random polynomial
-	p := randomPolynomial(benchSize / 2)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, _ = Commit(p, srs.Pk)
-	}
+	b.Run("real SRS", func(b *testing.B) {
+		srs, err := NewSRS(ecc.NextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
+		assert.NoError(b, err)
+		// random polynomial
+		p := randomPolynomial(benchSize / 2)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = Commit(p, srs.Pk)
+		}
+	})
+	b.Run("quick SRS", func(b *testing.B) {
+		srs, err := NewSRS(ecc.NextPowerOfTwo(benchSize), big.NewInt(-1))
+		assert.NoError(b, err)
+		// random polynomial
+		p := randomPolynomial(benchSize / 2)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = Commit(p, srs.Pk)
+		}
+	})
 }
 
 func BenchmarkDivideByXMinusA(b *testing.B) {
