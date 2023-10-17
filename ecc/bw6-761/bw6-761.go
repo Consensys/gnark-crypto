@@ -10,6 +10,8 @@
 //	(Eₜ/𝔽p): Y² = X³+4 (M-type twist)
 //	r ∣ #E(Fp) and r ∣ #Eₜ(𝔽p)
 //
+// case t % r % x₀ = 3
+//
 // Extension fields tower:
 //
 //	𝔽p³[u] = 𝔽p/u³+4
@@ -30,8 +32,9 @@
 package bw6761
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bw6-761/internal/fptower"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/internal/fptower"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
