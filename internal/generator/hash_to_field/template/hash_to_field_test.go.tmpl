@@ -1,0 +1,23 @@
+import (
+    "testing"
+
+    "{{ .FieldPackagePath }}"
+)
+
+func TestHashInterface(t *testing.T) {
+	msg := []byte("test")
+	sep := []byte("separator")
+	res, err := {{ .FieldPackageName}}.Hash(msg, sep, 1)
+	if err != nil {
+		t.Fatal("hash to field", err)
+	}
+
+	htfFn := New(sep)
+	htfFn.Write(msg)
+	bts := htfFn.Sum(nil)
+	var res2 {{ .ElementType }}
+	res2.SetBytes(bts[:{{ .FieldPackageName }}.Bytes])
+	if !res[0].Equal(&res2) {
+		t.Error("not equal")
+	}
+}
