@@ -182,17 +182,32 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		result.B0.A0.Set(&l0.r0)
 		result.B0.A1.Mul(&l0.r1, &p[0].X)
 		result.B1.A1.Mul(&l0.r2, &p[0].Y)
+	}
 
-		// k >= 1
-		for k := 1; k < n; k++ {
-			// qProj1[1] ← 2qProj1[1] and l0 the tangent ℓ passing 2qProj1[1]
-			qProj1[k].doubleStep(&l0)
-			// line evaluation at Q[k]
-			l0.r1.Mul(&l0.r1, &p[k].X)
-			l0.r2.Mul(&l0.r2, &p[k].Y)
-			// ℓ × res
-			result.MulBy014(&l0.r0, &l0.r1, &l0.r2)
-		}
+	// k = 1
+	if n >= 2 {
+		// qProj1[1] ← 2qProj1[1] and l0 the tangent ℓ passing 2qProj1[1]
+		qProj1[1].doubleStep(&l0)
+		// line evaluation at Q[1]
+		l0.r1.Mul(&l0.r1, &p[1].X)
+		l0.r2.Mul(&l0.r2, &p[1].Y)
+		prodLines = fptower.Mul014By014(&l0.r0, &l0.r1, &l0.r2, &result.B0.A0, &result.B0.A1, &result.B1.A1)
+		result.B0.A0 = prodLines[0]
+		result.B0.A1 = prodLines[1]
+		result.B0.A2 = prodLines[2]
+		result.B1.A1 = prodLines[3]
+		result.B1.A2 = prodLines[4]
+	}
+
+	// k >= 2
+	for k := 2; k < n; k++ {
+		// qProj1[k] ← 2qProj1[k] and l0 the tangent ℓ passing 2qProj1[k]
+		qProj1[k].doubleStep(&l0)
+		// line evaluation at Q[k]
+		l0.r1.Mul(&l0.r1, &p[k].X)
+		l0.r2.Mul(&l0.r2, &p[k].Y)
+		// ℓ × res
+		result.MulBy014(&l0.r0, &l0.r1, &l0.r2)
 	}
 
 	for i := 187; i >= 1; i-- {
