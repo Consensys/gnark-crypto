@@ -50,7 +50,6 @@ type ProvingKey struct {
 // VerifyingKey used to verify opening proofs
 type VerifyingKey struct {
 	G2 [2]bn254.G2Affine // [G₂, [α]G₂ ]
-	G1 bn254.G1Affine
 }
 
 // SRS must be computed through MPC and comprises the ProvingKey and the VerifyingKey
@@ -117,13 +116,11 @@ func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 				srs.Pk.G1[i] = g[i%4]
 			}
 		})
-		srs.Vk.G1 = gen1Aff
 		srs.Vk.G2[0] = gen2Aff
 		srs.Vk.G2[1].ScalarMultiplication(&srs.Vk.G2[0], &bt)
 		return &srs, nil
 	}
 	srs.Pk.G1[0] = gen1Aff
-	srs.Vk.G1 = gen1Aff
 	srs.Vk.G2[0] = gen2Aff
 	srs.Vk.G2[1].ScalarMultiplication(&gen2Aff, bAlpha)
 
@@ -216,7 +213,7 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, vk Verify
 	var claimedValueG1Aff bn254.G1Jac
 	var claimedValueBigInt big.Int
 	proof.ClaimedValue.BigInt(&claimedValueBigInt)
-	claimedValueG1Aff.ScalarMultiplicationAffine(&vk.G1, &claimedValueBigInt)
+	claimedValueG1Aff.ScalarMultiplicationBase(&claimedValueBigInt)
 
 	// [f(α) - f(a)]G₁
 	var fminusfaG1Jac bn254.G1Jac
@@ -471,7 +468,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	var foldedEvalsCommit bn254.G1Affine
 	var foldedEvalsBigInt big.Int
 	foldedEvals.BigInt(&foldedEvalsBigInt)
-	foldedEvalsCommit.ScalarMultiplication(&vk.G1, &foldedEvalsBigInt)
+	foldedEvalsCommit.ScalarMultiplicationBase(&foldedEvalsBigInt)
 
 	// compute foldedDigests = ∑ᵢλᵢ[fᵢ(α)]G₁ - [∑ᵢλᵢfᵢ(aᵢ)]G₁
 	foldedDigests.Sub(&foldedDigests, &foldedEvalsCommit)

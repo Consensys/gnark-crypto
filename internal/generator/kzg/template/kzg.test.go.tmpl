@@ -74,7 +74,7 @@ func TestCommitLagrange(t *testing.T) {
 	for i := 0; i < size; i = i+8 {
 		pol[i].SetRandom()
 	}
-	
+
 	// commitment using Lagrange SRS
 	lagrange, err := ToLagrangeG1(testSrs.Pk.G1[:size])
 	assert.NoError(err)
@@ -169,8 +169,7 @@ func TestCommit(t *testing.T) {
 	var fxbi big.Int
 	fx.BigInt(&fxbi)
 	var manualCommit {{ .CurvePackage }}.G1Affine
-	manualCommit.Set(&testSrs.Vk.G1)
-	manualCommit.ScalarMultiplication(&manualCommit, &fxbi)
+	manualCommit.ScalarMultiplicationBase(&fxbi)
 
 	// compare both results
 	if !kzgCommit.Equal(&manualCommit) {
@@ -442,7 +441,7 @@ func BenchmarkKZGCommit(b *testing.B) {
 		assert.NoError(b, err)
 		// random polynomial
 		p := randomPolynomial(benchSize / 2)
-	
+
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, _ = Commit(p, srs.Pk)
@@ -453,7 +452,7 @@ func BenchmarkKZGCommit(b *testing.B) {
 		assert.NoError(b, err)
 		// random polynomial
 		p := randomPolynomial(benchSize / 2)
-	
+
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, _ = Commit(p, srs.Pk)

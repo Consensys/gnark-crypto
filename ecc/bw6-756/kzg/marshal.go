@@ -57,7 +57,6 @@ func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*bw6756.Encoder)) (
 	toEncode := []interface{}{
 		&vk.G2[0],
 		&vk.G2[1],
-		&vk.G1,
 	}
 
 	for _, v := range toEncode {
@@ -110,7 +109,6 @@ func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
 	toDecode := []interface{}{
 		&vk.G2[0],
 		&vk.G2[1],
-		&vk.G1,
 	}
 
 	for _, v := range toDecode {

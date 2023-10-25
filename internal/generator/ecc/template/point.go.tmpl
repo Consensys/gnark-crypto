@@ -89,14 +89,19 @@ func (p *{{ $TJacobian }}) ScalarMultiplicationAffine(a *{{ $TAffine }}, s *big.
 }
 
 // ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
+func (p *{{ $TJacobian }}) ScalarMultiplicationBase(s *big.Int) *{{ $TJacobian }} {
+	return p.mulGLV(&g1Gen, s)
+}
+{{- end}}
+
+// ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
 func (p *{{ $TAffine }}) ScalarMultiplicationBase(s *big.Int) *{{ $TAffine }} {
-	var _p G1Jac
-	_p.mulGLV(&g1Gen, s)
+	var _p {{ $TJacobian }}
+	_p.mulGLV(&{{ toLower .PointName}}Gen, s)
 	p.FromJacobian(&_p)
 	return p
 }
 
-{{- end}}
 
 // Add adds two point in affine coordinates.
 // This should rarely be used as it is very inefficient compared to Jacobian
