@@ -374,6 +374,7 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][189]LineEvaluation) (GT, error) 
 	for i := 188; i >= 0; i-- {
 		result.Square(&result)
 
+		j := loopCounter1[i]*3 + loopCounter0[i]
 		for k := 0; k < n; k++ {
 			lines[k][0][i].R1.
 				Mul(
@@ -384,44 +385,14 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][189]LineEvaluation) (GT, error) 
 				Mul(&lines[k][0][i].R2,
 					&p[k].Y,
 				)
-
-			switch loopCounter1[i]*3 + loopCounter0[i] {
-			// cases -4, -2, 2, 4 do not occur, given the static loopCounters
-			case -3:
-				lines[k][1][i].R1.
-					Mul(&lines[k][1][i].R1,
-						&p[k].X,
-					)
-				lines[k][1][i].R2.
-					Mul(&lines[k][1][i].R2,
-						&p[k].Y,
-					)
-				prodLines = fptower.Mul014By014(
-					&lines[k][0][i].R0, &lines[k][0][i].R1, &lines[k][0][i].R2,
-					&lines[k][1][i].R0, &lines[k][1][i].R1, &lines[k][1][i].R2,
-				)
-				result.MulBy01245(&prodLines)
-			case -1:
-				lines[k][1][i].R1.
-					Mul(&lines[k][1][i].R1,
-						&p[k].X,
-					)
-				lines[k][1][i].R2.
-					Mul(&lines[k][1][i].R2,
-						&p[k].Y,
-					)
-				prodLines = fptower.Mul014By014(
-					&lines[k][0][i].R0, &lines[k][0][i].R1, &lines[k][0][i].R2,
-					&lines[k][1][i].R0, &lines[k][1][i].R1, &lines[k][1][i].R2,
-				)
-				result.MulBy01245(&prodLines)
-			case 0:
+			if j == 0 {
 				result.MulBy014(
 					&lines[k][0][i].R0,
 					&lines[k][0][i].R1,
 					&lines[k][0][i].R2,
 				)
-			case 1:
+
+			} else {
 				lines[k][1][i].R1.
 					Mul(
 						&lines[k][1][i].R1,
@@ -437,24 +408,6 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][189]LineEvaluation) (GT, error) 
 					&lines[k][1][i].R0, &lines[k][1][i].R1, &lines[k][1][i].R2,
 				)
 				result.MulBy01245(&prodLines)
-			case 3:
-				lines[k][1][i].R1.
-					Mul(
-						&lines[k][1][i].R1,
-						&p[k].X,
-					)
-				lines[k][1][i].R2.
-					Mul(
-						&lines[k][1][i].R2,
-						&p[k].Y,
-					)
-				prodLines = fptower.Mul014By014(
-					&lines[k][0][i].R0, &lines[k][0][i].R1, &lines[k][0][i].R2,
-					&lines[k][1][i].R0, &lines[k][1][i].R1, &lines[k][1][i].R2,
-				)
-				result.MulBy01245(&prodLines)
-			default:
-				return GT{}, errors.New("invalid loopCounter")
 			}
 		}
 	}
