@@ -183,7 +183,7 @@ func TestPairing(t *testing.T) {
 
 			ml1, _ := MillerLoop(P, Q)
 			line := PrecomputeLines(Q[0])
-			ml2, _ := MillerLoopFixedQ(P, [][2][189]LineEvaluation{line})
+			ml2, _ := MillerLoopFixedQ(P, [][2][189]LineEvaluationAff{line})
 
 			res1 := FinalExponentiation(&ml1)
 			res2 := FinalExponentiation(&ml2)
