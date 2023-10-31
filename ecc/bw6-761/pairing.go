@@ -560,22 +560,22 @@ func (p *G2Affine) doubleStep(evaluations *LineEvaluationAff) {
 }
 
 func (p *G2Affine) addStep(evaluations *LineEvaluationAff, a *G2Affine) {
-	var p2ypy, p2xpx, λ, λλ, xr, yr, pxrx, λpxrx fp.Element
+	var n, d, λ, λλ, xr, yr fp.Element
 
 	// compute λ = (y2-y1)/(x2-x1)
-	p2ypy.Sub(&a.Y, &p.Y)
-	p2xpx.Sub(&a.X, &p.X)
-	λ.Div(&p2ypy, &p2xpx)
+	n.Sub(&a.Y, &p.Y)
+	d.Sub(&a.X, &p.X)
+	λ.Div(&n, &d)
 
 	// xr = λ²-x1-x2
 	λλ.Square(&λ)
-	p2xpx.Add(&p.X, &a.X)
-	xr.Sub(&λλ, &p2xpx)
+	n.Add(&p.X, &a.X)
+	xr.Sub(&λλ, &n)
 
 	// yr = λ(x1-xr) - y1
-	pxrx.Sub(&p.X, &xr)
-	λpxrx.Mul(&λ, &pxrx)
-	yr.Sub(&λpxrx, &p.Y)
+	yr.Sub(&p.X, &xr).
+		Mul(&yr, &λ).
+		Sub(&yr, &p.Y)
 
 	evaluations.R0.Set(&λ)
 	evaluations.R1.Mul(&λ, &p.X).
