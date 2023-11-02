@@ -142,9 +142,10 @@ func (z *E12) MulBy034(c0, c3, c4 *E2) *E12 {
 	b.Set(&z.C1)
 	b.MulBy01(c3, c4)
 
-	c0.Add(c0, c3)
+	var d0 E2
+	d0.Add(c0, c3)
 	d.Add(&z.C0, &z.C1)
-	d.MulBy01(c0, c4)
+	d.MulBy01(&d0, c4)
 
 	z.C1.Add(&a, &b).Neg(&z.C1).Add(&z.C1, &d)
 	z.C0.MulByNonResidue(&b).Add(&z.C0, &a)
