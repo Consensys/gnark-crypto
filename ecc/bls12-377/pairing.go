@@ -418,6 +418,7 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationA
 	one.SetOne()
 	var prodLines [5]E2
 
+	// Compute ∏ᵢ { fᵢ_{x₀,Q}(P) }
 	if n >= 1 {
 		// i = 62, separately to avoid an E12 Square
 		// (Square(res) = 1² = 1)
