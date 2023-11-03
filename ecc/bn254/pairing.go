@@ -409,7 +409,7 @@ type LineEvaluationAff struct {
 // ∏ᵢ e(Pᵢ, Qᵢ) where Q are fixed points in G2.
 //
 // This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
-func PairFixedQ(P []G1Affine, lines [][2][66]LineEvaluationAff) (GT, error) {
+func PairFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationAff) (GT, error) {
 	f, err := MillerLoopFixedQ(P, lines)
 	if err != nil {
 		return GT{}, err
@@ -421,7 +421,7 @@ func PairFixedQ(P []G1Affine, lines [][2][66]LineEvaluationAff) (GT, error) {
 // ∏ᵢ e(Pᵢ, Qᵢ) =? 1 where Q are fixed points in G2.
 //
 // This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
-func PairingCheckFixedQ(P []G1Affine, lines [][2][66]LineEvaluationAff) (bool, error) {
+func PairingCheckFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationAff) (bool, error) {
 	f, err := PairFixedQ(P, lines)
 	if err != nil {
 		return false, err
@@ -431,7 +431,7 @@ func PairingCheckFixedQ(P []G1Affine, lines [][2][66]LineEvaluationAff) (bool, e
 	return f.Equal(&one), nil
 }
 
-func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][66]LineEvaluationAff) {
+func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter)]LineEvaluationAff) {
 	var accQ, negQ G2Affine
 	accQ.Set(&Q)
 	negQ.Neg(&Q)
@@ -462,7 +462,7 @@ func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][66]LineEvaluationAff) {
 
 // MillerLoopFixedQ computes the multi-Miller loop as in MillerLoop
 // but Qᵢ are fixed points in G2 known in advance.
-func MillerLoopFixedQ(P []G1Affine, lines [][2][66]LineEvaluationAff) (GT, error) {
+func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationAff) (GT, error) {
 	n := len(P)
 	if n == 0 || n != len(lines) {
 		return GT{}, errors.New("invalid inputs sizes")

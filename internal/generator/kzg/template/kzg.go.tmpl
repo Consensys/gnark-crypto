@@ -31,7 +31,11 @@ type ProvingKey struct {
 
 // VerifyingKey used to verify opening proofs
 type VerifyingKey struct {
+{{- if (eq .Name "bn254")}}
+	Lines [2][2][len({{ .CurvePackage }}.LoopCounter)]{{ .CurvePackage }}.LineEvaluationAff // precomputed pairing lines corresponding to G₂, [α]G₂
+{{- else}}
 	Lines [2][2][len({{ .CurvePackage }}.LoopCounter)-1]{{ .CurvePackage }}.LineEvaluationAff // precomputed pairing lines corresponding to G₂, [α]G₂
+{{- end}}
 }
 
 // SRS must be computed through MPC and comprises the ProvingKey and the VerifyingKey
@@ -224,7 +228,11 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, vk Verify
 	// e([f(α)-f(a)+aH(α)]G₁], G₂).e([-H(α)]G₁, [α]G₂) == 1
 	check, err := {{ .CurvePackage }}.PairingCheckFixedQ(
 		[]{{ .CurvePackage }}.G1Affine{totalG1Aff, negH},
+{{- if (eq .Name "bn254")}}
+		[][2][len({{ .CurvePackage }}.LoopCounter)]{{ .CurvePackage }}.LineEvaluationAff{vk.Lines[0], vk.Lines[1]},
+{{- else}}
 		[][2][len({{ .CurvePackage }}.LoopCounter)-1]{{ .CurvePackage }}.LineEvaluationAff{vk.Lines[0], vk.Lines[1]},
+{{- end}}
 	)
 	if err != nil {
 		return err
@@ -483,7 +491,11 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	// e([∑ᵢλᵢ(fᵢ(α) - fᵢ(pᵢ) + pᵢHᵢ(α))]G₁, G₂).e([-∑ᵢλᵢ[Hᵢ(α)]G₁), [α]G₂)
 	check, err := {{ .CurvePackage }}.PairingCheckFixedQ(
 		[]{{ .CurvePackage }}.G1Affine{foldedDigests, foldedQuotients},
+{{- if (eq .Name "bn254")}}
+		[][2][len({{ .CurvePackage }}.LoopCounter)]{{ .CurvePackage }}.LineEvaluationAff{vk.Lines[0], vk.Lines[1]},
+{{- else}}
 		[][2][len({{ .CurvePackage }}.LoopCounter)-1]{{ .CurvePackage }}.LineEvaluationAff{vk.Lines[0], vk.Lines[1]},
+{{- end}}
 	)
 	if err != nil {
 		return err

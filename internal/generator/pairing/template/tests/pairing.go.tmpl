@@ -178,7 +178,11 @@ func TestPairing(t *testing.T) {
 			ml1, _ := MillerLoop(P, Q)
 			ml2, _ := MillerLoopFixedQ(
 				P,
+{{- if (eq .Name "bn254")}}
+				[][2][len(LoopCounter)]LineEvaluationAff{
+{{- else}}
 				[][2][len(LoopCounter)-1]LineEvaluationAff{
+{{- end}}
 					PrecomputeLines(Q[0]),
 					PrecomputeLines(Q[1]),
 				})
