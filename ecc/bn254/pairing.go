@@ -30,11 +30,6 @@ type lineEvaluation struct {
 	r2 fptower.E2
 }
 
-type LineEvaluationAff struct {
-	R0 fptower.E2
-	R1 fptower.E2
-}
-
 // Pair calculates the reduced pairing for a set of points
 // ∏ᵢ e(Pᵢ, Qᵢ).
 //
@@ -53,32 +48,6 @@ func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 // This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
 func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 	f, err := Pair(P, Q)
-	if err != nil {
-		return false, err
-	}
-	var one GT
-	one.SetOne()
-	return f.Equal(&one), nil
-}
-
-// PairFixedQ calculates the reduced pairing for a set of points
-// ∏ᵢ e(Pᵢ, Qᵢ) where Q are fixed points in G2.
-//
-// This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
-func PairFixedQ(P []G1Affine, lines [][2][66]LineEvaluationAff) (GT, error) {
-	f, err := MillerLoopFixedQ(P, lines)
-	if err != nil {
-		return GT{}, err
-	}
-	return FinalExponentiation(&f), nil
-}
-
-// PairingCheckFixedQ calculates the reduced pairing for a set of points and returns True if the result is One
-// ∏ᵢ e(Pᵢ, Qᵢ) =? 1 where Q are fixed points in G2.
-//
-// This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
-func PairingCheckFixedQ(P []G1Affine, lines [][2][66]LineEvaluationAff) (bool, error) {
-	f, err := PairFixedQ(P, lines)
 	if err != nil {
 		return false, err
 	}
@@ -329,6 +298,139 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	return result, nil
 }
 
+// doubleStep doubles a point in Homogenous projective coordinates, and evaluates the line in Miller loop
+// https://eprint.iacr.org/2013/722.pdf (Section 4.3)
+func (p *g2Proj) doubleStep(evaluations *lineEvaluation) {
+
+	// get some Element from our pool
+	var t1, A, B, C, D, E, EE, F, G, H, I, J, K fptower.E2
+	A.Mul(&p.x, &p.y)
+	A.Halve()
+	B.Square(&p.y)
+	C.Square(&p.z)
+	D.Double(&C).
+		Add(&D, &C)
+	E.MulBybTwistCurveCoeff(&D)
+	F.Double(&E).
+		Add(&F, &E)
+	G.Add(&B, &F)
+	G.Halve()
+	H.Add(&p.y, &p.z).
+		Square(&H)
+	t1.Add(&B, &C)
+	H.Sub(&H, &t1)
+	I.Sub(&E, &B)
+	J.Square(&p.x)
+	EE.Square(&E)
+	K.Double(&EE).
+		Add(&K, &EE)
+
+	// X, Y, Z
+	p.x.Sub(&B, &F).
+		Mul(&p.x, &A)
+	p.y.Square(&G).
+		Sub(&p.y, &K)
+	p.z.Mul(&B, &H)
+
+	// Line evaluation
+	evaluations.r0.Neg(&H)
+	evaluations.r1.Double(&J).
+		Add(&evaluations.r1, &J)
+	evaluations.r2.Set(&I)
+}
+
+// addMixedStep point addition in Mixed Homogenous projective and Affine coordinates
+// https://eprint.iacr.org/2013/722.pdf (Section 4.3)
+func (p *g2Proj) addMixedStep(evaluations *lineEvaluation, a *G2Affine) {
+
+	// get some Element from our pool
+	var Y2Z1, X2Z1, O, L, C, D, E, F, G, H, t0, t1, t2, J fptower.E2
+	Y2Z1.Mul(&a.Y, &p.z)
+	O.Sub(&p.y, &Y2Z1)
+	X2Z1.Mul(&a.X, &p.z)
+	L.Sub(&p.x, &X2Z1)
+	C.Square(&O)
+	D.Square(&L)
+	E.Mul(&L, &D)
+	F.Mul(&p.z, &C)
+	G.Mul(&p.x, &D)
+	t0.Double(&G)
+	H.Add(&E, &F).
+		Sub(&H, &t0)
+	t1.Mul(&p.y, &E)
+
+	// X, Y, Z
+	p.x.Mul(&L, &H)
+	p.y.Sub(&G, &H).
+		Mul(&p.y, &O).
+		Sub(&p.y, &t1)
+	p.z.Mul(&E, &p.z)
+
+	t2.Mul(&L, &a.Y)
+	J.Mul(&a.X, &O).
+		Sub(&J, &t2)
+
+	// Line evaluation
+	evaluations.r0.Set(&L)
+	evaluations.r1.Neg(&O)
+	evaluations.r2.Set(&J)
+}
+
+// lineCompute computes the line through p in Homogenous projective coordinates
+// and a in affine coordinates. It does not compute the resulting point p+a.
+func (p *g2Proj) lineCompute(evaluations *lineEvaluation, a *G2Affine) {
+
+	// get some Element from our pool
+	var Y2Z1, X2Z1, O, L, t2, J fptower.E2
+	Y2Z1.Mul(&a.Y, &p.z)
+	O.Sub(&p.y, &Y2Z1)
+	X2Z1.Mul(&a.X, &p.z)
+	L.Sub(&p.x, &X2Z1)
+	t2.Mul(&L, &a.Y)
+	J.Mul(&a.X, &O).
+		Sub(&J, &t2)
+
+	// Line evaluation
+	evaluations.r0.Set(&L)
+	evaluations.r1.Neg(&O)
+	evaluations.r2.Set(&J)
+}
+
+// ----------------------
+// Fixed-argument pairing
+// ----------------------
+
+type LineEvaluationAff struct {
+	R0 fptower.E2
+	R1 fptower.E2
+}
+
+// PairFixedQ calculates the reduced pairing for a set of points
+// ∏ᵢ e(Pᵢ, Qᵢ) where Q are fixed points in G2.
+//
+// This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
+func PairFixedQ(P []G1Affine, lines [][2][66]LineEvaluationAff) (GT, error) {
+	f, err := MillerLoopFixedQ(P, lines)
+	if err != nil {
+		return GT{}, err
+	}
+	return FinalExponentiation(&f), nil
+}
+
+// PairingCheckFixedQ calculates the reduced pairing for a set of points and returns True if the result is One
+// ∏ᵢ e(Pᵢ, Qᵢ) =? 1 where Q are fixed points in G2.
+//
+// This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
+func PairingCheckFixedQ(P []G1Affine, lines [][2][66]LineEvaluationAff) (bool, error) {
+	f, err := PairFixedQ(P, lines)
+	if err != nil {
+		return false, err
+	}
+	var one GT
+	one.SetOne()
+	return f.Equal(&one), nil
+}
+
 func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][66]LineEvaluationAff) {
 	var accQ, negQ G2Affine
 	accQ.Set(&Q)
@@ -507,106 +609,6 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][66]LineEvaluationAff) (GT, error
 
 	return result, nil
 }
-
-// doubleStep doubles a point in Homogenous projective coordinates, and evaluates the line in Miller loop
-// https://eprint.iacr.org/2013/722.pdf (Section 4.3)
-func (p *g2Proj) doubleStep(evaluations *lineEvaluation) {
-
-	// get some Element from our pool
-	var t1, A, B, C, D, E, EE, F, G, H, I, J, K fptower.E2
-	A.Mul(&p.x, &p.y)
-	A.Halve()
-	B.Square(&p.y)
-	C.Square(&p.z)
-	D.Double(&C).
-		Add(&D, &C)
-	E.MulBybTwistCurveCoeff(&D)
-	F.Double(&E).
-		Add(&F, &E)
-	G.Add(&B, &F)
-	G.Halve()
-	H.Add(&p.y, &p.z).
-		Square(&H)
-	t1.Add(&B, &C)
-	H.Sub(&H, &t1)
-	I.Sub(&E, &B)
-	J.Square(&p.x)
-	EE.Square(&E)
-	K.Double(&EE).
-		Add(&K, &EE)
-
-	// X, Y, Z
-	p.x.Sub(&B, &F).
-		Mul(&p.x, &A)
-	p.y.Square(&G).
-		Sub(&p.y, &K)
-	p.z.Mul(&B, &H)
-
-	// Line evaluation
-	evaluations.r0.Neg(&H)
-	evaluations.r1.Double(&J).
-		Add(&evaluations.r1, &J)
-	evaluations.r2.Set(&I)
-}
-
-// addMixedStep point addition in Mixed Homogenous projective and Affine coordinates
-// https://eprint.iacr.org/2013/722.pdf (Section 4.3)
-func (p *g2Proj) addMixedStep(evaluations *lineEvaluation, a *G2Affine) {
-
-	// get some Element from our pool
-	var Y2Z1, X2Z1, O, L, C, D, E, F, G, H, t0, t1, t2, J fptower.E2
-	Y2Z1.Mul(&a.Y, &p.z)
-	O.Sub(&p.y, &Y2Z1)
-	X2Z1.Mul(&a.X, &p.z)
-	L.Sub(&p.x, &X2Z1)
-	C.Square(&O)
-	D.Square(&L)
-	E.Mul(&L, &D)
-	F.Mul(&p.z, &C)
-	G.Mul(&p.x, &D)
-	t0.Double(&G)
-	H.Add(&E, &F).
-		Sub(&H, &t0)
-	t1.Mul(&p.y, &E)
-
-	// X, Y, Z
-	p.x.Mul(&L, &H)
-	p.y.Sub(&G, &H).
-		Mul(&p.y, &O).
-		Sub(&p.y, &t1)
-	p.z.Mul(&E, &p.z)
-
-	t2.Mul(&L, &a.Y)
-	J.Mul(&a.X, &O).
-		Sub(&J, &t2)
-
-	// Line evaluation
-	evaluations.r0.Set(&L)
-	evaluations.r1.Neg(&O)
-	evaluations.r2.Set(&J)
-}
-
-// lineCompute computes the line through p in Homogenous projective coordinates
-// and a in affine coordinates. It does not compute the resulting point p+a.
-func (p *g2Proj) lineCompute(evaluations *lineEvaluation, a *G2Affine) {
-
-	// get some Element from our pool
-	var Y2Z1, X2Z1, O, L, t2, J fptower.E2
-	Y2Z1.Mul(&a.Y, &p.z)
-	O.Sub(&p.y, &Y2Z1)
-	X2Z1.Mul(&a.X, &p.z)
-	L.Sub(&p.x, &X2Z1)
-	t2.Mul(&L, &a.Y)
-	J.Mul(&a.X, &O).
-		Sub(&J, &t2)
-
-	// Line evaluation
-	evaluations.r0.Set(&L)
-	evaluations.r1.Neg(&O)
-	evaluations.r2.Set(&J)
-}
-
-// Affine arithmetic
 
 func (p *G2Affine) doubleStep(evaluations *LineEvaluationAff) {
 
