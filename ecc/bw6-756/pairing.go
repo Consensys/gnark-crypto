@@ -252,7 +252,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	for i := 188; i >= 1; i-- {
 		result.Square(&result)
 
-		j = loopCounter1[i]*3 + loopCounter0[i]
+		j = LoopCounter1[i]*3 + LoopCounter[i]
 
 		for k := 0; k < n; k++ {
 			qProj1[k].doubleStep(&l0)
@@ -260,7 +260,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 			l0.r2.Mul(&l0.r2, &p[k].Y)
 
 			switch j {
-			// cases -4, -2, 2, 4 do not occur, given the static loopCounters
+			// cases -4, -2, 2, 4 do not occur, given the static LoopCounters
 			case -3:
 				qProj1[k].addMixedStep(&l, &q1Neg[k])
 				l.r1.Mul(&l.r1, &p[k].X)
@@ -288,7 +288,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 				prodLines = fptower.Mul014By014(&l0.r0, &l0.r1, &l0.r2, &l.r0, &l.r1, &l.r2)
 				result.MulBy01245(&prodLines)
 			default:
-				return GT{}, errors.New("invalid loopCounter")
+				return GT{}, errors.New("invalid LoopCounter")
 			}
 		}
 	}
@@ -327,8 +327,8 @@ func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][190]LineEvaluationAff) {
 		accQ.doubleStep(&l)
 		PrecomputedLines[0][i].Set(&l)
 
-		switch loopCounter1[i]*3 + loopCounter0[i] {
-		// cases -4, -2, 2, 4 do not occur, given the static loopCounters
+		switch LoopCounter1[i]*3 + LoopCounter[i] {
+		// cases -4, -2, 2, 4 do not occur, given the static LoopCounters
 		case -3:
 			accQ.addStep(&l, &imQneg)
 			PrecomputedLines[1][i].Set(&l)
@@ -391,7 +391,7 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][190]LineEvaluationAff) (GT, erro
 	for i := 189; i >= 0; i-- {
 		result.Square(&result)
 
-		j := loopCounter1[i]*3 + loopCounter0[i]
+		j := LoopCounter1[i]*3 + LoopCounter[i]
 		for k := 0; k < n; k++ {
 			lines[k][0][i].R1.
 				Mul(

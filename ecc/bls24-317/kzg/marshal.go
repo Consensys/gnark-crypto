@@ -55,8 +55,6 @@ func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*bls24317.Encoder))
 	enc := bls24317.NewEncoder(w, options...)
 
 	toEncode := []interface{}{
-		&vk.Lines[0][0][32].R0,
-		&vk.Lines[0][0][32].R1,
 		&vk.Lines[0][0][31].R0,
 		&vk.Lines[0][0][31].R1,
 		&vk.Lines[0][0][30].R0,
@@ -121,8 +119,6 @@ func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*bls24317.Encoder))
 		&vk.Lines[0][0][1].R1,
 		&vk.Lines[0][0][0].R0,
 		&vk.Lines[0][0][0].R1,
-		&vk.Lines[0][1][32].R0,
-		&vk.Lines[0][1][32].R1,
 		&vk.Lines[0][1][31].R0,
 		&vk.Lines[0][1][31].R1,
 		&vk.Lines[0][1][30].R0,
@@ -187,9 +183,6 @@ func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*bls24317.Encoder))
 		&vk.Lines[0][1][1].R1,
 		&vk.Lines[0][1][0].R0,
 		&vk.Lines[0][1][0].R1,
-
-		&vk.Lines[1][0][32].R0,
-		&vk.Lines[1][0][32].R1,
 		&vk.Lines[1][0][31].R0,
 		&vk.Lines[1][0][31].R1,
 		&vk.Lines[1][0][30].R0,
@@ -254,8 +247,6 @@ func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*bls24317.Encoder))
 		&vk.Lines[1][0][1].R1,
 		&vk.Lines[1][0][0].R0,
 		&vk.Lines[1][0][0].R1,
-		&vk.Lines[1][1][32].R0,
-		&vk.Lines[1][1][32].R1,
 		&vk.Lines[1][1][31].R0,
 		&vk.Lines[1][1][31].R1,
 		&vk.Lines[1][1][30].R0,
@@ -370,8 +361,6 @@ func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
 	dec := bls24317.NewDecoder(r)
 
 	toDecode := []interface{}{
-		&vk.Lines[0][0][32].R0,
-		&vk.Lines[0][0][32].R1,
 		&vk.Lines[0][0][31].R0,
 		&vk.Lines[0][0][31].R1,
 		&vk.Lines[0][0][30].R0,
@@ -436,8 +425,6 @@ func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
 		&vk.Lines[0][0][1].R1,
 		&vk.Lines[0][0][0].R0,
 		&vk.Lines[0][0][0].R1,
-		&vk.Lines[0][1][32].R0,
-		&vk.Lines[0][1][32].R1,
 		&vk.Lines[0][1][31].R0,
 		&vk.Lines[0][1][31].R1,
 		&vk.Lines[0][1][30].R0,
@@ -502,9 +489,6 @@ func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
 		&vk.Lines[0][1][1].R1,
 		&vk.Lines[0][1][0].R0,
 		&vk.Lines[0][1][0].R1,
-
-		&vk.Lines[1][0][32].R0,
-		&vk.Lines[1][0][32].R1,
 		&vk.Lines[1][0][31].R0,
 		&vk.Lines[1][0][31].R1,
 		&vk.Lines[1][0][30].R0,
@@ -569,8 +553,6 @@ func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
 		&vk.Lines[1][0][1].R1,
 		&vk.Lines[1][0][0].R0,
 		&vk.Lines[1][0][0].R1,
-		&vk.Lines[1][1][32].R0,
-		&vk.Lines[1][1][32].R1,
 		&vk.Lines[1][1][31].R0,
 		&vk.Lines[1][1][31].R1,
 		&vk.Lines[1][1][30].R0,

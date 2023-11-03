@@ -815,7 +815,6 @@ func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*bw6756.Encoder)) (
 		&vk.Lines[0][1][1].R1,
 		&vk.Lines[0][1][0].R0,
 		&vk.Lines[0][1][0].R1,
-
 		&vk.Lines[1][0][189].R0,
 		&vk.Lines[1][0][189].R1,
 		&vk.Lines[1][0][188].R0,
@@ -2386,7 +2385,6 @@ func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
 		&vk.Lines[0][1][1].R1,
 		&vk.Lines[0][1][0].R0,
 		&vk.Lines[0][1][0].R1,
-
 		&vk.Lines[1][0][189].R0,
 		&vk.Lines[1][0][189].R1,
 		&vk.Lines[1][0][188].R0,

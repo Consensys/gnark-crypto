@@ -172,7 +172,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	var j int8
 
 	if n >= 1 {
-		// i = len(loopCounter0) - 2, separately to avoid an E12 Square
+		// i = len(LoopCounter0) - 2, separately to avoid an E12 Square
 		// (Square(res) = 1² = 1)
 		// j = 0
 		// k = 0, separately to avoid MulBy034 (res × ℓ)
@@ -214,12 +214,12 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	}
 
 	var tmp G1Affine
-	for i := len(loopCounter0) - 3; i >= 1; i-- {
+	for i := len(LoopCounter0) - 3; i >= 1; i-- {
 		// (∏ᵢfᵢ)²
 		// mutualize the square among n Miller loops
 		result.Square(&result)
 
-		j = loopCounter0[i]*3 + loopCounter1[i]
+		j = LoopCounter0[i]*3 + LoopCounter1[i]
 
 		for k := 0; k < n; k++ {
 			// pProj0[1] ← 2pProj0[1] and l0 the tangent ℓ passing 2pProj0[1]
@@ -229,7 +229,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 			l0.r0.Mul(&l0.r0, &q[k].Y)
 
 			switch j {
-			// cases -4, -2, 2, 4 do not occur given the static loopCounters
+			// cases -4, -2, 2, 4 do not occur given the static LoopCounters
 			case -3:
 				tmp.Neg(&p1[k])
 				// pProj0[k] ← pProj0[k]-p1[k] and
@@ -280,7 +280,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 				// (ℓ × ℓ) × res
 				result.MulBy01234(&prodLines)
 			default:
-				return GT{}, errors.New("invalid loopCounter")
+				return GT{}, errors.New("invalid LoopCounter")
 			}
 		}
 	}

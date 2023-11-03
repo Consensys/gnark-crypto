@@ -155,7 +155,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	if n >= 1 {
 		// i = 64, separately to avoid an E12 Square
 		// (Square(res) = 1² = 1)
-		// loopCounter[64] = 0
+		// LoopCounter[64] = 0
 		// k = 0, separately to avoid MulBy034 (res × ℓ)
 		// (assign line to res)
 
@@ -196,7 +196,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		result.MulBy034(&l1.r0, &l1.r1, &l1.r2)
 	}
 
-	// i = 63, separately to avoid a doubleStep (loopCounter[63]=-1)
+	// i = 63, separately to avoid a doubleStep (LoopCounter[63]=-1)
 	// (at this point qProj = 2Q, so 2qProj-Q=3Q is equivalent to qProj+Q=3Q
 	// this means doubleStep followed by an addMixedStep is equivalent to an
 	// addMixedStep here)
@@ -222,7 +222,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	}
 
 	// i <= 62
-	for i := len(loopCounter) - 4; i >= 0; i-- {
+	for i := len(LoopCounter) - 4; i >= 0; i-- {
 		// mutualize the square among n Miller loops
 		// (∏ᵢfᵢ)²
 		result.Square(&result)
@@ -234,7 +234,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 			l1.r0.MulByElement(&l1.r0, &p[k].Y)
 			l1.r1.MulByElement(&l1.r1, &p[k].X)
 
-			if loopCounter[i] == 1 {
+			if LoopCounter[i] == 1 {
 				// qProj[k] ← qProj[k]+Q[k] and
 				// l2 the line ℓ passing qProj[k] and Q[k]
 				qProj[k].addMixedStep(&l2, &q[k])
@@ -246,7 +246,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 				// (ℓ × ℓ) × res
 				result.MulBy01234(&prodLines)
 
-			} else if loopCounter[i] == -1 {
+			} else if LoopCounter[i] == -1 {
 				// qProj[k] ← qProj[k]-Q[k] and
 				// l2 the line ℓ passing qProj[k] and -Q[k]
 				qProj[k].addMixedStep(&l2, &qNeg[k])
@@ -436,12 +436,12 @@ func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][66]LineEvaluationAff) {
 	accQ.Set(&Q)
 	negQ.Neg(&Q)
 
-	n := len(loopCounter)
+	n := len(LoopCounter)
 	for i := n - 2; i >= 0; i-- {
 		accQ.doubleStep(&PrecomputedLines[0][i])
-		if loopCounter[i] == 1 {
+		if LoopCounter[i] == 1 {
 			accQ.addStep(&PrecomputedLines[1][i], &Q)
-		} else if loopCounter[i] == -1 {
+		} else if LoopCounter[i] == -1 {
 			accQ.addStep(&PrecomputedLines[1][i], &negQ)
 		} else {
 			continue
@@ -488,7 +488,7 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][66]LineEvaluationAff) (GT, error
 	if n >= 1 {
 		// i = 64, separately to avoid an E12 Square
 		// (Square(res) = 1² = 1)
-		// loopCounter[64] = 0
+		// LoopCounter[64] = 0
 		// k = 0, separately to avoid MulBy034 (res × ℓ)
 		// (assign line to res)
 
@@ -526,7 +526,7 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][66]LineEvaluationAff) (GT, error
 		)
 	}
 
-	for i := len(loopCounter) - 3; i >= 0; i-- {
+	for i := len(LoopCounter) - 3; i >= 0; i-- {
 		// mutualize the square among n Miller loops
 		// (∏ᵢfᵢ)²
 		result.Square(&result)
@@ -544,7 +544,7 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][66]LineEvaluationAff) (GT, error
 					&yInv[k],
 				)
 
-			if loopCounter[i] == 0 {
+			if LoopCounter[i] == 0 {
 				// ℓ × res
 				result.MulBy034(
 					&one,

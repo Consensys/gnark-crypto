@@ -356,7 +356,7 @@ type LineEvaluationAff struct {
 // ∏ᵢ e(Pᵢ, Qᵢ) where Q are fixed points in G2.
 //
 // This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
-func PairFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationAff) (GT, error) {
+func PairFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluationAff) (GT, error) {
 	f, err := MillerLoopFixedQ(P, lines)
 	if err != nil {
 		return GT{}, err
@@ -368,7 +368,7 @@ func PairFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationAff) (G
 // ∏ᵢ e(Pᵢ, Qᵢ) =? 1 where Q are fixed points in G2.
 //
 // This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
-func PairingCheckFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationAff) (bool, error) {
+func PairingCheckFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluationAff) (bool, error) {
 	f, err := PairFixedQ(P, lines)
 	if err != nil {
 		return false, err
@@ -378,12 +378,11 @@ func PairingCheckFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluatio
 	return f.Equal(&one), nil
 }
 
-func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter)]LineEvaluationAff) {
+func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter) - 1]LineEvaluationAff) {
 	var accQ G2Affine
 	accQ.Set(&Q)
 
-	n := len(LoopCounter)
-	for i := n - 2; i >= 0; i-- {
+	for i := len(LoopCounter) - 2; i >= 0; i-- {
 		accQ.doubleStep(&PrecomputedLines[0][i])
 		if LoopCounter[i] == 0 {
 			continue
@@ -396,7 +395,7 @@ func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter)]LineEval
 
 // MillerLoopFixedQ computes the multi-Miller loop as in MillerLoop
 // but Qᵢ are fixed points in G2 known in advance.
-func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationAff) (GT, error) {
+func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluationAff) (GT, error) {
 	n := len(P)
 	if n == 0 || n != len(lines) {
 		return GT{}, errors.New("invalid inputs sizes")

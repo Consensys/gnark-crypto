@@ -178,12 +178,16 @@ func TestPairing(t *testing.T) {
 			ag1.ScalarMultiplication(&g1GenAff, &abigint)
 			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
 
-			P := []G1Affine{ag1}
-			Q := []G2Affine{bg2}
+			P := []G1Affine{g1GenAff, ag1}
+			Q := []G2Affine{g2GenAff, bg2}
 
 			ml1, _ := MillerLoop(P, Q)
-			line := PrecomputeLines(Q[0])
-			ml2, _ := MillerLoopFixedQ(P, [][2][189]LineEvaluationAff{line})
+			ml2, _ := MillerLoopFixedQ(
+				P,
+				[][2][len(LoopCounter) - 1]LineEvaluationAff{
+					PrecomputeLines(Q[0]),
+					PrecomputeLines(Q[1]),
+				})
 
 			res1 := FinalExponentiation(&ml1)
 			res2 := FinalExponentiation(&ml2)

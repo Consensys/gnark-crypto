@@ -49,7 +49,7 @@ type ProvingKey struct {
 
 // VerifyingKey used to verify opening proofs
 type VerifyingKey struct {
-	Lines [2][2][len(bls12378.LoopCounter)]bls12378.LineEvaluationAff // precomputed pairing lines corresponding to G₂, [α]G₂
+	Lines [2][2][len(bls12378.LoopCounter) - 1]bls12378.LineEvaluationAff // precomputed pairing lines corresponding to G₂, [α]G₂
 }
 
 // SRS must be computed through MPC and comprises the ProvingKey and the VerifyingKey
@@ -240,7 +240,7 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, vk Verify
 	// e([f(α)-f(a)+aH(α)]G₁], G₂).e([-H(α)]G₁, [α]G₂) == 1
 	check, err := bls12378.PairingCheckFixedQ(
 		[]bls12378.G1Affine{totalG1Aff, negH},
-		[][2][len(bls12378.LoopCounter)]bls12378.LineEvaluationAff{vk.Lines[0], vk.Lines[1]},
+		[][2][len(bls12378.LoopCounter) - 1]bls12378.LineEvaluationAff{vk.Lines[0], vk.Lines[1]},
 	)
 	if err != nil {
 		return err
@@ -499,7 +499,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	// e([∑ᵢλᵢ(fᵢ(α) - fᵢ(pᵢ) + pᵢHᵢ(α))]G₁, G₂).e([-∑ᵢλᵢ[Hᵢ(α)]G₁), [α]G₂)
 	check, err := bls12378.PairingCheckFixedQ(
 		[]bls12378.G1Affine{foldedDigests, foldedQuotients},
-		[][2][len(bls12378.LoopCounter)]bls12378.LineEvaluationAff{vk.Lines[0], vk.Lines[1]},
+		[][2][len(bls12378.LoopCounter) - 1]bls12378.LineEvaluationAff{vk.Lines[0], vk.Lines[1]},
 	)
 	if err != nil {
 		return err

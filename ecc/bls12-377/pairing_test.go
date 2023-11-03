@@ -163,7 +163,7 @@ func TestPairing(t *testing.T) {
 		genR2,
 	))
 
-	properties.Property("[BN254] Pair should output the same result with MillerLoop or MillerLoopFixedQ", prop.ForAll(
+	properties.Property("[BLS12-377] Pair should output the same result with MillerLoop or MillerLoopFixedQ", prop.ForAll(
 		func(a, b fr.Element) bool {
 
 			var ag1 G1Affine
@@ -183,7 +183,7 @@ func TestPairing(t *testing.T) {
 			ml1, _ := MillerLoop(P, Q)
 			ml2, _ := MillerLoopFixedQ(
 				P,
-				[][2][len(LoopCounter)]LineEvaluationAff{
+				[][2][len(LoopCounter) - 1]LineEvaluationAff{
 					PrecomputeLines(Q[0]),
 					PrecomputeLines(Q[1]),
 				})

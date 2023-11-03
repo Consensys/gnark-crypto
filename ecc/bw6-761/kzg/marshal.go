@@ -17,7 +17,6 @@
 package kzg
 
 import (
-	// "fmt"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761"
 	"io"
 )
@@ -812,7 +811,6 @@ func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*bw6761.Encoder)) (
 		&vk.Lines[0][1][1].R1,
 		&vk.Lines[0][1][0].R0,
 		&vk.Lines[0][1][0].R1,
-
 		&vk.Lines[1][0][188].R0,
 		&vk.Lines[1][0][188].R1,
 		&vk.Lines[1][0][187].R0,
@@ -2375,7 +2373,6 @@ func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
 		&vk.Lines[0][1][1].R1,
 		&vk.Lines[0][1][0].R0,
 		&vk.Lines[0][1][0].R1,
-
 		&vk.Lines[1][0][188].R0,
 		&vk.Lines[1][0][188].R1,
 		&vk.Lines[1][0][187].R0,
