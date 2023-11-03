@@ -183,7 +183,7 @@ func TestPairing(t *testing.T) {
 			ml1, _ := MillerLoop(P, Q)
 			ml2, _ := MillerLoopFixedQ(
 				P,
-				[][2][len(loopCounter)]LineEvaluationAff{
+				[][2][len(LoopCounter)]LineEvaluationAff{
 					PrecomputeLines(Q[0]),
 					PrecomputeLines(Q[1]),
 				})

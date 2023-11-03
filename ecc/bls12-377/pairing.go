@@ -148,7 +148,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	if n >= 1 {
 		// i = 62, separately to avoid an E12 Square
 		// (Square(res) = 1² = 1)
-		// loopCounter[62] = 0
+		// LoopCounter[62] = 0
 		// k = 0, separately to avoid MulBy034 (res × ℓ)
 		// (assign line to res)
 
@@ -190,7 +190,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	}
 
 	// i <= 61
-	for i := len(loopCounter) - 3; i >= 1; i-- {
+	for i := len(LoopCounter) - 3; i >= 1; i-- {
 		// mutualize the square among n Miller loops
 		// (∏ᵢfᵢ)²
 		result.Square(&result)
@@ -202,7 +202,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 			l1.r0.MulByElement(&l1.r0, &p[k].Y)
 			l1.r1.MulByElement(&l1.r1, &p[k].X)
 
-			if loopCounter[i] == 0 {
+			if LoopCounter[i] == 0 {
 				// ℓ × res
 				result.MulBy034(&l1.r0, &l1.r1, &l1.r2)
 			} else {
@@ -222,7 +222,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	}
 
 	// i = 0, separately to avoid a point addition
-	// loopCounter[0] = 1
+	// LoopCounter[0] = 1
 	result.Square(&result)
 	for k := 0; k < n; k++ {
 		// qProj[k] ← 2qProj[k] and l1 the tangent ℓ passing 2qProj[k]
@@ -356,7 +356,7 @@ type LineEvaluationAff struct {
 // ∏ᵢ e(Pᵢ, Qᵢ) where Q are fixed points in G2.
 //
 // This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
-func PairFixedQ(P []G1Affine, lines [][2][len(loopCounter)]LineEvaluationAff) (GT, error) {
+func PairFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationAff) (GT, error) {
 	f, err := MillerLoopFixedQ(P, lines)
 	if err != nil {
 		return GT{}, err
@@ -368,7 +368,7 @@ func PairFixedQ(P []G1Affine, lines [][2][len(loopCounter)]LineEvaluationAff) (G
 // ∏ᵢ e(Pᵢ, Qᵢ) =? 1 where Q are fixed points in G2.
 //
 // This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
-func PairingCheckFixedQ(P []G1Affine, lines [][2][len(loopCounter)]LineEvaluationAff) (bool, error) {
+func PairingCheckFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationAff) (bool, error) {
 	f, err := PairFixedQ(P, lines)
 	if err != nil {
 		return false, err
@@ -378,14 +378,14 @@ func PairingCheckFixedQ(P []G1Affine, lines [][2][len(loopCounter)]LineEvaluatio
 	return f.Equal(&one), nil
 }
 
-func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(loopCounter)]LineEvaluationAff) {
+func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter)]LineEvaluationAff) {
 	var accQ G2Affine
 	accQ.Set(&Q)
 
-	n := len(loopCounter)
+	n := len(LoopCounter)
 	for i := n - 2; i >= 0; i-- {
 		accQ.doubleStep(&PrecomputedLines[0][i])
-		if loopCounter[i] == 0 {
+		if LoopCounter[i] == 0 {
 			continue
 		} else {
 			accQ.addStep(&PrecomputedLines[1][i], &Q)
@@ -396,7 +396,7 @@ func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(loopCounter)]LineEval
 
 // MillerLoopFixedQ computes the multi-Miller loop as in MillerLoop
 // but Qᵢ are fixed points in G2 known in advance.
-func MillerLoopFixedQ(P []G1Affine, lines [][2][len(loopCounter)]LineEvaluationAff) (GT, error) {
+func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationAff) (GT, error) {
 	n := len(P)
 	if n == 0 || n != len(lines) {
 		return GT{}, errors.New("invalid inputs sizes")
@@ -421,7 +421,7 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(loopCounter)]LineEvaluationA
 	if n >= 1 {
 		// i = 62, separately to avoid an E12 Square
 		// (Square(res) = 1² = 1)
-		// loopCounter[62] = 0
+		// LoopCounter[62] = 0
 		// k = 0, separately to avoid MulBy034 (res × ℓ)
 		// (assign line to res)
 
@@ -459,7 +459,7 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(loopCounter)]LineEvaluationA
 		)
 	}
 
-	for i := len(loopCounter) - 3; i >= 0; i-- {
+	for i := len(LoopCounter) - 3; i >= 0; i-- {
 		// mutualize the square among n Miller loops
 		// (∏ᵢfᵢ)²
 		result.Square(&result)
@@ -477,7 +477,7 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(loopCounter)]LineEvaluationA
 					&yInv[k],
 				)
 
-			if loopCounter[i] == 0 {
+			if LoopCounter[i] == 0 {
 				// ℓ × res
 				result.MulBy034(
 					&one,
