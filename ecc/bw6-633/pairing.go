@@ -30,6 +30,16 @@ type lineEvaluation struct {
 	r2 fp.Element
 }
 
+type LineEvaluationAff struct {
+	R0 fp.Element
+	R1 fp.Element
+}
+
+func (l *LineEvaluationAff) Set(line *LineEvaluationAff) *LineEvaluationAff {
+	l.R0, l.R1 = line.R0, line.R1
+	return l
+}
+
 // Pair calculates the reduced pairing for a set of points
 // ∏ᵢ e(Pᵢ, Qᵢ).
 //
@@ -48,6 +58,32 @@ func Pair(P []G1Affine, Q []G2Affine) (GT, error) {
 // This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
 func PairingCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 	f, err := Pair(P, Q)
+	if err != nil {
+		return false, err
+	}
+	var one GT
+	one.SetOne()
+	return f.Equal(&one), nil
+}
+
+// PairFixedQ calculates the reduced pairing for a set of points
+// ∏ᵢ e(Pᵢ, Qᵢ) where Q are fixed points in G2.
+//
+// This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
+func PairFixedQ(P []G1Affine, lines [][2][158]LineEvaluationAff) (GT, error) {
+	f, err := MillerLoopFixedQ(P, lines)
+	if err != nil {
+		return GT{}, err
+	}
+	return FinalExponentiation(&f), nil
+}
+
+// PairingCheckFixedQ calculates the reduced pairing for a set of points and returns True if the result is One
+// ∏ᵢ e(Pᵢ, Qᵢ) =? 1 where Q are fixed points in G2.
+//
+// This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
+func PairingCheckFixedQ(P []G1Affine, lines [][2][158]LineEvaluationAff) (bool, error) {
+	f, err := PairFixedQ(P, lines)
 	if err != nil {
 		return false, err
 	}
@@ -129,7 +165,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 	return result
 }
 
-// MillerLoop Optimal Tate alternative (or twisted ate or Eta revisited)
+// MillerLoop computes the multi-Miller loop
 // computes the multi-Miller loop ∏ᵢ MillerLoop(Pᵢ, Qᵢ)
 // Alg.2 in https://eprint.iacr.org/2021/1359.qdf
 func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
@@ -139,9 +175,9 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		return GT{}, errors.New("invalid inputs sizes")
 	}
 
-	// filter infinity qoints
-	q0 := make([]G2Affine, 0, n)
+	// filter infinity points
 	p := make([]G1Affine, 0, n)
+	q0 := make([]G2Affine, 0, n)
 
 	for k := 0; k < n; k++ {
 		if P[k].IsInfinity() || Q[k].IsInfinity() {
@@ -153,17 +189,18 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 
 	n = len(p)
 
-	// qrecomputations
+	// precomputations
 	qProj0 := make([]g2Proj, n)
 	q1 := make([]G2Affine, n)
 	q1Neg := make([]G2Affine, n)
 	q0Neg := make([]G2Affine, n)
 	for k := 0; k < n; k++ {
 		q1[k].Y.Neg(&q0[k].Y)
+		q0Neg[k].X.Set(&q0[k].X)
+		q0Neg[k].Y.Set(&q1[k].Y)
 		q1[k].X.Mul(&q0[k].X, &thirdRootOneG2)
 		qProj0[k].FromAffine(&q0[k])
 		q1Neg[k].Neg(&q1[k])
-		q0Neg[k].Neg(&q0[k])
 	}
 
 	// f_{a0+λ*a1,Q}(P)
@@ -212,12 +249,12 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		result.MulBy014(&l0.r0, &l0.r1, &l0.r2)
 	}
 
-	for i := len(LoopCounter0) - 3; i >= 0; i-- {
+	for i := len(LoopCounter) - 3; i >= 1; i-- {
 		// (∏ᵢfᵢ)²
 		// mutualize the square among n Miller loops
 		result.Square(&result)
 
-		j := LoopCounter0[i]*3 + LoopCounter1[i]
+		j := LoopCounter[i]*3 + LoopCounter1[i]
 
 		for k := 0; k < n; k++ {
 			// qProj0[1] ← 2pProj0[1] and l0 the tangent ℓ qassing 2pProj0[1]
@@ -301,7 +338,137 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		result.MulBy01245(&prodLines)
 	}
 
+	// negative x₀
+	result.Conjugate(&result)
+
 	return result, nil
+}
+
+func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][158]LineEvaluationAff) {
+
+	// precomputations
+	var accQ, imQ, imQneg, negQ G2Affine
+	imQ.Y.Neg(&Q.Y)
+	negQ.X.Set(&Q.X)
+	negQ.Y.Set(&imQ.Y)
+	imQ.X.Mul(&Q.X, &thirdRootOneG2)
+	accQ.Set(&Q)
+	imQneg.Neg(&imQ)
+
+	var l LineEvaluationAff
+	for i := 157; i >= 0; i-- {
+
+		accQ.doubleStep(&l)
+		PrecomputedLines[0][i].Set(&l)
+
+		j := LoopCounter[i]*3 + LoopCounter1[i]
+		switch j {
+		// cases -4, -2, 2, 4 do not occur given the static LoopCounters
+		case -3:
+			accQ.addStep(&l, &imQneg)
+			PrecomputedLines[1][i].Set(&l)
+		case -1:
+			accQ.addStep(&l, &negQ)
+			PrecomputedLines[1][i].Set(&l)
+		case 0:
+			continue
+		case 1:
+			accQ.addStep(&l, &Q)
+			PrecomputedLines[1][i].Set(&l)
+		case 3:
+			accQ.addStep(&l, &imQ)
+			PrecomputedLines[1][i].Set(&l)
+		default:
+			return [2][158]LineEvaluationAff{}
+		}
+	}
+
+	return PrecomputedLines
+}
+
+// MillerLoopFixedQ computes the multi-Miller loop as in MillerLoop
+// but Qᵢ are fixed points in G2 known in advance.
+func MillerLoopFixedQ(P []G1Affine, lines [][2][158]LineEvaluationAff) (GT, error) {
+	// check input size match
+	n := len(P)
+	if n == 0 || n != len(lines) {
+		return GT{}, errors.New("invalid inputs sizes")
+	}
+
+	// filter infinity points
+	p := make([]G1Affine, 0, n)
+
+	for k := 0; k < n; k++ {
+		if P[k].IsInfinity() {
+			continue
+		}
+		p = append(p, P[k])
+	}
+
+	n = len(p)
+
+	// precomputations
+	yInv := make([]fp.Element, n)
+	xNegOverY := make([]fp.Element, n)
+	for k := 0; k < n; k++ {
+		yInv[k].Inverse(&P[k].Y)
+		xNegOverY[k].Mul(&P[k].X, &yInv[k])
+		xNegOverY[k].Neg(&xNegOverY[k])
+	}
+
+	// f_{a0+λ*a1,Q}(P)
+	var result GT
+	result.SetOne()
+	var prodLines [5]fp.Element
+	var one fp.Element
+	one.SetOne()
+
+	for i := 157; i >= 0; i-- {
+		result.Square(&result)
+
+		j := LoopCounter[i]*3 + LoopCounter1[i]
+		for k := 0; k < n; k++ {
+			lines[k][0][i].R1.
+				Mul(
+					&lines[k][0][i].R1,
+					&yInv[k],
+				)
+			lines[k][0][i].R0.
+				Mul(&lines[k][0][i].R0,
+					&xNegOverY[k],
+				)
+			if j == 0 {
+				result.MulBy014(
+					&lines[k][0][i].R1,
+					&lines[k][0][i].R0,
+					&one,
+				)
+
+			} else {
+				lines[k][1][i].R1.
+					Mul(
+						&lines[k][1][i].R1,
+						&yInv[k],
+					)
+				lines[k][1][i].R0.
+					Mul(
+						&lines[k][1][i].R0,
+						&xNegOverY[k],
+					)
+				prodLines = fptower.Mul014By014(
+					&lines[k][0][i].R1, &lines[k][0][i].R0, &one,
+					&lines[k][1][i].R1, &lines[k][1][i].R0, &one,
+				)
+				result.MulBy01245(&prodLines)
+			}
+		}
+	}
+
+	// negative x₀
+	result.Conjugate(&result)
+
+	return result, nil
+
 }
 
 // doubleStep doubles a point in Homogenous projective coordinates, and evaluates the line in Miller loop
@@ -400,4 +567,60 @@ func (p *g2Proj) lineCompute(evaluations *lineEvaluation, a *G2Affine) {
 	evaluations.r0.Set(&J)
 	evaluations.r1.Neg(&O)
 	evaluations.r2.Set(&L)
+}
+
+// Affine arithmetic
+
+func (p *G2Affine) doubleStep(evaluations *LineEvaluationAff) {
+
+	var n, d, λ, xr, yr fp.Element
+	// λ = 3x²/2y
+	n.Square(&p.X)
+	λ.Double(&n).
+		Add(&λ, &n)
+	d.Double(&p.Y)
+	λ.Div(&λ, &d)
+
+	// xr = λ²-2x
+	xr.Square(&λ).
+		Sub(&xr, &p.X).
+		Sub(&xr, &p.X)
+
+	// yr = λ(x-xr)-y
+	yr.Sub(&p.X, &xr).
+		Mul(&yr, &λ).
+		Sub(&yr, &p.Y)
+
+	evaluations.R0.Set(&λ)
+	evaluations.R1.Mul(&λ, &p.X).
+		Sub(&evaluations.R1, &p.Y)
+
+	p.X.Set(&xr)
+	p.Y.Set(&yr)
+}
+
+func (p *G2Affine) addStep(evaluations *LineEvaluationAff, a *G2Affine) {
+	var n, d, λ, λλ, xr, yr fp.Element
+
+	// compute λ = (y2-y1)/(x2-x1)
+	n.Sub(&a.Y, &p.Y)
+	d.Sub(&a.X, &p.X)
+	λ.Div(&n, &d)
+
+	// xr = λ²-x1-x2
+	λλ.Square(&λ)
+	n.Add(&p.X, &a.X)
+	xr.Sub(&λλ, &n)
+
+	// yr = λ(x1-xr) - y1
+	yr.Sub(&p.X, &xr).
+		Mul(&yr, &λ).
+		Sub(&yr, &p.Y)
+
+	evaluations.R0.Set(&λ)
+	evaluations.R1.Mul(&λ, &p.X).
+		Sub(&evaluations.R1, &p.Y)
+
+	p.X.Set(&xr)
+	p.Y.Set(&yr)
 }
