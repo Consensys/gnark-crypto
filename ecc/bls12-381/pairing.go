@@ -382,6 +382,7 @@ func PairingCheckFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvalu
 	return f.Equal(&one), nil
 }
 
+// PrecomputeLines precomputes the lines for the fixed-argument Miller loop
 func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter) - 1]LineEvaluationAff) {
 	var accQ G2Affine
 	accQ.Set(&Q)
