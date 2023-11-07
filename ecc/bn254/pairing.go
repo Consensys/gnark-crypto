@@ -478,7 +478,7 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationA
 	// 		2. if Qᵢ=(0,0) then PrecomputeLines(Qᵢ) will return lines R0 and R1
 	// 		that are 0 because of gnark-convention (*/0==0) in doubleStep and
 	// 		addStep. Similarly to Pᵢ=(0,0) it happens that result stays 1
-	// 		thoughout the MillerLoop.
+	// 		throughout the MillerLoop.
 
 	// precomputations
 	yInv := make([]fp.Element, n)
