@@ -407,7 +407,21 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluat
 		return GT{}, errors.New("invalid inputs sizes")
 	}
 
-	// projective points for Q
+	// no need to filter infinity points:
+	// 		1. if Pᵢ=(0,0) then -x/y=1/y=0 by gnark-crypto convention and so
+	// 		lines R0 and R1 are 0. It happens that result will stay, through
+	// 		the Miller loop, in 𝔽p⁶ because MulBy014(0,0,1),
+	// 		Mul014By014(0,0,1,0,0,1) and MulBy01245 set result.C0 to 0. At the
+	// 		end result will be in a proper subgroup of Fp¹² so it be reduced to
+	// 		1 in FinalExponentiation.
+	//
+	//      and/or
+	//
+	// 		2. if Qᵢ=(0,0) then PrecomputeLines(Qᵢ) will return lines R0 and R1
+	// 		that are 0 because of gnark-convention (*/0==0) in doubleStep and
+	// 		addStep. Similarly to Pᵢ=(0,0) it happens that result be 1
+	// 		after the FinalExponentiation.
+
 	// precomputations
 	yInv := make([]fp.Element, n)
 	xNegOverY := make([]fp.Element, n)
