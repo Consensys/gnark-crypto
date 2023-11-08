@@ -472,8 +472,8 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationA
 	// no need to filter infinity points:
 	// 		1. if Pᵢ=(0,0) then -x/y=1/y=0 by gnark-crypto convention and so
 	// 		lines R0 and R1 are 0. At the end it happens that result will stay
-	// 		1 through the Miller loop because MulBy034(1,0,0)==1
-	// 		Mul034By034(1,0,0,1,0,0)==1 and MulBy01234(1,0,0,0,0)==1.
+	// 		1 through the Miller loop because MulBy34(1,0,0)==1
+	// 		Mul34By34(1,0,0,1,0,0)==1 and MulBy01234(1,0,0,0,0)==1.
 	//
 	// 		2. if Qᵢ=(0,0) then PrecomputeLines(Qᵢ) will return lines R0 and R1
 	// 		that are 0 because of gnark-convention (*/0==0) in doubleStep and
@@ -491,8 +491,6 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationA
 
 	var result GT
 	result.SetOne()
-	var one E2
-	one.SetOne()
 	var prodLines [5]E2
 
 	// Compute ∏ᵢ { fᵢ_{6x₀+2,Q}(P) }
@@ -500,23 +498,23 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationA
 		// i = 64, separately to avoid an E12 Square
 		// (Square(res) = 1² = 1)
 		// LoopCounter[64] = 0
-		// k = 0, separately to avoid MulBy034 (res × ℓ)
+		// k = 0, separately to avoid MulBy34 (res × ℓ)
 		// (assign line to res)
 
 		// line evaluation at P[0] (assign)
 		result.C1.B0.MulByElement(&lines[0][0][64].R0, &xNegOverY[0])
 		result.C1.B1.MulByElement(&lines[0][0][64].R1, &yInv[0])
-		// the coefficient which MulBy034 sets to 1 happens to be already 1 (result = 1)
+		// the coefficient which MulBy34 sets to 1 happens to be already 1 (result = 1)
 	}
 
 	if n >= 2 {
-		// k = 1, separately to avoid MulBy034 (res × ℓ)
-		// (res is also a line at this point, so we use Mul034By034 ℓ × ℓ)
+		// k = 1, separately to avoid MulBy34 (res × ℓ)
+		// (res is also a line at this point, so we use Mul34By34 ℓ × ℓ)
 		// line evaluation at P[1]
 		lines[1][0][64].R0.MulByElement(&lines[1][0][64].R0, &xNegOverY[1])
 		lines[1][0][64].R1.MulByElement(&lines[1][0][64].R1, &yInv[1])
 		// ℓ × res
-		prodLines = fptower.Mul034By034(&one, &lines[1][0][64].R0, &lines[1][0][64].R1, &one, &result.C1.B0, &result.C1.B1)
+		prodLines = fptower.Mul34By34(&lines[1][0][64].R0, &lines[1][0][64].R1, &result.C1.B0, &result.C1.B1)
 		result.C0.B0 = prodLines[0]
 		result.C0.B1 = prodLines[1]
 		result.C0.B2 = prodLines[2]
@@ -530,8 +528,7 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationA
 		lines[k][0][64].R0.MulByElement(&lines[k][0][64].R0, &xNegOverY[k])
 		lines[k][0][64].R1.MulByElement(&lines[k][0][64].R1, &yInv[k])
 		// ℓ × res
-		result.MulBy034(
-			&one,
+		result.MulBy34(
 			&lines[k][0][64].R0,
 			&lines[k][0][64].R1,
 		)
@@ -557,8 +554,7 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationA
 
 			if LoopCounter[i] == 0 {
 				// ℓ × res
-				result.MulBy034(
-					&one,
+				result.MulBy34(
 					&lines[k][0][i].R0,
 					&lines[k][0][i].R1,
 				)
@@ -575,9 +571,9 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationA
 						&yInv[k],
 					)
 				// ℓ × ℓ
-				prodLines = fptower.Mul034By034(
-					&one, &lines[k][0][i].R0, &lines[k][0][i].R1,
-					&one, &lines[k][1][i].R0, &lines[k][1][i].R1,
+				prodLines = fptower.Mul34By34(
+					&lines[k][0][i].R0, &lines[k][0][i].R1,
+					&lines[k][1][i].R0, &lines[k][1][i].R1,
 				)
 				// (ℓ × ℓ) × res
 				result.MulBy01234(&prodLines)
@@ -610,9 +606,9 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter)]LineEvaluationA
 				&yInv[k],
 			)
 		// ℓ × ℓ
-		prodLines = fptower.Mul034By034(
-			&one, &lines[k][1][65].R0, &lines[k][1][65].R1,
-			&one, &lines[k][0][65].R0, &lines[k][0][65].R1,
+		prodLines = fptower.Mul34By34(
+			&lines[k][1][65].R0, &lines[k][1][65].R1,
+			&lines[k][0][65].R0, &lines[k][0][65].R1,
 		)
 		// (ℓ × ℓ) × res
 		result.MulBy01234(&prodLines)

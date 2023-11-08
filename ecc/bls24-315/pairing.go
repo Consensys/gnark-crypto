@@ -432,8 +432,8 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluat
 	// no need to filter infinity points:
 	// 		1. if Pᵢ=(0,0) then -x/y=1/y=0 by gnark-crypto convention and so
 	// 		lines R0 and R1 are 0. At the end it happens that result will stay
-	// 		1 through the Miller loop because MulBy034(1,0,0)==1
-	// 		Mul034By034(1,0,0,1,0,0)==1 and MulBy01234(1,0,0,0,0)==1.
+	// 		1 through the Miller loop because MulBy34(1,0,0)==1
+	// 		Mul34By34(1,0,0,1,0,0)==1 and MulBy01234(1,0,0,0,0)==1.
 	//
 	// 		2. if Qᵢ=(0,0) then PrecomputeLines(Qᵢ) will return lines R0 and R1
 	// 		that are 0 because of gnark-convention (*/0==0) in doubleStep and
@@ -451,8 +451,6 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluat
 
 	var result GT
 	result.SetOne()
-	var one E4
-	one.SetOne()
 	var prodLines [5]E4
 
 	// Compute ∏ᵢ { fᵢ_{x₀,Q}(P) }
@@ -476,8 +474,7 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluat
 
 			if LoopCounter[i] == 0 {
 				// ℓ × res
-				result.MulBy034(
-					&one,
+				result.MulBy34(
 					&lines[k][0][i].R0,
 					&lines[k][0][i].R1,
 				)
@@ -494,9 +491,9 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluat
 						&yInv[k],
 					)
 				// ℓ × ℓ
-				prodLines = fptower.Mul034By034(
-					&one, &lines[k][0][i].R0, &lines[k][0][i].R1,
-					&one, &lines[k][1][i].R0, &lines[k][1][i].R1,
+				prodLines = fptower.Mul34By34(
+					&lines[k][0][i].R0, &lines[k][0][i].R1,
+					&lines[k][1][i].R0, &lines[k][1][i].R1,
 				)
 				// (ℓ × ℓ) × res
 				result.MulBy01234(&prodLines)

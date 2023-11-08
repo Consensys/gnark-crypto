@@ -455,8 +455,8 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluat
 	// no need to filter infinity points:
 	// 		1. if Pᵢ=(0,0) then -x/y=1/y=0 by gnark-crypto convention and so
 	// 		lines R0 and R1 are 0. It happens that result will stay, through
-	// 		the Miller loop, in 𝔽p⁶ because MulBy014(0,0,1),
-	// 		Mul014By014(0,0,1,0,0,1) and MulBy01245 set result.C0 to 0. At the
+	// 		the Miller loop, in 𝔽p⁶ because MulBy01(0,0,1),
+	// 		Mul01By01(0,0,1,0,0,1) and MulBy01245 set result.C0 to 0. At the
 	// 		end result will be in a proper subgroup of Fp¹² so it be reduced to
 	// 		1 in FinalExponentiation.
 	//
@@ -480,8 +480,6 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluat
 	var result GT
 	result.SetOne()
 	var prodLines [5]fp.Element
-	var one fp.Element
-	one.SetOne()
 
 	for i := len(LoopCounter) - 2; i >= 0; i-- {
 		result.Square(&result)
@@ -498,10 +496,9 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluat
 					&xNegOverY[k],
 				)
 			if j == 0 {
-				result.MulBy014(
+				result.MulBy01(
 					&lines[k][0][i].R1,
 					&lines[k][0][i].R0,
-					&one,
 				)
 
 			} else {
@@ -515,9 +512,9 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluat
 						&lines[k][1][i].R0,
 						&xNegOverY[k],
 					)
-				prodLines = fptower.Mul014By014(
-					&lines[k][0][i].R1, &lines[k][0][i].R0, &one,
-					&lines[k][1][i].R1, &lines[k][1][i].R0, &one,
+				prodLines = fptower.Mul01By01(
+					&lines[k][0][i].R1, &lines[k][0][i].R0,
+					&lines[k][1][i].R1, &lines[k][1][i].R0,
 				)
 				result.MulBy01245(&prodLines)
 			}
