@@ -468,9 +468,12 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluat
 	yInv := make([]fp.Element, n)
 	xNegOverY := make([]fp.Element, n)
 	for k := 0; k < n; k++ {
-		yInv[k].Inverse(&P[k].Y)
-		xNegOverY[k].Mul(&P[k].X, &yInv[k])
-		xNegOverY[k].Neg(&xNegOverY[k])
+		yInv[k].Set(&P[k].Y)
+	}
+	yInv = fp.BatchInvert(yInv)
+	for k := 0; k < n; k++ {
+		xNegOverY[k].Mul(&P[k].X, &yInv[k]).
+			Neg(&xNegOverY[k])
 	}
 
 	// f_{a0+λ*a1,Q}(P)
