@@ -499,7 +499,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	// e([∑ᵢλᵢ(fᵢ(α) - fᵢ(pᵢ) + pᵢHᵢ(α))]G₁, G₂).e([-∑ᵢλᵢ[Hᵢ(α)]G₁), [α]G₂)
 	check, err := bls12381.PairingCheckFixedQ(
 		[]bls12381.G1Affine{foldedDigests, foldedQuotients},
-		[][2][len(bls12381.LoopCounter) - 1]bls12381.LineEvaluationAff{vk.Lines[0], vk.Lines[1]},
+		vk.Lines[:],
 	)
 	if err != nil {
 		return err
