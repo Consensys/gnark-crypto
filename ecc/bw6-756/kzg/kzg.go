@@ -49,8 +49,7 @@ type ProvingKey struct {
 
 // VerifyingKey used to verify opening proofs
 type VerifyingKey struct {
-	G2 [2]bw6756.G2Affine // [G₂, [α]G₂ ]
-	G1 bw6756.G1Affine
+	Lines [2][2][len(bw6756.LoopCounter) - 1]bw6756.LineEvaluationAff // precomputed pairing lines corresponding to G₂, [α]G₂
 }
 
 // SRS must be computed through MPC and comprises the ProvingKey and the VerifyingKey
@@ -117,15 +116,17 @@ func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 				srs.Pk.G1[i] = g[i%4]
 			}
 		})
-		srs.Vk.G1 = gen1Aff
-		srs.Vk.G2[0] = gen2Aff
-		srs.Vk.G2[1].ScalarMultiplication(&srs.Vk.G2[0], &bt)
+		var btG2 bw6756.G2Affine
+		btG2.ScalarMultiplication(&gen2Aff, &bt)
+		srs.Vk.Lines[0] = bw6756.PrecomputeLines(gen2Aff)
+		srs.Vk.Lines[1] = bw6756.PrecomputeLines(btG2)
 		return &srs, nil
 	}
 	srs.Pk.G1[0] = gen1Aff
-	srs.Vk.G1 = gen1Aff
-	srs.Vk.G2[0] = gen2Aff
-	srs.Vk.G2[1].ScalarMultiplication(&gen2Aff, bAlpha)
+	var bAlphaG2 bw6756.G2Affine
+	bAlphaG2.ScalarMultiplication(&gen2Aff, bAlpha)
+	srs.Vk.Lines[0] = bw6756.PrecomputeLines(gen2Aff)
+	srs.Vk.Lines[1] = bw6756.PrecomputeLines(bAlphaG2)
 
 	alphas := make([]fr.Element, size-1)
 	alphas[0] = alpha
@@ -216,7 +217,7 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, vk Verify
 	var claimedValueG1Aff bw6756.G1Jac
 	var claimedValueBigInt big.Int
 	proof.ClaimedValue.BigInt(&claimedValueBigInt)
-	claimedValueG1Aff.ScalarMultiplicationAffine(&vk.G1, &claimedValueBigInt)
+	claimedValueG1Aff.ScalarMultiplicationBase(&claimedValueBigInt)
 
 	// [f(α) - f(a)]G₁
 	var fminusfaG1Jac bw6756.G1Jac
@@ -237,9 +238,9 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, vk Verify
 	totalG1Aff.FromJacobian(&totalG1)
 
 	// e([f(α)-f(a)+aH(α)]G₁], G₂).e([-H(α)]G₁, [α]G₂) == 1
-	check, err := bw6756.PairingCheck(
+	check, err := bw6756.PairingCheckFixedQ(
 		[]bw6756.G1Affine{totalG1Aff, negH},
-		[]bw6756.G2Affine{vk.G2[0], vk.G2[1]},
+		[][2][len(bw6756.LoopCounter) - 1]bw6756.LineEvaluationAff{vk.Lines[0], vk.Lines[1]},
 	)
 	if err != nil {
 		return err
@@ -471,7 +472,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	var foldedEvalsCommit bw6756.G1Affine
 	var foldedEvalsBigInt big.Int
 	foldedEvals.BigInt(&foldedEvalsBigInt)
-	foldedEvalsCommit.ScalarMultiplication(&vk.G1, &foldedEvalsBigInt)
+	foldedEvalsCommit.ScalarMultiplicationBase(&foldedEvalsBigInt)
 
 	// compute foldedDigests = ∑ᵢλᵢ[fᵢ(α)]G₁ - [∑ᵢλᵢfᵢ(aᵢ)]G₁
 	foldedDigests.Sub(&foldedDigests, &foldedEvalsCommit)
@@ -496,9 +497,9 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 
 	// pairing check
 	// e([∑ᵢλᵢ(fᵢ(α) - fᵢ(pᵢ) + pᵢHᵢ(α))]G₁, G₂).e([-∑ᵢλᵢ[Hᵢ(α)]G₁), [α]G₂)
-	check, err := bw6756.PairingCheck(
+	check, err := bw6756.PairingCheckFixedQ(
 		[]bw6756.G1Affine{foldedDigests, foldedQuotients},
-		[]bw6756.G2Affine{vk.G2[0], vk.G2[1]},
+		vk.Lines[:],
 	)
 	if err != nil {
 		return err

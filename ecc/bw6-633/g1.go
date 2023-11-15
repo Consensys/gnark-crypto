@@ -40,11 +40,6 @@ type g1JacExtended struct {
 	X, Y, ZZ, ZZZ fp.Element
 }
 
-// g1Proj point in projective coordinates
-type g1Proj struct {
-	x, y, z fp.Element
-}
-
 // -------------------------------------------------------------------------------------------------
 // Affine
 
@@ -76,6 +71,11 @@ func (p *G1Jac) ScalarMultiplicationAffine(a *G1Affine, s *big.Int) *G1Jac {
 	p.FromAffine(a)
 	p.mulGLV(p, s)
 	return p
+}
+
+// ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
+func (p *G1Jac) ScalarMultiplicationBase(s *big.Int) *G1Jac {
+	return p.mulGLV(&g1Gen, s)
 }
 
 // ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
@@ -962,36 +962,6 @@ func (p *g1JacExtended) doubleMixed(q *G1Affine) *g1JacExtended {
 	p.ZZ.Set(&V)
 	p.ZZZ.Set(&W)
 
-	return p
-}
-
-// -------------------------------------------------------------------------------------------------
-// Homogenous projective
-
-// Set sets p to the provided point
-func (p *g1Proj) Set(a *g1Proj) *g1Proj {
-	p.x, p.y, p.z = a.x, a.y, a.z
-	return p
-}
-
-// Neg computes -G
-func (p *g1Proj) Neg(a *g1Proj) *g1Proj {
-	*p = *a
-	p.y.Neg(&a.y)
-	return p
-}
-
-// FromAffine sets p = Q, p in homogenous projective, Q in affine
-func (p *g1Proj) FromAffine(Q *G1Affine) *g1Proj {
-	if Q.X.IsZero() && Q.Y.IsZero() {
-		p.z.SetZero()
-		p.x.SetOne()
-		p.y.SetOne()
-		return p
-	}
-	p.z.SetOne()
-	p.x.Set(&Q.X)
-	p.y.Set(&Q.Y)
 	return p
 }
 

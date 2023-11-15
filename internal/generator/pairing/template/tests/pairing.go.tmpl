@@ -158,6 +158,44 @@ func TestPairing(t *testing.T) {
 	))
 
 
+	properties.Property("[{{ toUpper .Name}}] Pair should output the same result with MillerLoop or MillerLoopFixedQ", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var ag1 G1Affine
+			var bg2 G2Affine
+
+			var abigint, bbigint big.Int
+
+			a.BigInt(&abigint)
+			b.BigInt(&bbigint)
+
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
+
+			P := []G1Affine{g1GenAff, ag1}
+			Q := []G2Affine{g2GenAff, bg2}
+
+			ml1, _ := MillerLoop(P, Q)
+			ml2, _ := MillerLoopFixedQ(
+				P,
+{{- if (eq .Name "bn254")}}
+				[][2][len(LoopCounter)]LineEvaluationAff{
+{{- else}}
+				[][2][len(LoopCounter)-1]LineEvaluationAff{
+{{- end}}
+					PrecomputeLines(Q[0]),
+					PrecomputeLines(Q[1]),
+				})
+
+			res1 := FinalExponentiation(&ml1)
+			res2 := FinalExponentiation(&ml2)
+
+			return res1.Equal(&res2)
+		},
+		genR1,
+		genR2,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -219,7 +257,7 @@ func TestMillerLoop(t *testing.T) {
 		genR2,
 	))
 
-	properties.Property("[{{ toUpper .Name}}] MillerLoop should skip pairs with a point at infinity", prop.ForAll(
+	properties.Property("[{{ toUpper .Name}}] MillerLoop and MillerLoopFixedQ should skip pairs with a point at infinity", prop.ForAll(
 		func(a, b fr.Element) bool {
 
 			var one GT
@@ -240,22 +278,83 @@ func TestMillerLoop(t *testing.T) {
 			g1Inf.FromJacobian(&g1Infinity)
 			g2Inf.FromJacobian(&g2Infinity)
 
-			// e([0,c] ; [b,d])
+            // e([0,c] ; [b,d])
+			// -> should be equal to e(c,d)
 			tabP := []G1Affine{g1Inf, ag1}
 			tabQ := []G2Affine{g2GenAff, bg2}
 			res1, _ := Pair(tabP, tabQ)
 
 			// e([a,c] ; [0,d])
+			// -> should be equal to e(c,d)
 			tabP = []G1Affine{g1GenAff, ag1}
 			tabQ = []G2Affine{g2Inf, bg2}
 			res2, _ := Pair(tabP, tabQ)
 
+			// e([0,c] ; [b,d]) with fixed points b and d
+			// -> should be equal to e(c,d)
+			tabP = []G1Affine{g1Inf, ag1}
+{{- if (eq .Name "bn254")}}
+			linesQ := [][2][len(LoopCounter)]LineEvaluationAff{
+{{- else}}
+			linesQ := [][2][len(LoopCounter)-1]LineEvaluationAff{
+{{- end}}
+				PrecomputeLines(g2GenAff),
+				PrecomputeLines(bg2),
+			}
+			res3, _ := PairFixedQ(tabP, linesQ)
+
+			// e([a,c] ; [0,d]) with fixed points 0 and d
+			// -> should be equal to e(c,d)
+			tabP = []G1Affine{g1GenAff, ag1}
+{{- if (eq .Name "bn254")}}
+			linesQ = [][2][len(LoopCounter)]LineEvaluationAff{
+{{- else}}
+			linesQ = [][2][len(LoopCounter)-1]LineEvaluationAff{
+{{- end}}
+				PrecomputeLines(g2Inf),
+				PrecomputeLines(bg2),
+			}
+			res4, _ := PairFixedQ(tabP, linesQ)
+
 			// e([0,c] ; [d,0])
+			// -> should be equal to 1
 			tabP = []G1Affine{g1Inf, ag1}
 			tabQ = []G2Affine{bg2, g2Inf}
-			res3, _ := Pair(tabP, tabQ)
+			res5, _ := Pair(tabP, tabQ)
 
-			return res1.Equal(&res2) && !res2.Equal(&res3) && res3.Equal(&one)
+			// e([0,c] ; [d,0]) with fixed points d and 0
+			// -> should be equal to 1
+			tabP = []G1Affine{g1Inf, ag1}
+{{- if (eq .Name "bn254")}}
+			linesQ = [][2][len(LoopCounter)]LineEvaluationAff{
+{{- else}}
+			linesQ = [][2][len(LoopCounter)-1]LineEvaluationAff{
+{{- end}}
+				PrecomputeLines(bg2),
+				PrecomputeLines(g2Inf),
+			}
+			res6, _ := PairFixedQ(tabP, linesQ)
+
+			// e([0,0])
+			// -> should be equal to 1
+			tabP = []G1Affine{g1Inf}
+			tabQ = []G2Affine{g2Inf}
+			res7, _ := Pair(tabP, tabQ)
+
+			// e([0,0]) with fixed point 0
+			// -> should be equal to 1
+			tabP = []G1Affine{g1Inf}
+{{- if (eq .Name "bn254")}}
+			linesQ = [][2][len(LoopCounter)]LineEvaluationAff{
+{{- else}}
+			linesQ = [][2][len(LoopCounter)-1]LineEvaluationAff{
+{{- end}}
+				PrecomputeLines(g2Inf),
+			}
+			res8, _ := PairFixedQ(tabP, linesQ)
+
+			return res1.Equal(&res2) && res2.Equal(&res3) && res3.Equal(&res4) &&
+				res5.Equal(&one) && res6.Equal(&one) && res7.Equal(&one) && res8.Equal(&one)
 		},
 		genR1,
 		genR2,

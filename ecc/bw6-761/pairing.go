@@ -213,7 +213,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	for i := 187; i >= 1; i-- {
 		result.Square(&result)
 
-		j = loopCounter1[i]*3 + loopCounter0[i]
+		j = LoopCounter1[i]*3 + LoopCounter[i]
 
 		for k := 0; k < n; k++ {
 			qProj1[k].doubleStep(&l0)
@@ -221,7 +221,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 			l0.r2.Mul(&l0.r2, &p[k].Y)
 
 			switch j {
-			// cases -4, -2, 2, 4 do not occur, given the static loopCounters
+			// cases -4, -2, 2, 4 do not occur, given the static LoopCounters
 			case -3:
 				qProj1[k].addMixedStep(&l, &q1Neg[k])
 				l.r1.Mul(&l.r1, &p[k].X)
@@ -249,7 +249,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 				prodLines = fptower.Mul014By014(&l0.r0, &l0.r1, &l0.r2, &l.r0, &l.r1, &l.r2)
 				result.MulBy01245(&prodLines)
 			default:
-				return GT{}, errors.New("invalid loopCounter")
+				return GT{}, errors.New("invalid LoopCounter")
 			}
 		}
 	}
@@ -368,4 +368,213 @@ func (p *g2Proj) lineCompute(evaluations *lineEvaluation, a *G2Affine) {
 	evaluations.r0.Set(&J)
 	evaluations.r1.Neg(&O)
 	evaluations.r2.Set(&L)
+}
+
+// ----------------------
+// Fixed-argument pairing
+// ----------------------
+
+type LineEvaluationAff struct {
+	R0 fp.Element
+	R1 fp.Element
+}
+
+// PairFixedQ calculates the reduced pairing for a set of points
+// ∏ᵢ e(Pᵢ, Qᵢ) where Q are fixed points in G2.
+//
+// This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
+func PairFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluationAff) (GT, error) {
+	f, err := MillerLoopFixedQ(P, lines)
+	if err != nil {
+		return GT{}, err
+	}
+	return FinalExponentiation(&f), nil
+}
+
+// PairingCheckFixedQ calculates the reduced pairing for a set of points and returns True if the result is One
+// ∏ᵢ e(Pᵢ, Qᵢ) =? 1 where Q are fixed points in G2.
+//
+// This function doesn't check that the inputs are in the correct subgroup. See IsInSubGroup.
+func PairingCheckFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluationAff) (bool, error) {
+	f, err := PairFixedQ(P, lines)
+	if err != nil {
+		return false, err
+	}
+	var one GT
+	one.SetOne()
+	return f.Equal(&one), nil
+}
+
+// PrecomputeLines precomputes the lines for the fixed-argument Miller loop
+func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter) - 1]LineEvaluationAff) {
+
+	// precomputations
+	var accQ, imQ, imQneg, negQ G2Affine
+	imQ.Y.Neg(&Q.Y)
+	negQ.X.Set(&Q.X)
+	negQ.Y.Set(&imQ.Y)
+	imQ.X.Mul(&Q.X, &thirdRootOneG1)
+	accQ.Set(&imQ)
+	imQneg.Neg(&imQ)
+
+	for i := len(LoopCounter) - 2; i >= 0; i-- {
+		accQ.doubleStep(&PrecomputedLines[0][i])
+
+		switch LoopCounter1[i]*3 + LoopCounter[i] {
+		// cases -4, -2, 2, 4 do not occur, given the static LoopCounters
+		case -3:
+			accQ.addStep(&PrecomputedLines[1][i], &imQneg)
+		case -1:
+			accQ.addStep(&PrecomputedLines[1][i], &negQ)
+		case 0:
+			continue
+		case 1:
+			accQ.addStep(&PrecomputedLines[1][i], &Q)
+		case 3:
+			accQ.addStep(&PrecomputedLines[1][i], &imQ)
+		default:
+			return [2][len(LoopCounter) - 1]LineEvaluationAff{}
+		}
+	}
+
+	return PrecomputedLines
+}
+
+// MillerLoopFixedQ computes the multi-Miller loop as in MillerLoop
+// but Qᵢ are fixed points in G2 known in advance.
+func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluationAff) (GT, error) {
+	// check input size match
+	n := len(P)
+	if n == 0 || n != len(lines) {
+		return GT{}, errors.New("invalid inputs sizes")
+	}
+
+	// no need to filter infinity points:
+	// 		1. if Pᵢ=(0,0) then -x/y=1/y=0 by gnark-crypto convention and so
+	// 		lines R0 and R1 are 0. It happens that result will stay, through
+	// 		the Miller loop, in 𝔽p⁶ because MulBy01(0,0,1),
+	// 		Mul01By01(0,0,1,0,0,1) and MulBy01245 set result.C0 to 0. At the
+	// 		end result will be in a proper subgroup of Fp¹² so it be reduced to
+	// 		1 in FinalExponentiation.
+	//
+	//      and/or
+	//
+	// 		2. if Qᵢ=(0,0) then PrecomputeLines(Qᵢ) will return lines R0 and R1
+	// 		that are 0 because of gnark-convention (*/0==0) in doubleStep and
+	// 		addStep. Similarly to Pᵢ=(0,0) it happens that result be 1
+	// 		after the FinalExponentiation.
+
+	// precomputations
+	yInv := make([]fp.Element, n)
+	xNegOverY := make([]fp.Element, n)
+	for k := 0; k < n; k++ {
+		yInv[k].Set(&P[k].Y)
+	}
+	yInv = fp.BatchInvert(yInv)
+	for k := 0; k < n; k++ {
+		xNegOverY[k].Mul(&P[k].X, &yInv[k]).
+			Neg(&xNegOverY[k])
+	}
+
+	// f_{a0+λ*a1,Q}(P)
+	var result GT
+	result.SetOne()
+	var prodLines [5]fp.Element
+
+	for i := len(LoopCounter) - 2; i >= 0; i-- {
+		result.Square(&result)
+
+		j := LoopCounter1[i]*3 + LoopCounter[i]
+		for k := 0; k < n; k++ {
+			lines[k][0][i].R1.
+				Mul(
+					&lines[k][0][i].R1,
+					&yInv[k],
+				)
+			lines[k][0][i].R0.
+				Mul(&lines[k][0][i].R0,
+					&xNegOverY[k],
+				)
+			if j == 0 {
+				result.MulBy01(
+					&lines[k][0][i].R1,
+					&lines[k][0][i].R0,
+				)
+
+			} else {
+				lines[k][1][i].R1.
+					Mul(
+						&lines[k][1][i].R1,
+						&yInv[k],
+					)
+				lines[k][1][i].R0.
+					Mul(
+						&lines[k][1][i].R0,
+						&xNegOverY[k],
+					)
+				prodLines = fptower.Mul01By01(
+					&lines[k][0][i].R1, &lines[k][0][i].R0,
+					&lines[k][1][i].R1, &lines[k][1][i].R0,
+				)
+				result.MulBy01245(&prodLines)
+			}
+		}
+	}
+
+	return result, nil
+
+}
+
+func (p *G2Affine) doubleStep(evaluations *LineEvaluationAff) {
+
+	var n, d, λ, xr, yr fp.Element
+	// λ = 3x²/2y
+	n.Square(&p.X)
+	λ.Double(&n).
+		Add(&λ, &n)
+	d.Double(&p.Y)
+	λ.Div(&λ, &d)
+
+	// xr = λ²-2x
+	xr.Square(&λ).
+		Sub(&xr, &p.X).
+		Sub(&xr, &p.X)
+
+	// yr = λ(x-xr)-y
+	yr.Sub(&p.X, &xr).
+		Mul(&yr, &λ).
+		Sub(&yr, &p.Y)
+
+	evaluations.R0.Set(&λ)
+	evaluations.R1.Mul(&λ, &p.X).
+		Sub(&evaluations.R1, &p.Y)
+
+	p.X.Set(&xr)
+	p.Y.Set(&yr)
+}
+
+func (p *G2Affine) addStep(evaluations *LineEvaluationAff, a *G2Affine) {
+	var n, d, λ, λλ, xr, yr fp.Element
+
+	// compute λ = (y2-y1)/(x2-x1)
+	n.Sub(&a.Y, &p.Y)
+	d.Sub(&a.X, &p.X)
+	λ.Div(&n, &d)
+
+	// xr = λ²-x1-x2
+	λλ.Square(&λ)
+	n.Add(&p.X, &a.X)
+	xr.Sub(&λλ, &n)
+
+	// yr = λ(x1-xr) - y1
+	yr.Sub(&p.X, &xr).
+		Mul(&yr, &λ).
+		Sub(&yr, &p.Y)
+
+	evaluations.R0.Set(&λ)
+	evaluations.R1.Mul(&λ, &p.X).
+		Sub(&evaluations.R1, &p.Y)
+
+	p.X.Set(&xr)
+	p.Y.Set(&yr)
 }

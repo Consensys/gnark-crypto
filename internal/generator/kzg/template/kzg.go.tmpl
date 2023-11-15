@@ -31,8 +31,11 @@ type ProvingKey struct {
 
 // VerifyingKey used to verify opening proofs
 type VerifyingKey struct {
-	G2 [2]{{ .CurvePackage }}.G2Affine // [G₂, [α]G₂ ]
-	G1 {{ .CurvePackage }}.G1Affine
+{{- if (eq .Name "bn254")}}
+	Lines [2][2][len({{ .CurvePackage }}.LoopCounter)]{{ .CurvePackage }}.LineEvaluationAff // precomputed pairing lines corresponding to G₂, [α]G₂
+{{- else}}
+	Lines [2][2][len({{ .CurvePackage }}.LoopCounter)-1]{{ .CurvePackage }}.LineEvaluationAff // precomputed pairing lines corresponding to G₂, [α]G₂
+{{- end}}
 }
 
 // SRS must be computed through MPC and comprises the ProvingKey and the VerifyingKey
@@ -99,15 +102,17 @@ func NewSRS(size uint64, bAlpha *big.Int) (*SRS, error) {
 				srs.Pk.G1[i] = g[i%4]
 			}
 		})
-		srs.Vk.G1 = gen1Aff
-		srs.Vk.G2[0] = gen2Aff
-		srs.Vk.G2[1].ScalarMultiplication(&srs.Vk.G2[0], &bt)
+		var btG2 {{ .CurvePackage }}.G2Affine
+		btG2.ScalarMultiplication(&gen2Aff, &bt)
+		srs.Vk.Lines[0] = {{ .CurvePackage }}.PrecomputeLines(gen2Aff)
+		srs.Vk.Lines[1] = {{ .CurvePackage }}.PrecomputeLines(btG2)
 		return &srs, nil
 	}
 	srs.Pk.G1[0] = gen1Aff
-	srs.Vk.G1 = gen1Aff
-	srs.Vk.G2[0] = gen2Aff
-	srs.Vk.G2[1].ScalarMultiplication(&gen2Aff, bAlpha)
+	var bAlphaG2 {{ .CurvePackage }}.G2Affine
+	bAlphaG2.ScalarMultiplication(&gen2Aff, bAlpha)
+	srs.Vk.Lines[0] = {{ .CurvePackage }}.PrecomputeLines(gen2Aff)
+	srs.Vk.Lines[1] = {{ .CurvePackage }}.PrecomputeLines(bAlphaG2)
 
 	alphas := make([]fr.Element, size-1)
 	alphas[0] = alpha
@@ -199,7 +204,7 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, vk Verify
 	var claimedValueG1Aff {{ .CurvePackage }}.G1Jac
 	var claimedValueBigInt big.Int
 	proof.ClaimedValue.BigInt(&claimedValueBigInt)
-	claimedValueG1Aff.ScalarMultiplicationAffine(&vk.G1, &claimedValueBigInt)
+	claimedValueG1Aff.ScalarMultiplicationBase(&claimedValueBigInt)
 
 	// [f(α) - f(a)]G₁
 	var fminusfaG1Jac {{ .CurvePackage }}.G1Jac
@@ -221,9 +226,13 @@ func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, vk Verify
 
 
 	// e([f(α)-f(a)+aH(α)]G₁], G₂).e([-H(α)]G₁, [α]G₂) == 1
-	check, err := {{ .CurvePackage }}.PairingCheck(
+	check, err := {{ .CurvePackage }}.PairingCheckFixedQ(
 		[]{{ .CurvePackage }}.G1Affine{totalG1Aff, negH},
-		[]{{ .CurvePackage }}.G2Affine{vk.G2[0], vk.G2[1]},
+{{- if (eq .Name "bn254")}}
+		[][2][len({{ .CurvePackage }}.LoopCounter)]{{ .CurvePackage }}.LineEvaluationAff{vk.Lines[0], vk.Lines[1]},
+{{- else}}
+		[][2][len({{ .CurvePackage }}.LoopCounter)-1]{{ .CurvePackage }}.LineEvaluationAff{vk.Lines[0], vk.Lines[1]},
+{{- end}}
 	)
 	if err != nil {
 		return err
@@ -455,7 +464,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	var foldedEvalsCommit {{ .CurvePackage }}.G1Affine
 	var foldedEvalsBigInt big.Int
 	foldedEvals.BigInt(&foldedEvalsBigInt)
-	foldedEvalsCommit.ScalarMultiplication(&vk.G1, &foldedEvalsBigInt)
+	foldedEvalsCommit.ScalarMultiplicationBase(&foldedEvalsBigInt)
 
 	// compute foldedDigests = ∑ᵢλᵢ[fᵢ(α)]G₁ - [∑ᵢλᵢfᵢ(aᵢ)]G₁
 	foldedDigests.Sub(&foldedDigests, &foldedEvalsCommit)
@@ -480,9 +489,9 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 
 	// pairing check
 	// e([∑ᵢλᵢ(fᵢ(α) - fᵢ(pᵢ) + pᵢHᵢ(α))]G₁, G₂).e([-∑ᵢλᵢ[Hᵢ(α)]G₁), [α]G₂)
-	check, err := {{ .CurvePackage }}.PairingCheck(
+	check, err := {{ .CurvePackage }}.PairingCheckFixedQ(
 		[]{{ .CurvePackage }}.G1Affine{foldedDigests, foldedQuotients},
-		[]{{ .CurvePackage }}.G2Affine{vk.G2[0], vk.G2[1]},
+		vk.Lines[:],
 	)
 	if err != nil {
 		return err
@@ -543,7 +552,7 @@ func deriveGamma(point fr.Element, digests []Digest, claimedValues []fr.Element,
 			return fr.Element{}, err
 		}
 	}
-	
+
 	for i := 0; i < len(dataTranscript); i++ {
 		if err := fs.Bind("gamma", dataTranscript[i]); err != nil {
 			return fr.Element{}, err
