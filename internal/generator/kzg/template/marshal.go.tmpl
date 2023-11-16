@@ -38,6 +38,9 @@ func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*{{.CurvePackage}}.
 	enc := {{ .CurvePackage }}.NewEncoder(w, options...)
 
 	toEncode := []interface{}{
+        &vk.G2[0],
+        &vk.G2[1],
+        &vk.G1,
         {{- if (eq .Name "bw6-756")}}
 		&vk.Lines[0][0][189].R0,
 		&vk.Lines[0][0][189].R1,
@@ -1652,6 +1655,9 @@ func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
 	dec := {{ .CurvePackage }}.NewDecoder(r)
 
 	toDecode := []interface{}{
+        &vk.G2[0],
+        &vk.G2[1],
+        &vk.G1,
         {{- if (eq .Name "bw6-756")}}
 		&vk.Lines[0][0][189].R0,
 		&vk.Lines[0][0][189].R1,
