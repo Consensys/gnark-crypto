@@ -186,7 +186,8 @@ func TestCommit(t *testing.T) {
 	var fxbi big.Int
 	fx.BigInt(&fxbi)
 	var manualCommit bls12381.G1Affine
-	manualCommit.ScalarMultiplicationBase(&fxbi)
+	manualCommit.Set(&testSrs.Vk.G1)
+	manualCommit.ScalarMultiplication(&manualCommit, &fxbi)
 
 	// compare both results
 	if !kzgCommit.Equal(&manualCommit) {

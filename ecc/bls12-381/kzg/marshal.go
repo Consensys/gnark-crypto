@@ -55,6 +55,9 @@ func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*bls12381.Encoder))
 	enc := bls12381.NewEncoder(w, options...)
 
 	toEncode := []interface{}{
+		&vk.G2[0],
+		&vk.G2[1],
+		&vk.G1,
 		&vk.Lines[0][0][62].R0,
 		&vk.Lines[0][0][62].R1,
 		&vk.Lines[0][0][61].R0,
@@ -609,6 +612,9 @@ func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
 	dec := bls12381.NewDecoder(r)
 
 	toDecode := []interface{}{
+		&vk.G2[0],
+		&vk.G2[1],
+		&vk.G1,
 		&vk.Lines[0][0][62].R0,
 		&vk.Lines[0][0][62].R1,
 		&vk.Lines[0][0][61].R0,
