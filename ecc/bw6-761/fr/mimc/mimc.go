@@ -142,13 +142,9 @@ func (d *digest) checksum() fr.Element {
 func (d *digest) encrypt(m fr.Element) fr.Element {
 	once.Do(initConstants) // init constants
 
-	var tmp fr.Element
 	for i := 0; i < mimcNbRounds; i++ {
-		// m = (m+k+c)^5
-		tmp.Add(&m, &d.h).Add(&tmp, &mimcConstants[i])
-		m.Square(&tmp).
-			Square(&m).
-			Mul(&m, &tmp)
+		// m = 1/(m+k+c)
+		m.Add(&m, &d.h).Add(&m, &mimcConstants[i]).Inverse(&m)
 	}
 	m.Add(&m, &d.h)
 	return m
