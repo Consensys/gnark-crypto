@@ -22,6 +22,8 @@ import (
 type Serializable interface {
 	io.ReaderFrom
 	io.WriterTo
+
+	WriteRawTo(w io.Writer) (n int64, err error)
 }
 
 type SRS Serializable

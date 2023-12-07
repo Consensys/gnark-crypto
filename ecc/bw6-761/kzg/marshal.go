@@ -1593,6 +1593,18 @@ func (srs *SRS) WriteTo(w io.Writer) (int64, error) {
 	return pn + vn, err
 }
 
+// WriteRawTo writes binary encoding of the entire SRS without point compression
+func (srs *SRS) WriteRawTo(w io.Writer) (int64, error) {
+	// encode the SRS
+	var pn, vn int64
+	var err error
+	if pn, err = srs.Pk.WriteRawTo(w); err != nil {
+		return pn, err
+	}
+	vn, err = srs.Vk.WriteRawTo(w)
+	return pn + vn, err
+}
+
 // ReadFrom decodes ProvingKey data from reader.
 func (pk *ProvingKey) ReadFrom(r io.Reader) (int64, error) {
 	// decode the ProvingKey
