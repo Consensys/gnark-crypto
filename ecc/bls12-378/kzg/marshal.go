@@ -1154,6 +1154,18 @@ func (srs *SRS) ReadFrom(r io.Reader) (int64, error) {
 	return pn + vn, err
 }
 
+// UnsafeReadFrom decodes SRS data from reader without sub group checks
+func (srs *SRS) UnsafeReadFrom(r io.Reader) (int64, error) {
+	// decode the VerifyingKey
+	var pn, vn int64
+	var err error
+	if pn, err = srs.Pk.UnsafeReadFrom(r); err != nil {
+		return pn, err
+	}
+	vn, err = srs.Vk.ReadFrom(r)
+	return pn + vn, err
+}
+
 // WriteTo writes binary encoding of a OpeningProof
 func (proof *OpeningProof) WriteTo(w io.Writer) (int64, error) {
 	enc := bls12378.NewEncoder(w)

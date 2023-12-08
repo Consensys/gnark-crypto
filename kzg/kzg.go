@@ -24,6 +24,7 @@ type Serializable interface {
 	io.WriterTo
 
 	WriteRawTo(w io.Writer) (n int64, err error)
+	UnsafeReadFrom(r io.Reader) (int64, error)
 }
 
 type SRS Serializable
