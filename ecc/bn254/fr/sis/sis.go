@@ -119,7 +119,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		LogTwoBound:         logTwoBound,
 		capacity:            capacity,
 		Degree:              degree,
-		Domain:              fft.NewDomain(uint64(degree), shift),
+		Domain:              fft.NewDomain(uint64(degree), fft.WithShift(shift)),
 		A:                   make([][]fr.Element, n),
 		Ag:                  make([][]fr.Element, n),
 		bufM:                make(fr.Vector, degree*n),
