@@ -3,7 +3,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"math/big"
-	"sync"
 	{{ template "import_fr" . }}
 )
 
@@ -20,8 +19,6 @@ const (
 	DIF
 )
 
-var _ = big.NewInt(0)
-
 // parallelize threshold for a single butterfly op, if the fft stage is not parallelized already
 const butterflyThreshold = 16
 
@@ -31,6 +28,13 @@ const butterflyThreshold = 16
 func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option) {
 
 	opt := fftOptions(opts...)
+
+	// find the stage where we should stop spawning go routines in our recursive calls
+	// (ie when we have as many go routines running as we have available CPUs)
+	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(uint64(opt.nbTasks)))
+	if opt.nbTasks == 1 {
+		maxSplits = -1
+	}
 
 	// if coset != 0, scale by coset table
 	if opt.coset {
@@ -53,60 +57,23 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 		}
 	}
 
-	// find the stage where we should stop spawning go routines in our recursive calls
-	// (ie when we have as many go routines running as we have available CPUs)
-	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(uint64(opt.nbTasks)))
-	if opt.nbTasks == 1 {
-		maxSplits = -1
+	twiddles := domain.Twiddles
+	twiddlesStartStage := 0
+	if !domain.hasPrecomputedTwiddles {
+		// TODO @gbotrel		
 	}
 
-	if false {
-		// we precompute twiddles only for the last stage.
-		var kernelTwiddles [{{$nbTwiddlesInKernel}}]fr.Element
-		var w fr.Element
-		if domain.Cardinality >= {{$sizeKernel}} {
-			w.Exp(domain.Generator, big.NewInt(int64(domain.Cardinality/{{ $sizeKernel }})))
-			precomputeKernelTwiddles(w, &kernelTwiddles)
-		}
-
-		switch decimation {
-		case DIF:
-			difFFTNP(a, domain.Generator, &kernelTwiddles, 0, maxSplits, nil, opt.nbTasks)
-		case DIT:
-			ditFFTNP(a, domain.Generator, &kernelTwiddles, 0, maxSplits, nil, opt.nbTasks)
-		default:
-			panic("not implemented")
-		}
-
-	} else {
-		switch decimation {
-		case DIF:
-			// twiddles := make([]fr.Element, len(domain.Twiddles[0]))
-			// copy(twiddles, domain.Twiddles[0])
-			// // twiddles[0].SetOne()
-			// // twiddles[1] = domain.Generator
-			// // for i := 2; i < len(twiddles); i++ {
-			// // 	twiddles[i].Mul(&twiddles[i-1], &domain.Generator)
-			// // }
-			// var b barrier
-			// b.reset()
-			// difFFT2(a, domain.PaddedTwiddles, 0, maxSplits, nil, opt.nbTasks)
-			magicNumber := 4
-			difFFT2(a, domain.Generator, domain.Twiddles[magicNumber:], 0, maxSplits, nil, opt.nbTasks, magicNumber)
-		case DIT:
-			ditFFT(a, domain.Twiddles, 0, maxSplits, nil, opt.nbTasks)
-		default:
-			panic("not implemented")
-		}
+	switch decimation {
+	case DIF:
+		difFFT(a, domain.Generator, twiddles, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
+	case DIT:
+		ditFFT(a, domain.Generator, twiddles, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
+	default:
+		panic("not implemented")
 	}
 }
 
-func precomputeKernelTwiddles(w fr.Element, t *[{{$nbTwiddlesInKernel}}]fr.Element) {
-	t[0] = w
-	for i := 1; i < len(t); i++ {
-		t[i].Mul(&t[i-1], &w)
-	}
-}
+
 
 // FFTInverse computes (recursively) the inverse discrete Fourier transform of a and stores the result in a
 // if decimation == DIT (decimation in time), the input must be in bit-reversed order
@@ -124,9 +91,9 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 	}
 	switch decimation {
 	case DIF:
-		difFFT(a, domain.TwiddlesInv, 0, maxSplits, nil, opt.nbTasks)
+		difFFT(a, domain.GeneratorInv, domain.TwiddlesInv,0, 0, maxSplits, nil, opt.nbTasks)
 	case DIT:
-		ditFFT(a, domain.TwiddlesInv, 0, maxSplits, nil, opt.nbTasks)
+		ditFFT(a, domain.GeneratorInv, domain.TwiddlesInv,0, 0, maxSplits, nil, opt.nbTasks)
 	default:
 		panic("not implemented")
 	}
@@ -165,131 +132,8 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 
 }
 
-func difFFT32(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
-    n := len(a)
-    m := n >> 1
-    stack := make([]int, 0)
-    stack = append(stack, 0) // push initial index to stack
 
-    for len(stack) > 0 {
-        j := stack[len(stack)-1] // peek the top element of stack
-        stack = stack[:len(stack)-1] // pop from stack
-        offset := j * n
-
-        if n == {{$sizeKernel}} {
-            kerDIFNP_{{$sizeKernel}}Slice(a[offset:offset+n], twiddles[stage])
-            continue
-        }
-
-        fr.Butterfly(&a[offset], &a[offset + m])
-        k := 1
-        for i := offset +1 ; i < offset + m; i++ {
-            fr.Butterfly(&a[i], &a[i + m])
-            a[i + m].Mul(&a[i + m], &twiddles[stage][k])
-            k++
-        }
-
-        if n != {{$sizeKernel}} {
-            n /= 2
-            m = n >> 1
-            stage++
-            for i := 0; i < 2; i++ { // push two child nodes to stack
-                stack = append(stack, j*2+i)
-            }
-        }
-    }
-
-    return
-}
-
-
-func difFFT3(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
-	n := len(a)
-	m := n >> 1
-	split := 1
-	for n > 1 {
-		for j := 0; j < split ; j++ {
-			offset := j * n
-			if n == {{$sizeKernel}} {
-				kerDIFNP_{{$sizeKernel}}Slice(a[offset:offset+n], twiddles[stage])
-				continue
-			} 	
-	
-			fr.Butterfly(&a[offset], &a[offset + m])
-			k := 1
-			for i := offset +1 ; i < offset + m; i++ {
-				fr.Butterfly(&a[i], &a[i + m])
-				a[i + m].Mul(&a[i + m], &twiddles[stage][k])
-				k++
-			}
-		}
-
-		if n == {{$sizeKernel}} {
-			break
-		}
-		n/=2
-		m = n >> 1
-		split *= 2
-		stage++
-		
-	}
-
-	return
-
-
-	// if chDone != nil {
-	// 	defer close(chDone)
-	// }
-
-	// n := len(a)
-	// if n == 1 {
-	// 	return
-	// } else if n == 8 {
-	// 	kerDIF8(a, twiddles, stage)
-	// 	return
-	// }
-	// m := n >> 1
-
-
-
-	// // if stage < maxSplits, we parallelize this butterfly
-	// // but we have only numCPU / stage cpus available
-	// if (m > butterflyThreshold) && (stage < maxSplits) {
-	// 	// 1 << stage == estimated used CPUs
-	// 	numCPU := nbTasks / (1 << (stage))
-	// 	parallel.Execute(m, func(start, end int) {
-	// 		for i := start; i < end; i++ {
-	// 			fr.Butterfly(&a[i], &a[i+m])
-	// 			a[i+m].Mul(&a[i+m], &twiddles[stage][i])
-	// 		}
-	// 	}, numCPU)
-	// } else {
-	// 	// i == 0
-	// 	fr.Butterfly(&a[0], &a[m])
-	// 	for i := 1; i < m; i++ {
-	// 		fr.Butterfly(&a[i], &a[i+m])
-	// 		a[i+m].Mul(&a[i+m], &twiddles[stage][i])
-	// 	}
-	// }
-
-	// if m == 1 {
-	// 	return
-	// }
-
-	// nextStage := stage + 1
-	// if stage < maxSplits {
-	// 	chDone := make(chan struct{}, 1)
-	// 	go difFFT(a[m:n], twiddles, nextStage, maxSplits, chDone, nbTasks)
-	// 	difFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
-	// 	<-chDone
-	// } else {
-	// 	difFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
-	// 	difFFT(a[m:n], twiddles, nextStage, maxSplits, nil, nbTasks)
-	// }
-
-}
-
-func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
+func difFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
 	if chDone != nil {
 		defer close(chDone)
 	}
@@ -297,548 +141,215 @@ func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDon
 	n := len(a)
 	if n == 1 {
 		return
-	} else if n == 8 {
-		kerDIF8(a, twiddles, stage)
+	} else if n == {{$sizeKernel}} && stage >= twiddlesStartStage  {
+		kerDIFNP_{{$sizeKernel}}(a, twiddles, stage-twiddlesStartStage)
 		return
 	}
 	m := n >> 1
 
-	// if stage < maxSplits, we parallelize this butterfly
-	// but we have only numCPU / stage cpus available
-	if (m > butterflyThreshold) && (stage < maxSplits) {
-		// 1 << stage == estimated used CPUs
-		numCPU := nbTasks / (1 << (stage))
-		parallel.Execute(m, func(start, end int) {
-			for i := start; i < end; i++ {
-				fr.Butterfly(&a[i], &a[i+m])
-				a[i+m].Mul(&a[i+m], &twiddles[stage][i])
-			}
-		}, numCPU)
-	} else {
-		// i == 0
-		fr.Butterfly(&a[0], &a[m])
-		for i := 1; i < m; i++ {
-			fr.Butterfly(&a[i], &a[i+m])
-			a[i+m].Mul(&a[i+m], &twiddles[stage][i])
-		}
-	}
-
-	if m == 1 {
-		return
-	}
-
-	nextStage := stage + 1
-	if stage < maxSplits {
-		chDone := make(chan struct{}, 1)
-		go difFFT(a[m:n], twiddles, nextStage, maxSplits, chDone, nbTasks)
-		difFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
-		<-chDone
-	} else {
-		difFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
-		difFFT(a[m:n], twiddles, nextStage, maxSplits, nil, nbTasks)
-	}
-
-}
-
-type barrier struct {
-	lock  sync.Mutex
-	count int
-	chWait   chan struct{}
-}
-
-func (b *barrier) reset() {
-	b.count = 0
-	b.chWait = make(chan struct{})
-}
-
-func (b *barrier) waitAndDo(targetCount int, f func()) {
-	b.lock.Lock()
-	b.count++
-	if b.count == targetCount {
-		// we are the last ones; execute f, and reset the barrier
-		f()
-		close(b.chWait)
-		b.reset()
-		b.lock.Unlock()
-		return
-	}
-	b.lock.Unlock()
-	<-b.chWait
-	// fmt.Println("waking up with target count", targetCount)
-}
-
-
-func difFFT2(a []fr.Element, w fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks,magicNumber int) {
-	if chDone != nil {
-		defer close(chDone)
-	}
-
-	n := len(a)
-	if n == 1 {
-		return
-	} else if n == {{$sizeKernel}} && stage >= magicNumber  {
-		// kerDIF82(a, twiddles, stage-4)
-		kerDIFNP_{{$sizeKernel}}Slice2(a, twiddles, stage-magicNumber)
-		return
-	}
-
-	m := n >> 1
-	if stage < magicNumber {
-		numCPU := nbTasks / (1 << (stage))
-		w := w
-		parallel.Execute(m, func(start, end int) {
-			if start == 0 {
-				fr.Butterfly(&a[0], &a[m])
-				start++
-			}
-			var at fr.Element
-			at.Exp(w, big.NewInt(int64(start)))
-			for i := start; i < end; i++ {
+	if stage < twiddlesStartStage {
+		// we need to compute the twiddles for this stage on the fly.
+		if (m > butterflyThreshold) && (stage < maxSplits) {
+			// 1 << stage == estimated used CPUs
+			numCPU := nbTasks / (1 << (stage))
+			w := w
+			parallel.Execute(m, func(start, end int) {
+				if start == 0 {
+					fr.Butterfly(&a[0], &a[m])
+					start++
+				}
+				var at fr.Element
+				at.Exp(w, big.NewInt(int64(start)))
+				for i := start; i < end; i++ {
+					fr.Butterfly(&a[i], &a[i+m])
+					a[i+m].Mul(&a[i+m], &at)
+					at.Mul(&at, &w)
+				}
+			}, numCPU)
+		} else {
+			// i == 0
+			fr.Butterfly(&a[0], &a[m])
+			at := w
+			for i := 1; i < m; i++ {
 				fr.Butterfly(&a[i], &a[i+m])
 				a[i+m].Mul(&a[i+m], &at)
 				at.Mul(&at, &w)
 			}
-		}, numCPU)
+		}
+
 	} else {
+		// if stage < maxSplits, we parallelize this butterfly
+		// but we have only numCPU / stage cpus available
 		if (m > butterflyThreshold) && (stage < maxSplits) {
 			// 1 << stage == estimated used CPUs
 			numCPU := nbTasks / (1 << (stage))
 			parallel.Execute(m, func(start, end int) {
 				for i := start; i < end; i++ {
 					fr.Butterfly(&a[i], &a[i+m])
-					a[i+m].Mul(&a[i+m],&twiddles[(stage-magicNumber)][i])
+					a[i+m].Mul(&a[i+m], &twiddles[stage-twiddlesStartStage][i])
 				}
 			}, numCPU)
 		} else {
-			fr.Butterfly(&a[0], &a[m])
-			for i := 1; i < m; i++ {
-				fr.Butterfly(&a[i], &a[i+m])
-				a[i+m].Mul(&a[i+m], &twiddles[(stage-magicNumber)][i])
-			}
-		}
-	}
-
-	if m == 1 {
-		return
-	}
-
-	w.Square(&w)
-	nextStage := stage + 1
-	if stage < maxSplits {
-		chDone := make(chan struct{}, 1)
-		go difFFT2(a[m:n], w, twiddles, nextStage, maxSplits, chDone, nbTasks, magicNumber)
-		difFFT2(a[0:m], w, twiddles, nextStage, maxSplits, nil, nbTasks, magicNumber)
-		<-chDone
-	} else {
-		difFFT2(a[0:m], w, twiddles, nextStage, maxSplits, nil, nbTasks, magicNumber)
-		difFFT2(a[m:n], w, twiddles, nextStage, maxSplits, nil, nbTasks, magicNumber)
-	}
-}
-
-func ditFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
-	if chDone != nil {
-		defer close(chDone)
-	}
-	n := len(a)
-	if n == 1 {
-		return
-	} else if n == 8 {
-		kerDIT8(a, twiddles, stage)
-		return
-	}
-	m := n >> 1
-
-	nextStage := stage + 1
-
-	if stage < maxSplits {
-		// that's the only time we fire go routines
-		chDone := make(chan struct{}, 1)
-		go ditFFT(a[m:], twiddles, nextStage, maxSplits, chDone, nbTasks)
-		ditFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
-		<-chDone
-	} else {
-		ditFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
-		ditFFT(a[m:n], twiddles, nextStage, maxSplits, nil, nbTasks)
-
-	}
-
-	// if stage < maxSplits, we parallelize this butterfly
-	// but we have only numCPU / stage cpus available
-	if (m > butterflyThreshold) && (stage < maxSplits) {
-		// 1 << stage == estimated used CPUs
-		numCPU := nbTasks / (1 << (stage))
-		parallel.Execute(m, func(start, end int) {
-			for k := start; k < end; k++ {
-				a[k+m].Mul(&a[k+m], &twiddles[stage][k])
-				fr.Butterfly(&a[k], &a[k+m])
-			}
-		}, numCPU)
-
-	} else {
-		fr.Butterfly(&a[0], &a[m])
-		for k := 1; k < m; k++ {
-			a[k+m].Mul(&a[k+m], &twiddles[stage][k])
-			fr.Butterfly(&a[k], &a[k+m])
-		}
-	}
-}
-
-// kerDIT8 is a kernel that process a FFT of size 8
-func kerDIT8(a []fr.Element, twiddles [][]fr.Element, stage int) {
-	{{- /* notes: 
-		this function can be updated with larger n
-		nbSteps must be updated too such as 1 << nbSteps == n
-		butterflies and multiplication are separated for size n = 8, must check perf for larger n
-	 */}}
-	{{ $n := 2}}
-	{{ $m := div $n 2}}
-	{{ $split := 4}}
-	{{- range $step := reverse (iterate 0 3)}} 
-		{{- $offset := 0}}
-		{{- range $s := reverse (iterate 0 $split)}}
-			{{- range $i := iterate 0 $m}}
-				{{- $j := add $i $offset}}
-				{{- $k := add $j $m}}
-				{{- if ne $i 0}}
-				 	a[{{$k}}].Mul(&a[{{$k}}], &twiddles[stage+{{$step}}][{{$i}}])
-				{{- end}}
-				fr.Butterfly(&a[{{$j}}], &a[{{$k}}])
-			{{- end}}
-			{{- $offset = add $offset $n}}
-		{{- end}}
-		
-		{{- $n = mul $n 2}}
-		{{- $m = div $n 2}}
-		{{- $split = div $split 2}}
-	{{- end}}
-}
-
-func kerDIF82(a []fr.Element, twiddles []fr.Element, stage int) {
-	{{- /* notes: 
-		this function can be updated with larger n
-		nbSteps must be updated too such as 1 << nbSteps == n
-		butterflies and multiplication are separated for size n = 8, must check perf for larger n
-	 */}}
-	{{ $n := 8}}
-	{{ $m := div $n 2}}
-	{{ $split := 1}}
-	{{- range $step := iterate 0 3}} 
-		{{- $offset := 0}}
-		{{- range $s := iterate 0 $split}}
-			{{- range $i := iterate 0 $m}}
-				{{- $j := add $i $offset}}
-				{{- $k := add $j $m}}
-				fr.Butterfly(&a[{{$j}}], &a[{{$k}}])
-			{{- end}}
-			{{- $offset = add $offset $n}}
-		{{- end}}
-
-		{{- $offset := 0}}
-		{{- range $s := iterate 0 $split}}
-			{{- range $i := iterate 0 $m}}
-				{{- $j := add $i $offset}}
-				{{- $k := add $j $m}}
-				{{- if ne $i 0}}
-				 	a[{{$k}}].Mul(&a[{{$k}}], &twiddles[1<<(stage+{{$step}}) * {{$i}}])
-				{{- end}}
-			{{- end}}
-			{{- $offset = add $offset $n}}
-		{{- end}}
-		{{- $n = div $n 2}}
-		{{- $m = div $n 2}}
-		{{- $split = mul $split 2}}
-	{{- end}}
-}
-
-// kerDIF8 is a kernel that process a FFT of size 8
-func kerDIF8(a []fr.Element, twiddles [][]fr.Element, stage int) {
-	{{- /* notes: 
-		this function can be updated with larger n
-		nbSteps must be updated too such as 1 << nbSteps == n
-		butterflies and multiplication are separated for size n = 8, must check perf for larger n
-	 */}}
-	{{ $n := 8}}
-	{{ $m := div $n 2}}
-	{{ $split := 1}}
-	{{- range $step := iterate 0 3}} 
-		{{- $offset := 0}}
-		{{- range $s := iterate 0 $split}}
-			{{- range $i := iterate 0 $m}}
-				{{- $j := add $i $offset}}
-				{{- $k := add $j $m}}
-				fr.Butterfly(&a[{{$j}}], &a[{{$k}}])
-			{{- end}}
-			{{- $offset = add $offset $n}}
-		{{- end}}
-
-		{{- $offset := 0}}
-		{{- range $s := iterate 0 $split}}
-			{{- range $i := iterate 0 $m}}
-				{{- $j := add $i $offset}}
-				{{- $k := add $j $m}}
-				{{- if ne $i 0}}
-				 	a[{{$k}}].Mul(&a[{{$k}}], &twiddles[stage+{{$step}}][{{$i}}])
-				{{- end}}
-			{{- end}}
-			{{- $offset = add $offset $n}}
-		{{- end}}
-		{{- $n = div $n 2}}
-		{{- $m = div $n 2}}
-		{{- $split = mul $split 2}}
-	{{- end}}
-}
-
-
-
-// difFFTNP doesn't use the domain twiddles, but precomputed twiddles for a kernel of size {{ $sizeKernel }}
-func difFFTNP(a []fr.Element, w fr.Element,kernelTwiddles *[{{$nbTwiddlesInKernel}}]fr.Element,  stage, maxSplits int, chDone chan struct{}, nbTasks int) {
-	if chDone != nil {
-		defer close(chDone)
-	}
-	
-	n := len(a)
-	if n == 1 {
-		return
-	} else if n == {{$sizeKernel}} {
-		kerDIFNP_{{$sizeKernel}}(a, kernelTwiddles)
-		return
-	}
-	m := n >> 1
-
-	// if stage < maxSplits, we parallelize this butterfly
-	// but we have only numCPU / stage cpus available
-	if (m > butterflyThreshold) && (stage < maxSplits) {
-		// 1 << stage == estimated used CPUs
-		numCPU := nbTasks / (1 << (stage))
-		w := w
-		parallel.Execute(m, func(start, end int) {
-			var at fr.Element
-			at.Exp(w, big.NewInt(int64(start)))
-			for i := start; i < end; i++ {
-				fr.Butterfly(&a[i], &a[i+m])
-				a[i+m].Mul(&a[i+m], &at)
-				at.Mul(&at, &w)
-			}
-		}, numCPU)
-	} else {
-			at := w
 			// i == 0
 			fr.Butterfly(&a[0], &a[m])
 			for i := 1; i < m; i++ {
 				fr.Butterfly(&a[i], &a[i+m])
-				a[i+m].Mul(&a[i+m], &at)
-				at.Mul(&at, &w)
+				a[i+m].Mul(&a[i+m], &twiddles[stage-twiddlesStartStage][i])
 			}
+		}
 	}
 
 	if m == 1 {
 		return
 	}
 
-
 	w.Square(&w)
 	nextStage := stage + 1
 	if stage < maxSplits {
 		chDone := make(chan struct{}, 1)
-		go difFFTNP(a[m:n], w, kernelTwiddles, nextStage, maxSplits, chDone, nbTasks)
-		difFFTNP(a[0:m], w, kernelTwiddles, nextStage, maxSplits, nil, nbTasks)
+		go difFFT(a[m:n], w, twiddles, twiddlesStartStage, nextStage, maxSplits, chDone, nbTasks)
+		difFFT(a[0:m], w, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
 		<-chDone
 	} else {
-		difFFTNP(a[0:m], w, kernelTwiddles, nextStage, maxSplits, nil, nbTasks)
-		difFFTNP(a[m:n], w, kernelTwiddles, nextStage, maxSplits, nil, nbTasks)
+		difFFT(a[0:m], w, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
+		difFFT(a[m:n], w, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
 	}
 
 }
 
-// kerDIFNP_{{$sizeKernel}} is a kernel that process a FFT of size {{$sizeKernel}}
-func kerDIFNP_{{$sizeKernel}}(a []fr.Element, w *[{{$nbTwiddlesInKernel}}]fr.Element) {
-	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
 
-	{{ $n := shl 1 $nbStepsPOW}}
-	{{ $m := div $n 2}}
-	{{ $split := 1}}
-	{{- range $step := iterate 0 $nbStepsPOW}} 
-		{{- $offset := 0}}
-
-		{{- $bound := mul $split $n}}
-		for offset := 0; offset < {{$bound}}; offset += {{$n}} {
-			fr.Butterfly(&a[offset], &a[offset + {{$m}}])
-			{{- if gt $m 1}}
-			k := 1
-			for i := offset +1 ; i < offset + {{$m}}; i++ {
-				fr.Butterfly(&a[i], &a[i + {{$m}}])
-				a[i + {{$m}}].Mul(&a[i + {{$m}}], &w[{{shl 1 $step}} * k - 1])
-				k++
-			}
-			{{- end}}
-		}
-
-		{{- $n = div $n 2}}
-		{{- $m = div $n 2}}
-		{{- $split = mul $split 2}}
-	{{- end}}
-}
-
-
-// kerDIFNP_{{$sizeKernel}} is a kernel that process a FFT of size {{$sizeKernel}}
-func kerDIFNP_{{$sizeKernel}}Slice2(a []fr.Element, w [][]fr.Element, stage int) {
-	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
-
-	{{ $n := shl 1 $nbStepsPOW}}
-	{{ $m := div $n 2}}
-	{{ $split := 1}}
-	{{- range $step := iterate 0 $nbStepsPOW}} 
-		{{- $offset := 0}}
-
-		{{- $bound := mul $split $n}}
-		for offset := 0; offset < {{$bound}}; offset += {{$n}} {
-			fr.Butterfly(&a[offset], &a[offset + {{$m}}])
-			{{- if gt $m 1}}
-			k := 1
-			for i := offset +1 ; i < offset + {{$m}}; i++ {
-				fr.Butterfly(&a[i], &a[i + {{$m}}])
-				// a[i + {{$m}}].Mul(&a[i + {{$m}}], &w[(1 << (stage + {{$step}})) * k])
-				a[i + {{$m}}].Mul(&a[i + {{$m}}], &w[(stage + {{$step}})][k])
-				k++
-			}
-			{{- end}}
-		}
-
-		{{- $n = div $n 2}}
-		{{- $m = div $n 2}}
-		{{- $split = mul $split 2}}
-	{{- end}}
-}
-
-// kerDIFNP_{{$sizeKernel}} is a kernel that process a FFT of size {{$sizeKernel}}
-func kerDIFNP_{{$sizeKernel}}Slice(a []fr.Element, w []fr.Element) {
-	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
-	_ = w[{{sub $nbTwiddlesInKernel 1}}]
-
-	{{ $n := shl 1 $nbStepsPOW}}
-	{{ $m := div $n 2}}
-	{{ $split := 1}}
-	{{- range $step := iterate 0 $nbStepsPOW}} 
-		{{- $offset := 0}}
-
-		{{- $bound := mul $split $n}}
-		for offset := 0; offset < {{$bound}}; offset += {{$n}} {
-			fr.Butterfly(&a[offset], &a[offset + {{$m}}])
-			{{- if gt $m 1}}
-			k := 1
-			for i := offset +1 ; i < offset + {{$m}}; i++ {
-				fr.Butterfly(&a[i], &a[i + {{$m}}])
-				a[i + {{$m}}].Mul(&a[i + {{$m}}], &w[{{shl 1 $step}} * k])
-				k++
-			}
-			{{- end}}
-		}
-
-		{{- $n = div $n 2}}
-		{{- $m = div $n 2}}
-		{{- $split = mul $split 2}}
-	{{- end}}
-}
-
-
-
-func ditFFTNP(a []fr.Element, w fr.Element, kernelTwiddles *[{{$nbTwiddlesInKernel}}]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
+func ditFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
 	if chDone != nil {
 		defer close(chDone)
 	}
 	n := len(a)
 	if n == 1 {
 		return
-	} else if n == {{$sizeKernel}} {
-		kerDITNP_{{$sizeKernel}}(a, kernelTwiddles)
+	} else if n == {{$sizeKernel}} && stage >= twiddlesStartStage  {
+		kerDITNP_{{$sizeKernel}}(a, twiddles, stage-twiddlesStartStage)
 		return
 	}
 	m := n >> 1
 
 	nextStage := stage + 1
-
-	nextW := w 
-	nextW.Square(&nextW)
+	var nextW fr.Element
+	nextW.Square(&w)
 	if stage < maxSplits {
 		// that's the only time we fire go routines
 		chDone := make(chan struct{}, 1)
-		go ditFFTNP(a[m:], nextW, kernelTwiddles, nextStage, maxSplits, chDone, nbTasks)
-		ditFFTNP(a[0:m], nextW, kernelTwiddles, nextStage, maxSplits, nil, nbTasks)
+		go ditFFT(a[m:],nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, chDone, nbTasks)
+		ditFFT(a[0:m],nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
 		<-chDone
 	} else {
-		ditFFTNP(a[0:m], nextW, kernelTwiddles, nextStage, maxSplits, nil, nbTasks)
-		ditFFTNP(a[m:n], nextW, kernelTwiddles, nextStage, maxSplits, nil, nbTasks)
-
+		ditFFT(a[0:m],nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
+		ditFFT(a[m:n],nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
 	}
 
-	// if stage < maxSplits, we parallelize this butterfly
-	// but we have only numCPU / stage cpus available
-	if (m > butterflyThreshold) && (stage < maxSplits) {
-		// 1 << stage == estimated used CPUs
-		numCPU := nbTasks / (1 << (stage))
-		w := w
-		parallel.Execute(m, func(start, end int) {
-			if start == 0 {
-				start++
-			}
-			var at fr.Element
-			if start == 1 {
-				at = w
-				fr.Butterfly(&a[0], &a[m])
-			} else {
+	if stage < twiddlesStartStage {
+		// we need to compute the twiddles for this stage on the fly.
+		if (m > butterflyThreshold) && (stage < maxSplits) {
+			// 1 << stage == estimated used CPUs
+			numCPU := nbTasks / (1 << (stage))
+			w := w
+			parallel.Execute(m, func(start, end int) {
+				if start == 0 {
+					fr.Butterfly(&a[0], &a[m])
+					start++
+				}
+				var at fr.Element
 				at.Exp(w, big.NewInt(int64(start)))
-			}
-			for k := start; k < end; k++ {
-				a[k+m].Mul(&a[k+m], &at)
+				for i := start; i < end; i++ {
+					a[i+m].Mul(&a[i+m], &at)
+					at.Mul(&at, &w)
+					fr.Butterfly(&a[i], &a[i+m])
+				}
+			}, numCPU)
+
+		} else {
+			at := w 
+			fr.Butterfly(&a[0], &a[m])
+			for i := 1; i < m; i++ {
+				a[i+m].Mul(&a[i+m], &at)
 				at.Mul(&at, &w)
-				fr.Butterfly(&a[k], &a[k+m])
+				fr.Butterfly(&a[i], &a[i+m])
 			}
-		}, numCPU)
+		}
 
 	} else {
-		at := w 
-		fr.Butterfly(&a[0], &a[m])
-		for k := 1; k < m; k++ {
-			a[k+m].Mul(&a[k+m], &at)
-			at.Mul(&at, &w)
-			fr.Butterfly(&a[k], &a[k+m])
+		// if stage < maxSplits, we parallelize this butterfly
+		// but we have only numCPU / stage cpus available
+		if (m > butterflyThreshold) && (stage < maxSplits) {
+			// 1 << stage == estimated used CPUs
+			numCPU := nbTasks / (1 << (stage))
+			parallel.Execute(m, func(start, end int) {
+				for k := start; k < end; k++ {
+					a[k+m].Mul(&a[k+m], &twiddles[stage-twiddlesStartStage][k])
+					fr.Butterfly(&a[k], &a[k+m])
+				}
+			}, numCPU)
+
+		} else {
+			fr.Butterfly(&a[0], &a[m])
+			for k := 1; k < m; k++ {
+				a[k+m].Mul(&a[k+m], &twiddles[stage-twiddlesStartStage][k])
+				fr.Butterfly(&a[k], &a[k+m])
+			}
 		}
 	}
 }
 
 
-// kerDITNP_{{$sizeKernel}} is a kernel that process a FFT of size {{$sizeKernel}}
-func kerDITNP_{{$sizeKernel}}(a []fr.Element, w *[{{$nbTwiddlesInKernel}}]fr.Element) {
+func kerDIFNP_{{$sizeKernel}}(a []fr.Element, twiddles [][]fr.Element, stage int) {
+	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
+
+	{{ $n := shl 1 $nbStepsPOW}}
+	{{ $m := div $n 2}}
+	{{ $split := 1}}
+	{{- range $step := iterate 0 $nbStepsPOW}} 
+		{{- $offset := 0}}
+
+		{{- $bound := mul $split $n}}
+		for offset := 0; offset < {{$bound}}; offset += {{$n}} {
+			fr.Butterfly(&a[offset], &a[offset + {{$m}}])
+			{{- if gt $m 1}}
+			k := 1
+			for i := offset +1 ; i < offset + {{$m}}; i++ {
+				fr.Butterfly(&a[i], &a[i + {{$m}}])
+				a[i + {{$m}}].Mul(&a[i + {{$m}}], &twiddles[stage + {{$step}}][k])
+				k++
+			}
+			{{- end}}
+		}
+
+		{{- $n = div $n 2}}
+		{{- $m = div $n 2}}
+		{{- $split = mul $split 2}}
+	{{- end}}
+}
+
+
+func kerDITNP_{{$sizeKernel}}(a []fr.Element, twiddles [][]fr.Element, stage int) {
+	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
+
 	{{ $n := 2}}
 	{{ $m := div $n 2}}
 	{{ $split := div (shl 1 $nbStepsPOW) 2}}
 	{{- range $step := reverse (iterate 0 $nbStepsPOW)}} 
-		{{- if gt $m 2}}
-		for offset := 0; offset < {{mul $split $n}}; offset += {{$n}} {
+		{{- $offset := 0}}
+
+		{{- $bound := mul $split $n}}
+		for offset := 0; offset < {{$bound}}; offset += {{$n}} {
 			fr.Butterfly(&a[offset], &a[offset + {{$m}}])
+			{{- if gt $m 1}}
 			k := 1
 			for i := offset +1 ; i < offset + {{$m}}; i++ {
-				a[i + {{$m}}].Mul(&a[i + {{$m}}], &w[{{shl 1 $step}} * k - 1])
+				a[i + {{$m}}].Mul(&a[i + {{$m}}], &twiddles[stage + {{$step}}][k])
 				fr.Butterfly(&a[i], &a[i + {{$m}}])
 				k++
 			}
-		}
-		{{- else}}
-			{{- $offset := 0}}
-			{{- range $s := reverse (iterate 0 $split)}}
-				{{- range $i := iterate 0 $m}}
-					{{- $j := add $i $offset}}
-					{{- $k := add $j $m}}
-					{{- if ne $i 0}}
-						{{- $exp := sub (mul (shl 1 $step) $i) 1}}
-						a[{{$k}}].Mul(&a[{{$k}}], &w[{{$exp}}])
-					{{- end}}
-					fr.Butterfly(&a[{{$j}}], &a[{{$k}}])
-				{{- end}}
-				{{- $offset = add $offset $n}}
 			{{- end}}
-		{{- end}}
-		
+		}
+
 		{{- $n = mul $n 2}}
 		{{- $m = div $n 2}}
 		{{- $split = div $split 2}}

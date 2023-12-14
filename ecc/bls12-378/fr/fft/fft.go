@@ -21,7 +21,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"math/big"
 	"math/bits"
-	"sync"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
 )
@@ -34,8 +33,6 @@ const (
 	DIF
 )
 
-var _ = big.NewInt(0)
-
 // parallelize threshold for a single butterfly op, if the fft stage is not parallelized already
 const butterflyThreshold = 16
 
@@ -45,6 +42,13 @@ const butterflyThreshold = 16
 func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option) {
 
 	opt := fftOptions(opts...)
+
+	// find the stage where we should stop spawning go routines in our recursive calls
+	// (ie when we have as many go routines running as we have available CPUs)
+	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(uint64(opt.nbTasks)))
+	if opt.nbTasks == 1 {
+		maxSplits = -1
+	}
 
 	// if coset != 0, scale by coset table
 	if opt.coset {
@@ -67,58 +71,19 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 		}
 	}
 
-	// find the stage where we should stop spawning go routines in our recursive calls
-	// (ie when we have as many go routines running as we have available CPUs)
-	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(uint64(opt.nbTasks)))
-	if opt.nbTasks == 1 {
-		maxSplits = -1
+	twiddles := domain.Twiddles
+	twiddlesStartStage := 0
+	if !domain.hasPrecomputedTwiddles {
+		// TODO @gbotrel
 	}
 
-	if false {
-		// we precompute twiddles only for the last stage.
-		var kernelTwiddles [127]fr.Element
-		var w fr.Element
-		if domain.Cardinality >= 256 {
-			w.Exp(domain.Generator, big.NewInt(int64(domain.Cardinality/256)))
-			precomputeKernelTwiddles(w, &kernelTwiddles)
-		}
-
-		switch decimation {
-		case DIF:
-			difFFTNP(a, domain.Generator, &kernelTwiddles, 0, maxSplits, nil, opt.nbTasks)
-		case DIT:
-			ditFFTNP(a, domain.Generator, &kernelTwiddles, 0, maxSplits, nil, opt.nbTasks)
-		default:
-			panic("not implemented")
-		}
-
-	} else {
-		switch decimation {
-		case DIF:
-			// twiddles := make([]fr.Element, len(domain.Twiddles[0]))
-			// copy(twiddles, domain.Twiddles[0])
-			// // twiddles[0].SetOne()
-			// // twiddles[1] = domain.Generator
-			// // for i := 2; i < len(twiddles); i++ {
-			// // 	twiddles[i].Mul(&twiddles[i-1], &domain.Generator)
-			// // }
-			// var b barrier
-			// b.reset()
-			// difFFT2(a, domain.PaddedTwiddles, 0, maxSplits, nil, opt.nbTasks)
-			magicNumber := 4
-			difFFT2(a, domain.Generator, domain.Twiddles[magicNumber:], 0, maxSplits, nil, opt.nbTasks, magicNumber)
-		case DIT:
-			ditFFT(a, domain.Twiddles, 0, maxSplits, nil, opt.nbTasks)
-		default:
-			panic("not implemented")
-		}
-	}
-}
-
-func precomputeKernelTwiddles(w fr.Element, t *[127]fr.Element) {
-	t[0] = w
-	for i := 1; i < len(t); i++ {
-		t[i].Mul(&t[i-1], &w)
+	switch decimation {
+	case DIF:
+		difFFT(a, domain.Generator, twiddles, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
+	case DIT:
+		ditFFT(a, domain.Generator, twiddles, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
+	default:
+		panic("not implemented")
 	}
 }
 
@@ -138,9 +103,9 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 	}
 	switch decimation {
 	case DIF:
-		difFFT(a, domain.TwiddlesInv, 0, maxSplits, nil, opt.nbTasks)
+		difFFT(a, domain.GeneratorInv, domain.TwiddlesInv, 0, 0, maxSplits, nil, opt.nbTasks)
 	case DIT:
-		ditFFT(a, domain.TwiddlesInv, 0, maxSplits, nil, opt.nbTasks)
+		ditFFT(a, domain.GeneratorInv, domain.TwiddlesInv, 0, 0, maxSplits, nil, opt.nbTasks)
 	default:
 		panic("not implemented")
 	}
@@ -178,127 +143,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 
 }
 
-func difFFT32(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
-	n := len(a)
-	m := n >> 1
-	stack := make([]int, 0)
-	stack = append(stack, 0) // push initial index to stack
-
-	for len(stack) > 0 {
-		j := stack[len(stack)-1]     // peek the top element of stack
-		stack = stack[:len(stack)-1] // pop from stack
-		offset := j * n
-
-		if n == 256 {
-			kerDIFNP_256Slice(a[offset:offset+n], twiddles[stage])
-			continue
-		}
-
-		fr.Butterfly(&a[offset], &a[offset+m])
-		k := 1
-		for i := offset + 1; i < offset+m; i++ {
-			fr.Butterfly(&a[i], &a[i+m])
-			a[i+m].Mul(&a[i+m], &twiddles[stage][k])
-			k++
-		}
-
-		if n != 256 {
-			n /= 2
-			m = n >> 1
-			stage++
-			for i := 0; i < 2; i++ { // push two child nodes to stack
-				stack = append(stack, j*2+i)
-			}
-		}
-	}
-
-	return
-}
-
-func difFFT3(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
-	n := len(a)
-	m := n >> 1
-	split := 1
-	for n > 1 {
-		for j := 0; j < split; j++ {
-			offset := j * n
-			if n == 256 {
-				kerDIFNP_256Slice(a[offset:offset+n], twiddles[stage])
-				continue
-			}
-
-			fr.Butterfly(&a[offset], &a[offset+m])
-			k := 1
-			for i := offset + 1; i < offset+m; i++ {
-				fr.Butterfly(&a[i], &a[i+m])
-				a[i+m].Mul(&a[i+m], &twiddles[stage][k])
-				k++
-			}
-		}
-
-		if n == 256 {
-			break
-		}
-		n /= 2
-		m = n >> 1
-		split *= 2
-		stage++
-
-	}
-
-	return
-
-	// if chDone != nil {
-	// 	defer close(chDone)
-	// }
-
-	// n := len(a)
-	// if n == 1 {
-	// 	return
-	// } else if n == 8 {
-	// 	kerDIF8(a, twiddles, stage)
-	// 	return
-	// }
-	// m := n >> 1
-
-	// // if stage < maxSplits, we parallelize this butterfly
-	// // but we have only numCPU / stage cpus available
-	// if (m > butterflyThreshold) && (stage < maxSplits) {
-	// 	// 1 << stage == estimated used CPUs
-	// 	numCPU := nbTasks / (1 << (stage))
-	// 	parallel.Execute(m, func(start, end int) {
-	// 		for i := start; i < end; i++ {
-	// 			fr.Butterfly(&a[i], &a[i+m])
-	// 			a[i+m].Mul(&a[i+m], &twiddles[stage][i])
-	// 		}
-	// 	}, numCPU)
-	// } else {
-	// 	// i == 0
-	// 	fr.Butterfly(&a[0], &a[m])
-	// 	for i := 1; i < m; i++ {
-	// 		fr.Butterfly(&a[i], &a[i+m])
-	// 		a[i+m].Mul(&a[i+m], &twiddles[stage][i])
-	// 	}
-	// }
-
-	// if m == 1 {
-	// 	return
-	// }
-
-	// nextStage := stage + 1
-	// if stage < maxSplits {
-	// 	chDone := make(chan struct{}, 1)
-	// 	go difFFT(a[m:n], twiddles, nextStage, maxSplits, chDone, nbTasks)
-	// 	difFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
-	// 	<-chDone
-	// } else {
-	// 	difFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
-	// 	difFFT(a[m:n], twiddles, nextStage, maxSplits, nil, nbTasks)
-	// }
-
-}
-
-func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
+func difFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
 	if chDone != nil {
 		defer close(chDone)
 	}
@@ -306,122 +151,60 @@ func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDon
 	n := len(a)
 	if n == 1 {
 		return
-	} else if n == 8 {
-		kerDIF8(a, twiddles, stage)
+	} else if n == 256 && stage >= twiddlesStartStage {
+		kerDIFNP_256(a, twiddles, stage-twiddlesStartStage)
 		return
 	}
 	m := n >> 1
 
-	// if stage < maxSplits, we parallelize this butterfly
-	// but we have only numCPU / stage cpus available
-	if (m > butterflyThreshold) && (stage < maxSplits) {
-		// 1 << stage == estimated used CPUs
-		numCPU := nbTasks / (1 << (stage))
-		parallel.Execute(m, func(start, end int) {
-			for i := start; i < end; i++ {
-				fr.Butterfly(&a[i], &a[i+m])
-				a[i+m].Mul(&a[i+m], &twiddles[stage][i])
-			}
-		}, numCPU)
-	} else {
-		// i == 0
-		fr.Butterfly(&a[0], &a[m])
-		for i := 1; i < m; i++ {
-			fr.Butterfly(&a[i], &a[i+m])
-			a[i+m].Mul(&a[i+m], &twiddles[stage][i])
-		}
-	}
-
-	if m == 1 {
-		return
-	}
-
-	nextStage := stage + 1
-	if stage < maxSplits {
-		chDone := make(chan struct{}, 1)
-		go difFFT(a[m:n], twiddles, nextStage, maxSplits, chDone, nbTasks)
-		difFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
-		<-chDone
-	} else {
-		difFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
-		difFFT(a[m:n], twiddles, nextStage, maxSplits, nil, nbTasks)
-	}
-
-}
-
-type barrier struct {
-	lock   sync.Mutex
-	count  int
-	chWait chan struct{}
-}
-
-func (b *barrier) reset() {
-	b.count = 0
-	b.chWait = make(chan struct{})
-}
-
-func (b *barrier) waitAndDo(targetCount int, f func()) {
-	b.lock.Lock()
-	b.count++
-	if b.count == targetCount {
-		// we are the last ones; execute f, and reset the barrier
-		f()
-		close(b.chWait)
-		b.reset()
-		b.lock.Unlock()
-		return
-	}
-	b.lock.Unlock()
-	<-b.chWait
-	// fmt.Println("waking up with target count", targetCount)
-}
-
-func difFFT2(a []fr.Element, w fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks, magicNumber int) {
-	if chDone != nil {
-		defer close(chDone)
-	}
-
-	n := len(a)
-	if n == 1 {
-		return
-	} else if n == 256 && stage >= magicNumber {
-		// kerDIF82(a, twiddles, stage-4)
-		kerDIFNP_256Slice2(a, twiddles, stage-magicNumber)
-		return
-	}
-
-	m := n >> 1
-	if stage < magicNumber {
-		numCPU := nbTasks / (1 << (stage))
-		w := w
-		parallel.Execute(m, func(start, end int) {
-			if start == 0 {
-				fr.Butterfly(&a[0], &a[m])
-				start++
-			}
-			var at fr.Element
-			at.Exp(w, big.NewInt(int64(start)))
-			for i := start; i < end; i++ {
+	if stage < twiddlesStartStage {
+		// we need to compute the twiddles for this stage on the fly.
+		if (m > butterflyThreshold) && (stage < maxSplits) {
+			// 1 << stage == estimated used CPUs
+			numCPU := nbTasks / (1 << (stage))
+			w := w
+			parallel.Execute(m, func(start, end int) {
+				if start == 0 {
+					fr.Butterfly(&a[0], &a[m])
+					start++
+				}
+				var at fr.Element
+				at.Exp(w, big.NewInt(int64(start)))
+				for i := start; i < end; i++ {
+					fr.Butterfly(&a[i], &a[i+m])
+					a[i+m].Mul(&a[i+m], &at)
+					at.Mul(&at, &w)
+				}
+			}, numCPU)
+		} else {
+			// i == 0
+			fr.Butterfly(&a[0], &a[m])
+			at := w
+			for i := 1; i < m; i++ {
 				fr.Butterfly(&a[i], &a[i+m])
 				a[i+m].Mul(&a[i+m], &at)
 				at.Mul(&at, &w)
 			}
-		}, numCPU)
+		}
+
 	} else {
+		// if stage < maxSplits, we parallelize this butterfly
+		// but we have only numCPU / stage cpus available
 		if (m > butterflyThreshold) && (stage < maxSplits) {
 			// 1 << stage == estimated used CPUs
 			numCPU := nbTasks / (1 << (stage))
 			parallel.Execute(m, func(start, end int) {
 				for i := start; i < end; i++ {
 					fr.Butterfly(&a[i], &a[i+m])
-					a[i+m].Mul(&a[i+m], &twiddles[(stage - magicNumber)][i])
+					a[i+m].Mul(&a[i+m], &twiddles[stage-twiddlesStartStage][i])
 				}
 			}, numCPU)
 		} else {
+			// i == 0
 			fr.Butterfly(&a[0], &a[m])
 			for i := 1; i < m; i++ {
 				fr.Butterfly(&a[i], &a[i+m])
-				a[i+m].Mul(&a[i+m], &twiddles[(stage - magicNumber)][i])
+				a[i+m].Mul(&a[i+m], &twiddles[stage-twiddlesStartStage][i])
 			}
 		}
 	}
@@ -434,803 +217,187 @@ func difFFT2(a []fr.Element, w fr.Element, twiddles [][]fr.Element, stage, maxSp
 	nextStage := stage + 1
 	if stage < maxSplits {
 		chDone := make(chan struct{}, 1)
-		go difFFT2(a[m:n], w, twiddles, nextStage, maxSplits, chDone, nbTasks, magicNumber)
-		difFFT2(a[0:m], w, twiddles, nextStage, maxSplits, nil, nbTasks, magicNumber)
+		go difFFT(a[m:n], w, twiddles, twiddlesStartStage, nextStage, maxSplits, chDone, nbTasks)
+		difFFT(a[0:m], w, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
 		<-chDone
 	} else {
-		difFFT2(a[0:m], w, twiddles, nextStage, maxSplits, nil, nbTasks, magicNumber)
-		difFFT2(a[m:n], w, twiddles, nextStage, maxSplits, nil, nbTasks, magicNumber)
+		difFFT(a[0:m], w, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
+		difFFT(a[m:n], w, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
 	}
+
 }
 
-func ditFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
+func ditFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
 	if chDone != nil {
 		defer close(chDone)
 	}
 	n := len(a)
 	if n == 1 {
 		return
-	} else if n == 8 {
-		kerDIT8(a, twiddles, stage)
+	} else if n == 256 && stage >= twiddlesStartStage {
+		kerDITNP_256(a, twiddles, stage-twiddlesStartStage)
 		return
 	}
 	m := n >> 1
 
 	nextStage := stage + 1
-
+	var nextW fr.Element
+	nextW.Square(&w)
 	if stage < maxSplits {
 		// that's the only time we fire go routines
 		chDone := make(chan struct{}, 1)
-		go ditFFT(a[m:], twiddles, nextStage, maxSplits, chDone, nbTasks)
-		ditFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
+		go ditFFT(a[m:], nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, chDone, nbTasks)
+		ditFFT(a[0:m], nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
 		<-chDone
 	} else {
-		ditFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
-		ditFFT(a[m:n], twiddles, nextStage, maxSplits, nil, nbTasks)
-
+		ditFFT(a[0:m], nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
+		ditFFT(a[m:n], nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
 	}
 
-	// if stage < maxSplits, we parallelize this butterfly
-	// but we have only numCPU / stage cpus available
-	if (m > butterflyThreshold) && (stage < maxSplits) {
-		// 1 << stage == estimated used CPUs
-		numCPU := nbTasks / (1 << (stage))
-		parallel.Execute(m, func(start, end int) {
-			for k := start; k < end; k++ {
-				a[k+m].Mul(&a[k+m], &twiddles[stage][k])
-				fr.Butterfly(&a[k], &a[k+m])
-			}
-		}, numCPU)
+	if stage < twiddlesStartStage {
+		// we need to compute the twiddles for this stage on the fly.
+		if (m > butterflyThreshold) && (stage < maxSplits) {
+			// 1 << stage == estimated used CPUs
+			numCPU := nbTasks / (1 << (stage))
+			w := w
+			parallel.Execute(m, func(start, end int) {
+				if start == 0 {
+					fr.Butterfly(&a[0], &a[m])
+					start++
+				}
+				var at fr.Element
+				at.Exp(w, big.NewInt(int64(start)))
+				for i := start; i < end; i++ {
+					a[i+m].Mul(&a[i+m], &at)
+					at.Mul(&at, &w)
+					fr.Butterfly(&a[i], &a[i+m])
+				}
+			}, numCPU)
 
-	} else {
-		fr.Butterfly(&a[0], &a[m])
-		for k := 1; k < m; k++ {
-			a[k+m].Mul(&a[k+m], &twiddles[stage][k])
-			fr.Butterfly(&a[k], &a[k+m])
-		}
-	}
-}
-
-// kerDIT8 is a kernel that process a FFT of size 8
-func kerDIT8(a []fr.Element, twiddles [][]fr.Element, stage int) {
-
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[0], &a[2])
-	a[3].Mul(&a[3], &twiddles[stage+1][1])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	a[7].Mul(&a[7], &twiddles[stage+1][1])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[0], &a[4])
-	a[5].Mul(&a[5], &twiddles[stage+0][1])
-	fr.Butterfly(&a[1], &a[5])
-	a[6].Mul(&a[6], &twiddles[stage+0][2])
-	fr.Butterfly(&a[2], &a[6])
-	a[7].Mul(&a[7], &twiddles[stage+0][3])
-	fr.Butterfly(&a[3], &a[7])
-}
-
-func kerDIF82(a []fr.Element, twiddles []fr.Element, stage int) {
-
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	a[5].Mul(&a[5], &twiddles[1<<(stage+0)*1])
-	a[6].Mul(&a[6], &twiddles[1<<(stage+0)*2])
-	a[7].Mul(&a[7], &twiddles[1<<(stage+0)*3])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	a[3].Mul(&a[3], &twiddles[1<<(stage+1)*1])
-	a[7].Mul(&a[7], &twiddles[1<<(stage+1)*1])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-}
-
-// kerDIF8 is a kernel that process a FFT of size 8
-func kerDIF8(a []fr.Element, twiddles [][]fr.Element, stage int) {
-
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	a[5].Mul(&a[5], &twiddles[stage+0][1])
-	a[6].Mul(&a[6], &twiddles[stage+0][2])
-	a[7].Mul(&a[7], &twiddles[stage+0][3])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	a[3].Mul(&a[3], &twiddles[stage+1][1])
-	a[7].Mul(&a[7], &twiddles[stage+1][1])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-}
-
-// difFFTNP doesn't use the domain twiddles, but precomputed twiddles for a kernel of size 256
-func difFFTNP(a []fr.Element, w fr.Element, kernelTwiddles *[127]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
-	if chDone != nil {
-		defer close(chDone)
-	}
-
-	n := len(a)
-	if n == 1 {
-		return
-	} else if n == 256 {
-		kerDIFNP_256(a, kernelTwiddles)
-		return
-	}
-	m := n >> 1
-
-	// if stage < maxSplits, we parallelize this butterfly
-	// but we have only numCPU / stage cpus available
-	if (m > butterflyThreshold) && (stage < maxSplits) {
-		// 1 << stage == estimated used CPUs
-		numCPU := nbTasks / (1 << (stage))
-		w := w
-		parallel.Execute(m, func(start, end int) {
-			var at fr.Element
-			at.Exp(w, big.NewInt(int64(start)))
-			for i := start; i < end; i++ {
-				fr.Butterfly(&a[i], &a[i+m])
+		} else {
+			at := w
+			fr.Butterfly(&a[0], &a[m])
+			for i := 1; i < m; i++ {
 				a[i+m].Mul(&a[i+m], &at)
 				at.Mul(&at, &w)
+				fr.Butterfly(&a[i], &a[i+m])
 			}
-		}, numCPU)
+		}
+
 	} else {
-		at := w
-		// i == 0
-		fr.Butterfly(&a[0], &a[m])
-		for i := 1; i < m; i++ {
-			fr.Butterfly(&a[i], &a[i+m])
-			a[i+m].Mul(&a[i+m], &at)
-			at.Mul(&at, &w)
-		}
-	}
+		// if stage < maxSplits, we parallelize this butterfly
+		// but we have only numCPU / stage cpus available
+		if (m > butterflyThreshold) && (stage < maxSplits) {
+			// 1 << stage == estimated used CPUs
+			numCPU := nbTasks / (1 << (stage))
+			parallel.Execute(m, func(start, end int) {
+				for k := start; k < end; k++ {
+					a[k+m].Mul(&a[k+m], &twiddles[stage-twiddlesStartStage][k])
+					fr.Butterfly(&a[k], &a[k+m])
+				}
+			}, numCPU)
 
-	if m == 1 {
-		return
-	}
-
-	w.Square(&w)
-	nextStage := stage + 1
-	if stage < maxSplits {
-		chDone := make(chan struct{}, 1)
-		go difFFTNP(a[m:n], w, kernelTwiddles, nextStage, maxSplits, chDone, nbTasks)
-		difFFTNP(a[0:m], w, kernelTwiddles, nextStage, maxSplits, nil, nbTasks)
-		<-chDone
-	} else {
-		difFFTNP(a[0:m], w, kernelTwiddles, nextStage, maxSplits, nil, nbTasks)
-		difFFTNP(a[m:n], w, kernelTwiddles, nextStage, maxSplits, nil, nbTasks)
-	}
-
-}
-
-// kerDIFNP_256 is a kernel that process a FFT of size 256
-func kerDIFNP_256(a []fr.Element, w *[127]fr.Element) {
-	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
-
-	for offset := 0; offset < 256; offset += 256 {
-		fr.Butterfly(&a[offset], &a[offset+128])
-		k := 1
-		for i := offset + 1; i < offset+128; i++ {
-			fr.Butterfly(&a[i], &a[i+128])
-			a[i+128].Mul(&a[i+128], &w[1*k-1])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 128 {
-		fr.Butterfly(&a[offset], &a[offset+64])
-		k := 1
-		for i := offset + 1; i < offset+64; i++ {
-			fr.Butterfly(&a[i], &a[i+64])
-			a[i+64].Mul(&a[i+64], &w[2*k-1])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 64 {
-		fr.Butterfly(&a[offset], &a[offset+32])
-		k := 1
-		for i := offset + 1; i < offset+32; i++ {
-			fr.Butterfly(&a[i], &a[i+32])
-			a[i+32].Mul(&a[i+32], &w[4*k-1])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 32 {
-		fr.Butterfly(&a[offset], &a[offset+16])
-		k := 1
-		for i := offset + 1; i < offset+16; i++ {
-			fr.Butterfly(&a[i], &a[i+16])
-			a[i+16].Mul(&a[i+16], &w[8*k-1])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 16 {
-		fr.Butterfly(&a[offset], &a[offset+8])
-		k := 1
-		for i := offset + 1; i < offset+8; i++ {
-			fr.Butterfly(&a[i], &a[i+8])
-			a[i+8].Mul(&a[i+8], &w[16*k-1])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 8 {
-		fr.Butterfly(&a[offset], &a[offset+4])
-		k := 1
-		for i := offset + 1; i < offset+4; i++ {
-			fr.Butterfly(&a[i], &a[i+4])
-			a[i+4].Mul(&a[i+4], &w[32*k-1])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 4 {
-		fr.Butterfly(&a[offset], &a[offset+2])
-		k := 1
-		for i := offset + 1; i < offset+2; i++ {
-			fr.Butterfly(&a[i], &a[i+2])
-			a[i+2].Mul(&a[i+2], &w[64*k-1])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 2 {
-		fr.Butterfly(&a[offset], &a[offset+1])
-	}
-}
-
-// kerDIFNP_256 is a kernel that process a FFT of size 256
-func kerDIFNP_256Slice2(a []fr.Element, w [][]fr.Element, stage int) {
-	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
-
-	for offset := 0; offset < 256; offset += 256 {
-		fr.Butterfly(&a[offset], &a[offset+128])
-		k := 1
-		for i := offset + 1; i < offset+128; i++ {
-			fr.Butterfly(&a[i], &a[i+128])
-			// a[i + 128].Mul(&a[i + 128], &w[(1 << (stage + 0)) * k])
-			a[i+128].Mul(&a[i+128], &w[(stage + 0)][k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 128 {
-		fr.Butterfly(&a[offset], &a[offset+64])
-		k := 1
-		for i := offset + 1; i < offset+64; i++ {
-			fr.Butterfly(&a[i], &a[i+64])
-			// a[i + 64].Mul(&a[i + 64], &w[(1 << (stage + 1)) * k])
-			a[i+64].Mul(&a[i+64], &w[(stage + 1)][k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 64 {
-		fr.Butterfly(&a[offset], &a[offset+32])
-		k := 1
-		for i := offset + 1; i < offset+32; i++ {
-			fr.Butterfly(&a[i], &a[i+32])
-			// a[i + 32].Mul(&a[i + 32], &w[(1 << (stage + 2)) * k])
-			a[i+32].Mul(&a[i+32], &w[(stage + 2)][k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 32 {
-		fr.Butterfly(&a[offset], &a[offset+16])
-		k := 1
-		for i := offset + 1; i < offset+16; i++ {
-			fr.Butterfly(&a[i], &a[i+16])
-			// a[i + 16].Mul(&a[i + 16], &w[(1 << (stage + 3)) * k])
-			a[i+16].Mul(&a[i+16], &w[(stage + 3)][k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 16 {
-		fr.Butterfly(&a[offset], &a[offset+8])
-		k := 1
-		for i := offset + 1; i < offset+8; i++ {
-			fr.Butterfly(&a[i], &a[i+8])
-			// a[i + 8].Mul(&a[i + 8], &w[(1 << (stage + 4)) * k])
-			a[i+8].Mul(&a[i+8], &w[(stage + 4)][k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 8 {
-		fr.Butterfly(&a[offset], &a[offset+4])
-		k := 1
-		for i := offset + 1; i < offset+4; i++ {
-			fr.Butterfly(&a[i], &a[i+4])
-			// a[i + 4].Mul(&a[i + 4], &w[(1 << (stage + 5)) * k])
-			a[i+4].Mul(&a[i+4], &w[(stage + 5)][k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 4 {
-		fr.Butterfly(&a[offset], &a[offset+2])
-		k := 1
-		for i := offset + 1; i < offset+2; i++ {
-			fr.Butterfly(&a[i], &a[i+2])
-			// a[i + 2].Mul(&a[i + 2], &w[(1 << (stage + 6)) * k])
-			a[i+2].Mul(&a[i+2], &w[(stage + 6)][k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 2 {
-		fr.Butterfly(&a[offset], &a[offset+1])
-	}
-}
-
-// kerDIFNP_256 is a kernel that process a FFT of size 256
-func kerDIFNP_256Slice(a []fr.Element, w []fr.Element) {
-	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
-	_ = w[126]
-
-	for offset := 0; offset < 256; offset += 256 {
-		fr.Butterfly(&a[offset], &a[offset+128])
-		k := 1
-		for i := offset + 1; i < offset+128; i++ {
-			fr.Butterfly(&a[i], &a[i+128])
-			a[i+128].Mul(&a[i+128], &w[1*k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 128 {
-		fr.Butterfly(&a[offset], &a[offset+64])
-		k := 1
-		for i := offset + 1; i < offset+64; i++ {
-			fr.Butterfly(&a[i], &a[i+64])
-			a[i+64].Mul(&a[i+64], &w[2*k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 64 {
-		fr.Butterfly(&a[offset], &a[offset+32])
-		k := 1
-		for i := offset + 1; i < offset+32; i++ {
-			fr.Butterfly(&a[i], &a[i+32])
-			a[i+32].Mul(&a[i+32], &w[4*k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 32 {
-		fr.Butterfly(&a[offset], &a[offset+16])
-		k := 1
-		for i := offset + 1; i < offset+16; i++ {
-			fr.Butterfly(&a[i], &a[i+16])
-			a[i+16].Mul(&a[i+16], &w[8*k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 16 {
-		fr.Butterfly(&a[offset], &a[offset+8])
-		k := 1
-		for i := offset + 1; i < offset+8; i++ {
-			fr.Butterfly(&a[i], &a[i+8])
-			a[i+8].Mul(&a[i+8], &w[16*k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 8 {
-		fr.Butterfly(&a[offset], &a[offset+4])
-		k := 1
-		for i := offset + 1; i < offset+4; i++ {
-			fr.Butterfly(&a[i], &a[i+4])
-			a[i+4].Mul(&a[i+4], &w[32*k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 4 {
-		fr.Butterfly(&a[offset], &a[offset+2])
-		k := 1
-		for i := offset + 1; i < offset+2; i++ {
-			fr.Butterfly(&a[i], &a[i+2])
-			a[i+2].Mul(&a[i+2], &w[64*k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 2 {
-		fr.Butterfly(&a[offset], &a[offset+1])
-	}
-}
-
-func ditFFTNP(a []fr.Element, w fr.Element, kernelTwiddles *[127]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
-	if chDone != nil {
-		defer close(chDone)
-	}
-	n := len(a)
-	if n == 1 {
-		return
-	} else if n == 256 {
-		kerDITNP_256(a, kernelTwiddles)
-		return
-	}
-	m := n >> 1
-
-	nextStage := stage + 1
-
-	nextW := w
-	nextW.Square(&nextW)
-	if stage < maxSplits {
-		// that's the only time we fire go routines
-		chDone := make(chan struct{}, 1)
-		go ditFFTNP(a[m:], nextW, kernelTwiddles, nextStage, maxSplits, chDone, nbTasks)
-		ditFFTNP(a[0:m], nextW, kernelTwiddles, nextStage, maxSplits, nil, nbTasks)
-		<-chDone
-	} else {
-		ditFFTNP(a[0:m], nextW, kernelTwiddles, nextStage, maxSplits, nil, nbTasks)
-		ditFFTNP(a[m:n], nextW, kernelTwiddles, nextStage, maxSplits, nil, nbTasks)
-
-	}
-
-	// if stage < maxSplits, we parallelize this butterfly
-	// but we have only numCPU / stage cpus available
-	if (m > butterflyThreshold) && (stage < maxSplits) {
-		// 1 << stage == estimated used CPUs
-		numCPU := nbTasks / (1 << (stage))
-		w := w
-		parallel.Execute(m, func(start, end int) {
-			if start == 0 {
-				start++
-			}
-			var at fr.Element
-			if start == 1 {
-				at = w
-				fr.Butterfly(&a[0], &a[m])
-			} else {
-				at.Exp(w, big.NewInt(int64(start)))
-			}
-			for k := start; k < end; k++ {
-				a[k+m].Mul(&a[k+m], &at)
-				at.Mul(&at, &w)
+		} else {
+			fr.Butterfly(&a[0], &a[m])
+			for k := 1; k < m; k++ {
+				a[k+m].Mul(&a[k+m], &twiddles[stage-twiddlesStartStage][k])
 				fr.Butterfly(&a[k], &a[k+m])
 			}
-		}, numCPU)
-
-	} else {
-		at := w
-		fr.Butterfly(&a[0], &a[m])
-		for k := 1; k < m; k++ {
-			a[k+m].Mul(&a[k+m], &at)
-			at.Mul(&at, &w)
-			fr.Butterfly(&a[k], &a[k+m])
 		}
 	}
 }
 
-// kerDITNP_256 is a kernel that process a FFT of size 256
-func kerDITNP_256(a []fr.Element, w *[127]fr.Element) {
+func kerDIFNP_256(a []fr.Element, twiddles [][]fr.Element, stage int) {
+	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
 
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
-	fr.Butterfly(&a[64], &a[65])
-	fr.Butterfly(&a[66], &a[67])
-	fr.Butterfly(&a[68], &a[69])
-	fr.Butterfly(&a[70], &a[71])
-	fr.Butterfly(&a[72], &a[73])
-	fr.Butterfly(&a[74], &a[75])
-	fr.Butterfly(&a[76], &a[77])
-	fr.Butterfly(&a[78], &a[79])
-	fr.Butterfly(&a[80], &a[81])
-	fr.Butterfly(&a[82], &a[83])
-	fr.Butterfly(&a[84], &a[85])
-	fr.Butterfly(&a[86], &a[87])
-	fr.Butterfly(&a[88], &a[89])
-	fr.Butterfly(&a[90], &a[91])
-	fr.Butterfly(&a[92], &a[93])
-	fr.Butterfly(&a[94], &a[95])
-	fr.Butterfly(&a[96], &a[97])
-	fr.Butterfly(&a[98], &a[99])
-	fr.Butterfly(&a[100], &a[101])
-	fr.Butterfly(&a[102], &a[103])
-	fr.Butterfly(&a[104], &a[105])
-	fr.Butterfly(&a[106], &a[107])
-	fr.Butterfly(&a[108], &a[109])
-	fr.Butterfly(&a[110], &a[111])
-	fr.Butterfly(&a[112], &a[113])
-	fr.Butterfly(&a[114], &a[115])
-	fr.Butterfly(&a[116], &a[117])
-	fr.Butterfly(&a[118], &a[119])
-	fr.Butterfly(&a[120], &a[121])
-	fr.Butterfly(&a[122], &a[123])
-	fr.Butterfly(&a[124], &a[125])
-	fr.Butterfly(&a[126], &a[127])
-	fr.Butterfly(&a[128], &a[129])
-	fr.Butterfly(&a[130], &a[131])
-	fr.Butterfly(&a[132], &a[133])
-	fr.Butterfly(&a[134], &a[135])
-	fr.Butterfly(&a[136], &a[137])
-	fr.Butterfly(&a[138], &a[139])
-	fr.Butterfly(&a[140], &a[141])
-	fr.Butterfly(&a[142], &a[143])
-	fr.Butterfly(&a[144], &a[145])
-	fr.Butterfly(&a[146], &a[147])
-	fr.Butterfly(&a[148], &a[149])
-	fr.Butterfly(&a[150], &a[151])
-	fr.Butterfly(&a[152], &a[153])
-	fr.Butterfly(&a[154], &a[155])
-	fr.Butterfly(&a[156], &a[157])
-	fr.Butterfly(&a[158], &a[159])
-	fr.Butterfly(&a[160], &a[161])
-	fr.Butterfly(&a[162], &a[163])
-	fr.Butterfly(&a[164], &a[165])
-	fr.Butterfly(&a[166], &a[167])
-	fr.Butterfly(&a[168], &a[169])
-	fr.Butterfly(&a[170], &a[171])
-	fr.Butterfly(&a[172], &a[173])
-	fr.Butterfly(&a[174], &a[175])
-	fr.Butterfly(&a[176], &a[177])
-	fr.Butterfly(&a[178], &a[179])
-	fr.Butterfly(&a[180], &a[181])
-	fr.Butterfly(&a[182], &a[183])
-	fr.Butterfly(&a[184], &a[185])
-	fr.Butterfly(&a[186], &a[187])
-	fr.Butterfly(&a[188], &a[189])
-	fr.Butterfly(&a[190], &a[191])
-	fr.Butterfly(&a[192], &a[193])
-	fr.Butterfly(&a[194], &a[195])
-	fr.Butterfly(&a[196], &a[197])
-	fr.Butterfly(&a[198], &a[199])
-	fr.Butterfly(&a[200], &a[201])
-	fr.Butterfly(&a[202], &a[203])
-	fr.Butterfly(&a[204], &a[205])
-	fr.Butterfly(&a[206], &a[207])
-	fr.Butterfly(&a[208], &a[209])
-	fr.Butterfly(&a[210], &a[211])
-	fr.Butterfly(&a[212], &a[213])
-	fr.Butterfly(&a[214], &a[215])
-	fr.Butterfly(&a[216], &a[217])
-	fr.Butterfly(&a[218], &a[219])
-	fr.Butterfly(&a[220], &a[221])
-	fr.Butterfly(&a[222], &a[223])
-	fr.Butterfly(&a[224], &a[225])
-	fr.Butterfly(&a[226], &a[227])
-	fr.Butterfly(&a[228], &a[229])
-	fr.Butterfly(&a[230], &a[231])
-	fr.Butterfly(&a[232], &a[233])
-	fr.Butterfly(&a[234], &a[235])
-	fr.Butterfly(&a[236], &a[237])
-	fr.Butterfly(&a[238], &a[239])
-	fr.Butterfly(&a[240], &a[241])
-	fr.Butterfly(&a[242], &a[243])
-	fr.Butterfly(&a[244], &a[245])
-	fr.Butterfly(&a[246], &a[247])
-	fr.Butterfly(&a[248], &a[249])
-	fr.Butterfly(&a[250], &a[251])
-	fr.Butterfly(&a[252], &a[253])
-	fr.Butterfly(&a[254], &a[255])
-	fr.Butterfly(&a[0], &a[2])
-	a[3].Mul(&a[3], &w[63])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	a[7].Mul(&a[7], &w[63])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	a[11].Mul(&a[11], &w[63])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	a[15].Mul(&a[15], &w[63])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	a[19].Mul(&a[19], &w[63])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	a[23].Mul(&a[23], &w[63])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	a[27].Mul(&a[27], &w[63])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	a[31].Mul(&a[31], &w[63])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	a[35].Mul(&a[35], &w[63])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	a[39].Mul(&a[39], &w[63])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	a[43].Mul(&a[43], &w[63])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	a[47].Mul(&a[47], &w[63])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	a[51].Mul(&a[51], &w[63])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	a[55].Mul(&a[55], &w[63])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	a[59].Mul(&a[59], &w[63])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	a[63].Mul(&a[63], &w[63])
-	fr.Butterfly(&a[61], &a[63])
-	fr.Butterfly(&a[64], &a[66])
-	a[67].Mul(&a[67], &w[63])
-	fr.Butterfly(&a[65], &a[67])
-	fr.Butterfly(&a[68], &a[70])
-	a[71].Mul(&a[71], &w[63])
-	fr.Butterfly(&a[69], &a[71])
-	fr.Butterfly(&a[72], &a[74])
-	a[75].Mul(&a[75], &w[63])
-	fr.Butterfly(&a[73], &a[75])
-	fr.Butterfly(&a[76], &a[78])
-	a[79].Mul(&a[79], &w[63])
-	fr.Butterfly(&a[77], &a[79])
-	fr.Butterfly(&a[80], &a[82])
-	a[83].Mul(&a[83], &w[63])
-	fr.Butterfly(&a[81], &a[83])
-	fr.Butterfly(&a[84], &a[86])
-	a[87].Mul(&a[87], &w[63])
-	fr.Butterfly(&a[85], &a[87])
-	fr.Butterfly(&a[88], &a[90])
-	a[91].Mul(&a[91], &w[63])
-	fr.Butterfly(&a[89], &a[91])
-	fr.Butterfly(&a[92], &a[94])
-	a[95].Mul(&a[95], &w[63])
-	fr.Butterfly(&a[93], &a[95])
-	fr.Butterfly(&a[96], &a[98])
-	a[99].Mul(&a[99], &w[63])
-	fr.Butterfly(&a[97], &a[99])
-	fr.Butterfly(&a[100], &a[102])
-	a[103].Mul(&a[103], &w[63])
-	fr.Butterfly(&a[101], &a[103])
-	fr.Butterfly(&a[104], &a[106])
-	a[107].Mul(&a[107], &w[63])
-	fr.Butterfly(&a[105], &a[107])
-	fr.Butterfly(&a[108], &a[110])
-	a[111].Mul(&a[111], &w[63])
-	fr.Butterfly(&a[109], &a[111])
-	fr.Butterfly(&a[112], &a[114])
-	a[115].Mul(&a[115], &w[63])
-	fr.Butterfly(&a[113], &a[115])
-	fr.Butterfly(&a[116], &a[118])
-	a[119].Mul(&a[119], &w[63])
-	fr.Butterfly(&a[117], &a[119])
-	fr.Butterfly(&a[120], &a[122])
-	a[123].Mul(&a[123], &w[63])
-	fr.Butterfly(&a[121], &a[123])
-	fr.Butterfly(&a[124], &a[126])
-	a[127].Mul(&a[127], &w[63])
-	fr.Butterfly(&a[125], &a[127])
-	fr.Butterfly(&a[128], &a[130])
-	a[131].Mul(&a[131], &w[63])
-	fr.Butterfly(&a[129], &a[131])
-	fr.Butterfly(&a[132], &a[134])
-	a[135].Mul(&a[135], &w[63])
-	fr.Butterfly(&a[133], &a[135])
-	fr.Butterfly(&a[136], &a[138])
-	a[139].Mul(&a[139], &w[63])
-	fr.Butterfly(&a[137], &a[139])
-	fr.Butterfly(&a[140], &a[142])
-	a[143].Mul(&a[143], &w[63])
-	fr.Butterfly(&a[141], &a[143])
-	fr.Butterfly(&a[144], &a[146])
-	a[147].Mul(&a[147], &w[63])
-	fr.Butterfly(&a[145], &a[147])
-	fr.Butterfly(&a[148], &a[150])
-	a[151].Mul(&a[151], &w[63])
-	fr.Butterfly(&a[149], &a[151])
-	fr.Butterfly(&a[152], &a[154])
-	a[155].Mul(&a[155], &w[63])
-	fr.Butterfly(&a[153], &a[155])
-	fr.Butterfly(&a[156], &a[158])
-	a[159].Mul(&a[159], &w[63])
-	fr.Butterfly(&a[157], &a[159])
-	fr.Butterfly(&a[160], &a[162])
-	a[163].Mul(&a[163], &w[63])
-	fr.Butterfly(&a[161], &a[163])
-	fr.Butterfly(&a[164], &a[166])
-	a[167].Mul(&a[167], &w[63])
-	fr.Butterfly(&a[165], &a[167])
-	fr.Butterfly(&a[168], &a[170])
-	a[171].Mul(&a[171], &w[63])
-	fr.Butterfly(&a[169], &a[171])
-	fr.Butterfly(&a[172], &a[174])
-	a[175].Mul(&a[175], &w[63])
-	fr.Butterfly(&a[173], &a[175])
-	fr.Butterfly(&a[176], &a[178])
-	a[179].Mul(&a[179], &w[63])
-	fr.Butterfly(&a[177], &a[179])
-	fr.Butterfly(&a[180], &a[182])
-	a[183].Mul(&a[183], &w[63])
-	fr.Butterfly(&a[181], &a[183])
-	fr.Butterfly(&a[184], &a[186])
-	a[187].Mul(&a[187], &w[63])
-	fr.Butterfly(&a[185], &a[187])
-	fr.Butterfly(&a[188], &a[190])
-	a[191].Mul(&a[191], &w[63])
-	fr.Butterfly(&a[189], &a[191])
-	fr.Butterfly(&a[192], &a[194])
-	a[195].Mul(&a[195], &w[63])
-	fr.Butterfly(&a[193], &a[195])
-	fr.Butterfly(&a[196], &a[198])
-	a[199].Mul(&a[199], &w[63])
-	fr.Butterfly(&a[197], &a[199])
-	fr.Butterfly(&a[200], &a[202])
-	a[203].Mul(&a[203], &w[63])
-	fr.Butterfly(&a[201], &a[203])
-	fr.Butterfly(&a[204], &a[206])
-	a[207].Mul(&a[207], &w[63])
-	fr.Butterfly(&a[205], &a[207])
-	fr.Butterfly(&a[208], &a[210])
-	a[211].Mul(&a[211], &w[63])
-	fr.Butterfly(&a[209], &a[211])
-	fr.Butterfly(&a[212], &a[214])
-	a[215].Mul(&a[215], &w[63])
-	fr.Butterfly(&a[213], &a[215])
-	fr.Butterfly(&a[216], &a[218])
-	a[219].Mul(&a[219], &w[63])
-	fr.Butterfly(&a[217], &a[219])
-	fr.Butterfly(&a[220], &a[222])
-	a[223].Mul(&a[223], &w[63])
-	fr.Butterfly(&a[221], &a[223])
-	fr.Butterfly(&a[224], &a[226])
-	a[227].Mul(&a[227], &w[63])
-	fr.Butterfly(&a[225], &a[227])
-	fr.Butterfly(&a[228], &a[230])
-	a[231].Mul(&a[231], &w[63])
-	fr.Butterfly(&a[229], &a[231])
-	fr.Butterfly(&a[232], &a[234])
-	a[235].Mul(&a[235], &w[63])
-	fr.Butterfly(&a[233], &a[235])
-	fr.Butterfly(&a[236], &a[238])
-	a[239].Mul(&a[239], &w[63])
-	fr.Butterfly(&a[237], &a[239])
-	fr.Butterfly(&a[240], &a[242])
-	a[243].Mul(&a[243], &w[63])
-	fr.Butterfly(&a[241], &a[243])
-	fr.Butterfly(&a[244], &a[246])
-	a[247].Mul(&a[247], &w[63])
-	fr.Butterfly(&a[245], &a[247])
-	fr.Butterfly(&a[248], &a[250])
-	a[251].Mul(&a[251], &w[63])
-	fr.Butterfly(&a[249], &a[251])
-	fr.Butterfly(&a[252], &a[254])
-	a[255].Mul(&a[255], &w[63])
-	fr.Butterfly(&a[253], &a[255])
+	for offset := 0; offset < 256; offset += 256 {
+		fr.Butterfly(&a[offset], &a[offset+128])
+		k := 1
+		for i := offset + 1; i < offset+128; i++ {
+			fr.Butterfly(&a[i], &a[i+128])
+			a[i+128].Mul(&a[i+128], &twiddles[stage+0][k])
+			k++
+		}
+	}
+	for offset := 0; offset < 256; offset += 128 {
+		fr.Butterfly(&a[offset], &a[offset+64])
+		k := 1
+		for i := offset + 1; i < offset+64; i++ {
+			fr.Butterfly(&a[i], &a[i+64])
+			a[i+64].Mul(&a[i+64], &twiddles[stage+1][k])
+			k++
+		}
+	}
+	for offset := 0; offset < 256; offset += 64 {
+		fr.Butterfly(&a[offset], &a[offset+32])
+		k := 1
+		for i := offset + 1; i < offset+32; i++ {
+			fr.Butterfly(&a[i], &a[i+32])
+			a[i+32].Mul(&a[i+32], &twiddles[stage+2][k])
+			k++
+		}
+	}
+	for offset := 0; offset < 256; offset += 32 {
+		fr.Butterfly(&a[offset], &a[offset+16])
+		k := 1
+		for i := offset + 1; i < offset+16; i++ {
+			fr.Butterfly(&a[i], &a[i+16])
+			a[i+16].Mul(&a[i+16], &twiddles[stage+3][k])
+			k++
+		}
+	}
+	for offset := 0; offset < 256; offset += 16 {
+		fr.Butterfly(&a[offset], &a[offset+8])
+		k := 1
+		for i := offset + 1; i < offset+8; i++ {
+			fr.Butterfly(&a[i], &a[i+8])
+			a[i+8].Mul(&a[i+8], &twiddles[stage+4][k])
+			k++
+		}
+	}
 	for offset := 0; offset < 256; offset += 8 {
 		fr.Butterfly(&a[offset], &a[offset+4])
 		k := 1
 		for i := offset + 1; i < offset+4; i++ {
-			a[i+4].Mul(&a[i+4], &w[32*k-1])
+			fr.Butterfly(&a[i], &a[i+4])
+			a[i+4].Mul(&a[i+4], &twiddles[stage+5][k])
+			k++
+		}
+	}
+	for offset := 0; offset < 256; offset += 4 {
+		fr.Butterfly(&a[offset], &a[offset+2])
+		k := 1
+		for i := offset + 1; i < offset+2; i++ {
+			fr.Butterfly(&a[i], &a[i+2])
+			a[i+2].Mul(&a[i+2], &twiddles[stage+6][k])
+			k++
+		}
+	}
+	for offset := 0; offset < 256; offset += 2 {
+		fr.Butterfly(&a[offset], &a[offset+1])
+	}
+}
+
+func kerDITNP_256(a []fr.Element, twiddles [][]fr.Element, stage int) {
+	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
+
+	for offset := 0; offset < 256; offset += 2 {
+		fr.Butterfly(&a[offset], &a[offset+1])
+	}
+	for offset := 0; offset < 256; offset += 4 {
+		fr.Butterfly(&a[offset], &a[offset+2])
+		k := 1
+		for i := offset + 1; i < offset+2; i++ {
+			a[i+2].Mul(&a[i+2], &twiddles[stage+6][k])
+			fr.Butterfly(&a[i], &a[i+2])
+			k++
+		}
+	}
+	for offset := 0; offset < 256; offset += 8 {
+		fr.Butterfly(&a[offset], &a[offset+4])
+		k := 1
+		for i := offset + 1; i < offset+4; i++ {
+			a[i+4].Mul(&a[i+4], &twiddles[stage+5][k])
 			fr.Butterfly(&a[i], &a[i+4])
 			k++
 		}
@@ -1239,7 +406,7 @@ func kerDITNP_256(a []fr.Element, w *[127]fr.Element) {
 		fr.Butterfly(&a[offset], &a[offset+8])
 		k := 1
 		for i := offset + 1; i < offset+8; i++ {
-			a[i+8].Mul(&a[i+8], &w[16*k-1])
+			a[i+8].Mul(&a[i+8], &twiddles[stage+4][k])
 			fr.Butterfly(&a[i], &a[i+8])
 			k++
 		}
@@ -1248,7 +415,7 @@ func kerDITNP_256(a []fr.Element, w *[127]fr.Element) {
 		fr.Butterfly(&a[offset], &a[offset+16])
 		k := 1
 		for i := offset + 1; i < offset+16; i++ {
-			a[i+16].Mul(&a[i+16], &w[8*k-1])
+			a[i+16].Mul(&a[i+16], &twiddles[stage+3][k])
 			fr.Butterfly(&a[i], &a[i+16])
 			k++
 		}
@@ -1257,7 +424,7 @@ func kerDITNP_256(a []fr.Element, w *[127]fr.Element) {
 		fr.Butterfly(&a[offset], &a[offset+32])
 		k := 1
 		for i := offset + 1; i < offset+32; i++ {
-			a[i+32].Mul(&a[i+32], &w[4*k-1])
+			a[i+32].Mul(&a[i+32], &twiddles[stage+2][k])
 			fr.Butterfly(&a[i], &a[i+32])
 			k++
 		}
@@ -1266,7 +433,7 @@ func kerDITNP_256(a []fr.Element, w *[127]fr.Element) {
 		fr.Butterfly(&a[offset], &a[offset+64])
 		k := 1
 		for i := offset + 1; i < offset+64; i++ {
-			a[i+64].Mul(&a[i+64], &w[2*k-1])
+			a[i+64].Mul(&a[i+64], &twiddles[stage+1][k])
 			fr.Butterfly(&a[i], &a[i+64])
 			k++
 		}
@@ -1275,7 +442,7 @@ func kerDITNP_256(a []fr.Element, w *[127]fr.Element) {
 		fr.Butterfly(&a[offset], &a[offset+128])
 		k := 1
 		for i := offset + 1; i < offset+128; i++ {
-			a[i+128].Mul(&a[i+128], &w[1*k-1])
+			a[i+128].Mul(&a[i+128], &twiddles[stage+0][k])
 			fr.Butterfly(&a[i], &a[i+128])
 			k++
 		}

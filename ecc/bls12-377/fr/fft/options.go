@@ -70,8 +70,8 @@ func fftOptions(opts ...Option) fftConfig {
 type DomainOption func(*domainConfig)
 
 type domainConfig struct {
-	shift    *fr.Element
-	onTheFly bool
+	shift                  *fr.Element
+	hasPrecomputedTwiddles bool
 }
 
 // WithShift ...
@@ -85,14 +85,16 @@ func WithShift(shift fr.Element) DomainOption {
 // When this option is set, FFTs will be slower, but will use less memory.
 func WithoutPrecompute() DomainOption {
 	return func(opt *domainConfig) {
-		opt.onTheFly = true
+		opt.hasPrecomputedTwiddles = false
 	}
 }
 
 // default options
 func domainOptions(opts ...DomainOption) domainConfig {
 	// apply options
-	opt := domainConfig{}
+	opt := domainConfig{
+		hasPrecomputedTwiddles: true,
+	}
 	for _, option := range opts {
 		option(&opt)
 	}

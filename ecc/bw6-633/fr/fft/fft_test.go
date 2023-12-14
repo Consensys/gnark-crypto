@@ -289,7 +289,7 @@ func BenchmarkFFTDITCosetReference(b *testing.B) {
 }
 
 func BenchmarkFFTDIFReference(b *testing.B) {
-	const maxSize = 1 << 27
+	const maxSize = 1 << 20
 
 	pol := make([]fr.Element, maxSize)
 	pol[0].SetRandom()

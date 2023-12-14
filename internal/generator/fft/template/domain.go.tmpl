@@ -22,6 +22,11 @@ type Domain struct {
 	FrMultiplicativeGen     fr.Element // generator of Fr*
 	FrMultiplicativeGenInv  fr.Element
 
+	// this is set with the WithoutPrecompute option;
+	// if true, the domain does some pre-computation and stores it.
+	// if false, the FFT will compute the twiddles on the fly (this is less CPU efficient, but uses less memory)
+	hasPrecomputedTwiddles bool 
+
 	// the following slices are not serialized and are (re)computed through domain.preComputeTwiddles()
 
 	// Twiddles factor for the FFT using Generator for each stage of the recursive FFT
@@ -85,11 +90,9 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	domain.CardinalityInv.SetUint64(uint64(x)).Inverse(&domain.CardinalityInv)
 
 	// twiddle factors
+	domain.hasPrecomputedTwiddles = opt.hasPrecomputedTwiddles
+	if domain.hasPrecomputedTwiddles {
 	domain.preComputeTwiddles()
-
-	if opt.onTheFly {
-		domain.Twiddles = nil
-		domain.TwiddlesInv = nil
 	}
 
 	return domain
@@ -158,6 +161,7 @@ func precomputeExpTable(w fr.Element, table []fr.Element) {
 	}
 
 	// this ratio roughly correspond to the number of multiplication one can do in place of a Exp operation
+	// TODO @gbotrel revisit this; Exps in this context will be by a "small power of 2" so faster than this ref ratio.
 	const ratioExpMul = 6000 / 17
 
 	if interval < ratioExpMul {
@@ -199,7 +203,7 @@ func (d *Domain) WriteTo(w io.Writer) (int64, error) {
 
 	enc := curve.NewEncoder(w)
 
-	toEncode := []interface{}{d.Cardinality, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv}
+	toEncode := []interface{}{d.Cardinality, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv, &d.hasPrecomputedTwiddles}
 
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
@@ -215,7 +219,7 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 
 	dec := curve.NewDecoder(r)
 
-	toDecode := []interface{}{&d.Cardinality, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv}
+	toDecode := []interface{}{&d.Cardinality, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv, &d.hasPrecomputedTwiddles}
 
 	for _, v := range toDecode {
 		if err := dec.Decode(v); err != nil {
@@ -223,35 +227,9 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 		}
 	}
 
-
-	// twiddle factors
-	d.preComputeTwiddles()
+	if d.hasPrecomputedTwiddles {
+		d.preComputeTwiddles()
+	} 
 
 	return dec.BytesRead(), nil
-}
-
-// AsyncReadFrom attempts to decode a domain from Reader. It returns a channel that will be closed
-// when the precomputation is done.
-func (d *Domain) AsyncReadFrom(r io.Reader) (int64, error, chan struct{}) {
-
-	dec := curve.NewDecoder(r)
-
-	toDecode := []interface{}{&d.Cardinality, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv}
-
-	for _, v := range toDecode {
-		if err := dec.Decode(v); err != nil {
-			return dec.BytesRead(), err, nil
-		}
-	}
-
-	chDone := make(chan struct{})
-
-	go func() {
-		// twiddle factors
-		d.preComputeTwiddles()
-
-		close(chDone)
-	}()
-
-	return dec.BytesRead(), nil, chDone
 }
