@@ -54,27 +54,55 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 	if opt.coset {
 		if decimation == DIT {
 			// scale by coset table (in bit reversed order)
+			cosetTable := domain.CosetTable
+			if !domain.hasPrecomputedTwiddles {
+				// we need to build the full table or do a bit reverse dance.
+				cosetTable = make([]fr.Element, len(a))
+				cosetTable[0].SetOne()
+				precomputeExpTable(domain.FrMultiplicativeGen, cosetTable)
+			}
 			parallel.Execute(len(a), func(start, end int) {
 				n := uint64(len(a))
 				nn := uint64(64 - bits.TrailingZeros64(n))
 				for i := start; i < end; i++ {
 					irev := int(bits.Reverse64(uint64(i)) >> nn)
-					a[i].Mul(&a[i], &domain.CosetTable[irev])
+					a[i].Mul(&a[i], &cosetTable[irev])
 				}
 			}, opt.nbTasks)
 		} else {
-			parallel.Execute(len(a), func(start, end int) {
-				for i := start; i < end; i++ {
-					a[i].Mul(&a[i], &domain.CosetTable[i])
-				}
-			}, opt.nbTasks)
+			if domain.hasPrecomputedTwiddles {
+				parallel.Execute(len(a), func(start, end int) {
+					for i := start; i < end; i++ {
+						a[i].Mul(&a[i], &domain.CosetTable[i])
+					}
+				}, opt.nbTasks)
+			} else {
+				c := domain.FrMultiplicativeGen
+				parallel.Execute(len(a), func(start, end int) {
+					if start == 0 {
+						start++
+					}
+					var at fr.Element
+					at.Exp(c, big.NewInt(int64(start)))
+					for i := start; i < end; i++ {
+						a[i].Mul(&a[i], &at)
+						at.Mul(&at, &c)
+					}
+				}, opt.nbTasks)
+			}
+
 		}
 	}
 
 	twiddles := domain.Twiddles
 	twiddlesStartStage := 0
 	if !domain.hasPrecomputedTwiddles {
-		// TODO @gbotrel
+		twiddlesStartStage = 3
+		nbStages := int(bits.TrailingZeros64(domain.Cardinality))
+		twiddles = make([][]fr.Element, nbStages-twiddlesStartStage)
+		w := domain.Generator
+		w.Exp(w, big.NewInt(int64(1<<twiddlesStartStage)))
+		buildTwiddles(twiddles, w, uint64(nbStages-twiddlesStartStage))
 	}
 
 	switch decimation {
@@ -101,11 +129,23 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 	if opt.nbTasks == 1 {
 		maxSplits = -1
 	}
+
+	twiddlesInv := domain.TwiddlesInv
+	twiddlesStartStage := 0
+	if !domain.hasPrecomputedTwiddles {
+		twiddlesStartStage = 3
+		nbStages := int(bits.TrailingZeros64(domain.Cardinality))
+		twiddlesInv = make([][]fr.Element, nbStages-twiddlesStartStage)
+		w := domain.GeneratorInv
+		w.Exp(w, big.NewInt(int64(1<<twiddlesStartStage)))
+		buildTwiddles(twiddlesInv, w, uint64(nbStages-twiddlesStartStage))
+	}
+
 	switch decimation {
 	case DIF:
-		difFFT(a, domain.GeneratorInv, domain.TwiddlesInv, 0, 0, maxSplits, nil, opt.nbTasks)
+		difFFT(a, domain.GeneratorInv, twiddlesInv, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
 	case DIT:
-		ditFFT(a, domain.GeneratorInv, domain.TwiddlesInv, 0, 0, maxSplits, nil, opt.nbTasks)
+		ditFFT(a, domain.GeneratorInv, twiddlesInv, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
 	default:
 		panic("not implemented")
 	}
@@ -121,22 +161,45 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 	}
 
 	if decimation == DIT {
-		parallel.Execute(len(a), func(start, end int) {
-			for i := start; i < end; i++ {
-				a[i].Mul(&a[i], &domain.CosetTableInv[i]).
-					Mul(&a[i], &domain.CardinalityInv)
-			}
-		}, opt.nbTasks)
+		if domain.hasPrecomputedTwiddles {
+			parallel.Execute(len(a), func(start, end int) {
+				for i := start; i < end; i++ {
+					a[i].Mul(&a[i], &domain.CosetTableInv[i]).
+						Mul(&a[i], &domain.CardinalityInv)
+				}
+			}, opt.nbTasks)
+		} else {
+			c := domain.FrMultiplicativeGenInv
+			parallel.Execute(len(a), func(start, end int) {
+				if start == 0 {
+					start++
+				}
+				var at fr.Element
+				at.Exp(c, big.NewInt(int64(start)))
+				at.Mul(&at, &domain.CardinalityInv)
+				for i := start; i < end; i++ {
+					a[i].Mul(&a[i], &at)
+					at.Mul(&at, &c)
+				}
+			}, opt.nbTasks)
+		}
 		return
 	}
 
 	// decimation == DIF, need to access coset table in bit reversed order.
+	cosetTableInv := domain.CosetTableInv
+	if !domain.hasPrecomputedTwiddles {
+		// we need to build the full table or do a bit reverse dance.
+		cosetTableInv = make([]fr.Element, len(a))
+		cosetTableInv[0].SetOne()
+		precomputeExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
+	}
 	parallel.Execute(len(a), func(start, end int) {
 		n := uint64(len(a))
 		nn := uint64(64 - bits.TrailingZeros64(n))
 		for i := start; i < end; i++ {
 			irev := int(bits.Reverse64(uint64(i)) >> nn)
-			a[i].Mul(&a[i], &domain.CosetTableInv[irev]).
+			a[i].Mul(&a[i], &cosetTableInv[irev]).
 				Mul(&a[i], &domain.CardinalityInv)
 		}
 	}, opt.nbTasks)
@@ -163,12 +226,16 @@ func difFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStart
 		if parallelButterfly {
 			w := w
 			parallel.Execute(m, func(start, end int) {
+				if start == 0 {
+					fr.Butterfly(&a[0], &a[m])
+					start++
+				}
 				var at fr.Element
 				at.Exp(w, big.NewInt(int64(start)))
-				innerDIFWithoutTwiddles(a, at, start, end, m)
+				innerDIFWithoutTwiddles(a, at, w, start, end, m)
 			}, nbTasks/(1<<(stage))) // 1 << stage == estimated used CPUs
 		} else {
-			innerDIFWithoutTwiddles(a, w, 0, m, m)
+			innerDIFWithoutTwiddles(a, w, w, 0, m, m)
 		}
 		// compute next twiddle
 		w.Square(&w)
@@ -210,12 +277,11 @@ func innerDIFWithTwiddles(a []fr.Element, twiddles []fr.Element, start, end, m i
 	}
 }
 
-func innerDIFWithoutTwiddles(a []fr.Element, w fr.Element, start, end, m int) {
+func innerDIFWithoutTwiddles(a []fr.Element, at, w fr.Element, start, end, m int) {
 	if start == 0 {
 		fr.Butterfly(&a[0], &a[m])
 		start++
 	}
-	at := w
 	for i := start; i < end; i++ {
 		fr.Butterfly(&a[i], &a[i+m])
 		a[i+m].Mul(&a[i+m], &at)
@@ -258,13 +324,17 @@ func ditFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStart
 		if parallelButterfly {
 			w := w
 			parallel.Execute(m, func(start, end int) {
+				if start == 0 {
+					fr.Butterfly(&a[0], &a[m])
+					start++
+				}
 				var at fr.Element
 				at.Exp(w, big.NewInt(int64(start)))
-				innerDITWithoutTwiddles(a, at, start, end, m)
+				innerDITWithoutTwiddles(a, at, w, start, end, m)
 			}, nbTasks/(1<<(stage))) // 1 << stage == estimated used CPUs
 
 		} else {
-			innerDITWithoutTwiddles(a, w, 0, m, m)
+			innerDITWithoutTwiddles(a, w, w, 0, m, m)
 		}
 		return
 	}
@@ -288,12 +358,11 @@ func innerDITWithTwiddles(a []fr.Element, twiddles []fr.Element, start, end, m i
 	}
 }
 
-func innerDITWithoutTwiddles(a []fr.Element, w fr.Element, start, end, m int) {
+func innerDITWithoutTwiddles(a []fr.Element, at, w fr.Element, start, end, m int) {
 	if start == 0 {
 		fr.Butterfly(&a[0], &a[m])
 		start++
 	}
-	at := w
 	for i := start; i < end; i++ {
 		a[i+m].Mul(&a[i+m], &at)
 		fr.Butterfly(&a[i], &a[i+m])

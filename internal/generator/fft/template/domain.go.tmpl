@@ -92,7 +92,7 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	// twiddle factors
 	domain.hasPrecomputedTwiddles = opt.hasPrecomputedTwiddles
 	if domain.hasPrecomputedTwiddles {
-	domain.preComputeTwiddles()
+		domain.preComputeTwiddles()
 	}
 
 	return domain
@@ -116,25 +116,6 @@ func (d *Domain) preComputeTwiddles() {
 
 	var wg sync.WaitGroup
 
-	// for each fft stage, we pre compute the twiddle factors
-	twiddles := func(t [][]fr.Element, omega fr.Element) {
-		for i := uint64(0); i < nbStages; i++ {
-			t[i] = make([]fr.Element, 1+(1<<(nbStages-i-1)))
-			var w fr.Element
-			if i == 0 {
-				w = omega
-			} else {
-				w = t[i-1][2]
-			}
-			t[i][0] = fr.One()
-			t[i][1] = w
-			for j := 2; j < len(t[i]); j++ {
-				t[i][j].Mul(&t[i][j-1], &w)
-			}
-		}
-		wg.Done()
-	}
-
 	expTable := func(sqrt fr.Element, t []fr.Element) {
 		t[0] = fr.One()
 		precomputeExpTable(sqrt, t)
@@ -142,12 +123,39 @@ func (d *Domain) preComputeTwiddles() {
 	}
 
 	wg.Add(4)
-	go twiddles(d.Twiddles, d.Generator)
-	go twiddles(d.TwiddlesInv, d.GeneratorInv)
+	go func() {
+		buildTwiddles(d.Twiddles, d.Generator, nbStages)
+		wg.Done()
+	}()
+	go func() {
+		buildTwiddles(d.TwiddlesInv, d.GeneratorInv, nbStages)
+		wg.Done()
+	}()
 	go expTable(d.FrMultiplicativeGen, d.CosetTable)
 	go expTable(d.FrMultiplicativeGenInv, d.CosetTableInv)
 
 	wg.Wait()
+
+}
+
+func buildTwiddles(t [][]fr.Element, omega fr.Element,nbStages uint64) {
+	if len(t) != int(nbStages) {
+		panic("invalid twiddle table")
+	}
+	// we just compute the first stage
+	t[0] = make([]fr.Element, 1+(1<<(nbStages-1)))
+	t[0][0] = fr.One()
+	precomputeExpTable(omega, t[0])
+
+	// for the next stages, we just iterate on the first stage with larger stride
+	for i := uint64(1); i < nbStages; i++ {
+		t[i] = make([]fr.Element, 1+(1<<(nbStages-i-1)))
+		k := 0
+		for j := 0; j < len(t[i]); j++ {
+			t[i][j] = t[0][k]
+			k += 1 << i
+		}
+	}
 
 }
 

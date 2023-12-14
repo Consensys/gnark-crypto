@@ -74,7 +74,7 @@ func WithoutPrecompute() DomainOption {
 func domainOptions(opts ...DomainOption) domainConfig {
 	// apply options
 	opt := domainConfig{
-		hasPrecomputedTwiddles: true,
+		hasPrecomputedTwiddles: false, // TODO @gbotrel change me.
 	}
 	for _, option := range opts {
 		option(&opt)
