@@ -7,7 +7,7 @@ import (
 )
 
 {{- /* these params set the size of the kernel we generate & unroll */}}
-{{ $sizeKernelLog2 := 7}}
+{{ $sizeKernelLog2 := 8}}
 {{ $sizeKernel := shl 1 $sizeKernelLog2}}
 
 // Decimation is used in the FFT call to select decimation in time or in frequency
@@ -40,7 +40,7 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 		if decimation == DIT {
 			// scale by coset table (in bit reversed order)
 			cosetTable := domain.CosetTable
-			if !domain.hasPrecomputedTwiddles {
+			if !domain.withPrecompute {
 				// we need to build the full table or do a bit reverse dance.
 				cosetTable = make([]fr.Element, len(a))
 				cosetTable[0].SetOne()
@@ -55,7 +55,7 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 				}
 			}, opt.nbTasks)
 		} else {
-			if domain.hasPrecomputedTwiddles {
+			if domain.withPrecompute {
 				parallel.Execute(len(a), func(start, end int) {
 					for i := start; i < end; i++ {
 						a[i].Mul(&a[i], &domain.CosetTable[i])
@@ -81,7 +81,7 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 
 	twiddles := domain.Twiddles
 	twiddlesStartStage := 0
-	if !domain.hasPrecomputedTwiddles {
+	if !domain.withPrecompute {
 		twiddlesStartStage = 3
 		nbStages := int(bits.TrailingZeros64(domain.Cardinality))
 		twiddles = make([][]fr.Element, nbStages - twiddlesStartStage)
@@ -119,7 +119,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 
 	twiddlesInv := domain.TwiddlesInv
 	twiddlesStartStage := 0
-	if !domain.hasPrecomputedTwiddles {
+	if !domain.withPrecompute {
 		twiddlesStartStage = 3
 		nbStages := int(bits.TrailingZeros64(domain.Cardinality))
 		twiddlesInv = make([][]fr.Element, nbStages - twiddlesStartStage)
@@ -149,7 +149,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 
 
 	if decimation == DIT {
-		if domain.hasPrecomputedTwiddles {
+		if domain.withPrecompute {
 			parallel.Execute(len(a), func(start, end int) {
 				for i := start; i < end; i++ {
 					a[i].Mul(&a[i], &domain.CosetTableInv[i]).
@@ -176,7 +176,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 
 	// decimation == DIF, need to access coset table in bit reversed order.
 	cosetTableInv := domain.CosetTableInv
-	if !domain.hasPrecomputedTwiddles {
+	if !domain.withPrecompute {
 		// we need to build the full table or do a bit reverse dance.
 		cosetTableInv = make([]fr.Element, len(a))
 		cosetTableInv[0].SetOne()

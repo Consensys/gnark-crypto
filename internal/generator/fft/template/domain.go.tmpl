@@ -25,7 +25,7 @@ type Domain struct {
 	// this is set with the WithoutPrecompute option;
 	// if true, the domain does some pre-computation and stores it.
 	// if false, the FFT will compute the twiddles on the fly (this is less CPU efficient, but uses less memory)
-	hasPrecomputedTwiddles bool 
+	withPrecompute bool 
 
 	// the following slices are not serialized and are (re)computed through domain.preComputeTwiddles()
 
@@ -90,8 +90,8 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	domain.CardinalityInv.SetUint64(uint64(x)).Inverse(&domain.CardinalityInv)
 
 	// twiddle factors
-	domain.hasPrecomputedTwiddles = opt.hasPrecomputedTwiddles
-	if domain.hasPrecomputedTwiddles {
+	domain.withPrecompute = opt.withPrecompute
+	if domain.withPrecompute {
 		domain.preComputeTwiddles()
 	}
 
@@ -211,7 +211,7 @@ func (d *Domain) WriteTo(w io.Writer) (int64, error) {
 
 	enc := curve.NewEncoder(w)
 
-	toEncode := []interface{}{d.Cardinality, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv, &d.hasPrecomputedTwiddles}
+	toEncode := []interface{}{d.Cardinality, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv, &d.withPrecompute}
 
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
@@ -227,7 +227,7 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 
 	dec := curve.NewDecoder(r)
 
-	toDecode := []interface{}{&d.Cardinality, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv, &d.hasPrecomputedTwiddles}
+	toDecode := []interface{}{&d.Cardinality, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv, &d.withPrecompute}
 
 	for _, v := range toDecode {
 		if err := dec.Decode(v); err != nil {
@@ -235,7 +235,7 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 		}
 	}
 
-	if d.hasPrecomputedTwiddles {
+	if d.withPrecompute {
 		d.preComputeTwiddles()
 	} 
 
