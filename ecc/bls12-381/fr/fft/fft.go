@@ -54,7 +54,7 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 	if opt.coset {
 		if decimation == DIT {
 			// scale by coset table (in bit reversed order)
-			cosetTable := domain.CosetTable
+			cosetTable := domain.cosetTable
 			if !domain.withPrecompute {
 				// we need to build the full table or do a bit reverse dance.
 				cosetTable = make([]fr.Element, len(a))
@@ -73,7 +73,7 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 			if domain.withPrecompute {
 				parallel.Execute(len(a), func(start, end int) {
 					for i := start; i < end; i++ {
-						a[i].Mul(&a[i], &domain.CosetTable[i])
+						a[i].Mul(&a[i], &domain.cosetTable[i])
 					}
 				}, opt.nbTasks)
 			} else {
@@ -94,7 +94,7 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 		}
 	}
 
-	twiddles := domain.Twiddles
+	twiddles := domain.twiddles
 	twiddlesStartStage := 0
 	if !domain.withPrecompute {
 		twiddlesStartStage = 3
@@ -130,7 +130,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 		maxSplits = -1
 	}
 
-	twiddlesInv := domain.TwiddlesInv
+	twiddlesInv := domain.twiddlesInv
 	twiddlesStartStage := 0
 	if !domain.withPrecompute {
 		twiddlesStartStage = 3
@@ -164,7 +164,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 		if domain.withPrecompute {
 			parallel.Execute(len(a), func(start, end int) {
 				for i := start; i < end; i++ {
-					a[i].Mul(&a[i], &domain.CosetTableInv[i]).
+					a[i].Mul(&a[i], &domain.cosetTableInv[i]).
 						Mul(&a[i], &domain.CardinalityInv)
 				}
 			}, opt.nbTasks)
@@ -187,7 +187,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 	}
 
 	// decimation == DIF, need to access coset table in bit reversed order.
-	cosetTableInv := domain.CosetTableInv
+	cosetTableInv := domain.cosetTableInv
 	if !domain.withPrecompute {
 		// we need to build the full table or do a bit reverse dance.
 		cosetTableInv = make([]fr.Element, len(a))

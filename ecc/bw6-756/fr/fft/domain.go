@@ -48,19 +48,19 @@ type Domain struct {
 
 	// the following slices are not serialized and are (re)computed through domain.preComputeTwiddles()
 
-	// Twiddles factor for the FFT using Generator for each stage of the recursive FFT
-	Twiddles [][]fr.Element
+	// twiddles factor for the FFT using Generator for each stage of the recursive FFT
+	twiddles [][]fr.Element
 
-	// Twiddles factor for the FFT using GeneratorInv for each stage of the recursive FFT
-	TwiddlesInv [][]fr.Element
+	// twiddles factor for the FFT using GeneratorInv for each stage of the recursive FFT
+	twiddlesInv [][]fr.Element
 
 	// we precompute these mostly to avoid the memory intensive bit reverse permutation in the groth16.Prover
 
-	// CosetTable u*<1,g,..,g^(n-1)>
-	CosetTable []fr.Element
+	// cosetTable u*<1,g,..,g^(n-1)>
+	cosetTable []fr.Element
 
-	// CosetTable[i][j] = domain.Generator(i-th)SqrtInv ^ j
-	CosetTableInv []fr.Element
+	// cosetTable[i][j] = domain.Generator(i-th)SqrtInv ^ j
+	cosetTableInv []fr.Element
 }
 
 // NewDomain returns a subgroup with a power of 2 cardinality
@@ -109,10 +109,10 @@ func (d *Domain) preComputeTwiddles() {
 	// nb fft stages
 	nbStages := uint64(bits.TrailingZeros64(d.Cardinality))
 
-	d.Twiddles = make([][]fr.Element, nbStages)
-	d.TwiddlesInv = make([][]fr.Element, nbStages)
-	d.CosetTable = make([]fr.Element, d.Cardinality)
-	d.CosetTableInv = make([]fr.Element, d.Cardinality)
+	d.twiddles = make([][]fr.Element, nbStages)
+	d.twiddlesInv = make([][]fr.Element, nbStages)
+	d.cosetTable = make([]fr.Element, d.Cardinality)
+	d.cosetTableInv = make([]fr.Element, d.Cardinality)
 
 	var wg sync.WaitGroup
 
@@ -124,15 +124,15 @@ func (d *Domain) preComputeTwiddles() {
 
 	wg.Add(4)
 	go func() {
-		buildTwiddles(d.Twiddles, d.Generator, nbStages)
+		buildTwiddles(d.twiddles, d.Generator, nbStages)
 		wg.Done()
 	}()
 	go func() {
-		buildTwiddles(d.TwiddlesInv, d.GeneratorInv, nbStages)
+		buildTwiddles(d.twiddlesInv, d.GeneratorInv, nbStages)
 		wg.Done()
 	}()
-	go expTable(d.FrMultiplicativeGen, d.CosetTable)
-	go expTable(d.FrMultiplicativeGenInv, d.CosetTableInv)
+	go expTable(d.FrMultiplicativeGen, d.cosetTable)
+	go expTable(d.FrMultiplicativeGenInv, d.cosetTableInv)
 
 	wg.Wait()
 
