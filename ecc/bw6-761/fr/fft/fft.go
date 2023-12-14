@@ -151,61 +151,34 @@ func difFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStart
 	n := len(a)
 	if n == 1 {
 		return
-	} else if n == 256 && stage >= twiddlesStartStage {
-		kerDIFNP_256(a, twiddles, stage-twiddlesStartStage)
+	} else if n == 128 && stage >= twiddlesStartStage {
+		kerDIFNP_128(a, twiddles, stage-twiddlesStartStage)
 		return
 	}
 	m := n >> 1
 
+	parallelButterfly := (m > butterflyThreshold) && (stage < maxSplits)
+
 	if stage < twiddlesStartStage {
-		// we need to compute the twiddles for this stage on the fly.
-		if (m > butterflyThreshold) && (stage < maxSplits) {
-			// 1 << stage == estimated used CPUs
-			numCPU := nbTasks / (1 << (stage))
+		if parallelButterfly {
 			w := w
 			parallel.Execute(m, func(start, end int) {
-				if start == 0 {
-					fr.Butterfly(&a[0], &a[m])
-					start++
-				}
 				var at fr.Element
 				at.Exp(w, big.NewInt(int64(start)))
-				for i := start; i < end; i++ {
-					fr.Butterfly(&a[i], &a[i+m])
-					a[i+m].Mul(&a[i+m], &at)
-					at.Mul(&at, &w)
-				}
-			}, numCPU)
+				innerDIFWithoutTwiddles(a, at, start, end, m)
+			}, nbTasks/(1<<(stage))) // 1 << stage == estimated used CPUs
 		} else {
-			// i == 0
-			fr.Butterfly(&a[0], &a[m])
-			at := w
-			for i := 1; i < m; i++ {
-				fr.Butterfly(&a[i], &a[i+m])
-				a[i+m].Mul(&a[i+m], &at)
-				at.Mul(&at, &w)
-			}
+			innerDIFWithoutTwiddles(a, w, 0, m, m)
 		}
-
+		// compute next twiddle
+		w.Square(&w)
 	} else {
-		// if stage < maxSplits, we parallelize this butterfly
-		// but we have only numCPU / stage cpus available
-		if (m > butterflyThreshold) && (stage < maxSplits) {
-			// 1 << stage == estimated used CPUs
-			numCPU := nbTasks / (1 << (stage))
+		if parallelButterfly {
 			parallel.Execute(m, func(start, end int) {
-				for i := start; i < end; i++ {
-					fr.Butterfly(&a[i], &a[i+m])
-					a[i+m].Mul(&a[i+m], &twiddles[stage-twiddlesStartStage][i])
-				}
-			}, numCPU)
+				innerDIFWithTwiddles(a, twiddles[stage-twiddlesStartStage], start, end, m)
+			}, nbTasks/(1<<(stage)))
 		} else {
-			// i == 0
-			fr.Butterfly(&a[0], &a[m])
-			for i := 1; i < m; i++ {
-				fr.Butterfly(&a[i], &a[i+m])
-				a[i+m].Mul(&a[i+m], &twiddles[stage-twiddlesStartStage][i])
-			}
+			innerDIFWithTwiddles(a, twiddles[stage-twiddlesStartStage], 0, m, m)
 		}
 	}
 
@@ -213,7 +186,6 @@ func difFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStart
 		return
 	}
 
-	w.Square(&w)
 	nextStage := stage + 1
 	if stage < maxSplits {
 		chDone := make(chan struct{}, 1)
@@ -227,6 +199,30 @@ func difFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStart
 
 }
 
+func innerDIFWithTwiddles(a []fr.Element, twiddles []fr.Element, start, end, m int) {
+	if start == 0 {
+		fr.Butterfly(&a[0], &a[m])
+		start++
+	}
+	for i := start; i < end; i++ {
+		fr.Butterfly(&a[i], &a[i+m])
+		a[i+m].Mul(&a[i+m], &twiddles[i])
+	}
+}
+
+func innerDIFWithoutTwiddles(a []fr.Element, w fr.Element, start, end, m int) {
+	if start == 0 {
+		fr.Butterfly(&a[0], &a[m])
+		start++
+	}
+	at := w
+	for i := start; i < end; i++ {
+		fr.Butterfly(&a[i], &a[i+m])
+		a[i+m].Mul(&a[i+m], &at)
+		at.Mul(&at, &w)
+	}
+}
+
 func ditFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
 	if chDone != nil {
 		defer close(chDone)
@@ -234,15 +230,16 @@ func ditFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStart
 	n := len(a)
 	if n == 1 {
 		return
-	} else if n == 256 && stage >= twiddlesStartStage {
-		kerDITNP_256(a, twiddles, stage-twiddlesStartStage)
+	} else if n == 128 && stage >= twiddlesStartStage {
+		kerDITNP_128(a, twiddles, stage-twiddlesStartStage)
 		return
 	}
 	m := n >> 1
 
 	nextStage := stage + 1
-	var nextW fr.Element
-	nextW.Square(&w)
+	nextW := w
+	nextW.Square(&nextW)
+
 	if stage < maxSplits {
 		// that's the only time we fire go routines
 		chDone := make(chan struct{}, 1)
@@ -254,197 +251,100 @@ func ditFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStart
 		ditFFT(a[m:n], nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
 	}
 
+	parallelButterfly := (m > butterflyThreshold) && (stage < maxSplits)
+
 	if stage < twiddlesStartStage {
 		// we need to compute the twiddles for this stage on the fly.
-		if (m > butterflyThreshold) && (stage < maxSplits) {
-			// 1 << stage == estimated used CPUs
-			numCPU := nbTasks / (1 << (stage))
+		if parallelButterfly {
 			w := w
 			parallel.Execute(m, func(start, end int) {
-				if start == 0 {
-					fr.Butterfly(&a[0], &a[m])
-					start++
-				}
 				var at fr.Element
 				at.Exp(w, big.NewInt(int64(start)))
-				for i := start; i < end; i++ {
-					a[i+m].Mul(&a[i+m], &at)
-					at.Mul(&at, &w)
-					fr.Butterfly(&a[i], &a[i+m])
-				}
-			}, numCPU)
+				innerDITWithoutTwiddles(a, at, start, end, m)
+			}, nbTasks/(1<<(stage))) // 1 << stage == estimated used CPUs
 
 		} else {
-			at := w
-			fr.Butterfly(&a[0], &a[m])
-			for i := 1; i < m; i++ {
-				a[i+m].Mul(&a[i+m], &at)
-				at.Mul(&at, &w)
-				fr.Butterfly(&a[i], &a[i+m])
-			}
+			innerDITWithoutTwiddles(a, w, 0, m, m)
 		}
-
+		return
+	}
+	if parallelButterfly {
+		parallel.Execute(m, func(start, end int) {
+			innerDITWithTwiddles(a, twiddles[stage-twiddlesStartStage], start, end, m)
+		}, nbTasks/(1<<(stage)))
 	} else {
-		// if stage < maxSplits, we parallelize this butterfly
-		// but we have only numCPU / stage cpus available
-		if (m > butterflyThreshold) && (stage < maxSplits) {
-			// 1 << stage == estimated used CPUs
-			numCPU := nbTasks / (1 << (stage))
-			parallel.Execute(m, func(start, end int) {
-				for k := start; k < end; k++ {
-					a[k+m].Mul(&a[k+m], &twiddles[stage-twiddlesStartStage][k])
-					fr.Butterfly(&a[k], &a[k+m])
-				}
-			}, numCPU)
-
-		} else {
-			fr.Butterfly(&a[0], &a[m])
-			for k := 1; k < m; k++ {
-				a[k+m].Mul(&a[k+m], &twiddles[stage-twiddlesStartStage][k])
-				fr.Butterfly(&a[k], &a[k+m])
-			}
-		}
+		innerDITWithTwiddles(a, twiddles[stage-twiddlesStartStage], 0, m, m)
 	}
 }
 
-func kerDIFNP_256(a []fr.Element, twiddles [][]fr.Element, stage int) {
+func innerDITWithTwiddles(a []fr.Element, twiddles []fr.Element, start, end, m int) {
+	if start == 0 {
+		fr.Butterfly(&a[0], &a[m])
+		start++
+	}
+	for i := start; i < end; i++ {
+		a[i+m].Mul(&a[i+m], &twiddles[i])
+		fr.Butterfly(&a[i], &a[i+m])
+	}
+}
+
+func innerDITWithoutTwiddles(a []fr.Element, w fr.Element, start, end, m int) {
+	if start == 0 {
+		fr.Butterfly(&a[0], &a[m])
+		start++
+	}
+	at := w
+	for i := start; i < end; i++ {
+		a[i+m].Mul(&a[i+m], &at)
+		fr.Butterfly(&a[i], &a[i+m])
+		at.Mul(&at, &w)
+	}
+}
+
+func kerDIFNP_128(a []fr.Element, twiddles [][]fr.Element, stage int) {
 	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
 
-	for offset := 0; offset < 256; offset += 256 {
-		fr.Butterfly(&a[offset], &a[offset+128])
-		k := 1
-		for i := offset + 1; i < offset+128; i++ {
-			fr.Butterfly(&a[i], &a[i+128])
-			a[i+128].Mul(&a[i+128], &twiddles[stage+0][k])
-			k++
-		}
+	innerDIFWithTwiddles(a[:128], twiddles[stage+0], 0, 64, 64)
+	for offset := 0; offset < 128; offset += 64 {
+		innerDIFWithTwiddles(a[offset:offset+64], twiddles[stage+1], 0, 32, 32)
 	}
-	for offset := 0; offset < 256; offset += 128 {
-		fr.Butterfly(&a[offset], &a[offset+64])
-		k := 1
-		for i := offset + 1; i < offset+64; i++ {
-			fr.Butterfly(&a[i], &a[i+64])
-			a[i+64].Mul(&a[i+64], &twiddles[stage+1][k])
-			k++
-		}
+	for offset := 0; offset < 128; offset += 32 {
+		innerDIFWithTwiddles(a[offset:offset+32], twiddles[stage+2], 0, 16, 16)
 	}
-	for offset := 0; offset < 256; offset += 64 {
-		fr.Butterfly(&a[offset], &a[offset+32])
-		k := 1
-		for i := offset + 1; i < offset+32; i++ {
-			fr.Butterfly(&a[i], &a[i+32])
-			a[i+32].Mul(&a[i+32], &twiddles[stage+2][k])
-			k++
-		}
+	for offset := 0; offset < 128; offset += 16 {
+		innerDIFWithTwiddles(a[offset:offset+16], twiddles[stage+3], 0, 8, 8)
 	}
-	for offset := 0; offset < 256; offset += 32 {
-		fr.Butterfly(&a[offset], &a[offset+16])
-		k := 1
-		for i := offset + 1; i < offset+16; i++ {
-			fr.Butterfly(&a[i], &a[i+16])
-			a[i+16].Mul(&a[i+16], &twiddles[stage+3][k])
-			k++
-		}
+	for offset := 0; offset < 128; offset += 8 {
+		innerDIFWithTwiddles(a[offset:offset+8], twiddles[stage+4], 0, 4, 4)
 	}
-	for offset := 0; offset < 256; offset += 16 {
-		fr.Butterfly(&a[offset], &a[offset+8])
-		k := 1
-		for i := offset + 1; i < offset+8; i++ {
-			fr.Butterfly(&a[i], &a[i+8])
-			a[i+8].Mul(&a[i+8], &twiddles[stage+4][k])
-			k++
-		}
+	for offset := 0; offset < 128; offset += 4 {
+		innerDIFWithTwiddles(a[offset:offset+4], twiddles[stage+5], 0, 2, 2)
 	}
-	for offset := 0; offset < 256; offset += 8 {
-		fr.Butterfly(&a[offset], &a[offset+4])
-		k := 1
-		for i := offset + 1; i < offset+4; i++ {
-			fr.Butterfly(&a[i], &a[i+4])
-			a[i+4].Mul(&a[i+4], &twiddles[stage+5][k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 4 {
-		fr.Butterfly(&a[offset], &a[offset+2])
-		k := 1
-		for i := offset + 1; i < offset+2; i++ {
-			fr.Butterfly(&a[i], &a[i+2])
-			a[i+2].Mul(&a[i+2], &twiddles[stage+6][k])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 2 {
+	for offset := 0; offset < 128; offset += 2 {
 		fr.Butterfly(&a[offset], &a[offset+1])
 	}
 }
 
-func kerDITNP_256(a []fr.Element, twiddles [][]fr.Element, stage int) {
+func kerDITNP_128(a []fr.Element, twiddles [][]fr.Element, stage int) {
 	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
 
-	for offset := 0; offset < 256; offset += 2 {
+	for offset := 0; offset < 128; offset += 2 {
 		fr.Butterfly(&a[offset], &a[offset+1])
 	}
-	for offset := 0; offset < 256; offset += 4 {
-		fr.Butterfly(&a[offset], &a[offset+2])
-		k := 1
-		for i := offset + 1; i < offset+2; i++ {
-			a[i+2].Mul(&a[i+2], &twiddles[stage+6][k])
-			fr.Butterfly(&a[i], &a[i+2])
-			k++
-		}
+	for offset := 0; offset < 128; offset += 4 {
+		innerDITWithTwiddles(a[offset:offset+4], twiddles[stage+5], 0, 2, 2)
 	}
-	for offset := 0; offset < 256; offset += 8 {
-		fr.Butterfly(&a[offset], &a[offset+4])
-		k := 1
-		for i := offset + 1; i < offset+4; i++ {
-			a[i+4].Mul(&a[i+4], &twiddles[stage+5][k])
-			fr.Butterfly(&a[i], &a[i+4])
-			k++
-		}
+	for offset := 0; offset < 128; offset += 8 {
+		innerDITWithTwiddles(a[offset:offset+8], twiddles[stage+4], 0, 4, 4)
 	}
-	for offset := 0; offset < 256; offset += 16 {
-		fr.Butterfly(&a[offset], &a[offset+8])
-		k := 1
-		for i := offset + 1; i < offset+8; i++ {
-			a[i+8].Mul(&a[i+8], &twiddles[stage+4][k])
-			fr.Butterfly(&a[i], &a[i+8])
-			k++
-		}
+	for offset := 0; offset < 128; offset += 16 {
+		innerDITWithTwiddles(a[offset:offset+16], twiddles[stage+3], 0, 8, 8)
 	}
-	for offset := 0; offset < 256; offset += 32 {
-		fr.Butterfly(&a[offset], &a[offset+16])
-		k := 1
-		for i := offset + 1; i < offset+16; i++ {
-			a[i+16].Mul(&a[i+16], &twiddles[stage+3][k])
-			fr.Butterfly(&a[i], &a[i+16])
-			k++
-		}
+	for offset := 0; offset < 128; offset += 32 {
+		innerDITWithTwiddles(a[offset:offset+32], twiddles[stage+2], 0, 16, 16)
 	}
-	for offset := 0; offset < 256; offset += 64 {
-		fr.Butterfly(&a[offset], &a[offset+32])
-		k := 1
-		for i := offset + 1; i < offset+32; i++ {
-			a[i+32].Mul(&a[i+32], &twiddles[stage+2][k])
-			fr.Butterfly(&a[i], &a[i+32])
-			k++
-		}
+	for offset := 0; offset < 128; offset += 64 {
+		innerDITWithTwiddles(a[offset:offset+64], twiddles[stage+1], 0, 32, 32)
 	}
-	for offset := 0; offset < 256; offset += 128 {
-		fr.Butterfly(&a[offset], &a[offset+64])
-		k := 1
-		for i := offset + 1; i < offset+64; i++ {
-			a[i+64].Mul(&a[i+64], &twiddles[stage+1][k])
-			fr.Butterfly(&a[i], &a[i+64])
-			k++
-		}
-	}
-	for offset := 0; offset < 256; offset += 256 {
-		fr.Butterfly(&a[offset], &a[offset+128])
-		k := 1
-		for i := offset + 1; i < offset+128; i++ {
-			a[i+128].Mul(&a[i+128], &twiddles[stage+0][k])
-			fr.Butterfly(&a[i], &a[i+128])
-			k++
-		}
-	}
+	innerDITWithTwiddles(a[:128], twiddles[stage+0], 0, 64, 64)
 }
