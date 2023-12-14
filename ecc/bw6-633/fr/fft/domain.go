@@ -87,6 +87,11 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	// twiddle factors
 	domain.preComputeTwiddles()
 
+	if opt.onTheFly {
+		domain.Twiddles = nil
+		domain.TwiddlesInv = nil
+	}
+
 	return domain
 }
 
