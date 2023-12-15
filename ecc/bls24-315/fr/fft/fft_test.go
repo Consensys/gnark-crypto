@@ -44,6 +44,8 @@ func TestFFT(t *testing.T) {
 		"with precompute":    domainWithPrecompute,
 		"without precompute": domainWithoutPrecompute,
 	} {
+		domainName := domainName
+		domain := domain
 		t.Logf("domain: %s", domainName)
 		properties.Property("DIF FFT should be consistent with dual basis", prop.ForAll(
 
