@@ -142,7 +142,7 @@ func TestMulMod(t *testing.T) {
 	// and random.
 	var shift fr.Element
 	shift.SetString("19540430494807482326159819597004422086093766032135589407132600596362845576832")
-	domain := fft.NewDomain(uint64(size), shift)
+	domain := fft.NewDomain(uint64(size), fft.WithShift(shift))
 
 	// mul mod
 	domain.FFT(p, fft.DIF, fft.OnCoset())
@@ -415,7 +415,7 @@ func TestUnrolledFFT(t *testing.T) {
 
 	const size = 64
 	assert := require.New(t)
-	domain := fft.NewDomain(size, shift)
+	domain := fft.NewDomain(size, fft.WithShift(shift))
 
 	k1 := make([]fr.Element, size)
 	for i := 0; i < size; i++ {
@@ -428,7 +428,7 @@ func TestUnrolledFFT(t *testing.T) {
 	domain.FFT(k1, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 
 	// unrolled FFT
-	twiddlesCoset := precomputeTwiddlesCoset(domain.Twiddles, domain.FrMultiplicativeGen)
+	twiddlesCoset := precomputeTwiddlesCoset(domain.Generator, domain.FrMultiplicativeGen)
 	fft64(k2, twiddlesCoset)
 
 	// compare results

@@ -427,7 +427,7 @@ func TestUnrolledFFT(t *testing.T) {
 	domain.FFT(k1, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 
 	// unrolled FFT
-	twiddlesCoset := precomputeTwiddlesCoset(domain.Twiddles, domain.FrMultiplicativeGen)
+	twiddlesCoset := precomputeTwiddlesCoset(domain.Generator, domain.FrMultiplicativeGen)
 	fft64(k2, twiddlesCoset)
 
 	// compare results

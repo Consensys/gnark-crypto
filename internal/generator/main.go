@@ -92,7 +92,7 @@ func main() {
 			// generate fft on fr
 			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
 
-			if conf.Equal(config.BN254) {
+			if conf.Equal(config.BN254) || conf.Equal(config.BLS12_377) {
 				assertNoError(sis.Generate(conf, filepath.Join(curveDir, "fr", "sis"), bgen))
 			}
 
