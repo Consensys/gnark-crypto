@@ -178,6 +178,9 @@ func (d *Domain) preComputeTwiddles() {
 }
 
 func buildTwiddles(t [][]fr.Element, omega fr.Element,nbStages uint64) {
+	if nbStages == 0 {
+		return
+	}
 	if len(t) != int(nbStages) {
 		panic("invalid twiddle table")
 	}
