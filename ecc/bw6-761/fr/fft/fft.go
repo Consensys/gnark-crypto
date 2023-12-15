@@ -78,9 +78,6 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 			} else {
 				c := domain.FrMultiplicativeGen
 				parallel.Execute(len(a), func(start, end int) {
-					if start == 0 {
-						start++
-					}
 					var at fr.Element
 					at.Exp(c, big.NewInt(int64(start)))
 					for i := start; i < end; i++ {
@@ -170,9 +167,6 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 		} else {
 			c := domain.FrMultiplicativeGenInv
 			parallel.Execute(len(a), func(start, end int) {
-				if start == 0 {
-					start++
-				}
 				var at fr.Element
 				at.Exp(c, big.NewInt(int64(start)))
 				at.Mul(&at, &domain.CardinalityInv)
