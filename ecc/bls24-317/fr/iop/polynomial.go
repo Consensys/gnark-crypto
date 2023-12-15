@@ -72,9 +72,8 @@ var (
 // default blindedSize=Size, until the polynomial is blinded.
 type Polynomial struct {
 	*polynomial
-	shift       int
-	size        int
-	blindedSize int
+	shift int
+	size  int
 }
 
 // NewPolynomial returned a Polynomial from the provided coefficients in the given form.
@@ -83,9 +82,8 @@ type Polynomial struct {
 // shouldn't be mutated.
 func NewPolynomial(coeffs *[]fr.Element, form Form) *Polynomial {
 	return &Polynomial{
-		polynomial:  newPolynomial(coeffs, form),
-		size:        len(*coeffs),
-		blindedSize: len(*coeffs),
+		polynomial: newPolynomial(coeffs, form),
+		size:       len(*coeffs),
 	}
 }
 
@@ -94,12 +92,6 @@ func NewPolynomial(coeffs *[]fr.Element, form Form) *Polynomial {
 func (p *Polynomial) Shift(shift int) *Polynomial {
 	p.shift = shift
 	return p
-}
-
-// BlindedSize returns the the size of the polynomial when it is blinded. By
-// default blindedSize=Size, until the polynomial is blinded.
-func (p *Polynomial) BlindedSize() int {
-	return p.blindedSize
 }
 
 // Size returns the real size of the polynomial (seen as a vector).
@@ -117,48 +109,6 @@ func (p *Polynomial) Size() int {
 // of degree 7.
 func (p *Polynomial) SetSize(size int) {
 	p.size = size
-}
-
-// SetBlindedSize sets the blinded size of the polynomial.
-func (p *Polynomial) SetBlindedSize(size int) {
-	p.blindedSize = size
-}
-
-// Blind blinds a polynomial q by adding Q(X)*(X^{n}-1),
-// where deg Q = blindingOrder and Q is random, and n is the
-// size of q. Sets the result to p and returns it.
-//
-// blindingOrder is the degree of Q, where the blinding is Q(X)*(X^{n}-1)
-// where n is the size of p. The size of p is modified since the underlying
-// polynomial is of bigger degree now. The new size is p.Size+1+blindingOrder.
-//
-// /!\ The code panics if wq is not in canonical, regular layout
-func (p *Polynomial) Blind(blindingOrder int) *Polynomial {
-	// check that p is in canonical basis
-	if p.Form != canonicalRegular {
-		panic("the input must be in canonical basis, regular layout")
-	}
-
-	// we add Q*(x^{n}-1) so the new size is deg(Q)+n+1
-	// where n is the size of wq.
-	newSize := p.size + blindingOrder + 1
-
-	// Resize p. The size of wq might has already been increased
-	// (e.g. when the polynomial is evaluated on a larger domain),
-	// if that's the case we don't resize the polynomial.
-	p.grow(newSize)
-
-	// blinding: we add Q(X)(X^{n}-1) to P, where deg(Q)=blindingOrder
-	var r fr.Element
-
-	for i := 0; i <= blindingOrder; i++ {
-		r.SetRandom()
-		(*p.coefficients)[i].Sub(&(*p.coefficients)[i], &r)
-		(*p.coefficients)[i+p.size].Add(&(*p.coefficients)[i+p.size], &r)
-	}
-	p.blindedSize = newSize
-
-	return p
 }
 
 // Evaluate evaluates p at x.
@@ -413,7 +363,6 @@ func (p *Polynomial) WriteTo(w io.Writer) (int64, error) {
 		uint32(p.Layout),
 		uint32(p.shift),
 		uint32(p.size),
-		uint32(p.blindedSize),
 	}
 	for _, v := range data {
 		err = binary.Write(w, binary.BigEndian, v)
@@ -440,8 +389,8 @@ func (p *Polynomial) ReadFrom(r io.Reader) (int64, error) {
 		return n, err
 	}
 
-	// decode Form.Basis, Form.Layout, shift, size & blindedSize as uint32
-	var data [5]uint32
+	// decode Form.Basis, Form.Layout, shift as uint32
+	var data [4]uint32
 	var buf [4]byte
 	for i := range data {
 		read, err := io.ReadFull(r, buf[:4])
@@ -456,7 +405,6 @@ func (p *Polynomial) ReadFrom(r io.Reader) (int64, error) {
 	p.Layout = Layout(data[1])
 	p.shift = int(data[2])
 	p.size = int(data[3])
-	p.blindedSize = int(data[4])
 
 	return n, nil
 }
