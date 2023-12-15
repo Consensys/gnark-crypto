@@ -154,8 +154,7 @@ func (d *Domain) preComputeTwiddles() {
 	var wg sync.WaitGroup
 
 	expTable := func(sqrt fr.Element, t []fr.Element) {
-		t[0] = fr.One()
-		precomputeExpTable(sqrt, t)
+		BuildExpTable(sqrt, t)
 		wg.Done()
 	}
 
@@ -184,8 +183,7 @@ func buildTwiddles(t [][]fr.Element, omega fr.Element, nbStages uint64) {
 	}
 	// we just compute the first stage
 	t[0] = make([]fr.Element, 1+(1<<(nbStages-1)))
-	t[0][0] = fr.One()
-	precomputeExpTable(omega, t[0])
+	BuildExpTable(omega, t[0])
 
 	// for the next stages, we just iterate on the first stage with larger stride
 	for i := uint64(1); i < nbStages; i++ {
@@ -199,7 +197,12 @@ func buildTwiddles(t [][]fr.Element, omega fr.Element, nbStages uint64) {
 
 }
 
-func precomputeExpTable(w fr.Element, table []fr.Element) {
+// BuildExpTable precomputes the first n powers of w in parallel
+// table[0] = w^0
+// table[1] = w^1
+// ...
+func BuildExpTable(w fr.Element, table []fr.Element) {
+	table[0].SetOne()
 	n := len(table)
 
 	// see if it makes sense to parallelize exp tables pre-computation

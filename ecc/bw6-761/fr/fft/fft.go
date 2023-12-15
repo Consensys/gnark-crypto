@@ -58,8 +58,7 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 			if !domain.withPrecompute {
 				// we need to build the full table or do a bit reverse dance.
 				cosetTable = make([]fr.Element, len(a))
-				cosetTable[0].SetOne()
-				precomputeExpTable(domain.FrMultiplicativeGen, cosetTable)
+				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 			}
 			parallel.Execute(len(a), func(start, end int) {
 				n := uint64(len(a))
@@ -191,8 +190,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 	if !domain.withPrecompute {
 		// we need to build the full table or do a bit reverse dance.
 		cosetTableInv = make([]fr.Element, len(a))
-		cosetTableInv[0].SetOne()
-		precomputeExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
+		BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
 	}
 	parallel.Execute(len(a), func(start, end int) {
 		n := uint64(len(a))
