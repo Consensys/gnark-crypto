@@ -17,6 +17,7 @@
 package fft
 
 import (
+	"errors"
 	"io"
 	"math/big"
 	"math/bits"
@@ -102,6 +103,42 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 // or an error if m is too big (required root of unity doesn't exist)
 func Generator(m uint64) (fr.Element, error) {
 	return fr.Generator(m)
+}
+
+// Twiddles returns the twiddles factor for the FFT using Generator for each stage of the recursive FFT
+// or an error if the domain was created with the WithoutPrecompute option
+func (d *Domain) Twiddles() ([][]fr.Element, error) {
+	if d.twiddles == nil {
+		return nil, errors.New("twiddles not precomputed")
+	}
+	return d.twiddles, nil
+}
+
+// TwiddlesInv returns the twiddles factor for the FFT using GeneratorInv for each stage of the recursive FFT
+// or an error if the domain was created with the WithoutPrecompute option
+func (d *Domain) TwiddlesInv() ([][]fr.Element, error) {
+	if d.twiddlesInv == nil {
+		return nil, errors.New("twiddles not precomputed")
+	}
+	return d.twiddlesInv, nil
+}
+
+// CosetTable returns the cosetTable u*<1,g,..,g^(n-1)>
+// or an error if the domain was created with the WithoutPrecompute option
+func (d *Domain) CosetTable() ([]fr.Element, error) {
+	if d.cosetTable == nil {
+		return nil, errors.New("cosetTable not precomputed")
+	}
+	return d.cosetTable, nil
+}
+
+// CosetTableInv returns the cosetTableInv u*<1,g,..,g^(n-1)>
+// or an error if the domain was created with the WithoutPrecompute option
+func (d *Domain) CosetTableInv() ([]fr.Element, error) {
+	if d.cosetTableInv == nil {
+		return nil, errors.New("cosetTableInv not precomputed")
+	}
+	return d.cosetTableInv, nil
 }
 
 func (d *Domain) preComputeTwiddles() {
