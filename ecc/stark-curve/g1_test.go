@@ -17,8 +17,8 @@
 package starkcurve
 
 import (
+	"crypto/rand"
 	"math/big"
-	"math/rand"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"

@@ -16,14 +16,14 @@ package sis
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"math/bits"
-	"math/rand"
+	"os"
 	"testing"
 	"time"
 
@@ -69,7 +69,7 @@ func TestReference(t *testing.T) {
 
 	// read the test case file
 	var testCases TestCases
-	data, err := ioutil.ReadFile("test_cases.json")
+	data, err := os.ReadFile("test_cases.json")
 	assert.NoError(err, "reading test cases failed")
 	err = json.Unmarshal(data, &testCases)
 	assert.NoError(err, "reading test cases failed")
@@ -391,8 +391,7 @@ func TestLimbDecompositionFastPath(t *testing.T) {
 		nValues := bitset.New(uint(size))
 
 		// Generate a random buffer
-		rand.Seed(time.Now().UnixNano()) //#nosec G404 weak rng is fine here
-		_, err := rand.Read(buf)         //#nosec G404 weak rng is fine here
+		_, err := rand.Read(buf) //#nosec G404 weak rng is fine here
 		assert.NoError(err)
 
 		limbDecomposeBytes8_64(buf, m, mValues)
