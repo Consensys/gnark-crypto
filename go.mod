@@ -9,8 +9,8 @@ require (
 	github.com/mmcloughlin/addchain v0.4.0
 	github.com/spf13/cobra v1.5.0
 	github.com/stretchr/testify v1.8.2
-	golang.org/x/crypto v0.10.0
-	golang.org/x/sys v0.9.0
+	golang.org/x/crypto v0.17.0
+	golang.org/x/sys v0.15.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
