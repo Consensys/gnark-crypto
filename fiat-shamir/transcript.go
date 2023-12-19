@@ -125,11 +125,10 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 		// doesn't provide WriteString method (which does hash to field
 		// internally).
 		return nil, fmt.Errorf("hash function doesn't provide challenge domain separation")
-	case len(challengeID) > t.h.BlockSize():
-		return nil, fmt.Errorf("challenge name exceeds domain size")
 	default:
-		tmp := make([]byte, t.h.BlockSize())
-		copy(tmp[t.h.BlockSize()-len(challengeID):], []byte(challengeID))
+		nbBlocks := (len([]byte(challengeID)) + 1 + t.h.BlockSize()) / t.h.BlockSize()
+		tmp := make([]byte, t.h.BlockSize()*nbBlocks)
+		copy(tmp[len(tmp)-len(challengeID):], []byte(challengeID))
 		if _, err := t.h.Write(tmp[:]); err != nil {
 			return nil, fmt.Errorf("write: %w", err)
 		}
