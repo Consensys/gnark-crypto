@@ -20,9 +20,9 @@ import (
 	"testing"
 )
 
-func initTranscript() Transcript {
+func initTranscript() *Transcript {
 
-	fs := NewTranscript(sha256.New(), "alpha", "beta", "gamma")
+	fs := NewTranscript(sha256.New(), WithStaticChallenges("alpha", "beta", "gamma"))
 
 	values := [][]byte{[]byte("v1"), []byte("v2"), []byte("v3"), []byte("v4"), []byte("v5"), []byte("v6")}
 	if err := fs.Bind("alpha", values[0]); err != nil {
@@ -138,4 +138,11 @@ func TestBindToComputedChallenge(t *testing.T) {
 		t.Fatal(err)
 	}
 
+}
+
+func TestDynamicChallenges(t *testing.T) {
+	ts := NewTranscript(sha256.New())
+	if err := ts.Bind("alpha", []byte("test")); err != nil {
+		t.Fatal(err)
+	}
 }
