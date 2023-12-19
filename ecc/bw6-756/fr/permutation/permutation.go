@@ -156,7 +156,7 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 	hFunc := sha256.New()
 
 	// transcript to derive the challenge
-	fs := fiatshamir.NewTranscript(hFunc, fiatshamir.WithStaticChallenges("epsilon", "omega", "eta"))
+	fs := fiatshamir.NewTranscript(hFunc, "epsilon", "omega", "eta")
 
 	// commit t1, t2
 	ct1 := make([]fr.Element, s)
@@ -279,7 +279,7 @@ func Verify(vk kzg.VerifyingKey, proof Proof) error {
 	hFunc := sha256.New()
 
 	// transcript to derive the challenge
-	fs := fiatshamir.NewTranscript(hFunc, fiatshamir.WithStaticChallenges("epsilon", "omega", "eta"))
+	fs := fiatshamir.NewTranscript(hFunc, "epsilon", "omega", "eta")
 
 	// derive the challenges
 	epsilon, err := deriveRandomness(fs, "epsilon", &proof.t1, &proof.t2)

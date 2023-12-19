@@ -550,7 +550,7 @@ func fold(di []Digest, fai []fr.Element, ci []fr.Element) (Digest, fr.Element, e
 func deriveGamma(point fr.Element, digests []Digest, claimedValues []fr.Element, hf hash.Hash, dataTranscript ...[]byte) (fr.Element, error) {
 
 	// derive the challenge gamma, binded to the point and the commitments
-	fs := fiatshamir.NewTranscript(hf, fiatshamir.WithStaticChallenges("gamma"))
+	fs := fiatshamir.NewTranscript(hf, "gamma")
 	if err := fs.Bind("gamma", point.Marshal()); err != nil {
 		return fr.Element{}, err
 	}

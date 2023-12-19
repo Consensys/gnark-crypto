@@ -10,8 +10,8 @@ import (
 
 func TestCounterTranscriptInequality(t *testing.T) {
 	const challengeName = "fC.0"
-	t1 := fiatshamir.NewTranscript(test_vector_utils.NewMessageCounter(1, 1), fiatshamir.WithStaticChallenges(challengeName))
-	t2 := fiatshamir.NewTranscript(test_vector_utils.NewMessageCounter(0, 1), fiatshamir.WithStaticChallenges(challengeName))
+	t1 := fiatshamir.NewTranscript(test_vector_utils.NewMessageCounter(1, 1), challengeName)
+	t2 := fiatshamir.NewTranscript(test_vector_utils.NewMessageCounter(0, 1), challengeName)
 	var c1, c2 []byte
 	var err error
 	c1, err = t1.ComputeChallenge(challengeName)

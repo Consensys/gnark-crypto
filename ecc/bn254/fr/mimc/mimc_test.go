@@ -9,7 +9,7 @@ import (
 )
 
 func TestMiMCFiatShamir(t *testing.T) {
-	fs := fiatshamir.NewTranscript(mimc.NewMiMC(), fiatshamir.WithStaticChallenges("c0"))
+	fs := fiatshamir.NewTranscript(mimc.NewMiMC(), "c0")
 	zero := make([]byte, mimc.BlockSize)
 	err := fs.Bind("c0", zero)
 	assert.NoError(t, err)
