@@ -127,7 +127,7 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 		return nil, fmt.Errorf("hash function doesn't provide challenge domain separation")
 	default:
 		nbBlocks := (len([]byte(challengeID)) + 1 + t.h.BlockSize()) / t.h.BlockSize()
-		tmp := make([]byte, (t.h.BlockSize()-1)*nbBlocks)
+		tmp := make([]byte, (t.h.BlockSize())*nbBlocks)
 		copy(tmp[len(tmp)-len(challengeID):], []byte(challengeID))
 		if _, err := t.h.Write(tmp[:]); err != nil {
 			return nil, fmt.Errorf("write: %w", err)
