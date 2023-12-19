@@ -113,26 +113,8 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 	t.h.Reset()
 	defer t.h.Reset()
 
-	htf, ok := t.h.(interface{ WriteString(rawBytes []byte) error })
-	switch {
-	case t.config.withDomainSeparation && ok:
-		// requested domain separation and the hash function has the method
-		if err := htf.WriteString([]byte(challengeID)); err != nil {
-			return nil, fmt.Errorf("write string: %w", err)
-		}
-	case t.config.withDomainSeparation && !ok:
-		// problem - we requested domain separation buth the hash function
-		// doesn't provide WriteString method (which does hash to field
-		// internally).
-		return nil, fmt.Errorf("hash function doesn't provide challenge domain separation")
-	default:
-		nbBlocks := (len([]byte(challengeID)) + 1 + t.h.BlockSize()) / t.h.BlockSize()
-		tmp := make([]byte, (t.h.BlockSize())*nbBlocks)
-		copy(tmp[len(tmp)-len(challengeID):], []byte(challengeID))
-		if _, err := t.h.Write(tmp[:]); err != nil {
-			return nil, fmt.Errorf("write: %w", err)
-		}
-
+	if _, err := t.h.Write([]byte(challengeID)); err != nil {
+		return nil, fmt.Errorf("write: %w", err)
 	}
 
 	// write the previous challenge if it's not the first challenge
