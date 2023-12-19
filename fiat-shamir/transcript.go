@@ -16,6 +16,7 @@ package fiatshamir
 
 import (
 	"errors"
+	"fmt"
 	"hash"
 )
 
@@ -33,6 +34,8 @@ type Transcript struct {
 
 	challenges map[string]challenge
 	previous   *challenge
+
+	config *transcriptConfig
 }
 
 type challenge struct {
@@ -45,17 +48,19 @@ type challenge struct {
 // NewTranscript returns a new transcript.
 // h is the hash function that is used to compute the challenges.
 // challenges are the name of the challenges. The order of the challenges IDs matters.
-func NewTranscript(h hash.Hash, challengesID ...string) Transcript {
-	n := len(challengesID)
-	t := Transcript{
-		challenges: make(map[string]challenge, n),
+func NewTranscript(h hash.Hash, opts ...TranscriptOption) *Transcript {
+	cfg := newConfig(opts...)
+	challenges := make(map[string]challenge)
+	if cfg.fixedChallenges != nil {
+		for i := range cfg.fixedChallenges {
+			challenges[cfg.fixedChallenges[i]] = challenge{position: i}
+		}
+	}
+	t := &Transcript{
+		challenges: challenges,
 		h:          h,
+		config:     cfg,
 	}
-
-	for i := 0; i < n; i++ {
-		t.challenges[challengesID[i]] = challenge{position: i}
-	}
-
 	return t
 }
 
@@ -65,19 +70,24 @@ func NewTranscript(h hash.Hash, challengesID ...string) Transcript {
 // binded to other values.
 func (t *Transcript) Bind(challengeID string, bValue []byte) error {
 
-	challenge, ok := t.challenges[challengeID]
+	currentChallenge, ok := t.challenges[challengeID]
 	if !ok {
-		return errChallengeNotFound
+		if t.config.fixedChallenges != nil {
+			return errChallengeNotFound
+		} else {
+			t.challenges[challengeID] = challenge{position: len(t.challenges)}
+			currentChallenge = t.challenges[challengeID]
+		}
 	}
 
-	if challenge.isComputed {
+	if currentChallenge.isComputed {
 		return errChallengeAlreadyComputed
 	}
 
 	bCopy := make([]byte, len(bValue))
 	copy(bCopy, bValue)
-	challenge.bindings = append(challenge.bindings, bCopy)
-	t.challenges[challengeID] = challenge
+	currentChallenge.bindings = append(currentChallenge.bindings, bCopy)
+	t.challenges[challengeID] = currentChallenge
 
 	return nil
 
@@ -103,15 +113,27 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 	t.h.Reset()
 	defer t.h.Reset()
 
-	// write the challenge name, the purpose is to have a domain separator
-	if hashToField, ok := t.h.(interface {
-		WriteString(rawBytes []byte)
-	}); ok {
-		hashToField.WriteString([]byte(challengeID)) // TODO: Replace with a function returning field identifier, whence we can find the correct hash to field function. Better than confusingly embedding hash to field into another hash
-	} else {
-		if _, err := t.h.Write([]byte(challengeID)); err != nil {
-			return nil, err
+	htf, ok := t.h.(interface{ WriteString(rawBytes []byte) error })
+	switch {
+	case t.config.withDomainSeparation && ok:
+		// requested domain separation and the hash function has the method
+		if err := htf.WriteString([]byte(challengeID)); err != nil {
+			return nil, fmt.Errorf("write string: %w", err)
 		}
+	case t.config.withDomainSeparation && !ok:
+		// problem - we requested domain separation buth the hash function
+		// doesn't provide WriteString method (which does hash to field
+		// internally).
+		return nil, fmt.Errorf("hash function doesn't provide challenge domain separation")
+	case len(challengeID) > t.h.BlockSize():
+		return nil, fmt.Errorf("challenge name exceeds domain size")
+	default:
+		tmp := make([]byte, t.h.BlockSize())
+		copy(tmp[t.h.BlockSize()-len(challengeID):], []byte(challengeID))
+		if _, err := t.h.Write(tmp[:]); err != nil {
+			return nil, fmt.Errorf("write: %w", err)
+		}
+
 	}
 
 	// write the previous challenge if it's not the first challenge
