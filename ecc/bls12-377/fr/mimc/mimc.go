@@ -185,10 +185,11 @@ func initConstants() {
 }
 
 // WriteString writes a string that doesn't necessarily consist of field elements
-func (d *digest) WriteString(rawBytes []byte) {
+func (d *digest) WriteString(rawBytes []byte) error {
 	if elems, err := fr.Hash(rawBytes, []byte("string:"), 1); err != nil {
-		panic(err)
+		return err
 	} else {
 		d.data = append(d.data, elems[0])
 	}
+	return nil
 }

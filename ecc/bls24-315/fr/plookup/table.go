@@ -70,7 +70,7 @@ func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, 
 	hFunc := sha256.New()
 
 	// transcript to derive the challenge
-	fs := fiatshamir.NewTranscript(hFunc, "lambda")
+	fs := fiatshamir.NewTranscript(hFunc, fiatshamir.WithStaticChallenges("lambda"))
 
 	// check the sizes
 	if len(f) != len(t) {
@@ -145,7 +145,7 @@ func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, 
 		comms[nbRows+i] = new(kzg.Digest)
 		comms[nbRows+i].Set(&proof.ts[i])
 	}
-	lambda, err := deriveRandomness(&fs, "lambda", comms...)
+	lambda, err := deriveRandomness(fs, "lambda", comms...)
 	if err != nil {
 		return proof, err
 	}
@@ -183,7 +183,7 @@ func VerifyLookupTables(vk kzg.VerifyingKey, proof ProofLookupTables) error {
 	hFunc := sha256.New()
 
 	// transcript to derive the challenge
-	fs := fiatshamir.NewTranscript(hFunc, "lambda")
+	fs := fiatshamir.NewTranscript(hFunc, fiatshamir.WithStaticChallenges("lambda"))
 
 	// check that the number of digests is the same
 	if len(proof.fs) != len(proof.ts) {
@@ -197,7 +197,7 @@ func VerifyLookupTables(vk kzg.VerifyingKey, proof ProofLookupTables) error {
 		comms[i] = &proof.fs[i]
 		comms[i+nbRows] = &proof.ts[i]
 	}
-	lambda, err := deriveRandomness(&fs, "lambda", comms...)
+	lambda, err := deriveRandomness(fs, "lambda", comms...)
 	if err != nil {
 		return err
 	}

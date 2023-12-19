@@ -398,7 +398,7 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 		xis[i] = paddNaming(fmt.Sprintf("x%d", i), fr.Bytes)
 	}
 	xis[s.nbSteps] = paddNaming("s0", fr.Bytes)
-	fs := fiatshamir.NewTranscript(s.h, xis...)
+	fs := fiatshamir.NewTranscript(s.h, fiatshamir.WithStaticChallenges(xis...))
 
 	// the salt is binded to the first challenge, to ensure the challenges
 	// are different at each round.
@@ -552,7 +552,7 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof Ro
 		xis[i] = paddNaming(fmt.Sprintf("x%d", i), fr.Bytes)
 	}
 	xis[s.nbSteps] = paddNaming("s0", fr.Bytes)
-	fs := fiatshamir.NewTranscript(s.h, xis...)
+	fs := fiatshamir.NewTranscript(s.h, fiatshamir.WithStaticChallenges(xis...))
 
 	xi := make([]fr.Element, s.nbSteps)
 

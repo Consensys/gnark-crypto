@@ -225,7 +225,7 @@ func (vk *VerifyingKey) Verify(commitment curve.G1Affine, knowledgeProof curve.G
 
 func getChallenge(fiatshamirSeeds [][]byte) (r fr.Element, err error) {
 	// incorporate user-provided seeds into the transcript
-	t := fiatshamir.NewTranscript(sha256.New(), "r")
+	t := fiatshamir.NewTranscript(sha256.New(), fiatshamir.WithStaticChallenges("r"))
 	for i := range fiatshamirSeeds {
 		if err = t.Bind("r", fiatshamirSeeds[i]); err != nil {
 			return

@@ -156,7 +156,7 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 	hFunc := sha256.New()
 
 	// transcript to derive the challenge
-	fs := fiatshamir.NewTranscript(hFunc, "epsilon", "omega", "eta")
+	fs := fiatshamir.NewTranscript(hFunc, fiatshamir.WithStaticChallenges("epsilon", "omega", "eta"))
 
 	// commit t1, t2
 	ct1 := make([]fr.Element, s)
@@ -177,7 +177,7 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 	}
 
 	// derive challenge for z
-	epsilon, err := deriveRandomness(&fs, "epsilon", &proof.t1, &proof.t2)
+	epsilon, err := deriveRandomness(fs, "epsilon", &proof.t1, &proof.t2)
 	if err != nil {
 		return proof, err
 	}
@@ -206,7 +206,7 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 	lsNum := evaluateSecondPartNumReverse(lz, d)
 
 	// derive challenge used for the folding
-	omega, err := deriveRandomness(&fs, "omega", &proof.z)
+	omega, err := deriveRandomness(fs, "omega", &proof.z)
 	if err != nil {
 		return proof, err
 	}
@@ -229,7 +229,7 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 	}
 
 	// derive the evaluation challenge
-	eta, err := deriveRandomness(&fs, "eta", &proof.q)
+	eta, err := deriveRandomness(fs, "eta", &proof.q)
 	if err != nil {
 		return proof, err
 	}
@@ -279,20 +279,20 @@ func Verify(vk kzg.VerifyingKey, proof Proof) error {
 	hFunc := sha256.New()
 
 	// transcript to derive the challenge
-	fs := fiatshamir.NewTranscript(hFunc, "epsilon", "omega", "eta")
+	fs := fiatshamir.NewTranscript(hFunc, fiatshamir.WithStaticChallenges("epsilon", "omega", "eta"))
 
 	// derive the challenges
-	epsilon, err := deriveRandomness(&fs, "epsilon", &proof.t1, &proof.t2)
+	epsilon, err := deriveRandomness(fs, "epsilon", &proof.t1, &proof.t2)
 	if err != nil {
 		return err
 	}
 
-	omega, err := deriveRandomness(&fs, "omega", &proof.z)
+	omega, err := deriveRandomness(fs, "omega", &proof.z)
 	if err != nil {
 		return err
 	}
 
-	eta, err := deriveRandomness(&fs, "eta", &proof.q)
+	eta, err := deriveRandomness(fs, "eta", &proof.q)
 	if err != nil {
 		return err
 	}
