@@ -34,8 +34,6 @@ type Transcript struct {
 
 	challenges map[string]challenge
 	previous   *challenge
-
-	config *transcriptConfig
 }
 
 type challenge struct {
@@ -48,18 +46,15 @@ type challenge struct {
 // NewTranscript returns a new transcript.
 // h is the hash function that is used to compute the challenges.
 // challenges are the name of the challenges. The order of the challenges IDs matters.
-func NewTranscript(h hash.Hash, opts ...TranscriptOption) *Transcript {
-	cfg := newConfig(opts...)
+func NewTranscript(h hash.Hash, challengesID ...string) *Transcript {
+	n := len(challengesID)
 	challenges := make(map[string]challenge)
-	if cfg.fixedChallenges != nil {
-		for i := range cfg.fixedChallenges {
-			challenges[cfg.fixedChallenges[i]] = challenge{position: i}
-		}
+	for i := range challengesID {
+		challenges[challengesID[i]] = challenge{position: i}
 	}
 	t := &Transcript{
 		challenges: challenges,
 		h:          h,
-		config:     cfg,
 	}
 	return t
 }
