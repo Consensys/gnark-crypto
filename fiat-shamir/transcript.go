@@ -47,7 +47,6 @@ type challenge struct {
 // h is the hash function that is used to compute the challenges.
 // challenges are the name of the challenges. The order of the challenges IDs matters.
 func NewTranscript(h hash.Hash, challengesID ...string) *Transcript {
-	n := len(challengesID)
 	challenges := make(map[string]challenge)
 	for i := range challengesID {
 		challenges[challengesID[i]] = challenge{position: i}
@@ -67,12 +66,7 @@ func (t *Transcript) Bind(challengeID string, bValue []byte) error {
 
 	currentChallenge, ok := t.challenges[challengeID]
 	if !ok {
-		if t.config.fixedChallenges != nil {
-			return errChallengeNotFound
-		} else {
-			t.challenges[challengeID] = challenge{position: len(t.challenges)}
-			currentChallenge = t.challenges[challengeID]
-		}
+		return errChallengeNotFound
 	}
 
 	if currentChallenge.isComputed {
