@@ -1,10 +1,11 @@
 package mimc_test
 
 import (
+	"testing"
+
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestMiMCFiatShamir(t *testing.T) {

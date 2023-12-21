@@ -20,7 +20,7 @@ import (
 	"testing"
 )
 
-func initTranscript() Transcript {
+func initTranscript() *Transcript {
 
 	fs := NewTranscript(sha256.New(), "alpha", "beta", "gamma")
 
