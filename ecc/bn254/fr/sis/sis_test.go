@@ -16,14 +16,14 @@ package sis
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"math/bits"
-	"math/rand"
+	"os"
 	"testing"
 	"time"
 
@@ -68,7 +68,7 @@ func TestReference(t *testing.T) {
 
 	// read the test case file
 	var testCases TestCases
-	data, err := ioutil.ReadFile("test_cases.json")
+	data, err := os.ReadFile("test_cases.json")
 	assert.NoError(err, "reading test cases failed")
 	err = json.Unmarshal(data, &testCases)
 	assert.NoError(err, "reading test cases failed")
@@ -140,7 +140,7 @@ func TestMulMod(t *testing.T) {
 	// creation of the domain
 	var shift fr.Element
 	shift.SetString("19540430494807482326159819597004422086093766032135589407132600596362845576832")
-	domain := fft.NewDomain(uint64(size), shift)
+	domain := fft.NewDomain(uint64(size), fft.WithShift(shift))
 
 	// mul mod
 	domain.FFT(p, fft.DIF, fft.OnCoset())
@@ -390,8 +390,7 @@ func TestLimbDecompositionFastPath(t *testing.T) {
 		nValues := bitset.New(uint(size))
 
 		// Generate a random buffer
-		rand.Seed(time.Now().UnixNano()) //#nosec G404 weak rng is fine here
-		_, err := rand.Read(buf)         //#nosec G404 weak rng is fine here
+		_, err := rand.Read(buf)
 		assert.NoError(err)
 
 		limbDecomposeBytes8_64(buf, m, mValues)
@@ -414,7 +413,7 @@ func TestUnrolledFFT(t *testing.T) {
 
 	const size = 64
 	assert := require.New(t)
-	domain := fft.NewDomain(size, shift)
+	domain := fft.NewDomain(size, fft.WithShift(shift))
 
 	k1 := make([]fr.Element, size)
 	for i := 0; i < size; i++ {
@@ -427,7 +426,7 @@ func TestUnrolledFFT(t *testing.T) {
 	domain.FFT(k1, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 
 	// unrolled FFT
-	twiddlesCoset := precomputeTwiddlesCoset(domain.Twiddles, domain.FrMultiplicativeGen)
+	twiddlesCoset := precomputeTwiddlesCoset(domain.Generator, domain.FrMultiplicativeGen)
 	fft64(k2, twiddlesCoset)
 
 	// compare results

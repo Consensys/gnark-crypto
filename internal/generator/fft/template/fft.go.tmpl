@@ -2,9 +2,13 @@ import (
 	"math/bits"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"math/big"
 	{{ template "import_fr" . }}
-	
 )
+
+{{- /* these params set the size of the kernel we generate & unroll */}}
+{{ $sizeKernelLog2 := 8}}
+{{ $sizeKernel := shl 1 $sizeKernelLog2}}
 
 // Decimation is used in the FFT call to select decimation in time or in frequency
 type Decimation uint8
@@ -22,28 +26,7 @@ const butterflyThreshold = 16
 // if decimation == DIF (decimation in frequency), the output will be in bit-reversed order
 func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option) {
 
-	opt := options(opts...)
-
-	// if coset != 0, scale by coset table
-	if opt.coset {
-		if decimation == DIT {
-			// scale by coset table (in bit reversed order)
-			parallel.Execute(len(a), func(start, end int) {
-				n := uint64(len(a))
-				nn := uint64(64 - bits.TrailingZeros64(n))
-				for i := start; i < end; i++ {
-					irev := int(bits.Reverse64(uint64(i)) >> nn)
-					a[i].Mul(&a[i], &domain.CosetTable[irev])
-				}
-			}, opt.nbTasks)
-		} else {
-			parallel.Execute(len(a), func(start, end int) {
-				for i := start; i < end; i++ {
-					a[i].Mul(&a[i], &domain.CosetTable[i])
-				}
-			}, opt.nbTasks)
-		}
-	}
+	opt := fftOptions(opts...)
 
 	// find the stage where we should stop spawning go routines in our recursive calls
 	// (ie when we have as many go routines running as we have available CPUs)
@@ -52,15 +35,68 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 		maxSplits = -1
 	}
 
+	// if coset != 0, scale by coset table
+	if opt.coset {
+		if decimation == DIT {
+			// scale by coset table (in bit reversed order)
+			cosetTable := domain.cosetTable
+			if !domain.withPrecompute {
+				// we need to build the full table or do a bit reverse dance.
+				cosetTable = make([]fr.Element, len(a))
+				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
+			}
+			parallel.Execute(len(a), func(start, end int) {
+				n := uint64(len(a))
+				nn := uint64(64 - bits.TrailingZeros64(n))
+				for i := start; i < end; i++ {
+					irev := int(bits.Reverse64(uint64(i)) >> nn)
+					a[i].Mul(&a[i], &cosetTable[irev])
+				}
+			}, opt.nbTasks)
+		} else {
+			if domain.withPrecompute {
+				parallel.Execute(len(a), func(start, end int) {
+					for i := start; i < end; i++ {
+						a[i].Mul(&a[i], &domain.cosetTable[i])
+					}
+				}, opt.nbTasks)
+			} else {
+				c := domain.FrMultiplicativeGen
+				parallel.Execute(len(a), func(start, end int) {
+					var at fr.Element
+					at.Exp(c, big.NewInt(int64(start)))
+					for i := start; i < end; i++ {
+						a[i].Mul(&a[i], &at)
+						at.Mul(&at, &c)
+					}
+				}, opt.nbTasks)
+			}
+	
+		}
+	}
+
+	twiddles := domain.twiddles
+	twiddlesStartStage := 0
+	if !domain.withPrecompute {
+		twiddlesStartStage = 3
+		nbStages := int(bits.TrailingZeros64(domain.Cardinality))
+		twiddles = make([][]fr.Element, nbStages - twiddlesStartStage)
+		w := domain.Generator
+		w.Exp(w, big.NewInt(int64(1 << twiddlesStartStage)))
+		buildTwiddles(twiddles, w, uint64(nbStages - twiddlesStartStage))
+	}
+
 	switch decimation {
 	case DIF:
-		difFFT(a, domain.Twiddles, 0, maxSplits, nil, opt.nbTasks)
+		difFFT(a, domain.Generator, twiddles, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
 	case DIT:
-		ditFFT(a, domain.Twiddles, 0, maxSplits, nil, opt.nbTasks)
+		ditFFT(a, domain.Generator, twiddles, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
 	default:
 		panic("not implemented")
 	}
 }
+
+
 
 // FFTInverse computes (recursively) the inverse discrete Fourier transform of a and stores the result in a
 // if decimation == DIT (decimation in time), the input must be in bit-reversed order
@@ -68,7 +104,7 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 // coset sets the shift of the fft (0 = no shift, standard fft)
 // len(a) must be a power of 2, and w must be a len(a)th root of unity in field F.
 func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...Option) {
-	opt := options(opts...)
+	opt := fftOptions(opts...)
 
 	// find the stage where we should stop spawning go routines in our recursive calls
 	// (ie when we have as many go routines running as we have available CPUs)
@@ -76,11 +112,23 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 	if opt.nbTasks == 1 {
 		maxSplits = -1
 	}
+
+	twiddlesInv := domain.twiddlesInv
+	twiddlesStartStage := 0
+	if !domain.withPrecompute {
+		twiddlesStartStage = 3
+		nbStages := int(bits.TrailingZeros64(domain.Cardinality))
+		twiddlesInv = make([][]fr.Element, nbStages - twiddlesStartStage)
+		w := domain.GeneratorInv
+		w.Exp(w, big.NewInt(int64(1 << twiddlesStartStage)))
+		buildTwiddles(twiddlesInv, w, uint64(nbStages - twiddlesStartStage))
+	}
+
 	switch decimation {
 	case DIF:
-		difFFT(a, domain.TwiddlesInv, 0, maxSplits, nil, opt.nbTasks)
+		difFFT(a, domain.GeneratorInv, twiddlesInv, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
 	case DIT:
-		ditFFT(a, domain.TwiddlesInv, 0, maxSplits, nil, opt.nbTasks)
+		ditFFT(a, domain.GeneratorInv, twiddlesInv, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
 	default:
 		panic("not implemented")
 	}
@@ -97,29 +145,48 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 
 
 	if decimation == DIT {
-		parallel.Execute(len(a), func(start, end int) {
-			for i := start; i < end; i++ {
-				a[i].Mul(&a[i], &domain.CosetTableInv[i]).
-					Mul(&a[i], &domain.CardinalityInv)
-			}
-		}, opt.nbTasks)
+		if domain.withPrecompute {
+			parallel.Execute(len(a), func(start, end int) {
+				for i := start; i < end; i++ {
+					a[i].Mul(&a[i], &domain.cosetTableInv[i]).
+						Mul(&a[i], &domain.CardinalityInv)
+				}
+			}, opt.nbTasks)
+		} else {
+			c := domain.FrMultiplicativeGenInv
+			parallel.Execute(len(a), func(start, end int) {
+				var at fr.Element
+				at.Exp(c, big.NewInt(int64(start)))
+				at.Mul(&at, &domain.CardinalityInv)
+				for i := start; i < end; i++ {
+					a[i].Mul(&a[i], &at)
+					at.Mul(&at, &c)
+				}
+			}, opt.nbTasks)
+		}
 		return
 	}
 
 	// decimation == DIF, need to access coset table in bit reversed order.
+	cosetTableInv := domain.cosetTableInv
+	if !domain.withPrecompute {
+		// we need to build the full table or do a bit reverse dance.
+		cosetTableInv = make([]fr.Element, len(a))
+		BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
+	}
 	parallel.Execute(len(a), func(start, end int) {
 		n := uint64(len(a))
 		nn := uint64(64 - bits.TrailingZeros64(n))
 		for i := start; i < end; i++ {
 			irev := int(bits.Reverse64(uint64(i)) >> nn)
-			a[i].Mul(&a[i], &domain.CosetTableInv[irev]).
+			a[i].Mul(&a[i], &cosetTableInv[irev]).
 				Mul(&a[i], &domain.CardinalityInv)
 		}
 	}, opt.nbTasks)
 
 }
 
-func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
+func difFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
 	if chDone != nil {
 		defer close(chDone)
 	}
@@ -127,163 +194,220 @@ func difFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDon
 	n := len(a)
 	if n == 1 {
 		return
-	} else if n == 8 {
-		kerDIF8(a, twiddles, stage)
+	} else if n == {{$sizeKernel}} && stage >= twiddlesStartStage  {
+		kerDIFNP_{{$sizeKernel}}(a, twiddles, stage-twiddlesStartStage)
 		return
 	}
 	m := n >> 1
 
-	// if stage < maxSplits, we parallelize this butterfly
-	// but we have only numCPU / stage cpus available
-	if (m > butterflyThreshold) && (stage < maxSplits) {
-		// 1 << stage == estimated used CPUs
-		numCPU := nbTasks / (1 << (stage))
-		parallel.Execute(m, func(start, end int) {
-			for i := start; i < end; i++ {
-				fr.Butterfly(&a[i], &a[i+m])
-				a[i+m].Mul(&a[i+m], &twiddles[stage][i])
-			}
-		}, numCPU)
+	parallelButterfly := (m > butterflyThreshold) && (stage < maxSplits)
+
+	if stage < twiddlesStartStage {
+		if parallelButterfly {
+			w := w
+			parallel.Execute(m, func(start, end int) {
+				if start == 0 {
+					fr.Butterfly(&a[0], &a[m])
+					start++
+				}
+				var at fr.Element
+				at.Exp(w, big.NewInt(int64(start)))
+				innerDIFWithoutTwiddles(a, at,w, start, end, m)
+			}, nbTasks / (1 << (stage))) // 1 << stage == estimated used CPUs
+		} else {
+			innerDIFWithoutTwiddles(a, w, w, 0, m, m)
+		}
+		// compute next twiddle
+		w.Square(&w) 
 	} else {
-		// i == 0
-		fr.Butterfly(&a[0], &a[m])
-		for i := 1; i < m; i++ {
-			fr.Butterfly(&a[i], &a[i+m])
-			a[i+m].Mul(&a[i+m], &twiddles[stage][i])
+		if parallelButterfly {
+			parallel.Execute(m, func(start, end int) {
+				innerDIFWithTwiddles(a, twiddles[stage-twiddlesStartStage], start, end, m)
+			}, nbTasks / (1 << (stage)))
+		} else {
+			innerDIFWithTwiddles(a, twiddles[stage-twiddlesStartStage], 0, m, m)
 		}
 	}
 
 	if m == 1 {
 		return
 	}
-
+	
 	nextStage := stage + 1
 	if stage < maxSplits {
 		chDone := make(chan struct{}, 1)
-		go difFFT(a[m:n], twiddles, nextStage, maxSplits, chDone, nbTasks)
-		difFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
+		go difFFT(a[m:n], w, twiddles, twiddlesStartStage, nextStage, maxSplits, chDone, nbTasks)
+		difFFT(a[0:m], w, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
 		<-chDone
 	} else {
-		difFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
-		difFFT(a[m:n], twiddles, nextStage, maxSplits, nil, nbTasks)
+		difFFT(a[0:m], w, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
+		difFFT(a[m:n], w, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
 	}
 
 }
 
-func ditFFT(a []fr.Element, twiddles [][]fr.Element, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
+
+func innerDIFWithTwiddles(a []fr.Element, twiddles []fr.Element, start, end, m int) {
+	if start == 0 {
+		fr.Butterfly(&a[0], &a[m])
+		start++
+	}
+	for i := start; i < end; i++ {
+		fr.Butterfly(&a[i], &a[i+m])
+		a[i+m].Mul(&a[i+m], &twiddles[i])
+	}
+}
+
+func innerDIFWithoutTwiddles(a []fr.Element, at, w fr.Element, start, end, m int) {
+	if start == 0 {
+		fr.Butterfly(&a[0], &a[m])
+		start++
+	}
+	for i := start; i < end; i++ {
+		fr.Butterfly(&a[i], &a[i+m])
+		a[i+m].Mul(&a[i+m], &at)
+		at.Mul(&at, &w)
+	}
+}
+
+
+func ditFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
 	if chDone != nil {
 		defer close(chDone)
 	}
 	n := len(a)
 	if n == 1 {
 		return
-	} else if n == 8 {
-		kerDIT8(a, twiddles, stage)
+	} else if n == {{$sizeKernel}} && stage >= twiddlesStartStage  {
+		kerDITNP_{{$sizeKernel}}(a, twiddles, stage-twiddlesStartStage)
 		return
 	}
 	m := n >> 1
 
 	nextStage := stage + 1
+	nextW := w 
+	nextW.Square(&nextW)
 
 	if stage < maxSplits {
 		// that's the only time we fire go routines
 		chDone := make(chan struct{}, 1)
-		go ditFFT(a[m:], twiddles, nextStage, maxSplits, chDone, nbTasks)
-		ditFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
+		go ditFFT(a[m:],nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, chDone, nbTasks)
+		ditFFT(a[0:m],nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
 		<-chDone
 	} else {
-		ditFFT(a[0:m], twiddles, nextStage, maxSplits, nil, nbTasks)
-		ditFFT(a[m:n], twiddles, nextStage, maxSplits, nil, nbTasks)
-
+		ditFFT(a[0:m],nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
+		ditFFT(a[m:n],nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
 	}
 
-	// if stage < maxSplits, we parallelize this butterfly
-	// but we have only numCPU / stage cpus available
-	if (m > butterflyThreshold) && (stage < maxSplits) {
-		// 1 << stage == estimated used CPUs
-		numCPU := nbTasks / (1 << (stage))
-		parallel.Execute(m, func(start, end int) {
-			for k := start; k < end; k++ {
-				a[k+m].Mul(&a[k+m], &twiddles[stage][k])
-				fr.Butterfly(&a[k], &a[k+m])
-			}
-		}, numCPU)
+	parallelButterfly := (m > butterflyThreshold) && (stage < maxSplits)
 
-	} else {
-		fr.Butterfly(&a[0], &a[m])
-		for k := 1; k < m; k++ {
-			a[k+m].Mul(&a[k+m], &twiddles[stage][k])
-			fr.Butterfly(&a[k], &a[k+m])
+	if stage < twiddlesStartStage {
+		// we need to compute the twiddles for this stage on the fly.
+		if  parallelButterfly {
+			w := w
+			parallel.Execute(m, func(start, end int) {
+				if start == 0 {
+					fr.Butterfly(&a[0], &a[m])
+					start++
+				}
+				var at fr.Element
+				at.Exp(w, big.NewInt(int64(start)))
+				innerDITWithoutTwiddles(a, at,w, start, end, m)
+			}, nbTasks / (1 << (stage))) // 1 << stage == estimated used CPUs
+
+		} else {
+			innerDITWithoutTwiddles(a, w,w, 0, m, m)
 		}
+		return
+	}
+	if parallelButterfly {
+		parallel.Execute(m, func(start, end int) {
+			innerDITWithTwiddles(a, twiddles[stage-twiddlesStartStage], start, end, m)
+		}, nbTasks / (1 << (stage)))
+	} else {
+		innerDITWithTwiddles(a, twiddles[stage-twiddlesStartStage], 0, m, m)
 	}
 }
 
 
-// kerDIT8 is a kernel that process a FFT of size 8
-func kerDIT8(a []fr.Element, twiddles [][]fr.Element, stage int) {
-	{{- /* notes: 
-		this function can be updated with larger n
-		nbSteps must be updated too such as 1 << nbSteps == n
-		butterflies and multiplication are separated for size n = 8, must check perf for larger n
-	 */}}
-	{{ $n := 2}}
-	{{ $m := div $n 2}}
-	{{ $split := 4}}
-	{{- range $step := reverse (iterate 0 3)}} 
-		{{- $offset := 0}}
-		{{- range $s := reverse (iterate 0 $split)}}
-			{{- range $i := iterate 0 $m}}
-				{{- $j := add $i $offset}}
-				{{- $k := add $j $m}}
-				{{- if ne $i 0}}
-				 	a[{{$k}}].Mul(&a[{{$k}}], &twiddles[stage+{{$step}}][{{$i}}])
-				{{- end}}
-				fr.Butterfly(&a[{{$j}}], &a[{{$k}}])
-			{{- end}}
-			{{- $offset = add $offset $n}}
-		{{- end}}
-		
-		{{- $n = mul $n 2}}
-		{{- $m = div $n 2}}
-		{{- $split = div $split 2}}
-	{{- end}}
+func innerDITWithTwiddles(a []fr.Element, twiddles []fr.Element, start, end, m int) {
+	if start == 0 {
+		fr.Butterfly(&a[0], &a[m])
+		start++
+	}
+	for i := start; i < end; i++ {
+		a[i+m].Mul(&a[i+m], &twiddles[i])
+		fr.Butterfly(&a[i], &a[i+m])
+	}
 }
 
-// kerDIF8 is a kernel that process a FFT of size 8
-func kerDIF8(a []fr.Element, twiddles [][]fr.Element, stage int) {
-	{{- /* notes: 
-		this function can be updated with larger n
-		nbSteps must be updated too such as 1 << nbSteps == n
-		butterflies and multiplication are separated for size n = 8, must check perf for larger n
-	 */}}
-	{{ $n := 8}}
+func innerDITWithoutTwiddles(a []fr.Element, at, w fr.Element, start, end, m int) {
+	if start == 0 {
+		fr.Butterfly(&a[0], &a[m])
+		start++
+	}
+	for i := start; i < end; i++ {
+		a[i+m].Mul(&a[i+m], &at)
+		fr.Butterfly(&a[i], &a[i+m])
+		at.Mul(&at, &w)
+	}
+}
+
+
+
+func kerDIFNP_{{$sizeKernel}}(a []fr.Element, twiddles [][]fr.Element, stage int) {
+	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
+
+	{{ $n := shl 1 $sizeKernelLog2}}
 	{{ $m := div $n 2}}
 	{{ $split := 1}}
-	{{- range $step := iterate 0 3}} 
+	{{- range $step := iterate 0 $sizeKernelLog2}} 
 		{{- $offset := 0}}
-		{{- range $s := iterate 0 $split}}
-			{{- range $i := iterate 0 $m}}
-				{{- $j := add $i $offset}}
-				{{- $k := add $j $m}}
-				fr.Butterfly(&a[{{$j}}], &a[{{$k}}])
-			{{- end}}
-			{{- $offset = add $offset $n}}
+
+		{{- $bound := mul $split $n}}
+		{{- if eq $bound $n}}
+			innerDIFWithTwiddles(a[:{{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
+		{{- else}}
+			for offset := 0; offset < {{$bound}}; offset += {{$n}} {
+				{{- if eq $m 1}}
+					fr.Butterfly(&a[offset], &a[offset+1])
+				{{- else}}
+					innerDIFWithTwiddles(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
+				{{- end}}
+			}
 		{{- end}}
 
-		{{- $offset := 0}}
-		{{- range $s := iterate 0 $split}}
-			{{- range $i := iterate 0 $m}}
-				{{- $j := add $i $offset}}
-				{{- $k := add $j $m}}
-				{{- if ne $i 0}}
-				 	a[{{$k}}].Mul(&a[{{$k}}], &twiddles[stage+{{$step}}][{{$i}}])
-				{{- end}}
-			{{- end}}
-			{{- $offset = add $offset $n}}
-		{{- end}}
 		{{- $n = div $n 2}}
 		{{- $m = div $n 2}}
 		{{- $split = mul $split 2}}
 	{{- end}}
 }
 
+
+func kerDITNP_{{$sizeKernel}}(a []fr.Element, twiddles [][]fr.Element, stage int) {
+	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
+
+	{{ $n := 2}}
+	{{ $m := div $n 2}}
+	{{ $split := div (shl 1 $sizeKernelLog2) 2}}
+	{{- range $step := reverse (iterate 0 $sizeKernelLog2)}} 
+		{{- $offset := 0}}
+
+		{{- $bound := mul $split $n}}
+		{{- if eq $bound $n}}
+			innerDITWithTwiddles(a[:{{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
+		{{- else}}
+			for offset := 0; offset < {{$bound}}; offset += {{$n}} {
+				{{- if eq $m 1}}
+					fr.Butterfly(&a[offset], &a[offset+1])
+				{{- else}}
+					innerDITWithTwiddles(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
+				{{- end}}
+			}
+		{{- end}}
+
+		{{- $n = mul $n 2}}
+		{{- $m = div $n 2}}
+		{{- $split = div $split 2}}
+	{{- end}}
+}

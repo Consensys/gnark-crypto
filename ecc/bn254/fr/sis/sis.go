@@ -119,7 +119,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		LogTwoBound:         logTwoBound,
 		capacity:            capacity,
 		Degree:              degree,
-		Domain:              fft.NewDomain(uint64(degree), shift),
+		Domain:              fft.NewDomain(uint64(degree), fft.WithShift(shift)),
 		A:                   make([][]fr.Element, n),
 		Ag:                  make([][]fr.Element, n),
 		bufM:                make(fr.Vector, degree*n),
@@ -129,7 +129,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	}
 	if r.LogTwoBound == 8 && r.Degree == 64 {
 		// TODO @gbotrel fixme, that's dirty.
-		r.twiddleCosets = precomputeTwiddlesCoset(r.Domain.Twiddles, r.Domain.FrMultiplicativeGen)
+		r.twiddleCosets = precomputeTwiddlesCoset(r.Domain.Generator, r.Domain.FrMultiplicativeGen)
 	}
 
 	// filling A
