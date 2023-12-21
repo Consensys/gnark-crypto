@@ -74,7 +74,8 @@ type domainConfig struct {
 	withPrecompute bool
 }
 
-// WithShift ...
+// WithShift sets the FrMultiplicativeGen of the domain.
+// Default is generator of the largest 2-adic subgroup.
 func WithShift(shift fr.Element) DomainOption {
 	return func(opt *domainConfig) {
 		opt.shift = new(fr.Element).Set(&shift)
