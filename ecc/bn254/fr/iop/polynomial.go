@@ -63,7 +63,7 @@ var (
 )
 
 // Polynomial wraps a polynomial so that it is
-// interpreted as P'(X)=P(\omega^{s}X).
+// interpreted as P'(X)=P(ωˢX).
 // Size is the real size of the polynomial (seen as a vector).
 // For instance if len(P)=32 but P.Size=8, it means that P has been
 // extended (e.g. it is evaluated on a larger set) but P is a polynomial
@@ -88,7 +88,7 @@ func NewPolynomial(coeffs *[]fr.Element, form Form) *Polynomial {
 }
 
 // Shift the wrapped polynomial; it doesn't modify the underlying data structure,
-// but flag the Polynomial such that it will be interpreted as p(\omega^shift X)
+// but flag the Polynomial such that it will be interpreted as p(ω^shift X)
 func (p *Polynomial) Shift(shift int) *Polynomial {
 	p.shift = shift
 	return p
@@ -209,17 +209,62 @@ func (p *polynomial) evaluate(x fr.Element) fr.Element {
 		panic("p must be in canonical basis")
 	}
 
-	if p.Layout == Regular {
-		for i := p.coefficients.Len() - 1; i >= 0; i-- {
-			r.Mul(&r, &x).Add(&r, &(*p.coefficients)[i])
+	if p.Basis == Canonical {
+		if p.Layout == Regular {
+			for i := p.coefficients.Len() - 1; i >= 0; i-- {
+				r.Mul(&r, &x).Add(&r, &(*p.coefficients)[i])
+			}
+		} else {
+			nn := uint64(64 - bits.TrailingZeros(uint(p.coefficients.Len())))
+			for i := p.coefficients.Len() - 1; i >= 0; i-- {
+				iRev := bits.Reverse64(uint64(i)) >> nn
+				r.Mul(&r, &x).Add(&r, &(*p.coefficients)[iRev])
+			}
 		}
-	} else {
-		nn := uint64(64 - bits.TrailingZeros(uint(p.coefficients.Len())))
-		for i := p.coefficients.Len() - 1; i >= 0; i-- {
-			iRev := bits.Reverse64(uint64(i)) >> nn
-			r.Mul(&r, &x).Add(&r, &(*p.coefficients)[iRev])
+	} else if p.Basis == Lagrange {
+		sizeP := p.coefficients.Len()
+		w, err := fft.Generator(uint64(sizeP))
+		if err != nil {
+			panic(err)
 		}
-	}
+		var accw fr.Element
+		accw.SetOne()
+		dens := make([]fr.Element, sizeP) // [x-1, x-ω, x-ω², ...]
+		for i := 0; i < sizeP; i++ {
+			dens[i].Sub(&x, &accw)
+			accw.Mul(&accw, &w)
+		}
+		invdens := fr.BatchInvert(dens) // [1/(x-1), 1/(x-ω), 1/(x-ω²), ...]
+		var tmp fr.Element
+		var one fr.Element
+		one.SetOne()
+		tmp.Exp(x, big.NewInt(int64(sizeP))).Sub(&tmp, &one) // xⁿ-1
+		var li fr.Element
+		li.SetUint64(uint64(sizeP)).Inverse(&li).Mul(&li, &tmp) // 1/n * (xⁿ-1)
+		if p.Layout == Regular {
+			for i := 0; i < sizeP; i++ {
+				li.Mul(&li, &invdens[i]) // li <- li*ω/(x-ωⁱ)
+				tmp.Mul(&li, &(*p.coefficients)[i])
+				r.Add(&r, &tmp)
+				li.Mul(&li, &dens[i]).Mul(&li, &w) // li <- li*ω*(x-ωⁱ)
+			}
+		} else {
+			nn := uint64(64 - bits.TrailingZeros(uint(p.coefficients.Len())))
+			for i := 0; i < sizeP; i++ {
+				iRev := bits.Reverse64(uint64(i)) >> nn
+				li.Mul(&li, &invdens[i]) // li <- li*ω/(x-ωⁱ)
+				tmp.Mul(&li, &(*p.coefficients)[iRev])
+				r.Add(&r, &tmp)
+				li.Mul(&li, &dens[i]).Mul(&li, &w) // li <- li*ω*(x-ωⁱ)
+			}
+		}
+	} // else if p.Basis == LagrangeCoset {
+	// 	if p.Layout==Regular {
+
+	// 	} else {
+
+	// 	}
+	// }
 
 	return r
 
