@@ -74,6 +74,7 @@ type Polynomial struct {
 	*polynomial
 	shift int
 	size  int
+	coset fr.Element // needed for evaluating the polynomial when it is expressed in Lagrange shifted basis
 }
 
 // NewPolynomial returned a Polynomial from the provided coefficients in the given form.
@@ -115,6 +116,10 @@ func (p *Polynomial) SetSize(size int) {
 // The code panics if the function is not in canonical form.
 func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 
+	if p.Basis == LagrangeCoset {
+		x.Div(&x, &p.coset)
+	}
+
 	if p.shift == 0 {
 		return p.polynomial.evaluate(x)
 	}
@@ -133,6 +138,7 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 	bs := big.NewInt(int64(p.shift))
 	g = *g.Exp(g, bs)
 	x.Mul(&x, &g)
+
 	return p.polynomial.evaluate(x)
 }
 
@@ -205,23 +211,8 @@ func (p *polynomial) clone(capacity ...int) *polynomial {
 func (p *polynomial) evaluate(x fr.Element) fr.Element {
 
 	var r fr.Element
-	// if p.Basis != Canonical {
-	// 	panic("p must be in canonical basis")
-	// }
 
-	if p.Basis == Canonical {
-		if p.Layout == Regular {
-			for i := p.coefficients.Len() - 1; i >= 0; i-- {
-				r.Mul(&r, &x).Add(&r, &(*p.coefficients)[i])
-			}
-		} else {
-			nn := uint64(64 - bits.TrailingZeros(uint(p.coefficients.Len())))
-			for i := p.coefficients.Len() - 1; i >= 0; i-- {
-				iRev := bits.Reverse64(uint64(i)) >> nn
-				r.Mul(&r, &x).Add(&r, &(*p.coefficients)[iRev])
-			}
-		}
-	} else if p.Basis == Lagrange {
+	evalLagrange := func() {
 		sizeP := p.coefficients.Len()
 		w, err := fft.Generator(uint64(sizeP))
 		if err != nil {
@@ -258,13 +249,23 @@ func (p *polynomial) evaluate(x fr.Element) fr.Element {
 				li.Mul(&li, &dens[i]).Mul(&li, &w) // li <- li*ω*(x-ωⁱ)
 			}
 		}
-	} // else if p.Basis == LagrangeCoset {
-	// 	if p.Layout==Regular {
+	}
 
-	// 	} else {
-
-	// 	}
-	// }
+	if p.Basis == Canonical {
+		if p.Layout == Regular {
+			for i := p.coefficients.Len() - 1; i >= 0; i-- {
+				r.Mul(&r, &x).Add(&r, &(*p.coefficients)[i])
+			}
+		} else {
+			nn := uint64(64 - bits.TrailingZeros(uint(p.coefficients.Len())))
+			for i := p.coefficients.Len() - 1; i >= 0; i-- {
+				iRev := bits.Reverse64(uint64(i)) >> nn
+				r.Mul(&r, &x).Add(&r, &(*p.coefficients)[iRev])
+			}
+		}
+	} else {
+		evalLagrange()
+	}
 
 	return r
 
@@ -367,6 +368,7 @@ func (p *polynomial) grow(newSize int) {
 
 // ToLagrangeCoset Sets p to q, in LagrangeCoset form and returns it.
 func (p *Polynomial) ToLagrangeCoset(d *fft.Domain) *Polynomial {
+	p.coset.Set(&d.CosetTable[1])
 	id := p.Form
 	p.grow(int(d.Cardinality))
 	switch id {
@@ -396,6 +398,7 @@ func (p *Polynomial) ToLagrangeCoset(d *fft.Domain) *Polynomial {
 
 // WriteTo implements io.WriterTo
 func (p *Polynomial) WriteTo(w io.Writer) (int64, error) {
+
 	// encode coefficients
 	n, err := p.polynomial.coefficients.WriteTo(w)
 	if err != nil {
@@ -416,6 +419,15 @@ func (p *Polynomial) WriteTo(w io.Writer) (int64, error) {
 		}
 		n += 4
 	}
+
+	var buf [fr.Bytes]byte
+	fr.BigEndian.PutElement(&buf, p.coset)
+	m, err := w.Write(buf[:])
+	n += int64(m)
+	if err != nil {
+		return n, err
+	}
+
 	return n, nil
 }
 
@@ -450,6 +462,17 @@ func (p *Polynomial) ReadFrom(r io.Reader) (int64, error) {
 	p.Layout = Layout(data[1])
 	p.shift = int(data[2])
 	p.size = int(data[3])
+
+	var bufFr [fr.Bytes]byte
+	read, err := io.ReadFull(r, bufFr[:])
+	n += int64(read)
+	if err != nil {
+		return n, err
+	}
+	p.coset, err = fr.BigEndian.Element(&bufFr)
+	if err != nil {
+		return n, err
+	}
 
 	return n, nil
 }
