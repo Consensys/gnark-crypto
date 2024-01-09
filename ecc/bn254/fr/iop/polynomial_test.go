@@ -37,7 +37,7 @@ func TestEvaluation(t *testing.T) {
 	ref := p.Clone()
 	ref.ToLagrange(d).ToRegular()
 
-	// regular layout
+	// canonical regular
 	a := p.Evaluate(d.Generator)
 	b := ps.Evaluate(d.Generator)
 	if !a.Equal(&ref.Coefficients()[1]) {
@@ -47,7 +47,7 @@ func TestEvaluation(t *testing.T) {
 		t.Fatal("error evaluation shifted")
 	}
 
-	// bit reversed layout
+	// canonical bit reversed
 	p.ToBitReverse()
 	ps.ToBitReverse()
 	a = p.Evaluate(d.Generator)
@@ -59,13 +59,15 @@ func TestEvaluation(t *testing.T) {
 		t.Fatal("error evaluation shifted")
 	}
 
-	// lagrange regular
+	// get reference values
 	var x fr.Element
 	x.SetRandom()
-	expectedEval := p.Evaluate(x)
-	expectedEvalShifted := ps.Evaluate(x)
-	p.ToLagrange(d)
-	ps.ToLagrange(d)
+	expectedEval := p.ToRegular().Evaluate(x)
+	expectedEvalShifted := ps.ToRegular().Evaluate(x)
+
+	// lagrange regular
+	p.ToLagrange(d).ToRegular()
+	ps.ToLagrange(d).ToRegular()
 	plx := p.Evaluate(x)
 	pslx := ps.Evaluate(x)
 	if !plx.Equal(&expectedEval) {
@@ -85,6 +87,30 @@ func TestEvaluation(t *testing.T) {
 	}
 	if !pslx.Equal(&expectedEvalShifted) {
 		t.Fatal("error evaluation lagrange shifted")
+	}
+
+	// lagrange coset regular
+	p.ToLagrangeCoset(d).ToRegular()
+	ps.ToLagrangeCoset(d).ToRegular()
+	plx = p.Evaluate(x)
+	pslx = ps.Evaluate(x)
+	if !plx.Equal(&expectedEval) {
+		t.Fatal("error evaluation lagrange coset")
+	}
+	if !pslx.Equal(&expectedEvalShifted) {
+		t.Fatal("error evaluation lagrange coset shifted")
+	}
+
+	// lagrange coset bit reverse
+	p.ToRegular().ToBitReverse()
+	ps.ToRegular().ToBitReverse()
+	plx = p.Evaluate(x)
+	pslx = ps.Evaluate(x)
+	if !plx.Equal(&expectedEval) {
+		t.Fatal("error evaluation lagrange coset")
+	}
+	if !pslx.Equal(&expectedEvalShifted) {
+		t.Fatal("error evaluation lagrange coset shifted")
 	}
 
 }

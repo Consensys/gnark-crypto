@@ -114,6 +114,10 @@ func (p *Polynomial) SetSize(size int) {
 // The code panics if the function is not in canonical form.
 func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 
+	if !p.coset.IsZero() {
+		x.Div(&x, &p.coset)
+	}
+
 	if p.shift == 0 {
 		return p.polynomial.evaluate(x)
 	}
@@ -132,9 +136,7 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 	bs := big.NewInt(int64(p.shift))
 	g = *g.Exp(g, bs)
 	x.Mul(&x, &g)
-	if p.Basis == LagrangeCoset {
-		x.Div(&x, &p.coset)
-	}
+
 	return p.polynomial.evaluate(x)
 }
 
