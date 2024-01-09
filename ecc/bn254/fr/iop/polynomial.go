@@ -74,6 +74,7 @@ type Polynomial struct {
 	*polynomial
 	shift int
 	size  int
+	coset fr.Element // needed for evaluating the polynomial when it is expressed in Lagrange shifted basis
 }
 
 // NewPolynomial returned a Polynomial from the provided coefficients in the given form.
@@ -133,6 +134,9 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 	bs := big.NewInt(int64(p.shift))
 	g = *g.Exp(g, bs)
 	x.Mul(&x, &g)
+	if p.Basis==LagrangeCoset {
+		x.Div(&x, &p.coset)
+	}
 	return p.polynomial.evaluate(x)
 }
 
@@ -205,23 +209,8 @@ func (p *polynomial) clone(capacity ...int) *polynomial {
 func (p *polynomial) evaluate(x fr.Element) fr.Element {
 
 	var r fr.Element
-	// if p.Basis != Canonical {
-	// 	panic("p must be in canonical basis")
-	// }
 
-	if p.Basis == Canonical {
-		if p.Layout == Regular {
-			for i := p.coefficients.Len() - 1; i >= 0; i-- {
-				r.Mul(&r, &x).Add(&r, &(*p.coefficients)[i])
-			}
-		} else {
-			nn := uint64(64 - bits.TrailingZeros(uint(p.coefficients.Len())))
-			for i := p.coefficients.Len() - 1; i >= 0; i-- {
-				iRev := bits.Reverse64(uint64(i)) >> nn
-				r.Mul(&r, &x).Add(&r, &(*p.coefficients)[iRev])
-			}
-		}
-	} else if p.Basis == Lagrange {
+	evalLagrange := func() {
 		sizeP := p.coefficients.Len()
 		w, err := fft.Generator(uint64(sizeP))
 		if err != nil {
@@ -258,13 +247,23 @@ func (p *polynomial) evaluate(x fr.Element) fr.Element {
 				li.Mul(&li, &dens[i]).Mul(&li, &w) // li <- li*ω*(x-ωⁱ)
 			}
 		}
-	} // else if p.Basis == LagrangeCoset {
-	// 	if p.Layout==Regular {
+	}
 
-	// 	} else {
-
-	// 	}
-	// }
+	if p.Basis == Canonical {
+		if p.Layout == Regular {
+			for i := p.coefficients.Len() - 1; i >= 0; i-- {
+				r.Mul(&r, &x).Add(&r, &(*p.coefficients)[i])
+			}
+		} else {
+			nn := uint64(64 - bits.TrailingZeros(uint(p.coefficients.Len())))
+			for i := p.coefficients.Len() - 1; i >= 0; i-- {
+				iRev := bits.Reverse64(uint64(i)) >> nn
+				r.Mul(&r, &x).Add(&r, &(*p.coefficients)[iRev])
+			}
+		}
+	} else {
+		evalLagrange()
+	}
 
 	return r
 
