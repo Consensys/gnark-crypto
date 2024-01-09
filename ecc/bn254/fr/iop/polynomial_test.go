@@ -62,20 +62,30 @@ func TestEvaluation(t *testing.T) {
 	// lagrange regular
 	var x fr.Element
 	x.SetRandom()
-	px := p.Evaluate(x)
-	psx := ps.Evaluate(x)
+	expectedEval := p.Evaluate(x)
+	expectedEvalShifted := ps.Evaluate(x)
 	p.ToLagrange(d)
 	ps.ToLagrange(d)
 	plx := p.Evaluate(x)
 	pslx := ps.Evaluate(x)
-	if !plx.Equal(&px) {
+	if !plx.Equal(&expectedEval) {
 		t.Fatal("error evaluation lagrange")
 	}
-	if !pslx.Equal(&psx) {
+	if !pslx.Equal(&expectedEvalShifted) {
 		t.Fatal("error evaluation lagrange shifted")
 	}
 
 	// lagrange bit reverse
+	p.ToBitReverse()
+	ps.ToBitReverse()
+	plx = p.Evaluate(x)
+	pslx = ps.Evaluate(x)
+	if !plx.Equal(&expectedEval) {
+		t.Fatal("error evaluation lagrange")
+	}
+	if !pslx.Equal(&expectedEvalShifted) {
+		t.Fatal("error evaluation lagrange shifted")
+	}
 
 }
 
