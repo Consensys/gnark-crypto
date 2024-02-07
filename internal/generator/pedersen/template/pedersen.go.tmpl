@@ -17,8 +17,8 @@ type ProvingKey struct {
 }
 
 type VerifyingKey struct {
-    g             curve.G2Affine // TODO @tabaie: does this really have to be randomized?
-    gRootSigmaNeg curve.G2Affine //gRootSigmaNeg = g^{-1/σ}
+    G             curve.G2Affine // TODO @tabaie: does this really have to be randomized?
+    GRootSigmaNeg curve.G2Affine //gRootSigmaNeg = g^{-1/σ}
 }
 
 func randomFrSizedBytes() ([]byte, error) {
@@ -37,7 +37,7 @@ func randomOnG2() (curve.G2Affine, error) { // TODO: Add to G2.go?
 
 func Setup(bases ...[]curve.G1Affine) (pk []ProvingKey, vk VerifyingKey, err error) {
 
-    if vk.g, err = randomOnG2(); err != nil {
+    if vk.G, err = randomOnG2(); err != nil {
         return
     }
 
@@ -52,7 +52,7 @@ func Setup(bases ...[]curve.G1Affine) (pk []ProvingKey, vk VerifyingKey, err err
     var sigmaInvNeg big.Int
     sigmaInvNeg.ModInverse(sigma, fr.Modulus())
     sigmaInvNeg.Sub(fr.Modulus(), &sigmaInvNeg)
-    vk.gRootSigmaNeg.ScalarMultiplication(&vk.g, &sigmaInvNeg)
+    vk.GRootSigmaNeg.ScalarMultiplication(&vk.G, &sigmaInvNeg)
 
     pk = make([]ProvingKey, len(bases))
     for i := range bases {
@@ -197,7 +197,7 @@ func (vk *VerifyingKey) Verify(commitment curve.G1Affine, knowledgeProof curve.G
         return fmt.Errorf("subgroup check failed")
     }
 
-	if isOne, err := curve.PairingCheck([]curve.G1Affine{commitment, knowledgeProof}, []curve.G2Affine{vk.g, vk.gRootSigmaNeg}); err != nil {
+	if isOne, err := curve.PairingCheck([]curve.G1Affine{commitment, knowledgeProof}, []curve.G2Affine{vk.G, vk.GRootSigmaNeg}); err != nil {
 		return err
 	} else if !isOne {
 		return fmt.Errorf("proof rejected")
@@ -272,10 +272,10 @@ func (vk *VerifyingKey) WriteRawTo(w io.Writer) (int64, error) {
 func (vk *VerifyingKey) writeTo(enc *curve.Encoder) (int64, error) {
 	var err error
 
-	if err = enc.Encode(&vk.g); err != nil {
+	if err = enc.Encode(&vk.G); err != nil {
 		return enc.BytesWritten(), err
 	}
-	err = enc.Encode(&vk.gRootSigmaNeg)
+	err = enc.Encode(&vk.GRootSigmaNeg)
 	return enc.BytesWritten(), err
 }
 
@@ -291,9 +291,9 @@ func (vk *VerifyingKey) readFrom(r io.Reader, decOptions ...func(*curve.Decoder)
 	dec := curve.NewDecoder(r, decOptions...)
 	var err error
 
-	if err = dec.Decode(&vk.g); err != nil {
+	if err = dec.Decode(&vk.G); err != nil {
 		return dec.BytesRead(), err
 	}
-	err = dec.Decode(&vk.gRootSigmaNeg)
+	err = dec.Decode(&vk.GRootSigmaNeg)
 	return dec.BytesRead(), err
 }
