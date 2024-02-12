@@ -28,6 +28,7 @@ import (
 	"github.com/consensys/gnark-crypto/fiat-shamir"
 
 	"github.com/consensys/gnark-crypto/internal/parallel"
+
 )
 
 var (
@@ -185,6 +186,7 @@ func Commit(p []fr.Element, pk ProvingKey, nbTasks ...int) (Digest, error) {
 
 	return res, nil
 }
+
 
 // Open computes an opening proof of polynomial p at given point.
 // fft.Domain Cardinality must be larger than p.Degree()
@@ -599,3 +601,4 @@ func dividePolyByXminusA(f []fr.Element, fa, a fr.Element) []fr.Element {
 	// the result is of degree deg(f)-1
 	return f[1:]
 }
+

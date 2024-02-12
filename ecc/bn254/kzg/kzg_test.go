@@ -17,6 +17,7 @@
 package kzg
 
 import (
+	"unsafe"
 	"crypto/sha256"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,6 +30,9 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 
 	"github.com/consensys/gnark-crypto/utils"
+
+	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
+	iciclegnark "github.com/ingonyama-zk/iciclegnark/curves/bn254"
 )
 
 // Test SRS re-used across tests of the KZG scheme
@@ -194,6 +198,38 @@ func TestCommit(t *testing.T) {
 		t.Fatal("error KZG commitment")
 	}
 
+}
+
+func TestOnDeviceCommit(t *testing.T) {
+
+	// create a polynomial
+	f := make([]fr.Element, 60)
+	for i := 0; i < 60; i++ {
+		f[i].SetRandom()
+	}
+
+	// Initialize Scalar channels
+	copyG1Done := make(chan unsafe.Pointer, 1)
+
+	pointsBytesG1 := len(testSrs.Pk.G1) * fp.Bytes * 2
+	go iciclegnark.CopyPointsToDevice(testSrs.Pk.G1, pointsBytesG1, copyG1Done) // Make a function for points
+	G1Device := <-copyG1Done
+
+	onDeviceCommit, _ := OnDeviceCommit(f, G1Device, 1)
+
+	// check commitment using manual commit
+	var x fr.Element
+	x.SetString("42")
+	fx := eval(f, x)
+	var fxbi big.Int
+	fx.BigInt(&fxbi)
+	var manualCommit bn254.G1Affine
+	manualCommit.Set(&testSrs.Vk.G1)
+	manualCommit.ScalarMultiplication(&manualCommit, &fxbi)
+
+	if !onDeviceCommit.Equal(&manualCommit) {
+		t.Fatal("error OnDeviceCommit")
+	}
 }
 
 func TestVerifySinglePoint(t *testing.T) {
