@@ -399,8 +399,8 @@ func (p *G2Jac) IsOnCurve() bool {
 	right.Square(&p.X).Mul(&right, &p.X)
 	ZZ.Square(&p.Z)
 	tmp.Square(&ZZ).
-		Mul(&tmp, &ZZ).
-		Mul(&tmp, &bTwistCurveCoeff)
+		Mul(&tmp, &ZZ)
+	tmp.Mul(&tmp, &bTwistCurveCoeff)
 	right.Add(&right, &tmp)
 	return left.Equal(&right)
 }
