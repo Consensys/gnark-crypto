@@ -394,14 +394,12 @@ func (p *G2Jac) FromAffine(Q *G2Affine) *G2Jac {
 
 // IsOnCurve returns true if p in on the curve
 func (p *G2Jac) IsOnCurve() bool {
-	var left, right, tmp fptower.E2
+	var left, right, tmp, ZZ fptower.E2
 	left.Square(&p.Y)
 	right.Square(&p.X).Mul(&right, &p.X)
-	tmp.Square(&p.Z).
-		Square(&tmp).
-		Mul(&tmp, &p.Z).
-		Mul(&tmp, &p.Z).
-		Mul(&tmp, &bTwistCurveCoeff)
+	ZZ.Square(&p.Z)
+	tmp.Square(&ZZ).Mul(&tmp, &ZZ)
+	tmp.Mul(&tmp, &bTwistCurveCoeff)
 	right.Add(&right, &tmp)
 	return left.Equal(&right)
 }
