@@ -434,17 +434,38 @@ func (p *{{ $TJacobian }}) FromAffine(Q *{{ $TAffine }}) *{{ $TJacobian }} {
 
 // IsOnCurve returns true if p in on the curve
 func (p *{{ $TJacobian }}) IsOnCurve() bool {
-	var left, right, tmp  {{.CoordType}}
+	var left, right, tmp, ZZ  {{.CoordType}}
 	left.Square(&p.Y)
 	right.Square(&p.X).Mul(&right, &p.X)
-	tmp.Square(&p.Z).
-		Square(&tmp).
-		Mul(&tmp, &p.Z).
-		Mul(&tmp, &p.Z).
+	ZZ.Square(&p.Z)
+    tmp.Square(&ZZ).Mul(&tmp, &ZZ)
 		{{- if eq .PointName "g1"}}
-			Mul(&tmp, &bCurveCoeff)
+            {{- if or (eq .Name "bls12-381") (eq .Name "bls24-317") (eq .Name "bw6-633")}}
+                // Mul tmp by bCurveCoeff=4
+                tmp.Double(&tmp).Double(&tmp)
+            {{- else if eq .Name "bn254"}}
+                // Mul tmp by bCurveCoeff=3
+                fp.MulBy3(&tmp)
+            {{- else if eq .Name "bw6-761"}}
+                // Mul tmp by bCurveCoeff=-1
+                tmp.Neg(&tmp)
+            {{- else if or (eq .Name "bls12-377") (eq .Name "bls12-378") (eq .Name "bls24-315") (eq .Name "bw6-756")}}
+                // Mul tmp by bCurveCoeff=1 (nothing to do)
+            {{- else}}
+                tmp.Mul(&tmp, &bCurveCoeff)
+            {{- end}}
 		{{- else}}
-			Mul(&tmp, &bTwistCurveCoeff)
+            {{- if or (eq .Name "bls12-377") (eq .Name "bls12-381") (eq .Name "bn254") (eq .Name "bls24-315") (eq .Name "bls24-317")}}
+                tmp.MulBybTwistCurveCoeff(&tmp)
+            {{- else if eq .Name "bw6-761"}}
+                // Mul tmp by bTwistCurveCoeff=4
+                tmp.Double(&tmp).Double(&tmp)
+            {{- else if eq .Name "bw6-633"}}
+                // Mul tmp by bTwistCurveCoeff=8
+                tmp.Double(&tmp).Double(&tmp).Double(&tmp)
+            {{- else}}
+                tmp.Mul(&tmp, &bTwistCurveCoeff)
+            {{- end}}
 		{{- end}}
 	right.Add(&right, &tmp)
 	return left.Equal(&right)

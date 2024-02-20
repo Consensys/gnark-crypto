@@ -173,9 +173,9 @@ func TestMarshal(t *testing.T) {
 		vk  VerifyingKey
 		err error
 	)
-	vk.g, err = randomOnG2()
+	vk.G, err = randomOnG2()
 	assert.NoError(t, err)
-	vk.gRootSigmaNeg, err = randomOnG2()
+	vk.GRootSigmaNeg, err = randomOnG2()
 	assert.NoError(t, err)
 
 	t.Run("ProvingKey -> Bytes -> ProvingKey must remain identical.", utils.SerializationRoundTrip(&pk))
