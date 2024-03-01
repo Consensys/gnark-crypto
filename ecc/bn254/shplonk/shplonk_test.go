@@ -39,6 +39,14 @@ func TestBuildVanishingPoly(t *testing.T) {
 			t.Fatal("πᵢ(X-xᵢ) at xᵢ should be zero")
 		}
 	}
+
+	// check that r(y)!=0 for a random point
+	var a fr.Element
+	a.SetRandom()
+	y := eval(r, a)
+	if y.IsZero() {
+		t.Fatal("πᵢ(X-xᵢ) at r \neq xᵢ should not be zero")
+	}
 }
 
 func TestMultiplyLinearFactor(t *testing.T) {
@@ -76,6 +84,7 @@ func TestDiv(t *testing.T) {
 	g := make([]fr.Element, s)
 	copy(g, f)
 
+	// successive divions of linear terms
 	x := make([]fr.Element, nbPoints)
 	for i := 0; i < nbPoints; i++ {
 		x[i].SetRandom()
@@ -97,4 +106,23 @@ func TestDiv(t *testing.T) {
 			t.Fatal("f(x)(x-a)/(x-a) should be equal to f(x)")
 		}
 	}
+
+	// division by a degree > 1 polynomial
+	for i := 0; i < nbPoints; i++ {
+		x[i].SetRandom()
+		f = multiplyLinearFactor(f, x[i])
+	}
+	r := buildVanishingPoly(x)
+	f = div(f, r)
+
+	// g should be equal to f
+	if len(f) != len(g) {
+		t.Fatal("lengths don't match")
+	}
+	for i := 0; i < len(g); i++ {
+		if !f[i].Equal(&g[i]) {
+			t.Fatal("f(x)(x-a)/(x-a) should be equal to f(x)")
+		}
+	}
+
 }

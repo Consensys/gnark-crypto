@@ -64,6 +64,7 @@ func multiplyLinearFactor(f []fr.Element, a fr.Element) []fr.Element {
 // returns πᵢ(X-xᵢ)
 func buildVanishingPoly(x []fr.Element) []fr.Element {
 	res := make([]fr.Element, 1, len(x)+1)
+	res[0].SetOne()
 	for i := 0; i < len(x); i++ {
 		res = multiplyLinearFactor(res, x[i])
 	}
