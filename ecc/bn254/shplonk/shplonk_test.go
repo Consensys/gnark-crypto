@@ -59,16 +59,17 @@ func TestMultiplyLinearFactor(t *testing.T) {
 
 	var a, y fr.Element
 	a.SetRandom()
-	y = eval(f, a)
-	if y.IsZero() {
-		t.Fatal("result should not be zero")
-	}
-
 	f = multiplyLinearFactor(f, a)
 	y = eval(f, a)
 	if !y.IsZero() {
 		t.Fatal("(X-a)f(X) should be zero at a")
 	}
+	a.SetRandom()
+	y = eval(f, a)
+	if y.IsZero() {
+		t.Fatal("(X-1)f(X) at a random point should not be zero")
+	}
+
 }
 
 func TestDiv(t *testing.T) {
