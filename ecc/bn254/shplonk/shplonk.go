@@ -61,6 +61,15 @@ func multiplyLinearFactor(f []fr.Element, a fr.Element) []fr.Element {
 	return f
 }
 
+// returns πᵢ(X-xᵢ)
+func buildVanishingPoly(x []fr.Element) []fr.Element {
+	res := make([]fr.Element, 1, len(x)+1)
+	for i := 0; i < len(x); i++ {
+		res = multiplyLinearFactor(res, x[i])
+	}
+	return res
+}
+
 // returns f/g (assuming g divides f)
 // OK to not use fft if deg(g) is small
 // g's leading coefficient is assumed to be 1

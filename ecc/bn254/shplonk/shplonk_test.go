@@ -15,11 +15,31 @@
 package shplonk
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 )
+
+func TestBuildVanishingPoly(t *testing.T) {
+	s := 10
+	x := make([]fr.Element, s)
+	for i := 0; i < s; i++ {
+		x[i].SetRandom()
+	}
+	r := buildVanishingPoly(x)
+
+	if len(r) != s+1 {
+		t.Fatal("error degree r")
+	}
+
+	// check that r(x_{i})=0 for all i
+	for i := 0; i < len(x); i++ {
+		y := eval(r, x[i])
+		if !y.IsZero() {
+			t.Fatal("πᵢ(X-xᵢ) at xᵢ should be zero")
+		}
+	}
+}
 
 func TestMultiplyLinearFactor(t *testing.T) {
 
@@ -55,28 +75,18 @@ func TestDiv(t *testing.T) {
 	// backup
 	g := make([]fr.Element, s)
 	copy(g, f)
-	for i := 0; i < len(g); i++ {
-		fmt.Printf("%s\n", g[i].String())
-	}
-	fmt.Println("--")
 
 	x := make([]fr.Element, nbPoints)
 	for i := 0; i < nbPoints; i++ {
 		x[i].SetRandom()
 		f = multiplyLinearFactor(f, x[i])
 	}
-	fmt.Println("--")
 	q := make([][2]fr.Element, nbPoints)
 	for i := 0; i < nbPoints; i++ {
 		q[i][1].SetOne()
 		q[i][0].Neg(&x[i])
 		f = div(f, q[i][:])
 	}
-
-	for i := 0; i < len(f); i++ {
-		fmt.Printf("%s\n", f[i].String())
-	}
-	fmt.Println("--")
 
 	// g should be equal to f
 	if len(f) != len(g) {
@@ -87,5 +97,4 @@ func TestDiv(t *testing.T) {
 			t.Fatal("f(x)(x-a)/(x-a) should be equal to f(x)")
 		}
 	}
-
 }
