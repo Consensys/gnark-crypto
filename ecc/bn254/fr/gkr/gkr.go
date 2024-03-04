@@ -884,8 +884,6 @@ func (g AddGate) Evaluate(x ...fr.Element) (res fr.Element) {
 	// set zero
 	case 1:
 		res.Set(&x[0])
-	case 2:
-		res.Add(&x[0], &x[1])
 	default:
 		res.Add(&x[0], &x[1])
 		for i := 2; i < len(x); i++ {
