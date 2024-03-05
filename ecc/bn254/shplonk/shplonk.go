@@ -45,42 +45,42 @@ type OpeningProof struct {
 	ClaimedValues []fr.Element
 }
 
-// func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Element, hf hash.Hash, pk kzg.ProvingKey, dataTranscript ...[]byte) (OpeningProof, error) {
+func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Element, hf hash.Hash, pk kzg.ProvingKey, dataTranscript ...[]byte) (OpeningProof, error) {
 
-// 	var res OpeningProof
+	var res OpeningProof
 
-// 	if len(polynomials) != len(points) {
-// 		return res, ErrInvalidNumberOfPoints
-// 	}
+	if len(polynomials) != len(points) {
+		return res, ErrInvalidNumberOfPoints
+	}
 
-// 	// derive γ
-// 	gamma, err := deriveGamma(points, digests, hf, dataTranscript...)
-// 	if err != nil {
-// 		return res, err
-// 	}
+	// derive γ
+	gamma, err := deriveGamma(points, digests, hf, dataTranscript...)
+	if err != nil {
+		return res, err
+	}
 
-// 	// compute the claimed evaluations
-// 	maxSize := len(polynomials[0])
-// 	for i := 1; i < len(polynomials); i++ {
-// 		if maxSize < len(polynomials[i]) {
-// 			maxSize = len(polynomials[i])
-// 		}
-// 	}
+	// compute the claimed evaluations
+	maxSize := len(polynomials[0])
+	for i := 1; i < len(polynomials); i++ {
+		if maxSize < len(polynomials[i]) {
+			maxSize = len(polynomials[i])
+		}
+	}
 
-// 	totalSize := maxSize + len(points) // maxSize+len(points)-1 is the max degree among the polynomials Z_{T\xᵢ}fᵢ
-// 	buf := make([]fr.Element, totalSize)
-// 	f := make([]fr.Element, totalSize)
-// 	copy(buf, polynomials[0])
-// 	v := buildVanishingPoly(points[1:])
+	totalSize := maxSize + len(points) // maxSize+len(points)-1 is the max degree among the polynomials Z_{T\xᵢ}fᵢ
+	buf := make([]fr.Element, totalSize)
+	f := make([]fr.Element, totalSize) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation
+	copy(buf, polynomials[0])
+	v := buildVanishingPoly(points[1:])
 
-// 	for i := 1; i<len(polynomials); i++ {
+	for i := 1; i < len(polynomials); i++ {
 
-// 	}
+	}
 
-// 	// derive z
+	// derive z
 
-// 	return res, nil
-// }
+	return res, nil
+}
 
 // BatchVerify uses proof to check that the commitments correctly open to proof.ClaimedValues
 // at points. The order mattes: the proof validates that the i-th commitment is correctly opened
@@ -133,6 +133,34 @@ func eval(f []fr.Element, x fr.Element) fr.Element {
 		y.Mul(&y, &x).Add(&y, &f[i])
 	}
 	return y
+}
+
+// sets buf= f+g and returns buf (memory of f is re-used)
+func add(f, g, buf []fr.Element) []fr.Element {
+	maxSize := len(f)
+	if maxSize < len(g) {
+		maxSize = len(g)
+	}
+	if len(buf) < maxSize {
+		s := make([]fr.Element, maxSize-len(buf))
+		buf = append(buf, s...)
+	}
+	for i := 0; i < len(buf); i++ {
+		buf[i].SetZero()
+	}
+	copy(buf, f)
+	for i := 0; i < len(g); i++ {
+		buf[i].Add(&buf[i], &g[i])
+	}
+	return buf
+}
+
+// returns \gamma*f, re-using f
+func mulByConstant(f []fr.Element, gamma fr.Element) []fr.Element {
+	for i := 0; i < len(f); i++ {
+		f[i].Mul(&f[i], &gamma)
+	}
+	return f
 }
 
 // computes f <- (x-a)*f (in place if the capacity of f is correctly set)
