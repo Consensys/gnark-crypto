@@ -72,6 +72,42 @@ func TestMultiplyLinearFactor(t *testing.T) {
 
 }
 
+func TestNaiveMul(t *testing.T) {
+
+	size := 10
+	f := make([]fr.Element, size)
+	for i := 0; i < size; i++ {
+		f[i].SetRandom()
+	}
+
+	nbPoints := 10
+	points := make([]fr.Element, nbPoints)
+	for i := 0; i < nbPoints; i++ {
+		points[i].SetRandom()
+	}
+
+	v := buildVanishingPoly(points)
+	buf := make([]fr.Element, size+nbPoints-1)
+	g := mul(f, v, buf)
+
+	// check that g(x_{i}) = 0
+	for i := 0; i < nbPoints; i++ {
+		y := eval(g, points[i])
+		if !y.IsZero() {
+			t.Fatal("f(X)(X-x_{1})..(X-x_{n}) at x_{i} should be zero")
+		}
+	}
+
+	// check that g(r) != 0 for a random point
+	var a fr.Element
+	a.SetRandom()
+	y := eval(g, a)
+	if y.IsZero() {
+		t.Fatal("f(X)(X-x_{1})..(X-x_{n}) at a random point should not be zero")
+	}
+
+}
+
 func TestDiv(t *testing.T) {
 
 	nbPoints := 10
