@@ -909,7 +909,7 @@ func (g MulGate) Evaluate(x ...small_rational.SmallRational) (res small_rational
 	default:
 		res.Mul(&x[0], &x[1])
 		for i := 2; i < len(x); i++ {
-			res.Mul(&res, &x[2])
+			res.Mul(&res, &x[i])
 		}
 	}
 	return
