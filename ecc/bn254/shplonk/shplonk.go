@@ -49,35 +49,106 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Ele
 
 	var res OpeningProof
 
+	nbInstances := len(polynomials)
 	if len(polynomials) != len(points) {
 		return res, ErrInvalidNumberOfPoints
 	}
 
+	// transcript
+	fs := fiatshamir.NewTranscript(hf, "gamma", "z")
+
 	// derive γ
-	gamma, err := deriveGamma(points, digests, hf, dataTranscript...)
+	gamma, err := deriveChallenge("gamma", points, digests, fs, dataTranscript...)
 	if err != nil {
 		return res, err
 	}
 
 	// compute the claimed evaluations
-	maxSize := len(polynomials[0])
+	maxSizePolys := len(polynomials[0])
 	for i := 1; i < len(polynomials); i++ {
-		if maxSize < len(polynomials[i]) {
-			maxSize = len(polynomials[i])
+		if maxSizePolys < len(polynomials[i]) {
+			maxSizePolys = len(polynomials[i])
 		}
 	}
-
-	totalSize := maxSize + len(points) // maxSize+len(points)-1 is the max degree among the polynomials Z_{T\xᵢ}fᵢ
-	buf := make([]fr.Element, totalSize)
+	totalSize := maxSizePolys + len(points) - 1 // maxSizePolys+len(points)-2 is the max degree among the polynomials Z_{T\xᵢ}fᵢ
+	bufTotalSize := make([]fr.Element, totalSize)
+	bufMaxSizePolynomials := make([]fr.Element, maxSizePolys)
 	f := make([]fr.Element, totalSize) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation
-	copy(buf, polynomials[0])
-	v := buildVanishingPoly(points[1:])
+	bufPoints := make([]fr.Element, nbInstances-1)
+	ztMinusXi := make([][]fr.Element, nbInstances)
+	res.ClaimedValues = make([]fr.Element, nbInstances)
+	var accGamma fr.Element
+	accGamma.SetOne()
+	for i := 0; i < nbInstances; i++ {
 
-	for i := 1; i < len(polynomials); i++ {
+		res.ClaimedValues[i] = eval(polynomials[i], points[i])
 
+		copy(bufPoints, points[:i])
+		copy(bufPoints[i:], points[i+1:])
+
+		ztMinusXi[i] = buildVanishingPoly(bufPoints)
+		copy(bufMaxSizePolynomials, polynomials[i])
+		bufMaxSizePolynomials[0].Sub(&bufMaxSizePolynomials[0], &res.ClaimedValues[i]) // f-f(xᵢ)
+		bufTotalSize = mul(bufMaxSizePolynomials, ztMinusXi[i], bufTotalSize)
+		bufTotalSize = mulByConstant(bufTotalSize, accGamma)
+		for j := 0; j < len(bufTotalSize); j++ {
+			f[j].Add(&f[j], &bufTotalSize[j])
+		}
+
+		accGamma.Mul(&accGamma, &gamma)
+		setZero(bufMaxSizePolynomials)
+	}
+
+	zt := buildVanishingPoly(points)
+	w := div(f, zt) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation page 11 for notation
+	res.W, err = kzg.Commit(w, pk)
+	if err != nil {
+		return res, err
 	}
 
 	// derive z
+	z, err := deriveChallenge("z", nil, []kzg.Digest{res.W}, fs)
+	if err != nil {
+		return res, err
+	}
+
+	// compute L = ∑ᵢγⁱZ_{T\xᵢ}(z)(fᵢ-rᵢ(z))-Z_{T}(z)W
+	accGamma.SetOne()
+	var gammaiZtMinusXi fr.Element
+	l := make([]fr.Element, totalSize) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation page 11 for notation
+	for i := 0; i < len(polynomials); i++ {
+
+		zi := eval(ztMinusXi[i], z)
+		gammaiZtMinusXi.Mul(&accGamma, &zi)
+		copy(bufMaxSizePolynomials, polynomials[i])
+		bufMaxSizePolynomials[0].Sub(&bufMaxSizePolynomials[0], &res.ClaimedValues[i])
+		mulByConstant(bufMaxSizePolynomials, gammaiZtMinusXi)
+		for j := 0; j < len(bufMaxSizePolynomials); j++ {
+			l[j].Add(&l[j], &bufMaxSizePolynomials[j])
+		}
+
+		setZero(bufMaxSizePolynomials)
+		accGamma.Mul(&accGamma, &gamma)
+	}
+	ztz := eval(zt, z)
+	setZero(bufTotalSize)
+	copy(bufTotalSize, w)
+	mulByConstant(bufTotalSize, ztz)
+	for i := 0; i < totalSize-maxSizePolys; i++ {
+		bufTotalSize[totalSize-1-i].Neg(&bufTotalSize[totalSize-1-i])
+	}
+	for i := 0; i < maxSizePolys; i++ {
+		bufTotalSize[i].Sub(&l[i], &bufTotalSize[i])
+	}
+
+	lz := eval(l, z)
+	l[0].Sub(&l[0], &lz)
+	xMinusZ := buildVanishingPoly([]fr.Element{z})
+	wPrime := div(l, xMinusZ)
+	res.WPrime, err = kzg.Commit(wPrime, pk)
+	if err != nil {
+		return res, err
+	}
 
 	return res, nil
 }
@@ -92,29 +163,29 @@ func BatchVerify(proof OpeningProof, commitments []kzg.Digest, points []fr.Eleme
 	return nil
 }
 
-// deriveGamma derives a challenge using Fiat Shamir to polynomials.
-func deriveGamma(points []fr.Element, digests []kzg.Digest, hf hash.Hash, dataTranscript ...[]byte) (fr.Element, error) {
+// deriveChallenge derives a challenge using Fiat Shamir to polynomials.
+// The arguments are added to the transcript in the order in which they are given.
+func deriveChallenge(name string, points []fr.Element, digests []kzg.Digest, t *fiatshamir.Transcript, dataTranscript ...[]byte) (fr.Element, error) {
 
 	// derive the challenge gamma, binded to the point and the commitments
-	fs := fiatshamir.NewTranscript(hf, "gamma")
 	for i := range points {
-		if err := fs.Bind("gamma", points[i].Marshal()); err != nil {
+		if err := t.Bind(name, points[i].Marshal()); err != nil {
 			return fr.Element{}, err
 		}
 	}
 	for i := range digests {
-		if err := fs.Bind("gamma", digests[i].Marshal()); err != nil {
+		if err := t.Bind(name, digests[i].Marshal()); err != nil {
 			return fr.Element{}, err
 		}
 	}
 
 	for i := 0; i < len(dataTranscript); i++ {
-		if err := fs.Bind("gamma", dataTranscript[i]); err != nil {
+		if err := t.Bind(name, dataTranscript[i]); err != nil {
 			return fr.Element{}, err
 		}
 	}
 
-	gammaByte, err := fs.ComputeChallenge("gamma")
+	gammaByte, err := t.ComputeChallenge(name)
 	if err != nil {
 		return fr.Element{}, err
 	}
@@ -127,6 +198,13 @@ func deriveGamma(points []fr.Element, digests []kzg.Digest, hf hash.Hash, dataTr
 // ------------------------------
 // utils
 
+// sets f to zero
+func setZero(f []fr.Element) {
+	for i := 0; i < len(f); i++ {
+		f[i].SetZero()
+	}
+}
+
 func eval(f []fr.Element, x fr.Element) fr.Element {
 	var y fr.Element
 	for i := len(f) - 1; i >= 0; i-- {
@@ -135,27 +213,7 @@ func eval(f []fr.Element, x fr.Element) fr.Element {
 	return y
 }
 
-// sets buf= f+g and returns buf (memory of f is re-used)
-func add(f, g, buf []fr.Element) []fr.Element {
-	maxSize := len(f)
-	if maxSize < len(g) {
-		maxSize = len(g)
-	}
-	if len(buf) < maxSize {
-		s := make([]fr.Element, maxSize-len(buf))
-		buf = append(buf, s...)
-	}
-	for i := 0; i < len(buf); i++ {
-		buf[i].SetZero()
-	}
-	copy(buf, f)
-	for i := 0; i < len(g); i++ {
-		buf[i].Add(&buf[i], &g[i])
-	}
-	return buf
-}
-
-// returns \gamma*f, re-using f
+// returns γ*f, re-using f
 func mulByConstant(f []fr.Element, gamma fr.Element) []fr.Element {
 	for i := 0; i < len(f); i++ {
 		f[i].Mul(&f[i], &gamma)
@@ -188,23 +246,21 @@ func buildVanishingPoly(x []fr.Element) []fr.Element {
 }
 
 // returns f*g using naive multiplication
-// deg(big)>>deg(small), deg(small) =~ 10 max
-// buf is used as a buffer
-func mul(big, small []fr.Element, buf []fr.Element) []fr.Element {
+// deg(f)>>deg(g), deg(small) =~ 10 max
+// buf is used as a buffer and should not be f or g
+func mul(f, g []fr.Element, buf []fr.Element) []fr.Element {
 
-	sizeRes := len(big) + len(small) - 1
+	sizeRes := len(f) + len(g) - 1
 	if len(buf) < sizeRes {
 		s := make([]fr.Element, sizeRes-len(buf))
 		buf = append(buf, s...)
 	}
-	for i := 0; i < len(buf); i++ {
-		buf[i].SetZero()
-	}
+	setZero(buf)
 
 	var tmp fr.Element
-	for i := 0; i < len(small); i++ {
-		for j := 0; j < len(big); j++ {
-			tmp.Mul(&big[j], &small[i])
+	for i := 0; i < len(g); i++ {
+		for j := 0; j < len(f); j++ {
+			tmp.Mul(&f[j], &g[i])
 			buf[j+i].Add(&buf[j+i], &tmp)
 		}
 	}
