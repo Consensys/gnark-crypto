@@ -15,10 +15,74 @@
 package shplonk
 
 import (
+	"crypto/sha256"
+	"fmt"
+	"math/big"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bn254/kzg"
+	"github.com/stretchr/testify/require"
 )
+
+// Test SRS re-used across tests of the KZG scheme
+var testSrs *kzg.SRS
+var bAlpha *big.Int
+
+func init() {
+	const srsSize = 230
+	bAlpha = new(big.Int).SetInt64(42) // randomise ?
+	testSrs, _ = kzg.NewSRS(ecc.NextPowerOfTwo(srsSize), bAlpha)
+}
+
+func TestOpening(t *testing.T) {
+
+	assert := require.New(t)
+
+	nbPolys := 2
+	sizePoly := make([]int, nbPolys)
+	for i := 0; i < nbPolys; i++ {
+		sizePoly[i] = 5 + i
+	}
+	polys := make([][]fr.Element, nbPolys)
+	for i := 0; i < nbPolys; i++ {
+		polys[i] = make([]fr.Element, sizePoly[i])
+		for j := 0; j < sizePoly[i]; j++ {
+			polys[i][j].SetRandom()
+		}
+	}
+
+	for i := 0; i < nbPolys; i++ {
+		prettyPrintPoly(polys[i])
+	}
+	fmt.Println("--")
+
+	digests := make([]kzg.Digest, nbPolys)
+	for i := 0; i < nbPolys; i++ {
+		digests[i], _ = kzg.Commit(polys[i], testSrs.Pk)
+	}
+
+	points := make([]fr.Element, nbPolys)
+	for i := 0; i < nbPolys; i++ {
+		points[i].SetRandom()
+	}
+
+	fmt.Println("[")
+	for i := 0; i < len(points); i++ {
+		fmt.Printf("Fr(%s), ", points[i].String())
+	}
+	fmt.Println("]")
+
+	hf := sha256.New()
+
+	openingProof, err := BatchOpen(polys, digests, points, hf, testSrs.Pk)
+	assert.NoError(err)
+
+	err = BatchVerify(openingProof, digests, points, hf, testSrs.Vk)
+	assert.NoError(err)
+
+}
 
 func TestBuildVanishingPoly(t *testing.T) {
 	s := 10

@@ -18,8 +18,11 @@ package shplonk
 
 import (
 	"errors"
+	"fmt"
 	"hash"
+	"math/big"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/kzg"
@@ -28,6 +31,7 @@ import (
 
 var (
 	ErrInvalidNumberOfPoints = errors.New("number of digests should be equal to the number of points")
+	ErrVerifyOpeningProof    = errors.New("can't verify batch opening proof")
 )
 
 // OpeningProof KZG proof for opening (fᵢ)_{i} at a different points (xᵢ)_{i}.
@@ -43,6 +47,13 @@ type OpeningProof struct {
 
 	// (fᵢ(xᵢ))_{i}
 	ClaimedValues []fr.Element
+}
+
+func prettyPrintPoly(f []fr.Element) {
+	for i := 0; i < len(f)-1; i++ {
+		fmt.Printf("%s*x**%d+", f[i].String(), i)
+	}
+	fmt.Printf("%s*x**%d\n", f[len(f)-1].String(), len(f)-1)
 }
 
 func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Element, hf hash.Hash, pk kzg.ProvingKey, dataTranscript ...[]byte) (OpeningProof, error) {
@@ -71,6 +82,7 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Ele
 		}
 	}
 	totalSize := maxSizePolys + len(points) - 1 // maxSizePolys+len(points)-2 is the max degree among the polynomials Z_{T\xᵢ}fᵢ
+
 	bufTotalSize := make([]fr.Element, totalSize)
 	bufMaxSizePolynomials := make([]fr.Element, maxSizePolys)
 	f := make([]fr.Element, totalSize) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation
@@ -79,16 +91,18 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Ele
 	res.ClaimedValues = make([]fr.Element, nbInstances)
 	var accGamma fr.Element
 	accGamma.SetOne()
+
+	fmt.Printf("gamma = Fr(%s)\n", gamma.String())
 	for i := 0; i < nbInstances; i++ {
 
 		res.ClaimedValues[i] = eval(polynomials[i], points[i])
 
 		copy(bufPoints, points[:i])
 		copy(bufPoints[i:], points[i+1:])
-
 		ztMinusXi[i] = buildVanishingPoly(bufPoints)
+
 		copy(bufMaxSizePolynomials, polynomials[i])
-		bufMaxSizePolynomials[0].Sub(&bufMaxSizePolynomials[0], &res.ClaimedValues[i]) // f-f(xᵢ)
+		bufMaxSizePolynomials[0].Sub(&bufMaxSizePolynomials[0], &res.ClaimedValues[i])
 		bufTotalSize = mul(bufMaxSizePolynomials, ztMinusXi[i], bufTotalSize)
 		bufTotalSize = mulByConstant(bufTotalSize, accGamma)
 		for j := 0; j < len(bufTotalSize); j++ {
@@ -98,6 +112,7 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Ele
 		accGamma.Mul(&accGamma, &gamma)
 		setZero(bufMaxSizePolynomials)
 	}
+	// prettyPrintPoly(f)
 
 	zt := buildVanishingPoly(points)
 	w := div(f, zt) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation page 11 for notation
@@ -111,6 +126,7 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Ele
 	if err != nil {
 		return res, err
 	}
+	fmt.Printf("z = Fr(%s)\n", z.String())
 
 	// compute L = ∑ᵢγⁱZ_{T\xᵢ}(z)(fᵢ-rᵢ(z))-Z_{T}(z)W
 	accGamma.SetOne()
@@ -135,16 +151,16 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Ele
 	copy(bufTotalSize, w)
 	mulByConstant(bufTotalSize, ztz)
 	for i := 0; i < totalSize-maxSizePolys; i++ {
-		bufTotalSize[totalSize-1-i].Neg(&bufTotalSize[totalSize-1-i])
+		l[totalSize-1-i].Neg(&bufTotalSize[totalSize-1-i])
 	}
 	for i := 0; i < maxSizePolys; i++ {
-		bufTotalSize[i].Sub(&l[i], &bufTotalSize[i])
+		l[i].Sub(&l[i], &bufTotalSize[i])
 	}
 
-	lz := eval(l, z)
-	l[0].Sub(&l[0], &lz)
 	xMinusZ := buildVanishingPoly([]fr.Element{z})
 	wPrime := div(l, xMinusZ)
+	prettyPrintPoly(wPrime)
+
 	res.WPrime, err = kzg.Commit(wPrime, pk)
 	if err != nil {
 		return res, err
@@ -154,11 +170,100 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Ele
 }
 
 // BatchVerify uses proof to check that the commitments correctly open to proof.ClaimedValues
-// at points. The order mattes: the proof validates that the i-th commitment is correctly opened
+// at points. The order matters: the proof validates that the i-th commitment is correctly opened
 // at the i-th point
-func BatchVerify(proof OpeningProof, commitments []kzg.Digest, points []fr.Element) error {
+// dataTranscript is some extra data that might be needed for Fiat Shamir, and is appended at the end
+// of the original transcript.
+func BatchVerify(proof OpeningProof, digests []kzg.Digest, points []fr.Element, hf hash.Hash, vk kzg.VerifyingKey, dataTranscript ...[]byte) error {
 
-	// compute γ
+	if len(digests) != len(proof.ClaimedValues) {
+		return ErrInvalidNumberOfPoints
+	}
+	if len(digests) != len(points) {
+		return ErrInvalidNumberOfPoints
+	}
+
+	// transcript
+	fs := fiatshamir.NewTranscript(hf, "gamma", "z")
+
+	// derive γ
+	gamma, err := deriveChallenge("gamma", points, digests, fs, dataTranscript...)
+	if err != nil {
+		return err
+	}
+
+	// derive z
+	// TODO seems ok that z depend only on W, need to check that carefully
+	z, err := deriveChallenge("z", nil, []kzg.Digest{proof.W}, fs)
+	if err != nil {
+		return err
+	}
+
+	// check that e(F + zW', [1]_{2})=e(W',[x]_{2})
+	// where F = ∑ᵢγⁱZ_{T\xᵢ}[Com]_{i}-[∑ᵢγⁱZ_{T\xᵢ}(z)fᵢ(z)]_{1}-Z_{T}(z)[W]
+	var sumGammaiZTminusXiFiz, tmp, accGamma fr.Element
+	nbInstances := len(points)
+	gammaiZTminusXiz := make([]fr.Element, nbInstances)
+	accGamma.SetOne()
+	bufPoints := make([]fr.Element, len(points)-1)
+	for i := 0; i < len(points); i++ {
+
+		copy(bufPoints, points[:i])
+		copy(bufPoints[i:], points[i+1:])
+
+		ztMinusXi := buildVanishingPoly(bufPoints)
+		gammaiZTminusXiz[i] = eval(ztMinusXi, z)
+		gammaiZTminusXiz[i].Mul(&accGamma, &gammaiZTminusXiz[i])
+
+		tmp.Mul(&gammaiZTminusXiz[i], &proof.ClaimedValues[i])
+		sumGammaiZTminusXiFiz.Add(&sumGammaiZTminusXiFiz, &tmp)
+
+		accGamma.Mul(&accGamma, &gamma)
+	}
+
+	// ∑ᵢγⁱZ_{T\xᵢ}[Com]_{i}
+	config := ecc.MultiExpConfig{}
+	var sumGammaiZtMinusXiComi kzg.Digest
+	_, err = sumGammaiZtMinusXiComi.MultiExp(digests, gammaiZTminusXiz, config)
+	if err != nil {
+		return err
+	}
+
+	var bufBigInt big.Int
+
+	// [∑ᵢZ_{T\xᵢ}fᵢ(z)]_{1}
+	var sumGammaiZTminusXiFizCom kzg.Digest
+	var sumGammaiZTminusXiFizBigInt big.Int
+	sumGammaiZTminusXiFiz.BigInt(&sumGammaiZTminusXiFizBigInt)
+	sumGammaiZTminusXiFizCom.ScalarMultiplication(&vk.G1, &sumGammaiZTminusXiFizBigInt)
+
+	// Z_{T}(z)[W]
+	zt := buildVanishingPoly(points)
+	ztz := eval(zt, z)
+	var ztW kzg.Digest
+	ztz.BigInt(&bufBigInt)
+	ztW.ScalarMultiplication(&proof.W, &bufBigInt)
+
+	// F = ∑ᵢγⁱZ_{T\xᵢ}[Com]_{i} - [∑ᵢZ_{T\xᵢ}fᵢ(z)]_{1} - Z_{T}(z)[W]
+	var f kzg.Digest
+	f.Sub(&sumGammaiZtMinusXiComi, &sumGammaiZTminusXiFizCom).
+		Sub(&f, &ztW)
+
+	// F+zW'
+	var zWPrime kzg.Digest
+	z.BigInt(&bufBigInt)
+	zWPrime.ScalarMultiplication(&zWPrime, &bufBigInt)
+	f.Add(&f, &zWPrime)
+
+	// check that e(F+zW',[1]_{2})=e(W',[x]_{2})
+	check, err := bn254.PairingCheckFixedQ(
+		[]bn254.G1Affine{f, proof.WPrime},
+		vk.Lines[:],
+	)
+
+	if !check {
+		return ErrVerifyOpeningProof
+	}
 
 	return nil
 }
