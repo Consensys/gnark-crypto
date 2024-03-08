@@ -18,7 +18,6 @@ package shplonk
 
 import (
 	"errors"
-	"fmt"
 	"hash"
 	"math/big"
 
@@ -47,13 +46,6 @@ type OpeningProof struct {
 
 	// (fᵢ(xᵢ))_{i}
 	ClaimedValues []fr.Element
-}
-
-func prettyPrintPoly(f []fr.Element) {
-	for i := 0; i < len(f)-1; i++ {
-		fmt.Printf("%s*x**%d+", f[i].String(), i)
-	}
-	fmt.Printf("%s*x**%d\n", f[len(f)-1].String(), len(f)-1)
 }
 
 func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Element, hf hash.Hash, pk kzg.ProvingKey, dataTranscript ...[]byte) (OpeningProof, error) {
@@ -92,7 +84,6 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Ele
 	var accGamma fr.Element
 	accGamma.SetOne()
 
-	fmt.Printf("gamma = Fr(%s)\n", gamma.String())
 	for i := 0; i < nbInstances; i++ {
 
 		res.ClaimedValues[i] = eval(polynomials[i], points[i])
@@ -112,7 +103,6 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Ele
 		accGamma.Mul(&accGamma, &gamma)
 		setZero(bufMaxSizePolynomials)
 	}
-	// prettyPrintPoly(f)
 
 	zt := buildVanishingPoly(points)
 	w := div(f, zt) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation page 11 for notation
@@ -126,7 +116,6 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Ele
 	if err != nil {
 		return res, err
 	}
-	fmt.Printf("z = Fr(%s)\n", z.String())
 
 	// compute L = ∑ᵢγⁱZ_{T\xᵢ}(z)(fᵢ-rᵢ(z))-Z_{T}(z)W
 	accGamma.SetOne()
@@ -159,7 +148,6 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Ele
 
 	xMinusZ := buildVanishingPoly([]fr.Element{z})
 	wPrime := div(l, xMinusZ)
-	prettyPrintPoly(wPrime)
 
 	res.WPrime, err = kzg.Commit(wPrime, pk)
 	if err != nil {
@@ -244,7 +232,7 @@ func BatchVerify(proof OpeningProof, digests []kzg.Digest, points []fr.Element, 
 	ztz.BigInt(&bufBigInt)
 	ztW.ScalarMultiplication(&proof.W, &bufBigInt)
 
-	// F = ∑ᵢγⁱZ_{T\xᵢ}[Com]_{i} - [∑ᵢZ_{T\xᵢ}fᵢ(z)]_{1} - Z_{T}(z)[W]
+	// F = ∑ᵢγⁱZ_{T\xᵢ}[Com]_{i} - [∑ᵢ\gamma^{i}Z_{T\xᵢ}fᵢ(z)]_{1} - Z_{T}(z)[W]
 	var f kzg.Digest
 	f.Sub(&sumGammaiZtMinusXiComi, &sumGammaiZTminusXiFizCom).
 		Sub(&f, &ztW)
@@ -252,8 +240,9 @@ func BatchVerify(proof OpeningProof, digests []kzg.Digest, points []fr.Element, 
 	// F+zW'
 	var zWPrime kzg.Digest
 	z.BigInt(&bufBigInt)
-	zWPrime.ScalarMultiplication(&zWPrime, &bufBigInt)
+	zWPrime.ScalarMultiplication(&proof.WPrime, &bufBigInt)
 	f.Add(&f, &zWPrime)
+	f.Neg(&f)
 
 	// check that e(F+zW',[1]_{2})=e(W',[x]_{2})
 	check, err := bn254.PairingCheckFixedQ(
@@ -326,7 +315,8 @@ func mulByConstant(f []fr.Element, gamma fr.Element) []fr.Element {
 	return f
 }
 
-// computes f <- (x-a)*f (in place if the capacity of f is correctly set)
+// computes f <- (x-a)*f
+// memory of f is re used, need to pass a copy to not modify it
 func multiplyLinearFactor(f []fr.Element, a fr.Element) []fr.Element {
 	s := len(f)
 	var tmp fr.Element
@@ -353,6 +343,7 @@ func buildVanishingPoly(x []fr.Element) []fr.Element {
 // returns f*g using naive multiplication
 // deg(f)>>deg(g), deg(small) =~ 10 max
 // buf is used as a buffer and should not be f or g
+// f and g are not modified
 func mul(f, g []fr.Element, buf []fr.Element) []fr.Element {
 
 	sizeRes := len(f) + len(g) - 1
@@ -375,7 +366,7 @@ func mul(f, g []fr.Element, buf []fr.Element) []fr.Element {
 // returns f/g (assuming g divides f)
 // OK to not use fft if deg(g) is small
 // g's leading coefficient is assumed to be 1
-// f memory is re-used for the result
+// f memory is re-used for the result, need to pass a copy to not modify it
 func div(f, g []fr.Element) []fr.Element {
 	sizef := len(f)
 	sizeg := len(g)

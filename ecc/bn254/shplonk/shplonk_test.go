@@ -16,7 +16,6 @@ package shplonk
 
 import (
 	"crypto/sha256"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -53,11 +52,6 @@ func TestOpening(t *testing.T) {
 		}
 	}
 
-	for i := 0; i < nbPolys; i++ {
-		prettyPrintPoly(polys[i])
-	}
-	fmt.Println("--")
-
 	digests := make([]kzg.Digest, nbPolys)
 	for i := 0; i < nbPolys; i++ {
 		digests[i], _ = kzg.Commit(polys[i], testSrs.Pk)
@@ -67,12 +61,6 @@ func TestOpening(t *testing.T) {
 	for i := 0; i < nbPolys; i++ {
 		points[i].SetRandom()
 	}
-
-	fmt.Println("[")
-	for i := 0; i < len(points); i++ {
-		fmt.Printf("Fr(%s), ", points[i].String())
-	}
-	fmt.Println("]")
 
 	hf := sha256.New()
 
