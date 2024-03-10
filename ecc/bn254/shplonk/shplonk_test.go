@@ -15,14 +15,12 @@
 package shplonk
 
 import (
-	"crypto/sha256"
 	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/kzg"
-	"github.com/stretchr/testify/require"
 )
 
 // Test SRS re-used across tests of the KZG scheme
@@ -35,40 +33,80 @@ func init() {
 	testSrs, _ = kzg.NewSRS(ecc.NextPowerOfTwo(srsSize), bAlpha)
 }
 
-func TestOpening(t *testing.T) {
+// func TestOpening(t *testing.T) {
 
-	assert := require.New(t)
+// 	assert := require.New(t)
 
-	nbPolys := 2
-	sizePoly := make([]int, nbPolys)
-	for i := 0; i < nbPolys; i++ {
-		sizePoly[i] = 5 + i
-	}
-	polys := make([][]fr.Element, nbPolys)
-	for i := 0; i < nbPolys; i++ {
-		polys[i] = make([]fr.Element, sizePoly[i])
-		for j := 0; j < sizePoly[i]; j++ {
-			polys[i][j].SetRandom()
+// 	nbPolys := 2
+// 	sizePoly := make([]int, nbPolys)
+// 	for i := 0; i < nbPolys; i++ {
+// 		sizePoly[i] = 5 + i
+// 	}
+// 	polys := make([][]fr.Element, nbPolys)
+// 	for i := 0; i < nbPolys; i++ {
+// 		polys[i] = make([]fr.Element, sizePoly[i])
+// 		for j := 0; j < sizePoly[i]; j++ {
+// 			polys[i][j].SetRandom()
+// 		}
+// 	}
+
+// 	digests := make([]kzg.Digest, nbPolys)
+// 	for i := 0; i < nbPolys; i++ {
+// 		digests[i], _ = kzg.Commit(polys[i], testSrs.Pk)
+// 	}
+
+// 	points := make([]fr.Element, nbPolys)
+// 	for i := 0; i < nbPolys; i++ {
+// 		points[i].SetRandom()
+// 	}
+
+// 	hf := sha256.New()
+
+// 	openingProof, err := BatchOpen(polys, digests, points, hf, testSrs.Pk)
+// 	assert.NoError(err)
+
+// 	err = BatchVerify(openingProof, digests, points, hf, testSrs.Vk)
+// 	assert.NoError(err)
+
+// }
+
+func TestBuildZtMinusSi(t *testing.T) {
+
+	nbSi := 10
+	points := make([][]fr.Element, nbSi)
+	sizeSi := make([]int, nbSi)
+	nbPoints := 0
+	for i := 0; i < nbSi; i++ {
+		sizeSi[i] = 5 + i
+		nbPoints += sizeSi[i]
+		points[i] = make([]fr.Element, sizeSi[i])
+		for j := 0; j < sizeSi[i]; j++ {
+			points[i][j].SetRandom()
 		}
 	}
-
-	digests := make([]kzg.Digest, nbPolys)
-	for i := 0; i < nbPolys; i++ {
-		digests[i], _ = kzg.Commit(polys[i], testSrs.Pk)
+	for i := 0; i < nbSi; i++ {
+		ztMinusSi := buildZtMinusSi(points, i)
+		if len(ztMinusSi) != nbPoints-sizeSi[i]+1 {
+			t.Fatal("deg(Z_{T-S_{i}}) should be nbPoints-size(S_{i})")
+		}
+		for j := 0; j < nbSi; j++ {
+			if j == i {
+				for k := 0; k < sizeSi[j]; k++ {
+					y := eval(ztMinusSi, points[j][k])
+					if y.IsZero() {
+						t.Fatal("Z_{T-S_{i}}(S_{i}) should not be zero")
+					}
+				}
+				continue
+			}
+			for k := 0; k < sizeSi[j]; k++ {
+				y := eval(ztMinusSi, points[j][k])
+				if !y.IsZero() {
+					t.Fatal("Z_{T-S_{i}}(S_{j}) should be zero")
+				}
+			}
+		}
 	}
-
-	points := make([]fr.Element, nbPolys)
-	for i := 0; i < nbPolys; i++ {
-		points[i].SetRandom()
-	}
-
-	hf := sha256.New()
-
-	openingProof, err := BatchOpen(polys, digests, points, hf, testSrs.Pk)
-	assert.NoError(err)
-
-	err = BatchVerify(openingProof, digests, points, hf, testSrs.Vk)
-	assert.NoError(err)
 
 }
 
