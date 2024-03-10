@@ -72,6 +72,25 @@ func TestOpening(t *testing.T) {
 
 }
 
+func TestInterpolate(t *testing.T) {
+
+	nbPoints := 10
+	x := make([]fr.Element, nbPoints)
+	y := make([]fr.Element, nbPoints)
+	for i := 0; i < nbPoints; i++ {
+		x[i].SetRandom()
+		y[i].SetRandom()
+	}
+	f := interpolate(x, y)
+	for i := 0; i < nbPoints; i++ {
+		fx := eval(f, x[i])
+		if !fx.Equal(&y[i]) {
+			t.Fatal("f(x_{i})!=y_{i}")
+		}
+	}
+
+}
+
 func TestBuildLagrangeFromDomain(t *testing.T) {
 
 	nbPoints := 10

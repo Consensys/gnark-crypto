@@ -340,6 +340,21 @@ func buildVanishingPoly(x []fr.Element) []fr.Element {
 	return res
 }
 
+// returns f such that f(xᵢ)=yᵢ, x and y are assumed to be of the same size
+func interpolate(x, y []fr.Element) []fr.Element {
+
+	res := make([]fr.Element, len(x))
+	for i := 0; i < len(x); i++ {
+		li := buildLagrangeFromDomain(x, i)
+		li = mulByConstant(li, y[i])
+		for j := 0; j < len(x); j++ {
+			res[j].Add(&res[j], &li[j])
+		}
+	}
+
+	return res
+}
+
 // returns f such that f(xⱼ)=δⁱⱼ
 func buildLagrangeFromDomain(x []fr.Element, i int) []fr.Element {
 	xx := make([]fr.Element, len(x)-1)
