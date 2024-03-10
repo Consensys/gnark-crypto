@@ -18,6 +18,7 @@ package shplonk
 
 import (
 	"errors"
+	"hash"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
@@ -35,7 +36,8 @@ var (
 // implements io.ReaderFrom and io.WriterTo
 type OpeningProof struct {
 
-	// W = ∑ᵢ γⁱZ_{T\xᵢ}(f_i(X)-f(x_i)) where Z_{T} is the vanishing polynomial on the (xᵢ)_{i}
+	// W = ∑ᵢ γⁱZ_{T\Sᵢ}(f_i(X)-r)/Z_{T} where Z_{T} is the vanishing polynomial on the (Sᵢ)_{i}
+	// and r interpolates fᵢ(Sᵢ) on (Sᵢ)
 	W bn254.G1Affine
 
 	// L(X)/(X-z) where L(X)=∑ᵢγⁱZ_{T\xᵢ}(f_i(X)-rᵢ) - Z_{T}W(X)
@@ -46,135 +48,133 @@ type OpeningProof struct {
 }
 
 // BatchOpen opens the list of polynomials on points, where the i-th polynomials is opend at points[i].
-// func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.Element, hf hash.Hash, pk kzg.ProvingKey, dataTranscript ...[]byte) (OpeningProof, error) {
+func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.Element, hf hash.Hash, pk kzg.ProvingKey, dataTranscript ...[]byte) (OpeningProof, error) {
 
-// 	var res OpeningProof
+	var res OpeningProof
 
-// 	nbInstances := len(polynomials)
-// 	if len(polynomials) != len(points) {
-// 		return res, ErrInvalidNumberOfPoints
-// 	}
+	nbInstances := len(polynomials)
+	if len(polynomials) != len(points) {
+		return res, ErrInvalidNumberOfPoints
+	}
 
-// 	// transcript
-// 	fs := fiatshamir.NewTranscript(hf, "gamma", "z")
+	// transcript
+	fs := fiatshamir.NewTranscript(hf, "gamma", "z")
 
-// 	// derive γ
-// 	gamma, err := deriveChallenge("gamma", points, digests, fs, dataTranscript...)
-// 	if err != nil {
-// 		return res, err
-// 	}
+	// derive γ
+	gamma, err := deriveChallenge("gamma", points, digests, fs, dataTranscript...)
+	if err != nil {
+		return res, err
+	}
 
-// 	// compute the size of the linear combination
-// 	maxSizePolys := len(polynomials[0])
-// 	for i := 1; i < len(polynomials); i++ {
-// 		if maxSizePolys < len(polynomials[i]) {
-// 			maxSizePolys = len(polynomials[i])
-// 		}
-// 	}
-// 	nbPoints := 0
-// 	sizeSi := make([]int, len(points))
-// 	for i := 0; i < nbInstances; i++ {
-// 		nbPoints += len(points[i])
-// 		sizeSi[i] = len(points[i])
-// 	}
-// 	totalSize := 0
-// 	for i := 0; i < nbInstances; i++ {
-// 		sizeIthTerm := len(polynomials[i]) + nbPoints - len(points[i]) // the degree of the i-th term is len(polynomials[i])-1+nbPoints-len(points[i])
-// 		if totalSize < sizeIthTerm {
-// 			totalSize = sizeIthTerm
-// 		}
-// 	}
+	// compute the size of the linear combination
+	maxSizePolys := len(polynomials[0])
+	for i := 1; i < len(polynomials); i++ {
+		if maxSizePolys < len(polynomials[i]) {
+			maxSizePolys = len(polynomials[i])
+		}
+	}
+	nbPoints := 0
+	sizeSi := make([]int, len(points))
+	for i := 0; i < nbInstances; i++ {
+		nbPoints += len(points[i])
+		sizeSi[i] = len(points[i])
+	}
+	totalSize := 0 // size of f := ∑ᵢ γⁱZ_{T\Sᵢ}(f_i(X)-r)
+	for i := 0; i < nbInstances; i++ {
+		sizeIthTerm := len(polynomials[i]) + nbPoints - len(points[i]) // the degree of the i-th term is len(polynomials[i])-1+nbPoints-len(points[i])
+		if totalSize < sizeIthTerm {
+			totalSize = sizeIthTerm
+		}
+	}
 
-// 	bufMaxSizePolynomials := make([]fr.Element, maxSizePolys)
-// 	bufTotalSize := make([]fr.Element, totalSize)
-// 	f := make([]fr.Element, totalSize) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation
-// 	res.ClaimedValues = make([][]fr.Element, nbInstances)
-// 	for i := 0; i < nbPoints; i++ {
-// 		res.ClaimedValues[i] = make([]fr.Element, len(points[i]))
-// 	}
-// 	var accGamma fr.Element
-// 	accGamma.SetOne()
+	bufMaxSizePolynomials := make([]fr.Element, maxSizePolys)
+	bufTotalSize := make([]fr.Element, totalSize)
+	f := make([]fr.Element, totalSize) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation
+	res.ClaimedValues = make([][]fr.Element, nbInstances)
+	for i := 0; i < nbPoints; i++ {
+		res.ClaimedValues[i] = make([]fr.Element, len(points[i]))
+	}
+	var accGamma fr.Element
+	accGamma.SetOne()
 
-// 	ztMinusSi := make([][]fr.Element, nbInstances)
-// 	for i := 0; i < nbInstances; i++ {
+	ztMinusSi := make([][]fr.Element, nbInstances)
+	ri := make([][]fr.Element, nbInstances)
+	for i := 0; i < nbInstances; i++ {
 
-// 		for j := 0; j < len(points[i]); j++ {
-// 			res.ClaimedValues[i][j] = eval(polynomials[i], points[i][j])
-// 		}
+		for j := 0; j < len(points[i]); j++ {
+			res.ClaimedValues[i][j] = eval(polynomials[i], points[i][j])
+		}
 
-// 		bufPoints := make([]fr.Element, 0, nbPoints-sizeSi[i])
-// 		for j := 0; j < i; j++ {
-// 			bufPoints = append(bufPoints, points[j]...)
-// 		}
-// 		for j := i + 1; j < nbInstances; j++ {
-// 			bufPoints = append(bufPoints, points[j]...)
-// 		}
-// 		ztMinusSi[i] = buildVanishingPoly(bufPoints)
+		ztMinusSi[i] = buildZtMinusSi(points, i)
 
-// 		copy(bufMaxSizePolynomials, polynomials[i])
-// 		bufMaxSizePolynomials[0].Sub(&bufMaxSizePolynomials[0], &res.ClaimedValues[i])
-// 		bufTotalSize = mul(bufMaxSizePolynomials, ztMinusXi[i], bufTotalSize)
-// 		bufTotalSize = mulByConstant(bufTotalSize, accGamma)
-// 		for j := 0; j < len(bufTotalSize); j++ {
-// 			f[j].Add(&f[j], &bufTotalSize[j])
-// 		}
+		copy(bufMaxSizePolynomials, polynomials[i])
+		ri[i] = interpolate(points[i], res.ClaimedValues[i])
+		sub(bufMaxSizePolynomials, ri[i])
+		bufTotalSize = mul(bufMaxSizePolynomials, ztMinusSi[i], bufTotalSize)
+		bufTotalSize = mulByConstant(bufTotalSize, accGamma)
+		for j := 0; j < len(bufTotalSize); j++ {
+			f[j].Add(&f[j], &bufTotalSize[j])
+		}
 
-// 		accGamma.Mul(&accGamma, &gamma)
-// 		setZero(bufMaxSizePolynomials)
-// 	}
+		accGamma.Mul(&accGamma, &gamma)
+		setZero(bufMaxSizePolynomials)
+	}
 
-// 	zt := buildVanishingPoly(points)
-// 	w := div(f, zt) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation page 11 for notation
-// 	res.W, err = kzg.Commit(w, pk)
-// 	if err != nil {
-// 		return res, err
-// 	}
+	zt := buildVanishingPoly(flatten(points))
+	w := div(f, zt) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation page 11 for notation
+	res.W, err = kzg.Commit(w, pk)
+	if err != nil {
+		return res, err
+	}
 
-// 	// derive z
-// 	z, err := deriveChallenge("z", nil, []kzg.Digest{res.W}, fs)
-// 	if err != nil {
-// 		return res, err
-// 	}
+	// derive z
+	z, err := deriveChallenge("z", nil, []kzg.Digest{res.W}, fs)
+	if err != nil {
+		return res, err
+	}
 
-// 	// compute L = ∑ᵢγⁱZ_{T\xᵢ}(z)(fᵢ-rᵢ(z))-Z_{T}(z)W
-// 	accGamma.SetOne()
-// 	var gammaiZtMinusXi fr.Element
-// 	l := make([]fr.Element, totalSize) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation page 11 for notation
-// 	for i := 0; i < len(polynomials); i++ {
+	// compute L = ∑ᵢγⁱZ_{T\Sᵢ}(z)(fᵢ-rᵢ(z))-Z_{T}(z)W
+	accGamma.SetOne()
+	var gammaiZtMinusSiZ fr.Element
+	l := make([]fr.Element, totalSize) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation page 11 for notation
+	for i := 0; i < len(polynomials); i++ {
 
-// 		zi := eval(ztMinusXi[i], z)
-// 		gammaiZtMinusXi.Mul(&accGamma, &zi)
-// 		copy(bufMaxSizePolynomials, polynomials[i])
-// 		bufMaxSizePolynomials[0].Sub(&bufMaxSizePolynomials[0], &res.ClaimedValues[i])
-// 		mulByConstant(bufMaxSizePolynomials, gammaiZtMinusXi)
-// 		for j := 0; j < len(bufMaxSizePolynomials); j++ {
-// 			l[j].Add(&l[j], &bufMaxSizePolynomials[j])
-// 		}
+		ztMinusSiZ := eval(ztMinusSi[i], z)
 
-// 		setZero(bufMaxSizePolynomials)
-// 		accGamma.Mul(&accGamma, &gamma)
-// 	}
-// 	ztz := eval(zt, z)
-// 	setZero(bufTotalSize)
-// 	copy(bufTotalSize, w)
-// 	mulByConstant(bufTotalSize, ztz)
-// 	for i := 0; i < totalSize-maxSizePolys; i++ {
-// 		l[totalSize-1-i].Neg(&bufTotalSize[totalSize-1-i])
-// 	}
-// 	for i := 0; i < maxSizePolys; i++ {
-// 		l[i].Sub(&l[i], &bufTotalSize[i])
-// 	}
+		gammaiZtMinusSiZ.Mul(&accGamma, &ztMinusSiZ)
 
-// 	xMinusZ := buildVanishingPoly([]fr.Element{z})
-// 	wPrime := div(l, xMinusZ)
+		copy(bufMaxSizePolynomials, polynomials[i])
+		riz := eval(ri[i], z)
+		bufMaxSizePolynomials[0].Sub(&bufMaxSizePolynomials[0], &riz)
+		mulByConstant(bufMaxSizePolynomials, gammaiZtMinusSiZ)
+		for j := 0; j < len(bufMaxSizePolynomials); j++ {
+			l[j].Add(&l[j], &bufMaxSizePolynomials[j])
+		}
 
-// 	res.WPrime, err = kzg.Commit(wPrime, pk)
-// 	if err != nil {
-// 		return res, err
-// 	}
+		setZero(bufMaxSizePolynomials)
+		accGamma.Mul(&accGamma, &gamma)
+	}
+	ztz := eval(zt, z)
+	setZero(bufTotalSize)
+	copy(bufTotalSize, w)
+	mulByConstant(bufTotalSize, ztz)
+	for i := 0; i < totalSize-maxSizePolys; i++ {
+		l[totalSize-1-i].Neg(&bufTotalSize[totalSize-1-i])
+	}
+	for i := 0; i < maxSizePolys; i++ {
+		l[i].Sub(&l[i], &bufTotalSize[i])
+	}
 
-// 	return res, nil
-// }
+	xMinusZ := buildVanishingPoly([]fr.Element{z})
+	wPrime := div(l, xMinusZ)
+
+	res.WPrime, err = kzg.Commit(wPrime, pk)
+	if err != nil {
+		return res, err
+	}
+
+	return res, nil
+}
 
 // BatchVerify uses proof to check that the commitments correctly open to proof.ClaimedValues
 // at points. The order matters: the proof validates that the i-th commitment is correctly opened
@@ -313,6 +313,18 @@ func deriveChallenge(name string, points [][]fr.Element, digests []kzg.Digest, t
 // ------------------------------
 // utils
 
+func flatten(x [][]fr.Element) []fr.Element {
+	nbPoints := 0
+	for i := 0; i < len(x); i++ {
+		nbPoints += len(x[i])
+	}
+	res := make([]fr.Element, 0, nbPoints)
+	for i := 0; i < len(x); i++ {
+		res = append(res, x[i]...)
+	}
+	return res
+}
+
 // sets f to zero
 func setZero(f []fr.Element) {
 	for i := 0; i < len(f); i++ {
@@ -351,7 +363,7 @@ func multiplyLinearFactor(f []fr.Element, a fr.Element) []fr.Element {
 	return f
 }
 
-// returns S_{T\S_{i}} where S_{i}=x[i]
+// returns S_{T\Sᵢ} where Sᵢ=x[i]
 func buildZtMinusSi(x [][]fr.Element, i int) []fr.Element {
 	nbPoints := 0
 	for i := 0; i < len(x); i++ {
@@ -405,27 +417,35 @@ func buildLagrangeFromDomain(x []fr.Element, i int) []fr.Element {
 	return res
 }
 
+// returns f-g, the memory of f is re used, deg(g) << deg(f) here
+func sub(f, g []fr.Element) []fr.Element {
+	for i := 0; i < len(g); i++ {
+		f[i].Sub(&f[i], &g[i])
+	}
+	return f
+}
+
 // returns f*g using naive multiplication
 // deg(f)>>deg(g), deg(small) =~ 10 max
 // buf is used as a buffer and should not be f or g
 // f and g are not modified
-func mul(f, g []fr.Element, buf []fr.Element) []fr.Element {
+func mul(f, g []fr.Element, res []fr.Element) []fr.Element {
 
 	sizeRes := len(f) + len(g) - 1
-	if len(buf) < sizeRes {
-		s := make([]fr.Element, sizeRes-len(buf))
-		buf = append(buf, s...)
+	if len(res) < sizeRes {
+		s := make([]fr.Element, sizeRes-len(res))
+		res = append(res, s...)
 	}
-	setZero(buf)
+	setZero(res)
 
 	var tmp fr.Element
 	for i := 0; i < len(g); i++ {
 		for j := 0; j < len(f); j++ {
 			tmp.Mul(&f[j], &g[i])
-			buf[j+i].Add(&buf[j+i], &tmp)
+			res[j+i].Add(&res[j+i], &tmp)
 		}
 	}
-	return buf
+	return res
 }
 
 // returns f/g (assuming g divides f)
