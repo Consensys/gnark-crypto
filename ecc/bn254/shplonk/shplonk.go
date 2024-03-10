@@ -232,7 +232,7 @@ func BatchVerify(proof OpeningProof, digests []kzg.Digest, points []fr.Element, 
 	ztz.BigInt(&bufBigInt)
 	ztW.ScalarMultiplication(&proof.W, &bufBigInt)
 
-	// F = ∑ᵢγⁱZ_{T\xᵢ}[Com]_{i} - [∑ᵢ\gamma^{i}Z_{T\xᵢ}fᵢ(z)]_{1} - Z_{T}(z)[W]
+	// F = ∑ᵢγⁱZ_{T\xᵢ}[Com]_{i} - [∑ᵢγⁱZ_{T\xᵢ}fᵢ(z)]_{1} - Z_{T}(z)[W]
 	var f kzg.Digest
 	f.Sub(&sumGammaiZtMinusXiComi, &sumGammaiZTminusXiFizCom).
 		Sub(&f, &ztW)
@@ -337,6 +337,18 @@ func buildVanishingPoly(x []fr.Element) []fr.Element {
 	for i := 0; i < len(x); i++ {
 		res = multiplyLinearFactor(res, x[i])
 	}
+	return res
+}
+
+// returns f such that f(xⱼ)=δⁱⱼ
+func buildLagrangeFromDomain(x []fr.Element, i int) []fr.Element {
+	xx := make([]fr.Element, len(x)-1)
+	copy(xx, x[:i])
+	copy(xx[i:], x[i+1:])
+	res := buildVanishingPoly(xx)
+	d := eval(res, x[i])
+	d.Inverse(&d)
+	res = mulByConstant(res, d)
 	return res
 }
 

@@ -72,6 +72,40 @@ func TestOpening(t *testing.T) {
 
 }
 
+func TestBuildLagrangeFromDomain(t *testing.T) {
+
+	nbPoints := 10
+	points := make([]fr.Element, nbPoints)
+	for i := 0; i < nbPoints; i++ {
+		points[i].SetRandom()
+	}
+	var r fr.Element
+	for i := 0; i < nbPoints; i++ {
+
+		l := buildLagrangeFromDomain(points, i)
+
+		// check that l(xᵢ)=1 and l(xⱼ)=0 for j!=i
+		for j := 0; j < nbPoints; j++ {
+			y := eval(l, points[j])
+			if i == j {
+				if !y.IsOne() {
+					t.Fatal("l_{i}(x_{i}) should be equal to 1")
+				}
+			} else {
+				if !y.IsZero() {
+					t.Fatal("l_{i}(x_{j}) where i!=j should be equal to 0")
+				}
+			}
+		}
+		r.SetRandom()
+		y := eval(l, r)
+		if y.IsZero() {
+			t.Fatal("l_{i}(x) should not be zero if x is random")
+		}
+	}
+
+}
+
 func TestBuildVanishingPoly(t *testing.T) {
 	s := 10
 	x := make([]fr.Element, s)
@@ -84,7 +118,7 @@ func TestBuildVanishingPoly(t *testing.T) {
 		t.Fatal("error degree r")
 	}
 
-	// check that r(x_{i})=0 for all i
+	// check that r(xᵢ)=0 for all i
 	for i := 0; i < len(x); i++ {
 		y := eval(r, x[i])
 		if !y.IsZero() {
@@ -142,7 +176,7 @@ func TestNaiveMul(t *testing.T) {
 	buf := make([]fr.Element, size+nbPoints-1)
 	g := mul(f, v, buf)
 
-	// check that g(x_{i}) = 0
+	// check that g(xᵢ) = 0
 	for i := 0; i < nbPoints; i++ {
 		y := eval(g, points[i])
 		if !y.IsZero() {
