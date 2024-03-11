@@ -15,12 +15,14 @@
 package shplonk
 
 import (
+	"crypto/sha256"
 	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/kzg"
+	"github.com/stretchr/testify/require"
 )
 
 // Test SRS re-used across tests of the KZG scheme
@@ -33,42 +35,45 @@ func init() {
 	testSrs, _ = kzg.NewSRS(ecc.NextPowerOfTwo(srsSize), bAlpha)
 }
 
-// func TestOpening(t *testing.T) {
+func TestOpening(t *testing.T) {
 
-// 	assert := require.New(t)
+	assert := require.New(t)
 
-// 	nbPolys := 2
-// 	sizePoly := make([]int, nbPolys)
-// 	for i := 0; i < nbPolys; i++ {
-// 		sizePoly[i] = 5 + i
-// 	}
-// 	polys := make([][]fr.Element, nbPolys)
-// 	for i := 0; i < nbPolys; i++ {
-// 		polys[i] = make([]fr.Element, sizePoly[i])
-// 		for j := 0; j < sizePoly[i]; j++ {
-// 			polys[i][j].SetRandom()
-// 		}
-// 	}
+	nbPolys := 2
+	sizePoly := make([]int, nbPolys)
+	for i := 0; i < nbPolys; i++ {
+		sizePoly[i] = 10 + i
+	}
+	polys := make([][]fr.Element, nbPolys)
+	for i := 0; i < nbPolys; i++ {
+		polys[i] = make([]fr.Element, sizePoly[i])
+		for j := 0; j < sizePoly[i]; j++ {
+			polys[i][j].SetRandom()
+		}
+	}
 
-// 	digests := make([]kzg.Digest, nbPolys)
-// 	for i := 0; i < nbPolys; i++ {
-// 		digests[i], _ = kzg.Commit(polys[i], testSrs.Pk)
-// 	}
+	digests := make([]kzg.Digest, nbPolys)
+	for i := 0; i < nbPolys; i++ {
+		digests[i], _ = kzg.Commit(polys[i], testSrs.Pk)
+	}
 
-// 	points := make([]fr.Element, nbPolys)
-// 	for i := 0; i < nbPolys; i++ {
-// 		points[i].SetRandom()
-// 	}
+	points := make([][]fr.Element, nbPolys)
+	for i := 0; i < nbPolys; i++ {
+		points[i] = make([]fr.Element, i+2)
+		for j := 0; j < i+2; j++ {
+			points[i][j].SetRandom()
+		}
+	}
 
-// 	hf := sha256.New()
+	hf := sha256.New()
 
-// 	openingProof, err := BatchOpen(polys, digests, points, hf, testSrs.Pk)
-// 	assert.NoError(err)
+	_, err := BatchOpen(polys, digests, points, hf, testSrs.Pk)
+	assert.NoError(err)
 
-// 	err = BatchVerify(openingProof, digests, points, hf, testSrs.Vk)
-// 	assert.NoError(err)
+	// err = BatchVerify(openingProof, digests, points, hf, testSrs.Vk)
+	// assert.NoError(err)
 
-// }
+}
 
 func TestBuildZtMinusSi(t *testing.T) {
 

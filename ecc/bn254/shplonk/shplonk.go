@@ -79,19 +79,13 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 		nbPoints += len(points[i])
 		sizeSi[i] = len(points[i])
 	}
-	totalSize := 0 // size of f := ∑ᵢ γⁱZ_{T\Sᵢ}(f_i(X)-r)
-	for i := 0; i < nbInstances; i++ {
-		sizeIthTerm := len(polynomials[i]) + nbPoints - len(points[i]) // the degree of the i-th term is len(polynomials[i])-1+nbPoints-len(points[i])
-		if totalSize < sizeIthTerm {
-			totalSize = sizeIthTerm
-		}
-	}
+	totalSize := maxSizePolys + nbPoints // upper bound of the size of f := ∑ᵢ γⁱZ_{T\Sᵢ}(f_i(X)-r)
 
 	bufMaxSizePolynomials := make([]fr.Element, maxSizePolys)
 	bufTotalSize := make([]fr.Element, totalSize)
 	f := make([]fr.Element, totalSize) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation
 	res.ClaimedValues = make([][]fr.Element, nbInstances)
-	for i := 0; i < nbPoints; i++ {
+	for i := 0; i < nbInstances; i++ {
 		res.ClaimedValues[i] = make([]fr.Element, len(points[i]))
 	}
 	var accGamma fr.Element
@@ -110,6 +104,7 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 		copy(bufMaxSizePolynomials, polynomials[i])
 		ri[i] = interpolate(points[i], res.ClaimedValues[i])
 		sub(bufMaxSizePolynomials, ri[i])
+
 		bufTotalSize = mul(bufMaxSizePolynomials, ztMinusSi[i], bufTotalSize)
 		bufTotalSize = mulByConstant(bufTotalSize, accGamma)
 		for j := 0; j < len(bufTotalSize); j++ {
