@@ -19,7 +19,9 @@ package shplonk
 import (
 	"errors"
 	"hash"
+	"math/big"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/kzg"
@@ -134,14 +136,13 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 	l := make([]fr.Element, totalSize) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation page 11 for notation
 	for i := 0; i < len(polynomials); i++ {
 
-		ztMinusSiZ := eval(ztMinusSi[i], z)
-
-		gammaiZtMinusSiZ.Mul(&accGamma, &ztMinusSiZ)
+		ztMinusSiZ := eval(ztMinusSi[i], z)          // Z_{T\Sᵢ}(z)
+		gammaiZtMinusSiZ.Mul(&accGamma, &ztMinusSiZ) // γⁱZ_{T\Sᵢ}(z)
 
 		copy(bufMaxSizePolynomials, polynomials[i])
 		riz := eval(ri[i], z)
-		bufMaxSizePolynomials[0].Sub(&bufMaxSizePolynomials[0], &riz)
-		mulByConstant(bufMaxSizePolynomials, gammaiZtMinusSiZ)
+		bufMaxSizePolynomials[0].Sub(&bufMaxSizePolynomials[0], &riz) // (fᵢ-rᵢ(z))
+		mulByConstant(bufMaxSizePolynomials, gammaiZtMinusSiZ)        // γⁱZ_{T\Sᵢ}(z)(fᵢ-rᵢ(z))
 		for j := 0; j < len(bufMaxSizePolynomials); j++ {
 			l[j].Add(&l[j], &bufMaxSizePolynomials[j])
 		}
@@ -152,13 +153,13 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 	ztz := eval(zt, z)
 	setZero(bufTotalSize)
 	copy(bufTotalSize, w)
-	mulByConstant(bufTotalSize, ztz)
+	mulByConstant(bufTotalSize, ztz) // Z_{T}(z)W
 	for i := 0; i < totalSize-maxSizePolys; i++ {
 		l[totalSize-1-i].Neg(&bufTotalSize[totalSize-1-i])
 	}
 	for i := 0; i < maxSizePolys; i++ {
 		l[i].Sub(&l[i], &bufTotalSize[i])
-	}
+	} // L <- L-Z_{T}(z)W
 
 	xMinusZ := buildVanishingPoly([]fr.Element{z})
 	wPrime := div(l, xMinusZ)
@@ -176,100 +177,99 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 // at the i-th point
 // dataTranscript is some extra data that might be needed for Fiat Shamir, and is appended at the end
 // of the original transcript.
-// func BatchVerify(proof OpeningProof, digests []kzg.Digest, points []fr.Element, hf hash.Hash, vk kzg.VerifyingKey, dataTranscript ...[]byte) error {
+func BatchVerify(proof OpeningProof, digests []kzg.Digest, points [][]fr.Element, hf hash.Hash, vk kzg.VerifyingKey, dataTranscript ...[]byte) error {
 
-// 	if len(digests) != len(proof.ClaimedValues) {
-// 		return ErrInvalidNumberOfPoints
-// 	}
-// 	if len(digests) != len(points) {
-// 		return ErrInvalidNumberOfPoints
-// 	}
+	if len(digests) != len(proof.ClaimedValues) {
+		return ErrInvalidNumberOfPoints
+	}
+	if len(digests) != len(points) {
+		return ErrInvalidNumberOfPoints
+	}
 
-// 	// transcript
-// 	fs := fiatshamir.NewTranscript(hf, "gamma", "z")
+	// transcript
+	fs := fiatshamir.NewTranscript(hf, "gamma", "z")
 
-// 	// derive γ
-// 	gamma, err := deriveChallenge("gamma", points, digests, fs, dataTranscript...)
-// 	if err != nil {
-// 		return err
-// 	}
+	// derive γ
+	gamma, err := deriveChallenge("gamma", points, digests, fs, dataTranscript...)
+	if err != nil {
+		return err
+	}
 
-// 	// derive z
-// 	// TODO seems ok that z depend only on W, need to check that carefully
-// 	z, err := deriveChallenge("z", nil, []kzg.Digest{proof.W}, fs)
-// 	if err != nil {
-// 		return err
-// 	}
+	// derive z
+	// TODO seems ok that z depend only on W, need to check that carefully
+	z, err := deriveChallenge("z", nil, []kzg.Digest{proof.W}, fs)
+	if err != nil {
+		return err
+	}
 
-// 	// check that e(F + zW', [1]_{2})=e(W',[x]_{2})
-// 	// where F = ∑ᵢγⁱZ_{T\xᵢ}[Com]_{i}-[∑ᵢγⁱZ_{T\xᵢ}(z)fᵢ(z)]_{1}-Z_{T}(z)[W]
-// 	var sumGammaiZTminusXiFiz, tmp, accGamma fr.Element
-// 	nbInstances := len(points)
-// 	gammaiZTminusXiz := make([]fr.Element, nbInstances)
-// 	accGamma.SetOne()
-// 	bufPoints := make([]fr.Element, len(points)-1)
-// 	for i := 0; i < len(points); i++ {
+	// check that e(F + zW', [1]_{2})=e(W',[x]_{2})
+	// where F = ∑ᵢγⁱZ_{T\xᵢ}[Com]_{i}-[∑ᵢγⁱZ_{T\xᵢ}(z)fᵢ(z)]_{1}-Z_{T}(z)[W]
+	var sumGammaiZTminusSiRiz, tmp, accGamma fr.Element
+	nbInstances := len(points)
+	gammaiZTminusSiz := make([]fr.Element, nbInstances)
+	accGamma.SetOne()
+	ri := make([][]fr.Element, nbInstances)
+	for i := 0; i < len(points); i++ {
 
-// 		copy(bufPoints, points[:i])
-// 		copy(bufPoints[i:], points[i+1:])
+		ztMinusSi := buildZtMinusSi(points, i)                   // Z_{T-S_{i}}(X)
+		gammaiZTminusSiz[i] = eval(ztMinusSi, z)                 // Z_{T-S_{i}}(z)
+		gammaiZTminusSiz[i].Mul(&accGamma, &gammaiZTminusSiz[i]) // \gamma^{i} Z_{T-S_{i}}(z)
 
-// 		ztMinusXi := buildVanishingPoly(bufPoints)
-// 		gammaiZTminusXiz[i] = eval(ztMinusXi, z)
-// 		gammaiZTminusXiz[i].Mul(&accGamma, &gammaiZTminusXiz[i])
+		ri[i] = interpolate(points[i], proof.ClaimedValues[i])
+		riz := eval(ri[i], z)               // r_{i}(z)
+		tmp.Mul(&gammaiZTminusSiz[i], &riz) // Z_{T-S_{i}}(z)r_{i}(z)
+		sumGammaiZTminusSiRiz.Add(&sumGammaiZTminusSiRiz, &tmp)
 
-// 		tmp.Mul(&gammaiZTminusXiz[i], &proof.ClaimedValues[i])
-// 		sumGammaiZTminusXiFiz.Add(&sumGammaiZTminusXiFiz, &tmp)
+		accGamma.Mul(&accGamma, &gamma)
+	}
 
-// 		accGamma.Mul(&accGamma, &gamma)
-// 	}
+	// ∑ᵢγⁱZ_{T\xᵢ}[Com]_{i}
+	config := ecc.MultiExpConfig{}
+	var sumGammaiZtMinusSiComi kzg.Digest
+	_, err = sumGammaiZtMinusSiComi.MultiExp(digests, gammaiZTminusSiz, config)
+	if err != nil {
+		return err
+	}
 
-// 	// ∑ᵢγⁱZ_{T\xᵢ}[Com]_{i}
-// 	config := ecc.MultiExpConfig{}
-// 	var sumGammaiZtMinusXiComi kzg.Digest
-// 	_, err = sumGammaiZtMinusXiComi.MultiExp(digests, gammaiZTminusXiz, config)
-// 	if err != nil {
-// 		return err
-// 	}
+	var bufBigInt big.Int
 
-// 	var bufBigInt big.Int
+	// [∑ᵢZ_{T\xᵢ}fᵢ(z)]_{1}
+	var sumGammaiZTminusSiRizCom kzg.Digest
+	var sumGammaiZTminusSiRizBigInt big.Int
+	sumGammaiZTminusSiRiz.BigInt(&sumGammaiZTminusSiRizBigInt)
+	sumGammaiZTminusSiRizCom.ScalarMultiplication(&vk.G1, &sumGammaiZTminusSiRizBigInt)
 
-// 	// [∑ᵢZ_{T\xᵢ}fᵢ(z)]_{1}
-// 	var sumGammaiZTminusXiFizCom kzg.Digest
-// 	var sumGammaiZTminusXiFizBigInt big.Int
-// 	sumGammaiZTminusXiFiz.BigInt(&sumGammaiZTminusXiFizBigInt)
-// 	sumGammaiZTminusXiFizCom.ScalarMultiplication(&vk.G1, &sumGammaiZTminusXiFizBigInt)
+	// Z_{T}(z)[W]
+	zt := buildVanishingPoly(flatten(points))
+	ztz := eval(zt, z)
+	var ztW kzg.Digest
+	ztz.BigInt(&bufBigInt)
+	ztW.ScalarMultiplication(&proof.W, &bufBigInt)
 
-// 	// Z_{T}(z)[W]
-// 	zt := buildVanishingPoly(points)
-// 	ztz := eval(zt, z)
-// 	var ztW kzg.Digest
-// 	ztz.BigInt(&bufBigInt)
-// 	ztW.ScalarMultiplication(&proof.W, &bufBigInt)
+	// F = ∑ᵢγⁱZ_{T\xᵢ}[Com]_{i} - [∑ᵢγⁱZ_{T\xᵢ}fᵢ(z)]_{1} - Z_{T}(z)[W]
+	var f kzg.Digest
+	f.Sub(&sumGammaiZtMinusSiComi, &sumGammaiZTminusSiRizCom).
+		Sub(&f, &ztW)
 
-// 	// F = ∑ᵢγⁱZ_{T\xᵢ}[Com]_{i} - [∑ᵢγⁱZ_{T\xᵢ}fᵢ(z)]_{1} - Z_{T}(z)[W]
-// 	var f kzg.Digest
-// 	f.Sub(&sumGammaiZtMinusXiComi, &sumGammaiZTminusXiFizCom).
-// 		Sub(&f, &ztW)
+	// F+zW'
+	var zWPrime kzg.Digest
+	z.BigInt(&bufBigInt)
+	zWPrime.ScalarMultiplication(&proof.WPrime, &bufBigInt)
+	f.Add(&f, &zWPrime)
+	f.Neg(&f)
 
-// 	// F+zW'
-// 	var zWPrime kzg.Digest
-// 	z.BigInt(&bufBigInt)
-// 	zWPrime.ScalarMultiplication(&proof.WPrime, &bufBigInt)
-// 	f.Add(&f, &zWPrime)
-// 	f.Neg(&f)
+	// check that e(F+zW',[1]_{2})=e(W',[x]_{2})
+	check, err := bn254.PairingCheckFixedQ(
+		[]bn254.G1Affine{f, proof.WPrime},
+		vk.Lines[:],
+	)
 
-// 	// check that e(F+zW',[1]_{2})=e(W',[x]_{2})
-// 	check, err := bn254.PairingCheckFixedQ(
-// 		[]bn254.G1Affine{f, proof.WPrime},
-// 		vk.Lines[:],
-// 	)
+	if !check {
+		return ErrVerifyOpeningProof
+	}
 
-// 	if !check {
-// 		return ErrVerifyOpeningProof
-// 	}
-
-// 	return nil
-// }
+	return nil
+}
 
 // deriveChallenge derives a challenge using Fiat Shamir to polynomials.
 // The arguments are added to the transcript in the order in which they are given.

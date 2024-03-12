@@ -67,11 +67,16 @@ func TestOpening(t *testing.T) {
 
 	hf := sha256.New()
 
-	_, err := BatchOpen(polys, digests, points, hf, testSrs.Pk)
+	// correct proof
+	openingProof, err := BatchOpen(polys, digests, points, hf, testSrs.Pk)
+	assert.NoError(err)
+	err = BatchVerify(openingProof, digests, points, hf, testSrs.Vk)
 	assert.NoError(err)
 
-	// err = BatchVerify(openingProof, digests, points, hf, testSrs.Vk)
-	// assert.NoError(err)
+	// tampered proof
+	openingProof.ClaimedValues[0][0].SetRandom()
+	err = BatchVerify(openingProof, digests, points, hf, testSrs.Vk)
+	assert.Error(err)
 
 }
 
