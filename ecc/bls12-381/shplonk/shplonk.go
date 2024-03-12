@@ -22,9 +22,9 @@ import (
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/ecc/bn254"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark-crypto/ecc/bn254/kzg"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/kzg"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 
@@ -40,10 +40,10 @@ type OpeningProof struct {
 
 	// W = ∑ᵢ γⁱZ_{T\Sᵢ}(f_i(X)-r)/Z_{T} where Z_{T} is the vanishing polynomial on the (Sᵢ)_{i}
 	// and r interpolates fᵢ(Sᵢ) on (Sᵢ)
-	W bn254.G1Affine
+	W bls12381.G1Affine
 
 	// L(X)/(X-z) where L(X)=∑ᵢγⁱZ_{T\xᵢ}(f_i(X)-rᵢ) - Z_{T}W(X)
-	WPrime bn254.G1Affine
+	WPrime bls12381.G1Affine
 
 	// ClaimedValues[i] are the values of fᵢ on Sᵢ
 	ClaimedValues [][]fr.Element
@@ -259,8 +259,8 @@ func BatchVerify(proof OpeningProof, digests []kzg.Digest, points [][]fr.Element
 	f.Neg(&f)
 
 	// check that e(F+zW',[1]_{2})=e(W',[x]_{2})
-	check, err := bn254.PairingCheckFixedQ(
-		[]bn254.G1Affine{f, proof.WPrime},
+	check, err := bls12381.PairingCheckFixedQ(
+		[]bls12381.G1Affine{f, proof.WPrime},
 		vk.Lines[:],
 	)
 

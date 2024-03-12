@@ -19,12 +19,12 @@ package shplonk
 import (
 	"io"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark-crypto/ecc/bls24-315"
 )
 
 func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 
-	dec := bn254.NewDecoder(r)
+	dec := bls24315.NewDecoder(r)
 
 	toDecode := []interface{}{
 		&proof.W,
@@ -44,7 +44,7 @@ func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 // WriteTo writes binary encoding of a OpeningProof
 func (proof *OpeningProof) WriteTo(w io.Writer) (int64, error) {
 
-	enc := bn254.NewEncoder(w)
+	enc := bls24315.NewEncoder(w)
 
 	toEncode := []interface{}{
 		&proof.W,
