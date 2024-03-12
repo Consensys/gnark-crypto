@@ -46,7 +46,6 @@ func DivideByXMinusOne(a *Polynomial, domains [2]*fft.Domain) (*Polynomial, erro
 	coeffs := make([]fr.Element, a.coefficients.Len())
 	res := NewPolynomial(&coeffs, Form{Layout: BitReverse, Basis: LagrangeCoset})
 	res.size = a.size
-	res.blindedSize = a.blindedSize
 
 	nn := uint64(64 - bits.TrailingZeros(uint(nbElmts)))
 	parallel.Execute(a.coefficients.Len(), func(start, end int) {
