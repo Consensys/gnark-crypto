@@ -27,6 +27,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/permutation"
 	"github.com/consensys/gnark-crypto/internal/generator/plookup"
 	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/shplonk"
 	"github.com/consensys/gnark-crypto/internal/generator/sis"
 	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
@@ -98,6 +99,9 @@ func main() {
 
 			// generate kzg on fr
 			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), bgen))
+
+			// generate shplonk on fr
+			assertNoError(shplonk.Generate(conf, filepath.Join(curveDir, "shplonk"), bgen))
 
 			// generate pedersen on fr
 			assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), bgen))
