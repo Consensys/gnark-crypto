@@ -4,33 +4,51 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bn254/kzg"
 	"github.com/stretchr/testify/require"
 )
 
-func TestExtractRoots(t *testing.T) {
+// Test SRS re-used across tests of the KZG scheme
+var testSrs *kzg.SRS
+var bAlpha *big.Int
+
+func init() {
+	const srsSize = 230
+	bAlpha = new(big.Int).SetInt64(42) // randomise ?
+	testSrs, _ = kzg.NewSRS(ecc.NextPowerOfTwo(srsSize), bAlpha)
+}
+
+func TestCommit(t *testing.T) {
 
 	assert := require.New(t)
 
-	m := 9
+	// sample polynomials
+	nbPolys := 2
+	p := make([][]fr.Element, nbPolys)
+	for i := 0; i < nbPolys; i++ {
+		p[i] = make([]fr.Element, i+10)
+		for j := 0; j < i+10; j++ {
+			p[i][j].SetRandom()
+		}
+	}
+
+	// fflonk commit to them
 	var x fr.Element
 	x.SetRandom()
-	roots, err := extractRoots(x, m)
+	proof, err := kzg.Open(Fold(p), x, testSrs.Pk)
 	assert.NoError(err)
 
-	// check that (yᵐ-x)=Πᵢ(y-ωⁱᵗ√(x)) for a random y
-	var y fr.Element
-	y.SetRandom()
-	expo := big.NewInt(int64(m))
-	y.Exp(x, expo).Sub(&y, &x)
-	var rhs, tmp fr.Element
-	rhs.SetOne()
-	for i := 0; i < m; i++ {
-		tmp.Sub(&y, &roots[i])
-		rhs.Mul(&rhs, &tmp)
+	// check that Open(C, x) = ∑_{i<t}Pᵢ(xᵗ)xⁱ
+	var xt fr.Element
+	var expo big.Int
+	expo.SetUint64(uint64(nbPolys))
+	xt.Exp(x, &expo)
+	px := make([]fr.Element, nbPolys)
+	for i := 0; i < nbPolys; i++ {
+		px[i] = eval(p[i], xt)
 	}
-	if !rhs.Equal(&y) {
-		assert.Fail("(yᵐ-x) != Πᵢ(y-ωⁱᵗ√(x)))")
-	}
-
+	y := eval(px, x)
+	assert.True(y.Equal(&proof.ClaimedValue))
 }
