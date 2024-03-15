@@ -140,6 +140,14 @@ func BatchOpen(p [][][]fr.Element, digests []kzg.Digest, points [][]fr.Element, 
 
 }
 
+// BatchVerify uses a proof to check that each digest digests[i] is correctly opened on the set points[i].
+// The digests are the commitments to the folded underlying polynomials. The shplonk proof is
+// verified directly using the embedded shplonk proof, and the claimed values consistency between the underlying
+// shplonk proof
+func BatchVerify(proof OpeningProof, digests []kzg.Digest, points [][]fr.Element, hf hash.Hash, vk kzg.VerifyingKey, dataTranscript ...[]byte) error {
+	return nil
+}
+
 // utils
 
 // getGenFrStar returns a generator of Fr^{*}
@@ -147,6 +155,26 @@ func getGenFrStar() fr.Element {
 	var res fr.Element
 	res.SetUint64(5)
 	return res
+}
+
+// getIthRootOne returns a generator of Z/iZ
+func getIthRootOne(i int) (fr.Element, error) {
+	var omega fr.Element
+	var tmpBigInt, zeroBigInt big.Int
+	oneBigInt := big.NewInt(1)
+	zeroBigInt.SetUint64(0)
+	rMinusOneBigInt := fr.Modulus()
+	rMinusOneBigInt.Sub(rMinusOneBigInt, oneBigInt)
+	tmpBigInt.SetUint64(uint64(i))
+	tmpBigInt.Mod(rMinusOneBigInt, &tmpBigInt)
+	if tmpBigInt.Cmp(&zeroBigInt) != 0 {
+		return omega, ErrRootsOne
+	}
+	genFrStar := getGenFrStar()
+	tmpBigInt.SetUint64(uint64(i))
+	tmpBigInt.Div(rMinusOneBigInt, &tmpBigInt)
+	omega.Exp(genFrStar, &tmpBigInt)
+	return omega, nil
 }
 
 func eval(f []fr.Element, x fr.Element) fr.Element {

@@ -52,3 +52,20 @@ func TestCommit(t *testing.T) {
 	y := eval(px, x)
 	assert.True(y.Equal(&proof.ClaimedValue))
 }
+
+func TestGetIthRootOne(t *testing.T) {
+
+	assert := require.New(t)
+
+	order := 9
+	omega, err := getIthRootOne(order)
+	assert.NoError(err)
+	var orderBigInt big.Int
+	orderBigInt.SetUint64(uint64(order))
+	omega.Exp(omega, &orderBigInt)
+	assert.True(omega.IsOne())
+
+	order = 7
+	_, err = getIthRootOne(order)
+	assert.Error(err)
+}
