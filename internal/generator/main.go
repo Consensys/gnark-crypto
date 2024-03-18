@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/ecdsa"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
+	"github.com/consensys/gnark-crypto/internal/generator/fflonk"
 	"github.com/consensys/gnark-crypto/internal/generator/fft"
 	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
 	"github.com/consensys/gnark-crypto/internal/generator/gkr"
@@ -104,7 +105,7 @@ func main() {
 			assertNoError(shplonk.Generate(conf, filepath.Join(curveDir, "shplonk"), bgen))
 
 			// generate fflonk on fr
-			assertNoError(shplonk.Generate(conf, filepath.Join(curveDir, "fflonk"), bgen))
+			assertNoError(fflonk.Generate(conf, filepath.Join(curveDir, "fflonk"), bgen))
 
 			// generate pedersen on fr
 			assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), bgen))
