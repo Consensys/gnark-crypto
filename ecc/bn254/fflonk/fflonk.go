@@ -119,7 +119,7 @@ func BatchOpen(p [][][]fr.Element, digests []kzg.Digest, points [][]fr.Element, 
 	}
 
 	// step 5: shplonk open the list of single polynomials on the new sets
-	res.SOpeningProof, err = shplonk.BatchOpen(foldedPolynomials, digests, points, hf, pk, dataTranscript...)
+	res.SOpeningProof, err = shplonk.BatchOpen(foldedPolynomials, digests, newPoints, hf, pk, dataTranscript...)
 
 	return res, err
 
@@ -153,7 +153,7 @@ func BatchVerify(proof OpeningProof, digests []kzg.Digest, points [][]fr.Element
 
 	// step 1: fold the outer claimed values and check that they correspond to the
 	// shplonk claimed values
-	var curFoldedClaimedValue, accOmega fr.Element
+	var curFoldedClaimedValue, omgeaiPoint fr.Element
 	for i := 0; i < len(proof.ClaimedValues); i++ {
 		t := len(proof.ClaimedValues[i])
 		omega, err := getIthRootOne(t)
@@ -162,17 +162,17 @@ func BatchVerify(proof OpeningProof, digests []kzg.Digest, points [][]fr.Element
 		}
 		sizeSi := len(proof.ClaimedValues[i][0])
 		polyClaimedValues := make([]fr.Element, t)
-		accOmega.SetOne()
 		for j := 0; j < sizeSi; j++ {
 			for k := 0; k < t; k++ {
 				polyClaimedValues[k].Set(&proof.ClaimedValues[i][k][j])
 			}
+			omgeaiPoint.Set(&points[i][j])
 			for l := 0; l < t; l++ {
-				curFoldedClaimedValue = eval(polyClaimedValues, accOmega)
+				curFoldedClaimedValue = eval(polyClaimedValues, omgeaiPoint)
 				if !curFoldedClaimedValue.Equal(&proof.SOpeningProof.ClaimedValues[i][j*t+l]) {
 					return ErrInonsistentFolding
 				}
-				accOmega.Mul(&accOmega, &omega)
+				omgeaiPoint.Mul(&omgeaiPoint, &omega)
 			}
 		}
 	}
