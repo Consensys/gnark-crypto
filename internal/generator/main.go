@@ -103,6 +103,9 @@ func main() {
 			// generate shplonk on fr
 			assertNoError(shplonk.Generate(conf, filepath.Join(curveDir, "shplonk"), bgen))
 
+			// generate fflonk on fr
+			assertNoError(shplonk.Generate(conf, filepath.Join(curveDir, "fflonk"), bgen))
+
 			// generate pedersen on fr
 			assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), bgen))
 
