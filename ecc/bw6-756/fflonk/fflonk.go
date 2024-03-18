@@ -21,9 +21,9 @@ import (
 	"hash"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark-crypto/ecc/bn254/kzg"
-	"github.com/consensys/gnark-crypto/ecc/bn254/shplonk"
+	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-756/kzg"
+	"github.com/consensys/gnark-crypto/ecc/bw6-756/shplonk"
 )
 
 var (

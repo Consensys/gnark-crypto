@@ -21,9 +21,9 @@ import (
 	"hash"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark-crypto/ecc/bn254/kzg"
-	"github.com/consensys/gnark-crypto/ecc/bn254/shplonk"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/kzg"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/shplonk"
 )
 
 var (
@@ -214,7 +214,7 @@ func BatchVerify(proof OpeningProof, digests []kzg.Digest, points [][]fr.Element
 func getGenFrStar() fr.Element {
 	var res fr.Element
 
-	res.SetUint64(5)
+	res.SetUint64(22)
 
 	return res
 }
