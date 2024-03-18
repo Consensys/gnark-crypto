@@ -11,13 +11,15 @@ import (
 )
 
 var (
-	ErrRootsOne              = errors.New("Fr does not contain all the t-th roots of 1")
-	ErrNbPolynomialsNbPoints = errors.New("the number of packs of polynomials should be the same as the number of pack of points")
+	ErrRootsOne                       = errors.New("Fr does not contain all the t-th roots of 1")
+	ErrNbPolynomialsNbPoints          = errors.New("the number of packs of polynomials should be the same as the number of pack of points")
+	ErrInonsistentFolding             = errors.New("the outer claimed values are not consistent with the shplonk proof")
+	ErrInconsistentNumberFoldedPoints = errors.New("the number of outer claimed values is inconsistent with the number of claimed values in the shplonk proof")
 )
 
 // Opening fflonk proof for opening a list of list of polynomials ((fʲᵢ)ᵢ)ⱼ where each
 // pack of polynomials (fʲᵢ)ᵢ (the pack is indexed by j) is opened on a powers of elements in
-// the set (Sʲᵢ)ᵢ (indexed by j), where the power is |(fʲᵢ)ᵢ|.
+// the set Sʲ (indexed by j), where the power is |(fʲᵢ)ᵢ|.
 //
 // implements io.ReaderFrom and io.WriterTo
 type OpeningProof struct {
@@ -89,7 +91,7 @@ func BatchOpen(p [][][]fr.Element, digests []kzg.Digest, points [][]fr.Element, 
 	res.ClaimedValues = make([][][]fr.Element, len(p))
 	for i := 0; i < len(p); i++ {
 		res.ClaimedValues[i] = make([][]fr.Element, len(p[i]))
-		for j := 0; j < len(points[i]); j++ {
+		for j := 0; j < len(p[i]); j++ {
 			res.ClaimedValues[i][j] = make([]fr.Element, len(points[i]))
 			for k := 0; k < len(points[i]); k++ {
 				res.ClaimedValues[i][j][k] = eval(p[i][j], pointsPowerM[i][k])
@@ -106,34 +108,17 @@ func BatchOpen(p [][][]fr.Element, digests []kzg.Digest, points [][]fr.Element, 
 	// step 4: compute the associated roots, that is for each point p corresponding
 	// to a pack i of polynomials, we extend to <p, ω p, .., ωᵗ⁻¹p> if
 	// the i-th pack contains t polynomials where ω is a t-th root of 1
-	var omega fr.Element
-	zeroBigInt := big.NewInt(0)
-	genFrStar := getGenFrStar()
-	rMinusOneBigInt := fr.Modulus()
-	oneBigInt := big.NewInt(1)
-	rMinusOneBigInt.Sub(rMinusOneBigInt, oneBigInt)
 	newPoints := make([][]fr.Element, len(points))
+	var err error
 	for i := 0; i < len(p); i++ {
-		tmpBigInt.SetUint64(uint64(len(p[i])))
-		tmpBigInt.Mod(rMinusOneBigInt, &tmpBigInt)
-		if tmpBigInt.Cmp(zeroBigInt) != 0 {
-			return res, ErrRootsOne
-		}
-		tmpBigInt.SetUint64(uint64(len(p[i])))
-		tmpBigInt.Div(rMinusOneBigInt, &tmpBigInt)
-		omega.Exp(genFrStar, &tmpBigInt)
 		t := len(p[i])
-		newPoints[i] = make([]fr.Element, t*len(points[i]))
-		for j := 0; j < len(points[i]); j++ {
-			newPoints[i][j*t].Set(&points[i][j])
-			for k := 1; k < t; k++ {
-				newPoints[i][j*t+k].Mul(&newPoints[i][j*t+k-1], &omega)
-			}
+		newPoints[i], err = extendSet(points[i], t)
+		if err != nil {
+			return res, err
 		}
 	}
 
 	// step 5: shplonk open the list of single polynomials on the new sets
-	var err error
 	res.SOpeningProof, err = shplonk.BatchOpen(foldedPolynomials, digests, points, hf, pk, dataTranscript...)
 
 	return res, err
@@ -142,9 +127,68 @@ func BatchOpen(p [][][]fr.Element, digests []kzg.Digest, points [][]fr.Element, 
 
 // BatchVerify uses a proof to check that each digest digests[i] is correctly opened on the set points[i].
 // The digests are the commitments to the folded underlying polynomials. The shplonk proof is
-// verified directly using the embedded shplonk proof, and the claimed values consistency between the underlying
-// shplonk proof
+// verified directly using the embedded shplonk proof. This function only computes the consistency
+// between the claimed values of the underlying shplonk proof and the outer claimed values, using the fft-like
+// folding. Namely, the outer claimed values are the evaluation of the original polynomials (so before they
+// were folded) at the relevant powers of the points.
 func BatchVerify(proof OpeningProof, digests []kzg.Digest, points [][]fr.Element, hf hash.Hash, vk kzg.VerifyingKey, dataTranscript ...[]byte) error {
+
+	// step 0: consistency checks between the folded claimed values of shplonk and the claimed
+	// values at the powers of the Sᵢ
+	for i := 0; i < len(proof.ClaimedValues); i++ {
+		sizeSi := len(proof.ClaimedValues[i][0])
+		for j := 1; j < len(proof.ClaimedValues[i]); j++ {
+			// each set of opening must be of the same size (opeings on powers of Si)
+			if sizeSi != len(proof.ClaimedValues[i][j]) {
+				return ErrNbPolynomialsNbPoints
+			}
+		}
+		currNbPolynomials := len(proof.ClaimedValues[i])
+		sizeSi = sizeSi * currNbPolynomials
+		// |originalPolynomials_{i}|x|Sᵢ| == |foldedPolynomials|x|folded Sᵢ|
+		if sizeSi != len(proof.SOpeningProof.ClaimedValues[i]) {
+			return ErrInconsistentNumberFoldedPoints
+		}
+	}
+
+	// step 1: fold the outer claimed values and check that they correspond to the
+	// shplonk claimed values
+	var curFoldedClaimedValue, accOmega fr.Element
+	for i := 0; i < len(proof.ClaimedValues); i++ {
+		t := len(proof.ClaimedValues[i])
+		omega, err := getIthRootOne(t)
+		if err != nil {
+			return err
+		}
+		sizeSi := len(proof.ClaimedValues[i][0])
+		polyClaimedValues := make([]fr.Element, t)
+		accOmega.SetOne()
+		for j := 0; j < sizeSi; j++ {
+			for k := 0; k < t; k++ {
+				polyClaimedValues[k].Set(&proof.ClaimedValues[i][k][j])
+			}
+			for l := 0; l < t; l++ {
+				curFoldedClaimedValue = eval(polyClaimedValues, accOmega)
+				if !curFoldedClaimedValue.Equal(&proof.SOpeningProof.ClaimedValues[i][j*t+l]) {
+					return ErrInonsistentFolding
+				}
+				accOmega.Mul(&accOmega, &omega)
+			}
+		}
+	}
+
+	// step 2: verify the embedded shplonk proof
+	extendedPoints := make([][]fr.Element, len(points))
+	var err error
+	for i := 0; i < len(points); i++ {
+		t := len(proof.ClaimedValues[i])
+		extendedPoints[i], err = extendSet(points[i], t)
+		if err != nil {
+			return err
+		}
+	}
+	err = shplonk.BatchVerify(proof.SOpeningProof, digests, extendedPoints, hf, vk, dataTranscript...)
+
 	return nil
 }
 
@@ -177,6 +221,25 @@ func getIthRootOne(i int) (fr.Element, error) {
 	return omega, nil
 }
 
+// extendSet returns [p[0], ω p[0], .. ,ωᵗ⁻¹p[0],p[1],..,ωᵗ⁻¹p[1],..]
+func extendSet(p []fr.Element, t int) ([]fr.Element, error) {
+
+	omega, err := getIthRootOne(t)
+	if err != nil {
+		return nil, err
+	}
+	nbPoints := len(p)
+	newPoints := make([]fr.Element, t*nbPoints)
+	for i := 0; i < nbPoints; i++ {
+		newPoints[i*t].Set(&p[i])
+		for k := 1; k < t; k++ {
+			newPoints[i*t+k].Mul(&newPoints[i*t+k-1], &omega)
+		}
+	}
+
+	return newPoints, nil
+}
+
 func eval(f []fr.Element, x fr.Element) fr.Element {
 	var y fr.Element
 	for i := len(f) - 1; i >= 0; i-- {
@@ -184,57 +247,3 @@ func eval(f []fr.Element, x fr.Element) fr.Element {
 	}
 	return y
 }
-
-// Open
-// func Open(polynomials [][]fr.Element, digests []kzg.Digest, points []fr.Element, hf hash.Hash, pk kzg.ProvingKey, dataTranscript ...[]byte) (shplonk.OpeningProof, error) {
-
-// }
-
-// returns the t t-th roots of x, return an error if they do not exist in Fr
-// func extractRoots(x fr.Element, t int) ([]fr.Element, error) {
-
-// 	// for the t-th roots of x to exist we need
-// 	// * t | r-1
-// 	// * t² | p - (t-1)
-// 	r := fr.Modulus()
-// 	tBigInt := big.NewInt(int64(t))
-// 	oneBigInt := big.NewInt(1)
-// 	var a, b big.Int
-// 	a.Sub(r, oneBigInt)
-// 	a.Mod(&a, tBigInt)
-// 	zeroBigInt := big.NewInt(0)
-// 	if a.Cmp(zeroBigInt) != 0 {
-// 		return nil, ErrRootsOne
-// 	}
-// 	a.SetUint64(uint64(t)).Mul(tBigInt, tBigInt)
-// 	b.Sub(r, tBigInt).Add(&b, oneBigInt)
-// 	a.Mod(&b, &a)
-// 	if b.Cmp(zeroBigInt) != 0 {
-// 		return nil, ErrRootsX
-// 	}
-
-// 	// ᵗ√(x) = x^{(p-1)/t + 1}
-// 	var expo big.Int
-// 	var tthRoot fr.Element
-// 	r = fr.Modulus()
-// 	tBigInt = big.NewInt(int64(t))
-// 	expo.Sub(r, oneBigInt).
-// 		Div(&expo, tBigInt).
-// 		Add(&expo, oneBigInt)
-// 	tthRoot.Exp(x, &expo)
-
-// 	// compute the t-th roots of 1
-// 	r.Sub(r, oneBigInt)
-// 	tBigInt.Div(r, tBigInt)
-// 	gen := getGenFrStar()
-// 	gen.Exp(gen, tBigInt)
-
-// 	res := make([]fr.Element, t)
-// 	res[0].Set(&tthRoot)
-// 	for i := 1; i < t; i++ {
-// 		res[i].Mul(&res[i-1], &gen)
-// 	}
-
-// 	return res, nil
-
-// }
