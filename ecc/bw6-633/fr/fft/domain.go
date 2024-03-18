@@ -64,6 +64,16 @@ type Domain struct {
 	cosetTableInv []fr.Element
 }
 
+// GetGenFrStar returns a generator of Z/rZ*
+func GetGenFrStar() fr.Element {
+	var res fr.Element
+	// generator of the largest 2-adic subgroup
+
+	res.SetUint64(13)
+
+	return res
+}
+
 // NewDomain returns a subgroup with a power of 2 cardinality
 // cardinality >= m
 // shift: when specified, it's the element by which the set of root of unity is shifted.
@@ -72,10 +82,7 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	domain := &Domain{}
 	x := ecc.NextPowerOfTwo(m)
 	domain.Cardinality = uint64(x)
-
-	// generator of the largest 2-adic subgroup
-
-	domain.FrMultiplicativeGen.SetUint64(13)
+	domain.FrMultiplicativeGen = GetGenFrStar()
 
 	if opt.shift != nil {
 		domain.FrMultiplicativeGen.Set(opt.shift)
