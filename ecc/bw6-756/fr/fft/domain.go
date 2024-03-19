@@ -64,10 +64,9 @@ type Domain struct {
 	cosetTableInv []fr.Element
 }
 
-// GeneratorFullMultiplicativeGroup returns a generator of Z/rZ*
+// GeneratorFullMultiplicativeGroup returns a generator of Fr*
 func GeneratorFullMultiplicativeGroup() fr.Element {
 	var res fr.Element
-	// generator of Z/rZ*
 
 	res.SetUint64(5)
 
