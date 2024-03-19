@@ -69,7 +69,7 @@ func GeneratorFullMultiplicativeGroup() fr.Element {
 	var res fr.Element
 	// generator of Z/rZ*
 
-	res.SetUint64Uint64(22)
+	res.SetUint64(22)
 
 	return res
 }
