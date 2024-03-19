@@ -45,7 +45,30 @@ type Domain struct {
 	cosetTableInv         []fr.Element
 }
 
-
+// GeneratorFullMultiplicativeGroup returns a generator of 𝔽ᵣˣ
+func GeneratorFullMultiplicativeGroup() fr.Element {
+	var res fr.Element
+	{{if eq .Name "bls12-378"}}
+        res.SetUint64(22)
+	{{else if eq .Name "bls12-377"}}
+        res.SetUint64(22)
+	{{else if eq .Name "bls12-381"}}
+        res.SetUint64(7)
+	{{else if eq .Name "bn254"}}
+        res.SetUint64(5)
+	{{else if eq .Name "bw6-761"}}
+        res.SetUint64(15)
+	{{else if eq .Name "bw6-756"}}
+        res.SetUint64(5)
+    {{else if eq .Name "bw6-633"}}
+        res.SetUint64(13)
+	{{else if eq .Name "bls24-315"}}
+        res.SetUint64(7)
+	{{else if eq .Name "bls24-317"}}
+        res.SetUint64(7)
+	{{end}}
+	return res
+}
 
 // NewDomain returns a subgroup with a power of 2 cardinality
 // cardinality >= m
@@ -55,27 +78,7 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	domain := &Domain{}
 	x := ecc.NextPowerOfTwo(m)
 	domain.Cardinality = uint64(x)
-
-	// generator of the largest 2-adic subgroup
-	{{if eq .Name "bls12-378"}}
-        domain.FrMultiplicativeGen.SetUint64(22)
-	{{else if eq .Name "bls12-377"}}
-        domain.FrMultiplicativeGen.SetUint64(22)
-	{{else if eq .Name "bls12-381"}}
-        domain.FrMultiplicativeGen.SetUint64(7)
-	{{else if eq .Name "bn254"}}
-        domain.FrMultiplicativeGen.SetUint64(5)
-	{{else if eq .Name "bw6-761"}}
-        domain.FrMultiplicativeGen.SetUint64(15)
-	{{else if eq .Name "bw6-756"}}
-        domain.FrMultiplicativeGen.SetUint64(5)
-    {{else if eq .Name "bw6-633"}}
-        domain.FrMultiplicativeGen.SetUint64(13)
-	{{else if eq .Name "bls24-315"}}
-        domain.FrMultiplicativeGen.SetUint64(7)
-	{{else if eq .Name "bls24-317"}}
-        domain.FrMultiplicativeGen.SetUint64(7)
-	{{end}}
+	domain.FrMultiplicativeGen = GeneratorFullMultiplicativeGroup()
 
 	if opt.shift != nil{
 		domain.FrMultiplicativeGen.Set(opt.shift)
