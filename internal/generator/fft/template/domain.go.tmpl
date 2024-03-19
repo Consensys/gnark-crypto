@@ -50,7 +50,7 @@ func GetGenFrStar() fr.Element {
 	var res fr.Element
 	// generator of the largest 2-adic subgroup
 	{{if eq .Name "bls12-378"}}
-        res.SetUint64Uint64(22)
+        res.SetUint64(22)
 	{{else if eq .Name "bls12-377"}}
         res.SetUint64(22)
 	{{else if eq .Name "bls12-381"}}
