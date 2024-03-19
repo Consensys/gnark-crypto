@@ -64,7 +64,7 @@ type Domain struct {
 	cosetTableInv []fr.Element
 }
 
-// GeneratorFullMultiplicativeGroup returns a generator of Fr*
+// GeneratorFullMultiplicativeGroup returns a generator of 𝔽ᵣˣ
 func GeneratorFullMultiplicativeGroup() fr.Element {
 	var res fr.Element
 
