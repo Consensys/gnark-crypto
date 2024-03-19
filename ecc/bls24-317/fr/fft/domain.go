@@ -64,10 +64,10 @@ type Domain struct {
 	cosetTableInv []fr.Element
 }
 
-// GetGenFrStar returns a generator of Z/rZ*
-func GetGenFrStar() fr.Element {
+// GeneratorFullMultiplicativeGroup returns a generator of Z/rZ*
+func GeneratorFullMultiplicativeGroup() fr.Element {
 	var res fr.Element
-	// generator of the largest 2-adic subgroup
+	// generator of Z/rZ*
 
 	res.SetUint64(7)
 
@@ -82,7 +82,7 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	domain := &Domain{}
 	x := ecc.NextPowerOfTwo(m)
 	domain.Cardinality = uint64(x)
-	domain.FrMultiplicativeGen = GetGenFrStar()
+	domain.FrMultiplicativeGen = GeneratorFullMultiplicativeGroup()
 
 	if opt.shift != nil {
 		domain.FrMultiplicativeGen.Set(opt.shift)
