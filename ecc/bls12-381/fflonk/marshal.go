@@ -19,13 +19,13 @@ package fflonk
 import (
 	"io"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381"
 )
 
 // ReadFrom decodes OpeningProof data from reader.
 func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 
-	dec := bn254.NewDecoder(r)
+	dec := bls12381.NewDecoder(r)
 
 	toDecode := []interface{}{
 		&proof.SOpeningProof.W,
@@ -46,7 +46,7 @@ func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 // WriteTo writes binary encoding of OpeningProof.
 func (proof *OpeningProof) WriteTo(w io.Writer) (int64, error) {
 
-	enc := bn254.NewEncoder(w)
+	enc := bls12381.NewEncoder(w)
 
 	toEncode := []interface{}{
 		&proof.SOpeningProof.W,
