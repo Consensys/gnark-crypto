@@ -19,7 +19,6 @@ package bls12381
 import (
 	"fmt"
 	"math/big"
-	"math/bits"
 	"math/rand"
 	"runtime"
 	"sync"
@@ -315,63 +314,28 @@ func _innerMsmG1Reference(p *G1Jac, points []G1Affine, scalars []fr.Element, con
 func BenchmarkMultiExpG1(b *testing.B) {
 
 	const (
-		pow       = (bits.UintSize / 2) - (bits.UintSize / 8) // 24 on 64 bits arch, 12 on 32 bits
+		pow       = 21
 		nbSamples = 1 << pow
 	)
 
 	var (
-		samplePoints             [nbSamples]G1Affine
-		sampleScalars            [nbSamples]fr.Element
-		sampleScalarsSmallValues [nbSamples]fr.Element
-		sampleScalarsRedundant   [nbSamples]fr.Element
+		samplePoints  [nbSamples]G1Affine
+		sampleScalars [nbSamples]fr.Element
 	)
 
 	fillBenchScalars(sampleScalars[:])
-	copy(sampleScalarsSmallValues[:], sampleScalars[:])
-	copy(sampleScalarsRedundant[:], sampleScalars[:])
-
-	// this means first chunk is going to have more work to do and should be split into several go routines
-	for i := 0; i < len(sampleScalarsSmallValues); i++ {
-		if i%5 == 0 {
-			sampleScalarsSmallValues[i].SetZero()
-			sampleScalarsSmallValues[i][0] = 1
-		}
-	}
-
-	// bad case for batch affine because scalar distribution might look uniform
-	// but over batchSize windows, we may hit a lot of conflicts and force the msm-affine
-	// to process small batches of additions to flush its queue of conflicted points.
-	for i := 0; i < len(sampleScalarsRedundant); i += 100 {
-		for j := i + 1; j < i+100 && j < len(sampleScalarsRedundant); j++ {
-			sampleScalarsRedundant[j] = sampleScalarsRedundant[i]
-		}
-	}
 
 	fillBenchBasesG1(samplePoints[:])
 
 	var testPoint G1Affine
 
-	for i := 5; i <= pow; i++ {
+	for i := 1; i <= pow; i++ {
 		using := 1 << i
 
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
 				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
-			}
-		})
-
-		b.Run(fmt.Sprintf("%d points-smallvalues", using), func(b *testing.B) {
-			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalarsSmallValues[:using], ecc.MultiExpConfig{})
-			}
-		})
-
-		b.Run(fmt.Sprintf("%d points-redundancy", using), func(b *testing.B) {
-			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalarsRedundant[:using], ecc.MultiExpConfig{})
 			}
 		})
 	}
@@ -727,63 +691,28 @@ func _innerMsmG2Reference(p *G2Jac, points []G2Affine, scalars []fr.Element, con
 func BenchmarkMultiExpG2(b *testing.B) {
 
 	const (
-		pow       = (bits.UintSize / 2) - (bits.UintSize / 8) // 24 on 64 bits arch, 12 on 32 bits
+		pow       = 21
 		nbSamples = 1 << pow
 	)
 
 	var (
-		samplePoints             [nbSamples]G2Affine
-		sampleScalars            [nbSamples]fr.Element
-		sampleScalarsSmallValues [nbSamples]fr.Element
-		sampleScalarsRedundant   [nbSamples]fr.Element
+		samplePoints  [nbSamples]G2Affine
+		sampleScalars [nbSamples]fr.Element
 	)
 
 	fillBenchScalars(sampleScalars[:])
-	copy(sampleScalarsSmallValues[:], sampleScalars[:])
-	copy(sampleScalarsRedundant[:], sampleScalars[:])
-
-	// this means first chunk is going to have more work to do and should be split into several go routines
-	for i := 0; i < len(sampleScalarsSmallValues); i++ {
-		if i%5 == 0 {
-			sampleScalarsSmallValues[i].SetZero()
-			sampleScalarsSmallValues[i][0] = 1
-		}
-	}
-
-	// bad case for batch affine because scalar distribution might look uniform
-	// but over batchSize windows, we may hit a lot of conflicts and force the msm-affine
-	// to process small batches of additions to flush its queue of conflicted points.
-	for i := 0; i < len(sampleScalarsRedundant); i += 100 {
-		for j := i + 1; j < i+100 && j < len(sampleScalarsRedundant); j++ {
-			sampleScalarsRedundant[j] = sampleScalarsRedundant[i]
-		}
-	}
 
 	fillBenchBasesG2(samplePoints[:])
 
 	var testPoint G2Affine
 
-	for i := 5; i <= pow; i++ {
+	for i := 1; i <= pow; i++ {
 		using := 1 << i
 
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
 				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
-			}
-		})
-
-		b.Run(fmt.Sprintf("%d points-smallvalues", using), func(b *testing.B) {
-			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalarsSmallValues[:using], ecc.MultiExpConfig{})
-			}
-		})
-
-		b.Run(fmt.Sprintf("%d points-redundancy", using), func(b *testing.B) {
-			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
-				testPoint.MultiExp(samplePoints[:using], sampleScalarsRedundant[:using], ecc.MultiExpConfig{})
 			}
 		})
 	}
