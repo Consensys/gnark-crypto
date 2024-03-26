@@ -565,14 +565,13 @@ func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
 
 }
 
-// JointScalarMultiplicationBase computes [s1]g+[s2]a using Straus-Shamir technique
-// where g is the prime subgroup generator
-func (p *G1Jac) JointScalarMultiplicationBase(a *G1Affine, s1, s2 *big.Int) *G1Jac {
+// JointScalarMultiplication computes [s1]a1+[s2]a2 using Straus-Shamir technique
+func (p *G1Jac) JointScalarMultiplication(a1, a2 *G1Affine, s1, s2 *big.Int) *G1Jac {
 
 	var res, p1, p2 G1Jac
 	res.Set(&g1Infinity)
-	p1.Set(&g1Gen)
-	p2.FromAffine(a)
+	p1.FromAffine(a1)
+	p2.FromAffine(a2)
 
 	var table [15]G1Jac
 
@@ -634,6 +633,12 @@ func (p *G1Jac) JointScalarMultiplicationBase(a *G1Affine, s1, s2 *big.Int) *G1J
 	p.Set(&res)
 	return p
 
+}
+
+// JointScalarMultiplicationBase computes [s1]g+[s2]a using Straus-Shamir technique
+// where g is the prime subgroup generator
+func (p *G1Jac) JointScalarMultiplicationBase(a *G1Affine, s1, s2 *big.Int) *G1Jac {
+	return p.JointScalarMultiplication(&g1GenAff, a, s1, s2)
 }
 
 // -------------------------------------------------------------------------------------------------
