@@ -65,19 +65,6 @@ func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
 	return p
 }
 
-// ScalarMultiplicationAffine computes and returns p = a ⋅ s
-// Takes an affine point and returns a Jacobian point (useful for KZG)
-func (p *G1Jac) ScalarMultiplicationAffine(a *G1Affine, s *big.Int) *G1Jac {
-	p.FromAffine(a)
-	p.mulGLV(p, s)
-	return p
-}
-
-// ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
-func (p *G1Jac) ScalarMultiplicationBase(s *big.Int) *G1Jac {
-	return p.mulGLV(&g1Gen, s)
-}
-
 // ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
 func (p *G1Affine) ScalarMultiplicationBase(s *big.Int) *G1Affine {
 	var _p G1Jac
@@ -377,6 +364,11 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
 func (p *G1Jac) ScalarMultiplication(a *G1Jac, s *big.Int) *G1Jac {
 	return p.mulGLV(a, s)
+}
+
+// ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
+func (p *G1Jac) ScalarMultiplicationBase(s *big.Int) *G1Jac {
+	return p.mulGLV(&g1Gen, s)
 }
 
 // String returns canonical representation of the point in affine coordinates
