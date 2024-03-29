@@ -56,16 +56,19 @@ func CommitAndFold(p [][]fr.Element, pk kzg.ProvingKey, nbTasks ...int) (kzg.Dig
 	return com, err
 }
 
-// Fold returns p folded as in the fft, that is ∑_{i<t}Pᵢ(Xᵗ)Xⁱ
+// Fold returns p folded as in the fft, that is ∑_{i<t}Pᵢ(Xᵗ)Xⁱ. The
 func Fold(p [][]fr.Element) []fr.Element {
-	t := len(p)
+
+	// we first pick the smallest divisor of r-1 bounding above len(p)
+	t := getNextDivisorRMinusOne(len(p))
+
 	sizeResult := 0
 	for i := range p {
 		if sizeResult < len(p[i]) {
 			sizeResult = len(p[i])
 		}
 	}
-	sizeResult = sizeResult*len(p) + len(p) - 1
+	sizeResult = sizeResult*t + t - 1
 	buf := make([]fr.Element, sizeResult)
 	for i := range p {
 		for j := range p[i] {
@@ -89,13 +92,15 @@ func BatchOpen(p [][][]fr.Element, digests []kzg.Digest, points [][]fr.Element, 
 
 	// step 0: compute the relevant powers of the ((Sʲᵢ)ᵢ)ⱼ)
 	nbPolysPerPack := make([]int, len(p))
+	nextPowerOfTwoPerPack := make([]int, len(p))
 	for i := 0; i < len(p); i++ {
 		nbPolysPerPack[i] = len(p[i])
+		nextPowerOfTwoPerPack[i] = getNextDivisorRMinusOne(len(p[i]))
 	}
 	pointsPowerM := make([][]fr.Element, len(points))
 	var tmpBigInt big.Int
 	for i := 0; i < len(p); i++ {
-		tmpBigInt.SetUint64(uint64(nbPolysPerPack[i]))
+		tmpBigInt.SetUint64(uint64(nextPowerOfTwoPerPack[i]))
 		pointsPowerM[i] = make([]fr.Element, len(points[i]))
 		for j := 0; j < len(points[i]); j++ {
 			pointsPowerM[i][j].Exp(points[i][j], &tmpBigInt)
@@ -106,12 +111,15 @@ func BatchOpen(p [][][]fr.Element, digests []kzg.Digest, points [][]fr.Element, 
 	// on the relevant powers of the sets
 	res.ClaimedValues = make([][][]fr.Element, len(p))
 	for i := 0; i < len(p); i++ {
-		res.ClaimedValues[i] = make([][]fr.Element, len(p[i]))
+		res.ClaimedValues[i] = make([][]fr.Element, nextPowerOfTwoPerPack[i])
 		for j := 0; j < len(p[i]); j++ {
 			res.ClaimedValues[i][j] = make([]fr.Element, len(points[i]))
 			for k := 0; k < len(points[i]); k++ {
 				res.ClaimedValues[i][j][k] = eval(p[i][j], pointsPowerM[i][k])
 			}
+		}
+		for j := len(p[i]); j < nextPowerOfTwoPerPack[i]; j++ { // -> the remaing polynomials are zero
+			res.ClaimedValues[i][j] = make([]fr.Element, len(points[i]))
 		}
 	}
 
@@ -127,8 +135,7 @@ func BatchOpen(p [][][]fr.Element, digests []kzg.Digest, points [][]fr.Element, 
 	newPoints := make([][]fr.Element, len(points))
 	var err error
 	for i := 0; i < len(p); i++ {
-		t := len(p[i])
-		newPoints[i], err = extendSet(points[i], t)
+		newPoints[i], err = extendSet(points[i], nextPowerOfTwoPerPack[i])
 		if err != nil {
 			return res, err
 		}
@@ -210,15 +217,6 @@ func BatchVerify(proof OpeningProof, digests []kzg.Digest, points [][]fr.Element
 
 // utils
 
-// getGenFrStar returns a generator of Fr^{*}
-func getGenFrStar() fr.Element {
-	var res fr.Element
-
-	res.SetUint64(13)
-
-	return res
-}
-
 // getIthRootOne returns a generator of Z/iZ
 func getIthRootOne(i int) (fr.Element, error) {
 	var omega fr.Element
@@ -237,6 +235,23 @@ func getIthRootOne(i int) (fr.Element, error) {
 	tmpBigInt.Div(rMinusOneBigInt, &tmpBigInt)
 	omega.Exp(genFrStar, &tmpBigInt)
 	return omega, nil
+}
+
+// computes the smallest i bounding above number_polynomials
+// and dividing r-1.
+func getNextDivisorRMinusOne(i int) int {
+	var zero, tmp, one big.Int
+	r := fr.Modulus()
+	one.SetUint64(1)
+	r.Sub(r, &one)
+	tmp.SetUint64(uint64(i))
+	tmp.Mod(r, &tmp)
+	for tmp.Cmp(&zero) != 0 {
+		i += 1
+		tmp.SetUint64(uint64(i))
+		tmp.Mod(r, &tmp)
+	}
+	return i
 }
 
 // extendSet returns [p[0], ω p[0], .. ,ωᵗ⁻¹p[0],p[1],..,ωᵗ⁻¹p[1],..]
@@ -264,4 +279,13 @@ func eval(f []fr.Element, x fr.Element) fr.Element {
 		y.Mul(&y, &x).Add(&y, &f[i])
 	}
 	return y
+}
+
+// getGenFrStar returns a generator of Fr^{*}
+func getGenFrStar() fr.Element {
+	var res fr.Element
+
+	res.SetUint64(13)
+
+	return res
 }
