@@ -52,7 +52,7 @@ type RSis struct {
 
 	// domain for the polynomial multiplication
 	Domain        *fft.Domain
-	twiddleCosets []fr.Element // see fft64 and precomputeTwiddlesCoset
+	twiddleCosets []fr.Element // see FFT64 and precomputeTwiddlesCoset
 
 	// d, the degree of X^{d}+1
 	Degree int
@@ -199,7 +199,7 @@ func (r *RSis) Sum(b []byte) []byte {
 		k := m[i*r.Degree : (i+1)*r.Degree]
 		if fastPath {
 			// fast path.
-			Fft64(k, r.twiddleCosets)
+			FFT64(k, r.twiddleCosets)
 		} else {
 			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
