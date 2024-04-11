@@ -129,7 +129,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	}
 	if r.LogTwoBound == 8 && r.Degree == 64 {
 		// TODO @gbotrel fixme, that's dirty.
-		r.twiddleCosets = precomputeTwiddlesCoset(r.Domain.Generator, r.Domain.FrMultiplicativeGen)
+		r.twiddleCosets = PrecomputeTwiddlesCoset(r.Domain.Generator, r.Domain.FrMultiplicativeGen)
 	}
 
 	// filling A
@@ -199,7 +199,7 @@ func (r *RSis) Sum(b []byte) []byte {
 		k := m[i*r.Degree : (i+1)*r.Degree]
 		if fastPath {
 			// fast path.
-			fft64(k, r.twiddleCosets)
+			Fft64(k, r.twiddleCosets)
 		} else {
 			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
