@@ -42,6 +42,13 @@ const (
 	sizeSignature  = 2 * sizeFr
 )
 
+var (
+	// ErrNoSqrtR is returned when x^3+ax+b is not a square in the field. This
+	// is used for public key recovery and allows to detect if the signature is
+	// valid or not.
+	ErrNoSqrtR = errors.New("x^3+ax+b is not a square in the field")
+)
+
 var order = fr.Modulus()
 
 // PublicKey represents an ECDSA public key
@@ -139,7 +146,8 @@ func RecoverP(v uint, r *big.Int) (*bn254.G1Affine, error) {
 	y.Mod(y, fp.Modulus())
 	// y = sqrt(y^2)
 	if y.ModSqrt(y, fp.Modulus()) == nil {
-		return nil, errors.New("no square root")
+		// there is no square root, return error constant
+		return nil, ErrNoSqrtR
 	}
 	// check that y has same oddity as defined by v
 	if y.Bit(0) != yChoice {
