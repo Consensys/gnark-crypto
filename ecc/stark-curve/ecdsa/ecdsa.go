@@ -116,10 +116,10 @@ func HashToInt(hash []byte) *big.Int {
 	return ret
 }
 
-// RecoverP recovers the value P (prover commitment) when creating a signature.
+// recoverP recovers the value P (prover commitment) when creating a signature.
 // It uses the recovery information v and part of the decomposed signature r. It
 // is used internally for recovering the public key.
-func RecoverP(v uint, r *big.Int) (*starkcurve.G1Affine, error) {
+func recoverP(v uint, r *big.Int) (*starkcurve.G1Affine, error) {
 	if r.Cmp(fr.Modulus()) >= 0 {
 		return nil, errors.New("r is larger than modulus")
 	}
