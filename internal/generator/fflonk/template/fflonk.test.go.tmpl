@@ -14,7 +14,7 @@ var testSrs *kzg.SRS
 var bAlpha *big.Int
 
 func init() {
-	const srsSize = 400
+	const srsSize = 600
 	bAlpha = new(big.Int).SetInt64(42) // randomise ?
 	testSrs, _ = kzg.NewSRS(ecc.NextPowerOfTwo(srsSize), bAlpha)
 }
