@@ -118,7 +118,7 @@ func BatchOpen(p [][][]fr.Element, digests []kzg.Digest, points [][]fr.Element, 
 				res.ClaimedValues[i][j][k] = eval(p[i][j], pointsPowerM[i][k])
 			}
 		}
-		for j := len(p[i]); j < nextPowerOfTwoPerPack[i]; j++ { // -> the remaing polynomials are zero
+		for j := len(p[i]); j < nextPowerOfTwoPerPack[i]; j++ { // -> the remaining polynomials are zero
 			res.ClaimedValues[i][j] = make([]fr.Element, len(points[i]))
 		}
 	}
