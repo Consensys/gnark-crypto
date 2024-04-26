@@ -127,7 +127,7 @@ func TestGetIthRootOne(t *testing.T) {
 
 	assert := require.New(t)
 
-	order := 9
+	order := getNextDivisorRMinusOne(9)
 	omega, err := getIthRootOne(order)
 	assert.NoError(err)
 	var orderBigInt big.Int
@@ -135,7 +135,7 @@ func TestGetIthRootOne(t *testing.T) {
 	omega.Exp(omega, &orderBigInt)
 	assert.True(omega.IsOne())
 
-	order = 7
+	order = order + 1
 	_, err = getIthRootOne(order)
 	assert.Error(err)
 }
