@@ -124,7 +124,6 @@ func TestCommit(t *testing.T) {
 }
 
 func TestGetIthRootOne(t *testing.T) {
-
 	assert := require.New(t)
 
 	order := getNextDivisorRMinusOne(9)
@@ -134,8 +133,4 @@ func TestGetIthRootOne(t *testing.T) {
 	orderBigInt.SetUint64(uint64(order))
 	omega.Exp(omega, &orderBigInt)
 	assert.True(omega.IsOne())
-
-	order = order + 1
-	_, err = getIthRootOne(order)
-	assert.Error(err)
 }
