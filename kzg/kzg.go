@@ -25,6 +25,9 @@ type Serializable interface {
 
 	WriteRawTo(w io.Writer) (n int64, err error)
 	UnsafeReadFrom(r io.Reader) (int64, error)
+
+	UnsafeToBytes(maxPkPoints ...int) ([]byte, error)
+	UnsafeFromBytes(data []byte, maxPkPoints ...int) error
 }
 
 type SRS Serializable
