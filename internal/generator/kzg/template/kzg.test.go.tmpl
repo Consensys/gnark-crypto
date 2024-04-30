@@ -693,31 +693,13 @@ func BenchmarkDeserializeSRS(b *testing.B) {
 		b.Fatal(err)
 	}
 	
-	// now we can benchmark the ReadFrom, ReadRawFrom and UnsafeFromBytes methods
-	// omitting this one it's slow...
-	// b.Run("ReadFrom", func(b *testing.B) {
-	// 	b.ResetTimer()
-	// 	var buf bytes.Buffer
-	// 	_, err := srs.WriteTo(&buf)
-	// 	if err != nil {
-	// 		b.Fatal(err)
-	// 	}
-	// 	for i := 0; i < b.N; i++ {
-	// 		var newSRS SRS
-	// 		_, err := newSRS.ReadFrom(bytes.NewReader(buf.Bytes()))
-	// 		if err != nil {
-	// 			b.Fatal(err)
-	// 		}
-	// 	}
-	// })
-
 	b.Run("UnsafeReadFrom", func(b *testing.B) {
-		b.ResetTimer()
 		var buf bytes.Buffer
 		_, err := srs.WriteRawTo(&buf)
 		if err != nil {
 			b.Fatal(err)
 		}
+		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			var newSRS SRS
 			_, err := newSRS.UnsafeReadFrom(bytes.NewReader(buf.Bytes()))
@@ -728,11 +710,11 @@ func BenchmarkDeserializeSRS(b *testing.B) {
 	})
 
 	b.Run("UnsafeFromBytes", func(b *testing.B) {
-		b.ResetTimer()
 		d, err := srs.UnsafeToBytes()
 		if err != nil {
 			b.Fatal(err)
 		}
+		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			var newSRS SRS
 			if err := newSRS.UnsafeFromBytes(d); err != nil {

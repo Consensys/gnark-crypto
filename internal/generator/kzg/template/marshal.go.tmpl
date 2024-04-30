@@ -122,18 +122,26 @@ func (srs *SRS) UnsafeToBytes(maxPkPoints ...int) ([]byte, error) {
 // and doesn't encode points in a canonical form.
 // @unstable: the format may change in the future
 func (srs *SRS) UnsafeFromBytes(data []byte, maxPkPoints ...int) error {
-	buf := bytes.NewReader(data)
-
 	// first we read the VerifyingKey; it is small so we re-use ReadFrom
-	if _, err := srs.Vk.ReadFrom(buf); err != nil {
+	n, err := srs.Vk.ReadFrom(bytes.NewReader(data))
+	if err != nil {
 		return err
+	}
+
+	data = data[n:]
+	if len(data) < 8 {
+		return io.ErrUnexpectedEOF
 	}
 
 	// read nb points we encode.
-	var nbPoints uint64
-	if err := binary.Read(buf, binary.LittleEndian, &nbPoints); err != nil {
-		return err
+	nbPoints := binary.LittleEndian.Uint64(data[:8])
+	data = data[8:]
+
+	// check the length of data
+	if len(data) < int(nbPoints) * 2 * fp.Bytes {
+		return io.ErrUnexpectedEOF
 	}
+
 
 	if len(maxPkPoints) == 1 && maxPkPoints[0] > 0 && int(nbPoints) > maxPkPoints[0] {
 		nbPoints = uint64(maxPkPoints[0])
@@ -144,9 +152,7 @@ func (srs *SRS) UnsafeFromBytes(data []byte, maxPkPoints ...int) error {
 	// read the limbs directly
 	var bbuf [fp.Bytes * 2]byte
 	for i := 0; i < int(nbPoints); i++ {
-		if _, err := io.ReadFull(buf, bbuf[:]); err != nil {
-			return err
-		}
+		copy(bbuf[:], data[i * 2 * fp.Bytes:(i+1) * 2 * fp.Bytes])
 		for j:= 0 ; j < fp.Limbs; j++ {
 			srs.Pk.G1[i].X[j] = binary.LittleEndian.Uint64(bbuf[j*8:j*8+8])
 		}
