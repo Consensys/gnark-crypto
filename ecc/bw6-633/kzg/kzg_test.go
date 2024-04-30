@@ -704,7 +704,7 @@ func BenchmarkSerializeSRS(b *testing.B) {
 
 func BenchmarkDeserializeSRS(b *testing.B) {
 	// let's create a quick SRS
-	srs, err := NewSRS(ecc.NextPowerOfTwo(1<<26), big.NewInt(-1))
+	srs, err := NewSRS(ecc.NextPowerOfTwo(1<<24), big.NewInt(-1))
 	if err != nil {
 		b.Fatal(err)
 	}
