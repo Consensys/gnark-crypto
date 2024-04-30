@@ -416,7 +416,38 @@ func TestBatchVerifyMultiPoints(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
 
+func TestUnsafeToBytesTruncating(t *testing.T) {
+	assert := require.New(t)
+	srs, err := NewSRS(ecc.NextPowerOfTwo(1 << 10), big.NewInt(-1))
+	assert.NoError(err)
+
+	// marshal the SRS, but explicitly with less points.
+	d, err := srs.UnsafeToBytes(1 << 9)
+	assert.NoError(err)
+
+	// unmarshal the SRS
+	var newSRS SRS
+	err = newSRS.UnsafeFromBytes(d)
+	assert.NoError(err)
+
+	// check that the SRS proving key has only 1 << 9 points
+	assert.Equal(1<<9, len(newSRS.Pk.G1))
+
+	// ensure they are equal to the original SRS
+	assert.Equal(srs.Pk.G1[:1<<9], newSRS.Pk.G1)
+
+	// read even less points.
+	var newSRSPartial SRS
+	err = newSRSPartial.UnsafeFromBytes(d, 1 << 8)
+	assert.NoError(err)
+
+	// check that the SRS proving key has only 1 << 8 points
+	assert.Equal(1<<8, len(newSRSPartial.Pk.G1))
+
+	// ensure they are equal to the original SRS
+	assert.Equal(srs.Pk.G1[:1<<8], newSRSPartial.Pk.G1)
 }
 
 const benchSize = 1 << 16
