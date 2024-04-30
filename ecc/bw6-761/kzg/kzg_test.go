@@ -17,6 +17,7 @@
 package kzg
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -161,6 +162,7 @@ func TestSerializationSRS(t *testing.T) {
 	t.Run("proving key raw round-trip", utils.SerializationRoundTripRaw(&srs.Pk))
 	t.Run("verifying key round-trip", utils.SerializationRoundTrip(&srs.Vk))
 	t.Run("whole SRS round-trip", utils.SerializationRoundTrip(srs))
+	t.Run("unsafe whole SRS round-trip", utils.UnsafeBinaryMarshalerRoundTrip(srs))
 }
 
 func TestCommit(t *testing.T) {
@@ -431,7 +433,38 @@ func TestBatchVerifyMultiPoints(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
 
+func TestUnsafeToBytesTruncating(t *testing.T) {
+	assert := require.New(t)
+	srs, err := NewSRS(ecc.NextPowerOfTwo(1<<10), big.NewInt(-1))
+	assert.NoError(err)
+
+	// marshal the SRS, but explicitly with less points.
+	d, err := srs.UnsafeToBytes(1 << 9)
+	assert.NoError(err)
+
+	// unmarshal the SRS
+	var newSRS SRS
+	err = newSRS.UnsafeFromBytes(d)
+	assert.NoError(err)
+
+	// check that the SRS proving key has only 1 << 9 points
+	assert.Equal(1<<9, len(newSRS.Pk.G1))
+
+	// ensure they are equal to the original SRS
+	assert.Equal(srs.Pk.G1[:1<<9], newSRS.Pk.G1)
+
+	// read even less points.
+	var newSRSPartial SRS
+	err = newSRSPartial.UnsafeFromBytes(d, 1<<8)
+	assert.NoError(err)
+
+	// check that the SRS proving key has only 1 << 8 points
+	assert.Equal(1<<8, len(newSRSPartial.Pk.G1))
+
+	// ensure they are equal to the original SRS
+	assert.Equal(srs.Pk.G1[:1<<8], newSRSPartial.Pk.G1)
 }
 
 const benchSize = 1 << 16
@@ -620,6 +653,91 @@ func BenchmarkToLagrangeG1(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func BenchmarkSerializeSRS(b *testing.B) {
+	// let's create a quick SRS
+	srs, err := NewSRS(ecc.NextPowerOfTwo(1<<24), big.NewInt(-1))
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	// now we can benchmark the WriteTo, WriteRawTo and UnsafeToBytes methods
+	b.Run("WriteTo", func(b *testing.B) {
+		b.ResetTimer()
+		var buf bytes.Buffer
+		for i := 0; i < b.N; i++ {
+			buf.Reset()
+			_, err := srs.WriteTo(&buf)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("WriteRawTo", func(b *testing.B) {
+		b.ResetTimer()
+		var buf bytes.Buffer
+		for i := 0; i < b.N; i++ {
+			buf.Reset()
+			_, err := srs.WriteRawTo(&buf)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("UnsafeToBytes", func(b *testing.B) {
+		b.ResetTimer()
+		var d []byte
+		var err error
+		for i := 0; i < b.N; i++ {
+			d, err = srs.UnsafeToBytes()
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+		_ = d
+	})
+
+}
+
+func BenchmarkDeserializeSRS(b *testing.B) {
+	// let's create a quick SRS
+	srs, err := NewSRS(ecc.NextPowerOfTwo(1<<24), big.NewInt(-1))
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.Run("UnsafeReadFrom", func(b *testing.B) {
+		var buf bytes.Buffer
+		_, err := srs.WriteRawTo(&buf)
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			var newSRS SRS
+			_, err := newSRS.UnsafeReadFrom(bytes.NewReader(buf.Bytes()))
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("UnsafeFromBytes", func(b *testing.B) {
+		d, err := srs.UnsafeToBytes()
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			var newSRS SRS
+			if err := newSRS.UnsafeFromBytes(d); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
 }
 
 func fillBenchBasesG1(samplePoints []bw6761.G1Affine) {
