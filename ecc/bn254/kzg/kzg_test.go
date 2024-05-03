@@ -29,7 +29,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 
-	"github.com/consensys/gnark-crypto/utils"
+	"github.com/consensys/gnark-crypto/utils/testutils"
 )
 
 // Test SRS re-used across tests of the KZG scheme
@@ -158,11 +158,11 @@ func TestSerializationSRS(t *testing.T) {
 	// create a SRS
 	srs, err := NewSRS(64, new(big.Int).SetInt64(42))
 	assert.NoError(t, err)
-	t.Run("proving key round-trip", utils.SerializationRoundTrip(&srs.Pk))
-	t.Run("proving key raw round-trip", utils.SerializationRoundTripRaw(&srs.Pk))
-	t.Run("verifying key round-trip", utils.SerializationRoundTrip(&srs.Vk))
-	t.Run("whole SRS round-trip", utils.SerializationRoundTrip(srs))
-	t.Run("unsafe whole SRS round-trip", utils.UnsafeBinaryMarshalerRoundTrip(srs))
+	t.Run("proving key round-trip", testutils.SerializationRoundTrip(&srs.Pk))
+	t.Run("proving key raw round-trip", testutils.SerializationRoundTripRaw(&srs.Pk))
+	t.Run("verifying key round-trip", testutils.SerializationRoundTrip(&srs.Vk))
+	t.Run("whole SRS round-trip", testutils.SerializationRoundTrip(srs))
+	t.Run("unsafe whole SRS round-trip", testutils.UnsafeBinaryMarshalerRoundTrip(srs))
 }
 
 func TestCommit(t *testing.T) {
