@@ -17,11 +17,10 @@
 package kzg
 
 import (
-	"bytes"
-	"encoding/binary"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761"
-	"github.com/consensys/gnark-crypto/ecc/bw6-761/fp"
 	"io"
+
+	"github.com/consensys/gnark-crypto/utils/unsafe"
 )
 
 // WriteTo writes binary encoding of the ProvingKey
@@ -79,91 +78,49 @@ func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*bw6761.Encoder)) (
 	return enc.BytesWritten(), nil
 }
 
-// UnsafeToBytes returns the binary encoding of the entire SRS memory representation
+// WriteDump writes the binary encoding of the entire SRS memory representation
 // It is meant to be use to achieve fast serialization/deserialization and
 // is not compatible with WriteTo / ReadFrom. It does not do any validation
 // and doesn't encode points in a canonical form.
+// @unsafe: this is platform dependent and may not be compatible with other platforms
 // @unstable: the format may change in the future
 // If maxPkPoints is provided, the number of points in the ProvingKey will be limited to maxPkPoints
-func (srs *SRS) UnsafeToBytes(maxPkPoints ...int) ([]byte, error) {
+func (srs *SRS) WriteDump(w io.Writer, maxPkPoints ...int) error {
 	maxG1 := len(srs.Pk.G1)
 	if len(maxPkPoints) > 0 && maxPkPoints[0] < maxG1 && maxPkPoints[0] > 0 {
 		maxG1 = maxPkPoints[0]
 	}
 	// first we write the VerifyingKey; it is small so we re-use WriteTo
-	var buf bytes.Buffer
 
-	if _, err := srs.Vk.writeTo(&buf, bw6761.RawEncoding()); err != nil {
-		return nil, err
+	if _, err := srs.Vk.writeTo(w, bw6761.RawEncoding()); err != nil {
+		return err
 	}
 
-	buf.Grow(2*maxG1*fp.Bytes + 8) // pre-allocate space for the ProvingKey
-
-	// write nb points we encode.
-	if err := binary.Write(&buf, binary.LittleEndian, uint64(maxG1)); err != nil {
-		return nil, err
+	// write the marker
+	if err := unsafe.WriteMarker(w); err != nil {
+		return err
 	}
 
-	// write the limbs directly
-	var bbuf [fp.Bytes * 2]byte
-	for i := 0; i < maxG1; i++ {
-		for j := 0; j < fp.Limbs; j++ {
-			binary.LittleEndian.PutUint64(bbuf[j*8:j*8+8], srs.Pk.G1[i].X[j])
-		}
-		for j := 0; j < fp.Limbs; j++ {
-			binary.LittleEndian.PutUint64(bbuf[fp.Bytes+j*8:fp.Bytes+j*8+8], srs.Pk.G1[i].Y[j])
-		}
-		if _, err := buf.Write(bbuf[:]); err != nil {
-			return nil, err
-		}
-	}
-	return buf.Bytes(), nil
+	// write the slice
+	return unsafe.WriteSlice(w, srs.Pk.G1[:maxG1])
 }
 
-// UnsafeFromBytes deserializes the SRS from a byte slice
-// It is meant to be use to achieve fast serialization/deserialization and
-// is not compatible with WriteTo / ReadFrom. It does not do any validation
-// and doesn't encode points in a canonical form.
-// @unstable: the format may change in the future
-func (srs *SRS) UnsafeFromBytes(data []byte, maxPkPoints ...int) error {
+// ReadDump deserializes the SRS from a reader, as written by WriteDump
+func (srs *SRS) ReadDump(r io.Reader, maxPkPoints ...int) error {
 	// first we read the VerifyingKey; it is small so we re-use ReadFrom
-	n, err := srs.Vk.ReadFrom(bytes.NewReader(data))
+	_, err := srs.Vk.ReadFrom(r)
 	if err != nil {
 		return err
 	}
 
-	data = data[n:]
-	if len(data) < 8 {
-		return io.ErrUnexpectedEOF
+	// read the marker
+	if err := unsafe.ReadMarker(r); err != nil {
+		return err
 	}
 
-	// read nb points we encode.
-	nbPoints := binary.LittleEndian.Uint64(data[:8])
-	data = data[8:]
-
-	// check the length of data
-	if len(data) < int(nbPoints)*2*fp.Bytes {
-		return io.ErrUnexpectedEOF
-	}
-
-	if len(maxPkPoints) == 1 && maxPkPoints[0] > 0 && int(nbPoints) > maxPkPoints[0] {
-		nbPoints = uint64(maxPkPoints[0])
-	}
-
-	srs.Pk.G1 = make([]bw6761.G1Affine, nbPoints)
-
-	// read the limbs directly
-	var bbuf [fp.Bytes * 2]byte
-	for i := 0; i < int(nbPoints); i++ {
-		copy(bbuf[:], data[i*2*fp.Bytes:(i+1)*2*fp.Bytes])
-		for j := 0; j < fp.Limbs; j++ {
-			srs.Pk.G1[i].X[j] = binary.LittleEndian.Uint64(bbuf[j*8 : j*8+8])
-		}
-		for j := 0; j < fp.Limbs; j++ {
-			srs.Pk.G1[i].Y[j] = binary.LittleEndian.Uint64(bbuf[fp.Bytes+j*8 : fp.Bytes+j*8+8])
-		}
-	}
-	return nil
+	// read the slice
+	srs.Pk.G1, _, err = unsafe.ReadSlice[[]bw6761.G1Affine](r, maxPkPoints...)
+	return err
 }
 
 // WriteTo writes binary encoding of the entire SRS

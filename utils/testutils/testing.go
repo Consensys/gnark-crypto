@@ -18,9 +18,9 @@ type RawSerializable interface {
 	WriteRawTo(io.Writer) (int64, error)
 }
 
-type UnsafeBinaryMarshaler interface {
-	UnsafeToBytes(maxPkPoints ...int) ([]byte, error)
-	UnsafeFromBytes(data []byte, maxPkPoints ...int) error
+type BinaryDumper interface {
+	WriteDump(w io.Writer, maxPkPoints ...int) error
+	ReadDump(r io.Reader, maxPkPoints ...int) error
 }
 
 func SerializationRoundTrip(o Serializable) func(*testing.T) {
@@ -57,15 +57,16 @@ func SerializationRoundTripRaw(o RawSerializable) func(*testing.T) {
 	}
 }
 
-func UnsafeBinaryMarshalerRoundTrip(o UnsafeBinaryMarshaler) func(*testing.T) {
+func UnsafeBinaryMarshalerRoundTrip(o BinaryDumper) func(*testing.T) {
 	return func(t *testing.T) {
 		// serialize it...
-		data, err := o.UnsafeToBytes()
+		var buf bytes.Buffer
+		err := o.WriteDump(&buf)
 		assert.NoError(t, err)
 
 		// reconstruct the object
-		_o := reflect.New(reflect.TypeOf(o).Elem()).Interface().(UnsafeBinaryMarshaler)
-		err = _o.UnsafeFromBytes(data)
+		_o := reflect.New(reflect.TypeOf(o).Elem()).Interface().(BinaryDumper)
+		err = _o.ReadDump(&buf)
 		assert.NoError(t, err)
 
 		// compare
