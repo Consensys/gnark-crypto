@@ -22,12 +22,15 @@ import (
 type Serializable interface {
 	io.ReaderFrom
 	io.WriterTo
+	BinaryDumper
 
 	WriteRawTo(w io.Writer) (n int64, err error)
 	UnsafeReadFrom(r io.Reader) (int64, error)
+}
 
-	UnsafeToBytes(maxPkPoints ...int) ([]byte, error)
-	UnsafeFromBytes(data []byte, maxPkPoints ...int) error
+type BinaryDumper interface {
+	WriteDump(w io.Writer, maxPkPoints ...int) error
+	ReadDump(r io.Reader, maxPkPoints ...int) error
 }
 
 type SRS Serializable
