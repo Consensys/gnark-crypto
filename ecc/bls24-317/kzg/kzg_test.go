@@ -441,12 +441,15 @@ func TestUnsafeToBytesTruncating(t *testing.T) {
 	assert.NoError(err)
 
 	// marshal the SRS, but explicitly with less points.
-	d, err := srs.UnsafeToBytes(1 << 9)
+	var buf bytes.Buffer
+	err = srs.WriteDump(&buf, 1<<9)
 	assert.NoError(err)
+
+	r := bytes.NewReader(buf.Bytes())
 
 	// unmarshal the SRS
 	var newSRS SRS
-	err = newSRS.UnsafeFromBytes(d)
+	err = newSRS.ReadDump(r)
 	assert.NoError(err)
 
 	// check that the SRS proving key has only 1 << 9 points
@@ -457,7 +460,8 @@ func TestUnsafeToBytesTruncating(t *testing.T) {
 
 	// read even less points.
 	var newSRSPartial SRS
-	err = newSRSPartial.UnsafeFromBytes(d, 1<<8)
+	r = bytes.NewReader(buf.Bytes())
+	err = newSRSPartial.ReadDump(r, 1<<8)
 	assert.NoError(err)
 
 	// check that the SRS proving key has only 1 << 8 points
@@ -662,7 +666,7 @@ func BenchmarkSerializeSRS(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	// now we can benchmark the WriteTo, WriteRawTo and UnsafeToBytes methods
+	// now we can benchmark the WriteTo, WriteRawTo and WriteDump methods
 	b.Run("WriteTo", func(b *testing.B) {
 		b.ResetTimer()
 		var buf bytes.Buffer
@@ -687,17 +691,15 @@ func BenchmarkSerializeSRS(b *testing.B) {
 		}
 	})
 
-	b.Run("UnsafeToBytes", func(b *testing.B) {
+	b.Run("WriteDump", func(b *testing.B) {
 		b.ResetTimer()
-		var d []byte
-		var err error
+		var buf bytes.Buffer
 		for i := 0; i < b.N; i++ {
-			d, err = srs.UnsafeToBytes()
-			if err != nil {
+			buf.Reset()
+			if err := srs.WriteDump(&buf); err != nil {
 				b.Fatal(err)
 			}
 		}
-		_ = d
 	})
 
 }
@@ -711,8 +713,7 @@ func BenchmarkDeserializeSRS(b *testing.B) {
 
 	b.Run("UnsafeReadFrom", func(b *testing.B) {
 		var buf bytes.Buffer
-		_, err := srs.WriteRawTo(&buf)
-		if err != nil {
+		if _, err := srs.WriteRawTo(&buf); err != nil {
 			b.Fatal(err)
 		}
 		b.ResetTimer()
@@ -725,15 +726,17 @@ func BenchmarkDeserializeSRS(b *testing.B) {
 		}
 	})
 
-	b.Run("UnsafeFromBytes", func(b *testing.B) {
-		d, err := srs.UnsafeToBytes()
+	b.Run("ReadDump", func(b *testing.B) {
+		var buf bytes.Buffer
+		err := srs.WriteDump(&buf)
 		if err != nil {
 			b.Fatal(err)
 		}
+		data := buf.Bytes()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			var newSRS SRS
-			if err := newSRS.UnsafeFromBytes(d); err != nil {
+			if err := newSRS.ReadDump(bytes.NewReader(data)); err != nil {
 				b.Fatal(err)
 			}
 		}
