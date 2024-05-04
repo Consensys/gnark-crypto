@@ -20,6 +20,10 @@ func WriteSlice[S ~[]E, E any](w io.Writer, s S) error {
 		return err
 	}
 
+	if len(s) == 0 {
+		return nil
+	}
+
 	data := unsafe.Slice((*byte)(unsafe.Pointer(&s[0])), size*len(s))
 	if _, err := w.Write(data); err != nil {
 		return err
