@@ -325,7 +325,7 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 
 	// if p == a, we double instead
 	if U2.Equal(&p.X) && S2.Equal(&p.Y) {
-		return p.DoubleAssign()
+		return p.DoubleMixed(a)
 	}
 
 	H.Sub(&U2, &p.X)

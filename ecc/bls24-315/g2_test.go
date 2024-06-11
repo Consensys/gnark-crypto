@@ -248,6 +248,22 @@ func TestG2AffineOps(t *testing.T) {
 
 	genScalar := GenFr()
 
+	properties.Property("[BLS24-315] Add should call double when adding the same point", prop.ForAll(
+		func(s fr.Element) bool {
+			var op1, op2 G2Affine
+			var sInt big.Int
+			g := g2GenAff
+			s.BigInt(&sInt)
+			op1.ScalarMultiplication(&g, &sInt)
+
+			op2.Double(&op1)
+			op1.Add(&op1, &op1)
+			return op1.Equal(&op2)
+
+		},
+		GenFr(),
+	))
+
 	properties.Property("[BLS24-315] [2]G = double(G) + G - G", prop.ForAll(
 		func(s fr.Element) bool {
 			var sInt big.Int
@@ -295,7 +311,7 @@ func TestG2AffineOps(t *testing.T) {
 		GenFr(),
 	))
 
-	properties.Property("[BLS24-315] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
+	properties.Property("[BLS24-315] [Jacobian] Add should call double when adding the same point", prop.ForAll(
 		func(a, b fptower.E4) bool {
 			fop1 := fuzzG2Jac(&g2Gen, a)
 			fop2 := fuzzG2Jac(&g2Gen, b)
