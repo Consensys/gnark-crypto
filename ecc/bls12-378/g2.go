@@ -79,34 +79,30 @@ func (p *G2Affine) ScalarMultiplicationBase(s *big.Int) *G2Affine {
 }
 
 // Add adds two point in affine coordinates.
-// This should rarely be used as it is very inefficient compared to Jacobian
 func (p *G2Affine) Add(a, b *G2Affine) *G2Affine {
-	var p1, p2 G2Jac
-	p1.FromAffine(a)
-	p2.FromAffine(b)
-	p1.AddAssign(&p2)
-	p.FromJacobian(&p1)
+	var q G2Jac
+	q.FromAffine(a)
+	q.AddMixed(b)
+	p.FromJacobian(&q)
 	return p
 }
 
 // Double doubles a point in affine coordinates.
-// This should rarely be used as it is very inefficient compared to Jacobian
 func (p *G2Affine) Double(a *G2Affine) *G2Affine {
-	var p1 G2Jac
-	p1.FromAffine(a)
-	p1.Double(&p1)
-	p.FromJacobian(&p1)
+	var q G2Jac
+	q.FromAffine(a)
+	q.DoubleMixed(a)
+	p.FromJacobian(&q)
 	return p
 }
 
 // Sub subs two point in affine coordinates.
-// This should rarely be used as it is very inefficient compared to Jacobian
 func (p *G2Affine) Sub(a, b *G2Affine) *G2Affine {
-	var p1, p2 G2Jac
-	p1.FromAffine(a)
-	p2.FromAffine(b)
-	p1.SubAssign(&p2)
-	p.FromJacobian(&p1)
+	var q G2Jac
+	q.FromAffine(a)
+	b.Y.Neg(&b.Y)
+	q.AddMixed(b)
+	p.FromJacobian(&q)
 	return p
 }
 
@@ -272,6 +268,35 @@ func (p *G2Jac) AddAssign(a *G2Jac) *G2Jac {
 		Sub(&p.Z, &Z1Z1).
 		Sub(&p.Z, &Z2Z2).
 		Mul(&p.Z, &H)
+
+	return p
+}
+
+// DoubleMixed point addition
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-mdbl-2007-bl
+func (p *G2Jac) DoubleMixed(a *G2Affine) *G2Jac {
+	var XX, YY, YYYY, S, M, T fptower.E2
+	XX.Square(&a.X)
+	YY.Square(&a.Y)
+	YYYY.Square(&YY)
+	S.Add(&a.X, &YY).
+		Square(&S).
+		Sub(&S, &XX).
+		Sub(&S, &YYYY).
+		Double(&S)
+	M.Double(&XX).
+		Add(&M, &XX) // -> + a, but a=0 here
+	T.Square(&M).
+		Sub(&T, &S).
+		Sub(&T, &S)
+	p.X.Set(&T)
+	p.Y.Sub(&S, &T).
+		Mul(&p.Y, &M)
+	YYYY.Double(&YYYY).
+		Double(&YYYY).
+		Double(&YYYY)
+	p.Y.Sub(&p.Y, &YYYY)
+	p.Z.Double(&a.Y)
 
 	return p
 }

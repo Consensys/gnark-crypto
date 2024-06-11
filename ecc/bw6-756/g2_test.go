@@ -234,7 +234,23 @@ func TestG2AffineOps(t *testing.T) {
 
 	genScalar := GenFr()
 
-	properties.Property("[BW6-756-381] [-s]G = -[s]G", prop.ForAll(
+	properties.Property("[BW6-756] [2]G = double(G) + G - G", prop.ForAll(
+		func(s fr.Element) bool {
+			var sInt big.Int
+			g := g2GenAff
+			s.BigInt(&sInt)
+			g.ScalarMultiplication(&g, &sInt)
+			var op1, op2 G2Affine
+			op1.ScalarMultiplication(&g, big.NewInt(2))
+			op2.Double(&g)
+			op2.Add(&op2, &g)
+			op2.Sub(&op2, &g)
+			return op1.Equal(&op2)
+		},
+		GenFr(),
+	))
+
+	properties.Property("[BW6-756] [-s]G = -[s]G", prop.ForAll(
 		func(s fr.Element) bool {
 			g := g2GenAff
 			var gj G2Jac

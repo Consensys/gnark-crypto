@@ -282,7 +282,23 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 
 	genScalar := GenFr()
 
-	properties.Property("[{{ toUpper .Name }}-381] [-s]G = -[s]G", prop.ForAll(
+    properties.Property("[{{ toUpper .Name }}] [2]G = double(G) + G - G", prop.ForAll(
+       func(s fr.Element) bool {
+            var sInt big.Int
+            g := {{ toLower .PointName }}GenAff
+            s.BigInt(&sInt)
+            g.ScalarMultiplication(&g, &sInt)
+            var op1, op2 {{ toUpper .PointName }}Affine
+            op1.ScalarMultiplication(&g, big.NewInt(2))
+            op2.Double(&g)
+            op2.Add(&op2, &g)
+            op2.Sub(&op2, &g)
+            return op1.Equal(&op2)
+        },
+        GenFr(),
+     ))
+
+	properties.Property("[{{ toUpper .Name }}] [-s]G = -[s]G", prop.ForAll(
 		func(s fr.Element) bool {
 			g := {{ toLower .PointName }}GenAff
 			var gj {{ toUpper .PointName }}Jac
@@ -646,7 +662,7 @@ func Benchmark{{ $TJacobian }}Equal(b *testing.B) {
 
 	b.Run("not equal", func(b *testing.B) {
 		var aPlus1 {{ $TJacobian }}
-		aPlus1.AddAssign(&{{.PointName}}Gen)	
+		aPlus1.AddAssign(&{{.PointName}}Gen)
 
 		// Check the setup.
 		if a.Equal(&aPlus1) {
