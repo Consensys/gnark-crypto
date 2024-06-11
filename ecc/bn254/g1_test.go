@@ -247,7 +247,39 @@ func TestG1AffineOps(t *testing.T) {
 
 	genScalar := GenFr()
 
-	properties.Property("[BN254-381] [-s]G = -[s]G", prop.ForAll(
+	properties.Property("[BN254] Add should call double when adding the same point", prop.ForAll(
+		func(s fr.Element) bool {
+			var op1, op2 G1Affine
+			var sInt big.Int
+			g := g1GenAff
+			s.BigInt(&sInt)
+			op1.ScalarMultiplication(&g, &sInt)
+
+			op2.Double(&op1)
+			op1.Add(&op1, &op1)
+			return op1.Equal(&op2)
+
+		},
+		GenFr(),
+	))
+
+	properties.Property("[BN254] [2]G = double(G) + G - G", prop.ForAll(
+		func(s fr.Element) bool {
+			var sInt big.Int
+			g := g1GenAff
+			s.BigInt(&sInt)
+			g.ScalarMultiplication(&g, &sInt)
+			var op1, op2 G1Affine
+			op1.ScalarMultiplication(&g, big.NewInt(2))
+			op2.Double(&g)
+			op2.Add(&op2, &g)
+			op2.Sub(&op2, &g)
+			return op1.Equal(&op2)
+		},
+		GenFr(),
+	))
+
+	properties.Property("[BN254] [-s]G = -[s]G", prop.ForAll(
 		func(s fr.Element) bool {
 			g := g1GenAff
 			var gj G1Jac
@@ -278,7 +310,7 @@ func TestG1AffineOps(t *testing.T) {
 		GenFr(),
 	))
 
-	properties.Property("[BN254] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
+	properties.Property("[BN254] [Jacobian] Add should call double when adding the same point", prop.ForAll(
 		func(a, b fp.Element) bool {
 			fop1 := fuzzG1Jac(&g1Gen, a)
 			fop2 := fuzzG1Jac(&g1Gen, b)
@@ -731,6 +763,24 @@ func BenchmarkG1JacExtDouble(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.double(&a)
+	}
+}
+
+func BenchmarkG1AffineAdd(b *testing.B) {
+	var a G1Affine
+	a.Double(&g1GenAff)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Add(&a, &g1GenAff)
+	}
+}
+
+func BenchmarkG1AffineDouble(b *testing.B) {
+	var a G1Affine
+	a.Double(&g1GenAff)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Double(&a)
 	}
 }
 
