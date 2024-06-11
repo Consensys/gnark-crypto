@@ -786,6 +786,24 @@ func BenchmarkG2JacExtDouble(b *testing.B) {
 	}
 }
 
+func BenchmarkG2AffineAdd(b *testing.B) {
+	var a G2Affine
+	a.Double(&g2GenAff)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Add(&a, &g2GenAff)
+	}
+}
+
+func BenchmarkG2AffineDouble(b *testing.B) {
+	var a G2Affine
+	a.Double(&g2GenAff)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Double(&a)
+	}
+}
+
 func fuzzG2Jac(p *G2Jac, f fptower.E4) G2Jac {
 	var res G2Jac
 	res.X.Mul(&p.X, &f).Mul(&res.X, &f)

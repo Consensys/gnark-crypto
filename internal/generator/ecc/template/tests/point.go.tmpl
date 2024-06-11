@@ -870,7 +870,23 @@ func Benchmark{{ toUpper .PointName}}JacExtDouble(b *testing.B) {
 	}
 }
 
+func Benchmark{{ toUpper .PointName}}AffineAdd(b *testing.B) {
+	var a {{ $TAffine }}
+	a.Double(&{{.PointName}}GenAff)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Add(&a, &{{.PointName}}GenAff)
+	}
+}
 
+func Benchmark{{ toUpper .PointName}}AffineDouble(b *testing.B) {
+	var a {{ $TAffine }}
+	a.Double(&{{.PointName}}GenAff)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Double(&a)
+	}
+}
 
 func fuzz{{ $TJacobian }}(p *{{ $TJacobian }}, f {{ .CoordType}}) {{ $TJacobian }} {
 	var res {{ $TJacobian }}
