@@ -79,12 +79,49 @@ func (p *G2Affine) ScalarMultiplicationBase(s *big.Int) *G2Affine {
 }
 
 // Add adds two point in affine coordinates.
+// Jacobian addition with Z1=Z2=1
+// https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-mmadd-2007-bl
 func (p *G2Affine) Add(a, b *G2Affine) *G2Affine {
 	var q G2Jac
-	q.FromAffine(a)
-	q.AddMixed(b)
-	p.FromJacobian(&q)
-	return p
+	// a is infinity, return b
+	if a.IsInfinity() {
+		p.Set(b)
+		return p
+	}
+	// b is infinity, return a
+	if b.IsInfinity() {
+		p.Set(a)
+		return p
+	}
+	if a.X.Equal(&b.X) {
+		// if b == a, we double instead
+		if a.Y.Equal(&b.Y) {
+			q.DoubleMixed(a)
+			return p.FromJacobian(&q)
+		} else {
+			// if b == -a, we return 0
+			return p.setInfinity()
+		}
+	}
+	var H, HH, I, J, r, V fptower.E2
+	H.Sub(&b.X, &a.X)
+	HH.Square(&H)
+	I.Double(&HH).Double(&I)
+	J.Mul(&H, &I)
+	r.Sub(&b.Y, &a.Y)
+	r.Double(&r)
+	V.Mul(&a.X, &I)
+	q.X.Square(&r).
+		Sub(&q.X, &J).
+		Sub(&q.X, &V).
+		Sub(&q.X, &V)
+	q.Y.Sub(&V, &q.X).
+		Mul(&q.Y, &r)
+	J.Mul(&a.Y, &J).Double(&J)
+	q.Y.Sub(&q.Y, &J)
+	q.Z.Double(&H)
+
+	return p.FromJacobian(&q)
 }
 
 // Double doubles a point in affine coordinates.
@@ -98,11 +135,9 @@ func (p *G2Affine) Double(a *G2Affine) *G2Affine {
 
 // Sub subs two point in affine coordinates.
 func (p *G2Affine) Sub(a, b *G2Affine) *G2Affine {
-	var q G2Jac
-	q.FromAffine(a)
-	b.Y.Neg(&b.Y)
-	q.AddMixed(b)
-	p.FromJacobian(&q)
+	var bneg G2Affine
+	bneg.Neg(b)
+	p.Add(a, &bneg)
 	return p
 }
 
