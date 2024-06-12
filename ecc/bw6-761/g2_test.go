@@ -234,6 +234,39 @@ func TestG2AffineOps(t *testing.T) {
 
 	genScalar := GenFr()
 
+	properties.Property("[BW6-761] Add(P,-P) should return the point at infinity", prop.ForAll(
+		func(s fr.Element) bool {
+			var op1, op2 G2Affine
+			var sInt big.Int
+			g := g2GenAff
+			s.BigInt(&sInt)
+			op1.ScalarMultiplication(&g, &sInt)
+			op2.Neg(&op1)
+
+			op1.Add(&op1, &op2)
+			return op1.IsInfinity()
+
+		},
+		GenFr(),
+	))
+
+	properties.Property("[BW6-761] Add(P,0) and Add(0,P) should return P", prop.ForAll(
+		func(s fr.Element) bool {
+			var op1, op2 G2Affine
+			var sInt big.Int
+			g := g2GenAff
+			s.BigInt(&sInt)
+			op1.ScalarMultiplication(&g, &sInt)
+			op2.setInfinity()
+
+			op1.Add(&op1, &op2)
+			op2.Add(&op2, &op1)
+			return op1.Equal(&op2)
+
+		},
+		GenFr(),
+	))
+
 	properties.Property("[BW6-761] Add should call double when adding the same point", prop.ForAll(
 		func(s fr.Element) bool {
 			var op1, op2 G2Affine
