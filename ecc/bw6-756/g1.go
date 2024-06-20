@@ -65,19 +65,6 @@ func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
 	return p
 }
 
-// ScalarMultiplicationAffine computes and returns p = a ⋅ s
-// Takes an affine point and returns a Jacobian point (useful for KZG)
-func (p *G1Jac) ScalarMultiplicationAffine(a *G1Affine, s *big.Int) *G1Jac {
-	p.FromAffine(a)
-	p.mulGLV(p, s)
-	return p
-}
-
-// ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
-func (p *G1Jac) ScalarMultiplicationBase(s *big.Int) *G1Jac {
-	return p.mulGLV(&g1Gen, s)
-}
-
 // ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
 func (p *G1Affine) ScalarMultiplicationBase(s *big.Int) *G1Affine {
 	var _p G1Jac
@@ -439,6 +426,11 @@ func (p *G1Jac) ScalarMultiplication(a *G1Jac, s *big.Int) *G1Jac {
 	return p.mulGLV(a, s)
 }
 
+// ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
+func (p *G1Jac) ScalarMultiplicationBase(s *big.Int) *G1Jac {
+	return p.mulGLV(&g1Gen, s)
+}
+
 // String returns canonical representation of the point in affine coordinates
 func (p *G1Jac) String() string {
 	_p := G1Affine{}
@@ -649,14 +641,13 @@ func (p *G1Jac) ClearCofactor(a *G1Jac) *G1Jac {
 	return p
 }
 
-// JointScalarMultiplicationBase computes [s1]g+[s2]a using Straus-Shamir technique
-// where g is the prime subgroup generator
-func (p *G1Jac) JointScalarMultiplicationBase(a *G1Affine, s1, s2 *big.Int) *G1Jac {
+// JointScalarMultiplication computes [s1]a1+[s2]a2 using Straus-Shamir technique
+func (p *G1Jac) JointScalarMultiplication(a1, a2 *G1Affine, s1, s2 *big.Int) *G1Jac {
 
 	var res, p1, p2 G1Jac
 	res.Set(&g1Infinity)
-	p1.Set(&g1Gen)
-	p2.FromAffine(a)
+	p1.FromAffine(a1)
+	p2.FromAffine(a2)
 
 	var table [15]G1Jac
 
@@ -718,6 +709,12 @@ func (p *G1Jac) JointScalarMultiplicationBase(a *G1Affine, s1, s2 *big.Int) *G1J
 	p.Set(&res)
 	return p
 
+}
+
+// JointScalarMultiplicationBase computes [s1]g+[s2]a using Straus-Shamir technique
+// where g is the prime subgroup generator
+func (p *G1Jac) JointScalarMultiplicationBase(a *G1Affine, s1, s2 *big.Int) *G1Jac {
+	return p.JointScalarMultiplication(&g1GenAff, a, s1, s2)
 }
 
 // -------------------------------------------------------------------------------------------------
