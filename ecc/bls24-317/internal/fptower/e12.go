@@ -56,7 +56,7 @@ func (z *E12) SetOne() *E12 {
 	return z
 }
 
-// SetRandom set z to a random elmt
+// SetRandom sets z to a random elmt
 func (z *E12) SetRandom() (*E12, error) {
 	if _, err := z.C0.SetRandom(); err != nil {
 		return nil, err
@@ -96,7 +96,7 @@ func (z *E12) Neg(x *E12) *E12 {
 	return z
 }
 
-// Sub two elements of E12
+// Sub subtracts two elements of E12
 func (z *E12) Sub(x, y *E12) *E12 {
 	z.C0.Sub(&x.C0, &y.C0)
 	z.C1.Sub(&x.C1, &y.C1)
@@ -197,8 +197,8 @@ func (z *E12) Inverse(x *E12) *E12 {
 	return z
 }
 
-// BatchInvertE12 returns a new slice with every element inverted.
-// Uses Montgomery batch inversion trick
+// BatchInvertE12 returns a new slice with every element in a inverted.
+// It uses Montgomery batch inversion trick.
 //
 // if a[i] == 0, returns result[i] = a[i]
 func BatchInvertE12(a []E12) []E12 {
@@ -284,7 +284,7 @@ func (z *E12) InverseUnitary(x *E12) *E12 {
 	return z.Conjugate(x)
 }
 
-// Conjugate set z to x conjugated and return z
+// Conjugate sets z to x conjugated and returns z
 func (z *E12) Conjugate(x *E12) *E12 {
 	z.C0.Conjugate(&x.C0)
 	z.C1.Conjugate(&x.C1).Neg(&z.C1)

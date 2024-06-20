@@ -107,7 +107,7 @@ func (z *E2) Add(x, y *E2) *E2 {
 	return z
 }
 
-// Sub two elements of E2
+// Sub subtracts two elements of E2
 func (z *E2) Sub(x, y *E2) *E2 {
 	subE2(z, x, y)
 	return z
@@ -228,6 +228,8 @@ func (z *E2) Sqrt(x *E2) *E2 {
 	return z
 }
 
+// Select is conditional move.
+// If cond = 0, it sets z to caseZ and returns it. otherwise caseNz.
 func (z *E2) Select(cond int, caseZ *E2, caseNz *E2) *E2 {
 	//Might be able to save a nanosecond or two by an aggregate implementation
 
@@ -237,6 +239,7 @@ func (z *E2) Select(cond int, caseZ *E2, caseNz *E2) *E2 {
 	return z
 }
 
+// Div divides an element in E2 by an element in E2
 func (z *E2) Div(x *E2, y *E2) *E2 {
 	var r E2
 	r.Inverse(y).Mul(x, &r)

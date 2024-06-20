@@ -102,7 +102,7 @@ func (z *E2) Add(x, y *E2) *E2 {
 	return z
 }
 
-// Sub two elements of E2
+// Sub subtracts two elements of E2
 func (z *E2) Sub(x, y *E2) *E2 {
 	subE2(z, x, y)
 	return z
@@ -143,7 +143,7 @@ func (z *E2) Conjugate(x *E2) *E2 {
 	return z
 }
 
-// Halve sets z = z / 2
+// Halve sets z to z / 2
 func (z *E2) Halve()  {
 	z.A0.Halve()
 	z.A1.Halve()
@@ -202,7 +202,7 @@ func (z *E2) Exp(x E2, k *big.Int) *E2 {
 
 	var sqrtExp1, sqrtExp2 big.Int
 
-	// Sqrt sets z to the square root of and returns z
+	// Sqrt sets z to the square root of x and returns z
 	// The function does not test whether the square root
 	// exists or not, it's up to the caller to call
 	// Legendre beforehand.
@@ -273,8 +273,8 @@ func (z *E2) Exp(x E2, k *big.Int) *E2 {
 	}
 {{end}}
 
-// BatchInvertE2 returns a new slice with every element inverted.
-// Uses Montgomery batch inversion trick
+// BatchInvertE2 returns a new slice with every element in a inverted.
+// It uses Montgomery batch inversion trick.
 //
 // if a[i] == 0, returns result[i] = a[i]
 func BatchInvertE2(a []E2) []E2 {

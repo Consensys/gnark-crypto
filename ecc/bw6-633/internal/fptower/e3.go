@@ -68,7 +68,7 @@ func (z *E3) SetOne() *E3 {
 	return z
 }
 
-// SetRandom set z to a random elmt
+// SetRandom sets z to a random elmt
 func (z *E3) SetRandom() (*E3, error) {
 	if _, err := z.A0.SetRandom(); err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func (z *E3) Add(x, y *E3) *E3 {
 	return z
 }
 
-// Sub two elements of E3
+// Sub subtracts two elements of E3
 func (z *E3) Sub(x, y *E3) *E3 {
 	z.A0.Sub(&x.A0, &y.A0)
 	z.A1.Sub(&x.A1, &y.A1)
@@ -320,8 +320,8 @@ func (z *E3) Inverse(x *E3) *E3 {
 	return z
 }
 
-// BatchInvertE3 returns a new slice with every element inverted.
-// Uses Montgomery batch inversion trick
+// BatchInvertE3 returns a new slice with every element in a inverted.
+// It uses Montgomery batch inversion trick.
 //
 // if a[i] == 0, returns result[i] = a[i]
 func BatchInvertE3(a []E3) []E3 {
