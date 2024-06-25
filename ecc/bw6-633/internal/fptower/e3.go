@@ -231,7 +231,8 @@ func (z *E3) MulBy1(c1 *fp.Element) *E3 {
 
 // Mul sets z to the E3-product of x,y, returns z
 func (z *E3) Mul(x, y *E3) *E3 {
-	// Algorithm 13 from https://eprint.iacr.org/2010/354.pdf
+	// Karatsuba method for cubic extensions
+	// https://eprint.iacr.org/2006/471.pdf (section 4)
 	var t0, t1, t2, c0, c1, c2, tmp fp.Element
 	t0.Mul(&x.A0, &y.A0)
 	t1.Mul(&x.A1, &y.A1)
