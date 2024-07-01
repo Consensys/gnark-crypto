@@ -1,7 +1,6 @@
 package bandersnatch
 
 import (
-	"math"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc"
@@ -30,14 +29,13 @@ func (p *PointProj) phi(p1 *PointProj) *PointProj {
 	return p
 }
 
-// ScalarMultiplication scalar multiplication (GLV) of a point
+// scalarMulGLV is the GLV scalar multiplication of a point
 // p1 in projective coordinates with a scalar in big.Int
 func (p *PointProj) scalarMulGLV(p1 *PointProj, scalar *big.Int) *PointProj {
 
 	initOnce.Do(initCurveParams)
 
 	var table [15]PointProj
-	var zero big.Int
 	var res PointProj
 	var k1, k2 fr.Element
 
@@ -50,11 +48,11 @@ func (p *PointProj) scalarMulGLV(p1 *PointProj, scalar *big.Int) *PointProj {
 	// split the scalar, modifies +-p1, phi(p1) accordingly
 	k := ecc.SplitScalar(scalar, &curveParams.glvBasis)
 
-	if k[0].Cmp(&zero) == -1 {
+	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])
 		table[0].Neg(&table[0])
 	}
-	if k[1].Cmp(&zero) == -1 {
+	if k[1].Sign() == -1 {
 		k[1].Neg(&k[1])
 		table[3].Neg(&table[3])
 	}
@@ -62,26 +60,33 @@ func (p *PointProj) scalarMulGLV(p1 *PointProj, scalar *big.Int) *PointProj {
 	// precompute table (2 bits sliding window)
 	// table[b3b2b1b0-1] = b3b2*phi(p1) + b1b0*p1 if b3b2b1b0 != 0
 	table[1].Double(&table[0])
-	table[2].Set(&table[1]).Add(&table[2], &table[0])
-	table[4].Set(&table[3]).Add(&table[4], &table[0])
-	table[5].Set(&table[3]).Add(&table[5], &table[1])
-	table[6].Set(&table[3]).Add(&table[6], &table[2])
+	table[2].Add(&table[1], &table[0])
+	table[4].Add(&table[3], &table[0])
+	table[5].Add(&table[3], &table[1])
+	table[6].Add(&table[3], &table[2])
 	table[7].Double(&table[3])
-	table[8].Set(&table[7]).Add(&table[8], &table[0])
-	table[9].Set(&table[7]).Add(&table[9], &table[1])
-	table[10].Set(&table[7]).Add(&table[10], &table[2])
-	table[11].Set(&table[7]).Add(&table[11], &table[3])
-	table[12].Set(&table[11]).Add(&table[12], &table[0])
-	table[13].Set(&table[11]).Add(&table[13], &table[1])
-	table[14].Set(&table[11]).Add(&table[14], &table[2])
+	table[8].Add(&table[7], &table[0])
+	table[9].Add(&table[7], &table[1])
+	table[10].Add(&table[7], &table[2])
+	table[11].Add(&table[7], &table[3])
+	table[12].Add(&table[11], &table[0])
+	table[13].Add(&table[11], &table[1])
+	table[14].Add(&table[11], &table[2])
 
-	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 bits long max
+	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 or len(r)/2+1 bits long max
+	// this is because we use a probabilistic scalar decomposition that replaces a division by a right-shift
 	k1 = k1.SetBigInt(&k[0]).Bits()
 	k2 = k2.SetBigInt(&k[1]).Bits()
 
-	// loop starts from len(k1)/2 due to the bounds
-	// fr.Limbs == Order.limbs
-	for i := int(math.Ceil(fr.Limbs/2. - 1)); i >= 0; i-- {
+	// we don't target constant-timeness so we check first if we increase the bounds or not
+	maxBit := k1.BitLen()
+	if k2.BitLen() > maxBit {
+		maxBit = k2.BitLen()
+	}
+	hiWordIndex := (maxBit - 1) / 64
+
+	// loop starts from len(k1)/2 or len(k1)/2+1 due to the bounds
+	for i := hiWordIndex; i >= 0; i-- {
 		mask := uint64(3) << 62
 		for j := 0; j < 32; j++ {
 			res.Double(&res).Double(&res)
@@ -121,13 +126,13 @@ func (p *PointExtended) phi(p1 *PointExtended) *PointExtended {
 	return p
 }
 
-// ScalarMultiplication scalar multiplication (GLV) of a point
+// scalarMulGLV is the GLV scalar multiplication of a point
 // p1 in projective coordinates with a scalar in big.Int
 func (p *PointExtended) scalarMulGLV(p1 *PointExtended, scalar *big.Int) *PointExtended {
+
 	initOnce.Do(initCurveParams)
 
 	var table [15]PointExtended
-	var zero big.Int
 	var res PointExtended
 	var k1, k2 fr.Element
 
@@ -140,11 +145,11 @@ func (p *PointExtended) scalarMulGLV(p1 *PointExtended, scalar *big.Int) *PointE
 	// split the scalar, modifies +-p1, phi(p1) accordingly
 	k := ecc.SplitScalar(scalar, &curveParams.glvBasis)
 
-	if k[0].Cmp(&zero) == -1 {
+	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])
 		table[0].Neg(&table[0])
 	}
-	if k[1].Cmp(&zero) == -1 {
+	if k[1].Sign() == -1 {
 		k[1].Neg(&k[1])
 		table[3].Neg(&table[3])
 	}
@@ -152,26 +157,33 @@ func (p *PointExtended) scalarMulGLV(p1 *PointExtended, scalar *big.Int) *PointE
 	// precompute table (2 bits sliding window)
 	// table[b3b2b1b0-1] = b3b2*phi(p1) + b1b0*p1 if b3b2b1b0 != 0
 	table[1].Double(&table[0])
-	table[2].Set(&table[1]).Add(&table[2], &table[0])
-	table[4].Set(&table[3]).Add(&table[4], &table[0])
-	table[5].Set(&table[3]).Add(&table[5], &table[1])
-	table[6].Set(&table[3]).Add(&table[6], &table[2])
+	table[2].Add(&table[1], &table[0])
+	table[4].Add(&table[3], &table[0])
+	table[5].Add(&table[3], &table[1])
+	table[6].Add(&table[3], &table[2])
 	table[7].Double(&table[3])
-	table[8].Set(&table[7]).Add(&table[8], &table[0])
-	table[9].Set(&table[7]).Add(&table[9], &table[1])
-	table[10].Set(&table[7]).Add(&table[10], &table[2])
-	table[11].Set(&table[7]).Add(&table[11], &table[3])
-	table[12].Set(&table[11]).Add(&table[12], &table[0])
-	table[13].Set(&table[11]).Add(&table[13], &table[1])
-	table[14].Set(&table[11]).Add(&table[14], &table[2])
+	table[8].Add(&table[7], &table[0])
+	table[9].Add(&table[7], &table[1])
+	table[10].Add(&table[7], &table[2])
+	table[11].Add(&table[7], &table[3])
+	table[12].Add(&table[11], &table[0])
+	table[13].Add(&table[11], &table[1])
+	table[14].Add(&table[11], &table[2])
 
-	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 bits long max
+	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 or len(r)/2+1 bits long max
+	// this is because we use a probabilistic scalar decomposition that replaces a division by a right-shift
 	k1 = k1.SetBigInt(&k[0]).Bits()
 	k2 = k2.SetBigInt(&k[1]).Bits()
 
-	// loop starts from len(k1)/2 due to the bounds
-	// fr.Limbs == Order.limbs
-	for i := int(math.Ceil(fr.Limbs/2. - 1)); i >= 0; i-- {
+	// we don't target constant-timeness so we check first if we increase the bounds or not
+	maxBit := k1.BitLen()
+	if k2.BitLen() > maxBit {
+		maxBit = k2.BitLen()
+	}
+	hiWordIndex := (maxBit - 1) / 64
+
+	// loop starts from len(k1)/2 or len(k1)/2+1 due to the bounds
+	for i := hiWordIndex; i >= 0; i-- {
 		mask := uint64(3) << 62
 		for j := 0; j < 32; j++ {
 			res.Double(&res).Double(&res)

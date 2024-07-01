@@ -20,6 +20,7 @@ import (
 	"crypto/subtle"
 	"io"
 	"math/big"
+	"math/bits"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 )
@@ -418,6 +419,37 @@ func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
 	return p
 }
 
+// scalarMulWindowed scalar multiplication of a point
+// p1 in projective coordinates with a scalar in big.Int
+// using the windowed double-and-add method.
+func (p *PointProj) scalarMulWindowed(p1 *PointProj, scalar *big.Int) *PointProj {
+	var _scalar big.Int
+	_scalar.Set(scalar)
+	p.Set(p1)
+	if _scalar.Sign() == -1 {
+		_scalar.Neg(&_scalar)
+		p.Neg(p)
+	}
+	var resProj PointProj
+	resProj.setInfinity()
+	const wordSize = bits.UintSize
+	sWords := _scalar.Bits()
+
+	for i := len(sWords) - 1; i >= 0; i-- {
+		ithWord := sWords[i]
+		for k := 0; k < wordSize; k++ {
+			resProj.Double(&resProj)
+			kthBit := (ithWord >> (wordSize - 1 - k)) & 1
+			if kthBit == 1 {
+				resProj.Add(&resProj, p)
+			}
+		}
+	}
+
+	p.Set(&resProj)
+	return p
+}
+
 // ScalarMultiplication scalar multiplication of a point
 // p1 in projective coordinates with a scalar in big.Int
 func (p *PointProj) ScalarMultiplication(p1 *PointProj, scalar *big.Int) *PointProj {
@@ -600,6 +632,37 @@ func (p *PointExtended) setInfinity() *PointExtended {
 	p.Y.SetOne()
 	p.Z.SetOne()
 	p.T.SetZero()
+	return p
+}
+
+// scalarMulWindowed scalar multiplication of a point
+// p1 in extended coordinates with a scalar in big.Int
+// using the windowed double-and-add method.
+func (p *PointExtended) scalarMulWindowed(p1 *PointExtended, scalar *big.Int) *PointExtended {
+	var _scalar big.Int
+	_scalar.Set(scalar)
+	p.Set(p1)
+	if _scalar.Sign() == -1 {
+		_scalar.Neg(&_scalar)
+		p.Neg(p)
+	}
+	var resExtended PointExtended
+	resExtended.setInfinity()
+	const wordSize = bits.UintSize
+	sWords := _scalar.Bits()
+
+	for i := len(sWords) - 1; i >= 0; i-- {
+		ithWord := sWords[i]
+		for k := 0; k < wordSize; k++ {
+			resExtended.Double(&resExtended)
+			kthBit := (ithWord >> (wordSize - 1 - k)) & 1
+			if kthBit == 1 {
+				resExtended.Add(&resExtended, p)
+			}
+		}
+	}
+
+	p.Set(&resExtended)
 	return p
 }
 
