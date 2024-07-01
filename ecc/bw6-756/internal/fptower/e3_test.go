@@ -112,16 +112,6 @@ func TestE3ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BW756] Having the receiver as operand (Conjugate) should output the same result", prop.ForAll(
-		func(a *E3) bool {
-			var b E3
-			b.Conjugate(a)
-			a.Conjugate(a)
-			return a.Equal(&b)
-		},
-		genA,
-	))
-
 	properties.Property("[BW756] Having the receiver as operand (mul by element) should output the same result", prop.ForAll(
 		func(a *E3, b fp.Element) bool {
 			var c E3
@@ -248,20 +238,6 @@ func TestE3Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BW756] a + pi(a), a-pi(a) should be real", prop.ForAll(
-		func(a *E3) bool {
-			var b, c, d E3
-			var e, f fp.Element
-			b.Conjugate(a)
-			c.Add(a, &b)
-			d.Sub(a, &b)
-			e.Double(&a.A0)
-			f.Double(&a.A1)
-			return c.A1.IsZero() && d.A0.IsZero() && e.Equal(&c.A0) && f.Equal(&d.A1)
-		},
-		genA,
-	))
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -333,14 +309,5 @@ func BenchmarkE3MulNonRes(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.MulByNonResidue(&a)
-	}
-}
-
-func BenchmarkE3Conjugate(b *testing.B) {
-	var a E3
-	_, _ = a.SetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.Conjugate(&a)
 	}
 }
