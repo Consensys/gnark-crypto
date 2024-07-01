@@ -18,12 +18,10 @@ package pedersen
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
-	"fmt"
+	"errors"
 	"github.com/consensys/gnark-crypto/ecc"
 	curve "github.com/consensys/gnark-crypto/ecc/bls24-317"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
-	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"io"
 	"math/big"
 )
@@ -45,18 +43,23 @@ func randomFrSizedBytes() ([]byte, error) {
 	return res, err
 }
 
-func randomOnG2() (curve.G2Affine, error) { // TODO: Add to G2.go?
-	if gBytes, err := randomFrSizedBytes(); err != nil {
-		return curve.G2Affine{}, err
-	} else {
-		return curve.HashToG2(gBytes, []byte("random on g2"))
+type SetupOption func(affine *curve.G2Affine)
+
+func WithG2Point(g2 curve.G2Affine) func(*curve.G2Affine) {
+	return func(_g2 *curve.G2Affine) {
+		*_g2 = g2
 	}
 }
 
-func Setup(bases ...[]curve.G1Affine) (pk []ProvingKey, vk VerifyingKey, err error) {
+func Setup(bases [][]curve.G1Affine, options ...SetupOption) (pk []ProvingKey, vk VerifyingKey, err error) {
 
-	if vk.G, err = randomOnG2(); err != nil {
-		return
+	for _, o := range options {
+		o(&vk.G)
+	}
+	if len(options) == 0 {
+		if vk.G, err = curve.RandomOnG2(); err != nil {
+			return
+		}
 	}
 
 	var modMinusOne big.Int
@@ -85,7 +88,7 @@ func Setup(bases ...[]curve.G1Affine) (pk []ProvingKey, vk VerifyingKey, err err
 
 func (pk *ProvingKey) ProveKnowledge(values []fr.Element) (pok curve.G1Affine, err error) {
 	if len(values) != len(pk.Basis) {
-		err = fmt.Errorf("must have as many values as basis elements")
+		err = errors.New("must have as many values as basis elements")
 		return
 	}
 
@@ -102,7 +105,7 @@ func (pk *ProvingKey) ProveKnowledge(values []fr.Element) (pok curve.G1Affine, e
 func (pk *ProvingKey) Commit(values []fr.Element) (commitment curve.G1Affine, err error) {
 
 	if len(values) != len(pk.Basis) {
-		err = fmt.Errorf("must have as many values as basis elements")
+		err = errors.New("must have as many values as basis elements")
 		return
 	}
 
@@ -117,14 +120,16 @@ func (pk *ProvingKey) Commit(values []fr.Element) (commitment curve.G1Affine, er
 }
 
 // BatchProve generates a single proof of knowledge for multiple commitments for faster verification
-func BatchProve(pk []ProvingKey, values [][]fr.Element, fiatshamirSeeds ...[]byte) (pok curve.G1Affine, err error) {
+// The result of this can be verified as a single proof by vk.Verify
+func BatchProve(pk []ProvingKey, values [][]fr.Element, challenge fr.Element) (pok curve.G1Affine, err error) {
 	if len(pk) != len(values) {
-		err = fmt.Errorf("must have as many value vectors as bases")
+		err = errors.New("must have as many value vectors as bases")
 		return
 	}
 
 	if len(pk) == 1 { // no need to fold
-		return pk[0].ProveKnowledge(values[0])
+		pok, err = pk[0].ProveKnowledge(values[0])
+		return
 	} else if len(pk) == 0 { // nothing to do at all
 		return
 	}
@@ -132,15 +137,10 @@ func BatchProve(pk []ProvingKey, values [][]fr.Element, fiatshamirSeeds ...[]byt
 	offset := 0
 	for i := range pk {
 		if len(values[i]) != len(pk[i].Basis) {
-			err = fmt.Errorf("must have as many values as basis elements")
+			err = errors.New("must have as many values as basis elements")
 			return
 		}
 		offset += len(values[i])
-	}
-
-	var r fr.Element
-	if r, err = getChallenge(fiatshamirSeeds); err != nil {
-		return
 	}
 
 	// prepare one amalgamated MSM
@@ -151,7 +151,7 @@ func BatchProve(pk []ProvingKey, values [][]fr.Element, fiatshamirSeeds ...[]byt
 	copy(scaledValues, values[0])
 
 	offset = len(values[0])
-	rI := r
+	rI := challenge
 	for i := 1; i < len(pk); i++ {
 		copy(basis[offset:], pk[i].BasisExpSigma)
 		for j := range pk[i].Basis {
@@ -159,7 +159,7 @@ func BatchProve(pk []ProvingKey, values [][]fr.Element, fiatshamirSeeds ...[]byt
 			offset++
 		}
 		if i+1 < len(pk) {
-			rI.Mul(&rI, &r)
+			rI.Mul(&rI, &challenge)
 		}
 	}
 
@@ -174,7 +174,7 @@ func BatchProve(pk []ProvingKey, values [][]fr.Element, fiatshamirSeeds ...[]byt
 }
 
 // FoldCommitments amalgamates multiple commitments into one, which can be verifier against a folded proof obtained from BatchProve
-func FoldCommitments(commitments []curve.G1Affine, fiatshamirSeeds ...[]byte) (commitment curve.G1Affine, err error) {
+func FoldCommitments(commitments []curve.G1Affine, challenge fr.Element) (commitment curve.G1Affine, err error) {
 
 	if len(commitments) == 1 { // no need to fold
 		commitment = commitments[0]
@@ -185,16 +185,14 @@ func FoldCommitments(commitments []curve.G1Affine, fiatshamirSeeds ...[]byte) (c
 
 	r := make([]fr.Element, len(commitments))
 	r[0].SetOne()
-	if r[1], err = getChallenge(fiatshamirSeeds); err != nil {
-		return
-	}
+	r[1] = challenge
 	for i := 2; i < len(commitments); i++ {
 		r[i].Mul(&r[i-1], &r[1])
 	}
 
 	for i := range commitments { // TODO @Tabaie Remove if MSM does subgroup check for you
 		if !commitments[i].IsInSubGroup() {
-			err = fmt.Errorf("subgroup check failed")
+			err = errors.New("subgroup check failed")
 			return
 		}
 	}
@@ -212,34 +210,59 @@ func FoldCommitments(commitments []curve.G1Affine, fiatshamirSeeds ...[]byte) (c
 func (vk *VerifyingKey) Verify(commitment curve.G1Affine, knowledgeProof curve.G1Affine) error {
 
 	if !commitment.IsInSubGroup() || !knowledgeProof.IsInSubGroup() {
-		return fmt.Errorf("subgroup check failed")
+		return errors.New("subgroup check failed")
 	}
 
 	if isOne, err := curve.PairingCheck([]curve.G1Affine{commitment, knowledgeProof}, []curve.G2Affine{vk.G, vk.GRootSigmaNeg}); err != nil {
 		return err
 	} else if !isOne {
-		return fmt.Errorf("proof rejected")
+		return errors.New("proof rejected")
 	}
 	return nil
 }
 
-func getChallenge(fiatshamirSeeds [][]byte) (r fr.Element, err error) {
-	// incorporate user-provided seeds into the transcript
-	t := fiatshamir.NewTranscript(sha256.New(), "r")
-	for i := range fiatshamirSeeds {
-		if err = t.Bind("r", fiatshamirSeeds[i]); err != nil {
-			return
+// BatchVerify verifies n separately generated proofs of knowledge from different setup ceremonies, using n+1 pairings rather than 2n.
+func BatchVerify(vk []VerifyingKey, commitments []curve.G1Affine, pok []curve.G1Affine, challenge fr.Element) error {
+	if len(commitments) != len(vk) || len(pok) != len(vk) {
+		return errors.New("length mismatch")
+	}
+	for i := range pok {
+		if !pok[i].IsInSubGroup() || !commitments[i].IsInSubGroup() {
+			return errors.New("subgroup check failed")
+		}
+		if i != 0 && vk[i].G != vk[0].G {
+			return errors.New("parameter mismatch: G2 element")
 		}
 	}
 
-	// obtain the challenge
-	var rBytes []byte
-
-	if rBytes, err = t.ComputeChallenge("r"); err != nil {
-		return
+	pairingG1 := make([]curve.G1Affine, len(vk)+1)
+	pairingG2 := make([]curve.G2Affine, len(vk)+1)
+	r := challenge
+	pairingG1[0] = pok[0]
+	var rI big.Int
+	for i := range vk {
+		pairingG2[i] = vk[i].GRootSigmaNeg
+		if i != 0 {
+			r.BigInt(&rI)
+			pairingG1[i].ScalarMultiplication(&pok[i], &rI)
+			if i+1 != len(vk) {
+				r.Mul(&r, &challenge)
+			}
+		}
 	}
-	r.SetBytes(rBytes) // TODO @Tabaie Plonk challenge generation done the same way; replace both with hash to fr?
-	return
+	if commitment, err := FoldCommitments(commitments, challenge); err != nil {
+		return err
+	} else {
+		pairingG1[len(vk)] = commitment
+	}
+	pairingG2[len(vk)] = vk[0].G
+
+	if isOne, err := curve.PairingCheck(pairingG1, pairingG2); err != nil {
+		return err
+	} else if !isOne {
+		return errors.New("proof rejected")
+	}
+	return nil
 }
 
 // Marshal
@@ -272,8 +295,8 @@ func (pk *ProvingKey) ReadFrom(r io.Reader) (int64, error) {
 		return dec.BytesRead(), err
 	}
 
-	if cL, pL := len(pk.Basis), len(pk.BasisExpSigma); cL != pL {
-		return dec.BytesRead(), fmt.Errorf("commitment basis size (%d) doesn't match proof basis size (%d)", cL, pL)
+	if len(pk.Basis) != len(pk.BasisExpSigma) {
+		return dec.BytesRead(), errors.New("commitment/proof length mismatch")
 	}
 
 	return dec.BytesRead(), nil
