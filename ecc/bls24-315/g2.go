@@ -447,6 +447,13 @@ func (p *G2Jac) ScalarMultiplication(q *G2Jac, s *big.Int) *G2Jac {
 	return p.mulGLV(q, s)
 }
 
+// ScalarMultiplicationBase computes and returns p = [s]g
+// where g is the prime subgroup generator.
+func (p *G2Jac) ScalarMultiplicationBase(s *big.Int) *G2Jac {
+	return p.mulGLV(&g2Gen, s)
+
+}
+
 // String converts p to affine coordinates and returns its string representation E(x,y) or "O" if it is infinity.
 func (p *G2Jac) String() string {
 	_p := G2Affine{}
