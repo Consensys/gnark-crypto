@@ -25,8 +25,8 @@ import (
 	bw6756 "github.com/consensys/gnark-crypto/ecc/bw6-756"
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr/fft"
-	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr/kzg"
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr/permutation"
+	"github.com/consensys/gnark-crypto/ecc/bw6-756/kzg"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 
@@ -145,7 +145,7 @@ func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, 
 		comms[nbRows+i] = new(kzg.Digest)
 		comms[nbRows+i].Set(&proof.ts[i])
 	}
-	lambda, err := deriveRandomness(&fs, "lambda", comms...)
+	lambda, err := deriveRandomness(fs, "lambda", comms...)
 	if err != nil {
 		return proof, err
 	}
@@ -197,7 +197,7 @@ func VerifyLookupTables(vk kzg.VerifyingKey, proof ProofLookupTables) error {
 		comms[i] = &proof.fs[i]
 		comms[i+nbRows] = &proof.ts[i]
 	}
-	lambda, err := deriveRandomness(&fs, "lambda", comms...)
+	lambda, err := deriveRandomness(fs, "lambda", comms...)
 	if err != nil {
 		return err
 	}

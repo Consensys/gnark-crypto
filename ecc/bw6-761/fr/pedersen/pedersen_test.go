@@ -20,7 +20,7 @@ import (
 	"fmt"
 	curve "github.com/consensys/gnark-crypto/ecc/bw6-761"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
-	"github.com/consensys/gnark-crypto/utils"
+	"github.com/consensys/gnark-crypto/utils/testutils"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -166,20 +166,20 @@ func TestCommitFiveElements(t *testing.T) {
 
 func TestMarshal(t *testing.T) {
 	var pk ProvingKey
-	pk.basisExpSigma = randomG1Slice(t, 5)
-	pk.basis = randomG1Slice(t, 5)
+	pk.BasisExpSigma = randomG1Slice(t, 5)
+	pk.Basis = randomG1Slice(t, 5)
 
 	var (
 		vk  VerifyingKey
 		err error
 	)
-	vk.g, err = randomOnG2()
+	vk.G, err = randomOnG2()
 	assert.NoError(t, err)
-	vk.gRootSigmaNeg, err = randomOnG2()
+	vk.GRootSigmaNeg, err = randomOnG2()
 	assert.NoError(t, err)
 
-	t.Run("ProvingKey -> Bytes -> ProvingKey must remain identical.", utils.SerializationRoundTrip(&pk))
-	t.Run("ProvingKey -> Bytes (raw) -> ProvingKey must remain identical.", utils.SerializationRoundTripRaw(&pk))
-	t.Run("VerifyingKey -> Bytes -> VerifyingKey must remain identical.", utils.SerializationRoundTrip(&vk))
-	t.Run("VerifyingKey -> Bytes (raw) -> ProvingKey must remain identical.", utils.SerializationRoundTripRaw(&vk))
+	t.Run("ProvingKey -> Bytes -> ProvingKey must remain identical.", testutils.SerializationRoundTrip(&pk))
+	t.Run("ProvingKey -> Bytes (raw) -> ProvingKey must remain identical.", testutils.SerializationRoundTripRaw(&pk))
+	t.Run("VerifyingKey -> Bytes -> VerifyingKey must remain identical.", testutils.SerializationRoundTrip(&vk))
+	t.Run("VerifyingKey -> Bytes (raw) -> ProvingKey must remain identical.", testutils.SerializationRoundTripRaw(&vk))
 }

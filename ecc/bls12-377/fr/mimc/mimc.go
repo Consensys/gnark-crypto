@@ -41,8 +41,9 @@ var (
 // digest represents the partial evaluation of the checksum
 // along with the params of the mimc function
 type digest struct {
-	h    fr.Element
-	data []fr.Element // data to hash
+	h         fr.Element
+	data      []fr.Element // data to hash
+	byteOrder fr.ByteOrder
 }
 
 // GetConstants exposed to be used in gnark
@@ -56,15 +57,17 @@ func GetConstants() []big.Int {
 }
 
 // NewMiMC returns a MiMCImpl object, pure-go reference implementation
-func NewMiMC() hash.Hash {
+func NewMiMC(opts ...Option) hash.Hash {
 	d := new(digest)
 	d.Reset()
+	cfg := mimcOptions(opts...)
+	d.byteOrder = cfg.byteOrder
 	return d
 }
 
 // Reset resets the Hash to its initial state.
 func (d *digest) Reset() {
-	d.data = nil
+	d.data = d.data[:0]
 	d.h = fr.Element{0, 0, 0, 0}
 }
 
@@ -100,10 +103,18 @@ func (d *digest) BlockSize() int {
 //
 // To hash arbitrary data ([]byte not representing canonical field elements) use fr.Hash first
 func (d *digest) Write(p []byte) (int, error) {
+	// we usually expect multiple of block size. But sometimes we hash short
+	// values (FS transcript). Instead of forcing to hash to field, we left-pad the
+	// input here.
+	if len(p) > 0 && len(p) < BlockSize {
+		pp := make([]byte, BlockSize)
+		copy(pp[len(pp)-len(p):], p)
+		p = pp
+	}
 
 	var start int
 	for start = 0; start < len(p); start += BlockSize {
-		if elem, err := fr.BigEndian.Element((*[BlockSize]byte)(p[start : start+BlockSize])); err == nil {
+		if elem, err := d.byteOrder.Element((*[BlockSize]byte)(p[start : start+BlockSize])); err == nil {
 			d.data = append(d.data, elem)
 		} else {
 			return 0, err
@@ -142,9 +153,9 @@ func (d *digest) checksum() fr.Element {
 func (d *digest) encrypt(m fr.Element) fr.Element {
 	once.Do(initConstants) // init constants
 
+	var tmp fr.Element
 	for i := 0; i < mimcNbRounds; i++ {
 		// m = (m+k+c)^**17
-		var tmp fr.Element
 		tmp.Add(&m, &d.h).Add(&tmp, &mimcConstants[i])
 		m.Square(&tmp).
 			Square(&m).
@@ -185,10 +196,11 @@ func initConstants() {
 }
 
 // WriteString writes a string that doesn't necessarily consist of field elements
-func (d *digest) WriteString(rawBytes []byte) {
+func (d *digest) WriteString(rawBytes []byte) error {
 	if elems, err := fr.Hash(rawBytes, []byte("string:"), 1); err != nil {
-		panic(err)
+		return err
 	} else {
 		d.data = append(d.data, elems[0])
 	}
+	return nil
 }

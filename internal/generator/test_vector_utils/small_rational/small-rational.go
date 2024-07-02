@@ -49,6 +49,11 @@ func (z *SmallRational) simplify() {
 		}
 	}
 
+	if bigDivides(&den, &num) {
+		num.Div(&num, &den)
+		den.SetInt64(1)
+	}
+
 	z.numerator = num
 	z.denominator = den
 
@@ -371,8 +376,19 @@ func bytesToBigIntSigned(src []byte) big.Int {
 	return res
 }
 
-func (z *SmallRational) BigInt(*big.Int) *big.Int {
-	panic("not implemented")
+// BigInt returns sets dst to the value of z if it is an integer.
+// if z is not an integer, nil is returned.
+// if the given dst is nil, the address of the numerator is returned.
+// if the given dst is non-nil, it is returned.
+func (z *SmallRational) BigInt(dst *big.Int) *big.Int {
+	if z.denominator.Cmp(big.NewInt(1)) != 0 {
+		return nil
+	}
+	if dst == nil {
+		return &z.numerator
+	}
+	dst.Set(&z.numerator)
+	return dst
 }
 
 func (z *SmallRational) SetBytes(b []byte) {

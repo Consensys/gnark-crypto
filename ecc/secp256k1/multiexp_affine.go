@@ -225,7 +225,7 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 	total.setInfinity()
 	for k := len(buckets) - 1; k >= 0; k-- {
 		runningSum.addMixed(&buckets[k])
-		if !bucketsJE[k].ZZ.IsZero() {
+		if !bucketsJE[k].IsZero() {
 			runningSum.add(&bucketsJE[k])
 		}
 		total.add(&runningSum)

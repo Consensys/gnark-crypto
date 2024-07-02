@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
-	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr/kzg"
+	"github.com/consensys/gnark-crypto/ecc/bw6-756/kzg"
 )
 
 func TestLookupVector(t *testing.T) {

@@ -1,10 +1,11 @@
 package test_vector_utils
 
 import (
+	"testing"
+
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/test_vector_utils"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestCounterTranscriptInequality(t *testing.T) {

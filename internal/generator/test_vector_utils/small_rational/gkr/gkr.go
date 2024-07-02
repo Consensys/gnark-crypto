@@ -490,9 +490,7 @@ func setup(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.S
 
 	if transcriptSettings.Transcript == nil {
 		challengeNames := ChallengeNames(o.sorted, o.nbVars, transcriptSettings.Prefix)
-		transcript := fiatshamir.NewTranscript(
-			transcriptSettings.Hash, challengeNames...)
-		o.transcript = &transcript
+		o.transcript = fiatshamir.NewTranscript(transcriptSettings.Hash, challengeNames...)
 		for i := range transcriptSettings.BaseChallenges {
 			if err = o.transcript.Bind(challengeNames[0], transcriptSettings.BaseChallenges[i]); err != nil {
 				return o, err
@@ -886,10 +884,10 @@ func (g AddGate) Evaluate(x ...small_rational.SmallRational) (res small_rational
 	// set zero
 	case 1:
 		res.Set(&x[0])
-	case 2:
+	default:
 		res.Add(&x[0], &x[1])
 		for i := 2; i < len(x); i++ {
-			res.Add(&res, &x[2])
+			res.Add(&res, &x[i])
 		}
 	}
 	return
@@ -911,7 +909,7 @@ func (g MulGate) Evaluate(x ...small_rational.SmallRational) (res small_rational
 	default:
 		res.Mul(&x[0], &x[1])
 		for i := 2; i < len(x); i++ {
-			res.Mul(&res, &x[2])
+			res.Mul(&res, &x[i])
 		}
 	}
 	return

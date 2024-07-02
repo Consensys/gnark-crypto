@@ -145,8 +145,7 @@ func NewPointAffine(x, y fr.Element) PointAffine {
 
 // IsOnCurve checks if a point is on the twisted Edwards curve
 func (p *PointAffine) IsOnCurve() bool {
-
-	ecurve := GetEdwardsCurve()
+	initOnce.Do(initCurveParams)
 
 	var lhs, rhs, tmp fr.Element
 
@@ -158,7 +157,7 @@ func (p *PointAffine) IsOnCurve() bool {
 	tmp.Mul(&p.X, &p.X).
 		Mul(&tmp, &p.Y).
 		Mul(&tmp, &p.Y).
-		Mul(&tmp, &ecurve.D)
+		Mul(&tmp, &curveParams.D)
 	rhs.SetOne().Add(&rhs, &tmp)
 
 	return lhs.Equal(&rhs)
@@ -174,8 +173,7 @@ func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
 // Add adds two points (x,y), (u,v) on a twisted Edwards curve with parameters a, d
 // modifies p
 func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
-
-	ecurve := GetEdwardsCurve()
+	initOnce.Do(initCurveParams)
 
 	var xu, yv, xv, yu, dxyuv, one, denx, deny fr.Element
 	pRes := new(PointAffine)
@@ -188,7 +186,7 @@ func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
 	yv.Mul(&p1.Y, &p2.Y)
 	pRes.Y.Sub(&yv, &xu)
 
-	dxyuv.Mul(&xv, &yu).Mul(&dxyuv, &ecurve.D)
+	dxyuv.Mul(&xv, &yu).Mul(&dxyuv, &curveParams.D)
 	one.SetOne()
 	denx.Add(&one, &dxyuv)
 	deny.Sub(&one, &dxyuv)
@@ -280,13 +278,26 @@ func (p *PointProj) setInfinity() *PointProj {
 // Equal returns true if p=p1 false otherwise
 // If one point is on the affine chart Z=0 it returns false
 func (p *PointProj) Equal(p1 *PointProj) bool {
-	if p.Z.IsZero() || p1.Z.IsZero() {
+	// If one point is infinity, the other must also be infinity.
+	if p.Z.IsZero()  {
+		return p1.Z.IsZero()
+	}
+	// If the other point is infinity, return false since we can't
+	// the following checks would be incorrect.
+	if p1.Z.IsZero() {
 		return false
 	}
-	var pAffine, p1Affine PointAffine
-	pAffine.FromProj(p)
-	p1Affine.FromProj(p1)
-	return pAffine.Equal(&p1Affine)
+
+	var lhs, rhs fr.Element
+	lhs.Mul(&p.X, &p1.Z)
+	rhs.Mul(&p1.X, &p.Z)
+	if !lhs.Equal(&rhs) {
+		return false
+	}
+	lhs.Mul(&p.Y, &p1.Z)
+	rhs.Mul(&p1.Y, &p.Z)
+
+	return lhs.Equal(&rhs)
 }
 
 // IsZero returns true if p=0 false otherwise
@@ -314,14 +325,13 @@ func (p *PointProj) FromAffine(p1 *PointAffine) *PointProj {
 // MixedAdd adds a point in projective to a point in affine coordinates
 // cf https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#addition-madd-2008-bbjlp
 func (p *PointProj) MixedAdd(p1 *PointProj, p2 *PointAffine) *PointProj {
-
-	ecurve := GetEdwardsCurve()
+	initOnce.Do(initCurveParams)
 
 	var B, C, D, E, F, G, H, I fr.Element
 	B.Square(&p1.Z)
 	C.Mul(&p1.X, &p2.X)
 	D.Mul(&p1.Y, &p2.Y)
-	E.Mul(&ecurve.D, &C).Mul(&E, &D)
+	E.Mul(&curveParams.D, &C).Mul(&E, &D)
 	F.Sub(&B, &E)
 	G.Add(&B, &E)
 	H.Add(&p1.X, &p1.Y)
@@ -366,15 +376,14 @@ func (p *PointProj) Double(p1 *PointProj) *PointProj {
 // Add adds points in projective coordinates
 // cf https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#addition-add-2008-bbjlp
 func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
-
-	ecurve := GetEdwardsCurve()
+	initOnce.Do(initCurveParams)
 
 	var A, B, C, D, E, F, G, H, I fr.Element
 	A.Mul(&p1.Z, &p2.Z)
 	B.Square(&A)
 	C.Mul(&p1.X, &p2.X)
 	D.Mul(&p1.Y, &p2.Y)
-	E.Mul(&ecurve.D, &C).Mul(&E, &D)
+	E.Mul(&curveParams.D, &C).Mul(&E, &D)
 	F.Sub(&B, &E)
 	G.Add(&B, &E)
 	H.Add(&p1.X, &p1.Y)
@@ -476,28 +485,23 @@ func (p *PointExtended) FromAffine(p1 *PointAffine) *PointExtended {
 }
 
 // Add adds points in extended coordinates
-// See https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-add-2008-hwcd-2
+// See https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-add-2008-hwcd
 func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
-	if p1.Equal(p2) {
-		p.Double(p1)
-		return p
-	}
-
 	var A, B, C, D, E, F, G, H, tmp fr.Element
 	A.Mul(&p1.X, &p2.X)
 	B.Mul(&p1.Y, &p2.Y)
-	C.Mul(&p1.Z, &p2.T)
-	D.Mul(&p1.T, &p2.Z)
-	E.Add(&D, &C)
-	tmp.Sub(&p1.X, &p1.Y)
-	F.Add(&p2.X, &p2.Y).
-		Mul(&F, &tmp).
-		Add(&F, &B).
-		Sub(&F, &A)
-	G.Set(&A)
-	mulByA(&G)
-	G.Add(&G, &B)
-	H.Sub(&D, &C)
+	C.Mul(&p1.T, &p2.T).Mul(&C, &curveParams.D)
+	D.Mul(&p1.Z, &p2.Z)
+	tmp.Add(&p1.X, &p1.Y)
+	E.Add(&p2.X, &p2.Y).
+		Mul(&E, &tmp).
+		Sub(&E, &A).
+		Sub(&E, &B)
+	F.Sub(&D, &C)
+	G.Add(&D, &C)
+	H.Set(&A)
+	mulByA(&H)
+	H.Sub(&B, &H)
 
 	p.X.Mul(&E, &F)
 	p.Y.Mul(&G, &H)

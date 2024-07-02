@@ -31,6 +31,14 @@ func TestNoGate(t *testing.T) {
 	testManyInstances(t, 1, testNoGate)
 }
 
+func TestSingleAddGateTwoInstances(t *testing.T) {
+	testSingleAddGate(t, []{{.ElementType}}{four, three}, []{{.ElementType}}{two, three})
+}
+
+func TestSingleAddGate(t *testing.T) {
+	testManyInstances(t, 2, testSingleAddGate)
+}
+
 func TestSingleMulGateTwoInstances(t *testing.T) {
 	testSingleMulGate(t, []{{.ElementType}}{four, three}, []{{.ElementType}}{two, three})
 }
@@ -191,6 +199,25 @@ func testNoGate(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
 
 	err = Verify(c, assignment, proof, fiatshamir.WithHash(test_vector_utils.NewMessageCounter(1, 1)))
 	assert.NoError(t, err, "proof rejected")
+}
+
+func testSingleAddGate(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
+	c := make(Circuit, 3)
+	c[2] = Wire{
+		Gate: Gates["add"],
+		Inputs: []*Wire{&c[0], &c[1]},
+	}
+
+	assignment := WireAssignment{&c[0]: inputAssignments[0], &c[1]: inputAssignments[1]}.Complete(c)
+
+	proof, err := Prove(c, assignment, fiatshamir.WithHash(test_vector_utils.NewMessageCounter(1, 1)))
+	assert.NoError(t,err)
+
+	err = Verify(c, assignment, proof, fiatshamir.WithHash(test_vector_utils.NewMessageCounter(1, 1)))
+	assert.NoError(t, err, "proof rejected")
+
+	err = Verify(c, assignment, proof, fiatshamir.WithHash(test_vector_utils.NewMessageCounter(0, 1)))
+	assert.NotNil(t, err, "bad proof accepted")
 }
 
 func testSingleMulGate(t *testing.T, inputAssignments ...[]{{.ElementType}}) {

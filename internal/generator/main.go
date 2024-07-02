@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/fft"
 	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
 	"github.com/consensys/gnark-crypto/internal/generator/gkr"
+	"github.com/consensys/gnark-crypto/internal/generator/hash_to_field"
 	"github.com/consensys/gnark-crypto/internal/generator/iop"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
 	"github.com/consensys/gnark-crypto/internal/generator/pairing"
@@ -52,6 +53,7 @@ func main() {
 			var err error
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
+
 			// generate base field
 			conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
 			assertNoError(err)
@@ -90,12 +92,12 @@ func main() {
 			// generate fft on fr
 			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
 
-			if conf.Equal(config.BN254) {
+			if conf.Equal(config.BN254) || conf.Equal(config.BLS12_377) {
 				assertNoError(sis.Generate(conf, filepath.Join(curveDir, "fr", "sis"), bgen))
 			}
 
 			// generate kzg on fr
-			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "fr", "kzg"), bgen))
+			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), bgen))
 
 			// generate pedersen on fr
 			assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), bgen))
@@ -118,22 +120,6 @@ func main() {
 			// generate polynomial on fr
 			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
 
-			// generate sumcheck on fr
-			assertNoError(sumcheck.Generate(frInfo, filepath.Join(curveDir, "fr", "sumcheck"), bgen))
-
-			// generate gkr on fr
-			assertNoError(gkr.Generate(gkr.Config{
-				FieldDependency:         frInfo,
-				GenerateTests:           true,
-				TestVectorsRelativePath: "../../../../internal/generator/gkr/test_vectors",
-			}, filepath.Join(curveDir, "fr", "gkr"), bgen))
-
-			// generate test vector utils on fr
-			assertNoError(test_vector_utils.Generate(test_vector_utils.Config{
-				FieldDependency:             frInfo,
-				RandomizeMissingHashEntries: false,
-			}, filepath.Join(curveDir, "fr", "test_vector_utils"), bgen))
-
 			// generate eddsa on companion curves
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
 
@@ -155,6 +141,16 @@ func main() {
 
 			// generate iop functions
 			assertNoError(iop.Generate(conf, filepath.Join(curveDir, "fr", "iop"), bgen))
+
+			fpInfo := config.FieldDependency{
+				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fp",
+				FieldPackageName: "fp",
+				ElementType:      "fp.Element",
+			}
+
+			// generate wrapped hash-to-field for both fr and fp
+			assertNoError(hash_to_field.Generate(frInfo, filepath.Join(curveDir, "fr", "hash_to_field"), bgen))
+			assertNoError(hash_to_field.Generate(fpInfo, filepath.Join(curveDir, "fp", "hash_to_field"), bgen))
 
 		}(conf)
 

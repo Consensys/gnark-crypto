@@ -2,6 +2,8 @@
 import (
 	"io"
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}"
+
+	"github.com/consensys/gnark-crypto/utils/unsafe"
 )
 
 // WriteTo writes binary encoding of the ProvingKey
@@ -37,10 +39,30 @@ func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*{{.CurvePackage}}.
 	// encode the VerifyingKey
 	enc := {{ .CurvePackage }}.NewEncoder(w, options...)
 
-	toEncode := []interface{}{
-		&vk.G2[0],
-		&vk.G2[1],
-		&vk.G1,
+    {{- if eq .Name "bw6-756"}}
+        nLines := 190
+    {{- else if eq .Name "bw6-761"}}
+        nLines := 189
+    {{- else if eq .Name "bw6-633"}}
+        nLines := 158
+    {{- else if eq .Name "bn254"}}
+        nLines := 66
+    {{- else if or (eq .Name "bls12-381") (eq .Name "bls12-377") (eq .Name "bls12-378")}}
+        nLines := 63
+    {{- else }}
+        nLines := 32
+    {{- end}}
+	toEncode := make([]interface{}, 0, 4*nLines+3)
+	toEncode = append(toEncode, &vk.G2[0])
+	toEncode = append(toEncode, &vk.G2[1])
+	toEncode = append(toEncode, &vk.G1)
+	for k := 0; k < 2; k++ {
+		for j := 0; j < 2; j++ {
+			for i := nLines-1; i >= 0; i-- {
+				toEncode = append(toEncode, &vk.Lines[k][j][i].R0)
+				toEncode = append(toEncode, &vk.Lines[k][j][i].R1)
+			}
+		}
 	}
 
 	for _, v := range toEncode {
@@ -52,6 +74,52 @@ func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*{{.CurvePackage}}.
 	return enc.BytesWritten(), nil
 }
 
+// WriteDump writes the binary encoding of the entire SRS memory representation
+// It is meant to be use to achieve fast serialization/deserialization and
+// is not compatible with WriteTo / ReadFrom. It does not do any validation
+// and doesn't encode points in a canonical form.
+// @unsafe: this is platform dependent and may not be compatible with other platforms
+// @unstable: the format may change in the future
+// If maxPkPoints is provided, the number of points in the ProvingKey will be limited to maxPkPoints
+func (srs *SRS) WriteDump(w io.Writer, maxPkPoints ...int) error {
+	maxG1 := len(srs.Pk.G1)
+	if len(maxPkPoints) > 0 && maxPkPoints[0] < maxG1 && maxPkPoints[0] > 0{
+		maxG1 = maxPkPoints[0]
+	}
+	// first we write the VerifyingKey; it is small so we re-use WriteTo
+
+	if _, err := srs.Vk.writeTo(w, {{.CurvePackage}}.RawEncoding()); err != nil {
+		return err
+	}
+
+
+	// write the marker
+	if err := unsafe.WriteMarker(w); err != nil {
+		return err
+	}
+
+	// write the slice
+	return unsafe.WriteSlice(w, srs.Pk.G1[:maxG1])
+}
+
+// ReadDump deserializes the SRS from a reader, as written by WriteDump
+func (srs *SRS) ReadDump(r io.Reader, maxPkPoints ...int) error {
+	// first we read the VerifyingKey; it is small so we re-use ReadFrom
+	_, err := srs.Vk.ReadFrom(r)
+	if err != nil {
+		return err
+	}
+
+	// read the marker
+	if err := unsafe.ReadMarker(r); err != nil {
+		return err
+	}
+
+	// read the slice
+	srs.Pk.G1, _, err = unsafe.ReadSlice[[]{{.CurvePackage}}.G1Affine](r, maxPkPoints...)
+	return err 
+}
+
 // WriteTo writes binary encoding of the entire SRS
 func (srs *SRS) WriteTo(w io.Writer) (int64, error) {
 	// encode the SRS
@@ -61,6 +129,18 @@ func (srs *SRS) WriteTo(w io.Writer) (int64, error) {
 		return pn, err
 	}
 	vn, err = srs.Vk.WriteTo(w)
+	return pn + vn, err
+}
+
+// WriteRawTo writes binary encoding of the entire SRS without point compression
+func (srs *SRS) WriteRawTo(w io.Writer) (int64, error) {
+	// encode the SRS
+	var pn, vn int64
+	var err error
+	if pn, err = srs.Pk.WriteRawTo(w); err != nil {
+		return pn, err
+	}
+	vn, err = srs.Vk.WriteRawTo(w)
 	return pn + vn, err
 }
 
@@ -90,10 +170,30 @@ func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
 	// decode the VerifyingKey
 	dec := {{ .CurvePackage }}.NewDecoder(r)
 
-	toDecode := []interface{}{
-		&vk.G2[0],
-		&vk.G2[1],
-		&vk.G1,
+    {{- if eq .Name "bw6-756"}}
+        nLines := 190
+    {{- else if eq .Name "bw6-761"}}
+        nLines := 189
+    {{- else if eq .Name "bw6-633"}}
+        nLines := 158
+    {{- else if eq .Name "bn254"}}
+        nLines := 66
+    {{- else if or (eq .Name "bls12-381") (eq .Name "bls12-377") (eq .Name "bls12-378")}}
+        nLines := 63
+    {{- else }}
+        nLines := 32
+    {{- end}}
+	toDecode := make([]interface{}, 0, 4*nLines+3)
+	toDecode = append(toDecode, &vk.G2[0])
+	toDecode = append(toDecode, &vk.G2[1])
+	toDecode = append(toDecode, &vk.G1)
+	for k := 0; k < 2; k++ {
+		for j := 0; j < 2; j++ {
+			for i := nLines-1; i >= 0; i-- {
+				toDecode = append(toDecode, &vk.Lines[k][j][i].R0)
+				toDecode = append(toDecode, &vk.Lines[k][j][i].R1)
+			}
+		}
 	}
 
 	for _, v := range toDecode {
@@ -116,6 +216,19 @@ func (srs *SRS) ReadFrom(r io.Reader) (int64, error) {
 	vn, err = srs.Vk.ReadFrom(r)
 	return pn+vn, err
 }
+
+// UnsafeReadFrom decodes SRS data from reader without sub group checks
+func (srs *SRS) UnsafeReadFrom(r io.Reader) (int64, error) {
+	// decode the VerifyingKey
+	var pn, vn int64
+	var err error
+	if pn, err = srs.Pk.UnsafeReadFrom(r); err != nil {
+		return pn, err
+	}
+	vn, err = srs.Vk.ReadFrom(r)
+	return pn+vn, err
+}
+
 
 
 // WriteTo writes binary encoding of a OpeningProof

@@ -124,13 +124,6 @@ func (z *E3) String() string {
 	return (z.A0.String() + "+(" + z.A1.String() + ")*u+(" + z.A2.String() + ")*u**2")
 }
 
-// Conjugate conjugates an element in E3
-func (z *E3) Conjugate(x *E3) *E3 {
-	*z = *x
-	z.A1.Neg(&z.A1)
-	return z
-}
-
 // MulByElement multiplies an element in E3 by an element in fp
 func (z *E3) MulByElement(x *E3, y *fp.Element) *E3 {
 	_y := *y
@@ -138,6 +131,34 @@ func (z *E3) MulByElement(x *E3, y *fp.Element) *E3 {
 	z.A1.Mul(&x.A1, &_y)
 	z.A2.Mul(&x.A2, &_y)
 	return z
+}
+
+// MulBy12 multiplication by sparse element (0,b1,b2)
+func (x *E3) MulBy12(b1, b2 *fp.Element) *E3 {
+	var t1, t2, c0, tmp, c1, c2 fp.Element
+	t1.Mul(&x.A1, b1)
+	t2.Mul(&x.A2, b2)
+	c0.Add(&x.A1, &x.A2)
+	tmp.Add(b1, b2)
+	c0.Mul(&c0, &tmp)
+	c0.Sub(&c0, &t1)
+	c0.Sub(&c0, &t2)
+	c0.MulByNonResidue(&c0)
+	c1.Add(&x.A0, &x.A1)
+	c1.Mul(&c1, b1)
+	c1.Sub(&c1, &t1)
+	tmp.MulByNonResidue(&t2)
+	c1.Add(&c1, &tmp)
+	tmp.Add(&x.A0, &x.A2)
+	c2.Mul(b2, &tmp)
+	c2.Sub(&c2, &t2)
+	c2.Add(&c2, &t1)
+
+	x.A0 = c0
+	x.A1 = c1
+	x.A2 = c2
+
+	return x
 }
 
 // MulBy01 multiplication by sparse element (c0,c1,0)

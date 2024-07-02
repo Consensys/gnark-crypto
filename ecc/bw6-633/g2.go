@@ -40,6 +40,11 @@ type g2JacExtended struct {
 	X, Y, ZZ, ZZZ fp.Element
 }
 
+// g2Proj point in projective coordinates
+type g2Proj struct {
+	x, y, z fp.Element
+}
+
 // -------------------------------------------------------------------------------------------------
 // Affine
 
@@ -65,35 +70,74 @@ func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
 	return p
 }
 
-// Add adds two point in affine coordinates.
-// This should rarely be used as it is very inefficient compared to Jacobian
-func (p *G2Affine) Add(a, b *G2Affine) *G2Affine {
-	var p1, p2 G2Jac
-	p1.FromAffine(a)
-	p2.FromAffine(b)
-	p1.AddAssign(&p2)
-	p.FromJacobian(&p1)
+// ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
+func (p *G2Affine) ScalarMultiplicationBase(s *big.Int) *G2Affine {
+	var _p G2Jac
+	_p.mulGLV(&g2Gen, s)
+	p.FromJacobian(&_p)
 	return p
 }
 
+// Add adds two point in affine coordinates.
+// Jacobian addition with Z1=Z2=1
+// https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-mmadd-2007-bl
+func (p *G2Affine) Add(a, b *G2Affine) *G2Affine {
+	var q G2Jac
+	// a is infinity, return b
+	if a.IsInfinity() {
+		p.Set(b)
+		return p
+	}
+	// b is infinity, return a
+	if b.IsInfinity() {
+		p.Set(a)
+		return p
+	}
+	if a.X.Equal(&b.X) {
+		// if b == a, we double instead
+		if a.Y.Equal(&b.Y) {
+			q.DoubleMixed(a)
+			return p.FromJacobian(&q)
+		} else {
+			// if b == -a, we return 0
+			return p.setInfinity()
+		}
+	}
+	var H, HH, I, J, r, V fp.Element
+	H.Sub(&b.X, &a.X)
+	HH.Square(&H)
+	I.Double(&HH).Double(&I)
+	J.Mul(&H, &I)
+	r.Sub(&b.Y, &a.Y)
+	r.Double(&r)
+	V.Mul(&a.X, &I)
+	q.X.Square(&r).
+		Sub(&q.X, &J).
+		Sub(&q.X, &V).
+		Sub(&q.X, &V)
+	q.Y.Sub(&V, &q.X).
+		Mul(&q.Y, &r)
+	J.Mul(&a.Y, &J).Double(&J)
+	q.Y.Sub(&q.Y, &J)
+	q.Z.Double(&H)
+
+	return p.FromJacobian(&q)
+}
+
 // Double doubles a point in affine coordinates.
-// This should rarely be used as it is very inefficient compared to Jacobian
 func (p *G2Affine) Double(a *G2Affine) *G2Affine {
-	var p1 G2Jac
-	p1.FromAffine(a)
-	p1.Double(&p1)
-	p.FromJacobian(&p1)
+	var q G2Jac
+	q.FromAffine(a)
+	q.DoubleMixed(a)
+	p.FromJacobian(&q)
 	return p
 }
 
 // Sub subs two point in affine coordinates.
-// This should rarely be used as it is very inefficient compared to Jacobian
 func (p *G2Affine) Sub(a, b *G2Affine) *G2Affine {
-	var p1, p2 G2Jac
-	p1.FromAffine(a)
-	p2.FromAffine(b)
-	p1.SubAssign(&p2)
-	p.FromJacobian(&p1)
+	var bneg G2Affine
+	bneg.Neg(b)
+	p.Add(a, &bneg)
 	return p
 }
 
@@ -168,17 +212,30 @@ func (p *G2Jac) Set(a *G2Jac) *G2Jac {
 
 // Equal tests if two points (in Jacobian coordinates) are equal
 func (p *G2Jac) Equal(a *G2Jac) bool {
-
-	if p.Z.IsZero() && a.Z.IsZero() {
-		return true
+	// If one point is infinity, the other must also be infinity.
+	if p.Z.IsZero() {
+		return a.Z.IsZero()
 	}
-	_p := G2Affine{}
-	_p.FromJacobian(p)
+	// If the other point is infinity, return false since we can't
+	// the following checks would be incorrect.
+	if a.Z.IsZero() {
+		return false
+	}
 
-	_a := G2Affine{}
-	_a.FromJacobian(a)
+	var pZSquare, aZSquare fp.Element
+	pZSquare.Square(&p.Z)
+	aZSquare.Square(&a.Z)
 
-	return _p.X.Equal(&_a.X) && _p.Y.Equal(&_a.Y)
+	var lhs, rhs fp.Element
+	lhs.Mul(&p.X, &aZSquare)
+	rhs.Mul(&a.X, &pZSquare)
+	if !lhs.Equal(&rhs) {
+		return false
+	}
+	lhs.Mul(&p.Y, &aZSquare).Mul(&lhs, &a.Z)
+	rhs.Mul(&a.Y, &pZSquare).Mul(&rhs, &p.Z)
+
+	return lhs.Equal(&rhs)
 }
 
 // Neg computes -G
@@ -250,6 +307,35 @@ func (p *G2Jac) AddAssign(a *G2Jac) *G2Jac {
 	return p
 }
 
+// DoubleMixed point addition
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-mdbl-2007-bl
+func (p *G2Jac) DoubleMixed(a *G2Affine) *G2Jac {
+	var XX, YY, YYYY, S, M, T fp.Element
+	XX.Square(&a.X)
+	YY.Square(&a.Y)
+	YYYY.Square(&YY)
+	S.Add(&a.X, &YY).
+		Square(&S).
+		Sub(&S, &XX).
+		Sub(&S, &YYYY).
+		Double(&S)
+	M.Double(&XX).
+		Add(&M, &XX) // -> + a, but a=0 here
+	T.Square(&M).
+		Sub(&T, &S).
+		Sub(&T, &S)
+	p.X.Set(&T)
+	p.Y.Sub(&S, &T).
+		Mul(&p.Y, &M)
+	YYYY.Double(&YYYY).
+		Double(&YYYY).
+		Double(&YYYY)
+	p.Y.Sub(&p.Y, &YYYY)
+	p.Z.Double(&a.Y)
+
+	return p
+}
+
 // AddMixed point addition
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
 func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
@@ -274,7 +360,7 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 
 	// if p == a, we double instead
 	if U2.Equal(&p.X) && S2.Equal(&p.Y) {
-		return p.DoubleAssign()
+		return p.DoubleMixed(a)
 	}
 
 	H.Sub(&U2, &p.X)
@@ -345,6 +431,11 @@ func (p *G2Jac) ScalarMultiplication(a *G2Jac, s *big.Int) *G2Jac {
 	return p.mulGLV(a, s)
 }
 
+// ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
+func (p *G2Jac) ScalarMultiplicationBase(s *big.Int) *G2Jac {
+	return p.mulGLV(&g2Gen, s)
+}
+
 // String returns canonical representation of the point in affine coordinates
 func (p *G2Jac) String() string {
 	_p := G2Affine{}
@@ -368,14 +459,13 @@ func (p *G2Jac) FromAffine(Q *G2Affine) *G2Jac {
 
 // IsOnCurve returns true if p in on the curve
 func (p *G2Jac) IsOnCurve() bool {
-	var left, right, tmp fp.Element
+	var left, right, tmp, ZZ fp.Element
 	left.Square(&p.Y)
 	right.Square(&p.X).Mul(&right, &p.X)
-	tmp.Square(&p.Z).
-		Square(&tmp).
-		Mul(&tmp, &p.Z).
-		Mul(&tmp, &p.Z).
-		Mul(&tmp, &bTwistCurveCoeff)
+	ZZ.Square(&p.Z)
+	tmp.Square(&ZZ).Mul(&tmp, &ZZ)
+	// Mul tmp by bTwistCurveCoeff=8
+	tmp.Double(&tmp).Double(&tmp).Double(&tmp)
 	right.Add(&right, &tmp)
 	return left.Equal(&right)
 }
@@ -405,8 +495,11 @@ func (p *G2Jac) mulWindowed(a *G2Jac, s *big.Int) *G2Jac {
 	var res G2Jac
 	var ops [3]G2Jac
 
-	res.Set(&g2Infinity)
 	ops[0].Set(a)
+	if s.Sign() == -1 {
+		ops[0].Neg(&ops[0])
+	}
+	res.Set(&g2Infinity)
 	ops[1].Double(&ops[0])
 	ops[2].Set(&ops[0]).AddAssign(&ops[1])
 
@@ -572,6 +665,10 @@ func (p *g2JacExtended) setInfinity() *g2JacExtended {
 	p.ZZ = fp.Element{}
 	p.ZZZ = fp.Element{}
 	return p
+}
+
+func (p *g2JacExtended) IsZero() bool {
+	return p.ZZ.IsZero()
 }
 
 // fromJacExtended sets Q in affine coordinates
@@ -852,6 +949,36 @@ func (p *g2JacExtended) doubleMixed(q *G2Affine) *g2JacExtended {
 	p.ZZ.Set(&V)
 	p.ZZZ.Set(&W)
 
+	return p
+}
+
+// -------------------------------------------------------------------------------------------------
+// Homogenous projective
+
+// Set sets p to the provided point
+func (p *g2Proj) Set(a *g2Proj) *g2Proj {
+	p.x, p.y, p.z = a.x, a.y, a.z
+	return p
+}
+
+// Neg computes -G
+func (p *g2Proj) Neg(a *g2Proj) *g2Proj {
+	*p = *a
+	p.y.Neg(&a.y)
+	return p
+}
+
+// FromAffine sets p = Q, p in homogenous projective, Q in affine
+func (p *g2Proj) FromAffine(Q *G2Affine) *g2Proj {
+	if Q.X.IsZero() && Q.Y.IsZero() {
+		p.z.SetZero()
+		p.x.SetOne()
+		p.y.SetOne()
+		return p
+	}
+	p.z.SetOne()
+	p.x.Set(&Q.X)
+	p.y.Set(&Q.Y)
 	return p
 }
 

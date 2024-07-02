@@ -16,6 +16,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "kzg.go"), Templates: []string{"kzg.go.tmpl"}},
 		{File: filepath.Join(baseDir, "kzg_test.go"), Templates: []string{"kzg.test.go.tmpl"}},
 		{File: filepath.Join(baseDir, "marshal.go"), Templates: []string{"marshal.go.tmpl"}},
+		{File: filepath.Join(baseDir, "utils.go"), Templates: []string{"utils.go.tmpl"}},
 	}
 	return bgen.Generate(conf, conf.Package, "./kzg/template/", entries...)
 

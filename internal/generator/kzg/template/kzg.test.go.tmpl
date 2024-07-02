@@ -1,22 +1,99 @@
 import (
 	"crypto/sha256"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
+	"bytes"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}"
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
+	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr/fft"
 
-	"github.com/consensys/gnark-crypto/utils"
+	"github.com/consensys/gnark-crypto/utils/testutils"
 )
 
 // Test SRS re-used across tests of the KZG scheme
 var testSrs *SRS
+var bAlpha *big.Int
 
 func init() {
 	const srsSize = 230
-	testSrs, _ = NewSRS(ecc.NextPowerOfTwo(srsSize), new(big.Int).SetInt64(42))
+	bAlpha = new(big.Int).SetInt64(42) // randomise ?
+	testSrs, _ = NewSRS(ecc.NextPowerOfTwo(srsSize), bAlpha)
+}
+
+
+func TestToLagrangeG1(t *testing.T) {
+	assert := require.New(t)
+
+	const size = 32
+
+	// convert the test SRS to Lagrange form
+	lagrange, err := ToLagrangeG1(testSrs.Pk.G1[:size])
+	assert.NoError(err)
+
+	// generate the Lagrange SRS manually and compare
+	w, err := fr.Generator(uint64(size))
+	assert.NoError(err)
+
+	var li, n, d, one, acc, alpha fr.Element
+	alpha.SetBigInt(bAlpha)
+	li.SetUint64(uint64(size)).Inverse(&li)
+	one.SetOne()
+	n.Exp(alpha, big.NewInt(int64(size))).Sub(&n, &one)
+	d.Sub(&alpha, &one)
+	li.Mul(&li, &n).Div(&li, &d)
+	expectedSrsLagrange := make([]{{ .CurvePackage }}.G1Affine, size)
+	_, _, g1Gen, _ := {{ .CurvePackage }}.Generators()
+	var s big.Int
+	acc.SetOne()
+	for i := 0; i < size; i++ {
+		li.BigInt(&s)
+		expectedSrsLagrange[i].ScalarMultiplication(&g1Gen, &s)
+
+		li.Mul(&li, &w).Mul(&li, &d)
+		acc.Mul(&acc, &w)
+		d.Sub(&alpha, &acc)
+		li.Div(&li, &d)
+	}
+
+	for i := 0; i < size; i++ {
+		assert.True(expectedSrsLagrange[i].Equal(&lagrange[i]), "error lagrange conversion")
+	}
+}
+
+func TestCommitLagrange(t *testing.T) {
+
+	assert := require.New(t)
+
+	// sample a sparse polynomial (here in Lagrange form)
+	size := 64
+	pol := make([]fr.Element, size)
+	pol[0].SetRandom()
+	for i := 0; i < size; i = i+8 {
+		pol[i].SetRandom()
+	}
+
+	// commitment using Lagrange SRS
+	lagrange, err := ToLagrangeG1(testSrs.Pk.G1[:size])
+	assert.NoError(err)
+	var pkLagrange ProvingKey
+	pkLagrange.G1 = lagrange
+
+	digestLagrange, err := Commit(pol, pkLagrange)
+	assert.NoError(err)
+
+	// commitment using canonical SRS
+	d := fft.NewDomain(uint64(size))
+	d.FFTInverse(pol, fft.DIF)
+	fft.BitReverse(pol)
+	digestCanonical, err := Commit(pol, testSrs.Pk)
+	assert.NoError(err)
+
+	// compare the results
+	assert.True(digestCanonical.Equal(&digestLagrange), "error CommitLagrange")
 }
 
 func TestDividePolyByXminusA(t *testing.T) {
@@ -64,10 +141,11 @@ func TestSerializationSRS(t *testing.T) {
 	// create a SRS
 	srs, err := NewSRS(64, new(big.Int).SetInt64(42))
 	assert.NoError(t, err)
-	t.Run("proving key round-trip", utils.SerializationRoundTrip(&srs.Pk))
-	t.Run("proving key raw round-trip", utils.SerializationRoundTripRaw(&srs.Pk))
-	t.Run("verifying key round-trip", utils.SerializationRoundTrip(&srs.Vk))
-	t.Run("whole SRS round-trip", utils.SerializationRoundTrip(srs))
+	t.Run("proving key round-trip", testutils.SerializationRoundTrip(&srs.Pk))
+	t.Run("proving key raw round-trip", testutils.SerializationRoundTripRaw(&srs.Pk))
+	t.Run("verifying key round-trip", testutils.SerializationRoundTrip(&srs.Vk))
+	t.Run("whole SRS round-trip", testutils.SerializationRoundTrip(srs))
+	t.Run("unsafe whole SRS round-trip", testutils.UnsafeBinaryMarshalerRoundTrip(srs))
 }
 
 func TestCommit(t *testing.T) {
@@ -154,6 +232,47 @@ func TestVerifySinglePoint(t *testing.T) {
 	}
 }
 
+func TestVerifySinglePointQuickSRS(t *testing.T) {
+
+	size := 64
+	srs, err := NewSRS(64, big.NewInt(-1))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// random polynomial
+	p := make([]fr.Element, size)
+	for i := 0; i < size; i++ {
+		p[i].SetRandom()
+	}
+
+	// random value
+	var x fr.Element
+	x.SetRandom()
+
+	// verify valid proof
+	d, err := Commit(p, srs.Pk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proof, err := Open(p, x, srs.Pk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = Verify(&d, &proof, x, srs.Vk)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// verify wrong proof
+	proof.ClaimedValue.SetRandom()
+	err = Verify(&d, &proof, x, srs.Vk)
+	if err == nil {
+		t.Fatal(err)
+	}
+
+}
+
 func TestBatchVerifySinglePoint(t *testing.T) {
 
 	size := 40
@@ -182,6 +301,13 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	var salt fr.Element
+	salt.SetRandom()
+	proofExtendedTranscript, err := BatchOpenSinglePoint(f, digests, point, hf, testSrs.Pk, salt.Marshal())
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// verify the claimed values
 	for i := range f {
 		expectedClaim := eval(f[i], point)
@@ -192,6 +318,12 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 
 	// verify correct proof
 	err = BatchVerifySinglePoint(digests, &proof, point, hf, testSrs.Vk)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// verify correct proof with extended transcript
+	err = BatchVerifySinglePoint(digests, &proofExtendedTranscript, point, hf, testSrs.Vk, salt.Marshal())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -284,21 +416,86 @@ func TestBatchVerifyMultiPoints(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
 
+func TestUnsafeToBytesTruncating(t *testing.T) {
+	assert := require.New(t)
+	srs, err := NewSRS(ecc.NextPowerOfTwo(1 << 10), big.NewInt(-1))
+	assert.NoError(err)
+
+	// marshal the SRS, but explicitly with less points.
+	var buf bytes.Buffer
+	err = srs.WriteDump(&buf, 1 << 9)
+	assert.NoError(err)
+
+	r := bytes.NewReader(buf.Bytes())
+
+	// unmarshal the SRS
+	var newSRS SRS
+	err = newSRS.ReadDump(r)
+	assert.NoError(err)
+
+	// check that the SRS proving key has only 1 << 9 points
+	assert.Equal(1<<9, len(newSRS.Pk.G1))
+
+	// ensure they are equal to the original SRS
+	assert.Equal(srs.Pk.G1[:1<<9], newSRS.Pk.G1)
+
+	// read even less points.
+	var newSRSPartial SRS
+	r = bytes.NewReader(buf.Bytes())
+	err = newSRSPartial.ReadDump(r, 1 << 8)
+	assert.NoError(err)
+
+	// check that the SRS proving key has only 1 << 8 points
+	assert.Equal(1<<8, len(newSRSPartial.Pk.G1))
+
+	// ensure they are equal to the original SRS
+	assert.Equal(srs.Pk.G1[:1<<8], newSRSPartial.Pk.G1)
 }
 
 const benchSize = 1 << 16
 
-func BenchmarkKZGCommit(b *testing.B) {
-	srs, err := NewSRS(ecc.NextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
-	assert.NoError(b, err)
-	// random polynomial
-	p := randomPolynomial(benchSize / 2)
+func BenchmarkSRSGen(b *testing.B) {
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, _ = Commit(p, srs.Pk)
-	}
+	b.Run("real SRS", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			NewSRS(ecc.NextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
+		}
+	})
+	b.Run("quick SRS", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			NewSRS(ecc.NextPowerOfTwo(benchSize), big.NewInt(-1))
+		}
+	})
+}
+
+func BenchmarkKZGCommit(b *testing.B) {
+
+	b.Run("real SRS", func(b *testing.B){
+		srs, err := NewSRS(ecc.NextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
+		assert.NoError(b, err)
+		// random polynomial
+		p := randomPolynomial(benchSize / 2)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = Commit(p, srs.Pk)
+		}
+	})
+	b.Run("quick SRS", func(b *testing.B){
+		srs, err := NewSRS(ecc.NextPowerOfTwo(benchSize), big.NewInt(-1))
+		assert.NoError(b, err)
+		// random polynomial
+		p := randomPolynomial(benchSize / 2)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = Commit(p, srs.Pk)
+		}
+	})
 }
 
 func BenchmarkDivideByXMinusA(b *testing.B) {
@@ -429,4 +626,118 @@ func randomPolynomial(size int) []fr.Element {
 		f[i].SetRandom()
 	}
 	return f
+}
+
+
+func BenchmarkToLagrangeG1(b *testing.B) {
+	const size = 1 << 14
+
+	var samplePoints [size]{{ .CurvePackage }}.G1Affine
+	fillBenchBasesG1(samplePoints[:])
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		if _, err := ToLagrangeG1(samplePoints[:]); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSerializeSRS(b *testing.B) {
+	// let's create a quick SRS
+	srs, err := NewSRS(ecc.NextPowerOfTwo(1 << 24), big.NewInt(-1))
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	// now we can benchmark the WriteTo, WriteRawTo and WriteDump methods
+	b.Run("WriteTo", func(b *testing.B) {
+		b.ResetTimer()
+		var buf bytes.Buffer
+		for i := 0; i < b.N; i++ {
+			buf.Reset()
+			_, err := srs.WriteTo(&buf)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("WriteRawTo", func(b *testing.B) {
+		b.ResetTimer()
+		var buf bytes.Buffer
+		for i := 0; i < b.N; i++ {
+			buf.Reset()
+			_, err := srs.WriteRawTo(&buf)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("WriteDump", func(b *testing.B) {
+		b.ResetTimer()
+		var buf bytes.Buffer
+		for i := 0; i < b.N; i++ {
+			buf.Reset()
+			if err := srs.WriteDump(&buf); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+}
+
+func BenchmarkDeserializeSRS(b *testing.B) {
+	// let's create a quick SRS
+	srs, err := NewSRS(ecc.NextPowerOfTwo(1 << 24), big.NewInt(-1))
+	if err != nil {
+		b.Fatal(err)
+	}
+	
+	b.Run("UnsafeReadFrom", func(b *testing.B) {
+		var buf bytes.Buffer
+		if _, err := srs.WriteRawTo(&buf); err != nil {
+			b.Fatal(err)
+		}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			var newSRS SRS
+			_, err := newSRS.UnsafeReadFrom(bytes.NewReader(buf.Bytes()))
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("ReadDump", func(b *testing.B) {
+		var buf bytes.Buffer
+		err := srs.WriteDump(&buf)
+		if err != nil {
+			b.Fatal(err)
+		}
+		data := buf.Bytes()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			var newSRS SRS
+			if err := newSRS.ReadDump(bytes.NewReader(data)); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
+
+
+func fillBenchBasesG1(samplePoints []{{ .CurvePackage }}.G1Affine) {
+	var r big.Int
+	r.SetString("340444420969191673093399857471996460938405", 10)
+	samplePoints[0].ScalarMultiplication(&samplePoints[0], &r)
+
+	one := samplePoints[0].X
+	one.SetOne()
+
+	for i := 1; i < len(samplePoints); i++ {
+		samplePoints[i].X.Add(&samplePoints[i-1].X, &one)
+		samplePoints[i].Y.Sub(&samplePoints[i-1].Y, &one)
+	}
 }

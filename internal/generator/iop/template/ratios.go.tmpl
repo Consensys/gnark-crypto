@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/consensys/gnark-crypto/internal/parallel"
-	
+
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr/fft"
 )
@@ -36,7 +36,6 @@ var (
 // returns a polynomial whose evaluation on the j-th root of unity is
 // (Π_{k<j}Π_{i<m}(β-Pᵢ(ωᵏ)))/(β-Qᵢ(ωᵏ))
 func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (*Polynomial, error) {
-
 
 	// check that len(numerator)=len(denominator)
 	if len(numerator) != len(denominator) {
@@ -134,7 +133,6 @@ func BuildRatioCopyConstraint(
 	expectedForm Form,
 	domain *fft.Domain) (*Polynomial, error) {
 
-
 	nbPolynomials := len(entries)
 
 	// check that the sizes are consistent
@@ -166,33 +164,33 @@ func BuildRatioCopyConstraint(
 	coeffs[0].SetOne()
 	t[0].SetOne()
 
-	parallel.Execute(n-1, func(start, end int){
+	parallel.Execute(n-1, func(start, end int) {
 		var a, b, c, d fr.Element
 		nn := uint64(64 - bits.TrailingZeros(uint(n)))
 		for i := start; i < end; i++ {
 			b.SetOne()
 			d.SetOne()
-	
+
 			iRev := int(bits.Reverse64(uint64(i)) >> nn)
-	
+
 			for j, p := range entries {
 				idx := i
 				if p.Layout == BitReverse {
 					idx = iRev
 				}
-	
+
 				a.Mul(&beta, &evaluationIDSmallDomain[i+j*n]).
 					Add(&a, &gamma).
 					Add(&a, &p.Coefficients()[idx])
-	
+
 				b.Mul(&b, &a)
-	
+
 				c.Mul(&beta, &evaluationIDSmallDomain[permutation[i+j*n]]).
 					Add(&c, &gamma).
 					Add(&c, &p.Coefficients()[idx])
 				d.Mul(&d, &c)
 			}
-	
+
 			// b = Πⱼ(Pⱼ(ωⁱ)+β*ωⁱνʲ+γ)
 			// d = Πⱼ(Qⱼ(ωⁱ)+β*σ(j*n+i)+γ)
 			coeffs[i+1].Set(&b)
@@ -200,7 +198,7 @@ func BuildRatioCopyConstraint(
 		}
 	})
 
-	chCoeffs := make(chan struct{},1)
+	chCoeffs := make(chan struct{}, 1)
 	go func() {
 		for i := 2; i < n; i++ {
 			// ignoring coeffs[0]
@@ -215,13 +213,12 @@ func BuildRatioCopyConstraint(
 	}
 	<-chCoeffs
 
-	// rough ratio inverse to mul; see if it makes sense to parallelize the batch inverse. 
+	// rough ratio inverse to mul; see if it makes sense to parallelize the batch inverse.
 	const ratioInvMul = 1000 / 17
 	nbTasks := runtime.NumCPU()
 	if ratio := n / ratioInvMul; ratio < nbTasks {
 		nbTasks = ratio
 	}
-
 
 	parallel.Execute(n-1, func(start, end int) {
 		// ignoring t[0] and coeff[0]
@@ -314,16 +311,22 @@ func buildDomain(n int, domain *fft.Domain) (*fft.Domain, error) {
 // nbCopies is the number of cosets of the roots of unity that are needed, including the set of
 // roots of unity itself.
 func getSupportIdentityPermutation(nbCopies int, domain *fft.Domain) []fr.Element {
-	
+	if nbCopies <= 0 {
+		panic("getSupportIdentityPermutation: nbCopies must be positive")
+	}
+
 	res := make([]fr.Element, uint64(nbCopies)*domain.Cardinality)
 	sizePoly := int(domain.Cardinality)
 
-	// len(domain.Twiddle) == sizePoly / 2
-	copy(res, domain.Twiddles[0]) 
-	// remaining ones.
-	for i := (sizePoly/2) - 1; i < sizePoly-1; i++ {
-		res[i+1].Mul(&res[i], &domain.Generator)
+	// TODO @gbotrel check if we can reuse the pre-computed twiddles from the domain.
+	res[0].SetOne()
+	if len(res) > 1 {
+		res[1].Set(&domain.Generator)
+		for i := 2; i < len(res); i++ {
+			res[i].Mul(&res[i-1], &domain.Generator)
+		}
 	}
+
 	if nbCopies <= 1 {
 		return res
 	}
@@ -333,22 +336,14 @@ func getSupportIdentityPermutation(nbCopies int, domain *fft.Domain) []fr.Elemen
 		i := i
 
 		var coset fr.Element
-		if i == 1 {
-			coset = domain.FrMultiplicativeGen
-		} else {
-			if len(domain.CosetTable) > i {
-				coset = domain.CosetTable[i]
-			} else {
-				coset.Exp(domain.FrMultiplicativeGen, big.NewInt(int64(i)))
-			}
-		}
+		coset.Exp(domain.FrMultiplicativeGen, big.NewInt(int64(i)))
 
 		go func() {
 			parallel.Execute(sizePoly, func(start, end int) {
 				for j := start; j < end; j++ {
 					res[i*sizePoly+j].Mul(&res[j], &coset)
 				}
-			}, (runtime.NumCPU() / (nbCopies - 1)) + 1)
+			}, (runtime.NumCPU()/(nbCopies-1))+1)
 			wg.Done()
 		}()
 	}

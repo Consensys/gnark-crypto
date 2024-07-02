@@ -45,7 +45,6 @@ func TestPairing(t *testing.T) {
 	genA := GenE12()
 	genR1 := GenFr()
 	genR2 := GenFr()
-	genP := GenFp()
 
 	properties.Property("[BN254] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
 		func(a GT) bool {
@@ -64,28 +63,39 @@ func TestPairing(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BN254] Exp, CyclotomicExp and ExpGLV results must be the same in GT", prop.ForAll(
-		func(a GT, e fp.Element) bool {
-			a = FinalExponentiation(&a)
+	properties.Property("[BN254] Exp, CyclotomicExp and ExpGLV results must be the same in GT (small and big exponents)", prop.ForAll(
+		func(a GT, e fr.Element) bool {
 
-			var _e, ne big.Int
+			var res bool
 
-			k := new(big.Int).SetUint64(12)
-			e.Exp(e, k)
-			e.BigInt(&_e)
-			ne.Neg(&_e)
+			// exponent > r
+			{
+				a = FinalExponentiation(&a)
+				var _e big.Int
+				_e.SetString("169893631828481842931290008859743243489098146141979830311893424751855271950692001433356165550548410610101138388623573573742608490725625288296502860183437011025036209791574001140592327223981416956942076610555083128655330944007957223952510233203018053264066056080064687038560794652180979019775788172491868553073169893631828481842931290008859743243489098146141979830311893424751855271950692001433356165550548410610101138388623573573742608490725625288296502860183437011025036209791574001140592327223981416956942076610555083128655330944007957223952510233203018053264066056080064687038560794652180979019775788172491868553073", 10)
+				var b, c, d GT
+				b.Exp(a, &_e)
+				c.ExpGLV(a, &_e)
+				d.CyclotomicExp(a, &_e)
+				res = b.Equal(&c) && c.Equal(&d)
+			}
 
-			var b, c, d GT
-			b.Exp(a, &ne)
-			b.Inverse(&b)
-			c.ExpGLV(a, &ne)
-			c.Conjugate(&c)
-			d.CyclotomicExp(a, &_e)
+			// exponent < r
+			{
+				a = FinalExponentiation(&a)
+				var _e big.Int
+				e.BigInt(&_e)
+				var b, c, d GT
+				b.Exp(a, &_e)
+				c.ExpGLV(a, &_e)
+				d.CyclotomicExp(a, &_e)
+				res = res && b.Equal(&c) && c.Equal(&d)
+			}
 
-			return b.Equal(&c) && c.Equal(&d)
+			return res
 		},
 		genA,
-		genP,
+		genR1,
 	))
 
 	properties.Property("[BN254] Expt(Expt) and Exp(t^2) should output the same result in the cyclotomic subgroup", prop.ForAll(
@@ -153,6 +163,40 @@ func TestPairing(t *testing.T) {
 		genR2,
 	))
 
+	properties.Property("[BN254] Pair should output the same result with MillerLoop or MillerLoopFixedQ", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var ag1 G1Affine
+			var bg2 G2Affine
+
+			var abigint, bbigint big.Int
+
+			a.BigInt(&abigint)
+			b.BigInt(&bbigint)
+
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
+
+			P := []G1Affine{g1GenAff, ag1}
+			Q := []G2Affine{g2GenAff, bg2}
+
+			ml1, _ := MillerLoop(P, Q)
+			ml2, _ := MillerLoopFixedQ(
+				P,
+				[][2][len(LoopCounter)]LineEvaluationAff{
+					PrecomputeLines(Q[0]),
+					PrecomputeLines(Q[1]),
+				})
+
+			res1 := FinalExponentiation(&ml1)
+			res2 := FinalExponentiation(&ml2)
+
+			return res1.Equal(&res2)
+		},
+		genR1,
+		genR2,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -212,7 +256,7 @@ func TestMillerLoop(t *testing.T) {
 		genR2,
 	))
 
-	properties.Property("[BN254] MillerLoop should skip pairs with a point at infinity", prop.ForAll(
+	properties.Property("[BN254] MillerLoop and MillerLoopFixedQ should skip pairs with a point at infinity", prop.ForAll(
 		func(a, b fr.Element) bool {
 
 			var one GT
@@ -234,21 +278,66 @@ func TestMillerLoop(t *testing.T) {
 			g2Inf.FromJacobian(&g2Infinity)
 
 			// e([0,c] ; [b,d])
+			// -> should be equal to e(c,d)
 			tabP := []G1Affine{g1Inf, ag1}
 			tabQ := []G2Affine{g2GenAff, bg2}
 			res1, _ := Pair(tabP, tabQ)
 
 			// e([a,c] ; [0,d])
+			// -> should be equal to e(c,d)
 			tabP = []G1Affine{g1GenAff, ag1}
 			tabQ = []G2Affine{g2Inf, bg2}
 			res2, _ := Pair(tabP, tabQ)
 
+			// e([0,c] ; [b,d]) with fixed points b and d
+			// -> should be equal to e(c,d)
+			tabP = []G1Affine{g1Inf, ag1}
+			linesQ := [][2][len(LoopCounter)]LineEvaluationAff{
+				PrecomputeLines(g2GenAff),
+				PrecomputeLines(bg2),
+			}
+			res3, _ := PairFixedQ(tabP, linesQ)
+
+			// e([a,c] ; [0,d]) with fixed points 0 and d
+			// -> should be equal to e(c,d)
+			tabP = []G1Affine{g1GenAff, ag1}
+			linesQ = [][2][len(LoopCounter)]LineEvaluationAff{
+				PrecomputeLines(g2Inf),
+				PrecomputeLines(bg2),
+			}
+			res4, _ := PairFixedQ(tabP, linesQ)
+
 			// e([0,c] ; [d,0])
+			// -> should be equal to 1
 			tabP = []G1Affine{g1Inf, ag1}
 			tabQ = []G2Affine{bg2, g2Inf}
-			res3, _ := Pair(tabP, tabQ)
+			res5, _ := Pair(tabP, tabQ)
 
-			return res1.Equal(&res2) && !res2.Equal(&res3) && res3.Equal(&one)
+			// e([0,c] ; [d,0]) with fixed points d and 0
+			// -> should be equal to 1
+			tabP = []G1Affine{g1Inf, ag1}
+			linesQ = [][2][len(LoopCounter)]LineEvaluationAff{
+				PrecomputeLines(bg2),
+				PrecomputeLines(g2Inf),
+			}
+			res6, _ := PairFixedQ(tabP, linesQ)
+
+			// e([0,0])
+			// -> should be equal to 1
+			tabP = []G1Affine{g1Inf}
+			tabQ = []G2Affine{g2Inf}
+			res7, _ := Pair(tabP, tabQ)
+
+			// e([0,0]) with fixed point 0
+			// -> should be equal to 1
+			tabP = []G1Affine{g1Inf}
+			linesQ = [][2][len(LoopCounter)]LineEvaluationAff{
+				PrecomputeLines(g2Inf),
+			}
+			res8, _ := PairFixedQ(tabP, linesQ)
+
+			return res1.Equal(&res2) && res2.Equal(&res3) && res3.Equal(&res4) &&
+				res5.Equal(&one) && res6.Equal(&one) && res7.Equal(&one) && res8.Equal(&one)
 		},
 		genR1,
 		genR2,

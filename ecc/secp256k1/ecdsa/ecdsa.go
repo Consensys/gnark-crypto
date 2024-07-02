@@ -42,6 +42,13 @@ const (
 	sizeSignature  = 2 * sizeFr
 )
 
+var (
+	// ErrNoSqrtR is returned when x^3+ax+b is not a square in the field. This
+	// is used for public key recovery and allows to detect if the signature is
+	// valid or not.
+	ErrNoSqrtR = errors.New("x^3+ax+b is not a square in the field")
+)
+
 var order = fr.Modulus()
 
 // PublicKey represents an ECDSA public key
@@ -109,10 +116,10 @@ func HashToInt(hash []byte) *big.Int {
 	return ret
 }
 
-// RecoverP recovers the value P (prover commitment) when creating a signature.
+// recoverP recovers the value P (prover commitment) when creating a signature.
 // It uses the recovery information v and part of the decomposed signature r. It
 // is used internally for recovering the public key.
-func RecoverP(v uint, r *big.Int) (*secp256k1.G1Affine, error) {
+func recoverP(v uint, r *big.Int) (*secp256k1.G1Affine, error) {
 	if r.Cmp(fr.Modulus()) >= 0 {
 		return nil, errors.New("r is larger than modulus")
 	}
@@ -139,7 +146,8 @@ func RecoverP(v uint, r *big.Int) (*secp256k1.G1Affine, error) {
 	y.Mod(y, fp.Modulus())
 	// y = sqrt(y^2)
 	if y.ModSqrt(y, fp.Modulus()) == nil {
-		return nil, errors.New("no square root")
+		// there is no square root, return error constant
+		return nil, ErrNoSqrtR
 	}
 	// check that y has same oddity as defined by v
 	if y.Bit(0) != yChoice {

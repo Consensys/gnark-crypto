@@ -232,7 +232,7 @@ func (z *Element) IsZero() bool {
 
 // IsOne returns z == 1
 func (z *Element) IsOne() bool {
-	return (z[3] ^ 576460752303422960 | z[2] ^ 18446744073709551615 | z[1] ^ 18446744073709551615 | z[0] ^ 18446744073709551585) == 0
+	return ((z[3] ^ 576460752303422960) | (z[2] ^ 18446744073709551615) | (z[1] ^ 18446744073709551615) | (z[0] ^ 18446744073709551585)) == 0
 }
 
 // IsUint64 reports whether z can be represented as an uint64.

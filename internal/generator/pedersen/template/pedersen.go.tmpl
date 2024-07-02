@@ -1,158 +1,158 @@
 import (
-    "crypto/rand"
+	"crypto/rand"
 	"crypto/sha256"
-    "fmt"
-    "github.com/consensys/gnark-crypto/ecc"
-    curve "github.com/consensys/gnark-crypto/ecc/{{.Name}}"
-    "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+	"fmt"
+	"github.com/consensys/gnark-crypto/ecc"
+	curve "github.com/consensys/gnark-crypto/ecc/{{.Name}}"
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"io"
-    "math/big"
+	"math/big"
 )
 
 // ProvingKey for committing and proofs of knowledge
 type ProvingKey struct {
-	basis         []curve.G1Affine
-	basisExpSigma []curve.G1Affine
+	Basis         []curve.G1Affine
+	BasisExpSigma []curve.G1Affine
 }
 
 type VerifyingKey struct {
-    g             curve.G2Affine // TODO @tabaie: does this really have to be randomized?
-    gRootSigmaNeg curve.G2Affine //gRootSigmaNeg = g^{-1/σ}
+	G             curve.G2Affine // TODO @tabaie: does this really have to be randomized?
+	GRootSigmaNeg curve.G2Affine //gRootSigmaNeg = g^{-1/σ}
 }
 
 func randomFrSizedBytes() ([]byte, error) {
-    res := make([]byte, fr.Bytes)
-    _, err := rand.Read(res)
-    return res, err
+	res := make([]byte, fr.Bytes)
+	_, err := rand.Read(res)
+	return res, err
 }
 
 func randomOnG2() (curve.G2Affine, error) { // TODO: Add to G2.go?
 	if gBytes, err := randomFrSizedBytes(); err != nil {
-        return curve.G2Affine{}, err
+		return curve.G2Affine{}, err
 	} else {
-        return curve.HashToG2(gBytes, []byte("random on g2"))
-    }
+		return curve.HashToG2(gBytes, []byte("random on g2"))
+	}
 }
 
 func Setup(bases ...[]curve.G1Affine) (pk []ProvingKey, vk VerifyingKey, err error) {
 
-    if vk.g, err = randomOnG2(); err != nil {
-        return
-    }
+	if vk.G, err = randomOnG2(); err != nil {
+		return
+	}
 
-    var modMinusOne big.Int
-    modMinusOne.Sub(fr.Modulus(), big.NewInt(1))
-    var sigma *big.Int
-    if sigma, err = rand.Int(rand.Reader, &modMinusOne); err != nil {
-        return
-    }
-    sigma.Add(sigma, big.NewInt(1))
+	var modMinusOne big.Int
+	modMinusOne.Sub(fr.Modulus(), big.NewInt(1))
+	var sigma *big.Int
+	if sigma, err = rand.Int(rand.Reader, &modMinusOne); err != nil {
+		return
+	}
+	sigma.Add(sigma, big.NewInt(1))
 
-    var sigmaInvNeg big.Int
-    sigmaInvNeg.ModInverse(sigma, fr.Modulus())
-    sigmaInvNeg.Sub(fr.Modulus(), &sigmaInvNeg)
-    vk.gRootSigmaNeg.ScalarMultiplication(&vk.g, &sigmaInvNeg)
+	var sigmaInvNeg big.Int
+	sigmaInvNeg.ModInverse(sigma, fr.Modulus())
+	sigmaInvNeg.Sub(fr.Modulus(), &sigmaInvNeg)
+	vk.GRootSigmaNeg.ScalarMultiplication(&vk.G, &sigmaInvNeg)
 
-    pk = make([]ProvingKey, len(bases))
-    for i := range bases {
-        pk[i].basisExpSigma = make([]curve.G1Affine, len(bases[i]))
-        for j := range bases[i] {
-            pk[i].basisExpSigma[j].ScalarMultiplication(&bases[i][j], sigma)
-        }
-        pk[i].basis = bases[i]
-    }
-    return
+	pk = make([]ProvingKey, len(bases))
+	for i := range bases {
+		pk[i].BasisExpSigma = make([]curve.G1Affine, len(bases[i]))
+		for j := range bases[i] {
+			pk[i].BasisExpSigma[j].ScalarMultiplication(&bases[i][j], sigma)
+		}
+		pk[i].Basis = bases[i]
+	}
+	return
 }
 
 func (pk *ProvingKey) ProveKnowledge(values []fr.Element) (pok curve.G1Affine, err error) {
-    if len(values) != len(pk.basis) {
-        err = fmt.Errorf("must have as many values as basis elements")
-        return
-    }
+	if len(values) != len(pk.Basis) {
+		err = fmt.Errorf("must have as many values as basis elements")
+		return
+	}
 
-    // TODO @gbotrel this will spawn more than one task, see
-    // https://github.com/ConsenSys/gnark-crypto/issues/269
-    config := ecc.MultiExpConfig{
-        NbTasks: 1, // TODO Experiment
-    }
+	// TODO @gbotrel this will spawn more than one task, see
+	// https://github.com/ConsenSys/gnark-crypto/issues/269
+	config := ecc.MultiExpConfig{
+		NbTasks: 1, // TODO Experiment
+	}
 
-    _, err = pok.MultiExp(pk.basisExpSigma, values, config)
-    return
+	_, err = pok.MultiExp(pk.BasisExpSigma, values, config)
+	return
 }
 
 func (pk *ProvingKey) Commit(values []fr.Element) (commitment curve.G1Affine, err error) {
 
-    if len(values) != len(pk.basis) {
-        err = fmt.Errorf("must have as many values as basis elements")
-        return
-    }
+	if len(values) != len(pk.Basis) {
+		err = fmt.Errorf("must have as many values as basis elements")
+		return
+	}
 
-    // TODO @gbotrel this will spawn more than one task, see
-    // https://github.com/ConsenSys/gnark-crypto/issues/269
-    config := ecc.MultiExpConfig{
-        NbTasks: 1,
-    }
-    _, err = commitment.MultiExp(pk.basis, values, config)
+	// TODO @gbotrel this will spawn more than one task, see
+	// https://github.com/ConsenSys/gnark-crypto/issues/269
+	config := ecc.MultiExpConfig{
+		NbTasks: 1,
+	}
+	_, err = commitment.MultiExp(pk.Basis, values, config)
 
-    return
+	return
 }
 
 // BatchProve generates a single proof of knowledge for multiple commitments for faster verification
 func BatchProve(pk []ProvingKey, values [][]fr.Element, fiatshamirSeeds ...[]byte) (pok curve.G1Affine, err error) {
-    if len(pk) != len(values) {
-        err = fmt.Errorf("must have as many value vectors as bases")
-        return
-    }
-
-    if len(pk) == 1 { // no need to fold
-        return pk[0].ProveKnowledge(values[0])
-    } else if len(pk) == 0 {    // nothing to do at all
+	if len(pk) != len(values) {
+		err = fmt.Errorf("must have as many value vectors as bases")
 		return
-    }
+	}
 
-    offset := 0
-    for i := range pk {
-        if len(values[i]) != len(pk[i].basis) {
-            err = fmt.Errorf("must have as many values as basis elements")
-            return
-        }
-        offset += len(values[i])
-    }
+	if len(pk) == 1 { // no need to fold
+		return pk[0].ProveKnowledge(values[0])
+	} else if len(pk) == 0 { // nothing to do at all
+		return
+	}
 
-    var r fr.Element
-    if r, err = getChallenge(fiatshamirSeeds); err != nil {
-        return
-    }
+	offset := 0
+	for i := range pk {
+		if len(values[i]) != len(pk[i].Basis) {
+			err = fmt.Errorf("must have as many values as basis elements")
+			return
+		}
+		offset += len(values[i])
+	}
 
-    // prepare one amalgamated MSM
-    scaledValues := make([]fr.Element, offset)
-    basis := make([]curve.G1Affine, offset)
+	var r fr.Element
+	if r, err = getChallenge(fiatshamirSeeds); err != nil {
+		return
+	}
 
-    copy(basis, pk[0].basisExpSigma)
-    copy(scaledValues, values[0])
+	// prepare one amalgamated MSM
+	scaledValues := make([]fr.Element, offset)
+	basis := make([]curve.G1Affine, offset)
 
-    offset = len(values[0])
-    rI := r
-    for i := 1; i < len(pk); i++ {
-        copy(basis[offset:], pk[i].basisExpSigma)
-        for j := range pk[i].basis {
-            scaledValues[offset].Mul(&values[i][j], &rI)
-            offset++
-    }
-        if i+1 < len(pk) {
-            rI.Mul(&rI, &r)
-        }
-    }
+	copy(basis, pk[0].BasisExpSigma)
+	copy(scaledValues, values[0])
 
-    // TODO @gbotrel this will spawn more than one task, see
-    // https://github.com/ConsenSys/gnark-crypto/issues/269
-    config := ecc.MultiExpConfig{
-        NbTasks: 1,
-    }
+	offset = len(values[0])
+	rI := r
+	for i := 1; i < len(pk); i++ {
+		copy(basis[offset:], pk[i].BasisExpSigma)
+		for j := range pk[i].Basis {
+			scaledValues[offset].Mul(&values[i][j], &rI)
+			offset++
+		}
+		if i+1 < len(pk) {
+			rI.Mul(&rI, &r)
+		}
+	}
 
-    _, err = pok.MultiExp(basis, scaledValues, config)
-    return
+	// TODO @gbotrel this will spawn more than one task, see
+	// https://github.com/ConsenSys/gnark-crypto/issues/269
+	config := ecc.MultiExpConfig{
+		NbTasks: 1,
+	}
+
+	_, err = pok.MultiExp(basis, scaledValues, config)
+	return
 }
 
 // FoldCommitments amalgamates multiple commitments into one, which can be verifier against a folded proof obtained from BatchProve
@@ -161,9 +161,9 @@ func FoldCommitments(commitments []curve.G1Affine, fiatshamirSeeds ...[]byte) (c
 	if len(commitments) == 1 { // no need to fold
 		commitment = commitments[0]
 		return
-	} else if len(commitments) == 0 {   // nothing to do at all
+	} else if len(commitments) == 0 { // nothing to do at all
 		return
-    }
+	}
 
 	r := make([]fr.Element, len(commitments))
 	r[0].SetOne()
@@ -193,11 +193,11 @@ func FoldCommitments(commitments []curve.G1Affine, fiatshamirSeeds ...[]byte) (c
 // Verify checks if the proof of knowledge is valid
 func (vk *VerifyingKey) Verify(commitment curve.G1Affine, knowledgeProof curve.G1Affine) error {
 
-    if !commitment.IsInSubGroup() || !knowledgeProof.IsInSubGroup() {
-        return fmt.Errorf("subgroup check failed")
-    }
+	if !commitment.IsInSubGroup() || !knowledgeProof.IsInSubGroup() {
+		return fmt.Errorf("subgroup check failed")
+	}
 
-	if isOne, err := curve.PairingCheck([]curve.G1Affine{commitment, knowledgeProof}, []curve.G2Affine{vk.g, vk.gRootSigmaNeg}); err != nil {
+	if isOne, err := curve.PairingCheck([]curve.G1Affine{commitment, knowledgeProof}, []curve.G2Affine{vk.G, vk.GRootSigmaNeg}); err != nil {
 		return err
 	} else if !isOne {
 		return fmt.Errorf("proof rejected")
@@ -206,32 +206,32 @@ func (vk *VerifyingKey) Verify(commitment curve.G1Affine, knowledgeProof curve.G
 }
 
 func getChallenge(fiatshamirSeeds [][]byte) (r fr.Element, err error) {
-    // incorporate user-provided seeds into the transcript
-    t := fiatshamir.NewTranscript(sha256.New(), "r")
-    for i := range fiatshamirSeeds {
-        if err = t.Bind("r", fiatshamirSeeds[i]); err != nil {
-            return
-        }
-    }
+	// incorporate user-provided seeds into the transcript
+	t := fiatshamir.NewTranscript(sha256.New(), "r")
+	for i := range fiatshamirSeeds {
+		if err = t.Bind("r", fiatshamirSeeds[i]); err != nil {
+			return
+		}
+	}
 
-    // obtain the challenge
-    var rBytes []byte
+	// obtain the challenge
+	var rBytes []byte
 
-    if rBytes, err = t.ComputeChallenge("r"); err != nil {
-        return
-    }
-    r.SetBytes(rBytes) // TODO @Tabaie Plonk challenge generation done the same way; replace both with hash to fr?
-    return
+	if rBytes, err = t.ComputeChallenge("r"); err != nil {
+		return
+	}
+	r.SetBytes(rBytes) // TODO @Tabaie Plonk challenge generation done the same way; replace both with hash to fr?
+	return
 }
 
 // Marshal
 
 func (pk *ProvingKey) writeTo(enc *curve.Encoder) (int64, error) {
-    if err := enc.Encode(pk.basis); err != nil {
-        return enc.BytesWritten(), err
-    }
+	if err := enc.Encode(pk.Basis); err != nil {
+		return enc.BytesWritten(), err
+	}
 
-    err := enc.Encode(pk.basisExpSigma)
+	err := enc.Encode(pk.BasisExpSigma)
 
 	return enc.BytesWritten(), err
 }
@@ -247,16 +247,16 @@ func (pk *ProvingKey) WriteRawTo(w io.Writer) (int64, error) {
 func (pk *ProvingKey) ReadFrom(r io.Reader) (int64, error) {
 	dec := curve.NewDecoder(r)
 
-    if err := dec.Decode(&pk.basis); err != nil {
+	if err := dec.Decode(&pk.Basis); err != nil {
 		return dec.BytesRead(), err
 	}
-    if err := dec.Decode(&pk.basisExpSigma); err != nil {
-        return dec.BytesRead(), err
-    }
+	if err := dec.Decode(&pk.BasisExpSigma); err != nil {
+		return dec.BytesRead(), err
+	}
 
-    if cL, pL := len(pk.basis), len(pk.basisExpSigma); cL != pL {
-        return dec.BytesRead(), fmt.Errorf("commitment basis size (%d) doesn't match proof basis size (%d)", cL, pL)
-    }
+	if cL, pL := len(pk.Basis), len(pk.BasisExpSigma); cL != pL {
+		return dec.BytesRead(), fmt.Errorf("commitment basis size (%d) doesn't match proof basis size (%d)", cL, pL)
+	}
 
 	return dec.BytesRead(), nil
 }
@@ -272,10 +272,10 @@ func (vk *VerifyingKey) WriteRawTo(w io.Writer) (int64, error) {
 func (vk *VerifyingKey) writeTo(enc *curve.Encoder) (int64, error) {
 	var err error
 
-	if err = enc.Encode(&vk.g); err != nil {
+	if err = enc.Encode(&vk.G); err != nil {
 		return enc.BytesWritten(), err
 	}
-	err = enc.Encode(&vk.gRootSigmaNeg)
+	err = enc.Encode(&vk.GRootSigmaNeg)
 	return enc.BytesWritten(), err
 }
 
@@ -291,9 +291,9 @@ func (vk *VerifyingKey) readFrom(r io.Reader, decOptions ...func(*curve.Decoder)
 	dec := curve.NewDecoder(r, decOptions...)
 	var err error
 
-	if err = dec.Decode(&vk.g); err != nil {
+	if err = dec.Decode(&vk.G); err != nil {
 		return dec.BytesRead(), err
 	}
-	err = dec.Decode(&vk.gRootSigmaNeg)
+	err = dec.Decode(&vk.GRootSigmaNeg)
 	return dec.BytesRead(), err
 }

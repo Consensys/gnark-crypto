@@ -25,7 +25,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/fft"
-	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/kzg"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/kzg"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 
@@ -441,11 +441,11 @@ func ProveLookupVector(pk kzg.ProvingKey, f, t fr.Vector) (ProofLookupVector, er
 	}
 
 	// derive beta, gamma
-	beta, err := deriveRandomness(&fs, "beta", &proof.t, &proof.f, &proof.h1, &proof.h2)
+	beta, err := deriveRandomness(fs, "beta", &proof.t, &proof.f, &proof.h1, &proof.h2)
 	if err != nil {
 		return proof, err
 	}
-	gamma, err := deriveRandomness(&fs, "gamma")
+	gamma, err := deriveRandomness(fs, "gamma")
 	if err != nil {
 		return proof, err
 	}
@@ -495,7 +495,7 @@ func ProveLookupVector(pk kzg.ProvingKey, f, t fr.Vector) (ProofLookupVector, er
 	lh1h2 := evaluateOverlapH1h2BitReversed(_lh1, _lh2, domainBig)
 
 	// compute the quotient
-	alpha, err := deriveRandomness(&fs, "alpha", &proof.z)
+	alpha, err := deriveRandomness(fs, "alpha", &proof.z)
 	if err != nil {
 		return proof, err
 	}
@@ -506,7 +506,7 @@ func ProveLookupVector(pk kzg.ProvingKey, f, t fr.Vector) (ProofLookupVector, er
 	}
 
 	// build the opening proofs
-	nu, err := deriveRandomness(&fs, "nu", &proof.h)
+	nu, err := deriveRandomness(fs, "nu", &proof.h)
 	if err != nil {
 		return proof, err
 	}
@@ -570,22 +570,22 @@ func VerifyLookupVector(vk kzg.VerifyingKey, proof ProofLookupVector) error {
 	fs := fiatshamir.NewTranscript(hFunc, "beta", "gamma", "alpha", "nu")
 
 	// derive the various challenges
-	beta, err := deriveRandomness(&fs, "beta", &proof.t, &proof.f, &proof.h1, &proof.h2)
+	beta, err := deriveRandomness(fs, "beta", &proof.t, &proof.f, &proof.h1, &proof.h2)
 	if err != nil {
 		return err
 	}
 
-	gamma, err := deriveRandomness(&fs, "gamma")
+	gamma, err := deriveRandomness(fs, "gamma")
 	if err != nil {
 		return err
 	}
 
-	alpha, err := deriveRandomness(&fs, "alpha", &proof.z)
+	alpha, err := deriveRandomness(fs, "alpha", &proof.z)
 	if err != nil {
 		return err
 	}
 
-	nu, err := deriveRandomness(&fs, "nu", &proof.h)
+	nu, err := deriveRandomness(fs, "nu", &proof.h)
 	if err != nil {
 		return err
 	}

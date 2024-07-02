@@ -25,7 +25,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/fft"
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/kzg"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/kzg"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 
@@ -177,7 +177,7 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 	}
 
 	// derive challenge for z
-	epsilon, err := deriveRandomness(&fs, "epsilon", &proof.t1, &proof.t2)
+	epsilon, err := deriveRandomness(fs, "epsilon", &proof.t1, &proof.t2)
 	if err != nil {
 		return proof, err
 	}
@@ -206,7 +206,7 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 	lsNum := evaluateSecondPartNumReverse(lz, d)
 
 	// derive challenge used for the folding
-	omega, err := deriveRandomness(&fs, "omega", &proof.z)
+	omega, err := deriveRandomness(fs, "omega", &proof.z)
 	if err != nil {
 		return proof, err
 	}
@@ -229,7 +229,7 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 	}
 
 	// derive the evaluation challenge
-	eta, err := deriveRandomness(&fs, "eta", &proof.q)
+	eta, err := deriveRandomness(fs, "eta", &proof.q)
 	if err != nil {
 		return proof, err
 	}
@@ -282,17 +282,17 @@ func Verify(vk kzg.VerifyingKey, proof Proof) error {
 	fs := fiatshamir.NewTranscript(hFunc, "epsilon", "omega", "eta")
 
 	// derive the challenges
-	epsilon, err := deriveRandomness(&fs, "epsilon", &proof.t1, &proof.t2)
+	epsilon, err := deriveRandomness(fs, "epsilon", &proof.t1, &proof.t2)
 	if err != nil {
 		return err
 	}
 
-	omega, err := deriveRandomness(&fs, "omega", &proof.z)
+	omega, err := deriveRandomness(fs, "omega", &proof.z)
 	if err != nil {
 		return err
 	}
 
-	eta, err := deriveRandomness(&fs, "eta", &proof.q)
+	eta, err := deriveRandomness(fs, "eta", &proof.q)
 	if err != nil {
 		return err
 	}
