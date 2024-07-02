@@ -125,13 +125,6 @@ func (z *E3) String() string {
 	return (z.A0.String() + "+(" + z.A1.String() + ")*u+(" + z.A2.String() + ")*u**2")
 }
 
-// Conjugate conjugates an element in E3
-func (z *E3) Conjugate(x *E3) *E3 {
-	*z = *x
-	z.A1.Neg(&z.A1)
-	return z
-}
-
 // MulByElement multiplies an element in E3 by an element in fp
 func (z *E3) MulByElement(x *E3, y *fp.Element) *E3 {
 	_y := *y
