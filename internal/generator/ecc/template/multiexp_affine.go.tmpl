@@ -230,7 +230,7 @@ func processChunk{{ $.UPointName }}BatchAffine[BJE ib{{ $.TJacobianExtended }},B
 	total.setInfinity()
 	for k := len(buckets) - 1; k >= 0; k-- {
 		runningSum.addMixed(&buckets[k])
-		if !bucketsJE[k].IsZero() {
+		if !bucketsJE[k].IsInfinity() {
 			runningSum.add(&bucketsJE[k])
 		}
 		total.add(&runningSum)
