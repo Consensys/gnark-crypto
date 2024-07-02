@@ -2,7 +2,7 @@
 zkalc_benchmarks () {
     pushd $1
 
-    pushd fp
+    pushd fr
 
     go test -run none -bench BenchmarkElementAdd
     go test -run none -bench 'BenchmarkElementMul\b'
