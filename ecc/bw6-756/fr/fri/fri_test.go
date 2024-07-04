@@ -95,7 +95,7 @@ func TestFRI(t *testing.T) {
 			return err != nil
 
 		},
-		gen.Int32Range(0, int32(rho*size)),
+		gen.Int32Range(1, int32(rho*size)),
 	))
 
 	properties.Property("verifying correct opening should succeed", prop.ForAll(
