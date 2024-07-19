@@ -58,7 +58,7 @@ func processChunk{{ $.UPointName }}Jacobian[B ib{{ $.TJacobianExtended }}](chunk
    runningSum.setInfinity()
    total.setInfinity()
    for k := len(buckets) - 1; k >= 0; k-- {
-	   if !buckets[k].IsZero() {
+	   if !buckets[k].IsInfinity() {
 		   runningSum.add(&buckets[k])
 	   }
 	   total.add(&runningSum)
