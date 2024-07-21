@@ -22,17 +22,17 @@ import (
 )
 
 
-// {{ $TAffine }} point in affine coordinates
+// {{ $TAffine }} is a point in affine coordinates (x,y)
 type {{ $TAffine }} struct {
 	X, Y {{.CoordType}}
 }
 
-// {{ $TJacobian }} is a point with {{.CoordType}} coordinates
+// {{ $TJacobian }} is a point in Jacobian coordinates (x=X/Z², y=Y/Z³)
 type {{ $TJacobian }} struct {
 	X, Y, Z {{.CoordType}}
 }
 
-//  {{ $TJacobianExtended }} parameterized Jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ³=ZZZ²)
+// {{ $TJacobianExtended }} is a point in extended Jacobian coordinates (x=X/ZZ, y=Y/ZZZ, ZZ³=ZZZ²)
 type {{ $TJacobianExtended }} struct {
 	X, Y, ZZ, ZZZ {{.CoordType}}
 }
@@ -47,22 +47,24 @@ type {{ $TProjective }} struct {
 
 
 // -------------------------------------------------------------------------------------------------
-// Affine
+// Affine coordinates
 
-// Set sets p to the provided point
+// Set sets p to a in affine coordinates.
 func (p *{{ $TAffine }}) Set(a *{{ $TAffine }}) *{{ $TAffine }} {
        p.X, p.Y = a.X, a.Y
        return p
 }
 
-// setInfinity sets p to O
+// setInfinity sets p to the infinity point, which is encoded as (0,0).
+// N.B.: (0,0) is never on the curve for j=0 curves (Y²=X³+B).
 func (p *{{ $TAffine }}) setInfinity() *{{ $TAffine }} {
 	p.X.SetZero()
 	p.Y.SetZero()
 	return p
 }
 
-// ScalarMultiplication computes and returns p = a ⋅ s
+// ScalarMultiplication computes and returns p = [s]a
+// where p and a are affine points.
 func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{ $TAffine }} {
 	var _p {{ $TJacobian }}
 	_p.FromAffine(a)
@@ -75,84 +77,103 @@ func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{
 	return p
 }
 
-{{- if eq .PointName "g1"}}
-// ScalarMultiplicationAffine computes and returns p = a ⋅ s
-// Takes an affine point and returns a Jacobian point (useful for KZG)
-func (p *{{ $TJacobian }}) ScalarMultiplicationAffine(a *{{ $TAffine }}, s *big.Int) *{{ $TJacobian }} {
-	p.FromAffine(a)
-	{{- if .GLV}}
-        p.mulGLV(p, s)
-	{{- else }}
-        p.mulWindowed(p, s)
-	{{- end }}
-	return p
-}
-
-// ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
-func (p *{{ $TJacobian }}) ScalarMultiplicationBase(s *big.Int) *{{ $TJacobian }} {
-	return p.mulGLV(&g1Gen, s)
-}
-{{- end}}
-
-// ScalarMultiplicationBase computes and returns p = g ⋅ s where g is the prime subgroup generator
+// ScalarMultiplicationBase computes and returns p = [s]g
+// where g is the affine point generating the prime subgroup.
 func (p *{{ $TAffine }}) ScalarMultiplicationBase(s *big.Int) *{{ $TAffine }} {
 	var _p {{ $TJacobian }}
+	{{- if .GLV}}
 	_p.mulGLV(&{{ toLower .PointName}}Gen, s)
+	{{- else }}
+        _p.mulWindowed(&{{ toLower .PointName}}Gen, s)
+	{{- end }}
 	p.FromJacobian(&_p)
 	return p
 }
 
 
-// Add adds two point in affine coordinates.
-// This should rarely be used as it is very inefficient compared to Jacobian
+// Add adds two points in affine coordinates.
+// It uses the Jacobian addition with a.Z=b.Z=1 and converts the result to affine coordinates.
+//
+// https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-mmadd-2007-bl
 func (p *{{ $TAffine }}) Add(a, b *{{ $TAffine }}) *{{ $TAffine }} {
-	var p1, p2 {{ $TJacobian }}
-	p1.FromAffine(a)
-	p2.FromAffine(b)
-	p1.AddAssign(&p2)
-	p.FromJacobian(&p1)
-	return p
+	var q {{ $TJacobian }}
+	// a is infinity, return b
+	if a.IsInfinity() {
+		p.Set(b)
+		return p
+	}
+	// b is infinity, return a
+	if b.IsInfinity() {
+		p.Set(a)
+		return p
+	}
+	if a.X.Equal(&b.X) {
+		// if b == a, we double instead
+		if a.Y.Equal(&b.Y) {
+			q.DoubleMixed(a)
+			return p.FromJacobian(&q)
+		} else {
+			// if b == -a, we return 0
+			return p.setInfinity()
+		}
+	}
+	var H, HH, I, J, r, V {{.CoordType}}
+	H.Sub(&b.X, &a.X)
+	HH.Square(&H)
+	I.Double(&HH).Double(&I)
+	J.Mul(&H, &I)
+	r.Sub(&b.Y, &a.Y)
+	r.Double(&r)
+	V.Mul(&a.X, &I)
+	q.X.Square(&r).
+		Sub(&q.X, &J).
+		Sub(&q.X, &V).
+		Sub(&q.X, &V)
+	q.Y.Sub(&V, &q.X).
+		Mul(&q.Y, &r)
+	J.Mul(&a.Y, &J).Double(&J)
+	q.Y.Sub(&q.Y, &J)
+	q.Z.Double(&H)
+
+	return p.FromJacobian(&q)
 }
 
 // Double doubles a point in affine coordinates.
-// This should rarely be used as it is very inefficient compared to Jacobian
+// It converts the point to Jacobian coordinates, doubles it using Jacobian
+// addition with a.Z=1, and converts it back to affine coordinates.
+//
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-mdbl-2007-bl
 func (p *{{ $TAffine }}) Double(a *{{ $TAffine }}) *{{ $TAffine }} {
-	var p1 {{ $TJacobian }}
-	p1.FromAffine(a)
-	p1.Double(&p1)
-	p.FromJacobian(&p1)
+	var q {{ $TJacobian }}
+	q.FromAffine(a)
+	q.DoubleMixed(a)
+	p.FromJacobian(&q)
 	return p
 }
 
-// Sub subs two point in affine coordinates.
-// This should rarely be used as it is very inefficient compared to Jacobian
+// Sub subtracts two points in affine coordinates.
+// It uses a similar approach to Add, but negates the second point before adding.
 func (p *{{ $TAffine }}) Sub(a, b *{{ $TAffine }}) *{{ $TAffine }} {
-	var p1, p2 {{ $TJacobian }}
-	p1.FromAffine(a)
-	p2.FromAffine(b)
-	p1.SubAssign(&p2)
-	p.FromJacobian(&p1)
+	var bneg {{ $TAffine }}
+	bneg.Neg(b)
+	p.Add(a, &bneg)
 	return p
 }
 
-
-// Equal tests if two points (in Affine coordinates) are equal
+// Equal tests if two points in affine coordinates are equal.
 func (p *{{ $TAffine }}) Equal(a *{{ $TAffine }}) bool {
 	return p.X.Equal(&a.X) && p.Y.Equal(&a.Y)
 }
 
 
-// Neg computes -G
+// Neg sets p to the affine negative point -a = (a.X, -a.Y).
 func (p *{{ $TAffine }}) Neg(a *{{ $TAffine }}) *{{ $TAffine }} {
 	p.X = a.X
 	p.Y.Neg(&a.Y)
 	return p
 }
 
-
-
-
-// FromJacobian rescales a point in Jacobian coord in z=1 plane
+// FromJacobian converts a point p1 from Jacobian to affine coordinates.
 func (p *{{ $TAffine }}) FromJacobian(p1 *{{ $TJacobian }}) *{{ $TAffine }} {
 
 	var a, b {{.CoordType}}
@@ -171,8 +192,7 @@ func (p *{{ $TAffine }}) FromJacobian(p1 *{{ $TJacobian }}) *{{ $TAffine }} {
 	return p
 }
 
-
-// String returns the string representation of the point or "O" if it is infinity
+// String returns the string representation E(x,y) of the affine point p or "O" if it is infinity.
 func (p *{{ $TAffine }}) String() string {
 	if p.IsInfinity() {
 		return "O"
@@ -180,21 +200,20 @@ func (p *{{ $TAffine }}) String() string {
 	return "E([" + p.X.String() + "," + p.Y.String() + "])"
 }
 
-// IsInfinity checks if the point is infinity
-// in affine, it's encoded as (0,0)
-// (0,0) is never on the curve for j=0 curves
+// IsInfinity checks if the affine point p is infinity, which is encoded as (0,0).
+// N.B.: (0,0) is never on the curve for j=0 curves (Y²=X³+B).
 func (p *{{ $TAffine }}) IsInfinity() bool {
 	return p.X.IsZero() && p.Y.IsZero()
 }
 
-// IsOnCurve returns true if p in on the curve
+// IsOnCurve returns true if the affine point p in on the curve.
 func (p *{{ $TAffine }}) IsOnCurve() bool {
 	var point {{ $TJacobian }}
 	point.FromAffine(p)
 	return point.IsOnCurve() // call this function to handle infinity point
 }
 
-// IsInSubGroup returns true if p is in the correct subgroup, false otherwise
+// IsInSubGroup returns true if the affine point p is in the correct subgroup, false otherwise.
 func (p *{{ $TAffine }}) IsInSubGroup() bool {
 	var _p {{ $TJacobian }}
 	_p.FromAffine(p)
@@ -203,86 +222,76 @@ func (p *{{ $TAffine }}) IsInSubGroup() bool {
 
 
 // -------------------------------------------------------------------------------------------------
-// Jacobian
+// Jacobian coordinates
 
-// Set sets p to the provided point
-func (p *{{ $TJacobian }}) Set(a *{{ $TJacobian }}) *{{ $TJacobian }} {
-	p.X, p.Y, p.Z = a.X, a.Y, a.Z
+// Set sets p to a in Jacobian coordinates.
+func (p *{{ $TJacobian }}) Set(q *{{ $TJacobian }}) *{{ $TJacobian }} {
+	p.X, p.Y, p.Z = q.X, q.Y, q.Z
 	return p
 }
 
-// Equal tests if two points (in Jacobian coordinates) are equal
-func (p *{{ $TJacobian }}) Equal(a *{{ $TJacobian }}) bool {
+// Equal tests if two points in Jacobian coordinates are equal.
+func (p *{{ $TJacobian }}) Equal(q *{{ $TJacobian }}) bool {
 	// If one point is infinity, the other must also be infinity.
 	if p.Z.IsZero() {
-		return a.Z.IsZero()
+		return q.Z.IsZero()
 	}
 	// If the other point is infinity, return false since we can't
 	// the following checks would be incorrect.
-	if a.Z.IsZero() {
+	if q.Z.IsZero() {
 		return false
 	}
 
 	var pZSquare, aZSquare {{.CoordType}}
 	pZSquare.Square(&p.Z)
-	aZSquare.Square(&a.Z)
+	aZSquare.Square(&q.Z)
 
 	var lhs, rhs {{.CoordType}}
 	lhs.Mul(&p.X, &aZSquare)
-	rhs.Mul(&a.X, &pZSquare)
+	rhs.Mul(&q.X, &pZSquare)
 	if !lhs.Equal(&rhs) {
 		return false
 	}
-	lhs.Mul(&p.Y, &aZSquare).Mul(&lhs, &a.Z)
-	rhs.Mul(&a.Y, &pZSquare).Mul(&rhs, &p.Z)
+	lhs.Mul(&p.Y, &aZSquare).Mul(&lhs, &q.Z)
+	rhs.Mul(&q.Y, &pZSquare).Mul(&rhs, &p.Z)
 
 	return lhs.Equal(&rhs)
 }
 
-// Neg computes -G
-func (p *{{ $TJacobian }}) Neg(a *{{ $TJacobian }}) *{{ $TJacobian }} {
-	*p = *a
-	p.Y.Neg(&a.Y)
+// Neg sets p to the Jacobian negative point -q = (q.X, -q.Y, q.Z).
+func (p *{{ $TJacobian }}) Neg(q *{{ $TJacobian }}) *{{ $TJacobian }} {
+	*p = *q
+	p.Y.Neg(&q.Y)
 	return p
 }
 
-
-// SubAssign subtracts two points on the curve
-func (p *{{ $TJacobian }}) SubAssign(a *{{ $TJacobian }}) *{{ $TJacobian }} {
-	var tmp {{ $TJacobian }}
-	tmp.Set(a)
-	tmp.Y.Neg(&tmp.Y)
-	p.AddAssign(&tmp)
-	return p
-}
-
-
-// AddAssign point addition in montgomery form
+// AddAssign sets p to p+a in Jacobian coordinates.
+//
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
-func (p *{{ $TJacobian }}) AddAssign(a *{{ $TJacobian }}) *{{ $TJacobian }} {
+func (p *{{ $TJacobian }}) AddAssign(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 
-	// p is infinity, return a
+	// p is infinity, return q
 	if p.Z.IsZero() {
-		p.Set(a)
+		p.Set(q)
 		return p
 	}
 
-	// a is infinity, return p
-	if a.Z.IsZero() {
+	// q is infinity, return p
+	if q.Z.IsZero() {
 		return p
 	}
 
 	var Z1Z1, Z2Z2, U1, U2, S1, S2, H, I, J, r, V {{.CoordType}}
-	Z1Z1.Square(&a.Z)
+	Z1Z1.Square(&q.Z)
 	Z2Z2.Square(&p.Z)
-	U1.Mul(&a.X, &Z2Z2)
+	U1.Mul(&q.X, &Z2Z2)
 	U2.Mul(&p.X, &Z1Z1)
-	S1.Mul(&a.Y, &p.Z).
+	S1.Mul(&q.Y, &p.Z).
 		Mul(&S1, &Z2Z2)
-	S2.Mul(&p.Y, &a.Z).
+	S2.Mul(&p.Y, &q.Z).
 		Mul(&S2, &Z1Z1)
 
-	// if p == a, we double instead
+	// if p == q, we double instead
 	if U1.Equal(&U2) && S1.Equal(&S2) {
 		return p.DoubleAssign()
 	}
@@ -301,7 +310,7 @@ func (p *{{ $TJacobian }}) AddAssign(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 		Mul(&p.Y, &r)
 	S1.Mul(&S1, &J).Double(&S1)
 	p.Y.Sub(&p.Y, &S1)
-	p.Z.Add(&p.Z, &a.Z)
+	p.Z.Add(&p.Z, &q.Z)
 	p.Z.Square(&p.Z).
 		Sub(&p.Z, &Z1Z1).
 		Sub(&p.Z, &Z2Z2).
@@ -310,7 +319,48 @@ func (p *{{ $TJacobian }}) AddAssign(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 	return p
 }
 
-// AddMixed point addition
+// SubAssign sets p to p-a in Jacobian coordinates.
+// It uses a similar approach to AddAssign, but negates the point a before adding.
+func (p *{{ $TJacobian }}) SubAssign(q *{{ $TJacobian }}) *{{ $TJacobian }} {
+	var tmp {{ $TJacobian }}
+	tmp.Set(q)
+	tmp.Y.Neg(&tmp.Y)
+	p.AddAssign(&tmp)
+	return p
+}
+
+// Double sets p to [2]q in Jacobian coordinates.
+//
+// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+func (p *{{ $TJacobian }}) DoubleMixed(a *{{ $TAffine }}) *{{ $TJacobian }} {
+	var XX, YY, YYYY, S, M, T {{.CoordType}}
+	XX.Square(&a.X)
+	YY.Square(&a.Y)
+	YYYY.Square(&YY)
+	S.Add(&a.X, &YY).
+		Square(&S).
+		Sub(&S, &XX).
+		Sub(&S, &YYYY).
+		Double(&S)
+	M.Double(&XX).
+		Add(&M, &XX) // -> + A, but A=0 here
+	T.Square(&M).
+		Sub(&T, &S).
+		Sub(&T, &S)
+	p.X.Set(&T)
+	p.Y.Sub(&S, &T).
+		Mul(&p.Y, &M)
+	YYYY.Double(&YYYY).
+		Double(&YYYY).
+		Double(&YYYY)
+	p.Y.Sub(&p.Y, &YYYY)
+	p.Z.Double(&a.Y)
+
+	return p
+}
+
+// AddMixed sets p to p+a in Jacobian coordinates, where a.Z = 1.
+//
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
 func (p *{{ $TJacobian }}) AddMixed(a *{{ $TAffine }}) *{{ $TJacobian }} {
 
@@ -334,7 +384,7 @@ func (p *{{ $TJacobian }}) AddMixed(a *{{ $TAffine }}) *{{ $TJacobian }} {
 
 	// if p == a, we double instead
 	if U2.Equal(&p.X) && S2.Equal(&p.Y) {
-		return p.DoubleAssign()
+		return p.DoubleMixed(a)
 	}
 
 	H.Sub(&U2, &p.X)
@@ -359,7 +409,8 @@ func (p *{{ $TJacobian }}) AddMixed(a *{{ $TAffine }}) *{{ $TJacobian }} {
 	return p
 }
 
-// Double doubles a point in Jacobian coordinates
+// Double sets p to [2]q in Jacobian coordinates.
+//
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *{{ $TJacobian }}) Double(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 	p.Set(q)
@@ -367,7 +418,8 @@ func (p *{{ $TJacobian }}) Double(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 	return p
 }
 
-// DoubleAssign doubles a point in Jacobian coordinates
+// DoubleAssign doubles p in Jacobian coordinates.
+//
 // https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
 func (p *{{ $TJacobian }}) DoubleAssign() *{{ $TJacobian }} {
 
@@ -399,40 +451,55 @@ func (p *{{ $TJacobian }}) DoubleAssign() *{{ $TJacobian }} {
 	return p
 }
 
-
-// ScalarMultiplication computes and returns p = a ⋅ s
-// {{- if .GLV}} see https://www.iacr.org/archive/crypto2001/21390189.pdf {{- else }} using 2-bits windowed exponentiation {{- end }}
-func (p *{{ $TJacobian }}) ScalarMultiplication(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
+// ScalarMultiplication computes and returns p = [s]a
+// where p and a are Jacobian points.
+{{- if .GLV}}
+// using the GLV technique.
+// see https://www.iacr.org/archive/crypto2001/21390189.pdf
+{{- else }}
+// using a 2-bits windowed double-and-add method.
+{{- end }}
+func (p *{{ $TJacobian }}) ScalarMultiplication(q *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
 	{{- if .GLV}}
-		return p.mulGLV(a, s)
+		return p.mulGLV(q, s)
 	{{- else }}
-		return p.mulWindowed(a, s)
+		return p.mulWindowed(q, s)
 	{{- end }}
 }
 
-// String returns canonical representation of the point in affine coordinates
+// ScalarMultiplicationBase computes and returns p = [s]g
+// where g is the prime subgroup generator.
+func (p *{{ $TJacobian  }}) ScalarMultiplicationBase(s *big.Int) *{{ $TJacobian  }} {
+    {{- if .GLV}}
+        return p.mulGLV(&{{ toLower .PointName }}Gen, s)
+    {{- else }}
+        _p.mulWindowed(&{{ toLower .PointName }}Gen, s)
+    {{- end }}
+
+}
+
+// String converts p to affine coordinates and returns its string representation E(x,y) or "O" if it is infinity.
 func (p *{{ $TJacobian }}) String() string {
 	_p := {{ $TAffine }}{}
 	_p.FromJacobian(p)
 	return _p.String()
 }
 
-// FromAffine sets p = Q, p in Jacobian, Q in affine
-func (p *{{ $TJacobian }}) FromAffine(Q *{{ $TAffine }}) *{{ $TJacobian }} {
-	if Q.IsInfinity() {
+// FromAffine converts a point a from affine to Jacobian coordinates.
+func (p *{{ $TJacobian }}) FromAffine(a *{{ $TAffine }}) *{{ $TJacobian }} {
+	if a.IsInfinity() {
 		p.Z.SetZero()
 		p.X.SetOne()
 		p.Y.SetOne()
 		return p
 	}
 	p.Z.SetOne()
-	p.X.Set(&Q.X)
-	p.Y.Set(&Q.Y)
+	p.X.Set(&a.X)
+	p.Y.Set(&a.Y)
 	return p
 }
 
-
-// IsOnCurve returns true if p in on the curve
+// IsOnCurve returns true if the Jacobian point p in on the curve.
 func (p *{{ $TJacobian }}) IsOnCurve() bool {
 	var left, right, tmp, ZZ  {{.CoordType}}
 	left.Square(&p.Y)
@@ -660,13 +727,14 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 {{- end}}
 
 
-// mulWindowed computes a 2-bits windowed scalar multiplication
-func (p *{{ $TJacobian }}) mulWindowed(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
+// mulWindowed computes the 2-bits windowed double-and-add scalar
+// multiplication p=[s]q in Jacobian coordinates.
+func (p *{{ $TJacobian }}) mulWindowed(q *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
 
 	var res {{ $TJacobian }}
 	var ops [3]{{ $TJacobian }}
 
-	ops[0].Set(a)
+	ops[0].Set(q)
 	if s.Sign() == -1 {
 		ops[0].Neg(&ops[0])
 	}
@@ -694,18 +762,18 @@ func (p *{{ $TJacobian }}) mulWindowed(a *{{ $TJacobian }}, s *big.Int) *{{ $TJa
 }
 
 {{ if eq .CoordType "fptower.E2"  }}
-	// ψ(p) = u o π o u⁻¹ where u:E'→E iso from the twist to E
-	func (p *{{ $TJacobian }}) psi(a *{{ $TJacobian }}) *{{ $TJacobian }} {
-		p.Set(a)
+	// psi sets p to ψ(q) = u o π o u⁻¹ where u:E'→E is the isomorphism from the twist to the curve E and π is the Frobenius map.
+	func (p *{{ $TJacobian }}) psi(q *{{ $TJacobian }}) *{{ $TJacobian }} {
+		p.Set(q)
 		p.X.Conjugate(&p.X).Mul(&p.X, &endo.u)
 		p.Y.Conjugate(&p.Y).Mul(&p.Y, &endo.v)
 		p.Z.Conjugate(&p.Z)
 		return p
 	}
 {{ else if eq .CoordType "fptower.E4"}}
-	// ψ(p) = u o π o u⁻¹ where u:E'→E iso from the twist to E
-	func (p *{{ $TJacobian }}) psi(a *{{ $TJacobian }}) *{{ $TJacobian }} {
-		p.Set(a)
+	// psi sets p to ψ(q) = u o π o u⁻¹ where u:E'→E is the isomorphism from the twist to the curve E and π is the Frobenius map.
+	func (p *{{ $TJacobian }}) psi(q *{{ $TJacobian }}) *{{ $TJacobian }} {
+		p.Set(q)
 		p.X.Frobenius(&p.X).Mul(&p.X, &endo.u)
 		p.Y.Frobenius(&p.Y).Mul(&p.Y, &endo.v)
 		p.Z.Frobenius(&p.Z)
@@ -715,10 +783,10 @@ func (p *{{ $TJacobian }}) mulWindowed(a *{{ $TJacobian }}, s *big.Int) *{{ $TJa
 
 {{ if .GLV}}
 
-// ϕ assigns p to ϕ(a) where ϕ: (x,y) → (w x,y), and returns p
-// where w is a third root of unity in 𝔽p
-func (p *{{ $TJacobian }}) phi(a *{{ $TJacobian }}) *{{ $TJacobian }} {
-	p.Set(a)
+// phi sets p to ϕ(a) where ϕ: (x,y) → (w x,y),
+// where w is a third root of unity.
+func (p *{{ $TJacobian }}) phi(q *{{ $TJacobian }}) *{{ $TJacobian }} {
+	p.Set(q)
 	{{- if or (eq .CoordType "fptower.E2" ) (eq .CoordType "fptower.E4" )}}
 		p.X.MulByElement(&p.X, &thirdRootOne{{toUpper .PointName}})
 	{{- else}}
@@ -728,8 +796,9 @@ func (p *{{ $TJacobian }}) phi(a *{{ $TJacobian }}) *{{ $TJacobian }} {
 }
 
 // mulGLV computes the scalar multiplication using a windowed-GLV method
+//
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
-func (p *{{ $TJacobian }}) mulGLV(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
+func (p *{{ $TJacobian }}) mulGLV(q *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
 
 	var table [15]{{ $TJacobian }}
 	var res {{ $TJacobian }}
@@ -737,11 +806,11 @@ func (p *{{ $TJacobian }}) mulGLV(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobia
 
 	res.Set(&{{ toLower .PointName}}Infinity)
 
-	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(a) + b1b0*a
-	table[0].Set(a)
-	table[3].phi(a)
+	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(q) + b1b0*q
+	table[0].Set(q)
+	table[3].phi(q)
 
-	// split the scalar, modifies ±a, ϕ(a) accordingly
+	// split the scalar, modifies ±q, ϕ(q) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
 
 	if k[0].Sign() == -1 {
@@ -754,7 +823,7 @@ func (p *{{ $TJacobian }}) mulGLV(a *{{ $TJacobian }}, s *big.Int) *{{ $TJacobia
 	}
 
 	// precompute table (2 bits sliding window)
-	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(a) + b1b0 ⋅ a if b3b2b1b0 != 0
+	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(q) + b1b0 ⋅ q if b3b2b1b0 != 0
 	table[1].Double(&table[0])
 	table[2].Set(&table[1]).AddAssign(&table[0])
 	table[4].Set(&table[3]).AddAssign(&table[0])
@@ -817,25 +886,25 @@ func (p *{{ $TAffine }}) ClearCofactor(a *{{ $TAffine }}) *{{ $TAffine }} {
 {{- if eq .PointName "g1"}}
 
 // ClearCofactor maps a point in E(Fp) to E(Fp)[r]
-func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
+func (p *{{$TJacobian}}) ClearCofactor(q *{{$TJacobian}}) *{{$TJacobian}} {
 {{- if or (eq .Name "bls12-381") (eq .Name "bls24-315")}}
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res {{$TJacobian}}
-	res.ScalarMultiplication(a, &xGen).AddAssign(a)
+	res.ScalarMultiplication(q, &xGen).AddAssign(q)
 	p.Set(&res)
 	return p
 {{else if or (eq .Name "bls12-377") (eq .Name "bls12-378") (eq .Name "bls24-317")}}
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res {{$TJacobian}}
-	res.ScalarMultiplication(a, &xGen).Neg(&res).AddAssign(a)
+	res.ScalarMultiplication(q, &xGen).Neg(&res).AddAssign(q)
 	p.Set(&res)
 	return p
 {{else if eq .Name "bw6-761"}}
 {{ if .GLV}}
 	// https://eprint.iacr.org/2020/351.pdf
 	var points [4]{{$TJacobian}}
-	points[0].Set(a)
-	points[1].ScalarMultiplication(a, &xGen)
+	points[0].Set(q)
+	points[1].ScalarMultiplication(q, &xGen)
 	points[2].ScalarMultiplication(&points[1], &xGen)
 	points[3].ScalarMultiplication(&points[2], &xGen)
 
@@ -869,7 +938,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{ else}}
     var c1 big.Int
     c1.SetString("26642435879335816683987677701488073867751118270052650655942102502312977592501693353047140953112195348280268661194876", 10)
-    p.ScalarMultiplication(a, &c1)
+    p.ScalarMultiplication(q, &c1)
 {{ end}}
 
 	return p
@@ -885,27 +954,27 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	ht.SetInt64(7)
 	v.Mul(&xGen, &xGen).Add(&v, &one).Mul(&v, &uPlusOne)
 
-	uP.ScalarMultiplication(a, &xGen).Neg(&uP)
-	vP.Set(a).SubAssign(&uP).
+	uP.ScalarMultiplication(q, &xGen).Neg(&uP)
+	vP.Set(q).SubAssign(&uP).
         ScalarMultiplication(&vP, &v)
 	wP.ScalarMultiplication(&vP, &uMinusOne).Neg(&wP).
         AddAssign(&uP)
 	L0.ScalarMultiplication(&wP, &d1)
 	tmp.ScalarMultiplication(&vP, &ht)
 	L0.AddAssign(&tmp)
-	tmp.Double(a)
+	tmp.Double(q)
 	L0.AddAssign(&tmp)
-	L1.Set(&uP).AddAssign(a).ScalarMultiplication(&L1, &d1)
+	L1.Set(&uP).AddAssign(q).ScalarMultiplication(&L1, &d1)
 	tmp.ScalarMultiplication(&vP, &d2)
 	L1.AddAssign(&tmp)
-	tmp.ScalarMultiplication(a, &ht)
+	tmp.ScalarMultiplication(q, &ht)
 	L1.AddAssign(&tmp)
 
 	p.phi(&L1).AddAssign(&L0)
 {{ else}}
     var c1 big.Int
     c1.SetString("516166855112631370346774477030598579858367278343565509012644853411927535599366632765988905418773", 10)
-    p.ScalarMultiplication(a, &c1)
+    p.ScalarMultiplication(q, &c1)
 {{ end}}
 
     return p
@@ -913,32 +982,32 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{ if .GLV}}
 	var L0, L1, uP, u2P, u3P, tmp G1Jac
 
-	uP.ScalarMultiplication(a, &xGen)
+	uP.ScalarMultiplication(q, &xGen)
 	u2P.ScalarMultiplication(&uP, &xGen)
 	u3P.ScalarMultiplication(&u2P, &xGen)
 
-	L0.Set(a).AddAssign(&u3P).
+	L0.Set(q).AddAssign(&u3P).
 		SubAssign(&u2P)
-	tmp.Set(a).AddAssign(&u2P).
+	tmp.Set(q).AddAssign(&u2P).
 		SubAssign(&uP).
 		SubAssign(&uP).
 		Double(&tmp)
 	L0.SubAssign(&tmp).
-		SubAssign(a)
+		SubAssign(q)
 
-	L1.Set(a).AddAssign(&uP)
-	tmp.Set(&uP).SubAssign(a).
+	L1.Set(q).AddAssign(&uP)
+	tmp.Set(&uP).SubAssign(q).
 		Double(&tmp).
 		SubAssign(&u2P)
 	L1.AddAssign(&tmp).
-		SubAssign(a)
+		SubAssign(q)
 
 	p.phi(&L1).
 		AddAssign(&L0)
 {{ else}}
     var c1 big.Int
     c1.SetString("605248206075306171568857128027361794400937215108643640003009340657451546212610770151705515081537938829431808196608", 10)
-    p.ScalarMultiplication(a, &c1)
+    p.ScalarMultiplication(q, &c1)
 {{ end}}
 
 	return p
@@ -947,12 +1016,12 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{ else }}
 
 // ClearCofactor maps a point in curve to r-torsion
-func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
+func (p *{{$TJacobian}}) ClearCofactor(q *{{$TJacobian}}) *{{$TJacobian}} {
 {{- if eq .Name "bn254"}}
 	// cf http://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf, 6.1
 	var points [4]{{$TJacobian}}
 
-	points[0].ScalarMultiplication(a, &xGen)
+	points[0].ScalarMultiplication(q, &xGen)
 
 	points[1].Double(&points[0]).
 		AddAssign(&points[0]).
@@ -961,7 +1030,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	points[2].psi(&points[0]).
 		psi(&points[2])
 
-	points[3].psi(a).psi(&points[3]).psi(&points[3])
+	points[3].psi(q).psi(&points[3]).psi(&points[3])
 
 	var res {{$TJacobian}}
 	res.Set(&g2Infinity)
@@ -973,20 +1042,20 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{else if eq .Name "bls12-381"}}
 	// https://eprint.iacr.org/2017/419.pdf, 4.1
 	var xg, xxg, res, t G2Jac
-	xg.ScalarMultiplication(a, &xGen).Neg(&xg)
+	xg.ScalarMultiplication(q, &xGen).Neg(&xg)
 	xxg.ScalarMultiplication(&xg, &xGen).Neg(&xxg)
 
 	res.Set(&xxg).
 		SubAssign(&xg).
-		SubAssign(a)
+		SubAssign(q)
 
 	t.Set(&xg).
-		SubAssign(a).
+		SubAssign(q).
 		psi(&t)
 
 	res.AddAssign(&t)
 
-	t.Double(a)
+	t.Double(q)
 	t.X.MulByElement(&t.X, &thirdRootOneG1)
 
 	res.SubAssign(&t)
@@ -998,20 +1067,20 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{else if or (eq .Name "bls12-377") (eq .Name "bls12-378")}}
     // https://eprint.iacr.org/2017/419.pdf, 4.1
 	var xg, xxg, res, t G2Jac
-	xg.ScalarMultiplication(a, &xGen)
+	xg.ScalarMultiplication(q, &xGen)
 	xxg.ScalarMultiplication(&xg, &xGen)
 
 	res.Set(&xxg).
 		SubAssign(&xg).
-		SubAssign(a)
+		SubAssign(q)
 
 	t.Set(&xg).
-		SubAssign(a).
+		SubAssign(q).
 		psi(&t)
 
 	res.AddAssign(&t)
 
-	t.Double(a)
+	t.Double(q)
 	t.X.MulByElement(&t.X, &thirdRootOneG1)
 
 	res.SubAssign(&t)
@@ -1025,20 +1094,20 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	// multiply by (3x⁴-3)*cofacor
     {{ if eq .Name "bls24-315"}}
 	var xg, xxg, xxxg, xxxxg, res, t G2Jac
-	xg.ScalarMultiplication(a, &xGen).Neg(&xg).SubAssign(a)
+	xg.ScalarMultiplication(q, &xGen).Neg(&xg).SubAssign(q)
 	xxg.ScalarMultiplication(&xg, &xGen).Neg(&xxg)
 	xxxg.ScalarMultiplication(&xxg, &xGen).Neg(&xxxg)
 	xxxxg.ScalarMultiplication(&xxxg, &xGen).Neg(&xxxxg)
     {{ else }}
 	var xg, xxg, xxxg, xxxxg, res, t G2Jac
-	xg.ScalarMultiplication(a, &xGen).SubAssign(a)
+	xg.ScalarMultiplication(q, &xGen).SubAssign(q)
 	xxg.ScalarMultiplication(&xg, &xGen)
 	xxxg.ScalarMultiplication(&xxg, &xGen)
 	xxxxg.ScalarMultiplication(&xxxg, &xGen)
     {{ end }}
 
 	res.Set(&xxxxg).
-		SubAssign(a)
+		SubAssign(q)
 
 	t.Set(&xxxg).
 		psi(&t).
@@ -1055,7 +1124,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 		psi(&t).
 		AddAssign(&res)
 
-	res.Double(a).
+	res.Double(q).
 		psi(&res).
 		psi(&res).
 		psi(&res).
@@ -1069,8 +1138,8 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 
 {{- if .GLV}}
 	var points [4]{{$TJacobian}}
-	points[0].Set(a)
-	points[1].ScalarMultiplication(a, &xGen)
+	points[0].Set(q)
+	points[1].ScalarMultiplication(q, &xGen)
 	points[2].ScalarMultiplication(&points[1], &xGen)
 	points[3].ScalarMultiplication(&points[2], &xGen)
 
@@ -1104,7 +1173,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{else}}
     var c2 big.Int
     c2.SetString("26642435879335816683987677701488073867751118270052650655942102502312977592501693353047140953112195348280268661194869", 10)
-    p.ScalarMultiplication(a, &c2)
+    p.ScalarMultiplication(q, &c2)
 {{end}}
 
 	return p
@@ -1116,7 +1185,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	d1.SetInt64(13)
 	d3.SetInt64(5) // negative
 
-	uP.ScalarMultiplication(a, &xGen) // negative
+	uP.ScalarMultiplication(q, &xGen) // negative
 	u2P.ScalarMultiplication(&uP, &xGen)
 	u3P.ScalarMultiplication(&u2P, &xGen) // negative
 	u4P.ScalarMultiplication(&u3P, &xGen)
@@ -1125,25 +1194,25 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 	    AddAssign(&u3P).
 	    Double(&vP).
 	    AddAssign(&u4P).
-	    AddAssign(a)
+	    AddAssign(q)
 	wP.Set(&uP).SubAssign(&u4P).SubAssign(&u5P)
-    xP.Set(a).AddAssign(&vP)
-	L0.Set(&uP).SubAssign(a).ScalarMultiplication(&L0, &d1)
+    xP.Set(q).AddAssign(&vP)
+	L0.Set(&uP).SubAssign(q).ScalarMultiplication(&L0, &d1)
 	tmp.ScalarMultiplication(&xP, &d3)
 	L0.AddAssign(&tmp)
-    tmp.ScalarMultiplication(a, &ht) // negative
+    tmp.ScalarMultiplication(q, &ht) // negative
 	L0.SubAssign(&tmp)
 	L1.ScalarMultiplication(&wP, &d1)
 	tmp.ScalarMultiplication(&vP, &ht)
 	L1.AddAssign(&tmp)
-	tmp.ScalarMultiplication(a, &d3)
+	tmp.ScalarMultiplication(q, &d3)
 	L1.AddAssign(&tmp)
 
 	p.phi(&L1).AddAssign(&L0)
 {{else}}
     var c2 big.Int
     c2.SetString("516166855112631370346774477030598579858367278343565509012644853411927535599366632765988905418768", 10)
-    p.ScalarMultiplication(a, &c2)
+    p.ScalarMultiplication(q, &c2)
 {{end}}
 
 	return p
@@ -1152,17 +1221,17 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{- if .GLV}}
 	var L0, L1, uP, u2P, u3P, tmp G2Jac
 
-	uP.ScalarMultiplication(a, &xGen)
+	uP.ScalarMultiplication(q, &xGen)
 	u2P.ScalarMultiplication(&uP, &xGen)
 	u3P.ScalarMultiplication(&u2P, &xGen)
 	// ht=-2, hy=0
 	// d1=1, d2=-1, d3=-1
 
-	L0.Set(a).
+	L0.Set(q).
 		AddAssign(&u2P).
 		SubAssign(&uP)
 	tmp.Set(&u2P).
-		AddAssign(a).
+		AddAssign(q).
 		SubAssign(&uP).
 		Double(&tmp)
 	L1.Set(&u3P).
@@ -1173,7 +1242,7 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{else}}
     var c2 big.Int
     c2.SetString("605248206075306171568857128027361794400937215108643640003009340657451546212610770151705515081537938829431808196609", 10)
-    p.ScalarMultiplication(a, &c2)
+    p.ScalarMultiplication(q, &c2)
 {{end}}
 
 	return p
@@ -1186,14 +1255,14 @@ func (p *{{$TJacobian}}) ClearCofactor(a *{{$TJacobian}}) *{{$TJacobian}} {
 {{ end }}
 
 {{ if eq .PointName "g1" }}
-// JointScalarMultiplicationBase computes [s1]g+[s2]a using Straus-Shamir technique
-// where g is the prime subgroup generator
-func (p *{{$TJacobian}}) JointScalarMultiplicationBase(a *G1Affine, s1, s2 *big.Int) *{{$TJacobian}} {
+// JointScalarMultiplication computes [s1]a1+[s2]a2 using Strauss-Shamir technique
+// where a1 and a2 are affine points.
+func (p *{{$TJacobian}}) JointScalarMultiplication(a1, a2 *G1Affine, s1, s2 *big.Int) *{{$TJacobian}} {
 
 	var res, p1, p2 {{$TJacobian}}
 	res.Set(&{{ toLower .PointName }}Infinity)
-	p1.Set(&g1Gen)
-	p2.FromAffine(a)
+	p1.FromAffine(a1)
+	p2.FromAffine(a2)
 
 	var table [15]{{$TJacobian}}
 
@@ -1256,19 +1325,27 @@ func (p *{{$TJacobian}}) JointScalarMultiplicationBase(a *G1Affine, s1, s2 *big.
 	return p
 
 }
+
+// JointScalarMultiplicationBase computes [s1]g+[s2]a using Straus-Shamir technique
+// where g is the prime subgroup generator.
+func (p *{{$TJacobian}}) JointScalarMultiplicationBase(a *G1Affine, s1, s2 *big.Int) *{{$TJacobian}} {
+    return p.JointScalarMultiplication(&g1GenAff, a, s1, s2)
+
+}
+
 {{ end }}
 
 
 // -------------------------------------------------------------------------------------------------
-// Jacobian extended
+// extended Jacobian coordinates
 
-// Set sets p to the provided point
-func (p *{{ $TJacobianExtended }}) Set(a *{{ $TJacobianExtended }}) *{{ $TJacobianExtended }} {
-	p.X, p.Y, p.ZZ, p.ZZZ = a.X, a.Y, a.ZZ, a.ZZZ
+// Set sets p to a in extended Jacobian coordinates.
+func (p *{{ $TJacobianExtended }}) Set(q *{{ $TJacobianExtended }}) *{{ $TJacobianExtended }} {
+	p.X, p.Y, p.ZZ, p.ZZZ = q.X, q.Y, q.ZZ, q.ZZZ
 	return p
 }
 
-// setInfinity sets p to O
+// setInfinity sets p to the infinity point (1,1,0,0).
 func (p *{{ $TJacobianExtended }}) setInfinity() *{{ $TJacobianExtended }} {
 	p.X.SetOne()
 	p.Y.SetOne()
@@ -1277,43 +1354,45 @@ func (p *{{ $TJacobianExtended }}) setInfinity() *{{ $TJacobianExtended }} {
 	return p
 }
 
-func (p *{{ $TJacobianExtended }}) IsZero() bool {
+// IsInfinity checks if the p is infinity, i.e. p.ZZ=0.
+func (p *{{ $TJacobianExtended }}) IsInfinity() bool {
 	return p.ZZ.IsZero()
 }
 
-// fromJacExtended sets Q in affine coordinates
-func (p *{{ $TAffine }})  fromJacExtended (Q *{{ $TJacobianExtended }}) *{{ $TAffine }} {
-	if Q.ZZ.IsZero() {
+// fromJacExtended converts an extended Jacobian point to an affine point.
+func (p *{{ $TAffine }})  fromJacExtended (q *{{ $TJacobianExtended }}) *{{ $TAffine }} {
+	if q.ZZ.IsZero() {
 		p.X = {{.CoordType}}{}
 		p.Y = {{.CoordType}}{}
 		return p
 	}
-	p.X.Inverse(&Q.ZZ).Mul(&p.X, &Q.X)
-	p.Y.Inverse(&Q.ZZZ).Mul(&p.Y, &Q.Y)
+	p.X.Inverse(&q.ZZ).Mul(&p.X, &q.X)
+	p.Y.Inverse(&q.ZZZ).Mul(&p.Y, &q.Y)
 	return p
 }
 
-// fromJacExtended sets Q in Jacobian coordinates
-func (p *{{ $TJacobian }}) fromJacExtended(Q *{{ $TJacobianExtended }}) *{{ $TJacobian }} {
-	if Q.ZZ.IsZero() {
+// fromJacExtended converts an extended Jacobian point to a Jacobian point.
+func (p *{{ $TJacobian }}) fromJacExtended(q *{{ $TJacobianExtended }}) *{{ $TJacobian }} {
+	if q.ZZ.IsZero() {
 		p.Set(&{{ toLower .PointName }}Infinity)
 		return p
 	}
-	p.X.Mul(&Q.ZZ, &Q.X).Mul(&p.X, &Q.ZZ)
-	p.Y.Mul(&Q.ZZZ, &Q.Y).Mul(&p.Y, &Q.ZZZ)
-	p.Z.Set(&Q.ZZZ)
+	p.X.Mul(&q.ZZ, &q.X).Mul(&p.X, &q.ZZ)
+	p.Y.Mul(&q.ZZZ, &q.Y).Mul(&p.Y, &q.ZZZ)
+	p.Z.Set(&q.ZZZ)
 	return p
 }
 
-// unsafeFromJacExtended sets p in Jacobian coordinates, but don't check for infinity
-func (p *{{ $TJacobian }}) unsafeFromJacExtended(Q *{{ $TJacobianExtended }}) *{{ $TJacobian }} {
-	p.X.Square(&Q.ZZ).Mul(&p.X, &Q.X)
-	p.Y.Square(&Q.ZZZ).Mul(&p.Y, &Q.Y)
-	p.Z = Q.ZZZ
+// unsafeFromJacExtended converts an extended Jacobian point, distinct from Infinity, to a Jacobian point.
+func (p *{{ $TJacobian }}) unsafeFromJacExtended(q *{{ $TJacobianExtended }}) *{{ $TJacobian }} {
+	p.X.Square(&q.ZZ).Mul(&p.X, &q.X)
+	p.Y.Square(&q.ZZZ).Mul(&p.Y, &q.Y)
+	p.Z = q.ZZZ
 	return p
 }
 
-// add point in Jacobian extended coordinates
+// add sets p to p+q in extended Jacobian coordinates.
+//
 // https://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-add-2008-s
 func (p *{{ $TJacobianExtended }}) add(q *{{ $TJacobianExtended }}) *{{ $TJacobianExtended }} {
 	//if q is infinity return p
@@ -1370,10 +1449,11 @@ func (p *{{ $TJacobianExtended }}) add(q *{{ $TJacobianExtended }}) *{{ $TJacobi
     return p
 }
 
-// double point in Jacobian extended coordinates
+// double sets p to [2]q in Jacobian extended coordinates.
+//
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-// since we consider any point on Z=0 as the point at infinity
-// this doubling formula works for infinity points as well
+// N.B.: since we consider any point on Z=0 as the point at infinity
+// this doubling formula works for infinity points as well.
 func (p *{{ $TJacobianExtended }}) double(q *{{ $TJacobianExtended }}) *{{ $TJacobianExtended }} {
 	var U, V, W, S, XX, M {{.CoordType}}
 
@@ -1383,7 +1463,7 @@ func (p *{{ $TJacobianExtended }}) double(q *{{ $TJacobianExtended }}) *{{ $TJac
 	S.Mul(&q.X, &V)
 	XX.Square(&q.X)
 	M.Double(&XX).
-		Add(&M, &XX) // -> + a, but a=0 here
+		Add(&M, &XX) // -> + A, but A=0 here
 	U.Mul(&W, &q.Y)
 
 	p.X.Square(&M).
@@ -1398,44 +1478,47 @@ func (p *{{ $TJacobianExtended }}) double(q *{{ $TJacobianExtended }}) *{{ $TJac
 	return p
 }
 
-// subMixed same as addMixed, but will negate a.Y
-// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
-func (p *{{ $TJacobianExtended }}) subMixed(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
-	{{ template "mAdd" dict "all" . "negate" true}}
-}
-
-// addMixed
+// addMixed sets p to p+q in extended Jacobian coordinates, where a.ZZ=1.
+//
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
 func (p *{{ $TJacobianExtended }}) addMixed(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
 	{{ template "mAdd" dict "all" . "negate" false}}
 }
 
-// doubleNegMixed same as double, but will negate q.Y
-func (p *{{ $TJacobianExtended }}) doubleNegMixed(q *{{ $TAffine }}) *{{ $TJacobianExtended }} {
+// subMixed works the same as addMixed, but negates a.Y.
+//
+// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
+func (p *{{ $TJacobianExtended }}) subMixed(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
+	{{ template "mAdd" dict "all" . "negate" true}}
+}
+
+// doubleNegMixed works the same as double, but negates q.Y.
+func (p *{{ $TJacobianExtended }}) doubleNegMixed(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
 	{{ template "mDouble" dict "all" . "negate" true}}
 }
 
-// doubleMixed point in Jacobian extended coordinates
+// doubleMixed sets p to [2]a in Jacobian extended coordinates, where a.ZZ=1.
+//
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-func (p *{{ $TJacobianExtended }}) doubleMixed(q *{{ $TAffine }}) *{{ $TJacobianExtended }} {
+func (p *{{ $TJacobianExtended }}) doubleMixed(a *{{ $TAffine }}) *{{ $TJacobianExtended }} {
 	{{ template "mDouble" dict "all" . "negate" false}}
 }
 
 {{define "mDouble" }}
 	var U, V, W, S, XX, M, S2, L {{.all.CoordType}}
 
-	U.Double(&q.Y)
+	U.Double(&a.Y)
 	{{- if .negate}}
 		U.Neg(&U)
 	{{- end}}
 	V.Square(&U)
     W.Mul(&U, &V)
-    S.Mul(&q.X, &V)
-    XX.Square(&q.X)
+    S.Mul(&a.X, &V)
+    XX.Square(&a.X)
     M.Double(&XX).
-        Add(&M, &XX) // -> + a, but a=0 here
+        Add(&M, &XX) // -> + A, but A=0 here
     S2.Double(&S)
-    L.Mul(&W, &q.Y)
+    L.Mul(&W, &a.Y)
 
     p.X.Square(&M).
         Sub(&p.X, &S2)
@@ -1518,32 +1601,32 @@ func (p *{{ $TJacobianExtended }}) doubleMixed(q *{{ $TAffine }}) *{{ $TJacobian
 
 {{- if .Projective }}
 // -------------------------------------------------------------------------------------------------
-// Homogenous projective
+// Homogenous projective coordinates
 
-// Set sets p to the provided point
-func (p *{{ $TProjective }}) Set(a *{{ $TProjective }}) *{{ $TProjective }} {
-	p.x, p.y, p.z = a.x, a.y, a.z
+// Set sets p to a in projective coordinates.
+func (p *{{ $TProjective }}) Set(q *{{ $TProjective }}) *{{ $TProjective }} {
+	p.x, p.y, p.z = q.x, q.y, q.z
 	return p
 }
 
-// Neg computes -G
-func (p *{{ $TProjective }}) Neg(a *{{ $TProjective }}) *{{ $TProjective }} {
-	*p = *a
-	p.y.Neg(&a.y)
+// Neg sets p to the projective negative point -q = (q.X, -q.Y).
+func (p *{{ $TProjective }}) Neg(q *{{ $TProjective }}) *{{ $TProjective }} {
+	*p = *q
+	p.y.Neg(&q.y)
 	return p
 }
 
-// FromAffine sets p = Q, p in homogenous projective, Q in affine
-func (p *{{ $TProjective }}) FromAffine(Q *{{ $TAffine }}) *{{ $TProjective }} {
-	if Q.X.IsZero() && Q.Y.IsZero() {
+// FromAffine converts q in affine to p in projective coordinates.
+func (p *{{ $TProjective }}) FromAffine(a *{{ $TAffine }}) *{{ $TProjective }} {
+	if a.X.IsZero() && a.Y.IsZero() {
 		p.z.SetZero()
 		p.x.SetOne()
 		p.y.SetOne()
 		return p
 	}
 	p.z.SetOne()
-	p.x.Set(&Q.X)
-	p.y.Set(&Q.Y)
+	p.x.Set(&a.X)
+	p.y.Set(&a.Y)
 	return p
 }
 
@@ -1554,7 +1637,7 @@ func (p *{{ $TProjective }}) FromAffine(Q *{{ $TAffine }}) *{{ $TProjective }} {
 {{- if eq .PointName "g1"}}
 
 // BatchJacobianToAffine{{ toUpper .PointName }} converts points in Jacobian coordinates to Affine coordinates
-// performing a single field inversion (Montgomery batch inversion trick).
+// performing a single field inversion using the Montgomery batch inversion trick.
 func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}) []{{ $TAffine }} {
 	result := make([]{{ $TAffine }}, len(points))
 	zeroes := make([]bool, len(points))
@@ -1606,7 +1689,7 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}) []
 
 // BatchScalarMultiplication{{ toUpper .PointName }} multiplies the same base by all scalars
 // and return resulting points in affine coordinates
-// uses a simple windowed-NAF like exponentiation algorithm
+// uses a simple windowed-NAF-like multiplication algorithm.
 func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, scalars []fr.Element) []{{ $TAffine }} {
 	// approximate cost in group ops is
 	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
@@ -1712,11 +1795,8 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 	{{- end}}
 }
 
-
-
-// batch add affine coordinates
-// using batch inversion
-// special cases (doubling, infinity) must be filtered out before this call
+// batchAddG1Affine adds affine points using the Montgomery batch inversion trick.
+// Special cases (doubling, infinity) must be filtered out before this call.
 func batchAdd{{ $TAffine }}[TP p{{ $TAffine }}, TPP pp{{ $TAffine }}, TC c{{ $TAffine }}](R *TPP,P *TP, batchSize int) {
 	var lambda, lambdain TC
 

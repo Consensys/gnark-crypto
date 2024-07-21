@@ -73,7 +73,7 @@ func (pk *PublicKey) RecoverFrom(msg []byte, v uint, r, s *big.Int) error {
 	if s.Cmp(big.NewInt(0)) <= 0 {
 		return errors.New("s is negative")
 	}
-	P, err := RecoverP(v, r)
+	P, err := recoverP(v, r)
 	if err != nil {
 		return err
 	}

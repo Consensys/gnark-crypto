@@ -172,62 +172,97 @@ func TestLimbDecomposition(t *testing.T) {
 		t.Skip("skipping this test in 32bit.")
 	}
 
-	sis, _ := NewRSis(0, 4, 4, 3)
-
-	testcases := []fr.Vector{
-		{fr.One()},
-		{fr.NewElement(2)},
-		{fr.NewElement(1 << 32), fr.NewElement(2), fr.NewElement(1)},
+	testcases := []struct {
+		logTwoDegree, logTwoBound int
+		vec                       fr.Vector
+	}{
+		{
+			logTwoDegree: 4,
+			logTwoBound:  4,
+			vec:          fr.Vector{fr.One()},
+		},
+		{
+			logTwoDegree: 4,
+			logTwoBound:  4,
+			vec:          fr.Vector{fr.NewElement(2)},
+		},
+		{
+			logTwoDegree: 4,
+			logTwoBound:  4,
+			vec:          fr.Vector{fr.NewElement(1 << 32), fr.NewElement(2), fr.NewElement(1)},
+		},
+		{
+			logTwoDegree: 4,
+			logTwoBound:  16,
+			vec:          fr.Vector{fr.One()},
+		},
+		{
+			logTwoDegree: 4,
+			logTwoBound:  16,
+			vec:          fr.Vector{fr.NewElement(2)},
+		},
+		{
+			logTwoDegree: 4,
+			logTwoBound:  16,
+			vec:          fr.Vector{fr.NewElement(1 << 32), fr.NewElement(2), fr.NewElement(1)},
+		},
 	}
 
-	for _, testcase := range testcases {
+	for i, testcase := range testcases {
 
-		// clean the sis hasher
-		sis.bufMValues.ClearAll()
-		for i := 0; i < len(sis.bufM); i++ {
-			sis.bufM[i].SetZero()
-		}
-		for i := 0; i < len(sis.bufRes); i++ {
-			sis.bufRes[i].SetZero()
-		}
+		t.Run(fmt.Sprintf("testcase-%v", i), func(t *testing.T) {
 
-		buf := bytes.Buffer{}
-		for _, x := range testcase {
-			xBytes := x.Bytes()
-			buf.Write(xBytes[:])
-		}
-		limbDecomposeBytes(buf.Bytes(), sis.bufM, sis.LogTwoBound, sis.Degree, sis.bufMValues)
+			t.Logf("testcase %v", testcase)
 
-		// Just to test, this does not return panic
-		dummyBuffer := make(fr.Vector, 192)
-		LimbDecomposeBytes(buf.Bytes(), dummyBuffer, sis.LogTwoBound)
+			sis, _ := NewRSis(0, testcase.logTwoDegree, testcase.logTwoBound, 3)
 
-		// b is a field element representing the max norm bound
-		// used for limb splitting the input field elements.
-		b := fr.NewElement(1 << sis.LogTwoBound)
-		numLimbsPerField := fr.Bytes * 8 / sis.LogTwoBound
-
-		// Compute r (corresponds to the Montgommery constant)
-		var r fr.Element
-		r.SetString("6014086494747379908336260804527802945383293308637734276299549080986809532403")
-
-		// Attempt to recompose the entry #i in the test-case
-		for i := range testcase {
-			// allegedly corresponds to the limbs of the entry i
-			subRes := sis.bufM[i*numLimbsPerField : (i+1)*numLimbsPerField]
-
-			// performs a Horner evaluation of subres by b
-			var y fr.Element
-			for j := numLimbsPerField - 1; j >= 0; j-- {
-				y.Mul(&y, &b)
-				y.Add(&y, &subRes[j])
+			// clean the sis hasher
+			sis.bufMValues.ClearAll()
+			for i := 0; i < len(sis.bufM); i++ {
+				sis.bufM[i].SetZero()
+			}
+			for i := 0; i < len(sis.bufRes); i++ {
+				sis.bufRes[i].SetZero()
 			}
 
-			fmt.Printf("subres: %v\n", subRes)
+			buf := bytes.Buffer{}
+			for _, x := range testcase.vec {
+				xBytes := x.Bytes()
+				buf.Write(xBytes[:])
+			}
 
-			y.Mul(&y, &r)
-			require.Equal(t, testcase[i].String(), y.String(), "the subRes was %v", subRes)
-		}
+			limbDecomposeBytes(buf.Bytes(), sis.bufM, sis.LogTwoBound, sis.Degree, sis.bufMValues)
+
+			// Just to test, this does not return panic
+			dummyBuffer := make(fr.Vector, 192)
+			LimbDecomposeBytes(buf.Bytes(), dummyBuffer, sis.LogTwoBound)
+
+			// b is a field element representing the max norm bound
+			// used for limb splitting the input field elements.
+			b := fr.NewElement(1 << sis.LogTwoBound)
+			numLimbsPerField := fr.Bytes * 8 / sis.LogTwoBound
+
+			// Compute r (corresponds to the Montgommery constant)
+			var r fr.Element
+			r.SetString("6014086494747379908336260804527802945383293308637734276299549080986809532403")
+
+			// Attempt to recompose the entry #i in the test-case
+			for i := range testcase.vec {
+				// allegedly corresponds to the limbs of the entry i
+				subRes := sis.bufM[i*numLimbsPerField : (i+1)*numLimbsPerField]
+
+				// performs a Horner evaluation of subres by b
+				var y fr.Element
+				for j := numLimbsPerField - 1; j >= 0; j-- {
+					y.Mul(&y, &b)
+					y.Add(&y, &subRes[j])
+				}
+
+				y.Mul(&y, &r)
+				require.Equal(t, testcase.vec[i].String(), y.String(), "the subRes was %v", subRes)
+			}
+		})
+
 	}
 }
 
@@ -427,8 +462,8 @@ func TestUnrolledFFT(t *testing.T) {
 	domain.FFT(k1, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 
 	// unrolled FFT
-	twiddlesCoset := precomputeTwiddlesCoset(domain.Generator, domain.FrMultiplicativeGen)
-	fft64(k2, twiddlesCoset)
+	twiddlesCoset := PrecomputeTwiddlesCoset(domain.Generator, domain.FrMultiplicativeGen)
+	FFT64(k2, twiddlesCoset)
 
 	// compare results
 	for i := 0; i < size; i++ {
