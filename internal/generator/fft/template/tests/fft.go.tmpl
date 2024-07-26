@@ -9,224 +9,228 @@ import (
 	"github.com/leanovate/gopter/prop"
 	"github.com/leanovate/gopter/gen"
 
+	"fmt"
+
 )
 
 func TestFFT(t *testing.T) {
-	const maxSize = 1 << 10
-
-	nbCosets := 3
-	domainWithPrecompute := NewDomain(maxSize)
-	domainWithoutPrecompute := NewDomain(maxSize, WithoutPrecompute())
-
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 5
-
 	properties := gopter.NewProperties(parameters)
 
-	for domainName, domain := range map[string]*Domain{
-		"with precompute":    domainWithPrecompute,
-		"without precompute": domainWithoutPrecompute,
-	} {
-		domainName := domainName
-		domain := domain
-		t.Logf("domain: %s", domainName)
-		properties.Property("DIF FFT should be consistent with dual basis", prop.ForAll(
+	for maxSize := 2; maxSize <= 1 << 10; maxSize <<= 1 {
 
-			// checks that a random evaluation of a dual function eval(gen**ithpower) is consistent with the FFT result
-			func(ithpower int) bool {
+		domainWithPrecompute := NewDomain(uint64(maxSize))
+		domainWithoutPrecompute := NewDomain(uint64(maxSize), WithoutPrecompute())
 
-				pol := make([]fr.Element, maxSize)
-				backupPol := make([]fr.Element, maxSize)
 
-				for i := 0; i < maxSize; i++ {
-					pol[i].SetRandom()
-				}
-				copy(backupPol, pol)
+		for domainName, domain := range map[string]*Domain{
+			"with precompute":    domainWithPrecompute,
+			"without precompute": domainWithoutPrecompute,
+		} {
+			domainName := domainName
+			domain := domain
+			t.Logf("domain: %s", domainName)
+			properties.Property("DIF FFT should be consistent with dual basis", prop.ForAll(
 
-				domain.FFT(pol, DIF)
-				BitReverse(pol)
+				// checks that a random evaluation of a dual function eval(gen**ithpower) is consistent with the FFT result
+				func(ithpower int) bool {
 
-				sample := domain.Generator
-				sample.Exp(sample, big.NewInt(int64(ithpower)))
+					pol := make([]fr.Element, maxSize)
+					backupPol := make([]fr.Element, maxSize)
 
-				eval := evaluatePolynomial(backupPol, sample)
+					for i := 0; i < maxSize; i++ {
+						pol[i].SetRandom()
+					}
+					copy(backupPol, pol)
 
-				return eval.Equal(&pol[ithpower])
-
-			},
-			gen.IntRange(0, maxSize-1),
-		))
-
-		
-
-		properties.Property("DIF FFT on cosets should be consistent with dual basis", prop.ForAll(
-
-			// checks that a random evaluation of a dual function eval(gen**ithpower) is consistent with the FFT result
-			func(ithpower int) bool {
-
-				pol := make([]fr.Element, maxSize)
-				backupPol := make([]fr.Element, maxSize)
-
-				for i := 0; i < maxSize; i++ {
-					pol[i].SetRandom()
-				}
-				copy(backupPol, pol)
-
-				domain.FFT(pol, DIF, OnCoset())
-				BitReverse(pol)
-
-				sample := domain.Generator
-				sample.Exp(sample, big.NewInt(int64(ithpower))).
-					Mul(&sample, &domain.FrMultiplicativeGen)
-
-				eval := evaluatePolynomial(backupPol, sample)
-
-				return eval.Equal(&pol[ithpower])
-
-			},
-			gen.IntRange(0, maxSize-1),
-		))
-
-		properties.Property("DIT FFT should be consistent with dual basis", prop.ForAll(
-
-			// checks that a random evaluation of a dual function eval(gen**ithpower) is consistent with the FFT result
-			func(ithpower int) bool {
-
-				pol := make([]fr.Element, maxSize)
-				backupPol := make([]fr.Element, maxSize)
-
-				for i := 0; i < maxSize; i++ {
-					pol[i].SetRandom()
-				}
-				copy(backupPol, pol)
-
-				BitReverse(pol)
-				domain.FFT(pol, DIT)
-
-				sample := domain.Generator
-				sample.Exp(sample, big.NewInt(int64(ithpower)))
-
-				eval := evaluatePolynomial(backupPol, sample)
-
-				return eval.Equal(&pol[ithpower])
-
-			},
-			gen.IntRange(0, maxSize-1),
-		))
-
-		properties.Property("bitReverse(DIF FFT(DIT FFT (bitReverse))))==id", prop.ForAll(
-
-			func() bool {
-
-				pol := make([]fr.Element, maxSize)
-				backupPol := make([]fr.Element, maxSize)
-
-				for i := 0; i < maxSize; i++ {
-					pol[i].SetRandom()
-				}
-				copy(backupPol, pol)
-
-				BitReverse(pol)
-				domain.FFT(pol, DIT)
-				domain.FFTInverse(pol, DIF)
-				BitReverse(pol)
-
-				check := true
-				for i := 0; i < len(pol); i++ {
-					check = check && pol[i].Equal(&backupPol[i])
-				}
-				return check
-			},
-		))
-
-		properties.Property("bitReverse(DIF FFT(DIT FFT (bitReverse))))==id on cosets", prop.ForAll(
-
-			func() bool {
-
-				pol := make([]fr.Element, maxSize)
-				backupPol := make([]fr.Element, maxSize)
-
-				for i := 0; i < maxSize; i++ {
-					pol[i].SetRandom()
-				}
-				copy(backupPol, pol)
-
-				check := true
-
-				for i := 1; i <= nbCosets; i++ {
-
-					BitReverse(pol)
-					domain.FFT(pol, DIT, OnCoset())
-					domain.FFTInverse(pol, DIF, OnCoset())
+					domain.FFT(pol, DIF)
 					BitReverse(pol)
 
+					sample := domain.Generator
+					sample.Exp(sample, big.NewInt(int64(ithpower)))
+
+					eval := evaluatePolynomial(backupPol, sample)
+
+					return eval.Equal(&pol[ithpower])
+
+				},
+				gen.IntRange(0, maxSize-1),
+			))
+
+			
+
+			properties.Property("DIF FFT on cosets should be consistent with dual basis", prop.ForAll(
+
+				// checks that a random evaluation of a dual function eval(gen**ithpower) is consistent with the FFT result
+				func(ithpower int) bool {
+
+					pol := make([]fr.Element, maxSize)
+					backupPol := make([]fr.Element, maxSize)
+
+					for i := 0; i < maxSize; i++ {
+						pol[i].SetRandom()
+					}
+					copy(backupPol, pol)
+
+					domain.FFT(pol, DIF, OnCoset())
+					BitReverse(pol)
+
+					sample := domain.Generator
+					sample.Exp(sample, big.NewInt(int64(ithpower))).
+						Mul(&sample, &domain.FrMultiplicativeGen)
+
+					eval := evaluatePolynomial(backupPol, sample)
+
+					return eval.Equal(&pol[ithpower])
+
+				},
+				gen.IntRange(0, maxSize-1),
+			))
+
+			properties.Property("DIT FFT should be consistent with dual basis", prop.ForAll(
+
+				// checks that a random evaluation of a dual function eval(gen**ithpower) is consistent with the FFT result
+				func(ithpower int) bool {
+
+					pol := make([]fr.Element, maxSize)
+					backupPol := make([]fr.Element, maxSize)
+
+					for i := 0; i < maxSize; i++ {
+						pol[i].SetRandom()
+					}
+					copy(backupPol, pol)
+
+					BitReverse(pol)
+					domain.FFT(pol, DIT)
+
+					sample := domain.Generator
+					sample.Exp(sample, big.NewInt(int64(ithpower)))
+
+					eval := evaluatePolynomial(backupPol, sample)
+
+					return eval.Equal(&pol[ithpower])
+
+				},
+				gen.IntRange(0, maxSize-1),
+			))
+
+			properties.Property("bitReverse(DIF FFT(DIT FFT (bitReverse))))==id", prop.ForAll(
+
+				func() bool {
+
+					pol := make([]fr.Element, maxSize)
+					backupPol := make([]fr.Element, maxSize)
+
+					for i := 0; i < maxSize; i++ {
+						pol[i].SetRandom()
+					}
+					copy(backupPol, pol)
+
+					BitReverse(pol)
+					domain.FFT(pol, DIT)
+					domain.FFTInverse(pol, DIF)
+					BitReverse(pol)
+
+					check := true
 					for i := 0; i < len(pol); i++ {
 						check = check && pol[i].Equal(&backupPol[i])
 					}
-				}
+					return check
+				},
+			))
 
-				return check
-			},
-		))
+			for nbCosets := 2; nbCosets < 5; nbCosets++ {
+				properties.Property(fmt.Sprintf("bitReverse(DIF FFT(DIT FFT (bitReverse))))==id on %d cosets", nbCosets), prop.ForAll(
 
-		properties.Property("DIT FFT(DIF FFT)==id", prop.ForAll(
+					func() bool {
 
-			func() bool {
+						pol := make([]fr.Element, maxSize)
+						backupPol := make([]fr.Element, maxSize)
 
-				pol := make([]fr.Element, maxSize)
-				backupPol := make([]fr.Element, maxSize)
+						for i := 0; i < maxSize; i++ {
+							pol[i].SetRandom()
+						}
+						copy(backupPol, pol)
 
-				for i := 0; i < maxSize; i++ {
-					pol[i].SetRandom()
-				}
-				copy(backupPol, pol)
+						check := true
 
-				domain.FFTInverse(pol, DIF)
-				domain.FFT(pol, DIT)
+						for i := 1; i <= nbCosets; i++ {
 
-				check := true
-				for i := 0; i < len(pol); i++ {
-					check = check && (pol[i] == backupPol[i])
-				}
-				return check
-			},
-		))
+							BitReverse(pol)
+							domain.FFT(pol, DIT, OnCoset())
+							domain.FFTInverse(pol, DIF, OnCoset())
+							BitReverse(pol)
 
-		properties.Property("DIT FFT(DIF FFT)==id on cosets", prop.ForAll(
+							for i := 0; i < len(pol); i++ {
+								check = check && pol[i].Equal(&backupPol[i])
+							}
+						}
 
-			func() bool {
+						return check
+					},
+				))
+			}
 
-				pol := make([]fr.Element, maxSize)
-				backupPol := make([]fr.Element, maxSize)
+			properties.Property("DIT FFT(DIF FFT)==id", prop.ForAll(
 
-				for i := 0; i < maxSize; i++ {
-					pol[i].SetRandom()
-				}
-				copy(backupPol, pol)
+				func() bool {
 
-				domain.FFTInverse(pol, DIF, OnCoset())
-				domain.FFT(pol, DIT, OnCoset())
+					pol := make([]fr.Element, maxSize)
+					backupPol := make([]fr.Element, maxSize)
 
-				for i := 0; i < len(pol); i++ {
-					if !(pol[i].Equal(&backupPol[i])) {
-						return false
+					for i := 0; i < maxSize; i++ {
+						pol[i].SetRandom()
 					}
-				}
+					copy(backupPol, pol)
 
-				// compute with nbTasks == 1
-				domain.FFTInverse(pol, DIF, OnCoset(), WithNbTasks(1))
-				domain.FFT(pol, DIT, OnCoset(), WithNbTasks(1))
+					domain.FFTInverse(pol, DIF)
+					domain.FFT(pol, DIT)
 
-				for i := 0; i < len(pol); i++ {
-					if !(pol[i].Equal(&backupPol[i])) {
-						return false
+					check := true
+					for i := 0; i < len(pol); i++ {
+						check = check && (pol[i] == backupPol[i])
 					}
-				}
+					return check
+				},
+			))
+			
 
-				return true
-			},
-		))
+			properties.Property("DIT FFT(DIF FFT)==id on cosets", prop.ForAll(
 
+				func() bool {
+
+					pol := make([]fr.Element, maxSize)
+					backupPol := make([]fr.Element, maxSize)
+
+					for i := 0; i < maxSize; i++ {
+						pol[i].SetRandom()
+					}
+					copy(backupPol, pol)
+
+					domain.FFTInverse(pol, DIF, OnCoset())
+					domain.FFT(pol, DIT, OnCoset())
+
+					for i := 0; i < len(pol); i++ {
+						if !(pol[i].Equal(&backupPol[i])) {
+							return false
+						}
+					}
+
+					// compute with nbTasks == 1
+					domain.FFTInverse(pol, DIF, OnCoset(), WithNbTasks(1))
+					domain.FFT(pol, DIT, OnCoset(), WithNbTasks(1))
+
+					for i := 0; i < len(pol); i++ {
+						if !(pol[i].Equal(&backupPol[i])) {
+							return false
+						}
+					}
+
+					return true
+				},
+			))
+		}
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 	}
 
