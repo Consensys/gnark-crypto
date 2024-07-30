@@ -113,7 +113,10 @@ func (pk *ProvingKey) Commit(values []fr.Element) (commitment curve.G1Affine, er
 
 // BatchProve generates a single proof of knowledge for multiple commitments for faster verification
 // The result of this can be verified as a single proof by vk.Verify
-func BatchProve(pk []ProvingKey, values [][]fr.Element, challenge fr.Element) (pok curve.G1Affine, err error) {
+// combinationCoeff is used as a linear combination coefficient to fold separate proofs into one.
+// In an interactive setting, it must be randomized and sent over by the verifier.
+// Otherwise, it must be generated via Fiat-Shamir.
+func BatchProve(pk []ProvingKey, values [][]fr.Element, combinationCoeff fr.Element) (pok curve.G1Affine, err error) {
 	if len(pk) != len(values) {
 		err = errors.New("must have as many value vectors as bases")
 		return
@@ -143,7 +146,7 @@ func BatchProve(pk []ProvingKey, values [][]fr.Element, challenge fr.Element) (p
 	copy(scaledValues, values[0])
 
 	offset = len(values[0])
-	rI := challenge
+	rI := combinationCoeff
 	for i := 1; i < len(pk); i++ {
 		copy(basis[offset:], pk[i].BasisExpSigma)
 		for j := range pk[i].Basis {
@@ -151,7 +154,7 @@ func BatchProve(pk []ProvingKey, values [][]fr.Element, challenge fr.Element) (p
 			offset++
 		}
 		if i+1 < len(pk) {
-			rI.Mul(&rI, &challenge)
+			rI.Mul(&rI, &combinationCoeff)
 		}
 	}
 
@@ -166,7 +169,10 @@ func BatchProve(pk []ProvingKey, values [][]fr.Element, challenge fr.Element) (p
 }
 
 // FoldCommitments amalgamates multiple commitments into one, which can be verifier against a folded proof obtained from BatchProve
-func FoldCommitments(commitments []curve.G1Affine, challenge fr.Element) (commitment curve.G1Affine, err error) {
+// combinationCoeff is used as a linear combination coefficient to fold separate commitments into one.
+// In an interactive setting, it must be randomized and sent over by the verifier.
+// Otherwise, it must be generated via Fiat-Shamir.
+func FoldCommitments(commitments []curve.G1Affine, combinationCoeff fr.Element) (commitment curve.G1Affine, err error) {
 
 	if len(commitments) == 1 { // no need to fold
 		commitment = commitments[0]
@@ -177,7 +183,7 @@ func FoldCommitments(commitments []curve.G1Affine, challenge fr.Element) (commit
 
 	r := make([]fr.Element, len(commitments))
 	r[0].SetOne()
-	r[1] = challenge
+	r[1] = combinationCoeff
 	for i := 2; i < len(commitments); i++ {
 		r[i].Mul(&r[i-1], &r[1])
 	}
@@ -213,7 +219,11 @@ func (vk *VerifyingKey) Verify(commitment curve.G1Affine, knowledgeProof curve.G
 	return nil
 }
 // BatchVerify verifies n separately generated proofs of knowledge from different setup ceremonies, using n+1 pairings rather than 2n.
-func BatchVerify(vk []VerifyingKey, commitments []curve.G1Affine, pok []curve.G1Affine, challenge fr.Element) error {
+// vk[i].G must be the same for all.
+// combinationCoeff is used as a linear combination coefficient to fold separate proofs into one.
+// In an interactive setting, it must be randomized by the verifier and sent over to the prover.
+// Otherwise, it must be generated via Fiat-Shamir.
+func BatchVerify(vk []VerifyingKey, commitments []curve.G1Affine, pok []curve.G1Affine, combinationCoeff fr.Element) error {
 	if len(commitments) != len(vk) || len(pok) != len(vk) {
 		return errors.New("length mismatch")
 	}
@@ -228,7 +238,7 @@ func BatchVerify(vk []VerifyingKey, commitments []curve.G1Affine, pok []curve.G1
 
 	pairingG1 := make([]curve.G1Affine, len(vk)+1)
 	pairingG2 := make([]curve.G2Affine, len(vk)+1)
-	r := challenge
+	r := combinationCoeff
 	pairingG1[0] = pok[0]
 	var rI big.Int
 	for i := range vk {
@@ -237,11 +247,11 @@ func BatchVerify(vk []VerifyingKey, commitments []curve.G1Affine, pok []curve.G1
 			r.BigInt(&rI)
 			pairingG1[i].ScalarMultiplication(&pok[i], &rI)
 			if i+1 != len(vk) {
-				r.Mul(&r, &challenge)
+				r.Mul(&r, &combinationCoeff)
 			}
 		}
 	}
-	if commitment, err := FoldCommitments(commitments, challenge); err != nil {
+	if commitment, err := FoldCommitments(commitments, combinationCoeff); err != nil {
 		return err
 	} else {
 		pairingG1[len(vk)] = commitment
