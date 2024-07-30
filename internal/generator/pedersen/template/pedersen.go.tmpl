@@ -25,24 +25,30 @@ func randomFrSizedBytes() ([]byte, error) {
 	return res, err
 }
 
-type SetupOption func(affine *curve.G2Affine)
+type setupConfig struct {
+	g2Gen *curve.G2Affine
+}
 
-func WithG2Point(g2 curve.G2Affine) func(*curve.G2Affine) {
-	return func(_g2 *curve.G2Affine) {
-		*_g2 = g2
+type SetupOption func(cfg *setupConfig)
+
+func WithG2Point(g2 curve.G2Affine) func(*setupConfig) {
+	return func(cfg *setupConfig) {
+		cfg.g2Gen = &g2
 	}
 }
 
 func Setup(bases [][]curve.G1Affine, options ...SetupOption) (pk []ProvingKey, vk VerifyingKey, err error) {
-
+    var cfg setupConfig
 	for _, o := range options {
-		o(&vk.G)
+		o(&cfg)
 	}
-	if len(options) == 0 {
+	if cfg.g2Gen == nil {
 		if vk.G, err = curve.RandomOnG2(); err != nil {
 			return
 		}
-	}
+	} else {
+      	vk.G = *cfg.g2Gen
+    }
 
 	var modMinusOne big.Int
 	modMinusOne.Sub(fr.Modulus(), big.NewInt(1))
