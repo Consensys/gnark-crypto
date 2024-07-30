@@ -37,6 +37,8 @@ func WithG2Point(g2 curve.G2Affine) func(*setupConfig) {
 	}
 }
 
+// Setup generates the proving verifying keys for pedersen commitments over the given bases
+// The common verifying key can be used to batch verify proofs of knowledge.
 func Setup(bases [][]curve.G1Affine, options ...SetupOption) (pk []ProvingKey, vk VerifyingKey, err error) {
     var cfg setupConfig
 	for _, o := range options {
@@ -74,6 +76,7 @@ func Setup(bases [][]curve.G1Affine, options ...SetupOption) (pk []ProvingKey, v
 	return
 }
 
+// ProveKnowledge generates a proof of knowledge of a commitment to the given values over pk's basis
 func (pk *ProvingKey) ProveKnowledge(values []fr.Element) (pok curve.G1Affine, err error) {
 	if len(values) != len(pk.Basis) {
 		err = errors.New("must have as many values as basis elements")
@@ -90,6 +93,7 @@ func (pk *ProvingKey) ProveKnowledge(values []fr.Element) (pok curve.G1Affine, e
 	return
 }
 
+// Commit generates a commitment to the values over pk's basis
 func (pk *ProvingKey) Commit(values []fr.Element) (commitment curve.G1Affine, err error) {
 
 	if len(values) != len(pk.Basis) {

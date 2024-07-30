@@ -1122,6 +1122,9 @@ func batchAddG2Affine[TP pG2Affine, TPP ppG2Affine, TC cG2Affine](R *TPP, P *TP,
 	}
 }
 
+// RandomOnG2 produces a random point in G2
+// using standard map-to-curve methods, which means the relative discrete log
+// of the generated point with respect to the canonical generator is not known.
 func RandomOnG2() (G2Affine, error) {
 	if gBytes, err := randomFrSizedBytes(); err != nil {
 		return G2Affine{}, err
