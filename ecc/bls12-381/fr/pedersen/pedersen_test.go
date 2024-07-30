@@ -227,5 +227,5 @@ func TestSemiFoldProofs(t *testing.T) {
 	_, err = challenge.SetRandom()
 	assert.NoError(t, err)
 
-	assert.NoError(t, BatchVerify(vk, commitments, proofs, challenge))
+	assert.NoError(t, BatchVerifyMultiVk(vk, commitments, proofs, challenge))
 }

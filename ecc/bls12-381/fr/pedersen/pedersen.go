@@ -237,12 +237,12 @@ func (vk *VerifyingKey) Verify(commitment curve.G1Affine, knowledgeProof curve.G
 	return nil
 }
 
-// BatchVerify verifies n separately generated proofs of knowledge from different setup ceremonies, using n+1 pairings rather than 2n.
+// BatchVerifyMultiVk verifies n separately generated proofs of knowledge from different setup ceremonies, using n+1 pairings rather than 2n.
 // vk[i].G must be the same for all.
 // combinationCoeff is used as a linear combination coefficient to fold separate proofs into one.
 // In an interactive setting, it must be randomized by the verifier and sent over to the prover.
 // Otherwise, it must be generated via Fiat-Shamir.
-func BatchVerify(vk []VerifyingKey, commitments []curve.G1Affine, pok []curve.G1Affine, combinationCoeff fr.Element) error {
+func BatchVerifyMultiVk(vk []VerifyingKey, commitments []curve.G1Affine, pok []curve.G1Affine, combinationCoeff fr.Element) error {
 	if len(commitments) != len(vk) || len(pok) != len(vk) {
 		return errors.New("length mismatch")
 	}
