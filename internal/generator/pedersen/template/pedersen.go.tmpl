@@ -48,7 +48,9 @@ func WithG2Point(g2 curve.G2Affine) SetupOption {
 // providing a custom G2 generator using [WithG2Point] option.
 //
 // The input bases do not have to be of the same length for individual
-// committing and proving.
+// committing and proving. The elements in bases[i] should be linearly
+// independent of each other. Otherwise the prover may be able to construct
+// multiple valid openings for a commitment.
 //
 // NB! This is a trusted setup process. The randomness during the setup must be discarded.
 // Failing to do so allows to create proofs without knowing the committed values.
