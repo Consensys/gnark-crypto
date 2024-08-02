@@ -17,6 +17,7 @@
 package bw6756
 
 import (
+	"crypto/rand"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-756/fr"
@@ -1129,4 +1130,21 @@ func batchAddG2Affine[TP pG2Affine, TPP ppG2Affine, TC cG2Affine](R *TPP, P *TP,
 		rr.Y.Sub(&rr.Y, &(*R)[j].Y)
 		(*R)[j].Set(&rr)
 	}
+}
+
+// RandomOnG2 produces a random point in G2
+// using standard map-to-curve methods, which means the relative discrete log
+// of the generated point with respect to the canonical generator is not known.
+func RandomOnG2() (G2Affine, error) {
+	if gBytes, err := randomFrSizedBytes(); err != nil {
+		return G2Affine{}, err
+	} else {
+		return HashToG2(gBytes, []byte("random on g2"))
+	}
+}
+
+func randomFrSizedBytes() ([]byte, error) {
+	res := make([]byte, fr.Bytes)
+	_, err := rand.Read(res)
+	return res, err
 }

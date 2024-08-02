@@ -6,6 +6,9 @@
 
 
 import (
+	{{- if eq .PointName "g2"}}
+	"crypto/rand"
+	{{- end}}
 	"math/big"
 	"runtime"
 
@@ -1845,3 +1848,22 @@ func batchAdd{{ $TAffine }}[TP p{{ $TAffine }}, TPP pp{{ $TAffine }}, TC c{{ $TA
 		(*R)[j].Set(&rr)
 	}
 }
+
+{{ if eq .PointName "g2"}}
+// RandomOnG2 produces a random point in G2
+// using standard map-to-curve methods, which means the relative discrete log
+// of the generated point with respect to the canonical generator is not known.
+func RandomOnG2() (G2Affine, error) {
+	if gBytes, err := randomFrSizedBytes(); err != nil {
+		return G2Affine{}, err
+	} else {
+		return HashToG2(gBytes, []byte("random on g2"))
+	}
+}
+
+func randomFrSizedBytes() ([]byte, error) {
+	res := make([]byte, fr.Bytes)
+	_, err := rand.Read(res)
+	return res, err
+}
+{{- end}}
