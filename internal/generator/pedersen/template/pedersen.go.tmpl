@@ -31,7 +31,7 @@ type setupConfig struct {
 
 type SetupOption func(cfg *setupConfig)
 
-func WithG2Point(g2 curve.G2Affine) func(*setupConfig) {
+func WithG2Point(g2 curve.G2Affine) SetupOption {
 	return func(cfg *setupConfig) {
 		cfg.g2Gen = &g2
 	}
