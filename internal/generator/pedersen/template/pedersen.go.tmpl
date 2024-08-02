@@ -11,12 +11,12 @@ import (
 // ProvingKey for committing and proofs of knowledge
 type ProvingKey struct {
 	Basis         []curve.G1Affine
-	BasisExpSigma []curve.G1Affine
+	BasisExpSigma []curve.G1Affine // basisExpSigma[i] = Basis[i]^{σ}
 }
 
 type VerifyingKey struct {
-	G             curve.G2Affine // TODO @tabaie: does this really have to be randomized?
-	GRootSigmaNeg curve.G2Affine //gRootSigmaNeg = g^{-1/σ}
+	G             curve.G2Affine
+	GRootSigmaNeg curve.G2Affine // GRootSigmaNeg = G^{-1/σ}
 }
 
 func randomFrSizedBytes() ([]byte, error) {
