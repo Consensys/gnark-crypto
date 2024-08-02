@@ -1,0 +1,15 @@
+// Package {{.Package}} allows to compute and verify Pedersen vector commitments
+//
+// Pedersen vector commitments are a type of homomorphic commitments that allow
+// to commit to a vector of values and prove knowledge of the committed values.
+// The commitments can be batched and verified in a single operation.
+//
+// The commitments are computed using a set of basis elements. The proving key
+// contains the basis elements and their exponentiations by a random value. The
+// verifying key contains the G2 generator and its exponentiation by the inverse
+// of the random value.
+//
+// The setup process is a trusted setup and must be done securely, preferably using MPC.
+// After the setup, the proving key does not have to be secret, but the randomness
+// used during the setup must be discarded.
+package {{.Package}}
