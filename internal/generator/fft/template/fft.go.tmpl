@@ -80,10 +80,12 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 	if !domain.withPrecompute {
 		twiddlesStartStage = 3
 		nbStages := int(bits.TrailingZeros64(domain.Cardinality))
-		twiddles = make([][]fr.Element, nbStages - twiddlesStartStage)
-		w := domain.Generator
-		w.Exp(w, big.NewInt(int64(1 << twiddlesStartStage)))
-		buildTwiddles(twiddles, w, uint64(nbStages - twiddlesStartStage))
+		if nbStages - twiddlesStartStage > 0 {
+			twiddles = make([][]fr.Element, nbStages - twiddlesStartStage)
+			w := domain.Generator
+			w.Exp(w, big.NewInt(int64(1 << twiddlesStartStage)))
+			buildTwiddles(twiddles, w, uint64(nbStages - twiddlesStartStage))
+		} // else, we don't need twiddles
 	}
 
 	switch decimation {
@@ -118,10 +120,12 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 	if !domain.withPrecompute {
 		twiddlesStartStage = 3
 		nbStages := int(bits.TrailingZeros64(domain.Cardinality))
-		twiddlesInv = make([][]fr.Element, nbStages - twiddlesStartStage)
-		w := domain.GeneratorInv
-		w.Exp(w, big.NewInt(int64(1 << twiddlesStartStage)))
-		buildTwiddles(twiddlesInv, w, uint64(nbStages - twiddlesStartStage))
+		if nbStages - twiddlesStartStage > 0 {
+			twiddlesInv = make([][]fr.Element, nbStages - twiddlesStartStage)
+			w := domain.GeneratorInv
+			w.Exp(w, big.NewInt(int64(1 << twiddlesStartStage)))
+			buildTwiddles(twiddlesInv, w, uint64(nbStages - twiddlesStartStage))
+		} // else, we don't need twiddles
 	}
 
 	switch decimation {
