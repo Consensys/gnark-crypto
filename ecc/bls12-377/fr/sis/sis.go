@@ -52,7 +52,7 @@ type RSis struct {
 
 	// domain for the polynomial multiplication
 	Domain        *fft.Domain
-	twiddleCosets []fr.Element // see fft64 and precomputeTwiddlesCoset
+	twiddleCosets []fr.Element // see FFT64 and precomputeTwiddlesCoset
 
 	// d, the degree of X^{d}+1
 	Degree int
@@ -129,7 +129,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	}
 	if r.LogTwoBound == 8 && r.Degree == 64 {
 		// TODO @gbotrel fixme, that's dirty.
-		r.twiddleCosets = precomputeTwiddlesCoset(r.Domain.Generator, r.Domain.FrMultiplicativeGen)
+		r.twiddleCosets = PrecomputeTwiddlesCoset(r.Domain.Generator, r.Domain.FrMultiplicativeGen)
 	}
 
 	// filling A
@@ -199,7 +199,7 @@ func (r *RSis) Sum(b []byte) []byte {
 		k := m[i*r.Degree : (i+1)*r.Degree]
 		if fastPath {
 			// fast path.
-			fft64(k, r.twiddleCosets)
+			FFT64(k, r.twiddleCosets)
 		} else {
 			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
@@ -337,7 +337,7 @@ func LimbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound int) {
 // big-endian form into an array of limbs representing the same field elements
 // in little-endian form. Namely, if our field is represented with 64 bits and we
 // have the following field element 0x0123456789abcdef (0 being the most significant
-// character and and f being the least significant one) and our log norm bound is
+// character and and f being the least significant one) and our norm bound is
 // 16 (so 1 hex character = 1 limb). The function assigns the values of m to [f, e,
 // d, c, b, a, ..., 3, 2, 1, 0]. m should be preallocated and zeroized. mValues is
 // an optional bitSet. If provided, it must be empty. The function will set bit "i"
@@ -374,7 +374,7 @@ func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValue
 			// and set the bits from LSB to MSB.
 			at := fieldStart + fr.Bytes*8 - bitInField - 1
 
-			m[mPos][0] |= uint64(bitAt(at) << j)
+			m[mPos][0] |= uint64(bitAt(at)) << j
 			bitInField++
 
 			// Check if mPos is zero and mark as non-zero in the bitset if not

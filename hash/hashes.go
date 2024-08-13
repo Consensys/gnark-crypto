@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package hash provides MiMC hash function defined over curves implemented in gnark-crypto/ecc.
-//
-// Originally developed and used in a ZKP context.
 package hash
 
 import (
@@ -31,17 +28,27 @@ import (
 	bw761 "github.com/consensys/gnark-crypto/ecc/bw6-761/fr/mimc"
 )
 
+// Hash defines an unique identifier for a hash function.
 type Hash uint
 
 const (
+	// MIMC_BN254 is the MiMC hash function for the BN254 curve.
 	MIMC_BN254 Hash = iota
+	// MIMC_BLS12_381 is the MiMC hash function for the BLS12-381 curve.
 	MIMC_BLS12_381
+	// MIMC_BLS12_377 is the MiMC hash function for the BLS12-377 curve.
 	MIMC_BLS12_377
+	// MIMC_BLS12_378 is the MiMC hash function for the BLS12-378 curve.
 	MIMC_BLS12_378
+	// MIMC_BW6_761 is the MiMC hash function for the BW6-761 curve.
 	MIMC_BW6_761
+	// MIMC_BLS24_315 is the MiMC hash function for the BLS24-315 curve.
 	MIMC_BLS24_315
+	// MIMC_BLS24_317 is the MiMC hash function for the BLS24-317 curve.
 	MIMC_BLS24_317
+	// MIMC_BW6_633 is the MiMC hash function for the BW6-633 curve.
 	MIMC_BW6_633
+	// MIMC_BW6_756 is the MiMC hash function for the BW6-756 curve.
 	MIMC_BW6_756
 )
 
@@ -58,7 +65,7 @@ var digestSize = []uint8{
 	MIMC_BW6_756:   96,
 }
 
-// New creates the corresponding mimc hash function.
+// New initializes the hash function.
 func (m Hash) New() hash.Hash {
 	switch m {
 	case MIMC_BN254:
@@ -84,7 +91,7 @@ func (m Hash) New() hash.Hash {
 	}
 }
 
-// String returns the mimc ID to string format.
+// String returns the unique identifier of the hash function.
 func (m Hash) String() string {
 	switch m {
 	case MIMC_BN254:

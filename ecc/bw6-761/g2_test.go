@@ -234,7 +234,72 @@ func TestG2AffineOps(t *testing.T) {
 
 	genScalar := GenFr()
 
-	properties.Property("[BW6-761-381] [-s]G = -[s]G", prop.ForAll(
+	properties.Property("[BW6-761] Add(P,-P) should return the point at infinity", prop.ForAll(
+		func(s fr.Element) bool {
+			var op1, op2 G2Affine
+			var sInt big.Int
+			g := g2GenAff
+			s.BigInt(&sInt)
+			op1.ScalarMultiplication(&g, &sInt)
+			op2.Neg(&op1)
+
+			op1.Add(&op1, &op2)
+			return op1.IsInfinity()
+
+		},
+		GenFr(),
+	))
+
+	properties.Property("[BW6-761] Add(P,0) and Add(0,P) should return P", prop.ForAll(
+		func(s fr.Element) bool {
+			var op1, op2 G2Affine
+			var sInt big.Int
+			g := g2GenAff
+			s.BigInt(&sInt)
+			op1.ScalarMultiplication(&g, &sInt)
+			op2.setInfinity()
+
+			op1.Add(&op1, &op2)
+			op2.Add(&op2, &op1)
+			return op1.Equal(&op2)
+
+		},
+		GenFr(),
+	))
+
+	properties.Property("[BW6-761] Add should call double when adding the same point", prop.ForAll(
+		func(s fr.Element) bool {
+			var op1, op2 G2Affine
+			var sInt big.Int
+			g := g2GenAff
+			s.BigInt(&sInt)
+			op1.ScalarMultiplication(&g, &sInt)
+
+			op2.Double(&op1)
+			op1.Add(&op1, &op1)
+			return op1.Equal(&op2)
+
+		},
+		GenFr(),
+	))
+
+	properties.Property("[BW6-761] [2]G = double(G) + G - G", prop.ForAll(
+		func(s fr.Element) bool {
+			var sInt big.Int
+			g := g2GenAff
+			s.BigInt(&sInt)
+			g.ScalarMultiplication(&g, &sInt)
+			var op1, op2 G2Affine
+			op1.ScalarMultiplication(&g, big.NewInt(2))
+			op2.Double(&g)
+			op2.Add(&op2, &g)
+			op2.Sub(&op2, &g)
+			return op1.Equal(&op2)
+		},
+		GenFr(),
+	))
+
+	properties.Property("[BW6-761] [-s]G = -[s]G", prop.ForAll(
 		func(s fr.Element) bool {
 			g := g2GenAff
 			var gj G2Jac
@@ -265,7 +330,7 @@ func TestG2AffineOps(t *testing.T) {
 		GenFr(),
 	))
 
-	properties.Property("[BW6-761] [Jacobian] Add should call double when having adding the same point", prop.ForAll(
+	properties.Property("[BW6-761] [Jacobian] Add should call double when adding the same point", prop.ForAll(
 		func(a, b fp.Element) bool {
 			fop1 := fuzzG2Jac(&g2Gen, a)
 			fop2 := fuzzG2Jac(&g2Gen, b)
@@ -748,6 +813,24 @@ func BenchmarkG2JacExtDouble(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.double(&a)
+	}
+}
+
+func BenchmarkG2AffineAdd(b *testing.B) {
+	var a G2Affine
+	a.Double(&g2GenAff)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Add(&a, &g2GenAff)
+	}
+}
+
+func BenchmarkG2AffineDouble(b *testing.B) {
+	var a G2Affine
+	a.Double(&g2GenAff)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Double(&a)
 	}
 }
 

@@ -17,6 +17,7 @@
 package kzg
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,7 +29,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr/fft"
 
-	"github.com/consensys/gnark-crypto/utils"
+	"github.com/consensys/gnark-crypto/utils/testutils"
 )
 
 // Test SRS re-used across tests of the KZG scheme
@@ -157,10 +158,11 @@ func TestSerializationSRS(t *testing.T) {
 	// create a SRS
 	srs, err := NewSRS(64, new(big.Int).SetInt64(42))
 	assert.NoError(t, err)
-	t.Run("proving key round-trip", utils.SerializationRoundTrip(&srs.Pk))
-	t.Run("proving key raw round-trip", utils.SerializationRoundTripRaw(&srs.Pk))
-	t.Run("verifying key round-trip", utils.SerializationRoundTrip(&srs.Vk))
-	t.Run("whole SRS round-trip", utils.SerializationRoundTrip(srs))
+	t.Run("proving key round-trip", testutils.SerializationRoundTrip(&srs.Pk))
+	t.Run("proving key raw round-trip", testutils.SerializationRoundTripRaw(&srs.Pk))
+	t.Run("verifying key round-trip", testutils.SerializationRoundTrip(&srs.Vk))
+	t.Run("whole SRS round-trip", testutils.SerializationRoundTrip(srs))
+	t.Run("unsafe whole SRS round-trip", testutils.UnsafeBinaryMarshalerRoundTrip(srs))
 }
 
 func TestCommit(t *testing.T) {
@@ -431,7 +433,42 @@ func TestBatchVerifyMultiPoints(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
 
+func TestUnsafeToBytesTruncating(t *testing.T) {
+	assert := require.New(t)
+	srs, err := NewSRS(ecc.NextPowerOfTwo(1<<10), big.NewInt(-1))
+	assert.NoError(err)
+
+	// marshal the SRS, but explicitly with less points.
+	var buf bytes.Buffer
+	err = srs.WriteDump(&buf, 1<<9)
+	assert.NoError(err)
+
+	r := bytes.NewReader(buf.Bytes())
+
+	// unmarshal the SRS
+	var newSRS SRS
+	err = newSRS.ReadDump(r)
+	assert.NoError(err)
+
+	// check that the SRS proving key has only 1 << 9 points
+	assert.Equal(1<<9, len(newSRS.Pk.G1))
+
+	// ensure they are equal to the original SRS
+	assert.Equal(srs.Pk.G1[:1<<9], newSRS.Pk.G1)
+
+	// read even less points.
+	var newSRSPartial SRS
+	r = bytes.NewReader(buf.Bytes())
+	err = newSRSPartial.ReadDump(r, 1<<8)
+	assert.NoError(err)
+
+	// check that the SRS proving key has only 1 << 8 points
+	assert.Equal(1<<8, len(newSRSPartial.Pk.G1))
+
+	// ensure they are equal to the original SRS
+	assert.Equal(srs.Pk.G1[:1<<8], newSRSPartial.Pk.G1)
 }
 
 const benchSize = 1 << 16
@@ -620,6 +657,90 @@ func BenchmarkToLagrangeG1(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func BenchmarkSerializeSRS(b *testing.B) {
+	// let's create a quick SRS
+	srs, err := NewSRS(ecc.NextPowerOfTwo(1<<24), big.NewInt(-1))
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	// now we can benchmark the WriteTo, WriteRawTo and WriteDump methods
+	b.Run("WriteTo", func(b *testing.B) {
+		b.ResetTimer()
+		var buf bytes.Buffer
+		for i := 0; i < b.N; i++ {
+			buf.Reset()
+			_, err := srs.WriteTo(&buf)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("WriteRawTo", func(b *testing.B) {
+		b.ResetTimer()
+		var buf bytes.Buffer
+		for i := 0; i < b.N; i++ {
+			buf.Reset()
+			_, err := srs.WriteRawTo(&buf)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("WriteDump", func(b *testing.B) {
+		b.ResetTimer()
+		var buf bytes.Buffer
+		for i := 0; i < b.N; i++ {
+			buf.Reset()
+			if err := srs.WriteDump(&buf); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+}
+
+func BenchmarkDeserializeSRS(b *testing.B) {
+	// let's create a quick SRS
+	srs, err := NewSRS(ecc.NextPowerOfTwo(1<<24), big.NewInt(-1))
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.Run("UnsafeReadFrom", func(b *testing.B) {
+		var buf bytes.Buffer
+		if _, err := srs.WriteRawTo(&buf); err != nil {
+			b.Fatal(err)
+		}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			var newSRS SRS
+			_, err := newSRS.UnsafeReadFrom(bytes.NewReader(buf.Bytes()))
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("ReadDump", func(b *testing.B) {
+		var buf bytes.Buffer
+		err := srs.WriteDump(&buf)
+		if err != nil {
+			b.Fatal(err)
+		}
+		data := buf.Bytes()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			var newSRS SRS
+			if err := newSRS.ReadDump(bytes.NewReader(data)); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
 }
 
 func fillBenchBasesG1(samplePoints []bls24315.G1Affine) {

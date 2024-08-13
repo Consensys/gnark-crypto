@@ -1,4 +1,4 @@
-// Package {{.Package}} provides MiMC hash function using Miyaguchi–Preneel construction.
+// Package hash provides MiMC hash function defined over implemented curves
 //
 // # Length extension attack
 //
@@ -41,4 +41,8 @@
 // field elements. Due to this interpretation, the input byte slice length must
 // be multiple of the field modulus size. And every secuence of byte slice for a
 // single field element must be strictly less than the field modulus.
-package {{.Package}}
+//
+// See open issues:
+//   - https://github.com/Consensys/gnark-crypto/issues/504
+//   - https://github.com/Consensys/gnark-crypto/issues/485
+package hash
