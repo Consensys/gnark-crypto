@@ -228,4 +228,9 @@ func TestSemiFoldProofs(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NoError(t, BatchVerifyMultiVk(vk, commitments, proofs, challenge))
+
+	// send folded proof
+	proof, err := FoldCommitments(proofs, challenge)
+	assert.NoError(t, err)
+	assert.NoError(t, BatchVerifyMultiVk(vk, commitments, []curve.G1Affine{proof}, challenge))
 }
