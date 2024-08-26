@@ -307,10 +307,10 @@ func BatchVerifyMultiVk(vk []VerifyingKey, commitments []curve.G1Affine, pok []c
 			}
 		}
 	}
-	if commitment, err := FoldCommitments(pok, combinationCoeff); err != nil {
+	if foldedPok, err := FoldCommitments(pok, combinationCoeff); err != nil {
 		return err
 	} else {
-		pairingG1[len(vk)] = commitment
+		pairingG1[len(vk)] = foldedPok
 	}
 	pairingG2[len(vk)] = vk[0].G
 
