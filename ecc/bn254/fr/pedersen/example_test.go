@@ -70,17 +70,7 @@ func Example_singleProof() {
 		panic(err)
 	}
 
-	// alternatively, we can also provide the folded proof
-	foldedProof, err := FoldCommitments(proofs, combinationCoeff)
-	if err != nil {
-		panic(err)
-	}
-	if err := BatchVerifyMultiVk(vks, commitments, []curve.G1Affine{foldedProof}, combinationCoeff); err != nil {
-		panic(err)
-	}
-
 	fmt.Println("verified")
-
 	// output: verified
 }
 
@@ -215,7 +205,16 @@ func ExampleBatchVerifyMultiVk() {
 	if err := BatchVerifyMultiVk(vks, commitments, proofs, combinationCoeff); err != nil {
 		panic(err)
 	}
-	fmt.Println("verified")
 
+	// alternatively, we can also provide the folded proof
+	foldedProof, err := FoldCommitments(proofs, combinationCoeff)
+	if err != nil {
+		panic(err)
+	}
+	if err := BatchVerifyMultiVk(vks, commitments, []curve.G1Affine{foldedProof}, combinationCoeff); err != nil {
+		panic(err)
+	}
+
+	fmt.Println("verified")
 	// Output: verified
 }
