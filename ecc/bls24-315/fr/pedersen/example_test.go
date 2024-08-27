@@ -20,6 +20,7 @@ import (
 	"crypto/rand"
 	"fmt"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	curve "github.com/consensys/gnark-crypto/ecc/bls24-315"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 )
@@ -124,12 +125,12 @@ func ExampleBatchProve() {
 		panic(err)
 	}
 	// fold the commitments
-	foldedCommitment, err := FoldCommitments(commitments, combinationCoeff)
+	foldedCommitment, err := new(curve.G1Affine).Fold(commitments, combinationCoeff, ecc.MultiExpConfig{NbTasks: 1})
 	if err != nil {
 		panic(err)
 	}
 	// verify the proof
-	if err := vk.Verify(foldedCommitment, proof); err != nil {
+	if err := vk.Verify(*foldedCommitment, proof); err != nil {
 		panic(err)
 	}
 	fmt.Println("verified")
@@ -207,11 +208,11 @@ func ExampleBatchVerifyMultiVk() {
 	}
 
 	// alternatively, we can also provide the folded proof
-	foldedProof, err := FoldCommitments(proofs, combinationCoeff)
+	foldedProof, err := new(curve.G1Affine).Fold(proofs, combinationCoeff, ecc.MultiExpConfig{NbTasks: 1})
 	if err != nil {
 		panic(err)
 	}
-	if err := BatchVerifyMultiVk(vks, commitments, []curve.G1Affine{foldedProof}, combinationCoeff); err != nil {
+	if err := BatchVerifyMultiVk(vks, commitments, []curve.G1Affine{*foldedProof}, combinationCoeff); err != nil {
 		panic(err)
 	}
 
