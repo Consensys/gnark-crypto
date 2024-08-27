@@ -18,9 +18,10 @@ package bls12377
 
 import (
 	"bytes"
+	crand "crypto/rand"
 	"io"
 	"math/big"
-	"math/rand"
+	"math/rand/v2"
 	"reflect"
 	"testing"
 
@@ -231,7 +232,7 @@ func TestIsCompressed(t *testing.T) {
 func TestG1AffineInvalidBitMask(t *testing.T) {
 	t.Parallel()
 	var buf [SizeOfG1AffineCompressed]byte
-	rand.Read(buf[:]) //#nosec G404 weak rng is fine here
+	crand.Read(buf[:])
 
 	var p G1Affine
 	buf[0] = 0b111 << 5
@@ -344,7 +345,7 @@ func TestG1AffineSerialization(t *testing.T) {
 func TestG2AffineInvalidBitMask(t *testing.T) {
 	t.Parallel()
 	var buf [SizeOfG2AffineCompressed]byte
-	rand.Read(buf[:]) //#nosec G404 weak rng is fine here
+	crand.Read(buf[:])
 
 	var p G2Affine
 	buf[0] = 0b111 << 5
@@ -518,7 +519,7 @@ func GenBigInt() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var s big.Int
 		var b [fp.Bytes]byte
-		_, err := rand.Read(b[:]) //#nosec G404 weak rng is fine here
+		_, err := crand.Read(b[:])
 		if err != nil {
 			panic(err)
 		}

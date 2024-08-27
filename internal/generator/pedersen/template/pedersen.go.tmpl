@@ -55,7 +55,7 @@ func WithG2Point(g2 curve.G2Affine) SetupOption {
 // NB! This is a trusted setup process. The randomness during the setup must be discarded.
 // Failing to do so allows to create proofs without knowing the committed values.
 func Setup(bases [][]curve.G1Affine, options ...SetupOption) (pk []ProvingKey, vk VerifyingKey, err error) {
-    var cfg setupConfig
+	var cfg setupConfig
 	for _, o := range options {
 		o(&cfg)
 	}
@@ -64,8 +64,8 @@ func Setup(bases [][]curve.G1Affine, options ...SetupOption) (pk []ProvingKey, v
 			return
 		}
 	} else {
-      	vk.G = *cfg.g2Gen
-    }
+		vk.G = *cfg.g2Gen
+	}
 
 	var modMinusOne big.Int
 	modMinusOne.Sub(fr.Modulus(), big.NewInt(1))
@@ -160,10 +160,10 @@ func BatchProve(pk []ProvingKey, values [][]fr.Element, combinationCoeff fr.Elem
 	scaledValues := make([]fr.Element, offset)
 	basis := make([]curve.G1Affine, offset)
 
-	copy(basis, pk[0].BasisExpSigma)
-	copy(scaledValues, values[0])
+	copy(basis, pk[0].BasisExpSigma) // #nosec G602 false positive
+	copy(scaledValues, values[0])    // #nosec G602 false positive
 
-	offset = len(values[0])
+	offset = len(values[0]) // #nosec G602 false positive
 	rI := combinationCoeff
 	for i := 1; i < len(pk); i++ {
 		copy(basis[offset:], pk[i].BasisExpSigma)
@@ -295,7 +295,6 @@ func BatchVerifyMultiVk(vk []VerifyingKey, commitments []curve.G1Affine, pok []c
 		pairingG1[len(vk)] = foldedPok
 	}
 	pairingG2[len(vk)] = vk[0].G
-
 
 	if isOne, err := curve.PairingCheck(pairingG1, pairingG2); err != nil {
 		return err
