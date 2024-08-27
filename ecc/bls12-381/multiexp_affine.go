@@ -60,7 +60,7 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 	// note that we have 2 sets of buckets
 	// 1 in G1Affine used with the batch affine additions
 	// 1 in g1JacExtended used in case the queue of conflicting points
-	var buckets B // in G1Affine coordinates, infinities are represented as (0,0), no need to init
+	var buckets B // in G1Affine coordinates, infinity point is represented as (0,0), no need to init
 	var bucketsJE BJE
 	for i := 0; i < len(buckets); i++ {
 		bucketsJE[i].setInfinity()
@@ -387,7 +387,7 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 	// note that we have 2 sets of buckets
 	// 1 in G2Affine used with the batch affine additions
 	// 1 in g2JacExtended used in case the queue of conflicting points
-	var buckets B // in G2Affine coordinates, infinities are represented as (0,0), no need to init
+	var buckets B // in G2Affine coordinates, infinity point is represented as (0,0), no need to init
 	var bucketsJE BJE
 	for i := 0; i < len(buckets); i++ {
 		bucketsJE[i].setInfinity()
