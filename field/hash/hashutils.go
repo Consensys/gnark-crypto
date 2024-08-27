@@ -18,7 +18,7 @@ func ExpandMsgXmd(msg, dst []byte, lenInBytes int) ([]byte, error) {
 	if len(dst) > 255 {
 		return nil, errors.New("invalid domain size (>255 bytes)")
 	}
-	sizeDomain := uint8(len(dst))
+	sizeDomain := uint8(len(dst)) // #nosec G115 not overflow territory here, checked above
 
 	// Z_pad = I2OSP(0, r_in_bytes)
 	// l_i_b_str = I2OSP(len_in_bytes, 2)
@@ -31,7 +31,9 @@ func ExpandMsgXmd(msg, dst []byte, lenInBytes int) ([]byte, error) {
 	if _, err := h.Write(msg); err != nil {
 		return nil, err
 	}
-	if _, err := h.Write([]byte{uint8(lenInBytes >> 8), uint8(lenInBytes), uint8(0)}); err != nil {
+	s := uint8(lenInBytes >> 8) // #nosec G115 not overflow territory here
+	b := uint8(lenInBytes)      // #nosec G115 not overflow territory here
+	if _, err := h.Write([]byte{s, b, 0}); err != nil {
 		return nil, err
 	}
 	if _, err := h.Write(dst); err != nil {
@@ -71,7 +73,8 @@ func ExpandMsgXmd(msg, dst []byte, lenInBytes int) ([]byte, error) {
 		if _, err := h.Write(strxor); err != nil {
 			return nil, err
 		}
-		if _, err := h.Write([]byte{uint8(i)}); err != nil {
+		bi := uint8(i) // #nosec G115 not overflow territory here
+		if _, err := h.Write([]byte{bi}); err != nil {
 			return nil, err
 		}
 		if _, err := h.Write(dst); err != nil {

@@ -404,7 +404,7 @@ func (r *RSis) Hash(v []fr.Element) ([]fr.Element, error) {
 	}
 	sum := r.Sum(nil)
 	var rlen [4]byte
-	binary.BigEndian.PutUint32(rlen[:], uint32(len(sum)/fr.Bytes))
+	binary.BigEndian.PutUint32(rlen[:], uint32(len(sum)/fr.Bytes)) // #nosec G115 not overflow territory here
 	reader := io.MultiReader(bytes.NewReader(rlen[:]), bytes.NewReader(sum))
 	var result fr.Vector
 	_, err := result.ReadFrom(reader)

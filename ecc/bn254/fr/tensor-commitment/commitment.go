@@ -134,7 +134,7 @@ func NewTCParams(codeRate, NbColumns, NbRows int, makeHash func() hash.Hash) (*T
 	res.Domains[1] = fft.NewDomain(uint64(codeRate * NbColumns))
 
 	// size of the matrix
-	res.NbColumns = int(res.Domains[0].Cardinality)
+	res.NbColumns = int(res.Domains[0].Cardinality) // #nosec G115 not overflow territory here
 	res.NbRows = NbRows
 
 	// rate
@@ -285,7 +285,8 @@ func (tc *TensorCommitment) Commit() (Digest, error) {
 	// now we hash each columns of _p
 	res := make([][]byte, tc.params.Domains[1].Cardinality)
 
-	parallel.Execute(int(tc.params.Domains[1].Cardinality), func(start, stop int) {
+	cardinality := int(tc.params.Domains[1].Cardinality) // #nosec G115 not overflow territory here
+	parallel.Execute(cardinality, func(start, stop int) {
 		hasher := tc.params.MakeHash()
 		for i := start; i < stop; i++ {
 			hasher.Reset()

@@ -330,7 +330,7 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		return
 	case []fr.Element:
 		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t))) // #nosec G115 not overflow territory here
 		if err != nil {
 			return
 		}
@@ -347,7 +347,7 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		return nil
 	case []fp.Element:
 		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t))) // #nosec G115 not overflow territory here
 		if err != nil {
 			return
 		}
@@ -365,7 +365,7 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 
 	case []G1Affine:
 		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t))) // #nosec G115 not overflow territory here
 		if err != nil {
 			return
 		}
@@ -420,7 +420,7 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		return
 	case []fr.Element:
 		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t))) // #nosec G115 not overflow territory here
 		if err != nil {
 			return
 		}
@@ -437,7 +437,7 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		return nil
 	case []fp.Element:
 		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t))) // #nosec G115 not overflow territory here
 		if err != nil {
 			return
 		}
@@ -455,7 +455,7 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 
 	case []G1Affine:
 		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t))) // #nosec G115 not overflow territory here
 		if err != nil {
 			return
 		}

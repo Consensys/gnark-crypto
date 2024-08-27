@@ -93,7 +93,8 @@ func MapToCurve1(u *fp.Element) G1Affine {
 	signsNotEqual := g1Sgn0(u) ^ g1Sgn0(&y) //    34.  e3 = sgn0(u) == sgn0(y)
 
 	tv1.Neg(&y)
-	y.Select(int(signsNotEqual), &y, &tv1) //    35.   y = CMOV(-y, y, e3)       # Select correct sign of y
+	//  35.   y = CMOV(-y, y, e3)       # Select correct sign of y
+	y.Select(int(signsNotEqual), &y, &tv1) // #nosec G115 not overflow territory here
 	return G1Affine{x, y}
 }
 
