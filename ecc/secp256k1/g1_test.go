@@ -19,8 +19,10 @@ package secp256k1
 import (
 	"fmt"
 	"math/big"
-	"math/rand"
+	"math/rand/v2"
 	"testing"
+
+	crand "crypto/rand"
 
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 
@@ -875,7 +877,7 @@ func GenBigInt() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var s big.Int
 		var b [fp.Bytes]byte
-		_, err := rand.Read(b[:]) //#nosec G404 weak rng is fine here
+		_, err := crand.Read(b[:]) //#nosec G404 weak rng is fine here
 		if err != nil {
 			panic(err)
 		}

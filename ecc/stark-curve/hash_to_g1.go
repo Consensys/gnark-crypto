@@ -153,9 +153,3 @@ func HashToG1(msg, dst []byte) (G1Affine, error) {
 	Q1.FromJacobian(&_Q1)
 	return Q1, nil
 }
-
-func g1NotZero(x *fp.Element) uint64 {
-
-	return x[0] | x[1] | x[2] | x[3]
-
-}
