@@ -415,7 +415,7 @@ func (f *FieldConfig) WriteElement(element Element) string {
 	var subElementNames string
 	if length > 1 {
 		builder.WriteString("\n")
-		subElementNames = CoordNameForExtensionDegree(uint8(length)) // #nosec G115 not overflow territory here
+		subElementNames = CoordNameForExtensionDegree(uint8(length))
 	}
 	for i, e := range element {
 		if length > 1 {

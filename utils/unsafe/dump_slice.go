@@ -15,7 +15,7 @@ import (
 // (e.g. 32 vs 64 bit, big endian vs little endian).
 func WriteSlice[S ~[]E, E any](w io.Writer, s S) error {
 	var e E
-	size := int(unsafe.Sizeof(e)) // #nosec G115 not overflow territory here
+	size := int(unsafe.Sizeof(e))
 	if err := binary.Write(w, binary.LittleEndian, uint64(len(s))); err != nil {
 		return err
 	}
@@ -43,10 +43,9 @@ func ReadSlice[S ~[]E, E any](r io.Reader, maxElements ...int) (s S, read int, e
 	length := binary.LittleEndian.Uint64(buf[:])
 
 	var e E
-	size := int(unsafe.Sizeof(e)) // #nosec G115 not overflow territory here
+	size := int(unsafe.Sizeof(e))
 	limit := length
-	iLength := int(length) // #nosec G115 safe to ignore
-	if len(maxElements) == 1 && maxElements[0] > 0 && iLength > maxElements[0] {
+	if len(maxElements) == 1 && maxElements[0] > 0 && int(length) > maxElements[0] {
 		limit = uint64(maxElements[0])
 	}
 
@@ -58,16 +57,16 @@ func ReadSlice[S ~[]E, E any](r io.Reader, maxElements ...int) (s S, read int, e
 
 	// directly read the bytes from reader into the target memory area
 	// (slice data)
-	data := unsafe.Slice((*byte)(unsafe.Pointer(&toReturn[0])), size*int(limit)) // #nosec G115 safe to ignore
+	data := unsafe.Slice((*byte)(unsafe.Pointer(&toReturn[0])), size*int(limit))
 	if _, err := io.ReadFull(r, data); err != nil {
 		return nil, read, err
 	}
 
-	read += size * int(limit) // #nosec G115 safe to ignore
+	read += size * int(limit)
 
 	// advance the reader if we had more elements than we wanted
 	if length > limit {
-		advance := int(length-limit) * size // #nosec G115 not overflow territory here
+		advance := int(length-limit) * size
 		if _, err := io.CopyN(io.Discard, r, int64(advance)); err != nil {
 			return nil, read, err
 		}
@@ -83,7 +82,7 @@ const marker uint64 = 0xdeadbeef
 // This is used to ensure that the dump was written on the same architecture.
 func WriteMarker(w io.Writer) error {
 	marker := marker
-	_, err := w.Write(unsafe.Slice((*byte)(unsafe.Pointer(&marker)), 8)) // #nosec G115 unsafe, but we know it.
+	_, err := w.Write(unsafe.Slice((*byte)(unsafe.Pointer(&marker)), 8))
 	return err
 }
 
@@ -95,7 +94,7 @@ func ReadMarker(r io.Reader) error {
 		return err
 	}
 	marker := marker
-	d := unsafe.Slice((*byte)(unsafe.Pointer(&marker)), 8) // #nosec G115 unsafe, but we know it.
+	d := unsafe.Slice((*byte)(unsafe.Pointer(&marker)), 8)
 	if !bytes.Equal(d, buf[:]) {
 		return errors.New("marker mismatch: dump was not written on the same architecture")
 	}

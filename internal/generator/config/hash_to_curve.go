@@ -77,7 +77,7 @@ func (parameters *HashSuiteSvdw) GetInfo(baseField *field.FieldConfig, g *Point,
 func (suite *HashSuiteSswu) GetInfo(baseField *field.FieldConfig, g *Point, name string) HashSuiteInfo {
 
 	f := field.NewTower(baseField, g.CoordExtDegree, g.CoordExtRoot)
-	fieldSizeMod256 := uint8(f.Size.Bits()[0]) // #nosec G115 false positive
+	fieldSizeMod256 := uint8(f.Size.Bits()[0])
 
 	Z := toBigIntSlice(suite.Z)
 	var c []field.Element
