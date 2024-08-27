@@ -61,7 +61,7 @@ func processChunk{{ $.UPointName }}BatchAffine[BJE ib{{ $.TJacobianExtended }},B
 	// note that we have 2 sets of buckets
 	// 1 in {{ $.TAffine }} used with the batch affine additions
 	// 1 in {{ $.TJacobianExtended }} used in case the queue of conflicting points
-	var buckets B // in {{ $.TAffine }} coordinates, infinities are represented as (0,0), no need to init
+	var buckets B // in {{ $.TAffine }} coordinates, infinity point is represented as (0,0), no need to init
 	var bucketsJE BJE
 	for i := 0; i < len(buckets); i++ {
 		bucketsJE[i].setInfinity()
