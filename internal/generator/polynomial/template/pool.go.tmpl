@@ -4,7 +4,6 @@ import (
 {{- if not $sham}}
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"runtime"
 	"sort"
 	"sync"
@@ -180,8 +179,7 @@ func (s *poolStats) finalize() {
 }
 
 func getDataPointer(slice []{{.ElementType}}) *{{.ElementType}} {
-	header := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
-	return (*{{.ElementType}})(unsafe.Pointer(header.Data))
+	return (*{{.ElementType}})(unsafe.SliceData(slice))
 }
 
 func (p *Pool) PrintPoolStats() {

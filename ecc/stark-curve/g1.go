@@ -48,14 +48,6 @@ func (p *G1Affine) Set(a *G1Affine) *G1Affine {
 	return p
 }
 
-// setInfinity sets p to the infinity point, which is encoded as (0,0).
-// N.B.: (0,0) is not on the STARK curve (Y²=X³+X+B).
-func (p *G1Affine) setInfinity() *G1Affine {
-	p.X.SetZero()
-	p.Y.SetZero()
-	return p
-}
-
 // ScalarMultiplication computes and returns p = [s]a
 // where p and a are affine points.
 func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
@@ -580,15 +572,6 @@ func (p *g1JacExtended) Set(a *g1JacExtended) *g1JacExtended {
 	return p
 }
 
-// setInfinity sets p to the infinity point (1,1,0,0).
-func (p *g1JacExtended) setInfinity() *g1JacExtended {
-	p.X.SetOne()
-	p.Y.SetOne()
-	p.ZZ = fp.Element{}
-	p.ZZZ = fp.Element{}
-	return p
-}
-
 // fromJacExtended converts an extended Jacobian point to an affine point.
 func (p *G1Affine) fromJacExtended(Q *g1JacExtended) *G1Affine {
 	if Q.ZZ.IsZero() {
@@ -610,14 +593,6 @@ func (p *G1Jac) fromJacExtended(Q *g1JacExtended) *G1Jac {
 	p.X.Mul(&Q.ZZ, &Q.X).Mul(&p.X, &Q.ZZ)
 	p.Y.Mul(&Q.ZZZ, &Q.Y).Mul(&p.Y, &Q.ZZZ)
 	p.Z.Set(&Q.ZZZ)
-	return p
-}
-
-// unsafeFromJacExtended converts an extended Jacobian point, distinct from Infinity, to a Jacobian point.
-func (p *G1Jac) unsafeFromJacExtended(Q *g1JacExtended) *G1Jac {
-	p.X.Square(&Q.ZZ).Mul(&p.X, &Q.X)
-	p.Y.Square(&Q.ZZZ).Mul(&p.Y, &Q.Y)
-	p.Z = Q.ZZZ
 	return p
 }
 
