@@ -180,10 +180,10 @@ func BatchProve(pk []ProvingKey, values [][]fr.Element, combinationCoeff fr.Elem
 	scaledValues := make([]fr.Element, offset)
 	basis := make([]curve.G1Affine, offset)
 
-	copy(basis, pk[0].BasisExpSigma)
+	copy(basis, pk[0].BasisExpSigma) // #nosec G602 false positive
 	copy(scaledValues, values[0])
 
-	offset = len(values[0])
+	offset = len(values[0]) // #nosec G602 false positive
 	rI := combinationCoeff
 	for i := 1; i < len(pk); i++ {
 		copy(basis[offset:], pk[i].BasisExpSigma)
