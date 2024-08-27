@@ -19,7 +19,7 @@ package bw6633
 import (
 	"fmt"
 	"math/big"
-	"math/rand"
+	"math/rand/v2"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"

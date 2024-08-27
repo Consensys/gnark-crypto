@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"reflect"
 	"runtime"
 	"sort"
 	"sync"
@@ -173,8 +172,7 @@ func (s *poolStats) finalize() {
 }
 
 func getDataPointer(slice []fr.Element) *fr.Element {
-	header := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
-	return (*fr.Element)(unsafe.Pointer(header.Data))
+	return (*fr.Element)(unsafe.SliceData(slice))
 }
 
 func (p *Pool) PrintPoolStats() {

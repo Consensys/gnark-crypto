@@ -8,6 +8,9 @@ linters:
     - govet
     - ineffassign
     - misspell
-
+linters-settings:
+  gosec:
+    excludes:
+      - G115 # Conversions from int -> uint etc.
 run:
   issues-exit-code: 1

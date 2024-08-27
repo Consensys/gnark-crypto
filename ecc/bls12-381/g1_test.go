@@ -19,7 +19,7 @@ package bls12381
 import (
 	"fmt"
 	"math/big"
-	"math/rand"
+	"math/rand/v2"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
