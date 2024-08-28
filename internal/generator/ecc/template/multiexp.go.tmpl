@@ -472,7 +472,30 @@ func msmReduceChunk{{ $.TAffine }}(p *{{ $.TJacobian }}, c int, chChunks []chan 
 	return p.unsafeFromJacExtended(&_p)
 }
 
+// Fold computes the multi-exponentiation \sum_{i=0}^{len(points)-1} points[i] *
+// combinationCoeff^i and stores the result in p. It returns error in case
+// configuration is invalid.
+func (p *{{ $.TAffine }}) Fold(points []{{ $.TAffine }}, combinationCoeff fr.Element, config ecc.MultiExpConfig) (*{{ $.TAffine }}, error) {
+	var _p {{ $.TJacobian }}
+	if _, err := _p.Fold(points, combinationCoeff, config); err != nil {
+		return nil, err
+	}
+	p.FromJacobian(&_p)
+	return p, nil
+}
 
+// Fold computes the multi-exponentiation \sum_{i=0}^{len(points)-1} points[i] *
+// combinationCoeff^i and stores the result in p. It returns error in case
+// configuration is invalid.
+func (p *{{$.TJacobian}}) Fold(points []{{ $.TAffine }}, combinationCoeff fr.Element, config ecc.MultiExpConfig) (*{{ $.TJacobian }}, error) {
+	scalars := make([]fr.Element, len(points))
+	scalar := fr.NewElement(1)
+	for i := 0; i < len(points); i++ {
+		scalars[i].Set(&scalar)
+		scalar.Mul(&scalar, &combinationCoeff)
+	}
+	return p.MultiExp(points, scalars, config)
+}
 
 
 
