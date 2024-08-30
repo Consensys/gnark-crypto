@@ -1798,7 +1798,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 	{{- end}}
 }
 
-// batchAddG1Affine adds affine points using the Montgomery batch inversion trick.
+// batchAdd{{ $TAffine }} adds affine points using the Montgomery batch inversion trick.
 // Special cases (doubling, infinity) must be filtered out before this call.
 func batchAdd{{ $TAffine }}[TP p{{ $TAffine }}, TPP pp{{ $TAffine }}, TC c{{ $TAffine }}](R *TPP,P *TP, batchSize int) {
 	var lambda, lambdain TC

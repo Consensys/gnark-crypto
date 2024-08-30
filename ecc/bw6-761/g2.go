@@ -1097,7 +1097,7 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 	return toReturn
 }
 
-// batchAddG1Affine adds affine points using the Montgomery batch inversion trick.
+// batchAddG2Affine adds affine points using the Montgomery batch inversion trick.
 // Special cases (doubling, infinity) must be filtered out before this call.
 func batchAddG2Affine[TP pG2Affine, TPP ppG2Affine, TC cG2Affine](R *TPP, P *TP, batchSize int) {
 	var lambda, lambdain TC
