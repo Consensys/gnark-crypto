@@ -704,6 +704,23 @@ func TestElementLexicographicallyLargest(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }
+func TestElementAddVec(t *testing.T) {
+	var a, b, c [4]Element
+	for i := 0; i < 4; i++ {
+		a[i].SetRandom()
+		b[i].SetRandom()
+	}
+
+	AddVec(c[:], a[:], b[:])
+
+	for i := 0; i < 4; i++ {
+		var expected Element
+		expected.Add(&a[i], &b[i])
+		if !c[i].Equal(&expected) {
+			t.Fatal("AddVec failed")
+		}
+	}
+}
 
 func TestElementAdd(t *testing.T) {
 	t.Parallel()

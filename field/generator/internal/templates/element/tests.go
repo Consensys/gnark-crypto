@@ -727,6 +727,42 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 
 	
 }
+{{- if eq .NbWords 4}}
+func Test{{toTitle .ElementName}}AddVec(t *testing.T) {
+	const N = 512
+	var a, c [N]{{.ElementName}}
+	b := make([]{{.ElementName}}, N*1027) // ensure it's on the heap.
+	for i := 0; i < N; i++ {
+		a[i].SetRandom()
+		b[i].SetRandom()
+	}
+
+	AddVec(&c[0], &a[0], &b[0], N)
+
+	for i := 0; i < N; i++ {
+		var expected {{.ElementName}}
+		expected.Add(&a[i], &b[i])
+		if !c[i].Equal(&expected) {
+			t.Fatal("AddVec failed")
+		}
+	}
+}
+
+func Benchmark{{toTitle .ElementName}}AddVec(bb *testing.B) {
+	const N = 512
+	var a, c [N]{{.ElementName}}
+	b := make([]{{.ElementName}}, N*1027) // ensure it's on the heap.
+	for i := 0; i < N; i++ {
+		a[i].SetRandom()
+		b[i].SetRandom()
+	}
+
+	bb.ResetTimer()
+	for i := 0; i < bb.N; i++ {
+		AddVec(&c[0], &a[0], &b[0], N)
+	}
+}
+{{- end}}
 
 
 {{template "testBinaryOp" dict "all" . "Op" "Add"}}

@@ -228,3 +228,38 @@ TEXT ·Butterfly(SB), NOSPLIT, $0-16
 	MOVQ SI, 16(AX)
 	MOVQ DI, 24(AX)
 	RET
+
+// AddVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] + b[0...n]
+TEXT ·AddVec(SB), NOSPLIT, $0-36
+	MOVQ res+0(FP), CX
+	MOVQ a+8(FP), AX
+	MOVQ b+16(FP), DX
+	MOVQ n+24(FP), BX
+
+l1:
+	TESTQ BX, BX
+	JEQ   l2
+	MOVQ  0(AX), SI
+	MOVQ  8(AX), DI
+	MOVQ  16(AX), R8
+	MOVQ  24(AX), R9
+	ADDQ  0(DX), SI
+	ADCQ  8(DX), DI
+	ADCQ  16(DX), R8
+	ADCQ  24(DX), R9
+
+	// reduce element(SI,DI,R8,R9) using temp registers (R10,R11,R12,R13)
+	REDUCE(SI,DI,R8,R9,R10,R11,R12,R13)
+
+	MOVQ SI, 0(CX)
+	MOVQ DI, 8(CX)
+	MOVQ R8, 16(CX)
+	MOVQ R9, 24(CX)
+	ADDQ $32, AX
+	ADDQ $32, DX
+	ADDQ $32, CX
+	DECQ BX
+	JMP  l1
+
+l2:
+	RET

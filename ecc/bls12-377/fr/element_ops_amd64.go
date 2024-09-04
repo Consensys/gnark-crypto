@@ -45,6 +45,11 @@ func reduce(res *Element)
 //go:noescape
 func Butterfly(a, b *Element)
 
+// AddVec res = a + b
+//
+//go:noescape
+func AddVec(res, a, b *Element, n uint64)
+
 // Mul z = x * y (mod q)
 //
 // x and y must be less than q

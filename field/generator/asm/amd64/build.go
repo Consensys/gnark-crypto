@@ -158,6 +158,10 @@ func Generate(w io.Writer, F *config.FieldConfig) error {
 	// fft butterflies
 	f.generateButterfly()
 
+	if f.NbWords == 4 {
+		f.generateAddVec()
+	}
+
 	return nil
 }
 

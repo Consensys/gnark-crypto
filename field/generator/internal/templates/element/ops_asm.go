@@ -30,6 +30,11 @@ func reduce(res *{{.ElementName}})
 func Butterfly(a, b *{{.ElementName}})
 
 
+{{- if eq .NbWords 4}}
+// AddVec res = a + b
+//go:noescape
+func AddVec(res, a, b *{{.ElementName}}, n uint64)
+{{- end}}
 
 // Mul z = x * y (mod q)
 //
