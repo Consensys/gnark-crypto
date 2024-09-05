@@ -62,6 +62,12 @@ func (vector *Vector) Add(a, b Vector) {
 func (vector *Vector) Sub(a, b Vector) {
 	vector.subGeneric(a, b)
 }
+
+// ScalarMul multiplies a vector by a scalar element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
+	vector.scalarMulGeneric(a, b)
+}
 {{- end}}
 
 // Mul z = x * y (mod q)

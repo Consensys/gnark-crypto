@@ -217,6 +217,15 @@ func (vector *Vector) subGeneric(a, b Vector) {
 	}
 }
 
+func (vector *Vector) scalarMulGeneric(a Vector, b *Element) {
+	if len(a) != len(*vector) {
+		panic("vector.ScalarMul: vectors don't have the same length")
+	}
+	for i := 0; i < len(a); i++ {
+		(*vector)[i].Mul(&a[i], b)
+	}
+}
+
 // TODO @gbotrel make a public package out of that.
 // execute executes the work function in parallel.
 // this is copy paste from internal/parallel/parallel.go

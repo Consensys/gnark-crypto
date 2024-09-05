@@ -162,6 +162,7 @@ func Generate(w io.Writer, F *config.FieldConfig) error {
 	if f.NbWords == 4 {
 		f.generateAddVec()
 		f.generateSubVec()
+		f.generateScalarMulVec()
 	}
 
 	return nil

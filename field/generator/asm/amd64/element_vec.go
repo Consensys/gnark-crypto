@@ -14,14 +14,16 @@
 
 package amd64
 
+import "github.com/consensys/bavard/amd64"
+
 // addVec res = a + b
 // func addVec(res, a, b *{{.ElementName}}, n uint64)
 func (f *FFAmd64) generateAddVec() {
 	f.Comment("addVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] + b[0...n]")
 
-	nbRegisters := f.NbWords*2 + 4
-	stackSize := f.StackSize(nbRegisters, 0, 0)
-	registers := f.FnHeader("addVec", stackSize, 36)
+	const argSize = 4 * 8
+	stackSize := f.StackSize(f.NbWords*2+4, 0, 0)
+	registers := f.FnHeader("addVec", stackSize, argSize)
 	defer f.AssertCleanStack(stackSize, 0)
 
 	// registers
@@ -78,9 +80,9 @@ func (f *FFAmd64) generateAddVec() {
 func (f *FFAmd64) generateSubVec() {
 	f.Comment("subVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] - b[0...n]")
 
-	nbRegisters := f.NbWords*2 + 4
-	stackSize := f.StackSize(nbRegisters, 0, 0)
-	registers := f.FnHeader("subVec", stackSize, 36)
+	const argSize = 4 * 8
+	stackSize := f.StackSize(f.NbWords*2+5, 0, 0)
+	registers := f.FnHeader("subVec", stackSize, argSize)
 	defer f.AssertCleanStack(stackSize, 0)
 
 	// registers
@@ -137,5 +139,91 @@ func (f *FFAmd64) generateSubVec() {
 	f.Push(&registers, a...)
 	f.Push(&registers, q...)
 	f.Push(&registers, addrA, addrB, addrRes, len, zero)
+
+}
+
+// scalarMulVec res = a * b
+// func scalarMulVec(res, a, b *{{.ElementName}}, n uint64)
+func (f *FFAmd64) generateScalarMulVec() {
+	f.Comment("scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b")
+
+	const argSize = 4 * 8
+	stackSize := f.StackSize(f.NbWords*2+4, 2, argSize)
+	reserved := []amd64.Register{amd64.DX, amd64.AX}
+	registers := f.FnHeader("scalarMulVec", stackSize, argSize, reserved...)
+	defer f.AssertCleanStack(stackSize, argSize)
+
+	f.WriteLn("NO_LOCAL_POINTERS")
+
+	noAdx := f.NewLabel()
+	loop := f.NewLabel()
+	done := f.NewLabel()
+
+	// we need at least nbWords temporary registers
+	t := registers.PopN(f.NbWords)
+	scalar := registers.PopN(f.NbWords)
+
+	addrB := registers.Pop()
+	addrA := registers.Pop()
+	addrRes := addrB
+	len := registers.Pop()
+
+	// check ADX instruction support
+	f.CMPB("·supportAdx(SB)", 1)
+	f.JNE(noAdx)
+
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("n+24(FP)", len)
+
+	// we store b, the scalar, fully in registers
+	f.LabelRegisters("scalar", scalar...)
+	f.Mov(addrB, scalar)
+
+	xat := func(i int) string {
+		return string(scalar[i])
+	}
+
+	f.MOVQ("res+0(FP)", addrRes)
+
+	f.LABEL(loop)
+
+	f.TESTQ(len, len)
+	f.JEQ(done)
+
+	yat := func(i int) string {
+		return addrA.At(i)
+	}
+	f.MulADX(&registers, xat, yat, t)
+
+	// registers.Push(addrA)
+
+	// reduce; we need at least 4 extra registers
+	registers.Push(amd64.AX, amd64.DX)
+	f.Reduce(&registers, t)
+	f.Mov(t, addrRes)
+
+	f.ADDQ("$32", addrA)
+	f.ADDQ("$32", addrRes)
+	f.DECQ(len)
+	f.JMP(loop)
+
+	f.LABEL(done)
+	f.RET()
+
+	// no ADX support
+	f.LABEL(noAdx)
+
+	f.MOVQ("res+0(FP)", amd64.AX)
+	f.MOVQ(amd64.AX, "(SP)")
+	f.MOVQ("a+8(FP)", amd64.AX)
+	f.MOVQ(amd64.AX, "8(SP)")
+	f.MOVQ("b+16(FP)", amd64.AX)
+	f.MOVQ(amd64.AX, "16(SP)")
+	f.MOVQ("n+24(FP)", amd64.AX)
+	f.MOVQ(amd64.AX, "24(SP)")
+	// TODO @gbotrel
+	// f.WriteLn("CALL ·_mulGeneric(SB)")
+	f.RET()
 
 }

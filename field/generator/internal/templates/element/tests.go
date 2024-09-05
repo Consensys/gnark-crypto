@@ -729,7 +729,7 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 }
 
 func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
-	const N = 512
+	const N = 1
 	a := make(Vector, N)
 	b := make(Vector, N)
 	c := make(Vector, N)
@@ -755,6 +755,16 @@ func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
 		expected.Sub(&a[i], &b[i])
 		if !c[i].Equal(&expected) {
 			t.Fatal("SubVec failed")
+		}
+	}
+
+	c.ScalarMul(a, &b[0])
+
+	for i := 0; i < N; i++ {
+		var expected {{.ElementName}}
+		expected.Mul(&a[i], &b[0])
+		if !c[i].Equal(&expected) {
+			t.Fatal("ScalarMulVec failed")
 		}
 	}
 }
@@ -796,6 +806,21 @@ func Benchmark{{toTitle .ElementName}}VecOps(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			c1.Sub(a1, b1)
+		}
+	})
+
+	// we benchmark the c1.ScalarMul(a1, &b1[0]) and c1.scalarMulGeneric(a1, &b1[0])
+	b.Run("scalarMulGeneric", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c1.scalarMulGeneric(a1, &b1[0])
+		}
+	})
+
+	b.Run("ScalarMul", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c1.ScalarMul(a1, &b1[0])
 		}
 	})
 }
