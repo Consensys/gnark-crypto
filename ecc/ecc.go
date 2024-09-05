@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package ecc provides bls12-381, bls12-377, bls12-378, bn254, bw6-761, bls24-315, bls24-317, bw6-633, bls12-378, bw6-756, secp256k1 and stark-curve elliptic curves implementation (+pairing).
+// Package ecc provides bls12-381, bls12-377, bn254, bw6-761, bls24-315, bls24-317, bw6-633, secp256k1 and stark-curve elliptic curves implementation (+pairing).
 //
 // Also
 //
@@ -42,20 +42,18 @@ const (
 	UNKNOWN ID = iota
 	BN254
 	BLS12_377
-	BLS12_378
 	BLS12_381
 	BLS24_315
 	BLS24_317
 	BW6_761
 	BW6_633
-	BW6_756
 	STARK_CURVE
 	SECP256K1
 )
 
 // Implemented return the list of curves fully implemented in gnark-crypto
 func Implemented() []ID {
-	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315, BW6_633, BLS12_378, BW6_756, BLS24_317, STARK_CURVE, SECP256K1}
+	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315, BW6_633, BLS24_317, STARK_CURVE, SECP256K1}
 }
 
 func IDFromString(s string) (ID, error) {
@@ -90,8 +88,6 @@ func (id ID) config() *config.Curve {
 	switch id {
 	case BLS12_377:
 		return &config.BLS12_377
-	case BLS12_378:
-		return &config.BLS12_378
 	case BLS12_381:
 		return &config.BLS12_381
 	case BN254:
@@ -104,8 +100,6 @@ func (id ID) config() *config.Curve {
 		return &config.BLS24_315
 	case BLS24_317:
 		return &config.BLS24_317
-	case BW6_756:
-		return &config.BW6_756
 	case STARK_CURVE:
 		return &config.STARK_CURVE
 	case SECP256K1:
