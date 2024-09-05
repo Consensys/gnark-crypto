@@ -519,7 +519,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
             {{- else if eq .Name "bw6-761"}}
                 // Mul tmp by bCurveCoeff=-1
                 tmp.Neg(&tmp)
-            {{- else if or (eq .Name "bls12-377") (eq .Name "bls12-378") (eq .Name "bls24-315") (eq .Name "bw6-756")}}
+            {{- else if or (eq .Name "bls12-377") (eq .Name "bls24-315")}}
                 // Mul tmp by bCurveCoeff=1 (nothing to do)
             {{- else}}
                 tmp.Mul(&tmp, &bCurveCoeff)
@@ -573,7 +573,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
             return res.IsOnCurve() && res.Z.IsZero()
 		}
 	{{- end}}
-{{else if or (eq .Name "bw6-761") (eq .Name "bw6-756")}}
+{{else if eq .Name "bw6-761"}}
 	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
     {{ if .GLV}}
 	// Z[r,0]+Z[-lambda{{ $TAffine }}, 1] is the kernel
@@ -713,7 +713,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
                 return res.IsOnCurve() && res.Z.IsZero()
         }
-        {{else if or (eq .Name "bls12-377") (eq .Name "bls12-378")}}
+        {{else if eq .Name "bls12-377"}}
             // https://eprint.iacr.org/2021/1130.pdf, sec.4
             // and https://eprint.iacr.org/2022/352.pdf, sec. 4.2
             // ψ(p) = [x₀]P
@@ -896,7 +896,7 @@ func (p *{{$TJacobian}}) ClearCofactor(q *{{$TJacobian}}) *{{$TJacobian}} {
 	res.ScalarMultiplication(q, &xGen).AddAssign(q)
 	p.Set(&res)
 	return p
-{{else if or (eq .Name "bls12-377") (eq .Name "bls12-378") (eq .Name "bls24-317")}}
+{{else if or (eq .Name "bls12-377") (eq .Name "bls24-317")}}
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res {{$TJacobian}}
 	res.ScalarMultiplication(q, &xGen).Neg(&res).AddAssign(q)
@@ -981,39 +981,6 @@ func (p *{{$TJacobian}}) ClearCofactor(q *{{$TJacobian}}) *{{$TJacobian}} {
 {{ end}}
 
     return p
-{{else if eq .Name "bw6-756"}}
-{{ if .GLV}}
-	var L0, L1, uP, u2P, u3P, tmp G1Jac
-
-	uP.ScalarMultiplication(q, &xGen)
-	u2P.ScalarMultiplication(&uP, &xGen)
-	u3P.ScalarMultiplication(&u2P, &xGen)
-
-	L0.Set(q).AddAssign(&u3P).
-		SubAssign(&u2P)
-	tmp.Set(q).AddAssign(&u2P).
-		SubAssign(&uP).
-		SubAssign(&uP).
-		Double(&tmp)
-	L0.SubAssign(&tmp).
-		SubAssign(q)
-
-	L1.Set(q).AddAssign(&uP)
-	tmp.Set(&uP).SubAssign(q).
-		Double(&tmp).
-		SubAssign(&u2P)
-	L1.AddAssign(&tmp).
-		SubAssign(q)
-
-	p.phi(&L1).
-		AddAssign(&L0)
-{{ else}}
-    var c1 big.Int
-    c1.SetString("605248206075306171568857128027361794400937215108643640003009340657451546212610770151705515081537938829431808196608", 10)
-    p.ScalarMultiplication(q, &c1)
-{{ end}}
-
-	return p
 {{- end}}
 }
 {{ else }}
@@ -1067,7 +1034,7 @@ func (p *{{$TJacobian}}) ClearCofactor(q *{{$TJacobian}}) *{{$TJacobian}} {
 
 	return p
 
-{{else if or (eq .Name "bls12-377") (eq .Name "bls12-378")}}
+{{else if eq .Name "bls12-377"}}
     // https://eprint.iacr.org/2017/419.pdf, 4.1
 	var xg, xxg, res, t G2Jac
 	xg.ScalarMultiplication(q, &xGen)
@@ -1219,37 +1186,6 @@ func (p *{{$TJacobian}}) ClearCofactor(q *{{$TJacobian}}) *{{$TJacobian}} {
 {{end}}
 
 	return p
-{{else if eq .Name "bw6-756"}}
-
-{{- if .GLV}}
-	var L0, L1, uP, u2P, u3P, tmp G2Jac
-
-	uP.ScalarMultiplication(q, &xGen)
-	u2P.ScalarMultiplication(&uP, &xGen)
-	u3P.ScalarMultiplication(&u2P, &xGen)
-	// ht=-2, hy=0
-	// d1=1, d2=-1, d3=-1
-
-	L0.Set(q).
-		AddAssign(&u2P).
-		SubAssign(&uP)
-	tmp.Set(&u2P).
-		AddAssign(q).
-		SubAssign(&uP).
-		Double(&tmp)
-	L1.Set(&u3P).
-		SubAssign(&tmp)
-
-	p.phi(&L0).
-		AddAssign(&L1)
-{{else}}
-    var c2 big.Int
-    c2.SetString("605248206075306171568857128027361794400937215108643640003009340657451546212610770151705515081537938829431808196609", 10)
-    p.ScalarMultiplication(q, &c2)
-{{end}}
-
-	return p
-
 {{- end}}
 }
 {{- end}}
