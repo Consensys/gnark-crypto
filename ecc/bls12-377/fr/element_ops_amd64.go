@@ -45,10 +45,17 @@ func reduce(res *Element)
 //go:noescape
 func Butterfly(a, b *Element)
 
-// AddVec res = a + b
-//
+// Add adds two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Add(a, b Vector) {
+	if len(a) != len(b) || len(a) != len(*vector) {
+		panic("vector.Add: vectors don't have the same length")
+	}
+	addVec(&(*vector)[0], &a[0], &b[0], uint64(len(a)))
+}
+
 //go:noescape
-func AddVec(res, a, b *Element, n uint64)
+func addVec(res, a, b *Element, n uint64)
 
 // Mul z = x * y (mod q)
 //

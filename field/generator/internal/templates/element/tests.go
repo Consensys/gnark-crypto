@@ -727,17 +727,18 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 
 	
 }
-{{- if eq .NbWords 4}}
+
 func Test{{toTitle .ElementName}}AddVec(t *testing.T) {
 	const N = 512
-	var a, c [N]{{.ElementName}}
-	b := make([]{{.ElementName}}, N*1027) // ensure it's on the heap.
+	a := make(Vector, N)
+	b := make(Vector, N)
+	c := make(Vector, N)
 	for i := 0; i < N; i++ {
 		a[i].SetRandom()
 		b[i].SetRandom()
 	}
 
-	AddVec(&c[0], &a[0], &b[0], N)
+	c.Add(a, b)
 
 	for i := 0; i < N; i++ {
 		var expected {{.ElementName}}
@@ -748,21 +749,31 @@ func Test{{toTitle .ElementName}}AddVec(t *testing.T) {
 	}
 }
 
-func Benchmark{{toTitle .ElementName}}AddVec(bb *testing.B) {
+func Benchmark{{toTitle .ElementName}}AddVec(b *testing.B) {
 	const N = 512
-	var a, c [N]{{.ElementName}}
-	b := make([]{{.ElementName}}, N*1027) // ensure it's on the heap.
+	a1 := make(Vector, N)
+	b1 := make(Vector, N)
+	c1 := make(Vector, N)
 	for i := 0; i < N; i++ {
-		a[i].SetRandom()
-		b[i].SetRandom()
+		a1[i].SetRandom()
+		b1[i].SetRandom()
 	}
 
-	bb.ResetTimer()
-	for i := 0; i < bb.N; i++ {
-		AddVec(&c[0], &a[0], &b[0], N)
-	}
+	// we benchmark the c1.Add(a1, b1) and c1.addGeneric(a1, b1)
+	b.Run("addGeneric", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c1.addGeneric(a1, b1)
+		}
+	})
+
+	b.Run("Add", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c1.Add(a1, b1)
+		}
+	})
 }
-{{- end}}
 
 
 {{template "testBinaryOp" dict "all" . "Op" "Add"}}

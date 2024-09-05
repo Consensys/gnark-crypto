@@ -14,14 +14,14 @@
 
 package amd64
 
-// AddVec res = a + b
-// func AddVec(res, a, b *{{.ElementName}}, n uint64)
+// addVec res = a + b
+// func addVec(res, a, b *{{.ElementName}}, n uint64)
 func (f *FFAmd64) generateAddVec() {
-	f.Comment("AddVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] + b[0...n]")
+	f.Comment("addVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] + b[0...n]")
 
 	nbRegisters := f.NbWords*2 + 4
 	stackSize := f.StackSize(nbRegisters, 0, 0)
-	registers := f.FnHeader("AddVec", stackSize, 36)
+	registers := f.FnHeader("addVec", stackSize, 36)
 	defer f.AssertCleanStack(stackSize, 0)
 
 	// registers

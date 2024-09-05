@@ -229,8 +229,8 @@ TEXT ·Butterfly(SB), NOSPLIT, $0-16
 	MOVQ DI, 24(AX)
 	RET
 
-// AddVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] + b[0...n]
-TEXT ·AddVec(SB), NOSPLIT, $0-36
+// addVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] + b[0...n]
+TEXT ·addVec(SB), NOSPLIT, $0-36
 	MOVQ res+0(FP), CX
 	MOVQ a+8(FP), AX
 	MOVQ b+16(FP), DX

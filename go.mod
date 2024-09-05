@@ -14,8 +14,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
-replace github.com/consensys/bavard => ../bavard
-
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect

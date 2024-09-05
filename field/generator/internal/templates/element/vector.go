@@ -192,6 +192,25 @@ func (vector Vector) Swap(i, j int) {
 }
 
 
+{{/* For 4 elements, we have a special assembly path and copy this in ops_pure.go */}}
+{{- if ne .NbWords 4}}
+// Add adds two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Add(a, b Vector) {
+	vector.addGeneric(a, b)
+}
+{{- end}}
+
+
+func (vector *Vector) addGeneric(a, b Vector) {
+	if len(a) != len(b) || len(a) != len(*vector) {
+		panic("vector.Add: vectors don't have the same length")
+	}
+	for i := 0; i < len(a); i++ {
+		(*vector)[i].Add(&a[i], &b[i])
+	}
+}
+
 // TODO @gbotrel make a public package out of that.
 // execute executes the work function in parallel.
 // this is copy paste from internal/parallel/parallel.go

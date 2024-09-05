@@ -29,11 +29,18 @@ func reduce(res *{{.ElementName}})
 //go:noescape
 func Butterfly(a, b *{{.ElementName}})
 
-
 {{- if eq .NbWords 4}}
-// AddVec res = a + b
+// Add adds two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Add(a, b Vector) {
+	if len(a) != len(b) || len(a) != len(*vector) {
+		panic("vector.Add: vectors don't have the same length")
+	}
+	addVec(&(*vector)[0], &a[0], &b[0], uint64(len(a)))
+}
+
 //go:noescape
-func AddVec(res, a, b *{{.ElementName}}, n uint64)
+func addVec(res, a, b *{{.ElementName}}, n uint64)
 {{- end}}
 
 // Mul z = x * y (mod q)

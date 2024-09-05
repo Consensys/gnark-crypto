@@ -50,7 +50,13 @@ func reduce(z *{{.ElementName}})  {
 	_reduceGeneric(z)
 }
 
-
+{{- if eq .NbWords 4}}
+// Add adds two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Add(a, b Vector) {
+	vector.addGeneric(a, b)
+}
+{{- end}}
 
 // Mul z = x * y (mod q)
 {{- if $.NoCarry}}
