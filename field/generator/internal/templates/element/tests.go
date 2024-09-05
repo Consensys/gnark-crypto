@@ -729,7 +729,7 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 }
 
 func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
-	const N = 1
+	const N = 512
 	a := make(Vector, N)
 	b := make(Vector, N)
 	c := make(Vector, N)
