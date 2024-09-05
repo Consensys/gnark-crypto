@@ -208,6 +208,15 @@ func (vector *Vector) addGeneric(a, b Vector) {
 	}
 }
 
+func (vector *Vector) subGeneric(a, b Vector) {
+	if len(a) != len(b) || len(a) != len(*vector) {
+		panic("vector.Sub: vectors don't have the same length")
+	}
+	for i := 0; i < len(a); i++ {
+		(*vector)[i].Sub(&a[i], &b[i])
+	}
+}
+
 // TODO @gbotrel make a public package out of that.
 // execute executes the work function in parallel.
 // this is copy paste from internal/parallel/parallel.go

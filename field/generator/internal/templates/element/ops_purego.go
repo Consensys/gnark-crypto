@@ -56,6 +56,12 @@ func reduce(z *{{.ElementName}})  {
 func (vector *Vector) Add(a, b Vector) {
 	vector.addGeneric(a, b)
 }
+
+// Sub subtracts two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Sub(a, b Vector) {
+	vector.subGeneric(a, b)
+}
 {{- end}}
 
 // Mul z = x * y (mod q)

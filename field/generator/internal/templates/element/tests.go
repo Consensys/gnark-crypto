@@ -728,7 +728,7 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 	
 }
 
-func Test{{toTitle .ElementName}}AddVec(t *testing.T) {
+func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
 	const N = 512
 	a := make(Vector, N)
 	b := make(Vector, N)
@@ -747,9 +747,19 @@ func Test{{toTitle .ElementName}}AddVec(t *testing.T) {
 			t.Fatal("AddVec failed")
 		}
 	}
+
+	c.Sub(a, b)
+
+	for i := 0; i < N; i++ {
+		var expected {{.ElementName}}
+		expected.Sub(&a[i], &b[i])
+		if !c[i].Equal(&expected) {
+			t.Fatal("SubVec failed")
+		}
+	}
 }
 
-func Benchmark{{toTitle .ElementName}}AddVec(b *testing.B) {
+func Benchmark{{toTitle .ElementName}}VecOps(b *testing.B) {
 	const N = 512
 	a1 := make(Vector, N)
 	b1 := make(Vector, N)
@@ -771,6 +781,21 @@ func Benchmark{{toTitle .ElementName}}AddVec(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			c1.Add(a1, b1)
+		}
+	})
+
+	// we benchmark the c1.Sub(a1, b1) and c1.subGeneric(a1, b1)
+	b.Run("subGeneric", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c1.subGeneric(a1, b1)
+		}
+	})
+
+	b.Run("Sub", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c1.Sub(a1, b1)
 		}
 	})
 }

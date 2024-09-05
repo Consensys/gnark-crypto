@@ -72,3 +72,70 @@ func (f *FFAmd64) generateAddVec() {
 	f.Push(&registers, addrA, addrB, addrRes, len)
 
 }
+
+// subVec res = a - b
+// func subVec(res, a, b *{{.ElementName}}, n uint64)
+func (f *FFAmd64) generateSubVec() {
+	f.Comment("subVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] - b[0...n]")
+
+	nbRegisters := f.NbWords*2 + 4
+	stackSize := f.StackSize(nbRegisters, 0, 0)
+	registers := f.FnHeader("subVec", stackSize, 36)
+	defer f.AssertCleanStack(stackSize, 0)
+
+	// registers
+	addrA := f.Pop(&registers)
+	addrB := f.Pop(&registers)
+	addrRes := f.Pop(&registers)
+	len := f.Pop(&registers)
+	zero := f.Pop(&registers)
+
+	a := f.PopN(&registers)
+	q := f.PopN(&registers)
+
+	loop := f.NewLabel()
+	done := f.NewLabel()
+
+	// load arguments
+	f.MOVQ("res+0(FP)", addrRes)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("n+24(FP)", len)
+
+	f.XORQ(zero, zero)
+
+	f.LABEL(loop)
+
+	f.TESTQ(len, len)
+	f.JEQ(done)
+
+	// a = a - b
+	f.Mov(addrA, a)
+	f.Sub(addrB, a)
+
+	// reduce a
+	f.Mov(f.Q, q)
+	for i := 0; i < f.NbWords; i++ {
+		f.CMOVQCC(zero, q[i])
+	}
+	// add registers (q or 0) to a, and set to result
+	f.Add(q, a)
+
+	// save a into res
+	f.Mov(a, addrRes)
+
+	f.ADDQ("$32", addrA)
+	f.ADDQ("$32", addrB)
+	f.ADDQ("$32", addrRes)
+	f.DECQ(len)
+	f.JMP(loop)
+
+	f.LABEL(done)
+
+	f.RET()
+
+	f.Push(&registers, a...)
+	f.Push(&registers, q...)
+	f.Push(&registers, addrA, addrB, addrRes, len, zero)
+
+}

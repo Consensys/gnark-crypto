@@ -161,6 +161,7 @@ func Generate(w io.Writer, F *config.FieldConfig) error {
 	// optionally, generate vector operations
 	if f.NbWords == 4 {
 		f.generateAddVec()
+		f.generateSubVec()
 	}
 
 	return nil

@@ -207,12 +207,27 @@ func (vector *Vector) Add(a, b Vector) {
 	vector.addGeneric(a, b)
 }
 
+// Sub subtracts two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Sub(a, b Vector) {
+	vector.subGeneric(a, b)
+}
+
 func (vector *Vector) addGeneric(a, b Vector) {
 	if len(a) != len(b) || len(a) != len(*vector) {
 		panic("vector.Add: vectors don't have the same length")
 	}
 	for i := 0; i < len(a); i++ {
 		(*vector)[i].Add(&a[i], &b[i])
+	}
+}
+
+func (vector *Vector) subGeneric(a, b Vector) {
+	if len(a) != len(b) || len(a) != len(*vector) {
+		panic("vector.Sub: vectors don't have the same length")
+	}
+	for i := 0; i < len(a); i++ {
+		(*vector)[i].Sub(&a[i], &b[i])
 	}
 }
 

@@ -263,3 +263,47 @@ l1:
 
 l2:
 	RET
+
+// subVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] - b[0...n]
+TEXT ·subVec(SB), NOSPLIT, $0-36
+	MOVQ res+0(FP), CX
+	MOVQ a+8(FP), AX
+	MOVQ b+16(FP), DX
+	MOVQ n+24(FP), BX
+	XORQ SI, SI
+
+l3:
+	TESTQ   BX, BX
+	JEQ     l4
+	MOVQ    0(AX), DI
+	MOVQ    8(AX), R8
+	MOVQ    16(AX), R9
+	MOVQ    24(AX), R10
+	SUBQ    0(DX), DI
+	SBBQ    8(DX), R8
+	SBBQ    16(DX), R9
+	SBBQ    24(DX), R10
+	MOVQ    $0x0a11800000000001, R11
+	MOVQ    $0x59aa76fed0000001, R12
+	MOVQ    $0x60b44d1e5c37b001, R13
+	MOVQ    $0x12ab655e9a2ca556, R14
+	CMOVQCC SI, R11
+	CMOVQCC SI, R12
+	CMOVQCC SI, R13
+	CMOVQCC SI, R14
+	ADDQ    R11, DI
+	ADCQ    R12, R8
+	ADCQ    R13, R9
+	ADCQ    R14, R10
+	MOVQ    DI, 0(CX)
+	MOVQ    R8, 8(CX)
+	MOVQ    R9, 16(CX)
+	MOVQ    R10, 24(CX)
+	ADDQ    $32, AX
+	ADDQ    $32, DX
+	ADDQ    $32, CX
+	DECQ    BX
+	JMP     l3
+
+l4:
+	RET

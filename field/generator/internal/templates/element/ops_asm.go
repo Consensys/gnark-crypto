@@ -41,6 +41,18 @@ func (vector *Vector) Add(a, b Vector) {
 
 //go:noescape
 func addVec(res, a, b *{{.ElementName}}, n uint64)
+
+// Sub subtracts two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Sub(a, b Vector) {
+	if len(a) != len(b) || len(a) != len(*vector) {
+		panic("vector.Sub: vectors don't have the same length")
+	}
+	subVec(&(*vector)[0], &a[0], &b[0], uint64(len(a)))
+}
+
+//go:noescape
+func subVec(res, a, b *{{.ElementName}}, n uint64)
 {{- end}}
 
 // Mul z = x * y (mod q)

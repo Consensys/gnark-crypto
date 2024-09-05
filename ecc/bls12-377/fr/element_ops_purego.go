@@ -66,6 +66,12 @@ func (vector *Vector) Add(a, b Vector) {
 	vector.addGeneric(a, b)
 }
 
+// Sub subtracts two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Sub(a, b Vector) {
+	vector.subGeneric(a, b)
+}
+
 // Mul z = x * y (mod q)
 //
 // x and y must be less than q
