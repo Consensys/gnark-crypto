@@ -5,8 +5,8 @@
 `gnark-crypto` provides efficient cryptographic primitives, in Go:
 
 * Elliptic curve cryptography & **Pairing** on:
-  * [`bn254`] ([audit report](audit_oct2022.pdf))
-  * [`bls12-381`] ([audit report](audit_oct2022.pdf))
+  * [`bn254`] ([audit report](https://github.com/Consensys/gnark/blob/master/audits/2022-10%20-%20Kudelski%20-%20gnark-crypto.pdf))
+  * [`bls12-381`] ([audit report](https://github.com/Consensys/gnark/blob/master/audits/2022-10%20-%20Kudelski%20-%20gnark-crypto.pdf))
   * [`bls24-317`]
   * [`bls12-377`] / [`bw6-761`]
   * [`bls24-315`] / [`bw6-633`]
@@ -33,6 +33,10 @@
 **To report a security bug, please refer to [`gnark` Security Policy](https://github.com/ConsenSys/gnark/blob/master/SECURITY.md).**
 
 `gnark-crypto` packages are optimized for 64bits architectures (x86 `amd64`) and tested on Unix (Linux / macOS).
+
+## Audits
+
+See [list of audits for `gnark` and `gnark-crypto`](https://github.com/consensys/gnark?tab=readme-ov-file#audits)
 
 ## Getting started
 
@@ -75,18 +79,18 @@ If you use `gnark-crypto` in your research a citation would be appreciated.
 Please use the following BibTeX to cite the most recent release.
 
 ```bib
-@software{gnark-crypto-v0.11.2,
+@software{gnark-crypto-v0.14.0,
   author       = {Gautam Botrel and
                   Thomas Piellard and
                   Youssef El Housni and
                   Arya Tabaie and
                   Gus Gutoski and
                   Ivo Kubjas},
-  title        = {ConsenSys/gnark-crypto: v0.11.2},
-  month        = jan,
-  year         = 2023,
+  title        = {Consensys/gnark-crypto: v0.14.0},
+  month        = sep,
+  year         = 2024,
   publisher    = {Zenodo},
-  version      = {v0.11.2},
+  version      = {v0.14.0},
   doi          = {10.5281/zenodo.5815453},
   url          = {https://doi.org/10.5281/zenodo.5815453}
 }
