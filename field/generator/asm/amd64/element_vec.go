@@ -120,11 +120,13 @@ func (f *FFAmd64) generateSubVec() {
 
 	// reduce a
 	f.Comment("reduce (a-b) mod q")
+	f.LabelRegisters("q", q...)
 	f.Mov(f.Q, q)
 	for i := 0; i < f.NbWords; i++ {
 		f.CMOVQCC(zero, q[i])
 	}
 	// add registers (q or 0) to a, and set to result
+	f.Comment("add registers (q or 0) to a, and set to result")
 	f.Add(q, a)
 
 	// save a into res
@@ -153,10 +155,11 @@ func (f *FFAmd64) generateScalarMulVec() {
 	f.Comment("scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b")
 
 	const argSize = 4 * 8
-	stackSize := f.StackSize(f.NbWords*2+3, 2, argSize)
+	const minStackSize = 7 * 8 // 2 slices (3 words each) + pointer to the scalar
+	stackSize := f.StackSize(f.NbWords*2+3, 2, minStackSize)
 	reserved := []amd64.Register{amd64.DX, amd64.AX}
 	registers := f.FnHeader("scalarMulVec", stackSize, argSize, reserved...)
-	defer f.AssertCleanStack(stackSize, argSize)
+	defer f.AssertCleanStack(stackSize, minStackSize)
 
 	// labels & registers we need
 	noAdx := f.NewLabel("noAdx")
@@ -218,16 +221,19 @@ func (f *FFAmd64) generateScalarMulVec() {
 	// no ADX support
 	f.LABEL(noAdx)
 
+	f.MOVQ("n+24(FP)", amd64.DX)
+
 	f.MOVQ("res+0(FP)", amd64.AX)
 	f.MOVQ(amd64.AX, "(SP)")
+	f.MOVQ(amd64.DX, "8(SP)")  // len
+	f.MOVQ(amd64.DX, "16(SP)") // cap
 	f.MOVQ("a+8(FP)", amd64.AX)
-	f.MOVQ(amd64.AX, "8(SP)")
-	f.MOVQ("b+16(FP)", amd64.AX)
-	f.MOVQ(amd64.AX, "16(SP)")
-	f.MOVQ("n+24(FP)", amd64.AX)
 	f.MOVQ(amd64.AX, "24(SP)")
-	// TODO @gbotrel
-	// f.WriteLn("CALL ·_mulGeneric(SB)")
+	f.MOVQ(amd64.DX, "32(SP)") // len
+	f.MOVQ(amd64.DX, "40(SP)") // cap
+	f.MOVQ("b+16(FP)", amd64.AX)
+	f.MOVQ(amd64.AX, "48(SP)")
+	f.WriteLn("CALL ·scalarMulVecGeneric(SB)")
 	f.RET()
 
 }

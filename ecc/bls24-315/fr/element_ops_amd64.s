@@ -297,6 +297,10 @@ loop_3:
 	SBBQ 24(DX), R10
 
 	// reduce (a-b) mod q
+	// q[0] -> R11
+	// q[1] -> R12
+	// q[2] -> R13
+	// q[3] -> R14
 	MOVQ    $0x19d0c5fd00c00001, R11
 	MOVQ    $0xc8c480ece644e364, R12
 	MOVQ    $0x25fc7ec9cf927a98, R13
@@ -305,14 +309,16 @@ loop_3:
 	CMOVQCC SI, R12
 	CMOVQCC SI, R13
 	CMOVQCC SI, R14
-	ADDQ    R11, DI
-	ADCQ    R12, R8
-	ADCQ    R13, R9
-	ADCQ    R14, R10
-	MOVQ    DI, 0(CX)
-	MOVQ    R8, 8(CX)
-	MOVQ    R9, 16(CX)
-	MOVQ    R10, 24(CX)
+
+	// add registers (q or 0) to a, and set to result
+	ADDQ R11, DI
+	ADCQ R12, R8
+	ADCQ R13, R9
+	ADCQ R14, R10
+	MOVQ DI, 0(CX)
+	MOVQ R8, 8(CX)
+	MOVQ R9, 16(CX)
+	MOVQ R10, 24(CX)
 
 	// increment pointers to visit next element
 	ADDQ $32, AX
@@ -325,7 +331,7 @@ done_4:
 	RET
 
 // scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b
-TEXT ·scalarMulVec(SB), $32-32
+TEXT ·scalarMulVec(SB), $56-32
 	CMPB ·supportAdx(SB), $1
 	JNE  noAdx_5
 	MOVQ a+8(FP), R11
@@ -605,12 +611,16 @@ done_7:
 	RET
 
 noAdx_5:
+	MOVQ n+24(FP), DX
 	MOVQ res+0(FP), AX
 	MOVQ AX, (SP)
+	MOVQ DX, 8(SP)
+	MOVQ DX, 16(SP)
 	MOVQ a+8(FP), AX
-	MOVQ AX, 8(SP)
-	MOVQ b+16(FP), AX
-	MOVQ AX, 16(SP)
-	MOVQ n+24(FP), AX
 	MOVQ AX, 24(SP)
+	MOVQ DX, 32(SP)
+	MOVQ DX, 40(SP)
+	MOVQ b+16(FP), AX
+	MOVQ AX, 48(SP)
+	CALL ·scalarMulVecGeneric(SB)
 	RET

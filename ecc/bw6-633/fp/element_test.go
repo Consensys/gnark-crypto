@@ -774,7 +774,7 @@ func BenchmarkElementVecOps(b *testing.B) {
 	b.Run("addGeneric", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			c1.addGeneric(a1, b1)
+			addVecGeneric(c1, a1, b1)
 		}
 	})
 
@@ -789,7 +789,7 @@ func BenchmarkElementVecOps(b *testing.B) {
 	b.Run("subGeneric", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			c1.subGeneric(a1, b1)
+			subVecGeneric(c1, a1, b1)
 		}
 	})
 
@@ -804,7 +804,7 @@ func BenchmarkElementVecOps(b *testing.B) {
 	b.Run("scalarMulGeneric", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			c1.scalarMulGeneric(a1, &b1[0])
+			scalarMulVecGeneric(c1, a1, &b1[0])
 		}
 	})
 

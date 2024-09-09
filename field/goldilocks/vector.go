@@ -199,45 +199,45 @@ func (vector Vector) Swap(i, j int) {
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
-	vector.addGeneric(a, b)
+	addVecGeneric(*vector, a, b)
 }
 
 // Sub subtracts two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Sub(a, b Vector) {
-	vector.subGeneric(a, b)
+	subVecGeneric(*vector, a, b)
 }
 
 // ScalarMul multiplies a vector by a scalar element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) ScalarMul(a Vector, b *Element) {
-	vector.scalarMulGeneric(a, b)
+	scalarMulVecGeneric(*vector, a, b)
 }
 
-func (vector *Vector) addGeneric(a, b Vector) {
-	if len(a) != len(b) || len(a) != len(*vector) {
+func addVecGeneric(res, a, b Vector) {
+	if len(a) != len(b) || len(a) != len(res) {
 		panic("vector.Add: vectors don't have the same length")
 	}
 	for i := 0; i < len(a); i++ {
-		(*vector)[i].Add(&a[i], &b[i])
+		res[i].Add(&a[i], &b[i])
 	}
 }
 
-func (vector *Vector) subGeneric(a, b Vector) {
-	if len(a) != len(b) || len(a) != len(*vector) {
+func subVecGeneric(res, a, b Vector) {
+	if len(a) != len(b) || len(a) != len(res) {
 		panic("vector.Sub: vectors don't have the same length")
 	}
 	for i := 0; i < len(a); i++ {
-		(*vector)[i].Sub(&a[i], &b[i])
+		res[i].Sub(&a[i], &b[i])
 	}
 }
 
-func (vector *Vector) scalarMulGeneric(a Vector, b *Element) {
-	if len(a) != len(*vector) {
+func scalarMulVecGeneric(res, a Vector, b *Element) {
+	if len(a) != len(res) {
 		panic("vector.ScalarMul: vectors don't have the same length")
 	}
 	for i := 0; i < len(a); i++ {
-		(*vector)[i].Mul(&a[i], b)
+		res[i].Mul(&a[i], b)
 	}
 }
 
