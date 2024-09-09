@@ -20,11 +20,10 @@ import (
 	"fmt"
 	"math/big"
 	"math/bits"
-	"math/rand"
+	"math/rand/v2"
 	"runtime"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
@@ -58,11 +57,10 @@ func TestMultiExpG1(t *testing.T) {
 	}
 
 	// sprinkle some points at infinity
-	rand.Seed(time.Now().UnixNano())
-	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
-	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
-	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
-	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
 
 	// final scalar to use in double and add method (without mixer factor)
 	// n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
@@ -243,11 +241,10 @@ func TestCrossMultiExpG1(t *testing.T) {
 	}
 
 	// sprinkle some points at infinity
-	rand.Seed(time.Now().UnixNano())
-	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
-	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
-	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
-	samplePoints[rand.Intn(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
 
 	var sampleScalars [nbSamples]fr.Element
 	fillBenchScalars(sampleScalars[:])

@@ -19,7 +19,7 @@ package bls24315
 import (
 	"fmt"
 	"math/big"
-	"math/rand"
+	"math/rand/v2"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/internal/fptower"

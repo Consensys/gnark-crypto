@@ -18,11 +18,13 @@ package pedersen
 
 import (
 	"fmt"
+	"testing"
+
+	"github.com/consensys/gnark-crypto/ecc"
 	curve "github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/utils/testutils"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func interfaceSliceToFrSlice(t *testing.T, values ...interface{}) []fr.Element {
@@ -129,7 +131,7 @@ func TestFoldProofs(t *testing.T) {
 		pok, err := BatchProve([]ProvingKey{}, [][]fr.Element{}, hashes[0])
 		assert.NoError(t, err)
 
-		foldedCommitment, err = FoldCommitments([]curve.G1Affine{}, hashes[0])
+		_, err = foldedCommitment.Fold([]curve.G1Affine{}, hashes[0], ecc.MultiExpConfig{NbTasks: 1})
 		assert.NoError(t, err)
 		assert.NoError(t, vk.Verify(foldedCommitment, pok))
 	})
@@ -141,7 +143,7 @@ func TestFoldProofs(t *testing.T) {
 			pok, err := BatchProve(pk[:len(values)], values, hashes[0])
 			assert.NoError(t, err)
 
-			foldedCommitment, err = FoldCommitments(commitments[:len(values)], hashes[0])
+			_, err = foldedCommitment.Fold(commitments[:len(values)], hashes[0], ecc.MultiExpConfig{NbTasks: 1})
 			assert.NoError(t, err)
 			assert.NoError(t, vk.Verify(foldedCommitment, pok))
 
@@ -178,7 +180,7 @@ func TestMarshal(t *testing.T) {
 	)
 	vk.G, err = curve.RandomOnG2()
 	assert.NoError(t, err)
-	vk.GRootSigmaNeg, err = curve.RandomOnG2()
+	vk.GSigma, err = curve.RandomOnG2()
 	assert.NoError(t, err)
 
 	t.Run("ProvingKey -> Bytes -> ProvingKey must remain identical.", testutils.SerializationRoundTrip(&pk))
@@ -228,4 +230,9 @@ func TestSemiFoldProofs(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NoError(t, BatchVerifyMultiVk(vk, commitments, proofs, challenge))
+
+	// send folded proof
+	proof, err := new(curve.G1Affine).Fold(proofs, challenge, ecc.MultiExpConfig{NbTasks: 1})
+	assert.NoError(t, err)
+	assert.NoError(t, BatchVerifyMultiVk(vk, commitments, []curve.G1Affine{*proof}, challenge))
 }

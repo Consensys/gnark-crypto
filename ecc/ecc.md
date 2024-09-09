@@ -3,11 +3,10 @@
 * BLS12-381 (Zcash)
 * BN254 (Ethereum)
 * BLS12-377 (ZEXE)
-* BW6-761 (EC supporting pairing on BLS12-377 field of definition)
+* BW6-761 (2-chain with BLS12-377)
 * BLS24-315
-* BW6-633 (EC supporting pairing on BLS24-315 field of definition)
-* BLS12-378 (GT-strong SNARK-friendly)
-* BW6-756 (EC supporting pairing on BLS12-378 field of definition)
+* BW6-633 (2-chain with BLS24-315)
+* BLS24-317
 * STARK (STARK curve for ECDSA)
 
 ### Twisted edwards curves

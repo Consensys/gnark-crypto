@@ -24,7 +24,7 @@ func TestPairing(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-    {{if or (eq .Name "bw6-761") (eq .Name "bw6-633") (eq .Name "bw6-756")}}
+    {{if or (eq .Name "bw6-761") (eq .Name "bw6-633")}}
 	genA := GenE6()
     {{else if or (eq .Name "bls24-315") (eq .Name "bls24-317")}}
 	genA := GenE24()
@@ -92,7 +92,7 @@ func TestPairing(t *testing.T) {
 			b.Conjugate(&a)
 			a.Inverse(&a)
 			b.Mul(&b, &a)
-            {{if or (eq .Name "bw6-761") (eq .Name "bw6-633") (eq .Name "bw6-756")}}
+            {{if or (eq .Name "bw6-761") (eq .Name "bw6-633")}}
 			a.Frobenius(&b).
             {{else if or (eq .Name "bls24-315") (eq .Name "bls24-317")}}
 			a.FrobeniusQuad(&b).

@@ -8,7 +8,8 @@
 
 import (
 	"testing"
-	"math/rand"
+	"math/rand/v2"
+	crand "crypto/rand"
 	"math/big"
 	"bytes"
 	"io"
@@ -239,7 +240,7 @@ func TestIsCompressed(t *testing.T) {
 func Test{{ $.TAffine }}InvalidBitMask(t *testing.T) {
 	t.Parallel()
 	var buf [SizeOf{{ $.TAffine }}Compressed]byte
-	rand.Read(buf[:]) //#nosec G404 weak rng is fine here
+	crand.Read(buf[:])
 
 	var p {{ $.TAffine }}
 	buf[0] = 0b111 << 5
@@ -389,7 +390,7 @@ func GenFp() gopter.Gen {
 // e2 e4 e12 e24 for bls24
 // e2 e6 e12 else */}}
 
-{{if or (eq .Name "bw6-633") (eq .Name "bw6-761") (eq .Name "bw6-756")}}
+{{if or (eq .Name "bw6-633") (eq .Name "bw6-761")}}
 	// GenE3 generates an E3 elmt
 	func GenE3() gopter.Gen {
 		return gopter.CombineGens(
@@ -483,7 +484,7 @@ func GenBigInt() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var s big.Int
 		var b [fp.Bytes]byte
-		_, err := rand.Read(b[:]) //#nosec G404 weak rng is fine here
+		_, err := crand.Read(b[:])
 		if err != nil {
 			panic(err)
 		}
