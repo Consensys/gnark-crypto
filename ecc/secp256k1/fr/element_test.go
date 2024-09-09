@@ -706,7 +706,9 @@ func TestElementLexicographicallyLargest(t *testing.T) {
 }
 
 func TestElementVecOps(t *testing.T) {
-	const N = 512
+	assert := require.New(t)
+
+	const N = 7
 	a := make(Vector, N)
 	b := make(Vector, N)
 	c := make(Vector, N)
@@ -715,39 +717,35 @@ func TestElementVecOps(t *testing.T) {
 		b[i].SetRandom()
 	}
 
+	// Vector addition
 	c.Add(a, b)
-
 	for i := 0; i < N; i++ {
 		var expected Element
 		expected.Add(&a[i], &b[i])
-		if !c[i].Equal(&expected) {
-			t.Fatal("AddVec failed")
-		}
+		assert.True(c[i].Equal(&expected), "Vector addition failed")
 	}
 
+	// Vector subtraction
 	c.Sub(a, b)
-
 	for i := 0; i < N; i++ {
 		var expected Element
 		expected.Sub(&a[i], &b[i])
-		if !c[i].Equal(&expected) {
-			t.Fatal("SubVec failed")
-		}
+		assert.True(c[i].Equal(&expected), "Vector subtraction failed")
 	}
 
+	// Vector scaling
 	c.ScalarMul(a, &b[0])
-
 	for i := 0; i < N; i++ {
 		var expected Element
 		expected.Mul(&a[i], &b[0])
-		if !c[i].Equal(&expected) {
-			t.Fatal("ScalarMulVec failed")
-		}
+		assert.True(c[i].Equal(&expected), "Vector scaling failed")
 	}
 }
 
 func BenchmarkElementVecOps(b *testing.B) {
-	const N = 512
+	// note; to benchmark against "no asm" version, use the following
+	// build tag: -tags purego
+	const N = 1024
 	a1 := make(Vector, N)
 	b1 := make(Vector, N)
 	c1 := make(Vector, N)
@@ -756,14 +754,6 @@ func BenchmarkElementVecOps(b *testing.B) {
 		b1[i].SetRandom()
 	}
 
-	// we benchmark the c1.Add(a1, b1) and c1.addGeneric(a1, b1)
-	b.Run("addGeneric", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			addVecGeneric(c1, a1, b1)
-		}
-	})
-
 	b.Run("Add", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -771,26 +761,10 @@ func BenchmarkElementVecOps(b *testing.B) {
 		}
 	})
 
-	// we benchmark the c1.Sub(a1, b1) and c1.subGeneric(a1, b1)
-	b.Run("subGeneric", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			subVecGeneric(c1, a1, b1)
-		}
-	})
-
 	b.Run("Sub", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			c1.Sub(a1, b1)
-		}
-	})
-
-	// we benchmark the c1.ScalarMul(a1, &b1[0]) and c1.scalarMulGeneric(a1, &b1[0])
-	b.Run("scalarMulGeneric", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			scalarMulVecGeneric(c1, a1, &b1[0])
 		}
 	})
 

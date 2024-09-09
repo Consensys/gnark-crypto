@@ -199,6 +199,9 @@ func (f *FFAmd64) generateScalarMulVec() {
 	yat := func(i int) string {
 		return addrA.At(i)
 	}
+
+	f.Comment("TODO @gbotrel this is generated from the same macro as the unit mul, we should refactor this in a single asm function")
+
 	f.MulADX(&registers, xat, yat, t)
 
 	// registers.Push(addrA)

@@ -352,6 +352,7 @@ loop_6:
 	TESTQ R12, R12
 	JEQ   done_7   // n == 0, we are done
 
+	// TODO @gbotrel this is generated from the same macro as the unit mul, we should refactor this in a single asm function
 	// A -> BP
 	// t[0] -> R14
 	// t[1] -> R15
