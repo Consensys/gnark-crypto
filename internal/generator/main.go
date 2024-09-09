@@ -46,9 +46,6 @@ func main() {
 	var wg sync.WaitGroup
 
 	for _, conf := range config.Curves {
-		if !conf.Equal(config.BLS12_377) {
-			continue
-		}
 		wg.Add(1)
 		// for each curve, generate the needed files
 		go func(conf config.Curve) {

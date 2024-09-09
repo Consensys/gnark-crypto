@@ -169,7 +169,7 @@ func (f *FFAmd64) generateMul(forceADX bool) {
 		f.WriteLn("NO_LOCAL_POINTERS")
 	}
 
-	noAdx := f.NewLabel()
+	noAdx := f.NewLabel("noAdx")
 
 	if !forceADX {
 		// check ADX instruction support

@@ -236,17 +236,22 @@ TEXT ·addVec(SB), NOSPLIT, $0-32
 	MOVQ b+16(FP), DX
 	MOVQ n+24(FP), BX
 
-l1:
+loop_1:
 	TESTQ BX, BX
-	JEQ   l2
-	MOVQ  0(AX), SI
-	MOVQ  8(AX), DI
-	MOVQ  16(AX), R8
-	MOVQ  24(AX), R9
-	ADDQ  0(DX), SI
-	ADCQ  8(DX), DI
-	ADCQ  16(DX), R8
-	ADCQ  24(DX), R9
+	JEQ   done_2 // n == 0, we are done
+
+	// a[0] -> SI
+	// a[1] -> DI
+	// a[2] -> R8
+	// a[3] -> R9
+	MOVQ 0(AX), SI
+	MOVQ 8(AX), DI
+	MOVQ 16(AX), R8
+	MOVQ 24(AX), R9
+	ADDQ 0(DX), SI
+	ADCQ 8(DX), DI
+	ADCQ 16(DX), R8
+	ADCQ 24(DX), R9
 
 	// reduce element(SI,DI,R8,R9) using temp registers (R10,R11,R12,R13)
 	REDUCE(SI,DI,R8,R9,R10,R11,R12,R13)
@@ -255,13 +260,15 @@ l1:
 	MOVQ DI, 8(CX)
 	MOVQ R8, 16(CX)
 	MOVQ R9, 24(CX)
+
+	// increment pointers to visit next element
 	ADDQ $32, AX
 	ADDQ $32, DX
 	ADDQ $32, CX
-	DECQ BX
-	JMP  l1
+	DECQ BX      // decrement n
+	JMP  loop_1
 
-l2:
+done_2:
 	RET
 
 // subVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] - b[0...n]
@@ -272,17 +279,24 @@ TEXT ·subVec(SB), NOSPLIT, $0-32
 	MOVQ n+24(FP), BX
 	XORQ SI, SI
 
-l3:
-	TESTQ   BX, BX
-	JEQ     l4
-	MOVQ    0(AX), DI
-	MOVQ    8(AX), R8
-	MOVQ    16(AX), R9
-	MOVQ    24(AX), R10
-	SUBQ    0(DX), DI
-	SBBQ    8(DX), R8
-	SBBQ    16(DX), R9
-	SBBQ    24(DX), R10
+loop_3:
+	TESTQ BX, BX
+	JEQ   done_4 // n == 0, we are done
+
+	// a[0] -> DI
+	// a[1] -> R8
+	// a[2] -> R9
+	// a[3] -> R10
+	MOVQ 0(AX), DI
+	MOVQ 8(AX), R8
+	MOVQ 16(AX), R9
+	MOVQ 24(AX), R10
+	SUBQ 0(DX), DI
+	SBBQ 8(DX), R8
+	SBBQ 16(DX), R9
+	SBBQ 24(DX), R10
+
+	// reduce (a-b) mod q
 	MOVQ    $0x0a11800000000001, R11
 	MOVQ    $0x59aa76fed0000001, R12
 	MOVQ    $0x60b44d1e5c37b001, R13
@@ -299,20 +313,21 @@ l3:
 	MOVQ    R8, 8(CX)
 	MOVQ    R9, 16(CX)
 	MOVQ    R10, 24(CX)
-	ADDQ    $32, AX
-	ADDQ    $32, DX
-	ADDQ    $32, CX
-	DECQ    BX
-	JMP     l3
 
-l4:
+	// increment pointers to visit next element
+	ADDQ $32, AX
+	ADDQ $32, DX
+	ADDQ $32, CX
+	DECQ BX      // decrement n
+	JMP  loop_3
+
+done_4:
 	RET
 
 // scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b
 TEXT ·scalarMulVec(SB), $32-32
-	NO_LOCAL_POINTERS
 	CMPB ·supportAdx(SB), $1
-	JNE  l5
+	JNE  noAdx_5
 	MOVQ a+8(FP), R11
 	MOVQ b+16(FP), R10
 	MOVQ n+24(FP), R12
@@ -327,9 +342,9 @@ TEXT ·scalarMulVec(SB), $32-32
 	MOVQ 24(R10), R9
 	MOVQ res+0(FP), R10
 
-l6:
+loop_6:
 	TESTQ R12, R12
-	JEQ   l7
+	JEQ   done_7   // n == 0, we are done
 
 	// A -> BP
 	// t[0] -> R14
@@ -571,6 +586,7 @@ l6:
 	ADCXQ AX, BX
 	ADOXQ BP, BX
 
+	// reduce t mod q
 	// reduce element(R14,R15,CX,BX) using temp registers (R13,AX,DX,s0-8(SP))
 	REDUCE(R14,R15,CX,BX,R13,AX,DX,s0-8(SP))
 
@@ -578,15 +594,17 @@ l6:
 	MOVQ R15, 8(R10)
 	MOVQ CX, 16(R10)
 	MOVQ BX, 24(R10)
+
+	// increment pointers to visit next element
 	ADDQ $32, R11
 	ADDQ $32, R10
-	DECQ R12
-	JMP  l6
+	DECQ R12      // decrement n
+	JMP  loop_6
 
-l7:
+done_7:
 	RET
 
-l5:
+noAdx_5:
 	MOVQ res+0(FP), AX
 	MOVQ AX, (SP)
 	MOVQ a+8(FP), AX

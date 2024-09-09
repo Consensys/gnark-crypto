@@ -719,6 +719,103 @@ func TestElementLexicographicallyLargest(t *testing.T) {
 
 }
 
+func TestElementVecOps(t *testing.T) {
+	const N = 512
+	a := make(Vector, N)
+	b := make(Vector, N)
+	c := make(Vector, N)
+	for i := 0; i < N; i++ {
+		a[i].SetRandom()
+		b[i].SetRandom()
+	}
+
+	c.Add(a, b)
+
+	for i := 0; i < N; i++ {
+		var expected Element
+		expected.Add(&a[i], &b[i])
+		if !c[i].Equal(&expected) {
+			t.Fatal("AddVec failed")
+		}
+	}
+
+	c.Sub(a, b)
+
+	for i := 0; i < N; i++ {
+		var expected Element
+		expected.Sub(&a[i], &b[i])
+		if !c[i].Equal(&expected) {
+			t.Fatal("SubVec failed")
+		}
+	}
+
+	c.ScalarMul(a, &b[0])
+
+	for i := 0; i < N; i++ {
+		var expected Element
+		expected.Mul(&a[i], &b[0])
+		if !c[i].Equal(&expected) {
+			t.Fatal("ScalarMulVec failed")
+		}
+	}
+}
+
+func BenchmarkElementVecOps(b *testing.B) {
+	const N = 512
+	a1 := make(Vector, N)
+	b1 := make(Vector, N)
+	c1 := make(Vector, N)
+	for i := 0; i < N; i++ {
+		a1[i].SetRandom()
+		b1[i].SetRandom()
+	}
+
+	// we benchmark the c1.Add(a1, b1) and c1.addGeneric(a1, b1)
+	b.Run("addGeneric", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c1.addGeneric(a1, b1)
+		}
+	})
+
+	b.Run("Add", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c1.Add(a1, b1)
+		}
+	})
+
+	// we benchmark the c1.Sub(a1, b1) and c1.subGeneric(a1, b1)
+	b.Run("subGeneric", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c1.subGeneric(a1, b1)
+		}
+	})
+
+	b.Run("Sub", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c1.Sub(a1, b1)
+		}
+	})
+
+	// we benchmark the c1.ScalarMul(a1, &b1[0]) and c1.scalarMulGeneric(a1, &b1[0])
+	b.Run("scalarMulGeneric", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c1.scalarMulGeneric(a1, &b1[0])
+		}
+	})
+
+	b.Run("ScalarMul", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c1.ScalarMul(a1, &b1[0])
+		}
+	})
+}
+
 func TestElementAdd(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()

@@ -107,7 +107,7 @@ func (f *FFAmd64) generateButterfly() {
 		f.Sub(r, t0) // t0 = a - b
 
 		// reduce t0
-		noReduce := f.NewLabel()
+		noReduce := f.NewLabel("noReduce")
 		f.JCC(noReduce)
 		q := r
 		f.MOVQ(f.Q[0], q)
