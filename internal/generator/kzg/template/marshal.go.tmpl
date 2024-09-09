@@ -39,15 +39,13 @@ func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*{{.CurvePackage}}.
 	// encode the VerifyingKey
 	enc := {{ .CurvePackage }}.NewEncoder(w, options...)
 
-    {{- if eq .Name "bw6-756"}}
-        nLines := 190
-    {{- else if eq .Name "bw6-761"}}
+    {{- if eq .Name "bw6-761"}}
         nLines := 189
     {{- else if eq .Name "bw6-633"}}
         nLines := 158
     {{- else if eq .Name "bn254"}}
         nLines := 66
-    {{- else if or (eq .Name "bls12-381") (eq .Name "bls12-377") (eq .Name "bls12-378")}}
+    {{- else if or (eq .Name "bls12-381") (eq .Name "bls12-377")}}
         nLines := 63
     {{- else }}
         nLines := 32
@@ -117,7 +115,7 @@ func (srs *SRS) ReadDump(r io.Reader, maxPkPoints ...int) error {
 
 	// read the slice
 	srs.Pk.G1, _, err = unsafe.ReadSlice[[]{{.CurvePackage}}.G1Affine](r, maxPkPoints...)
-	return err 
+	return err
 }
 
 // WriteTo writes binary encoding of the entire SRS
@@ -170,15 +168,13 @@ func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
 	// decode the VerifyingKey
 	dec := {{ .CurvePackage }}.NewDecoder(r)
 
-    {{- if eq .Name "bw6-756"}}
-        nLines := 190
-    {{- else if eq .Name "bw6-761"}}
+    {{- if eq .Name "bw6-761"}}
         nLines := 189
     {{- else if eq .Name "bw6-633"}}
         nLines := 158
     {{- else if eq .Name "bn254"}}
         nLines := 66
-    {{- else if or (eq .Name "bls12-381") (eq .Name "bls12-377") (eq .Name "bls12-378")}}
+    {{- else if or (eq .Name "bls12-381") (eq .Name "bls12-377")}}
         nLines := 63
     {{- else }}
         nLines := 32

@@ -659,7 +659,6 @@ func (p *G1Jac) ClearCofactor(q *G1Jac) *G1Jac {
 	p.phi(&L1).AddAssign(&L0)
 
 	return p
-
 }
 
 // JointScalarMultiplication computes [s1]a1+[s2]a2 using Strauss-Shamir technique

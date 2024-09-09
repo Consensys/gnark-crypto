@@ -10,7 +10,6 @@
   * [`bls24-317`]
   * [`bls12-377`] / [`bw6-761`]
   * [`bls24-315`] / [`bw6-633`]
-  * [`bls12-378`] / [`bw6-756`]
   * Each of these curves has a [`twistededwards`] sub-package with its companion curve which allow efficient elliptic curve cryptography inside zkSNARK circuits.
 * [`field/goff`] - Finite field arithmetic code generator (blazingly fast big.Int)
 * [`fft`] - Fast Fourier Transform
@@ -110,10 +109,8 @@ This project is licensed under the Apache 2 License - see the [LICENSE](LICENSE)
 [`bls24-317`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bls24-317
 [`bls12-377`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bls12-377
 [`bls24-315`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bls24-315
-[`bls12-378`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bls12-378
 [`bw6-761`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bw6-761
 [`bw6-633`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bw6-633
-[`bw6-756`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bw6-756
 [`twistededwards`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/twistededwards
 [`eddsa`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/twistededwards/eddsa
 [`fft`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/fr/fft

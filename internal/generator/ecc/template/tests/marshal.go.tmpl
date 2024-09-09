@@ -390,7 +390,7 @@ func GenFp() gopter.Gen {
 // e2 e4 e12 e24 for bls24
 // e2 e6 e12 else */}}
 
-{{if or (eq .Name "bw6-633") (eq .Name "bw6-761") (eq .Name "bw6-756")}}
+{{if or (eq .Name "bw6-633") (eq .Name "bw6-761")}}
 	// GenE3 generates an E3 elmt
 	func GenE3() gopter.Gen {
 		return gopter.CombineGens(
