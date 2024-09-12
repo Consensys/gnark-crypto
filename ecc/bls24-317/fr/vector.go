@@ -199,6 +199,33 @@ func (vector Vector) Swap(i, j int) {
 	vector[i], vector[j] = vector[j], vector[i]
 }
 
+func addVecGeneric(res, a, b Vector) {
+	if len(a) != len(b) || len(a) != len(res) {
+		panic("vector.Add: vectors don't have the same length")
+	}
+	for i := 0; i < len(a); i++ {
+		res[i].Add(&a[i], &b[i])
+	}
+}
+
+func subVecGeneric(res, a, b Vector) {
+	if len(a) != len(b) || len(a) != len(res) {
+		panic("vector.Sub: vectors don't have the same length")
+	}
+	for i := 0; i < len(a); i++ {
+		res[i].Sub(&a[i], &b[i])
+	}
+}
+
+func scalarMulVecGeneric(res, a Vector, b *Element) {
+	if len(a) != len(res) {
+		panic("vector.ScalarMul: vectors don't have the same length")
+	}
+	for i := 0; i < len(a); i++ {
+		res[i].Mul(&a[i], b)
+	}
+}
+
 // TODO @gbotrel make a public package out of that.
 // execute executes the work function in parallel.
 // this is copy paste from internal/parallel/parallel.go

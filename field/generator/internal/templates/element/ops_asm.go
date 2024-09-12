@@ -29,7 +29,43 @@ func reduce(res *{{.ElementName}})
 //go:noescape
 func Butterfly(a, b *{{.ElementName}})
 
+{{- if eq .NbWords 4}}
+// Add adds two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Add(a, b Vector) {
+	if len(a) != len(b) || len(a) != len(*vector) {
+		panic("vector.Add: vectors don't have the same length")
+	}
+	addVec(&(*vector)[0], &a[0], &b[0], uint64(len(a)))
+}
 
+//go:noescape
+func addVec(res, a, b *{{.ElementName}}, n uint64)
+
+// Sub subtracts two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Sub(a, b Vector) {
+	if len(a) != len(b) || len(a) != len(*vector) {
+		panic("vector.Sub: vectors don't have the same length")
+	}
+	subVec(&(*vector)[0], &a[0], &b[0], uint64(len(a)))
+}
+
+//go:noescape
+func subVec(res, a, b *{{.ElementName}}, n uint64)
+
+// ScalarMul multiplies a vector by a scalar element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
+	if len(a) != len(*vector) {
+		panic("vector.ScalarMul: vectors don't have the same length")
+	}
+	scalarMulVec(&(*vector)[0], &a[0], b, uint64(len(a)))
+}
+
+//go:noescape
+func scalarMulVec(res, a, b *{{.ElementName}}, n uint64)
+{{- end}}
 
 // Mul z = x * y (mod q)
 //

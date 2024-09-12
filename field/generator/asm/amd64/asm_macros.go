@@ -86,7 +86,6 @@ GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
 	CMOVQCS rb{{$i}}, ra{{$i}};  \
 	{{- end}}
 
-
 `
 
 func (f *FFAmd64) GenerateDefines() {

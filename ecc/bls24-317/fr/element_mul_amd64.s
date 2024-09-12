@@ -59,7 +59,7 @@ TEXT ·mul(SB), $24-24
 
 	NO_LOCAL_POINTERS
 	CMPB ·supportAdx(SB), $1
-	JNE  l1
+	JNE  noAdx_1
 	MOVQ x+8(FP), SI
 
 	// x[0] -> DI
@@ -322,7 +322,7 @@ TEXT ·mul(SB), $24-24
 	MOVQ BX, 24(AX)
 	RET
 
-l1:
+noAdx_1:
 	MOVQ res+0(FP), AX
 	MOVQ AX, (SP)
 	MOVQ x+8(FP), AX
@@ -347,7 +347,7 @@ TEXT ·fromMont(SB), $8-8
 	// 		    (C,t[j-1]) := t[j] + m*q[j] + C
 	// 		t[N-1] = C
 	CMPB ·supportAdx(SB), $1
-	JNE  l2
+	JNE  noAdx_2
 	MOVQ res+0(FP), DX
 	MOVQ 0(DX), R14
 	MOVQ 8(DX), R13
@@ -480,7 +480,7 @@ TEXT ·fromMont(SB), $8-8
 	MOVQ BX, 24(AX)
 	RET
 
-l2:
+noAdx_2:
 	MOVQ res+0(FP), AX
 	MOVQ AX, (SP)
 	CALL ·_fromMontGeneric(SB)

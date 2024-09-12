@@ -158,6 +158,13 @@ func Generate(w io.Writer, F *config.FieldConfig) error {
 	// fft butterflies
 	f.generateButterfly()
 
+	// generate vector operations for "small" modulus
+	if f.NbWords == 4 {
+		f.generateAddVec()
+		f.generateSubVec()
+		f.generateScalarMulVec()
+	}
+
 	return nil
 }
 
