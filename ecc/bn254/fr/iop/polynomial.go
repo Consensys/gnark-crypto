@@ -170,8 +170,8 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 	}
 
 	var g fr.Element
+	gen, err := fft.Generator(uint64(p.size))
 	if p.shift <= 5 {
-		gen, err := fft.Generator(uint64(p.size))
 		if err != nil {
 			panic(err)
 		}
@@ -181,7 +181,7 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 	}
 
 	bs := big.NewInt(int64(p.shift))
-	g = *g.Exp(g, bs)
+	g = *g.Exp(gen, bs)
 	x.Mul(&x, &g)
 	return p.polynomial.evaluate(x)
 }
