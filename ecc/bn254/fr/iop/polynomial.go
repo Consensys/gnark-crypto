@@ -183,6 +183,7 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 	bs := big.NewInt(int64(p.shift))
 	g = *g.Exp(gen, bs)
 	x.Mul(&x, &g)
+
 	return p.polynomial.evaluate(x)
 }
 
