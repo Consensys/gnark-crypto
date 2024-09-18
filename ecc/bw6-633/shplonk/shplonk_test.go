@@ -33,7 +33,9 @@ var bAlpha *big.Int
 
 func init() {
 	const srsSize = 230
-	bAlpha = new(big.Int).SetInt64(42) // randomise ?
+	var frAlpha fr.Element
+	frAlpha.SetRandom()
+	frAlpha.BigInt(bAlpha)
 	var err error
 	testSrs, err = kzg.NewSRS(ecc.NextPowerOfTwo(srsSize), bAlpha)
 	if err != nil {
