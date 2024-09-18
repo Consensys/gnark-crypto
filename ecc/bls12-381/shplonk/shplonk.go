@@ -32,6 +32,7 @@ var (
 	ErrInvalidNumberOfPoints  = errors.New("number of digests should be equal to the number of points")
 	ErrVerifyOpeningProof     = errors.New("can't verify batch opening proof")
 	ErrInvalidNumberOfDigests = errors.New("number of digests should be equal to the number of polynomials")
+	ErrPairingCheck           = errors.New("pairing product is not 1")
 )
 
 // OpeningProof KZG proof for opening (fᵢ)_{i} at a different points (xᵢ)_{i}.
@@ -267,6 +268,9 @@ func BatchVerify(proof OpeningProof, digests []kzg.Digest, points [][]fr.Element
 		[]bls12381.G1Affine{f, proof.WPrime},
 		vk.Lines[:],
 	)
+	if err != nil {
+		return ErrPairingCheck
+	}
 
 	if !check {
 		return ErrVerifyOpeningProof
