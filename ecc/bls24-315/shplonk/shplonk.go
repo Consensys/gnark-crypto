@@ -29,8 +29,9 @@ import (
 )
 
 var (
-	ErrInvalidNumberOfPoints = errors.New("number of digests should be equal to the number of points")
-	ErrVerifyOpeningProof    = errors.New("can't verify batch opening proof")
+	ErrInvalidNumberOfPoints  = errors.New("number of digests should be equal to the number of points")
+	ErrVerifyOpeningProof     = errors.New("can't verify batch opening proof")
+	ErrInvalidNumberOfDigests = errors.New("number of digests should be equal to the number of polynomials")
 )
 
 // OpeningProof KZG proof for opening (fᵢ)_{i} at a different points (xᵢ)_{i}.
@@ -57,6 +58,9 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 	nbInstances := len(polynomials)
 	if len(polynomials) != len(points) {
 		return res, ErrInvalidNumberOfPoints
+	}
+	if len(polynomials) != len(digests) {
+		return res, ErrInvalidNumberOfDigests
 	}
 
 	// transcript
