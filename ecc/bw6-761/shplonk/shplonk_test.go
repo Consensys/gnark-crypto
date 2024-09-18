@@ -19,6 +19,7 @@ package shplonk
 import (
 	"crypto/sha256"
 	"math/big"
+	"math/rand"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
@@ -35,6 +36,7 @@ func init() {
 	const srsSize = 230
 	var frAlpha fr.Element
 	frAlpha.SetRandom()
+	bAlpha = big.NewInt(0)
 	frAlpha.BigInt(bAlpha)
 	var err error
 	testSrs, err = kzg.NewSRS(ecc.NextPowerOfTwo(srsSize), bAlpha)
@@ -50,7 +52,7 @@ func TestOpening(t *testing.T) {
 	nbPolys := 2
 	sizePoly := make([]int, nbPolys)
 	for i := 0; i < nbPolys; i++ {
-		sizePoly[i] = 10 + i
+		sizePoly[i] = rand.Intn(10) + 2
 	}
 	polys := make([][]fr.Element, nbPolys)
 	for i := 0; i < nbPolys; i++ {
