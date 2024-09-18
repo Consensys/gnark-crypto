@@ -55,7 +55,7 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 
 	var res OpeningProof
 
-	nbInstances := len(polynomials)
+	nbPolynomials := len(polynomials)
 	if len(polynomials) != len(points) {
 		return res, ErrInvalidNumberOfPoints
 	}
@@ -81,7 +81,7 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 	}
 	nbPoints := 0
 	sizeSi := make([]int, len(points))
-	for i := 0; i < nbInstances; i++ {
+	for i := 0; i < nbPolynomials; i++ {
 		nbPoints += len(points[i])
 		sizeSi[i] = len(points[i])
 	}
@@ -90,16 +90,16 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 	bufMaxSizePolynomials := make([]fr.Element, maxSizePolys)
 	bufTotalSize := make([]fr.Element, totalSize)
 	f := make([]fr.Element, totalSize) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation
-	res.ClaimedValues = make([][]fr.Element, nbInstances)
-	for i := 0; i < nbInstances; i++ {
+	res.ClaimedValues = make([][]fr.Element, nbPolynomials)
+	for i := 0; i < nbPolynomials; i++ {
 		res.ClaimedValues[i] = make([]fr.Element, len(points[i]))
 	}
 	var accGamma fr.Element
 	accGamma.SetOne()
 
-	ztMinusSi := make([][]fr.Element, nbInstances)
-	ri := make([][]fr.Element, nbInstances)
-	for i := 0; i < nbInstances; i++ {
+	ztMinusSi := make([][]fr.Element, nbPolynomials)
+	ri := make([][]fr.Element, nbPolynomials)
+	for i := 0; i < nbPolynomials; i++ {
 
 		for j := 0; j < len(points[i]); j++ {
 			res.ClaimedValues[i][j] = eval(polynomials[i], points[i][j])
