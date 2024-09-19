@@ -129,7 +129,7 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 		copy(bufMaxSizePolynomials, polynomials[i])
 		riz := eval(ri[i], z)
 		bufMaxSizePolynomials[0].Sub(&bufMaxSizePolynomials[0], &riz) // (fᵢ-rᵢ(z))
-		mulByConstant(bufMaxSizePolynomials, gammaiZtMinusSiZ)        // γⁱZ_{T\Sᵢ}(z)(fᵢ-rᵢ(z))
+		mulByConstant(bufMaxSizePolynomials[:len(polynomials[i])], gammaiZtMinusSiZ)        // γⁱZ_{T\Sᵢ}(z)(fᵢ-rᵢ(z))
 		for j := 0; j < len(bufMaxSizePolynomials); j++ {
 			l[j].Add(&l[j], &bufMaxSizePolynomials[j])
 		}
