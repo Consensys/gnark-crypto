@@ -303,14 +303,14 @@ func deriveChallenge(name string, points [][]fr.Element, digests []kzg.Digest, t
 		}
 	}
 
-	gammaByte, err := t.ComputeChallenge(name)
+	challengeByte, err := t.ComputeChallenge(name)
 	if err != nil {
 		return fr.Element{}, err
 	}
-	var gamma fr.Element
-	gamma.SetBytes(gammaByte)
+	var challenge fr.Element
+	challenge.SetBytes(challengeByte)
 
-	return gamma, nil
+	return challenge, nil
 }
 
 // ------------------------------
