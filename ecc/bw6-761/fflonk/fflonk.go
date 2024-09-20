@@ -213,7 +213,7 @@ func BatchVerify(proof OpeningProof, digests []kzg.Digest, points [][]fr.Element
 	}
 	err = shplonk.BatchVerify(proof.SOpeningProof, digests, extendedPoints, hf, vk, dataTranscript...)
 
-	return nil
+	return err
 }
 
 // utils
