@@ -49,9 +49,9 @@ type OpeningProof struct {
 	ClaimedValues [][][]fr.Element
 }
 
-// CommitAndFold commits to a list of polynomial by intertwinning them like in the FFT, that is
+// FoldAndCommit commits to a list of polynomial by intertwinning them like in the FFT, that is
 // returns ∑_{i<t}Pᵢ(Xᵗ)Xⁱ for t polynomials
-func CommitAndFold(p [][]fr.Element, pk kzg.ProvingKey, nbTasks ...int) (kzg.Digest, error) {
+func FoldAndCommit(p [][]fr.Element, pk kzg.ProvingKey, nbTasks ...int) (kzg.Digest, error) {
 	buf := Fold(p)
 	com, err := kzg.Commit(buf, pk, nbTasks...)
 	return com, err
@@ -81,7 +81,7 @@ func Fold(p [][]fr.Element) []fr.Element {
 
 // BatchOpen computes a batch opening proof of p (the (fʲᵢ)ᵢ ) on powers of points (the ((Sʲᵢ)ᵢ)ⱼ).
 // The j-th pack of polynomials is opened on the power |(fʲᵢ)ᵢ| of (Sʲᵢ)ᵢ.
-// digests is the list (CommitAndFold(p[i]))ᵢ. It is assumed that the list has been computed beforehand
+// digests is the list (FoldAndCommit(p[i]))ᵢ. It is assumed that the list has been computed beforehand
 // and provided as an input to not duplicate computations.
 func BatchOpen(p [][][]fr.Element, digests []kzg.Digest, points [][]fr.Element, hf hash.Hash, pk kzg.ProvingKey, dataTranscript ...[]byte) (OpeningProof, error) {
 
