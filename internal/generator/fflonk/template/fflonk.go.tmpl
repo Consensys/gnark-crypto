@@ -39,7 +39,9 @@ func FoldAndCommit(p [][]fr.Element, pk kzg.ProvingKey, nbTasks ...int) (kzg.Dig
 	return com, err
 }
 
-// Fold returns p folded as in the fft, that is ∑_{i<t}Pᵢ(Xᵗ)Xⁱ. The
+// Fold returns p folded as in the fft, that is ∑_{i<t}Pᵢ(Xᵗ)Xⁱ.
+// Say max{degree(P_{i})}=n-1. The total degree of the folded polynomial
+// is t(n-1)+(t-1). The total size is therefore t(n-1)+(t-1)+1 = tn.
 func Fold(p [][]fr.Element) []fr.Element {
 
 	// we first pick the smallest divisor of r-1 bounding above len(p)
@@ -51,7 +53,7 @@ func Fold(p [][]fr.Element) []fr.Element {
 			sizeResult = len(p[i])
 		}
 	}
-	sizeResult = sizeResult*t + t - 1
+	sizeResult = sizeResult*t
 	buf := make([]fr.Element, sizeResult)
 	for i := range p {
 		for j := range p[i] {

@@ -70,7 +70,7 @@ func TestFflonk(t *testing.T) {
 	digests := make([]kzg.Digest, nbSets)
 	var err error
 	for i := 0; i < nbSets; i++ {
-		digests[i], err = CommitAndFold(p[i], testSrs.Pk)
+		digests[i], err = FoldAndCommit(p[i], testSrs.Pk)
 		assert.NoError(err)
 	}
 
