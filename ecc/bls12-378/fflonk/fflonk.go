@@ -22,12 +22,13 @@ import (
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/kzg"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/shplonk"
 )
 
 var (
-	ErrRootsOne                       = errors.New("Fr does not contain all the t-th roots of 1")
+	ErrRootsOne                       = errors.New("fr does not contain all the t-th roots of 1")
 	ErrNbPolynomialsNbPoints          = errors.New("the number of packs of polynomials should be the same as the number of pack of points")
 	ErrInonsistentFolding             = errors.New("the outer claimed values are not consistent with the shplonk proof")
 	ErrInconsistentNumberFoldedPoints = errors.New("the number of outer claimed values is inconsistent with the number of claimed values in the shplonk proof")
@@ -230,7 +231,7 @@ func getIthRootOne(i int) (fr.Element, error) {
 	if tmpBigInt.Cmp(&zeroBigInt) != 0 {
 		return omega, ErrRootsOne
 	}
-	genFrStar := getGenFrStar()
+	genFrStar := fft.GeneratorFullMultiplicativeGroup()
 	tmpBigInt.SetUint64(uint64(i))
 	tmpBigInt.Div(rMinusOneBigInt, &tmpBigInt)
 	omega.Exp(genFrStar, &tmpBigInt)
@@ -279,13 +280,4 @@ func eval(f []fr.Element, x fr.Element) fr.Element {
 		y.Mul(&y, &x).Add(&y, &f[i])
 	}
 	return y
-}
-
-// getGenFrStar returns a generator of Fr^{*}
-func getGenFrStar() fr.Element {
-	var res fr.Element
-
-	res.SetUint64(22)
-
-	return res
 }
