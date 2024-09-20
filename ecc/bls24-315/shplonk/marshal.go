@@ -29,7 +29,7 @@ func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 	toDecode := []interface{}{
 		&proof.W,
 		&proof.WPrime,
-		proof.ClaimedValues,
+		&proof.ClaimedValues,
 	}
 
 	for _, v := range toDecode {

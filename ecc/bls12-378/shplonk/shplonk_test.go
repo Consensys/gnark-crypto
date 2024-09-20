@@ -23,8 +23,10 @@ import (
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/ecc/bls12-378"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-378/kzg"
+	"github.com/consensys/gnark-crypto/utils/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,6 +45,24 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func TestSerialization(t *testing.T) {
+
+	_, _, g, _ := bls12378.Generators()
+	var proof OpeningProof
+	proof.W.Set(&g)
+	proof.WPrime.Set(&g)
+	nbClaimedValues := 10
+	proof.ClaimedValues = make([][]fr.Element, nbClaimedValues)
+	for i := 0; i < nbClaimedValues; i++ {
+		proof.ClaimedValues[i] = make([]fr.Element, i+2)
+		for j := 0; j < i+2; j++ {
+			proof.ClaimedValues[i][j].SetRandom()
+		}
+	}
+
+	t.Run("opening proof round trip", testutils.SerializationRoundTrip(&proof))
 }
 
 func TestOpening(t *testing.T) {
