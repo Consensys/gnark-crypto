@@ -77,15 +77,15 @@ func BatchOpen(p [][][]fr.Element, digests []kzg.Digest, points [][]fr.Element, 
 
 	// step 0: compute the relevant powers of the ((Sʲᵢ)ᵢ)ⱼ)
 	nbPolysPerPack := make([]int, len(p))
-	nextPowerOfTwoPerPack := make([]int, len(p))
+	nextDivisorRminusOnePerPack := make([]int, len(p))
 	for i := 0; i < len(p); i++ {
 		nbPolysPerPack[i] = len(p[i])
-		nextPowerOfTwoPerPack[i] = getNextDivisorRMinusOne(len(p[i]))
+		nextDivisorRminusOnePerPack[i] = getNextDivisorRMinusOne(len(p[i]))
 	}
 	pointsPowerM := make([][]fr.Element, len(points))
 	var tmpBigInt big.Int
 	for i := 0; i < len(p); i++ {
-		tmpBigInt.SetUint64(uint64(nextPowerOfTwoPerPack[i]))
+		tmpBigInt.SetUint64(uint64(nextDivisorRminusOnePerPack[i]))
 		pointsPowerM[i] = make([]fr.Element, len(points[i]))
 		for j := 0; j < len(points[i]); j++ {
 			pointsPowerM[i][j].Exp(points[i][j], &tmpBigInt)
@@ -96,14 +96,14 @@ func BatchOpen(p [][][]fr.Element, digests []kzg.Digest, points [][]fr.Element, 
 	// on the relevant powers of the sets
 	res.ClaimedValues = make([][][]fr.Element, len(p))
 	for i := 0; i < len(p); i++ {
-		res.ClaimedValues[i] = make([][]fr.Element, nextPowerOfTwoPerPack[i])
+		res.ClaimedValues[i] = make([][]fr.Element, nextDivisorRminusOnePerPack[i])
 		for j := 0; j < len(p[i]); j++ {
 			res.ClaimedValues[i][j] = make([]fr.Element, len(points[i]))
 			for k := 0; k < len(points[i]); k++ {
 				res.ClaimedValues[i][j][k] = eval(p[i][j], pointsPowerM[i][k])
 			}
 		}
-		for j := len(p[i]); j < nextPowerOfTwoPerPack[i]; j++ { // -> the remaining polynomials are zero
+		for j := len(p[i]); j < nextDivisorRminusOnePerPack[i]; j++ { // -> the remaining polynomials are zero
 			res.ClaimedValues[i][j] = make([]fr.Element, len(points[i]))
 		}
 	}
@@ -120,7 +120,7 @@ func BatchOpen(p [][][]fr.Element, digests []kzg.Digest, points [][]fr.Element, 
 	newPoints := make([][]fr.Element, len(points))
 	var err error
 	for i := 0; i < len(p); i++ {
-		newPoints[i], err = extendSet(points[i], nextPowerOfTwoPerPack[i])
+		newPoints[i], err = extendSet(points[i], nextDivisorRminusOnePerPack[i])
 		if err != nil {
 			return res, err
 		}
