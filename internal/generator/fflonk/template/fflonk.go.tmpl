@@ -231,10 +231,15 @@ func getNextDivisorRMinusOne(i int) int {
 	r.Sub(r, &one)
 	tmp.SetUint64(uint64(i))
 	tmp.Mod(r, &tmp)
-	for tmp.Cmp(&zero) != 0 {
+	nbTrials := 100 // prevent DOS attack if the prime is not smooth
+	for tmp.Cmp(&zero) != 0 && nbTrials>0{
 		i += 1
 		tmp.SetUint64(uint64(i))
 		tmp.Mod(r, &tmp)
+		nbTrials--
+	}
+	if nbTrials==0 {
+		panic("did not find any divisor of r-1")
 	}
 	return i
 }
