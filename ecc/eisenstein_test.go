@@ -1,8 +1,8 @@
 package ecc
 
 import (
+	"crypto/rand"
 	"math/big"
-	"math/rand"
 	"testing"
 
 	"github.com/leanovate/gopter"
@@ -245,8 +245,9 @@ func TestEisensteinHalfGCD(t *testing.T) {
 // GenNumber generates a random integer
 func GenNumber() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		elmt := *big.NewInt(rand.Int63())
-		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
+		var prime, _ = new(big.Int).SetString("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffed", 16) // 2^255 - 19
+		elmt, _ := rand.Int(rand.Reader, prime)
+		genResult := gopter.NewGenResult(*elmt, gopter.NoShrinker)
 		return genResult
 	}
 }
