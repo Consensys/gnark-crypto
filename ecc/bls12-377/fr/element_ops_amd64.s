@@ -631,12 +631,7 @@ noAdx_5:
 
 // sumVec(res, a *Element, n uint64) res = sum(a[0...n])
 TEXT ·sumVec(SB), NOSPLIT, $0-24
-	MOVQ      $0x1555, CX
-	KMOVW     CX, K1
-	MOVQ      $0xff80, CX
-	KMOVW     CX, K2
-	MOVQ      $0x01ff, CX
-	KMOVW     CX, K3
+	XORQ      AX, AX
 	MOVQ      a+8(FP), R14
 	MOVQ      n+16(FP), R15
 	VXORPS    Z0, Z0, Z0
@@ -706,84 +701,75 @@ accumulate_12:
 	VALIGNQ $1, Z0, Z0, Z0
 	VMOVQ   X0, R12
 	XORQ    AX, AX
-	MOVQ    SI, AX
-	ANDQ    $0xffffffff, AX
-	SHLQ    $32, AX
+	MOVQ    SI, R13
+	ANDQ    $0xffffffff, R13
+	SHLQ    $32, R13
 	SHRQ    $32, SI
-	ADOXQ   AX, BX
-	MOVQ    R8, AX
-	ANDQ    $0xffffffff, AX
-	SHLQ    $32, AX
+	MOVQ    R8, CX
+	ANDQ    $0xffffffff, CX
+	SHLQ    $32, CX
 	SHRQ    $32, R8
-	ADOXQ   AX, DI
-	ADCXQ   SI, DI
-	MOVQ    R10, AX
-	ANDQ    $0xffffffff, AX
-	SHLQ    $32, AX
+	MOVQ    R10, R15
+	ANDQ    $0xffffffff, R15
+	SHLQ    $32, R15
 	SHRQ    $32, R10
-	ADOXQ   AX, R9
-	ADCXQ   R8, R9
-	MOVQ    R12, AX
-	ANDQ    $0xffffffff, AX
-	SHLQ    $32, AX
+	MOVQ    R12, R14
+	ANDQ    $0xffffffff, R14
+	SHLQ    $32, R14
 	SHRQ    $32, R12
-	ADOXQ   AX, R11
+	XORQ    AX, AX
+	ADOXQ   R13, BX
+	ADOXQ   CX, DI
+	ADCXQ   SI, DI
+	ADOXQ   R15, R9
+	ADCXQ   R8, R9
+	ADOXQ   R14, R11
 	ADCXQ   R10, R11
-	MOVQ    $0, AX
 	ADOXQ   AX, R12
 	ADCXQ   AX, R12
-	MOVQ    res+0(FP), R14
-	MOVQ    BX, 0(R14)
-	MOVQ    DI, 8(R14)
-	MOVQ    R9, 16(R14)
-	MOVQ    R11, 24(R14)
-	RET
-	MOVQ  mu<>(SB), CX
-	MOVQ  R8, AX
-	SHRQ  $32, R13, AX
-	MULQ  CX
-	MULXQ q<>+0(SB), AX, CX
-	SUBQ  AX, BX
-	SBBQ  CX, SI
-	MULXQ q<>+16(SB), AX, CX
-	SBBQ  AX, DI
-	SBBQ  CX, R8
-	SBBQ  $0, R13
-	MULXQ q<>+8(SB), AX, CX
-	SUBQ  AX, SI
-	SBBQ  CX, DI
-	MULXQ q<>+24(SB), AX, CX
-	SBBQ  AX, R8
-	SBBQ  CX, R13
-	MOVQ  $0x0a11800000000001, R9
-	MOVQ  $0x59aa76fed0000001, R10
-	MOVQ  $0x60b44d1e5c37b001, R11
-	MOVQ  $0x12ab655e9a2ca556, R12
-	MOVQ  res+0(FP), R14
-	MOVQ  BX, 0(R14)
-	MOVQ  SI, 8(R14)
-	MOVQ  DI, 16(R14)
-	MOVQ  R8, 24(R14)
-	SUBQ  R9, BX
-	SBBQ  R10, SI
-	SBBQ  R11, DI
-	SBBQ  R12, R8
-	SBBQ  $0, R13
-	JCS   done_9
-	MOVQ  BX, 0(R14)
-	MOVQ  SI, 8(R14)
-	MOVQ  DI, 16(R14)
-	MOVQ  R8, 24(R14)
-	SUBQ  R9, BX
-	SBBQ  R10, SI
-	SBBQ  R11, DI
-	SBBQ  R12, R8
-	SBBQ  $0, R13
-	JCS   done_9
-	MOVQ  BX, 0(R14)
-	MOVQ  SI, 8(R14)
-	MOVQ  DI, 16(R14)
-	MOVQ  R8, 24(R14)
+	XORQ    AX, AX
+	MOVQ    mu<>(SB), SI
+	MOVQ    R11, AX
+	SHRQ    $32, R12, AX
+	MULQ    SI
+	MULXQ   q<>+0(SB), AX, SI
+	SUBQ    AX, BX
+	SBBQ    SI, DI
+	MULXQ   q<>+16(SB), AX, SI
+	SBBQ    AX, R9
+	SBBQ    SI, R11
+	SBBQ    $0, R12
+	MULXQ   q<>+8(SB), AX, SI
+	SUBQ    AX, DI
+	SBBQ    SI, R9
+	MULXQ   q<>+24(SB), AX, SI
+	SBBQ    AX, R11
+	SBBQ    SI, R12
+	MOVQ    res+0(FP), SI
+	MOVQ    BX, 0(SI)
+	MOVQ    DI, 8(SI)
+	MOVQ    R9, 16(SI)
+	MOVQ    R11, 24(SI)
+	SUBQ    q<>+0(SB), BX
+	SBBQ    q<>+8(SB), DI
+	SBBQ    q<>+16(SB), R9
+	SBBQ    q<>+24(SB), R11
+	SBBQ    $0, R12
+	JCS     done_9
+	MOVQ    BX, 0(SI)
+	MOVQ    DI, 8(SI)
+	MOVQ    R9, 16(SI)
+	MOVQ    R11, 24(SI)
+	SUBQ    q<>+0(SB), BX
+	SBBQ    q<>+8(SB), DI
+	SBBQ    q<>+16(SB), R9
+	SBBQ    q<>+24(SB), R11
+	SBBQ    $0, R12
+	JCS     done_9
+	MOVQ    BX, 0(SI)
+	MOVQ    DI, 8(SI)
+	MOVQ    R9, 16(SI)
+	MOVQ    R11, 24(SI)
 
 done_9:
 	RET

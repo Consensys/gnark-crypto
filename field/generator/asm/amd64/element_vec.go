@@ -257,10 +257,6 @@ func (f *FFAmd64) generateSumVec() {
 	len := f.Pop(&registers)
 	tmp0 := f.Pop(&registers)
 
-	t := f.PopN(&registers)
-	s := f.PopN(&registers)
-	t4 := f.Pop(&registers)
-
 	loop := f.NewLabel("loop")
 	done := f.NewLabel("done")
 	rr1 := f.NewLabel("rr1")
@@ -276,18 +272,7 @@ func (f *FFAmd64) generateSumVec() {
 	Z4 := amd64.Register("Z4")
 	X0 := amd64.Register("X0")
 
-	K1 := amd64.Register("K1")
-	K2 := amd64.Register("K2")
-	K3 := amd64.Register("K3")
-
-	f.MOVQ("$0x1555", tmp0)
-	f.KMOVW(tmp0, K1)
-
-	f.MOVQ("$0xff80", tmp0)
-	f.KMOVW(tmp0, K2)
-
-	f.MOVQ("$0x01ff", tmp0)
-	f.KMOVW(tmp0, K3)
+	f.XORQ(amd64.AX, amd64.AX)
 
 	// load arguments
 	f.MOVQ("a+8(FP)", addrA)
@@ -315,6 +300,9 @@ func (f *FFAmd64) generateSumVec() {
 
 	f.CMPB(tmp0, "$3")
 	f.JNE(loop, "== 0; we have 0 remaining elements")
+
+	f.Push(&registers, tmp0) // we don't need tmp0
+	tmp0 = ""
 
 	f.Comment("we have 3 remaining elements")
 	// vpmovzxdq 	2*32(PX), %zmm4;	vpaddq	%zmm4, %zmm0, %zmm0
@@ -354,207 +342,154 @@ func (f *FFAmd64) generateSumVec() {
 	f.DECQ(len, "decrement n")
 	f.JMP(loop)
 
+	f.Push(&registers, len, addrA) // we don't need len
+	len = ""
+	addrA = ""
+
 	f.LABEL(accumulate)
 
 	f.VPADDQ(Z1, Z0, Z0)
 	f.VPADDQ(Z3, Z2, Z2)
 	f.VPADDQ(Z2, Z0, Z0)
 
-	// Propagate carries
-	f.VMOVQ(X0, t[0])
-	f.VALIGNQ("$1", Z0, Z0, Z0)
-	f.VMOVQ(X0, t[1])
-	f.VALIGNQ("$1", Z0, Z0, Z0)
-	f.VMOVQ(X0, t[2])
-	f.VALIGNQ("$1", Z0, Z0, Z0)
-	f.VMOVQ(X0, t[3])
-	f.VALIGNQ("$1", Z0, Z0, Z0)
-	f.VMOVQ(X0, s[0])
-	f.VALIGNQ("$1", Z0, Z0, Z0)
-	f.VMOVQ(X0, s[1])
-	f.VALIGNQ("$1", Z0, Z0, Z0)
-	f.VMOVQ(X0, s[2])
-	f.VALIGNQ("$1", Z0, Z0, Z0)
-	f.VMOVQ(X0, s[3])
+	w0l := f.Pop(&registers)
+	w0h := f.Pop(&registers)
+	w1l := f.Pop(&registers)
+	w1h := f.Pop(&registers)
+	w2l := f.Pop(&registers)
+	w2h := f.Pop(&registers)
+	w3l := f.Pop(&registers)
+	w3h := f.Pop(&registers)
+	low0h := f.Pop(&registers)
+	low1h := f.Pop(&registers)
+	low2h := f.Pop(&registers)
+	low3h := f.Pop(&registers)
 
-	w0l := t[0]
-	w0h := t[1]
-	w1l := t[2]
-	w1h := t[3]
-	w2l := s[0]
-	w2h := s[1]
-	w3l := s[2]
-	w3h := s[3]
+	// Propagate carries
+	f.VMOVQ(X0, w0l)
+	f.VALIGNQ("$1", Z0, Z0, Z0)
+	f.VMOVQ(X0, w0h)
+	f.VALIGNQ("$1", Z0, Z0, Z0)
+	f.VMOVQ(X0, w1l)
+	f.VALIGNQ("$1", Z0, Z0, Z0)
+	f.VMOVQ(X0, w1h)
+	f.VALIGNQ("$1", Z0, Z0, Z0)
+	f.VMOVQ(X0, w2l)
+	f.VALIGNQ("$1", Z0, Z0, Z0)
+	f.VMOVQ(X0, w2h)
+	f.VALIGNQ("$1", Z0, Z0, Z0)
+	f.VMOVQ(X0, w3l)
+	f.VALIGNQ("$1", Z0, Z0, Z0)
+	f.VMOVQ(X0, w3h)
 
 	// r0 = w0l + lo(woh)
 	// r1 = carry + hi(woh) + w1l + lo(w1h)
 	// r2 = carry + hi(w1h) + w2l + lo(w2h)
 	// r3 = carry + hi(w2h) + w3l + lo(w3h)
+
+	// we need 2 carry so we use ADOXQ and ADCXQ
+	f.XORQ(amd64.AX, amd64.AX)
+	type hilo struct {
+		hi, lo amd64.Register
+	}
+	for _, v := range []hilo{{w0h, low0h}, {w1h, low1h}, {w2h, low2h}, {w3h, low3h}} {
+		f.MOVQ(v.hi, v.lo)
+		f.ANDQ("$0xffffffff", v.lo)
+		f.SHLQ("$32", v.lo)
+		f.SHRQ("$32", v.hi)
+	}
+
+	f.XORQ(amd64.AX, amd64.AX)
+	// start the carry chain
+	f.ADOXQ(low0h, w0l)
+
+	f.ADOXQ(low1h, w1l)
+	f.ADCXQ(w0h, w1l)
+
+	f.ADOXQ(low2h, w2l)
+	f.ADCXQ(w1h, w2l)
+
+	f.ADOXQ(low3h, w3l)
+	f.ADCXQ(w2h, w3l)
+
+	f.ADOXQ(amd64.AX, w3h)
+	f.ADCXQ(amd64.AX, w3h)
+
 	r0 := w0l
 	r1 := w1l
 	r2 := w2l
 	r3 := w3l
-
-	// we need 2 carry so we use ADOXQ and ADCXQ
-	f.XORQ(amd64.AX, amd64.AX)
-
-	// get low bits of w0h
-	f.MOVQ(w0h, amd64.AX)
-	f.ANDQ("$0xffffffff", amd64.AX)
-	f.SHLQ("$32", amd64.AX)
-	f.SHRQ("$32", w0h)
-
-	// start the carry chain
-	f.ADOXQ(amd64.AX, w0l) // w0l is good.
-
-	// get low bits of w1h
-	f.MOVQ(w1h, amd64.AX)
-	f.ANDQ("$0xffffffff", amd64.AX)
-	f.SHLQ("$32", amd64.AX)
-	f.SHRQ("$32", w1h)
-
-	f.ADOXQ(amd64.AX, w1l)
-	f.ADCXQ(w0h, w1l)
-
-	// get low bits of w2h
-	f.MOVQ(w2h, amd64.AX)
-	f.ANDQ("$0xffffffff", amd64.AX)
-	f.SHLQ("$32", amd64.AX)
-	f.SHRQ("$32", w2h)
-
-	f.ADOXQ(amd64.AX, w2l)
-	f.ADCXQ(w1h, w2l)
-
-	// get low bits of w3h
-	f.MOVQ(w3h, amd64.AX)
-	f.ANDQ("$0xffffffff", amd64.AX)
-	f.SHLQ("$32", amd64.AX)
-	f.SHRQ("$32", w3h)
-
-	f.ADOXQ(amd64.AX, w3l)
-	f.ADCXQ(w2h, w3l)
 	r4 := w3h
-	f.MOVQ("$0", amd64.AX)
-	f.ADOXQ(amd64.AX, r4)
-	f.ADCXQ(amd64.AX, r4)
-
-	// // we use AX for low 32bits
-	// f.MOVQ(t[1], amd64.AX)
-	// f.ANDQ("$0xffffffff", amd64.AX)
-	// f.SHRQ("$32", t[1])
-
-	// // start the carry chain
-	// f.ADDQ(amd64.AX, t[0]) // t0 is good.
-	// // now t1, we have to add t1 + low(t2)
-
-	// // // Propagate carries
-	// // mov	$8, %eax
-	// // valignd	$1, %zmm3, %zmm0, %zmm3{%k2}{z}	// Shift lowest dword of zmm0 into zmm3
-	// f.MOVQ("$8", tmp0)
-	// f.VALIGND("$1", Z3, Z0, K2, Z3)
-
-	// f.LABEL(propagate)
-	// f.VPSRLQ("$32", Z0, Z1)
-	// f.VALIGND("$2", Z0, Z0, K1, Z0)
-	// f.VPADDQ(Z1, Z0, Z0)
-	// f.VALIGND("$1", Z3, Z0, K2, Z3)
-
-	// f.DECQ(tmp0)
-	// f.JNE(propagate)
-
-	// // The top 9 dwords of zmm3 now contain the sum
-	// // we shift by 224 bits to get the result in the low 32bytes
-
-	// // // Move intermediate result to integer registers
-	// // The top 9 dwords of zmm3 now contain the sum. Copy them to the low end of zmm0.
-	// // valignd	$7, %zmm3, %zmm3, %zmm0{%k3}{z}
-	// // // Copy to integer registers
-	// // vmovq	%xmm0, T0;	valignq	$1, %zmm0, %zmm0, %zmm0
-	// // vmovq	%xmm0, T1;	valignq	$1, %zmm0, %zmm0, %zmm0
-	// // vmovq	%xmm0, T2;	valignq	$1, %zmm0, %zmm0, %zmm0
-	// // vmovq	%xmm0, T3;	valignq	$1, %zmm0, %zmm0, %zmm0
-	// // vmovq	%xmm0, T4
-
-	// f.VALIGND("$7", Z3, Z3, K3, Z0)
-
-	// f.VMOVQ(X0, t[0])
-	// f.VALIGNQ("$1", Z0, Z0, Z0)
-	// f.VMOVQ(X0, t[1])
-	// f.VALIGNQ("$1", Z0, Z0, Z0)
-	// f.VMOVQ(X0, t[2])
-	// f.VALIGNQ("$1", Z0, Z0, Z0)
-	// f.VMOVQ(X0, t[3])
-	// f.VALIGNQ("$1", Z0, Z0, Z0)
-	// f.VMOVQ(X0, t4)
-
-	f.MOVQ("res+0(FP)", addrA)
 	r := []amd64.Register{r0, r1, r2, r3}
-	f.Mov(r, addrA)
-
-	f.RET()
+	// we don't need w0h, w1h, w2h anymore
+	f.Push(&registers, w0h, w1h, w2h)
+	w0h = ""
+	w1h = ""
+	w2h = ""
+	// we don't need the low bits anymore
+	f.Push(&registers, low0h, low1h, low2h, low3h)
+	low0h = ""
+	low1h = ""
+	low2h = ""
+	low3h = ""
 
 	// Reduce using single-word Barrett
 	// q1 is low 32 bits of T4 and high 32 bits of T3
 	// movq	T3, %rax
 	// shrd	$32, T4, %rax
 	// mulq	MU		// Multiply by mu. q2 in rdx:rax, q3 in rdx
-	f.MOVQ(f.mu(), tmp0)
-	f.MOVQ(t[3], amd64.AX)
-	f.SHRQw("$32", t4, amd64.AX)
-	f.MULQ(tmp0)
+	mu := f.Pop(&registers)
 
-	// Subtract r2 from r1
-	// mulx	0*8(PM), PL, PH; sub	PL, T0; sbb	PH, T1;
-	// mulx	2*8(PM), PL, PH; sbb	PL, T2; sbb	PH, T3;	sbb	$0, T4
-	// mulx	1*8(PM), PL, PH; sub	PL, T1; sbb	PH, T2;
-	// mulx	3*8(PM), PL, PH; sbb	PL, T3; sbb	PH, T4
-	f.MULXQ(f.qAt(0), amd64.AX, tmp0)
-	f.SUBQ(amd64.AX, t[0])
-	f.SBBQ(tmp0, t[1])
+	f.XORQ(amd64.AX, amd64.AX)
+	f.MOVQ(f.mu(), mu)
+	f.MOVQ(r3, amd64.AX)
+	f.SHRQw("$32", r4, amd64.AX)
+	f.MULQ(mu)
 
-	f.MULXQ(f.qAt(2), amd64.AX, tmp0)
-	f.SBBQ(amd64.AX, t[2])
-	f.SBBQ(tmp0, t[3])
-	f.SBBQ("$0", t4)
+	f.MULXQ(f.qAt(0), amd64.AX, mu)
+	f.SUBQ(amd64.AX, r0)
+	f.SBBQ(mu, r1)
 
-	f.MULXQ(f.qAt(1), amd64.AX, tmp0)
-	f.SUBQ(amd64.AX, t[1])
-	f.SBBQ(tmp0, t[2])
+	f.MULXQ(f.qAt(2), amd64.AX, mu)
+	f.SBBQ(amd64.AX, r2)
+	f.SBBQ(mu, r3)
+	f.SBBQ("$0", r4)
 
-	f.MULXQ(f.qAt(3), amd64.AX, tmp0)
-	f.SBBQ(amd64.AX, t[3])
-	f.SBBQ(tmp0, t4)
+	f.MULXQ(f.qAt(1), amd64.AX, mu)
+	f.SUBQ(amd64.AX, r1)
+	f.SBBQ(mu, r2)
 
-	// Two conditional subtractions to guarantee canonicity of the result
-	// substract modulus from t
-	f.Mov(f.Q, s)
+	f.MULXQ(f.qAt(3), amd64.AX, mu)
+	f.SBBQ(amd64.AX, r3)
+	f.SBBQ(mu, r4)
 
-	f.MOVQ("res+0(FP)", addrA)
-	f.Mov(t, addrA)
+	addrRes := mu
+	f.MOVQ("res+0(FP)", addrRes)
+	f.Mov(r, addrRes)
 
-	f.Sub(s, t)
-	f.SBBQ("$0", t4)
-	// if borrow, skip to end
+	// sub modulus
+	f.SUBQ(f.qAt(0), r0)
+	f.SBBQ(f.qAt(1), r1)
+	f.SBBQ(f.qAt(2), r2)
+	f.SBBQ(f.qAt(3), r3)
+	f.SBBQ("$0", r4)
+
+	// if borrow, we skip to the end
 	f.JCS(done)
+	f.Mov(r, addrRes)
+	f.SUBQ(f.qAt(0), r0)
+	f.SBBQ(f.qAt(1), r1)
+	f.SBBQ(f.qAt(2), r2)
+	f.SBBQ(f.qAt(3), r3)
+	f.SBBQ("$0", r4)
 
-	f.Mov(t, addrA)
-	f.Sub(s, t)
-	f.SBBQ("$0", t4)
-	// if borrow, skip to end
+	// if borrow, we skip to the end
 	f.JCS(done)
-
-	f.Mov(t, addrA)
-
-	// save t into res
+	f.Mov(r, addrRes)
 
 	f.LABEL(done)
 
-	// save t into res
-
-	// f.Mov(t, addrA)
-
 	f.RET()
-	f.Push(&registers, addrA, len, tmp0, t4)
-	f.Push(&registers, t...)
-	f.Push(&registers, s...)
+	f.Push(&registers, mu)
+	f.Push(&registers, w0l, w1l, w2l, w3l, w3h)
 }

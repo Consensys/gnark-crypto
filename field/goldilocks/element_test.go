@@ -655,7 +655,7 @@ func TestElementLexicographicallyLargest(t *testing.T) {
 func TestElementVecOps(t *testing.T) {
 	assert := require.New(t)
 
-	const N = 4
+	const N = 4 * 16
 	a := make(Vector, N)
 	b := make(Vector, N)
 	c := make(Vector, N)
@@ -690,28 +690,28 @@ func TestElementVecOps(t *testing.T) {
 
 	// Vector sum
 	var sum Element
-	const maxUint64 = ^uint64(0)
-	for i := 0; i < N; i++ {
-		c[i][0] = maxUint64
-		c[i][1] = 0
-		c[i][2] = 0
-		c[i][3] = 0
-	}
-	for i := 2; i < N; i++ {
-		c[i][0] = 0
-		c[i][1] = 0
-		c[i][2] = 0
-		c[i][3] = 0
-	}
+	// const maxUint64 = ^uint64(0)
+	// for i := 0; i < N; i++ {
+	// 	c[i][0] = maxUint64
+	// 	c[i][1] = 0
+	// 	// c[i][2] = 0
+	// 	c[i][3] = 0
+	// }
+	// // 	for i := 2; i < N; i++ {
+	// // 	c[i][0] = 0
+	// // 	c[i][1] = 0
+	// // 	c[i][2] = 0
+	// // 	c[i][3] = 0
+	// // }
 	computed := c.Sum()
 	for i := 0; i < N; i++ {
 		sum.Add(&sum, &c[i])
 	}
 	// print computed[0], computed[1] in 64bit binary string
-	fmt.Printf("computed[0]: %64b\n", computed[0])
-	fmt.Printf("computed[1]: %64b\n", computed[1])
-	fmt.Printf("computed[2]: %64b\n", computed[2])
-	fmt.Printf("computed[3]: %64b\n", computed[3])
+	fmt.Printf("computed[0]: %64b %v \n", computed[0], computed[0] == sum[0])
+	fmt.Printf("computed[1]: %64b %v \n", computed[1], computed[1] == sum[1])
+	fmt.Printf("computed[2]: %64b %v \n", computed[2], computed[2] == sum[2])
+	fmt.Printf("computed[3]: %64b %v \n", computed[3], computed[3] == sum[3])
 
 	// print the sum[0], sum[1] in 64bit binary string
 	fmt.Printf("sum     [0]: %64b\n", sum[0])
