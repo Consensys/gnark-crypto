@@ -643,11 +643,11 @@ TEXT ·sumVec(SB), NOSPLIT, $0-24
 	MOVQ      R15, CX
 	ANDQ      $3, CX
 	SHRQ      $2, R15
-	CMPB      CX, $1
+	CMPQ      CX, $1
 	JEQ       rr1_10        // we have 1 remaining element
-	CMPB      CX, $2
+	CMPQ      CX, $2
 	JEQ       rr2_11        // we have 2 remaining elements
-	CMPB      CX, $3
+	CMPQ      CX, $3
 	JNE       loop_8        // == 0; we have 0 remaining elements
 
 	// we have 3 remaining elements
@@ -663,6 +663,9 @@ rr1_10:
 	// we have 1 remaining element
 	VPMOVZXDQ 0*32(R14), Z4
 	VPADDQ    Z4, Z2, Z2
+	MOVQ      $32, DX
+	IMULQ     CX, DX
+	ADDQ      DX, R14
 
 loop_8:
 	TESTQ     R15, R15

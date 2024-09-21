@@ -292,17 +292,14 @@ func (f *FFAmd64) generateSumVec() {
 	f.SHRQ("$2", len)  // len = n / 4
 
 	// if len % 4 != 0, we need to handle the remaining elements
-	f.CMPB(tmp0, "$1")
+	f.CMPQ(tmp0, "$1")
 	f.JEQ(rr1, "we have 1 remaining element")
 
-	f.CMPB(tmp0, "$2")
+	f.CMPQ(tmp0, "$2")
 	f.JEQ(rr2, "we have 2 remaining elements")
 
-	f.CMPB(tmp0, "$3")
+	f.CMPQ(tmp0, "$3")
 	f.JNE(loop, "== 0; we have 0 remaining elements")
-
-	f.Push(&registers, tmp0) // we don't need tmp0
-	tmp0 = ""
 
 	f.Comment("we have 3 remaining elements")
 	// vpmovzxdq 	2*32(PX), %zmm4;	vpaddq	%zmm4, %zmm0, %zmm0
@@ -320,6 +317,15 @@ func (f *FFAmd64) generateSumVec() {
 	// vpmovzxdq 	0*32(PX), %zmm4;	vpaddq	%zmm4, %zmm2, %zmm2
 	f.VPMOVZXDQ("0*32("+addrA+")", Z4)
 	f.VPADDQ(Z4, Z2, Z2)
+
+	// mul $32 by tmp0
+	// TODO use better instructions
+	f.MOVQ("$32", amd64.DX)
+	f.IMULQ(tmp0, amd64.DX)
+	f.ADDQ(amd64.DX, addrA)
+
+	f.Push(&registers, tmp0) // we don't need tmp0
+	tmp0 = ""
 
 	f.LABEL(loop)
 	f.TESTQ(len, len)
