@@ -763,6 +763,14 @@ func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
 		expected.Mul(&a[i], &b[0])
 		assert.True(c[i].Equal(&expected), "Vector scaling failed")
 	}
+
+	// Vector sum
+	var sum {{.ElementName}}
+	computed := c.Sum()
+	for i := 0; i < N; i++ {
+		sum.Add(&sum, &c[i])
+	}
+	assert.True(sum.Equal(&computed), "Vector sum failed")
 }
 
 func Benchmark{{toTitle .ElementName}}VecOps(b *testing.B) {
@@ -797,6 +805,15 @@ func Benchmark{{toTitle .ElementName}}VecOps(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			c1.ScalarMul(a1, &b1[0])
 		}
+	})
+
+	b.Run("Sum", func(b *testing.B) {
+		b.ResetTimer()
+		var sum {{.ElementName}}
+		for i := 0; i < b.N; i++ {
+			sum = c1.Sum()
+		}
+		_ = sum
 	})
 }
 

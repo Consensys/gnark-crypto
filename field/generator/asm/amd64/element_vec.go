@@ -240,3 +240,65 @@ func (f *FFAmd64) generateScalarMulVec() {
 	f.RET()
 
 }
+
+// sumVec res = sum(a[0...n])
+func (f *FFAmd64) generateSumVec() {
+	f.Comment("sumVec(res, a *Element, n uint64) res = sum(a[0...n])")
+
+	const argSize = 3 * 8
+	stackSize := f.StackSize(f.NbWords*3+2, 0, 0)
+	registers := f.FnHeader("sumVec", stackSize, argSize)
+	defer f.AssertCleanStack(stackSize, 0)
+
+	// registers & labels we need
+	addrA := f.Pop(&registers)
+	len := f.Pop(&registers)
+
+	a := f.PopN(&registers)
+	t := f.PopN(&registers)
+	scratch := f.PopN(&registers)
+
+	loop := f.NewLabel("loop")
+	done := f.NewLabel("done")
+
+	// load arguments
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("n+16(FP)", len)
+
+	f.XORQ(t[0], t[0])
+	f.XORQ(t[1], t[1])
+	f.XORQ(t[2], t[2])
+	f.XORQ(t[3], t[3])
+
+	f.LABEL(loop)
+
+	f.TESTQ(len, len)
+	f.JEQ(done, "n == 0, we are done")
+
+	// t += a
+	f.LabelRegisters("a", a...)
+	f.Mov(addrA, a)
+	f.Add(a, t)
+
+	// reduce t
+	f.ReduceElement(t, scratch)
+
+	f.Comment("increment pointers to visit next element")
+	f.ADDQ("$32", addrA)
+	f.DECQ(len, "decrement n")
+	f.JMP(loop)
+
+	f.LABEL(done)
+
+	// save t into res
+	f.MOVQ("res+0(FP)", addrA)
+	f.Mov(t, addrA)
+
+	f.RET()
+
+	f.Push(&registers, a...)
+	f.Push(&registers, t...)
+	f.Push(&registers, scratch...)
+	f.Push(&registers, addrA, len)
+
+}

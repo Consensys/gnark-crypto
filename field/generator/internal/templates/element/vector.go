@@ -211,6 +211,12 @@ func (vector *Vector) Sub(a, b Vector) {
 func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
 	scalarMulVecGeneric(*vector, a, b)
 }
+
+// Sum computes the sum of all elements in the vector.
+func (vector *Vector) Sum() (res {{.ElementName}}) {
+	sumVecGeneric(&res, *vector)
+	return
+}
 {{- end}}
 
 
@@ -239,6 +245,12 @@ func scalarMulVecGeneric(res, a Vector, b *{{.ElementName}}) {
 	}
 	for i := 0; i < len(a); i++ {
 		res[i].Mul(&a[i], b)
+	}
+}
+
+func sumVecGeneric(res *{{.ElementName}}, a Vector) {
+	for i := 0; i < len(a); i++ {
+		res.Add(res, &a[i])
 	}
 }
 

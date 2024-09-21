@@ -625,3 +625,45 @@ noAdx_5:
 	MOVQ AX, 48(SP)
 	CALL ·scalarMulVecGeneric(SB)
 	RET
+
+// sumVec(res, a *Element, n uint64) res = sum(a[0...n])
+TEXT ·sumVec(SB), NOSPLIT, $0-24
+	MOVQ a+8(FP), AX
+	MOVQ n+16(FP), DX
+	XORQ R8, R8
+	XORQ R9, R9
+	XORQ R10, R10
+	XORQ R11, R11
+
+loop_8:
+	TESTQ DX, DX
+	JEQ   done_9 // n == 0, we are done
+
+	// a[0] -> CX
+	// a[1] -> BX
+	// a[2] -> SI
+	// a[3] -> DI
+	MOVQ 0(AX), CX
+	MOVQ 8(AX), BX
+	MOVQ 16(AX), SI
+	MOVQ 24(AX), DI
+	ADDQ CX, R8
+	ADCQ BX, R9
+	ADCQ SI, R10
+	ADCQ DI, R11
+
+	// reduce element(R8,R9,R10,R11) using temp registers (R12,R13,R14,R15)
+	REDUCE(R8,R9,R10,R11,R12,R13,R14,R15)
+
+	// increment pointers to visit next element
+	ADDQ $32, AX
+	DECQ DX      // decrement n
+	JMP  loop_8
+
+done_9:
+	MOVQ res+0(FP), AX
+	MOVQ R8, 0(AX)
+	MOVQ R9, 8(AX)
+	MOVQ R10, 16(AX)
+	MOVQ R11, 24(AX)
+	RET

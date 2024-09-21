@@ -68,6 +68,12 @@ func (vector *Vector) Sub(a, b Vector) {
 func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
 	scalarMulVecGeneric(*vector, a, b)
 }
+
+// Sum computes the sum of all elements in the vector.
+func (vector *Vector) Sum() (res {{.ElementName}}) {
+	sumVecGeneric(&res, *vector)
+	return
+}
 {{- end}}
 
 // Mul z = x * y (mod q)

@@ -225,6 +225,12 @@ func (vector *Vector) ScalarMul(a Vector, b *Element) {
 	scalarMulVecGeneric(*vector, a, b)
 }
 
+// Sum computes the sum of all elements in the vector.
+func (vector *Vector) Sum() (res Element) {
+	sumVecGeneric(&res, *vector)
+	return
+}
+
 func addVecGeneric(res, a, b Vector) {
 	if len(a) != len(b) || len(a) != len(res) {
 		panic("vector.Add: vectors don't have the same length")
@@ -249,6 +255,12 @@ func scalarMulVecGeneric(res, a Vector, b *Element) {
 	}
 	for i := 0; i < len(a); i++ {
 		res[i].Mul(&a[i], b)
+	}
+}
+
+func sumVecGeneric(res *Element, a Vector) {
+	for i := 0; i < len(a); i++ {
+		res.Add(res, &a[i])
 	}
 }
 

@@ -81,6 +81,18 @@ func (vector *Vector) ScalarMul(a Vector, b *Element) {
 //go:noescape
 func scalarMulVec(res, a, b *Element, n uint64)
 
+// Sum computes the sum of all elements in the vector.
+func (vector *Vector) Sum() (res Element) {
+	if len(*vector) == 0 {
+		return
+	}
+	sumVec(&res, &(*vector)[0], uint64(len(*vector)))
+	return
+}
+
+//go:noescape
+func sumVec(res *Element, a *Element, n uint64)
+
 // Mul z = x * y (mod q)
 //
 // x and y must be less than q

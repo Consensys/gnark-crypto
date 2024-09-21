@@ -163,6 +163,7 @@ func Generate(w io.Writer, F *config.FieldConfig) error {
 		f.generateAddVec()
 		f.generateSubVec()
 		f.generateScalarMulVec()
+		f.generateSumVec()
 	}
 
 	return nil

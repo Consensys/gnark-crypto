@@ -65,6 +65,18 @@ func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
 
 //go:noescape
 func scalarMulVec(res, a, b *{{.ElementName}}, n uint64)
+
+// Sum computes the sum of all elements in the vector.
+func (vector *Vector) Sum() (res {{.ElementName}}) {
+	if len(*vector) == 0 {
+		return
+	}
+	sumVec(&res, &(*vector)[0], uint64(len(*vector)))
+	return
+}
+
+//go:noescape
+func sumVec(res *{{.ElementName}}, a *{{.ElementName}}, n uint64)
 {{- end}}
 
 // Mul z = x * y (mod q)
