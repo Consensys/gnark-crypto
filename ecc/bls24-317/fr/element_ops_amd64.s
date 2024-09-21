@@ -628,42 +628,46 @@ noAdx_5:
 
 // sumVec(res, a *Element, n uint64) res = sum(a[0...n])
 TEXT ·sumVec(SB), NOSPLIT, $0-24
-	MOVQ a+8(FP), AX
-	MOVQ n+16(FP), DX
-	XORQ R8, R8
-	XORQ R9, R9
-	XORQ R10, R10
-	XORQ R11, R11
+	MOVQ      a+8(FP), AX
+	MOVQ      n+16(FP), DX
+	VXORQ     ZMM0, ZMM0, ZMM0
+	VMOVDQA64 ZMM0, ZMM1
+	VMOVDQA64 ZMM0, ZMM2
+	VMOVDQA64 ZMM0, ZMM3
+	TESTQ     DX, DX
+	JEQ       done_9           // n == 0, we are done
+	MOVQ      DX, CX
+	ANDQ      $3, CX
+	SHRQ      $2, DX
+	CMPQ      $1, CX
+	JEQ       r1_10            // we have 1 remaining element
+	CMPQ      $2, CX
+	JEQ       r2_11            // we have 2 remaining elements
+	CMPQ      $3, CX
+	JNE       loop_8           // == 0; we have 0 remaining elements
+
+	// we have 3 remaining elements
+	VPMOVZXDQ 2*32(AX), ZMM4
+	VPADDQ    ZMM4, ZMM0, ZMM0
+
+r2_11:
+	// we have 2 remaining elements
+	VPMOVZXDQ 1*32(AX), ZMM4
+	VPADDQ    ZMM4, ZMM1, ZMM1
+
+r1_10:
+	// we have 1 remaining element
+	VPMOVZXDQ 0*32(AX), ZMM4
+	VPADDQ    ZMM4, ZMM2, ZMM2
+	TESTQ     DX, DX
+	JEQ       done_9           // n == 0, we are done
 
 loop_8:
-	TESTQ DX, DX
-	JEQ   done_9 // n == 0, we are done
-
-	// a[0] -> CX
-	// a[1] -> BX
-	// a[2] -> SI
-	// a[3] -> DI
-	MOVQ 0(AX), CX
-	MOVQ 8(AX), BX
-	MOVQ 16(AX), SI
-	MOVQ 24(AX), DI
-	ADDQ CX, R8
-	ADCQ BX, R9
-	ADCQ SI, R10
-	ADCQ DI, R11
-
-	// reduce element(R8,R9,R10,R11) using temp registers (R12,R13,R14,R15)
-	REDUCE(R8,R9,R10,R11,R12,R13,R14,R15)
-
 	// increment pointers to visit next element
-	ADDQ $32, AX
-	DECQ DX      // decrement n
+	ADDQ $128, AX
+	DECQ DX       // decrement n
 	JMP  loop_8
 
 done_9:
 	MOVQ res+0(FP), AX
-	MOVQ R8, 0(AX)
-	MOVQ R9, 8(AX)
-	MOVQ R10, 16(AX)
-	MOVQ R11, 24(AX)
 	RET

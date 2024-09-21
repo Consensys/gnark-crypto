@@ -51,6 +51,7 @@ type FieldConfig struct {
 	Q                         []uint64
 	QInverse                  []uint64
 	QMinusOneHalvedP          []uint64 // ((q-1) / 2 ) + 1
+	Mu                        uint64   // mu = 2^288 / q for barrett reduction
 	ASM                       bool
 	RSquare                   []uint64
 	One, Thirteen             []uint64
@@ -116,6 +117,16 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	extendedEuclideanAlgo(_r, &bModulus, _rInv, _qInv)
 	_qInv.Mod(_qInv, _r)
 	F.QInverse = toUint64Slice(_qInv, F.NbWords)
+
+	// setting Mu 2^288 / q
+	if F.NbWords == 4 {
+		// TODO @gbotrel clean for all modulus.
+		_mu := big.NewInt(1)
+		_mu.Lsh(_mu, 288)
+		_mu.Div(_mu, &bModulus)
+		muSlice := toUint64Slice(_mu, F.NbWords)
+		F.Mu = muSlice[0]
+	}
 
 	// Pornin20 inversion correction factors
 	k := 32 // Optimized for 64 bit machines, still works for 32

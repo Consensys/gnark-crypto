@@ -628,42 +628,76 @@ noAdx_5:
 
 // sumVec(res, a *Element, n uint64) res = sum(a[0...n])
 TEXT ·sumVec(SB), NOSPLIT, $0-24
-	MOVQ a+8(FP), AX
-	MOVQ n+16(FP), DX
-	XORQ R8, R8
-	XORQ R9, R9
-	XORQ R10, R10
-	XORQ R11, R11
+	MOVQ      $0x1555, CX
+	KMOVW     CX, K1
+	MOVQ      $0xff80, CX
+	KMOVW     CX, K2
+	MOVQ      $0x01ff, CX
+	KMOVW     CX, K3
+	MOVQ      a+8(FP), AX
+	MOVQ      n+16(FP), DX
+	VXORPS    Z0, Z0, Z0
+	VMOVDQA64 Z0, Z1
+	VMOVDQA64 Z0, Z2
+	VMOVDQA64 Z0, Z3
+	TESTQ     DX, DX
+	JEQ       done_9       // n == 0, we are done
+	MOVQ      DX, CX
+	ANDQ      $3, CX
+	SHRQ      $2, DX
+	CMPB      CX, $1
+	JEQ       r1_10        // we have 1 remaining element
+	CMPB      CX, $2
+	JEQ       r2_11        // we have 2 remaining elements
+	CMPB      CX, $3
+	JNE       loop_8       // == 0; we have 0 remaining elements
+
+	// we have 3 remaining elements
+	VPMOVZXDQ 2*32(AX), Z4
+	VPADDQ    Z4, Z0, Z0
+
+r2_11:
+	// we have 2 remaining elements
+	VPMOVZXDQ 1*32(AX), Z4
+	VPADDQ    Z4, Z1, Z1
+
+r1_10:
+	// we have 1 remaining element
+	VPMOVZXDQ 0*32(AX), Z4
+	VPADDQ    Z4, Z2, Z2
 
 loop_8:
-	TESTQ DX, DX
-	JEQ   done_9 // n == 0, we are done
+	TESTQ     DX, DX
+	JEQ       accumulate_12 // n == 0, we are going to accumulate
+	VPMOVZXDQ 0*32(AX), Z4
+	VPADDQ    Z4, Z0, Z0
+	VPMOVZXDQ 1*32(AX), Z4
+	VPADDQ    Z4, Z1, Z1
+	VPMOVZXDQ 2*32(AX), Z4
+	VPADDQ    Z4, Z2, Z2
+	VPMOVZXDQ 3*32(AX), Z4
+	VPADDQ    Z4, Z3, Z3
 
-	// a[0] -> CX
-	// a[1] -> BX
-	// a[2] -> SI
-	// a[3] -> DI
-	MOVQ 0(AX), CX
-	MOVQ 8(AX), BX
-	MOVQ 16(AX), SI
-	MOVQ 24(AX), DI
-	ADDQ CX, R8
-	ADCQ BX, R9
-	ADCQ SI, R10
-	ADCQ DI, R11
-
-	// reduce element(R8,R9,R10,R11) using temp registers (R12,R13,R14,R15)
-	REDUCE(R8,R9,R10,R11,R12,R13,R14,R15)
-
-	// increment pointers to visit next element
-	ADDQ $32, AX
-	DECQ DX      // decrement n
+	// increment pointers to visit next 4 elements
+	ADDQ $128, AX
+	DECQ DX       // decrement n
 	JMP  loop_8
+
+accumulate_12:
+	VPADDQ  Z1, Z0, Z0
+	VPADDQ  Z3, Z2, Z2
+	VPADDQ  Z2, Z0, Z0
+	MOVQ    $8, CX
+	VALIGND $1, Z3, Z0, K2, Z3
+
+propagate_13:
+	VPSRLQ  $32, Z0, Z1
+	VALIGND $2, Z0, Z0, K1, Z0
+	VPADDQ  Z1, Z0, Z0
+	VALIGND $1, Z3, Z0, K2, Z3
+	DECQ    CX
+	JNE     propagate_13
 
 done_9:
 	MOVQ res+0(FP), AX
-	MOVQ R8, 0(AX)
-	MOVQ R9, 8(AX)
-	MOVQ R10, 16(AX)
-	MOVQ R11, 24(AX)
 	RET

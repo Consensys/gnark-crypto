@@ -27,6 +27,9 @@ GLOBL q<>(SB), (RODATA+NOPTR), $32
 // qInv0 q'[0]
 DATA qInv0<>(SB)/8, $0x0a117fffffffffff
 GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
+// Mu
+DATA mu<>(SB)/8, $0x0000000db65247b1
+GLOBL mu<>(SB), (RODATA+NOPTR), $8
 
 #define REDUCE(ra0, ra1, ra2, ra3, rb0, rb1, rb2, rb3) \
 	MOVQ    ra0, rb0;        \
@@ -628,42 +631,159 @@ noAdx_5:
 
 // sumVec(res, a *Element, n uint64) res = sum(a[0...n])
 TEXT ·sumVec(SB), NOSPLIT, $0-24
-	MOVQ a+8(FP), AX
-	MOVQ n+16(FP), DX
-	XORQ R8, R8
-	XORQ R9, R9
-	XORQ R10, R10
-	XORQ R11, R11
+	MOVQ      $0x1555, CX
+	KMOVW     CX, K1
+	MOVQ      $0xff80, CX
+	KMOVW     CX, K2
+	MOVQ      $0x01ff, CX
+	KMOVW     CX, K3
+	MOVQ      a+8(FP), R14
+	MOVQ      n+16(FP), R15
+	VXORPS    Z0, Z0, Z0
+	VMOVDQA64 Z0, Z1
+	VMOVDQA64 Z0, Z2
+	VMOVDQA64 Z0, Z3
+	TESTQ     R15, R15
+	JEQ       done_9        // n == 0, we are done
+	MOVQ      R15, CX
+	ANDQ      $3, CX
+	SHRQ      $2, R15
+	CMPB      CX, $1
+	JEQ       rr1_10        // we have 1 remaining element
+	CMPB      CX, $2
+	JEQ       rr2_11        // we have 2 remaining elements
+	CMPB      CX, $3
+	JNE       loop_8        // == 0; we have 0 remaining elements
+
+	// we have 3 remaining elements
+	VPMOVZXDQ 2*32(R14), Z4
+	VPADDQ    Z4, Z0, Z0
+
+rr2_11:
+	// we have 2 remaining elements
+	VPMOVZXDQ 1*32(R14), Z4
+	VPADDQ    Z4, Z1, Z1
+
+rr1_10:
+	// we have 1 remaining element
+	VPMOVZXDQ 0*32(R14), Z4
+	VPADDQ    Z4, Z2, Z2
 
 loop_8:
-	TESTQ DX, DX
-	JEQ   done_9 // n == 0, we are done
+	TESTQ     R15, R15
+	JEQ       accumulate_12 // n == 0, we are going to accumulate
+	VPMOVZXDQ 0*32(R14), Z4
+	VPADDQ    Z4, Z0, Z0
+	VPMOVZXDQ 1*32(R14), Z4
+	VPADDQ    Z4, Z1, Z1
+	VPMOVZXDQ 2*32(R14), Z4
+	VPADDQ    Z4, Z2, Z2
+	VPMOVZXDQ 3*32(R14), Z4
+	VPADDQ    Z4, Z3, Z3
 
-	// a[0] -> CX
-	// a[1] -> BX
-	// a[2] -> SI
-	// a[3] -> DI
-	MOVQ 0(AX), CX
-	MOVQ 8(AX), BX
-	MOVQ 16(AX), SI
-	MOVQ 24(AX), DI
-	ADDQ CX, R8
-	ADCQ BX, R9
-	ADCQ SI, R10
-	ADCQ DI, R11
-
-	// reduce element(R8,R9,R10,R11) using temp registers (R12,R13,R14,R15)
-	REDUCE(R8,R9,R10,R11,R12,R13,R14,R15)
-
-	// increment pointers to visit next element
-	ADDQ $32, AX
-	DECQ DX      // decrement n
+	// increment pointers to visit next 4 elements
+	ADDQ $128, R14
+	DECQ R15       // decrement n
 	JMP  loop_8
 
+accumulate_12:
+	VPADDQ  Z1, Z0, Z0
+	VPADDQ  Z3, Z2, Z2
+	VPADDQ  Z2, Z0, Z0
+	VMOVQ   X0, BX
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, SI
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, DI
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, R8
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, R9
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, R10
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, R11
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, R12
+	XORQ    AX, AX
+	MOVQ    SI, AX
+	ANDQ    $0xffffffff, AX
+	SHLQ    $32, AX
+	SHRQ    $32, SI
+	ADOXQ   AX, BX
+	MOVQ    R8, AX
+	ANDQ    $0xffffffff, AX
+	SHLQ    $32, AX
+	SHRQ    $32, R8
+	ADOXQ   AX, DI
+	ADCXQ   SI, DI
+	MOVQ    R10, AX
+	ANDQ    $0xffffffff, AX
+	SHLQ    $32, AX
+	SHRQ    $32, R10
+	ADOXQ   AX, R9
+	ADCXQ   R8, R9
+	MOVQ    R12, AX
+	ANDQ    $0xffffffff, AX
+	SHLQ    $32, AX
+	SHRQ    $32, R12
+	ADOXQ   AX, R11
+	ADCXQ   R10, R11
+	MOVQ    $0, AX
+	ADOXQ   AX, R12
+	ADCXQ   AX, R12
+	MOVQ    res+0(FP), R14
+	MOVQ    BX, 0(R14)
+	MOVQ    DI, 8(R14)
+	MOVQ    R9, 16(R14)
+	MOVQ    R11, 24(R14)
+	RET
+	MOVQ  mu<>(SB), CX
+	MOVQ  R8, AX
+	SHRQ  $32, R13, AX
+	MULQ  CX
+	MULXQ q<>+0(SB), AX, CX
+	SUBQ  AX, BX
+	SBBQ  CX, SI
+	MULXQ q<>+16(SB), AX, CX
+	SBBQ  AX, DI
+	SBBQ  CX, R8
+	SBBQ  $0, R13
+	MULXQ q<>+8(SB), AX, CX
+	SUBQ  AX, SI
+	SBBQ  CX, DI
+	MULXQ q<>+24(SB), AX, CX
+	SBBQ  AX, R8
+	SBBQ  CX, R13
+	MOVQ  $0x0a11800000000001, R9
+	MOVQ  $0x59aa76fed0000001, R10
+	MOVQ  $0x60b44d1e5c37b001, R11
+	MOVQ  $0x12ab655e9a2ca556, R12
+	MOVQ  res+0(FP), R14
+	MOVQ  BX, 0(R14)
+	MOVQ  SI, 8(R14)
+	MOVQ  DI, 16(R14)
+	MOVQ  R8, 24(R14)
+	SUBQ  R9, BX
+	SBBQ  R10, SI
+	SBBQ  R11, DI
+	SBBQ  R12, R8
+	SBBQ  $0, R13
+	JCS   done_9
+	MOVQ  BX, 0(R14)
+	MOVQ  SI, 8(R14)
+	MOVQ  DI, 16(R14)
+	MOVQ  R8, 24(R14)
+	SUBQ  R9, BX
+	SBBQ  R10, SI
+	SBBQ  R11, DI
+	SBBQ  R12, R8
+	SBBQ  $0, R13
+	JCS   done_9
+	MOVQ  BX, 0(R14)
+	MOVQ  SI, 8(R14)
+	MOVQ  DI, 16(R14)
+	MOVQ  R8, 24(R14)
+
 done_9:
-	MOVQ res+0(FP), AX
-	MOVQ R8, 0(AX)
-	MOVQ R9, 8(AX)
-	MOVQ R10, 16(AX)
-	MOVQ R11, 24(AX)
 	RET

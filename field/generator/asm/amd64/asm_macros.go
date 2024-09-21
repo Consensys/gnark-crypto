@@ -74,6 +74,12 @@ GLOBL q<>(SB), (RODATA+NOPTR), ${{mul 8 $.NbWords}}
 DATA qInv0<>(SB)/8, {{$qinv0 := index .QInverse 0}}{{imm $qinv0}}
 GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
 
+{{- if eq .NbWords 4}}
+// Mu
+DATA mu<>(SB)/8, {{imm .Mu}}
+GLOBL mu<>(SB), (RODATA+NOPTR), $8
+{{- end}}
+
 #define REDUCE(	{{- range $i := .NbWordsIndexesFull}}ra{{$i}},{{- end}}
 				{{- range $i := .NbWordsIndexesFull}}rb{{$i}}{{- if ne $.NbWordsLastIndex $i}},{{- end}}{{- end}}) \
 	MOVQ ra0, rb0;  \

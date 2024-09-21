@@ -135,6 +135,10 @@ func (f *FFAmd64) qInv0() string {
 	return "qInv0<>(SB)"
 }
 
+func (f *FFAmd64) mu() string {
+	return "mu<>(SB)"
+}
+
 // Generate generates assembly code for the base field provided to goff
 // see internal/templates/ops*
 func Generate(w io.Writer, F *config.FieldConfig) error {
