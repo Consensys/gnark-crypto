@@ -30,14 +30,14 @@ func (z *ComplexNumber) Set(x *ComplexNumber) *ComplexNumber {
 	return z
 }
 
-// Set sets z to 0, and returns z.
+// SetZero sets z to 0, and returns z.
 func (z *ComplexNumber) SetZero() *ComplexNumber {
 	z.A0 = *big.NewInt(0)
 	z.A1 = *big.NewInt(0)
 	return z
 }
 
-// Set sets z to 1, and returns z.
+// SetOne sets z to 1, and returns z.
 func (z *ComplexNumber) SetOne() *ComplexNumber {
 	z.A0 = *big.NewInt(1)
 	z.A1 = *big.NewInt(0)
@@ -121,8 +121,8 @@ func (z *ComplexNumber) Quo(x, y *ComplexNumber) *ComplexNumber {
 	return z
 }
 
-// HalfGCD returns the rational reconstruction of l mod r.
-// This outputs u, v s.t. l = u/v mod r
+// HalfGCD returns the rational reconstruction of a, b.
+// This outputs w, v, u s.t. w = a*u + b*v.
 func HalfGCD(a, b *ComplexNumber) [3]*ComplexNumber {
 
 	var aRun, bRun, u, v, u_, v_, quotient, remainder, t, t1, t2 ComplexNumber

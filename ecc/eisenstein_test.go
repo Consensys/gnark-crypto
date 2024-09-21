@@ -261,3 +261,18 @@ func GenComplexNumber() gopter.Gen {
 		return &ComplexNumber{A0: values[0].(big.Int), A1: values[1].(big.Int)}
 	})
 }
+
+// bench
+func BenchmarkHalfGCD(b *testing.B) {
+	var prime, _ = new(big.Int).SetString("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffed", 16) // 2^255 - 19
+	a0, _ := rand.Int(rand.Reader, prime)
+	a1, _ := rand.Int(rand.Reader, prime)
+	c0, _ := rand.Int(rand.Reader, prime)
+	c1, _ := rand.Int(rand.Reader, prime)
+	a := ComplexNumber{A0: *a0, A1: *a1}
+	c := ComplexNumber{A0: *c0, A1: *c1}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		HalfGCD(&a, &c)
+	}
+}
