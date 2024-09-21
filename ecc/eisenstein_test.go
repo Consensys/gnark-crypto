@@ -212,6 +212,36 @@ func TestEisensteinArithmetic(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestEisensteinHalfGCD(t *testing.T) {
+
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genE := GenComplexNumber()
+
+	properties.Property("half-GCD", prop.ForAll(
+		func(a, b *ComplexNumber) bool {
+			res := HalfGCD(a, b)
+			var c, d ComplexNumber
+			c.Mul(b, res[1])
+			d.Mul(a, res[2])
+			d.Add(&c, &d)
+			return d.Equal(res[0])
+		},
+		genE,
+		genE,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 // GenNumber generates a random integer
 func GenNumber() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {

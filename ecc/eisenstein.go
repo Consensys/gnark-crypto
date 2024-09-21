@@ -13,15 +13,34 @@ type ComplexNumber struct {
 	A0, A1 big.Int
 }
 
+// String implements Stringer interface for fancy printing
+func (z *ComplexNumber) String() string {
+	return z.A0.String() + "+(" + z.A1.String() + "*ω)"
+}
+
 // Equal returns true if z equals x, false otherwise
 func (z *ComplexNumber) Equal(x *ComplexNumber) bool {
 	return z.A0.Cmp(&x.A0) == 0 && z.A1.Cmp(&x.A1) == 0
 }
 
-// Set sets z equal to x, and returns z.
+// Set sets z to x, and returns z.
 func (z *ComplexNumber) Set(x *ComplexNumber) *ComplexNumber {
 	z.A0.Set(&x.A0)
 	z.A1.Set(&x.A1)
+	return z
+}
+
+// Set sets z to 0, and returns z.
+func (z *ComplexNumber) SetZero() *ComplexNumber {
+	z.A0 = *big.NewInt(0)
+	z.A1 = *big.NewInt(0)
+	return z
+}
+
+// Set sets z to 1, and returns z.
+func (z *ComplexNumber) SetOne() *ComplexNumber {
+	z.A0 = *big.NewInt(1)
+	z.A1 = *big.NewInt(0)
 	return z
 }
 
@@ -97,7 +116,40 @@ func (z *ComplexNumber) Quo(x, y *ComplexNumber) *ComplexNumber {
 	norm := y.Norm()
 	z.Conjugate(y)
 	z.Mul(x, z)
-	z.A0.Quo(&z.A0, norm)
-	z.A1.Quo(&z.A1, norm)
+	z.A0.Div(&z.A0, norm)
+	z.A1.Div(&z.A1, norm)
 	return z
+}
+
+// HalfGCD returns the rational reconstruction of l mod r.
+// This outputs u, v s.t. l = u/v mod r
+func HalfGCD(a, b *ComplexNumber) [3]*ComplexNumber {
+
+	var aRun, bRun, u, v, u_, v_, quotient, remainder, t, t1, t2 ComplexNumber
+
+	aRun.Set(a)
+	bRun.Set(b)
+	u.SetOne()
+	v.SetZero()
+	u_.SetZero()
+	v_.SetOne()
+	nbits := a.Norm().BitLen() / 2
+
+	for aRun.Norm().BitLen() > nbits {
+		quotient.Quo(&aRun, &bRun)
+		t.Mul(&bRun, &quotient)
+		remainder.Sub(&aRun, &t)
+		t.Mul(&u_, &quotient)
+		t1.Sub(&u, &t)
+		t.Mul(&v_, &quotient)
+		t2.Sub(&v, &t)
+		aRun.Set(&bRun)
+		u.Set(&u_)
+		v.Set(&v_)
+		bRun.Set(&remainder)
+		u_.Set(&t1)
+		v_.Set(&t2)
+	}
+
+	return [3]*ComplexNumber{&aRun, &v, &u}
 }
