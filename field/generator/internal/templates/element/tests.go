@@ -731,7 +731,7 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
 	assert := require.New(t)
 
-	const N = 1024*16 + 4
+	const N = 1024*16 + 3
 	a := make(Vector, N)
 	b := make(Vector, N)
 	c := make(Vector, N)
