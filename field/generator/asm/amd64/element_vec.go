@@ -275,6 +275,9 @@ func (f *FFAmd64) generateSumVec() {
 	// r3 = carry + hi(w2h) + w3l + lo(w3h)
 	// r4 = carry + hi(w3h)
 	// we then reduce the sum using a single-word Barrett reduction
+	// we pick mu = 2^288 / q; which correspond to 4.5 words max.
+	// meaning we must guarantee that r4 fits in 32bits.
+	// To do so, we reduce N to 2^32-1 (since r4 receives 2 carries max)
 	`)
 
 	// registers & labels we need
@@ -464,6 +467,7 @@ func (f *FFAmd64) generateSumVec() {
 	r2 := w2l
 	r3 := w3l
 	r4 := w3h
+
 	r := []amd64.Register{r0, r1, r2, r3, r4}
 	f.LabelRegisters("r", r...)
 	// we don't need w0h, w1h, w2h anymore

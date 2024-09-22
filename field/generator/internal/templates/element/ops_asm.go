@@ -70,7 +70,7 @@ func scalarMulVec(res, a, b *{{.ElementName}}, n uint64)
 func (vector *Vector) Sum() (res {{.ElementName}}) {
 	n := uint64(len(*vector))
 	const minN = 16*7 // AVX512 slower than generic for small n
-	const maxN = (1 << 32) + 1
+	const maxN = (1 << 32) - 1
 	if !supportAvx512 || n <= minN || n >= maxN {
 		// call sumVecGeneric
 		sumVecGeneric(&res, *vector)
