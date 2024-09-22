@@ -23,6 +23,8 @@ package fr
 // certain errors (like fatal error: missing stackmap)
 // this ensures we test all asm path.
 var (
-	supportAdx = false
-	_          = supportAdx
+	supportAdx    = false
+	_             = supportAdx
+	supportAvx512 = false
+	_             = supportAvx512
 )

@@ -27,6 +27,9 @@ GLOBL q<>(SB), (RODATA+NOPTR), $32
 // qInv0 q'[0]
 DATA qInv0<>(SB)/8, $0xc2e1f593efffffff
 GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
+// Mu
+DATA mu<>(SB)/8, $0x000000054a474626
+GLOBL mu<>(SB), (RODATA+NOPTR), $8
 
 #define REDUCE(ra0, ra1, ra2, ra3, rb0, rb1, rb2, rb3) \
 	MOVQ    ra0, rb0;        \

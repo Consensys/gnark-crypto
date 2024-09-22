@@ -248,21 +248,45 @@ func (f *FFAmd64) generateSumVec() {
 	f.Comment("sumVec(res, a *Element, n uint64) res = sum(a[0...n])")
 
 	const argSize = 3 * 8
-	stackSize := f.StackSize(f.NbWords*2+4, 0, 0)
+	stackSize := f.StackSize(f.NbWords*3+2, 0, 0)
 	registers := f.FnHeader("sumVec", stackSize, argSize, amd64.DX, amd64.AX)
 	defer f.AssertCleanStack(stackSize, 0)
 
+	f.WriteLn(`
+	// Derived from https://github.com/a16z/vectorized-fields
+	// The idea is to use Z registers to accumulate the sum of elements, 4 by 4
+	// first, we handle the case where n % 4 != 0 and add to the accumulators the 1, 2 or 3 remaining elements
+	// then, we loop over the elements 4 by 4 and accumulate the sum in the Z registers
+	// finally, we reduce the sum and store it in res
+	// 
+	// when we move an element of a into a Z register, we use VPMOVZXDQ
+	// let's note w0...w3 the 4 64bits words of ai: w0 = ai[0], w1 = ai[1], w2 = ai[2], w3 = ai[3]
+	// VPMOVZXDQ(ai, Z0) will result in 
+	// Z0= [hi(w3), lo(w3), hi(w2), lo(w2), hi(w1), lo(w1), hi(w0), lo(w0)]
+	// with hi(wi) the high 32 bits of wi and lo(wi) the low 32 bits of wi
+	// we can safely add 2^32+1 times Z registers constructed this way without overflow
+	// since each of this lo/hi bits are moved into a "64bits" slot
+	// N = 2^64-1 / 2^32-1 = 2^32+1
+	//
+	// we then propagate the carry using ADOXQ and ADCXQ
+	// r0 = w0l + lo(woh)
+	// r1 = carry + hi(woh) + w1l + lo(w1h)
+	// r2 = carry + hi(w1h) + w2l + lo(w2h)
+	// r3 = carry + hi(w2h) + w3l + lo(w3h)
+	// r4 = carry + hi(w3h)
+	// we then reduce the sum using a single-word Barrett reduction
+	`)
+
 	// registers & labels we need
 	addrA := f.Pop(&registers)
-	len := f.Pop(&registers)
-	tmp0 := f.Pop(&registers)
+	n := f.Pop(&registers)
+	nMod4 := f.Pop(&registers)
 
-	loop := f.NewLabel("loop")
+	loop := f.NewLabel("loop4by4")
 	done := f.NewLabel("done")
-	rr1 := f.NewLabel("rr1")
-	rr2 := f.NewLabel("rr2")
+	rr1 := f.NewLabel("r1")
+	rr2 := f.NewLabel("r2")
 	accumulate := f.NewLabel("accumulate")
-	// propagate := f.NewLabel("propagate")
 
 	// AVX512 registers
 	Z0 := amd64.Register("Z0")
@@ -272,37 +296,37 @@ func (f *FFAmd64) generateSumVec() {
 	Z4 := amd64.Register("Z4")
 	X0 := amd64.Register("X0")
 
-	f.XORQ(amd64.AX, amd64.AX)
-
 	// load arguments
 	f.MOVQ("a+8(FP)", addrA)
-	f.MOVQ("n+16(FP)", len)
+	f.MOVQ("n+16(FP)", n)
 
-	// initialize accumulators to zero (zmm0, zmm1, zmm2, zmm3)
+	f.Comment("initialize accumulators Z0, Z1, Z2, Z3")
 	f.VXORPS(Z0, Z0, Z0)
 	f.VMOVDQA64(Z0, Z1)
 	f.VMOVDQA64(Z0, Z2)
 	f.VMOVDQA64(Z0, Z3)
 
-	f.TESTQ(len, len)
-	f.JEQ(done, "n == 0, we are done")
+	// note: we don't need to handle the case n==0; handled by caller already.
+	// f.TESTQ(n, n)
+	// f.JEQ(done, "n == 0, we are done")
 
-	f.MOVQ(len, tmp0)
-	f.ANDQ("$3", tmp0) // t0 = n % 4
-	f.SHRQ("$2", len)  // len = n / 4
+	f.LabelRegisters("n % 4", nMod4)
+	f.LabelRegisters("n / 4", n)
+	f.MOVQ(n, nMod4)
+	f.ANDQ("$3", nMod4) // t0 = n % 4
+	f.SHRQ("$2", n)     // len = n / 4
 
 	// if len % 4 != 0, we need to handle the remaining elements
-	f.CMPQ(tmp0, "$1")
+	f.CMPQ(nMod4, "$1")
 	f.JEQ(rr1, "we have 1 remaining element")
 
-	f.CMPQ(tmp0, "$2")
+	f.CMPQ(nMod4, "$2")
 	f.JEQ(rr2, "we have 2 remaining elements")
 
-	f.CMPQ(tmp0, "$3")
-	f.JNE(loop, "== 0; we have 0 remaining elements")
+	f.CMPQ(nMod4, "$3")
+	f.JNE(loop, "we have 0 remaining elements")
 
 	f.Comment("we have 3 remaining elements")
-	// vpmovzxdq 	2*32(PX), %zmm4;	vpaddq	%zmm4, %zmm0, %zmm0
 	f.VPMOVZXDQ("2*32("+addrA+")", Z4)
 	f.VPADDQ(Z4, Z0, Z0)
 
@@ -321,14 +345,14 @@ func (f *FFAmd64) generateSumVec() {
 	// mul $32 by tmp0
 	// TODO use better instructions
 	f.MOVQ("$32", amd64.DX)
-	f.IMULQ(tmp0, amd64.DX)
+	f.IMULQ(nMod4, amd64.DX)
 	f.ADDQ(amd64.DX, addrA)
 
-	f.Push(&registers, tmp0) // we don't need tmp0
-	tmp0 = ""
+	f.Push(&registers, nMod4) // we don't need tmp0
+	nMod4 = ""
 
 	f.LABEL(loop)
-	f.TESTQ(len, len)
+	f.TESTQ(n, n)
 	f.JEQ(accumulate, "n == 0, we are going to accumulate")
 
 	f.VPMOVZXDQ("0*32("+addrA+")", Z4)
@@ -345,15 +369,16 @@ func (f *FFAmd64) generateSumVec() {
 
 	f.Comment("increment pointers to visit next 4 elements")
 	f.ADDQ("$128", addrA)
-	f.DECQ(len, "decrement n")
+	f.DECQ(n, "decrement n")
 	f.JMP(loop)
 
-	f.Push(&registers, len, addrA) // we don't need len
-	len = ""
+	f.Push(&registers, n, addrA) // we don't need len
+	n = ""
 	addrA = ""
 
 	f.LABEL(accumulate)
 
+	f.Comment("accumulate the 4 Z registers into Z0")
 	f.VPADDQ(Z1, Z0, Z0)
 	f.VPADDQ(Z3, Z2, Z2)
 	f.VPADDQ(Z2, Z0, Z0)
@@ -372,6 +397,17 @@ func (f *FFAmd64) generateSumVec() {
 	low3h := f.Pop(&registers)
 
 	// Propagate carries
+	f.Comment("carry propagation")
+
+	f.LabelRegisters("lo(w0)", w0l)
+	f.LabelRegisters("hi(w0)", w0h)
+	f.LabelRegisters("lo(w1)", w1l)
+	f.LabelRegisters("hi(w1)", w1h)
+	f.LabelRegisters("lo(w2)", w2l)
+	f.LabelRegisters("hi(w2)", w2h)
+	f.LabelRegisters("lo(w3)", w3l)
+	f.LabelRegisters("hi(w3)", w3h)
+
 	f.VMOVQ(X0, w0l)
 	f.VALIGNQ("$1", Z0, Z0, Z0)
 	f.VMOVQ(X0, w0h)
@@ -388,13 +424,12 @@ func (f *FFAmd64) generateSumVec() {
 	f.VALIGNQ("$1", Z0, Z0, Z0)
 	f.VMOVQ(X0, w3h)
 
-	// r0 = w0l + lo(woh)
-	// r1 = carry + hi(woh) + w1l + lo(w1h)
-	// r2 = carry + hi(w1h) + w2l + lo(w2h)
-	// r3 = carry + hi(w2h) + w3l + lo(w3h)
+	f.LabelRegisters("lo(hi(wo))", low0h)
+	f.LabelRegisters("lo(hi(w1))", low1h)
+	f.LabelRegisters("lo(hi(w2))", low2h)
+	f.LabelRegisters("lo(hi(w3))", low3h)
 
-	// we need 2 carry so we use ADOXQ and ADCXQ
-	f.XORQ(amd64.AX, amd64.AX)
+	f.XORQ(amd64.AX, amd64.AX, "clear the flags")
 	type hilo struct {
 		hi, lo amd64.Register
 	}
@@ -405,8 +440,14 @@ func (f *FFAmd64) generateSumVec() {
 		f.SHRQ("$32", v.hi)
 	}
 
-	f.XORQ(amd64.AX, amd64.AX)
-	// start the carry chain
+	f.WriteLn(`
+	// r0 = w0l + lo(woh)
+	// r1 = carry + hi(woh) + w1l + lo(w1h)
+	// r2 = carry + hi(w1h) + w2l + lo(w2h)
+	// r3 = carry + hi(w2h) + w3l + lo(w3h)
+	// r4 = carry + hi(w3h)
+	`)
+	f.XORQ(amd64.AX, amd64.AX, "clear the flags")
 	f.ADOXQ(low0h, w0l)
 
 	f.ADOXQ(low1h, w1l)
@@ -426,7 +467,8 @@ func (f *FFAmd64) generateSumVec() {
 	r2 := w2l
 	r3 := w3l
 	r4 := w3h
-	r := []amd64.Register{r0, r1, r2, r3}
+	r := []amd64.Register{r0, r1, r2, r3, r4}
+	f.LabelRegisters("r", r...)
 	// we don't need w0h, w1h, w2h anymore
 	f.Push(&registers, w0h, w1h, w2h)
 	w0h = ""
@@ -440,13 +482,10 @@ func (f *FFAmd64) generateSumVec() {
 	low3h = ""
 
 	// Reduce using single-word Barrett
-	// q1 is low 32 bits of T4 and high 32 bits of T3
-	// movq	T3, %rax
-	// shrd	$32, T4, %rax
-	// mulq	MU		// Multiply by mu. q2 in rdx:rax, q3 in rdx
 	mu := f.Pop(&registers)
 
-	f.XORQ(amd64.AX, amd64.AX)
+	f.Comment("reduce using single-word Barrett")
+	f.LabelRegisters("mu=2^288 / q", mu)
 	f.MOVQ(f.mu(), mu)
 	f.MOVQ(r3, amd64.AX)
 	f.SHRQw("$32", r4, amd64.AX)
@@ -474,6 +513,7 @@ func (f *FFAmd64) generateSumVec() {
 	f.Mov(r, addrRes)
 
 	// sub modulus
+	f.Comment("TODO @gbotrel check if 2 conditional substracts is guaranteed to be suffisant for mod reduce")
 	f.SUBQ(f.qAt(0), r0)
 	f.SBBQ(f.qAt(1), r1)
 	f.SBBQ(f.qAt(2), r2)

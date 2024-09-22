@@ -731,7 +731,7 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
 	assert := require.New(t)
 
-	const N = 4*16 + 4
+	const N = 1024*16 + 4
 	a := make(Vector, N)
 	b := make(Vector, N)
 	c := make(Vector, N)
@@ -777,7 +777,7 @@ func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
 func Benchmark{{toTitle .ElementName}}VecOps(b *testing.B) {
 	// note; to benchmark against "no asm" version, use the following
 	// build tag: -tags purego
-	const N = 1024 * 10
+	const N = 1<<20
 	a1 := make(Vector, N)
 	b1 := make(Vector, N)
 	c1 := make(Vector, N)

@@ -68,7 +68,12 @@ func scalarMulVec(res, a, b *{{.ElementName}}, n uint64)
 
 // Sum computes the sum of all elements in the vector.
 func (vector *Vector) Sum() (res {{.ElementName}}) {
-	if len(*vector) == 0 {
+	n := uint64(len(*vector))
+	const minN = 16*7 // AVX512 slower than generic for small n
+	const maxN = (1 << 32) + 1
+	if !supportAvx512 || n <= minN || n >= maxN {
+		// call sumVecGeneric
+		sumVecGeneric(&res, *vector)
 		return
 	}
 	sumVec(&res, &(*vector)[0], uint64(len(*vector)))

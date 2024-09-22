@@ -27,6 +27,9 @@ GLOBL q<>(SB), (RODATA+NOPTR), $32
 // qInv0 q'[0]
 DATA qInv0<>(SB)/8, $0xfffffffeffffffff
 GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
+// Mu
+DATA mu<>(SB)/8, $0x00000002355094ed
+GLOBL mu<>(SB), (RODATA+NOPTR), $8
 
 #define REDUCE(ra0, ra1, ra2, ra3, rb0, rb1, rb2, rb3) \
 	MOVQ    ra0, rb0;        \
@@ -628,46 +631,206 @@ noAdx_5:
 
 // sumVec(res, a *Element, n uint64) res = sum(a[0...n])
 TEXT ·sumVec(SB), NOSPLIT, $0-24
-	MOVQ      a+8(FP), AX
-	MOVQ      n+16(FP), DX
-	VXORQ     ZMM0, ZMM0, ZMM0
-	VMOVDQA64 ZMM0, ZMM1
-	VMOVDQA64 ZMM0, ZMM2
-	VMOVDQA64 ZMM0, ZMM3
-	TESTQ     DX, DX
-	JEQ       done_9           // n == 0, we are done
-	MOVQ      DX, CX
-	ANDQ      $3, CX
-	SHRQ      $2, DX
-	CMPQ      $1, CX
-	JEQ       r1_10            // we have 1 remaining element
-	CMPQ      $2, CX
-	JEQ       r2_11            // we have 2 remaining elements
-	CMPQ      $3, CX
-	JNE       loop_8           // == 0; we have 0 remaining elements
+
+	// Derived from https://github.com/a16z/vectorized-fields
+	// The idea is to use Z registers to accumulate the sum of elements, 4 by 4
+	// first, we handle the case where n % 4 != 0 and add to the accumulators the 1, 2 or 3 remaining elements
+	// then, we loop over the elements 4 by 4 and accumulate the sum in the Z registers
+	// finally, we reduce the sum and store it in res
+	//
+	// when we move an element of a into a Z register, we use VPMOVZXDQ
+	// let's note w0...w3 the 4 64bits words of ai: w0 = ai[0], w1 = ai[1], w2 = ai[2], w3 = ai[3]
+	// VPMOVZXDQ(ai, Z0) will result in
+	// Z0= [hi(w3), lo(w3), hi(w2), lo(w2), hi(w1), lo(w1), hi(w0), lo(w0)]
+	// with hi(wi) the high 32 bits of wi and lo(wi) the low 32 bits of wi
+	// we can safely add 2^32+1 times Z registers constructed this way without overflow
+	// since each of this lo/hi bits are moved into a "64bits" slot
+	// N = 2^64-1 / 2^32-1 = 2^32+1
+	//
+	// we then propagate the carry using ADOXQ and ADCXQ
+	// r0 = w0l + lo(woh)
+	// r1 = carry + hi(woh) + w1l + lo(w1h)
+	// r2 = carry + hi(w1h) + w2l + lo(w2h)
+	// r3 = carry + hi(w2h) + w3l + lo(w3h)
+	// r4 = carry + hi(w3h)
+	// we then reduce the sum using a single-word Barrett reduction
+
+	MOVQ a+8(FP), R14
+	MOVQ n+16(FP), R15
+
+	// initialize accumulators Z0, Z1, Z2, Z3
+	VXORPS    Z0, Z0, Z0
+	VMOVDQA64 Z0, Z1
+	VMOVDQA64 Z0, Z2
+	VMOVDQA64 Z0, Z3
+
+	// n % 4 -> CX
+	// n / 4 -> R15
+	MOVQ R15, CX
+	ANDQ $3, CX
+	SHRQ $2, R15
+	CMPQ CX, $1
+	JEQ  r1_10      // we have 1 remaining element
+	CMPQ CX, $2
+	JEQ  r2_11      // we have 2 remaining elements
+	CMPQ CX, $3
+	JNE  loop4by4_8 // we have 0 remaining elements
 
 	// we have 3 remaining elements
-	VPMOVZXDQ 2*32(AX), ZMM4
-	VPADDQ    ZMM4, ZMM0, ZMM0
+	VPMOVZXDQ 2*32(R14), Z4
+	VPADDQ    Z4, Z0, Z0
 
 r2_11:
 	// we have 2 remaining elements
-	VPMOVZXDQ 1*32(AX), ZMM4
-	VPADDQ    ZMM4, ZMM1, ZMM1
+	VPMOVZXDQ 1*32(R14), Z4
+	VPADDQ    Z4, Z1, Z1
 
 r1_10:
 	// we have 1 remaining element
-	VPMOVZXDQ 0*32(AX), ZMM4
-	VPADDQ    ZMM4, ZMM2, ZMM2
-	TESTQ     DX, DX
-	JEQ       done_9           // n == 0, we are done
+	VPMOVZXDQ 0*32(R14), Z4
+	VPADDQ    Z4, Z2, Z2
+	MOVQ      $32, DX
+	IMULQ     CX, DX
+	ADDQ      DX, R14
 
-loop_8:
-	// increment pointers to visit next element
-	ADDQ $128, AX
-	DECQ DX       // decrement n
-	JMP  loop_8
+loop4by4_8:
+	TESTQ     R15, R15
+	JEQ       accumulate_12 // n == 0, we are going to accumulate
+	VPMOVZXDQ 0*32(R14), Z4
+	VPADDQ    Z4, Z0, Z0
+	VPMOVZXDQ 1*32(R14), Z4
+	VPADDQ    Z4, Z1, Z1
+	VPMOVZXDQ 2*32(R14), Z4
+	VPADDQ    Z4, Z2, Z2
+	VPMOVZXDQ 3*32(R14), Z4
+	VPADDQ    Z4, Z3, Z3
+
+	// increment pointers to visit next 4 elements
+	ADDQ $128, R14
+	DECQ R15        // decrement n
+	JMP  loop4by4_8
+
+accumulate_12:
+	// accumulate the 4 Z registers into Z0
+	VPADDQ Z1, Z0, Z0
+	VPADDQ Z3, Z2, Z2
+	VPADDQ Z2, Z0, Z0
+
+	// carry propagation
+	// lo(w0) -> BX
+	// hi(w0) -> SI
+	// lo(w1) -> DI
+	// hi(w1) -> R8
+	// lo(w2) -> R9
+	// hi(w2) -> R10
+	// lo(w3) -> R11
+	// hi(w3) -> R12
+	VMOVQ   X0, BX
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, SI
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, DI
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, R8
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, R9
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, R10
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, R11
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, R12
+
+	// lo(hi(wo)) -> R13
+	// lo(hi(w1)) -> CX
+	// lo(hi(w2)) -> R15
+	// lo(hi(w3)) -> R14
+	XORQ AX, AX           // clear the flags
+	MOVQ SI, R13
+	ANDQ $0xffffffff, R13
+	SHLQ $32, R13
+	SHRQ $32, SI
+	MOVQ R8, CX
+	ANDQ $0xffffffff, CX
+	SHLQ $32, CX
+	SHRQ $32, R8
+	MOVQ R10, R15
+	ANDQ $0xffffffff, R15
+	SHLQ $32, R15
+	SHRQ $32, R10
+	MOVQ R12, R14
+	ANDQ $0xffffffff, R14
+	SHLQ $32, R14
+	SHRQ $32, R12
+
+	// r0 = w0l + lo(woh)
+	// r1 = carry + hi(woh) + w1l + lo(w1h)
+	// r2 = carry + hi(w1h) + w2l + lo(w2h)
+	// r3 = carry + hi(w2h) + w3l + lo(w3h)
+	// r4 = carry + hi(w3h)
+
+	XORQ  AX, AX   // clear the flags
+	ADOXQ R13, BX
+	ADOXQ CX, DI
+	ADCXQ SI, DI
+	ADOXQ R15, R9
+	ADCXQ R8, R9
+	ADOXQ R14, R11
+	ADCXQ R10, R11
+	ADOXQ AX, R12
+	ADCXQ AX, R12
+
+	// r[0] -> BX
+	// r[1] -> DI
+	// r[2] -> R9
+	// r[3] -> R11
+	// r[4] -> R12
+	// reduce using single-word Barrett
+	// mu=2^288 / q -> SI
+	MOVQ  mu<>(SB), SI
+	MOVQ  R11, AX
+	SHRQ  $32, R12, AX
+	MULQ  SI
+	MULXQ q<>+0(SB), AX, SI
+	SUBQ  AX, BX
+	SBBQ  SI, DI
+	MULXQ q<>+16(SB), AX, SI
+	SBBQ  AX, R9
+	SBBQ  SI, R11
+	SBBQ  $0, R12
+	MULXQ q<>+8(SB), AX, SI
+	SUBQ  AX, DI
+	SBBQ  SI, R9
+	MULXQ q<>+24(SB), AX, SI
+	SBBQ  AX, R11
+	SBBQ  SI, R12
+	MOVQ  res+0(FP), SI
+	MOVQ  BX, 0(SI)
+	MOVQ  DI, 8(SI)
+	MOVQ  R9, 16(SI)
+	MOVQ  R11, 24(SI)
+
+	// TODO @gbotrel check if 2 conditional substracts is guaranteed to be suffisant for mod reduce
+	SUBQ q<>+0(SB), BX
+	SBBQ q<>+8(SB), DI
+	SBBQ q<>+16(SB), R9
+	SBBQ q<>+24(SB), R11
+	SBBQ $0, R12
+	JCS  done_9
+	MOVQ BX, 0(SI)
+	MOVQ DI, 8(SI)
+	MOVQ R9, 16(SI)
+	MOVQ R11, 24(SI)
+	SUBQ q<>+0(SB), BX
+	SBBQ q<>+8(SB), DI
+	SBBQ q<>+16(SB), R9
+	SBBQ q<>+24(SB), R11
+	SBBQ $0, R12
+	JCS  done_9
+	MOVQ BX, 0(SI)
+	MOVQ DI, 8(SI)
+	MOVQ R9, 16(SI)
+	MOVQ R11, 24(SI)
 
 done_9:
-	MOVQ res+0(FP), AX
 	RET
