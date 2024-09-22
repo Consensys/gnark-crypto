@@ -349,7 +349,6 @@ func (f *FFAmd64) generateSumVec() {
 	f.ADDQ(amd64.DX, addrA)
 
 	f.Push(&registers, nMod4) // we don't need tmp0
-	nMod4 = ""
 
 	f.LABEL(loop)
 	f.TESTQ(n, n)
@@ -373,8 +372,6 @@ func (f *FFAmd64) generateSumVec() {
 	f.JMP(loop)
 
 	f.Push(&registers, n, addrA) // we don't need len
-	n = ""
-	addrA = ""
 
 	f.LABEL(accumulate)
 
@@ -471,15 +468,8 @@ func (f *FFAmd64) generateSumVec() {
 	f.LabelRegisters("r", r...)
 	// we don't need w0h, w1h, w2h anymore
 	f.Push(&registers, w0h, w1h, w2h)
-	w0h = ""
-	w1h = ""
-	w2h = ""
 	// we don't need the low bits anymore
 	f.Push(&registers, low0h, low1h, low2h, low3h)
-	low0h = ""
-	low1h = ""
-	low2h = ""
-	low3h = ""
 
 	// Reduce using single-word Barrett
 	mu := f.Pop(&registers)
@@ -513,7 +503,7 @@ func (f *FFAmd64) generateSumVec() {
 	f.Mov(r, addrRes)
 
 	// sub modulus
-	f.Comment("TODO @gbotrel check if 2 conditional substracts is guaranteed to be suffisant for mod reduce")
+	f.Comment("TODO @gbotrel check if 2 conditional subtracts is guaranteed to be suffisant for mod reduce")
 	f.SUBQ(f.qAt(0), r0)
 	f.SBBQ(f.qAt(1), r1)
 	f.SBBQ(f.qAt(2), r2)

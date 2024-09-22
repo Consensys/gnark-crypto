@@ -810,7 +810,7 @@ accumulate_12:
 	MOVQ  R9, 16(SI)
 	MOVQ  R11, 24(SI)
 
-	// TODO @gbotrel check if 2 conditional substracts is guaranteed to be suffisant for mod reduce
+	// TODO @gbotrel check if 2 conditional subtracts is guaranteed to be suffisant for mod reduce
 	SUBQ q<>+0(SB), BX
 	SBBQ q<>+8(SB), DI
 	SBBQ q<>+16(SB), R9
