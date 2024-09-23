@@ -152,7 +152,7 @@ func (f *FFAmd64) generateMul(forceADX bool) {
 	registers := f.FnHeader("mul", stackSize, argSize, reserved...)
 	defer f.AssertCleanStack(stackSize, minStackSize)
 
-	f.WriteLn(fmt.Sprintf(`
+	f.WriteLn(`
 	// the algorithm is described in the Mul declaration (.go)
 	// however, to benefit from the ADCX and ADOX carry chains
 	// we split the inner loops in 2:
@@ -164,7 +164,7 @@ func (f *FFAmd64) generateMul(forceADX bool) {
 	// 		for j=1 to N-1
 	// 		    (C,t[j-1]) := t[j] + m*q[j] + C
 	// 		t[N-1] = C + A
-	`))
+	`)
 	if stackSize > 0 {
 		f.WriteLn("NO_LOCAL_POINTERS")
 	}
