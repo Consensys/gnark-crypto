@@ -15,6 +15,8 @@
 package amd64
 
 import (
+	"fmt"
+
 	"github.com/consensys/bavard/amd64"
 )
 
@@ -254,9 +256,9 @@ func (f *FFAmd64) generateSumVec() {
 
 	f.WriteLn(`
 	// Derived from https://github.com/a16z/vectorized-fields
-	// The idea is to use Z registers to accumulate the sum of elements, 4 by 4
-	// first, we handle the case where n % 4 != 0 and add to the accumulators the 1, 2 or 3 remaining elements
-	// then, we loop over the elements 4 by 4 and accumulate the sum in the Z registers
+	// The idea is to use Z registers to accumulate the sum of elements, 8 by 8
+	// first, we handle the case where n % 8 != 0
+	// then, we loop over the elements 8 by 8 and accumulate the sum in the Z registers
 	// finally, we reduce the sum and store it in res
 	// 
 	// when we move an element of a into a Z register, we use VPMOVZXDQ
@@ -283,12 +285,11 @@ func (f *FFAmd64) generateSumVec() {
 	// registers & labels we need
 	addrA := f.Pop(&registers)
 	n := f.Pop(&registers)
-	nMod4 := f.Pop(&registers)
+	nMod8 := f.Pop(&registers)
 
-	loop := f.NewLabel("loop4by4")
+	loop := f.NewLabel("loop8by8")
 	done := f.NewLabel("done")
-	rr1 := f.NewLabel("r1")
-	rr2 := f.NewLabel("r2")
+	loopSingle := f.NewLabel("loop_single")
 	accumulate := f.NewLabel("accumulate")
 
 	// AVX512 registers
@@ -297,91 +298,81 @@ func (f *FFAmd64) generateSumVec() {
 	Z2 := amd64.Register("Z2")
 	Z3 := amd64.Register("Z3")
 	Z4 := amd64.Register("Z4")
+	Z5 := amd64.Register("Z5")
+	Z6 := amd64.Register("Z6")
+	Z7 := amd64.Register("Z7")
+	Z8 := amd64.Register("Z8")
+
 	X0 := amd64.Register("X0")
 
 	// load arguments
 	f.MOVQ("a+8(FP)", addrA)
 	f.MOVQ("n+16(FP)", n)
 
-	f.Comment("initialize accumulators Z0, Z1, Z2, Z3")
+	f.Comment("initialize accumulators Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7")
 	f.VXORPS(Z0, Z0, Z0)
 	f.VMOVDQA64(Z0, Z1)
 	f.VMOVDQA64(Z0, Z2)
 	f.VMOVDQA64(Z0, Z3)
+	f.VMOVDQA64(Z0, Z4)
+	f.VMOVDQA64(Z0, Z5)
+	f.VMOVDQA64(Z0, Z6)
+	f.VMOVDQA64(Z0, Z7)
 
 	// note: we don't need to handle the case n==0; handled by caller already.
 	// f.TESTQ(n, n)
 	// f.JEQ(done, "n == 0, we are done")
 
-	f.LabelRegisters("n % 4", nMod4)
-	f.LabelRegisters("n / 4", n)
-	f.MOVQ(n, nMod4)
-	f.ANDQ("$3", nMod4) // t0 = n % 4
-	f.SHRQ("$2", n)     // len = n / 4
+	f.LabelRegisters("n % 8", nMod8)
+	f.LabelRegisters("n / 8", n)
+	f.MOVQ(n, nMod8)
+	f.ANDQ("$7", nMod8) // nMod8 = n % 8
+	f.SHRQ("$3", n)     // len = n / 8
 
-	// if len % 4 != 0, we need to handle the remaining elements
-	f.CMPQ(nMod4, "$1")
-	f.JEQ(rr1, "we have 1 remaining element")
+	f.LABEL(loopSingle)
+	f.TESTQ(nMod8, nMod8)
+	f.JEQ(loop, "n % 8 == 0, we are going to loop over 8 by 8")
 
-	f.CMPQ(nMod4, "$2")
-	f.JEQ(rr2, "we have 2 remaining elements")
+	f.VPMOVZXDQ("0("+addrA+")", Z8)
+	f.VPADDQ(Z8, Z0, Z0)
+	f.ADDQ("$32", addrA)
 
-	f.CMPQ(nMod4, "$3")
-	f.JNE(loop, "we have 0 remaining elements")
+	f.DECQ(nMod8, "decrement nMod8")
+	f.JMP(loopSingle)
 
-	f.Comment("we have 3 remaining elements")
-	f.VPMOVZXDQ("2*32("+addrA+")", Z4)
-	f.VPADDQ(Z4, Z0, Z0)
-
-	f.LABEL(rr2)
-	f.Comment("we have 2 remaining elements")
-	// vpmovzxdq 	1*32(PX), %zmm4;	vpaddq	%zmm4, %zmm1, %zmm1
-	f.VPMOVZXDQ("1*32("+addrA+")", Z4)
-	f.VPADDQ(Z4, Z1, Z1)
-
-	f.LABEL(rr1)
-	f.Comment("we have 1 remaining element")
-	// vpmovzxdq 	0*32(PX), %zmm4;	vpaddq	%zmm4, %zmm2, %zmm2
-	f.VPMOVZXDQ("0*32("+addrA+")", Z4)
-	f.VPADDQ(Z4, Z2, Z2)
-
-	// mul $32 by tmp0
-	// TODO use better instructions
-	f.MOVQ("$32", amd64.DX)
-	f.IMULQ(nMod4, amd64.DX)
-	f.ADDQ(amd64.DX, addrA)
-
-	f.Push(&registers, nMod4) // we don't need tmp0
+	f.Push(&registers, nMod8) // we don't need tmp0
 
 	f.LABEL(loop)
 	f.TESTQ(n, n)
 	f.JEQ(accumulate, "n == 0, we are going to accumulate")
 
-	f.VPMOVZXDQ("0*32("+addrA+")", Z4)
-	f.VPADDQ(Z4, Z0, Z0)
+	for i := 0; i < 8; i++ {
+		r := fmt.Sprintf("Z%d", i+8)
+		f.VPMOVZXDQ(fmt.Sprintf("%d*32("+string(addrA)+")", i), r)
+	}
+	f.WriteLn(fmt.Sprintf("PREFETCHT0 256(%[1]s)", addrA))
+	for i := 0; i < 8; i++ {
+		r := fmt.Sprintf("Z%d", i)
+		f.VPADDQ(fmt.Sprintf("Z%d", i+8), r, r)
+	}
 
-	f.VPMOVZXDQ("1*32("+addrA+")", Z4)
-	f.VPADDQ(Z4, Z1, Z1)
-
-	f.VPMOVZXDQ("2*32("+addrA+")", Z4)
-	f.VPADDQ(Z4, Z2, Z2)
-
-	f.VPMOVZXDQ("3*32("+addrA+")", Z4)
-	f.VPADDQ(Z4, Z3, Z3)
-
-	f.Comment("increment pointers to visit next 4 elements")
-	f.ADDQ("$128", addrA)
+	f.Comment("increment pointers to visit next 8 elements")
+	f.ADDQ("$256", addrA)
 	f.DECQ(n, "decrement n")
 	f.JMP(loop)
 
-	f.Push(&registers, n, addrA) // we don't need len
+	f.Push(&registers, n, addrA)
 
 	f.LABEL(accumulate)
 
-	f.Comment("accumulate the 4 Z registers into Z0")
-	f.VPADDQ(Z1, Z0, Z0)
+	f.Comment("accumulate the 8 Z registers into Z0")
+	f.VPADDQ(Z7, Z6, Z6)
+	f.VPADDQ(Z6, Z5, Z5)
+	f.VPADDQ(Z5, Z4, Z4)
+	f.VPADDQ(Z4, Z3, Z3)
 	f.VPADDQ(Z3, Z2, Z2)
-	f.VPADDQ(Z2, Z0, Z0)
+	f.VPADDQ(Z2, Z1, Z1)
+	f.VPADDQ(Z1, Z0, Z0)
 
 	w0l := f.Pop(&registers)
 	w0h := f.Pop(&registers)
@@ -429,15 +420,19 @@ func (f *FFAmd64) generateSumVec() {
 	f.LabelRegisters("lo(hi(w2))", low2h)
 	f.LabelRegisters("lo(hi(w3))", low3h)
 
-	f.XORQ(amd64.AX, amd64.AX, "clear the flags")
 	type hilo struct {
 		hi, lo amd64.Register
 	}
+
+	f.WriteLn(`#define SPLIT_LO_HI(lo, hi) \
+		MOVQ hi, lo; \
+		ANDQ $0xffffffff, lo; \
+		SHLQ $32, lo; \
+		SHRQ $32, hi; \
+	`)
+
 	for _, v := range []hilo{{w0h, low0h}, {w1h, low1h}, {w2h, low2h}, {w3h, low3h}} {
-		f.MOVQ(v.hi, v.lo)
-		f.ANDQ("$0xffffffff", v.lo)
-		f.SHLQ("$32", v.lo)
-		f.SHRQ("$32", v.hi)
+		f.WriteLn(`SPLIT_LO_HI(` + string(v.lo) + `, ` + string(v.hi) + `)`)
 	}
 
 	f.WriteLn(`

@@ -633,9 +633,9 @@ noAdx_5:
 TEXT ·sumVec(SB), NOSPLIT, $0-24
 
 	// Derived from https://github.com/a16z/vectorized-fields
-	// The idea is to use Z registers to accumulate the sum of elements, 4 by 4
-	// first, we handle the case where n % 4 != 0 and add to the accumulators the 1, 2 or 3 remaining elements
-	// then, we loop over the elements 4 by 4 and accumulate the sum in the Z registers
+	// The idea is to use Z registers to accumulate the sum of elements, 8 by 8
+	// first, we handle the case where n % 8 != 0
+	// then, we loop over the elements 8 by 8 and accumulate the sum in the Z registers
 	// finally, we reduce the sum and store it in res
 	//
 	// when we move an element of a into a Z register, we use VPMOVZXDQ
@@ -661,63 +661,66 @@ TEXT ·sumVec(SB), NOSPLIT, $0-24
 	MOVQ a+8(FP), R14
 	MOVQ n+16(FP), R15
 
-	// initialize accumulators Z0, Z1, Z2, Z3
+	// initialize accumulators Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7
 	VXORPS    Z0, Z0, Z0
 	VMOVDQA64 Z0, Z1
 	VMOVDQA64 Z0, Z2
 	VMOVDQA64 Z0, Z3
+	VMOVDQA64 Z0, Z4
+	VMOVDQA64 Z0, Z5
+	VMOVDQA64 Z0, Z6
+	VMOVDQA64 Z0, Z7
 
-	// n % 4 -> CX
-	// n / 4 -> R15
+	// n % 8 -> CX
+	// n / 8 -> R15
 	MOVQ R15, CX
-	ANDQ $3, CX
-	SHRQ $2, R15
-	CMPQ CX, $1
-	JEQ  r1_10      // we have 1 remaining element
-	CMPQ CX, $2
-	JEQ  r2_11      // we have 2 remaining elements
-	CMPQ CX, $3
-	JNE  loop4by4_8 // we have 0 remaining elements
+	ANDQ $7, CX
+	SHRQ $3, R15
 
-	// we have 3 remaining elements
-	VPMOVZXDQ 2*32(R14), Z4
-	VPADDQ    Z4, Z0, Z0
+loop_single_10:
+	TESTQ     CX, CX
+	JEQ       loop8by8_8     // n % 8 == 0, we are going to loop over 8 by 8
+	VPMOVZXDQ 0(R14), Z8
+	VPADDQ    Z8, Z0, Z0
+	ADDQ      $32, R14
+	DECQ      CX             // decrement nMod8
+	JMP       loop_single_10
 
-r2_11:
-	// we have 2 remaining elements
-	VPMOVZXDQ 1*32(R14), Z4
-	VPADDQ    Z4, Z1, Z1
+loop8by8_8:
+	TESTQ      R15, R15
+	JEQ        accumulate_11  // n == 0, we are going to accumulate
+	VPMOVZXDQ  0*32(R14), Z8
+	VPMOVZXDQ  1*32(R14), Z9
+	VPMOVZXDQ  2*32(R14), Z10
+	VPMOVZXDQ  3*32(R14), Z11
+	VPMOVZXDQ  4*32(R14), Z12
+	VPMOVZXDQ  5*32(R14), Z13
+	VPMOVZXDQ  6*32(R14), Z14
+	VPMOVZXDQ  7*32(R14), Z15
+	PREFETCHT0 256(R14)
+	VPADDQ     Z8, Z0, Z0
+	VPADDQ     Z9, Z1, Z1
+	VPADDQ     Z10, Z2, Z2
+	VPADDQ     Z11, Z3, Z3
+	VPADDQ     Z12, Z4, Z4
+	VPADDQ     Z13, Z5, Z5
+	VPADDQ     Z14, Z6, Z6
+	VPADDQ     Z15, Z7, Z7
 
-r1_10:
-	// we have 1 remaining element
-	VPMOVZXDQ 0*32(R14), Z4
-	VPADDQ    Z4, Z2, Z2
-	MOVQ      $32, DX
-	IMULQ     CX, DX
-	ADDQ      DX, R14
-
-loop4by4_8:
-	TESTQ     R15, R15
-	JEQ       accumulate_12 // n == 0, we are going to accumulate
-	VPMOVZXDQ 0*32(R14), Z4
-	VPADDQ    Z4, Z0, Z0
-	VPMOVZXDQ 1*32(R14), Z4
-	VPADDQ    Z4, Z1, Z1
-	VPMOVZXDQ 2*32(R14), Z4
-	VPADDQ    Z4, Z2, Z2
-	VPMOVZXDQ 3*32(R14), Z4
-	VPADDQ    Z4, Z3, Z3
-
-	// increment pointers to visit next 4 elements
-	ADDQ $128, R14
+	// increment pointers to visit next 8 elements
+	ADDQ $256, R14
 	DECQ R15        // decrement n
-	JMP  loop4by4_8
+	JMP  loop8by8_8
 
-accumulate_12:
-	// accumulate the 4 Z registers into Z0
-	VPADDQ Z1, Z0, Z0
+accumulate_11:
+	// accumulate the 8 Z registers into Z0
+	VPADDQ Z7, Z6, Z6
+	VPADDQ Z6, Z5, Z5
+	VPADDQ Z5, Z4, Z4
+	VPADDQ Z4, Z3, Z3
 	VPADDQ Z3, Z2, Z2
-	VPADDQ Z2, Z0, Z0
+	VPADDQ Z2, Z1, Z1
+	VPADDQ Z1, Z0, Z0
 
 	// carry propagation
 	// lo(w0) -> BX
@@ -748,23 +751,16 @@ accumulate_12:
 	// lo(hi(w1)) -> CX
 	// lo(hi(w2)) -> R15
 	// lo(hi(w3)) -> R14
-	XORQ AX, AX           // clear the flags
-	MOVQ SI, R13
-	ANDQ $0xffffffff, R13
-	SHLQ $32, R13
-	SHRQ $32, SI
-	MOVQ R8, CX
-	ANDQ $0xffffffff, CX
-	SHLQ $32, CX
-	SHRQ $32, R8
-	MOVQ R10, R15
-	ANDQ $0xffffffff, R15
-	SHLQ $32, R15
-	SHRQ $32, R10
-	MOVQ R12, R14
-	ANDQ $0xffffffff, R14
-	SHLQ $32, R14
-	SHRQ $32, R12
+#define SPLIT_LO_HI(lo, hi) \
+	MOVQ hi, lo;          \
+	ANDQ $0xffffffff, lo; \
+	SHLQ $32, lo;         \
+	SHRQ $32, hi;         \
+
+	SPLIT_LO_HI(R13, SI)
+	SPLIT_LO_HI(CX, R8)
+	SPLIT_LO_HI(R15, R10)
+	SPLIT_LO_HI(R14, R12)
 
 	// r0 = w0l + lo(woh)
 	// r1 = carry + hi(woh) + w1l + lo(w1h)
