@@ -748,13 +748,16 @@ func TestElementVecOps(t *testing.T) {
 	}
 
 	// Vector sum
-	var sum Element
-	computed := c.Sum()
-	for i := 0; i < N; i++ {
-		sum.Add(&sum, &c[i])
-	}
+	for i := 0; i < N/2; i++ {
+		subVec := c[:i]
+		var sum Element
+		computed := subVec.Sum()
+		for j := 0; j < len(subVec); j++ {
+			sum.Add(&sum, &subVec[j])
+		}
 
-	assert.True(sum.Equal(&computed), "Vector sum failed")
+		assert.True(sum.Equal(&computed), "Vector sum failed")
+	}
 }
 
 func BenchmarkElementVecOps(b *testing.B) {
