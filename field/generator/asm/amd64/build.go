@@ -28,15 +28,37 @@ import (
 
 const SmallModulus = 6
 
-func NewFFAmd64(w io.Writer, F *config.FieldConfig) *FFAmd64 {
-	return &FFAmd64{F, amd64.NewAmd64(w), 0, 0}
+func NewFFAmd64(w io.Writer, nbWords int) *FFAmd64 {
+	F := &FFAmd64{
+		amd64.NewAmd64(w),
+		0,
+		0,
+		nbWords,
+		nbWords - 1,
+		make([]int, nbWords),
+		make([]int, nbWords-1),
+	}
+
+	// indexes (template helpers)
+	for i := 0; i < F.NbWords; i++ {
+		F.NbWordsIndexesFull[i] = i
+		if i > 0 {
+			F.NbWordsIndexesNoZero[i-1] = i
+		}
+	}
+
+	return F
 }
 
 type FFAmd64 struct {
-	*config.FieldConfig
+	// *config.FieldConfig
 	*amd64.Amd64
-	nbElementsOnStack int
-	maxOnStack        int
+	nbElementsOnStack    int
+	maxOnStack           int
+	NbWords              int
+	NbWordsLastIndex     int
+	NbWordsIndexesFull   []int
+	NbWordsIndexesNoZero []int
 }
 
 func (f *FFAmd64) StackSize(maxNbRegistersNeeded, nbRegistersReserved, minStackSize int) int {
@@ -139,17 +161,36 @@ func (f *FFAmd64) mu() string {
 	return "mu<>(SB)"
 }
 
-// Generate generates assembly code for the base field provided to goff
+func GenerateFieldWrapper(w io.Writer, F *config.FieldConfig) error {
+	// for each field we generate the defines for the modulus and the montgomery constant
+	f := NewFFAmd64(w, F.NbWords)
+
+	// we add the defines first, then the common asm, then the global variable section
+	// to enable correct compilations with #include in order.
+	f.WriteLn("")
+	for i := 0; i < F.NbWords; i++ {
+		f.WriteLn(fmt.Sprintf("#define q%d $%#016x", i, F.Q[i]))
+	}
+
+	toInclude := fmt.Sprintf("../../../field/asm/element_%dw_amd64.h", F.NbWords)
+	f.WriteLn(fmt.Sprintf("#include \"%s\"\n", toInclude))
+
+	f.GenerateFieldDefines(F)
+
+	return nil
+}
+
+// GenerateCommonASM generates assembly code for the base field provided to goff
 // see internal/templates/ops*
-func Generate(w io.Writer, F *config.FieldConfig) error {
-	f := NewFFAmd64(w, F)
+func GenerateCommonASM(w io.Writer, nbWords int) error {
+	f := NewFFAmd64(w, nbWords)
 	f.WriteLn(bavard.Apache2Header("ConsenSys Software Inc.", 2020))
 
 	f.WriteLn("#include \"textflag.h\"")
 	f.WriteLn("#include \"funcdata.h\"")
 	f.WriteLn("")
 
-	f.GenerateDefines()
+	f.GenerateReduceDefine()
 
 	// reduce
 	f.generateReduce()
@@ -170,41 +211,11 @@ func Generate(w io.Writer, F *config.FieldConfig) error {
 		f.generateSumVec()
 	}
 
-	return nil
-}
-
-func GenerateMul(w io.Writer, F *config.FieldConfig) error {
-	f := NewFFAmd64(w, F)
-	f.WriteLn(bavard.Apache2Header("ConsenSys Software Inc.", 2020))
-
-	f.WriteLn("#include \"textflag.h\"")
-	f.WriteLn("#include \"funcdata.h\"")
-	f.WriteLn("")
-	f.GenerateDefines()
-
 	// mul
 	f.generateMul(false)
 
 	// from mont
 	f.generateFromMont(false)
-
-	return nil
-}
-
-func GenerateMulADX(w io.Writer, F *config.FieldConfig) error {
-	f := NewFFAmd64(w, F)
-	f.WriteLn(bavard.Apache2Header("ConsenSys Software Inc.", 2020))
-
-	f.WriteLn("#include \"textflag.h\"")
-	f.WriteLn("#include \"funcdata.h\"")
-	f.WriteLn("")
-	f.GenerateDefines()
-
-	// mul
-	f.generateMul(true)
-
-	// from mont
-	f.generateFromMont(true)
 
 	return nil
 }

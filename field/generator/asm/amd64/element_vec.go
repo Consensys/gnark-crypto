@@ -125,7 +125,10 @@ func (f *FFAmd64) generateSubVec() {
 	// reduce a
 	f.Comment("reduce (a-b) mod q")
 	f.LabelRegisters("q", q...)
-	f.Mov(f.Q, q)
+	// f.Mov(f.Q, q)
+	for i := 0; i < f.NbWords; i++ {
+		f.MOVQ(fmt.Sprintf("q%d", i), q[i])
+	}
 	for i := 0; i < f.NbWords; i++ {
 		f.CMOVQCC(zero, q[i])
 	}

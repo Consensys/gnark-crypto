@@ -45,21 +45,41 @@ var bgen = bavard.NewBatchGenerator(copyrightHolder, copyrightYear, "consensys/g
 func main() {
 	var wg sync.WaitGroup
 
+	// generate common assembly files depending on field number of words
+	m := make(map[int]bool)
+	for i, conf := range config.Curves {
+		var err error
+		// generate base field
+		conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
+		assertNoError(err)
+
+		conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
+		assertNoError(err)
+
+		m[conf.Fr.NbWords] = true
+		m[conf.Fp.NbWords] = true
+
+		config.Curves[i] = conf
+	}
+	for nbWords := range m {
+		asmDir := filepath.Join(baseDir, "field", "asm")
+		assertNoError(generator.GenerateCommonASM(nbWords, asmDir))
+	}
+
 	for _, conf := range config.Curves {
 		wg.Add(1)
 		// for each curve, generate the needed files
 		go func(conf config.Curve) {
 			defer wg.Done()
-			var err error
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 
-			// generate base field
-			conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
-			assertNoError(err)
+			// // generate base field
+			// conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
+			// assertNoError(err)
 
-			conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
-			assertNoError(err)
+			// conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
+			// assertNoError(err)
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
