@@ -18,6 +18,7 @@ package amd64
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 
 	"github.com/consensys/bavard"
@@ -161,7 +162,7 @@ func (f *FFAmd64) mu() string {
 	return "mu<>(SB)"
 }
 
-func GenerateFieldWrapper(w io.Writer, F *config.FieldConfig) error {
+func GenerateFieldWrapper(w io.Writer, F *config.FieldConfig, asmDir string) error {
 	// for each field we generate the defines for the modulus and the montgomery constant
 	f := NewFFAmd64(w, F.NbWords)
 
@@ -172,8 +173,8 @@ func GenerateFieldWrapper(w io.Writer, F *config.FieldConfig) error {
 		f.WriteLn(fmt.Sprintf("#define q%d $%#016x", i, F.Q[i]))
 	}
 
-	toInclude := fmt.Sprintf("../../../field/asm/element_%dw_amd64.h", F.NbWords)
-	f.WriteLn(fmt.Sprintf("\n#include \"%s\"\n", toInclude))
+	toInclude := fmt.Sprintf("element_%dw_amd64.h", F.NbWords)
+	f.WriteLn(fmt.Sprintf("\n#include \"%s\"\n", filepath.Join(asmDir, toInclude)))
 
 	f.GenerateFieldDefines(F)
 

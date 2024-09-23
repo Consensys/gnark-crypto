@@ -22,7 +22,7 @@ import (
 //
 //	fp, _ = config.NewField("fp", "Element", fpModulus")
 //	generator.GenerateFF(fp, filepath.Join(baseDir, "fp"))
-func GenerateFF(F *config.FieldConfig, outputDir string) error {
+func GenerateFF(F *config.FieldConfig, outputDir, asmDir string) error {
 	// source file templates
 	sourceFiles := []string{
 		element.Base,
@@ -137,7 +137,7 @@ func GenerateFF(F *config.FieldConfig, outputDir string) error {
 
 			_, _ = io.WriteString(f, "// +build !purego\n")
 
-			if err := amd64.GenerateFieldWrapper(f, F); err != nil {
+			if err := amd64.GenerateFieldWrapper(f, F, asmDir); err != nil {
 				_ = f.Close()
 				return err
 			}

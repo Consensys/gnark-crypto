@@ -61,8 +61,8 @@ func main() {
 
 		config.Curves[i] = conf
 	}
+	asmDir := filepath.Join(baseDir, "field", "asm")
 	for nbWords := range m {
-		asmDir := filepath.Join(baseDir, "field", "asm")
 		assertNoError(generator.GenerateCommonASM(nbWords, asmDir))
 	}
 
@@ -76,8 +76,8 @@ func main() {
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
-			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr")))
-			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp")))
+			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr"), filepath.Join("..", asmDir)))
+			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp"), filepath.Join("..", asmDir)))
 
 			// generate ecdsa
 			assertNoError(ecdsa.Generate(conf, curveDir, bgen))
