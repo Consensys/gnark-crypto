@@ -173,7 +173,7 @@ func GenerateFieldWrapper(w io.Writer, F *config.FieldConfig) error {
 	}
 
 	toInclude := fmt.Sprintf("../../../field/asm/element_%dw_amd64.h", F.NbWords)
-	f.WriteLn(fmt.Sprintf("#include \"%s\"\n", toInclude))
+	f.WriteLn(fmt.Sprintf("\n#include \"%s\"\n", toInclude))
 
 	f.GenerateFieldDefines(F)
 

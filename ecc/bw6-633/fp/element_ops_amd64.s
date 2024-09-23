@@ -10,6 +10,7 @@
 #define q7 $0xa8fcd8c75d79d2c7
 #define q8 $0xfc1a174f01d72ab5
 #define q9 $0x0126633cc0f35f63
+
 #include "../../../field/asm/element_10w_amd64.h"
 
 // modulus q

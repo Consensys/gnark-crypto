@@ -61,7 +61,6 @@ func (f *FFAmd64) generateButterfly() {
 			for i := 0; i < f.NbWords; i++ {
 				f.MOVQ(fmt.Sprintf("q%d", i), t0[i])
 			}
-			// f.Mov(f.Q, t0)
 			for i := 0; i < f.NbWords; i++ {
 				f.CMOVQCC(a, t0[i])
 			}
@@ -69,7 +68,6 @@ func (f *FFAmd64) generateButterfly() {
 			f.Add(t0, t1)
 			f.Mov(q, t0) // restore t0
 		} else {
-			// f.Mov(f.Q, q)
 			for i := 0; i < f.NbWords; i++ {
 				f.MOVQ(fmt.Sprintf("q%d", i), q[i])
 			}

@@ -6,6 +6,7 @@
 #define q3 $0x1a22d9f300f5138f
 #define q4 $0xc63b05c06ca1493b
 #define q5 $0x01ae3a4617c510ea
+
 #include "../../../field/asm/element_6w_amd64.h"
 
 // modulus q

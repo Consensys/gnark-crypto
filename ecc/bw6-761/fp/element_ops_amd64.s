@@ -12,6 +12,7 @@
 #define q9 $0xb926186a81d14688
 #define q10 $0xd187c94004faff3e
 #define q11 $0x0122e824fb83ce0a
+
 #include "../../../field/asm/element_12w_amd64.h"
 
 // modulus q
