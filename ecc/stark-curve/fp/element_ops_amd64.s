@@ -789,7 +789,7 @@ accumulate_11:
 	MOVQ  mu<>(SB), SI
 	MOVQ  R11, AX
 	SHRQ  $32, R12, AX
-	MULQ  SI
+	MULQ  SI                 // high bits of res stored in DX
 	MULXQ q<>+0(SB), AX, SI
 	SUBQ  AX, BX
 	SBBQ  SI, DI
@@ -803,33 +803,37 @@ accumulate_11:
 	MULXQ q<>+24(SB), AX, SI
 	SBBQ  AX, R11
 	SBBQ  SI, R12
-	MOVQ  res+0(FP), SI
-	MOVQ  BX, 0(SI)
-	MOVQ  DI, 8(SI)
-	MOVQ  R9, 16(SI)
-	MOVQ  R11, 24(SI)
+	MOVQ  BX, R8
+	MOVQ  DI, R10
+	MOVQ  R9, R13
+	MOVQ  R11, CX
+	SUBQ  q<>+0(SB), BX
+	SBBQ  q<>+8(SB), DI
+	SBBQ  q<>+16(SB), R9
+	SBBQ  q<>+24(SB), R11
+	SBBQ  $0, R12
+	JCS   modReduced_12
+	MOVQ  BX, R8
+	MOVQ  DI, R10
+	MOVQ  R9, R13
+	MOVQ  R11, CX
+	SUBQ  q<>+0(SB), BX
+	SBBQ  q<>+8(SB), DI
+	SBBQ  q<>+16(SB), R9
+	SBBQ  q<>+24(SB), R11
+	SBBQ  $0, R12
+	JCS   modReduced_12
+	MOVQ  BX, R8
+	MOVQ  DI, R10
+	MOVQ  R9, R13
+	MOVQ  R11, CX
 
-	// TODO @gbotrel check if 2 conditional subtracts is guaranteed to be suffisant for mod reduce
-	SUBQ q<>+0(SB), BX
-	SBBQ q<>+8(SB), DI
-	SBBQ q<>+16(SB), R9
-	SBBQ q<>+24(SB), R11
-	SBBQ $0, R12
-	JCS  done_9
-	MOVQ BX, 0(SI)
-	MOVQ DI, 8(SI)
-	MOVQ R9, 16(SI)
-	MOVQ R11, 24(SI)
-	SUBQ q<>+0(SB), BX
-	SBBQ q<>+8(SB), DI
-	SBBQ q<>+16(SB), R9
-	SBBQ q<>+24(SB), R11
-	SBBQ $0, R12
-	JCS  done_9
-	MOVQ BX, 0(SI)
-	MOVQ DI, 8(SI)
-	MOVQ R9, 16(SI)
-	MOVQ R11, 24(SI)
+modReduced_12:
+	MOVQ res+0(FP), SI
+	MOVQ R8, 0(SI)
+	MOVQ R10, 8(SI)
+	MOVQ R13, 16(SI)
+	MOVQ CX, 24(SI)
 
 done_9:
 	RET

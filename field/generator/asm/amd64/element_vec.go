@@ -478,7 +478,7 @@ func (f *FFAmd64) generateSumVec() {
 	f.MOVQ(f.mu(), mu)
 	f.MOVQ(r3, amd64.AX)
 	f.SHRQw("$32", r4, amd64.AX)
-	f.MULQ(mu)
+	f.MULQ(mu, "high bits of res stored in DX")
 
 	f.MULXQ(f.qAt(0), amd64.AX, mu)
 	f.SUBQ(amd64.AX, r0)
@@ -497,12 +497,21 @@ func (f *FFAmd64) generateSumVec() {
 	f.SBBQ(amd64.AX, r3)
 	f.SBBQ(mu, r4)
 
-	addrRes := mu
-	f.MOVQ("res+0(FP)", addrRes)
-	f.Mov(r, addrRes)
+	// we need up to 2 conditional substractions to be < q
+	modReduced := f.NewLabel("modReduced")
+	t := f.PopN(&registers)
+	f.Mov(r[:4], t) // backup r0 to r3 (our result)
 
 	// sub modulus
-	f.Comment("TODO @gbotrel check if 2 conditional subtracts is guaranteed to be suffisant for mod reduce")
+	f.SUBQ(f.qAt(0), r0)
+	f.SBBQ(f.qAt(1), r1)
+	f.SBBQ(f.qAt(2), r2)
+	f.SBBQ(f.qAt(3), r3)
+	f.SBBQ("$0", r4)
+
+	// if borrow, we go to mod reduced
+	f.JCS(modReduced)
+	f.Mov(r, t)
 	f.SUBQ(f.qAt(0), r0)
 	f.SBBQ(f.qAt(1), r1)
 	f.SBBQ(f.qAt(2), r2)
@@ -510,17 +519,13 @@ func (f *FFAmd64) generateSumVec() {
 	f.SBBQ("$0", r4)
 
 	// if borrow, we skip to the end
-	f.JCS(done)
-	f.Mov(r, addrRes)
-	f.SUBQ(f.qAt(0), r0)
-	f.SBBQ(f.qAt(1), r1)
-	f.SBBQ(f.qAt(2), r2)
-	f.SBBQ(f.qAt(3), r3)
-	f.SBBQ("$0", r4)
+	f.JCS(modReduced)
+	f.Mov(r, t)
 
-	// if borrow, we skip to the end
-	f.JCS(done)
-	f.Mov(r, addrRes)
+	f.LABEL(modReduced)
+	addrRes := mu
+	f.MOVQ("res+0(FP)", addrRes)
+	f.Mov(t, addrRes)
 
 	f.LABEL(done)
 
