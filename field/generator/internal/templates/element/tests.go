@@ -735,9 +735,22 @@ func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
 	a := make(Vector, N)
 	b := make(Vector, N)
 	c := make(Vector, N)
+	m := make(Vector, N)
+
+	// set m to max values element
+	// it's not really q-1 (since we have montgomery representation)
+	// but it's the "largest" legal value
+	qMinus1 := new(big.Int).Sub(Modulus(), big.NewInt(1))
+
+	var eQMinus1 {{.ElementName}}
+	for i, v := range qMinus1.Bits() {
+		eQMinus1[i] = uint64(v)
+	}
+
 	for i := 0; i < N; i++ {
 		a[i].SetRandom()
 		b[i].SetRandom()
+		m[i] = eQMinus1
 	}
 
 	// Vector addition
@@ -745,6 +758,12 @@ func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
 	for i := 0; i < N; i++ {
 		var expected {{.ElementName}}
 		expected.Add(&a[i], &b[i])
+		assert.True(c[i].Equal(&expected), "Vector addition failed")
+	}
+	c.Add(a, m)
+	for i := 0; i < N; i++ {
+		var expected {{.ElementName}}
+		expected.Add(&a[i], &m[i])
 		assert.True(c[i].Equal(&expected), "Vector addition failed")
 	}
 
@@ -755,12 +774,24 @@ func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
 		expected.Sub(&a[i], &b[i])
 		assert.True(c[i].Equal(&expected), "Vector subtraction failed")
 	}
+	c.Sub(a, m)
+	for i := 0; i < N; i++ {
+		var expected {{.ElementName}}
+		expected.Sub(&a[i], &m[i])
+		assert.True(c[i].Equal(&expected), "Vector subtraction failed")
+	}
 
 	// Vector scaling
 	c.ScalarMul(a, &b[0])
 	for i := 0; i < N; i++ {
 		var expected {{.ElementName}}
 		expected.Mul(&a[i], &b[0])
+		assert.True(c[i].Equal(&expected), "Vector scaling failed")
+	}
+	c.ScalarMul(m, &b[0])
+	for i := 0; i < N; i++ {
+		var expected {{.ElementName}}
+		expected.Mul(&m[i], &b[0])
 		assert.True(c[i].Equal(&expected), "Vector scaling failed")
 	}
 
@@ -773,6 +804,15 @@ func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
 			sum.Add(&sum, &subVec[j])
 		}
 
+		assert.True(sum.Equal(&computed), "Vector sum failed")
+
+		subVec = m[:i]
+		computed = subVec.Sum()
+		sum.SetZero()
+		for j := 0; j < len(subVec); j++ {
+			sum.Add(&sum, &subVec[j])
+		}
+		
 		assert.True(sum.Equal(&computed), "Vector sum failed")
 	}
 }
