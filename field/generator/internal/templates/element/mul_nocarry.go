@@ -1,6 +1,8 @@
 package element
 
-// MulNoCarry see https://eprint.iacr.org/2022/1400.pdf annex for more info on the algorithm
+// MulNoCarry
+// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS"
+// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
 // Note that these templates are optimized for arm64 target, since x86 benefits from assembly impl.
 const MulNoCarry = `
 {{ define "mul_nocarry" }}

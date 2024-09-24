@@ -483,17 +483,8 @@ noReduce_1:
 // mul(res, x, y *Element)
 TEXT ·mul(SB), $96-24
 
-	// the algorithm is described in the Mul declaration (.go)
-	// however, to benefit from the ADCX and ADOX carry chains
-	// we split the inner loops in 2:
-	// for i=0 to N-1
-	// 		for j=0 to N-1
-	// 		    (A,t[j])  := t[j] + x[j]*y[i] + A
-	// 		m := t[0]*q'[0] mod W
-	// 		C,_ := t[0] + m*q[0]
-	// 		for j=1 to N-1
-	// 		    (C,t[j-1]) := t[j] + m*q[j] + C
-	// 		t[N-1] = C + A
+	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS"
+	// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
 
 	NO_LOCAL_POINTERS
 	CMPB ·supportAdx(SB), $1
@@ -2284,8 +2275,8 @@ noAdx_2:
 TEXT ·fromMont(SB), $96-8
 	NO_LOCAL_POINTERS
 
-	// the algorithm is described here
-	// https://hackmd.io/@gnark/modular_multiplication
+	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS"
+	// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
 	// when y = 1 we have:
 	// for i=0 to N-1
 	// 		t[i] = x[i]
