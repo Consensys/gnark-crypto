@@ -1,4 +1,4 @@
-package ecc
+package eisenstein
 
 import (
 	"crypto/rand"
