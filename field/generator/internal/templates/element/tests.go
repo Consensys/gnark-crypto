@@ -653,8 +653,6 @@ func Test{{toTitle .ElementName}}BitLen(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-
-	
 }
 
 
@@ -740,11 +738,17 @@ func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
 	// set m to max values element
 	// it's not really q-1 (since we have montgomery representation)
 	// but it's the "largest" legal value
-	qMinus1 := new(big.Int).Sub(Modulus(), big.NewInt(1))
-
-	var eQMinus1 {{.ElementName}}
-	for i, v := range qMinus1.Bits() {
-		eQMinus1[i] = uint64(v)
+	eQMinus1 := qElement
+	if eQMinus1[0] != 0 {
+		eQMinus1[0]--
+	} else {
+		eQMinus1[0] = ^uint64(0)
+		for i := 1; i < len(eQMinus1); i++ {
+			if eQMinus1[i] != 0 {
+				eQMinus1[i]--
+				break
+			}
+		}
 	}
 
 	for i := 0; i < N; i++ {
