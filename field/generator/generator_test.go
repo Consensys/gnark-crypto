@@ -46,6 +46,7 @@ func TestIntegration(t *testing.T) {
 	for i := 64; i <= 448; i += 64 {
 		bits = append(bits, i-3, i-2, i-1, i, i+1)
 	}
+	bits = append(bits, 224, 225, 226)
 
 	moduli := make(map[string]string)
 	for _, i := range bits {

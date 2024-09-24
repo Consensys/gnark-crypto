@@ -75,7 +75,7 @@ GLOBL q<>(SB), (RODATA+NOPTR), ${{mul 8 $.NbWords}}
 DATA qInv0<>(SB)/8, {{$qinv0 := index .QInverse 0}}{{imm $qinv0}}
 GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
 
-{{- if eq .NbWords 4}}
+{{- if .ASMVector }}
 // Mu
 DATA mu<>(SB)/8, {{imm .Mu}}
 GLOBL mu<>(SB), (RODATA+NOPTR), $8
@@ -106,7 +106,7 @@ GLOBL q<>(SB), (RODATA+NOPTR), ${{mul 8 $.NbWords}}
 DATA qInv0<>(SB)/8, {{$qinv0 := index .QInverse 0}}{{imm $qinv0}}
 GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
 
-{{- if eq .NbWords 4}}
+{{- if .ASMVector }}
 // Mu
 DATA mu<>(SB)/8, {{imm .Mu}}
 GLOBL mu<>(SB), (RODATA+NOPTR), $8

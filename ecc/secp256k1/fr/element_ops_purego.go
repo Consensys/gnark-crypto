@@ -57,30 +57,6 @@ func reduce(z *Element) {
 	_reduceGeneric(z)
 }
 
-// Add adds two vectors element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) Add(a, b Vector) {
-	addVecGeneric(*vector, a, b)
-}
-
-// Sub subtracts two vectors element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) Sub(a, b Vector) {
-	subVecGeneric(*vector, a, b)
-}
-
-// ScalarMul multiplies a vector by a scalar element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) ScalarMul(a Vector, b *Element) {
-	scalarMulVecGeneric(*vector, a, b)
-}
-
-// Sum computes the sum of all elements in the vector.
-func (vector *Vector) Sum() (res Element) {
-	sumVecGeneric(&res, *vector)
-	return
-}
-
 // Mul z = x * y (mod q)
 func (z *Element) Mul(x, y *Element) *Element {
 
