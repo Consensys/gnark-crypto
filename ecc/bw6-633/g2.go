@@ -17,6 +17,7 @@
 package bw6633
 
 import (
+	"crypto/rand"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
@@ -666,7 +667,6 @@ func (p *G2Jac) ClearCofactor(q *G2Jac) *G2Jac {
 	p.phi(&L1).AddAssign(&L0)
 
 	return p
-
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -1089,7 +1089,7 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 	return toReturn
 }
 
-// batchAddG1Affine adds affine points using the Montgomery batch inversion trick.
+// batchAddG2Affine adds affine points using the Montgomery batch inversion trick.
 // Special cases (doubling, infinity) must be filtered out before this call.
 func batchAddG2Affine[TP pG2Affine, TPP ppG2Affine, TC cG2Affine](R *TPP, P *TP, batchSize int) {
 	var lambda, lambdain TC
@@ -1137,4 +1137,21 @@ func batchAddG2Affine[TP pG2Affine, TPP ppG2Affine, TC cG2Affine](R *TPP, P *TP,
 		rr.Y.Sub(&rr.Y, &(*R)[j].Y)
 		(*R)[j].Set(&rr)
 	}
+}
+
+// RandomOnG2 produces a random point in G2
+// using standard map-to-curve methods, which means the relative discrete log
+// of the generated point with respect to the canonical generator is not known.
+func RandomOnG2() (G2Affine, error) {
+	if gBytes, err := randomFrSizedBytes(); err != nil {
+		return G2Affine{}, err
+	} else {
+		return HashToG2(gBytes, []byte("random on g2"))
+	}
+}
+
+func randomFrSizedBytes() ([]byte, error) {
+	res := make([]byte, fr.Bytes)
+	_, err := rand.Read(res)
+	return res, err
 }

@@ -5,12 +5,11 @@
 `gnark-crypto` provides efficient cryptographic primitives, in Go:
 
 * Elliptic curve cryptography & **Pairing** on:
-  * [`bn254`] ([audit report](audit_oct2022.pdf))
-  * [`bls12-381`] ([audit report](audit_oct2022.pdf))
+  * [`bn254`] ([audit report](https://github.com/Consensys/gnark/blob/master/audits/2022-10%20-%20Kudelski%20-%20gnark-crypto.pdf))
+  * [`bls12-381`] ([audit report](https://github.com/Consensys/gnark/blob/master/audits/2022-10%20-%20Kudelski%20-%20gnark-crypto.pdf))
   * [`bls24-317`]
   * [`bls12-377`] / [`bw6-761`]
   * [`bls24-315`] / [`bw6-633`]
-  * [`bls12-378`] / [`bw6-756`]
   * Each of these curves has a [`twistededwards`] sub-package with its companion curve which allow efficient elliptic curve cryptography inside zkSNARK circuits.
 * [`field/goff`] - Finite field arithmetic code generator (blazingly fast big.Int)
 * [`fft`] - Fast Fourier Transform
@@ -33,6 +32,10 @@
 **To report a security bug, please refer to [`gnark` Security Policy](https://github.com/ConsenSys/gnark/blob/master/SECURITY.md).**
 
 `gnark-crypto` packages are optimized for 64bits architectures (x86 `amd64`) and tested on Unix (Linux / macOS).
+
+## Audits
+
+See [list of audits for `gnark` and `gnark-crypto`](https://github.com/consensys/gnark?tab=readme-ov-file#audits)
 
 ## Getting started
 
@@ -75,18 +78,18 @@ If you use `gnark-crypto` in your research a citation would be appreciated.
 Please use the following BibTeX to cite the most recent release.
 
 ```bib
-@software{gnark-crypto-v0.11.2,
+@software{gnark-crypto-v0.14.0,
   author       = {Gautam Botrel and
                   Thomas Piellard and
                   Youssef El Housni and
                   Arya Tabaie and
                   Gus Gutoski and
                   Ivo Kubjas},
-  title        = {ConsenSys/gnark-crypto: v0.11.2},
-  month        = jan,
-  year         = 2023,
+  title        = {Consensys/gnark-crypto: v0.14.0},
+  month        = sep,
+  year         = 2024,
   publisher    = {Zenodo},
-  version      = {v0.11.2},
+  version      = {v0.14.0},
   doi          = {10.5281/zenodo.5815453},
   url          = {https://doi.org/10.5281/zenodo.5815453}
 }
@@ -106,10 +109,8 @@ This project is licensed under the Apache 2 License - see the [LICENSE](LICENSE)
 [`bls24-317`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bls24-317
 [`bls12-377`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bls12-377
 [`bls24-315`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bls24-315
-[`bls12-378`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bls12-378
 [`bw6-761`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bw6-761
 [`bw6-633`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bw6-633
-[`bw6-756`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bw6-756
 [`twistededwards`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/twistededwards
 [`eddsa`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/twistededwards/eddsa
 [`fft`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/fr/fft

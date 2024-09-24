@@ -21,13 +21,11 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc"
 	ecdsa_bls12377 "github.com/consensys/gnark-crypto/ecc/bls12-377/ecdsa"
-	ecdsa_bls12378 "github.com/consensys/gnark-crypto/ecc/bls12-378/ecdsa"
 	ecdsa_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/ecdsa"
 	ecdsa_bls24315 "github.com/consensys/gnark-crypto/ecc/bls24-315/ecdsa"
 	ecdsa_bls24317 "github.com/consensys/gnark-crypto/ecc/bls24-317/ecdsa"
 	ecdsa_bn254 "github.com/consensys/gnark-crypto/ecc/bn254/ecdsa"
 	ecdsa_bw6633 "github.com/consensys/gnark-crypto/ecc/bw6-633/ecdsa"
-	ecdsa_bw6756 "github.com/consensys/gnark-crypto/ecc/bw6-756/ecdsa"
 	ecdsa_bw6761 "github.com/consensys/gnark-crypto/ecc/bw6-761/ecdsa"
 	ecdsa_secp256k1 "github.com/consensys/gnark-crypto/ecc/secp256k1/ecdsa"
 	ecdsa_starkcurve "github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
@@ -43,12 +41,8 @@ func New(ss ecc.ID, r io.Reader) (signature.Signer, error) {
 		return ecdsa_bls12381.GenerateKey(r)
 	case ecc.BLS12_377:
 		return ecdsa_bls12377.GenerateKey(r)
-	case ecc.BLS12_378:
-		return ecdsa_bls12378.GenerateKey(r)
 	case ecc.BW6_761:
 		return ecdsa_bw6761.GenerateKey(r)
-	case ecc.BW6_756:
-		return ecdsa_bw6756.GenerateKey(r)
 	case ecc.BLS24_315:
 		return ecdsa_bls24315.GenerateKey(r)
 	case ecc.BLS24_317:

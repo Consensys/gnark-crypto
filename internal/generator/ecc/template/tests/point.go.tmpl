@@ -19,7 +19,11 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
-	"math/rand"
+	"math/rand/v2"
+
+	{{if eq .Name "secp256k1"}}
+		crand "crypto/rand"
+	{{end}}
 
 	{{if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4")}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
@@ -72,7 +76,7 @@ import (
         ))
 
         {{if eq .PointName "g2" }}
-        {{- if and (eq .PointName "g2") (ne .Name "bw6-761") (ne .Name "bw6-633") (ne .Name "bw6-756") }}
+        {{- if and (eq .PointName "g2") (ne .Name "bw6-761") (ne .Name "bw6-633")}}
             properties.Property("[{{ toUpper .Name }}] check that psi^2(P) = -phi(P)", prop.ForAll(
                 func(a {{ .CoordType}}) bool {
                     var p, res1, res2 {{ $TJacobian }}
@@ -997,7 +1001,7 @@ func GenBigInt() gopter.Gen {
       return func(genParams *gopter.GenParameters) *gopter.GenResult {
            var s big.Int
            var b [fp.Bytes]byte
-           _, err := rand.Read(b[:]) //#nosec G404 weak rng is fine here
+           _, err := crand.Read(b[:]) //#nosec G404 weak rng is fine here
            if err != nil {
                panic(err)
            }

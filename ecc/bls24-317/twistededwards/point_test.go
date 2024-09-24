@@ -17,8 +17,8 @@
 package twistededwards
 
 import (
+	"crypto/rand"
 	"math/big"
-	"math/rand"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"

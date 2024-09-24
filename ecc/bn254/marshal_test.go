@@ -18,9 +18,10 @@ package bn254
 
 import (
 	"bytes"
+	crand "crypto/rand"
 	"io"
 	"math/big"
-	"math/rand"
+	"math/rand/v2"
 	"reflect"
 	"testing"
 
@@ -493,7 +494,7 @@ func GenBigInt() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var s big.Int
 		var b [fp.Bytes]byte
-		_, err := rand.Read(b[:]) //#nosec G404 weak rng is fine here
+		_, err := crand.Read(b[:])
 		if err != nil {
 			panic(err)
 		}

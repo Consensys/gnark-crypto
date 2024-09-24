@@ -1,22 +1,22 @@
 module github.com/consensys/gnark-crypto
 
-go 1.19
+go 1.22
 
 require (
-	github.com/bits-and-blooms/bitset v1.7.0
-	github.com/consensys/bavard v0.1.13
-	github.com/leanovate/gopter v0.2.9
+	github.com/bits-and-blooms/bitset v1.14.2
+	github.com/consensys/bavard v0.1.15
+	github.com/leanovate/gopter v0.2.11
 	github.com/mmcloughlin/addchain v0.4.0
-	github.com/spf13/cobra v1.5.0
-	github.com/stretchr/testify v1.8.2
-	golang.org/x/crypto v0.17.0
-	golang.org/x/sys v0.15.0
+	github.com/spf13/cobra v1.8.1
+	github.com/stretchr/testify v1.9.0
+	golang.org/x/crypto v0.26.0
+	golang.org/x/sys v0.24.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
