@@ -232,6 +232,17 @@ func sumVecGeneric(res *Element, a Vector) {
 	}
 }
 
+func innerProductVecGeneric(res *Element, a, b Vector) {
+	if len(a) != len(b) {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	var tmp Element
+	for i := 0; i < len(a); i++ {
+		tmp.Mul(&a[i], &b[i])
+		res.Add(res, &tmp)
+	}
+}
+
 // TODO @gbotrel make a public package out of that.
 // execute executes the work function in parallel.
 // this is copy paste from internal/parallel/parallel.go

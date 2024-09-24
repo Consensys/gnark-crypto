@@ -223,6 +223,13 @@ func (vector *Vector) Sum() (res Element) {
 	return
 }
 
+// InnerProduct computes the inner product of two vectors.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) InnerProduct(other Vector) (res Element) {
+	innerProductVecGeneric(&res, *vector, other)
+	return
+}
+
 func addVecGeneric(res, a, b Vector) {
 	if len(a) != len(b) || len(a) != len(res) {
 		panic("vector.Add: vectors don't have the same length")
@@ -253,6 +260,17 @@ func scalarMulVecGeneric(res, a Vector, b *Element) {
 func sumVecGeneric(res *Element, a Vector) {
 	for i := 0; i < len(a); i++ {
 		res.Add(res, &a[i])
+	}
+}
+
+func innerProductVecGeneric(res *Element, a, b Vector) {
+	if len(a) != len(b) {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	var tmp Element
+	for i := 0; i < len(a); i++ {
+		tmp.Mul(&a[i], &b[i])
+		res.Add(res, &tmp)
 	}
 }
 

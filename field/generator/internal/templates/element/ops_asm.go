@@ -82,6 +82,15 @@ func (vector *Vector) Sum() (res {{.ElementName}}) {
 
 //go:noescape
 func sumVec(res *{{.ElementName}}, a *{{.ElementName}}, n uint64)
+
+
+// InnerProduct computes the inner product of two vectors.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
+	innerProductVecGeneric(&res, *vector, other)
+	return
+}
+
 {{- end}}
 
 // Mul z = x * y (mod q)

@@ -803,6 +803,21 @@ func TestElementVecOps(t *testing.T) {
 
 		assert.True(sum.Equal(&computed), "Vector sum failed")
 	}
+
+	// Vector inner product
+	for i := 0; i < N/2; i++ {
+		subVecA := a[:i]
+		subVecB := b[:i]
+		var innerProduct Element
+		computed := subVecA.InnerProduct(subVecB)
+		for j := 0; j < len(subVecA); j++ {
+			var tmp Element
+			tmp.Mul(&subVecA[j], &subVecB[j])
+			innerProduct.Add(&innerProduct, &tmp)
+		}
+
+		assert.True(innerProduct.Equal(&computed), "Vector inner product failed")
+	}
 }
 
 func BenchmarkElementVecOps(b *testing.B) {
@@ -845,6 +860,15 @@ func BenchmarkElementVecOps(b *testing.B) {
 			sum = c1.Sum()
 		}
 		_ = sum
+	})
+
+	b.Run("InnerProduct", func(b *testing.B) {
+		b.ResetTimer()
+		var innerProduct Element
+		for i := 0; i < b.N; i++ {
+			innerProduct = a1.InnerProduct(b1)
+		}
+		_ = innerProduct
 	})
 }
 

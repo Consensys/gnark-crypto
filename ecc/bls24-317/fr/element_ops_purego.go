@@ -84,6 +84,13 @@ func (vector *Vector) Sum() (res Element) {
 	return
 }
 
+// InnerProduct computes the inner product of two vectors.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) InnerProduct(other Vector) (res Element) {
+	innerProductVecGeneric(&res, *vector, other)
+	return
+}
+
 // Mul z = x * y (mod q)
 //
 // x and y must be less than q
