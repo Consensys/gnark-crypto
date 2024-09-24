@@ -476,6 +476,7 @@ func (f *FFAmd64) generateSumVec() {
 	mu := f.Pop(&registers)
 
 	f.Comment("reduce using single-word Barrett")
+	f.Comment("see see Handbook of Applied Cryptography, Algorithm 14.42.")
 	f.LabelRegisters("mu=2^288 / q", mu)
 	f.MOVQ(f.mu(), mu)
 	f.MOVQ(r3, amd64.AX)

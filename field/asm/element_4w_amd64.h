@@ -769,6 +769,7 @@ accumulate_11:
 	// r[3] -> R11
 	// r[4] -> R12
 	// reduce using single-word Barrett
+	// see see Handbook of Applied Cryptography, Algorithm 14.42.
 	// mu=2^288 / q -> SI
 	MOVQ  mu<>(SB), SI
 	MOVQ  R11, AX
