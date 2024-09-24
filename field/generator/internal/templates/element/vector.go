@@ -193,7 +193,7 @@ func (vector Vector) Swap(i, j int) {
 
 
 {{/* For 4 elements, we have a special assembly path and copy this in ops_pure.go */}}
-{{- if ne .NbWords 4}}
+{{- if not .ASMVector}}
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {

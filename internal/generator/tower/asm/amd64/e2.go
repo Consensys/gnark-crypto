@@ -35,7 +35,7 @@ type Fq2Amd64 struct {
 // NewFq2Amd64 ...
 func NewFq2Amd64(w io.Writer, F *field.FieldConfig, config config.Curve) *Fq2Amd64 {
 	return &Fq2Amd64{
-		amd64.NewFFAmd64(w, F),
+		amd64.NewFFAmd64(w, F.NbWords),
 		config,
 		w,
 		F,
@@ -49,7 +49,7 @@ func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 	fq2.WriteLn("#include \"textflag.h\"")
 	fq2.WriteLn("#include \"funcdata.h\"")
 
-	fq2.GenerateDefines()
+	fq2.GenerateDefinesDeprecated(fq2.F)
 	if fq2.config.Equal(config.BN254) {
 		fq2.generateMulDefine()
 	}
@@ -174,7 +174,7 @@ func (fq2 *Fq2Amd64) generateNegE2() {
 
 	// z = x - q
 	for i := 0; i < fq2.NbWords; i++ {
-		fq2.MOVQ(fq2.Q[i], q)
+		fq2.MOVQ(fq2.F.Q[i], q)
 		if i == 0 {
 			fq2.SUBQ(t[i], q)
 		} else {
@@ -208,7 +208,7 @@ func (fq2 *Fq2Amd64) generateNegE2() {
 
 	// z = x - q
 	for i := 0; i < fq2.NbWords; i++ {
-		fq2.MOVQ(fq2.Q[i], q)
+		fq2.MOVQ(fq2.F.Q[i], q)
 		if i == 0 {
 			fq2.SUBQ(t[i], q)
 		} else {
@@ -272,7 +272,7 @@ func (fq2 *Fq2Amd64) modReduceAfterSub(registers *ramd64.Registers, zero ramd64.
 }
 
 func (fq2 *Fq2Amd64) modReduceAfterSubScratch(zero ramd64.Register, t, scratch []ramd64.Register) {
-	fq2.Mov(fq2.Q, scratch)
+	fq2.Mov(fq2.F.Q, scratch)
 	for i := 0; i < fq2.NbWords; i++ {
 		fq2.CMOVQCC(zero, scratch[i])
 	}
