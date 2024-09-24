@@ -72,7 +72,7 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 		cptAdd    int // count the number of bucket + point added to current batch
 		R         TPP // bucket references
 		P         TP  // points to be added to R (buckets); it is beneficial to store them on the stack (ie copy)
-		queue     TQ  // queue of points that conflict the current batch
+		queue     TQ  // queue of points that conflict with the current batch
 		qID       int // current position in queue
 	)
 
