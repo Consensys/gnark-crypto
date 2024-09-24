@@ -738,7 +738,7 @@ func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
 	// set m to max values element
 	// it's not really q-1 (since we have montgomery representation)
 	// but it's the "largest" legal value
-	eQMinus1 := qElement
+	eQMinus1 := q{{.ElementName}}
 	if eQMinus1[0] != 0 {
 		eQMinus1[0]--
 	} else {
