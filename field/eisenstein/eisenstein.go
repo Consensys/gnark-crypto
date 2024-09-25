@@ -120,7 +120,7 @@ func (z *ComplexNumber) Quo(x, y *ComplexNumber) *ComplexNumber {
 	return z
 }
 
-// QuoRem sets z to the quotient of x and y, r to the remaind, and returns z and r.
+// QuoRem sets z to the quotient of x and y, r to the remainder, and returns z and r.
 func (z *ComplexNumber) QuoRem(x, y, r *ComplexNumber) (*ComplexNumber, *ComplexNumber) {
 	norm := y.Norm()
 	if norm.Cmp(big.NewInt(0)) == 0 {
