@@ -16,6 +16,7 @@ package amd64
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/consensys/bavard/amd64"
 )
@@ -546,224 +547,493 @@ func (f *FFAmd64) generateInnerProduct() {
 	defer f.AssertCleanStack(stackSize, 0)
 
 	// registers & labels we need
-	addrA := f.Pop(&registers)
-	addrB := f.Pop(&registers)
-	n := f.Pop(&registers)
+	PX := f.Pop(&registers)
+	PY := f.Pop(&registers)
+	LEN := f.Pop(&registers)
 
 	loop := f.NewLabel("loop")
 	done := f.NewLabel("done")
-	accumulate := f.NewLabel("accumulate")
+	AddPP := f.NewLabel("accumulate")
 
 	// AVX512 registers
-	Z0 := amd64.Register("Z0")
-	Z1 := amd64.Register("Z1")
-	Z2 := amd64.Register("Z2")
-	Z3 := amd64.Register("Z3")
-	Z4 := amd64.Register("Z4")
-	Z5 := amd64.Register("Z5")
-	Z6 := amd64.Register("Z6")
-	Z7 := amd64.Register("Z7")
+	PPL := amd64.Register("Z2")
+	PPH := amd64.Register("Z3")
+	Y := amd64.Register("Z4")
+	LSW := amd64.Register("Z5")
 
-	Z8 := amd64.Register("Z8")
-	Z9 := amd64.Register("Z9")
-	Z10 := amd64.Register("Z10")
-	Z11 := amd64.Register("Z11")
+	ACC := amd64.Register("Z16")
+	A0L := amd64.Register("Z16")
+	A1L := amd64.Register("Z17")
+	A2L := amd64.Register("Z18")
+	A3L := amd64.Register("Z19")
+	A4L := amd64.Register("Z20")
+	A5L := amd64.Register("Z21")
+	A6L := amd64.Register("Z22")
+	A7L := amd64.Register("Z23")
+	A0H := amd64.Register("Z24")
+	A1H := amd64.Register("Z25")
+	A2H := amd64.Register("Z26")
+	A3H := amd64.Register("Z27")
+	A4H := amd64.Register("Z28")
+	A5H := amd64.Register("Z29")
+	A6H := amd64.Register("Z30")
+	A7H := amd64.Register("Z31")
 
-	X0 := amd64.Register("X0")
+	// X0 := amd64.Register("X0")
 
 	// load arguments
-	f.MOVQ("a+8(FP)", addrA)
-	f.MOVQ("b+16(FP)", addrB)
-	f.MOVQ("n+24(FP)", n)
+	f.MOVQ("a+8(FP)", PX)
+	f.MOVQ("b+16(FP)", PY)
+	f.MOVQ("n+24(FP)", LEN)
 
-	f.Comment("initialize accumulators Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7")
-	f.VXORPS(Z0, Z0, Z0)
-	f.VMOVDQA64(Z0, Z1)
-	f.VMOVDQA64(Z0, Z2)
-	f.VMOVDQA64(Z0, Z3)
-	f.VMOVDQA64(Z0, Z4)
-	f.VMOVDQA64(Z0, Z5)
-	f.VMOVDQA64(Z0, Z6)
-	f.VMOVDQA64(Z0, Z7)
-	f.VMOVDQA64(Z0, Z11)
+	// Create mask for low dword in each qword
+	// vpmovzxdq	%ymm0, LSW
+	f.VPCMPEQB("Y0", "Y0", "Y0")
+	f.VPMOVZXDQ("Y0", LSW)
+
+	// Clear accumulator registers
+	f.VPXORQ(A0L, A0L, A0L)
+	f.VMOVDQA64(A0L, A1L)
+	f.VMOVDQA64(A0L, A2L)
+	f.VMOVDQA64(A0L, A3L)
+	f.VMOVDQA64(A0L, A4L)
+	f.VMOVDQA64(A0L, A5L)
+	f.VMOVDQA64(A0L, A6L)
+	f.VMOVDQA64(A0L, A7L)
+	f.VMOVDQA64(A0L, A0H)
+	f.VMOVDQA64(A0L, A1H)
+	f.VMOVDQA64(A0L, A2H)
+	f.VMOVDQA64(A0L, A3H)
+	f.VMOVDQA64(A0L, A4H)
+	f.VMOVDQA64(A0L, A5H)
+	f.VMOVDQA64(A0L, A6H)
+	f.VMOVDQA64(A0L, A7H)
 
 	// note: we don't need to handle the case n==0; handled by caller already.
-	f.TESTQ(n, n)
+	f.TESTQ(LEN, LEN)
 	f.JEQ(done, "n == 0, we are done")
 
-	f.LabelRegisters("n", n)
-
 	f.LABEL(loop)
-	f.TESTQ(n, n)
-	f.JEQ(accumulate, "n == 0 we can accumulate")
+	f.TESTQ(LEN, LEN)
+	f.JEQ(AddPP, "n == 0 we can accumulate")
 
-	f.VPMOVZXDQ("0("+addrA+")", Z8)
-	f.VPMOVZXDQ("0("+addrB+")", Z9)
-	f.VPMULUDQ(Z8, Z9, Z10)
+	f.VPMOVZXDQ("("+PY+")", Y)
 
-	for i := 0; i < 8; i++ {
-		if i != 0 {
-			f.VPSRLQ("$64", Z10, Z10)
-		}
-		f.VMOVQ(Z10, Z11)
-		zi := fmt.Sprintf("Z%d", i)
-		f.VPADDQ(Z11, zi, zi)
-	}
+	f.ADDQ("$32", PY)
 
-	f.ADDQ("$32", addrA)
-	f.ADDQ("$32", addrB)
+	f.VPMULUDQ_BCST("0*4("+PX+")", Y, PPL)
+	f.VPSRLQ("$32", PPL, PPH)
+	f.VPANDQ(LSW, PPL, PPL)
+	f.VPADDQ(PPL, A0L, A0L)
+	f.VPADDQ(PPH, A0H, A0H)
 
-	f.DECQ(n, "decrement n")
+	f.VPMULUDQ_BCST("1*4("+PX+")", Y, PPL)
+	f.VPSRLQ("$32", PPL, PPH)
+	f.VPANDQ(LSW, PPL, PPL)
+	f.VPADDQ(PPL, A1L, A1L)
+	f.VPADDQ(PPH, A1H, A1H)
+
+	f.VPMULUDQ_BCST("2*4("+PX+")", Y, PPL)
+	f.VPSRLQ("$32", PPL, PPH)
+	f.VPANDQ(LSW, PPL, PPL)
+	f.VPADDQ(PPL, A2L, A2L)
+	f.VPADDQ(PPH, A2H, A2H)
+
+	f.VPMULUDQ_BCST("3*4("+PX+")", Y, PPL)
+	f.VPSRLQ("$32", PPL, PPH)
+	f.VPANDQ(LSW, PPL, PPL)
+	f.VPADDQ(PPL, A3L, A3L)
+	f.VPADDQ(PPH, A3H, A3H)
+
+	f.VPMULUDQ_BCST("4*4("+PX+")", Y, PPL)
+	f.VPSRLQ("$32", PPL, PPH)
+	f.VPANDQ(LSW, PPL, PPL)
+	f.VPADDQ(PPL, A4L, A4L)
+	f.VPADDQ(PPH, A4H, A4H)
+
+	f.VPMULUDQ_BCST("5*4("+PX+")", Y, PPL)
+	f.VPSRLQ("$32", PPL, PPH)
+	f.VPANDQ(LSW, PPL, PPL)
+	f.VPADDQ(PPL, A5L, A5L)
+	f.VPADDQ(PPH, A5H, A5H)
+
+	f.VPMULUDQ_BCST("6*4("+PX+")", Y, PPL)
+	f.VPSRLQ("$32", PPL, PPH)
+	f.VPANDQ(LSW, PPL, PPL)
+	f.VPADDQ(PPL, A6L, A6L)
+	f.VPADDQ(PPH, A6H, A6H)
+
+	f.VPMULUDQ_BCST("7*4("+PX+")", Y, PPL)
+	f.VPSRLQ("$32", PPL, PPH)
+	f.VPANDQ(LSW, PPL, PPL)
+	f.VPADDQ(PPL, A7L, A7L)
+	f.VPADDQ(PPH, A7H, A7H)
+
+	f.ADDQ("$32", PX)
+
+	f.DECQ(LEN, "decrement n")
 	f.JMP(loop)
 
-	f.Push(&registers, n, addrA, addrB)
+	f.Push(&registers, LEN, PX, PY)
 
-	f.LABEL(accumulate)
+	f.LABEL(AddPP)
+	// Load mask register values
 
-	// Propagate carries
-	f.Comment("carry propagation")
+	f.MOVQ(uint64(0x1555), amd64.AX)
+	f.KMOVD(amd64.AX, "K1")
 
-	// TODO @gbotrel we don't need to accumulate; we already did.
-	// we extract the words that's it.
+	f.MOVQ(uint64(1), amd64.AX)
+	f.KMOVD(amd64.AX, "K2")
 
-	// we have Z0...Z7 corresponding to the 8 words of the result
-	// however they are on 96bits each, so we need to propagate the carry
-	// to build a 5words result
-	r := make([]amd64.Register, 5)
-	for i := 0; i < 5; i++ {
-		r[i] = f.Pop(&registers)
+	// ACC starts with the value of A0L
+
+	f.VALIGND_Z("$16", ACC, ACC, "K2", "Z0") // Store least significant 32 bits of ACC
+	f.KSHIFTLW("$1", "K2", "K2")
+
+	// vpsrlq		$32, ACC, PPL
+	// valignd		$2, ACC, ACC, ACC{%k1}{z}
+	// vpaddq		PPL, ACC, ACC
+
+	// vpandq		LSW, A0H, PPL
+	// vpaddq		PPL, ACC, ACC
+
+	// vpandq		LSW, A1L, PPL
+	// vpaddq		PPL, ACC, ACC
+
+	// Word 1 of z is ready
+	// valignd		$15, ACC, ACC, %zmm0{%k2}
+	// kshiftlw	$1, %k2, %k2
+
+	f.VPSRLQ("$32", ACC, PPL)
+	f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
+	f.VPADDQ(PPL, ACC, ACC)
+
+	f.VPANDQ(LSW, A0H, PPL)
+	f.VPADDQ(PPL, ACC, ACC)
+
+	f.VPANDQ(LSW, A1L, PPL)
+	f.VPADDQ(PPL, ACC, ACC)
+
+	// Word 1 of z is ready
+	f.VALIGND("$15", ACC, ACC, "K2", "Z0")
+	f.KSHIFTLW("$1", "K2", "K2")
+
+	ADDPP := func(AxH, AyL, AyH, AzL, I amd64.Register) {
+		f.VPSRLQ("$32", ACC, PPL)
+		f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
+		f.VPADDQ(PPL, ACC, ACC)
+		f.VPSRLQ("$32", AxH, AxH)
+		f.VPADDQ(AxH, ACC, ACC)
+		f.VPSRLQ("$32", AyL, AyL)
+		f.VPADDQ(AyL, ACC, ACC)
+		f.VPANDQ(LSW, AyH, PPL)
+		f.VPADDQ(PPL, ACC, ACC)
+		f.VPANDQ(LSW, AzL, PPL)
+		f.VPADDQ(PPL, ACC, ACC)
+		f.VALIGND("$16-"+I, ACC, ACC, "K2", "Z0")
+		f.KADDW("K2", "K2", "K2")
 	}
-	t0 := f.Pop(&registers)
-	t1 := f.Pop(&registers)
 
-	// r[0] = 						lo64(Z0) + lo32(Z1)
-	// r[1] = hi32(Z0) + hi64(Z1) + lo64(Z2) + lo32(Z3)
-	// r[2] = hi32(Z2) + hi64(Z3) + lo64(Z4) + lo32(Z5)
-	// r[3] = hi32(Z4) + hi64(Z5) + lo64(Z6) + lo32(Z7)
-	// r[4] = hi32(Z6) + hi64(Z7)
+	ADDPP(A0H, A1L, A1H, A2L, "2")
+	ADDPP(A1H, A2L, A2H, A3L, "3")
+	ADDPP(A2H, A3L, A3H, A4L, "4")
+	ADDPP(A3H, A4L, A4H, A5L, "5")
+	ADDPP(A4H, A5L, A5H, A6L, "6")
+	ADDPP(A5H, A6L, A6H, A7L, "7")
 
-	// note that we can replace hi32 by hi64 since we know that the hi32 bits are 0
-	// problem; we have 3 distinct additions chain so we must do 2 passes
+	// vpsrlq		$32, ACC, PPL;
+	// valignd		$2, ACC, ACC, ACC{%k1}{z};
+	// vpaddq		PPL, ACC, ACC;
+	// vpsrlq		$32, A6H, A6H; vpaddq	A6H, ACC, ACC;
+	// vpsrlq		$32, A7L, A7L; vpaddq	A7L, ACC, ACC;
+	// vpandq		LSW, A7H, PPL; vpaddq	PPL, ACC, ACC;
+	// valignd		$16-8, ACC, ACC, %zmm0{%k2}
+	// kshiftlw	$1, %k2, %k2
 
-	f.VMOVQ("X0", r[0]) // move lo64(Z0) to r[0]
-	f.VMOVD("X1", t0)   // move lo32(Z1) to t0
-	f.ADDQ(t0, r[0])    // r[0] = lo64(Z0) + lo32(Z1)
+	f.VPSRLQ("$32", ACC, PPL)
+	f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
+	f.VPADDQ(PPL, ACC, ACC)
+	f.VPSRLQ("$32", A6H, A6H)
+	f.VPADDQ(A6H, ACC, ACC)
+	f.VPSRLQ("$32", A7L, A7L)
+	f.VPADDQ(A7L, ACC, ACC)
+	f.VPANDQ(LSW, A7H, PPL)
+	f.VPADDQ(PPL, ACC, ACC)
+	f.VALIGND("$16-8", ACC, ACC, "K2", "Z0")
+	f.KSHIFTLW("$1", "K2", "K2")
 
-	f.VMOVQ("X2", r[1]) // move lo64(Z2) to r[1]
-	f.VMOVD("X3", t0)   // move lo32(Z3) to t0
-	f.ADCQ(t0, r[1])    // r[1] = lo64(Z2) + lo32(Z3)
+	// vpsrlq		$32, ACC, PPL;
+	// valignd		$2, ACC, ACC, ACC{%k1}{z};
+	// vpaddq		PPL, ACC, ACC;
+	// vpsrlq		$32, A7H, A7H; vpaddq	A7H, ACC, ACC;
+	// valignd		$16-9, ACC, ACC, %zmm0{%k2}
+	// kshiftlw	$1, %k2, %k2
 
-	f.VMOVQ("X4", r[2]) // move lo64(Z4) to r[2]
-	f.VMOVD("X5", t0)   // move lo32(Z5) to t0
-	f.ADCQ(t0, r[2])    // r[2] = lo64(Z4) + lo32(Z5)
+	f.VPSRLQ("$32", ACC, PPL)
+	f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
+	f.VPADDQ(PPL, ACC, ACC)
+	f.VPSRLQ("$32", A7H, A7H)
+	f.VPADDQ(A7H, ACC, ACC)
+	f.VALIGND("$16-9", ACC, ACC, "K2", "Z0")
+	f.KSHIFTLW("$1", "K2", "K2")
 
-	f.VMOVQ("X6", r[3]) // move lo64(Z6) to r[3]
-	f.VMOVD("X7", t0)   // move lo32(Z7) to t0
-	f.ADCQ(t0, r[3])    // r[3] = lo64(Z6) + lo32(Z7)
-
-	f.ADCQ("$0", r[4]) // r[4] = 0 + carry
-
-	f.XORQ(t0, t0) // clear the flags.
-
-	// r[1] = hi64(Z0) + hi64(Z1) + r[1]
-	// r[2] = hi64(Z2) + hi64(Z3) + r[2]
-	// r[3] = hi64(Z4) + hi64(Z5) + r[3]
-	// r[4] = hi64(Z6) + hi64(Z7) + r[4]
-
-	// shift all Z registers by 64 bits
-	for i := 0; i < 8; i++ {
-		f.VPSRLQ("$64", fmt.Sprintf("Z%d", i), fmt.Sprintf("Z%d", i))
+	// #define ADDPP(I) \
+	// vpsrlq		$32, ACC, PPL; \
+	// valignd		$2, ACC, ACC, ACC{%k1}{z}; \
+	// vpaddq		PPL, ACC, ACC; \
+	// valignd		$16-I, ACC, ACC, %zmm0{%k2}; \
+	// kshiftlw	$1, %k2, %k2
+	ADDPP_2 := func(I int) {
+		f.VPSRLQ("$32", ACC, PPL)
+		f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
+		f.VPADDQ(PPL, ACC, ACC)
+		f.VALIGND("$16-"+strconv.Itoa(I), ACC, ACC, "K2", "Z0")
+		f.KSHIFTLW("$1", "K2", "K2")
 	}
-	f.VMOVQ("X0", t0) // move hi64(Z0) to t0
-	f.VMOVQ("X1", t1) // move hi64(Z1) to t1
-	f.ADCXQ(t1, r[1])
-	f.ADOXQ(t0, r[1])
 
-	f.VMOVQ("X2", t0) // move hi64(Z2) to t0
-	f.VMOVQ("X3", t1) // move hi64(Z3) to t1
-	f.ADCXQ(t1, r[2])
-	f.ADOXQ(t0, r[2])
+	ADDPP_2(10)
+	ADDPP_2(11)
+	ADDPP_2(12)
+	ADDPP_2(13)
+	ADDPP_2(14)
+	ADDPP_2(15)
 
-	f.VMOVQ("X4", t0) // move hi64(Z4) to t0
-	f.VMOVQ("X5", t1) // move hi64(Z5) to t1
-	f.ADCXQ(t1, r[3])
-	f.ADOXQ(t0, r[3])
+	// vpsrlq		$32, ACC, PPL;
+	// valignd		$2, ACC, ACC, ACC{%k1}{z};
+	// vpaddq		PPL, ACC, ACC;
+	// vmovdqa64	ACC, %zmm1{%k1}{z}
 
-	f.VMOVQ("X6", t0) // move hi64(Z6) to t0
-	f.VMOVQ("X7", t1) // move hi64(Z7) to t1
-	f.ADCXQ(t1, r[4])
-	f.ADOXQ(t0, r[4])
+	f.VPSRLQ("$32", ACC, PPL)
+	f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
+	f.VPADDQ(PPL, ACC, ACC)
+	f.VMOVDQA64_Z(ACC, "K1", "Z1")
 
-	f.MOVQ("res+0(FP)", t0)
+	// We have 544-bit (72-byte) result in Z1:Z0.
+	// Only the modular reduction remains to be computed.
 
-	// move r0...r4 to res
-	f.MOVQ(r[0], t0.At(0))
-	f.MOVQ(r[1], t0.At(1))
-	f.MOVQ(r[2], t0.At(2))
-	f.MOVQ(r[3], t0.At(3))
-	f.MOVQ(r[4], t0.At(4))
+	T0 := f.Pop(&registers)
+	T1 := f.Pop(&registers)
+	T2 := f.Pop(&registers)
+	T3 := f.Pop(&registers)
+	T4 := f.Pop(&registers)
+
+	// Extract the 4 least significant qwords of %zmm0
+
+	// vmovq	%xmm0, T1; valignq	$1, %zmm0, %zmm1, %zmm0	// Shift in low word from zmm1
+	// vmovq	%xmm0, T2; valignq	$1, %zmm0, %zmm0, %zmm0
+	// vmovq	%xmm0, T3; valignq	$1, %zmm0, %zmm0, %zmm0
+	// vmovq	%xmm0, T4; valignq	$1, %zmm0, %zmm0, %zmm0
+	// xorq	T0, T0
+
+	f.VMOVQ("X0", T1)
+	f.VALIGNQ("$1", "Z0", "Z1", "Z0")
+	f.VMOVQ("X0", T2)
+	f.VALIGNQ("$1", "Z0", "Z0", "Z0")
+	f.VMOVQ("X0", T3)
+	f.VALIGNQ("$1", "Z0", "Z0", "Z0")
+	f.VMOVQ("X0", T4)
+	f.VALIGNQ("$1", "Z0", "Z0", "Z0")
+	f.XORQ(T0, T0)
+
+	// movq	INV, %rdx	// Load negative inverse mod 2^64
+
+	// mulx	T1, %rdx, PH
+
+	// mulx	0*8(PM), PL, PH; add	PL, T1; adc	PH, T2
+	// mulx	2*8(PM), PL, PH; adc	PL, T3; adc	PH, T4; adc	$0, T0
+	// mulx	1*8(PM), PL, PH; add	PL, T2; adc	PH, T3
+	// mulx	3*8(PM), PL, PH; adc	PL, T4; adc	PH, T0; adc	$0, T1
+	PH := f.Pop(&registers)
+	PL := amd64.AX
+	f.MOVQ(f.qInv0(), amd64.DX)
+	f.MULXQ(T1, amd64.DX, PH)
+	f.MULXQ(f.qAt(0), PL, PH)
+	f.ADDQ(PL, T1)
+	f.ADCQ(PH, T2)
+	f.MULXQ(f.qAt(2), PL, PH)
+	f.ADCQ(PL, T3)
+	f.ADCQ(PH, T4)
+	f.ADCQ("$0", T0)
+	f.MULXQ(f.qAt(1), PL, PH)
+	f.ADDQ(PL, T2)
+	f.ADCQ(PH, T3)
+	f.MULXQ(f.qAt(3), PL, PH)
+	f.ADCQ(PL, T4)
+	f.ADCQ(PH, T0)
+	f.ADCQ("$0", T1)
+
+	// movq	INV, %rdx
+
+	// mulx	T2, %rdx, PH
+
+	// mulx	0*8(PM), PL, PH; add	PL, T2; adc	PH, T3
+	// mulx	2*8(PM), PL, PH; adc	PL, T4; adc	PH, T0; adc	$0, T1
+	// mulx	1*8(PM), PL, PH; add	PL, T3; adc	PH, T4
+	// mulx	3*8(PM), PL, PH; adc	PL, T0; adc	PH, T1; adc	$0, T2
+
+	f.MOVQ(f.qInv0(), amd64.DX)
+	f.MULXQ(T2, amd64.DX, PH)
+
+	f.MULXQ(f.qAt(0), PL, PH)
+	f.ADDQ(PL, T2)
+	f.ADCQ(PH, T3)
+	f.MULXQ(f.qAt(2), PL, PH)
+	f.ADCQ(PL, T4)
+	f.ADCQ(PH, T0)
+	f.ADCQ("$0", T1)
+	f.MULXQ(f.qAt(1), PL, PH)
+	f.ADDQ(PL, T3)
+	f.ADCQ(PH, T4)
+	f.MULXQ(f.qAt(3), PL, PH)
+	f.ADCQ(PL, T0)
+	f.ADCQ(PH, T1)
+	f.ADCQ("$0", T2)
+
+	// movq	INV, %rdx
+
+	// mulx	T3, %rdx, PH
+
+	// mulx	0*8(PM), PL, PH; add	PL, T3; adc	PH, T4
+	// mulx	2*8(PM), PL, PH; adc	PL, T0; adc	PH, T1; adc	$0, T2
+	// mulx	1*8(PM), PL, PH; add	PL, T4; adc	PH, T0
+	// mulx	3*8(PM), PL, PH; adc	PL, T1; adc	PH, T2; adc	$0, T3
+
+	f.MOVQ(f.qInv0(), amd64.DX)
+
+	f.MULXQ(T3, amd64.DX, PH)
+
+	f.MULXQ(f.qAt(0), PL, PH)
+	f.ADDQ(PL, T3)
+	f.ADCQ(PH, T4)
+	f.MULXQ(f.qAt(2), PL, PH)
+	f.ADCQ(PL, T0)
+	f.ADCQ(PH, T1)
+	f.ADCQ("$0", T2)
+	f.MULXQ(f.qAt(1), PL, PH)
+	f.ADDQ(PL, T4)
+	f.ADCQ(PH, T0)
+	f.MULXQ(f.qAt(3), PL, PH)
+	f.ADCQ(PL, T1)
+	f.ADCQ(PH, T2)
+	f.ADCQ("$0", T3)
+
+	// movq	INV, %rdx
+
+	// mulx	T4, %rdx, PH
+
+	// mulx	0*8(PM), PL, PH; add	PL, T4; adc	PH, T0
+	// mulx	2*8(PM), PL, PH; adc	PL, T1; adc	PH, T2; adc	$0, T3
+	// mulx	1*8(PM), PL, PH; add	PL, T0; adc	PH, T1
+	// mulx	3*8(PM), PL, PH; adc	PL, T2; adc	PH, T3; adc	$0, T4
+
+	f.MOVQ(f.qInv0(), amd64.DX)
+
+	f.MULXQ(T4, amd64.DX, PH)
+
+	f.MULXQ(f.qAt(0), PL, PH)
+	f.ADDQ(PL, T4)
+	f.ADCQ(PH, T0)
+	f.MULXQ(f.qAt(2), PL, PH)
+	f.ADCQ(PL, T1)
+	f.ADCQ(PH, T2)
+	f.ADCQ("$0", T3)
+	f.MULXQ(f.qAt(1), PL, PH)
+	f.ADDQ(PL, T0)
+	f.ADCQ(PH, T1)
+	f.MULXQ(f.qAt(3), PL, PH)
+	f.ADCQ(PL, T2)
+	f.ADCQ(PH, T3)
+	f.ADCQ("$0", T4)
+
+	// Add the remaining 5 qwords (9 dwords) from zmm0
+
+	// vmovq	%xmm0, PL; add	PL, T0;	valignq	$1, %zmm0, %zmm0, %zmm0
+	// vmovq	%xmm0, PL; adc	PL, T1;	valignq	$1, %zmm0, %zmm0, %zmm0
+	// vmovq	%xmm0, PL; adc	PL, T2;	valignq	$1, %zmm0, %zmm0, %zmm0
+	// vmovq	%xmm0, PL; adc	PL, T3;	valignq	$1, %zmm0, %zmm0, %zmm0
+	// vmovq	%xmm0, PL; adc	PL, T4	// T4 < 2^32
+
+	f.VMOVQ("X0", PL)
+	f.ADDQ(PL, T0)
+	f.VALIGNQ("$1", "Z0", "Z0", "Z0")
+	f.VMOVQ("X0", PL)
+	f.ADCQ(PL, T1)
+	f.VALIGNQ("$1", "Z0", "Z0", "Z0")
+	f.VMOVQ("X0", PL)
+	f.ADCQ(PL, T2)
+	f.VALIGNQ("$1", "Z0", "Z0", "Z0")
+	f.VMOVQ("X0", PL)
+	f.ADCQ(PL, T3)
+	f.VALIGNQ("$1", "Z0", "Z0", "Z0")
+	f.VMOVQ("X0", PL)
+	f.ADCQ(PL, T4)
+
+	//////////////////////////////////////////////////
+	// Barrett reduction
+	//////////////////////////////////////////////////
+
+	// // For explanation of mu, q1, q2, q3, r1, r2, see Handbook of
+	// // Applied Cryptography, Algorithm 14.42.
+
+	// // q1 is low 32 bits of T4 and high 32 bits of T3
+
+	// movq	T3, %rax
+	// shrd	$32, T4, %rax	// q1
+	// mulq	MU		// Multiply by mu. q2 in rdx:rax, q3 in rdx
+
+	f.MOVQ(T3, amd64.AX)
+	f.SHRDw("$32", T4, amd64.AX)
+	f.MULQ(f.mu())
+
+	// // Subtract r2 from r1
+
+	// mulx	0*8(PM), PL, PH; sub	PL, T0; sbb	PH, T1;
+	// mulx	2*8(PM), PL, PH; sbb	PL, T2; sbb	PH, T3;	sbb	$0, T4
+	// mulx	1*8(PM), PL, PH; sub	PL, T1; sbb	PH, T2;
+	// mulx	3*8(PM), PL, PH; sbb	PL, T3; sbb	PH, T4
+
+	f.MULXQ(f.qAt(0), PL, PH)
+	f.SUBQ(PL, T0)
+	f.SBBQ(PH, T1)
+	f.MULXQ(f.qAt(2), PL, PH)
+	f.SBBQ(PL, T2)
+	f.SBBQ(PH, T3)
+	f.SBBQ("$0", T4)
+	f.MULXQ(f.qAt(1), PL, PH)
+	f.SUBQ(PL, T1)
+	f.SBBQ(PH, T2)
+	f.MULXQ(f.qAt(3), PL, PH)
+	f.SBBQ(PL, T3)
+	f.SBBQ(PH, T4)
+
+	PZ := f.Pop(&registers)
+	f.MOVQ("res+0(FP)", PZ)
+	t := []amd64.Register{T0, T1, T2, T3}
+	f.Mov(t, PZ)
+
+	// sub q
+	f.SUBQ(f.qAt(0), T0)
+	f.SBBQ(f.qAt(1), T1)
+	f.SBBQ(f.qAt(2), T2)
+	f.SBBQ(f.qAt(3), T3)
+	f.SBBQ("$0", T4)
+
+	// if borrow, we go to done
+	f.JCS(done)
+
+	f.Mov(t, PZ)
+
+	f.SUBQ(f.qAt(0), T0)
+	f.SBBQ(f.qAt(1), T1)
+	f.SBBQ(f.qAt(2), T2)
+	f.SBBQ(f.qAt(3), T3)
+	f.SBBQ("$0", T4)
+
+	f.JCS(done)
+
+	f.Mov(t, PZ)
+
+	f.LABEL(done)
 
 	f.RET()
-
-	// // Reduce using single-word Barrett
-	// mu := f.Pop(&registers)
-
-	// f.Comment("reduce using single-word Barrett")
-	// f.Comment("see see Handbook of Applied Cryptography, Algorithm 14.42.")
-	// f.LabelRegisters("mu=2^288 / q", mu)
-	// f.MOVQ(f.mu(), mu)
-	// f.MOVQ(r3, amd64.AX)
-	// f.SHRQw("$32", r4, amd64.AX)
-	// f.MULQ(mu, "high bits of res stored in DX")
-
-	// f.MULXQ(f.qAt(0), amd64.AX, mu)
-	// f.SUBQ(amd64.AX, r0)
-	// f.SBBQ(mu, r1)
-
-	// f.MULXQ(f.qAt(2), amd64.AX, mu)
-	// f.SBBQ(amd64.AX, r2)
-	// f.SBBQ(mu, r3)
-	// f.SBBQ("$0", r4)
-
-	// f.MULXQ(f.qAt(1), amd64.AX, mu)
-	// f.SUBQ(amd64.AX, r1)
-	// f.SBBQ(mu, r2)
-
-	// f.MULXQ(f.qAt(3), amd64.AX, mu)
-	// f.SBBQ(amd64.AX, r3)
-	// f.SBBQ(mu, r4)
-
-	// // we need up to 2 conditional substractions to be < q
-	// modReduced := f.NewLabel("modReduced")
-	// t := f.PopN(&registers)
-	// f.Mov(r[:4], t) // backup r0 to r3 (our result)
-
-	// // sub modulus
-	// f.SUBQ(f.qAt(0), r0)
-	// f.SBBQ(f.qAt(1), r1)
-	// f.SBBQ(f.qAt(2), r2)
-	// f.SBBQ(f.qAt(3), r3)
-	// f.SBBQ("$0", r4)
-
-	// // if borrow, we go to mod reduced
-	// f.JCS(modReduced)
-	// f.Mov(r, t)
-	// f.SUBQ(f.qAt(0), r0)
-	// f.SBBQ(f.qAt(1), r1)
-	// f.SBBQ(f.qAt(2), r2)
-	// f.SBBQ(f.qAt(3), r3)
-	// f.SBBQ("$0", r4)
-
-	// // if borrow, we skip to the end
-	// f.JCS(modReduced)
-	// f.Mov(r, t)
-
-	// f.LABEL(modReduced)
-	// addrRes := mu
-	// f.MOVQ("res+0(FP)", addrRes)
-	// f.Mov(t, addrRes)
-
-	// f.LABEL(done)
-
-	// f.RET()
 }

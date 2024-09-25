@@ -85,7 +85,7 @@ func sumVec(res *{{.ElementName}}, a *{{.ElementName}}, n uint64)
 
 
 //go:noescape
-func innerProdVec(res *big.Word, a,b *{{.ElementName}}, n uint64)
+func innerProdVec(res *{{.ElementName}}, a,b *{{.ElementName}}, n uint64)
 
 // InnerProduct computes the inner product of two vectors.
 // It panics if the vectors don't have the same length.
@@ -101,21 +101,7 @@ func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
 		innerProductVecGeneric(&res, *vector, other)
 		return
 	}
-	tmpRes := make([]big.Word, 5)
-	innerProdVec(&tmpRes[0], &(*vector)[0], &other[0], uint64(len(*vector)))
-
-	// reduce the result using big.Int for now testing purposes
-	var tmp big.Int
-	tmp.SetBits(tmpRes)
-
-	// mod reduce % q
-	tmp.Mod(&tmp, &{{.ElementName}}.Modulus)
-
-	// copy the result to res
-	for i, w := range tmp.Bits() {
-		res[i] = uint64(w)
-	}
-
+	innerProdVec(&res, &(*vector)[0], &other[0], uint64(len(*vector)))
 
 	return
 }

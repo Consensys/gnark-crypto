@@ -823,6 +823,359 @@ modReduced_12:
 done_9:
 	RET
 
+// innerProdVec(res, a,b *Element, n uint64) res = sum(a[0...n] * b[0...n])
+TEXT ·innerProdVec(SB), NOSPLIT, $0-32
+	MOVQ      a+8(FP), R14
+	MOVQ      b+16(FP), R15
+	MOVQ      n+24(FP), CX
+	VPCMPEQB  Y0, Y0, Y0
+	VPMOVZXDQ Y0, Z5
+	VPXORQ    Z16, Z16, Z16
+	VMOVDQA64 Z16, Z17
+	VMOVDQA64 Z16, Z18
+	VMOVDQA64 Z16, Z19
+	VMOVDQA64 Z16, Z20
+	VMOVDQA64 Z16, Z21
+	VMOVDQA64 Z16, Z22
+	VMOVDQA64 Z16, Z23
+	VMOVDQA64 Z16, Z24
+	VMOVDQA64 Z16, Z25
+	VMOVDQA64 Z16, Z26
+	VMOVDQA64 Z16, Z27
+	VMOVDQA64 Z16, Z28
+	VMOVDQA64 Z16, Z29
+	VMOVDQA64 Z16, Z30
+	VMOVDQA64 Z16, Z31
+	TESTQ     CX, CX
+	JEQ       done_14       // n == 0, we are done
+
+loop_13:
+	TESTQ         CX, CX
+	JEQ           accumulate_15    // n == 0 we can accumulate
+	VPMOVZXDQ     (R15), Z4
+	ADDQ          $32, R15
+	VPMULUDQ.BCST 0*4(R14), Z4, Z2
+	VPSRLQ        $32, Z2, Z3
+	VPANDQ        Z5, Z2, Z2
+	VPADDQ        Z2, Z16, Z16
+	VPADDQ        Z3, Z24, Z24
+	VPMULUDQ.BCST 1*4(R14), Z4, Z2
+	VPSRLQ        $32, Z2, Z3
+	VPANDQ        Z5, Z2, Z2
+	VPADDQ        Z2, Z17, Z17
+	VPADDQ        Z3, Z25, Z25
+	VPMULUDQ.BCST 2*4(R14), Z4, Z2
+	VPSRLQ        $32, Z2, Z3
+	VPANDQ        Z5, Z2, Z2
+	VPADDQ        Z2, Z18, Z18
+	VPADDQ        Z3, Z26, Z26
+	VPMULUDQ.BCST 3*4(R14), Z4, Z2
+	VPSRLQ        $32, Z2, Z3
+	VPANDQ        Z5, Z2, Z2
+	VPADDQ        Z2, Z19, Z19
+	VPADDQ        Z3, Z27, Z27
+	VPMULUDQ.BCST 4*4(R14), Z4, Z2
+	VPSRLQ        $32, Z2, Z3
+	VPANDQ        Z5, Z2, Z2
+	VPADDQ        Z2, Z20, Z20
+	VPADDQ        Z3, Z28, Z28
+	VPMULUDQ.BCST 5*4(R14), Z4, Z2
+	VPSRLQ        $32, Z2, Z3
+	VPANDQ        Z5, Z2, Z2
+	VPADDQ        Z2, Z21, Z21
+	VPADDQ        Z3, Z29, Z29
+	VPMULUDQ.BCST 6*4(R14), Z4, Z2
+	VPSRLQ        $32, Z2, Z3
+	VPANDQ        Z5, Z2, Z2
+	VPADDQ        Z2, Z22, Z22
+	VPADDQ        Z3, Z30, Z30
+	VPMULUDQ.BCST 7*4(R14), Z4, Z2
+	VPSRLQ        $32, Z2, Z3
+	VPANDQ        Z5, Z2, Z2
+	VPADDQ        Z2, Z23, Z23
+	VPADDQ        Z3, Z31, Z31
+	ADDQ          $32, R14
+	DECQ          CX               // decrement n
+	JMP           loop_13
+
+accumulate_15:
+	MOVQ        $0x0000000000001555, AX
+	KMOVD       AX, K1
+	MOVQ        $1, AX
+	KMOVD       AX, K2
+	VALIGND.Z   $16, Z16, Z16, K2, Z0
+	KSHIFTLW    $1, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VPANDQ      Z5, Z24, Z2
+	VPADDQ      Z2, Z16, Z16
+	VPANDQ      Z5, Z17, Z2
+	VPADDQ      Z2, Z16, Z16
+	VALIGND     $15, Z16, Z16, K2, Z0
+	KSHIFTLW    $1, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VPSRLQ      $32, Z24, Z24
+	VPADDQ      Z24, Z16, Z16
+	VPSRLQ      $32, Z17, Z17
+	VPADDQ      Z17, Z16, Z16
+	VPANDQ      Z5, Z25, Z2
+	VPADDQ      Z2, Z16, Z16
+	VPANDQ      Z5, Z18, Z2
+	VPADDQ      Z2, Z16, Z16
+	VALIGND     $16-2, Z16, Z16, K2, Z0
+	KADDW       K2, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VPSRLQ      $32, Z25, Z25
+	VPADDQ      Z25, Z16, Z16
+	VPSRLQ      $32, Z18, Z18
+	VPADDQ      Z18, Z16, Z16
+	VPANDQ      Z5, Z26, Z2
+	VPADDQ      Z2, Z16, Z16
+	VPANDQ      Z5, Z19, Z2
+	VPADDQ      Z2, Z16, Z16
+	VALIGND     $16-3, Z16, Z16, K2, Z0
+	KADDW       K2, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VPSRLQ      $32, Z26, Z26
+	VPADDQ      Z26, Z16, Z16
+	VPSRLQ      $32, Z19, Z19
+	VPADDQ      Z19, Z16, Z16
+	VPANDQ      Z5, Z27, Z2
+	VPADDQ      Z2, Z16, Z16
+	VPANDQ      Z5, Z20, Z2
+	VPADDQ      Z2, Z16, Z16
+	VALIGND     $16-4, Z16, Z16, K2, Z0
+	KADDW       K2, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VPSRLQ      $32, Z27, Z27
+	VPADDQ      Z27, Z16, Z16
+	VPSRLQ      $32, Z20, Z20
+	VPADDQ      Z20, Z16, Z16
+	VPANDQ      Z5, Z28, Z2
+	VPADDQ      Z2, Z16, Z16
+	VPANDQ      Z5, Z21, Z2
+	VPADDQ      Z2, Z16, Z16
+	VALIGND     $16-5, Z16, Z16, K2, Z0
+	KADDW       K2, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VPSRLQ      $32, Z28, Z28
+	VPADDQ      Z28, Z16, Z16
+	VPSRLQ      $32, Z21, Z21
+	VPADDQ      Z21, Z16, Z16
+	VPANDQ      Z5, Z29, Z2
+	VPADDQ      Z2, Z16, Z16
+	VPANDQ      Z5, Z22, Z2
+	VPADDQ      Z2, Z16, Z16
+	VALIGND     $16-6, Z16, Z16, K2, Z0
+	KADDW       K2, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VPSRLQ      $32, Z29, Z29
+	VPADDQ      Z29, Z16, Z16
+	VPSRLQ      $32, Z22, Z22
+	VPADDQ      Z22, Z16, Z16
+	VPANDQ      Z5, Z30, Z2
+	VPADDQ      Z2, Z16, Z16
+	VPANDQ      Z5, Z23, Z2
+	VPADDQ      Z2, Z16, Z16
+	VALIGND     $16-7, Z16, Z16, K2, Z0
+	KADDW       K2, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VPSRLQ      $32, Z30, Z30
+	VPADDQ      Z30, Z16, Z16
+	VPSRLQ      $32, Z23, Z23
+	VPADDQ      Z23, Z16, Z16
+	VPANDQ      Z5, Z31, Z2
+	VPADDQ      Z2, Z16, Z16
+	VALIGND     $16-8, Z16, Z16, K2, Z0
+	KSHIFTLW    $1, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VPSRLQ      $32, Z31, Z31
+	VPADDQ      Z31, Z16, Z16
+	VALIGND     $16-9, Z16, Z16, K2, Z0
+	KSHIFTLW    $1, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VALIGND     $16-10, Z16, Z16, K2, Z0
+	KSHIFTLW    $1, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VALIGND     $16-11, Z16, Z16, K2, Z0
+	KSHIFTLW    $1, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VALIGND     $16-12, Z16, Z16, K2, Z0
+	KSHIFTLW    $1, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VALIGND     $16-13, Z16, Z16, K2, Z0
+	KSHIFTLW    $1, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VALIGND     $16-14, Z16, Z16, K2, Z0
+	KSHIFTLW    $1, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VALIGND     $16-15, Z16, Z16, K2, Z0
+	KSHIFTLW    $1, K2, K2
+	VPSRLQ      $32, Z16, Z2
+	VALIGND.Z   $2, Z16, Z16, K1, Z16
+	VPADDQ      Z2, Z16, Z16
+	VMOVDQA64.Z Z16, K1, Z1
+	VMOVQ       X0, SI
+	VALIGNQ     $1, Z0, Z1, Z0
+	VMOVQ       X0, DI
+	VALIGNQ     $1, Z0, Z0, Z0
+	VMOVQ       X0, R8
+	VALIGNQ     $1, Z0, Z0, Z0
+	VMOVQ       X0, R9
+	VALIGNQ     $1, Z0, Z0, Z0
+	XORQ        BX, BX
+	MOVQ        qInv0<>(SB), DX
+	MULXQ       SI, DX, R10
+	MULXQ       q<>+0(SB), AX, R10
+	ADDQ        AX, SI
+	ADCQ        R10, DI
+	MULXQ       q<>+16(SB), AX, R10
+	ADCQ        AX, R8
+	ADCQ        R10, R9
+	ADCQ        $0, BX
+	MULXQ       q<>+8(SB), AX, R10
+	ADDQ        AX, DI
+	ADCQ        R10, R8
+	MULXQ       q<>+24(SB), AX, R10
+	ADCQ        AX, R9
+	ADCQ        R10, BX
+	ADCQ        $0, SI
+	MOVQ        qInv0<>(SB), DX
+	MULXQ       DI, DX, R10
+	MULXQ       q<>+0(SB), AX, R10
+	ADDQ        AX, DI
+	ADCQ        R10, R8
+	MULXQ       q<>+16(SB), AX, R10
+	ADCQ        AX, R9
+	ADCQ        R10, BX
+	ADCQ        $0, SI
+	MULXQ       q<>+8(SB), AX, R10
+	ADDQ        AX, R8
+	ADCQ        R10, R9
+	MULXQ       q<>+24(SB), AX, R10
+	ADCQ        AX, BX
+	ADCQ        R10, SI
+	ADCQ        $0, DI
+	MOVQ        qInv0<>(SB), DX
+	MULXQ       R8, DX, R10
+	MULXQ       q<>+0(SB), AX, R10
+	ADDQ        AX, R8
+	ADCQ        R10, R9
+	MULXQ       q<>+16(SB), AX, R10
+	ADCQ        AX, BX
+	ADCQ        R10, SI
+	ADCQ        $0, DI
+	MULXQ       q<>+8(SB), AX, R10
+	ADDQ        AX, R9
+	ADCQ        R10, BX
+	MULXQ       q<>+24(SB), AX, R10
+	ADCQ        AX, SI
+	ADCQ        R10, DI
+	ADCQ        $0, R8
+	MOVQ        qInv0<>(SB), DX
+	MULXQ       R9, DX, R10
+	MULXQ       q<>+0(SB), AX, R10
+	ADDQ        AX, R9
+	ADCQ        R10, BX
+	MULXQ       q<>+16(SB), AX, R10
+	ADCQ        AX, SI
+	ADCQ        R10, DI
+	ADCQ        $0, R8
+	MULXQ       q<>+8(SB), AX, R10
+	ADDQ        AX, BX
+	ADCQ        R10, SI
+	MULXQ       q<>+24(SB), AX, R10
+	ADCQ        AX, DI
+	ADCQ        R10, R8
+	ADCQ        $0, R9
+	VMOVQ       X0, AX
+	ADDQ        AX, BX
+	VALIGNQ     $1, Z0, Z0, Z0
+	VMOVQ       X0, AX
+	ADCQ        AX, SI
+	VALIGNQ     $1, Z0, Z0, Z0
+	VMOVQ       X0, AX
+	ADCQ        AX, DI
+	VALIGNQ     $1, Z0, Z0, Z0
+	VMOVQ       X0, AX
+	ADCQ        AX, R8
+	VALIGNQ     $1, Z0, Z0, Z0
+	VMOVQ       X0, AX
+	ADCQ        AX, R9
+	MOVQ        R8, AX
+	SHRD        $32, R9, AX
+	MULQ        mu<>(SB)
+	MULXQ       q<>+0(SB), AX, R10
+	SUBQ        AX, BX
+	SBBQ        R10, SI
+	MULXQ       q<>+16(SB), AX, R10
+	SBBQ        AX, DI
+	SBBQ        R10, R8
+	SBBQ        $0, R9
+	MULXQ       q<>+8(SB), AX, R10
+	SUBQ        AX, SI
+	SBBQ        R10, DI
+	MULXQ       q<>+24(SB), AX, R10
+	SBBQ        AX, R8
+	SBBQ        R10, R9
+	MOVQ        res+0(FP), R11
+	MOVQ        BX, 0(R11)
+	MOVQ        SI, 8(R11)
+	MOVQ        DI, 16(R11)
+	MOVQ        R8, 24(R11)
+	SUBQ        q<>+0(SB), BX
+	SBBQ        q<>+8(SB), SI
+	SBBQ        q<>+16(SB), DI
+	SBBQ        q<>+24(SB), R8
+	SBBQ        $0, R9
+	JCS         done_14
+	MOVQ        BX, 0(R11)
+	MOVQ        SI, 8(R11)
+	MOVQ        DI, 16(R11)
+	MOVQ        R8, 24(R11)
+	SUBQ        q<>+0(SB), BX
+	SBBQ        q<>+8(SB), SI
+	SBBQ        q<>+16(SB), DI
+	SBBQ        q<>+24(SB), R8
+	SBBQ        $0, R9
+	JCS         done_14
+	MOVQ        BX, 0(R11)
+	MOVQ        SI, 8(R11)
+	MOVQ        DI, 16(R11)
+	MOVQ        R8, 24(R11)
+
+done_14:
+	RET
+
 // mul(res, x, y *Element)
 TEXT ·mul(SB), $24-24
 
@@ -831,7 +1184,7 @@ TEXT ·mul(SB), $24-24
 
 	NO_LOCAL_POINTERS
 	CMPB ·supportAdx(SB), $1
-	JNE  noAdx_13
+	JNE  noAdx_16
 	MOVQ x+8(FP), SI
 
 	// x[0] -> DI
@@ -1094,7 +1447,7 @@ TEXT ·mul(SB), $24-24
 	MOVQ BX, 24(AX)
 	RET
 
-noAdx_13:
+noAdx_16:
 	MOVQ res+0(FP), AX
 	MOVQ AX, (SP)
 	MOVQ x+8(FP), AX
@@ -1119,7 +1472,7 @@ TEXT ·fromMont(SB), $8-8
 	// 		    (C,t[j-1]) := t[j] + m*q[j] + C
 	// 		t[N-1] = C
 	CMPB ·supportAdx(SB), $1
-	JNE  noAdx_14
+	JNE  noAdx_17
 	MOVQ res+0(FP), DX
 	MOVQ 0(DX), R14
 	MOVQ 8(DX), R13
@@ -1252,7 +1605,7 @@ TEXT ·fromMont(SB), $8-8
 	MOVQ BX, 24(AX)
 	RET
 
-noAdx_14:
+noAdx_17:
 	MOVQ res+0(FP), AX
 	MOVQ AX, (SP)
 	CALL ·_fromMontGeneric(SB)
