@@ -1,7 +1,3 @@
-// The Eisenstein integers form a commutative ring of algebraic integers in the
-// algebraic number field Q(ω) – the third cyclotomic field.  These are of the
-// form z = a + bω, where a and b are integers and ω is a primitive third root
-// of unity i.e. ω²+ω+1 = 0.
 package eisenstein
 
 import (
@@ -114,6 +110,9 @@ func (z *ComplexNumber) Norm() *big.Int {
 // Quo sets z to the quotient of x and y, and returns z.
 func (z *ComplexNumber) Quo(x, y *ComplexNumber) *ComplexNumber {
 	norm := y.Norm()
+	if norm.Cmp(big.NewInt(0)) == 0 {
+		panic("division by zero")
+	}
 	z.Conjugate(y)
 	z.Mul(x, z)
 	z.A0.Div(&z.A0, norm)
@@ -121,11 +120,37 @@ func (z *ComplexNumber) Quo(x, y *ComplexNumber) *ComplexNumber {
 	return z
 }
 
+// QuoRem sets z to the quotient of x and y, r to the remaind, and returns z and r.
+func (z *ComplexNumber) QuoRem(x, y, r *ComplexNumber) (*ComplexNumber, *ComplexNumber) {
+	norm := y.Norm()
+	if norm.Cmp(big.NewInt(0)) == 0 {
+		panic("division by zero")
+	}
+	z.Conjugate(y)
+	z.Mul(x, z)
+	z.A0.Div(&z.A0, norm)
+	z.A1.Div(&z.A1, norm)
+	var t ComplexNumber
+	r.Sub(x, t.Mul(y, z))
+	return z, r
+}
+
+// Min returns the minimum of z... with respect to the norm.
+func Min(z ...*ComplexNumber) *ComplexNumber {
+	min := z[0]
+	for _, v := range z {
+		if v.Norm().Cmp(min.Norm()) == -1 {
+			min = v
+		}
+	}
+	return min
+}
+
 // HalfGCD returns the rational reconstruction of a, b.
 // This outputs w, v, u s.t. w = a*u + b*v.
 func HalfGCD(a, b *ComplexNumber) [3]*ComplexNumber {
 
-	var aRun, bRun, u, v, u_, v_, quotient, remainder, t, t1, t2 ComplexNumber
+	var check, aRun, bRun, u, v, u_, v_, quotient, remainder, t, t1, t2 ComplexNumber
 
 	aRun.Set(a)
 	bRun.Set(b)
@@ -133,12 +158,11 @@ func HalfGCD(a, b *ComplexNumber) [3]*ComplexNumber {
 	v.SetZero()
 	u_.SetZero()
 	v_.SetOne()
-	nbits := a.Norm().BitLen() / 2
 
-	for aRun.Norm().BitLen() > nbits {
-		quotient.Quo(&aRun, &bRun)
-		t.Mul(&bRun, &quotient)
-		remainder.Sub(&aRun, &t)
+	// Eisenstein integers form an Euclidean domain for the norm
+	aNorm := a.Norm()
+	for check.Mul(&aRun, &aRun).Norm().Cmp(aNorm) == 1 {
+		quotient.QuoRem(&aRun, &bRun, &remainder)
 		t.Mul(&u_, &quotient)
 		t1.Sub(&u, &t)
 		t.Mul(&v_, &quotient)

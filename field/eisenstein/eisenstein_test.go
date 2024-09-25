@@ -12,6 +12,7 @@ import (
 const (
 	nbFuzzShort = 10
 	nbFuzz      = 50
+	boundSize   = 256
 )
 
 func TestEisensteinReceiverIsOperand(t *testing.T) {
@@ -26,7 +27,7 @@ func TestEisensteinReceiverIsOperand(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	genE := GenComplexNumber()
+	genE := GenComplexNumber(boundSize)
 
 	properties.Property("Having the receiver as operand (addition) should output the same result", prop.ForAll(
 		func(a, b *ComplexNumber) bool {
@@ -102,7 +103,7 @@ func TestEisensteinArithmetic(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	genE := GenComplexNumber()
+	genE := GenComplexNumber(boundSize)
 
 	properties.Property("sub & add should leave an element invariant", prop.ForAll(
 		func(a, b *ComplexNumber) bool {
@@ -135,9 +136,9 @@ func TestEisensteinArithmetic(t *testing.T) {
 
 	properties.Property("add zero should leave element invariant", prop.ForAll(
 		func(a *ComplexNumber) bool {
-			var b ComplexNumber
-			zero := new(ComplexNumber)
-			b.Add(a, zero)
+			var b, zero ComplexNumber
+			zero.SetZero()
+			b.Add(a, &zero)
 			return a.Equal(&b)
 		},
 		genE,
@@ -145,12 +146,9 @@ func TestEisensteinArithmetic(t *testing.T) {
 
 	properties.Property("mul by one should leave element invariant", prop.ForAll(
 		func(a *ComplexNumber) bool {
-			var b ComplexNumber
-			one := &ComplexNumber{
-				*big.NewInt(1),
-				*big.NewInt(0),
-			}
-			b.Mul(a, one)
+			var b, one ComplexNumber
+			one.SetOne()
+			b.Mul(a, &one)
 			return a.Equal(&b)
 		},
 		genE,
@@ -204,7 +202,7 @@ func TestEisensteinArithmetic(t *testing.T) {
 
 	properties.Property("norm should always be positive", prop.ForAll(
 		func(a *ComplexNumber) bool {
-			return a.Norm().Sign() > 0
+			return a.Norm().Sign() >= 0
 		},
 		genE,
 	))
@@ -224,7 +222,7 @@ func TestEisensteinHalfGCD(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	genE := GenComplexNumber()
+	genE := GenComplexNumber(boundSize)
 
 	properties.Property("half-GCD", prop.ForAll(
 		func(a, b *ComplexNumber) bool {
@@ -243,20 +241,21 @@ func TestEisensteinHalfGCD(t *testing.T) {
 }
 
 // GenNumber generates a random integer
-func GenNumber() gopter.Gen {
+func GenNumber(boundSize int64) gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		var prime, _ = new(big.Int).SetString("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffed", 16) // 2^255 - 19
-		elmt, _ := rand.Int(rand.Reader, prime)
+		var bound big.Int
+		bound.Exp(big.NewInt(2), big.NewInt(boundSize), nil)
+		elmt, _ := rand.Int(genParams.Rng, &bound)
 		genResult := gopter.NewGenResult(*elmt, gopter.NoShrinker)
 		return genResult
 	}
 }
 
 // GenComplexNumber generates a random integer
-func GenComplexNumber() gopter.Gen {
+func GenComplexNumber(boundSize int64) gopter.Gen {
 	return gopter.CombineGens(
-		GenNumber(),
-		GenNumber(),
+		GenNumber(boundSize),
+		GenNumber(boundSize),
 	).Map(func(values []interface{}) *ComplexNumber {
 		return &ComplexNumber{A0: values[0].(big.Int), A1: values[1].(big.Int)}
 	})
@@ -273,6 +272,6 @@ func BenchmarkHalfGCD(b *testing.B) {
 	c := ComplexNumber{A0: *c0, A1: *c1}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		HalfGCD(&a, &c)
+		_ = HalfGCD(&a, &c)
 	}
 }
