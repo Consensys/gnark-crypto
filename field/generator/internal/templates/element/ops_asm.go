@@ -84,10 +84,39 @@ func (vector *Vector) Sum() (res {{.ElementName}}) {
 func sumVec(res *{{.ElementName}}, a *{{.ElementName}}, n uint64)
 
 
+//go:noescape
+func innerProdVec(res *big.Word, a,b *{{.ElementName}}, n uint64)
+
 // InnerProduct computes the inner product of two vectors.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
-	innerProductVecGeneric(&res, *vector, other)
+	n := uint64(len(*vector))
+	if n != uint64(len(other)) {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	const minN = 16*7 // AVX512 slower than generic for small n
+	const maxN = (1 << 32) - 1
+	if !supportAvx512 || n <= minN || n >= maxN {
+		// call innerProductVecGeneric
+		innerProductVecGeneric(&res, *vector, other)
+		return
+	}
+	tmpRes := make([]big.Word, 5)
+	innerProdVec(&tmpRes[0], &(*vector)[0], &other[0], uint64(len(*vector)))
+
+	// reduce the result using big.Int for now testing purposes
+	var tmp big.Int
+	tmp.SetBits(tmpRes)
+
+	// mod reduce % q
+	tmp.Mod(&tmp, &{{.ElementName}}.Modulus)
+
+	// copy the result to res
+	for i, w := range tmp.Bits() {
+		res[i] = uint64(w)
+	}
+
+
 	return
 }
 

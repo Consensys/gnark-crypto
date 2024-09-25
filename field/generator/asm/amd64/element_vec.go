@@ -536,3 +536,234 @@ func (f *FFAmd64) generateSumVec() {
 	f.Push(&registers, mu)
 	f.Push(&registers, w0l, w1l, w2l, w3l, w3h)
 }
+
+func (f *FFAmd64) generateInnerProduct() {
+	f.Comment("innerProdVec(res, a,b *Element, n uint64) res = sum(a[0...n] * b[0...n])")
+
+	const argSize = 4 * 8
+	stackSize := f.StackSize(f.NbWords*3+2, 0, 0)
+	registers := f.FnHeader("innerProdVec", stackSize, argSize, amd64.DX, amd64.AX)
+	defer f.AssertCleanStack(stackSize, 0)
+
+	// registers & labels we need
+	addrA := f.Pop(&registers)
+	addrB := f.Pop(&registers)
+	n := f.Pop(&registers)
+
+	loop := f.NewLabel("loop")
+	done := f.NewLabel("done")
+	accumulate := f.NewLabel("accumulate")
+
+	// AVX512 registers
+	Z0 := amd64.Register("Z0")
+	Z1 := amd64.Register("Z1")
+	Z2 := amd64.Register("Z2")
+	Z3 := amd64.Register("Z3")
+	Z4 := amd64.Register("Z4")
+	Z5 := amd64.Register("Z5")
+	Z6 := amd64.Register("Z6")
+	Z7 := amd64.Register("Z7")
+
+	Z8 := amd64.Register("Z8")
+	Z9 := amd64.Register("Z9")
+	Z10 := amd64.Register("Z10")
+	Z11 := amd64.Register("Z11")
+
+	X0 := amd64.Register("X0")
+
+	// load arguments
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("n+24(FP)", n)
+
+	f.Comment("initialize accumulators Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7")
+	f.VXORPS(Z0, Z0, Z0)
+	f.VMOVDQA64(Z0, Z1)
+	f.VMOVDQA64(Z0, Z2)
+	f.VMOVDQA64(Z0, Z3)
+	f.VMOVDQA64(Z0, Z4)
+	f.VMOVDQA64(Z0, Z5)
+	f.VMOVDQA64(Z0, Z6)
+	f.VMOVDQA64(Z0, Z7)
+	f.VMOVDQA64(Z0, Z11)
+
+	// note: we don't need to handle the case n==0; handled by caller already.
+	f.TESTQ(n, n)
+	f.JEQ(done, "n == 0, we are done")
+
+	f.LabelRegisters("n", n)
+
+	f.LABEL(loop)
+	f.TESTQ(n, n)
+	f.JEQ(accumulate, "n == 0 we can accumulate")
+
+	f.VPMOVZXDQ("0("+addrA+")", Z8)
+	f.VPMOVZXDQ("0("+addrB+")", Z9)
+	f.VPMULUDQ(Z8, Z9, Z10)
+
+	for i := 0; i < 8; i++ {
+		if i != 0 {
+			f.VPSRLQ("$64", Z10, Z10)
+		}
+		f.VMOVQ(Z10, Z11)
+		zi := fmt.Sprintf("Z%d", i)
+		f.VPADDQ(Z11, zi, zi)
+	}
+
+	f.ADDQ("$32", addrA)
+	f.ADDQ("$32", addrB)
+
+	f.DECQ(n, "decrement n")
+	f.JMP(loop)
+
+	f.Push(&registers, n, addrA, addrB)
+
+	f.LABEL(accumulate)
+
+	// Propagate carries
+	f.Comment("carry propagation")
+
+	// TODO @gbotrel we don't need to accumulate; we already did.
+	// we extract the words that's it.
+
+	// we have Z0...Z7 corresponding to the 8 words of the result
+	// however they are on 96bits each, so we need to propagate the carry
+	// to build a 5words result
+	r := make([]amd64.Register, 5)
+	for i := 0; i < 5; i++ {
+		r[i] = f.Pop(&registers)
+	}
+	t0 := f.Pop(&registers)
+	t1 := f.Pop(&registers)
+
+	// r[0] = 						lo64(Z0) + lo32(Z1)
+	// r[1] = hi32(Z0) + hi64(Z1) + lo64(Z2) + lo32(Z3)
+	// r[2] = hi32(Z2) + hi64(Z3) + lo64(Z4) + lo32(Z5)
+	// r[3] = hi32(Z4) + hi64(Z5) + lo64(Z6) + lo32(Z7)
+	// r[4] = hi32(Z6) + hi64(Z7)
+
+	// note that we can replace hi32 by hi64 since we know that the hi32 bits are 0
+	// problem; we have 3 distinct additions chain so we must do 2 passes
+
+	f.VMOVQ("X0", r[0]) // move lo64(Z0) to r[0]
+	f.VMOVD("X1", t0)   // move lo32(Z1) to t0
+	f.ADDQ(t0, r[0])    // r[0] = lo64(Z0) + lo32(Z1)
+
+	f.VMOVQ("X2", r[1]) // move lo64(Z2) to r[1]
+	f.VMOVD("X3", t0)   // move lo32(Z3) to t0
+	f.ADCQ(t0, r[1])    // r[1] = lo64(Z2) + lo32(Z3)
+
+	f.VMOVQ("X4", r[2]) // move lo64(Z4) to r[2]
+	f.VMOVD("X5", t0)   // move lo32(Z5) to t0
+	f.ADCQ(t0, r[2])    // r[2] = lo64(Z4) + lo32(Z5)
+
+	f.VMOVQ("X6", r[3]) // move lo64(Z6) to r[3]
+	f.VMOVD("X7", t0)   // move lo32(Z7) to t0
+	f.ADCQ(t0, r[3])    // r[3] = lo64(Z6) + lo32(Z7)
+
+	f.ADCQ("$0", r[4]) // r[4] = 0 + carry
+
+	f.XORQ(t0, t0) // clear the flags.
+
+	// r[1] = hi64(Z0) + hi64(Z1) + r[1]
+	// r[2] = hi64(Z2) + hi64(Z3) + r[2]
+	// r[3] = hi64(Z4) + hi64(Z5) + r[3]
+	// r[4] = hi64(Z6) + hi64(Z7) + r[4]
+
+	// shift all Z registers by 64 bits
+	for i := 0; i < 8; i++ {
+		f.VPSRLQ("$64", fmt.Sprintf("Z%d", i), fmt.Sprintf("Z%d", i))
+	}
+	f.VMOVQ("X0", t0) // move hi64(Z0) to t0
+	f.VMOVQ("X1", t1) // move hi64(Z1) to t1
+	f.ADCXQ(t1, r[1])
+	f.ADOXQ(t0, r[1])
+
+	f.VMOVQ("X2", t0) // move hi64(Z2) to t0
+	f.VMOVQ("X3", t1) // move hi64(Z3) to t1
+	f.ADCXQ(t1, r[2])
+	f.ADOXQ(t0, r[2])
+
+	f.VMOVQ("X4", t0) // move hi64(Z4) to t0
+	f.VMOVQ("X5", t1) // move hi64(Z5) to t1
+	f.ADCXQ(t1, r[3])
+	f.ADOXQ(t0, r[3])
+
+	f.VMOVQ("X6", t0) // move hi64(Z6) to t0
+	f.VMOVQ("X7", t1) // move hi64(Z7) to t1
+	f.ADCXQ(t1, r[4])
+	f.ADOXQ(t0, r[4])
+
+	f.MOVQ("res+0(FP)", t0)
+
+	// move r0...r4 to res
+	f.MOVQ(r[0], t0.At(0))
+	f.MOVQ(r[1], t0.At(1))
+	f.MOVQ(r[2], t0.At(2))
+	f.MOVQ(r[3], t0.At(3))
+	f.MOVQ(r[4], t0.At(4))
+
+	f.RET()
+
+	// // Reduce using single-word Barrett
+	// mu := f.Pop(&registers)
+
+	// f.Comment("reduce using single-word Barrett")
+	// f.Comment("see see Handbook of Applied Cryptography, Algorithm 14.42.")
+	// f.LabelRegisters("mu=2^288 / q", mu)
+	// f.MOVQ(f.mu(), mu)
+	// f.MOVQ(r3, amd64.AX)
+	// f.SHRQw("$32", r4, amd64.AX)
+	// f.MULQ(mu, "high bits of res stored in DX")
+
+	// f.MULXQ(f.qAt(0), amd64.AX, mu)
+	// f.SUBQ(amd64.AX, r0)
+	// f.SBBQ(mu, r1)
+
+	// f.MULXQ(f.qAt(2), amd64.AX, mu)
+	// f.SBBQ(amd64.AX, r2)
+	// f.SBBQ(mu, r3)
+	// f.SBBQ("$0", r4)
+
+	// f.MULXQ(f.qAt(1), amd64.AX, mu)
+	// f.SUBQ(amd64.AX, r1)
+	// f.SBBQ(mu, r2)
+
+	// f.MULXQ(f.qAt(3), amd64.AX, mu)
+	// f.SBBQ(amd64.AX, r3)
+	// f.SBBQ(mu, r4)
+
+	// // we need up to 2 conditional substractions to be < q
+	// modReduced := f.NewLabel("modReduced")
+	// t := f.PopN(&registers)
+	// f.Mov(r[:4], t) // backup r0 to r3 (our result)
+
+	// // sub modulus
+	// f.SUBQ(f.qAt(0), r0)
+	// f.SBBQ(f.qAt(1), r1)
+	// f.SBBQ(f.qAt(2), r2)
+	// f.SBBQ(f.qAt(3), r3)
+	// f.SBBQ("$0", r4)
+
+	// // if borrow, we go to mod reduced
+	// f.JCS(modReduced)
+	// f.Mov(r, t)
+	// f.SUBQ(f.qAt(0), r0)
+	// f.SBBQ(f.qAt(1), r1)
+	// f.SBBQ(f.qAt(2), r2)
+	// f.SBBQ(f.qAt(3), r3)
+	// f.SBBQ("$0", r4)
+
+	// // if borrow, we skip to the end
+	// f.JCS(modReduced)
+	// f.Mov(r, t)
+
+	// f.LABEL(modReduced)
+	// addrRes := mu
+	// f.MOVQ("res+0(FP)", addrRes)
+	// f.Mov(t, addrRes)
+
+	// f.LABEL(done)
+
+	// f.RET()
+}

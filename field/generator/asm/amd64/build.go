@@ -210,6 +210,7 @@ func GenerateCommonASM(w io.Writer, nbWords int) error {
 		f.generateSubVec()
 		f.generateScalarMulVec()
 		f.generateSumVec()
+		f.generateInnerProduct()
 	}
 
 	// mul
