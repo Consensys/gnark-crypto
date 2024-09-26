@@ -48,6 +48,7 @@ func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 
 	fq2.WriteLn("#include \"textflag.h\"")
 	fq2.WriteLn("#include \"funcdata.h\"")
+	fq2.WriteLn("#include \"go_asm.h\"")
 
 	fq2.GenerateDefinesDeprecated(fq2.F)
 	if fq2.config.Equal(config.BN254) {

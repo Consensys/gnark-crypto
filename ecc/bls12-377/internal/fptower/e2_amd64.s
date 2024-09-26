@@ -14,6 +14,7 @@
 
 #include "textflag.h"
 #include "funcdata.h"
+#include "go_asm.h"
 
 // modulus q
 DATA q<>+0(SB)/8, $0x8508c00000000001

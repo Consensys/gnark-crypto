@@ -14,23 +14,24 @@
 
 #include "textflag.h"
 #include "funcdata.h"
+#include "go_asm.h"
 
 #define REDUCE(ra0, ra1, ra2, ra3, ra4, rb0, rb1, rb2, rb3, rb4) \
-	MOVQ    ra0, rb0;        \
-	SUBQ    q<>(SB), ra0;    \
-	MOVQ    ra1, rb1;        \
-	SBBQ    q<>+8(SB), ra1;  \
-	MOVQ    ra2, rb2;        \
-	SBBQ    q<>+16(SB), ra2; \
-	MOVQ    ra3, rb3;        \
-	SBBQ    q<>+24(SB), ra3; \
-	MOVQ    ra4, rb4;        \
-	SBBQ    q<>+32(SB), ra4; \
-	CMOVQCS rb0, ra0;        \
-	CMOVQCS rb1, ra1;        \
-	CMOVQCS rb2, ra2;        \
-	CMOVQCS rb3, ra3;        \
-	CMOVQCS rb4, ra4;        \
+	MOVQ    ra0, rb0;              \
+	SUBQ    ·qElement(SB), ra0;    \
+	MOVQ    ra1, rb1;              \
+	SBBQ    ·qElement+8(SB), ra1;  \
+	MOVQ    ra2, rb2;              \
+	SBBQ    ·qElement+16(SB), ra2; \
+	MOVQ    ra3, rb3;              \
+	SBBQ    ·qElement+24(SB), ra3; \
+	MOVQ    ra4, rb4;              \
+	SBBQ    ·qElement+32(SB), ra4; \
+	CMOVQCS rb0, ra0;              \
+	CMOVQCS rb1, ra1;              \
+	CMOVQCS rb2, ra2;              \
+	CMOVQCS rb3, ra3;              \
+	CMOVQCS rb4, ra4;              \
 
 TEXT ·reduce(SB), NOSPLIT, $0-8
 	MOVQ res+0(FP), AX
@@ -220,11 +221,11 @@ TEXT ·Butterfly(SB), $24-16
 	MOVQ    SI, s0-8(SP)
 	MOVQ    DI, s1-16(SP)
 	MOVQ    R8, s2-24(SP)
-	MOVQ    q0, CX
-	MOVQ    q1, BX
-	MOVQ    q2, SI
-	MOVQ    q3, DI
-	MOVQ    q4, R8
+	MOVQ    $const_q0, CX
+	MOVQ    $const_q1, BX
+	MOVQ    $const_q2, SI
+	MOVQ    $const_q3, DI
+	MOVQ    $const_q4, R8
 	CMOVQCC AX, CX
 	CMOVQCC AX, BX
 	CMOVQCC AX, SI
@@ -310,35 +311,35 @@ TEXT ·mul(SB), $24-24
 	ADOXQ AX, BP
 
 	// m := t[0]*q'[0] mod W
-	MOVQ  qInv0<>(SB), DX
+	MOVQ  $const_qInvNeg, DX
 	IMULQ R14, DX
 
 	// clear the flags
 	XORQ AX, AX
 
 	// C,_ := t[0] + m*q[0]
-	MULXQ q<>+0(SB), AX, R8
+	MULXQ ·qElement+0(SB), AX, R8
 	ADCXQ R14, AX
 	MOVQ  R8, R14
 
 	// (C,t[0]) := t[1] + m*q[1] + C
 	ADCXQ R13, R14
-	MULXQ q<>+8(SB), AX, R13
+	MULXQ ·qElement+8(SB), AX, R13
 	ADOXQ AX, R14
 
 	// (C,t[1]) := t[2] + m*q[2] + C
 	ADCXQ CX, R13
-	MULXQ q<>+16(SB), AX, CX
+	MULXQ ·qElement+16(SB), AX, CX
 	ADOXQ AX, R13
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
-	MULXQ q<>+24(SB), AX, BX
+	MULXQ ·qElement+24(SB), AX, BX
 	ADOXQ AX, CX
 
 	// (C,t[3]) := t[4] + m*q[4] + C
 	ADCXQ SI, BX
-	MULXQ q<>+32(SB), AX, SI
+	MULXQ ·qElement+32(SB), AX, SI
 	ADOXQ AX, BX
 
 	// t[4] = C + A
@@ -380,35 +381,35 @@ TEXT ·mul(SB), $24-24
 	ADOXQ AX, BP
 
 	// m := t[0]*q'[0] mod W
-	MOVQ  qInv0<>(SB), DX
+	MOVQ  $const_qInvNeg, DX
 	IMULQ R14, DX
 
 	// clear the flags
 	XORQ AX, AX
 
 	// C,_ := t[0] + m*q[0]
-	MULXQ q<>+0(SB), AX, R8
+	MULXQ ·qElement+0(SB), AX, R8
 	ADCXQ R14, AX
 	MOVQ  R8, R14
 
 	// (C,t[0]) := t[1] + m*q[1] + C
 	ADCXQ R13, R14
-	MULXQ q<>+8(SB), AX, R13
+	MULXQ ·qElement+8(SB), AX, R13
 	ADOXQ AX, R14
 
 	// (C,t[1]) := t[2] + m*q[2] + C
 	ADCXQ CX, R13
-	MULXQ q<>+16(SB), AX, CX
+	MULXQ ·qElement+16(SB), AX, CX
 	ADOXQ AX, R13
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
-	MULXQ q<>+24(SB), AX, BX
+	MULXQ ·qElement+24(SB), AX, BX
 	ADOXQ AX, CX
 
 	// (C,t[3]) := t[4] + m*q[4] + C
 	ADCXQ SI, BX
-	MULXQ q<>+32(SB), AX, SI
+	MULXQ ·qElement+32(SB), AX, SI
 	ADOXQ AX, BX
 
 	// t[4] = C + A
@@ -450,35 +451,35 @@ TEXT ·mul(SB), $24-24
 	ADOXQ AX, BP
 
 	// m := t[0]*q'[0] mod W
-	MOVQ  qInv0<>(SB), DX
+	MOVQ  $const_qInvNeg, DX
 	IMULQ R14, DX
 
 	// clear the flags
 	XORQ AX, AX
 
 	// C,_ := t[0] + m*q[0]
-	MULXQ q<>+0(SB), AX, R8
+	MULXQ ·qElement+0(SB), AX, R8
 	ADCXQ R14, AX
 	MOVQ  R8, R14
 
 	// (C,t[0]) := t[1] + m*q[1] + C
 	ADCXQ R13, R14
-	MULXQ q<>+8(SB), AX, R13
+	MULXQ ·qElement+8(SB), AX, R13
 	ADOXQ AX, R14
 
 	// (C,t[1]) := t[2] + m*q[2] + C
 	ADCXQ CX, R13
-	MULXQ q<>+16(SB), AX, CX
+	MULXQ ·qElement+16(SB), AX, CX
 	ADOXQ AX, R13
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
-	MULXQ q<>+24(SB), AX, BX
+	MULXQ ·qElement+24(SB), AX, BX
 	ADOXQ AX, CX
 
 	// (C,t[3]) := t[4] + m*q[4] + C
 	ADCXQ SI, BX
-	MULXQ q<>+32(SB), AX, SI
+	MULXQ ·qElement+32(SB), AX, SI
 	ADOXQ AX, BX
 
 	// t[4] = C + A
@@ -520,35 +521,35 @@ TEXT ·mul(SB), $24-24
 	ADOXQ AX, BP
 
 	// m := t[0]*q'[0] mod W
-	MOVQ  qInv0<>(SB), DX
+	MOVQ  $const_qInvNeg, DX
 	IMULQ R14, DX
 
 	// clear the flags
 	XORQ AX, AX
 
 	// C,_ := t[0] + m*q[0]
-	MULXQ q<>+0(SB), AX, R8
+	MULXQ ·qElement+0(SB), AX, R8
 	ADCXQ R14, AX
 	MOVQ  R8, R14
 
 	// (C,t[0]) := t[1] + m*q[1] + C
 	ADCXQ R13, R14
-	MULXQ q<>+8(SB), AX, R13
+	MULXQ ·qElement+8(SB), AX, R13
 	ADOXQ AX, R14
 
 	// (C,t[1]) := t[2] + m*q[2] + C
 	ADCXQ CX, R13
-	MULXQ q<>+16(SB), AX, CX
+	MULXQ ·qElement+16(SB), AX, CX
 	ADOXQ AX, R13
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
-	MULXQ q<>+24(SB), AX, BX
+	MULXQ ·qElement+24(SB), AX, BX
 	ADOXQ AX, CX
 
 	// (C,t[3]) := t[4] + m*q[4] + C
 	ADCXQ SI, BX
-	MULXQ q<>+32(SB), AX, SI
+	MULXQ ·qElement+32(SB), AX, SI
 	ADOXQ AX, BX
 
 	// t[4] = C + A
@@ -590,35 +591,35 @@ TEXT ·mul(SB), $24-24
 	ADOXQ AX, BP
 
 	// m := t[0]*q'[0] mod W
-	MOVQ  qInv0<>(SB), DX
+	MOVQ  $const_qInvNeg, DX
 	IMULQ R14, DX
 
 	// clear the flags
 	XORQ AX, AX
 
 	// C,_ := t[0] + m*q[0]
-	MULXQ q<>+0(SB), AX, R8
+	MULXQ ·qElement+0(SB), AX, R8
 	ADCXQ R14, AX
 	MOVQ  R8, R14
 
 	// (C,t[0]) := t[1] + m*q[1] + C
 	ADCXQ R13, R14
-	MULXQ q<>+8(SB), AX, R13
+	MULXQ ·qElement+8(SB), AX, R13
 	ADOXQ AX, R14
 
 	// (C,t[1]) := t[2] + m*q[2] + C
 	ADCXQ CX, R13
-	MULXQ q<>+16(SB), AX, CX
+	MULXQ ·qElement+16(SB), AX, CX
 	ADOXQ AX, R13
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
-	MULXQ q<>+24(SB), AX, BX
+	MULXQ ·qElement+24(SB), AX, BX
 	ADOXQ AX, CX
 
 	// (C,t[3]) := t[4] + m*q[4] + C
 	ADCXQ SI, BX
-	MULXQ q<>+32(SB), AX, SI
+	MULXQ ·qElement+32(SB), AX, SI
 	ADOXQ AX, BX
 
 	// t[4] = C + A
@@ -672,33 +673,33 @@ TEXT ·fromMont(SB), $8-8
 	XORQ DX, DX
 
 	// m := t[0]*q'[0] mod W
-	MOVQ  qInv0<>(SB), DX
+	MOVQ  $const_qInvNeg, DX
 	IMULQ R14, DX
 	XORQ  AX, AX
 
 	// C,_ := t[0] + m*q[0]
-	MULXQ q<>+0(SB), AX, BP
+	MULXQ ·qElement+0(SB), AX, BP
 	ADCXQ R14, AX
 	MOVQ  BP, R14
 
 	// (C,t[0]) := t[1] + m*q[1] + C
 	ADCXQ R13, R14
-	MULXQ q<>+8(SB), AX, R13
+	MULXQ ·qElement+8(SB), AX, R13
 	ADOXQ AX, R14
 
 	// (C,t[1]) := t[2] + m*q[2] + C
 	ADCXQ CX, R13
-	MULXQ q<>+16(SB), AX, CX
+	MULXQ ·qElement+16(SB), AX, CX
 	ADOXQ AX, R13
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
-	MULXQ q<>+24(SB), AX, BX
+	MULXQ ·qElement+24(SB), AX, BX
 	ADOXQ AX, CX
 
 	// (C,t[3]) := t[4] + m*q[4] + C
 	ADCXQ SI, BX
-	MULXQ q<>+32(SB), AX, SI
+	MULXQ ·qElement+32(SB), AX, SI
 	ADOXQ AX, BX
 	MOVQ  $0, AX
 	ADCXQ AX, SI
@@ -706,33 +707,33 @@ TEXT ·fromMont(SB), $8-8
 	XORQ  DX, DX
 
 	// m := t[0]*q'[0] mod W
-	MOVQ  qInv0<>(SB), DX
+	MOVQ  $const_qInvNeg, DX
 	IMULQ R14, DX
 	XORQ  AX, AX
 
 	// C,_ := t[0] + m*q[0]
-	MULXQ q<>+0(SB), AX, BP
+	MULXQ ·qElement+0(SB), AX, BP
 	ADCXQ R14, AX
 	MOVQ  BP, R14
 
 	// (C,t[0]) := t[1] + m*q[1] + C
 	ADCXQ R13, R14
-	MULXQ q<>+8(SB), AX, R13
+	MULXQ ·qElement+8(SB), AX, R13
 	ADOXQ AX, R14
 
 	// (C,t[1]) := t[2] + m*q[2] + C
 	ADCXQ CX, R13
-	MULXQ q<>+16(SB), AX, CX
+	MULXQ ·qElement+16(SB), AX, CX
 	ADOXQ AX, R13
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
-	MULXQ q<>+24(SB), AX, BX
+	MULXQ ·qElement+24(SB), AX, BX
 	ADOXQ AX, CX
 
 	// (C,t[3]) := t[4] + m*q[4] + C
 	ADCXQ SI, BX
-	MULXQ q<>+32(SB), AX, SI
+	MULXQ ·qElement+32(SB), AX, SI
 	ADOXQ AX, BX
 	MOVQ  $0, AX
 	ADCXQ AX, SI
@@ -740,33 +741,33 @@ TEXT ·fromMont(SB), $8-8
 	XORQ  DX, DX
 
 	// m := t[0]*q'[0] mod W
-	MOVQ  qInv0<>(SB), DX
+	MOVQ  $const_qInvNeg, DX
 	IMULQ R14, DX
 	XORQ  AX, AX
 
 	// C,_ := t[0] + m*q[0]
-	MULXQ q<>+0(SB), AX, BP
+	MULXQ ·qElement+0(SB), AX, BP
 	ADCXQ R14, AX
 	MOVQ  BP, R14
 
 	// (C,t[0]) := t[1] + m*q[1] + C
 	ADCXQ R13, R14
-	MULXQ q<>+8(SB), AX, R13
+	MULXQ ·qElement+8(SB), AX, R13
 	ADOXQ AX, R14
 
 	// (C,t[1]) := t[2] + m*q[2] + C
 	ADCXQ CX, R13
-	MULXQ q<>+16(SB), AX, CX
+	MULXQ ·qElement+16(SB), AX, CX
 	ADOXQ AX, R13
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
-	MULXQ q<>+24(SB), AX, BX
+	MULXQ ·qElement+24(SB), AX, BX
 	ADOXQ AX, CX
 
 	// (C,t[3]) := t[4] + m*q[4] + C
 	ADCXQ SI, BX
-	MULXQ q<>+32(SB), AX, SI
+	MULXQ ·qElement+32(SB), AX, SI
 	ADOXQ AX, BX
 	MOVQ  $0, AX
 	ADCXQ AX, SI
@@ -774,33 +775,33 @@ TEXT ·fromMont(SB), $8-8
 	XORQ  DX, DX
 
 	// m := t[0]*q'[0] mod W
-	MOVQ  qInv0<>(SB), DX
+	MOVQ  $const_qInvNeg, DX
 	IMULQ R14, DX
 	XORQ  AX, AX
 
 	// C,_ := t[0] + m*q[0]
-	MULXQ q<>+0(SB), AX, BP
+	MULXQ ·qElement+0(SB), AX, BP
 	ADCXQ R14, AX
 	MOVQ  BP, R14
 
 	// (C,t[0]) := t[1] + m*q[1] + C
 	ADCXQ R13, R14
-	MULXQ q<>+8(SB), AX, R13
+	MULXQ ·qElement+8(SB), AX, R13
 	ADOXQ AX, R14
 
 	// (C,t[1]) := t[2] + m*q[2] + C
 	ADCXQ CX, R13
-	MULXQ q<>+16(SB), AX, CX
+	MULXQ ·qElement+16(SB), AX, CX
 	ADOXQ AX, R13
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
-	MULXQ q<>+24(SB), AX, BX
+	MULXQ ·qElement+24(SB), AX, BX
 	ADOXQ AX, CX
 
 	// (C,t[3]) := t[4] + m*q[4] + C
 	ADCXQ SI, BX
-	MULXQ q<>+32(SB), AX, SI
+	MULXQ ·qElement+32(SB), AX, SI
 	ADOXQ AX, BX
 	MOVQ  $0, AX
 	ADCXQ AX, SI
@@ -808,33 +809,33 @@ TEXT ·fromMont(SB), $8-8
 	XORQ  DX, DX
 
 	// m := t[0]*q'[0] mod W
-	MOVQ  qInv0<>(SB), DX
+	MOVQ  $const_qInvNeg, DX
 	IMULQ R14, DX
 	XORQ  AX, AX
 
 	// C,_ := t[0] + m*q[0]
-	MULXQ q<>+0(SB), AX, BP
+	MULXQ ·qElement+0(SB), AX, BP
 	ADCXQ R14, AX
 	MOVQ  BP, R14
 
 	// (C,t[0]) := t[1] + m*q[1] + C
 	ADCXQ R13, R14
-	MULXQ q<>+8(SB), AX, R13
+	MULXQ ·qElement+8(SB), AX, R13
 	ADOXQ AX, R14
 
 	// (C,t[1]) := t[2] + m*q[2] + C
 	ADCXQ CX, R13
-	MULXQ q<>+16(SB), AX, CX
+	MULXQ ·qElement+16(SB), AX, CX
 	ADOXQ AX, R13
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
-	MULXQ q<>+24(SB), AX, BX
+	MULXQ ·qElement+24(SB), AX, BX
 	ADOXQ AX, CX
 
 	// (C,t[3]) := t[4] + m*q[4] + C
 	ADCXQ SI, BX
-	MULXQ q<>+32(SB), AX, SI
+	MULXQ ·qElement+32(SB), AX, SI
 	ADOXQ AX, BX
 	MOVQ  $0, AX
 	ADCXQ AX, SI

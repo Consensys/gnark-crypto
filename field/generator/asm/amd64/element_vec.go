@@ -127,7 +127,7 @@ func (f *FFAmd64) generateSubVec() {
 	f.Comment("reduce (a-b) mod q")
 	f.LabelRegisters("q", q...)
 	for i := 0; i < f.NbWords; i++ {
-		f.MOVQ(fmt.Sprintf("q%d", i), q[i])
+		f.MOVQ(fmt.Sprintf("$const_q%d", i), q[i])
 	}
 	for i := 0; i < f.NbWords; i++ {
 		f.CMOVQCC(zero, q[i])
@@ -982,8 +982,9 @@ func (f *FFAmd64) generateInnerProduct() {
 	// mulq	MU		// Multiply by mu. q2 in rdx:rax, q3 in rdx
 
 	f.MOVQ(T3, amd64.AX)
-	f.SHRDw("$32", T4, amd64.AX)
-	f.MULQ(f.mu())
+	f.SHRQw("$32", T4, amd64.AX)
+	f.MOVQ(f.mu(), amd64.DX)
+	f.MULQ(amd64.DX)
 
 	// // Subtract r2 from r1
 

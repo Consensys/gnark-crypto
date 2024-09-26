@@ -22,7 +22,7 @@ import (
 //
 //	fp, _ = config.NewField("fp", "Element", fpModulus")
 //	generator.GenerateFF(fp, filepath.Join(baseDir, "fp"))
-func GenerateFF(F *config.FieldConfig, outputDir, asmDir string) error {
+func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirIncludePath string) error {
 	// source file templates
 	sourceFiles := []string{
 		element.Base,
@@ -137,7 +137,7 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDir string) error {
 
 			_, _ = io.WriteString(f, "// +build !purego\n")
 
-			if err := amd64.GenerateFieldWrapper(f, F, asmDir); err != nil {
+			if err := amd64.GenerateFieldWrapper(f, F, asmDirBuildPath, asmDirIncludePath); err != nil {
 				_ = f.Close()
 				return err
 			}
@@ -250,7 +250,7 @@ func shorten(input string) string {
 }
 
 func GenerateCommonASM(nbWords int, asmDir string) error {
-	pathSrc := filepath.Join(asmDir, fmt.Sprintf("element_%dw_amd64.h", nbWords))
+	pathSrc := filepath.Join(asmDir, fmt.Sprintf(amd64.ElementASMFileName, nbWords))
 
 	fmt.Println("generating", pathSrc)
 	f, err := os.Create(pathSrc)
@@ -259,6 +259,33 @@ func GenerateCommonASM(nbWords int, asmDir string) error {
 	}
 
 	if err := amd64.GenerateCommonASM(f, nbWords); err != nil {
+		_ = f.Close()
+		return err
+	}
+	_ = f.Close()
+
+	// run asmfmt
+	// run go fmt on whole directory
+	cmd := exec.Command("asmfmt", "-w", pathSrc)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GenerateVectorASM(nbWords int, asmDir string) error {
+	pathSrc := filepath.Join(asmDir, fmt.Sprintf(amd64.VectorASMFileName, nbWords))
+
+	fmt.Println("generating", pathSrc)
+	f, err := os.Create(pathSrc)
+	if err != nil {
+		return err
+	}
+
+	if err := amd64.GenerateVectorASM(f, nbWords); err != nil {
 		_ = f.Close()
 		return err
 	}

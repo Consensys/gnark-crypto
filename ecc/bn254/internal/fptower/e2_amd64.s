@@ -14,6 +14,7 @@
 
 #include "textflag.h"
 #include "funcdata.h"
+#include "go_asm.h"
 
 // modulus q
 DATA q<>+0(SB)/8, $0x3c208c16d87cfd47
@@ -25,9 +26,6 @@ GLOBL q<>(SB), (RODATA+NOPTR), $32
 // qInv0 q'[0]
 DATA qInv0<>(SB)/8, $0x87d20782e4866389
 GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
-// Mu
-DATA mu<>(SB)/8, $0x000000054a474626
-GLOBL mu<>(SB), (RODATA+NOPTR), $8
 
 #define REDUCE(ra0, ra1, ra2, ra3, rb0, rb1, rb2, rb3) \
 	MOVQ    ra0, rb0;        \
@@ -45,145 +43,145 @@ GLOBL mu<>(SB), (RODATA+NOPTR), $8
 
 // this code is generated and identical to fp.Mul(...)
 #define MUL() \
-	XORQ  AX, AX;              \
-	MOVQ  SI, DX;              \
-	MULXQ R14, R10, R11;       \
-	MULXQ R15, AX, R12;        \
-	ADOXQ AX, R11;             \
-	MULXQ CX, AX, R13;         \
-	ADOXQ AX, R12;             \
-	MULXQ BX, AX, BP;          \
-	ADOXQ AX, R13;             \
-	MOVQ  $0, AX;              \
-	ADOXQ AX, BP;              \
-	PUSHQ BP;                  \
-	MOVQ  qInv0<>(SB), DX;     \
-	IMULQ R10, DX;             \
-	XORQ  AX, AX;              \
-	MULXQ q<>+0(SB), AX, BP;   \
-	ADCXQ R10, AX;             \
-	MOVQ  BP, R10;             \
-	POPQ  BP;                  \
-	ADCXQ R11, R10;            \
-	MULXQ q<>+8(SB), AX, R11;  \
-	ADOXQ AX, R10;             \
-	ADCXQ R12, R11;            \
-	MULXQ q<>+16(SB), AX, R12; \
-	ADOXQ AX, R11;             \
-	ADCXQ R13, R12;            \
-	MULXQ q<>+24(SB), AX, R13; \
-	ADOXQ AX, R12;             \
-	MOVQ  $0, AX;              \
-	ADCXQ AX, R13;             \
-	ADOXQ BP, R13;             \
-	XORQ  AX, AX;              \
-	MOVQ  DI, DX;              \
-	MULXQ R14, AX, BP;         \
-	ADOXQ AX, R10;             \
-	ADCXQ BP, R11;             \
-	MULXQ R15, AX, BP;         \
-	ADOXQ AX, R11;             \
-	ADCXQ BP, R12;             \
-	MULXQ CX, AX, BP;          \
-	ADOXQ AX, R12;             \
-	ADCXQ BP, R13;             \
-	MULXQ BX, AX, BP;          \
-	ADOXQ AX, R13;             \
-	MOVQ  $0, AX;              \
-	ADCXQ AX, BP;              \
-	ADOXQ AX, BP;              \
-	PUSHQ BP;                  \
-	MOVQ  qInv0<>(SB), DX;     \
-	IMULQ R10, DX;             \
-	XORQ  AX, AX;              \
-	MULXQ q<>+0(SB), AX, BP;   \
-	ADCXQ R10, AX;             \
-	MOVQ  BP, R10;             \
-	POPQ  BP;                  \
-	ADCXQ R11, R10;            \
-	MULXQ q<>+8(SB), AX, R11;  \
-	ADOXQ AX, R10;             \
-	ADCXQ R12, R11;            \
-	MULXQ q<>+16(SB), AX, R12; \
-	ADOXQ AX, R11;             \
-	ADCXQ R13, R12;            \
-	MULXQ q<>+24(SB), AX, R13; \
-	ADOXQ AX, R12;             \
-	MOVQ  $0, AX;              \
-	ADCXQ AX, R13;             \
-	ADOXQ BP, R13;             \
-	XORQ  AX, AX;              \
-	MOVQ  R8, DX;              \
-	MULXQ R14, AX, BP;         \
-	ADOXQ AX, R10;             \
-	ADCXQ BP, R11;             \
-	MULXQ R15, AX, BP;         \
-	ADOXQ AX, R11;             \
-	ADCXQ BP, R12;             \
-	MULXQ CX, AX, BP;          \
-	ADOXQ AX, R12;             \
-	ADCXQ BP, R13;             \
-	MULXQ BX, AX, BP;          \
-	ADOXQ AX, R13;             \
-	MOVQ  $0, AX;              \
-	ADCXQ AX, BP;              \
-	ADOXQ AX, BP;              \
-	PUSHQ BP;                  \
-	MOVQ  qInv0<>(SB), DX;     \
-	IMULQ R10, DX;             \
-	XORQ  AX, AX;              \
-	MULXQ q<>+0(SB), AX, BP;   \
-	ADCXQ R10, AX;             \
-	MOVQ  BP, R10;             \
-	POPQ  BP;                  \
-	ADCXQ R11, R10;            \
-	MULXQ q<>+8(SB), AX, R11;  \
-	ADOXQ AX, R10;             \
-	ADCXQ R12, R11;            \
-	MULXQ q<>+16(SB), AX, R12; \
-	ADOXQ AX, R11;             \
-	ADCXQ R13, R12;            \
-	MULXQ q<>+24(SB), AX, R13; \
-	ADOXQ AX, R12;             \
-	MOVQ  $0, AX;              \
-	ADCXQ AX, R13;             \
-	ADOXQ BP, R13;             \
-	XORQ  AX, AX;              \
-	MOVQ  R9, DX;              \
-	MULXQ R14, AX, BP;         \
-	ADOXQ AX, R10;             \
-	ADCXQ BP, R11;             \
-	MULXQ R15, AX, BP;         \
-	ADOXQ AX, R11;             \
-	ADCXQ BP, R12;             \
-	MULXQ CX, AX, BP;          \
-	ADOXQ AX, R12;             \
-	ADCXQ BP, R13;             \
-	MULXQ BX, AX, BP;          \
-	ADOXQ AX, R13;             \
-	MOVQ  $0, AX;              \
-	ADCXQ AX, BP;              \
-	ADOXQ AX, BP;              \
-	PUSHQ BP;                  \
-	MOVQ  qInv0<>(SB), DX;     \
-	IMULQ R10, DX;             \
-	XORQ  AX, AX;              \
-	MULXQ q<>+0(SB), AX, BP;   \
-	ADCXQ R10, AX;             \
-	MOVQ  BP, R10;             \
-	POPQ  BP;                  \
-	ADCXQ R11, R10;            \
-	MULXQ q<>+8(SB), AX, R11;  \
-	ADOXQ AX, R10;             \
-	ADCXQ R12, R11;            \
-	MULXQ q<>+16(SB), AX, R12; \
-	ADOXQ AX, R11;             \
-	ADCXQ R13, R12;            \
-	MULXQ q<>+24(SB), AX, R13; \
-	ADOXQ AX, R12;             \
-	MOVQ  $0, AX;              \
-	ADCXQ AX, R13;             \
-	ADOXQ BP, R13;             \
+	XORQ  AX, AX;                    \
+	MOVQ  SI, DX;                    \
+	MULXQ R14, R10, R11;             \
+	MULXQ R15, AX, R12;              \
+	ADOXQ AX, R11;                   \
+	MULXQ CX, AX, R13;               \
+	ADOXQ AX, R12;                   \
+	MULXQ BX, AX, BP;                \
+	ADOXQ AX, R13;                   \
+	MOVQ  $0, AX;                    \
+	ADOXQ AX, BP;                    \
+	PUSHQ BP;                        \
+	MOVQ  $const_qInvNeg, DX;        \
+	IMULQ R10, DX;                   \
+	XORQ  AX, AX;                    \
+	MULXQ ·qElement+0(SB), AX, BP;   \
+	ADCXQ R10, AX;                   \
+	MOVQ  BP, R10;                   \
+	POPQ  BP;                        \
+	ADCXQ R11, R10;                  \
+	MULXQ ·qElement+8(SB), AX, R11;  \
+	ADOXQ AX, R10;                   \
+	ADCXQ R12, R11;                  \
+	MULXQ ·qElement+16(SB), AX, R12; \
+	ADOXQ AX, R11;                   \
+	ADCXQ R13, R12;                  \
+	MULXQ ·qElement+24(SB), AX, R13; \
+	ADOXQ AX, R12;                   \
+	MOVQ  $0, AX;                    \
+	ADCXQ AX, R13;                   \
+	ADOXQ BP, R13;                   \
+	XORQ  AX, AX;                    \
+	MOVQ  DI, DX;                    \
+	MULXQ R14, AX, BP;               \
+	ADOXQ AX, R10;                   \
+	ADCXQ BP, R11;                   \
+	MULXQ R15, AX, BP;               \
+	ADOXQ AX, R11;                   \
+	ADCXQ BP, R12;                   \
+	MULXQ CX, AX, BP;                \
+	ADOXQ AX, R12;                   \
+	ADCXQ BP, R13;                   \
+	MULXQ BX, AX, BP;                \
+	ADOXQ AX, R13;                   \
+	MOVQ  $0, AX;                    \
+	ADCXQ AX, BP;                    \
+	ADOXQ AX, BP;                    \
+	PUSHQ BP;                        \
+	MOVQ  $const_qInvNeg, DX;        \
+	IMULQ R10, DX;                   \
+	XORQ  AX, AX;                    \
+	MULXQ ·qElement+0(SB), AX, BP;   \
+	ADCXQ R10, AX;                   \
+	MOVQ  BP, R10;                   \
+	POPQ  BP;                        \
+	ADCXQ R11, R10;                  \
+	MULXQ ·qElement+8(SB), AX, R11;  \
+	ADOXQ AX, R10;                   \
+	ADCXQ R12, R11;                  \
+	MULXQ ·qElement+16(SB), AX, R12; \
+	ADOXQ AX, R11;                   \
+	ADCXQ R13, R12;                  \
+	MULXQ ·qElement+24(SB), AX, R13; \
+	ADOXQ AX, R12;                   \
+	MOVQ  $0, AX;                    \
+	ADCXQ AX, R13;                   \
+	ADOXQ BP, R13;                   \
+	XORQ  AX, AX;                    \
+	MOVQ  R8, DX;                    \
+	MULXQ R14, AX, BP;               \
+	ADOXQ AX, R10;                   \
+	ADCXQ BP, R11;                   \
+	MULXQ R15, AX, BP;               \
+	ADOXQ AX, R11;                   \
+	ADCXQ BP, R12;                   \
+	MULXQ CX, AX, BP;                \
+	ADOXQ AX, R12;                   \
+	ADCXQ BP, R13;                   \
+	MULXQ BX, AX, BP;                \
+	ADOXQ AX, R13;                   \
+	MOVQ  $0, AX;                    \
+	ADCXQ AX, BP;                    \
+	ADOXQ AX, BP;                    \
+	PUSHQ BP;                        \
+	MOVQ  $const_qInvNeg, DX;        \
+	IMULQ R10, DX;                   \
+	XORQ  AX, AX;                    \
+	MULXQ ·qElement+0(SB), AX, BP;   \
+	ADCXQ R10, AX;                   \
+	MOVQ  BP, R10;                   \
+	POPQ  BP;                        \
+	ADCXQ R11, R10;                  \
+	MULXQ ·qElement+8(SB), AX, R11;  \
+	ADOXQ AX, R10;                   \
+	ADCXQ R12, R11;                  \
+	MULXQ ·qElement+16(SB), AX, R12; \
+	ADOXQ AX, R11;                   \
+	ADCXQ R13, R12;                  \
+	MULXQ ·qElement+24(SB), AX, R13; \
+	ADOXQ AX, R12;                   \
+	MOVQ  $0, AX;                    \
+	ADCXQ AX, R13;                   \
+	ADOXQ BP, R13;                   \
+	XORQ  AX, AX;                    \
+	MOVQ  R9, DX;                    \
+	MULXQ R14, AX, BP;               \
+	ADOXQ AX, R10;                   \
+	ADCXQ BP, R11;                   \
+	MULXQ R15, AX, BP;               \
+	ADOXQ AX, R11;                   \
+	ADCXQ BP, R12;                   \
+	MULXQ CX, AX, BP;                \
+	ADOXQ AX, R12;                   \
+	ADCXQ BP, R13;                   \
+	MULXQ BX, AX, BP;                \
+	ADOXQ AX, R13;                   \
+	MOVQ  $0, AX;                    \
+	ADCXQ AX, BP;                    \
+	ADOXQ AX, BP;                    \
+	PUSHQ BP;                        \
+	MOVQ  $const_qInvNeg, DX;        \
+	IMULQ R10, DX;                   \
+	XORQ  AX, AX;                    \
+	MULXQ ·qElement+0(SB), AX, BP;   \
+	ADCXQ R10, AX;                   \
+	MOVQ  BP, R10;                   \
+	POPQ  BP;                        \
+	ADCXQ R11, R10;                  \
+	MULXQ ·qElement+8(SB), AX, R11;  \
+	ADOXQ AX, R10;                   \
+	ADCXQ R12, R11;                  \
+	MULXQ ·qElement+16(SB), AX, R12; \
+	ADOXQ AX, R11;                   \
+	ADCXQ R13, R12;                  \
+	MULXQ ·qElement+24(SB), AX, R13; \
+	ADOXQ AX, R12;                   \
+	MOVQ  $0, AX;                    \
+	ADCXQ AX, R13;                   \
+	ADOXQ BP, R13;                   \
 
 TEXT ·addE2(SB), NOSPLIT, $0-24
 	MOVQ x+8(FP), AX

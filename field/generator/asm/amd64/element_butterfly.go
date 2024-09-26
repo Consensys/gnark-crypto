@@ -59,7 +59,7 @@ func (f *FFAmd64) generateButterfly() {
 			// q is on the stack, can't use for CMOVQCC
 			f.Mov(t0, q) // save t0
 			for i := 0; i < f.NbWords; i++ {
-				f.MOVQ(fmt.Sprintf("q%d", i), t0[i])
+				f.MOVQ(fmt.Sprintf("$const_q%d", i), t0[i])
 			}
 			for i := 0; i < f.NbWords; i++ {
 				f.CMOVQCC(a, t0[i])
@@ -69,7 +69,7 @@ func (f *FFAmd64) generateButterfly() {
 			f.Mov(q, t0) // restore t0
 		} else {
 			for i := 0; i < f.NbWords; i++ {
-				f.MOVQ(fmt.Sprintf("q%d", i), q[i])
+				f.MOVQ(fmt.Sprintf("$const_q%d", i), q[i])
 			}
 			for i := 0; i < f.NbWords; i++ {
 				f.CMOVQCC(a, q[i])
@@ -116,11 +116,11 @@ func (f *FFAmd64) generateButterfly() {
 		noReduce := f.NewLabel("noReduce")
 		f.JCC(noReduce)
 		q := r
-		f.MOVQ("q0", q)
+		f.MOVQ("$const_q0", q)
 
 		f.ADDQ(q, t0[0])
 		for i := 1; i < f.NbWords; i++ {
-			f.MOVQ(fmt.Sprintf("q%d", i), q)
+			f.MOVQ(fmt.Sprintf("$const_q%d", i), q)
 			f.ADCQ(q, t0[i])
 		}
 		f.LABEL(noReduce)

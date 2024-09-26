@@ -75,12 +75,6 @@ GLOBL q<>(SB), (RODATA+NOPTR), ${{mul 8 $.NbWords}}
 DATA qInv0<>(SB)/8, {{$qinv0 := index .QInverse 0}}{{imm $qinv0}}
 GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
 
-{{- if .ASMVector }}
-// Mu
-DATA mu<>(SB)/8, {{imm .Mu}}
-GLOBL mu<>(SB), (RODATA+NOPTR), $8
-{{- end}}
-
 #define REDUCE(	{{- range $i := .NbWordsIndexesFull}}ra{{$i}},{{- end}}
 				{{- range $i := .NbWordsIndexesFull}}rb{{$i}}{{- if ne $.NbWordsLastIndex $i}},{{- end}}{{- end}}) \
 	MOVQ ra0, rb0;  \
@@ -92,25 +86,6 @@ GLOBL mu<>(SB), (RODATA+NOPTR), $8
 	{{- range $i := .NbWordsIndexesFull}}
 	CMOVQCS rb{{$i}}, ra{{$i}};  \
 	{{- end}}
-`
-
-const tmplFieldDefines = `
-
-// modulus q
-{{- range $i, $w := .Q}}
-DATA q<>+{{mul $i 8}}(SB)/8, {{imm $w}}
-{{- end}}
-GLOBL q<>(SB), (RODATA+NOPTR), ${{mul 8 $.NbWords}}
-
-// qInv0 q'[0]
-DATA qInv0<>(SB)/8, {{$qinv0 := index .QInverse 0}}{{imm $qinv0}}
-GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
-
-{{- if .ASMVector }}
-// Mu
-DATA mu<>(SB)/8, {{imm .Mu}}
-GLOBL mu<>(SB), (RODATA+NOPTR), $8
-{{- end}}
 `
 
 const tmplReduceDefine = `
@@ -118,29 +93,15 @@ const tmplReduceDefine = `
 #define REDUCE(	{{- range $i := .NbWordsIndexesFull}}ra{{$i}},{{- end}}
 				{{- range $i := .NbWordsIndexesFull}}rb{{$i}}{{- if ne $.NbWordsLastIndex $i}},{{- end}}{{- end}}) \
 	MOVQ ra0, rb0;  \
-	SUBQ    q<>(SB), ra0; \
+	SUBQ    ·qElement(SB), ra0; \
 	{{- range $i := .NbWordsIndexesNoZero}}
 	MOVQ ra{{$i}}, rb{{$i}};  \
-	SBBQ  q<>+{{mul $i 8}}(SB), ra{{$i}}; \
+	SBBQ  ·qElement+{{mul $i 8}}(SB), ra{{$i}}; \
 	{{- end}}
 	{{- range $i := .NbWordsIndexesFull}}
 	CMOVQCS rb{{$i}}, ra{{$i}};  \
 	{{- end}}
 `
-
-func (f *FFAmd64) GenerateFieldDefines(F *config.FieldConfig) {
-	tmpl := template.Must(template.New("").
-		Funcs(helpers()).
-		Parse(tmplFieldDefines))
-
-	// execute template
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, F); err != nil {
-		panic(err)
-	}
-
-	f.WriteLn(buf.String())
-}
 
 func (f *FFAmd64) GenerateReduceDefine() {
 	tmpl := template.Must(template.New("").

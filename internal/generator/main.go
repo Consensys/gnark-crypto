@@ -45,8 +45,13 @@ var bgen = bavard.NewBatchGenerator(copyrightHolder, copyrightYear, "consensys/g
 func main() {
 	var wg sync.WaitGroup
 
+	asmDirBuildPath := filepath.Join(baseDir, "field", "asm")
+	asmDirIncludePath := filepath.Join("../../../", "field", "asm")
+
 	// generate common assembly files depending on field number of words
-	m := make(map[int]bool)
+	mCommon := make(map[int]bool)
+	mVec := make(map[int]bool)
+
 	for i, conf := range config.Curves {
 		var err error
 		// generate base field
@@ -56,14 +61,25 @@ func main() {
 		conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
 		assertNoError(err)
 
-		m[conf.Fr.NbWords] = true
-		m[conf.Fp.NbWords] = true
+		mCommon[conf.Fr.NbWords] = true
+		mCommon[conf.Fp.NbWords] = true
+
+		if conf.Fr.ASMVector {
+			mVec[conf.Fr.NbWords] = true
+		}
+		if conf.Fp.ASMVector {
+			mVec[conf.Fp.NbWords] = true
+		}
 
 		config.Curves[i] = conf
 	}
-	asmDir := filepath.Join(baseDir, "field", "asm")
-	for nbWords := range m {
-		assertNoError(generator.GenerateCommonASM(nbWords, asmDir))
+
+	for nbWords := range mCommon {
+		assertNoError(generator.GenerateCommonASM(nbWords, asmDirBuildPath))
+	}
+
+	for nbWords := range mVec {
+		assertNoError(generator.GenerateVectorASM(nbWords, asmDirBuildPath))
 	}
 
 	for _, conf := range config.Curves {
@@ -76,8 +92,8 @@ func main() {
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
-			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr"), filepath.Join("..", asmDir)))
-			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp"), filepath.Join("..", asmDir)))
+			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr"), asmDirBuildPath, asmDirIncludePath))
+			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp"), asmDirBuildPath, asmDirIncludePath))
 
 			// generate ecdsa
 			assertNoError(ecdsa.Generate(conf, curveDir, bgen))

@@ -705,113 +705,80 @@ func TestElementLexicographicallyLargest(t *testing.T) {
 }
 
 func TestElementVecOps(t *testing.T) {
-	assert := require.New(t)
-
-	const N = 1024*16 + 4
-	a := make(Vector, N)
-	b := make(Vector, N)
-	c := make(Vector, N)
-	m := make(Vector, N)
-
-	// set m to max values element
-	// it's not really q-1 (since we have montgomery representation)
-	// but it's the "largest" legal value
-	eQMinus1 := qElement
-	if eQMinus1[0] != 0 {
-		eQMinus1[0]--
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = 3
 	} else {
-		eQMinus1[0] = ^uint64(0)
-		for i := 1; i < len(eQMinus1); i++ {
-			if eQMinus1[i] != 0 {
-				eQMinus1[i]--
-				break
+		parameters.MinSuccessfulTests = 100
+	}
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("vector ops correctness", prop.ForAll(
+		func(_mixer testPairElement) bool {
+			const N = 1024 // try first with power of 2
+
+			a := make(Vector, N)
+			b := make(Vector, N)
+
+			mixer := _mixer.element
+			// mixer ensures that all the words of a fpElement are set
+
+			for i := 1; i < N; i++ {
+				a[i-1].SetUint64(uint64(i)).
+					Mul(&a[i-1], &mixer)
+				b[i-1].SetUint64(^uint64(i)).
+					Mul(&b[i-1], &mixer)
 			}
-		}
-	}
 
-	for i := 0; i < N; i++ {
-		a[i].SetRandom()
-		b[i].SetRandom()
-		m[i] = eQMinus1
-	}
+			// Vector sum
+			for i := 0; i < N/2; i++ {
+				subVec := a[:i]
+				var sum Element
+				computed := subVec.Sum()
+				for j := 0; j < len(subVec); j++ {
+					sum.Add(&sum, &subVec[j])
+				}
 
-	// Vector addition
-	c.Add(a, b)
-	for i := 0; i < N; i++ {
-		var expected Element
-		expected.Add(&a[i], &b[i])
-		assert.True(c[i].Equal(&expected), "Vector addition failed")
-	}
-	c.Add(a, m)
-	for i := 0; i < N; i++ {
-		var expected Element
-		expected.Add(&a[i], &m[i])
-		assert.True(c[i].Equal(&expected), "Vector addition failed")
-	}
+				if !sum.Equal(&computed) {
+					return false
+				}
 
-	// Vector subtraction
-	c.Sub(a, b)
-	for i := 0; i < N; i++ {
-		var expected Element
-		expected.Sub(&a[i], &b[i])
-		assert.True(c[i].Equal(&expected), "Vector subtraction failed")
-	}
-	c.Sub(a, m)
-	for i := 0; i < N; i++ {
-		var expected Element
-		expected.Sub(&a[i], &m[i])
-		assert.True(c[i].Equal(&expected), "Vector subtraction failed")
-	}
+				subVec = b[:i]
+				computed = subVec.Sum()
+				sum.SetZero()
+				for j := 0; j < len(subVec); j++ {
+					sum.Add(&sum, &subVec[j])
+				}
 
-	// Vector scaling
-	c.ScalarMul(a, &b[0])
-	for i := 0; i < N; i++ {
-		var expected Element
-		expected.Mul(&a[i], &b[0])
-		assert.True(c[i].Equal(&expected), "Vector scaling failed")
-	}
-	c.ScalarMul(m, &b[0])
-	for i := 0; i < N; i++ {
-		var expected Element
-		expected.Mul(&m[i], &b[0])
-		assert.True(c[i].Equal(&expected), "Vector scaling failed")
-	}
+				if !sum.Equal(&computed) {
+					return false
+				}
+			}
 
-	// Vector sum
-	for i := 0; i < N/2; i++ {
-		subVec := c[:i]
-		var sum Element
-		computed := subVec.Sum()
-		for j := 0; j < len(subVec); j++ {
-			sum.Add(&sum, &subVec[j])
-		}
+			// Vector inner product
+			for i := 0; i < N/2; i++ {
+				subVecA := a[:i]
+				subVecB := b[:i]
+				var innerProduct Element
+				computed := subVecA.InnerProduct(subVecB)
+				for j := 0; j < len(subVecA); j++ {
+					var tmp Element
+					tmp.Mul(&subVecA[j], &subVecB[j])
+					innerProduct.Add(&innerProduct, &tmp)
+				}
 
-		assert.True(sum.Equal(&computed), "Vector sum failed")
+				if !innerProduct.Equal(&computed) {
+					return false
+				}
+			}
 
-		subVec = m[:i]
-		computed = subVec.Sum()
-		sum.SetZero()
-		for j := 0; j < len(subVec); j++ {
-			sum.Add(&sum, &subVec[j])
-		}
+			return true
 
-		assert.True(sum.Equal(&computed), "Vector sum failed")
-	}
+		}, genA))
 
-	// Vector inner product
-	for i := 0; i < N/2; i++ {
-		subVecA := a[:i]
-		subVecB := b[:i]
-		var innerProduct Element
-		computed := subVecA.InnerProduct(subVecB)
-		for j := 0; j < len(subVecA); j++ {
-			var tmp Element
-			tmp.Mul(&subVecA[j], &subVecB[j])
-			innerProduct.Add(&innerProduct, &tmp)
-		}
-
-		assert.True(innerProduct.Equal(&computed), "Vector inner product failed")
-	}
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 func BenchmarkElementVecOps(b *testing.B) {

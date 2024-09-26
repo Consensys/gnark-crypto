@@ -72,7 +72,7 @@ func cmdGenerate(cmd *cobra.Command, args []string) {
 		os.Exit(-1)
 	}
 	// TODO @gbotrel this is broken with new asm dir.
-	if err := generator.GenerateFF(F, fOutputDir, "FIXME"); err != nil {
+	if err := generator.GenerateFF(F, fOutputDir, "FIXME", "FIXME"); err != nil {
 		fmt.Printf("\n%s\n", err.Error())
 		os.Exit(-1)
 	}
