@@ -120,6 +120,23 @@ func (z *ComplexNumber) Quo(x, y *ComplexNumber) *ComplexNumber {
 	return z
 }
 
+func (z *ComplexNumber) Rem(x, y, q *ComplexNumber) *ComplexNumber {
+	var t ComplexNumber
+	z.Sub(x, t.Mul(y, q))
+	var r1, r2, r3, r4, r5, r6, w, wy, w2y ComplexNumber
+	w.A1.SetUint64(1)
+	wy.Mul(&w, y)
+	w2y.Mul(&w, &wy)
+	r1.Sub(z, y)
+	r2.Add(z, y)
+	r3.Sub(z, &wy)
+	r4.Add(z, &wy)
+	r5.Sub(z, &w2y)
+	r6.Add(z, &w2y)
+	z = Min(z, &r1, &r2, &r3, &r4, &r5, &r6)
+	return z
+}
+
 // QuoRem sets z to the quotient of x and y, r to the remainder, and returns z and r.
 func (z *ComplexNumber) QuoRem(x, y, r *ComplexNumber) (*ComplexNumber, *ComplexNumber) {
 	norm := y.Norm()
@@ -130,8 +147,8 @@ func (z *ComplexNumber) QuoRem(x, y, r *ComplexNumber) (*ComplexNumber, *Complex
 	z.Mul(x, z)
 	z.A0.Div(&z.A0, norm)
 	z.A1.Div(&z.A1, norm)
-	var t ComplexNumber
-	r.Sub(x, t.Mul(y, z))
+	r.Rem(x, y, z)
+
 	return z, r
 }
 
@@ -150,7 +167,7 @@ func Min(z ...*ComplexNumber) *ComplexNumber {
 // This outputs w, v, u s.t. w = a*u + b*v.
 func HalfGCD(a, b *ComplexNumber) [3]*ComplexNumber {
 
-	var check, aRun, bRun, u, v, u_, v_, quotient, remainder, t, t1, t2 ComplexNumber
+	var check, aRun, bRun, u, v, u_, v_, quotient, remainder, t1, t2 ComplexNumber
 
 	aRun.Set(a)
 	bRun.Set(b)
@@ -161,18 +178,20 @@ func HalfGCD(a, b *ComplexNumber) [3]*ComplexNumber {
 
 	// Eisenstein integers form an Euclidean domain for the norm
 	aNorm := a.Norm()
-	for check.Mul(&aRun, &aRun).Norm().Cmp(aNorm) == 1 {
+	for check.Mul(&aRun, &aRun).Norm().Cmp(aNorm) >= 0 {
 		quotient.QuoRem(&aRun, &bRun, &remainder)
-		t.Mul(&u_, &quotient)
-		t1.Sub(&u, &t)
-		t.Mul(&v_, &quotient)
-		t2.Sub(&v, &t)
+		t1.Rem(&u, &u_, &quotient)
+		t2.Rem(&v, &v_, &quotient)
 		aRun.Set(&bRun)
 		u.Set(&u_)
 		v.Set(&v_)
 		bRun.Set(&remainder)
 		u_.Set(&t1)
 		v_.Set(&t2)
+	}
+
+	if v_.Norm().Cmp(v.Norm()) == -1 {
+		return [3]*ComplexNumber{&bRun, &v_, &u_}
 	}
 
 	return [3]*ComplexNumber{&aRun, &v, &u}

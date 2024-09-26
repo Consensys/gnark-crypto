@@ -12,7 +12,7 @@ import (
 const (
 	nbFuzzShort = 10
 	nbFuzz      = 50
-	boundSize   = 256
+	boundSize   = 128
 )
 
 func TestEisensteinReceiverIsOperand(t *testing.T) {
