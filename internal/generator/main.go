@@ -43,8 +43,9 @@ var bgen = bavard.NewBatchGenerator(copyrightHolder, copyrightYear, "consensys/g
 
 //go:generate go run main.go
 func main() {
-	var wg sync.WaitGroup
 
+	// first we loop through the field arithmetic we must generate.
+	// then, we create the common files (only once) for the assembly code.
 	asmDirBuildPath := filepath.Join(baseDir, "field", "asm")
 	asmDirIncludePath := filepath.Join("../../../", "field", "asm")
 
@@ -82,6 +83,7 @@ func main() {
 		assertNoError(generator.GenerateVectorASM(nbWords, asmDirBuildPath))
 	}
 
+	var wg sync.WaitGroup
 	for _, conf := range config.Curves {
 		wg.Add(1)
 		// for each curve, generate the needed files

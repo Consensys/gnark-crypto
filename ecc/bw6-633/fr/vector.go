@@ -184,6 +184,19 @@ func (vector Vector) String() string {
 	return sbb.String()
 }
 
+// Equal returns true if the vector is equal to the other vector.
+func (vector *Vector) Equal(other Vector) bool {
+	if len(*vector) != len(other) {
+		return false
+	}
+	for i := range *vector {
+		if !(*vector)[i].Equal(&other[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 // Len is the number of elements in the collection.
 func (vector Vector) Len() int {
 	return len(vector)

@@ -726,136 +726,6 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 	
 }
 
-func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
-	parameters := gopter.DefaultTestParameters()
-	if testing.Short() {
-		parameters.MinSuccessfulTests = 3
-	} else {
-		parameters.MinSuccessfulTests = 100
-	}
-	properties := gopter.NewProperties(parameters)
-
-	genA := gen()
-
-	properties.Property("vector ops correctness", prop.ForAll(
-		func(_mixer testPair{{.ElementName}}) bool {
-			const N = 1024 // try first with power of 2
-
-			a := make(Vector, N)
-			b := make(Vector, N)
-
-			mixer := _mixer.element
-			// mixer ensures that all the words of a fpElement are set
-
-			for i := 1; i < N; i++ {
-				a[i-1].SetUint64(uint64(i)).
-					Mul(&a[i-1], &mixer)
-				b[i-1].SetUint64(^uint64(i)).
-					Mul(&b[i-1], &mixer)
-			}
-
-			// Vector sum
-			for i := 0; i < N/2; i++ {
-				subVec := a[:i]
-				var sum {{.ElementName}}
-				computed := subVec.Sum()
-				for j := 0; j < len(subVec); j++ {
-					sum.Add(&sum, &subVec[j])
-				}
-
-				if !sum.Equal(&computed) {
-					return false
-				}
-
-				subVec = b[:i]
-				computed = subVec.Sum()
-				sum.SetZero()
-				for j := 0; j < len(subVec); j++ {
-					sum.Add(&sum, &subVec[j])
-				}
-				
-				if !sum.Equal(&computed) {
-					return false
-				}
-			}
-
-			// Vector inner product
-			for i := 0; i < N/2; i++ {
-				subVecA := a[:i]
-				subVecB := b[:i]
-				var innerProduct {{.ElementName}}
-				computed := subVecA.InnerProduct(subVecB)
-				for j := 0; j < len(subVecA); j++ {
-					var tmp {{.ElementName}}
-					tmp.Mul(&subVecA[j], &subVecB[j])
-					innerProduct.Add(&innerProduct, &tmp)
-				}
-
-				if !innerProduct.Equal(&computed) {
-					return false
-				}
-			}
-
-			return true
-			
-		}, genA))
-
-	properties.TestingRun(t, gopter.ConsoleReporter(false))
-}
-
-func Benchmark{{toTitle .ElementName}}VecOps(b *testing.B) {
-	// note; to benchmark against "no asm" version, use the following
-	// build tag: -tags purego
-	const N = 1<<20
-	a1 := make(Vector, N)
-	b1 := make(Vector, N)
-	c1 := make(Vector, N)
-	for i := 0; i < N; i++ {
-		a1[i].SetRandom()
-		b1[i].SetRandom()
-	}
-
-
-	b.Run("Add", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			c1.Add(a1, b1)
-		}
-	})
-
-	b.Run("Sub", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			c1.Sub(a1, b1)
-		}
-	})
-
-	b.Run("ScalarMul", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			c1.ScalarMul(a1, &b1[0])
-		}
-	})
-
-	b.Run("Sum", func(b *testing.B) {
-		b.ResetTimer()
-		var sum {{.ElementName}}
-		for i := 0; i < b.N; i++ {
-			sum = c1.Sum()
-		}
-		_ = sum
-	})
-
-	b.Run("InnerProduct", func(b *testing.B) {
-		b.ResetTimer()
-		var innerProduct {{.ElementName}}
-		for i := 0; i < b.N; i++ {
-			innerProduct = a1.InnerProduct(b1)
-		}
-		_ = innerProduct
-	})
-}
-
 
 {{template "testBinaryOp" dict "all" . "Op" "Add"}}
 {{template "testBinaryOp" dict "all" . "Op" "Sub"}}
@@ -1728,35 +1598,35 @@ func gen() gopter.Gen {
 	}
 }
 
+func genRandomFq(genParams *gopter.GenParameters) {{.ElementName}} {
+	var g {{.ElementName}}
+
+	g = {{.ElementName}}{
+		{{- range $i := .NbWordsIndexesFull}}
+		genParams.NextUint64(),{{end}}
+	}
+
+	if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
+		g[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
+	}
+
+	for !g.smallerThanModulus() {
+		g = {{.ElementName}}{
+			{{- range $i := .NbWordsIndexesFull}}
+			genParams.NextUint64(),{{end}}
+		}
+		if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
+			g[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
+		}
+	}
+
+	return g 
+}
+
 
 func genFull() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-
-		genRandomFq := func() {{.ElementName}} {
-			var g {{.ElementName}}
-
-			g = {{.ElementName}}{
-				{{- range $i := .NbWordsIndexesFull}}
-				genParams.NextUint64(),{{end}}
-			}
-
-			if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
-				g[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
-			}
-
-			for !g.smallerThanModulus() {
-				g = {{.ElementName}}{
-					{{- range $i := .NbWordsIndexesFull}}
-					genParams.NextUint64(),{{end}}
-				}
-				if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
-					g[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
-				}
-			}
-
-			return g 
-		}
-		a := genRandomFq()
+		a := genRandomFq(genParams)
 
 		var carry uint64
 		{{- range $i := .NbWordsIndexesFull}}
@@ -1771,6 +1641,15 @@ func genFull() gopter.Gen {
 		return genResult
 	}
 }
+
+func gen{{.ElementName}}() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		a := genRandomFq(genParams)
+		genResult := gopter.NewGenResult(a, gopter.NoShrinker)
+		return genResult
+	}
+}
+
 {{if $.UsingP20Inverse}}
 func (z *{{.ElementName}}) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	var modulus big.Int
