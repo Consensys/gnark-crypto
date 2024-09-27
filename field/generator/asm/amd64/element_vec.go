@@ -677,6 +677,23 @@ func (f *FFAmd64) generateInnerProduct() {
 	f.Push(&registers, LEN, PX, PY)
 
 	f.LABEL(AddPP)
+
+	// we have
+	// r0 = 				A0L + lo32(A0H)<<32
+	// r1 = hi32(A0H)>>32 + A1L + lo32(A1H)<<32
+	// r2 = hi32(A1H)>>32 + A2L + lo32(A2H)<<32
+	// r3 = hi32(A2H)>>32 + A3L + lo32(A3H)<<32
+	// r4 = hi32(A3H)>>32 + A4L + lo32(A4H)<<32
+	// r5 = hi32(A4H)>>32 + A5L + lo32(A5H)<<32
+	// r6 = hi32(A5H)>>32 + A6L + lo32(A6H)<<32
+	// r7 = hi32(A6H)>>32 + A7L + lo32(A7H)<<32
+	// r8 = hi32(A7H)>>32
+
+	var r [8]amd64.Register
+	for i := 0; i < 8; i++ {
+		r[i] = f.Pop(&registers)
+	}
+
 	// Load mask register values
 
 	f.MOVQ(uint64(0x1555), amd64.AX)

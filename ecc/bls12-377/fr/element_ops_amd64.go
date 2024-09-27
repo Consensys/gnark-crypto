@@ -83,17 +83,17 @@ func scalarMulVec(res, a, b *Element, n uint64)
 
 // Sum computes the sum of all elements in the vector.
 func (vector *Vector) Sum() (res Element) {
-	if len(*vector) == 0 {
+	n := uint64(len(*vector))
+	if n == 0 {
 		return
 	}
-	// n := uint64(len(*vector))
-	// const minN = 16*7 // AVX512 slower than generic for small n
-	// const maxN = (1 << 32) - 1
-	// if !supportAvx512 || n <= minN || n >= maxN {
-	// 	// call sumVecGeneric
-	// 	sumVecGeneric(&res, *vector)
-	// 	return
-	// }
+	const minN = 16 * 7 // AVX512 slower than generic for small n
+	const maxN = (1 << 32) - 1
+	if !supportAvx512 || n <= minN || n >= maxN {
+		// call sumVecGeneric
+		sumVecGeneric(&res, *vector)
+		return
+	}
 	sumVec(&res, &(*vector)[0], uint64(len(*vector)))
 	return
 }
@@ -107,20 +107,20 @@ func innerProdVec(res *Element, a, b *Element, n uint64)
 // InnerProduct computes the inner product of two vectors.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) InnerProduct(other Vector) (res Element) {
-	if len(other) == 0 {
+	n := uint64(len(*vector))
+	if n == 0 {
 		return
 	}
-	// n := uint64(len(*vector))
-	// if n != uint64(len(other)) {
-	// 	panic("vector.InnerProduct: vectors don't have the same length")
-	// }
-	// const minN = 16*7 // AVX512 slower than generic for small n
-	// const maxN = (1 << 32) - 1
-	// if !supportAvx512 || n <= minN || n >= maxN {
-	// 	// call innerProductVecGeneric
-	// 	innerProductVecGeneric(&res, *vector, other)
-	// 	return
-	// }
+	if n != uint64(len(other)) {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	const minN = 16 * 7 // AVX512 slower than generic for small n
+	const maxN = (1 << 32) - 1
+	if !supportAvx512 || n <= minN || n >= maxN {
+		// call innerProductVecGeneric
+		innerProductVecGeneric(&res, *vector, other)
+		return
+	}
 	innerProdVec(&res, &(*vector)[0], &other[0], uint64(len(*vector)))
 
 	return
