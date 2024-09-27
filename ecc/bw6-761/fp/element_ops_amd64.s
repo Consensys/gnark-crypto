@@ -430,7 +430,7 @@ TEXT ·Butterfly(SB), $88-16
 	SBBQ 72(AX), R12
 	SBBQ 80(AX), R13
 	SBBQ 88(AX), R14
-	JCC  l1
+	JCC  noReduce_1
 	MOVQ $0xf49d00000000008b, AX
 	ADDQ AX, DX
 	MOVQ $0xe6913e6870000082, AX
@@ -456,7 +456,7 @@ TEXT ·Butterfly(SB), $88-16
 	MOVQ $0x0122e824fb83ce0a, AX
 	ADCQ AX, R14
 
-l1:
+noReduce_1:
 	MOVQ b+8(FP), AX
 	MOVQ DX, 0(AX)
 	MOVQ CX, 8(AX)

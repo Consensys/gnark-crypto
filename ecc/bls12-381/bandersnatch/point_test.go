@@ -17,8 +17,8 @@
 package bandersnatch
 
 import (
+	"crypto/rand"
 	"math/big"
-	"math/rand"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
@@ -525,6 +525,22 @@ func TestOps(t *testing.T) {
 		},
 		genS1,
 	))
+	properties.Property("(projective) GLV and double-and-add scalar multiplications give the same results", prop.ForAll(
+		func(s1 big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var baseProj, p1, p2 PointProj
+			baseProj.FromAffine(&params.Base)
+
+			p1.scalarMulWindowed(&baseProj, &s1)
+			p2.scalarMulGLV(&baseProj, &s1)
+
+			return p2.Equal(&p1)
+
+		},
+		genS1,
+	))
 
 	// extended
 	properties.Property("(extended) 0+0=0", prop.ForAll(
@@ -606,6 +622,22 @@ func TestOps(t *testing.T) {
 			p1.ScalarMultiplication(&p1, five)
 
 			return p2.Equal(&p1)
+		},
+		genS1,
+	))
+	properties.Property("(extended) GLV and double-and-add scalar multiplications give the same results", prop.ForAll(
+		func(s1 big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var baseExtended, p1, p2 PointExtended
+			baseExtended.FromAffine(&params.Base)
+
+			p1.scalarMulWindowed(&baseExtended, &s1)
+			p2.scalarMulGLV(&baseExtended, &s1)
+
+			return p2.Equal(&p1)
+
 		},
 		genS1,
 	))

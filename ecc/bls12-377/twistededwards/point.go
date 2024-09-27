@@ -419,9 +419,10 @@ func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
 	return p
 }
 
-// ScalarMultiplication scalar multiplication of a point
+// scalarMulWindowed scalar multiplication of a point
 // p1 in projective coordinates with a scalar in big.Int
-func (p *PointProj) ScalarMultiplication(p1 *PointProj, scalar *big.Int) *PointProj {
+// using the windowed double-and-add method.
+func (p *PointProj) scalarMulWindowed(p1 *PointProj, scalar *big.Int) *PointProj {
 	var _scalar big.Int
 	_scalar.Set(scalar)
 	p.Set(p1)
@@ -447,6 +448,12 @@ func (p *PointProj) ScalarMultiplication(p1 *PointProj, scalar *big.Int) *PointP
 
 	p.Set(&resProj)
 	return p
+}
+
+// ScalarMultiplication scalar multiplication of a point
+// p1 in projective coordinates with a scalar in big.Int
+func (p *PointProj) ScalarMultiplication(p1 *PointProj, scalar *big.Int) *PointProj {
+	return p.scalarMulWindowed(p1, scalar)
 }
 
 // ------- Extended coordinates
@@ -628,9 +635,10 @@ func (p *PointExtended) setInfinity() *PointExtended {
 	return p
 }
 
-// ScalarMultiplication scalar multiplication of a point
+// scalarMulWindowed scalar multiplication of a point
 // p1 in extended coordinates with a scalar in big.Int
-func (p *PointExtended) ScalarMultiplication(p1 *PointExtended, scalar *big.Int) *PointExtended {
+// using the windowed double-and-add method.
+func (p *PointExtended) scalarMulWindowed(p1 *PointExtended, scalar *big.Int) *PointExtended {
 	var _scalar big.Int
 	_scalar.Set(scalar)
 	p.Set(p1)
@@ -656,4 +664,10 @@ func (p *PointExtended) ScalarMultiplication(p1 *PointExtended, scalar *big.Int)
 
 	p.Set(&resExtended)
 	return p
+}
+
+// ScalarMultiplication scalar multiplication of a point
+// p1 in extended coordinates with a scalar in big.Int
+func (p *PointExtended) ScalarMultiplication(p1 *PointExtended, scalar *big.Int) *PointExtended {
+	return p.scalarMulWindowed(p1, scalar)
 }

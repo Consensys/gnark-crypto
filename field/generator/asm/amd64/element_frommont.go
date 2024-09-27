@@ -54,7 +54,7 @@ func (f *FFAmd64) generateFromMont(forceADX bool) {
 	// 		    (C,t[j-1]) := t[j] + m*q[j] + C
 	// 		t[N-1] = C`)
 
-	noAdx := f.NewLabel()
+	noAdx := f.NewLabel("noAdx")
 	if !forceADX {
 		// check ADX instruction support
 		f.CMPB("·supportAdx(SB)", 1)

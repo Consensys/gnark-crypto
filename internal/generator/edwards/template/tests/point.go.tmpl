@@ -1,6 +1,6 @@
 import (
 	"math/big"
-	"math/rand"
+	"crypto/rand"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
@@ -508,6 +508,26 @@ func TestOps(t *testing.T) {
 		genS1,
 	))
 
+	{{- if .HasEndomorphism}}
+           properties.Property("(projective) GLV and double-and-add scalar multiplications give the same results", prop.ForAll(
+               func(s1 big.Int) bool {
+
+                       params := GetEdwardsCurve()
+
+                       var baseProj, p1, p2 PointProj
+                       baseProj.FromAffine(&params.Base)
+
+                       p1.scalarMulWindowed(&baseProj, &s1)
+                       p2.scalarMulGLV(&baseProj, &s1)
+
+                       return p2.Equal(&p1)
+
+                },
+               genS1,
+
+                ))
+	{{- end}}
+
 	// extended
 	properties.Property("(extended) 0+0=0", prop.ForAll(
 		func(s1 big.Int) bool {
@@ -591,6 +611,26 @@ func TestOps(t *testing.T) {
 		},
 		genS1,
 	))
+	{{- if .HasEndomorphism}}
+           properties.Property("(extended) GLV and double-and-add scalar multiplications give the same results", prop.ForAll(
+                               func(s1 big.Int) bool {
+
+                       params := GetEdwardsCurve()
+
+                       var baseExtended, p1, p2 PointExtended
+                       baseExtended.FromAffine(&params.Base)
+
+                       p1.scalarMulWindowed(&baseExtended, &s1)
+                       p2.scalarMulGLV(&baseExtended, &s1)
+
+                       return p2.Equal(&p1)
+
+                },
+               genS1,
+
+                ))
+	{{- end}}
+
 
 	// mixed affine+extended
 	properties.Property("(mixed affine+extended) P+(-P)=O", prop.ForAll(
@@ -879,7 +919,7 @@ func BenchmarkAdd(b *testing.B) {
 	params := GetEdwardsCurve()
 	var s big.Int
 	s.SetString("52435875175126190479447705081859658376581184513", 10)
-	
+
 	b.Run("Affine", func(b *testing.B) {
 		var point PointAffine
 		point.ScalarMultiplication(&params.Base, &s)

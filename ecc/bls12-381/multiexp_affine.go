@@ -60,10 +60,9 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 	// note that we have 2 sets of buckets
 	// 1 in G1Affine used with the batch affine additions
 	// 1 in g1JacExtended used in case the queue of conflicting points
-	var buckets B
+	var buckets B // in G1Affine coordinates, infinity point is represented as (0,0), no need to init
 	var bucketsJE BJE
 	for i := 0; i < len(buckets); i++ {
-		buckets[i].setInfinity()
 		bucketsJE[i].setInfinity()
 	}
 
@@ -226,7 +225,7 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 	total.setInfinity()
 	for k := len(buckets) - 1; k >= 0; k-- {
 		runningSum.addMixed(&buckets[k])
-		if !bucketsJE[k].IsZero() {
+		if !bucketsJE[k].IsInfinity() {
 			runningSum.add(&bucketsJE[k])
 		}
 		total.add(&runningSum)
@@ -388,10 +387,9 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 	// note that we have 2 sets of buckets
 	// 1 in G2Affine used with the batch affine additions
 	// 1 in g2JacExtended used in case the queue of conflicting points
-	var buckets B
+	var buckets B // in G2Affine coordinates, infinity point is represented as (0,0), no need to init
 	var bucketsJE BJE
 	for i := 0; i < len(buckets); i++ {
-		buckets[i].setInfinity()
 		bucketsJE[i].setInfinity()
 	}
 
@@ -554,7 +552,7 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 	total.setInfinity()
 	for k := len(buckets) - 1; k >= 0; k-- {
 		runningSum.addMixed(&buckets[k])
-		if !bucketsJE[k].IsZero() {
+		if !bucketsJE[k].IsInfinity() {
 			runningSum.add(&bucketsJE[k])
 		}
 		total.add(&runningSum)

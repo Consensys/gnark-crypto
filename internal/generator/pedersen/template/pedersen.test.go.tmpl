@@ -1,10 +1,12 @@
 import (
 	"fmt"
+	"testing"
+
+	"github.com/consensys/gnark-crypto/ecc"
 	curve "github.com/consensys/gnark-crypto/ecc/{{.Name}}"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 	"github.com/consensys/gnark-crypto/utils/testutils"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func interfaceSliceToFrSlice(t *testing.T, values ...interface{}) []fr.Element {
@@ -57,7 +59,7 @@ func testCommit(t *testing.T, values ...interface{}) {
 	)
 	valuesFr := interfaceSliceToFrSlice(t, values...)
 
-	pk, vk, err = Setup(basis)
+	pk, vk, err = Setup([][]curve.G1Affine{basis})
 	assert.NoError(t, err)
 	commitment, err = pk[0].Commit(valuesFr)
 	assert.NoError(t, err)
@@ -82,7 +84,7 @@ func TestFoldProofs(t *testing.T) {
 		bases[i] = randomG1Slice(t, len(values[i]))
 	}
 
-	pk, vk, err := Setup(bases...)
+	pk, vk, err := Setup(bases)
 	assert.NoError(t, err)
 
 	commitments := make([]curve.G1Affine, len(values))
@@ -91,11 +93,14 @@ func TestFoldProofs(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
+	hashes, err := fr.Hash([]byte("test"), []byte("pedersen"), 1)
+	assert.NoError(t, err)
+
 	t.Run("folding with zeros", func(t *testing.T) {
 		pokFolded, err := BatchProve(pk[:2], [][]fr.Element{
 			values[0],
 			make([]fr.Element, len(values[1])),
-		}, []byte("test"))
+		}, hashes[0])
 		assert.NoError(t, err)
 		var pok curve.G1Affine
 		pok, err = pk[0].ProveKnowledge(values[0])
@@ -105,10 +110,10 @@ func TestFoldProofs(t *testing.T) {
 
 	t.Run("run empty", func(t *testing.T) {
 		var foldedCommitment curve.G1Affine
-		pok, err := BatchProve([]ProvingKey{}, [][]fr.Element{}, []byte("test"))
+		pok, err := BatchProve([]ProvingKey{}, [][]fr.Element{}, hashes[0])
 		assert.NoError(t, err)
 
-		foldedCommitment, err = FoldCommitments([]curve.G1Affine{}, []byte("test"))
+		_, err = foldedCommitment.Fold([]curve.G1Affine{}, hashes[0], ecc.MultiExpConfig{NbTasks: 1})
 		assert.NoError(t, err)
 		assert.NoError(t, vk.Verify(foldedCommitment, pok))
 	})
@@ -117,10 +122,10 @@ func TestFoldProofs(t *testing.T) {
 		return func(t *testing.T) {
 
 			var foldedCommitment curve.G1Affine
-			pok, err := BatchProve(pk[:len(values)], values, []byte("test"))
+			pok, err := BatchProve(pk[:len(values)], values, hashes[0])
 			assert.NoError(t, err)
 
-			foldedCommitment, err = FoldCommitments(commitments[:len(values)], []byte("test"))
+			_, err = foldedCommitment.Fold(commitments[:len(values)], hashes[0], ecc.MultiExpConfig{NbTasks: 1})
 			assert.NoError(t, err)
 			assert.NoError(t, vk.Verify(foldedCommitment, pok))
 
@@ -155,13 +160,62 @@ func TestMarshal(t *testing.T) {
 		vk  VerifyingKey
 		err error
 	)
-	vk.G, err = randomOnG2()
+	vk.G, err = curve.RandomOnG2()
 	assert.NoError(t, err)
-	vk.GRootSigmaNeg, err = randomOnG2()
+	vk.GSigma, err = curve.RandomOnG2()
 	assert.NoError(t, err)
 
 	t.Run("ProvingKey -> Bytes -> ProvingKey must remain identical.", testutils.SerializationRoundTrip(&pk))
 	t.Run("ProvingKey -> Bytes (raw) -> ProvingKey must remain identical.", testutils.SerializationRoundTripRaw(&pk))
 	t.Run("VerifyingKey -> Bytes -> VerifyingKey must remain identical.", testutils.SerializationRoundTrip(&vk))
 	t.Run("VerifyingKey -> Bytes (raw) -> ProvingKey must remain identical.", testutils.SerializationRoundTripRaw(&vk))
+}
+
+
+func TestSemiFoldProofs(t *testing.T) {
+	const (
+		commitmentLength = 5
+		nbCommitments    = 5
+	)
+	g, err := curve.RandomOnG2()
+	assert.NoError(t, err)
+
+	basis := randomG1Slice(t, commitmentLength*nbCommitments)
+
+	vk, pk := make([]VerifyingKey, nbCommitments), make([]ProvingKey, nbCommitments)
+	for i := range pk {
+		var pk0 []ProvingKey
+		pk0, vk[i], err = Setup([][]curve.G1Affine{basis[i*commitmentLength : (i+1)*commitmentLength]}, WithG2Point(g))
+		assert.NoError(t, err)
+		pk[i] = pk0[0]
+	}
+
+	values := make([][]fr.Element, nbCommitments)
+	for i := range values {
+		values[i] = make([]fr.Element, commitmentLength)
+		for j := range values[i] {
+			_, err = values[i][j].SetRandom()
+			assert.NoError(t, err)
+		}
+	}
+
+	commitments := make([]curve.G1Affine, nbCommitments)
+	proofs := make([]curve.G1Affine, nbCommitments)
+	for i := range commitments {
+		commitments[i], err = pk[i].Commit(values[i])
+		assert.NoError(t, err)
+		proofs[i], err = pk[i].ProveKnowledge(values[i])
+		assert.NoError(t, err)
+	}
+
+	var challenge fr.Element
+	_, err = challenge.SetRandom()
+	assert.NoError(t, err)
+
+	assert.NoError(t, BatchVerifyMultiVk(vk, commitments, proofs, challenge))
+
+	// send folded proof
+	proof, err := new(curve.G1Affine).Fold(proofs, challenge, ecc.MultiExpConfig{NbTasks: 1})
+	assert.NoError(t, err)
+	assert.NoError(t, BatchVerifyMultiVk(vk, commitments, []curve.G1Affine{*proof}, challenge))
 }

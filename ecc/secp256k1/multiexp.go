@@ -316,6 +316,31 @@ func msmReduceChunkG1Affine(p *G1Jac, c int, chChunks []chan g1JacExtended) *G1J
 	return p.unsafeFromJacExtended(&_p)
 }
 
+// Fold computes the multi-exponentiation \sum_{i=0}^{len(points)-1} points[i] *
+// combinationCoeff^i and stores the result in p. It returns error in case
+// configuration is invalid.
+func (p *G1Affine) Fold(points []G1Affine, combinationCoeff fr.Element, config ecc.MultiExpConfig) (*G1Affine, error) {
+	var _p G1Jac
+	if _, err := _p.Fold(points, combinationCoeff, config); err != nil {
+		return nil, err
+	}
+	p.FromJacobian(&_p)
+	return p, nil
+}
+
+// Fold computes the multi-exponentiation \sum_{i=0}^{len(points)-1} points[i] *
+// combinationCoeff^i and stores the result in p. It returns error in case
+// configuration is invalid.
+func (p *G1Jac) Fold(points []G1Affine, combinationCoeff fr.Element, config ecc.MultiExpConfig) (*G1Jac, error) {
+	scalars := make([]fr.Element, len(points))
+	scalar := fr.NewElement(1)
+	for i := 0; i < len(points); i++ {
+		scalars[i].Set(&scalar)
+		scalar.Mul(&scalar, &combinationCoeff)
+	}
+	return p.MultiExp(points, scalars, config)
+}
+
 // selector stores the index, mask and shifts needed to select bits from a scalar
 // it is used during the multiExp algorithm or the batch scalar multiplication
 type selector struct {

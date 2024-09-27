@@ -15,13 +15,13 @@ const (
 	mimcNbRounds = 111
 {{- else if eq .Name "bls12-377"}}
 	mimcNbRounds = 62
-{{- else if or (eq .Name "bls12-378") (eq .Name "bls24-315")}}
+{{- else if eq .Name "bls24-315"}}
 	mimcNbRounds = 109
 {{- else if eq .Name "bls24-317"}}
 	mimcNbRounds = 91
 {{- else if eq .Name "bw6-633"}}
 	mimcNbRounds = 136
-{{- else if or (eq .Name "bw6-761") (eq .Name "bw6-756")}}
+{{- else if eq .Name "bw6-761"}}
 	mimcNbRounds = 163
 {{- end}}
 	seed = "seed" 		 // seed to derive the constants

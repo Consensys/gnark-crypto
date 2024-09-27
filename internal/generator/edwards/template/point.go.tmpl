@@ -2,9 +2,7 @@ import (
 	"crypto/subtle"
 	"io"
 	"math/big"
-	{{- if not .HasEndomorphism}}
 	"math/bits"
-	{{- end }}
 
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 )
@@ -403,12 +401,10 @@ func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
 	return p
 }
 
-// ScalarMultiplication scalar multiplication of a point
+// scalarMulWindowed scalar multiplication of a point
 // p1 in projective coordinates with a scalar in big.Int
-func (p *PointProj) ScalarMultiplication(p1 *PointProj, scalar *big.Int) *PointProj {
-	{{- if .HasEndomorphism}}
-		return p.scalarMulGLV(p1, scalar)
-	{{- else }}
+// using the windowed double-and-add method.
+func (p *PointProj) scalarMulWindowed(p1 *PointProj, scalar *big.Int) *PointProj {
 	var _scalar big.Int
 	_scalar.Set(scalar)
 	p.Set(p1)
@@ -434,6 +430,15 @@ func (p *PointProj) ScalarMultiplication(p1 *PointProj, scalar *big.Int) *PointP
 
 	p.Set(&resProj)
 	return p
+}
+
+// ScalarMultiplication scalar multiplication of a point
+// p1 in projective coordinates with a scalar in big.Int
+func (p *PointProj) ScalarMultiplication(p1 *PointProj, scalar *big.Int) *PointProj {
+	{{- if .HasEndomorphism}}
+		return p.scalarMulGLV(p1, scalar)
+	{{- else }}
+		return p.scalarMulWindowed(p1, scalar)
 	{{- end}}
 }
 
@@ -550,11 +555,7 @@ func (p *PointExtended) MixedAdd(p1 *PointExtended, p2 *PointAffine) *PointExten
 
 // Double adds points in extended coordinates
 // Dedicated doubling
-{{- if or (eq .Name "bls12-378") (eq .Name "bw6-756")}}
-// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#doubling-dbl-2008-hwcd
-{{- else}}
 // https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#doubling-dbl-2008-hwcd
-{{- end}}
 func (p *PointExtended) Double(p1 *PointExtended) *PointExtended {
 
 	var A, B, C, D, E, F, G, H fr.Element
@@ -583,11 +584,7 @@ func (p *PointExtended) Double(p1 *PointExtended) *PointExtended {
 
 // MixedDouble adds points in extended coordinates
 // Dedicated mixed doubling
-{{- if or (eq .Name "bls12-378") (eq .Name "bw6-756")}}
-// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#doubling-mdbl-2008-hwcd
-{{- else}}
 // https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#doubling-mdbl-2008-hwcd
-{{- end}}
 func (p *PointExtended) MixedDouble(p1 *PointExtended) *PointExtended {
 
 	var A, B, D, E, G, H, two fr.Element
@@ -624,12 +621,10 @@ func (p *PointExtended) setInfinity() *PointExtended {
 	return p
 }
 
-// ScalarMultiplication scalar multiplication of a point
+// scalarMulWindowed scalar multiplication of a point
 // p1 in extended coordinates with a scalar in big.Int
-func (p *PointExtended) ScalarMultiplication(p1 *PointExtended, scalar *big.Int) *PointExtended {
-	{{- if .HasEndomorphism}}
-		return p.scalarMulGLV(p1, scalar)
-	{{- else }}
+// using the windowed double-and-add method.
+func (p *PointExtended) scalarMulWindowed(p1 *PointExtended, scalar *big.Int) *PointExtended {
 	var _scalar big.Int
 	_scalar.Set(scalar)
 	p.Set(p1)
@@ -655,5 +650,14 @@ func (p *PointExtended) ScalarMultiplication(p1 *PointExtended, scalar *big.Int)
 
 	p.Set(&resExtended)
 	return p
-	{{- end }}
+}
+
+// ScalarMultiplication scalar multiplication of a point
+// p1 in extended coordinates with a scalar in big.Int
+func (p *PointExtended) ScalarMultiplication(p1 *PointExtended, scalar *big.Int) *PointExtended {
+	{{- if .HasEndomorphism}}
+		return p.scalarMulGLV(p1, scalar)
+	{{- else }}
+		return p.scalarMulWindowed(p1, scalar)
+	{{- end}}
 }
