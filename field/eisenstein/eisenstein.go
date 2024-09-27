@@ -167,7 +167,8 @@ func Min(z ...*ComplexNumber) *ComplexNumber {
 // This outputs w, v, u s.t. w = a*u + b*v.
 func HalfGCD(a, b *ComplexNumber) [3]*ComplexNumber {
 
-	var check, aRun, bRun, u, v, u_, v_, quotient, remainder, t1, t2 ComplexNumber
+	var aRun, bRun, u, v, u_, v_, quotient, remainder, t1, t2 ComplexNumber
+	var sqrt big.Int
 
 	aRun.Set(a)
 	bRun.Set(b)
@@ -177,8 +178,8 @@ func HalfGCD(a, b *ComplexNumber) [3]*ComplexNumber {
 	v_.SetOne()
 
 	// Eisenstein integers form an Euclidean domain for the norm
-	aNorm := a.Norm()
-	for check.Mul(&aRun, &aRun).Norm().Cmp(aNorm) >= 0 {
+	sqrt.Sqrt(a.Norm())
+	for bRun.Norm().Cmp(&sqrt) == 1 {
 		quotient.QuoRem(&aRun, &bRun, &remainder)
 		t1.Rem(&u, &u_, &quotient)
 		t2.Rem(&v, &v_, &quotient)
@@ -190,9 +191,5 @@ func HalfGCD(a, b *ComplexNumber) [3]*ComplexNumber {
 		v_.Set(&t2)
 	}
 
-	if v_.Norm().Cmp(v.Norm()) == -1 {
-		return [3]*ComplexNumber{&bRun, &v_, &u_}
-	}
-
-	return [3]*ComplexNumber{&aRun, &v, &u}
+	return [3]*ComplexNumber{&bRun, &v_, &u_}
 }
