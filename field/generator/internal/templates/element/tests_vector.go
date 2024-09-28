@@ -220,7 +220,7 @@ func BenchmarkVectorOps(b *testing.B) {
 			Mul(&b1[i-1], &mixer)
 	}
 
-	for n:= 1<<10; n <= N; n <<= 1 {
+	for n:= 1<<8; n <= N; n <<= 1 {
 		b.Run(fmt.Sprintf("add %d", n), func(b *testing.B) {
 			_a := a1[:n]
 			_b := b1[:n]
