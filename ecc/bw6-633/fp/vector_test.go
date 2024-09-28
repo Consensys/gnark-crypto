@@ -217,7 +217,7 @@ func TestVectorOps(t *testing.T) {
 func BenchmarkVectorOps(b *testing.B) {
 	// note; to benchmark against "no asm" version, use the following
 	// build tag: -tags purego
-	const N = 1 << 20
+	const N = 1 << 21
 	a1 := make(Vector, N)
 	b1 := make(Vector, N)
 	c1 := make(Vector, N)
@@ -230,44 +230,53 @@ func BenchmarkVectorOps(b *testing.B) {
 			Mul(&b1[i-1], &mixer)
 	}
 
-	b.Run("Add", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			c1.Add(a1, b1)
-		}
-	})
+	for n := 1 << 10; n <= N; n <<= 1 {
+		b.Run(fmt.Sprintf("add %d", n), func(b *testing.B) {
+			_a := a1[:n]
+			_b := b1[:n]
+			_c := c1[:n]
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_c.Add(_a, _b)
+			}
+		})
 
-	b.Run("Sub", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			c1.Sub(a1, b1)
-		}
-	})
+		b.Run(fmt.Sprintf("sub %d", n), func(b *testing.B) {
+			_a := a1[:n]
+			_b := b1[:n]
+			_c := c1[:n]
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_c.Sub(_a, _b)
+			}
+		})
 
-	b.Run("ScalarMul", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			c1.ScalarMul(a1, &b1[0])
-		}
-	})
+		b.Run(fmt.Sprintf("scalarMul %d", n), func(b *testing.B) {
+			_a := a1[:n]
+			_c := c1[:n]
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_c.ScalarMul(_a, &mixer)
+			}
+		})
 
-	b.Run("Sum", func(b *testing.B) {
-		b.ResetTimer()
-		var sum Element
-		for i := 0; i < b.N; i++ {
-			sum = c1.Sum()
-		}
-		_ = sum
-	})
+		b.Run(fmt.Sprintf("sum %d", n), func(b *testing.B) {
+			_a := a1[:n]
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = _a.Sum()
+			}
+		})
 
-	b.Run("InnerProduct", func(b *testing.B) {
-		b.ResetTimer()
-		var innerProduct Element
-		for i := 0; i < b.N; i++ {
-			innerProduct = a1.InnerProduct(b1)
-		}
-		_ = innerProduct
-	})
+		b.Run(fmt.Sprintf("innerProduct %d", n), func(b *testing.B) {
+			_a := a1[:n]
+			_b := b1[:n]
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = _a.InnerProduct(_b)
+			}
+		})
+	}
 }
 
 func genZeroVector(size int) gopter.Gen {
