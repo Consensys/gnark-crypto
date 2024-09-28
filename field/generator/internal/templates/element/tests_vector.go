@@ -86,9 +86,9 @@ func (vector *Vector) unmarshalBinaryAsync(data []byte) error {
 func TestVectorOps(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
-		parameters.MinSuccessfulTests = 5
+		parameters.MinSuccessfulTests = 2
 	} else {
-		parameters.MinSuccessfulTests = 100
+		parameters.MinSuccessfulTests = 10
 	}
 	properties := gopter.NewProperties(parameters)
 

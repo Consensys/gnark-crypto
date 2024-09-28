@@ -101,9 +101,6 @@ func (vector *Vector) Sum() (res Element) {
 //go:noescape
 func sumVec(res *Element, a *Element, n uint64)
 
-//go:noescape
-func innerProdVec(res *uint64, a, b *Element, n uint64)
-
 // InnerProduct computes the inner product of two vectors.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) InnerProduct(other Vector) (res Element) {
@@ -114,10 +111,10 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 	if n != uint64(len(other)) {
 		panic("vector.InnerProduct: vectors don't have the same length")
 	}
-	const minN = 0 // AVX512 slower than generic for small n
 	const maxN = (1 << 32) - 1
-	if !supportAvx512 || n <= minN || n >= maxN {
+	if !supportAvx512 || n >= maxN {
 		// call innerProductVecGeneric
+		// note; we could split the vector into smaller chunks and call innerProductVec
 		innerProductVecGeneric(&res, *vector, other)
 		return
 	}
@@ -125,6 +122,9 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 
 	return
 }
+
+//go:noescape
+func innerProdVec(res *uint64, a, b *Element, n uint64)
 
 // Mul z = x * y (mod q)
 //

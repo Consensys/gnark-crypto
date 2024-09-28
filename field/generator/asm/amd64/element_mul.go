@@ -110,6 +110,7 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 		if !hasFreeRegister {
 			f.POPQ(A)
 		}
+
 		// for j=1 to N-1
 		//    (C,t[j-1]) := t[j] + m*q[j] + C
 		for j := 1; j < f.NbWords; j++ {
