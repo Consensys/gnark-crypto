@@ -621,6 +621,8 @@ func (f *FFAmd64) generateInnerProduct() {
 
 	f.ADDQ("$32", PY)
 
+	f.Comment("we multiply and accumulate partial products of 4 bytes * 32 bytes")
+
 	f.VPMULUDQ_BCST("0*4("+PX+")", Y, PPL)
 	f.VPSRLQ("$32", PPL, PPH)
 	f.VPANDQ(LSW, PPL, PPL)
@@ -678,24 +680,6 @@ func (f *FFAmd64) generateInnerProduct() {
 
 	f.LABEL(AddPP)
 
-	// we have
-	// r0 = 				A0L + lo32(A0H)<<32
-	// r1 = hi32(A0H)>>32 + A1L + lo32(A1H)<<32
-	// r2 = hi32(A1H)>>32 + A2L + lo32(A2H)<<32
-	// r3 = hi32(A2H)>>32 + A3L + lo32(A3H)<<32
-	// r4 = hi32(A3H)>>32 + A4L + lo32(A4H)<<32
-	// r5 = hi32(A4H)>>32 + A5L + lo32(A5H)<<32
-	// r6 = hi32(A5H)>>32 + A6L + lo32(A6H)<<32
-	// r7 = hi32(A6H)>>32 + A7L + lo32(A7H)<<32
-	// r8 = hi32(A7H)>>32
-
-	var r [8]amd64.Register
-	for i := 0; i < 8; i++ {
-		r[i] = f.Pop(&registers)
-	}
-
-	// Load mask register values
-
 	f.MOVQ(uint64(0x1555), amd64.AX)
 	f.KMOVD(amd64.AX, "K1")
 
@@ -704,22 +688,9 @@ func (f *FFAmd64) generateInnerProduct() {
 
 	// ACC starts with the value of A0L
 
-	f.VALIGND_Z("$16", ACC, ACC, "K2", "Z0") // Store least significant 32 bits of ACC
+	f.Comment("store the least significant 32 bits of ACC (starts with A0L) in Z0")
+	f.VALIGND_Z("$16", ACC, ACC, "K2", "Z0")
 	f.KSHIFTLW("$1", "K2", "K2")
-
-	// vpsrlq		$32, ACC, PPL
-	// valignd		$2, ACC, ACC, ACC{%k1}{z}
-	// vpaddq		PPL, ACC, ACC
-
-	// vpandq		LSW, A0H, PPL
-	// vpaddq		PPL, ACC, ACC
-
-	// vpandq		LSW, A1L, PPL
-	// vpaddq		PPL, ACC, ACC
-
-	// Word 1 of z is ready
-	// valignd		$15, ACC, ACC, %zmm0{%k2}
-	// kshiftlw	$1, %k2, %k2
 
 	f.VPSRLQ("$32", ACC, PPL)
 	f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
@@ -758,15 +729,6 @@ func (f *FFAmd64) generateInnerProduct() {
 	ADDPP(A4H, A5L, A5H, A6L, "6")
 	ADDPP(A5H, A6L, A6H, A7L, "7")
 
-	// vpsrlq		$32, ACC, PPL;
-	// valignd		$2, ACC, ACC, ACC{%k1}{z};
-	// vpaddq		PPL, ACC, ACC;
-	// vpsrlq		$32, A6H, A6H; vpaddq	A6H, ACC, ACC;
-	// vpsrlq		$32, A7L, A7L; vpaddq	A7L, ACC, ACC;
-	// vpandq		LSW, A7H, PPL; vpaddq	PPL, ACC, ACC;
-	// valignd		$16-8, ACC, ACC, %zmm0{%k2}
-	// kshiftlw	$1, %k2, %k2
-
 	f.VPSRLQ("$32", ACC, PPL)
 	f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
 	f.VPADDQ(PPL, ACC, ACC)
@@ -779,13 +741,6 @@ func (f *FFAmd64) generateInnerProduct() {
 	f.VALIGND("$16-8", ACC, ACC, "K2", "Z0")
 	f.KSHIFTLW("$1", "K2", "K2")
 
-	// vpsrlq		$32, ACC, PPL;
-	// valignd		$2, ACC, ACC, ACC{%k1}{z};
-	// vpaddq		PPL, ACC, ACC;
-	// vpsrlq		$32, A7H, A7H; vpaddq	A7H, ACC, ACC;
-	// valignd		$16-9, ACC, ACC, %zmm0{%k2}
-	// kshiftlw	$1, %k2, %k2
-
 	f.VPSRLQ("$32", ACC, PPL)
 	f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
 	f.VPADDQ(PPL, ACC, ACC)
@@ -794,12 +749,6 @@ func (f *FFAmd64) generateInnerProduct() {
 	f.VALIGND("$16-9", ACC, ACC, "K2", "Z0")
 	f.KSHIFTLW("$1", "K2", "K2")
 
-	// #define ADDPP(I) \
-	// vpsrlq		$32, ACC, PPL; \
-	// valignd		$2, ACC, ACC, ACC{%k1}{z}; \
-	// vpaddq		PPL, ACC, ACC; \
-	// valignd		$16-I, ACC, ACC, %zmm0{%k2}; \
-	// kshiftlw	$1, %k2, %k2
 	ADDPP_2 := func(I int) {
 		f.VPSRLQ("$32", ACC, PPL)
 		f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
@@ -815,18 +764,10 @@ func (f *FFAmd64) generateInnerProduct() {
 	ADDPP_2(14)
 	ADDPP_2(15)
 
-	// vpsrlq		$32, ACC, PPL;
-	// valignd		$2, ACC, ACC, ACC{%k1}{z};
-	// vpaddq		PPL, ACC, ACC;
-	// vmovdqa64	ACC, %zmm1{%k1}{z}
-
 	f.VPSRLQ("$32", ACC, PPL)
 	f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
 	f.VPADDQ(PPL, ACC, ACC)
 	f.VMOVDQA64_Z(ACC, "K1", "Z1")
-
-	// We have 544-bit (72-byte) result in Z1:Z0.
-	// Only the modular reduction remains to be computed.
 
 	T0 := f.Pop(&registers)
 	T1 := f.Pop(&registers)
@@ -879,14 +820,14 @@ func (f *FFAmd64) generateInnerProduct() {
 	f.ADCQ(PH, T0)
 	f.ADCQ("$0", T1)
 
-	// movq	INV, %rdx
+	// // movq	INV, %rdx
 
-	// mulx	T2, %rdx, PH
+	// // mulx	T2, %rdx, PH
 
-	// mulx	0*8(PM), PL, PH; add	PL, T2; adc	PH, T3
-	// mulx	2*8(PM), PL, PH; adc	PL, T4; adc	PH, T0; adc	$0, T1
-	// mulx	1*8(PM), PL, PH; add	PL, T3; adc	PH, T4
-	// mulx	3*8(PM), PL, PH; adc	PL, T0; adc	PH, T1; adc	$0, T2
+	// // mulx	0*8(PM), PL, PH; add	PL, T2; adc	PH, T3
+	// // mulx	2*8(PM), PL, PH; adc	PL, T4; adc	PH, T0; adc	$0, T1
+	// // mulx	1*8(PM), PL, PH; add	PL, T3; adc	PH, T4
+	// // mulx	3*8(PM), PL, PH; adc	PL, T0; adc	PH, T1; adc	$0, T2
 
 	f.MOVQ(f.qInv0(), amd64.DX)
 	f.MULXQ(T2, amd64.DX, PH)
@@ -906,14 +847,14 @@ func (f *FFAmd64) generateInnerProduct() {
 	f.ADCQ(PH, T1)
 	f.ADCQ("$0", T2)
 
-	// movq	INV, %rdx
+	// // movq	INV, %rdx
 
-	// mulx	T3, %rdx, PH
+	// // mulx	T3, %rdx, PH
 
-	// mulx	0*8(PM), PL, PH; add	PL, T3; adc	PH, T4
-	// mulx	2*8(PM), PL, PH; adc	PL, T0; adc	PH, T1; adc	$0, T2
-	// mulx	1*8(PM), PL, PH; add	PL, T4; adc	PH, T0
-	// mulx	3*8(PM), PL, PH; adc	PL, T1; adc	PH, T2; adc	$0, T3
+	// // mulx	0*8(PM), PL, PH; add	PL, T3; adc	PH, T4
+	// // mulx	2*8(PM), PL, PH; adc	PL, T0; adc	PH, T1; adc	$0, T2
+	// // mulx	1*8(PM), PL, PH; add	PL, T4; adc	PH, T0
+	// // mulx	3*8(PM), PL, PH; adc	PL, T1; adc	PH, T2; adc	$0, T3
 
 	f.MOVQ(f.qInv0(), amd64.DX)
 
@@ -934,14 +875,14 @@ func (f *FFAmd64) generateInnerProduct() {
 	f.ADCQ(PH, T2)
 	f.ADCQ("$0", T3)
 
-	// movq	INV, %rdx
+	// // movq	INV, %rdx
 
-	// mulx	T4, %rdx, PH
+	// // mulx	T4, %rdx, PH
 
-	// mulx	0*8(PM), PL, PH; add	PL, T4; adc	PH, T0
-	// mulx	2*8(PM), PL, PH; adc	PL, T1; adc	PH, T2; adc	$0, T3
-	// mulx	1*8(PM), PL, PH; add	PL, T0; adc	PH, T1
-	// mulx	3*8(PM), PL, PH; adc	PL, T2; adc	PH, T3; adc	$0, T4
+	// // mulx	0*8(PM), PL, PH; add	PL, T4; adc	PH, T0
+	// // mulx	2*8(PM), PL, PH; adc	PL, T1; adc	PH, T2; adc	$0, T3
+	// // mulx	1*8(PM), PL, PH; add	PL, T0; adc	PH, T1
+	// // mulx	3*8(PM), PL, PH; adc	PL, T2; adc	PH, T3; adc	$0, T4
 
 	f.MOVQ(f.qInv0(), amd64.DX)
 
@@ -1054,4 +995,141 @@ func (f *FFAmd64) generateInnerProduct() {
 	f.LABEL(done)
 
 	f.RET()
+
+	// f.Push(&registers, lo, hi)
+
+	// // We have 544-bit (72-byte) result in Z1:Z0.
+	// // Only the modular reduction remains to be computed.
+
+	// // for i=0 to s-1
+	// // 	C := 0
+	// // 	m := t[i]*n'[0] mod W
+	// // 	for j=0 to s-1
+	// // 		(C,S) := t[i+j] + m*n[j] + C
+	// // 		t[i+j] := S
+	// // 	ADD (t[i+s],C)
+
+	// f.XORQ(amd64.AX, amd64.AX)
+	// m := amd64.DX
+	// tr := f.Pop(&registers)
+	// zero := f.Pop(&registers)
+
+	// f.MOVQ(f.qInv0(), m)
+	// for i := 0; i < 4; i++ {
+	// 	f.XORQ(zero, zero)
+	// 	f.IMULQ(r[i], m)
+
+	// 	f.MULXQ(f.qAt(i), amd64.AX, tr)
+
+	// 	// shift in the loop.
+
+	// 	for j := 0; j < 4; j++ {
+	// 		f.MULXQ(f.qAt(j), amd64.AX, tr)
+	// 		f.ADCXQ(amd64.AX, r[i+j])
+	// 		f.ADOXQ(tr, r[i+j+1])
+	// 	}
+
+	// 	for j := i + 1; j < 8; j++ {
+	// 		f.ADCXQ(zero, r[j])
+	// 		f.ADOXQ(zero, r[j+1])
+	// 	}
+
+	// 	f.ADCXQ(zero, r[8])
+	// }
+
+	// // // j == 0
+	// // // C,_ := r[i] + m*q[0]
+	// // f.MULXQ(f.qAt(0), amd64.AX, tr)
+	// // f.ADCXQ(amd64.AX, r[i])
+	// // f.ADOXQ(tr, r[i+1])
+
+	// // for j := 1; j < 4; j++ {
+	// // 	f.MULXQ(f.qAt(j), amd64.AX, tr) // m * n[j]
+	// // 	f.ADCXQ(amd64.AX, r[i+j])
+	// // 	f.ADOXQ(tr, r[i+j+1])
+	// // }
+
+	// // for k := i + 4; k < 9; k++ {
+	// // 	f.ADCXQ(zero, r[k])
+	// // 	f.ADOXQ(zero, r[k])
+	// // }
+
+	// f.Push(&registers, zero, tr, m)
+
+	// // now our result should be in r[4] to r[8]
+	// T0 := r[4]
+	// T1 := r[5]
+	// T2 := r[6]
+	// T3 := r[7]
+	// T4 := r[8]
+
+	// PL := f.Pop(&registers)
+	// PH := f.Pop(&registers)
+
+	// // //////////////////////////////////////////////////
+	// // // Barrett reduction
+	// // //////////////////////////////////////////////////
+
+	// // // // For explanation of mu, q1, q2, q3, r1, r2, see Handbook of
+	// // // // Applied Cryptography, Algorithm 14.42.
+
+	// // // // q1 is low 32 bits of T4 and high 32 bits of T3
+
+	// // // movq	T3, %rax
+	// // // shrd	$32, T4, %rax	// q1
+	// // // mulq	MU		// Multiply by mu. q2 in rdx:rax, q3 in rdx
+
+	// f.MOVQ(T3, amd64.AX)
+	// f.SHRQw("$32", T4, amd64.AX)
+	// f.MOVQ(f.mu(), amd64.DX)
+	// f.MULQ(amd64.DX)
+
+	// // // // Subtract r2 from r1
+
+	// // // mulx	0*8(PM), PL, PH; sub	PL, T0; sbb	PH, T1;
+	// // // mulx	2*8(PM), PL, PH; sbb	PL, T2; sbb	PH, T3;	sbb	$0, T4
+	// // // mulx	1*8(PM), PL, PH; sub	PL, T1; sbb	PH, T2;
+	// // // mulx	3*8(PM), PL, PH; sbb	PL, T3; sbb	PH, T4
+
+	// f.MULXQ(f.qAt(0), PL, PH)
+	// f.SUBQ(PL, T0)
+	// f.SBBQ(PH, T1)
+	// f.MULXQ(f.qAt(2), PL, PH)
+	// f.SBBQ(PL, T2)
+	// f.SBBQ(PH, T3)
+	// f.SBBQ("$0", T4)
+	// f.MULXQ(f.qAt(1), PL, PH)
+	// f.SUBQ(PL, T1)
+	// f.SBBQ(PH, T2)
+	// f.MULXQ(f.qAt(3), PL, PH)
+	// f.SBBQ(PL, T3)
+	// f.SBBQ(PH, T4)
+
+	// PZ := f.Pop(&registers)
+	// f.MOVQ("res+0(FP)", PZ)
+	// t := []amd64.Register{T0, T1, T2, T3}
+	// f.Mov(t, PZ)
+
+	// // sub q
+	// f.SUBQ(f.qAt(0), T0)
+	// f.SBBQ(f.qAt(1), T1)
+	// f.SBBQ(f.qAt(2), T2)
+	// f.SBBQ(f.qAt(3), T3)
+	// f.SBBQ("$0", T4)
+
+	// // if borrow, we go to done
+	// f.JCS(done)
+
+	// f.Mov(t, PZ)
+
+	// f.SUBQ(f.qAt(0), T0)
+	// f.SBBQ(f.qAt(1), T1)
+	// f.SBBQ(f.qAt(2), T2)
+	// f.SBBQ(f.qAt(3), T3)
+	// f.SBBQ("$0", T4)
+
+	// f.JCS(done)
+
+	// f.Mov(t, PZ)
+
 }

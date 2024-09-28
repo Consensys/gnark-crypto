@@ -632,10 +632,12 @@ TEXT ·innerProdVec(SB), NOSPLIT, $0-32
 	JEQ       done_14       // n == 0, we are done
 
 loop_13:
-	TESTQ         CX, CX
-	JEQ           accumulate_15    // n == 0 we can accumulate
-	VPMOVZXDQ     (R15), Z4
-	ADDQ          $32, R15
+	TESTQ     CX, CX
+	JEQ       accumulate_15 // n == 0 we can accumulate
+	VPMOVZXDQ (R15), Z4
+	ADDQ      $32, R15
+
+	// we multiply and accumulate partial products of 4 bytes * 32 bytes
 	VPMULUDQ.BCST 0*4(R14), Z4, Z2
 	VPSRLQ        $32, Z2, Z3
 	VPANDQ        Z5, Z2, Z2
@@ -681,10 +683,12 @@ loop_13:
 	JMP           loop_13
 
 accumulate_15:
-	MOVQ        $0x0000000000001555, AX
-	KMOVD       AX, K1
-	MOVQ        $1, AX
-	KMOVD       AX, K2
+	MOVQ  $0x0000000000001555, AX
+	KMOVD AX, K1
+	MOVQ  $1, AX
+	KMOVD AX, K2
+
+	// store the least significant 32 bits of ACC (starts with A0L) in Z0
 	VALIGND.Z   $16, Z16, Z16, K2, Z0
 	KSHIFTLW    $1, K2, K2
 	VPSRLQ      $32, Z16, Z2

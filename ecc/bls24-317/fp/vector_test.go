@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/stretchr/testify/require"
+	"os"
 	"reflect"
 	"sort"
 	"testing"
@@ -166,41 +167,51 @@ func TestVectorOps(t *testing.T) {
 		return innerProduct.Equal(&computed)
 	}
 
-	sizes := []int{1, 2, 3, 4, 7, 9, 64, 65, 117, 127, 128, 129, 130, 131, 1024}
-
-	for _, size := range sizes {
-		properties.Property(fmt.Sprintf("vector addition %d", size), prop.ForAll(
-			addVector,
-			genVector(size),
-			genVector(size),
-		))
-
-		properties.Property(fmt.Sprintf("vector subtraction %d", size), prop.ForAll(
-			subVector,
-			genVector(size),
-			genVector(size),
-		))
-
-		properties.Property(fmt.Sprintf("vector scalar multiplication %d", size), prop.ForAll(
-			scalarMulVector,
-			genVector(size),
-			genElement(),
-		))
-
-		properties.Property(fmt.Sprintf("vector sum %d", size), prop.ForAll(
-			sumVector,
-			genVector(size),
-		))
-
-		properties.Property(fmt.Sprintf("vector inner product %d", size), prop.ForAll(
-			innerProductVector,
-			genVector(size),
-			genVector(size),
-		))
-
+	sizes := []int{1, 2, 3, 4, 509, 510, 511, 512, 513, 514}
+	type genPair struct {
+		g1, g2 gopter.Gen
 	}
 
-	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	for _, size := range sizes {
+		generators := []genPair{
+			{genZeroVector(size), genZeroVector(size)},
+			{genMaxVector(size), genMaxVector(size)},
+			{genVector(size), genVector(size)},
+			{genVector(size), genZeroVector(size)},
+		}
+		for _, gp := range generators {
+			properties.Property(fmt.Sprintf("vector addition %d", size), prop.ForAll(
+				addVector,
+				gp.g1,
+				gp.g2,
+			))
+
+			properties.Property(fmt.Sprintf("vector subtraction %d", size), prop.ForAll(
+				subVector,
+				gp.g1,
+				gp.g2,
+			))
+
+			properties.Property(fmt.Sprintf("vector scalar multiplication %d", size), prop.ForAll(
+				scalarMulVector,
+				gp.g1,
+				genElement(),
+			))
+
+			properties.Property(fmt.Sprintf("vector sum %d", size), prop.ForAll(
+				sumVector,
+				gp.g1,
+			))
+
+			properties.Property(fmt.Sprintf("vector inner product %d", size), prop.ForAll(
+				innerProductVector,
+				gp.g1,
+				gp.g2,
+			))
+		}
+	}
+
+	properties.TestingRun(t, gopter.NewFormatedReporter(false, 260, os.Stdout))
 }
 
 func BenchmarkVectorOps(b *testing.B) {
@@ -257,6 +268,29 @@ func BenchmarkVectorOps(b *testing.B) {
 		}
 		_ = innerProduct
 	})
+}
+
+func genZeroVector(size int) gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		g := make(Vector, size)
+		genResult := gopter.NewGenResult(g, gopter.NoShrinker)
+		return genResult
+	}
+}
+
+func genMaxVector(size int) gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		g := make(Vector, size)
+
+		qMinusOne := qElement
+		qMinusOne[0]--
+
+		for i := 0; i < size; i++ {
+			g[i] = qMinusOne
+		}
+		genResult := gopter.NewGenResult(g, gopter.NoShrinker)
+		return genResult
+	}
 }
 
 func genVector(size int) gopter.Gen {
