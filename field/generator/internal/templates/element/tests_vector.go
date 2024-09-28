@@ -207,7 +207,7 @@ func TestVectorOps(t *testing.T) {
 func BenchmarkVectorOps(b *testing.B) {
 	// note; to benchmark against "no asm" version, use the following
 	// build tag: -tags purego
-	const N = 1<<21
+	const N = 1<<24
 	a1 := make(Vector, N)
 	b1 := make(Vector, N)
 	c1 := make(Vector, N)
