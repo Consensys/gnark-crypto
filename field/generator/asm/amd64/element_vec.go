@@ -1155,6 +1155,11 @@ func (f *FFAmd64) generateMulVec() {
 		f.MOVQ(r, PY)
 	}
 
+	q0 := amd64.Register(f.qAt(0))
+	q1 := amd64.Register(f.qAt(1))
+	q2 := amd64.Register(f.qAt(2))
+	q3 := amd64.Register(f.qAt(3))
+
 	done := f.NewLabel("done")
 	loop := f.NewLabel("loop")
 
@@ -1189,8 +1194,6 @@ func (f *FFAmd64) generateMulVec() {
 	f.VMOVDQU64("256+2*64("+PX+")", "Z18")
 	f.VMOVDQU64("256+3*64("+PX+")", "Z19")
 
-	f.MOVQ("0*8("+PX+")", MUL)
-
 	f.MOVQ(PY, r)
 	f.VMOVDQU64("256+0*64("+r+")", "Z24")
 	f.VMOVDQU64("256+1*64("+r+")", "Z25")
@@ -1201,6 +1204,42 @@ func (f *FFAmd64) generateMulVec() {
 	f.MOVQ("1*8("+r+")", Y1)
 	f.MOVQ("2*8("+r+")", Y2)
 	f.MOVQ("3*8("+r+")", Y3)
+
+	f.MOVQ("0*8("+PX+")", MUL)
+	INNER_MUL_0()
+	f.MOVQ(T1, MUL)
+
+	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
+	INNER_MUL_1(q0, q2, q1, q3)
+
+	f.MOVQ("1*8("+PX+")", MUL)
+	INNER_MUL_1(Y0, Y2, Y1, Y3)
+	f.MOVQ(T2, MUL)
+
+	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
+	INNER_MUL_2()
+
+	f.MOVQ("2*8("+PX+")", MUL)
+	INNER_MUL_3(Y0, Y2, Y1, Y3)
+	f.MOVQ(T3, MUL)
+
+	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
+	INNER_MUL_3(q0, q2, q1, q3)
+
+	f.MOVQ("3*8("+PX+")", MUL)
+	INNER_MUL_4(Y0, Y2, Y1, Y3)
+	f.MOVQ(T4, MUL)
+	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
+	INNER_MUL_4(q0, q2, q1, q3)
+	f.ReduceElement(t, y)
+
+	f.MOVQ("res+0(FP)", amd64.DX)
+	f.Mov(t, amd64.DX)
+	f.RET()
+
+	storeOutLoadIn()
+
+	f.RET()
 
 	//////////////////////////////////////////////////
 	// Transpose and expand x and y
@@ -1220,8 +1259,6 @@ func (f *FFAmd64) generateMulVec() {
 
 	// INNER_MUL_0
 	// movq	T1, MUL
-	INNER_MUL_0()
-	f.MOVQ(T1, MUL)
 
 	// Step 2
 
@@ -1230,18 +1267,10 @@ func (f *FFAmd64) generateMulVec() {
 	f.VPERMQ("$0xd8", "Z22", "Z22")
 	f.VPERMQ("$0xd8", "Z23", "Z23")
 
-	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
-	INNER_MUL_1(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
-
-	f.MOVQ("1*8("+PX+")", MUL)
-
 	f.VPERMQ("$0xd8", "Z28", "Z28")
 	f.VPERMQ("$0xd8", "Z29", "Z29")
 	f.VPERMQ("$0xd8", "Z30", "Z30")
 	f.VPERMQ("$0xd8", "Z31", "Z31")
-
-	INNER_MUL_1(Y0, Y2, Y1, Y3)
-	f.MOVQ(T2, MUL)
 
 	// Step 3
 
@@ -1249,17 +1278,9 @@ func (f *FFAmd64) generateMulVec() {
 		f.VSHUFI64X2("$0xd8", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
 	}
 
-	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
-	INNER_MUL_2()
-
-	f.MOVQ("2*8("+PX+")", MUL)
-
 	for i := 28; i <= 31; i++ {
 		f.VSHUFI64X2("$0xd8", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
 	}
-
-	INNER_MUL_3(Y0, Y2, Y1, Y3)
-	f.MOVQ(T3, MUL)
 
 	// Step 4
 
@@ -1285,11 +1306,6 @@ func (f *FFAmd64) generateMulVec() {
 	f.VSHUFI64X2("$0xee", "Z21", "Z20", "Z18")
 	f.VSHUFI64X2("$0x44", "Z23", "Z22", "Z20")
 	f.VSHUFI64X2("$0xee", "Z23", "Z22", "Z22")
-
-	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
-	INNER_MUL_3(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
-
-	f.MOVQ("3*8("+PX+")", MUL)
 
 	f.VSHUFI64X2("$0x44", "Z29", "Z28", "Z24")
 	f.VSHUFI64X2("$0xee", "Z29", "Z28", "Z26")
@@ -1335,25 +1351,13 @@ func (f *FFAmd64) generateMulVec() {
 	f.VPSRLQ("$32", "Z20", "Z21")
 	f.VPSRLQ("$32", "Z22", "Z23")
 
-	INNER_MUL_4(Y0, Y2, Y1, Y3)
-	f.MOVQ(T4, MUL)
-
 	for i := 24; i <= 30; i += 2 {
 		f.VPSRLQ("$32", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i+1))
 	}
 
-	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
-	INNER_MUL_4(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
-
 	for i := 16; i <= 30; i += 2 {
 		f.VPANDQ("Z8", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
 	}
-
-	f.ReduceElement(t, y)
-
-	// TODO @gbotrel add offset
-	// we processed one element; offset by 32 PX, PY, PZ
-	storeOutLoadIn()
 
 	// For each 256-bit input value, each zmm register now represents a 32-bit input word zero-extended to 64 bits.
 
@@ -1404,7 +1408,7 @@ func (f *FFAmd64) generateMulVec() {
 	// mulxq	3*8(PM), PL, PH;	adcq	PL, T4;	adcq	PH, T0;	adcq	$0, T1
 
 	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
-	INNER_MUL_1(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_1(q0, q2, q1, q3)
 
 	// movq	1*8(PX, LEN), MUL
 
@@ -1490,7 +1494,7 @@ func (f *FFAmd64) generateMulVec() {
 	// movq	3*8(PX, LEN), MUL
 
 	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
-	INNER_MUL_3(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_3(q0, q2, q1, q3)
 
 	f.MOVQ("3*8("+PX+")", MUL)
 
@@ -1529,7 +1533,7 @@ func (f *FFAmd64) generateMulVec() {
 	// INNER_MUL_4(f.qAt(0), f.qAt(2), f.qAt(1), f.qAt(3))
 
 	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
-	INNER_MUL_4(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_4(q0, q2, q1, q3)
 
 	// vpmuludq	%zmm17, %zmm28, %zmm14;		vpaddq	%zmm14, %zmm4, %zmm4;
 	// vpmuludq	%zmm17, %zmm29, %zmm15;		vpaddq	%zmm15, %zmm5, %zmm5;
@@ -1586,7 +1590,7 @@ func (f *FFAmd64) generateMulVec() {
 	// movq	2*8(PX, LEN), MUL
 
 	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
-	INNER_MUL_1(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_1(q0, q2, q1, q3)
 
 	f.MOVQ("1*8("+PX+")", MUL)
 	MUL_W_Q_LO()
@@ -1611,7 +1615,7 @@ func (f *FFAmd64) generateMulVec() {
 	f.MOVQ(T3, MUL)
 	CARRY2()
 	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
-	INNER_MUL_3(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_3(q0, q2, q1, q3)
 
 	f.MOVQ("3*8("+PX+")", MUL)
 
@@ -1651,7 +1655,7 @@ func (f *FFAmd64) generateMulVec() {
 
 	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
 	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
-	INNER_MUL_4(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_4(q0, q2, q1, q3)
 
 	// Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)
 	CARRY3()
@@ -1674,7 +1678,7 @@ func (f *FFAmd64) generateMulVec() {
 	f.MOVQ(T1, MUL)
 	MUL_W_Q_HI()
 	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
-	INNER_MUL_1(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_1(q0, q2, q1, q3)
 
 	f.MOVQ("1*8("+PX+")", MUL)
 
@@ -1735,7 +1739,7 @@ func (f *FFAmd64) generateMulVec() {
 	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
 	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
 
-	INNER_MUL_3(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_3(q0, q2, q1, q3)
 
 	f.MOVQ("3*8("+PX+")", MUL)
 
@@ -1754,7 +1758,7 @@ func (f *FFAmd64) generateMulVec() {
 	// mulxq	f.qInv0(), MUL, PH
 	// INNER_MUL_4(f.qAt(0), f.qAt(2), f.qAt(1), f.qAt(3))
 	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
-	INNER_MUL_4(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_4(q0, q2, q1, q3)
 
 	f.ReduceElement(t, y)
 
@@ -1776,7 +1780,7 @@ func (f *FFAmd64) generateMulVec() {
 	f.MOVQ(T1, MUL)
 	CARRY2()
 	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
-	INNER_MUL_1(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_1(q0, q2, q1, q3)
 
 	f.MOVQ("1*8("+PX+")", MUL)
 
@@ -1855,7 +1859,7 @@ func (f *FFAmd64) generateMulVec() {
 
 	// INNER_MUL_4(f.qAt(0), f.qAt(2), f.qAt(1), f.qAt(3))
 
-	INNER_MUL_3(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_3(q0, q2, q1, q3)
 
 	f.MOVQ("3*8("+PX+")", MUL)
 	MUL_W_Q_LO()
@@ -1864,7 +1868,7 @@ func (f *FFAmd64) generateMulVec() {
 	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
 
 	MUL_W_Q_HI()
-	INNER_MUL_4(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_4(q0, q2, q1, q3)
 
 	// Propagate carries and shift down by one dword
 
@@ -1912,7 +1916,7 @@ func (f *FFAmd64) generateMulVec() {
 
 	// INNER_MUL_1(f.qAt(0), f.qAt(2), f.qAt(1), f.qAt(3))
 
-	INNER_MUL_1(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_1(q0, q2, q1, q3)
 
 	// movq	1*8(PX, LEN), MUL
 	f.MOVQ("1*8("+PX+")", MUL)
@@ -1948,7 +1952,7 @@ func (f *FFAmd64) generateMulVec() {
 	f.MOVQ(T3, MUL)
 	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
 	MUL_W_Q_HI()
-	INNER_MUL_3(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_3(q0, q2, q1, q3)
 	f.MOVQ("3*8("+PX+")", MUL)
 
 	// Propagate carries and shift down by one dword
@@ -1963,7 +1967,7 @@ func (f *FFAmd64) generateMulVec() {
 	f.MOVQ(T4, MUL)
 	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
 	CARRY2()
-	INNER_MUL_4(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_4(q0, q2, q1, q3)
 
 	//////////////////////////////////////////////////
 	// Process doubleword 6 of x
@@ -2013,7 +2017,7 @@ func (f *FFAmd64) generateMulVec() {
 	// MUL_W_Q_HI
 	// INNER_MUL_2
 	// movq	2*8(PX, LEN), MUL
-	INNER_MUL_1(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_1(q0, q2, q1, q3)
 	f.MOVQ("1*8("+PX+")", MUL)
 	MUL_W_Q_LO()
 	INNER_MUL_1(Y0, Y2, Y1, Y3)
@@ -2036,7 +2040,7 @@ func (f *FFAmd64) generateMulVec() {
 	f.MOVQ(T3, MUL)
 	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
 	CARRY2()
-	INNER_MUL_3(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_3(q0, q2, q1, q3)
 
 	f.MOVQ("3*8("+PX+")", MUL)
 
@@ -2078,7 +2082,7 @@ func (f *FFAmd64) generateMulVec() {
 
 	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
 
-	INNER_MUL_4(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_4(q0, q2, q1, q3)
 
 	CARRY3()
 	CARRY4()
@@ -2098,7 +2102,7 @@ func (f *FFAmd64) generateMulVec() {
 	f.MOVQ(T1, MUL)
 	f.MULXQ("qInvNeg+32(FP)", MUL, PH)
 	MUL_W_Q_HI()
-	INNER_MUL_1(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_1(q0, q2, q1, q3)
 
 	f.MOVQ("1*8("+PX+")", MUL)
 
@@ -2186,7 +2190,7 @@ func (f *FFAmd64) generateMulVec() {
 
 	// INNER_MUL_3(f.qAt(0), f.qAt(2), f.qAt(1), f.qAt(3))
 	// movq	3*8(PX, LEN), MUL
-	INNER_MUL_3(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_3(q0, q2, q1, q3)
 
 	f.MOVQ("3*8("+PX+")", MUL)
 
@@ -2283,7 +2287,7 @@ func (f *FFAmd64) generateMulVec() {
 
 	// INNER_MUL_4(f.qAt(0), f.qAt(2), f.qAt(1), f.qAt(3))
 	// REDUCE(T0,T1,T2,T3,Y0,Y1,Y2,Y3)
-	INNER_MUL_4(amd64.Register(f.qAt(0)), amd64.Register(f.qAt(2)), amd64.Register(f.qAt(1)), amd64.Register(f.qAt(3)))
+	INNER_MUL_4(q0, q2, q1, q3)
 	f.ReduceElement(t, y)
 
 	// Store output

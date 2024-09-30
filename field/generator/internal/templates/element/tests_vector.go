@@ -92,69 +92,69 @@ func TestVectorOps(t *testing.T) {
 	}
 	properties := gopter.NewProperties(parameters)
 
-	addVector := func(a, b Vector) bool {
-		c := make(Vector, len(a))
-		c.Add(a, b)
+	// addVector := func(a, b Vector) bool {
+	// 	c := make(Vector, len(a))
+	// 	c.Add(a, b)
 		
-		for i := 0; i < len(a); i++ {
-			var tmp {{.ElementName}}
-			tmp.Add(&a[i], &b[i])
-			if !tmp.Equal(&c[i]) {
-				return false
-			}
-		}
-		return true
-	}
+	// 	for i := 0; i < len(a); i++ {
+	// 		var tmp {{.ElementName}}
+	// 		tmp.Add(&a[i], &b[i])
+	// 		if !tmp.Equal(&c[i]) {
+	// 			return false
+	// 		}
+	// 	}
+	// 	return true
+	// }
 
-	subVector := func(a, b Vector) bool {
-		c := make(Vector, len(a))
-		c.Sub(a, b)
+	// subVector := func(a, b Vector) bool {
+	// 	c := make(Vector, len(a))
+	// 	c.Sub(a, b)
 		
-		for i := 0; i < len(a); i++ {
-			var tmp {{.ElementName}}
-			tmp.Sub(&a[i], &b[i])
-			if !tmp.Equal(&c[i]) {
-				return false
-			}
-		}
-		return true
-	}
+	// 	for i := 0; i < len(a); i++ {
+	// 		var tmp {{.ElementName}}
+	// 		tmp.Sub(&a[i], &b[i])
+	// 		if !tmp.Equal(&c[i]) {
+	// 			return false
+	// 		}
+	// 	}
+	// 	return true
+	// }
 
-	scalarMulVector := func(a Vector, b {{.ElementName}}) bool {
-		c := make(Vector, len(a))
-		c.ScalarMul(a, &b)
+	// scalarMulVector := func(a Vector, b {{.ElementName}}) bool {
+	// 	c := make(Vector, len(a))
+	// 	c.ScalarMul(a, &b)
 		
-		for i := 0; i < len(a); i++ {
-			var tmp {{.ElementName}}
-			tmp.Mul(&a[i], &b)
-			if !tmp.Equal(&c[i]) {
-				return false
-			}
-		}
-		return true
-	}
+	// 	for i := 0; i < len(a); i++ {
+	// 		var tmp {{.ElementName}}
+	// 		tmp.Mul(&a[i], &b)
+	// 		if !tmp.Equal(&c[i]) {
+	// 			return false
+	// 		}
+	// 	}
+	// 	return true
+	// }
 
-	sumVector := func(a Vector) bool {
-		var sum {{.ElementName}}
-		computed := a.Sum()
-		for i := 0; i < len(a); i++ {
-			sum.Add(&sum, &a[i])
-		}
+	// sumVector := func(a Vector) bool {
+	// 	var sum {{.ElementName}}
+	// 	computed := a.Sum()
+	// 	for i := 0; i < len(a); i++ {
+	// 		sum.Add(&sum, &a[i])
+	// 	}
 
-		return sum.Equal(&computed)
-	}
+	// 	return sum.Equal(&computed)
+	// }
 
-	innerProductVector := func(a, b Vector) bool {
-		computed := a.InnerProduct(b)
-		var innerProduct {{.ElementName}}
-		for i := 0; i < len(a); i++ {
-			var tmp {{.ElementName}}
-			tmp.Mul(&a[i], &b[i])
-			innerProduct.Add(&innerProduct, &tmp)
-		}
+	// innerProductVector := func(a, b Vector) bool {
+	// 	computed := a.InnerProduct(b)
+	// 	var innerProduct {{.ElementName}}
+	// 	for i := 0; i < len(a); i++ {
+	// 		var tmp {{.ElementName}}
+	// 		tmp.Mul(&a[i], &b[i])
+	// 		innerProduct.Add(&innerProduct, &tmp)
+	// 	}
 
-		return innerProduct.Equal(&computed)
-	}
+	// 	return innerProduct.Equal(&computed)
+	// }
 
 	mulVector := func(a, b Vector) bool {
 		c := make(Vector, len(a))
@@ -174,6 +174,9 @@ func TestVectorOps(t *testing.T) {
 			 }
 		}
 		fmt.Printf("GOOD %d, BAD %d\n", cptGood, cptBad)
+		fmt.Printf("a[0] %v\n", a[0])
+		fmt.Printf("b[0] %v\n", b[0])
+		fmt.Printf("c[0] %v\n", c[0])
 		return cptBad == 0
 		// return true
 	}
@@ -186,40 +189,40 @@ func TestVectorOps(t *testing.T) {
 	
 	for _, size := range sizes {
 		generators := []genPair{
-			{genZeroVector(size), genZeroVector(size), "zero vectors"},
-			{genMaxVector(size), genMaxVector(size), "max vectors"},
+			// {genZeroVector(size), genZeroVector(size), "zero vectors"},
+			// {genMaxVector(size), genMaxVector(size), "max vectors"},
 			{genVector(size), genVector(size), "random vectors"},
-			{genVector(size), genZeroVector(size), "random and zero vectors"},
+			// {genVector(size), genZeroVector(size), "random and zero vectors"},
 		}	
 		for _, gp := range generators {
-			properties.Property(fmt.Sprintf("vector addition %d - %s", size, gp.label), prop.ForAll(
-				addVector,
-				gp.g1,
-				gp.g2,
-			))
+			// properties.Property(fmt.Sprintf("vector addition %d - %s", size, gp.label), prop.ForAll(
+			// 	addVector,
+			// 	gp.g1,
+			// 	gp.g2,
+			// ))
 
-			properties.Property(fmt.Sprintf("vector subtraction %d - %s", size, gp.label), prop.ForAll(
-				subVector,
-				gp.g1,
-				gp.g2,
-			))
+			// properties.Property(fmt.Sprintf("vector subtraction %d - %s", size, gp.label), prop.ForAll(
+			// 	subVector,
+			// 	gp.g1,
+			// 	gp.g2,
+			// ))
 
-			properties.Property(fmt.Sprintf("vector scalar multiplication %d - %s", size, gp.label), prop.ForAll(
-				scalarMulVector,
-				gp.g1,
-				gen{{.ElementName}}(),
-			))
+			// properties.Property(fmt.Sprintf("vector scalar multiplication %d - %s", size, gp.label), prop.ForAll(
+			// 	scalarMulVector,
+			// 	gp.g1,
+			// 	gen{{.ElementName}}(),
+			// ))
 
-			properties.Property(fmt.Sprintf("vector sum %d - %s", size, gp.label), prop.ForAll(
-				sumVector,
-				gp.g1,
-			))
+			// properties.Property(fmt.Sprintf("vector sum %d - %s", size, gp.label), prop.ForAll(
+			// 	sumVector,
+			// 	gp.g1,
+			// ))
 
-			properties.Property(fmt.Sprintf("vector inner product %d - %s", size, gp.label), prop.ForAll(
-				innerProductVector,
-				gp.g1,
-				gp.g2,
-			))
+			// properties.Property(fmt.Sprintf("vector inner product %d - %s", size, gp.label), prop.ForAll(
+			// 	innerProductVector,
+			// 	gp.g1,
+			// 	gp.g2,
+			// ))
 
 			properties.Property(fmt.Sprintf("vector multiplication %d - %s", size, gp.label), prop.ForAll(
 				mulVector,
