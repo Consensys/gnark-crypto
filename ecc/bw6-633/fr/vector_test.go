@@ -296,6 +296,16 @@ func BenchmarkVectorOps(b *testing.B) {
 				_ = _a.InnerProduct(_b)
 			}
 		})
+
+		b.Run(fmt.Sprintf("mul %d", n), func(b *testing.B) {
+			_a := a1[:n]
+			_b := b1[:n]
+			_c := c1[:n]
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_c.Mul(_a, _b)
+			}
+		})
 	}
 }
 

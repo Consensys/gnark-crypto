@@ -187,6 +187,10 @@ func (f *FFAmd64) qAt(index int) string {
 	return fmt.Sprintf("·qElement+%d(SB)", index*8)
 }
 
+func (f *FFAmd64) qAt_bcst(index int) string {
+	return fmt.Sprintf("·qElement+%d(SB)", index*4)
+}
+
 func (f *FFAmd64) qInv0() string {
 	return "$const_qInvNeg"
 }

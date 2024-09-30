@@ -132,11 +132,17 @@ func (vector *Vector) Mul(a, b Vector) {
 	if len(a) != len(b) || len(a) != len(*vector) {
 		panic("vector.Mul: vectors don't have the same length")
 	}
-	mulVec(&(*vector)[0], &a[0], &b[0], uint64(len(a)))
+	n := uint64(len(a))
+	mulVec(&(*vector)[0], &a[0], &b[0], n, qInvNeg)
+	if n%16 != 0 {
+		// call mulVecGeneric on the rest
+		mulVecGeneric((*vector)[n-n%16:], a[n-n%16:], b[n-n%16:])
+	}
+
 }
 
 //go:noescape
-func mulVec(res, a, b *Element, n uint64)
+func mulVec(res, a, b *Element, n uint64, qInvNeg uint64)
 
 // Mul z = x * y (mod q)
 //
