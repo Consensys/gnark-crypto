@@ -111,6 +111,18 @@ func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
 //go:noescape
 func innerProdVec(res *uint64, a,b *{{.ElementName}}, n uint64)
 
+// Mul multiplies two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Mul(a, b Vector) {
+	if len(a) != len(b) || len(a) != len(*vector) {
+		panic("vector.Mul: vectors don't have the same length")
+	}
+	mulVec(&(*vector)[0], &a[0], &b[0], uint64(len(a)))
+}
+
+//go:noescape
+func mulVec(res, a, b *{{.ElementName}}, n uint64)
+
 {{- end}}
 
 // Mul z = x * y (mod q)

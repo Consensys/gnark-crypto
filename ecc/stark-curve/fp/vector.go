@@ -256,6 +256,15 @@ func innerProductVecGeneric(res *Element, a, b Vector) {
 	}
 }
 
+func mulVecGeneric(res, a, b Vector) {
+	if len(a) != len(b) || len(a) != len(res) {
+		panic("vector.Mul: vectors don't have the same length")
+	}
+	for i := 0; i < len(a); i++ {
+		res[i].Mul(&a[i], &b[i])
+	}
+}
+
 // TODO @gbotrel make a public package out of that.
 // execute executes the work function in parallel.
 // this is copy paste from internal/parallel/parallel.go

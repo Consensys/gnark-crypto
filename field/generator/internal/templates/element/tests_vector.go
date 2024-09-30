@@ -156,6 +156,20 @@ func TestVectorOps(t *testing.T) {
 		return innerProduct.Equal(&computed)
 	}
 
+	mulVector := func(a, b Vector) bool {
+		c := make(Vector, len(a))
+		c.Mul(a, b)
+		
+		for i := 0; i < len(a); i++ {
+			var tmp {{.ElementName}}
+			tmp.Mul(&a[i], &b[i])
+			if !tmp.Equal(&c[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
 	sizes := []int{1, 2, 3, 4, 509, 510, 511, 512, 513, 514}
 	type genPair struct {
 		g1, g2 gopter.Gen
@@ -194,6 +208,12 @@ func TestVectorOps(t *testing.T) {
 
 			properties.Property(fmt.Sprintf("vector inner product %d", size), prop.ForAll(
 				innerProductVector,
+				gp.g1,
+				gp.g2,
+			))
+
+			properties.Property(fmt.Sprintf("vector multiplication %d", size), prop.ForAll(
+				mulVector,
 				gp.g1,
 				gp.g2,
 			))

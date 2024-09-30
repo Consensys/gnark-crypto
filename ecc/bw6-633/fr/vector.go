@@ -244,6 +244,12 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 	return
 }
 
+// Mul multiplies two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Mul(a, b Vector) {
+	mulVecGeneric(*vector, a, b)
+}
+
 func addVecGeneric(res, a, b Vector) {
 	if len(a) != len(b) || len(a) != len(res) {
 		panic("vector.Add: vectors don't have the same length")
@@ -285,6 +291,15 @@ func innerProductVecGeneric(res *Element, a, b Vector) {
 	for i := 0; i < len(a); i++ {
 		tmp.Mul(&a[i], &b[i])
 		res.Add(res, &tmp)
+	}
+}
+
+func mulVecGeneric(res, a, b Vector) {
+	if len(a) != len(b) || len(a) != len(res) {
+		panic("vector.Mul: vectors don't have the same length")
+	}
+	for i := 0; i < len(a); i++ {
+		res[i].Mul(&a[i], &b[i])
 	}
 }
 

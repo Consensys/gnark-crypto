@@ -282,6 +282,7 @@ func GenerateVectorASM(w io.Writer, nbWords int) error {
 	f.generateScalarMulVec()
 	f.generateSumVec()
 	f.generateInnerProduct()
+	f.generateMulVec()
 
 	return nil
 }

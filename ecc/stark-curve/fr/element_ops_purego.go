@@ -91,6 +91,12 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 	return
 }
 
+// Mul multiplies two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Mul(a, b Vector) {
+	mulVecGeneric(*vector, a, b)
+}
+
 // Mul z = x * y (mod q)
 //
 // x and y must be less than q

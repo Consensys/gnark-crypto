@@ -16,6 +16,7 @@ package amd64
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/consensys/bavard/amd64"
 )
@@ -904,6 +905,450 @@ func (f *FFAmd64) generateInnerProduct() {
 	f.JCS(done)
 
 	f.Mov(t, PZ)
+
+	f.LABEL(done)
+
+	f.RET()
+}
+
+func (f *FFAmd64) generateMulVec() {
+	f.Comment("mulVec(res, a,b *Element, n uint64) res = a[0...n] * b[0...n]")
+
+	const argSize = 4 * 8
+	stackSize := f.StackSize(f.NbWords*3+2, 0, 0)
+	registers := f.FnHeader("mulVec", stackSize, argSize, amd64.DX)
+	defer f.AssertCleanStack(stackSize, 0)
+
+	// follows field/asm/modmul256.S
+	// to simplify the generated assembly, we only handle n/16 (and do blocks of 16 muls).
+	// that is if n%16 != 0, we let the caller (Go) handle the remaining elements.
+	LEN := f.Pop(&registers)
+	PX := f.Pop(&registers)
+	PY := f.Pop(&registers)
+
+	done := f.NewLabel("done")
+	loop := f.NewLabel("loop")
+
+	f.MOVQ("n+24(FP)", LEN)
+	f.MOVQ("a+8(FP)", PX)
+	f.MOVQ("b+16(FP)", PY)
+
+	// shift LEN by 4 to get the number of blocks of 16 elements
+	// f.SHRQ("$4", LEN)
+	f.SHLQ("$5", LEN) // 32 bytes per element
+
+	// Create mask for low dword in each qword
+	// vpcmpeqb	%ymm8, %ymm8, %ymm8
+	// vpmovzxdq	%ymm8, %zmm8
+	// mov	$0x5555, %edx
+	// kmovd	%edx, %k1
+
+	f.VPCMPEQB("Y8", "Y8", "Y8")
+	f.VPMOVZXDQ("Y8", "Z8")
+	f.MOVQ(uint64(0x5555), amd64.DX)
+	f.KMOVD(amd64.DX, "K1")
+
+	f.LABEL(loop)
+	f.TESTQ(LEN, LEN)
+	f.JEQ(done, "n == 0, we are done")
+
+	// // Load x
+	// vmovdqu64	256+0*64(PX, LEN), %zmm16
+	// vmovdqu64	256+1*64(PX, LEN), %zmm17
+	// vmovdqu64	256+2*64(PX, LEN), %zmm18
+	// vmovdqu64	256+3*64(PX, LEN), %zmm19
+
+	// // Load y
+	// vmovdqu64	256+0*64(PY, LEN), %zmm24
+	// vmovdqu64	256+1*64(PY, LEN), %zmm25
+	// vmovdqu64	256+2*64(PY, LEN), %zmm26
+	// vmovdqu64	256+3*64(PY, LEN), %zmm27
+
+	f.VMOVDQU64("256+0*64("+PX+", "+LEN+")", "Z16")
+	f.VMOVDQU64("256+1*64("+PX+", "+LEN+")", "Z17")
+	f.VMOVDQU64("256+2*64("+PX+", "+LEN+")", "Z18")
+	f.VMOVDQU64("256+3*64("+PX+", "+LEN+")", "Z19")
+
+	f.VMOVDQU64("256+0*64("+PY+", "+LEN+")", "Z24")
+	f.VMOVDQU64("256+1*64("+PY+", "+LEN+")", "Z25")
+	f.VMOVDQU64("256+2*64("+PY+", "+LEN+")", "Z26")
+	f.VMOVDQU64("256+3*64("+PY+", "+LEN+")", "Z27")
+
+	MUL := amd64.DX
+	Y0 := f.Pop(&registers)
+	Y1 := f.Pop(&registers)
+	Y2 := f.Pop(&registers)
+	Y3 := f.Pop(&registers)
+
+	// movq	0*8(PX,LEN), MUL
+	// movq	0*8(PY,LEN), Y0
+	// movq	1*8(PY,LEN), Y1
+	// movq	2*8(PY,LEN), Y2
+	// movq	3*8(PY,LEN), Y3
+
+	f.MOVQ("0*8("+PX+", "+LEN+")", MUL)
+	f.MOVQ("0*8("+PY+", "+LEN+")", Y0)
+	f.MOVQ("1*8("+PY+", "+LEN+")", Y1)
+	f.MOVQ("2*8("+PY+", "+LEN+")", Y2)
+	f.MOVQ("3*8("+PY+", "+LEN+")", Y3)
+
+	//////////////////////////////////////////////////
+	// Transpose and expand x and y
+	//////////////////////////////////////////////////
+
+	// Step 1
+
+	// vshufi64x2	$0x88, %zmm17, %zmm16, %zmm20	// 0x88 = 0b1000_1000: even quarters of each input
+	// vshufi64x2	$0xdd, %zmm17, %zmm16, %zmm22	// 0xdd = 0b1101_1101: odd quarters of each input
+	// vshufi64x2	$0x88, %zmm19, %zmm18, %zmm21
+	// vshufi64x2	$0xdd, %zmm19, %zmm18, %zmm23
+
+	// vshufi64x2	$0x88, %zmm25, %zmm24, %zmm28
+	// vshufi64x2	$0xdd, %zmm25, %zmm24, %zmm30
+	// vshufi64x2	$0x88, %zmm27, %zmm26, %zmm29
+	// vshufi64x2	$0xdd, %zmm27, %zmm26, %zmm31
+
+	f.VSHUFI64X2("$0x88", "Z17", "Z16", "Z20")
+	f.VSHUFI64X2("$0xdd", "Z17", "Z16", "Z22")
+	f.VSHUFI64X2("$0x88", "Z19", "Z18", "Z21")
+	f.VSHUFI64X2("$0xdd", "Z19", "Z18", "Z23")
+
+	f.VSHUFI64X2("$0x88", "Z25", "Z24", "Z28")
+	f.VSHUFI64X2("$0xdd", "Z25", "Z24", "Z30")
+	f.VSHUFI64X2("$0x88", "Z27", "Z26", "Z29")
+	f.VSHUFI64X2("$0xdd", "Z27", "Z26", "Z31")
+
+	// mulxq	Y0, T1, T2
+	// mulxq	Y1, PL, T3;		addq	PL, T2
+	// mulxq	Y2, PL, T4;		adcq	PL, T3
+	// mulxq	Y3, PL, T0;		adcq	PL, T4;	adcq	$0, T0
+	// movq	T1, MUL
+
+	T0 := f.Pop(&registers)
+	T1 := f.Pop(&registers)
+	T2 := f.Pop(&registers)
+	T3 := f.Pop(&registers)
+	T4 := f.Pop(&registers)
+	PL := f.Pop(&registers)
+	PH := f.Pop(&registers)
+
+	f.MULXQ(Y0, T1, T2)
+	f.MULXQ(Y1, PL, T3)
+	f.ADDQ(PL, T2)
+	f.MULXQ(Y2, PL, T4)
+	f.ADCQ(PL, T3)
+	f.MULXQ(Y3, PL, T0)
+	f.ADCQ(PL, T4)
+	f.ADCQ("$0", T0)
+	f.MOVQ(T1, MUL)
+
+	// Step 2
+
+	// vpermq		$0xd8, %zmm20, %zmm20	// 0xd8 = 0b11_01_10_00: swap middle words of each half
+	// vpermq		$0xd8, %zmm21, %zmm21
+	// vpermq		$0xd8, %zmm22, %zmm22
+	// vpermq		$0xd8, %zmm23, %zmm23
+
+	// mulxq	4*8(PM), MUL, PH
+	// mulxq	0*8(PM), PL, PH;	addq	PL, T1;	adcq	PH, T2
+	// mulxq	2*8(PM), PL, PH;	adcq	PL, T3;	adcq	PH, T4;	adcq	$0, T0
+	// mulxq	1*8(PM), PL, PH;	addq	PL, T2;	adcq	PH, T3
+	// mulxq	3*8(PM), PL, PH;	adcq	PL, T4;	adcq	PH, T0;	adcq	$0, T1
+
+	// movq	1*8(PX, LEN), MUL
+
+	// vpermq		$0xd8, %zmm28, %zmm28
+	// vpermq		$0xd8, %zmm29, %zmm29
+	// vpermq		$0xd8, %zmm30, %zmm30
+	// vpermq		$0xd8, %zmm31, %zmm31
+
+	// mulxq	Y0, PL, PH;		addq	PL, T2;	adcq	PH, T3
+	// mulxq	Y2, PL, PH;		adcq	PL, T4;	adcq	PH, T0;	adcq	$0, T1
+	// mulxq	Y1, PL, PH;		addq	PL, T3;	adcq	PH, T4
+	// mulxq	Y3, PL, PH;		adcq	PL, T0;	adcq	PH, T1;	adcq	$0, T2
+	// movq	T2, MUL
+
+	f.VPERMQ("$0xd8", "Z20", "Z20")
+	f.VPERMQ("$0xd8", "Z21", "Z21")
+	f.VPERMQ("$0xd8", "Z22", "Z22")
+	f.VPERMQ("$0xd8", "Z23", "Z23")
+
+	f.MULXQ(f.qInv0(), MUL, PH)
+	f.MULXQ(f.qAt(0), PL, PH)
+	f.ADDQ(PL, T1)
+	f.ADCQ(PH, T2)
+	f.MULXQ(f.qAt(2), PL, PH)
+	f.ADCQ(PL, T3)
+	f.ADCQ(PH, T4)
+	f.ADCQ("$0", T0)
+	f.MULXQ(f.qAt(1), PL, PH)
+	f.ADDQ(PL, T2)
+	f.ADCQ(PH, T3)
+	f.MULXQ(f.qAt(3), PL, PH)
+	f.ADCQ(PL, T4)
+	f.ADCQ(PH, T0)
+	f.ADCQ("$0", T1)
+
+	f.MOVQ("1*8("+PX+", "+LEN+")", MUL)
+
+	f.VPERMQ("$0xd8", "Z28", "Z28")
+	f.VPERMQ("$0xd8", "Z29", "Z29")
+	f.VPERMQ("$0xd8", "Z30", "Z30")
+	f.VPERMQ("$0xd8", "Z31", "Z31")
+
+	f.MULXQ(Y0, PL, PH)
+	f.ADDQ(PL, T2)
+	f.ADCQ(PH, T3)
+	f.MULXQ(Y2, PL, PH)
+	f.ADCQ(PL, T4)
+	f.ADCQ(PH, T0)
+	f.ADCQ("$0", T1)
+	f.MULXQ(Y1, PL, PH)
+	f.ADDQ(PL, T3)
+	f.ADCQ(PH, T4)
+	f.MULXQ(Y3, PL, PH)
+	f.ADCQ(PL, T0)
+	f.ADCQ(PH, T1)
+	f.ADCQ("$0", T2)
+	f.MOVQ(T2, MUL)
+
+	// Step 3
+
+	// vshufi64x2	$0xd8, %zmm20, %zmm20, %zmm20	// 0xd8 = 0b11_01_10_00: swap middle words
+	// vshufi64x2	$0xd8, %zmm21, %zmm21, %zmm21
+	// vshufi64x2	$0xd8, %zmm22, %zmm22, %zmm22
+	// vshufi64x2	$0xd8, %zmm23, %zmm23, %zmm23
+
+	// mulxq	4*8(PM), MUL, PH
+	// mulxq	0*8(PM), PL, PH;	addq	PL, T2;	adcq	PH, T3
+	// mulxq	2*8(PM), PL, PH;	adcq	PL, T4;	adcq	PH, T0;	adcq	$0, T1
+	// mulxq	1*8(PM), PL, PH;	addq	PL, T3;	adcq	PH, T4
+	// mulxq	3*8(PM), PL, PH;	adcq	PL, T0;	adcq	PH, T1;	adcq	$0, T2
+
+	// movq	2*8(PX, LEN), MUL
+
+	// vshufi64x2	$0xd8, %zmm28, %zmm28, %zmm28
+	// vshufi64x2	$0xd8, %zmm29, %zmm29, %zmm29
+	// vshufi64x2	$0xd8, %zmm30, %zmm30, %zmm30
+	// vshufi64x2	$0xd8, %zmm31, %zmm31, %zmm31
+
+	// mulxq	Y0, PL, PH;		addq	PL, T3;	adcq	PH, T4
+	// mulxq	Y2, PL, PH;		adcq	PL, T0;	adcq	PH, T1;	adcq	$0, T2
+	// mulxq	Y1, PL, PH;		addq	PL, T4;	adcq	PH, T0
+	// mulxq	Y3, PL, PH;		adcq	PL, T1;	adcq	PH, T2;	adcq	$0, T3
+	// movq	T3, MUL
+
+	for i := 20; i <= 23; i++ {
+		f.VSHUFI64X2("$0xd8", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
+	}
+
+	f.MULXQ(f.qInv0(), MUL, PH)
+	f.MULXQ(f.qAt(0), PL, PH)
+	f.ADDQ(PL, T2)
+	f.ADCQ(PH, T3)
+	f.MULXQ(f.qAt(2), PL, PH)
+	f.ADCQ(PL, T4)
+	f.ADCQ(PH, T0)
+	f.ADCQ("$0", T1)
+	f.MULXQ(f.qAt(1), PL, PH)
+	f.ADDQ(PL, T3)
+	f.ADCQ(PH, T4)
+	f.MULXQ(f.qAt(3), PL, PH)
+	f.ADCQ(PL, T0)
+	f.ADCQ(PH, T1)
+	f.ADCQ("$0", T2)
+
+	f.MOVQ("2*8("+PX+", "+LEN+")", MUL)
+
+	for i := 28; i <= 31; i++ {
+		f.VSHUFI64X2("$0xd8", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
+	}
+
+	f.MULXQ(Y0, PL, PH)
+	f.ADDQ(PL, T3)
+	f.ADCQ(PH, T4)
+	f.MULXQ(Y2, PL, PH)
+	f.ADCQ(PL, T0)
+	f.ADCQ(PH, T1)
+	f.ADCQ("$0", T2)
+	f.MULXQ(Y1, PL, PH)
+	f.ADDQ(PL, T4)
+	f.ADCQ(PH, T0)
+	f.MULXQ(Y3, PL, PH)
+	f.ADCQ(PL, T1)
+	f.ADCQ(PH, T2)
+	f.ADCQ("$0", T3)
+	f.MOVQ(T3, MUL)
+
+	// Step 4
+
+	// vshufi64x2	$0x44, %zmm21, %zmm20, %zmm16	// 0x44 = 0b01_00_01_00: low half of each input
+	// vshufi64x2	$0xee, %zmm21, %zmm20, %zmm18	// 0xee = 0b11_10_11_10: high half of each input
+	// vshufi64x2	$0x44, %zmm23, %zmm22, %zmm20
+	// vshufi64x2	$0xee, %zmm23, %zmm22, %zmm22
+
+	// mulxq	4*8(PM), MUL, PH
+	// mulxq	0*8(PM), PL, PH;	addq	PL, T3;	adcq	PH, T4
+	// mulxq	2*8(PM), PL, PH;	adcq	PL, T0;	adcq	PH, T1;	adcq	$0, T2
+	// mulxq	1*8(PM), PL, PH;	addq	PL, T4;	adcq	PH, T0
+	// mulxq	3*8(PM), PL, PH;	adcq	PL, T1;	adcq	PH, T2;	adcq	$0, T3
+
+	// movq	3*8(PX, LEN), MUL
+
+	// vshufi64x2	$0x44, %zmm29, %zmm28, %zmm24
+	// vshufi64x2	$0xee, %zmm29, %zmm28, %zmm26
+	// vshufi64x2	$0x44, %zmm31, %zmm30, %zmm28
+	// vshufi64x2	$0xee, %zmm31, %zmm30, %zmm30
+
+	f.VSHUFI64X2("$0x44", "Z21", "Z20", "Z16")
+	f.VSHUFI64X2("$0xee", "Z21", "Z20", "Z18")
+	f.VSHUFI64X2("$0x44", "Z23", "Z22", "Z20")
+	f.VSHUFI64X2("$0xee", "Z23", "Z22", "Z22")
+
+	f.MULXQ(f.qInv0(), MUL, PH)
+	f.MULXQ(f.qAt(0), PL, PH)
+	f.ADDQ(PL, T3)
+	f.ADCQ(PH, T4)
+	f.MULXQ(f.qAt(2), PL, PH)
+	f.ADCQ(PL, T0)
+	f.ADCQ(PH, T1)
+	f.ADCQ("$0", T2)
+	f.MULXQ(f.qAt(1), PL, PH)
+	f.ADDQ(PL, T4)
+	f.ADCQ(PH, T0)
+	f.MULXQ(f.qAt(3), PL, PH)
+	f.ADCQ(PL, T1)
+	f.ADCQ(PH, T2)
+	f.ADCQ("$0", T3)
+
+	f.MOVQ("3*8("+PX+", "+LEN+")", MUL)
+
+	f.VSHUFI64X2("$0x44", "Z29", "Z28", "Z24")
+	f.VSHUFI64X2("$0xee", "Z29", "Z28", "Z26")
+	f.VSHUFI64X2("$0x44", "Z31", "Z30", "Z28")
+	f.VSHUFI64X2("$0xee", "Z31", "Z30", "Z30")
+
+	// Step 5
+
+	// vpsrlq		$32, %zmm16, %zmm17
+	// vpsrlq		$32, %zmm18, %zmm19
+	// vpsrlq		$32, %zmm20, %zmm21
+	// vpsrlq		$32, %zmm22, %zmm23
+
+	// mulxq	Y0, PL, PH;		addq	PL, T4;	adcq	PH, T0
+	// mulxq	Y2, PL, PH;		adcq	PL, T1;	adcq	PH, T2;	adcq	$0, T3
+	// mulxq	Y1, PL, PH;		addq	PL, T0;	adcq	PH, T1
+	// mulxq	Y3, PL, PH;		adcq	PL, T2;	adcq	PH, T3;	adcq	$0, T4
+	// movq	T4, MUL
+
+	// vpsrlq		$32, %zmm24, %zmm25
+	// vpsrlq		$32, %zmm26, %zmm27
+	// vpsrlq		$32, %zmm28, %zmm29
+	// vpsrlq		$32, %zmm30, %zmm31
+
+	// mulxq	4*8(PM), MUL, PH
+	// mulxq	0*8(PM), PL, PH;	addq	PL, T4;	adcq	PH, T0
+	// mulxq	2*8(PM), PL, PH;	adcq	PL, T1;	adcq	PH, T2;	adcq	$0, T3
+	// mulxq	1*8(PM), PL, PH;	addq	PL, T0;	adcq	PH, T1
+	// mulxq	3*8(PM), PL, PH;	adcq	PL, T2;	adcq	PH, T3;	adcq	$0, T4
+
+	// vpandq		%zmm8, %zmm16, %zmm16
+	// vpandq		%zmm8, %zmm18, %zmm18
+	// vpandq		%zmm8, %zmm20, %zmm20
+	// vpandq		%zmm8, %zmm22, %zmm22
+
+	// vpandq		%zmm8, %zmm24, %zmm24
+	// vpandq		%zmm8, %zmm26, %zmm26
+	// vpandq		%zmm8, %zmm28, %zmm28
+	// vpandq		%zmm8, %zmm30, %zmm30
+
+	f.VPSRLQ("$32", "Z16", "Z17")
+	f.VPSRLQ("$32", "Z18", "Z19")
+	f.VPSRLQ("$32", "Z20", "Z21")
+	f.VPSRLQ("$32", "Z22", "Z23")
+
+	f.MULXQ(Y0, PL, PH)
+	f.ADDQ(PL, T4)
+	f.ADCQ(PH, T0)
+	f.MULXQ(Y2, PL, PH)
+	f.ADCQ(PL, T1)
+	f.ADCQ(PH, T2)
+	f.ADCQ("$0", T3)
+	f.MULXQ(Y1, PL, PH)
+	f.ADDQ(PL, T0)
+	f.ADCQ(PH, T1)
+	f.MULXQ(Y3, PL, PH)
+	f.ADCQ(PL, T2)
+	f.ADCQ(PH, T3)
+	f.ADCQ("$0", T4)
+	f.MOVQ(T4, MUL)
+
+	for i := 24; i <= 30; i += 2 {
+		f.VPSRLQ("$32", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i+1))
+	}
+
+	f.MULXQ(f.qInv0(), MUL, PH)
+	f.MULXQ(f.qAt(0), PL, PH)
+	f.ADDQ(PL, T4)
+	f.ADCQ(PH, T0)
+	f.MULXQ(f.qAt(2), PL, PH)
+	f.ADCQ(PL, T1)
+	f.ADCQ(PH, T2)
+	f.ADCQ("$0", T3)
+	f.MULXQ(f.qAt(1), PL, PH)
+	f.ADDQ(PL, T0)
+	f.ADCQ(PH, T1)
+	f.MULXQ(f.qAt(3), PL, PH)
+	f.ADCQ(PL, T2)
+	f.ADCQ(PH, T3)
+	f.ADCQ("$0", T4)
+
+	for i := 16; i <= 30; i += 2 {
+		f.VPANDQ("Z8", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
+	}
+
+	// // Conditional subtraction of the modulus
+
+	// movq	T0, Y0
+	// movq	T1, Y1
+	// movq	T2, Y2
+	// movq	T3, Y3
+
+	// subq	0*8(PM), Y0
+	// sbbq	1*8(PM), Y1
+	// sbbq	2*8(PM), Y2
+	// sbbq	3*8(PM), Y3
+
+	// cmovncq	Y0, T0
+	// cmovncq	Y1, T1
+	// cmovncq	Y2, T2
+	// cmovncq	Y3, T3
+
+	f.MOVQ(T0, Y0)
+	f.MOVQ(T1, Y1)
+	f.MOVQ(T2, Y2)
+	f.MOVQ(T3, Y3)
+
+	f.SUBQ(f.qAt(0), Y0)
+	f.SBBQ(f.qAt(1), Y1)
+	f.SBBQ(f.qAt(2), Y2)
+	f.SBBQ(f.qAt(3), Y3)
+
+	f.CMOVQCS(Y0, T0)
+	f.CMOVQCS(Y1, T1)
+	f.CMOVQCS(Y2, T2)
+	f.CMOVQCS(Y3, T3)
+
+	f.MOVQ("res+0(FP)", amd64.DX)
+
+	t := []amd64.Register{T0, T1, T2, T3}
+	f.Mov(t, amd64.DX)
+
+	f.SUBQ("$32", LEN)
+
+	// TODO @gbotrel probably not.
+	// f.DECQ(LEN, "decrement n")
+	f.JMP(loop)
 
 	f.LABEL(done)
 
