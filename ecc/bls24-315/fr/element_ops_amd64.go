@@ -136,10 +136,19 @@ func (vector *Vector) Mul(a, b Vector) {
 	mulVec(&(*vector)[0], &a[0], &b[0], n, qInvNeg)
 	if n%16 != 0 {
 		// call mulVecGeneric on the rest
-		mulVecGeneric((*vector)[n-n%16:], a[n-n%16:], b[n-n%16:])
+		start := n - n%16
+		mulVecGeneric((*vector)[start:], a[start:], b[start:])
 	}
 
 }
+
+// Patterns use for transposing the vectors in mulVec
+var (
+	pattern1 = [8]uint64{0, 8, 1, 9, 2, 10, 3, 11}
+	pattern2 = [8]uint64{12, 4, 13, 5, 14, 6, 15, 7}
+	pattern3 = [8]uint64{0, 1, 8, 9, 2, 3, 10, 11}
+	pattern4 = [8]uint64{12, 13, 4, 5, 14, 15, 6, 7}
+)
 
 //go:noescape
 func mulVec(res, a, b *Element, n uint64, qInvNeg uint64)

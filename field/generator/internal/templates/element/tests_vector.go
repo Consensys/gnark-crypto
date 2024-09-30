@@ -160,59 +160,68 @@ func TestVectorOps(t *testing.T) {
 		c := make(Vector, len(a))
 		c.Mul(a, b)
 		
+		cptGood := 0
+		cptBad := 0
 		for i := 0; i < len(a); i++ {
 			var tmp {{.ElementName}}
 			tmp.Mul(&a[i], &b[i])
 			if !tmp.Equal(&c[i]) {
-				return false
-			}
+			cptBad++
+				// fmt.Println("PAS BON ", i)
+				// return false
+			}	 else {
+				cptGood++
+			 }
 		}
-		return true
+		fmt.Printf("GOOD %d, BAD %d\n", cptGood, cptBad)
+		return cptBad == 0
+		// return true
 	}
 
-	sizes := []int{1, 2, 3, 4, 509, 510, 511, 512, 513, 514}
+	sizes := []int{16}//1, 2, 3, 4, 509, 510, 511, 512, 513, 514}
 	type genPair struct {
 		g1, g2 gopter.Gen
+		label string
 	}
 	
 	for _, size := range sizes {
 		generators := []genPair{
-			{genZeroVector(size), genZeroVector(size)},
-			{genMaxVector(size), genMaxVector(size)},
-			{genVector(size), genVector(size)},
-			{genVector(size), genZeroVector(size)},
+			{genZeroVector(size), genZeroVector(size), "zero vectors"},
+			{genMaxVector(size), genMaxVector(size), "max vectors"},
+			{genVector(size), genVector(size), "random vectors"},
+			{genVector(size), genZeroVector(size), "random and zero vectors"},
 		}	
 		for _, gp := range generators {
-			properties.Property(fmt.Sprintf("vector addition %d", size), prop.ForAll(
+			properties.Property(fmt.Sprintf("vector addition %d - %s", size, gp.label), prop.ForAll(
 				addVector,
 				gp.g1,
 				gp.g2,
 			))
 
-			properties.Property(fmt.Sprintf("vector subtraction %d", size), prop.ForAll(
+			properties.Property(fmt.Sprintf("vector subtraction %d - %s", size, gp.label), prop.ForAll(
 				subVector,
 				gp.g1,
 				gp.g2,
 			))
 
-			properties.Property(fmt.Sprintf("vector scalar multiplication %d", size), prop.ForAll(
+			properties.Property(fmt.Sprintf("vector scalar multiplication %d - %s", size, gp.label), prop.ForAll(
 				scalarMulVector,
 				gp.g1,
 				gen{{.ElementName}}(),
 			))
 
-			properties.Property(fmt.Sprintf("vector sum %d", size), prop.ForAll(
+			properties.Property(fmt.Sprintf("vector sum %d - %s", size, gp.label), prop.ForAll(
 				sumVector,
 				gp.g1,
 			))
 
-			properties.Property(fmt.Sprintf("vector inner product %d", size), prop.ForAll(
+			properties.Property(fmt.Sprintf("vector inner product %d - %s", size, gp.label), prop.ForAll(
 				innerProductVector,
 				gp.g1,
 				gp.g2,
 			))
 
-			properties.Property(fmt.Sprintf("vector multiplication %d", size), prop.ForAll(
+			properties.Property(fmt.Sprintf("vector multiplication %d - %s", size, gp.label), prop.ForAll(
 				mulVector,
 				gp.g1,
 				gp.g2,

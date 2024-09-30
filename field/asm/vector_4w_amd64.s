@@ -880,7 +880,7 @@ done_14:
 	RET
 
 // mulVec(res, a,b *Element, n uint64, qInvNeg uint64) res = a[0...n] * b[0...n]
-TEXT ·mulVec(SB), $24-40
+TEXT ·mulVec(SB), $16-40
 	// couple of defines
 #define INNER_MUL_0() \
 	MULXQ CX, R9, R10  \
@@ -1029,10 +1029,9 @@ TEXT ·mulVec(SB), $24-40
 
 	MOVQ      res+0(FP), R15
 	MOVQ      R15, s0-8(SP)
-	MOVQ      a+8(FP), R15
-	MOVQ      R15, s1-16(SP)
+	MOVQ      a+8(FP), BP
 	MOVQ      b+16(FP), R15
-	MOVQ      R15, s2-24(SP)
+	MOVQ      R15, s1-16(SP)
 	MOVQ      n+24(FP), AX
 	SHRQ      $4, AX
 	VPCMPEQB  Y8, Y8, Y8
@@ -1043,13 +1042,12 @@ TEXT ·mulVec(SB), $24-40
 loop_17:
 	TESTQ      AX, AX
 	JEQ        done_16                 // n == 0, we are done
+	VMOVDQU64  256+0*64(BP), Z16
+	VMOVDQU64  256+1*64(BP), Z17
+	VMOVDQU64  256+2*64(BP), Z18
+	VMOVDQU64  256+3*64(BP), Z19
+	MOVQ       0*8(BP), DX
 	MOVQ       s1-16(SP), R15
-	VMOVDQU64  256+0*64(R15), Z16
-	VMOVDQU64  256+1*64(R15), Z17
-	VMOVDQU64  256+2*64(R15), Z18
-	VMOVDQU64  256+3*64(R15), Z19
-	MOVQ       0*8(R15), DX
-	MOVQ       s2-24(SP), R15
 	VMOVDQU64  256+0*64(R15), Z24
 	VMOVDQU64  256+1*64(R15), Z25
 	VMOVDQU64  256+2*64(R15), Z26
@@ -1074,8 +1072,7 @@ loop_17:
 	VPERMQ     $0xd8, Z23, Z23
 	MULXQ      qInvNeg+32(FP), DX, R14
 	INNER_MUL_1(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
-	MOVQ       s1-16(SP), R15
-	MOVQ       1*8(R15), DX
+	MOVQ       1*8(BP), DX
 	VPERMQ     $0xd8, Z28, Z28
 	VPERMQ     $0xd8, Z29, Z29
 	VPERMQ     $0xd8, Z30, Z30
@@ -1088,8 +1085,7 @@ loop_17:
 	VSHUFI64X2 $0xd8, Z23, Z23, Z23
 	MULXQ      qInvNeg+32(FP), DX, R14
 	INNER_MUL_2()
-	MOVQ       s1-16(SP), R15
-	MOVQ       2*8(R15), DX
+	MOVQ       2*8(BP), DX
 	VSHUFI64X2 $0xd8, Z28, Z28, Z28
 	VSHUFI64X2 $0xd8, Z29, Z29, Z29
 	VSHUFI64X2 $0xd8, Z30, Z30, Z30
@@ -1102,8 +1098,7 @@ loop_17:
 	VSHUFI64X2 $0xee, Z23, Z22, Z22
 	MULXQ      qInvNeg+32(FP), DX, R14
 	INNER_MUL_3(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
-	MOVQ       s1-16(SP), R15
-	MOVQ       3*8(R15), DX
+	MOVQ       3*8(BP), DX
 	VSHUFI64X2 $0x44, Z29, Z28, Z24
 	VSHUFI64X2 $0xee, Z29, Z28, Z26
 	VSHUFI64X2 $0x44, Z31, Z30, Z28
@@ -1139,16 +1134,15 @@ loop_17:
 	MOVQ          R11, 24(R15)
 	ADDQ          $32, R15
 	MOVQ          R15, s0-8(SP)
+	ADDQ          $32, BP
+	MOVQ          0*8(BP), DX
 	MOVQ          s1-16(SP), R15
-	ADDQ          $32, R15
-	MOVQ          0*8(R15), DX
-	MOVQ          R15, s1-16(SP)
-	MOVQ          s2-24(SP), R15
 	ADDQ          $32, R15
 	MOVQ          0(R15), CX
 	MOVQ          8(R15), BX
 	MOVQ          16(R15), SI
 	MOVQ          24(R15), DI
+	MOVQ          R15, s1-16(SP)
 	VPMULUDQ      Z16, Z24, Z0
 	VPMULUDQ      Z16, Z25, Z1
 	VPMULUDQ      Z16, Z26, Z2
@@ -1174,8 +1168,7 @@ loop_17:
 	VPADDQ        Z13, Z4, Z4
 	MULXQ         qInvNeg+32(FP), DX, R14
 	INNER_MUL_1(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
-	MOVQ          s1-16(SP), R15
-	MOVQ          1*8(R15), DX
+	MOVQ          1*8(BP), DX
 	VPSRLQ        $32, Z4, Z14
 	VPANDQ        Z8, Z4, Z4
 	VPADDQ        Z14, Z5, Z5
@@ -1187,6 +1180,8 @@ loop_17:
 	VPADDQ        Z16, Z7, Z7
 	INNER_MUL_1(CX, SI, BX, DI)
 	MOVQ          R10, DX
+
+	// Reduce
 	VPMULUDQ.BCST ·qElement+0(SB), Z9, Z10
 	VPADDQ        Z10, Z0, Z0
 	VPMULUDQ.BCST ·qElement+4(SB), Z9, Z11
@@ -1197,16 +1192,15 @@ loop_17:
 	VPADDQ        Z13, Z3, Z3
 	MULXQ         qInvNeg+32(FP), DX, R14
 	INNER_MUL_2()
-	MOVQ          s1-16(SP), R15
-	MOVQ          2*8(R15), DX
+	MOVQ          2*8(BP), DX
 	VPMULUDQ.BCST ·qElement+16(SB), Z9, Z14
 	VPADDQ        Z14, Z4, Z4
 	VPMULUDQ.BCST ·qElement+20(SB), Z9, Z15
 	VPADDQ        Z15, Z5, Z5
 	VPMULUDQ.BCST ·qElement+24(SB), Z9, Z16
 	VPADDQ        Z16, Z6, Z6
-	VPMULUDQ.BCST ·qElement+28(SB), Z9, Z17
-	VPADDQ        Z17, Z7, Z7
+	VPMULUDQ.BCST ·qElement+28(SB), Z9, Z10
+	VPADDQ        Z10, Z7, Z7
 	INNER_MUL_3(CX, SI, BX, DI)
 	MOVQ          R11, DX
 	VPSRLQ        $32, Z0, Z10
@@ -1218,10 +1212,12 @@ loop_17:
 	VPSRLQ        $32, Z2, Z12
 	VPADDQ        Z12, Z3, Z3
 	VPANDQ        Z8, Z3, Z2
+	VPSRLQ        $32, Z3, Z13
+	VPADDQ        Z13, Z4, Z4
+	VPANDQ        Z8, Z4, Z3
 	MULXQ         qInvNeg+32(FP), DX, R14
 	INNER_MUL_3(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
-	MOVQ          s1-16(SP), R15
-	MOVQ          3*8(R15), DX
+	MOVQ          3*8(BP), DX
 	VPSRLQ        $32, Z4, Z14
 	VPADDQ        Z14, Z5, Z5
 	VPANDQ        Z8, Z5, Z4
@@ -1264,16 +1260,15 @@ loop_17:
 	MOVQ          R11, 24(R15)
 	ADDQ          $32, R15
 	MOVQ          R15, s0-8(SP)
+	ADDQ          $32, BP
+	MOVQ          0*8(BP), DX
 	MOVQ          s1-16(SP), R15
-	ADDQ          $32, R15
-	MOVQ          0*8(R15), DX
-	MOVQ          R15, s1-16(SP)
-	MOVQ          s2-24(SP), R15
 	ADDQ          $32, R15
 	MOVQ          0(R15), CX
 	MOVQ          8(R15), BX
 	MOVQ          16(R15), SI
 	MOVQ          24(R15), DI
+	MOVQ          R15, s1-16(SP)
 	VPSRLQ        $32, Z0, Z10
 	VPANDQ        Z8, Z0, Z0
 	VPADDQ        Z10, Z1, Z1
@@ -1291,24 +1286,21 @@ loop_17:
 	CARRY4()
 	MULXQ         qInvNeg+32(FP), DX, R14
 	INNER_MUL_1(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
-	MOVQ          s1-16(SP), R15
-	MOVQ          1*8(R15), DX
+	MOVQ          1*8(BP), DX
 	MUL_W_Q_LO()
 	INNER_MUL_1(CX, SI, BX, DI)
 	MOVQ          R10, DX
 	MUL_W_Q_HI()
 	MULXQ         qInvNeg+32(FP), DX, R14
 	INNER_MUL_2()
-	MOVQ          s1-16(SP), R15
-	MOVQ          2*8(R15), DX
+	MOVQ          2*8(BP), DX
 	CARRY1()
 	INNER_MUL_3(CX, SI, BX, DI)
 	MOVQ          R11, DX
 	CARRY2()
 	MULXQ         qInvNeg+32(FP), DX, R14
 	INNER_MUL_3(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
-	MOVQ          s1-16(SP), R15
-	MOVQ          3*8(R15), DX
+	MOVQ          3*8(BP), DX
 	VPMULUDQ      Z18, Z24, Z10
 	VPADDQ        Z10, Z0, Z0
 	VPMULUDQ      Z18, Z25, Z11
@@ -1343,32 +1335,29 @@ loop_17:
 	MOVQ          R11, 24(R15)
 	ADDQ          $32, R15
 	MOVQ          R15, s0-8(SP)
+	ADDQ          $32, BP
+	MOVQ          0*8(BP), DX
 	MOVQ          s1-16(SP), R15
-	ADDQ          $32, R15
-	MOVQ          0*8(R15), DX
-	MOVQ          R15, s1-16(SP)
-	MOVQ          s2-24(SP), R15
 	ADDQ          $32, R15
 	MOVQ          0(R15), CX
 	MOVQ          8(R15), BX
 	MOVQ          16(R15), SI
 	MOVQ          24(R15), DI
+	MOVQ          R15, s1-16(SP)
 	MUL_W_Q_LO()
 	INNER_MUL_0()
 	MOVQ          R9, DX
 	MUL_W_Q_HI()
 	MULXQ         qInvNeg+32(FP), DX, R14
 	INNER_MUL_1(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
-	MOVQ          s1-16(SP), R15
-	MOVQ          1*8(R15), DX
+	MOVQ          1*8(BP), DX
 	CARRY1()
 	INNER_MUL_1(CX, SI, BX, DI)
 	MOVQ          R10, DX
 	CARRY2()
 	MULXQ         qInvNeg+32(FP), DX, R14
 	INNER_MUL_2()
-	MOVQ          s1-16(SP), R15
-	MOVQ          2*8(R15), DX
+	MOVQ          2*8(BP), DX
 	VPMULUDQ      Z19, Z24, Z10
 	VPADDQ        Z10, Z0, Z0
 	VPMULUDQ      Z19, Z25, Z11
@@ -1390,8 +1379,7 @@ loop_17:
 	VPMULUDQ.BCST qInvNeg+32(FP), Z0, Z9
 	MULXQ         qInvNeg+32(FP), DX, R14
 	INNER_MUL_3(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
-	MOVQ          s1-16(SP), R15
-	MOVQ          3*8(R15), DX
+	MOVQ          3*8(BP), DX
 	CARRY3()
 	INNER_MUL_4(CX, SI, BX, DI)
 	MOVQ          R12, DX
@@ -1411,24 +1399,22 @@ loop_17:
 	MOVQ          R11, 24(R15)
 	ADDQ          $32, R15
 	MOVQ          R15, s0-8(SP)
+	ADDQ          $32, BP
+	MOVQ          0*8(BP), DX
 	MOVQ          s1-16(SP), R15
-	ADDQ          $32, R15
-	MOVQ          0*8(R15), DX
-	MOVQ          R15, s1-16(SP)
-	MOVQ          s2-24(SP), R15
 	ADDQ          $32, R15
 	MOVQ          0(R15), CX
 	MOVQ          8(R15), BX
 	MOVQ          16(R15), SI
 	MOVQ          24(R15), DI
+	MOVQ          R15, s1-16(SP)
 	CARRY1()
 	INNER_MUL_0()
 	MOVQ          R9, DX
 	CARRY2()
 	MULXQ         qInvNeg+32(FP), DX, R14
 	INNER_MUL_1(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
-	MOVQ          s1-16(SP), R15
-	MOVQ          1*8(R15), DX
+	MOVQ          1*8(BP), DX
 	VPMULUDQ      Z20, Z24, Z10
 	VPADDQ        Z10, Z0, Z0
 	VPMULUDQ      Z20, Z25, Z11
@@ -1450,16 +1436,14 @@ loop_17:
 	VPMULUDQ.BCST qInvNeg+32(FP), Z0, Z9
 	MULXQ         qInvNeg+32(FP), DX, R14
 	INNER_MUL_2()
-	MOVQ          s1-16(SP), R15
-	MOVQ          2*8(R15), DX
+	MOVQ          2*8(BP), DX
 	CARRY3()
 	INNER_MUL_3(CX, SI, BX, DI)
 	MOVQ          R11, DX
 	MULXQ         qInvNeg+32(FP), DX, R14
 	CARRY4()
 	INNER_MUL_3(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
-	MOVQ          s1-16(SP), R15
-	MOVQ          3*8(R15), DX
+	MOVQ          3*8(BP), DX
 	MUL_W_Q_LO()
 	INNER_MUL_4(CX, SI, BX, DI)
 	MOVQ          R12, DX
@@ -1479,40 +1463,115 @@ loop_17:
 	MOVQ          R11, 24(R15)
 	ADDQ          $32, R15
 	MOVQ          R15, s0-8(SP)
+	ADDQ          $32, BP
+	MOVQ          0*8(BP), DX
 	MOVQ          s1-16(SP), R15
-	ADDQ          $32, R15
-	MOVQ          0*8(R15), DX
-	MOVQ          R15, s1-16(SP)
-	MOVQ          s2-24(SP), R15
 	ADDQ          $32, R15
 	MOVQ          0(R15), CX
 	MOVQ          8(R15), BX
 	MOVQ          16(R15), SI
 	MOVQ          24(R15), DI
+	MOVQ          R15, s1-16(SP)
+	VPMULUDQ      Z21, Z24, Z10
+	VPADDQ        Z10, Z0, Z0
+	VPMULUDQ      Z21, Z25, Z11
+	VPADDQ        Z11, Z1, Z1
+	VPMULUDQ      Z21, Z26, Z12
+	VPADDQ        Z12, Z2, Z2
+	VPMULUDQ      Z21, Z27, Z13
+	VPADDQ        Z13, Z3, Z3
+	INNER_MUL_0()
+	MOVQ          R9, DX
+	MULXQ         qInvNeg+32(FP), DX, R14
+	VPMULUDQ      Z21, Z28, Z14
+	VPADDQ        Z14, Z4, Z4
+	VPMULUDQ      Z21, Z29, Z15
+	VPADDQ        Z15, Z5, Z5
+	VPMULUDQ      Z21, Z30, Z16
+	VPADDQ        Z16, Z6, Z6
+	VPMULUDQ      Z21, Z31, Z17
+	VPADDQ        Z17, Z7, Z7
+	VPMULUDQ.BCST qInvNeg+32(FP), Z0, Z9
+	INNER_MUL_1(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
+	MOVQ          1*8(BP), DX
+	CARRY3()
+	INNER_MUL_1(CX, SI, BX, DI)
+	MOVQ          R10, DX
+	MULXQ         qInvNeg+32(FP), DX, R14
+	CARRY4()
+	INNER_MUL_2()
+	MOVQ          2*8(BP), DX
+	MUL_W_Q_LO()
+	INNER_MUL_3(CX, SI, BX, DI)
+	MOVQ          R11, DX
+	MULXQ         qInvNeg+32(FP), DX, R14
+	MUL_W_Q_HI()
+	INNER_MUL_3(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
+	MOVQ          3*8(BP), DX
+	CARRY1()
+	INNER_MUL_4(CX, SI, BX, DI)
+	MOVQ          R12, DX
+	MULXQ         qInvNeg+32(FP), DX, R14
+	CARRY2()
+	INNER_MUL_4(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
+	VPMULUDQ      Z22, Z24, Z10
+	VPADDQ        Z10, Z0, Z0
+	VPMULUDQ      Z22, Z25, Z11
+	VPADDQ        Z11, Z1, Z1
+	VPMULUDQ      Z22, Z26, Z12
+	VPADDQ        Z12, Z2, Z2
+	VPMULUDQ      Z22, Z27, Z13
+	VPADDQ        Z13, Z3, Z3
+	VPMULUDQ      Z22, Z28, Z14
+	VPADDQ        Z14, Z4, Z4
+	VPMULUDQ      Z22, Z29, Z15
+	VPADDQ        Z15, Z5, Z5
+	VPMULUDQ      Z22, Z30, Z16
+	VPADDQ        Z16, Z6, Z6
+	VPMULUDQ      Z22, Z31, Z17
+	VPADDQ        Z17, Z7, Z7
+	VPMULUDQ.BCST qInvNeg+32(FP), Z0, Z9
+
+	// reduce element(R8,R9,R10,R11) using temp registers (CX,BX,SI,DI)
+	REDUCE(R8,R9,R10,R11,CX,BX,SI,DI)
+
+	MOVQ          s0-8(SP), R15
+	MOVQ          R8, 0(R15)
+	MOVQ          R9, 8(R15)
+	MOVQ          R10, 16(R15)
+	MOVQ          R11, 24(R15)
+	ADDQ          $32, R15
+	MOVQ          R15, s0-8(SP)
+	ADDQ          $32, BP
+	MOVQ          0*8(BP), DX
+	MOVQ          s1-16(SP), R15
+	ADDQ          $32, R15
+	MOVQ          0(R15), CX
+	MOVQ          8(R15), BX
+	MOVQ          16(R15), SI
+	MOVQ          24(R15), DI
+	MOVQ          R15, s1-16(SP)
 	CARRY3()
 	INNER_MUL_0()
 	MOVQ          R9, DX
 	MULXQ         qInvNeg+32(FP), DX, R14
 	CARRY4()
 	INNER_MUL_1(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
-	MOVQ          s1-16(SP), R15
-	MOVQ          1*8(R15), DX
+	MOVQ          1*8(BP), DX
 	MUL_W_Q_LO()
 	INNER_MUL_1(CX, SI, BX, DI)
 	MOVQ          R10, DX
 	MULXQ         qInvNeg+32(FP), DX, R14
 	MUL_W_Q_HI()
 	INNER_MUL_2()
-	MOVQ          s1-16(SP), R15
-	MOVQ          2*8(R15), DX
+	MOVQ          2*8(BP), DX
 	CARRY1()
 	INNER_MUL_3(CX, SI, BX, DI)
 	MOVQ          R11, DX
 	MULXQ         qInvNeg+32(FP), DX, R14
 	CARRY2()
 	INNER_MUL_3(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
-	MOVQ          s1-16(SP), R15
-	MOVQ          3*8(R15), DX
+	MOVQ          3*8(BP), DX
 	VPMULUDQ      Z23, Z24, Z10
 	VPADDQ        Z10, Z0, Z0
 	VPMULUDQ      Z23, Z25, Z11
@@ -1540,41 +1599,197 @@ loop_17:
 	// reduce element(R8,R9,R10,R11) using temp registers (CX,BX,SI,DI)
 	REDUCE(R8,R9,R10,R11,CX,BX,SI,DI)
 
-	MOVQ  s0-8(SP), R15
-	MOVQ  R8, 0(R15)
-	MOVQ  R9, 8(R15)
-	MOVQ  R10, 16(R15)
-	MOVQ  R11, 24(R15)
-	ADDQ  $32, R15
-	MOVQ  R15, s0-8(SP)
-	MOVQ  s1-16(SP), R15
-	ADDQ  $32, R15
-	MOVQ  0*8(R15), DX
-	MOVQ  R15, s1-16(SP)
-	MOVQ  s2-24(SP), R15
-	ADDQ  $32, R15
-	MOVQ  0(R15), CX
-	MOVQ  8(R15), BX
-	MOVQ  16(R15), SI
-	MOVQ  24(R15), DI
+	MOVQ          s0-8(SP), R15
+	MOVQ          R8, 0(R15)
+	MOVQ          R9, 8(R15)
+	MOVQ          R10, 16(R15)
+	MOVQ          R11, 24(R15)
+	ADDQ          $32, R15
+	MOVQ          R15, s0-8(SP)
+	ADDQ          $32, BP
+	MOVQ          0*8(BP), DX
+	MOVQ          s1-16(SP), R15
+	ADDQ          $32, R15
+	MOVQ          0(R15), CX
+	MOVQ          8(R15), BX
+	MOVQ          16(R15), SI
+	MOVQ          24(R15), DI
+	MOVQ          R15, s1-16(SP)
 	MUL_W_Q_LO()
 	INNER_MUL_0()
-	MOVQ  R9, DX
-	MULXQ qInvNeg+32(FP), DX, R14
+	MOVQ          R9, DX
+	MULXQ         qInvNeg+32(FP), DX, R14
 	MUL_W_Q_HI()
 	INNER_MUL_1(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
-	MOVQ  s1-16(SP), R15
-	MOVQ  1*8(R15), DX
+	MOVQ          1*8(BP), DX
 	CARRY1()
 	CARRY2()
 	INNER_MUL_1(CX, SI, BX, DI)
-	MOVQ  R10, DX
-	MULXQ qInvNeg+32(FP), DX, R14
+	MOVQ          R10, DX
+	MULXQ         qInvNeg+32(FP), DX, R14
 	INNER_MUL_2()
-	MOVQ  s1-16(SP), R15
-	MOVQ  2*8(R15), DX
-	DECQ  AX                      // decrement n
-	JMP   loop_17
+	MOVQ          2*8(BP), DX
+	VPERMD.BCST.Z ·qElement+0(SB), Z8, K1, Z10
+	VPERMD.BCST.Z ·qElement+4(SB), Z8, K1, Z11
+	VPERMD.BCST.Z ·qElement+8(SB), Z8, K1, Z12
+	VPERMD.BCST.Z ·qElement+12(SB), Z8, K1, Z13
+	VPERMD.BCST.Z ·qElement+16(SB), Z8, K1, Z14
+	VPERMD.BCST.Z ·qElement+20(SB), Z8, K1, Z15
+	VPERMD.BCST.Z ·qElement+24(SB), Z8, K1, Z16
+	VPERMD.BCST.Z ·qElement+28(SB), Z8, K1, Z17
+	VPSUBQ        Z10, Z0, Z10
+	VPSRLQ        $63, Z10, Z20
+	VPANDQ        Z8, Z10, Z10
+	VPSUBQ        Z11, Z1, Z11
+	VPSUBQ        Z20, Z11, Z11
+	VPSRLQ        $63, Z11, Z21
+	VPANDQ        Z8, Z11, Z11
+	VPSUBQ        Z12, Z2, Z12
+	VPSUBQ        Z21, Z12, Z12
+	VPSRLQ        $63, Z12, Z22
+	VPANDQ        Z8, Z12, Z12
+	VPSUBQ        Z13, Z3, Z13
+	VPSUBQ        Z22, Z13, Z13
+	VPSRLQ        $63, Z13, Z23
+	VPANDQ        Z8, Z13, Z13
+	VPSUBQ        Z14, Z4, Z14
+	VPSUBQ        Z23, Z14, Z14
+	VPSRLQ        $63, Z14, Z24
+	VPANDQ        Z8, Z14, Z14
+	VPSUBQ        Z15, Z5, Z15
+	VPSUBQ        Z24, Z15, Z15
+	VPSRLQ        $63, Z15, Z25
+	VPANDQ        Z8, Z15, Z15
+	VPSUBQ        Z16, Z6, Z16
+	VPSUBQ        Z25, Z16, Z16
+	VPSRLQ        $63, Z16, Z26
+	VPANDQ        Z8, Z16, Z16
+	VPSUBQ        Z17, Z7, Z17
+	VPSUBQ        Z26, Z17, Z17
+	INNER_MUL_3(CX, SI, BX, DI)
+	MOVQ          R11, DX
+	VPMOVQ2M      Z17, K2
+	MULXQ         qInvNeg+32(FP), DX, R14
+	KNOTB         K2, K2
+	VMOVDQU64     Z10, K2, Z0
+	VMOVDQU64     Z11, K2, Z1
+	VMOVDQU64     Z12, K2, Z2
+	VMOVDQU64     Z13, K2, Z3
+	VMOVDQU64     Z14, K2, Z4
+	VMOVDQU64     Z15, K2, Z5
+	VMOVDQU64     Z16, K2, Z6
+	VMOVDQU64     Z17, K2, Z7
+	INNER_MUL_3(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
+	MOVQ          3*8(BP), DX
+	MOVQ          ·pattern1+0(SB), R15
+	VPINSRQ       $0, R15, X11, X11
+	MOVQ          ·pattern1+8(SB), R15
+	VPINSRQ       $1, R15, X11, X11
+	MOVQ          ·pattern1+16(SB), R15
+	VPINSRQ       $2, R15, X11, X11
+	MOVQ          ·pattern1+24(SB), R15
+	VPINSRQ       $3, R15, X11, X11
+	MOVQ          ·pattern1+32(SB), R15
+	VPINSRQ       $4, R15, X11, X11
+	MOVQ          ·pattern1+40(SB), R15
+	VPINSRQ       $5, R15, X11, X11
+	MOVQ          ·pattern1+48(SB), R15
+	VPINSRQ       $6, R15, X11, X11
+	MOVQ          ·pattern1+56(SB), R15
+	VPINSRQ       $7, R15, X11, X11
+	MOVQ          ·pattern2+0(SB), R15
+	VPINSRQ       $0, R15, X12, X12
+	MOVQ          ·pattern2+8(SB), R15
+	VPINSRQ       $1, R15, X12, X12
+	MOVQ          ·pattern2+16(SB), R15
+	VPINSRQ       $2, R15, X12, X12
+	MOVQ          ·pattern2+24(SB), R15
+	VPINSRQ       $3, R15, X12, X12
+	MOVQ          ·pattern2+32(SB), R15
+	VPINSRQ       $4, R15, X12, X12
+	MOVQ          ·pattern2+40(SB), R15
+	VPINSRQ       $5, R15, X12, X12
+	MOVQ          ·pattern2+48(SB), R15
+	VPINSRQ       $6, R15, X12, X12
+	MOVQ          ·pattern2+56(SB), R15
+	VPINSRQ       $7, R15, X12, X12
+	MOVQ          ·pattern3+0(SB), R15
+	VPINSRQ       $0, R15, X13, X13
+	MOVQ          ·pattern3+8(SB), R15
+	VPINSRQ       $1, R15, X13, X13
+	MOVQ          ·pattern3+16(SB), R15
+	VPINSRQ       $2, R15, X13, X13
+	MOVQ          ·pattern3+24(SB), R15
+	VPINSRQ       $3, R15, X13, X13
+	MOVQ          ·pattern3+32(SB), R15
+	VPINSRQ       $4, R15, X13, X13
+	MOVQ          ·pattern3+40(SB), R15
+	VPINSRQ       $5, R15, X13, X13
+	MOVQ          ·pattern3+48(SB), R15
+	VPINSRQ       $6, R15, X13, X13
+	MOVQ          ·pattern3+56(SB), R15
+	VPINSRQ       $7, R15, X13, X13
+	MOVQ          ·pattern4+0(SB), R15
+	VPINSRQ       $0, R15, X14, X14
+	MOVQ          ·pattern4+8(SB), R15
+	VPINSRQ       $1, R15, X14, X14
+	MOVQ          ·pattern4+16(SB), R15
+	VPINSRQ       $2, R15, X14, X14
+	MOVQ          ·pattern4+24(SB), R15
+	VPINSRQ       $3, R15, X14, X14
+	MOVQ          ·pattern4+32(SB), R15
+	VPINSRQ       $4, R15, X14, X14
+	MOVQ          ·pattern4+40(SB), R15
+	VPINSRQ       $5, R15, X14, X14
+	MOVQ          ·pattern4+48(SB), R15
+	VPINSRQ       $6, R15, X14, X14
+	MOVQ          ·pattern4+56(SB), R15
+	VPINSRQ       $7, R15, X14, X14
+	VPSLLQ        $32, Z1, Z1
+	VPORQ         Z1, Z0, Z0
+	VPSLLQ        $32, Z3, Z3
+	VPORQ         Z3, Z2, Z1
+	VPSLLQ        $32, Z5, Z5
+	VPORQ         Z5, Z4, Z2
+	VPSLLQ        $32, Z7, Z7
+	VPORQ         Z7, Z6, Z3
+	INNER_MUL_4(CX, SI, BX, DI)
+	MOVQ          R12, DX
+	VMOVDQU64     Z0, Z4
+	VMOVDQU64     Z2, Z6
+	VPERMT2Q      Z1, Z11, Z0
+	VPERMT2Q      Z4, Z12, Z1
+	VPERMT2Q      Z3, Z11, Z2
+	VPERMT2Q      Z6, Z12, Z3
+	MULXQ         qInvNeg+32(FP), DX, R14
+	VMOVDQU64     Z0, Z4
+	VMOVDQU64     Z1, Z5
+	VPERMT2Q      Z2, Z13, Z0
+	VPERMT2Q      Z4, Z14, Z2
+	VPERMT2Q      Z3, Z13, Z1
+	VPERMT2Q      Z5, Z14, Z3
+	INNER_MUL_4(·qElement+0(SB), ·qElement+16(SB), ·qElement+8(SB), ·qElement+24(SB))
+
+	// reduce element(R8,R9,R10,R11) using temp registers (CX,BX,SI,DI)
+	REDUCE(R8,R9,R10,R11,CX,BX,SI,DI)
+
+	ADDQ      $32, BP
+	MOVQ      s1-16(SP), R15
+	ADDQ      $32, R15
+	MOVQ      R15, s1-16(SP)
+	MOVQ      s0-8(SP), R15
+	MOVQ      R8, 0(R15)
+	MOVQ      R9, 8(R15)
+	MOVQ      R10, 16(R15)
+	MOVQ      R11, 24(R15)
+	ADDQ      $32, R15
+	MOVQ      R15, s0-8(SP)
+	VMOVDQU64 Z0, 0*64(R15)
+	VMOVDQU64 Z2, 1*64(R15)
+	VMOVDQU64 Z1, 2*64(R15)
+	VMOVDQU64 Z3, 3*64(R15)
+	DECQ      AX             // decrement n
+	JMP       loop_17
 
 // available registers:0
 done_16:
