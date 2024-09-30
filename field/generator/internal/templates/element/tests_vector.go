@@ -158,11 +158,7 @@ func TestVectorOps(t *testing.T) {
 
 	mulVector := func(a, b Vector) bool {
 		c := make(Vector, len(a))
-		a[0].fromMont()
-		b[0].fromMont()
 		c.Mul(a, b)
-		a[0].toMont()
-		b[0].toMont()
 		
 		cptGood := 0
 		cptBad := 0

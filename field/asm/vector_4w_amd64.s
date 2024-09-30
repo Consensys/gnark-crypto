@@ -1052,8 +1052,8 @@ loop_17:
 	VMOVDQU64 256+2*64(R15), Z26
 	VMOVDQU64 256+3*64(R15), Z27
 	MOVQ      0*8(R15), CX
-	MOVQ      1*8(R15), SI
-	MOVQ      2*8(R15), BX
+	MOVQ      1*8(R15), BX
+	MOVQ      2*8(R15), SI
 	MOVQ      3*8(R15), DI
 	MOVQ      0*8(BP), DX
 	INNER_MUL_0()
