@@ -134,9 +134,9 @@ func (vector *Vector) Mul(a, b Vector) {
 	}
 	n := uint64(len(a))
 	mulVec(&(*vector)[0], &a[0], &b[0], n, qInvNeg)
-	if n%16 != 0 {
+	if n%8 != 0 {
 		// call mulVecGeneric on the rest
-		start := n - n%16
+		start := n - n%8
 		mulVecGeneric((*vector)[start:], a[start:], b[start:])
 	}
 

@@ -158,30 +158,21 @@ func TestVectorOps(t *testing.T) {
 
 	mulVector := func(a, b Vector) bool {
 		c := make(Vector, len(a))
+		a[0].SetUint64(0x24)
+		b[0].SetUint64(0x42)
 		c.Mul(a, b)
 		
-		cptGood := 0
-		cptBad := 0
 		for i := 0; i < len(a); i++ {
 			var tmp {{.ElementName}}
 			tmp.Mul(&a[i], &b[i])
 			if !tmp.Equal(&c[i]) {
-			cptBad++
-				// fmt.Println("PAS BON ", i)
-				// return false
-			}	 else {
-				cptGood++
-			 }
+				return false
+			}
 		}
-		fmt.Printf("GOOD %d, BAD %d\n", cptGood, cptBad)
-		fmt.Printf("a[0] %v\n", a[0])
-		fmt.Printf("b[0] %v\n", b[0])
-		fmt.Printf("c[0] %v\n", c[0])
-		return cptBad == 0
-		// return true
+		return true
 	}
 
-	sizes := []int{16}//1, 2, 3, 4, 509, 510, 511, 512, 513, 514}
+	sizes := []int{1, 2, 3, 4,8,9,15,16, 509, 510, 511, 512, 513, 514}
 	type genPair struct {
 		g1, g2 gopter.Gen
 		label string
@@ -189,10 +180,10 @@ func TestVectorOps(t *testing.T) {
 	
 	for _, size := range sizes {
 		generators := []genPair{
-			// {genZeroVector(size), genZeroVector(size), "zero vectors"},
-			// {genMaxVector(size), genMaxVector(size), "max vectors"},
+			{genZeroVector(size), genZeroVector(size), "zero vectors"},
+			{genMaxVector(size), genMaxVector(size), "max vectors"},
 			{genVector(size), genVector(size), "random vectors"},
-			// {genVector(size), genZeroVector(size), "random and zero vectors"},
+			{genVector(size), genZeroVector(size), "random and zero vectors"},
 		}	
 		for _, gp := range generators {
 			// properties.Property(fmt.Sprintf("vector addition %d - %s", size, gp.label), prop.ForAll(
