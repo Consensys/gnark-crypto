@@ -118,10 +118,11 @@ func (vector *Vector) Mul(a, b Vector) {
 		panic("vector.Mul: vectors don't have the same length")
 	}
 	n := uint64(len(a))
-	mulVec(&(*vector)[0], &a[0], &b[0], n, qInvNeg)
-	if n % 16 != 0 {
+	const blockSize = 16
+	mulVec(&(*vector)[0], &a[0], &b[0], n/blockSize, qInvNeg)
+	if n % blockSize != 0 {
 		// call mulVecGeneric on the rest
-		start := n - n % 16
+		start := n - n % blockSize
 		mulVecGeneric((*vector)[start:], a[start:], b[start:])
 	}
 	
