@@ -880,7 +880,7 @@ done_14:
 	RET
 
 // mulVec(res, a,b *Element, n uint64, qInvNeg uint64) res = a[0...n] * b[0...n]
-TEXT ·mulVec(SB), NOSPLIT, $0-40
+TEXT ·mulVec(SB), $8-40
 	// couple of defines
 #define MUL_W_Q_LO() \
 	VPMULUDQ.BCST ·qElement+0(SB), Z9, Z10  \
@@ -954,26 +954,2052 @@ TEXT ·mulVec(SB), NOSPLIT, $0-40
 	VPADDQ Z16, Z7, Z7  \
 
 	MOVQ      res+0(FP), R15
-	MOVQ      a+8(FP), CX
-	MOVQ      b+16(FP), BX
-	MOVQ      n+24(FP), AX
-	SHRQ      $3, AX
+	MOVQ      a+8(FP), R14
+	MOVQ      b+16(FP), CX
+	MOVQ      n+24(FP), R9
+	SHRQ      $4, R9
+	MOVQ      R9, s0-8(SP)
 	VPCMPEQB  Y8, Y8, Y8
 	VPMOVZXDQ Y8, Z8
 	MOVL      $0x5555, DX
 	KMOVD     DX, K1
 
 loop_17:
-	TESTQ     AX, AX
-	JEQ       done_16       // n == 0, we are done
-	VMOVDQU64 0*64(CX), Z16
-	VMOVDQU64 1*64(CX), Z17
-	VMOVDQU64 2*64(CX), Z18
-	VMOVDQU64 3*64(CX), Z19
-	VMOVDQU64 0*64(BX), Z24
-	VMOVDQU64 1*64(BX), Z25
-	VMOVDQU64 2*64(BX), Z26
-	VMOVDQU64 3*64(BX), Z27
+	MOVQ      s0-8(SP), R9
+	TESTQ     R9, R9
+	JEQ       done_16            // n == 0, we are done
+	VMOVDQU64 256+0*64(R14), Z16
+	VMOVDQU64 256+1*64(R14), Z17
+	VMOVDQU64 256+2*64(R14), Z18
+	VMOVDQU64 256+3*64(R14), Z19
+	VMOVDQU64 256+0*64(CX), Z24
+	VMOVDQU64 256+1*64(CX), Z25
+	VMOVDQU64 256+2*64(CX), Z26
+	VMOVDQU64 256+3*64(CX), Z27
+	MOVQ      0(CX), R10
+	MOVQ      8(CX), R11
+	MOVQ      16(CX), R12
+	MOVQ      24(CX), R13
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 0(R14), DX
+
+	// (A,t[0])  := x[0]*y[0] + A
+	MULXQ R10, BX, SI
+
+	// (A,t[1])  := x[1]*y[0] + A
+	MULXQ R11, AX, DI
+	ADOXQ AX, SI
+
+	// (A,t[2])  := x[2]*y[0] + A
+	MULXQ R12, AX, R8
+	ADOXQ AX, DI
+
+	// (A,t[3])  := x[3]*y[0] + A
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 8(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[1] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[1] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[1] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[1] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 16(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[2] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[2] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[2] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[2] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 24(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[3] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[3] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[3] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[3] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// reduce element(BX,SI,DI,R8) using temp registers (R10,R11,R12,R13)
+	REDUCE(BX,SI,DI,R8,R10,R11,R12,R13)
+
+	MOVQ  R15, DX
+	MOVQ  $0, AX
+	IMULQ $32, AX
+	ADDQ  AX, DX
+	MOVQ  BX, 0(DX)
+	MOVQ  SI, 8(DX)
+	MOVQ  DI, 16(DX)
+	MOVQ  R8, 24(DX)
+	ADDQ  $32, R14
+	ADDQ  $32, CX
+	MOVQ  0(CX), R10
+	MOVQ  8(CX), R11
+	MOVQ  16(CX), R12
+	MOVQ  24(CX), R13
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 0(R14), DX
+
+	// (A,t[0])  := x[0]*y[0] + A
+	MULXQ R10, BX, SI
+
+	// (A,t[1])  := x[1]*y[0] + A
+	MULXQ R11, AX, DI
+	ADOXQ AX, SI
+
+	// (A,t[2])  := x[2]*y[0] + A
+	MULXQ R12, AX, R8
+	ADOXQ AX, DI
+
+	// (A,t[3])  := x[3]*y[0] + A
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 8(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[1] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[1] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[1] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[1] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 16(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[2] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[2] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[2] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[2] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 24(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[3] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[3] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[3] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[3] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// reduce element(BX,SI,DI,R8) using temp registers (R10,R11,R12,R13)
+	REDUCE(BX,SI,DI,R8,R10,R11,R12,R13)
+
+	MOVQ  R15, DX
+	MOVQ  $1, AX
+	IMULQ $32, AX
+	ADDQ  AX, DX
+	MOVQ  BX, 0(DX)
+	MOVQ  SI, 8(DX)
+	MOVQ  DI, 16(DX)
+	MOVQ  R8, 24(DX)
+	ADDQ  $32, R14
+	ADDQ  $32, CX
+	MOVQ  0(CX), R10
+	MOVQ  8(CX), R11
+	MOVQ  16(CX), R12
+	MOVQ  24(CX), R13
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 0(R14), DX
+
+	// (A,t[0])  := x[0]*y[0] + A
+	MULXQ R10, BX, SI
+
+	// (A,t[1])  := x[1]*y[0] + A
+	MULXQ R11, AX, DI
+	ADOXQ AX, SI
+
+	// (A,t[2])  := x[2]*y[0] + A
+	MULXQ R12, AX, R8
+	ADOXQ AX, DI
+
+	// (A,t[3])  := x[3]*y[0] + A
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 8(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[1] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[1] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[1] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[1] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 16(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[2] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[2] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[2] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[2] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 24(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[3] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[3] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[3] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[3] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// reduce element(BX,SI,DI,R8) using temp registers (R10,R11,R12,R13)
+	REDUCE(BX,SI,DI,R8,R10,R11,R12,R13)
+
+	MOVQ  R15, DX
+	MOVQ  $0x0000000000000002, AX
+	IMULQ $32, AX
+	ADDQ  AX, DX
+	MOVQ  BX, 0(DX)
+	MOVQ  SI, 8(DX)
+	MOVQ  DI, 16(DX)
+	MOVQ  R8, 24(DX)
+	ADDQ  $32, R14
+	ADDQ  $32, CX
+	MOVQ  0(CX), R10
+	MOVQ  8(CX), R11
+	MOVQ  16(CX), R12
+	MOVQ  24(CX), R13
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 0(R14), DX
+
+	// (A,t[0])  := x[0]*y[0] + A
+	MULXQ R10, BX, SI
+
+	// (A,t[1])  := x[1]*y[0] + A
+	MULXQ R11, AX, DI
+	ADOXQ AX, SI
+
+	// (A,t[2])  := x[2]*y[0] + A
+	MULXQ R12, AX, R8
+	ADOXQ AX, DI
+
+	// (A,t[3])  := x[3]*y[0] + A
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 8(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[1] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[1] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[1] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[1] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 16(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[2] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[2] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[2] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[2] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 24(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[3] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[3] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[3] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[3] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// reduce element(BX,SI,DI,R8) using temp registers (R10,R11,R12,R13)
+	REDUCE(BX,SI,DI,R8,R10,R11,R12,R13)
+
+	MOVQ  R15, DX
+	MOVQ  $0x0000000000000003, AX
+	IMULQ $32, AX
+	ADDQ  AX, DX
+	MOVQ  BX, 0(DX)
+	MOVQ  SI, 8(DX)
+	MOVQ  DI, 16(DX)
+	MOVQ  R8, 24(DX)
+	ADDQ  $32, R14
+	ADDQ  $32, CX
+	MOVQ  0(CX), R10
+	MOVQ  8(CX), R11
+	MOVQ  16(CX), R12
+	MOVQ  24(CX), R13
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 0(R14), DX
+
+	// (A,t[0])  := x[0]*y[0] + A
+	MULXQ R10, BX, SI
+
+	// (A,t[1])  := x[1]*y[0] + A
+	MULXQ R11, AX, DI
+	ADOXQ AX, SI
+
+	// (A,t[2])  := x[2]*y[0] + A
+	MULXQ R12, AX, R8
+	ADOXQ AX, DI
+
+	// (A,t[3])  := x[3]*y[0] + A
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 8(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[1] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[1] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[1] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[1] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 16(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[2] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[2] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[2] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[2] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 24(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[3] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[3] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[3] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[3] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// reduce element(BX,SI,DI,R8) using temp registers (R10,R11,R12,R13)
+	REDUCE(BX,SI,DI,R8,R10,R11,R12,R13)
+
+	MOVQ  R15, DX
+	MOVQ  $0x0000000000000004, AX
+	IMULQ $32, AX
+	ADDQ  AX, DX
+	MOVQ  BX, 0(DX)
+	MOVQ  SI, 8(DX)
+	MOVQ  DI, 16(DX)
+	MOVQ  R8, 24(DX)
+	ADDQ  $32, R14
+	ADDQ  $32, CX
+	MOVQ  0(CX), R10
+	MOVQ  8(CX), R11
+	MOVQ  16(CX), R12
+	MOVQ  24(CX), R13
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 0(R14), DX
+
+	// (A,t[0])  := x[0]*y[0] + A
+	MULXQ R10, BX, SI
+
+	// (A,t[1])  := x[1]*y[0] + A
+	MULXQ R11, AX, DI
+	ADOXQ AX, SI
+
+	// (A,t[2])  := x[2]*y[0] + A
+	MULXQ R12, AX, R8
+	ADOXQ AX, DI
+
+	// (A,t[3])  := x[3]*y[0] + A
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 8(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[1] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[1] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[1] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[1] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 16(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[2] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[2] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[2] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[2] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 24(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[3] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[3] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[3] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[3] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// reduce element(BX,SI,DI,R8) using temp registers (R10,R11,R12,R13)
+	REDUCE(BX,SI,DI,R8,R10,R11,R12,R13)
+
+	MOVQ  R15, DX
+	MOVQ  $0x0000000000000005, AX
+	IMULQ $32, AX
+	ADDQ  AX, DX
+	MOVQ  BX, 0(DX)
+	MOVQ  SI, 8(DX)
+	MOVQ  DI, 16(DX)
+	MOVQ  R8, 24(DX)
+	ADDQ  $32, R14
+	ADDQ  $32, CX
+	MOVQ  0(CX), R10
+	MOVQ  8(CX), R11
+	MOVQ  16(CX), R12
+	MOVQ  24(CX), R13
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 0(R14), DX
+
+	// (A,t[0])  := x[0]*y[0] + A
+	MULXQ R10, BX, SI
+
+	// (A,t[1])  := x[1]*y[0] + A
+	MULXQ R11, AX, DI
+	ADOXQ AX, SI
+
+	// (A,t[2])  := x[2]*y[0] + A
+	MULXQ R12, AX, R8
+	ADOXQ AX, DI
+
+	// (A,t[3])  := x[3]*y[0] + A
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 8(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[1] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[1] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[1] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[1] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 16(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[2] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[2] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[2] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[2] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 24(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[3] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[3] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[3] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[3] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// reduce element(BX,SI,DI,R8) using temp registers (R10,R11,R12,R13)
+	REDUCE(BX,SI,DI,R8,R10,R11,R12,R13)
+
+	MOVQ  R15, DX
+	MOVQ  $0x0000000000000006, AX
+	IMULQ $32, AX
+	ADDQ  AX, DX
+	MOVQ  BX, 0(DX)
+	MOVQ  SI, 8(DX)
+	MOVQ  DI, 16(DX)
+	MOVQ  R8, 24(DX)
+	ADDQ  $32, R14
+	ADDQ  $32, CX
+	MOVQ  0(CX), R10
+	MOVQ  8(CX), R11
+	MOVQ  16(CX), R12
+	MOVQ  24(CX), R13
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 0(R14), DX
+
+	// (A,t[0])  := x[0]*y[0] + A
+	MULXQ R10, BX, SI
+
+	// (A,t[1])  := x[1]*y[0] + A
+	MULXQ R11, AX, DI
+	ADOXQ AX, SI
+
+	// (A,t[2])  := x[2]*y[0] + A
+	MULXQ R12, AX, R8
+	ADOXQ AX, DI
+
+	// (A,t[3])  := x[3]*y[0] + A
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 8(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[1] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[1] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[1] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[1] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 16(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[2] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[2] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[2] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[2] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// clear the flags
+	XORQ AX, AX
+	MOVQ 24(R14), DX
+
+	// (A,t[0])  := t[0] + x[0]*y[3] + A
+	MULXQ R10, AX, BP
+	ADOXQ AX, BX
+
+	// (A,t[1])  := t[1] + x[1]*y[3] + A
+	ADCXQ BP, SI
+	MULXQ R11, AX, BP
+	ADOXQ AX, SI
+
+	// (A,t[2])  := t[2] + x[2]*y[3] + A
+	ADCXQ BP, DI
+	MULXQ R12, AX, BP
+	ADOXQ AX, DI
+
+	// (A,t[3])  := t[3] + x[3]*y[3] + A
+	ADCXQ BP, R8
+	MULXQ R13, AX, BP
+	ADOXQ AX, R8
+
+	// A += carries from ADCXQ and ADOXQ
+	MOVQ  $0, AX
+	ADCXQ AX, BP
+	ADOXQ AX, BP
+
+	// m := t[0]*q'[0] mod W
+	MOVQ  $const_qInvNeg, DX
+	IMULQ BX, DX
+
+	// clear the flags
+	XORQ AX, AX
+
+	// C,_ := t[0] + m*q[0]
+	MULXQ ·qElement+0(SB), AX, R9
+	ADCXQ BX, AX
+	MOVQ  R9, BX
+
+	// (C,t[0]) := t[1] + m*q[1] + C
+	ADCXQ SI, BX
+	MULXQ ·qElement+8(SB), AX, SI
+	ADOXQ AX, BX
+
+	// (C,t[1]) := t[2] + m*q[2] + C
+	ADCXQ DI, SI
+	MULXQ ·qElement+16(SB), AX, DI
+	ADOXQ AX, SI
+
+	// (C,t[2]) := t[3] + m*q[3] + C
+	ADCXQ R8, DI
+	MULXQ ·qElement+24(SB), AX, R8
+	ADOXQ AX, DI
+
+	// t[3] = C + A
+	MOVQ  $0, AX
+	ADCXQ AX, R8
+	ADOXQ BP, R8
+
+	// reduce element(BX,SI,DI,R8) using temp registers (R10,R11,R12,R13)
+	REDUCE(BX,SI,DI,R8,R10,R11,R12,R13)
+
+	MOVQ  R15, DX
+	MOVQ  $0x0000000000000007, AX
+	IMULQ $32, AX
+	ADDQ  AX, DX
+	MOVQ  BX, 0(DX)
+	MOVQ  SI, 8(DX)
+	MOVQ  DI, 16(DX)
+	MOVQ  R8, 24(DX)
+	ADDQ  $32, R14
+	ADDQ  $32, CX
 
 	// Transpose and expand x and y
 	VSHUFI64X2 $0x88, Z17, Z16, Z20
@@ -1374,14 +3400,16 @@ loop_17:
 	VPERMT2Q  Z5, Z14, Z3
 
 	// Save AVX-512 results
-	VMOVDQU64 Z0, 0*64(R15)
-	VMOVDQU64 Z2, 1*64(R15)
-	VMOVDQU64 Z1, 2*64(R15)
-	VMOVDQU64 Z3, 3*64(R15)
-	ADDQ      $256, R15
+	VMOVDQU64 Z0, 256+0*64(R15)
+	VMOVDQU64 Z2, 256+1*64(R15)
+	VMOVDQU64 Z1, 256+2*64(R15)
+	VMOVDQU64 Z3, 256+3*64(R15)
+	ADDQ      $512, R15
+	ADDQ      $256, R14
 	ADDQ      $256, CX
-	ADDQ      $256, BX
-	DECQ      AX            // decrement n
+	MOVQ      s0-8(SP), R9
+	DECQ      R9                // decrement n
+	MOVQ      R9, s0-8(SP)
 	JMP       loop_17
 
 done_16:
