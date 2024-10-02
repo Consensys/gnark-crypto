@@ -919,28 +919,18 @@ func (f *FFAmd64) generateMulVec() {
 	registers := f.FnHeader("mulVec", stackSize, argSize, amd64.AX, amd64.DX)
 	defer f.AssertCleanStack(stackSize, 0)
 
-	// follows field/asm/modmul256.S
 	// to simplify the generated assembly, we only handle n/16 (and do blocks of 16 muls).
 	// that is if n%16 != 0, we let the caller (Go) handle the remaining elements.
-	// TODO @gbotrel we still have BP.
 	LEN := f.Pop(&registers, true)
 	PZ := f.Pop(&registers)
 	PX := f.Pop(&registers)
 	PY := f.Pop(&registers)
 
-	// MUL := amd64.DX
-	// Y0 := f.Pop(&registers)
-	// Y1 := f.Pop(&registers)
-	// Y2 := f.Pop(&registers)
-	// Y3 := f.Pop(&registers)
-	// T0 := f.Pop(&registers)
-	// T1 := f.Pop(&registers)
-	// T2 := f.Pop(&registers)
-	// T3 := f.Pop(&registers)
-	// PL := f.Pop(&registers)
-	// PH := f.Pop(&registers)
-
 	f.Comment("couple of defines")
+
+	zi := func(i int) string {
+		return "Z" + strconv.Itoa(i)
+	}
 
 	// MUL_W_Q_LO:
 	// 	vpmuludq	0*4(PM){1to8}, %zmm9, %zmm10;	vpaddq	%zmm10, %zmm0, %zmm0;	// Low dword of zmm0 is zero
@@ -949,8 +939,8 @@ func (f *FFAmd64) generateMulVec() {
 	// 	vpmuludq	3*4(PM){1to8}, %zmm9, %zmm13;	vpaddq	%zmm13, %zmm3, %zmm3;
 	MUL_W_Q_LO := f.Define("MUL_W_Q_LO", 0, func(args ...amd64.Register) {
 		for i := 0; i < 4; i++ {
-			f.VPMULUDQ_BCST(f.qAt_bcst(i), "Z9", "Z"+strconv.Itoa(10+i))
-			f.VPADDQ("Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
+			f.VPMULUDQ_BCST(f.qAt_bcst(i), "Z9", zi(10+i))
+			f.VPADDQ(zi(10+i), zi(i), zi(i))
 		}
 	})
 
@@ -961,8 +951,8 @@ func (f *FFAmd64) generateMulVec() {
 	// 	vpmuludq	7*4(PM){1to8}, %zmm9, %zmm17;	vpaddq	%zmm17, %zmm7, %zmm7;
 	MUL_W_Q_HI := f.Define("MUL_W_Q_HI", 0, func(args ...amd64.Register) {
 		for i := 0; i < 4; i++ {
-			f.VPMULUDQ_BCST(f.qAt_bcst(i+4), "Z9", "Z"+strconv.Itoa(14+i))
-			f.VPADDQ("Z"+strconv.Itoa(14+i), "Z"+strconv.Itoa(i+4), "Z"+strconv.Itoa(i+4))
+			f.VPMULUDQ_BCST(f.qAt_bcst(i+4), "Z9", zi(14+i))
+			f.VPADDQ(zi(14+i), zi(i+4), zi(i+4))
 		}
 	})
 
@@ -973,9 +963,9 @@ func (f *FFAmd64) generateMulVec() {
 	// 	vpsrlq		$32, %zmm3, %zmm13;		vpaddq	%zmm13, %zmm4, %zmm4;	vpandq	%zmm8, %zmm4, %zmm3
 	CARRY1 := f.Define("CARRY1", 0, func(args ...amd64.Register) {
 		for i := 0; i < 4; i++ {
-			f.VPSRLQ("$32", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(10+i))
-			f.VPADDQ("Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(i+1), "Z"+strconv.Itoa(i+1))
-			f.VPANDQ("Z8", "Z"+strconv.Itoa(i+1), "Z"+strconv.Itoa(i))
+			f.VPSRLQ("$32", zi(i), zi(10+i))
+			f.VPADDQ(zi(10+i), zi(i+1), zi(i+1))
+			f.VPANDQ("Z8", zi(i+1), zi(i))
 		}
 	})
 
@@ -986,9 +976,9 @@ func (f *FFAmd64) generateMulVec() {
 	// 	vpsrlq		$32, %zmm7, %zmm7
 	CARRY2 := f.Define("CARRY2", 0, func(args ...amd64.Register) {
 		for i := 0; i < 3; i++ {
-			f.VPSRLQ("$32", "Z"+strconv.Itoa(i+4), "Z"+strconv.Itoa(14+i))
-			f.VPADDQ("Z"+strconv.Itoa(14+i), "Z"+strconv.Itoa(i+5), "Z"+strconv.Itoa(i+5))
-			f.VPANDQ("Z8", "Z"+strconv.Itoa(i+5), "Z"+strconv.Itoa(i+4))
+			f.VPSRLQ("$32", zi(i+4), zi(14+i))
+			f.VPADDQ(zi(14+i), zi(i+5), zi(i+5))
+			f.VPANDQ("Z8", zi(i+5), zi(i+4))
 		}
 		f.VPSRLQ("$32", "Z7", "Z7")
 	})
@@ -1000,9 +990,9 @@ func (f *FFAmd64) generateMulVec() {
 	// 	vpsrlq		$32, %zmm3, %zmm13;		vpandq	%zmm8, %zmm3, %zmm3;	vpaddq	%zmm13, %zmm4, %zmm4;
 	CARRY3 := f.Define("CARRY3", 0, func(args ...amd64.Register) {
 		for i := 0; i < 4; i++ {
-			f.VPSRLQ("$32", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(10+i))
-			f.VPANDQ("Z8", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
-			f.VPADDQ("Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(i+1), "Z"+strconv.Itoa(i+1))
+			f.VPSRLQ("$32", zi(i), zi(10+i))
+			f.VPANDQ("Z8", zi(i), zi(i))
+			f.VPADDQ(zi(10+i), zi(i+1), zi(i+1))
 		}
 	})
 
@@ -1012,9 +1002,9 @@ func (f *FFAmd64) generateMulVec() {
 	// 	vpsrlq		$32, %zmm6, %zmm16;		vpandq	%zmm8, %zmm6, %zmm6;	vpaddq	%zmm16, %zmm7, %zmm7;
 	CARRY4 := f.Define("CARRY4", 0, func(args ...amd64.Register) {
 		for i := 0; i < 3; i++ {
-			f.VPSRLQ("$32", "Z"+strconv.Itoa(i+4), "Z"+strconv.Itoa(14+i))
-			f.VPANDQ("Z8", "Z"+strconv.Itoa(i+4), "Z"+strconv.Itoa(i+4))
-			f.VPADDQ("Z"+strconv.Itoa(14+i), "Z"+strconv.Itoa(i+5), "Z"+strconv.Itoa(i+5))
+			f.VPSRLQ("$32", zi(i+4), zi(14+i))
+			f.VPANDQ("Z8", zi(i+4), zi(i+4))
+			f.VPADDQ(zi(14+i), zi(i+5), zi(i+5))
 		}
 	})
 
@@ -1139,8 +1129,7 @@ func (f *FFAmd64) generateMulVec() {
 
 	f.VPCMPEQB("Y8", "Y8", "Y8")
 	f.VPMOVZXDQ("Y8", "Z8")
-	f.WriteLn("MOVL $0x5555, DX")
-	// f.MOVQ("$0x5555", amd64.DX)
+	f.MOVQ("$0x5555", amd64.DX)
 	f.KMOVD(amd64.DX, "K1")
 
 	f.LABEL(loop)
@@ -1194,13 +1183,13 @@ func (f *FFAmd64) generateMulVec() {
 	// Step 3
 
 	for i := 20; i <= 23; i++ {
-		f.VSHUFI64X2("$0xd8", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
+		f.VSHUFI64X2("$0xd8", zi(i), zi(i), zi(i))
 	}
 
 	reduceWord(1)
 
 	for i := 28; i <= 31; i++ {
-		f.VSHUFI64X2("$0xd8", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
+		f.VSHUFI64X2("$0xd8", zi(i), zi(i), zi(i))
 	}
 
 	mulWord(2)
@@ -1227,12 +1216,12 @@ func (f *FFAmd64) generateMulVec() {
 
 	mulWord(3)
 	for i := 24; i <= 30; i += 2 {
-		f.VPSRLQ("$32", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i+1))
+		f.VPSRLQ("$32", zi(i), zi(i+1))
 	}
 	reduceWord(3)
 
 	for i := 16; i <= 30; i += 2 {
-		f.VPANDQ("Z8", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
+		f.VPANDQ("Z8", zi(i), zi(i))
 	}
 
 	storeOutput()
@@ -1242,7 +1231,7 @@ func (f *FFAmd64) generateMulVec() {
 	f.Comment("Multiply y by doubleword 0 of x")
 
 	for i := 0; i < 8; i++ {
-		f.VPMULUDQ("Z16", "Z"+strconv.Itoa(24+i), "Z"+strconv.Itoa(i))
+		f.VPMULUDQ("Z16", zi(24+i), zi(i))
 	}
 
 	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
@@ -1250,26 +1239,26 @@ func (f *FFAmd64) generateMulVec() {
 	mulWord(0)
 
 	for i := 0; i < 4; i++ {
-		f.VPSRLQ("$32", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(10+i))
-		f.VPANDQ("Z8", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
-		f.VPADDQ("Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(i+1), "Z"+strconv.Itoa(i+1))
+		f.VPSRLQ("$32", zi(i), zi(10+i))
+		f.VPANDQ("Z8", zi(i), zi(i))
+		f.VPADDQ(zi(10+i), zi(i+1), zi(i+1))
 
 	}
 
 	reduceWord(0)
 
 	for i := 0; i < 3; i++ {
-		f.VPSRLQ("$32", "Z"+strconv.Itoa(4+i), "Z"+strconv.Itoa(14+i))
-		f.VPANDQ("Z8", "Z"+strconv.Itoa(4+i), "Z"+strconv.Itoa(4+i))
-		f.VPADDQ("Z"+strconv.Itoa(14+i), "Z"+strconv.Itoa(5+i), "Z"+strconv.Itoa(5+i))
+		f.VPSRLQ("$32", zi(4+i), zi(14+i))
+		f.VPANDQ("Z8", zi(4+i), zi(4+i))
+		f.VPADDQ(zi(14+i), zi(5+i), zi(5+i))
 
 	}
 
 	mulWord(1)
 
 	for i := 0; i < 4; i++ {
-		f.VPMULUDQ_BCST(f.qAt_bcst(i), "Z9", "Z"+strconv.Itoa(10+i))
-		f.VPADDQ("Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
+		f.VPMULUDQ_BCST(f.qAt_bcst(i), "Z9", zi(10+i))
+		f.VPADDQ(zi(10+i), zi(i), zi(i))
 	}
 
 	reduceWord(1)
@@ -1289,18 +1278,18 @@ func (f *FFAmd64) generateMulVec() {
 	mulWord(2)
 
 	for i := 0; i < 4; i++ {
-		f.VPSRLQ("$32", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(10+i))
-		f.VPADDQ("Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(i+1), "Z"+strconv.Itoa(i+1))
-		f.VPANDQ("Z8", "Z"+strconv.Itoa(i+1), "Z"+strconv.Itoa(i))
+		f.VPSRLQ("$32", zi(i), zi(10+i))
+		f.VPADDQ(zi(10+i), zi(i+1), zi(i+1))
+		f.VPANDQ("Z8", zi(i+1), zi(i))
 
 	}
 
 	reduceWord(2)
 
 	for i := 0; i < 3; i++ {
-		f.VPSRLQ("$32", "Z"+strconv.Itoa(4+i), "Z"+strconv.Itoa(14+i))
-		f.VPADDQ("Z"+strconv.Itoa(14+i), "Z"+strconv.Itoa(4+i+1), "Z"+strconv.Itoa(4+i+1))
-		f.VPANDQ("Z8", "Z"+strconv.Itoa(4+i+1), "Z"+strconv.Itoa(4+i))
+		f.VPSRLQ("$32", zi(4+i), zi(14+i))
+		f.VPADDQ(zi(14+i), zi(4+i+1), zi(4+i+1))
+		f.VPANDQ("Z8", zi(4+i+1), zi(4+i))
 
 	}
 	f.VPSRLQ("$32", "Z7", "Z7")
@@ -1310,16 +1299,16 @@ func (f *FFAmd64) generateMulVec() {
 	f.Comment("Process doubleword 1 of x")
 
 	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z17", "Z"+strconv.Itoa(24+i), "Z"+strconv.Itoa(10+i))
-		f.VPADDQ("Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
+		f.VPMULUDQ("Z17", zi(24+i), zi(10+i))
+		f.VPADDQ(zi(10+i), zi(i), zi(i))
 
 	}
 
 	reduceWord(3)
 
 	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z17", "Z"+strconv.Itoa(28+i), "Z"+strconv.Itoa(14+i))
-		f.VPADDQ("Z"+strconv.Itoa(14+i), "Z"+strconv.Itoa(4+i), "Z"+strconv.Itoa(4+i))
+		f.VPMULUDQ("Z17", zi(28+i), zi(14+i))
+		f.VPADDQ(zi(14+i), zi(4+i), zi(4+i))
 
 	}
 
@@ -1331,9 +1320,9 @@ func (f *FFAmd64) generateMulVec() {
 	f.Comment("Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)")
 
 	for i := 0; i < 3; i++ {
-		f.VPSRLQ("$32", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(10+i))
-		f.VPANDQ("Z8", "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
-		f.VPADDQ("Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(i+1), "Z"+strconv.Itoa(i+1))
+		f.VPSRLQ("$32", zi(i), zi(10+i))
+		f.VPANDQ("Z8", zi(i), zi(i))
+		f.VPADDQ(zi(10+i), zi(i+1), zi(i+1))
 	}
 
 	mulWord(0)
@@ -1360,15 +1349,15 @@ func (f *FFAmd64) generateMulVec() {
 	f.Comment("Process doubleword 2 of x")
 
 	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z18", "Z"+strconv.Itoa(24+i), "Z"+strconv.Itoa(10+i))
-		f.VPADDQ("Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
+		f.VPMULUDQ("Z18", zi(24+i), zi(10+i))
+		f.VPADDQ(zi(10+i), zi(i), zi(i))
 	}
 
 	mulWord(3)
 
 	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z18", "Z"+strconv.Itoa(28+i), "Z"+strconv.Itoa(14+i))
-		f.VPADDQ("Z"+strconv.Itoa(14+i), "Z"+strconv.Itoa(4+i), "Z"+strconv.Itoa(4+i))
+		f.VPMULUDQ("Z18", zi(28+i), zi(14+i))
+		f.VPADDQ(zi(14+i), zi(4+i), zi(4+i))
 
 	}
 
@@ -1401,15 +1390,15 @@ func (f *FFAmd64) generateMulVec() {
 	f.Comment("Process doubleword 3 of x")
 
 	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z19", "Z"+strconv.Itoa(24+i), "Z"+strconv.Itoa(10+i))
-		f.VPADDQ("Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
+		f.VPMULUDQ("Z19", zi(24+i), zi(10+i))
+		f.VPADDQ(zi(10+i), zi(i), zi(i))
 
 	}
 	reduceWord(2)
 
 	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z19", "Z"+strconv.Itoa(28+i), "Z"+strconv.Itoa(14+i))
-		f.VPADDQ("Z"+strconv.Itoa(14+i), "Z"+strconv.Itoa(4+i), "Z"+strconv.Itoa(4+i))
+		f.VPMULUDQ("Z19", zi(28+i), zi(14+i))
+		f.VPADDQ(zi(14+i), zi(4+i), zi(4+i))
 
 	}
 
@@ -1425,34 +1414,50 @@ func (f *FFAmd64) generateMulVec() {
 	loadInput()
 	MUL_W_Q_LO()
 
+	mulWord(0)
+
 	MUL_W_Q_HI()
+
+	reduceWord(0)
 
 	f.Comment("Propagate carries and shift down by one dword")
 	CARRY1()
 
+	mulWord(1)
+
 	CARRY2()
+
+	reduceWord(1)
 
 	f.Comment("Process doubleword 4 of x")
 
 	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z20", "Z"+strconv.Itoa(24+i), "Z"+strconv.Itoa(10+i))
-		f.VPADDQ("Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
+		f.VPMULUDQ("Z20", zi(24+i), zi(10+i))
+		f.VPADDQ(zi(10+i), zi(i), zi(i))
 
 	}
 
+	mulWord(2)
+
 	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z20", "Z"+strconv.Itoa(28+i), "Z"+strconv.Itoa(14+i))
-		f.VPADDQ("Z"+strconv.Itoa(14+i), "Z"+strconv.Itoa(4+i), "Z"+strconv.Itoa(4+i))
+		f.VPMULUDQ("Z20", zi(28+i), zi(14+i))
+		f.VPADDQ(zi(14+i), zi(4+i), zi(4+i))
 
 	}
 
 	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
 
+	reduceWord(2)
+
 	f.Comment("Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)")
 
 	CARRY3()
 
+	mulWord(3)
+
 	CARRY4()
+
+	reduceWord(3)
 
 	f.Comment("zmm7 keeps all 64 bits")
 
@@ -1460,115 +1465,165 @@ func (f *FFAmd64) generateMulVec() {
 
 	MUL_W_Q_HI()
 
+	storeOutput()
+
 	f.Comment("Propagate carries and shift down by one dword")
 
 	CARRY1()
 
 	CARRY2()
 
+	loadInput()
+
 	f.Comment("Process doubleword 5 of x")
 
 	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z21", "Z"+strconv.Itoa(24+i), "Z"+strconv.Itoa(10+i))
-		f.VPADDQ("Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
+		f.VPMULUDQ("Z21", zi(24+i), zi(10+i))
+		f.VPADDQ(zi(10+i), zi(i), zi(i))
 
 	}
+
+	mulWord(0)
 
 	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z21", "Z"+strconv.Itoa(28+i), "Z"+strconv.Itoa(14+i))
-		f.VPADDQ("Z"+strconv.Itoa(14+i), "Z"+strconv.Itoa(4+i), "Z"+strconv.Itoa(4+i))
+		f.VPMULUDQ("Z21", zi(28+i), zi(14+i))
+		f.VPADDQ(zi(14+i), zi(4+i), zi(4+i))
 
 	}
+
+	reduceWord(0)
 
 	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
 
 	f.Comment("Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)")
 	CARRY3()
 
+	mulWord(1)
+
 	CARRY4()
+
+	reduceWord(1)
 
 	MUL_W_Q_LO()
 
+	mulWord(2)
+
 	MUL_W_Q_HI()
+
+	reduceWord(2)
 
 	CARRY1()
 
+	mulWord(3)
+
 	CARRY2()
+
+	reduceWord(3)
 
 	f.Comment("Process doubleword 6 of x")
 
 	for i := 0; i < 8; i++ {
-		f.VPMULUDQ("Z22", "Z"+strconv.Itoa(24+i), "Z"+strconv.Itoa(10+i))
-		f.VPADDQ("Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
+		f.VPMULUDQ("Z22", zi(24+i), zi(10+i))
+		f.VPADDQ(zi(10+i), zi(i), zi(i))
 
 	}
 
 	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
+
+	storeOutput()
+	loadInput()
 
 	f.Comment("Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)")
 	CARRY3()
 
+	mulWord(0)
+
 	CARRY4()
+
+	reduceWord(0)
 
 	MUL_W_Q_LO()
 
+	mulWord(1)
+
 	MUL_W_Q_HI()
+
+	reduceWord(1)
 
 	CARRY1()
 
+	mulWord(2)
+
 	CARRY2()
+
+	reduceWord(2)
 
 	f.Comment("Process doubleword 7 of x")
 	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z23", "Z"+strconv.Itoa(24+i), "Z"+strconv.Itoa(10+i))
-		f.VPADDQ("Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(i))
+		f.VPMULUDQ("Z23", zi(24+i), zi(10+i))
+		f.VPADDQ(zi(10+i), zi(i), zi(i))
 
 	}
+
+	mulWord(3)
 
 	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z23", "Z"+strconv.Itoa(28+i), "Z"+strconv.Itoa(14+i))
-		f.VPADDQ("Z"+strconv.Itoa(14+i), "Z"+strconv.Itoa(4+i), "Z"+strconv.Itoa(4+i))
+		f.VPMULUDQ("Z23", zi(28+i), zi(14+i))
+		f.VPADDQ(zi(14+i), zi(4+i), zi(4+i))
 
 	}
-
 	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
 
-	CARRY3()
+	reduceWord(3)
 
+	CARRY3()
+	storeOutput()
 	CARRY4()
+
+	loadInput()
 
 	MUL_W_Q_LO()
 
+	mulWord(0)
+
 	MUL_W_Q_HI()
 
-	CARRY1()
+	reduceWord(0)
 
+	CARRY1()
+	mulWord(1)
 	CARRY2()
+
+	reduceWord(1)
 
 	f.Comment("Conditional subtraction of the modulus")
 
 	for i := 0; i < 8; i++ {
-		f.VPERMD_BCST_Z(f.qAt_bcst(i), "Z8", "K1", "Z"+strconv.Itoa(10+i))
+		f.VPERMD_BCST_Z(f.qAt_bcst(i), "Z8", "K1", zi(10+i))
 	}
 
 	for i := 0; i < 8; i++ {
-		f.VPSUBQ("Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(i), "Z"+strconv.Itoa(10+i))
+		f.VPSUBQ(zi(10+i), zi(i), zi(10+i))
 		if i > 0 {
-			f.VPSUBQ("Z"+strconv.Itoa(20+i-1), "Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(10+i))
+			f.VPSUBQ(zi(20+i-1), zi(10+i), zi(10+i))
 		}
 		if i != 7 {
-			f.VPSRLQ("$63", "Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(20+i))
-			f.VPANDQ("Z8", "Z"+strconv.Itoa(10+i), "Z"+strconv.Itoa(10+i))
+			f.VPSRLQ("$63", zi(10+i), zi(20+i))
+			f.VPANDQ("Z8", zi(10+i), zi(10+i))
 		}
 
 	}
+
+	mulWord(2)
 
 	f.VPMOVQ2M("Z17", "K2")
 	f.KNOTB("K2", "K2")
 
 	for i := 0; i < 8; i++ {
-		f.VMOVDQU64k("Z"+strconv.Itoa(10+i), "K2", "Z"+strconv.Itoa(i))
+		f.VMOVDQU64k(zi(10+i), "K2", zi(i))
 	}
+
+	reduceWord(2)
 
 	f.Comment("Transpose results back")
 
@@ -1578,9 +1633,11 @@ func (f *FFAmd64) generateMulVec() {
 	f.WriteLn("VALIGND $0, ·pattern4+0(SB), Z14, Z14")
 
 	for i := 0; i < 4; i++ {
-		f.VPSLLQ("$32", "Z"+strconv.Itoa(2*i+1), "Z"+strconv.Itoa(2*i+1))
-		f.VPORQ("Z"+strconv.Itoa(2*i+1), "Z"+strconv.Itoa(2*i), "Z"+strconv.Itoa(i))
+		f.VPSLLQ("$32", zi(2*i+1), zi(2*i+1))
+		f.VPORQ(zi(2*i+1), zi(2*i), zi(i))
 	}
+
+	mulWord(3)
 
 	f.VMOVDQU64("Z0", "Z4")
 	f.VMOVDQU64("Z2", "Z6")
@@ -1592,12 +1649,16 @@ func (f *FFAmd64) generateMulVec() {
 
 	// Step 3
 
+	reduceWord(3)
+
 	f.VMOVDQU64("Z0", "Z4")
 	f.VMOVDQU64("Z1", "Z5")
 	f.VPERMT2Q("Z2", "Z13", "Z0")
 	f.VPERMT2Q("Z4", "Z14", "Z2")
 	f.VPERMT2Q("Z3", "Z13", "Z1")
 	f.VPERMT2Q("Z5", "Z14", "Z3")
+
+	storeOutput()
 
 	f.Comment("Save AVX-512 results")
 
