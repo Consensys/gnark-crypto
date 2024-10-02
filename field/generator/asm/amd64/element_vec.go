@@ -932,24 +932,24 @@ func (f *FFAmd64) generateMulVec() {
 		return "Z" + strconv.Itoa(i)
 	}
 
-	// MUL_W_Q_LO:
+	// AVX_MUL_Q_LO:
 	// 	vpmuludq	0*4(PM){1to8}, %zmm9, %zmm10;	vpaddq	%zmm10, %zmm0, %zmm0;	// Low dword of zmm0 is zero
 	// 	vpmuludq	1*4(PM){1to8}, %zmm9, %zmm11;	vpaddq	%zmm11, %zmm1, %zmm1;
 	// 	vpmuludq	2*4(PM){1to8}, %zmm9, %zmm12;	vpaddq	%zmm12, %zmm2, %zmm2;
 	// 	vpmuludq	3*4(PM){1to8}, %zmm9, %zmm13;	vpaddq	%zmm13, %zmm3, %zmm3;
-	MUL_W_Q_LO := f.Define("MUL_W_Q_LO", 0, func(args ...amd64.Register) {
+	AVX_MUL_Q_LO := f.Define("AVX_MUL_Q_LO", 0, func(args ...amd64.Register) {
 		for i := 0; i < 4; i++ {
 			f.VPMULUDQ_BCST(f.qAt_bcst(i), "Z9", zi(10+i))
 			f.VPADDQ(zi(10+i), zi(i), zi(i))
 		}
 	})
 
-	// MUL_W_Q_HI:
+	// AVX_MUL_Q_HI:
 	// 	vpmuludq	4*4(PM){1to8}, %zmm9, %zmm14;	vpaddq	%zmm14, %zmm4, %zmm4;
 	// 	vpmuludq	5*4(PM){1to8}, %zmm9, %zmm15;	vpaddq	%zmm15, %zmm5, %zmm5;
 	// 	vpmuludq	6*4(PM){1to8}, %zmm9, %zmm16;	vpaddq	%zmm16, %zmm6, %zmm6;
 	// 	vpmuludq	7*4(PM){1to8}, %zmm9, %zmm17;	vpaddq	%zmm17, %zmm7, %zmm7;
-	MUL_W_Q_HI := f.Define("MUL_W_Q_HI", 0, func(args ...amd64.Register) {
+	AVX_MUL_Q_HI := f.Define("AVX_MUL_Q_HI", 0, func(args ...amd64.Register) {
 		for i := 0; i < 4; i++ {
 			f.VPMULUDQ_BCST(f.qAt_bcst(i+4), "Z9", zi(14+i))
 			f.VPADDQ(zi(14+i), zi(i+4), zi(i+4))
@@ -1015,9 +1015,8 @@ func (f *FFAmd64) generateMulVec() {
 
 	m := amd64.DX
 
-	mulWord0 := f.Define("mul_w_0_0_0", 0, func(args ...amd64.Register) {
+	mulWord0 := f.Define("MUL_WORD_0", 0, func(args ...amd64.Register) {
 		f.XORQ(amd64.AX, amd64.AX)
-		f.MOVQ(amd64.Register(PX.At(0)), amd64.DX)
 		f.MULXQ(y[0], t[0], t[1])
 		f.MULXQ(y[1], amd64.AX, t[1+1])
 		f.ADOXQ(amd64.AX, t[1])
@@ -1030,9 +1029,8 @@ func (f *FFAmd64) generateMulVec() {
 
 	})
 
-	mulWordN := func(wordIndex int) {
+	mulWordN := f.Define("MUL_WORD", 0, func(args ...amd64.Register) {
 		f.XORQ(amd64.AX, amd64.AX)
-		f.MOVQ(amd64.Register(PX.At(wordIndex)), amd64.DX)
 
 		f.MULXQ(y[0], amd64.AX, A)
 		f.ADOXQ(amd64.AX, t[0])
@@ -1052,8 +1050,8 @@ func (f *FFAmd64) generateMulVec() {
 		f.MOVQ(0, amd64.AX)
 		f.ADCXQ(amd64.AX, A)
 		f.ADOXQ(amd64.AX, A)
-	}
-	reduceWordN := f.Define("mul_w_i_1_0", 0, func(args ...amd64.Register) {
+	})
+	divShift := f.Define("DIV_SHIFT", 0, func(args ...amd64.Register) {
 		f.MOVQ(f.qInv0(), m)
 		f.IMULQ(t[0], m)
 
@@ -1087,17 +1085,18 @@ func (f *FFAmd64) generateMulVec() {
 	}
 
 	mulWord := func(wordIndex int) {
-		f.Comment(fmt.Sprintf("z[%d] -> mul word %d", zIndex, wordIndex))
+		f.Comment(fmt.Sprintf("z[%d] -> y * x[%d]", zIndex, wordIndex))
 		if wordIndex == 0 {
 			mulWord0()
 		} else {
-			mulWordN(wordIndex)
+			f.MOVQ(amd64.Register(PX.At(wordIndex)), amd64.DX)
+			mulWordN()
 		}
 	}
 
 	reduceWord := func(wordIndex int) {
-		f.Comment(fmt.Sprintf("z[%d] -> reduce word %d", zIndex, wordIndex))
-		reduceWordN()
+		f.Comment(fmt.Sprintf("z[%d] -> div & shift t %d", zIndex, wordIndex))
+		divShift()
 	}
 
 	storeOutput := func() {
@@ -1105,7 +1104,12 @@ func (f *FFAmd64) generateMulVec() {
 
 		f.Comment(fmt.Sprintf("store output z[%d]", zIndex))
 		f.Mov(t, PZ, 0, zIndex*4)
-		f.ADDQ("$32", PX)
+		if zIndex == 7 {
+			f.ADDQ("$288", PX)
+		} else {
+			f.ADDQ("$32", PX)
+			f.MOVQ(amd64.Register(PX.At(0)), amd64.DX)
+		}
 		zIndex++
 	}
 
@@ -1137,16 +1141,17 @@ func (f *FFAmd64) generateMulVec() {
 	f.TESTQ(tr, tr)
 	f.JEQ(done, "n == 0, we are done")
 
+	f.MOVQ(amd64.Register(PX.At(0)), amd64.DX)
 	f.VMOVDQU64("256+0*64("+PX+")", "Z16")
 	f.VMOVDQU64("256+1*64("+PX+")", "Z17")
 	f.VMOVDQU64("256+2*64("+PX+")", "Z18")
 	f.VMOVDQU64("256+3*64("+PX+")", "Z19")
+
+	loadInput()
 	f.VMOVDQU64("256+0*64("+PY+")", "Z24")
 	f.VMOVDQU64("256+1*64("+PY+")", "Z25")
 	f.VMOVDQU64("256+2*64("+PY+")", "Z26")
 	f.VMOVDQU64("256+3*64("+PY+")", "Z27")
-
-	loadInput()
 
 	f.Comment("Transpose and expand x and y")
 
@@ -1163,7 +1168,6 @@ func (f *FFAmd64) generateMulVec() {
 	f.VSHUFI64X2("$0xdd", "Z27", "Z26", "Z31")
 
 	mulWord(0)
-
 	// Step 2
 
 	f.VPERMQ("$0xd8", "Z20", "Z20")
@@ -1334,10 +1338,10 @@ func (f *FFAmd64) generateMulVec() {
 	CARRY4()
 	reduceWord(0)
 
-	MUL_W_Q_LO()
+	AVX_MUL_Q_LO()
 	mulWord(1)
 
-	MUL_W_Q_HI()
+	AVX_MUL_Q_HI()
 	reduceWord(1)
 
 	CARRY1()
@@ -1375,10 +1379,10 @@ func (f *FFAmd64) generateMulVec() {
 
 	mulWord(0)
 
-	MUL_W_Q_LO()
+	AVX_MUL_Q_LO()
 
 	reduceWord(0)
-	MUL_W_Q_HI()
+	AVX_MUL_Q_HI()
 	mulWord(1)
 
 	CARRY1()
@@ -1412,11 +1416,11 @@ func (f *FFAmd64) generateMulVec() {
 	CARRY4()
 	storeOutput()
 	loadInput()
-	MUL_W_Q_LO()
+	AVX_MUL_Q_LO()
 
 	mulWord(0)
 
-	MUL_W_Q_HI()
+	AVX_MUL_Q_HI()
 
 	reduceWord(0)
 
@@ -1461,9 +1465,9 @@ func (f *FFAmd64) generateMulVec() {
 
 	f.Comment("zmm7 keeps all 64 bits")
 
-	MUL_W_Q_LO()
+	AVX_MUL_Q_LO()
 
-	MUL_W_Q_HI()
+	AVX_MUL_Q_HI()
 
 	storeOutput()
 
@@ -1504,11 +1508,11 @@ func (f *FFAmd64) generateMulVec() {
 
 	reduceWord(1)
 
-	MUL_W_Q_LO()
+	AVX_MUL_Q_LO()
 
 	mulWord(2)
 
-	MUL_W_Q_HI()
+	AVX_MUL_Q_HI()
 
 	reduceWord(2)
 
@@ -1542,11 +1546,11 @@ func (f *FFAmd64) generateMulVec() {
 
 	reduceWord(0)
 
-	MUL_W_Q_LO()
+	AVX_MUL_Q_LO()
 
 	mulWord(1)
 
-	MUL_W_Q_HI()
+	AVX_MUL_Q_HI()
 
 	reduceWord(1)
 
@@ -1582,11 +1586,11 @@ func (f *FFAmd64) generateMulVec() {
 
 	loadInput()
 
-	MUL_W_Q_LO()
+	AVX_MUL_Q_LO()
 
 	mulWord(0)
 
-	MUL_W_Q_HI()
+	AVX_MUL_Q_HI()
 
 	reduceWord(0)
 
@@ -1668,7 +1672,7 @@ func (f *FFAmd64) generateMulVec() {
 	f.VMOVDQU64("Z3", "256+3*64("+PZ+")")
 
 	f.ADDQ("$512", PZ)
-	f.ADDQ("$256", PX)
+	// f.ADDQ("$256", PX)
 	f.ADDQ("$512", PY)
 
 	f.MOVQ(LEN, tr)
