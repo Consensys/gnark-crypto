@@ -15,8 +15,6 @@
 package amd64
 
 import (
-	"fmt"
-
 	"github.com/consensys/bavard/amd64"
 )
 
@@ -40,69 +38,19 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 	f.LabelRegisters("A", A)
 	f.LabelRegisters("t", t...)
 
-	for i := 0; i < f.NbWords; i++ {
-		f.Comment("clear the flags")
-		f.XORQ(amd64.AX, amd64.AX)
-
-		f.MOVQ(y(i), amd64.DX)
-
-		// for j=0 to N-1
-		//    (A,t[j])  := t[j] + x[j]*y[i] + A
-		if i == 0 {
-			for j := 0; j < f.NbWords; j++ {
-				f.Comment(fmt.Sprintf("(A,t[%[1]d])  := x[%[1]d]*y[%[2]d] + A", j, i))
-
-				if j == 0 && f.NbWords == 1 {
-					f.MULXQ(x(j), t[j], A)
-				} else if j == 0 {
-					f.MULXQ(x(j), t[j], t[j+1])
-				} else {
-					highBits := A
-					if j != f.NbWordsLastIndex {
-						highBits = t[j+1]
-					}
-					f.MULXQ(x(j), amd64.AX, highBits)
-					f.ADOXQ(amd64.AX, t[j])
-				}
-			}
-		} else {
-			for j := 0; j < f.NbWords; j++ {
-				f.Comment(fmt.Sprintf("(A,t[%[1]d])  := t[%[1]d] + x[%[1]d]*y[%[2]d] + A", j, i))
-
-				if j != 0 {
-					f.ADCXQ(A, t[j])
-				}
-				f.MULXQ(x(j), amd64.AX, A)
-				f.ADOXQ(amd64.AX, t[j])
-			}
-		}
-
-		f.Comment("A += carries from ADCXQ and ADOXQ")
-		f.MOVQ(0, amd64.AX)
-		if i != 0 {
-			f.ADCXQ(amd64.AX, A)
-		}
-		f.ADOXQ(amd64.AX, A)
-
+	divShift := f.Define("DIV_SHIFT", 0, func(_ ...amd64.Register) {
 		if !hasFreeRegister {
 			f.PUSHQ(A)
 		}
-
 		// m := t[0]*q'[0] mod W
-		f.Comment("m := t[0]*q'[0] mod W")
 		m := amd64.DX
-		// f.MOVQ(t[0], m)
-		// f.MULXQ(f.qInv0(), m, amd64.AX)
 		f.MOVQ(f.qInv0(), m)
 		f.IMULQ(t[0], m)
 
 		// clear the carry flags
-		f.Comment("clear the flags")
 		f.XORQ(amd64.AX, amd64.AX)
 
 		// C,_ := t[0] + m*q[0]
-		f.Comment("C,_ := t[0] + m*q[0]")
-
 		f.MULXQ(f.qAt(0), amd64.AX, tr)
 		f.ADCXQ(t[0], amd64.AX)
 		f.MOVQ(tr, t[0])
@@ -112,18 +60,69 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 		}
 
 		// for j=1 to N-1
-		//    (C,t[j-1]) := t[j] + m*q[j] + C
+		//
+		//	(C,t[j-1]) := t[j] + m*q[j] + C
 		for j := 1; j < f.NbWords; j++ {
-			f.Comment(fmt.Sprintf("(C,t[%[1]d]) := t[%[2]d] + m*q[%[2]d] + C", j-1, j))
 			f.ADCXQ(t[j], t[j-1])
 			f.MULXQ(f.qAt(j), amd64.AX, t[j])
 			f.ADOXQ(amd64.AX, t[j-1])
 		}
 
-		f.Comment(fmt.Sprintf("t[%d] = C + A", f.NbWordsLastIndex))
 		f.MOVQ(0, amd64.AX)
 		f.ADCXQ(amd64.AX, t[f.NbWordsLastIndex])
 		f.ADOXQ(A, t[f.NbWordsLastIndex])
+
+	})
+
+	mulWord0 := f.Define("MUL_WORD_0", 0, func(_ ...amd64.Register) {
+		// for j=0 to N-1
+		//    (A,t[j])  := t[j] + x[j]*y[i] + A
+		for j := 0; j < f.NbWords; j++ {
+			if j == 0 && f.NbWords == 1 {
+				f.MULXQ(x(j), t[j], A)
+			} else if j == 0 {
+				f.MULXQ(x(j), t[j], t[j+1])
+			} else {
+				highBits := A
+				if j != f.NbWordsLastIndex {
+					highBits = t[j+1]
+				}
+				f.MULXQ(x(j), amd64.AX, highBits)
+				f.ADOXQ(amd64.AX, t[j])
+			}
+		}
+		f.MOVQ(0, amd64.AX)
+		f.ADOXQ(amd64.AX, A)
+		divShift()
+	})
+
+	mulWordN := f.Define("MUL_WORD_N", 0, func(_ ...amd64.Register) {
+		// for j=0 to N-1
+		//    (A,t[j])  := t[j] + x[j]*y[i] + A
+		for j := 0; j < f.NbWords; j++ {
+			if j != 0 {
+				f.ADCXQ(A, t[j])
+			}
+			f.MULXQ(x(j), amd64.AX, A)
+			f.ADOXQ(amd64.AX, t[j])
+		}
+		f.MOVQ(0, amd64.AX)
+		f.ADCXQ(amd64.AX, A)
+		f.ADOXQ(amd64.AX, A)
+		divShift()
+	})
+
+	for i := 0; i < f.NbWords; i++ {
+		f.Comment("clear the flags")
+		f.XORQ(amd64.AX, amd64.AX)
+
+		f.MOVQ(y(i), amd64.DX)
+
+		if i == 0 {
+			mulWord0()
+		} else {
+			mulWordN()
+		}
 
 	}
 

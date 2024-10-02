@@ -193,9 +193,9 @@ func (f *FFAmd64) generateScalarMulVec() {
 	f.LabelRegisters("scalar", scalar...)
 	f.Mov(addrB, scalar)
 
-	xat := func(i int) string {
-		return string(scalar[i])
-	}
+	// xat := func(i int) string {
+	// 	return string(scalar[i])
+	// }
 
 	f.MOVQ("res+0(FP)", addrRes)
 
@@ -203,13 +203,13 @@ func (f *FFAmd64) generateScalarMulVec() {
 	f.TESTQ(len, len)
 	f.JEQ(done, "n == 0, we are done")
 
-	yat := func(i int) string {
-		return addrA.At(i)
-	}
+	// yat := func(i int) string {
+	// 	return addrA.At(i)
+	// }
 
 	f.Comment("TODO @gbotrel this is generated from the same macro as the unit mul, we should refactor this in a single asm function")
 
-	f.MulADX(&registers, xat, yat, t)
+	// f.MulADX(&registers, xat, yat, t)
 
 	// registers.Push(addrA)
 
@@ -1017,7 +1017,7 @@ func (f *FFAmd64) generateMulVec() {
 
 	m := amd64.DX
 
-	mulWord0 := f.Define("MUL_WORD_0", 0, func(args ...amd64.Register) {
+	mulWord0 := f.Define("MUL_WORD_0_TORENAME", 0, func(args ...amd64.Register) {
 		f.XORQ(amd64.AX, amd64.AX)
 		f.MULXQ(y[0], t[0], t[1])
 		f.MULXQ(y[1], amd64.AX, t[1+1])
@@ -1031,7 +1031,7 @@ func (f *FFAmd64) generateMulVec() {
 
 	})
 
-	mulWordN := f.Define("MUL_WORD", 0, func(args ...amd64.Register) {
+	mulWordN := f.Define("MUL_WORD_TORENAME", 0, func(args ...amd64.Register) {
 		f.XORQ(amd64.AX, amd64.AX)
 
 		f.MULXQ(y[0], amd64.AX, A)
@@ -1053,7 +1053,8 @@ func (f *FFAmd64) generateMulVec() {
 		f.ADCXQ(amd64.AX, A)
 		f.ADOXQ(amd64.AX, A)
 	})
-	divShift := f.Define("DIV_SHIFT", 0, func(args ...amd64.Register) {
+
+	divShift := f.Define("DIV_SHIFT_TORENAME", 0, func(args ...amd64.Register) {
 		f.MOVQ(f.qInv0(), m)
 		f.IMULQ(t[0], m)
 
@@ -1086,7 +1087,7 @@ func (f *FFAmd64) generateMulVec() {
 		f.Mov(PY, y, zIndex*4)
 	}
 
-	_ = f.Define("MUL_XI", 0, func(inputs ...amd64.Register) {
+	mulXI_ := f.Define("MUL_XI", 0, func(inputs ...amd64.Register) {
 		mulWordN()
 		divShift()
 	})
@@ -1098,8 +1099,8 @@ func (f *FFAmd64) generateMulVec() {
 			divShift()
 		} else {
 			f.MOVQ(amd64.Register(PX.At(wordIndex)), amd64.DX)
-			// mulXI_()
-			f.WriteLn("CALL mul_xi(SB)")
+			mulXI_()
+			// f.WriteLn("CALL mul_xi(SB)")
 		}
 		// f.Comment(fmt.Sprintf("z[%d] -> div & shift t %d", zIndex, wordIndex))
 		// divShift()
