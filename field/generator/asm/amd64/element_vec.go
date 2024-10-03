@@ -58,6 +58,8 @@ func (f *FFAmd64) generateAddVec() {
 	f.LabelRegisters("a", a...)
 	f.Mov(addrA, a)
 	f.Add(addrB, a)
+	f.WriteLn(fmt.Sprintf("PREFETCHT0 2048(%[1]s)", addrA))
+	f.WriteLn(fmt.Sprintf("PREFETCHT0 2048(%[1]s)", addrB))
 
 	// reduce a
 	f.ReduceElement(a, t)
@@ -262,8 +264,7 @@ func (f *FFAmd64) generateSumVec() {
 		f.VPMOVZXDQ(fmt.Sprintf("%d*32("+string(addrA)+")", i), r)
 	}
 
-	// TODO @gbotrel prefetch
-	f.WriteLn(fmt.Sprintf("PREFETCHT0 256(%[1]s)", addrA))
+	f.WriteLn(fmt.Sprintf("PREFETCHT0 4096(%[1]s)", addrA))
 	for i := 0; i < 8; i++ {
 		r := fmt.Sprintf("Z%d", i)
 		f.VPADDQ(fmt.Sprintf("Z%d", i+8), r, r)
@@ -617,7 +618,6 @@ func (f *FFAmd64) generateInnerProduct() {
 	addPP(A3H, A4L, A4H, A5L, "5")
 	addPP(A4H, A5L, A5H, A6L, "6")
 	addPP(A5H, A6L, A6H, A7L, "7")
-
 	f.VPSRLQ("$32", ACC, PPL)
 	f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
 	f.VPADDQ(PPL, ACC, ACC)

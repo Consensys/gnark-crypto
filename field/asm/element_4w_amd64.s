@@ -476,14 +476,16 @@ loop_3:
 	// a[1] -> DI
 	// a[2] -> R8
 	// a[3] -> R9
-	MOVQ 0(AX), SI
-	MOVQ 8(AX), DI
-	MOVQ 16(AX), R8
-	MOVQ 24(AX), R9
-	ADDQ 0(DX), SI
-	ADCQ 8(DX), DI
-	ADCQ 16(DX), R8
-	ADCQ 24(DX), R9
+	MOVQ       0(AX), SI
+	MOVQ       8(AX), DI
+	MOVQ       16(AX), R8
+	MOVQ       24(AX), R9
+	ADDQ       0(DX), SI
+	ADCQ       8(DX), DI
+	ADCQ       16(DX), R8
+	ADCQ       24(DX), R9
+	PREFETCHT0 2048(AX)
+	PREFETCHT0 2048(DX)
 
 	// reduce element(SI,DI,R8,R9) using temp registers (R10,R11,R12,R13)
 	REDUCE(SI,DI,R8,R9,R10,R11,R12,R13)
@@ -630,7 +632,7 @@ loop8by8_7:
 	VPMOVZXDQ  5*32(R14), Z13
 	VPMOVZXDQ  6*32(R14), Z14
 	VPMOVZXDQ  7*32(R14), Z15
-	PREFETCHT0 256(R14)
+	PREFETCHT0 4096(R14)
 	VPADDQ     Z8, Z0, Z0
 	VPADDQ     Z9, Z1, Z1
 	VPADDQ     Z10, Z2, Z2
