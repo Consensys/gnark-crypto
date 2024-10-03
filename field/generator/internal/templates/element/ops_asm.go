@@ -68,6 +68,11 @@ func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
 		return
 	}
 	n := uint64(len(a))
+	if n == 0 {
+		return
+	}
+	// the code for scalarMul is identical to mulVec; and it expects at least 
+	// 2 elements in the vector to fill the Z registers
 	var bb  [2]{{.ElementName}}
 	bb[0] = *b
 	bb[1] = *b
@@ -135,6 +140,9 @@ func (vector *Vector) Mul(a, b Vector) {
 		panic("vector.Mul: vectors don't have the same length")
 	}
 	n := uint64(len(a))
+	if n == 0 {
+		return
+	}
 	const maxN = (1 << 32) - 1
 	if !supportAvx512 || n >= maxN {
 		// call mulVecGeneric
