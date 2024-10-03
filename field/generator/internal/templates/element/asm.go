@@ -7,11 +7,20 @@ import 	"golang.org/x/sys/cpu"
 var (
 	supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2
 	_ = supportAdx
-	{{- if .ASMVector}}
-	supportAvx512 = cpu.X86.HasAVX512 && cpu.X86.HasAVX512DQ
-	_ = supportAvx512
-	{{- end}}
 )
+`
+
+const Avx = `
+import 	"golang.org/x/sys/cpu"
+
+var (
+	supportAvx512 = supportAdx && cpu.X86.HasAVX512 && cpu.X86.HasAVX512DQ
+	_ = supportAvx512
+)
+`
+
+const NoAvx = `
+const supportAvx512 = false
 `
 
 // AsmNoAdx ...

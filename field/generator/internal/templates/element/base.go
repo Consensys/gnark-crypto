@@ -68,7 +68,7 @@ func Modulus() *big.Int {
 // used for Montgomery reduction
 const qInvNeg uint64 = {{index .QInverse 0}}
 
-{{- if .ASMVector}}
+{{- if eq .NbWords 4}}
 // mu = 2^288 / q needed for partial Barrett reduction
 const mu uint64 = {{.Mu}}
 {{- end}}

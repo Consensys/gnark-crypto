@@ -15,8 +15,22 @@
 package amd64
 
 import (
+	"fmt"
+
 	"github.com/consensys/bavard/amd64"
 )
+
+// Registers used when f.NbWords == 4
+// for the multiplication.
+// They are re-referenced in defines in the vectorized operations.
+var mul4Registers = []amd64.Register{
+	// t
+	amd64.R14, amd64.R13, amd64.CX, amd64.BX,
+	// x
+	amd64.DI, amd64.R8, amd64.R9, amd64.R10,
+	// tr
+	amd64.R12,
+}
 
 // MulADX uses AX, DX and BP
 // sets x * y into t, without modular reduction
@@ -37,6 +51,28 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 
 	f.LabelRegisters("A", A)
 	f.LabelRegisters("t", t...)
+
+	if f.NbWords == 4 && hasFreeRegister {
+		// ensure the registers match the "hardcoded ones" in mul4Registers for the vecops
+		match := true
+		for i := 0; i < 4; i++ {
+			if mul4Registers[i] != t[i] {
+				match = false
+				fmt.Printf("expected %s, got t[%d] %s\n", mul4Registers[i], i, t[i])
+			}
+			if mul4Registers[i+4] != amd64.Register(x(i)) {
+				match = false
+				fmt.Printf("expected %s, got x[%d] %s\n", mul4Registers[i+4], i, x(i))
+			}
+		}
+		if tr != mul4Registers[8] {
+			match = false
+			fmt.Printf("expected %s, got tr %s\n", mul4Registers[8], tr)
+		}
+		if !match {
+			panic("registers do not match hardcoded ones")
+		}
+	}
 
 	mac := f.Define("MACC", 3, func(args ...amd64.Register) {
 		in0 := args[0]
@@ -82,6 +118,7 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 	})
 
 	mulWord0 := f.Define("MUL_WORD_0", 0, func(_ ...amd64.Register) {
+		f.XORQ(amd64.AX, amd64.AX)
 		// for j=0 to N-1
 		//    (A,t[j])  := t[j] + x[j]*y[i] + A
 		for j := 0; j < f.NbWords; j++ {
@@ -103,7 +140,8 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 		divShift()
 	})
 
-	mulWordN := f.Define("MUL_WORD_N", 0, func(_ ...amd64.Register) {
+	mulWordN := f.Define("MUL_WORD_N", 0, func(args ...amd64.Register) {
+		f.XORQ(amd64.AX, amd64.AX)
 		// for j=0 to N-1
 		//    (A,t[j])  := t[j] + x[j]*y[i] + A
 		f.MULXQ(x(0), amd64.AX, A)
@@ -117,9 +155,9 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 		divShift()
 	})
 
+	f.Comment("mul body")
+
 	for i := 0; i < f.NbWords; i++ {
-		f.Comment("clear the flags")
-		f.XORQ(amd64.AX, amd64.AX)
 		f.MOVQ(y(i), amd64.DX)
 
 		if i == 0 {

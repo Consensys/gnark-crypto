@@ -60,6 +60,12 @@ func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
 	if len(a) != len(*vector) {
 		panic("vector.ScalarMul: vectors don't have the same length")
 	}
+	const maxN = (1 << 32) - 1
+	if !supportAvx512 || uint64(len(a)) >= maxN {
+		// call scalarMulVecGeneric
+		scalarMulVecGeneric(*vector, a, b)
+		return
+	}
 	scalarMulVec(&(*vector)[0], &a[0], b, uint64(len(a)))
 }
 
@@ -118,6 +124,13 @@ func (vector *Vector) Mul(a, b Vector) {
 		panic("vector.Mul: vectors don't have the same length")
 	}
 	n := uint64(len(a))
+	const maxN = (1 << 32) - 1
+	if !supportAvx512 || n >= maxN {
+		// call mulVecGeneric
+		mulVecGeneric(*vector, a, b)
+		return
+	}
+
 	const blockSize = 16
 	mulVec(&(*vector)[0], &a[0], &b[0], n/blockSize, qInvNeg)
 	if n % blockSize != 0 {

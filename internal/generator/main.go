@@ -76,11 +76,7 @@ func main() {
 	}
 
 	for nbWords := range mCommon {
-		assertNoError(generator.GenerateCommonASM(nbWords, asmDirBuildPath))
-	}
-
-	for nbWords := range mVec {
-		assertNoError(generator.GenerateVectorASM(nbWords, asmDirBuildPath))
+		assertNoError(generator.GenerateCommonASM(nbWords, asmDirBuildPath, mVec[nbWords]))
 	}
 
 	var wg sync.WaitGroup

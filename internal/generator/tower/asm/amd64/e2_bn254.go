@@ -346,15 +346,12 @@ type writerDefine struct {
 func (w *writerDefine) Write(p []byte) (n int, err error) {
 	// TODO @gbotrel temporary hack to re-use new struct in mul;
 	// then if it's the first time we are here, we print the header
-	if strings.Contains(string(p), "XORQ") {
-		w.cptXORQ++
-	}
-	if w.cptXORQ < 2 {
-		return w.w.Write(p)
-	}
-	if !w.first && w.cptXORQ == 2 {
-		_, _ = io.WriteString(w.w, "#define MUL() \\ \n")
+	if strings.Contains(string(p), "mul body") {
 		w.first = true
+		_, _ = io.WriteString(w.w, "#define MUL() \\ \n")
+	}
+	if !w.first {
+		return w.w.Write(p)
 	}
 
 	line := string(p)

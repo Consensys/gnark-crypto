@@ -165,6 +165,7 @@ func (f *FFAmd64) generateScalarMulVec() {
 	const minStackSize = 7 * 8 // 2 slices (3 words each) + pointer to the scalar
 	stackSize := f.StackSize(f.NbWords*2+3, 2, minStackSize)
 	reserved := []amd64.Register{amd64.DX, amd64.AX}
+	reserved = append(reserved, mul4Registers...)
 	registers := f.FnHeader("scalarMulVec", stackSize, argSize, reserved...)
 	defer f.AssertCleanStack(stackSize, minStackSize)
 
@@ -173,8 +174,8 @@ func (f *FFAmd64) generateScalarMulVec() {
 	loop := f.NewLabel("loop")
 	done := f.NewLabel("done")
 
-	t := registers.PopN(f.NbWords)
-	scalar := registers.PopN(f.NbWords)
+	t := mul4Registers[:f.NbWords]
+	scalar := mul4Registers[f.NbWords : f.NbWords*2]
 
 	addrB := registers.Pop()
 	addrA := registers.Pop()
@@ -193,23 +194,23 @@ func (f *FFAmd64) generateScalarMulVec() {
 	f.LabelRegisters("scalar", scalar...)
 	f.Mov(addrB, scalar)
 
-	// xat := func(i int) string {
-	// 	return string(scalar[i])
-	// }
-
 	f.MOVQ("res+0(FP)", addrRes)
 
 	f.LABEL(loop)
 	f.TESTQ(len, len)
 	f.JEQ(done, "n == 0, we are done")
 
-	// yat := func(i int) string {
-	// 	return addrA.At(i)
-	// }
-
-	f.Comment("TODO @gbotrel this is generated from the same macro as the unit mul, we should refactor this in a single asm function")
-
-	// f.MulADX(&registers, xat, yat, t)
+	// reuse defines from the mul function
+	mulWord0 := f.DefineFn("MUL_WORD_0")
+	mulWordN := f.DefineFn("MUL_WORD_N")
+	for i := 0; i < f.NbWords; i++ {
+		f.MOVQ(addrA.At(i), amd64.DX)
+		if i == 0 {
+			mulWord0()
+		} else {
+			mulWordN()
+		}
+	}
 
 	// registers.Push(addrA)
 
@@ -918,7 +919,11 @@ func (f *FFAmd64) generateMulVec() {
 
 	const argSize = 5 * 8
 	stackSize := f.StackSize(6+f.NbWords, 2, 8)
-	registers := f.FnHeader("mulVec", stackSize, argSize, amd64.AX, amd64.DX)
+	reserved := make([]amd64.Register, len(mul4Registers)+2)
+	copy(reserved, mul4Registers)
+	reserved[len(mul4Registers)] = amd64.AX
+	reserved[len(mul4Registers)+1] = amd64.DX
+	registers := f.FnHeader("mulVec", stackSize, argSize, reserved...)
 	defer f.AssertCleanStack(stackSize, 0)
 
 	// to simplify the generated assembly, we only handle n/16 (and do blocks of 16 muls).
@@ -1010,75 +1015,17 @@ func (f *FFAmd64) generateMulVec() {
 		}
 	})
 
-	t := f.PopN(&registers)
-	A := amd64.BP
-	tr := f.Pop(&registers)
-	y := f.PopN(&registers)
+	// we use the same registers as defined in the mul.
+	t := mul4Registers[:4]
+	f.LabelRegisters("t", t...)
+	y := mul4Registers[4:8]
+	f.LabelRegisters("y", y...)
+	tr := mul4Registers[8]
+	A := amd64.BP // note, BP is used in the mul defines.
 
-	m := amd64.DX
-
-	mulWord0 := f.Define("MUL_WORD_0_TORENAME", 0, func(args ...amd64.Register) {
-		f.XORQ(amd64.AX, amd64.AX)
-		f.MULXQ(y[0], t[0], t[1])
-		f.MULXQ(y[1], amd64.AX, t[1+1])
-		f.ADOXQ(amd64.AX, t[1])
-		f.MULXQ(y[2], amd64.AX, t[2+1])
-		f.ADOXQ(amd64.AX, t[2])
-		f.MULXQ(y[3], amd64.AX, A)
-		f.ADOXQ(amd64.AX, t[3])
-		f.MOVQ(0, amd64.AX)
-		f.ADOXQ(amd64.AX, A)
-
-	})
-
-	mulWordN := f.Define("MUL_WORD_TORENAME", 0, func(args ...amd64.Register) {
-		f.XORQ(amd64.AX, amd64.AX)
-
-		f.MULXQ(y[0], amd64.AX, A)
-		f.ADOXQ(amd64.AX, t[0])
-
-		f.ADCXQ(A, t[1])
-		f.MULXQ(y[1], amd64.AX, A)
-		f.ADOXQ(amd64.AX, t[1])
-		f.ADCXQ(A, t[2])
-
-		f.MULXQ(y[2], amd64.AX, A)
-		f.ADOXQ(amd64.AX, t[2])
-
-		f.ADCXQ(A, t[3])
-		f.MULXQ(y[3], amd64.AX, A)
-		f.ADOXQ(amd64.AX, t[3])
-
-		f.MOVQ(0, amd64.AX)
-		f.ADCXQ(amd64.AX, A)
-		f.ADOXQ(amd64.AX, A)
-	})
-
-	divShift := f.Define("DIV_SHIFT_TORENAME", 0, func(args ...amd64.Register) {
-		f.MOVQ(f.qInv0(), m)
-		f.IMULQ(t[0], m)
-
-		f.XORQ(amd64.AX, amd64.AX)
-
-		f.MULXQ(f.qAt(0), amd64.AX, tr)
-		f.ADCXQ(t[0], amd64.AX)
-		f.MOVQ(tr, t[0])
-
-		f.ADCXQ(t[1], t[0])
-		f.MULXQ(f.qAt(1), amd64.AX, t[1])
-		f.ADOXQ(amd64.AX, t[0])
-		f.ADCXQ(t[2], t[2-1])
-		f.MULXQ(f.qAt(2), amd64.AX, t[2])
-		f.ADOXQ(amd64.AX, t[2-1])
-
-		f.ADCXQ(t[3], t[3-1])
-		f.MULXQ(f.qAt(3), amd64.AX, t[3])
-		f.ADOXQ(amd64.AX, t[3-1])
-
-		f.MOVQ(0, amd64.AX)
-		f.ADCXQ(amd64.AX, t[f.NbWordsLastIndex])
-		f.ADOXQ(A, t[f.NbWordsLastIndex])
-	})
+	// reuse defines from the mul function
+	mulWord0 := f.DefineFn("MUL_WORD_0")
+	mulWordN := f.DefineFn("MUL_WORD_N")
 
 	zIndex := 0
 
@@ -1087,27 +1034,19 @@ func (f *FFAmd64) generateMulVec() {
 		f.Mov(PY, y, zIndex*4)
 	}
 
-	mulXI_ := f.Define("MUL_XI", 0, func(inputs ...amd64.Register) {
-		mulWordN()
-		divShift()
-	})
-
 	mulXi := func(wordIndex int) {
 		f.Comment(fmt.Sprintf("z[%d] -> y * x[%d]", zIndex, wordIndex))
 		if wordIndex == 0 {
 			mulWord0()
-			divShift()
 		} else {
 			f.MOVQ(amd64.Register(PX.At(wordIndex)), amd64.DX)
-			mulXI_()
-			// f.WriteLn("CALL mul_xi(SB)")
+			mulWordN()
 		}
-		// f.Comment(fmt.Sprintf("z[%d] -> div & shift t %d", zIndex, wordIndex))
-		// divShift()
 	}
 
 	storeOutput := func() {
-		f.ReduceElement(t, y)
+		scratch := []amd64.Register{A, tr, amd64.AX, amd64.DX}
+		f.ReduceElement(t, scratch)
 
 		f.Comment(fmt.Sprintf("store output z[%d]", zIndex))
 		f.Mov(t, PZ, 0, zIndex*4)

@@ -70,9 +70,12 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 
 	for _, of := range oldFiles {
 		_ = os.Remove(filepath.Join(outputDir, eName+of))
+		_ = os.Remove(filepath.Join(outputDir, of))
 	}
 	_ = os.Remove(filepath.Join(outputDir, "asm.go"))
 	_ = os.Remove(filepath.Join(outputDir, "asm_noadx.go"))
+	_ = os.Remove(filepath.Join(outputDir, "avx.go"))
+	_ = os.Remove(filepath.Join(outputDir, "noavx.go"))
 
 	funcs := template.FuncMap{}
 	if F.UseAddChain {
@@ -208,7 +211,7 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 		src := []string{
 			element.Asm,
 		}
-		pathSrc := filepath.Join(outputDir, "asm.go")
+		pathSrc := filepath.Join(outputDir, "asm_adx.go")
 		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
 		copy(bavardOptsCpy, bavardOpts)
 		bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!noadx"))
@@ -225,6 +228,34 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
 		copy(bavardOptsCpy, bavardOpts)
 		bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("noadx"))
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
+			return err
+		}
+	}
+
+	if F.ASMVector {
+		// generate asm.go and asm_noadx.go
+		src := []string{
+			element.Avx,
+		}
+		pathSrc := filepath.Join(outputDir, "asm_avx.go")
+		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
+		copy(bavardOptsCpy, bavardOpts)
+		bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!noavx"))
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
+			return err
+		}
+	}
+
+	if F.ASMVector {
+		// generate asm.go and asm_noadx.go
+		src := []string{
+			element.NoAvx,
+		}
+		pathSrc := filepath.Join(outputDir, "asm_noavx.go")
+		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
+		copy(bavardOptsCpy, bavardOpts)
+		bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("noavx"))
 		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
 			return err
 		}
@@ -249,7 +280,7 @@ func shorten(input string) string {
 	return input
 }
 
-func GenerateCommonASM(nbWords int, asmDir string) error {
+func GenerateCommonASM(nbWords int, asmDir string, hasVector bool) error {
 	pathSrc := filepath.Join(asmDir, fmt.Sprintf(amd64.ElementASMFileName, nbWords))
 
 	fmt.Println("generating", pathSrc)
@@ -258,34 +289,7 @@ func GenerateCommonASM(nbWords int, asmDir string) error {
 		return err
 	}
 
-	if err := amd64.GenerateCommonASM(f, nbWords); err != nil {
-		_ = f.Close()
-		return err
-	}
-	_ = f.Close()
-
-	// run asmfmt
-	// run go fmt on whole directory
-	cmd := exec.Command("asmfmt", "-w", pathSrc)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func GenerateVectorASM(nbWords int, asmDir string) error {
-	pathSrc := filepath.Join(asmDir, fmt.Sprintf(amd64.VectorASMFileName, nbWords))
-
-	fmt.Println("generating", pathSrc)
-	f, err := os.Create(pathSrc)
-	if err != nil {
-		return err
-	}
-
-	if err := amd64.GenerateVectorASM(f, nbWords); err != nil {
+	if err := amd64.GenerateCommonASM(f, nbWords, hasVector); err != nil {
 		_ = f.Close()
 		return err
 	}
