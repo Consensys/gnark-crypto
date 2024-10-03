@@ -246,7 +246,7 @@ func GenNumber(boundSize int64) gopter.Gen {
 		var bound big.Int
 		bound.Exp(big.NewInt(2), big.NewInt(boundSize), nil)
 		elmt, _ := rand.Int(genParams.Rng, &bound)
-		genResult := gopter.NewGenResult(*elmt, gopter.NoShrinker)
+		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
 		return genResult
 	}
 }
@@ -257,21 +257,23 @@ func GenComplexNumber(boundSize int64) gopter.Gen {
 		GenNumber(boundSize),
 		GenNumber(boundSize),
 	).Map(func(values []interface{}) *ComplexNumber {
-		return &ComplexNumber{A0: values[0].(big.Int), A1: values[1].(big.Int)}
+		return &ComplexNumber{A0: values[0].(*big.Int), A1: values[1].(*big.Int)}
 	})
 }
 
 // bench
+var benchRes [3]*ComplexNumber
+
 func BenchmarkHalfGCD(b *testing.B) {
-	var prime, _ = new(big.Int).SetString("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffed", 16) // 2^255 - 19
-	a0, _ := rand.Int(rand.Reader, prime)
-	a1, _ := rand.Int(rand.Reader, prime)
-	c0, _ := rand.Int(rand.Reader, prime)
-	c1, _ := rand.Int(rand.Reader, prime)
-	a := ComplexNumber{A0: *a0, A1: *a1}
-	c := ComplexNumber{A0: *c0, A1: *c1}
+	var n, _ = new(big.Int).SetString("100000000000000000000000000000000", 16) // 2^128
+	a0, _ := rand.Int(rand.Reader, n)
+	a1, _ := rand.Int(rand.Reader, n)
+	c0, _ := rand.Int(rand.Reader, n)
+	c1, _ := rand.Int(rand.Reader, n)
+	a := ComplexNumber{A0: a0, A1: a1}
+	c := ComplexNumber{A0: c0, A1: c1}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = HalfGCD(&a, &c)
+		benchRes = HalfGCD(&a, &c)
 	}
 }
