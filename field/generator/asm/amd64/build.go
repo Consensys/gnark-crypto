@@ -303,10 +303,11 @@ func GenerateCommonASM(w io.Writer, nbWords int, hasVector bool) error {
 
 		f.generateAddVec()
 		f.generateSubVec()
-		f.generateScalarMulVec()
+		f.generateMulVec("scalarMulVec")
 		f.generateSumVec()
 		f.generateInnerProduct()
-		f.generateMulVec()
+		f.generateMulVec("mulVec")
+
 	}
 
 	return nil

@@ -156,99 +156,6 @@ func (f *FFAmd64) generateSubVec() {
 
 }
 
-// scalarMulVec res = a * b
-// func scalarMulVec(res, a, b *{{.ElementName}}, n uint64)
-func (f *FFAmd64) generateScalarMulVec() {
-	f.Comment("scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b")
-
-	const argSize = 4 * 8
-	const minStackSize = 7 * 8 // 2 slices (3 words each) + pointer to the scalar
-	stackSize := f.StackSize(f.NbWords*2+3, 2, minStackSize)
-	reserved := []amd64.Register{amd64.DX, amd64.AX}
-	reserved = append(reserved, mul4Registers...)
-	registers := f.FnHeader("scalarMulVec", stackSize, argSize, reserved...)
-	defer f.AssertCleanStack(stackSize, minStackSize)
-
-	// labels & registers we need
-	noAdx := f.NewLabel("noAdx")
-	loop := f.NewLabel("loop")
-	done := f.NewLabel("done")
-
-	t := mul4Registers[:f.NbWords]
-	scalar := mul4Registers[f.NbWords : f.NbWords*2]
-
-	addrB := registers.Pop()
-	addrA := registers.Pop()
-	addrRes := addrB
-	len := registers.Pop()
-
-	// check ADX instruction support
-	f.CMPB("·supportAdx(SB)", 1)
-	f.JNE(noAdx)
-
-	f.MOVQ("a+8(FP)", addrA)
-	f.MOVQ("b+16(FP)", addrB)
-	f.MOVQ("n+24(FP)", len)
-
-	// we store b, the scalar, fully in registers
-	f.LabelRegisters("scalar", scalar...)
-	f.Mov(addrB, scalar)
-
-	f.MOVQ("res+0(FP)", addrRes)
-
-	f.LABEL(loop)
-	f.TESTQ(len, len)
-	f.JEQ(done, "n == 0, we are done")
-
-	// reuse defines from the mul function
-	mulWord0 := f.DefineFn("MUL_WORD_0")
-	mulWordN := f.DefineFn("MUL_WORD_N")
-	for i := 0; i < f.NbWords; i++ {
-		f.MOVQ(addrA.At(i), amd64.DX)
-		if i == 0 {
-			mulWord0()
-		} else {
-			mulWordN()
-		}
-	}
-
-	// registers.Push(addrA)
-
-	// reduce; we need at least 4 extra registers
-	registers.Push(amd64.AX, amd64.DX)
-	f.Comment("reduce t mod q")
-	f.Reduce(&registers, t)
-	f.Mov(t, addrRes)
-
-	f.Comment("increment pointers to visit next element")
-	f.ADDQ("$32", addrA)
-	f.ADDQ("$32", addrRes)
-	f.DECQ(len, "decrement n")
-	f.JMP(loop)
-
-	f.LABEL(done)
-	f.RET()
-
-	// no ADX support
-	f.LABEL(noAdx)
-
-	f.MOVQ("n+24(FP)", amd64.DX)
-
-	f.MOVQ("res+0(FP)", amd64.AX)
-	f.MOVQ(amd64.AX, "(SP)")
-	f.MOVQ(amd64.DX, "8(SP)")  // len
-	f.MOVQ(amd64.DX, "16(SP)") // cap
-	f.MOVQ("a+8(FP)", amd64.AX)
-	f.MOVQ(amd64.AX, "24(SP)")
-	f.MOVQ(amd64.DX, "32(SP)") // len
-	f.MOVQ(amd64.DX, "40(SP)") // cap
-	f.MOVQ("b+16(FP)", amd64.AX)
-	f.MOVQ(amd64.AX, "48(SP)")
-	f.WriteLn("CALL ·scalarMulVecGeneric(SB)")
-	f.RET()
-
-}
-
 // sumVec res = sum(a[0...n])
 func (f *FFAmd64) generateSumVec() {
 	f.Comment("sumVec(res, a *Element, n uint64) res = sum(a[0...n])")
@@ -914,8 +821,8 @@ func (f *FFAmd64) generateInnerProduct() {
 	f.RET()
 }
 
-func (f *FFAmd64) generateMulVec() {
-	f.Comment("mulVec(res, a,b *Element, n uint64, qInvNeg uint64) res = a[0...n] * b[0...n]")
+func (f *FFAmd64) generateMulVec(funcName string) {
+	scalarMul := funcName != "mulVec"
 
 	const argSize = 5 * 8
 	stackSize := f.StackSize(6+f.NbWords, 2, 8)
@@ -923,7 +830,7 @@ func (f *FFAmd64) generateMulVec() {
 	copy(reserved, mul4Registers)
 	reserved[len(mul4Registers)] = amd64.AX
 	reserved[len(mul4Registers)+1] = amd64.DX
-	registers := f.FnHeader("mulVec", stackSize, argSize, reserved...)
+	registers := f.FnHeader(funcName, stackSize, argSize, reserved...)
 	defer f.AssertCleanStack(stackSize, 0)
 
 	// to simplify the generated assembly, we only handle n/16 (and do blocks of 16 muls).
@@ -1030,6 +937,9 @@ func (f *FFAmd64) generateMulVec() {
 	zIndex := 0
 
 	loadInput := func() {
+		if scalarMul {
+			return
+		}
 		f.Comment(fmt.Sprintf("load input y[%d]", zIndex))
 		f.Mov(PY, y, zIndex*4)
 	}
@@ -1067,6 +977,10 @@ func (f *FFAmd64) generateMulVec() {
 	f.MOVQ("b+16(FP)", PY)
 	f.MOVQ("n+24(FP)", tr)
 
+	if scalarMul {
+		f.Mov(PY, y)
+	}
+
 	// we process 16 elements at a time, so we divide by 16
 	// f.SHRQ("$4", tr)
 	f.MOVQ(tr, LEN)
@@ -1094,10 +1008,17 @@ func (f *FFAmd64) generateMulVec() {
 	f.VMOVDQU64("256+3*64("+PX+")", "Z19")
 
 	loadInput()
-	f.VMOVDQU64("256+0*64("+PY+")", "Z24")
-	f.VMOVDQU64("256+1*64("+PY+")", "Z25")
-	f.VMOVDQU64("256+2*64("+PY+")", "Z26")
-	f.VMOVDQU64("256+3*64("+PY+")", "Z27")
+	if scalarMul {
+		f.VMOVDQU64("0("+PY+")", "Z24")
+		f.VMOVDQU64("0("+PY+")", "Z25")
+		f.VMOVDQU64("0("+PY+")", "Z26")
+		f.VMOVDQU64("0("+PY+")", "Z27")
+	} else {
+		f.VMOVDQU64("256+0*64("+PY+")", "Z24")
+		f.VMOVDQU64("256+1*64("+PY+")", "Z25")
+		f.VMOVDQU64("256+2*64("+PY+")", "Z26")
+		f.VMOVDQU64("256+3*64("+PY+")", "Z27")
+	}
 
 	f.Comment("Transpose and expand x and y")
 
@@ -1179,7 +1100,9 @@ func (f *FFAmd64) generateMulVec() {
 	for i := 0; i < 8; i++ {
 		f.VPMULUDQ("Z16", zi(24+i), zi(i))
 		if i == 4 {
-			f.WriteLn("PREFETCHT0 1024(" + string(PY) + ")")
+			if !scalarMul {
+				f.WriteLn("PREFETCHT0 1024(" + string(PY) + ")")
+			}
 		}
 	}
 
@@ -1564,9 +1487,11 @@ func (f *FFAmd64) generateMulVec() {
 	f.VMOVDQU64("Z2", "256+1*64("+PZ+")")
 	f.VMOVDQU64("Z1", "256+2*64("+PZ+")")
 	f.VMOVDQU64("Z3", "256+3*64("+PZ+")")
-
 	f.ADDQ("$512", PZ)
-	f.ADDQ("$512", PY)
+
+	if !scalarMul {
+		f.ADDQ("$512", PY)
+	}
 
 	f.MOVQ(LEN, tr)
 	f.DECQ(tr, "decrement n")

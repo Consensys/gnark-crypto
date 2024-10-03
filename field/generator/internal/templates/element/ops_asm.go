@@ -66,11 +66,21 @@ func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
 		scalarMulVecGeneric(*vector, a, b)
 		return
 	}
-	scalarMulVec(&(*vector)[0], &a[0], b, uint64(len(a)))
+	n := uint64(len(a))
+	var bb  [2]{{.ElementName}}
+	bb[0] = *b
+	bb[1] = *b
+	const blockSize = 16
+	scalarMulVec(&(*vector)[0], &a[0], &bb[0], n/blockSize, qInvNeg)
+	if n % blockSize != 0 {
+		// call scalarMulVecGeneric on the rest
+		start := n - n % blockSize
+		scalarMulVecGeneric((*vector)[start:], a[start:], b)
+	}
 }
 
 //go:noescape
-func scalarMulVec(res, a, b *{{.ElementName}}, n uint64)
+func scalarMulVec(res, a, b *{{.ElementName}}, n uint64, qInvNeg uint64)
 
 // Sum computes the sum of all elements in the vector.
 func (vector *Vector) Sum() (res {{.ElementName}}) {

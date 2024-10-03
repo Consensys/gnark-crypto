@@ -562,67 +562,732 @@ loop_5:
 done_6:
 	RET
 
-// scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b
-TEXT ·scalarMulVec(SB), $56-32
-	CMPB ·supportAdx(SB), $1
-	JNE  noAdx_7
-	MOVQ a+8(FP), R15
-	MOVQ b+16(FP), SI
-	MOVQ n+24(FP), R11
+TEXT ·scalarMulVec(SB), $8-40
+	// couple of defines
+#define AVX_MUL_Q_LO() \
+	VPMULUDQ.BCST ·qElement+0(SB), Z9, Z10  \
+	VPADDQ        Z10, Z0, Z0               \
+	VPMULUDQ.BCST ·qElement+4(SB), Z9, Z11  \
+	VPADDQ        Z11, Z1, Z1               \
+	VPMULUDQ.BCST ·qElement+8(SB), Z9, Z12  \
+	VPADDQ        Z12, Z2, Z2               \
+	VPMULUDQ.BCST ·qElement+12(SB), Z9, Z13 \
+	VPADDQ        Z13, Z3, Z3               \
 
-	// scalar[0] -> DI
-	// scalar[1] -> R8
-	// scalar[2] -> R9
-	// scalar[3] -> R10
-	MOVQ 0(SI), DI
-	MOVQ 8(SI), R8
-	MOVQ 16(SI), R9
-	MOVQ 24(SI), R10
-	MOVQ res+0(FP), SI
+#define AVX_MUL_Q_HI() \
+	VPMULUDQ.BCST ·qElement+16(SB), Z9, Z14 \
+	VPADDQ        Z14, Z4, Z4               \
+	VPMULUDQ.BCST ·qElement+20(SB), Z9, Z15 \
+	VPADDQ        Z15, Z5, Z5               \
+	VPMULUDQ.BCST ·qElement+24(SB), Z9, Z16 \
+	VPADDQ        Z16, Z6, Z6               \
+	VPMULUDQ.BCST ·qElement+28(SB), Z9, Z17 \
+	VPADDQ        Z17, Z7, Z7               \
+
+#define CARRY1() \
+	VPSRLQ $32, Z0, Z10 \
+	VPADDQ Z10, Z1, Z1  \
+	VPANDQ Z8, Z1, Z0   \
+	VPSRLQ $32, Z1, Z11 \
+	VPADDQ Z11, Z2, Z2  \
+	VPANDQ Z8, Z2, Z1   \
+	VPSRLQ $32, Z2, Z12 \
+	VPADDQ Z12, Z3, Z3  \
+	VPANDQ Z8, Z3, Z2   \
+	VPSRLQ $32, Z3, Z13 \
+	VPADDQ Z13, Z4, Z4  \
+	VPANDQ Z8, Z4, Z3   \
+
+#define CARRY2() \
+	VPSRLQ $32, Z4, Z14 \
+	VPADDQ Z14, Z5, Z5  \
+	VPANDQ Z8, Z5, Z4   \
+	VPSRLQ $32, Z5, Z15 \
+	VPADDQ Z15, Z6, Z6  \
+	VPANDQ Z8, Z6, Z5   \
+	VPSRLQ $32, Z6, Z16 \
+	VPADDQ Z16, Z7, Z7  \
+	VPANDQ Z8, Z7, Z6   \
+	VPSRLQ $32, Z7, Z7  \
+
+#define CARRY3() \
+	VPSRLQ $32, Z0, Z10 \
+	VPANDQ Z8, Z0, Z0   \
+	VPADDQ Z10, Z1, Z1  \
+	VPSRLQ $32, Z1, Z11 \
+	VPANDQ Z8, Z1, Z1   \
+	VPADDQ Z11, Z2, Z2  \
+	VPSRLQ $32, Z2, Z12 \
+	VPANDQ Z8, Z2, Z2   \
+	VPADDQ Z12, Z3, Z3  \
+	VPSRLQ $32, Z3, Z13 \
+	VPANDQ Z8, Z3, Z3   \
+	VPADDQ Z13, Z4, Z4  \
+
+#define CARRY4() \
+	VPSRLQ $32, Z4, Z14 \
+	VPANDQ Z8, Z4, Z4   \
+	VPADDQ Z14, Z5, Z5  \
+	VPSRLQ $32, Z5, Z15 \
+	VPANDQ Z8, Z5, Z5   \
+	VPADDQ Z15, Z6, Z6  \
+	VPSRLQ $32, Z6, Z16 \
+	VPANDQ Z8, Z6, Z6   \
+	VPADDQ Z16, Z7, Z7  \
+
+	// t[0] -> R14
+	// t[1] -> R13
+	// t[2] -> CX
+	// t[3] -> BX
+	// y[0] -> DI
+	// y[1] -> R8
+	// y[2] -> R9
+	// y[3] -> R10
+	MOVQ      res+0(FP), SI
+	MOVQ      a+8(FP), R11
+	MOVQ      b+16(FP), R15
+	MOVQ      n+24(FP), R12
+	MOVQ      0(R15), DI
+	MOVQ      8(R15), R8
+	MOVQ      16(R15), R9
+	MOVQ      24(R15), R10
+	MOVQ      R12, s0-8(SP)
+	VPCMPEQB  Y8, Y8, Y8
+	VPMOVZXDQ Y8, Z8
+	MOVQ      $0x5555, DX
+	KMOVD     DX, K1
 
 loop_8:
-	TESTQ R11, R11
-	JEQ   done_9      // n == 0, we are done
-	MOVQ  0(R15), DX
+	TESTQ     R12, R12
+	JEQ       done_7             // n == 0, we are done
+	MOVQ      0(R11), DX
+	VMOVDQU64 256+0*64(R11), Z16
+	VMOVDQU64 256+1*64(R11), Z17
+	VMOVDQU64 256+2*64(R11), Z18
+	VMOVDQU64 256+3*64(R11), Z19
+	VMOVDQU64 0(R15), Z24
+	VMOVDQU64 0(R15), Z25
+	VMOVDQU64 0(R15), Z26
+	VMOVDQU64 0(R15), Z27
+
+	// Transpose and expand x and y
+	VSHUFI64X2 $0x88, Z17, Z16, Z20
+	VSHUFI64X2 $0xdd, Z17, Z16, Z22
+	VSHUFI64X2 $0x88, Z19, Z18, Z21
+	VSHUFI64X2 $0xdd, Z19, Z18, Z23
+	VSHUFI64X2 $0x88, Z25, Z24, Z28
+	VSHUFI64X2 $0xdd, Z25, Z24, Z30
+	VSHUFI64X2 $0x88, Z27, Z26, Z29
+	VSHUFI64X2 $0xdd, Z27, Z26, Z31
+	VPERMQ     $0xd8, Z20, Z20
+	VPERMQ     $0xd8, Z21, Z21
+	VPERMQ     $0xd8, Z22, Z22
+	VPERMQ     $0xd8, Z23, Z23
+
+	// z[0] -> y * x[0]
 	MUL_WORD_0()
-	MOVQ  8(R15), DX
-	MUL_WORD_N()
-	MOVQ  16(R15), DX
-	MUL_WORD_N()
-	MOVQ  24(R15), DX
-	MUL_WORD_N()
+	VPERMQ     $0xd8, Z28, Z28
+	VPERMQ     $0xd8, Z29, Z29
+	VPERMQ     $0xd8, Z30, Z30
+	VPERMQ     $0xd8, Z31, Z31
+	VSHUFI64X2 $0xd8, Z20, Z20, Z20
+	VSHUFI64X2 $0xd8, Z21, Z21, Z21
+	VSHUFI64X2 $0xd8, Z22, Z22, Z22
+	VSHUFI64X2 $0xd8, Z23, Z23, Z23
 
-	// reduce t mod q
-	// reduce element(R14,R13,CX,BX) using temp registers (AX,DX,s0-8(SP),s1-16(SP))
-	REDUCE(R14,R13,CX,BX,AX,DX,s0-8(SP),s1-16(SP))
+	// z[0] -> y * x[1]
+	MOVQ       8(R11), DX
+	MUL_WORD_N()
+	VSHUFI64X2 $0xd8, Z28, Z28, Z28
+	VSHUFI64X2 $0xd8, Z29, Z29, Z29
+	VSHUFI64X2 $0xd8, Z30, Z30, Z30
+	VSHUFI64X2 $0xd8, Z31, Z31, Z31
+	VSHUFI64X2 $0x44, Z21, Z20, Z16
+	VSHUFI64X2 $0xee, Z21, Z20, Z18
+	VSHUFI64X2 $0x44, Z23, Z22, Z20
+	VSHUFI64X2 $0xee, Z23, Z22, Z22
 
+	// z[0] -> y * x[2]
+	MOVQ       16(R11), DX
+	MUL_WORD_N()
+	VSHUFI64X2 $0x44, Z29, Z28, Z24
+	VSHUFI64X2 $0xee, Z29, Z28, Z26
+	VSHUFI64X2 $0x44, Z31, Z30, Z28
+	VSHUFI64X2 $0xee, Z31, Z30, Z30
+	PREFETCHT0 1024(R11)
+	VPSRLQ     $32, Z16, Z17
+	VPSRLQ     $32, Z18, Z19
+	VPSRLQ     $32, Z20, Z21
+	VPSRLQ     $32, Z22, Z23
+	VPSRLQ     $32, Z24, Z25
+	VPSRLQ     $32, Z26, Z27
+	VPSRLQ     $32, Z28, Z29
+	VPSRLQ     $32, Z30, Z31
+
+	// z[0] -> y * x[3]
+	MOVQ   24(R11), DX
+	MUL_WORD_N()
+	VPANDQ Z8, Z16, Z16
+	VPANDQ Z8, Z18, Z18
+	VPANDQ Z8, Z20, Z20
+	VPANDQ Z8, Z22, Z22
+	VPANDQ Z8, Z24, Z24
+	VPANDQ Z8, Z26, Z26
+	VPANDQ Z8, Z28, Z28
+	VPANDQ Z8, Z30, Z30
+
+	// reduce element(R14,R13,CX,BX) using temp registers (BP,R12,AX,DX)
+	REDUCE(R14,R13,CX,BX,BP,R12,AX,DX)
+
+	// store output z[0]
 	MOVQ R14, 0(SI)
 	MOVQ R13, 8(SI)
 	MOVQ CX, 16(SI)
 	MOVQ BX, 24(SI)
+	ADDQ $32, R11
+	MOVQ 0(R11), DX
 
-	// increment pointers to visit next element
-	ADDQ $32, R15
-	ADDQ $32, SI
-	DECQ R11      // decrement n
-	JMP  loop_8
+	// For each 256-bit input value, each zmm register now represents a 32-bit input word zero-extended to 64 bits.
+	// Multiply y by doubleword 0 of x
+	VPMULUDQ      Z16, Z24, Z0
+	VPMULUDQ      Z16, Z25, Z1
+	VPMULUDQ      Z16, Z26, Z2
+	VPMULUDQ      Z16, Z27, Z3
+	VPMULUDQ      Z16, Z28, Z4
+	VPMULUDQ      Z16, Z29, Z5
+	VPMULUDQ      Z16, Z30, Z6
+	VPMULUDQ      Z16, Z31, Z7
+	VPMULUDQ.BCST qInvNeg+32(FP), Z0, Z9
+	VPSRLQ        $32, Z0, Z10
+	VPANDQ        Z8, Z0, Z0
+	VPADDQ        Z10, Z1, Z1
+	VPSRLQ        $32, Z1, Z11
+	VPANDQ        Z8, Z1, Z1
+	VPADDQ        Z11, Z2, Z2
+	VPSRLQ        $32, Z2, Z12
+	VPANDQ        Z8, Z2, Z2
+	VPADDQ        Z12, Z3, Z3
+	VPSRLQ        $32, Z3, Z13
+	VPANDQ        Z8, Z3, Z3
+	VPADDQ        Z13, Z4, Z4
 
-done_9:
-	RET
+	// z[1] -> y * x[0]
+	MUL_WORD_0()
+	VPSRLQ        $32, Z4, Z14
+	VPANDQ        Z8, Z4, Z4
+	VPADDQ        Z14, Z5, Z5
+	VPSRLQ        $32, Z5, Z15
+	VPANDQ        Z8, Z5, Z5
+	VPADDQ        Z15, Z6, Z6
+	VPSRLQ        $32, Z6, Z16
+	VPANDQ        Z8, Z6, Z6
+	VPADDQ        Z16, Z7, Z7
+	VPMULUDQ.BCST ·qElement+0(SB), Z9, Z10
+	VPADDQ        Z10, Z0, Z0
+	VPMULUDQ.BCST ·qElement+4(SB), Z9, Z11
+	VPADDQ        Z11, Z1, Z1
+	VPMULUDQ.BCST ·qElement+8(SB), Z9, Z12
+	VPADDQ        Z12, Z2, Z2
+	VPMULUDQ.BCST ·qElement+12(SB), Z9, Z13
+	VPADDQ        Z13, Z3, Z3
 
-noAdx_7:
-	MOVQ n+24(FP), DX
-	MOVQ res+0(FP), AX
-	MOVQ AX, (SP)
-	MOVQ DX, 8(SP)
-	MOVQ DX, 16(SP)
-	MOVQ a+8(FP), AX
-	MOVQ AX, 24(SP)
-	MOVQ DX, 32(SP)
-	MOVQ DX, 40(SP)
-	MOVQ b+16(FP), AX
-	MOVQ AX, 48(SP)
-	CALL ·scalarMulVecGeneric(SB)
+	// z[1] -> y * x[1]
+	MOVQ          8(R11), DX
+	MUL_WORD_N()
+	VPMULUDQ.BCST ·qElement+16(SB), Z9, Z14
+	VPADDQ        Z14, Z4, Z4
+	VPMULUDQ.BCST ·qElement+20(SB), Z9, Z15
+	VPADDQ        Z15, Z5, Z5
+	VPMULUDQ.BCST ·qElement+24(SB), Z9, Z16
+	VPADDQ        Z16, Z6, Z6
+	VPMULUDQ.BCST ·qElement+28(SB), Z9, Z10
+	VPADDQ        Z10, Z7, Z7
+	VPSRLQ        $32, Z0, Z10
+	VPADDQ        Z10, Z1, Z1
+	VPANDQ        Z8, Z1, Z0
+	VPSRLQ        $32, Z1, Z11
+	VPADDQ        Z11, Z2, Z2
+	VPANDQ        Z8, Z2, Z1
+	VPSRLQ        $32, Z2, Z12
+	VPADDQ        Z12, Z3, Z3
+	VPANDQ        Z8, Z3, Z2
+	VPSRLQ        $32, Z3, Z13
+	VPADDQ        Z13, Z4, Z4
+	VPANDQ        Z8, Z4, Z3
+
+	// z[1] -> y * x[2]
+	MOVQ   16(R11), DX
+	MUL_WORD_N()
+	VPSRLQ $32, Z4, Z14
+	VPADDQ Z14, Z5, Z5
+	VPANDQ Z8, Z5, Z4
+	VPSRLQ $32, Z5, Z15
+	VPADDQ Z15, Z6, Z6
+	VPANDQ Z8, Z6, Z5
+	VPSRLQ $32, Z6, Z16
+	VPADDQ Z16, Z7, Z7
+	VPANDQ Z8, Z7, Z6
+	VPSRLQ $32, Z7, Z7
+
+	// Process doubleword 1 of x
+	VPMULUDQ Z17, Z24, Z10
+	VPADDQ   Z10, Z0, Z0
+	VPMULUDQ Z17, Z25, Z11
+	VPADDQ   Z11, Z1, Z1
+	VPMULUDQ Z17, Z26, Z12
+	VPADDQ   Z12, Z2, Z2
+	VPMULUDQ Z17, Z27, Z13
+	VPADDQ   Z13, Z3, Z3
+
+	// z[1] -> y * x[3]
+	MOVQ          24(R11), DX
+	MUL_WORD_N()
+	VPMULUDQ      Z17, Z28, Z14
+	VPADDQ        Z14, Z4, Z4
+	VPMULUDQ      Z17, Z29, Z15
+	VPADDQ        Z15, Z5, Z5
+	VPMULUDQ      Z17, Z30, Z16
+	VPADDQ        Z16, Z6, Z6
+	VPMULUDQ      Z17, Z31, Z17
+	VPADDQ        Z17, Z7, Z7
+	VPMULUDQ.BCST qInvNeg+32(FP), Z0, Z9
+
+	// reduce element(R14,R13,CX,BX) using temp registers (BP,R12,AX,DX)
+	REDUCE(R14,R13,CX,BX,BP,R12,AX,DX)
+
+	// store output z[1]
+	MOVQ R14, 32(SI)
+	MOVQ R13, 40(SI)
+	MOVQ CX, 48(SI)
+	MOVQ BX, 56(SI)
+	ADDQ $32, R11
+	MOVQ 0(R11), DX
+
+	// Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)
+	VPSRLQ $32, Z0, Z10
+	VPANDQ Z8, Z0, Z0
+	VPADDQ Z10, Z1, Z1
+	VPSRLQ $32, Z1, Z11
+	VPANDQ Z8, Z1, Z1
+	VPADDQ Z11, Z2, Z2
+	VPSRLQ $32, Z2, Z12
+	VPANDQ Z8, Z2, Z2
+	VPADDQ Z12, Z3, Z3
+	VPSRLQ $32, Z3, Z13
+	VPANDQ Z8, Z3, Z3
+	VPADDQ Z13, Z4, Z4
+	CARRY4()
+
+	// z[2] -> y * x[0]
+	MUL_WORD_0()
+	AVX_MUL_Q_LO()
+	AVX_MUL_Q_HI()
+
+	// z[2] -> y * x[1]
+	MOVQ 8(R11), DX
+	MUL_WORD_N()
+	CARRY1()
+	CARRY2()
+
+	// z[2] -> y * x[2]
+	MOVQ 16(R11), DX
+	MUL_WORD_N()
+
+	// Process doubleword 2 of x
+	VPMULUDQ      Z18, Z24, Z10
+	VPADDQ        Z10, Z0, Z0
+	VPMULUDQ      Z18, Z25, Z11
+	VPADDQ        Z11, Z1, Z1
+	VPMULUDQ      Z18, Z26, Z12
+	VPADDQ        Z12, Z2, Z2
+	VPMULUDQ      Z18, Z27, Z13
+	VPADDQ        Z13, Z3, Z3
+	VPMULUDQ      Z18, Z28, Z14
+	VPADDQ        Z14, Z4, Z4
+	VPMULUDQ      Z18, Z29, Z15
+	VPADDQ        Z15, Z5, Z5
+	VPMULUDQ      Z18, Z30, Z16
+	VPADDQ        Z16, Z6, Z6
+	VPMULUDQ      Z18, Z31, Z17
+	VPADDQ        Z17, Z7, Z7
+	VPMULUDQ.BCST qInvNeg+32(FP), Z0, Z9
+
+	// z[2] -> y * x[3]
+	MOVQ 24(R11), DX
+	MUL_WORD_N()
+
+	// Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)
+	CARRY3()
+
+	// reduce element(R14,R13,CX,BX) using temp registers (BP,R12,AX,DX)
+	REDUCE(R14,R13,CX,BX,BP,R12,AX,DX)
+
+	// store output z[2]
+	MOVQ R14, 64(SI)
+	MOVQ R13, 72(SI)
+	MOVQ CX, 80(SI)
+	MOVQ BX, 88(SI)
+	ADDQ $32, R11
+	MOVQ 0(R11), DX
+	CARRY4()
+	AVX_MUL_Q_LO()
+
+	// z[3] -> y * x[0]
+	MUL_WORD_0()
+	AVX_MUL_Q_HI()
+	CARRY1()
+
+	// z[3] -> y * x[1]
+	MOVQ 8(R11), DX
+	MUL_WORD_N()
+	CARRY2()
+
+	// Process doubleword 3 of x
+	VPMULUDQ Z19, Z24, Z10
+	VPADDQ   Z10, Z0, Z0
+	VPMULUDQ Z19, Z25, Z11
+	VPADDQ   Z11, Z1, Z1
+	VPMULUDQ Z19, Z26, Z12
+	VPADDQ   Z12, Z2, Z2
+	VPMULUDQ Z19, Z27, Z13
+	VPADDQ   Z13, Z3, Z3
+
+	// z[3] -> y * x[2]
+	MOVQ          16(R11), DX
+	MUL_WORD_N()
+	VPMULUDQ      Z19, Z28, Z14
+	VPADDQ        Z14, Z4, Z4
+	VPMULUDQ      Z19, Z29, Z15
+	VPADDQ        Z15, Z5, Z5
+	VPMULUDQ      Z19, Z30, Z16
+	VPADDQ        Z16, Z6, Z6
+	VPMULUDQ      Z19, Z31, Z17
+	VPADDQ        Z17, Z7, Z7
+	VPMULUDQ.BCST qInvNeg+32(FP), Z0, Z9
+	CARRY3()
+
+	// z[3] -> y * x[3]
+	MOVQ 24(R11), DX
+	MUL_WORD_N()
+	CARRY4()
+
+	// reduce element(R14,R13,CX,BX) using temp registers (BP,R12,AX,DX)
+	REDUCE(R14,R13,CX,BX,BP,R12,AX,DX)
+
+	// store output z[3]
+	MOVQ R14, 96(SI)
+	MOVQ R13, 104(SI)
+	MOVQ CX, 112(SI)
+	MOVQ BX, 120(SI)
+	ADDQ $32, R11
+	MOVQ 0(R11), DX
+	AVX_MUL_Q_LO()
+	AVX_MUL_Q_HI()
+
+	// z[4] -> y * x[0]
+	MUL_WORD_0()
+
+	// Propagate carries and shift down by one dword
+	CARRY1()
+	CARRY2()
+
+	// z[4] -> y * x[1]
+	MOVQ 8(R11), DX
+	MUL_WORD_N()
+
+	// Process doubleword 4 of x
+	VPMULUDQ      Z20, Z24, Z10
+	VPADDQ        Z10, Z0, Z0
+	VPMULUDQ      Z20, Z25, Z11
+	VPADDQ        Z11, Z1, Z1
+	VPMULUDQ      Z20, Z26, Z12
+	VPADDQ        Z12, Z2, Z2
+	VPMULUDQ      Z20, Z27, Z13
+	VPADDQ        Z13, Z3, Z3
+	VPMULUDQ      Z20, Z28, Z14
+	VPADDQ        Z14, Z4, Z4
+	VPMULUDQ      Z20, Z29, Z15
+	VPADDQ        Z15, Z5, Z5
+	VPMULUDQ      Z20, Z30, Z16
+	VPADDQ        Z16, Z6, Z6
+	VPMULUDQ      Z20, Z31, Z17
+	VPADDQ        Z17, Z7, Z7
+	VPMULUDQ.BCST qInvNeg+32(FP), Z0, Z9
+
+	// z[4] -> y * x[2]
+	MOVQ 16(R11), DX
+	MUL_WORD_N()
+
+	// Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)
+	CARRY3()
+	CARRY4()
+
+	// z[4] -> y * x[3]
+	MOVQ 24(R11), DX
+	MUL_WORD_N()
+
+	// zmm7 keeps all 64 bits
+	AVX_MUL_Q_LO()
+	AVX_MUL_Q_HI()
+
+	// reduce element(R14,R13,CX,BX) using temp registers (BP,R12,AX,DX)
+	REDUCE(R14,R13,CX,BX,BP,R12,AX,DX)
+
+	// store output z[4]
+	MOVQ R14, 128(SI)
+	MOVQ R13, 136(SI)
+	MOVQ CX, 144(SI)
+	MOVQ BX, 152(SI)
+	ADDQ $32, R11
+	MOVQ 0(R11), DX
+
+	// Propagate carries and shift down by one dword
+	CARRY1()
+	CARRY2()
+
+	// Process doubleword 5 of x
+	VPMULUDQ Z21, Z24, Z10
+	VPADDQ   Z10, Z0, Z0
+	VPMULUDQ Z21, Z25, Z11
+	VPADDQ   Z11, Z1, Z1
+	VPMULUDQ Z21, Z26, Z12
+	VPADDQ   Z12, Z2, Z2
+	VPMULUDQ Z21, Z27, Z13
+	VPADDQ   Z13, Z3, Z3
+	VPMULUDQ Z21, Z28, Z14
+	VPADDQ   Z14, Z4, Z4
+	VPMULUDQ Z21, Z29, Z15
+	VPADDQ   Z15, Z5, Z5
+	VPMULUDQ Z21, Z30, Z16
+	VPADDQ   Z16, Z6, Z6
+	VPMULUDQ Z21, Z31, Z17
+	VPADDQ   Z17, Z7, Z7
+
+	// z[5] -> y * x[0]
+	MUL_WORD_0()
+	VPMULUDQ.BCST qInvNeg+32(FP), Z0, Z9
+
+	// Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)
+	CARRY3()
+	CARRY4()
+
+	// z[5] -> y * x[1]
+	MOVQ 8(R11), DX
+	MUL_WORD_N()
+	AVX_MUL_Q_LO()
+	AVX_MUL_Q_HI()
+
+	// z[5] -> y * x[2]
+	MOVQ 16(R11), DX
+	MUL_WORD_N()
+	CARRY1()
+	CARRY2()
+
+	// z[5] -> y * x[3]
+	MOVQ 24(R11), DX
+	MUL_WORD_N()
+
+	// Process doubleword 6 of x
+	VPMULUDQ      Z22, Z24, Z10
+	VPADDQ        Z10, Z0, Z0
+	VPMULUDQ      Z22, Z25, Z11
+	VPADDQ        Z11, Z1, Z1
+	VPMULUDQ      Z22, Z26, Z12
+	VPADDQ        Z12, Z2, Z2
+	VPMULUDQ      Z22, Z27, Z13
+	VPADDQ        Z13, Z3, Z3
+	VPMULUDQ      Z22, Z28, Z14
+	VPADDQ        Z14, Z4, Z4
+	VPMULUDQ      Z22, Z29, Z15
+	VPADDQ        Z15, Z5, Z5
+	VPMULUDQ      Z22, Z30, Z16
+	VPADDQ        Z16, Z6, Z6
+	VPMULUDQ      Z22, Z31, Z17
+	VPADDQ        Z17, Z7, Z7
+	VPMULUDQ.BCST qInvNeg+32(FP), Z0, Z9
+
+	// reduce element(R14,R13,CX,BX) using temp registers (BP,R12,AX,DX)
+	REDUCE(R14,R13,CX,BX,BP,R12,AX,DX)
+
+	// store output z[5]
+	MOVQ R14, 160(SI)
+	MOVQ R13, 168(SI)
+	MOVQ CX, 176(SI)
+	MOVQ BX, 184(SI)
+	ADDQ $32, R11
+	MOVQ 0(R11), DX
+
+	// Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)
+	CARRY3()
+	CARRY4()
+
+	// z[6] -> y * x[0]
+	MUL_WORD_0()
+	AVX_MUL_Q_LO()
+	AVX_MUL_Q_HI()
+
+	// z[6] -> y * x[1]
+	MOVQ 8(R11), DX
+	MUL_WORD_N()
+	CARRY1()
+	CARRY2()
+
+	// z[6] -> y * x[2]
+	MOVQ 16(R11), DX
+	MUL_WORD_N()
+
+	// Process doubleword 7 of x
+	VPMULUDQ      Z23, Z24, Z10
+	VPADDQ        Z10, Z0, Z0
+	VPMULUDQ      Z23, Z25, Z11
+	VPADDQ        Z11, Z1, Z1
+	VPMULUDQ      Z23, Z26, Z12
+	VPADDQ        Z12, Z2, Z2
+	VPMULUDQ      Z23, Z27, Z13
+	VPADDQ        Z13, Z3, Z3
+	VPMULUDQ      Z23, Z28, Z14
+	VPADDQ        Z14, Z4, Z4
+	VPMULUDQ      Z23, Z29, Z15
+	VPADDQ        Z15, Z5, Z5
+	VPMULUDQ      Z23, Z30, Z16
+	VPADDQ        Z16, Z6, Z6
+	VPMULUDQ      Z23, Z31, Z17
+	VPADDQ        Z17, Z7, Z7
+	VPMULUDQ.BCST qInvNeg+32(FP), Z0, Z9
+
+	// z[6] -> y * x[3]
+	MOVQ 24(R11), DX
+	MUL_WORD_N()
+	CARRY3()
+
+	// reduce element(R14,R13,CX,BX) using temp registers (BP,R12,AX,DX)
+	REDUCE(R14,R13,CX,BX,BP,R12,AX,DX)
+
+	// store output z[6]
+	MOVQ R14, 192(SI)
+	MOVQ R13, 200(SI)
+	MOVQ CX, 208(SI)
+	MOVQ BX, 216(SI)
+	ADDQ $32, R11
+	MOVQ 0(R11), DX
+	CARRY4()
+	AVX_MUL_Q_LO()
+	AVX_MUL_Q_HI()
+
+	// z[7] -> y * x[0]
+	MUL_WORD_0()
+	CARRY1()
+	CARRY2()
+
+	// z[7] -> y * x[1]
+	MOVQ 8(R11), DX
+	MUL_WORD_N()
+
+	// Conditional subtraction of the modulus
+	VPERMD.BCST.Z ·qElement+0(SB), Z8, K1, Z10
+	VPERMD.BCST.Z ·qElement+4(SB), Z8, K1, Z11
+	VPERMD.BCST.Z ·qElement+8(SB), Z8, K1, Z12
+	VPERMD.BCST.Z ·qElement+12(SB), Z8, K1, Z13
+	VPERMD.BCST.Z ·qElement+16(SB), Z8, K1, Z14
+	VPERMD.BCST.Z ·qElement+20(SB), Z8, K1, Z15
+	VPERMD.BCST.Z ·qElement+24(SB), Z8, K1, Z16
+	VPERMD.BCST.Z ·qElement+28(SB), Z8, K1, Z17
+	VPSUBQ        Z10, Z0, Z10
+	VPSRLQ        $63, Z10, Z20
+	VPANDQ        Z8, Z10, Z10
+	VPSUBQ        Z11, Z1, Z11
+	VPSUBQ        Z20, Z11, Z11
+	VPSRLQ        $63, Z11, Z21
+	VPANDQ        Z8, Z11, Z11
+	VPSUBQ        Z12, Z2, Z12
+	VPSUBQ        Z21, Z12, Z12
+	VPSRLQ        $63, Z12, Z22
+	VPANDQ        Z8, Z12, Z12
+	VPSUBQ        Z13, Z3, Z13
+	VPSUBQ        Z22, Z13, Z13
+	VPSRLQ        $63, Z13, Z23
+	VPANDQ        Z8, Z13, Z13
+	VPSUBQ        Z14, Z4, Z14
+	VPSUBQ        Z23, Z14, Z14
+	VPSRLQ        $63, Z14, Z24
+	VPANDQ        Z8, Z14, Z14
+	VPSUBQ        Z15, Z5, Z15
+	VPSUBQ        Z24, Z15, Z15
+	VPSRLQ        $63, Z15, Z25
+	VPANDQ        Z8, Z15, Z15
+	VPSUBQ        Z16, Z6, Z16
+	VPSUBQ        Z25, Z16, Z16
+	VPSRLQ        $63, Z16, Z26
+	VPANDQ        Z8, Z16, Z16
+	VPSUBQ        Z17, Z7, Z17
+	VPSUBQ        Z26, Z17, Z17
+	VPMOVQ2M      Z17, K2
+	KNOTB         K2, K2
+	VMOVDQU64     Z10, K2, Z0
+	VMOVDQU64     Z11, K2, Z1
+	VMOVDQU64     Z12, K2, Z2
+	VMOVDQU64     Z13, K2, Z3
+	VMOVDQU64     Z14, K2, Z4
+	VMOVDQU64     Z15, K2, Z5
+	VMOVDQU64     Z16, K2, Z6
+	VMOVDQU64     Z17, K2, Z7
+
+	// z[7] -> y * x[2]
+	MOVQ 16(R11), DX
+	MUL_WORD_N()
+
+	// Transpose results back
+	VALIGND   $0, ·pattern1+0(SB), Z11, Z11
+	VALIGND   $0, ·pattern2+0(SB), Z12, Z12
+	VALIGND   $0, ·pattern3+0(SB), Z13, Z13
+	VALIGND   $0, ·pattern4+0(SB), Z14, Z14
+	VPSLLQ    $32, Z1, Z1
+	VPORQ     Z1, Z0, Z0
+	VPSLLQ    $32, Z3, Z3
+	VPORQ     Z3, Z2, Z1
+	VPSLLQ    $32, Z5, Z5
+	VPORQ     Z5, Z4, Z2
+	VPSLLQ    $32, Z7, Z7
+	VPORQ     Z7, Z6, Z3
+	VMOVDQU64 Z0, Z4
+	VMOVDQU64 Z2, Z6
+	VPERMT2Q  Z1, Z11, Z0
+	VPERMT2Q  Z4, Z12, Z1
+	VPERMT2Q  Z3, Z11, Z2
+	VPERMT2Q  Z6, Z12, Z3
+
+	// z[7] -> y * x[3]
+	MOVQ      24(R11), DX
+	MUL_WORD_N()
+	VMOVDQU64 Z0, Z4
+	VMOVDQU64 Z1, Z5
+	VPERMT2Q  Z2, Z13, Z0
+	VPERMT2Q  Z4, Z14, Z2
+	VPERMT2Q  Z3, Z13, Z1
+	VPERMT2Q  Z5, Z14, Z3
+
+	// reduce element(R14,R13,CX,BX) using temp registers (BP,R12,AX,DX)
+	REDUCE(R14,R13,CX,BX,BP,R12,AX,DX)
+
+	// store output z[7]
+	MOVQ R14, 224(SI)
+	MOVQ R13, 232(SI)
+	MOVQ CX, 240(SI)
+	MOVQ BX, 248(SI)
+	ADDQ $288, R11
+
+	// Save AVX-512 results
+	VMOVDQU64 Z0, 256+0*64(SI)
+	VMOVDQU64 Z2, 256+1*64(SI)
+	VMOVDQU64 Z1, 256+2*64(SI)
+	VMOVDQU64 Z3, 256+3*64(SI)
+	ADDQ      $512, SI
+	MOVQ      s0-8(SP), R12
+	DECQ      R12              // decrement n
+	MOVQ      R12, s0-8(SP)
+	JMP       loop_8
+
+done_7:
 	RET
 
 // sumVec(res, a *Element, n uint64) res = sum(a[0...n])
@@ -673,18 +1338,18 @@ TEXT ·sumVec(SB), NOSPLIT, $0-24
 	ANDQ $7, CX
 	SHRQ $3, R15
 
-loop_single_12:
+loop_single_11:
 	TESTQ     CX, CX
-	JEQ       loop8by8_10    // n % 8 == 0, we are going to loop over 8 by 8
+	JEQ       loop8by8_9     // n % 8 == 0, we are going to loop over 8 by 8
 	VPMOVZXDQ 0(R14), Z8
 	VPADDQ    Z8, Z0, Z0
 	ADDQ      $32, R14
 	DECQ      CX             // decrement nMod8
-	JMP       loop_single_12
+	JMP       loop_single_11
 
-loop8by8_10:
+loop8by8_9:
 	TESTQ      R15, R15
-	JEQ        accumulate_13  // n == 0, we are going to accumulate
+	JEQ        accumulate_12  // n == 0, we are going to accumulate
 	VPMOVZXDQ  0*32(R14), Z8
 	VPMOVZXDQ  1*32(R14), Z9
 	VPMOVZXDQ  2*32(R14), Z10
@@ -705,10 +1370,10 @@ loop8by8_10:
 
 	// increment pointers to visit next 8 elements
 	ADDQ $256, R14
-	DECQ R15         // decrement n
-	JMP  loop8by8_10
+	DECQ R15        // decrement n
+	JMP  loop8by8_9
 
-accumulate_13:
+accumulate_12:
 	// accumulate the 8 Z registers into Z0
 	VPADDQ Z7, Z6, Z6
 	VPADDQ Z6, Z5, Z5
@@ -809,7 +1474,7 @@ accumulate_13:
 	SBBQ  ·qElement+16(SB), R9
 	SBBQ  ·qElement+24(SB), R11
 	SBBQ  $0, R12
-	JCS   modReduced_14
+	JCS   modReduced_13
 	MOVQ  BX, R8
 	MOVQ  DI, R10
 	MOVQ  R9, R13
@@ -819,20 +1484,20 @@ accumulate_13:
 	SBBQ  ·qElement+16(SB), R9
 	SBBQ  ·qElement+24(SB), R11
 	SBBQ  $0, R12
-	JCS   modReduced_14
+	JCS   modReduced_13
 	MOVQ  BX, R8
 	MOVQ  DI, R10
 	MOVQ  R9, R13
 	MOVQ  R11, CX
 
-modReduced_14:
+modReduced_13:
 	MOVQ res+0(FP), SI
 	MOVQ R8, 0(SI)
 	MOVQ R10, 8(SI)
 	MOVQ R13, 16(SI)
 	MOVQ CX, 24(SI)
 
-done_11:
+done_10:
 	RET
 
 // innerProdVec(res, a,b *Element, n uint64) res = sum(a[0...n] * b[0...n])
@@ -861,11 +1526,11 @@ TEXT ·innerProdVec(SB), NOSPLIT, $0-32
 	VMOVDQA64 Z16, Z30
 	VMOVDQA64 Z16, Z31
 	TESTQ     CX, CX
-	JEQ       done_16       // n == 0, we are done
+	JEQ       done_15       // n == 0, we are done
 
-loop_15:
+loop_14:
 	TESTQ     CX, CX
-	JEQ       accumulate_17 // n == 0 we can accumulate
+	JEQ       accumulate_16 // n == 0 we can accumulate
 	VPMOVZXDQ (R15), Z4
 	ADDQ      $32, R15
 
@@ -887,9 +1552,9 @@ loop_15:
 	MAC(7*4(R14), Z23, Z31)
 	ADDQ $32, R14
 	DECQ CX       // decrement n
-	JMP  loop_15
+	JMP  loop_14
 
-accumulate_17:
+accumulate_16:
 	// we accumulate the partial products into 544bits in Z1:Z0
 	MOVQ  $0x0000000000001555, AX
 	KMOVD AX, K1
@@ -1087,7 +1752,7 @@ accumulate_17:
 	SBBQ ·qElement+16(SB), DI
 	SBBQ ·qElement+24(SB), R8
 	SBBQ $0, R9
-	JCS  done_16
+	JCS  done_15
 	MOVQ BX, 0(R11)
 	MOVQ SI, 8(R11)
 	MOVQ DI, 16(R11)
@@ -1097,19 +1762,18 @@ accumulate_17:
 	SBBQ ·qElement+16(SB), DI
 	SBBQ ·qElement+24(SB), R8
 	SBBQ $0, R9
-	JCS  done_16
+	JCS  done_15
 	MOVQ BX, 0(R11)
 	MOVQ SI, 8(R11)
 	MOVQ DI, 16(R11)
 	MOVQ R8, 24(R11)
 
-done_16:
+done_15:
 	RET
 
-// mulVec(res, a,b *Element, n uint64, qInvNeg uint64) res = a[0...n] * b[0...n]
 TEXT ·mulVec(SB), $8-40
 	// couple of defines
-#define AVX_MUL_Q_LO() \
+#define AVX_MUL_Q_LO_0() \
 	VPMULUDQ.BCST ·qElement+0(SB), Z9, Z10  \
 	VPADDQ        Z10, Z0, Z0               \
 	VPMULUDQ.BCST ·qElement+4(SB), Z9, Z11  \
@@ -1119,7 +1783,7 @@ TEXT ·mulVec(SB), $8-40
 	VPMULUDQ.BCST ·qElement+12(SB), Z9, Z13 \
 	VPADDQ        Z13, Z3, Z3               \
 
-#define AVX_MUL_Q_HI() \
+#define AVX_MUL_Q_HI_0() \
 	VPMULUDQ.BCST ·qElement+16(SB), Z9, Z14 \
 	VPADDQ        Z14, Z4, Z4               \
 	VPMULUDQ.BCST ·qElement+20(SB), Z9, Z15 \
@@ -1129,7 +1793,7 @@ TEXT ·mulVec(SB), $8-40
 	VPMULUDQ.BCST ·qElement+28(SB), Z9, Z17 \
 	VPADDQ        Z17, Z7, Z7               \
 
-#define CARRY1() \
+#define CARRY1_0() \
 	VPSRLQ $32, Z0, Z10 \
 	VPADDQ Z10, Z1, Z1  \
 	VPANDQ Z8, Z1, Z0   \
@@ -1143,7 +1807,7 @@ TEXT ·mulVec(SB), $8-40
 	VPADDQ Z13, Z4, Z4  \
 	VPANDQ Z8, Z4, Z3   \
 
-#define CARRY2() \
+#define CARRY2_0() \
 	VPSRLQ $32, Z4, Z14 \
 	VPADDQ Z14, Z5, Z5  \
 	VPANDQ Z8, Z5, Z4   \
@@ -1155,7 +1819,7 @@ TEXT ·mulVec(SB), $8-40
 	VPANDQ Z8, Z7, Z6   \
 	VPSRLQ $32, Z7, Z7  \
 
-#define CARRY3() \
+#define CARRY3_0() \
 	VPSRLQ $32, Z0, Z10 \
 	VPANDQ Z8, Z0, Z0   \
 	VPADDQ Z10, Z1, Z1  \
@@ -1169,7 +1833,7 @@ TEXT ·mulVec(SB), $8-40
 	VPANDQ Z8, Z3, Z3   \
 	VPADDQ Z13, Z4, Z4  \
 
-#define CARRY4() \
+#define CARRY4_0() \
 	VPSRLQ $32, Z4, Z14 \
 	VPANDQ Z8, Z4, Z4   \
 	VPADDQ Z14, Z5, Z5  \
@@ -1198,9 +1862,9 @@ TEXT ·mulVec(SB), $8-40
 	MOVQ      $0x5555, DX
 	KMOVD     DX, K1
 
-loop_19:
+loop_18:
 	TESTQ     R12, R12
-	JEQ       done_18            // n == 0, we are done
+	JEQ       done_17            // n == 0, we are done
 	MOVQ      0(R11), DX
 	VMOVDQU64 256+0*64(R11), Z16
 	VMOVDQU64 256+1*64(R11), Z17
@@ -1436,18 +2100,18 @@ loop_19:
 	VPSRLQ $32, Z3, Z13
 	VPANDQ Z8, Z3, Z3
 	VPADDQ Z13, Z4, Z4
-	CARRY4()
+	CARRY4_0()
 
 	// z[2] -> y * x[0]
 	MUL_WORD_0()
-	AVX_MUL_Q_LO()
-	AVX_MUL_Q_HI()
+	AVX_MUL_Q_LO_0()
+	AVX_MUL_Q_HI_0()
 
 	// z[2] -> y * x[1]
 	MOVQ 8(R11), DX
 	MUL_WORD_N()
-	CARRY1()
-	CARRY2()
+	CARRY1_0()
+	CARRY2_0()
 
 	// z[2] -> y * x[2]
 	MOVQ 16(R11), DX
@@ -1477,7 +2141,7 @@ loop_19:
 	MUL_WORD_N()
 
 	// Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)
-	CARRY3()
+	CARRY3_0()
 
 	// reduce element(R14,R13,CX,BX) using temp registers (BP,R12,AX,DX)
 	REDUCE(R14,R13,CX,BX,BP,R12,AX,DX)
@@ -1495,18 +2159,18 @@ loop_19:
 	MOVQ 104(R15), R8
 	MOVQ 112(R15), R9
 	MOVQ 120(R15), R10
-	CARRY4()
-	AVX_MUL_Q_LO()
+	CARRY4_0()
+	AVX_MUL_Q_LO_0()
 
 	// z[3] -> y * x[0]
 	MUL_WORD_0()
-	AVX_MUL_Q_HI()
-	CARRY1()
+	AVX_MUL_Q_HI_0()
+	CARRY1_0()
 
 	// z[3] -> y * x[1]
 	MOVQ 8(R11), DX
 	MUL_WORD_N()
-	CARRY2()
+	CARRY2_0()
 
 	// Process doubleword 3 of x
 	VPMULUDQ Z19, Z24, Z10
@@ -1530,12 +2194,12 @@ loop_19:
 	VPMULUDQ      Z19, Z31, Z17
 	VPADDQ        Z17, Z7, Z7
 	VPMULUDQ.BCST qInvNeg+32(FP), Z0, Z9
-	CARRY3()
+	CARRY3_0()
 
 	// z[3] -> y * x[3]
 	MOVQ 24(R11), DX
 	MUL_WORD_N()
-	CARRY4()
+	CARRY4_0()
 
 	// reduce element(R14,R13,CX,BX) using temp registers (BP,R12,AX,DX)
 	REDUCE(R14,R13,CX,BX,BP,R12,AX,DX)
@@ -1553,15 +2217,15 @@ loop_19:
 	MOVQ 136(R15), R8
 	MOVQ 144(R15), R9
 	MOVQ 152(R15), R10
-	AVX_MUL_Q_LO()
-	AVX_MUL_Q_HI()
+	AVX_MUL_Q_LO_0()
+	AVX_MUL_Q_HI_0()
 
 	// z[4] -> y * x[0]
 	MUL_WORD_0()
 
 	// Propagate carries and shift down by one dword
-	CARRY1()
-	CARRY2()
+	CARRY1_0()
+	CARRY2_0()
 
 	// z[4] -> y * x[1]
 	MOVQ 8(R11), DX
@@ -1591,16 +2255,16 @@ loop_19:
 	MUL_WORD_N()
 
 	// Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)
-	CARRY3()
-	CARRY4()
+	CARRY3_0()
+	CARRY4_0()
 
 	// z[4] -> y * x[3]
 	MOVQ 24(R11), DX
 	MUL_WORD_N()
 
 	// zmm7 keeps all 64 bits
-	AVX_MUL_Q_LO()
-	AVX_MUL_Q_HI()
+	AVX_MUL_Q_LO_0()
+	AVX_MUL_Q_HI_0()
 
 	// reduce element(R14,R13,CX,BX) using temp registers (BP,R12,AX,DX)
 	REDUCE(R14,R13,CX,BX,BP,R12,AX,DX)
@@ -1614,8 +2278,8 @@ loop_19:
 	MOVQ 0(R11), DX
 
 	// Propagate carries and shift down by one dword
-	CARRY1()
-	CARRY2()
+	CARRY1_0()
+	CARRY2_0()
 
 	// load input y[5]
 	MOVQ 160(R15), DI
@@ -1646,20 +2310,20 @@ loop_19:
 	VPMULUDQ.BCST qInvNeg+32(FP), Z0, Z9
 
 	// Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)
-	CARRY3()
-	CARRY4()
+	CARRY3_0()
+	CARRY4_0()
 
 	// z[5] -> y * x[1]
 	MOVQ 8(R11), DX
 	MUL_WORD_N()
-	AVX_MUL_Q_LO()
-	AVX_MUL_Q_HI()
+	AVX_MUL_Q_LO_0()
+	AVX_MUL_Q_HI_0()
 
 	// z[5] -> y * x[2]
 	MOVQ 16(R11), DX
 	MUL_WORD_N()
-	CARRY1()
-	CARRY2()
+	CARRY1_0()
+	CARRY2_0()
 
 	// z[5] -> y * x[3]
 	MOVQ 24(R11), DX
@@ -1702,19 +2366,19 @@ loop_19:
 	MOVQ 216(R15), R10
 
 	// Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)
-	CARRY3()
-	CARRY4()
+	CARRY3_0()
+	CARRY4_0()
 
 	// z[6] -> y * x[0]
 	MUL_WORD_0()
-	AVX_MUL_Q_LO()
-	AVX_MUL_Q_HI()
+	AVX_MUL_Q_LO_0()
+	AVX_MUL_Q_HI_0()
 
 	// z[6] -> y * x[1]
 	MOVQ 8(R11), DX
 	MUL_WORD_N()
-	CARRY1()
-	CARRY2()
+	CARRY1_0()
+	CARRY2_0()
 
 	// z[6] -> y * x[2]
 	MOVQ 16(R11), DX
@@ -1742,7 +2406,7 @@ loop_19:
 	// z[6] -> y * x[3]
 	MOVQ 24(R11), DX
 	MUL_WORD_N()
-	CARRY3()
+	CARRY3_0()
 
 	// reduce element(R14,R13,CX,BX) using temp registers (BP,R12,AX,DX)
 	REDUCE(R14,R13,CX,BX,BP,R12,AX,DX)
@@ -1754,20 +2418,20 @@ loop_19:
 	MOVQ BX, 216(SI)
 	ADDQ $32, R11
 	MOVQ 0(R11), DX
-	CARRY4()
+	CARRY4_0()
 
 	// load input y[7]
 	MOVQ 224(R15), DI
 	MOVQ 232(R15), R8
 	MOVQ 240(R15), R9
 	MOVQ 248(R15), R10
-	AVX_MUL_Q_LO()
-	AVX_MUL_Q_HI()
+	AVX_MUL_Q_LO_0()
+	AVX_MUL_Q_HI_0()
 
 	// z[7] -> y * x[0]
 	MUL_WORD_0()
-	CARRY1()
-	CARRY2()
+	CARRY1_0()
+	CARRY2_0()
 
 	// z[7] -> y * x[1]
 	MOVQ 8(R11), DX
@@ -1876,7 +2540,7 @@ loop_19:
 	MOVQ      s0-8(SP), R12
 	DECQ      R12              // decrement n
 	MOVQ      R12, s0-8(SP)
-	JMP       loop_19
+	JMP       loop_18
 
-done_18:
+done_17:
 	RET
