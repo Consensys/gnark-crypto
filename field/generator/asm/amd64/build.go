@@ -79,12 +79,12 @@ func (f *FFAmd64) StackSize(maxNbRegistersNeeded, nbRegistersReserved, minStackS
 	return max(r, minStackSize)
 }
 
-func (f *FFAmd64) DefineFn(name string) (fn defineFn) {
+func (f *FFAmd64) DefineFn(name string) (fn defineFn, err error) {
 	fn, ok := f.mDefines[name]
 	if !ok {
-		panic(fmt.Sprintf("function %s not defined", name))
+		return nil, fmt.Errorf("function %s not defined", name)
 	}
-	return fn
+	return fn, nil
 }
 
 func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn) defineFn {
@@ -303,11 +303,10 @@ func GenerateCommonASM(w io.Writer, nbWords int, hasVector bool) error {
 
 		f.generateAddVec()
 		f.generateSubVec()
-		f.generateMulVec("scalarMulVec")
 		f.generateSumVec()
 		f.generateInnerProduct()
+		f.generateMulVec("scalarMulVec")
 		f.generateMulVec("mulVec")
-
 	}
 
 	return nil

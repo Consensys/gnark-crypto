@@ -840,87 +840,89 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 	PX := f.Pop(&registers)
 	PY := f.Pop(&registers)
 
-	f.Comment("couple of defines")
-
-	zi := func(i int) string {
-		return "Z" + strconv.Itoa(i)
+	zi := func(i int) amd64.Register {
+		return amd64.Register("Z" + strconv.Itoa(i))
 	}
 
 	// AVX_MUL_Q_LO:
-	// 	vpmuludq	0*4(PM){1to8}, %zmm9, %zmm10;	vpaddq	%zmm10, %zmm0, %zmm0;	// Low dword of zmm0 is zero
-	// 	vpmuludq	1*4(PM){1to8}, %zmm9, %zmm11;	vpaddq	%zmm11, %zmm1, %zmm1;
-	// 	vpmuludq	2*4(PM){1to8}, %zmm9, %zmm12;	vpaddq	%zmm12, %zmm2, %zmm2;
-	// 	vpmuludq	3*4(PM){1to8}, %zmm9, %zmm13;	vpaddq	%zmm13, %zmm3, %zmm3;
-	AVX_MUL_Q_LO := f.Define("AVX_MUL_Q_LO", 0, func(args ...amd64.Register) {
-		for i := 0; i < 4; i++ {
-			f.VPMULUDQ_BCST(f.qAt_bcst(i), "Z9", zi(10+i))
-			f.VPADDQ(zi(10+i), zi(i), zi(i))
-		}
-	})
+	AVX_MUL_Q_LO, err := f.DefineFn("AVX_MUL_Q_LO")
+	if err != nil {
+		AVX_MUL_Q_LO = f.Define("AVX_MUL_Q_LO", 0, func(args ...amd64.Register) {
+			for i := 0; i < 4; i++ {
+				f.VPMULUDQ_BCST(f.qAt_bcst(i), "Z9", zi(10+i))
+				f.VPADDQ(zi(10+i), zi(i), zi(i))
+			}
+		})
+	}
 
 	// AVX_MUL_Q_HI:
-	// 	vpmuludq	4*4(PM){1to8}, %zmm9, %zmm14;	vpaddq	%zmm14, %zmm4, %zmm4;
-	// 	vpmuludq	5*4(PM){1to8}, %zmm9, %zmm15;	vpaddq	%zmm15, %zmm5, %zmm5;
-	// 	vpmuludq	6*4(PM){1to8}, %zmm9, %zmm16;	vpaddq	%zmm16, %zmm6, %zmm6;
-	// 	vpmuludq	7*4(PM){1to8}, %zmm9, %zmm17;	vpaddq	%zmm17, %zmm7, %zmm7;
-	AVX_MUL_Q_HI := f.Define("AVX_MUL_Q_HI", 0, func(args ...amd64.Register) {
-		for i := 0; i < 4; i++ {
-			f.VPMULUDQ_BCST(f.qAt_bcst(i+4), "Z9", zi(14+i))
-			f.VPADDQ(zi(14+i), zi(i+4), zi(i+4))
-		}
-	})
+	AVX_MUL_Q_HI, err := f.DefineFn("AVX_MUL_Q_HI")
+	if err != nil {
+		AVX_MUL_Q_HI = f.Define("AVX_MUL_Q_HI", 0, func(args ...amd64.Register) {
+			for i := 0; i < 4; i++ {
+				f.VPMULUDQ_BCST(f.qAt_bcst(i+4), "Z9", zi(14+i))
+				f.VPADDQ(zi(14+i), zi(i+4), zi(i+4))
+			}
+		})
+	}
+
+	SHIFT_ADD_AND, err := f.DefineFn("SHIFT_ADD_AND")
+	if err != nil {
+		SHIFT_ADD_AND = f.Define("SHIFT_ADD_AND", 4, func(args ...amd64.Register) {
+			in0 := args[0]
+			in1 := args[1]
+			in2 := args[2]
+			in3 := args[3]
+			f.VPSRLQ("$32", in0, in1)
+			f.VPADDQ(in1, in2, in2)
+			f.VPANDQ(in3, in2, in0)
+		})
+	}
 
 	// CARRY1:
-	// 	vpsrlq		$32, %zmm0, %zmm10;		vpaddq	%zmm10, %zmm1, %zmm1;	vpandq	%zmm8, %zmm1, %zmm0
-	// 	vpsrlq		$32, %zmm1, %zmm11;		vpaddq	%zmm11, %zmm2, %zmm2;	vpandq	%zmm8, %zmm2, %zmm1
-	// 	vpsrlq		$32, %zmm2, %zmm12;		vpaddq	%zmm12, %zmm3, %zmm3;	vpandq	%zmm8, %zmm3, %zmm2
-	// 	vpsrlq		$32, %zmm3, %zmm13;		vpaddq	%zmm13, %zmm4, %zmm4;	vpandq	%zmm8, %zmm4, %zmm3
-	CARRY1 := f.Define("CARRY1", 0, func(args ...amd64.Register) {
-		for i := 0; i < 4; i++ {
-			f.VPSRLQ("$32", zi(i), zi(10+i))
-			f.VPADDQ(zi(10+i), zi(i+1), zi(i+1))
-			f.VPANDQ("Z8", zi(i+1), zi(i))
-		}
-	})
+	CARRY1, err := f.DefineFn("CARRY1")
+	if err != nil {
+		CARRY1 = f.Define("CARRY1", 0, func(args ...amd64.Register) {
+			for i := 0; i < 4; i++ {
+				SHIFT_ADD_AND(zi(i), zi(10+i), zi(i+1), "Z8")
+			}
+		})
+	}
 
 	// CARRY2:
-	// 	vpsrlq		$32, %zmm4, %zmm14;		vpaddq	%zmm14, %zmm5, %zmm5;	vpandq	%zmm8, %zmm5, %zmm4
-	// 	vpsrlq		$32, %zmm5, %zmm15;		vpaddq	%zmm15, %zmm6, %zmm6;	vpandq	%zmm8, %zmm6, %zmm5
-	// 	vpsrlq		$32, %zmm6, %zmm16;		vpaddq	%zmm16, %zmm7, %zmm7;	vpandq	%zmm8, %zmm7, %zmm6
-	// 	vpsrlq		$32, %zmm7, %zmm7
-	CARRY2 := f.Define("CARRY2", 0, func(args ...amd64.Register) {
-		for i := 0; i < 3; i++ {
-			f.VPSRLQ("$32", zi(i+4), zi(14+i))
-			f.VPADDQ(zi(14+i), zi(i+5), zi(i+5))
-			f.VPANDQ("Z8", zi(i+5), zi(i+4))
-		}
-		f.VPSRLQ("$32", "Z7", "Z7")
-	})
+	CARRY2, err := f.DefineFn("CARRY2")
+	if err != nil {
+		CARRY2 = f.Define("CARRY2", 0, func(args ...amd64.Register) {
+			for i := 0; i < 3; i++ {
+				SHIFT_ADD_AND(zi(i+4), zi(14+i), zi(i+5), "Z8")
+			}
+			f.VPSRLQ("$32", "Z7", "Z7")
+		})
+	}
 
 	// CARRY3:
-	// 	vpsrlq		$32, %zmm0, %zmm10;		vpandq	%zmm8, %zmm0, %zmm0;	vpaddq	%zmm10, %zmm1, %zmm1;
-	// 	vpsrlq		$32, %zmm1, %zmm11;		vpandq	%zmm8, %zmm1, %zmm1;	vpaddq	%zmm11, %zmm2, %zmm2;
-	// 	vpsrlq		$32, %zmm2, %zmm12;		vpandq	%zmm8, %zmm2, %zmm2;	vpaddq	%zmm12, %zmm3, %zmm3;
-	// 	vpsrlq		$32, %zmm3, %zmm13;		vpandq	%zmm8, %zmm3, %zmm3;	vpaddq	%zmm13, %zmm4, %zmm4;
-	CARRY3 := f.Define("CARRY3", 0, func(args ...amd64.Register) {
-		for i := 0; i < 4; i++ {
-			f.VPSRLQ("$32", zi(i), zi(10+i))
-			f.VPANDQ("Z8", zi(i), zi(i))
-			f.VPADDQ(zi(10+i), zi(i+1), zi(i+1))
-		}
-	})
+	CARRY3, err := f.DefineFn("CARRY3")
+	if err != nil {
+		CARRY3 = f.Define("CARRY3", 0, func(args ...amd64.Register) {
+			for i := 0; i < 4; i++ {
+				f.VPSRLQ("$32", zi(i), zi(10+i))
+				f.VPANDQ("Z8", zi(i), zi(i))
+				f.VPADDQ(zi(10+i), zi(i+1), zi(i+1))
+			}
+		})
+	}
 
 	// CARRY4:
-	// 	vpsrlq		$32, %zmm4, %zmm14;		vpandq	%zmm8, %zmm4, %zmm4;	vpaddq	%zmm14, %zmm5, %zmm5;
-	// 	vpsrlq		$32, %zmm5, %zmm15;		vpandq	%zmm8, %zmm5, %zmm5;	vpaddq	%zmm15, %zmm6, %zmm6;
-	// 	vpsrlq		$32, %zmm6, %zmm16;		vpandq	%zmm8, %zmm6, %zmm6;	vpaddq	%zmm16, %zmm7, %zmm7;
-	CARRY4 := f.Define("CARRY4", 0, func(args ...amd64.Register) {
-		for i := 0; i < 3; i++ {
-			f.VPSRLQ("$32", zi(i+4), zi(14+i))
-			f.VPANDQ("Z8", zi(i+4), zi(i+4))
-			f.VPADDQ(zi(14+i), zi(i+5), zi(i+5))
-		}
-	})
+	CARRY4, err := f.DefineFn("CARRY4")
+	if err != nil {
+		CARRY4 = f.Define("CARRY4", 0, func(args ...amd64.Register) {
+			for i := 0; i < 3; i++ {
+				f.VPSRLQ("$32", zi(i+4), zi(14+i))
+				f.VPANDQ("Z8", zi(i+4), zi(i+4))
+				f.VPADDQ(zi(14+i), zi(i+5), zi(i+5))
+			}
+		})
+	}
 
 	// we use the same registers as defined in the mul.
 	t := mul4Registers[:4]
@@ -931,8 +933,14 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 	A := amd64.BP // note, BP is used in the mul defines.
 
 	// reuse defines from the mul function
-	mulWord0 := f.DefineFn("MUL_WORD_0")
-	mulWordN := f.DefineFn("MUL_WORD_N")
+	mulWord0, err := f.DefineFn("MUL_WORD_0")
+	if err != nil {
+		panic(err)
+	}
+	mulWordN, err := f.DefineFn("MUL_WORD_N")
+	if err != nil {
+		panic(err)
+	}
 
 	zIndex := 0
 
@@ -985,11 +993,7 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 	// f.SHRQ("$4", tr)
 	f.MOVQ(tr, LEN)
 
-	// Create mask for low dword in each qword
-	// vpcmpeqb	%ymm8, %ymm8, %ymm8
-	// vpmovzxdq	%ymm8, %zmm8
-	// mov	$0x5555, %edx
-	// kmovd	%edx, %k1
+	f.Comment("Create mask for low dword in each qword")
 
 	f.VPCMPEQB("Y8", "Y8", "Y8")
 	f.VPMOVZXDQ("Y8", "Z8")
@@ -1143,20 +1147,12 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 	f.VPMULUDQ_BCST(f.qAt_bcst(7), "Z9", "Z10")
 	f.VPADDQ("Z10", "Z7", "Z7")
 
-	for i := 0; i < 4; i++ {
-		f.VPSRLQ("$32", zi(i), zi(10+i))
-		f.VPADDQ(zi(10+i), zi(i+1), zi(i+1))
-		f.VPANDQ("Z8", zi(i+1), zi(i))
-
-	}
+	CARRY1()
 
 	mulXi(2)
 
 	for i := 0; i < 3; i++ {
-		f.VPSRLQ("$32", zi(4+i), zi(14+i))
-		f.VPADDQ(zi(14+i), zi(4+i+1), zi(4+i+1))
-		f.VPANDQ("Z8", zi(4+i+1), zi(4+i))
-
+		SHIFT_ADD_AND(zi(4+i), zi(14+i), zi(5+i), "Z8")
 	}
 	f.VPSRLQ("$32", "Z7", "Z7")
 
