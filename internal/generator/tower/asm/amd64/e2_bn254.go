@@ -305,11 +305,10 @@ func (fq2 *Fq2Amd64) generateMulDefine() {
 		return string(op2[i])
 	}
 
-	wd := writerDefine{fq2.w}
+	wd := writerDefine{fq2.w, 0, false}
 	tw := gamd64.NewFFAmd64(&wd, fq2.F.NbWords)
 
 	_, _ = io.WriteString(fq2.w, "// this code is generated and identical to fp.Mul(...)\n")
-	_, _ = io.WriteString(fq2.w, "#define MUL() \\ \n")
 	tw.MulADX(&r, xat, yat, res)
 }
 
@@ -339,10 +338,25 @@ func (fq2 *Fq2Amd64) mulElement() {
 }
 
 type writerDefine struct {
-	w io.Writer
+	w       io.Writer
+	cptXORQ int
+	first   bool
 }
 
 func (w *writerDefine) Write(p []byte) (n int, err error) {
+	// TODO @gbotrel temporary hack to re-use new struct in mul;
+	// then if it's the first time we are here, we print the header
+	if strings.Contains(string(p), "XORQ") {
+		w.cptXORQ++
+	}
+	if w.cptXORQ < 2 {
+		return w.w.Write(p)
+	}
+	if !w.first && w.cptXORQ == 2 {
+		_, _ = io.WriteString(w.w, "#define MUL() \\ \n")
+		w.first = true
+	}
+
 	line := string(p)
 	line = strings.TrimSpace(line)
 	if strings.HasPrefix(line, "//") {

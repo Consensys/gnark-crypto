@@ -38,6 +38,15 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 	f.LabelRegisters("A", A)
 	f.LabelRegisters("t", t...)
 
+	mac := f.Define("MACC", 3, func(args ...amd64.Register) {
+		in0 := args[0]
+		in1 := args[1]
+		in2 := args[2]
+		f.ADCXQ(in0, in1)
+		f.MULXQ(in2, amd64.AX, in0)
+		f.ADOXQ(amd64.AX, in1)
+	})
+
 	divShift := f.Define("DIV_SHIFT", 0, func(_ ...amd64.Register) {
 		if !hasFreeRegister {
 			f.PUSHQ(A)
@@ -63,9 +72,7 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 		//
 		//	(C,t[j-1]) := t[j] + m*q[j] + C
 		for j := 1; j < f.NbWords; j++ {
-			f.ADCXQ(t[j], t[j-1])
-			f.MULXQ(f.qAt(j), amd64.AX, t[j])
-			f.ADOXQ(amd64.AX, t[j-1])
+			mac(t[j], t[j-1], amd64.Register(f.qAt(j)))
 		}
 
 		f.MOVQ(0, amd64.AX)
@@ -99,12 +106,10 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 	mulWordN := f.Define("MUL_WORD_N", 0, func(_ ...amd64.Register) {
 		// for j=0 to N-1
 		//    (A,t[j])  := t[j] + x[j]*y[i] + A
-		for j := 0; j < f.NbWords; j++ {
-			if j != 0 {
-				f.ADCXQ(A, t[j])
-			}
-			f.MULXQ(x(j), amd64.AX, A)
-			f.ADOXQ(amd64.AX, t[j])
+		f.MULXQ(x(0), amd64.AX, A)
+		f.ADOXQ(amd64.AX, t[0])
+		for j := 1; j < f.NbWords; j++ {
+			mac(A, t[j], amd64.Register(x(j)))
 		}
 		f.MOVQ(0, amd64.AX)
 		f.ADCXQ(amd64.AX, A)
@@ -115,7 +120,6 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 	for i := 0; i < f.NbWords; i++ {
 		f.Comment("clear the flags")
 		f.XORQ(amd64.AX, amd64.AX)
-
 		f.MOVQ(y(i), amd64.DX)
 
 		if i == 0 {
@@ -123,7 +127,6 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 		} else {
 			mulWordN()
 		}
-
 	}
 
 	if hasFreeRegister {
@@ -155,6 +158,7 @@ func (f *FFAmd64) generateMul(forceADX bool) {
 	f.WriteLn(`
 	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS" 
 	// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
+	// See github.com/gnark-crypto/field/generator for more comments.
 	`)
 	if stackSize > 0 {
 		f.WriteLn("NO_LOCAL_POINTERS")

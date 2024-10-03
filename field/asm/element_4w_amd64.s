@@ -209,6 +209,7 @@ TEXT ·mul(SB), $24-24
 
 	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS"
 	// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
+	// See github.com/gnark-crypto/field/generator for more comments.
 
 	NO_LOCAL_POINTERS
 	CMPB ·supportAdx(SB), $1
@@ -230,27 +231,26 @@ TEXT ·mul(SB), $24-24
 	// t[1] -> R13
 	// t[2] -> CX
 	// t[3] -> BX
-#define DIV_SHIFT() \
-	MOVQ  $const_qInvNeg, DX       \
-	IMULQ R14, DX                  \
-	XORQ  AX, AX                   \
-	MULXQ ·qElement+0(SB), AX, R12 \
-	ADCXQ R14, AX                  \
-	MOVQ  R12, R14                 \
-	ADCXQ R13, R14                 \
-	MULXQ ·qElement+8(SB), AX, R13 \
-	ADOXQ AX, R14                  \
-	ADCXQ CX, R13                  \
-	MULXQ ·qElement+16(SB), AX, CX \
-	ADOXQ AX, R13                  \
-	ADCXQ BX, CX                   \
-	MULXQ ·qElement+24(SB), AX, BX \
-	ADOXQ AX, CX                   \
-	MOVQ  $0, AX                   \
-	ADCXQ AX, BX                   \
-	ADOXQ BP, BX                   \
+#define MACC_0(in0, in1, in2) \
+	ADCXQ in0, in1     \
+	MULXQ in2, AX, in0 \
+	ADOXQ AX, in1      \
 
-#define MUL_WORD_0() \
+#define DIV_SHIFT_1() \
+	MOVQ  $const_qInvNeg, DX          \
+	IMULQ R14, DX                     \
+	XORQ  AX, AX                      \
+	MULXQ ·qElement+0(SB), AX, R12    \
+	ADCXQ R14, AX                     \
+	MOVQ  R12, R14                    \
+	MACC_0(R13, R14, ·qElement+8(SB)) \
+	MACC_0(CX, R13, ·qElement+16(SB)) \
+	MACC_0(BX, CX, ·qElement+24(SB))  \
+	MOVQ  $0, AX                      \
+	ADCXQ AX, BX                      \
+	ADOXQ BP, BX                      \
+
+#define MUL_WORD_0_2() \
 	MULXQ DI, R14, R13 \
 	MULXQ R8, AX, CX   \
 	ADOXQ AX, R13      \
@@ -260,44 +260,38 @@ TEXT ·mul(SB), $24-24
 	ADOXQ AX, BX       \
 	MOVQ  $0, AX       \
 	ADOXQ AX, BP       \
-	DIV_SHIFT()        \
+	DIV_SHIFT_1()      \
 
-#define MUL_WORD_N() \
-	MULXQ DI, AX, BP  \
-	ADOXQ AX, R14     \
-	ADCXQ BP, R13     \
-	MULXQ R8, AX, BP  \
-	ADOXQ AX, R13     \
-	ADCXQ BP, CX      \
-	MULXQ R9, AX, BP  \
-	ADOXQ AX, CX      \
-	ADCXQ BP, BX      \
-	MULXQ R10, AX, BP \
-	ADOXQ AX, BX      \
-	MOVQ  $0, AX      \
-	ADCXQ AX, BP      \
-	ADOXQ AX, BP      \
-	DIV_SHIFT()       \
+#define MUL_WORD_N_3() \
+	MULXQ DI, AX, BP    \
+	ADOXQ AX, R14       \
+	MACC_0(BP, R13, R8) \
+	MACC_0(BP, CX, R9)  \
+	MACC_0(BP, BX, R10) \
+	MOVQ  $0, AX        \
+	ADCXQ AX, BP        \
+	ADOXQ AX, BP        \
+	DIV_SHIFT_1()       \
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ 0(R11), DX
-	MUL_WORD_0()
+	MUL_WORD_0_2()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ 8(R11), DX
-	MUL_WORD_N()
+	MUL_WORD_N_3()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ 16(R11), DX
-	MUL_WORD_N()
+	MUL_WORD_N_3()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ 24(R11), DX
-	MUL_WORD_N()
+	MUL_WORD_N_3()
 
 	// reduce element(R14,R13,CX,BX) using temp registers (SI,R12,R11,DI)
 	REDUCE(R14,R13,CX,BX,SI,R12,R11,DI)

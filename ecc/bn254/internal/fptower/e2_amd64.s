@@ -42,70 +42,69 @@ GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
 	CMOVQCS rb3, ra3;        \
 
 // this code is generated and identical to fp.Mul(...)
+// A -> BP
+// t[0] -> R10
+// t[1] -> R11
+// t[2] -> R12
+// t[3] -> R13
+#define MACC_0(in0, in1, in2) \
+	ADCXQ in0, in1     \
+	MULXQ in2, AX, in0 \
+	ADOXQ AX, in1      \
+
+#define DIV_SHIFT_1() \
+	PUSHQ BP                           \
+	MOVQ  $const_qInvNeg, DX           \
+	IMULQ R10, DX                      \
+	XORQ  AX, AX                       \
+	MULXQ ·qElement+0(SB), AX, BP      \
+	ADCXQ R10, AX                      \
+	MOVQ  BP, R10                      \
+	POPQ  BP                           \
+	MACC_0(R11, R10, ·qElement+8(SB))  \
+	MACC_0(R12, R11, ·qElement+16(SB)) \
+	MACC_0(R13, R12, ·qElement+24(SB)) \
+	MOVQ  $0, AX                       \
+	ADCXQ AX, R13                      \
+	ADOXQ BP, R13                      \
+
+#define MUL_WORD_0_2() \
+	MULXQ R14, R10, R11 \
+	MULXQ R15, AX, R12  \
+	ADOXQ AX, R11       \
+	MULXQ CX, AX, R13   \
+	ADOXQ AX, R12       \
+	MULXQ BX, AX, BP    \
+	ADOXQ AX, R13       \
+	MOVQ  $0, AX        \
+	ADOXQ AX, BP        \
+	DIV_SHIFT_1()       \
+
+#define MUL_WORD_N_3() \
+	MULXQ R14, AX, BP    \
+	ADOXQ AX, R10        \
+	MACC_0(BP, R11, R15) \
+	MACC_0(BP, R12, CX)  \
+	MACC_0(BP, R13, BX)  \
+	MOVQ  $0, AX         \
+	ADCXQ AX, BP         \
+	ADOXQ AX, BP         \
+	DIV_SHIFT_1()        \
+
+// clear the flags
 #define MUL() \
-#define DIV_SHIFT()\; \
-	PUSHQ   BP\;                        \
-	MOVQ    $const_qInvNeg, DX\;        \
-	IMULQ   R10, DX\;                   \
-	XORQ    AX, AX\;                    \
-	MULXQ   ·qElement+0(SB), AX, BP\;   \
-	ADCXQ   R10, AX\;                   \
-	MOVQ    BP, R10\;                   \
-	POPQ    BP\;                        \
-	ADCXQ   R11, R10\;                  \
-	MULXQ   ·qElement+8(SB), AX, R11\;  \
-	ADOXQ   AX, R10\;                   \
-	ADCXQ   R12, R11\;                  \
-	MULXQ   ·qElement+16(SB), AX, R12\; \
-	ADOXQ   AX, R11\;                   \
-	ADCXQ   R13, R12\;                  \
-	MULXQ   ·qElement+24(SB), AX, R13\; \
-	ADOXQ   AX, R12\;                   \
-	MOVQ    $0, AX\;                    \
-	ADCXQ   AX, R13\;                   \
-	ADOXQ   BP, R13\;                   \
-	;                                   \
-	#define MUL_WORD_0()\;              \
-	MULXQ   R14, R10, R11\;             \
-	MULXQ   R15, AX, R12\;              \
-	ADOXQ   AX, R11\;                   \
-	MULXQ   CX, AX, R13\;               \
-	ADOXQ   AX, R12\;                   \
-	MULXQ   BX, AX, BP\;                \
-	ADOXQ   AX, R13\;                   \
-	MOVQ    $0, AX\;                    \
-	ADOXQ   AX, BP\;                    \
-	DIV_SHIFT()\;                       \
-	;                                   \
-	#define MUL_WORD_N()\;              \
-	MULXQ   R14, AX, BP\;               \
-	ADOXQ   AX, R10\;                   \
-	ADCXQ   BP, R11\;                   \
-	MULXQ   R15, AX, BP\;               \
-	ADOXQ   AX, R11\;                   \
-	ADCXQ   BP, R12\;                   \
-	MULXQ   CX, AX, BP\;                \
-	ADOXQ   AX, R12\;                   \
-	ADCXQ   BP, R13\;                   \
-	MULXQ   BX, AX, BP\;                \
-	ADOXQ   AX, R13\;                   \
-	MOVQ    $0, AX\;                    \
-	ADCXQ   AX, BP\;                    \
-	ADOXQ   AX, BP\;                    \
-	DIV_SHIFT()\;                       \
-	;                                   \
-	XORQ    AX, AX;                     \
-	MOVQ    SI, DX;                     \
-	MUL_WORD_0();                       \
-	XORQ    AX, AX;                     \
-	MOVQ    DI, DX;                     \
-	MUL_WORD_N();                       \
-	XORQ    AX, AX;                     \
-	MOVQ    R8, DX;                     \
-	MUL_WORD_N();                       \
-	XORQ    AX, AX;                     \
-	MOVQ    R9, DX;                     \
-	MUL_WORD_N();                       \
+	XORQ AX, AX;    \
+	MOVQ SI, DX;    \
+	MUL_WORD_0_2(); \
+	XORQ AX, AX;    \
+	MOVQ DI, DX;    \
+	MUL_WORD_N_3(); \
+	XORQ AX, AX;    \
+	MOVQ R8, DX;    \
+	MUL_WORD_N_3(); \
+	XORQ AX, AX;    \
+	MOVQ R9, DX;    \
+	MUL_WORD_N_3(); \
 
 TEXT ·addE2(SB), NOSPLIT, $0-24
 	MOVQ x+8(FP), AX

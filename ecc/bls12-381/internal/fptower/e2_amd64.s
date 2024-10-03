@@ -422,35 +422,30 @@ TEXT ·squareAdxE2(SB), $48-16
 	// t[3] -> R11
 	// t[4] -> R12
 	// t[5] -> R13
-#define DIV_SHIFT() \
-	PUSHQ BP                        \
-	MOVQ  $const_qInvNeg, DX        \
-	IMULQ R8, DX                    \
-	XORQ  AX, AX                    \
-	MULXQ ·qElement+0(SB), AX, BP   \
-	ADCXQ R8, AX                    \
-	MOVQ  BP, R8                    \
-	POPQ  BP                        \
-	ADCXQ R9, R8                    \
-	MULXQ ·qElement+8(SB), AX, R9   \
-	ADOXQ AX, R8                    \
-	ADCXQ R10, R9                   \
-	MULXQ ·qElement+16(SB), AX, R10 \
-	ADOXQ AX, R9                    \
-	ADCXQ R11, R10                  \
-	MULXQ ·qElement+24(SB), AX, R11 \
-	ADOXQ AX, R10                   \
-	ADCXQ R12, R11                  \
-	MULXQ ·qElement+32(SB), AX, R12 \
-	ADOXQ AX, R11                   \
-	ADCXQ R13, R12                  \
-	MULXQ ·qElement+40(SB), AX, R13 \
-	ADOXQ AX, R12                   \
-	MOVQ  $0, AX                    \
-	ADCXQ AX, R13                   \
-	ADOXQ BP, R13                   \
+#define MACC_0(in0, in1, in2) \
+	ADCXQ in0, in1     \
+	MULXQ in2, AX, in0 \
+	ADOXQ AX, in1      \
 
-#define MUL_WORD_0() \
+#define DIV_SHIFT_1() \
+	PUSHQ BP                           \
+	MOVQ  $const_qInvNeg, DX           \
+	IMULQ R8, DX                       \
+	XORQ  AX, AX                       \
+	MULXQ ·qElement+0(SB), AX, BP      \
+	ADCXQ R8, AX                       \
+	MOVQ  BP, R8                       \
+	POPQ  BP                           \
+	MACC_0(R9, R8, ·qElement+8(SB))    \
+	MACC_0(R10, R9, ·qElement+16(SB))  \
+	MACC_0(R11, R10, ·qElement+24(SB)) \
+	MACC_0(R12, R11, ·qElement+32(SB)) \
+	MACC_0(R13, R12, ·qElement+40(SB)) \
+	MOVQ  $0, AX                       \
+	ADCXQ AX, R13                      \
+	ADOXQ BP, R13                      \
+
+#define MUL_WORD_0_2() \
 	MULXQ R14, R8, R9  \
 	MULXQ R15, AX, R10 \
 	ADOXQ AX, R9       \
@@ -464,66 +459,56 @@ TEXT ·squareAdxE2(SB), $48-16
 	ADOXQ AX, R13      \
 	MOVQ  $0, AX       \
 	ADOXQ AX, BP       \
-	DIV_SHIFT()        \
+	DIV_SHIFT_1()      \
 
-#define MUL_WORD_N() \
-	MULXQ R14, AX, BP \
-	ADOXQ AX, R8      \
-	ADCXQ BP, R9      \
-	MULXQ R15, AX, BP \
-	ADOXQ AX, R9      \
-	ADCXQ BP, R10     \
-	MULXQ CX, AX, BP  \
-	ADOXQ AX, R10     \
-	ADCXQ BP, R11     \
-	MULXQ BX, AX, BP  \
-	ADOXQ AX, R11     \
-	ADCXQ BP, R12     \
-	MULXQ SI, AX, BP  \
-	ADOXQ AX, R12     \
-	ADCXQ BP, R13     \
-	MULXQ DI, AX, BP  \
-	ADOXQ AX, R13     \
-	MOVQ  $0, AX      \
-	ADCXQ AX, BP      \
-	ADOXQ AX, BP      \
-	DIV_SHIFT()       \
+#define MUL_WORD_N_3() \
+	MULXQ R14, AX, BP   \
+	ADOXQ AX, R8        \
+	MACC_0(BP, R9, R15) \
+	MACC_0(BP, R10, CX) \
+	MACC_0(BP, R11, BX) \
+	MACC_0(BP, R12, SI) \
+	MACC_0(BP, R13, DI) \
+	MOVQ  $0, AX        \
+	ADCXQ AX, BP        \
+	ADOXQ AX, BP        \
+	DIV_SHIFT_1()       \
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ x+8(FP), DX
 	MOVQ 0(DX), DX
-	MUL_WORD_0()
+	MUL_WORD_0_2()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ x+8(FP), DX
 	MOVQ 8(DX), DX
-	MUL_WORD_N()
+	MUL_WORD_N_3()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ x+8(FP), DX
 	MOVQ 16(DX), DX
-	MUL_WORD_N()
+	MUL_WORD_N_3()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ x+8(FP), DX
 	MOVQ 24(DX), DX
-	MUL_WORD_N()
+	MUL_WORD_N_3()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ x+8(FP), DX
 	MOVQ 32(DX), DX
-	MUL_WORD_N()
+	MUL_WORD_N_3()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ x+8(FP), DX
 	MOVQ 40(DX), DX
-	MUL_WORD_N()
+	MUL_WORD_N_3()
 
 	// reduce element(R8,R9,R10,R11,R12,R13) using temp registers (R14,R15,CX,BX,SI,DI)
 	REDUCE(R8,R9,R10,R11,R12,R13,R14,R15,CX,BX,SI,DI)
@@ -610,35 +595,30 @@ TEXT ·squareAdxE2(SB), $48-16
 	// t[3] -> R11
 	// t[4] -> R12
 	// t[5] -> R13
-#define DIV_SHIFT() \
-	PUSHQ BP                        \
-	MOVQ  $const_qInvNeg, DX        \
-	IMULQ R8, DX                    \
-	XORQ  AX, AX                    \
-	MULXQ ·qElement+0(SB), AX, BP   \
-	ADCXQ R8, AX                    \
-	MOVQ  BP, R8                    \
-	POPQ  BP                        \
-	ADCXQ R9, R8                    \
-	MULXQ ·qElement+8(SB), AX, R9   \
-	ADOXQ AX, R8                    \
-	ADCXQ R10, R9                   \
-	MULXQ ·qElement+16(SB), AX, R10 \
-	ADOXQ AX, R9                    \
-	ADCXQ R11, R10                  \
-	MULXQ ·qElement+24(SB), AX, R11 \
-	ADOXQ AX, R10                   \
-	ADCXQ R12, R11                  \
-	MULXQ ·qElement+32(SB), AX, R12 \
-	ADOXQ AX, R11                   \
-	ADCXQ R13, R12                  \
-	MULXQ ·qElement+40(SB), AX, R13 \
-	ADOXQ AX, R12                   \
-	MOVQ  $0, AX                    \
-	ADCXQ AX, R13                   \
-	ADOXQ BP, R13                   \
+#define MACC_4(in0, in1, in2) \
+	ADCXQ in0, in1     \
+	MULXQ in2, AX, in0 \
+	ADOXQ AX, in1      \
 
-#define MUL_WORD_0() \
+#define DIV_SHIFT_5() \
+	PUSHQ BP                           \
+	MOVQ  $const_qInvNeg, DX           \
+	IMULQ R8, DX                       \
+	XORQ  AX, AX                       \
+	MULXQ ·qElement+0(SB), AX, BP      \
+	ADCXQ R8, AX                       \
+	MOVQ  BP, R8                       \
+	POPQ  BP                           \
+	MACC_4(R9, R8, ·qElement+8(SB))    \
+	MACC_4(R10, R9, ·qElement+16(SB))  \
+	MACC_4(R11, R10, ·qElement+24(SB)) \
+	MACC_4(R12, R11, ·qElement+32(SB)) \
+	MACC_4(R13, R12, ·qElement+40(SB)) \
+	MOVQ  $0, AX                       \
+	ADCXQ AX, R13                      \
+	ADOXQ BP, R13                      \
+
+#define MUL_WORD_0_6() \
 	MULXQ R14, R8, R9  \
 	MULXQ R15, AX, R10 \
 	ADOXQ AX, R9       \
@@ -652,60 +632,50 @@ TEXT ·squareAdxE2(SB), $48-16
 	ADOXQ AX, R13      \
 	MOVQ  $0, AX       \
 	ADOXQ AX, BP       \
-	DIV_SHIFT()        \
+	DIV_SHIFT_5()      \
 
-#define MUL_WORD_N() \
-	MULXQ R14, AX, BP \
-	ADOXQ AX, R8      \
-	ADCXQ BP, R9      \
-	MULXQ R15, AX, BP \
-	ADOXQ AX, R9      \
-	ADCXQ BP, R10     \
-	MULXQ CX, AX, BP  \
-	ADOXQ AX, R10     \
-	ADCXQ BP, R11     \
-	MULXQ BX, AX, BP  \
-	ADOXQ AX, R11     \
-	ADCXQ BP, R12     \
-	MULXQ SI, AX, BP  \
-	ADOXQ AX, R12     \
-	ADCXQ BP, R13     \
-	MULXQ DI, AX, BP  \
-	ADOXQ AX, R13     \
-	MOVQ  $0, AX      \
-	ADCXQ AX, BP      \
-	ADOXQ AX, BP      \
-	DIV_SHIFT()       \
+#define MUL_WORD_N_7() \
+	MULXQ R14, AX, BP   \
+	ADOXQ AX, R8        \
+	MACC_4(BP, R9, R15) \
+	MACC_4(BP, R10, CX) \
+	MACC_4(BP, R11, BX) \
+	MACC_4(BP, R12, SI) \
+	MACC_4(BP, R13, DI) \
+	MOVQ  $0, AX        \
+	ADCXQ AX, BP        \
+	ADOXQ AX, BP        \
+	DIV_SHIFT_5()       \
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ s0-8(SP), DX
-	MUL_WORD_0()
+	MUL_WORD_0_6()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ s1-16(SP), DX
-	MUL_WORD_N()
+	MUL_WORD_N_7()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ s2-24(SP), DX
-	MUL_WORD_N()
+	MUL_WORD_N_7()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ s3-32(SP), DX
-	MUL_WORD_N()
+	MUL_WORD_N_7()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ s4-40(SP), DX
-	MUL_WORD_N()
+	MUL_WORD_N_7()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ s5-48(SP), DX
-	MUL_WORD_N()
+	MUL_WORD_N_7()
 
 	// reduce element(R8,R9,R10,R11,R12,R13) using temp registers (R14,R15,CX,BX,SI,DI)
 	REDUCE(R8,R9,R10,R11,R12,R13,R14,R15,CX,BX,SI,DI)
@@ -756,35 +726,30 @@ TEXT ·mulAdxE2(SB), $96-24
 	// t[3] -> R11
 	// t[4] -> R12
 	// t[5] -> R13
-#define DIV_SHIFT() \
-	PUSHQ BP                        \
-	MOVQ  $const_qInvNeg, DX        \
-	IMULQ R8, DX                    \
-	XORQ  AX, AX                    \
-	MULXQ ·qElement+0(SB), AX, BP   \
-	ADCXQ R8, AX                    \
-	MOVQ  BP, R8                    \
-	POPQ  BP                        \
-	ADCXQ R9, R8                    \
-	MULXQ ·qElement+8(SB), AX, R9   \
-	ADOXQ AX, R8                    \
-	ADCXQ R10, R9                   \
-	MULXQ ·qElement+16(SB), AX, R10 \
-	ADOXQ AX, R9                    \
-	ADCXQ R11, R10                  \
-	MULXQ ·qElement+24(SB), AX, R11 \
-	ADOXQ AX, R10                   \
-	ADCXQ R12, R11                  \
-	MULXQ ·qElement+32(SB), AX, R12 \
-	ADOXQ AX, R11                   \
-	ADCXQ R13, R12                  \
-	MULXQ ·qElement+40(SB), AX, R13 \
-	ADOXQ AX, R12                   \
-	MOVQ  $0, AX                    \
-	ADCXQ AX, R13                   \
-	ADOXQ BP, R13                   \
+#define MACC_8(in0, in1, in2) \
+	ADCXQ in0, in1     \
+	MULXQ in2, AX, in0 \
+	ADOXQ AX, in1      \
 
-#define MUL_WORD_0() \
+#define DIV_SHIFT_9() \
+	PUSHQ BP                           \
+	MOVQ  $const_qInvNeg, DX           \
+	IMULQ R8, DX                       \
+	XORQ  AX, AX                       \
+	MULXQ ·qElement+0(SB), AX, BP      \
+	ADCXQ R8, AX                       \
+	MOVQ  BP, R8                       \
+	POPQ  BP                           \
+	MACC_8(R9, R8, ·qElement+8(SB))    \
+	MACC_8(R10, R9, ·qElement+16(SB))  \
+	MACC_8(R11, R10, ·qElement+24(SB)) \
+	MACC_8(R12, R11, ·qElement+32(SB)) \
+	MACC_8(R13, R12, ·qElement+40(SB)) \
+	MOVQ  $0, AX                       \
+	ADCXQ AX, R13                      \
+	ADOXQ BP, R13                      \
+
+#define MUL_WORD_0_10() \
 	MULXQ R14, R8, R9  \
 	MULXQ R15, AX, R10 \
 	ADOXQ AX, R9       \
@@ -798,66 +763,56 @@ TEXT ·mulAdxE2(SB), $96-24
 	ADOXQ AX, R13      \
 	MOVQ  $0, AX       \
 	ADOXQ AX, BP       \
-	DIV_SHIFT()        \
+	DIV_SHIFT_9()      \
 
-#define MUL_WORD_N() \
-	MULXQ R14, AX, BP \
-	ADOXQ AX, R8      \
-	ADCXQ BP, R9      \
-	MULXQ R15, AX, BP \
-	ADOXQ AX, R9      \
-	ADCXQ BP, R10     \
-	MULXQ CX, AX, BP  \
-	ADOXQ AX, R10     \
-	ADCXQ BP, R11     \
-	MULXQ BX, AX, BP  \
-	ADOXQ AX, R11     \
-	ADCXQ BP, R12     \
-	MULXQ SI, AX, BP  \
-	ADOXQ AX, R12     \
-	ADCXQ BP, R13     \
-	MULXQ DI, AX, BP  \
-	ADOXQ AX, R13     \
-	MOVQ  $0, AX      \
-	ADCXQ AX, BP      \
-	ADOXQ AX, BP      \
-	DIV_SHIFT()       \
+#define MUL_WORD_N_11() \
+	MULXQ R14, AX, BP   \
+	ADOXQ AX, R8        \
+	MACC_8(BP, R9, R15) \
+	MACC_8(BP, R10, CX) \
+	MACC_8(BP, R11, BX) \
+	MACC_8(BP, R12, SI) \
+	MACC_8(BP, R13, DI) \
+	MOVQ  $0, AX        \
+	ADCXQ AX, BP        \
+	ADOXQ AX, BP        \
+	DIV_SHIFT_9()       \
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ y+16(FP), DX
 	MOVQ 48(DX), DX
-	MUL_WORD_0()
+	MUL_WORD_0_10()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ y+16(FP), DX
 	MOVQ 56(DX), DX
-	MUL_WORD_N()
+	MUL_WORD_N_11()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ y+16(FP), DX
 	MOVQ 64(DX), DX
-	MUL_WORD_N()
+	MUL_WORD_N_11()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ y+16(FP), DX
 	MOVQ 72(DX), DX
-	MUL_WORD_N()
+	MUL_WORD_N_11()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ y+16(FP), DX
 	MOVQ 80(DX), DX
-	MUL_WORD_N()
+	MUL_WORD_N_11()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ y+16(FP), DX
 	MOVQ 88(DX), DX
-	MUL_WORD_N()
+	MUL_WORD_N_11()
 
 	// reduce element(R8,R9,R10,R11,R12,R13) using temp registers (R14,R15,CX,BX,SI,DI)
 	REDUCE(R8,R9,R10,R11,R12,R13,R14,R15,CX,BX,SI,DI)
@@ -908,35 +863,30 @@ TEXT ·mulAdxE2(SB), $96-24
 	// t[3] -> R11
 	// t[4] -> R12
 	// t[5] -> R13
-#define DIV_SHIFT() \
-	PUSHQ BP                        \
-	MOVQ  $const_qInvNeg, DX        \
-	IMULQ R8, DX                    \
-	XORQ  AX, AX                    \
-	MULXQ ·qElement+0(SB), AX, BP   \
-	ADCXQ R8, AX                    \
-	MOVQ  BP, R8                    \
-	POPQ  BP                        \
-	ADCXQ R9, R8                    \
-	MULXQ ·qElement+8(SB), AX, R9   \
-	ADOXQ AX, R8                    \
-	ADCXQ R10, R9                   \
-	MULXQ ·qElement+16(SB), AX, R10 \
-	ADOXQ AX, R9                    \
-	ADCXQ R11, R10                  \
-	MULXQ ·qElement+24(SB), AX, R11 \
-	ADOXQ AX, R10                   \
-	ADCXQ R12, R11                  \
-	MULXQ ·qElement+32(SB), AX, R12 \
-	ADOXQ AX, R11                   \
-	ADCXQ R13, R12                  \
-	MULXQ ·qElement+40(SB), AX, R13 \
-	ADOXQ AX, R12                   \
-	MOVQ  $0, AX                    \
-	ADCXQ AX, R13                   \
-	ADOXQ BP, R13                   \
+#define MACC_12(in0, in1, in2) \
+	ADCXQ in0, in1     \
+	MULXQ in2, AX, in0 \
+	ADOXQ AX, in1      \
 
-#define MUL_WORD_0() \
+#define DIV_SHIFT_13() \
+	PUSHQ BP                            \
+	MOVQ  $const_qInvNeg, DX            \
+	IMULQ R8, DX                        \
+	XORQ  AX, AX                        \
+	MULXQ ·qElement+0(SB), AX, BP       \
+	ADCXQ R8, AX                        \
+	MOVQ  BP, R8                        \
+	POPQ  BP                            \
+	MACC_12(R9, R8, ·qElement+8(SB))    \
+	MACC_12(R10, R9, ·qElement+16(SB))  \
+	MACC_12(R11, R10, ·qElement+24(SB)) \
+	MACC_12(R12, R11, ·qElement+32(SB)) \
+	MACC_12(R13, R12, ·qElement+40(SB)) \
+	MOVQ  $0, AX                        \
+	ADCXQ AX, R13                       \
+	ADOXQ BP, R13                       \
+
+#define MUL_WORD_0_14() \
 	MULXQ R14, R8, R9  \
 	MULXQ R15, AX, R10 \
 	ADOXQ AX, R9       \
@@ -950,60 +900,50 @@ TEXT ·mulAdxE2(SB), $96-24
 	ADOXQ AX, R13      \
 	MOVQ  $0, AX       \
 	ADOXQ AX, BP       \
-	DIV_SHIFT()        \
+	DIV_SHIFT_13()     \
 
-#define MUL_WORD_N() \
-	MULXQ R14, AX, BP \
-	ADOXQ AX, R8      \
-	ADCXQ BP, R9      \
-	MULXQ R15, AX, BP \
-	ADOXQ AX, R9      \
-	ADCXQ BP, R10     \
-	MULXQ CX, AX, BP  \
-	ADOXQ AX, R10     \
-	ADCXQ BP, R11     \
-	MULXQ BX, AX, BP  \
-	ADOXQ AX, R11     \
-	ADCXQ BP, R12     \
-	MULXQ SI, AX, BP  \
-	ADOXQ AX, R12     \
-	ADCXQ BP, R13     \
-	MULXQ DI, AX, BP  \
-	ADOXQ AX, R13     \
-	MOVQ  $0, AX      \
-	ADCXQ AX, BP      \
-	ADOXQ AX, BP      \
-	DIV_SHIFT()       \
+#define MUL_WORD_N_15() \
+	MULXQ R14, AX, BP    \
+	ADOXQ AX, R8         \
+	MACC_12(BP, R9, R15) \
+	MACC_12(BP, R10, CX) \
+	MACC_12(BP, R11, BX) \
+	MACC_12(BP, R12, SI) \
+	MACC_12(BP, R13, DI) \
+	MOVQ  $0, AX         \
+	ADCXQ AX, BP         \
+	ADOXQ AX, BP         \
+	DIV_SHIFT_13()       \
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ s0-8(SP), DX
-	MUL_WORD_0()
+	MUL_WORD_0_14()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ s1-16(SP), DX
-	MUL_WORD_N()
+	MUL_WORD_N_15()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ s2-24(SP), DX
-	MUL_WORD_N()
+	MUL_WORD_N_15()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ s3-32(SP), DX
-	MUL_WORD_N()
+	MUL_WORD_N_15()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ s4-40(SP), DX
-	MUL_WORD_N()
+	MUL_WORD_N_15()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ s5-48(SP), DX
-	MUL_WORD_N()
+	MUL_WORD_N_15()
 
 	// reduce element(R8,R9,R10,R11,R12,R13) using temp registers (R14,R15,CX,BX,SI,DI)
 	REDUCE(R8,R9,R10,R11,R12,R13,R14,R15,CX,BX,SI,DI)
@@ -1029,35 +969,30 @@ TEXT ·mulAdxE2(SB), $96-24
 	// t[3] -> R11
 	// t[4] -> R12
 	// t[5] -> R13
-#define DIV_SHIFT() \
-	PUSHQ BP                        \
-	MOVQ  $const_qInvNeg, DX        \
-	IMULQ R8, DX                    \
-	XORQ  AX, AX                    \
-	MULXQ ·qElement+0(SB), AX, BP   \
-	ADCXQ R8, AX                    \
-	MOVQ  BP, R8                    \
-	POPQ  BP                        \
-	ADCXQ R9, R8                    \
-	MULXQ ·qElement+8(SB), AX, R9   \
-	ADOXQ AX, R8                    \
-	ADCXQ R10, R9                   \
-	MULXQ ·qElement+16(SB), AX, R10 \
-	ADOXQ AX, R9                    \
-	ADCXQ R11, R10                  \
-	MULXQ ·qElement+24(SB), AX, R11 \
-	ADOXQ AX, R10                   \
-	ADCXQ R12, R11                  \
-	MULXQ ·qElement+32(SB), AX, R12 \
-	ADOXQ AX, R11                   \
-	ADCXQ R13, R12                  \
-	MULXQ ·qElement+40(SB), AX, R13 \
-	ADOXQ AX, R12                   \
-	MOVQ  $0, AX                    \
-	ADCXQ AX, R13                   \
-	ADOXQ BP, R13                   \
+#define MACC_16(in0, in1, in2) \
+	ADCXQ in0, in1     \
+	MULXQ in2, AX, in0 \
+	ADOXQ AX, in1      \
 
-#define MUL_WORD_0() \
+#define DIV_SHIFT_17() \
+	PUSHQ BP                            \
+	MOVQ  $const_qInvNeg, DX            \
+	IMULQ R8, DX                        \
+	XORQ  AX, AX                        \
+	MULXQ ·qElement+0(SB), AX, BP       \
+	ADCXQ R8, AX                        \
+	MOVQ  BP, R8                        \
+	POPQ  BP                            \
+	MACC_16(R9, R8, ·qElement+8(SB))    \
+	MACC_16(R10, R9, ·qElement+16(SB))  \
+	MACC_16(R11, R10, ·qElement+24(SB)) \
+	MACC_16(R12, R11, ·qElement+32(SB)) \
+	MACC_16(R13, R12, ·qElement+40(SB)) \
+	MOVQ  $0, AX                        \
+	ADCXQ AX, R13                       \
+	ADOXQ BP, R13                       \
+
+#define MUL_WORD_0_18() \
 	MULXQ R14, R8, R9  \
 	MULXQ R15, AX, R10 \
 	ADOXQ AX, R9       \
@@ -1071,66 +1006,56 @@ TEXT ·mulAdxE2(SB), $96-24
 	ADOXQ AX, R13      \
 	MOVQ  $0, AX       \
 	ADOXQ AX, BP       \
-	DIV_SHIFT()        \
+	DIV_SHIFT_17()     \
 
-#define MUL_WORD_N() \
-	MULXQ R14, AX, BP \
-	ADOXQ AX, R8      \
-	ADCXQ BP, R9      \
-	MULXQ R15, AX, BP \
-	ADOXQ AX, R9      \
-	ADCXQ BP, R10     \
-	MULXQ CX, AX, BP  \
-	ADOXQ AX, R10     \
-	ADCXQ BP, R11     \
-	MULXQ BX, AX, BP  \
-	ADOXQ AX, R11     \
-	ADCXQ BP, R12     \
-	MULXQ SI, AX, BP  \
-	ADOXQ AX, R12     \
-	ADCXQ BP, R13     \
-	MULXQ DI, AX, BP  \
-	ADOXQ AX, R13     \
-	MOVQ  $0, AX      \
-	ADCXQ AX, BP      \
-	ADOXQ AX, BP      \
-	DIV_SHIFT()       \
+#define MUL_WORD_N_19() \
+	MULXQ R14, AX, BP    \
+	ADOXQ AX, R8         \
+	MACC_16(BP, R9, R15) \
+	MACC_16(BP, R10, CX) \
+	MACC_16(BP, R11, BX) \
+	MACC_16(BP, R12, SI) \
+	MACC_16(BP, R13, DI) \
+	MOVQ  $0, AX         \
+	ADCXQ AX, BP         \
+	ADOXQ AX, BP         \
+	DIV_SHIFT_17()       \
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ y+16(FP), DX
 	MOVQ 0(DX), DX
-	MUL_WORD_0()
+	MUL_WORD_0_18()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ y+16(FP), DX
 	MOVQ 8(DX), DX
-	MUL_WORD_N()
+	MUL_WORD_N_19()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ y+16(FP), DX
 	MOVQ 16(DX), DX
-	MUL_WORD_N()
+	MUL_WORD_N_19()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ y+16(FP), DX
 	MOVQ 24(DX), DX
-	MUL_WORD_N()
+	MUL_WORD_N_19()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ y+16(FP), DX
 	MOVQ 32(DX), DX
-	MUL_WORD_N()
+	MUL_WORD_N_19()
 
 	// clear the flags
 	XORQ AX, AX
 	MOVQ y+16(FP), DX
 	MOVQ 40(DX), DX
-	MUL_WORD_N()
+	MUL_WORD_N_19()
 
 	// reduce element(R8,R9,R10,R11,R12,R13) using temp registers (R14,R15,CX,BX,SI,DI)
 	REDUCE(R8,R9,R10,R11,R12,R13,R14,R15,CX,BX,SI,DI)
