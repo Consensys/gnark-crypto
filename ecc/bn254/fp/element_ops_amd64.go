@@ -51,7 +51,8 @@ func (vector *Vector) Add(a, b Vector) {
 	if len(a) != len(b) || len(a) != len(*vector) {
 		panic("vector.Add: vectors don't have the same length")
 	}
-	addVec(&(*vector)[0], &a[0], &b[0], uint64(len(a)))
+	n := uint64(len(a))
+	addVec(&(*vector)[0], &a[0], &b[0], n)
 }
 
 //go:noescape

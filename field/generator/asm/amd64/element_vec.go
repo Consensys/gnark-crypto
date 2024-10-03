@@ -66,7 +66,6 @@ func (f *FFAmd64) generateAddVec() {
 
 	// save a into res
 	f.Mov(a, addrRes)
-
 	f.Comment("increment pointers to visit next element")
 	f.ADDQ("$32", addrA)
 	f.ADDQ("$32", addrB)
@@ -124,6 +123,8 @@ func (f *FFAmd64) generateSubVec() {
 	f.LabelRegisters("a", a...)
 	f.Mov(addrA, a)
 	f.Sub(addrB, a)
+	f.WriteLn(fmt.Sprintf("PREFETCHT0 2048(%[1]s)", addrA))
+	f.WriteLn(fmt.Sprintf("PREFETCHT0 2048(%[1]s)", addrB))
 
 	// reduce a
 	f.Comment("reduce (a-b) mod q")
@@ -986,11 +987,11 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 	f.MOVQ("n+24(FP)", tr)
 
 	if scalarMul {
+		// for scalar mul we move the scalar only once in registers.
 		f.Mov(PY, y)
 	}
 
-	// we process 16 elements at a time, so we divide by 16
-	// f.SHRQ("$4", tr)
+	// we process 16 elements at a time, Go caller divided len by 16.
 	f.MOVQ(tr, LEN)
 
 	f.Comment("Create mask for low dword in each qword")
@@ -1096,7 +1097,6 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 	}
 
 	storeOutput()
-	loadInput()
 
 	f.Comment("For each 256-bit input value, each zmm register now represents a 32-bit input word zero-extended to 64 bits.")
 	f.Comment("Multiply y by doubleword 0 of x")
@@ -1109,6 +1109,8 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 			}
 		}
 	}
+
+	loadInput()
 
 	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
 
@@ -1175,7 +1177,6 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
 
 	storeOutput()
-	loadInput()
 
 	f.Comment("Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)")
 
@@ -1184,6 +1185,7 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 		f.VPANDQ("Z8", zi(i), zi(i))
 		f.VPADDQ(zi(10+i), zi(i+1), zi(i+1))
 	}
+	loadInput()
 
 	f.VPSRLQ("$32", "Z3", "Z13")
 	f.VPANDQ("Z8", "Z3", "Z3")
@@ -1233,8 +1235,6 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 	AVX_MUL_Q_HI()
 
 	CARRY1()
-	mulXi(1)
-
 	CARRY2()
 
 	f.Comment("Process doubleword 3 of x")
@@ -1244,34 +1244,34 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 		f.VPADDQ(zi(10+i), zi(i), zi(i))
 
 	}
-	mulXi(2)
+
+	mulXi(1)
 
 	for i := 0; i < 4; i++ {
 		f.VPMULUDQ("Z19", zi(28+i), zi(14+i))
 		f.VPADDQ(zi(14+i), zi(4+i), zi(4+i))
 
 	}
-
+	mulXi(2)
 	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
 
 	// Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)
 	CARRY3()
-	mulXi(3)
 	CARRY4()
-	storeOutput()
-	loadInput()
+	mulXi(3)
+
 	AVX_MUL_Q_LO()
 
 	AVX_MUL_Q_HI()
 
-	mulXi(0)
+	storeOutput()
 
 	f.Comment("Propagate carries and shift down by one dword")
 	CARRY1()
 
 	CARRY2()
 
-	mulXi(1)
+	loadInput()
 
 	f.Comment("Process doubleword 4 of x")
 
@@ -1280,7 +1280,7 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 		f.VPADDQ(zi(10+i), zi(i), zi(i))
 
 	}
-
+	mulXi(0)
 	for i := 0; i < 4; i++ {
 		f.VPMULUDQ("Z20", zi(28+i), zi(14+i))
 		f.VPADDQ(zi(14+i), zi(4+i), zi(4+i))
@@ -1288,16 +1288,14 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 	}
 
 	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
-
-	mulXi(2)
+	mulXi(1)
 
 	f.Comment("Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)")
 
 	CARRY3()
 
 	CARRY4()
-
-	mulXi(3)
+	mulXi(2)
 
 	f.Comment("zmm7 keeps all 64 bits")
 
@@ -1305,7 +1303,7 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 
 	AVX_MUL_Q_HI()
 
-	storeOutput()
+	mulXi(3)
 
 	f.Comment("Propagate carries and shift down by one dword")
 
@@ -1313,7 +1311,7 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 
 	CARRY2()
 
-	loadInput()
+	storeOutput()
 
 	f.Comment("Process doubleword 5 of x")
 
@@ -1322,7 +1320,7 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 		f.VPADDQ(zi(10+i), zi(i), zi(i))
 
 	}
-
+	loadInput()
 	for i := 0; i < 4; i++ {
 		f.VPMULUDQ("Z21", zi(28+i), zi(14+i))
 		f.VPADDQ(zi(14+i), zi(4+i), zi(4+i))
@@ -1362,11 +1360,10 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
 
 	storeOutput()
-	loadInput()
 
 	f.Comment("Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)")
 	CARRY3()
-
+	loadInput()
 	CARRY4()
 
 	mulXi(0)
@@ -1440,9 +1437,10 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 
 	for i := 0; i < 8; i++ {
 		f.VMOVDQU64k(zi(10+i), "K2", zi(i))
+		if i == 4 {
+			mulXi(2)
+		}
 	}
-
-	mulXi(2)
 
 	f.Comment("Transpose results back")
 
@@ -1459,14 +1457,14 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 	f.VMOVDQU64("Z0", "Z4")
 	f.VMOVDQU64("Z2", "Z6")
 
+	mulXi(3)
 	f.VPERMT2Q("Z1", "Z11", "Z0")
 	f.VPERMT2Q("Z4", "Z12", "Z1")
 	f.VPERMT2Q("Z3", "Z11", "Z2")
 	f.VPERMT2Q("Z6", "Z12", "Z3")
 
 	// Step 3
-
-	mulXi(3)
+	storeOutput()
 
 	f.VMOVDQU64("Z0", "Z4")
 	f.VMOVDQU64("Z1", "Z5")
@@ -1474,8 +1472,6 @@ func (f *FFAmd64) generateMulVec(funcName string) {
 	f.VPERMT2Q("Z4", "Z14", "Z2")
 	f.VPERMT2Q("Z3", "Z13", "Z1")
 	f.VPERMT2Q("Z5", "Z14", "Z3")
-
-	storeOutput()
 
 	f.Comment("Save AVX-512 results")
 
