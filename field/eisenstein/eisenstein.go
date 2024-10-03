@@ -120,6 +120,7 @@ func (z *ComplexNumber) Quo(x, y *ComplexNumber) *ComplexNumber {
 	return z
 }
 
+// Rem sets z to the minimum of all possible remainders of x by y, and returns z.
 func (z *ComplexNumber) Rem(x, y, q *ComplexNumber) *ComplexNumber {
 	var t ComplexNumber
 	z.Sub(x, t.Mul(y, q))
@@ -147,7 +148,8 @@ func (z *ComplexNumber) QuoRem(x, y, r *ComplexNumber) (*ComplexNumber, *Complex
 	z.Mul(x, z)
 	z.A0.Div(&z.A0, norm)
 	z.A1.Div(&z.A1, norm)
-	r.Rem(x, y, z)
+	r.Mul(y, z)
+	r.Sub(x, r)
 
 	return z, r
 }
@@ -167,7 +169,7 @@ func Min(z ...*ComplexNumber) *ComplexNumber {
 // This outputs w, v, u s.t. w = a*u + b*v.
 func HalfGCD(a, b *ComplexNumber) [3]*ComplexNumber {
 
-	var aRun, bRun, u, v, u_, v_, quotient, remainder, t1, t2 ComplexNumber
+	var aRun, bRun, u, v, u_, v_, quotient, remainder, t, t1, t2 ComplexNumber
 	var sqrt big.Int
 
 	aRun.Set(a)
@@ -179,10 +181,12 @@ func HalfGCD(a, b *ComplexNumber) [3]*ComplexNumber {
 
 	// Eisenstein integers form an Euclidean domain for the norm
 	sqrt.Sqrt(a.Norm())
-	for bRun.Norm().Cmp(&sqrt) == 1 {
+	for bRun.Norm().Cmp(&sqrt) >= 0 {
 		quotient.QuoRem(&aRun, &bRun, &remainder)
-		t1.Rem(&u, &u_, &quotient)
-		t2.Rem(&v, &v_, &quotient)
+		t.Mul(&u_, &quotient)
+		t1.Sub(&u, &t)
+		t.Mul(&v_, &quotient)
+		t2.Sub(&v, &t)
 		aRun.Set(&bRun)
 		u.Set(&u_)
 		v.Set(&v_)
