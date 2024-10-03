@@ -32,9 +32,5 @@ const AsmNoAdx = `
 var (
 	supportAdx = false
 	_ = supportAdx
-	{{- if .ASMVector}}
-	supportAvx512 = false
-	_ = supportAvx512
-	{{- end}}
 )
 `

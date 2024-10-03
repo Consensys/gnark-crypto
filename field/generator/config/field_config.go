@@ -265,7 +265,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	F.ASMVector = F.ASM && F.NbWords == 4 && F.NbBits > 225
 
 	// setting Mu 2^288 / q
-	if F.ASMVector {
+	if F.NbWords == 4 {
 		_mu := big.NewInt(1)
 		_mu.Lsh(_mu, 288)
 		_mu.Div(_mu, &bModulus)
