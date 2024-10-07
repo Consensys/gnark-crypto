@@ -16,38 +16,25 @@
 #include "funcdata.h"
 #include "go_asm.h"
 
-// modulus q
-DATA q<>+0(SB)/8, $0xb9feffffffffaaab
-DATA q<>+8(SB)/8, $0x1eabfffeb153ffff
-DATA q<>+16(SB)/8, $0x6730d2a0f6b0f624
-DATA q<>+24(SB)/8, $0x64774b84f38512bf
-DATA q<>+32(SB)/8, $0x4b1ba7b6434bacd7
-DATA q<>+40(SB)/8, $0x1a0111ea397fe69a
-GLOBL q<>(SB), (RODATA+NOPTR), $48
-
-// qInv0 q'[0]
-DATA qInv0<>(SB)/8, $0x89f3fffcfffcfffd
-GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
-
 #define REDUCE(ra0, ra1, ra2, ra3, ra4, ra5, rb0, rb1, rb2, rb3, rb4, rb5) \
-	MOVQ    ra0, rb0;        \
-	SUBQ    q<>(SB), ra0;    \
-	MOVQ    ra1, rb1;        \
-	SBBQ    q<>+8(SB), ra1;  \
-	MOVQ    ra2, rb2;        \
-	SBBQ    q<>+16(SB), ra2; \
-	MOVQ    ra3, rb3;        \
-	SBBQ    q<>+24(SB), ra3; \
-	MOVQ    ra4, rb4;        \
-	SBBQ    q<>+32(SB), ra4; \
-	MOVQ    ra5, rb5;        \
-	SBBQ    q<>+40(SB), ra5; \
-	CMOVQCS rb0, ra0;        \
-	CMOVQCS rb1, ra1;        \
-	CMOVQCS rb2, ra2;        \
-	CMOVQCS rb3, ra3;        \
-	CMOVQCS rb4, ra4;        \
-	CMOVQCS rb5, ra5;        \
+	MOVQ    ra0, rb0;              \
+	SUBQ    ·qElement(SB), ra0;    \
+	MOVQ    ra1, rb1;              \
+	SBBQ    ·qElement+8(SB), ra1;  \
+	MOVQ    ra2, rb2;              \
+	SBBQ    ·qElement+16(SB), ra2; \
+	MOVQ    ra3, rb3;              \
+	SBBQ    ·qElement+24(SB), ra3; \
+	MOVQ    ra4, rb4;              \
+	SBBQ    ·qElement+32(SB), ra4; \
+	MOVQ    ra5, rb5;              \
+	SBBQ    ·qElement+40(SB), ra5; \
+	CMOVQCS rb0, ra0;              \
+	CMOVQCS rb1, ra1;              \
+	CMOVQCS rb2, ra2;              \
+	CMOVQCS rb3, ra3;              \
+	CMOVQCS rb4, ra4;              \
+	CMOVQCS rb5, ra5;              \
 
 TEXT ·addE2(SB), NOSPLIT, $0-24
 	MOVQ x+8(FP), AX

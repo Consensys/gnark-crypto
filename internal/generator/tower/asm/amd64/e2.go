@@ -50,7 +50,7 @@ func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 	fq2.WriteLn("#include \"funcdata.h\"")
 	fq2.WriteLn("#include \"go_asm.h\"")
 
-	fq2.GenerateDefinesDeprecated(fq2.F)
+	fq2.GenerateReduceDefine()
 	if fq2.config.Equal(config.BN254) {
 		fq2.generateMulDefine()
 	}

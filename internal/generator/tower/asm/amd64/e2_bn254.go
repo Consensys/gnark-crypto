@@ -348,7 +348,10 @@ func (w *writerDefine) Write(p []byte) (n int, err error) {
 	// then if it's the first time we are here, we print the header
 	if strings.Contains(string(p), "mul body") {
 		w.first = true
-		_, _ = io.WriteString(w.w, "#define MUL() \\ \n")
+		n, err = io.WriteString(w.w, "#define MUL() \\ \n")
+		if err != nil {
+			return
+		}
 	}
 	if !w.first {
 		return w.w.Write(p)

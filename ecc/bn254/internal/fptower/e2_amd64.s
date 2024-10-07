@@ -16,30 +16,19 @@
 #include "funcdata.h"
 #include "go_asm.h"
 
-// modulus q
-DATA q<>+0(SB)/8, $0x3c208c16d87cfd47
-DATA q<>+8(SB)/8, $0x97816a916871ca8d
-DATA q<>+16(SB)/8, $0xb85045b68181585d
-DATA q<>+24(SB)/8, $0x30644e72e131a029
-GLOBL q<>(SB), (RODATA+NOPTR), $32
-
-// qInv0 q'[0]
-DATA qInv0<>(SB)/8, $0x87d20782e4866389
-GLOBL qInv0<>(SB), (RODATA+NOPTR), $8
-
 #define REDUCE(ra0, ra1, ra2, ra3, rb0, rb1, rb2, rb3) \
-	MOVQ    ra0, rb0;        \
-	SUBQ    q<>(SB), ra0;    \
-	MOVQ    ra1, rb1;        \
-	SBBQ    q<>+8(SB), ra1;  \
-	MOVQ    ra2, rb2;        \
-	SBBQ    q<>+16(SB), ra2; \
-	MOVQ    ra3, rb3;        \
-	SBBQ    q<>+24(SB), ra3; \
-	CMOVQCS rb0, ra0;        \
-	CMOVQCS rb1, ra1;        \
-	CMOVQCS rb2, ra2;        \
-	CMOVQCS rb3, ra3;        \
+	MOVQ    ra0, rb0;              \
+	SUBQ    ·qElement(SB), ra0;    \
+	MOVQ    ra1, rb1;              \
+	SBBQ    ·qElement+8(SB), ra1;  \
+	MOVQ    ra2, rb2;              \
+	SBBQ    ·qElement+16(SB), ra2; \
+	MOVQ    ra3, rb3;              \
+	SBBQ    ·qElement+24(SB), ra3; \
+	CMOVQCS rb0, ra0;              \
+	CMOVQCS rb1, ra1;              \
+	CMOVQCS rb2, ra2;              \
+	CMOVQCS rb3, ra3;              \
 
 // this code is generated and identical to fp.Mul(...)
 // A -> BP

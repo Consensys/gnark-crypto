@@ -70,7 +70,6 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 
 	for _, of := range oldFiles {
 		_ = os.Remove(filepath.Join(outputDir, eName+of))
-		_ = os.Remove(filepath.Join(outputDir, of))
 	}
 	_ = os.Remove(filepath.Join(outputDir, "asm.go"))
 	_ = os.Remove(filepath.Join(outputDir, "asm_noadx.go"))
@@ -281,6 +280,7 @@ func shorten(input string) string {
 }
 
 func GenerateCommonASM(nbWords int, asmDir string, hasVector bool) error {
+	os.MkdirAll(asmDir, 0755)
 	pathSrc := filepath.Join(asmDir, fmt.Sprintf(amd64.ElementASMFileName, nbWords))
 
 	fmt.Println("generating", pathSrc)
