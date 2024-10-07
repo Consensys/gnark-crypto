@@ -49,7 +49,7 @@ const (
 {{- end}}
 )
 
-var q{{.ElementName}} = {{.ElementName}}{
+var qElement = {{.ElementName}}{
 	{{- range $i := $.NbWordsIndexesFull}}
 	q{{$i}},{{end}}
 }
@@ -67,6 +67,12 @@ func Modulus() *big.Int {
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 // used for Montgomery reduction
 const qInvNeg uint64 = {{index .QInverse 0}}
+
+{{- if eq .NbWords 4}}
+// mu = 2^288 / q needed for partial Barrett reduction
+const mu uint64 = {{.Mu}}
+{{- end}}
+
 
 func init() {
 	_modulus.SetString("{{.ModulusHex}}", 16)

@@ -42,8 +42,8 @@ func (f *FFAmd64) generateFromMont(forceADX bool) {
 		f.WriteLn("NO_LOCAL_POINTERS")
 	}
 	f.WriteLn(`
-	// the algorithm is described here
-	// https://hackmd.io/@gnark/modular_multiplication
+	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS" 
+	// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
 	// when y = 1 we have: 
 	// for i=0 to N-1
 	// 		t[i] = x[i]

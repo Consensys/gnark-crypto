@@ -1,3 +1,25 @@
+import (
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+)
+
+// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+// used for Montgomery reduction
+const qInvNeg uint64 = {{index .Fp.QInverse 0}}
+
+// Field modulus q (Fp)
+const (
+	{{- range $i := $.Fp.NbWordsIndexesFull}}
+		q{{$i}} uint64 = {{index $.Fp.Q $i}}
+		{{- if eq $.Fp.NbWords 1}}
+			q uint64 = q0
+		{{- end}}
+	{{- end}}
+	)
+
+var qElement = fp.Element { 
+	{{- range $i := $.Fp.NbWordsIndexesFull}}
+	q{{$i}},{{end}}
+}
 
 //go:noescape
 func addE2(res,x,y *E2)

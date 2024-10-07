@@ -226,6 +226,32 @@ func scalarMulVecGeneric(res, a Vector, b *Element) {
 	}
 }
 
+func sumVecGeneric(res *Element, a Vector) {
+	for i := 0; i < len(a); i++ {
+		res.Add(res, &a[i])
+	}
+}
+
+func innerProductVecGeneric(res *Element, a, b Vector) {
+	if len(a) != len(b) {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	var tmp Element
+	for i := 0; i < len(a); i++ {
+		tmp.Mul(&a[i], &b[i])
+		res.Add(res, &tmp)
+	}
+}
+
+func mulVecGeneric(res, a, b Vector) {
+	if len(a) != len(b) || len(a) != len(res) {
+		panic("vector.Mul: vectors don't have the same length")
+	}
+	for i := 0; i < len(a); i++ {
+		res[i].Mul(&a[i], &b[i])
+	}
+}
+
 // TODO @gbotrel make a public package out of that.
 // execute executes the work function in parallel.
 // this is copy paste from internal/parallel/parallel.go

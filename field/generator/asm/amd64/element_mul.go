@@ -20,6 +20,18 @@ import (
 	"github.com/consensys/bavard/amd64"
 )
 
+// Registers used when f.NbWords == 4
+// for the multiplication.
+// They are re-referenced in defines in the vectorized operations.
+var mul4Registers = []amd64.Register{
+	// t
+	amd64.R14, amd64.R13, amd64.CX, amd64.BX,
+	// x
+	amd64.DI, amd64.R8, amd64.R9, amd64.R10,
+	// tr
+	amd64.R12,
+}
+
 // MulADX uses AX, DX and BP
 // sets x * y into t, without modular reduction
 // x() will have more accesses than y()
@@ -40,69 +52,50 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 	f.LabelRegisters("A", A)
 	f.LabelRegisters("t", t...)
 
-	for i := 0; i < f.NbWords; i++ {
-		f.Comment("clear the flags")
-		f.XORQ(amd64.AX, amd64.AX)
-
-		f.MOVQ(y(i), amd64.DX)
-
-		// for j=0 to N-1
-		//    (A,t[j])  := t[j] + x[j]*y[i] + A
-		if i == 0 {
-			for j := 0; j < f.NbWords; j++ {
-				f.Comment(fmt.Sprintf("(A,t[%[1]d])  := x[%[1]d]*y[%[2]d] + A", j, i))
-
-				if j == 0 && f.NbWords == 1 {
-					f.MULXQ(x(j), t[j], A)
-				} else if j == 0 {
-					f.MULXQ(x(j), t[j], t[j+1])
-				} else {
-					highBits := A
-					if j != f.NbWordsLastIndex {
-						highBits = t[j+1]
-					}
-					f.MULXQ(x(j), amd64.AX, highBits)
-					f.ADOXQ(amd64.AX, t[j])
-				}
+	if f.NbWords == 4 && hasFreeRegister {
+		// ensure the registers match the "hardcoded ones" in mul4Registers for the vecops
+		match := true
+		for i := 0; i < 4; i++ {
+			if mul4Registers[i] != t[i] {
+				match = false
+				fmt.Printf("expected %s, got t[%d] %s\n", mul4Registers[i], i, t[i])
 			}
-		} else {
-			for j := 0; j < f.NbWords; j++ {
-				f.Comment(fmt.Sprintf("(A,t[%[1]d])  := t[%[1]d] + x[%[1]d]*y[%[2]d] + A", j, i))
-
-				if j != 0 {
-					f.ADCXQ(A, t[j])
-				}
-				f.MULXQ(x(j), amd64.AX, A)
-				f.ADOXQ(amd64.AX, t[j])
+			if mul4Registers[i+4] != amd64.Register(x(i)) {
+				match = false
+				fmt.Printf("expected %s, got x[%d] %s\n", mul4Registers[i+4], i, x(i))
 			}
 		}
-
-		f.Comment("A += carries from ADCXQ and ADOXQ")
-		f.MOVQ(0, amd64.AX)
-		if i != 0 {
-			f.ADCXQ(amd64.AX, A)
+		if tr != mul4Registers[8] {
+			match = false
+			fmt.Printf("expected %s, got tr %s\n", mul4Registers[8], tr)
 		}
-		f.ADOXQ(amd64.AX, A)
+		if !match {
+			panic("registers do not match hardcoded ones")
+		}
+	}
 
+	mac := f.Define("MACC", 3, func(args ...amd64.Register) {
+		in0 := args[0]
+		in1 := args[1]
+		in2 := args[2]
+		f.ADCXQ(in0, in1)
+		f.MULXQ(in2, amd64.AX, in0)
+		f.ADOXQ(amd64.AX, in1)
+	})
+
+	divShift := f.Define("DIV_SHIFT", 0, func(_ ...amd64.Register) {
 		if !hasFreeRegister {
 			f.PUSHQ(A)
 		}
-
 		// m := t[0]*q'[0] mod W
-		f.Comment("m := t[0]*q'[0] mod W")
 		m := amd64.DX
-		// f.MOVQ(t[0], m)
-		// f.MULXQ(f.qInv0(), m, amd64.AX)
 		f.MOVQ(f.qInv0(), m)
 		f.IMULQ(t[0], m)
 
 		// clear the carry flags
-		f.Comment("clear the flags")
 		f.XORQ(amd64.AX, amd64.AX)
 
 		// C,_ := t[0] + m*q[0]
-		f.Comment("C,_ := t[0] + m*q[0]")
-
 		f.MULXQ(f.qAt(0), amd64.AX, tr)
 		f.ADCXQ(t[0], amd64.AX)
 		f.MOVQ(tr, t[0])
@@ -110,20 +103,68 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 		if !hasFreeRegister {
 			f.POPQ(A)
 		}
+
 		// for j=1 to N-1
-		//    (C,t[j-1]) := t[j] + m*q[j] + C
+		//
+		//	(C,t[j-1]) := t[j] + m*q[j] + C
 		for j := 1; j < f.NbWords; j++ {
-			f.Comment(fmt.Sprintf("(C,t[%[1]d]) := t[%[2]d] + m*q[%[2]d] + C", j-1, j))
-			f.ADCXQ(t[j], t[j-1])
-			f.MULXQ(f.qAt(j), amd64.AX, t[j])
-			f.ADOXQ(amd64.AX, t[j-1])
+			mac(t[j], t[j-1], amd64.Register(f.qAt(j)))
 		}
 
-		f.Comment(fmt.Sprintf("t[%d] = C + A", f.NbWordsLastIndex))
 		f.MOVQ(0, amd64.AX)
 		f.ADCXQ(amd64.AX, t[f.NbWordsLastIndex])
 		f.ADOXQ(A, t[f.NbWordsLastIndex])
 
+	})
+
+	mulWord0 := f.Define("MUL_WORD_0", 0, func(_ ...amd64.Register) {
+		f.XORQ(amd64.AX, amd64.AX)
+		// for j=0 to N-1
+		//    (A,t[j])  := t[j] + x[j]*y[i] + A
+		for j := 0; j < f.NbWords; j++ {
+			if j == 0 && f.NbWords == 1 {
+				f.MULXQ(x(j), t[j], A)
+			} else if j == 0 {
+				f.MULXQ(x(j), t[j], t[j+1])
+			} else {
+				highBits := A
+				if j != f.NbWordsLastIndex {
+					highBits = t[j+1]
+				}
+				f.MULXQ(x(j), amd64.AX, highBits)
+				f.ADOXQ(amd64.AX, t[j])
+			}
+		}
+		f.MOVQ(0, amd64.AX)
+		f.ADOXQ(amd64.AX, A)
+		divShift()
+	})
+
+	mulWordN := f.Define("MUL_WORD_N", 0, func(args ...amd64.Register) {
+		f.XORQ(amd64.AX, amd64.AX)
+		// for j=0 to N-1
+		//    (A,t[j])  := t[j] + x[j]*y[i] + A
+		f.MULXQ(x(0), amd64.AX, A)
+		f.ADOXQ(amd64.AX, t[0])
+		for j := 1; j < f.NbWords; j++ {
+			mac(A, t[j], amd64.Register(x(j)))
+		}
+		f.MOVQ(0, amd64.AX)
+		f.ADCXQ(amd64.AX, A)
+		f.ADOXQ(amd64.AX, A)
+		divShift()
+	})
+
+	f.Comment("mul body")
+
+	for i := 0; i < f.NbWords; i++ {
+		f.MOVQ(y(i), amd64.DX)
+
+		if i == 0 {
+			mulWord0()
+		} else {
+			mulWordN()
+		}
 	}
 
 	if hasFreeRegister {
@@ -152,19 +193,11 @@ func (f *FFAmd64) generateMul(forceADX bool) {
 	registers := f.FnHeader("mul", stackSize, argSize, reserved...)
 	defer f.AssertCleanStack(stackSize, minStackSize)
 
-	f.WriteLn(fmt.Sprintf(`
-	// the algorithm is described in the %s.Mul declaration (.go)
-	// however, to benefit from the ADCX and ADOX carry chains
-	// we split the inner loops in 2:
-	// for i=0 to N-1
-	// 		for j=0 to N-1
-	// 		    (A,t[j])  := t[j] + x[j]*y[i] + A
-	// 		m := t[0]*q'[0] mod W
-	// 		C,_ := t[0] + m*q[0]
-	// 		for j=1 to N-1
-	// 		    (C,t[j-1]) := t[j] + m*q[j] + C
-	// 		t[N-1] = C + A
-	`, f.ElementName))
+	f.WriteLn(`
+	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS" 
+	// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
+	// See github.com/gnark-crypto/field/generator for more comments.
+	`)
 	if stackSize > 0 {
 		f.WriteLn("NO_LOCAL_POINTERS")
 	}

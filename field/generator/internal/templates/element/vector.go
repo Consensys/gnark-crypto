@@ -174,7 +174,6 @@ func (vector Vector) String() string {
     return sbb.String()
 }
 
-
 // Len is the number of elements in the collection.
 func (vector Vector) Len() int {
 	return len(vector)
@@ -193,7 +192,7 @@ func (vector Vector) Swap(i, j int) {
 
 
 {{/* For 4 elements, we have a special assembly path and copy this in ops_pure.go */}}
-{{- if ne .NbWords 4}}
+{{- if not .ASMVector}}
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
@@ -211,6 +210,26 @@ func (vector *Vector) Sub(a, b Vector) {
 func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
 	scalarMulVecGeneric(*vector, a, b)
 }
+
+// Sum computes the sum of all elements in the vector.
+func (vector *Vector) Sum() (res {{.ElementName}}) {
+	sumVecGeneric(&res, *vector)
+	return
+}
+
+// InnerProduct computes the inner product of two vectors.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
+	innerProductVecGeneric(&res, *vector, other)
+	return
+}
+
+// Mul multiplies two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Mul(a, b Vector) {
+	mulVecGeneric(*vector, a, b)
+}
+
 {{- end}}
 
 
@@ -239,6 +258,32 @@ func scalarMulVecGeneric(res, a Vector, b *{{.ElementName}}) {
 	}
 	for i := 0; i < len(a); i++ {
 		res[i].Mul(&a[i], b)
+	}
+}
+
+func sumVecGeneric(res *{{.ElementName}}, a Vector) {
+	for i := 0; i < len(a); i++ {
+		res.Add(res, &a[i])
+	}
+}
+
+func innerProductVecGeneric(res *{{.ElementName}},a, b Vector) {
+	if len(a) != len(b) {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	var tmp {{.ElementName}}
+	for i := 0; i < len(a); i++ {
+		tmp.Mul(&a[i], &b[i])
+		res.Add(res, &tmp)
+	}
+}
+
+func mulVecGeneric(res, a, b Vector) {
+	if len(a) != len(b) || len(a) != len(res) {
+		panic("vector.Mul: vectors don't have the same length")
+	}
+	for i := 0; i < len(a); i++ {
+		res[i].Mul(&a[i], &b[i])
 	}
 }
 

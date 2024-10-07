@@ -16,6 +16,29 @@
 
 package fptower
 
+import (
+	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
+)
+
+// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+// used for Montgomery reduction
+const qInvNeg uint64 = 9786893198990664585
+
+// Field modulus q (Fp)
+const (
+	q0 uint64 = 4332616871279656263
+	q1 uint64 = 10917124144477883021
+	q2 uint64 = 13281191951274694749
+	q3 uint64 = 3486998266802970665
+)
+
+var qElement = fp.Element{
+	q0,
+	q1,
+	q2,
+	q3,
+}
+
 //go:noescape
 func addE2(res, x, y *E2)
 

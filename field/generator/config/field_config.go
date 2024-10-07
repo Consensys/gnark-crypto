@@ -51,7 +51,9 @@ type FieldConfig struct {
 	Q                         []uint64
 	QInverse                  []uint64
 	QMinusOneHalvedP          []uint64 // ((q-1) / 2 ) + 1
+	Mu                        uint64   // mu = 2^288 / q for 4.5 word barrett reduction
 	ASM                       bool
+	ASMVector                 bool
 	RSquare                   []uint64
 	One, Thirteen             []uint64
 	LegendreExponent          string // big.Int to base16 string
@@ -260,6 +262,16 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	// moduli that meet the condition F.NoCarry
 	// asm code generation for moduli with more than 6 words can be optimized further
 	F.ASM = F.NoCarry && F.NbWords <= 12 && F.NbWords > 1
+	F.ASMVector = F.ASM && F.NbWords == 4 && F.NbBits > 225
+
+	// setting Mu 2^288 / q
+	if F.NbWords == 4 {
+		_mu := big.NewInt(1)
+		_mu.Lsh(_mu, 288)
+		_mu.Div(_mu, &bModulus)
+		muSlice := toUint64Slice(_mu, F.NbWords)
+		F.Mu = muSlice[0]
+	}
 
 	return F, nil
 }

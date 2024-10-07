@@ -43,28 +43,55 @@ var bgen = bavard.NewBatchGenerator(copyrightHolder, copyrightYear, "consensys/g
 
 //go:generate go run main.go
 func main() {
-	var wg sync.WaitGroup
 
+	// first we loop through the field arithmetic we must generate.
+	// then, we create the common files (only once) for the assembly code.
+	asmDirBuildPath := filepath.Join(baseDir, "field", "asm")
+	asmDirIncludePath := filepath.Join("../../../", "field", "asm")
+
+	// generate common assembly files depending on field number of words
+	mCommon := make(map[int]bool)
+	mVec := make(map[int]bool)
+
+	for i, conf := range config.Curves {
+		var err error
+		// generate base field
+		conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
+		assertNoError(err)
+
+		conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
+		assertNoError(err)
+
+		mCommon[conf.Fr.NbWords] = true
+		mCommon[conf.Fp.NbWords] = true
+
+		if conf.Fr.ASMVector {
+			mVec[conf.Fr.NbWords] = true
+		}
+		if conf.Fp.ASMVector {
+			mVec[conf.Fp.NbWords] = true
+		}
+
+		config.Curves[i] = conf
+	}
+
+	for nbWords := range mCommon {
+		assertNoError(generator.GenerateCommonASM(nbWords, asmDirBuildPath, mVec[nbWords]))
+	}
+
+	var wg sync.WaitGroup
 	for _, conf := range config.Curves {
 		wg.Add(1)
 		// for each curve, generate the needed files
 		go func(conf config.Curve) {
 			defer wg.Done()
-			var err error
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 
-			// generate base field
-			conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
-			assertNoError(err)
-
-			conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
-			assertNoError(err)
-
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
-			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr")))
-			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp")))
+			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr"), asmDirBuildPath, asmDirIncludePath))
+			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp"), asmDirBuildPath, asmDirIncludePath))
 
 			// generate ecdsa
 			assertNoError(ecdsa.Generate(conf, curveDir, bgen))

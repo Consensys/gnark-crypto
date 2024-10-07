@@ -4,12 +4,13 @@ go 1.22
 
 require (
 	github.com/bits-and-blooms/bitset v1.14.2
-	github.com/consensys/bavard v0.1.15
+	github.com/consensys/bavard v0.1.22
 	github.com/leanovate/gopter v0.2.11
 	github.com/mmcloughlin/addchain v0.4.0
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.26.0
+	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.24.0
 	gopkg.in/yaml.v2 v2.4.0
 )

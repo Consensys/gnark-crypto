@@ -51,7 +51,8 @@ func (vector *Vector) Add(a, b Vector) {
 	if len(a) != len(b) || len(a) != len(*vector) {
 		panic("vector.Add: vectors don't have the same length")
 	}
-	addVec(&(*vector)[0], &a[0], &b[0], uint64(len(a)))
+	n := uint64(len(a))
+	addVec(&(*vector)[0], &a[0], &b[0], n)
 }
 
 //go:noescape
@@ -75,59 +76,123 @@ func (vector *Vector) ScalarMul(a Vector, b *Element) {
 	if len(a) != len(*vector) {
 		panic("vector.ScalarMul: vectors don't have the same length")
 	}
-	scalarMulVec(&(*vector)[0], &a[0], b, uint64(len(a)))
+	const maxN = (1 << 32) - 1
+	if !supportAvx512 || uint64(len(a)) >= maxN {
+		// call scalarMulVecGeneric
+		scalarMulVecGeneric(*vector, a, b)
+		return
+	}
+	n := uint64(len(a))
+	if n == 0 {
+		return
+	}
+	// the code for scalarMul is identical to mulVec; and it expects at least
+	// 2 elements in the vector to fill the Z registers
+	var bb [2]Element
+	bb[0] = *b
+	bb[1] = *b
+	const blockSize = 16
+	scalarMulVec(&(*vector)[0], &a[0], &bb[0], n/blockSize, qInvNeg)
+	if n%blockSize != 0 {
+		// call scalarMulVecGeneric on the rest
+		start := n - n%blockSize
+		scalarMulVecGeneric((*vector)[start:], a[start:], b)
+	}
 }
 
 //go:noescape
-func scalarMulVec(res, a, b *Element, n uint64)
+func scalarMulVec(res, a, b *Element, n uint64, qInvNeg uint64)
+
+// Sum computes the sum of all elements in the vector.
+func (vector *Vector) Sum() (res Element) {
+	n := uint64(len(*vector))
+	if n == 0 {
+		return
+	}
+	const minN = 16 * 7 // AVX512 slower than generic for small n
+	const maxN = (1 << 32) - 1
+	if !supportAvx512 || n <= minN || n >= maxN {
+		// call sumVecGeneric
+		sumVecGeneric(&res, *vector)
+		return
+	}
+	sumVec(&res, &(*vector)[0], uint64(len(*vector)))
+	return
+}
+
+//go:noescape
+func sumVec(res *Element, a *Element, n uint64)
+
+// InnerProduct computes the inner product of two vectors.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) InnerProduct(other Vector) (res Element) {
+	n := uint64(len(*vector))
+	if n == 0 {
+		return
+	}
+	if n != uint64(len(other)) {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	const maxN = (1 << 32) - 1
+	if !supportAvx512 || n >= maxN {
+		// call innerProductVecGeneric
+		// note; we could split the vector into smaller chunks and call innerProductVec
+		innerProductVecGeneric(&res, *vector, other)
+		return
+	}
+	innerProdVec(&res[0], &(*vector)[0], &other[0], uint64(len(*vector)))
+
+	return
+}
+
+//go:noescape
+func innerProdVec(res *uint64, a, b *Element, n uint64)
+
+// Mul multiplies two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Mul(a, b Vector) {
+	if len(a) != len(b) || len(a) != len(*vector) {
+		panic("vector.Mul: vectors don't have the same length")
+	}
+	n := uint64(len(a))
+	if n == 0 {
+		return
+	}
+	const maxN = (1 << 32) - 1
+	if !supportAvx512 || n >= maxN {
+		// call mulVecGeneric
+		mulVecGeneric(*vector, a, b)
+		return
+	}
+
+	const blockSize = 16
+	mulVec(&(*vector)[0], &a[0], &b[0], n/blockSize, qInvNeg)
+	if n%blockSize != 0 {
+		// call mulVecGeneric on the rest
+		start := n - n%blockSize
+		mulVecGeneric((*vector)[start:], a[start:], b[start:])
+	}
+
+}
+
+// Patterns use for transposing the vectors in mulVec
+var (
+	pattern1 = [8]uint64{0, 8, 1, 9, 2, 10, 3, 11}
+	pattern2 = [8]uint64{12, 4, 13, 5, 14, 6, 15, 7}
+	pattern3 = [8]uint64{0, 1, 8, 9, 2, 3, 10, 11}
+	pattern4 = [8]uint64{12, 13, 4, 5, 14, 15, 6, 7}
+)
+
+//go:noescape
+func mulVec(res, a, b *Element, n uint64, qInvNeg uint64)
 
 // Mul z = x * y (mod q)
 //
 // x and y must be less than q
 func (z *Element) Mul(x, y *Element) *Element {
 
-	// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
-	// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
-	//
-	// The algorithm:
-	//
-	// for i=0 to N-1
-	// 		C := 0
-	// 		for j=0 to N-1
-	// 			(C,t[j]) := t[j] + x[j]*y[i] + C
-	// 		(t[N+1],t[N]) := t[N] + C
-	//
-	// 		C := 0
-	// 		m := t[0]*q'[0] mod D
-	// 		(C,_) := t[0] + m*q[0]
-	// 		for j=1 to N-1
-	// 			(C,t[j-1]) := t[j] + m*q[j] + C
-	//
-	// 		(C,t[N-1]) := t[N] + C
-	// 		t[N] := t[N+1] + C
-	//
-	// → N is the number of machine words needed to store the modulus q
-	// → D is the word size. For example, on a 64-bit architecture D is 2	64
-	// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
-	// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
-	// → t is a temporary array of size N+2
-	// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
-	//
-	// As described here https://hackmd.io/@gnark/modular_multiplication we can get rid of one carry chain and simplify:
-	// (also described in https://eprint.iacr.org/2022/1400.pdf annex)
-	//
-	// for i=0 to N-1
-	// 		(A,t[0]) := t[0] + x[0]*y[i]
-	// 		m := t[0]*q'[0] mod W
-	// 		C,_ := t[0] + m*q[0]
-	// 		for j=1 to N-1
-	// 			(A,t[j])  := t[j] + x[j]*y[i] + A
-	// 			(C,t[j-1]) := t[j] + m*q[j] + C
-	//
-	// 		t[N-1] = C + A
-	//
-	// This optimization saves 5N + 2 additions in the algorithm, and can be used whenever the highest bit
-	// of the modulus is zero (and not all of the remaining bits are set).
+	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS"
+	// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
 
 	mul(z, x, y)
 	return z

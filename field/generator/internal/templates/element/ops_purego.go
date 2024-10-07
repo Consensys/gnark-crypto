@@ -50,7 +50,7 @@ func reduce(z *{{.ElementName}})  {
 	_reduceGeneric(z)
 }
 
-{{- if eq .NbWords 4}}
+{{- if .ASMVector}}
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
@@ -68,6 +68,26 @@ func (vector *Vector) Sub(a, b Vector) {
 func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
 	scalarMulVecGeneric(*vector, a, b)
 }
+
+// Sum computes the sum of all elements in the vector.
+func (vector *Vector) Sum() (res {{.ElementName}}) {
+	sumVecGeneric(&res, *vector)
+	return
+}
+
+// InnerProduct computes the inner product of two vectors.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
+	innerProductVecGeneric(&res, *vector, other)
+	return
+}
+
+// Mul multiplies two vectors element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) Mul(a, b Vector) {
+	mulVecGeneric(*vector, a, b)
+}
+
 {{- end}}
 
 // Mul z = x * y (mod q)

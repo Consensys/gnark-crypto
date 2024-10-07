@@ -331,14 +331,14 @@ func init() {
 	staticTestValues = append(staticTestValues, rSquare) 			// r²
 	var e, one {{.ElementName}}
 	one.SetOne()
-	e.Sub(&q{{.ElementName}}, &one)
+	e.Sub(&qElement, &one)
 	staticTestValues = append(staticTestValues, e) 	// q - 1
 	e.Double(&one)
 	staticTestValues = append(staticTestValues, e) 	// 2 
 
 
 	{
-		a := q{{.ElementName}}
+		a := qElement
 		a[0]--
 		staticTestValues = append(staticTestValues, a)
 	}
@@ -354,14 +354,14 @@ func init() {
 	{{- end}}
 
 	{
-		a := q{{.ElementName}}
+		a := qElement
 		a[{{.NbWordsLastIndex}}]--
 		staticTestValues = append(staticTestValues, a)
 	}
 
 	{{- if ne .NbWords 1}}
 	{
-		a := q{{.ElementName}}
+		a := qElement
 		a[{{.NbWordsLastIndex}}]--
 		a[0]++
 		staticTestValues = append(staticTestValues, a)
@@ -369,7 +369,7 @@ func init() {
 	{{- end}}
 
 	{
-		a := q{{.ElementName}}
+		a := qElement
 		a[{{.NbWordsLastIndex}}] = 0
 		staticTestValues = append(staticTestValues, a)
 	}
@@ -653,8 +653,6 @@ func Test{{toTitle .ElementName}}BitLen(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
-
-	
 }
 
 
@@ -726,78 +724,6 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 	
-}
-
-func Test{{toTitle .ElementName}}VecOps(t *testing.T) {
-	assert := require.New(t)
-
-	const N = 7
-	a := make(Vector, N)
-	b := make(Vector, N)
-	c := make(Vector, N)
-	for i := 0; i < N; i++ {
-		a[i].SetRandom()
-		b[i].SetRandom()
-	}
-
-	// Vector addition
-	c.Add(a, b)
-	for i := 0; i < N; i++ {
-		var expected {{.ElementName}}
-		expected.Add(&a[i], &b[i])
-		assert.True(c[i].Equal(&expected), "Vector addition failed")
-	}
-
-	// Vector subtraction
-	c.Sub(a, b)
-	for i := 0; i < N; i++ {
-		var expected {{.ElementName}}
-		expected.Sub(&a[i], &b[i])
-		assert.True(c[i].Equal(&expected), "Vector subtraction failed")
-	}
-
-	// Vector scaling
-	c.ScalarMul(a, &b[0])
-	for i := 0; i < N; i++ {
-		var expected {{.ElementName}}
-		expected.Mul(&a[i], &b[0])
-		assert.True(c[i].Equal(&expected), "Vector scaling failed")
-	}
-}
-
-func Benchmark{{toTitle .ElementName}}VecOps(b *testing.B) {
-	// note; to benchmark against "no asm" version, use the following
-	// build tag: -tags purego
-	const N = 1024
-	a1 := make(Vector, N)
-	b1 := make(Vector, N)
-	c1 := make(Vector, N)
-	for i := 0; i < N; i++ {
-		a1[i].SetRandom()
-		b1[i].SetRandom()
-	}
-
-
-	b.Run("Add", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			c1.Add(a1, b1)
-		}
-	})
-
-	b.Run("Sub", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			c1.Sub(a1, b1)
-		}
-	})
-
-	b.Run("ScalarMul", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			c1.ScalarMul(a1, &b1[0])
-		}
-	})
 }
 
 
@@ -1651,8 +1577,8 @@ func gen() gopter.Gen {
 			{{- range $i := .NbWordsIndexesFull}}
 			genParams.NextUint64(),{{end}}
 		}
-		if q{{.ElementName}}[{{.NbWordsLastIndex}}] != ^uint64(0) {
-			g.element[{{.NbWordsLastIndex}}] %= (q{{.ElementName}}[{{.NbWordsLastIndex}}] +1 )
+		if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
+			g.element[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
 		}
 		
 
@@ -1661,8 +1587,8 @@ func gen() gopter.Gen {
 				{{- range $i := .NbWordsIndexesFull}}
 				genParams.NextUint64(),{{end}}
 			}
-			if q{{.ElementName}}[{{.NbWordsLastIndex}}] != ^uint64(0) {
-				g.element[{{.NbWordsLastIndex}}] %= (q{{.ElementName}}[{{.NbWordsLastIndex}}] +1 )
+			if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
+				g.element[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
 			}
 		}
 
@@ -1672,42 +1598,42 @@ func gen() gopter.Gen {
 	}
 }
 
+func genRandomFq(genParams *gopter.GenParameters) {{.ElementName}} {
+	var g {{.ElementName}}
+
+	g = {{.ElementName}}{
+		{{- range $i := .NbWordsIndexesFull}}
+		genParams.NextUint64(),{{end}}
+	}
+
+	if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
+		g[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
+	}
+
+	for !g.smallerThanModulus() {
+		g = {{.ElementName}}{
+			{{- range $i := .NbWordsIndexesFull}}
+			genParams.NextUint64(),{{end}}
+		}
+		if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
+			g[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
+		}
+	}
+
+	return g 
+}
+
 
 func genFull() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-
-		genRandomFq := func() {{.ElementName}} {
-			var g {{.ElementName}}
-
-			g = {{.ElementName}}{
-				{{- range $i := .NbWordsIndexesFull}}
-				genParams.NextUint64(),{{end}}
-			}
-
-			if q{{.ElementName}}[{{.NbWordsLastIndex}}] != ^uint64(0) {
-				g[{{.NbWordsLastIndex}}] %= (q{{.ElementName}}[{{.NbWordsLastIndex}}] +1 )
-			}
-
-			for !g.smallerThanModulus() {
-				g = {{.ElementName}}{
-					{{- range $i := .NbWordsIndexesFull}}
-					genParams.NextUint64(),{{end}}
-				}
-				if q{{.ElementName}}[{{.NbWordsLastIndex}}] != ^uint64(0) {
-					g[{{.NbWordsLastIndex}}] %= (q{{.ElementName}}[{{.NbWordsLastIndex}}] +1 )
-				}
-			}
-
-			return g 
-		}
-		a := genRandomFq()
+		a := genRandomFq(genParams)
 
 		var carry uint64
 		{{- range $i := .NbWordsIndexesFull}}
 			{{- if eq $i $.NbWordsLastIndex}}
-			a[{{$i}}], _ = bits.Add64(a[{{$i}}], q{{$.ElementName}}[{{$i}}], carry)
+			a[{{$i}}], _ = bits.Add64(a[{{$i}}], qElement[{{$i}}], carry)
 			{{- else}}
-			a[{{$i}}], carry = bits.Add64(a[{{$i}}], q{{$.ElementName}}[{{$i}}], carry)
+			a[{{$i}}], carry = bits.Add64(a[{{$i}}], qElement[{{$i}}], carry)
 			{{- end}}
 		{{- end}}
 		
@@ -1715,6 +1641,15 @@ func genFull() gopter.Gen {
 		return genResult
 	}
 }
+
+func gen{{.ElementName}}() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		a := genRandomFq(genParams)
+		genResult := gopter.NewGenResult(a, gopter.NoShrinker)
+		return genResult
+	}
+}
+
 {{if $.UsingP20Inverse}}
 func (z *{{.ElementName}}) matchVeryBigInt(aHi uint64, aInt *big.Int) error {
 	var modulus big.Int
