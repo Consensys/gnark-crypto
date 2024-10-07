@@ -32,10 +32,11 @@ import (
 // integration test will create modulus for various field sizes and run tests
 
 const rootDir = "integration_test"
-const asmDir = "../asm"
 
 func TestIntegration(t *testing.T) {
 	assert := require.New(t)
+	asmDir := filepath.Join("..", "asm")
+	asmDirIncludePath := filepath.Join("..", "..", "..", "asm")
 
 	os.RemoveAll(rootDir)
 	err := os.MkdirAll(rootDir, 0700)
@@ -89,7 +90,7 @@ func TestIntegration(t *testing.T) {
 		childDir := filepath.Join(rootDir, elementName)
 		fIntegration, err = field.NewFieldConfig("integration", elementName, modulus, false)
 		assert.NoError(err)
-		assert.NoError(GenerateFF(fIntegration, childDir, asmDir, "../../../asm"))
+		assert.NoError(GenerateFF(fIntegration, childDir, asmDir, asmDirIncludePath))
 	}
 
 	// run go test

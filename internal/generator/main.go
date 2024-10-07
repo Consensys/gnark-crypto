@@ -36,7 +36,6 @@ import (
 const (
 	copyrightHolder = "Consensys Software Inc."
 	copyrightYear   = 2020
-	baseDir         = "../../"
 )
 
 var bgen = bavard.NewBatchGenerator(copyrightHolder, copyrightYear, "consensys/gnark-crypto")
@@ -44,10 +43,11 @@ var bgen = bavard.NewBatchGenerator(copyrightHolder, copyrightYear, "consensys/g
 //go:generate go run main.go
 func main() {
 
+	baseDir := filepath.Join("..", "..")
 	// first we loop through the field arithmetic we must generate.
 	// then, we create the common files (only once) for the assembly code.
 	asmDirBuildPath := filepath.Join(baseDir, "field", "asm")
-	asmDirIncludePath := filepath.Join("../../../", "field", "asm")
+	asmDirIncludePath := filepath.Join(baseDir, "..", "field", "asm")
 
 	// generate common assembly files depending on field number of words
 	mCommon := make(map[int]bool)

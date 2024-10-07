@@ -14,7 +14,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if err := generator.GenerateFF(goldilocks, "../", "", ""); err != nil {
+	if err := generator.GenerateFF(goldilocks, "..", "", ""); err != nil {
 		panic(err)
 	}
 	fmt.Println("successfully generated goldilocks field")
