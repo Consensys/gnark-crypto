@@ -55,7 +55,7 @@ func TestOpening(t *testing.T) {
 	nbPolys := 2
 	sizePoly := make([]int, nbPolys)
 	for i := 0; i < nbPolys; i++ {
-		sizePoly[i] = rand.Intn(10) + 2
+		sizePoly[i] = rand.Intn(10) + 2 //nolint: gosec // G404, no strong PRNG needed here
 	}
 	polys := make([][]fr.Element, nbPolys)
 	for i := 0; i < nbPolys; i++ {
