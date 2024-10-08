@@ -20,8 +20,8 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/kzg"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/kzg"
 )
 
 // This example shows how to batch open a list of polynomials on a set of points,
