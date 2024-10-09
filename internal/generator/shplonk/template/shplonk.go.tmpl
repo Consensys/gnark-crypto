@@ -62,6 +62,11 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 			maxSizePolys = len(polynomials[i])
 		}
 	}
+	for i := range points {
+		if len(points[i])+1 > maxSizePolys {
+			maxSizePolys = len(points[i]) + 1
+		}
+	}
 	nbPoints := 0
 	sizeSi := make([]int, len(points))
 	for i := 0; i < nbPolynomials; i++ {
