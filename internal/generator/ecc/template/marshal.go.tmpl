@@ -176,6 +176,26 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			dec.n+=read64
 		}
 		return
+	case *[][][]fr.Element:
+		if sliceLen, err = dec.readUint32(); err != nil {
+			return
+		}
+		if len(*t) != int(sliceLen) {
+			*t = make([][][]fr.Element, sliceLen)
+		}
+		for i := range *t {
+			if sliceLen, err = dec.readUint32(); err != nil {
+				return
+			}
+			if len((*t)[i]) != int(sliceLen) {
+				(*t)[i] = make([][]fr.Element, sliceLen)
+			}
+			for j := range (*t)[i] {
+				read64, err = (*fr.Vector)(&(*t)[i][j]).ReadFrom(dec.r)
+				dec.n += read64
+			}
+		}
+		return
 	case *G1Affine:
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
 		read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineCompressed])
@@ -604,6 +624,25 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 		for i := range t {
 			written64, err = (*fr.Vector)(&t[i]).WriteTo(enc.w)
 			enc.n += written64
+		}
+		return
+	case [][][]fr.Element:
+		// number of collections
+		if err = binary.Write(enc.w, binary.BigEndian, uint32(len(t))); err != nil {
+			return
+		}
+		enc.n += 4
+		for i := range t {
+			// size of current collection
+			if err = binary.Write(enc.w, binary.BigEndian, uint32(len(t[i]))); err != nil {
+				return
+			}
+			enc.n += 4
+			// write each vector of the current collection
+			for j := range t[i] {
+				written64, err = (*fr.Vector)(&t[i][j]).WriteTo(enc.w)
+				enc.n += written64
+			}
 		}
 		return
 	case []G1Affine:
