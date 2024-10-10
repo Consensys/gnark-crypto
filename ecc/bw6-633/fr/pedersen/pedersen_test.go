@@ -180,7 +180,7 @@ func TestMarshal(t *testing.T) {
 	)
 	vk.G, err = curve.RandomOnG2()
 	assert.NoError(t, err)
-	vk.GSigma, err = curve.RandomOnG2()
+	vk.GSigmaNeg, err = curve.RandomOnG2()
 	assert.NoError(t, err)
 
 	t.Run("ProvingKey -> Bytes -> ProvingKey must remain identical.", testutils.SerializationRoundTrip(&pk))
