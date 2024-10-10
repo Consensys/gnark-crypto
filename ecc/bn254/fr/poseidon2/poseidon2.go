@@ -17,6 +17,9 @@ type Hash struct {
 	// len(preimage)+len(digest)=len(preimage)+ceil(log(2*<security_level>/r))
 	t int
 
+	// sbox degree
+	d int
+
 	// state
 	state []fr.Element
 
@@ -31,9 +34,19 @@ type Hash struct {
 func (h *Hash) sBox(index int) {
 	var tmp fr.Element
 	tmp.Set(&h.state[index])
-	h.state[index].Square(&h.state[index]).
-		Square(&h.state[index]).
-		Mul(&h.state[index], &tmp)
+	if h.d == 3 {
+		h.state[index].Square(&h.state[index]).
+			Mul(&h.state[index], &tmp)
+	} else if h.d == 5 {
+		h.state[index].Square(&h.state[index]).
+			Square(&h.state[index]).
+			Mul(&h.state[index], &tmp)
+	} else if h.d == 7 {
+		h.state[index].Square(&h.state[index]).
+			Mul(&h.state[index], &tmp).
+			Square(&h.state[index]).
+			Mul(&h.state[index], &tmp)
+	}
 }
 
 // matMulM4 computes
