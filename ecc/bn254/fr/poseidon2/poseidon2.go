@@ -28,24 +28,39 @@ type Hash struct {
 
 	// number of partial rounds
 	rP int
+
+	// diagonal elements of the internal matrices, minus one
+	diagInternalMatrices []fr.Element
+
+	// round keys
+	roundKeys [][]fr.Element
 }
 
+func NewHash(t, d, rf, rp int) Hash {
+	return Hash{t: t, d: d, rF: rf, rP: rp}
+}
+
+// Write populate the state of the hash
+// func (h *Hash) Write(elmts []fr.Element) {
+// 	input = append(input, elmts...)
+// }
+
 // sBox applies the sBox on state[index]
-func (h *Hash) sBox(index int) {
+func (h *Hash) sBox(index int, input []fr.Element) {
 	var tmp fr.Element
-	tmp.Set(&h.state[index])
+	tmp.Set(&input[index])
 	if h.d == 3 {
-		h.state[index].Square(&h.state[index]).
-			Mul(&h.state[index], &tmp)
+		input[index].Square(&input[index]).
+			Mul(&input[index], &tmp)
 	} else if h.d == 5 {
-		h.state[index].Square(&h.state[index]).
-			Square(&h.state[index]).
-			Mul(&h.state[index], &tmp)
+		input[index].Square(&input[index]).
+			Square(&input[index]).
+			Mul(&input[index], &tmp)
 	} else if h.d == 7 {
-		h.state[index].Square(&h.state[index]).
-			Mul(&h.state[index], &tmp).
-			Square(&h.state[index]).
-			Mul(&h.state[index], &tmp)
+		input[index].Square(&input[index]).
+			Mul(&input[index], &tmp).
+			Square(&input[index]).
+			Mul(&input[index], &tmp)
 	}
 }
 
@@ -82,38 +97,76 @@ func (h *Hash) matMulM4InPlace(s []fr.Element) {
 //
 // when t=0[4], the state is multiplied by circ(2M4,M4,..,M4)
 // see https://eprint.iacr.org/2023/323.pdf
-func (s *Hash) matMulExternalInPlace() {
+func (h *Hash) matMulExternalInPlace(input []fr.Element) {
 
-	if s.t == 2 {
+	if h.t == 2 {
 		var tmp fr.Element
-		tmp.Add(&s.state[0], &s.state[1])
-		s.state[0].Add(&tmp, &s.state[0])
-		s.state[1].Add(&tmp, &s.state[1])
-	} else if s.t == 3 {
+		tmp.Add(&input[0], &input[1])
+		input[0].Add(&tmp, &input[0])
+		input[1].Add(&tmp, &input[1])
+	} else if h.t == 3 {
 		var tmp fr.Element
-		tmp.Add(&s.state[0], &s.state[1]).
-			Add(&tmp, &s.state[2])
-		s.state[0].Add(&tmp, &s.state[0])
-		s.state[1].Add(&tmp, &s.state[1])
-		s.state[2].Add(&tmp, &s.state[2])
-	} else if s.t == 4 {
-		s.matMulM4InPlace(s.state)
+		tmp.Add(&input[0], &input[1]).
+			Add(&tmp, &input[2])
+		input[0].Add(&tmp, &input[0])
+		input[1].Add(&tmp, &input[1])
+		input[2].Add(&tmp, &input[2])
+	} else if h.t == 4 {
+		h.matMulM4InPlace(input)
 	} else {
 		// at this stage t is supposed to be a multiple of 4
 		// the MDS matrix is circ(2M4,M4,..,M4)
-		s.matMulM4InPlace(s.state)
+		h.matMulM4InPlace(input)
 		tmp := make([]fr.Element, 4)
-		for i := 0; i < s.t/4; i++ {
-			tmp[0].Add(&tmp[0], &s.state[4*i])
-			tmp[1].Add(&tmp[1], &s.state[4*i+1])
-			tmp[2].Add(&tmp[2], &s.state[4*i+2])
-			tmp[3].Add(&tmp[3], &s.state[4*i+3])
+		for i := 0; i < h.t/4; i++ {
+			tmp[0].Add(&tmp[0], &input[4*i])
+			tmp[1].Add(&tmp[1], &input[4*i+1])
+			tmp[2].Add(&tmp[2], &input[4*i+2])
+			tmp[3].Add(&tmp[3], &input[4*i+3])
 		}
-		for i := 0; i < s.t/4; i++ {
-			s.state[4*i].Add(&s.state[4*i], &tmp[0])
-			s.state[4*i+1].Add(&s.state[4*i], &tmp[1])
-			s.state[4*i+2].Add(&s.state[4*i], &tmp[2])
-			s.state[4*i+3].Add(&s.state[4*i], &tmp[3])
+		for i := 0; i < h.t/4; i++ {
+			input[4*i].Add(&input[4*i], &tmp[0])
+			input[4*i+1].Add(&input[4*i], &tmp[1])
+			input[4*i+2].Add(&input[4*i], &tmp[2])
+			input[4*i+3].Add(&input[4*i], &tmp[3])
 		}
 	}
 }
+
+// when t=2,3 the matrix are respectibely [[2,1][1,3]] and [[2,1,1][1,2,1][1,1,3]]
+// otherwise the matrix is filled with ones except on the diagonal,
+func (h *Hash) matMulInternalInPlace(input []fr.Element) {
+	if h.t == 2 {
+		var sum fr.Element
+		sum.Add(&input[0], &input[1])
+		input[0].Add(&input[0], &sum)
+		input[1].Double(&input[1]).Add(&input[1], &sum)
+	} else if h.t == 3 {
+		var sum fr.Element
+		sum.Add(&input[0], &input[1]).Add(&sum, &input[2])
+		input[0].Add(&input[0], &sum)
+		input[1].Add(&input[1], &sum)
+		input[2].Double(&input[2]).Add(&input[2], &sum)
+	} else {
+		var sum fr.Element
+		sum.Set(&input[0])
+		for i := 1; i < h.t; i++ {
+			sum.Add(&sum, &input[i])
+		}
+		for i := 0; i < h.t; i++ {
+			input[i].Mul(&input[i], &h.diagInternalMatrices[i]).
+				Add(&input[i], &sum)
+		}
+	}
+}
+
+// addRoundKeyInPlace adds the round-th key to the state
+func (h *Hash) addRoundKeyInPlace(round int, input []fr.Element) {
+	for i := 0; i < h.t; i++ {
+		input[i].Add(&input[i], &h.roundKeys[round][i])
+	}
+}
+
+// func (h *Hash) permutation(input []fr.Element) {
+
+// }
