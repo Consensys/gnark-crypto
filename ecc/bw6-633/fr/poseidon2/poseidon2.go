@@ -19,7 +19,7 @@ package poseidon2
 import (
 	"errors"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 )
 
 // poseidon
