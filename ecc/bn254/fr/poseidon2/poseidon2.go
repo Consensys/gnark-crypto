@@ -1,6 +1,10 @@
 package poseidon2
 
-import "github.com/consensys/gnark-crypto/ecc/bn254/fr"
+import (
+	"errors"
+
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+)
 
 // poseidon
 // https://github.com/argumentcomputer/neptune/blob/main/spec/poseidon_spec.pdf
@@ -9,6 +13,10 @@ import "github.com/consensys/gnark-crypto/ecc/bn254/fr"
 // https://github.com/HorizenLabs/poseidon2/blob/main/plain_implementations/src/poseidon2/poseidon2.rs
 
 // M ∈ {80,128,256}, security level in bits
+
+var (
+	ErrInvalidSizeState = errors.New("the size of the input should match the size of the hash state")
+)
 
 // Hash stores the state of the poseidon2 permutation and provides poseidon2 permutation
 // methods on the state
@@ -167,6 +175,38 @@ func (h *Hash) addRoundKeyInPlace(round int, input []fr.Element) {
 	}
 }
 
-// func (h *Hash) permutation(input []fr.Element) {
+func (h *Hash) permutationInPlace(input []fr.Element) error {
+	if len(input) != h.t {
+		return ErrInvalidSizeState
+	}
 
-// }
+	// external matrix multiplication, cf https://eprint.iacr.org/2023/323.pdf page 14 (part 6)
+	h.matMulExternalInPlace(input)
+
+	rf := h.rF / 2
+	for i := 0; i < rf; i++ {
+		// one round = matMulExternal(sBox_Full(addRoundKey))
+		h.addRoundKeyInPlace(i, input)
+		for j := 0; j < h.t; j++ {
+			h.sBox(j, input)
+		}
+		h.matMulExternalInPlace(input)
+	}
+
+	for i := rf; i < rf+h.rP; i++ {
+		// one round = matMulInternal(sBox_sparse(addRoundKey))
+		h.addRoundKeyInPlace(i, input)
+		h.sBox(0, input)
+		h.matMulInternalInPlace(input)
+	}
+	for i := rf + h.rP; i < h.rF+h.rP; i++ {
+		// one round = matMulExternal(sBox_Full(addRoundKey))
+		h.addRoundKeyInPlace(i, input)
+		for j := 0; j < h.t; j++ {
+			h.sBox(j, input)
+		}
+		h.matMulExternalInPlace(input)
+	}
+
+	return nil
+}
