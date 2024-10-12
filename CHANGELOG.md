@@ -36,7 +36,7 @@
 - resolve conflict around kzg
 
 ### Perf
-- remove uneeded bucket init in affine coordinates fixes [#529](https://github.com/ConsenSys/gnark-crypto/issues/529) ([#530](https://github.com/ConsenSys/gnark-crypto/issues/530))
+- remove unneeded bucket init in affine coordinates fixes [#529](https://github.com/ConsenSys/gnark-crypto/issues/529) ([#530](https://github.com/ConsenSys/gnark-crypto/issues/530))
 
 ### Refactor
 - variable name
