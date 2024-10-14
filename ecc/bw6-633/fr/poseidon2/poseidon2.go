@@ -71,6 +71,37 @@ func NewHash(t, d, rf, rp int) Hash {
 		params: parameters{t: t, d: d, rF: rf, rP: rp}}
 }
 
+// GetT returns the size of the state
+func (h *Hash) GetT() int {
+	return h.params.t
+}
+
+// GetRF returns the total number of full rounds (even number)
+func (h *Hash) GetRF() int {
+	return h.params.rF
+}
+
+// GetRP retursn the total number of partial rounds
+func (h *Hash) GetRP() int {
+	return h.params.rP
+}
+
+// GetD returns the degree of the sbox
+func (h *Hash) GetD() int {
+	return h.params.d
+}
+
+// GetInternalMatrix returns the diagonal elements of the internal matrix, minus one
+func (h *Hash) GetInternalMatrix() []fr.Element {
+	return h.params.diagInternalMatrices
+}
+
+// GetRC returns the round constants
+func (h *Hash) GetRC() [][]fr.Element {
+	return h.params.roundKeys
+}
+
+// Reset empty the state
 func (h *Hash) Reset() {
 	h.buffer = make([]fr.Element, 0, len(h.buffer))
 }
