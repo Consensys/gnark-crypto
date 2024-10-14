@@ -13,6 +13,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	entries := []bavard.Entry{
 		// {File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
 		{File: filepath.Join(baseDir, "poseidon2.go"), Templates: []string{"poseidon2.go.tmpl"}},
+		{File: filepath.Join(baseDir, "poseidon2_test.go"), Templates: []string{"poseidon2.test.go.tmpl"}},
 		// {File: filepath.Join(baseDir, "options.go"), Templates: []string{"options.go.tmpl"}},
 	}
 	// os.Remove(filepath.Join(baseDir, "utils.go"))

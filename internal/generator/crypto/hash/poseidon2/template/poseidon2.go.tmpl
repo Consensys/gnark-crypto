@@ -58,14 +58,10 @@ func (h *Hash) Reset(){
 	h.buffer = make([]fr.Element, 0, len(h.buffer))
 }
 
+// Write populate the buffer of the hash
 func (h *Hash) Write(elmts []fr.Element) {
 	h.buffer = append(h.buffer, elmts...)
 }
-
-// Write populate the buffer of the hash
-// func (h *Hash) Write(elmts []fr.Element) {
-// 	input = append(input, elmts...)
-// }
 
 // sBox applies the sBox on buffer[index]
 func (h *Hash) sBox(index int, input []fr.Element) {
