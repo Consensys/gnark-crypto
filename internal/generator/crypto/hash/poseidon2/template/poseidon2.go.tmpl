@@ -54,6 +54,10 @@ func NewHash(t, d, rf, rp int) Hash {
 		params: parameters{t: t, d: d, rF: rf, rP: rp}}
 }
 
+func (h *Hash) Reset(){
+	h.buffer = make([]fr.Element, 0, len(h.buffer))
+}
+
 func (h *Hash) Write(elmts []fr.Element) {
 	h.buffer = append(h.buffer, elmts...)
 }
