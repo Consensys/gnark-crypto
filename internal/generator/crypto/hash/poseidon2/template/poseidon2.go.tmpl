@@ -47,14 +47,14 @@ type Hash struct {
 
 func NewHash(t, d, rf, rp int, seed string) Hash {
 	params := parameters{t: t, d: d, rF: rf, rP: rp}
-	params.roundKeys = initRC(seed, rf, rp, t)
+	params.roundKeys = InitRC(seed, rf, rp, t)
 	res := Hash{params: params}
 	return res
 }
 
-// initRC initiate round keys. Only one entry is non zero for the internal
+// InitRC initiate round keys. Only one entry is non zero for the internal
 // rounds, cf https://eprint.iacr.org/2023/323.pdf page 9
-func initRC(seed string, rf, rp, t int) [][]fr.Element{
+func InitRC(seed string, rf, rp, t int) [][]fr.Element {
 
 	bseed := ([]byte)(seed)
 	hash := sha3.NewLegacyKeccak256()
