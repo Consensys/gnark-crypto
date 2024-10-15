@@ -49,9 +49,9 @@ func (p *G1Affine) Set(a *G1Affine) *G1Affine {
 	return p
 }
 
-// setInfinity sets p to the infinity point, which is encoded as (0,0).
+// SetInfinity sets p to the infinity point, which is encoded as (0,0).
 // N.B.: (0,0) is never on the curve for j=0 curves (Y²=X³+B).
-func (p *G1Affine) setInfinity() *G1Affine {
+func (p *G1Affine) SetInfinity() *G1Affine {
 	p.X.SetZero()
 	p.Y.SetZero()
 	return p
@@ -99,7 +99,7 @@ func (p *G1Affine) Add(a, b *G1Affine) *G1Affine {
 			return p.FromJacobian(&q)
 		} else {
 			// if b == -a, we return 0
-			return p.setInfinity()
+			return p.SetInfinity()
 		}
 	}
 	var H, HH, I, J, r, V fp.Element
@@ -726,8 +726,8 @@ func (p *g1JacExtended) Set(q *g1JacExtended) *g1JacExtended {
 	return p
 }
 
-// setInfinity sets p to the infinity point (1,1,0,0).
-func (p *g1JacExtended) setInfinity() *g1JacExtended {
+// SetInfinity sets p to the infinity point (1,1,0,0).
+func (p *g1JacExtended) SetInfinity() *g1JacExtended {
 	p.X.SetOne()
 	p.Y.SetOne()
 	p.ZZ = fp.Element{}
