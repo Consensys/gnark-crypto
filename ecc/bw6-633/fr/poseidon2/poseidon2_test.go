@@ -45,7 +45,7 @@ func TestExternalMatrix(t *testing.T) {
 	expected[3][2].SetUint64(7)
 	expected[3][3].SetUint64(6)
 
-	h := NewHash(4, 5, 9, 56)
+	h := NewHash(4, 5, 9, 56, "seed")
 	var tmp [4]fr.Element
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 4; j++ {
