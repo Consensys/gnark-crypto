@@ -35,8 +35,8 @@ TEXT ·add(SB), NOSPLIT, $0-24
 	MOVD res+0(FP), R12
 
 #define STOREVECTOR(in0, in1, in2, in3, in4) \
-	STP (in1, in2), 0(in0)   \
-	STP (in3, in4), 128(in0) \
+	STP (in1, in2), 0(in0)  \
+	STP (in3, in4), 16(in0) \
 
 	STOREVECTOR(R12, R0, R1, R2, R3)
 	RET

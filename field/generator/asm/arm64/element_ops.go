@@ -19,9 +19,6 @@ import (
 )
 
 func (f *FFArm64) generateAdd() {
-	if f.NbWords%2 != 0 {
-		panic("NbWords must be even")
-	}
 	f.Comment("add(res, x, y *Element)")
 	//stackSize := f.StackSize(f.NbWords*2, 0, 0)
 	registers := f.FnHeader("add", 0, 24)
@@ -38,8 +35,8 @@ func (f *FFArm64) generateAdd() {
 
 	op0 := f.ADDS
 	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(f.RegisterOffset(xPtr, 8*i), z[i], ops[0])
-		f.LDP(f.RegisterOffset(yPtr, 8*i), z[i+1], ops[1])
+		f.LDP(xPtr.At(i), z[i], ops[0])
+		f.LDP(yPtr.At(i), z[i+1], ops[1])
 
 		op0(z[i], z[i+1], z[i])
 		op0 = f.ADCS
@@ -47,12 +44,6 @@ func (f *FFArm64) generateAdd() {
 		f.ADCS(ops[0], ops[1], z[i+1])
 	}
 
-	if f.NbWords%2 == 1 {
-		i := f.NbWords - 1
-		f.MOVD(f.RegisterOffset(xPtr, 8*i), z[i], "can't import these in pairs")
-		f.MOVD(f.RegisterOffset(yPtr, 8*i), ops[0])
-		op0(z[i], ops[0], z[i])
-	}
 	registers.Push(xPtr, yPtr)
 	registers.Push(ops...)
 
@@ -67,15 +58,11 @@ func (f *FFArm64) generateAdd() {
 	storeVector := f.Define("storeVector", f.NbWords+1, func(args ...arm64.Register) {
 		res0 := args[0]
 		for i := 1; i < len(args); i += 2 {
-			f.STP(args[i], args[i+1], res0.At(8*(i-1)))
+			f.STP(args[i], args[i+1], res0.At(i-1))
 		}
 	})
-	// for i := 0; i < f.NbWords; i++ {
-	// 	f.MOVD(z[i], f.RegisterOffset(zPtr, 8*i))
-	// }
 	_z := append([]arm64.Register{zPtr}, z...)
 	storeVector(_z...)
-	// f.storeVector(z, zPtr)
 
 	f.RET()
 
@@ -97,7 +84,7 @@ func (f *FFArm64) generateDouble() {
 
 	op0 := f.ADDS
 	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(f.RegisterOffset(xPtr, 8*i), z[i], z[i+1])
+		f.LDP(xPtr.At(i), z[i], z[i+1])
 
 		op0(z[i], z[i], z[i])
 		op0 = f.ADCS
@@ -107,7 +94,7 @@ func (f *FFArm64) generateDouble() {
 
 	if f.NbWords%2 == 1 {
 		i := f.NbWords - 1
-		f.MOVD(f.RegisterOffset(xPtr, 8*i), z[i])
+		f.MOVD(xPtr.At(i), z[i])
 		op0(z[i], z[i], z[i])
 	}
 	registers.Push(xPtr)
@@ -141,8 +128,8 @@ func (f *FFArm64) generateSub() {
 
 	op0 := f.SUBS
 	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(f.RegisterOffset(xPtr, 8*i), z[i], ops[0])
-		f.LDP(f.RegisterOffset(yPtr, 8*i), z[i+1], ops[1])
+		f.LDP(xPtr.At(i), z[i], ops[0])
+		f.LDP(yPtr.At(i), z[i+1], ops[1])
 
 		op0(z[i+1], z[i], z[i])
 		op0 = f.SBCS
@@ -150,12 +137,6 @@ func (f *FFArm64) generateSub() {
 		f.SBCS(ops[1], ops[0], z[i+1])
 	}
 
-	if f.NbWords%2 == 1 {
-		i := f.NbWords - 1
-		f.MOVD(f.RegisterOffset(xPtr, 8*i), z[i], "can't import these in pairs")
-		f.MOVD(f.RegisterOffset(yPtr, 8*i), ops[0])
-		op0(ops[0], z[i], z[i])
-	}
 	registers.Push(xPtr, yPtr)
 	registers.Push(ops...)
 
@@ -218,7 +199,7 @@ func (f *FFArm64) generateNeg() {
 	f.MOVD(0, xNotZero)
 	op0 := f.SUBS
 	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(f.RegisterOffset(xPtr, 8*i), z[i], z[i+1])
+		f.LDP(xPtr.At(i), z[i], z[i+1])
 		f.LDP(f.qAt(i), ops[0], ops[1])
 
 		f.ORR(z[i], xNotZero, xNotZero, "has x been 0 so far?")
@@ -228,16 +209,6 @@ func (f *FFArm64) generateNeg() {
 		op0 = f.SBCS
 
 		f.SBCS(z[i+1], ops[1], z[i+1])
-	}
-
-	if f.NbWords%2 == 1 {
-		i := f.NbWords - 1
-		f.MOVD(f.RegisterOffset(xPtr, 8*i), z[i], "can't import these in pairs")
-		f.MOVD(f.qAt(i), ops[0])
-
-		f.ORR(z[i], xNotZero, xNotZero)
-
-		op0(z[i], ops[0], z[i])
 	}
 
 	registers.Push(xPtr)

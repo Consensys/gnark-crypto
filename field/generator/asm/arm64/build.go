@@ -103,6 +103,10 @@ func GenerateCommonASM(w io.Writer, nbWords int, hasVector bool) error {
 	f.WriteLn("#include \"go_asm.h\"")
 	f.WriteLn("")
 
+	if f.NbWords%2 != 0 {
+		panic("NbWords must be even")
+	}
+
 	f.generateAdd()
 	f.generateSub()
 	f.generateDouble()
