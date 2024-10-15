@@ -36,14 +36,13 @@ func TestExternalMatrix(t *testing.T) {
 				tmp[j].SetOne()
 			}
 		}
-		h.Write(tmp[:])
-		h.matMulExternalInPlace(h.buffer)
+		// h.Write(tmp[:])
+		h.matMulExternalInPlace(tmp[:])
 		for j := 0; j < 4; j++ {
-			if !h.buffer[j].Equal(&expected[i][j]) {
+			if !tmp[j].Equal(&expected[i][j]) {
 				t.Fatal("error matMul4")
 			}
 		}
-		h.Reset()
 	}
 
 }

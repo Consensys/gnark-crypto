@@ -61,9 +61,6 @@ type Hash struct {
 
 	// parameters describing the
 	params parameters
-
-	// buffer
-	buffer []fr.Element
 }
 
 func NewHash(t, d, rf, rp int, seed string) Hash {
@@ -141,16 +138,6 @@ func initRC(seed string, params *parameters) {
 		}
 	}
 
-}
-
-// Reset empty the state
-func (h *Hash) Reset() {
-	h.buffer = make([]fr.Element, 0, len(h.buffer))
-}
-
-// Write populate the buffer of the hash
-func (h *Hash) Write(elmts []fr.Element) {
-	h.buffer = append(h.buffer, elmts...)
 }
 
 // sBox applies the sBox on buffer[index]
