@@ -48,8 +48,8 @@ type Hash struct {
 
 func NewHash(t, d, rf, rp int, seed string) Hash {
 	params := parameters{t: t, d: d, rF: rf, rP: rp}
-	res := Hash{params: params}
 	initRC(seed, &params)
+	res := Hash{params: params}
 	return res
 }
 
