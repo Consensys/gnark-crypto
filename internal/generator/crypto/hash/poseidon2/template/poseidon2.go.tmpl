@@ -46,12 +46,13 @@ type Hash struct {
 
 	// buffer
 	buffer []fr.Element
-
 }
 
-func NewHash(t, d, rf, rp int) Hash {
-	return Hash{
-		params: parameters{t: t, d: d, rF: rf, rP: rp}}
+func NewHash(t, d, rf, rp int, seed string) Hash {
+	params := parameters{t: t, d: d, rF: rf, rP: rp}
+	res := Hash{params: params}
+	initRC(seed, &params)
+	return res
 }
 
 // GetT returns the size of the state
@@ -70,7 +71,7 @@ func (h *Hash) GetRP() int {
 }
 
 // GetD returns the degree of the sbox
-func (h * Hash) GetD() int {
+func (h *Hash) GetD() int {
 	return h.params.d
 }
 
@@ -82,6 +83,46 @@ func (h *Hash) GetInternalMatrix() []fr.Element {
 // GetRC returns the round constants
 func (h *Hash) GetRC() [][]fr.Element {
 	return h.params.roundKeys
+}
+
+// initRC initiate round keys. Only one entry is non zero for the internal
+// rounds, cf https://eprint.iacr.org/2023/323.pdf page 9
+func initRC(seed string, params *parameters) {
+
+	bseed := ([]byte)(seed)
+	hash := sha3.NewLegacyKeccak256()
+	_, _ = hash.Write(bseed)
+	rnd := hash.Sum(nil) // pre hash before use
+	hash.Reset()
+	_, _ = hash.Write(rnd)
+
+	params.roundKeys = make([][]fr.Element, params.rF+params.rP)
+	for i := 0; i < params.rF/2; i++ {
+		params.roundKeys[i] = make([]fr.Element, params.t)
+		for j := 0; j < params.t; j++ {
+			rnd = hash.Sum(nil)
+			params.roundKeys[i][j].SetBytes(rnd)
+			hash.Reset()
+			_, _ = hash.Write(rnd)
+		}
+	}
+	for i := 0; i < params.rP; i++ {
+		params.roundKeys[i] = make([]fr.Element, 1)
+		rnd = hash.Sum(nil)
+		params.roundKeys[i][0].SetBytes(rnd)
+		hash.Reset()
+		_, _ = hash.Write(rnd)
+	}
+	for i := 0; i < params.rF/2; i++ {
+		params.roundKeys[i] = make([]fr.Element, params.t)
+		for j := 0; j < params.t; j++ {
+			rnd = hash.Sum(nil)
+			params.roundKeys[i][j].SetBytes(rnd)
+			hash.Reset()
+			_, _ = hash.Write(rnd)
+		}
+	}
+
 }
 
 // Reset empty the state
