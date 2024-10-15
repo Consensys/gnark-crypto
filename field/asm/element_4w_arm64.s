@@ -5,127 +5,36 @@
 
 // add(res, x, y *Element)
 TEXT ·add(SB), NOSPLIT, $0-24
-	LDP x+8(FP), (R4, R5)
+	LDP x+8(FP), (R12, R13)
 
 	// load operands and add mod 2^r
-	LDP  0(R4), (R0, R6)
-	LDP  0(R5), (R1, R7)
-	ADDS R0, R1, R0
-	ADCS R6, R7, R1
-	LDP  16(R4), (R2, R6)
-	LDP  16(R5), (R3, R7)
-	ADCS R2, R3, R2
-	ADCS R6, R7, R3
+	LDP  0(R12), (R8, R9)
+	LDP  0(R13), (R4, R5)
+	LDP  16(R12), (R10, R11)
+	LDP  16(R13), (R6, R7)
+	ADDS R8, R4, R4
+	ADCS R9, R5, R5
+	ADCS R10, R6, R6
+	ADCS R11, R7, R7
 
 	// load modulus and subtract
-	LDP  ·qElement+0(SB), (R8, R9)
-	SUBS R8, R0, R8
-	SBCS R9, R1, R9
-	LDP  ·qElement+16(SB), (R10, R11)
-	SBCS R10, R2, R10
-	SBCS R11, R3, R11
-
-	// reduce if necessary
-	CSEL CS, R8, R0, R0
-	CSEL CS, R9, R1, R1
-	CSEL CS, R10, R2, R2
-	CSEL CS, R11, R3, R3
-
-	// store
-	MOVD res+0(FP), R12
-
-#define STOREVECTOR(in0, in1, in2, in3, in4) \
-	STP (in1, in2), 0(in0)  \
-	STP (in3, in4), 16(in0) \
-
-	STOREVECTOR(R12, R0, R1, R2, R3)
-	RET
-
-// sub(res, x, y *Element)
-TEXT ·sub(SB), NOSPLIT, $0-24
-	LDP x+8(FP), (R4, R5)
-
-	// load operands and subtract mod 2^r
-	LDP  0(R4), (R0, R6)
-	LDP  0(R5), (R1, R7)
-	SUBS R1, R0, R0
-	SBCS R7, R6, R1
-	LDP  16(R4), (R2, R6)
-	LDP  16(R5), (R3, R7)
-	SBCS R3, R2, R2
-	SBCS R7, R6, R3
-
-	// load modulus and select
-	MOVD $0, R12
-	LDP  ·qElement+0(SB), (R8, R9)
-	CSEL CS, R12, R8, R8
-	CSEL CS, R12, R9, R9
-	LDP  ·qElement+16(SB), (R10, R11)
-	CSEL CS, R12, R10, R10
-	CSEL CS, R12, R11, R11
-
-	// augment (or not)
-	ADDS R0, R8, R0
-	ADCS R1, R9, R1
-	ADCS R2, R10, R2
-	ADCS R3, R11, R3
-
-	// store
-	MOVD res+0(FP), R13
-	RET
-
-// double(res, x *Element)
-TEXT ·double(SB), NOSPLIT, $0-16
-	LDP res+0(FP), (R5, R4)
-
-	// load operands and add mod 2^r
-	LDP  0(R4), (R0, R1)
-	ADDS R0, R0, R0
-	ADCS R1, R1, R1
-	LDP  16(R4), (R2, R3)
-	ADCS R2, R2, R2
-	ADCS R3, R3, R3
-
-	// load modulus and subtract
-	LDP  ·qElement+0(SB), (R6, R7)
-	SUBS R6, R0, R6
-	SBCS R7, R1, R7
-	LDP  ·qElement+16(SB), (R8, R9)
-	SBCS R8, R2, R8
-	SBCS R9, R3, R9
-
-	// reduce if necessary
-	CSEL CS, R6, R0, R0
-	CSEL CS, R7, R1, R1
-	CSEL CS, R8, R2, R2
-	CSEL CS, R9, R3, R3
-
-	// store
-	RET
-
-// neg(res, x *Element)
-TEXT ·neg(SB), NOSPLIT, $0-16
-	LDP res+0(FP), (R5, R4)
-
-	// load operands and subtract
-	MOVD $0, R8
-	LDP  0(R4), (R0, R1)
-	LDP  ·qElement+0(SB), (R6, R7)
-	ORR  R0, R8, R8                 // has x been 0 so far?
-	ORR  R1, R8, R8
-	SUBS R0, R6, R0
-	SBCS R1, R7, R1
-	LDP  16(R4), (R2, R3)
-	LDP  ·qElement+16(SB), (R6, R7)
-	ORR  R2, R8, R8                 // has x been 0 so far?
-	ORR  R3, R8, R8
+	MOVD $const_q0, R0
+	MOVD $const_q1, R1
+	MOVD $const_q2, R2
+	MOVD $const_q3, R3
+	SUBS R0, R4, R0
+	SBCS R1, R5, R1
 	SBCS R2, R6, R2
 	SBCS R3, R7, R3
-	TST  $0xffffffffffffffff, R8
-	CSEL EQ, R8, R0, R0
-	CSEL EQ, R8, R1, R1
-	CSEL EQ, R8, R2, R2
-	CSEL EQ, R8, R3, R3
+
+	// reduce if necessary
+	CSEL CS, R0, R4, R4
+	CSEL CS, R1, R5, R5
+	CSEL CS, R2, R6, R6
+	CSEL CS, R3, R7, R7
 
 	// store
+	MOVD res+0(FP), R14
+	STP  (R4, R5), 0(R14)
+	STP  (R6, R7), 16(R14)
 	RET

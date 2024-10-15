@@ -108,9 +108,9 @@ func GenerateCommonASM(w io.Writer, nbWords int, hasVector bool) error {
 	}
 
 	f.generateAdd()
-	f.generateSub()
-	f.generateDouble()
-	f.generateNeg()
+	// f.generateSub()
+	// f.generateDouble()
+	// f.generateNeg()
 
 	return nil
 }
@@ -288,4 +288,8 @@ func (f *FFArm64) qAt(index int) string {
 
 func (f *FFArm64) qInv0() string {
 	return "$const_qInvNeg"
+}
+
+func (f *FFArm64) qi(i int) string {
+	return fmt.Sprintf("$const_q%d", i)
 }

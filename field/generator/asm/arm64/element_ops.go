@@ -25,44 +25,35 @@ func (f *FFArm64) generateAdd() {
 	defer f.AssertCleanStack(0, 0)
 
 	// registers
+	t := registers.PopN(f.NbWords)
 	z := registers.PopN(f.NbWords)
+	x := registers.PopN(f.NbWords)
 	xPtr := registers.Pop()
 	yPtr := registers.Pop()
-	ops := registers.PopN(2)
+	zPtr := registers.Pop()
 
 	f.LDP("x+8(FP)", xPtr, yPtr)
 	f.Comment("load operands and add mod 2^r")
 
-	op0 := f.ADDS
 	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(xPtr.At(i), z[i], ops[0])
-		f.LDP(yPtr.At(i), z[i+1], ops[1])
-
-		op0(z[i], z[i+1], z[i])
-		op0 = f.ADCS
-
-		f.ADCS(ops[0], ops[1], z[i+1])
+		f.LDP(xPtr.At(i), x[i], x[i+1])
+		f.LDP(yPtr.At(i), z[i], z[i+1])
 	}
 
-	registers.Push(xPtr, yPtr)
-	registers.Push(ops...)
+	f.ADDS(x[0], z[0], z[0])
+	for i := 1; i < f.NbWords; i++ {
+		f.ADCS(x[i], z[i], z[i])
+	}
 
-	t := registers.PopN(f.NbWords)
 	f.reduce(z, t)
-	registers.Push(t...)
 
 	f.Comment("store")
-	zPtr := registers.Pop()
+
 	f.MOVD("res+0(FP)", zPtr)
 
-	storeVector := f.Define("storeVector", f.NbWords+1, func(args ...arm64.Register) {
-		res0 := args[0]
-		for i := 1; i < len(args); i += 2 {
-			f.STP(args[i], args[i+1], res0.At(i-1))
-		}
-	})
-	_z := append([]arm64.Register{zPtr}, z...)
-	storeVector(_z...)
+	for i := 0; i < f.NbWords-1; i += 2 {
+		f.STP(z[i], z[i+1], zPtr.At(i))
+	}
 
 	f.RET()
 
@@ -234,21 +225,12 @@ func (f *FFArm64) reduce(z, t []arm64.Register) {
 
 	f.Comment("load modulus and subtract")
 
-	op0 := f.SUBS
-	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(f.qAt(i), t[i], t[i+1])
-
-		op0(t[i], z[i], t[i])
-		op0 = f.SBCS
-
-		f.SBCS(t[i+1], z[i+1], t[i+1])
+	for i := 0; i < f.NbWords; i++ {
+		f.MOVD(f.qi(i), t[i])
 	}
-
-	if f.NbWords%2 == 1 {
-		i := f.NbWords - 1
-		f.MOVD(f.qAt(i), t[i])
-
-		op0(t[i], z[i], t[i])
+	f.SUBS(t[0], z[0], t[0])
+	for i := 1; i < f.NbWords; i++ {
+		f.SBCS(t[i], z[i], t[i])
 	}
 
 	f.Comment("reduce if necessary")
