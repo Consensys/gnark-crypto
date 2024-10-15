@@ -275,7 +275,8 @@ func (h *Hash) addRoundKeyInPlace(round int, input []fr.Element) {
 	}
 }
 
-func (h *Hash) permutationInPlace(input []fr.Element) error {
+// Permutation applies the permutation on input, and stores the result in input.
+func (h *Hash) Permutation(input []fr.Element) error {
 	if len(input) != h.params.t {
 		return ErrInvalidSizebuffer
 	}
