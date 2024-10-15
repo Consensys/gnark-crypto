@@ -57,10 +57,10 @@ func TestMultiExpG1(t *testing.T) {
 	}
 
 	// sprinkle some points at infinity
-	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
-	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
-	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
-	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].SetInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].SetInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].SetInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].SetInfinity() //#nosec G404 weak rng is fine here
 
 	// final scalar to use in double and add method (without mixer factor)
 	// n(n+1)(2n+1)/6  (sum of the squares from 1 to n)
@@ -154,7 +154,7 @@ func TestMultiExpG1(t *testing.T) {
 			for i := 1; i <= nbSamples; i++ {
 				sampleScalars[i-1].SetUint64(uint64(i)).
 					Mul(&sampleScalars[i-1], &mixer)
-				samplePointsZero[i-1].setInfinity()
+				samplePointsZero[i-1].SetInfinity()
 			}
 
 			results := make([]G1Jac, len(cRange))
@@ -241,10 +241,10 @@ func TestCrossMultiExpG1(t *testing.T) {
 	}
 
 	// sprinkle some points at infinity
-	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
-	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
-	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
-	samplePoints[rand.N(nbSamples)].setInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].SetInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].SetInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].SetInfinity() //#nosec G404 weak rng is fine here
+	samplePoints[rand.N(nbSamples)].SetInfinity() //#nosec G404 weak rng is fine here
 
 	var sampleScalars [nbSamples]fr.Element
 	fillBenchScalars(sampleScalars[:])
