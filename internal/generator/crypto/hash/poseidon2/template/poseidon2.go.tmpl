@@ -1,6 +1,6 @@
 import (
 	"errors"
-
+	"golang.org/x/crypto/sha3"
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
 )
 
@@ -252,7 +252,7 @@ func (h *Hash) matMulInternalInPlace(input []fr.Element) {
 
 // addRoundKeyInPlace adds the round-th key to the buffer
 func (h *Hash) addRoundKeyInPlace(round int, input []fr.Element) {
-	for i := 0; i < h.params.t; i++ {
+	for i := 0; i < len(h.params.roundKeys[round]); i++ {
 		input[i].Add(&input[i], &h.params.roundKeys[round][i])
 	}
 }

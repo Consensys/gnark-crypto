@@ -18,8 +18,8 @@ package poseidon2
 
 import (
 	"errors"
-
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"golang.org/x/crypto/sha3"
 )
 
 // poseidon
@@ -270,7 +270,7 @@ func (h *Hash) matMulInternalInPlace(input []fr.Element) {
 
 // addRoundKeyInPlace adds the round-th key to the buffer
 func (h *Hash) addRoundKeyInPlace(round int, input []fr.Element) {
-	for i := 0; i < h.params.t; i++ {
+	for i := 0; i < len(h.params.roundKeys[round]); i++ {
 		input[i].Add(&input[i], &h.params.roundKeys[round][i])
 	}
 }
