@@ -30,7 +30,7 @@ func processChunkG1Jacobian[B ibg1JacExtended](chunk uint64,
 
 	var buckets B
 	for i := 0; i < len(buckets); i++ {
-		buckets[i].setInfinity()
+		buckets[i].SetInfinity()
 	}
 
 	// for each scalars, get the digit corresponding to the chunk we're processing.
@@ -53,8 +53,8 @@ func processChunkG1Jacobian[B ibg1JacExtended](chunk uint64,
 	// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
 
 	var runningSum, total g1JacExtended
-	runningSum.setInfinity()
-	total.setInfinity()
+	runningSum.SetInfinity()
+	total.SetInfinity()
 	for k := len(buckets) - 1; k >= 0; k-- {
 		if !buckets[k].IsInfinity() {
 			runningSum.add(&buckets[k])
@@ -121,7 +121,7 @@ func processChunkG2Jacobian[B ibg2JacExtended](chunk uint64,
 
 	var buckets B
 	for i := 0; i < len(buckets); i++ {
-		buckets[i].setInfinity()
+		buckets[i].SetInfinity()
 	}
 
 	// for each scalars, get the digit corresponding to the chunk we're processing.
@@ -144,8 +144,8 @@ func processChunkG2Jacobian[B ibg2JacExtended](chunk uint64,
 	// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
 
 	var runningSum, total g2JacExtended
-	runningSum.setInfinity()
-	total.setInfinity()
+	runningSum.SetInfinity()
+	total.SetInfinity()
 	for k := len(buckets) - 1; k >= 0; k-- {
 		if !buckets[k].IsInfinity() {
 			runningSum.add(&buckets[k])
