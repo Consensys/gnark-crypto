@@ -196,3 +196,15 @@ func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
 
 
 `
+
+const OpsARM64 = `
+{{if .ASMArm}}
+//go:noescape
+func add(res,x,y *{{.ElementName}})
+
+func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
+	add(z,x,y)
+	return z
+}
+{{end}}
+`

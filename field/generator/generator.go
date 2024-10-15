@@ -11,6 +11,7 @@ import (
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
+	"github.com/consensys/gnark-crypto/field/generator/asm/arm64"
 	"github.com/consensys/gnark-crypto/field/generator/config"
 	"github.com/consensys/gnark-crypto/field/generator/internal/addchain"
 	"github.com/consensys/gnark-crypto/field/generator/internal/templates/element"
@@ -157,6 +158,36 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 
 	}
 
+	if F.ASMArm {
+		// generate ops.s
+		{
+			pathSrc := filepath.Join(outputDir, eName+"_ops_arm64.s")
+			fmt.Println("generating", pathSrc)
+			f, err := os.Create(pathSrc)
+			if err != nil {
+				return err
+			}
+
+			_, _ = io.WriteString(f, "// +build !purego\n")
+
+			if err := arm64.GenerateFieldWrapper(f, F, asmDirBuildPath, asmDirIncludePath); err != nil {
+				_ = f.Close()
+				return err
+			}
+			_ = f.Close()
+
+			// run asmfmt
+			// run go fmt on whole directory
+			cmd := exec.Command("asmfmt", "-w", pathSrc)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				return err
+			}
+		}
+
+	}
+
 	if F.ASM {
 		// generate ops_amd64.go
 		src := []string{
@@ -164,6 +195,23 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 			element.OpsAMD64,
 		}
 		pathSrc := filepath.Join(outputDir, eName+"_ops_amd64.go")
+		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
+		copy(bavardOptsCpy, bavardOpts)
+		if F.ASM {
+			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!purego"))
+		}
+		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
+			return err
+		}
+	}
+
+	if F.ASMArm {
+		// generate ops_arm64.go
+		src := []string{
+			element.MulDoc,
+			element.OpsARM64,
+		}
+		pathSrc := filepath.Join(outputDir, eName+"_ops_arm64.go")
 		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
 		copy(bavardOptsCpy, bavardOpts)
 		if F.ASM {
@@ -279,29 +327,56 @@ func shorten(input string) string {
 	return input
 }
 
-func GenerateCommonASM(nbWords int, asmDir string, hasVector bool) error {
+func GenerateCommonASM(nbWords int, asmDir string, hasVector bool, hasArm bool) error {
 	os.MkdirAll(asmDir, 0755)
-	pathSrc := filepath.Join(asmDir, fmt.Sprintf(amd64.ElementASMFileName, nbWords))
+	{
+		pathSrc := filepath.Join(asmDir, fmt.Sprintf(amd64.ElementASMFileName, nbWords))
 
-	fmt.Println("generating", pathSrc)
-	f, err := os.Create(pathSrc)
-	if err != nil {
-		return err
-	}
+		fmt.Println("generating", pathSrc)
+		f, err := os.Create(pathSrc)
+		if err != nil {
+			return err
+		}
 
-	if err := amd64.GenerateCommonASM(f, nbWords, hasVector); err != nil {
+		if err := amd64.GenerateCommonASM(f, nbWords, hasVector); err != nil {
+			_ = f.Close()
+			return err
+		}
 		_ = f.Close()
-		return err
-	}
-	_ = f.Close()
 
-	// run asmfmt
-	// run go fmt on whole directory
-	cmd := exec.Command("asmfmt", "-w", pathSrc)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return err
+		// run asmfmt
+		// run go fmt on whole directory
+		cmd := exec.Command("asmfmt", "-w", pathSrc)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+	}
+
+	if hasArm {
+		pathSrc := filepath.Join(asmDir, fmt.Sprintf(arm64.ElementASMFileName, nbWords))
+
+		fmt.Println("generating", pathSrc)
+		f, err := os.Create(pathSrc)
+		if err != nil {
+			return err
+		}
+
+		if err := arm64.GenerateCommonASM(f, nbWords, hasVector); err != nil {
+			_ = f.Close()
+			return err
+		}
+		_ = f.Close()
+
+		// run asmfmt
+		// run go fmt on whole directory
+		cmd := exec.Command("asmfmt", "-w", pathSrc)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return err
+		}
 	}
 
 	return nil

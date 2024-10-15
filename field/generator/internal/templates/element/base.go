@@ -396,6 +396,7 @@ func (z *{{.ElementName}}) fromMont() *{{.ElementName}} {
 	return z
 }
 
+{{- if not .ASMArm}}
 // Add z = x + y (mod q)
 func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
@@ -430,6 +431,7 @@ func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 	{{- end}}
 	return z
 }
+{{- end}}
 
 // Double z = x + x (mod q), aka Lsh 1
 func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {

@@ -54,6 +54,7 @@ func main() {
 	// generate common assembly files depending on field number of words
 	mCommon := make(map[int]bool)
 	mVec := make(map[int]bool)
+	mArm := make(map[int]bool)
 
 	for i, conf := range config.Curves {
 		var err error
@@ -73,12 +74,18 @@ func main() {
 		if conf.Fp.ASMVector {
 			mVec[conf.Fp.NbWords] = true
 		}
+		if conf.Fr.ASMArm {
+			mArm[conf.Fr.NbWords] = true
+		}
+		if conf.Fp.ASMArm {
+			mArm[conf.Fp.NbWords] = true
+		}
 
 		config.Curves[i] = conf
 	}
 
 	for nbWords := range mCommon {
-		assertNoError(generator.GenerateCommonASM(nbWords, asmDirBuildPath, mVec[nbWords]))
+		assertNoError(generator.GenerateCommonASM(nbWords, asmDirBuildPath, mVec[nbWords], mArm[nbWords]))
 	}
 
 	var wg sync.WaitGroup
