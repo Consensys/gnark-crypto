@@ -206,5 +206,13 @@ func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 	add(z,x,y)
 	return z
 }
+
+//go:noescape
+func double(res, x *{{.ElementName}})
+
+func (z *{{.ElementName}}) Double(x *{{.ElementName}}) *{{.ElementName}} {
+	double(z,x)
+	return z
+}
 {{end}}
 `

@@ -5,9 +5,7 @@
 
 // add(res, x, y *Element)
 TEXT ·add(SB), NOSPLIT, $0-24
-	LDP x+8(FP), (R12, R13)
-
-	// load operands and add mod 2^r
+	LDP  x+8(FP), (R12, R13)
 	LDP  0(R12), (R8, R9)
 	LDP  0(R13), (R4, R5)
 	LDP  16(R12), (R10, R11)
@@ -35,4 +33,35 @@ TEXT ·add(SB), NOSPLIT, $0-24
 	MOVD res+0(FP), R14
 	STP  (R4, R5), 0(R14)
 	STP  (R6, R7), 16(R14)
+	RET
+
+// double(res, x *Element)
+TEXT ·double(SB), NOSPLIT, $0-16
+	LDP res+0(FP), (R5, R4)
+
+	// load operands and add mod 2^r
+	LDP  0(R4), (R0, R1)
+	ADDS R0, R0, R0
+	ADCS R1, R1, R1
+	LDP  16(R4), (R2, R3)
+	ADCS R2, R2, R2
+	ADCS R3, R3, R3
+
+	// load modulus and subtract
+	LDP  ·qElement+0(SB), (R6, R7)
+	LDP  ·qElement+16(SB), (R8, R9)
+	SUBS R6, R0, R6
+	SBCS R7, R1, R7
+	SBCS R8, R2, R8
+	SBCS R9, R3, R9
+
+	// reduce if necessary
+	CSEL CS, R6, R0, R0
+	CSEL CS, R7, R1, R1
+	CSEL CS, R8, R2, R2
+	CSEL CS, R9, R3, R3
+
+	// store
+	STP (R0, R1), 0(R5)
+	STP (R2, R3), 16(R5)
 	RET

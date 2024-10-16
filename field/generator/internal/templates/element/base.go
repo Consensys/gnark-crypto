@@ -431,7 +431,7 @@ func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 	{{- end}}
 	return z
 }
-{{- end}}
+
 
 // Double z = x + x (mod q), aka Lsh 1
 func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
@@ -473,6 +473,8 @@ func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 	{{- end}}
 	return z
 }
+
+{{- end}}
 
 
 // Sub z = x - y (mod q)

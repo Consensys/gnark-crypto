@@ -108,8 +108,8 @@ func GenerateCommonASM(w io.Writer, nbWords int, hasVector bool) error {
 	}
 
 	f.generateAdd()
+	f.generateDouble()
 	// f.generateSub()
-	// f.generateDouble()
 	// f.generateNeg()
 
 	return nil

@@ -20,7 +20,6 @@ import (
 
 func (f *FFArm64) generateAdd() {
 	f.Comment("add(res, x, y *Element)")
-	//stackSize := f.StackSize(f.NbWords*2, 0, 0)
 	registers := f.FnHeader("add", 0, 24)
 	defer f.AssertCleanStack(0, 0)
 
@@ -33,7 +32,6 @@ func (f *FFArm64) generateAdd() {
 	zPtr := registers.Pop()
 
 	f.LDP("x+8(FP)", xPtr, yPtr)
-	f.Comment("load operands and add mod 2^r")
 
 	for i := 0; i < f.NbWords-1; i += 2 {
 		f.LDP(xPtr.At(i), x[i], x[i+1])
@@ -50,10 +48,7 @@ func (f *FFArm64) generateAdd() {
 	f.Comment("store")
 
 	f.MOVD("res+0(FP)", zPtr)
-
-	for i := 0; i < f.NbWords-1; i += 2 {
-		f.STP(z[i], z[i+1], zPtr.At(i))
-	}
+	f.storeVector(z, zPtr)
 
 	f.RET()
 
@@ -83,11 +78,6 @@ func (f *FFArm64) generateDouble() {
 		f.ADCS(z[i+1], z[i+1], z[i+1])
 	}
 
-	if f.NbWords%2 == 1 {
-		i := f.NbWords - 1
-		f.MOVD(xPtr.At(i), z[i])
-		op0(z[i], z[i], z[i])
-	}
 	registers.Push(xPtr)
 
 	t := registers.PopN(f.NbWords)
@@ -142,13 +132,6 @@ func (f *FFArm64) generateSub() {
 
 		f.CSEL("CS", zero, t[i], t[i])
 		f.CSEL("CS", zero, t[i+1], t[i+1])
-	}
-
-	if f.NbWords%2 == 1 {
-		i := f.NbWords - 1
-		f.MOVD(f.qAt(i), t[i])
-
-		f.CSEL("CS", zero, t[i], t[i])
 	}
 
 	registers.Push(zero)
@@ -226,7 +209,6 @@ func (f *FFArm64) reduce(z, t []arm64.Register) {
 	f.Comment("load modulus and subtract")
 
 	for i := 0; i < f.NbWords-1; i += 2 {
-		// f.MOVD(f.qi(i), t[i])
 		f.LDP(f.qAt(i), t[i], t[i+1])
 	}
 	f.SUBS(t[0], z[0], t[0])
@@ -235,12 +217,13 @@ func (f *FFArm64) reduce(z, t []arm64.Register) {
 	}
 
 	f.Comment("reduce if necessary")
-
 	for i := 0; i < f.NbWords; i++ {
 		f.CSEL("CS", t[i], z[i], z[i])
 	}
 }
 
-func (f *FFArm64) storeVector(vector interface{}, baseAddress arm64.Register) {
-	// f.callTemplate("storeVector", toInterfaceSlice(baseAddress, vector)...)
+func (f *FFArm64) storeVector(z []arm64.Register, zPtr arm64.Register) {
+	for i := 0; i < f.NbWords-1; i += 2 {
+		f.STP(z[i], z[i+1], zPtr.At(i))
+	}
 }

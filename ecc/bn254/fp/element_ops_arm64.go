@@ -26,3 +26,11 @@ func (z *Element) Add(x, y *Element) *Element {
 	add(z, x, y)
 	return z
 }
+
+//go:noescape
+func double(res, x *Element)
+
+func (z *Element) Double(x *Element) *Element {
+	double(z, x)
+	return z
+}
