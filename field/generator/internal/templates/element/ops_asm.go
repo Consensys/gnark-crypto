@@ -214,5 +214,14 @@ func (z *{{.ElementName}}) Double(x *{{.ElementName}}) *{{.ElementName}} {
 	double(z,x)
 	return z
 }
+
+//go:noescape
+func sub(res,x,y *{{.ElementName}})
+
+func (z *{{.ElementName}}) Sub(x, y *{{.ElementName}}) *{{.ElementName}} {
+	sub(z,x,y)
+	return z
+}
+
 {{end}}
 `

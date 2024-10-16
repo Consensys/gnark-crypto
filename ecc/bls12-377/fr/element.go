@@ -393,23 +393,6 @@ func (z *Element) fromMont() *Element {
 	return z
 }
 
-// Sub z = x - y (mod q)
-func (z *Element) Sub(x, y *Element) *Element {
-	var b uint64
-	z[0], b = bits.Sub64(x[0], y[0], 0)
-	z[1], b = bits.Sub64(x[1], y[1], b)
-	z[2], b = bits.Sub64(x[2], y[2], b)
-	z[3], b = bits.Sub64(x[3], y[3], b)
-	if b != 0 {
-		var c uint64
-		z[0], c = bits.Add64(z[0], q0, 0)
-		z[1], c = bits.Add64(z[1], q1, c)
-		z[2], c = bits.Add64(z[2], q2, c)
-		z[3], _ = bits.Add64(z[3], q3, c)
-	}
-	return z
-}
-
 // Neg z = q - x
 func (z *Element) Neg(x *Element) *Element {
 	if x.IsZero() {

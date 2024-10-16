@@ -34,3 +34,11 @@ func (z *Element) Double(x *Element) *Element {
 	double(z, x)
 	return z
 }
+
+//go:noescape
+func sub(res, x, y *Element)
+
+func (z *Element) Sub(x, y *Element) *Element {
+	sub(z, x, y)
+	return z
+}

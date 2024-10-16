@@ -7,8 +7,8 @@
 TEXT ·add(SB), NOSPLIT, $0-24
 	LDP  x+8(FP), (R12, R13)
 	LDP  0(R12), (R8, R9)
-	LDP  0(R13), (R4, R5)
 	LDP  16(R12), (R10, R11)
+	LDP  0(R13), (R4, R5)
 	LDP  16(R13), (R6, R7)
 	ADDS R8, R4, R4
 	ADCS R9, R5, R5
@@ -60,4 +60,34 @@ TEXT ·double(SB), NOSPLIT, $0-16
 	CSEL CS, R9, R5, R5
 	STP  (R2, R3), 0(R1)
 	STP  (R4, R5), 16(R1)
+	RET
+
+// sub(res, x, y *Element)
+TEXT ·sub(SB), NOSPLIT, $0-24
+	LDP  x+8(FP), (R12, R13)
+	LDP  0(R12), (R4, R5)
+	LDP  16(R12), (R6, R7)
+	LDP  0(R13), (R0, R1)
+	LDP  16(R13), (R2, R3)
+	SUBS R0, R4, R0
+	SBCS R1, R5, R1
+	SBCS R2, R6, R2
+	SBCS R3, R7, R3
+
+	// load modulus and select
+	LDP  ·qElement+0(SB), (R8, R9)
+	LDP  ·qElement+16(SB), (R10, R11)
+	CSEL CS, ZR, R8, R8
+	CSEL CS, ZR, R9, R9
+	CSEL CS, ZR, R10, R10
+	CSEL CS, ZR, R11, R11
+
+	// add q if underflow, 0 if not
+	ADDS R0, R8, R0
+	ADCS R1, R9, R1
+	ADCS R2, R10, R2
+	ADCS R3, R11, R3
+	MOVD res+0(FP), R14
+	STP  (R0, R1), 0(R14)
+	STP  (R2, R3), 16(R14)
 	RET

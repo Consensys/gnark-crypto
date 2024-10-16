@@ -33,10 +33,8 @@ func (f *FFArm64) generateAdd() {
 
 	f.LDP("x+8(FP)", xPtr, yPtr)
 
-	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(xPtr.At(i), x[i], x[i+1])
-		f.LDP(yPtr.At(i), z[i], z[i+1])
-	}
+	f.load(xPtr, x)
+	f.load(yPtr, z)
 
 	f.ADDS(x[0], z[0], z[0])
 	for i := 1; i < f.NbWords; i++ {
@@ -48,7 +46,7 @@ func (f *FFArm64) generateAdd() {
 	f.Comment("store")
 
 	f.MOVD("res+0(FP)", zPtr)
-	f.storeVector(z, zPtr)
+	f.store(z, zPtr)
 
 	f.RET()
 
@@ -67,9 +65,7 @@ func (f *FFArm64) generateDouble() {
 
 	f.LDP("res+0(FP)", zPtr, xPtr)
 
-	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(xPtr.At(i), z[i], z[i+1])
-	}
+	f.load(xPtr, z)
 
 	f.ADDS(z[0], z[0], z[0])
 	for i := 1; i < f.NbWords; i++ {
@@ -78,7 +74,7 @@ func (f *FFArm64) generateDouble() {
 
 	f.reduce(z, t)
 
-	f.storeVector(z, zPtr)
+	f.store(z, zPtr)
 
 	f.RET()
 
@@ -93,56 +89,40 @@ func (f *FFArm64) generateSub() {
 
 	// registers
 	z := registers.PopN(f.NbWords)
+	x := registers.PopN(f.NbWords)
+	t := registers.PopN(f.NbWords)
 	xPtr := registers.Pop()
 	yPtr := registers.Pop()
-	ops := registers.PopN(2)
+	zPtr := registers.Pop()
 
 	f.LDP("x+8(FP)", xPtr, yPtr)
-	f.Comment("load operands and subtract mod 2^r")
 
-	op0 := f.SUBS
-	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(xPtr.At(i), z[i], ops[0])
-		f.LDP(yPtr.At(i), z[i+1], ops[1])
+	f.load(xPtr, x)
+	f.load(yPtr, z)
 
-		op0(z[i+1], z[i], z[i])
-		op0 = f.SBCS
-
-		f.SBCS(ops[1], ops[0], z[i+1])
+	f.SUBS(z[0], x[0], z[0])
+	for i := 1; i < f.NbWords; i++ {
+		f.SBCS(z[i], x[i], z[i])
 	}
-
-	registers.Push(xPtr, yPtr)
-	registers.Push(ops...)
 
 	f.Comment("load modulus and select")
 
-	t := registers.PopN(f.NbWords)
-	zero := registers.Pop()
-	f.MOVD(0, zero)
+	zero := arm64.Register("ZR")
 
 	for i := 0; i < f.NbWords-1; i += 2 {
 		f.LDP(f.qAt(i), t[i], t[i+1])
-
-		f.CSEL("CS", zero, t[i], t[i])
-		f.CSEL("CS", zero, t[i+1], t[i+1])
 	}
-
-	registers.Push(zero)
-
-	f.Comment("augment (or not)")
-
-	op0 = f.ADDS
 	for i := 0; i < f.NbWords; i++ {
-		op0(z[i], t[i], z[i])
-		op0 = f.ADCS
+		f.CSEL("CS", zero, t[i], t[i])
+	}
+	f.Comment("add q if underflow, 0 if not")
+	f.ADDS(z[0], t[0], z[0])
+	for i := 1; i < f.NbWords; i++ {
+		f.ADCS(z[i], t[i], z[i])
 	}
 
-	registers.Push(t...)
-
-	f.Comment("store")
-	zPtr := registers.Pop()
 	f.MOVD("res+0(FP)", zPtr)
-	f.storeVector(z, zPtr)
+	f.store(z, zPtr)
 
 	f.RET()
 
@@ -187,7 +167,7 @@ func (f *FFArm64) generateNeg() {
 	}
 
 	f.Comment("store")
-	f.storeVector(z, zPtr)
+	f.store(z, zPtr)
 
 	f.RET()
 
@@ -215,7 +195,13 @@ func (f *FFArm64) reduce(z, t []arm64.Register) {
 	}
 }
 
-func (f *FFArm64) storeVector(z []arm64.Register, zPtr arm64.Register) {
+func (f *FFArm64) load(zPtr arm64.Register, z []arm64.Register) {
+	for i := 0; i < f.NbWords-1; i += 2 {
+		f.LDP(zPtr.At(i), z[i], z[i+1])
+	}
+}
+
+func (f *FFArm64) store(z []arm64.Register, zPtr arm64.Register) {
 	for i := 0; i < f.NbWords-1; i += 2 {
 		f.STP(z[i], z[i+1], zPtr.At(i))
 	}

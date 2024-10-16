@@ -474,7 +474,6 @@ func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
-{{- end}}
 
 
 // Sub z = x - y (mod q)
@@ -501,6 +500,9 @@ func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
 	}
 	return z
 }
+
+{{- end}}
+
 
 // Neg z = q - x
 func (z *{{.ElementName}}) Neg( x *{{.ElementName}}) *{{.ElementName}} {
