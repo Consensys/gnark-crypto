@@ -131,6 +131,14 @@ func (h *Hash) sBox(index int, input []fr.Element) {
 			Mul(&input[index], &tmp).
 			Square(&input[index]).
 			Mul(&input[index], &tmp)
+	} else if h.params.d == -1 {
+		input[index].Inverse(&input[index])
+	} else if h.params.d == 17 {
+		input[index].Square(&input[index]).
+			Square(&input[index]).
+			Square(&input[index]).
+			Square(&input[index]).
+			Mul(&input[index], &tmp)
 	}
 }
 
