@@ -45,6 +45,7 @@ type Hash struct {
 	params parameters
 }
 
+// NewHash returns a new hash instance allowing to apply the poseidon2 permutation
 func NewHash(t, d, rf, rp int, seed string) Hash {
 	params := parameters{t: t, d: d, rF: rf, rP: rp}
 	params.roundKeys = InitRC(seed, rf, rp, t)
