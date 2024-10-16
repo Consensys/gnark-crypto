@@ -116,6 +116,8 @@ func (h *Hash) sBox(index int, input []fr.Element) {
 			Square(&input[index]).
 			Square(&input[index]).
 			Mul(&input[index], &tmp)
+	}  else {
+		panic("sbox non implemented")
 	}
 }
 
