@@ -93,6 +93,8 @@ func (vector *Vector) Mul(a, b Vector) {
 
 {{- end}}
 
+
+{{- if not .ASMArm}}
 // Mul z = x * y (mod q)
 {{- if $.NoCarry}}
 //
@@ -112,6 +114,7 @@ func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 	{{- end }}
 	return z
 }
+{{- end}}
 
 // Square z = x * x (mod q)
 {{- if $.NoCarry}}

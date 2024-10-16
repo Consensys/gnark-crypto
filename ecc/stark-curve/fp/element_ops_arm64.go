@@ -45,3 +45,11 @@ func (z *Element) Sub(x, y *Element) *Element {
 
 //go:noescape
 func Butterfly(a, b *Element)
+
+//go:noescape
+func mul(res, x, y *Element)
+
+func (z *Element) Mul(x, y *Element) *Element {
+	mul(z, x, y)
+	return z
+}

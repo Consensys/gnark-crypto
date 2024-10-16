@@ -226,5 +226,13 @@ func (z *{{.ElementName}}) Sub(x, y *{{.ElementName}}) *{{.ElementName}} {
 //go:noescape
 func Butterfly(a, b *{{.ElementName}})
 
+//go:noescape
+func mul(res,x,y *{{.ElementName}})
+
+func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
+	mul(z,x,y)
+	return z
+}
+
 {{end}}
 `

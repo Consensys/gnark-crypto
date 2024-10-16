@@ -188,25 +188,165 @@ func (f *FFArm64) generateButterfly() {
 	f.RET()
 }
 
-func (f *FFArm64) reduce(z, t []arm64.Register) {
+func (f *FFArm64) generateMul() {
+	f.Comment("mul(res, x, y *Element)")
+	registers := f.FnHeader("mul", 0, 24)
+	defer f.AssertCleanStack(0, 0)
 
-	if len(z) != f.NbWords || len(t) != f.NbWords {
+	xPtr := registers.Pop()
+	yPtr := registers.Pop()
+	bi := registers.Pop()
+	a := registers.PopN(f.NbWords)
+	t := registers.PopN(f.NbWords + 1)
+	q := registers.PopN(f.NbWords)
+
+	f.LDP("x+8(FP)", xPtr, yPtr)
+
+	f.load(xPtr, a)
+	ax := xPtr
+	// f.load(yPtr, y)
+
+	for i := 0; i < f.NbWords-1; i += 2 {
+		f.LDP(f.qAt(i), q[i], q[i+1])
+	}
+
+	divShift := f.Define("divShift", 0, func(args ...arm64.Register) {
+		m := bi
+		f.MOVD(f.qInv0(), m)
+		f.MUL(t[0], m, m)
+
+		// for j=0 to N-1
+		//	(C,t[j-1]) := t[j] + m*q[j] + C
+
+		for j := 0; j < f.NbWords; j++ {
+			f.MUL(q[j], m, ax)
+			if j == 0 {
+				f.ADDS(ax, t[j], t[j])
+			} else {
+				f.ADCS(ax, t[j], t[j])
+			}
+		}
+		f.ADCS("ZR", t[f.NbWords], t[f.NbWords])
+
+		// propagate high bits
+		f.UMULH(q[0], m, ax)
+		for j := 1; j <= f.NbWords; j++ {
+			if j == 1 {
+				f.ADDS(ax, t[j], t[j-1])
+			} else {
+				f.ADCS(ax, t[j], t[j-1])
+			}
+			if j != f.NbWords {
+				f.UMULH(q[j], m, ax)
+			}
+		}
+	})
+
+	mulWordN := f.Define("MUL_WORD_N", 0, func(args ...arm64.Register) {
+		// for j=0 to N-1
+		//    (C,t[j])  := t[j] + a[j]*b[i] + C
+
+		// lo bits
+		for j := 0; j < f.NbWords; j++ {
+			f.MUL(a[j], bi, ax)
+
+			if j == 0 {
+				f.ADDS(ax, t[j], t[j])
+			} else {
+				f.ADCS(ax, t[j], t[j])
+			}
+		}
+
+		f.ADCS("ZR", "ZR", t[f.NbWords])
+
+		// propagate high bits
+		f.UMULH(a[0], bi, ax)
+		for j := 1; j <= f.NbWords; j++ {
+			if j == 1 {
+				f.ADDS(ax, t[j], t[j])
+			} else {
+				f.ADCS(ax, t[j], t[j])
+			}
+			if j != f.NbWords {
+				f.UMULH(a[j], bi, ax)
+			}
+		}
+		divShift()
+	})
+
+	mulWord0 := f.Define("MUL_WORD_0", 0, func(args ...arm64.Register) {
+		// for j=0 to N-1
+		//    (C,t[j])  := t[j] + a[j]*b[i] + C
+
+		// lo bits
+		for j := 0; j < f.NbWords; j++ {
+			f.MUL(a[j], bi, t[j])
+		}
+
+		// propagate high bits
+		f.UMULH(a[0], bi, ax)
+		for j := 1; j <= f.NbWords; j++ {
+			if j == 1 {
+				f.ADDS(ax, t[j], t[j])
+			} else {
+				if j == f.NbWords {
+					f.ADCS("ZR", ax, t[j])
+				} else {
+					f.ADCS(ax, t[j], t[j])
+				}
+			}
+			if j != f.NbWords {
+				f.UMULH(a[j], bi, ax)
+			}
+		}
+		divShift()
+	})
+
+	f.Comment("mul body")
+
+	for i := 0; i < f.NbWords; i++ {
+		f.MOVD(yPtr.At(i), bi)
+
+		if i == 0 {
+			mulWord0()
+		} else {
+			mulWordN()
+		}
+	}
+	f.Comment("reduce if necessary")
+	f.SUBS(q[0], t[0], q[0])
+	for i := 1; i < f.NbWords; i++ {
+		f.SBCS(q[i], t[i], q[i])
+	}
+	for i := 0; i < f.NbWords; i++ {
+		f.CSEL("CS", q[i], t[i], t[i])
+	}
+
+	f.MOVD("res+0(FP)", xPtr)
+	f.store(t[:f.NbWords], xPtr)
+
+	f.RET()
+}
+
+func (f *FFArm64) reduce(t, q []arm64.Register) {
+
+	if len(t) != f.NbWords || len(q) != f.NbWords {
 		panic("need 2*nbWords registers")
 	}
 
 	f.Comment("load modulus and subtract")
 
 	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(f.qAt(i), t[i], t[i+1])
+		f.LDP(f.qAt(i), q[i], q[i+1])
 	}
-	f.SUBS(t[0], z[0], t[0])
+	f.SUBS(q[0], t[0], q[0])
 	for i := 1; i < f.NbWords; i++ {
-		f.SBCS(t[i], z[i], t[i])
+		f.SBCS(q[i], t[i], q[i])
 	}
 
 	f.Comment("reduce if necessary")
 	for i := 0; i < f.NbWords; i++ {
-		f.CSEL("CS", t[i], z[i], z[i])
+		f.CSEL("CS", q[i], t[i], t[i])
 	}
 }
 

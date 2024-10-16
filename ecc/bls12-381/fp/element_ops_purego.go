@@ -46,6 +46,15 @@ func MulBy13(x *Element) {
 	x.Mul(x, &y)
 }
 
+// TODO @gbotrel fixme.
+// Butterfly sets
+//
+//	a = a + b (mod q)
+//	b = a - b (mod q)
+func Butterfly(a, b *Element) {
+	_butterflyGeneric(a, b)
+}
+
 func fromMont(z *Element) {
 	_fromMontGeneric(z)
 }
