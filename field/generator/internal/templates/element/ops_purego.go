@@ -34,12 +34,15 @@ func MulBy{{$i}}(x *{{$.ElementName}}) {
 
 {{- end}}
 
+{{- if not .ASMArm}}
+// TODO @gbotrel fixme.
 // Butterfly sets
 //  a = a + b (mod q)
 //  b = a - b (mod q)
 func Butterfly(a, b *{{.ElementName}}) {
 	_butterflyGeneric(a, b)
 }
+{{- end}}
 
 
 func fromMont(z *{{.ElementName}} ) {

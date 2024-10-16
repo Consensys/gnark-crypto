@@ -91,3 +91,56 @@ TEXT ·sub(SB), NOSPLIT, $0-24
 	STP  (R0, R1), 0(R14)
 	STP  (R2, R3), 16(R14)
 	RET
+
+// butterfly(x, y *Element)
+TEXT ·Butterfly(SB), NOSPLIT, $0-16
+	LDP  x+0(FP), (R16, R17)
+	LDP  0(R16), (R0, R1)
+	LDP  16(R16), (R2, R3)
+	LDP  0(R17), (R4, R5)
+	LDP  16(R17), (R6, R7)
+	ADDS R0, R4, R8
+	ADCS R1, R5, R9
+	ADCS R2, R6, R10
+	ADCS R3, R7, R11
+
+	// load modulus and subtract
+	LDP  ·qElement+0(SB), (R12, R13)
+	LDP  ·qElement+16(SB), (R14, R15)
+	SUBS R12, R8, R12
+	SBCS R13, R9, R13
+	SBCS R14, R10, R14
+	SBCS R15, R11, R15
+
+	// reduce if necessary
+	CSEL CS, R12, R8, R8
+	CSEL CS, R13, R9, R9
+	CSEL CS, R14, R10, R10
+	CSEL CS, R15, R11, R11
+
+	// store
+	STP  (R8, R9), 0(R16)
+	STP  (R10, R11), 16(R16)
+	SUBS R4, R0, R4
+	SBCS R5, R1, R5
+	SBCS R6, R2, R6
+	SBCS R7, R3, R7
+
+	// load modulus and select
+	LDP  ·qElement+0(SB), (R12, R13)
+	LDP  ·qElement+16(SB), (R14, R15)
+	CSEL CS, ZR, R12, R12
+	CSEL CS, ZR, R13, R13
+	CSEL CS, ZR, R14, R14
+	CSEL CS, ZR, R15, R15
+
+	// add q if underflow, 0 if not
+	ADDS R4, R12, R4
+	ADCS R5, R13, R5
+	ADCS R6, R14, R6
+	ADCS R7, R15, R7
+
+	// store
+	STP (R4, R5), 0(R17)
+	STP (R6, R7), 16(R17)
+	RET

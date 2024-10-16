@@ -128,49 +128,64 @@ func (f *FFArm64) generateSub() {
 
 }
 
-func (f *FFArm64) generateNeg() {
-	f.Comment("neg(res, x *Element)")
-	registers := f.FnHeader("neg", 0, 16)
+func (f *FFArm64) generateButterfly() {
+	f.Comment("butterfly(x, y *Element)")
+	registers := f.FnHeader("Butterfly", 0, 16)
 	defer f.AssertCleanStack(0, 0)
-
+	// Butterfly sets
+	//  a = a + b (mod q)
+	//  b = a - b (mod q)
 	// registers
-	z := registers.PopN(f.NbWords)
-	xPtr := registers.Pop()
-	zPtr := registers.Pop()
-	ops := registers.PopN(2)
-	xNotZero := registers.Pop()
+	a := registers.PopN(f.NbWords)
+	b := registers.PopN(f.NbWords)
+	aRes := registers.PopN(f.NbWords)
+	t := registers.PopN(f.NbWords)
+	aPtr := registers.Pop()
+	bPtr := registers.Pop()
 
-	f.LDP("res+0(FP)", zPtr, xPtr)
-	f.Comment("load operands and subtract")
+	f.LDP("x+0(FP)", aPtr, bPtr)
+	f.load(aPtr, a)
+	f.load(bPtr, b)
 
-	f.MOVD(0, xNotZero)
-	op0 := f.SUBS
-	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(xPtr.At(i), z[i], z[i+1])
-		f.LDP(f.qAt(i), ops[0], ops[1])
-
-		f.ORR(z[i], xNotZero, xNotZero, "has x been 0 so far?")
-		f.ORR(z[i+1], xNotZero, xNotZero)
-
-		op0(z[i], ops[0], z[i])
-		op0 = f.SBCS
-
-		f.SBCS(z[i+1], ops[1], z[i+1])
+	f.ADDS(a[0], b[0], aRes[0])
+	for i := 1; i < f.NbWords; i++ {
+		f.ADCS(a[i], b[i], aRes[i])
 	}
 
-	registers.Push(xPtr)
-	registers.Push(ops...)
+	f.reduce(aRes, t)
 
-	f.TST(-1, xNotZero)
+	f.Comment("store")
+
+	f.store(aRes, aPtr)
+
+	bRes := b
+
+	f.SUBS(b[0], a[0], bRes[0])
+	for i := 1; i < f.NbWords; i++ {
+		f.SBCS(b[i], a[i], bRes[i])
+	}
+
+	f.Comment("load modulus and select")
+
+	zero := arm64.Register("ZR")
+
+	for i := 0; i < f.NbWords-1; i += 2 {
+		f.LDP(f.qAt(i), t[i], t[i+1])
+	}
 	for i := 0; i < f.NbWords; i++ {
-		f.CSEL("EQ", xNotZero, z[i], z[i])
+		f.CSEL("CS", zero, t[i], t[i])
+	}
+	f.Comment("add q if underflow, 0 if not")
+	f.ADDS(bRes[0], t[0], bRes[0])
+	for i := 1; i < f.NbWords; i++ {
+		f.ADCS(bRes[i], t[i], bRes[i])
 	}
 
 	f.Comment("store")
-	f.store(z, zPtr)
+
+	f.store(bRes, bPtr)
 
 	f.RET()
-
 }
 
 func (f *FFArm64) reduce(z, t []arm64.Register) {

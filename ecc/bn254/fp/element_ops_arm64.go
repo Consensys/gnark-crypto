@@ -42,3 +42,6 @@ func (z *Element) Sub(x, y *Element) *Element {
 	sub(z, x, y)
 	return z
 }
+
+//go:noescape
+func Butterfly(a, b *Element)

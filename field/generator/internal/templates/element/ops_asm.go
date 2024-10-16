@@ -223,5 +223,8 @@ func (z *{{.ElementName}}) Sub(x, y *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
+//go:noescape
+func Butterfly(a, b *{{.ElementName}})
+
 {{end}}
 `

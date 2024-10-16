@@ -503,7 +503,6 @@ func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
 
 {{- end}}
 
-
 // Neg z = q - x
 func (z *{{.ElementName}}) Neg( x *{{.ElementName}}) *{{.ElementName}} {
 	if x.IsZero() {
@@ -525,6 +524,7 @@ func (z *{{.ElementName}}) Neg( x *{{.ElementName}}) *{{.ElementName}} {
 	{{- end}}
 	return z
 }
+
 
 // Select is a constant-time conditional move.
 // If c=0, z = x0. Else z = x1
