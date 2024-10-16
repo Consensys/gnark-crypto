@@ -92,11 +92,6 @@ func InitRC(seed string, rf, rp, t int) [][]fr.Element {
 	return roundKeys
 }
 
-// GetRoundKeys returns the round keys
-func (h *Hash) GetRoundKeys() [][]fr.Element {
-	return h.params.roundKeys
-}
-
 // sBox applies the sBox on buffer[index]
 func (h *Hash) sBox(index int, input []fr.Element) {
 	var tmp fr.Element
