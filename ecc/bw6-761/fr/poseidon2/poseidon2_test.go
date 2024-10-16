@@ -64,3 +64,15 @@ func TestExternalMatrix(t *testing.T) {
 	}
 
 }
+
+func BenchmarkPoseidon2(b *testing.B) {
+	h := NewHash(3, 5, 8, 56, "seed")
+	var tmp [3]fr.Element
+	tmp[0].SetRandom()
+	tmp[1].SetRandom()
+	tmp[2].SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		h.Permutation(tmp[:])
+	}
+}
