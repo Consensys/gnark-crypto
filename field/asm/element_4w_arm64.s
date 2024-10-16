@@ -18,10 +18,8 @@ TEXT ·add(SB), NOSPLIT, $0-24
 	ADCS R11, R7, R7
 
 	// load modulus and subtract
-	MOVD $const_q0, R0
-	MOVD $const_q1, R1
-	MOVD $const_q2, R2
-	MOVD $const_q3, R3
+	LDP  ·qElement+0(SB), (R0, R1)
+	LDP  ·qElement+16(SB), (R2, R3)
 	SUBS R0, R4, R0
 	SBCS R1, R5, R1
 	SBCS R2, R6, R2

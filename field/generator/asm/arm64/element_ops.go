@@ -225,8 +225,9 @@ func (f *FFArm64) reduce(z, t []arm64.Register) {
 
 	f.Comment("load modulus and subtract")
 
-	for i := 0; i < f.NbWords; i++ {
-		f.MOVD(f.qi(i), t[i])
+	for i := 0; i < f.NbWords-1; i += 2 {
+		// f.MOVD(f.qi(i), t[i])
+		f.LDP(f.qAt(i), t[i], t[i+1])
 	}
 	f.SUBS(t[0], z[0], t[0])
 	for i := 1; i < f.NbWords; i++ {
