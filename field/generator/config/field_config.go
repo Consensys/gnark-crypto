@@ -264,7 +264,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	// asm code generation for moduli with more than 6 words can be optimized further
 	F.ASM = F.NoCarry && F.NbWords <= 12 && F.NbWords > 1
 	F.ASMVector = F.ASM && F.NbWords == 4 && F.NbBits > 225
-	F.ASMArm = F.ASMVector
+	F.ASMArm = F.ASMVector || (F.NbWords == 6)
 
 	// setting Mu 2^288 / q
 	if F.NbWords == 4 {
