@@ -60,31 +60,24 @@ func (f *FFArm64) generateDouble() {
 	defer f.AssertCleanStack(0, 0)
 
 	// registers
-	z := registers.PopN(f.NbWords)
 	xPtr := registers.Pop()
 	zPtr := registers.Pop()
-	//ops := registers.PopN(2)
+	z := registers.PopN(f.NbWords)
+	t := registers.PopN(f.NbWords)
 
 	f.LDP("res+0(FP)", zPtr, xPtr)
-	f.Comment("load operands and add mod 2^r")
 
-	op0 := f.ADDS
 	for i := 0; i < f.NbWords-1; i += 2 {
 		f.LDP(xPtr.At(i), z[i], z[i+1])
-
-		op0(z[i], z[i], z[i])
-		op0 = f.ADCS
-
-		f.ADCS(z[i+1], z[i+1], z[i+1])
 	}
 
-	registers.Push(xPtr)
+	f.ADDS(z[0], z[0], z[0])
+	for i := 1; i < f.NbWords; i++ {
+		f.ADCS(z[i], z[i], z[i])
+	}
 
-	t := registers.PopN(f.NbWords)
 	f.reduce(z, t)
-	registers.Push(t...)
 
-	f.Comment("store")
 	f.storeVector(z, zPtr)
 
 	f.RET()

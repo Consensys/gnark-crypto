@@ -37,31 +37,27 @@ TEXT ·add(SB), NOSPLIT, $0-24
 
 // double(res, x *Element)
 TEXT ·double(SB), NOSPLIT, $0-16
-	LDP res+0(FP), (R5, R4)
-
-	// load operands and add mod 2^r
-	LDP  0(R4), (R0, R1)
-	ADDS R0, R0, R0
-	ADCS R1, R1, R1
-	LDP  16(R4), (R2, R3)
-	ADCS R2, R2, R2
+	LDP  res+0(FP), (R1, R0)
+	LDP  0(R0), (R2, R3)
+	LDP  16(R0), (R4, R5)
+	ADDS R2, R2, R2
 	ADCS R3, R3, R3
+	ADCS R4, R4, R4
+	ADCS R5, R5, R5
 
 	// load modulus and subtract
 	LDP  ·qElement+0(SB), (R6, R7)
 	LDP  ·qElement+16(SB), (R8, R9)
-	SUBS R6, R0, R6
-	SBCS R7, R1, R7
-	SBCS R8, R2, R8
-	SBCS R9, R3, R9
+	SUBS R6, R2, R6
+	SBCS R7, R3, R7
+	SBCS R8, R4, R8
+	SBCS R9, R5, R9
 
 	// reduce if necessary
-	CSEL CS, R6, R0, R0
-	CSEL CS, R7, R1, R1
-	CSEL CS, R8, R2, R2
-	CSEL CS, R9, R3, R3
-
-	// store
-	STP (R0, R1), 0(R5)
-	STP (R2, R3), 16(R5)
+	CSEL CS, R6, R2, R2
+	CSEL CS, R7, R3, R3
+	CSEL CS, R8, R4, R4
+	CSEL CS, R9, R5, R5
+	STP  (R2, R3), 0(R1)
+	STP  (R4, R5), 16(R1)
 	RET
