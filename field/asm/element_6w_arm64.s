@@ -135,31 +135,7 @@ TEXT ·Butterfly(SB), NOSPLIT, $0-16
 	ADCS R2, R8, R14
 	ADCS R3, R9, R15
 	ADCS R4, R10, R16
-	ADCS R5, R11, R17
-
-	// load modulus and subtract
-	LDP  ·qElement+0(SB), (R19, R20)
-	LDP  ·qElement+16(SB), (R21, R22)
-	LDP  ·qElement+32(SB), (R23, R24)
-	SUBS R19, R12, R19
-	SBCS R20, R13, R20
-	SBCS R21, R14, R21
-	SBCS R22, R15, R22
-	SBCS R23, R16, R23
-	SBCS R24, R17, R24
-
-	// reduce if necessary
-	CSEL CS, R19, R12, R12
-	CSEL CS, R20, R13, R13
-	CSEL CS, R21, R14, R14
-	CSEL CS, R22, R15, R15
-	CSEL CS, R23, R16, R16
-	CSEL CS, R24, R17, R17
-
-	// store
-	STP  (R12, R13), 0(R25)
-	STP  (R14, R15), 16(R25)
-	STP  (R16, R17), 32(R25)
+	ADC  R5, R11, R17
 	SUBS R6, R0, R6
 	SBCS R7, R1, R7
 	SBCS R8, R2, R8
@@ -168,28 +144,45 @@ TEXT ·Butterfly(SB), NOSPLIT, $0-16
 	SBCS R11, R5, R11
 
 	// load modulus and select
-	LDP  ·qElement+0(SB), (R19, R20)
-	LDP  ·qElement+16(SB), (R21, R22)
-	LDP  ·qElement+32(SB), (R23, R24)
-	CSEL CS, ZR, R19, R19
-	CSEL CS, ZR, R20, R20
-	CSEL CS, ZR, R21, R21
-	CSEL CS, ZR, R22, R22
-	CSEL CS, ZR, R23, R23
-	CSEL CS, ZR, R24, R24
+	LDP  ·qElement+0(SB), (R0, R1)
+	CSEL CS, ZR, R0, R19
+	CSEL CS, ZR, R1, R20
+	LDP  ·qElement+16(SB), (R2, R3)
+	CSEL CS, ZR, R2, R21
+	CSEL CS, ZR, R3, R22
+	LDP  ·qElement+32(SB), (R4, R5)
+	CSEL CS, ZR, R4, R23
+	CSEL CS, ZR, R5, R24
 
 	// add q if underflow, 0 if not
 	ADDS R6, R19, R6
 	ADCS R7, R20, R7
+	STP  (R6, R7), 0(R26)
 	ADCS R8, R21, R8
 	ADCS R9, R22, R9
+	STP  (R8, R9), 16(R26)
 	ADCS R10, R23, R10
-	ADCS R11, R24, R11
+	ADC  R11, R24, R11
+	STP  (R10, R11), 32(R26)
 
-	// store
-	STP (R6, R7), 0(R26)
-	STP (R8, R9), 16(R26)
-	STP (R10, R11), 32(R26)
+	// load modulus and subtract
+	SUBS R0, R12, R0
+	SBCS R1, R13, R1
+	SBCS R2, R14, R2
+	SBCS R3, R15, R3
+	SBCS R4, R16, R4
+	SBCS R5, R17, R5
+
+	// reduce if necessary
+	CSEL CS, R0, R12, R12
+	CSEL CS, R1, R13, R13
+	STP  (R12, R13), 0(R25)
+	CSEL CS, R2, R14, R14
+	CSEL CS, R3, R15, R15
+	STP  (R14, R15), 16(R25)
+	CSEL CS, R4, R16, R16
+	CSEL CS, R5, R17, R17
+	STP  (R16, R17), 32(R25)
 	RET
 
 // mul(res, x, y *Element)

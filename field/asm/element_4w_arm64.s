@@ -102,47 +102,41 @@ TEXT ·Butterfly(SB), NOSPLIT, $0-16
 	ADDS R0, R4, R8
 	ADCS R1, R5, R9
 	ADCS R2, R6, R10
-	ADCS R3, R7, R11
-
-	// load modulus and subtract
-	LDP  ·qElement+0(SB), (R12, R13)
-	LDP  ·qElement+16(SB), (R14, R15)
-	SUBS R12, R8, R12
-	SBCS R13, R9, R13
-	SBCS R14, R10, R14
-	SBCS R15, R11, R15
-
-	// reduce if necessary
-	CSEL CS, R12, R8, R8
-	CSEL CS, R13, R9, R9
-	CSEL CS, R14, R10, R10
-	CSEL CS, R15, R11, R11
-
-	// store
-	STP  (R8, R9), 0(R16)
-	STP  (R10, R11), 16(R16)
+	ADC  R3, R7, R11
 	SUBS R4, R0, R4
 	SBCS R5, R1, R5
 	SBCS R6, R2, R6
 	SBCS R7, R3, R7
 
 	// load modulus and select
-	LDP  ·qElement+0(SB), (R12, R13)
-	LDP  ·qElement+16(SB), (R14, R15)
-	CSEL CS, ZR, R12, R12
-	CSEL CS, ZR, R13, R13
-	CSEL CS, ZR, R14, R14
-	CSEL CS, ZR, R15, R15
+	LDP  ·qElement+0(SB), (R0, R1)
+	CSEL CS, ZR, R0, R12
+	CSEL CS, ZR, R1, R13
+	LDP  ·qElement+16(SB), (R2, R3)
+	CSEL CS, ZR, R2, R14
+	CSEL CS, ZR, R3, R15
 
 	// add q if underflow, 0 if not
 	ADDS R4, R12, R4
 	ADCS R5, R13, R5
+	STP  (R4, R5), 0(R17)
 	ADCS R6, R14, R6
-	ADCS R7, R15, R7
+	ADC  R7, R15, R7
+	STP  (R6, R7), 16(R17)
 
-	// store
-	STP (R4, R5), 0(R17)
-	STP (R6, R7), 16(R17)
+	// load modulus and subtract
+	SUBS R0, R8, R0
+	SBCS R1, R9, R1
+	SBCS R2, R10, R2
+	SBCS R3, R11, R3
+
+	// reduce if necessary
+	CSEL CS, R0, R8, R8
+	CSEL CS, R1, R9, R9
+	STP  (R8, R9), 0(R16)
+	CSEL CS, R2, R10, R10
+	CSEL CS, R3, R11, R11
+	STP  (R10, R11), 16(R16)
 	RET
 
 // mul(res, x, y *Element)

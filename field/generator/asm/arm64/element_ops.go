@@ -149,14 +149,19 @@ func (f *FFArm64) generateButterfly() {
 
 	f.ADDS(a[0], b[0], aRes[0])
 	for i := 1; i < f.NbWords; i++ {
-		f.ADCS(a[i], b[i], aRes[i])
+
+		if i == f.NbWordsLastIndex {
+			f.ADC(a[i], b[i], aRes[i])
+		} else {
+			f.ADCS(a[i], b[i], aRes[i])
+		}
 	}
 
-	f.reduce(aRes, t)
+	// f.reduce(aRes, t)
 
-	f.Comment("store")
+	// f.Comment("store")
 
-	f.store(aRes, aPtr)
+	// f.store(aRes, aPtr)
 
 	bRes := b
 
@@ -169,21 +174,29 @@ func (f *FFArm64) generateButterfly() {
 
 	zero := arm64.Register("ZR")
 
-	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(f.qAt(i), t[i], t[i+1])
-	}
+	// for i := 0; i < f.NbWords-1; i += 2 {
+	// 	f.LDP(f.qAt(i), t[i], t[i+1])
+	// }
 	for i := 0; i < f.NbWords; i++ {
-		f.CSEL("CS", zero, t[i], t[i])
+		if i%2 == 0 {
+			f.LDP(f.qAt(i), a[i], a[i+1])
+		}
+		f.CSEL("CS", zero, a[i], t[i])
 	}
 	f.Comment("add q if underflow, 0 if not")
 	f.ADDS(bRes[0], t[0], bRes[0])
 	for i := 1; i < f.NbWords; i++ {
-		f.ADCS(bRes[i], t[i], bRes[i])
+		if i == f.NbWordsLastIndex {
+			f.ADC(bRes[i], t[i], bRes[i])
+		} else {
+			f.ADCS(bRes[i], t[i], bRes[i])
+		}
+		if i%2 == 1 {
+			f.STP(bRes[i-1], bRes[i], bPtr.At(i-1))
+		}
 	}
 
-	f.Comment("store")
-
-	f.store(bRes, bPtr)
+	f.reduceAndStore(aRes, a, aPtr)
 
 	f.RET()
 }
@@ -378,5 +391,30 @@ func (f *FFArm64) load(zPtr arm64.Register, z []arm64.Register) {
 func (f *FFArm64) store(z []arm64.Register, zPtr arm64.Register) {
 	for i := 0; i < f.NbWords-1; i += 2 {
 		f.STP(z[i], z[i+1], zPtr.At(i))
+	}
+}
+
+func (f *FFArm64) reduceAndStore(t, q []arm64.Register, zPtr arm64.Register) {
+
+	if len(t) != f.NbWords || len(q) != f.NbWords {
+		panic("need 2*nbWords registers")
+	}
+
+	f.Comment("load modulus and subtract")
+
+	// for i := 0; i < f.NbWords-1; i += 2 {
+	// 	f.LDP(f.qAt(i), q[i], q[i+1])
+	// }
+	f.SUBS(q[0], t[0], q[0])
+	for i := 1; i < f.NbWords; i++ {
+		f.SBCS(q[i], t[i], q[i])
+	}
+
+	f.Comment("reduce if necessary")
+	for i := 0; i < f.NbWords; i++ {
+		f.CSEL("CS", q[i], t[i], t[i])
+		if i%2 == 1 {
+			f.STP(t[i-1], t[i], zPtr.At(i-1))
+		}
 	}
 }
