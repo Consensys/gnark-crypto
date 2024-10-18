@@ -194,46 +194,37 @@ TEXT ·Butterfly(SB), NOSPLIT, $0-16
 
 // mul(res, x, y *Element)
 TEXT ·mul(SB), NOSPLIT, $0-24
-	LDP x+8(FP), (R0, R1)
-	LDP 0(R0), (R3, R4)
-	LDP 16(R0), (R5, R6)
-	LDP 32(R0), (R7, R8)
-	LDP ·qElement+0(SB), (R16, R17)
-	LDP ·qElement+16(SB), (R19, R20)
-	LDP ·qElement+32(SB), (R21, R22)
-
 #define DIVSHIFT() \
-	MOVD  $const_qInvNeg, R2 \
-	MUL   R9, R2, R2         \
-	MUL   R16, R2, R0        \
-	ADDS  R0, R9, R9         \
-	MUL   R17, R2, R0        \
-	ADCS  R0, R10, R10       \
-	MUL   R19, R2, R0        \
-	ADCS  R0, R11, R11       \
-	MUL   R20, R2, R0        \
-	ADCS  R0, R12, R12       \
-	MUL   R21, R2, R0        \
-	ADCS  R0, R13, R13       \
-	MUL   R22, R2, R0        \
-	ADCS  R0, R14, R14       \
-	ADCS  ZR, R15, R15       \
-	UMULH R16, R2, R0        \
-	ADDS  R0, R10, R9        \
-	UMULH R17, R2, R0        \
-	ADCS  R0, R11, R10       \
-	UMULH R19, R2, R0        \
-	ADCS  R0, R12, R11       \
-	UMULH R20, R2, R0        \
-	ADCS  R0, R13, R12       \
-	UMULH R21, R2, R0        \
-	ADCS  R0, R14, R13       \
-	UMULH R22, R2, R0        \
-	ADCS  R0, R15, R14       \
+	MUL   R16, R24, R0 \
+	ADDS  R0, R9, R9   \
+	MUL   R17, R24, R0 \
+	ADCS  R0, R10, R10 \
+	MUL   R19, R24, R0 \
+	ADCS  R0, R11, R11 \
+	MUL   R20, R24, R0 \
+	ADCS  R0, R12, R12 \
+	MUL   R21, R24, R0 \
+	ADCS  R0, R13, R13 \
+	MUL   R22, R24, R0 \
+	ADCS  R0, R14, R14 \
+	ADC   ZR, R15, R15 \
+	UMULH R16, R24, R0 \
+	ADDS  R0, R10, R9  \
+	UMULH R17, R24, R0 \
+	ADCS  R0, R11, R10 \
+	UMULH R19, R24, R0 \
+	ADCS  R0, R12, R11 \
+	UMULH R20, R24, R0 \
+	ADCS  R0, R13, R12 \
+	UMULH R21, R24, R0 \
+	ADCS  R0, R14, R13 \
+	UMULH R22, R24, R0 \
+	ADCS  R0, R15, R14 \
 
 #define MUL_WORD_N() \
 	MUL   R3, R2, R0   \
 	ADDS  R0, R9, R9   \
+	MUL   R9, R23, R24 \
 	MUL   R4, R2, R0   \
 	ADCS  R0, R10, R10 \
 	MUL   R5, R2, R0   \
@@ -244,7 +235,7 @@ TEXT ·mul(SB), NOSPLIT, $0-24
 	ADCS  R0, R13, R13 \
 	MUL   R8, R2, R0   \
 	ADCS  R0, R14, R14 \
-	ADCS  ZR, ZR, R15  \
+	ADC   ZR, ZR, R15  \
 	UMULH R3, R2, R0   \
 	ADDS  R0, R10, R10 \
 	UMULH R4, R2, R0   \
@@ -256,7 +247,7 @@ TEXT ·mul(SB), NOSPLIT, $0-24
 	UMULH R7, R2, R0   \
 	ADCS  R0, R14, R14 \
 	UMULH R8, R2, R0   \
-	ADCS  R0, R15, R15 \
+	ADC   R0, R15, R15 \
 	DIVSHIFT()         \
 
 #define MUL_WORD_0() \
@@ -277,11 +268,21 @@ TEXT ·mul(SB), NOSPLIT, $0-24
 	UMULH R7, R2, R0   \
 	ADCS  R0, R14, R14 \
 	UMULH R8, R2, R0   \
-	ADCS  ZR, R0, R15  \
+	ADC   R0, ZR, R15  \
+	MUL   R9, R23, R24 \
 	DIVSHIFT()         \
 
 	// mul body
+	MOVD y+16(FP), R1
+	MOVD x+8(FP), R0
+	LDP  0(R0), (R3, R4)
+	LDP  16(R0), (R5, R6)
+	LDP  32(R0), (R7, R8)
 	MOVD 0(R1), R2
+	MOVD $const_qInvNeg, R23
+	LDP  ·qElement+0(SB), (R16, R17)
+	LDP  ·qElement+16(SB), (R19, R20)
+	LDP  ·qElement+32(SB), (R21, R22)
 	MUL_WORD_0()
 	MOVD 8(R1), R2
 	MUL_WORD_N()
@@ -301,14 +302,14 @@ TEXT ·mul(SB), NOSPLIT, $0-24
 	SBCS R20, R12, R20
 	SBCS R21, R13, R21
 	SBCS R22, R14, R22
+	MOVD res+0(FP), R0
 	CSEL CS, R16, R9, R9
 	CSEL CS, R17, R10, R10
+	STP  (R9, R10), 0(R0)
 	CSEL CS, R19, R11, R11
 	CSEL CS, R20, R12, R12
+	STP  (R11, R12), 16(R0)
 	CSEL CS, R21, R13, R13
 	CSEL CS, R22, R14, R14
-	MOVD res+0(FP), R0
-	STP  (R9, R10), 0(R0)
-	STP  (R11, R12), 16(R0)
 	STP  (R13, R14), 32(R0)
 	RET

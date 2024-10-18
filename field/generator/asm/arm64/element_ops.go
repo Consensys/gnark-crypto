@@ -200,20 +200,13 @@ func (f *FFArm64) generateMul() {
 	t := registers.PopN(f.NbWords + 1)
 	q := registers.PopN(f.NbWords)
 
-	f.LDP("x+8(FP)", xPtr, yPtr)
-
-	f.load(xPtr, a)
 	ax := xPtr
-	// f.load(yPtr, y)
-
-	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(f.qAt(i), q[i], q[i+1])
-	}
+	qInv0 := registers.Pop()
+	m := registers.Pop()
 
 	divShift := f.Define("divShift", 0, func(args ...arm64.Register) {
-		m := bi
-		f.MOVD(f.qInv0(), m)
-		f.MUL(t[0], m, m)
+		// m := bi
+		// f.MUL(t[0], qInv0, m)
 
 		// for j=0 to N-1
 		//	(C,t[j-1]) := t[j] + m*q[j] + C
@@ -226,7 +219,7 @@ func (f *FFArm64) generateMul() {
 				f.ADCS(ax, t[j], t[j])
 			}
 		}
-		f.ADCS("ZR", t[f.NbWords], t[f.NbWords])
+		f.ADC("ZR", t[f.NbWords], t[f.NbWords])
 
 		// propagate high bits
 		f.UMULH(q[0], m, ax)
@@ -252,20 +245,27 @@ func (f *FFArm64) generateMul() {
 
 			if j == 0 {
 				f.ADDS(ax, t[j], t[j])
+				f.MUL(t[0], qInv0, m)
 			} else {
 				f.ADCS(ax, t[j], t[j])
 			}
 		}
 
-		f.ADCS("ZR", "ZR", t[f.NbWords])
+		f.ADC("ZR", "ZR", t[f.NbWords])
 
 		// propagate high bits
 		f.UMULH(a[0], bi, ax)
 		for j := 1; j <= f.NbWords; j++ {
 			if j == 1 {
 				f.ADDS(ax, t[j], t[j])
+
 			} else {
-				f.ADCS(ax, t[j], t[j])
+				if j == f.NbWords {
+
+					f.ADC(ax, t[j], t[j])
+				} else {
+					f.ADCS(ax, t[j], t[j])
+				}
 			}
 			if j != f.NbWords {
 				f.UMULH(a[j], bi, ax)
@@ -285,12 +285,15 @@ func (f *FFArm64) generateMul() {
 
 		// propagate high bits
 		f.UMULH(a[0], bi, ax)
+
 		for j := 1; j <= f.NbWords; j++ {
 			if j == 1 {
 				f.ADDS(ax, t[j], t[j])
+
 			} else {
 				if j == f.NbWords {
-					f.ADCS("ZR", ax, t[j])
+
+					f.ADC(ax, "ZR", t[j])
 				} else {
 					f.ADCS(ax, t[j], t[j])
 				}
@@ -299,31 +302,47 @@ func (f *FFArm64) generateMul() {
 				f.UMULH(a[j], bi, ax)
 			}
 		}
+		f.MUL(t[0], qInv0, m)
 		divShift()
 	})
 
 	f.Comment("mul body")
 
+	// f.LDP("x+8(FP)", xPtr, yPtr)
+	f.MOVD("y+16(FP)", yPtr)
+	f.MOVD("x+8(FP)", xPtr)
+	f.load(xPtr, a)
 	for i := 0; i < f.NbWords; i++ {
 		f.MOVD(yPtr.At(i), bi)
 
 		if i == 0 {
+			f.MOVD(f.qInv0(), qInv0)
+
+			for i := 0; i < f.NbWords-1; i += 2 {
+				f.LDP(f.qAt(i), q[i], q[i+1])
+			}
+
 			mulWord0()
 		} else {
 			mulWordN()
 		}
 	}
+
 	f.Comment("reduce if necessary")
 	f.SUBS(q[0], t[0], q[0])
 	for i := 1; i < f.NbWords; i++ {
 		f.SBCS(q[i], t[i], q[i])
 	}
+
+	f.MOVD("res+0(FP)", ax)
 	for i := 0; i < f.NbWords; i++ {
 		f.CSEL("CS", q[i], t[i], t[i])
+		if i%2 == 1 {
+			f.STP(t[i-1], t[i], ax.At(i-1))
+		}
 	}
 
-	f.MOVD("res+0(FP)", xPtr)
-	f.store(t[:f.NbWords], xPtr)
+	// f.store(t[:f.NbWords], resPtr)
 
 	f.RET()
 }
