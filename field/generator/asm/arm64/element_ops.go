@@ -24,7 +24,7 @@ func (f *FFArm64) generateAdd() {
 	defer f.AssertCleanStack(0, 0)
 
 	// registers
-	t := registers.PopN(f.NbWords)
+	q := registers.PopN(f.NbWords)
 	z := registers.PopN(f.NbWords)
 	x := registers.PopN(f.NbWords)
 	xPtr := registers.Pop()
@@ -35,18 +35,17 @@ func (f *FFArm64) generateAdd() {
 
 	f.load(xPtr, x)
 	f.load(yPtr, z)
+	for i := 0; i < f.NbWords-1; i += 2 {
+		f.LDP(f.qAt(i), q[i], q[i+1])
+	}
 
 	f.ADDS(x[0], z[0], z[0])
 	for i := 1; i < f.NbWords; i++ {
 		f.ADCS(x[i], z[i], z[i])
 	}
 
-	f.reduce(z, t)
-
-	f.Comment("store")
-
 	f.MOVD("res+0(FP)", zPtr)
-	f.store(z, zPtr)
+	f.reduceAndStore(z, q, zPtr)
 
 	f.RET()
 

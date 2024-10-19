@@ -4,7 +4,7 @@
 #include "go_asm.h"
 
 // add(res, x, y *Element)
-TEXT ·add(SB), NOSPLIT, $0-24
+TEXT ·add(SB), NOFRAME|NOSPLIT, $0-24
 	LDP  x+8(FP), (R19, R20)
 	LDP  0(R19), (R12, R13)
 	LDP  16(R19), (R14, R15)
@@ -12,17 +12,18 @@ TEXT ·add(SB), NOSPLIT, $0-24
 	LDP  0(R20), (R6, R7)
 	LDP  16(R20), (R8, R9)
 	LDP  32(R20), (R10, R11)
+	LDP  ·qElement+0(SB), (R0, R1)
+	LDP  ·qElement+16(SB), (R2, R3)
+	LDP  ·qElement+32(SB), (R4, R5)
 	ADDS R12, R6, R6
 	ADCS R13, R7, R7
 	ADCS R14, R8, R8
 	ADCS R15, R9, R9
 	ADCS R16, R10, R10
 	ADCS R17, R11, R11
+	MOVD res+0(FP), R21
 
 	// load modulus and subtract
-	LDP  ·qElement+0(SB), (R0, R1)
-	LDP  ·qElement+16(SB), (R2, R3)
-	LDP  ·qElement+32(SB), (R4, R5)
 	SUBS R0, R6, R0
 	SBCS R1, R7, R1
 	SBCS R2, R8, R2
@@ -33,20 +34,17 @@ TEXT ·add(SB), NOSPLIT, $0-24
 	// reduce if necessary
 	CSEL CS, R0, R6, R6
 	CSEL CS, R1, R7, R7
+	STP  (R6, R7), 0(R21)
 	CSEL CS, R2, R8, R8
 	CSEL CS, R3, R9, R9
+	STP  (R8, R9), 16(R21)
 	CSEL CS, R4, R10, R10
 	CSEL CS, R5, R11, R11
-
-	// store
-	MOVD res+0(FP), R21
-	STP  (R6, R7), 0(R21)
-	STP  (R8, R9), 16(R21)
 	STP  (R10, R11), 32(R21)
 	RET
 
 // double(res, x *Element)
-TEXT ·double(SB), NOSPLIT, $0-16
+TEXT ·double(SB), NOFRAME|NOSPLIT, $0-16
 	LDP  res+0(FP), (R1, R0)
 	LDP  0(R0), (R2, R3)
 	LDP  16(R0), (R4, R5)
@@ -82,7 +80,7 @@ TEXT ·double(SB), NOSPLIT, $0-16
 	RET
 
 // sub(res, x, y *Element)
-TEXT ·sub(SB), NOSPLIT, $0-24
+TEXT ·sub(SB), NOFRAME|NOSPLIT, $0-24
 	LDP  x+8(FP), (R19, R20)
 	LDP  0(R19), (R6, R7)
 	LDP  16(R19), (R8, R9)
@@ -122,7 +120,7 @@ TEXT ·sub(SB), NOSPLIT, $0-24
 	RET
 
 // butterfly(x, y *Element)
-TEXT ·Butterfly(SB), NOSPLIT, $0-16
+TEXT ·Butterfly(SB), NOFRAME|NOSPLIT, $0-16
 	LDP  x+0(FP), (R25, R26)
 	LDP  0(R25), (R0, R1)
 	LDP  16(R25), (R2, R3)
@@ -186,7 +184,7 @@ TEXT ·Butterfly(SB), NOSPLIT, $0-16
 	RET
 
 // mul(res, x, y *Element)
-TEXT ·mul(SB), NOSPLIT, $0-24
+TEXT ·mul(SB), NOFRAME|NOSPLIT, $0-24
 #define DIVSHIFT() \
 	MUL   R16, R24, R0 \
 	ADDS  R0, R9, R9   \

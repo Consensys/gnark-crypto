@@ -210,6 +210,8 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 		src := []string{
 			element.MulDoc,
 			element.OpsARM64,
+			element.MulNoCarry,
+			element.Reduce,
 		}
 		pathSrc := filepath.Join(outputDir, eName+"_ops_arm64.go")
 		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))

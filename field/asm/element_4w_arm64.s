@@ -4,20 +4,21 @@
 #include "go_asm.h"
 
 // add(res, x, y *Element)
-TEXT ·add(SB), NOSPLIT, $0-24
+TEXT ·add(SB), NOFRAME|NOSPLIT, $0-24
 	LDP  x+8(FP), (R12, R13)
 	LDP  0(R12), (R8, R9)
 	LDP  16(R12), (R10, R11)
 	LDP  0(R13), (R4, R5)
 	LDP  16(R13), (R6, R7)
+	LDP  ·qElement+0(SB), (R0, R1)
+	LDP  ·qElement+16(SB), (R2, R3)
 	ADDS R8, R4, R4
 	ADCS R9, R5, R5
 	ADCS R10, R6, R6
 	ADCS R11, R7, R7
+	MOVD res+0(FP), R14
 
 	// load modulus and subtract
-	LDP  ·qElement+0(SB), (R0, R1)
-	LDP  ·qElement+16(SB), (R2, R3)
 	SUBS R0, R4, R0
 	SBCS R1, R5, R1
 	SBCS R2, R6, R2
@@ -26,17 +27,14 @@ TEXT ·add(SB), NOSPLIT, $0-24
 	// reduce if necessary
 	CSEL CS, R0, R4, R4
 	CSEL CS, R1, R5, R5
+	STP  (R4, R5), 0(R14)
 	CSEL CS, R2, R6, R6
 	CSEL CS, R3, R7, R7
-
-	// store
-	MOVD res+0(FP), R14
-	STP  (R4, R5), 0(R14)
 	STP  (R6, R7), 16(R14)
 	RET
 
 // double(res, x *Element)
-TEXT ·double(SB), NOSPLIT, $0-16
+TEXT ·double(SB), NOFRAME|NOSPLIT, $0-16
 	LDP  res+0(FP), (R1, R0)
 	LDP  0(R0), (R2, R3)
 	LDP  16(R0), (R4, R5)
@@ -63,7 +61,7 @@ TEXT ·double(SB), NOSPLIT, $0-16
 	RET
 
 // sub(res, x, y *Element)
-TEXT ·sub(SB), NOSPLIT, $0-24
+TEXT ·sub(SB), NOFRAME|NOSPLIT, $0-24
 	LDP  x+8(FP), (R12, R13)
 	LDP  0(R12), (R4, R5)
 	LDP  16(R12), (R6, R7)
@@ -93,7 +91,7 @@ TEXT ·sub(SB), NOSPLIT, $0-24
 	RET
 
 // butterfly(x, y *Element)
-TEXT ·Butterfly(SB), NOSPLIT, $0-16
+TEXT ·Butterfly(SB), NOFRAME|NOSPLIT, $0-16
 	LDP  x+0(FP), (R16, R17)
 	LDP  0(R16), (R0, R1)
 	LDP  16(R16), (R2, R3)
@@ -140,7 +138,7 @@ TEXT ·Butterfly(SB), NOSPLIT, $0-16
 	RET
 
 // mul(res, x, y *Element)
-TEXT ·mul(SB), NOSPLIT, $0-24
+TEXT ·mul(SB), NOFRAME|NOSPLIT, $0-24
 #define DIVSHIFT() \
 	MUL   R12, R17, R0 \
 	ADDS  R0, R7, R7   \
