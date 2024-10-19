@@ -418,6 +418,75 @@ func (z *Element) fromMont() *Element {
 	return z
 }
 
+// Add z = x + y (mod q)
+func (z *Element) Add(x, y *Element) *Element {
+
+	var carry uint64
+	z[0], carry = bits.Add64(x[0], y[0], 0)
+	z[1], carry = bits.Add64(x[1], y[1], carry)
+	z[2], carry = bits.Add64(x[2], y[2], carry)
+	z[3], carry = bits.Add64(x[3], y[3], carry)
+	z[4], carry = bits.Add64(x[4], y[4], carry)
+	z[5], _ = bits.Add64(x[5], y[5], carry)
+
+	// if z ⩾ q → z -= q
+	if !z.smallerThanModulus() {
+		var b uint64
+		z[0], b = bits.Sub64(z[0], q0, 0)
+		z[1], b = bits.Sub64(z[1], q1, b)
+		z[2], b = bits.Sub64(z[2], q2, b)
+		z[3], b = bits.Sub64(z[3], q3, b)
+		z[4], b = bits.Sub64(z[4], q4, b)
+		z[5], _ = bits.Sub64(z[5], q5, b)
+	}
+	return z
+}
+
+// Double z = x + x (mod q), aka Lsh 1
+func (z *Element) Double(x *Element) *Element {
+
+	var carry uint64
+	z[0], carry = bits.Add64(x[0], x[0], 0)
+	z[1], carry = bits.Add64(x[1], x[1], carry)
+	z[2], carry = bits.Add64(x[2], x[2], carry)
+	z[3], carry = bits.Add64(x[3], x[3], carry)
+	z[4], carry = bits.Add64(x[4], x[4], carry)
+	z[5], _ = bits.Add64(x[5], x[5], carry)
+
+	// if z ⩾ q → z -= q
+	if !z.smallerThanModulus() {
+		var b uint64
+		z[0], b = bits.Sub64(z[0], q0, 0)
+		z[1], b = bits.Sub64(z[1], q1, b)
+		z[2], b = bits.Sub64(z[2], q2, b)
+		z[3], b = bits.Sub64(z[3], q3, b)
+		z[4], b = bits.Sub64(z[4], q4, b)
+		z[5], _ = bits.Sub64(z[5], q5, b)
+	}
+	return z
+}
+
+// Sub z = x - y (mod q)
+func (z *Element) Sub(x, y *Element) *Element {
+	var b uint64
+	z[0], b = bits.Sub64(x[0], y[0], 0)
+	z[1], b = bits.Sub64(x[1], y[1], b)
+	z[2], b = bits.Sub64(x[2], y[2], b)
+	z[3], b = bits.Sub64(x[3], y[3], b)
+	z[4], b = bits.Sub64(x[4], y[4], b)
+	z[5], b = bits.Sub64(x[5], y[5], b)
+	if b != 0 {
+		var c uint64
+		z[0], c = bits.Add64(z[0], q0, 0)
+		z[1], c = bits.Add64(z[1], q1, c)
+		z[2], c = bits.Add64(z[2], q2, c)
+		z[3], c = bits.Add64(z[3], q3, c)
+		z[4], c = bits.Add64(z[4], q4, c)
+		z[5], _ = bits.Add64(z[5], q5, c)
+	}
+	return z
+}
+
 // Neg z = q - x
 func (z *Element) Neg(x *Element) *Element {
 	if x.IsZero() {

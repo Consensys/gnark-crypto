@@ -3,123 +3,8 @@
 #include "funcdata.h"
 #include "go_asm.h"
 
-// add(res, x, y *Element)
-TEXT ·add(SB), NOFRAME|NOSPLIT, $0-24
-	LDP  x+8(FP), (R19, R20)
-	LDP  0(R19), (R12, R13)
-	LDP  16(R19), (R14, R15)
-	LDP  32(R19), (R16, R17)
-	LDP  0(R20), (R6, R7)
-	LDP  16(R20), (R8, R9)
-	LDP  32(R20), (R10, R11)
-	LDP  ·qElement+0(SB), (R0, R1)
-	LDP  ·qElement+16(SB), (R2, R3)
-	LDP  ·qElement+32(SB), (R4, R5)
-	ADDS R12, R6, R6
-	ADCS R13, R7, R7
-	ADCS R14, R8, R8
-	ADCS R15, R9, R9
-	ADCS R16, R10, R10
-	ADCS R17, R11, R11
-	MOVD res+0(FP), R21
-
-	// load modulus and subtract
-	SUBS R0, R6, R0
-	SBCS R1, R7, R1
-	SBCS R2, R8, R2
-	SBCS R3, R9, R3
-	SBCS R4, R10, R4
-	SBCS R5, R11, R5
-
-	// reduce if necessary
-	CSEL CS, R0, R6, R6
-	CSEL CS, R1, R7, R7
-	STP  (R6, R7), 0(R21)
-	CSEL CS, R2, R8, R8
-	CSEL CS, R3, R9, R9
-	STP  (R8, R9), 16(R21)
-	CSEL CS, R4, R10, R10
-	CSEL CS, R5, R11, R11
-	STP  (R10, R11), 32(R21)
-	RET
-
-// double(res, x *Element)
-TEXT ·double(SB), NOFRAME|NOSPLIT, $0-16
-	LDP  res+0(FP), (R1, R0)
-	LDP  0(R0), (R2, R3)
-	LDP  16(R0), (R4, R5)
-	LDP  32(R0), (R6, R7)
-	ADDS R2, R2, R2
-	ADCS R3, R3, R3
-	ADCS R4, R4, R4
-	ADCS R5, R5, R5
-	ADCS R6, R6, R6
-	ADCS R7, R7, R7
-
-	// load modulus and subtract
-	LDP  ·qElement+0(SB), (R8, R9)
-	LDP  ·qElement+16(SB), (R10, R11)
-	LDP  ·qElement+32(SB), (R12, R13)
-	SUBS R8, R2, R8
-	SBCS R9, R3, R9
-	SBCS R10, R4, R10
-	SBCS R11, R5, R11
-	SBCS R12, R6, R12
-	SBCS R13, R7, R13
-
-	// reduce if necessary
-	CSEL CS, R8, R2, R2
-	CSEL CS, R9, R3, R3
-	CSEL CS, R10, R4, R4
-	CSEL CS, R11, R5, R5
-	CSEL CS, R12, R6, R6
-	CSEL CS, R13, R7, R7
-	STP  (R2, R3), 0(R1)
-	STP  (R4, R5), 16(R1)
-	STP  (R6, R7), 32(R1)
-	RET
-
-// sub(res, x, y *Element)
-TEXT ·sub(SB), NOFRAME|NOSPLIT, $0-24
-	LDP  x+8(FP), (R19, R20)
-	LDP  0(R19), (R6, R7)
-	LDP  16(R19), (R8, R9)
-	LDP  32(R19), (R10, R11)
-	LDP  0(R20), (R0, R1)
-	LDP  16(R20), (R2, R3)
-	LDP  32(R20), (R4, R5)
-	SUBS R0, R6, R0
-	SBCS R1, R7, R1
-	SBCS R2, R8, R2
-	SBCS R3, R9, R3
-	SBCS R4, R10, R4
-	SBCS R5, R11, R5
-
-	// load modulus and select
-	LDP  ·qElement+0(SB), (R12, R13)
-	LDP  ·qElement+16(SB), (R14, R15)
-	LDP  ·qElement+32(SB), (R16, R17)
-	CSEL CS, ZR, R12, R12
-	CSEL CS, ZR, R13, R13
-	CSEL CS, ZR, R14, R14
-	CSEL CS, ZR, R15, R15
-	CSEL CS, ZR, R16, R16
-	CSEL CS, ZR, R17, R17
-
-	// add q if underflow, 0 if not
-	ADDS R0, R12, R0
-	ADCS R1, R13, R1
-	ADCS R2, R14, R2
-	ADCS R3, R15, R3
-	ADCS R4, R16, R4
-	ADCS R5, R17, R5
-	MOVD res+0(FP), R21
-	STP  (R0, R1), 0(R21)
-	STP  (R2, R3), 16(R21)
-	STP  (R4, R5), 32(R21)
-	RET
-
-// butterfly(x, y *Element)
+// butterfly(a, b *Element)
+// a, b = a+b, a-b
 TEXT ·Butterfly(SB), NOFRAME|NOSPLIT, $0-16
 	LDP  x+0(FP), (R25, R26)
 	LDP  0(R25), (R0, R1)
@@ -140,8 +25,6 @@ TEXT ·Butterfly(SB), NOFRAME|NOSPLIT, $0-16
 	SBCS R9, R3, R9
 	SBCS R10, R4, R10
 	SBCS R11, R5, R11
-
-	// load modulus and select
 	LDP  ·qElement+0(SB), (R0, R1)
 	CSEL CS, ZR, R0, R19
 	CSEL CS, ZR, R1, R20
@@ -163,7 +46,7 @@ TEXT ·Butterfly(SB), NOFRAME|NOSPLIT, $0-16
 	ADC  R11, R24, R11
 	STP  (R10, R11), 32(R26)
 
-	// load modulus and subtract
+	// q = t - q
 	SUBS R0, R12, R0
 	SBCS R1, R13, R1
 	SBCS R2, R14, R2
@@ -171,7 +54,7 @@ TEXT ·Butterfly(SB), NOFRAME|NOSPLIT, $0-16
 	SBCS R4, R16, R4
 	SBCS R5, R17, R5
 
-	// reduce if necessary
+	// if no borrow, return q, else return t
 	CSEL CS, R0, R12, R12
 	CSEL CS, R1, R13, R13
 	STP  (R12, R13), 0(R25)
@@ -184,86 +67,87 @@ TEXT ·Butterfly(SB), NOFRAME|NOSPLIT, $0-16
 	RET
 
 // mul(res, x, y *Element)
+// Algorithm 2 of Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS
+// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
 TEXT ·mul(SB), NOFRAME|NOSPLIT, $0-24
 #define DIVSHIFT() \
-	MUL   R16, R24, R0 \
-	ADDS  R0, R9, R9   \
-	MUL   R17, R24, R0 \
-	ADCS  R0, R10, R10 \
-	MUL   R19, R24, R0 \
-	ADCS  R0, R11, R11 \
-	MUL   R20, R24, R0 \
-	ADCS  R0, R12, R12 \
-	MUL   R21, R24, R0 \
-	ADCS  R0, R13, R13 \
-	MUL   R22, R24, R0 \
-	ADCS  R0, R14, R14 \
-	ADC   ZR, R15, R15 \
-	UMULH R16, R24, R0 \
-	ADDS  R0, R10, R9  \
-	UMULH R17, R24, R0 \
-	ADCS  R0, R11, R10 \
-	UMULH R19, R24, R0 \
-	ADCS  R0, R12, R11 \
-	UMULH R20, R24, R0 \
-	ADCS  R0, R13, R12 \
-	UMULH R21, R24, R0 \
-	ADCS  R0, R14, R13 \
-	UMULH R22, R24, R0 \
-	ADCS  R0, R15, R14 \
+	MUL   R9, R24, R0  \
+	ADDS  R0, R15, R15 \
+	MUL   R10, R24, R0 \
+	ADCS  R0, R16, R16 \
+	MUL   R11, R24, R0 \
+	ADCS  R0, R17, R17 \
+	MUL   R12, R24, R0 \
+	ADCS  R0, R19, R19 \
+	MUL   R13, R24, R0 \
+	ADCS  R0, R20, R20 \
+	MUL   R14, R24, R0 \
+	ADCS  R0, R21, R21 \
+	ADC   R22, ZR, R22 \
+	UMULH R9, R24, R0  \
+	ADDS  R0, R16, R15 \
+	UMULH R10, R24, R0 \
+	ADCS  R0, R17, R16 \
+	UMULH R11, R24, R0 \
+	ADCS  R0, R19, R17 \
+	UMULH R12, R24, R0 \
+	ADCS  R0, R20, R19 \
+	UMULH R13, R24, R0 \
+	ADCS  R0, R21, R20 \
+	UMULH R14, R24, R0 \
+	ADCS  R0, R22, R21 \
 
 #define MUL_WORD_N() \
-	MUL   R3, R2, R0   \
-	ADDS  R0, R9, R9   \
-	MUL   R9, R23, R24 \
-	MUL   R4, R2, R0   \
-	ADCS  R0, R10, R10 \
-	MUL   R5, R2, R0   \
-	ADCS  R0, R11, R11 \
-	MUL   R6, R2, R0   \
-	ADCS  R0, R12, R12 \
-	MUL   R7, R2, R0   \
-	ADCS  R0, R13, R13 \
-	MUL   R8, R2, R0   \
-	ADCS  R0, R14, R14 \
-	ADC   ZR, ZR, R15  \
-	UMULH R3, R2, R0   \
-	ADDS  R0, R10, R10 \
-	UMULH R4, R2, R0   \
-	ADCS  R0, R11, R11 \
-	UMULH R5, R2, R0   \
-	ADCS  R0, R12, R12 \
-	UMULH R6, R2, R0   \
-	ADCS  R0, R13, R13 \
-	UMULH R7, R2, R0   \
-	ADCS  R0, R14, R14 \
-	UMULH R8, R2, R0   \
-	ADC   R0, R15, R15 \
-	DIVSHIFT()         \
+	MUL   R3, R2, R0    \
+	ADDS  R0, R15, R15  \
+	MUL   R15, R23, R24 \
+	MUL   R4, R2, R0    \
+	ADCS  R0, R16, R16  \
+	MUL   R5, R2, R0    \
+	ADCS  R0, R17, R17  \
+	MUL   R6, R2, R0    \
+	ADCS  R0, R19, R19  \
+	MUL   R7, R2, R0    \
+	ADCS  R0, R20, R20  \
+	MUL   R8, R2, R0    \
+	ADCS  R0, R21, R21  \
+	ADC   ZR, ZR, R22   \
+	UMULH R3, R2, R0    \
+	ADDS  R0, R16, R16  \
+	UMULH R4, R2, R0    \
+	ADCS  R0, R17, R17  \
+	UMULH R5, R2, R0    \
+	ADCS  R0, R19, R19  \
+	UMULH R6, R2, R0    \
+	ADCS  R0, R20, R20  \
+	UMULH R7, R2, R0    \
+	ADCS  R0, R21, R21  \
+	UMULH R8, R2, R0    \
+	ADC   R0, R22, R22  \
+	DIVSHIFT()          \
 
 #define MUL_WORD_0() \
-	MUL   R3, R2, R9   \
-	MUL   R4, R2, R10  \
-	MUL   R5, R2, R11  \
-	MUL   R6, R2, R12  \
-	MUL   R7, R2, R13  \
-	MUL   R8, R2, R14  \
-	UMULH R3, R2, R0   \
-	ADDS  R0, R10, R10 \
-	UMULH R4, R2, R0   \
-	ADCS  R0, R11, R11 \
-	UMULH R5, R2, R0   \
-	ADCS  R0, R12, R12 \
-	UMULH R6, R2, R0   \
-	ADCS  R0, R13, R13 \
-	UMULH R7, R2, R0   \
-	ADCS  R0, R14, R14 \
-	UMULH R8, R2, R0   \
-	ADC   R0, ZR, R15  \
-	MUL   R9, R23, R24 \
-	DIVSHIFT()         \
+	MUL   R3, R2, R15   \
+	MUL   R4, R2, R16   \
+	MUL   R5, R2, R17   \
+	MUL   R6, R2, R19   \
+	MUL   R7, R2, R20   \
+	MUL   R8, R2, R21   \
+	UMULH R3, R2, R0    \
+	ADDS  R0, R16, R16  \
+	UMULH R4, R2, R0    \
+	ADCS  R0, R17, R17  \
+	UMULH R5, R2, R0    \
+	ADCS  R0, R19, R19  \
+	UMULH R6, R2, R0    \
+	ADCS  R0, R20, R20  \
+	UMULH R7, R2, R0    \
+	ADCS  R0, R21, R21  \
+	UMULH R8, R2, R0    \
+	ADC   R0, ZR, R22   \
+	MUL   R15, R23, R24 \
+	DIVSHIFT()          \
 
-	// mul body
 	MOVD y+16(FP), R1
 	MOVD x+8(FP), R0
 	LDP  0(R0), (R3, R4)
@@ -271,9 +155,9 @@ TEXT ·mul(SB), NOFRAME|NOSPLIT, $0-24
 	LDP  32(R0), (R7, R8)
 	MOVD 0(R1), R2
 	MOVD $const_qInvNeg, R23
-	LDP  ·qElement+0(SB), (R16, R17)
-	LDP  ·qElement+16(SB), (R19, R20)
-	LDP  ·qElement+32(SB), (R21, R22)
+	LDP  ·qElement+0(SB), (R9, R10)
+	LDP  ·qElement+16(SB), (R11, R12)
+	LDP  ·qElement+32(SB), (R13, R14)
 	MUL_WORD_0()
 	MOVD 8(R1), R2
 	MUL_WORD_N()
@@ -287,20 +171,20 @@ TEXT ·mul(SB), NOFRAME|NOSPLIT, $0-24
 	MUL_WORD_N()
 
 	// reduce if necessary
-	SUBS R16, R9, R16
-	SBCS R17, R10, R17
-	SBCS R19, R11, R19
-	SBCS R20, R12, R20
-	SBCS R21, R13, R21
-	SBCS R22, R14, R22
+	SUBS R9, R15, R9
+	SBCS R10, R16, R10
+	SBCS R11, R17, R11
+	SBCS R12, R19, R12
+	SBCS R13, R20, R13
+	SBCS R14, R21, R14
 	MOVD res+0(FP), R0
-	CSEL CS, R16, R9, R9
-	CSEL CS, R17, R10, R10
-	STP  (R9, R10), 0(R0)
-	CSEL CS, R19, R11, R11
-	CSEL CS, R20, R12, R12
-	STP  (R11, R12), 16(R0)
-	CSEL CS, R21, R13, R13
-	CSEL CS, R22, R14, R14
-	STP  (R13, R14), 32(R0)
+	CSEL CS, R9, R15, R15
+	CSEL CS, R10, R16, R16
+	STP  (R15, R16), 0(R0)
+	CSEL CS, R11, R17, R17
+	CSEL CS, R12, R19, R19
+	STP  (R17, R19), 16(R0)
+	CSEL CS, R13, R20, R20
+	CSEL CS, R14, R21, R21
+	STP  (R20, R21), 32(R0)
 	RET

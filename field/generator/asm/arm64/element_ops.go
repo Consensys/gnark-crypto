@@ -18,126 +18,16 @@ import (
 	"github.com/consensys/bavard/arm64"
 )
 
-func (f *FFArm64) generateAdd() {
-	f.Comment("add(res, x, y *Element)")
-	registers := f.FnHeader("add", 0, 24)
-	defer f.AssertCleanStack(0, 0)
-
-	// registers
-	q := registers.PopN(f.NbWords)
-	z := registers.PopN(f.NbWords)
-	x := registers.PopN(f.NbWords)
-	xPtr := registers.Pop()
-	yPtr := registers.Pop()
-	zPtr := registers.Pop()
-
-	f.LDP("x+8(FP)", xPtr, yPtr)
-
-	f.load(xPtr, x)
-	f.load(yPtr, z)
-	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(f.qAt(i), q[i], q[i+1])
-	}
-
-	f.ADDS(x[0], z[0], z[0])
-	for i := 1; i < f.NbWords; i++ {
-		f.ADCS(x[i], z[i], z[i])
-	}
-
-	f.MOVD("res+0(FP)", zPtr)
-	f.reduceAndStore(z, q, zPtr)
-
-	f.RET()
-
-}
-
-func (f *FFArm64) generateDouble() {
-	f.Comment("double(res, x *Element)")
-	registers := f.FnHeader("double", 0, 16)
-	defer f.AssertCleanStack(0, 0)
-
-	// registers
-	xPtr := registers.Pop()
-	zPtr := registers.Pop()
-	z := registers.PopN(f.NbWords)
-	t := registers.PopN(f.NbWords)
-
-	f.LDP("res+0(FP)", zPtr, xPtr)
-
-	f.load(xPtr, z)
-
-	f.ADDS(z[0], z[0], z[0])
-	for i := 1; i < f.NbWords; i++ {
-		f.ADCS(z[i], z[i], z[i])
-	}
-
-	f.reduce(z, t)
-
-	f.store(z, zPtr)
-
-	f.RET()
-
-}
-
-// generateSub NO LONGER uses one more register than generateAdd, but that's okay since we have 29 registers available.
-func (f *FFArm64) generateSub() {
-	f.Comment("sub(res, x, y *Element)")
-
-	registers := f.FnHeader("sub", 0, 24)
-	defer f.AssertCleanStack(0, 0)
-
-	// registers
-	z := registers.PopN(f.NbWords)
-	x := registers.PopN(f.NbWords)
-	t := registers.PopN(f.NbWords)
-	xPtr := registers.Pop()
-	yPtr := registers.Pop()
-	zPtr := registers.Pop()
-
-	f.LDP("x+8(FP)", xPtr, yPtr)
-
-	f.load(xPtr, x)
-	f.load(yPtr, z)
-
-	f.SUBS(z[0], x[0], z[0])
-	for i := 1; i < f.NbWords; i++ {
-		f.SBCS(z[i], x[i], z[i])
-	}
-
-	f.Comment("load modulus and select")
-
-	zero := arm64.Register("ZR")
-
-	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(f.qAt(i), t[i], t[i+1])
-	}
-	for i := 0; i < f.NbWords; i++ {
-		f.CSEL("CS", zero, t[i], t[i])
-	}
-	f.Comment("add q if underflow, 0 if not")
-	f.ADDS(z[0], t[0], z[0])
-	for i := 1; i < f.NbWords; i++ {
-		f.ADCS(z[i], t[i], z[i])
-	}
-
-	f.MOVD("res+0(FP)", zPtr)
-	f.store(z, zPtr)
-
-	f.RET()
-
-}
-
 func (f *FFArm64) generateButterfly() {
-	f.Comment("butterfly(x, y *Element)")
+	f.Comment("butterfly(a, b *Element)")
+	f.Comment("a, b = a+b, a-b")
 	registers := f.FnHeader("Butterfly", 0, 16)
 	defer f.AssertCleanStack(0, 0)
-	// Butterfly sets
-	//  a = a + b (mod q)
-	//  b = a - b (mod q)
+
 	// registers
 	a := registers.PopN(f.NbWords)
 	b := registers.PopN(f.NbWords)
-	aRes := registers.PopN(f.NbWords)
+	r := registers.PopN(f.NbWords)
 	t := registers.PopN(f.NbWords)
 	aPtr := registers.Pop()
 	bPtr := registers.Pop()
@@ -146,62 +36,38 @@ func (f *FFArm64) generateButterfly() {
 	f.load(aPtr, a)
 	f.load(bPtr, b)
 
-	f.ADDS(a[0], b[0], aRes[0])
-	for i := 1; i < f.NbWords; i++ {
-
-		if i == f.NbWordsLastIndex {
-			f.ADC(a[i], b[i], aRes[i])
-		} else {
-			f.ADCS(a[i], b[i], aRes[i])
-		}
+	for i := 0; i < f.NbWords; i++ {
+		f.add0n(i)(a[i], b[i], r[i])
 	}
 
-	// f.reduce(aRes, t)
-
-	// f.Comment("store")
-
-	// f.store(aRes, aPtr)
-
-	bRes := b
-
-	f.SUBS(b[0], a[0], bRes[0])
+	f.SUBS(b[0], a[0], b[0])
 	for i := 1; i < f.NbWords; i++ {
-		f.SBCS(b[i], a[i], bRes[i])
+		f.SBCS(b[i], a[i], b[i])
 	}
 
-	f.Comment("load modulus and select")
-
-	zero := arm64.Register("ZR")
-
-	// for i := 0; i < f.NbWords-1; i += 2 {
-	// 	f.LDP(f.qAt(i), t[i], t[i+1])
-	// }
 	for i := 0; i < f.NbWords; i++ {
 		if i%2 == 0 {
 			f.LDP(f.qAt(i), a[i], a[i+1])
 		}
-		f.CSEL("CS", zero, a[i], t[i])
+		f.CSEL("CS", "ZR", a[i], t[i])
 	}
 	f.Comment("add q if underflow, 0 if not")
-	f.ADDS(bRes[0], t[0], bRes[0])
-	for i := 1; i < f.NbWords; i++ {
-		if i == f.NbWordsLastIndex {
-			f.ADC(bRes[i], t[i], bRes[i])
-		} else {
-			f.ADCS(bRes[i], t[i], bRes[i])
-		}
+	for i := 0; i < f.NbWords; i++ {
+		f.add0n(i)(b[i], t[i], b[i])
 		if i%2 == 1 {
-			f.STP(bRes[i-1], bRes[i], bPtr.At(i-1))
+			f.STP(b[i-1], b[i], bPtr.At(i-1))
 		}
 	}
 
-	f.reduceAndStore(aRes, a, aPtr)
+	f.reduceAndStore(r, a, aPtr)
 
 	f.RET()
 }
 
 func (f *FFArm64) generateMul() {
 	f.Comment("mul(res, x, y *Element)")
+	f.Comment("Algorithm 2 of Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS")
+	f.Comment("by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521")
 	registers := f.FnHeader("mul", 0, 24)
 	defer f.AssertCleanStack(0, 0)
 
@@ -209,38 +75,27 @@ func (f *FFArm64) generateMul() {
 	yPtr := registers.Pop()
 	bi := registers.Pop()
 	a := registers.PopN(f.NbWords)
-	t := registers.PopN(f.NbWords + 1)
 	q := registers.PopN(f.NbWords)
+	t := registers.PopN(f.NbWords + 1)
 
 	ax := xPtr
 	qInv0 := registers.Pop()
 	m := registers.Pop()
 
 	divShift := f.Define("divShift", 0, func(args ...arm64.Register) {
-		// m := bi
-		// f.MUL(t[0], qInv0, m)
-
 		// for j=0 to N-1
 		//	(C,t[j-1]) := t[j] + m*q[j] + C
 
 		for j := 0; j < f.NbWords; j++ {
 			f.MUL(q[j], m, ax)
-			if j == 0 {
-				f.ADDS(ax, t[j], t[j])
-			} else {
-				f.ADCS(ax, t[j], t[j])
-			}
+			f.add0m(j)(ax, t[j], t[j])
 		}
-		f.ADC("ZR", t[f.NbWords], t[f.NbWords])
+		f.add0m(f.NbWords)(t[f.NbWords], "ZR", t[f.NbWords])
 
 		// propagate high bits
 		f.UMULH(q[0], m, ax)
 		for j := 1; j <= f.NbWords; j++ {
-			if j == 1 {
-				f.ADDS(ax, t[j], t[j-1])
-			} else {
-				f.ADCS(ax, t[j], t[j-1])
-			}
+			f.add1m(j, true)(ax, t[j], t[j-1])
 			if j != f.NbWords {
 				f.UMULH(q[j], m, ax)
 			}
@@ -254,31 +109,18 @@ func (f *FFArm64) generateMul() {
 		// lo bits
 		for j := 0; j < f.NbWords; j++ {
 			f.MUL(a[j], bi, ax)
+			f.add0m(j)(ax, t[j], t[j])
 
 			if j == 0 {
-				f.ADDS(ax, t[j], t[j])
 				f.MUL(t[0], qInv0, m)
-			} else {
-				f.ADCS(ax, t[j], t[j])
 			}
 		}
-
-		f.ADC("ZR", "ZR", t[f.NbWords])
+		f.add0m(f.NbWords)("ZR", "ZR", t[f.NbWords])
 
 		// propagate high bits
 		f.UMULH(a[0], bi, ax)
 		for j := 1; j <= f.NbWords; j++ {
-			if j == 1 {
-				f.ADDS(ax, t[j], t[j])
-
-			} else {
-				if j == f.NbWords {
-
-					f.ADC(ax, t[j], t[j])
-				} else {
-					f.ADCS(ax, t[j], t[j])
-				}
-			}
+			f.add1m(j)(ax, t[j], t[j])
 			if j != f.NbWords {
 				f.UMULH(a[j], bi, ax)
 			}
@@ -289,7 +131,6 @@ func (f *FFArm64) generateMul() {
 	mulWord0 := f.Define("MUL_WORD_0", 0, func(args ...arm64.Register) {
 		// for j=0 to N-1
 		//    (C,t[j])  := t[j] + a[j]*b[i] + C
-
 		// lo bits
 		for j := 0; j < f.NbWords; j++ {
 			f.MUL(a[j], bi, t[j])
@@ -297,30 +138,15 @@ func (f *FFArm64) generateMul() {
 
 		// propagate high bits
 		f.UMULH(a[0], bi, ax)
-
-		for j := 1; j <= f.NbWords; j++ {
-			if j == 1 {
-				f.ADDS(ax, t[j], t[j])
-
-			} else {
-				if j == f.NbWords {
-
-					f.ADC(ax, "ZR", t[j])
-				} else {
-					f.ADCS(ax, t[j], t[j])
-				}
-			}
-			if j != f.NbWords {
-				f.UMULH(a[j], bi, ax)
-			}
+		for j := 1; j < f.NbWords; j++ {
+			f.add1m(j)(ax, t[j], t[j])
+			f.UMULH(a[j], bi, ax)
 		}
+		f.add1m(f.NbWords)(ax, "ZR", t[f.NbWords])
 		f.MUL(t[0], qInv0, m)
 		divShift()
 	})
 
-	f.Comment("mul body")
-
-	// f.LDP("x+8(FP)", xPtr, yPtr)
 	f.MOVD("y+16(FP)", yPtr)
 	f.MOVD("x+8(FP)", xPtr)
 	f.load(xPtr, a)
@@ -328,12 +154,11 @@ func (f *FFArm64) generateMul() {
 		f.MOVD(yPtr.At(i), bi)
 
 		if i == 0 {
+			// load qInv0 and q at first iteration.
 			f.MOVD(f.qInv0(), qInv0)
-
 			for i := 0; i < f.NbWords-1; i += 2 {
 				f.LDP(f.qAt(i), q[i], q[i+1])
 			}
-
 			mulWord0()
 		} else {
 			mulWordN()
@@ -354,31 +179,7 @@ func (f *FFArm64) generateMul() {
 		}
 	}
 
-	// f.store(t[:f.NbWords], resPtr)
-
 	f.RET()
-}
-
-func (f *FFArm64) reduce(t, q []arm64.Register) {
-
-	if len(t) != f.NbWords || len(q) != f.NbWords {
-		panic("need 2*nbWords registers")
-	}
-
-	f.Comment("load modulus and subtract")
-
-	for i := 0; i < f.NbWords-1; i += 2 {
-		f.LDP(f.qAt(i), q[i], q[i+1])
-	}
-	f.SUBS(q[0], t[0], q[0])
-	for i := 1; i < f.NbWords; i++ {
-		f.SBCS(q[i], t[i], q[i])
-	}
-
-	f.Comment("reduce if necessary")
-	for i := 0; i < f.NbWords; i++ {
-		f.CSEL("CS", q[i], t[i], t[i])
-	}
 }
 
 func (f *FFArm64) load(zPtr arm64.Register, z []arm64.Register) {
@@ -387,33 +188,59 @@ func (f *FFArm64) load(zPtr arm64.Register, z []arm64.Register) {
 	}
 }
 
-func (f *FFArm64) store(z []arm64.Register, zPtr arm64.Register) {
-	for i := 0; i < f.NbWords-1; i += 2 {
-		f.STP(z[i], z[i+1], zPtr.At(i))
-	}
-}
-
+// q must contain the modulus
+// q is modified
+// t = t mod q (t must be less than 2q)
+// t is stored in zPtr
 func (f *FFArm64) reduceAndStore(t, q []arm64.Register, zPtr arm64.Register) {
-
-	if len(t) != f.NbWords || len(q) != f.NbWords {
-		panic("need 2*nbWords registers")
-	}
-
-	f.Comment("load modulus and subtract")
-
-	// for i := 0; i < f.NbWords-1; i += 2 {
-	// 	f.LDP(f.qAt(i), q[i], q[i+1])
-	// }
+	f.Comment("q = t - q")
 	f.SUBS(q[0], t[0], q[0])
 	for i := 1; i < f.NbWords; i++ {
 		f.SBCS(q[i], t[i], q[i])
 	}
 
-	f.Comment("reduce if necessary")
+	f.Comment("if no borrow, return q, else return t")
 	for i := 0; i < f.NbWords; i++ {
 		f.CSEL("CS", q[i], t[i], t[i])
 		if i%2 == 1 {
 			f.STP(t[i-1], t[i], zPtr.At(i-1))
 		}
+	}
+}
+
+func (f *FFArm64) add0n(i int) func(op1, op2, dst interface{}, comment ...string) {
+	switch {
+	case i == 0:
+		return f.ADDS
+	case i == f.NbWordsLastIndex:
+		return f.ADC
+	default:
+		return f.ADCS
+	}
+}
+
+func (f *FFArm64) add0m(i int) func(op1, op2, dst interface{}, comment ...string) {
+	switch {
+	case i == 0:
+		return f.ADDS
+	case i == f.NbWordsLastIndex+1:
+		return f.ADC
+	default:
+		return f.ADCS
+	}
+}
+
+func (f *FFArm64) add1m(i int, dumb ...bool) func(op1, op2, dst interface{}, comment ...string) {
+	switch {
+	case i == 1:
+		return f.ADDS
+	case i == f.NbWordsLastIndex+1:
+		if len(dumb) == 1 && dumb[0] {
+			// odd, but it performs better on c8g instances.
+			return f.ADCS
+		}
+		return f.ADC
+	default:
+		return f.ADCS
 	}
 }

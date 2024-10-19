@@ -201,30 +201,6 @@ const OpsARM64 = `
 {{if .ASMArm}}
 
 //go:noescape
-func add(res,x,y *{{.ElementName}})
-
-func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
-	add(z,x,y)
-	return z
-}
-
-//go:noescape
-func double(res, x *{{.ElementName}})
-
-func (z *{{.ElementName}}) Double(x *{{.ElementName}}) *{{.ElementName}} {
-	double(z,x)
-	return z
-}
-
-//go:noescape
-func sub(res,x,y *{{.ElementName}})
-
-func (z *{{.ElementName}}) Sub(x, y *{{.ElementName}}) *{{.ElementName}} {
-	sub(z,x,y)
-	return z
-}
-
-//go:noescape
 func Butterfly(a, b *{{.ElementName}})
 
 //go:noescape

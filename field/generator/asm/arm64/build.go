@@ -107,9 +107,6 @@ func GenerateCommonASM(w io.Writer, nbWords int, hasVector bool) error {
 		panic("NbWords must be even")
 	}
 
-	f.generateAdd()
-	f.generateDouble()
-	f.generateSub()
 	f.generateButterfly()
 
 	f.generateMul()

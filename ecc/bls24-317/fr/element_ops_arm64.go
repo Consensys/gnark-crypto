@@ -20,30 +20,6 @@
 package fr
 
 //go:noescape
-func add(res, x, y *Element)
-
-func (z *Element) Add(x, y *Element) *Element {
-	add(z, x, y)
-	return z
-}
-
-//go:noescape
-func double(res, x *Element)
-
-func (z *Element) Double(x *Element) *Element {
-	double(z, x)
-	return z
-}
-
-//go:noescape
-func sub(res, x, y *Element)
-
-func (z *Element) Sub(x, y *Element) *Element {
-	sub(z, x, y)
-	return z
-}
-
-//go:noescape
 func Butterfly(a, b *Element)
 
 //go:noescape

@@ -63,6 +63,7 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 		"_mul_arm64.s",
 		"_mul_arm64.go",
 		"_ops_amd64.s",
+		"_ops_arm64.s",
 		"_ops_noasm.go",
 		"_mul_adx_amd64.s",
 		"_ops_amd64.go",
