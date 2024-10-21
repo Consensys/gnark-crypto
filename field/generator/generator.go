@@ -236,56 +236,57 @@ func shorten(input string) string {
 	return input
 }
 
-func GenerateCommonASM(nbWords int, asmDir string, hasVector bool, hasArm bool) error {
+func GenerateARM64(nbWords int, asmDir string, hasVector bool) error {
 	os.MkdirAll(asmDir, 0755)
-	{
-		pathSrc := filepath.Join(asmDir, fmt.Sprintf(amd64.ElementASMFileName, nbWords))
+	pathSrc := filepath.Join(asmDir, fmt.Sprintf(arm64.ElementASMFileName, nbWords))
 
-		fmt.Println("generating", pathSrc)
-		f, err := os.Create(pathSrc)
-		if err != nil {
-			return err
-		}
-
-		if err := amd64.GenerateCommonASM(f, nbWords, hasVector); err != nil {
-			_ = f.Close()
-			return err
-		}
-		_ = f.Close()
-
-		// run asmfmt
-		// run go fmt on whole directory
-		cmd := exec.Command("asmfmt", "-w", pathSrc)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return err
-		}
+	fmt.Println("generating", pathSrc)
+	f, err := os.Create(pathSrc)
+	if err != nil {
+		return err
 	}
 
-	if hasArm {
-		pathSrc := filepath.Join(asmDir, fmt.Sprintf(arm64.ElementASMFileName, nbWords))
-
-		fmt.Println("generating", pathSrc)
-		f, err := os.Create(pathSrc)
-		if err != nil {
-			return err
-		}
-
-		if err := arm64.GenerateCommonASM(f, nbWords, hasVector); err != nil {
-			_ = f.Close()
-			return err
-		}
+	if err := arm64.GenerateCommonASM(f, nbWords, hasVector); err != nil {
 		_ = f.Close()
+		return err
+	}
+	_ = f.Close()
 
-		// run asmfmt
-		// run go fmt on whole directory
-		cmd := exec.Command("asmfmt", "-w", pathSrc)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return err
-		}
+	// run asmfmt
+	// run go fmt on whole directory
+	cmd := exec.Command("asmfmt", "-w", pathSrc)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GenerateAMD64(nbWords int, asmDir string, hasVector bool) error {
+	os.MkdirAll(asmDir, 0755)
+	pathSrc := filepath.Join(asmDir, fmt.Sprintf(amd64.ElementASMFileName, nbWords))
+
+	fmt.Println("generating", pathSrc)
+	f, err := os.Create(pathSrc)
+	if err != nil {
+		return err
+	}
+
+	if err := amd64.GenerateCommonASM(f, nbWords, hasVector); err != nil {
+		_ = f.Close()
+		return err
+	}
+	_ = f.Close()
+
+	// run asmfmt
+	// run go fmt on whole directory
+	cmd := exec.Command("asmfmt", "-w", pathSrc)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return err
 	}
 
 	return nil
