@@ -109,6 +109,7 @@ func GenerateCommonASM(w io.Writer, nbWords int, hasVector bool) error {
 
 	f.generateButterfly()
 	f.generateMul()
+	f.generateReduce()
 
 	return nil
 }

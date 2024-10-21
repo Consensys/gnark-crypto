@@ -108,9 +108,8 @@ func fromMont(z *{{.ElementName}} ) {
 	_fromMontGeneric(z)
 }
 
-func reduce(z *{{.ElementName}})  {
-	_reduceGeneric(z)
-}
+//go:noescape
+func reduce(res *{{.ElementName}})
 `
 
 const IncludeASM = `

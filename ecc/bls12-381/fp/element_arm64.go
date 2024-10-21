@@ -75,6 +75,5 @@ func fromMont(z *Element) {
 	_fromMontGeneric(z)
 }
 
-func reduce(z *Element) {
-	_reduceGeneric(z)
-}
+//go:noescape
+func reduce(res *Element)

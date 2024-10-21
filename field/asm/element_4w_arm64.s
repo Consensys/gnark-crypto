@@ -138,3 +138,26 @@ TEXT ·mul(SB), NOFRAME|NOSPLIT, $0-24
 	CSEL CS, R10, R14, R14
 	STP  (R13, R14), 16(R0)
 	RET
+
+// reduce(res *Element)
+TEXT ·reduce(SB), NOFRAME|NOSPLIT, $0-8
+	LDP  ·qElement+0(SB), (R4, R5)
+	LDP  ·qElement+16(SB), (R6, R7)
+	MOVD res+0(FP), R8
+	LDP  0(R8), (R0, R1)
+	LDP  16(R8), (R2, R3)
+
+	// q = t - q
+	SUBS R4, R0, R4
+	SBCS R5, R1, R5
+	SBCS R6, R2, R6
+	SBCS R7, R3, R7
+
+	// if no borrow, return q, else return t
+	CSEL CS, R4, R0, R0
+	CSEL CS, R5, R1, R1
+	STP  (R0, R1), 0(R8)
+	CSEL CS, R6, R2, R2
+	CSEL CS, R7, R3, R3
+	STP  (R2, R3), 16(R8)
+	RET

@@ -64,6 +64,27 @@ func (f *FFArm64) generateButterfly() {
 	f.RET()
 }
 
+func (f *FFArm64) generateReduce() {
+	f.Comment("reduce(res *Element)")
+	registers := f.FnHeader("reduce", 0, 8)
+	defer f.AssertCleanStack(0, 0)
+
+	// registers
+	t := registers.PopN(f.NbWords)
+	q := registers.PopN(f.NbWords)
+	rPtr := registers.Pop()
+
+	for i := 0; i < f.NbWords; i += 2 {
+		f.LDP(f.qAt(i), q[i], q[i+1])
+	}
+
+	f.MOVD("res+0(FP)", rPtr)
+	f.load(rPtr, t)
+	f.reduceAndStore(t, q, rPtr)
+
+	f.RET()
+}
+
 func (f *FFArm64) generateMul() {
 	f.Comment("mul(res, x, y *Element)")
 	f.Comment("Algorithm 2 of Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS")
