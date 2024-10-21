@@ -5,6 +5,7 @@
 *.so
 *.dylib
 *.txt
+**/.rbench.lock
 
 # Test binary, build with `go test -c`
 *.test

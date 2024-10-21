@@ -73,7 +73,7 @@ func cmdGenerate(cmd *cobra.Command, args []string) {
 	}
 
 	asmDir := filepath.Join(fOutputDir, "asm")
-	if err := generator.GenerateCommonASM(F.NbWords, asmDir, F.ASMVector); err != nil {
+	if err := generator.GenerateCommonASM(F.NbWords, asmDir, F.GenerateVectorOpsAMD64, F.GenerateOpsARM64); err != nil {
 		fmt.Printf("\n%s\n", err.Error())
 		os.Exit(-1)
 	}

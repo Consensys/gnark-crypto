@@ -52,9 +52,6 @@ type FieldConfig struct {
 	QInverse                  []uint64
 	QMinusOneHalvedP          []uint64 // ((q-1) / 2 ) + 1
 	Mu                        uint64   // mu = 2^288 / q for 4.5 word barrett reduction
-	ASM                       bool
-	ASMVector                 bool
-	ASMArm                    bool
 	RSquare                   []uint64
 	One, Thirteen             []uint64
 	LegendreExponent          string // big.Int to base16 string
@@ -75,6 +72,12 @@ type FieldConfig struct {
 	SqrtSMinusOneOver2Data    *addchain.AddChainData
 	SqrtQ3Mod4ExponentData    *addchain.AddChainData
 	UseAddChain               bool
+
+	// asm code generation
+	GenerateOpsAMD64       bool
+	GenerateOpsARM64       bool
+	GenerateVectorOpsAMD64 bool
+	GenerateVectorOpsARM64 bool
 }
 
 // NewFieldConfig returns a data structure with needed information to generate apis for field element
@@ -262,9 +265,10 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	// note: to simplify output files generated, we generated ASM code only for
 	// moduli that meet the condition F.NoCarry
 	// asm code generation for moduli with more than 6 words can be optimized further
-	F.ASM = F.NoCarry && F.NbWords <= 12 && F.NbWords > 1
-	F.ASMVector = F.ASM && F.NbWords == 4 && F.NbBits > 225
-	F.ASMArm = F.ASMVector || (F.NbWords == 6)
+	F.GenerateOpsAMD64 = F.NoCarry && F.NbWords <= 12 && F.NbWords > 1
+	F.GenerateVectorOpsAMD64 = F.GenerateOpsAMD64 && F.NbWords == 4 && F.NbBits > 225
+	F.GenerateOpsARM64 = F.GenerateOpsAMD64 && (F.NbWords == 6 || F.NbWords == 4)
+	F.GenerateVectorOpsARM64 = false
 
 	// setting Mu 2^288 / q
 	if F.NbWords == 4 {

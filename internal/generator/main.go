@@ -68,16 +68,16 @@ func main() {
 		mCommon[conf.Fr.NbWords] = true
 		mCommon[conf.Fp.NbWords] = true
 
-		if conf.Fr.ASMVector {
+		if conf.Fr.GenerateVectorOpsAMD64 {
 			mVec[conf.Fr.NbWords] = true
 		}
-		if conf.Fp.ASMVector {
+		if conf.Fp.GenerateVectorOpsAMD64 {
 			mVec[conf.Fp.NbWords] = true
 		}
-		if conf.Fr.ASMArm {
+		if conf.Fr.GenerateOpsARM64 {
 			mArm[conf.Fr.NbWords] = true
 		}
-		if conf.Fp.ASMArm {
+		if conf.Fp.GenerateOpsARM64 {
 			mArm[conf.Fp.NbWords] = true
 		}
 
