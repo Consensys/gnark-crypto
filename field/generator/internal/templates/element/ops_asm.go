@@ -50,8 +50,14 @@ const OpsARM64 = `
 // Butterfly sets
 //  a = a + b (mod q)
 //  b = a - b (mod q)
+{{- if le .NbWords 6}}
 //go:noescape
 func Butterfly(a, b *{{.ElementName}})
+{{- else}}
+func Butterfly(a, b *{{.ElementName}}) {
+	_butterflyGeneric(a, b)
+}
+{{- end}}
 
 //go:noescape
 func mul(res,x,y *{{.ElementName}})

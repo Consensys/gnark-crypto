@@ -267,7 +267,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	// asm code generation for moduli with more than 6 words can be optimized further
 	F.GenerateOpsAMD64 = F.NoCarry && F.NbWords <= 12 && F.NbWords > 1
 	F.GenerateVectorOpsAMD64 = F.GenerateOpsAMD64 && F.NbWords == 4 && F.NbBits > 225
-	F.GenerateOpsARM64 = F.GenerateOpsAMD64 && (F.NbWords == 6 || F.NbWords == 4)
+	F.GenerateOpsARM64 = F.GenerateOpsAMD64 && (F.NbWords%2 == 0)
 	F.GenerateVectorOpsARM64 = false
 
 	// setting Mu 2^288 / q

@@ -84,6 +84,9 @@ func TestIntegration(t *testing.T) {
 	assert.NoError(GenerateAMD64(7, asmDir, false))
 	assert.NoError(GenerateAMD64(8, asmDir, false))
 
+	assert.NoError(GenerateARM64(2, asmDir, false))
+	assert.NoError(GenerateARM64(8, asmDir, false))
+
 	for elementName, modulus := range moduli {
 		var fIntegration *field.FieldConfig
 		// generate field

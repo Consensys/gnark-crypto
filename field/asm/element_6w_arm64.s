@@ -71,122 +71,122 @@ TEXT ·Butterfly(SB), NOFRAME|NOSPLIT, $0-16
 // by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
 TEXT ·mul(SB), NOFRAME|NOSPLIT, $0-24
 #define DIVSHIFT() \
-	MUL   R9, R24, R0  \
-	ADDS  R0, R15, R15 \
-	MUL   R10, R24, R0 \
-	ADCS  R0, R16, R16 \
-	MUL   R11, R24, R0 \
-	ADCS  R0, R17, R17 \
-	MUL   R12, R24, R0 \
-	ADCS  R0, R19, R19 \
-	MUL   R13, R24, R0 \
-	ADCS  R0, R20, R20 \
-	MUL   R14, R24, R0 \
-	ADCS  R0, R21, R21 \
-	ADC   R22, ZR, R22 \
-	UMULH R9, R24, R0  \
-	ADDS  R0, R16, R15 \
-	UMULH R10, R24, R0 \
-	ADCS  R0, R17, R16 \
-	UMULH R11, R24, R0 \
-	ADCS  R0, R19, R17 \
-	UMULH R12, R24, R0 \
-	ADCS  R0, R20, R19 \
-	UMULH R13, R24, R0 \
-	ADCS  R0, R21, R20 \
-	UMULH R14, R24, R0 \
-	ADCS  R0, R22, R21 \
+	MUL   R17, R16, R0 \
+	ADDS  R0, R8, R8   \
+	MUL   R19, R16, R0 \
+	ADCS  R0, R9, R9   \
+	MUL   R20, R16, R0 \
+	ADCS  R0, R10, R10 \
+	MUL   R21, R16, R0 \
+	ADCS  R0, R11, R11 \
+	MUL   R22, R16, R0 \
+	ADCS  R0, R12, R12 \
+	MUL   R23, R16, R0 \
+	ADCS  R0, R13, R13 \
+	ADC   R14, ZR, R14 \
+	UMULH R17, R16, R0 \
+	ADDS  R0, R9, R8   \
+	UMULH R19, R16, R0 \
+	ADCS  R0, R10, R9  \
+	UMULH R20, R16, R0 \
+	ADCS  R0, R11, R10 \
+	UMULH R21, R16, R0 \
+	ADCS  R0, R12, R11 \
+	UMULH R22, R16, R0 \
+	ADCS  R0, R13, R12 \
+	UMULH R23, R16, R0 \
+	ADCS  R0, R14, R13 \
 
 #define MUL_WORD_N() \
-	MUL   R3, R2, R0    \
-	ADDS  R0, R15, R15  \
-	MUL   R15, R23, R24 \
-	MUL   R4, R2, R0    \
-	ADCS  R0, R16, R16  \
-	MUL   R5, R2, R0    \
-	ADCS  R0, R17, R17  \
-	MUL   R6, R2, R0    \
-	ADCS  R0, R19, R19  \
-	MUL   R7, R2, R0    \
-	ADCS  R0, R20, R20  \
-	MUL   R8, R2, R0    \
-	ADCS  R0, R21, R21  \
-	ADC   ZR, ZR, R22   \
-	UMULH R3, R2, R0    \
-	ADDS  R0, R16, R16  \
-	UMULH R4, R2, R0    \
-	ADCS  R0, R17, R17  \
-	UMULH R5, R2, R0    \
-	ADCS  R0, R19, R19  \
-	UMULH R6, R2, R0    \
-	ADCS  R0, R20, R20  \
-	UMULH R7, R2, R0    \
-	ADCS  R0, R21, R21  \
-	UMULH R8, R2, R0    \
-	ADC   R0, R22, R22  \
-	DIVSHIFT()          \
+	MUL   R2, R1, R0   \
+	ADDS  R0, R8, R8   \
+	MUL   R8, R15, R16 \
+	MUL   R3, R1, R0   \
+	ADCS  R0, R9, R9   \
+	MUL   R4, R1, R0   \
+	ADCS  R0, R10, R10 \
+	MUL   R5, R1, R0   \
+	ADCS  R0, R11, R11 \
+	MUL   R6, R1, R0   \
+	ADCS  R0, R12, R12 \
+	MUL   R7, R1, R0   \
+	ADCS  R0, R13, R13 \
+	ADC   ZR, ZR, R14  \
+	UMULH R2, R1, R0   \
+	ADDS  R0, R9, R9   \
+	UMULH R3, R1, R0   \
+	ADCS  R0, R10, R10 \
+	UMULH R4, R1, R0   \
+	ADCS  R0, R11, R11 \
+	UMULH R5, R1, R0   \
+	ADCS  R0, R12, R12 \
+	UMULH R6, R1, R0   \
+	ADCS  R0, R13, R13 \
+	UMULH R7, R1, R0   \
+	ADC   R0, R14, R14 \
+	DIVSHIFT()         \
 
 #define MUL_WORD_0() \
-	MUL   R3, R2, R15   \
-	MUL   R4, R2, R16   \
-	MUL   R5, R2, R17   \
-	MUL   R6, R2, R19   \
-	MUL   R7, R2, R20   \
-	MUL   R8, R2, R21   \
-	UMULH R3, R2, R0    \
-	ADDS  R0, R16, R16  \
-	UMULH R4, R2, R0    \
-	ADCS  R0, R17, R17  \
-	UMULH R5, R2, R0    \
-	ADCS  R0, R19, R19  \
-	UMULH R6, R2, R0    \
-	ADCS  R0, R20, R20  \
-	UMULH R7, R2, R0    \
-	ADCS  R0, R21, R21  \
-	UMULH R8, R2, R0    \
-	ADC   R0, ZR, R22   \
-	MUL   R15, R23, R24 \
-	DIVSHIFT()          \
+	MUL   R2, R1, R8   \
+	MUL   R3, R1, R9   \
+	MUL   R4, R1, R10  \
+	MUL   R5, R1, R11  \
+	MUL   R6, R1, R12  \
+	MUL   R7, R1, R13  \
+	UMULH R2, R1, R0   \
+	ADDS  R0, R9, R9   \
+	UMULH R3, R1, R0   \
+	ADCS  R0, R10, R10 \
+	UMULH R4, R1, R0   \
+	ADCS  R0, R11, R11 \
+	UMULH R5, R1, R0   \
+	ADCS  R0, R12, R12 \
+	UMULH R6, R1, R0   \
+	ADCS  R0, R13, R13 \
+	UMULH R7, R1, R0   \
+	ADC   R0, ZR, R14  \
+	MUL   R8, R15, R16 \
+	DIVSHIFT()         \
 
-	MOVD y+16(FP), R1
+	MOVD y+16(FP), R24
 	MOVD x+8(FP), R0
-	LDP  0(R0), (R3, R4)
-	LDP  16(R0), (R5, R6)
-	LDP  32(R0), (R7, R8)
-	MOVD 0(R1), R2
-	MOVD $const_qInvNeg, R23
-	LDP  ·qElement+0(SB), (R9, R10)
-	LDP  ·qElement+16(SB), (R11, R12)
-	LDP  ·qElement+32(SB), (R13, R14)
+	LDP  0(R0), (R2, R3)
+	LDP  16(R0), (R4, R5)
+	LDP  32(R0), (R6, R7)
+	MOVD 0(R24), R1
+	MOVD $const_qInvNeg, R15
+	LDP  ·qElement+0(SB), (R17, R19)
+	LDP  ·qElement+16(SB), (R20, R21)
+	LDP  ·qElement+32(SB), (R22, R23)
 	MUL_WORD_0()
-	MOVD 8(R1), R2
+	MOVD 8(R24), R1
 	MUL_WORD_N()
-	MOVD 16(R1), R2
+	MOVD 16(R24), R1
 	MUL_WORD_N()
-	MOVD 24(R1), R2
+	MOVD 24(R24), R1
 	MUL_WORD_N()
-	MOVD 32(R1), R2
+	MOVD 32(R24), R1
 	MUL_WORD_N()
-	MOVD 40(R1), R2
+	MOVD 40(R24), R1
 	MUL_WORD_N()
 
 	// reduce if necessary
-	SUBS R9, R15, R9
-	SBCS R10, R16, R10
-	SBCS R11, R17, R11
-	SBCS R12, R19, R12
-	SBCS R13, R20, R13
-	SBCS R14, R21, R14
+	SUBS R17, R8, R17
+	SBCS R19, R9, R19
+	SBCS R20, R10, R20
+	SBCS R21, R11, R21
+	SBCS R22, R12, R22
+	SBCS R23, R13, R23
 	MOVD res+0(FP), R0
-	CSEL CS, R9, R15, R15
-	CSEL CS, R10, R16, R16
-	STP  (R15, R16), 0(R0)
-	CSEL CS, R11, R17, R17
-	CSEL CS, R12, R19, R19
-	STP  (R17, R19), 16(R0)
-	CSEL CS, R13, R20, R20
-	CSEL CS, R14, R21, R21
-	STP  (R20, R21), 32(R0)
+	CSEL CS, R17, R8, R8
+	CSEL CS, R19, R9, R9
+	STP  (R8, R9), 0(R0)
+	CSEL CS, R20, R10, R10
+	CSEL CS, R21, R11, R11
+	STP  (R10, R11), 16(R0)
+	CSEL CS, R22, R12, R12
+	CSEL CS, R23, R13, R13
+	STP  (R12, R13), 32(R0)
 	RET
 
 // reduce(res *Element)

@@ -60,6 +60,8 @@ func main() {
 
 	assertNoError(generator.GenerateARM64(4, asmDirBuildPath, false))
 	assertNoError(generator.GenerateARM64(6, asmDirBuildPath, false))
+	assertNoError(generator.GenerateARM64(10, asmDirBuildPath, false))
+	assertNoError(generator.GenerateARM64(12, asmDirBuildPath, false))
 
 	var wg sync.WaitGroup
 	for _, conf := range config.Curves {
