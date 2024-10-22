@@ -1,5 +1,4 @@
 //go:build !noavx
-// +build !noavx
 
 // Copyright 2020 ConsenSys Software Inc.
 //

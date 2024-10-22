@@ -137,13 +137,6 @@ startDefine:
 	return toReturn
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 func (f *FFAmd64) AssertCleanStack(reservedStackSize, minStackSize int) {
 	if f.nbElementsOnStack != 0 {
 		panic("missing f.Push stack elements")
