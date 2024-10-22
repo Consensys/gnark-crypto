@@ -126,17 +126,17 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 	}
 
 	// purego files have no build tags if we don't generate asm
-	pureGoBuildTag := "purego"
+	pureGoBuildTag := "purego || (!amd64 && !arm64)"
 	if !F.GenerateOpsAMD64 && !F.GenerateOpsARM64 {
 		pureGoBuildTag = ""
 	} else if !F.GenerateOpsARM64 {
-		pureGoBuildTag = "purego || arm64"
+		pureGoBuildTag = "purego || (!amd64)"
 	}
-	pureGoVectorBuildTag := "purego"
+	pureGoVectorBuildTag := "purego || (!amd64 && !arm64)"
 	if !F.GenerateVectorOpsAMD64 && !F.GenerateVectorOpsARM64 {
 		pureGoVectorBuildTag = ""
 	} else if !F.GenerateVectorOpsARM64 {
-		pureGoVectorBuildTag = "purego || arm64"
+		pureGoVectorBuildTag = "purego || (!amd64)"
 	}
 
 	var g errgroup.Group

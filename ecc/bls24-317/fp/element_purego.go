@@ -1,4 +1,4 @@
-//go:build purego || arm64
+//go:build purego || !amd64
 
 // Copyright 2020 ConsenSys Software Inc.
 //
