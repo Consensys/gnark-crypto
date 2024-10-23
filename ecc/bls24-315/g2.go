@@ -1101,7 +1101,7 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 // batchAddG2Affine adds affine points using the Montgomery batch inversion trick.
 // Special cases (doubling, infinity) must be filtered out before this call.
 func batchAddG2Affine[TP pG2Affine, TPP ppG2Affine, TC cG2Affine](R *TPP, P *TP, batchSize int) {
-	var lambda, lambdain TC
+	var lambda TC
 
 	// from https://docs.zkproof.org/pages/standards/accepted-workshop3/proposal-turbo_plonk.pdf
 	// affine point addition formula
@@ -1111,55 +1111,81 @@ func batchAddG2Affine[TP pG2Affine, TPP ppG2Affine, TC cG2Affine](R *TPP, P *TP,
 	// Y3 = λ * (X1 - X3) - Y1
 
 	// first we compute the 1 / (X2 - X1) for all points using Montgomery batch inversion trick
-
-	// X2 - X1
-	for j := 0; j < batchSize; j++ {
-		lambdain[j].Sub(&(*P)[j].X, &(*R)[j].X)
-	}
-
 	// montgomery batch inversion;
 	// lambda[0] = 1 / (P[0].X - R[0].X)
 	// lambda[1] = 1 / (P[1].X - R[1].X)
 	// ...
-	{
-		var accumulator fptower.E4
-		lambda[0].SetOne()
-		accumulator.Set(&lambdain[0])
+	var t, accumulator fptower.E4
+	lambda[0].SetOne()
+	accumulator.Sub(&(*P)[0].X, &(*R)[0].X) // X2 - X1
 
-		for i := 1; i < batchSize; i++ {
-			lambda[i] = accumulator
-			accumulator.Mul(&accumulator, &lambdain[i])
-		}
-
-		accumulator.Inverse(&accumulator)
-
-		for i := batchSize - 1; i > 0; i-- {
-			lambda[i].Mul(&lambda[i], &accumulator)
-			accumulator.Mul(&accumulator, &lambdain[i])
-		}
-		lambda[0].Set(&accumulator)
+	for i := 1; i < batchSize; i++ {
+		lambda[i] = accumulator
+		t.Sub(&(*P)[i].X, &(*R)[i].X) // X2 - X1
+		accumulator.Mul(&accumulator, &t)
 	}
 
-	var t fptower.E4
-	var Q G2Affine
+	accumulator.Inverse(&accumulator)
 
-	for j := 0; j < batchSize; j++ {
+	var X3, Y3, m fptower.E4
+
+	for j := batchSize - 1; j > 0; j-- {
+		lambda[j].Mul(&lambda[j], &accumulator)
 		// λ  = (Y2 - Y1) / (X2 - X1)
 		t.Sub(&(*P)[j].Y, &(*R)[j].Y)
 		lambda[j].Mul(&lambda[j], &t)
 
 		// X3 = λ² - (X1 + X2)
-		Q.X.Square(&lambda[j])
-		Q.X.Sub(&Q.X, &(*R)[j].X)
-		Q.X.Sub(&Q.X, &(*P)[j].X)
+		X3.Square(&lambda[j])
+		t.Sub(&(*P)[j].X, &(*R)[j].X) // X2 - X1
+		m.Add(&(*P)[j].X, &(*R)[j].X) // X2 + X1
+		X3.Sub(&X3, &m)
+		accumulator.Mul(&accumulator, &t)
 
 		// Y3 = λ * (X1 - X3) - Y1
-		t.Sub(&(*R)[j].X, &Q.X)
-		Q.Y.Mul(&lambda[j], &t)
-		Q.Y.Sub(&Q.Y, &(*R)[j].Y)
+		t.Sub(&(*R)[j].X, &X3)
+		Y3.Mul(&lambda[j], &t)
+		(*R)[j].Y.Sub(&Y3, &(*R)[j].Y)
 
-		(*R)[j].Set(&Q)
+		(*R)[j].X = X3
 	}
+	lambda[0].Set(&accumulator)
+	j := 0
+	// λ  = (Y2 - Y1) / (X2 - X1)
+	t.Sub(&(*P)[j].Y, &(*R)[j].Y)
+	lambda[j].Mul(&lambda[j], &t)
+
+	// X3 = λ² - (X1 + X2)
+	X3.Square(&lambda[j])
+	X3.Sub(&X3, &(*R)[j].X)
+	X3.Sub(&X3, &(*P)[j].X)
+
+	// Y3 = λ * (X1 - X3) - Y1
+	t.Sub(&(*R)[j].X, &X3)
+	Y3.Mul(&lambda[j], &t)
+	Y3.Sub(&Y3, &(*R)[j].Y)
+
+	(*R)[j].X = X3
+	(*R)[j].Y = Y3
+
+	// for j := 0; j < batchSize; j++ {
+	// 	// λ  = (Y2 - Y1) / (X2 - X1)
+	// 	t.Sub(&(*P)[j].Y, &(*R)[j].Y)
+	// 	lambda[j].Mul(&lambda[j], &t)
+
+	// 	// X3 = λ² - (X1 + X2)
+	// 	X3.Square(&lambda[j])
+	// 	X3.Sub(&X3, &(*R)[j].X)
+	// 	X3.Sub(&X3, &(*P)[j].X)
+
+	// 	// Y3 = λ * (X1 - X3) - Y1
+	// 	t.Sub(&(*R)[j].X, &X3)
+	// 	Y3.Mul(&lambda[j], &t)
+	// 	Y3.Sub(&Y3, &(*R)[j].Y)
+
+	// 	(*R)[j].X = X3
+	// 	(*R)[j].Y = Y3
+	// }
 }
 
 // RandomOnG2 produces a random point in G2
