@@ -40,7 +40,7 @@ var (
 
 // digest represents the partial evaluation of the checksum
 // along with the params of the mimc function
-type digest struct {
+type Digest struct {
 	h         fr.Element
 	data      []fr.Element // data to hash
 	byteOrder fr.ByteOrder
@@ -58,7 +58,7 @@ func GetConstants() []big.Int {
 
 // NewMiMC returns a MiMCImpl object, pure-go reference implementation
 func NewMiMC(opts ...Option) hash.Hash {
-	d := new(digest)
+	d := new(Digest)
 	d.Reset()
 	cfg := mimcOptions(opts...)
 	d.byteOrder = cfg.byteOrder
@@ -66,14 +66,14 @@ func NewMiMC(opts ...Option) hash.Hash {
 }
 
 // Reset resets the Hash to its initial state.
-func (d *digest) Reset() {
+func (d *Digest) Reset() {
 	d.data = d.data[:0]
 	d.h = fr.Element{0, 0, 0, 0}
 }
 
 // Sum appends the current hash to b and returns the resulting slice.
 // It does not change the underlying hash state.
-func (d *digest) Sum(b []byte) []byte {
+func (d *Digest) Sum(b []byte) []byte {
 	buffer := d.checksum()
 	d.data = nil // flush the data already hashed
 	hash := buffer.Bytes()
@@ -85,12 +85,12 @@ func (d *digest) Sum(b []byte) []byte {
 // The Write method must be able to accept any amount
 // of data, but it may operate more efficiently if all writes
 // are a multiple of the block size.
-func (d *digest) Size() int {
+func (d *Digest) Size() int {
 	return BlockSize
 }
 
 // BlockSize returns the number of bytes Sum will return.
-func (d *digest) BlockSize() int {
+func (d *Digest) BlockSize() int {
 	return BlockSize
 }
 
@@ -102,7 +102,7 @@ func (d *digest) BlockSize() int {
 // larger than fr.Modulus, this function returns an error.
 //
 // To hash arbitrary data ([]byte not representing canonical field elements) use fr.Hash first
-func (d *digest) Write(p []byte) (int, error) {
+func (d *Digest) Write(p []byte) (int, error) {
 	// we usually expect multiple of block size. But sometimes we hash short
 	// values (FS transcript). Instead of forcing to hash to field, we left-pad the
 	// input here.
@@ -130,7 +130,7 @@ func (d *digest) Write(p []byte) (int, error) {
 // Hash hash using Miyaguchi-Preneel:
 // https://en.wikipedia.org/wiki/One-way_compression_function
 // The XOR operation is replaced by field addition, data is in Montgomery form
-func (d *digest) checksum() fr.Element {
+func (d *Digest) checksum() fr.Element {
 	// Write guarantees len(data) % BlockSize == 0
 
 	// TODO @ThomasPiellard shouldn't Sum() returns an error if there is no data?
@@ -150,7 +150,7 @@ func (d *digest) checksum() fr.Element {
 // plain execution of a mimc run
 // m: message
 // k: encryption key
-func (d *digest) encrypt(m fr.Element) fr.Element {
+func (d *Digest) encrypt(m fr.Element) fr.Element {
 	once.Do(initConstants) // init constants
 
 	var tmp1, tmp2 fr.Element
@@ -169,7 +169,7 @@ func (d *digest) encrypt(m fr.Element) fr.Element {
 
 // Sum computes the mimc hash of msg from seed
 func Sum(msg []byte) ([]byte, error) {
-	var d digest
+	var d Digest
 	if _, err := d.Write(msg); err != nil {
 		return nil, err
 	}
@@ -196,11 +196,35 @@ func initConstants() {
 }
 
 // WriteString writes a string that doesn't necessarily consist of field elements
-func (d *digest) WriteString(rawBytes []byte) error {
+func (d *Digest) WriteString(rawBytes []byte) error {
 	if elems, err := fr.Hash(rawBytes, []byte("string:"), 1); err != nil {
 		return err
 	} else {
 		d.data = append(d.data, elems[0])
 	}
 	return nil
+}
+
+// SetState manually sets the state of the hasher to an user-provided value. In
+// the context of MiMC, the method expects a byte slice of 32 elements.
+func (d *Digest) SetState(newState []byte) error {
+
+	if len(newState) != 32 {
+		return errors.New("the mimc state expects a state of 32 bytes")
+	}
+
+	if err := d.h.SetBytesCanonical(newState); err != nil {
+		return errors.New("the provided newState does not represent a valid state")
+	}
+
+	d.data = nil
+
+	return nil
+}
+
+// State returns the internal state of the hasher
+func (d *Digest) State() []byte {
+	_ = d.Sum(nil) // this flushes the hasher
+	b := d.h.Bytes()
+	return b[:]
 }
