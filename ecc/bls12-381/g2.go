@@ -55,9 +55,9 @@ func (p *G2Affine) Set(a *G2Affine) *G2Affine {
 	return p
 }
 
-// setInfinity sets p to the infinity point, which is encoded as (0,0).
+// SetInfinity sets p to the infinity point, which is encoded as (0,0).
 // N.B.: (0,0) is never on the curve for j=0 curves (Y²=X³+B).
-func (p *G2Affine) setInfinity() *G2Affine {
+func (p *G2Affine) SetInfinity() *G2Affine {
 	p.X.SetZero()
 	p.Y.SetZero()
 	return p
@@ -105,7 +105,7 @@ func (p *G2Affine) Add(a, b *G2Affine) *G2Affine {
 			return p.FromJacobian(&q)
 		} else {
 			// if b == -a, we return 0
-			return p.setInfinity()
+			return p.SetInfinity()
 		}
 	}
 	var H, HH, I, J, r, V fptower.E2
@@ -672,8 +672,8 @@ func (p *g2JacExtended) Set(q *g2JacExtended) *g2JacExtended {
 	return p
 }
 
-// setInfinity sets p to the infinity point (1,1,0,0).
-func (p *g2JacExtended) setInfinity() *g2JacExtended {
+// SetInfinity sets p to the infinity point (1,1,0,0).
+func (p *g2JacExtended) SetInfinity() *g2JacExtended {
 	p.X.SetOne()
 	p.Y.SetOne()
 	p.ZZ = fptower.E2{}
@@ -1088,12 +1088,24 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 func batchAddG2Affine[TP pG2Affine, TPP ppG2Affine, TC cG2Affine](R *TPP, P *TP, batchSize int) {
 	var lambda, lambdain TC
 
-	// add part
+	// from https://docs.zkproof.org/pages/standards/accepted-workshop3/proposal-turbo_plonk.pdf
+	// affine point addition formula
+	// R(X1, Y1) + P(X2, Y2) = Q(X3, Y3)
+	// λ  = (Y2 - Y1) / (X2 - X1)
+	// X3 = λ² - (X1 + X2)
+	// Y3 = λ * (X1 - X3) - Y1
+
+	// first we compute the 1 / (X2 - X1) for all points using Montgomery batch inversion trick
+
+	// X2 - X1
 	for j := 0; j < batchSize; j++ {
 		lambdain[j].Sub(&(*P)[j].X, &(*R)[j].X)
 	}
 
-	// invert denominator using montgomery batch invert technique
+	// montgomery batch inversion;
+	// lambda[0] = 1 / (P[0].X - R[0].X)
+	// lambda[1] = 1 / (P[1].X - R[1].X)
+	// ...
 	{
 		var accumulator fptower.E2
 		lambda[0].SetOne()
@@ -1113,23 +1125,25 @@ func batchAddG2Affine[TP pG2Affine, TPP ppG2Affine, TC cG2Affine](R *TPP, P *TP,
 		lambda[0].Set(&accumulator)
 	}
 
-	var d fptower.E2
-	var rr G2Affine
+	var t fptower.E2
+	var Q G2Affine
 
-	// add part
 	for j := 0; j < batchSize; j++ {
-		// computa lambda
-		d.Sub(&(*P)[j].Y, &(*R)[j].Y)
-		lambda[j].Mul(&lambda[j], &d)
+		// λ  = (Y2 - Y1) / (X2 - X1)
+		t.Sub(&(*P)[j].Y, &(*R)[j].Y)
+		lambda[j].Mul(&lambda[j], &t)
 
-		// compute X, Y
-		rr.X.Square(&lambda[j])
-		rr.X.Sub(&rr.X, &(*R)[j].X)
-		rr.X.Sub(&rr.X, &(*P)[j].X)
-		d.Sub(&(*R)[j].X, &rr.X)
-		rr.Y.Mul(&lambda[j], &d)
-		rr.Y.Sub(&rr.Y, &(*R)[j].Y)
-		(*R)[j].Set(&rr)
+		// X3 = λ² - (X1 + X2)
+		Q.X.Square(&lambda[j])
+		Q.X.Sub(&Q.X, &(*R)[j].X)
+		Q.X.Sub(&Q.X, &(*P)[j].X)
+
+		// Y3 = λ * (X1 - X3) - Y1
+		t.Sub(&(*R)[j].X, &Q.X)
+		Q.Y.Mul(&lambda[j], &t)
+		Q.Y.Sub(&Q.Y, &(*R)[j].Y)
+
+		(*R)[j].Set(&Q)
 	}
 }
 

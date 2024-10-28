@@ -270,7 +270,7 @@ func TestG2AffineOps(t *testing.T) {
 			g := g2GenAff
 			s.BigInt(&sInt)
 			op1.ScalarMultiplication(&g, &sInt)
-			op2.setInfinity()
+			op2.SetInfinity()
 
 			op1.Add(&op1, &op2)
 			op2.Add(&op2, &op1)

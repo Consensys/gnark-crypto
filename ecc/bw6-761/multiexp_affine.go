@@ -62,7 +62,7 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 	var buckets B // in G1Affine coordinates, infinity point is represented as (0,0), no need to init
 	var bucketsJE BJE
 	for i := 0; i < len(buckets); i++ {
-		bucketsJE[i].setInfinity()
+		bucketsJE[i].SetInfinity()
 	}
 
 	// setup for the batch affine;
@@ -105,7 +105,7 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 				bucketsJE[op.bucketID].addMixed(&op.point)
 				return
 			}
-			BK.setInfinity()
+			BK.SetInfinity()
 			return
 		}
 
@@ -133,12 +133,12 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 				if isAdd {
 					bucketsJE[bucketID].addMixed(PP)
 				} else {
-					BK.setInfinity()
+					BK.SetInfinity()
 				}
 				return
 			}
 			if isAdd {
-				BK.setInfinity()
+				BK.SetInfinity()
 			} else {
 				bucketsJE[bucketID].subMixed(PP)
 			}
@@ -220,8 +220,8 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 	// reduce buckets into total
 	// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
 	var runningSum, total g1JacExtended
-	runningSum.setInfinity()
-	total.setInfinity()
+	runningSum.SetInfinity()
+	total.SetInfinity()
 	for k := len(buckets) - 1; k >= 0; k-- {
 		runningSum.addMixed(&buckets[k])
 		if !bucketsJE[k].IsInfinity() {
@@ -329,7 +329,7 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 	var buckets B // in G2Affine coordinates, infinity point is represented as (0,0), no need to init
 	var bucketsJE BJE
 	for i := 0; i < len(buckets); i++ {
-		bucketsJE[i].setInfinity()
+		bucketsJE[i].SetInfinity()
 	}
 
 	// setup for the batch affine;
@@ -372,7 +372,7 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 				bucketsJE[op.bucketID].addMixed(&op.point)
 				return
 			}
-			BK.setInfinity()
+			BK.SetInfinity()
 			return
 		}
 
@@ -400,12 +400,12 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 				if isAdd {
 					bucketsJE[bucketID].addMixed(PP)
 				} else {
-					BK.setInfinity()
+					BK.SetInfinity()
 				}
 				return
 			}
 			if isAdd {
-				BK.setInfinity()
+				BK.SetInfinity()
 			} else {
 				bucketsJE[bucketID].subMixed(PP)
 			}
@@ -487,8 +487,8 @@ func processChunkG2BatchAffine[BJE ibg2JacExtended, B ibG2Affine, BS bitSet, TP 
 	// reduce buckets into total
 	// total =  bucket[0] + 2*bucket[1] + 3*bucket[2] ... + n*bucket[n-1]
 	var runningSum, total g2JacExtended
-	runningSum.setInfinity()
-	total.setInfinity()
+	runningSum.SetInfinity()
+	total.SetInfinity()
 	for k := len(buckets) - 1; k >= 0; k-- {
 		runningSum.addMixed(&buckets[k])
 		if !bucketsJE[k].IsInfinity() {
