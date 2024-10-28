@@ -495,7 +495,7 @@ func (p *G2Jac) IsOnCurve() bool {
 func (p *G2Jac) IsInSubGroup() bool {
 	var res, tmp G2Jac
 	tmp.psi(p)
-	res.ScalarMultiplication(p, &xGen).
+	res.mulWindowed(p, &xGen).
 		AddAssign(&tmp)
 
 	return res.IsOnCurve() && res.Z.IsZero()
@@ -639,8 +639,8 @@ func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 func (p *G2Jac) ClearCofactor(q *G2Jac) *G2Jac {
 	// https://eprint.iacr.org/2017/419.pdf, 4.1
 	var xg, xxg, res, t G2Jac
-	xg.ScalarMultiplication(q, &xGen).Neg(&xg)
-	xxg.ScalarMultiplication(&xg, &xGen).Neg(&xxg)
+	xg.mulWindowed(q, &xGen).Neg(&xg)
+	xxg.mulWindowed(&xg, &xGen).Neg(&xxg)
 
 	res.Set(&xxg).
 		SubAssign(&xg).

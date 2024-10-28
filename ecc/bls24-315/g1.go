@@ -493,10 +493,10 @@ func (p *G1Jac) IsInSubGroup() bool {
 
 	var res G1Jac
 	res.phi(p).
-		ScalarMultiplication(&res, &xGen).
-		ScalarMultiplication(&res, &xGen).
-		ScalarMultiplication(&res, &xGen).
-		ScalarMultiplication(&res, &xGen).
+		mulWindowed(&res, &xGen).
+		mulWindowed(&res, &xGen).
+		mulWindowed(&res, &xGen).
+		mulWindowed(&res, &xGen).
 		AddAssign(p)
 
 	return res.IsOnCurve() && res.Z.IsZero()
@@ -632,7 +632,7 @@ func (p *G1Affine) ClearCofactor(a *G1Affine) *G1Affine {
 func (p *G1Jac) ClearCofactor(q *G1Jac) *G1Jac {
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res G1Jac
-	res.ScalarMultiplication(q, &xGen).AddAssign(q)
+	res.mulWindowed(q, &xGen).AddAssign(q)
 	p.Set(&res)
 	return p
 

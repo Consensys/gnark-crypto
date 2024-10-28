@@ -495,11 +495,11 @@ func (p *G2Jac) IsOnCurve() bool {
 func (p *G2Jac) IsInSubGroup() bool {
 
 	var uP, u4P, u5P, q, r G2Jac
-	uP.ScalarMultiplication(p, &xGen)
-	u4P.ScalarMultiplication(&uP, &xGen).
-		ScalarMultiplication(&u4P, &xGen).
-		ScalarMultiplication(&u4P, &xGen)
-	u5P.ScalarMultiplication(&u4P, &xGen)
+	uP.mulWindowed(p, &xGen)
+	u4P.mulWindowed(&uP, &xGen).
+		mulWindowed(&u4P, &xGen).
+		mulWindowed(&u4P, &xGen)
+	u5P.mulWindowed(&u4P, &xGen)
 	q.Set(p).SubAssign(&uP)
 	r.phi(&q).SubAssign(&uP).
 		AddAssign(&u4P).
@@ -641,11 +641,11 @@ func (p *G2Jac) ClearCofactor(q *G2Jac) *G2Jac {
 	d1.SetInt64(13)
 	d3.SetInt64(5) // negative
 
-	uP.ScalarMultiplication(q, &xGen) // negative
-	u2P.ScalarMultiplication(&uP, &xGen)
-	u3P.ScalarMultiplication(&u2P, &xGen) // negative
-	u4P.ScalarMultiplication(&u3P, &xGen)
-	u5P.ScalarMultiplication(&u4P, &xGen) // negative
+	uP.mulWindowed(q, &xGen) // negative
+	u2P.mulWindowed(&uP, &xGen)
+	u3P.mulWindowed(&u2P, &xGen) // negative
+	u4P.mulWindowed(&u3P, &xGen)
+	u5P.mulWindowed(&u4P, &xGen) // negative
 	vP.Set(&u2P).AddAssign(&uP).
 		AddAssign(&u3P).
 		Double(&vP).
@@ -653,15 +653,15 @@ func (p *G2Jac) ClearCofactor(q *G2Jac) *G2Jac {
 		AddAssign(q)
 	wP.Set(&uP).SubAssign(&u4P).SubAssign(&u5P)
 	xP.Set(q).AddAssign(&vP)
-	L0.Set(&uP).SubAssign(q).ScalarMultiplication(&L0, &d1)
-	tmp.ScalarMultiplication(&xP, &d3)
+	L0.Set(&uP).SubAssign(q).mulWindowed(&L0, &d1)
+	tmp.mulWindowed(&xP, &d3)
 	L0.AddAssign(&tmp)
-	tmp.ScalarMultiplication(q, &ht) // negative
+	tmp.mulWindowed(q, &ht) // negative
 	L0.SubAssign(&tmp)
-	L1.ScalarMultiplication(&wP, &d1)
-	tmp.ScalarMultiplication(&vP, &ht)
+	L1.mulWindowed(&wP, &d1)
+	tmp.mulWindowed(&vP, &ht)
 	L1.AddAssign(&tmp)
-	tmp.ScalarMultiplication(q, &d3)
+	tmp.mulWindowed(q, &d3)
 	L1.AddAssign(&tmp)
 
 	p.phi(&L1).AddAssign(&L0)
