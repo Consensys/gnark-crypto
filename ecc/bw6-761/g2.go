@@ -500,13 +500,13 @@ func (p *G2Jac) IsInSubGroup() bool {
 
 	var res, phip G2Jac
 	phip.phi(p)
-	res.ScalarMultiplication(&phip, &xGen).
+	res.mulWindowed(&phip, &xGen).
 		SubAssign(&phip).
-		ScalarMultiplication(&res, &xGen).
-		ScalarMultiplication(&res, &xGen).
+		mulWindowed(&res, &xGen).
+		mulWindowed(&res, &xGen).
 		AddAssign(&phip)
 
-	phip.ScalarMultiplication(p, &xGen).AddAssign(p).AddAssign(&res)
+	phip.mulWindowed(p, &xGen).AddAssign(p).AddAssign(&res)
 
 	return phip.IsOnCurve() && phip.Z.IsZero()
 
@@ -641,9 +641,9 @@ func (p *G2Affine) ClearCofactor(a *G2Affine) *G2Affine {
 func (p *G2Jac) ClearCofactor(q *G2Jac) *G2Jac {
 	var points [4]G2Jac
 	points[0].Set(q)
-	points[1].ScalarMultiplication(q, &xGen)
-	points[2].ScalarMultiplication(&points[1], &xGen)
-	points[3].ScalarMultiplication(&points[2], &xGen)
+	points[1].mulWindowed(q, &xGen)
+	points[2].mulWindowed(&points[1], &xGen)
+	points[3].mulWindowed(&points[2], &xGen)
 
 	var scalars [7]big.Int
 	scalars[0].SetInt64(103)
@@ -656,18 +656,18 @@ func (p *G2Jac) ClearCofactor(q *G2Jac) *G2Jac {
 	scalars[6].SetInt64(109)
 
 	var p1, p2, tmp G2Jac
-	p1.ScalarMultiplication(&points[3], &scalars[0])
-	tmp.ScalarMultiplication(&points[2], &scalars[1]).Neg(&tmp)
+	p1.mulWindowed(&points[3], &scalars[0])
+	tmp.mulWindowed(&points[2], &scalars[1]).Neg(&tmp)
 	p1.AddAssign(&tmp)
-	tmp.ScalarMultiplication(&points[1], &scalars[2]).Neg(&tmp)
+	tmp.mulWindowed(&points[1], &scalars[2]).Neg(&tmp)
 	p1.AddAssign(&tmp)
-	tmp.ScalarMultiplication(&points[0], &scalars[3])
+	tmp.mulWindowed(&points[0], &scalars[3])
 	p1.AddAssign(&tmp)
 
-	p2.ScalarMultiplication(&points[2], &scalars[4])
-	tmp.ScalarMultiplication(&points[1], &scalars[5]).Neg(&tmp)
+	p2.mulWindowed(&points[2], &scalars[4])
+	tmp.mulWindowed(&points[1], &scalars[5]).Neg(&tmp)
 	p2.AddAssign(&tmp)
-	tmp.ScalarMultiplication(&points[0], &scalars[6]).Neg(&tmp)
+	tmp.mulWindowed(&points[0], &scalars[6]).Neg(&tmp)
 	p2.AddAssign(&tmp)
 	p2.phi(&p2).phi(&p2)
 

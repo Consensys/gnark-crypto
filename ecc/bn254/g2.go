@@ -493,7 +493,7 @@ func (p *G2Jac) IsOnCurve() bool {
 // [r]P == 0 <==> [x₀+1]P + ψ([x₀]P) + ψ²([x₀]P) = ψ³([2x₀]P)
 func (p *G2Jac) IsInSubGroup() bool {
 	var a, b, c, res G2Jac
-	a.ScalarMultiplication(p, &xGen)
+	a.mulWindowed(p, &xGen)
 	b.psi(&a)
 	a.AddAssign(p)
 	res.psi(&b)
@@ -646,7 +646,7 @@ func (p *G2Jac) ClearCofactor(q *G2Jac) *G2Jac {
 	// cf http://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf, 6.1
 	var points [4]G2Jac
 
-	points[0].ScalarMultiplication(q, &xGen)
+	points[0].mulWindowed(q, &xGen)
 
 	points[1].Double(&points[0]).
 		AddAssign(&points[0]).
