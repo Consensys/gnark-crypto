@@ -39,9 +39,6 @@ type parameters struct {
 	// len(preimage)+len(digest)=len(preimage)+ceil(log(2*<security_level>/r))
 	t int
 
-	// sbox degree
-	d int
-
 	// number of full rounds (even number)
 	rF int
 
@@ -64,8 +61,8 @@ type Hash struct {
 }
 
 // NewHash returns a new hash instance allowing to apply the poseidon2 permutation
-func NewHash(t, d, rf, rp int, seed string) Hash {
-	params := parameters{t: t, d: d, rF: rf, rP: rp}
+func NewHash(t, rf, rp int, seed string) Hash {
+	params := parameters{t: t, rF: rf, rP: rp}
 	params.roundKeys = InitRC(seed, rf, rp, t)
 	res := Hash{params: params}
 	return res
@@ -115,29 +112,12 @@ func InitRC(seed string, rf, rp, t int) [][]fr.Element {
 func (h *Hash) sBox(index int, input []fr.Element) {
 	var tmp fr.Element
 	tmp.Set(&input[index])
-	if h.params.d == 3 {
-		input[index].Square(&input[index]).
-			Mul(&input[index], &tmp)
-	} else if h.params.d == 5 {
-		input[index].Square(&input[index]).
-			Square(&input[index]).
-			Mul(&input[index], &tmp)
-	} else if h.params.d == 7 {
-		input[index].Square(&input[index]).
-			Mul(&input[index], &tmp).
-			Square(&input[index]).
-			Mul(&input[index], &tmp)
-	} else if h.params.d == -1 {
-		input[index].Inverse(&input[index])
-	} else if h.params.d == 17 {
-		input[index].Square(&input[index]).
-			Square(&input[index]).
-			Square(&input[index]).
-			Square(&input[index]).
-			Mul(&input[index], &tmp)
-	} else {
-		panic("sbox non implemented")
-	}
+
+	// sbox degree is 5
+	input[index].Square(&input[index]).
+		Square(&input[index]).
+		Mul(&input[index], &tmp)
+
 }
 
 // matMulM4 computes
