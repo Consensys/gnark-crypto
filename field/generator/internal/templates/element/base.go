@@ -18,7 +18,7 @@ import (
 	"github.com/bits-and-blooms/bitset"
 )
 
-// {{.ElementName}} represents a field element stored on {{.NbWords}} words (uint64)
+// {{.ElementName}} represents a field element stored on {{.NbWords}} words ({{$.Word.TypeLower}})
 //
 // {{.ElementName}} are assumed to be in Montgomery form in all methods.
 //
@@ -30,10 +30,10 @@ import (
 // Warning
 //
 // This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
-type {{.ElementName}} [{{.NbWords}}]uint64
+type {{.ElementName}} [{{.NbWords}}]{{$.Word.TypeLower}}
 
 const (
-	Limbs = {{.NbWords}} 	// number of 64 bits words needed to represent a {{.ElementName}}
+	Limbs = {{.NbWords}} 	// number of {{$.Word.TypeLower}} words needed to represent a {{.ElementName}}
 	Bits = {{.NbBits}} 		// number of bits needed to represent a {{.ElementName}}
 	Bytes = {{.NbBytes}} 	// number of bytes needed to represent a {{.ElementName}}
 )
@@ -42,9 +42,9 @@ const (
 // Field modulus q
 const (
 {{- range $i := $.NbWordsIndexesFull}}
-	q{{$i}} uint64 = {{index $.Q $i}}
+	q{{$i}} {{$.Word.TypeLower}} = {{index $.Q $i}}
 	{{- if eq $.NbWords 1}}
-		q uint64 = q0
+		q {{$.Word.TypeLower}} = q0
 	{{- end}}
 {{- end}}
 )
@@ -66,7 +66,7 @@ func Modulus() *big.Int {
 
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 // used for Montgomery reduction
-const qInvNeg uint64 = {{index .QInverse 0}}
+const qInvNeg {{$.Word.TypeLower}} = {{index .QInverse 0}}
 
 {{- if eq .NbWords 4}}
 // mu = 2^288 / q needed for partial Barrett reduction
@@ -84,16 +84,29 @@ func init() {
 // 		var v {{.ElementName}}
 // 		v.SetUint64(...)
 func New{{.ElementName}}(v uint64) {{.ElementName}} {
-	z := {{.ElementName}}{v}
+{{- if eq .Word.BitSize 32}}
+	z := {{.ElementName}}{ {{$.Word.TypeLower}}(v % uint64(q0)) }
 	z.Mul(&z, &rSquare)
 	return z
+{{- else }}
+	z := {{.ElementName}}{ {{$.Word.TypeLower}}(v) }
+	z.Mul(&z, &rSquare)
+	return z
+{{- end}}
 }
 
 // SetUint64 sets z to v and returns z
 func (z *{{.ElementName}}) SetUint64(v uint64) *{{.ElementName}} {
+{{- if eq .Word.BitSize 32}}
 	//  sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
-	*z = {{.ElementName}}{v}
+	*z = {{.ElementName}}{ {{$.Word.TypeLower}}(v % uint64(q0)) }
 	return z.Mul(z, &rSquare) // z.toMont()
+{{- else }}
+	//  sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
+	*z = {{.ElementName}}{ {{$.Word.TypeLower}}(v) }
+	return z.Mul(z, &rSquare) // z.toMont()
+{{- end}}
+
 }
 
 // SetInt64 sets z to v and returns z
@@ -211,7 +224,7 @@ func (z *{{.ElementName}}) Equal(x *{{.ElementName}}) bool {
 
 // NotEqual returns 0 if and only if z == x; constant-time
 func (z *{{.ElementName}}) NotEqual(x *{{.ElementName}}) uint64 {
-return {{- range $i :=  reverse .NbWordsIndexesNoZero}}(z[{{$i}}] ^ x[{{$i}}]) | {{end}}(z[0] ^ x[0])
+return uint64({{- range $i :=  reverse .NbWordsIndexesNoZero}}(z[{{$i}}] ^ x[{{$i}}]) | {{end}}(z[0] ^ x[0]))
 }
 
 // IsZero returns z == 0
@@ -241,7 +254,7 @@ func (z *{{.ElementName}}) IsUint64() bool {
 
 // Uint64 returns the uint64 representation of x. If x cannot be represented in a uint64, the result is undefined.
 func (z *{{.ElementName}}) Uint64() uint64 {
-	return z.Bits()[0]
+	return uint64(z.Bits()[0])
 }
 
 // FitsOnOneWord reports whether z words (except the least significant word) are 0
@@ -283,10 +296,10 @@ func (z *{{.ElementName}}) LexicographicallyLargest() bool {
 
 	_z := z.Bits()
 
-	var b uint64
-	_, b = bits.Sub64(_z[0], {{index .QMinusOneHalvedP 0}}, 0)
+	var b {{$.Word.TypeLower}}
+	_, b = bits.{{$.Word.Sub}}(_z[0], {{index .QMinusOneHalvedP 0}}, 0)
 	{{- range $i := .NbWordsIndexesNoZero}}
-		_, b = bits.Sub64(_z[{{$i}}], {{index $.QMinusOneHalvedP $i}}, b)
+		_, b = bits.{{$.Word.Sub}}(_z[{{$i}}], {{index $.QMinusOneHalvedP $i}}, b)
 	{{- end}}
 
 	return b == 0
@@ -323,13 +336,16 @@ func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 			return nil, err
 		}
 
+		{{- if eq $.Word.BitSize 32}}
+		// TODO @gbotrel check this is correct with 32bits words
+		{{- end}}
 		// Clear unused bits in in the most significant byte to increase probability
 		// that the candidate is < q.
 		bytes[k-1] &= uint8(int(1<<b) - 1)
 
 		{{- range $i :=  .NbWordsIndexesFull}}
 			{{- $k := add $i 1}}
-			z[{{$i}}] = binary.LittleEndian.Uint64(bytes[{{mul $i 8}}:{{mul $k 8}}])
+			z[{{$i}}] = binary.LittleEndian.{{$.Word.TypeUpper}}(bytes[{{mul $i $.Word.ByteSize}}:{{mul $k $.Word.ByteSize}}])
 		{{- end}}
 
 		if !z.smallerThanModulus() {
@@ -383,7 +399,7 @@ func (z *{{.ElementName}}) Halve()  {
 	{{- range $i := $.all.NbWordsIndexesFull }}
 		{{- $carryIn := ne $i 0}}
 		{{- $carryOut := or (ne $i $.all.NbWordsLastIndex) (and (eq $i $.all.NbWordsLastIndex) (not $.all.NoCarry))}}
-		{{$.V1}}[{{$i}}], {{- if $carryOut}}carry{{- else}}_{{- end}} = bits.Add64({{$.V1}}[{{$i}}], q{{$i}}, {{- if $carryIn}}carry{{- else}}0{{- end}})
+		{{$.V1}}[{{$i}}], {{- if $carryOut}}carry{{- else}}_{{- end}} = bits.{{$.all.Word.Add}}({{$.V1}}[{{$i}}], q{{$i}}, {{- if $carryIn}}carry{{- else}}0{{- end}})
 	{{- end}}
 {{ end }}
 
@@ -400,11 +416,11 @@ func (z *{{.ElementName}}) fromMont() *{{.ElementName}} {
 func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
 	{{- if $hasCarry}}
-		var carry uint64
+		var carry {{$.Word.TypeLower}}
 	{{- end}}
 	{{- range $i := iterate 0 $.NbWords}}
 		{{- $hasCarry := or (not $.NoCarry) (lt $i $.NbWordsLastIndex)}}
-		z[{{$i}}], {{- if $hasCarry}}carry{{- else}}_{{- end}} = bits.Add64(x[{{$i}}], y[{{$i}}], {{- if eq $i 0}}0{{- else}}carry{{- end}})
+		z[{{$i}}], {{- if $hasCarry}}carry{{- else}}_{{- end}} = bits.{{$.Word.Add}}(x[{{$i}}], y[{{$i}}], {{- if eq $i 0}}0{{- else}}carry{{- end}})
 	{{- end}}
 
 	{{- if eq $.NbWords 1}}
@@ -436,15 +452,9 @@ func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 // Double z = x + x (mod q), aka Lsh 1
 func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 	{{- if eq .NbWords 1}}
-	if x[0] & (1 << 63) == (1 << 63) {
-		// if highest bit is set, then we have a carry to x + x, we shift and subtract q
-		z[0] = (x[0] << 1) - q
-	} else {
-		// highest bit is not set, but x + x can still be >= q
-		z[0] = (x[0] << 1)
-		if z[0] >= q {
-			z[0] -= q
-		}
+	z[0] = x[0] << 1
+	if z[0] >= q {
+		z[0] -= q
 	}
 	{{- else}}
 	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
@@ -478,10 +488,10 @@ func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 
 // Sub z = x - y (mod q)
 func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
-	var b uint64
-	z[0], b = bits.Sub64(x[0], y[0], 0)
+	var b {{$.Word.TypeLower}}
+	z[0], b = bits.{{$.Word.Sub}}(x[0], y[0], 0)
 	{{- range $i := .NbWordsIndexesNoZero}}
-		z[{{$i}}], b = bits.Sub64(x[{{$i}}], y[{{$i}}], b)
+		z[{{$i}}], b = bits.{{$.Word.Sub}}(x[{{$i}}], y[{{$i}}], b)
 	{{- end}}
 	if b != 0 {
 		{{- if eq .NbWords 1}}
@@ -528,7 +538,7 @@ func (z *{{.ElementName}}) Neg( x *{{.ElementName}}) *{{.ElementName}} {
 // Select is a constant-time conditional move.
 // If c=0, z = x0. Else z = x1
 func (z *{{.ElementName}}) Select(c int, x0 *{{.ElementName}}, x1 *{{.ElementName}}) *{{.ElementName}} {
-	cC := uint64( (int64(c) | -int64(c)) >> 63 )	// "canonicized" into: 0 if c=0, -1 otherwise
+	cC := {{$.Word.TypeLower}}( (int64(c) | -int64(c)) >> 63 )	// "canonicized" into: 0 if c=0, -1 otherwise
 	{{- range $i := .NbWordsIndexesFull }}
 	z[{{$i}}] = x0[{{$i}}] ^ cC & (x0[{{$i}}] ^ x1[{{$i}}])
 	{{- end}}
@@ -612,10 +622,10 @@ func _butterflyGeneric(a, b *{{.ElementName}}) {
 func (z *{{.ElementName}}) BitLen() int {
 	{{- range $i := reverse .NbWordsIndexesNoZero}}
 	if z[{{$i}}] != 0 {
-		return {{mul $i 64}} + bits.Len64(z[{{$i}}])
+		return {{mul $i 64}} + bits.{{$.Word.Len}}(z[{{$i}}])
 	}
 	{{- end}}
-	return bits.Len64(z[0])
+	return bits.{{$.Word.Len}}(z[0])
 }
 
 // Hash msg to count prime field elements.

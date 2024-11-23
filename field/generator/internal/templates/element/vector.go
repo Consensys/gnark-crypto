@@ -107,11 +107,11 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) {
 				bend := bstart + Bytes
 				b := bSlice[bstart:bend]
 				{{- range $i := reverse .NbWordsIndexesFull}}
-					{{- $j := mul $i 8}}
+					{{- $j := mul $i $.Word.ByteSize}}
 					{{- $k := sub $.NbWords 1}}
 					{{- $k := sub $k $i}}
-					{{- $jj := add $j 8}}
-					z[{{$k}}] = binary.BigEndian.Uint64(b[{{$j}}:{{$jj}}])
+					{{- $jj := add $j $.Word.ByteSize}}
+					z[{{$k}}] = binary.BigEndian.{{$.Word.TypeUpper}}(b[{{$j}}:{{$jj}}])
 				{{- end}}
 
 				if !z.smallerThanModulus() {

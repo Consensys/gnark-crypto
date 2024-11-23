@@ -330,9 +330,9 @@ func genVector(size int) gopter.Gen {
 		g := make(Vector, size)
 		mixer := {{.ElementName}}{
 			{{- range $i := .NbWordsIndexesFull}}
-			genParams.NextUint64(),{{end}}
+			{{$.Word.TypeLower}}(genParams.NextUint64()),{{end}}
 		}
-		if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
+		if qElement[{{.NbWordsLastIndex}}] != ^{{$.Word.TypeLower}}(0) {
 			mixer[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
 		}
 		
@@ -340,9 +340,9 @@ func genVector(size int) gopter.Gen {
 		for !mixer.smallerThanModulus() {
 			mixer = {{.ElementName}}{
 				{{- range $i := .NbWordsIndexesFull}}
-				genParams.NextUint64(),{{end}}
+				{{$.Word.TypeLower}}(genParams.NextUint64()),{{end}}
 			}
-			if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
+			if qElement[{{.NbWordsLastIndex}}] != ^{{$.Word.TypeLower}}(0) {
 				mixer[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
 			}
 		}

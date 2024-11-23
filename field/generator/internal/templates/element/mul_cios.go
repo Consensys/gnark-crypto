@@ -39,15 +39,15 @@ package element
 // The same (arm64) unrolled Go code produce satisfying performance for WASM (compiled using TinyGo).
 const MulCIOS = `
 {{ define "mul_cios" }}
-	var t [{{add .all.NbWords 1}}]uint64
-	var D uint64
-	var m, C uint64
+	var t [{{add .all.NbWords 1}}]{{$.all.Word.TypeLower}}
+	var D {{$.all.Word.TypeLower}}
+	var m, C {{$.all.Word.TypeLower}}
 
 	{{- range $j := .all.NbWordsIndexesFull}}
 		// -----------------------------------
 		// First loop
 		{{ if eq $j 0}}
-			C, t[0] = bits.Mul64({{$.V2}}[{{$j}}], {{$.V1}}[0])
+			C, t[0] = bits.{{$.all.Word.Mul}}({{$.V2}}[{{$j}}], {{$.V1}}[0])
 			{{- range $i := $.all.NbWordsIndexesNoZero}}
 				C, t[{{$i}}] = madd1({{$.V2}}[{{$j}}], {{$.V1}}[{{$i}}], C)
 			{{- end}}
@@ -57,7 +57,7 @@ const MulCIOS = `
 				C, t[{{$i}}] = madd2({{$.V2}}[{{$j}}], {{$.V1}}[{{$i}}], t[{{$i}}], C)
 			{{- end}}
 		{{ end }}
-		t[{{$.all.NbWords}}], D = bits.Add64(t[{{$.all.NbWords}}], C, 0)
+		t[{{$.all.NbWords}}], D = bits.{{$.all.Word.Add}}(t[{{$.all.NbWords}}], C, 0)
 
 		// m = t[0]n'[0] mod W
 		m = t[0] * qInvNeg
@@ -69,22 +69,22 @@ const MulCIOS = `
 				C, t[{{sub $i 1}}] = madd2(m, q{{$i}}, t[{{$i}}], C)
 		{{- end}}
 
-		 t[{{sub $.all.NbWords 1}}], C = bits.Add64(t[{{$.all.NbWords}}], C, 0)
-		 t[{{$.all.NbWords}}], _ = bits.Add64(0, D, C)
+		 t[{{sub $.all.NbWords 1}}], C = bits.{{$.all.Word.Add}}(t[{{$.all.NbWords}}], C, 0)
+		 t[{{$.all.NbWords}}], _ = bits.{{$.all.Word.Add}}(0, D, C)
 	{{- end}}
 
 
 	if t[{{$.all.NbWords}}] != 0 {
 		// we need to reduce, we have a result on {{add 1 $.all.NbWords}} words
 		{{- if gt $.all.NbWords 1}}
-		var b uint64
+		var b {{$.all.Word.TypeLower}}
 		{{- end}}
-		z[0], {{- if gt $.all.NbWords 1}}b{{- else}}_{{- end}} = bits.Sub64(t[0], q0, 0)
+		z[0], {{- if gt $.all.NbWords 1}}b{{- else}}_{{- end}} = bits.{{$.all.Word.Sub}}(t[0], q0, 0)
 		{{- range $i := .all.NbWordsIndexesNoZero}}
 			{{-  if eq $i $.all.NbWordsLastIndex}}
-				z[{{$i}}], _ = bits.Sub64(t[{{$i}}], q{{$i}}, b)
+				z[{{$i}}], _ = bits.{{$.all.Word.Sub}}(t[{{$i}}], q{{$i}}, b)
 			{{-  else  }}
-				z[{{$i}}], b = bits.Sub64(t[{{$i}}], q{{$i}}, b)
+				z[{{$i}}], b = bits.{{$.all.Word.Sub}}(t[{{$i}}], q{{$i}}, b)
 			{{- end}}
 		{{- end}}
 		return {{if $.ReturnZ }} z{{- end}}
@@ -110,14 +110,14 @@ const MulCIOS = `
 	// Which finally gives (lo + m * q) / R = (lo + lo2 + R hi2) / R = hi2 + (lo+lo2) / R = hi2 + (lo != 0)
 	// This "optimization" lets us do away with one MUL instruction on ARM architectures and is available for all q < R.
 
-	var r uint64
-	hi, lo := bits.Mul64({{$.V1}}[0], {{$.V2}}[0])
+	var r {{$.all.Word.TypeLower}}
+	hi, lo := bits.{{$.all.Word.Mul}}({{$.V1}}[0], {{$.V2}}[0])
 	if lo != 0 {
 		hi++ // x[0] * y[0] ≤ 2¹²⁸ - 2⁶⁵ + 1, meaning hi ≤ 2⁶⁴ - 2 so no need to worry about overflow
 	}
 	m := lo * qInvNeg
-	hi2, _ := bits.Mul64(m, q)
-	r, carry := bits.Add64(hi2, hi, 0)
+	hi2, _ := bits.{{$.all.Word.Mul}}(m, q)
+	r, carry := bits.{{$.all.Word.Add}}(hi2, hi, 0)
 
 	if carry != 0 || r >= q  {
 		// we need to reduce

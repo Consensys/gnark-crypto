@@ -1576,9 +1576,9 @@ func gen() gopter.Gen {
 
 		g.element = {{.ElementName}}{
 			{{- range $i := .NbWordsIndexesFull}}
-			genParams.NextUint64(),{{end}}
+			{{$.Word.TypeLower}}(genParams.NextUint64()),{{end}}
 		}
-		if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
+		if qElement[{{.NbWordsLastIndex}}] != ^{{$.Word.TypeLower}}(0) {
 			g.element[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
 		}
 		
@@ -1586,9 +1586,9 @@ func gen() gopter.Gen {
 		for !g.element.smallerThanModulus() {
 			g.element = {{.ElementName}}{
 				{{- range $i := .NbWordsIndexesFull}}
-				genParams.NextUint64(),{{end}}
+				{{$.Word.TypeLower}}(genParams.NextUint64()),{{end}}
 			}
-			if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
+			if qElement[{{.NbWordsLastIndex}}] != ^{{$.Word.TypeLower}}(0) {
 				g.element[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
 			}
 		}
@@ -1604,19 +1604,19 @@ func genRandomFq(genParams *gopter.GenParameters) {{.ElementName}} {
 
 	g = {{.ElementName}}{
 		{{- range $i := .NbWordsIndexesFull}}
-		genParams.NextUint64(),{{end}}
+		{{$.Word.TypeLower}}(genParams.NextUint64()),{{end}}
 	}
 
-	if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
+	if qElement[{{.NbWordsLastIndex}}] != ^{{$.Word.TypeLower}}(0) {
 		g[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
 	}
 
 	for !g.smallerThanModulus() {
 		g = {{.ElementName}}{
 			{{- range $i := .NbWordsIndexesFull}}
-			genParams.NextUint64(),{{end}}
+			{{$.Word.TypeLower}}(genParams.NextUint64()),{{end}}
 		}
-		if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
+		if qElement[{{.NbWordsLastIndex}}] != ^{{$.Word.TypeLower}}(0) {
 			g[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
 		}
 	}
@@ -1629,12 +1629,12 @@ func genFull() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		a := genRandomFq(genParams)
 
-		var carry uint64
+		var carry {{$.Word.TypeLower}}
 		{{- range $i := .NbWordsIndexesFull}}
 			{{- if eq $i $.NbWordsLastIndex}}
-			a[{{$i}}], _ = bits.Add64(a[{{$i}}], qElement[{{$i}}], carry)
+			a[{{$i}}], _ = bits.{{$.Word.Add}}(a[{{$i}}], qElement[{{$i}}], carry)
 			{{- else}}
-			a[{{$i}}], carry = bits.Add64(a[{{$i}}], qElement[{{$i}}], carry)
+			a[{{$i}}], carry = bits.{{$.Word.Add}}(a[{{$i}}], qElement[{{$i}}], carry)
 			{{- end}}
 		{{- end}}
 		

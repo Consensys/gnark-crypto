@@ -26,11 +26,11 @@ func (z *{{.ElementName}}) String() string {
 func (z *{{.ElementName}}) toBigInt(res *big.Int) *big.Int {
        var b [Bytes]byte
        {{- range $i := reverse .NbWordsIndexesFull}}
-               {{- $j := mul $i 8}}
+               {{- $j := mul $i $.Word.ByteSize}}
                {{- $k := sub $.NbWords 1}}
                {{- $k := sub $k $i}}
-               {{- $jj := add $j 8}}
-               binary.BigEndian.PutUint64(b[{{$j}}:{{$jj}}], z[{{$k}}])
+               {{- $jj := add $j $.Word.ByteSize}}
+               binary.BigEndian.Put{{$.Word.TypeUpper}}(b[{{$j}}:{{$jj}}], z[{{$k}}])
        {{- end}}
 
        return res.SetBytes(b[:])
@@ -61,12 +61,12 @@ func (z *{{.ElementName}}) Text(base int) string {
 			zzNeg.Neg(z)
 			zzNeg.fromMont()
 			if zzNeg[0] <= maxUint16 && zzNeg[0] != 0 {
-				return "-" + strconv.FormatUint(zzNeg[0], base)
+				return "-" + strconv.FormatUint(uint64(zzNeg[0]), base)
 			}
 		}
 		{{- end}}
 		zz := z.Bits()
-		return strconv.FormatUint(zz[0], base)
+		return strconv.FormatUint(uint64(zz[0]), base)
 	{{- else }}
 		if base == 10 {
 			var zzNeg {{.ElementName}}
@@ -103,10 +103,10 @@ func (z {{.ElementName}}) ToBigIntRegular(res *big.Int) *big.Int {
 	return z.toBigInt(res)
 }
 
-// Bits provides access to z by returning its value as a little-endian [{{.NbWords}}]uint64 array. 
+// Bits provides access to z by returning its value as a little-endian [{{.NbWords}}]{{.Word.TypeLower}} array. 
 // Bits is intended to support implementation of missing low-level {{.ElementName}}
 // functionality outside this package; it should be avoided otherwise.
-func (z *{{.ElementName}}) Bits() [{{.NbWords}}]uint64 {
+func (z *{{.ElementName}}) Bits() [{{.NbWords}}]{{.Word.TypeLower}} {
 	_z := *z
 	fromMont(&_z)
 	return _z
@@ -207,14 +207,14 @@ func (z *{{.ElementName}}) setBigInt(v *big.Int) *{{.ElementName}} {
 
 	if bits.UintSize == 64 {
 		for i := 0; i < len(vBits); i++ {
-			z[i] = uint64(vBits[i])
+			z[i] = {{$.Word.TypeLower}}(vBits[i])
 		}
 	} else {
 		for i := 0; i < len(vBits); i++ {
 			if i%2 == 0 {
-				z[i/2] = uint64(vBits[i])
+				z[i/2] = {{$.Word.TypeLower}}(vBits[i])
 			} else {
-				z[i/2] |= uint64(vBits[i]) << 32
+				z[i/2] |= {{$.Word.TypeLower}}(vBits[i]) << 32
 			}
 		}
 	}
@@ -323,11 +323,11 @@ type bigEndian struct{}
 func (bigEndian) Element(b *[Bytes]byte) ({{.ElementName}}, error) {
 	var z {{.ElementName}}
 	{{- range $i := reverse .NbWordsIndexesFull}}
-		{{- $j := mul $i 8}}
+		{{- $j := mul $i $.Word.ByteSize}}
 		{{- $k := sub $.NbWords 1}}
 		{{- $k := sub $k $i}}
-		{{- $jj := add $j 8}}
-		z[{{$k}}] = binary.BigEndian.Uint64((*b)[{{$j}}:{{$jj}}])
+		{{- $jj := add $j $.Word.ByteSize}}
+		z[{{$k}}] = binary.BigEndian.{{$.Word.TypeUpper}}((*b)[{{$j}}:{{$jj}}])
 	{{- end}}
 
 	if !z.smallerThanModulus() {
@@ -342,11 +342,11 @@ func (bigEndian) PutElement(b *[Bytes]byte, e {{.ElementName}})  {
 	e.fromMont()
 
 	{{- range $i := reverse .NbWordsIndexesFull}}
-		{{- $j := mul $i 8}}
+		{{- $j := mul $i $.Word.ByteSize}}
 		{{- $k := sub $.NbWords 1}}
 		{{- $k := sub $k $i}}
-		{{- $jj := add $j 8}}
-		binary.BigEndian.PutUint64((*b)[{{$j}}:{{$jj}}], e[{{$k}}])
+		{{- $jj := add $j $.Word.ByteSize}}
+		binary.BigEndian.Put{{$.Word.TypeUpper}}((*b)[{{$j}}:{{$jj}}], e[{{$k}}])
 	{{- end}}
 }
 
@@ -362,9 +362,9 @@ type littleEndian struct{}
 func (littleEndian) Element(b *[Bytes]byte) ({{.ElementName}}, error) {
 	var z {{.ElementName}}
 	{{- range $i := .NbWordsIndexesFull}}
-		{{- $j := mul $i 8}}
-		{{- $jj := add $j 8}}
-		z[{{$i}}] = binary.LittleEndian.Uint64((*b)[{{$j}}:{{$jj}}])
+		{{- $j := mul $i $.Word.ByteSize}}
+		{{- $jj := add $j $.Word.ByteSize}}
+		z[{{$i}}] = binary.LittleEndian.{{$.Word.TypeUpper}}((*b)[{{$j}}:{{$jj}}])
 	{{- end}}
 
 	if !z.smallerThanModulus() {
@@ -379,9 +379,9 @@ func (littleEndian) PutElement(b *[Bytes]byte, e {{.ElementName}})  {
 	e.fromMont()
 
 	{{- range $i := .NbWordsIndexesFull}}
-		{{- $j := mul $i 8}}
-		{{- $jj := add $j 8}}
-		binary.LittleEndian.PutUint64((*b)[{{$j}}:{{$jj}}], e[{{$i}}])
+		{{- $j := mul $i $.Word.ByteSize}}
+		{{- $jj := add $j $.Word.ByteSize}}
+		binary.LittleEndian.Put{{$.Word.TypeUpper}}((*b)[{{$j}}:{{$jj}}], e[{{$i}}])
 	{{- end}}
 }
 

@@ -20,7 +20,7 @@ if b != 0 {
 {{/* We use big.Int for Inverse for these type of moduli */}}
 {{if not $.UsingP20Inverse}}
 
-{{- if eq .NbWords 1}}
+{{- if and (eq .NbWords 1) (eq .Word.BitSize 64)}}
 // Inverse z = x⁻¹ (mod q) 
 //
 // if x == 0, sets and returns z = x 
