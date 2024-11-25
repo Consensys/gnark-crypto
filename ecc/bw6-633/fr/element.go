@@ -1035,6 +1035,7 @@ func (z *Element) SetBigInt(v *big.Int) *Element {
 // setBigInt assumes 0 ⩽ v < q
 func (z *Element) setBigInt(v *big.Int) *Element {
 	vBits := v.Bits()
+
 	if bits.UintSize == 64 {
 		for i := 0; i < len(vBits); i++ {
 			z[i] = uint64(vBits[i])

@@ -211,6 +211,7 @@ func (z *{{.ElementName}}) setBigInt(v *big.Int) *{{.ElementName}} {
 		z[i] = {{$.Word.TypeLower}}(vBits[i])
 	}
 	{{- else}}
+	
 		if bits.UintSize == 64 {
 			for i := 0; i < len(vBits); i++ {
 				z[i] = {{$.Word.TypeLower}}(vBits[i])
