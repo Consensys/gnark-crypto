@@ -33,7 +33,7 @@ import (
 type {{.ElementName}} [{{.NbWords}}]{{$.Word.TypeLower}}
 
 const (
-	Limbs = {{.NbWords}} 	// number of {{$.Word.TypeLower}} words needed to represent a {{.ElementName}}
+	Limbs = {{.NbWords}} 	// number of {{$.Word.BitSize}} bits words needed to represent a {{.ElementName}}
 	Bits = {{.NbBits}} 		// number of bits needed to represent a {{.ElementName}}
 	Bytes = {{.NbBytes}} 	// number of bytes needed to represent a {{.ElementName}}
 )
@@ -89,7 +89,7 @@ func New{{.ElementName}}(v uint64) {{.ElementName}} {
 	z.Mul(&z, &rSquare)
 	return z
 {{- else }}
-	z := {{.ElementName}}{ {{$.Word.TypeLower}}(v) }
+	z := {{.ElementName}}{ v }
 	z.Mul(&z, &rSquare)
 	return z
 {{- end}}
@@ -103,10 +103,9 @@ func (z *{{.ElementName}}) SetUint64(v uint64) *{{.ElementName}} {
 	return z.Mul(z, &rSquare) // z.toMont()
 {{- else }}
 	//  sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
-	*z = {{.ElementName}}{ {{$.Word.TypeLower}}(v) }
+	*z = {{.ElementName}}{ v }
 	return z.Mul(z, &rSquare) // z.toMont()
 {{- end}}
-
 }
 
 // SetInt64 sets z to v and returns z
@@ -223,8 +222,8 @@ func (z *{{.ElementName}}) Equal(x *{{.ElementName}}) bool {
 }
 
 // NotEqual returns 0 if and only if z == x; constant-time
-func (z *{{.ElementName}}) NotEqual(x *{{.ElementName}}) uint64 {
-return uint64({{- range $i :=  reverse .NbWordsIndexesNoZero}}(z[{{$i}}] ^ x[{{$i}}]) | {{end}}(z[0] ^ x[0]))
+func (z *{{.ElementName}}) NotEqual(x *{{.ElementName}}) {{.Word.TypeLower}} {
+return {{- range $i :=  reverse .NbWordsIndexesNoZero}}(z[{{$i}}] ^ x[{{$i}}]) | {{end}}(z[0] ^ x[0])
 }
 
 // IsZero returns z == 0
@@ -254,7 +253,11 @@ func (z *{{.ElementName}}) IsUint64() bool {
 
 // Uint64 returns the uint64 representation of x. If x cannot be represented in a uint64, the result is undefined.
 func (z *{{.ElementName}}) Uint64() uint64 {
-	return uint64(z.Bits()[0])
+	{{- if eq .Word.BitSize 32}}
+		return uint64(z.Bits()[0])
+	{{- else}}
+		return z.Bits()[0]
+	{{- end}}
 }
 
 // FitsOnOneWord reports whether z words (except the least significant word) are 0
@@ -336,9 +339,6 @@ func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 			return nil, err
 		}
 
-		{{- if eq $.Word.BitSize 32}}
-		// TODO @gbotrel check this is correct with 32bits words
-		{{- end}}
 		// Clear unused bits in in the most significant byte to increase probability
 		// that the candidate is < q.
 		bytes[k-1] &= uint8(int(1<<b) - 1)
@@ -452,10 +452,24 @@ func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 // Double z = x + x (mod q), aka Lsh 1
 func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 	{{- if eq .NbWords 1}}
-	z[0] = x[0] << 1
-	if z[0] >= q {
-		z[0] -= q
-	}
+		{{- if lt .NbBits 32}}
+			z[0] = (x[0] << 1)
+			if z[0] >= q {
+					z[0] -= q
+			}
+		{{- else}}
+			if x[0]&(1<<63) == (1 << 63) {
+					// if highest bit is set, then we have a carry to x + x, we shift and subtract q
+					z[0] = (x[0] << 1) - q
+			} else {
+					// highest bit is not set, but x + x can still be >= q
+					z[0] = (x[0] << 1)
+					if z[0] >= q {
+							z[0] -= q
+					}
+			}
+		{{- end}}
+		return z
 	{{- else}}
 	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
 	{{- if $hasCarry}}
@@ -480,8 +494,8 @@ func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 	{{- end}}
 
 	{{ template "reduce" .}}
-	{{- end}}
 	return z
+	{{- end}}
 }
 
 

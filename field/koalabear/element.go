@@ -47,7 +47,7 @@ import (
 type Element [1]uint32
 
 const (
-	Limbs = 1  // number of uint32 words needed to represent a Element
+	Limbs = 1  // number of 32 bits words needed to represent a Element
 	Bits  = 31 // number of bits needed to represent a Element
 	Bytes = 4  // number of bytes needed to represent a Element
 )
@@ -97,7 +97,6 @@ func (z *Element) SetUint64(v uint64) *Element {
 	//  sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 	*z = Element{uint32(v % uint64(q0))}
 	return z.Mul(z, &rSquare) // z.toMont()
-
 }
 
 // SetInt64 sets z to v and returns z
@@ -208,8 +207,8 @@ func (z *Element) Equal(x *Element) bool {
 }
 
 // NotEqual returns 0 if and only if z == x; constant-time
-func (z *Element) NotEqual(x *Element) uint64 {
-	return uint64((z[0] ^ x[0]))
+func (z *Element) NotEqual(x *Element) uint32 {
+	return (z[0] ^ x[0])
 }
 
 // IsZero returns z == 0
@@ -300,7 +299,7 @@ func (z *Element) SetRandom() (*Element, error) {
 		if _, err := io.ReadFull(rand.Reader, bytes[:k]); err != nil {
 			return nil, err
 		}
-		// TODO @gbotrel check this is correct with 32bits words
+
 		// Clear unused bits in in the most significant byte to increase probability
 		// that the candidate is < q.
 		bytes[k-1] &= uint8(int(1<<b) - 1)
@@ -359,7 +358,7 @@ func (z *Element) Add(x, y *Element) *Element {
 
 // Double z = x + x (mod q), aka Lsh 1
 func (z *Element) Double(x *Element) *Element {
-	z[0] = x[0] << 1
+	z[0] = (x[0] << 1)
 	if z[0] >= q {
 		z[0] -= q
 	}
@@ -736,19 +735,9 @@ func (z *Element) SetBigInt(v *big.Int) *Element {
 // setBigInt assumes 0 ⩽ v < q
 func (z *Element) setBigInt(v *big.Int) *Element {
 	vBits := v.Bits()
-
-	if bits.UintSize == 64 {
-		for i := 0; i < len(vBits); i++ {
-			z[i] = uint32(vBits[i])
-		}
-	} else {
-		for i := 0; i < len(vBits); i++ {
-			if i%2 == 0 {
-				z[i/2] = uint32(vBits[i])
-			} else {
-				z[i/2] |= uint32(vBits[i]) << 32
-			}
-		}
+	// we assume v < q, so even if big.Int words are on 64bits, we can safely cast them to 32bits
+	for i := 0; i < len(vBits); i++ {
+		z[i] = uint32(vBits[i])
 	}
 
 	return z.toMont()

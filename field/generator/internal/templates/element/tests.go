@@ -1569,6 +1569,10 @@ type testPair{{.ElementName}} struct {
 	bigint       big.Int
 }
 
+{{- $gen64 := "genParams.NextUint64()"}}
+{{- if eq .Word.BitSize 32}}
+{{- $gen64 = "uint32(genParams.NextUint64())"}}
+{{- end}}
 
 func gen() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
@@ -1576,7 +1580,7 @@ func gen() gopter.Gen {
 
 		g.element = {{.ElementName}}{
 			{{- range $i := .NbWordsIndexesFull}}
-			{{$.Word.TypeLower}}(genParams.NextUint64()),{{end}}
+			{{$gen64}},{{end}}
 		}
 		if qElement[{{.NbWordsLastIndex}}] != ^{{$.Word.TypeLower}}(0) {
 			g.element[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
@@ -1586,7 +1590,7 @@ func gen() gopter.Gen {
 		for !g.element.smallerThanModulus() {
 			g.element = {{.ElementName}}{
 				{{- range $i := .NbWordsIndexesFull}}
-				{{$.Word.TypeLower}}(genParams.NextUint64()),{{end}}
+				{{$gen64}},{{end}}
 			}
 			if qElement[{{.NbWordsLastIndex}}] != ^{{$.Word.TypeLower}}(0) {
 				g.element[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
@@ -1604,7 +1608,7 @@ func genRandomFq(genParams *gopter.GenParameters) {{.ElementName}} {
 
 	g = {{.ElementName}}{
 		{{- range $i := .NbWordsIndexesFull}}
-		{{$.Word.TypeLower}}(genParams.NextUint64()),{{end}}
+		{{$gen64}},{{end}}
 	}
 
 	if qElement[{{.NbWordsLastIndex}}] != ^{{$.Word.TypeLower}}(0) {
@@ -1614,7 +1618,7 @@ func genRandomFq(genParams *gopter.GenParameters) {{.ElementName}} {
 	for !g.smallerThanModulus() {
 		g = {{.ElementName}}{
 			{{- range $i := .NbWordsIndexesFull}}
-			{{$.Word.TypeLower}}(genParams.NextUint64()),{{end}}
+			{{$gen64}},{{end}}
 		}
 		if qElement[{{.NbWordsLastIndex}}] != ^{{$.Word.TypeLower}}(0) {
 			g[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )

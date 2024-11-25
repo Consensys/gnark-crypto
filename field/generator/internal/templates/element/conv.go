@@ -205,19 +205,26 @@ func (z *{{.ElementName}}) SetBigInt(v *big.Int) *{{.ElementName}} {
 func (z *{{.ElementName}}) setBigInt(v *big.Int) *{{.ElementName}} {
 	vBits := v.Bits()
 
-	if bits.UintSize == 64 {
-		for i := 0; i < len(vBits); i++ {
-			z[i] = {{$.Word.TypeLower}}(vBits[i])
-		}
-	} else {
-		for i := 0; i < len(vBits); i++ {
-			if i%2 == 0 {
-				z[i/2] = {{$.Word.TypeLower}}(vBits[i])
-			} else {
-				z[i/2] |= {{$.Word.TypeLower}}(vBits[i]) << 32
+	{{- if eq .Word.BitSize 32}}
+	// we assume v < q, so even if big.Int words are on 64bits, we can safely cast them to 32bits
+	for i := 0; i < len(vBits); i++ {
+		z[i] = {{$.Word.TypeLower}}(vBits[i])
+	}
+	{{- else}}
+		if bits.UintSize == 64 {
+			for i := 0; i < len(vBits); i++ {
+				z[i] = {{$.Word.TypeLower}}(vBits[i])
+			}
+		} else {
+			for i := 0; i < len(vBits); i++ {
+				if i%2 == 0 {
+					z[i/2] = {{$.Word.TypeLower}}(vBits[i])
+				} else {
+					z[i/2] |= {{$.Word.TypeLower}}(vBits[i]) << 32
+				}
 			}
 		}
-	}
+	{{- end}}
 
 	return z.toMont()
 }

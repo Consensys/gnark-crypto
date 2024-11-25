@@ -627,11 +627,11 @@ func (z *Element) Text(base int) string {
 		zzNeg.Neg(z)
 		zzNeg.fromMont()
 		if zzNeg[0] <= maxUint16 && zzNeg[0] != 0 {
-			return "-" + strconv.FormatUint(zzNeg[0], base)
+			return "-" + strconv.FormatUint(uint64(zzNeg[0]), base)
 		}
 	}
 	zz := z.Bits()
-	return strconv.FormatUint(zz[0], base)
+	return strconv.FormatUint(uint64(zz[0]), base)
 }
 
 // BigInt sets and return z as a *big.Int
@@ -749,7 +749,6 @@ func (z *Element) SetBigInt(v *big.Int) *Element {
 // setBigInt assumes 0 ⩽ v < q
 func (z *Element) setBigInt(v *big.Int) *Element {
 	vBits := v.Bits()
-
 	if bits.UintSize == 64 {
 		for i := 0; i < len(vBits); i++ {
 			z[i] = uint64(vBits[i])
