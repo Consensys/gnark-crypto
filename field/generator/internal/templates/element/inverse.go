@@ -20,25 +20,27 @@ if b != 0 {
 {{/* We use big.Int for Inverse for these type of moduli */}}
 {{if not $.UsingP20Inverse}}
 
-{{- if and (eq .NbWords 1) (eq .Word.BitSize 64)}}
+{{- if eq .NbWords 1}}
 // Inverse z = x⁻¹ (mod q) 
 //
 // if x == 0, sets and returns z = x 
 func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
 	// Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
-	const q uint64 = q0
+	const q {{.Word.TypeLower}} = q0
 	if x.IsZero() {
 		z.SetZero()
 		return z
 	}
 
-	var r,s,u,v uint64
+	var r,s,u,v {{.Word.TypeLower}}
 	u = q
 	s = {{index .RSquare 0}} // s = r²
 	r = 0
 	v = x[0]
 
-	var carry, borrow uint64
+	var carry, borrow {{.Word.TypeLower}}
+
+	{{- $bitSizeMinus1 := sub .Word.BitSize 1}}
 
 	for  (u != 1) && (v != 1){
 		for v&1 == 0 {
@@ -46,10 +48,10 @@ func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
 			if s&1 == 0 {
 				s >>= 1
 			} else {
-				s, carry = bits.Add64(s, q, 0)
+				s, carry = bits.{{.Word.Add}}(s, q, 0)
 				s >>= 1
 				if carry != 0 {
-					s |= (1 << 63)
+					s |= (1 << {{$bitSizeMinus1}})
 				}
 			}
 		} 
@@ -58,22 +60,22 @@ func (z *{{.ElementName}}) Inverse( x *{{.ElementName}}) *{{.ElementName}} {
 			if r&1 == 0 {
 				r >>= 1
 			} else {
-				r, carry = bits.Add64(r, q, 0)
+				r, carry = bits.{{.Word.Add}}(r, q, 0)
 				r >>= 1
 				if carry != 0 {
-					r |= (1 << 63)
+					r |= (1 << {{$bitSizeMinus1}})
 				}
 			}
 		} 
 		if v >= u  {
 			v -= u
-			s, borrow = bits.Sub64(s, r, 0)
+			s, borrow = bits.{{.Word.Sub}}(s, r, 0)
 			if borrow == 1 {
 				s += q
 			}
 		} else {
 			u -= v
-			r, borrow = bits.Sub64(r, s, 0)
+			r, borrow = bits.{{.Word.Sub}}(r, s, 0)
 			if borrow == 1 {
 				r += q
 			}

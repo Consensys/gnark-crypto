@@ -965,11 +965,68 @@ func (z *Element) Sqrt(x *Element) *Element {
 
 // Inverse z = x⁻¹ (mod q)
 //
-// note: allocates a big.Int (math/big)
+// if x == 0, sets and returns z = x
 func (z *Element) Inverse(x *Element) *Element {
-	var _xNonMont big.Int
-	x.BigInt(&_xNonMont)
-	_xNonMont.ModInverse(&_xNonMont, Modulus())
-	z.SetBigInt(&_xNonMont)
+	// Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
+	const q uint32 = q0
+	if x.IsZero() {
+		z.SetZero()
+		return z
+	}
+
+	var r, s, u, v uint32
+	u = q
+	s = 402124772 // s = r²
+	r = 0
+	v = x[0]
+
+	var carry, borrow uint32
+
+	for (u != 1) && (v != 1) {
+		for v&1 == 0 {
+			v >>= 1
+			if s&1 == 0 {
+				s >>= 1
+			} else {
+				s, carry = bits.Add32(s, q, 0)
+				s >>= 1
+				if carry != 0 {
+					s |= (1 << 31)
+				}
+			}
+		}
+		for u&1 == 0 {
+			u >>= 1
+			if r&1 == 0 {
+				r >>= 1
+			} else {
+				r, carry = bits.Add32(r, q, 0)
+				r >>= 1
+				if carry != 0 {
+					r |= (1 << 31)
+				}
+			}
+		}
+		if v >= u {
+			v -= u
+			s, borrow = bits.Sub32(s, r, 0)
+			if borrow == 1 {
+				s += q
+			}
+		} else {
+			u -= v
+			r, borrow = bits.Sub32(r, s, 0)
+			if borrow == 1 {
+				r += q
+			}
+		}
+	}
+
+	if u == 1 {
+		z[0] = r
+	} else {
+		z[0] = s
+	}
+
 	return z
 }
