@@ -1,7 +1,6 @@
 package mimc
 
 import (
-	"os"
 	"fmt"
 	"path/filepath"
 
@@ -17,9 +16,6 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "mimc.go"), Templates: []string{"mimc.go.tmpl"}},
 		{File: filepath.Join(baseDir, "options.go"), Templates: []string{"options.go.tmpl"}},
 	}
-	os.Remove(filepath.Join(baseDir, "utils.go"))
-	os.Remove(filepath.Join(baseDir, "utils_test.go"))
-
 	entriesTest := []bavard.Entry{
 		{File: filepath.Join(baseDir, "mimc_test.go"), Templates: []string{"tests/mimc_test.go.tmpl"}},
 	}
