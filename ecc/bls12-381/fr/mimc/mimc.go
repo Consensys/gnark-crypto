@@ -7,13 +7,21 @@ package mimc
 
 import (
 	"errors"
-	"hash"
-
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
-	"golang.org/x/crypto/sha3"
+	stdhash "hash"
 	"math/big"
 	"sync"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"github.com/consensys/gnark-crypto/hash"
+
+	"golang.org/x/crypto/sha3"
 )
+
+func init() {
+	hash.RegisterHash(hash.MIMC_BLS12_381, func() stdhash.Hash {
+		return NewMiMC()
+	})
+}
 
 const (
 	mimcNbRounds = 111
@@ -48,7 +56,7 @@ func GetConstants() []big.Int {
 // NewMiMC returns a MiMC implementation, pure Go reference implementation. The
 // returned instance also implements [hash.StateStorer] for recovering the internal
 // state of the hasher.
-func NewMiMC(opts ...Option) hash.Hash {
+func NewMiMC(opts ...Option) stdhash.Hash {
 	d := new(digest)
 	d.Reset()
 	cfg := mimcOptions(opts...)
