@@ -1,5 +1,15 @@
 // Package hash provides MiMC hash function defined over implemented curves
 //
+// # Importing hash functions
+//
+// The package follows registration pattern for importing hash functions. To
+// import all known hash functions in gnark-crypto, import the
+// [github.com/consensys/gnark-crypto/hash/all] package in your code. To import
+// only a specific hash, then import the corresponding package directly, e.g.
+// [github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc]. The import format should be:
+//
+//	import _ "github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
+//
 // # Length extension attack
 //
 // The MiMC hash function is vulnerable to a length extension attack. For

@@ -5,15 +5,18 @@ package hash
 
 import (
 	"hash"
-
-	bls377 "github.com/consensys/gnark-crypto/ecc/bls12-377/fr/mimc"
-	bls381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr/mimc"
-	bls315 "github.com/consensys/gnark-crypto/ecc/bls24-315/fr/mimc"
-	bls317 "github.com/consensys/gnark-crypto/ecc/bls24-317/fr/mimc"
-	bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
-	bw633 "github.com/consensys/gnark-crypto/ecc/bw6-633/fr/mimc"
-	bw761 "github.com/consensys/gnark-crypto/ecc/bw6-761/fr/mimc"
 )
+
+var hashes = make([]func() hash.Hash, maxHash)
+
+// RegisterHash registers a new hash function constructor. Should be called in
+// the init function of the hash package.
+//
+// To register all known hash functions in gnark-crypto, import the
+// [github.com/consensys/gnark-crypto/hash/all] package in your code.
+func RegisterHash(h Hash, new func() hash.Hash) {
+	hashes[h] = new
+}
 
 // Hash defines an unique identifier for a hash function.
 type Hash uint
@@ -33,6 +36,8 @@ const (
 	MIMC_BLS24_317
 	// MIMC_BW6_633 is the MiMC hash function for the BW6-633 curve.
 	MIMC_BW6_633
+
+	maxHash
 )
 
 // size of digests in bytes
@@ -46,26 +51,16 @@ var digestSize = []uint8{
 	MIMC_BW6_633:   80,
 }
 
-// New initializes the hash function.
+// New initializes the hash function. This is a convenience function which does
+// not allow setting hash-specific options.
 func (m Hash) New() hash.Hash {
-	switch m {
-	case MIMC_BN254:
-		return bn254.NewMiMC()
-	case MIMC_BLS12_381:
-		return bls381.NewMiMC()
-	case MIMC_BLS12_377:
-		return bls377.NewMiMC()
-	case MIMC_BW6_761:
-		return bw761.NewMiMC()
-	case MIMC_BLS24_315:
-		return bls315.NewMiMC()
-	case MIMC_BLS24_317:
-		return bls317.NewMiMC()
-	case MIMC_BW6_633:
-		return bw633.NewMiMC()
-	default:
-		panic("Unknown mimc ID")
+	if m < maxHash {
+		f := hashes[m]
+		if f != nil {
+			return f()
+		}
 	}
+	panic("requested hash function #" + m.String() + " not registered")
 }
 
 // String returns the unique identifier of the hash function.
@@ -86,12 +81,16 @@ func (m Hash) String() string {
 	case MIMC_BW6_633:
 		return "MIMC_BW633"
 	default:
-		panic("Unknown mimc ID")
+		return "unknown hash function"
 	}
 }
 
-// Size returns the size of the digest of
-// the corresponding hash function
+// Available returns true if the hash function is available.
+func (m Hash) Available() bool {
+	return m < maxHash && hashes[m] != nil
+}
+
+// Size returns the size of the digest of the corresponding hash function
 func (m Hash) Size() int {
 	return int(digestSize[m])
 }
