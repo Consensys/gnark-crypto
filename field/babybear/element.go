@@ -349,7 +349,7 @@ func (z *Element) fromMont() *Element {
 // Add z = x + y (mod q)
 func (z *Element) Add(x, y *Element) *Element {
 
-	z[0], _ = bits.Add32(x[0], y[0], 0)
+	z[0] = x[0] + y[0]
 	if z[0] >= q {
 		z[0] -= q
 	}

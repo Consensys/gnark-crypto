@@ -414,20 +414,30 @@ func (z *{{.ElementName}}) fromMont() *{{.ElementName}} {
 
 // Add z = x + y (mod q)
 func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
-	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
-	{{- if $hasCarry}}
-		var carry {{$.Word.TypeLower}}
-	{{- end}}
-	{{- range $i := iterate 0 $.NbWords}}
-		{{- $hasCarry := or (not $.NoCarry) (lt $i $.NbWordsLastIndex)}}
-		z[{{$i}}], {{- if $hasCarry}}carry{{- else}}_{{- end}} = bits.{{$.Word.Add}}(x[{{$i}}], y[{{$i}}], {{- if eq $i 0}}0{{- else}}carry{{- end}})
-	{{- end}}
-
-	{{- if eq $.NbWords 1}}
-		if {{- if not .NoCarry}} carry != 0 ||{{- end }} z[0] >= q {
-			z[0] -= q
-		}
+	{{- if eq .NbWords 1}}
+		{{ $hasCarry := (not $.NoCarry)}}
+		{{- if $hasCarry}}
+			var carry {{$.Word.TypeLower}}
+			z[0], carry = bits.{{$.Word.Add}}(x[0], y[0], 0)
+			if carry != 0 || z[0] >= q {
+				z[0] -= q
+			}
+			return z
+		{{- else}}
+			z[0] = x[0] + y[0]
+			if z[0] >= q {
+				z[0] -= q
+			}
+			return z
+		{{- end}}
 	{{- else}}
+	
+		var carry uint64
+		{{- range $i := iterate 0 $.NbWords}}
+			{{- $hasCarry := or (not $.NoCarry) (lt $i $.NbWordsLastIndex)}}
+			z[{{$i}}], {{- if $hasCarry}}carry{{- else}}_{{- end}} = bits.Add64(x[{{$i}}], y[{{$i}}], {{- if eq $i 0}}0{{- else}}carry{{- end}})
+		{{- end}}
+
 		{{- if not .NoCarry}}
 			// if we overflowed the last addition, z >= q
 			// if z >= q, z = z - q
@@ -441,10 +451,9 @@ func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 				return z
 			}
 		{{- end}}
-
 		{{ template "reduce" .}}
+		 return z
 	{{- end}}
-	return z
 }
 
 
