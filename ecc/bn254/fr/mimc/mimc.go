@@ -29,7 +29,7 @@ var (
 
 // digest represents the partial evaluation of the checksum
 // along with the params of the mimc function
-type Digest struct {
+type digest struct {
 	h         fr.Element
 	data      []fr.Element // data to hash
 	byteOrder fr.ByteOrder
@@ -45,9 +45,11 @@ func GetConstants() []big.Int {
 	return res
 }
 
-// NewMiMC returns a MiMCImpl object, pure-go reference implementation
+// NewMiMC returns a MiMC implementation, pure Go reference implementation. The
+// returned instance also implements [hash.StateStorer] for recovering the internal
+// state of the hasher.
 func NewMiMC(opts ...Option) hash.Hash {
-	d := new(Digest)
+	d := new(digest)
 	d.Reset()
 	cfg := mimcOptions(opts...)
 	d.byteOrder = cfg.byteOrder
@@ -55,14 +57,14 @@ func NewMiMC(opts ...Option) hash.Hash {
 }
 
 // Reset resets the Hash to its initial state.
-func (d *Digest) Reset() {
+func (d *digest) Reset() {
 	d.data = d.data[:0]
 	d.h = fr.Element{0, 0, 0, 0}
 }
 
 // Sum appends the current hash to b and returns the resulting slice.
 // It does not change the underlying hash state.
-func (d *Digest) Sum(b []byte) []byte {
+func (d *digest) Sum(b []byte) []byte {
 	buffer := d.checksum()
 	d.data = nil // flush the data already hashed
 	hash := buffer.Bytes()
@@ -74,12 +76,12 @@ func (d *Digest) Sum(b []byte) []byte {
 // The Write method must be able to accept any amount
 // of data, but it may operate more efficiently if all writes
 // are a multiple of the block size.
-func (d *Digest) Size() int {
+func (d *digest) Size() int {
 	return BlockSize
 }
 
 // BlockSize returns the number of bytes Sum will return.
-func (d *Digest) BlockSize() int {
+func (d *digest) BlockSize() int {
 	return BlockSize
 }
 
@@ -91,7 +93,7 @@ func (d *Digest) BlockSize() int {
 // larger than fr.Modulus, this function returns an error.
 //
 // To hash arbitrary data ([]byte not representing canonical field elements) use fr.Hash first
-func (d *Digest) Write(p []byte) (int, error) {
+func (d *digest) Write(p []byte) (int, error) {
 	// we usually expect multiple of block size. But sometimes we hash short
 	// values (FS transcript). Instead of forcing to hash to field, we left-pad the
 	// input here.
@@ -119,7 +121,7 @@ func (d *Digest) Write(p []byte) (int, error) {
 // Hash hash using Miyaguchi-Preneel:
 // https://en.wikipedia.org/wiki/One-way_compression_function
 // The XOR operation is replaced by field addition, data is in Montgomery form
-func (d *Digest) checksum() fr.Element {
+func (d *digest) checksum() fr.Element {
 	// Write guarantees len(data) % BlockSize == 0
 
 	// TODO @ThomasPiellard shouldn't Sum() returns an error if there is no data?
@@ -139,7 +141,7 @@ func (d *Digest) checksum() fr.Element {
 // plain execution of a mimc run
 // m: message
 // k: encryption key
-func (d *Digest) encrypt(m fr.Element) fr.Element {
+func (d *digest) encrypt(m fr.Element) fr.Element {
 	once.Do(initConstants) // init constants
 
 	var tmp fr.Element
@@ -156,7 +158,7 @@ func (d *Digest) encrypt(m fr.Element) fr.Element {
 
 // Sum computes the mimc hash of msg from seed
 func Sum(msg []byte) ([]byte, error) {
-	var d Digest
+	var d digest
 	if _, err := d.Write(msg); err != nil {
 		return nil, err
 	}
@@ -183,7 +185,7 @@ func initConstants() {
 }
 
 // WriteString writes a string that doesn't necessarily consist of field elements
-func (d *Digest) WriteString(rawBytes []byte) error {
+func (d *digest) WriteString(rawBytes []byte) error {
 	if elems, err := fr.Hash(rawBytes, []byte("string:"), 1); err != nil {
 		return err
 	} else {
@@ -194,7 +196,7 @@ func (d *Digest) WriteString(rawBytes []byte) error {
 
 // SetState manually sets the state of the hasher to an user-provided value. In
 // the context of MiMC, the method expects a byte slice of 32 elements.
-func (d *Digest) SetState(newState []byte) error {
+func (d *digest) SetState(newState []byte) error {
 
 	if len(newState) != 32 {
 		return errors.New("the mimc state expects a state of 32 bytes")
@@ -210,7 +212,7 @@ func (d *Digest) SetState(newState []byte) error {
 }
 
 // State returns the internal state of the hasher
-func (d *Digest) State() []byte {
+func (d *digest) State() []byte {
 	_ = d.Sum(nil) // this flushes the hasher
 	b := d.h.Bytes()
 	return b[:]
