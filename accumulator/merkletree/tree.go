@@ -158,7 +158,7 @@ func (t *Tree) Prove() (merkleRoot []byte, proofSet [][]byte, proofIndex uint64,
 	// containing the proof index as left siblings.
 
 	// Start at the smallest subtree and combine it with larger subtrees until
-	// it would be combining with the subtree that contains the proof index. We
+	// it would be combined with the subtree that contains the proof index. We
 	// can recognize the subtree containing the proof index because the height
 	// of that subtree will be one less than the current length of the proof
 	// set.
