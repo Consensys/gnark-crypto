@@ -2,6 +2,7 @@ package mimc
 
 import (
 	"os"
+	"fmt"
 	"path/filepath"
 
 	"github.com/consensys/bavard"
@@ -19,6 +20,15 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	os.Remove(filepath.Join(baseDir, "utils.go"))
 	os.Remove(filepath.Join(baseDir, "utils_test.go"))
 
-	return bgen.Generate(conf, conf.Package, "./crypto/hash/mimc/template", entries...)
+	entriesTest := []bavard.Entry{
+		{File: filepath.Join(baseDir, "mimc_test.go"), Templates: []string{"tests/mimc_test.go.tmpl"}},
+	}
 
+	if err := bgen.Generate(conf, conf.Package, "./crypto/hash/mimc/template", entries...); err != nil {
+		return fmt.Errorf("generate package: %w", err)
+	}
+	if err := bgen.Generate(conf, "mimc_test", "./crypto/hash/mimc/template", entriesTest...); err != nil {
+		return fmt.Errorf("generate tests: %w", err)
+	}
+	return nil
 }
