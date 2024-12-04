@@ -110,20 +110,27 @@ const MulCIOS = `
 	// Which finally gives (lo + m * q) / R = (lo + lo2 + R hi2) / R = hi2 + (lo+lo2) / R = hi2 + (lo != 0)
 	// This "optimization" lets us do away with one MUL instruction on ARM architectures and is available for all q < R.
 
-	var r {{$.all.Word.TypeLower}}
 	hi, lo := bits.{{$.all.Word.Mul}}({{$.V1}}[0], {{$.V2}}[0])
 	if lo != 0 {
 		hi++ // x[0] * y[0] ≤ 2¹²⁸ - 2⁶⁵ + 1, meaning hi ≤ 2⁶⁴ - 2 so no need to worry about overflow
 	}
 	m := lo * qInvNeg
 	hi2, _ := bits.{{$.all.Word.Mul}}(m, q)
-	r, carry := bits.{{$.all.Word.Add}}(hi2, hi, 0)
-
-	if carry != 0 || r >= q  {
-		// we need to reduce
-		r -= q 
-	}
-	z[0] = r 
+	{{ $hasCarry := (not $.all.NoCarry)}}
+	{{- if $hasCarry}}
+		r, carry := bits.{{$.all.Word.Add}}(hi2, hi, 0)
+		if carry != 0 || r >= q  {
+			// we need to reduce
+			r -= q
+		}
+		z[0] = r
+	{{- else}}
+		hi2 += hi
+		if hi2 >= q {
+			hi2 -= q
+		}
+		z[0] = hi2
+	{{- end}}
 {{ end }}
 `
 

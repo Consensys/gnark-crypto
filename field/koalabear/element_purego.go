@@ -64,20 +64,18 @@ func (z *Element) Mul(x, y *Element) *Element {
 	// Which finally gives (lo + m * q) / R = (lo + lo2 + R hi2) / R = hi2 + (lo+lo2) / R = hi2 + (lo != 0)
 	// This "optimization" lets us do away with one MUL instruction on ARM architectures and is available for all q < R.
 
-	var r uint32
 	hi, lo := bits.Mul32(x[0], y[0])
 	if lo != 0 {
 		hi++ // x[0] * y[0] ≤ 2¹²⁸ - 2⁶⁵ + 1, meaning hi ≤ 2⁶⁴ - 2 so no need to worry about overflow
 	}
 	m := lo * qInvNeg
 	hi2, _ := bits.Mul32(m, q)
-	r, carry := bits.Add32(hi2, hi, 0)
 
-	if carry != 0 || r >= q {
-		// we need to reduce
-		r -= q
+	hi2 += hi
+	if hi2 >= q {
+		hi2 -= q
 	}
-	z[0] = r
+	z[0] = hi2
 
 	return z
 }
@@ -100,20 +98,18 @@ func (z *Element) Square(x *Element) *Element {
 	// Which finally gives (lo + m * q) / R = (lo + lo2 + R hi2) / R = hi2 + (lo+lo2) / R = hi2 + (lo != 0)
 	// This "optimization" lets us do away with one MUL instruction on ARM architectures and is available for all q < R.
 
-	var r uint32
 	hi, lo := bits.Mul32(x[0], x[0])
 	if lo != 0 {
 		hi++ // x[0] * y[0] ≤ 2¹²⁸ - 2⁶⁵ + 1, meaning hi ≤ 2⁶⁴ - 2 so no need to worry about overflow
 	}
 	m := lo * qInvNeg
 	hi2, _ := bits.Mul32(m, q)
-	r, carry := bits.Add32(hi2, hi, 0)
 
-	if carry != 0 || r >= q {
-		// we need to reduce
-		r -= q
+	hi2 += hi
+	if hi2 >= q {
+		hi2 -= q
 	}
-	z[0] = r
+	z[0] = hi2
 
 	return z
 }
