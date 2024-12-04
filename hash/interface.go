@@ -1,7 +1,11 @@
 package hash
 
+import "hash"
+
 // StateStorer allows to store and retrieve the state of a hash function.
 type StateStorer interface {
+	hash.Hash
+
 	// State retrieves the current state of the hash function. Calling this
 	// method should not destroy the current state and allow continue the use of
 	// the current hasher.

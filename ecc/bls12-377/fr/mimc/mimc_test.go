@@ -23,7 +23,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/mimc"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
-	"github.com/consensys/gnark-crypto/hash"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -105,13 +104,8 @@ func TestSetState(t *testing.T) {
 
 	storedStates := make([][]byte, len(randInputs))
 
-	hs, ok := h1.(hash.StateStorer)
-	if !ok {
-		t.Fatal("hash function does not implement stateStorer interface")
-	}
-
 	for i := range randInputs {
-		storedStates[i] = hs.State()
+		storedStates[i] = h1.State()
 
 		h1.Write(randInputs[i].Marshal())
 		h2.Write(randInputs[i].Marshal())
@@ -122,12 +116,8 @@ func TestSetState(t *testing.T) {
 		t.Fatal("hashes do not match")
 	}
 
-	h3s, ok := h3.(hash.StateStorer)
-	if !ok {
-		t.Fatal("hash function does not implement stateStorer interface")
-	}
 	for i := range storedStates {
-		if err := h3s.SetState(storedStates[i]); err != nil {
+		if err := h3.SetState(storedStates[i]); err != nil {
 			t.Fatal(err)
 		}
 		for j := i; j < len(randInputs); j++ {

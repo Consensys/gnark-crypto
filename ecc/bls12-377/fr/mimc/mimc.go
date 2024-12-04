@@ -53,10 +53,8 @@ func GetConstants() []big.Int {
 	return res
 }
 
-// NewMiMC returns a MiMC implementation, pure Go reference implementation. The
-// returned instance also implements [hash.StateStorer] for recovering the internal
-// state of the hasher.
-func NewMiMC(opts ...Option) stdhash.Hash {
+// NewMiMC returns a MiMC implementation, pure Go reference implementation.
+func NewMiMC(opts ...Option) hash.StateStorer {
 	d := new(digest)
 	d.Reset()
 	cfg := mimcOptions(opts...)
