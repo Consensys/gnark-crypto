@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"sync"
 	"errors"
+	"encoding/binary"
 
 	{{ template "import_fr" . }}
 	{{ template "import_curve" . }}
@@ -252,18 +253,35 @@ func precomputeExpTableChunk(w fr.Element, power uint64, table []fr.Element) {
 // WriteTo writes a binary representation of the domain (without the precomputed twiddle factors)
 // to the provided writer
 func (d *Domain) WriteTo(w io.Writer) (int64, error) {
+	// note to stay retro compatible with previous version using ecc/encoder, we encode as:
+	// d.Cardinality, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv, &d.withPrecompute
 
-	enc := curve.NewEncoder(w)
+	var written int64
+	var err error
 
-	toEncode := []interface{}{d.Cardinality, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv, &d.withPrecompute}
+	err = binary.Write(w, binary.BigEndian, d.Cardinality)
+	if err != nil {
+		return written, err
+	}
+	written += 8
 
+	toEncode := []*fr.Element{ &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv}
 	for _, v := range toEncode {
-		if err := enc.Encode(v); err != nil {
-			return enc.BytesWritten(), err
+		buf := v.Bytes()
+		_, err = w.Write(buf[:])
+		if err != nil {
+			return written, err
 		}
+		written += fr.Bytes
 	}
 
-	return enc.BytesWritten(), nil
+	err = binary.Write(w, binary.BigEndian, d.withPrecompute)
+	if err != nil {
+		return written, err
+	}
+	written += 1
+
+	return written, nil
 }
 
 // ReadFrom attempts to decode a domain from Reader
