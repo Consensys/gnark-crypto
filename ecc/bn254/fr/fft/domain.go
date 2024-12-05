@@ -27,8 +27,6 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 
-	curve "github.com/consensys/gnark-crypto/ecc/bn254"
-
 	"github.com/consensys/gnark-crypto/ecc"
 )
 
@@ -292,19 +290,39 @@ func (d *Domain) WriteTo(w io.Writer) (int64, error) {
 // ReadFrom attempts to decode a domain from Reader
 func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 
-	dec := curve.NewDecoder(r)
+	var read int64
+	var err error
 
-	toDecode := []interface{}{&d.Cardinality, &d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv, &d.withPrecompute}
+	err = binary.Read(r, binary.BigEndian, &d.Cardinality)
+	if err != nil {
+		return read, err
+	}
+	read += 8
+
+	toDecode := []*fr.Element{&d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv}
 
 	for _, v := range toDecode {
-		if err := dec.Decode(v); err != nil {
-			return dec.BytesRead(), err
+		var buf [fr.Bytes]byte
+		_, err = r.Read(buf[:])
+		if err != nil {
+			return read, err
+		}
+		read += fr.Bytes
+		*v, err = fr.BigEndian.Element(&buf)
+		if err != nil {
+			return read, err
 		}
 	}
+
+	err = binary.Read(r, binary.BigEndian, &d.withPrecompute)
+	if err != nil {
+		return read, err
+	}
+	read += 1
 
 	if d.withPrecompute {
 		d.preComputeTwiddles()
 	}
 
-	return dec.BytesRead(), nil
+	return read, nil
 }
