@@ -134,7 +134,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	F.Word.Add = "Add64"
 	F.Word.Sub = "Sub64"
 	F.Word.Len = "Len64"
-	if F.NbBits < 32 {
+	if F.F31 {
 		F.Word.BitSize = 32
 		F.Word.ByteSize = 4
 		F.Word.TypeLower = "uint32"
@@ -179,9 +179,8 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	}
 
 	// rsquare
-	_rSquare := big.NewInt(2)
-	exponent := big.NewInt(int64(F.NbWords) * int64(radix) * 2)
-	_rSquare.Exp(_rSquare, exponent, &bModulus)
+	_rSquare := big.NewInt(1)
+	_rSquare.Lsh(_rSquare, uint(F.NbWords)*radix*2).Mod(_rSquare, &bModulus)
 	F.RSquare = toUint64Slice(_rSquare, F.NbWords)
 
 	var one big.Int
@@ -389,7 +388,7 @@ func (f *FieldConfig) FromMont(nonMont *big.Int, mont *big.Int) *FieldConfig {
 		return f
 	}
 	f.halve(nonMont, mont)
-	for i := 1; i < f.NbWords*64; i++ {
+	for i := 1; i < f.NbWords*f.Word.BitSize; i++ {
 		f.halve(nonMont, nonMont)
 	}
 

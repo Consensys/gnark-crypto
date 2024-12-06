@@ -20,7 +20,7 @@ func TestIntToMont(t *testing.T) {
 	t.Parallel()
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	parameters.MinSuccessfulTests = 20
 	properties := gopter.NewProperties(parameters)
 	genF := genField(t)
 
@@ -42,16 +42,12 @@ func TestIntToMont(t *testing.T) {
 	properties.Property("turning R into montgomery form must match the R value from field", prop.ForAll(
 		func(f *FieldConfig) (bool, error) {
 			// test if using the same R
-			i := big.NewInt(1)
-			if f.F31 {
-				i.Lsh(i, 31*uint(f.NbWords))
-			} else {
-				i.Lsh(i, 64*uint(f.NbWords))
-			}
+			r := big.NewInt(1)
+			r.Lsh(r, uint(f.Word.BitSize)*uint(f.NbWords))
 
-			*i = f.ToMont(*i)
+			*r = f.ToMont(*r)
 
-			err := bigIntMatchUint64Slice(i, f.RSquare)
+			err := bigIntMatchUint64Slice(r, f.RSquare)
 			return err == nil, err
 		}, genF),
 	)
