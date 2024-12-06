@@ -54,12 +54,12 @@ const (
 
 // Field modulus q
 const (
-	q0 uint64 = 13402431016077863595
-	q1 uint64 = 2210141511517208575
-	q2 uint64 = 7435674573564081700
-	q3 uint64 = 7239337960414712511
-	q4 uint64 = 5412103778470702295
-	q5 uint64 = 1873798617647539866
+	q0 = 13402431016077863595
+	q1 = 2210141511517208575
+	q2 = 7435674573564081700
+	q3 = 7239337960414712511
+	q4 = 5412103778470702295
+	q5 = 1873798617647539866
 )
 
 var qElement = Element{
@@ -83,7 +83,7 @@ func Modulus() *big.Int {
 
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 // used for Montgomery reduction
-const qInvNeg uint64 = 9940570264628428797
+const qInvNeg = 9940570264628428797
 
 func init() {
 	_modulus.SetString("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab", 16)

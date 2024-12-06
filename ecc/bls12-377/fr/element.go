@@ -54,10 +54,10 @@ const (
 
 // Field modulus q
 const (
-	q0 uint64 = 725501752471715841
-	q1 uint64 = 6461107452199829505
-	q2 uint64 = 6968279316240510977
-	q3 uint64 = 1345280370688173398
+	q0 = 725501752471715841
+	q1 = 6461107452199829505
+	q2 = 6968279316240510977
+	q3 = 1345280370688173398
 )
 
 var qElement = Element{
@@ -79,7 +79,7 @@ func Modulus() *big.Int {
 
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 // used for Montgomery reduction
-const qInvNeg uint64 = 725501752471715839
+const qInvNeg = 725501752471715839
 
 // mu = 2^288 / q needed for partial Barrett reduction
 const mu uint64 = 58893420465

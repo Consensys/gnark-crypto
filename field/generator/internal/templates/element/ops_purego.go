@@ -2,7 +2,9 @@ package element
 
 const OpsNoAsm = `
 
+{{- if not .F31}}
 import "math/bits"
+{{- end}}
 
 {{ $mulConsts := list 3 5 13 }}
 {{- range $i := $mulConsts }}
@@ -42,6 +44,17 @@ func reduce(z *{{.ElementName}})  {
 	_reduceGeneric(z)
 }
 
+{{- if $.F31}}
+func montReduce(v uint64) uint32 {
+	m := uint32(v) * qInvNeg
+	t := uint32((v + uint64(m) * q) >> 32)
+	if t >= q {
+		t -= q
+	}
+	return t
+}
+{{- end}}
+
 // Mul z = x * y (mod q)
 {{- if $.NoCarry}}
 //
@@ -49,7 +62,12 @@ func reduce(z *{{.ElementName}})  {
 {{- end }}
 func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 	{{- if eq $.NbWords 1}}
-		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
+		{{- if $.F31}}
+			v := uint64(x[0]) * uint64(y[0])
+			z[0] = montReduce(v)
+		{{- else}}
+			{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
+		{{- end}}
 	{{- else }}
 		{{ mul_doc $.NoCarry }}
 		{{- if $.NoCarry}}
@@ -70,7 +88,12 @@ func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
 	// see Mul for algorithm documentation
 	{{- if eq $.NbWords 1}}
-		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "x" }}
+		{{- if $.F31}}
+			v := uint64(x[0]) * uint64(x[0])
+			z[0] = montReduce(v)
+		{{- else}}
+			{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "x" }}
+		{{- end}}
 	{{- else }}
 		{{- if $.NoCarry}}
 			{{ template "mul_nocarry" dict "all" . "V1" "x" "V2" "x"}}
