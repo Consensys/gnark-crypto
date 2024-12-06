@@ -43,7 +43,12 @@ func TestIntToMont(t *testing.T) {
 		func(f *FieldConfig) (bool, error) {
 			// test if using the same R
 			i := big.NewInt(1)
-			i.Lsh(i, uint(f.Word.BitSize)*uint(f.NbWords))
+			if f.F31 {
+				i.Lsh(i, 31*uint(f.NbWords))
+			} else {
+				i.Lsh(i, 64*uint(f.NbWords))
+			}
+
 			*i = f.ToMont(*i)
 
 			err := bigIntMatchUint64Slice(i, f.RSquare)
