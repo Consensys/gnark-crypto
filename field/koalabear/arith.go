@@ -21,40 +21,40 @@ import (
 )
 
 // madd0 hi = a*b + c (discards lo bits)
-func madd0(a, b, c uint32) (hi uint32) {
-	var carry, lo uint32
-	hi, lo = bits.Mul32(a, b)
-	_, carry = bits.Add32(lo, c, 0)
-	hi, _ = bits.Add32(hi, 0, carry)
+func madd0(a, b, c uint64) (hi uint64) {
+	var carry, lo uint64
+	hi, lo = bits.Mul64(a, b)
+	_, carry = bits.Add64(lo, c, 0)
+	hi, _ = bits.Add64(hi, 0, carry)
 	return
 }
 
 // madd1 hi, lo = a*b + c
-func madd1(a, b, c uint32) (hi uint32, lo uint32) {
-	var carry uint32
-	hi, lo = bits.Mul32(a, b)
-	lo, carry = bits.Add32(lo, c, 0)
-	hi, _ = bits.Add32(hi, 0, carry)
+func madd1(a, b, c uint64) (hi uint64, lo uint64) {
+	var carry uint64
+	hi, lo = bits.Mul64(a, b)
+	lo, carry = bits.Add64(lo, c, 0)
+	hi, _ = bits.Add64(hi, 0, carry)
 	return
 }
 
 // madd2 hi, lo = a*b + c + d
-func madd2(a, b, c, d uint32) (hi uint32, lo uint32) {
-	var carry uint32
-	hi, lo = bits.Mul32(a, b)
-	c, carry = bits.Add32(c, d, 0)
-	hi, _ = bits.Add32(hi, 0, carry)
-	lo, carry = bits.Add32(lo, c, 0)
-	hi, _ = bits.Add32(hi, 0, carry)
+func madd2(a, b, c, d uint64) (hi uint64, lo uint64) {
+	var carry uint64
+	hi, lo = bits.Mul64(a, b)
+	c, carry = bits.Add64(c, d, 0)
+	hi, _ = bits.Add64(hi, 0, carry)
+	lo, carry = bits.Add64(lo, c, 0)
+	hi, _ = bits.Add64(hi, 0, carry)
 	return
 }
 
-func madd3(a, b, c, d, e uint32) (hi uint32, lo uint32) {
-	var carry uint32
-	hi, lo = bits.Mul32(a, b)
-	c, carry = bits.Add32(c, d, 0)
-	hi, _ = bits.Add32(hi, 0, carry)
-	lo, carry = bits.Add32(lo, c, 0)
-	hi, _ = bits.Add32(hi, e, carry)
+func madd3(a, b, c, d, e uint64) (hi uint64, lo uint64) {
+	var carry uint64
+	hi, lo = bits.Mul64(a, b)
+	c, carry = bits.Add64(c, d, 0)
+	hi, _ = bits.Add64(hi, 0, carry)
+	lo, carry = bits.Add64(lo, c, 0)
+	hi, _ = bits.Add64(hi, e, carry)
 	return
 }

@@ -54,8 +54,8 @@ const (
 
 // Field modulus q
 const (
-	q0 uint64 = 18446744069414584321
-	q  uint64 = q0
+	q0 = 18446744069414584321
+	q  = q0
 )
 
 var qElement = Element{
@@ -74,7 +74,7 @@ func Modulus() *big.Int {
 
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 // used for Montgomery reduction
-const qInvNeg uint64 = 18446744069414584319
+const qInvNeg = 18446744069414584319
 
 func init() {
 	_modulus.SetString("ffffffff00000001", 16)
@@ -405,49 +405,6 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 	cC := uint64((int64(c) | -int64(c)) >> 63) // "canonicized" into: 0 if c=0, -1 otherwise
 	z[0] = x0[0] ^ cC&(x0[0]^x1[0])
 	return z
-}
-
-// _mulGeneric is unoptimized textbook CIOS
-// it is a fallback solution on x86 when ADX instruction set is not available
-// and is used for testing purposes.
-func _mulGeneric(z, x, y *Element) {
-
-	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS"
-	// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
-
-	var t [2]uint64
-	var D uint64
-	var m, C uint64
-	// -----------------------------------
-	// First loop
-
-	C, t[0] = bits.Mul64(y[0], x[0])
-
-	t[1], D = bits.Add64(t[1], C, 0)
-
-	// m = t[0]n'[0] mod W
-	m = t[0] * qInvNeg
-
-	// -----------------------------------
-	// Second loop
-	C = madd0(m, q0, t[0])
-
-	t[0], C = bits.Add64(t[1], C, 0)
-	t[1], _ = bits.Add64(0, D, C)
-
-	if t[1] != 0 {
-		// we need to reduce, we have a result on 2 words
-		z[0], _ = bits.Sub64(t[0], q0, 0)
-		return
-	}
-
-	// copy t into z
-	z[0] = t[0]
-
-	// if z ⩾ q → z -= q
-	if !z.smallerThanModulus() {
-		z[0] -= q
-	}
 }
 
 func _fromMontGeneric(z *Element) {

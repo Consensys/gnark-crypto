@@ -47,7 +47,7 @@ const MulCIOS = `
 		// -----------------------------------
 		// First loop
 		{{ if eq $j 0}}
-			C, t[0] = bits.{{$.all.Word.Mul}}({{$.V2}}[{{$j}}], {{$.V1}}[0])
+			C, t[0] = bits.Mul64({{$.V2}}[{{$j}}], {{$.V1}}[0])
 			{{- range $i := $.all.NbWordsIndexesNoZero}}
 				C, t[{{$i}}] = madd1({{$.V2}}[{{$j}}], {{$.V1}}[{{$i}}], C)
 			{{- end}}
@@ -110,12 +110,12 @@ const MulCIOS = `
 	// Which finally gives (lo + m * q) / R = (lo + lo2 + R hi2) / R = hi2 + (lo+lo2) / R = hi2 + (lo != 0)
 	// This "optimization" lets us do away with one MUL instruction on ARM architectures and is available for all q < R.
 
-	hi, lo := bits.{{$.all.Word.Mul}}({{$.V1}}[0], {{$.V2}}[0])
+	hi, lo := bits.Mul64({{$.V1}}[0], {{$.V2}}[0])
 	if lo != 0 {
 		hi++ // x[0] * y[0] ≤ 2¹²⁸ - 2⁶⁵ + 1, meaning hi ≤ 2⁶⁴ - 2 so no need to worry about overflow
 	}
 	m := lo * qInvNeg
-	hi2, _ := bits.{{$.all.Word.Mul}}(m, q)
+	hi2, _ := bits.Mul64(m, q)
 	{{ $hasCarry := (not $.all.NoCarry)}}
 	{{- if $hasCarry}}
 		r, carry := bits.{{$.all.Word.Add}}(hi2, hi, 0)

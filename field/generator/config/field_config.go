@@ -74,6 +74,7 @@ type FieldConfig struct {
 	UseAddChain               bool
 
 	Word Word // 32 iff Q < 2^32, else 64
+	F31  bool // 31 bits field
 
 	// asm code generation
 	GenerateOpsAMD64       bool
@@ -89,7 +90,6 @@ type Word struct {
 	TypeUpper string // Uint32 or Uint64
 	Add       string // Add64 or Add32
 	Sub       string // Sub64 or Sub32
-	Mul       string // Mul64 or Mul32
 	Len       string // Len64 or Len32
 }
 
@@ -114,6 +114,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	}
 	// pre compute field constants
 	F.NbBits = bModulus.BitLen()
+	F.F31 = F.NbBits == 31
 	F.NbWords = len(bModulus.Bits())
 	F.NbWordsLastIndex = F.NbWords - 1
 
@@ -132,7 +133,6 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	F.Word.TypeUpper = "Uint64"
 	F.Word.Add = "Add64"
 	F.Word.Sub = "Sub64"
-	F.Word.Mul = "Mul64"
 	F.Word.Len = "Len64"
 	if F.NbBits < 32 {
 		F.Word.BitSize = 32
@@ -141,17 +141,13 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 		F.Word.TypeUpper = "Uint32"
 		F.Word.Add = "Add32"
 		F.Word.Sub = "Sub32"
-		F.Word.Mul = "Mul32"
 		F.Word.Len = "Len32"
 	}
 
 	F.NbBytes = F.NbWords * F.Word.ByteSize
 
 	//  setting qInverse
-	radix := uint(64)
-	if F.Word.BitSize == 32 {
-		radix = 32
-	}
+	radix := uint(F.Word.BitSize)
 
 	_r := big.NewInt(1)
 	_r.Lsh(_r, uint(F.NbWords)*radix)

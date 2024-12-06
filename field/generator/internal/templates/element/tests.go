@@ -730,7 +730,11 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 
 {{template "testBinaryOp" dict "all" . "Op" "Add"}}
 {{template "testBinaryOp" dict "all" . "Op" "Sub"}}
+{{- if ne .NbWords 1}}
 {{template "testBinaryOp" dict "all" . "Op" "Mul" "GenericOp" "_mulGeneric"}}
+{{- else}}
+{{template "testBinaryOp" dict "all" . "Op" "Mul"}}
+{{- end}}
 {{template "testBinaryOp" dict "all" . "Op" "Div"}}
 {{template "testBinaryOp" dict "all" . "Op" "Exp"}}
 
