@@ -24,7 +24,7 @@ func main() {
 	}
 
 	for _, f := range fields {
-		fc, err := config.NewFieldConfig(f.name, "Element", f.modulus, true)
+		fc, err := config.NewFieldConfig(f.name, "Element", f.modulus, f.name, true)
 		if err != nil {
 			panic(err)
 		}

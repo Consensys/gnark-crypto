@@ -33,6 +33,7 @@ var (
 
 // FieldConfig precomputed values used in template for code generation of field element APIs
 type FieldConfig struct {
+	FieldName                 string
 	PackageName               string
 	ElementName               string
 	ModulusBig                *big.Int
@@ -96,7 +97,7 @@ type Word struct {
 // NewFieldConfig returns a data structure with needed information to generate apis for field element
 //
 // See field/generator package
-func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) (*FieldConfig, error) {
+func NewFieldConfig(packageName, elementName, modulus string, fieldName string, useAddChain bool) (*FieldConfig, error) {
 	// parse modulus
 	var bModulus big.Int
 	if _, ok := bModulus.SetString(modulus, 0); !ok {
@@ -105,6 +106,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 
 	// field info
 	F := &FieldConfig{
+		FieldName:   fieldName,
 		PackageName: packageName,
 		ElementName: elementName,
 		Modulus:     bModulus.Text(10),

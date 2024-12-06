@@ -91,7 +91,7 @@ func TestIntegration(t *testing.T) {
 		var fIntegration *field.FieldConfig
 		// generate field
 		childDir := filepath.Join(rootDir, elementName)
-		fIntegration, err = field.NewFieldConfig("integration", elementName, modulus, false)
+		fIntegration, err = field.NewFieldConfig("integration", elementName, modulus, "integration_field", false)
 		assert.NoError(err)
 		assert.NoError(GenerateFF(fIntegration, childDir, asmDir, asmDirIncludePath))
 	}

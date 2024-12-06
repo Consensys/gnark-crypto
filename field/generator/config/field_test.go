@@ -134,7 +134,7 @@ func TestQuadExtensionMul(t *testing.T) {
 func TestExponentiationBls12381G2(t *testing.T) {
 	t.Parallel()
 
-	base, err := NewFieldConfig("dummyName", "dummyElement", "0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab", false)
+	base, err := NewFieldConfig("dummyName", "dummyElement", "0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab", "dummyField", false)
 
 	if err != nil {
 		t.Fatal(err)
@@ -213,7 +213,7 @@ func genField(t *testing.T) gopter.Gen {
 			}
 
 			var field *FieldConfig
-			field, err = NewFieldConfig("dummy", "DummyElement", "0x"+modulus.Text(16), false)
+			field, err = NewFieldConfig("dummy", "DummyElement", "0x"+modulus.Text(16), "dummyField", false)
 
 			if err == nil {
 				if field.NbBits != bitLen || field.NbWords != nbWords {

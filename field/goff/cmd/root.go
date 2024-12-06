@@ -42,6 +42,7 @@ var (
 	fElementName string
 )
 
+// TODO add field name flag
 func init() {
 	cobra.OnInitialize()
 	rootCmd.PersistentFlags().StringVarP(&fElementName, "element", "e", "", "name of the generated struct and file")
@@ -66,7 +67,7 @@ func cmdGenerate(cmd *cobra.Command, args []string) {
 	}
 
 	// generate code
-	F, err := field.NewFieldConfig(fPackageName, fElementName, fModulus, false)
+	F, err := field.NewFieldConfig(fPackageName, fElementName, fModulus, "", false)
 	if err != nil {
 		fmt.Printf("\n%s\n", err.Error())
 		os.Exit(-1)

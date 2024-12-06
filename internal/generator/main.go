@@ -73,10 +73,10 @@ func main() {
 
 			var err error
 
-			conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
+			conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, fmt.Sprintf("fp_%s", conf.Name), true)
 			assertNoError(err)
 
-			conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
+			conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, fmt.Sprintf("fr_%s", conf.Name), !conf.Equal(config.STARK_CURVE))
 			assertNoError(err)
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
