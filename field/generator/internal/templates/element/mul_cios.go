@@ -126,7 +126,8 @@ const MulCIOS = `
 		z[0] = r
 	{{- else}}
 		v := uint64({{$.V1}}[0]) * uint64({{$.V2}}[0])
-		z[0] = montReduce(v)
+		// z[0] = montReduce(v)
+		z[0] = barrettReduce(v)
 
 		// hi, lo := bits.{{$.all.Word.Mul}}({{$.V1}}[0], {{$.V2}}[0])
 		// if lo != 0 {

@@ -192,13 +192,13 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 
 	var one big.Int
 	one.SetUint64(1)
-	one.Lsh(&one, uint(F.NbWords)*(radix)).Mod(&one, &bModulus)
+	// one.Lsh(&one, uint(F.NbWords)*(radix)).Mod(&one, &bModulus)
 	F.One = toUint64Slice(&one, F.NbWords)
 
 	{
 		var n big.Int
 		n.SetUint64(13)
-		n.Lsh(&n, uint(F.NbWords)*radix).Mod(&n, &bModulus)
+		// n.Lsh(&n, uint(F.NbWords)*radix).Mod(&n, &bModulus)
 		F.Thirteen = toUint64Slice(&n, F.NbWords)
 	}
 
@@ -315,6 +315,13 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	if F.NbWords == 4 {
 		_mu := big.NewInt(1)
 		_mu.Lsh(_mu, 288)
+		_mu.Div(_mu, &bModulus)
+		muSlice := toUint64Slice(_mu, F.NbWords)
+		F.Mu = muSlice[0]
+	}
+	if F.NbWords == 1 && F.NbBits == 31 {
+		_mu := big.NewInt(1)
+		_mu.Lsh(_mu, 2*uint(F.NbBits))
 		_mu.Div(_mu, &bModulus)
 		muSlice := toUint64Slice(_mu, F.NbWords)
 		F.Mu = muSlice[0]

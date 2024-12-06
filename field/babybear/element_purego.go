@@ -51,7 +51,8 @@ func reduce(z *Element) {
 func (z *Element) Mul(x, y *Element) *Element {
 
 	v := uint64(x[0]) * uint64(y[0])
-	z[0] = montReduce(v)
+	// z[0] = montReduce(v)
+	z[0] = barrettReduce(v)
 
 	// hi, lo := bits.Mul32(x[0], y[0])
 	// if lo != 0 {
@@ -67,6 +68,18 @@ func (z *Element) Mul(x, y *Element) *Element {
 
 	return z
 }
+
+const mu uint64 = 2290649223
+
+func barrettReduce(v uint64) uint32 {
+	qPrime := ((v >> (Bits - 1)) * mu) >> (Bits + 1)
+	r := v - qPrime*q
+	if r >= q {
+		r -= q
+	}
+	return uint32(r)
+}
+
 func montReduce(v uint64) uint32 {
 	m := (v * qInvNeg) % r
 	t := uint32((v + m*q) >> rBits)
@@ -83,7 +96,8 @@ func (z *Element) Square(x *Element) *Element {
 	// see Mul for algorithm documentation
 
 	v := uint64(x[0]) * uint64(x[0])
-	z[0] = montReduce(v)
+	// z[0] = montReduce(v)
+	z[0] = barrettReduce(v)
 
 	// hi, lo := bits.Mul32(x[0], x[0])
 	// if lo != 0 {

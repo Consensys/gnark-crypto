@@ -585,7 +585,7 @@ func _mulGeneric(z,x,y *{{.ElementName}}) {
 
 func _fromMontGeneric(z *{{.ElementName}}) {
 	{{- if eq .Word.BitSize 32}}
-		z[0]= montReduce(uint64(z[0]))
+		// z[0]= montReduce(uint64(z[0]))
 	{{- else}}
 		// the following lines implement z = z * 1
 		// with a modified CIOS montgomery multiplication

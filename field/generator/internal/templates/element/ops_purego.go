@@ -65,6 +65,16 @@ func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 }
 
 {{- if eq $.Word.BitSize 32}}
+const mu uint64 = {{.Mu}}
+func barrettReduce(v uint64) uint32 {
+	qPrime := ((v >> (Bits - 1)) * mu) >> (Bits + 1)
+	r := v - qPrime * q
+	if r >= q {
+		r -= q
+	}
+	return uint32(r)
+}
+
 func montReduce(v uint64) uint32 {
 	m := (v  * qInvNeg ) % r
 	t := uint32((v + m * q) >> rBits)

@@ -205,11 +205,30 @@ func BenchmarkElementMul(b *testing.B) {
 	x := Element{
 		100531193,
 	}
-	benchResElement.SetOne()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		benchResElement.Mul(&benchResElement, &x)
-	}
+
+	b.Run("MulBarrett", func(b *testing.B) {
+		benchResElement.SetOne()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchResElement.MulBarrett(&benchResElement, &x)
+		}
+	})
+
+	b.Run("MulMont", func(b *testing.B) {
+		benchResElement.SetOne()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchResElement.MulMont(&benchResElement, &x)
+		}
+	})
+
+	b.Run("MulBuiltIn", func(b *testing.B) {
+		benchResElement.SetOne()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			benchResElement.MulBuiltIn(&benchResElement, &x)
+		}
+	})
 }
 
 func BenchmarkElementCmp(b *testing.B) {

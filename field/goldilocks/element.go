@@ -191,7 +191,7 @@ func (z *Element) SetZero() *Element {
 
 // SetOne z = 1 (in Montgomery form)
 func (z *Element) SetOne() *Element {
-	z[0] = 4294967295
+	z[0] = 1
 	return z
 }
 
@@ -220,7 +220,7 @@ func (z *Element) IsZero() bool {
 
 // IsOne returns z == 1
 func (z *Element) IsOne() bool {
-	return z[0] == 4294967295
+	return z[0] == 1
 }
 
 // IsUint64 reports whether z can be represented as an uint64.
@@ -592,7 +592,7 @@ var rSquare = Element{
 // toMont converts z to Montgomery form
 // sets and returns z = z * r²
 func (z *Element) toMont() *Element {
-	z[0] = uint32((uint64(z[0]) << rBits) % q)
+	// z[0] = uint32((uint64(z[0]) << rBits) % q)
 	return z
 	// return z.Mul(z, &rSquare)
 }
@@ -1004,7 +1004,7 @@ func (z *Element) Inverse(x *Element) *Element {
 
 	var r, s, u, v uint64
 	u = q
-	s = 18446744065119617025 // s = r²
+	s = 1 // 18446744065119617025 // s = r²
 	r = 0
 	v = x[0]
 

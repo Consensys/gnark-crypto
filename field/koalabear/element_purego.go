@@ -51,22 +51,43 @@ func reduce(z *Element) {
 func (z *Element) Mul(x, y *Element) *Element {
 
 	v := uint64(x[0]) * uint64(y[0])
-	z[0] = montReduce(v)
-
-	// hi, lo := bits.Mul32(x[0], y[0])
-	// if lo != 0 {
-	// 	hi++ // x[0] * y[0] ≤ 2¹²⁸ - 2⁶⁵ + 1, meaning hi ≤ 2⁶⁴ - 2 so no need to worry about overflow
-	// }
-	// m := lo * qInvNeg
-	// hi2, _ := bits.Mul32(m, q)
-	// hi2 += hi
-	// if hi2 >= q {
-	// 	hi2 -= q
-	// }
-	// z[0] = hi2
-
+	// z[0] = montReduce(v)
+	z[0] = barrettReduce(v)
 	return z
 }
+
+func (z *Element) MulBarrett(x, y *Element) *Element {
+
+	v := uint64(x[0]) * uint64(y[0])
+	z[0] = barrettReduce(v)
+	return z
+}
+
+func (z *Element) MulMont(x, y *Element) *Element {
+
+	v := uint64(x[0]) * uint64(y[0])
+	z[0] = montReduce(v)
+	return z
+}
+
+func (z *Element) MulBuiltIn(x, y *Element) *Element {
+
+	v := (uint64(x[0]) * uint64(y[0])) % q
+	z[0] = uint32(v)
+	return z
+}
+
+const mu uint64 = 2164392967
+
+func barrettReduce(v uint64) uint32 {
+	qPrime := ((v >> (Bits - 1)) * mu) >> (Bits + 1)
+	r := v - qPrime*q
+	if r >= q {
+		r -= q
+	}
+	return uint32(r)
+}
+
 func montReduce(v uint64) uint32 {
 	m := (v * qInvNeg) % r
 	t := uint32((v + m*q) >> rBits)
@@ -83,7 +104,8 @@ func (z *Element) Square(x *Element) *Element {
 	// see Mul for algorithm documentation
 
 	v := uint64(x[0]) * uint64(x[0])
-	z[0] = montReduce(v)
+	// z[0] = montReduce(v)
+	z[0] = barrettReduce(v)
 
 	// hi, lo := bits.Mul32(x[0], x[0])
 	// if lo != 0 {
