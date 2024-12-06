@@ -2,7 +2,9 @@ package element
 
 const OpsNoAsm = `
 
+{{- if ne .NbWords 1}}
 import "math/bits"
+{{- end}}
 
 {{ $mulConsts := list 3 5 13 }}
 {{- range $i := $mulConsts }}
@@ -61,6 +63,17 @@ func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 	{{- end }}
 	return z
 }
+
+{{- if eq $.Word.BitSize 32}}
+func montReduce(v uint64) uint32 {
+	m := (v  * qInvNeg ) % r
+	t := uint32((v + m * q) >> rBits)
+	if t >= q {
+		t -= q
+	}
+	return t
+}
+{{- end}}
 
 // Square z = x * x (mod q)
 {{- if $.NoCarry}}

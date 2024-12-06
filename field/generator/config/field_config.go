@@ -53,6 +53,7 @@ type FieldConfig struct {
 	QMinusOneHalvedP          []uint64 // ((q-1) / 2 ) + 1
 	Mu                        uint64   // mu = 2^288 / q for 4.5 word barrett reduction
 	RSquare                   []uint64
+	RBits                     int
 	One, Thirteen             []uint64
 	LegendreExponent          string // big.Int to base16 string
 	NoCarry                   bool
@@ -150,8 +151,9 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	//  setting qInverse
 	radix := uint(64)
 	if F.Word.BitSize == 32 {
-		radix = 32
+		radix = 31
 	}
+	F.RBits = int(radix)
 
 	_r := big.NewInt(1)
 	_r.Lsh(_r, uint(F.NbWords)*radix)
@@ -190,7 +192,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 
 	var one big.Int
 	one.SetUint64(1)
-	one.Lsh(&one, uint(F.NbWords)*radix).Mod(&one, &bModulus)
+	one.Lsh(&one, uint(F.NbWords)*(radix)).Mod(&one, &bModulus)
 	F.One = toUint64Slice(&one, F.NbWords)
 
 	{

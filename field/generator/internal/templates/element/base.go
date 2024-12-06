@@ -42,10 +42,13 @@ const (
 // Field modulus q
 const (
 {{- range $i := $.NbWordsIndexesFull}}
-	q{{$i}} {{$.Word.TypeLower}} = {{index $.Q $i}}
+	q{{$i}}  = {{index $.Q $i}}
 	{{- if eq $.NbWords 1}}
-		q {{$.Word.TypeLower}} = q0
+		q = q0
+		rBits = {{$.RBits}}
+		r = 1 << rBits
 	{{- end}}
+	
 {{- end}}
 )
 
@@ -66,7 +69,7 @@ func Modulus() *big.Int {
 
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 // used for Montgomery reduction
-const qInvNeg {{$.Word.TypeLower}} = {{index .QInverse 0}}
+const qInvNeg = {{index .QInverse 0}}
 
 {{- if eq .NbWords 4}}
 // mu = 2^288 / q needed for partial Barrett reduction
@@ -86,7 +89,7 @@ func init() {
 func New{{.ElementName}}(v uint64) {{.ElementName}} {
 {{- if eq .Word.BitSize 32}}
 	z := {{.ElementName}}{ {{$.Word.TypeLower}}(v % uint64(q0)) }
-	z.Mul(&z, &rSquare)
+	z.toMont()
 	return z
 {{- else }}
 	z := {{.ElementName}}{ v }
@@ -100,7 +103,7 @@ func (z *{{.ElementName}}) SetUint64(v uint64) *{{.ElementName}} {
 {{- if eq .Word.BitSize 32}}
 	//  sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 	*z = {{.ElementName}}{ {{$.Word.TypeLower}}(v % uint64(q0)) }
-	return z.Mul(z, &rSquare) // z.toMont()
+	return z.toMont()
 {{- else }}
 	//  sets z LSB to v (non-Montgomery form) and convert z to Montgomery form
 	*z = {{.ElementName}}{ v }
@@ -568,6 +571,7 @@ func (z *{{.ElementName}}) Select(c int, x0 *{{.ElementName}}, x1 *{{.ElementNam
 	return z
 }
 
+{{- if ne .Word.BitSize 32}}
 // _mulGeneric is unoptimized textbook CIOS
 // it is a fallback solution on x86 when ADX instruction set is not available
 // and is used for testing purposes.
@@ -576,25 +580,29 @@ func _mulGeneric(z,x,y *{{.ElementName}}) {
 	{{ template "mul_cios" dict "all" . "V1" "x" "V2" "y"}}
 	{{ template "reduce"  . }}
 }
+{{- end}}
 
 
 func _fromMontGeneric(z *{{.ElementName}}) {
-	// the following lines implement z = z * 1
-	// with a modified CIOS montgomery multiplication
-	// see Mul for algorithm documentation
-	{{- range $j := .NbWordsIndexesFull}}
-	{
-		// m = z[0]n'[0] mod W
-		m := z[0] * qInvNeg
-		C := madd0(m, q0, z[0])
-		{{- range $i := $.NbWordsIndexesNoZero}}
-			C, z[{{sub $i 1}}] = madd2(m, q{{$i}}, z[{{$i}}], C)
+	{{- if eq .Word.BitSize 32}}
+		z[0]= montReduce(uint64(z[0]))
+	{{- else}}
+		// the following lines implement z = z * 1
+		// with a modified CIOS montgomery multiplication
+		// see Mul for algorithm documentation
+		{{- range $j := .NbWordsIndexesFull}}
+		{
+			// m = z[0]n'[0] mod W
+			m := z[0] * qInvNeg
+			C := madd0(m, q0, z[0])
+			{{- range $i := $.NbWordsIndexesNoZero}}
+				C, z[{{sub $i 1}}] = madd2(m, q{{$i}}, z[{{$i}}], C)
+			{{- end}}
+			z[{{sub $.NbWords 1}}] = C
+		}
 		{{- end}}
-		z[{{sub $.NbWords 1}}] = C
-	}
+		{{ template "reduce" .}}
 	{{- end}}
-
-	{{ template "reduce" .}}
 }
 
 func _reduceGeneric(z *{{.ElementName}})  {

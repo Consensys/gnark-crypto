@@ -2,6 +2,11 @@ package element
 
 const Reduce = `
 {{ define "reduce" }}
+{{- if eq $.Word.BitSize 32}}
+if z[0] >= q {
+	z[0] -= q
+}
+{{- else}}
 // if z ⩾ q → z -= q
 if !z.smallerThanModulus() {
 {{- if eq $.NbWords 1}}
@@ -19,6 +24,7 @@ if !z.smallerThanModulus() {
 {{-  end }}
 }
 
+{{-  end }}
 {{-  end }}
 
 `
