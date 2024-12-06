@@ -349,29 +349,31 @@ func (z *Element) fromMont() *Element {
 // Add z = x + y (mod q)
 func (z *Element) Add(x, y *Element) *Element {
 
-	z[0] = x[0] + y[0]
-	if z[0] >= q {
-		z[0] -= q
+	t := x[0] + y[0]
+	if t >= q {
+		t -= q
 	}
+	z[0] = t
 	return z
 }
 
 // Double z = x + x (mod q), aka Lsh 1
 func (z *Element) Double(x *Element) *Element {
-	z[0] = x[0] << 1
-	if z[0] >= q {
-		z[0] -= q
+	t := x[0] << 1
+	if t >= q {
+		t -= q
 	}
+	z[0] = t
 	return z
 }
 
 // Sub z = x - y (mod q)
 func (z *Element) Sub(x, y *Element) *Element {
-	var b uint32
-	z[0], b = bits.Sub32(x[0], y[0], 0)
+	t, b := bits.Sub32(x[0], y[0], 0)
 	if b != 0 {
-		z[0] += q
+		t += q
 	}
+	z[0] = t
 	return z
 }
 

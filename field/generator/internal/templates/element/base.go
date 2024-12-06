@@ -423,10 +423,11 @@ func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 			}
 			return z
 		{{- else}}
-			z[0] = x[0] + y[0]
-			if z[0] >= q {
-				z[0] -= q
+			t := x[0] + y[0]
+			if t >= q {
+				t -= q
 			}
+			z[0] = t
 			return z
 		{{- end}}
 	{{- else}}
@@ -461,23 +462,25 @@ func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 	{{- if eq .NbWords 1}}
 		{{- if .F31}}
-			z[0] = x[0] << 1
-			if z[0] >= q {
-					z[0] -= q
+			t := x[0] << 1
+			if t >= q {
+					t -= q
 			}
+			z[0] = t
+			return z
 		{{- else}}
 			if x[0]&(1<<63) == (1 << 63) {
-					// if highest bit is set, then we have a carry to x + x, we shift and subtract q
-					z[0] = (x[0] << 1) - q
+				// if highest bit is set, then we have a carry to x + x, we shift and subtract q
+				z[0] = (x[0] << 1) - q
 			} else {
-					// highest bit is not set, but x + x can still be >= q
-					z[0] = (x[0] << 1)
-					if z[0] >= q {
-							z[0] -= q
-					}
+				// highest bit is not set, but x + x can still be >= q
+				z[0] = (x[0] << 1)
+				if z[0] >= q {
+						z[0] -= q
+				}
 			}
+			return z
 		{{- end}}
-		return z
 	{{- else}}
 	{{ $hasCarry := or (not $.NoCarry) (gt $.NbWords 1)}}
 	{{- if $hasCarry}}
@@ -510,27 +513,36 @@ func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 
 // Sub z = x - y (mod q)
 func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
-	var b {{$.Word.TypeLower}}
-	z[0], b = bits.{{$.Word.Sub}}(x[0], y[0], 0)
-	{{- range $i := .NbWordsIndexesNoZero}}
-		z[{{$i}}], b = bits.{{$.Word.Sub}}(x[{{$i}}], y[{{$i}}], b)
-	{{- end}}
-	if b != 0 {
-		{{- if eq .NbWords 1}}
-			z[0] += q
-		{{- else}}
-			var c uint64
-			z[0], c = bits.Add64(z[0], q0, 0)
-			{{- range $i := .NbWordsIndexesNoZero}}
-				{{- if eq $i $.NbWordsLastIndex}}
-					z[{{$i}}], _ = bits.Add64(z[{{$i}}], q{{$i}}, c)
-				{{- else}}
-					z[{{$i}}], c = bits.Add64(z[{{$i}}], q{{$i}}, c)
+	{{- if $.F31}}
+		t, b := bits.Sub32(x[0], y[0], 0)
+		if b != 0 {
+			t += q
+		}
+		z[0] = t
+		return z
+	{{- else}}
+		var b uint64
+		z[0], b = bits.Sub64(x[0], y[0], 0)
+		{{- range $i := .NbWordsIndexesNoZero}}
+			z[{{$i}}], b = bits.Sub64(x[{{$i}}], y[{{$i}}], b)
+		{{- end}}
+		if b != 0 {
+			{{- if eq .NbWords 1}}
+				z[0] += q
+			{{- else}}
+				var c uint64
+				z[0], c = bits.Add64(z[0], q0, 0)
+				{{- range $i := .NbWordsIndexesNoZero}}
+					{{- if eq $i $.NbWordsLastIndex}}
+						z[{{$i}}], _ = bits.Add64(z[{{$i}}], q{{$i}}, c)
+					{{- else}}
+						z[{{$i}}], c = bits.Add64(z[{{$i}}], q{{$i}}, c)
+					{{- end}}
 				{{- end}}
 			{{- end}}
-		{{- end}}
-	}
-	return z
+		}
+		return z
+	{{- end}}
 }
 
 
