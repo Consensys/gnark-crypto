@@ -358,7 +358,7 @@ func (z *Element) Add(x, y *Element) *Element {
 
 // Double z = x + x (mod q), aka Lsh 1
 func (z *Element) Double(x *Element) *Element {
-	z[0] = (x[0] << 1)
+	z[0] = x[0] << 1
 	if z[0] >= q {
 		z[0] -= q
 	}

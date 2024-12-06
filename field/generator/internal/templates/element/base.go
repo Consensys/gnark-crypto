@@ -84,15 +84,15 @@ func init() {
 // 		var v {{.ElementName}}
 // 		v.SetUint64(...)
 func New{{.ElementName}}(v uint64) {{.ElementName}} {
-{{- if eq .Word.BitSize 32}}
-	z := {{.ElementName}}{ uint32(v % uint64(q0)) }
-	z.toMont()
-	return z
-{{- else }}
-	z := {{.ElementName}}{ v }
-	z.Mul(&z, &rSquare)
-	return z
-{{- end}}
+	{{- if .F31}}
+		z := {{.ElementName}}{ uint32(v % uint64(q0)) }
+		z.toMont()
+		return z
+	{{- else }}
+		z := {{.ElementName}}{ v }
+		z.Mul(&z, &rSquare)
+		return z
+	{{- end}}
 }
 
 // SetUint64 sets z to v and returns z
@@ -460,8 +460,8 @@ func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 // Double z = x + x (mod q), aka Lsh 1
 func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 	{{- if eq .NbWords 1}}
-		{{- if lt .NbBits 32}}
-			z[0] = (x[0] << 1)
+		{{- if .F31}}
+			z[0] = x[0] << 1
 			if z[0] >= q {
 					z[0] -= q
 			}
