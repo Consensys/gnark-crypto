@@ -183,7 +183,7 @@ func (z *{{.ElementName}}) SetBigInt(v *big.Int) *{{.ElementName}} {
 		// v == 0
 		return z
 	} else if c != 1 && v.Cmp(&zero) != -1 {
-		// 0 < v < q
+		// 0 <= v < q
 		return z.setBigInt(v)
 	}
 
