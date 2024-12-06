@@ -494,13 +494,13 @@ func (p *G1Jac) IsInSubGroup() bool {
 
 	var res, phip G1Jac
 	phip.phi(p)
-	res.ScalarMultiplication(&phip, &xGen).
+	res.mulWindowed(&phip, &xGen).
 		SubAssign(&phip).
-		ScalarMultiplication(&res, &xGen).
-		ScalarMultiplication(&res, &xGen).
+		mulWindowed(&res, &xGen).
+		mulWindowed(&res, &xGen).
 		AddAssign(&phip)
 
-	phip.ScalarMultiplication(p, &xGen).AddAssign(p).AddAssign(&res)
+	phip.mulWindowed(p, &xGen).AddAssign(p).AddAssign(&res)
 
 	return phip.IsOnCurve() && phip.Z.IsZero()
 
@@ -637,9 +637,9 @@ func (p *G1Jac) ClearCofactor(q *G1Jac) *G1Jac {
 	// https://eprint.iacr.org/2020/351.pdf
 	var points [4]G1Jac
 	points[0].Set(q)
-	points[1].ScalarMultiplication(q, &xGen)
-	points[2].ScalarMultiplication(&points[1], &xGen)
-	points[3].ScalarMultiplication(&points[2], &xGen)
+	points[1].mulWindowed(q, &xGen)
+	points[2].mulWindowed(&points[1], &xGen)
+	points[3].mulWindowed(&points[2], &xGen)
 
 	var scalars [7]big.Int
 	scalars[0].SetInt64(103)
@@ -652,18 +652,18 @@ func (p *G1Jac) ClearCofactor(q *G1Jac) *G1Jac {
 	scalars[6].SetInt64(130)
 
 	var p1, p2, tmp G1Jac
-	p1.ScalarMultiplication(&points[3], &scalars[0])
-	tmp.ScalarMultiplication(&points[2], &scalars[1]).Neg(&tmp)
+	p1.mulWindowed(&points[3], &scalars[0])
+	tmp.mulWindowed(&points[2], &scalars[1]).Neg(&tmp)
 	p1.AddAssign(&tmp)
-	tmp.ScalarMultiplication(&points[1], &scalars[2]).Neg(&tmp)
+	tmp.mulWindowed(&points[1], &scalars[2]).Neg(&tmp)
 	p1.AddAssign(&tmp)
-	tmp.ScalarMultiplication(&points[0], &scalars[3])
+	tmp.mulWindowed(&points[0], &scalars[3])
 	p1.AddAssign(&tmp)
 
-	p2.ScalarMultiplication(&points[2], &scalars[4])
-	tmp.ScalarMultiplication(&points[1], &scalars[5])
+	p2.mulWindowed(&points[2], &scalars[4])
+	tmp.mulWindowed(&points[1], &scalars[5])
 	p2.AddAssign(&tmp)
-	tmp.ScalarMultiplication(&points[0], &scalars[6])
+	tmp.mulWindowed(&points[0], &scalars[6])
 	p2.AddAssign(&tmp)
 	p2.phi(&p2)
 
@@ -1198,12 +1198,24 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 func batchAddG1Affine[TP pG1Affine, TPP ppG1Affine, TC cG1Affine](R *TPP, P *TP, batchSize int) {
 	var lambda, lambdain TC
 
-	// add part
+	// from https://docs.zkproof.org/pages/standards/accepted-workshop3/proposal-turbo_plonk.pdf
+	// affine point addition formula
+	// R(X1, Y1) + P(X2, Y2) = Q(X3, Y3)
+	// λ  = (Y2 - Y1) / (X2 - X1)
+	// X3 = λ² - (X1 + X2)
+	// Y3 = λ * (X1 - X3) - Y1
+
+	// first we compute the 1 / (X2 - X1) for all points using Montgomery batch inversion trick
+
+	// X2 - X1
 	for j := 0; j < batchSize; j++ {
 		lambdain[j].Sub(&(*P)[j].X, &(*R)[j].X)
 	}
 
-	// invert denominator using montgomery batch invert technique
+	// montgomery batch inversion;
+	// lambda[0] = 1 / (P[0].X - R[0].X)
+	// lambda[1] = 1 / (P[1].X - R[1].X)
+	// ...
 	{
 		var accumulator fp.Element
 		lambda[0].SetOne()
@@ -1223,22 +1235,24 @@ func batchAddG1Affine[TP pG1Affine, TPP ppG1Affine, TC cG1Affine](R *TPP, P *TP,
 		lambda[0].Set(&accumulator)
 	}
 
-	var d fp.Element
-	var rr G1Affine
+	var t fp.Element
+	var Q G1Affine
 
-	// add part
 	for j := 0; j < batchSize; j++ {
-		// computa lambda
-		d.Sub(&(*P)[j].Y, &(*R)[j].Y)
-		lambda[j].Mul(&lambda[j], &d)
+		// λ  = (Y2 - Y1) / (X2 - X1)
+		t.Sub(&(*P)[j].Y, &(*R)[j].Y)
+		lambda[j].Mul(&lambda[j], &t)
 
-		// compute X, Y
-		rr.X.Square(&lambda[j])
-		rr.X.Sub(&rr.X, &(*R)[j].X)
-		rr.X.Sub(&rr.X, &(*P)[j].X)
-		d.Sub(&(*R)[j].X, &rr.X)
-		rr.Y.Mul(&lambda[j], &d)
-		rr.Y.Sub(&rr.Y, &(*R)[j].Y)
-		(*R)[j].Set(&rr)
+		// X3 = λ² - (X1 + X2)
+		Q.X.Square(&lambda[j])
+		Q.X.Sub(&Q.X, &(*R)[j].X)
+		Q.X.Sub(&Q.X, &(*P)[j].X)
+
+		// Y3 = λ * (X1 - X3) - Y1
+		t.Sub(&(*R)[j].X, &Q.X)
+		Q.Y.Mul(&lambda[j], &t)
+		Q.Y.Sub(&Q.Y, &(*R)[j].Y)
+
+		(*R)[j].Set(&Q)
 	}
 }
