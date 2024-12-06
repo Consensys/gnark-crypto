@@ -116,21 +116,12 @@ const MulCIOS = `
 	}
 	m := lo * qInvNeg
 	hi2, _ := bits.Mul64(m, q)
-	{{ $hasCarry := (not $.all.NoCarry)}}
-	{{- if $hasCarry}}
-		r, carry := bits.{{$.all.Word.Add}}(hi2, hi, 0)
-		if carry != 0 || r >= q  {
-			// we need to reduce
-			r -= q
-		}
-		z[0] = r
-	{{- else}}
-		hi2 += hi
-		if hi2 >= q {
-			hi2 -= q
-		}
-		z[0] = hi2
-	{{- end}}
+	r, carry := bits.{{$.all.Word.Add}}(hi2, hi, 0)
+	if carry != 0 || r >= q  {
+		// we need to reduce
+		r -= q
+	}
+	z[0] = r
 {{ end }}
 `
 

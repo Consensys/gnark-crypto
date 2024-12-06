@@ -68,7 +68,6 @@ func (z *Element) Mul(x, y *Element) *Element {
 	}
 	m := lo * qInvNeg
 	hi2, _ := bits.Mul64(m, q)
-
 	r, carry := bits.Add64(hi2, hi, 0)
 	if carry != 0 || r >= q {
 		// we need to reduce
@@ -101,7 +100,6 @@ func (z *Element) Square(x *Element) *Element {
 	}
 	m := lo * qInvNeg
 	hi2, _ := bits.Mul64(m, q)
-
 	r, carry := bits.Add64(hi2, hi, 0)
 	if carry != 0 || r >= q {
 		// we need to reduce
