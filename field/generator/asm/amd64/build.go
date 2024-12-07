@@ -275,6 +275,10 @@ func GenerateCommonASM(w io.Writer, nbWords int, hasVector bool) error {
 	f.WriteLn("#include \"go_asm.h\"")
 	f.WriteLn("")
 
+	if nbWords == 1 {
+		return GenerateF31ASM(f, hasVector)
+	}
+
 	f.GenerateReduceDefine()
 
 	// reduce
@@ -307,5 +311,10 @@ func GenerateCommonASM(w io.Writer, nbWords int, hasVector bool) error {
 		f.generateMulVec("mulVec")
 	}
 
+	return nil
+}
+
+func GenerateF31ASM(f *FFAmd64, hasVector bool) error {
+	f.Comment("TODO: implement F31 assembly code")
 	return nil
 }

@@ -23,12 +23,19 @@ func main() {
 		{"babybear", "0x78000001"},  // 2^31 - 2^27 + 1 ==> 2-adicity 27
 	}
 
+	// generate assembly
+	asmDir := filepath.Join("..", "asm")
+	asmDirIncludePath := filepath.Join("..", "asm")
+	if err := generator.GenerateAMD64(1, asmDir, true); err != nil {
+		panic(err)
+	}
+
 	for _, f := range fields {
 		fc, err := config.NewFieldConfig(f.name, "Element", f.modulus, true)
 		if err != nil {
 			panic(err)
 		}
-		if err := generator.GenerateFF(fc, filepath.Join("..", f.name), "", ""); err != nil {
+		if err := generator.GenerateFF(fc, filepath.Join("..", f.name), asmDirIncludePath, asmDirIncludePath); err != nil {
 			panic(err)
 		}
 		fmt.Println("successfully generated", f.name, "field")
