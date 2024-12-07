@@ -303,18 +303,21 @@ func GenerateCommonASM(w io.Writer, nbWords int, hasVector bool) error {
 		f.Comment("Vector operations are partially derived from Dag Arne Osvik's work in github.com/a16z/vectorized-fields")
 		f.WriteLn("")
 
-		f.generateAddVec()
-		f.generateSubVec()
-		f.generateSumVec()
-		f.generateInnerProduct()
-		f.generateMulVec("scalarMulVec")
-		f.generateMulVec("mulVec")
+		f.generateAddVecW4()
+		f.generateSubVecW4()
+		f.generateSumVecW4()
+		f.generateInnerProductW4()
+		f.generateMulVecW4("scalarMulVec")
+		f.generateMulVecW4("mulVec")
 	}
 
 	return nil
 }
 
 func GenerateF31ASM(f *FFAmd64, hasVector bool) error {
-	f.Comment("TODO: implement F31 assembly code")
+	if !hasVector {
+		return nil // nothing for now.
+	}
+
 	return nil
 }
