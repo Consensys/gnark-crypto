@@ -3,4 +3,32 @@
 #include "funcdata.h"
 #include "go_asm.h"
 
-// TODO: implement F31 assembly code
+// Vector operations are partially derived from Plonky3 https://github.com/Plonky3/Plonky3
+// addVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] + b[0...n]
+TEXT ·addVec(SB), NOSPLIT, $0-32
+	MOVD         $const_q, AX
+	VPBROADCASTD AX, Z3
+	MOVQ         res+0(FP), CX
+	MOVQ         a+8(FP), AX
+	MOVQ         b+16(FP), DX
+	MOVQ         n+24(FP), BX
+
+loop_1:
+	TESTQ     BX, BX
+	JEQ       done_2     // n == 0, we are done
+	VMOVDQU32 0(AX), Z0
+	VMOVDQU32 0(DX), Z1
+	VPADDD    Z0, Z1, Z0
+	VPSUBD    Z3, Z0, Z2
+	VPMINUD   Z0, Z2, Z1
+	VMOVDQU32 Z1, 0(CX)
+
+	// increment pointers to visit next element
+	ADDQ $64, AX
+	ADDQ $64, DX
+	ADDQ $64, CX
+	DECQ BX      // decrement n
+	JMP  loop_1
+
+done_2:
+	RET

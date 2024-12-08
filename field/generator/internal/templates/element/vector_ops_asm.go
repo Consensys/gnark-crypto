@@ -150,8 +150,30 @@ const VectorOpsAmd64F31 = `
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
-	addVecGeneric(*vector, a, b)
+	if len(a) != len(b) || len(a) != len(*vector) {
+		panic("vector.Add: vectors don't have the same length")
+	}
+	n := uint64(len(a))
+	if n == 0 {
+		return
+	}
+	if !supportAvx512 {
+		// call addVecGeneric
+		addVecGeneric(*vector, a, b)
+		return
+	}
+
+	const blockSize = 16
+	addVec(&(*vector)[0], &a[0], &b[0], n/blockSize)
+	if n % blockSize != 0 {
+		// call addVecGeneric on the rest
+		start := n - n % blockSize
+		addVecGeneric((*vector)[start:], a[start:], b[start:])
+	}
 }
+
+//go:noescape
+func addVec(res, a, b *{{.ElementName}}, n uint64)
 
 // Sub subtracts two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
