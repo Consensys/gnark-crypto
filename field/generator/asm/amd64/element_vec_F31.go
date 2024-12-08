@@ -15,8 +15,6 @@
 package amd64
 
 import (
-	"fmt"
-
 	"github.com/consensys/bavard/amd64"
 )
 
@@ -63,14 +61,14 @@ func (f *FFAmd64) generateAddVecF31() {
 	// a = a + b
 	f.VMOVDQU32(addrA.At(0), a)
 	f.VMOVDQU32(addrB.At(0), b)
-	f.VPADDD(a, b, a)
+	f.VPADDD(a, b, a, "a = a + b")
 	// t = a - q
-	f.VPSUBD(q, a, t)
+	f.VPSUBD(q, a, t, "t = a - q")
 	// b = min(t, a)
-	f.VPMINUD(a, t, b)
+	f.VPMINUD(a, t, b, "b = min(t, a)")
 
 	// move b to res
-	f.VMOVDQU32(b, addrRes.At(0))
+	f.VMOVDQU32(b, addrRes.At(0), "res = b")
 
 	f.Comment("increment pointers to visit next element")
 	f.ADDQ("$64", addrA)
@@ -131,16 +129,16 @@ func (f *FFAmd64) generateSubVecF31() {
 	f.VMOVDQU32(addrA.At(0), a)
 	f.VMOVDQU32(addrB.At(0), b)
 
-	f.VPSUBD(b, a, a)
+	f.VPSUBD(b, a, a, "a = a - b")
 
 	// t = a + q
-	f.VPADDD(q, a, t)
+	f.VPADDD(q, a, t, "t = a + q")
 
 	// b = min(t, a)
-	f.VPMINUD(a, t, b)
+	f.VPMINUD(a, t, b, "b = min(t, a)")
 
 	// move b to res
-	f.VMOVDQU32(b, addrRes.At(0))
+	f.VMOVDQU32(b, addrRes.At(0), "res = b")
 
 	f.Comment("increment pointers to visit next element")
 	f.ADDQ("$64", addrA)
@@ -192,8 +190,8 @@ func (f *FFAmd64) generateSumVecF31() {
 	f.MOVQ("n+16(FP)", len)
 
 	// zeroize the accumulators
-	f.VXORPS(acc1, acc1, acc1)
-	f.VMOVDQA64(acc1, acc2)
+	f.VXORPS(acc1, acc1, acc1, "acc1 = 0")
+	f.VMOVDQA64(acc1, acc2, "acc2 = 0")
 
 	f.LABEL(loop)
 
@@ -201,11 +199,11 @@ func (f *FFAmd64) generateSumVecF31() {
 	f.JEQ(done, "n == 0, we are done")
 
 	// 1 cache line is typically 64 bytes, so we maintain 2 accumulators
-	f.VPMOVZXDQ(addrA.At(0), a1)
-	f.VPMOVZXDQ(addrA.At(4), a2)
+	f.VPMOVZXDQ(addrA.At(0), a1, "load 8 31bits values in a1")
+	f.VPMOVZXDQ(addrA.At(4), a2, "load 8 31bits values in a2")
 
-	f.VPADDQ(a1, acc1, acc1)
-	f.VPADDQ(a2, acc2, acc2)
+	f.VPADDQ(a1, acc1, acc1, "acc1 += a1")
+	f.VPADDQ(a2, acc2, acc2, "acc2 += a2")
 
 	f.Comment("increment pointers to visit next element")
 	f.ADDQ("$64", addrA)
@@ -215,8 +213,8 @@ func (f *FFAmd64) generateSumVecF31() {
 	f.LABEL(done)
 
 	// store t into res
-	f.VPADDQ(acc1, acc2, acc1)
-	f.VMOVDQU64(acc1, addrT.At(0))
+	f.VPADDQ(acc1, acc2, acc1, "acc1 += acc2")
+	f.VMOVDQU64(acc1, addrT.At(0), "res = acc1")
 
 	f.RET()
 
@@ -274,36 +272,19 @@ func (f *FFAmd64) generateMulVecF31() {
 	// a = a * b
 	f.VPMOVZXDQ(addrA.At(0), a)
 	f.VPMOVZXDQ(addrB.At(0), b)
-	f.VPMULUDQ(a, b, P)
-	// f.VPSRLQ("$32", P, PH)
-	f.VPANDQ(LSW, P, PL) // low dword
-	// m := uint32(v) * qInvNeg --> m = PL * qInvNeg
-	f.VPMULUDQ(PL, qInvNeg, PL)
-	f.VPANDQ(LSW, PL, PL) // mod R --> keep low dword
-	// m*=q
-	f.VPMULUDQ(PL, q, PL)
-	// add P
-	f.VPADDQ(P, PL, P)
-	f.VPSRLQ("$32", P, P) // shift right by 32 bits
+	f.VPMULUDQ(a, b, P, "P = a * b")
+	f.VPANDQ(LSW, P, PL, "m = uint32(P)")
+	f.VPMULUDQ(PL, qInvNeg, PL, "m = m * qInvNeg")
+	f.VPANDQ(LSW, PL, PL, "m = uint32(m)")
+	f.VPMULUDQ(PL, q, PL, "m = m * q")
+	f.VPADDQ(P, PL, P, "P = P + m")
+	f.VPSRLQ("$32", P, P, "P = P >> 32")
 
-	// now we need to use min to reduce
-	// first sub q from P
-	f.VPSUBD(q, P, PL)
-
-	// res = min(P, PL)
-	f.VPMINUD(P, PL, P)
+	f.VPSUBD(q, P, PL, "PL = P - q")
+	f.VPMINUD(P, PL, P, "P = min(P, PL)")
 
 	// move P to res
-	f.WriteLn(fmt.Sprintf("VPMOVQD %s, %s", P, addrRes.At(0)))
-	// f.VMOVDQU32(P, addrRes.At(0))
-
-	// now we need to montReduce
-
-	// // a = a - b
-	// f.VMOVDQU32(addrA.At(0), a)
-	// f.VMOVDQU32(addrB.At(0), b)
-
-	// f.VPSUBD(b, a, a)
+	f.VPMOVQD(P, addrRes.At(0), "res = P")
 
 	f.Comment("increment pointers to visit next element")
 	f.ADDQ("$32", addrA)

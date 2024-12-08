@@ -3,7 +3,7 @@
 #include "funcdata.h"
 #include "go_asm.h"
 
-// Vector operations are partially derived from Plonky3 https://github.com/Plonky3/Plonky3
+// (some) vector operations are partially derived from Plonky3 https://github.com/Plonky3/Plonky3
 // addVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] + b[0...n]
 TEXT ·addVec(SB), NOSPLIT, $0-32
 	MOVD         $const_q, AX
@@ -18,10 +18,10 @@ loop_1:
 	JEQ       done_2     // n == 0, we are done
 	VMOVDQU32 0(AX), Z0
 	VMOVDQU32 0(DX), Z1
-	VPADDD    Z0, Z1, Z0
-	VPSUBD    Z3, Z0, Z2
-	VPMINUD   Z0, Z2, Z1
-	VMOVDQU32 Z1, 0(CX)
+	VPADDD    Z0, Z1, Z0 // a = a + b
+	VPSUBD    Z3, Z0, Z2 // t = a - q
+	VPMINUD   Z0, Z2, Z1 // b = min(t, a)
+	VMOVDQU32 Z1, 0(CX)  // res = b
 
 	// increment pointers to visit next element
 	ADDQ $64, AX
@@ -47,10 +47,10 @@ loop_3:
 	JEQ       done_4     // n == 0, we are done
 	VMOVDQU32 0(AX), Z0
 	VMOVDQU32 0(DX), Z1
-	VPSUBD    Z1, Z0, Z0
-	VPADDD    Z3, Z0, Z2
-	VPMINUD   Z0, Z2, Z1
-	VMOVDQU32 Z1, 0(CX)
+	VPSUBD    Z1, Z0, Z0 // a = a - b
+	VPADDD    Z3, Z0, Z2 // t = a + q
+	VPMINUD   Z0, Z2, Z1 // b = min(t, a)
+	VMOVDQU32 Z1, 0(CX)  // res = b
 
 	// increment pointers to visit next element
 	ADDQ $64, AX
@@ -73,16 +73,16 @@ TEXT ·sumVec(SB), NOSPLIT, $0-24
 	MOVQ      t+0(FP), R15
 	MOVQ      a+8(FP), R14
 	MOVQ      n+16(FP), CX
-	VXORPS    Z2, Z2, Z2
-	VMOVDQA64 Z2, Z3
+	VXORPS    Z2, Z2, Z2   // acc1 = 0
+	VMOVDQA64 Z2, Z3       // acc2 = 0
 
 loop_5:
 	TESTQ     CX, CX
 	JEQ       done_6      // n == 0, we are done
-	VPMOVZXDQ 0(R14), Z0
-	VPMOVZXDQ 32(R14), Z1
-	VPADDQ    Z0, Z2, Z2
-	VPADDQ    Z1, Z3, Z3
+	VPMOVZXDQ 0(R14), Z0  // load 8 31bits values in a1
+	VPMOVZXDQ 32(R14), Z1 // load 8 31bits values in a2
+	VPADDQ    Z0, Z2, Z2  // acc1 += a1
+	VPADDQ    Z1, Z3, Z3  // acc2 += a2
 
 	// increment pointers to visit next element
 	ADDQ $64, R14
@@ -90,8 +90,8 @@ loop_5:
 	JMP  loop_5
 
 done_6:
-	VPADDQ    Z2, Z3, Z2
-	VMOVDQU64 Z2, 0(R15)
+	VPADDQ    Z2, Z3, Z2 // acc1 += acc2
+	VMOVDQU64 Z2, 0(R15) // res = acc1
 	RET
 
 // mulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b[0...n]
@@ -114,16 +114,16 @@ loop_7:
 	JEQ       done_8      // n == 0, we are done
 	VPMOVZXDQ 0(AX), Z0
 	VPMOVZXDQ 0(DX), Z1
-	VPMULUDQ  Z0, Z1, Z2
-	VPANDQ    Z6, Z2, Z5
-	VPMULUDQ  Z5, Z4, Z5
-	VPANDQ    Z6, Z5, Z5
-	VPMULUDQ  Z5, Z3, Z5
-	VPADDQ    Z2, Z5, Z2
-	VPSRLQ    $32, Z2, Z2
-	VPSUBD    Z3, Z2, Z5
-	VPMINUD   Z2, Z5, Z2
-	VPMOVQD   Z2, 0(CX)
+	VPMULUDQ  Z0, Z1, Z2  // P = a * b
+	VPANDQ    Z6, Z2, Z5  // m = uint32(P)
+	VPMULUDQ  Z5, Z4, Z5  // m = m * qInvNeg
+	VPANDQ    Z6, Z5, Z5  // m = uint32(m)
+	VPMULUDQ  Z5, Z3, Z5  // m = m * q
+	VPADDQ    Z2, Z5, Z2  // P = P + m
+	VPSRLQ    $32, Z2, Z2 // P = P >> 32
+	VPSUBD    Z3, Z2, Z5  // PL = P - q
+	VPMINUD   Z2, Z5, Z2  // P = min(P, PL)
+	VPMOVQD   Z2, 0(CX)   // res = P
 
 	// increment pointers to visit next element
 	ADDQ $32, AX
