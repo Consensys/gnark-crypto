@@ -26,7 +26,7 @@ func main() {
 	// generate assembly
 	asmDir := filepath.Join("..", "asm")
 	asmDirIncludePath := filepath.Join("..", "asm")
-	if err := generator.GenerateAMD64(1, asmDir, true); err != nil {
+	if err := generator.GenerateAMD64(1, 31, asmDir, true); err != nil {
 		panic(err)
 	}
 

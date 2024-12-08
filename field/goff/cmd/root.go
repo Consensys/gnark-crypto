@@ -74,13 +74,13 @@ func cmdGenerate(cmd *cobra.Command, args []string) {
 
 	asmDir := filepath.Join(fOutputDir, "asm")
 	if F.GenerateOpsAMD64 {
-		if err := generator.GenerateAMD64(F.NbWords, asmDir, F.GenerateVectorOpsAMD64); err != nil {
+		if err := generator.GenerateAMD64(F.NbWords, F.NbBits, asmDir, F.GenerateVectorOpsAMD64); err != nil {
 			fmt.Printf("\n%s\n", err.Error())
 			os.Exit(-1)
 		}
 	}
 	if F.GenerateOpsARM64 {
-		if err := generator.GenerateARM64(F.NbWords, asmDir, F.GenerateVectorOpsARM64); err != nil {
+		if err := generator.GenerateARM64(F.NbWords, F.NbBits, asmDir, F.GenerateVectorOpsARM64); err != nil {
 			fmt.Printf("\n%s\n", err.Error())
 			os.Exit(-1)
 		}

@@ -243,7 +243,7 @@ func shorten(input string) string {
 	return input
 }
 
-func GenerateARM64(nbWords int, asmDir string, hasVector bool) error {
+func GenerateARM64(nbWords, nbBits int, asmDir string, hasVector bool) error {
 	os.MkdirAll(asmDir, 0755)
 	pathSrc := filepath.Join(asmDir, fmt.Sprintf(arm64.ElementASMFileName, nbWords))
 
@@ -253,7 +253,7 @@ func GenerateARM64(nbWords int, asmDir string, hasVector bool) error {
 		return err
 	}
 
-	if err := arm64.GenerateCommonASM(f, nbWords, hasVector); err != nil {
+	if err := arm64.GenerateCommonASM(f, nbWords, nbBits, hasVector); err != nil {
 		_ = f.Close()
 		return err
 	}
@@ -271,7 +271,7 @@ func GenerateARM64(nbWords int, asmDir string, hasVector bool) error {
 	return nil
 }
 
-func GenerateAMD64(nbWords int, asmDir string, hasVector bool) error {
+func GenerateAMD64(nbWords, nbBits int, asmDir string, hasVector bool) error {
 	os.MkdirAll(asmDir, 0755)
 	pathSrc := filepath.Join(asmDir, fmt.Sprintf(amd64.ElementASMFileName, nbWords))
 
@@ -281,7 +281,7 @@ func GenerateAMD64(nbWords int, asmDir string, hasVector bool) error {
 		return err
 	}
 
-	if err := amd64.GenerateCommonASM(f, nbWords, hasVector); err != nil {
+	if err := amd64.GenerateCommonASM(f, nbWords, nbBits, hasVector); err != nil {
 		_ = f.Close()
 		return err
 	}
