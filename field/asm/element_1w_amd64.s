@@ -93,3 +93,44 @@ done_6:
 	VPADDQ    Z2, Z3, Z2
 	VMOVDQU64 Z2, 0(R15)
 	RET
+
+// mulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b[0...n]
+TEXT ·mulVec(SB), NOSPLIT, $0-32
+	MOVD         $const_q, AX
+	VPBROADCASTQ AX, Z3
+	MOVD         $const_qInvNeg, AX
+	VPBROADCASTQ AX, Z4
+
+	// Create mask for low dword in each qword
+	VPCMPEQB  Y0, Y0, Y0
+	VPMOVZXDQ Y0, Z6
+	MOVQ      res+0(FP), CX
+	MOVQ      a+8(FP), AX
+	MOVQ      b+16(FP), DX
+	MOVQ      n+24(FP), BX
+
+loop_7:
+	TESTQ     BX, BX
+	JEQ       done_8      // n == 0, we are done
+	VPMOVZXDQ 0(AX), Z0
+	VPMOVZXDQ 0(DX), Z1
+	VPMULUDQ  Z0, Z1, Z2
+	VPANDQ    Z6, Z2, Z5
+	VPMULUDQ  Z5, Z4, Z5
+	VPANDQ    Z6, Z5, Z5
+	VPMULUDQ  Z5, Z3, Z5
+	VPADDQ    Z2, Z5, Z2
+	VPSRLQ    $32, Z2, Z2
+	VPSUBD    Z3, Z2, Z5
+	VPMINUD   Z2, Z5, Z2
+	VPMOVQD   Z2, 0(CX)
+
+	// increment pointers to visit next element
+	ADDQ $32, AX
+	ADDQ $32, DX
+	ADDQ $32, CX
+	DECQ BX      // decrement n
+	JMP  loop_7
+
+done_8:
+	RET

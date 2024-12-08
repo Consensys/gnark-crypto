@@ -124,5 +124,27 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 // Mul multiplies two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Mul(a, b Vector) {
-	mulVecGeneric(*vector, a, b)
+	if len(a) != len(b) || len(a) != len(*vector) {
+		panic("vector.Mul: vectors don't have the same length")
+	}
+	n := uint64(len(a))
+	if n == 0 {
+		return
+	}
+	if !supportAvx512 {
+		// call mulVecGeneric
+		mulVecGeneric(*vector, a, b)
+		return
+	}
+
+	const blockSize = 8
+	mulVec(&(*vector)[0], &a[0], &b[0], n/blockSize)
+	if n%blockSize != 0 {
+		// call mulVecGeneric on the rest
+		start := n - n%blockSize
+		mulVecGeneric((*vector)[start:], a[start:], b[start:])
+	}
 }
+
+//go:noescape
+func mulVec(res, a, b *Element, n uint64)

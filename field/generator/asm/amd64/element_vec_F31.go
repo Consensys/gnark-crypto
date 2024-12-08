@@ -15,6 +15,8 @@
 package amd64
 
 import (
+	"fmt"
+
 	"github.com/consensys/bavard/amd64"
 )
 
@@ -219,6 +221,103 @@ func (f *FFAmd64) generateSumVecF31() {
 	f.RET()
 
 	f.Push(&registers, addrA, addrT, len)
+}
+
+// mulVec res = a * b
+func (f *FFAmd64) generateMulVecF31() {
+	f.Comment("mulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b[0...n]")
+
+	const argSize = 4 * 8
+	stackSize := f.StackSize(f.NbWords*2+4, 0, 0)
+	registers := f.FnHeader("mulVec", stackSize, argSize)
+	defer f.AssertCleanStack(stackSize, 0)
+
+	// registers & labels we need
+	addrA := f.Pop(&registers)
+	addrB := f.Pop(&registers)
+	addrRes := f.Pop(&registers)
+	len := f.Pop(&registers)
+
+	// AVX512 registers
+	a := amd64.Register("Z0")
+	b := amd64.Register("Z1")
+	P := amd64.Register("Z2")
+	q := amd64.Register("Z3")
+	qInvNeg := amd64.Register("Z4")
+	PL := amd64.Register("Z5")
+	LSW := amd64.Register("Z6")
+
+	// load q in Z3
+	f.WriteLn("MOVD $const_q, AX")
+	f.VPBROADCASTQ("AX", q)
+	f.WriteLn("MOVD $const_qInvNeg, AX")
+	f.VPBROADCASTQ("AX", qInvNeg)
+
+	f.Comment("Create mask for low dword in each qword")
+	f.VPCMPEQB("Y0", "Y0", "Y0")
+	f.VPMOVZXDQ("Y0", LSW)
+
+	loop := f.NewLabel("loop")
+	done := f.NewLabel("done")
+
+	// load arguments
+	f.MOVQ("res+0(FP)", addrRes)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("n+24(FP)", len)
+
+	f.LABEL(loop)
+
+	f.TESTQ(len, len)
+	f.JEQ(done, "n == 0, we are done")
+
+	// a = a * b
+	f.VPMOVZXDQ(addrA.At(0), a)
+	f.VPMOVZXDQ(addrB.At(0), b)
+	f.VPMULUDQ(a, b, P)
+	// f.VPSRLQ("$32", P, PH)
+	f.VPANDQ(LSW, P, PL) // low dword
+	// m := uint32(v) * qInvNeg --> m = PL * qInvNeg
+	f.VPMULUDQ(PL, qInvNeg, PL)
+	f.VPANDQ(LSW, PL, PL) // mod R --> keep low dword
+	// m*=q
+	f.VPMULUDQ(PL, q, PL)
+	// add P
+	f.VPADDQ(P, PL, P)
+	f.VPSRLQ("$32", P, P) // shift right by 32 bits
+
+	// now we need to use min to reduce
+	// first sub q from P
+	f.VPSUBD(q, P, PL)
+
+	// res = min(P, PL)
+	f.VPMINUD(P, PL, P)
+
+	// move P to res
+	f.WriteLn(fmt.Sprintf("VPMOVQD %s, %s", P, addrRes.At(0)))
+	// f.VMOVDQU32(P, addrRes.At(0))
+
+	// now we need to montReduce
+
+	// // a = a - b
+	// f.VMOVDQU32(addrA.At(0), a)
+	// f.VMOVDQU32(addrB.At(0), b)
+
+	// f.VPSUBD(b, a, a)
+
+	f.Comment("increment pointers to visit next element")
+	f.ADDQ("$32", addrA)
+	f.ADDQ("$32", addrB)
+	f.ADDQ("$32", addrRes)
+	f.DECQ(len, "decrement n")
+	f.JMP(loop)
+
+	f.LABEL(done)
+
+	f.RET()
+
+	f.Push(&registers, addrA, addrB, addrRes, len)
+
 }
 
 // // subVec res = a - b

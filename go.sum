@@ -71,6 +71,10 @@ github.com/consensys/bavard v0.1.23-0.20241207235803-84aa6b3d4724 h1:wBPDHYgf1Qv
 github.com/consensys/bavard v0.1.23-0.20241207235803-84aa6b3d4724/go.mod h1:k/zVjHHC4B+PQy1Pg7fgvG3ALicQw540Crag8qx+dZs=
 github.com/consensys/bavard v0.1.23-0.20241208000453-1b3c9246dcd6 h1:dm/VT++/p4tq8FLR/8z361AvWPD9dcp6xXebPLaEdZo=
 github.com/consensys/bavard v0.1.23-0.20241208000453-1b3c9246dcd6/go.mod h1:k/zVjHHC4B+PQy1Pg7fgvG3ALicQw540Crag8qx+dZs=
+github.com/consensys/bavard v0.1.23-0.20241208033340-073352297c17 h1:7fr9/A1Nm0L67XO33mdSTPD+2prj7VmlQ63YE9ujHW8=
+github.com/consensys/bavard v0.1.23-0.20241208033340-073352297c17/go.mod h1:k/zVjHHC4B+PQy1Pg7fgvG3ALicQw540Crag8qx+dZs=
+github.com/consensys/bavard v0.1.23-0.20241208043834-8013eddc8088 h1:5fIHEbNpqWy7NWRzI8IInFCVSGyhH2BF4wpmY2XXg1k=
+github.com/consensys/bavard v0.1.23-0.20241208043834-8013eddc8088/go.mod h1:k/zVjHHC4B+PQy1Pg7fgvG3ALicQw540Crag8qx+dZs=
 github.com/coreos/go-semver v0.3.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=
 github.com/coreos/go-systemd/v22 v22.3.2/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/cpuguy83/go-md2man/v2 v2.0.0/go.mod h1:maD7wRr/U5Z6m/iR4s+kqSMx2CaBsrgA7czyZG/E6dU=
