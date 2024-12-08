@@ -33,6 +33,9 @@ func mulVec(res, a, b *Element, n uint64)
 //go:noescape
 func scalarMulVec(res, a, b *Element, n uint64)
 
+//go:noescape
+func innerProdVec(t *uint64, a, b *Element, n uint64)
+
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
@@ -142,7 +145,35 @@ func (vector *Vector) Sum() (res Element) {
 // InnerProduct computes the inner product of two vectors.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) InnerProduct(other Vector) (res Element) {
-	innerProductVecGeneric(&res, *vector, other)
+	n := uint64(len(*vector))
+	if n == 0 {
+		return
+	}
+	if n != uint64(len(other)) {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	if !supportAvx512 {
+		// call innerProductVecGeneric
+		innerProductVecGeneric(&res, *vector, other)
+		return
+	}
+
+	const blockSize = 8
+	var t [8]uint64 // stores the accumulators (not reduced mod q)
+	innerProdVec(&t[0], &(*vector)[0], &other[0], n/blockSize)
+	// we reduce the accumulators mod q and add to res
+	var v Element
+	for i := 0; i < 8; i++ {
+		t[i] %= q
+		v[0] = uint32(t[i])
+		res.Add(&res, &v)
+	}
+	if n%blockSize != 0 {
+		// call innerProductVecGeneric on the rest
+		start := n - n%blockSize
+		innerProductVecGeneric(&res, (*vector)[start:], other[start:])
+	}
+
 	return
 }
 

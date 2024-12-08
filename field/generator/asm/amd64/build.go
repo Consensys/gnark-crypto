@@ -319,13 +319,12 @@ func GenerateF31ASM(f *FFAmd64, hasVector bool) error {
 		return nil // nothing for now.
 	}
 
-	f.Comment("(some) vector operations are partially derived from Plonky3 https://github.com/Plonky3/Plonky3")
-
 	f.generateAddVecF31()
 	f.generateSubVecF31()
 	f.generateSumVecF31()
 	f.generateMulVecF31()
 	f.generateScalarMulVecF31()
+	f.generateInnerProdVecF31()
 
 	return nil
 }

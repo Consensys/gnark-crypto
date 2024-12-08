@@ -379,7 +379,94 @@ func (f *FFAmd64) generateScalarMulVecF31() {
 	f.RET()
 
 	f.Push(&registers, addrA, addrB, addrRes, len)
+}
 
+// innerProdVec res = sum(a * b)
+func (f *FFAmd64) generateInnerProdVecF31() {
+	f.Comment("innerProdVec(t *uint64, a,b *[]uint32, n uint64) res = sum(a[0...n] * b[0...n])")
+
+	const argSize = 4 * 8
+	stackSize := f.StackSize(f.NbWords*4+2, 0, 0)
+	registers := f.FnHeader("innerProdVec", stackSize, argSize, amd64.DX, amd64.AX)
+	defer f.AssertCleanStack(stackSize, 0)
+
+	f.WriteLn(`
+	// Similar to mulVec; we do most of the montgomery multiplication but don't do
+	// the final reduction. We accumulate the result like in sumVec and let the caller
+	// reduce mod q.
+	`)
+
+	// registers & labels we need
+	addrA := f.Pop(&registers)
+	addrB := f.Pop(&registers)
+	addrT := f.Pop(&registers)
+	len := f.Pop(&registers)
+
+	// AVX512 registers
+	a := amd64.Register("Z0")
+	b := amd64.Register("Z1")
+	acc := amd64.Register("Z2")
+	q := amd64.Register("Z3")
+	qInvNeg := amd64.Register("Z4")
+	PL := amd64.Register("Z5")
+	LSW := amd64.Register("Z6")
+	P := amd64.Register("Z7")
+
+	loop := f.NewLabel("loop")
+	done := f.NewLabel("done")
+
+	f.WriteLn("MOVD $const_q, AX")
+	f.VPBROADCASTQ("AX", q)
+	f.WriteLn("MOVD $const_qInvNeg, AX")
+	f.VPBROADCASTQ("AX", qInvNeg)
+
+	f.Comment("Create mask for low dword in each qword")
+	f.VPCMPEQB("Y0", "Y0", "Y0")
+	f.VPMOVZXDQ("Y0", LSW)
+
+	// zeroize the accumulators
+	f.VXORPS(acc, acc, acc, "acc = 0")
+
+	// load arguments
+	f.MOVQ("t+0(FP)", addrT)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("n+24(FP)", len)
+
+	f.LABEL(loop)
+
+	f.TESTQ(len, len)
+	f.JEQ(done, "n == 0, we are done")
+
+	f.VPMOVZXDQ(addrA.At(0), a)
+	f.VPMOVZXDQ(addrB.At(0), b)
+
+	f.VPMULUDQ(a, b, P, "P = a * b")
+	f.VPANDQ(LSW, P, PL, "m = uint32(P)")
+	f.VPMULUDQ(PL, qInvNeg, PL, "m = m * qInvNeg")
+	f.VPANDQ(LSW, PL, PL, "m = uint32(m)")
+	f.VPMULUDQ(PL, q, PL, "m = m * q")
+	f.VPADDQ(P, PL, P, "P = P + m")
+	f.VPSRLQ("$32", P, P, "P = P >> 32")
+
+	// TODO @gbotrel comment on the bound and ensure caller can't trigger overflow in accumulator.
+	f.Comment("accumulate P into acc, P is in [0, 2q] on 32bits max")
+	f.VPADDQ(P, acc, acc, "acc += P")
+
+	f.Comment("increment pointers to visit next element")
+	f.ADDQ("$32", addrA)
+	f.ADDQ("$32", addrB)
+	f.DECQ(len, "decrement n")
+	f.JMP(loop)
+
+	f.LABEL(done)
+
+	// store t into res
+	f.VMOVDQU64(acc, addrT.At(0), "res = acc")
+
+	f.RET()
+
+	f.Push(&registers, addrA, addrT, len)
 }
 
 // // subVec res = a - b

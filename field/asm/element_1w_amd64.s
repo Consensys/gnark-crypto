@@ -3,7 +3,6 @@
 #include "funcdata.h"
 #include "go_asm.h"
 
-// (some) vector operations are partially derived from Plonky3 https://github.com/Plonky3/Plonky3
 // addVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] + b[0...n]
 TEXT ·addVec(SB), NOSPLIT, $0-32
 	MOVD         $const_q, AX
@@ -173,4 +172,51 @@ loop_9:
 	JMP  loop_9
 
 done_10:
+	RET
+
+// innerProdVec(t *uint64, a,b *[]uint32, n uint64) res = sum(a[0...n] * b[0...n])
+TEXT ·innerProdVec(SB), NOSPLIT, $0-32
+
+	// Similar to mulVec; we do most of the montgomery multiplication but don't do
+	// the final reduction. We accumulate the result like in sumVec and let the caller
+	// reduce mod q.
+
+	MOVD         $const_q, AX
+	VPBROADCASTQ AX, Z3
+	MOVD         $const_qInvNeg, AX
+	VPBROADCASTQ AX, Z4
+
+	// Create mask for low dword in each qword
+	VPCMPEQB  Y0, Y0, Y0
+	VPMOVZXDQ Y0, Z6
+	VXORPS    Z2, Z2, Z2    // acc = 0
+	MOVQ      t+0(FP), CX
+	MOVQ      a+8(FP), R14
+	MOVQ      b+16(FP), R15
+	MOVQ      n+24(FP), BX
+
+loop_11:
+	TESTQ     BX, BX
+	JEQ       done_12     // n == 0, we are done
+	VPMOVZXDQ 0(R14), Z0
+	VPMOVZXDQ 0(R15), Z1
+	VPMULUDQ  Z0, Z1, Z7  // P = a * b
+	VPANDQ    Z6, Z7, Z5  // m = uint32(P)
+	VPMULUDQ  Z5, Z4, Z5  // m = m * qInvNeg
+	VPANDQ    Z6, Z5, Z5  // m = uint32(m)
+	VPMULUDQ  Z5, Z3, Z5  // m = m * q
+	VPADDQ    Z7, Z5, Z7  // P = P + m
+	VPSRLQ    $32, Z7, Z7 // P = P >> 32
+
+	// accumulate P into acc, P is in [0, 2q] on 32bits max
+	VPADDQ Z7, Z2, Z2 // acc += P
+
+	// increment pointers to visit next element
+	ADDQ $32, R14
+	ADDQ $32, R15
+	DECQ BX       // decrement n
+	JMP  loop_11
+
+done_12:
+	VMOVDQU64 Z2, 0(CX) // res = acc
 	RET
