@@ -313,26 +313,6 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 		F.Mu = muSlice[0]
 	}
 
-	// We define MONTY_MU = PRIME^-1 (mod 2^MONTY_BITS). This is different from the usual convention
-	// (MONTY_MU = -PRIME^-1 (mod 2^MONTY_BITS)) but it avoids a carry.
-	// 2164260865
-	if F.F31 {
-		// _mu := big.NewInt(0)
-		// _mu.Set(&bModulus)
-		// _mu.Neg(_mu)
-		// _mu.ModInverse(_mu, big.NewInt(1<<31))
-		// muSlice := toUint64Slice(_mu, F.NbWords)
-		// F.Mu = muSlice[0]
-		_r := big.NewInt(1)
-		_r.Lsh(_r, uint(F.NbWords)*radix)
-		_rInv := big.NewInt(1)
-		_qInv := big.NewInt(0)
-		extendedEuclideanAlgo(_r, &bModulus, _rInv, _qInv)
-		_qInv.Neg(_qInv)
-		_qInv.Mod(_qInv, _r)
-		F.Mu = toUint64Slice(_qInv, F.NbWords)[0]
-	}
-
 	return F, nil
 }
 

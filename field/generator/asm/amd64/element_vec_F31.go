@@ -158,17 +158,17 @@ func (f *FFAmd64) generateSubVecF31() {
 // sumVec res = sum(a[0...n])
 func (f *FFAmd64) generateSumVecF31() {
 	f.Comment("sumVec(res *uint64, a *[]uint32, n uint64) res = sum(a[0...n])")
-	f.WriteLn(`
-	// We are load 8 31bits values at a time and accumulate them into an accumulator of
-	// 8 quadwords (64bits). The caller then needs to reduce the result mod q.
-	// We can safely accumulate ~2**33 31bits values into a single accumulator.
-	// That gives us a maximum of 2**33 * 8 = 2**36 31bits values to sum safely.
-	`)
-
 	const argSize = 3 * 8
 	stackSize := f.StackSize(f.NbWords*3+2, 0, 0)
 	registers := f.FnHeader("sumVec", stackSize, argSize, amd64.DX, amd64.AX)
 	defer f.AssertCleanStack(stackSize, 0)
+
+	f.WriteLn(`
+	// We load 8 31bits values at a time and accumulate them into an accumulator of
+	// 8 quadwords (64bits). The caller then needs to reduce the result mod q.
+	// We can safely accumulate ~2**33 31bits values into a single accumulator.
+	// That gives us a maximum of 2**33 * 8 = 2**36 31bits values to sum safely.
+	`)
 
 	// registers & labels we need
 	addrA := f.Pop(&registers)
