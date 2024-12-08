@@ -178,8 +178,30 @@ func addVec(res, a, b *{{.ElementName}}, n uint64)
 // Sub subtracts two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Sub(a, b Vector) {
-	subVecGeneric(*vector, a, b)
+	if len(a) != len(b) || len(a) != len(*vector) {
+		panic("vector.Sub: vectors don't have the same length")
+	}
+	n := uint64(len(a))
+	if n == 0 {
+		return
+	}
+	if !supportAvx512 {
+		// call subVecGeneric
+		subVecGeneric(*vector, a, b)
+		return
+	}
+
+	const blockSize = 16
+	subVec(&(*vector)[0], &a[0], &b[0], n/blockSize)
+	if n % blockSize != 0 {
+		// call subVecGeneric on the rest
+		start := n - n % blockSize
+		subVecGeneric((*vector)[start:], a[start:], b[start:])
+	}
 }
+
+//go:noescape
+func subVec(res, a, b *{{.ElementName}}, n uint64)
 
 // ScalarMul multiplies a vector by a scalar element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.

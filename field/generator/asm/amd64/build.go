@@ -322,6 +322,7 @@ func GenerateF31ASM(f *FFAmd64, hasVector bool) error {
 	f.Comment("Vector operations are partially derived from Plonky3 https://github.com/Plonky3/Plonky3")
 
 	f.generateAddVecF31()
+	f.generateSubVecF31()
 
 	return nil
 }

@@ -14,7 +14,9 @@
 
 package amd64
 
-import "github.com/consensys/bavard/amd64"
+import (
+	"github.com/consensys/bavard/amd64"
+)
 
 // addVec res = a + b
 // func addVec(res, a, b *{{.ElementName}}, n uint64)
@@ -60,9 +62,77 @@ func (f *FFAmd64) generateAddVecF31() {
 	f.VMOVDQU32(addrA.At(0), a)
 	f.VMOVDQU32(addrB.At(0), b)
 	f.VPADDD(a, b, a)
-
 	// t = a - q
 	f.VPSUBD(q, a, t)
+	// b = min(t, a)
+	f.VPMINUD(a, t, b)
+
+	// move b to res
+	f.VMOVDQU32(b, addrRes.At(0))
+
+	f.Comment("increment pointers to visit next element")
+	f.ADDQ("$64", addrA)
+	f.ADDQ("$64", addrB)
+	f.ADDQ("$64", addrRes)
+	f.DECQ(len, "decrement n")
+	f.JMP(loop)
+
+	f.LABEL(done)
+
+	f.RET()
+
+	f.Push(&registers, addrA, addrB, addrRes, len)
+
+}
+
+// subVec res = a - b
+// func subVec(res, a, b *{{.ElementName}}, n uint64)
+func (f *FFAmd64) generateSubVecF31() {
+	f.Comment("subVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] - b[0...n]")
+
+	const argSize = 4 * 8
+	stackSize := f.StackSize(f.NbWords*2+4, 0, 0)
+	registers := f.FnHeader("subVec", stackSize, argSize)
+	defer f.AssertCleanStack(stackSize, 0)
+
+	// registers & labels we need
+	addrA := f.Pop(&registers)
+	addrB := f.Pop(&registers)
+	addrRes := f.Pop(&registers)
+	len := f.Pop(&registers)
+
+	// AVX512 registers
+	a := amd64.Register("Z0")
+	b := amd64.Register("Z1")
+	t := amd64.Register("Z2")
+	q := amd64.Register("Z3")
+
+	// load q in Z3
+	f.WriteLn("MOVD $const_q, AX")
+	f.VPBROADCASTD("AX", q)
+
+	loop := f.NewLabel("loop")
+	done := f.NewLabel("done")
+
+	// load arguments
+	f.MOVQ("res+0(FP)", addrRes)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("n+24(FP)", len)
+
+	f.LABEL(loop)
+
+	f.TESTQ(len, len)
+	f.JEQ(done, "n == 0, we are done")
+
+	// a = a - b
+	f.VMOVDQU32(addrA.At(0), a)
+	f.VMOVDQU32(addrB.At(0), b)
+
+	f.VPSUBD(b, a, a)
+
+	// t = a + q
+	f.VPADDD(q, a, t)
 
 	// b = min(t, a)
 	f.VPMINUD(a, t, b)
