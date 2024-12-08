@@ -112,14 +112,14 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 	var err error
 
 	if F.GenerateOpsAMD64 {
-		amd64d, err = hashAndInclude(asmDirBuildPath, asmDirIncludePath, amd64.ElementASMFileName, F.NbWords)
+		amd64d, err = hashAndInclude(asmDirBuildPath, asmDirIncludePath, amd64.ElementASMFileName(F.NbWords, F.NbBits))
 		if err != nil {
 			return err
 		}
 	}
 
 	if F.GenerateOpsARM64 {
-		arm64d, err = hashAndInclude(asmDirBuildPath, asmDirIncludePath, arm64.ElementASMFileName, F.NbWords)
+		arm64d, err = hashAndInclude(asmDirBuildPath, asmDirIncludePath, arm64.ElementASMFileName(F.NbWords, F.NbBits))
 		if err != nil {
 			return err
 		}
@@ -208,8 +208,7 @@ type ASMWrapperData struct {
 	Hash        string
 }
 
-func hashAndInclude(asmDirBuildPath, asmDirIncludePath, fileName string, nbWords int) (data ASMWrapperData, err error) {
-	fileName = fmt.Sprintf(fileName, nbWords)
+func hashAndInclude(asmDirBuildPath, asmDirIncludePath, fileName string) (data ASMWrapperData, err error) {
 	// we hash the file content and include the hash in comment of the generated file
 	// to force the Go compiler to recompile the file if the content has changed
 	fData, err := os.ReadFile(filepath.Join(asmDirBuildPath, fileName))
@@ -245,7 +244,7 @@ func shorten(input string) string {
 
 func GenerateARM64(nbWords, nbBits int, asmDir string, hasVector bool) error {
 	os.MkdirAll(asmDir, 0755)
-	pathSrc := filepath.Join(asmDir, fmt.Sprintf(arm64.ElementASMFileName, nbWords))
+	pathSrc := filepath.Join(asmDir, arm64.ElementASMFileName(nbWords, nbBits))
 
 	fmt.Println("generating", pathSrc)
 	f, err := os.Create(pathSrc)
@@ -273,7 +272,7 @@ func GenerateARM64(nbWords, nbBits int, asmDir string, hasVector bool) error {
 
 func GenerateAMD64(nbWords, nbBits int, asmDir string, hasVector bool) error {
 	os.MkdirAll(asmDir, 0755)
-	pathSrc := filepath.Join(asmDir, fmt.Sprintf(amd64.ElementASMFileName, nbWords))
+	pathSrc := filepath.Join(asmDir, amd64.ElementASMFileName(nbWords, nbBits))
 
 	fmt.Println("generating", pathSrc)
 	f, err := os.Create(pathSrc)
