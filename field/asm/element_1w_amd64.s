@@ -134,3 +134,43 @@ loop_7:
 
 done_8:
 	RET
+
+// scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b
+TEXT ·scalarMulVec(SB), NOSPLIT, $0-32
+	MOVD         $const_q, AX
+	VPBROADCASTQ AX, Z3
+	MOVD         $const_qInvNeg, AX
+	VPBROADCASTQ AX, Z4
+
+	// Create mask for low dword in each qword
+	VPCMPEQB     Y0, Y0, Y0
+	VPMOVZXDQ    Y0, Z6
+	MOVQ         res+0(FP), CX
+	MOVQ         a+8(FP), AX
+	MOVQ         b+16(FP), DX
+	MOVQ         n+24(FP), BX
+	VPBROADCASTD 0(DX), Z1
+
+loop_9:
+	TESTQ     BX, BX
+	JEQ       done_10     // n == 0, we are done
+	VPMOVZXDQ 0(AX), Z0
+	VPMULUDQ  Z0, Z1, Z2  // P = a * b
+	VPANDQ    Z6, Z2, Z5  // m = uint32(P)
+	VPMULUDQ  Z5, Z4, Z5  // m = m * qInvNeg
+	VPANDQ    Z6, Z5, Z5  // m = uint32(m)
+	VPMULUDQ  Z5, Z3, Z5  // m = m * q
+	VPADDQ    Z2, Z5, Z2  // P = P + m
+	VPSRLQ    $32, Z2, Z2 // P = P >> 32
+	VPSUBD    Z3, Z2, Z5  // PL = P - q
+	VPMINUD   Z2, Z5, Z2  // P = min(P, PL)
+	VPMOVQD   Z2, 0(CX)   // res = P
+
+	// increment pointers to visit next element
+	ADDQ $32, AX
+	ADDQ $32, CX
+	DECQ BX      // decrement n
+	JMP  loop_9
+
+done_10:
+	RET

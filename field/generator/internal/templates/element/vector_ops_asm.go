@@ -147,6 +147,22 @@ func mulVec(res, a, b *{{.ElementName}}, n uint64, qInvNeg uint64)
 const VectorOpsArm64 = VectorOpsPureGo
 
 const VectorOpsAmd64F31 = `
+
+//go:noescape
+func addVec(res, a, b *{{.ElementName}}, n uint64)
+
+//go:noescape
+func subVec(res, a, b *{{.ElementName}}, n uint64)
+
+//go:noescape
+func sumVec(t *uint64, a *{{.ElementName}}, n uint64)
+
+//go:noescape
+func mulVec(res, a, b *{{.ElementName}}, n uint64)
+
+//go:noescape
+func scalarMulVec(res, a, b *{{.ElementName}}, n uint64)
+
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
@@ -171,9 +187,6 @@ func (vector *Vector) Add(a, b Vector) {
 		addVecGeneric((*vector)[start:], a[start:], b[start:])
 	}
 }
-
-//go:noescape
-func addVec(res, a, b *{{.ElementName}}, n uint64)
 
 // Sub subtracts two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
@@ -200,13 +213,29 @@ func (vector *Vector) Sub(a, b Vector) {
 	}
 }
 
-//go:noescape
-func subVec(res, a, b *{{.ElementName}}, n uint64)
-
 // ScalarMul multiplies a vector by a scalar element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
-	scalarMulVecGeneric(*vector, a, b)
+	if len(a) != len(*vector) {
+		panic("vector.ScalarMul: vectors don't have the same length")
+	}
+	n := uint64(len(a))
+	if n == 0 {
+		return
+	}
+	if !supportAvx512 {
+		// call scalarMulVecGeneric
+		scalarMulVecGeneric(*vector, a, b)
+		return
+	}
+
+	const blockSize = 8
+	scalarMulVec(&(*vector)[0], &a[0], b, n/blockSize)
+	if n % blockSize != 0 {
+		// call scalarMulVecGeneric on the rest
+		start := n - n % blockSize
+		scalarMulVecGeneric((*vector)[start:], a[start:], b)
+	}
 }
 
 // Sum computes the sum of all elements in the vector.
@@ -240,9 +269,6 @@ func (vector *Vector) Sum() (res {{.ElementName}}) {
 	return
 }
 
-//go:noescape
-func sumVec(t *uint64, a *{{.ElementName}}, n uint64)
-
 // InnerProduct computes the inner product of two vectors.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
@@ -275,7 +301,6 @@ func (vector *Vector) Mul(a, b Vector) {
 	}
 }
 
-//go:noescape
-func mulVec(res, a, b *{{.ElementName}}, n uint64)
+
 
 `

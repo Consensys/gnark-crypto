@@ -301,6 +301,87 @@ func (f *FFAmd64) generateMulVecF31() {
 
 }
 
+// scalarMulVec res = a * b
+func (f *FFAmd64) generateScalarMulVecF31() {
+	f.Comment("scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b")
+
+	const argSize = 4 * 8
+	stackSize := f.StackSize(f.NbWords*2+4, 0, 0)
+	registers := f.FnHeader("scalarMulVec", stackSize, argSize)
+	defer f.AssertCleanStack(stackSize, 0)
+
+	// registers & labels we need
+	addrA := f.Pop(&registers)
+	addrB := f.Pop(&registers)
+	addrRes := f.Pop(&registers)
+	len := f.Pop(&registers)
+
+	// AVX512 registers
+	a := amd64.Register("Z0")
+	b := amd64.Register("Z1")
+	P := amd64.Register("Z2")
+	q := amd64.Register("Z3")
+	qInvNeg := amd64.Register("Z4")
+	PL := amd64.Register("Z5")
+	LSW := amd64.Register("Z6")
+
+	// load q in Z3
+	f.WriteLn("MOVD $const_q, AX")
+	f.VPBROADCASTQ("AX", q)
+	f.WriteLn("MOVD $const_qInvNeg, AX")
+	f.VPBROADCASTQ("AX", qInvNeg)
+
+	f.Comment("Create mask for low dword in each qword")
+	f.VPCMPEQB("Y0", "Y0", "Y0")
+	f.VPMOVZXDQ("Y0", LSW)
+
+	loop := f.NewLabel("loop")
+	done := f.NewLabel("done")
+
+	// load arguments
+	f.MOVQ("res+0(FP)", addrRes)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("n+24(FP)", len)
+
+	f.VPBROADCASTD(addrB.At(0), b)
+
+	f.LABEL(loop)
+
+	f.TESTQ(len, len)
+	f.JEQ(done, "n == 0, we are done")
+
+	// a = a * b
+	f.VPMOVZXDQ(addrA.At(0), a)
+
+	f.VPMULUDQ(a, b, P, "P = a * b")
+	f.VPANDQ(LSW, P, PL, "m = uint32(P)")
+	f.VPMULUDQ(PL, qInvNeg, PL, "m = m * qInvNeg")
+	f.VPANDQ(LSW, PL, PL, "m = uint32(m)")
+	f.VPMULUDQ(PL, q, PL, "m = m * q")
+	f.VPADDQ(P, PL, P, "P = P + m")
+	f.VPSRLQ("$32", P, P, "P = P >> 32")
+
+	f.VPSUBD(q, P, PL, "PL = P - q")
+	f.VPMINUD(P, PL, P, "P = min(P, PL)")
+
+	// move P to res
+	f.VPMOVQD(P, addrRes.At(0), "res = P")
+
+	f.Comment("increment pointers to visit next element")
+	f.ADDQ("$32", addrA)
+	f.ADDQ("$32", addrRes)
+	f.DECQ(len, "decrement n")
+	f.JMP(loop)
+
+	f.LABEL(done)
+
+	f.RET()
+
+	f.Push(&registers, addrA, addrB, addrRes, len)
+
+}
+
 // // subVec res = a - b
 // // func subVec(res, a, b *{{.ElementName}}, n uint64)
 // func (f *FFAmd64) generateSubVecW4() {
