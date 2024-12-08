@@ -211,9 +211,37 @@ func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
 
 // Sum computes the sum of all elements in the vector.
 func (vector *Vector) Sum() (res {{.ElementName}}) {
-	sumVecGeneric(&res, *vector)
+	n := uint64(len(*vector))
+	if n == 0 {
+		return
+	}
+	if !supportAvx512 {
+		// call sumVecGeneric
+		sumVecGeneric(&res, *vector)
+		return
+	}
+
+	const blockSize = 16
+	var t [8]uint64 // stores the accumulators (not reduced mod q)
+	sumVec(&t[0], &(*vector)[0], n/blockSize)
+	// we reduce the accumulators mod q and add to res
+	var v {{.ElementName}}
+	for i := 0; i < 8; i++ {
+		t[i] %= q
+		v[0] = uint32(t[i])
+		res.Add(&res, &v)
+	}
+	if n % blockSize != 0 {
+		// call sumVecGeneric on the rest
+		start := n - n % blockSize
+		sumVecGeneric(&res, (*vector)[start:])
+	}
+
 	return
 }
+
+//go:noescape
+func sumVec(t *uint64, a *{{.ElementName}}, n uint64)
 
 // InnerProduct computes the inner product of two vectors.
 // It panics if the vectors don't have the same length.

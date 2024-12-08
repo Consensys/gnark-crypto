@@ -61,3 +61,35 @@ loop_3:
 
 done_4:
 	RET
+
+// sumVec(res *uint64, a *[]uint32, n uint64) res = sum(a[0...n])
+
+// We are load 8 31bits values at a time and accumulate them into an accumulator of
+// 8 quadwords (64bits). The caller then needs to reduce the result mod q.
+// We can safely accumulate ~2**33 31bits values into a single accumulator.
+// That gives us a maximum of 2**33 * 8 = 2**36 31bits values to sum safely.
+
+TEXT ·sumVec(SB), NOSPLIT, $0-24
+	MOVQ      t+0(FP), R15
+	MOVQ      a+8(FP), R14
+	MOVQ      n+16(FP), CX
+	VXORPS    Z2, Z2, Z2
+	VMOVDQA64 Z2, Z3
+
+loop_5:
+	TESTQ     CX, CX
+	JEQ       done_6      // n == 0, we are done
+	VPMOVZXDQ 0(R14), Z0
+	VPMOVZXDQ 32(R14), Z1
+	VPADDQ    Z0, Z2, Z2
+	VPADDQ    Z1, Z3, Z3
+
+	// increment pointers to visit next element
+	ADDQ $64, R14
+	DECQ CX       // decrement n
+	JMP  loop_5
+
+done_6:
+	VPADDQ    Z2, Z3, Z2
+	VMOVDQU64 Z2, 0(R15)
+	RET

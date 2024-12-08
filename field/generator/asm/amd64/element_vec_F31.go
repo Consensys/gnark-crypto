@@ -155,6 +155,72 @@ func (f *FFAmd64) generateSubVecF31() {
 
 }
 
+// sumVec res = sum(a[0...n])
+func (f *FFAmd64) generateSumVecF31() {
+	f.Comment("sumVec(res *uint64, a *[]uint32, n uint64) res = sum(a[0...n])")
+	f.WriteLn(`
+	// We are load 8 31bits values at a time and accumulate them into an accumulator of
+	// 8 quadwords (64bits). The caller then needs to reduce the result mod q.
+	// We can safely accumulate ~2**33 31bits values into a single accumulator.
+	// That gives us a maximum of 2**33 * 8 = 2**36 31bits values to sum safely.
+	`)
+
+	const argSize = 3 * 8
+	stackSize := f.StackSize(f.NbWords*3+2, 0, 0)
+	registers := f.FnHeader("sumVec", stackSize, argSize, amd64.DX, amd64.AX)
+	defer f.AssertCleanStack(stackSize, 0)
+
+	// registers & labels we need
+	addrA := f.Pop(&registers)
+	addrT := f.Pop(&registers)
+	len := f.Pop(&registers)
+
+	// AVX512 registers
+	a1 := amd64.Register("Z0")
+	a2 := amd64.Register("Z1")
+	acc1 := amd64.Register("Z2")
+	acc2 := amd64.Register("Z3")
+
+	loop := f.NewLabel("loop")
+	done := f.NewLabel("done")
+
+	// load arguments
+	f.MOVQ("t+0(FP)", addrT)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("n+16(FP)", len)
+
+	// zeroize the accumulators
+	f.VXORPS(acc1, acc1, acc1)
+	f.VMOVDQA64(acc1, acc2)
+
+	f.LABEL(loop)
+
+	f.TESTQ(len, len)
+	f.JEQ(done, "n == 0, we are done")
+
+	// 1 cache line is typically 64 bytes, so we maintain 2 accumulators
+	f.VPMOVZXDQ(addrA.At(0), a1)
+	f.VPMOVZXDQ(addrA.At(4), a2)
+
+	f.VPADDQ(a1, acc1, acc1)
+	f.VPADDQ(a2, acc2, acc2)
+
+	f.Comment("increment pointers to visit next element")
+	f.ADDQ("$64", addrA)
+	f.DECQ(len, "decrement n")
+	f.JMP(loop)
+
+	f.LABEL(done)
+
+	// store t into res
+	f.VPADDQ(acc1, acc2, acc1)
+	f.VMOVDQU64(acc1, addrT.At(0))
+
+	f.RET()
+
+	f.Push(&registers, addrA, addrT, len)
+}
+
 // // subVec res = a - b
 // // func subVec(res, a, b *{{.ElementName}}, n uint64)
 // func (f *FFAmd64) generateSubVecW4() {
