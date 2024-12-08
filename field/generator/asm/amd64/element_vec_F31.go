@@ -449,7 +449,8 @@ func (f *FFAmd64) generateInnerProdVecF31() {
 	f.VPADDQ(P, PL, P, "P = P + m")
 	f.VPSRLQ("$32", P, P, "P = P >> 32")
 
-	// TODO @gbotrel comment on the bound and ensure caller can't trigger overflow in accumulator.
+	// we can accumulate ~2**32 32bits values into a single accumulator without overflow;
+	// that gives us a maximum of 2**32 * 8 = 2**35 32bits values to sum safely.
 	f.Comment("accumulate P into acc, P is in [0, 2q] on 32bits max")
 	f.VPADDQ(P, acc, acc, "acc += P")
 
@@ -468,79 +469,3 @@ func (f *FFAmd64) generateInnerProdVecF31() {
 
 	f.Push(&registers, addrA, addrT, len)
 }
-
-// // subVec res = a - b
-// // func subVec(res, a, b *{{.ElementName}}, n uint64)
-// func (f *FFAmd64) generateSubVecW4() {
-// 	f.Comment("subVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] - b[0...n]")
-
-// 	const argSize = 4 * 8
-// 	stackSize := f.StackSize(f.NbWords*2+5, 0, 0)
-// 	registers := f.FnHeader("subVec", stackSize, argSize)
-// 	defer f.AssertCleanStack(stackSize, 0)
-
-// 	// registers
-// 	addrA := f.Pop(&registers)
-// 	addrB := f.Pop(&registers)
-// 	addrRes := f.Pop(&registers)
-// 	len := f.Pop(&registers)
-// 	zero := f.Pop(&registers)
-
-// 	a := f.PopN(&registers)
-// 	q := f.PopN(&registers)
-
-// 	loop := f.NewLabel("loop")
-// 	done := f.NewLabel("done")
-
-// 	// load arguments
-// 	f.MOVQ("res+0(FP)", addrRes)
-// 	f.MOVQ("a+8(FP)", addrA)
-// 	f.MOVQ("b+16(FP)", addrB)
-// 	f.MOVQ("n+24(FP)", len)
-
-// 	f.XORQ(zero, zero)
-
-// 	f.LABEL(loop)
-
-// 	f.TESTQ(len, len)
-// 	f.JEQ(done, "n == 0, we are done")
-
-// 	// a = a - b
-// 	f.LabelRegisters("a", a...)
-// 	f.Mov(addrA, a)
-// 	f.Sub(addrB, a)
-// 	f.WriteLn(fmt.Sprintf("PREFETCHT0 2048(%[1]s)", addrA))
-// 	f.WriteLn(fmt.Sprintf("PREFETCHT0 2048(%[1]s)", addrB))
-
-// 	// reduce a
-// 	f.Comment("reduce (a-b) mod q")
-// 	f.LabelRegisters("q", q...)
-// 	for i := 0; i < f.NbWords; i++ {
-// 		f.MOVQ(fmt.Sprintf("$const_q%d", i), q[i])
-// 	}
-// 	for i := 0; i < f.NbWords; i++ {
-// 		f.CMOVQCC(zero, q[i])
-// 	}
-// 	// add registers (q or 0) to a, and set to result
-// 	f.Comment("add registers (q or 0) to a, and set to result")
-// 	f.Add(q, a)
-
-// 	// save a into res
-// 	f.Mov(a, addrRes)
-
-// 	f.Comment("increment pointers to visit next element")
-// 	f.ADDQ("$32", addrA)
-// 	f.ADDQ("$32", addrB)
-// 	f.ADDQ("$32", addrRes)
-// 	f.DECQ(len, "decrement n")
-// 	f.JMP(loop)
-
-// 	f.LABEL(done)
-
-// 	f.RET()
-
-// 	f.Push(&registers, a...)
-// 	f.Push(&registers, q...)
-// 	f.Push(&registers, addrA, addrB, addrRes, len, zero)
-
-// }
