@@ -209,7 +209,10 @@ func ElementASMFileName(nbWords, nbBits int) string {
 	const nameW1 = "element_%db_arm64.s"
 	const nameWN = "element_%dw_arm64.s"
 	if nbWords == 1 {
-		return fmt.Sprintf(nameW1, nbBits)
+		if nbBits >= 32 {
+			panic("not implemented")
+		}
+		return fmt.Sprintf(nameW1, 31)
 	}
 	return fmt.Sprintf(nameWN, nbWords)
 }
