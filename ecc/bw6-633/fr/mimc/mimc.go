@@ -204,8 +204,8 @@ func (d *digest) WriteString(rawBytes []byte) error {
 // the context of MiMC, the method expects a byte slice of 32 elements.
 func (d *digest) SetState(newState []byte) error {
 
-	if len(newState) != 32 {
-		return errors.New("the mimc state expects a state of 32 bytes")
+	if len(newState) != 40 {
+		return errors.New("the mimc state expects a state of 40 bytes")
 	}
 
 	if err := d.h.SetBytesCanonical(newState); err != nil {
