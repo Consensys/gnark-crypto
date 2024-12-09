@@ -52,16 +52,16 @@ func main() {
 	asmDirIncludePath := filepath.Join(baseDir, "..", "field", "asm")
 
 	// generate common assembly files depending on field number of words
-	assertNoError(generator.GenerateAMD64(4, asmDirBuildPath, true))
-	assertNoError(generator.GenerateAMD64(5, asmDirBuildPath, false))
-	assertNoError(generator.GenerateAMD64(6, asmDirBuildPath, false))
-	assertNoError(generator.GenerateAMD64(10, asmDirBuildPath, false))
-	assertNoError(generator.GenerateAMD64(12, asmDirBuildPath, false))
+	assertNoError(generator.GenerateAMD64(4, 0, asmDirBuildPath, true))
+	assertNoError(generator.GenerateAMD64(5, 0, asmDirBuildPath, false))
+	assertNoError(generator.GenerateAMD64(6, 0, asmDirBuildPath, false))
+	assertNoError(generator.GenerateAMD64(10, 0, asmDirBuildPath, false))
+	assertNoError(generator.GenerateAMD64(12, 0, asmDirBuildPath, false))
 
-	assertNoError(generator.GenerateARM64(4, asmDirBuildPath, false))
-	assertNoError(generator.GenerateARM64(6, asmDirBuildPath, false))
-	assertNoError(generator.GenerateARM64(10, asmDirBuildPath, false))
-	assertNoError(generator.GenerateARM64(12, asmDirBuildPath, false))
+	assertNoError(generator.GenerateARM64(4, 0, asmDirBuildPath, false))
+	assertNoError(generator.GenerateARM64(6, 0, asmDirBuildPath, false))
+	assertNoError(generator.GenerateARM64(10, 0, asmDirBuildPath, false))
+	assertNoError(generator.GenerateARM64(12, 0, asmDirBuildPath, false))
 
 	var wg sync.WaitGroup
 	for _, conf := range config.Curves {
