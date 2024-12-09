@@ -3,6 +3,7 @@ package generator
 import (
 	"math/bits"
 	"path/filepath"
+	"strings"
 
 	"github.com/consensys/gnark-crypto/fft/config"
 
@@ -57,11 +58,12 @@ func Generate(conf config.FFT, outputDir string, bgen *bavard.BatchGenerator) er
 
 	// put the generator in the parent dir (fr)
 	// TODO this should be in goff
-	frDir := filepath.Dir(outputDir)
 	entries = []bavard.Entry{
-		{File: filepath.Join(frDir, "generator.go"), Templates: []string{"fr.generator.go.tmpl"}},
+		{File: filepath.Join(outputDir, "../generator.go"), Templates: []string{"fr.generator.go.tmpl"}},
 	}
-	return bgen.GenerateWithOptions(conf, "fr", "./template/", bavardOpts, entries...)
+	fieldNameSplitted := strings.Split(conf.FieldPackagePath, "/")
+	fieldName := fieldNameSplitted[len(fieldNameSplitted)-1]
+	return bgen.GenerateWithOptions(conf, fieldName, "./template/", bavardOpts, entries...)
 }
 
 func anyToUint64(x any) uint64 {
