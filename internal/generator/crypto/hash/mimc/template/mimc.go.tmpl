@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	hash.RegisterHash(hash.MIMC_{{ toUpper .Name | underscorize }}, func() stdhash.Hash {
+	hash.RegisterHash(hash.MIMC_{{ .EnumID }}, func() stdhash.Hash {
 		return NewMiMC()
 	})
 }
