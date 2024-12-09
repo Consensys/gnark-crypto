@@ -67,6 +67,33 @@ func init() {
 		"github.com/consensys/gnark-crypto/ecc/bls24-315/fr",
 	))
 
+	// goldilocks
+	addConfig(NewConfig(
+		"7",
+		"1753635133440165772",
+		"32",
+		"../../field/goldilocks/fft",
+		"github.com/consensys/gnark-crypto/field/goldilocks",
+	))
+
+	// koala bear
+	addConfig(NewConfig(
+		"3",
+		"1791270792",
+		"24",
+		"../../field/koalabear/fft",
+		"github.com/consensys/gnark-crypto/field/koalabear",
+	))
+
+	// baby bear
+	addConfig(NewConfig(
+		"31",
+		"440564289",
+		"27",
+		"../../field/babybear/fft",
+		"github.com/consensys/gnark-crypto/field/babybear",
+	))
+
 }
 
 func addConfig(c Config) {
