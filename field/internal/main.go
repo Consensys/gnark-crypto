@@ -35,9 +35,5 @@ func main() {
 		}
 		fmt.Println("successfully generated", f.name, "field")
 
-		// fft
-		// fftConfig := fft.NewFFTConfig("15", "github.com/consensys/gnark-crypto/field/"+f.name)
-
-		// SIS
 	}
 }
