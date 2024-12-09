@@ -24,6 +24,8 @@ func main() {
 	}
 
 	for _, f := range fields {
+
+		// finite fields
 		fc, err := config.NewFieldConfig(f.name, "Element", f.modulus, f.name, true)
 		if err != nil {
 			panic(err)
@@ -32,5 +34,10 @@ func main() {
 			panic(err)
 		}
 		fmt.Println("successfully generated", f.name, "field")
+
+		// fft
+		// fftConfig := fft.NewFFTConfig("15", "github.com/consensys/gnark-crypto/field/"+f.name)
+
+		// SIS
 	}
 }

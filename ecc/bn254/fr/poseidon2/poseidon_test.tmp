@@ -1,0 +1,9 @@
+package poseidon2
+
+import "testing"
+
+func TestMatMul(t *testing.T) {
+
+	h := NewHash(4, 5, 8, 56)
+
+}

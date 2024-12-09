@@ -2,7 +2,7 @@ import (
 	"bytes"
     "fmt"
     "github.com/consensys/gnark-crypto/ecc"
-    {{ template "import_fr" . }}
+    "{{ .FieldPackagePath }}"
 )
 
 const (
@@ -24,8 +24,8 @@ func Fuzz(data []byte) int {
         size = 1 << 15
     }
     paddedSize := ecc.NextPowerOfTwo(uint64(size))
-    p1 := make([]fr.Element, paddedSize)
-    p2 := make([]fr.Element, paddedSize)
+    p1 := make([]{{ .FF }}.Element, paddedSize)
+    p2 := make([]{{ .FF }}.Element, paddedSize)
     for i := 0; i < len(p1); i++ {
         p1[i].SetRawBytes(r)
     }

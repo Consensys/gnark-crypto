@@ -3,7 +3,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"math/big"
-	{{ template "import_fr" . }}
+	"{{ .FieldPackagePath }}"
 )
 
 {{- /* these params set the size of the kernel we generate & unroll */}}
@@ -24,7 +24,7 @@ const butterflyThreshold = 16
 // FFT computes (recursively) the discrete Fourier transform of a and stores the result in a
 // if decimation == DIT (decimation in time), the input must be in bit-reversed order
 // if decimation == DIF (decimation in frequency), the output will be in bit-reversed order
-func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option) {
+func (domain *Domain) FFT(a []{{ .FF }}.Element, decimation Decimation, opts ...Option) {
 
 	opt := fftOptions(opts...)
 
@@ -42,7 +42,7 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 			cosetTable := domain.cosetTable
 			if !domain.withPrecompute {
 				// we need to build the full table or do a bit reverse dance.
-				cosetTable = make([]fr.Element, len(a))
+				cosetTable = make([]{{ .FF }}.Element, len(a))
 				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 			}
 			parallel.Execute(len(a), func(start, end int) {
@@ -63,7 +63,7 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 			} else {
 				c := domain.FrMultiplicativeGen
 				parallel.Execute(len(a), func(start, end int) {
-					var at fr.Element
+					var at {{ .FF }}.Element
 					at.Exp(c, big.NewInt(int64(start)))
 					for i := start; i < end; i++ {
 						a[i].Mul(&a[i], &at)
@@ -81,7 +81,7 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 		twiddlesStartStage = 3
 		nbStages := int(bits.TrailingZeros64(domain.Cardinality))
 		if nbStages - twiddlesStartStage > 0 {
-			twiddles = make([][]fr.Element, nbStages - twiddlesStartStage)
+			twiddles = make([][]{{ .FF }}.Element, nbStages - twiddlesStartStage)
 			w := domain.Generator
 			w.Exp(w, big.NewInt(int64(1 << twiddlesStartStage)))
 			buildTwiddles(twiddles, w, uint64(nbStages - twiddlesStartStage))
@@ -105,7 +105,7 @@ func (domain *Domain) FFT(a []fr.Element, decimation Decimation, opts ...Option)
 // if decimation == DIF (decimation in frequency), the output will be in bit-reversed order
 // coset sets the shift of the fft (0 = no shift, standard fft)
 // len(a) must be a power of 2, and w must be a len(a)th root of unity in field F.
-func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...Option) {
+func (domain *Domain) FFTInverse(a []{{ .FF }}.Element, decimation Decimation, opts ...Option) {
 	opt := fftOptions(opts...)
 
 	// find the stage where we should stop spawning go routines in our recursive calls
@@ -121,7 +121,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 		twiddlesStartStage = 3
 		nbStages := int(bits.TrailingZeros64(domain.Cardinality))
 		if nbStages - twiddlesStartStage > 0 {
-			twiddlesInv = make([][]fr.Element, nbStages - twiddlesStartStage)
+			twiddlesInv = make([][]{{ .FF }}.Element, nbStages - twiddlesStartStage)
 			w := domain.GeneratorInv
 			w.Exp(w, big.NewInt(int64(1 << twiddlesStartStage)))
 			buildTwiddles(twiddlesInv, w, uint64(nbStages - twiddlesStartStage))
@@ -159,7 +159,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 		} else {
 			c := domain.FrMultiplicativeGenInv
 			parallel.Execute(len(a), func(start, end int) {
-				var at fr.Element
+				var at {{ .FF }}.Element
 				at.Exp(c, big.NewInt(int64(start)))
 				at.Mul(&at, &domain.CardinalityInv)
 				for i := start; i < end; i++ {
@@ -175,7 +175,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 	cosetTableInv := domain.cosetTableInv
 	if !domain.withPrecompute {
 		// we need to build the full table or do a bit reverse dance.
-		cosetTableInv = make([]fr.Element, len(a))
+		cosetTableInv = make([]{{ .FF }}.Element, len(a))
 		BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
 	}
 	parallel.Execute(len(a), func(start, end int) {
@@ -190,7 +190,7 @@ func (domain *Domain) FFTInverse(a []fr.Element, decimation Decimation, opts ...
 
 }
 
-func difFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
+func difFFT(a []{{ .FF }}.Element, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
 	if chDone != nil {
 		defer close(chDone)
 	}
@@ -211,10 +211,10 @@ func difFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStart
 			w := w
 			parallel.Execute(m, func(start, end int) {
 				if start == 0 {
-					fr.Butterfly(&a[0], &a[m])
+					{{ .FF }}.Butterfly(&a[0], &a[m])
 					start++
 				}
-				var at fr.Element
+				var at {{ .FF }}.Element
 				at.Exp(w, big.NewInt(int64(start)))
 				innerDIFWithoutTwiddles(a, at,w, start, end, m)
 			}, nbTasks / (1 << (stage))) // 1 << stage == estimated used CPUs
@@ -251,31 +251,31 @@ func difFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStart
 }
 
 
-func innerDIFWithTwiddles(a []fr.Element, twiddles []fr.Element, start, end, m int) {
+func innerDIFWithTwiddles(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
 	if start == 0 {
-		fr.Butterfly(&a[0], &a[m])
+		{{ .FF }}.Butterfly(&a[0], &a[m])
 		start++
 	}
 	for i := start; i < end; i++ {
-		fr.Butterfly(&a[i], &a[i+m])
+		{{ .FF }}.Butterfly(&a[i], &a[i+m])
 		a[i+m].Mul(&a[i+m], &twiddles[i])
 	}
 }
 
-func innerDIFWithoutTwiddles(a []fr.Element, at, w fr.Element, start, end, m int) {
+func innerDIFWithoutTwiddles(a []{{ .FF }}.Element, at, w {{ .FF }}.Element, start, end, m int) {
 	if start == 0 {
-		fr.Butterfly(&a[0], &a[m])
+		{{ .FF }}.Butterfly(&a[0], &a[m])
 		start++
 	}
 	for i := start; i < end; i++ {
-		fr.Butterfly(&a[i], &a[i+m])
+		{{ .FF }}.Butterfly(&a[i], &a[i+m])
 		a[i+m].Mul(&a[i+m], &at)
 		at.Mul(&at, &w)
 	}
 }
 
 
-func ditFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
+func ditFFT(a []{{ .FF }}.Element, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
 	if chDone != nil {
 		defer close(chDone)
 	}
@@ -311,10 +311,10 @@ func ditFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStart
 			w := w
 			parallel.Execute(m, func(start, end int) {
 				if start == 0 {
-					fr.Butterfly(&a[0], &a[m])
+					{{ .FF }}.Butterfly(&a[0], &a[m])
 					start++
 				}
-				var at fr.Element
+				var at {{ .FF }}.Element
 				at.Exp(w, big.NewInt(int64(start)))
 				innerDITWithoutTwiddles(a, at,w, start, end, m)
 			}, nbTasks / (1 << (stage))) // 1 << stage == estimated used CPUs
@@ -334,32 +334,32 @@ func ditFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStart
 }
 
 
-func innerDITWithTwiddles(a []fr.Element, twiddles []fr.Element, start, end, m int) {
+func innerDITWithTwiddles(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
 	if start == 0 {
-		fr.Butterfly(&a[0], &a[m])
+		{{ .FF }}.Butterfly(&a[0], &a[m])
 		start++
 	}
 	for i := start; i < end; i++ {
 		a[i+m].Mul(&a[i+m], &twiddles[i])
-		fr.Butterfly(&a[i], &a[i+m])
+		{{ .FF }}.Butterfly(&a[i], &a[i+m])
 	}
 }
 
-func innerDITWithoutTwiddles(a []fr.Element, at, w fr.Element, start, end, m int) {
+func innerDITWithoutTwiddles(a []{{ .FF }}.Element, at, w {{ .FF }}.Element, start, end, m int) {
 	if start == 0 {
-		fr.Butterfly(&a[0], &a[m])
+		{{ .FF }}.Butterfly(&a[0], &a[m])
 		start++
 	}
 	for i := start; i < end; i++ {
 		a[i+m].Mul(&a[i+m], &at)
-		fr.Butterfly(&a[i], &a[i+m])
+		{{ .FF }}.Butterfly(&a[i], &a[i+m])
 		at.Mul(&at, &w)
 	}
 }
 
 
 
-func kerDIFNP_{{$sizeKernel}}(a []fr.Element, twiddles [][]fr.Element, stage int) {
+func kerDIFNP_{{$sizeKernel}}(a []{{ .FF }}.Element, twiddles [][]{{ .FF }}.Element, stage int) {
 	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
 
 	{{ $n := shl 1 $sizeKernelLog2}}
@@ -374,7 +374,7 @@ func kerDIFNP_{{$sizeKernel}}(a []fr.Element, twiddles [][]fr.Element, stage int
 		{{- else}}
 			for offset := 0; offset < {{$bound}}; offset += {{$n}} {
 				{{- if eq $m 1}}
-					fr.Butterfly(&a[offset], &a[offset+1])
+					{{ $.FF }}.Butterfly(&a[offset], &a[offset+1])
 				{{- else}}
 					innerDIFWithTwiddles(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
 				{{- end}}
@@ -388,7 +388,7 @@ func kerDIFNP_{{$sizeKernel}}(a []fr.Element, twiddles [][]fr.Element, stage int
 }
 
 
-func kerDITNP_{{$sizeKernel}}(a []fr.Element, twiddles [][]fr.Element, stage int) {
+func kerDITNP_{{$sizeKernel}}(a []{{ .FF }}.Element, twiddles [][]{{ .FF }}.Element, stage int) {
 	// code unrolled & generated by internal/generator/fft/template/fft.go.tmpl
 
 	{{ $n := 2}}
@@ -403,7 +403,7 @@ func kerDITNP_{{$sizeKernel}}(a []fr.Element, twiddles [][]fr.Element, stage int
 		{{- else}}
 			for offset := 0; offset < {{$bound}}; offset += {{$n}} {
 				{{- if eq $m 1}}
-					fr.Butterfly(&a[offset], &a[offset+1])
+					{{ $.FF }}.Butterfly(&a[offset], &a[offset+1])
 				{{- else}}
 					innerDITWithTwiddles(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
 				{{- end}}

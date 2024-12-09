@@ -30,7 +30,6 @@ func Generator(m uint64) (Element, error) {
 	x := ecc.NextPowerOfTwo(m)
 
 	var rootOfUnity Element
-
 	rootOfUnity.SetString("8065159656716812877374967518403273466521432693661810619979959746626482506078")
 	const maxOrderRoot uint64 = 47
 

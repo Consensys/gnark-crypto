@@ -110,7 +110,30 @@ func main() {
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
 
 			// generate fft on fr
-			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
+			// TODO those ifs should disappear, the gen should be in fieldConfig, and an API in the ff pacakge should give the generator
+			var fftConfig fft.FFTConfig
+			if conf.Equal(config.BN254) {
+				fftConfig = fft.NewFFTConfig("5", "19103219067921713944291392827692070036145651957329286315305642004821462161904", "28", "github.com/consensys/gnark-crypto/ecc/"+conf.Name+"/fr")
+			}
+			if conf.Equal(config.BLS12_377) {
+				fftConfig = fft.NewFFTConfig("22", "8065159656716812877374967518403273466521432693661810619979959746626482506078", "47", "github.com/consensys/gnark-crypto/ecc/"+conf.Name+"/fr")
+			}
+			if conf.Equal(config.BLS12_381) {
+				fftConfig = fft.NewFFTConfig("7", "10238227357739495823651030575849232062558860180284477541189508159991286009131", "32", "github.com/consensys/gnark-crypto/ecc/"+conf.Name+"/fr")
+			}
+			if conf.Equal(config.BLS24_315) {
+				fftConfig = fft.NewFFTConfig("7", "1792993287828780812362846131493071959406149719416102105453370749552622525216", "22", "github.com/consensys/gnark-crypto/ecc/"+conf.Name+"/fr")
+			}
+			if conf.Equal(config.BLS24_317) {
+				fftConfig = fft.NewFFTConfig("7", "16532287748948254263922689505213135976137839535221842169193829039521719560631", "60", "github.com/consensys/gnark-crypto/ecc/"+conf.Name+"/fr")
+			}
+			if conf.Equal(config.BW6_633) {
+				fftConfig = fft.NewFFTConfig("13", "4991787701895089137426454739366935169846548798279261157172811661565882460884369603588700158257", "20", "github.com/consensys/gnark-crypto/ecc/"+conf.Name+"/fr")
+			}
+			if conf.Equal(config.BW6_761) {
+				fftConfig = fft.NewFFTConfig("15", "32863578547254505029601261939868325669770508939375122462904745766352256812585773382134936404344547323199885654433", "46", "github.com/consensys/gnark-crypto/ecc/"+conf.Name+"/fr")
+			}
+			assertNoError(fft.Generate(fftConfig, filepath.Join(curveDir, "fr", "fft"), bgen))
 
 			if conf.Equal(config.BN254) || conf.Equal(config.BLS12_377) {
 				assertNoError(sis.Generate(conf, filepath.Join(curveDir, "fr", "sis"), bgen))
