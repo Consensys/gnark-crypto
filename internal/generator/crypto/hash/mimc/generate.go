@@ -3,8 +3,6 @@ package mimc
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
-	"text/template"
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
@@ -22,11 +20,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "mimc_test.go"), Templates: []string{"tests/mimc_test.go.tmpl"}},
 	}
 
-	underscorize := func(s string) string {
-		return strings.ReplaceAll(s, "-", "_")
-	}
-
-	if err := bgen.GenerateWithOptions(conf, conf.Package, "./crypto/hash/mimc/template", []func(*bavard.Bavard) error{bavard.Funcs(template.FuncMap{"underscorize": underscorize})}, entries...); err != nil {
+	if err := bgen.Generate(conf, conf.Package, "./crypto/hash/mimc/template", entries...); err != nil {
 		return fmt.Errorf("generate package: %w", err)
 	}
 	if err := bgen.Generate(conf, "mimc_test", "./crypto/hash/mimc/template", entriesTest...); err != nil {
