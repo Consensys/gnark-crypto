@@ -1,4 +1,4 @@
-package genarator
+package generator
 
 import (
 	"math/bits"
@@ -9,19 +9,19 @@ import (
 	"github.com/consensys/bavard"
 )
 
-func Generate(conf config.FFT, baseDir string, bgen *bavard.BatchGenerator) error {
+func Generate(conf config.FFT, outputDir string, bgen *bavard.BatchGenerator) error {
 
 	conf.Package = "fft"
 
 	entries := []bavard.Entry{
-		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
-		{File: filepath.Join(baseDir, "domain_test.go"), Templates: []string{"tests/domain.go.tmpl", "imports.go.tmpl"}},
-		{File: filepath.Join(baseDir, "domain.go"), Templates: []string{"domain.go.tmpl", "imports.go.tmpl"}},
-		{File: filepath.Join(baseDir, "fft_test.go"), Templates: []string{"tests/fft.go.tmpl", "imports.go.tmpl"}},
-		{File: filepath.Join(baseDir, "bitreverse_test.go"), Templates: []string{"tests/bitreverse.go.tmpl", "imports.go.tmpl"}},
-		{File: filepath.Join(baseDir, "fft.go"), Templates: []string{"fft.go.tmpl", "imports.go.tmpl"}},
-		{File: filepath.Join(baseDir, "bitreverse.go"), Templates: []string{"bitreverse.go.tmpl", "imports.go.tmpl"}},
-		{File: filepath.Join(baseDir, "options.go"), Templates: []string{"options.go.tmpl", "imports.go.tmpl"}},
+		{File: filepath.Join(outputDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
+		{File: filepath.Join(outputDir, "domain_test.go"), Templates: []string{"tests/domain.go.tmpl", "imports.go.tmpl"}},
+		{File: filepath.Join(outputDir, "domain.go"), Templates: []string{"domain.go.tmpl", "imports.go.tmpl"}},
+		{File: filepath.Join(outputDir, "fft_test.go"), Templates: []string{"tests/fft.go.tmpl", "imports.go.tmpl"}},
+		{File: filepath.Join(outputDir, "bitreverse_test.go"), Templates: []string{"tests/bitreverse.go.tmpl", "imports.go.tmpl"}},
+		{File: filepath.Join(outputDir, "fft.go"), Templates: []string{"fft.go.tmpl", "imports.go.tmpl"}},
+		{File: filepath.Join(outputDir, "bitreverse.go"), Templates: []string{"bitreverse.go.tmpl", "imports.go.tmpl"}},
+		{File: filepath.Join(outputDir, "options.go"), Templates: []string{"options.go.tmpl", "imports.go.tmpl"}},
 	}
 
 	funcs := make(map[string]interface{})
@@ -57,7 +57,7 @@ func Generate(conf config.FFT, baseDir string, bgen *bavard.BatchGenerator) erro
 
 	// put the generator in the parent dir (fr)
 	// TODO this should be in goff
-	frDir := filepath.Dir(baseDir)
+	frDir := filepath.Dir(outputDir)
 	entries = []bavard.Entry{
 		{File: filepath.Join(frDir, "generator.go"), Templates: []string{"fr.generator.go.tmpl"}},
 	}
