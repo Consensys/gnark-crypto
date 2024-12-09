@@ -2,7 +2,7 @@ package config
 
 import "strings"
 
-type Config struct {
+type FFT struct {
 
 	// TODO this should be in the finite field package API
 	GeneratorFullMultiplicativeGroup string // generator of \mathbb{F}_r^{*}
@@ -31,10 +31,10 @@ func NewConfig(genFullMultiplicativeGroup,
 	generatorMaxTwoAdicSubgroup,
 	logTwoOrderMaxTwoAdicSubgroup,
 	outputDir,
-	fieldPackagePath string) Config {
+	fieldPackagePath string) FFT {
 	splittedPath := strings.Split(fieldPackagePath, "/")
 	finiteFieldPackage := splittedPath[len(splittedPath)-1]
-	return Config{
+	return FFT{
 		GeneratorFullMultiplicativeGroup: genFullMultiplicativeGroup,
 		GeneratorMaxTwoAdicSubgroup:      generatorMaxTwoAdicSubgroup,
 		OutputDir:                        outputDir,

@@ -1,6 +1,6 @@
 package config
 
-var Configs []Config
+var Configs []FFT
 
 func init() {
 
@@ -96,6 +96,6 @@ func init() {
 
 }
 
-func addConfig(c Config) {
+func addConfig(c FFT) {
 	Configs = append(Configs, c)
 }
