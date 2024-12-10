@@ -69,7 +69,7 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 		}
 		return func() error {
 			bavardOpts := []func(*bavard.Bavard) error{
-				bavard.Apache2("ConsenSys Software Inc.", 2020),
+				bavard.Apache2("Consensys Software Inc.", 2020),
 				bavard.GeneratedBy("consensys/gnark-crypto"),
 				bavard.Funcs(funcs),
 			}
