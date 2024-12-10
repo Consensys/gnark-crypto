@@ -116,44 +116,6 @@ func GenerateCommonASM(w io.Writer, nbWords int, hasVector bool) error {
 	return nil
 }
 
-// // Generate generates assembly code for the base field provided to goff
-// // see internal/templates/ops*
-// func Generate(w io.Writer, F *field.Field) error {
-// 	f := NewFFArm64(w, F)
-// 	f.WriteLn(bavard.Apache2Header("ConsenSys Software Inc.", 2020))
-
-// 	f.WriteLn("#include \"textflag.h\"")
-// 	f.WriteLn("#include \"funcdata.h\"\n")
-
-// 	f.generateStoreVector()
-
-// 	// add
-// 	//TODO: It requires field size < 960
-// 	f.generateAdd()
-
-// 	// sub
-// 	f.generateSub()
-
-// 	// double
-// 	f.generateDouble()
-
-// 	// neg
-// 	f.generateNeg()
-// 	/*
-// 		// reduce
-// 		f.generateReduce()
-
-// 		// mul by constants
-// 		f.generateMulBy3()
-// 		f.generateMulBy5()
-// 		f.generateMulBy13()
-
-// 		// fft butterflies
-// 		f.generateButterfly()*/
-
-// 	return nil
-// }
-
 func (f *FFArm64) DefineFn(name string) (fn defineFn, err error) {
 	fn, ok := f.mDefines[name]
 	if !ok {

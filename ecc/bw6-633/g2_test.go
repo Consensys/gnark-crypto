@@ -111,7 +111,7 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 			var op1, op2 G2Jac
 			op1 = fuzzG2Jac(&g2Gen, a)
 			_r := fr.Modulus()
-			op2.ScalarMultiplication(&op1, _r)
+			op2.mulWindowed(&op1, _r)
 			return op1.IsInSubGroup() && op2.Z.IsZero()
 		},
 		GenFp(),
