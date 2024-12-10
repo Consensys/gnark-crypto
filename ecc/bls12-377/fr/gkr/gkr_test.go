@@ -325,7 +325,7 @@ func mimcCircuit(numRounds int) Circuit {
 
 func testMimc(t *testing.T, numRounds int, inputAssignments ...[]fr.Element) {
 	//TODO: Implement mimc correctly. Currently, the computation is mimc(a,b) = cipher( cipher( ... cipher(a, b), b) ..., b)
-	// @AlexandreBelling: Please explain the extra layers in https://github.com/ConsenSys/gkr-mimc/blob/81eada039ab4ed403b7726b535adb63026e8011f/examples/mimc.go#L10
+	// @AlexandreBelling: Please explain the extra layers in https://github.com/Consensys/gkr-mimc/blob/81eada039ab4ed403b7726b535adb63026e8011f/examples/mimc.go#L10
 
 	c := mimcCircuit(numRounds)
 

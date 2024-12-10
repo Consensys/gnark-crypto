@@ -18,7 +18,7 @@ type batchOpG1Affine struct {
 // using affine coordinates for the buckets. To amortize the cost of the inverse in the affine addition
 // we use a batch affine addition.
 //
-// this is derived from a PR by 0x0ece : https://github.com/ConsenSys/gnark-crypto/pull/249
+// this is derived from a PR by 0x0ece : https://github.com/Consensys/gnark-crypto/pull/249
 // See Section 5.3: ia.cr/2022/1396
 func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP pG1Affine, TPP ppG1Affine, TQ qOpsG1Affine, TC cG1Affine](
 	chunk uint64,
