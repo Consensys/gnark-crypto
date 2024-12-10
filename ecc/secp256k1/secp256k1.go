@@ -1,4 +1,4 @@
-// Copyright 2020 Consensys Software Inc.
+// Copyright 2020-2024 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
 // Package secp256k1 efficient elliptic curve implementation for secp256k1. This curve is defined in Standards for Efficient Cryptography (SEC) (Certicom Research, http://www.secg.org/sec2-v2.pdf) and appears in the Bitcoin and Ethereum ECDSA signatures.
