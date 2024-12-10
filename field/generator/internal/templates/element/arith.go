@@ -45,21 +45,5 @@ func madd3(a, b, c, d, e uint64) (hi uint64, lo uint64) {
 	return
 }
 
-{{- if $.UsingP20Inverse}}
-	func max(a int, b int) int {
-		if a > b {
-			return a
-		}
-		return b
-	}
-
-	func min(a int, b int) int {
-		if a < b {
-			return a
-		}
-		return b
-	}
-
-{{- end}}
 
 `

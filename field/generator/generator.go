@@ -2,7 +2,7 @@ package generator
 
 import (
 	"fmt"
-	"io"
+	"hash/fnv"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,9 +11,11 @@ import (
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
+	"github.com/consensys/gnark-crypto/field/generator/asm/arm64"
 	"github.com/consensys/gnark-crypto/field/generator/config"
 	"github.com/consensys/gnark-crypto/field/generator/internal/addchain"
 	"github.com/consensys/gnark-crypto/field/generator/internal/templates/element"
+	"golang.org/x/sync/errgroup"
 )
 
 // GenerateFF will generate go (and .s) files in outputDir for modulus (in base 10)
@@ -45,37 +47,6 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 		element.Test,
 		element.InverseTests,
 	}
-	// output files
-	eName := strings.ToLower(F.ElementName)
-
-	pathSrc := filepath.Join(outputDir, eName+".go")
-	pathSrcVector := filepath.Join(outputDir, "vector.go")
-	pathSrcFixedExp := filepath.Join(outputDir, eName+"_exp.go")
-	pathSrcArith := filepath.Join(outputDir, "arith.go")
-	pathTest := filepath.Join(outputDir, eName+"_test.go")
-	pathTestVector := filepath.Join(outputDir, "vector_test.go")
-
-	// remove old format generated files
-	oldFiles := []string{"_mul.go", "_mul_amd64.go",
-		"_square.go", "_square_amd64.go", "_ops_decl.go", "_square_amd64.s",
-		"_mul_amd64.s",
-		"_mul_arm64.s",
-		"_mul_arm64.go",
-		"_ops_amd64.s",
-		"_ops_noasm.go",
-		"_mul_adx_amd64.s",
-		"_ops_amd64.go",
-		"_fuzz.go",
-	}
-
-	for _, of := range oldFiles {
-		_ = os.Remove(filepath.Join(outputDir, eName+of))
-	}
-	_ = os.Remove(filepath.Join(outputDir, "asm.go"))
-	_ = os.Remove(filepath.Join(outputDir, "asm_noadx.go"))
-	_ = os.Remove(filepath.Join(outputDir, "avx.go"))
-	_ = os.Remove(filepath.Join(outputDir, "noavx.go"))
-
 	funcs := template.FuncMap{}
 	if F.UseAddChain {
 		for _, f := range addchain.Functions {
@@ -88,187 +59,170 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 		return a < b
 	}
 
-	bavardOpts := []func(*bavard.Bavard) error{
-		bavard.Apache2("ConsenSys Software Inc.", 2020),
-		bavard.Package(F.PackageName),
-		bavard.GeneratedBy("consensys/gnark-crypto"),
-		bavard.Funcs(funcs),
+	generate := func(suffix string, templates []string, opts ...option) func() error {
+		opt := generateOptions(opts...)
+		if opt.skip {
+			return func() error { return nil }
+		}
+		return func() error {
+			bavardOpts := []func(*bavard.Bavard) error{
+				bavard.Apache2("ConsenSys Software Inc.", 2020),
+				bavard.GeneratedBy("consensys/gnark-crypto"),
+				bavard.Funcs(funcs),
+			}
+			if !strings.HasSuffix(suffix, ".s") {
+				bavardOpts = append(bavardOpts, bavard.Package(F.PackageName))
+			}
+			if opt.buildTag != "" {
+				bavardOpts = append(bavardOpts, bavard.BuildTag(opt.buildTag))
+			}
+			if suffix == ".go" {
+				suffix = filepath.Join(outputDir, suffix)
+			} else {
+				suffix = filepath.Join(outputDir, suffix)
+			}
+
+			tmplData := any(F)
+			if opt.tmplData != nil {
+				tmplData = opt.tmplData
+			}
+
+			return bavard.GenerateFromString(suffix, templates, tmplData, bavardOpts...)
+		}
 	}
 
-	// generate source file
-	if err := bavard.GenerateFromString(pathSrc, sourceFiles, F, bavardOpts...); err != nil {
-		return err
+	// generate asm files;
+	// couple of cases;
+	// 1. we generate arm64 and amd64
+	// 2. we generate only amd64
+	// 3. we generate only purego
+
+	// sanity check
+	if (F.GenerateOpsARM64 && !F.GenerateOpsAMD64) ||
+		(F.GenerateVectorOpsAMD64 && !F.GenerateOpsAMD64) ||
+		(F.GenerateVectorOpsARM64 && !F.GenerateOpsARM64) {
+		panic("not implemented.")
 	}
 
-	// generate vector
-	if err := bavard.GenerateFromString(pathSrcVector, []string{element.Vector}, F, bavardOpts...); err != nil {
-		return err
+	// get hash of the common asm files to force compiler to recompile in case of changes.
+	var amd64d, arm64d ASMWrapperData
+	var err error
+
+	if F.GenerateOpsAMD64 {
+		amd64d, err = hashAndInclude(asmDirBuildPath, asmDirIncludePath, amd64.ElementASMFileName, F.NbWords)
+		if err != nil {
+			return err
+		}
 	}
 
-	// generate arithmetics source file
-	if err := bavard.GenerateFromString(pathSrcArith, []string{element.Arith}, F, bavardOpts...); err != nil {
-		return err
+	if F.GenerateOpsARM64 {
+		arm64d, err = hashAndInclude(asmDirBuildPath, asmDirIncludePath, arm64.ElementASMFileName, F.NbWords)
+		if err != nil {
+			return err
+		}
 	}
 
-	// generate fixed exp source file
+	// purego files have no build tags if we don't generate asm
+	pureGoBuildTag := "purego || (!amd64 && !arm64)"
+	if !F.GenerateOpsAMD64 && !F.GenerateOpsARM64 {
+		pureGoBuildTag = ""
+	} else if !F.GenerateOpsARM64 {
+		pureGoBuildTag = "purego || (!amd64)"
+	}
+	pureGoVectorBuildTag := "purego || (!amd64 && !arm64)"
+	if !F.GenerateVectorOpsAMD64 && !F.GenerateVectorOpsARM64 {
+		pureGoVectorBuildTag = ""
+	} else if !F.GenerateVectorOpsARM64 {
+		pureGoVectorBuildTag = "purego || (!amd64)"
+	}
+
+	var g errgroup.Group
+
+	g.Go(generate("element.go", sourceFiles))
+	g.Go(generate("doc.go", []string{element.Doc}))
+	g.Go(generate("vector.go", []string{element.Vector}))
+	g.Go(generate("arith.go", []string{element.Arith}))
+	g.Go(generate("element_test.go", testFiles))
+	g.Go(generate("vector_test.go", []string{element.TestVector}))
+
+	g.Go(generate("element_amd64.s", []string{element.IncludeASM}, Only(F.GenerateOpsAMD64), WithBuildTag("!purego"), WithData(amd64d)))
+	g.Go(generate("element_arm64.s", []string{element.IncludeASM}, Only(F.GenerateOpsARM64), WithBuildTag("!purego"), WithData(arm64d)))
+
+	g.Go(generate("element_amd64.go", []string{element.OpsAMD64, element.MulDoc}, Only(F.GenerateOpsAMD64), WithBuildTag("!purego")))
+	g.Go(generate("element_arm64.go", []string{element.OpsARM64, element.MulNoCarry, element.Reduce}, Only(F.GenerateOpsARM64), WithBuildTag("!purego")))
+
+	g.Go(generate("element_purego.go", []string{element.OpsNoAsm, element.MulCIOS, element.MulNoCarry, element.Reduce, element.MulDoc}, WithBuildTag(pureGoBuildTag)))
+
+	g.Go(generate("vector_amd64.go", []string{element.VectorOpsAmd64}, Only(F.GenerateVectorOpsAMD64), WithBuildTag("!purego")))
+	g.Go(generate("vector_arm64.go", []string{element.VectorOpsArm64}, Only(F.GenerateVectorOpsARM64), WithBuildTag("!purego")))
+
+	g.Go(generate("vector_purego.go", []string{element.VectorOpsPureGo}, WithBuildTag(pureGoVectorBuildTag)))
+
+	g.Go(generate("asm_adx.go", []string{element.Asm}, Only(F.GenerateOpsAMD64), WithBuildTag("!noadx")))
+	g.Go(generate("asm_noadx.go", []string{element.AsmNoAdx}, Only(F.GenerateOpsAMD64), WithBuildTag("noadx")))
+	g.Go(generate("asm_avx.go", []string{element.Avx}, Only(F.GenerateVectorOpsAMD64), WithBuildTag("!noavx")))
+	g.Go(generate("asm_noavx.go", []string{element.NoAvx}, Only(F.GenerateVectorOpsAMD64), WithBuildTag("noavx")))
+
 	if F.UseAddChain {
-		if err := bavard.GenerateFromString(pathSrcFixedExp, []string{element.FixedExp}, F, bavardOpts...); err != nil {
-			return err
-		}
+		g.Go(generate("element_exp.go", []string{element.FixedExp}))
 	}
 
-	// generate test file
-	if err := bavard.GenerateFromString(pathTest, testFiles, F, bavardOpts...); err != nil {
+	if err := g.Wait(); err != nil {
 		return err
-	}
-
-	if err := bavard.GenerateFromString(pathTestVector, []string{element.TestVector}, F, bavardOpts...); err != nil {
-		return err
-	}
-
-	// if we generate assembly code
-	if F.ASM {
-		// generate ops.s
-		{
-			pathSrc := filepath.Join(outputDir, eName+"_ops_amd64.s")
-			fmt.Println("generating", pathSrc)
-			f, err := os.Create(pathSrc)
-			if err != nil {
-				return err
-			}
-
-			_, _ = io.WriteString(f, "// +build !purego\n")
-
-			if err := amd64.GenerateFieldWrapper(f, F, asmDirBuildPath, asmDirIncludePath); err != nil {
-				_ = f.Close()
-				return err
-			}
-			_ = f.Close()
-
-			// run asmfmt
-			// run go fmt on whole directory
-			cmd := exec.Command("asmfmt", "-w", pathSrc)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				return err
-			}
-		}
-
-	}
-
-	if F.ASM {
-		// generate ops_amd64.go
-		src := []string{
-			element.MulDoc,
-			element.OpsAMD64,
-		}
-		pathSrc := filepath.Join(outputDir, eName+"_ops_amd64.go")
-		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
-		copy(bavardOptsCpy, bavardOpts)
-		if F.ASM {
-			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!purego"))
-		}
-		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
-			return err
-		}
 	}
 
 	{
-		// generate ops.go
-		src := []string{
-			element.OpsNoAsm,
-			element.MulCIOS,
-			element.MulNoCarry,
-			element.Reduce,
-			element.MulDoc,
-		}
-		pathSrc := filepath.Join(outputDir, eName+"_ops_purego.go")
-		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
-		copy(bavardOptsCpy, bavardOpts)
-		if F.ASM {
-			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!amd64 purego"))
-		}
-		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
+		// run go fmt on whole directory
+		cmd := exec.Command("gofmt", "-s", "-w", outputDir)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
 			return err
 		}
 	}
-
 	{
-		// generate doc.go
-		src := []string{
-			element.Doc,
-		}
-		pathSrc := filepath.Join(outputDir, "doc.go")
-		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOpts...); err != nil {
+		// run asmfmt on whole directory
+		cmd := exec.Command("asmfmt", "-w", outputDir)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
 			return err
 		}
-	}
-
-	if F.ASM {
-		// generate asm.go and asm_noadx.go
-		src := []string{
-			element.Asm,
-		}
-		pathSrc := filepath.Join(outputDir, "asm_adx.go")
-		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
-		copy(bavardOptsCpy, bavardOpts)
-		bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!noadx"))
-		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
-			return err
-		}
-	}
-	if F.ASM {
-		// generate asm.go and asm_noadx.go
-		src := []string{
-			element.AsmNoAdx,
-		}
-		pathSrc := filepath.Join(outputDir, "asm_noadx.go")
-		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
-		copy(bavardOptsCpy, bavardOpts)
-		bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("noadx"))
-		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
-			return err
-		}
-	}
-
-	if F.ASMVector {
-		// generate asm.go and asm_noadx.go
-		src := []string{
-			element.Avx,
-		}
-		pathSrc := filepath.Join(outputDir, "asm_avx.go")
-		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
-		copy(bavardOptsCpy, bavardOpts)
-		bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!noavx"))
-		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
-			return err
-		}
-	}
-
-	if F.ASMVector {
-		// generate asm.go and asm_noadx.go
-		src := []string{
-			element.NoAvx,
-		}
-		pathSrc := filepath.Join(outputDir, "asm_noavx.go")
-		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
-		copy(bavardOptsCpy, bavardOpts)
-		bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("noavx"))
-		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
-			return err
-		}
-	}
-
-	// run go fmt on whole directory
-	cmd := exec.Command("gofmt", "-s", "-w", outputDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return err
 	}
 
 	return nil
+}
+
+type ASMWrapperData struct {
+	IncludePath string
+	Hash        string
+}
+
+func hashAndInclude(asmDirBuildPath, asmDirIncludePath, fileName string, nbWords int) (data ASMWrapperData, err error) {
+	fileName = fmt.Sprintf(fileName, nbWords)
+	// we hash the file content and include the hash in comment of the generated file
+	// to force the Go compiler to recompile the file if the content has changed
+	fData, err := os.ReadFile(filepath.Join(asmDirBuildPath, fileName))
+	if err != nil {
+		return ASMWrapperData{}, err
+	}
+	// hash the file using FNV
+	hasher := fnv.New64()
+	hasher.Write(fData)
+	hash64 := hasher.Sum64()
+
+	hash := fmt.Sprintf("%d", hash64)
+	includePath := filepath.Join(asmDirIncludePath, fileName)
+	// on windows, we replace the "\" by "/"
+	if filepath.Separator == '\\' {
+		includePath = strings.ReplaceAll(includePath, "\\", "/")
+	}
+
+	return ASMWrapperData{
+		IncludePath: includePath,
+		Hash:        hash,
+	}, nil
+
 }
 
 func shorten(input string) string {
@@ -279,7 +233,35 @@ func shorten(input string) string {
 	return input
 }
 
-func GenerateCommonASM(nbWords int, asmDir string, hasVector bool) error {
+func GenerateARM64(nbWords int, asmDir string, hasVector bool) error {
+	os.MkdirAll(asmDir, 0755)
+	pathSrc := filepath.Join(asmDir, fmt.Sprintf(arm64.ElementASMFileName, nbWords))
+
+	fmt.Println("generating", pathSrc)
+	f, err := os.Create(pathSrc)
+	if err != nil {
+		return err
+	}
+
+	if err := arm64.GenerateCommonASM(f, nbWords, hasVector); err != nil {
+		_ = f.Close()
+		return err
+	}
+	_ = f.Close()
+
+	// run asmfmt
+	// run go fmt on whole directory
+	cmd := exec.Command("asmfmt", "-w", pathSrc)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GenerateAMD64(nbWords int, asmDir string, hasVector bool) error {
 	os.MkdirAll(asmDir, 0755)
 	pathSrc := filepath.Join(asmDir, fmt.Sprintf(amd64.ElementASMFileName, nbWords))
 
@@ -305,4 +287,39 @@ func GenerateCommonASM(nbWords int, asmDir string, hasVector bool) error {
 	}
 
 	return nil
+}
+
+type option func(*generateConfig)
+type generateConfig struct {
+	buildTag string
+	skip     bool
+	tmplData any
+}
+
+func WithBuildTag(buildTag string) option {
+	return func(opt *generateConfig) {
+		opt.buildTag = buildTag
+	}
+}
+
+func Only(condition bool) option {
+	return func(opt *generateConfig) {
+		opt.skip = !condition
+	}
+}
+
+func WithData(data any) option {
+	return func(opt *generateConfig) {
+		opt.tmplData = data
+	}
+}
+
+// default options
+func generateOptions(opts ...option) generateConfig {
+	// apply options
+	opt := generateConfig{}
+	for _, option := range opts {
+		option(&opt)
+	}
+	return opt
 }

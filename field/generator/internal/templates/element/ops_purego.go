@@ -34,14 +34,6 @@ func MulBy{{$i}}(x *{{$.ElementName}}) {
 
 {{- end}}
 
-// Butterfly sets
-//  a = a + b (mod q)
-//  b = a - b (mod q)
-func Butterfly(a, b *{{.ElementName}}) {
-	_butterflyGeneric(a, b)
-}
-
-
 func fromMont(z *{{.ElementName}} ) {
 	_fromMontGeneric(z)
 }
@@ -49,46 +41,6 @@ func fromMont(z *{{.ElementName}} ) {
 func reduce(z *{{.ElementName}})  {
 	_reduceGeneric(z)
 }
-
-{{- if .ASMVector}}
-// Add adds two vectors element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) Add(a, b Vector) {
-	addVecGeneric(*vector, a, b)
-}
-
-// Sub subtracts two vectors element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) Sub(a, b Vector) {
-	subVecGeneric(*vector, a, b)
-}
-
-// ScalarMul multiplies a vector by a scalar element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
-	scalarMulVecGeneric(*vector, a, b)
-}
-
-// Sum computes the sum of all elements in the vector.
-func (vector *Vector) Sum() (res {{.ElementName}}) {
-	sumVecGeneric(&res, *vector)
-	return
-}
-
-// InnerProduct computes the inner product of two vectors.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
-	innerProductVecGeneric(&res, *vector, other)
-	return
-}
-
-// Mul multiplies two vectors element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) Mul(a, b Vector) {
-	mulVecGeneric(*vector, a, b)
-}
-
-{{- end}}
 
 // Mul z = x * y (mod q)
 {{- if $.NoCarry}}
@@ -128,6 +80,13 @@ func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
 		{{ template "reduce"  . }}
 	{{- end }}
 	return z
+}
+
+// Butterfly sets
+//  a = a + b (mod q)
+//  b = a - b (mod q)
+func Butterfly(a, b *{{.ElementName}}) {
+	_butterflyGeneric(a, b)
 }
 
 `

@@ -431,6 +431,8 @@ func (z *{{.ElementName}}) Add( x, y *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
+
+
 // Double z = x + x (mod q), aka Lsh 1
 func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 	{{- if eq .NbWords 1}}
@@ -473,6 +475,7 @@ func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 }
 
 
+
 // Sub z = x - y (mod q)
 func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
 	var b uint64
@@ -498,6 +501,7 @@ func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
 	return z
 }
 
+
 // Neg z = q - x
 func (z *{{.ElementName}}) Neg( x *{{.ElementName}}) *{{.ElementName}} {
 	if x.IsZero() {
@@ -519,6 +523,7 @@ func (z *{{.ElementName}}) Neg( x *{{.ElementName}}) *{{.ElementName}} {
 	{{- end}}
 	return z
 }
+
 
 // Select is a constant-time conditional move.
 // If c=0, z = x0. Else z = x1

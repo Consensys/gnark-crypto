@@ -207,6 +207,7 @@ func Benchmark{{toTitle .ElementName}}Mul(b *testing.B) {
 	}
 }
 
+
 func Benchmark{{toTitle .ElementName}}Cmp(b *testing.B) {
 	x := {{.ElementName}}{
 		{{- range $i := .RSquare}}

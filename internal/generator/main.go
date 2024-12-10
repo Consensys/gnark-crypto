@@ -53,34 +53,16 @@ func main() {
 	asmDirIncludePath := filepath.Join(baseDir, "..", "field", "asm")
 
 	// generate common assembly files depending on field number of words
-	mCommon := make(map[int]bool)
-	mVec := make(map[int]bool)
+	assertNoError(generator.GenerateAMD64(4, asmDirBuildPath, true))
+	assertNoError(generator.GenerateAMD64(5, asmDirBuildPath, false))
+	assertNoError(generator.GenerateAMD64(6, asmDirBuildPath, false))
+	assertNoError(generator.GenerateAMD64(10, asmDirBuildPath, false))
+	assertNoError(generator.GenerateAMD64(12, asmDirBuildPath, false))
 
-	for i, conf := range config.Curves {
-		var err error
-		// generate base field
-		conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
-		assertNoError(err)
-
-		conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
-		assertNoError(err)
-
-		mCommon[conf.Fr.NbWords] = true
-		mCommon[conf.Fp.NbWords] = true
-
-		if conf.Fr.ASMVector {
-			mVec[conf.Fr.NbWords] = true
-		}
-		if conf.Fp.ASMVector {
-			mVec[conf.Fp.NbWords] = true
-		}
-
-		config.Curves[i] = conf
-	}
-
-	for nbWords := range mCommon {
-		assertNoError(generator.GenerateCommonASM(nbWords, asmDirBuildPath, mVec[nbWords]))
-	}
+	assertNoError(generator.GenerateARM64(4, asmDirBuildPath, false))
+	assertNoError(generator.GenerateARM64(6, asmDirBuildPath, false))
+	assertNoError(generator.GenerateARM64(10, asmDirBuildPath, false))
+	assertNoError(generator.GenerateARM64(12, asmDirBuildPath, false))
 
 	var wg sync.WaitGroup
 	for _, conf := range config.Curves {
@@ -88,6 +70,14 @@ func main() {
 		// for each curve, generate the needed files
 		go func(conf config.Curve) {
 			defer wg.Done()
+
+			var err error
+
+			conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
+			assertNoError(err)
+
+			conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
+			assertNoError(err)
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 
