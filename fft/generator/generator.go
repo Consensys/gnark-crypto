@@ -2,6 +2,8 @@ package generator
 
 import (
 	"math/bits"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -63,7 +65,17 @@ func Generate(conf config.FFT, outputDir string, bgen *bavard.BatchGenerator) er
 	}
 	fieldNameSplitted := strings.Split(conf.FieldPackagePath, "/")
 	fieldName := fieldNameSplitted[len(fieldNameSplitted)-1]
-	return bgen.GenerateWithOptions(conf, fieldName, "./template/", bavardOpts, entries...)
+	err := bgen.GenerateWithOptions(conf, fieldName, "./template/", bavardOpts, entries...)
+	if err != nil {
+		return err
+	}
+
+	// format the generated code
+	cmd := exec.Command("gofmt", "-s", "-w", outputDir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	return err
 }
 
 func anyToUint64(x any) uint64 {
