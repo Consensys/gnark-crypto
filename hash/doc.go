@@ -1,5 +1,14 @@
 // Package hash provides MiMC hash function defined over implemented curves
 //
+// This package is kept for backwards compatibility. The recommended way to
+// initialize hash function is to directly use the constructors in the
+// corresponding packages (e.g. ecc/bn254/fr/mimc). Using the direct
+// constructors allows to apply options for altering the hash function behavior
+// (endianness, input splicing etc.) and returns more specific types with
+// additional methods.
+//
+// See [Importing hash functions] below for more information.
+//
 // # Importing hash functions
 //
 // The package follows registration pattern for importing hash functions. To
