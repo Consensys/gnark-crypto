@@ -54,9 +54,6 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 		}
 	}
 
-	os.Remove(filepath.Join(outputDir, "vector_arm64.go"))
-	os.Remove(filepath.Join(outputDir, "exp.go"))
-
 	funcs["shorten"] = shorten
 	funcs["ltu64"] = func(a, b uint64) bool {
 		return a < b
