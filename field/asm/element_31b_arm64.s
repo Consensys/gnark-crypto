@@ -3,3 +3,22 @@
 #include "funcdata.h"
 #include "go_asm.h"
 
+// addVec(res, a, b *Element, n uint64)
+TEXT ·addVec(SB), NOFRAME|NOSPLIT, $0-32
+	MOVD $const_q, R6
+	LDP  res+0(FP), (R0, R1)
+	LDP  b+16(FP), (R2, R3)
+
+loop1:
+	CBZ     R3, done2
+	MOVWU.P 4(R1), R5
+	MOVWU.P 4(R2), R4
+	ADD     R5, R4, R4
+	SUBS    R6, R4, R7
+	CSEL    CS, R7, R4, R7
+	MOVWU.P R4, 4(R0)
+	SUB     $1, R3, R3
+	JMP     loop1
+
+done2:
+	RET
