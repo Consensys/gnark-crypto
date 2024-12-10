@@ -4,7 +4,9 @@
 package hash
 
 import (
+	"fmt"
 	"hash"
+	"strings"
 )
 
 var hashes = make([]func() hash.Hash, maxHash)
@@ -60,7 +62,12 @@ func (m Hash) New() hash.Hash {
 			return f()
 		}
 	}
-	panic("requested hash function #" + m.String() + " not registered")
+	pkgname, _ := strings.CutPrefix(m.String(), "MIMC_")
+	pkgname = strings.ToLower(pkgname)
+	pkgname = strings.ReplaceAll(pkgname, "_", "-")
+	msg := fmt.Sprintf(`requested hash function #%s not registered. Import the corresponding package to register it:
+	import _ "github.com/consensys/gnark-crypto/ecc/%s/fr/mimc"`, m.String(), pkgname)
+	panic(msg)
 }
 
 // String returns the unique identifier of the hash function.
