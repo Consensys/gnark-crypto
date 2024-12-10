@@ -7,7 +7,7 @@
 //
 // The API is similar to math/big (big.Int), but the operations are significantly faster (up to 20x).
 //
-// Additionally babybear.Vector offers an API to manipulate []Element using AVX512 instructions if available.
+// Additionally babybear.Vector offers an API to manipulate []Element using AVX512/NEON instructions if available.
 //
 // The modulus is hardcoded in all the operations.
 //

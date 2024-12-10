@@ -30,6 +30,11 @@ func main() {
 		panic(err)
 	}
 
+	// generate arm
+	if err := generator.GenerateARM64(1, 31, asmDir, true); err != nil {
+		panic(err)
+	}
+
 	for _, f := range fields {
 		fc, err := config.NewFieldConfig(f.name, "Element", f.modulus, true)
 		if err != nil {

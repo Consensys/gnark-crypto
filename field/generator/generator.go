@@ -142,7 +142,6 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 
 	if F.F31 {
 		pureGoBuildTag = "" // always generate pure go for F31
-		pureGoVectorBuildTag = "purego || (!amd64)"
 	}
 
 	var g errgroup.Group
@@ -158,13 +157,14 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 	g.Go(generate("element_arm64.s", []string{element.IncludeASM}, Only(F.GenerateOpsARM64), WithBuildTag("!purego"), WithData(arm64d)))
 
 	g.Go(generate("element_amd64.go", []string{element.OpsAMD64, element.MulDoc}, Only(F.GenerateOpsAMD64 && !F.F31), WithBuildTag("!purego")))
-	g.Go(generate("element_arm64.go", []string{element.OpsARM64, element.MulNoCarry, element.Reduce}, Only(F.GenerateOpsARM64), WithBuildTag("!purego")))
+	g.Go(generate("element_arm64.go", []string{element.OpsARM64, element.MulNoCarry, element.Reduce}, Only(F.GenerateOpsARM64 && !F.F31), WithBuildTag("!purego")))
 
 	g.Go(generate("element_purego.go", []string{element.OpsNoAsm, element.MulCIOS, element.MulNoCarry, element.Reduce, element.MulDoc}, WithBuildTag(pureGoBuildTag)))
 
 	g.Go(generate("vector_amd64.go", []string{element.VectorOpsAmd64}, Only(F.GenerateVectorOpsAMD64 && !F.F31), WithBuildTag("!purego")))
 	g.Go(generate("vector_amd64.go", []string{element.VectorOpsAmd64F31}, Only(F.GenerateVectorOpsAMD64 && F.F31), WithBuildTag("!purego")))
-	g.Go(generate("vector_arm64.go", []string{element.VectorOpsArm64}, Only(F.GenerateVectorOpsARM64), WithBuildTag("!purego")))
+	g.Go(generate("vector_arm64.go", []string{element.VectorOpsArm64}, Only(F.GenerateVectorOpsARM64 && !F.F31), WithBuildTag("!purego")))
+	g.Go(generate("vector_arm64.go", []string{element.VectorOpsArm64F31}, Only(F.GenerateVectorOpsARM64 && F.F31), WithBuildTag("!purego")))
 
 	g.Go(generate("vector_purego.go", []string{element.VectorOpsPureGo}, WithBuildTag(pureGoVectorBuildTag)))
 

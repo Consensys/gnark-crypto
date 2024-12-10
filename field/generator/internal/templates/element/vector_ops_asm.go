@@ -146,6 +146,8 @@ func mulVec(res, a, b *{{.ElementName}}, n uint64, qInvNeg uint64)
 
 const VectorOpsArm64 = VectorOpsPureGo
 
+const VectorOpsArm64F31 = VectorOpsPureGo
+
 const VectorOpsAmd64F31 = `
 
 //go:noescape
