@@ -3,12 +3,14 @@ package element
 const Doc = `
 // Package {{.PackageName}} contains field arithmetic operations for modulus = 0x{{shorten .ModulusHex}}.
 // 
-// The API is similar to math/big (big.Int), but the operations are significantly faster (up to 20x for the modular multiplication on amd64, see also https://hackmd.io/@gnark/modular_multiplication)
-// 
+// The API is similar to math/big (big.Int), but the operations are significantly faster (up to 20x). 
+//
+// Additionally {{.PackageName}}.Vector offers an API to manipulate []{{.ElementName}}{{- if .GenerateVectorOpsAMD64}} using AVX512{{- if .GenerateVectorOpsARM64}}/NEON{{- end}} instructions if available{{- end}}.
+//
 // The modulus is hardcoded in all the operations.
 // 
 // Field elements are represented as an array, and assumed to be in Montgomery form in all methods:
-// 	type {{.ElementName}} [{{.NbWords}}]uint64
+// 	type {{.ElementName}} [{{.NbWords}}]{{.Word.TypeLower}}
 //
 // Usage
 //
@@ -33,6 +35,8 @@ const Doc = `
 //
 // Warning
 //
-// This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
+// There is no security guarantees such as constant time implementation or side-channel attack resistance.
+// This code is provided as-is. Partially audited, see https://github.com/Consensys/gnark/tree/master/audits
+// for more details.
 package {{.PackageName}}
 `
