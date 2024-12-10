@@ -112,14 +112,14 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 	var err error
 
 	if F.GenerateOpsAMD64 {
-		amd64d, err = hashAndInclude(asmDirBuildPath, asmDirIncludePath, amd64.ElementASMFileName, F.NbWords)
+		amd64d, err = hashAndInclude(asmDirBuildPath, asmDirIncludePath, amd64.ElementASMFileName(F.NbWords, F.NbBits))
 		if err != nil {
 			return err
 		}
 	}
 
 	if F.GenerateOpsARM64 {
-		arm64d, err = hashAndInclude(asmDirBuildPath, asmDirIncludePath, arm64.ElementASMFileName, F.NbWords)
+		arm64d, err = hashAndInclude(asmDirBuildPath, asmDirIncludePath, arm64.ElementASMFileName(F.NbWords, F.NbBits))
 		if err != nil {
 			return err
 		}
@@ -132,10 +132,16 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 	} else if !F.GenerateOpsARM64 {
 		pureGoBuildTag = "purego || (!amd64)"
 	}
+
 	pureGoVectorBuildTag := "purego || (!amd64 && !arm64)"
 	if !F.GenerateVectorOpsAMD64 && !F.GenerateVectorOpsARM64 {
 		pureGoVectorBuildTag = ""
 	} else if !F.GenerateVectorOpsARM64 {
+		pureGoVectorBuildTag = "purego || (!amd64)"
+	}
+
+	if F.F31 {
+		pureGoBuildTag = "" // always generate pure go for F31
 		pureGoVectorBuildTag = "purego || (!amd64)"
 	}
 
@@ -151,18 +157,19 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 	g.Go(generate("element_amd64.s", []string{element.IncludeASM}, Only(F.GenerateOpsAMD64), WithBuildTag("!purego"), WithData(amd64d)))
 	g.Go(generate("element_arm64.s", []string{element.IncludeASM}, Only(F.GenerateOpsARM64), WithBuildTag("!purego"), WithData(arm64d)))
 
-	g.Go(generate("element_amd64.go", []string{element.OpsAMD64, element.MulDoc}, Only(F.GenerateOpsAMD64), WithBuildTag("!purego")))
+	g.Go(generate("element_amd64.go", []string{element.OpsAMD64, element.MulDoc}, Only(F.GenerateOpsAMD64 && !F.F31), WithBuildTag("!purego")))
 	g.Go(generate("element_arm64.go", []string{element.OpsARM64, element.MulNoCarry, element.Reduce}, Only(F.GenerateOpsARM64), WithBuildTag("!purego")))
 
 	g.Go(generate("element_purego.go", []string{element.OpsNoAsm, element.MulCIOS, element.MulNoCarry, element.Reduce, element.MulDoc}, WithBuildTag(pureGoBuildTag)))
 
-	g.Go(generate("vector_amd64.go", []string{element.VectorOpsAmd64}, Only(F.GenerateVectorOpsAMD64), WithBuildTag("!purego")))
+	g.Go(generate("vector_amd64.go", []string{element.VectorOpsAmd64}, Only(F.GenerateVectorOpsAMD64 && !F.F31), WithBuildTag("!purego")))
+	g.Go(generate("vector_amd64.go", []string{element.VectorOpsAmd64F31}, Only(F.GenerateVectorOpsAMD64 && F.F31), WithBuildTag("!purego")))
 	g.Go(generate("vector_arm64.go", []string{element.VectorOpsArm64}, Only(F.GenerateVectorOpsARM64), WithBuildTag("!purego")))
 
 	g.Go(generate("vector_purego.go", []string{element.VectorOpsPureGo}, WithBuildTag(pureGoVectorBuildTag)))
 
-	g.Go(generate("asm_adx.go", []string{element.Asm}, Only(F.GenerateOpsAMD64), WithBuildTag("!noadx")))
-	g.Go(generate("asm_noadx.go", []string{element.AsmNoAdx}, Only(F.GenerateOpsAMD64), WithBuildTag("noadx")))
+	g.Go(generate("asm_adx.go", []string{element.Asm}, Only(F.GenerateOpsAMD64 && !F.F31), WithBuildTag("!noadx")))
+	g.Go(generate("asm_noadx.go", []string{element.AsmNoAdx}, Only(F.GenerateOpsAMD64 && !F.F31), WithBuildTag("noadx")))
 	g.Go(generate("asm_avx.go", []string{element.Avx}, Only(F.GenerateVectorOpsAMD64), WithBuildTag("!noavx")))
 	g.Go(generate("asm_noavx.go", []string{element.NoAvx}, Only(F.GenerateVectorOpsAMD64), WithBuildTag("noavx")))
 
@@ -201,8 +208,7 @@ type ASMWrapperData struct {
 	Hash        string
 }
 
-func hashAndInclude(asmDirBuildPath, asmDirIncludePath, fileName string, nbWords int) (data ASMWrapperData, err error) {
-	fileName = fmt.Sprintf(fileName, nbWords)
+func hashAndInclude(asmDirBuildPath, asmDirIncludePath, fileName string) (data ASMWrapperData, err error) {
 	// we hash the file content and include the hash in comment of the generated file
 	// to force the Go compiler to recompile the file if the content has changed
 	fData, err := os.ReadFile(filepath.Join(asmDirBuildPath, fileName))
@@ -236,9 +242,9 @@ func shorten(input string) string {
 	return input
 }
 
-func GenerateARM64(nbWords int, asmDir string, hasVector bool) error {
+func GenerateARM64(nbWords, nbBits int, asmDir string, hasVector bool) error {
 	os.MkdirAll(asmDir, 0755)
-	pathSrc := filepath.Join(asmDir, fmt.Sprintf(arm64.ElementASMFileName, nbWords))
+	pathSrc := filepath.Join(asmDir, arm64.ElementASMFileName(nbWords, nbBits))
 
 	fmt.Println("generating", pathSrc)
 	f, err := os.Create(pathSrc)
@@ -246,7 +252,7 @@ func GenerateARM64(nbWords int, asmDir string, hasVector bool) error {
 		return err
 	}
 
-	if err := arm64.GenerateCommonASM(f, nbWords, hasVector); err != nil {
+	if err := arm64.GenerateCommonASM(f, nbWords, nbBits, hasVector); err != nil {
 		_ = f.Close()
 		return err
 	}
@@ -264,9 +270,9 @@ func GenerateARM64(nbWords int, asmDir string, hasVector bool) error {
 	return nil
 }
 
-func GenerateAMD64(nbWords int, asmDir string, hasVector bool) error {
+func GenerateAMD64(nbWords, nbBits int, asmDir string, hasVector bool) error {
 	os.MkdirAll(asmDir, 0755)
-	pathSrc := filepath.Join(asmDir, fmt.Sprintf(amd64.ElementASMFileName, nbWords))
+	pathSrc := filepath.Join(asmDir, amd64.ElementASMFileName(nbWords, nbBits))
 
 	fmt.Println("generating", pathSrc)
 	f, err := os.Create(pathSrc)
@@ -274,7 +280,7 @@ func GenerateAMD64(nbWords int, asmDir string, hasVector bool) error {
 		return err
 	}
 
-	if err := amd64.GenerateCommonASM(f, nbWords, hasVector); err != nil {
+	if err := amd64.GenerateCommonASM(f, nbWords, nbBits, hasVector); err != nil {
 		_ = f.Close()
 		return err
 	}
