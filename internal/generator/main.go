@@ -12,6 +12,7 @@ import (
 	field "github.com/consensys/gnark-crypto/field/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
+	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/poseidon2"
 	"github.com/consensys/gnark-crypto/internal/generator/ecc"
 	"github.com/consensys/gnark-crypto/internal/generator/ecdsa"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards"
@@ -135,6 +136,9 @@ func main() {
 
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
+
+			// generate poseidon2 on fr
+			assertNoError(poseidon2.Generate(conf, filepath.Join(curveDir, "fr", "poseidon2"), bgen))
 
 			frInfo := config.FieldDependency{
 				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
