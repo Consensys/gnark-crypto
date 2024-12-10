@@ -54,6 +54,9 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 		}
 	}
 
+	os.Remove(filepath.Join(outputDir, "vector_arm64.go"))
+	os.Remove(filepath.Join(outputDir, "exp.go"))
+
 	funcs["shorten"] = shorten
 	funcs["ltu64"] = func(a, b uint64) bool {
 		return a < b
@@ -141,7 +144,7 @@ func GenerateFF(F *config.FieldConfig, outputDir, asmDirBuildPath, asmDirInclude
 	g.Go(generate("element.go", sourceFiles))
 	g.Go(generate("doc.go", []string{element.Doc}))
 	g.Go(generate("vector.go", []string{element.Vector}))
-	g.Go(generate("arith.go", []string{element.Arith}))
+	g.Go(generate("arith.go", []string{element.Arith}, Only(!F.F31)))
 	g.Go(generate("element_test.go", testFiles))
 	g.Go(generate("vector_test.go", []string{element.TestVector}))
 

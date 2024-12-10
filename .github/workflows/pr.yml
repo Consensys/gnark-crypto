@@ -61,7 +61,10 @@ jobs:
         go test -json -v -short -timeout=30m ./... 2>&1 | gotestfmt -hide=all |  tee /tmp/gotest.log 
         go test -json -v -tags=purego -timeout=30m ./... 2>&1 | gotestfmt -hide=all | tee -a /tmp/gotest.log 
         go test -json -v -race -timeout=30m ./ecc/bn254/... 2>&1 | gotestfmt -hide=all | tee -a /tmp/gotest.log 
-        GOARCH=386 go test -json -short -v -timeout=30m ./ecc/bn254/... 2>&1 | gotestfmt -hide=all | tee -a /tmp/gotest.log 
+        GOARCH=386 go test -json -short -v -timeout=30m ./ecc/bn254/... 2>&1 | gotestfmt -hide=all | tee -a /tmp/gotest.log
+        GOARCH=386 go test -json -short -v -timeout=30m ./field/goldilocks 2>&1 | gotestfmt -hide=all | tee -a /tmp/gotest.log 
+        GOARCH=386 go test -json -short -v -timeout=30m ./field/koalabear 2>&1 | gotestfmt -hide=all | tee -a /tmp/gotest.log 
+        GOARCH=386 go test -json -short -v -timeout=30m ./field/babybear 2>&1 | gotestfmt -hide=all | tee -a /tmp/gotest.log 
 
 
   slack-notifications:
