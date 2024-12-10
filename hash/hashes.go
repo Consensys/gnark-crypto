@@ -76,17 +76,17 @@ func (m Hash) String() string {
 	case MIMC_BN254:
 		return "MIMC_BN254"
 	case MIMC_BLS12_381:
-		return "MIMC_BLS381"
+		return "MIMC_BLS12_381"
 	case MIMC_BLS12_377:
-		return "MIMC_BLS377"
+		return "MIMC_BLS12_377"
 	case MIMC_BW6_761:
-		return "MIMC_BW761"
+		return "MIMC_BW6_761"
 	case MIMC_BLS24_315:
-		return "MIMC_BLS315"
+		return "MIMC_BLS24_315"
 	case MIMC_BLS24_317:
-		return "MIMC_BLS317"
+		return "MIMC_BLS24_317"
 	case MIMC_BW6_633:
-		return "MIMC_BW633"
+		return "MIMC_BW6_633"
 	default:
 		return "unknown hash function"
 	}
