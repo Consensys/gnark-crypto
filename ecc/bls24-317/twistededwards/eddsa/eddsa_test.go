@@ -16,13 +16,14 @@ import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/mimc"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/twistededwards"
 	"github.com/consensys/gnark-crypto/hash"
 )
 
 func Example() {
 	// instantiate hash function
-	hFunc := hash.MIMC_BLS24_317.New()
+	hFunc := mimc.NewMiMC()
 
 	// create a eddsa key pair
 	privateKey, _ := GenerateKey(crand.Reader)

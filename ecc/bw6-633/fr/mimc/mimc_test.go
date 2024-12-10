@@ -9,8 +9,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/mimc"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 
 	"github.com/stretchr/testify/assert"
@@ -30,7 +30,7 @@ func TestByteOrder(t *testing.T) {
 	assert := require.New(t)
 
 	var buf [fr.Bytes]byte
-	// if the 31 first bytes are FF, it's a valid FF in little endian, but not in big endian
+	// if the 39 first bytes are FF, it's a valid FF in little endian, but not in big endian
 	for i := 0; i < fr.Bytes-1; i++ {
 		buf[i] = 0xFF
 	}
@@ -54,7 +54,7 @@ func TestByteOrder(t *testing.T) {
 	}
 
 	buf = [fr.Bytes]byte{}
-	// if the 31 bytes are FF, it's a valid FF in big endian, but not in little endian
+	// if the 39 bytes are FF, it's a valid FF in big endian, but not in little endian
 	for i := 1; i < fr.Bytes; i++ {
 		buf[i] = 0xFF
 	}
