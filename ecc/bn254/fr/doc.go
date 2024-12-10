@@ -5,7 +5,9 @@
 
 // Package fr contains field arithmetic operations for modulus = 0x30644e...000001.
 //
-// The API is similar to math/big (big.Int), but the operations are significantly faster (up to 20x for the modular multiplication on amd64, see also https://hackmd.io/@gnark/modular_multiplication)
+// The API is similar to math/big (big.Int), but the operations are significantly faster (up to 20x).
+//
+// Additionally fr.Vector offers an API to manipulate []Element using AVX512 instructions if available.
 //
 // The modulus is hardcoded in all the operations.
 //
@@ -38,5 +40,7 @@
 //
 // # Warning
 //
-// This code has not been audited and is provided as-is. In particular, there is no security guarantees such as constant time implementation or side-channel attack resistance.
+// There is no security guarantees such as constant time implementation or side-channel attack resistance.
+// This code is provided as-is. Partially audited, see https://github.com/Consensys/gnark/tree/master/audits
+// for more details.
 package fr
