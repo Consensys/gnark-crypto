@@ -1,13 +1,13 @@
 <a name="v0.14.0"></a>
 ## [v0.14.0] - 2024-09-03
 ### Build
-- update runner and go version ([#531](https://github.com/ConsenSys/gnark-crypto/issues/531))
+- update runner and go version ([#531](https://github.com/Consensys/gnark-crypto/issues/531))
 - generify g2.go changes
 - generify pedersen_test.go changes
 - generify pedersen.go changes
 
 ### Chore
-- fix some function names ([#526](https://github.com/ConsenSys/gnark-crypto/issues/526))
+- fix some function names ([#526](https://github.com/Consensys/gnark-crypto/issues/526))
 - go generate
 - go generate
 - go generate
@@ -32,11 +32,11 @@
 - pedersen batch verify bn254
 
 ### Fix
-- fixes [#522](https://github.com/ConsenSys/gnark-crypto/issues/522) with bound check before computing twiddles when domain has no precompute set ([#523](https://github.com/ConsenSys/gnark-crypto/issues/523))
+- fixes [#522](https://github.com/Consensys/gnark-crypto/issues/522) with bound check before computing twiddles when domain has no precompute set ([#523](https://github.com/Consensys/gnark-crypto/issues/523))
 - resolve conflict around kzg
 
 ### Perf
-- remove uneeded bucket init in affine coordinates fixes [#529](https://github.com/ConsenSys/gnark-crypto/issues/529) ([#530](https://github.com/ConsenSys/gnark-crypto/issues/530))
+- remove uneeded bucket init in affine coordinates fixes [#529](https://github.com/Consensys/gnark-crypto/issues/529) ([#530](https://github.com/Consensys/gnark-crypto/issues/530))
 
 ### Refactor
 - variable name
@@ -49,10 +49,10 @@
 - fix example test
 
 ### Pull Requests
-- Merge pull request [#524](https://github.com/ConsenSys/gnark-crypto/issues/524) from Consensys/refactor/bls12-MillerLoopFixed
-- Merge pull request [#527](https://github.com/ConsenSys/gnark-crypto/issues/527) from Consensys/feat/pedersen-batchmultivk
-- Merge pull request [#517](https://github.com/ConsenSys/gnark-crypto/issues/517) from Consensys/feat/pedersen-batch-verify
-- Merge pull request [#511](https://github.com/ConsenSys/gnark-crypto/issues/511) from Consensys/docs/up-comments
+- Merge pull request [#524](https://github.com/Consensys/gnark-crypto/issues/524) from Consensys/refactor/bls12-MillerLoopFixed
+- Merge pull request [#527](https://github.com/Consensys/gnark-crypto/issues/527) from Consensys/feat/pedersen-batchmultivk
+- Merge pull request [#517](https://github.com/Consensys/gnark-crypto/issues/517) from Consensys/feat/pedersen-batch-verify
+- Merge pull request [#511](https://github.com/Consensys/gnark-crypto/issues/511) from Consensys/docs/up-comments
 
 
 <a name="v0.13.0"></a>
@@ -62,20 +62,20 @@
 - go generate
 - make recoverP internal
 - go generate
-- **deps:** bump golang.org/x/crypto from 0.10.0 to 0.17.0 ([#473](https://github.com/ConsenSys/gnark-crypto/issues/473))
+- **deps:** bump golang.org/x/crypto from 0.10.0 to 0.17.0 ([#473](https://github.com/Consensys/gnark-crypto/issues/473))
 
 ### Ci
 - new attempt to fix push to master workflow
 - grmpppf
 - add missing message field
 - use runner.os
-- update ci workflows ([#460](https://github.com/ConsenSys/gnark-crypto/issues/460))
+- update ci workflows ([#460](https://github.com/Consensys/gnark-crypto/issues/460))
 
 ### Doc
-- update hash to curve rfc ref and impl comment ([#478](https://github.com/ConsenSys/gnark-crypto/issues/478))
+- update hash to curve rfc ref and impl comment ([#478](https://github.com/Consensys/gnark-crypto/issues/478))
 
 ### Docs
-- describe length extension attack for MiMC hash function. ([#520](https://github.com/ConsenSys/gnark-crypto/issues/520))
+- describe length extension attack for MiMC hash function. ([#520](https://github.com/Consensys/gnark-crypto/issues/520))
 - fix misspelled comment
 - skipping inf points in PairFixedQ is implicit
 - **ecc:** add comment in IsOnCurve()
@@ -85,12 +85,12 @@
 - mathfmt doc
 - added some docs
 - fixed comment, GenFrStar -> GeneratorFullMultiplicativeGroup
-- adds byteorder option in mimc `New`  ([#480](https://github.com/ConsenSys/gnark-crypto/issues/480))
-- allow hashing Fiat-Shamir transcript challenge without hashing to field first ([#474](https://github.com/ConsenSys/gnark-crypto/issues/474))
+- adds byteorder option in mimc `New`  ([#480](https://github.com/Consensys/gnark-crypto/issues/480))
+- allow hashing Fiat-Shamir transcript challenge without hashing to field first ([#474](https://github.com/Consensys/gnark-crypto/issues/474))
 - kzg.SRS implements UnsafeReadFrom
 - added missing WriteRawTo method for kzg.SRS
 - added ecc.IDFromString() method
-- wrap existing hash-to-field for implementing hash.Hash interface ([#464](https://github.com/ConsenSys/gnark-crypto/issues/464))
+- wrap existing hash-to-field for implementing hash.Hash interface ([#464](https://github.com/Consensys/gnark-crypto/issues/464))
 - quick SRS is now balanced
 - code gen for quick srs
 - avoid batch scalar mul when alpha=1 bn254
@@ -100,18 +100,18 @@
 - sis limb-decomposition works with log-two_bound > 8
 - fixed typo
 - template fix
-- fixes [#491](https://github.com/ConsenSys/gnark-crypto/issues/491)
-- gkr add gate evaluate ([#490](https://github.com/ConsenSys/gnark-crypto/issues/490))
-- handle edge case where provided domain cardinality is 1 ([#454](https://github.com/ConsenSys/gnark-crypto/issues/454))
+- fixes [#491](https://github.com/Consensys/gnark-crypto/issues/491)
+- gkr add gate evaluate ([#490](https://github.com/Consensys/gnark-crypto/issues/490))
+- handle edge case where provided domain cardinality is 1 ([#454](https://github.com/Consensys/gnark-crypto/issues/454))
 - kzg template for bn254
 - remove duplicate gkr template generation
-- **bandersnatch:** GLV bounds + test ([#516](https://github.com/ConsenSys/gnark-crypto/issues/516))
+- **bandersnatch:** GLV bounds + test ([#516](https://github.com/Consensys/gnark-crypto/issues/516))
 - **kzg:** bw6-633 vk marshal
 
 ### Perf
 - batchInvert 1/P.Y in fixed-arg pairing
-- unsafe.WriteSlice ([#501](https://github.com/ConsenSys/gnark-crypto/issues/501)) ([#503](https://github.com/ConsenSys/gnark-crypto/issues/503))
-- add kzg.UnsafeToBytes and kzg.UnsafeFromBytes methods ([#499](https://github.com/ConsenSys/gnark-crypto/issues/499))
+- unsafe.WriteSlice ([#501](https://github.com/Consensys/gnark-crypto/issues/501)) ([#503](https://github.com/Consensys/gnark-crypto/issues/503))
+- add kzg.UnsafeToBytes and kzg.UnsafeFromBytes methods ([#499](https://github.com/Consensys/gnark-crypto/issues/499))
 - specialize mul by affine lines
 - **bls12-377:** precomuting lines in pairing in affine
 - **bls12-377:** use precomputed affine lines in kzg
@@ -147,10 +147,10 @@
 
 ### Refactor
 - remove G1 from KZG verifiying key
-- move test util package into isolated one ([#500](https://github.com/ConsenSys/gnark-crypto/issues/500))
+- move test util package into isolated one ([#500](https://github.com/Consensys/gnark-crypto/issues/500))
 - remove dead ScalarMultiplicationAffine
-- make pedersen vk fields public ([#488](https://github.com/ConsenSys/gnark-crypto/issues/488))
-- kzg srs template ([#475](https://github.com/ConsenSys/gnark-crypto/issues/475))
+- make pedersen vk fields public ([#488](https://github.com/Consensys/gnark-crypto/issues/488))
+- kzg srs template ([#475](https://github.com/Consensys/gnark-crypto/issues/475))
 - re-introduce points in KZG verification key
 - apply code review suggestions
 - consolidate fixed-argument pairing across curves
@@ -169,29 +169,29 @@
 - **ecc:** benchmark affine ops
 
 ### Pull Requests
-- Merge pull request [#518](https://github.com/ConsenSys/gnark-crypto/issues/518) from Consensys/fix/flaky-fri-test
-- Merge pull request [#506](https://github.com/ConsenSys/gnark-crypto/issues/506) from Consensys/perf/affine-pairing
-- Merge pull request [#514](https://github.com/ConsenSys/gnark-crypto/issues/514) from Consensys/refactor/bw6-conj
-- Merge pull request [#512](https://github.com/ConsenSys/gnark-crypto/issues/512) from Consensys/fix/sis-issue-when-logTwoBound-larger-than-8
-- Merge pull request [#493](https://github.com/ConsenSys/gnark-crypto/issues/493) from Consensys/perf/kzg-verify
-- Merge pull request [#510](https://github.com/ConsenSys/gnark-crypto/issues/510) from Consensys/perf/faster-affine-arithmetic
-- Merge pull request [#509](https://github.com/ConsenSys/gnark-crypto/issues/509) from Consensys/perf/affine-arithmetic
-- Merge pull request [#497](https://github.com/ConsenSys/gnark-crypto/issues/497) from Consensys/feat/ecdsa-errors
-- Merge pull request [#496](https://github.com/ConsenSys/gnark-crypto/issues/496) from Consensys/sis/export-fft64
-- Merge pull request [#492](https://github.com/ConsenSys/gnark-crypto/issues/492) from Consensys/feat/gen_fr_star
-- Merge pull request [#487](https://github.com/ConsenSys/gnark-crypto/issues/487) from Consensys/perf/IsOnCurve
-- Merge pull request [#469](https://github.com/ConsenSys/gnark-crypto/issues/469) from Consensys/kzg/srs-vk
-- Merge pull request [#466](https://github.com/ConsenSys/gnark-crypto/issues/466) from Consensys/kzg/srs
-- Merge pull request [#439](https://github.com/ConsenSys/gnark-crypto/issues/439) from Consensys/fix/duplicate-gkr-gen
-- Merge pull request [#465](https://github.com/ConsenSys/gnark-crypto/issues/465) from Consensys/refactor/bw6761-pairing
-- Merge pull request [#459](https://github.com/ConsenSys/gnark-crypto/issues/459) from Consensys/perf/bw6-finalExp
-- Merge pull request [#458](https://github.com/ConsenSys/gnark-crypto/issues/458) from Consensys/feat/kzg_dummy_srs
+- Merge pull request [#518](https://github.com/Consensys/gnark-crypto/issues/518) from Consensys/fix/flaky-fri-test
+- Merge pull request [#506](https://github.com/Consensys/gnark-crypto/issues/506) from Consensys/perf/affine-pairing
+- Merge pull request [#514](https://github.com/Consensys/gnark-crypto/issues/514) from Consensys/refactor/bw6-conj
+- Merge pull request [#512](https://github.com/Consensys/gnark-crypto/issues/512) from Consensys/fix/sis-issue-when-logTwoBound-larger-than-8
+- Merge pull request [#493](https://github.com/Consensys/gnark-crypto/issues/493) from Consensys/perf/kzg-verify
+- Merge pull request [#510](https://github.com/Consensys/gnark-crypto/issues/510) from Consensys/perf/faster-affine-arithmetic
+- Merge pull request [#509](https://github.com/Consensys/gnark-crypto/issues/509) from Consensys/perf/affine-arithmetic
+- Merge pull request [#497](https://github.com/Consensys/gnark-crypto/issues/497) from Consensys/feat/ecdsa-errors
+- Merge pull request [#496](https://github.com/Consensys/gnark-crypto/issues/496) from Consensys/sis/export-fft64
+- Merge pull request [#492](https://github.com/Consensys/gnark-crypto/issues/492) from Consensys/feat/gen_fr_star
+- Merge pull request [#487](https://github.com/Consensys/gnark-crypto/issues/487) from Consensys/perf/IsOnCurve
+- Merge pull request [#469](https://github.com/Consensys/gnark-crypto/issues/469) from Consensys/kzg/srs-vk
+- Merge pull request [#466](https://github.com/Consensys/gnark-crypto/issues/466) from Consensys/kzg/srs
+- Merge pull request [#439](https://github.com/Consensys/gnark-crypto/issues/439) from Consensys/fix/duplicate-gkr-gen
+- Merge pull request [#465](https://github.com/Consensys/gnark-crypto/issues/465) from Consensys/refactor/bw6761-pairing
+- Merge pull request [#459](https://github.com/Consensys/gnark-crypto/issues/459) from Consensys/perf/bw6-finalExp
+- Merge pull request [#458](https://github.com/Consensys/gnark-crypto/issues/458) from Consensys/feat/kzg_dummy_srs
 
 
 <a name="v0.12.1"></a>
 ## [v0.12.1] - 2023-10-05
 ### Clean
-- remove useless snippet in mulWindowed ([#453](https://github.com/ConsenSys/gnark-crypto/issues/453))
+- remove useless snippet in mulWindowed ([#453](https://github.com/Consensys/gnark-crypto/issues/453))
 
 ### Ecc
 - fix neutral elements cases
@@ -214,11 +214,11 @@
 - fixed ExpGLV in GT
 
 ### Perf
-- **fft:** introduce cache efficient bit reverse shuffling ([#446](https://github.com/ConsenSys/gnark-crypto/issues/446))
+- **fft:** introduce cache efficient bit reverse shuffling ([#446](https://github.com/Consensys/gnark-crypto/issues/446))
 
 ### Pull Requests
-- Merge pull request [#451](https://github.com/ConsenSys/gnark-crypto/issues/451) from Consensys/fix/glv
-- Merge pull request [#450](https://github.com/ConsenSys/gnark-crypto/issues/450) from jsign/jsign-eq-improv
+- Merge pull request [#451](https://github.com/Consensys/gnark-crypto/issues/451) from Consensys/fix/glv
+- Merge pull request [#450](https://github.com/Consensys/gnark-crypto/issues/450) from jsign/jsign-eq-improv
 
 
 <a name="v0.12.0"></a>
@@ -235,10 +235,10 @@
 - remove extra file
 
 ### Ci
-- update ci workflows ([#447](https://github.com/ConsenSys/gnark-crypto/issues/447))
+- update ci workflows ([#447](https://github.com/Consensys/gnark-crypto/issues/447))
 
 ### Edwards
-- improve the performance of Add, MixedAdd and IsOnCurve ([#441](https://github.com/ConsenSys/gnark-crypto/issues/441))
+- improve the performance of Add, MixedAdd and IsOnCurve ([#441](https://github.com/Consensys/gnark-crypto/issues/441))
 
 ### Feat
 - delete playground
@@ -256,7 +256,7 @@
 - fixed ambiguous unmarshalling eddsa
 
 ### Multiexp
-- avoid direct coordinate access to check for zero points ([#414](https://github.com/ConsenSys/gnark-crypto/issues/414))
+- avoid direct coordinate access to check for zero points ([#414](https://github.com/Consensys/gnark-crypto/issues/414))
 
 ### Refactor
 - make marshal errors private
@@ -267,8 +267,8 @@
 - implement malleability tests as subtests
 
 ### Pull Requests
-- Merge pull request [#449](https://github.com/ConsenSys/gnark-crypto/issues/449) from Consensys/fix/malleability_sig
-- Merge pull request [#442](https://github.com/ConsenSys/gnark-crypto/issues/442) from jsign/jsign-edwards-extended
+- Merge pull request [#449](https://github.com/Consensys/gnark-crypto/issues/449) from Consensys/fix/malleability_sig
+- Merge pull request [#442](https://github.com/Consensys/gnark-crypto/issues/442) from jsign/jsign-edwards-extended
 
 
 <a name="v0.11.2"></a>
@@ -295,7 +295,7 @@
 - PR feedback
 
 ### Docs
-- ConsenSys -> Consensys ([#406](https://github.com/ConsenSys/gnark-crypto/issues/406))
+- ConsenSys -> Consensys ([#406](https://github.com/Consensys/gnark-crypto/issues/406))
 - explain FoldCommitments
 - make comments more godoc friendly
 - remove comment
@@ -305,13 +305,13 @@
 - **pairing:** add comments
 
 ### Edwards
-- optimize point negation ([#413](https://github.com/ConsenSys/gnark-crypto/issues/413))
+- optimize point negation ([#413](https://github.com/Consensys/gnark-crypto/issues/413))
 
 ### Feat
 - add Double in affine coordinates
 - experiment parallel sis
-- add AsyncReadFrom to fr.Vector and fft.Domain ([#424](https://github.com/ConsenSys/gnark-crypto/issues/424))
-- added WriteRawTo to kzg.ProvingKey ([#422](https://github.com/ConsenSys/gnark-crypto/issues/422))
+- add AsyncReadFrom to fr.Vector and fft.Domain ([#424](https://github.com/Consensys/gnark-crypto/issues/424))
+- added WriteRawTo to kzg.ProvingKey ([#422](https://github.com/Consensys/gnark-crypto/issues/422))
 - more gkr gates
 - Gates var for bn254
 - added size accessor on poly
@@ -321,14 +321,14 @@
 - pedersen(bn254).WriteRawTo
 - fold 0 proofs edge case
 - pedersen folding proofs
-- Marshal [][]fr.Element ([#400](https://github.com/ConsenSys/gnark-crypto/issues/400))
+- Marshal [][]fr.Element ([#400](https://github.com/Consensys/gnark-crypto/issues/400))
 - restored fp, fr, etc
 - added polynomial.SetSize
-- added element.Unmarshal closes [#348](https://github.com/ConsenSys/gnark-crypto/issues/348)
+- added element.Unmarshal closes [#348](https://github.com/Consensys/gnark-crypto/issues/348)
 - kzg.Vk.WriteRawTo
 - bn254 encoder to support uint64 slices
-- fix v computation in ECDSA signature ([#385](https://github.com/ConsenSys/gnark-crypto/issues/385))
-- add ECDSA public key recover from message, signature and recovery info ([#347](https://github.com/ConsenSys/gnark-crypto/issues/347))
+- fix v computation in ECDSA signature ([#385](https://github.com/Consensys/gnark-crypto/issues/385))
+- add ECDSA public key recover from message, signature and recovery info ([#347](https://github.com/Consensys/gnark-crypto/issues/347))
 - added comment for bitAt function
 - added sis.py
 - add reference test
@@ -337,7 +337,7 @@
 - added fft.WithNbTasks
 - FFT signature now takes an option variadic
 - expose NaiveMulMod for gnark
-- make `mapToCurve` public to allow for custom cofactor clearing ([#372](https://github.com/ConsenSys/gnark-crypto/issues/372))
+- make `mapToCurve` public to allow for custom cofactor clearing ([#372](https://github.com/Consensys/gnark-crypto/issues/372))
 - restored latest fft
 - **pairing:** return 1 after easy part if result is 1
 
@@ -348,14 +348,14 @@
 - dont use internal package in vector.go
 - import utils
 - remove redundant mulGate
-- incorrect semaphore initialization ([#411](https://github.com/ConsenSys/gnark-crypto/issues/411))
+- incorrect semaphore initialization ([#411](https://github.com/Consensys/gnark-crypto/issues/411))
 - don't ignore multiexp error
 - pedersen folding bug
 - more innef assign
 - innef assignment in test
 - handle all bitmask in point deserialization
-- ECDSA HashToInt bytes-bits mismatch ([#428](https://github.com/ConsenSys/gnark-crypto/issues/428))
-- ECDSA HashToInt bytes-bits mismatch ([#428](https://github.com/ConsenSys/gnark-crypto/issues/428))
+- ECDSA HashToInt bytes-bits mismatch ([#428](https://github.com/Consensys/gnark-crypto/issues/428))
+- ECDSA HashToInt bytes-bits mismatch ([#428](https://github.com/Consensys/gnark-crypto/issues/428))
 - do not read empty slices as nil
 - minor errors
 - generation mistake
@@ -369,7 +369,7 @@
 - **linter:** ineffassign in Fpk marshal
 
 ### Msm
-- semaphore to limit CPUs + better split strategy (up to 25% perf boost on 96cores) ([#403](https://github.com/ConsenSys/gnark-crypto/issues/403))
+- semaphore to limit CPUs + better split strategy (up to 25% perf boost on 96cores) ([#403](https://github.com/Consensys/gnark-crypto/issues/403))
 
 ### Perf
 - experiment without memcopy not great
@@ -378,11 +378,11 @@
 - kept the fastest method for sis
 - minor optim in iop package
 - 3 muls instead of 4 sis
-- small memory alloc optimization ([#435](https://github.com/ConsenSys/gnark-crypto/issues/435))
-- dont waste too much memory in fft domain ([#437](https://github.com/ConsenSys/gnark-crypto/issues/437))
+- small memory alloc optimization ([#435](https://github.com/Consensys/gnark-crypto/issues/435))
+- dont waste too much memory in fft domain ([#437](https://github.com/Consensys/gnark-crypto/issues/437))
 - fix todo with small domain path
 - use bitset in batch invert
-- fast path for SIS with logTwoBound: 8, logTwoDegree: 6 ([#416](https://github.com/ConsenSys/gnark-crypto/issues/416))
+- fast path for SIS with logTwoBound: 8, logTwoDegree: 6 ([#416](https://github.com/Consensys/gnark-crypto/issues/416))
 - optimized sis
 - less memallocs, check for zeroes
 - faster init + simplify bit processing loop
@@ -439,40 +439,40 @@
 - still good
 
 ### Pull Requests
-- Merge pull request [#438](https://github.com/ConsenSys/gnark-crypto/issues/438) from Consensys/develop
-- Merge pull request [#429](https://github.com/ConsenSys/gnark-crypto/issues/429) from Consensys/release/v0.11.1
-- Merge pull request [#419](https://github.com/ConsenSys/gnark-crypto/issues/419) from Consensys/feat/gkr-custom-gates
-- Merge pull request [#410](https://github.com/ConsenSys/gnark-crypto/issues/410) from ConsenSys/fix/decode-empty-slice
-- Merge pull request [#407](https://github.com/ConsenSys/gnark-crypto/issues/407) from ConsenSys/feat/fold-pedersen
-- Merge pull request [#391](https://github.com/ConsenSys/gnark-crypto/issues/391) from ConsenSys/develop
-- Merge pull request [#386](https://github.com/ConsenSys/gnark-crypto/issues/386) from ConsenSys/perf/kzg-verify
-- Merge pull request [#384](https://github.com/ConsenSys/gnark-crypto/issues/384) from ConsenSys/refactor/break-pedersen-notowermod
-- Merge pull request [#379](https://github.com/ConsenSys/gnark-crypto/issues/379) from ConsenSys/feat/encode-uint64-slices
-- Merge pull request [#378](https://github.com/ConsenSys/gnark-crypto/issues/378) from ConsenSys/refactor/break-kzg-srs
-- Merge pull request [#382](https://github.com/ConsenSys/gnark-crypto/issues/382) from ConsenSys/refactor/not-export-endo
-- Merge pull request [#380](https://github.com/ConsenSys/gnark-crypto/issues/380) from omerfirmak/elim-pedersen-alloc
-- Merge pull request [#374](https://github.com/ConsenSys/gnark-crypto/issues/374) from ConsenSys/fix/BatchVerifyMultiPoints-0
-- Merge pull request [#376](https://github.com/ConsenSys/gnark-crypto/issues/376) from ConsenSys/refactor/export-endo
-- Merge pull request [#375](https://github.com/ConsenSys/gnark-crypto/issues/375) from ConsenSys/refactor/FinalExp
-- Merge pull request [#377](https://github.com/ConsenSys/gnark-crypto/issues/377) from ConsenSys/fix/fold-kzg-fs
-- Merge pull request [#371](https://github.com/ConsenSys/gnark-crypto/issues/371) from omerfirmak/elim-pedersen-alloc
-- Merge pull request [#369](https://github.com/ConsenSys/gnark-crypto/issues/369) from ConsenSys/build/updateci
-- Merge pull request [#368](https://github.com/ConsenSys/gnark-crypto/issues/368) from ConsenSys/develop
-- Merge pull request [#366](https://github.com/ConsenSys/gnark-crypto/issues/366) from ConsenSys/refactor/pairings
-- Merge pull request [#365](https://github.com/ConsenSys/gnark-crypto/issues/365) from ConsenSys/fix/gentime-field-bugs
-- Merge pull request [#364](https://github.com/ConsenSys/gnark-crypto/issues/364) from jtraglia/update-tested-go-versions
-- Merge pull request [#363](https://github.com/ConsenSys/gnark-crypto/issues/363) from ConsenSys/fix/infencoding
-- Merge pull request [#361](https://github.com/ConsenSys/gnark-crypto/issues/361) from ConsenSys/perf/plonk
-- Merge pull request [#360](https://github.com/ConsenSys/gnark-crypto/issues/360) from ConsenSys/bls12381-tower-gnark
-- Merge pull request [#359](https://github.com/ConsenSys/gnark-crypto/issues/359) from SherLzp/develop
-- Merge pull request [#356](https://github.com/ConsenSys/gnark-crypto/issues/356) from ConsenSys/perf/bn24317-FinalExp
-- Merge pull request [#354](https://github.com/ConsenSys/gnark-crypto/issues/354) from ConsenSys/bn254-tower-gnark
-- Merge pull request [#351](https://github.com/ConsenSys/gnark-crypto/issues/351) from ConsenSys/perf/bw6-756/GT-subgroup-check
-- Merge pull request [#349](https://github.com/ConsenSys/gnark-crypto/issues/349) from ConsenSys/perf/subgroup-check-stark
-- Merge pull request [#344](https://github.com/ConsenSys/gnark-crypto/issues/344) from ConsenSys/perf/tensor-commitment
-- Merge pull request [#345](https://github.com/ConsenSys/gnark-crypto/issues/345) from ConsenSys/feat/fftopt
-- Merge pull request [#263](https://github.com/ConsenSys/gnark-crypto/issues/263) from AlexandreBelling/perf/tensor-commitment
-- Merge pull request [#260](https://github.com/ConsenSys/gnark-crypto/issues/260) from AlexandreBelling/experimental/tensor-commitment
+- Merge pull request [#438](https://github.com/Consensys/gnark-crypto/issues/438) from Consensys/develop
+- Merge pull request [#429](https://github.com/Consensys/gnark-crypto/issues/429) from Consensys/release/v0.11.1
+- Merge pull request [#419](https://github.com/Consensys/gnark-crypto/issues/419) from Consensys/feat/gkr-custom-gates
+- Merge pull request [#410](https://github.com/Consensys/gnark-crypto/issues/410) from ConsenSys/fix/decode-empty-slice
+- Merge pull request [#407](https://github.com/Consensys/gnark-crypto/issues/407) from ConsenSys/feat/fold-pedersen
+- Merge pull request [#391](https://github.com/Consensys/gnark-crypto/issues/391) from ConsenSys/develop
+- Merge pull request [#386](https://github.com/Consensys/gnark-crypto/issues/386) from ConsenSys/perf/kzg-verify
+- Merge pull request [#384](https://github.com/Consensys/gnark-crypto/issues/384) from ConsenSys/refactor/break-pedersen-notowermod
+- Merge pull request [#379](https://github.com/Consensys/gnark-crypto/issues/379) from ConsenSys/feat/encode-uint64-slices
+- Merge pull request [#378](https://github.com/Consensys/gnark-crypto/issues/378) from ConsenSys/refactor/break-kzg-srs
+- Merge pull request [#382](https://github.com/Consensys/gnark-crypto/issues/382) from ConsenSys/refactor/not-export-endo
+- Merge pull request [#380](https://github.com/Consensys/gnark-crypto/issues/380) from omerfirmak/elim-pedersen-alloc
+- Merge pull request [#374](https://github.com/Consensys/gnark-crypto/issues/374) from ConsenSys/fix/BatchVerifyMultiPoints-0
+- Merge pull request [#376](https://github.com/Consensys/gnark-crypto/issues/376) from ConsenSys/refactor/export-endo
+- Merge pull request [#375](https://github.com/Consensys/gnark-crypto/issues/375) from ConsenSys/refactor/FinalExp
+- Merge pull request [#377](https://github.com/Consensys/gnark-crypto/issues/377) from ConsenSys/fix/fold-kzg-fs
+- Merge pull request [#371](https://github.com/Consensys/gnark-crypto/issues/371) from omerfirmak/elim-pedersen-alloc
+- Merge pull request [#369](https://github.com/Consensys/gnark-crypto/issues/369) from ConsenSys/build/updateci
+- Merge pull request [#368](https://github.com/Consensys/gnark-crypto/issues/368) from ConsenSys/develop
+- Merge pull request [#366](https://github.com/Consensys/gnark-crypto/issues/366) from ConsenSys/refactor/pairings
+- Merge pull request [#365](https://github.com/Consensys/gnark-crypto/issues/365) from ConsenSys/fix/gentime-field-bugs
+- Merge pull request [#364](https://github.com/Consensys/gnark-crypto/issues/364) from jtraglia/update-tested-go-versions
+- Merge pull request [#363](https://github.com/Consensys/gnark-crypto/issues/363) from ConsenSys/fix/infencoding
+- Merge pull request [#361](https://github.com/Consensys/gnark-crypto/issues/361) from ConsenSys/perf/plonk
+- Merge pull request [#360](https://github.com/Consensys/gnark-crypto/issues/360) from ConsenSys/bls12381-tower-gnark
+- Merge pull request [#359](https://github.com/Consensys/gnark-crypto/issues/359) from SherLzp/develop
+- Merge pull request [#356](https://github.com/Consensys/gnark-crypto/issues/356) from ConsenSys/perf/bn24317-FinalExp
+- Merge pull request [#354](https://github.com/Consensys/gnark-crypto/issues/354) from ConsenSys/bn254-tower-gnark
+- Merge pull request [#351](https://github.com/Consensys/gnark-crypto/issues/351) from ConsenSys/perf/bw6-756/GT-subgroup-check
+- Merge pull request [#349](https://github.com/Consensys/gnark-crypto/issues/349) from ConsenSys/perf/subgroup-check-stark
+- Merge pull request [#344](https://github.com/Consensys/gnark-crypto/issues/344) from ConsenSys/perf/tensor-commitment
+- Merge pull request [#345](https://github.com/Consensys/gnark-crypto/issues/345) from ConsenSys/feat/fftopt
+- Merge pull request [#263](https://github.com/Consensys/gnark-crypto/issues/263) from AlexandreBelling/perf/tensor-commitment
+- Merge pull request [#260](https://github.com/Consensys/gnark-crypto/issues/260) from AlexandreBelling/experimental/tensor-commitment
 
 
 <a name="v0.9.2"></a>
@@ -481,7 +481,7 @@
 - update CHANGELOG
 
 ### Fix
-- ECDSA HashToInt bytes-bits mismatch ([#428](https://github.com/ConsenSys/gnark-crypto/issues/428))
+- ECDSA HashToInt bytes-bits mismatch ([#428](https://github.com/Consensys/gnark-crypto/issues/428))
 
 
 <a name="v0.11.1"></a>
@@ -505,15 +505,15 @@
 - remove DO NOT EDIT from non-autogenerated files
 
 ### Feat
-- fix v computation in ECDSA signature ([#385](https://github.com/ConsenSys/gnark-crypto/issues/385))
-- make `mapToCurve` public to allow for custom cofactor clearing ([#372](https://github.com/ConsenSys/gnark-crypto/issues/372))
+- fix v computation in ECDSA signature ([#385](https://github.com/Consensys/gnark-crypto/issues/385))
+- make `mapToCurve` public to allow for custom cofactor clearing ([#372](https://github.com/Consensys/gnark-crypto/issues/372))
 - add Double in affine coordinates
 - kzg.Vk.WriteRawTo
 - bn254 encoder to support uint64 slices
 - **pairing:** return 1 after easy part if result is 1
 
 ### Fix
-- ECDSA HashToInt bytes-bits mismatch ([#428](https://github.com/ConsenSys/gnark-crypto/issues/428))
+- ECDSA HashToInt bytes-bits mismatch ([#428](https://github.com/Consensys/gnark-crypto/issues/428))
 - handle all bitmask in point deserialization
 - littleEndian -> bigEndian
 - import utils
@@ -551,20 +551,20 @@
 - no loop when serializing one object only
 
 ### Pull Requests
-- Merge pull request [#429](https://github.com/ConsenSys/gnark-crypto/issues/429) from Consensys/release/v0.11.1
-- Merge pull request [#391](https://github.com/ConsenSys/gnark-crypto/issues/391) from ConsenSys/develop
-- Merge pull request [#386](https://github.com/ConsenSys/gnark-crypto/issues/386) from ConsenSys/perf/kzg-verify
-- Merge pull request [#384](https://github.com/ConsenSys/gnark-crypto/issues/384) from ConsenSys/refactor/break-pedersen-notowermod
-- Merge pull request [#379](https://github.com/ConsenSys/gnark-crypto/issues/379) from ConsenSys/feat/encode-uint64-slices
-- Merge pull request [#378](https://github.com/ConsenSys/gnark-crypto/issues/378) from ConsenSys/refactor/break-kzg-srs
-- Merge pull request [#382](https://github.com/ConsenSys/gnark-crypto/issues/382) from ConsenSys/refactor/not-export-endo
-- Merge pull request [#380](https://github.com/ConsenSys/gnark-crypto/issues/380) from omerfirmak/elim-pedersen-alloc
-- Merge pull request [#374](https://github.com/ConsenSys/gnark-crypto/issues/374) from ConsenSys/fix/BatchVerifyMultiPoints-0
-- Merge pull request [#376](https://github.com/ConsenSys/gnark-crypto/issues/376) from ConsenSys/refactor/export-endo
-- Merge pull request [#375](https://github.com/ConsenSys/gnark-crypto/issues/375) from ConsenSys/refactor/FinalExp
-- Merge pull request [#377](https://github.com/ConsenSys/gnark-crypto/issues/377) from ConsenSys/fix/fold-kzg-fs
-- Merge pull request [#371](https://github.com/ConsenSys/gnark-crypto/issues/371) from omerfirmak/elim-pedersen-alloc
-- Merge pull request [#369](https://github.com/ConsenSys/gnark-crypto/issues/369) from ConsenSys/build/updateci
+- Merge pull request [#429](https://github.com/Consensys/gnark-crypto/issues/429) from Consensys/release/v0.11.1
+- Merge pull request [#391](https://github.com/Consensys/gnark-crypto/issues/391) from ConsenSys/develop
+- Merge pull request [#386](https://github.com/Consensys/gnark-crypto/issues/386) from ConsenSys/perf/kzg-verify
+- Merge pull request [#384](https://github.com/Consensys/gnark-crypto/issues/384) from ConsenSys/refactor/break-pedersen-notowermod
+- Merge pull request [#379](https://github.com/Consensys/gnark-crypto/issues/379) from ConsenSys/feat/encode-uint64-slices
+- Merge pull request [#378](https://github.com/Consensys/gnark-crypto/issues/378) from ConsenSys/refactor/break-kzg-srs
+- Merge pull request [#382](https://github.com/Consensys/gnark-crypto/issues/382) from ConsenSys/refactor/not-export-endo
+- Merge pull request [#380](https://github.com/Consensys/gnark-crypto/issues/380) from omerfirmak/elim-pedersen-alloc
+- Merge pull request [#374](https://github.com/Consensys/gnark-crypto/issues/374) from ConsenSys/fix/BatchVerifyMultiPoints-0
+- Merge pull request [#376](https://github.com/Consensys/gnark-crypto/issues/376) from ConsenSys/refactor/export-endo
+- Merge pull request [#375](https://github.com/Consensys/gnark-crypto/issues/375) from ConsenSys/refactor/FinalExp
+- Merge pull request [#377](https://github.com/Consensys/gnark-crypto/issues/377) from ConsenSys/fix/fold-kzg-fs
+- Merge pull request [#371](https://github.com/Consensys/gnark-crypto/issues/371) from omerfirmak/elim-pedersen-alloc
+- Merge pull request [#369](https://github.com/Consensys/gnark-crypto/issues/369) from ConsenSys/build/updateci
 
 
 <a name="v0.10.1"></a>
@@ -573,7 +573,7 @@
 - update CHANGELOG
 
 ### Fix
-- ECDSA HashToInt bytes-bits mismatch ([#428](https://github.com/ConsenSys/gnark-crypto/issues/428))
+- ECDSA HashToInt bytes-bits mismatch ([#428](https://github.com/Consensys/gnark-crypto/issues/428))
 
 
 <a name="v0.11.0"></a>
@@ -596,8 +596,8 @@
 - remove DO NOT EDIT from non-autogenerated files
 
 ### Feat
-- fix v computation in ECDSA signature ([#385](https://github.com/ConsenSys/gnark-crypto/issues/385))
-- make `mapToCurve` public to allow for custom cofactor clearing ([#372](https://github.com/ConsenSys/gnark-crypto/issues/372))
+- fix v computation in ECDSA signature ([#385](https://github.com/Consensys/gnark-crypto/issues/385))
+- make `mapToCurve` public to allow for custom cofactor clearing ([#372](https://github.com/Consensys/gnark-crypto/issues/372))
 - add Double in affine coordinates
 - kzg.Vk.WriteRawTo
 - bn254 encoder to support uint64 slices
@@ -641,19 +641,19 @@
 - no loop when serializing one object only
 
 ### Pull Requests
-- Merge pull request [#391](https://github.com/ConsenSys/gnark-crypto/issues/391) from ConsenSys/develop
-- Merge pull request [#386](https://github.com/ConsenSys/gnark-crypto/issues/386) from ConsenSys/perf/kzg-verify
-- Merge pull request [#384](https://github.com/ConsenSys/gnark-crypto/issues/384) from ConsenSys/refactor/break-pedersen-notowermod
-- Merge pull request [#379](https://github.com/ConsenSys/gnark-crypto/issues/379) from ConsenSys/feat/encode-uint64-slices
-- Merge pull request [#378](https://github.com/ConsenSys/gnark-crypto/issues/378) from ConsenSys/refactor/break-kzg-srs
-- Merge pull request [#382](https://github.com/ConsenSys/gnark-crypto/issues/382) from ConsenSys/refactor/not-export-endo
-- Merge pull request [#380](https://github.com/ConsenSys/gnark-crypto/issues/380) from omerfirmak/elim-pedersen-alloc
-- Merge pull request [#374](https://github.com/ConsenSys/gnark-crypto/issues/374) from ConsenSys/fix/BatchVerifyMultiPoints-0
-- Merge pull request [#376](https://github.com/ConsenSys/gnark-crypto/issues/376) from ConsenSys/refactor/export-endo
-- Merge pull request [#375](https://github.com/ConsenSys/gnark-crypto/issues/375) from ConsenSys/refactor/FinalExp
-- Merge pull request [#377](https://github.com/ConsenSys/gnark-crypto/issues/377) from ConsenSys/fix/fold-kzg-fs
-- Merge pull request [#371](https://github.com/ConsenSys/gnark-crypto/issues/371) from omerfirmak/elim-pedersen-alloc
-- Merge pull request [#369](https://github.com/ConsenSys/gnark-crypto/issues/369) from ConsenSys/build/updateci
+- Merge pull request [#391](https://github.com/Consensys/gnark-crypto/issues/391) from ConsenSys/develop
+- Merge pull request [#386](https://github.com/Consensys/gnark-crypto/issues/386) from ConsenSys/perf/kzg-verify
+- Merge pull request [#384](https://github.com/Consensys/gnark-crypto/issues/384) from ConsenSys/refactor/break-pedersen-notowermod
+- Merge pull request [#379](https://github.com/Consensys/gnark-crypto/issues/379) from ConsenSys/feat/encode-uint64-slices
+- Merge pull request [#378](https://github.com/Consensys/gnark-crypto/issues/378) from ConsenSys/refactor/break-kzg-srs
+- Merge pull request [#382](https://github.com/Consensys/gnark-crypto/issues/382) from ConsenSys/refactor/not-export-endo
+- Merge pull request [#380](https://github.com/Consensys/gnark-crypto/issues/380) from omerfirmak/elim-pedersen-alloc
+- Merge pull request [#374](https://github.com/Consensys/gnark-crypto/issues/374) from ConsenSys/fix/BatchVerifyMultiPoints-0
+- Merge pull request [#376](https://github.com/Consensys/gnark-crypto/issues/376) from ConsenSys/refactor/export-endo
+- Merge pull request [#375](https://github.com/Consensys/gnark-crypto/issues/375) from ConsenSys/refactor/FinalExp
+- Merge pull request [#377](https://github.com/Consensys/gnark-crypto/issues/377) from ConsenSys/fix/fold-kzg-fs
+- Merge pull request [#371](https://github.com/Consensys/gnark-crypto/issues/371) from omerfirmak/elim-pedersen-alloc
+- Merge pull request [#369](https://github.com/Consensys/gnark-crypto/issues/369) from ConsenSys/build/updateci
 
 
 <a name="v0.10.0"></a>
@@ -667,7 +667,7 @@
 - **pairing:** add comments
 
 ### Feat
-- add ECDSA public key recover from message, signature and recovery info ([#347](https://github.com/ConsenSys/gnark-crypto/issues/347))
+- add ECDSA public key recover from message, signature and recovery info ([#347](https://github.com/Consensys/gnark-crypto/issues/347))
 - added comment for bitAt function
 - added sis.py
 - add reference test
@@ -730,22 +730,22 @@
 - still good
 
 ### Pull Requests
-- Merge pull request [#368](https://github.com/ConsenSys/gnark-crypto/issues/368) from ConsenSys/develop
-- Merge pull request [#366](https://github.com/ConsenSys/gnark-crypto/issues/366) from ConsenSys/refactor/pairings
-- Merge pull request [#365](https://github.com/ConsenSys/gnark-crypto/issues/365) from ConsenSys/fix/gentime-field-bugs
-- Merge pull request [#364](https://github.com/ConsenSys/gnark-crypto/issues/364) from jtraglia/update-tested-go-versions
-- Merge pull request [#363](https://github.com/ConsenSys/gnark-crypto/issues/363) from ConsenSys/fix/infencoding
-- Merge pull request [#361](https://github.com/ConsenSys/gnark-crypto/issues/361) from ConsenSys/perf/plonk
-- Merge pull request [#360](https://github.com/ConsenSys/gnark-crypto/issues/360) from ConsenSys/bls12381-tower-gnark
-- Merge pull request [#359](https://github.com/ConsenSys/gnark-crypto/issues/359) from SherLzp/develop
-- Merge pull request [#356](https://github.com/ConsenSys/gnark-crypto/issues/356) from ConsenSys/perf/bn24317-FinalExp
-- Merge pull request [#354](https://github.com/ConsenSys/gnark-crypto/issues/354) from ConsenSys/bn254-tower-gnark
-- Merge pull request [#351](https://github.com/ConsenSys/gnark-crypto/issues/351) from ConsenSys/perf/bw6-756/GT-subgroup-check
-- Merge pull request [#349](https://github.com/ConsenSys/gnark-crypto/issues/349) from ConsenSys/perf/subgroup-check-stark
-- Merge pull request [#344](https://github.com/ConsenSys/gnark-crypto/issues/344) from ConsenSys/perf/tensor-commitment
-- Merge pull request [#345](https://github.com/ConsenSys/gnark-crypto/issues/345) from ConsenSys/feat/fftopt
-- Merge pull request [#263](https://github.com/ConsenSys/gnark-crypto/issues/263) from AlexandreBelling/perf/tensor-commitment
-- Merge pull request [#260](https://github.com/ConsenSys/gnark-crypto/issues/260) from AlexandreBelling/experimental/tensor-commitment
+- Merge pull request [#368](https://github.com/Consensys/gnark-crypto/issues/368) from ConsenSys/develop
+- Merge pull request [#366](https://github.com/Consensys/gnark-crypto/issues/366) from ConsenSys/refactor/pairings
+- Merge pull request [#365](https://github.com/Consensys/gnark-crypto/issues/365) from ConsenSys/fix/gentime-field-bugs
+- Merge pull request [#364](https://github.com/Consensys/gnark-crypto/issues/364) from jtraglia/update-tested-go-versions
+- Merge pull request [#363](https://github.com/Consensys/gnark-crypto/issues/363) from ConsenSys/fix/infencoding
+- Merge pull request [#361](https://github.com/Consensys/gnark-crypto/issues/361) from ConsenSys/perf/plonk
+- Merge pull request [#360](https://github.com/Consensys/gnark-crypto/issues/360) from ConsenSys/bls12381-tower-gnark
+- Merge pull request [#359](https://github.com/Consensys/gnark-crypto/issues/359) from SherLzp/develop
+- Merge pull request [#356](https://github.com/Consensys/gnark-crypto/issues/356) from ConsenSys/perf/bn24317-FinalExp
+- Merge pull request [#354](https://github.com/Consensys/gnark-crypto/issues/354) from ConsenSys/bn254-tower-gnark
+- Merge pull request [#351](https://github.com/Consensys/gnark-crypto/issues/351) from ConsenSys/perf/bw6-756/GT-subgroup-check
+- Merge pull request [#349](https://github.com/Consensys/gnark-crypto/issues/349) from ConsenSys/perf/subgroup-check-stark
+- Merge pull request [#344](https://github.com/Consensys/gnark-crypto/issues/344) from ConsenSys/perf/tensor-commitment
+- Merge pull request [#345](https://github.com/Consensys/gnark-crypto/issues/345) from ConsenSys/feat/fftopt
+- Merge pull request [#263](https://github.com/Consensys/gnark-crypto/issues/263) from AlexandreBelling/perf/tensor-commitment
+- Merge pull request [#260](https://github.com/Consensys/gnark-crypto/issues/260) from AlexandreBelling/experimental/tensor-commitment
 
 
 <a name="v0.9.1"></a>
@@ -783,7 +783,7 @@
 - Merkle tree to panic upon hash write error
 - pedersen_hash added to stark curve
 - signing interface changes and bn254 impl
-- add Vector support to ecc marshal encoder ([#336](https://github.com/ConsenSys/gnark-crypto/issues/336))
+- add Vector support to ecc marshal encoder ([#336](https://github.com/Consensys/gnark-crypto/issues/336))
 - gkr.Circuit.MemoryRequirements
 - can pass workers pool in
 - parallel versions of computing gate inputs
@@ -815,7 +815,7 @@
 - some test generification
 - generify gkr.tmpl
 - edDsa SignFr and VerifyFr
-- nuke element.Bit() closes [#306](https://github.com/ConsenSys/gnark-crypto/issues/306) ([#331](https://github.com/ConsenSys/gnark-crypto/issues/331))
+- nuke element.Bit() closes [#306](https://github.com/Consensys/gnark-crypto/issues/306) ([#331](https://github.com/Consensys/gnark-crypto/issues/331))
 - generic pool
 - generify multi-fan-out input bugfix
 - generified benchmark, parallelism and top sort
@@ -903,7 +903,7 @@
 - bn254 sumcheck tests pass
 - fiatshamir to write bindings one by one
 - single input two identity gates test fixed, but fails
-- closes [#316](https://github.com/ConsenSys/gnark-crypto/issues/316) big int pool doesn't allow nil values
+- closes [#316](https://github.com/Consensys/gnark-crypto/issues/316) big int pool doesn't allow nil values
 - no expectation of ins/outs lumped together in tests
 - topological sort no longer group inputs and outputs
 - reintroduce some deleted autogens
@@ -958,7 +958,7 @@
 - parallel Fold
 - step 2 Combine
 - step 1, use the new pool for computeGJ and next
-- minor adjustements to iop package ([#334](https://github.com/ConsenSys/gnark-crypto/issues/334))
+- minor adjustements to iop package ([#334](https://github.com/Consensys/gnark-crypto/issues/334))
 - mimc on bls12-377/fr uses x^17 as a permutation
 - multilin.Fold without writing top part in memory
 - parallel WireAssignment.Complete for bn254
@@ -990,7 +990,7 @@
 - include secp256k1 in code generation
 - move all fake hashes to test_vector_utils
 - cleaner sumcheck test-vec generation
-- clean iop APIs + add Marshal methods ([#337](https://github.com/ConsenSys/gnark-crypto/issues/337))
+- clean iop APIs + add Marshal methods ([#337](https://github.com/Consensys/gnark-crypto/issues/337))
 - gkr tests to work with fiatshamir.transcript
 - remove unused file
 - fixing gkr tests
@@ -1044,22 +1044,22 @@
 - simplest possible test, two instances of an identity gate
 
 ### Pull Requests
-- Merge pull request [#342](https://github.com/ConsenSys/gnark-crypto/issues/342) from ConsenSys/develop
-- Merge pull request [#308](https://github.com/ConsenSys/gnark-crypto/issues/308) from ConsenSys/304-field-agnostic-fiat-shamir-challenge-names
-- Merge pull request [#319](https://github.com/ConsenSys/gnark-crypto/issues/319) from ConsenSys/perf/gkr
-- Merge pull request [#328](https://github.com/ConsenSys/gnark-crypto/issues/328) from ConsenSys/perf/gkrpool
-- Merge pull request [#333](https://github.com/ConsenSys/gnark-crypto/issues/333) from ConsenSys/fix/mimc-pow7
-- Merge pull request [#327](https://github.com/ConsenSys/gnark-crypto/issues/327) from ConsenSys/pedersen-hash
-- Merge pull request [#320](https://github.com/ConsenSys/gnark-crypto/issues/320) from ConsenSys/fix/mimc-rounds
-- Merge pull request [#312](https://github.com/ConsenSys/gnark-crypto/issues/312) from ConsenSys/signature/pre-hashed
-- Merge pull request [#311](https://github.com/ConsenSys/gnark-crypto/issues/311) from ConsenSys/feat/element/vector
-- Merge pull request [#310](https://github.com/ConsenSys/gnark-crypto/issues/310) from ConsenSys/feat/ecdsa
-- Merge pull request [#298](https://github.com/ConsenSys/gnark-crypto/issues/298) from ConsenSys/secp256k1/MSM
-- Merge pull request [#309](https://github.com/ConsenSys/gnark-crypto/issues/309) from ConsenSys/chore/tobigintregular-deprecated
-- Merge pull request [#305](https://github.com/ConsenSys/gnark-crypto/issues/305) from ConsenSys/test/fiatshamir-mimc
-- Merge pull request [#299](https://github.com/ConsenSys/gnark-crypto/issues/299) from ConsenSys/feat/stark-curve
-- Merge pull request [#285](https://github.com/ConsenSys/gnark-crypto/issues/285) from ConsenSys/refac/gkr-fiatshamir
-- Merge pull request [#259](https://github.com/ConsenSys/gnark-crypto/issues/259) from ConsenSys/bench/gkr
+- Merge pull request [#342](https://github.com/Consensys/gnark-crypto/issues/342) from ConsenSys/develop
+- Merge pull request [#308](https://github.com/Consensys/gnark-crypto/issues/308) from ConsenSys/304-field-agnostic-fiat-shamir-challenge-names
+- Merge pull request [#319](https://github.com/Consensys/gnark-crypto/issues/319) from ConsenSys/perf/gkr
+- Merge pull request [#328](https://github.com/Consensys/gnark-crypto/issues/328) from ConsenSys/perf/gkrpool
+- Merge pull request [#333](https://github.com/Consensys/gnark-crypto/issues/333) from ConsenSys/fix/mimc-pow7
+- Merge pull request [#327](https://github.com/Consensys/gnark-crypto/issues/327) from ConsenSys/pedersen-hash
+- Merge pull request [#320](https://github.com/Consensys/gnark-crypto/issues/320) from ConsenSys/fix/mimc-rounds
+- Merge pull request [#312](https://github.com/Consensys/gnark-crypto/issues/312) from ConsenSys/signature/pre-hashed
+- Merge pull request [#311](https://github.com/Consensys/gnark-crypto/issues/311) from ConsenSys/feat/element/vector
+- Merge pull request [#310](https://github.com/Consensys/gnark-crypto/issues/310) from ConsenSys/feat/ecdsa
+- Merge pull request [#298](https://github.com/Consensys/gnark-crypto/issues/298) from ConsenSys/secp256k1/MSM
+- Merge pull request [#309](https://github.com/Consensys/gnark-crypto/issues/309) from ConsenSys/chore/tobigintregular-deprecated
+- Merge pull request [#305](https://github.com/Consensys/gnark-crypto/issues/305) from ConsenSys/test/fiatshamir-mimc
+- Merge pull request [#299](https://github.com/Consensys/gnark-crypto/issues/299) from ConsenSys/feat/stark-curve
+- Merge pull request [#285](https://github.com/Consensys/gnark-crypto/issues/285) from ConsenSys/refac/gkr-fiatshamir
+- Merge pull request [#259](https://github.com/Consensys/gnark-crypto/issues/259) from ConsenSys/bench/gkr
 
 
 <a name="v0.9.0"></a>
@@ -1071,7 +1071,7 @@
 - added audit.pdf and updated link in README
 
 ### Feat
-- field.Hash ([#271](https://github.com/ConsenSys/gnark-crypto/issues/271))
+- field.Hash ([#271](https://github.com/Consensys/gnark-crypto/issues/271))
 - add secp256k1 curve
 
 ### Fix
@@ -1082,7 +1082,7 @@
 - **secp256k1:** no partitionScalars because there is no spare bit
 
 ### Fix
-- typos ([#262](https://github.com/ConsenSys/gnark-crypto/issues/262))
+- typos ([#262](https://github.com/Consensys/gnark-crypto/issues/262))
 
 ### Perf
 - **MSM:** save 4 mul in ext-Jac add
@@ -1090,20 +1090,20 @@
 
 ### Refactor
 - rebase on develop (field api)
-- mark ToBigIntRegular as deprecated, introduce BigInt method ([#290](https://github.com/ConsenSys/gnark-crypto/issues/290))
-- clean code generation for endo-based computations ([#281](https://github.com/ConsenSys/gnark-crypto/issues/281))
+- mark ToBigIntRegular as deprecated, introduce BigInt method ([#290](https://github.com/Consensys/gnark-crypto/issues/290))
+- clean code generation for endo-based computations ([#281](https://github.com/Consensys/gnark-crypto/issues/281))
 - **bn254:** remove unused variable (fixedCoeff)
 
 ### Style
 - typo
 
 ### Pull Requests
-- Merge pull request [#297](https://github.com/ConsenSys/gnark-crypto/issues/297) from ConsenSys/develop
-- Merge pull request [#277](https://github.com/ConsenSys/gnark-crypto/issues/277) from ConsenSys/feat/secp256k1
-- Merge pull request [#251](https://github.com/ConsenSys/gnark-crypto/issues/251) from ConsenSys/perf/IsInSubGroup-BN
-- Merge pull request [#250](https://github.com/ConsenSys/gnark-crypto/issues/250) from ConsenSys/docs/audit
-- Merge pull request [#245](https://github.com/ConsenSys/gnark-crypto/issues/245) from ConsenSys/perf/extJac-add
-- Merge pull request [#240](https://github.com/ConsenSys/gnark-crypto/issues/240) from ConsenSys/go1.19
+- Merge pull request [#297](https://github.com/Consensys/gnark-crypto/issues/297) from ConsenSys/develop
+- Merge pull request [#277](https://github.com/Consensys/gnark-crypto/issues/277) from ConsenSys/feat/secp256k1
+- Merge pull request [#251](https://github.com/Consensys/gnark-crypto/issues/251) from ConsenSys/perf/IsInSubGroup-BN
+- Merge pull request [#250](https://github.com/Consensys/gnark-crypto/issues/250) from ConsenSys/docs/audit
+- Merge pull request [#245](https://github.com/Consensys/gnark-crypto/issues/245) from ConsenSys/perf/extJac-add
+- Merge pull request [#240](https://github.com/Consensys/gnark-crypto/issues/240) from ConsenSys/go1.19
 
 
 <a name="v0.8.0"></a>
@@ -1113,7 +1113,7 @@
 - go mod tidy
 - update bavard dep
 - ran go generate after dev merge
-- faster ci path ([#185](https://github.com/ConsenSys/gnark-crypto/issues/185))
+- faster ci path ([#185](https://github.com/Consensys/gnark-crypto/issues/185))
 - increase CI timeout
 - fix BatchInvert renaming in SSWU templates
 
@@ -1124,20 +1124,20 @@
 - resolve conflicts with non-mont-params
 
 ### Ci
-- fix slack integration + adds golanglint-ci ([#184](https://github.com/ConsenSys/gnark-crypto/issues/184))
+- fix slack integration + adds golanglint-ci ([#184](https://github.com/Consensys/gnark-crypto/issues/184))
 - revert most of last commit
 - use self hosted runners
 
 ### Clean
-- replace modulus generated by constants, add zero-alloc SetRandom ([#194](https://github.com/ConsenSys/gnark-crypto/issues/194))
-- remove uneeded x86 asm and files ([#192](https://github.com/ConsenSys/gnark-crypto/issues/192))
+- replace modulus generated by constants, add zero-alloc SetRandom ([#194](https://github.com/Consensys/gnark-crypto/issues/194))
+- remove uneeded x86 asm and files ([#192](https://github.com/Consensys/gnark-crypto/issues/192))
 
 ### Docs
 - updated changelog for v0.8.0
-- polish readme.md with updated godoc subpackage links ([#235](https://github.com/ConsenSys/gnark-crypto/issues/235))
-- acknowledge that inv(0)==0 in comments as a convention ([#233](https://github.com/ConsenSys/gnark-crypto/issues/233))
+- polish readme.md with updated godoc subpackage links ([#235](https://github.com/Consensys/gnark-crypto/issues/235))
+- acknowledge that inv(0)==0 in comments as a convention ([#233](https://github.com/Consensys/gnark-crypto/issues/233))
 - correct some comments
-- added note in pairing godoc - doesn't check inputs are in correct subgroup ([#231](https://github.com/ConsenSys/gnark-crypto/issues/231))
+- added note in pairing godoc - doesn't check inputs are in correct subgroup ([#231](https://github.com/Consensys/gnark-crypto/issues/231))
 - add security estimates of implemented curves in comments
 - prepare v0.8.0 release notes
 - added twitter handle and security policy links
@@ -1150,14 +1150,14 @@
 - addition of multiple rounds in fri
 - some folding in bn254
 - supsub
-- closes [#137](https://github.com/ConsenSys/gnark-crypto/issues/137) moves consensys/goff into field/goff ([#204](https://github.com/ConsenSys/gnark-crypto/issues/204))
+- closes [#137](https://github.com/Consensys/gnark-crypto/issues/137) moves consensys/goff into field/goff ([#204](https://github.com/Consensys/gnark-crypto/issues/204))
 - tests used gopter for polynomials (bls377, no code gen yet)
 - multilin for all fields
-- field/goldilocks (more efficient 1-limb modulus arith) ([#177](https://github.com/ConsenSys/gnark-crypto/issues/177))
+- field/goldilocks (more efficient 1-limb modulus arith) ([#177](https://github.com/Consensys/gnark-crypto/issues/177))
 - fields in fri proofs are exported
 - code gen for previous commit
 - code gen for previous refactor
-- field/generator suppors 1-limb modulus ([#175](https://github.com/ConsenSys/gnark-crypto/issues/175))
+- field/generator suppors 1-limb modulus ([#175](https://github.com/Consensys/gnark-crypto/issues/175))
 - simplification of the final evaluation check
 - simplify deriveQueriesPositions
 - removed polynomial package bls24315
@@ -1189,10 +1189,10 @@
 - **fri:** removed unsused variable
 
 ### Fix
-- Handle edge case in Karabina decompression ([#219](https://github.com/ConsenSys/gnark-crypto/issues/219))
+- Handle edge case in Karabina decompression ([#219](https://github.com/Consensys/gnark-crypto/issues/219))
 
 ### Fix
-- check nbTasks config when running msm, test all possible c-bit windows in when testing.Short not set) ([#226](https://github.com/ConsenSys/gnark-crypto/issues/226))
+- check nbTasks config when running msm, test all possible c-bit windows in when testing.Short not set) ([#226](https://github.com/Consensys/gnark-crypto/issues/226))
 - race condition with supportAdx relique in internal/fptower
 - element.SetString(_) returns error if invalid input instead of panic
 - bavard dependency
@@ -1200,13 +1200,13 @@
 - ToMont takes non-reference
 - q in tests requires isogeny
 - svdw parameters: z=1 not i
-- expand_msg_xmd copy bug, a few tests ([#201](https://github.com/ConsenSys/gnark-crypto/issues/201))
+- expand_msg_xmd copy bug, a few tests ([#201](https://github.com/Consensys/gnark-crypto/issues/201))
 - "e3" bug and change sign0 to the recent std specification
-- closes [#199](https://github.com/ConsenSys/gnark-crypto/issues/199). Correct bound in eddsa key gen template
+- closes [#199](https://github.com/Consensys/gnark-crypto/issues/199). Correct bound in eddsa key gen template
 - expand_msg_xmd copy bug, a few tests
 - 8*Limbs could be too many bytes
 - right length argument for ExpandMsgXmd
-- remove supportAdx redundant test ([#186](https://github.com/ConsenSys/gnark-crypto/issues/186))
+- remove supportAdx redundant test ([#186](https://github.com/Consensys/gnark-crypto/issues/186))
 - evaluation is an array instead of a slice
 - twoInv defined in init, removed dead code, unexport nbRounds
 - fixed unhandled errors
@@ -1246,14 +1246,14 @@
 - NewPolynomial -> New
 - removed test DivPolyByXminusA from kzg, DivPolyBy -> DivBy
 - sswuMap -> mapToCurve
-- clean comments in curves ([#193](https://github.com/ConsenSys/gnark-crypto/issues/193))
+- clean comments in curves ([#193](https://github.com/Consensys/gnark-crypto/issues/193))
 - DivideByXMinusA returns a pointer
 - **polynomial:** Copy() --> GetCopy()
 
 ### Style
-- remove dead code ([#230](https://github.com/ConsenSys/gnark-crypto/issues/230))
+- remove dead code ([#230](https://github.com/Consensys/gnark-crypto/issues/230))
 - inneficient -> inefficient
-- cosmetic changes ([#197](https://github.com/ConsenSys/gnark-crypto/issues/197))
+- cosmetic changes ([#197](https://github.com/Consensys/gnark-crypto/issues/197))
 - use bytes package
 - removed dead code
 - fixed comment
@@ -1261,7 +1261,7 @@
 
 ### Test
 - cleanup
-- fix [#205](https://github.com/ConsenSys/gnark-crypto/issues/205) - msm bench with different bases ([#206](https://github.com/ConsenSys/gnark-crypto/issues/206))
+- fix [#205](https://github.com/Consensys/gnark-crypto/issues/205) - msm bench with different bases ([#206](https://github.com/Consensys/gnark-crypto/issues/206))
 - bn254 hash to g2
 - vectors generated using https://github.com/armfazh/h2c-go-ref
 - complete tests for bn254g1, not cross verified
@@ -1271,26 +1271,26 @@
 - **all curves:** compress/decompress pairing result
 
 ### Pull Requests
-- Merge pull request [#237](https://github.com/ConsenSys/gnark-crypto/issues/237) from ConsenSys/develop
-- Merge pull request [#232](https://github.com/ConsenSys/gnark-crypto/issues/232) from ConsenSys/docs/comments
-- Merge pull request [#229](https://github.com/ConsenSys/gnark-crypto/issues/229) from ConsenSys/update_deps
-- Merge pull request [#227](https://github.com/ConsenSys/gnark-crypto/issues/227) from ConsenSys/fix/element_setstring
-- Merge pull request [#228](https://github.com/ConsenSys/gnark-crypto/issues/228) from ConsenSys/fix/race/test
-- Merge pull request [#224](https://github.com/ConsenSys/gnark-crypto/issues/224) from ConsenSys/refactor/scalarmul
-- Merge pull request [#220](https://github.com/ConsenSys/gnark-crypto/issues/220) from ConsenSys/perf/kzg-verify
-- Merge pull request [#223](https://github.com/ConsenSys/gnark-crypto/issues/223) from ConsenSys/doc/security-estimates-curves
-- Merge pull request [#216](https://github.com/ConsenSys/gnark-crypto/issues/216) from ConsenSys/feat/poly
-- Merge pull request [#217](https://github.com/ConsenSys/gnark-crypto/issues/217) from ConsenSys/string-utils
-- Merge pull request [#215](https://github.com/ConsenSys/gnark-crypto/issues/215) from ConsenSys/develop
-- Merge pull request [#213](https://github.com/ConsenSys/gnark-crypto/issues/213) from ConsenSys/perf/glv
-- Merge pull request [#211](https://github.com/ConsenSys/gnark-crypto/issues/211) from ConsenSys/develop
-- Merge pull request [#129](https://github.com/ConsenSys/gnark-crypto/issues/129) from ConsenSys/feat/GT-compression
-- Merge pull request [#209](https://github.com/ConsenSys/gnark-crypto/issues/209) from ConsenSys/codegen/svdw-not-e4
-- Merge pull request [#203](https://github.com/ConsenSys/gnark-crypto/issues/203) from ConsenSys/tests/bn254-vectors
-- Merge pull request [#196](https://github.com/ConsenSys/gnark-crypto/issues/196) from ConsenSys/patch/hashToFpGeneric
-- Merge pull request [#202](https://github.com/ConsenSys/gnark-crypto/issues/202) from ConsenSys/gbotrel/issue199
-- Merge pull request [#200](https://github.com/ConsenSys/gnark-crypto/issues/200) from tyGavinZJU/develop
-- Merge pull request [#85](https://github.com/ConsenSys/gnark-crypto/issues/85) from ConsenSys/feat/fri
+- Merge pull request [#237](https://github.com/Consensys/gnark-crypto/issues/237) from ConsenSys/develop
+- Merge pull request [#232](https://github.com/Consensys/gnark-crypto/issues/232) from ConsenSys/docs/comments
+- Merge pull request [#229](https://github.com/Consensys/gnark-crypto/issues/229) from ConsenSys/update_deps
+- Merge pull request [#227](https://github.com/Consensys/gnark-crypto/issues/227) from ConsenSys/fix/element_setstring
+- Merge pull request [#228](https://github.com/Consensys/gnark-crypto/issues/228) from ConsenSys/fix/race/test
+- Merge pull request [#224](https://github.com/Consensys/gnark-crypto/issues/224) from ConsenSys/refactor/scalarmul
+- Merge pull request [#220](https://github.com/Consensys/gnark-crypto/issues/220) from ConsenSys/perf/kzg-verify
+- Merge pull request [#223](https://github.com/Consensys/gnark-crypto/issues/223) from ConsenSys/doc/security-estimates-curves
+- Merge pull request [#216](https://github.com/Consensys/gnark-crypto/issues/216) from ConsenSys/feat/poly
+- Merge pull request [#217](https://github.com/Consensys/gnark-crypto/issues/217) from ConsenSys/string-utils
+- Merge pull request [#215](https://github.com/Consensys/gnark-crypto/issues/215) from ConsenSys/develop
+- Merge pull request [#213](https://github.com/Consensys/gnark-crypto/issues/213) from ConsenSys/perf/glv
+- Merge pull request [#211](https://github.com/Consensys/gnark-crypto/issues/211) from ConsenSys/develop
+- Merge pull request [#129](https://github.com/Consensys/gnark-crypto/issues/129) from ConsenSys/feat/GT-compression
+- Merge pull request [#209](https://github.com/Consensys/gnark-crypto/issues/209) from ConsenSys/codegen/svdw-not-e4
+- Merge pull request [#203](https://github.com/Consensys/gnark-crypto/issues/203) from ConsenSys/tests/bn254-vectors
+- Merge pull request [#196](https://github.com/Consensys/gnark-crypto/issues/196) from ConsenSys/patch/hashToFpGeneric
+- Merge pull request [#202](https://github.com/Consensys/gnark-crypto/issues/202) from ConsenSys/gbotrel/issue199
+- Merge pull request [#200](https://github.com/Consensys/gnark-crypto/issues/200) from tyGavinZJU/develop
+- Merge pull request [#85](https://github.com/Consensys/gnark-crypto/issues/85) from ConsenSys/feat/fri
 
 
 <a name="v0.7.0"></a>
@@ -1347,8 +1347,8 @@
 ### Fix
 - IsUint64 coherence with other methods, convert from montgomery beforehands
 - twisted curve formulae for GT-strong embedded curve (a != -1)
-- templating twistededwards for BW6-756 after PR[#160](https://github.com/ConsenSys/gnark-crypto/issues/160)
-- templating twistededwards for BLS12-378 after PR[#160](https://github.com/ConsenSys/gnark-crypto/issues/160)
+- templating twistededwards for BW6-756 after PR[#160](https://github.com/Consensys/gnark-crypto/issues/160)
+- templating twistededwards for BLS12-378 after PR[#160](https://github.com/Consensys/gnark-crypto/issues/160)
 - run go generate on new curves
 - add bls12-378 to signature package after change
 - sswu gopter generators repeatable rng
@@ -1383,17 +1383,17 @@
 - mark test as Parallel. Check testing.Short() in most tests
 
 ### Pull Requests
-- Merge pull request [#171](https://github.com/ConsenSys/gnark-crypto/issues/171) from ConsenSys/test/twistedEdwards
-- Merge pull request [#170](https://github.com/ConsenSys/gnark-crypto/issues/170) from ConsenSys/fix/generators_sswu
-- Merge pull request [#167](https://github.com/ConsenSys/gnark-crypto/issues/167) from ConsenSys/ci/shorter-tests
-- Merge pull request [#166](https://github.com/ConsenSys/gnark-crypto/issues/166) from ConsenSys/ci_new
-- Merge pull request [#164](https://github.com/ConsenSys/gnark-crypto/issues/164) from ConsenSys/ci/go1.18
-- Merge pull request [#128](https://github.com/ConsenSys/gnark-crypto/issues/128) from ConsenSys/feat/GT-strong-BLS12-BW6
-- Merge pull request [#127](https://github.com/ConsenSys/gnark-crypto/issues/127) from ConsenSys/feat/GT-strong-BLS12
-- Merge pull request [#160](https://github.com/ConsenSys/gnark-crypto/issues/160) from ConsenSys/refactor-eddsa
-- Merge pull request [#156](https://github.com/ConsenSys/gnark-crypto/issues/156) from ConsenSys/sswu-all
-- Merge pull request [#154](https://github.com/ConsenSys/gnark-crypto/issues/154) from ConsenSys/fix/fft-mulGen
-- Merge pull request [#153](https://github.com/ConsenSys/gnark-crypto/issues/153) from zhiqiangxu/opt_NewDomain
+- Merge pull request [#171](https://github.com/Consensys/gnark-crypto/issues/171) from ConsenSys/test/twistedEdwards
+- Merge pull request [#170](https://github.com/Consensys/gnark-crypto/issues/170) from ConsenSys/fix/generators_sswu
+- Merge pull request [#167](https://github.com/Consensys/gnark-crypto/issues/167) from ConsenSys/ci/shorter-tests
+- Merge pull request [#166](https://github.com/Consensys/gnark-crypto/issues/166) from ConsenSys/ci_new
+- Merge pull request [#164](https://github.com/Consensys/gnark-crypto/issues/164) from ConsenSys/ci/go1.18
+- Merge pull request [#128](https://github.com/Consensys/gnark-crypto/issues/128) from ConsenSys/feat/GT-strong-BLS12-BW6
+- Merge pull request [#127](https://github.com/Consensys/gnark-crypto/issues/127) from ConsenSys/feat/GT-strong-BLS12
+- Merge pull request [#160](https://github.com/Consensys/gnark-crypto/issues/160) from ConsenSys/refactor-eddsa
+- Merge pull request [#156](https://github.com/Consensys/gnark-crypto/issues/156) from ConsenSys/sswu-all
+- Merge pull request [#154](https://github.com/Consensys/gnark-crypto/issues/154) from ConsenSys/fix/fft-mulGen
+- Merge pull request [#153](https://github.com/Consensys/gnark-crypto/issues/153) from zhiqiangxu/opt_NewDomain
 
 
 <a name="v0.6.1"></a>
@@ -1467,14 +1467,14 @@
 - fixed permutation proofs
 - fixed fuzzer
 - removed seed from Sum
-- removed seed from mimc (fixes [#194](https://github.com/ConsenSys/gnark-crypto/issues/194))
+- removed seed from mimc (fixes [#194](https://github.com/Consensys/gnark-crypto/issues/194))
 - clean, remove experimental second version of select
 - delete autogen assembly
 - delete unused assembly
 - errors in reversion
 - generate
 - fixed review: m is modified locally and returned
-- fixes [#126](https://github.com/ConsenSys/gnark-crypto/issues/126) the domain was not created correctly
+- fixes [#126](https://github.com/Consensys/gnark-crypto/issues/126) the domain was not created correctly
 - SetInterface returns error if input is nil
 - fixed gosec
 - mimc is compliant with ethereum
@@ -1518,16 +1518,16 @@
 - match against generic implementation
 
 ### Pull Requests
-- Merge pull request [#152](https://github.com/ConsenSys/gnark-crypto/issues/152) from ConsenSys/feat/clean_kzg
-- Merge pull request [#145](https://github.com/ConsenSys/gnark-crypto/issues/145) from ConsenSys/fix/fft_cosets
-- Merge pull request [#147](https://github.com/ConsenSys/gnark-crypto/issues/147) from ConsenSys/sswu-fp-generic-rebased
-- Merge pull request [#146](https://github.com/ConsenSys/gnark-crypto/issues/146) from ConsenSys/perf-mimc-constants
-- Merge pull request [#144](https://github.com/ConsenSys/gnark-crypto/issues/144) from ConsenSys/constant-time-equals
-- Merge pull request [#125](https://github.com/ConsenSys/gnark-crypto/issues/125) from ConsenSys/fix/mimc_miyaguchipreneel
-- Merge pull request [#143](https://github.com/ConsenSys/gnark-crypto/issues/143) from ConsenSys/feat/cmov
-- Merge pull request [#140](https://github.com/ConsenSys/gnark-crypto/issues/140) from ConsenSys/inv(0)=0
-- Merge pull request [#110](https://github.com/ConsenSys/gnark-crypto/issues/110) from ConsenSys/feat/tEd-extended
-- Merge pull request [#123](https://github.com/ConsenSys/gnark-crypto/issues/123) from ConsenSys/perf/BLS24-G2-IsInSubGroup
+- Merge pull request [#152](https://github.com/Consensys/gnark-crypto/issues/152) from ConsenSys/feat/clean_kzg
+- Merge pull request [#145](https://github.com/Consensys/gnark-crypto/issues/145) from ConsenSys/fix/fft_cosets
+- Merge pull request [#147](https://github.com/Consensys/gnark-crypto/issues/147) from ConsenSys/sswu-fp-generic-rebased
+- Merge pull request [#146](https://github.com/Consensys/gnark-crypto/issues/146) from ConsenSys/perf-mimc-constants
+- Merge pull request [#144](https://github.com/Consensys/gnark-crypto/issues/144) from ConsenSys/constant-time-equals
+- Merge pull request [#125](https://github.com/Consensys/gnark-crypto/issues/125) from ConsenSys/fix/mimc_miyaguchipreneel
+- Merge pull request [#143](https://github.com/Consensys/gnark-crypto/issues/143) from ConsenSys/feat/cmov
+- Merge pull request [#140](https://github.com/Consensys/gnark-crypto/issues/140) from ConsenSys/inv(0)=0
+- Merge pull request [#110](https://github.com/Consensys/gnark-crypto/issues/110) from ConsenSys/feat/tEd-extended
+- Merge pull request [#123](https://github.com/Consensys/gnark-crypto/issues/123) from ConsenSys/perf/BLS24-G2-IsInSubGroup
 
 
 <a name="v0.6.0"></a>
@@ -1574,7 +1574,7 @@
 - addition of benchmark
 - added field.SetInt64
 - added quick and dirty benchmarking script
-- added support for intX and uintX fixes [#109](https://github.com/ConsenSys/gnark-crypto/issues/109)
+- added support for intX and uintX fixes [#109](https://github.com/Consensys/gnark-crypto/issues/109)
 - pre-compute addition chains for Sqrt and Legendre exp functions
 - added addchain for all sqrt
 - Naive GCD improved
@@ -1604,13 +1604,13 @@
 - fix neg template to actually use borrow value
 - All bn254 tests pass but TestMonReduceNegFixed
 - ecc.Info() returns lightweight field info, without calling the whole field generation including addchain generations
-- fixes [#104](https://github.com/ConsenSys/gnark-crypto/issues/104) code generation for saturated modulus like secp256k1 incorrect. added secp256k1 test
+- fixes [#104](https://github.com/Consensys/gnark-crypto/issues/104) code generation for saturated modulus like secp256k1 incorrect. added secp256k1 test
 - fixed quotient computation
 - fixed test generation
 - fixed file generation
 - removed error for invalid domain size in kzg
 - Neg passes, lingering issues with test randomizer
-- remove use of R15 for small moduli mul [#113](https://github.com/ConsenSys/gnark-crypto/issues/113)
+- remove use of R15 for small moduli mul [#113](https://github.com/Consensys/gnark-crypto/issues/113)
 - fixed doc generation
 - template used file path for doc instead of file name
 - fixed exp takes a value, not a pointer. also random field generation test don't generate addchains
@@ -1691,16 +1691,16 @@
 - Consistency check on top
 
 ### Pull Requests
-- Merge pull request [#121](https://github.com/ConsenSys/gnark-crypto/issues/121) from ConsenSys/perf/ML-doubling
-- Merge pull request [#111](https://github.com/ConsenSys/gnark-crypto/issues/111) from ConsenSys/field-intX-support
-- Merge pull request [#114](https://github.com/ConsenSys/gnark-crypto/issues/114) from ConsenSys/fix-dynamic-link
-- Merge pull request [#108](https://github.com/ConsenSys/gnark-crypto/issues/108) from ConsenSys/perf/bls12381-pairing
-- Merge pull request [#106](https://github.com/ConsenSys/gnark-crypto/issues/106) from ConsenSys/improvement/field-inv-pornin20
-- Merge pull request [#105](https://github.com/ConsenSys/gnark-crypto/issues/105) from ConsenSys/field-from-json
-- Merge pull request [#83](https://github.com/ConsenSys/gnark-crypto/issues/83) from ConsenSys/experiment/BLS24
-- Merge pull request [#102](https://github.com/ConsenSys/gnark-crypto/issues/102) from ConsenSys/feat/plookup
-- Merge pull request [#97](https://github.com/ConsenSys/gnark-crypto/issues/97) from ConsenSys/feat-addchain
-- Merge pull request [#99](https://github.com/ConsenSys/gnark-crypto/issues/99) from ConsenSys/feat-addchain-expt
+- Merge pull request [#121](https://github.com/Consensys/gnark-crypto/issues/121) from ConsenSys/perf/ML-doubling
+- Merge pull request [#111](https://github.com/Consensys/gnark-crypto/issues/111) from ConsenSys/field-intX-support
+- Merge pull request [#114](https://github.com/Consensys/gnark-crypto/issues/114) from ConsenSys/fix-dynamic-link
+- Merge pull request [#108](https://github.com/Consensys/gnark-crypto/issues/108) from ConsenSys/perf/bls12381-pairing
+- Merge pull request [#106](https://github.com/Consensys/gnark-crypto/issues/106) from ConsenSys/improvement/field-inv-pornin20
+- Merge pull request [#105](https://github.com/Consensys/gnark-crypto/issues/105) from ConsenSys/field-from-json
+- Merge pull request [#83](https://github.com/Consensys/gnark-crypto/issues/83) from ConsenSys/experiment/BLS24
+- Merge pull request [#102](https://github.com/Consensys/gnark-crypto/issues/102) from ConsenSys/feat/plookup
+- Merge pull request [#97](https://github.com/Consensys/gnark-crypto/issues/97) from ConsenSys/feat-addchain
+- Merge pull request [#99](https://github.com/Consensys/gnark-crypto/issues/99) from ConsenSys/feat-addchain-expt
 
 
 <a name="v0.5.3"></a>
@@ -1722,8 +1722,8 @@
 - cmp(zero) == -1 -> sign() == -1
 
 ### Pull Requests
-- Merge pull request [#96](https://github.com/ConsenSys/gnark-crypto/issues/96) from ConsenSys/perf-decode-raw-points
-- Merge pull request [#95](https://github.com/ConsenSys/gnark-crypto/issues/95) from ConsenSys/perf/bn-g2-membership
+- Merge pull request [#96](https://github.com/Consensys/gnark-crypto/issues/96) from ConsenSys/perf-decode-raw-points
+- Merge pull request [#95](https://github.com/Consensys/gnark-crypto/issues/95) from ConsenSys/perf/bn-g2-membership
 
 
 <a name="v0.5.2"></a>
@@ -1766,12 +1766,12 @@
 - **tEdwards:** mulByA inside the package
 
 ### Pull Requests
-- Merge pull request [#93](https://github.com/ConsenSys/gnark-crypto/issues/93) from ConsenSys/bandersnatch
-- Merge pull request [#90](https://github.com/ConsenSys/gnark-crypto/issues/90) from ConsenSys/fix/tEdwards-addProj-issue89
-- Merge pull request [#82](https://github.com/ConsenSys/gnark-crypto/issues/82) from ConsenSys/perf/bn254-ML
-- Merge pull request [#88](https://github.com/ConsenSys/gnark-crypto/issues/88) from ConsenSys/issue-87/twistedEdwards
-- Merge pull request [#81](https://github.com/ConsenSys/gnark-crypto/issues/81) from ConsenSys/ML/DoubleStep-Halve
-- Merge pull request [#77](https://github.com/ConsenSys/gnark-crypto/issues/77) from ConsenSys/BW6
+- Merge pull request [#93](https://github.com/Consensys/gnark-crypto/issues/93) from ConsenSys/bandersnatch
+- Merge pull request [#90](https://github.com/Consensys/gnark-crypto/issues/90) from ConsenSys/fix/tEdwards-addProj-issue89
+- Merge pull request [#82](https://github.com/Consensys/gnark-crypto/issues/82) from ConsenSys/perf/bn254-ML
+- Merge pull request [#88](https://github.com/Consensys/gnark-crypto/issues/88) from ConsenSys/issue-87/twistedEdwards
+- Merge pull request [#81](https://github.com/Consensys/gnark-crypto/issues/81) from ConsenSys/ML/DoubleStep-Halve
+- Merge pull request [#77](https://github.com/Consensys/gnark-crypto/issues/77) from ConsenSys/BW6
 
 
 <a name="v0.5.1"></a>
@@ -1809,8 +1809,8 @@
 - **bw6-633:** fast GT-subgroup check
 
 ### Pull Requests
-- Merge pull request [#76](https://github.com/ConsenSys/gnark-crypto/issues/76) from ConsenSys/msm-ones
-- Merge pull request [#75](https://github.com/ConsenSys/gnark-crypto/issues/75) from ConsenSys/feat/karabina
+- Merge pull request [#76](https://github.com/Consensys/gnark-crypto/issues/76) from ConsenSys/msm-ones
+- Merge pull request [#75](https://github.com/Consensys/gnark-crypto/issues/75) from ConsenSys/feat/karabina
 
 
 <a name="v0.5.0"></a>
@@ -1860,7 +1860,7 @@
 - formated and expanded package godoc for field elements
 
 ### Feat
-- added Reference benchamrk for continuous benchmarking. fixes [#54](https://github.com/ConsenSys/gnark-crypto/issues/54)
+- added Reference benchamrk for continuous benchmarking. fixes [#54](https://github.com/Consensys/gnark-crypto/issues/54)
 - added curve level go-fuzz fuzz function
 - added ecc.utils.NextPowerOfTwo used in fft and kzg
 - kzg Commit takes an optional CPUSemaphore
@@ -1902,7 +1902,7 @@
 - tests for mock commitment (if claimed values are correct, etc)
 - addition of test for claimed values (polynomial commitments)
 - added subgroup check for proof and digests in kzg
-- fixes [#38](https://github.com/ConsenSys/gnark-crypto/issues/38)
+- fixes [#38](https://github.com/Consensys/gnark-crypto/issues/38)
 - **all curves:** faster GT memebership
 - **bw6:** GT membership
 - **bw6-633:** add bw6-633 to hash and fiat-shamir
@@ -1920,7 +1920,7 @@
 ### Fix
 - CommitmentScheme interface matches kzg and mockCommitment
 - fixed staticchek
-- fixes [#37](https://github.com/ConsenSys/gnark-crypto/issues/37)
+- fixes [#37](https://github.com/Consensys/gnark-crypto/issues/37)
 - fixed some errors handling in transcript.go
 - fixed unhandled errors (G104)
 - fixed conflicts
@@ -1936,10 +1936,10 @@
 - mock Digest ScalarMul didn't modify the caller
 - fft with coset is now thread safe. style adjustements in code
 - e2 x86 asm incorrect offset when x is 0
-- fixes [#49](https://github.com/ConsenSys/gnark-crypto/issues/49)
+- fixes [#49](https://github.com/Consensys/gnark-crypto/issues/49)
 - proper error handling for polynomial commitments + code gen
 - remove Code generated comments in bls24/internal which is not generated
-- fixes [#51](https://github.com/ConsenSys/gnark-crypto/issues/51)
+- fixes [#51](https://github.com/Consensys/gnark-crypto/issues/51)
 - use crypto/rand instead of math/rand in ecc/../utils.go
 - kzg serilization test comparing address instead of value
 - **all curves:** IsInSubGroup shouldn't test E12 elements but GT
@@ -1963,7 +1963,7 @@
 - **template:** cyclotomic suqare test
 - **template:** Expt test to include negative seed
 - **templates:** no psi for bw6 endomorphism test
-- **twisted Edwards:** fixed Neg(), and fixes [#57](https://github.com/ConsenSys/gnark-crypto/issues/57)
+- **twisted Edwards:** fixed Neg(), and fixes [#57](https://github.com/Consensys/gnark-crypto/issues/57)
 
 ### Perf
 - minor perf improvments in bw6 tower
@@ -2035,22 +2035,22 @@
 - added e2.Neg test in code generation
 
 ### Pull Requests
-- Merge pull request [#70](https://github.com/ConsenSys/gnark-crypto/issues/70) from ConsenSys/develop
-- Merge pull request [#68](https://github.com/ConsenSys/gnark-crypto/issues/68) from ConsenSys/fft-cleanup
-- Merge pull request [#64](https://github.com/ConsenSys/gnark-crypto/issues/64) from ConsenSys/feat/bw6-633
-- Merge pull request [#65](https://github.com/ConsenSys/gnark-crypto/issues/65) from ConsenSys/feat/kzgserialization
-- Merge pull request [#63](https://github.com/ConsenSys/gnark-crypto/issues/63) from ConsenSys/feat/kzg_update
-- Merge pull request [#61](https://github.com/ConsenSys/gnark-crypto/issues/61) from ConsenSys/feat/bls24-315
-- Merge pull request [#59](https://github.com/ConsenSys/gnark-crypto/issues/59) from ConsenSys/ci/fuzzandbench
-- Merge pull request [#58](https://github.com/ConsenSys/gnark-crypto/issues/58) from ConsenSys/refactor/bw6-761-pairing
-- Merge pull request [#55](https://github.com/ConsenSys/gnark-crypto/issues/55) from ConsenSys/feat/GT-membership
-- Merge pull request [#48](https://github.com/ConsenSys/gnark-crypto/issues/48) from ConsenSys/feat/kzg
-- Merge pull request [#50](https://github.com/ConsenSys/gnark-crypto/issues/50) from ConsenSys/fix/fft
-- Merge pull request [#46](https://github.com/ConsenSys/gnark-crypto/issues/46) from ConsenSys/fix/domain_precompute
-- Merge pull request [#45](https://github.com/ConsenSys/gnark-crypto/issues/45) from ConsenSys/hotfix/issue_36
-- Merge pull request [#44](https://github.com/ConsenSys/gnark-crypto/issues/44) from ConsenSys/feat/mul_by_13
-- Merge pull request [#42](https://github.com/ConsenSys/gnark-crypto/issues/42) from ConsenSys/feat/fiat_shamir
-- Merge pull request [#41](https://github.com/ConsenSys/gnark-crypto/issues/41) from ConsenSys/docs/godoc
+- Merge pull request [#70](https://github.com/Consensys/gnark-crypto/issues/70) from ConsenSys/develop
+- Merge pull request [#68](https://github.com/Consensys/gnark-crypto/issues/68) from ConsenSys/fft-cleanup
+- Merge pull request [#64](https://github.com/Consensys/gnark-crypto/issues/64) from ConsenSys/feat/bw6-633
+- Merge pull request [#65](https://github.com/Consensys/gnark-crypto/issues/65) from ConsenSys/feat/kzgserialization
+- Merge pull request [#63](https://github.com/Consensys/gnark-crypto/issues/63) from ConsenSys/feat/kzg_update
+- Merge pull request [#61](https://github.com/Consensys/gnark-crypto/issues/61) from ConsenSys/feat/bls24-315
+- Merge pull request [#59](https://github.com/Consensys/gnark-crypto/issues/59) from ConsenSys/ci/fuzzandbench
+- Merge pull request [#58](https://github.com/Consensys/gnark-crypto/issues/58) from ConsenSys/refactor/bw6-761-pairing
+- Merge pull request [#55](https://github.com/Consensys/gnark-crypto/issues/55) from ConsenSys/feat/GT-membership
+- Merge pull request [#48](https://github.com/Consensys/gnark-crypto/issues/48) from ConsenSys/feat/kzg
+- Merge pull request [#50](https://github.com/Consensys/gnark-crypto/issues/50) from ConsenSys/fix/fft
+- Merge pull request [#46](https://github.com/Consensys/gnark-crypto/issues/46) from ConsenSys/fix/domain_precompute
+- Merge pull request [#45](https://github.com/Consensys/gnark-crypto/issues/45) from ConsenSys/hotfix/issue_36
+- Merge pull request [#44](https://github.com/Consensys/gnark-crypto/issues/44) from ConsenSys/feat/mul_by_13
+- Merge pull request [#42](https://github.com/Consensys/gnark-crypto/issues/42) from ConsenSys/feat/fiat_shamir
+- Merge pull request [#41](https://github.com/Consensys/gnark-crypto/issues/41) from ConsenSys/docs/godoc
 
 
 <a name="v0.4.0"></a>
@@ -2091,7 +2091,7 @@
 
 ### Fix
 - handle case where numCPU < 4 in precomputeExpTable
-- incorrect comment and size returned in twistededwards SetBytes fixes [#34](https://github.com/ConsenSys/gnark-crypto/issues/34)
+- incorrect comment and size returned in twistededwards SetBytes fixes [#34](https://github.com/Consensys/gnark-crypto/issues/34)
 - add/dbl exJac
 - add/dbl exJac
 - point.SetBytes can now be called concurently with same byte slice input
@@ -2128,9 +2128,9 @@
 - rename point bench functions
 
 ### Pull Requests
-- Merge pull request [#35](https://github.com/ConsenSys/gnark-crypto/issues/35) from ConsenSys/refactor/monorepo
-- Merge pull request [#33](https://github.com/ConsenSys/gnark-crypto/issues/33) from ConsenSys/msm/full-extJac
-- Merge pull request [#32](https://github.com/ConsenSys/gnark-crypto/issues/32) from ConsenSys/fix/clobbered_bp
+- Merge pull request [#35](https://github.com/Consensys/gnark-crypto/issues/35) from ConsenSys/refactor/monorepo
+- Merge pull request [#33](https://github.com/Consensys/gnark-crypto/issues/33) from ConsenSys/msm/full-extJac
+- Merge pull request [#32](https://github.com/Consensys/gnark-crypto/issues/32) from ConsenSys/fix/clobbered_bp
 
 
 <a name="v0.3.8"></a>
@@ -2182,11 +2182,11 @@
 - addition of Marshal/Unmarshal+tests, addition of templates, modified GetEdwardsCurve to not expose order (in big.Int)
 
 ### Pull Requests
-- Merge pull request [#29](https://github.com/ConsenSys/gnark-crypto/issues/29) from ConsenSys/youssef/bls12-finalExp
-- Merge pull request [#27](https://github.com/ConsenSys/gnark-crypto/issues/27) from ConsenSys/experimental/pairing
-- Merge pull request [#26](https://github.com/ConsenSys/gnark-crypto/issues/26) from ConsenSys/youssef/ML-ABLR
-- Merge pull request [#25](https://github.com/ConsenSys/gnark-crypto/issues/25) from ConsenSys/csquare
-- Merge pull request [#23](https://github.com/ConsenSys/gnark-crypto/issues/23) from ConsenSys/youssef/bw6-API-pairing
+- Merge pull request [#29](https://github.com/Consensys/gnark-crypto/issues/29) from ConsenSys/youssef/bls12-finalExp
+- Merge pull request [#27](https://github.com/Consensys/gnark-crypto/issues/27) from ConsenSys/experimental/pairing
+- Merge pull request [#26](https://github.com/Consensys/gnark-crypto/issues/26) from ConsenSys/youssef/ML-ABLR
+- Merge pull request [#25](https://github.com/Consensys/gnark-crypto/issues/25) from ConsenSys/csquare
+- Merge pull request [#23](https://github.com/Consensys/gnark-crypto/issues/23) from ConsenSys/youssef/bw6-API-pairing
 
 
 <a name="v0.3.7"></a>
@@ -2259,8 +2259,8 @@
 - added Bytes() and SetBytes() method on point with binary encoding and optional point compression
 
 ### Pull Requests
-- Merge pull request [#21](https://github.com/ConsenSys/gnark-crypto/issues/21) from ConsenSys/youssef/MillerLoops
-- Merge pull request [#19](https://github.com/ConsenSys/gnark-crypto/issues/19) from ConsenSys/cleanup
+- Merge pull request [#21](https://github.com/Consensys/gnark-crypto/issues/21) from ConsenSys/youssef/MillerLoops
+- Merge pull request [#19](https://github.com/Consensys/gnark-crypto/issues/19) from ConsenSys/cleanup
 
 
 <a name="v0.3.5"></a>
@@ -2360,10 +2360,10 @@
 - optimized Miller loop
 
 ### Pull Requests
-- Merge pull request [#11](https://github.com/ConsenSys/gnark-crypto/issues/11) from ConsenSys/refactor-cyclotomicsquare
-- Merge pull request [#10](https://github.com/ConsenSys/gnark-crypto/issues/10) from ConsenSys/refactor-constants
-- Merge pull request [#5](https://github.com/ConsenSys/gnark-crypto/issues/5) from ConsenSys/experimental-pairing-gen
-- Merge pull request [#4](https://github.com/ConsenSys/gnark-crypto/issues/4) from ConsenSys/endomul-remove
+- Merge pull request [#11](https://github.com/Consensys/gnark-crypto/issues/11) from ConsenSys/refactor-cyclotomicsquare
+- Merge pull request [#10](https://github.com/Consensys/gnark-crypto/issues/10) from ConsenSys/refactor-constants
+- Merge pull request [#5](https://github.com/Consensys/gnark-crypto/issues/5) from ConsenSys/experimental-pairing-gen
+- Merge pull request [#4](https://github.com/Consensys/gnark-crypto/issues/4) from ConsenSys/endomul-remove
 
 
 <a name="v0.1.1"></a>
@@ -2372,41 +2372,41 @@
 <a name="v0.1.0"></a>
 ## [v0.1.0] - 2020-04-07
 ### Pull Requests
-- Merge pull request [#2](https://github.com/ConsenSys/gnark-crypto/issues/2) from ConsenSys/develop
+- Merge pull request [#2](https://github.com/Consensys/gnark-crypto/issues/2) from ConsenSys/develop
 
 
 <a name="v0.0.1"></a>
 ## v0.0.1 - 2020-03-23
 
-[v0.14.0]: https://github.com/ConsenSys/gnark-crypto/compare/v0.13.0...v0.14.0
-[v0.13.0]: https://github.com/ConsenSys/gnark-crypto/compare/v0.12.1...v0.13.0
-[v0.12.1]: https://github.com/ConsenSys/gnark-crypto/compare/v0.12.0...v0.12.1
-[v0.12.0]: https://github.com/ConsenSys/gnark-crypto/compare/v0.11.2...v0.12.0
-[v0.11.2]: https://github.com/ConsenSys/gnark-crypto/compare/v0.9.2...v0.11.2
-[v0.9.2]: https://github.com/ConsenSys/gnark-crypto/compare/v0.11.1...v0.9.2
-[v0.11.1]: https://github.com/ConsenSys/gnark-crypto/compare/v0.10.1...v0.11.1
-[v0.10.1]: https://github.com/ConsenSys/gnark-crypto/compare/v0.11.0...v0.10.1
-[v0.11.0]: https://github.com/ConsenSys/gnark-crypto/compare/v0.10.0...v0.11.0
-[v0.10.0]: https://github.com/ConsenSys/gnark-crypto/compare/v0.9.1...v0.10.0
-[v0.9.1]: https://github.com/ConsenSys/gnark-crypto/compare/v0.9.0...v0.9.1
-[v0.9.0]: https://github.com/ConsenSys/gnark-crypto/compare/v0.8.0...v0.9.0
-[v0.8.0]: https://github.com/ConsenSys/gnark-crypto/compare/v0.7.0...v0.8.0
-[v0.7.0]: https://github.com/ConsenSys/gnark-crypto/compare/v0.6.1...v0.7.0
-[v0.6.1]: https://github.com/ConsenSys/gnark-crypto/compare/v0.6.0...v0.6.1
-[v0.6.0]: https://github.com/ConsenSys/gnark-crypto/compare/v0.5.3...v0.6.0
-[v0.5.3]: https://github.com/ConsenSys/gnark-crypto/compare/v0.5.2...v0.5.3
-[v0.5.2]: https://github.com/ConsenSys/gnark-crypto/compare/v0.5.1...v0.5.2
-[v0.5.1]: https://github.com/ConsenSys/gnark-crypto/compare/v0.5.0...v0.5.1
-[v0.5.0]: https://github.com/ConsenSys/gnark-crypto/compare/v0.4.0...v0.5.0
-[v0.4.0]: https://github.com/ConsenSys/gnark-crypto/compare/v0.3.8...v0.4.0
-[v0.3.8]: https://github.com/ConsenSys/gnark-crypto/compare/v0.3.7...v0.3.8
-[v0.3.7]: https://github.com/ConsenSys/gnark-crypto/compare/v0.3.6...v0.3.7
-[v0.3.6]: https://github.com/ConsenSys/gnark-crypto/compare/v0.3.5...v0.3.6
-[v0.3.5]: https://github.com/ConsenSys/gnark-crypto/compare/v0.3.4...v0.3.5
-[v0.3.4]: https://github.com/ConsenSys/gnark-crypto/compare/v0.3.3...v0.3.4
-[v0.3.3]: https://github.com/ConsenSys/gnark-crypto/compare/v0.3.0...v0.3.3
-[v0.3.0]: https://github.com/ConsenSys/gnark-crypto/compare/v0.3.0-alpha...v0.3.0
-[v0.3.0-alpha]: https://github.com/ConsenSys/gnark-crypto/compare/v0.2.0...v0.3.0-alpha
-[v0.2.0]: https://github.com/ConsenSys/gnark-crypto/compare/v0.1.1...v0.2.0
-[v0.1.1]: https://github.com/ConsenSys/gnark-crypto/compare/v0.1.0...v0.1.1
-[v0.1.0]: https://github.com/ConsenSys/gnark-crypto/compare/v0.0.1...v0.1.0
+[v0.14.0]: https://github.com/Consensys/gnark-crypto/compare/v0.13.0...v0.14.0
+[v0.13.0]: https://github.com/Consensys/gnark-crypto/compare/v0.12.1...v0.13.0
+[v0.12.1]: https://github.com/Consensys/gnark-crypto/compare/v0.12.0...v0.12.1
+[v0.12.0]: https://github.com/Consensys/gnark-crypto/compare/v0.11.2...v0.12.0
+[v0.11.2]: https://github.com/Consensys/gnark-crypto/compare/v0.9.2...v0.11.2
+[v0.9.2]: https://github.com/Consensys/gnark-crypto/compare/v0.11.1...v0.9.2
+[v0.11.1]: https://github.com/Consensys/gnark-crypto/compare/v0.10.1...v0.11.1
+[v0.10.1]: https://github.com/Consensys/gnark-crypto/compare/v0.11.0...v0.10.1
+[v0.11.0]: https://github.com/Consensys/gnark-crypto/compare/v0.10.0...v0.11.0
+[v0.10.0]: https://github.com/Consensys/gnark-crypto/compare/v0.9.1...v0.10.0
+[v0.9.1]: https://github.com/Consensys/gnark-crypto/compare/v0.9.0...v0.9.1
+[v0.9.0]: https://github.com/Consensys/gnark-crypto/compare/v0.8.0...v0.9.0
+[v0.8.0]: https://github.com/Consensys/gnark-crypto/compare/v0.7.0...v0.8.0
+[v0.7.0]: https://github.com/Consensys/gnark-crypto/compare/v0.6.1...v0.7.0
+[v0.6.1]: https://github.com/Consensys/gnark-crypto/compare/v0.6.0...v0.6.1
+[v0.6.0]: https://github.com/Consensys/gnark-crypto/compare/v0.5.3...v0.6.0
+[v0.5.3]: https://github.com/Consensys/gnark-crypto/compare/v0.5.2...v0.5.3
+[v0.5.2]: https://github.com/Consensys/gnark-crypto/compare/v0.5.1...v0.5.2
+[v0.5.1]: https://github.com/Consensys/gnark-crypto/compare/v0.5.0...v0.5.1
+[v0.5.0]: https://github.com/Consensys/gnark-crypto/compare/v0.4.0...v0.5.0
+[v0.4.0]: https://github.com/Consensys/gnark-crypto/compare/v0.3.8...v0.4.0
+[v0.3.8]: https://github.com/Consensys/gnark-crypto/compare/v0.3.7...v0.3.8
+[v0.3.7]: https://github.com/Consensys/gnark-crypto/compare/v0.3.6...v0.3.7
+[v0.3.6]: https://github.com/Consensys/gnark-crypto/compare/v0.3.5...v0.3.6
+[v0.3.5]: https://github.com/Consensys/gnark-crypto/compare/v0.3.4...v0.3.5
+[v0.3.4]: https://github.com/Consensys/gnark-crypto/compare/v0.3.3...v0.3.4
+[v0.3.3]: https://github.com/Consensys/gnark-crypto/compare/v0.3.0...v0.3.3
+[v0.3.0]: https://github.com/Consensys/gnark-crypto/compare/v0.3.0-alpha...v0.3.0
+[v0.3.0-alpha]: https://github.com/Consensys/gnark-crypto/compare/v0.2.0...v0.3.0-alpha
+[v0.2.0]: https://github.com/Consensys/gnark-crypto/compare/v0.1.1...v0.2.0
+[v0.1.1]: https://github.com/Consensys/gnark-crypto/compare/v0.1.0...v0.1.1
+[v0.1.0]: https://github.com/Consensys/gnark-crypto/compare/v0.0.1...v0.1.0
