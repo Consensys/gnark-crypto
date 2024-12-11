@@ -19,7 +19,7 @@ func init() {
 }
 
 //go:noescape
-func addVec(qLane *uint32, res, a, b *Element, n uint64)
+func addVec(res, a, b *Element, n uint64)
 
 //go:noescape
 func subVec(qLane *uint32, res, a, b *Element, n uint64)
@@ -39,7 +39,7 @@ func (vector *Vector) Add(a, b Vector) {
 	}
 
 	const blockSize = 4
-	addVec(&qLane[0], &(*vector)[0], &a[0], &b[0], n/blockSize)
+	addVec(&(*vector)[0], &a[0], &b[0], n/blockSize)
 	if n%blockSize != 0 {
 		// call addVecGeneric on the rest
 		start := n - n%blockSize

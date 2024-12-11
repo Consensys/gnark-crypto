@@ -3,32 +3,33 @@ package arm64
 import "github.com/consensys/bavard/arm64"
 
 func (f *FFArm64) generateAddVecF31() {
-	f.Comment("addVec(qq *uint32, res, a, b *Element, n uint64)")
+	f.Comment("addVec(res, a, b *Element, n uint64)")
 	registers := f.FnHeader("addVec", 0, 40)
 	defer f.AssertCleanStack(0, 0)
 
 	// registers
 	resPtr := registers.Pop()
-	qqPtr := registers.Pop()
+	// qqPtr := registers.Pop()
 	aPtr := registers.Pop()
 	bPtr := registers.Pop()
 	n := registers.Pop()
 
 	a := arm64.V0.S4()
 	b := arm64.V1.S4()
-	q := arm64.V2.S4()
-	t := arm64.V3.S4()
+	t := arm64.V2.S4()
+	q := arm64.V3
 
 	// labels
 	loop := f.NewLabel("loop")
 	done := f.NewLabel("done")
 
 	// load arguments
-	f.LDP("qq+0(FP)", qqPtr, resPtr)
-	f.LDP("a+16(FP)", aPtr, bPtr)
-	f.MOVD("n+32(FP)", n)
+	f.LDP("res+0(FP)", resPtr, aPtr)
+	f.LDP("b+16(FP)", bPtr, n)
 
-	f.VLD1(0, qqPtr, q, "broadcast q into "+string(q))
+	f.VMOVS("$const_q", q)
+	f.VDUP(q.SAt(0), q.S4(), "broadcast q into "+string(q))
+	q = q.S4()
 
 	f.LABEL(loop)
 
