@@ -107,11 +107,11 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) {
 				bend := bstart + Bytes
 				b := bSlice[bstart:bend]
 				{{- range $i := reverse .NbWordsIndexesFull}}
-					{{- $j := mul $i 8}}
+					{{- $j := mul $i $.Word.ByteSize}}
 					{{- $k := sub $.NbWords 1}}
 					{{- $k := sub $k $i}}
-					{{- $jj := add $j 8}}
-					z[{{$k}}] = binary.BigEndian.Uint64(b[{{$j}}:{{$jj}}])
+					{{- $jj := add $j $.Word.ByteSize}}
+					z[{{$k}}] = binary.BigEndian.{{$.Word.TypeUpper}}(b[{{$j}}:{{$jj}}])
 				{{- end}}
 
 				if !z.smallerThanModulus() {
@@ -189,49 +189,6 @@ func (vector Vector) Less(i, j int) bool {
 func (vector Vector) Swap(i, j int) {
 	vector[i], vector[j] = vector[j], vector[i]
 }
-
-
-{{/* For 4 elements, we have a special assembly path and copy this in ops_pure.go */}}
-{{- if not .ASMVector}}
-// Add adds two vectors element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) Add(a, b Vector) {
-	addVecGeneric(*vector, a, b)
-}
-
-// Sub subtracts two vectors element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) Sub(a, b Vector) {
-	subVecGeneric(*vector, a, b)
-}
-
-// ScalarMul multiplies a vector by a scalar element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
-	scalarMulVecGeneric(*vector, a, b)
-}
-
-// Sum computes the sum of all elements in the vector.
-func (vector *Vector) Sum() (res {{.ElementName}}) {
-	sumVecGeneric(&res, *vector)
-	return
-}
-
-// InnerProduct computes the inner product of two vectors.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
-	innerProductVecGeneric(&res, *vector, other)
-	return
-}
-
-// Mul multiplies two vectors element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) Mul(a, b Vector) {
-	mulVecGeneric(*vector, a, b)
-}
-
-{{- end}}
-
 
 
 func addVecGeneric(res, a, b Vector) {

@@ -1,16 +1,5 @@
-// Copyright 2020 ConsenSys Software Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright 2020-2024 Consensys Software Inc.
+// Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
 // Package config provides Golang code generation for efficient field arithmetic operations.
 package config
@@ -52,8 +41,6 @@ type FieldConfig struct {
 	QInverse                  []uint64
 	QMinusOneHalvedP          []uint64 // ((q-1) / 2 ) + 1
 	Mu                        uint64   // mu = 2^288 / q for 4.5 word barrett reduction
-	ASM                       bool
-	ASMVector                 bool
 	RSquare                   []uint64
 	One, Thirteen             []uint64
 	LegendreExponent          string // big.Int to base16 string
@@ -74,6 +61,25 @@ type FieldConfig struct {
 	SqrtSMinusOneOver2Data    *addchain.AddChainData
 	SqrtQ3Mod4ExponentData    *addchain.AddChainData
 	UseAddChain               bool
+
+	Word Word // 32 iff Q < 2^32, else 64
+	F31  bool // 31 bits field
+
+	// asm code generation
+	GenerateOpsAMD64       bool
+	GenerateOpsARM64       bool
+	GenerateVectorOpsAMD64 bool
+	GenerateVectorOpsARM64 bool
+}
+
+type Word struct {
+	BitSize   int    // 32 or 64
+	ByteSize  int    // 4 or 8
+	TypeLower string // uint32 or uint64
+	TypeUpper string // Uint32 or Uint64
+	Add       string // Add64 or Add32
+	Sub       string // Sub64 or Sub32
+	Len       string // Len64 or Len32
 }
 
 // NewFieldConfig returns a data structure with needed information to generate apis for field element
@@ -97,9 +103,8 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	}
 	// pre compute field constants
 	F.NbBits = bModulus.BitLen()
+	F.F31 = F.NbBits <= 31
 	F.NbWords = len(bModulus.Bits())
-	F.NbBytes = F.NbWords * 8 // (F.NbBits + 7) / 8
-
 	F.NbWordsLastIndex = F.NbWords - 1
 
 	// set q from big int repr
@@ -110,9 +115,31 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	_qHalved.Sub(&bModulus, bOne).Rsh(_qHalved, 1).Add(_qHalved, bOne)
 	F.QMinusOneHalvedP = toUint64Slice(_qHalved, F.NbWords)
 
+	// Word size; we pick uint32 only if the modulus is less than 2^32
+	F.Word.BitSize = 64
+	F.Word.ByteSize = 8
+	F.Word.TypeLower = "uint64"
+	F.Word.TypeUpper = "Uint64"
+	F.Word.Add = "Add64"
+	F.Word.Sub = "Sub64"
+	F.Word.Len = "Len64"
+	if F.F31 {
+		F.Word.BitSize = 32
+		F.Word.ByteSize = 4
+		F.Word.TypeLower = "uint32"
+		F.Word.TypeUpper = "Uint32"
+		F.Word.Add = "Add32"
+		F.Word.Sub = "Sub32"
+		F.Word.Len = "Len32"
+	}
+
+	F.NbBytes = F.NbWords * F.Word.ByteSize
+
 	//  setting qInverse
+	radix := uint(F.Word.BitSize)
+
 	_r := big.NewInt(1)
-	_r.Lsh(_r, uint(F.NbWords)*64)
+	_r.Lsh(_r, uint(F.NbWords)*radix)
 	_rInv := big.NewInt(1)
 	_qInv := big.NewInt(0)
 	extendedEuclideanAlgo(_r, &bModulus, _rInv, _qInv)
@@ -136,24 +163,24 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 
 	{
 		c := F.NbWords * 64
-		F.UsingP20Inverse = F.NbWords > 1 && F.NbBits < c
+		// TODO @gbotrel check inverse performance for 32 bits
+		F.UsingP20Inverse = F.NbWords > 1 && F.NbBits < c && F.Word.BitSize == 64
 	}
 
 	// rsquare
-	_rSquare := big.NewInt(2)
-	exponent := big.NewInt(int64(F.NbWords) * 64 * 2)
-	_rSquare.Exp(_rSquare, exponent, &bModulus)
+	_rSquare := big.NewInt(1)
+	_rSquare.Lsh(_rSquare, uint(F.NbWords)*radix*2).Mod(_rSquare, &bModulus)
 	F.RSquare = toUint64Slice(_rSquare, F.NbWords)
 
 	var one big.Int
 	one.SetUint64(1)
-	one.Lsh(&one, uint(F.NbWords)*64).Mod(&one, &bModulus)
+	one.Lsh(&one, uint(F.NbWords)*radix).Mod(&one, &bModulus)
 	F.One = toUint64Slice(&one, F.NbWords)
 
 	{
 		var n big.Int
 		n.SetUint64(13)
-		n.Lsh(&n, uint(F.NbWords)*64).Mod(&n, &bModulus)
+		n.Lsh(&n, uint(F.NbWords)*radix).Mod(&n, &bModulus)
 		F.Thirteen = toUint64Slice(&n, F.NbWords)
 	}
 
@@ -242,7 +269,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 			var g big.Int
 			g.Exp(&nonResidue, &s, &bModulus)
 			// store g in montgomery form
-			g.Lsh(&g, uint(F.NbWords)*64).Mod(&g, &bModulus)
+			g.Lsh(&g, uint(F.NbWords)*radix).Mod(&g, &bModulus)
 			F.SqrtG = toUint64Slice(&g, F.NbWords)
 
 			// store non residue in montgomery form
@@ -261,8 +288,10 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	// note: to simplify output files generated, we generated ASM code only for
 	// moduli that meet the condition F.NoCarry
 	// asm code generation for moduli with more than 6 words can be optimized further
-	F.ASM = F.NoCarry && F.NbWords <= 12 && F.NbWords > 1
-	F.ASMVector = F.ASM && F.NbWords == 4 && F.NbBits > 225
+	F.GenerateOpsAMD64 = F.NoCarry && F.NbWords <= 12 && F.NbWords > 1
+	F.GenerateVectorOpsAMD64 = F.GenerateOpsAMD64 && F.NbWords == 4 && F.NbBits > 225
+	F.GenerateOpsARM64 = F.GenerateOpsAMD64 && (F.NbWords%2 == 0)
+	F.GenerateVectorOpsARM64 = false
 
 	// setting Mu 2^288 / q
 	if F.NbWords == 4 {
@@ -336,7 +365,7 @@ func (f *FieldConfig) StringToMont(str string) big.Int {
 
 func (f *FieldConfig) ToMont(nonMont big.Int) big.Int {
 	var mont big.Int
-	mont.Lsh(&nonMont, uint(f.NbWords)*64)
+	mont.Lsh(&nonMont, uint(f.NbWords)*uint(f.Word.BitSize))
 	mont.Mod(&mont, f.ModulusBig)
 	return mont
 }
@@ -348,7 +377,7 @@ func (f *FieldConfig) FromMont(nonMont *big.Int, mont *big.Int) *FieldConfig {
 		return f
 	}
 	f.halve(nonMont, mont)
-	for i := 1; i < f.NbWords*64; i++ {
+	for i := 1; i < f.NbWords*f.Word.BitSize; i++ {
 		f.halve(nonMont, nonMont)
 	}
 

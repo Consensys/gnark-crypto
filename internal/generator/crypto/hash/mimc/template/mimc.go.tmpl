@@ -1,12 +1,20 @@
 import (
 	"errors"
-	"hash"
-
+	stdhash "hash"
 	"math/big"
-	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
-	"golang.org/x/crypto/sha3"
 	"sync"
+
+	"github.com/consensys/gnark-crypto/hash"
+	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
+
+	"golang.org/x/crypto/sha3"
 )
+
+func init() {
+	hash.RegisterHash(hash.MIMC_{{ .EnumID }}, func() stdhash.Hash {
+		return NewMiMC()
+	})
+}
 
 const (
 {{ if eq .Name "bn254" }}
@@ -54,8 +62,8 @@ func GetConstants() []big.Int {
 	return res
 }
 
-// NewMiMC returns a MiMCImpl object, pure-go reference implementation
-func NewMiMC(opts ...Option) hash.Hash {
+// NewMiMC returns a MiMC implementation, pure Go reference implementation.
+func NewMiMC(opts ...Option) hash.StateStorer {
 	d := new(digest)
 	d.Reset()
 	cfg := mimcOptions(opts...)
@@ -243,4 +251,28 @@ func (d *digest) WriteString(rawBytes []byte) error {
 		d.data = append(d.data, elems[0])
 	}
 	return nil
+}
+
+// SetState manually sets the state of the hasher to an user-provided value. In
+// the context of MiMC, the method expects a byte slice of 32 elements.
+func  (d *digest) SetState(newState []byte) error {
+	
+	if len(newState) != {{ .Fr.NbBytes }} {
+		return errors.New("the mimc state expects a state of {{ .Fr.NbBytes }} bytes")
+	}
+
+	if err := d.h.SetBytesCanonical(newState); err != nil {
+		return errors.New("the provided newState does not represent a valid state")
+	}
+
+	d.data = nil
+
+	return nil
+}
+
+// State returns the internal state of the hasher
+func (d *digest) State() []byte {
+	_ = d.Sum(nil) // this flushes the hasher
+	b := d.h.Bytes()
+	return b[:]
 }

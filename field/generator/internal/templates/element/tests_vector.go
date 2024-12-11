@@ -325,14 +325,19 @@ func genMaxVector(size int) gopter.Gen {
 	}
 }
 
+{{- $gen64 := "genParams.NextUint64()"}}
+{{- if eq .Word.BitSize 32}}
+{{- $gen64 = "uint32(genParams.NextUint64())"}}
+{{- end}}
+
 func genVector(size int) gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		g := make(Vector, size)
 		mixer := {{.ElementName}}{
 			{{- range $i := .NbWordsIndexesFull}}
-			genParams.NextUint64(),{{end}}
+			{{$gen64}},{{end}}
 		}
-		if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
+		if qElement[{{.NbWordsLastIndex}}] != ^{{$.Word.TypeLower}}(0) {
 			mixer[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
 		}
 		
@@ -340,9 +345,9 @@ func genVector(size int) gopter.Gen {
 		for !mixer.smallerThanModulus() {
 			mixer = {{.ElementName}}{
 				{{- range $i := .NbWordsIndexesFull}}
-				genParams.NextUint64(),{{end}}
+				{{$gen64}},{{end}}
 			}
-			if qElement[{{.NbWordsLastIndex}}] != ^uint64(0) {
+			if qElement[{{.NbWordsLastIndex}}] != ^{{$.Word.TypeLower}}(0) {
 				mixer[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
 			}
 		}

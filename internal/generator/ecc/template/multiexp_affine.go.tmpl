@@ -31,7 +31,7 @@ type batchOp{{ $.TAffine }} struct {
 // using affine coordinates for the buckets. To amortize the cost of the inverse in the affine addition
 // we use a batch affine addition.
 //
-// this is derived from a PR by 0x0ece : https://github.com/ConsenSys/gnark-crypto/pull/249
+// this is derived from a PR by 0x0ece : https://github.com/Consensys/gnark-crypto/pull/249
 // See Section 5.3: ia.cr/2022/1396
 func processChunk{{ $.UPointName }}BatchAffine[BJE ib{{ $.TJacobianExtended }},B ib{{ $.TAffine }}, BS bitSet, TP p{{ $.TAffine }}, TPP pp{{ $.TAffine }}, TQ qOps{{ $.TAffine }}, TC c{{ $.TAffine}}](
 	 chunk uint64,
