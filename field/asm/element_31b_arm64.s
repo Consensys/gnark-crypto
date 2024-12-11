@@ -3,22 +3,23 @@
 #include "funcdata.h"
 #include "go_asm.h"
 
-// addVec(res, a, b *Element, n uint64)
-TEXT ·addVec(SB), NOFRAME|NOSPLIT, $0-32
-	MOVD $const_q, R6
-	LDP  res+0(FP), (R0, R1)
-	LDP  b+16(FP), (R2, R3)
+// addVec(qq *uint32, res, a, b *Element, n uint64)
+TEXT ·addVec(SB), NOFRAME|NOSPLIT, $0-40
+	LDP  qq+0(FP), (R1, R0)
+	LDP  a+16(FP), (R2, R3)
+	MOVD n+32(FP), R4
+	VLD1 0(R1), [V2.S4]     // broadcast q into V2.S4
 
 loop1:
-	CBZ     R3, done2
-	MOVWU.P 4(R1), R5
-	MOVWU.P 4(R2), R4
-	ADD     R5, R4, R4
-	SUBS    R6, R4, R7
-	CSEL    CS, R7, R4, R7
-	MOVWU.P R4, 4(R0)
-	SUB     $1, R3, R3
-	JMP     loop1
+	CBZ    R4, done2
+	VLD1.P 16(R2), [V0.S4]
+	VLD1.P 16(R3), [V1.S4]
+	VADD   V0.S4, V1.S4, V1.S4 // b = a + b
+	VSUB   V2.S4, V1.S4, V3.S4 // t = q - b
+	VUMIN  V3.S4, V1.S4, V1.S4 // b = min(t, b)
+	VST1.P [V1.S4], 16(R0)     // res = b
+	SUB    $1, R4, R4
+	JMP    loop1
 
 done2:
 	RET

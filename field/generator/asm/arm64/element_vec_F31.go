@@ -1,51 +1,48 @@
 package arm64
 
+import "github.com/consensys/bavard/arm64"
+
 func (f *FFArm64) generateAddVecF31() {
-	f.Comment("addVec(res, a, b *Element, n uint64)")
-	registers := f.FnHeader("addVec", 0, 32)
+	f.Comment("addVec(qq *uint32, res, a, b *Element, n uint64)")
+	registers := f.FnHeader("addVec", 0, 40)
 	defer f.AssertCleanStack(0, 0)
 
 	// registers
 	resPtr := registers.Pop()
+	qqPtr := registers.Pop()
 	aPtr := registers.Pop()
 	bPtr := registers.Pop()
 	n := registers.Pop()
 
-	b := registers.Pop()
-	a := registers.Pop()
-	q := registers.Pop()
-	t := registers.Pop()
-
-	f.MOVD("$const_q", q)
+	a := arm64.V0.S4()
+	b := arm64.V1.S4()
+	q := arm64.V2.S4()
+	t := arm64.V3.S4()
 
 	// labels
 	loop := f.NewLabel("loop")
 	done := f.NewLabel("done")
 
 	// load arguments
-	f.LDP("res+0(FP)", resPtr, aPtr)
-	f.LDP("b+16(FP)", bPtr, n)
+	f.LDP("qq+0(FP)", qqPtr, resPtr)
+	f.LDP("a+16(FP)", aPtr, bPtr)
+	f.MOVD("n+32(FP)", n)
+
+	f.VLD1(0, qqPtr, q, "broadcast q into "+string(q))
 
 	f.LABEL(loop)
 
 	f.CBZ(n, done)
 
-	// load a
-	f.MOVWUP_Load(4, aPtr, a)
-	// load b
-	f.MOVWUP_Load(4, bPtr, b)
+	const offset = 4 * 4 // we process 4 uint32 at a time
 
-	// res = a + b
-	f.ADD(a, b, b)
+	f.VLD1_P(offset, aPtr, a)
+	f.VLD1_P(offset, bPtr, b)
 
-	// t = res - q
-	f.SUBS(q, b, t)
-
-	// t = min(t, res)
-	f.CSEL("CS", t, b, t)
-
-	// res = t
-	f.MOVWUP_Store(b, resPtr, 4)
+	f.VADD(a, b, b, "b = a + b")
+	f.VSUB(q, b, t, "t = q - b")
+	f.VUMIN(t, b, b, "b = min(t, b)")
+	f.VST1_P(b, resPtr, offset, "res = b")
 
 	// decrement n
 	f.SUB(1, n, n)
