@@ -165,6 +165,10 @@ func addVec(qLane *uint32, res, a, b *{{.ElementName}}, n uint64)
 //go:noescape
 func subVec(qLane *uint32, res, a, b *{{.ElementName}}, n uint64)
 
+//go:noescape
+func sumVec(t *uint64, a *{{.ElementName}}, n uint64)
+
+
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
@@ -213,7 +217,26 @@ func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
 
 // Sum computes the sum of all elements in the vector.
 func (vector *Vector) Sum() (res {{.ElementName}}) {
-	sumVecGeneric(&res, *vector)
+	n := uint64(len(*vector))
+	if n == 0 {
+		return
+	}
+
+	const blockSize = 8
+	var t [4]uint64 // stores the accumulators (not reduced mod q)
+	sumVec(&t[0], &(*vector)[0], n/blockSize)
+	// we reduce the accumulators mod q and add to res
+	var v {{.ElementName}}
+	for i := 0; i < 4; i++ {
+		v[0] = uint32(t[i] % q)
+		res.Add(&res, &v)
+	}
+	if n % blockSize != 0 {
+		// call sumVecGeneric on the rest
+		start := n - n % blockSize
+		sumVecGeneric(&res, (*vector)[start:])
+	}
+
 	return
 }
 
@@ -342,10 +365,9 @@ func (vector *Vector) Sum() (res {{.ElementName}}) {
 	var t [8]uint64 // stores the accumulators (not reduced mod q)
 	sumVec(&t[0], &(*vector)[0], n/blockSize)
 	// we reduce the accumulators mod q and add to res
-	var v {{.ElementName}}
 	for i := 0; i < 8; i++ {
 		t[i] %= q
-		v[0] = uint32(t[i])
+		v[0] = uint32(t[i] % q)
 		res.Add(&res, &v)
 	}
 	if n % blockSize != 0 {
@@ -379,8 +401,7 @@ func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
 	// we reduce the accumulators mod q and add to res
 	var v {{.ElementName}}
 	for i := 0; i < 8; i++ {
-		t[i] %= q
-		v[0] = uint32(t[i])
+		v[0] = uint32(t[i] % q)
 		res.Add(&res, &v)
 	}
 	if n % blockSize != 0 {

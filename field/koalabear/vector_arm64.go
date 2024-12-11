@@ -24,6 +24,9 @@ func addVec(qLane *uint32, res, a, b *Element, n uint64)
 //go:noescape
 func subVec(qLane *uint32, res, a, b *Element, n uint64)
 
+//go:noescape
+func sumVec(t *uint64, a *Element, n uint64)
+
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
@@ -72,7 +75,26 @@ func (vector *Vector) ScalarMul(a Vector, b *Element) {
 
 // Sum computes the sum of all elements in the vector.
 func (vector *Vector) Sum() (res Element) {
-	sumVecGeneric(&res, *vector)
+	n := uint64(len(*vector))
+	if n == 0 {
+		return
+	}
+
+	const blockSize = 8
+	var t [4]uint64 // stores the accumulators (not reduced mod q)
+	sumVec(&t[0], &(*vector)[0], n/blockSize)
+	// we reduce the accumulators mod q and add to res
+	var v Element
+	for i := 0; i < 4; i++ {
+		v[0] = uint32(t[i] % q)
+		res.Add(&res, &v)
+	}
+	if n%blockSize != 0 {
+		// call sumVecGeneric on the rest
+		start := n - n%blockSize
+		sumVecGeneric(&res, (*vector)[start:])
+	}
+
 	return
 }
 

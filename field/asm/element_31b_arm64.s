@@ -44,3 +44,33 @@ loop3:
 
 done4:
 	RET
+
+// sumVec(t *uint64, a *[]uint32, n uint64) res = sum(a[0...n])
+TEXT ·sumVec(SB), NOFRAME|NOSPLIT, $0-24
+	VMOVQ $0, $0, V4
+	VMOVQ $0, $0, V5
+	VMOVQ $0, $0, V6
+	VMOVQ $0, $0, V7
+	LDP   t+0(FP), (R1, R0)
+	MOVD  n+16(FP), R2
+
+loop5:
+	CBZ    R2, done6
+	VLD2.P 16(R0), [V0.S2, V1.S2]
+	VLD2.P 16(R0), [V2.S2, V3.S2]
+	VUSHLL $0, V0.S2, V0.D2       // convert to 64 bits
+	VUSHLL $0, V1.S2, V1.D2       // convert to 64 bits
+	VADD   V0.D2, V4.D2, V4.D2    // acc1 += a1
+	VADD   V1.D2, V5.D2, V5.D2    // acc2 += a2
+	VUSHLL $0, V2.S2, V2.D2       // convert to 64 bits
+	VUSHLL $0, V3.S2, V3.D2       // convert to 64 bits
+	VADD   V2.D2, V6.D2, V6.D2    // acc3 += a3
+	VADD   V3.D2, V7.D2, V7.D2    // acc4 += a4
+	SUB    $1, R2, R2
+	JMP    loop5
+
+done6:
+	VADD   V4.D2, V6.D2, V4.D2   // acc1 += acc3
+	VADD   V5.D2, V7.D2, V5.D2   // acc2 += acc4
+	VST2.P [V4.D2, V5.D2], 0(R1) // store acc1 and acc2
+	RET
