@@ -364,7 +364,7 @@ func limbDecomposeBytes(buf []byte, m koalabear.Vector, logTwoBound, degree int,
 			// and set the bits from LSB to MSB.
 			at := fieldStart + koalabear.Bytes*8 - bitInField - 1
 
-			m[mPos][0] |= uint64(bitAt(at) << j)
+			m[mPos][0] |= uint32(bitAt(at) << j)
 
 			bitInField++
 
@@ -391,7 +391,7 @@ func limbDecomposeBytes8_64(buf []byte, m koalabear.Vector, mValues *bitset.BitS
 	for startPos := koalabear.Bytes - 1; startPos < len(buf); startPos += koalabear.Bytes {
 		for i := startPos; i >= startPos-koalabear.Bytes+1; i-- {
 
-			m[j][0] = uint64(buf[i])
+			m[j][0] = uint32(buf[i])
 
 			if m[j][0] != 0 {
 				mValues.Set(uint(j / degree))

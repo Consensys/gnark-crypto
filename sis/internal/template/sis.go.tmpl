@@ -357,9 +357,9 @@ func limbDecomposeBytes(buf []byte, m {{ .FF }}.Vector, logTwoBound, degree int,
 			// and set the bits from LSB to MSB.
 			at := fieldStart + {{ .FF }}.Bytes*8 - bitInField - 1
 
-            {{ if (eq .FF "babybear") }}
+            {{ if (or (eq .FF "babybear") (eq .FF "koalabear" ) ) }}
 			m[mPos][0] |= uint32(bitAt(at) << j)
-            {{ else }}
+            {{ else  }}
             m[mPos][0] |= uint64(bitAt(at) << j)
             {{ end }}
 			bitInField++
@@ -386,7 +386,7 @@ func limbDecomposeBytes8_64(buf []byte, m {{ .FF }}.Vector, mValues *bitset.BitS
 
 	for startPos := {{ .FF }}.Bytes - 1; startPos < len(buf); startPos += {{ .FF }}.Bytes {
 		for i := startPos; i >= startPos-{{ .FF }}.Bytes+1; i-- {
-			{{ if (eq .FF "babybear") }}
+			{{ if (or (eq .FF "babybear") (eq .FF "koalabear") ) }}
             m[j][0] = uint32(buf[i])
             {{ else }}
             m[j][0] = uint64(buf[i])
