@@ -158,7 +158,7 @@ type AddChainData struct {
 	N string // base 16 value of the value
 }
 
-// PrepareData builds input template data for the given addition chain script.
+// prepareAddChainData builds input template data for the given addition chain script.
 func prepareAddChainData(s *ast.Chain, n string) (*AddChainData, error) {
 	// Prepare template data.
 	allocator := pass.Allocator{
