@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-{{ if (or (eq .FF "BLS12-377") (eq .FF "BN254")) }}
 type sisParams struct {
 	logTwoBound, logTwoDegree int
 }
@@ -172,8 +171,6 @@ func TestLimbDecomposition(t *testing.T) {
 		}
 	}
 }
-
-{{ end }}
 
 func eval(p []{{ .FF }}.Element, x {{ .FF }}.Element) {{ .FF }}.Element {
 	var res {{ .FF }}.Element

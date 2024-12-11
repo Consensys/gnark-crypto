@@ -5,8 +5,18 @@ var Configs []SIS
 func init() {
 
 	// bn254
+	addConfig(NewConfig(
+		"github.com/consensys/gnark-crypto/ecc/bn254/fr",
+		"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft",
+		"../../ecc/bn254/fr/sis",
+	))
 
 	// bls12-377
+	addConfig(NewConfig(
+		"github.com/consensys/gnark-crypto/ecc/bls12-377/fr",
+		"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/fft",
+		"../../ecc/bls12-377/fr/sis",
+	))
 
 	// goldilocks
 	addConfig(NewConfig(

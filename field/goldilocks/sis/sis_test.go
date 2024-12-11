@@ -111,57 +111,6 @@ func TestReference(t *testing.T) {
 	}
 
 }
-func eval(p []goldilocks.Element, x goldilocks.Element) goldilocks.Element {
-	var res goldilocks.Element
-	for i := len(p) - 1; i >= 0; i-- {
-		res.Mul(&res, &x).Add(&res, &p[i])
-	}
-	return res
-}
-
-func TestMulMod(t *testing.T) {
-
-	size := 4
-
-	p := make([]goldilocks.Element, size)
-	q := make([]goldilocks.Element, size)
-	pCopy := make([]goldilocks.Element, size)
-	qCopy := make([]goldilocks.Element, size)
-	for i := 0; i < size; i++ {
-		p[i].SetRandom()
-		pCopy[i].Set(&p[i])
-		q[i].SetRandom()
-		qCopy[i].Set(&q[i])
-	}
-
-	// creation of the domain
-	shift, err := goldilocks.Generator(uint64(2 * size))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var g goldilocks.Element
-	g.Square(&shift)
-	domain := fft.NewDomain(uint64(size), fft.WithShift(shift))
-
-	// mul mod
-	domain.FFT(p, fft.DIF, fft.OnCoset())
-	domain.FFT(q, fft.DIF, fft.OnCoset())
-	r := mulMod(p, q)
-	domain.FFTInverse(r, fft.DIT, fft.OnCoset())
-
-	// manually check the product on the zeroes of X^4+1
-	for i := 0; i < 4; i++ {
-		u := eval(pCopy, shift)
-		v := eval(qCopy, shift)
-		w := eval(r, shift)
-		u.Mul(&u, &v)
-		if !w.Equal(&u) {
-			t.Fatal("mul mol failed")
-		}
-		shift.Mul(&shift, &g)
-	}
-
-}
 
 // Test the fact that the limb decomposition allows obtaining the original
 // field element by evaluating the polynomial whose the coeffiients are the
@@ -228,6 +177,58 @@ func TestLimbDecomposition(t *testing.T) {
 			require.Equal(t, testcase[i].String(), y.String(), "the subRes was %v", subRes)
 		}
 	}
+}
+
+func eval(p []goldilocks.Element, x goldilocks.Element) goldilocks.Element {
+	var res goldilocks.Element
+	for i := len(p) - 1; i >= 0; i-- {
+		res.Mul(&res, &x).Add(&res, &p[i])
+	}
+	return res
+}
+
+func TestMulMod(t *testing.T) {
+
+	size := 4
+
+	p := make([]goldilocks.Element, size)
+	q := make([]goldilocks.Element, size)
+	pCopy := make([]goldilocks.Element, size)
+	qCopy := make([]goldilocks.Element, size)
+	for i := 0; i < size; i++ {
+		p[i].SetRandom()
+		pCopy[i].Set(&p[i])
+		q[i].SetRandom()
+		qCopy[i].Set(&q[i])
+	}
+
+	// creation of the domain
+	shift, err := goldilocks.Generator(uint64(2 * size))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var g goldilocks.Element
+	g.Square(&shift)
+	domain := fft.NewDomain(uint64(size), fft.WithShift(shift))
+
+	// mul mod
+	domain.FFT(p, fft.DIF, fft.OnCoset())
+	domain.FFT(q, fft.DIF, fft.OnCoset())
+	r := mulMod(p, q)
+	domain.FFTInverse(r, fft.DIT, fft.OnCoset())
+
+	// manually check the product on the zeroes of X^4+1
+	for i := 0; i < 4; i++ {
+		u := eval(pCopy, shift)
+		v := eval(qCopy, shift)
+		w := eval(r, shift)
+		u.Mul(&u, &v)
+		if !w.Equal(&u) {
+			t.Fatal("mul mol failed")
+		}
+		shift.Mul(&shift, &g)
+	}
+
 }
 
 func makeKeyDeterministic(t *testing.T, sis *RSis, _seed int64) {
