@@ -148,26 +148,14 @@ const VectorOpsArm64 = VectorOpsPureGo
 
 const VectorOpsArm64F31 = `
 
-
-// qLane is a vector with all elements set to q
-// TODO figure out why the arm64 assembly to broadcast a scalar is not working
-var qLane [4]uint32
-func init() {
-	qLane[0] = q
-	qLane[1] = q
-	qLane[2] = q
-	qLane[3] = q
-}
-
 //go:noescape
 func addVec(res, a, b *{{.ElementName}}, n uint64)
 
 //go:noescape
-func subVec(qLane *uint32, res, a, b *{{.ElementName}}, n uint64)
+func subVec(res, a, b *{{.ElementName}}, n uint64)
 
 //go:noescape
 func sumVec(t *uint64, a *{{.ElementName}}, n uint64)
-
 
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
@@ -201,7 +189,7 @@ func (vector *Vector) Sub(a, b Vector) {
 	}
 
 	const blockSize = 4
-	subVec(&qLane[0], &(*vector)[0], &a[0], &b[0], n/blockSize)
+	subVec(&(*vector)[0], &a[0], &b[0], n/blockSize)
 	if n % blockSize != 0 {
 		// call subVecGeneric on the rest
 		start := n - n % blockSize

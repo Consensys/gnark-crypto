@@ -4,8 +4,9 @@ import "github.com/consensys/bavard/arm64"
 
 func (f *FFArm64) generateAddVecF31() {
 	f.Comment("addVec(res, a, b *Element, n uint64)")
-	registers := f.FnHeader("addVec", 0, 40)
+	registers := f.FnHeader("addVec", 0, 32)
 	defer f.AssertCleanStack(0, 0)
+	defer registers.AssertCleanState()
 
 	// registers
 	resPtr := registers.Pop()
@@ -13,11 +14,6 @@ func (f *FFArm64) generateAddVecF31() {
 	aPtr := registers.Pop()
 	bPtr := registers.Pop()
 	n := registers.Pop()
-
-	a := arm64.V0.S4()
-	b := arm64.V1.S4()
-	t := arm64.V2.S4()
-	q := arm64.V3
 
 	// labels
 	loop := f.NewLabel("loop")
@@ -27,9 +23,13 @@ func (f *FFArm64) generateAddVecF31() {
 	f.LDP("res+0(FP)", resPtr, aPtr)
 	f.LDP("b+16(FP)", bPtr, n)
 
+	a := registers.PopV("a")
+	b := registers.PopV("b")
+	t := registers.PopV("t")
+	q := registers.PopV("q")
+
 	f.VMOVS("$const_q", q)
 	f.VDUP(q.SAt(0), q.S4(), "broadcast q into "+string(q))
-	q = q.S4()
 
 	f.LABEL(loop)
 
@@ -37,50 +37,54 @@ func (f *FFArm64) generateAddVecF31() {
 
 	const offset = 4 * 4 // we process 4 uint32 at a time
 
-	f.VLD1_P(offset, aPtr, a)
-	f.VLD1_P(offset, bPtr, b)
+	f.VLD1_P(offset, aPtr, a.S4())
+	f.VLD1_P(offset, bPtr, b.S4())
 
-	f.VADD(a, b, b, "b = a + b")
-	f.VSUB(q, b, t, "t = q - b")
-	f.VUMIN(t, b, b, "b = min(t, b)")
-	f.VST1_P(b, resPtr, offset, "res = b")
+	f.VADD(a.S4(), b.S4(), b.S4(), "b = a + b")
+	f.VSUB(q.S4(), b.S4(), t.S4(), "t = q - b")
+	f.VUMIN(t.S4(), b.S4(), b.S4(), "b = min(t, b)")
+	f.VST1_P(b.S4(), resPtr, offset, "res = b")
 
 	// decrement n
 	f.SUB(1, n, n)
 	f.JMP(loop)
 
 	f.LABEL(done)
+
+	registers.Push(resPtr, aPtr, bPtr, n)
+	registers.PushV(a, b, t, q)
+
 	f.RET()
 
 }
 
 func (f *FFArm64) generateSubVecF31() {
-	f.Comment("subVec(qq *uint32, res, a, b *Element, n uint64)")
-	registers := f.FnHeader("subVec", 0, 40)
+	f.Comment("subVec(res, a, b *Element, n uint64)")
+	registers := f.FnHeader("subVec", 0, 32)
 	defer f.AssertCleanStack(0, 0)
+	defer registers.AssertCleanState()
 
 	// registers
 	resPtr := registers.Pop()
-	qPtr := registers.Pop()
 	aPtr := registers.Pop()
 	bPtr := registers.Pop()
 	n := registers.Pop()
-
-	a := arm64.V0.S4()
-	b := arm64.V1.S4()
-	q := arm64.V2.S4()
-	t := arm64.V3.S4()
 
 	// labels
 	loop := f.NewLabel("loop")
 	done := f.NewLabel("done")
 
 	// load arguments
-	f.LDP("qLane+0(FP)", qPtr, resPtr)
-	f.LDP("a+16(FP)", aPtr, bPtr)
-	f.MOVD("n+32(FP)", n)
+	f.LDP("res+0(FP)", resPtr, aPtr)
+	f.LDP("b+16(FP)", bPtr, n)
 
-	f.VLD1(0, qPtr, q, "broadcast q into "+string(q))
+	a := registers.PopV("a")
+	b := registers.PopV("b")
+	t := registers.PopV("t")
+	q := registers.PopV("q")
+
+	f.VMOVS("$const_q", q)
+	f.VDUP(q.SAt(0), q.S4(), "broadcast q into "+string(q))
 
 	f.LABEL(loop)
 
@@ -88,19 +92,23 @@ func (f *FFArm64) generateSubVecF31() {
 
 	const offset = 4 * 4 // we process 4 uint32 at a time
 
-	f.VLD1_P(offset, aPtr, a)
-	f.VLD1_P(offset, bPtr, b)
+	f.VLD1_P(offset, aPtr, a.S4())
+	f.VLD1_P(offset, bPtr, b.S4())
 
-	f.VSUB(b, a, b, "b = a - b")
-	f.VADD(b, q, t, "t = b + q")
-	f.VUMIN(t, b, b, "b = min(t, b)")
-	f.VST1_P(b, resPtr, offset, "res = b")
+	f.VSUB(b.S4(), a.S4(), b.S4(), "b = a - b")
+	f.VADD(b.S4(), q.S4(), t.S4(), "t = b + q")
+	f.VUMIN(t.S4(), b.S4(), b.S4(), "b = min(t, b)")
+	f.VST1_P(b.S4(), resPtr, offset, "res = b")
 
 	// decrement n
 	f.SUB(1, n, n)
 	f.JMP(loop)
 
 	f.LABEL(done)
+
+	registers.Push(resPtr, aPtr, bPtr, n)
+	registers.PushV(a, b, q, t)
+
 	f.RET()
 
 }
@@ -115,14 +123,14 @@ func (f *FFArm64) generateSumVecF31() {
 	tPtr := registers.Pop()
 	n := registers.Pop()
 
-	a1 := arm64.V0
-	a2 := arm64.V1
-	a3 := arm64.V2
-	a4 := arm64.V3
-	acc1 := arm64.V4
-	acc2 := arm64.V5
-	acc3 := arm64.V6
-	acc4 := arm64.V7
+	a1 := registers.PopV()
+	a2 := registers.PopV()
+	a3 := registers.PopV()
+	a4 := registers.PopV()
+	acc1 := registers.PopV()
+	acc2 := registers.PopV()
+	acc3 := registers.PopV()
+	acc4 := registers.PopV()
 
 	f.Comment("zeroing accumulators")
 	f.VMOVQ_cst(0, 0, acc1)
