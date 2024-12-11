@@ -9,8 +9,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/mimc"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 
 	"github.com/stretchr/testify/assert"
