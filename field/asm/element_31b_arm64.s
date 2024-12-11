@@ -23,3 +23,24 @@ loop1:
 
 done2:
 	RET
+
+// subVec(qq *uint32, res, a, b *Element, n uint64)
+TEXT ·subVec(SB), NOFRAME|NOSPLIT, $0-40
+	LDP  qLane+0(FP), (R1, R0)
+	LDP  a+16(FP), (R2, R3)
+	MOVD n+32(FP), R4
+	VLD1 0(R1), [V2.S4]        // broadcast q into V2.S4
+
+loop3:
+	CBZ    R4, done4
+	VLD1.P 16(R2), [V0.S4]
+	VLD1.P 16(R3), [V1.S4]
+	VSUB   V1.S4, V0.S4, V1.S4 // b = a - b
+	VADD   V1.S4, V2.S4, V3.S4 // t = b + q
+	VUMIN  V3.S4, V1.S4, V1.S4 // b = min(t, b)
+	VST1.P [V1.S4], 16(R0)     // res = b
+	SUB    $1, R4, R4
+	JMP    loop3
+
+done4:
+	RET

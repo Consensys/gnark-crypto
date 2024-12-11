@@ -160,7 +160,10 @@ func init() {
 }
 
 //go:noescape
-func addVec(qq *uint32, res, a, b *{{.ElementName}}, n uint64)
+func addVec(qLane *uint32, res, a, b *{{.ElementName}}, n uint64)
+
+//go:noescape
+func subVec(qLane *uint32, res, a, b *{{.ElementName}}, n uint64)
 
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
@@ -185,7 +188,21 @@ func (vector *Vector) Add(a, b Vector) {
 // Sub subtracts two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Sub(a, b Vector) {
-	subVecGeneric(*vector, a, b)
+	if len(a) != len(b) || len(a) != len(*vector) {
+		panic("vector.Sub: vectors don't have the same length")
+	}
+	n := uint64(len(a))
+	if n == 0 {
+		return
+	}
+
+	const blockSize = 4
+	subVec(&qLane[0], &(*vector)[0], &a[0], &b[0], n/blockSize)
+	if n % blockSize != 0 {
+		// call subVecGeneric on the rest
+		start := n - n % blockSize
+		subVecGeneric((*vector)[start:], a[start:], b[start:])
+	}
 }
 
 // ScalarMul multiplies a vector by a scalar element-wise and stores the result in self.
