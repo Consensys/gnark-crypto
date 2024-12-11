@@ -55,9 +55,7 @@ type Domain struct {
 // GeneratorFullMultiplicativeGroup returns a generator of 𝔽ᵣˣ
 func GeneratorFullMultiplicativeGroup() fr.Element {
 	var res fr.Element
-
-	res.SetUint64(5)
-
+	res.SetString("5")
 	return res
 }
 

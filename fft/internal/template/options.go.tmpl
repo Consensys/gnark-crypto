@@ -1,6 +1,6 @@
 import (
 	"runtime"
-	{{ template "import_fr" . }}
+	"{{ .FieldPackagePath }}"
 )
 
 // Option defines option for altering the behavior of FFT methods.
@@ -51,15 +51,15 @@ func fftOptions(opts ...Option) fftConfig {
 type DomainOption func(*domainConfig)
 
 type domainConfig struct {
-	shift    *fr.Element
+	shift    *{{ .FF }}.Element
 	withPrecompute bool
 }
 
 // WithShift sets the FrMultiplicativeGen of the domain.
 // Default is generator of the largest 2-adic subgroup.
-func WithShift(shift fr.Element) DomainOption {
+func WithShift(shift {{ .FF }}.Element) DomainOption {
 	return func(opt *domainConfig) {
-		opt.shift = new(fr.Element).Set(&shift)
+		opt.shift = new({{ .FF }}.Element).Set(&shift)
 	}
 }
 

@@ -18,7 +18,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/edwards"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/fflonk"
-	"github.com/consensys/gnark-crypto/internal/generator/fft"
 	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
 	"github.com/consensys/gnark-crypto/internal/generator/gkr"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_field"
@@ -108,9 +107,6 @@ func main() {
 
 			// generate fri on fr
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
-
-			// generate fft on fr
-			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
 
 			if conf.Equal(config.BN254) || conf.Equal(config.BLS12_377) {
 				assertNoError(sis.Generate(conf, filepath.Join(curveDir, "fr", "sis"), bgen))

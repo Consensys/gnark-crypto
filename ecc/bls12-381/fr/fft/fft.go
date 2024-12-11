@@ -7,11 +7,10 @@ package fft
 
 import (
 	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"math/big"
 	"math/bits"
-
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 )
 
 // Decimation is used in the FFT call to select decimation in time or in frequency

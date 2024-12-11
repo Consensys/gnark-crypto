@@ -6,9 +6,8 @@
 package fft
 
 import (
-	"runtime"
-
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
+	"runtime"
 )
 
 // Option defines option for altering the behavior of FFT methods.
