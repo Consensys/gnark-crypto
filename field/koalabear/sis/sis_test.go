@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
 	"math/bits"
 	"os"
 	"testing"
@@ -408,9 +407,7 @@ func TestLimbDecompositionFastPath(t *testing.T) {
 func TestUnrolledFFT(t *testing.T) {
 
 	var shift koalabear.Element
-	shift.SetString("19103219067921713944291392827692070036145651957329286315305642004821462161904") // -> 2²⁸-th root of unity of bn254
-	e := int64(1 << (28 - (6 + 1)))
-	shift.Exp(shift, big.NewInt(e))
+	shift.SetRandom()
 
 	const size = 64
 	assert := require.New(t)
