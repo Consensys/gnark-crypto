@@ -222,7 +222,7 @@ func (vector *Vector) Sum() (res {{.ElementName}}) {
 		return
 	}
 
-	const blockSize = 8
+	const blockSize = 16
 	var t [4]uint64 // stores the accumulators (not reduced mod q)
 	sumVec(&t[0], &(*vector)[0], n/blockSize)
 	// we reduce the accumulators mod q and add to res

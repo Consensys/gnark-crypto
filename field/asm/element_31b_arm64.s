@@ -47,6 +47,7 @@ done4:
 
 // sumVec(t *uint64, a *[]uint32, n uint64) res = sum(a[0...n])
 TEXT ·sumVec(SB), NOFRAME|NOSPLIT, $0-24
+	// zeroing accumulators
 	VMOVQ $0, $0, V4
 	VMOVQ $0, $0, V5
 	VMOVQ $0, $0, V6
@@ -55,19 +56,29 @@ TEXT ·sumVec(SB), NOFRAME|NOSPLIT, $0-24
 	MOVD  n+16(FP), R2
 
 loop5:
-	CBZ    R2, done6
-	VLD2.P 16(R0), [V0.S2, V1.S2]
-	VLD2.P 16(R0), [V2.S2, V3.S2]
-	VUSHLL $0, V0.S2, V0.D2       // convert to 64 bits
-	VUSHLL $0, V1.S2, V1.D2       // convert to 64 bits
-	VADD   V0.D2, V4.D2, V4.D2    // acc1 += a1
-	VADD   V1.D2, V5.D2, V5.D2    // acc2 += a2
-	VUSHLL $0, V2.S2, V2.D2       // convert to 64 bits
-	VUSHLL $0, V3.S2, V3.D2       // convert to 64 bits
-	VADD   V2.D2, V6.D2, V6.D2    // acc3 += a3
-	VADD   V3.D2, V7.D2, V7.D2    // acc4 += a4
-	SUB    $1, R2, R2
-	JMP    loop5
+	CBZ R2, done6
+
+	// blockSize is 16 uint32; we load 4 vectors of 4 uint32 at a time
+	// (4*4)*4 = 64 bytes ~= 1 cache line
+	// since our values are 31 bits, we can add 2 by 2 these vectors
+	// we are left with 2 vectors of 4x32 bits values
+	// that we accumulate in 4*2*64bits accumulators
+	// the caller will reduce mod q the accumulators.
+
+	VLD2.P  32(R0), [V0.S4, V1.S4]
+	VADD    V0.S4, V1.S4, V0.S4    // a1 += a2
+	VLD2.P  32(R0), [V2.S4, V3.S4]
+	VADD    V2.S4, V3.S4, V2.S4    // a3 += a4
+	VUSHLL  $0, V0.S2, V1.D2       // convert low words to 64 bits
+	VADD    V1.D2, V5.D2, V5.D2    // acc2 += a2
+	VUSHLL2 $0, V0.S4, V0.D2       // convert high words to 64 bits
+	VADD    V0.D2, V4.D2, V4.D2    // acc1 += a1
+	VUSHLL  $0, V2.S2, V3.D2       // convert low words to 64 bits
+	VADD    V3.D2, V7.D2, V7.D2    // acc4 += a4
+	VUSHLL2 $0, V2.S4, V2.D2       // convert high words to 64 bits
+	VADD    V2.D2, V6.D2, V6.D2    // acc3 += a3
+	SUB     $1, R2, R2
+	JMP     loop5
 
 done6:
 	VADD   V4.D2, V6.D2, V4.D2   // acc1 += acc3

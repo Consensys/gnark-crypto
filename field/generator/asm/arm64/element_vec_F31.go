@@ -123,7 +123,7 @@ func (f *FFArm64) generateSumVecF31() {
 	acc3 := arm64.V6
 	acc4 := arm64.V7
 
-	// zero out accumulators
+	f.Comment("zeroing accumulators")
 	f.VMOVQ_cst(0, 0, acc1)
 	f.VMOVQ_cst(0, 0, acc2)
 	f.VMOVQ_cst(0, 0, acc3)
@@ -143,23 +143,33 @@ func (f *FFArm64) generateSumVecF31() {
 	f.MOVD("n+16(FP)", n)
 
 	f.LABEL(loop)
-
 	f.CBZ(n, done)
 
-	const offset = 8 * 4 // we process 4 uint32 at a time
+	f.WriteLn(`
+	// blockSize is 16 uint32; we load 4 vectors of 4 uint32 at a time
+	// (4*4)*4 = 64 bytes ~= 1 cache line
+	// since our values are 31 bits, we can add 2 by 2 these vectors
+	// we are left with 2 vectors of 4x32 bits values
+	// that we accumulate in 4*2*64bits accumulators
+	// the caller will reduce mod q the accumulators.
+	`)
 
-	f.VLD2_P(offset/2, aPtr, a1.S2(), a2.S2()) // load 2*2 uint32
-	f.VLD2_P(offset/2, aPtr, a3.S2(), a4.S2()) // load 2*2 uint32
+	const offset = 8 * 4
+	f.VLD2_P(offset, aPtr, a1.S4(), a2.S4())
+	f.VADD(a1.S4(), a2.S4(), a1.S4(), "a1 += a2")
 
-	f.VUSHLL(0, a1.S2(), a1.D2(), "convert to 64 bits")
-	f.VUSHLL(0, a2.S2(), a2.D2(), "convert to 64 bits")
-	f.VADD(a1.D2(), acc1, acc1, "acc1 += a1")
+	f.VLD2_P(offset, aPtr, a3.S4(), a4.S4())
+	f.VADD(a3.S4(), a4.S4(), a3.S4(), "a3 += a4")
+
+	f.VUSHLL(0, a1.S2(), a2.D2(), "convert low words to 64 bits")
 	f.VADD(a2.D2(), acc2, acc2, "acc2 += a2")
+	f.VUSHLL2(0, a1.S4(), a1.D2(), "convert high words to 64 bits")
+	f.VADD(a1.D2(), acc1, acc1, "acc1 += a1")
 
-	f.VUSHLL(0, a3.S2(), a3.D2(), "convert to 64 bits")
-	f.VUSHLL(0, a4.S2(), a4.D2(), "convert to 64 bits")
-	f.VADD(a3.D2(), acc3, acc3, "acc3 += a3")
+	f.VUSHLL(0, a3.S2(), a4.D2(), "convert low words to 64 bits")
 	f.VADD(a4.D2(), acc4, acc4, "acc4 += a4")
+	f.VUSHLL2(0, a3.S4(), a3.D2(), "convert high words to 64 bits")
+	f.VADD(a3.D2(), acc3, acc3, "acc3 += a3")
 
 	// decrement n
 	f.SUB(1, n, n)
