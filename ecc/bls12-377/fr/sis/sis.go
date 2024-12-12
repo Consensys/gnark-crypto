@@ -340,9 +340,9 @@ func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValue
 	// bitwise decomposition of the buffer, in order to build m (the vector to hash)
 	// as a list of polynomials, whose coefficients are less than r.B bits long.
 	// Say buf=[0xbe,0x0f]. As a stream of bits it is interpreted like this:
-	// 10111110 00001111. BitAt(0)=1 (=leftmost bit), bitAt(1)=0 (=second leftmost bit), etc.
+	// 10111110 00001111. getIthBit(0)=1 (=leftmost bit), getIthBit(1)=0 (=second leftmost bit), etc.
 	nbBits := len(buf) * 8
-	bitAt := func(i int) uint8 {
+	getIthBit := func(i int) uint8 {
 		k := i / 8
 		if k >= len(buf) {
 			return 0
@@ -364,7 +364,7 @@ func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValue
 			// and set the bits from LSB to MSB.
 			at := fieldStart + fr.Bytes*8 - bitInField - 1
 
-			m[mPos][0] |= uint64(bitAt(at) << j)
+			m[mPos][0] |= uint64(getIthBit(at) << j)
 
 			bitInField++
 
