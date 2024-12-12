@@ -6,13 +6,14 @@ import json
 # Babybear Fr
 #2^31 - 2^27 + 1
 R = 2**31-2**27+1
-FR_BYTE_SIZE = 1
+FR_BYTE_SIZE = 4
+FR_BIT_SIZE = FR_BYTE_SIZE*8
 FR = GF(R)
 FR.<x> = FR[]
 Z = IntegerRing()
 
 # Montgomery constant
-RR = FR(2**32)
+RR = FR(2**(FR_BYTE_SIZE*8))
 
 # utils
 
@@ -61,7 +62,7 @@ def toBytes(m, s):
         the byte representation of m as a byte array, as
         in gnark-crypto.
     """
-    _m = rz(m)
+    _m = Z(m)
     res = s*[0]
     mask = 255
     for i in range(s):
@@ -79,8 +80,8 @@ def splitCoeffs(b, logTwoBound):
     Returns:
         an array of coeffs, each coeff being the i-th chunk of logTwoBounds bits of b.
         The coeffs are formed as follow. The input byte string is implicitly parsed as
-        a slice of field elements of 32 bytes each in bigendian-natural form. the outputs
-        are in a little-endian form. That is, each chunk of size 256 / logTwoBounds of the
+        a slice of field elements of FR_BYTE_SIZE bytes each in bigendian-natural form. the outputs
+        are in a little-endian form. That is, each chunk of size FR_BIT_SIZE / logTwoBounds of the
         output can be seen as a polynomial, such that, when evaluated at 2 we get the original
         field element.
     """
@@ -88,24 +89,24 @@ def splitCoeffs(b, logTwoBound):
     res = [] 
     i = 0
 
-    if len(b) % frByteSize != 0:
+    if len(b) % FR_BYTE_SIZE != 0:
         exit("the length of b should divide the field size")
 
     # The number of fields that we are parsing. In case we have that
     # logTwoBound does not divide the number of bits to represent a
     # field element, we do not merge them.
-    nbField = len(b) / 32
-    nbBitsInField = int(frByteSize * 8)
+    nbField = len(b) / FR_BYTE_SIZE
+    nbBitsInField = int(FR_BYTE_SIZE * 8)
     
     for fieldID in range(nbField):
-        fieldStart = fieldID * 256
+        fieldStart = fieldID * FR_BIT_SIZE
         e = 0
         for bitInField in range(nbBitsInField):
             j = bitInField % logTwoBound
             at = fieldStart + nbBitsInField - 1 - bitInField
             e |= get_ith_bit(at, b) << j 
             # Switch to a new limb
-            if j == logTwoBound - 1 or bitInField == frByteSize * 8 - 1:
+            if j == logTwoBound - 1 or bitInField == FR_BYTE_SIZE * 8 - 1:
                 res.append(e)
                 e = 0
 
@@ -138,7 +139,7 @@ class SIS:
                 logTwoBound: bound of SIS
                 maxNbElementsToHash
         """
-        capacity = maxNbElementsToHash * frByteSize
+        capacity = maxNbElementsToHash * FR_BYTE_SIZE
         degree = 1 << logTwoDegree
 
         n = capacity * 8 / logTwoBound  # number of coefficients
@@ -168,7 +169,7 @@ class SIS:
         """
         b = []
         for i in inputs:
-            b.extend(toBytes(i, 32))
+            b.extend(toBytes(i, FR_BYTE_SIZE))
 
         return self.hash_bytes(b)
 
