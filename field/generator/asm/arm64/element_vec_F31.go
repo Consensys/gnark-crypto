@@ -240,12 +240,12 @@ func (f *FFArm64) generateMulVecF31() {
 	// let's compute p1 := a1 * b1
 	f.VPMULL(a.S4(), b.S4(), p1.D2())
 	// let's move the low words in t
-	f.VMOV(p1.D2(), t.D2())
+	// f.VMOV(p1.D2(), t.D2())
 
 	f.VUSHLL2(0, a.S4(), a.D2(), "convert high words to 64 bits")
 	f.VUSHLL2(0, b.S4(), b.D2(), "convert high words to 64 bits")
 
-	f.VMUL(a.S4(), b.S4(), b.S4(), "b = a * b")
+	// f.VMUL(a.S4(), b.S4(), b.S4(), "b = a * b")
 	f.VSUB(q.S4(), b.S4(), t.S4(), "t = q - b")
 	f.VUMIN(t.S4(), b.S4(), b.S4(), "b = min(t, b)")
 	f.VST1_P(b.S4(), resPtr, offset, "res = b")
@@ -257,7 +257,7 @@ func (f *FFArm64) generateMulVecF31() {
 	f.LABEL(done)
 
 	registers.Push(resPtr, aPtr, bPtr, n)
-	registers.PushV(a, b, t, q, a1, b1)
+	registers.PushV(a, b, t, q) //, a1, b1)
 
 	f.RET()
 }

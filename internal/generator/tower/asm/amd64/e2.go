@@ -18,11 +18,11 @@ type Fq2Amd64 struct {
 	*amd64.FFAmd64
 	config config.Curve
 	w      io.Writer
-	F      *field.FieldConfig
+	F      *field.Field
 }
 
 // NewFq2Amd64 ...
-func NewFq2Amd64(w io.Writer, F *field.FieldConfig, config config.Curve) *Fq2Amd64 {
+func NewFq2Amd64(w io.Writer, F *field.Field, config config.Curve) *Fq2Amd64 {
 	return &Fq2Amd64{
 		amd64.NewFFAmd64(w, F.NbWords),
 		config,

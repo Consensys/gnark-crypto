@@ -24,23 +24,17 @@ func main() {
 	}
 
 	// generate assembly
-	asmDir := filepath.Join("..", "asm")
 	asmDirIncludePath := filepath.Join("..", "asm")
-	if err := generator.GenerateAMD64(1, 31, asmDir, true); err != nil {
-		panic(err)
-	}
-
-	// generate arm
-	if err := generator.GenerateARM64(1, 31, asmDir, true); err != nil {
-		panic(err)
-	}
 
 	for _, f := range fields {
 		fc, err := config.NewFieldConfig(f.name, "Element", f.modulus, true)
 		if err != nil {
 			panic(err)
 		}
-		if err := generator.GenerateFF(fc, filepath.Join("..", f.name), asmDirIncludePath, asmDirIncludePath); err != nil {
+		if err := generator.GenerateFF(fc, filepath.Join("..", f.name),
+			generator.WithASM(&config.Assembly{BuildDir: asmDirIncludePath, IncludeDir: asmDirIncludePath}),
+			generator.WithFFT(&config.FFT{}), // TODO @gbotrel
+		); err != nil {
 			panic(err)
 		}
 		fmt.Println("successfully generated", f.name, "field")

@@ -221,6 +221,7 @@ func GenerateCommonASM(w io.Writer, nbWords, nbBits int, hasVector bool) error {
 		if nbBits == 31 {
 			return GenerateF31ASM(f, hasVector)
 		} else {
+			fmt.Printf("nbWords: %d, nbBits: %d\n", nbWords, nbBits)
 			panic("not implemented")
 		}
 
