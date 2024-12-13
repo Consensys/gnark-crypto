@@ -55,7 +55,9 @@ type Domain struct {
 // GeneratorFullMultiplicativeGroup returns a generator of 𝔽ᵣˣ
 func GeneratorFullMultiplicativeGroup() koalabear.Element {
 	var res koalabear.Element
-	res.SetString("3")
+
+	res.SetUint64("3")
+
 	return res
 }
 

@@ -48,7 +48,9 @@ type Domain struct {
 // GeneratorFullMultiplicativeGroup returns a generator of 𝔽ᵣˣ
 func GeneratorFullMultiplicativeGroup() {{ .FF }}.Element {
 	var res {{ .FF }}.Element
-	res.SetString("{{ .GeneratorFullMultiplicativeGroup }}"	)
+	
+	res.SetUint64("{{ .GeneratorFullMultiplicativeGroup }}"	)
+
 	return res
 }
 

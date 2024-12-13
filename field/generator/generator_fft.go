@@ -15,7 +15,7 @@ import (
 
 func generateFFT(F *config.Field, fft *config.FFT, outputDir string) error {
 
-	if fft.GeneratorFullMultiplicativeGroup == "" || fft.GeneratorMaxTwoAdicSubgroup == "" {
+	if fft.GeneratorFullMultiplicativeGroup == 0 || fft.GeneratorMaxTwoAdicSubgroup == "" {
 		// try to populate ourselves
 		// TODO @gbotrel right now hardcoded lookup tables, we should do better.
 		data, ok := fftConfigs[F.Modulus]
@@ -160,70 +160,70 @@ func init() {
 	// TODO @gbotrel temporary
 	// bls12-377
 	fftConfigs[eccconfig.BLS12_377.FrModulus] = config.NewConfig(
-		"22",
+		22,
 		"8065159656716812877374967518403273466521432693661810619979959746626482506078",
 		"47",
 	)
 
 	// bls12-381
 	fftConfigs[eccconfig.BLS12_381.FrModulus] = (config.NewConfig(
-		"7",
+		7,
 		"10238227357739495823651030575849232062558860180284477541189508159991286009131",
 		"32",
 	))
 
 	// bn254
 	fftConfigs[eccconfig.BN254.FrModulus] = (config.NewConfig(
-		"5",
+		5,
 		"19103219067921713944291392827692070036145651957329286315305642004821462161904",
 		"28",
 	))
 
 	// bw6-761
 	fftConfigs[eccconfig.BW6_761.FrModulus] = (config.NewConfig(
-		"15",
+		15,
 		"32863578547254505029601261939868325669770508939375122462904745766352256812585773382134936404344547323199885654433",
 		"46",
 	))
 
 	// bw6-633
 	fftConfigs[eccconfig.BW6_633.FrModulus] = (config.NewConfig(
-		"13",
+		13,
 		"4991787701895089137426454739366935169846548798279261157172811661565882460884369603588700158257",
 		"20",
 	))
 
 	// bls24-315
 	fftConfigs[eccconfig.BLS24_315.FrModulus] = (config.NewConfig(
-		"7",
+		7,
 		"1792993287828780812362846131493071959406149719416102105453370749552622525216",
 		"22",
 	))
 
 	// bls24-317
 	fftConfigs[eccconfig.BLS24_317.FrModulus] = (config.NewConfig(
-		"7",
+		7,
 		"16532287748948254263922689505213135976137839535221842169193829039521719560631",
 		"60",
 	))
 
 	// goldilocks
 	fftConfigs["18446744069414584321"] = (config.NewConfig(
-		"7",
+		7,
 		"1753635133440165772",
 		"32",
 	))
 
 	// koala bear
 	fftConfigs["2130706433"] = (config.NewConfig(
-		"3",
+		3,
 		"1791270792",
 		"24",
 	))
 
 	// baby bear
 	fftConfigs["2013265921"] = (config.NewConfig(
-		"31",
+		31,
 		"440564289",
 		"27",
 	))
