@@ -35,7 +35,11 @@ func GenerateFF(F *config.Field, outputDir string, options ...Option) error {
 	}
 
 	// generate field
-	if err := generateField(F, outputDir, cfg.asmConfig.IncludeDir, hashArm64, hashAMD64); err != nil {
+	asmIncludeDir := ""
+	if cfg.HasArm64() || cfg.HasAMD64() {
+		asmIncludeDir = cfg.asmConfig.IncludeDir
+	}
+	if err := generateField(F, outputDir, asmIncludeDir, hashArm64, hashAMD64); err != nil {
 		return err
 	}
 

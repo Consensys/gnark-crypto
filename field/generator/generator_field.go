@@ -106,14 +106,14 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 	var err error
 
 	if F.GenerateOpsAMD64 {
-		amd64d, err = newASMWrapperData(hashAMD64, asmDirIncludePath, amd64.ElementASMFileName, F.NbWords)
+		amd64d, err = newASMWrapperData(hashAMD64, asmDirIncludePath, amd64.ElementASMFileName(F.NbWords, F.NbBits))
 		if err != nil {
 			return err
 		}
 	}
 
 	if F.GenerateOpsARM64 {
-		arm64d, err = newASMWrapperData(hashArm64, asmDirIncludePath, arm64.ElementASMFileName, F.NbWords)
+		arm64d, err = newASMWrapperData(hashArm64, asmDirIncludePath, arm64.ElementASMFileName(F.NbWords, F.NbBits))
 		if err != nil {
 			return err
 		}
@@ -126,10 +126,16 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 	} else if !F.GenerateOpsARM64 {
 		pureGoBuildTag = "purego || (!amd64)"
 	}
+
 	pureGoVectorBuildTag := "purego || (!amd64 && !arm64)"
 	if !F.GenerateVectorOpsAMD64 && !F.GenerateVectorOpsARM64 {
 		pureGoVectorBuildTag = ""
 	} else if !F.GenerateVectorOpsARM64 {
+		pureGoVectorBuildTag = "purego || (!amd64)"
+	}
+
+	if F.F31 {
+		pureGoBuildTag = "" // always generate pure go for F31
 		pureGoVectorBuildTag = "purego || (!amd64)"
 	}
 
@@ -145,18 +151,20 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 	g.Go(generate("element_amd64.s", []string{element.IncludeASM}, only(F.GenerateOpsAMD64), withBuildTag("!purego"), withData(amd64d)))
 	g.Go(generate("element_arm64.s", []string{element.IncludeASM}, only(F.GenerateOpsARM64), withBuildTag("!purego"), withData(arm64d)))
 
-	g.Go(generate("element_amd64.go", []string{element.OpsAMD64, element.MulDoc}, only(F.GenerateOpsAMD64), withBuildTag("!purego")))
-	g.Go(generate("element_arm64.go", []string{element.OpsARM64, element.MulNoCarry, element.Reduce}, only(F.GenerateOpsARM64), withBuildTag("!purego")))
+	g.Go(generate("element_amd64.go", []string{element.OpsAMD64, element.MulDoc}, only(!F.F31 && F.GenerateOpsAMD64), withBuildTag("!purego")))
+	g.Go(generate("element_arm64.go", []string{element.OpsARM64, element.MulNoCarry, element.Reduce}, only(!F.F31 && F.GenerateOpsARM64), withBuildTag("!purego")))
 
 	g.Go(generate("element_purego.go", []string{element.OpsNoAsm, element.MulCIOS, element.MulNoCarry, element.Reduce, element.MulDoc}, withBuildTag(pureGoBuildTag)))
 
-	g.Go(generate("vector_amd64.go", []string{element.VectorOpsAmd64}, only(F.GenerateVectorOpsAMD64), withBuildTag("!purego")))
-	g.Go(generate("vector_arm64.go", []string{element.VectorOpsArm64}, only(F.GenerateVectorOpsARM64), withBuildTag("!purego")))
+	g.Go(generate("vector_amd64.go", []string{element.VectorOpsAmd64}, only(!F.F31 && F.GenerateVectorOpsAMD64), withBuildTag("!purego")))
+	g.Go(generate("vector_arm64.go", []string{element.VectorOpsArm64}, only(!F.F31 && F.GenerateVectorOpsARM64), withBuildTag("!purego")))
+
+	g.Go(generate("vector_amd64.go", []string{element.VectorOpsAmd64F31}, only(F.F31 && F.GenerateVectorOpsAMD64), withBuildTag("!purego")))
 
 	g.Go(generate("vector_purego.go", []string{element.VectorOpsPureGo}, withBuildTag(pureGoVectorBuildTag)))
 
-	g.Go(generate("asm_adx.go", []string{element.Asm}, only(F.GenerateOpsAMD64), withBuildTag("!noadx")))
-	g.Go(generate("asm_noadx.go", []string{element.AsmNoAdx}, only(F.GenerateOpsAMD64), withBuildTag("noadx")))
+	g.Go(generate("asm_adx.go", []string{element.Asm}, only(!F.F31 && F.GenerateOpsAMD64), withBuildTag("!noadx")))
+	g.Go(generate("asm_noadx.go", []string{element.AsmNoAdx}, only(!F.F31 && F.GenerateOpsAMD64), withBuildTag("noadx")))
 	g.Go(generate("asm_avx.go", []string{element.Avx}, only(F.GenerateVectorOpsAMD64), withBuildTag("!noavx")))
 	g.Go(generate("asm_noavx.go", []string{element.NoAvx}, only(F.GenerateVectorOpsAMD64), withBuildTag("noavx")))
 
