@@ -1,12 +1,13 @@
 import (
 	"math/bits"
 	"runtime"
-	{{ template "import_fr" . }}
+	
+	"{{ .FieldPackagePath }}"
 )
 
 // BitReverse applies the bit-reversal permutation to v.
 // len(v) must be a power of 2
-func BitReverse(v []fr.Element) {
+func BitReverse(v []{{ .FF }}.Element) {
 	n := uint64(len(v))
 	if bits.OnesCount64(n) != 1 {
 		panic("len(a) must be a power of 2")
@@ -21,7 +22,7 @@ func BitReverse(v []fr.Element) {
 
 // bitReverseNaive applies the bit-reversal permutation to v.
 // len(v) must be a power of 2
-func bitReverseNaive(v []fr.Element) {
+func bitReverseNaive(v []{{ .FF }}.Element) {
 	n := uint64(len(v))
 	nn := uint64(64 - bits.TrailingZeros64(n))
 
@@ -51,7 +52,7 @@ func bitReverseNaive(v []fr.Element) {
 //	 https://github.com/mratsim/constantine/blob/d51699248db04e29c7b1ad97e0bafa1499db00b5/constantine/math/polynomials/fft.nim#L205
 // 	 by Mamy Ratsimbazafy (@mratsim).
 //
-func bitReverseCobraInPlace(v []fr.Element) {
+func bitReverseCobraInPlace(v []{{ .FF }}.Element) {
 	logN := uint64(bits.Len64(uint64(len(v))) - 1)
 	logTileSize := deriveLogTileSize(logN)
 	logBLen := logN - 2*logTileSize
@@ -78,7 +79,7 @@ func bitReverseCobraInPlace(v []fr.Element) {
 	//
 	// for most sizes of interest, this tile size choice doesn't yield good results;
 	// we find that a tile size of 2**9 gives best results for input sizes from 2**21 up to 2**27+.
-	t := make([]fr.Element, tileSize*tileSize)
+	t := make([]{{ .FF }}.Element, tileSize*tileSize)
 
 
 	// see https://csaws.cs.technion.ac.il/~itai/Courses/Cache/bit.pdf
@@ -124,7 +125,7 @@ func bitReverseCobraInPlace(v []fr.Element) {
 }
 
 
-func bitReverseCobra(v []fr.Element) {
+func bitReverseCobra(v []{{ .FF }}.Element) {
 	switch len(v) {
 	case 1 << 21:
 		bitReverseCobraInPlace_9_21(v)
@@ -161,22 +162,22 @@ func deriveLogTileSize(logN uint64) uint64 {
 }
 
 
-{{bitReverseCobraInPlace 9 21}}
-{{bitReverseCobraInPlace 9 22}}
-{{bitReverseCobraInPlace 9 23}}
-{{bitReverseCobraInPlace 9 24}}
-{{bitReverseCobraInPlace 9 25}}
-{{bitReverseCobraInPlace 9 26}}
-{{bitReverseCobraInPlace 9 27}}
+{{bitReverseCobraInPlace 9 21 $.FF }}
+{{bitReverseCobraInPlace 9 22 $.FF }}
+{{bitReverseCobraInPlace 9 23 $.FF }}
+{{bitReverseCobraInPlace 9 24 $.FF }}
+{{bitReverseCobraInPlace 9 25 $.FF }}
+{{bitReverseCobraInPlace 9 26 $.FF }}
+{{bitReverseCobraInPlace 9 27 $.FF }}
 
 
-{{define "bitReverseCobraInPlace logTileSize logN"}}
+{{define "bitReverseCobraInPlace logTileSize logN FF"}}
 
 // bitReverseCobraInPlace_{{.logTileSize}}_{{.logN}} applies the bit-reversal permutation to v.
 // len(v) must be 1 << {{.logN}}.
 // see bitReverseCobraInPlace for more details; this function is specialized for {{.logTileSize}},
 // as it declares the t buffer and various constants statically for performance.
-func bitReverseCobraInPlace_{{.logTileSize}}_{{.logN}}(v []fr.Element) {
+func bitReverseCobraInPlace_{{.logTileSize}}_{{.logN}}(v []{{ .FF }}.Element) {
 	const (
 		logTileSize = uint64({{.logTileSize}})
 		tileSize = uint64(1) << logTileSize
@@ -186,7 +187,7 @@ func bitReverseCobraInPlace_{{.logTileSize}}_{{.logN}}(v []fr.Element) {
 		bLen = uint64(1) << logBLen
 	)
 
-	var t [tileSize * tileSize]fr.Element
+	var t [tileSize * tileSize]{{ .FF }}.Element
 	{{$k := sub 64  .logTileSize}}
 	{{$l := .logTileSize}}
 	{{$tileSize := shl 1 .logTileSize}}
