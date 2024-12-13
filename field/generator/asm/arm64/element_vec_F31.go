@@ -194,3 +194,70 @@ func (f *FFArm64) generateSumVecF31() {
 	f.RET()
 
 }
+
+func (f *FFArm64) generateMulVecF31() {
+	f.Comment("mulVec(res, a, b *Element, n uint64)")
+	registers := f.FnHeader("mulVec", 0, 32)
+	defer f.AssertCleanStack(0, 0)
+	defer registers.AssertCleanState()
+
+	// registers
+	resPtr := registers.Pop()
+	aPtr := registers.Pop()
+	bPtr := registers.Pop()
+	n := registers.Pop()
+
+	// labels
+	loop := f.NewLabel("loop")
+	done := f.NewLabel("done")
+
+	// load arguments
+	f.LDP("res+0(FP)", resPtr, aPtr)
+	f.LDP("b+16(FP)", bPtr, n)
+
+	a := registers.PopV("a")
+	b := registers.PopV("b")
+	t := registers.PopV("t")
+	q := registers.PopV("q")
+	qInvNeg := registers.PopV("qInvNeg")
+	p1 := registers.PopV("p1")
+
+	f.VMOVS("$const_q", q)
+	f.VDUP(q.SAt(0), q.S4(), "broadcast q into "+string(q))
+
+	f.VMOVS("$const_qInvNeg", qInvNeg)
+	f.VDUP(qInvNeg.SAt(0), qInvNeg.S4(), "broadcast qInvNeg into "+string(qInvNeg))
+
+	f.LABEL(loop)
+
+	f.CBZ(n, done)
+
+	const offset = 4 * 4 // we process 4 uint32 at a time
+
+	f.VLD1_P(offset, aPtr, a.S4())
+	f.VLD1_P(offset, bPtr, b.S4())
+
+	// let's compute p1 := a1 * b1
+	f.VPMULL(a.S4(), b.S4(), p1.D2())
+	// let's move the low words in t
+	f.VMOV(p1.D2(), t.D2())
+
+	f.VUSHLL2(0, a.S4(), a.D2(), "convert high words to 64 bits")
+	f.VUSHLL2(0, b.S4(), b.D2(), "convert high words to 64 bits")
+
+	f.VMUL(a.S4(), b.S4(), b.S4(), "b = a * b")
+	f.VSUB(q.S4(), b.S4(), t.S4(), "t = q - b")
+	f.VUMIN(t.S4(), b.S4(), b.S4(), "b = min(t, b)")
+	f.VST1_P(b.S4(), resPtr, offset, "res = b")
+
+	// decrement n
+	f.SUB(1, n, n)
+	f.JMP(loop)
+
+	f.LABEL(done)
+
+	registers.Push(resPtr, aPtr, bPtr, n)
+	registers.PushV(a, b, t, q, a1, b1)
+
+	f.RET()
+}
