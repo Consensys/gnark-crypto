@@ -9,7 +9,7 @@ import (
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator"
-	field "github.com/consensys/gnark-crypto/field/generator/config"
+	fieldConfig "github.com/consensys/gnark-crypto/field/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/poseidon2"
@@ -51,17 +51,20 @@ func main() {
 	asmDirBuildPath := filepath.Join(baseDir, "field", "asm")
 	asmDirIncludePath := filepath.Join(baseDir, "..", "field", "asm")
 
-	// generate common assembly files depending on field number of words
-	assertNoError(generator.GenerateAMD64(4, asmDirBuildPath, true))
-	assertNoError(generator.GenerateAMD64(5, asmDirBuildPath, false))
-	assertNoError(generator.GenerateAMD64(6, asmDirBuildPath, false))
-	assertNoError(generator.GenerateAMD64(10, asmDirBuildPath, false))
-	assertNoError(generator.GenerateAMD64(12, asmDirBuildPath, false))
+	asmConfig := &fieldConfig.Assembly{BuildDir: asmDirBuildPath, IncludeDir: asmDirIncludePath}
+	fftConfig := &fieldConfig.FFT{}
 
-	assertNoError(generator.GenerateARM64(4, asmDirBuildPath, false))
-	assertNoError(generator.GenerateARM64(6, asmDirBuildPath, false))
-	assertNoError(generator.GenerateARM64(10, asmDirBuildPath, false))
-	assertNoError(generator.GenerateARM64(12, asmDirBuildPath, false))
+	// generate common assembly files depending on field number of words
+	// assertNoError(generator.GenerateAMD64(4, asmDirBuildPath, true))
+	// assertNoError(generator.GenerateAMD64(5, asmDirBuildPath, false))
+	// assertNoError(generator.GenerateAMD64(6, asmDirBuildPath, false))
+	// assertNoError(generator.GenerateAMD64(10, asmDirBuildPath, false))
+	// assertNoError(generator.GenerateAMD64(12, asmDirBuildPath, false))
+
+	// assertNoError(generator.GenerateARM64(4, asmDirBuildPath, false))
+	// assertNoError(generator.GenerateARM64(6, asmDirBuildPath, false))
+	// assertNoError(generator.GenerateARM64(10, asmDirBuildPath, false))
+	// assertNoError(generator.GenerateARM64(12, asmDirBuildPath, false))
 
 	var wg sync.WaitGroup
 	for _, conf := range config.Curves {
@@ -72,18 +75,18 @@ func main() {
 
 			var err error
 
-			conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
+			conf.Fp, err = fieldConfig.NewFieldConfig("fp", "Element", conf.FpModulus, true)
 			assertNoError(err)
 
-			conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
+			conf.Fr, err = fieldConfig.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
 			assertNoError(err)
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
-			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr"), asmDirBuildPath, asmDirIncludePath))
-			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp"), asmDirBuildPath, asmDirIncludePath))
+			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr"), generator.WithASM(asmConfig), generator.WithFFT(fftConfig)))
+			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp"), generator.WithASM(asmConfig), generator.WithFFT(fftConfig)))
 
 			// generate ecdsa
 			assertNoError(ecdsa.Generate(conf, curveDir, bgen))

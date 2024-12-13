@@ -20,8 +20,8 @@ var (
 	errParseModulus = errors.New("can't parse modulus")
 )
 
-// FieldConfig precomputed values used in template for code generation of field element APIs
-type FieldConfig struct {
+// Field precomputed values used in template for code generation of field element APIs
+type Field struct {
 	PackageName               string
 	ElementName               string
 	ModulusBig                *big.Int
@@ -85,7 +85,7 @@ type Word struct {
 // NewFieldConfig returns a data structure with needed information to generate apis for field element
 //
 // See field/generator package
-func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) (*FieldConfig, error) {
+func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) (*Field, error) {
 	// parse modulus
 	var bModulus big.Int
 	if _, ok := bModulus.SetString(modulus, 0); !ok {
@@ -93,7 +93,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	}
 
 	// field info
-	F := &FieldConfig{
+	F := &Field{
 		PackageName: packageName,
 		ElementName: elementName,
 		Modulus:     bModulus.Text(10),
@@ -354,7 +354,7 @@ func extendedEuclideanAlgo(r, q, rInv, qInv *big.Int) {
 
 // StringToMont takes an element written in string form, and returns it in Montgomery form
 // Useful for hard-coding in implementation field elements from standards documents
-func (f *FieldConfig) StringToMont(str string) big.Int {
+func (f *Field) StringToMont(str string) big.Int {
 
 	var i big.Int
 	i.SetString(str, 0)
@@ -363,14 +363,14 @@ func (f *FieldConfig) StringToMont(str string) big.Int {
 	return i
 }
 
-func (f *FieldConfig) ToMont(nonMont big.Int) big.Int {
+func (f *Field) ToMont(nonMont big.Int) big.Int {
 	var mont big.Int
 	mont.Lsh(&nonMont, uint(f.NbWords)*uint(f.Word.BitSize))
 	mont.Mod(&mont, f.ModulusBig)
 	return mont
 }
 
-func (f *FieldConfig) FromMont(nonMont *big.Int, mont *big.Int) *FieldConfig {
+func (f *Field) FromMont(nonMont *big.Int, mont *big.Int) *Field {
 
 	if f.NbWords == 0 {
 		nonMont.SetInt64(0)
@@ -384,7 +384,7 @@ func (f *FieldConfig) FromMont(nonMont *big.Int, mont *big.Int) *FieldConfig {
 	return f
 }
 
-func (f *FieldConfig) Exp(res *big.Int, x *big.Int, pow *big.Int) *FieldConfig {
+func (f *Field) Exp(res *big.Int, x *big.Int, pow *big.Int) *Field {
 	res.SetInt64(1)
 
 	for i := pow.BitLen() - 1; ; {
@@ -405,7 +405,7 @@ func (f *FieldConfig) Exp(res *big.Int, x *big.Int, pow *big.Int) *FieldConfig {
 	return f
 }
 
-func (f *FieldConfig) halve(res *big.Int, x *big.Int) {
+func (f *Field) halve(res *big.Int, x *big.Int) {
 	var z big.Int
 	if x.Bit(0) == 0 {
 		z.Set(x)
@@ -415,17 +415,17 @@ func (f *FieldConfig) halve(res *big.Int, x *big.Int) {
 	res.Rsh(&z, 1)
 }
 
-func (f *FieldConfig) Mul(z *big.Int, x *big.Int, y *big.Int) *FieldConfig {
+func (f *Field) Mul(z *big.Int, x *big.Int, y *big.Int) *Field {
 	z.Mul(x, y).Mod(z, f.ModulusBig)
 	return f
 }
 
-func (f *FieldConfig) Add(z *big.Int, x *big.Int, y *big.Int) *FieldConfig {
+func (f *Field) Add(z *big.Int, x *big.Int, y *big.Int) *Field {
 	z.Add(x, y).Mod(z, f.ModulusBig)
 	return f
 }
 
-func (f *FieldConfig) ToMontSlice(x []big.Int) []big.Int {
+func (f *Field) ToMontSlice(x []big.Int) []big.Int {
 	z := make(Element, len(x))
 	for i := 0; i < len(x); i++ {
 		z[i] = f.ToMont(x[i])
@@ -448,7 +448,7 @@ func CoordNameForExtensionDegree(degree uint8) string {
 	panic(fmt.Sprint("unknown extension degree", degree))
 }
 
-func (f *FieldConfig) WriteElement(element Element) string {
+func (f *Field) WriteElement(element Element) string {
 	var builder strings.Builder
 
 	builder.WriteString("{")

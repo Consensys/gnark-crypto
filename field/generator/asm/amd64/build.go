@@ -213,7 +213,7 @@ func (f *FFAmd64) mu() string {
 	return "$const_mu"
 }
 
-func GenerateFieldWrapper(w io.Writer, F *config.FieldConfig, asmDirBuildPath, asmDirIncludePath string) error {
+func GenerateFieldWrapper(w io.Writer, F *config.Field, asmDirBuildPath, asmDirIncludePath string) error {
 	// for each field we generate the defines for the modulus and the montgomery constant
 	f := NewFFAmd64(w, F.NbWords)
 
