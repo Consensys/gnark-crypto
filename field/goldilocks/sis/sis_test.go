@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"math/bits"
 	"os"
 	"testing"
@@ -106,6 +107,52 @@ func TestReference(t *testing.T) {
 				}
 			}
 
+		}
+	}
+
+}
+
+func TestDecomposition(t *testing.T) {
+
+	var montConstant goldilocks.Element
+	var bMontConstant big.Int
+	bMontConstant.SetUint64(1)
+	bMontConstant.Lsh(&bMontConstant, goldilocks.Bytes*8)
+	montConstant.SetBigInt(&bMontConstant)
+
+	nbElmts := 10
+	a := make([]goldilocks.Element, nbElmts)
+	for i := 0; i < nbElmts; i++ {
+		a[i].SetRandom()
+	}
+	var buf bytes.Buffer
+	for i := 0; i < nbElmts; i++ {
+		buf.Write(a[i].Marshal())
+	}
+	logTwoBound := 2
+	m := make(goldilocks.Vector, nbElmts*goldilocks.Bytes*8/logTwoBound)
+	m2 := make(goldilocks.Vector, nbElmts*goldilocks.Bytes*8/logTwoBound)
+
+	// the limbs are set as is, they are NOT converted in Montgomery form
+	limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
+	limbDecomposeBytesFast_2(buf.Bytes(), m2, logTwoBound, 4, nil)
+
+	for i := 0; i < len(m); i++ {
+		m[i].Mul(&m[i], &montConstant)
+		m2[i].Mul(&m2[i], &montConstant)
+	}
+	var x goldilocks.Element
+	x.SetUint64(1 << logTwoBound)
+
+	coeffsPerFieldsElmt := goldilocks.Bytes * 8 / logTwoBound
+	for i := 0; i < nbElmts; i++ {
+		r := eval(m[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
+		if !r.Equal(&a[i]) {
+			t.Fatal("limbDecomposeBytes failed")
+		}
+		r = eval(m2[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
+		if !r.Equal(&a[i]) {
+			t.Fatal("limbDecomposeBytesFast_2 failed")
 		}
 	}
 
@@ -376,47 +423,6 @@ func (r *RSis) Hash(v []goldilocks.Element) ([]goldilocks.Element, error) {
 		return nil, err
 	}
 	return result, nil
-}
-
-func TestDecomposition(t *testing.T) {
-
-	var montConstant goldilocks.Element
-	var bMontConstant big.Int
-	bMontConstant.SetUint64(1)
-	bMontConstant.Lsh(&bMontConstant, goldilocks.Bytes*8)
-	montConstant.SetBigInt(&bMontConstant)
-
-	a := make([]goldilocks.Element, 1)
-	a[0].SetRandom()
-
-	var buf bytes.Buffer
-	buf.Write(a[0].Marshal())
-
-	logTwoBound := 2
-
-	m := make(goldilocks.Vector, goldilocks.Bytes*8/logTwoBound)
-
-	// the limbs are set as is, they are NOT converted in Montgomery form
-	limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
-	for i := 0; i < len(m); i++ {
-		m[i].Mul(&m[i], &montConstant)
-	}
-
-	var x goldilocks.Element
-	x.SetUint64(1 << logTwoBound)
-	r := eval(m, x)
-	if !r.Equal(&a[0]) {
-		t.Fatal("limb splitting went wrong")
-	}
-
-}
-
-func eval(p []goldilocks.Element, x goldilocks.Element) goldilocks.Element {
-	var res goldilocks.Element
-	for i := len(p) - 1; i >= 0; i-- {
-		res.Mul(&res, &x).Add(&res, &p[i])
-	}
-	return res
 }
 
 func TestLimbDecompositionFastPath(t *testing.T) {

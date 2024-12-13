@@ -323,6 +323,37 @@ func LimbDecomposeBytes(buf []byte, m goldilocks.Vector, logTwoBound int) {
 	limbDecomposeBytes(buf, m, logTwoBound, 0, nil)
 }
 
+// From a slice of field elements m:=[a_0, a_1, ...]
+// Doing h.Sum(h.Write([Marshal[a_i] for i in len(m)])) is the same than
+// writing the a_i in little endian, and then taking logTwoBound bits at a time.
+//
+// ex: m := [0x1, 0x3]
+// in the hash buffer, it is interpreted like that as a stream of bits:
+// [100...0 110...0] corresponding to [0x1, 0x3] in little endian, so first bit = LSbit
+// then the stream of bits is splitted in chunks of logTwoBound bits.
+//
+// This function is called when logTwoBound divides the number of bits used to represent a
+// goldilocks element.
+func limbDecomposeBytesFast_2(buf []byte, m goldilocks.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
+	mask := byte(0x3)
+	nbChunksPerBytes := 8 / logTwoBound
+	nbFieldsElmts := len(buf) / goldilocks.Bytes
+	for i := 0; i < nbFieldsElmts; i++ {
+		for j := goldilocks.Bytes - 1; j >= 0; j-- {
+			curByte := buf[i*goldilocks.Bytes+j]
+			curPos := i*goldilocks.Bytes*nbChunksPerBytes + (goldilocks.Bytes-1-j)*nbChunksPerBytes
+			for k := 0; k < nbChunksPerBytes; k++ {
+				m[curPos+k][0] = uint32((curByte >> (k * logTwoBound)) & mask)
+
+				// Check if mPos is zero and mark as non-zero in the bitset if not
+				if m[curPos+k][0] != 0 && mValues != nil {
+					mValues.Set(uint((curPos + k) / degree))
+				}
+			}
+		}
+	}
+}
+
 // Split an slice of bytes representing an array of serialized field element in
 // big-endian form into an array of limbs representing the same field elements
 // in little-endian form. Namely, if our field is represented with 64 bits and we
