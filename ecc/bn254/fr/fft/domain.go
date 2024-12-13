@@ -56,7 +56,7 @@ type Domain struct {
 func GeneratorFullMultiplicativeGroup() fr.Element {
 	var res fr.Element
 
-	res.SetUint64("5")
+	res.SetUint64(5)
 
 	return res
 }

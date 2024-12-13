@@ -56,7 +56,7 @@ type Domain struct {
 func GeneratorFullMultiplicativeGroup() koalabear.Element {
 	var res koalabear.Element
 
-	res.SetUint64("3")
+	res.SetUint64(3)
 
 	return res
 }
