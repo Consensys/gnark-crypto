@@ -6,9 +6,10 @@
 package fft
 
 import (
-	"github.com/consensys/gnark-crypto/field/babybear"
 	"math/bits"
 	"runtime"
+
+	"github.com/consensys/gnark-crypto/field/babybear"
 )
 
 // BitReverse applies the bit-reversal permutation to v.

@@ -6,9 +6,10 @@
 package fft
 
 import (
-	"github.com/consensys/gnark-crypto/field/koalabear"
 	"math/bits"
 	"runtime"
+
+	"github.com/consensys/gnark-crypto/field/koalabear"
 )
 
 // BitReverse applies the bit-reversal permutation to v.

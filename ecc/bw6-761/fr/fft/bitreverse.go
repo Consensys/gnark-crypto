@@ -6,9 +6,10 @@
 package fft
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 	"math/bits"
 	"runtime"
+
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 )
 
 // BitReverse applies the bit-reversal permutation to v.

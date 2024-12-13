@@ -6,9 +6,10 @@
 package fft
 
 import (
-	"github.com/consensys/gnark-crypto/field/goldilocks"
 	"math/bits"
 	"runtime"
+
+	"github.com/consensys/gnark-crypto/field/goldilocks"
 )
 
 // BitReverse applies the bit-reversal permutation to v.

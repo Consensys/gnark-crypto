@@ -52,19 +52,9 @@ func main() {
 	asmDirIncludePath := filepath.Join(baseDir, "..", "field", "asm")
 
 	asmConfig := &fieldConfig.Assembly{BuildDir: asmDirBuildPath, IncludeDir: asmDirIncludePath}
+	// this enable the generation of fft functions;
+	// the parameters are hard coded in a lookup table for now for the modulus we use.
 	fftConfig := &fieldConfig.FFT{}
-
-	// generate common assembly files depending on field number of words
-	// assertNoError(generator.GenerateAMD64(4, asmDirBuildPath, true))
-	// assertNoError(generator.GenerateAMD64(5, asmDirBuildPath, false))
-	// assertNoError(generator.GenerateAMD64(6, asmDirBuildPath, false))
-	// assertNoError(generator.GenerateAMD64(10, asmDirBuildPath, false))
-	// assertNoError(generator.GenerateAMD64(12, asmDirBuildPath, false))
-
-	// assertNoError(generator.GenerateARM64(4, asmDirBuildPath, false))
-	// assertNoError(generator.GenerateARM64(6, asmDirBuildPath, false))
-	// assertNoError(generator.GenerateARM64(10, asmDirBuildPath, false))
-	// assertNoError(generator.GenerateARM64(12, asmDirBuildPath, false))
 
 	var wg sync.WaitGroup
 	for _, conf := range config.Curves {
