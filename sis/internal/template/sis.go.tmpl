@@ -328,7 +328,7 @@ func LimbDecomposeBytes(buf []byte, m {{ .FF }}.Vector, logTwoBound int) {
 // This function is called when logTwoBound divides the number of bits used to represent a
 // {{ .FF }} element.
 func limbDecomposeBytesFast_2(buf []byte, m {{ .FF }}.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
-	mask := byte(0x3)
+	mask := byte((1 << logTwoBound) -1)
 	nbChunksPerBytes := 8 / logTwoBound
 	nbFieldsElmts := len(buf) / {{ .FF }}.Bytes
 	for i := 0; i < nbFieldsElmts; i++ {
@@ -336,7 +336,12 @@ func limbDecomposeBytesFast_2(buf []byte, m {{ .FF }}.Vector, logTwoBound, degre
 			curByte := buf[i*{{ .FF }}.Bytes+j]
 			curPos := i*{{ .FF }}.Bytes*nbChunksPerBytes + ({{ .FF }}.Bytes-1-j)*nbChunksPerBytes
 			for k := 0; k < nbChunksPerBytes; k++ {
-				m[curPos+k][0] = uint32((curByte >> (k * logTwoBound)) & mask)
+				
+                {{ if (or (eq .FF "babybear") (eq .FF "koalabear")) }}
+                m[curPos+k][0] = uint32((curByte >> (k * logTwoBound)) & mask)
+                {{ else }}
+                m[curPos+k][0] = uint64((curByte >> (k * logTwoBound)) & mask)
+                {{ end }}
 
 				// Check if mPos is zero and mark as non-zero in the bitset if not
 				if m[curPos+k][0] != 0 && mValues != nil {
@@ -388,7 +393,7 @@ func limbDecomposeBytes(buf []byte, m {{ .FF }}.Vector, logTwoBound, degree int,
 			// and set the bits from LSB to MSB.
 			at := fieldStart + {{ .FF }}.Bytes*8 - bitInField - 1
 
-            {{ if (or (eq .FF "{{ .FF }}") (eq .FF "koalabear" ) ) }}
+            {{ if (or (eq .FF "babybear") (eq .FF "koalabear" ) ) }}
 			m[mPos][0] |= uint32(getIthBit(at) << j)
             {{ else  }}
             m[mPos][0] |= uint64(getIthBit(at) << j)
@@ -417,7 +422,7 @@ func limbDecomposeBytes8_64(buf []byte, m {{ .FF }}.Vector, mValues *bitset.BitS
 
 	for startPos := {{ .FF }}.Bytes - 1; startPos < len(buf); startPos += {{ .FF }}.Bytes {
 		for i := startPos; i >= startPos-{{ .FF }}.Bytes+1; i-- {
-			{{ if (or (eq .FF "{{ .FF }}") (eq .FF "koalabear") ) }}
+			{{ if (or (eq .FF "babybear") (eq .FF "koalabear") ) }}
             m[j][0] = uint32(buf[i])
             {{ else }}
             m[j][0] = uint64(buf[i])
