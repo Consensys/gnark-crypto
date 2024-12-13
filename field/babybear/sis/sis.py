@@ -3,17 +3,17 @@
 
 import json
 
-# Babybear Fr
+# Babybear FR
 #2^31 - 2^27 + 1
 R = 2**31-2**27+1
 FR_BYTE_SIZE = 4
 FR_BIT_SIZE = FR_BYTE_SIZE*8
-FR = GF(R)
-FR.<x> = FR[]
+GFR = GF(R)
+FR.<x> = GFR[]
 Z = IntegerRing()
 
 # Montgomery constant
-RR = FR(2**(FR_BYTE_SIZE*8))
+RR = GFR(2**(FR_BYTE_SIZE*8))
 
 # utils
 
@@ -28,9 +28,9 @@ def build_poly(a):
         a[0]+a[1]*X + .. + a[n]*X**n
     """
 
-    res = Fr(0)
+    res = GFR(0)
     for i, v in enumerate(a):
-        res += Fr(v)*x**i
+        res += GFR(v)*x**i
     return res
 
 
@@ -50,7 +50,7 @@ def get_ith_bit(i, b):
     return (b[k] >> (7-j)) & 1
 
 
-def toBytes(m, s):
+def to_bytes(m, s):
     """
 
     Args:
@@ -71,7 +71,7 @@ def toBytes(m, s):
     return res
 
 
-def splitCoeffs(b, logTwoBound):
+def split_coeffs(b, logTwoBound):
     """
     Args:
         b: an array of bytes
@@ -111,17 +111,17 @@ def splitCoeffs(b, logTwoBound):
                 e = 0
 
     # careful Montgomery constant...
-    return [Fr(e)*rr**-1 for e in res]
+    return [GFR(e)*RR**-1 for e in res]
 
 
-def polyRand(seed, n):
+def poly_pseudo_rand(seed, n):
     """ Generates a pseudo random polynomial of size n from seed.
 
     Args:
         seed: seed for the pseudo random gen
         n: degree of the polynomial
     """
-    seed = gfr(seed)
+    seed = GFR(seed)
     a = n*[0]
     for i in range(n):
         a[i] = seed**2
@@ -156,20 +156,20 @@ class SIS:
         self.size = n
         self.key = n * [0]
         for i in range(n):
-            self.key[i] = polyRand(seed, self.degree)
+            self.key[i] = poly_pseudo_rand(seed, self.degree)
             seed += 1
 
     def hash(self, inputs):
         """ 
         Args:
-           inputs is a vector of Fr elements
+           inputs is a vector of FR elements
 
         Returns:
             the sis hash of m.
         """
         b = []
         for i in inputs:
-            b.extend(toBytes(i, FR_BYTE_SIZE))
+            b.extend(to_bytes(i, FR_BYTE_SIZE))
 
         return self.hash_bytes(b)
 
@@ -182,7 +182,7 @@ class SIS:
             the sis hash of m.
         """
         # step 1: build the polynomials from m
-        c = splitCoeffs(b, self.logTwoBound)
+        c = split_coeffs(b, self.logTwoBound)
         mp = [build_poly(c[self.degree*i:self.degree*(i+1)])
               for i in range(self.size)]
 
@@ -225,19 +225,19 @@ params = [
 ]
 
 inputs = [
-    [Fr(21888242871839275222246405745257275088548364400416034343698204186575808495614)],
-    [Fr(1)],
-    [Fr(42),Fr(8000)],
-    [Fr(1),Fr(2), Fr(0),Fr(21888242871839275222246405745257275088548364400416034343698204186575808495616)],
-    [Fr(1), Fr(0)],
-    [Fr(0), Fr(1)],
-    [Fr(0)],
-    [Fr(0),Fr(0),Fr(0),Fr(0)],
-    [Fr(0),Fr(0),Fr(8000),Fr(0)],
+    # [GFR(232038080283)],
+    # [GFR(1)],
+    # [GFR(42),GFR(8000)],
+    # [GFR(1),GFR(2), FR(0),FR(21888242871839275222246405745257275088548364400416034343698204186575808495616)],
+    # [GFR(1), GFR(0)],
+    # [GFR(0), GFR(1)],
+    # [GFR(0)],
+    # [GFR(0),GFR(0),GFR(0),GFR(0)],
+    # [GFR(0),GFR(0),GFR(8000),GFR(0)],
 ]
 
 # sprinkle some random elements
-for i in range(10):
+for i in range(1):
     line = []
     for j in range(i):
         line.append(gfr.random_element())

@@ -378,6 +378,47 @@ func (r *RSis) Hash(v []babybear.Element) ([]babybear.Element, error) {
 	return result, nil
 }
 
+func TestDecomposition(t *testing.T) {
+
+	var montConstant babybear.Element
+	var bMontConstant big.Int
+	bMontConstant.SetUint64(1)
+	bMontConstant.Lsh(&bMontConstant, babybear.Bytes*8)
+	montConstant.SetBigInt(&bMontConstant)
+
+	a := make([]babybear.Element, 1)
+	a[0].SetRandom()
+
+	var buf bytes.Buffer
+	buf.Write(a[0].Marshal())
+
+	logTwoBound := 2
+
+	m := make(babybear.Vector, babybear.Bytes*8/logTwoBound)
+
+	// the limbs are set as is, they are NOT converted in Montgomery form
+	limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
+	for i := 0; i < len(m); i++ {
+		m[i].Mul(&m[i], &montConstant)
+	}
+
+	var x babybear.Element
+	x.SetUint64(1 << logTwoBound)
+	r := eval(m, x)
+	if !r.Equal(&a[0]) {
+		t.Fatal("limb splitting went wrong")
+	}
+
+}
+
+func eval(p []babybear.Element, x babybear.Element) babybear.Element {
+	var res babybear.Element
+	for i := len(p) - 1; i >= 0; i-- {
+		res.Mul(&res, &x).Add(&res, &p[i])
+	}
+	return res
+}
+
 func TestLimbDecompositionFastPath(t *testing.T) {
 	assert := require.New(t)
 
