@@ -2,7 +2,9 @@ package generator
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -46,7 +48,7 @@ func GenerateFF(F *config.Field, outputDir string, options ...Option) error {
 		}
 	}
 
-	return nil
+	return runFormatters(outputDir)
 }
 
 func runFormatters(outputDir string) error {
@@ -70,4 +72,63 @@ func runFormatters(outputDir string) error {
 		}
 	}
 	return nil
+}
+
+func getImportPath(dir string) (string, error) {
+	// get absolute path for dir
+	dir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("error getting absolute path: %w", err)
+	}
+
+	modDir, err := findGoMod(dir)
+	if err != nil {
+		return "", fmt.Errorf("error finding go.mod: %w", err)
+	}
+
+	modulePath, err := getModulePath(modDir)
+	if err != nil {
+		return "", fmt.Errorf("error reading module path: %w", err)
+	}
+
+	relPath, err := filepath.Rel(modDir, dir)
+	if err != nil {
+		return "", fmt.Errorf("error computing relative path: %w", err)
+	}
+
+	// Handle the case where the directory is the module root
+	if relPath == "." {
+		return modulePath, nil
+	}
+	return modulePath + "/" + filepath.ToSlash(relPath), nil
+}
+
+// findGoMod ascends the directory tree to locate the go.mod file.
+func findGoMod(dir string) (string, error) {
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		newDir := filepath.Dir(dir)
+		if newDir == dir {
+			return "", fmt.Errorf("no go.mod found up to root")
+		}
+		dir = newDir
+	}
+}
+
+// getModulePath extracts the module path from the go.mod file.
+func getModulePath(modDir string) (string, error) {
+	content, err := os.ReadFile(filepath.Join(modDir, "go.mod"))
+	if err != nil {
+		return "", fmt.Errorf("error reading go.mod: %w", err)
+	}
+
+	for _, line := range strings.Split(string(content), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimPrefix(line, "module "), nil
+		}
+	}
+	return "", fmt.Errorf("module declaration not found in go.mod")
 }

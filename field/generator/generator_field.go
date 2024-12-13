@@ -167,11 +167,7 @@ func generateField(F *config.Field, outputDir, asmDirBuildPath, asmDirIncludePat
 		g.Go(generate("element_exp.go", []string{element.FixedExp}))
 	}
 
-	if err := g.Wait(); err != nil {
-		return err
-	}
-
-	return runFormatters(outputDir)
+	return g.Wait()
 }
 
 type ASMWrapperData struct {

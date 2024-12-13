@@ -2,6 +2,7 @@ package generator
 
 import (
 	"errors"
+	"fmt"
 	"math/bits"
 	"os"
 	"path/filepath"
@@ -13,10 +14,28 @@ import (
 )
 
 func generateFFT(F *config.Field, fft *config.FFT, outputDir string) error {
-	outputDir = filepath.Join(outputDir, "fft")
 
-	*fft = fftConfigs[F.Modulus]
-	fft.Package = "fft"
+	if fft.GeneratorFullMultiplicativeGroup == "" || fft.GeneratorMaxTwoAdicSubgroup == "" {
+		// try to populate ourselves
+		// TODO @gbotrel right now hardcoded lookup tables, we should do better.
+		data, ok := fftConfigs[F.Modulus]
+		if !ok {
+			return fmt.Errorf("no fft config for modulus %s", F.Modulus)
+		}
+		fft = &data
+	}
+
+	fieldImportPath, err := getImportPath(outputDir)
+	if err != nil {
+		return err
+	}
+	data := &fftTemplateData{
+		FFT:              *fft,
+		FieldPackagePath: fieldImportPath,
+		FF:               F.PackageName,
+		Package:          "fft",
+	}
+	outputDir = filepath.Join(outputDir, "fft")
 
 	entries := []bavard.Entry{
 		{File: filepath.Join(outputDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
@@ -64,7 +83,7 @@ func generateFFT(F *config.Field, fft *config.FFT, outputDir string) error {
 	}
 	fftTemplatesRootDir = filepath.Join(fftTemplatesRootDir, "fft")
 
-	if err := bgen.GenerateWithOptions(fft, fft.Package, fftTemplatesRootDir, bavardOpts, entries...); err != nil {
+	if err := bgen.GenerateWithOptions(data, data.Package, fftTemplatesRootDir, bavardOpts, entries...); err != nil {
 		return err
 	}
 
@@ -73,13 +92,26 @@ func generateFFT(F *config.Field, fft *config.FFT, outputDir string) error {
 	entries = []bavard.Entry{
 		{File: filepath.Join(outputDir, "../generator.go"), Templates: []string{"fr.generator.go.tmpl"}},
 	}
-	fieldNameSplitted := strings.Split(fft.FieldPackagePath, "/")
+	fieldNameSplitted := strings.Split(data.FieldPackagePath, "/")
 	fieldName := fieldNameSplitted[len(fieldNameSplitted)-1]
-	if err := bgen.GenerateWithOptions(fft, fieldName, fftTemplatesRootDir, bavardOpts, entries...); err != nil {
+	if err := bgen.GenerateWithOptions(data, fieldName, fftTemplatesRootDir, bavardOpts, entries...); err != nil {
 		return err
 	}
 
 	return runFormatters(outputDir)
+}
+
+type fftTemplateData struct {
+	config.FFT
+
+	// Package name of the generated package
+	Package string
+
+	// ImportPathFiniteField path to the finite field package
+	FieldPackagePath string
+
+	// FF the name of the package corresponding to the finite field
+	FF string
 }
 
 func findTemplatesRootDir() (string, error) {
@@ -120,8 +152,6 @@ func anyToUint64(x any) uint64 {
 	}
 }
 
-var Configs []config.FFT
-
 var fftConfigs map[string]config.FFT
 
 func init() {
@@ -129,93 +159,73 @@ func init() {
 
 	// TODO @gbotrel temporary
 	// bls12-377
-	fftConfigs[eccconfig.BLS12_377.FrModulus] = (config.NewConfig(
-
+	fftConfigs[eccconfig.BLS12_377.FrModulus] = config.NewConfig(
 		"22",
 		"8065159656716812877374967518403273466521432693661810619979959746626482506078",
 		"47",
-		"github.com/consensys/gnark-crypto/ecc/bls12-377/fr",
-	))
+	)
 
 	// bls12-381
 	fftConfigs[eccconfig.BLS12_381.FrModulus] = (config.NewConfig(
-
 		"7",
 		"10238227357739495823651030575849232062558860180284477541189508159991286009131",
 		"32",
-		"github.com/consensys/gnark-crypto/ecc/bls12-381/fr",
 	))
 
 	// bn254
 	fftConfigs[eccconfig.BN254.FrModulus] = (config.NewConfig(
-
 		"5",
 		"19103219067921713944291392827692070036145651957329286315305642004821462161904",
 		"28",
-		"github.com/consensys/gnark-crypto/ecc/bn254/fr",
 	))
 
 	// bw6-761
 	fftConfigs[eccconfig.BW6_761.FrModulus] = (config.NewConfig(
-
 		"15",
 		"32863578547254505029601261939868325669770508939375122462904745766352256812585773382134936404344547323199885654433",
 		"46",
-		"github.com/consensys/gnark-crypto/ecc/bw6-761/fr",
 	))
 
 	// bw6-633
 	fftConfigs[eccconfig.BW6_633.FrModulus] = (config.NewConfig(
-
 		"13",
 		"4991787701895089137426454739366935169846548798279261157172811661565882460884369603588700158257",
 		"20",
-		"github.com/consensys/gnark-crypto/ecc/bw6-633/fr",
 	))
 
 	// bls24-315
 	fftConfigs[eccconfig.BLS24_315.FrModulus] = (config.NewConfig(
-
 		"7",
 		"1792993287828780812362846131493071959406149719416102105453370749552622525216",
 		"22",
-		"github.com/consensys/gnark-crypto/ecc/bls24-315/fr",
 	))
 
 	// bls24-317
 	fftConfigs[eccconfig.BLS24_317.FrModulus] = (config.NewConfig(
-
 		"7",
 		"16532287748948254263922689505213135976137839535221842169193829039521719560631",
 		"60",
-		"github.com/consensys/gnark-crypto/ecc/bls24-317/fr",
 	))
 
 	// goldilocks
 	fftConfigs["18446744069414584321"] = (config.NewConfig(
-
 		"7",
 		"1753635133440165772",
 		"32",
-		"github.com/consensys/gnark-crypto/field/goldilocks",
 	))
 
 	// koala bear
 	fftConfigs["2130706433"] = (config.NewConfig(
-
 		"3",
 		"1791270792",
 		"24",
-		"github.com/consensys/gnark-crypto/field/koalabear",
 	))
 
 	// baby bear
 	fftConfigs["2013265921"] = (config.NewConfig(
-
 		"31",
 		"440564289",
 		"27",
-		"github.com/consensys/gnark-crypto/field/babybear",
 	))
 
 }
