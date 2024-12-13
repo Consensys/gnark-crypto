@@ -12,6 +12,7 @@ func Generator(m uint64) (Element, error) {
 	x := ecc.NextPowerOfTwo(m)
 
 	var rootOfUnity Element
+	
     rootOfUnity.SetString("{{ .GeneratorMaxTwoAdicSubgroup }}")
     const maxOrderRoot uint64 = {{ .LogTwoOrderMaxTwoAdicSubgroup }}
 

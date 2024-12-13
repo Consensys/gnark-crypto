@@ -6,8 +6,9 @@
 package fft
 
 import (
-	"github.com/consensys/gnark-crypto/field/goldilocks"
 	"runtime"
+
+	"github.com/consensys/gnark-crypto/field/goldilocks"
 )
 
 // Option defines option for altering the behavior of FFT methods.

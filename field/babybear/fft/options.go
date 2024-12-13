@@ -6,8 +6,9 @@
 package fft
 
 import (
-	"github.com/consensys/gnark-crypto/field/babybear"
 	"runtime"
+
+	"github.com/consensys/gnark-crypto/field/babybear"
 )
 
 // Option defines option for altering the behavior of FFT methods.
