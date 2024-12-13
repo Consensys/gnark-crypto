@@ -335,7 +335,7 @@ func LimbDecomposeBytes(buf []byte, m goldilocks.Vector, logTwoBound int) {
 // This function is called when logTwoBound divides the number of bits used to represent a
 // goldilocks element.
 func limbDecomposeBytesFast_2(buf []byte, m goldilocks.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
-	mask := byte(0x3)
+	mask := byte((1 << logTwoBound) - 1)
 	nbChunksPerBytes := 8 / logTwoBound
 	nbFieldsElmts := len(buf) / goldilocks.Bytes
 	for i := 0; i < nbFieldsElmts; i++ {
@@ -343,7 +343,8 @@ func limbDecomposeBytesFast_2(buf []byte, m goldilocks.Vector, logTwoBound, degr
 			curByte := buf[i*goldilocks.Bytes+j]
 			curPos := i*goldilocks.Bytes*nbChunksPerBytes + (goldilocks.Bytes-1-j)*nbChunksPerBytes
 			for k := 0; k < nbChunksPerBytes; k++ {
-				m[curPos+k][0] = uint32((curByte >> (k * logTwoBound)) & mask)
+
+				m[curPos+k][0] = uint64((curByte >> (k * logTwoBound)) & mask)
 
 				// Check if mPos is zero and mark as non-zero in the bitset if not
 				if m[curPos+k][0] != 0 && mValues != nil {

@@ -335,7 +335,7 @@ func LimbDecomposeBytes(buf []byte, m babybear.Vector, logTwoBound int) {
 // This function is called when logTwoBound divides the number of bits used to represent a
 // babybear element.
 func limbDecomposeBytesFast_2(buf []byte, m babybear.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
-	mask := byte(0x3)
+	mask := byte((1 << logTwoBound) - 1)
 	nbChunksPerBytes := 8 / logTwoBound
 	nbFieldsElmts := len(buf) / babybear.Bytes
 	for i := 0; i < nbFieldsElmts; i++ {
@@ -343,6 +343,7 @@ func limbDecomposeBytesFast_2(buf []byte, m babybear.Vector, logTwoBound, degree
 			curByte := buf[i*babybear.Bytes+j]
 			curPos := i*babybear.Bytes*nbChunksPerBytes + (babybear.Bytes-1-j)*nbChunksPerBytes
 			for k := 0; k < nbChunksPerBytes; k++ {
+
 				m[curPos+k][0] = uint32((curByte >> (k * logTwoBound)) & mask)
 
 				// Check if mPos is zero and mark as non-zero in the bitset if not
@@ -395,7 +396,7 @@ func limbDecomposeBytes(buf []byte, m babybear.Vector, logTwoBound, degree int, 
 			// and set the bits from LSB to MSB.
 			at := fieldStart + babybear.Bytes*8 - bitInField - 1
 
-			m[mPos][0] |= uint64(getIthBit(at) << j)
+			m[mPos][0] |= uint32(getIthBit(at) << j)
 
 			bitInField++
 
@@ -422,7 +423,7 @@ func limbDecomposeBytes8_64(buf []byte, m babybear.Vector, mValues *bitset.BitSe
 	for startPos := babybear.Bytes - 1; startPos < len(buf); startPos += babybear.Bytes {
 		for i := startPos; i >= startPos-babybear.Bytes+1; i-- {
 
-			m[j][0] = uint64(buf[i])
+			m[j][0] = uint32(buf[i])
 
 			if m[j][0] != 0 {
 				mValues.Set(uint(j / degree))

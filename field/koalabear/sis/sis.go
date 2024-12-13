@@ -335,7 +335,7 @@ func LimbDecomposeBytes(buf []byte, m koalabear.Vector, logTwoBound int) {
 // This function is called when logTwoBound divides the number of bits used to represent a
 // koalabear element.
 func limbDecomposeBytesFast_2(buf []byte, m koalabear.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
-	mask := byte(0x3)
+	mask := byte((1 << logTwoBound) - 1)
 	nbChunksPerBytes := 8 / logTwoBound
 	nbFieldsElmts := len(buf) / koalabear.Bytes
 	for i := 0; i < nbFieldsElmts; i++ {
@@ -343,6 +343,7 @@ func limbDecomposeBytesFast_2(buf []byte, m koalabear.Vector, logTwoBound, degre
 			curByte := buf[i*koalabear.Bytes+j]
 			curPos := i*koalabear.Bytes*nbChunksPerBytes + (koalabear.Bytes-1-j)*nbChunksPerBytes
 			for k := 0; k < nbChunksPerBytes; k++ {
+
 				m[curPos+k][0] = uint32((curByte >> (k * logTwoBound)) & mask)
 
 				// Check if mPos is zero and mark as non-zero in the bitset if not
