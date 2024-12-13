@@ -6,12 +6,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/consensys/gnark-crypto/field/generator/config"
 )
-
-var globalLock sync.Mutex
 
 func GenerateFF(F *config.Field, outputDir string, options ...Option) error {
 
@@ -21,25 +18,26 @@ func GenerateFF(F *config.Field, outputDir string, options ...Option) error {
 	// generate asm
 	// note: we need to do that before the fields, as the fields will include a hash of the (shared)
 	// asm files to force a recompile of the field package if the asm files have changed
-	globalLock.Lock() // TODO @gbotrel temporary need to handle shared files hashes.
+	var hashArm64, hashAMD64 string
+	var err error
 	if cfg.HasArm64() {
-		if err := generateARM64(F, cfg.asmConfig); err != nil {
+		hashArm64, err = generateARM64(F, cfg.asmConfig)
+		if err != nil {
 			return err
 		}
 	}
 
 	if cfg.HasAMD64() {
-		if err := generateAMD64(F, cfg.asmConfig); err != nil {
+		hashAMD64, err = generateAMD64(F, cfg.asmConfig)
+		if err != nil {
 			return err
 		}
 	}
 
 	// generate field
-	if err := generateField(F, outputDir, cfg.asmConfig.BuildDir, cfg.asmConfig.IncludeDir); err != nil {
+	if err := generateField(F, outputDir, cfg.asmConfig.IncludeDir, hashArm64, hashAMD64); err != nil {
 		return err
 	}
-
-	globalLock.Unlock()
 
 	// generate fft
 	if cfg.HasFFT() {
@@ -65,6 +63,20 @@ func runFormatters(outputDir string) error {
 	{
 		// run asmfmt on whole directory
 		cmd := exec.Command("asmfmt", "-w", outputDir)
+		cmd.Stdout = &out
+		cmd.Stderr = &out
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("asmfmt failed: %v\n%s", err, out.String())
+		}
+	}
+	return nil
+}
+
+func runASMFormatter(file string) error {
+	var out strings.Builder
+	{
+		// run asmfmt on whole directory
+		cmd := exec.Command("asmfmt", "-w", file)
 		cmd.Stdout = &out
 		cmd.Stderr = &out
 		if err := cmd.Run(); err != nil {

@@ -1,9 +1,6 @@
 package generator
 
 import (
-	"fmt"
-	"hash/fnv"
-	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -17,7 +14,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func generateField(F *config.Field, outputDir, asmDirBuildPath, asmDirIncludePath string) error {
+func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, hashAMD64 string) error {
 
 	// source file templates
 	sourceFiles := []string{
@@ -109,14 +106,14 @@ func generateField(F *config.Field, outputDir, asmDirBuildPath, asmDirIncludePat
 	var err error
 
 	if F.GenerateOpsAMD64 {
-		amd64d, err = hashAndInclude(asmDirBuildPath, asmDirIncludePath, amd64.ElementASMFileName, F.NbWords)
+		amd64d, err = newASMWrapperData(hashAMD64, asmDirIncludePath, amd64.ElementASMFileName, F.NbWords)
 		if err != nil {
 			return err
 		}
 	}
 
 	if F.GenerateOpsARM64 {
-		arm64d, err = hashAndInclude(asmDirBuildPath, asmDirIncludePath, arm64.ElementASMFileName, F.NbWords)
+		arm64d, err = newASMWrapperData(hashArm64, asmDirIncludePath, arm64.ElementASMFileName, F.NbWords)
 		if err != nil {
 			return err
 		}
@@ -168,38 +165,6 @@ func generateField(F *config.Field, outputDir, asmDirBuildPath, asmDirIncludePat
 	}
 
 	return g.Wait()
-}
-
-type ASMWrapperData struct {
-	IncludePath string
-	Hash        string
-}
-
-func hashAndInclude(asmDirBuildPath, asmDirIncludePath, fileName string, nbWords int) (data ASMWrapperData, err error) {
-	fileName = fmt.Sprintf(fileName, nbWords)
-	// we hash the file content and include the hash in comment of the generated file
-	// to force the Go compiler to recompile the file if the content has changed
-	fData, err := os.ReadFile(filepath.Join(asmDirBuildPath, fileName))
-	if err != nil {
-		return ASMWrapperData{}, err
-	}
-	// hash the file using FNV
-	hasher := fnv.New64()
-	hasher.Write(fData)
-	hash64 := hasher.Sum64()
-
-	hash := fmt.Sprintf("%d", hash64)
-	includePath := filepath.Join(asmDirIncludePath, fileName)
-	// on windows, we replace the "\" by "/"
-	if filepath.Separator == '\\' {
-		includePath = strings.ReplaceAll(includePath, "\\", "/")
-	}
-
-	return ASMWrapperData{
-		IncludePath: includePath,
-		Hash:        hash,
-	}, nil
-
 }
 
 type fieldOption func(*fieldConfig)
