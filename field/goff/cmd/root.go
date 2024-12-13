@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/field/generator"
+	"github.com/consensys/gnark-crypto/field/generator/config"
 	field "github.com/consensys/gnark-crypto/field/generator/config"
 	"github.com/spf13/cobra"
 )
@@ -62,20 +63,8 @@ func cmdGenerate(cmd *cobra.Command, args []string) {
 	}
 
 	asmDir := filepath.Join(fOutputDir, "asm")
-	if F.GenerateOpsAMD64 {
-		if err := generator.GenerateAMD64(F.NbWords, F.NbBits, asmDir, F.GenerateVectorOpsAMD64); err != nil {
-			fmt.Printf("\n%s\n", err.Error())
-			os.Exit(-1)
-		}
-	}
-	if F.GenerateOpsARM64 {
-		if err := generator.GenerateARM64(F.NbWords, F.NbBits, asmDir, F.GenerateVectorOpsARM64); err != nil {
-			fmt.Printf("\n%s\n", err.Error())
-			os.Exit(-1)
-		}
-	}
 
-	if err := generator.GenerateFF(F, fOutputDir, asmDir, "asm"); err != nil {
+	if err := generator.GenerateFF(F, fOutputDir, generator.WithASM(&config.Assembly{BuildDir: asmDir, IncludeDir: "asm"})); err != nil {
 		fmt.Printf("\n%s\n", err.Error())
 		os.Exit(-1)
 	}
