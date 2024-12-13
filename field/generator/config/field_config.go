@@ -103,7 +103,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	}
 	// pre compute field constants
 	F.NbBits = bModulus.BitLen()
-	F.F31 = F.NbBits <= 31
+	F.F31 = F.NbBits == 31
 	F.NbWords = len(bModulus.Bits())
 	F.NbWordsLastIndex = F.NbWords - 1
 
