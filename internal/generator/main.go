@@ -85,8 +85,12 @@ func main() {
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
-			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr"), generator.WithASM(asmConfig), generator.WithFFT(fftConfig)))
-			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp"), generator.WithASM(asmConfig), generator.WithFFT(fftConfig)))
+			if !(conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1)) {
+				assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr"), generator.WithASM(asmConfig), generator.WithFFT(fftConfig)))
+			} else {
+				assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr"), generator.WithASM(asmConfig)))
+			}
+			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp"), generator.WithASM(asmConfig)))
 
 			// generate ecdsa
 			assertNoError(ecdsa.Generate(conf, curveDir, bgen))
