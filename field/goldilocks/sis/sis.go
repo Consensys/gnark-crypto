@@ -334,7 +334,17 @@ func LimbDecomposeBytes(buf []byte, m goldilocks.Vector, logTwoBound int) {
 //
 // This function is called when logTwoBound divides the number of bits used to represent a
 // goldilocks element.
-func limbDecomposeBytesFast_2(buf []byte, m goldilocks.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
+// From a slice of field elements m:=[a_0, a_1, ...]
+// Doing h.Sum(h.Write([Marshal[a_i] for i in len(m)])) is the same than
+// writing the a_i in little endian, and then taking logTwoBound bits at a time.
+//
+// ex: m := [0x1, 0x3]
+// in the hash buffer, it is interpreted like that as a stream of bits:
+// [100...0 110...0] corresponding to [0x1, 0x3] in little endian, so first bit = LSbit
+// then the stream of bits is splitted in chunks of logTwoBound bits.
+//
+// This function is called when logTwoBound divides 8.
+func limbDecomposeBytesSmallBound(buf []byte, m goldilocks.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
 	mask := byte((1 << logTwoBound) - 1)
 	nbChunksPerBytes := 8 / logTwoBound
 	nbFieldsElmts := len(buf) / goldilocks.Bytes

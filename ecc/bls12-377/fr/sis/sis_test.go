@@ -135,7 +135,7 @@ func TestDecomposition(t *testing.T) {
 
 	// the limbs are set as is, they are NOT converted in Montgomery form
 	limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
-	limbDecomposeBytesFast_2(buf.Bytes(), m2, logTwoBound, 4, nil)
+	limbDecomposeBytesSmallBound(buf.Bytes(), m2, logTwoBound, 4, nil)
 
 	for i := 0; i < len(m); i++ {
 		m[i].Mul(&m[i], &montConstant)
@@ -152,77 +152,10 @@ func TestDecomposition(t *testing.T) {
 		}
 		r = eval(m2[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
 		if !r.Equal(&a[i]) {
-			t.Fatal("limbDecomposeBytesFast_2 failed")
+			t.Fatal("limbDecomposeBytesSmallBound failed")
 		}
 	}
 
-}
-
-// Test the fact that the limb decomposition allows obtaining the original
-// field element by evaluating the polynomial whose the coeffiients are the
-// limbs.
-func TestLimbDecomposition(t *testing.T) {
-
-	// Skipping the test for 32 bits
-	if bits.UintSize == 32 {
-		t.Skip("skipping this test in 32bit.")
-	}
-
-	sis, _ := NewRSis(0, 4, 4, 3)
-
-	testcases := []fr.Vector{
-		{fr.One()},
-		{fr.NewElement(2)},
-		{fr.NewElement(1 << 32), fr.NewElement(2), fr.NewElement(1)},
-	}
-
-	for _, testcase := range testcases {
-
-		// clean the sis hasher
-		sis.bufMValues.ClearAll()
-		for i := 0; i < len(sis.bufM); i++ {
-			sis.bufM[i].SetZero()
-		}
-		for i := 0; i < len(sis.bufRes); i++ {
-			sis.bufRes[i].SetZero()
-		}
-
-		buf := bytes.Buffer{}
-		for _, x := range testcase {
-			xBytes := x.Bytes()
-			buf.Write(xBytes[:])
-		}
-		limbDecomposeBytes(buf.Bytes(), sis.bufM, sis.LogTwoBound, sis.Degree, sis.bufMValues)
-
-		// Just to test, this does not return panic
-		dummyBuffer := make(fr.Vector, 192)
-		LimbDecomposeBytes(buf.Bytes(), dummyBuffer, sis.LogTwoBound)
-
-		// b is a field element representing the max norm bound
-		// used for limb splitting the input field elements.
-		b := fr.NewElement(1 << sis.LogTwoBound)
-		numLimbsPerField := fr.Bytes * 8 / sis.LogTwoBound
-
-		// Compute r (corresponds to the Montgommery constant)
-		var r fr.Element
-		r.SetString("6350874878119819312338956282401532410528162663560392320966563075034087161851")
-
-		// Attempt to recompose the entry #i in the test-case
-		for i := range testcase {
-			// allegedly corresponds to the limbs of the entry i
-			subRes := sis.bufM[i*numLimbsPerField : (i+1)*numLimbsPerField]
-
-			// performs a Horner evaluation of subres by b
-			var y fr.Element
-			for j := numLimbsPerField - 1; j >= 0; j-- {
-				y.Mul(&y, &b)
-				y.Add(&y, &subRes[j])
-			}
-
-			y.Mul(&y, &r)
-			require.Equal(t, testcase[i].String(), y.String(), "the subRes was %v", subRes)
-		}
-	}
 }
 
 func eval(p []fr.Element, x fr.Element) fr.Element {
@@ -333,6 +266,36 @@ func estimateSisTheory(p sisParams) float64 {
 	// Convert this into a time per input field
 	r := totalTimePoly * fr.Bits / p.logTwoBound / (1 << p.logTwoDegree)
 	return float64(r)
+}
+
+func BenchmarkDecomposition(b *testing.B) {
+
+	nbElmts := 1000
+	a := make([]fr.Element, nbElmts)
+	for i := 0; i < nbElmts; i++ {
+		a[i].SetRandom()
+	}
+	var buf bytes.Buffer
+	for i := 0; i < nbElmts; i++ {
+		buf.Write(a[i].Marshal())
+	}
+	logTwoBound := 4
+	m := make(fr.Vector, nbElmts*fr.Bytes*8/logTwoBound)
+
+	b.Run("limbDecomposeBytes", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
+		}
+	})
+
+	b.Run("limbDecomposeByteSmallBound", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			limbDecomposeBytesSmallBound(buf.Bytes(), m, logTwoBound, 4, nil)
+		}
+	})
+
 }
 
 func BenchmarkSIS(b *testing.B) {

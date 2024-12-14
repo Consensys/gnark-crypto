@@ -135,7 +135,7 @@ func TestDecomposition(t *testing.T) {
 
 	// the limbs are set as is, they are NOT converted in Montgomery form
 	limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
-	limbDecomposeBytesFast_2(buf.Bytes(), m2, logTwoBound, 4, nil)
+	limbDecomposeBytesSmallBound(buf.Bytes(), m2, logTwoBound, 4, nil)
 
 	for i := 0; i < len(m); i++ {
 		m[i].Mul(&m[i], &montConstant)
@@ -152,7 +152,7 @@ func TestDecomposition(t *testing.T) {
 		}
 		r = eval(m2[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
 		if !r.Equal(&a[i]) {
-			t.Fatal("limbDecomposeBytesFast_2 failed")
+			t.Fatal("limbDecomposeBytesSmallBound failed")
 		}
 	}
 
@@ -266,6 +266,36 @@ func estimateSisTheory(p sisParams) float64 {
 	// Convert this into a time per input field
 	r := totalTimePoly * koalabear.Bits / p.logTwoBound / (1 << p.logTwoDegree)
 	return float64(r)
+}
+
+func BenchmarkDecomposition(b *testing.B) {
+
+	nbElmts := 1000
+	a := make([]koalabear.Element, nbElmts)
+	for i := 0; i < nbElmts; i++ {
+		a[i].SetRandom()
+	}
+	var buf bytes.Buffer
+	for i := 0; i < nbElmts; i++ {
+		buf.Write(a[i].Marshal())
+	}
+	logTwoBound := 4
+	m := make(koalabear.Vector, nbElmts*koalabear.Bytes*8/logTwoBound)
+
+	b.Run("limbDecomposeBytes", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
+		}
+	})
+
+	b.Run("limbDecomposeByteSmallBound", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			limbDecomposeBytesSmallBound(buf.Bytes(), m, logTwoBound, 4, nil)
+		}
+	})
+
 }
 
 func BenchmarkSIS(b *testing.B) {
