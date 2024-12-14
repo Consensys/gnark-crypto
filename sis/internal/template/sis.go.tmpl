@@ -316,14 +316,13 @@ func LimbDecomposeBytes(buf []byte, m {{ .FF }}.Vector, logTwoBound int) {
 	limbDecomposeBytes(buf, m, logTwoBound, 0, nil)
 }
 
-// From a slice of field elements m:=[a_0, a_1, ...]
-// Doing h.Sum(h.Write([Marshal[a_i] for i in len(m)])) is the same than
-// writing the a_i in little endian, and then taking logTwoBound bits at a time.
+// decomposes m as by taking chunks of logTwoBound bits at a time. The buffer is interpreted like this:
+// [0xa,        ..            , 0x1 | 0xa ... ]
+//  <- #bytes in a field element ->
+//  <-0xa is the MSB, 0x1 the LSB->
+//  <-we read this chunk from right
+//     			to left 	 	 ->
 //
-// ex: m := [0x1, 0x3]
-// in the hash buffer, it is interpreted like that as a stream of bits:
-// [100...0 110...0] corresponding to [0x1, 0x3] in little endian, so first bit = LSbit
-// then the stream of bits is splitted in chunks of logTwoBound bits.
 //
 // This function is called when logTwoBound divides the number of bits used to represent a
 // {{ .FF }} element.
