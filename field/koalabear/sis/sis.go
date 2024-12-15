@@ -364,6 +364,26 @@ func limbDecomposeBytesSmallBound(buf []byte, m koalabear.Vector, logTwoBound, d
 	}
 }
 
+// limbDecomposeBytesMiddleBound same function than limbDecomposeBytesSmallBound, but logTwoBound is
+// a multiple of 8, and divides the number of bits of the fields.
+func limbDecomposeBytesMiddleBound(buf []byte, m koalabear.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
+	nbFieldsElmts := len(buf) / koalabear.Bytes
+	nbChunksPerElements := koalabear.Bytes * 8 / logTwoBound
+	nbBytesInChunk := logTwoBound / 8
+	curElmt := 0
+	for i := 0; i < nbFieldsElmts; i++ {
+		for j := nbChunksPerElements; j > 0; j-- {
+			curPos := i*koalabear.Bytes + j*nbBytesInChunk
+			for k := 1; k <= nbBytesInChunk; k++ {
+
+				m[curElmt][0] |= (uint32(buf[curPos-k]) << ((k - 1) * 8))
+
+			}
+			curElmt += 1
+		}
+	}
+}
+
 // Split an slice of bytes representing an array of serialized field element in
 // big-endian form into an array of limbs representing the same field elements
 // in little-endian form. Namely, if our field is represented with 64 bits and we

@@ -112,7 +112,50 @@ func TestReference(t *testing.T) {
 
 }
 
-func TestDecomposition(t *testing.T) {
+func TestLimbDecomposeBytesMiddleBound(t *testing.T) {
+
+	var montConstant fr.Element
+	var bMontConstant big.Int
+	bMontConstant.SetUint64(1)
+	bMontConstant.Lsh(&bMontConstant, fr.Bytes*8)
+	montConstant.SetBigInt(&bMontConstant)
+
+	nbElmts := 10
+	a := make([]fr.Element, nbElmts)
+	for i := 0; i < nbElmts; i++ {
+		a[i].SetUint64(33)
+	}
+	var buf bytes.Buffer
+	for i := 0; i < nbElmts; i++ {
+		buf.Write(a[i].Marshal())
+	}
+
+	logTwoBound := 8
+
+	for cc := 0; cc < 3; cc++ {
+		m := make(fr.Vector, nbElmts*fr.Bytes*8/logTwoBound)
+		limbDecomposeBytesMiddleBound(buf.Bytes(), m, logTwoBound, 4, nil)
+
+		for i := 0; i < len(m); i++ {
+			m[i].Mul(&m[i], &montConstant)
+		}
+
+		var x fr.Element
+		x.SetUint64(1 << logTwoBound)
+
+		coeffsPerFieldsElmt := fr.Bytes * 8 / logTwoBound
+		for i := 0; i < nbElmts; i++ {
+			r := eval(m[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
+			if !r.Equal(&a[i]) {
+				t.Fatal("limbDecomposeBytes failed")
+			}
+		}
+		logTwoBound *= 2
+	}
+
+}
+
+func TestLimbDecomposeBytesSmallBound(t *testing.T) {
 
 	var montConstant fr.Element
 	var bMontConstant big.Int
@@ -129,31 +172,37 @@ func TestDecomposition(t *testing.T) {
 	for i := 0; i < nbElmts; i++ {
 		buf.Write(a[i].Marshal())
 	}
+
 	logTwoBound := 2
-	m := make(fr.Vector, nbElmts*fr.Bytes*8/logTwoBound)
-	m2 := make(fr.Vector, nbElmts*fr.Bytes*8/logTwoBound)
 
-	// the limbs are set as is, they are NOT converted in Montgomery form
-	limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
-	limbDecomposeBytesSmallBound(buf.Bytes(), m2, logTwoBound, 4, nil)
+	for cc := 0; cc < 3; cc++ {
 
-	for i := 0; i < len(m); i++ {
-		m[i].Mul(&m[i], &montConstant)
-		m2[i].Mul(&m2[i], &montConstant)
-	}
-	var x fr.Element
-	x.SetUint64(1 << logTwoBound)
+		m := make(fr.Vector, nbElmts*fr.Bytes*8/logTwoBound)
+		m2 := make(fr.Vector, nbElmts*fr.Bytes*8/logTwoBound)
 
-	coeffsPerFieldsElmt := fr.Bytes * 8 / logTwoBound
-	for i := 0; i < nbElmts; i++ {
-		r := eval(m[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
-		if !r.Equal(&a[i]) {
-			t.Fatal("limbDecomposeBytes failed")
+		// the limbs are set as is, they are NOT converted in Montgomery form
+		limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
+		limbDecomposeBytesSmallBound(buf.Bytes(), m2, logTwoBound, 4, nil)
+
+		for i := 0; i < len(m); i++ {
+			m[i].Mul(&m[i], &montConstant)
+			m2[i].Mul(&m2[i], &montConstant)
 		}
-		r = eval(m2[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
-		if !r.Equal(&a[i]) {
-			t.Fatal("limbDecomposeBytesSmallBound failed")
+		var x fr.Element
+		x.SetUint64(1 << logTwoBound)
+
+		coeffsPerFieldsElmt := fr.Bytes * 8 / logTwoBound
+		for i := 0; i < nbElmts; i++ {
+			r := eval(m[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
+			if !r.Equal(&a[i]) {
+				t.Fatal("limbDecomposeBytes failed")
+			}
+			r = eval(m2[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
+			if !r.Equal(&a[i]) {
+				t.Fatal("limbDecomposeBytesSmallBound failed")
+			}
 		}
+		logTwoBound *= 2
 	}
 
 }

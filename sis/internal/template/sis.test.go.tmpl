@@ -105,6 +105,49 @@ func TestReference(t *testing.T) {
 
 }
 
+func TestLimbDecomposeBytesMiddleBound(t *testing.T) {
+
+	var montConstant {{ .FF }}.Element
+	var bMontConstant big.Int
+	bMontConstant.SetUint64(1)
+	bMontConstant.Lsh(&bMontConstant, {{ .FF }}.Bytes*8)
+	montConstant.SetBigInt(&bMontConstant)
+
+	nbElmts := 10
+	a := make([]{{ .FF }}.Element, nbElmts)
+	for i := 0; i < nbElmts; i++ {
+		a[i].SetUint64(33)
+	}
+	var buf bytes.Buffer
+	for i := 0; i < nbElmts; i++ {
+		buf.Write(a[i].Marshal())
+	}
+
+	logTwoBound := 8
+
+    for cc:=0;cc<3; cc++ {
+        m := make({{ .FF }}.Vector, nbElmts*{{ .FF }}.Bytes*8/logTwoBound)
+        limbDecomposeBytesMiddleBound(buf.Bytes(), m, logTwoBound, 4, nil)
+
+        for i := 0; i < len(m); i++ {
+            m[i].Mul(&m[i], &montConstant)
+        }
+
+        var x {{ .FF }}.Element
+        x.SetUint64(1 << logTwoBound)
+
+        coeffsPerFieldsElmt := {{ .FF }}.Bytes * 8 / logTwoBound
+        for i := 0; i < nbElmts; i++ {
+            r := eval(m[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
+            if !r.Equal(&a[i]) {
+                t.Fatal("limbDecomposeBytes failed")
+            }
+        }
+        logTwoBound*=2
+    }
+
+}
+
 func TestLimbDecomposeBytesSmallBound(t *testing.T) {
 
 	var montConstant {{ .FF }}.Element
@@ -124,11 +167,11 @@ func TestLimbDecomposeBytesSmallBound(t *testing.T) {
 	}
 
 	logTwoBound := 2
-    
+
 	for cc := 0; cc < 3; cc++ {
 
-		m := make(koalabear.Vector, nbElmts*koalabear.Bytes*8/logTwoBound)
-		m2 := make(koalabear.Vector, nbElmts*koalabear.Bytes*8/logTwoBound)
+		m := make({{ .FF }}.Vector, nbElmts*{{ .FF }}.Bytes*8/logTwoBound)
+		m2 := make({{ .FF }}.Vector, nbElmts*{{ .FF }}.Bytes*8/logTwoBound)
 
 		// the limbs are set as is, they are NOT converted in Montgomery form
 		limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
@@ -138,10 +181,10 @@ func TestLimbDecomposeBytesSmallBound(t *testing.T) {
 			m[i].Mul(&m[i], &montConstant)
 			m2[i].Mul(&m2[i], &montConstant)
 		}
-		var x koalabear.Element
+		var x {{ .FF }}.Element
 		x.SetUint64(1 << logTwoBound)
 
-		coeffsPerFieldsElmt := koalabear.Bytes * 8 / logTwoBound
+		coeffsPerFieldsElmt := {{ .FF }}.Bytes * 8 / logTwoBound
 		for i := 0; i < nbElmts; i++ {
 			r := eval(m[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
 			if !r.Equal(&a[i]) {
