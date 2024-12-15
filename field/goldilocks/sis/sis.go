@@ -169,9 +169,10 @@ func (r *RSis) Sum(b []byte) []byte {
 	m := r.bufM
 	mValues := r.bufMValues
 
-	if fastPath {
-		// fast path.
-		limbDecomposeBytes8_64(buf, m, mValues)
+	if r.LogTwoBound < 8 && (8%r.LogTwoBound == 0) {
+		limbDecomposeBytesSmallBound(buf, m, r.LogTwoBound, r.Degree, mValues)
+	} else if r.LogTwoBound >= 8 && (goldilocks.Bytes*8)%r.LogTwoBound == 0 {
+		limbDecomposeBytesMiddleBound(buf, m, r.LogTwoBound, r.Degree, mValues)
 	} else {
 		limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
 	}
@@ -378,6 +379,10 @@ func limbDecomposeBytesMiddleBound(buf []byte, m goldilocks.Vector, logTwoBound,
 
 				m[curElmt][0] |= (uint64(buf[curPos-k]) << ((k - 1) * 8))
 
+			}
+			// Check if mPos is zero and mark as non-zero in the bitset if not
+			if m[curElmt][0] != 0 && mValues != nil {
+				mValues.Set(uint((curElmt) / degree))
 			}
 			curElmt += 1
 		}

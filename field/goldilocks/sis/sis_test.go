@@ -331,17 +331,32 @@ func BenchmarkDecomposition(b *testing.B) {
 	logTwoBound := 4
 	m := make(goldilocks.Vector, nbElmts*goldilocks.Bytes*8/logTwoBound)
 
-	b.Run("limbDecomposeBytes", func(b *testing.B) {
+	b.Run(fmt.Sprintf("limbDecomposeBytes logTwoBound=%d", logTwoBound), func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
 		}
 	})
 
-	b.Run("limbDecomposeByteSmallBound", func(b *testing.B) {
+	b.Run(fmt.Sprintf("limbDecomposeByteSmallBound logTwoBound=%d", logTwoBound), func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			limbDecomposeBytesSmallBound(buf.Bytes(), m, logTwoBound, 4, nil)
+		}
+	})
+
+	logTwoBound = 16
+	b.Run(fmt.Sprintf("limbDecomposeBytes logTwoBound=%d", logTwoBound), func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
+		}
+	})
+
+	b.Run(fmt.Sprintf("limbDecomposeByteSmallBound logTwoBound=%d", logTwoBound), func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			limbDecomposeBytesMiddleBound(buf.Bytes(), m, logTwoBound, 4, nil)
 		}
 	})
 
