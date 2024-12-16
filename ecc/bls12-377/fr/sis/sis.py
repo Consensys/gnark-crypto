@@ -3,22 +3,21 @@
 
 import json
 
-# bls12377 Fr
-r = 8444461749428370424248824938781546531375899335154063827935233455917409239041
-frByteSize = 32
-countToDeath = int(5)
-gfr = GF(r)
-Fr = GF(r)
-Fr.<x> = Fr[]
-rz = IntegerRing()
+# BLS12_377 FR
+R = 8444461749428370424248824938781546531375899335154063827935233455917409239041
+FR_BYTE_SIZE = 32
+FR_BIT_SIZE = FR_BYTE_SIZE*8
+GFR = GF(R)
+FR.<x> = GFR[]
+Z = IntegerRing()
 
 # Montgomery constant
-rr = Fr(2**256)
+RR = GFR(2**(FR_BYTE_SIZE*8))
 
 # utils
 
 
-def buildPoly(a):
+def build_poly(a):
     """ Builds a poly from the array a
 
     Args:
@@ -28,13 +27,13 @@ def buildPoly(a):
         a[0]+a[1]*X + .. + a[n]*X**n
     """
 
-    res = Fr(0)
+    res = GFR(0)
     for i, v in enumerate(a):
-        res += Fr(v)*x**i
+        res += GFR(v)*x**i
     return res
 
 
-def bitAt(i, b):
+def get_ith_bit(i, b):
     """
     Args:
         i: index of the bit to retrieve
@@ -50,11 +49,11 @@ def bitAt(i, b):
     return (b[k] >> (7-j)) & 1
 
 
-def toBytes(m, s):
+def to_bytes(m, s):
     """
 
     Args:
-        m: a bit int
+        m: an integer
         s: the expected number of bytes of the result. If s is bigger than the
         number of bytes in m, the remaining bytes are set to zero.
 
@@ -62,7 +61,7 @@ def toBytes(m, s):
         the byte representation of m as a byte array, as
         in gnark-crypto.
     """
-    _m = rz(m)
+    _m = Z(m)
     res = s*[0]
     mask = 255
     for i in range(s):
@@ -71,7 +70,7 @@ def toBytes(m, s):
     return res
 
 
-def splitCoeffs(b, logTwoBound):
+def split_coeffs(b, logTwoBound):
     """
     Args:
         b: an array of bytes
@@ -80,8 +79,8 @@ def splitCoeffs(b, logTwoBound):
     Returns:
         an array of coeffs, each coeff being the i-th chunk of logTwoBounds bits of b.
         The coeffs are formed as follow. The input byte string is implicitly parsed as
-        a slice of field elements of 32 bytes each in bigendian-natural form. the outputs
-        are in a little-endian form. That is, each chunk of size 256 / logTwoBounds of the
+        a slice of field elements of FR_BYTE_SIZE bytes each in bigendian-natural form. the outputs
+        are in a little-endian form. That is, each chunk of size FR_BIT_SIZE / logTwoBounds of the
         output can be seen as a polynomial, such that, when evaluated at 2 we get the original
         field element.
     """
@@ -89,44 +88,44 @@ def splitCoeffs(b, logTwoBound):
     res = [] 
     i = 0
 
-    if len(b) % frByteSize != 0:
+    if len(b) % FR_BYTE_SIZE != 0:
         exit("the length of b should divide the field size")
 
     # The number of fields that we are parsing. In case we have that
     # logTwoBound does not divide the number of bits to represent a
     # field element, we do not merge them.
-    nbField = len(b) / 32
-    nbBitsInField = int(frByteSize * 8)
+    nbField = len(b) / FR_BYTE_SIZE
+    nbBitsInField = int(FR_BYTE_SIZE * 8)
     
     for fieldID in range(nbField):
-        fieldStart = fieldID * 256
+        fieldStart = fieldID * FR_BIT_SIZE
         e = 0
         for bitInField in range(nbBitsInField):
             j = bitInField % logTwoBound
             at = fieldStart + nbBitsInField - 1 - bitInField
-            e |= bitAt(at, b) << j 
+            e |= get_ith_bit(at, b) << j 
             # Switch to a new limb
-            if j == logTwoBound - 1 or bitInField == frByteSize * 8 - 1:
+            if j == logTwoBound - 1 or bitInField == FR_BYTE_SIZE * 8 - 1:
                 res.append(e)
                 e = 0
 
     # careful Montgomery constant...
-    return [Fr(e)*rr**-1 for e in res]
+    return [GFR(e)*RR**-1 for e in res]
 
 
-def polyRand(seed, n):
+def poly_pseudo_rand(seed, n):
     """ Generates a pseudo random polynomial of size n from seed.
 
     Args:
         seed: seed for the pseudo random gen
         n: degree of the polynomial
     """
-    seed = gfr(seed)
+    seed = GFR(seed)
     a = n*[0]
     for i in range(n):
         a[i] = seed**2
         seed = a[i]
-    return buildPoly(a)
+    return build_poly(a)
 
 
 # SIS
@@ -139,7 +138,7 @@ class SIS:
                 logTwoBound: bound of SIS
                 maxNbElementsToHash
         """
-        capacity = maxNbElementsToHash * frByteSize
+        capacity = maxNbElementsToHash * FR_BYTE_SIZE
         degree = 1 << logTwoDegree
 
         n = capacity * 8 / logTwoBound  # number of coefficients
@@ -156,20 +155,20 @@ class SIS:
         self.size = n
         self.key = n * [0]
         for i in range(n):
-            self.key[i] = polyRand(seed, self.degree)
+            self.key[i] = poly_pseudo_rand(seed, self.degree)
             seed += 1
 
     def hash(self, inputs):
         """ 
         Args:
-           inputs is a vector of Fr elements
+           inputs is a vector of FR elements
 
         Returns:
             the sis hash of m.
         """
         b = []
         for i in inputs:
-            b.extend(toBytes(i, 32))
+            b.extend(to_bytes(i, FR_BYTE_SIZE))
 
         return self.hash_bytes(b)
 
@@ -182,8 +181,8 @@ class SIS:
             the sis hash of m.
         """
         # step 1: build the polynomials from m
-        c = splitCoeffs(b, self.logTwoBound)
-        mp = [buildPoly(c[self.degree*i:self.degree*(i+1)])
+        c = split_coeffs(b, self.logTwoBound)
+        mp = [build_poly(c[self.degree*i:self.degree*(i+1)])
               for i in range(self.size)]
 
         # step 2: compute sum_i mp[i]*key[i] mod X^n+1
@@ -200,7 +199,8 @@ def vectorToString(v):
     # we return a list of strings in base10
     r = []
     for e in v:
-        r.append("0x"+rz(e).hex())
+        r.append("{}".format(Z(e)))
+        # r.append("0x" + Z(e).hex())
     return r
     
 
@@ -212,61 +212,42 @@ def SISParams(seed, logTwoDegree, logTwoBound, maxNbElementsToHash):
     p['maxNbElementsToHash'] = int(maxNbElementsToHash)
     return p
 
-params = [
-    SISParams(5, 2, 3, 10),
-    SISParams(5, 4, 3, 10),
-    SISParams(5, 4, 4, 10),
-    SISParams(5, 5, 4, 10),
-    SISParams(5, 6, 5, 10),
-    # SISParams(5, 8, 6, 10),
-    SISParams(5, 10, 6, 10),
-    SISParams(5, 11, 7, 10),
-    SISParams(5, 12, 7, 10),
+PARAMS = [
+
+    # call to limbDecomposeBytes
+    # SISParams(5, 2, 3, 10),
+    
+    # call to limbDecomposeBytesSmallBound
+    SISParams(5, 2, 2, 10),
+    SISParams(5, 2, 4, 10),
+
+    # call to limbDecomposeBytesSmallBound
+    SISParams(5, 2, 8, 10),
+    SISParams(5, 2, 16, 10),
+    SISParams(5, 2, 32, 10),
 ]
 
-inputs = [
-    [Fr(8444461749428370424248824938781546531375899335154063827935233455917409239037)],
-    [Fr(1)],
-    [Fr(42),Fr(8000)],
-    [Fr(1),Fr(2), Fr(0),Fr(8444461749428370424248824938781546531375899335154063827935233455917409239040)],
-    [Fr(1), Fr(0)],
-    [Fr(0), Fr(1)],
-    [Fr(0)],
-    [Fr(0),Fr(0),Fr(0),Fr(0)],
-    [Fr(0),Fr(0),Fr(8000),Fr(0)],
-]
+INPUTS = [GFR(5)**(i+1) for i in range(10)]
 
-# sprinkle some random elements
-for i in range(10):
-    line = []
-    for j in range(i):
-        line.append(gfr.random_element())
-    inputs.append(line)
+TEST_CASES = {}
 
-testCases = {}
-testCases['inputs'] = []
-testCases['entries'] = []
+TEST_CASES['inputs'] = vectorToString(INPUTS)
+TEST_CASES['entries'] = []
 
+for p in PARAMS:
 
-for i, v in enumerate(inputs):
-    testCases['inputs'].append(vectorToString(v))
-
-
-for p in params:
     entry = {}
-    entry['params'] = p
-    entry['expected'] = []
-    
-    print("generating test cases with SIS params " + json.dumps(p))
+    entry['params'] = p 
+    # print("generating test cases with SIS params " + json.dumps(p))
     instance = SIS(p['seed'], p['logTwoDegree'], p['logTwoBound'], p['maxNbElementsToHash'])
-    for i, v in enumerate(inputs):
-        # hash the vector
-        hResult = instance.hash(v)
-        entry['expected'].append(vectorToString(hResult))
+
+    # hash the vector
+    hResult = instance.hash(INPUTS)
+    entry['expected'] = vectorToString(hResult)
     
-    testCases['entries'].append(entry)
+    TEST_CASES['entries'].append(entry)
 
 
-testCases_json = json.dumps(testCases, indent=4)
+TEST_CASES_json = json.dumps(TEST_CASES, indent=4)
 with open("test_cases.json", "w") as outfile:
-    outfile.write(testCases_json)
+    outfile.write(TEST_CASES_json)
