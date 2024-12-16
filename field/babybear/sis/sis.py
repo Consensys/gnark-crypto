@@ -200,7 +200,8 @@ def vectorToString(v):
     # we return a list of strings in base10
     r = []
     for e in v:
-        r.append("0x"+rz(e).hex())
+        r.append("{}".format(Z(e)))
+        # r.append("0x" + Z(e).hex())
     return r
     
 
@@ -212,61 +213,42 @@ def SISParams(seed, logTwoDegree, logTwoBound, maxNbElementsToHash):
     p['maxNbElementsToHash'] = int(maxNbElementsToHash)
     return p
 
-params = [
-    SISParams(5, 2, 3, 10),
-    SISParams(5, 4, 3, 10),
-    SISParams(5, 4, 4, 10),
-    SISParams(5, 5, 4, 10),
-    SISParams(5, 6, 5, 10),
-    # SISParams(5, 8, 6, 10),
-    SISParams(5, 10, 6, 10),
-    SISParams(5, 11, 7, 10),
-    SISParams(5, 12, 7, 10),
+PARAMS = [
+
+    # call to limbDecomposeBytes
+    # SISParams(5, 2, 3, 10),
+    
+    # call to limbDecomposeBytesSmallBound
+    SISParams(5, 2, 2, 10),
+    SISParams(5, 2, 4, 10),
+
+    # call to limbDecomposeBytesSmallBound
+    SISParams(5, 2, 8, 10),
+    SISParams(5, 2, 16, 10),
+    SISParams(5, 2, 32, 10),
 ]
 
-inputs = [
-    # [GFR(232038080283)],
-    # [GFR(1)],
-    # [GFR(42),GFR(8000)],
-    # [GFR(1),GFR(2), FR(0),FR(21888242871839275222246405745257275088548364400416034343698204186575808495616)],
-    # [GFR(1), GFR(0)],
-    # [GFR(0), GFR(1)],
-    # [GFR(0)],
-    # [GFR(0),GFR(0),GFR(0),GFR(0)],
-    # [GFR(0),GFR(0),GFR(8000),GFR(0)],
-]
+INPUTS = [GFR(5)**(i+1) for i in range(10)]
 
-# sprinkle some random elements
-for i in range(1):
-    line = []
-    for j in range(i):
-        line.append(gfr.random_element())
-    inputs.append(line)
+TEST_CASES = {}
 
-testCases = {}
-testCases['inputs'] = []
-testCases['entries'] = []
+TEST_CASES['inputs'] = vectorToString(INPUTS)
+TEST_CASES['entries'] = []
 
+for p in PARAMS:
 
-for i, v in enumerate(inputs):
-    testCases['inputs'].append(vectorToString(v))
-
-
-for p in params:
     entry = {}
-    entry['params'] = p
-    entry['expected'] = []
-    
-    print("generating test cases with SIS params " + json.dumps(p))
+    entry['params'] = p 
+    # print("generating test cases with SIS params " + json.dumps(p))
     instance = SIS(p['seed'], p['logTwoDegree'], p['logTwoBound'], p['maxNbElementsToHash'])
-    for i, v in enumerate(inputs):
-        # hash the vector
-        hResult = instance.hash(v)
-        entry['expected'].append(vectorToString(hResult))
+
+    # hash the vector
+    hResult = instance.hash(INPUTS)
+    entry['expected'] = vectorToString(hResult)
     
-    testCases['entries'].append(entry)
+    TEST_CASES['entries'].append(entry)
 
 
-testCases_json = json.dumps(testCases, indent=4)
+TEST_CASES_json = json.dumps(TEST_CASES, indent=4)
 with open("test_cases.json", "w") as outfile:
-    outfile.write(testCases_json)
+    outfile.write(TEST_CASES_json)
