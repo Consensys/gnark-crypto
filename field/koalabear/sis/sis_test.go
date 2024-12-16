@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/bits-and-blooms/bitset"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
+	"github.com/consensys/gnark-crypto/field/koalabear"
+	"github.com/consensys/gnark-crypto/field/koalabear/fft"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,7 +39,7 @@ var params128Bits []sisParams = []sisParams{
 }
 
 type TestCases struct {
-	Inputs  []fr.Element `json:"inputs"`
+	Inputs  []koalabear.Element `json:"inputs"`
 	Entries []struct {
 		Params struct {
 			Seed                int64 `json:"seed"`
@@ -47,7 +47,7 @@ type TestCases struct {
 			LogTwoBound         int   `json:"logTwoBound"`
 			MaxNbElementsToHash int   `json:"maxNbElementsToHash"`
 		} `json:"params"`
-		Expected []fr.Element `json:"expected"`
+		Expected []koalabear.Element `json:"expected"`
 	} `json:"entries"`
 }
 
@@ -93,14 +93,14 @@ func TestReference(t *testing.T) {
 
 func TestLimbDecomposeBytesMiddleBound(t *testing.T) {
 
-	var montConstant fr.Element
+	var montConstant koalabear.Element
 	var bMontConstant big.Int
 	bMontConstant.SetUint64(1)
-	bMontConstant.Lsh(&bMontConstant, fr.Bytes*8)
+	bMontConstant.Lsh(&bMontConstant, koalabear.Bytes*8)
 	montConstant.SetBigInt(&bMontConstant)
 
 	nbElmts := 10
-	a := make([]fr.Element, nbElmts)
+	a := make([]koalabear.Element, nbElmts)
 	for i := 0; i < nbElmts; i++ {
 		a[i].SetUint64(33)
 	}
@@ -112,17 +112,17 @@ func TestLimbDecomposeBytesMiddleBound(t *testing.T) {
 	logTwoBound := 8
 
 	for cc := 0; cc < 3; cc++ {
-		m := make(fr.Vector, nbElmts*fr.Bytes*8/logTwoBound)
+		m := make(koalabear.Vector, nbElmts*koalabear.Bytes*8/logTwoBound)
 		limbDecomposeBytesMiddleBound(buf.Bytes(), m, logTwoBound, 4, nil)
 
 		for i := 0; i < len(m); i++ {
 			m[i].Mul(&m[i], &montConstant)
 		}
 
-		var x fr.Element
+		var x koalabear.Element
 		x.SetUint64(1 << logTwoBound)
 
-		coeffsPerFieldsElmt := fr.Bytes * 8 / logTwoBound
+		coeffsPerFieldsElmt := koalabear.Bytes * 8 / logTwoBound
 		for i := 0; i < nbElmts; i++ {
 			r := eval(m[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
 			if !r.Equal(&a[i]) {
@@ -136,14 +136,14 @@ func TestLimbDecomposeBytesMiddleBound(t *testing.T) {
 
 func TestLimbDecomposeBytesSmallBound(t *testing.T) {
 
-	var montConstant fr.Element
+	var montConstant koalabear.Element
 	var bMontConstant big.Int
 	bMontConstant.SetUint64(1)
-	bMontConstant.Lsh(&bMontConstant, fr.Bytes*8)
+	bMontConstant.Lsh(&bMontConstant, koalabear.Bytes*8)
 	montConstant.SetBigInt(&bMontConstant)
 
 	nbElmts := 10
-	a := make([]fr.Element, nbElmts)
+	a := make([]koalabear.Element, nbElmts)
 	for i := 0; i < nbElmts; i++ {
 		a[i].SetRandom()
 	}
@@ -156,8 +156,8 @@ func TestLimbDecomposeBytesSmallBound(t *testing.T) {
 
 	for cc := 0; cc < 3; cc++ {
 
-		m := make(fr.Vector, nbElmts*fr.Bytes*8/logTwoBound)
-		m2 := make(fr.Vector, nbElmts*fr.Bytes*8/logTwoBound)
+		m := make(koalabear.Vector, nbElmts*koalabear.Bytes*8/logTwoBound)
+		m2 := make(koalabear.Vector, nbElmts*koalabear.Bytes*8/logTwoBound)
 
 		// the limbs are set as is, they are NOT converted in Montgomery form
 		limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
@@ -167,10 +167,10 @@ func TestLimbDecomposeBytesSmallBound(t *testing.T) {
 			m[i].Mul(&m[i], &montConstant)
 			m2[i].Mul(&m2[i], &montConstant)
 		}
-		var x fr.Element
+		var x koalabear.Element
 		x.SetUint64(1 << logTwoBound)
 
-		coeffsPerFieldsElmt := fr.Bytes * 8 / logTwoBound
+		coeffsPerFieldsElmt := koalabear.Bytes * 8 / logTwoBound
 		for i := 0; i < nbElmts; i++ {
 			r := eval(m[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
 			if !r.Equal(&a[i]) {
@@ -186,8 +186,8 @@ func TestLimbDecomposeBytesSmallBound(t *testing.T) {
 
 }
 
-func eval(p []fr.Element, x fr.Element) fr.Element {
-	var res fr.Element
+func eval(p []koalabear.Element, x koalabear.Element) koalabear.Element {
+	var res koalabear.Element
 	for i := len(p) - 1; i >= 0; i-- {
 		res.Mul(&res, &x).Add(&res, &p[i])
 	}
@@ -198,10 +198,10 @@ func TestMulMod(t *testing.T) {
 
 	size := 4
 
-	p := make([]fr.Element, size)
-	q := make([]fr.Element, size)
-	pCopy := make([]fr.Element, size)
-	qCopy := make([]fr.Element, size)
+	p := make([]koalabear.Element, size)
+	q := make([]koalabear.Element, size)
+	pCopy := make([]koalabear.Element, size)
+	qCopy := make([]koalabear.Element, size)
 	for i := 0; i < size; i++ {
 		p[i].SetRandom()
 		pCopy[i].Set(&p[i])
@@ -210,11 +210,11 @@ func TestMulMod(t *testing.T) {
 	}
 
 	// creation of the domain
-	shift, err := fr.Generator(uint64(2 * size))
+	shift, err := koalabear.Generator(uint64(2 * size))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var g fr.Element
+	var g koalabear.Element
 	g.Square(&shift)
 	domain := fft.NewDomain(uint64(size), fft.WithShift(shift))
 
@@ -243,8 +243,8 @@ func makeKeyDeterministic(t *testing.T, sis *RSis, _seed int64) {
 	// generate the key deterministically, the same way
 	// we do in sage to generate the test vectors.
 
-	polyRand := func(seed fr.Element, deg int) []fr.Element {
-		res := make([]fr.Element, deg)
+	polyRand := func(seed koalabear.Element, deg int) []koalabear.Element {
+		res := make([]koalabear.Element, deg)
 		for i := 0; i < deg; i++ {
 			res[i].Square(&seed)
 			seed.Set(&res[i])
@@ -252,7 +252,7 @@ func makeKeyDeterministic(t *testing.T, sis *RSis, _seed int64) {
 		return res
 	}
 
-	var seed, one fr.Element
+	var seed, one koalabear.Element
 	one.SetOne()
 	seed.SetInt64(_seed)
 	for i := 0; i < len(sis.A); i++ {
@@ -292,14 +292,14 @@ func estimateSisTheory(p sisParams) float64 {
 	totalTimePoly := timeCosetShift + timeFFT + timeMulAddKey
 
 	// Convert this into a time per input field
-	r := totalTimePoly * fr.Bits / p.logTwoBound / (1 << p.logTwoDegree)
+	r := totalTimePoly * koalabear.Bits / p.logTwoBound / (1 << p.logTwoDegree)
 	return float64(r)
 }
 
 func BenchmarkDecomposition(b *testing.B) {
 
 	nbElmts := 1000
-	a := make([]fr.Element, nbElmts)
+	a := make([]koalabear.Element, nbElmts)
 	for i := 0; i < nbElmts; i++ {
 		a[i].SetRandom()
 	}
@@ -308,7 +308,7 @@ func BenchmarkDecomposition(b *testing.B) {
 		buf.Write(a[i].Marshal())
 	}
 	logTwoBound := 4
-	m := make(fr.Vector, nbElmts*fr.Bytes*8/logTwoBound)
+	m := make(koalabear.Vector, nbElmts*koalabear.Bytes*8/logTwoBound)
 
 	b.Run(fmt.Sprintf("limbDecomposeBytes logTwoBound=%d", logTwoBound), func(b *testing.B) {
 		b.ResetTimer()
@@ -350,7 +350,7 @@ func BenchmarkSIS(b *testing.B) {
 	// a string of field element. It would be more meaningful to take a slice
 	// of field element directly because otherwise the conversion time is not
 	// accounted for in the benchmark.
-	inputs := make(fr.Vector, nbInputs)
+	inputs := make(koalabear.Vector, nbInputs)
 	for i := 0; i < len(inputs); i++ {
 		inputs[i].SetRandom()
 	}
@@ -364,7 +364,7 @@ func BenchmarkSIS(b *testing.B) {
 	}
 }
 
-func benchmarkSIS(b *testing.B, input []fr.Element, sparse bool, logTwoBound, logTwoDegree int, theoretical float64) {
+func benchmarkSIS(b *testing.B, input []koalabear.Element, sparse bool, logTwoBound, logTwoDegree int, theoretical float64) {
 	b.Helper()
 
 	n := len(input)
@@ -410,7 +410,7 @@ func benchmarkSIS(b *testing.B, input []fr.Element, sparse bool, logTwoBound, lo
 //
 // It is equivalent to calling r.Write(element.Marshal()); outBytes = r.Sum(nil);
 // ! note @gbotrel: this is a place holder, may not make sense
-func (r *RSis) Hash(v []fr.Element) ([]fr.Element, error) {
+func (r *RSis) Hash(v []koalabear.Element) ([]koalabear.Element, error) {
 	if len(v) > r.maxNbElementsToHash {
 		return nil, fmt.Errorf("can't hash more than %d elements with params provided in constructor", r.maxNbElementsToHash)
 	}
@@ -421,9 +421,9 @@ func (r *RSis) Hash(v []fr.Element) ([]fr.Element, error) {
 	}
 	sum := r.Sum(nil)
 	var rlen [4]byte
-	binary.BigEndian.PutUint32(rlen[:], uint32(len(sum)/fr.Bytes))
+	binary.BigEndian.PutUint32(rlen[:], uint32(len(sum)/koalabear.Bytes))
 	reader := io.MultiReader(bytes.NewReader(rlen[:]), bytes.NewReader(sum))
-	var result fr.Vector
+	var result koalabear.Vector
 	_, err := result.ReadFrom(reader)
 	if err != nil {
 		return nil, err
@@ -434,12 +434,12 @@ func (r *RSis) Hash(v []fr.Element) ([]fr.Element, error) {
 func TestLimbDecompositionFastPath(t *testing.T) {
 	assert := require.New(t)
 
-	for size := fr.Bytes; size < 5*fr.Bytes; size += fr.Bytes {
+	for size := koalabear.Bytes; size < 5*koalabear.Bytes; size += koalabear.Bytes {
 		// Test the fast path of limbDecomposeBytes8_64
 		buf := make([]byte, size)
-		m := make([]fr.Element, size)
+		m := make([]koalabear.Element, size)
 		mValues := bitset.New(uint(size))
-		n := make([]fr.Element, size)
+		n := make([]koalabear.Element, size)
 		nValues := bitset.New(uint(size))
 
 		// Generate a random buffer
@@ -459,18 +459,18 @@ func TestLimbDecompositionFastPath(t *testing.T) {
 
 func TestUnrolledFFT(t *testing.T) {
 
-	var shift fr.Element
+	var shift koalabear.Element
 	shift.SetRandom()
 
 	const size = 64
 	assert := require.New(t)
 	domain := fft.NewDomain(size, fft.WithShift(shift))
 
-	k1 := make([]fr.Element, size)
+	k1 := make([]koalabear.Element, size)
 	for i := 0; i < size; i++ {
 		k1[i].SetRandom()
 	}
-	k2 := make([]fr.Element, size)
+	k2 := make([]koalabear.Element, size)
 	copy(k2, k1)
 
 	// default FFT
