@@ -103,3 +103,27 @@ done6:
 	VADD   V5.D2, V7.D2, V5.D2   // acc2 += acc4
 	VST2.P [V4.D2, V5.D2], 0(R1) // store acc1 and acc2
 	RET
+
+// mulVec(res, a, b *Element, n uint64)
+TEXT ·mulVec(SB), NOFRAME|NOSPLIT, $0-32
+	LDP   res+0(FP), (R0, R1)
+	LDP   b+16(FP), (R2, R3)
+	VMOVS $const_q, V3
+	VDUP  V3.S[0], V3.S4      // broadcast q into V3
+	VMOVS $const_qInvNeg, V4
+	VDUP  V4.S[0], V4.S4      // broadcast qInvNeg into V4
+
+loop7:
+	CBZ     R3, done8
+	VLD1.P  16(R1), [V0.S4]
+	VLD1.P  16(R2), [V1.S4]
+	VUSHLL2 $0, V0.S4, V0.D2    // convert high words to 64 bits
+	VUSHLL2 $0, V1.S4, V1.D2    // convert high words to 64 bits
+	VSUB    V3.S4, V1.S4, V2.S4 // t = q - b
+	VUMIN   V2.S4, V1.S4, V1.S4 // b = min(t, b)
+	VST1.P  [V1.S4], 16(R0)     // res = b
+	SUB     $1, R3, R3
+	JMP     loop7
+
+done8:
+	RET

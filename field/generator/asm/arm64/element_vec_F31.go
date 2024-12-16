@@ -199,7 +199,6 @@ func (f *FFArm64) generateMulVecF31() {
 	f.Comment("mulVec(res, a, b *Element, n uint64)")
 	registers := f.FnHeader("mulVec", 0, 32)
 	defer f.AssertCleanStack(0, 0)
-	defer registers.AssertCleanState()
 
 	// registers
 	resPtr := registers.Pop()
@@ -215,12 +214,11 @@ func (f *FFArm64) generateMulVecF31() {
 	f.LDP("res+0(FP)", resPtr, aPtr)
 	f.LDP("b+16(FP)", bPtr, n)
 
-	a := registers.PopV("a")
-	b := registers.PopV("b")
-	t := registers.PopV("t")
-	q := registers.PopV("q")
-	qInvNeg := registers.PopV("qInvNeg")
-	p1 := registers.PopV("p1")
+	a := registers.PopV()
+	b := registers.PopV()
+	t := registers.PopV()
+	q := registers.PopV()
+	qInvNeg := registers.PopV()
 
 	f.VMOVS("$const_q", q)
 	f.VDUP(q.SAt(0), q.S4(), "broadcast q into "+string(q))
@@ -238,7 +236,7 @@ func (f *FFArm64) generateMulVecF31() {
 	f.VLD1_P(offset, bPtr, b.S4())
 
 	// let's compute p1 := a1 * b1
-	f.VPMULL(a.S4(), b.S4(), p1.D2())
+	// f.VPMULL(a.S4(), b.S4(), p1.D2())
 	// let's move the low words in t
 	// f.VMOV(p1.D2(), t.D2())
 
