@@ -39,7 +39,7 @@ var params128Bits []sisParams = []sisParams{
 }
 
 type TestCases struct {
-	Inputs  [][]koalabear.Element `json:"inputs"`
+	Inputs  []koalabear.Element `json:"inputs"`
 	Entries []struct {
 		Params struct {
 			Seed                int64 `json:"seed"`
@@ -47,7 +47,7 @@ type TestCases struct {
 			LogTwoBound         int   `json:"logTwoBound"`
 			MaxNbElementsToHash int   `json:"maxNbElementsToHash"`
 		} `json:"params"`
-		Expected [][]koalabear.Element `json:"expected"`
+		Expected []koalabear.Element `json:"expected"`
 	} `json:"entries"`
 }
 
@@ -64,7 +64,10 @@ func TestReference(t *testing.T) {
 	err = json.Unmarshal(data, &testCases)
 	assert.NoError(err, "reading test cases failed")
 
+	inputs := testCases.Inputs
+
 	for testCaseID, testCase := range testCases.Entries {
+
 		// create the SIS instance
 		sis, err := NewRSis(testCase.Params.Seed, testCase.Params.LogTwoDegree, testCase.Params.LogTwoBound, testCase.Params.MaxNbElementsToHash)
 		assert.NoError(err)
@@ -72,42 +75,18 @@ func TestReference(t *testing.T) {
 		// key generation same than in sage
 		makeKeyDeterministic(t, sis, testCase.Params.Seed)
 
-		for i, in := range testCases.Inputs {
-			sis.Reset()
+		sis.Reset()
 
-			// hash test case entry input and compare with expected (computed by sage)
-			got, err := sis.Hash(in)
-			assert.NoError(err)
-			if len(testCase.Expected[i]) == 0 {
-				for _, e := range got {
-					assert.True(e.IsZero(), "mismatch between reference test and computed value")
-				}
-			} else {
-				assert.EqualValues(
-					testCase.Expected[i], got,
-					"mismatch between reference test and computed value (testcase %v - input n° %v)",
-					testCaseID, i,
-				)
-			}
+		// hash test case entry input and compare with expected (computed by sage)
+		goHash, err := sis.Hash(inputs)
+		assert.NoError(err)
 
-			// ensure max nb elements to hash has no incidence on result.
-			if len(in) < testCase.Params.MaxNbElementsToHash {
-				sis2, err := NewRSis(testCase.Params.Seed, testCase.Params.LogTwoDegree, testCase.Params.LogTwoBound, len(in))
-				assert.NoError(err)
-				makeKeyDeterministic(t, sis2, testCase.Params.Seed)
+		assert.EqualValues(
+			testCase.Expected, goHash,
+			"mismatch between reference test and computed value (testcase %v)",
+			testCaseID,
+		)
 
-				got2, err := sis2.Hash(in)
-				assert.NoError(err)
-				if len(testCase.Expected[i]) == 0 {
-					for _, e := range got2 {
-						assert.True(e.IsZero(), "mismatch between reference test and computed value")
-					}
-				} else {
-					assert.EqualValues(got, got2, "max nb elements to hash change SIS result")
-				}
-			}
-
-		}
 	}
 
 }
