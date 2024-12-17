@@ -1,0 +1,212 @@
+#define REDUCE(ra0, ra1, ra2, ra3, rb0, rb1, rb2, rb3) \
+	MOVQ    ra0, rb0;              \
+	SUBQ    ·qElement(SB), ra0;    \
+	MOVQ    ra1, rb1;              \
+	SBBQ    ·qElement+8(SB), ra1;  \
+	MOVQ    ra2, rb2;              \
+	SBBQ    ·qElement+16(SB), ra2; \
+	MOVQ    ra3, rb3;              \
+	SBBQ    ·qElement+24(SB), ra3; \
+	CMOVQCS rb0, ra0;              \
+	CMOVQCS rb1, ra1;              \
+	CMOVQCS rb2, ra2;              \
+	CMOVQCS rb3, ra3;              \
+
+TEXT ·addE2(SB), NOSPLIT, $0-24
+	MOVQ x+8(FP), AX
+	MOVQ 0(AX), BX
+	MOVQ 8(AX), SI
+	MOVQ 16(AX), DI
+	MOVQ 24(AX), R8
+	MOVQ y+16(FP), DX
+	ADDQ 0(DX), BX
+	ADCQ 8(DX), SI
+	ADCQ 16(DX), DI
+	ADCQ 24(DX), R8
+
+	// reduce element(BX,SI,DI,R8) using temp registers (R9,R10,R11,R12)
+	REDUCE(BX,SI,DI,R8,R9,R10,R11,R12)
+
+	MOVQ res+0(FP), CX
+	MOVQ BX, 0(CX)
+	MOVQ SI, 8(CX)
+	MOVQ DI, 16(CX)
+	MOVQ R8, 24(CX)
+	MOVQ 32(AX), BX
+	MOVQ 40(AX), SI
+	MOVQ 48(AX), DI
+	MOVQ 56(AX), R8
+	ADDQ 32(DX), BX
+	ADCQ 40(DX), SI
+	ADCQ 48(DX), DI
+	ADCQ 56(DX), R8
+
+	// reduce element(BX,SI,DI,R8) using temp registers (R13,R14,R15,R9)
+	REDUCE(BX,SI,DI,R8,R13,R14,R15,R9)
+
+	MOVQ BX, 32(CX)
+	MOVQ SI, 40(CX)
+	MOVQ DI, 48(CX)
+	MOVQ R8, 56(CX)
+	RET
+
+TEXT ·doubleE2(SB), NOSPLIT, $0-16
+	MOVQ res+0(FP), DX
+	MOVQ x+8(FP), AX
+	MOVQ 0(AX), CX
+	MOVQ 8(AX), BX
+	MOVQ 16(AX), SI
+	MOVQ 24(AX), DI
+	ADDQ CX, CX
+	ADCQ BX, BX
+	ADCQ SI, SI
+	ADCQ DI, DI
+
+	// reduce element(CX,BX,SI,DI) using temp registers (R8,R9,R10,R11)
+	REDUCE(CX,BX,SI,DI,R8,R9,R10,R11)
+
+	MOVQ CX, 0(DX)
+	MOVQ BX, 8(DX)
+	MOVQ SI, 16(DX)
+	MOVQ DI, 24(DX)
+	MOVQ 32(AX), CX
+	MOVQ 40(AX), BX
+	MOVQ 48(AX), SI
+	MOVQ 56(AX), DI
+	ADDQ CX, CX
+	ADCQ BX, BX
+	ADCQ SI, SI
+	ADCQ DI, DI
+
+	// reduce element(CX,BX,SI,DI) using temp registers (R12,R13,R14,R15)
+	REDUCE(CX,BX,SI,DI,R12,R13,R14,R15)
+
+	MOVQ CX, 32(DX)
+	MOVQ BX, 40(DX)
+	MOVQ SI, 48(DX)
+	MOVQ DI, 56(DX)
+	RET
+
+TEXT ·subE2(SB), NOSPLIT, $0-24
+	XORQ    DI, DI
+	MOVQ    x+8(FP), SI
+	MOVQ    0(SI), AX
+	MOVQ    8(SI), DX
+	MOVQ    16(SI), CX
+	MOVQ    24(SI), BX
+	MOVQ    y+16(FP), SI
+	SUBQ    0(SI), AX
+	SBBQ    8(SI), DX
+	SBBQ    16(SI), CX
+	SBBQ    24(SI), BX
+	MOVQ    x+8(FP), SI
+	MOVQ    $0x0a11800000000001, R8
+	MOVQ    $0x59aa76fed0000001, R9
+	MOVQ    $0x60b44d1e5c37b001, R10
+	MOVQ    $0x12ab655e9a2ca556, R11
+	CMOVQCC DI, R8
+	CMOVQCC DI, R9
+	CMOVQCC DI, R10
+	CMOVQCC DI, R11
+	ADDQ    R8, AX
+	ADCQ    R9, DX
+	ADCQ    R10, CX
+	ADCQ    R11, BX
+	MOVQ    res+0(FP), R12
+	MOVQ    AX, 0(R12)
+	MOVQ    DX, 8(R12)
+	MOVQ    CX, 16(R12)
+	MOVQ    BX, 24(R12)
+	MOVQ    32(SI), AX
+	MOVQ    40(SI), DX
+	MOVQ    48(SI), CX
+	MOVQ    56(SI), BX
+	MOVQ    y+16(FP), SI
+	SUBQ    32(SI), AX
+	SBBQ    40(SI), DX
+	SBBQ    48(SI), CX
+	SBBQ    56(SI), BX
+	MOVQ    $0x0a11800000000001, R13
+	MOVQ    $0x59aa76fed0000001, R14
+	MOVQ    $0x60b44d1e5c37b001, R15
+	MOVQ    $0x12ab655e9a2ca556, R8
+	CMOVQCC DI, R13
+	CMOVQCC DI, R14
+	CMOVQCC DI, R15
+	CMOVQCC DI, R8
+	ADDQ    R13, AX
+	ADCQ    R14, DX
+	ADCQ    R15, CX
+	ADCQ    R8, BX
+	MOVQ    res+0(FP), SI
+	MOVQ    AX, 32(SI)
+	MOVQ    DX, 40(SI)
+	MOVQ    CX, 48(SI)
+	MOVQ    BX, 56(SI)
+	RET
+
+TEXT ·negE2(SB), NOSPLIT, $0-16
+	MOVQ  res+0(FP), DX
+	MOVQ  x+8(FP), AX
+	MOVQ  0(AX), BX
+	MOVQ  8(AX), SI
+	MOVQ  16(AX), DI
+	MOVQ  24(AX), R8
+	MOVQ  BX, AX
+	ORQ   SI, AX
+	ORQ   DI, AX
+	ORQ   R8, AX
+	TESTQ AX, AX
+	JNE   l1
+	MOVQ  AX, 0(DX)
+	MOVQ  AX, 8(DX)
+	MOVQ  AX, 16(DX)
+	MOVQ  AX, 24(DX)
+	JMP   l3
+
+l1:
+	MOVQ $0x0a11800000000001, CX
+	SUBQ BX, CX
+	MOVQ CX, 0(DX)
+	MOVQ $0x59aa76fed0000001, CX
+	SBBQ SI, CX
+	MOVQ CX, 8(DX)
+	MOVQ $0x60b44d1e5c37b001, CX
+	SBBQ DI, CX
+	MOVQ CX, 16(DX)
+	MOVQ $0x12ab655e9a2ca556, CX
+	SBBQ R8, CX
+	MOVQ CX, 24(DX)
+
+l3:
+	MOVQ  x+8(FP), AX
+	MOVQ  32(AX), BX
+	MOVQ  40(AX), SI
+	MOVQ  48(AX), DI
+	MOVQ  56(AX), R8
+	MOVQ  BX, AX
+	ORQ   SI, AX
+	ORQ   DI, AX
+	ORQ   R8, AX
+	TESTQ AX, AX
+	JNE   l2
+	MOVQ  AX, 32(DX)
+	MOVQ  AX, 40(DX)
+	MOVQ  AX, 48(DX)
+	MOVQ  AX, 56(DX)
+	RET
+
+l2:
+	MOVQ $0x0a11800000000001, CX
+	SUBQ BX, CX
+	MOVQ CX, 32(DX)
+	MOVQ $0x59aa76fed0000001, CX
+	SBBQ SI, CX
+	MOVQ CX, 40(DX)
+	MOVQ $0x60b44d1e5c37b001, CX
+	SBBQ DI, CX
+	MOVQ CX, 48(DX)
+	MOVQ $0x12ab655e9a2ca556, CX
+	SBBQ R8, CX
+	MOVQ CX, 56(DX)
+	RET
