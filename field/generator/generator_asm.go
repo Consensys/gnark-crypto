@@ -28,7 +28,10 @@ func generateARM64(F *config.Field, asm *config.Assembly) (string, error) {
 		return "", nil
 	}
 
-	os.MkdirAll(asm.BuildDir, 0755)
+	err := os.MkdirAll(asm.BuildDir, 0755)
+	if err != nil {
+		return "", fmt.Errorf("failed to create directory %s: %w", asm.BuildDir, err)
+	}
 	pathSrc := filepath.Join(asm.BuildDir, fmt.Sprintf(arm64.ElementASMFileName, F.NbWords))
 
 	hash, ok := mARM64.Load(pathSrc)
@@ -70,7 +73,10 @@ func generateAMD64(F *config.Field, asm *config.Assembly) (string, error) {
 	if !F.GenerateOpsAMD64 {
 		return "", nil
 	}
-	os.MkdirAll(asm.BuildDir, 0755)
+	err := os.MkdirAll(asm.BuildDir, 0755)
+	if err != nil {
+		return "", fmt.Errorf("failed to create directory %s: %w", asm.BuildDir, err)
+	}
 	pathSrc := filepath.Join(asm.BuildDir, fmt.Sprintf(amd64.ElementASMFileName, F.NbWords))
 
 	hash, ok := mAMD64.Load(pathSrc)
