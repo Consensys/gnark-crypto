@@ -276,7 +276,7 @@ func (z *E6) Inverse(x *E6) *E6 {
 	return z
 }
 
-// BatchInvertE6 returns a new slice with every element in a inverted.
+// BatchInvertE6 returns a new slice with every element in an inverted.
 // It uses Montgomery batch inversion trick.
 //
 // if a[i] == 0, returns result[i] = a[i]
