@@ -209,7 +209,7 @@ var subscripts = map[rune]rune{
 }
 
 // sup converts a rune to superscript. It returns the superscript or the
-// original rune and a error if there is no corresponding superscript.
+// original rune and an error if there is no corresponding superscript.
 func sup(r rune) (rune, error) {
 	s, ok := superscripts[r]
 	if !ok {
@@ -230,7 +230,7 @@ func ToSuperscript(s string) string {
 }
 
 // sub converts a rune to subscript. It returns the subscript or the original
-// rune and a error if there is no corresponding subscript.
+// rune and an error if there is no corresponding subscript.
 func sub(r rune) (rune, error) {
 	s, ok := subscripts[r]
 	if !ok {
