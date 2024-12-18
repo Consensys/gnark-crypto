@@ -232,7 +232,7 @@ func (z *E2) Sqrt(x *E2) *E2 {
 	return z
 }
 
-// BatchInvertE2 returns a new slice with every element in a inverted.
+// BatchInvertE2 returns a new slice with every element in aт inverted.
 // It uses Montgomery batch inversion trick.
 //
 // if a[i] == 0, returns result[i] = a[i]
