@@ -309,7 +309,7 @@ func (r *RSis) cleanupBuffers() {
 	}
 }
 
-// Split an slice of bytes representing an array of serialized field element in
+// Split a slice of bytes representing an array of serialized field element in
 // big-endian form into an array of limbs representing the same field elements
 // in little-endian form. Namely, if our field is represented with 64 bits and we
 // have the following field element 0x0123456789abcdef (0 being the most significant
@@ -322,7 +322,7 @@ func LimbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound int) {
 	limbDecomposeBytes(buf, m, logTwoBound, 0, nil)
 }
 
-// Split an slice of bytes representing an array of serialized field element in
+// Split a slice of bytes representing an array of serialized field element in
 // big-endian form into an array of limbs representing the same field elements
 // in little-endian form. Namely, if our field is represented with 64 bits and we
 // have the following field element 0x0123456789abcdef (0 being the most significant
