@@ -249,7 +249,7 @@ const (
 	LATENCY_ADD_FIELD_NS int = 4
 )
 
-// Estimate the oretical performances that are achievable using ring-SIS
+// Estimate the theoretical performances that are achievable using ring-SIS
 // operations. The time is obtained by counting the number of additions and
 // multiplications occurring in the computation. This does not account for the
 // possibilities to use SIMD instructions or for cache-locality issues. Thus, it
