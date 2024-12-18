@@ -638,43 +638,13 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		}
 		return
 	case []G1Affine:
-		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
-		if err != nil {
-			return
-		}
-		enc.n += 4
-
-		var buf [SizeOfG1AffineUncompressed]byte
-
-		for i := 0; i < len(t); i++ {
-			buf = t[i].RawBytes()
-			written, err = enc.w.Write(buf[:])
-			enc.n += int64(written)
-			if err != nil {
-				return
-			}
-		}
-		return nil
+		return enc.writeG1Slice(t)
+	case *[]G1Affine:
+		return enc.writeG1Slice(*t)
 	case []G2Affine:
-		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
-		if err != nil {
-			return
-		}
-		enc.n += 4
-
-		var buf [SizeOfG2AffineUncompressed]byte
-
-		for i := 0; i < len(t); i++ {
-			buf = t[i].RawBytes()
-			written, err = enc.w.Write(buf[:])
-			enc.n += int64(written)
-			if err != nil {
-				return
-			}
-		}
-		return nil
+		return enc.writeG2Slice(t)
+	case *[]G2Affine:
+		return enc.writeG2Slice(*t)
 	default:
 		n := binary.Size(t)
 		if n == -1 {
