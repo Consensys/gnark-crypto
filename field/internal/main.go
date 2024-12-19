@@ -31,6 +31,7 @@ func main() {
 		if err := generator.GenerateFF(fc, filepath.Join("..", f.name),
 			generator.WithASM(&config.Assembly{BuildDir: "../asm", IncludeDir: "../asm"}),
 			generator.WithFFT(&config.FFT{}), // TODO @gbotrel
+			generator.WithSIS(),
 		); err != nil {
 			panic(err)
 		}

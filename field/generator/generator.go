@@ -46,6 +46,13 @@ func GenerateFF(F *config.Field, outputDir string, options ...Option) error {
 		}
 	}
 
+	// generate SIS
+	if cfg.HasSIS() {
+		if err := generateSIS(F, outputDir); err != nil {
+			return err
+		}
+	}
+
 	return runFormatters(outputDir)
 }
 
