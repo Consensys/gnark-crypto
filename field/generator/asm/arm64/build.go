@@ -61,7 +61,6 @@ func GenerateCommonASM(w io.Writer, nbWords, nbBits int, hasVector bool) error {
 		} else {
 			panic("not implemented")
 		}
-
 	}
 
 	if f.NbWords%2 != 0 {
