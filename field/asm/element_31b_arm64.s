@@ -5,62 +5,44 @@
 
 // addVec(res, a, b *Element, n uint64)
 TEXT ·addVec(SB), NOFRAME|NOSPLIT, $0-32
-	LDP res+0(FP), (R0, R1)
-	LDP b+16(FP), (R2, R3)
-
-#define a V0
-#define b V1
-#define t V2
-#define q V3
-	VMOVS $const_q, q
-	VDUP  q.S[0], q.S4 // broadcast q into q
+	LDP   res+0(FP), (R0, R1)
+	LDP   b+16(FP), (R2, R3)
+	VMOVS $const_q, V3
+	VDUP  V3.S[0], V3.S4      // broadcast q into V3
 
 loop1:
 	CBZ    R3, done2
-	VLD1.P 16(R1), [a.S4]
-	VLD1.P 16(R2), [b.S4]
-	VADD   a.S4, b.S4, b.S4 // b = a + b
-	VSUB   q.S4, b.S4, t.S4 // t = b - q
-	VUMIN  t.S4, b.S4, b.S4 // b = min(t, b)
-	VST1.P [b.S4], 16(R0)   // res = b
+	VLD1.P 16(R1), [V0.S4]
+	VLD1.P 16(R2), [V1.S4]
+	VADD   V0.S4, V1.S4, V1.S4 // b = a + b
+	VSUB   V3.S4, V1.S4, V2.S4 // t = b - q
+	VUMIN  V2.S4, V1.S4, V1.S4 // b = min(t, b)
+	VST1.P [V1.S4], 16(R0)     // res = b
 	SUB    $1, R3, R3
 	JMP    loop1
 
 done2:
-#undef a
-#undef b
-#undef t
-#undef q
 	RET
 
 // subVec(res, a, b *Element, n uint64)
 TEXT ·subVec(SB), NOFRAME|NOSPLIT, $0-32
-	LDP res+0(FP), (R0, R1)
-	LDP b+16(FP), (R2, R3)
-
-#define a V0
-#define b V1
-#define t V2
-#define q V3
-	VMOVS $const_q, q
-	VDUP  q.S[0], q.S4 // broadcast q into q
+	LDP   res+0(FP), (R0, R1)
+	LDP   b+16(FP), (R2, R3)
+	VMOVS $const_q, V3
+	VDUP  V3.S[0], V3.S4      // broadcast q into V3
 
 loop3:
 	CBZ    R3, done4
-	VLD1.P 16(R1), [a.S4]
-	VLD1.P 16(R2), [b.S4]
-	VSUB   b.S4, a.S4, b.S4 // b = a - b
-	VADD   b.S4, q.S4, t.S4 // t = b + q
-	VUMIN  t.S4, b.S4, b.S4 // b = min(t, b)
-	VST1.P [b.S4], 16(R0)   // res = b
+	VLD1.P 16(R1), [V0.S4]
+	VLD1.P 16(R2), [V1.S4]
+	VSUB   V1.S4, V0.S4, V1.S4 // b = a - b
+	VADD   V1.S4, V3.S4, V2.S4 // t = b + q
+	VUMIN  V2.S4, V1.S4, V1.S4 // b = min(t, b)
+	VST1.P [V1.S4], 16(R0)     // res = b
 	SUB    $1, R3, R3
 	JMP    loop3
 
 done4:
-#undef a
-#undef b
-#undef q
-#undef t
 	RET
 
 // sumVec(t *uint64, a *[]uint32, n uint64) res = sum(a[0...n])
