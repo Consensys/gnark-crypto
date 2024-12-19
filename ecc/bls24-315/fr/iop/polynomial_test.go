@@ -23,14 +23,14 @@ func TestEvaluation(t *testing.T) {
 	shift := 2
 	d := fft.NewDomain(uint64(size))
 	c := randomVector(size)
-	wp := NewPolynomial(c, Form{Basis: Canonical, Layout: Regular})
-	wps := wp.ShallowClone().Shift(shift)
-	ref := wp.Clone()
+	p := NewPolynomial(c, Form{Basis: Canonical, Layout: Regular})
+	ps := p.ShallowClone().Shift(shift)
+	ref := p.Clone()
 	ref.ToLagrange(d).ToRegular()
 
-	// regular layout
-	a := wp.Evaluate(d.Generator)
-	b := wps.Evaluate(d.Generator)
+	// canonical regular
+	a := p.Evaluate(d.Generator)
+	b := ps.Evaluate(d.Generator)
 	if !a.Equal(&ref.Coefficients()[1]) {
 		t.Fatal("error evaluation")
 	}
@@ -38,16 +38,70 @@ func TestEvaluation(t *testing.T) {
 		t.Fatal("error evaluation shifted")
 	}
 
-	// bit reversed layout
-	wp.ToBitReverse()
-	wps.ToBitReverse()
-	a = wp.Evaluate(d.Generator)
-	b = wps.Evaluate(d.Generator)
+	// canonical bit reversed
+	p.ToBitReverse()
+	ps.ToBitReverse()
+	a = p.Evaluate(d.Generator)
+	b = ps.Evaluate(d.Generator)
 	if !a.Equal(&ref.Coefficients()[1]) {
 		t.Fatal("error evaluation")
 	}
 	if !b.Equal(&ref.Coefficients()[1+shift]) {
 		t.Fatal("error evaluation shifted")
+	}
+
+	// get reference values
+	var x fr.Element
+	x.SetRandom()
+	expectedEval := p.ToRegular().Evaluate(x)
+	expectedEvalShifted := ps.ToRegular().Evaluate(x)
+
+	// lagrange regular
+	p.ToLagrange(d).ToRegular()
+	ps.ToLagrange(d).ToRegular()
+	plx := p.Evaluate(x)
+	pslx := ps.Evaluate(x)
+	if !plx.Equal(&expectedEval) {
+		t.Fatal("error evaluation lagrange")
+	}
+	if !pslx.Equal(&expectedEvalShifted) {
+		t.Fatal("error evaluation lagrange shifted")
+	}
+
+	// lagrange bit reverse
+	p.ToBitReverse()
+	ps.ToBitReverse()
+	plx = p.Evaluate(x)
+	pslx = ps.Evaluate(x)
+	if !plx.Equal(&expectedEval) {
+		t.Fatal("error evaluation lagrange")
+	}
+	if !pslx.Equal(&expectedEvalShifted) {
+		t.Fatal("error evaluation lagrange shifted")
+	}
+
+	// lagrange coset regular
+	p.ToLagrangeCoset(d).ToRegular()
+	ps.ToLagrangeCoset(d).ToRegular()
+	plx = p.Evaluate(x)
+	pslx = ps.Evaluate(x)
+	if !plx.Equal(&expectedEval) {
+		t.Fatal("error evaluation lagrange coset")
+	}
+	if !pslx.Equal(&expectedEvalShifted) {
+		t.Fatal("error evaluation lagrange coset shifted")
+	}
+
+	// lagrange coset bit reverse
+	p.ToRegular().ToBitReverse()
+	ps.ToRegular().ToBitReverse()
+	plx = p.Evaluate(x)
+	pslx = ps.Evaluate(x)
+	if !plx.Equal(&expectedEval) {
+		t.Fatal("error evaluation lagrange coset")
+	}
+	if !pslx.Equal(&expectedEvalShifted) {
+		t.Fatal("error evaluation lagrange coset shifted")
 	}
 
 }
@@ -113,10 +167,9 @@ func TestRoundTrip(t *testing.T) {
 
 	size := 8
 	d := fft.NewDomain(uint64(8))
-	blindingOrder := 2
 
-	p := NewPolynomial(randomVector(size), Form{Basis: Lagrange, Layout: Regular}).ToCanonical(d).ToRegular()
-	p.Blind(blindingOrder)
+	p := NewPolynomial(randomVector(size), Form{Basis: Canonical, Layout: Regular})
+	p.ToLagrangeCoset(d)
 
 	// serialize
 	written, err := p.WriteTo(&buf)
@@ -134,50 +187,8 @@ func TestRoundTrip(t *testing.T) {
 	assert.Equal(p.Layout, reconstructed.Layout)
 	assert.Equal(p.shift, reconstructed.shift)
 	assert.Equal(p.size, reconstructed.size)
-	assert.Equal(p.blindedSize, reconstructed.blindedSize)
 	c1, c2 := p.Coefficients(), reconstructed.Coefficients()
 	assert.True(reflect.DeepEqual(c1, c2))
-}
-
-func TestBlinding(t *testing.T) {
-
-	size := 8
-	d := fft.NewDomain(uint64(8))
-	blindingOrder := 2
-
-	// generate a random polynomial in Lagrange form for the moment
-	// to check that an error is raised when the polynomial is not
-	// in canonical form.
-	wp := NewPolynomial(randomVector(size), Form{Basis: Lagrange, Layout: Regular})
-
-	// checks the blinding is correct: the evaluation of the blinded polynomial
-	// should be the same as the original on d's domain
-	wp.Basis = Canonical
-	wt := wp.Clone()
-	wt.Blind(blindingOrder)
-	if wt.coefficients.Len() != blindingOrder+size+1 {
-		t.Fatal("size of blinded polynomial is incorrect")
-	}
-	if wt.blindedSize != size+blindingOrder+1 {
-		t.Fatal("Size field of blinded polynomial is incorrect")
-	}
-	if wt.size != size {
-		t.Fatal("the size should not have been modified")
-	}
-	x := make([]fr.Element, size)
-	x[0].SetOne()
-	for i := 1; i < size; i++ {
-		x[i].Mul(&x[i-1], &d.Generator)
-	}
-	var a, b fr.Element
-	for i := 0; i < size; i++ {
-		a = wt.Evaluate(x[i])
-		b = wp.Evaluate(x[i])
-		if a != b {
-			t.Fatal("polynomial and its blinded version should be equal on V(X^{n}-1)")
-		}
-	}
-
 }
 
 // list of functions to turn a polynomial in Lagrange-regular form
