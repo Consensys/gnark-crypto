@@ -16,11 +16,11 @@ func (cfg *generatorConfig) HasFFT() bool {
 }
 
 func (cfg *generatorConfig) HasArm64() bool {
-	return cfg.asmConfig != nil
+	return cfg.asmConfig != nil && cfg.asmConfig.BuildDir != ""
 }
 
 func (cfg *generatorConfig) HasAMD64() bool {
-	return cfg.asmConfig != nil
+	return cfg.asmConfig != nil && cfg.asmConfig.BuildDir != ""
 }
 
 func WithFFT(cfg *config.FFT) Option {
@@ -38,7 +38,9 @@ func WithASM(cfg *config.Assembly) Option {
 // default options
 func generatorOptions(opts ...Option) generatorConfig {
 	// apply options
-	opt := generatorConfig{}
+	opt := generatorConfig{
+		asmConfig: &config.Assembly{},
+	}
 	for _, option := range opts {
 		option(&opt)
 	}
