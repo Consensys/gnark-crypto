@@ -23,13 +23,16 @@ func main() {
 		{"babybear", "0x78000001"},  // 2^31 - 2^27 + 1 ==> 2-adicity 27
 	}
 
+	// generate assembly
+	asmDirIncludePath := filepath.Join("..", "asm")
+
 	for _, f := range fields {
 		fc, err := config.NewFieldConfig(f.name, "Element", f.modulus, true)
 		if err != nil {
 			panic(err)
 		}
 		if err := generator.GenerateFF(fc, filepath.Join("..", f.name),
-			generator.WithASM(&config.Assembly{BuildDir: "../asm", IncludeDir: "../asm"}),
+			generator.WithASM(&config.Assembly{BuildDir: asmDirIncludePath, IncludeDir: asmDirIncludePath}),
 			generator.WithFFT(&config.FFT{}), // TODO @gbotrel
 			generator.WithSIS(),
 		); err != nil {
