@@ -6,7 +6,7 @@
 package sumcheck
 
 import (
-	"fmt"
+	"errors"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr/polynomial"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
@@ -151,7 +151,7 @@ func Verify(claims LazyClaims, proof Proof, transcriptSettings fiatshamir.Settin
 
 	for j := 0; j < claims.VarsNum(); j++ {
 		if len(proof.PartialSumPolys[j]) != claims.Degree(j) {
-			return fmt.Errorf("malformed proof")
+			return errors.New("malformed proof")
 		}
 		copy(gJ[1:], proof.PartialSumPolys[j])
 		gJ[0].Sub(&gJR, &proof.PartialSumPolys[j][0]) // Requirement that gⱼ(0) + gⱼ(1) = gⱼ₋₁(r)

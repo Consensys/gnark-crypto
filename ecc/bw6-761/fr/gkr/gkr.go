@@ -6,6 +6,7 @@
 package gkr
 
 import (
+	"errors"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/polynomial"
@@ -136,7 +137,7 @@ func (e *eqTimesGateEvalSumcheckLazyClaims) VerifyFinalEval(r []fr.Element, comb
 	if evaluation.Equal(&purportedValue) {
 		return nil
 	}
-	return fmt.Errorf("incompatible evaluations")
+	return errors.New("incompatible evaluations")
 }
 
 type eqTimesGateEvalSumcheckClaims struct {
@@ -461,7 +462,7 @@ func setup(c Circuit, assignment WireAssignment, transcriptSettings fiatshamir.S
 	o.nbVars = assignment.NumVars()
 	nbInstances := assignment.NumInstances()
 	if 1<<o.nbVars != nbInstances {
-		return o, fmt.Errorf("number of instances must be power of 2")
+		return o, errors.New("number of instances must be power of 2")
 	}
 
 	if o.pool == nil {
@@ -661,14 +662,14 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSetting
 		if wire.noProof() { // input wires with one claim only
 			// make sure the proof is empty
 			if len(finalEvalProof) != 0 || len(proofW.PartialSumPolys) != 0 {
-				return fmt.Errorf("no proof allowed for input wire with a single claim")
+				return errors.New("no proof allowed for input wire with a single claim")
 			}
 
 			if wire.NbClaims() == 1 { // input wire
 				// simply evaluate and see if it matches
 				evaluation := assignment[wire].Evaluate(claim.evaluationPoints[0], claims.memPool)
 				if !claim.claimedEvaluations[0].Equal(&evaluation) {
-					return fmt.Errorf("incorrect input wire claim")
+					return errors.New("incorrect input wire claim")
 				}
 			}
 		} else if err = sumcheck.Verify(
