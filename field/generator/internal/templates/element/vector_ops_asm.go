@@ -371,7 +371,6 @@ func (vector *Vector) Sum() (res {{.ElementName}}) {
 	sumVec(&t[0], &(*vector)[0], n/blockSize)
 	// we reduce the accumulators mod q and add to res
 	for i := 0; i < 8; i++ {
-		t[i] %= q
 		v[0] = uint32(t[i] % q)
 		res.Add(&res, &v)
 	}

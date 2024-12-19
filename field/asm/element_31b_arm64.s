@@ -140,7 +140,6 @@ loop7:
 	VSUB    V0.D2, V3.D2, V4.D2    // t = q - m
 	VUMIN   V4.S4, V3.S4, V3.S4    // m = min(t, m)
 	VSHL    $0x20, V3.D2, V3.D2
-	VREV64  V3.S2, V3.S2
 	MUL     R10, R12, R14
 	MUL     R11, R13, R15
 	VMOV    R14, V6.D[0]

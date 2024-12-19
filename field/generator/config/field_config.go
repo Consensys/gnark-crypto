@@ -103,7 +103,10 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	}
 	// pre compute field constants
 	F.NbBits = bModulus.BitLen()
-	F.F31 = F.NbBits == 31
+	// note: here we set F31 only for BabyBear and KoalaBear;
+	// we could do uint32 bit size for all fields with NbBits <= 31, but we keep it as is for now
+	// to avoid breaking changes
+	F.F31 = F.ModulusHex == "7f000001" || F.ModulusHex == "78000001" // F.NbBits <= 31
 	F.NbWords = len(bModulus.Bits())
 	F.NbWordsLastIndex = F.NbWords - 1
 

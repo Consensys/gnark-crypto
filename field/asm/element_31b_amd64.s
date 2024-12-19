@@ -4,6 +4,7 @@
 #include "go_asm.h"
 
 // addVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] + b[0...n]
+// n is the number of blocks of 16 elements to process
 TEXT ·addVec(SB), NOSPLIT, $0-32
 	MOVD         $const_q, AX
 	VPBROADCASTD AX, Z3
@@ -33,6 +34,7 @@ done_2:
 	RET
 
 // subVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] - b[0...n]
+// n is the number of blocks of 16 elements to process
 TEXT ·subVec(SB), NOSPLIT, $0-32
 	MOVD         $const_q, AX
 	VPBROADCASTD AX, Z3
@@ -62,6 +64,7 @@ done_4:
 	RET
 
 // sumVec(res *uint64, a *[]uint32, n uint64) res = sum(a[0...n])
+// n is the number of blocks of 16 elements to process
 TEXT ·sumVec(SB), NOSPLIT, $0-24
 
 	// We load 8 31bits values at a time and accumulate them into an accumulator of
@@ -94,6 +97,7 @@ done_6:
 	RET
 
 // mulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b[0...n]
+// n is the number of blocks of 8 elements to process
 TEXT ·mulVec(SB), NOSPLIT, $0-32
 	MOVD         $const_q, AX
 	VPBROADCASTQ AX, Z3
@@ -135,6 +139,7 @@ done_8:
 	RET
 
 // scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b
+// n is the number of blocks of 8 elements to process
 TEXT ·scalarMulVec(SB), NOSPLIT, $0-32
 	MOVD         $const_q, AX
 	VPBROADCASTQ AX, Z3
@@ -175,6 +180,7 @@ done_10:
 	RET
 
 // innerProdVec(t *uint64, a,b *[]uint32, n uint64) res = sum(a[0...n] * b[0...n])
+// n is the number of blocks of 8 elements to process
 TEXT ·innerProdVec(SB), NOSPLIT, $0-32
 
 	// Similar to mulVec; we do most of the montgomery multiplication but don't do
