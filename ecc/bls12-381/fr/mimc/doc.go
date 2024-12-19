@@ -44,6 +44,6 @@
 // The MiMC hash function is defined over a field. The input to the hash
 // function is a byte slice. The byte slice is interpreted as a sequence of
 // field elements. Due to this interpretation, the input byte slice length must
-// be multiple of the field modulus size. And every secuence of byte slice for a
+// be multiple of the field modulus size. And every sequence of byte slice for a
 // single field element must be strictly less than the field modulus.
 package mimc
