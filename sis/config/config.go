@@ -2,7 +2,7 @@ package config
 
 import "strings"
 
-// SIS struct containg the necessary information for code generation
+// SIS struct containing the necessary information for code generation
 type SIS struct {
 
 	// FieldPackagePath path to the finite field package
