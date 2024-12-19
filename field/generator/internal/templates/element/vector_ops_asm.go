@@ -197,12 +197,6 @@ func (vector *Vector) Sub(a, b Vector) {
 	}
 }
 
-// ScalarMul multiplies a vector by a scalar element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
-	scalarMulVecGeneric(*vector, a, b)
-}
-
 // Sum computes the sum of all elements in the vector.
 func (vector *Vector) Sum() (res {{.ElementName}}) {
 	n := uint64(len(*vector))
@@ -226,6 +220,15 @@ func (vector *Vector) Sum() (res {{.ElementName}}) {
 	}
 
 	return
+}
+
+// note: unfortunately, as of Dec. 2024, Golang doesn't support enough NEON instructions
+// for these to be worth it in assembly. Will hopefully revisit in future versions.
+
+// ScalarMul multiplies a vector by a scalar element-wise and stores the result in self.
+// It panics if the vectors don't have the same length.
+func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
+	scalarMulVecGeneric(*vector, a, b)
 }
 
 // InnerProduct computes the inner product of two vectors.

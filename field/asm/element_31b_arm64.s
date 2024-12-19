@@ -4,6 +4,7 @@
 #include "go_asm.h"
 
 // addVec(res, a, b *Element, n uint64)
+// n is the number of blocks of 4 uint32 to process
 TEXT ·addVec(SB), NOFRAME|NOSPLIT, $0-32
 	LDP   res+0(FP), (R0, R1)
 	LDP   b+16(FP), (R2, R3)
@@ -25,6 +26,7 @@ done2:
 	RET
 
 // subVec(res, a, b *Element, n uint64)
+// n is the number of blocks of 4 uint32 to process
 TEXT ·subVec(SB), NOFRAME|NOSPLIT, $0-32
 	LDP   res+0(FP), (R0, R1)
 	LDP   b+16(FP), (R2, R3)
@@ -46,6 +48,7 @@ done4:
 	RET
 
 // sumVec(t *uint64, a *[]uint32, n uint64) res = sum(a[0...n])
+// n is the number of blocks of 16 uint32 to process
 TEXT ·sumVec(SB), NOFRAME|NOSPLIT, $0-24
 	// zeroing accumulators
 	VMOVQ $0, $0, V4

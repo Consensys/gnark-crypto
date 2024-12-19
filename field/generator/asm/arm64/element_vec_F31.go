@@ -4,6 +4,7 @@ import "github.com/consensys/bavard/arm64"
 
 func (f *FFArm64) generateAddVecF31() {
 	f.Comment("addVec(res, a, b *Element, n uint64)")
+	f.Comment("n is the number of blocks of 4 uint32 to process")
 	registers := f.FnHeader("addVec", 0, 32)
 	defer f.AssertCleanStack(0, 0)
 
@@ -58,6 +59,7 @@ func (f *FFArm64) generateAddVecF31() {
 
 func (f *FFArm64) generateSubVecF31() {
 	f.Comment("subVec(res, a, b *Element, n uint64)")
+	f.Comment("n is the number of blocks of 4 uint32 to process")
 	registers := f.FnHeader("subVec", 0, 32)
 	defer f.AssertCleanStack(0, 0)
 
@@ -112,6 +114,7 @@ func (f *FFArm64) generateSubVecF31() {
 
 func (f *FFArm64) generateSumVecF31() {
 	f.Comment("sumVec(t *uint64, a *[]uint32, n uint64) res = sum(a[0...n])")
+	f.Comment("n is the number of blocks of 16 uint32 to process")
 	registers := f.FnHeader("sumVec", 0, 3*8)
 	defer f.AssertCleanStack(0, 0)
 
