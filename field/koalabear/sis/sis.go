@@ -13,8 +13,8 @@ import (
 	"math/bits"
 
 	"github.com/bits-and-blooms/bitset"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
+	"github.com/consensys/gnark-crypto/field/koalabear"
+	"github.com/consensys/gnark-crypto/field/koalabear/fft"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"golang.org/x/crypto/blake2b"
 )
@@ -32,8 +32,8 @@ type RSis struct {
 	// Vectors in ℤ_{p}/Xⁿ+1
 	// A[i] is the i-th polynomial.
 	// Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
-	A  [][]fr.Element
-	Ag [][]fr.Element
+	A  [][]koalabear.Element
+	Ag [][]koalabear.Element
 
 	// LogTwoBound (Infinity norm) of the vector to hash. It means that each component in m
 	// is < 2^B, where m is the vector to hash (the hash being A*m).
@@ -42,7 +42,7 @@ type RSis struct {
 
 	// domain for the polynomial multiplication
 	Domain        *fft.Domain
-	twiddleCosets []fr.Element // see FFT64 and precomputeTwiddlesCoset
+	twiddleCosets []koalabear.Element // see FFT64 and precomputeTwiddlesCoset
 
 	// d, the degree of X^{d}+1
 	Degree int
@@ -53,7 +53,7 @@ type RSis struct {
 	maxNbElementsToHash int
 
 	// allocate memory once per instance (used in Sum())
-	bufM, bufRes fr.Vector
+	bufM, bufRes koalabear.Vector
 	bufMValues   *bitset.BitSet
 }
 
@@ -73,7 +73,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	}
 
 	degree := 1 << logTwoDegree
-	capacity := maxNbElementsToHash * fr.Bytes
+	capacity := maxNbElementsToHash * koalabear.Bytes
 
 	// n: number of polynomials in A
 	// len(m) == degree * n
@@ -83,8 +83,8 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	// n == (capacity*8)/(degree*logTwoBound)
 
 	// First n <- #limbs to represent a single field element
-	n := (fr.Bytes * 8) / logTwoBound
-	if n*logTwoBound < fr.Bytes*8 {
+	n := (koalabear.Bytes * 8) / logTwoBound
+	if n*logTwoBound < koalabear.Bytes*8 {
 		n++
 	}
 
@@ -100,7 +100,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	}
 
 	// domains (shift is √{gen} )
-	shift, err := fr.Generator(uint64(2 * degree))
+	shift, err := koalabear.Generator(uint64(2 * degree))
 	if err != nil {
 		return nil, err
 	}
@@ -110,10 +110,10 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		capacity:            capacity,
 		Degree:              degree,
 		Domain:              fft.NewDomain(uint64(degree), fft.WithShift(shift)),
-		A:                   make([][]fr.Element, n),
-		Ag:                  make([][]fr.Element, n),
-		bufM:                make(fr.Vector, degree*n),
-		bufRes:              make(fr.Vector, degree),
+		A:                   make([][]koalabear.Element, n),
+		Ag:                  make([][]koalabear.Element, n),
+		bufM:                make(koalabear.Vector, degree*n),
+		bufRes:              make(koalabear.Vector, degree),
 		bufMValues:          bitset.New(uint(n)),
 		maxNbElementsToHash: maxNbElementsToHash,
 	}
@@ -123,8 +123,8 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	}
 
 	// filling A
-	a := make([]fr.Element, n*r.Degree)
-	ag := make([]fr.Element, n*r.Degree)
+	a := make([]koalabear.Element, n*r.Degree)
+	ag := make([]koalabear.Element, n*r.Degree)
 
 	parallel.Execute(n, func(start, end int) {
 		var buf bytes.Buffer
@@ -153,7 +153,7 @@ func (r *RSis) Write(p []byte) (n int, err error) {
 // Sum appends the current hash to b and returns the resulting slice.
 // It does not change the underlying hash state.
 // The instance buffer is interpreted as a sequence of coefficients of size r.Bound bits long.
-// The function returns the hash of the polynomial as a a sequence []fr.Elements, interpreted as []bytes,
+// The function returns the hash of the polynomial as a a sequence []koalabear.Elements, interpreted as []bytes,
 // corresponding to sum_i A[i]*m Mod X^{d}+1
 func (r *RSis) Sum(b []byte) []byte {
 	buf := r.buffer.Bytes()
@@ -171,7 +171,7 @@ func (r *RSis) Sum(b []byte) []byte {
 
 	if r.LogTwoBound < 8 && (8%r.LogTwoBound == 0) {
 		limbDecomposeBytesSmallBound(buf, m, r.LogTwoBound, r.Degree, mValues)
-	} else if r.LogTwoBound >= 8 && (fr.Bytes*8)%r.LogTwoBound == 0 {
+	} else if r.LogTwoBound >= 8 && (koalabear.Bytes*8)%r.LogTwoBound == 0 {
 		limbDecomposeBytesMiddleBound(buf, m, r.LogTwoBound, r.Degree, mValues)
 	} else {
 		limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
@@ -216,7 +216,7 @@ func (r *RSis) Size() int {
 
 	// The size in bits is the size in bits of a polynomial in A.
 	degree := len(r.A[0])
-	totalSize := degree * fr.Modulus().BitLen() / 8
+	totalSize := degree * koalabear.Modulus().BitLen() / 8
 
 	return totalSize
 }
@@ -243,7 +243,7 @@ func NewRingSISMaker(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash 
 
 }
 
-func genRandom(seed, i, j int64, buf *bytes.Buffer) fr.Element {
+func genRandom(seed, i, j int64, buf *bytes.Buffer) koalabear.Element {
 
 	buf.Reset()
 	buf.WriteString("SIS")
@@ -253,7 +253,7 @@ func genRandom(seed, i, j int64, buf *bytes.Buffer) fr.Element {
 
 	digest := blake2b.Sum256(buf.Bytes())
 
-	var res fr.Element
+	var res koalabear.Element
 	res.SetBytes(digest[:])
 
 	return res
@@ -264,9 +264,9 @@ func genRandom(seed, i, j int64, buf *bytes.Buffer) fr.Element {
 // and that they are in evaluation form on √(g) * <g>
 // The result is not FFTinversed. The fft inverse is done once every
 // multiplications are done.
-func mulMod(pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []fr.Element) []fr.Element {
+func mulMod(pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []koalabear.Element) []koalabear.Element {
 
-	res := make([]fr.Element, len(pLagrangeCosetBitReversed))
+	res := make([]koalabear.Element, len(pLagrangeCosetBitReversed))
 	for i := 0; i < len(pLagrangeCosetBitReversed); i++ {
 		res[i].Mul(&pLagrangeCosetBitReversed[i], &qLagrangeCosetBitReversed[i])
 	}
@@ -279,8 +279,8 @@ func mulMod(pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []fr.Element) [
 }
 
 // mulMod + accumulate in res.
-func mulModAcc(res []fr.Element, pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []fr.Element) {
-	var t fr.Element
+func mulModAcc(res []koalabear.Element, pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []koalabear.Element) {
+	var t koalabear.Element
 	for i := 0; i < len(pLagrangeCosetBitReversed); i++ {
 		t.Mul(&pLagrangeCosetBitReversed[i], &qLagrangeCosetBitReversed[i])
 		res[i].Add(&res[i], &t)
@@ -294,9 +294,9 @@ func mulModAcc(res []fr.Element, pLagrangeCosetBitReversed, qLagrangeCosetBitRev
 func (r *RSis) CopyWithFreshBuffer() RSis {
 	res := *r
 	res.buffer = bytes.Buffer{}
-	res.bufM = make(fr.Vector, len(r.bufM))
+	res.bufM = make(koalabear.Vector, len(r.bufM))
 	res.bufMValues = bitset.New(r.bufMValues.Len())
-	res.bufRes = make(fr.Vector, len(r.bufRes))
+	res.bufRes = make(koalabear.Vector, len(r.bufRes))
 	return res
 }
 
@@ -320,7 +320,7 @@ func (r *RSis) cleanupBuffers() {
 // d, c, b, a, ..., 3, 2, 1, 0]. m should be preallocated and zeroized. Additionally,
 // we have the guarantee that 2 bits contributing to different field elements cannot
 // be part of the same limb.
-func LimbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound int) {
+func LimbDecomposeBytes(buf []byte, m koalabear.Vector, logTwoBound int) {
 	limbDecomposeBytes(buf, m, logTwoBound, 0, nil)
 }
 
@@ -333,7 +333,7 @@ func LimbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound int) {
 //	   			to left 	 	 ->
 //
 // This function is called when logTwoBound divides the number of bits used to represent a
-// fr element.
+// koalabear element.
 // From a slice of field elements m:=[a_0, a_1, ...]
 // Doing h.Sum(h.Write([Marshal[a_i] for i in len(m)])) is the same than
 // writing the a_i in little endian, and then taking logTwoBound bits at a time.
@@ -344,17 +344,17 @@ func LimbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound int) {
 // then the stream of bits is splitted in chunks of logTwoBound bits.
 //
 // This function is called when logTwoBound divides 8.
-func limbDecomposeBytesSmallBound(buf []byte, m fr.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
+func limbDecomposeBytesSmallBound(buf []byte, m koalabear.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
 	mask := byte((1 << logTwoBound) - 1)
 	nbChunksPerBytes := 8 / logTwoBound
-	nbFieldsElmts := len(buf) / fr.Bytes
+	nbFieldsElmts := len(buf) / koalabear.Bytes
 	for i := 0; i < nbFieldsElmts; i++ {
-		for j := fr.Bytes - 1; j >= 0; j-- {
-			curByte := buf[i*fr.Bytes+j]
-			curPos := i*fr.Bytes*nbChunksPerBytes + (fr.Bytes-1-j)*nbChunksPerBytes
+		for j := koalabear.Bytes - 1; j >= 0; j-- {
+			curByte := buf[i*koalabear.Bytes+j]
+			curPos := i*koalabear.Bytes*nbChunksPerBytes + (koalabear.Bytes-1-j)*nbChunksPerBytes
 			for k := 0; k < nbChunksPerBytes; k++ {
 
-				m[curPos+k][0] = uint64((curByte >> (k * logTwoBound)) & mask)
+				m[curPos+k][0] = uint32((curByte >> (k * logTwoBound)) & mask)
 
 				// Check if mPos is zero and mark as non-zero in the bitset if not
 				if m[curPos+k][0] != 0 && mValues != nil {
@@ -367,17 +367,17 @@ func limbDecomposeBytesSmallBound(buf []byte, m fr.Vector, logTwoBound, degree i
 
 // limbDecomposeBytesMiddleBound same function than limbDecomposeBytesSmallBound, but logTwoBound is
 // a multiple of 8, and divides the number of bits of the fields.
-func limbDecomposeBytesMiddleBound(buf []byte, m fr.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
-	nbFieldsElmts := len(buf) / fr.Bytes
-	nbChunksPerElements := fr.Bytes * 8 / logTwoBound
+func limbDecomposeBytesMiddleBound(buf []byte, m koalabear.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
+	nbFieldsElmts := len(buf) / koalabear.Bytes
+	nbChunksPerElements := koalabear.Bytes * 8 / logTwoBound
 	nbBytesInChunk := logTwoBound / 8
 	curElmt := 0
 	for i := 0; i < nbFieldsElmts; i++ {
 		for j := nbChunksPerElements; j > 0; j-- {
-			curPos := i*fr.Bytes + j*nbBytesInChunk
+			curPos := i*koalabear.Bytes + j*nbBytesInChunk
 			for k := 1; k <= nbBytesInChunk; k++ {
 
-				m[curElmt][0] |= (uint64(buf[curPos-k]) << ((k - 1) * 8))
+				m[curElmt][0] |= (uint32(buf[curPos-k]) << ((k - 1) * 8))
 
 			}
 			// Check if mPos is zero and mark as non-zero in the bitset if not
@@ -401,7 +401,7 @@ func limbDecomposeBytesMiddleBound(buf []byte, m fr.Vector, logTwoBound, degree 
 // SIS polynomial corresponds to a chunk of limbs of size `degree`. Additionally,
 // we have the guarantee that 2 bits contributing to different field elements cannot
 // be part of the same limb.
-func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
+func limbDecomposeBytes(buf []byte, m koalabear.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
 
 	// bitwise decomposition of the buffer, in order to build m (the vector to hash)
 	// as a list of polynomials, whose coefficients are less than r.B bits long.
@@ -422,15 +422,15 @@ func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValue
 	// each of these block (<< 64bits) are interpreted as a coefficient
 	mPos := 0
 	for fieldStart := 0; fieldStart < nbBits; {
-		for bitInField := 0; bitInField < fr.Bytes*8; {
+		for bitInField := 0; bitInField < koalabear.Bytes*8; {
 
 			j := bitInField % logTwoBound
 
 			// r.LogTwoBound < 64; we just use the first word of our element here,
 			// and set the bits from LSB to MSB.
-			at := fieldStart + fr.Bytes*8 - bitInField - 1
+			at := fieldStart + koalabear.Bytes*8 - bitInField - 1
 
-			m[mPos][0] |= uint64(getIthBit(at) << j)
+			m[mPos][0] |= uint32(getIthBit(at) << j)
 
 			bitInField++
 
@@ -439,25 +439,25 @@ func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValue
 				mValues.Set(uint(mPos / degree))
 			}
 
-			if j == logTwoBound-1 || bitInField == fr.Bytes*8 {
+			if j == logTwoBound-1 || bitInField == koalabear.Bytes*8 {
 				mPos++
 			}
 		}
-		fieldStart += fr.Bytes * 8
+		fieldStart += koalabear.Bytes * 8
 	}
 }
 
 // see limbDecomposeBytes; this function is optimized for the case where
 // logTwoBound == 8 and degree == 64
-func limbDecomposeBytes8_64(buf []byte, m fr.Vector, mValues *bitset.BitSet) {
+func limbDecomposeBytes8_64(buf []byte, m koalabear.Vector, mValues *bitset.BitSet) {
 	// with logTwoBound == 8, we can actually advance byte per byte.
 	const degree = 64
 	j := 0
 
-	for startPos := fr.Bytes - 1; startPos < len(buf); startPos += fr.Bytes {
-		for i := startPos; i >= startPos-fr.Bytes+1; i-- {
+	for startPos := koalabear.Bytes - 1; startPos < len(buf); startPos += koalabear.Bytes {
+		for i := startPos; i >= startPos-koalabear.Bytes+1; i-- {
 
-			m[j][0] = uint64(buf[i])
+			m[j][0] = uint32(buf[i])
 
 			if m[j][0] != 0 {
 				mValues.Set(uint(j / degree))

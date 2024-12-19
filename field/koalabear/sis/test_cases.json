@@ -1,0 +1,86 @@
+{
+    "inputs": [
+        "5", 
+        "25", 
+        "125", 
+        "625", 
+        "3125", 
+        "15625", 
+        "78125", 
+        "390625", 
+        "1953125", 
+        "9765625"
+    ], 
+    "entries": [
+        {
+            "expected": [
+                "745870982", 
+                "1291673658", 
+                "1214702901", 
+                "833819120"
+            ], 
+            "params": {
+                "maxNbElementsToHash": 10, 
+                "seed": 5, 
+                "logTwoDegree": 2, 
+                "logTwoBound": 2
+            }
+        }, 
+        {
+            "expected": [
+                "39890339", 
+                "1535248400", 
+                "902492181", 
+                "1900916241"
+            ], 
+            "params": {
+                "maxNbElementsToHash": 10, 
+                "seed": 5, 
+                "logTwoDegree": 2, 
+                "logTwoBound": 4
+            }
+        }, 
+        {
+            "expected": [
+                "1199943011", 
+                "1708241314", 
+                "2087716601", 
+                "1674811485"
+            ], 
+            "params": {
+                "maxNbElementsToHash": 10, 
+                "seed": 5, 
+                "logTwoDegree": 2, 
+                "logTwoBound": 8
+            }
+        }, 
+        {
+            "expected": [
+                "459992085", 
+                "1905368748", 
+                "1952707382", 
+                "1821305102"
+            ], 
+            "params": {
+                "maxNbElementsToHash": 10, 
+                "seed": 5, 
+                "logTwoDegree": 2, 
+                "logTwoBound": 16
+            }
+        }, 
+        {
+            "expected": [
+                "1865346304", 
+                "336969822", 
+                "1474104401", 
+                "690634525"
+            ], 
+            "params": {
+                "maxNbElementsToHash": 10, 
+                "seed": 5, 
+                "logTwoDegree": 2, 
+                "logTwoBound": 32
+            }
+        }
+    ]
+}
