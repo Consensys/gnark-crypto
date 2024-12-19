@@ -18,10 +18,9 @@ import (
 	"github.com/consensys/bavard/amd64"
 )
 
-// addVec res = a + b
-// func addVec(res, a, b *{{.ElementName}}, n uint64)
 func (f *FFAmd64) generateAddVecF31() {
 	f.Comment("addVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] + b[0...n]")
+	f.Comment("n is the number of blocks of 16 elements to process")
 
 	const argSize = 4 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 0, 0)
@@ -85,10 +84,9 @@ func (f *FFAmd64) generateAddVecF31() {
 
 }
 
-// subVec res = a - b
-// func subVec(res, a, b *{{.ElementName}}, n uint64)
 func (f *FFAmd64) generateSubVecF31() {
 	f.Comment("subVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] - b[0...n]")
+	f.Comment("n is the number of blocks of 16 elements to process")
 
 	const argSize = 4 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 0, 0)
@@ -158,6 +156,7 @@ func (f *FFAmd64) generateSubVecF31() {
 // sumVec res = sum(a[0...n])
 func (f *FFAmd64) generateSumVecF31() {
 	f.Comment("sumVec(res *uint64, a *[]uint32, n uint64) res = sum(a[0...n])")
+	f.Comment("n is the number of blocks of 16 elements to process")
 	const argSize = 3 * 8
 	stackSize := f.StackSize(f.NbWords*3+2, 0, 0)
 	registers := f.FnHeader("sumVec", stackSize, argSize, amd64.DX, amd64.AX)
@@ -224,7 +223,7 @@ func (f *FFAmd64) generateSumVecF31() {
 // mulVec res = a * b
 func (f *FFAmd64) generateMulVecF31() {
 	f.Comment("mulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b[0...n]")
-
+	f.Comment("n is the number of blocks of 8 elements to process")
 	const argSize = 4 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 0, 0)
 	registers := f.FnHeader("mulVec", stackSize, argSize)
@@ -304,7 +303,7 @@ func (f *FFAmd64) generateMulVecF31() {
 // scalarMulVec res = a * b
 func (f *FFAmd64) generateScalarMulVecF31() {
 	f.Comment("scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b")
-
+	f.Comment("n is the number of blocks of 8 elements to process")
 	const argSize = 4 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 0, 0)
 	registers := f.FnHeader("scalarMulVec", stackSize, argSize)
@@ -384,7 +383,7 @@ func (f *FFAmd64) generateScalarMulVecF31() {
 // innerProdVec res = sum(a * b)
 func (f *FFAmd64) generateInnerProdVecF31() {
 	f.Comment("innerProdVec(t *uint64, a,b *[]uint32, n uint64) res = sum(a[0...n] * b[0...n])")
-
+	f.Comment("n is the number of blocks of 8 elements to process")
 	const argSize = 4 * 8
 	stackSize := f.StackSize(f.NbWords*4+2, 0, 0)
 	registers := f.FnHeader("innerProdVec", stackSize, argSize, amd64.DX, amd64.AX)
