@@ -9,6 +9,11 @@ type Option func(*generatorConfig)
 type generatorConfig struct {
 	fftConfig *config.FFT
 	asmConfig *config.Assembly
+	withSIS   bool
+}
+
+func (cfg *generatorConfig) HasSIS() bool {
+	return cfg.withSIS
 }
 
 func (cfg *generatorConfig) HasFFT() bool {
@@ -21,6 +26,12 @@ func (cfg *generatorConfig) HasArm64() bool {
 
 func (cfg *generatorConfig) HasAMD64() bool {
 	return cfg.asmConfig != nil && cfg.asmConfig.BuildDir != ""
+}
+
+func WithSIS() Option {
+	return func(opt *generatorConfig) {
+		opt.withSIS = true
+	}
 }
 
 func WithFFT(cfg *config.FFT) Option {
