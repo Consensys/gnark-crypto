@@ -153,7 +153,7 @@ func BatchVerify(proof OpeningProof, digests []kzg.Digest, points [][]fr.Element
 	for i := 0; i < len(proof.ClaimedValues); i++ {
 		sizeSi := len(proof.ClaimedValues[i][0])
 		for j := 1; j < len(proof.ClaimedValues[i]); j++ {
-			// each set of opening must be of the same size (opeings on powers of Si)
+			// each set of opening must be of the same size (openings on powers of Si)
 			if sizeSi != len(proof.ClaimedValues[i][j]) {
 				return ErrNbPolynomialsNbPoints
 			}
