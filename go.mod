@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/bits-and-blooms/bitset v1.14.2
-	github.com/consensys/bavard v0.0.0
+	github.com/consensys/bavard v0.1.25
 	github.com/leanovate/gopter v0.2.11
 	github.com/mmcloughlin/addchain v0.4.0
 	github.com/spf13/cobra v1.8.1
@@ -14,8 +14,6 @@ require (
 	golang.org/x/sys v0.28.0
 	gopkg.in/yaml.v2 v2.4.0
 )
-
-replace github.com/consensys/bavard => ../bavard
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
