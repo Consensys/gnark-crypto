@@ -20,7 +20,7 @@ loop1:
 	VLD1.P 16(R1), [a.S4]
 	VLD1.P 16(R2), [b.S4]
 	VADD   a.S4, b.S4, b.S4 // b = a + b
-	VSUB   q.S4, b.S4, t.S4 // t = q - b
+	VSUB   q.S4, b.S4, t.S4 // t = b - q
 	VUMIN  t.S4, b.S4, b.S4 // b = min(t, b)
 	VST1.P [b.S4], 16(R0)   // res = b
 	SUB    $1, R3, R3
@@ -108,20 +108,58 @@ done6:
 TEXT ·mulVec(SB), NOFRAME|NOSPLIT, $0-32
 	LDP   res+0(FP), (R0, R1)
 	LDP   b+16(FP), (R2, R3)
-	VMOVS $const_q, V3
-	VDUP  V3.S[0], V3.S4      // broadcast q into V3
-	VMOVS $const_qInvNeg, V4
-	VDUP  V4.S[0], V4.S4      // broadcast qInvNeg into V4
+	VMOVS $const_q, V0
+	VDUP  V0.D[0], V0.D2               // broadcast q into V0
+	VMOVQ $0xffffffff, $0xffffffff, V1
 
 loop7:
 	CBZ     R3, done8
-	VLD1.P  16(R1), [V0.S4]
-	VLD1.P  16(R2), [V1.S4]
-	VUSHLL2 $0, V0.S4, V0.D2    // convert high words to 64 bits
-	VUSHLL2 $0, V1.S4, V1.D2    // convert high words to 64 bits
-	VSUB    V3.S4, V1.S4, V2.S4 // t = q - b
-	VUMIN   V2.S4, V1.S4, V1.S4 // b = min(t, b)
-	VST1.P  [V1.S4], 16(R0)     // res = b
+	MOVWU.P 4(R1), R4
+	MOVWU.P 4(R1), R5
+	MOVWU.P 4(R2), R6
+	MOVWU.P 4(R2), R7
+	MUL     R4, R6, R8
+	MUL     R5, R7, R9
+	VMOV    R8, V2.D[0]
+	VMOV    R9, V2.D[1]
+	VSHL    $0x1f, V2.D2, V4.D2
+	VSHL    $0x18, V2.D2, V5.D2
+	MOVWU.P 4(R1), R10
+	MOVWU.P 4(R1), R11
+	VSUB    V5.D2, V4.D2, V4.D2
+	VSUB    V2.D2, V4.D2, V3.D2
+	MOVWU.P 4(R2), R12
+	MOVWU.P 4(R2), R13
+	VAND    V3.B16, V1.B16, V3.B16
+	VSHL    $0x1f, V3.D2, V4.D2
+	VSHL    $0x18, V3.D2, V5.D2
+	VSUB    V5.D2, V4.D2, V4.D2
+	VADD    V3.D2, V4.D2, V3.D2
+	VADD    V3.D2, V2.D2, V3.D2
+	VUSHR   $0x20, V3.D2, V3.D2
+	VSUB    V0.D2, V3.D2, V4.D2    // t = q - m
+	VUMIN   V4.S4, V3.S4, V3.S4    // m = min(t, m)
+	VSHL    $0x20, V3.D2, V3.D2
+	VREV64  V3.S2, V3.S2
+	MUL     R10, R12, R14
+	MUL     R11, R13, R15
+	VMOV    R14, V6.D[0]
+	VMOV    R15, V6.D[1]
+	VSHL    $0x1f, V6.D2, V8.D2
+	VSHL    $0x18, V6.D2, V9.D2
+	VSUB    V9.D2, V8.D2, V8.D2
+	VSUB    V6.D2, V8.D2, V7.D2
+	VAND    V7.B16, V1.B16, V7.B16
+	VSHL    $0x1f, V7.D2, V8.D2
+	VSHL    $0x18, V7.D2, V9.D2
+	VSUB    V9.D2, V8.D2, V8.D2
+	VADD    V7.D2, V8.D2, V7.D2
+	VADD    V7.D2, V6.D2, V7.D2
+	VUSHR   $0x20, V7.D2, V7.D2
+	VSUB    V0.D2, V7.D2, V8.D2    // t = q - m
+	VUMIN   V8.S4, V7.S4, V7.S4    // m = min(t, m)
+	VADD    V7.S4, V3.S4, V3.S4
+	VST1.P  [V3.S4], 16(R0)        // res = b
 	SUB     $1, R3, R3
 	JMP     loop7
 

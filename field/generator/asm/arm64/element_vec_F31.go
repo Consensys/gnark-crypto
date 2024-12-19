@@ -41,7 +41,7 @@ func (f *FFArm64) generateAddVecF31() {
 	f.VLD1_P(offset, bPtr, b.S4())
 
 	f.VADD(a.S4(), b.S4(), b.S4(), "b = a + b")
-	f.VSUB(q.S4(), b.S4(), t.S4(), "t = q - b")
+	f.VSUB(q.S4(), b.S4(), t.S4(), "t = b - q")
 	f.VUMIN(t.S4(), b.S4(), b.S4(), "b = min(t, b)")
 	f.VST1_P(b.S4(), resPtr, offset, "res = b")
 
@@ -214,48 +214,180 @@ func (f *FFArm64) generateMulVecF31() {
 	f.LDP("res+0(FP)", resPtr, aPtr)
 	f.LDP("b+16(FP)", bPtr, n)
 
-	a := registers.PopV()
-	b := registers.PopV()
-	t := registers.PopV()
+	// a := registers.PopV()
+	// b := registers.PopV()
+	// t := registers.PopV()
+	// q := registers.PopV()
+	// qInvNeg := registers.PopV()
+
+	// f.VMOVS("$const_q", q)
+	// f.VDUP(q.SAt(0), q.S4(), "broadcast q into "+string(q))
+
+	// f.VMOVS("$const_qInvNeg", qInvNeg)
+	// f.VDUP(qInvNeg.SAt(0), qInvNeg.S4(), "broadcast qInvNeg into "+string(qInvNeg))
+
 	q := registers.PopV()
-	qInvNeg := registers.PopV()
 
 	f.VMOVS("$const_q", q)
-	f.VDUP(q.SAt(0), q.S4(), "broadcast q into "+string(q))
+	f.VDUP(q.DAt(0), q.D2(), "broadcast q into "+string(q))
 
-	f.VMOVS("$const_qInvNeg", qInvNeg)
-	f.VDUP(qInvNeg.SAt(0), qInvNeg.S4(), "broadcast qInvNeg into "+string(qInvNeg))
+	const maxUint32 = 0xFFFFFFFF
+	mask := registers.PopV()
+	f.VMOVQ_cst(maxUint32, maxUint32, mask)
 
 	f.LABEL(loop)
 
 	f.CBZ(n, done)
 
-	const offset = 4 * 4 // we process 4 uint32 at a time
+	a0 := registers.Pop()
+	a1 := registers.Pop()
+	b0 := registers.Pop()
+	b1 := registers.Pop()
+	r0 := registers.Pop()
+	r1 := registers.Pop()
 
-	f.VLD1_P(offset, aPtr, a.S4())
-	f.VLD1_P(offset, bPtr, b.S4())
+	v := registers.PopV()
+	m := registers.PopV()
+	t1 := registers.PopV()
+	t2 := registers.PopV()
 
-	// let's compute p1 := a1 * b1
-	// f.VPMULL(a.S4(), b.S4(), p1.D2())
-	// let's move the low words in t
-	// f.VMOV(p1.D2(), t.D2())
+	a0_2 := registers.Pop()
+	a1_2 := registers.Pop()
+	b0_2 := registers.Pop()
+	b1_2 := registers.Pop()
+	r0_2 := registers.Pop()
+	r1_2 := registers.Pop()
+	v_2 := registers.PopV()
+	m_2 := registers.PopV()
+	t1_2 := registers.PopV()
+	t2_2 := registers.PopV()
 
-	f.VUSHLL2(0, a.S4(), a.D2(), "convert high words to 64 bits")
-	f.VUSHLL2(0, b.S4(), b.D2(), "convert high words to 64 bits")
+	// let's do 2 by 2 to start with;
+	f.MOVWUP_Load(4, aPtr, a0)
+	f.MOVWUP_Load(4, aPtr, a1)
+	f.MOVWUP_Load(4, bPtr, b0)
+	f.MOVWUP_Load(4, bPtr, b1)
 
-	// f.VMUL(a.S4(), b.S4(), b.S4(), "b = a * b")
-	f.VSUB(q.S4(), b.S4(), t.S4(), "t = q - b")
-	f.VUMIN(t.S4(), b.S4(), b.S4(), "b = min(t, b)")
-	f.VST1_P(b.S4(), resPtr, offset, "res = b")
+	f.MUL(a0, b0, r0)
+	f.MUL(a1, b1, r1)
+
+	f.VMOV(r0, v.DAt(0))
+	f.VMOV(r1, v.DAt(1))
+
+	// qInvNeg == 2**31 - 2**24 -1
+	// so we shift left by 31, store in a vector
+	// we shift left by 24, store in a vector
+	// we subtract the two vectors
+	f.VSHL(31, v.D2(), t1.D2())
+	f.VSHL(24, v.D2(), t2.D2())
+	f.MOVWUP_Load(4, aPtr, a0_2)
+	f.MOVWUP_Load(4, aPtr, a1_2)
+
+	f.VSUB(t2.D2(), t1.D2(), t1.D2())
+	f.VSUB(v.D2(), t1.D2(), m.D2())
+	f.MOVWUP_Load(4, bPtr, b0_2)
+	f.MOVWUP_Load(4, bPtr, b1_2)
+
+	// here we just want to keep m=low bits(vRes)
+	f.VAND(m.B16(), mask.B16(), m.B16())
+
+	// q == 2**31 - 2**24 + 1
+	f.VSHL(31, m.D2(), t1.D2())
+	f.VSHL(24, m.D2(), t2.D2())
+	f.VSUB(t2.D2(), t1.D2(), t1.D2())
+	f.VADD(m.D2(), t1.D2(), m.D2())
+
+	f.VADD(m.D2(), v.D2(), m.D2())
+	f.VUSHR(32, m.D2(), m.D2())
+
+	// now we do mod q if needed
+	f.VSUB(q.D2(), m.D2(), t1.D2(), "t = q - m")
+	f.VUMIN(t1.S4(), m.S4(), m.S4(), "m = min(t, m)")
+
+	f.VSHL(32, m.D2(), m.D2())
+
+	// f.VMOV(m.DAt(0), r0)
+	// f.VMOV(m.DAt(1), r1)
+
+	// f.MOVWUP_Store(r0, resPtr, 4)
+	// f.MOVWUP_Store(r1, resPtr, 4)
+
+	f.MUL(a0_2, b0_2, r0_2)
+	f.MUL(a1_2, b1_2, r1_2)
+
+	f.VMOV(r0_2, v_2.DAt(0))
+	f.VMOV(r1_2, v_2.DAt(1))
+
+	// qInvNeg == 2**31 - 2**24 -1
+	// so we shift left by 31, store in a vector
+	// we shift left by 24, store in a vector
+	// we subtract the two vectors
+	f.VSHL(31, v_2.D2(), t1_2.D2())
+	f.VSHL(24, v_2.D2(), t2_2.D2())
+	f.VSUB(t2_2.D2(), t1_2.D2(), t1_2.D2())
+	f.VSUB(v_2.D2(), t1_2.D2(), m_2.D2())
+
+	// here we just want to keep m=low bits(vRes)
+	f.VAND(m_2.B16(), mask.B16(), m_2.B16())
+
+	// q == 2**31 - 2**24 + 1
+	f.VSHL(31, m_2.D2(), t1_2.D2())
+	f.VSHL(24, m_2.D2(), t2_2.D2())
+	f.VSUB(t2_2.D2(), t1_2.D2(), t1_2.D2())
+	f.VADD(m_2.D2(), t1_2.D2(), m_2.D2())
+
+	f.VADD(m_2.D2(), v_2.D2(), m_2.D2())
+	f.VUSHR(32, m_2.D2(), m_2.D2())
+
+	// now we do mod q if needed
+	f.VSUB(q.D2(), m_2.D2(), t1_2.D2(), "t = q - m")
+	f.VUMIN(t1_2.S4(), m_2.S4(), m_2.S4(), "m = min(t, m)")
+
+	f.VADD(m_2.S4(), m.S4(), m.S4())
+	// f.VREV64(m.B16(), m.B16())
+
+	f.VST1_P(m.S4(), resPtr, 4*4, "res = b")
+
+	// f.VMOV(m_2.DAt(0), r0_2)
+	// f.VMOV(m_2.DAt(1), r1_2)
+
+	// f.MOVWUP_Store(r0_2, resPtr, 4)
+	// f.MOVWUP_Store(r1_2, resPtr, 4)
+
+	// func montReduce(v uint64) uint32 {
+	// 	m := uint32(v) * qInvNeg
+	// 	t := uint32((v + uint64(m)*q) >> 32)
+	// 	if t >= q {
+	// 		t -= q
+	// 	}
+	// 	return t
+	// }
+
+	// 		g.VST1_P(vRes.D2(), resPtr, 0)
+
+	// const offset = 4 * 4 // we process 4 uint32 at a time
+
+	// f.VLD1_P(offset, aPtr, a.S4())
+	// f.VLD1_P(offset, bPtr, b.S4())
+
+	// // let's compute p1 := a1 * b1
+	// // f.VPMULL(a.S4(), b.S4(), p1.D2())
+	// // let's move the low words in t
+	// // f.VMOV(p1.D2(), t.D2())
+
+	// f.VUSHLL2(0, a.S4(), a.D2(), "convert high words to 64 bits")
+	// f.VUSHLL2(0, b.S4(), b.D2(), "convert high words to 64 bits")
+
+	// // f.VMUL(a.S4(), b.S4(), b.S4(), "b = a * b")
+	// f.VSUB(q.S4(), b.S4(), t.S4(), "t = q - b")
+	// f.VUMIN(t.S4(), b.S4(), b.S4(), "b = min(t, b)")
+	// f.VST1_P(b.S4(), resPtr, offset, "res = b")
 
 	// decrement n
 	f.SUB(1, n, n)
 	f.JMP(loop)
 
 	f.LABEL(done)
-
-	registers.Push(resPtr, aPtr, bPtr, n)
-	registers.PushV(a, b, t, q) //, a1, b1)
 
 	f.RET()
 }
