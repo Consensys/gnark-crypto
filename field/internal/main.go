@@ -28,7 +28,10 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		if err := generator.GenerateFF(fc, filepath.Join("..", f.name), "", ""); err != nil {
+		if err := generator.GenerateFF(fc, filepath.Join("..", f.name),
+			generator.WithASM(&config.Assembly{BuildDir: "../asm", IncludeDir: "../asm"}),
+			generator.WithFFT(&config.FFT{}), // TODO @gbotrel
+		); err != nil {
 			panic(err)
 		}
 		fmt.Println("successfully generated", f.name, "field")

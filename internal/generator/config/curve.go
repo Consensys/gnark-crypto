@@ -15,8 +15,8 @@ type Curve struct {
 	FpModulus    string
 	FrModulus    string
 
-	Fp           *config.FieldConfig
-	Fr           *config.FieldConfig
+	Fp           *config.Field
+	Fr           *config.Field
 	FpUnusedBits int
 
 	FpInfo, FrInfo Field

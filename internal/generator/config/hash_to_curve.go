@@ -26,7 +26,7 @@ type RationalPolynomial struct {
 }
 
 type HashSuite interface {
-	GetInfo(baseField *field.FieldConfig, g *Point, name string) HashSuiteInfo
+	GetInfo(baseField *field.Field, g *Point, name string) HashSuiteInfo
 }
 
 type HashSuiteSswu struct {
@@ -54,7 +54,7 @@ type HashSuiteSvdw struct {
 	c4 []string
 }
 
-func (parameters *HashSuiteSvdw) GetInfo(baseField *field.FieldConfig, g *Point, name string) HashSuiteInfo {
+func (parameters *HashSuiteSvdw) GetInfo(baseField *field.Field, g *Point, name string) HashSuiteInfo {
 	f := field.NewTower(baseField, g.CoordExtDegree, g.CoordExtRoot)
 	c := []field.Element{
 		field.NewElement(parameters.z),
@@ -74,7 +74,7 @@ func (parameters *HashSuiteSvdw) GetInfo(baseField *field.FieldConfig, g *Point,
 	}
 }
 
-func (suite *HashSuiteSswu) GetInfo(baseField *field.FieldConfig, g *Point, name string) HashSuiteInfo {
+func (suite *HashSuiteSswu) GetInfo(baseField *field.Field, g *Point, name string) HashSuiteInfo {
 
 	f := field.NewTower(baseField, g.CoordExtDegree, g.CoordExtRoot)
 	fieldSizeMod256 := uint8(f.Size.Bits()[0])

@@ -6,13 +6,13 @@ type Element []big.Int
 
 // Extension is a simple radical extension, obtained by adjoining ⁿ√α to Fp
 type Extension struct {
-	Base   *FieldConfig //Fp
-	Size   big.Int      //q
-	Degree int          //n such that q = pⁿ TODO: Make uint8 so forced to be positive and small
-	RootOf int64        //α
+	Base   *Field  //Fp
+	Size   big.Int //q
+	Degree int     //n such that q = pⁿ TODO: Make uint8 so forced to be positive and small
+	RootOf int64   //α
 }
 
-func NewTower(base *FieldConfig, degree uint8, rootOf int64) Extension {
+func NewTower(base *Field, degree uint8, rootOf int64) Extension {
 	ret := Extension{
 		Degree: int(degree),
 		RootOf: rootOf,
