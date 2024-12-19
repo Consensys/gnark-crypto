@@ -291,14 +291,14 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	// note: to simplify output files generated, we generated ASM code only for
 	// moduli that meet the condition F.NoCarry
 	// asm code generation for moduli with more than 6 words can be optimized further
-	F.GenerateOpsAMD64 = F.NoCarry && F.NbWords <= 12 && F.NbWords > 1
+	F.GenerateOpsAMD64 = F.F31 || (F.NoCarry && F.NbWords <= 12 && F.NbWords > 1)
 	if F.NbWords == 4 && F.GenerateOpsAMD64 && F.NbBits <= 225 {
 		// 4 words field with 225 bits or less have no vector ops
 		// for now since we generate both in same file we disable
 		// TODO @gbotrel
 		F.GenerateOpsAMD64 = false
 	}
-	F.GenerateVectorOpsAMD64 = F.GenerateOpsAMD64 && F.NbWords == 4 && F.NbBits > 225
+	F.GenerateVectorOpsAMD64 = F.F31 || (F.GenerateOpsAMD64 && F.NbWords == 4 && F.NbBits > 225)
 	F.GenerateOpsARM64 = F.GenerateOpsAMD64 && (F.NbWords%2 == 0)
 	F.GenerateVectorOpsARM64 = false
 

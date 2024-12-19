@@ -32,7 +32,7 @@ func generateARM64(F *config.Field, asm *config.Assembly) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create directory %s: %w", asm.BuildDir, err)
 	}
-	pathSrc := filepath.Join(asm.BuildDir, fmt.Sprintf(arm64.ElementASMFileName, F.NbWords))
+	pathSrc := filepath.Join(asm.BuildDir, arm64.ElementASMFileName(F.NbWords, F.NbBits))
 
 	hash, ok := mARM64.Load(pathSrc)
 	if ok {
@@ -47,7 +47,7 @@ func generateARM64(F *config.Field, asm *config.Assembly) (string, error) {
 		return "", err
 	}
 
-	if err := arm64.GenerateCommonASM(f, F.NbWords, F.GenerateVectorOpsARM64); err != nil {
+	if err := arm64.GenerateCommonASM(f, F.NbWords, F.NbBits, F.GenerateVectorOpsARM64); err != nil {
 		_ = f.Close()
 		return "", err
 	}
@@ -77,7 +77,7 @@ func generateAMD64(F *config.Field, asm *config.Assembly) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create directory %s: %w", asm.BuildDir, err)
 	}
-	pathSrc := filepath.Join(asm.BuildDir, fmt.Sprintf(amd64.ElementASMFileName, F.NbWords))
+	pathSrc := filepath.Join(asm.BuildDir, amd64.ElementASMFileName(F.NbWords, F.NbBits))
 
 	hash, ok := mAMD64.Load(pathSrc)
 	if ok {
@@ -92,7 +92,7 @@ func generateAMD64(F *config.Field, asm *config.Assembly) (string, error) {
 		return "", err
 	}
 
-	if err := amd64.GenerateCommonASM(f, F.NbWords, F.GenerateVectorOpsAMD64); err != nil {
+	if err := amd64.GenerateCommonASM(f, F.NbWords, F.NbBits, F.GenerateVectorOpsAMD64); err != nil {
 		_ = f.Close()
 		return "", err
 	}
@@ -132,8 +132,7 @@ func hashFile(filePath string) (string, error) {
 	return fmt.Sprintf("%d", hash64), nil
 }
 
-func newASMWrapperData(hash, asmDirIncludePath, fileName string, nbWords int) (data ASMWrapperData, err error) {
-	fileName = fmt.Sprintf(fileName, nbWords)
+func newASMWrapperData(hash, asmDirIncludePath, fileName string) (data ASMWrapperData, err error) {
 
 	includePath := filepath.Join(asmDirIncludePath, fileName)
 	// on windows, we replace the "\" by "/"

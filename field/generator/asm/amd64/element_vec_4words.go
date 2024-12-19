@@ -12,7 +12,7 @@ import (
 
 // addVec res = a + b
 // func addVec(res, a, b *{{.ElementName}}, n uint64)
-func (f *FFAmd64) generateAddVec() {
+func (f *FFAmd64) generateAddVecW4() {
 	f.Comment("addVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] + b[0...n]")
 
 	const argSize = 4 * 8
@@ -74,7 +74,7 @@ func (f *FFAmd64) generateAddVec() {
 
 // subVec res = a - b
 // func subVec(res, a, b *{{.ElementName}}, n uint64)
-func (f *FFAmd64) generateSubVec() {
+func (f *FFAmd64) generateSubVecW4() {
 	f.Comment("subVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] - b[0...n]")
 
 	const argSize = 4 * 8
@@ -149,7 +149,7 @@ func (f *FFAmd64) generateSubVec() {
 }
 
 // sumVec res = sum(a[0...n])
-func (f *FFAmd64) generateSumVec() {
+func (f *FFAmd64) generateSumVecW4() {
 	f.Comment("sumVec(res, a *Element, n uint64) res = sum(a[0...n])")
 
 	const argSize = 3 * 8
@@ -441,7 +441,7 @@ func (f *FFAmd64) generateSumVec() {
 	f.Push(&registers, w0l, w1l, w2l, w3l, w3h)
 }
 
-func (f *FFAmd64) generateInnerProduct() {
+func (f *FFAmd64) generateInnerProductW4() {
 	f.Comment("innerProdVec(res, a,b *Element, n uint64) res = sum(a[0...n] * b[0...n])")
 
 	const argSize = 4 * 8
@@ -811,7 +811,7 @@ func (f *FFAmd64) generateInnerProduct() {
 	f.RET()
 }
 
-func (f *FFAmd64) generateMulVec(funcName string) {
+func (f *FFAmd64) generateMulVecW4(funcName string) {
 	scalarMul := funcName != "mulVec"
 
 	const argSize = 5 * 8

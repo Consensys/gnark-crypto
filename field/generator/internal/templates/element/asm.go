@@ -14,7 +14,7 @@ const Avx = `
 import 	"golang.org/x/sys/cpu"
 
 var (
-	supportAvx512 = supportAdx && cpu.X86.HasAVX512 && cpu.X86.HasAVX512DQ
+	supportAvx512 = {{- if not .F31 }}supportAdx && {{- end}}cpu.X86.HasAVX512 && cpu.X86.HasAVX512DQ
 	_ = supportAvx512
 )
 `
