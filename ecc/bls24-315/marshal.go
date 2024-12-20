@@ -435,7 +435,7 @@ func NewEncoder(w io.Writer, options ...func(*Encoder)) *Encoder {
 }
 
 // Encode writes the binary encoding of v to the stream
-// type must be uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, []G1Affine or []G2Affine
+// type must be uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, []G1Affine, []G2Affine, *[]G1Affine or *[]G2Affine
 func (enc *Encoder) Encode(v interface{}) (err error) {
 	if enc.raw {
 		return enc.encodeRaw(v)
@@ -565,6 +565,8 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 			}
 		}
 		return
+	case *[]G1Affine:
+		return enc.encode(*t)
 	case []G1Affine:
 		// write slice length
 		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
@@ -584,6 +586,8 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 			}
 		}
 		return nil
+	case *[]G2Affine:
+		return enc.encode(*t)
 	case []G2Affine:
 		// write slice length
 		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
@@ -702,6 +706,8 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 			}
 		}
 		return
+	case *[]G1Affine:
+		return enc.encodeRaw(*t)
 	case []G1Affine:
 		// write slice length
 		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
@@ -721,6 +727,8 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 			}
 		}
 		return nil
+	case *[]G2Affine:
+		return enc.encodeRaw(*t)
 	case []G2Affine:
 		// write slice length
 		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
