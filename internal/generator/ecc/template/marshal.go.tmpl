@@ -557,48 +557,6 @@ func (enc *Encoder) writeUint32(a uint32) error {
 
 {{ define "encode"}}
 
-func (enc *Encoder) writeG1Slice{{$.Raw}}(t []G1Affine) error {
-	// write slice length
-	err := binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
-	if err != nil {
-		return err
-	}
-	enc.n += 4
-
-	var buf [SizeOfG1Affine{{- if $.Raw}}Uncompressed{{- else}}Compressed{{- end}}]byte
-
-	for i := 0; i < len(t); i++ {
-		buf = t[i].{{- $.Raw}}Bytes()
-		written, err := enc.w.Write(buf[:])
-		enc.n += int64(written)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (enc *Encoder) writeG2Slice{{$.Raw}}(t []G2Affine) error {
-	// write slice length
-	err := binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
-	if err != nil {
-		return err
-	}
-	enc.n += 4
-
-	var buf [SizeOfG2Affine{{- if $.Raw}}Uncompressed{{- else}}Compressed{{- end}}]byte
-
-	for i := 0; i < len(t); i++ {
-		buf = t[i].{{- $.Raw}}Bytes()
-		written, err := enc.w.Write(buf[:])
-		enc.n += int64(written)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
@@ -688,13 +646,43 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 		}
 		return
 	case []G1Affine:
-		return enc.writeG1Slice{{- $.Raw}}(t)
-	case *[]G1Affine:
-		return enc.writeG1Slice{{- $.Raw}}(*t)
+		// write slice length
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+		if err != nil {
+			return
+		}
+		enc.n += 4
+
+		var buf [SizeOfG1Affine{{- if $.Raw}}Uncompressed{{- else}}Compressed{{- end}}]byte
+
+		for i := 0; i < len(t); i++ {
+			buf = t[i].{{- $.Raw}}Bytes()
+			written, err = enc.w.Write(buf[:])
+			enc.n += int64(written)
+			if err != nil {
+				return
+			}
+		}
+		return nil
 	case []G2Affine:
-		return enc.writeG2Slice{{- $.Raw}}(t)
-	case *[]G2Affine:
-		return enc.writeG2Slice{{- $.Raw}}(*t)
+		// write slice length
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+		if err != nil {
+			return
+		}
+		enc.n += 4
+
+		var buf [SizeOfG2Affine{{- if $.Raw}}Uncompressed{{- else}}Compressed{{- end}}]byte
+
+		for i := 0; i < len(t); i++ {
+			buf = t[i].{{- $.Raw}}Bytes()
+			written, err = enc.w.Write(buf[:])
+			enc.n += int64(written)
+			if err != nil {
+				return
+			}
+		}
+		return nil
 	default:
 		n := binary.Size(t)
 		if n == -1 {
