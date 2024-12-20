@@ -477,6 +477,48 @@ func isZeroed(firstByte byte, buf []byte) bool {
 	return true
 }
 
+func (enc *Encoder) writeG1Slice(t []G1Affine) error {
+	// write slice length
+	err := binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+	if err != nil {
+		return err
+	}
+	enc.n += 4
+
+	var buf [SizeOfG1AffineCompressed]byte
+
+	for i := 0; i < len(t); i++ {
+		buf = t[i].Bytes()
+		written, err := enc.w.Write(buf[:])
+		enc.n += int64(written)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (enc *Encoder) writeG2Slice(t []G2Affine) error {
+	// write slice length
+	err := binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+	if err != nil {
+		return err
+	}
+	enc.n += 4
+
+	var buf [SizeOfG2AffineCompressed]byte
+
+	for i := 0; i < len(t); i++ {
+		buf = t[i].Bytes()
+		written, err := enc.w.Write(buf[:])
+		enc.n += int64(written)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (enc *Encoder) encode(v interface{}) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
@@ -584,6 +626,48 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 	}
 }
 
+func (enc *Encoder) writeG1SliceRaw(t []G1Affine) error {
+	// write slice length
+	err := binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+	if err != nil {
+		return err
+	}
+	enc.n += 4
+
+	var buf [SizeOfG1AffineUncompressed]byte
+
+	for i := 0; i < len(t); i++ {
+		buf = t[i].RawBytes()
+		written, err := enc.w.Write(buf[:])
+		enc.n += int64(written)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (enc *Encoder) writeG2SliceRaw(t []G2Affine) error {
+	// write slice length
+	err := binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+	if err != nil {
+		return err
+	}
+	enc.n += 4
+
+	var buf [SizeOfG2AffineUncompressed]byte
+
+	for i := 0; i < len(t); i++ {
+		buf = t[i].RawBytes()
+		written, err := enc.w.Write(buf[:])
+		enc.n += int64(written)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
@@ -673,13 +757,13 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		}
 		return
 	case []G1Affine:
-		return enc.writeG1Slice(t)
+		return enc.writeG1SliceRaw(t)
 	case *[]G1Affine:
-		return enc.writeG1Slice(*t)
+		return enc.writeG1SliceRaw(*t)
 	case []G2Affine:
-		return enc.writeG2Slice(t)
+		return enc.writeG2SliceRaw(t)
 	case *[]G2Affine:
-		return enc.writeG2Slice(*t)
+		return enc.writeG2SliceRaw(*t)
 	default:
 		n := binary.Size(t)
 		if n == -1 {
@@ -734,48 +818,6 @@ func (enc *Encoder) writeUint32(a uint32) error {
 	written, err := enc.w.Write(buff[:])
 	enc.n += int64(written)
 	return err
-}
-
-func (enc *Encoder) writeG1Slice(t []G1Affine) error {
-	// write slice length
-	err := binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
-	if err != nil {
-		return err
-	}
-	enc.n += 4
-
-	var buf [SizeOfG1AffineCompressed]byte
-
-	for i := 0; i < len(t); i++ {
-		buf = t[i].Bytes()
-		written, err := enc.w.Write(buf[:])
-		enc.n += int64(written)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (enc *Encoder) writeG2Slice(t []G2Affine) error {
-	// write slice length
-	err := binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
-	if err != nil {
-		return err
-	}
-	enc.n += 4
-
-	var buf [SizeOfG2AffineCompressed]byte
-
-	for i := 0; i < len(t); i++ {
-		buf = t[i].Bytes()
-		written, err := enc.w.Write(buf[:])
-		enc.n += int64(written)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // SizeOfG1AffineCompressed represents the size in bytes that a G1Affine need in binary form, compressed
