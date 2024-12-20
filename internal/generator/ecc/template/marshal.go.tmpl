@@ -688,7 +688,7 @@ func (enc *Encoder) encode{{- $.Raw}}(v interface{}) (err error) {
 		}
 		return
 	case []G1Affine:
-		return enc.writeG1Slice{{- $.Raw}}(t)
+		return enc.writeG1Slice{{- $.Raw}}(t
 	case *[]G1Affine:
 		return enc.writeG1Slice{{- $.Raw}}(*t)
 	case []G2Affine:
