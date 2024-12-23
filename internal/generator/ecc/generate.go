@@ -197,15 +197,6 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		return err
 	}
 
-	// MPC Setup
-	entries = []bavard.Entry{
-		{File: filepath.Join(baseDir, "mpcsetup", "mpcsetup.go"), Templates: []string{"mpcsetup.go.tmpl"}},
-		{File: filepath.Join(baseDir, "mpcsetup", "mpcsetup_test.go"), Templates: []string{"tests/mpcsetup.go.tmpl"}},
-	}
-	if err := bgen.Generate(conf, "mpcsetup", "./ecc/template", entries...); err != nil {
-		return err
-	}
-
 	return nil
 }
 

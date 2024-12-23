@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/consensys/gnark-crypto/internal/generator/mpcsetup"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -107,6 +108,9 @@ func main() {
 
 			// generate fri on fr
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
+
+			// generate mpc setup tools
+			assertNoError(mpcsetup.Generate(conf, filepath.Join(curveDir, "mpcsetup"), bgen))
 
 			if conf.Equal(config.BN254) || conf.Equal(config.BLS12_377) {
 				assertNoError(sis.Generate(conf, filepath.Join(curveDir, "fr", "sis"), bgen))
