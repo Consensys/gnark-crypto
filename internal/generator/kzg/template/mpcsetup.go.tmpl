@@ -92,20 +92,10 @@ func (s *MpcSetup) hash() []byte {
 
 func (s *MpcSetup) Contribute() {
 	s.challenge = s.hash()
-	var (
-		contribution    fr.Element
-		contributionExp fr.Element
-		I               big.Int
-	)
-	s.proof = mpcsetup.UpdateValues(&contribution, append([]byte("KZG Setup"), s.challenge...), 0, &s.srs.Vk.G2[1], &s.srs.Pk.G1[1])
-	contributionExp.Mul(&contribution, &contribution)
-	for i := 2; i < len(s.srs.Pk.G1); i++ {
-		contributionExp.BigInt(&I)
-		if i+1 != len(s.srs.Pk.G1) {
-			contributionExp.Mul(&contributionExp, &contribution)
-		}
-		s.srs.Pk.G1[i].ScalarMultiplication(&s.srs.Pk.G1[i], &I)
-	}
+	var contribution    fr.Element
+	
+	s.proof = mpcsetup.UpdateValues(&contribution, append([]byte("KZG Setup"), s.challenge...), 0, &s.srs.Vk.G2[1])
+	mpcsetup.UpdateMonomialsG1(s.srs.Pk.G1, &contribution)
 }
 
 func (s *MpcSetup) Verify(next *MpcSetup) error {

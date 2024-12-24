@@ -271,22 +271,6 @@ func sameRatio(n1, d1 curve.G1Affine, n2, d2 curve.G2Affine) bool {
 	return res
 }
 
-func linearCombinationG1(A []curve.G1Affine, r []fr.Element) curve.G1Affine {
-	var res curve.G1Affine
-	if _, err := res.MultiExp(A, r[:len(A)], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()}); err != nil {
-		panic(err)
-	}
-	return res
-}
-
-func linearCombinationG2(A []curve.G2Affine, r []fr.Element) curve.G2Affine {
-	var res curve.G2Affine
-	if _, err := res.MultiExp(A, r[:len(A)], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()}); err != nil {
-		panic(err)
-	}
-	return res
-}
-
 func (x *UpdateProof) WriteTo(writer io.Writer) (n int64, err error) {
 	enc := curve.NewEncoder(writer)
 	if err = enc.Encode(&x.contributionCommitment); err != nil {
@@ -344,7 +328,26 @@ func SameRatioMany(g1 [][]curve.G1Affine, g2 [][]curve.G2Affine) bool {
 	return sameRatio(truncated1, shifted1, truncated2, shifted2)
 }
 
-// linearCombinationsG1 returns
+{{ define "curveFuncs" }}
+// UpdateMonomialsG{{.I}} A[i] <- r^i.A[i]
+func UpdateMonomialsG{{.I}}(A []curve.G1Affine, r *fr.Element) {
+	var (
+		rExp fr.Element
+		I big.Int
+	)
+	r.BigInt(&I)
+	A[1].ScalarMultiplication(&A[1], &I)
+	rExp.Mul(r, r)
+	for i := 2; i < len(A); i++ {
+		rExp.BigInt(&I)
+		if i+1 != len(A) {
+			rExp.Mul(&rExp, r)
+		}
+		A[i].ScalarMultiplication(&A[i], &I)
+	}
+}
+
+// linearCombinationsG{{.I}} returns
 //
 //		powers[0].A[0] + powers[1].A[1] + ... + powers[ends[0]-2].A[ends[0]-2]
 //	  + powers[ends[0]].A[ends[0]] + ... + powers[ends[1]-2].A[ends[1]-2]
@@ -357,7 +360,7 @@ func SameRatioMany(g1 [][]curve.G1Affine, g2 [][]curve.G2Affine) bool {
 // It is assumed without checking that powers[i+1] = powers[i]*powers[1] unless i+1 is a partial sum of sizes.
 // Also assumed that powers[0] = 1.
 // The slices powers and A will be modified
-func linearCombinationsG1(A []curve.G1Affine, powers []fr.Element, ends []int) (truncated, shifted curve.G1Affine) {
+func linearCombinationsG{{.I}}(A []curve.G{{.I}}Affine, powers []fr.Element, ends []int) (truncated, shifted curve.G{{.I}}Affine) {
 	if ends[len(ends)-1] != len(A) || len(A) != len(powers) {
 		panic("lengths mismatch")
 	}
@@ -405,64 +408,15 @@ func linearCombinationsG1(A []curve.G1Affine, powers []fr.Element, ends []int) (
 	return
 }
 
-
-// linearCombinationsG2 returns
-//
-//		powers[0].A[0] + powers[1].A[1] + ... + powers[ends[0]-2].A[ends[0]-2]
-//	  + powers[ends[0]].A[ends[0]] + ... + powers[ends[1]-2].A[ends[1]-2]
-//	    ....       (truncated)
-//
-//		powers[0].A[1] + powers[1].A[2] + ... + powers[ends[0]-2].A[ends[0]-1]
-//	  + powers[ends[0]].A[ends[0]+1]  + ... + powers[ends[1]-2].A[ends[1]-1]
-//	    ....       (shifted)
-//
-// It is assumed without checking that powers[i+1] = powers[i]*powers[1] unless i+1 is a partial sum of sizes.
-// Also assumed that powers[0] = 1.
-// The slices powers and A will be modified
-func linearCombinationsG2(A []curve.G2Affine, powers []fr.Element, ends []int) (truncated, shifted curve.G2Affine) {
-	if ends[len(ends)-1] != len(A) || len(A) != len(powers) {
-		panic("lengths mismatch")
-	}
-
-	// zero out the large coefficients
-	for i := range ends {
-		powers[ends[i]-1].SetZero()
-	}
-
-	msmCfg := ecc.MultiExpConfig{NbTasks: runtime.NumCPU()}
-
-	if _, err := truncated.MultiExp(A, powers, msmCfg); err != nil {
+func linearCombinationG{{.I}}(A []curve.G{{.I}}Affine, r []fr.Element) curve.G{{.I}}Affine {
+	var res curve.G{{.I}}Affine
+	if _, err := res.MultiExp(A, r[:len(A)], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()}); err != nil {
 		panic(err)
 	}
-
-	var rInvNeg fr.Element
-	rInvNeg.Inverse(&powers[1])
-	rInvNeg.Neg(&rInvNeg)
-	prevEnd := 0
-
-	// r⁻¹.truncated =
-	//		r⁻¹.powers[0].A[0] + powers[0].A[1] + ... + powers[ends[0]-3].A[ends[0]-2]
-	//	  + r⁻¹.powers[ends[0]].A[ends[0]] + ... + powers[ends[1]-3].A[ends[1]-2]
-	//	    ...
-	//
-	// compute shifted as
-	//    - r⁻¹.powers[0].A[0] - r⁻¹.powers[ends[0]].A[ends[0]] - ...
-	//    + powers[ends[0]-2].A[ends[0]-1] + powers[ends[1]-2].A[ends[1]-1] + ...
-	//    + r⁻¹.truncated
-	for i := range ends {
-		powers[2*i].Mul(&powers[prevEnd], &rInvNeg)
-		powers[2*i+1] = powers[ends[i]-2]
-		A[2*i] = A[prevEnd]
-		A[2*i+1] = A[ends[i]-1]
-		prevEnd = ends[i]
-	}
-	powers[2*len(ends)].Neg(&rInvNeg) // r⁻¹: coefficient for truncated
-	A[2*len(ends)] = truncated
-
-	// TODO @Tabaie O(1) MSM worth it?
-	if _, err := shifted.MultiExp(A[:2*len(ends)+1], powers[:2*len(ends)+1], msmCfg); err != nil {
-		panic(err)
-	}
-
-	return
+	return res
 }
+
+{{ end }}
+
+{{ template "curveFuncs" dict "I" 1}}
+{{ template "curveFuncs" dict "I" 2}}

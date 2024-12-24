@@ -277,22 +277,6 @@ func sameRatio(n1, d1 curve.G1Affine, n2, d2 curve.G2Affine) bool {
 	return res
 }
 
-func linearCombinationG1(A []curve.G1Affine, r []fr.Element) curve.G1Affine {
-	var res curve.G1Affine
-	if _, err := res.MultiExp(A, r[:len(A)], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()}); err != nil {
-		panic(err)
-	}
-	return res
-}
-
-func linearCombinationG2(A []curve.G2Affine, r []fr.Element) curve.G2Affine {
-	var res curve.G2Affine
-	if _, err := res.MultiExp(A, r[:len(A)], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()}); err != nil {
-		panic(err)
-	}
-	return res
-}
-
 func (x *UpdateProof) WriteTo(writer io.Writer) (n int64, err error) {
 	enc := curve.NewEncoder(writer)
 	if err = enc.Encode(&x.contributionCommitment); err != nil {
@@ -349,6 +333,24 @@ func SameRatioMany(g1 [][]curve.G1Affine, g2 [][]curve.G2Affine) bool {
 	return sameRatio(truncated1, shifted1, truncated2, shifted2)
 }
 
+// UpdateMonomialsG1 A[i] <- r^i.A[i]
+func UpdateMonomialsG1(A []curve.G1Affine, r *fr.Element) {
+	var (
+		rExp fr.Element
+		I    big.Int
+	)
+	r.BigInt(&I)
+	A[1].ScalarMultiplication(&A[1], &I)
+	rExp.Mul(r, r)
+	for i := 2; i < len(A); i++ {
+		rExp.BigInt(&I)
+		if i+1 != len(A) {
+			rExp.Mul(&rExp, r)
+		}
+		A[i].ScalarMultiplication(&A[i], &I)
+	}
+}
+
 // linearCombinationsG1 returns
 //
 //		powers[0].A[0] + powers[1].A[1] + ... + powers[ends[0]-2].A[ends[0]-2]
@@ -362,7 +364,7 @@ func SameRatioMany(g1 [][]curve.G1Affine, g2 [][]curve.G2Affine) bool {
 // It is assumed without checking that powers[i+1] = powers[i]*powers[1] unless i+1 is a partial sum of sizes.
 // Also assumed that powers[0] = 1.
 // The slices powers and A will be modified
-func linearCombinationsG1(A []curve.G1Affine, powers []fr.Element, ends []int) (truncated, shifted curve.G1Affine) {
+func linearCombinationsG1(A []curve.G2Affine, powers []fr.Element, ends []int) (truncated, shifted curve.G1Affine) {
 	if ends[len(ends)-1] != len(A) || len(A) != len(powers) {
 		panic("lengths mismatch")
 	}
@@ -408,6 +410,32 @@ func linearCombinationsG1(A []curve.G1Affine, powers []fr.Element, ends []int) (
 	}
 
 	return
+}
+
+func linearCombinationG1(A []curve.G1Affine, r []fr.Element) curve.G1Affine {
+	var res curve.G1Affine
+	if _, err := res.MultiExp(A, r[:len(A)], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()}); err != nil {
+		panic(err)
+	}
+	return res
+}
+
+// UpdateMonomialsG2 A[i] <- r^i.A[i]
+func UpdateMonomialsG2(A []curve.G1Affine, r *fr.Element) {
+	var (
+		rExp fr.Element
+		I    big.Int
+	)
+	r.BigInt(&I)
+	A[1].ScalarMultiplication(&A[1], &I)
+	rExp.Mul(r, r)
+	for i := 2; i < len(A); i++ {
+		rExp.BigInt(&I)
+		if i+1 != len(A) {
+			rExp.Mul(&rExp, r)
+		}
+		A[i].ScalarMultiplication(&A[i], &I)
+	}
 }
 
 // linearCombinationsG2 returns
@@ -469,4 +497,12 @@ func linearCombinationsG2(A []curve.G2Affine, powers []fr.Element, ends []int) (
 	}
 
 	return
+}
+
+func linearCombinationG2(A []curve.G2Affine, r []fr.Element) curve.G2Affine {
+	var res curve.G2Affine
+	if _, err := res.MultiExp(A, r[:len(A)], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()}); err != nil {
+		panic(err)
+	}
+	return res
 }
