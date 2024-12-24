@@ -128,7 +128,7 @@ func (s *MpcSetup) Verify(next *MpcSetup) error {
 		}
 	}
 
-	if err := s.proof.Verify(append([]byte("KZG Setup"), challenge...), 0, mpcsetup.ValueUpdate{
+	if err := next.proof.Verify(append([]byte("KZG Setup"), challenge...), 0, mpcsetup.ValueUpdate{
 		Previous: s.srs.Vk.G2[1],
 		Next:     next.srs.Vk.G2[1],
 	}); err != nil {

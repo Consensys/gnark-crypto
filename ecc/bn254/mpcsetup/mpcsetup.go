@@ -92,7 +92,7 @@ func (x *UpdateProof) Verify(challenge []byte, dst byte, representations ...Valu
 	if !x.contributionCommitment.IsInSubGroup() || !x.contributionPok.IsInSubGroup() {
 		return errors.New("proof subgroup check failed")
 	}
-	if !x.contributionCommitment.IsInfinity() {
+	if x.contributionCommitment.IsInfinity() {
 		return errors.New("zero contribution not allowed")
 	}
 
@@ -460,6 +460,11 @@ func UpdateMonomialsG2(A []curve.G1Affine, r *fr.Element) {
 func linearCombinationsG2(A []curve.G2Affine, powers []fr.Element, ends []int) (truncated, shifted curve.G2Affine) {
 	if ends[len(ends)-1] != len(A) || len(A) != len(powers) {
 		panic("lengths mismatch")
+	}
+
+	if len(ends) == 1 && ends[0] == 2 {
+		truncated, shifted = A[0], A[1]
+		return
 	}
 
 	// zero out the large coefficients
