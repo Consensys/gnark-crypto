@@ -337,3 +337,9 @@ func (x *UpdateProof) ReadFrom(reader io.Reader) (n int64, err error) {
 	err = dec.Decode(&x.contributionPok)
 	return dec.BytesRead(), err
 }
+
+// SameRatioMany proves that all g1[i] and g2[i] are
+// geometric progressions with the same ratio.
+func SameRatioMany(g1 [][]curve.G1Affine, g2 [][]curve.G2Affine) {
+
+}
