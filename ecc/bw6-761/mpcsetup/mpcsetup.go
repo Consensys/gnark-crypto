@@ -11,6 +11,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	curve "github.com/consensys/gnark-crypto/ecc/bw6-761"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
+	"io"
 	"math/big"
 	"runtime"
 )
@@ -317,4 +318,22 @@ func linearCombinationG2(A []curve.G2Affine, r []fr.Element) curve.G2Affine {
 		panic(err)
 	}
 	return res
+}
+
+func (x *UpdateProof) WriteTo(writer io.Writer) (n int64, err error) {
+	enc := curve.NewEncoder(writer)
+	if err = enc.Encode(&x.contributionCommitment); err != nil {
+		return enc.BytesWritten(), err
+	}
+	err = enc.Encode(&x.contributionPok)
+	return enc.BytesWritten(), err
+}
+
+func (x *UpdateProof) ReadFrom(reader io.Reader) (n int64, err error) {
+	dec := curve.NewDecoder(reader)
+	if err = dec.Decode(&x.contributionCommitment); err != nil {
+		return dec.BytesRead(), err
+	}
+	err = dec.Decode(&x.contributionPok)
+	return dec.BytesRead(), err
 }
