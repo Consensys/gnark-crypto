@@ -264,22 +264,6 @@ func randomMonomials(N int) []fr.Element {
 	return bivariateRandomMonomials(N)
 }
 
-// Returns [1, a, a², ..., aᴺ⁻¹ ]
-func powers(a *fr.Element, N int) []fr.Element {
-
-	result := make([]fr.Element, N)
-	if N >= 1 {
-		result[0].SetOne()
-	}
-	if N >= 2 {
-		result[1].Set(a)
-	}
-	for i := 2; i < N; i++ {
-		result[i].Mul(&result[i-1], a)
-	}
-	return result
-}
-
 // Check n₁/d₁ = n₂/d₂ i.e. e(n₁, d₂) = e(d₁, n₂). No subgroup checks.
 func sameRatio(n1, d1 curve.G1Affine, n2, d2 curve.G2Affine) bool {
 	var nd1 curve.G1Affine
