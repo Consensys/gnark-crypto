@@ -201,7 +201,7 @@ func TestLinearCombinationsG2(t *testing.T) {
 			}
 		}
 
-		truncated, shifted := linearCombinationsG2(slices.Clone(A), powers, []int{len(powers)})
+		truncated, shifted := linearCombinationsG2(slices.Clone(A), slices.Clone(powers), []int{len(powers)})
 
 		truncatedPowers := make([]fr.Element, len(powers))
 		copy(truncatedPowers[:len(truncatedPowers)-1], powers)
@@ -221,6 +221,11 @@ func TestLinearCombinationsG2(t *testing.T) {
 
 	_, _, _, g := curve.Generators()
 	var infty curve.G2Affine
+
+	test(
+		frs(1, 1, 1),
+		g, infty, infty,
+	)
 
 	test(
 		frs(1, 2, 4),
