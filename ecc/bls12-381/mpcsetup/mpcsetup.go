@@ -364,7 +364,7 @@ func UpdateMonomialsG1(A []curve.G1Affine, r *fr.Element) {
 // It is assumed without checking that powers[i+1] = powers[i]*powers[1] unless i+1 is a partial sum of sizes.
 // Also assumed that powers[0] = 1.
 // The slices powers and A will be modified
-func linearCombinationsG1(A []curve.G2Affine, powers []fr.Element, ends []int) (truncated, shifted curve.G1Affine) {
+func linearCombinationsG1(A []curve.G1Affine, powers []fr.Element, ends []int) (truncated, shifted curve.G1Affine) {
 	if ends[len(ends)-1] != len(A) || len(A) != len(powers) {
 		panic("lengths mismatch")
 	}
