@@ -6,8 +6,10 @@
 package kzg
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	curve "github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/mpcsetup"
@@ -111,4 +113,31 @@ func (s *MpcSetup) Contribute() {
 		}
 		s.srs.Pk.G1[i].ScalarMultiplication(&s.srs.Pk.G1[i], &I)
 	}
+}
+
+func (s *MpcSetup) Verify(next *MpcSetup) error {
+	challenge := s.hash()
+	if len(next.challenge) != 0 && !bytes.Equal(next.challenge, challenge) {
+		return errors.New("the challenge does not match the previous contribution's hash")
+	}
+	next.challenge = challenge
+
+	if !next.srs.Vk.G2[1].IsInSubGroup() {
+		return errors.New("g2 representation not in subgroup")
+	}
+	for i := 1; i < len(next.srs.Pk.G1); i++ {
+		if !next.srs.Pk.G1[i].IsInSubGroup() {
+			return errors.New("g1 representation not in subgroup")
+		}
+	}
+
+	if err := s.proof.Verify(append([]byte("KZG Setup"), challenge...), 0, mpcsetup.ValueUpdate{
+		Previous: s.srs.Vk.G2[1],
+		Next:     next.srs.Vk.G2[1],
+	}); err != nil {
+		return err
+	}
+
+	// TODO polynomial thing; we know Vk is correct; now we check Pk
+	return nil
 }

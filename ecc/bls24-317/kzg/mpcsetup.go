@@ -6,15 +6,19 @@
 package kzg
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	curve "github.com/consensys/gnark-crypto/ecc/bls24-317"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/mpcsetup"
 	"io"
+	"math/big"
 )
 
 type MpcSetup struct {
-	srs   SRS
-	proof mpcsetup.UpdateProof
+	srs       SRS
+	proof     mpcsetup.UpdateProof
+	challenge []byte
 }
 
 func InitializeSetup(N int) MpcSetup {
@@ -48,7 +52,10 @@ func (s *MpcSetup) WriteTo(w io.Writer) (int64, error) {
 			return n + enc.BytesWritten(), err
 		}
 	}
-	err = enc.Encode(&s.srs.Vk.G2[1])
+	if err = enc.Encode(&s.srs.Vk.G2[1]); err != nil {
+		return n + enc.BytesWritten(), err
+	}
+	err = enc.Encode(s.challenge)
 	return n + enc.BytesWritten(), err
 }
 
@@ -73,11 +80,35 @@ func (s *MpcSetup) ReadFrom(r io.Reader) (int64, error) {
 			return n + dec.BytesRead(), err
 		}
 	}
-	err = dec.Decode(&s.srs.Vk.G2[1])
+	if err = dec.Decode(&s.srs.Vk.G2[1]); err != nil {
+		return n + dec.BytesRead(), err
+	}
+	err = dec.Decode(&s.challenge)
 	return n + dec.BytesRead(), err
 }
 
-func (s *MpcSetup) Contribute() {
+func (s *MpcSetup) hash() []byte {
+	hsh := sha256.New()
+	if _, err := s.WriteTo(hsh); err != nil {
+		panic(err)
+	}
+	return hsh.Sum(nil)
+}
 
-	s.proof = mpcsetup.UpdateValues(nil, nil, 0, &s.srs.Vk.G2[1])
+func (s *MpcSetup) Contribute() {
+	s.challenge = s.hash()
+	var (
+		contribution    fr.Element
+		contributionExp fr.Element
+		I               big.Int
+	)
+	s.proof = mpcsetup.UpdateValues(&contribution, append([]byte("KZG Setup"), s.challenge...), 0, &s.srs.Vk.G2[1], &s.srs.Pk.G1[1])
+	contributionExp.Mul(&contribution, &contribution)
+	for i := 2; i < len(s.srs.Pk.G1); i++ {
+		contributionExp.BigInt(&I)
+		if i+1 != len(s.srs.Pk.G1) {
+			contributionExp.Mul(&contributionExp, &contribution)
+		}
+		s.srs.Pk.G1[i].ScalarMultiplication(&s.srs.Pk.G1[i], &I)
+	}
 }
