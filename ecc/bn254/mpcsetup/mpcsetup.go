@@ -375,6 +375,11 @@ func linearCombinationsG1(A []curve.G1Affine, powers []fr.Element, ends []int) (
 		panic("lengths mismatch")
 	}
 
+	if len(ends) == 1 && ends[0] == 2 {
+		truncated, shifted = A[0], A[1]
+		return
+	}
+
 	// zero out the large coefficients
 	for i := range ends {
 		powers[ends[i]-1].SetZero()

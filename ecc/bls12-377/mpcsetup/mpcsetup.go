@@ -92,7 +92,7 @@ func (x *UpdateProof) Verify(challenge []byte, dst byte, representations ...Valu
 	if !x.contributionCommitment.IsInSubGroup() || !x.contributionPok.IsInSubGroup() {
 		return errors.New("proof subgroup check failed")
 	}
-	if !x.contributionCommitment.IsInfinity() {
+	if x.contributionCommitment.IsInfinity() {
 		return errors.New("zero contribution not allowed")
 	}
 
@@ -261,6 +261,12 @@ func setPowers(x []fr.Element) {
 
 // Returns [1, a, a², ..., aᴺ⁻¹ ] for random a
 func randomMonomials(N int) []fr.Element {
+	switch N {
+	case 0:
+		return nil
+	case 1:
+		return []fr.Element{fr.One()}
+	}
 	return bivariateRandomMonomials(N)
 }
 
@@ -369,6 +375,11 @@ func linearCombinationsG1(A []curve.G1Affine, powers []fr.Element, ends []int) (
 		panic("lengths mismatch")
 	}
 
+	if len(ends) == 1 && ends[0] == 2 {
+		truncated, shifted = A[0], A[1]
+		return
+	}
+
 	// zero out the large coefficients
 	for i := range ends {
 		powers[ends[i]-1].SetZero()
@@ -454,6 +465,11 @@ func UpdateMonomialsG2(A []curve.G1Affine, r *fr.Element) {
 func linearCombinationsG2(A []curve.G2Affine, powers []fr.Element, ends []int) (truncated, shifted curve.G2Affine) {
 	if ends[len(ends)-1] != len(A) || len(A) != len(powers) {
 		panic("lengths mismatch")
+	}
+
+	if len(ends) == 1 && ends[0] == 2 {
+		truncated, shifted = A[0], A[1]
+		return
 	}
 
 	// zero out the large coefficients
