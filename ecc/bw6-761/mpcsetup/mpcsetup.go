@@ -7,9 +7,12 @@ package mpcsetup
 
 import (
 	"bytes"
+	"errors"
+	"github.com/consensys/gnark-crypto/ecc"
 	curve "github.com/consensys/gnark-crypto/ecc/bw6-761"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 	"math/big"
+	"runtime"
 )
 
 // Generate R∈𝔾₂ as Hash(gˢ, challenge, dst)
@@ -81,7 +84,16 @@ func UpdateValues(contributionValue *fr.Element, challenge []byte, dst byte, rep
 	return proof
 }
 
-func (x *UpdateProof) Verify(challenge []byte, dst byte, representations ...ValueUpdate) {
+// Verify that the updates to representations are consistent with the contribution in x.
+// Verify does not subgroup check the representations.
+func (x *UpdateProof) Verify(challenge []byte, dst byte, representations ...ValueUpdate) error {
+	if !x.contributionCommitment.IsInSubGroup() || !x.contributionPok.IsInSubGroup() {
+		return errors.New("proof subgroup check failed")
+	}
+	if !x.contributionCommitment.IsInfinity() {
+		return errors.New("zero contribution not allowed")
+	}
+
 	var g1Len, g2Len int
 	for i := range representations {
 		switch r := representations[i].Previous.(type) {
@@ -98,7 +110,7 @@ func (x *UpdateProof) Verify(challenge []byte, dst byte, representations ...Valu
 		case []curve.G2Affine:
 			g2Len += len(r)
 		default:
-			panic("unsupported type")
+			return errors.New("unsupported type")
 		}
 	}
 
@@ -127,12 +139,42 @@ func (x *UpdateProof) Verify(challenge []byte, dst byte, representations ...Valu
 			g2Prev = append(g2Prev, r...)
 			g2Next = append(g2Next, representations[i].Next.([]curve.G2Affine)...)
 		default:
-			panic("unsupported type")
+			return errors.New("unsupported type")
+		}
+
+		if len(g1Prev) != len(g1Next) || len(g2Prev) != len(g2Next) {
+			return errors.New("length mismatch")
 		}
 	}
 
 	r := randomMonomials(max(g1Len, g2Len))
 
+	pokBase := pokBase(x.contributionCommitment, challenge, dst)
+
+	_, _, g1, _ := curve.Generators()
+	if !sameRatio(x.contributionCommitment, g1, x.contributionPok, pokBase) { // π =? x.r i.e. x/g1 =? π/r
+		return errors.New("contribution proof of knowledge verification failed")
+	}
+
+	if g1Len > 0 {
+		// verify G1 representations update
+		prev := linearCombinationG1(g1Prev, r)
+		next := linearCombinationG1(g1Next, r)
+		if !sameRatio(next, prev, x.contributionPok, pokBase) {
+			return errors.New("g1 update inconsistent")
+		}
+	}
+
+	if g2Len > 0 {
+		// verify G2 representations update
+		prev := linearCombinationG2(g2Prev, r)
+		next := linearCombinationG2(g2Next, r)
+		if !sameRatio(x.contributionCommitment, g1, next, prev) {
+			return errors.New("g2 update inconsistent")
+		}
+	}
+
+	return nil
 }
 
 // BeaconContributions provides the last
@@ -246,4 +288,33 @@ func powers(a *fr.Element, N int) []fr.Element {
 		result[i].Mul(&result[i-1], a)
 	}
 	return result
+}
+
+// Check n₁/d₁ = n₂/d₂ i.e. e(n₁, d₂) = e(d₁, n₂). No subgroup checks.
+func sameRatio(n1, d1 curve.G1Affine, n2, d2 curve.G2Affine) bool {
+	var nd1 curve.G1Affine
+	nd1.Neg(&d1)
+	res, err := curve.PairingCheck(
+		[]curve.G1Affine{n1, nd1},
+		[]curve.G2Affine{d2, n2})
+	if err != nil {
+		panic(err)
+	}
+	return res
+}
+
+func linearCombinationG1(A []curve.G1Affine, r []fr.Element) curve.G1Affine {
+	var res curve.G1Affine
+	if _, err := res.MultiExp(A, r[:len(A)], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()}); err != nil {
+		panic(err)
+	}
+	return res
+}
+
+func linearCombinationG2(A []curve.G2Affine, r []fr.Element) curve.G2Affine {
+	var res curve.G2Affine
+	if _, err := res.MultiExp(A, r[:len(A)], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()}); err != nil {
+		panic(err)
+	}
+	return res
 }

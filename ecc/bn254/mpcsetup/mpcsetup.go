@@ -141,6 +141,7 @@ func (x *UpdateProof) Verify(challenge []byte, dst byte, representations ...Valu
 		default:
 			return errors.New("unsupported type")
 		}
+
 		if len(g1Prev) != len(g1Next) || len(g2Prev) != len(g2Next) {
 			return errors.New("length mismatch")
 		}
@@ -159,20 +160,21 @@ func (x *UpdateProof) Verify(challenge []byte, dst byte, representations ...Valu
 		// verify G1 representations update
 		prev := linearCombinationG1(g1Prev, r)
 		next := linearCombinationG1(g1Next, r)
-
+		if !sameRatio(next, prev, x.contributionPok, pokBase) {
+			return errors.New("g1 update inconsistent")
+		}
 	}
 
-	// check that the num/denom ratio is consistent between the 𝔾₁ and 𝔾₂ representations. Based on CONSISTENT, algorithm 2 in Section 3.6.
-	if !noG2 && !sameRatio(num.g1, denom.g1, *num.g2, *denom.g2) {
-		return errors.New("g2 update inconsistent")
+	if g2Len > 0 {
+		// verify G2 representations update
+		prev := linearCombinationG2(g2Prev, r)
+		next := linearCombinationG2(g2Next, r)
+		if !sameRatio(x.contributionCommitment, g1, next, prev) {
+			return errors.New("g2 update inconsistent")
+		}
 	}
 
-	// now verify that num₁/denom₁ = x ( = x/g1 = π/r )
-	// have to use the latter value for the RHS because we sameRatio needs both 𝔾₁ and 𝔾₂ values
-	if !sameRatio(num.g1, denom.g1, x.contributionPok, r) {
-		return errors.New("g1 update inconsistent")
-	}
-
+	return nil
 }
 
 // BeaconContributions provides the last
@@ -309,7 +311,7 @@ func linearCombinationG1(A []curve.G1Affine, r []fr.Element) curve.G1Affine {
 	return res
 }
 
-func linearCombinationG2(A []curve.G2Affine, r []fr.Element) curve.G1Affine {
+func linearCombinationG2(A []curve.G2Affine, r []fr.Element) curve.G2Affine {
 	var res curve.G2Affine
 	if _, err := res.MultiExp(A, r[:len(A)], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()}); err != nil {
 		panic(err)
