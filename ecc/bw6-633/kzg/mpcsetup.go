@@ -138,6 +138,12 @@ func (s *MpcSetup) Verify(next *MpcSetup) error {
 		return err
 	}
 
-	// TODO polynomial thing; we know Vk is correct; now we check Pk
+	if !mpcsetup.SameRatioMany(
+		[][]curve.G1Affine{s.srs.Pk.G1},
+		[][]curve.G2Affine{s.srs.Vk.G2[:]},
+	) {
+		return errors.New("g1 and g2 ratios do not match")
+	}
+
 	return nil
 }
