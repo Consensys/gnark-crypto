@@ -330,23 +330,39 @@ func (x *UpdateProof) ReadFrom(reader io.Reader) (n int64, err error) {
 // SameRatioMany proves that all g1[i] and g2[i] are
 // geometric progressions with the same ratio.
 // The slices g1 and g2 will be modified.
-func SameRatioMany(g1 [][]curve.G1Affine, g2 [][]curve.G2Affine) error {
-
-	if len(g1) == 0 || len(g2) == 0 {
-		return errors.New("both g1 and g2 representations needed")
-	}
+func SameRatioMany(g1 [][]curve.G1Affine, g2 [][]curve.G2Affine) bool {
 
 	// make sure the longest progression is first
-	i := utils.MaxIndexFunc(len(g1), func(i, j int) bool {
+	longest := utils.MaxIndexFunc(len(g1), func(i, j int) bool {
 		return len(g1[i]) > len(g1[j])
 	})
-	g1[0], g1[i] = g1[i], g1[0]
+	g1[0], g1[longest] = g1[longest], g1[0]
 
-	i = utils.MaxIndexFunc(len(g2), func(i, j int) bool {
+	longest = utils.MaxIndexFunc(len(g2), func(i, j int) bool {
 		return len(g2[i]) > len(g2[j])
 	})
-	g2[0], g2[i] = g2[i], g2[0]
+	g2[0], g2[longest] = g2[longest], g2[0]
 
+	ends1 := utils.PartialSumsF(len(g1), func(i int) int { return len(g1[i]) })
+	ends2 := utils.PartialSumsF(len(g2), func(i int) int { return len(g2[i]) })
+
+	r1 := bivariateRandomMonomials(ends1...)
+	r2 := bivariateRandomMonomials(ends2...)
+
+	g1Flat := make([]curve.G1Affine, 0, ends1[len(ends1)-1])
+	for i := range g1 {
+		g1Flat = append(g1Flat, g1[i]...)
+	}
+
+	g2Flat := make([]curve.G2Affine, 0, ends2[len(ends2)-1])
+	for i := range g2 {
+		g2Flat = append(g2Flat, g2[i]...)
+	}
+
+	truncated1, shifted1 := linearCombinationsG1(g1Flat, r1, ends1)
+	truncated2, shifted2 := linearCombinationsG2(g2Flat, r2, ends2)
+
+	return sameRatio(truncated1, shifted1, truncated2, shifted2)
 }
 
 // linearCombinationsG1 returns
