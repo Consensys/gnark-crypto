@@ -18,7 +18,7 @@ import (
 )
 
 type MpcSetup struct {
-	SRS
+	srs       SRS
 	proof     mpcsetup.UpdateProof
 	challenge []byte
 }
@@ -27,13 +27,13 @@ func InitializeSetup(N int) MpcSetup {
 	var res MpcSetup
 	_, _, g1, g2 := curve.Generators()
 
-	res.Pk.G1 = make([]curve.G1Affine, N)
+	res.srs.Pk.G1 = make([]curve.G1Affine, N)
 	for i := range N {
-		res.Pk.G1[i] = g1
+		res.srs.Pk.G1[i] = g1
 	}
-	res.Vk.G1 = g1
-	res.Vk.G2[0] = g2
-	res.Vk.G2[1] = g2
+	res.srs.Vk.G1 = g1
+	res.srs.Vk.G2[0] = g2
+	res.srs.Vk.G2[1] = g2
 
 	return res
 }
@@ -44,17 +44,17 @@ func (s *MpcSetup) WriteTo(w io.Writer) (int64, error) {
 	if err != nil {
 		return n, err
 	}
-	if err = binary.Write(w, binary.BigEndian, uint64(len(s.Pk.G1))); err != nil {
+	if err = binary.Write(w, binary.BigEndian, uint64(len(s.srs.Pk.G1))); err != nil {
 		return -1, err // binary.Write doesn't return the number written in case of failure
 	}
 	n += 8
 	enc := curve.NewEncoder(w)
-	for i := range s.Pk.G1[1:] {
-		if err = enc.Encode(&s.Pk.G1[i+1]); err != nil {
+	for i := range len(s.srs.Pk.G1) - 1 {
+		if err = enc.Encode(&s.srs.Pk.G1[i+1]); err != nil {
 			return n + enc.BytesWritten(), err
 		}
 	}
-	if err = enc.Encode(&s.Vk.G2[1]); err != nil {
+	if err = enc.Encode(&s.srs.Vk.G2[1]); err != nil {
 		return n + enc.BytesWritten(), err
 	}
 	err = enc.Encode(s.challenge)
@@ -74,16 +74,19 @@ func (s *MpcSetup) ReadFrom(r io.Reader) (int64, error) {
 	_, _, g1, g2 := curve.Generators()
 	n += 8
 	dec := curve.NewDecoder(r)
-	s.Pk.G1 = make([]curve.G1Affine, N)
-	s.Pk.G1[0] = g1
-	s.Vk.G2[0] = g2
+	s.srs.Pk.G1 = make([]curve.G1Affine, N)
+	s.srs.Pk.G1[0] = g1
+	s.srs.Vk.G2[0] = g2
 	for i := range N - 1 {
-		if err = dec.Decode(&s.Pk.G1[i+1]); err != nil {
+		if err = dec.Decode(&s.srs.Pk.G1[i+1]); err != nil {
 			return n + dec.BytesRead(), err
 		}
 	}
-	if err = dec.Decode(&s.Vk.G2[1]); err != nil {
+	if err = dec.Decode(&s.srs.Vk.G2[1]); err != nil {
 		return n + dec.BytesRead(), err
+	}
+	if len(s.challenge) != 32 {
+		s.challenge = make([]byte, 32)
 	}
 	err = dec.Decode(&s.challenge)
 	return n + dec.BytesRead(), err
@@ -101,8 +104,8 @@ func (s *MpcSetup) Contribute() {
 	s.challenge = s.hash()
 	var contribution fr.Element
 
-	s.proof = mpcsetup.UpdateValues(&contribution, append([]byte("KZG Setup"), s.challenge...), 0, &s.Vk.G2[1])
-	mpcsetup.UpdateMonomialsG1(s.Pk.G1, &contribution)
+	s.proof = mpcsetup.UpdateValues(&contribution, append([]byte("KZG Setup"), s.challenge...), 0, &s.srs.Vk.G2[1])
+	mpcsetup.UpdateMonomialsG1(s.srs.Pk.G1, &contribution)
 }
 
 func (s *MpcSetup) Verify(next *MpcSetup) error {
@@ -112,25 +115,29 @@ func (s *MpcSetup) Verify(next *MpcSetup) error {
 	}
 	next.challenge = challenge
 
-	if !next.Vk.G2[1].IsInSubGroup() {
+	if len(s.srs.Pk.G1) != len(next.srs.Pk.G1) {
+		return errors.New("different domain sizes")
+	}
+
+	if !next.srs.Vk.G2[1].IsInSubGroup() {
 		return errors.New("g2 representation not in subgroup")
 	}
-	for i := 1; i < len(next.Pk.G1); i++ {
-		if !next.Pk.G1[i].IsInSubGroup() {
+	for i := 1; i < len(next.srs.Pk.G1); i++ {
+		if !next.srs.Pk.G1[i].IsInSubGroup() {
 			return errors.New("g1 representation not in subgroup")
 		}
 	}
 
 	if err := s.proof.Verify(append([]byte("KZG Setup"), challenge...), 0, mpcsetup.ValueUpdate{
-		Previous: s.Vk.G2[1],
-		Next:     next.Vk.G2[1],
+		Previous: s.srs.Vk.G2[1],
+		Next:     next.srs.Vk.G2[1],
 	}); err != nil {
 		return err
 	}
 
 	if !mpcsetup.SameRatioMany(
-		[][]curve.G1Affine{s.Pk.G1},
-		[][]curve.G2Affine{s.Vk.G2[:]},
+		[][]curve.G1Affine{s.srs.Pk.G1},
+		[][]curve.G2Affine{s.srs.Vk.G2[:]},
 	) {
 		return errors.New("g1 and g2 ratios do not match")
 	}
@@ -142,11 +149,11 @@ func (s *MpcSetup) Seal(beaconChallenge []byte) SRS {
 	contributions := mpcsetup.BeaconContributions(s.hash(), []byte("KZG Setup"), beaconChallenge, 1)
 	var I big.Int
 	contributions[0].BigInt(&I)
-	s.Vk.G2[1].ScalarMultiplication(&s.Vk.G2[1], &I)
-	mpcsetup.UpdateMonomialsG1(s.Pk.G1, &contributions[0])
+	s.srs.Vk.G2[1].ScalarMultiplication(&s.srs.Vk.G2[1], &I)
+	mpcsetup.UpdateMonomialsG1(s.srs.Pk.G1, &contributions[0])
 
-	s.Vk.Lines[0] = curve.PrecomputeLines(s.Vk.G2[0])
-	s.Vk.Lines[1] = curve.PrecomputeLines(s.Vk.G2[1])
+	s.srs.Vk.Lines[0] = curve.PrecomputeLines(s.srs.Vk.G2[0])
+	s.srs.Vk.Lines[1] = curve.PrecomputeLines(s.srs.Vk.G2[1])
 
-	return s.SRS
+	return s.srs
 }

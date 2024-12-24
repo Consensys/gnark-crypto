@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"math/big"
+	"slices"
+	"sync"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
@@ -22,13 +24,58 @@ import (
 )
 
 // Test SRS re-used across tests of the KZG scheme
-var testSrs *SRS
-var bAlpha *big.Int
+var (
+	testSrs *SRS
+	bAlpha  *big.Int
+)
+
+const srsSize = 230
 
 func init() {
-	const srsSize = 230
 	bAlpha = new(big.Int).SetInt64(42) // randomise ?
 	testSrs, _ = NewSRS(ecc.NextPowerOfTwo(srsSize), bAlpha)
+}
+
+func mpcGenerateSrs(t *testing.T) (srs *SRS, phases [][]byte) {
+	const nbPhases = 1
+	p := InitializeSetup(srsSize)
+
+	phases = make([][]byte, nbPhases)
+
+	var bb bytes.Buffer
+	for i := range phases {
+		p.Contribute()
+		bb.Reset()
+		n, err := p.WriteTo(&bb)
+		require.NoError(t, err)
+		require.Equal(t, n, int64(bb.Len()))
+		phases[i] = slices.Clone(bb.Bytes())
+	}
+
+	res := p.Seal([]byte("test"))
+	return &res, phases
+}
+
+func mpcGetSrs(t *testing.T) *SRS {
+	return sync.OnceValue(func() *SRS {
+		srs, _ := mpcGenerateSrs(t)
+		return srs
+	})()
+}
+
+func TestMpcSetup(t *testing.T) {
+	_, phases := mpcGenerateSrs(t)
+
+	prev := InitializeSetup(srsSize)
+	for i := range phases {
+		var p MpcSetup
+		n, err := p.ReadFrom(bytes.NewReader(phases[i]))
+		require.NoError(t, err)
+		require.Equal(t, int64(len(phases[i])), n)
+
+		require.NoError(t, prev.Verify(&p))
+		prev = p
+	}
 }
 
 func TestToLagrangeG1(t *testing.T) {

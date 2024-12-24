@@ -261,6 +261,12 @@ func setPowers(x []fr.Element) {
 
 // Returns [1, a, a², ..., aᴺ⁻¹ ] for random a
 func randomMonomials(N int) []fr.Element {
+	switch N {
+	case 0:
+		return nil
+	case 1:
+		return []fr.Element{fr.One()}
+	}
 	return bivariateRandomMonomials(N)
 }
 
