@@ -179,7 +179,10 @@ func (x *UpdateProof) Verify(challenge []byte, dst byte, representations ...Valu
 	return nil
 }
 
-// BeaconContributions provides the last
+// BeaconContributions provides a reproducible slice of field elements
+// used for the final update in a multiparty setup ceremony.
+// beaconChallenge is a publicly checkable value at time t, of
+// moderate entropy to any party before time t.
 func BeaconContributions(hash, dst, beaconChallenge []byte, n int) []fr.Element {
 	var (
 		bb  bytes.Buffer
@@ -283,6 +286,7 @@ func sameRatio(n1, d1 curve.G1Affine, n2, d2 curve.G2Affine) bool {
 	return res
 }
 
+// WriteTo implements io.WriterTo
 func (x *UpdateProof) WriteTo(writer io.Writer) (n int64, err error) {
 	enc := curve.NewEncoder(writer)
 	if err = enc.Encode(&x.contributionCommitment); err != nil {
@@ -292,6 +296,7 @@ func (x *UpdateProof) WriteTo(writer io.Writer) (n int64, err error) {
 	return enc.BytesWritten(), err
 }
 
+// ReadFrom implements io.ReaderFrom
 func (x *UpdateProof) ReadFrom(reader io.Reader) (n int64, err error) {
 	dec := curve.NewDecoder(reader)
 	if err = dec.Decode(&x.contributionCommitment); err != nil {
@@ -423,6 +428,7 @@ func linearCombinationsG1(A []curve.G1Affine, powers []fr.Element, ends []int) (
 	return
 }
 
+// linearCombinationG1 returns ∑ᵢ A[i].r[i]
 func linearCombinationG1(A []curve.G1Affine, r []fr.Element) curve.G1Affine {
 	var res curve.G1Affine
 	if _, err := res.MultiExp(A, r[:len(A)], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()}); err != nil {
@@ -515,6 +521,7 @@ func linearCombinationsG2(A []curve.G2Affine, powers []fr.Element, ends []int) (
 	return
 }
 
+// linearCombinationG2 returns ∑ᵢ A[i].r[i]
 func linearCombinationG2(A []curve.G2Affine, r []fr.Element) curve.G2Affine {
 	var res curve.G2Affine
 	if _, err := res.MultiExp(A, r[:len(A)], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()}); err != nil {
