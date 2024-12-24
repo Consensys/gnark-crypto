@@ -11,6 +11,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	curve "github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/utils"
 	"io"
 	"math/big"
 	"runtime"
@@ -340,6 +341,144 @@ func (x *UpdateProof) ReadFrom(reader io.Reader) (n int64, err error) {
 
 // SameRatioMany proves that all g1[i] and g2[i] are
 // geometric progressions with the same ratio.
-func SameRatioMany(g1 [][]curve.G1Affine, g2 [][]curve.G2Affine) {
+// The slices g1 and g2 will be modified.
+func SameRatioMany(g1 [][]curve.G1Affine, g2 [][]curve.G2Affine) error {
 
+	if len(g1) == 0 || len(g2) == 0 {
+		return errors.New("both g1 and g2 representations needed")
+	}
+
+	// make sure the longest progression is first
+	i := utils.MaxIndexFunc(len(g1), func(i, j int) bool {
+		return len(g1[i]) > len(g1[j])
+	})
+	g1[0], g1[i] = g1[i], g1[0]
+
+	i = utils.MaxIndexFunc(len(g2), func(i, j int) bool {
+		return len(g2[i]) > len(g2[j])
+	})
+	g2[0], g2[i] = g2[i], g2[0]
+
+}
+
+// linearCombinationsG1 returns
+//
+//		powers[0].A[0] + powers[1].A[1] + ... + powers[ends[0]-2].A[ends[0]-2]
+//	  + powers[ends[0]].A[ends[0]] + ... + powers[ends[1]-2].A[ends[1]-2]
+//	    ....       (truncated)
+//
+//		powers[0].A[1] + powers[1].A[2] + ... + powers[ends[0]-2].A[ends[0]-1]
+//	  + powers[ends[0]].A[ends[0]+1]  + ... + powers[ends[1]-2].A[ends[1]-1]
+//	    ....       (shifted)
+//
+// It is assumed without checking that powers[i+1] = powers[i]*powers[1] unless i+1 is a partial sum of sizes.
+// Also assumed that powers[0] = 1.
+// The slices powers and A will be modified
+func linearCombinationsG1(A []curve.G1Affine, powers []fr.Element, ends []int) (truncated, shifted curve.G1Affine) {
+	if ends[len(ends)-1] != len(A) || len(A) != len(powers) {
+		panic("lengths mismatch")
+	}
+
+	// zero out the large coefficients
+	for i := range ends {
+		powers[ends[i]-1].SetZero()
+	}
+
+	msmCfg := ecc.MultiExpConfig{NbTasks: runtime.NumCPU()}
+
+	if _, err := truncated.MultiExp(A, powers, msmCfg); err != nil {
+		panic(err)
+	}
+
+	var rInvNeg fr.Element
+	rInvNeg.Inverse(&powers[1])
+	rInvNeg.Neg(&rInvNeg)
+	prevEnd := 0
+
+	// r⁻¹.truncated =
+	//		r⁻¹.powers[0].A[0] + powers[0].A[1] + ... + powers[ends[0]-3].A[ends[0]-2]
+	//	  + r⁻¹.powers[ends[0]].A[ends[0]] + ... + powers[ends[1]-3].A[ends[1]-2]
+	//	    ...
+	//
+	// compute shifted as
+	//    - r⁻¹.powers[0].A[0] - r⁻¹.powers[ends[0]].A[ends[0]] - ...
+	//    + powers[ends[0]-2].A[ends[0]-1] + powers[ends[1]-2].A[ends[1]-1] + ...
+	//    + r⁻¹.truncated
+	for i := range ends {
+		powers[2*i].Mul(&powers[prevEnd], &rInvNeg)
+		powers[2*i+1] = powers[ends[i]-2]
+		A[2*i] = A[prevEnd]
+		A[2*i+1] = A[ends[i]-1]
+		prevEnd = ends[i]
+	}
+	powers[2*len(ends)].Neg(&rInvNeg) // r⁻¹: coefficient for truncated
+	A[2*len(ends)] = truncated
+
+	// TODO @Tabaie O(1) MSM worth it?
+	if _, err := shifted.MultiExp(A[:2*len(ends)+1], powers[:2*len(ends)+1], msmCfg); err != nil {
+		panic(err)
+	}
+
+	return
+}
+
+// linearCombinationsG2 returns
+//
+//		powers[0].A[0] + powers[1].A[1] + ... + powers[ends[0]-2].A[ends[0]-2]
+//	  + powers[ends[0]].A[ends[0]] + ... + powers[ends[1]-2].A[ends[1]-2]
+//	    ....       (truncated)
+//
+//		powers[0].A[1] + powers[1].A[2] + ... + powers[ends[0]-2].A[ends[0]-1]
+//	  + powers[ends[0]].A[ends[0]+1]  + ... + powers[ends[1]-2].A[ends[1]-1]
+//	    ....       (shifted)
+//
+// It is assumed without checking that powers[i+1] = powers[i]*powers[1] unless i+1 is a partial sum of sizes.
+// Also assumed that powers[0] = 1.
+// The slices powers and A will be modified
+func linearCombinationsG2(A []curve.G2Affine, powers []fr.Element, ends []int) (truncated, shifted curve.G2Affine) {
+	if ends[len(ends)-1] != len(A) || len(A) != len(powers) {
+		panic("lengths mismatch")
+	}
+
+	// zero out the large coefficients
+	for i := range ends {
+		powers[ends[i]-1].SetZero()
+	}
+
+	msmCfg := ecc.MultiExpConfig{NbTasks: runtime.NumCPU()}
+
+	if _, err := truncated.MultiExp(A, powers, msmCfg); err != nil {
+		panic(err)
+	}
+
+	var rInvNeg fr.Element
+	rInvNeg.Inverse(&powers[1])
+	rInvNeg.Neg(&rInvNeg)
+	prevEnd := 0
+
+	// r⁻¹.truncated =
+	//		r⁻¹.powers[0].A[0] + powers[0].A[1] + ... + powers[ends[0]-3].A[ends[0]-2]
+	//	  + r⁻¹.powers[ends[0]].A[ends[0]] + ... + powers[ends[1]-3].A[ends[1]-2]
+	//	    ...
+	//
+	// compute shifted as
+	//    - r⁻¹.powers[0].A[0] - r⁻¹.powers[ends[0]].A[ends[0]] - ...
+	//    + powers[ends[0]-2].A[ends[0]-1] + powers[ends[1]-2].A[ends[1]-1] + ...
+	//    + r⁻¹.truncated
+	for i := range ends {
+		powers[2*i].Mul(&powers[prevEnd], &rInvNeg)
+		powers[2*i+1] = powers[ends[i]-2]
+		A[2*i] = A[prevEnd]
+		A[2*i+1] = A[ends[i]-1]
+		prevEnd = ends[i]
+	}
+	powers[2*len(ends)].Neg(&rInvNeg) // r⁻¹: coefficient for truncated
+	A[2*len(ends)] = truncated
+
+	// TODO @Tabaie O(1) MSM worth it?
+	if _, err := shifted.MultiExp(A[:2*len(ends)+1], powers[:2*len(ends)+1], msmCfg); err != nil {
+		panic(err)
+	}
+
+	return
 }
