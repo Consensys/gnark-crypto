@@ -128,14 +128,7 @@ func (s *MpcSetup) Verify(next *MpcSetup) error {
 		return err
 	}
 
-	if !mpcsetup.SameRatioMany(
-		[][]curve.G1Affine{s.srs.Pk.G1},
-		[][]curve.G2Affine{s.srs.Vk.G2[:]},
-	) {
-		return errors.New("g1 and g2 ratios do not match")
-	}
-
-	return nil
+	return mpcsetup.SameRatioMany(s.srs.Pk.G1, s.srs.Vk.G2[:])
 }
 
 func (s *MpcSetup) Seal(beaconChallenge []byte) SRS {

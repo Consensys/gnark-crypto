@@ -136,7 +136,6 @@ func (s *MpcSetup) Verify(next *MpcSetup) error {
 	}
 
 	return mpcsetup.SameRatioMany(s.srs.Pk.G1, s.srs.Vk.G2[:])
-
 }
 
 func (s *MpcSetup) Seal(beaconChallenge []byte) SRS {

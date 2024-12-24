@@ -8,6 +8,7 @@ package mpcsetup
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"github.com/consensys/gnark-crypto/ecc"
 	curve "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
@@ -306,21 +307,38 @@ func (x *UpdateProof) ReadFrom(reader io.Reader) (n int64, err error) {
 	return dec.BytesRead(), err
 }
 
-// SameRatioMany proves that all g1[i] and g2[i] are
-// geometric progressions with the same ratio.
-// The slices g1 and g2 will be modified.
-func SameRatioMany(g1 [][]curve.G1Affine, g2 [][]curve.G2Affine) bool {
+// SameRatioMany proves that all input slices
+// are geometric sequences with the same ratio.
+func SameRatioMany(slices ...any) error {
+
+	var longest1, longest2 int
+	g1 := make([][]curve.G1Affine, 0, len(slices))
+	g2 := make([][]curve.G2Affine, 0, len(slices))
+
+	for _, s := range slices {
+		switch r := s.(type) {
+		case []curve.G1Affine:
+			if len(r) > longest1 {
+				longest1 = len(g1)
+			}
+			g1 = append(g1, r)
+		case []curve.G2Affine:
+			if len(r) > longest2 {
+				longest2 = len(g2)
+			}
+			g2 = append(g2, r)
+		default:
+			return fmt.Errorf("unsupported type %T", s)
+		}
+	}
+
+	if len(g1) == 0 || len(g2) == 0 {
+		return errors.New("need both G1 and G2 representatives")
+	}
 
 	// make sure the longest progression is first
-	longest := utils.MaxIndexFunc(len(g1), func(i, j int) bool {
-		return len(g1[i]) > len(g1[j])
-	})
-	g1[0], g1[longest] = g1[longest], g1[0]
-
-	longest = utils.MaxIndexFunc(len(g2), func(i, j int) bool {
-		return len(g2[i]) > len(g2[j])
-	})
-	g2[0], g2[longest] = g2[longest], g2[0]
+	g1[0], g1[longest1] = g1[longest1], g1[0]
+	g2[0], g2[longest2] = g2[longest2], g2[0]
 
 	ends1 := utils.PartialSumsF(len(g1), func(i int) int { return len(g1[i]) })
 	ends2 := utils.PartialSumsF(len(g2), func(i int) int { return len(g2[i]) })
@@ -341,7 +359,10 @@ func SameRatioMany(g1 [][]curve.G1Affine, g2 [][]curve.G2Affine) bool {
 	truncated1, shifted1 := linearCombinationsG1(g1Flat, r1, ends1)
 	truncated2, shifted2 := linearCombinationsG2(g2Flat, r2, ends2)
 
-	return sameRatio(truncated1, shifted1, truncated2, shifted2)
+	if !sameRatio(truncated1, shifted1, truncated2, shifted2) {
+		return errors.New("pairing mismatch")
+	}
+	return nil
 }
 
 // UpdateMonomialsG1 A[i] <- r^i.A[i]
