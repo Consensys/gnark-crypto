@@ -311,20 +311,22 @@ func (x *UpdateProof) ReadFrom(reader io.Reader) (n int64, err error) {
 // are geometric sequences with the same ratio.
 func SameRatioMany(slices ...any) error {
 
-	var longest1, longest2 int
+	var longest1, longest2, longestLen1, longestLen2 int
 	g1 := make([][]curve.G1Affine, 0, len(slices))
 	g2 := make([][]curve.G2Affine, 0, len(slices))
 
 	for _, s := range slices {
 		switch r := s.(type) {
 		case []curve.G1Affine:
-			if len(r) > longest1 {
+			if len(r) > longestLen1 {
 				longest1 = len(g1)
+				longestLen1 = len(r)
 			}
 			g1 = append(g1, r)
 		case []curve.G2Affine:
-			if len(r) > longest2 {
+			if len(r) > longestLen2 {
 				longest2 = len(g2)
+				longestLen2 = len(r)
 			}
 			g2 = append(g2, r)
 		default:

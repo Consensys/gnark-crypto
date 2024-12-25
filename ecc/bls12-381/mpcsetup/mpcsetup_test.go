@@ -60,7 +60,9 @@ func TestSameRatioMany(t *testing.T) {
 	_, _, g1, g2 := curve.Generators()
 	g1Slice := []curve.G1Affine{g1, g1, g1}
 	g2Slice := []curve.G2Affine{g2, g2}
+
 	require.NoError(t, SameRatioMany(g1Slice, g2Slice, g1Slice, g1Slice))
+	require.NoError(t, SameRatioMany(g1Slice, g1Slice[:len(g1Slice)-1], g2Slice))
 }
 
 func TestBivariateRandomMonomials(t *testing.T) {
