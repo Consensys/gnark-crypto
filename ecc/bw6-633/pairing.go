@@ -120,7 +120,7 @@ func FinalExponentiation(z *GT, _z ...*GT) GT {
 
 // MillerLoop computes the multi-Miller loop
 // computes the multi-Miller loop ∏ᵢ MillerLoop(Pᵢ, Qᵢ)
-// Alg.2 in https://eprint.iacr.org/2021/1359.qdf
+// Alg.2 in https://eprint.iacr.org/2021/1359.pdf
 func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	// check input size match
 	n := len(P)
