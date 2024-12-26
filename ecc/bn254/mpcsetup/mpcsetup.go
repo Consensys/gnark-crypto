@@ -382,7 +382,7 @@ func SameRatioMany(slices ...any) error {
 		return errors.New("need both G1 and G2 representatives")
 	}
 
-	if !g1FirstNonZeroFound || g2FirstNonZeroFound {
+	if !g1FirstNonZeroFound || !g2FirstNonZeroFound {
 		return errors.New("need a nonzero representative in both groups")
 	}
 
