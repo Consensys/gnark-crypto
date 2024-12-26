@@ -309,25 +309,69 @@ func (x *UpdateProof) ReadFrom(reader io.Reader) (n int64, err error) {
 
 // SameRatioMany proves that all input slices
 // are geometric sequences with the same ratio.
+// All slices must be of length at least 2.
+// There must be slices in each group 𝔾₁, 𝔾₂.
+// Caller must ensure that in one group,
+// there is a slice with a non-penultimate non-zero element
+// and in the other, there is a slice with a non-zero element
 func SameRatioMany(slices ...any) error {
+
+	// let a₀ⱼ, a₁ⱼ, ..., b₀ₗ, b₁ₗ, ... represent the sequences
+	// such that all the aᵢⱼ are represented in one group
+	// and all the bₖₗ in the other.
+	// For each i,k let Nᵢ, Mₖ be such that
+	// j≥Nᵢ implies aᵢⱼ = 0 and l≥Mₖ implies bₖₗ = 0
+
+	// The polynomial equality
+	//      (a₀₀ + a₀₁ X + ... + aₙ₀₋₂ Xⁿ⁰⁻² + a₁₀Y + a₁₁XY + ... + aₙ₁₋₂ Xⁿ¹⁻² + ...) // TODO sub m
+	//    × (b₀₁ + b₀₂ Z + ... + bm₀₋₁ Zᵐ⁰⁻² + b₁₁T + b₁₂ZT + ... + bm₁₋₁ ZTᵐ¹⁻² + ...)
+	//  =   (a₀₁ + a₀₂ X + ... + aₙ₀₋₁ Xᵐ⁰⁻² + a₁₁Y + a₁₂XY + ... + aₙ₁₋₁ XYᵐ¹⁻² + ...)
+	//    × (b₀₀ + b₀₁ Z + ... + bm₀₋₂ Zᵐ⁰⁻² + b₁₀T + b₁₁ZT + ... + bm₁₋₂ ZTᵐ¹⁻² + ...)
+	// implies for all i,k, j ≤ nᵢ-2, l ≤ mₖ-2 that
+
+	// aᵢⱼ bₖ ₗ₊₁ = aᵢ ⱼ₊₁ bₖₗ
+	// Take any k₀, l₀ ≤ mₖ₀-2 such that bₖ₀ₗ₀ ≠ 0
+	// and define r ≔ bₖ₀ ₗ₀₊₁ / bₖ₀ ₗ₀
+
+	// then we get for all i,j ≤ nᵢ-2 that
+	// aᵢ ⱼ₊₁ = r. aᵢⱼ
+
+	// now take any i₀, j₀ ≤ nᵢ₀-2 such that aᵢ₀ⱼ₀ ≠ 0.
+	// we have r = aᵢ₀ ⱼ₀₊₁ / aᵢ₀ⱼ₀
+	// then for any k, l ≤ mₖ-2 we get
+	// bₖ ₗ₊₁ = r.bₖₗ
+	// which proves the desired result.
+
+	// now, it is sufficient to check
+	// aᵢ₀,₀ ≠ 0, bⱼ₀,₀ ≠ 0 for some i₀, j₀.
+	// Because if the result is true,
+	// 0 ≠ aᵢ₀ ⱼ₀ = rʲ⁰.aᵢ₀,₀ implies aᵢ₀,₀ ≠ 0
 
 	var longest1, longest2, longestLen1, longestLen2 int
 	g1 := make([][]curve.G1Affine, 0, len(slices))
 	g2 := make([][]curve.G2Affine, 0, len(slices))
 
+	g1FirstNonZeroFound, g2FirstNonZeroFound := false, false
+
 	for _, s := range slices {
 		switch r := s.(type) {
 		case []curve.G1Affine:
 			if len(r) > longestLen1 {
-				longest1 = len(g1)
-				longestLen1 = len(r)
+				longest1, longestLen1 = len(g1), len(r)
 			}
+			if len(r) < 2 {
+				return errors.New("each slice must be of length at least 2")
+			}
+			g1FirstNonZeroFound = g1FirstNonZeroFound || !r[0].IsInfinity()
 			g1 = append(g1, r)
 		case []curve.G2Affine:
 			if len(r) > longestLen2 {
-				longest2 = len(g2)
-				longestLen2 = len(r)
+				longest2, longestLen2 = len(g2), len(r)
 			}
+			if len(r) < 2 {
+				return errors.New("each slice must be of length at least 2")
+			}
+			g2FirstNonZeroFound = g2FirstNonZeroFound || !r[0].IsInfinity()
 			g2 = append(g2, r)
 		default:
 			return fmt.Errorf("unsupported type %T", s)
@@ -336,6 +380,10 @@ func SameRatioMany(slices ...any) error {
 
 	if len(g1) == 0 || len(g2) == 0 {
 		return errors.New("need both G1 and G2 representatives")
+	}
+
+	if !g1FirstNonZeroFound || g2FirstNonZeroFound {
+		return errors.New("need a nonzero representative in both groups")
 	}
 
 	// make sure the longest progression is first
