@@ -55,6 +55,14 @@ func GenerateCommonASM(w io.Writer, nbWords, nbBits int, hasVector bool) error {
 	f.WriteLn("#include \"go_asm.h\"")
 	f.WriteLn("")
 
+	if nbWords == 1 {
+		if nbBits == 31 {
+			return GenerateF31ASM(f, hasVector)
+		} else {
+			panic("not implemented")
+		}
+	}
+
 	if f.NbWords%2 != 0 {
 		panic("NbWords must be even")
 	}
@@ -215,4 +223,16 @@ func ElementASMFileName(nbWords, nbBits int) string {
 		return fmt.Sprintf(nameW1, 31)
 	}
 	return fmt.Sprintf(nameWN, nbWords)
+}
+
+func GenerateF31ASM(f *FFArm64, hasVector bool) error {
+	if !hasVector {
+		return nil // nothing for now.
+	}
+
+	f.generateAddVecF31()
+	f.generateSubVecF31()
+	f.generateSumVecF31()
+
+	return nil
 }
