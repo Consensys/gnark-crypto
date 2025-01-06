@@ -317,10 +317,10 @@ func SameRatioMany(slices ...any) error {
 	// j≥Nᵢ implies aᵢⱼ = 0 and l≥Mₖ implies bₖₗ = 0
 
 	// The polynomial equality
-	//      (a₀₀ + a₀₁ X + ... + aₙ₀₋₂ Xⁿ⁰⁻² + a₁₀Y + a₁₁XY + ... + aₙ₁₋₂ Xⁿ¹⁻² + ...) // TODO sub m
-	//    × (b₀₁ + b₀₂ Z + ... + bm₀₋₁ Zᵐ⁰⁻² + b₁₁T + b₁₂ZT + ... + bm₁₋₁ ZTᵐ¹⁻² + ...)
+	//      (a₀₀ + a₀₁ X + ... + aₙ₀₋₂ Xⁿ⁰⁻² + a₁₀Y + a₁₁XY + ... + aₙ₁₋₂ Xⁿ¹⁻² + ...)
+	//    × (b₀₁ + b₀₂ Z + ... + bₘ₀₋₁ Zᵐ⁰⁻² + b₁₁T + b₁₂ZT + ... + bₘ₁₋₁ ZTᵐ¹⁻² + ...)
 	//  =   (a₀₁ + a₀₂ X + ... + aₙ₀₋₁ Xᵐ⁰⁻² + a₁₁Y + a₁₂XY + ... + aₙ₁₋₁ XYᵐ¹⁻² + ...)
-	//    × (b₀₀ + b₀₁ Z + ... + bm₀₋₂ Zᵐ⁰⁻² + b₁₀T + b₁₁ZT + ... + bm₁₋₂ ZTᵐ¹⁻² + ...)
+	//    × (b₀₀ + b₀₁ Z + ... + bₘ₀₋₂ Zᵐ⁰⁻² + b₁₀T + b₁₁ZT + ... + bₘ₁₋₂ ZTᵐ¹⁻² + ...)
 	// implies for all i,k, j ≤ nᵢ-2, l ≤ mₖ-2 that
 
 	// aᵢⱼ bₖ ₗ₊₁ = aᵢ ⱼ₊₁ bₖₗ
