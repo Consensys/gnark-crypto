@@ -87,7 +87,7 @@ Please use the following BibTeX to cite the most recent release.
                   Ivo Kubjas},
   title        = {Consensys/gnark-crypto: v0.14.0},
   month        = sep,
-  year         = 2025,
+  year         = 2024,
   publisher    = {Zenodo},
   version      = {v0.14.0},
   doi          = {10.5281/zenodo.5815453},
