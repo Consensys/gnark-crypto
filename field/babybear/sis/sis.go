@@ -125,9 +125,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 
 // Hash interprets the input vector as a sequence of coefficients of size r.LogTwoBound bits long,
 // and return the hash of the polynomial corresponding to the sum sum_i A[i]*m Mod X^{d}+1
-//
-// It is equivalent to calling r.Write(element.Marshal()); outBytes = r.Sum(nil);
-// ! note @gbotrel: this is a place holder, may not make sense
 func (r *RSis) Hash(v, res []babybear.Element) error {
 	if len(res) != r.Degree {
 		return fmt.Errorf("output vector must have length %d", r.Degree)
