@@ -2,7 +2,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"hash"
 	"math/bits"
 
 	"github.com/bits-and-blooms/bitset"
@@ -220,20 +219,6 @@ func (r *RSis) Size() int {
 // are a multiple of the block size.
 func (r *RSis) BlockSize() int {
 	return 0
-}
-
-// Construct a hasher generator. It takes as input the same parameters
-// as `NewRingSIS` and outputs a function which returns fresh hasher
-// everytime it is called
-func NewRingSISMaker(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (func() hash.Hash, error) {
-	return func() hash.Hash {
-		h, err := NewRSis(seed, logTwoDegree, logTwoBound, maxNbElementsToHash)
-		if err != nil {
-			panic(err)
-		}
-		return h
-	}, nil
-
 }
 
 func genRandom(seed, i, j int64, buf *bytes.Buffer) {{ .FF }}.Element {
