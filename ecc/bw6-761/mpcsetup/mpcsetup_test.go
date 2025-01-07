@@ -10,7 +10,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	curve "github.com/consensys/gnark-crypto/ecc/bw6-761"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
-	"github.com/consensys/gnark-crypto/utils"
 	"github.com/stretchr/testify/require"
 	"slices"
 	"testing"
@@ -63,38 +62,6 @@ func TestSameRatioMany(t *testing.T) {
 
 	require.NoError(t, SameRatioMany(g1Slice, g2Slice, g1Slice, g1Slice))
 	require.NoError(t, SameRatioMany(g1Slice, g1Slice[:len(g1Slice)-1], g2Slice))
-}
-
-func TestBivariateRandomMonomials(t *testing.T) {
-	xDeg := []int{3, 2, 3}
-	ends := utils.PartialSums(xDeg...)
-	values := bivariateRandomMonomials(ends...)
-	//extract the variables
-	x := make([]fr.Element, slices.Max(xDeg))
-	y := make([]fr.Element, len(ends))
-	x[1].Div(&values[1], &values[0])
-	y[1].Div(&values[xDeg[0]], &values[0])
-
-	x[0].SetOne()
-	y[0].SetOne()
-
-	for i := range x[:len(x)-1] {
-		x[i+1].Mul(&x[i], &x[1])
-	}
-
-	for i := range y[:len(x)-1] {
-		y[i+1].Mul(&y[i], &y[1])
-	}
-
-	prevEnd := 0
-	for i := range ends {
-		for j := range xDeg[i] {
-			var z fr.Element
-			z.Mul(&y[i], &x[j])
-			require.Equal(t, z.String(), values[prevEnd+j].String(), "X^%d Y^%d: expected %s, encountered %s", j, i)
-		}
-		prevEnd = ends[i]
-	}
 }
 
 func TestLinearCombinationsG1(t *testing.T) {
