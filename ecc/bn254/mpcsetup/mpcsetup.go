@@ -150,7 +150,7 @@ func (x *UpdateProof) Verify(challenge []byte, dst byte, representations ...Valu
 		}
 	}
 
-	r := randomMonomials(max(g1Len, g2Len))
+	r := powersOfRandom(max(g1Len, g2Len))
 
 	pokBase := pokBase(x.contributionCommitment, challenge, dst)
 
@@ -216,7 +216,7 @@ func BeaconContributions(hash, dst, beaconChallenge []byte, n int) []fr.Element 
 }
 
 // Returns [1, a, a², ..., aᴺ⁻¹ ] for random a
-func randomMonomials(N int) []fr.Element {
+func powersOfRandom(N int) []fr.Element {
 	x := make([]fr.Element, N)
 	if N > 0 {
 		x[0].SetOne()
@@ -340,8 +340,8 @@ func SameRatioMany(slices ...any) error {
 	ends1 := utils.PartialSumsF(len(g1), func(i int) int { return len(g1[i]) })
 	ends2 := utils.PartialSumsF(len(g2), func(i int) int { return len(g2[i]) })
 
-	r1 := randomMonomials(ends1[len(ends1)-1])
-	r2 := randomMonomials(ends2[len(ends2)-1])
+	r1 := powersOfRandom(ends1[len(ends1)-1])
+	r2 := powersOfRandom(ends2[len(ends2)-1])
 
 	g1Flat := make([]curve.G1Affine, 0, ends1[len(ends1)-1])
 	for i := range g1 {
