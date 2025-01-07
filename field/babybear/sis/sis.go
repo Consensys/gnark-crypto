@@ -34,8 +34,7 @@ type RSis struct {
 	Degree int
 
 	// domain for the polynomial multiplication
-	Domain        *fft.Domain
-	twiddleCosets []babybear.Element // see FFT64 and precomputeTwiddlesCoset
+	Domain *fft.Domain
 
 	maxNbElementsToHash int
 }
@@ -96,10 +95,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		Ag:                  make([][]babybear.Element, n),
 		maxNbElementsToHash: maxNbElementsToHash,
 	}
-	if r.LogTwoBound == 8 && r.Degree == 64 {
-		// TODO @gbotrel fixme, that's dirty.
-		r.twiddleCosets = PrecomputeTwiddlesCoset(r.Domain.Generator, r.Domain.FrMultiplicativeGen)
-	}
 
 	// filling A
 	a := make([]babybear.Element, n*r.Degree)
@@ -138,8 +133,6 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 		return fmt.Errorf("can't hash more than %d elements with params provided in constructor", r.maxNbElementsToHash)
 	}
 
-	fastPath := r.LogTwoBound == 8 && r.Degree == 64
-
 	reader := NewVectorLimbReader(v, r.LogTwoBound/8)
 
 	kz := make([]babybear.Element, r.Degree)
@@ -158,12 +151,9 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 			// we can skip this, FFT(0) = 0
 			continue
 		}
-		if fastPath {
-			// fast path.
-			FFT64(k, r.twiddleCosets)
-		} else {
-			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-		}
+
+		r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+
 		mulModAcc(res, r.Ag[i], k)
 	}
 	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1

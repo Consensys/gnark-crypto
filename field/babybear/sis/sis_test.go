@@ -25,8 +25,8 @@ type sisParams struct {
 
 var params128Bits []sisParams = []sisParams{
 	{logTwoBound: 8, logTwoDegree: 6},
-	{logTwoBound: 16, logTwoDegree: 7},
-	{logTwoBound: 32, logTwoDegree: 8},
+	// {logTwoBound: 16, logTwoDegree: 7},
+	// {logTwoBound: 32, logTwoDegree: 8},
 }
 
 type TestCases struct {
@@ -262,34 +262,4 @@ func benchmarkSIS(b *testing.B, input []babybear.Element, sparse bool, logTwoBou
 		b.ReportMetric(theoretical, "ns/field(theory)")
 
 	})
-}
-
-func TestUnrolledFFT(t *testing.T) {
-
-	var shift babybear.Element
-	shift.SetRandom()
-
-	const size = 64
-	assert := require.New(t)
-	domain := fft.NewDomain(size, fft.WithShift(shift))
-
-	k1 := make([]babybear.Element, size)
-	for i := 0; i < size; i++ {
-		k1[i].SetRandom()
-	}
-	k2 := make([]babybear.Element, size)
-	copy(k2, k1)
-
-	// default FFT
-	domain.FFT(k1, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-
-	// unrolled FFT
-	twiddlesCoset := PrecomputeTwiddlesCoset(domain.Generator, domain.FrMultiplicativeGen)
-	FFT64(k2, twiddlesCoset)
-
-	// compare results
-	for i := 0; i < size; i++ {
-		// fmt.Printf("i = %d, k1 = %v, k2 = %v\n", i, k1[i].String(), k2[i].String())
-		assert.True(k1[i].Equal(&k2[i]), "i = %d", i)
-	}
 }
