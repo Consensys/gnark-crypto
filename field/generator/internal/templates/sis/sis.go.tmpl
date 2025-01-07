@@ -12,16 +12,8 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-var (
-	ErrNotAPowerOfTwo = errors.New("d must be a power of 2")
-)
-
-// Ring-SIS instance
+// RSis is the Ring-SIS instance
 type RSis struct {
-
-	// buffer storing the data to hash
-	buffer bytes.Buffer
-
 	// Vectors in ℤ_{p}/Xⁿ+1
 	// A[i] is the i-th polynomial.
 	// Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
@@ -33,17 +25,17 @@ type RSis struct {
 	// cf https://hackmd.io/7OODKWQZRRW9RxM5BaXtIw , B >= 3.
 	LogTwoBound int
 
+	// d, the degree of X^{d}+1
+	Degree int
+
 	// domain for the polynomial multiplication
 	Domain        *fft.Domain
 	twiddleCosets []{{ .FF }}.Element // see FFT64 and precomputeTwiddlesCoset
 
-	// d, the degree of X^{d}+1
-	Degree int
-
-	// in bytes, represents the maximum number of bytes the .Write(...) will handle;
-	// ( maximum number of bytes to sum )
-	capacity            int
 	maxNbElementsToHash int
+
+	// buffer storing the data to hash
+	buffer bytes.Buffer
 
 	// allocate memory once per instance (used in Sum())
 	bufM {{ .FF }}.Vector
@@ -66,14 +58,11 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	}
 
 	degree := 1 << logTwoDegree
-	capacity := maxNbElementsToHash * {{ .FF }}.Bytes
 
 	// n: number of polynomials in A
 	// len(m) == degree * n
 	// with each element in m being logTwoBounds bits from the instance buffer.
 	// that is, to fill m, we need [degree * n * logTwoBound] bits of data
-	// capacity == [degree * n * logTwoBound] / 8
-	// n == (capacity*8)/(degree*logTwoBound)
 
 	// First n <- #limbs to represent a single field element
 	n := ({{ .FF }}.Bytes * 8) / logTwoBound
@@ -100,7 +89,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 
 	r := &RSis{
 		LogTwoBound:         logTwoBound,
-		capacity:            capacity,
 		Degree:              degree,
 		Domain:              fft.NewDomain(uint64(degree), fft.WithShift(shift)),
 		A:                   make([][]{{ .FF }}.Element, n),
@@ -167,9 +155,6 @@ func (r *RSis) Hash(v, res []{{ .FF }}.Element) error {
 		// previous Sum()
 
 		buf := r.buffer.Bytes()
-		if len(buf) > r.capacity {
-			panic("buffer too large")
-		}
 
 		fastPath := r.LogTwoBound == 8 && r.Degree == 64
 
@@ -207,21 +192,6 @@ func (r *RSis) Hash(v, res []{{ .FF }}.Element) error {
 
 		return nil
 	}
-}
-
-func deriveRandomElementFromSeed(seed, i, j int64) {{ .FF }}.Element {
-	var buf [3 + 3*8]byte
-	copy(buf[:3], "SIS")
-	binary.BigEndian.PutUint64(buf[3:], uint64(seed))
-	binary.BigEndian.PutUint64(buf[11:], uint64(i))
-	binary.BigEndian.PutUint64(buf[19:], uint64(j))
-
-	digest := blake2b.Sum256(buf[:])
-
-	var res {{ .FF }}.Element
-	res.SetBytes(digest[:])
-
-	return res
 }
 
 // mulModAcc computes p * q in ℤ_{p}[X]/Xᵈ+1.
@@ -423,4 +393,20 @@ func limbDecomposeBytes8_64(buf []byte, m {{ .FF }}.Vector, mValues *bitset.BitS
 			j++
 		}
 	}
+}
+
+
+func deriveRandomElementFromSeed(seed, i, j int64) {{ .FF }}.Element {
+	var buf [3 + 3*8]byte
+	copy(buf[:3], "SIS")
+	binary.BigEndian.PutUint64(buf[3:], uint64(seed))
+	binary.BigEndian.PutUint64(buf[11:], uint64(i))
+	binary.BigEndian.PutUint64(buf[19:], uint64(j))
+
+	digest := blake2b.Sum256(buf[:])
+
+	var res {{ .FF }}.Element
+	res.SetBytes(digest[:])
+
+	return res
 }

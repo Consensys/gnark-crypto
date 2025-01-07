@@ -19,10 +19,6 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-var (
-	ErrNotAPowerOfTwo = errors.New("d must be a power of 2")
-)
-
 // Ring-SIS instance
 type RSis struct {
 
@@ -215,21 +211,6 @@ func (r *RSis) Hash(v, res []fr.Element) error {
 	}
 }
 
-func deriveRandomElementFromSeed(seed, i, j int64) fr.Element {
-	var buf [3 + 3*8]byte
-	copy(buf[:3], "SIS")
-	binary.BigEndian.PutUint64(buf[3:], uint64(seed))
-	binary.BigEndian.PutUint64(buf[11:], uint64(i))
-	binary.BigEndian.PutUint64(buf[19:], uint64(j))
-
-	digest := blake2b.Sum256(buf[:])
-
-	var res fr.Element
-	res.SetBytes(digest[:])
-
-	return res
-}
-
 // mulModAcc computes p * q in ℤ_{p}[X]/Xᵈ+1.
 // Is assumed that pLagrangeShifted and qLagrangeShifted are of the correct sizes
 // and that they are in evaluation form on √(g) * <g>
@@ -418,4 +399,19 @@ func limbDecomposeBytes8_64(buf []byte, m fr.Vector, mValues *bitset.BitSet) {
 			j++
 		}
 	}
+}
+
+func deriveRandomElementFromSeed(seed, i, j int64) fr.Element {
+	var buf [3 + 3*8]byte
+	copy(buf[:3], "SIS")
+	binary.BigEndian.PutUint64(buf[3:], uint64(seed))
+	binary.BigEndian.PutUint64(buf[11:], uint64(i))
+	binary.BigEndian.PutUint64(buf[19:], uint64(j))
+
+	digest := blake2b.Sum256(buf[:])
+
+	var res fr.Element
+	res.SetBytes(digest[:])
+
+	return res
 }
