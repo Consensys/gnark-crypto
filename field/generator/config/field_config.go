@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Consensys Software Inc.
+// Copyright 2020-2025 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
 // Package config provides Golang code generation for efficient field arithmetic operations.
@@ -299,8 +299,8 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 		F.GenerateOpsAMD64 = false
 	}
 	F.GenerateVectorOpsAMD64 = F.F31 || (F.GenerateOpsAMD64 && F.NbWords == 4 && F.NbBits > 225)
-	F.GenerateOpsARM64 = F.GenerateOpsAMD64 && (F.NbWords%2 == 0)
-	F.GenerateVectorOpsARM64 = false
+	F.GenerateOpsARM64 = F.F31 || (F.GenerateOpsAMD64 && (F.NbWords%2 == 0))
+	F.GenerateVectorOpsARM64 = F.F31
 
 	// setting Mu 2^288 / q
 	if F.NbWords == 4 {
