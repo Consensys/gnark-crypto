@@ -126,13 +126,12 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	ag := make([]goldilocks.Element, n*r.Degree)
 
 	parallel.Execute(n, func(start, end int) {
-		var buf bytes.Buffer
 		for i := start; i < end; i++ {
 			rstart, rend := i*r.Degree, (i+1)*r.Degree
 			r.A[i] = a[rstart:rend:rend]
 			r.Ag[i] = ag[rstart:rend:rend]
 			for j := 0; j < r.Degree; j++ {
-				r.A[i][j] = genRandom(seed, int64(i), int64(j), &buf)
+				r.A[i][j] = deriveRandomElementFromSeed(seed, int64(i), int64(j))
 			}
 
 			// fill Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
@@ -216,15 +215,14 @@ func (r *RSis) Hash(v, res []goldilocks.Element) error {
 	}
 }
 
-func genRandom(seed, i, j int64, buf *bytes.Buffer) goldilocks.Element {
+func deriveRandomElementFromSeed(seed, i, j int64) goldilocks.Element {
+	var buf [3 + 3*8]byte
+	copy(buf[:3], "SIS")
+	binary.BigEndian.PutUint64(buf[3:], uint64(seed))
+	binary.BigEndian.PutUint64(buf[11:], uint64(i))
+	binary.BigEndian.PutUint64(buf[19:], uint64(j))
 
-	buf.Reset()
-	buf.WriteString("SIS")
-	binary.Write(buf, binary.BigEndian, seed)
-	binary.Write(buf, binary.BigEndian, i)
-	binary.Write(buf, binary.BigEndian, j)
-
-	digest := blake2b.Sum256(buf.Bytes())
+	digest := blake2b.Sum256(buf[:])
 
 	var res goldilocks.Element
 	res.SetBytes(digest[:])
