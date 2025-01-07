@@ -8,10 +8,8 @@ package sis
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math/big"
 	"math/bits"
 	"os"
@@ -75,10 +73,9 @@ func TestReference(t *testing.T) {
 		// key generation same than in sage
 		makeKeyDeterministic(t, sis, testCase.Params.Seed)
 
-		sis.Reset()
-
 		// hash test case entry input and compare with expected (computed by sage)
-		goHash, err := sis.Hash(inputs)
+		goHash := make([]koalabear.Element, 1<<testCase.Params.LogTwoDegree)
+		err = sis.Hash(inputs, goHash)
 		assert.NoError(err)
 
 		assert.EqualValues(
@@ -192,50 +189,6 @@ func eval(p []koalabear.Element, x koalabear.Element) koalabear.Element {
 		res.Mul(&res, &x).Add(&res, &p[i])
 	}
 	return res
-}
-
-func TestMulMod(t *testing.T) {
-
-	size := 4
-
-	p := make([]koalabear.Element, size)
-	q := make([]koalabear.Element, size)
-	pCopy := make([]koalabear.Element, size)
-	qCopy := make([]koalabear.Element, size)
-	for i := 0; i < size; i++ {
-		p[i].SetRandom()
-		pCopy[i].Set(&p[i])
-		q[i].SetRandom()
-		qCopy[i].Set(&q[i])
-	}
-
-	// creation of the domain
-	shift, err := koalabear.Generator(uint64(2 * size))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var g koalabear.Element
-	g.Square(&shift)
-	domain := fft.NewDomain(uint64(size), fft.WithShift(shift))
-
-	// mul mod
-	domain.FFT(p, fft.DIF, fft.OnCoset())
-	domain.FFT(q, fft.DIF, fft.OnCoset())
-	r := mulMod(p, q)
-	domain.FFTInverse(r, fft.DIT, fft.OnCoset())
-
-	// manually check the product on the zeroes of X^4+1
-	for i := 0; i < 4; i++ {
-		u := eval(pCopy, shift)
-		v := eval(qCopy, shift)
-		w := eval(r, shift)
-		u.Mul(&u, &v)
-		if !w.Equal(&u) {
-			t.Fatal("mul mol failed")
-		}
-		shift.Mul(&shift, &g)
-	}
-
 }
 
 func makeKeyDeterministic(t *testing.T, sis *RSis, _seed int64) {
@@ -381,6 +334,8 @@ func benchmarkSIS(b *testing.B, input []koalabear.Element, sparse bool, logTwoBo
 			b.Fatal(err)
 		}
 
+		res := make([]koalabear.Element, 1<<logTwoDegree)
+
 		// We introduce a custom metric which is the time per field element
 		// Since the benchmark object allows to report extra meta but does
 		// not allow accessing them. We measure the time ourself.
@@ -388,7 +343,7 @@ func benchmarkSIS(b *testing.B, input []koalabear.Element, sparse bool, logTwoBo
 		startTime := time.Now()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_, err = instance.Hash(input)
+			err = instance.Hash(input, res)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -403,32 +358,6 @@ func benchmarkSIS(b *testing.B, input []koalabear.Element, sparse bool, logTwoBo
 		b.ReportMetric(theoretical, "ns/field(theory)")
 
 	})
-}
-
-// Hash interprets the input vector as a sequence of coefficients of size r.LogTwoBound bits long,
-// and return the hash of the polynomial corresponding to the sum sum_i A[i]*m Mod X^{d}+1
-//
-// It is equivalent to calling r.Write(element.Marshal()); outBytes = r.Sum(nil);
-// ! note @gbotrel: this is a place holder, may not make sense
-func (r *RSis) Hash(v []koalabear.Element) ([]koalabear.Element, error) {
-	if len(v) > r.maxNbElementsToHash {
-		return nil, fmt.Errorf("can't hash more than %d elements with params provided in constructor", r.maxNbElementsToHash)
-	}
-
-	r.Reset()
-	for _, e := range v {
-		r.Write(e.Marshal())
-	}
-	sum := r.Sum(nil)
-	var rlen [4]byte
-	binary.BigEndian.PutUint32(rlen[:], uint32(len(sum)/koalabear.Bytes))
-	reader := io.MultiReader(bytes.NewReader(rlen[:]), bytes.NewReader(sum))
-	var result koalabear.Vector
-	_, err := result.ReadFrom(reader)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
 }
 
 func TestLimbDecompositionFastPath(t *testing.T) {

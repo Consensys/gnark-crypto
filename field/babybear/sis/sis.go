@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math/bits"
 
 	"github.com/bits-and-blooms/bitset"
@@ -52,8 +53,8 @@ type RSis struct {
 	maxNbElementsToHash int
 
 	// allocate memory once per instance (used in Sum())
-	bufM, bufRes babybear.Vector
-	bufMValues   *bitset.BitSet
+	bufM       babybear.Vector
+	bufMValues *bitset.BitSet
 }
 
 // NewRSis creates an instance of RSis.
@@ -112,7 +113,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		A:                   make([][]babybear.Element, n),
 		Ag:                  make([][]babybear.Element, n),
 		bufM:                make(babybear.Vector, degree*n),
-		bufRes:              make(babybear.Vector, degree),
 		bufMValues:          bitset.New(uint(n)),
 		maxNbElementsToHash: maxNbElementsToHash,
 	}
@@ -144,88 +144,76 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	return r, nil
 }
 
-func (r *RSis) Write(p []byte) (n int, err error) {
-	r.buffer.Write(p)
-	return len(p), nil
-}
-
-// Sum appends the current hash to b and returns the resulting slice.
-// It does not change the underlying hash state.
-// The instance buffer is interpreted as a sequence of coefficients of size r.Bound bits long.
-// The function returns the hash of the polynomial as a a sequence []babybear.Elements, interpreted as []bytes,
-// corresponding to sum_i A[i]*m Mod X^{d}+1
-func (r *RSis) Sum(b []byte) []byte {
-	buf := r.buffer.Bytes()
-	if len(buf) > r.capacity {
-		panic("buffer too large")
+// Hash interprets the input vector as a sequence of coefficients of size r.LogTwoBound bits long,
+// and return the hash of the polynomial corresponding to the sum sum_i A[i]*m Mod X^{d}+1
+//
+// It is equivalent to calling r.Write(element.Marshal()); outBytes = r.Sum(nil);
+// ! note @gbotrel: this is a place holder, may not make sense
+func (r *RSis) Hash(v, res []babybear.Element) error {
+	if len(res) != r.Degree {
+		return fmt.Errorf("output vector must have length %d", r.Degree)
+	}
+	// TODO @gbotrel check that this is needed.
+	for i := 0; i < len(res); i++ {
+		res[i].SetZero()
+	}
+	if len(v) > r.maxNbElementsToHash {
+		return fmt.Errorf("can't hash more than %d elements with params provided in constructor", r.maxNbElementsToHash)
 	}
 
-	fastPath := r.LogTwoBound == 8 && r.Degree == 64
-
-	// clear the buffers of the instance.
-	defer r.cleanupBuffers()
-
-	m := r.bufM
-	mValues := r.bufMValues
-
-	if r.LogTwoBound < 8 && (8%r.LogTwoBound == 0) {
-		limbDecomposeBytesSmallBound(buf, m, r.LogTwoBound, r.Degree, mValues)
-	} else if r.LogTwoBound >= 8 && (babybear.Bytes*8)%r.LogTwoBound == 0 {
-		limbDecomposeBytesMiddleBound(buf, m, r.LogTwoBound, r.Degree, mValues)
-	} else {
-		limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
-	}
-
-	// we can hash now.
-	res := r.bufRes
-
-	// method 1: fft
-	for i := 0; i < len(r.Ag); i++ {
-		if !mValues.Test(uint(i)) {
-			// means m[i*r.Degree : (i+1)*r.Degree] == [0...0]
-			// we can skip this, FFT(0) = 0
-			continue
-		}
-		k := m[i*r.Degree : (i+1)*r.Degree]
-		if fastPath {
-			// fast path.
-			FFT64(k, r.twiddleCosets)
-		} else {
-			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-		}
-		mulModAcc(res, r.Ag[i], k)
-	}
-	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
-
-	resBytes, err := res.MarshalBinary()
-	if err != nil {
-		panic(err)
-	}
-
-	return append(b, resBytes[4:]...) // first 4 bytes are uint32(len(res))
-}
-
-// Reset resets the Hash to its initial state.
-func (r *RSis) Reset() {
+	// reset the buffer
 	r.buffer.Reset()
-}
 
-// Size returns the number of bytes Sum will return.
-func (r *RSis) Size() int {
+	// write the elements to the buffer
+	// TODO @gbotrel for now we use a buffer, we will kill it later in the refactoring.
+	for _, e := range v {
+		r.buffer.Write(e.Marshal())
+	}
 
-	// The size in bits is the size in bits of a polynomial in A.
-	degree := len(r.A[0])
-	totalSize := degree * babybear.Modulus().BitLen() / 8
+	{
+		// previous Sum()
 
-	return totalSize
-}
+		buf := r.buffer.Bytes()
+		if len(buf) > r.capacity {
+			panic("buffer too large")
+		}
 
-// BlockSize returns the hash's underlying block size.
-// The Write method must be able to accept any amount
-// of data, but it may operate more efficiently if all writes
-// are a multiple of the block size.
-func (r *RSis) BlockSize() int {
-	return 0
+		fastPath := r.LogTwoBound == 8 && r.Degree == 64
+
+		// clear the buffers of the instance.
+		defer r.cleanupBuffers()
+
+		m := r.bufM
+		mValues := r.bufMValues
+
+		if r.LogTwoBound < 8 && (8%r.LogTwoBound == 0) {
+			limbDecomposeBytesSmallBound(buf, m, r.LogTwoBound, r.Degree, mValues)
+		} else if r.LogTwoBound >= 8 && (babybear.Bytes*8)%r.LogTwoBound == 0 {
+			limbDecomposeBytesMiddleBound(buf, m, r.LogTwoBound, r.Degree, mValues)
+		} else {
+			limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
+		}
+
+		// method 1: fft
+		for i := 0; i < len(r.Ag); i++ {
+			if !mValues.Test(uint(i)) {
+				// means m[i*r.Degree : (i+1)*r.Degree] == [0...0]
+				// we can skip this, FFT(0) = 0
+				continue
+			}
+			k := m[i*r.Degree : (i+1)*r.Degree]
+			if fastPath {
+				// fast path.
+				FFT64(k, r.twiddleCosets)
+			} else {
+				r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+			}
+			mulModAcc(res, r.Ag[i], k)
+		}
+		r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
+
+		return nil
+	}
 }
 
 func genRandom(seed, i, j int64, buf *bytes.Buffer) babybear.Element {
@@ -244,26 +232,12 @@ func genRandom(seed, i, j int64, buf *bytes.Buffer) babybear.Element {
 	return res
 }
 
-// mulMod computes p * q in ℤ_{p}[X]/Xᵈ+1.
+// mulModAcc computes p * q in ℤ_{p}[X]/Xᵈ+1.
 // Is assumed that pLagrangeShifted and qLagrangeShifted are of the correct sizes
 // and that they are in evaluation form on √(g) * <g>
 // The result is not FFTinversed. The fft inverse is done once every
 // multiplications are done.
-func mulMod(pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []babybear.Element) []babybear.Element {
-
-	res := make([]babybear.Element, len(pLagrangeCosetBitReversed))
-	for i := 0; i < len(pLagrangeCosetBitReversed); i++ {
-		res[i].Mul(&pLagrangeCosetBitReversed[i], &qLagrangeCosetBitReversed[i])
-	}
-
-	// NOT fft inv for now, wait until every part of the keys have been multiplied
-	// r.Domain.FFTInverse(res, fft.DIT, true)
-
-	return res
-
-}
-
-// mulMod + accumulate in res.
+// then accumulates the mulMod result in res.
 func mulModAcc(res []babybear.Element, pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []babybear.Element) {
 	var t babybear.Element
 	for i := 0; i < len(pLagrangeCosetBitReversed); i++ {
@@ -281,7 +255,6 @@ func (r *RSis) CopyWithFreshBuffer() RSis {
 	res.buffer = bytes.Buffer{}
 	res.bufM = make(babybear.Vector, len(r.bufM))
 	res.bufMValues = bitset.New(r.bufMValues.Len())
-	res.bufRes = make(babybear.Vector, len(r.bufRes))
 	return res
 }
 
@@ -290,9 +263,6 @@ func (r *RSis) cleanupBuffers() {
 	r.bufMValues.ClearAll()
 	for i := 0; i < len(r.bufM); i++ {
 		r.bufM[i].SetZero()
-	}
-	for i := 0; i < len(r.bufRes); i++ {
-		r.bufRes[i].SetZero()
 	}
 }
 
