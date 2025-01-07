@@ -401,7 +401,4 @@ func (littleEndian) PutElement(b *[Bytes]byte, e {{.ElementName}})  {
 
 func (littleEndian) String() string { return "LittleEndian" }
 
-
-
-
 `

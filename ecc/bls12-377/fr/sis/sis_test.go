@@ -6,8 +6,6 @@
 package sis
 
 import (
-	"bytes"
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -16,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bits-and-blooms/bitset"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/fft"
 	"github.com/stretchr/testify/require"
@@ -27,11 +24,7 @@ type sisParams struct {
 }
 
 var params128Bits []sisParams = []sisParams{
-	{logTwoBound: 2, logTwoDegree: 3},
-	{logTwoBound: 4, logTwoDegree: 4},
-	{logTwoBound: 6, logTwoDegree: 5},
 	{logTwoBound: 8, logTwoDegree: 6},
-	{logTwoBound: 10, logTwoDegree: 6},
 	{logTwoBound: 16, logTwoDegree: 7},
 	{logTwoBound: 32, logTwoDegree: 8},
 }
@@ -65,6 +58,15 @@ func TestReference(t *testing.T) {
 	inputs := testCases.Inputs
 
 	for testCaseID, testCase := range testCases.Entries {
+		if testCase.Params.LogTwoBound%8 != 0 {
+			t.Logf("skipping test case %d, logTwoBound is not a multiple of 8", testCaseID)
+			continue
+		}
+		if testCase.Params.LogTwoBound > fr.Bits {
+			t.Logf("skipping test case %d, logTwoBound %d is greater than field bit size (%d)", testCaseID, testCase.Params.LogTwoBound, fr.Bits)
+			continue
+		}
+		t.Logf("logTwoBound = %d, logTwoDegree = %d", testCase.Params.LogTwoBound, testCase.Params.LogTwoDegree)
 
 		// create the SIS instance
 		sis, err := NewRSis(testCase.Params.Seed, testCase.Params.LogTwoDegree, testCase.Params.LogTwoBound, testCase.Params.MaxNbElementsToHash)
@@ -88,50 +90,7 @@ func TestReference(t *testing.T) {
 
 }
 
-func TestLimbDecomposeBytesMiddleBound(t *testing.T) {
-
-	var montConstant fr.Element
-	var bMontConstant big.Int
-	bMontConstant.SetUint64(1)
-	bMontConstant.Lsh(&bMontConstant, fr.Bytes*8)
-	montConstant.SetBigInt(&bMontConstant)
-
-	nbElmts := 10
-	a := make([]fr.Element, nbElmts)
-	for i := 0; i < nbElmts; i++ {
-		a[i].SetUint64(33)
-	}
-	var buf bytes.Buffer
-	for i := 0; i < nbElmts; i++ {
-		buf.Write(a[i].Marshal())
-	}
-
-	logTwoBound := 8
-
-	for cc := 0; cc < 3; cc++ {
-		m := make(fr.Vector, nbElmts*fr.Bytes*8/logTwoBound)
-		limbDecomposeBytesMiddleBound(buf.Bytes(), m, logTwoBound, 4, nil)
-
-		for i := 0; i < len(m); i++ {
-			m[i].Mul(&m[i], &montConstant)
-		}
-
-		var x fr.Element
-		x.SetUint64(1 << logTwoBound)
-
-		coeffsPerFieldsElmt := fr.Bytes * 8 / logTwoBound
-		for i := 0; i < nbElmts; i++ {
-			r := eval(m[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
-			if !r.Equal(&a[i]) {
-				t.Fatal("limbDecomposeBytes failed")
-			}
-		}
-		logTwoBound *= 2
-	}
-
-}
-
-func TestLimbDecomposeBytesSmallBound(t *testing.T) {
+func TestLimbDecomposeBytes(t *testing.T) {
 
 	var montConstant fr.Element
 	var bMontConstant big.Int
@@ -144,26 +103,20 @@ func TestLimbDecomposeBytesSmallBound(t *testing.T) {
 	for i := 0; i < nbElmts; i++ {
 		a[i].SetRandom()
 	}
-	var buf bytes.Buffer
-	for i := 0; i < nbElmts; i++ {
-		buf.Write(a[i].Marshal())
-	}
 
-	logTwoBound := 2
+	logTwoBound := 8
 
 	for cc := 0; cc < 3; cc++ {
-
+		vr := NewVectorLimbReader(a, logTwoBound/8)
 		m := make(fr.Vector, nbElmts*fr.Bytes*8/logTwoBound)
-		m2 := make(fr.Vector, nbElmts*fr.Bytes*8/logTwoBound)
-
-		// the limbs are set as is, they are NOT converted in Montgomery form
-		limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
-		limbDecomposeBytesSmallBound(buf.Bytes(), m2, logTwoBound, 4, nil)
+		for i := 0; i < len(m); i++ {
+			m[i][0] = vr.NextLimb()
+		}
 
 		for i := 0; i < len(m); i++ {
 			m[i].Mul(&m[i], &montConstant)
-			m2[i].Mul(&m2[i], &montConstant)
 		}
+
 		var x fr.Element
 		x.SetUint64(1 << logTwoBound)
 
@@ -172,10 +125,6 @@ func TestLimbDecomposeBytesSmallBound(t *testing.T) {
 			r := eval(m[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
 			if !r.Equal(&a[i]) {
 				t.Fatal("limbDecomposeBytes failed")
-			}
-			r = eval(m2[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
-			if !r.Equal(&a[i]) {
-				t.Fatal("limbDecomposeBytesSmallBound failed")
 			}
 		}
 		logTwoBound *= 2
@@ -249,51 +198,6 @@ func estimateSisTheory(p sisParams) float64 {
 	return float64(r)
 }
 
-func BenchmarkDecomposition(b *testing.B) {
-
-	nbElmts := 1000
-	a := make([]fr.Element, nbElmts)
-	for i := 0; i < nbElmts; i++ {
-		a[i].SetRandom()
-	}
-	var buf bytes.Buffer
-	for i := 0; i < nbElmts; i++ {
-		buf.Write(a[i].Marshal())
-	}
-	logTwoBound := 4
-	m := make(fr.Vector, nbElmts*fr.Bytes*8/logTwoBound)
-
-	b.Run(fmt.Sprintf("limbDecomposeBytes logTwoBound=%d", logTwoBound), func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
-		}
-	})
-
-	b.Run(fmt.Sprintf("limbDecomposeByteSmallBound logTwoBound=%d", logTwoBound), func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			limbDecomposeBytesSmallBound(buf.Bytes(), m, logTwoBound, 4, nil)
-		}
-	})
-
-	logTwoBound = 16
-	b.Run(fmt.Sprintf("limbDecomposeBytes logTwoBound=%d", logTwoBound), func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			limbDecomposeBytes(buf.Bytes(), m, logTwoBound, 4, nil)
-		}
-	})
-
-	b.Run(fmt.Sprintf("limbDecomposeByteSmallBound logTwoBound=%d", logTwoBound), func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			limbDecomposeBytesMiddleBound(buf.Bytes(), m, logTwoBound, 4, nil)
-		}
-	})
-
-}
-
 func BenchmarkSIS(b *testing.B) {
 
 	// max nb field elements to hash
@@ -358,32 +262,6 @@ func benchmarkSIS(b *testing.B, input []fr.Element, sparse bool, logTwoBound, lo
 		b.ReportMetric(theoretical, "ns/field(theory)")
 
 	})
-}
-
-func TestLimbDecompositionFastPath(t *testing.T) {
-	assert := require.New(t)
-
-	for size := fr.Bytes; size < 5*fr.Bytes; size += fr.Bytes {
-		// Test the fast path of limbDecomposeBytes8_64
-		buf := make([]byte, size)
-		m := make([]fr.Element, size)
-		mValues := bitset.New(uint(size))
-		n := make([]fr.Element, size)
-		nValues := bitset.New(uint(size))
-
-		// Generate a random buffer
-		_, err := rand.Read(buf)
-		assert.NoError(err)
-
-		limbDecomposeBytes8_64(buf, m, mValues)
-		limbDecomposeBytes(buf, n, 8, 64, nValues)
-
-		for i := 0; i < size; i++ {
-			assert.Equal(mValues.Test(uint(i)), nValues.Test(uint(i)))
-			assert.True(m[i].Equal(&n[i]))
-		}
-	}
-
 }
 
 func TestUnrolledFFT(t *testing.T) {

@@ -6,25 +6,19 @@
 package sis
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/bits"
 
-	"github.com/bits-and-blooms/bitset"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/fft"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"golang.org/x/crypto/blake2b"
 )
 
-// Ring-SIS instance
+// RSis is the Ring-SIS instance
 type RSis struct {
-
-	// buffer storing the data to hash
-	buffer bytes.Buffer
-
 	// Vectors in ℤ_{p}/Xⁿ+1
 	// A[i] is the i-th polynomial.
 	// Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
@@ -36,21 +30,14 @@ type RSis struct {
 	// cf https://hackmd.io/7OODKWQZRRW9RxM5BaXtIw , B >= 3.
 	LogTwoBound int
 
+	// d, the degree of X^{d}+1
+	Degree int
+
 	// domain for the polynomial multiplication
 	Domain        *fft.Domain
 	twiddleCosets []fr.Element // see FFT64 and precomputeTwiddlesCoset
 
-	// d, the degree of X^{d}+1
-	Degree int
-
-	// in bytes, represents the maximum number of bytes the .Write(...) will handle;
-	// ( maximum number of bytes to sum )
-	capacity            int
 	maxNbElementsToHash int
-
-	// allocate memory once per instance (used in Sum())
-	bufM       fr.Vector
-	bufMValues *bitset.BitSet
 }
 
 // NewRSis creates an instance of RSis.
@@ -61,22 +48,22 @@ type RSis struct {
 // used to derived n, the number of polynomials in A, and max size of instance's internal buffer.
 func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*RSis, error) {
 
-	if logTwoBound > 64 {
+	if logTwoBound > 64 || logTwoBound > fr.Bits {
 		return nil, errors.New("logTwoBound too large")
+	}
+	if logTwoBound%8 != 0 {
+		panic("logTwoBound must be a multiple of 8")
 	}
 	if bits.UintSize == 32 {
 		return nil, errors.New("unsupported architecture; need 64bit target")
 	}
 
 	degree := 1 << logTwoDegree
-	capacity := maxNbElementsToHash * fr.Bytes
 
 	// n: number of polynomials in A
 	// len(m) == degree * n
 	// with each element in m being logTwoBounds bits from the instance buffer.
 	// that is, to fill m, we need [degree * n * logTwoBound] bits of data
-	// capacity == [degree * n * logTwoBound] / 8
-	// n == (capacity*8)/(degree*logTwoBound)
 
 	// First n <- #limbs to represent a single field element
 	n := (fr.Bytes * 8) / logTwoBound
@@ -103,13 +90,10 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 
 	r := &RSis{
 		LogTwoBound:         logTwoBound,
-		capacity:            capacity,
 		Degree:              degree,
 		Domain:              fft.NewDomain(uint64(degree), fft.WithShift(shift)),
 		A:                   make([][]fr.Element, n),
 		Ag:                  make([][]fr.Element, n),
-		bufM:                make(fr.Vector, degree*n),
-		bufMValues:          bitset.New(uint(n)),
 		maxNbElementsToHash: maxNbElementsToHash,
 	}
 	if r.LogTwoBound == 8 && r.Degree == 64 {
@@ -148,67 +132,46 @@ func (r *RSis) Hash(v, res []fr.Element) error {
 	if len(res) != r.Degree {
 		return fmt.Errorf("output vector must have length %d", r.Degree)
 	}
-	// TODO @gbotrel check that this is needed.
+
 	for i := 0; i < len(res); i++ {
+		// TODO @gbotrel ensure that this is needed.
 		res[i].SetZero()
 	}
 	if len(v) > r.maxNbElementsToHash {
 		return fmt.Errorf("can't hash more than %d elements with params provided in constructor", r.maxNbElementsToHash)
 	}
 
-	// reset the buffer
-	r.buffer.Reset()
+	fastPath := r.LogTwoBound == 8 && r.Degree == 64
 
-	// write the elements to the buffer
-	// TODO @gbotrel for now we use a buffer, we will kill it later in the refactoring.
-	for _, e := range v {
-		r.buffer.Write(e.Marshal())
-	}
+	reader := NewVectorLimbReader(v, r.LogTwoBound/8)
 
-	{
-		// previous Sum()
+	kz := make([]fr.Element, r.Degree)
+	k := make([]fr.Element, r.Degree)
+	for i := 0; i < len(r.Ag); i++ {
+		copy(k, kz)
 
-		buf := r.buffer.Bytes()
-		if len(buf) > r.capacity {
-			panic("buffer too large")
+		zero := uint64(0)
+		for j := 0; j < r.Degree; j++ {
+			l := reader.NextLimb()
+			zero |= l
+			k[j][0] = l
 		}
-
-		fastPath := r.LogTwoBound == 8 && r.Degree == 64
-
-		// clear the buffers of the instance.
-		defer r.cleanupBuffers()
-
-		m := r.bufM
-		mValues := r.bufMValues
-
-		if r.LogTwoBound < 8 && (8%r.LogTwoBound == 0) {
-			limbDecomposeBytesSmallBound(buf, m, r.LogTwoBound, r.Degree, mValues)
-		} else if r.LogTwoBound >= 8 && (fr.Bytes*8)%r.LogTwoBound == 0 {
-			limbDecomposeBytesMiddleBound(buf, m, r.LogTwoBound, r.Degree, mValues)
+		if zero == 0 {
+			// means m[i*r.Degree : (i+1)*r.Degree] == [0...0]
+			// we can skip this, FFT(0) = 0
+			continue
+		}
+		if fastPath {
+			// fast path.
+			FFT64(k, r.twiddleCosets)
 		} else {
-			limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
+			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
-
-		// method 1: fft
-		for i := 0; i < len(r.Ag); i++ {
-			if !mValues.Test(uint(i)) {
-				// means m[i*r.Degree : (i+1)*r.Degree] == [0...0]
-				// we can skip this, FFT(0) = 0
-				continue
-			}
-			k := m[i*r.Degree : (i+1)*r.Degree]
-			if fastPath {
-				// fast path.
-				FFT64(k, r.twiddleCosets)
-			} else {
-				r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-			}
-			mulModAcc(res, r.Ag[i], k)
-		}
-		r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
-
-		return nil
+		mulModAcc(res, r.Ag[i], k)
 	}
+	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
+
+	return nil
 }
 
 // mulModAcc computes p * q in ℤ_{p}[X]/Xᵈ+1.
@@ -225,182 +188,6 @@ func mulModAcc(res []fr.Element, pLagrangeCosetBitReversed, qLagrangeCosetBitRev
 	}
 }
 
-// Returns a clone of the RSis parameters with a fresh and empty buffer. Does not
-// mutate the current instance. The keys and the public parameters of the SIS
-// instance are not deep-copied. It is useful when we want to hash in parallel.
-// Otherwise, we would have to generate an entire RSis for each thread.
-func (r *RSis) CopyWithFreshBuffer() RSis {
-	res := *r
-	res.buffer = bytes.Buffer{}
-	res.bufM = make(fr.Vector, len(r.bufM))
-	res.bufMValues = bitset.New(r.bufMValues.Len())
-	return res
-}
-
-// Cleanup the buffers of the RSis instance
-func (r *RSis) cleanupBuffers() {
-	r.bufMValues.ClearAll()
-	for i := 0; i < len(r.bufM); i++ {
-		r.bufM[i].SetZero()
-	}
-}
-
-// Split an slice of bytes representing an array of serialized field element in
-// big-endian form into an array of limbs representing the same field elements
-// in little-endian form. Namely, if our field is represented with 64 bits and we
-// have the following field element 0x0123456789abcdef (0 being the most significant
-// character and and f being the least significant one) and our log norm bound is
-// 16 (so 1 hex character = 1 limb). The function assigns the values of m to [f, e,
-// d, c, b, a, ..., 3, 2, 1, 0]. m should be preallocated and zeroized. Additionally,
-// we have the guarantee that 2 bits contributing to different field elements cannot
-// be part of the same limb.
-func LimbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound int) {
-	limbDecomposeBytes(buf, m, logTwoBound, 0, nil)
-}
-
-// decomposes m as by taking chunks of logTwoBound bits at a time. The buffer is interpreted like this:
-// [0xa,        ..            , 0x1 | 0xa ... ]
-//
-//	<- #bytes in a field element ->
-//	<-0xa is the MSB, 0x1 the LSB->
-//	<-we read this chunk from right
-//	   			to left 	 	 ->
-//
-// This function is called when logTwoBound divides the number of bits used to represent a
-// fr element.
-// From a slice of field elements m:=[a_0, a_1, ...]
-// Doing h.Sum(h.Write([Marshal[a_i] for i in len(m)])) is the same than
-// writing the a_i in little endian, and then taking logTwoBound bits at a time.
-//
-// ex: m := [0x1, 0x3]
-// in the hash buffer, it is interpreted like that as a stream of bits:
-// [100...0 110...0] corresponding to [0x1, 0x3] in little endian, so first bit = LSbit
-// then the stream of bits is splitted in chunks of logTwoBound bits.
-//
-// This function is called when logTwoBound divides 8.
-func limbDecomposeBytesSmallBound(buf []byte, m fr.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
-	mask := byte((1 << logTwoBound) - 1)
-	nbChunksPerBytes := 8 / logTwoBound
-	nbFieldsElmts := len(buf) / fr.Bytes
-	for i := 0; i < nbFieldsElmts; i++ {
-		for j := fr.Bytes - 1; j >= 0; j-- {
-			curByte := buf[i*fr.Bytes+j]
-			curPos := i*fr.Bytes*nbChunksPerBytes + (fr.Bytes-1-j)*nbChunksPerBytes
-			for k := 0; k < nbChunksPerBytes; k++ {
-
-				m[curPos+k][0] = uint64((curByte >> (k * logTwoBound)) & mask)
-
-				// Check if mPos is zero and mark as non-zero in the bitset if not
-				if m[curPos+k][0] != 0 && mValues != nil {
-					mValues.Set(uint((curPos + k) / degree))
-				}
-			}
-		}
-	}
-}
-
-// limbDecomposeBytesMiddleBound same function than limbDecomposeBytesSmallBound, but logTwoBound is
-// a multiple of 8, and divides the number of bits of the fields.
-func limbDecomposeBytesMiddleBound(buf []byte, m fr.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
-	nbFieldsElmts := len(buf) / fr.Bytes
-	nbChunksPerElements := fr.Bytes * 8 / logTwoBound
-	nbBytesInChunk := logTwoBound / 8
-	curElmt := 0
-	for i := 0; i < nbFieldsElmts; i++ {
-		for j := nbChunksPerElements; j > 0; j-- {
-			curPos := i*fr.Bytes + j*nbBytesInChunk
-			for k := 1; k <= nbBytesInChunk; k++ {
-
-				m[curElmt][0] |= (uint64(buf[curPos-k]) << ((k - 1) * 8))
-
-			}
-			// Check if mPos is zero and mark as non-zero in the bitset if not
-			if m[curElmt][0] != 0 && mValues != nil {
-				mValues.Set(uint((curElmt) / degree))
-			}
-			curElmt += 1
-		}
-	}
-}
-
-// Split an slice of bytes representing an array of serialized field element in
-// big-endian form into an array of limbs representing the same field elements
-// in little-endian form. Namely, if our field is represented with 64 bits and we
-// have the following field element 0x0123456789abcdef (0 being the most significant
-// character and and f being the least significant one) and our log norm bound is
-// 16 (so 1 hex character = 1 limb). The function assigns the values of m to [f, e,
-// d, c, b, a, ..., 3, 2, 1, 0]. m should be preallocated and zeroized. mValues is
-// an optional bitSet. If provided, it must be empty. The function will set bit "i"
-// to indicate the that i-th SIS input polynomial should be non-zero. Recall, that a
-// SIS polynomial corresponds to a chunk of limbs of size `degree`. Additionally,
-// we have the guarantee that 2 bits contributing to different field elements cannot
-// be part of the same limb.
-func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
-
-	// bitwise decomposition of the buffer, in order to build m (the vector to hash)
-	// as a list of polynomials, whose coefficients are less than r.B bits long.
-	// Say buf=[0xbe,0x0f]. As a stream of bits it is interpreted like this:
-	// 10111110 00001111. getIthBit(0)=1 (=leftmost bit), getIthBit(1)=0 (=second leftmost bit), etc.
-	nbBits := len(buf) * 8
-	getIthBit := func(i int) uint8 {
-		k := i / 8
-		if k >= len(buf) {
-			return 0
-		}
-		b := buf[k]
-		j := i % 8
-		return b >> (7 - j) & 1
-	}
-
-	// we process the input buffer by blocks of r.LogTwoBound bits
-	// each of these block (<< 64bits) are interpreted as a coefficient
-	mPos := 0
-	for fieldStart := 0; fieldStart < nbBits; {
-		for bitInField := 0; bitInField < fr.Bytes*8; {
-
-			j := bitInField % logTwoBound
-
-			// r.LogTwoBound < 64; we just use the first word of our element here,
-			// and set the bits from LSB to MSB.
-			at := fieldStart + fr.Bytes*8 - bitInField - 1
-
-			m[mPos][0] |= uint64(getIthBit(at) << j)
-
-			bitInField++
-
-			// Check if mPos is zero and mark as non-zero in the bitset if not
-			if m[mPos][0] != 0 && mValues != nil {
-				mValues.Set(uint(mPos / degree))
-			}
-
-			if j == logTwoBound-1 || bitInField == fr.Bytes*8 {
-				mPos++
-			}
-		}
-		fieldStart += fr.Bytes * 8
-	}
-}
-
-// see limbDecomposeBytes; this function is optimized for the case where
-// logTwoBound == 8 and degree == 64
-func limbDecomposeBytes8_64(buf []byte, m fr.Vector, mValues *bitset.BitSet) {
-	// with logTwoBound == 8, we can actually advance byte per byte.
-	const degree = 64
-	j := 0
-
-	for startPos := fr.Bytes - 1; startPos < len(buf); startPos += fr.Bytes {
-		for i := startPos; i >= startPos-fr.Bytes+1; i-- {
-
-			m[j][0] = uint64(buf[i])
-
-			if m[j][0] != 0 {
-				mValues.Set(uint(j / degree))
-			}
-			j++
-		}
-	}
-}
-
 func deriveRandomElementFromSeed(seed, i, j int64) fr.Element {
 	var buf [3 + 3*8]byte
 	copy(buf[:3], "SIS")
@@ -414,4 +201,79 @@ func deriveRandomElementFromSeed(seed, i, j int64) fr.Element {
 	res.SetBytes(digest[:])
 
 	return res
+}
+
+// VectorLimbReader reads a vector of field element, limb by limb.
+// The elements are interpreted in little endian.
+// The limb is also interpreted in little endian.
+type VectorLimbReader struct {
+	v   fr.Vector
+	buf [fr.Bytes]byte
+
+	i int // position in vector
+	j int // position in buf
+
+	next func(buf []byte, pos *int) uint64
+}
+
+// NewVectorLimbReader creates a new VectorLimbReader
+// v: the vector to read
+// limbSize: the size of the limb in bytes (1, 2, 4 or 8)
+func NewVectorLimbReader(v fr.Vector, limbSize int) *VectorLimbReader {
+	var next func(buf []byte, pos *int) uint64
+	switch limbSize {
+	case 1:
+		next = nextUint8
+	case 2:
+		next = nextUint16
+
+	case 4:
+		next = nextUint32
+	case 8:
+		next = nextUint64
+	default:
+		panic("unsupported limb size")
+	}
+	return &VectorLimbReader{
+		v:    v,
+		j:    fr.Bytes,
+		next: next,
+	}
+}
+
+// NextLimb returns the next limb of the vector.
+// This does not perform any bound check, may trigger an out of bound panic.
+// If underlying vector is "out of limb"
+func (vr *VectorLimbReader) NextLimb() uint64 {
+	if vr.j == fr.Bytes {
+		vr.j = 0
+		// TODO @gbotrel we could return 0 in the case vr.i == len(vr.v)
+		fr.LittleEndian.PutElement(&vr.buf, vr.v[vr.i])
+		vr.i++
+	}
+	return vr.next(vr.buf[:], &vr.j)
+}
+
+func nextUint8(buf []byte, pos *int) uint64 {
+	r := uint64(buf[*pos])
+	*pos++
+	return r
+}
+
+func nextUint16(buf []byte, pos *int) uint64 {
+	r := uint64(binary.LittleEndian.Uint16(buf[*pos:]))
+	*pos += 2
+	return r
+}
+
+func nextUint32(buf []byte, pos *int) uint64 {
+	r := uint64(binary.LittleEndian.Uint32(buf[*pos:]))
+	*pos += 4
+	return r
+}
+
+func nextUint64(buf []byte, pos *int) uint64 {
+	r := uint64(binary.LittleEndian.Uint64(buf[*pos:]))
+	*pos += 8
+	return r
 }
