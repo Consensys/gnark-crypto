@@ -1,7 +1,7 @@
 //go:build !amd64
 // +build !amd64
 
-// Copyright 2020-2024 Consensys Software Inc.
+// Copyright 2020-2025 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
 package fptower
