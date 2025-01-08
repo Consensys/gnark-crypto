@@ -169,12 +169,11 @@ func (r *RSis) Hash(v, res []{{ .FF }}.Element) error {
 // The result is not FFTinversed. The fft inverse is done once every
 // multiplications are done.
 // then accumulates the mulMod result in res.
-func mulModAcc(res []{{ .FF }}.Element, pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []{{ .FF }}.Element) {
-	var t {{ .FF }}.Element
-	for i := 0; i < len(pLagrangeCosetBitReversed); i++ {
-		t.Mul(&pLagrangeCosetBitReversed[i], &qLagrangeCosetBitReversed[i])
-		res[i].Add(&res[i], &t)
-	}
+// qLagrangeCosetBitReversed and res are mutated.
+// pLagrangeCosetBitReversed is not mutated.
+func mulModAcc(res, pLagrangeCosetBitReversed, qLagrangeCosetBitReversed {{.FF}}.Vector) {
+	qLagrangeCosetBitReversed.Mul(qLagrangeCosetBitReversed, pLagrangeCosetBitReversed)
+	res.Add(res, qLagrangeCosetBitReversed)
 }
 
 
@@ -194,9 +193,7 @@ func deriveRandomElementFromSeed(seed, i, j int64) {{ .FF }}.Element {
 }
 
 
-// VectorLimbReader reads a vector of field element, limb by limb.
-// The elements are interpreted in little endian.
-// The limb is also interpreted in little endian.
+// VectorLimbReader iterates over a vector of field element, limb by limb.
 type VectorLimbReader struct {
 	v {{ .FF }}.Vector
 	buf [{{ .FF }}.Bytes]byte
@@ -210,6 +207,8 @@ type VectorLimbReader struct {
 // NewVectorLimbReader creates a new VectorLimbReader
 // v: the vector to read
 // limbSize: the size of the limb in bytes (1, 2, 4 or 8)
+// The elements are interpreted in little endian.
+// The limb is also in little endian.
 func NewVectorLimbReader(v {{ .FF }}.Vector, limbSize int) *VectorLimbReader {
 	var next func(buf []byte, pos *int) {{$tReturn}}
 	switch limbSize {

@@ -264,8 +264,11 @@ func innerDIFWithTwiddles(a []babybear.Element, twiddles []babybear.Element, sta
 	}
 	for i := start; i < end; i++ {
 		babybear.Butterfly(&a[i], &a[i+m])
-		a[i+m].Mul(&a[i+m], &twiddles[i])
 	}
+	// TODO @gbotrel: here the butterfly for most cases could leave the result not reduced mod q
+	v1 := babybear.Vector(a[start+m : end+m])
+	v2 := babybear.Vector(twiddles[start:end])
+	v1.Mul(v1, v2)
 }
 
 func innerDIFWithoutTwiddles(a []babybear.Element, at, w babybear.Element, start, end, m int) {
@@ -350,8 +353,10 @@ func innerDITWithTwiddles(a []babybear.Element, twiddles []babybear.Element, sta
 		babybear.Butterfly(&a[0], &a[m])
 		start++
 	}
+	v1 := babybear.Vector(a[start+m : end+m])
+	v2 := babybear.Vector(twiddles[start:end])
+	v1.Mul(v1, v2)
 	for i := start; i < end; i++ {
-		a[i+m].Mul(&a[i+m], &twiddles[i])
 		babybear.Butterfly(&a[i], &a[i+m])
 	}
 }

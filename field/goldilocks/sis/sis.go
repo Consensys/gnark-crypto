@@ -51,7 +51,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		return nil, errors.New("logTwoBound too large")
 	}
 	if logTwoBound%8 != 0 {
-		panic("logTwoBound must be a multiple of 8")
+		return nil, errors.New("logTwoBound must be a multiple of 8")
 	}
 	if bits.UintSize == 32 {
 		return nil, errors.New("unsupported architecture; need 64bit target")
@@ -111,7 +111,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 
 			// fill Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
 			copy(r.Ag[i], r.A[i])
-			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset())
+			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
 	})
 
@@ -167,12 +167,11 @@ func (r *RSis) Hash(v, res []goldilocks.Element) error {
 // The result is not FFTinversed. The fft inverse is done once every
 // multiplications are done.
 // then accumulates the mulMod result in res.
-func mulModAcc(res []goldilocks.Element, pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []goldilocks.Element) {
-	var t goldilocks.Element
-	for i := 0; i < len(pLagrangeCosetBitReversed); i++ {
-		t.Mul(&pLagrangeCosetBitReversed[i], &qLagrangeCosetBitReversed[i])
-		res[i].Add(&res[i], &t)
-	}
+// qLagrangeCosetBitReversed and res are mutated.
+// pLagrangeCosetBitReversed is not mutated.
+func mulModAcc(res, pLagrangeCosetBitReversed, qLagrangeCosetBitReversed goldilocks.Vector) {
+	qLagrangeCosetBitReversed.Mul(qLagrangeCosetBitReversed, pLagrangeCosetBitReversed)
+	res.Add(res, qLagrangeCosetBitReversed)
 }
 
 func deriveRandomElementFromSeed(seed, i, j int64) goldilocks.Element {
@@ -190,9 +189,7 @@ func deriveRandomElementFromSeed(seed, i, j int64) goldilocks.Element {
 	return res
 }
 
-// VectorLimbReader reads a vector of field element, limb by limb.
-// The elements are interpreted in little endian.
-// The limb is also interpreted in little endian.
+// VectorLimbReader iterates over a vector of field element, limb by limb.
 type VectorLimbReader struct {
 	v   goldilocks.Vector
 	buf [goldilocks.Bytes]byte
@@ -206,6 +203,8 @@ type VectorLimbReader struct {
 // NewVectorLimbReader creates a new VectorLimbReader
 // v: the vector to read
 // limbSize: the size of the limb in bytes (1, 2, 4 or 8)
+// The elements are interpreted in little endian.
+// The limb is also in little endian.
 func NewVectorLimbReader(v goldilocks.Vector, limbSize int) *VectorLimbReader {
 	var next func(buf []byte, pos *int) uint64
 	switch limbSize {
@@ -234,7 +233,6 @@ func NewVectorLimbReader(v goldilocks.Vector, limbSize int) *VectorLimbReader {
 func (vr *VectorLimbReader) NextLimb() uint64 {
 	if vr.j == goldilocks.Bytes {
 		vr.j = 0
-		// TODO @gbotrel we could return 0 in the case vr.i == len(vr.v)
 		goldilocks.LittleEndian.PutElement(&vr.buf, vr.v[vr.i])
 		vr.i++
 	}
