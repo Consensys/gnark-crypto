@@ -131,16 +131,26 @@ func (r *RSis) Hash(v, res []koalabear.Element) error {
 		res[i].SetZero()
 	}
 
-	// decompose v limb by limb
-	reader := NewVectorLimbReader(v, r.LogTwoBound/8)
-
-	kz := make([]koalabear.Element, r.Degree)
 	k := make([]koalabear.Element, r.Degree)
-	for i := 0; i < len(r.Ag); i++ {
-		copy(k, kz)
 
+	// inner hash
+	r.InnerHash(&vectorIterator{v: v}, res, k)
+
+	// reduces mod Xᵈ+1
+	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1))
+
+	return nil
+}
+
+func (r *RSis) InnerHash(it ElementIterator, res, k koalabear.Vector) {
+	reader := NewLimbIterator(it, r.LogTwoBound/8)
+
+	for i := 0; i < len(r.Ag); i++ {
 		zero := uint32(0)
 		for j := 0; j < r.Degree; j += 2 {
+			k[j].SetZero()
+			k[j+1].SetZero()
+
 			// read limbs 2 by 2 since degree is a power of 2 (> 1)
 			l := reader.NextLimb()
 			zero |= l
@@ -159,10 +169,7 @@ func (r *RSis) Hash(v, res []koalabear.Element) error {
 		r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		mulModAcc(res, r.Ag[i], k)
 	}
-	// reduces mod Xᵈ+1
-	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1))
 
-	return nil
 }
 
 // mulModAcc computes p * q in ℤ_{p}[X]/Xᵈ+1.
@@ -193,23 +200,42 @@ func deriveRandomElementFromSeed(seed, i, j int64) koalabear.Element {
 	return res
 }
 
-// VectorLimbReader iterates over a vector of field element, limb by limb.
-type VectorLimbReader struct {
-	v   koalabear.Vector
+// TODO @gbotrel explore generic perf impact + go 1.23 iterators
+
+// ElementIterator is an iterator over a stream of field elements.
+type ElementIterator interface {
+	Next() (koalabear.Element, bool)
+}
+
+type vectorIterator struct {
+	v koalabear.Vector
+	i int
+}
+
+func (vi *vectorIterator) Next() (koalabear.Element, bool) {
+	if vi.i == len(vi.v) {
+		return koalabear.Element{}, false
+	}
+	vi.i++
+	return vi.v[vi.i-1], true
+}
+
+// LimbIterator iterates over a vector of field element, limb by limb.
+type LimbIterator struct {
+	it  ElementIterator
 	buf [koalabear.Bytes]byte
 
-	i int // position in vector
 	j int // position in buf
 
 	next func(buf []byte, pos *int) uint32
 }
 
-// NewVectorLimbReader creates a new VectorLimbReader
+// NewLimbIterator creates a new LimbIterator
 // v: the vector to read
 // limbSize: the size of the limb in bytes (1, 2, 4 or 8)
 // The elements are interpreted in little endian.
 // The limb is also in little endian.
-func NewVectorLimbReader(v koalabear.Vector, limbSize int) *VectorLimbReader {
+func NewLimbIterator(it ElementIterator, limbSize int) *LimbIterator {
 	var next func(buf []byte, pos *int) uint32
 	switch limbSize {
 	case 1:
@@ -220,8 +246,8 @@ func NewVectorLimbReader(v koalabear.Vector, limbSize int) *VectorLimbReader {
 	default:
 		panic("unsupported limb size")
 	}
-	return &VectorLimbReader{
-		v:    v,
+	return &LimbIterator{
+		it:   it,
 		j:    koalabear.Bytes,
 		next: next,
 	}
@@ -230,11 +256,11 @@ func NewVectorLimbReader(v koalabear.Vector, limbSize int) *VectorLimbReader {
 // NextLimb returns the next limb of the vector.
 // This does not perform any bound check, may trigger an out of bound panic.
 // If underlying vector is "out of limb"
-func (vr *VectorLimbReader) NextLimb() uint32 {
+func (vr *LimbIterator) NextLimb() uint32 {
 	if vr.j == koalabear.Bytes {
 		vr.j = 0
-		koalabear.LittleEndian.PutElement(&vr.buf, vr.v[vr.i])
-		vr.i++
+		next, _ := vr.it.Next()
+		koalabear.LittleEndian.PutElement(&vr.buf, next)
 	}
 	return vr.next(vr.buf[:], &vr.j)
 }

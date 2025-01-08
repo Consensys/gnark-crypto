@@ -108,7 +108,7 @@ func TestLimbDecomposeBytes(t *testing.T) {
 	logTwoBound := 8
 
 	for cc := 0; cc < 1; cc++ {
-		vr := NewVectorLimbReader(a, logTwoBound/8)
+		vr := NewLimbIterator(&vectorIterator{v: a}, logTwoBound/8)
 		m := make(koalabear.Vector, nbElmts*koalabear.Bytes*8/logTwoBound)
 		for i := 0; i < len(m); i++ {
 			m[i][0] = vr.NextLimb()
