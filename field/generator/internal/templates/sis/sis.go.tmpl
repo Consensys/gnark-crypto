@@ -51,7 +51,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		return nil, errors.New("logTwoBound too large")
 	}
 	if logTwoBound % 8 != 0 {
-		panic("logTwoBound must be a multiple of 8")
+		return nil, errors.New("logTwoBound must be a multiple of 8")
 	}
 	if bits.UintSize == 32 {
 		return nil, errors.New("unsupported architecture; need 64bit target")
@@ -111,7 +111,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 
 			// fill Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
 			copy(r.Ag[i], r.A[i])
-			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset())
+			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
 	})
 
@@ -239,7 +239,6 @@ func NewVectorLimbReader(v {{ .FF }}.Vector, limbSize int) *VectorLimbReader {
 func (vr *VectorLimbReader) NextLimb() {{$tReturn}} {
 	if vr.j == {{ .FF }}.Bytes {
 		vr.j = 0
-		// TODO @gbotrel we could return 0 in the case vr.i == len(vr.v)
 		{{.FF}}.LittleEndian.PutElement(&vr.buf, vr.v[vr.i])
 		vr.i++
 	}
