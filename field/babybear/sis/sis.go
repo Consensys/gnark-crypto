@@ -65,10 +65,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	// that is, to fill m, we need [degree * n * logTwoBound] bits of data
 
 	// First n <- #limbs to represent a single field element
-	n := (babybear.Bytes * 8) / logTwoBound
-	if n*logTwoBound < babybear.Bytes*8 {
-		n++
-	}
+	n := babybear.Bytes / (logTwoBound / 8) // logTwoBound / 8 --> nbBytes per limb
 
 	// Then multiply by the number of field elements
 	n *= maxNbElementsToHash
@@ -125,14 +122,16 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 		return fmt.Errorf("output vector must have length %d", r.Degree)
 	}
 
-	for i := 0; i < len(res); i++ {
-		// TODO @gbotrel ensure that this is needed.
-		res[i].SetZero()
-	}
 	if len(v) > r.maxNbElementsToHash {
 		return fmt.Errorf("can't hash more than %d elements with params provided in constructor", r.maxNbElementsToHash)
 	}
 
+	// zeroing res
+	for i := 0; i < len(res); i++ {
+		res[i].SetZero()
+	}
+
+	// decompose v limb by limb
 	reader := NewVectorLimbReader(v, r.LogTwoBound/8)
 
 	kz := make([]babybear.Element, r.Degree)
@@ -141,10 +140,15 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 		copy(k, kz)
 
 		zero := uint32(0)
-		for j := 0; j < r.Degree; j++ {
+		for j := 0; j < r.Degree; j += 2 {
+			// read limbs 2 by 2 since degree is a power of 2 (> 1)
 			l := reader.NextLimb()
 			zero |= l
 			k[j][0] = l
+
+			l2 := reader.NextLimb()
+			zero |= l2
+			k[j+1][0] = l2
 		}
 		if zero == 0 {
 			// means m[i*r.Degree : (i+1)*r.Degree] == [0...0]
@@ -153,10 +157,10 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 		}
 
 		r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-
 		mulModAcc(res, r.Ag[i], k)
 	}
-	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
+	// reduces mod Xᵈ+1
+	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1))
 
 	return nil
 }

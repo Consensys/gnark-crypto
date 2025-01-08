@@ -24,9 +24,10 @@ type sisParams struct {
 }
 
 var params128Bits []sisParams = []sisParams{
+	{logTwoBound: 8, logTwoDegree: 5},
 	{logTwoBound: 8, logTwoDegree: 6},
-	// {logTwoBound: 16, logTwoDegree: 7},
-	// {logTwoBound: 32, logTwoDegree: 8},
+	{logTwoBound: 16, logTwoDegree: 6},
+	{logTwoBound: 16, logTwoDegree: 9},
 }
 
 type TestCases struct {
@@ -166,7 +167,7 @@ func makeKeyDeterministic(t *testing.T, sis *RSis, _seed int64) {
 }
 
 const (
-	LATENCY_MUL_FIELD_NS int = 18
+	LATENCY_MUL_FIELD_NS int = 15
 	LATENCY_ADD_FIELD_NS int = 4
 )
 
