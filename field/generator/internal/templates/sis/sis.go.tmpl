@@ -134,7 +134,7 @@ func (r *RSis) Hash(v, res []{{ .FF }}.Element) error {
 	k := make([]{{ .FF }}.Element, r.Degree)
 
 	// inner hash
-	r.InnerHash(&vectorIterator{v: v}, res, k)
+	r.InnerHash(&VectorIterator{v: v}, res, k)
 
 	
 	// reduces mod Xᵈ+1
@@ -210,12 +210,12 @@ type ElementIterator interface {
 	Next() ({{ .FF }}.Element, bool)
 }
 
-type vectorIterator struct {
+type VectorIterator struct {
 	v {{ .FF }}.Vector
 	i int
 }
 
-func (vi *vectorIterator) Next() ({{ .FF }}.Element, bool) {
+func (vi *VectorIterator) Next() ({{ .FF }}.Element, bool) {
 	if vi.i == len(vi.v) {
 		return {{ .FF }}.Element{}, false
 	}

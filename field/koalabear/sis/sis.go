@@ -134,7 +134,7 @@ func (r *RSis) Hash(v, res []koalabear.Element) error {
 	k := make([]koalabear.Element, r.Degree)
 
 	// inner hash
-	r.InnerHash(&vectorIterator{v: v}, res, k)
+	r.InnerHash(&VectorIterator{v: v}, res, k)
 
 	// reduces mod Xᵈ+1
 	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1))
@@ -207,12 +207,12 @@ type ElementIterator interface {
 	Next() (koalabear.Element, bool)
 }
 
-type vectorIterator struct {
+type VectorIterator struct {
 	v koalabear.Vector
 	i int
 }
 
-func (vi *vectorIterator) Next() (koalabear.Element, bool) {
+func (vi *VectorIterator) Next() (koalabear.Element, bool) {
 	if vi.i == len(vi.v) {
 		return koalabear.Element{}, false
 	}

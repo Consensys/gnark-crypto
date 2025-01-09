@@ -134,7 +134,7 @@ func (r *RSis) Hash(v, res []fr.Element) error {
 	k := make([]fr.Element, r.Degree)
 
 	// inner hash
-	r.InnerHash(&vectorIterator{v: v}, res, k)
+	r.InnerHash(&VectorIterator{v: v}, res, k)
 
 	// reduces mod Xᵈ+1
 	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1))
@@ -207,12 +207,12 @@ type ElementIterator interface {
 	Next() (fr.Element, bool)
 }
 
-type vectorIterator struct {
+type VectorIterator struct {
 	v fr.Vector
 	i int
 }
 
-func (vi *vectorIterator) Next() (fr.Element, bool) {
+func (vi *VectorIterator) Next() (fr.Element, bool) {
 	if vi.i == len(vi.v) {
 		return fr.Element{}, false
 	}
