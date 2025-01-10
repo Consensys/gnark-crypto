@@ -45,10 +45,10 @@ type Domain struct {
 
 	// we precompute these mostly to avoid the memory intensive bit reverse permutation in the groth16.Prover
 
-	// cosetTable u*<1,g,..,g^(n-1)>
+	// cosetTable <1,u,u**2,..,u**{n-1}> where u is the shifting element
 	cosetTable []fr.Element
 
-	// cosetTable[i][j] = domain.Generator(i-th)SqrtInv ^ j
+	// cosetTableInv same as above but with u**-1
 	cosetTableInv []fr.Element
 }
 
@@ -147,8 +147,8 @@ func (d *Domain) preComputeTwiddles() {
 
 	var wg sync.WaitGroup
 
-	expTable := func(sqrt fr.Element, t []fr.Element) {
-		BuildExpTable(sqrt, t)
+	expTable := func(x fr.Element, t []fr.Element) {
+		BuildExpTable(x, t)
 		wg.Done()
 	}
 
