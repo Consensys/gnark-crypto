@@ -10,6 +10,19 @@ var (
 )
 `
 
+const Avx = `
+import 	"golang.org/x/sys/cpu"
+
+var (
+	supportAvx512 = {{- if not .F31 }}supportAdx && {{- end}}cpu.X86.HasAVX512 && cpu.X86.HasAVX512DQ
+	_ = supportAvx512
+)
+`
+
+const NoAvx = `
+const supportAvx512 = false
+`
+
 // AsmNoAdx ...
 const AsmNoAdx = `
 

@@ -1,0 +1,44 @@
+import (
+	"io"
+
+	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}"
+)
+
+func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
+
+	dec := {{ .CurvePackage }}.NewDecoder(r)
+
+	toDecode := []interface{}{
+		&proof.W,
+		&proof.WPrime,
+		&proof.ClaimedValues,
+	}
+
+	for _, v := range toDecode {
+		if err := dec.Decode(v); err != nil {
+			return dec.BytesRead(), err
+		}
+	}
+
+	return dec.BytesRead(), nil
+}   
+
+// WriteTo writes binary encoding of a OpeningProof
+func (proof *OpeningProof) WriteTo(w io.Writer) (int64, error) {
+
+	enc := {{ .CurvePackage }}.NewEncoder(w)
+
+	toEncode := []interface{}{
+		&proof.W,
+		&proof.WPrime,
+		proof.ClaimedValues,
+	}
+
+	for _, v := range toEncode {
+		if err := enc.Encode(v); err != nil {
+			return enc.BytesWritten(), err
+		}
+	}
+
+	return enc.BytesWritten(), nil
+}

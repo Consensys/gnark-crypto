@@ -2,275 +2,156 @@ package generator
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"text/template"
 
-	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
 	"github.com/consensys/gnark-crypto/field/generator/config"
-	"github.com/consensys/gnark-crypto/field/generator/internal/addchain"
-	"github.com/consensys/gnark-crypto/field/generator/internal/templates/element"
 )
 
-// GenerateFF will generate go (and .s) files in outputDir for modulus (in base 10)
-//
-// Example usage
-//
-//	fp, _ = config.NewField("fp", "Element", fpModulus")
-//	generator.GenerateFF(fp, filepath.Join(baseDir, "fp"))
-func GenerateFF(F *config.FieldConfig, outputDir string) error {
-	// source file templates
-	sourceFiles := []string{
-		element.Base,
-		element.Reduce,
-		element.Exp,
-		element.Conv,
-		element.MulDoc,
-		element.MulCIOS,
-		element.MulNoCarry,
-		element.Sqrt,
-		element.Inverse,
-		element.BigNum,
-	}
+func GenerateFF(F *config.Field, outputDir string, options ...Option) error {
 
-	// test file templates
-	testFiles := []string{
-		element.MulCIOS,
-		element.MulNoCarry,
-		element.Reduce,
-		element.Test,
-		element.InverseTests,
-	}
-	// output files
-	eName := strings.ToLower(F.ElementName)
+	// default config
+	cfg := generatorOptions(options...)
 
-	pathSrc := filepath.Join(outputDir, eName+".go")
-	pathSrcVector := filepath.Join(outputDir, "vector.go")
-	pathSrcFixedExp := filepath.Join(outputDir, eName+"_exp.go")
-	pathSrcArith := filepath.Join(outputDir, "arith.go")
-	pathTest := filepath.Join(outputDir, eName+"_test.go")
-	pathTestVector := filepath.Join(outputDir, "vector_test.go")
-
-	// remove old format generated files
-	oldFiles := []string{"_mul.go", "_mul_amd64.go",
-		"_square.go", "_square_amd64.go", "_ops_decl.go", "_square_amd64.s",
-		"_mul_amd64.s",
-		"_mul_arm64.s",
-		"_mul_arm64.go",
-		"_ops_amd64.s",
-		"_ops_noasm.go",
-		"_mul_adx_amd64.s",
-		"_ops_amd64.go",
-		"_fuzz.go",
-	}
-
-	for _, of := range oldFiles {
-		_ = os.Remove(filepath.Join(outputDir, eName+of))
-	}
-	_ = os.Remove(filepath.Join(outputDir, "asm.go"))
-	_ = os.Remove(filepath.Join(outputDir, "asm_noadx.go"))
-
-	funcs := template.FuncMap{}
-	if F.UseAddChain {
-		for _, f := range addchain.Functions {
-			funcs[f.Name] = f.Func
-		}
-	}
-
-	funcs["shorten"] = shorten
-	funcs["ltu64"] = func(a, b uint64) bool {
-		return a < b
-	}
-
-	bavardOpts := []func(*bavard.Bavard) error{
-		bavard.Apache2("ConsenSys Software Inc.", 2020),
-		bavard.Package(F.PackageName),
-		bavard.GeneratedBy("consensys/gnark-crypto"),
-		bavard.Funcs(funcs),
-	}
-
-	// generate source file
-	if err := bavard.GenerateFromString(pathSrc, sourceFiles, F, bavardOpts...); err != nil {
-		return err
-	}
-
-	// generate vector
-	if err := bavard.GenerateFromString(pathSrcVector, []string{element.Vector}, F, bavardOpts...); err != nil {
-		return err
-	}
-
-	// generate arithmetics source file
-	if err := bavard.GenerateFromString(pathSrcArith, []string{element.Arith}, F, bavardOpts...); err != nil {
-		return err
-	}
-
-	// generate fixed exp source file
-	if F.UseAddChain {
-		if err := bavard.GenerateFromString(pathSrcFixedExp, []string{element.FixedExp}, F, bavardOpts...); err != nil {
+	// generate asm
+	// note: we need to do that before the fields, as the fields will include a hash of the (shared)
+	// asm files to force a recompile of the field package if the asm files have changed
+	var hashArm64, hashAMD64 string
+	var err error
+	if cfg.HasArm64() {
+		hashArm64, err = generateARM64(F, cfg.asmConfig)
+		if err != nil {
 			return err
 		}
 	}
 
-	// generate test file
-	if err := bavard.GenerateFromString(pathTest, testFiles, F, bavardOpts...); err != nil {
-		return err
-	}
-
-	if err := bavard.GenerateFromString(pathTestVector, []string{element.TestVector}, F, bavardOpts...); err != nil {
-		return err
-	}
-
-	// if we generate assembly code
-	if F.ASM {
-		// generate ops.s
-		{
-			pathSrc := filepath.Join(outputDir, eName+"_ops_amd64.s")
-			fmt.Println("generating", pathSrc)
-			f, err := os.Create(pathSrc)
-			if err != nil {
-				return err
-			}
-
-			_, _ = io.WriteString(f, "// +build !purego\n")
-
-			if err := amd64.Generate(f, F); err != nil {
-				_ = f.Close()
-				return err
-			}
-			_ = f.Close()
-
-			// run asmfmt
-			// run go fmt on whole directory
-			cmd := exec.Command("asmfmt", "-w", pathSrc)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				return err
-			}
-		}
-
-		{
-			pathSrc := filepath.Join(outputDir, eName+"_mul_amd64.s")
-			fmt.Println("generating", pathSrc)
-			f, err := os.Create(pathSrc)
-			if err != nil {
-				return err
-			}
-
-			_, _ = io.WriteString(f, "// +build !purego\n")
-
-			if err := amd64.GenerateMul(f, F); err != nil {
-				_ = f.Close()
-				return err
-			}
-			_ = f.Close()
-
-			// run asmfmt
-			// run go fmt on whole directory
-			cmd := exec.Command("asmfmt", "-w", pathSrc)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				return err
-			}
-		}
-
-	}
-
-	if F.ASM {
-		// generate ops_amd64.go
-		src := []string{
-			element.MulDoc,
-			element.OpsAMD64,
-		}
-		pathSrc := filepath.Join(outputDir, eName+"_ops_amd64.go")
-		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
-		copy(bavardOptsCpy, bavardOpts)
-		if F.ASM {
-			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!purego"))
-		}
-		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
+	if cfg.HasAMD64() {
+		hashAMD64, err = generateAMD64(F, cfg.asmConfig)
+		if err != nil {
 			return err
 		}
 	}
 
+	// generate field
+	asmIncludeDir := ""
+	if cfg.HasArm64() || cfg.HasAMD64() {
+		asmIncludeDir = cfg.asmConfig.IncludeDir
+	}
+	if err := generateField(F, outputDir, asmIncludeDir, hashArm64, hashAMD64); err != nil {
+		return err
+	}
+
+	// generate fft
+	if cfg.HasFFT() {
+		if err := generateFFT(F, cfg.fftConfig, outputDir); err != nil {
+			return err
+		}
+	}
+
+	// generate SIS
+	if cfg.HasSIS() {
+		if err := generateSIS(F, outputDir); err != nil {
+			return err
+		}
+	}
+
+	return runFormatters(outputDir)
+}
+
+func runFormatters(outputDir string) error {
+	var out strings.Builder
 	{
-		// generate ops.go
-		src := []string{
-			element.OpsNoAsm,
-			element.MulCIOS,
-			element.MulNoCarry,
-			element.Reduce,
-			element.MulDoc,
-		}
-		pathSrc := filepath.Join(outputDir, eName+"_ops_purego.go")
-		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
-		copy(bavardOptsCpy, bavardOpts)
-		if F.ASM {
-			bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!amd64 purego"))
-		}
-		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
-			return err
+		// run go fmt on whole directory
+		cmd := exec.Command("gofmt", "-s", "-w", outputDir)
+		cmd.Stdout = &out
+		cmd.Stderr = &out
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("gofmt failed: %v\n%s", err, out.String())
 		}
 	}
-
 	{
-		// generate doc.go
-		src := []string{
-			element.Doc,
-		}
-		pathSrc := filepath.Join(outputDir, "doc.go")
-		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOpts...); err != nil {
-			return err
-		}
-	}
-
-	if F.ASM {
-		// generate asm.go and asm_noadx.go
-		src := []string{
-			element.Asm,
-		}
-		pathSrc := filepath.Join(outputDir, "asm.go")
-		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
-		copy(bavardOptsCpy, bavardOpts)
-		bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("!noadx"))
-		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
-			return err
+		// run asmfmt on whole directory
+		cmd := exec.Command("asmfmt", "-w", outputDir)
+		cmd.Stdout = &out
+		cmd.Stderr = &out
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("asmfmt failed: %v\n%s", err, out.String())
 		}
 	}
-	if F.ASM {
-		// generate asm.go and asm_noadx.go
-		src := []string{
-			element.AsmNoAdx,
-		}
-		pathSrc := filepath.Join(outputDir, "asm_noadx.go")
-		bavardOptsCpy := make([]func(*bavard.Bavard) error, len(bavardOpts))
-		copy(bavardOptsCpy, bavardOpts)
-		bavardOptsCpy = append(bavardOptsCpy, bavard.BuildTag("noadx"))
-		if err := bavard.GenerateFromString(pathSrc, src, F, bavardOptsCpy...); err != nil {
-			return err
-		}
-	}
-
-	// run go fmt on whole directory
-	cmd := exec.Command("gofmt", "-s", "-w", outputDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
-func shorten(input string) string {
-	const maxLen = 15
-	if len(input) > maxLen {
-		return input[:6] + "..." + input[len(input)-6:]
+func runASMFormatter(file string) error {
+	var out strings.Builder
+	{
+		// run asmfmt on whole directory
+		cmd := exec.Command("asmfmt", "-w", file)
+		cmd.Stdout = &out
+		cmd.Stderr = &out
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("asmfmt failed: %v\n%s", err, out.String())
+		}
 	}
-	return input
+	return nil
+}
+
+func getImportPath(dir string) (string, error) {
+	// get absolute path for dir
+	dir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("error getting absolute path: %w", err)
+	}
+
+	modDir, err := findGoMod(dir)
+	if err != nil {
+		return "", fmt.Errorf("error finding go.mod: %w", err)
+	}
+
+	modulePath, err := getModulePath(modDir)
+	if err != nil {
+		return "", fmt.Errorf("error reading module path: %w", err)
+	}
+
+	relPath, err := filepath.Rel(modDir, dir)
+	if err != nil {
+		return "", fmt.Errorf("error computing relative path: %w", err)
+	}
+
+	// Handle the case where the directory is the module root
+	if relPath == "." {
+		return modulePath, nil
+	}
+	return modulePath + "/" + filepath.ToSlash(relPath), nil
+}
+
+// findGoMod ascends the directory tree to locate the go.mod file.
+func findGoMod(dir string) (string, error) {
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		newDir := filepath.Dir(dir)
+		if newDir == dir {
+			return "", fmt.Errorf("no go.mod found up to root")
+		}
+		dir = newDir
+	}
+}
+
+// getModulePath extracts the module path from the go.mod file.
+func getModulePath(modDir string) (string, error) {
+	content, err := os.ReadFile(filepath.Join(modDir, "go.mod"))
+	if err != nil {
+		return "", fmt.Errorf("error reading go.mod: %w", err)
+	}
+
+	for _, line := range strings.Split(string(content), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimPrefix(line, "module "), nil
+		}
+	}
+	return "", fmt.Errorf("module declaration not found in go.mod")
 }

@@ -11,12 +11,13 @@ import (
 	"github.com/consensys/gnark-crypto/hash"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/twistededwards"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr/mimc"
 )
 
 
 func Example() {
 	// instantiate hash function
-	hFunc := hash.MIMC_{{ .EnumID }}.New()
+	hFunc := mimc.NewMiMC()
 
 	// create a eddsa key pair
 	privateKey, _ := GenerateKey(crand.Reader)

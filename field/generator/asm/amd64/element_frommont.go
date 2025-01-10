@@ -1,16 +1,5 @@
-// Copyright 2020 ConsenSys Software Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright 2020-2025 Consensys Software Inc.
+// Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
 package amd64
 
@@ -32,7 +21,7 @@ func (f *FFAmd64) generateFromMont(forceADX bool) {
 	if f.NbWords <= 5 {
 		// when dynamic linking, R15 is clobbered by a global variable access
 		// this is a temporary workaround --> don't use R15 when we can avoid it.
-		// see https://github.com/ConsenSys/gnark-crypto/issues/113
+		// see https://github.com/Consensys/gnark-crypto/issues/113
 		reserved = append(reserved, amd64.R15)
 	}
 	registers := f.FnHeader("fromMont", stackSize, argSize, reserved...)
@@ -42,8 +31,8 @@ func (f *FFAmd64) generateFromMont(forceADX bool) {
 		f.WriteLn("NO_LOCAL_POINTERS")
 	}
 	f.WriteLn(`
-	// the algorithm is described here
-	// https://hackmd.io/@gnark/modular_multiplication
+	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS" 
+	// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
 	// when y = 1 we have: 
 	// for i=0 to N-1
 	// 		t[i] = x[i]

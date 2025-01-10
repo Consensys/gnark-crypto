@@ -20,12 +20,12 @@ func TestIntToMont(t *testing.T) {
 	t.Parallel()
 
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 10
+	parameters.MinSuccessfulTests = 20
 	properties := gopter.NewProperties(parameters)
 	genF := genField(t)
 
 	properties.Property("must recover initial non-montgomery value by repeated halving", prop.ForAll(
-		func(f *FieldConfig, ib [][]uint8) (bool, error) {
+		func(f *Field, ib [][]uint8) (bool, error) {
 
 			var i big.Int
 			i.SetBytes(ib[0])
@@ -40,13 +40,14 @@ func TestIntToMont(t *testing.T) {
 	))
 
 	properties.Property("turning R into montgomery form must match the R value from field", prop.ForAll(
-		func(f *FieldConfig) (bool, error) {
+		func(f *Field) (bool, error) {
 			// test if using the same R
-			i := big.NewInt(1)
-			i.Lsh(i, 64*uint(f.NbWords))
-			*i = f.ToMont(*i)
+			r := big.NewInt(1)
+			r.Lsh(r, uint(f.Word.BitSize)*uint(f.NbWords))
 
-			err := bigIntMatchUint64Slice(i, f.RSquare)
+			*r = f.ToMont(*r)
+
+			err := bigIntMatchUint64Slice(r, f.RSquare)
 			return err == nil, err
 		}, genF),
 	)
@@ -63,7 +64,7 @@ func TestBigIntMatchUint64Slice(t *testing.T) {
 	genF := genField(t)
 
 	properties.Property("random big.int must match uint64 slice made out of .Bytes()", prop.ForAll(
-		func(f *FieldConfig, ib [][]uint8) (bool, error) {
+		func(f *Field, ib [][]uint8) (bool, error) {
 
 			var i big.Int
 			i.SetBytes(ib[0])
@@ -84,7 +85,7 @@ func TestBigIntMatchUint64Slice(t *testing.T) {
 func TestQuadExtensionMul(t *testing.T) {
 	t.Parallel()
 
-	verifyMul := func(base *FieldConfig, x8Slice [][]uint8, y8Slice [][]uint8) (bool, error) {
+	verifyMul := func(base *Field, x8Slice [][]uint8, y8Slice [][]uint8) (bool, error) {
 		var nonRes big.Int
 		base.FromMont(&nonRes, &base.NonResidue)
 		if !nonRes.IsInt64() {
@@ -198,7 +199,7 @@ func uint8SliceSliceToBigIntSlice(f *Extension, in [][]uint8) []big.Int {
 func genField(t *testing.T) gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 
-		genField := func() *FieldConfig {
+		genField := func() *Field {
 
 			nbWords := minNbWords + mrand.Intn(maxNbWords-minNbWords) //#nosec G404 -- This is a false positive
 			bitLen := nbWords*64 - mrand.Intn(64)                     //#nosec G404 -- This is a false positive
@@ -212,7 +213,7 @@ func genField(t *testing.T) gopter.Gen {
 				t.Error(err)
 			}
 
-			var field *FieldConfig
+			var field *Field
 			field, err = NewFieldConfig("dummy", "DummyElement", "0x"+modulus.Text(16), false)
 
 			if err == nil {

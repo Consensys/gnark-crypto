@@ -15,8 +15,8 @@ type ProvingKey struct {
 }
 
 type VerifyingKey struct {
-	G             curve.G2Affine
-	GSigma        curve.G2Affine // GRootSigmaNeg = G^{-σ}
+	G         curve.G2Affine
+	GSigmaNeg curve.G2Affine // GSigmaNeg = G^{-σ}
 }
 
 func randomFrSizedBytes() ([]byte, error) {
@@ -76,7 +76,7 @@ func Setup(bases [][]curve.G1Affine, options ...SetupOption) (pk []ProvingKey, v
 	sigma.Add(sigma, big.NewInt(1))
 
 	sigmaNeg := new(big.Int).Neg(sigma)
-	vk.GSigma.ScalarMultiplication(&vk.G, sigmaNeg)
+	vk.GSigmaNeg.ScalarMultiplication(&vk.G, sigmaNeg)
 
 	pk = make([]ProvingKey, len(bases))
 	for i := range bases {
@@ -98,7 +98,7 @@ func (pk *ProvingKey) ProveKnowledge(values []fr.Element) (pok curve.G1Affine, e
 	}
 
 	// TODO @gbotrel this will spawn more than one task, see
-	// https://github.com/ConsenSys/gnark-crypto/issues/269
+	// https://github.com/Consensys/gnark-crypto/issues/269
 	config := ecc.MultiExpConfig{
 		NbTasks: 1, // TODO Experiment
 	}
@@ -116,7 +116,7 @@ func (pk *ProvingKey) Commit(values []fr.Element) (commitment curve.G1Affine, er
 	}
 
 	// TODO @gbotrel this will spawn more than one task, see
-	// https://github.com/ConsenSys/gnark-crypto/issues/269
+	// https://github.com/Consensys/gnark-crypto/issues/269
 	config := ecc.MultiExpConfig{
 		NbTasks: 1,
 	}
@@ -177,7 +177,7 @@ func BatchProve(pk []ProvingKey, values [][]fr.Element, combinationCoeff fr.Elem
 	}
 
 	// TODO @gbotrel this will spawn more than one task, see
-	// https://github.com/ConsenSys/gnark-crypto/issues/269
+	// https://github.com/Consensys/gnark-crypto/issues/269
 	config := ecc.MultiExpConfig{
 		NbTasks: 1,
 	}
@@ -193,7 +193,7 @@ func (vk *VerifyingKey) Verify(commitment curve.G1Affine, knowledgeProof curve.G
 		return errors.New("subgroup check failed")
 	}
 
-	if isOne, err := curve.PairingCheck([]curve.G1Affine{commitment, knowledgeProof}, []curve.G2Affine{vk.GSigma, vk.G}); err != nil {
+	if isOne, err := curve.PairingCheck([]curve.G1Affine{commitment, knowledgeProof}, []curve.G2Affine{vk.GSigmaNeg, vk.G}); err != nil {
 		return err
 	} else if !isOne {
 		return errors.New("proof rejected")
@@ -244,7 +244,7 @@ func BatchVerifyMultiVk(vk []VerifyingKey, commitments []curve.G1Affine, pok []c
 	pairingG1[0] = commitments[0]
 	var rI big.Int
 	for i := range vk {
-		pairingG2[i] = vk[i].GSigma
+		pairingG2[i] = vk[i].GSigmaNeg
 		if i != 0 {
 			r.BigInt(&rI)
 			pairingG1[i].ScalarMultiplication(&commitments[i], &rI)
@@ -319,7 +319,7 @@ func (vk *VerifyingKey) writeTo(enc *curve.Encoder) (int64, error) {
 	if err = enc.Encode(&vk.G); err != nil {
 		return enc.BytesWritten(), err
 	}
-	err = enc.Encode(&vk.GSigma)
+	err = enc.Encode(&vk.GSigmaNeg)
 	return enc.BytesWritten(), err
 }
 
@@ -338,6 +338,6 @@ func (vk *VerifyingKey) readFrom(r io.Reader, decOptions ...func(*curve.Decoder)
 	if err = dec.Decode(&vk.G); err != nil {
 		return dec.BytesRead(), err
 	}
-	err = dec.Decode(&vk.GSigma)
+	err = dec.Decode(&vk.GSigmaNeg)
 	return dec.BytesRead(), err
 }

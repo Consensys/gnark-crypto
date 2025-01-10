@@ -107,11 +107,11 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) {
 				bend := bstart + Bytes
 				b := bSlice[bstart:bend]
 				{{- range $i := reverse .NbWordsIndexesFull}}
-					{{- $j := mul $i 8}}
+					{{- $j := mul $i $.Word.ByteSize}}
 					{{- $k := sub $.NbWords 1}}
 					{{- $k := sub $k $i}}
-					{{- $jj := add $j 8}}
-					z[{{$k}}] = binary.BigEndian.Uint64(b[{{$j}}:{{$jj}}])
+					{{- $jj := add $j $.Word.ByteSize}}
+					z[{{$k}}] = binary.BigEndian.{{$.Word.TypeUpper}}(b[{{$j}}:{{$jj}}])
 				{{- end}}
 
 				if !z.smallerThanModulus() {
@@ -174,7 +174,6 @@ func (vector Vector) String() string {
     return sbb.String()
 }
 
-
 // Len is the number of elements in the collection.
 func (vector Vector) Len() int {
 	return len(vector)
@@ -190,29 +189,6 @@ func (vector Vector) Less(i, j int) bool {
 func (vector Vector) Swap(i, j int) {
 	vector[i], vector[j] = vector[j], vector[i]
 }
-
-
-{{/* For 4 elements, we have a special assembly path and copy this in ops_pure.go */}}
-{{- if ne .NbWords 4}}
-// Add adds two vectors element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) Add(a, b Vector) {
-	addVecGeneric(*vector, a, b)
-}
-
-// Sub subtracts two vectors element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) Sub(a, b Vector) {
-	subVecGeneric(*vector, a, b)
-}
-
-// ScalarMul multiplies a vector by a scalar element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
-	scalarMulVecGeneric(*vector, a, b)
-}
-{{- end}}
-
 
 
 func addVecGeneric(res, a, b Vector) {
@@ -239,6 +215,32 @@ func scalarMulVecGeneric(res, a Vector, b *{{.ElementName}}) {
 	}
 	for i := 0; i < len(a); i++ {
 		res[i].Mul(&a[i], b)
+	}
+}
+
+func sumVecGeneric(res *{{.ElementName}}, a Vector) {
+	for i := 0; i < len(a); i++ {
+		res.Add(res, &a[i])
+	}
+}
+
+func innerProductVecGeneric(res *{{.ElementName}},a, b Vector) {
+	if len(a) != len(b) {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	var tmp {{.ElementName}}
+	for i := 0; i < len(a); i++ {
+		tmp.Mul(&a[i], &b[i])
+		res.Add(res, &tmp)
+	}
+}
+
+func mulVecGeneric(res, a, b Vector) {
+	if len(a) != len(b) || len(a) != len(res) {
+		panic("vector.Mul: vectors don't have the same length")
+	}
+	for i := 0; i < len(a); i++ {
+		res[i].Mul(&a[i], &b[i])
 	}
 }
 

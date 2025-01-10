@@ -2,7 +2,9 @@ package element
 
 const OpsNoAsm = `
 
+{{- if not .F31}}
 import "math/bits"
+{{- end}}
 
 {{ $mulConsts := list 3 5 13 }}
 {{- range $i := $mulConsts }}
@@ -34,14 +36,6 @@ func MulBy{{$i}}(x *{{$.ElementName}}) {
 
 {{- end}}
 
-// Butterfly sets
-//  a = a + b (mod q)
-//  b = a - b (mod q)
-func Butterfly(a, b *{{.ElementName}}) {
-	_butterflyGeneric(a, b)
-}
-
-
 func fromMont(z *{{.ElementName}} ) {
 	_fromMontGeneric(z)
 }
@@ -50,23 +44,14 @@ func reduce(z *{{.ElementName}})  {
 	_reduceGeneric(z)
 }
 
-{{- if eq .NbWords 4}}
-// Add adds two vectors element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) Add(a, b Vector) {
-	addVecGeneric(*vector, a, b)
-}
-
-// Sub subtracts two vectors element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) Sub(a, b Vector) {
-	subVecGeneric(*vector, a, b)
-}
-
-// ScalarMul multiplies a vector by a scalar element-wise and stores the result in self.
-// It panics if the vectors don't have the same length.
-func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
-	scalarMulVecGeneric(*vector, a, b)
+{{- if $.F31}}
+func montReduce(v uint64) uint32 {
+	m := uint32(v) * qInvNeg
+	t := uint32((v + uint64(m) * q) >> 32)
+	if t >= q {
+		t -= q
+	}
+	return t
 }
 {{- end}}
 
@@ -77,7 +62,12 @@ func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
 {{- end }}
 func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 	{{- if eq $.NbWords 1}}
-		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
+		{{- if $.F31}}
+			v := uint64(x[0]) * uint64(y[0])
+			z[0] = montReduce(v)
+		{{- else}}
+			{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "y" }}
+		{{- end}}
 	{{- else }}
 		{{ mul_doc $.NoCarry }}
 		{{- if $.NoCarry}}
@@ -98,7 +88,12 @@ func (z *{{.ElementName}}) Mul(x, y *{{.ElementName}}) *{{.ElementName}} {
 func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
 	// see Mul for algorithm documentation
 	{{- if eq $.NbWords 1}}
-		{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "x" }}
+		{{- if $.F31}}
+			v := uint64(x[0]) * uint64(x[0])
+			z[0] = montReduce(v)
+		{{- else}}
+			{{ template "mul_cios_one_limb" dict "all" . "V1" "x" "V2" "x" }}
+		{{- end}}
 	{{- else }}
 		{{- if $.NoCarry}}
 			{{ template "mul_nocarry" dict "all" . "V1" "x" "V2" "x"}}
@@ -108,6 +103,13 @@ func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
 		{{ template "reduce"  . }}
 	{{- end }}
 	return z
+}
+
+// Butterfly sets
+//  a = a + b (mod q)
+//  b = a - b (mod q)
+func Butterfly(a, b *{{.ElementName}}) {
+	_butterflyGeneric(a, b)
 }
 
 `

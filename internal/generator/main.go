@@ -9,14 +9,15 @@ import (
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator"
-	field "github.com/consensys/gnark-crypto/field/generator/config"
+	fieldConfig "github.com/consensys/gnark-crypto/field/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
+	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/poseidon2"
 	"github.com/consensys/gnark-crypto/internal/generator/ecc"
 	"github.com/consensys/gnark-crypto/internal/generator/ecdsa"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
-	"github.com/consensys/gnark-crypto/internal/generator/fft"
+	"github.com/consensys/gnark-crypto/internal/generator/fflonk"
 	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
 	"github.com/consensys/gnark-crypto/internal/generator/gkr"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_field"
@@ -27,6 +28,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/permutation"
 	"github.com/consensys/gnark-crypto/internal/generator/plookup"
 	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/shplonk"
 	"github.com/consensys/gnark-crypto/internal/generator/sis"
 	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
@@ -36,35 +38,52 @@ import (
 const (
 	copyrightHolder = "Consensys Software Inc."
 	copyrightYear   = 2020
-	baseDir         = "../../"
 )
 
 var bgen = bavard.NewBatchGenerator(copyrightHolder, copyrightYear, "consensys/gnark-crypto")
 
 //go:generate go run main.go
 func main() {
-	var wg sync.WaitGroup
 
+	baseDir := filepath.Join("..", "..")
+	// first we loop through the field arithmetic we must generate.
+	// then, we create the common files (only once) for the assembly code.
+	asmDirBuildPath := filepath.Join(baseDir, "field", "asm")
+	asmDirIncludePath := filepath.Join(baseDir, "..", "field", "asm")
+
+	asmConfig := &fieldConfig.Assembly{BuildDir: asmDirBuildPath, IncludeDir: asmDirIncludePath}
+	// this enable the generation of fft functions;
+	// the parameters are hard coded in a lookup table for now for the modulus we use.
+	fftConfig := &fieldConfig.FFT{}
+
+	var wg sync.WaitGroup
 	for _, conf := range config.Curves {
 		wg.Add(1)
 		// for each curve, generate the needed files
 		go func(conf config.Curve) {
 			defer wg.Done()
+
 			var err error
+
+			conf.Fp, err = fieldConfig.NewFieldConfig("fp", "Element", conf.FpModulus, true)
+			assertNoError(err)
+
+			conf.Fr, err = fieldConfig.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
+			assertNoError(err)
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 
-			// generate base field
-			conf.Fp, err = field.NewFieldConfig("fp", "Element", conf.FpModulus, true)
-			assertNoError(err)
-
-			conf.Fr, err = field.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
-			assertNoError(err)
-
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
-			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr")))
-			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp")))
+			frOpts := []generator.Option{generator.WithASM(asmConfig)}
+			if !(conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1)) {
+				frOpts = append(frOpts, generator.WithFFT(fftConfig))
+			}
+			if conf.Equal(config.BLS12_377) {
+				frOpts = append(frOpts, generator.WithSIS())
+			}
+			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr"), frOpts...))
+			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp"), generator.WithASM(asmConfig)))
 
 			// generate ecdsa
 			assertNoError(ecdsa.Generate(conf, curveDir, bgen))
@@ -89,15 +108,18 @@ func main() {
 			// generate fri on fr
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
 
-			// generate fft on fr
-			assertNoError(fft.Generate(conf, filepath.Join(curveDir, "fr", "fft"), bgen))
-
 			if conf.Equal(config.BN254) || conf.Equal(config.BLS12_377) {
 				assertNoError(sis.Generate(conf, filepath.Join(curveDir, "fr", "sis"), bgen))
 			}
 
 			// generate kzg on fr
 			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), bgen))
+
+			// generate shplonk on fr
+			assertNoError(shplonk.Generate(conf, filepath.Join(curveDir, "shplonk"), bgen))
+
+			// generate fflonk on fr
+			assertNoError(fflonk.Generate(conf, filepath.Join(curveDir, "fflonk"), bgen))
 
 			// generate pedersen on fr
 			assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), bgen))
@@ -110,6 +132,9 @@ func main() {
 
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
+
+			// generate poseidon2 on fr
+			assertNoError(poseidon2.Generate(conf, filepath.Join(curveDir, "fr", "poseidon2"), bgen))
 
 			frInfo := config.FieldDependency{
 				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",

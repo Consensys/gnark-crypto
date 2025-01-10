@@ -1,30 +1,24 @@
-// Copyright 2020 ConsenSys Software Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright 2020-2025 Consensys Software Inc.
+// Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
 package hash
 
 import (
+	"fmt"
 	"hash"
-
-	bls377 "github.com/consensys/gnark-crypto/ecc/bls12-377/fr/mimc"
-	bls381 "github.com/consensys/gnark-crypto/ecc/bls12-381/fr/mimc"
-	bls315 "github.com/consensys/gnark-crypto/ecc/bls24-315/fr/mimc"
-	bls317 "github.com/consensys/gnark-crypto/ecc/bls24-317/fr/mimc"
-	bn254 "github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
-	bw633 "github.com/consensys/gnark-crypto/ecc/bw6-633/fr/mimc"
-	bw761 "github.com/consensys/gnark-crypto/ecc/bw6-761/fr/mimc"
+	"strings"
 )
+
+var hashes = make([]func() hash.Hash, maxHash)
+
+// RegisterHash registers a new hash function constructor. Should be called in
+// the init function of the hash package.
+//
+// To register all known hash functions in gnark-crypto, import the
+// [github.com/consensys/gnark-crypto/hash/all] package in your code.
+func RegisterHash(h Hash, new func() hash.Hash) {
+	hashes[h] = new
+}
 
 // Hash defines an unique identifier for a hash function.
 type Hash uint
@@ -44,6 +38,8 @@ const (
 	MIMC_BLS24_317
 	// MIMC_BW6_633 is the MiMC hash function for the BW6-633 curve.
 	MIMC_BW6_633
+
+	maxHash
 )
 
 // size of digests in bytes
@@ -57,26 +53,21 @@ var digestSize = []uint8{
 	MIMC_BW6_633:   80,
 }
 
-// New initializes the hash function.
+// New initializes the hash function. This is a convenience function which does
+// not allow setting hash-specific options.
 func (m Hash) New() hash.Hash {
-	switch m {
-	case MIMC_BN254:
-		return bn254.NewMiMC()
-	case MIMC_BLS12_381:
-		return bls381.NewMiMC()
-	case MIMC_BLS12_377:
-		return bls377.NewMiMC()
-	case MIMC_BW6_761:
-		return bw761.NewMiMC()
-	case MIMC_BLS24_315:
-		return bls315.NewMiMC()
-	case MIMC_BLS24_317:
-		return bls317.NewMiMC()
-	case MIMC_BW6_633:
-		return bw633.NewMiMC()
-	default:
-		panic("Unknown mimc ID")
+	if m < maxHash {
+		f := hashes[m]
+		if f != nil {
+			return f()
+		}
 	}
+	pkgname, _ := strings.CutPrefix(m.String(), "MIMC_")
+	pkgname = strings.ToLower(pkgname)
+	pkgname = strings.ReplaceAll(pkgname, "_", "-")
+	msg := fmt.Sprintf(`requested hash function #%s not registered. Import the corresponding package to register it:
+	import _ "github.com/consensys/gnark-crypto/ecc/%s/fr/mimc"`, m.String(), pkgname)
+	panic(msg)
 }
 
 // String returns the unique identifier of the hash function.
@@ -85,24 +76,28 @@ func (m Hash) String() string {
 	case MIMC_BN254:
 		return "MIMC_BN254"
 	case MIMC_BLS12_381:
-		return "MIMC_BLS381"
+		return "MIMC_BLS12_381"
 	case MIMC_BLS12_377:
-		return "MIMC_BLS377"
+		return "MIMC_BLS12_377"
 	case MIMC_BW6_761:
-		return "MIMC_BW761"
+		return "MIMC_BW6_761"
 	case MIMC_BLS24_315:
-		return "MIMC_BLS315"
+		return "MIMC_BLS24_315"
 	case MIMC_BLS24_317:
-		return "MIMC_BLS317"
+		return "MIMC_BLS24_317"
 	case MIMC_BW6_633:
-		return "MIMC_BW633"
+		return "MIMC_BW6_633"
 	default:
-		panic("Unknown mimc ID")
+		return "unknown hash function"
 	}
 }
 
-// Size returns the size of the digest of
-// the corresponding hash function
+// Available returns true if the hash function is available.
+func (m Hash) Available() bool {
+	return m < maxHash && hashes[m] != nil
+}
+
+// Size returns the size of the digest of the corresponding hash function
 func (m Hash) Size() int {
 	return int(digestSize[m])
 }

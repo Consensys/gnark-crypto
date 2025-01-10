@@ -1,16 +1,5 @@
-// Copyright 2020 ConsenSys Software Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright 2020-2025 Consensys Software Inc.
+// Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
 package amd64
 
@@ -305,11 +294,10 @@ func (fq2 *Fq2Amd64) generateMulDefine() {
 		return string(op2[i])
 	}
 
-	wd := writerDefine{fq2.w}
-	tw := gamd64.NewFFAmd64(&wd, fq2.F)
+	wd := writerDefine{fq2.w, 0, false}
+	tw := gamd64.NewFFAmd64(&wd, fq2.F.NbWords)
 
 	_, _ = io.WriteString(fq2.w, "// this code is generated and identical to fp.Mul(...)\n")
-	_, _ = io.WriteString(fq2.w, "#define MUL() \\ \n")
 	tw.MulADX(&r, xat, yat, res)
 }
 
@@ -339,10 +327,25 @@ func (fq2 *Fq2Amd64) mulElement() {
 }
 
 type writerDefine struct {
-	w io.Writer
+	w       io.Writer
+	cptXORQ int
+	first   bool
 }
 
 func (w *writerDefine) Write(p []byte) (n int, err error) {
+	// TODO @gbotrel temporary hack to re-use new struct in mul;
+	// then if it's the first time we are here, we print the header
+	if strings.Contains(string(p), "mul body") {
+		w.first = true
+		n, err = io.WriteString(w.w, "#define MUL() \\ \n")
+		if err != nil {
+			return
+		}
+	}
+	if !w.first {
+		return w.w.Write(p)
+	}
+
 	line := string(p)
 	line = strings.TrimSpace(line)
 	if strings.HasPrefix(line, "//") {

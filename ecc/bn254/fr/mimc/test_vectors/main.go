@@ -3,9 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
-	"os"
 )
 
 type numericalMiMCTestCase struct {
@@ -22,6 +23,7 @@ func assertNoError(err error) {
 
 //go:generate go run main.go
 func main() {
+	fmt.Println("generating test vectors for MiMC...")
 	var tests []numericalMiMCTestCase
 
 	bytes, err := os.ReadFile("./vectors.json")

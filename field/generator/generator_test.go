@@ -1,16 +1,5 @@
-// Copyright 2020 ConsenSys Software Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright 2020-2025 Consensys Software Inc.
+// Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
 package generator
 
@@ -21,9 +10,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/field/generator/config"
 	field "github.com/consensys/gnark-crypto/field/generator/config"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 // integration test will create modulus for various field sizes and run tests
@@ -31,17 +24,20 @@ import (
 const rootDir = "integration_test"
 
 func TestIntegration(t *testing.T) {
+	assert := require.New(t)
+	asmDir := filepath.Join("..", "asm")
+	asmDirIncludePath := filepath.Join("..", "..", "..", "asm")
+
 	os.RemoveAll(rootDir)
 	err := os.MkdirAll(rootDir, 0700)
 	defer os.RemoveAll(rootDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(err)
 
 	var bits []int
 	for i := 64; i <= 448; i += 64 {
 		bits = append(bits, i-3, i-2, i-1, i, i+1)
 	}
+	bits = append(bits, 224, 225, 226)
 
 	moduli := make(map[string]string)
 	for _, i := range bits {
@@ -74,16 +70,12 @@ func TestIntegration(t *testing.T) {
 	moduli["e_nocarry_edge_1279"] = "10407932194664399081925240327364085538615262247266704805319112350403608059673360298012239441732324184842421613954281007791383566248323464908139906605677320762924129509389220345773183349661583550472959420547689811211693677147548478866962501384438260291732348885311160828538416585028255604666224831890918801847068222203140521026698435488732958028878050869736186900714720710555703168729087"
 
 	for elementName, modulus := range moduli {
-		var fIntegration *field.FieldConfig
+		var fIntegration *field.Field
 		// generate field
 		childDir := filepath.Join(rootDir, elementName)
 		fIntegration, err = field.NewFieldConfig("integration", elementName, modulus, false)
-		if err != nil {
-			t.Fatal(elementName, err)
-		}
-		if err = GenerateFF(fIntegration, childDir); err != nil {
-			t.Fatal(elementName, err)
-		}
+		assert.NoError(err)
+		assert.NoError(GenerateFF(fIntegration, childDir, WithASM(&config.Assembly{BuildDir: asmDir, IncludeDir: asmDirIncludePath})))
 	}
 
 	// run go test
@@ -91,14 +83,39 @@ func TestIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	packageDir := filepath.Join(wd, rootDir) + string(filepath.Separator) + "..."
-	cmd := exec.Command("go", "test", packageDir)
-	if err := cmd.Run(); err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			t.Fatal(string(exitErr.Stderr))
-		} else {
-			t.Fatal(err)
+	packageDir := filepath.Join(wd, rootDir) // + string(filepath.Separator) + "..."
+
+	// list all subdirectories in package dir
+	var subDirs []string
+	err = filepath.Walk(packageDir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() && path != packageDir {
+			subDirs = append(subDirs, path)
 		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	errGroup := errgroup.Group{}
+
+	for _, subDir := range subDirs {
+		// run go test in parallel
+		errGroup.Go(func() error {
+			cmd := exec.Command("go", "test")
+			cmd.Dir = subDir
+			var stdouterr strings.Builder
+			cmd.Stdout = &stdouterr
+			cmd.Stderr = &stdouterr
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("go test failed, output:\n%s\n%s", stdouterr.String(), err)
+			}
+			return nil
+		})
+	}
+
+	if err := errGroup.Wait(); err != nil {
+		t.Fatal(err)
 	}
 
 }

@@ -2,6 +2,9 @@ package element
 
 // MulCIOS text book CIOS works for all modulus.
 //
+// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS"
+// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
+//
 // There are couple of variations to the multiplication (and squaring) algorithms.
 //
 // All versions are derived from the Montgomery CIOS algorithm: see
@@ -107,7 +110,6 @@ const MulCIOS = `
 	// Which finally gives (lo + m * q) / R = (lo + lo2 + R hi2) / R = hi2 + (lo+lo2) / R = hi2 + (lo != 0)
 	// This "optimization" lets us do away with one MUL instruction on ARM architectures and is available for all q < R.
 
-	var r uint64
 	hi, lo := bits.Mul64({{$.V1}}[0], {{$.V2}}[0])
 	if lo != 0 {
 		hi++ // x[0] * y[0] ≤ 2¹²⁸ - 2⁶⁵ + 1, meaning hi ≤ 2⁶⁴ - 2 so no need to worry about overflow
@@ -115,60 +117,17 @@ const MulCIOS = `
 	m := lo * qInvNeg
 	hi2, _ := bits.Mul64(m, q)
 	r, carry := bits.Add64(hi2, hi, 0)
-
 	if carry != 0 || r >= q  {
 		// we need to reduce
-		r -= q 
+		r -= q
 	}
-	z[0] = r 
+	z[0] = r
 {{ end }}
 `
 
 const MulDoc = `
 {{define "mul_doc noCarry"}}
-// Implements CIOS multiplication -- section 2.3.2 of Tolga Acar's thesis
-// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
-// 
-// The algorithm:
-// 
-// for i=0 to N-1
-// 		C := 0
-// 		for j=0 to N-1
-// 			(C,t[j]) := t[j] + x[j]*y[i] + C
-// 		(t[N+1],t[N]) := t[N] + C
-//		
-// 		C := 0
-// 		m := t[0]*q'[0] mod D
-// 		(C,_) := t[0] + m*q[0]
-// 		for j=1 to N-1
-// 			(C,t[j-1]) := t[j] + m*q[j] + C
-//		
-// 		(C,t[N-1]) := t[N] + C
-// 		t[N] := t[N+1] + C
-//
-// → N is the number of machine words needed to store the modulus q
-// → D is the word size. For example, on a 64-bit architecture D is 2	64
-// → x[i], y[i], q[i] is the ith word of the numbers x,y,q
-// → q'[0] is the lowest word of the number -q⁻¹ mod r. This quantity is pre-computed, as it does not depend on the inputs.
-// → t is a temporary array of size N+2 
-// → C, S are machine words. A pair (C,S) refers to (hi-bits, lo-bits) of a two-word number
-{{- if .noCarry}}
-// 
-// As described here https://hackmd.io/@gnark/modular_multiplication we can get rid of one carry chain and simplify:
-// (also described in https://eprint.iacr.org/2022/1400.pdf annex)
-//
-// for i=0 to N-1
-// 		(A,t[0]) := t[0] + x[0]*y[i] 
-// 		m := t[0]*q'[0] mod W
-// 		C,_ := t[0] + m*q[0]
-// 		for j=1 to N-1
-// 			(A,t[j])  := t[j] + x[j]*y[i] + A
-// 			(C,t[j-1]) := t[j] + m*q[j] + C
-//		
-// 		t[N-1] = C + A
-//
-// This optimization saves 5N + 2 additions in the algorithm, and can be used whenever the highest bit 
-// of the modulus is zero (and not all of the remaining bits are set).
-{{- end}}
+// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS" 
+// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
 {{ end }}
 `
