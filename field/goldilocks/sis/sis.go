@@ -65,7 +65,11 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	// that is, to fill m, we need [degree * n * logTwoBound] bits of data
 
 	// First n <- #limbs to represent a single field element
-	n := goldilocks.Bytes / (logTwoBound / 8) // logTwoBound / 8 --> nbBytes per limb
+	nbBytesPerLimb := logTwoBound / 8
+	if goldilocks.Bytes%nbBytesPerLimb != 0 {
+		return nil, errors.New("nbBytesPerLimb must divide field size")
+	}
+	n := goldilocks.Bytes / nbBytesPerLimb
 
 	// Then multiply by the number of field elements
 	n *= maxNbElementsToHash
@@ -134,7 +138,10 @@ func (r *RSis) Hash(v, res []goldilocks.Element) error {
 	k := make([]goldilocks.Element, r.Degree)
 
 	// inner hash
-	r.InnerHash(&VectorIterator{v: v}, res, k)
+	it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
+	for i := 0; i < len(r.Ag); i++ {
+		r.InnerHash(it, res, k, i)
+	}
 
 	// reduces mod Xᵈ+1
 	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1))
@@ -142,34 +149,30 @@ func (r *RSis) Hash(v, res []goldilocks.Element) error {
 	return nil
 }
 
-func (r *RSis) InnerHash(it ElementIterator, res, k goldilocks.Vector) {
-	reader := NewLimbIterator(it, r.LogTwoBound/8)
-
-	for i := 0; i < len(r.Ag); i++ {
-		zero := uint64(0)
-		for j := 0; j < r.Degree; j += 2 {
-			k[j].SetZero()
-			k[j+1].SetZero()
-
-			// read limbs 2 by 2 since degree is a power of 2 (> 1)
-			l := reader.NextLimb()
-			zero |= l
-			k[j][0] = l
-
-			l2 := reader.NextLimb()
-			zero |= l2
-			k[j+1][0] = l2
+func (r *RSis) InnerHash(it *LimbIterator, res, k goldilocks.Vector, polId int) {
+	zero := uint64(0)
+	for j := 0; j < r.Degree; j++ {
+		l, ok := it.NextLimb()
+		if !ok {
+			// we need to pad; note that we should use a deterministic padding
+			// other than 0, but it is not an issue for the current use cases.
+			for m := j; m < r.Degree; m++ {
+				k[m].SetZero()
+			}
+			break
 		}
-		if zero == 0 {
-			// means m[i*r.Degree : (i+1)*r.Degree] == [0...0]
-			// we can skip this, FFT(0) = 0
-			continue
-		}
-
-		r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-		mulModAcc(res, r.Ag[i], k)
+		zero |= l
+		k[j].SetZero()
+		k[j][0] = l
+	}
+	if zero == 0 {
+		// means m[i*r.Degree : (i+1)*r.Degree] == [0...0]
+		// we can skip this, FFT(0) = 0
+		return
 	}
 
+	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+	mulModAcc(res, r.Ag[polId], k)
 }
 
 // mulModAcc computes p * q in ℤ_{p}[X]/Xᵈ+1.
@@ -210,6 +213,10 @@ type ElementIterator interface {
 type VectorIterator struct {
 	v goldilocks.Vector
 	i int
+}
+
+func NewVectorIterator(v goldilocks.Vector) *VectorIterator {
+	return &VectorIterator{v: v}
 }
 
 func (vi *VectorIterator) Next() (goldilocks.Element, bool) {
@@ -260,13 +267,21 @@ func NewLimbIterator(it ElementIterator, limbSize int) *LimbIterator {
 // NextLimb returns the next limb of the vector.
 // This does not perform any bound check, may trigger an out of bound panic.
 // If underlying vector is "out of limb"
-func (vr *LimbIterator) NextLimb() uint64 {
+func (vr *LimbIterator) NextLimb() (uint64, bool) {
 	if vr.j == goldilocks.Bytes {
+		next, ok := vr.it.Next()
+		if !ok {
+			return 0, false
+		}
 		vr.j = 0
-		next, _ := vr.it.Next()
 		goldilocks.LittleEndian.PutElement(&vr.buf, next)
 	}
-	return vr.next(vr.buf[:], &vr.j)
+	return vr.next(vr.buf[:], &vr.j), true
+}
+
+func (vr *LimbIterator) Reset(it ElementIterator) {
+	vr.it = it
+	vr.j = goldilocks.Bytes
 }
 
 func nextUint8(buf []byte, pos *int) uint64 {

@@ -303,6 +303,7 @@ func BenchmarkFFTDIFReference(b *testing.B) {
 	}
 }
 
+
 func evaluatePolynomial(pol []{{ .FF }}.Element, val {{ .FF }}.Element) {{ .FF }}.Element {
 	var acc, res, tmp {{ .FF }}.Element
 	res.Set(&pol[0])

@@ -92,6 +92,7 @@ func TestReference(t *testing.T) {
 }
 
 func TestLimbDecomposeBytes(t *testing.T) {
+	assert := require.New(t)
 
 	var montConstant babybear.Element
 	var bMontConstant big.Int
@@ -110,8 +111,10 @@ func TestLimbDecomposeBytes(t *testing.T) {
 	for cc := 0; cc < 1; cc++ {
 		vr := NewLimbIterator(&VectorIterator{v: a}, logTwoBound/8)
 		m := make(babybear.Vector, nbElmts*babybear.Bytes*8/logTwoBound)
+		var ok bool
 		for i := 0; i < len(m); i++ {
-			m[i][0] = vr.NextLimb()
+			m[i][0], ok = vr.NextLimb()
+			assert.True(ok)
 		}
 
 		for i := 0; i < len(m); i++ {
@@ -124,9 +127,7 @@ func TestLimbDecomposeBytes(t *testing.T) {
 		coeffsPerFieldsElmt := babybear.Bytes * 8 / logTwoBound
 		for i := 0; i < nbElmts; i++ {
 			r := eval(m[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
-			if !r.Equal(&a[i]) {
-				t.Fatal("limbDecomposeBytes failed")
-			}
+			assert.True(r.Equal(&a[i]), "limbDecomposeBytes failed")
 		}
 		logTwoBound *= 2
 	}
