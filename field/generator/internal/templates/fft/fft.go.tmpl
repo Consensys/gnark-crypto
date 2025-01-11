@@ -11,7 +11,7 @@ import (
 {{ $sizeKernelLog2 := 8}}
 {{ $sizeKernel := shl 1 $sizeKernelLog2}}
 
-{{ $sizeKernel2Log2 := 5}}
+{{ $sizeKernel2Log2 := 6}}
 {{ $sizeKernel2 := shl 1 $sizeKernel2Log2}}
 
 // Decimation is used in the FFT call to select decimation in time or in frequency
@@ -31,7 +31,7 @@ const butterflyThreshold = 16
 func (domain *Domain) FFT(a []{{ .FF }}.Element, decimation Decimation, opts ...Option) {
 	// perf note; this option pattern actually allocates on the heap and comes at a cost when
 	// doing many small FFTs!
-	opt := fftOptions(opts...)
+	opt := fftOptions(opts)
 
 	// find the stage where we should stop spawning go routines in our recursive calls
 	// (ie when we have as many go routines running as we have available CPUs)
@@ -111,7 +111,7 @@ func (domain *Domain) FFT(a []{{ .FF }}.Element, decimation Decimation, opts ...
 // coset sets the shift of the fft (0 = no shift, standard fft)
 // len(a) must be a power of 2, and w must be a len(a)th root of unity in field F.
 func (domain *Domain) FFTInverse(a []{{ .FF }}.Element, decimation Decimation, opts ...Option) {
-	opt := fftOptions(opts...)
+	opt := fftOptions(opts)
 
 	// find the stage where we should stop spawning go routines in our recursive calls
 	// (ie when we have as many go routines running as we have available CPUs)
@@ -381,7 +381,6 @@ func innerDITWithoutTwiddles(a []{{ .FF }}.Element, at, w {{ .FF }}.Element, sta
 
 {{genKernel $.FF $sizeKernel $sizeKernelLog2}}
 {{genKernel $.FF $sizeKernel2 $sizeKernel2Log2}}
-{{genKernel $.FF 64 6}}
 
 {{define "genKernel FF sizeKernel sizeKernelLog2"}}
 

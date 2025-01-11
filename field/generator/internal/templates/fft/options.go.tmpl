@@ -7,7 +7,7 @@ import (
 // Option defines option for altering the behavior of FFT methods.
 // See the descriptions of functions returning instances of this type for
 // particular options.
-type Option func(*fftConfig)
+type Option func(fftConfig) fftConfig
 
 type fftConfig struct {
 	coset   bool
@@ -16,8 +16,9 @@ type fftConfig struct {
 
 // OnCoset if provided, FFT(a) returns the evaluation of a on a coset.
 func OnCoset() Option {
-	return func(opt *fftConfig) {
+	return func(opt fftConfig)fftConfig {
 		opt.coset = true
+		return opt
 	}
 }
 
@@ -28,20 +29,22 @@ func WithNbTasks(nbTasks int) Option {
 	} else if nbTasks > 512 {
 		nbTasks = 512
 	}
-	return func(opt *fftConfig) {
+	return func(opt fftConfig) fftConfig {
 		opt.nbTasks = nbTasks
+		return opt
 	}
 }
 
+
 // default options
-func fftOptions(opts ...Option) fftConfig {
+func fftOptions(opts []Option) fftConfig {
 	// apply options
 	opt := fftConfig{
 		coset:   false,
 		nbTasks: runtime.NumCPU(),
 	}
 	for _, option := range opts {
-		option(&opt)
+		opt = option(opt)
 	}
 	return opt
 }
