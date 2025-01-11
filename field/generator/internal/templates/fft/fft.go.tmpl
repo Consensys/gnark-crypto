@@ -11,8 +11,6 @@ import (
 {{ $sizeKernelLog2 := 8}}
 {{ $sizeKernel := shl 1 $sizeKernelLog2}}
 
-{{ $sizeKernel2Log2 := 5}}
-{{ $sizeKernel2 := shl 1 $sizeKernel2Log2}}
 
 // Decimation is used in the FFT call to select decimation in time or in frequency
 type Decimation uint8
@@ -29,7 +27,8 @@ const butterflyThreshold = 16
 // if decimation == DIT (decimation in time), the input must be in bit-reversed order
 // if decimation == DIF (decimation in frequency), the output will be in bit-reversed order
 func (domain *Domain) FFT(a []{{ .FF }}.Element, decimation Decimation, opts ...Option) {
-
+	// perf note; this option pattern actually allocates on the heap and comes at a cost when
+	// doing many small FFTs!
 	opt := fftOptions(opts...)
 
 	// find the stage where we should stop spawning go routines in our recursive calls
@@ -202,15 +201,9 @@ func difFFT(a []{{ .FF }}.Element, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.E
 	n := len(a)
 	if n == 1 {
 		return
-	} else if  stage >= twiddlesStartStage {
-		if n == {{$sizeKernel}} {
-			kerDIFNP_{{$sizeKernel}}(a, twiddles, stage-twiddlesStartStage)
-			return
-		} else if n == {{$sizeKernel2}} {
-			kerDIFNP_{{$sizeKernel2}}(a, twiddles, stage-twiddlesStartStage)
-			return
-		}
-		
+	} else if  n == {{$sizeKernel}} && stage >= twiddlesStartStage {
+		kerDIFNP_{{$sizeKernel}}(a, twiddles, stage-twiddlesStartStage)
+		return
 	}
 	m := n >> 1
 
@@ -294,15 +287,9 @@ func ditFFT(a []{{ .FF }}.Element, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.E
 	n := len(a)
 	if n == 1 {
 		return
-	} else if stage >= twiddlesStartStage {
-		if n == {{$sizeKernel2}} {
-			kerDITNP_{{$sizeKernel2}}(a, twiddles, stage-twiddlesStartStage)
-			return
-		} else if n == {{$sizeKernel}} {
-			kerDITNP_{{$sizeKernel}}(a, twiddles, stage-twiddlesStartStage)
-			return
-		}
-		
+	} else if n == {{$sizeKernel}} && stage >= twiddlesStartStage {
+		kerDITNP_{{$sizeKernel}}(a, twiddles, stage-twiddlesStartStage)
+		return
 	}
 	
 	m := n >> 1
@@ -379,7 +366,6 @@ func innerDITWithoutTwiddles(a []{{ .FF }}.Element, at, w {{ .FF }}.Element, sta
 }
 
 {{genKernel $.FF $sizeKernel $sizeKernelLog2}}
-{{genKernel $.FF $sizeKernel2 $sizeKernel2Log2}}
 
 {{define "genKernel FF sizeKernel sizeKernelLog2"}}
 
@@ -439,6 +425,3 @@ func kerDITNP_{{.sizeKernel}}(a []{{ .FF }}.Element, twiddles [][]{{ .FF }}.Elem
 }
 
 {{end}}
-
-
-

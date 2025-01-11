@@ -37,6 +37,9 @@ type RSis struct {
 	Domain *fft.Domain
 
 	maxNbElementsToHash int
+
+	smallFFT      func([]babybear.Element)
+	twiddlesCoset []babybear.Element // used in conjunction with the smallFFT;
 }
 
 // NewRSis creates an instance of RSis.
@@ -95,6 +98,18 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		A:                   make([][]babybear.Element, n),
 		Ag:                  make([][]babybear.Element, n),
 		maxNbElementsToHash: maxNbElementsToHash,
+	}
+
+	r.smallFFT = func(p []babybear.Element) {
+		r.Domain.FFT(p, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+	}
+
+	// if we have a FFT kernel of the size of the domain cardinality, we use it.
+	if r.Domain.Cardinality == 64 {
+		r.twiddlesCoset = PrecomputeTwiddlesCoset(r.Domain.Generator, shift)
+		r.smallFFT = func(a []babybear.Element) {
+			FFT64(a, r.twiddlesCoset)
+		}
 	}
 
 	// filling A
@@ -171,7 +186,16 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k babybear.Vector, polId int) {
 		return
 	}
 
-	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+	// r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+	// for perf, we use directly what's exposed;
+	r.smallFFT(k)
+	// k.Mul(k, fr.Vector(r.cosetTable))
+	// if r.Domain.KernelDIF != nil {
+	// 	r.Domain.KernelDIF(k)
+	// } else {
+	// 	r.Domain.FFT(k, fft.DIF, fft.WithNbTasks(1))
+	// }
+
 	mulModAcc(res, r.Ag[polId], k)
 }
 

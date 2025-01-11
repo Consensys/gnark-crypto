@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/consensys/bavard"
@@ -18,11 +17,10 @@ func generateSIS(F *config.Field, outputDir string) error {
 	outputDir = filepath.Join(outputDir, "sis")
 
 	entries := []bavard.Entry{
+		{File: filepath.Join(outputDir, "sis_fft.go"), Templates: []string{"fft.go.tmpl"}},
 		{File: filepath.Join(outputDir, "sis.go"), Templates: []string{"sis.go.tmpl"}},
 		{File: filepath.Join(outputDir, "sis_test.go"), Templates: []string{"sis.test.go.tmpl"}},
 	}
-
-	os.Remove(filepath.Join(outputDir, "sis_fft.go"))
 
 	funcs := make(map[string]interface{})
 	funcs["bitReverse"] = bitReverse
