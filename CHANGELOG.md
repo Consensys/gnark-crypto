@@ -1225,7 +1225,7 @@
 - dusted off polynomial.go (bls377, no code gen yet)
 
 ### Perf
-- remove unecessary inverse in KZG-verify
+- remove unnecessary inverse in KZG-verify
 - faster GLV scalar decompostion
 
 ### Refactor
