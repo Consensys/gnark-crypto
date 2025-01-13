@@ -119,7 +119,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 			r.Domain.FFT(p, fft.DIF)
 		}
 	}
-
 	// filling A
 	a := make([]fr.Element, n*r.Degree)
 	ag := make([]fr.Element, n*r.Degree)
@@ -135,7 +134,8 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 
 			// fill Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
 			copy(r.Ag[i], r.A[i])
-			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+			// r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+			r.smallFFT(r.Ag[i])
 		}
 	})
 
@@ -198,20 +198,11 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k fr.Vector, polId int) {
 	// 	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 	r.smallFFT(k)
 
-	mulModAcc(res, r.Ag[polId], k)
-}
-
-// mulModAcc computes p * q in ℤ_{p}[X]/Xᵈ+1.
-// Is assumed that pLagrangeShifted and qLagrangeShifted are of the correct sizes
-// and that they are in evaluation form on √(g) * <g>
-// The result is not FFTinversed. The fft inverse is done once every
-// multiplications are done.
-// then accumulates the mulMod result in res.
-// qLagrangeCosetBitReversed and res are mutated.
-// pLagrangeCosetBitReversed is not mutated.
-func mulModAcc(res, pLagrangeCosetBitReversed, qLagrangeCosetBitReversed fr.Vector) {
-	qLagrangeCosetBitReversed.Mul(qLagrangeCosetBitReversed, pLagrangeCosetBitReversed)
-	res.Add(res, qLagrangeCosetBitReversed)
+	// we compute k * r.Ag[polId] in ℤ_{p}[X]/Xᵈ+1.
+	// k and r.Ag[polId] are in evaluation form on √(g) * <g>
+	// we accumulate the result in res; the FFT inverse is done once every multiplications are done.
+	k.Mul(k, fr.Vector(r.Ag[polId]))
+	res.Add(res, k)
 }
 
 func deriveRandomElementFromSeed(seed, i, j int64) fr.Element {
@@ -236,15 +227,18 @@ type ElementIterator interface {
 	Next() (fr.Element, bool)
 }
 
+// VectorIterator iterates over a vector of field element.
 type VectorIterator struct {
 	v fr.Vector
 	i int
 }
 
+// NewVectorIterator creates a new VectorIterator
 func NewVectorIterator(v fr.Vector) *VectorIterator {
 	return &VectorIterator{v: v}
 }
 
+// Next returns the next element of the vector.
 func (vi *VectorIterator) Next() (fr.Element, bool) {
 	if vi.i == len(vi.v) {
 		return fr.Element{}, false
@@ -253,7 +247,7 @@ func (vi *VectorIterator) Next() (fr.Element, bool) {
 	return vi.v[vi.i-1], true
 }
 
-// LimbIterator iterates over a vector of field element, limb by limb.
+// LimbIterator iterates over a stream of field elements, limb by limb.
 type LimbIterator struct {
 	it  ElementIterator
 	buf [fr.Bytes]byte
@@ -264,8 +258,7 @@ type LimbIterator struct {
 }
 
 // NewLimbIterator creates a new LimbIterator
-// v: the vector to read
-// limbSize: the size of the limb in bytes (1, 2, 4 or 8)
+// it is an iterator over a stream of field elements
 // The elements are interpreted in little endian.
 // The limb is also in little endian.
 func NewLimbIterator(it ElementIterator, limbSize int) *LimbIterator {
@@ -291,8 +284,6 @@ func NewLimbIterator(it ElementIterator, limbSize int) *LimbIterator {
 }
 
 // NextLimb returns the next limb of the vector.
-// This does not perform any bound check, may trigger an out of bound panic.
-// If underlying vector is "out of limb"
 func (vr *LimbIterator) NextLimb() (uint64, bool) {
 	if vr.j == fr.Bytes {
 		next, ok := vr.it.Next()
@@ -305,6 +296,7 @@ func (vr *LimbIterator) NextLimb() (uint64, bool) {
 	return vr.next(vr.buf[:], &vr.j), true
 }
 
+// Reset resets the iterator with a new ElementIterator.
 func (vr *LimbIterator) Reset(it ElementIterator) {
 	vr.it = it
 	vr.j = fr.Bytes
