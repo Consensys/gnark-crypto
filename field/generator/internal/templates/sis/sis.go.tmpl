@@ -105,10 +105,13 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		return nil, err
 	}
 	
+	// perf note: we have a dedicated path for 64, as it correspond to the parameters
+	// used by linea-monorepo prover with bls12377 curve. 
+	// once the linea prover switches to smaller fields, this path can be removed.
 	if r.Domain.Cardinality == 64 {
-		twiddlesCoset := PrecomputeTwiddlesCoset(r.Domain.Generator, shift)
+		twiddlesCoset := precomputeTwiddlesCoset(r.Domain.Generator, shift)
 		r.smallFFT = func(p {{ .FF }}.Vector) {
-			FFT64(p, twiddlesCoset)
+			fft64(p, twiddlesCoset)
 		}
 	} else {
 		r.smallFFT = func(p {{ .FF }}.Vector) {
@@ -192,10 +195,8 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k {{ .FF }}.Vector, polId int) {
 		return
 	}
 
-	// r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-	// for perf, we use directly what's exposed;
-	// k.Mul(k, fr.Vector(r.cosetTable))
-	// r.Domain.FFT(k, fft.DIF)
+	// this is equivalent to: 
+	// 	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 	r.smallFFT(k)
 	
 	mulModAcc(res, r.Ag[polId], k)
