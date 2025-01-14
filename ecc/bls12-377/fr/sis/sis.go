@@ -37,9 +37,9 @@ type RSis struct {
 	Domain *fft.Domain
 
 	maxNbElementsToHash int
+	smallFFT            func(k fr.Vector, mask uint64)
 
-	smallFFT   func(fr.Vector)
-	cosetTable []fr.Element // used in conjunction with the smallFFT;
+	kz fr.Vector // zeroes used to zeroize the limbs buffer faster.
 }
 
 // NewRSis creates an instance of RSis.
@@ -97,28 +97,30 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		Domain:              fft.NewDomain(uint64(degree), fft.WithShift(shift)),
 		A:                   make([][]fr.Element, n),
 		Ag:                  make([][]fr.Element, n),
+		kz:                  make(fr.Vector, degree),
 		maxNbElementsToHash: maxNbElementsToHash,
 	}
-
-	r.cosetTable, err = r.Domain.CosetTable()
-	if err != nil {
-		return nil, err
-	}
-
-	// perf note: we have a dedicated path for 64, as it correspond to the parameters
-	// used by linea-monorepo prover with bls12377 curve.
-	// once the linea prover switches to smaller fields, this path can be removed.
-	if r.Domain.Cardinality == 64 {
+	if r.Degree == 64 {
+		// precompute twiddles for the unrolled FFT
 		twiddlesCoset := precomputeTwiddlesCoset(r.Domain.Generator, shift)
-		r.smallFFT = func(p fr.Vector) {
-			fft64(p, twiddlesCoset)
+		r.smallFFT = func(k fr.Vector, mask uint64) {
+			if mask == ^uint64(0) {
+				mask = uint64(len(partialFFT_64) - 1)
+			}
+			partialFFT_64[mask](k, twiddlesCoset)
 		}
 	} else {
-		r.smallFFT = func(p fr.Vector) {
-			p.Mul(p, fr.Vector(r.cosetTable))
-			r.Domain.FFT(p, fft.DIF)
+		cosetTable, err := r.Domain.CosetTable()
+		if err != nil {
+			return nil, err
+		}
+
+		r.smallFFT = func(k fr.Vector, mask uint64) {
+			k.Mul(k, fr.Vector(cosetTable))
+			r.Domain.FFT(k, fft.DIF)
 		}
 	}
+
 	// filling A
 	a := make([]fr.Element, n*r.Degree)
 	ag := make([]fr.Element, n*r.Degree)
@@ -134,8 +136,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 
 			// fill Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
 			copy(r.Ag[i], r.A[i])
-			// r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-			r.smallFFT(r.Ag[i])
+			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
 	})
 
@@ -163,7 +164,7 @@ func (r *RSis) Hash(v, res []fr.Element) error {
 	// inner hash
 	it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
 	for i := 0; i < len(r.Ag); i++ {
-		r.InnerHash(it, res, k, i)
+		r.InnerHash(it, res, k, r.kz, i, ^uint64(0))
 	}
 
 	// reduces mod Xᵈ+1
@@ -172,20 +173,15 @@ func (r *RSis) Hash(v, res []fr.Element) error {
 	return nil
 }
 
-func (r *RSis) InnerHash(it *LimbIterator, res, k fr.Vector, polId int) {
+func (r *RSis) InnerHash(it *LimbIterator, res, k, kz fr.Vector, polId int, mask uint64) {
+	copy(k, kz)
 	zero := uint64(0)
 	for j := 0; j < r.Degree; j++ {
 		l, ok := it.NextLimb()
 		if !ok {
-			// we need to pad; note that we should use a deterministic padding
-			// other than 0, but it is not an issue for the current use cases.
-			for m := j; m < r.Degree; m++ {
-				k[m].SetZero()
-			}
 			break
 		}
 		zero |= l
-		k[j].SetZero()
 		k[j][0] = l
 	}
 	if zero == 0 {
@@ -193,10 +189,9 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k fr.Vector, polId int) {
 		// we can skip this, FFT(0) = 0
 		return
 	}
-
 	// this is equivalent to:
 	// 	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-	r.smallFFT(k)
+	r.smallFFT(k, mask)
 
 	// we compute k * r.Ag[polId] in ℤ_{p}[X]/Xᵈ+1.
 	// k and r.Ag[polId] are in evaluation form on √(g) * <g>

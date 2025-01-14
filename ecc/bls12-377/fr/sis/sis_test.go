@@ -266,31 +266,49 @@ func benchmarkSIS(b *testing.B, input []fr.Element, sparse bool, logTwoBound, lo
 	})
 }
 
-func TestUnrolledFFT(t *testing.T) {
+func TestPartialFFT(t *testing.T) {
 	assert := require.New(t)
 
-	var shift fr.Element
-	shift.SetRandom()
+	var (
+		domain   = fft.NewDomain(64)
+		twiddles = precomputeTwiddlesCoset(domain.Generator, domain.FrMultiplicativeGen)
+	)
 
-	const size = 64
-	domain := fft.NewDomain(size, fft.WithShift(shift))
+	for mask := 0; mask < 16; mask++ {
 
-	k1 := make([]fr.Element, size)
-	for i := 0; i < size; i++ {
-		k1[i].SetRandom()
+		var (
+			a = vec123456()
+			b = vec123456()
+		)
+
+		zeroizeWithMask(a, mask)
+		zeroizeWithMask(b, mask)
+
+		domain.FFT(a, fft.DIF, fft.OnCoset())
+		partialFFT_64[mask](b, twiddles)
+		for i := range a {
+			assert.True(a[i].Equal(&b[i]), "mismatch at index %d", i)
+		}
 	}
-	k2 := make([]fr.Element, size)
-	copy(k2, k1)
 
-	// default FFT
-	domain.FFT(k1, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+}
 
-	// unrolled FFT
-	twiddlesCoset := precomputeTwiddlesCoset(domain.Generator, domain.FrMultiplicativeGen)
-	fft64(k2, twiddlesCoset)
+func vec123456() []fr.Element {
+	vec := make([]fr.Element, 64)
+	for i := range vec {
+		vec[i].SetInt64(int64(i))
+	}
+	return vec
+}
 
-	// compare results
-	for i := 0; i < size; i++ {
-		assert.True(k1[i].Equal(&k2[i]), "i = %d", i)
+func zeroizeWithMask(v []fr.Element, mask int) {
+	for i := 0; i < 4; i++ {
+		if (mask>>i)&1 == 1 {
+			continue
+		}
+
+		for j := 0; j < 16; j++ {
+			v[16*i+j].SetZero()
+		}
 	}
 }

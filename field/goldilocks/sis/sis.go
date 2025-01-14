@@ -38,8 +38,7 @@ type RSis struct {
 
 	maxNbElementsToHash int
 
-	smallFFT   func(goldilocks.Vector)
-	cosetTable []goldilocks.Element // used in conjunction with the smallFFT;
+	kz goldilocks.Vector // zeroes used to zeroize the limbs buffer faster.
 }
 
 // NewRSis creates an instance of RSis.
@@ -97,28 +96,10 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		Domain:              fft.NewDomain(uint64(degree), fft.WithShift(shift)),
 		A:                   make([][]goldilocks.Element, n),
 		Ag:                  make([][]goldilocks.Element, n),
+		kz:                  make(goldilocks.Vector, degree),
 		maxNbElementsToHash: maxNbElementsToHash,
 	}
 
-	r.cosetTable, err = r.Domain.CosetTable()
-	if err != nil {
-		return nil, err
-	}
-
-	// perf note: we have a dedicated path for 64, as it correspond to the parameters
-	// used by linea-monorepo prover with bls12377 curve.
-	// once the linea prover switches to smaller fields, this path can be removed.
-	if r.Domain.Cardinality == 64 {
-		twiddlesCoset := precomputeTwiddlesCoset(r.Domain.Generator, shift)
-		r.smallFFT = func(p goldilocks.Vector) {
-			fft64(p, twiddlesCoset)
-		}
-	} else {
-		r.smallFFT = func(p goldilocks.Vector) {
-			p.Mul(p, goldilocks.Vector(r.cosetTable))
-			r.Domain.FFT(p, fft.DIF)
-		}
-	}
 	// filling A
 	a := make([]goldilocks.Element, n*r.Degree)
 	ag := make([]goldilocks.Element, n*r.Degree)
@@ -134,8 +115,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 
 			// fill Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
 			copy(r.Ag[i], r.A[i])
-			// r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-			r.smallFFT(r.Ag[i])
+			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
 	})
 
@@ -163,7 +143,7 @@ func (r *RSis) Hash(v, res []goldilocks.Element) error {
 	// inner hash
 	it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
 	for i := 0; i < len(r.Ag); i++ {
-		r.InnerHash(it, res, k, i)
+		r.InnerHash(it, res, k, r.kz, i, ^uint64(0))
 	}
 
 	// reduces mod Xᵈ+1
@@ -172,20 +152,15 @@ func (r *RSis) Hash(v, res []goldilocks.Element) error {
 	return nil
 }
 
-func (r *RSis) InnerHash(it *LimbIterator, res, k goldilocks.Vector, polId int) {
+func (r *RSis) InnerHash(it *LimbIterator, res, k, kz goldilocks.Vector, polId int, mask uint64) {
+	copy(k, kz)
 	zero := uint64(0)
 	for j := 0; j < r.Degree; j++ {
 		l, ok := it.NextLimb()
 		if !ok {
-			// we need to pad; note that we should use a deterministic padding
-			// other than 0, but it is not an issue for the current use cases.
-			for m := j; m < r.Degree; m++ {
-				k[m].SetZero()
-			}
 			break
 		}
 		zero |= l
-		k[j].SetZero()
 		k[j][0] = l
 	}
 	if zero == 0 {
@@ -193,10 +168,7 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k goldilocks.Vector, polId int) 
 		// we can skip this, FFT(0) = 0
 		return
 	}
-
-	// this is equivalent to:
-	// 	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-	r.smallFFT(k)
+	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 
 	// we compute k * r.Ag[polId] in ℤ_{p}[X]/Xᵈ+1.
 	// k and r.Ag[polId] are in evaluation form on √(g) * <g>

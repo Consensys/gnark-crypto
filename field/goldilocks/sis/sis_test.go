@@ -265,32 +265,3 @@ func benchmarkSIS(b *testing.B, input []goldilocks.Element, sparse bool, logTwoB
 
 	})
 }
-
-func TestUnrolledFFT(t *testing.T) {
-	assert := require.New(t)
-
-	var shift goldilocks.Element
-	shift.SetRandom()
-
-	const size = 64
-	domain := fft.NewDomain(size, fft.WithShift(shift))
-
-	k1 := make([]goldilocks.Element, size)
-	for i := 0; i < size; i++ {
-		k1[i].SetRandom()
-	}
-	k2 := make([]goldilocks.Element, size)
-	copy(k2, k1)
-
-	// default FFT
-	domain.FFT(k1, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-
-	// unrolled FFT
-	twiddlesCoset := precomputeTwiddlesCoset(domain.Generator, domain.FrMultiplicativeGen)
-	fft64(k2, twiddlesCoset)
-
-	// compare results
-	for i := 0; i < size; i++ {
-		assert.True(k1[i].Equal(&k2[i]), "i = %d", i)
-	}
-}
