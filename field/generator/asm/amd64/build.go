@@ -1,4 +1,4 @@
-// Copyright 2020-2024 Consensys Software Inc.
+// Copyright 2020-2025 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
 // Package amd64 contains syntactic sugar to generate amd64 assembly code
@@ -221,10 +221,8 @@ func GenerateCommonASM(w io.Writer, nbWords, nbBits int, hasVector bool) error {
 		if nbBits == 31 {
 			return GenerateF31ASM(f, hasVector)
 		} else {
-			fmt.Printf("nbWords: %d, nbBits: %d\n", nbWords, nbBits)
 			panic("not implemented")
 		}
-
 	}
 
 	f.GenerateReduceDefine()
