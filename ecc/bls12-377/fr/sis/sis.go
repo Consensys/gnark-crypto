@@ -105,9 +105,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		// precompute twiddles for the unrolled FFT
 		twiddlesCoset := precomputeTwiddlesCoset(r.Domain.Generator, shift)
 		r.smallFFT = func(k fr.Vector, mask uint64) {
-			if mask == ^uint64(0) {
-				mask = uint64(len(partialFFT_64) - 1)
-			}
 			partialFFT_64[mask](k, twiddlesCoset)
 		}
 	} else {
@@ -116,7 +113,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 			return nil, err
 		}
 
-		r.smallFFT = func(k fr.Vector, mask uint64) {
+		r.smallFFT = func(k fr.Vector, _ uint64) {
 			k.Mul(k, fr.Vector(cosetTable))
 			r.Domain.FFT(k, fft.DIF)
 		}
@@ -162,10 +159,17 @@ func (r *RSis) Hash(v, res []fr.Element) error {
 
 	k := make([]fr.Element, r.Degree)
 
+	// by default, the mask is ignored (unless we unrolled the FFT and have a degree 64)
+	mask := ^uint64(0)
+	if r.Degree == 64 {
+		// full FFT
+		mask = uint64(len(partialFFT_64) - 1)
+	}
+
 	// inner hash
 	it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
 	for i := 0; i < len(r.Ag); i++ {
-		r.InnerHash(it, res, k, r.kz, i, ^uint64(0))
+		r.InnerHash(it, res, k, r.kz, i, mask)
 	}
 
 	// reduces mod Xᵈ+1
@@ -174,9 +178,23 @@ func (r *RSis) Hash(v, res []fr.Element) error {
 	return nil
 }
 
+// InnerHash computes the inner hash of the polynomial corresponding to the i-th polynomial in A.
+// It accumulates the result in res.
+// It does not reduce mod Xᵈ+1.
+// res, k, kz must have size r.Degree.
+// kz is a buffer of zeroes used to zeroize the limbs buffer faster.
+// mask is used to select the FFT to use when the FFT is unrolled.
 func (r *RSis) InnerHash(it *LimbIterator, res, k, kz fr.Vector, polId int, mask uint64) {
 	copy(k, kz)
 	zero := uint64(0)
+
+	// perf note: there is room here for additional improvement with the mask.
+	// for example, since we already know some of the "rows" of field elements are going to be zero
+	// we could have an iterator that "skips" theses rows and avoid func call / buffer fillings.
+	// also, we could update the mask if some non-const rows happens to be zeroes,
+	// such that the FFT we select has less work to do (in some cases; i.e. we need a bunch
+	// of following limbs to be zero to make it worth it).
+
 	for j := 0; j < r.Degree; j++ {
 		l, ok := it.NextLimb()
 		if !ok {
@@ -217,6 +235,8 @@ func deriveRandomElementFromSeed(seed, i, j int64) fr.Element {
 }
 
 // TODO @gbotrel explore generic perf impact + go 1.23 iterators
+// i.e. the limb iterator could use generics and be instantiated with uint8, uint16, uint32, uint64
+// the iterators could implement the go 1.23 iterator pattern.
 
 // ElementIterator is an iterator over a stream of field elements.
 type ElementIterator interface {
