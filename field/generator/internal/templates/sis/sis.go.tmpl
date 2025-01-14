@@ -113,14 +113,8 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 				partialFFT_64[mask](k, twiddlesCoset)
 			}
 		} else {
-			cosetTable, err := r.Domain.CosetTable()
-			if err != nil {
-				return nil, err
-			}
-			
-			r.smallFFT = func(k {{ .FF }}.Vector, _ uint64) {
-				k.Mul(k, {{.FF}}.Vector(cosetTable))
-				r.Domain.FFT(k, fft.DIF)
+			r.smallFFT = func(k fr.Vector, _ uint64) {
+				r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 			}
 		}
 	{{- end}}
