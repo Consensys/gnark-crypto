@@ -26,7 +26,6 @@ func generateSIS(F *config.Field, outputDir string) error {
 	// only on field byte size == 32, we unroll a 64-wide FFT (used in linea for bls12-377)
 	if F.NbBytes == 32 {
 		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "sis_fft.go"), Templates: []string{"fft.go.tmpl"}})
-		// TODO @gbotrel : add test for fft
 	}
 
 	type sisTemplateData struct {

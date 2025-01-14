@@ -106,6 +106,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 
 
 	{{- if .HasUnrolledFFT}}
+		// for degree == 64 we have a special fast path with a set of unrolled FFTs.
 		if r.Degree == 64 {
 			// precompute twiddles for the unrolled FFT
 			twiddlesCoset := precomputeTwiddlesCoset(r.Domain.Generator, shift)
