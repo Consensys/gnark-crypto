@@ -22,7 +22,7 @@ func HasChanges(dir string) bool {
 	})
 
 	// if status contains bavard or addchain, we return true by default
-	if strings.Contains(gitStatusDiff, "bavard") || strings.Contains(gitStatusDiff, "addchain") {
+	if strings.Contains(gitStatusDiff, "go.mod") || strings.Contains(gitStatusDiff, "go.sum") {
 		return true
 	}
 
