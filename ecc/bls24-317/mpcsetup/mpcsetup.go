@@ -20,7 +20,7 @@ import (
 
 // Generate R∈𝔾₂ as Hash(gˢ, challenge, dst)
 // it is to be used as a challenge for generating a proof of knowledge to x
-// π ≔ x.r; e([1]₁, π) =﹖ e([x]₁, r)
+// π ≔ x.R; e([1]₁, π) =﹖ e([x]₁, R)
 func pokBase(xG curve.G1Affine, challenge []byte, dst byte) curve.G2Affine {
 	var buf bytes.Buffer
 	buf.Grow(len(challenge) + curve.SizeOfG1AffineUncompressed)
