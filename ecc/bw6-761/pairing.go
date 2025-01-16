@@ -653,14 +653,18 @@ func (p *G2Affine) tangentCompute(evaluations *LineEvaluationAff) {
 // Alg.2 in https://eprint.iacr.org/2021/1359.pdf
 // Eq. (6') in https://hackmd.io/@gnark/BW6-761-changes
 func MillerLoopDirect(P []G1Affine, Q []G2Affine) (GT, error) {
+	// check input size match
+	n := len(P)
+	if n == 0 {
+		return GT{}, errors.New("invalid inputs sizes")
+	}
+
 	lines := make([][2][len(LoopCounter) - 1]LineEvaluationAff, 0, len(Q))
 	for _, qi := range Q {
 		lines = append(lines, PrecomputeLines(qi))
 	}
 
-	// check input size match
-	n := len(P)
-	if n == 0 || n != len(lines) {
+	if n != len(Q) {
 		return GT{}, errors.New("invalid inputs sizes")
 	}
 
@@ -695,7 +699,7 @@ func MillerLoopDirect(P []G1Affine, Q []G2Affine) (GT, error) {
 	var result fptower.E6D
 	result.SetOne()
 
-	for i := 188; i >= 0; i-- {
+	for i := len(LoopCounter) - 2; i >= 0; i-- {
 		result.Square(&result)
 
 		j := LoopCounter1[i]*3 + LoopCounter[i]
