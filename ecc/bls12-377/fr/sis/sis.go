@@ -6,29 +6,19 @@
 package sis
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
-	"hash"
+	"fmt"
 	"math/bits"
 
-	"github.com/bits-and-blooms/bitset"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/fft"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"golang.org/x/crypto/blake2b"
 )
 
-var (
-	ErrNotAPowerOfTwo = errors.New("d must be a power of 2")
-)
-
-// Ring-SIS instance
+// RSis is the Ring-SIS instance
 type RSis struct {
-
-	// buffer storing the data to hash
-	buffer bytes.Buffer
-
 	// Vectors in ℤ_{p}/Xⁿ+1
 	// A[i] is the i-th polynomial.
 	// Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
@@ -40,21 +30,16 @@ type RSis struct {
 	// cf https://hackmd.io/7OODKWQZRRW9RxM5BaXtIw , B >= 3.
 	LogTwoBound int
 
-	// domain for the polynomial multiplication
-	Domain        *fft.Domain
-	twiddleCosets []fr.Element // see FFT64 and precomputeTwiddlesCoset
-
 	// d, the degree of X^{d}+1
 	Degree int
 
-	// in bytes, represents the maximum number of bytes the .Write(...) will handle;
-	// ( maximum number of bytes to sum )
-	capacity            int
-	maxNbElementsToHash int
+	// domain for the polynomial multiplication
+	Domain *fft.Domain
 
-	// allocate memory once per instance (used in Sum())
-	bufM, bufRes fr.Vector
-	bufMValues   *bitset.BitSet
+	maxNbElementsToHash int
+	smallFFT            func(k fr.Vector, mask uint64)
+
+	kz fr.Vector // zeroes used to zeroize the limbs buffer faster.
 }
 
 // NewRSis creates an instance of RSis.
@@ -65,28 +50,29 @@ type RSis struct {
 // used to derived n, the number of polynomials in A, and max size of instance's internal buffer.
 func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*RSis, error) {
 
-	if logTwoBound > 64 {
+	if logTwoBound > 64 || logTwoBound > fr.Bits {
 		return nil, errors.New("logTwoBound too large")
+	}
+	if logTwoBound%8 != 0 {
+		return nil, errors.New("logTwoBound must be a multiple of 8")
 	}
 	if bits.UintSize == 32 {
 		return nil, errors.New("unsupported architecture; need 64bit target")
 	}
 
 	degree := 1 << logTwoDegree
-	capacity := maxNbElementsToHash * fr.Bytes
 
 	// n: number of polynomials in A
 	// len(m) == degree * n
 	// with each element in m being logTwoBounds bits from the instance buffer.
 	// that is, to fill m, we need [degree * n * logTwoBound] bits of data
-	// capacity == [degree * n * logTwoBound] / 8
-	// n == (capacity*8)/(degree*logTwoBound)
 
 	// First n <- #limbs to represent a single field element
-	n := (fr.Bytes * 8) / logTwoBound
-	if n*logTwoBound < fr.Bytes*8 {
-		n++
+	nbBytesPerLimb := logTwoBound / 8
+	if fr.Bytes%nbBytesPerLimb != 0 {
+		return nil, errors.New("nbBytesPerLimb must divide field size")
 	}
+	n := fr.Bytes / nbBytesPerLimb
 
 	// Then multiply by the number of field elements
 	n *= maxNbElementsToHash
@@ -107,19 +93,24 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 
 	r := &RSis{
 		LogTwoBound:         logTwoBound,
-		capacity:            capacity,
 		Degree:              degree,
 		Domain:              fft.NewDomain(uint64(degree), fft.WithShift(shift)),
 		A:                   make([][]fr.Element, n),
 		Ag:                  make([][]fr.Element, n),
-		bufM:                make(fr.Vector, degree*n),
-		bufRes:              make(fr.Vector, degree),
-		bufMValues:          bitset.New(uint(n)),
+		kz:                  make(fr.Vector, degree),
 		maxNbElementsToHash: maxNbElementsToHash,
 	}
-	if r.LogTwoBound == 8 && r.Degree == 64 {
-		// TODO @gbotrel fixme, that's dirty.
-		r.twiddleCosets = PrecomputeTwiddlesCoset(r.Domain.Generator, r.Domain.FrMultiplicativeGen)
+	// for degree == 64 we have a special fast path with a set of unrolled FFTs.
+	if r.Degree == 64 {
+		// precompute twiddles for the unrolled FFT
+		twiddlesCoset := precomputeTwiddlesCoset(r.Domain.Generator, shift)
+		r.smallFFT = func(k fr.Vector, mask uint64) {
+			partialFFT_64[mask](k, twiddlesCoset)
+		}
+	} else {
+		r.smallFFT = func(k fr.Vector, _ uint64) {
+			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+		}
 	}
 
 	// filling A
@@ -127,131 +118,109 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	ag := make([]fr.Element, n*r.Degree)
 
 	parallel.Execute(n, func(start, end int) {
-		var buf bytes.Buffer
 		for i := start; i < end; i++ {
 			rstart, rend := i*r.Degree, (i+1)*r.Degree
 			r.A[i] = a[rstart:rend:rend]
 			r.Ag[i] = ag[rstart:rend:rend]
 			for j := 0; j < r.Degree; j++ {
-				r.A[i][j] = genRandom(seed, int64(i), int64(j), &buf)
+				r.A[i][j] = deriveRandomElementFromSeed(seed, int64(i), int64(j))
 			}
 
 			// fill Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
 			copy(r.Ag[i], r.A[i])
-			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset())
+			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
 	})
 
 	return r, nil
 }
 
-func (r *RSis) Write(p []byte) (n int, err error) {
-	r.buffer.Write(p)
-	return len(p), nil
-}
-
-// Sum appends the current hash to b and returns the resulting slice.
-// It does not change the underlying hash state.
-// The instance buffer is interpreted as a sequence of coefficients of size r.Bound bits long.
-// The function returns the hash of the polynomial as a a sequence []fr.Elements, interpreted as []bytes,
-// corresponding to sum_i A[i]*m Mod X^{d}+1
-func (r *RSis) Sum(b []byte) []byte {
-	buf := r.buffer.Bytes()
-	if len(buf) > r.capacity {
-		panic("buffer too large")
+// Hash interprets the input vector as a sequence of coefficients of size r.LogTwoBound bits long,
+// and return the hash of the polynomial corresponding to the sum sum_i A[i]*m Mod X^{d}+1
+func (r *RSis) Hash(v, res []fr.Element) error {
+	if len(res) != r.Degree {
+		return fmt.Errorf("output vector must have length %d", r.Degree)
 	}
 
-	fastPath := r.LogTwoBound == 8 && r.Degree == 64
-
-	// clear the buffers of the instance.
-	defer r.cleanupBuffers()
-
-	m := r.bufM
-	mValues := r.bufMValues
-
-	if r.LogTwoBound < 8 && (8%r.LogTwoBound == 0) {
-		limbDecomposeBytesSmallBound(buf, m, r.LogTwoBound, r.Degree, mValues)
-	} else if r.LogTwoBound >= 8 && (fr.Bytes*8)%r.LogTwoBound == 0 {
-		limbDecomposeBytesMiddleBound(buf, m, r.LogTwoBound, r.Degree, mValues)
-	} else {
-		limbDecomposeBytes(buf, m, r.LogTwoBound, r.Degree, mValues)
+	if len(v) > r.maxNbElementsToHash {
+		return fmt.Errorf("can't hash more than %d elements with params provided in constructor", r.maxNbElementsToHash)
 	}
 
-	// we can hash now.
-	res := r.bufRes
+	// zeroing res
+	for i := 0; i < len(res); i++ {
+		res[i].SetZero()
+	}
 
-	// method 1: fft
+	k := make([]fr.Element, r.Degree)
+
+	// by default, the mask is ignored (unless we unrolled the FFT and have a degree 64)
+	mask := ^uint64(0)
+	if r.Degree == 64 {
+		// full FFT
+		mask = uint64(len(partialFFT_64) - 1)
+	}
+
+	// inner hash
+	it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
 	for i := 0; i < len(r.Ag); i++ {
-		if !mValues.Test(uint(i)) {
-			// means m[i*r.Degree : (i+1)*r.Degree] == [0...0]
-			// we can skip this, FFT(0) = 0
-			continue
-		}
-		k := m[i*r.Degree : (i+1)*r.Degree]
-		if fastPath {
-			// fast path.
-			FFT64(k, r.twiddleCosets)
-		} else {
-			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-		}
-		mulModAcc(res, r.Ag[i], k)
-	}
-	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1)) // -> reduces mod Xᵈ+1
-
-	resBytes, err := res.MarshalBinary()
-	if err != nil {
-		panic(err)
+		r.InnerHash(it, res, k, r.kz, i, mask)
 	}
 
-	return append(b, resBytes[4:]...) // first 4 bytes are uint32(len(res))
+	// reduces mod Xᵈ+1
+	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1))
+
+	return nil
 }
 
-// Reset resets the Hash to its initial state.
-func (r *RSis) Reset() {
-	r.buffer.Reset()
-}
+// InnerHash computes the inner hash of the polynomial corresponding to the i-th polynomial in A.
+// It accumulates the result in res.
+// It does not reduce mod Xᵈ+1.
+// res, k, kz must have size r.Degree.
+// kz is a buffer of zeroes used to zeroize the limbs buffer faster.
+// mask is used to select the FFT to use when the FFT is unrolled.
+func (r *RSis) InnerHash(it *LimbIterator, res, k, kz fr.Vector, polId int, mask uint64) {
+	copy(k, kz)
+	zero := uint64(0)
 
-// Size returns the number of bytes Sum will return.
-func (r *RSis) Size() int {
+	// perf note: there is room here for additional improvement with the mask.
+	// for example, since we already know some of the "rows" of field elements are going to be zero
+	// we could have an iterator that "skips" theses rows and avoid func call / buffer fillings.
+	// also, we could update the mask if some non-const rows happens to be zeroes,
+	// such that the FFT we select has less work to do (in some cases; i.e. we need a bunch
+	// of following limbs to be zero to make it worth it).
 
-	// The size in bits is the size in bits of a polynomial in A.
-	degree := len(r.A[0])
-	totalSize := degree * fr.Modulus().BitLen() / 8
-
-	return totalSize
-}
-
-// BlockSize returns the hash's underlying block size.
-// The Write method must be able to accept any amount
-// of data, but it may operate more efficiently if all writes
-// are a multiple of the block size.
-func (r *RSis) BlockSize() int {
-	return 0
-}
-
-// Construct a hasher generator. It takes as input the same parameters
-// as `NewRingSIS` and outputs a function which returns fresh hasher
-// everytime it is called
-func NewRingSISMaker(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (func() hash.Hash, error) {
-	return func() hash.Hash {
-		h, err := NewRSis(seed, logTwoDegree, logTwoBound, maxNbElementsToHash)
-		if err != nil {
-			panic(err)
+	for j := 0; j < r.Degree; j++ {
+		l, ok := it.NextLimb()
+		if !ok {
+			break
 		}
-		return h
-	}, nil
+		zero |= l
+		k[j][0] = l
+	}
+	if zero == 0 {
+		// means m[i*r.Degree : (i+1)*r.Degree] == [0...0]
+		// we can skip this, FFT(0) = 0
+		return
+	}
+	// this is equivalent to:
+	// 	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+	r.smallFFT(k, mask)
 
+	// we compute k * r.Ag[polId] in ℤ_{p}[X]/Xᵈ+1.
+	// k and r.Ag[polId] are in evaluation form on √(g) * <g>
+	// we accumulate the result in res; the FFT inverse is done once every multiplications are done.
+	k.Mul(k, fr.Vector(r.Ag[polId]))
+	res.Add(res, k)
 }
 
-func genRandom(seed, i, j int64, buf *bytes.Buffer) fr.Element {
+func deriveRandomElementFromSeed(seed, i, j int64) fr.Element {
+	var buf [3 + 3*8]byte
+	copy(buf[:3], "SIS")
+	binary.BigEndian.PutUint64(buf[3:], uint64(seed))
+	binary.BigEndian.PutUint64(buf[11:], uint64(i))
+	binary.BigEndian.PutUint64(buf[19:], uint64(j))
 
-	buf.Reset()
-	buf.WriteString("SIS")
-	binary.Write(buf, binary.BigEndian, seed)
-	binary.Write(buf, binary.BigEndian, i)
-	binary.Write(buf, binary.BigEndian, j)
-
-	digest := blake2b.Sum256(buf.Bytes())
+	digest := blake2b.Sum256(buf[:])
 
 	var res fr.Element
 	res.SetBytes(digest[:])
@@ -259,210 +228,110 @@ func genRandom(seed, i, j int64, buf *bytes.Buffer) fr.Element {
 	return res
 }
 
-// mulMod computes p * q in ℤ_{p}[X]/Xᵈ+1.
-// Is assumed that pLagrangeShifted and qLagrangeShifted are of the correct sizes
-// and that they are in evaluation form on √(g) * <g>
-// The result is not FFTinversed. The fft inverse is done once every
-// multiplications are done.
-func mulMod(pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []fr.Element) []fr.Element {
+// TODO @gbotrel explore generic perf impact + go 1.23 iterators
+// i.e. the limb iterator could use generics and be instantiated with uint8, uint16, uint32, uint64
+// the iterators could implement the go 1.23 iterator pattern.
 
-	res := make([]fr.Element, len(pLagrangeCosetBitReversed))
-	for i := 0; i < len(pLagrangeCosetBitReversed); i++ {
-		res[i].Mul(&pLagrangeCosetBitReversed[i], &qLagrangeCosetBitReversed[i])
+// ElementIterator is an iterator over a stream of field elements.
+type ElementIterator interface {
+	Next() (fr.Element, bool)
+}
+
+// VectorIterator iterates over a vector of field element.
+type VectorIterator struct {
+	v fr.Vector
+	i int
+}
+
+// NewVectorIterator creates a new VectorIterator
+func NewVectorIterator(v fr.Vector) *VectorIterator {
+	return &VectorIterator{v: v}
+}
+
+// Next returns the next element of the vector.
+func (vi *VectorIterator) Next() (fr.Element, bool) {
+	if vi.i == len(vi.v) {
+		return fr.Element{}, false
 	}
-
-	// NOT fft inv for now, wait until every part of the keys have been multiplied
-	// r.Domain.FFTInverse(res, fft.DIT, true)
-
-	return res
-
+	vi.i++
+	return vi.v[vi.i-1], true
 }
 
-// mulMod + accumulate in res.
-func mulModAcc(res []fr.Element, pLagrangeCosetBitReversed, qLagrangeCosetBitReversed []fr.Element) {
-	var t fr.Element
-	for i := 0; i < len(pLagrangeCosetBitReversed); i++ {
-		t.Mul(&pLagrangeCosetBitReversed[i], &qLagrangeCosetBitReversed[i])
-		res[i].Add(&res[i], &t)
+// LimbIterator iterates over a stream of field elements, limb by limb.
+type LimbIterator struct {
+	it  ElementIterator
+	buf [fr.Bytes]byte
+
+	j int // position in buf
+
+	next func(buf []byte, pos *int) uint64
+}
+
+// NewLimbIterator creates a new LimbIterator
+// it is an iterator over a stream of field elements
+// The elements are interpreted in little endian.
+// The limb is also in little endian.
+func NewLimbIterator(it ElementIterator, limbSize int) *LimbIterator {
+	var next func(buf []byte, pos *int) uint64
+	switch limbSize {
+	case 1:
+		next = nextUint8
+	case 2:
+		next = nextUint16
+
+	case 4:
+		next = nextUint32
+	case 8:
+		next = nextUint64
+	default:
+		panic("unsupported limb size")
+	}
+	return &LimbIterator{
+		it:   it,
+		j:    fr.Bytes,
+		next: next,
 	}
 }
 
-// Returns a clone of the RSis parameters with a fresh and empty buffer. Does not
-// mutate the current instance. The keys and the public parameters of the SIS
-// instance are not deep-copied. It is useful when we want to hash in parallel.
-// Otherwise, we would have to generate an entire RSis for each thread.
-func (r *RSis) CopyWithFreshBuffer() RSis {
-	res := *r
-	res.buffer = bytes.Buffer{}
-	res.bufM = make(fr.Vector, len(r.bufM))
-	res.bufMValues = bitset.New(r.bufMValues.Len())
-	res.bufRes = make(fr.Vector, len(r.bufRes))
-	return res
-}
-
-// Cleanup the buffers of the RSis instance
-func (r *RSis) cleanupBuffers() {
-	r.bufMValues.ClearAll()
-	for i := 0; i < len(r.bufM); i++ {
-		r.bufM[i].SetZero()
-	}
-	for i := 0; i < len(r.bufRes); i++ {
-		r.bufRes[i].SetZero()
-	}
-}
-
-// Split an slice of bytes representing an array of serialized field element in
-// big-endian form into an array of limbs representing the same field elements
-// in little-endian form. Namely, if our field is represented with 64 bits and we
-// have the following field element 0x0123456789abcdef (0 being the most significant
-// character and and f being the least significant one) and our log norm bound is
-// 16 (so 1 hex character = 1 limb). The function assigns the values of m to [f, e,
-// d, c, b, a, ..., 3, 2, 1, 0]. m should be preallocated and zeroized. Additionally,
-// we have the guarantee that 2 bits contributing to different field elements cannot
-// be part of the same limb.
-func LimbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound int) {
-	limbDecomposeBytes(buf, m, logTwoBound, 0, nil)
-}
-
-// decomposes m as by taking chunks of logTwoBound bits at a time. The buffer is interpreted like this:
-// [0xa,        ..            , 0x1 | 0xa ... ]
-//
-//	<- #bytes in a field element ->
-//	<-0xa is the MSB, 0x1 the LSB->
-//	<-we read this chunk from right
-//	   			to left 	 	 ->
-//
-// This function is called when logTwoBound divides the number of bits used to represent a
-// fr element.
-// From a slice of field elements m:=[a_0, a_1, ...]
-// Doing h.Sum(h.Write([Marshal[a_i] for i in len(m)])) is the same than
-// writing the a_i in little endian, and then taking logTwoBound bits at a time.
-//
-// ex: m := [0x1, 0x3]
-// in the hash buffer, it is interpreted like that as a stream of bits:
-// [100...0 110...0] corresponding to [0x1, 0x3] in little endian, so first bit = LSbit
-// then the stream of bits is splitted in chunks of logTwoBound bits.
-//
-// This function is called when logTwoBound divides 8.
-func limbDecomposeBytesSmallBound(buf []byte, m fr.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
-	mask := byte((1 << logTwoBound) - 1)
-	nbChunksPerBytes := 8 / logTwoBound
-	nbFieldsElmts := len(buf) / fr.Bytes
-	for i := 0; i < nbFieldsElmts; i++ {
-		for j := fr.Bytes - 1; j >= 0; j-- {
-			curByte := buf[i*fr.Bytes+j]
-			curPos := i*fr.Bytes*nbChunksPerBytes + (fr.Bytes-1-j)*nbChunksPerBytes
-			for k := 0; k < nbChunksPerBytes; k++ {
-
-				m[curPos+k][0] = uint64((curByte >> (k * logTwoBound)) & mask)
-
-				// Check if mPos is zero and mark as non-zero in the bitset if not
-				if m[curPos+k][0] != 0 && mValues != nil {
-					mValues.Set(uint((curPos + k) / degree))
-				}
-			}
+// NextLimb returns the next limb of the vector.
+func (vr *LimbIterator) NextLimb() (uint64, bool) {
+	if vr.j == fr.Bytes {
+		next, ok := vr.it.Next()
+		if !ok {
+			return 0, false
 		}
+		vr.j = 0
+		fr.LittleEndian.PutElement(&vr.buf, next)
 	}
+	return vr.next(vr.buf[:], &vr.j), true
 }
 
-// limbDecomposeBytesMiddleBound same function than limbDecomposeBytesSmallBound, but logTwoBound is
-// a multiple of 8, and divides the number of bits of the fields.
-func limbDecomposeBytesMiddleBound(buf []byte, m fr.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
-	nbFieldsElmts := len(buf) / fr.Bytes
-	nbChunksPerElements := fr.Bytes * 8 / logTwoBound
-	nbBytesInChunk := logTwoBound / 8
-	curElmt := 0
-	for i := 0; i < nbFieldsElmts; i++ {
-		for j := nbChunksPerElements; j > 0; j-- {
-			curPos := i*fr.Bytes + j*nbBytesInChunk
-			for k := 1; k <= nbBytesInChunk; k++ {
-
-				m[curElmt][0] |= (uint64(buf[curPos-k]) << ((k - 1) * 8))
-
-			}
-			// Check if mPos is zero and mark as non-zero in the bitset if not
-			if m[curElmt][0] != 0 && mValues != nil {
-				mValues.Set(uint((curElmt) / degree))
-			}
-			curElmt += 1
-		}
-	}
+// Reset resets the iterator with a new ElementIterator.
+func (vr *LimbIterator) Reset(it ElementIterator) {
+	vr.it = it
+	vr.j = fr.Bytes
 }
 
-// Split an slice of bytes representing an array of serialized field element in
-// big-endian form into an array of limbs representing the same field elements
-// in little-endian form. Namely, if our field is represented with 64 bits and we
-// have the following field element 0x0123456789abcdef (0 being the most significant
-// character and and f being the least significant one) and our log norm bound is
-// 16 (so 1 hex character = 1 limb). The function assigns the values of m to [f, e,
-// d, c, b, a, ..., 3, 2, 1, 0]. m should be preallocated and zeroized. mValues is
-// an optional bitSet. If provided, it must be empty. The function will set bit "i"
-// to indicate the that i-th SIS input polynomial should be non-zero. Recall, that a
-// SIS polynomial corresponds to a chunk of limbs of size `degree`. Additionally,
-// we have the guarantee that 2 bits contributing to different field elements cannot
-// be part of the same limb.
-func limbDecomposeBytes(buf []byte, m fr.Vector, logTwoBound, degree int, mValues *bitset.BitSet) {
-
-	// bitwise decomposition of the buffer, in order to build m (the vector to hash)
-	// as a list of polynomials, whose coefficients are less than r.B bits long.
-	// Say buf=[0xbe,0x0f]. As a stream of bits it is interpreted like this:
-	// 10111110 00001111. getIthBit(0)=1 (=leftmost bit), getIthBit(1)=0 (=second leftmost bit), etc.
-	nbBits := len(buf) * 8
-	getIthBit := func(i int) uint8 {
-		k := i / 8
-		if k >= len(buf) {
-			return 0
-		}
-		b := buf[k]
-		j := i % 8
-		return b >> (7 - j) & 1
-	}
-
-	// we process the input buffer by blocks of r.LogTwoBound bits
-	// each of these block (<< 64bits) are interpreted as a coefficient
-	mPos := 0
-	for fieldStart := 0; fieldStart < nbBits; {
-		for bitInField := 0; bitInField < fr.Bytes*8; {
-
-			j := bitInField % logTwoBound
-
-			// r.LogTwoBound < 64; we just use the first word of our element here,
-			// and set the bits from LSB to MSB.
-			at := fieldStart + fr.Bytes*8 - bitInField - 1
-
-			m[mPos][0] |= uint64(getIthBit(at) << j)
-
-			bitInField++
-
-			// Check if mPos is zero and mark as non-zero in the bitset if not
-			if m[mPos][0] != 0 && mValues != nil {
-				mValues.Set(uint(mPos / degree))
-			}
-
-			if j == logTwoBound-1 || bitInField == fr.Bytes*8 {
-				mPos++
-			}
-		}
-		fieldStart += fr.Bytes * 8
-	}
+func nextUint8(buf []byte, pos *int) uint64 {
+	r := uint64(buf[*pos])
+	*pos++
+	return r
 }
 
-// see limbDecomposeBytes; this function is optimized for the case where
-// logTwoBound == 8 and degree == 64
-func limbDecomposeBytes8_64(buf []byte, m fr.Vector, mValues *bitset.BitSet) {
-	// with logTwoBound == 8, we can actually advance byte per byte.
-	const degree = 64
-	j := 0
+func nextUint16(buf []byte, pos *int) uint64 {
+	r := uint64(binary.LittleEndian.Uint16(buf[*pos:]))
+	*pos += 2
+	return r
+}
 
-	for startPos := fr.Bytes - 1; startPos < len(buf); startPos += fr.Bytes {
-		for i := startPos; i >= startPos-fr.Bytes+1; i-- {
+func nextUint32(buf []byte, pos *int) uint64 {
+	r := uint64(binary.LittleEndian.Uint32(buf[*pos:]))
+	*pos += 4
+	return r
+}
 
-			m[j][0] = uint64(buf[i])
-
-			if m[j][0] != 0 {
-				mValues.Set(uint(j / degree))
-			}
-			j++
-		}
-	}
+func nextUint64(buf []byte, pos *int) uint64 {
+	r := uint64(binary.LittleEndian.Uint64(buf[*pos:]))
+	*pos += 8
+	return r
 }
