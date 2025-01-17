@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/consensys/gnark-crypto/internal/generator/mpcsetup"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -106,6 +107,9 @@ func main() {
 
 			// generate fri on fr
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
+
+			// generate mpc setup tools
+			assertNoError(mpcsetup.Generate(conf, filepath.Join(curveDir, "mpcsetup"), bgen))
 
 			// generate kzg on fr
 			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), bgen))
