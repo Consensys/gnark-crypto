@@ -30,7 +30,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/plookup"
 	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/shplonk"
-	"github.com/consensys/gnark-crypto/internal/generator/sis"
 	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
 	"github.com/consensys/gnark-crypto/internal/generator/tower"
@@ -111,10 +110,6 @@ func main() {
 
 			// generate mpc setup tools
 			assertNoError(mpcsetup.Generate(conf, filepath.Join(curveDir, "mpcsetup"), bgen))
-
-			if conf.Equal(config.BN254) || conf.Equal(config.BLS12_377) {
-				assertNoError(sis.Generate(conf, filepath.Join(curveDir, "fr", "sis"), bgen))
-			}
 
 			// generate kzg on fr
 			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), bgen))

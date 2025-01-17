@@ -768,6 +768,8 @@ type ByteOrder interface {
 	String() string
 }
 
+var errInvalidEncoding = errors.New("invalid babybear.Element encoding")
+
 // BigEndian is the big-endian implementation of ByteOrder and AppendByteOrder.
 var BigEndian bigEndian
 
@@ -780,7 +782,7 @@ func (bigEndian) Element(b *[Bytes]byte) (Element, error) {
 	z[0] = binary.BigEndian.Uint32((*b)[0:4])
 
 	if !z.smallerThanModulus() {
-		return Element{}, errors.New("invalid babybear.Element encoding")
+		return Element{}, errInvalidEncoding
 	}
 
 	z.toMont()
@@ -804,7 +806,7 @@ func (littleEndian) Element(b *[Bytes]byte) (Element, error) {
 	z[0] = binary.LittleEndian.Uint32((*b)[0:4])
 
 	if !z.smallerThanModulus() {
-		return Element{}, errors.New("invalid babybear.Element encoding")
+		return Element{}, errInvalidEncoding
 	}
 
 	z.toMont()

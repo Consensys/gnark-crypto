@@ -1844,6 +1844,8 @@ type ByteOrder interface {
 	String() string
 }
 
+var errInvalidEncoding = errors.New("invalid fp.Element encoding")
+
 // BigEndian is the big-endian implementation of ByteOrder and AppendByteOrder.
 var BigEndian bigEndian
 
@@ -1867,7 +1869,7 @@ func (bigEndian) Element(b *[Bytes]byte) (Element, error) {
 	z[11] = binary.BigEndian.Uint64((*b)[0:8])
 
 	if !z.smallerThanModulus() {
-		return Element{}, errors.New("invalid fp.Element encoding")
+		return Element{}, errInvalidEncoding
 	}
 
 	z.toMont()
@@ -1913,7 +1915,7 @@ func (littleEndian) Element(b *[Bytes]byte) (Element, error) {
 	z[11] = binary.LittleEndian.Uint64((*b)[88:96])
 
 	if !z.smallerThanModulus() {
-		return Element{}, errors.New("invalid fp.Element encoding")
+		return Element{}, errInvalidEncoding
 	}
 
 	z.toMont()
