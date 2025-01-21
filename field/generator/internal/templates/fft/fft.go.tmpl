@@ -338,17 +338,21 @@ func ditFFT(a []{{ .FF }}.Element, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.E
 		}
 		return
 	}
-	if parallelButterfly {
-		parallel.Execute(m, func(start, end int) {
-			innerDITWithTwiddles(a, twiddles[stage-twiddlesStartStage], start, end, m)
-		}, nbTasks / (1 << (stage)))
-	} else {
+	{{- if .HasASMKernel}}
 		innerDITWithTwiddles(a, twiddles[stage-twiddlesStartStage], 0, m, m)
-	}
+	{{- else}}
+		if parallelButterfly {
+			parallel.Execute(m, func(start, end int) {
+				innerDITWithTwiddles(a, twiddles[stage-twiddlesStartStage], start, end, m)
+			}, nbTasks / (1 << (stage)))
+		} else {
+			innerDITWithTwiddles(a, twiddles[stage-twiddlesStartStage], 0, m, m)
+		}
+	{{- end}}
 }
 
 
-func innerDITWithTwiddles(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
+func innerDITWithTwiddlesGeneric(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
 	if start == 0 {
 		{{ .FF }}.Butterfly(&a[0], &a[m])
 		start++

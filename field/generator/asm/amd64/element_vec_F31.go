@@ -519,6 +519,21 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPADDQ(q, y, y)   // y = (x-y) + q --> y in [0,2q)
 	})
 
+	_ = f.Define("butterflyQ1Q", 5, func(args ...amd64.Register) {
+		x := args[0]
+		y := args[1]
+		q := args[2]
+		b0 := args[3]
+		b1 := args[4]
+
+		f.VPADDQ(x, y, b0)  // b0 = x + y
+		f.VPSUBQ(y, x, y)   // y = x - y
+		f.VPSUBQ(q, b0, x)  // x = (x+y) - q
+		f.VPMINUQ(b0, x, x) // x %= q
+		f.VPADDQ(q, y, b1)  // y = (x-y) + q --> y in [0,2q)
+		f.VPMINUQ(b1, y, y) // y %= q
+	})
+
 	f.Comment("performs a multiplication in place between 2 vectors of qwords (values should be dwords zero extended)")
 	f.Comment("in0 = (in0 * in1) mod q")
 	f.Comment("in1: second operand")
@@ -603,6 +618,118 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPMOVQD(y, xy)
 		f.VINSERTI64X4(1, xy, x, x)
 	})
+}
+
+func (f *FFAmd64) generateFFTInnerDITF31() {
+	// func innerDITWithTwiddles(a []Element, twiddles []Element, start, end, m int) {
+	// 	for i := start; i < end; i++ {
+	// 		a[i+m].Mul(&a[i+m], &twiddles[i])
+	// 		Butterfly(&a[i], &a[i+m])
+	// 	}
+	// }
+	const argSize = 9 * 8
+	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
+	registers := f.FnHeader("innerDITWithTwiddles_avx512", stackSize, argSize, amd64.AX)
+	defer f.AssertCleanStack(stackSize, 0)
+
+	addrA := f.Pop(&registers)
+	addrAPlusM := f.Pop(&registers)
+	addrTwiddles := f.Pop(&registers)
+	m := f.Pop(&registers)
+	len := f.Pop(&registers)
+
+	a := amd64.Register("Z0")
+	am := amd64.Register("Z1")
+	b0 := amd64.Register("Z3")
+	b1 := amd64.Register("Z4")
+	q := amd64.Register("Z8")
+	qInvNeg := amd64.Register("Z9")
+	PL := amd64.Register("Z10")
+	LSW := amd64.Register("Z11")
+	P := amd64.Register("Z12")
+	t0 := amd64.Register("Z15")
+
+	f.Comment("prepare constants needed for mul and reduce ops")
+	f.WriteLn("MOVD $const_q, AX")
+	f.VPBROADCASTQ(amd64.AX, q)
+	f.WriteLn("MOVD $const_qInvNeg, AX")
+	f.VPBROADCASTQ(amd64.AX, qInvNeg)
+	f.VPCMPEQB("Y0", "Y0", "Y0")
+	f.VPMOVZXDQ("Y0", LSW)
+
+	f.Comment("load arguments")
+	f.MOVQ("a+0(FP)", addrA)
+	f.MOVQ("twiddles+24(FP)", addrTwiddles)
+	f.MOVQ("end+56(FP)", len)
+	f.MOVQ("m+64(FP)", m)
+
+	// get defines
+	butterflyQ1Q, _ := f.DefineFn("butterflyQ1Q")
+	mul, _ := f.DefineFn("mul")
+
+	// we do only m >= 8;
+	// if m < 8, we call the generic one; this can be called when doing a FFT
+	// smaller than the smallest generated kernel
+	lblSmallerThan8 := f.NewLabel("smallerThan8")
+	f.CMPQ(m, 8)
+	f.JL(lblSmallerThan8, "m < 8")
+
+	f.SHRQ("$3", len, "we are processing 8 elements at a time")
+
+	// offset we want to add to a is m*4bytes
+	f.SHLQ("$2", m, "offset = m * 4bytes")
+
+	f.MOVQ(addrA, addrAPlusM)
+	f.ADDQ(m, addrAPlusM)
+
+	lblDone := f.NewLabel("done")
+	lblLoop := f.NewLabel("loop")
+
+	f.LABEL(lblLoop)
+
+	f.TESTQ(len, len)
+	f.JEQ(lblDone, "n == 0, we are done")
+
+	f.VPMOVZXDQ(addrA.At(0), a, "load a[i]")
+	f.VPMOVZXDQ(addrAPlusM.At(0), am, "load a[i+m]")
+	f.VPMOVZXDQ(addrTwiddles.At(0), t0)
+
+	mul(am, t0, LSW, q, qInvNeg, P, PL)
+	butterflyQ1Q(a, am, q, b0, b1)
+
+	// a is ready to be stored, but we need to scale am by twiddles.
+	f.VPMOVQD(a, addrA.At(0), "store a[i]")
+	f.VPMOVQD(am, addrAPlusM.At(0), "store a[i+m]")
+
+	f.ADDQ("$32", addrA)
+	f.ADDQ("$32", addrAPlusM)
+	f.ADDQ("$32", addrTwiddles)
+	f.DECQ(len, "decrement n")
+	f.JMP(lblLoop)
+
+	f.LABEL(lblDone)
+
+	f.RET()
+
+	f.LABEL(lblSmallerThan8)
+	f.Comment("m < 8, we call the generic one")
+	f.Comment("note that this should happen only when doing a FFT smaller than the smallest generated kernel")
+
+	// TODO @gbotrel should have dedicated tests
+	f.MOVQ("a+0(FP)", amd64.AX)
+	f.MOVQ(amd64.AX, "(SP)")
+	f.MOVQ("twiddles+24(FP)", amd64.AX)
+	f.MOVQ(amd64.AX, "24(SP)") // go vet says 24(SP) should be a_cap+16(FP)
+	f.MOVQ("start+48(FP)", amd64.AX)
+	f.MOVQ(amd64.AX, "48(SP)") // go vet says 48(SP) should be twiddles_cap+40(FP)
+	f.MOVQ("end+56(FP)", amd64.AX)
+	f.MOVQ(amd64.AX, "56(SP)")
+	f.MOVQ("m+64(FP)", amd64.AX)
+	f.MOVQ(amd64.AX, "64(SP)")
+
+	f.WriteLn("CALL ·innerDITWithTwiddlesGeneric(SB)")
+	f.RET()
+
 }
 
 func (f *FFAmd64) generateFFTInnerDIFF31() {

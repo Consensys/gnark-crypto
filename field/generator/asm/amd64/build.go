@@ -275,7 +275,7 @@ func GenerateF31FFTKernels(w io.Writer, nbBits int, kernels []int) error {
 	f.WriteLn("")
 
 	f.generateFFTDefinesF31()
-
+	f.generateFFTInnerDITF31()
 	f.generateFFTInnerDIFF31()
 
 	for _, ksize := range kernels {

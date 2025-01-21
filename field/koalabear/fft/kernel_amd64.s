@@ -34,6 +34,14 @@
 	VPMINUQ in3, in0, in0 \
 	VPADDQ  in2, in1, in1 \
 
+#define BUTTERFLYQ1Q(in0, in1, in2, in3, in4) \
+	VPADDQ  in0, in1, in3 \
+	VPSUBQ  in1, in0, in1 \
+	VPSUBQ  in2, in3, in0 \
+	VPMINUQ in3, in0, in0 \
+	VPADDQ  in2, in1, in4 \
+	VPMINUQ in4, in1, in1 \
+
 // performs a multiplication in place between 2 vectors of qwords (values should be dwords zero extended)
 // in0 = (in0 * in1) mod q
 // in1: second operand
@@ -85,6 +93,62 @@
 	VPMOVQD      in2, in3          \
 	VINSERTI64X4 $1, in3, in0, in0 \
 
+TEXT ·innerDITWithTwiddles_avx512(SB), NOSPLIT, $0-72
+	// prepare constants needed for mul and reduce ops
+	MOVD         $const_q, AX
+	VPBROADCASTQ AX, Z8
+	MOVD         $const_qInvNeg, AX
+	VPBROADCASTQ AX, Z9
+	VPCMPEQB     Y0, Y0, Y0
+	VPMOVZXDQ    Y0, Z11
+
+	// load arguments
+	MOVQ a+0(FP), R15
+	MOVQ twiddles+24(FP), CX
+	MOVQ end+56(FP), SI
+	MOVQ m+64(FP), BX
+	CMPQ BX, $0x0000000000000008
+	JL   smallerThan8_1          // m < 8
+	SHRQ $3, SI                  // we are processing 8 elements at a time
+	SHLQ $2, BX                  // offset = m * 4bytes
+	MOVQ R15, DX
+	ADDQ BX, DX
+
+loop_3:
+	TESTQ     SI, SI
+	JEQ       done_2     // n == 0, we are done
+	VPMOVZXDQ 0(R15), Z0 // load a[i]
+	VPMOVZXDQ 0(DX), Z1  // load a[i+m]
+	VPMOVZXDQ 0(CX), Z15
+	MUL(Z1, Z15, Z11, Z8, Z9, Z12, Z10)
+	BUTTERFLYQ1Q(Z0, Z1, Z8, Z3, Z4)
+	VPMOVQD   Z0, 0(R15) // store a[i]
+	VPMOVQD   Z1, 0(DX)  // store a[i+m]
+	ADDQ      $32, R15
+	ADDQ      $32, DX
+	ADDQ      $32, CX
+	DECQ      SI         // decrement n
+	JMP       loop_3
+
+done_2:
+	RET
+
+smallerThan8_1:
+	// m < 8, we call the generic one
+	// note that this should happen only when doing a FFT smaller than the smallest generated kernel
+	MOVQ a+0(FP), AX
+	MOVQ AX, (SP)
+	MOVQ twiddles+24(FP), AX
+	MOVQ AX, 24(SP)
+	MOVQ start+48(FP), AX
+	MOVQ AX, 48(SP)
+	MOVQ end+56(FP), AX
+	MOVQ AX, 56(SP)
+	MOVQ m+64(FP), AX
+	MOVQ AX, 64(SP)
+	CALL ·innerDITWithTwiddlesGeneric(SB)
+	RET
+
 TEXT ·innerDIFWithTwiddles_avx512(SB), NOSPLIT, $0-72
 	// prepare constants needed for mul and reduce ops
 	MOVD         $const_q, AX
@@ -101,15 +165,15 @@ TEXT ·innerDIFWithTwiddles_avx512(SB), NOSPLIT, $0-72
 	MOVQ end+56(FP), SI
 	MOVQ m+64(FP), BX
 	CMPQ BX, $0x0000000000000010
-	JL   smallerThan16_1         // m < 16
+	JL   smallerThan16_4         // m < 16
 	SHRQ $4, SI                  // we are processing 16 elements at a time
 	SHLQ $2, BX                  // offset = m * 4bytes
 	MOVQ R15, DX
 	ADDQ BX, DX
 
-loop_3:
+loop_6:
 	TESTQ         SI, SI
-	JEQ           done_2      // n == 0, we are done
+	JEQ           done_5      // n == 0, we are done
 	VMOVDQA32     0(R15), Z0  // load a[i]
 	VMOVDQA32     0(DX), Z1   // load a[i+m]
 	BUTTERFLYD2Q(Z0, Z1, Z2, Z3)
@@ -128,12 +192,12 @@ loop_3:
 	ADDQ          $64, DX
 	ADDQ          $64, CX
 	DECQ          SI          // decrement n
-	JMP           loop_3
+	JMP           loop_6
 
-done_2:
+done_5:
 	RET
 
-smallerThan16_1:
+smallerThan16_4:
 	// m < 16, we call the generic one
 	// note that this should happen only when doing a FFT smaller than the smallest generated kernel
 	MOVQ a+0(FP), AX
