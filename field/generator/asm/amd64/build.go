@@ -62,6 +62,7 @@ func (f *FFAmd64) StackSize(maxNbRegistersNeeded, nbRegistersReserved, minStackS
 }
 
 func (f *FFAmd64) DefineFn(name string) (fn defineFn, err error) {
+	name = strings.ToUpper(name)
 	fn, ok := f.mDefines[name]
 	if !ok {
 		return nil, fmt.Errorf("function %s not defined", name)
@@ -272,6 +273,8 @@ func GenerateF31FFTKernels(w io.Writer, nbBits int, kernels []int) error {
 	f.WriteLn("#include \"funcdata.h\"")
 	f.WriteLn("#include \"go_asm.h\"")
 	f.WriteLn("")
+
+	f.generateFFTDefinesF31()
 
 	f.generateFFTInnerDIFF31()
 
