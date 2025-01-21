@@ -18,6 +18,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+
+	"github.com/consensys/bavard"
 )
 
 func main() {
@@ -43,8 +45,11 @@ func GenerateVectors() error {
 		if !dirEntry.IsDir() {
 
 			if filepath.Ext(dirEntry.Name()) == ".json" {
-				fmt.Println("\tprocessing", dirEntry.Name())
 				path := filepath.Join(testDirPath, dirEntry.Name())
+				if !bavard.ShouldGenerate(path) {
+					continue
+				}
+				fmt.Println("\tprocessing", dirEntry.Name())
 				if err = run(path); err != nil {
 					return err
 				}
