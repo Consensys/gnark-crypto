@@ -235,6 +235,9 @@ func benchmarkSIS(b *testing.B, input []fr.Element, sparse bool, logTwoBound, lo
 	benchName += fmt.Sprintf("inputs=%v/log2-bound=%v/log2-degree=%v", n, logTwoBound, logTwoDegree)
 
 	b.Run(benchName, func(b *testing.B) {
+		// report the throughput in MB/s
+		b.SetBytes(int64(len(input)) * koalabear.Bytes)
+
 		instance, err := NewRSis(0, logTwoDegree, logTwoBound, n)
 		if err != nil {
 			b.Fatal(err)
