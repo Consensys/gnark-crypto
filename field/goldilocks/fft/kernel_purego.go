@@ -13,6 +13,10 @@ func innerDIFWithTwiddles(a []goldilocks.Element, twiddles []goldilocks.Element,
 	innerDIFWithTwiddlesGeneric(a, twiddles, start, end, m)
 }
 
+func innerDITWithTwiddles(a []goldilocks.Element, twiddles []goldilocks.Element, start, end, m int) {
+	innerDITWithTwiddlesGeneric(a, twiddles, start, end, m)
+}
+
 func kerDIFNP_32(a []goldilocks.Element, twiddles [][]goldilocks.Element, stage int) {
 	kerDIFNP_32generic(a, twiddles, stage)
 }

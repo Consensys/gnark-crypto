@@ -346,7 +346,7 @@ func ditFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStart
 	}
 }
 
-func innerDITWithTwiddles(a []fr.Element, twiddles []fr.Element, start, end, m int) {
+func innerDITWithTwiddlesGeneric(a []fr.Element, twiddles []fr.Element, start, end, m int) {
 	if start == 0 {
 		fr.Butterfly(&a[0], &a[m])
 		start++

@@ -325,16 +325,10 @@ func ditFFT(a []babybear.Element, w babybear.Element, twiddles [][]babybear.Elem
 		}
 		return
 	}
-	if parallelButterfly {
-		parallel.Execute(m, func(start, end int) {
-			innerDITWithTwiddles(a, twiddles[stage-twiddlesStartStage], start, end, m)
-		}, nbTasks/(1<<(stage)))
-	} else {
-		innerDITWithTwiddles(a, twiddles[stage-twiddlesStartStage], 0, m, m)
-	}
+	innerDITWithTwiddles(a, twiddles[stage-twiddlesStartStage], 0, m, m)
 }
 
-func innerDITWithTwiddles(a []babybear.Element, twiddles []babybear.Element, start, end, m int) {
+func innerDITWithTwiddlesGeneric(a []babybear.Element, twiddles []babybear.Element, start, end, m int) {
 	if start == 0 {
 		babybear.Butterfly(&a[0], &a[m])
 		start++

@@ -13,6 +13,10 @@ func innerDIFWithTwiddles(a []fr.Element, twiddles []fr.Element, start, end, m i
 	innerDIFWithTwiddlesGeneric(a, twiddles, start, end, m)
 }
 
+func innerDITWithTwiddles(a []fr.Element, twiddles []fr.Element, start, end, m int) {
+	innerDITWithTwiddlesGeneric(a, twiddles, start, end, m)
+}
+
 func kerDIFNP_32(a []fr.Element, twiddles [][]fr.Element, stage int) {
 	kerDIFNP_32generic(a, twiddles, stage)
 }
