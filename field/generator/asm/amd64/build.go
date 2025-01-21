@@ -80,7 +80,7 @@ func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn) defineFn {
 	for _, ok := f.mDefines[name]; ok; {
 		// name already exist, for code generation purpose we add a suffix
 		// should happen only with e2 deprecated functions
-		fmt.Println("WARNING: function name already defined, adding suffix")
+		// fmt.Println("WARNING: function name already defined, adding suffix")
 		i := 0
 		for {
 			newName := fmt.Sprintf("%s_%d", name, i)
