@@ -305,6 +305,23 @@ func BenchmarkFFTDIFReference(b *testing.B) {
 	}
 }
 
+func BenchmarkFFTDIFReferenceSmall(b *testing.B) {
+	const maxSize = 1 << 9
+
+	pol := make([]babybear.Element, maxSize)
+	pol[0].SetRandom()
+	for i := 1; i < maxSize; i++ {
+		pol[i] = pol[i-1]
+	}
+
+	domain := NewDomain(maxSize)
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		domain.FFT(pol, DIF)
+	}
+}
+
 func evaluatePolynomial(pol []babybear.Element, val babybear.Element) babybear.Element {
 	var acc, res, tmp babybear.Element
 	res.Set(&pol[0])

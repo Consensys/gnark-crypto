@@ -305,6 +305,23 @@ func BenchmarkFFTDIFReference(b *testing.B) {
 	}
 }
 
+func BenchmarkFFTDIFReferenceSmall(b *testing.B) {
+	const maxSize = 1 << 9
+
+	pol := make([]goldilocks.Element, maxSize)
+	pol[0].SetRandom()
+	for i := 1; i < maxSize; i++ {
+		pol[i] = pol[i-1]
+	}
+
+	domain := NewDomain(maxSize)
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		domain.FFT(pol, DIF)
+	}
+}
+
 func evaluatePolynomial(pol []goldilocks.Element, val goldilocks.Element) goldilocks.Element {
 	var acc, res, tmp goldilocks.Element
 	res.Set(&pol[0])

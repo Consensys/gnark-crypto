@@ -142,11 +142,54 @@ func (r *RSis) Hash(v, res []koalabear.Element) error {
 
 	// by default, the mask is ignored (unless we unrolled the FFT and have a degree 64)
 	mask := ^uint64(0)
+	if r.Degree == 512 && r.LogTwoBound == 16 {
+		// this is our hot path, we don't use the iterator because with
+		// avx512 instructions, it actually ends up being most of the CPU time.
+		er := koalabear.Element{1} // mul by 1 --> mont reduce
+		polId := 0
+		var k512 [512]koalabear.Element
+		vk := koalabear.Vector(k512[:])
+		vRes := koalabear.Vector(res)
+		vb := koalabear.Vector(k512[256:])
 
-	// inner hash
-	it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
-	for i := 0; i < len(r.Ag); i++ {
-		r.InnerHash(it, res, k, r.kz, i, mask)
+		cosets, err := r.Domain.CosetTable()
+		if err != nil {
+			return err
+		}
+		vCosets := koalabear.Vector(cosets)
+
+		for j := 0; j < len(v); j += 256 {
+			start := j
+			end := j + 256
+			end = min(end, len(v))
+
+			// use half of vk to copy the v input to batch convert to regular form
+			copy(vb[:], v[start:end])
+			for k := (end - start); k < 256; k++ {
+				vb[k][0] = 0
+			}
+			// batch montgomery -> regular
+			vb.ScalarMul(vb, &er)
+
+			// do the limb split
+			for k := 0; k < 256; k++ {
+				k512[k*2][0] = uint32(uint16(vb[k][0]))
+				k512[k*2+1][0] = uint32(uint16(vb[k][0] >> 16))
+			}
+
+			// inner hash
+			vk.Mul(vk, vCosets)
+			r.Domain.FFT(k512[:], fft.DIF, fft.WithNbTasks(1))
+			vk.Mul(vk, koalabear.Vector(r.Ag[polId]))
+			vRes.Add(vRes, vk)
+			polId++
+		}
+	} else {
+		// inner hash
+		it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
+		for i := 0; i < len(r.Ag); i++ {
+			r.InnerHash(it, res, k, r.kz, i, mask)
+		}
 	}
 
 	// reduces mod Xᵈ+1

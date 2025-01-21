@@ -32,12 +32,14 @@ func generateSIS(F *config.Field, outputDir string) error {
 		FF               string
 		FieldPackagePath string
 		HasUnrolledFFT   bool
+		F31              bool
 	}
 
 	data := &sisTemplateData{
 		FF:               F.PackageName,
 		FieldPackagePath: fieldImportPath,
 		HasUnrolledFFT:   F.NbBytes == 32,
+		F31:              F.F31,
 	}
 
 	funcs := make(map[string]interface{})

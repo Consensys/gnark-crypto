@@ -159,7 +159,6 @@ func (r *RSis) Hash(v, res []fr.Element) error {
 		// full FFT
 		mask = uint64(len(partialFFT_64) - 1)
 	}
-
 	// inner hash
 	it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
 	for i := 0; i < len(r.Ag); i++ {

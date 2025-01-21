@@ -142,7 +142,6 @@ func (r *RSis) Hash(v, res []goldilocks.Element) error {
 
 	// by default, the mask is ignored (unless we unrolled the FFT and have a degree 64)
 	mask := ^uint64(0)
-
 	// inner hash
 	it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
 	for i := 0; i < len(r.Ag); i++ {
