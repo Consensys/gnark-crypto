@@ -236,7 +236,7 @@ func benchmarkSIS(b *testing.B, input []babybear.Element, sparse bool, logTwoBou
 
 	b.Run(benchName, func(b *testing.B) {
 		// report the throughput in MB/s
-		b.SetBytes(int64(len(input)) * koalabear.Bytes)
+		b.SetBytes(int64(len(input)) * babybear.Bytes)
 
 		instance, err := NewRSis(0, logTwoDegree, logTwoBound, n)
 		if err != nil {
