@@ -124,8 +124,8 @@ loop_7:
 	VPMULUDQ  Z5, Z3, Z5  // m = m * q
 	VPADDQ    Z2, Z5, Z2  // P = P + m
 	VPSRLQ    $32, Z2, Z2 // P = P >> 32
-	VPSUBD    Z3, Z2, Z5  // PL = P - q
-	VPMINUD   Z2, Z5, Z2  // P = min(P, PL)
+	VPSUBQ    Z3, Z2, Z5  // PL = P - q
+	VPMINUQ   Z2, Z5, Z2  // P = min(P, PL)
 	VPMOVQD   Z2, 0(CX)   // res = P
 
 	// increment pointers to visit next element
@@ -166,8 +166,8 @@ loop_9:
 	VPMULUDQ  Z5, Z3, Z5  // m = m * q
 	VPADDQ    Z2, Z5, Z2  // P = P + m
 	VPSRLQ    $32, Z2, Z2 // P = P >> 32
-	VPSUBD    Z3, Z2, Z5  // PL = P - q
-	VPMINUD   Z2, Z5, Z2  // P = min(P, PL)
+	VPSUBQ    Z3, Z2, Z5  // PL = P - q
+	VPMINUQ   Z2, Z5, Z2  // P = min(P, PL)
 	VPMOVQD   Z2, 0(CX)   // res = P
 
 	// increment pointers to visit next element

@@ -281,8 +281,8 @@ func (f *FFAmd64) generateMulVecF31() {
 	f.VPADDQ(P, PL, P, "P = P + m")
 	f.VPSRLQ("$32", P, P, "P = P >> 32")
 
-	f.VPSUBD(q, P, PL, "PL = P - q")
-	f.VPMINUD(P, PL, P, "P = min(P, PL)")
+	f.VPSUBQ(q, P, PL, "PL = P - q")
+	f.VPMINUQ(P, PL, P, "P = min(P, PL)")
 
 	// move P to res
 	f.VPMOVQD(P, addrRes.At(0), "res = P")
@@ -363,8 +363,8 @@ func (f *FFAmd64) generateScalarMulVecF31() {
 	f.VPADDQ(P, PL, P, "P = P + m")
 	f.VPSRLQ("$32", P, P, "P = P >> 32")
 
-	f.VPSUBD(q, P, PL, "PL = P - q")
-	f.VPMINUD(P, PL, P, "P = min(P, PL)")
+	f.VPSUBQ(q, P, PL, "PL = P - q")
+	f.VPMINUQ(P, PL, P, "P = min(P, PL)")
 
 	// move P to res
 	f.VPMOVQD(P, addrRes.At(0), "res = P")
