@@ -17,7 +17,6 @@ import (
 	"github.com/consensys/gnark-crypto/utils"
 	"io"
 	"math/big"
-	"runtime"
 )
 
 type MpcSetup struct {
