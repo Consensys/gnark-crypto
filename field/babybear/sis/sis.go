@@ -171,8 +171,9 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 				for k := len(_v); k < 256; k++ {
 					k256[k][0] = 0
 				}
+				_v = babybear.Vector(k256[:])
 			}
-			fft.SISToRefactor(k256[:], k512[:])
+			fft.SISToRefactor(_v, k512[:])
 
 			// // do the limb split
 			// for k := 0; k < 256; k++ {
