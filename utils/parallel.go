@@ -35,6 +35,10 @@ func NewWorkerPool() *WorkerPool {
 	return p
 }
 
+func (wp *WorkerPool) NbWorkers() int {
+	return wp.nbWorkers
+}
+
 // Stop (but does not wait) the pool. It frees the worker.
 func (wp *WorkerPool) Stop() {
 	close(wp.chJobs)

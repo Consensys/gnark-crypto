@@ -121,21 +121,23 @@ func (s *MpcSetup) Verify(next *MpcSetup) error {
 
 	// TODO @Tabaie replace with batch subgroup check
 	n := len(next.srs.Pk.G1) - 1
-	fail := -1
 	wp := utils.NewWorkerPool()
 	defer wp.Stop()
+	fail := make(chan error, wp.NbWorkers())
 
 	wp.Submit(n, func(start, end int) {
 		for i := start; i < end; i++ {
 			if !next.srs.Pk.G1[i+1].IsInSubGroup() {
-				fail = i + 1
+				fail <- fmt.Errorf("[x^%d]₁ representation not in subgroup", i+1)
 				break
 			}
 		}
-	}, n/runtime.NumCPU()+1).Wait()
-
-	if fail != -1 {
-		return fmt.Errorf("[x^%d]₁ representation not in subgroup", fail)
+	}, n/wp.NbWorkers()+1).Wait()
+	close(fail)
+	for err := range fail {
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := next.proof.Verify(append([]byte("KZG Setup"), challenge...), 0, mpcsetup.ValueUpdate{
