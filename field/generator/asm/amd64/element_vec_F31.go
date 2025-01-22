@@ -1103,3 +1103,68 @@ func zToy(r amd64.Register) amd64.Register {
 	vr := "Y" + v[1:]
 	return amd64.Register(vr)
 }
+
+func (f *FFAmd64) generateSISToRefactorF31() {
+	const argSize = 6 * 8
+	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
+	registers := f.FnHeader("SISToRefactor", stackSize, argSize, amd64.AX)
+	defer f.AssertCleanStack(stackSize, 0)
+
+	// for now we get
+	// SISToRefactor(k256, k512 []uint32)
+	// we "limb split" k256 into k512 to start with.
+	addrK256 := f.Pop(&registers)
+	addrK512 := f.Pop(&registers)
+
+	x := amd64.Register("Z0")
+	q := amd64.Register("Z1")
+	qInvNeg := amd64.Register("Z2")
+	LSW := amd64.Register("Z3")
+	PL := amd64.Register("Z4")
+
+	// load q and qInvNeg
+	f.Comment("prepare constants needed for mul and reduce ops")
+	f.WriteLn("MOVD $const_q, AX")
+	f.VPBROADCASTQ(amd64.AX, q)
+	f.WriteLn("MOVD $const_qInvNeg, AX")
+	f.VPBROADCASTQ(amd64.AX, qInvNeg)
+	f.VPCMPEQB("Y0", "Y0", "Y0")
+	f.VPMOVZXDQ("Y0", LSW)
+
+	f.MOVQ("k256+0(FP)", addrK256)
+	f.MOVQ("k512+24(FP)", addrK512)
+
+	n := 256 / 8
+
+	for i := 0; i < n; i++ {
+		// load 8 uint32 from k256 into a zmm register (zero extended)
+		f.VPMOVZXDQ(addrK256.At(i*4), x)
+
+		// from Montgomery to regular form
+		// f.VPMULUDQ(x, y, P)
+		// f.VPANDQ(LSW, P, PL)
+		f.VPMULUDQ(x, qInvNeg, PL)
+		f.VPANDQ(LSW, PL, PL)
+		f.VPMULUDQ(PL, q, PL)
+		f.VPADDQ(x, PL, x)
+		f.VPSRLQ("$32", x, x)
+		f.VPSUBQ(q, x, PL)
+		f.VPMINUQ(x, PL, x)
+
+		// we have
+		// z0 = [ 0 0 a0 a1 | 0 0 b0 b1 | 0 0 c0 c1 | ... ]
+		// we want
+		// z0 = [ 0 a1 0 a0 | 0 b1 0 b0 | 0 c1 0 c0 | ... ]
+		f.VPSHUFLW(0b11011100, x, x)
+		f.VPSHUFHW(0b11011100, x, x)
+
+		// now we consider that as a vector of dwords and move it into k512
+		f.VMOVDQU32(x, addrK512.At(i*8))
+
+		// f.ADDQ("$32", addrK256)
+		// f.ADDQ("$64", addrK512)
+	}
+
+	f.RET()
+
+}

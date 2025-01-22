@@ -145,12 +145,11 @@ func (r *RSis) Hash(v, res []koalabear.Element) error {
 	if r.Degree == 512 && r.LogTwoBound == 16 {
 		// this is our hot path, we don't use the iterator because with
 		// avx512 instructions, it actually ends up being most of the CPU time.
-		er := koalabear.Element{1} // mul by 1 --> mont reduce
+		// er := koalabear.Element{1} // mul by 1 --> mont reduce
 		polId := 0
 		var k512 [512]koalabear.Element
 		vk := koalabear.Vector(k512[:])
 		vRes := koalabear.Vector(res)
-		vb := koalabear.Vector(k512[256:])
 
 		cosets, err := r.Domain.CosetTable()
 		if err != nil {
@@ -158,24 +157,28 @@ func (r *RSis) Hash(v, res []koalabear.Element) error {
 		}
 		vCosets := koalabear.Vector(cosets)
 
+		var k256 [256]koalabear.Element
+
 		for j := 0; j < len(v); j += 256 {
 			start := j
 			end := j + 256
 			end = min(end, len(v))
 
-			// use half of vk to copy the v input to batch convert to regular form
-			copy(vb[:], v[start:end])
-			for k := (end - start); k < 256; k++ {
-				vb[k][0] = 0
+			_v := koalabear.Vector(v[start:end])
+			if len(_v) != 256 {
+				// we need a buffer here
+				copy(k256[:], _v)
+				for k := len(_v); k < 256; k++ {
+					k256[k][0] = 0
+				}
 			}
-			// batch montgomery -> regular
-			vb.ScalarMul(vb, &er)
+			fft.SISToRefactor(k256[:], k512[:])
 
-			// do the limb split
-			for k := 0; k < 256; k++ {
-				k512[k*2][0] = uint32(uint16(vb[k][0]))
-				k512[k*2+1][0] = uint32(uint16(vb[k][0] >> 16))
-			}
+			// // do the limb split
+			// for k := 0; k < 256; k++ {
+			// 	k512[k*2][0] = uint32(uint16(vb[k][0]))
+			// 	k512[k*2+1][0] = uint32(uint16(vb[k][0] >> 16))
+			// }
 
 			// inner hash
 			vk.Mul(vk, vCosets)

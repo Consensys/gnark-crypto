@@ -282,6 +282,8 @@ func GenerateF31FFTKernels(w io.Writer, nbBits int, kernels []int) error {
 		f.generateFFTKernelF31(ksize)
 	}
 
+	f.generateSISToRefactorF31()
+
 	return nil
 }
 
