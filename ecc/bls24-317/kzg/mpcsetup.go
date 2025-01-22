@@ -10,11 +10,14 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	curve "github.com/consensys/gnark-crypto/ecc/bls24-317"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/mpcsetup"
+	"github.com/consensys/gnark-crypto/utils"
 	"io"
 	"math/big"
+	"runtime"
 )
 
 type MpcSetup struct {
@@ -120,12 +123,26 @@ func (s *MpcSetup) Verify(next *MpcSetup) error {
 	}
 
 	if !next.srs.Vk.G2[1].IsInSubGroup() {
-		return errors.New("𝔾₂ representation not in subgroup")
+		return errors.New("[x]₂ representation not in subgroup")
 	}
-	for i := 1; i < len(next.srs.Pk.G1); i++ {
-		if !next.srs.Pk.G1[i].IsInSubGroup() {
-			return errors.New("𝔾₁ representation not in subgroup")
+
+	// TODO @Tabaie replace with batch subgroup check
+	n := len(next.srs.Pk.G1) - 1
+	fail := -1
+	wp := utils.NewWorkerPool()
+	defer wp.Stop()
+
+	wp.Submit(n, func(start, end int) {
+		for i := start; i < end; i++ {
+			if !next.srs.Pk.G1[i+1].IsInSubGroup() {
+				fail = i + 1
+				break
+			}
 		}
+	}, n/runtime.NumCPU()+1).Wait()
+
+	if fail != -1 {
+		return fmt.Errorf("[x^%d]₁ representation not in subgroup", fail)
 	}
 
 	if err := next.proof.Verify(append([]byte("KZG Setup"), challenge...), 0, mpcsetup.ValueUpdate{
