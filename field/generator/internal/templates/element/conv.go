@@ -327,6 +327,8 @@ type ByteOrder interface {
 }
 
 
+var errInvalidEncoding = errors.New("invalid {{.PackageName}}.{{.ElementName}} encoding")
+
 // BigEndian is the big-endian implementation of ByteOrder and AppendByteOrder.
 var BigEndian bigEndian
 
@@ -345,7 +347,7 @@ func (bigEndian) Element(b *[Bytes]byte) ({{.ElementName}}, error) {
 	{{- end}}
 
 	if !z.smallerThanModulus() {
-		return {{.ElementName}}{}, errors.New("invalid {{.PackageName}}.{{.ElementName}} encoding")
+		return {{.ElementName}}{}, errInvalidEncoding
 	}
 
 	z.toMont()
@@ -382,7 +384,7 @@ func (littleEndian) Element(b *[Bytes]byte) ({{.ElementName}}, error) {
 	{{- end}}
 
 	if !z.smallerThanModulus() {
-		return {{.ElementName}}{}, errors.New("invalid {{.PackageName}}.{{.ElementName}} encoding")
+		return {{.ElementName}}{}, errInvalidEncoding
 	}
 
 	z.toMont()
@@ -400,8 +402,5 @@ func (littleEndian) PutElement(b *[Bytes]byte, e {{.ElementName}})  {
 }
 
 func (littleEndian) String() string { return "LittleEndian" }
-
-
-
 
 `
