@@ -37,6 +37,7 @@ type RSis struct {
 	Domain *fft.Domain
 
 	maxNbElementsToHash int
+	smallFFT            func(k babybear.Vector, mask uint64)
 
 	kz babybear.Vector // zeroes used to zeroize the limbs buffer faster.
 }
@@ -99,6 +100,18 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		kz:                  make(babybear.Vector, degree),
 		maxNbElementsToHash: maxNbElementsToHash,
 	}
+	// for degree == 64 we have a special fast path with a set of unrolled FFTs.
+	if r.Degree == 512 {
+		// precompute twiddles for the unrolled FFT
+		twiddlesCoset := precomputeTwiddlesCoset(r.Domain.Generator, shift)
+		r.smallFFT = func(k babybear.Vector, mask uint64) {
+			fft512(k, twiddlesCoset)
+		}
+	} else {
+		r.smallFFT = func(k babybear.Vector, _ uint64) {
+			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+		}
+	}
 
 	// filling A
 	a := make([]babybear.Element, n*r.Degree)
@@ -151,11 +164,8 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 		vk := babybear.Vector(k512[:])
 		vRes := babybear.Vector(res)
 
-		cosets, err := r.Domain.CosetTable()
-		if err != nil {
-			return err
-		}
-		vCosets := babybear.Vector(cosets)
+		cosets, _ := r.Domain.CosetTable()
+		twiddles, _ := r.Domain.Twiddles()
 
 		var k256 [256]babybear.Element
 
@@ -173,17 +183,23 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 				}
 				_v = babybear.Vector(k256[:])
 			}
-			fft.SISToRefactor(_v, k512[:])
+			// ok for now this does the first step of the fft + the scaling by cosets;
+			fft.SISToRefactor(_v, k512[:], cosets, twiddles[0])
 
-			// // do the limb split
-			// for k := 0; k < 256; k++ {
-			// 	k512[k*2][0] = uint32(uint16(vb[k][0]))
-			// 	k512[k*2+1][0] = uint32(uint16(vb[k][0] >> 16))
-			// }
+			// TODO --> incorporate one by one.
+			fft.InnerDIFWithTwiddles_avx512(k512[:256], twiddles[1], 0, 128, 128)
+			fft.KerDIFNP_128_avx512(k512[:128], twiddles, 2)
+			fft.KerDIFNP_128_avx512(k512[128:256], twiddles, 2)
+
+			_vv := babybear.Vector(k512[256:])
+			_vv.Mul(_vv, babybear.Vector(twiddles[0][:256]))
+			fft.InnerDIFWithTwiddles_avx512(k512[256:], twiddles[1], 0, 128, 128)
+			fft.KerDIFNP_128_avx512(k512[256:384], twiddles, 2)
+			fft.KerDIFNP_128_avx512(k512[384:], twiddles, 2)
 
 			// inner hash
-			vk.Mul(vk, vCosets)
-			r.Domain.FFT(k512[:], fft.DIF, fft.WithNbTasks(1))
+			// vk.Mul(vk, vCosets)
+			// r.Domain.FFT(k512[:], fft.DIF, fft.WithNbTasks(1))
 			vk.Mul(vk, babybear.Vector(r.Ag[polId]))
 			vRes.Add(vRes, vk)
 			polId++
@@ -207,7 +223,7 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 // It does not reduce mod Xᵈ+1.
 // res, k, kz must have size r.Degree.
 // kz is a buffer of zeroes used to zeroize the limbs buffer faster.
-// mask is ignored since we do not unroll the FFT for this package.
+// mask is used to select the FFT to use when the FFT is unrolled.
 func (r *RSis) InnerHash(it *LimbIterator, res, k, kz babybear.Vector, polId int, mask uint64) {
 	copy(k, kz)
 	zero := uint32(0)
@@ -232,7 +248,9 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k, kz babybear.Vector, polId int
 		// we can skip this, FFT(0) = 0
 		return
 	}
-	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+	// this is equivalent to:
+	// 	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+	r.smallFFT(k, mask)
 
 	// we compute k * r.Ag[polId] in ℤ_{p}[X]/Xᵈ+1.
 	// k and r.Ag[polId] are in evaluation form on √(g) * <g>

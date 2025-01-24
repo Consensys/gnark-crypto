@@ -18,8 +18,13 @@ var vInterleaveIndices = []uint64 {
 	2, 3, 8, 9, 6, 7, 12, 13,
 }
 
+//go:nosplit
 //go:noescape
-func SISToRefactor(k256, k512 []{{ .FF }}.Element)
+func SISToRefactor(k256, k512, cosets, rag, res []{{ .FF }}.Element)
+
+func InnerDIFWithTwiddles_avx512(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
+	innerDIFWithTwiddles_avx512(a, twiddles, start, end, m)
+}
 
 //go:noescape
 func innerDIFWithTwiddles_avx512(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int)
@@ -45,6 +50,10 @@ func innerDITWithTwiddles(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, s
 
 {{range $ki, $klog2 := $.Kernels}}
 	{{- $ksize := shl 1 $klog2}}
+
+func KerDIFNP_{{$ksize}}_avx512(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int) {
+	kerDIFNP_{{$ksize}}_avx512(a, twiddles, stage)
+}
 
 //go:noescape
 func kerDIFNP_{{$ksize}}_avx512(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int)

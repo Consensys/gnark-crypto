@@ -26,8 +26,13 @@ var vInterleaveIndices = []uint64{
 	2, 3, 8, 9, 6, 7, 12, 13,
 }
 
+//go:nosplit
 //go:noescape
-func SISToRefactor(k256, k512 []koalabear.Element)
+func SISToRefactor(k256, k512, cosets, rag, res []koalabear.Element)
+
+func InnerDIFWithTwiddles_avx512(a []koalabear.Element, twiddles []koalabear.Element, start, end, m int) {
+	innerDIFWithTwiddles_avx512(a, twiddles, start, end, m)
+}
 
 //go:noescape
 func innerDIFWithTwiddles_avx512(a []koalabear.Element, twiddles []koalabear.Element, start, end, m int)
@@ -49,6 +54,10 @@ func innerDITWithTwiddles(a []koalabear.Element, twiddles []koalabear.Element, s
 		return
 	}
 	innerDITWithTwiddles_avx512(a, twiddles, start, end, m)
+}
+
+func KerDIFNP_128_avx512(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
+	kerDIFNP_128_avx512(a, twiddles, stage)
 }
 
 //go:noescape

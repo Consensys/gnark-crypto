@@ -23,10 +23,6 @@ func generateSIS(F *config.Field, outputDir string) error {
 		{File: filepath.Join(outputDir, "sis.go"), Templates: []string{"sis.go.tmpl"}},
 		{File: filepath.Join(outputDir, "sis_test.go"), Templates: []string{"sis.test.go.tmpl"}},
 	}
-	// only on field byte size == 32, we unroll a 64-wide FFT (used in linea for bls12-377)
-	if F.NbBytes == 32 {
-		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "sis_fft.go"), Templates: []string{"fft.go.tmpl"}})
-	}
 
 	type sisTemplateData struct {
 		FF               string
@@ -38,13 +34,24 @@ func generateSIS(F *config.Field, outputDir string) error {
 	data := &sisTemplateData{
 		FF:               F.PackageName,
 		FieldPackagePath: fieldImportPath,
-		HasUnrolledFFT:   F.NbBytes == 32,
+		HasUnrolledFFT:   F.NbBytes == 32 || F.F31,
 		F31:              F.F31,
+	}
+
+	// only on field byte size == 32, we unroll a 64-wide FFT (used in linea for bls12-377)
+	if data.HasUnrolledFFT {
+		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "sis_fft.go"), Templates: []string{"fft.go.tmpl"}})
 	}
 
 	funcs := make(map[string]interface{})
 	funcs["bitReverse"] = bitReverse
 	funcs["pow"] = pow
+	funcs["shl"] = func(x, n any) uint64 {
+		return anyToUint64(x) << anyToUint64(n)
+	}
+	funcs["shr"] = func(x, n any) uint64 {
+		return anyToUint64(x) >> anyToUint64(n)
+	}
 
 	bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
 	if data.HasUnrolledFFT {
@@ -137,7 +144,7 @@ type PartialFFTCodeGen struct {
 
 func (p *PartialFFTCodeGen) header() {
 	writeIndent(p.Builder, p.NumIndent)
-	line := fmt.Sprintf("func partialFFT_%v(a, twiddles fr.Vector) {\n", p.Mask)
+	line := fmt.Sprintf("func partialFFT_%v(a, twiddles koalabear.Vector) {\n", p.Mask)
 	p.Builder.WriteString(line)
 }
 
@@ -157,7 +164,7 @@ func (p *PartialFFTCodeGen) butterFlyLine(i, j int) {
 
 	writeIndent(p.Builder, p.NumIndent)
 
-	line := fmt.Sprintf("fr.Butterfly(&a[%v], &a[%v])\n", i, j)
+	line := fmt.Sprintf("koalabear.Butterfly(&a[%v], &a[%v])\n", i, j)
 	if _, err := p.Builder.WriteString(line); err != nil {
 		panic(err)
 	}

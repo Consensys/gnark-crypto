@@ -13,5564 +13,4185 @@ import (
 // precomputeTwiddlesCoset precomputes twiddlesCoset from twiddles and coset table
 // it then return all elements in the correct order for the unrolled FFT.
 func precomputeTwiddlesCoset(generator, shifter fr.Element) []fr.Element {
-	toReturn := make([]fr.Element, 63)
+	toReturn := make([]fr.Element, 511)
 	var r, s fr.Element
 	e := new(big.Int)
 
 	s = shifter
-	for k := 0; k < 5; k++ {
+	for k := 0; k < 8; k++ {
 		s.Square(&s)
 	}
 	toReturn[0] = s
 	s = shifter
-	for k := 0; k < 4; k++ {
+	for k := 0; k < 7; k++ {
 		s.Square(&s)
 	}
 	toReturn[1] = s
-	r.Exp(generator, e.SetUint64(uint64(1<<4*1)))
+	r.Exp(generator, e.SetUint64(128))
 	toReturn[2].Mul(&r, &s)
+	s = shifter
+	for k := 0; k < 6; k++ {
+		s.Square(&s)
+	}
+	toReturn[3] = s
+	r.Exp(generator, e.SetUint64(128))
+	toReturn[4].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(64))
+	toReturn[5].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(192))
+	toReturn[6].Mul(&r, &s)
+	s = shifter
+	for k := 0; k < 5; k++ {
+		s.Square(&s)
+	}
+	toReturn[7] = s
+	r.Exp(generator, e.SetUint64(128))
+	toReturn[8].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(64))
+	toReturn[9].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(192))
+	toReturn[10].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(32))
+	toReturn[11].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(160))
+	toReturn[12].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(96))
+	toReturn[13].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(224))
+	toReturn[14].Mul(&r, &s)
+	s = shifter
+	for k := 0; k < 4; k++ {
+		s.Square(&s)
+	}
+	toReturn[15] = s
+	r.Exp(generator, e.SetUint64(128))
+	toReturn[16].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(64))
+	toReturn[17].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(192))
+	toReturn[18].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(32))
+	toReturn[19].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(160))
+	toReturn[20].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(96))
+	toReturn[21].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(224))
+	toReturn[22].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(16))
+	toReturn[23].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(144))
+	toReturn[24].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(80))
+	toReturn[25].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(208))
+	toReturn[26].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(48))
+	toReturn[27].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(176))
+	toReturn[28].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(112))
+	toReturn[29].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(240))
+	toReturn[30].Mul(&r, &s)
 	s = shifter
 	for k := 0; k < 3; k++ {
 		s.Square(&s)
 	}
-	toReturn[3] = s
-	r.Exp(generator, e.SetUint64(uint64(1<<3*2)))
-	toReturn[4].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<3*1)))
-	toReturn[5].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<3*3)))
-	toReturn[6].Mul(&r, &s)
+	toReturn[31] = s
+	r.Exp(generator, e.SetUint64(128))
+	toReturn[32].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(64))
+	toReturn[33].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(192))
+	toReturn[34].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(32))
+	toReturn[35].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(160))
+	toReturn[36].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(96))
+	toReturn[37].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(224))
+	toReturn[38].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(16))
+	toReturn[39].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(144))
+	toReturn[40].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(80))
+	toReturn[41].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(208))
+	toReturn[42].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(48))
+	toReturn[43].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(176))
+	toReturn[44].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(112))
+	toReturn[45].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(240))
+	toReturn[46].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(8))
+	toReturn[47].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(136))
+	toReturn[48].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(72))
+	toReturn[49].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(200))
+	toReturn[50].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(40))
+	toReturn[51].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(168))
+	toReturn[52].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(104))
+	toReturn[53].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(232))
+	toReturn[54].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(24))
+	toReturn[55].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(152))
+	toReturn[56].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(88))
+	toReturn[57].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(216))
+	toReturn[58].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(56))
+	toReturn[59].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(184))
+	toReturn[60].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(120))
+	toReturn[61].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(248))
+	toReturn[62].Mul(&r, &s)
 	s = shifter
 	for k := 0; k < 2; k++ {
 		s.Square(&s)
 	}
-	toReturn[7] = s
-	r.Exp(generator, e.SetUint64(uint64(1<<2*4)))
-	toReturn[8].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<2*2)))
-	toReturn[9].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<2*6)))
-	toReturn[10].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<2*1)))
-	toReturn[11].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<2*5)))
-	toReturn[12].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<2*3)))
-	toReturn[13].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<2*7)))
-	toReturn[14].Mul(&r, &s)
+	toReturn[63] = s
+	r.Exp(generator, e.SetUint64(128))
+	toReturn[64].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(64))
+	toReturn[65].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(192))
+	toReturn[66].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(32))
+	toReturn[67].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(160))
+	toReturn[68].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(96))
+	toReturn[69].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(224))
+	toReturn[70].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(16))
+	toReturn[71].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(144))
+	toReturn[72].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(80))
+	toReturn[73].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(208))
+	toReturn[74].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(48))
+	toReturn[75].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(176))
+	toReturn[76].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(112))
+	toReturn[77].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(240))
+	toReturn[78].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(8))
+	toReturn[79].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(136))
+	toReturn[80].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(72))
+	toReturn[81].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(200))
+	toReturn[82].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(40))
+	toReturn[83].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(168))
+	toReturn[84].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(104))
+	toReturn[85].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(232))
+	toReturn[86].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(24))
+	toReturn[87].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(152))
+	toReturn[88].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(88))
+	toReturn[89].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(216))
+	toReturn[90].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(56))
+	toReturn[91].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(184))
+	toReturn[92].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(120))
+	toReturn[93].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(248))
+	toReturn[94].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(4))
+	toReturn[95].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(132))
+	toReturn[96].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(68))
+	toReturn[97].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(196))
+	toReturn[98].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(36))
+	toReturn[99].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(164))
+	toReturn[100].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(100))
+	toReturn[101].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(228))
+	toReturn[102].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(20))
+	toReturn[103].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(148))
+	toReturn[104].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(84))
+	toReturn[105].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(212))
+	toReturn[106].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(52))
+	toReturn[107].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(180))
+	toReturn[108].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(116))
+	toReturn[109].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(244))
+	toReturn[110].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(12))
+	toReturn[111].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(140))
+	toReturn[112].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(76))
+	toReturn[113].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(204))
+	toReturn[114].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(44))
+	toReturn[115].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(172))
+	toReturn[116].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(108))
+	toReturn[117].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(236))
+	toReturn[118].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(28))
+	toReturn[119].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(156))
+	toReturn[120].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(92))
+	toReturn[121].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(220))
+	toReturn[122].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(60))
+	toReturn[123].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(188))
+	toReturn[124].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(124))
+	toReturn[125].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(252))
+	toReturn[126].Mul(&r, &s)
 	s = shifter
 	for k := 0; k < 1; k++ {
 		s.Square(&s)
 	}
-	toReturn[15] = s
-	r.Exp(generator, e.SetUint64(uint64(1<<1*8)))
-	toReturn[16].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<1*4)))
-	toReturn[17].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<1*12)))
-	toReturn[18].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<1*2)))
-	toReturn[19].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<1*10)))
-	toReturn[20].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<1*6)))
-	toReturn[21].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<1*14)))
-	toReturn[22].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<1*1)))
-	toReturn[23].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<1*9)))
-	toReturn[24].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<1*5)))
-	toReturn[25].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<1*13)))
-	toReturn[26].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<1*3)))
-	toReturn[27].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<1*11)))
-	toReturn[28].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<1*7)))
-	toReturn[29].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<1*15)))
-	toReturn[30].Mul(&r, &s)
+	toReturn[127] = s
+	r.Exp(generator, e.SetUint64(128))
+	toReturn[128].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(64))
+	toReturn[129].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(192))
+	toReturn[130].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(32))
+	toReturn[131].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(160))
+	toReturn[132].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(96))
+	toReturn[133].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(224))
+	toReturn[134].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(16))
+	toReturn[135].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(144))
+	toReturn[136].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(80))
+	toReturn[137].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(208))
+	toReturn[138].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(48))
+	toReturn[139].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(176))
+	toReturn[140].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(112))
+	toReturn[141].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(240))
+	toReturn[142].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(8))
+	toReturn[143].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(136))
+	toReturn[144].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(72))
+	toReturn[145].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(200))
+	toReturn[146].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(40))
+	toReturn[147].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(168))
+	toReturn[148].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(104))
+	toReturn[149].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(232))
+	toReturn[150].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(24))
+	toReturn[151].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(152))
+	toReturn[152].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(88))
+	toReturn[153].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(216))
+	toReturn[154].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(56))
+	toReturn[155].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(184))
+	toReturn[156].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(120))
+	toReturn[157].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(248))
+	toReturn[158].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(4))
+	toReturn[159].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(132))
+	toReturn[160].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(68))
+	toReturn[161].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(196))
+	toReturn[162].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(36))
+	toReturn[163].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(164))
+	toReturn[164].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(100))
+	toReturn[165].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(228))
+	toReturn[166].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(20))
+	toReturn[167].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(148))
+	toReturn[168].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(84))
+	toReturn[169].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(212))
+	toReturn[170].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(52))
+	toReturn[171].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(180))
+	toReturn[172].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(116))
+	toReturn[173].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(244))
+	toReturn[174].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(12))
+	toReturn[175].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(140))
+	toReturn[176].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(76))
+	toReturn[177].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(204))
+	toReturn[178].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(44))
+	toReturn[179].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(172))
+	toReturn[180].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(108))
+	toReturn[181].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(236))
+	toReturn[182].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(28))
+	toReturn[183].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(156))
+	toReturn[184].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(92))
+	toReturn[185].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(220))
+	toReturn[186].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(60))
+	toReturn[187].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(188))
+	toReturn[188].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(124))
+	toReturn[189].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(252))
+	toReturn[190].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(2))
+	toReturn[191].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(130))
+	toReturn[192].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(66))
+	toReturn[193].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(194))
+	toReturn[194].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(34))
+	toReturn[195].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(162))
+	toReturn[196].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(98))
+	toReturn[197].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(226))
+	toReturn[198].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(18))
+	toReturn[199].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(146))
+	toReturn[200].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(82))
+	toReturn[201].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(210))
+	toReturn[202].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(50))
+	toReturn[203].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(178))
+	toReturn[204].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(114))
+	toReturn[205].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(242))
+	toReturn[206].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(10))
+	toReturn[207].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(138))
+	toReturn[208].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(74))
+	toReturn[209].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(202))
+	toReturn[210].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(42))
+	toReturn[211].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(170))
+	toReturn[212].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(106))
+	toReturn[213].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(234))
+	toReturn[214].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(26))
+	toReturn[215].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(154))
+	toReturn[216].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(90))
+	toReturn[217].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(218))
+	toReturn[218].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(58))
+	toReturn[219].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(186))
+	toReturn[220].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(122))
+	toReturn[221].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(250))
+	toReturn[222].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(6))
+	toReturn[223].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(134))
+	toReturn[224].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(70))
+	toReturn[225].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(198))
+	toReturn[226].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(38))
+	toReturn[227].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(166))
+	toReturn[228].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(102))
+	toReturn[229].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(230))
+	toReturn[230].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(22))
+	toReturn[231].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(150))
+	toReturn[232].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(86))
+	toReturn[233].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(214))
+	toReturn[234].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(54))
+	toReturn[235].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(182))
+	toReturn[236].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(118))
+	toReturn[237].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(246))
+	toReturn[238].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(14))
+	toReturn[239].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(142))
+	toReturn[240].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(78))
+	toReturn[241].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(206))
+	toReturn[242].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(46))
+	toReturn[243].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(174))
+	toReturn[244].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(110))
+	toReturn[245].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(238))
+	toReturn[246].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(30))
+	toReturn[247].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(158))
+	toReturn[248].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(94))
+	toReturn[249].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(222))
+	toReturn[250].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(62))
+	toReturn[251].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(190))
+	toReturn[252].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(126))
+	toReturn[253].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(254))
+	toReturn[254].Mul(&r, &s)
 	s = shifter
 	for k := 0; k < 0; k++ {
 		s.Square(&s)
 	}
-	toReturn[31] = s
-	r.Exp(generator, e.SetUint64(uint64(1<<0*16)))
-	toReturn[32].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*8)))
-	toReturn[33].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*24)))
-	toReturn[34].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*4)))
-	toReturn[35].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*20)))
-	toReturn[36].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*12)))
-	toReturn[37].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*28)))
-	toReturn[38].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*2)))
-	toReturn[39].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*18)))
-	toReturn[40].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*10)))
-	toReturn[41].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*26)))
-	toReturn[42].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*6)))
-	toReturn[43].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*22)))
-	toReturn[44].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*14)))
-	toReturn[45].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*30)))
-	toReturn[46].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*1)))
-	toReturn[47].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*17)))
-	toReturn[48].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*9)))
-	toReturn[49].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*25)))
-	toReturn[50].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*5)))
-	toReturn[51].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*21)))
-	toReturn[52].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*13)))
-	toReturn[53].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*29)))
-	toReturn[54].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*3)))
-	toReturn[55].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*19)))
-	toReturn[56].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*11)))
-	toReturn[57].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*27)))
-	toReturn[58].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*7)))
-	toReturn[59].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*23)))
-	toReturn[60].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*15)))
-	toReturn[61].Mul(&r, &s)
-	r.Exp(generator, e.SetUint64(uint64(1<<0*31)))
-	toReturn[62].Mul(&r, &s)
+	toReturn[255] = s
+	r.Exp(generator, e.SetUint64(128))
+	toReturn[256].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(64))
+	toReturn[257].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(192))
+	toReturn[258].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(32))
+	toReturn[259].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(160))
+	toReturn[260].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(96))
+	toReturn[261].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(224))
+	toReturn[262].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(16))
+	toReturn[263].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(144))
+	toReturn[264].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(80))
+	toReturn[265].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(208))
+	toReturn[266].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(48))
+	toReturn[267].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(176))
+	toReturn[268].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(112))
+	toReturn[269].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(240))
+	toReturn[270].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(8))
+	toReturn[271].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(136))
+	toReturn[272].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(72))
+	toReturn[273].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(200))
+	toReturn[274].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(40))
+	toReturn[275].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(168))
+	toReturn[276].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(104))
+	toReturn[277].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(232))
+	toReturn[278].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(24))
+	toReturn[279].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(152))
+	toReturn[280].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(88))
+	toReturn[281].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(216))
+	toReturn[282].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(56))
+	toReturn[283].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(184))
+	toReturn[284].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(120))
+	toReturn[285].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(248))
+	toReturn[286].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(4))
+	toReturn[287].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(132))
+	toReturn[288].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(68))
+	toReturn[289].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(196))
+	toReturn[290].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(36))
+	toReturn[291].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(164))
+	toReturn[292].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(100))
+	toReturn[293].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(228))
+	toReturn[294].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(20))
+	toReturn[295].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(148))
+	toReturn[296].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(84))
+	toReturn[297].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(212))
+	toReturn[298].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(52))
+	toReturn[299].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(180))
+	toReturn[300].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(116))
+	toReturn[301].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(244))
+	toReturn[302].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(12))
+	toReturn[303].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(140))
+	toReturn[304].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(76))
+	toReturn[305].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(204))
+	toReturn[306].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(44))
+	toReturn[307].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(172))
+	toReturn[308].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(108))
+	toReturn[309].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(236))
+	toReturn[310].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(28))
+	toReturn[311].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(156))
+	toReturn[312].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(92))
+	toReturn[313].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(220))
+	toReturn[314].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(60))
+	toReturn[315].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(188))
+	toReturn[316].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(124))
+	toReturn[317].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(252))
+	toReturn[318].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(2))
+	toReturn[319].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(130))
+	toReturn[320].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(66))
+	toReturn[321].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(194))
+	toReturn[322].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(34))
+	toReturn[323].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(162))
+	toReturn[324].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(98))
+	toReturn[325].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(226))
+	toReturn[326].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(18))
+	toReturn[327].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(146))
+	toReturn[328].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(82))
+	toReturn[329].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(210))
+	toReturn[330].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(50))
+	toReturn[331].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(178))
+	toReturn[332].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(114))
+	toReturn[333].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(242))
+	toReturn[334].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(10))
+	toReturn[335].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(138))
+	toReturn[336].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(74))
+	toReturn[337].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(202))
+	toReturn[338].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(42))
+	toReturn[339].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(170))
+	toReturn[340].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(106))
+	toReturn[341].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(234))
+	toReturn[342].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(26))
+	toReturn[343].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(154))
+	toReturn[344].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(90))
+	toReturn[345].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(218))
+	toReturn[346].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(58))
+	toReturn[347].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(186))
+	toReturn[348].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(122))
+	toReturn[349].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(250))
+	toReturn[350].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(6))
+	toReturn[351].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(134))
+	toReturn[352].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(70))
+	toReturn[353].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(198))
+	toReturn[354].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(38))
+	toReturn[355].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(166))
+	toReturn[356].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(102))
+	toReturn[357].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(230))
+	toReturn[358].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(22))
+	toReturn[359].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(150))
+	toReturn[360].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(86))
+	toReturn[361].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(214))
+	toReturn[362].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(54))
+	toReturn[363].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(182))
+	toReturn[364].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(118))
+	toReturn[365].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(246))
+	toReturn[366].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(14))
+	toReturn[367].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(142))
+	toReturn[368].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(78))
+	toReturn[369].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(206))
+	toReturn[370].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(46))
+	toReturn[371].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(174))
+	toReturn[372].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(110))
+	toReturn[373].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(238))
+	toReturn[374].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(30))
+	toReturn[375].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(158))
+	toReturn[376].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(94))
+	toReturn[377].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(222))
+	toReturn[378].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(62))
+	toReturn[379].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(190))
+	toReturn[380].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(126))
+	toReturn[381].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(254))
+	toReturn[382].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(1))
+	toReturn[383].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(129))
+	toReturn[384].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(65))
+	toReturn[385].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(193))
+	toReturn[386].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(33))
+	toReturn[387].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(161))
+	toReturn[388].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(97))
+	toReturn[389].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(225))
+	toReturn[390].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(17))
+	toReturn[391].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(145))
+	toReturn[392].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(81))
+	toReturn[393].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(209))
+	toReturn[394].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(49))
+	toReturn[395].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(177))
+	toReturn[396].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(113))
+	toReturn[397].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(241))
+	toReturn[398].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(9))
+	toReturn[399].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(137))
+	toReturn[400].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(73))
+	toReturn[401].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(201))
+	toReturn[402].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(41))
+	toReturn[403].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(169))
+	toReturn[404].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(105))
+	toReturn[405].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(233))
+	toReturn[406].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(25))
+	toReturn[407].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(153))
+	toReturn[408].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(89))
+	toReturn[409].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(217))
+	toReturn[410].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(57))
+	toReturn[411].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(185))
+	toReturn[412].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(121))
+	toReturn[413].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(249))
+	toReturn[414].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(5))
+	toReturn[415].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(133))
+	toReturn[416].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(69))
+	toReturn[417].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(197))
+	toReturn[418].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(37))
+	toReturn[419].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(165))
+	toReturn[420].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(101))
+	toReturn[421].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(229))
+	toReturn[422].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(21))
+	toReturn[423].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(149))
+	toReturn[424].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(85))
+	toReturn[425].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(213))
+	toReturn[426].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(53))
+	toReturn[427].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(181))
+	toReturn[428].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(117))
+	toReturn[429].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(245))
+	toReturn[430].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(13))
+	toReturn[431].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(141))
+	toReturn[432].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(77))
+	toReturn[433].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(205))
+	toReturn[434].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(45))
+	toReturn[435].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(173))
+	toReturn[436].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(109))
+	toReturn[437].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(237))
+	toReturn[438].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(29))
+	toReturn[439].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(157))
+	toReturn[440].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(93))
+	toReturn[441].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(221))
+	toReturn[442].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(61))
+	toReturn[443].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(189))
+	toReturn[444].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(125))
+	toReturn[445].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(253))
+	toReturn[446].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(3))
+	toReturn[447].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(131))
+	toReturn[448].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(67))
+	toReturn[449].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(195))
+	toReturn[450].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(35))
+	toReturn[451].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(163))
+	toReturn[452].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(99))
+	toReturn[453].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(227))
+	toReturn[454].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(19))
+	toReturn[455].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(147))
+	toReturn[456].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(83))
+	toReturn[457].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(211))
+	toReturn[458].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(51))
+	toReturn[459].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(179))
+	toReturn[460].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(115))
+	toReturn[461].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(243))
+	toReturn[462].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(11))
+	toReturn[463].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(139))
+	toReturn[464].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(75))
+	toReturn[465].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(203))
+	toReturn[466].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(43))
+	toReturn[467].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(171))
+	toReturn[468].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(107))
+	toReturn[469].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(235))
+	toReturn[470].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(27))
+	toReturn[471].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(155))
+	toReturn[472].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(91))
+	toReturn[473].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(219))
+	toReturn[474].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(59))
+	toReturn[475].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(187))
+	toReturn[476].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(123))
+	toReturn[477].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(251))
+	toReturn[478].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(7))
+	toReturn[479].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(135))
+	toReturn[480].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(71))
+	toReturn[481].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(199))
+	toReturn[482].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(39))
+	toReturn[483].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(167))
+	toReturn[484].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(103))
+	toReturn[485].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(231))
+	toReturn[486].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(23))
+	toReturn[487].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(151))
+	toReturn[488].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(87))
+	toReturn[489].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(215))
+	toReturn[490].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(55))
+	toReturn[491].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(183))
+	toReturn[492].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(119))
+	toReturn[493].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(247))
+	toReturn[494].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(15))
+	toReturn[495].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(143))
+	toReturn[496].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(79))
+	toReturn[497].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(207))
+	toReturn[498].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(47))
+	toReturn[499].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(175))
+	toReturn[500].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(111))
+	toReturn[501].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(239))
+	toReturn[502].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(31))
+	toReturn[503].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(159))
+	toReturn[504].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(95))
+	toReturn[505].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(223))
+	toReturn[506].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(63))
+	toReturn[507].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(191))
+	toReturn[508].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(127))
+	toReturn[509].Mul(&r, &s)
+	r.Exp(generator, e.SetUint64(255))
+	toReturn[510].Mul(&r, &s)
 	return toReturn
 }
 
-var partialFFT_64 = []func(a, twiddles fr.Vector){
-	partialFFT_0,
-	partialFFT_1,
-	partialFFT_2,
-	partialFFT_3,
-	partialFFT_4,
-	partialFFT_5,
-	partialFFT_6,
-	partialFFT_7,
-	partialFFT_8,
-	partialFFT_9,
-	partialFFT_10,
-	partialFFT_11,
-	partialFFT_12,
-	partialFFT_13,
-	partialFFT_14,
-	partialFFT_15,
-}
+func fft512(a, twiddles fr.Vector) {
 
-func partialFFT_0(a, twiddles fr.Vector) {
-}
+	//
+	// stage 0
+	//
 
-func partialFFT_1(a, twiddles fr.Vector) {
-	fr.Butterfly(&a[0], &a[32])
-	fr.Butterfly(&a[1], &a[33])
-	fr.Butterfly(&a[2], &a[34])
-	fr.Butterfly(&a[3], &a[35])
-	fr.Butterfly(&a[4], &a[36])
-	fr.Butterfly(&a[5], &a[37])
-	fr.Butterfly(&a[6], &a[38])
-	fr.Butterfly(&a[7], &a[39])
-	fr.Butterfly(&a[8], &a[40])
-	fr.Butterfly(&a[9], &a[41])
-	fr.Butterfly(&a[10], &a[42])
-	fr.Butterfly(&a[11], &a[43])
-	fr.Butterfly(&a[12], &a[44])
-	fr.Butterfly(&a[13], &a[45])
-	fr.Butterfly(&a[14], &a[46])
-	fr.Butterfly(&a[15], &a[47])
-	fr.Butterfly(&a[0], &a[16])
-	fr.Butterfly(&a[1], &a[17])
-	fr.Butterfly(&a[2], &a[18])
-	fr.Butterfly(&a[3], &a[19])
-	fr.Butterfly(&a[4], &a[20])
-	fr.Butterfly(&a[5], &a[21])
-	fr.Butterfly(&a[6], &a[22])
-	fr.Butterfly(&a[7], &a[23])
-	fr.Butterfly(&a[8], &a[24])
-	fr.Butterfly(&a[9], &a[25])
-	fr.Butterfly(&a[10], &a[26])
-	fr.Butterfly(&a[11], &a[27])
-	fr.Butterfly(&a[12], &a[28])
-	fr.Butterfly(&a[13], &a[29])
-	fr.Butterfly(&a[14], &a[30])
-	fr.Butterfly(&a[15], &a[31])
-	fr.Butterfly(&a[32], &a[48])
-	fr.Butterfly(&a[33], &a[49])
-	fr.Butterfly(&a[34], &a[50])
-	fr.Butterfly(&a[35], &a[51])
-	fr.Butterfly(&a[36], &a[52])
-	fr.Butterfly(&a[37], &a[53])
-	fr.Butterfly(&a[38], &a[54])
-	fr.Butterfly(&a[39], &a[55])
-	fr.Butterfly(&a[40], &a[56])
-	fr.Butterfly(&a[41], &a[57])
-	fr.Butterfly(&a[42], &a[58])
-	fr.Butterfly(&a[43], &a[59])
-	fr.Butterfly(&a[44], &a[60])
-	fr.Butterfly(&a[45], &a[61])
-	fr.Butterfly(&a[46], &a[62])
-	fr.Butterfly(&a[47], &a[63])
-	a[8].Mul(&a[8], &twiddles[3])
-	a[9].Mul(&a[9], &twiddles[3])
-	a[10].Mul(&a[10], &twiddles[3])
-	a[11].Mul(&a[11], &twiddles[3])
-	a[12].Mul(&a[12], &twiddles[3])
-	a[13].Mul(&a[13], &twiddles[3])
-	a[14].Mul(&a[14], &twiddles[3])
-	a[15].Mul(&a[15], &twiddles[3])
-	a[24].Mul(&a[24], &twiddles[4])
-	a[25].Mul(&a[25], &twiddles[4])
-	a[26].Mul(&a[26], &twiddles[4])
-	a[27].Mul(&a[27], &twiddles[4])
-	a[28].Mul(&a[28], &twiddles[4])
-	a[29].Mul(&a[29], &twiddles[4])
-	a[30].Mul(&a[30], &twiddles[4])
-	a[31].Mul(&a[31], &twiddles[4])
-	a[40].Mul(&a[40], &twiddles[5])
-	a[41].Mul(&a[41], &twiddles[5])
-	a[42].Mul(&a[42], &twiddles[5])
-	a[43].Mul(&a[43], &twiddles[5])
-	a[44].Mul(&a[44], &twiddles[5])
-	a[45].Mul(&a[45], &twiddles[5])
-	a[46].Mul(&a[46], &twiddles[5])
-	a[47].Mul(&a[47], &twiddles[5])
-	a[56].Mul(&a[56], &twiddles[6])
-	a[57].Mul(&a[57], &twiddles[6])
-	a[58].Mul(&a[58], &twiddles[6])
-	a[59].Mul(&a[59], &twiddles[6])
-	a[60].Mul(&a[60], &twiddles[6])
-	a[61].Mul(&a[61], &twiddles[6])
-	a[62].Mul(&a[62], &twiddles[6])
-	a[63].Mul(&a[63], &twiddles[6])
-	fr.Butterfly(&a[0], &a[8])
-	fr.Butterfly(&a[1], &a[9])
-	fr.Butterfly(&a[2], &a[10])
-	fr.Butterfly(&a[3], &a[11])
-	fr.Butterfly(&a[4], &a[12])
-	fr.Butterfly(&a[5], &a[13])
-	fr.Butterfly(&a[6], &a[14])
-	fr.Butterfly(&a[7], &a[15])
-	fr.Butterfly(&a[16], &a[24])
-	fr.Butterfly(&a[17], &a[25])
-	fr.Butterfly(&a[18], &a[26])
-	fr.Butterfly(&a[19], &a[27])
-	fr.Butterfly(&a[20], &a[28])
-	fr.Butterfly(&a[21], &a[29])
-	fr.Butterfly(&a[22], &a[30])
-	fr.Butterfly(&a[23], &a[31])
-	fr.Butterfly(&a[32], &a[40])
-	fr.Butterfly(&a[33], &a[41])
-	fr.Butterfly(&a[34], &a[42])
-	fr.Butterfly(&a[35], &a[43])
-	fr.Butterfly(&a[36], &a[44])
-	fr.Butterfly(&a[37], &a[45])
-	fr.Butterfly(&a[38], &a[46])
-	fr.Butterfly(&a[39], &a[47])
-	fr.Butterfly(&a[48], &a[56])
-	fr.Butterfly(&a[49], &a[57])
-	fr.Butterfly(&a[50], &a[58])
-	fr.Butterfly(&a[51], &a[59])
-	fr.Butterfly(&a[52], &a[60])
-	fr.Butterfly(&a[53], &a[61])
-	fr.Butterfly(&a[54], &a[62])
-	fr.Butterfly(&a[55], &a[63])
-	a[4].Mul(&a[4], &twiddles[7])
-	a[5].Mul(&a[5], &twiddles[7])
-	a[6].Mul(&a[6], &twiddles[7])
-	a[7].Mul(&a[7], &twiddles[7])
-	a[12].Mul(&a[12], &twiddles[8])
-	a[13].Mul(&a[13], &twiddles[8])
-	a[14].Mul(&a[14], &twiddles[8])
-	a[15].Mul(&a[15], &twiddles[8])
-	a[20].Mul(&a[20], &twiddles[9])
-	a[21].Mul(&a[21], &twiddles[9])
-	a[22].Mul(&a[22], &twiddles[9])
-	a[23].Mul(&a[23], &twiddles[9])
-	a[28].Mul(&a[28], &twiddles[10])
-	a[29].Mul(&a[29], &twiddles[10])
-	a[30].Mul(&a[30], &twiddles[10])
-	a[31].Mul(&a[31], &twiddles[10])
-	a[36].Mul(&a[36], &twiddles[11])
-	a[37].Mul(&a[37], &twiddles[11])
-	a[38].Mul(&a[38], &twiddles[11])
-	a[39].Mul(&a[39], &twiddles[11])
-	a[44].Mul(&a[44], &twiddles[12])
-	a[45].Mul(&a[45], &twiddles[12])
-	a[46].Mul(&a[46], &twiddles[12])
-	a[47].Mul(&a[47], &twiddles[12])
-	a[52].Mul(&a[52], &twiddles[13])
-	a[53].Mul(&a[53], &twiddles[13])
-	a[54].Mul(&a[54], &twiddles[13])
-	a[55].Mul(&a[55], &twiddles[13])
-	a[60].Mul(&a[60], &twiddles[14])
-	a[61].Mul(&a[61], &twiddles[14])
-	a[62].Mul(&a[62], &twiddles[14])
-	a[63].Mul(&a[63], &twiddles[14])
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	fr.Butterfly(&a[8], &a[12])
-	fr.Butterfly(&a[9], &a[13])
-	fr.Butterfly(&a[10], &a[14])
-	fr.Butterfly(&a[11], &a[15])
-	fr.Butterfly(&a[16], &a[20])
-	fr.Butterfly(&a[17], &a[21])
-	fr.Butterfly(&a[18], &a[22])
-	fr.Butterfly(&a[19], &a[23])
-	fr.Butterfly(&a[24], &a[28])
-	fr.Butterfly(&a[25], &a[29])
-	fr.Butterfly(&a[26], &a[30])
-	fr.Butterfly(&a[27], &a[31])
-	fr.Butterfly(&a[32], &a[36])
-	fr.Butterfly(&a[33], &a[37])
-	fr.Butterfly(&a[34], &a[38])
-	fr.Butterfly(&a[35], &a[39])
-	fr.Butterfly(&a[40], &a[44])
-	fr.Butterfly(&a[41], &a[45])
-	fr.Butterfly(&a[42], &a[46])
-	fr.Butterfly(&a[43], &a[47])
-	fr.Butterfly(&a[48], &a[52])
-	fr.Butterfly(&a[49], &a[53])
-	fr.Butterfly(&a[50], &a[54])
-	fr.Butterfly(&a[51], &a[55])
-	fr.Butterfly(&a[56], &a[60])
-	fr.Butterfly(&a[57], &a[61])
-	fr.Butterfly(&a[58], &a[62])
-	fr.Butterfly(&a[59], &a[63])
-	a[2].Mul(&a[2], &twiddles[15])
-	a[3].Mul(&a[3], &twiddles[15])
-	a[6].Mul(&a[6], &twiddles[16])
-	a[7].Mul(&a[7], &twiddles[16])
-	a[10].Mul(&a[10], &twiddles[17])
-	a[11].Mul(&a[11], &twiddles[17])
-	a[14].Mul(&a[14], &twiddles[18])
-	a[15].Mul(&a[15], &twiddles[18])
-	a[18].Mul(&a[18], &twiddles[19])
-	a[19].Mul(&a[19], &twiddles[19])
-	a[22].Mul(&a[22], &twiddles[20])
-	a[23].Mul(&a[23], &twiddles[20])
-	a[26].Mul(&a[26], &twiddles[21])
-	a[27].Mul(&a[27], &twiddles[21])
-	a[30].Mul(&a[30], &twiddles[22])
-	a[31].Mul(&a[31], &twiddles[22])
-	a[34].Mul(&a[34], &twiddles[23])
-	a[35].Mul(&a[35], &twiddles[23])
-	a[38].Mul(&a[38], &twiddles[24])
-	a[39].Mul(&a[39], &twiddles[24])
-	a[42].Mul(&a[42], &twiddles[25])
-	a[43].Mul(&a[43], &twiddles[25])
-	a[46].Mul(&a[46], &twiddles[26])
-	a[47].Mul(&a[47], &twiddles[26])
-	a[50].Mul(&a[50], &twiddles[27])
-	a[51].Mul(&a[51], &twiddles[27])
-	a[54].Mul(&a[54], &twiddles[28])
-	a[55].Mul(&a[55], &twiddles[28])
-	a[58].Mul(&a[58], &twiddles[29])
-	a[59].Mul(&a[59], &twiddles[29])
-	a[62].Mul(&a[62], &twiddles[30])
-	a[63].Mul(&a[63], &twiddles[30])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	fr.Butterfly(&a[61], &a[63])
-	a[1].Mul(&a[1], &twiddles[31])
-	a[3].Mul(&a[3], &twiddles[32])
-	a[5].Mul(&a[5], &twiddles[33])
-	a[7].Mul(&a[7], &twiddles[34])
-	a[9].Mul(&a[9], &twiddles[35])
-	a[11].Mul(&a[11], &twiddles[36])
-	a[13].Mul(&a[13], &twiddles[37])
-	a[15].Mul(&a[15], &twiddles[38])
-	a[17].Mul(&a[17], &twiddles[39])
-	a[19].Mul(&a[19], &twiddles[40])
-	a[21].Mul(&a[21], &twiddles[41])
-	a[23].Mul(&a[23], &twiddles[42])
-	a[25].Mul(&a[25], &twiddles[43])
-	a[27].Mul(&a[27], &twiddles[44])
-	a[29].Mul(&a[29], &twiddles[45])
-	a[31].Mul(&a[31], &twiddles[46])
-	a[33].Mul(&a[33], &twiddles[47])
-	a[35].Mul(&a[35], &twiddles[48])
-	a[37].Mul(&a[37], &twiddles[49])
-	a[39].Mul(&a[39], &twiddles[50])
-	a[41].Mul(&a[41], &twiddles[51])
-	a[43].Mul(&a[43], &twiddles[52])
-	a[45].Mul(&a[45], &twiddles[53])
-	a[47].Mul(&a[47], &twiddles[54])
-	a[49].Mul(&a[49], &twiddles[55])
-	a[51].Mul(&a[51], &twiddles[56])
-	a[53].Mul(&a[53], &twiddles[57])
-	a[55].Mul(&a[55], &twiddles[58])
-	a[57].Mul(&a[57], &twiddles[59])
-	a[59].Mul(&a[59], &twiddles[60])
-	a[61].Mul(&a[61], &twiddles[61])
-	a[63].Mul(&a[63], &twiddles[62])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
-}
+	// split 0: a[0:512] with twiddles[0]
+	for i := 0; i < 256; i++ {
+		a[i+256].Mul(&a[i+256], &twiddles[0])
+		koalabear.Butterfly(&a[i], &a[i+256])
+	}
 
-func partialFFT_2(a, twiddles fr.Vector) {
-	fr.Butterfly(&a[16], &a[48])
-	fr.Butterfly(&a[17], &a[49])
-	fr.Butterfly(&a[18], &a[50])
-	fr.Butterfly(&a[19], &a[51])
-	fr.Butterfly(&a[20], &a[52])
-	fr.Butterfly(&a[21], &a[53])
-	fr.Butterfly(&a[22], &a[54])
-	fr.Butterfly(&a[23], &a[55])
-	fr.Butterfly(&a[24], &a[56])
-	fr.Butterfly(&a[25], &a[57])
-	fr.Butterfly(&a[26], &a[58])
-	fr.Butterfly(&a[27], &a[59])
-	fr.Butterfly(&a[28], &a[60])
-	fr.Butterfly(&a[29], &a[61])
-	fr.Butterfly(&a[30], &a[62])
-	fr.Butterfly(&a[31], &a[63])
-	a[16].Mul(&a[16], &twiddles[1])
-	a[17].Mul(&a[17], &twiddles[1])
-	a[18].Mul(&a[18], &twiddles[1])
-	a[19].Mul(&a[19], &twiddles[1])
-	a[20].Mul(&a[20], &twiddles[1])
-	a[21].Mul(&a[21], &twiddles[1])
-	a[22].Mul(&a[22], &twiddles[1])
-	a[23].Mul(&a[23], &twiddles[1])
-	a[24].Mul(&a[24], &twiddles[1])
-	a[25].Mul(&a[25], &twiddles[1])
-	a[26].Mul(&a[26], &twiddles[1])
-	a[27].Mul(&a[27], &twiddles[1])
-	a[28].Mul(&a[28], &twiddles[1])
-	a[29].Mul(&a[29], &twiddles[1])
-	a[30].Mul(&a[30], &twiddles[1])
-	a[31].Mul(&a[31], &twiddles[1])
-	a[48].Mul(&a[48], &twiddles[2])
-	a[49].Mul(&a[49], &twiddles[2])
-	a[50].Mul(&a[50], &twiddles[2])
-	a[51].Mul(&a[51], &twiddles[2])
-	a[52].Mul(&a[52], &twiddles[2])
-	a[53].Mul(&a[53], &twiddles[2])
-	a[54].Mul(&a[54], &twiddles[2])
-	a[55].Mul(&a[55], &twiddles[2])
-	a[56].Mul(&a[56], &twiddles[2])
-	a[57].Mul(&a[57], &twiddles[2])
-	a[58].Mul(&a[58], &twiddles[2])
-	a[59].Mul(&a[59], &twiddles[2])
-	a[60].Mul(&a[60], &twiddles[2])
-	a[61].Mul(&a[61], &twiddles[2])
-	a[62].Mul(&a[62], &twiddles[2])
-	a[63].Mul(&a[63], &twiddles[2])
-	fr.Butterfly(&a[0], &a[16])
-	fr.Butterfly(&a[1], &a[17])
-	fr.Butterfly(&a[2], &a[18])
-	fr.Butterfly(&a[3], &a[19])
-	fr.Butterfly(&a[4], &a[20])
-	fr.Butterfly(&a[5], &a[21])
-	fr.Butterfly(&a[6], &a[22])
-	fr.Butterfly(&a[7], &a[23])
-	fr.Butterfly(&a[8], &a[24])
-	fr.Butterfly(&a[9], &a[25])
-	fr.Butterfly(&a[10], &a[26])
-	fr.Butterfly(&a[11], &a[27])
-	fr.Butterfly(&a[12], &a[28])
-	fr.Butterfly(&a[13], &a[29])
-	fr.Butterfly(&a[14], &a[30])
-	fr.Butterfly(&a[15], &a[31])
-	fr.Butterfly(&a[32], &a[48])
-	fr.Butterfly(&a[33], &a[49])
-	fr.Butterfly(&a[34], &a[50])
-	fr.Butterfly(&a[35], &a[51])
-	fr.Butterfly(&a[36], &a[52])
-	fr.Butterfly(&a[37], &a[53])
-	fr.Butterfly(&a[38], &a[54])
-	fr.Butterfly(&a[39], &a[55])
-	fr.Butterfly(&a[40], &a[56])
-	fr.Butterfly(&a[41], &a[57])
-	fr.Butterfly(&a[42], &a[58])
-	fr.Butterfly(&a[43], &a[59])
-	fr.Butterfly(&a[44], &a[60])
-	fr.Butterfly(&a[45], &a[61])
-	fr.Butterfly(&a[46], &a[62])
-	fr.Butterfly(&a[47], &a[63])
-	a[8].Mul(&a[8], &twiddles[3])
-	a[9].Mul(&a[9], &twiddles[3])
-	a[10].Mul(&a[10], &twiddles[3])
-	a[11].Mul(&a[11], &twiddles[3])
-	a[12].Mul(&a[12], &twiddles[3])
-	a[13].Mul(&a[13], &twiddles[3])
-	a[14].Mul(&a[14], &twiddles[3])
-	a[15].Mul(&a[15], &twiddles[3])
-	a[24].Mul(&a[24], &twiddles[4])
-	a[25].Mul(&a[25], &twiddles[4])
-	a[26].Mul(&a[26], &twiddles[4])
-	a[27].Mul(&a[27], &twiddles[4])
-	a[28].Mul(&a[28], &twiddles[4])
-	a[29].Mul(&a[29], &twiddles[4])
-	a[30].Mul(&a[30], &twiddles[4])
-	a[31].Mul(&a[31], &twiddles[4])
-	a[40].Mul(&a[40], &twiddles[5])
-	a[41].Mul(&a[41], &twiddles[5])
-	a[42].Mul(&a[42], &twiddles[5])
-	a[43].Mul(&a[43], &twiddles[5])
-	a[44].Mul(&a[44], &twiddles[5])
-	a[45].Mul(&a[45], &twiddles[5])
-	a[46].Mul(&a[46], &twiddles[5])
-	a[47].Mul(&a[47], &twiddles[5])
-	a[56].Mul(&a[56], &twiddles[6])
-	a[57].Mul(&a[57], &twiddles[6])
-	a[58].Mul(&a[58], &twiddles[6])
-	a[59].Mul(&a[59], &twiddles[6])
-	a[60].Mul(&a[60], &twiddles[6])
-	a[61].Mul(&a[61], &twiddles[6])
-	a[62].Mul(&a[62], &twiddles[6])
-	a[63].Mul(&a[63], &twiddles[6])
-	fr.Butterfly(&a[0], &a[8])
-	fr.Butterfly(&a[1], &a[9])
-	fr.Butterfly(&a[2], &a[10])
-	fr.Butterfly(&a[3], &a[11])
-	fr.Butterfly(&a[4], &a[12])
-	fr.Butterfly(&a[5], &a[13])
-	fr.Butterfly(&a[6], &a[14])
-	fr.Butterfly(&a[7], &a[15])
-	fr.Butterfly(&a[16], &a[24])
-	fr.Butterfly(&a[17], &a[25])
-	fr.Butterfly(&a[18], &a[26])
-	fr.Butterfly(&a[19], &a[27])
-	fr.Butterfly(&a[20], &a[28])
-	fr.Butterfly(&a[21], &a[29])
-	fr.Butterfly(&a[22], &a[30])
-	fr.Butterfly(&a[23], &a[31])
-	fr.Butterfly(&a[32], &a[40])
-	fr.Butterfly(&a[33], &a[41])
-	fr.Butterfly(&a[34], &a[42])
-	fr.Butterfly(&a[35], &a[43])
-	fr.Butterfly(&a[36], &a[44])
-	fr.Butterfly(&a[37], &a[45])
-	fr.Butterfly(&a[38], &a[46])
-	fr.Butterfly(&a[39], &a[47])
-	fr.Butterfly(&a[48], &a[56])
-	fr.Butterfly(&a[49], &a[57])
-	fr.Butterfly(&a[50], &a[58])
-	fr.Butterfly(&a[51], &a[59])
-	fr.Butterfly(&a[52], &a[60])
-	fr.Butterfly(&a[53], &a[61])
-	fr.Butterfly(&a[54], &a[62])
-	fr.Butterfly(&a[55], &a[63])
-	a[4].Mul(&a[4], &twiddles[7])
-	a[5].Mul(&a[5], &twiddles[7])
-	a[6].Mul(&a[6], &twiddles[7])
-	a[7].Mul(&a[7], &twiddles[7])
-	a[12].Mul(&a[12], &twiddles[8])
-	a[13].Mul(&a[13], &twiddles[8])
-	a[14].Mul(&a[14], &twiddles[8])
-	a[15].Mul(&a[15], &twiddles[8])
-	a[20].Mul(&a[20], &twiddles[9])
-	a[21].Mul(&a[21], &twiddles[9])
-	a[22].Mul(&a[22], &twiddles[9])
-	a[23].Mul(&a[23], &twiddles[9])
-	a[28].Mul(&a[28], &twiddles[10])
-	a[29].Mul(&a[29], &twiddles[10])
-	a[30].Mul(&a[30], &twiddles[10])
-	a[31].Mul(&a[31], &twiddles[10])
-	a[36].Mul(&a[36], &twiddles[11])
-	a[37].Mul(&a[37], &twiddles[11])
-	a[38].Mul(&a[38], &twiddles[11])
-	a[39].Mul(&a[39], &twiddles[11])
-	a[44].Mul(&a[44], &twiddles[12])
-	a[45].Mul(&a[45], &twiddles[12])
-	a[46].Mul(&a[46], &twiddles[12])
-	a[47].Mul(&a[47], &twiddles[12])
-	a[52].Mul(&a[52], &twiddles[13])
-	a[53].Mul(&a[53], &twiddles[13])
-	a[54].Mul(&a[54], &twiddles[13])
-	a[55].Mul(&a[55], &twiddles[13])
-	a[60].Mul(&a[60], &twiddles[14])
-	a[61].Mul(&a[61], &twiddles[14])
-	a[62].Mul(&a[62], &twiddles[14])
-	a[63].Mul(&a[63], &twiddles[14])
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	fr.Butterfly(&a[8], &a[12])
-	fr.Butterfly(&a[9], &a[13])
-	fr.Butterfly(&a[10], &a[14])
-	fr.Butterfly(&a[11], &a[15])
-	fr.Butterfly(&a[16], &a[20])
-	fr.Butterfly(&a[17], &a[21])
-	fr.Butterfly(&a[18], &a[22])
-	fr.Butterfly(&a[19], &a[23])
-	fr.Butterfly(&a[24], &a[28])
-	fr.Butterfly(&a[25], &a[29])
-	fr.Butterfly(&a[26], &a[30])
-	fr.Butterfly(&a[27], &a[31])
-	fr.Butterfly(&a[32], &a[36])
-	fr.Butterfly(&a[33], &a[37])
-	fr.Butterfly(&a[34], &a[38])
-	fr.Butterfly(&a[35], &a[39])
-	fr.Butterfly(&a[40], &a[44])
-	fr.Butterfly(&a[41], &a[45])
-	fr.Butterfly(&a[42], &a[46])
-	fr.Butterfly(&a[43], &a[47])
-	fr.Butterfly(&a[48], &a[52])
-	fr.Butterfly(&a[49], &a[53])
-	fr.Butterfly(&a[50], &a[54])
-	fr.Butterfly(&a[51], &a[55])
-	fr.Butterfly(&a[56], &a[60])
-	fr.Butterfly(&a[57], &a[61])
-	fr.Butterfly(&a[58], &a[62])
-	fr.Butterfly(&a[59], &a[63])
-	a[2].Mul(&a[2], &twiddles[15])
-	a[3].Mul(&a[3], &twiddles[15])
-	a[6].Mul(&a[6], &twiddles[16])
-	a[7].Mul(&a[7], &twiddles[16])
-	a[10].Mul(&a[10], &twiddles[17])
-	a[11].Mul(&a[11], &twiddles[17])
-	a[14].Mul(&a[14], &twiddles[18])
-	a[15].Mul(&a[15], &twiddles[18])
-	a[18].Mul(&a[18], &twiddles[19])
-	a[19].Mul(&a[19], &twiddles[19])
-	a[22].Mul(&a[22], &twiddles[20])
-	a[23].Mul(&a[23], &twiddles[20])
-	a[26].Mul(&a[26], &twiddles[21])
-	a[27].Mul(&a[27], &twiddles[21])
-	a[30].Mul(&a[30], &twiddles[22])
-	a[31].Mul(&a[31], &twiddles[22])
-	a[34].Mul(&a[34], &twiddles[23])
-	a[35].Mul(&a[35], &twiddles[23])
-	a[38].Mul(&a[38], &twiddles[24])
-	a[39].Mul(&a[39], &twiddles[24])
-	a[42].Mul(&a[42], &twiddles[25])
-	a[43].Mul(&a[43], &twiddles[25])
-	a[46].Mul(&a[46], &twiddles[26])
-	a[47].Mul(&a[47], &twiddles[26])
-	a[50].Mul(&a[50], &twiddles[27])
-	a[51].Mul(&a[51], &twiddles[27])
-	a[54].Mul(&a[54], &twiddles[28])
-	a[55].Mul(&a[55], &twiddles[28])
-	a[58].Mul(&a[58], &twiddles[29])
-	a[59].Mul(&a[59], &twiddles[29])
-	a[62].Mul(&a[62], &twiddles[30])
-	a[63].Mul(&a[63], &twiddles[30])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	fr.Butterfly(&a[61], &a[63])
-	a[1].Mul(&a[1], &twiddles[31])
-	a[3].Mul(&a[3], &twiddles[32])
-	a[5].Mul(&a[5], &twiddles[33])
-	a[7].Mul(&a[7], &twiddles[34])
-	a[9].Mul(&a[9], &twiddles[35])
-	a[11].Mul(&a[11], &twiddles[36])
-	a[13].Mul(&a[13], &twiddles[37])
-	a[15].Mul(&a[15], &twiddles[38])
-	a[17].Mul(&a[17], &twiddles[39])
-	a[19].Mul(&a[19], &twiddles[40])
-	a[21].Mul(&a[21], &twiddles[41])
-	a[23].Mul(&a[23], &twiddles[42])
-	a[25].Mul(&a[25], &twiddles[43])
-	a[27].Mul(&a[27], &twiddles[44])
-	a[29].Mul(&a[29], &twiddles[45])
-	a[31].Mul(&a[31], &twiddles[46])
-	a[33].Mul(&a[33], &twiddles[47])
-	a[35].Mul(&a[35], &twiddles[48])
-	a[37].Mul(&a[37], &twiddles[49])
-	a[39].Mul(&a[39], &twiddles[50])
-	a[41].Mul(&a[41], &twiddles[51])
-	a[43].Mul(&a[43], &twiddles[52])
-	a[45].Mul(&a[45], &twiddles[53])
-	a[47].Mul(&a[47], &twiddles[54])
-	a[49].Mul(&a[49], &twiddles[55])
-	a[51].Mul(&a[51], &twiddles[56])
-	a[53].Mul(&a[53], &twiddles[57])
-	a[55].Mul(&a[55], &twiddles[58])
-	a[57].Mul(&a[57], &twiddles[59])
-	a[59].Mul(&a[59], &twiddles[60])
-	a[61].Mul(&a[61], &twiddles[61])
-	a[63].Mul(&a[63], &twiddles[62])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
-}
+	//
+	// stage 1
+	//
 
-func partialFFT_3(a, twiddles fr.Vector) {
-	fr.Butterfly(&a[0], &a[32])
-	fr.Butterfly(&a[1], &a[33])
-	fr.Butterfly(&a[2], &a[34])
-	fr.Butterfly(&a[3], &a[35])
-	fr.Butterfly(&a[4], &a[36])
-	fr.Butterfly(&a[5], &a[37])
-	fr.Butterfly(&a[6], &a[38])
-	fr.Butterfly(&a[7], &a[39])
-	fr.Butterfly(&a[8], &a[40])
-	fr.Butterfly(&a[9], &a[41])
-	fr.Butterfly(&a[10], &a[42])
-	fr.Butterfly(&a[11], &a[43])
-	fr.Butterfly(&a[12], &a[44])
-	fr.Butterfly(&a[13], &a[45])
-	fr.Butterfly(&a[14], &a[46])
-	fr.Butterfly(&a[15], &a[47])
-	fr.Butterfly(&a[16], &a[48])
-	fr.Butterfly(&a[17], &a[49])
-	fr.Butterfly(&a[18], &a[50])
-	fr.Butterfly(&a[19], &a[51])
-	fr.Butterfly(&a[20], &a[52])
-	fr.Butterfly(&a[21], &a[53])
-	fr.Butterfly(&a[22], &a[54])
-	fr.Butterfly(&a[23], &a[55])
-	fr.Butterfly(&a[24], &a[56])
-	fr.Butterfly(&a[25], &a[57])
-	fr.Butterfly(&a[26], &a[58])
-	fr.Butterfly(&a[27], &a[59])
-	fr.Butterfly(&a[28], &a[60])
-	fr.Butterfly(&a[29], &a[61])
-	fr.Butterfly(&a[30], &a[62])
-	fr.Butterfly(&a[31], &a[63])
-	a[16].Mul(&a[16], &twiddles[1])
-	a[17].Mul(&a[17], &twiddles[1])
-	a[18].Mul(&a[18], &twiddles[1])
-	a[19].Mul(&a[19], &twiddles[1])
-	a[20].Mul(&a[20], &twiddles[1])
-	a[21].Mul(&a[21], &twiddles[1])
-	a[22].Mul(&a[22], &twiddles[1])
-	a[23].Mul(&a[23], &twiddles[1])
-	a[24].Mul(&a[24], &twiddles[1])
-	a[25].Mul(&a[25], &twiddles[1])
-	a[26].Mul(&a[26], &twiddles[1])
-	a[27].Mul(&a[27], &twiddles[1])
-	a[28].Mul(&a[28], &twiddles[1])
-	a[29].Mul(&a[29], &twiddles[1])
-	a[30].Mul(&a[30], &twiddles[1])
-	a[31].Mul(&a[31], &twiddles[1])
-	a[48].Mul(&a[48], &twiddles[2])
-	a[49].Mul(&a[49], &twiddles[2])
-	a[50].Mul(&a[50], &twiddles[2])
-	a[51].Mul(&a[51], &twiddles[2])
-	a[52].Mul(&a[52], &twiddles[2])
-	a[53].Mul(&a[53], &twiddles[2])
-	a[54].Mul(&a[54], &twiddles[2])
-	a[55].Mul(&a[55], &twiddles[2])
-	a[56].Mul(&a[56], &twiddles[2])
-	a[57].Mul(&a[57], &twiddles[2])
-	a[58].Mul(&a[58], &twiddles[2])
-	a[59].Mul(&a[59], &twiddles[2])
-	a[60].Mul(&a[60], &twiddles[2])
-	a[61].Mul(&a[61], &twiddles[2])
-	a[62].Mul(&a[62], &twiddles[2])
-	a[63].Mul(&a[63], &twiddles[2])
-	fr.Butterfly(&a[0], &a[16])
-	fr.Butterfly(&a[1], &a[17])
-	fr.Butterfly(&a[2], &a[18])
-	fr.Butterfly(&a[3], &a[19])
-	fr.Butterfly(&a[4], &a[20])
-	fr.Butterfly(&a[5], &a[21])
-	fr.Butterfly(&a[6], &a[22])
-	fr.Butterfly(&a[7], &a[23])
-	fr.Butterfly(&a[8], &a[24])
-	fr.Butterfly(&a[9], &a[25])
-	fr.Butterfly(&a[10], &a[26])
-	fr.Butterfly(&a[11], &a[27])
-	fr.Butterfly(&a[12], &a[28])
-	fr.Butterfly(&a[13], &a[29])
-	fr.Butterfly(&a[14], &a[30])
-	fr.Butterfly(&a[15], &a[31])
-	fr.Butterfly(&a[32], &a[48])
-	fr.Butterfly(&a[33], &a[49])
-	fr.Butterfly(&a[34], &a[50])
-	fr.Butterfly(&a[35], &a[51])
-	fr.Butterfly(&a[36], &a[52])
-	fr.Butterfly(&a[37], &a[53])
-	fr.Butterfly(&a[38], &a[54])
-	fr.Butterfly(&a[39], &a[55])
-	fr.Butterfly(&a[40], &a[56])
-	fr.Butterfly(&a[41], &a[57])
-	fr.Butterfly(&a[42], &a[58])
-	fr.Butterfly(&a[43], &a[59])
-	fr.Butterfly(&a[44], &a[60])
-	fr.Butterfly(&a[45], &a[61])
-	fr.Butterfly(&a[46], &a[62])
-	fr.Butterfly(&a[47], &a[63])
-	a[8].Mul(&a[8], &twiddles[3])
-	a[9].Mul(&a[9], &twiddles[3])
-	a[10].Mul(&a[10], &twiddles[3])
-	a[11].Mul(&a[11], &twiddles[3])
-	a[12].Mul(&a[12], &twiddles[3])
-	a[13].Mul(&a[13], &twiddles[3])
-	a[14].Mul(&a[14], &twiddles[3])
-	a[15].Mul(&a[15], &twiddles[3])
-	a[24].Mul(&a[24], &twiddles[4])
-	a[25].Mul(&a[25], &twiddles[4])
-	a[26].Mul(&a[26], &twiddles[4])
-	a[27].Mul(&a[27], &twiddles[4])
-	a[28].Mul(&a[28], &twiddles[4])
-	a[29].Mul(&a[29], &twiddles[4])
-	a[30].Mul(&a[30], &twiddles[4])
-	a[31].Mul(&a[31], &twiddles[4])
-	a[40].Mul(&a[40], &twiddles[5])
-	a[41].Mul(&a[41], &twiddles[5])
-	a[42].Mul(&a[42], &twiddles[5])
-	a[43].Mul(&a[43], &twiddles[5])
-	a[44].Mul(&a[44], &twiddles[5])
-	a[45].Mul(&a[45], &twiddles[5])
-	a[46].Mul(&a[46], &twiddles[5])
-	a[47].Mul(&a[47], &twiddles[5])
-	a[56].Mul(&a[56], &twiddles[6])
-	a[57].Mul(&a[57], &twiddles[6])
-	a[58].Mul(&a[58], &twiddles[6])
-	a[59].Mul(&a[59], &twiddles[6])
-	a[60].Mul(&a[60], &twiddles[6])
-	a[61].Mul(&a[61], &twiddles[6])
-	a[62].Mul(&a[62], &twiddles[6])
-	a[63].Mul(&a[63], &twiddles[6])
-	fr.Butterfly(&a[0], &a[8])
-	fr.Butterfly(&a[1], &a[9])
-	fr.Butterfly(&a[2], &a[10])
-	fr.Butterfly(&a[3], &a[11])
-	fr.Butterfly(&a[4], &a[12])
-	fr.Butterfly(&a[5], &a[13])
-	fr.Butterfly(&a[6], &a[14])
-	fr.Butterfly(&a[7], &a[15])
-	fr.Butterfly(&a[16], &a[24])
-	fr.Butterfly(&a[17], &a[25])
-	fr.Butterfly(&a[18], &a[26])
-	fr.Butterfly(&a[19], &a[27])
-	fr.Butterfly(&a[20], &a[28])
-	fr.Butterfly(&a[21], &a[29])
-	fr.Butterfly(&a[22], &a[30])
-	fr.Butterfly(&a[23], &a[31])
-	fr.Butterfly(&a[32], &a[40])
-	fr.Butterfly(&a[33], &a[41])
-	fr.Butterfly(&a[34], &a[42])
-	fr.Butterfly(&a[35], &a[43])
-	fr.Butterfly(&a[36], &a[44])
-	fr.Butterfly(&a[37], &a[45])
-	fr.Butterfly(&a[38], &a[46])
-	fr.Butterfly(&a[39], &a[47])
-	fr.Butterfly(&a[48], &a[56])
-	fr.Butterfly(&a[49], &a[57])
-	fr.Butterfly(&a[50], &a[58])
-	fr.Butterfly(&a[51], &a[59])
-	fr.Butterfly(&a[52], &a[60])
-	fr.Butterfly(&a[53], &a[61])
-	fr.Butterfly(&a[54], &a[62])
-	fr.Butterfly(&a[55], &a[63])
-	a[4].Mul(&a[4], &twiddles[7])
-	a[5].Mul(&a[5], &twiddles[7])
-	a[6].Mul(&a[6], &twiddles[7])
-	a[7].Mul(&a[7], &twiddles[7])
-	a[12].Mul(&a[12], &twiddles[8])
-	a[13].Mul(&a[13], &twiddles[8])
-	a[14].Mul(&a[14], &twiddles[8])
-	a[15].Mul(&a[15], &twiddles[8])
-	a[20].Mul(&a[20], &twiddles[9])
-	a[21].Mul(&a[21], &twiddles[9])
-	a[22].Mul(&a[22], &twiddles[9])
-	a[23].Mul(&a[23], &twiddles[9])
-	a[28].Mul(&a[28], &twiddles[10])
-	a[29].Mul(&a[29], &twiddles[10])
-	a[30].Mul(&a[30], &twiddles[10])
-	a[31].Mul(&a[31], &twiddles[10])
-	a[36].Mul(&a[36], &twiddles[11])
-	a[37].Mul(&a[37], &twiddles[11])
-	a[38].Mul(&a[38], &twiddles[11])
-	a[39].Mul(&a[39], &twiddles[11])
-	a[44].Mul(&a[44], &twiddles[12])
-	a[45].Mul(&a[45], &twiddles[12])
-	a[46].Mul(&a[46], &twiddles[12])
-	a[47].Mul(&a[47], &twiddles[12])
-	a[52].Mul(&a[52], &twiddles[13])
-	a[53].Mul(&a[53], &twiddles[13])
-	a[54].Mul(&a[54], &twiddles[13])
-	a[55].Mul(&a[55], &twiddles[13])
-	a[60].Mul(&a[60], &twiddles[14])
-	a[61].Mul(&a[61], &twiddles[14])
-	a[62].Mul(&a[62], &twiddles[14])
-	a[63].Mul(&a[63], &twiddles[14])
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	fr.Butterfly(&a[8], &a[12])
-	fr.Butterfly(&a[9], &a[13])
-	fr.Butterfly(&a[10], &a[14])
-	fr.Butterfly(&a[11], &a[15])
-	fr.Butterfly(&a[16], &a[20])
-	fr.Butterfly(&a[17], &a[21])
-	fr.Butterfly(&a[18], &a[22])
-	fr.Butterfly(&a[19], &a[23])
-	fr.Butterfly(&a[24], &a[28])
-	fr.Butterfly(&a[25], &a[29])
-	fr.Butterfly(&a[26], &a[30])
-	fr.Butterfly(&a[27], &a[31])
-	fr.Butterfly(&a[32], &a[36])
-	fr.Butterfly(&a[33], &a[37])
-	fr.Butterfly(&a[34], &a[38])
-	fr.Butterfly(&a[35], &a[39])
-	fr.Butterfly(&a[40], &a[44])
-	fr.Butterfly(&a[41], &a[45])
-	fr.Butterfly(&a[42], &a[46])
-	fr.Butterfly(&a[43], &a[47])
-	fr.Butterfly(&a[48], &a[52])
-	fr.Butterfly(&a[49], &a[53])
-	fr.Butterfly(&a[50], &a[54])
-	fr.Butterfly(&a[51], &a[55])
-	fr.Butterfly(&a[56], &a[60])
-	fr.Butterfly(&a[57], &a[61])
-	fr.Butterfly(&a[58], &a[62])
-	fr.Butterfly(&a[59], &a[63])
-	a[2].Mul(&a[2], &twiddles[15])
-	a[3].Mul(&a[3], &twiddles[15])
-	a[6].Mul(&a[6], &twiddles[16])
-	a[7].Mul(&a[7], &twiddles[16])
-	a[10].Mul(&a[10], &twiddles[17])
-	a[11].Mul(&a[11], &twiddles[17])
-	a[14].Mul(&a[14], &twiddles[18])
-	a[15].Mul(&a[15], &twiddles[18])
-	a[18].Mul(&a[18], &twiddles[19])
-	a[19].Mul(&a[19], &twiddles[19])
-	a[22].Mul(&a[22], &twiddles[20])
-	a[23].Mul(&a[23], &twiddles[20])
-	a[26].Mul(&a[26], &twiddles[21])
-	a[27].Mul(&a[27], &twiddles[21])
-	a[30].Mul(&a[30], &twiddles[22])
-	a[31].Mul(&a[31], &twiddles[22])
-	a[34].Mul(&a[34], &twiddles[23])
-	a[35].Mul(&a[35], &twiddles[23])
-	a[38].Mul(&a[38], &twiddles[24])
-	a[39].Mul(&a[39], &twiddles[24])
-	a[42].Mul(&a[42], &twiddles[25])
-	a[43].Mul(&a[43], &twiddles[25])
-	a[46].Mul(&a[46], &twiddles[26])
-	a[47].Mul(&a[47], &twiddles[26])
-	a[50].Mul(&a[50], &twiddles[27])
-	a[51].Mul(&a[51], &twiddles[27])
-	a[54].Mul(&a[54], &twiddles[28])
-	a[55].Mul(&a[55], &twiddles[28])
-	a[58].Mul(&a[58], &twiddles[29])
-	a[59].Mul(&a[59], &twiddles[29])
-	a[62].Mul(&a[62], &twiddles[30])
-	a[63].Mul(&a[63], &twiddles[30])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	fr.Butterfly(&a[61], &a[63])
-	a[1].Mul(&a[1], &twiddles[31])
-	a[3].Mul(&a[3], &twiddles[32])
-	a[5].Mul(&a[5], &twiddles[33])
-	a[7].Mul(&a[7], &twiddles[34])
-	a[9].Mul(&a[9], &twiddles[35])
-	a[11].Mul(&a[11], &twiddles[36])
-	a[13].Mul(&a[13], &twiddles[37])
-	a[15].Mul(&a[15], &twiddles[38])
-	a[17].Mul(&a[17], &twiddles[39])
-	a[19].Mul(&a[19], &twiddles[40])
-	a[21].Mul(&a[21], &twiddles[41])
-	a[23].Mul(&a[23], &twiddles[42])
-	a[25].Mul(&a[25], &twiddles[43])
-	a[27].Mul(&a[27], &twiddles[44])
-	a[29].Mul(&a[29], &twiddles[45])
-	a[31].Mul(&a[31], &twiddles[46])
-	a[33].Mul(&a[33], &twiddles[47])
-	a[35].Mul(&a[35], &twiddles[48])
-	a[37].Mul(&a[37], &twiddles[49])
-	a[39].Mul(&a[39], &twiddles[50])
-	a[41].Mul(&a[41], &twiddles[51])
-	a[43].Mul(&a[43], &twiddles[52])
-	a[45].Mul(&a[45], &twiddles[53])
-	a[47].Mul(&a[47], &twiddles[54])
-	a[49].Mul(&a[49], &twiddles[55])
-	a[51].Mul(&a[51], &twiddles[56])
-	a[53].Mul(&a[53], &twiddles[57])
-	a[55].Mul(&a[55], &twiddles[58])
-	a[57].Mul(&a[57], &twiddles[59])
-	a[59].Mul(&a[59], &twiddles[60])
-	a[61].Mul(&a[61], &twiddles[61])
-	a[63].Mul(&a[63], &twiddles[62])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
-}
+	// split 0: a[0:256] with twiddles[1]
+	for i := 0; i < 128; i++ {
+		a[i+128].Mul(&a[i+128], &twiddles[1])
+		koalabear.Butterfly(&a[i], &a[i+128])
+	}
 
-func partialFFT_4(a, twiddles fr.Vector) {
-	a[32].Mul(&a[32], &twiddles[0])
-	a[33].Mul(&a[33], &twiddles[0])
-	a[34].Mul(&a[34], &twiddles[0])
-	a[35].Mul(&a[35], &twiddles[0])
-	a[36].Mul(&a[36], &twiddles[0])
-	a[37].Mul(&a[37], &twiddles[0])
-	a[38].Mul(&a[38], &twiddles[0])
-	a[39].Mul(&a[39], &twiddles[0])
-	a[40].Mul(&a[40], &twiddles[0])
-	a[41].Mul(&a[41], &twiddles[0])
-	a[42].Mul(&a[42], &twiddles[0])
-	a[43].Mul(&a[43], &twiddles[0])
-	a[44].Mul(&a[44], &twiddles[0])
-	a[45].Mul(&a[45], &twiddles[0])
-	a[46].Mul(&a[46], &twiddles[0])
-	a[47].Mul(&a[47], &twiddles[0])
-	fr.Butterfly(&a[0], &a[32])
-	fr.Butterfly(&a[1], &a[33])
-	fr.Butterfly(&a[2], &a[34])
-	fr.Butterfly(&a[3], &a[35])
-	fr.Butterfly(&a[4], &a[36])
-	fr.Butterfly(&a[5], &a[37])
-	fr.Butterfly(&a[6], &a[38])
-	fr.Butterfly(&a[7], &a[39])
-	fr.Butterfly(&a[8], &a[40])
-	fr.Butterfly(&a[9], &a[41])
-	fr.Butterfly(&a[10], &a[42])
-	fr.Butterfly(&a[11], &a[43])
-	fr.Butterfly(&a[12], &a[44])
-	fr.Butterfly(&a[13], &a[45])
-	fr.Butterfly(&a[14], &a[46])
-	fr.Butterfly(&a[15], &a[47])
-	fr.Butterfly(&a[0], &a[16])
-	fr.Butterfly(&a[1], &a[17])
-	fr.Butterfly(&a[2], &a[18])
-	fr.Butterfly(&a[3], &a[19])
-	fr.Butterfly(&a[4], &a[20])
-	fr.Butterfly(&a[5], &a[21])
-	fr.Butterfly(&a[6], &a[22])
-	fr.Butterfly(&a[7], &a[23])
-	fr.Butterfly(&a[8], &a[24])
-	fr.Butterfly(&a[9], &a[25])
-	fr.Butterfly(&a[10], &a[26])
-	fr.Butterfly(&a[11], &a[27])
-	fr.Butterfly(&a[12], &a[28])
-	fr.Butterfly(&a[13], &a[29])
-	fr.Butterfly(&a[14], &a[30])
-	fr.Butterfly(&a[15], &a[31])
-	fr.Butterfly(&a[32], &a[48])
-	fr.Butterfly(&a[33], &a[49])
-	fr.Butterfly(&a[34], &a[50])
-	fr.Butterfly(&a[35], &a[51])
-	fr.Butterfly(&a[36], &a[52])
-	fr.Butterfly(&a[37], &a[53])
-	fr.Butterfly(&a[38], &a[54])
-	fr.Butterfly(&a[39], &a[55])
-	fr.Butterfly(&a[40], &a[56])
-	fr.Butterfly(&a[41], &a[57])
-	fr.Butterfly(&a[42], &a[58])
-	fr.Butterfly(&a[43], &a[59])
-	fr.Butterfly(&a[44], &a[60])
-	fr.Butterfly(&a[45], &a[61])
-	fr.Butterfly(&a[46], &a[62])
-	fr.Butterfly(&a[47], &a[63])
-	a[8].Mul(&a[8], &twiddles[3])
-	a[9].Mul(&a[9], &twiddles[3])
-	a[10].Mul(&a[10], &twiddles[3])
-	a[11].Mul(&a[11], &twiddles[3])
-	a[12].Mul(&a[12], &twiddles[3])
-	a[13].Mul(&a[13], &twiddles[3])
-	a[14].Mul(&a[14], &twiddles[3])
-	a[15].Mul(&a[15], &twiddles[3])
-	a[24].Mul(&a[24], &twiddles[4])
-	a[25].Mul(&a[25], &twiddles[4])
-	a[26].Mul(&a[26], &twiddles[4])
-	a[27].Mul(&a[27], &twiddles[4])
-	a[28].Mul(&a[28], &twiddles[4])
-	a[29].Mul(&a[29], &twiddles[4])
-	a[30].Mul(&a[30], &twiddles[4])
-	a[31].Mul(&a[31], &twiddles[4])
-	a[40].Mul(&a[40], &twiddles[5])
-	a[41].Mul(&a[41], &twiddles[5])
-	a[42].Mul(&a[42], &twiddles[5])
-	a[43].Mul(&a[43], &twiddles[5])
-	a[44].Mul(&a[44], &twiddles[5])
-	a[45].Mul(&a[45], &twiddles[5])
-	a[46].Mul(&a[46], &twiddles[5])
-	a[47].Mul(&a[47], &twiddles[5])
-	a[56].Mul(&a[56], &twiddles[6])
-	a[57].Mul(&a[57], &twiddles[6])
-	a[58].Mul(&a[58], &twiddles[6])
-	a[59].Mul(&a[59], &twiddles[6])
-	a[60].Mul(&a[60], &twiddles[6])
-	a[61].Mul(&a[61], &twiddles[6])
-	a[62].Mul(&a[62], &twiddles[6])
-	a[63].Mul(&a[63], &twiddles[6])
-	fr.Butterfly(&a[0], &a[8])
-	fr.Butterfly(&a[1], &a[9])
-	fr.Butterfly(&a[2], &a[10])
-	fr.Butterfly(&a[3], &a[11])
-	fr.Butterfly(&a[4], &a[12])
-	fr.Butterfly(&a[5], &a[13])
-	fr.Butterfly(&a[6], &a[14])
-	fr.Butterfly(&a[7], &a[15])
-	fr.Butterfly(&a[16], &a[24])
-	fr.Butterfly(&a[17], &a[25])
-	fr.Butterfly(&a[18], &a[26])
-	fr.Butterfly(&a[19], &a[27])
-	fr.Butterfly(&a[20], &a[28])
-	fr.Butterfly(&a[21], &a[29])
-	fr.Butterfly(&a[22], &a[30])
-	fr.Butterfly(&a[23], &a[31])
-	fr.Butterfly(&a[32], &a[40])
-	fr.Butterfly(&a[33], &a[41])
-	fr.Butterfly(&a[34], &a[42])
-	fr.Butterfly(&a[35], &a[43])
-	fr.Butterfly(&a[36], &a[44])
-	fr.Butterfly(&a[37], &a[45])
-	fr.Butterfly(&a[38], &a[46])
-	fr.Butterfly(&a[39], &a[47])
-	fr.Butterfly(&a[48], &a[56])
-	fr.Butterfly(&a[49], &a[57])
-	fr.Butterfly(&a[50], &a[58])
-	fr.Butterfly(&a[51], &a[59])
-	fr.Butterfly(&a[52], &a[60])
-	fr.Butterfly(&a[53], &a[61])
-	fr.Butterfly(&a[54], &a[62])
-	fr.Butterfly(&a[55], &a[63])
-	a[4].Mul(&a[4], &twiddles[7])
-	a[5].Mul(&a[5], &twiddles[7])
-	a[6].Mul(&a[6], &twiddles[7])
-	a[7].Mul(&a[7], &twiddles[7])
-	a[12].Mul(&a[12], &twiddles[8])
-	a[13].Mul(&a[13], &twiddles[8])
-	a[14].Mul(&a[14], &twiddles[8])
-	a[15].Mul(&a[15], &twiddles[8])
-	a[20].Mul(&a[20], &twiddles[9])
-	a[21].Mul(&a[21], &twiddles[9])
-	a[22].Mul(&a[22], &twiddles[9])
-	a[23].Mul(&a[23], &twiddles[9])
-	a[28].Mul(&a[28], &twiddles[10])
-	a[29].Mul(&a[29], &twiddles[10])
-	a[30].Mul(&a[30], &twiddles[10])
-	a[31].Mul(&a[31], &twiddles[10])
-	a[36].Mul(&a[36], &twiddles[11])
-	a[37].Mul(&a[37], &twiddles[11])
-	a[38].Mul(&a[38], &twiddles[11])
-	a[39].Mul(&a[39], &twiddles[11])
-	a[44].Mul(&a[44], &twiddles[12])
-	a[45].Mul(&a[45], &twiddles[12])
-	a[46].Mul(&a[46], &twiddles[12])
-	a[47].Mul(&a[47], &twiddles[12])
-	a[52].Mul(&a[52], &twiddles[13])
-	a[53].Mul(&a[53], &twiddles[13])
-	a[54].Mul(&a[54], &twiddles[13])
-	a[55].Mul(&a[55], &twiddles[13])
-	a[60].Mul(&a[60], &twiddles[14])
-	a[61].Mul(&a[61], &twiddles[14])
-	a[62].Mul(&a[62], &twiddles[14])
-	a[63].Mul(&a[63], &twiddles[14])
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	fr.Butterfly(&a[8], &a[12])
-	fr.Butterfly(&a[9], &a[13])
-	fr.Butterfly(&a[10], &a[14])
-	fr.Butterfly(&a[11], &a[15])
-	fr.Butterfly(&a[16], &a[20])
-	fr.Butterfly(&a[17], &a[21])
-	fr.Butterfly(&a[18], &a[22])
-	fr.Butterfly(&a[19], &a[23])
-	fr.Butterfly(&a[24], &a[28])
-	fr.Butterfly(&a[25], &a[29])
-	fr.Butterfly(&a[26], &a[30])
-	fr.Butterfly(&a[27], &a[31])
-	fr.Butterfly(&a[32], &a[36])
-	fr.Butterfly(&a[33], &a[37])
-	fr.Butterfly(&a[34], &a[38])
-	fr.Butterfly(&a[35], &a[39])
-	fr.Butterfly(&a[40], &a[44])
-	fr.Butterfly(&a[41], &a[45])
-	fr.Butterfly(&a[42], &a[46])
-	fr.Butterfly(&a[43], &a[47])
-	fr.Butterfly(&a[48], &a[52])
-	fr.Butterfly(&a[49], &a[53])
-	fr.Butterfly(&a[50], &a[54])
-	fr.Butterfly(&a[51], &a[55])
-	fr.Butterfly(&a[56], &a[60])
-	fr.Butterfly(&a[57], &a[61])
-	fr.Butterfly(&a[58], &a[62])
-	fr.Butterfly(&a[59], &a[63])
-	a[2].Mul(&a[2], &twiddles[15])
-	a[3].Mul(&a[3], &twiddles[15])
-	a[6].Mul(&a[6], &twiddles[16])
-	a[7].Mul(&a[7], &twiddles[16])
-	a[10].Mul(&a[10], &twiddles[17])
-	a[11].Mul(&a[11], &twiddles[17])
-	a[14].Mul(&a[14], &twiddles[18])
-	a[15].Mul(&a[15], &twiddles[18])
-	a[18].Mul(&a[18], &twiddles[19])
-	a[19].Mul(&a[19], &twiddles[19])
-	a[22].Mul(&a[22], &twiddles[20])
-	a[23].Mul(&a[23], &twiddles[20])
-	a[26].Mul(&a[26], &twiddles[21])
-	a[27].Mul(&a[27], &twiddles[21])
-	a[30].Mul(&a[30], &twiddles[22])
-	a[31].Mul(&a[31], &twiddles[22])
-	a[34].Mul(&a[34], &twiddles[23])
-	a[35].Mul(&a[35], &twiddles[23])
-	a[38].Mul(&a[38], &twiddles[24])
-	a[39].Mul(&a[39], &twiddles[24])
-	a[42].Mul(&a[42], &twiddles[25])
-	a[43].Mul(&a[43], &twiddles[25])
-	a[46].Mul(&a[46], &twiddles[26])
-	a[47].Mul(&a[47], &twiddles[26])
-	a[50].Mul(&a[50], &twiddles[27])
-	a[51].Mul(&a[51], &twiddles[27])
-	a[54].Mul(&a[54], &twiddles[28])
-	a[55].Mul(&a[55], &twiddles[28])
-	a[58].Mul(&a[58], &twiddles[29])
-	a[59].Mul(&a[59], &twiddles[29])
-	a[62].Mul(&a[62], &twiddles[30])
-	a[63].Mul(&a[63], &twiddles[30])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	fr.Butterfly(&a[61], &a[63])
-	a[1].Mul(&a[1], &twiddles[31])
-	a[3].Mul(&a[3], &twiddles[32])
-	a[5].Mul(&a[5], &twiddles[33])
-	a[7].Mul(&a[7], &twiddles[34])
-	a[9].Mul(&a[9], &twiddles[35])
-	a[11].Mul(&a[11], &twiddles[36])
-	a[13].Mul(&a[13], &twiddles[37])
-	a[15].Mul(&a[15], &twiddles[38])
-	a[17].Mul(&a[17], &twiddles[39])
-	a[19].Mul(&a[19], &twiddles[40])
-	a[21].Mul(&a[21], &twiddles[41])
-	a[23].Mul(&a[23], &twiddles[42])
-	a[25].Mul(&a[25], &twiddles[43])
-	a[27].Mul(&a[27], &twiddles[44])
-	a[29].Mul(&a[29], &twiddles[45])
-	a[31].Mul(&a[31], &twiddles[46])
-	a[33].Mul(&a[33], &twiddles[47])
-	a[35].Mul(&a[35], &twiddles[48])
-	a[37].Mul(&a[37], &twiddles[49])
-	a[39].Mul(&a[39], &twiddles[50])
-	a[41].Mul(&a[41], &twiddles[51])
-	a[43].Mul(&a[43], &twiddles[52])
-	a[45].Mul(&a[45], &twiddles[53])
-	a[47].Mul(&a[47], &twiddles[54])
-	a[49].Mul(&a[49], &twiddles[55])
-	a[51].Mul(&a[51], &twiddles[56])
-	a[53].Mul(&a[53], &twiddles[57])
-	a[55].Mul(&a[55], &twiddles[58])
-	a[57].Mul(&a[57], &twiddles[59])
-	a[59].Mul(&a[59], &twiddles[60])
-	a[61].Mul(&a[61], &twiddles[61])
-	a[63].Mul(&a[63], &twiddles[62])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
-}
+	// split 1: a[256:512] with twiddles[2]
+	for i := 256; i < 384; i++ {
+		a[i+128].Mul(&a[i+128], &twiddles[2])
+		koalabear.Butterfly(&a[i], &a[i+128])
+	}
 
-func partialFFT_5(a, twiddles fr.Vector) {
-	a[32].Mul(&a[32], &twiddles[0])
-	a[33].Mul(&a[33], &twiddles[0])
-	a[34].Mul(&a[34], &twiddles[0])
-	a[35].Mul(&a[35], &twiddles[0])
-	a[36].Mul(&a[36], &twiddles[0])
-	a[37].Mul(&a[37], &twiddles[0])
-	a[38].Mul(&a[38], &twiddles[0])
-	a[39].Mul(&a[39], &twiddles[0])
-	a[40].Mul(&a[40], &twiddles[0])
-	a[41].Mul(&a[41], &twiddles[0])
-	a[42].Mul(&a[42], &twiddles[0])
-	a[43].Mul(&a[43], &twiddles[0])
-	a[44].Mul(&a[44], &twiddles[0])
-	a[45].Mul(&a[45], &twiddles[0])
-	a[46].Mul(&a[46], &twiddles[0])
-	a[47].Mul(&a[47], &twiddles[0])
-	fr.Butterfly(&a[0], &a[32])
-	fr.Butterfly(&a[1], &a[33])
-	fr.Butterfly(&a[2], &a[34])
-	fr.Butterfly(&a[3], &a[35])
-	fr.Butterfly(&a[4], &a[36])
-	fr.Butterfly(&a[5], &a[37])
-	fr.Butterfly(&a[6], &a[38])
-	fr.Butterfly(&a[7], &a[39])
-	fr.Butterfly(&a[8], &a[40])
-	fr.Butterfly(&a[9], &a[41])
-	fr.Butterfly(&a[10], &a[42])
-	fr.Butterfly(&a[11], &a[43])
-	fr.Butterfly(&a[12], &a[44])
-	fr.Butterfly(&a[13], &a[45])
-	fr.Butterfly(&a[14], &a[46])
-	fr.Butterfly(&a[15], &a[47])
-	fr.Butterfly(&a[0], &a[16])
-	fr.Butterfly(&a[1], &a[17])
-	fr.Butterfly(&a[2], &a[18])
-	fr.Butterfly(&a[3], &a[19])
-	fr.Butterfly(&a[4], &a[20])
-	fr.Butterfly(&a[5], &a[21])
-	fr.Butterfly(&a[6], &a[22])
-	fr.Butterfly(&a[7], &a[23])
-	fr.Butterfly(&a[8], &a[24])
-	fr.Butterfly(&a[9], &a[25])
-	fr.Butterfly(&a[10], &a[26])
-	fr.Butterfly(&a[11], &a[27])
-	fr.Butterfly(&a[12], &a[28])
-	fr.Butterfly(&a[13], &a[29])
-	fr.Butterfly(&a[14], &a[30])
-	fr.Butterfly(&a[15], &a[31])
-	fr.Butterfly(&a[32], &a[48])
-	fr.Butterfly(&a[33], &a[49])
-	fr.Butterfly(&a[34], &a[50])
-	fr.Butterfly(&a[35], &a[51])
-	fr.Butterfly(&a[36], &a[52])
-	fr.Butterfly(&a[37], &a[53])
-	fr.Butterfly(&a[38], &a[54])
-	fr.Butterfly(&a[39], &a[55])
-	fr.Butterfly(&a[40], &a[56])
-	fr.Butterfly(&a[41], &a[57])
-	fr.Butterfly(&a[42], &a[58])
-	fr.Butterfly(&a[43], &a[59])
-	fr.Butterfly(&a[44], &a[60])
-	fr.Butterfly(&a[45], &a[61])
-	fr.Butterfly(&a[46], &a[62])
-	fr.Butterfly(&a[47], &a[63])
-	a[8].Mul(&a[8], &twiddles[3])
-	a[9].Mul(&a[9], &twiddles[3])
-	a[10].Mul(&a[10], &twiddles[3])
-	a[11].Mul(&a[11], &twiddles[3])
-	a[12].Mul(&a[12], &twiddles[3])
-	a[13].Mul(&a[13], &twiddles[3])
-	a[14].Mul(&a[14], &twiddles[3])
-	a[15].Mul(&a[15], &twiddles[3])
-	a[24].Mul(&a[24], &twiddles[4])
-	a[25].Mul(&a[25], &twiddles[4])
-	a[26].Mul(&a[26], &twiddles[4])
-	a[27].Mul(&a[27], &twiddles[4])
-	a[28].Mul(&a[28], &twiddles[4])
-	a[29].Mul(&a[29], &twiddles[4])
-	a[30].Mul(&a[30], &twiddles[4])
-	a[31].Mul(&a[31], &twiddles[4])
-	a[40].Mul(&a[40], &twiddles[5])
-	a[41].Mul(&a[41], &twiddles[5])
-	a[42].Mul(&a[42], &twiddles[5])
-	a[43].Mul(&a[43], &twiddles[5])
-	a[44].Mul(&a[44], &twiddles[5])
-	a[45].Mul(&a[45], &twiddles[5])
-	a[46].Mul(&a[46], &twiddles[5])
-	a[47].Mul(&a[47], &twiddles[5])
-	a[56].Mul(&a[56], &twiddles[6])
-	a[57].Mul(&a[57], &twiddles[6])
-	a[58].Mul(&a[58], &twiddles[6])
-	a[59].Mul(&a[59], &twiddles[6])
-	a[60].Mul(&a[60], &twiddles[6])
-	a[61].Mul(&a[61], &twiddles[6])
-	a[62].Mul(&a[62], &twiddles[6])
-	a[63].Mul(&a[63], &twiddles[6])
-	fr.Butterfly(&a[0], &a[8])
-	fr.Butterfly(&a[1], &a[9])
-	fr.Butterfly(&a[2], &a[10])
-	fr.Butterfly(&a[3], &a[11])
-	fr.Butterfly(&a[4], &a[12])
-	fr.Butterfly(&a[5], &a[13])
-	fr.Butterfly(&a[6], &a[14])
-	fr.Butterfly(&a[7], &a[15])
-	fr.Butterfly(&a[16], &a[24])
-	fr.Butterfly(&a[17], &a[25])
-	fr.Butterfly(&a[18], &a[26])
-	fr.Butterfly(&a[19], &a[27])
-	fr.Butterfly(&a[20], &a[28])
-	fr.Butterfly(&a[21], &a[29])
-	fr.Butterfly(&a[22], &a[30])
-	fr.Butterfly(&a[23], &a[31])
-	fr.Butterfly(&a[32], &a[40])
-	fr.Butterfly(&a[33], &a[41])
-	fr.Butterfly(&a[34], &a[42])
-	fr.Butterfly(&a[35], &a[43])
-	fr.Butterfly(&a[36], &a[44])
-	fr.Butterfly(&a[37], &a[45])
-	fr.Butterfly(&a[38], &a[46])
-	fr.Butterfly(&a[39], &a[47])
-	fr.Butterfly(&a[48], &a[56])
-	fr.Butterfly(&a[49], &a[57])
-	fr.Butterfly(&a[50], &a[58])
-	fr.Butterfly(&a[51], &a[59])
-	fr.Butterfly(&a[52], &a[60])
-	fr.Butterfly(&a[53], &a[61])
-	fr.Butterfly(&a[54], &a[62])
-	fr.Butterfly(&a[55], &a[63])
-	a[4].Mul(&a[4], &twiddles[7])
-	a[5].Mul(&a[5], &twiddles[7])
-	a[6].Mul(&a[6], &twiddles[7])
-	a[7].Mul(&a[7], &twiddles[7])
-	a[12].Mul(&a[12], &twiddles[8])
-	a[13].Mul(&a[13], &twiddles[8])
-	a[14].Mul(&a[14], &twiddles[8])
-	a[15].Mul(&a[15], &twiddles[8])
-	a[20].Mul(&a[20], &twiddles[9])
-	a[21].Mul(&a[21], &twiddles[9])
-	a[22].Mul(&a[22], &twiddles[9])
-	a[23].Mul(&a[23], &twiddles[9])
-	a[28].Mul(&a[28], &twiddles[10])
-	a[29].Mul(&a[29], &twiddles[10])
-	a[30].Mul(&a[30], &twiddles[10])
-	a[31].Mul(&a[31], &twiddles[10])
-	a[36].Mul(&a[36], &twiddles[11])
-	a[37].Mul(&a[37], &twiddles[11])
-	a[38].Mul(&a[38], &twiddles[11])
-	a[39].Mul(&a[39], &twiddles[11])
-	a[44].Mul(&a[44], &twiddles[12])
-	a[45].Mul(&a[45], &twiddles[12])
-	a[46].Mul(&a[46], &twiddles[12])
-	a[47].Mul(&a[47], &twiddles[12])
-	a[52].Mul(&a[52], &twiddles[13])
-	a[53].Mul(&a[53], &twiddles[13])
-	a[54].Mul(&a[54], &twiddles[13])
-	a[55].Mul(&a[55], &twiddles[13])
-	a[60].Mul(&a[60], &twiddles[14])
-	a[61].Mul(&a[61], &twiddles[14])
-	a[62].Mul(&a[62], &twiddles[14])
-	a[63].Mul(&a[63], &twiddles[14])
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	fr.Butterfly(&a[8], &a[12])
-	fr.Butterfly(&a[9], &a[13])
-	fr.Butterfly(&a[10], &a[14])
-	fr.Butterfly(&a[11], &a[15])
-	fr.Butterfly(&a[16], &a[20])
-	fr.Butterfly(&a[17], &a[21])
-	fr.Butterfly(&a[18], &a[22])
-	fr.Butterfly(&a[19], &a[23])
-	fr.Butterfly(&a[24], &a[28])
-	fr.Butterfly(&a[25], &a[29])
-	fr.Butterfly(&a[26], &a[30])
-	fr.Butterfly(&a[27], &a[31])
-	fr.Butterfly(&a[32], &a[36])
-	fr.Butterfly(&a[33], &a[37])
-	fr.Butterfly(&a[34], &a[38])
-	fr.Butterfly(&a[35], &a[39])
-	fr.Butterfly(&a[40], &a[44])
-	fr.Butterfly(&a[41], &a[45])
-	fr.Butterfly(&a[42], &a[46])
-	fr.Butterfly(&a[43], &a[47])
-	fr.Butterfly(&a[48], &a[52])
-	fr.Butterfly(&a[49], &a[53])
-	fr.Butterfly(&a[50], &a[54])
-	fr.Butterfly(&a[51], &a[55])
-	fr.Butterfly(&a[56], &a[60])
-	fr.Butterfly(&a[57], &a[61])
-	fr.Butterfly(&a[58], &a[62])
-	fr.Butterfly(&a[59], &a[63])
-	a[2].Mul(&a[2], &twiddles[15])
-	a[3].Mul(&a[3], &twiddles[15])
-	a[6].Mul(&a[6], &twiddles[16])
-	a[7].Mul(&a[7], &twiddles[16])
-	a[10].Mul(&a[10], &twiddles[17])
-	a[11].Mul(&a[11], &twiddles[17])
-	a[14].Mul(&a[14], &twiddles[18])
-	a[15].Mul(&a[15], &twiddles[18])
-	a[18].Mul(&a[18], &twiddles[19])
-	a[19].Mul(&a[19], &twiddles[19])
-	a[22].Mul(&a[22], &twiddles[20])
-	a[23].Mul(&a[23], &twiddles[20])
-	a[26].Mul(&a[26], &twiddles[21])
-	a[27].Mul(&a[27], &twiddles[21])
-	a[30].Mul(&a[30], &twiddles[22])
-	a[31].Mul(&a[31], &twiddles[22])
-	a[34].Mul(&a[34], &twiddles[23])
-	a[35].Mul(&a[35], &twiddles[23])
-	a[38].Mul(&a[38], &twiddles[24])
-	a[39].Mul(&a[39], &twiddles[24])
-	a[42].Mul(&a[42], &twiddles[25])
-	a[43].Mul(&a[43], &twiddles[25])
-	a[46].Mul(&a[46], &twiddles[26])
-	a[47].Mul(&a[47], &twiddles[26])
-	a[50].Mul(&a[50], &twiddles[27])
-	a[51].Mul(&a[51], &twiddles[27])
-	a[54].Mul(&a[54], &twiddles[28])
-	a[55].Mul(&a[55], &twiddles[28])
-	a[58].Mul(&a[58], &twiddles[29])
-	a[59].Mul(&a[59], &twiddles[29])
-	a[62].Mul(&a[62], &twiddles[30])
-	a[63].Mul(&a[63], &twiddles[30])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	fr.Butterfly(&a[61], &a[63])
-	a[1].Mul(&a[1], &twiddles[31])
-	a[3].Mul(&a[3], &twiddles[32])
-	a[5].Mul(&a[5], &twiddles[33])
-	a[7].Mul(&a[7], &twiddles[34])
-	a[9].Mul(&a[9], &twiddles[35])
-	a[11].Mul(&a[11], &twiddles[36])
-	a[13].Mul(&a[13], &twiddles[37])
-	a[15].Mul(&a[15], &twiddles[38])
-	a[17].Mul(&a[17], &twiddles[39])
-	a[19].Mul(&a[19], &twiddles[40])
-	a[21].Mul(&a[21], &twiddles[41])
-	a[23].Mul(&a[23], &twiddles[42])
-	a[25].Mul(&a[25], &twiddles[43])
-	a[27].Mul(&a[27], &twiddles[44])
-	a[29].Mul(&a[29], &twiddles[45])
-	a[31].Mul(&a[31], &twiddles[46])
-	a[33].Mul(&a[33], &twiddles[47])
-	a[35].Mul(&a[35], &twiddles[48])
-	a[37].Mul(&a[37], &twiddles[49])
-	a[39].Mul(&a[39], &twiddles[50])
-	a[41].Mul(&a[41], &twiddles[51])
-	a[43].Mul(&a[43], &twiddles[52])
-	a[45].Mul(&a[45], &twiddles[53])
-	a[47].Mul(&a[47], &twiddles[54])
-	a[49].Mul(&a[49], &twiddles[55])
-	a[51].Mul(&a[51], &twiddles[56])
-	a[53].Mul(&a[53], &twiddles[57])
-	a[55].Mul(&a[55], &twiddles[58])
-	a[57].Mul(&a[57], &twiddles[59])
-	a[59].Mul(&a[59], &twiddles[60])
-	a[61].Mul(&a[61], &twiddles[61])
-	a[63].Mul(&a[63], &twiddles[62])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
-}
+	//
+	// stage 2
+	//
 
-func partialFFT_6(a, twiddles fr.Vector) {
-	a[32].Mul(&a[32], &twiddles[0])
-	a[33].Mul(&a[33], &twiddles[0])
-	a[34].Mul(&a[34], &twiddles[0])
-	a[35].Mul(&a[35], &twiddles[0])
-	a[36].Mul(&a[36], &twiddles[0])
-	a[37].Mul(&a[37], &twiddles[0])
-	a[38].Mul(&a[38], &twiddles[0])
-	a[39].Mul(&a[39], &twiddles[0])
-	a[40].Mul(&a[40], &twiddles[0])
-	a[41].Mul(&a[41], &twiddles[0])
-	a[42].Mul(&a[42], &twiddles[0])
-	a[43].Mul(&a[43], &twiddles[0])
-	a[44].Mul(&a[44], &twiddles[0])
-	a[45].Mul(&a[45], &twiddles[0])
-	a[46].Mul(&a[46], &twiddles[0])
-	a[47].Mul(&a[47], &twiddles[0])
-	fr.Butterfly(&a[0], &a[32])
-	fr.Butterfly(&a[1], &a[33])
-	fr.Butterfly(&a[2], &a[34])
-	fr.Butterfly(&a[3], &a[35])
-	fr.Butterfly(&a[4], &a[36])
-	fr.Butterfly(&a[5], &a[37])
-	fr.Butterfly(&a[6], &a[38])
-	fr.Butterfly(&a[7], &a[39])
-	fr.Butterfly(&a[8], &a[40])
-	fr.Butterfly(&a[9], &a[41])
-	fr.Butterfly(&a[10], &a[42])
-	fr.Butterfly(&a[11], &a[43])
-	fr.Butterfly(&a[12], &a[44])
-	fr.Butterfly(&a[13], &a[45])
-	fr.Butterfly(&a[14], &a[46])
-	fr.Butterfly(&a[15], &a[47])
-	fr.Butterfly(&a[16], &a[48])
-	fr.Butterfly(&a[17], &a[49])
-	fr.Butterfly(&a[18], &a[50])
-	fr.Butterfly(&a[19], &a[51])
-	fr.Butterfly(&a[20], &a[52])
-	fr.Butterfly(&a[21], &a[53])
-	fr.Butterfly(&a[22], &a[54])
-	fr.Butterfly(&a[23], &a[55])
-	fr.Butterfly(&a[24], &a[56])
-	fr.Butterfly(&a[25], &a[57])
-	fr.Butterfly(&a[26], &a[58])
-	fr.Butterfly(&a[27], &a[59])
-	fr.Butterfly(&a[28], &a[60])
-	fr.Butterfly(&a[29], &a[61])
-	fr.Butterfly(&a[30], &a[62])
-	fr.Butterfly(&a[31], &a[63])
-	a[16].Mul(&a[16], &twiddles[1])
-	a[17].Mul(&a[17], &twiddles[1])
-	a[18].Mul(&a[18], &twiddles[1])
-	a[19].Mul(&a[19], &twiddles[1])
-	a[20].Mul(&a[20], &twiddles[1])
-	a[21].Mul(&a[21], &twiddles[1])
-	a[22].Mul(&a[22], &twiddles[1])
-	a[23].Mul(&a[23], &twiddles[1])
-	a[24].Mul(&a[24], &twiddles[1])
-	a[25].Mul(&a[25], &twiddles[1])
-	a[26].Mul(&a[26], &twiddles[1])
-	a[27].Mul(&a[27], &twiddles[1])
-	a[28].Mul(&a[28], &twiddles[1])
-	a[29].Mul(&a[29], &twiddles[1])
-	a[30].Mul(&a[30], &twiddles[1])
-	a[31].Mul(&a[31], &twiddles[1])
-	a[48].Mul(&a[48], &twiddles[2])
-	a[49].Mul(&a[49], &twiddles[2])
-	a[50].Mul(&a[50], &twiddles[2])
-	a[51].Mul(&a[51], &twiddles[2])
-	a[52].Mul(&a[52], &twiddles[2])
-	a[53].Mul(&a[53], &twiddles[2])
-	a[54].Mul(&a[54], &twiddles[2])
-	a[55].Mul(&a[55], &twiddles[2])
-	a[56].Mul(&a[56], &twiddles[2])
-	a[57].Mul(&a[57], &twiddles[2])
-	a[58].Mul(&a[58], &twiddles[2])
-	a[59].Mul(&a[59], &twiddles[2])
-	a[60].Mul(&a[60], &twiddles[2])
-	a[61].Mul(&a[61], &twiddles[2])
-	a[62].Mul(&a[62], &twiddles[2])
-	a[63].Mul(&a[63], &twiddles[2])
-	fr.Butterfly(&a[0], &a[16])
-	fr.Butterfly(&a[1], &a[17])
-	fr.Butterfly(&a[2], &a[18])
-	fr.Butterfly(&a[3], &a[19])
-	fr.Butterfly(&a[4], &a[20])
-	fr.Butterfly(&a[5], &a[21])
-	fr.Butterfly(&a[6], &a[22])
-	fr.Butterfly(&a[7], &a[23])
-	fr.Butterfly(&a[8], &a[24])
-	fr.Butterfly(&a[9], &a[25])
-	fr.Butterfly(&a[10], &a[26])
-	fr.Butterfly(&a[11], &a[27])
-	fr.Butterfly(&a[12], &a[28])
-	fr.Butterfly(&a[13], &a[29])
-	fr.Butterfly(&a[14], &a[30])
-	fr.Butterfly(&a[15], &a[31])
-	fr.Butterfly(&a[32], &a[48])
-	fr.Butterfly(&a[33], &a[49])
-	fr.Butterfly(&a[34], &a[50])
-	fr.Butterfly(&a[35], &a[51])
-	fr.Butterfly(&a[36], &a[52])
-	fr.Butterfly(&a[37], &a[53])
-	fr.Butterfly(&a[38], &a[54])
-	fr.Butterfly(&a[39], &a[55])
-	fr.Butterfly(&a[40], &a[56])
-	fr.Butterfly(&a[41], &a[57])
-	fr.Butterfly(&a[42], &a[58])
-	fr.Butterfly(&a[43], &a[59])
-	fr.Butterfly(&a[44], &a[60])
-	fr.Butterfly(&a[45], &a[61])
-	fr.Butterfly(&a[46], &a[62])
-	fr.Butterfly(&a[47], &a[63])
-	a[8].Mul(&a[8], &twiddles[3])
-	a[9].Mul(&a[9], &twiddles[3])
-	a[10].Mul(&a[10], &twiddles[3])
-	a[11].Mul(&a[11], &twiddles[3])
-	a[12].Mul(&a[12], &twiddles[3])
-	a[13].Mul(&a[13], &twiddles[3])
-	a[14].Mul(&a[14], &twiddles[3])
-	a[15].Mul(&a[15], &twiddles[3])
-	a[24].Mul(&a[24], &twiddles[4])
-	a[25].Mul(&a[25], &twiddles[4])
-	a[26].Mul(&a[26], &twiddles[4])
-	a[27].Mul(&a[27], &twiddles[4])
-	a[28].Mul(&a[28], &twiddles[4])
-	a[29].Mul(&a[29], &twiddles[4])
-	a[30].Mul(&a[30], &twiddles[4])
-	a[31].Mul(&a[31], &twiddles[4])
-	a[40].Mul(&a[40], &twiddles[5])
-	a[41].Mul(&a[41], &twiddles[5])
-	a[42].Mul(&a[42], &twiddles[5])
-	a[43].Mul(&a[43], &twiddles[5])
-	a[44].Mul(&a[44], &twiddles[5])
-	a[45].Mul(&a[45], &twiddles[5])
-	a[46].Mul(&a[46], &twiddles[5])
-	a[47].Mul(&a[47], &twiddles[5])
-	a[56].Mul(&a[56], &twiddles[6])
-	a[57].Mul(&a[57], &twiddles[6])
-	a[58].Mul(&a[58], &twiddles[6])
-	a[59].Mul(&a[59], &twiddles[6])
-	a[60].Mul(&a[60], &twiddles[6])
-	a[61].Mul(&a[61], &twiddles[6])
-	a[62].Mul(&a[62], &twiddles[6])
-	a[63].Mul(&a[63], &twiddles[6])
-	fr.Butterfly(&a[0], &a[8])
-	fr.Butterfly(&a[1], &a[9])
-	fr.Butterfly(&a[2], &a[10])
-	fr.Butterfly(&a[3], &a[11])
-	fr.Butterfly(&a[4], &a[12])
-	fr.Butterfly(&a[5], &a[13])
-	fr.Butterfly(&a[6], &a[14])
-	fr.Butterfly(&a[7], &a[15])
-	fr.Butterfly(&a[16], &a[24])
-	fr.Butterfly(&a[17], &a[25])
-	fr.Butterfly(&a[18], &a[26])
-	fr.Butterfly(&a[19], &a[27])
-	fr.Butterfly(&a[20], &a[28])
-	fr.Butterfly(&a[21], &a[29])
-	fr.Butterfly(&a[22], &a[30])
-	fr.Butterfly(&a[23], &a[31])
-	fr.Butterfly(&a[32], &a[40])
-	fr.Butterfly(&a[33], &a[41])
-	fr.Butterfly(&a[34], &a[42])
-	fr.Butterfly(&a[35], &a[43])
-	fr.Butterfly(&a[36], &a[44])
-	fr.Butterfly(&a[37], &a[45])
-	fr.Butterfly(&a[38], &a[46])
-	fr.Butterfly(&a[39], &a[47])
-	fr.Butterfly(&a[48], &a[56])
-	fr.Butterfly(&a[49], &a[57])
-	fr.Butterfly(&a[50], &a[58])
-	fr.Butterfly(&a[51], &a[59])
-	fr.Butterfly(&a[52], &a[60])
-	fr.Butterfly(&a[53], &a[61])
-	fr.Butterfly(&a[54], &a[62])
-	fr.Butterfly(&a[55], &a[63])
-	a[4].Mul(&a[4], &twiddles[7])
-	a[5].Mul(&a[5], &twiddles[7])
-	a[6].Mul(&a[6], &twiddles[7])
-	a[7].Mul(&a[7], &twiddles[7])
-	a[12].Mul(&a[12], &twiddles[8])
-	a[13].Mul(&a[13], &twiddles[8])
-	a[14].Mul(&a[14], &twiddles[8])
-	a[15].Mul(&a[15], &twiddles[8])
-	a[20].Mul(&a[20], &twiddles[9])
-	a[21].Mul(&a[21], &twiddles[9])
-	a[22].Mul(&a[22], &twiddles[9])
-	a[23].Mul(&a[23], &twiddles[9])
-	a[28].Mul(&a[28], &twiddles[10])
-	a[29].Mul(&a[29], &twiddles[10])
-	a[30].Mul(&a[30], &twiddles[10])
-	a[31].Mul(&a[31], &twiddles[10])
-	a[36].Mul(&a[36], &twiddles[11])
-	a[37].Mul(&a[37], &twiddles[11])
-	a[38].Mul(&a[38], &twiddles[11])
-	a[39].Mul(&a[39], &twiddles[11])
-	a[44].Mul(&a[44], &twiddles[12])
-	a[45].Mul(&a[45], &twiddles[12])
-	a[46].Mul(&a[46], &twiddles[12])
-	a[47].Mul(&a[47], &twiddles[12])
-	a[52].Mul(&a[52], &twiddles[13])
-	a[53].Mul(&a[53], &twiddles[13])
-	a[54].Mul(&a[54], &twiddles[13])
-	a[55].Mul(&a[55], &twiddles[13])
-	a[60].Mul(&a[60], &twiddles[14])
-	a[61].Mul(&a[61], &twiddles[14])
-	a[62].Mul(&a[62], &twiddles[14])
-	a[63].Mul(&a[63], &twiddles[14])
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	fr.Butterfly(&a[8], &a[12])
-	fr.Butterfly(&a[9], &a[13])
-	fr.Butterfly(&a[10], &a[14])
-	fr.Butterfly(&a[11], &a[15])
-	fr.Butterfly(&a[16], &a[20])
-	fr.Butterfly(&a[17], &a[21])
-	fr.Butterfly(&a[18], &a[22])
-	fr.Butterfly(&a[19], &a[23])
-	fr.Butterfly(&a[24], &a[28])
-	fr.Butterfly(&a[25], &a[29])
-	fr.Butterfly(&a[26], &a[30])
-	fr.Butterfly(&a[27], &a[31])
-	fr.Butterfly(&a[32], &a[36])
-	fr.Butterfly(&a[33], &a[37])
-	fr.Butterfly(&a[34], &a[38])
-	fr.Butterfly(&a[35], &a[39])
-	fr.Butterfly(&a[40], &a[44])
-	fr.Butterfly(&a[41], &a[45])
-	fr.Butterfly(&a[42], &a[46])
-	fr.Butterfly(&a[43], &a[47])
-	fr.Butterfly(&a[48], &a[52])
-	fr.Butterfly(&a[49], &a[53])
-	fr.Butterfly(&a[50], &a[54])
-	fr.Butterfly(&a[51], &a[55])
-	fr.Butterfly(&a[56], &a[60])
-	fr.Butterfly(&a[57], &a[61])
-	fr.Butterfly(&a[58], &a[62])
-	fr.Butterfly(&a[59], &a[63])
-	a[2].Mul(&a[2], &twiddles[15])
-	a[3].Mul(&a[3], &twiddles[15])
-	a[6].Mul(&a[6], &twiddles[16])
-	a[7].Mul(&a[7], &twiddles[16])
-	a[10].Mul(&a[10], &twiddles[17])
-	a[11].Mul(&a[11], &twiddles[17])
-	a[14].Mul(&a[14], &twiddles[18])
-	a[15].Mul(&a[15], &twiddles[18])
-	a[18].Mul(&a[18], &twiddles[19])
-	a[19].Mul(&a[19], &twiddles[19])
-	a[22].Mul(&a[22], &twiddles[20])
-	a[23].Mul(&a[23], &twiddles[20])
-	a[26].Mul(&a[26], &twiddles[21])
-	a[27].Mul(&a[27], &twiddles[21])
-	a[30].Mul(&a[30], &twiddles[22])
-	a[31].Mul(&a[31], &twiddles[22])
-	a[34].Mul(&a[34], &twiddles[23])
-	a[35].Mul(&a[35], &twiddles[23])
-	a[38].Mul(&a[38], &twiddles[24])
-	a[39].Mul(&a[39], &twiddles[24])
-	a[42].Mul(&a[42], &twiddles[25])
-	a[43].Mul(&a[43], &twiddles[25])
-	a[46].Mul(&a[46], &twiddles[26])
-	a[47].Mul(&a[47], &twiddles[26])
-	a[50].Mul(&a[50], &twiddles[27])
-	a[51].Mul(&a[51], &twiddles[27])
-	a[54].Mul(&a[54], &twiddles[28])
-	a[55].Mul(&a[55], &twiddles[28])
-	a[58].Mul(&a[58], &twiddles[29])
-	a[59].Mul(&a[59], &twiddles[29])
-	a[62].Mul(&a[62], &twiddles[30])
-	a[63].Mul(&a[63], &twiddles[30])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	fr.Butterfly(&a[61], &a[63])
-	a[1].Mul(&a[1], &twiddles[31])
-	a[3].Mul(&a[3], &twiddles[32])
-	a[5].Mul(&a[5], &twiddles[33])
-	a[7].Mul(&a[7], &twiddles[34])
-	a[9].Mul(&a[9], &twiddles[35])
-	a[11].Mul(&a[11], &twiddles[36])
-	a[13].Mul(&a[13], &twiddles[37])
-	a[15].Mul(&a[15], &twiddles[38])
-	a[17].Mul(&a[17], &twiddles[39])
-	a[19].Mul(&a[19], &twiddles[40])
-	a[21].Mul(&a[21], &twiddles[41])
-	a[23].Mul(&a[23], &twiddles[42])
-	a[25].Mul(&a[25], &twiddles[43])
-	a[27].Mul(&a[27], &twiddles[44])
-	a[29].Mul(&a[29], &twiddles[45])
-	a[31].Mul(&a[31], &twiddles[46])
-	a[33].Mul(&a[33], &twiddles[47])
-	a[35].Mul(&a[35], &twiddles[48])
-	a[37].Mul(&a[37], &twiddles[49])
-	a[39].Mul(&a[39], &twiddles[50])
-	a[41].Mul(&a[41], &twiddles[51])
-	a[43].Mul(&a[43], &twiddles[52])
-	a[45].Mul(&a[45], &twiddles[53])
-	a[47].Mul(&a[47], &twiddles[54])
-	a[49].Mul(&a[49], &twiddles[55])
-	a[51].Mul(&a[51], &twiddles[56])
-	a[53].Mul(&a[53], &twiddles[57])
-	a[55].Mul(&a[55], &twiddles[58])
-	a[57].Mul(&a[57], &twiddles[59])
-	a[59].Mul(&a[59], &twiddles[60])
-	a[61].Mul(&a[61], &twiddles[61])
-	a[63].Mul(&a[63], &twiddles[62])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
-}
+	// split 0: a[0:128] with twiddles[3]
+	for i := 0; i < 64; i++ {
+		a[i+64].Mul(&a[i+64], &twiddles[3])
+		koalabear.Butterfly(&a[i], &a[i+64])
+	}
 
-func partialFFT_7(a, twiddles fr.Vector) {
-	a[32].Mul(&a[32], &twiddles[0])
-	a[33].Mul(&a[33], &twiddles[0])
-	a[34].Mul(&a[34], &twiddles[0])
-	a[35].Mul(&a[35], &twiddles[0])
-	a[36].Mul(&a[36], &twiddles[0])
-	a[37].Mul(&a[37], &twiddles[0])
-	a[38].Mul(&a[38], &twiddles[0])
-	a[39].Mul(&a[39], &twiddles[0])
-	a[40].Mul(&a[40], &twiddles[0])
-	a[41].Mul(&a[41], &twiddles[0])
-	a[42].Mul(&a[42], &twiddles[0])
-	a[43].Mul(&a[43], &twiddles[0])
-	a[44].Mul(&a[44], &twiddles[0])
-	a[45].Mul(&a[45], &twiddles[0])
-	a[46].Mul(&a[46], &twiddles[0])
-	a[47].Mul(&a[47], &twiddles[0])
-	fr.Butterfly(&a[0], &a[32])
-	fr.Butterfly(&a[1], &a[33])
-	fr.Butterfly(&a[2], &a[34])
-	fr.Butterfly(&a[3], &a[35])
-	fr.Butterfly(&a[4], &a[36])
-	fr.Butterfly(&a[5], &a[37])
-	fr.Butterfly(&a[6], &a[38])
-	fr.Butterfly(&a[7], &a[39])
-	fr.Butterfly(&a[8], &a[40])
-	fr.Butterfly(&a[9], &a[41])
-	fr.Butterfly(&a[10], &a[42])
-	fr.Butterfly(&a[11], &a[43])
-	fr.Butterfly(&a[12], &a[44])
-	fr.Butterfly(&a[13], &a[45])
-	fr.Butterfly(&a[14], &a[46])
-	fr.Butterfly(&a[15], &a[47])
-	fr.Butterfly(&a[16], &a[48])
-	fr.Butterfly(&a[17], &a[49])
-	fr.Butterfly(&a[18], &a[50])
-	fr.Butterfly(&a[19], &a[51])
-	fr.Butterfly(&a[20], &a[52])
-	fr.Butterfly(&a[21], &a[53])
-	fr.Butterfly(&a[22], &a[54])
-	fr.Butterfly(&a[23], &a[55])
-	fr.Butterfly(&a[24], &a[56])
-	fr.Butterfly(&a[25], &a[57])
-	fr.Butterfly(&a[26], &a[58])
-	fr.Butterfly(&a[27], &a[59])
-	fr.Butterfly(&a[28], &a[60])
-	fr.Butterfly(&a[29], &a[61])
-	fr.Butterfly(&a[30], &a[62])
-	fr.Butterfly(&a[31], &a[63])
-	a[16].Mul(&a[16], &twiddles[1])
-	a[17].Mul(&a[17], &twiddles[1])
-	a[18].Mul(&a[18], &twiddles[1])
-	a[19].Mul(&a[19], &twiddles[1])
-	a[20].Mul(&a[20], &twiddles[1])
-	a[21].Mul(&a[21], &twiddles[1])
-	a[22].Mul(&a[22], &twiddles[1])
-	a[23].Mul(&a[23], &twiddles[1])
-	a[24].Mul(&a[24], &twiddles[1])
-	a[25].Mul(&a[25], &twiddles[1])
-	a[26].Mul(&a[26], &twiddles[1])
-	a[27].Mul(&a[27], &twiddles[1])
-	a[28].Mul(&a[28], &twiddles[1])
-	a[29].Mul(&a[29], &twiddles[1])
-	a[30].Mul(&a[30], &twiddles[1])
-	a[31].Mul(&a[31], &twiddles[1])
-	a[48].Mul(&a[48], &twiddles[2])
-	a[49].Mul(&a[49], &twiddles[2])
-	a[50].Mul(&a[50], &twiddles[2])
-	a[51].Mul(&a[51], &twiddles[2])
-	a[52].Mul(&a[52], &twiddles[2])
-	a[53].Mul(&a[53], &twiddles[2])
-	a[54].Mul(&a[54], &twiddles[2])
-	a[55].Mul(&a[55], &twiddles[2])
-	a[56].Mul(&a[56], &twiddles[2])
-	a[57].Mul(&a[57], &twiddles[2])
-	a[58].Mul(&a[58], &twiddles[2])
-	a[59].Mul(&a[59], &twiddles[2])
-	a[60].Mul(&a[60], &twiddles[2])
-	a[61].Mul(&a[61], &twiddles[2])
-	a[62].Mul(&a[62], &twiddles[2])
-	a[63].Mul(&a[63], &twiddles[2])
-	fr.Butterfly(&a[0], &a[16])
-	fr.Butterfly(&a[1], &a[17])
-	fr.Butterfly(&a[2], &a[18])
-	fr.Butterfly(&a[3], &a[19])
-	fr.Butterfly(&a[4], &a[20])
-	fr.Butterfly(&a[5], &a[21])
-	fr.Butterfly(&a[6], &a[22])
-	fr.Butterfly(&a[7], &a[23])
-	fr.Butterfly(&a[8], &a[24])
-	fr.Butterfly(&a[9], &a[25])
-	fr.Butterfly(&a[10], &a[26])
-	fr.Butterfly(&a[11], &a[27])
-	fr.Butterfly(&a[12], &a[28])
-	fr.Butterfly(&a[13], &a[29])
-	fr.Butterfly(&a[14], &a[30])
-	fr.Butterfly(&a[15], &a[31])
-	fr.Butterfly(&a[32], &a[48])
-	fr.Butterfly(&a[33], &a[49])
-	fr.Butterfly(&a[34], &a[50])
-	fr.Butterfly(&a[35], &a[51])
-	fr.Butterfly(&a[36], &a[52])
-	fr.Butterfly(&a[37], &a[53])
-	fr.Butterfly(&a[38], &a[54])
-	fr.Butterfly(&a[39], &a[55])
-	fr.Butterfly(&a[40], &a[56])
-	fr.Butterfly(&a[41], &a[57])
-	fr.Butterfly(&a[42], &a[58])
-	fr.Butterfly(&a[43], &a[59])
-	fr.Butterfly(&a[44], &a[60])
-	fr.Butterfly(&a[45], &a[61])
-	fr.Butterfly(&a[46], &a[62])
-	fr.Butterfly(&a[47], &a[63])
-	a[8].Mul(&a[8], &twiddles[3])
-	a[9].Mul(&a[9], &twiddles[3])
-	a[10].Mul(&a[10], &twiddles[3])
-	a[11].Mul(&a[11], &twiddles[3])
-	a[12].Mul(&a[12], &twiddles[3])
-	a[13].Mul(&a[13], &twiddles[3])
-	a[14].Mul(&a[14], &twiddles[3])
-	a[15].Mul(&a[15], &twiddles[3])
-	a[24].Mul(&a[24], &twiddles[4])
-	a[25].Mul(&a[25], &twiddles[4])
-	a[26].Mul(&a[26], &twiddles[4])
-	a[27].Mul(&a[27], &twiddles[4])
-	a[28].Mul(&a[28], &twiddles[4])
-	a[29].Mul(&a[29], &twiddles[4])
-	a[30].Mul(&a[30], &twiddles[4])
-	a[31].Mul(&a[31], &twiddles[4])
-	a[40].Mul(&a[40], &twiddles[5])
-	a[41].Mul(&a[41], &twiddles[5])
-	a[42].Mul(&a[42], &twiddles[5])
-	a[43].Mul(&a[43], &twiddles[5])
-	a[44].Mul(&a[44], &twiddles[5])
-	a[45].Mul(&a[45], &twiddles[5])
-	a[46].Mul(&a[46], &twiddles[5])
-	a[47].Mul(&a[47], &twiddles[5])
-	a[56].Mul(&a[56], &twiddles[6])
-	a[57].Mul(&a[57], &twiddles[6])
-	a[58].Mul(&a[58], &twiddles[6])
-	a[59].Mul(&a[59], &twiddles[6])
-	a[60].Mul(&a[60], &twiddles[6])
-	a[61].Mul(&a[61], &twiddles[6])
-	a[62].Mul(&a[62], &twiddles[6])
-	a[63].Mul(&a[63], &twiddles[6])
-	fr.Butterfly(&a[0], &a[8])
-	fr.Butterfly(&a[1], &a[9])
-	fr.Butterfly(&a[2], &a[10])
-	fr.Butterfly(&a[3], &a[11])
-	fr.Butterfly(&a[4], &a[12])
-	fr.Butterfly(&a[5], &a[13])
-	fr.Butterfly(&a[6], &a[14])
-	fr.Butterfly(&a[7], &a[15])
-	fr.Butterfly(&a[16], &a[24])
-	fr.Butterfly(&a[17], &a[25])
-	fr.Butterfly(&a[18], &a[26])
-	fr.Butterfly(&a[19], &a[27])
-	fr.Butterfly(&a[20], &a[28])
-	fr.Butterfly(&a[21], &a[29])
-	fr.Butterfly(&a[22], &a[30])
-	fr.Butterfly(&a[23], &a[31])
-	fr.Butterfly(&a[32], &a[40])
-	fr.Butterfly(&a[33], &a[41])
-	fr.Butterfly(&a[34], &a[42])
-	fr.Butterfly(&a[35], &a[43])
-	fr.Butterfly(&a[36], &a[44])
-	fr.Butterfly(&a[37], &a[45])
-	fr.Butterfly(&a[38], &a[46])
-	fr.Butterfly(&a[39], &a[47])
-	fr.Butterfly(&a[48], &a[56])
-	fr.Butterfly(&a[49], &a[57])
-	fr.Butterfly(&a[50], &a[58])
-	fr.Butterfly(&a[51], &a[59])
-	fr.Butterfly(&a[52], &a[60])
-	fr.Butterfly(&a[53], &a[61])
-	fr.Butterfly(&a[54], &a[62])
-	fr.Butterfly(&a[55], &a[63])
-	a[4].Mul(&a[4], &twiddles[7])
-	a[5].Mul(&a[5], &twiddles[7])
-	a[6].Mul(&a[6], &twiddles[7])
-	a[7].Mul(&a[7], &twiddles[7])
-	a[12].Mul(&a[12], &twiddles[8])
-	a[13].Mul(&a[13], &twiddles[8])
-	a[14].Mul(&a[14], &twiddles[8])
-	a[15].Mul(&a[15], &twiddles[8])
-	a[20].Mul(&a[20], &twiddles[9])
-	a[21].Mul(&a[21], &twiddles[9])
-	a[22].Mul(&a[22], &twiddles[9])
-	a[23].Mul(&a[23], &twiddles[9])
-	a[28].Mul(&a[28], &twiddles[10])
-	a[29].Mul(&a[29], &twiddles[10])
-	a[30].Mul(&a[30], &twiddles[10])
-	a[31].Mul(&a[31], &twiddles[10])
-	a[36].Mul(&a[36], &twiddles[11])
-	a[37].Mul(&a[37], &twiddles[11])
-	a[38].Mul(&a[38], &twiddles[11])
-	a[39].Mul(&a[39], &twiddles[11])
-	a[44].Mul(&a[44], &twiddles[12])
-	a[45].Mul(&a[45], &twiddles[12])
-	a[46].Mul(&a[46], &twiddles[12])
-	a[47].Mul(&a[47], &twiddles[12])
-	a[52].Mul(&a[52], &twiddles[13])
-	a[53].Mul(&a[53], &twiddles[13])
-	a[54].Mul(&a[54], &twiddles[13])
-	a[55].Mul(&a[55], &twiddles[13])
-	a[60].Mul(&a[60], &twiddles[14])
-	a[61].Mul(&a[61], &twiddles[14])
-	a[62].Mul(&a[62], &twiddles[14])
-	a[63].Mul(&a[63], &twiddles[14])
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	fr.Butterfly(&a[8], &a[12])
-	fr.Butterfly(&a[9], &a[13])
-	fr.Butterfly(&a[10], &a[14])
-	fr.Butterfly(&a[11], &a[15])
-	fr.Butterfly(&a[16], &a[20])
-	fr.Butterfly(&a[17], &a[21])
-	fr.Butterfly(&a[18], &a[22])
-	fr.Butterfly(&a[19], &a[23])
-	fr.Butterfly(&a[24], &a[28])
-	fr.Butterfly(&a[25], &a[29])
-	fr.Butterfly(&a[26], &a[30])
-	fr.Butterfly(&a[27], &a[31])
-	fr.Butterfly(&a[32], &a[36])
-	fr.Butterfly(&a[33], &a[37])
-	fr.Butterfly(&a[34], &a[38])
-	fr.Butterfly(&a[35], &a[39])
-	fr.Butterfly(&a[40], &a[44])
-	fr.Butterfly(&a[41], &a[45])
-	fr.Butterfly(&a[42], &a[46])
-	fr.Butterfly(&a[43], &a[47])
-	fr.Butterfly(&a[48], &a[52])
-	fr.Butterfly(&a[49], &a[53])
-	fr.Butterfly(&a[50], &a[54])
-	fr.Butterfly(&a[51], &a[55])
-	fr.Butterfly(&a[56], &a[60])
-	fr.Butterfly(&a[57], &a[61])
-	fr.Butterfly(&a[58], &a[62])
-	fr.Butterfly(&a[59], &a[63])
-	a[2].Mul(&a[2], &twiddles[15])
-	a[3].Mul(&a[3], &twiddles[15])
-	a[6].Mul(&a[6], &twiddles[16])
-	a[7].Mul(&a[7], &twiddles[16])
-	a[10].Mul(&a[10], &twiddles[17])
-	a[11].Mul(&a[11], &twiddles[17])
-	a[14].Mul(&a[14], &twiddles[18])
-	a[15].Mul(&a[15], &twiddles[18])
-	a[18].Mul(&a[18], &twiddles[19])
-	a[19].Mul(&a[19], &twiddles[19])
-	a[22].Mul(&a[22], &twiddles[20])
-	a[23].Mul(&a[23], &twiddles[20])
-	a[26].Mul(&a[26], &twiddles[21])
-	a[27].Mul(&a[27], &twiddles[21])
-	a[30].Mul(&a[30], &twiddles[22])
-	a[31].Mul(&a[31], &twiddles[22])
-	a[34].Mul(&a[34], &twiddles[23])
-	a[35].Mul(&a[35], &twiddles[23])
-	a[38].Mul(&a[38], &twiddles[24])
-	a[39].Mul(&a[39], &twiddles[24])
-	a[42].Mul(&a[42], &twiddles[25])
-	a[43].Mul(&a[43], &twiddles[25])
-	a[46].Mul(&a[46], &twiddles[26])
-	a[47].Mul(&a[47], &twiddles[26])
-	a[50].Mul(&a[50], &twiddles[27])
-	a[51].Mul(&a[51], &twiddles[27])
-	a[54].Mul(&a[54], &twiddles[28])
-	a[55].Mul(&a[55], &twiddles[28])
-	a[58].Mul(&a[58], &twiddles[29])
-	a[59].Mul(&a[59], &twiddles[29])
-	a[62].Mul(&a[62], &twiddles[30])
-	a[63].Mul(&a[63], &twiddles[30])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	fr.Butterfly(&a[61], &a[63])
-	a[1].Mul(&a[1], &twiddles[31])
-	a[3].Mul(&a[3], &twiddles[32])
-	a[5].Mul(&a[5], &twiddles[33])
-	a[7].Mul(&a[7], &twiddles[34])
-	a[9].Mul(&a[9], &twiddles[35])
-	a[11].Mul(&a[11], &twiddles[36])
-	a[13].Mul(&a[13], &twiddles[37])
-	a[15].Mul(&a[15], &twiddles[38])
-	a[17].Mul(&a[17], &twiddles[39])
-	a[19].Mul(&a[19], &twiddles[40])
-	a[21].Mul(&a[21], &twiddles[41])
-	a[23].Mul(&a[23], &twiddles[42])
-	a[25].Mul(&a[25], &twiddles[43])
-	a[27].Mul(&a[27], &twiddles[44])
-	a[29].Mul(&a[29], &twiddles[45])
-	a[31].Mul(&a[31], &twiddles[46])
-	a[33].Mul(&a[33], &twiddles[47])
-	a[35].Mul(&a[35], &twiddles[48])
-	a[37].Mul(&a[37], &twiddles[49])
-	a[39].Mul(&a[39], &twiddles[50])
-	a[41].Mul(&a[41], &twiddles[51])
-	a[43].Mul(&a[43], &twiddles[52])
-	a[45].Mul(&a[45], &twiddles[53])
-	a[47].Mul(&a[47], &twiddles[54])
-	a[49].Mul(&a[49], &twiddles[55])
-	a[51].Mul(&a[51], &twiddles[56])
-	a[53].Mul(&a[53], &twiddles[57])
-	a[55].Mul(&a[55], &twiddles[58])
-	a[57].Mul(&a[57], &twiddles[59])
-	a[59].Mul(&a[59], &twiddles[60])
-	a[61].Mul(&a[61], &twiddles[61])
-	a[63].Mul(&a[63], &twiddles[62])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
-}
+	// split 1: a[128:256] with twiddles[4]
+	for i := 128; i < 192; i++ {
+		a[i+64].Mul(&a[i+64], &twiddles[4])
+		koalabear.Butterfly(&a[i], &a[i+64])
+	}
 
-func partialFFT_8(a, twiddles fr.Vector) {
-	a[48].Mul(&a[48], &twiddles[0])
-	a[49].Mul(&a[49], &twiddles[0])
-	a[50].Mul(&a[50], &twiddles[0])
-	a[51].Mul(&a[51], &twiddles[0])
-	a[52].Mul(&a[52], &twiddles[0])
-	a[53].Mul(&a[53], &twiddles[0])
-	a[54].Mul(&a[54], &twiddles[0])
-	a[55].Mul(&a[55], &twiddles[0])
-	a[56].Mul(&a[56], &twiddles[0])
-	a[57].Mul(&a[57], &twiddles[0])
-	a[58].Mul(&a[58], &twiddles[0])
-	a[59].Mul(&a[59], &twiddles[0])
-	a[60].Mul(&a[60], &twiddles[0])
-	a[61].Mul(&a[61], &twiddles[0])
-	a[62].Mul(&a[62], &twiddles[0])
-	a[63].Mul(&a[63], &twiddles[0])
-	fr.Butterfly(&a[16], &a[48])
-	fr.Butterfly(&a[17], &a[49])
-	fr.Butterfly(&a[18], &a[50])
-	fr.Butterfly(&a[19], &a[51])
-	fr.Butterfly(&a[20], &a[52])
-	fr.Butterfly(&a[21], &a[53])
-	fr.Butterfly(&a[22], &a[54])
-	fr.Butterfly(&a[23], &a[55])
-	fr.Butterfly(&a[24], &a[56])
-	fr.Butterfly(&a[25], &a[57])
-	fr.Butterfly(&a[26], &a[58])
-	fr.Butterfly(&a[27], &a[59])
-	fr.Butterfly(&a[28], &a[60])
-	fr.Butterfly(&a[29], &a[61])
-	fr.Butterfly(&a[30], &a[62])
-	fr.Butterfly(&a[31], &a[63])
-	a[16].Mul(&a[16], &twiddles[1])
-	a[17].Mul(&a[17], &twiddles[1])
-	a[18].Mul(&a[18], &twiddles[1])
-	a[19].Mul(&a[19], &twiddles[1])
-	a[20].Mul(&a[20], &twiddles[1])
-	a[21].Mul(&a[21], &twiddles[1])
-	a[22].Mul(&a[22], &twiddles[1])
-	a[23].Mul(&a[23], &twiddles[1])
-	a[24].Mul(&a[24], &twiddles[1])
-	a[25].Mul(&a[25], &twiddles[1])
-	a[26].Mul(&a[26], &twiddles[1])
-	a[27].Mul(&a[27], &twiddles[1])
-	a[28].Mul(&a[28], &twiddles[1])
-	a[29].Mul(&a[29], &twiddles[1])
-	a[30].Mul(&a[30], &twiddles[1])
-	a[31].Mul(&a[31], &twiddles[1])
-	a[48].Mul(&a[48], &twiddles[2])
-	a[49].Mul(&a[49], &twiddles[2])
-	a[50].Mul(&a[50], &twiddles[2])
-	a[51].Mul(&a[51], &twiddles[2])
-	a[52].Mul(&a[52], &twiddles[2])
-	a[53].Mul(&a[53], &twiddles[2])
-	a[54].Mul(&a[54], &twiddles[2])
-	a[55].Mul(&a[55], &twiddles[2])
-	a[56].Mul(&a[56], &twiddles[2])
-	a[57].Mul(&a[57], &twiddles[2])
-	a[58].Mul(&a[58], &twiddles[2])
-	a[59].Mul(&a[59], &twiddles[2])
-	a[60].Mul(&a[60], &twiddles[2])
-	a[61].Mul(&a[61], &twiddles[2])
-	a[62].Mul(&a[62], &twiddles[2])
-	a[63].Mul(&a[63], &twiddles[2])
-	fr.Butterfly(&a[0], &a[16])
-	fr.Butterfly(&a[1], &a[17])
-	fr.Butterfly(&a[2], &a[18])
-	fr.Butterfly(&a[3], &a[19])
-	fr.Butterfly(&a[4], &a[20])
-	fr.Butterfly(&a[5], &a[21])
-	fr.Butterfly(&a[6], &a[22])
-	fr.Butterfly(&a[7], &a[23])
-	fr.Butterfly(&a[8], &a[24])
-	fr.Butterfly(&a[9], &a[25])
-	fr.Butterfly(&a[10], &a[26])
-	fr.Butterfly(&a[11], &a[27])
-	fr.Butterfly(&a[12], &a[28])
-	fr.Butterfly(&a[13], &a[29])
-	fr.Butterfly(&a[14], &a[30])
-	fr.Butterfly(&a[15], &a[31])
-	fr.Butterfly(&a[32], &a[48])
-	fr.Butterfly(&a[33], &a[49])
-	fr.Butterfly(&a[34], &a[50])
-	fr.Butterfly(&a[35], &a[51])
-	fr.Butterfly(&a[36], &a[52])
-	fr.Butterfly(&a[37], &a[53])
-	fr.Butterfly(&a[38], &a[54])
-	fr.Butterfly(&a[39], &a[55])
-	fr.Butterfly(&a[40], &a[56])
-	fr.Butterfly(&a[41], &a[57])
-	fr.Butterfly(&a[42], &a[58])
-	fr.Butterfly(&a[43], &a[59])
-	fr.Butterfly(&a[44], &a[60])
-	fr.Butterfly(&a[45], &a[61])
-	fr.Butterfly(&a[46], &a[62])
-	fr.Butterfly(&a[47], &a[63])
-	a[8].Mul(&a[8], &twiddles[3])
-	a[9].Mul(&a[9], &twiddles[3])
-	a[10].Mul(&a[10], &twiddles[3])
-	a[11].Mul(&a[11], &twiddles[3])
-	a[12].Mul(&a[12], &twiddles[3])
-	a[13].Mul(&a[13], &twiddles[3])
-	a[14].Mul(&a[14], &twiddles[3])
-	a[15].Mul(&a[15], &twiddles[3])
-	a[24].Mul(&a[24], &twiddles[4])
-	a[25].Mul(&a[25], &twiddles[4])
-	a[26].Mul(&a[26], &twiddles[4])
-	a[27].Mul(&a[27], &twiddles[4])
-	a[28].Mul(&a[28], &twiddles[4])
-	a[29].Mul(&a[29], &twiddles[4])
-	a[30].Mul(&a[30], &twiddles[4])
-	a[31].Mul(&a[31], &twiddles[4])
-	a[40].Mul(&a[40], &twiddles[5])
-	a[41].Mul(&a[41], &twiddles[5])
-	a[42].Mul(&a[42], &twiddles[5])
-	a[43].Mul(&a[43], &twiddles[5])
-	a[44].Mul(&a[44], &twiddles[5])
-	a[45].Mul(&a[45], &twiddles[5])
-	a[46].Mul(&a[46], &twiddles[5])
-	a[47].Mul(&a[47], &twiddles[5])
-	a[56].Mul(&a[56], &twiddles[6])
-	a[57].Mul(&a[57], &twiddles[6])
-	a[58].Mul(&a[58], &twiddles[6])
-	a[59].Mul(&a[59], &twiddles[6])
-	a[60].Mul(&a[60], &twiddles[6])
-	a[61].Mul(&a[61], &twiddles[6])
-	a[62].Mul(&a[62], &twiddles[6])
-	a[63].Mul(&a[63], &twiddles[6])
-	fr.Butterfly(&a[0], &a[8])
-	fr.Butterfly(&a[1], &a[9])
-	fr.Butterfly(&a[2], &a[10])
-	fr.Butterfly(&a[3], &a[11])
-	fr.Butterfly(&a[4], &a[12])
-	fr.Butterfly(&a[5], &a[13])
-	fr.Butterfly(&a[6], &a[14])
-	fr.Butterfly(&a[7], &a[15])
-	fr.Butterfly(&a[16], &a[24])
-	fr.Butterfly(&a[17], &a[25])
-	fr.Butterfly(&a[18], &a[26])
-	fr.Butterfly(&a[19], &a[27])
-	fr.Butterfly(&a[20], &a[28])
-	fr.Butterfly(&a[21], &a[29])
-	fr.Butterfly(&a[22], &a[30])
-	fr.Butterfly(&a[23], &a[31])
-	fr.Butterfly(&a[32], &a[40])
-	fr.Butterfly(&a[33], &a[41])
-	fr.Butterfly(&a[34], &a[42])
-	fr.Butterfly(&a[35], &a[43])
-	fr.Butterfly(&a[36], &a[44])
-	fr.Butterfly(&a[37], &a[45])
-	fr.Butterfly(&a[38], &a[46])
-	fr.Butterfly(&a[39], &a[47])
-	fr.Butterfly(&a[48], &a[56])
-	fr.Butterfly(&a[49], &a[57])
-	fr.Butterfly(&a[50], &a[58])
-	fr.Butterfly(&a[51], &a[59])
-	fr.Butterfly(&a[52], &a[60])
-	fr.Butterfly(&a[53], &a[61])
-	fr.Butterfly(&a[54], &a[62])
-	fr.Butterfly(&a[55], &a[63])
-	a[4].Mul(&a[4], &twiddles[7])
-	a[5].Mul(&a[5], &twiddles[7])
-	a[6].Mul(&a[6], &twiddles[7])
-	a[7].Mul(&a[7], &twiddles[7])
-	a[12].Mul(&a[12], &twiddles[8])
-	a[13].Mul(&a[13], &twiddles[8])
-	a[14].Mul(&a[14], &twiddles[8])
-	a[15].Mul(&a[15], &twiddles[8])
-	a[20].Mul(&a[20], &twiddles[9])
-	a[21].Mul(&a[21], &twiddles[9])
-	a[22].Mul(&a[22], &twiddles[9])
-	a[23].Mul(&a[23], &twiddles[9])
-	a[28].Mul(&a[28], &twiddles[10])
-	a[29].Mul(&a[29], &twiddles[10])
-	a[30].Mul(&a[30], &twiddles[10])
-	a[31].Mul(&a[31], &twiddles[10])
-	a[36].Mul(&a[36], &twiddles[11])
-	a[37].Mul(&a[37], &twiddles[11])
-	a[38].Mul(&a[38], &twiddles[11])
-	a[39].Mul(&a[39], &twiddles[11])
-	a[44].Mul(&a[44], &twiddles[12])
-	a[45].Mul(&a[45], &twiddles[12])
-	a[46].Mul(&a[46], &twiddles[12])
-	a[47].Mul(&a[47], &twiddles[12])
-	a[52].Mul(&a[52], &twiddles[13])
-	a[53].Mul(&a[53], &twiddles[13])
-	a[54].Mul(&a[54], &twiddles[13])
-	a[55].Mul(&a[55], &twiddles[13])
-	a[60].Mul(&a[60], &twiddles[14])
-	a[61].Mul(&a[61], &twiddles[14])
-	a[62].Mul(&a[62], &twiddles[14])
-	a[63].Mul(&a[63], &twiddles[14])
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	fr.Butterfly(&a[8], &a[12])
-	fr.Butterfly(&a[9], &a[13])
-	fr.Butterfly(&a[10], &a[14])
-	fr.Butterfly(&a[11], &a[15])
-	fr.Butterfly(&a[16], &a[20])
-	fr.Butterfly(&a[17], &a[21])
-	fr.Butterfly(&a[18], &a[22])
-	fr.Butterfly(&a[19], &a[23])
-	fr.Butterfly(&a[24], &a[28])
-	fr.Butterfly(&a[25], &a[29])
-	fr.Butterfly(&a[26], &a[30])
-	fr.Butterfly(&a[27], &a[31])
-	fr.Butterfly(&a[32], &a[36])
-	fr.Butterfly(&a[33], &a[37])
-	fr.Butterfly(&a[34], &a[38])
-	fr.Butterfly(&a[35], &a[39])
-	fr.Butterfly(&a[40], &a[44])
-	fr.Butterfly(&a[41], &a[45])
-	fr.Butterfly(&a[42], &a[46])
-	fr.Butterfly(&a[43], &a[47])
-	fr.Butterfly(&a[48], &a[52])
-	fr.Butterfly(&a[49], &a[53])
-	fr.Butterfly(&a[50], &a[54])
-	fr.Butterfly(&a[51], &a[55])
-	fr.Butterfly(&a[56], &a[60])
-	fr.Butterfly(&a[57], &a[61])
-	fr.Butterfly(&a[58], &a[62])
-	fr.Butterfly(&a[59], &a[63])
-	a[2].Mul(&a[2], &twiddles[15])
-	a[3].Mul(&a[3], &twiddles[15])
-	a[6].Mul(&a[6], &twiddles[16])
-	a[7].Mul(&a[7], &twiddles[16])
-	a[10].Mul(&a[10], &twiddles[17])
-	a[11].Mul(&a[11], &twiddles[17])
-	a[14].Mul(&a[14], &twiddles[18])
-	a[15].Mul(&a[15], &twiddles[18])
-	a[18].Mul(&a[18], &twiddles[19])
-	a[19].Mul(&a[19], &twiddles[19])
-	a[22].Mul(&a[22], &twiddles[20])
-	a[23].Mul(&a[23], &twiddles[20])
-	a[26].Mul(&a[26], &twiddles[21])
-	a[27].Mul(&a[27], &twiddles[21])
-	a[30].Mul(&a[30], &twiddles[22])
-	a[31].Mul(&a[31], &twiddles[22])
-	a[34].Mul(&a[34], &twiddles[23])
-	a[35].Mul(&a[35], &twiddles[23])
-	a[38].Mul(&a[38], &twiddles[24])
-	a[39].Mul(&a[39], &twiddles[24])
-	a[42].Mul(&a[42], &twiddles[25])
-	a[43].Mul(&a[43], &twiddles[25])
-	a[46].Mul(&a[46], &twiddles[26])
-	a[47].Mul(&a[47], &twiddles[26])
-	a[50].Mul(&a[50], &twiddles[27])
-	a[51].Mul(&a[51], &twiddles[27])
-	a[54].Mul(&a[54], &twiddles[28])
-	a[55].Mul(&a[55], &twiddles[28])
-	a[58].Mul(&a[58], &twiddles[29])
-	a[59].Mul(&a[59], &twiddles[29])
-	a[62].Mul(&a[62], &twiddles[30])
-	a[63].Mul(&a[63], &twiddles[30])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	fr.Butterfly(&a[61], &a[63])
-	a[1].Mul(&a[1], &twiddles[31])
-	a[3].Mul(&a[3], &twiddles[32])
-	a[5].Mul(&a[5], &twiddles[33])
-	a[7].Mul(&a[7], &twiddles[34])
-	a[9].Mul(&a[9], &twiddles[35])
-	a[11].Mul(&a[11], &twiddles[36])
-	a[13].Mul(&a[13], &twiddles[37])
-	a[15].Mul(&a[15], &twiddles[38])
-	a[17].Mul(&a[17], &twiddles[39])
-	a[19].Mul(&a[19], &twiddles[40])
-	a[21].Mul(&a[21], &twiddles[41])
-	a[23].Mul(&a[23], &twiddles[42])
-	a[25].Mul(&a[25], &twiddles[43])
-	a[27].Mul(&a[27], &twiddles[44])
-	a[29].Mul(&a[29], &twiddles[45])
-	a[31].Mul(&a[31], &twiddles[46])
-	a[33].Mul(&a[33], &twiddles[47])
-	a[35].Mul(&a[35], &twiddles[48])
-	a[37].Mul(&a[37], &twiddles[49])
-	a[39].Mul(&a[39], &twiddles[50])
-	a[41].Mul(&a[41], &twiddles[51])
-	a[43].Mul(&a[43], &twiddles[52])
-	a[45].Mul(&a[45], &twiddles[53])
-	a[47].Mul(&a[47], &twiddles[54])
-	a[49].Mul(&a[49], &twiddles[55])
-	a[51].Mul(&a[51], &twiddles[56])
-	a[53].Mul(&a[53], &twiddles[57])
-	a[55].Mul(&a[55], &twiddles[58])
-	a[57].Mul(&a[57], &twiddles[59])
-	a[59].Mul(&a[59], &twiddles[60])
-	a[61].Mul(&a[61], &twiddles[61])
-	a[63].Mul(&a[63], &twiddles[62])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
-}
+	// split 2: a[256:384] with twiddles[5]
+	for i := 256; i < 320; i++ {
+		a[i+64].Mul(&a[i+64], &twiddles[5])
+		koalabear.Butterfly(&a[i], &a[i+64])
+	}
 
-func partialFFT_9(a, twiddles fr.Vector) {
-	a[48].Mul(&a[48], &twiddles[0])
-	a[49].Mul(&a[49], &twiddles[0])
-	a[50].Mul(&a[50], &twiddles[0])
-	a[51].Mul(&a[51], &twiddles[0])
-	a[52].Mul(&a[52], &twiddles[0])
-	a[53].Mul(&a[53], &twiddles[0])
-	a[54].Mul(&a[54], &twiddles[0])
-	a[55].Mul(&a[55], &twiddles[0])
-	a[56].Mul(&a[56], &twiddles[0])
-	a[57].Mul(&a[57], &twiddles[0])
-	a[58].Mul(&a[58], &twiddles[0])
-	a[59].Mul(&a[59], &twiddles[0])
-	a[60].Mul(&a[60], &twiddles[0])
-	a[61].Mul(&a[61], &twiddles[0])
-	a[62].Mul(&a[62], &twiddles[0])
-	a[63].Mul(&a[63], &twiddles[0])
-	fr.Butterfly(&a[0], &a[32])
-	fr.Butterfly(&a[1], &a[33])
-	fr.Butterfly(&a[2], &a[34])
-	fr.Butterfly(&a[3], &a[35])
-	fr.Butterfly(&a[4], &a[36])
-	fr.Butterfly(&a[5], &a[37])
-	fr.Butterfly(&a[6], &a[38])
-	fr.Butterfly(&a[7], &a[39])
-	fr.Butterfly(&a[8], &a[40])
-	fr.Butterfly(&a[9], &a[41])
-	fr.Butterfly(&a[10], &a[42])
-	fr.Butterfly(&a[11], &a[43])
-	fr.Butterfly(&a[12], &a[44])
-	fr.Butterfly(&a[13], &a[45])
-	fr.Butterfly(&a[14], &a[46])
-	fr.Butterfly(&a[15], &a[47])
-	fr.Butterfly(&a[16], &a[48])
-	fr.Butterfly(&a[17], &a[49])
-	fr.Butterfly(&a[18], &a[50])
-	fr.Butterfly(&a[19], &a[51])
-	fr.Butterfly(&a[20], &a[52])
-	fr.Butterfly(&a[21], &a[53])
-	fr.Butterfly(&a[22], &a[54])
-	fr.Butterfly(&a[23], &a[55])
-	fr.Butterfly(&a[24], &a[56])
-	fr.Butterfly(&a[25], &a[57])
-	fr.Butterfly(&a[26], &a[58])
-	fr.Butterfly(&a[27], &a[59])
-	fr.Butterfly(&a[28], &a[60])
-	fr.Butterfly(&a[29], &a[61])
-	fr.Butterfly(&a[30], &a[62])
-	fr.Butterfly(&a[31], &a[63])
-	a[16].Mul(&a[16], &twiddles[1])
-	a[17].Mul(&a[17], &twiddles[1])
-	a[18].Mul(&a[18], &twiddles[1])
-	a[19].Mul(&a[19], &twiddles[1])
-	a[20].Mul(&a[20], &twiddles[1])
-	a[21].Mul(&a[21], &twiddles[1])
-	a[22].Mul(&a[22], &twiddles[1])
-	a[23].Mul(&a[23], &twiddles[1])
-	a[24].Mul(&a[24], &twiddles[1])
-	a[25].Mul(&a[25], &twiddles[1])
-	a[26].Mul(&a[26], &twiddles[1])
-	a[27].Mul(&a[27], &twiddles[1])
-	a[28].Mul(&a[28], &twiddles[1])
-	a[29].Mul(&a[29], &twiddles[1])
-	a[30].Mul(&a[30], &twiddles[1])
-	a[31].Mul(&a[31], &twiddles[1])
-	a[48].Mul(&a[48], &twiddles[2])
-	a[49].Mul(&a[49], &twiddles[2])
-	a[50].Mul(&a[50], &twiddles[2])
-	a[51].Mul(&a[51], &twiddles[2])
-	a[52].Mul(&a[52], &twiddles[2])
-	a[53].Mul(&a[53], &twiddles[2])
-	a[54].Mul(&a[54], &twiddles[2])
-	a[55].Mul(&a[55], &twiddles[2])
-	a[56].Mul(&a[56], &twiddles[2])
-	a[57].Mul(&a[57], &twiddles[2])
-	a[58].Mul(&a[58], &twiddles[2])
-	a[59].Mul(&a[59], &twiddles[2])
-	a[60].Mul(&a[60], &twiddles[2])
-	a[61].Mul(&a[61], &twiddles[2])
-	a[62].Mul(&a[62], &twiddles[2])
-	a[63].Mul(&a[63], &twiddles[2])
-	fr.Butterfly(&a[0], &a[16])
-	fr.Butterfly(&a[1], &a[17])
-	fr.Butterfly(&a[2], &a[18])
-	fr.Butterfly(&a[3], &a[19])
-	fr.Butterfly(&a[4], &a[20])
-	fr.Butterfly(&a[5], &a[21])
-	fr.Butterfly(&a[6], &a[22])
-	fr.Butterfly(&a[7], &a[23])
-	fr.Butterfly(&a[8], &a[24])
-	fr.Butterfly(&a[9], &a[25])
-	fr.Butterfly(&a[10], &a[26])
-	fr.Butterfly(&a[11], &a[27])
-	fr.Butterfly(&a[12], &a[28])
-	fr.Butterfly(&a[13], &a[29])
-	fr.Butterfly(&a[14], &a[30])
-	fr.Butterfly(&a[15], &a[31])
-	fr.Butterfly(&a[32], &a[48])
-	fr.Butterfly(&a[33], &a[49])
-	fr.Butterfly(&a[34], &a[50])
-	fr.Butterfly(&a[35], &a[51])
-	fr.Butterfly(&a[36], &a[52])
-	fr.Butterfly(&a[37], &a[53])
-	fr.Butterfly(&a[38], &a[54])
-	fr.Butterfly(&a[39], &a[55])
-	fr.Butterfly(&a[40], &a[56])
-	fr.Butterfly(&a[41], &a[57])
-	fr.Butterfly(&a[42], &a[58])
-	fr.Butterfly(&a[43], &a[59])
-	fr.Butterfly(&a[44], &a[60])
-	fr.Butterfly(&a[45], &a[61])
-	fr.Butterfly(&a[46], &a[62])
-	fr.Butterfly(&a[47], &a[63])
-	a[8].Mul(&a[8], &twiddles[3])
-	a[9].Mul(&a[9], &twiddles[3])
-	a[10].Mul(&a[10], &twiddles[3])
-	a[11].Mul(&a[11], &twiddles[3])
-	a[12].Mul(&a[12], &twiddles[3])
-	a[13].Mul(&a[13], &twiddles[3])
-	a[14].Mul(&a[14], &twiddles[3])
-	a[15].Mul(&a[15], &twiddles[3])
-	a[24].Mul(&a[24], &twiddles[4])
-	a[25].Mul(&a[25], &twiddles[4])
-	a[26].Mul(&a[26], &twiddles[4])
-	a[27].Mul(&a[27], &twiddles[4])
-	a[28].Mul(&a[28], &twiddles[4])
-	a[29].Mul(&a[29], &twiddles[4])
-	a[30].Mul(&a[30], &twiddles[4])
-	a[31].Mul(&a[31], &twiddles[4])
-	a[40].Mul(&a[40], &twiddles[5])
-	a[41].Mul(&a[41], &twiddles[5])
-	a[42].Mul(&a[42], &twiddles[5])
-	a[43].Mul(&a[43], &twiddles[5])
-	a[44].Mul(&a[44], &twiddles[5])
-	a[45].Mul(&a[45], &twiddles[5])
-	a[46].Mul(&a[46], &twiddles[5])
-	a[47].Mul(&a[47], &twiddles[5])
-	a[56].Mul(&a[56], &twiddles[6])
-	a[57].Mul(&a[57], &twiddles[6])
-	a[58].Mul(&a[58], &twiddles[6])
-	a[59].Mul(&a[59], &twiddles[6])
-	a[60].Mul(&a[60], &twiddles[6])
-	a[61].Mul(&a[61], &twiddles[6])
-	a[62].Mul(&a[62], &twiddles[6])
-	a[63].Mul(&a[63], &twiddles[6])
-	fr.Butterfly(&a[0], &a[8])
-	fr.Butterfly(&a[1], &a[9])
-	fr.Butterfly(&a[2], &a[10])
-	fr.Butterfly(&a[3], &a[11])
-	fr.Butterfly(&a[4], &a[12])
-	fr.Butterfly(&a[5], &a[13])
-	fr.Butterfly(&a[6], &a[14])
-	fr.Butterfly(&a[7], &a[15])
-	fr.Butterfly(&a[16], &a[24])
-	fr.Butterfly(&a[17], &a[25])
-	fr.Butterfly(&a[18], &a[26])
-	fr.Butterfly(&a[19], &a[27])
-	fr.Butterfly(&a[20], &a[28])
-	fr.Butterfly(&a[21], &a[29])
-	fr.Butterfly(&a[22], &a[30])
-	fr.Butterfly(&a[23], &a[31])
-	fr.Butterfly(&a[32], &a[40])
-	fr.Butterfly(&a[33], &a[41])
-	fr.Butterfly(&a[34], &a[42])
-	fr.Butterfly(&a[35], &a[43])
-	fr.Butterfly(&a[36], &a[44])
-	fr.Butterfly(&a[37], &a[45])
-	fr.Butterfly(&a[38], &a[46])
-	fr.Butterfly(&a[39], &a[47])
-	fr.Butterfly(&a[48], &a[56])
-	fr.Butterfly(&a[49], &a[57])
-	fr.Butterfly(&a[50], &a[58])
-	fr.Butterfly(&a[51], &a[59])
-	fr.Butterfly(&a[52], &a[60])
-	fr.Butterfly(&a[53], &a[61])
-	fr.Butterfly(&a[54], &a[62])
-	fr.Butterfly(&a[55], &a[63])
-	a[4].Mul(&a[4], &twiddles[7])
-	a[5].Mul(&a[5], &twiddles[7])
-	a[6].Mul(&a[6], &twiddles[7])
-	a[7].Mul(&a[7], &twiddles[7])
-	a[12].Mul(&a[12], &twiddles[8])
-	a[13].Mul(&a[13], &twiddles[8])
-	a[14].Mul(&a[14], &twiddles[8])
-	a[15].Mul(&a[15], &twiddles[8])
-	a[20].Mul(&a[20], &twiddles[9])
-	a[21].Mul(&a[21], &twiddles[9])
-	a[22].Mul(&a[22], &twiddles[9])
-	a[23].Mul(&a[23], &twiddles[9])
-	a[28].Mul(&a[28], &twiddles[10])
-	a[29].Mul(&a[29], &twiddles[10])
-	a[30].Mul(&a[30], &twiddles[10])
-	a[31].Mul(&a[31], &twiddles[10])
-	a[36].Mul(&a[36], &twiddles[11])
-	a[37].Mul(&a[37], &twiddles[11])
-	a[38].Mul(&a[38], &twiddles[11])
-	a[39].Mul(&a[39], &twiddles[11])
-	a[44].Mul(&a[44], &twiddles[12])
-	a[45].Mul(&a[45], &twiddles[12])
-	a[46].Mul(&a[46], &twiddles[12])
-	a[47].Mul(&a[47], &twiddles[12])
-	a[52].Mul(&a[52], &twiddles[13])
-	a[53].Mul(&a[53], &twiddles[13])
-	a[54].Mul(&a[54], &twiddles[13])
-	a[55].Mul(&a[55], &twiddles[13])
-	a[60].Mul(&a[60], &twiddles[14])
-	a[61].Mul(&a[61], &twiddles[14])
-	a[62].Mul(&a[62], &twiddles[14])
-	a[63].Mul(&a[63], &twiddles[14])
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	fr.Butterfly(&a[8], &a[12])
-	fr.Butterfly(&a[9], &a[13])
-	fr.Butterfly(&a[10], &a[14])
-	fr.Butterfly(&a[11], &a[15])
-	fr.Butterfly(&a[16], &a[20])
-	fr.Butterfly(&a[17], &a[21])
-	fr.Butterfly(&a[18], &a[22])
-	fr.Butterfly(&a[19], &a[23])
-	fr.Butterfly(&a[24], &a[28])
-	fr.Butterfly(&a[25], &a[29])
-	fr.Butterfly(&a[26], &a[30])
-	fr.Butterfly(&a[27], &a[31])
-	fr.Butterfly(&a[32], &a[36])
-	fr.Butterfly(&a[33], &a[37])
-	fr.Butterfly(&a[34], &a[38])
-	fr.Butterfly(&a[35], &a[39])
-	fr.Butterfly(&a[40], &a[44])
-	fr.Butterfly(&a[41], &a[45])
-	fr.Butterfly(&a[42], &a[46])
-	fr.Butterfly(&a[43], &a[47])
-	fr.Butterfly(&a[48], &a[52])
-	fr.Butterfly(&a[49], &a[53])
-	fr.Butterfly(&a[50], &a[54])
-	fr.Butterfly(&a[51], &a[55])
-	fr.Butterfly(&a[56], &a[60])
-	fr.Butterfly(&a[57], &a[61])
-	fr.Butterfly(&a[58], &a[62])
-	fr.Butterfly(&a[59], &a[63])
-	a[2].Mul(&a[2], &twiddles[15])
-	a[3].Mul(&a[3], &twiddles[15])
-	a[6].Mul(&a[6], &twiddles[16])
-	a[7].Mul(&a[7], &twiddles[16])
-	a[10].Mul(&a[10], &twiddles[17])
-	a[11].Mul(&a[11], &twiddles[17])
-	a[14].Mul(&a[14], &twiddles[18])
-	a[15].Mul(&a[15], &twiddles[18])
-	a[18].Mul(&a[18], &twiddles[19])
-	a[19].Mul(&a[19], &twiddles[19])
-	a[22].Mul(&a[22], &twiddles[20])
-	a[23].Mul(&a[23], &twiddles[20])
-	a[26].Mul(&a[26], &twiddles[21])
-	a[27].Mul(&a[27], &twiddles[21])
-	a[30].Mul(&a[30], &twiddles[22])
-	a[31].Mul(&a[31], &twiddles[22])
-	a[34].Mul(&a[34], &twiddles[23])
-	a[35].Mul(&a[35], &twiddles[23])
-	a[38].Mul(&a[38], &twiddles[24])
-	a[39].Mul(&a[39], &twiddles[24])
-	a[42].Mul(&a[42], &twiddles[25])
-	a[43].Mul(&a[43], &twiddles[25])
-	a[46].Mul(&a[46], &twiddles[26])
-	a[47].Mul(&a[47], &twiddles[26])
-	a[50].Mul(&a[50], &twiddles[27])
-	a[51].Mul(&a[51], &twiddles[27])
-	a[54].Mul(&a[54], &twiddles[28])
-	a[55].Mul(&a[55], &twiddles[28])
-	a[58].Mul(&a[58], &twiddles[29])
-	a[59].Mul(&a[59], &twiddles[29])
-	a[62].Mul(&a[62], &twiddles[30])
-	a[63].Mul(&a[63], &twiddles[30])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	fr.Butterfly(&a[61], &a[63])
-	a[1].Mul(&a[1], &twiddles[31])
-	a[3].Mul(&a[3], &twiddles[32])
-	a[5].Mul(&a[5], &twiddles[33])
-	a[7].Mul(&a[7], &twiddles[34])
-	a[9].Mul(&a[9], &twiddles[35])
-	a[11].Mul(&a[11], &twiddles[36])
-	a[13].Mul(&a[13], &twiddles[37])
-	a[15].Mul(&a[15], &twiddles[38])
-	a[17].Mul(&a[17], &twiddles[39])
-	a[19].Mul(&a[19], &twiddles[40])
-	a[21].Mul(&a[21], &twiddles[41])
-	a[23].Mul(&a[23], &twiddles[42])
-	a[25].Mul(&a[25], &twiddles[43])
-	a[27].Mul(&a[27], &twiddles[44])
-	a[29].Mul(&a[29], &twiddles[45])
-	a[31].Mul(&a[31], &twiddles[46])
-	a[33].Mul(&a[33], &twiddles[47])
-	a[35].Mul(&a[35], &twiddles[48])
-	a[37].Mul(&a[37], &twiddles[49])
-	a[39].Mul(&a[39], &twiddles[50])
-	a[41].Mul(&a[41], &twiddles[51])
-	a[43].Mul(&a[43], &twiddles[52])
-	a[45].Mul(&a[45], &twiddles[53])
-	a[47].Mul(&a[47], &twiddles[54])
-	a[49].Mul(&a[49], &twiddles[55])
-	a[51].Mul(&a[51], &twiddles[56])
-	a[53].Mul(&a[53], &twiddles[57])
-	a[55].Mul(&a[55], &twiddles[58])
-	a[57].Mul(&a[57], &twiddles[59])
-	a[59].Mul(&a[59], &twiddles[60])
-	a[61].Mul(&a[61], &twiddles[61])
-	a[63].Mul(&a[63], &twiddles[62])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
-}
+	// split 3: a[384:512] with twiddles[6]
+	for i := 384; i < 448; i++ {
+		a[i+64].Mul(&a[i+64], &twiddles[6])
+		koalabear.Butterfly(&a[i], &a[i+64])
+	}
 
-func partialFFT_10(a, twiddles fr.Vector) {
-	a[48].Mul(&a[48], &twiddles[0])
-	a[49].Mul(&a[49], &twiddles[0])
-	a[50].Mul(&a[50], &twiddles[0])
-	a[51].Mul(&a[51], &twiddles[0])
-	a[52].Mul(&a[52], &twiddles[0])
-	a[53].Mul(&a[53], &twiddles[0])
-	a[54].Mul(&a[54], &twiddles[0])
-	a[55].Mul(&a[55], &twiddles[0])
-	a[56].Mul(&a[56], &twiddles[0])
-	a[57].Mul(&a[57], &twiddles[0])
-	a[58].Mul(&a[58], &twiddles[0])
-	a[59].Mul(&a[59], &twiddles[0])
-	a[60].Mul(&a[60], &twiddles[0])
-	a[61].Mul(&a[61], &twiddles[0])
-	a[62].Mul(&a[62], &twiddles[0])
-	a[63].Mul(&a[63], &twiddles[0])
-	fr.Butterfly(&a[16], &a[48])
-	fr.Butterfly(&a[17], &a[49])
-	fr.Butterfly(&a[18], &a[50])
-	fr.Butterfly(&a[19], &a[51])
-	fr.Butterfly(&a[20], &a[52])
-	fr.Butterfly(&a[21], &a[53])
-	fr.Butterfly(&a[22], &a[54])
-	fr.Butterfly(&a[23], &a[55])
-	fr.Butterfly(&a[24], &a[56])
-	fr.Butterfly(&a[25], &a[57])
-	fr.Butterfly(&a[26], &a[58])
-	fr.Butterfly(&a[27], &a[59])
-	fr.Butterfly(&a[28], &a[60])
-	fr.Butterfly(&a[29], &a[61])
-	fr.Butterfly(&a[30], &a[62])
-	fr.Butterfly(&a[31], &a[63])
-	a[16].Mul(&a[16], &twiddles[1])
-	a[17].Mul(&a[17], &twiddles[1])
-	a[18].Mul(&a[18], &twiddles[1])
-	a[19].Mul(&a[19], &twiddles[1])
-	a[20].Mul(&a[20], &twiddles[1])
-	a[21].Mul(&a[21], &twiddles[1])
-	a[22].Mul(&a[22], &twiddles[1])
-	a[23].Mul(&a[23], &twiddles[1])
-	a[24].Mul(&a[24], &twiddles[1])
-	a[25].Mul(&a[25], &twiddles[1])
-	a[26].Mul(&a[26], &twiddles[1])
-	a[27].Mul(&a[27], &twiddles[1])
-	a[28].Mul(&a[28], &twiddles[1])
-	a[29].Mul(&a[29], &twiddles[1])
-	a[30].Mul(&a[30], &twiddles[1])
-	a[31].Mul(&a[31], &twiddles[1])
-	a[48].Mul(&a[48], &twiddles[2])
-	a[49].Mul(&a[49], &twiddles[2])
-	a[50].Mul(&a[50], &twiddles[2])
-	a[51].Mul(&a[51], &twiddles[2])
-	a[52].Mul(&a[52], &twiddles[2])
-	a[53].Mul(&a[53], &twiddles[2])
-	a[54].Mul(&a[54], &twiddles[2])
-	a[55].Mul(&a[55], &twiddles[2])
-	a[56].Mul(&a[56], &twiddles[2])
-	a[57].Mul(&a[57], &twiddles[2])
-	a[58].Mul(&a[58], &twiddles[2])
-	a[59].Mul(&a[59], &twiddles[2])
-	a[60].Mul(&a[60], &twiddles[2])
-	a[61].Mul(&a[61], &twiddles[2])
-	a[62].Mul(&a[62], &twiddles[2])
-	a[63].Mul(&a[63], &twiddles[2])
-	fr.Butterfly(&a[0], &a[16])
-	fr.Butterfly(&a[1], &a[17])
-	fr.Butterfly(&a[2], &a[18])
-	fr.Butterfly(&a[3], &a[19])
-	fr.Butterfly(&a[4], &a[20])
-	fr.Butterfly(&a[5], &a[21])
-	fr.Butterfly(&a[6], &a[22])
-	fr.Butterfly(&a[7], &a[23])
-	fr.Butterfly(&a[8], &a[24])
-	fr.Butterfly(&a[9], &a[25])
-	fr.Butterfly(&a[10], &a[26])
-	fr.Butterfly(&a[11], &a[27])
-	fr.Butterfly(&a[12], &a[28])
-	fr.Butterfly(&a[13], &a[29])
-	fr.Butterfly(&a[14], &a[30])
-	fr.Butterfly(&a[15], &a[31])
-	fr.Butterfly(&a[32], &a[48])
-	fr.Butterfly(&a[33], &a[49])
-	fr.Butterfly(&a[34], &a[50])
-	fr.Butterfly(&a[35], &a[51])
-	fr.Butterfly(&a[36], &a[52])
-	fr.Butterfly(&a[37], &a[53])
-	fr.Butterfly(&a[38], &a[54])
-	fr.Butterfly(&a[39], &a[55])
-	fr.Butterfly(&a[40], &a[56])
-	fr.Butterfly(&a[41], &a[57])
-	fr.Butterfly(&a[42], &a[58])
-	fr.Butterfly(&a[43], &a[59])
-	fr.Butterfly(&a[44], &a[60])
-	fr.Butterfly(&a[45], &a[61])
-	fr.Butterfly(&a[46], &a[62])
-	fr.Butterfly(&a[47], &a[63])
-	a[8].Mul(&a[8], &twiddles[3])
-	a[9].Mul(&a[9], &twiddles[3])
-	a[10].Mul(&a[10], &twiddles[3])
-	a[11].Mul(&a[11], &twiddles[3])
-	a[12].Mul(&a[12], &twiddles[3])
-	a[13].Mul(&a[13], &twiddles[3])
-	a[14].Mul(&a[14], &twiddles[3])
-	a[15].Mul(&a[15], &twiddles[3])
-	a[24].Mul(&a[24], &twiddles[4])
-	a[25].Mul(&a[25], &twiddles[4])
-	a[26].Mul(&a[26], &twiddles[4])
-	a[27].Mul(&a[27], &twiddles[4])
-	a[28].Mul(&a[28], &twiddles[4])
-	a[29].Mul(&a[29], &twiddles[4])
-	a[30].Mul(&a[30], &twiddles[4])
-	a[31].Mul(&a[31], &twiddles[4])
-	a[40].Mul(&a[40], &twiddles[5])
-	a[41].Mul(&a[41], &twiddles[5])
-	a[42].Mul(&a[42], &twiddles[5])
-	a[43].Mul(&a[43], &twiddles[5])
-	a[44].Mul(&a[44], &twiddles[5])
-	a[45].Mul(&a[45], &twiddles[5])
-	a[46].Mul(&a[46], &twiddles[5])
-	a[47].Mul(&a[47], &twiddles[5])
-	a[56].Mul(&a[56], &twiddles[6])
-	a[57].Mul(&a[57], &twiddles[6])
-	a[58].Mul(&a[58], &twiddles[6])
-	a[59].Mul(&a[59], &twiddles[6])
-	a[60].Mul(&a[60], &twiddles[6])
-	a[61].Mul(&a[61], &twiddles[6])
-	a[62].Mul(&a[62], &twiddles[6])
-	a[63].Mul(&a[63], &twiddles[6])
-	fr.Butterfly(&a[0], &a[8])
-	fr.Butterfly(&a[1], &a[9])
-	fr.Butterfly(&a[2], &a[10])
-	fr.Butterfly(&a[3], &a[11])
-	fr.Butterfly(&a[4], &a[12])
-	fr.Butterfly(&a[5], &a[13])
-	fr.Butterfly(&a[6], &a[14])
-	fr.Butterfly(&a[7], &a[15])
-	fr.Butterfly(&a[16], &a[24])
-	fr.Butterfly(&a[17], &a[25])
-	fr.Butterfly(&a[18], &a[26])
-	fr.Butterfly(&a[19], &a[27])
-	fr.Butterfly(&a[20], &a[28])
-	fr.Butterfly(&a[21], &a[29])
-	fr.Butterfly(&a[22], &a[30])
-	fr.Butterfly(&a[23], &a[31])
-	fr.Butterfly(&a[32], &a[40])
-	fr.Butterfly(&a[33], &a[41])
-	fr.Butterfly(&a[34], &a[42])
-	fr.Butterfly(&a[35], &a[43])
-	fr.Butterfly(&a[36], &a[44])
-	fr.Butterfly(&a[37], &a[45])
-	fr.Butterfly(&a[38], &a[46])
-	fr.Butterfly(&a[39], &a[47])
-	fr.Butterfly(&a[48], &a[56])
-	fr.Butterfly(&a[49], &a[57])
-	fr.Butterfly(&a[50], &a[58])
-	fr.Butterfly(&a[51], &a[59])
-	fr.Butterfly(&a[52], &a[60])
-	fr.Butterfly(&a[53], &a[61])
-	fr.Butterfly(&a[54], &a[62])
-	fr.Butterfly(&a[55], &a[63])
-	a[4].Mul(&a[4], &twiddles[7])
-	a[5].Mul(&a[5], &twiddles[7])
-	a[6].Mul(&a[6], &twiddles[7])
-	a[7].Mul(&a[7], &twiddles[7])
-	a[12].Mul(&a[12], &twiddles[8])
-	a[13].Mul(&a[13], &twiddles[8])
-	a[14].Mul(&a[14], &twiddles[8])
-	a[15].Mul(&a[15], &twiddles[8])
-	a[20].Mul(&a[20], &twiddles[9])
-	a[21].Mul(&a[21], &twiddles[9])
-	a[22].Mul(&a[22], &twiddles[9])
-	a[23].Mul(&a[23], &twiddles[9])
-	a[28].Mul(&a[28], &twiddles[10])
-	a[29].Mul(&a[29], &twiddles[10])
-	a[30].Mul(&a[30], &twiddles[10])
-	a[31].Mul(&a[31], &twiddles[10])
-	a[36].Mul(&a[36], &twiddles[11])
-	a[37].Mul(&a[37], &twiddles[11])
-	a[38].Mul(&a[38], &twiddles[11])
-	a[39].Mul(&a[39], &twiddles[11])
-	a[44].Mul(&a[44], &twiddles[12])
-	a[45].Mul(&a[45], &twiddles[12])
-	a[46].Mul(&a[46], &twiddles[12])
-	a[47].Mul(&a[47], &twiddles[12])
-	a[52].Mul(&a[52], &twiddles[13])
-	a[53].Mul(&a[53], &twiddles[13])
-	a[54].Mul(&a[54], &twiddles[13])
-	a[55].Mul(&a[55], &twiddles[13])
-	a[60].Mul(&a[60], &twiddles[14])
-	a[61].Mul(&a[61], &twiddles[14])
-	a[62].Mul(&a[62], &twiddles[14])
-	a[63].Mul(&a[63], &twiddles[14])
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	fr.Butterfly(&a[8], &a[12])
-	fr.Butterfly(&a[9], &a[13])
-	fr.Butterfly(&a[10], &a[14])
-	fr.Butterfly(&a[11], &a[15])
-	fr.Butterfly(&a[16], &a[20])
-	fr.Butterfly(&a[17], &a[21])
-	fr.Butterfly(&a[18], &a[22])
-	fr.Butterfly(&a[19], &a[23])
-	fr.Butterfly(&a[24], &a[28])
-	fr.Butterfly(&a[25], &a[29])
-	fr.Butterfly(&a[26], &a[30])
-	fr.Butterfly(&a[27], &a[31])
-	fr.Butterfly(&a[32], &a[36])
-	fr.Butterfly(&a[33], &a[37])
-	fr.Butterfly(&a[34], &a[38])
-	fr.Butterfly(&a[35], &a[39])
-	fr.Butterfly(&a[40], &a[44])
-	fr.Butterfly(&a[41], &a[45])
-	fr.Butterfly(&a[42], &a[46])
-	fr.Butterfly(&a[43], &a[47])
-	fr.Butterfly(&a[48], &a[52])
-	fr.Butterfly(&a[49], &a[53])
-	fr.Butterfly(&a[50], &a[54])
-	fr.Butterfly(&a[51], &a[55])
-	fr.Butterfly(&a[56], &a[60])
-	fr.Butterfly(&a[57], &a[61])
-	fr.Butterfly(&a[58], &a[62])
-	fr.Butterfly(&a[59], &a[63])
-	a[2].Mul(&a[2], &twiddles[15])
-	a[3].Mul(&a[3], &twiddles[15])
-	a[6].Mul(&a[6], &twiddles[16])
-	a[7].Mul(&a[7], &twiddles[16])
-	a[10].Mul(&a[10], &twiddles[17])
-	a[11].Mul(&a[11], &twiddles[17])
-	a[14].Mul(&a[14], &twiddles[18])
-	a[15].Mul(&a[15], &twiddles[18])
-	a[18].Mul(&a[18], &twiddles[19])
-	a[19].Mul(&a[19], &twiddles[19])
-	a[22].Mul(&a[22], &twiddles[20])
-	a[23].Mul(&a[23], &twiddles[20])
-	a[26].Mul(&a[26], &twiddles[21])
-	a[27].Mul(&a[27], &twiddles[21])
-	a[30].Mul(&a[30], &twiddles[22])
-	a[31].Mul(&a[31], &twiddles[22])
-	a[34].Mul(&a[34], &twiddles[23])
-	a[35].Mul(&a[35], &twiddles[23])
-	a[38].Mul(&a[38], &twiddles[24])
-	a[39].Mul(&a[39], &twiddles[24])
-	a[42].Mul(&a[42], &twiddles[25])
-	a[43].Mul(&a[43], &twiddles[25])
-	a[46].Mul(&a[46], &twiddles[26])
-	a[47].Mul(&a[47], &twiddles[26])
-	a[50].Mul(&a[50], &twiddles[27])
-	a[51].Mul(&a[51], &twiddles[27])
-	a[54].Mul(&a[54], &twiddles[28])
-	a[55].Mul(&a[55], &twiddles[28])
-	a[58].Mul(&a[58], &twiddles[29])
-	a[59].Mul(&a[59], &twiddles[29])
-	a[62].Mul(&a[62], &twiddles[30])
-	a[63].Mul(&a[63], &twiddles[30])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	fr.Butterfly(&a[61], &a[63])
-	a[1].Mul(&a[1], &twiddles[31])
-	a[3].Mul(&a[3], &twiddles[32])
-	a[5].Mul(&a[5], &twiddles[33])
-	a[7].Mul(&a[7], &twiddles[34])
-	a[9].Mul(&a[9], &twiddles[35])
-	a[11].Mul(&a[11], &twiddles[36])
-	a[13].Mul(&a[13], &twiddles[37])
-	a[15].Mul(&a[15], &twiddles[38])
-	a[17].Mul(&a[17], &twiddles[39])
-	a[19].Mul(&a[19], &twiddles[40])
-	a[21].Mul(&a[21], &twiddles[41])
-	a[23].Mul(&a[23], &twiddles[42])
-	a[25].Mul(&a[25], &twiddles[43])
-	a[27].Mul(&a[27], &twiddles[44])
-	a[29].Mul(&a[29], &twiddles[45])
-	a[31].Mul(&a[31], &twiddles[46])
-	a[33].Mul(&a[33], &twiddles[47])
-	a[35].Mul(&a[35], &twiddles[48])
-	a[37].Mul(&a[37], &twiddles[49])
-	a[39].Mul(&a[39], &twiddles[50])
-	a[41].Mul(&a[41], &twiddles[51])
-	a[43].Mul(&a[43], &twiddles[52])
-	a[45].Mul(&a[45], &twiddles[53])
-	a[47].Mul(&a[47], &twiddles[54])
-	a[49].Mul(&a[49], &twiddles[55])
-	a[51].Mul(&a[51], &twiddles[56])
-	a[53].Mul(&a[53], &twiddles[57])
-	a[55].Mul(&a[55], &twiddles[58])
-	a[57].Mul(&a[57], &twiddles[59])
-	a[59].Mul(&a[59], &twiddles[60])
-	a[61].Mul(&a[61], &twiddles[61])
-	a[63].Mul(&a[63], &twiddles[62])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
-}
+	//
+	// stage 3
+	//
 
-func partialFFT_11(a, twiddles fr.Vector) {
-	a[48].Mul(&a[48], &twiddles[0])
-	a[49].Mul(&a[49], &twiddles[0])
-	a[50].Mul(&a[50], &twiddles[0])
-	a[51].Mul(&a[51], &twiddles[0])
-	a[52].Mul(&a[52], &twiddles[0])
-	a[53].Mul(&a[53], &twiddles[0])
-	a[54].Mul(&a[54], &twiddles[0])
-	a[55].Mul(&a[55], &twiddles[0])
-	a[56].Mul(&a[56], &twiddles[0])
-	a[57].Mul(&a[57], &twiddles[0])
-	a[58].Mul(&a[58], &twiddles[0])
-	a[59].Mul(&a[59], &twiddles[0])
-	a[60].Mul(&a[60], &twiddles[0])
-	a[61].Mul(&a[61], &twiddles[0])
-	a[62].Mul(&a[62], &twiddles[0])
-	a[63].Mul(&a[63], &twiddles[0])
-	fr.Butterfly(&a[0], &a[32])
-	fr.Butterfly(&a[1], &a[33])
-	fr.Butterfly(&a[2], &a[34])
-	fr.Butterfly(&a[3], &a[35])
-	fr.Butterfly(&a[4], &a[36])
-	fr.Butterfly(&a[5], &a[37])
-	fr.Butterfly(&a[6], &a[38])
-	fr.Butterfly(&a[7], &a[39])
-	fr.Butterfly(&a[8], &a[40])
-	fr.Butterfly(&a[9], &a[41])
-	fr.Butterfly(&a[10], &a[42])
-	fr.Butterfly(&a[11], &a[43])
-	fr.Butterfly(&a[12], &a[44])
-	fr.Butterfly(&a[13], &a[45])
-	fr.Butterfly(&a[14], &a[46])
-	fr.Butterfly(&a[15], &a[47])
-	fr.Butterfly(&a[16], &a[48])
-	fr.Butterfly(&a[17], &a[49])
-	fr.Butterfly(&a[18], &a[50])
-	fr.Butterfly(&a[19], &a[51])
-	fr.Butterfly(&a[20], &a[52])
-	fr.Butterfly(&a[21], &a[53])
-	fr.Butterfly(&a[22], &a[54])
-	fr.Butterfly(&a[23], &a[55])
-	fr.Butterfly(&a[24], &a[56])
-	fr.Butterfly(&a[25], &a[57])
-	fr.Butterfly(&a[26], &a[58])
-	fr.Butterfly(&a[27], &a[59])
-	fr.Butterfly(&a[28], &a[60])
-	fr.Butterfly(&a[29], &a[61])
-	fr.Butterfly(&a[30], &a[62])
-	fr.Butterfly(&a[31], &a[63])
-	a[16].Mul(&a[16], &twiddles[1])
-	a[17].Mul(&a[17], &twiddles[1])
-	a[18].Mul(&a[18], &twiddles[1])
-	a[19].Mul(&a[19], &twiddles[1])
-	a[20].Mul(&a[20], &twiddles[1])
-	a[21].Mul(&a[21], &twiddles[1])
-	a[22].Mul(&a[22], &twiddles[1])
-	a[23].Mul(&a[23], &twiddles[1])
-	a[24].Mul(&a[24], &twiddles[1])
-	a[25].Mul(&a[25], &twiddles[1])
-	a[26].Mul(&a[26], &twiddles[1])
-	a[27].Mul(&a[27], &twiddles[1])
-	a[28].Mul(&a[28], &twiddles[1])
-	a[29].Mul(&a[29], &twiddles[1])
-	a[30].Mul(&a[30], &twiddles[1])
-	a[31].Mul(&a[31], &twiddles[1])
-	a[48].Mul(&a[48], &twiddles[2])
-	a[49].Mul(&a[49], &twiddles[2])
-	a[50].Mul(&a[50], &twiddles[2])
-	a[51].Mul(&a[51], &twiddles[2])
-	a[52].Mul(&a[52], &twiddles[2])
-	a[53].Mul(&a[53], &twiddles[2])
-	a[54].Mul(&a[54], &twiddles[2])
-	a[55].Mul(&a[55], &twiddles[2])
-	a[56].Mul(&a[56], &twiddles[2])
-	a[57].Mul(&a[57], &twiddles[2])
-	a[58].Mul(&a[58], &twiddles[2])
-	a[59].Mul(&a[59], &twiddles[2])
-	a[60].Mul(&a[60], &twiddles[2])
-	a[61].Mul(&a[61], &twiddles[2])
-	a[62].Mul(&a[62], &twiddles[2])
-	a[63].Mul(&a[63], &twiddles[2])
-	fr.Butterfly(&a[0], &a[16])
-	fr.Butterfly(&a[1], &a[17])
-	fr.Butterfly(&a[2], &a[18])
-	fr.Butterfly(&a[3], &a[19])
-	fr.Butterfly(&a[4], &a[20])
-	fr.Butterfly(&a[5], &a[21])
-	fr.Butterfly(&a[6], &a[22])
-	fr.Butterfly(&a[7], &a[23])
-	fr.Butterfly(&a[8], &a[24])
-	fr.Butterfly(&a[9], &a[25])
-	fr.Butterfly(&a[10], &a[26])
-	fr.Butterfly(&a[11], &a[27])
-	fr.Butterfly(&a[12], &a[28])
-	fr.Butterfly(&a[13], &a[29])
-	fr.Butterfly(&a[14], &a[30])
-	fr.Butterfly(&a[15], &a[31])
-	fr.Butterfly(&a[32], &a[48])
-	fr.Butterfly(&a[33], &a[49])
-	fr.Butterfly(&a[34], &a[50])
-	fr.Butterfly(&a[35], &a[51])
-	fr.Butterfly(&a[36], &a[52])
-	fr.Butterfly(&a[37], &a[53])
-	fr.Butterfly(&a[38], &a[54])
-	fr.Butterfly(&a[39], &a[55])
-	fr.Butterfly(&a[40], &a[56])
-	fr.Butterfly(&a[41], &a[57])
-	fr.Butterfly(&a[42], &a[58])
-	fr.Butterfly(&a[43], &a[59])
-	fr.Butterfly(&a[44], &a[60])
-	fr.Butterfly(&a[45], &a[61])
-	fr.Butterfly(&a[46], &a[62])
-	fr.Butterfly(&a[47], &a[63])
-	a[8].Mul(&a[8], &twiddles[3])
-	a[9].Mul(&a[9], &twiddles[3])
-	a[10].Mul(&a[10], &twiddles[3])
-	a[11].Mul(&a[11], &twiddles[3])
-	a[12].Mul(&a[12], &twiddles[3])
-	a[13].Mul(&a[13], &twiddles[3])
-	a[14].Mul(&a[14], &twiddles[3])
-	a[15].Mul(&a[15], &twiddles[3])
-	a[24].Mul(&a[24], &twiddles[4])
-	a[25].Mul(&a[25], &twiddles[4])
-	a[26].Mul(&a[26], &twiddles[4])
-	a[27].Mul(&a[27], &twiddles[4])
-	a[28].Mul(&a[28], &twiddles[4])
-	a[29].Mul(&a[29], &twiddles[4])
-	a[30].Mul(&a[30], &twiddles[4])
-	a[31].Mul(&a[31], &twiddles[4])
-	a[40].Mul(&a[40], &twiddles[5])
-	a[41].Mul(&a[41], &twiddles[5])
-	a[42].Mul(&a[42], &twiddles[5])
-	a[43].Mul(&a[43], &twiddles[5])
-	a[44].Mul(&a[44], &twiddles[5])
-	a[45].Mul(&a[45], &twiddles[5])
-	a[46].Mul(&a[46], &twiddles[5])
-	a[47].Mul(&a[47], &twiddles[5])
-	a[56].Mul(&a[56], &twiddles[6])
-	a[57].Mul(&a[57], &twiddles[6])
-	a[58].Mul(&a[58], &twiddles[6])
-	a[59].Mul(&a[59], &twiddles[6])
-	a[60].Mul(&a[60], &twiddles[6])
-	a[61].Mul(&a[61], &twiddles[6])
-	a[62].Mul(&a[62], &twiddles[6])
-	a[63].Mul(&a[63], &twiddles[6])
-	fr.Butterfly(&a[0], &a[8])
-	fr.Butterfly(&a[1], &a[9])
-	fr.Butterfly(&a[2], &a[10])
-	fr.Butterfly(&a[3], &a[11])
-	fr.Butterfly(&a[4], &a[12])
-	fr.Butterfly(&a[5], &a[13])
-	fr.Butterfly(&a[6], &a[14])
-	fr.Butterfly(&a[7], &a[15])
-	fr.Butterfly(&a[16], &a[24])
-	fr.Butterfly(&a[17], &a[25])
-	fr.Butterfly(&a[18], &a[26])
-	fr.Butterfly(&a[19], &a[27])
-	fr.Butterfly(&a[20], &a[28])
-	fr.Butterfly(&a[21], &a[29])
-	fr.Butterfly(&a[22], &a[30])
-	fr.Butterfly(&a[23], &a[31])
-	fr.Butterfly(&a[32], &a[40])
-	fr.Butterfly(&a[33], &a[41])
-	fr.Butterfly(&a[34], &a[42])
-	fr.Butterfly(&a[35], &a[43])
-	fr.Butterfly(&a[36], &a[44])
-	fr.Butterfly(&a[37], &a[45])
-	fr.Butterfly(&a[38], &a[46])
-	fr.Butterfly(&a[39], &a[47])
-	fr.Butterfly(&a[48], &a[56])
-	fr.Butterfly(&a[49], &a[57])
-	fr.Butterfly(&a[50], &a[58])
-	fr.Butterfly(&a[51], &a[59])
-	fr.Butterfly(&a[52], &a[60])
-	fr.Butterfly(&a[53], &a[61])
-	fr.Butterfly(&a[54], &a[62])
-	fr.Butterfly(&a[55], &a[63])
-	a[4].Mul(&a[4], &twiddles[7])
-	a[5].Mul(&a[5], &twiddles[7])
-	a[6].Mul(&a[6], &twiddles[7])
-	a[7].Mul(&a[7], &twiddles[7])
-	a[12].Mul(&a[12], &twiddles[8])
-	a[13].Mul(&a[13], &twiddles[8])
-	a[14].Mul(&a[14], &twiddles[8])
-	a[15].Mul(&a[15], &twiddles[8])
-	a[20].Mul(&a[20], &twiddles[9])
-	a[21].Mul(&a[21], &twiddles[9])
-	a[22].Mul(&a[22], &twiddles[9])
-	a[23].Mul(&a[23], &twiddles[9])
-	a[28].Mul(&a[28], &twiddles[10])
-	a[29].Mul(&a[29], &twiddles[10])
-	a[30].Mul(&a[30], &twiddles[10])
-	a[31].Mul(&a[31], &twiddles[10])
-	a[36].Mul(&a[36], &twiddles[11])
-	a[37].Mul(&a[37], &twiddles[11])
-	a[38].Mul(&a[38], &twiddles[11])
-	a[39].Mul(&a[39], &twiddles[11])
-	a[44].Mul(&a[44], &twiddles[12])
-	a[45].Mul(&a[45], &twiddles[12])
-	a[46].Mul(&a[46], &twiddles[12])
-	a[47].Mul(&a[47], &twiddles[12])
-	a[52].Mul(&a[52], &twiddles[13])
-	a[53].Mul(&a[53], &twiddles[13])
-	a[54].Mul(&a[54], &twiddles[13])
-	a[55].Mul(&a[55], &twiddles[13])
-	a[60].Mul(&a[60], &twiddles[14])
-	a[61].Mul(&a[61], &twiddles[14])
-	a[62].Mul(&a[62], &twiddles[14])
-	a[63].Mul(&a[63], &twiddles[14])
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	fr.Butterfly(&a[8], &a[12])
-	fr.Butterfly(&a[9], &a[13])
-	fr.Butterfly(&a[10], &a[14])
-	fr.Butterfly(&a[11], &a[15])
-	fr.Butterfly(&a[16], &a[20])
-	fr.Butterfly(&a[17], &a[21])
-	fr.Butterfly(&a[18], &a[22])
-	fr.Butterfly(&a[19], &a[23])
-	fr.Butterfly(&a[24], &a[28])
-	fr.Butterfly(&a[25], &a[29])
-	fr.Butterfly(&a[26], &a[30])
-	fr.Butterfly(&a[27], &a[31])
-	fr.Butterfly(&a[32], &a[36])
-	fr.Butterfly(&a[33], &a[37])
-	fr.Butterfly(&a[34], &a[38])
-	fr.Butterfly(&a[35], &a[39])
-	fr.Butterfly(&a[40], &a[44])
-	fr.Butterfly(&a[41], &a[45])
-	fr.Butterfly(&a[42], &a[46])
-	fr.Butterfly(&a[43], &a[47])
-	fr.Butterfly(&a[48], &a[52])
-	fr.Butterfly(&a[49], &a[53])
-	fr.Butterfly(&a[50], &a[54])
-	fr.Butterfly(&a[51], &a[55])
-	fr.Butterfly(&a[56], &a[60])
-	fr.Butterfly(&a[57], &a[61])
-	fr.Butterfly(&a[58], &a[62])
-	fr.Butterfly(&a[59], &a[63])
-	a[2].Mul(&a[2], &twiddles[15])
-	a[3].Mul(&a[3], &twiddles[15])
-	a[6].Mul(&a[6], &twiddles[16])
-	a[7].Mul(&a[7], &twiddles[16])
-	a[10].Mul(&a[10], &twiddles[17])
-	a[11].Mul(&a[11], &twiddles[17])
-	a[14].Mul(&a[14], &twiddles[18])
-	a[15].Mul(&a[15], &twiddles[18])
-	a[18].Mul(&a[18], &twiddles[19])
-	a[19].Mul(&a[19], &twiddles[19])
-	a[22].Mul(&a[22], &twiddles[20])
-	a[23].Mul(&a[23], &twiddles[20])
-	a[26].Mul(&a[26], &twiddles[21])
-	a[27].Mul(&a[27], &twiddles[21])
-	a[30].Mul(&a[30], &twiddles[22])
-	a[31].Mul(&a[31], &twiddles[22])
-	a[34].Mul(&a[34], &twiddles[23])
-	a[35].Mul(&a[35], &twiddles[23])
-	a[38].Mul(&a[38], &twiddles[24])
-	a[39].Mul(&a[39], &twiddles[24])
-	a[42].Mul(&a[42], &twiddles[25])
-	a[43].Mul(&a[43], &twiddles[25])
-	a[46].Mul(&a[46], &twiddles[26])
-	a[47].Mul(&a[47], &twiddles[26])
-	a[50].Mul(&a[50], &twiddles[27])
-	a[51].Mul(&a[51], &twiddles[27])
-	a[54].Mul(&a[54], &twiddles[28])
-	a[55].Mul(&a[55], &twiddles[28])
-	a[58].Mul(&a[58], &twiddles[29])
-	a[59].Mul(&a[59], &twiddles[29])
-	a[62].Mul(&a[62], &twiddles[30])
-	a[63].Mul(&a[63], &twiddles[30])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	fr.Butterfly(&a[61], &a[63])
-	a[1].Mul(&a[1], &twiddles[31])
-	a[3].Mul(&a[3], &twiddles[32])
-	a[5].Mul(&a[5], &twiddles[33])
-	a[7].Mul(&a[7], &twiddles[34])
-	a[9].Mul(&a[9], &twiddles[35])
-	a[11].Mul(&a[11], &twiddles[36])
-	a[13].Mul(&a[13], &twiddles[37])
-	a[15].Mul(&a[15], &twiddles[38])
-	a[17].Mul(&a[17], &twiddles[39])
-	a[19].Mul(&a[19], &twiddles[40])
-	a[21].Mul(&a[21], &twiddles[41])
-	a[23].Mul(&a[23], &twiddles[42])
-	a[25].Mul(&a[25], &twiddles[43])
-	a[27].Mul(&a[27], &twiddles[44])
-	a[29].Mul(&a[29], &twiddles[45])
-	a[31].Mul(&a[31], &twiddles[46])
-	a[33].Mul(&a[33], &twiddles[47])
-	a[35].Mul(&a[35], &twiddles[48])
-	a[37].Mul(&a[37], &twiddles[49])
-	a[39].Mul(&a[39], &twiddles[50])
-	a[41].Mul(&a[41], &twiddles[51])
-	a[43].Mul(&a[43], &twiddles[52])
-	a[45].Mul(&a[45], &twiddles[53])
-	a[47].Mul(&a[47], &twiddles[54])
-	a[49].Mul(&a[49], &twiddles[55])
-	a[51].Mul(&a[51], &twiddles[56])
-	a[53].Mul(&a[53], &twiddles[57])
-	a[55].Mul(&a[55], &twiddles[58])
-	a[57].Mul(&a[57], &twiddles[59])
-	a[59].Mul(&a[59], &twiddles[60])
-	a[61].Mul(&a[61], &twiddles[61])
-	a[63].Mul(&a[63], &twiddles[62])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
-}
+	// split 0: a[0:64] with twiddles[7]
+	for i := 0; i < 32; i++ {
+		a[i+32].Mul(&a[i+32], &twiddles[7])
+		koalabear.Butterfly(&a[i], &a[i+32])
+	}
 
-func partialFFT_12(a, twiddles fr.Vector) {
-	a[32].Mul(&a[32], &twiddles[0])
-	a[33].Mul(&a[33], &twiddles[0])
-	a[34].Mul(&a[34], &twiddles[0])
-	a[35].Mul(&a[35], &twiddles[0])
-	a[36].Mul(&a[36], &twiddles[0])
-	a[37].Mul(&a[37], &twiddles[0])
-	a[38].Mul(&a[38], &twiddles[0])
-	a[39].Mul(&a[39], &twiddles[0])
-	a[40].Mul(&a[40], &twiddles[0])
-	a[41].Mul(&a[41], &twiddles[0])
-	a[42].Mul(&a[42], &twiddles[0])
-	a[43].Mul(&a[43], &twiddles[0])
-	a[44].Mul(&a[44], &twiddles[0])
-	a[45].Mul(&a[45], &twiddles[0])
-	a[46].Mul(&a[46], &twiddles[0])
-	a[47].Mul(&a[47], &twiddles[0])
-	a[48].Mul(&a[48], &twiddles[0])
-	a[49].Mul(&a[49], &twiddles[0])
-	a[50].Mul(&a[50], &twiddles[0])
-	a[51].Mul(&a[51], &twiddles[0])
-	a[52].Mul(&a[52], &twiddles[0])
-	a[53].Mul(&a[53], &twiddles[0])
-	a[54].Mul(&a[54], &twiddles[0])
-	a[55].Mul(&a[55], &twiddles[0])
-	a[56].Mul(&a[56], &twiddles[0])
-	a[57].Mul(&a[57], &twiddles[0])
-	a[58].Mul(&a[58], &twiddles[0])
-	a[59].Mul(&a[59], &twiddles[0])
-	a[60].Mul(&a[60], &twiddles[0])
-	a[61].Mul(&a[61], &twiddles[0])
-	a[62].Mul(&a[62], &twiddles[0])
-	a[63].Mul(&a[63], &twiddles[0])
-	fr.Butterfly(&a[0], &a[32])
-	fr.Butterfly(&a[1], &a[33])
-	fr.Butterfly(&a[2], &a[34])
-	fr.Butterfly(&a[3], &a[35])
-	fr.Butterfly(&a[4], &a[36])
-	fr.Butterfly(&a[5], &a[37])
-	fr.Butterfly(&a[6], &a[38])
-	fr.Butterfly(&a[7], &a[39])
-	fr.Butterfly(&a[8], &a[40])
-	fr.Butterfly(&a[9], &a[41])
-	fr.Butterfly(&a[10], &a[42])
-	fr.Butterfly(&a[11], &a[43])
-	fr.Butterfly(&a[12], &a[44])
-	fr.Butterfly(&a[13], &a[45])
-	fr.Butterfly(&a[14], &a[46])
-	fr.Butterfly(&a[15], &a[47])
-	fr.Butterfly(&a[16], &a[48])
-	fr.Butterfly(&a[17], &a[49])
-	fr.Butterfly(&a[18], &a[50])
-	fr.Butterfly(&a[19], &a[51])
-	fr.Butterfly(&a[20], &a[52])
-	fr.Butterfly(&a[21], &a[53])
-	fr.Butterfly(&a[22], &a[54])
-	fr.Butterfly(&a[23], &a[55])
-	fr.Butterfly(&a[24], &a[56])
-	fr.Butterfly(&a[25], &a[57])
-	fr.Butterfly(&a[26], &a[58])
-	fr.Butterfly(&a[27], &a[59])
-	fr.Butterfly(&a[28], &a[60])
-	fr.Butterfly(&a[29], &a[61])
-	fr.Butterfly(&a[30], &a[62])
-	fr.Butterfly(&a[31], &a[63])
-	a[16].Mul(&a[16], &twiddles[1])
-	a[17].Mul(&a[17], &twiddles[1])
-	a[18].Mul(&a[18], &twiddles[1])
-	a[19].Mul(&a[19], &twiddles[1])
-	a[20].Mul(&a[20], &twiddles[1])
-	a[21].Mul(&a[21], &twiddles[1])
-	a[22].Mul(&a[22], &twiddles[1])
-	a[23].Mul(&a[23], &twiddles[1])
-	a[24].Mul(&a[24], &twiddles[1])
-	a[25].Mul(&a[25], &twiddles[1])
-	a[26].Mul(&a[26], &twiddles[1])
-	a[27].Mul(&a[27], &twiddles[1])
-	a[28].Mul(&a[28], &twiddles[1])
-	a[29].Mul(&a[29], &twiddles[1])
-	a[30].Mul(&a[30], &twiddles[1])
-	a[31].Mul(&a[31], &twiddles[1])
-	a[48].Mul(&a[48], &twiddles[2])
-	a[49].Mul(&a[49], &twiddles[2])
-	a[50].Mul(&a[50], &twiddles[2])
-	a[51].Mul(&a[51], &twiddles[2])
-	a[52].Mul(&a[52], &twiddles[2])
-	a[53].Mul(&a[53], &twiddles[2])
-	a[54].Mul(&a[54], &twiddles[2])
-	a[55].Mul(&a[55], &twiddles[2])
-	a[56].Mul(&a[56], &twiddles[2])
-	a[57].Mul(&a[57], &twiddles[2])
-	a[58].Mul(&a[58], &twiddles[2])
-	a[59].Mul(&a[59], &twiddles[2])
-	a[60].Mul(&a[60], &twiddles[2])
-	a[61].Mul(&a[61], &twiddles[2])
-	a[62].Mul(&a[62], &twiddles[2])
-	a[63].Mul(&a[63], &twiddles[2])
-	fr.Butterfly(&a[0], &a[16])
-	fr.Butterfly(&a[1], &a[17])
-	fr.Butterfly(&a[2], &a[18])
-	fr.Butterfly(&a[3], &a[19])
-	fr.Butterfly(&a[4], &a[20])
-	fr.Butterfly(&a[5], &a[21])
-	fr.Butterfly(&a[6], &a[22])
-	fr.Butterfly(&a[7], &a[23])
-	fr.Butterfly(&a[8], &a[24])
-	fr.Butterfly(&a[9], &a[25])
-	fr.Butterfly(&a[10], &a[26])
-	fr.Butterfly(&a[11], &a[27])
-	fr.Butterfly(&a[12], &a[28])
-	fr.Butterfly(&a[13], &a[29])
-	fr.Butterfly(&a[14], &a[30])
-	fr.Butterfly(&a[15], &a[31])
-	fr.Butterfly(&a[32], &a[48])
-	fr.Butterfly(&a[33], &a[49])
-	fr.Butterfly(&a[34], &a[50])
-	fr.Butterfly(&a[35], &a[51])
-	fr.Butterfly(&a[36], &a[52])
-	fr.Butterfly(&a[37], &a[53])
-	fr.Butterfly(&a[38], &a[54])
-	fr.Butterfly(&a[39], &a[55])
-	fr.Butterfly(&a[40], &a[56])
-	fr.Butterfly(&a[41], &a[57])
-	fr.Butterfly(&a[42], &a[58])
-	fr.Butterfly(&a[43], &a[59])
-	fr.Butterfly(&a[44], &a[60])
-	fr.Butterfly(&a[45], &a[61])
-	fr.Butterfly(&a[46], &a[62])
-	fr.Butterfly(&a[47], &a[63])
-	a[8].Mul(&a[8], &twiddles[3])
-	a[9].Mul(&a[9], &twiddles[3])
-	a[10].Mul(&a[10], &twiddles[3])
-	a[11].Mul(&a[11], &twiddles[3])
-	a[12].Mul(&a[12], &twiddles[3])
-	a[13].Mul(&a[13], &twiddles[3])
-	a[14].Mul(&a[14], &twiddles[3])
-	a[15].Mul(&a[15], &twiddles[3])
-	a[24].Mul(&a[24], &twiddles[4])
-	a[25].Mul(&a[25], &twiddles[4])
-	a[26].Mul(&a[26], &twiddles[4])
-	a[27].Mul(&a[27], &twiddles[4])
-	a[28].Mul(&a[28], &twiddles[4])
-	a[29].Mul(&a[29], &twiddles[4])
-	a[30].Mul(&a[30], &twiddles[4])
-	a[31].Mul(&a[31], &twiddles[4])
-	a[40].Mul(&a[40], &twiddles[5])
-	a[41].Mul(&a[41], &twiddles[5])
-	a[42].Mul(&a[42], &twiddles[5])
-	a[43].Mul(&a[43], &twiddles[5])
-	a[44].Mul(&a[44], &twiddles[5])
-	a[45].Mul(&a[45], &twiddles[5])
-	a[46].Mul(&a[46], &twiddles[5])
-	a[47].Mul(&a[47], &twiddles[5])
-	a[56].Mul(&a[56], &twiddles[6])
-	a[57].Mul(&a[57], &twiddles[6])
-	a[58].Mul(&a[58], &twiddles[6])
-	a[59].Mul(&a[59], &twiddles[6])
-	a[60].Mul(&a[60], &twiddles[6])
-	a[61].Mul(&a[61], &twiddles[6])
-	a[62].Mul(&a[62], &twiddles[6])
-	a[63].Mul(&a[63], &twiddles[6])
-	fr.Butterfly(&a[0], &a[8])
-	fr.Butterfly(&a[1], &a[9])
-	fr.Butterfly(&a[2], &a[10])
-	fr.Butterfly(&a[3], &a[11])
-	fr.Butterfly(&a[4], &a[12])
-	fr.Butterfly(&a[5], &a[13])
-	fr.Butterfly(&a[6], &a[14])
-	fr.Butterfly(&a[7], &a[15])
-	fr.Butterfly(&a[16], &a[24])
-	fr.Butterfly(&a[17], &a[25])
-	fr.Butterfly(&a[18], &a[26])
-	fr.Butterfly(&a[19], &a[27])
-	fr.Butterfly(&a[20], &a[28])
-	fr.Butterfly(&a[21], &a[29])
-	fr.Butterfly(&a[22], &a[30])
-	fr.Butterfly(&a[23], &a[31])
-	fr.Butterfly(&a[32], &a[40])
-	fr.Butterfly(&a[33], &a[41])
-	fr.Butterfly(&a[34], &a[42])
-	fr.Butterfly(&a[35], &a[43])
-	fr.Butterfly(&a[36], &a[44])
-	fr.Butterfly(&a[37], &a[45])
-	fr.Butterfly(&a[38], &a[46])
-	fr.Butterfly(&a[39], &a[47])
-	fr.Butterfly(&a[48], &a[56])
-	fr.Butterfly(&a[49], &a[57])
-	fr.Butterfly(&a[50], &a[58])
-	fr.Butterfly(&a[51], &a[59])
-	fr.Butterfly(&a[52], &a[60])
-	fr.Butterfly(&a[53], &a[61])
-	fr.Butterfly(&a[54], &a[62])
-	fr.Butterfly(&a[55], &a[63])
-	a[4].Mul(&a[4], &twiddles[7])
-	a[5].Mul(&a[5], &twiddles[7])
-	a[6].Mul(&a[6], &twiddles[7])
-	a[7].Mul(&a[7], &twiddles[7])
-	a[12].Mul(&a[12], &twiddles[8])
-	a[13].Mul(&a[13], &twiddles[8])
-	a[14].Mul(&a[14], &twiddles[8])
-	a[15].Mul(&a[15], &twiddles[8])
-	a[20].Mul(&a[20], &twiddles[9])
-	a[21].Mul(&a[21], &twiddles[9])
-	a[22].Mul(&a[22], &twiddles[9])
-	a[23].Mul(&a[23], &twiddles[9])
-	a[28].Mul(&a[28], &twiddles[10])
-	a[29].Mul(&a[29], &twiddles[10])
-	a[30].Mul(&a[30], &twiddles[10])
-	a[31].Mul(&a[31], &twiddles[10])
-	a[36].Mul(&a[36], &twiddles[11])
-	a[37].Mul(&a[37], &twiddles[11])
-	a[38].Mul(&a[38], &twiddles[11])
-	a[39].Mul(&a[39], &twiddles[11])
-	a[44].Mul(&a[44], &twiddles[12])
-	a[45].Mul(&a[45], &twiddles[12])
-	a[46].Mul(&a[46], &twiddles[12])
-	a[47].Mul(&a[47], &twiddles[12])
-	a[52].Mul(&a[52], &twiddles[13])
-	a[53].Mul(&a[53], &twiddles[13])
-	a[54].Mul(&a[54], &twiddles[13])
-	a[55].Mul(&a[55], &twiddles[13])
-	a[60].Mul(&a[60], &twiddles[14])
-	a[61].Mul(&a[61], &twiddles[14])
-	a[62].Mul(&a[62], &twiddles[14])
-	a[63].Mul(&a[63], &twiddles[14])
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	fr.Butterfly(&a[8], &a[12])
-	fr.Butterfly(&a[9], &a[13])
-	fr.Butterfly(&a[10], &a[14])
-	fr.Butterfly(&a[11], &a[15])
-	fr.Butterfly(&a[16], &a[20])
-	fr.Butterfly(&a[17], &a[21])
-	fr.Butterfly(&a[18], &a[22])
-	fr.Butterfly(&a[19], &a[23])
-	fr.Butterfly(&a[24], &a[28])
-	fr.Butterfly(&a[25], &a[29])
-	fr.Butterfly(&a[26], &a[30])
-	fr.Butterfly(&a[27], &a[31])
-	fr.Butterfly(&a[32], &a[36])
-	fr.Butterfly(&a[33], &a[37])
-	fr.Butterfly(&a[34], &a[38])
-	fr.Butterfly(&a[35], &a[39])
-	fr.Butterfly(&a[40], &a[44])
-	fr.Butterfly(&a[41], &a[45])
-	fr.Butterfly(&a[42], &a[46])
-	fr.Butterfly(&a[43], &a[47])
-	fr.Butterfly(&a[48], &a[52])
-	fr.Butterfly(&a[49], &a[53])
-	fr.Butterfly(&a[50], &a[54])
-	fr.Butterfly(&a[51], &a[55])
-	fr.Butterfly(&a[56], &a[60])
-	fr.Butterfly(&a[57], &a[61])
-	fr.Butterfly(&a[58], &a[62])
-	fr.Butterfly(&a[59], &a[63])
-	a[2].Mul(&a[2], &twiddles[15])
-	a[3].Mul(&a[3], &twiddles[15])
-	a[6].Mul(&a[6], &twiddles[16])
-	a[7].Mul(&a[7], &twiddles[16])
-	a[10].Mul(&a[10], &twiddles[17])
-	a[11].Mul(&a[11], &twiddles[17])
-	a[14].Mul(&a[14], &twiddles[18])
-	a[15].Mul(&a[15], &twiddles[18])
-	a[18].Mul(&a[18], &twiddles[19])
-	a[19].Mul(&a[19], &twiddles[19])
-	a[22].Mul(&a[22], &twiddles[20])
-	a[23].Mul(&a[23], &twiddles[20])
-	a[26].Mul(&a[26], &twiddles[21])
-	a[27].Mul(&a[27], &twiddles[21])
-	a[30].Mul(&a[30], &twiddles[22])
-	a[31].Mul(&a[31], &twiddles[22])
-	a[34].Mul(&a[34], &twiddles[23])
-	a[35].Mul(&a[35], &twiddles[23])
-	a[38].Mul(&a[38], &twiddles[24])
-	a[39].Mul(&a[39], &twiddles[24])
-	a[42].Mul(&a[42], &twiddles[25])
-	a[43].Mul(&a[43], &twiddles[25])
-	a[46].Mul(&a[46], &twiddles[26])
-	a[47].Mul(&a[47], &twiddles[26])
-	a[50].Mul(&a[50], &twiddles[27])
-	a[51].Mul(&a[51], &twiddles[27])
-	a[54].Mul(&a[54], &twiddles[28])
-	a[55].Mul(&a[55], &twiddles[28])
-	a[58].Mul(&a[58], &twiddles[29])
-	a[59].Mul(&a[59], &twiddles[29])
-	a[62].Mul(&a[62], &twiddles[30])
-	a[63].Mul(&a[63], &twiddles[30])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	fr.Butterfly(&a[61], &a[63])
-	a[1].Mul(&a[1], &twiddles[31])
-	a[3].Mul(&a[3], &twiddles[32])
-	a[5].Mul(&a[5], &twiddles[33])
-	a[7].Mul(&a[7], &twiddles[34])
-	a[9].Mul(&a[9], &twiddles[35])
-	a[11].Mul(&a[11], &twiddles[36])
-	a[13].Mul(&a[13], &twiddles[37])
-	a[15].Mul(&a[15], &twiddles[38])
-	a[17].Mul(&a[17], &twiddles[39])
-	a[19].Mul(&a[19], &twiddles[40])
-	a[21].Mul(&a[21], &twiddles[41])
-	a[23].Mul(&a[23], &twiddles[42])
-	a[25].Mul(&a[25], &twiddles[43])
-	a[27].Mul(&a[27], &twiddles[44])
-	a[29].Mul(&a[29], &twiddles[45])
-	a[31].Mul(&a[31], &twiddles[46])
-	a[33].Mul(&a[33], &twiddles[47])
-	a[35].Mul(&a[35], &twiddles[48])
-	a[37].Mul(&a[37], &twiddles[49])
-	a[39].Mul(&a[39], &twiddles[50])
-	a[41].Mul(&a[41], &twiddles[51])
-	a[43].Mul(&a[43], &twiddles[52])
-	a[45].Mul(&a[45], &twiddles[53])
-	a[47].Mul(&a[47], &twiddles[54])
-	a[49].Mul(&a[49], &twiddles[55])
-	a[51].Mul(&a[51], &twiddles[56])
-	a[53].Mul(&a[53], &twiddles[57])
-	a[55].Mul(&a[55], &twiddles[58])
-	a[57].Mul(&a[57], &twiddles[59])
-	a[59].Mul(&a[59], &twiddles[60])
-	a[61].Mul(&a[61], &twiddles[61])
-	a[63].Mul(&a[63], &twiddles[62])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
-}
+	// split 1: a[64:128] with twiddles[8]
+	for i := 64; i < 96; i++ {
+		a[i+32].Mul(&a[i+32], &twiddles[8])
+		koalabear.Butterfly(&a[i], &a[i+32])
+	}
 
-func partialFFT_13(a, twiddles fr.Vector) {
-	a[32].Mul(&a[32], &twiddles[0])
-	a[33].Mul(&a[33], &twiddles[0])
-	a[34].Mul(&a[34], &twiddles[0])
-	a[35].Mul(&a[35], &twiddles[0])
-	a[36].Mul(&a[36], &twiddles[0])
-	a[37].Mul(&a[37], &twiddles[0])
-	a[38].Mul(&a[38], &twiddles[0])
-	a[39].Mul(&a[39], &twiddles[0])
-	a[40].Mul(&a[40], &twiddles[0])
-	a[41].Mul(&a[41], &twiddles[0])
-	a[42].Mul(&a[42], &twiddles[0])
-	a[43].Mul(&a[43], &twiddles[0])
-	a[44].Mul(&a[44], &twiddles[0])
-	a[45].Mul(&a[45], &twiddles[0])
-	a[46].Mul(&a[46], &twiddles[0])
-	a[47].Mul(&a[47], &twiddles[0])
-	a[48].Mul(&a[48], &twiddles[0])
-	a[49].Mul(&a[49], &twiddles[0])
-	a[50].Mul(&a[50], &twiddles[0])
-	a[51].Mul(&a[51], &twiddles[0])
-	a[52].Mul(&a[52], &twiddles[0])
-	a[53].Mul(&a[53], &twiddles[0])
-	a[54].Mul(&a[54], &twiddles[0])
-	a[55].Mul(&a[55], &twiddles[0])
-	a[56].Mul(&a[56], &twiddles[0])
-	a[57].Mul(&a[57], &twiddles[0])
-	a[58].Mul(&a[58], &twiddles[0])
-	a[59].Mul(&a[59], &twiddles[0])
-	a[60].Mul(&a[60], &twiddles[0])
-	a[61].Mul(&a[61], &twiddles[0])
-	a[62].Mul(&a[62], &twiddles[0])
-	a[63].Mul(&a[63], &twiddles[0])
-	fr.Butterfly(&a[0], &a[32])
-	fr.Butterfly(&a[1], &a[33])
-	fr.Butterfly(&a[2], &a[34])
-	fr.Butterfly(&a[3], &a[35])
-	fr.Butterfly(&a[4], &a[36])
-	fr.Butterfly(&a[5], &a[37])
-	fr.Butterfly(&a[6], &a[38])
-	fr.Butterfly(&a[7], &a[39])
-	fr.Butterfly(&a[8], &a[40])
-	fr.Butterfly(&a[9], &a[41])
-	fr.Butterfly(&a[10], &a[42])
-	fr.Butterfly(&a[11], &a[43])
-	fr.Butterfly(&a[12], &a[44])
-	fr.Butterfly(&a[13], &a[45])
-	fr.Butterfly(&a[14], &a[46])
-	fr.Butterfly(&a[15], &a[47])
-	fr.Butterfly(&a[16], &a[48])
-	fr.Butterfly(&a[17], &a[49])
-	fr.Butterfly(&a[18], &a[50])
-	fr.Butterfly(&a[19], &a[51])
-	fr.Butterfly(&a[20], &a[52])
-	fr.Butterfly(&a[21], &a[53])
-	fr.Butterfly(&a[22], &a[54])
-	fr.Butterfly(&a[23], &a[55])
-	fr.Butterfly(&a[24], &a[56])
-	fr.Butterfly(&a[25], &a[57])
-	fr.Butterfly(&a[26], &a[58])
-	fr.Butterfly(&a[27], &a[59])
-	fr.Butterfly(&a[28], &a[60])
-	fr.Butterfly(&a[29], &a[61])
-	fr.Butterfly(&a[30], &a[62])
-	fr.Butterfly(&a[31], &a[63])
-	a[16].Mul(&a[16], &twiddles[1])
-	a[17].Mul(&a[17], &twiddles[1])
-	a[18].Mul(&a[18], &twiddles[1])
-	a[19].Mul(&a[19], &twiddles[1])
-	a[20].Mul(&a[20], &twiddles[1])
-	a[21].Mul(&a[21], &twiddles[1])
-	a[22].Mul(&a[22], &twiddles[1])
-	a[23].Mul(&a[23], &twiddles[1])
-	a[24].Mul(&a[24], &twiddles[1])
-	a[25].Mul(&a[25], &twiddles[1])
-	a[26].Mul(&a[26], &twiddles[1])
-	a[27].Mul(&a[27], &twiddles[1])
-	a[28].Mul(&a[28], &twiddles[1])
-	a[29].Mul(&a[29], &twiddles[1])
-	a[30].Mul(&a[30], &twiddles[1])
-	a[31].Mul(&a[31], &twiddles[1])
-	a[48].Mul(&a[48], &twiddles[2])
-	a[49].Mul(&a[49], &twiddles[2])
-	a[50].Mul(&a[50], &twiddles[2])
-	a[51].Mul(&a[51], &twiddles[2])
-	a[52].Mul(&a[52], &twiddles[2])
-	a[53].Mul(&a[53], &twiddles[2])
-	a[54].Mul(&a[54], &twiddles[2])
-	a[55].Mul(&a[55], &twiddles[2])
-	a[56].Mul(&a[56], &twiddles[2])
-	a[57].Mul(&a[57], &twiddles[2])
-	a[58].Mul(&a[58], &twiddles[2])
-	a[59].Mul(&a[59], &twiddles[2])
-	a[60].Mul(&a[60], &twiddles[2])
-	a[61].Mul(&a[61], &twiddles[2])
-	a[62].Mul(&a[62], &twiddles[2])
-	a[63].Mul(&a[63], &twiddles[2])
-	fr.Butterfly(&a[0], &a[16])
-	fr.Butterfly(&a[1], &a[17])
-	fr.Butterfly(&a[2], &a[18])
-	fr.Butterfly(&a[3], &a[19])
-	fr.Butterfly(&a[4], &a[20])
-	fr.Butterfly(&a[5], &a[21])
-	fr.Butterfly(&a[6], &a[22])
-	fr.Butterfly(&a[7], &a[23])
-	fr.Butterfly(&a[8], &a[24])
-	fr.Butterfly(&a[9], &a[25])
-	fr.Butterfly(&a[10], &a[26])
-	fr.Butterfly(&a[11], &a[27])
-	fr.Butterfly(&a[12], &a[28])
-	fr.Butterfly(&a[13], &a[29])
-	fr.Butterfly(&a[14], &a[30])
-	fr.Butterfly(&a[15], &a[31])
-	fr.Butterfly(&a[32], &a[48])
-	fr.Butterfly(&a[33], &a[49])
-	fr.Butterfly(&a[34], &a[50])
-	fr.Butterfly(&a[35], &a[51])
-	fr.Butterfly(&a[36], &a[52])
-	fr.Butterfly(&a[37], &a[53])
-	fr.Butterfly(&a[38], &a[54])
-	fr.Butterfly(&a[39], &a[55])
-	fr.Butterfly(&a[40], &a[56])
-	fr.Butterfly(&a[41], &a[57])
-	fr.Butterfly(&a[42], &a[58])
-	fr.Butterfly(&a[43], &a[59])
-	fr.Butterfly(&a[44], &a[60])
-	fr.Butterfly(&a[45], &a[61])
-	fr.Butterfly(&a[46], &a[62])
-	fr.Butterfly(&a[47], &a[63])
-	a[8].Mul(&a[8], &twiddles[3])
-	a[9].Mul(&a[9], &twiddles[3])
-	a[10].Mul(&a[10], &twiddles[3])
-	a[11].Mul(&a[11], &twiddles[3])
-	a[12].Mul(&a[12], &twiddles[3])
-	a[13].Mul(&a[13], &twiddles[3])
-	a[14].Mul(&a[14], &twiddles[3])
-	a[15].Mul(&a[15], &twiddles[3])
-	a[24].Mul(&a[24], &twiddles[4])
-	a[25].Mul(&a[25], &twiddles[4])
-	a[26].Mul(&a[26], &twiddles[4])
-	a[27].Mul(&a[27], &twiddles[4])
-	a[28].Mul(&a[28], &twiddles[4])
-	a[29].Mul(&a[29], &twiddles[4])
-	a[30].Mul(&a[30], &twiddles[4])
-	a[31].Mul(&a[31], &twiddles[4])
-	a[40].Mul(&a[40], &twiddles[5])
-	a[41].Mul(&a[41], &twiddles[5])
-	a[42].Mul(&a[42], &twiddles[5])
-	a[43].Mul(&a[43], &twiddles[5])
-	a[44].Mul(&a[44], &twiddles[5])
-	a[45].Mul(&a[45], &twiddles[5])
-	a[46].Mul(&a[46], &twiddles[5])
-	a[47].Mul(&a[47], &twiddles[5])
-	a[56].Mul(&a[56], &twiddles[6])
-	a[57].Mul(&a[57], &twiddles[6])
-	a[58].Mul(&a[58], &twiddles[6])
-	a[59].Mul(&a[59], &twiddles[6])
-	a[60].Mul(&a[60], &twiddles[6])
-	a[61].Mul(&a[61], &twiddles[6])
-	a[62].Mul(&a[62], &twiddles[6])
-	a[63].Mul(&a[63], &twiddles[6])
-	fr.Butterfly(&a[0], &a[8])
-	fr.Butterfly(&a[1], &a[9])
-	fr.Butterfly(&a[2], &a[10])
-	fr.Butterfly(&a[3], &a[11])
-	fr.Butterfly(&a[4], &a[12])
-	fr.Butterfly(&a[5], &a[13])
-	fr.Butterfly(&a[6], &a[14])
-	fr.Butterfly(&a[7], &a[15])
-	fr.Butterfly(&a[16], &a[24])
-	fr.Butterfly(&a[17], &a[25])
-	fr.Butterfly(&a[18], &a[26])
-	fr.Butterfly(&a[19], &a[27])
-	fr.Butterfly(&a[20], &a[28])
-	fr.Butterfly(&a[21], &a[29])
-	fr.Butterfly(&a[22], &a[30])
-	fr.Butterfly(&a[23], &a[31])
-	fr.Butterfly(&a[32], &a[40])
-	fr.Butterfly(&a[33], &a[41])
-	fr.Butterfly(&a[34], &a[42])
-	fr.Butterfly(&a[35], &a[43])
-	fr.Butterfly(&a[36], &a[44])
-	fr.Butterfly(&a[37], &a[45])
-	fr.Butterfly(&a[38], &a[46])
-	fr.Butterfly(&a[39], &a[47])
-	fr.Butterfly(&a[48], &a[56])
-	fr.Butterfly(&a[49], &a[57])
-	fr.Butterfly(&a[50], &a[58])
-	fr.Butterfly(&a[51], &a[59])
-	fr.Butterfly(&a[52], &a[60])
-	fr.Butterfly(&a[53], &a[61])
-	fr.Butterfly(&a[54], &a[62])
-	fr.Butterfly(&a[55], &a[63])
-	a[4].Mul(&a[4], &twiddles[7])
-	a[5].Mul(&a[5], &twiddles[7])
-	a[6].Mul(&a[6], &twiddles[7])
-	a[7].Mul(&a[7], &twiddles[7])
-	a[12].Mul(&a[12], &twiddles[8])
-	a[13].Mul(&a[13], &twiddles[8])
-	a[14].Mul(&a[14], &twiddles[8])
-	a[15].Mul(&a[15], &twiddles[8])
-	a[20].Mul(&a[20], &twiddles[9])
-	a[21].Mul(&a[21], &twiddles[9])
-	a[22].Mul(&a[22], &twiddles[9])
-	a[23].Mul(&a[23], &twiddles[9])
-	a[28].Mul(&a[28], &twiddles[10])
-	a[29].Mul(&a[29], &twiddles[10])
-	a[30].Mul(&a[30], &twiddles[10])
-	a[31].Mul(&a[31], &twiddles[10])
-	a[36].Mul(&a[36], &twiddles[11])
-	a[37].Mul(&a[37], &twiddles[11])
-	a[38].Mul(&a[38], &twiddles[11])
-	a[39].Mul(&a[39], &twiddles[11])
-	a[44].Mul(&a[44], &twiddles[12])
-	a[45].Mul(&a[45], &twiddles[12])
-	a[46].Mul(&a[46], &twiddles[12])
-	a[47].Mul(&a[47], &twiddles[12])
-	a[52].Mul(&a[52], &twiddles[13])
-	a[53].Mul(&a[53], &twiddles[13])
-	a[54].Mul(&a[54], &twiddles[13])
-	a[55].Mul(&a[55], &twiddles[13])
-	a[60].Mul(&a[60], &twiddles[14])
-	a[61].Mul(&a[61], &twiddles[14])
-	a[62].Mul(&a[62], &twiddles[14])
-	a[63].Mul(&a[63], &twiddles[14])
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	fr.Butterfly(&a[8], &a[12])
-	fr.Butterfly(&a[9], &a[13])
-	fr.Butterfly(&a[10], &a[14])
-	fr.Butterfly(&a[11], &a[15])
-	fr.Butterfly(&a[16], &a[20])
-	fr.Butterfly(&a[17], &a[21])
-	fr.Butterfly(&a[18], &a[22])
-	fr.Butterfly(&a[19], &a[23])
-	fr.Butterfly(&a[24], &a[28])
-	fr.Butterfly(&a[25], &a[29])
-	fr.Butterfly(&a[26], &a[30])
-	fr.Butterfly(&a[27], &a[31])
-	fr.Butterfly(&a[32], &a[36])
-	fr.Butterfly(&a[33], &a[37])
-	fr.Butterfly(&a[34], &a[38])
-	fr.Butterfly(&a[35], &a[39])
-	fr.Butterfly(&a[40], &a[44])
-	fr.Butterfly(&a[41], &a[45])
-	fr.Butterfly(&a[42], &a[46])
-	fr.Butterfly(&a[43], &a[47])
-	fr.Butterfly(&a[48], &a[52])
-	fr.Butterfly(&a[49], &a[53])
-	fr.Butterfly(&a[50], &a[54])
-	fr.Butterfly(&a[51], &a[55])
-	fr.Butterfly(&a[56], &a[60])
-	fr.Butterfly(&a[57], &a[61])
-	fr.Butterfly(&a[58], &a[62])
-	fr.Butterfly(&a[59], &a[63])
-	a[2].Mul(&a[2], &twiddles[15])
-	a[3].Mul(&a[3], &twiddles[15])
-	a[6].Mul(&a[6], &twiddles[16])
-	a[7].Mul(&a[7], &twiddles[16])
-	a[10].Mul(&a[10], &twiddles[17])
-	a[11].Mul(&a[11], &twiddles[17])
-	a[14].Mul(&a[14], &twiddles[18])
-	a[15].Mul(&a[15], &twiddles[18])
-	a[18].Mul(&a[18], &twiddles[19])
-	a[19].Mul(&a[19], &twiddles[19])
-	a[22].Mul(&a[22], &twiddles[20])
-	a[23].Mul(&a[23], &twiddles[20])
-	a[26].Mul(&a[26], &twiddles[21])
-	a[27].Mul(&a[27], &twiddles[21])
-	a[30].Mul(&a[30], &twiddles[22])
-	a[31].Mul(&a[31], &twiddles[22])
-	a[34].Mul(&a[34], &twiddles[23])
-	a[35].Mul(&a[35], &twiddles[23])
-	a[38].Mul(&a[38], &twiddles[24])
-	a[39].Mul(&a[39], &twiddles[24])
-	a[42].Mul(&a[42], &twiddles[25])
-	a[43].Mul(&a[43], &twiddles[25])
-	a[46].Mul(&a[46], &twiddles[26])
-	a[47].Mul(&a[47], &twiddles[26])
-	a[50].Mul(&a[50], &twiddles[27])
-	a[51].Mul(&a[51], &twiddles[27])
-	a[54].Mul(&a[54], &twiddles[28])
-	a[55].Mul(&a[55], &twiddles[28])
-	a[58].Mul(&a[58], &twiddles[29])
-	a[59].Mul(&a[59], &twiddles[29])
-	a[62].Mul(&a[62], &twiddles[30])
-	a[63].Mul(&a[63], &twiddles[30])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	fr.Butterfly(&a[61], &a[63])
-	a[1].Mul(&a[1], &twiddles[31])
-	a[3].Mul(&a[3], &twiddles[32])
-	a[5].Mul(&a[5], &twiddles[33])
-	a[7].Mul(&a[7], &twiddles[34])
-	a[9].Mul(&a[9], &twiddles[35])
-	a[11].Mul(&a[11], &twiddles[36])
-	a[13].Mul(&a[13], &twiddles[37])
-	a[15].Mul(&a[15], &twiddles[38])
-	a[17].Mul(&a[17], &twiddles[39])
-	a[19].Mul(&a[19], &twiddles[40])
-	a[21].Mul(&a[21], &twiddles[41])
-	a[23].Mul(&a[23], &twiddles[42])
-	a[25].Mul(&a[25], &twiddles[43])
-	a[27].Mul(&a[27], &twiddles[44])
-	a[29].Mul(&a[29], &twiddles[45])
-	a[31].Mul(&a[31], &twiddles[46])
-	a[33].Mul(&a[33], &twiddles[47])
-	a[35].Mul(&a[35], &twiddles[48])
-	a[37].Mul(&a[37], &twiddles[49])
-	a[39].Mul(&a[39], &twiddles[50])
-	a[41].Mul(&a[41], &twiddles[51])
-	a[43].Mul(&a[43], &twiddles[52])
-	a[45].Mul(&a[45], &twiddles[53])
-	a[47].Mul(&a[47], &twiddles[54])
-	a[49].Mul(&a[49], &twiddles[55])
-	a[51].Mul(&a[51], &twiddles[56])
-	a[53].Mul(&a[53], &twiddles[57])
-	a[55].Mul(&a[55], &twiddles[58])
-	a[57].Mul(&a[57], &twiddles[59])
-	a[59].Mul(&a[59], &twiddles[60])
-	a[61].Mul(&a[61], &twiddles[61])
-	a[63].Mul(&a[63], &twiddles[62])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
-}
+	// split 2: a[128:192] with twiddles[9]
+	for i := 128; i < 160; i++ {
+		a[i+32].Mul(&a[i+32], &twiddles[9])
+		koalabear.Butterfly(&a[i], &a[i+32])
+	}
 
-func partialFFT_14(a, twiddles fr.Vector) {
-	a[32].Mul(&a[32], &twiddles[0])
-	a[33].Mul(&a[33], &twiddles[0])
-	a[34].Mul(&a[34], &twiddles[0])
-	a[35].Mul(&a[35], &twiddles[0])
-	a[36].Mul(&a[36], &twiddles[0])
-	a[37].Mul(&a[37], &twiddles[0])
-	a[38].Mul(&a[38], &twiddles[0])
-	a[39].Mul(&a[39], &twiddles[0])
-	a[40].Mul(&a[40], &twiddles[0])
-	a[41].Mul(&a[41], &twiddles[0])
-	a[42].Mul(&a[42], &twiddles[0])
-	a[43].Mul(&a[43], &twiddles[0])
-	a[44].Mul(&a[44], &twiddles[0])
-	a[45].Mul(&a[45], &twiddles[0])
-	a[46].Mul(&a[46], &twiddles[0])
-	a[47].Mul(&a[47], &twiddles[0])
-	a[48].Mul(&a[48], &twiddles[0])
-	a[49].Mul(&a[49], &twiddles[0])
-	a[50].Mul(&a[50], &twiddles[0])
-	a[51].Mul(&a[51], &twiddles[0])
-	a[52].Mul(&a[52], &twiddles[0])
-	a[53].Mul(&a[53], &twiddles[0])
-	a[54].Mul(&a[54], &twiddles[0])
-	a[55].Mul(&a[55], &twiddles[0])
-	a[56].Mul(&a[56], &twiddles[0])
-	a[57].Mul(&a[57], &twiddles[0])
-	a[58].Mul(&a[58], &twiddles[0])
-	a[59].Mul(&a[59], &twiddles[0])
-	a[60].Mul(&a[60], &twiddles[0])
-	a[61].Mul(&a[61], &twiddles[0])
-	a[62].Mul(&a[62], &twiddles[0])
-	a[63].Mul(&a[63], &twiddles[0])
-	fr.Butterfly(&a[0], &a[32])
-	fr.Butterfly(&a[1], &a[33])
-	fr.Butterfly(&a[2], &a[34])
-	fr.Butterfly(&a[3], &a[35])
-	fr.Butterfly(&a[4], &a[36])
-	fr.Butterfly(&a[5], &a[37])
-	fr.Butterfly(&a[6], &a[38])
-	fr.Butterfly(&a[7], &a[39])
-	fr.Butterfly(&a[8], &a[40])
-	fr.Butterfly(&a[9], &a[41])
-	fr.Butterfly(&a[10], &a[42])
-	fr.Butterfly(&a[11], &a[43])
-	fr.Butterfly(&a[12], &a[44])
-	fr.Butterfly(&a[13], &a[45])
-	fr.Butterfly(&a[14], &a[46])
-	fr.Butterfly(&a[15], &a[47])
-	fr.Butterfly(&a[16], &a[48])
-	fr.Butterfly(&a[17], &a[49])
-	fr.Butterfly(&a[18], &a[50])
-	fr.Butterfly(&a[19], &a[51])
-	fr.Butterfly(&a[20], &a[52])
-	fr.Butterfly(&a[21], &a[53])
-	fr.Butterfly(&a[22], &a[54])
-	fr.Butterfly(&a[23], &a[55])
-	fr.Butterfly(&a[24], &a[56])
-	fr.Butterfly(&a[25], &a[57])
-	fr.Butterfly(&a[26], &a[58])
-	fr.Butterfly(&a[27], &a[59])
-	fr.Butterfly(&a[28], &a[60])
-	fr.Butterfly(&a[29], &a[61])
-	fr.Butterfly(&a[30], &a[62])
-	fr.Butterfly(&a[31], &a[63])
-	a[16].Mul(&a[16], &twiddles[1])
-	a[17].Mul(&a[17], &twiddles[1])
-	a[18].Mul(&a[18], &twiddles[1])
-	a[19].Mul(&a[19], &twiddles[1])
-	a[20].Mul(&a[20], &twiddles[1])
-	a[21].Mul(&a[21], &twiddles[1])
-	a[22].Mul(&a[22], &twiddles[1])
-	a[23].Mul(&a[23], &twiddles[1])
-	a[24].Mul(&a[24], &twiddles[1])
-	a[25].Mul(&a[25], &twiddles[1])
-	a[26].Mul(&a[26], &twiddles[1])
-	a[27].Mul(&a[27], &twiddles[1])
-	a[28].Mul(&a[28], &twiddles[1])
-	a[29].Mul(&a[29], &twiddles[1])
-	a[30].Mul(&a[30], &twiddles[1])
-	a[31].Mul(&a[31], &twiddles[1])
-	a[48].Mul(&a[48], &twiddles[2])
-	a[49].Mul(&a[49], &twiddles[2])
-	a[50].Mul(&a[50], &twiddles[2])
-	a[51].Mul(&a[51], &twiddles[2])
-	a[52].Mul(&a[52], &twiddles[2])
-	a[53].Mul(&a[53], &twiddles[2])
-	a[54].Mul(&a[54], &twiddles[2])
-	a[55].Mul(&a[55], &twiddles[2])
-	a[56].Mul(&a[56], &twiddles[2])
-	a[57].Mul(&a[57], &twiddles[2])
-	a[58].Mul(&a[58], &twiddles[2])
-	a[59].Mul(&a[59], &twiddles[2])
-	a[60].Mul(&a[60], &twiddles[2])
-	a[61].Mul(&a[61], &twiddles[2])
-	a[62].Mul(&a[62], &twiddles[2])
-	a[63].Mul(&a[63], &twiddles[2])
-	fr.Butterfly(&a[0], &a[16])
-	fr.Butterfly(&a[1], &a[17])
-	fr.Butterfly(&a[2], &a[18])
-	fr.Butterfly(&a[3], &a[19])
-	fr.Butterfly(&a[4], &a[20])
-	fr.Butterfly(&a[5], &a[21])
-	fr.Butterfly(&a[6], &a[22])
-	fr.Butterfly(&a[7], &a[23])
-	fr.Butterfly(&a[8], &a[24])
-	fr.Butterfly(&a[9], &a[25])
-	fr.Butterfly(&a[10], &a[26])
-	fr.Butterfly(&a[11], &a[27])
-	fr.Butterfly(&a[12], &a[28])
-	fr.Butterfly(&a[13], &a[29])
-	fr.Butterfly(&a[14], &a[30])
-	fr.Butterfly(&a[15], &a[31])
-	fr.Butterfly(&a[32], &a[48])
-	fr.Butterfly(&a[33], &a[49])
-	fr.Butterfly(&a[34], &a[50])
-	fr.Butterfly(&a[35], &a[51])
-	fr.Butterfly(&a[36], &a[52])
-	fr.Butterfly(&a[37], &a[53])
-	fr.Butterfly(&a[38], &a[54])
-	fr.Butterfly(&a[39], &a[55])
-	fr.Butterfly(&a[40], &a[56])
-	fr.Butterfly(&a[41], &a[57])
-	fr.Butterfly(&a[42], &a[58])
-	fr.Butterfly(&a[43], &a[59])
-	fr.Butterfly(&a[44], &a[60])
-	fr.Butterfly(&a[45], &a[61])
-	fr.Butterfly(&a[46], &a[62])
-	fr.Butterfly(&a[47], &a[63])
-	a[8].Mul(&a[8], &twiddles[3])
-	a[9].Mul(&a[9], &twiddles[3])
-	a[10].Mul(&a[10], &twiddles[3])
-	a[11].Mul(&a[11], &twiddles[3])
-	a[12].Mul(&a[12], &twiddles[3])
-	a[13].Mul(&a[13], &twiddles[3])
-	a[14].Mul(&a[14], &twiddles[3])
-	a[15].Mul(&a[15], &twiddles[3])
-	a[24].Mul(&a[24], &twiddles[4])
-	a[25].Mul(&a[25], &twiddles[4])
-	a[26].Mul(&a[26], &twiddles[4])
-	a[27].Mul(&a[27], &twiddles[4])
-	a[28].Mul(&a[28], &twiddles[4])
-	a[29].Mul(&a[29], &twiddles[4])
-	a[30].Mul(&a[30], &twiddles[4])
-	a[31].Mul(&a[31], &twiddles[4])
-	a[40].Mul(&a[40], &twiddles[5])
-	a[41].Mul(&a[41], &twiddles[5])
-	a[42].Mul(&a[42], &twiddles[5])
-	a[43].Mul(&a[43], &twiddles[5])
-	a[44].Mul(&a[44], &twiddles[5])
-	a[45].Mul(&a[45], &twiddles[5])
-	a[46].Mul(&a[46], &twiddles[5])
-	a[47].Mul(&a[47], &twiddles[5])
-	a[56].Mul(&a[56], &twiddles[6])
-	a[57].Mul(&a[57], &twiddles[6])
-	a[58].Mul(&a[58], &twiddles[6])
-	a[59].Mul(&a[59], &twiddles[6])
-	a[60].Mul(&a[60], &twiddles[6])
-	a[61].Mul(&a[61], &twiddles[6])
-	a[62].Mul(&a[62], &twiddles[6])
-	a[63].Mul(&a[63], &twiddles[6])
-	fr.Butterfly(&a[0], &a[8])
-	fr.Butterfly(&a[1], &a[9])
-	fr.Butterfly(&a[2], &a[10])
-	fr.Butterfly(&a[3], &a[11])
-	fr.Butterfly(&a[4], &a[12])
-	fr.Butterfly(&a[5], &a[13])
-	fr.Butterfly(&a[6], &a[14])
-	fr.Butterfly(&a[7], &a[15])
-	fr.Butterfly(&a[16], &a[24])
-	fr.Butterfly(&a[17], &a[25])
-	fr.Butterfly(&a[18], &a[26])
-	fr.Butterfly(&a[19], &a[27])
-	fr.Butterfly(&a[20], &a[28])
-	fr.Butterfly(&a[21], &a[29])
-	fr.Butterfly(&a[22], &a[30])
-	fr.Butterfly(&a[23], &a[31])
-	fr.Butterfly(&a[32], &a[40])
-	fr.Butterfly(&a[33], &a[41])
-	fr.Butterfly(&a[34], &a[42])
-	fr.Butterfly(&a[35], &a[43])
-	fr.Butterfly(&a[36], &a[44])
-	fr.Butterfly(&a[37], &a[45])
-	fr.Butterfly(&a[38], &a[46])
-	fr.Butterfly(&a[39], &a[47])
-	fr.Butterfly(&a[48], &a[56])
-	fr.Butterfly(&a[49], &a[57])
-	fr.Butterfly(&a[50], &a[58])
-	fr.Butterfly(&a[51], &a[59])
-	fr.Butterfly(&a[52], &a[60])
-	fr.Butterfly(&a[53], &a[61])
-	fr.Butterfly(&a[54], &a[62])
-	fr.Butterfly(&a[55], &a[63])
-	a[4].Mul(&a[4], &twiddles[7])
-	a[5].Mul(&a[5], &twiddles[7])
-	a[6].Mul(&a[6], &twiddles[7])
-	a[7].Mul(&a[7], &twiddles[7])
-	a[12].Mul(&a[12], &twiddles[8])
-	a[13].Mul(&a[13], &twiddles[8])
-	a[14].Mul(&a[14], &twiddles[8])
-	a[15].Mul(&a[15], &twiddles[8])
-	a[20].Mul(&a[20], &twiddles[9])
-	a[21].Mul(&a[21], &twiddles[9])
-	a[22].Mul(&a[22], &twiddles[9])
-	a[23].Mul(&a[23], &twiddles[9])
-	a[28].Mul(&a[28], &twiddles[10])
-	a[29].Mul(&a[29], &twiddles[10])
-	a[30].Mul(&a[30], &twiddles[10])
-	a[31].Mul(&a[31], &twiddles[10])
-	a[36].Mul(&a[36], &twiddles[11])
-	a[37].Mul(&a[37], &twiddles[11])
-	a[38].Mul(&a[38], &twiddles[11])
-	a[39].Mul(&a[39], &twiddles[11])
-	a[44].Mul(&a[44], &twiddles[12])
-	a[45].Mul(&a[45], &twiddles[12])
-	a[46].Mul(&a[46], &twiddles[12])
-	a[47].Mul(&a[47], &twiddles[12])
-	a[52].Mul(&a[52], &twiddles[13])
-	a[53].Mul(&a[53], &twiddles[13])
-	a[54].Mul(&a[54], &twiddles[13])
-	a[55].Mul(&a[55], &twiddles[13])
-	a[60].Mul(&a[60], &twiddles[14])
-	a[61].Mul(&a[61], &twiddles[14])
-	a[62].Mul(&a[62], &twiddles[14])
-	a[63].Mul(&a[63], &twiddles[14])
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	fr.Butterfly(&a[8], &a[12])
-	fr.Butterfly(&a[9], &a[13])
-	fr.Butterfly(&a[10], &a[14])
-	fr.Butterfly(&a[11], &a[15])
-	fr.Butterfly(&a[16], &a[20])
-	fr.Butterfly(&a[17], &a[21])
-	fr.Butterfly(&a[18], &a[22])
-	fr.Butterfly(&a[19], &a[23])
-	fr.Butterfly(&a[24], &a[28])
-	fr.Butterfly(&a[25], &a[29])
-	fr.Butterfly(&a[26], &a[30])
-	fr.Butterfly(&a[27], &a[31])
-	fr.Butterfly(&a[32], &a[36])
-	fr.Butterfly(&a[33], &a[37])
-	fr.Butterfly(&a[34], &a[38])
-	fr.Butterfly(&a[35], &a[39])
-	fr.Butterfly(&a[40], &a[44])
-	fr.Butterfly(&a[41], &a[45])
-	fr.Butterfly(&a[42], &a[46])
-	fr.Butterfly(&a[43], &a[47])
-	fr.Butterfly(&a[48], &a[52])
-	fr.Butterfly(&a[49], &a[53])
-	fr.Butterfly(&a[50], &a[54])
-	fr.Butterfly(&a[51], &a[55])
-	fr.Butterfly(&a[56], &a[60])
-	fr.Butterfly(&a[57], &a[61])
-	fr.Butterfly(&a[58], &a[62])
-	fr.Butterfly(&a[59], &a[63])
-	a[2].Mul(&a[2], &twiddles[15])
-	a[3].Mul(&a[3], &twiddles[15])
-	a[6].Mul(&a[6], &twiddles[16])
-	a[7].Mul(&a[7], &twiddles[16])
-	a[10].Mul(&a[10], &twiddles[17])
-	a[11].Mul(&a[11], &twiddles[17])
-	a[14].Mul(&a[14], &twiddles[18])
-	a[15].Mul(&a[15], &twiddles[18])
-	a[18].Mul(&a[18], &twiddles[19])
-	a[19].Mul(&a[19], &twiddles[19])
-	a[22].Mul(&a[22], &twiddles[20])
-	a[23].Mul(&a[23], &twiddles[20])
-	a[26].Mul(&a[26], &twiddles[21])
-	a[27].Mul(&a[27], &twiddles[21])
-	a[30].Mul(&a[30], &twiddles[22])
-	a[31].Mul(&a[31], &twiddles[22])
-	a[34].Mul(&a[34], &twiddles[23])
-	a[35].Mul(&a[35], &twiddles[23])
-	a[38].Mul(&a[38], &twiddles[24])
-	a[39].Mul(&a[39], &twiddles[24])
-	a[42].Mul(&a[42], &twiddles[25])
-	a[43].Mul(&a[43], &twiddles[25])
-	a[46].Mul(&a[46], &twiddles[26])
-	a[47].Mul(&a[47], &twiddles[26])
-	a[50].Mul(&a[50], &twiddles[27])
-	a[51].Mul(&a[51], &twiddles[27])
-	a[54].Mul(&a[54], &twiddles[28])
-	a[55].Mul(&a[55], &twiddles[28])
-	a[58].Mul(&a[58], &twiddles[29])
-	a[59].Mul(&a[59], &twiddles[29])
-	a[62].Mul(&a[62], &twiddles[30])
-	a[63].Mul(&a[63], &twiddles[30])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	fr.Butterfly(&a[61], &a[63])
-	a[1].Mul(&a[1], &twiddles[31])
-	a[3].Mul(&a[3], &twiddles[32])
-	a[5].Mul(&a[5], &twiddles[33])
-	a[7].Mul(&a[7], &twiddles[34])
-	a[9].Mul(&a[9], &twiddles[35])
-	a[11].Mul(&a[11], &twiddles[36])
-	a[13].Mul(&a[13], &twiddles[37])
-	a[15].Mul(&a[15], &twiddles[38])
-	a[17].Mul(&a[17], &twiddles[39])
-	a[19].Mul(&a[19], &twiddles[40])
-	a[21].Mul(&a[21], &twiddles[41])
-	a[23].Mul(&a[23], &twiddles[42])
-	a[25].Mul(&a[25], &twiddles[43])
-	a[27].Mul(&a[27], &twiddles[44])
-	a[29].Mul(&a[29], &twiddles[45])
-	a[31].Mul(&a[31], &twiddles[46])
-	a[33].Mul(&a[33], &twiddles[47])
-	a[35].Mul(&a[35], &twiddles[48])
-	a[37].Mul(&a[37], &twiddles[49])
-	a[39].Mul(&a[39], &twiddles[50])
-	a[41].Mul(&a[41], &twiddles[51])
-	a[43].Mul(&a[43], &twiddles[52])
-	a[45].Mul(&a[45], &twiddles[53])
-	a[47].Mul(&a[47], &twiddles[54])
-	a[49].Mul(&a[49], &twiddles[55])
-	a[51].Mul(&a[51], &twiddles[56])
-	a[53].Mul(&a[53], &twiddles[57])
-	a[55].Mul(&a[55], &twiddles[58])
-	a[57].Mul(&a[57], &twiddles[59])
-	a[59].Mul(&a[59], &twiddles[60])
-	a[61].Mul(&a[61], &twiddles[61])
-	a[63].Mul(&a[63], &twiddles[62])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
-}
+	// split 3: a[192:256] with twiddles[10]
+	for i := 192; i < 224; i++ {
+		a[i+32].Mul(&a[i+32], &twiddles[10])
+		koalabear.Butterfly(&a[i], &a[i+32])
+	}
 
-func partialFFT_15(a, twiddles fr.Vector) {
-	a[32].Mul(&a[32], &twiddles[0])
-	a[33].Mul(&a[33], &twiddles[0])
-	a[34].Mul(&a[34], &twiddles[0])
-	a[35].Mul(&a[35], &twiddles[0])
-	a[36].Mul(&a[36], &twiddles[0])
-	a[37].Mul(&a[37], &twiddles[0])
-	a[38].Mul(&a[38], &twiddles[0])
-	a[39].Mul(&a[39], &twiddles[0])
-	a[40].Mul(&a[40], &twiddles[0])
-	a[41].Mul(&a[41], &twiddles[0])
-	a[42].Mul(&a[42], &twiddles[0])
-	a[43].Mul(&a[43], &twiddles[0])
-	a[44].Mul(&a[44], &twiddles[0])
-	a[45].Mul(&a[45], &twiddles[0])
-	a[46].Mul(&a[46], &twiddles[0])
-	a[47].Mul(&a[47], &twiddles[0])
-	a[48].Mul(&a[48], &twiddles[0])
-	a[49].Mul(&a[49], &twiddles[0])
-	a[50].Mul(&a[50], &twiddles[0])
-	a[51].Mul(&a[51], &twiddles[0])
-	a[52].Mul(&a[52], &twiddles[0])
-	a[53].Mul(&a[53], &twiddles[0])
-	a[54].Mul(&a[54], &twiddles[0])
-	a[55].Mul(&a[55], &twiddles[0])
-	a[56].Mul(&a[56], &twiddles[0])
-	a[57].Mul(&a[57], &twiddles[0])
-	a[58].Mul(&a[58], &twiddles[0])
-	a[59].Mul(&a[59], &twiddles[0])
-	a[60].Mul(&a[60], &twiddles[0])
-	a[61].Mul(&a[61], &twiddles[0])
-	a[62].Mul(&a[62], &twiddles[0])
-	a[63].Mul(&a[63], &twiddles[0])
-	fr.Butterfly(&a[0], &a[32])
-	fr.Butterfly(&a[1], &a[33])
-	fr.Butterfly(&a[2], &a[34])
-	fr.Butterfly(&a[3], &a[35])
-	fr.Butterfly(&a[4], &a[36])
-	fr.Butterfly(&a[5], &a[37])
-	fr.Butterfly(&a[6], &a[38])
-	fr.Butterfly(&a[7], &a[39])
-	fr.Butterfly(&a[8], &a[40])
-	fr.Butterfly(&a[9], &a[41])
-	fr.Butterfly(&a[10], &a[42])
-	fr.Butterfly(&a[11], &a[43])
-	fr.Butterfly(&a[12], &a[44])
-	fr.Butterfly(&a[13], &a[45])
-	fr.Butterfly(&a[14], &a[46])
-	fr.Butterfly(&a[15], &a[47])
-	fr.Butterfly(&a[16], &a[48])
-	fr.Butterfly(&a[17], &a[49])
-	fr.Butterfly(&a[18], &a[50])
-	fr.Butterfly(&a[19], &a[51])
-	fr.Butterfly(&a[20], &a[52])
-	fr.Butterfly(&a[21], &a[53])
-	fr.Butterfly(&a[22], &a[54])
-	fr.Butterfly(&a[23], &a[55])
-	fr.Butterfly(&a[24], &a[56])
-	fr.Butterfly(&a[25], &a[57])
-	fr.Butterfly(&a[26], &a[58])
-	fr.Butterfly(&a[27], &a[59])
-	fr.Butterfly(&a[28], &a[60])
-	fr.Butterfly(&a[29], &a[61])
-	fr.Butterfly(&a[30], &a[62])
-	fr.Butterfly(&a[31], &a[63])
-	a[16].Mul(&a[16], &twiddles[1])
-	a[17].Mul(&a[17], &twiddles[1])
-	a[18].Mul(&a[18], &twiddles[1])
-	a[19].Mul(&a[19], &twiddles[1])
-	a[20].Mul(&a[20], &twiddles[1])
-	a[21].Mul(&a[21], &twiddles[1])
-	a[22].Mul(&a[22], &twiddles[1])
-	a[23].Mul(&a[23], &twiddles[1])
-	a[24].Mul(&a[24], &twiddles[1])
-	a[25].Mul(&a[25], &twiddles[1])
-	a[26].Mul(&a[26], &twiddles[1])
-	a[27].Mul(&a[27], &twiddles[1])
-	a[28].Mul(&a[28], &twiddles[1])
-	a[29].Mul(&a[29], &twiddles[1])
-	a[30].Mul(&a[30], &twiddles[1])
-	a[31].Mul(&a[31], &twiddles[1])
-	a[48].Mul(&a[48], &twiddles[2])
-	a[49].Mul(&a[49], &twiddles[2])
-	a[50].Mul(&a[50], &twiddles[2])
-	a[51].Mul(&a[51], &twiddles[2])
-	a[52].Mul(&a[52], &twiddles[2])
-	a[53].Mul(&a[53], &twiddles[2])
-	a[54].Mul(&a[54], &twiddles[2])
-	a[55].Mul(&a[55], &twiddles[2])
-	a[56].Mul(&a[56], &twiddles[2])
-	a[57].Mul(&a[57], &twiddles[2])
-	a[58].Mul(&a[58], &twiddles[2])
-	a[59].Mul(&a[59], &twiddles[2])
-	a[60].Mul(&a[60], &twiddles[2])
-	a[61].Mul(&a[61], &twiddles[2])
-	a[62].Mul(&a[62], &twiddles[2])
-	a[63].Mul(&a[63], &twiddles[2])
-	fr.Butterfly(&a[0], &a[16])
-	fr.Butterfly(&a[1], &a[17])
-	fr.Butterfly(&a[2], &a[18])
-	fr.Butterfly(&a[3], &a[19])
-	fr.Butterfly(&a[4], &a[20])
-	fr.Butterfly(&a[5], &a[21])
-	fr.Butterfly(&a[6], &a[22])
-	fr.Butterfly(&a[7], &a[23])
-	fr.Butterfly(&a[8], &a[24])
-	fr.Butterfly(&a[9], &a[25])
-	fr.Butterfly(&a[10], &a[26])
-	fr.Butterfly(&a[11], &a[27])
-	fr.Butterfly(&a[12], &a[28])
-	fr.Butterfly(&a[13], &a[29])
-	fr.Butterfly(&a[14], &a[30])
-	fr.Butterfly(&a[15], &a[31])
-	fr.Butterfly(&a[32], &a[48])
-	fr.Butterfly(&a[33], &a[49])
-	fr.Butterfly(&a[34], &a[50])
-	fr.Butterfly(&a[35], &a[51])
-	fr.Butterfly(&a[36], &a[52])
-	fr.Butterfly(&a[37], &a[53])
-	fr.Butterfly(&a[38], &a[54])
-	fr.Butterfly(&a[39], &a[55])
-	fr.Butterfly(&a[40], &a[56])
-	fr.Butterfly(&a[41], &a[57])
-	fr.Butterfly(&a[42], &a[58])
-	fr.Butterfly(&a[43], &a[59])
-	fr.Butterfly(&a[44], &a[60])
-	fr.Butterfly(&a[45], &a[61])
-	fr.Butterfly(&a[46], &a[62])
-	fr.Butterfly(&a[47], &a[63])
-	a[8].Mul(&a[8], &twiddles[3])
-	a[9].Mul(&a[9], &twiddles[3])
-	a[10].Mul(&a[10], &twiddles[3])
-	a[11].Mul(&a[11], &twiddles[3])
-	a[12].Mul(&a[12], &twiddles[3])
-	a[13].Mul(&a[13], &twiddles[3])
-	a[14].Mul(&a[14], &twiddles[3])
-	a[15].Mul(&a[15], &twiddles[3])
-	a[24].Mul(&a[24], &twiddles[4])
-	a[25].Mul(&a[25], &twiddles[4])
-	a[26].Mul(&a[26], &twiddles[4])
-	a[27].Mul(&a[27], &twiddles[4])
-	a[28].Mul(&a[28], &twiddles[4])
-	a[29].Mul(&a[29], &twiddles[4])
-	a[30].Mul(&a[30], &twiddles[4])
-	a[31].Mul(&a[31], &twiddles[4])
-	a[40].Mul(&a[40], &twiddles[5])
-	a[41].Mul(&a[41], &twiddles[5])
-	a[42].Mul(&a[42], &twiddles[5])
-	a[43].Mul(&a[43], &twiddles[5])
-	a[44].Mul(&a[44], &twiddles[5])
-	a[45].Mul(&a[45], &twiddles[5])
-	a[46].Mul(&a[46], &twiddles[5])
-	a[47].Mul(&a[47], &twiddles[5])
-	a[56].Mul(&a[56], &twiddles[6])
-	a[57].Mul(&a[57], &twiddles[6])
-	a[58].Mul(&a[58], &twiddles[6])
-	a[59].Mul(&a[59], &twiddles[6])
-	a[60].Mul(&a[60], &twiddles[6])
-	a[61].Mul(&a[61], &twiddles[6])
-	a[62].Mul(&a[62], &twiddles[6])
-	a[63].Mul(&a[63], &twiddles[6])
-	fr.Butterfly(&a[0], &a[8])
-	fr.Butterfly(&a[1], &a[9])
-	fr.Butterfly(&a[2], &a[10])
-	fr.Butterfly(&a[3], &a[11])
-	fr.Butterfly(&a[4], &a[12])
-	fr.Butterfly(&a[5], &a[13])
-	fr.Butterfly(&a[6], &a[14])
-	fr.Butterfly(&a[7], &a[15])
-	fr.Butterfly(&a[16], &a[24])
-	fr.Butterfly(&a[17], &a[25])
-	fr.Butterfly(&a[18], &a[26])
-	fr.Butterfly(&a[19], &a[27])
-	fr.Butterfly(&a[20], &a[28])
-	fr.Butterfly(&a[21], &a[29])
-	fr.Butterfly(&a[22], &a[30])
-	fr.Butterfly(&a[23], &a[31])
-	fr.Butterfly(&a[32], &a[40])
-	fr.Butterfly(&a[33], &a[41])
-	fr.Butterfly(&a[34], &a[42])
-	fr.Butterfly(&a[35], &a[43])
-	fr.Butterfly(&a[36], &a[44])
-	fr.Butterfly(&a[37], &a[45])
-	fr.Butterfly(&a[38], &a[46])
-	fr.Butterfly(&a[39], &a[47])
-	fr.Butterfly(&a[48], &a[56])
-	fr.Butterfly(&a[49], &a[57])
-	fr.Butterfly(&a[50], &a[58])
-	fr.Butterfly(&a[51], &a[59])
-	fr.Butterfly(&a[52], &a[60])
-	fr.Butterfly(&a[53], &a[61])
-	fr.Butterfly(&a[54], &a[62])
-	fr.Butterfly(&a[55], &a[63])
-	a[4].Mul(&a[4], &twiddles[7])
-	a[5].Mul(&a[5], &twiddles[7])
-	a[6].Mul(&a[6], &twiddles[7])
-	a[7].Mul(&a[7], &twiddles[7])
-	a[12].Mul(&a[12], &twiddles[8])
-	a[13].Mul(&a[13], &twiddles[8])
-	a[14].Mul(&a[14], &twiddles[8])
-	a[15].Mul(&a[15], &twiddles[8])
-	a[20].Mul(&a[20], &twiddles[9])
-	a[21].Mul(&a[21], &twiddles[9])
-	a[22].Mul(&a[22], &twiddles[9])
-	a[23].Mul(&a[23], &twiddles[9])
-	a[28].Mul(&a[28], &twiddles[10])
-	a[29].Mul(&a[29], &twiddles[10])
-	a[30].Mul(&a[30], &twiddles[10])
-	a[31].Mul(&a[31], &twiddles[10])
-	a[36].Mul(&a[36], &twiddles[11])
-	a[37].Mul(&a[37], &twiddles[11])
-	a[38].Mul(&a[38], &twiddles[11])
-	a[39].Mul(&a[39], &twiddles[11])
-	a[44].Mul(&a[44], &twiddles[12])
-	a[45].Mul(&a[45], &twiddles[12])
-	a[46].Mul(&a[46], &twiddles[12])
-	a[47].Mul(&a[47], &twiddles[12])
-	a[52].Mul(&a[52], &twiddles[13])
-	a[53].Mul(&a[53], &twiddles[13])
-	a[54].Mul(&a[54], &twiddles[13])
-	a[55].Mul(&a[55], &twiddles[13])
-	a[60].Mul(&a[60], &twiddles[14])
-	a[61].Mul(&a[61], &twiddles[14])
-	a[62].Mul(&a[62], &twiddles[14])
-	a[63].Mul(&a[63], &twiddles[14])
-	fr.Butterfly(&a[0], &a[4])
-	fr.Butterfly(&a[1], &a[5])
-	fr.Butterfly(&a[2], &a[6])
-	fr.Butterfly(&a[3], &a[7])
-	fr.Butterfly(&a[8], &a[12])
-	fr.Butterfly(&a[9], &a[13])
-	fr.Butterfly(&a[10], &a[14])
-	fr.Butterfly(&a[11], &a[15])
-	fr.Butterfly(&a[16], &a[20])
-	fr.Butterfly(&a[17], &a[21])
-	fr.Butterfly(&a[18], &a[22])
-	fr.Butterfly(&a[19], &a[23])
-	fr.Butterfly(&a[24], &a[28])
-	fr.Butterfly(&a[25], &a[29])
-	fr.Butterfly(&a[26], &a[30])
-	fr.Butterfly(&a[27], &a[31])
-	fr.Butterfly(&a[32], &a[36])
-	fr.Butterfly(&a[33], &a[37])
-	fr.Butterfly(&a[34], &a[38])
-	fr.Butterfly(&a[35], &a[39])
-	fr.Butterfly(&a[40], &a[44])
-	fr.Butterfly(&a[41], &a[45])
-	fr.Butterfly(&a[42], &a[46])
-	fr.Butterfly(&a[43], &a[47])
-	fr.Butterfly(&a[48], &a[52])
-	fr.Butterfly(&a[49], &a[53])
-	fr.Butterfly(&a[50], &a[54])
-	fr.Butterfly(&a[51], &a[55])
-	fr.Butterfly(&a[56], &a[60])
-	fr.Butterfly(&a[57], &a[61])
-	fr.Butterfly(&a[58], &a[62])
-	fr.Butterfly(&a[59], &a[63])
-	a[2].Mul(&a[2], &twiddles[15])
-	a[3].Mul(&a[3], &twiddles[15])
-	a[6].Mul(&a[6], &twiddles[16])
-	a[7].Mul(&a[7], &twiddles[16])
-	a[10].Mul(&a[10], &twiddles[17])
-	a[11].Mul(&a[11], &twiddles[17])
-	a[14].Mul(&a[14], &twiddles[18])
-	a[15].Mul(&a[15], &twiddles[18])
-	a[18].Mul(&a[18], &twiddles[19])
-	a[19].Mul(&a[19], &twiddles[19])
-	a[22].Mul(&a[22], &twiddles[20])
-	a[23].Mul(&a[23], &twiddles[20])
-	a[26].Mul(&a[26], &twiddles[21])
-	a[27].Mul(&a[27], &twiddles[21])
-	a[30].Mul(&a[30], &twiddles[22])
-	a[31].Mul(&a[31], &twiddles[22])
-	a[34].Mul(&a[34], &twiddles[23])
-	a[35].Mul(&a[35], &twiddles[23])
-	a[38].Mul(&a[38], &twiddles[24])
-	a[39].Mul(&a[39], &twiddles[24])
-	a[42].Mul(&a[42], &twiddles[25])
-	a[43].Mul(&a[43], &twiddles[25])
-	a[46].Mul(&a[46], &twiddles[26])
-	a[47].Mul(&a[47], &twiddles[26])
-	a[50].Mul(&a[50], &twiddles[27])
-	a[51].Mul(&a[51], &twiddles[27])
-	a[54].Mul(&a[54], &twiddles[28])
-	a[55].Mul(&a[55], &twiddles[28])
-	a[58].Mul(&a[58], &twiddles[29])
-	a[59].Mul(&a[59], &twiddles[29])
-	a[62].Mul(&a[62], &twiddles[30])
-	a[63].Mul(&a[63], &twiddles[30])
-	fr.Butterfly(&a[0], &a[2])
-	fr.Butterfly(&a[1], &a[3])
-	fr.Butterfly(&a[4], &a[6])
-	fr.Butterfly(&a[5], &a[7])
-	fr.Butterfly(&a[8], &a[10])
-	fr.Butterfly(&a[9], &a[11])
-	fr.Butterfly(&a[12], &a[14])
-	fr.Butterfly(&a[13], &a[15])
-	fr.Butterfly(&a[16], &a[18])
-	fr.Butterfly(&a[17], &a[19])
-	fr.Butterfly(&a[20], &a[22])
-	fr.Butterfly(&a[21], &a[23])
-	fr.Butterfly(&a[24], &a[26])
-	fr.Butterfly(&a[25], &a[27])
-	fr.Butterfly(&a[28], &a[30])
-	fr.Butterfly(&a[29], &a[31])
-	fr.Butterfly(&a[32], &a[34])
-	fr.Butterfly(&a[33], &a[35])
-	fr.Butterfly(&a[36], &a[38])
-	fr.Butterfly(&a[37], &a[39])
-	fr.Butterfly(&a[40], &a[42])
-	fr.Butterfly(&a[41], &a[43])
-	fr.Butterfly(&a[44], &a[46])
-	fr.Butterfly(&a[45], &a[47])
-	fr.Butterfly(&a[48], &a[50])
-	fr.Butterfly(&a[49], &a[51])
-	fr.Butterfly(&a[52], &a[54])
-	fr.Butterfly(&a[53], &a[55])
-	fr.Butterfly(&a[56], &a[58])
-	fr.Butterfly(&a[57], &a[59])
-	fr.Butterfly(&a[60], &a[62])
-	fr.Butterfly(&a[61], &a[63])
-	a[1].Mul(&a[1], &twiddles[31])
-	a[3].Mul(&a[3], &twiddles[32])
-	a[5].Mul(&a[5], &twiddles[33])
-	a[7].Mul(&a[7], &twiddles[34])
-	a[9].Mul(&a[9], &twiddles[35])
-	a[11].Mul(&a[11], &twiddles[36])
-	a[13].Mul(&a[13], &twiddles[37])
-	a[15].Mul(&a[15], &twiddles[38])
-	a[17].Mul(&a[17], &twiddles[39])
-	a[19].Mul(&a[19], &twiddles[40])
-	a[21].Mul(&a[21], &twiddles[41])
-	a[23].Mul(&a[23], &twiddles[42])
-	a[25].Mul(&a[25], &twiddles[43])
-	a[27].Mul(&a[27], &twiddles[44])
-	a[29].Mul(&a[29], &twiddles[45])
-	a[31].Mul(&a[31], &twiddles[46])
-	a[33].Mul(&a[33], &twiddles[47])
-	a[35].Mul(&a[35], &twiddles[48])
-	a[37].Mul(&a[37], &twiddles[49])
-	a[39].Mul(&a[39], &twiddles[50])
-	a[41].Mul(&a[41], &twiddles[51])
-	a[43].Mul(&a[43], &twiddles[52])
-	a[45].Mul(&a[45], &twiddles[53])
-	a[47].Mul(&a[47], &twiddles[54])
-	a[49].Mul(&a[49], &twiddles[55])
-	a[51].Mul(&a[51], &twiddles[56])
-	a[53].Mul(&a[53], &twiddles[57])
-	a[55].Mul(&a[55], &twiddles[58])
-	a[57].Mul(&a[57], &twiddles[59])
-	a[59].Mul(&a[59], &twiddles[60])
-	a[61].Mul(&a[61], &twiddles[61])
-	a[63].Mul(&a[63], &twiddles[62])
-	fr.Butterfly(&a[0], &a[1])
-	fr.Butterfly(&a[2], &a[3])
-	fr.Butterfly(&a[4], &a[5])
-	fr.Butterfly(&a[6], &a[7])
-	fr.Butterfly(&a[8], &a[9])
-	fr.Butterfly(&a[10], &a[11])
-	fr.Butterfly(&a[12], &a[13])
-	fr.Butterfly(&a[14], &a[15])
-	fr.Butterfly(&a[16], &a[17])
-	fr.Butterfly(&a[18], &a[19])
-	fr.Butterfly(&a[20], &a[21])
-	fr.Butterfly(&a[22], &a[23])
-	fr.Butterfly(&a[24], &a[25])
-	fr.Butterfly(&a[26], &a[27])
-	fr.Butterfly(&a[28], &a[29])
-	fr.Butterfly(&a[30], &a[31])
-	fr.Butterfly(&a[32], &a[33])
-	fr.Butterfly(&a[34], &a[35])
-	fr.Butterfly(&a[36], &a[37])
-	fr.Butterfly(&a[38], &a[39])
-	fr.Butterfly(&a[40], &a[41])
-	fr.Butterfly(&a[42], &a[43])
-	fr.Butterfly(&a[44], &a[45])
-	fr.Butterfly(&a[46], &a[47])
-	fr.Butterfly(&a[48], &a[49])
-	fr.Butterfly(&a[50], &a[51])
-	fr.Butterfly(&a[52], &a[53])
-	fr.Butterfly(&a[54], &a[55])
-	fr.Butterfly(&a[56], &a[57])
-	fr.Butterfly(&a[58], &a[59])
-	fr.Butterfly(&a[60], &a[61])
-	fr.Butterfly(&a[62], &a[63])
+	// split 4: a[256:320] with twiddles[11]
+	for i := 256; i < 288; i++ {
+		a[i+32].Mul(&a[i+32], &twiddles[11])
+		koalabear.Butterfly(&a[i], &a[i+32])
+	}
+
+	// split 5: a[320:384] with twiddles[12]
+	for i := 320; i < 352; i++ {
+		a[i+32].Mul(&a[i+32], &twiddles[12])
+		koalabear.Butterfly(&a[i], &a[i+32])
+	}
+
+	// split 6: a[384:448] with twiddles[13]
+	for i := 384; i < 416; i++ {
+		a[i+32].Mul(&a[i+32], &twiddles[13])
+		koalabear.Butterfly(&a[i], &a[i+32])
+	}
+
+	// split 7: a[448:512] with twiddles[14]
+	for i := 448; i < 480; i++ {
+		a[i+32].Mul(&a[i+32], &twiddles[14])
+		koalabear.Butterfly(&a[i], &a[i+32])
+	}
+
+	//
+	// stage 4
+	//
+
+	// split 0: a[0:32] with twiddles[15]
+	for i := 0; i < 16; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[15])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	// split 1: a[32:64] with twiddles[16]
+	for i := 32; i < 48; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[16])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	// split 2: a[64:96] with twiddles[17]
+	for i := 64; i < 80; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[17])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	// split 3: a[96:128] with twiddles[18]
+	for i := 96; i < 112; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[18])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	// split 4: a[128:160] with twiddles[19]
+	for i := 128; i < 144; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[19])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	// split 5: a[160:192] with twiddles[20]
+	for i := 160; i < 176; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[20])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	// split 6: a[192:224] with twiddles[21]
+	for i := 192; i < 208; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[21])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	// split 7: a[224:256] with twiddles[22]
+	for i := 224; i < 240; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[22])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	// split 8: a[256:288] with twiddles[23]
+	for i := 256; i < 272; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[23])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	// split 9: a[288:320] with twiddles[24]
+	for i := 288; i < 304; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[24])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	// split 10: a[320:352] with twiddles[25]
+	for i := 320; i < 336; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[25])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	// split 11: a[352:384] with twiddles[26]
+	for i := 352; i < 368; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[26])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	// split 12: a[384:416] with twiddles[27]
+	for i := 384; i < 400; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[27])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	// split 13: a[416:448] with twiddles[28]
+	for i := 416; i < 432; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[28])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	// split 14: a[448:480] with twiddles[29]
+	for i := 448; i < 464; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[29])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	// split 15: a[480:512] with twiddles[30]
+	for i := 480; i < 496; i++ {
+		a[i+16].Mul(&a[i+16], &twiddles[30])
+		koalabear.Butterfly(&a[i], &a[i+16])
+	}
+
+	//
+	// stage 5
+	//
+
+	// split 0: a[0:16] with twiddles[31]
+	for i := 0; i < 8; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[31])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 1: a[16:32] with twiddles[32]
+	for i := 16; i < 24; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[32])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 2: a[32:48] with twiddles[33]
+	for i := 32; i < 40; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[33])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 3: a[48:64] with twiddles[34]
+	for i := 48; i < 56; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[34])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 4: a[64:80] with twiddles[35]
+	for i := 64; i < 72; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[35])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 5: a[80:96] with twiddles[36]
+	for i := 80; i < 88; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[36])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 6: a[96:112] with twiddles[37]
+	for i := 96; i < 104; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[37])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 7: a[112:128] with twiddles[38]
+	for i := 112; i < 120; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[38])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 8: a[128:144] with twiddles[39]
+	for i := 128; i < 136; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[39])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 9: a[144:160] with twiddles[40]
+	for i := 144; i < 152; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[40])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 10: a[160:176] with twiddles[41]
+	for i := 160; i < 168; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[41])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 11: a[176:192] with twiddles[42]
+	for i := 176; i < 184; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[42])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 12: a[192:208] with twiddles[43]
+	for i := 192; i < 200; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[43])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 13: a[208:224] with twiddles[44]
+	for i := 208; i < 216; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[44])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 14: a[224:240] with twiddles[45]
+	for i := 224; i < 232; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[45])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 15: a[240:256] with twiddles[46]
+	for i := 240; i < 248; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[46])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 16: a[256:272] with twiddles[47]
+	for i := 256; i < 264; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[47])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 17: a[272:288] with twiddles[48]
+	for i := 272; i < 280; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[48])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 18: a[288:304] with twiddles[49]
+	for i := 288; i < 296; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[49])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 19: a[304:320] with twiddles[50]
+	for i := 304; i < 312; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[50])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 20: a[320:336] with twiddles[51]
+	for i := 320; i < 328; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[51])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 21: a[336:352] with twiddles[52]
+	for i := 336; i < 344; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[52])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 22: a[352:368] with twiddles[53]
+	for i := 352; i < 360; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[53])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 23: a[368:384] with twiddles[54]
+	for i := 368; i < 376; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[54])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 24: a[384:400] with twiddles[55]
+	for i := 384; i < 392; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[55])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 25: a[400:416] with twiddles[56]
+	for i := 400; i < 408; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[56])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 26: a[416:432] with twiddles[57]
+	for i := 416; i < 424; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[57])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 27: a[432:448] with twiddles[58]
+	for i := 432; i < 440; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[58])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 28: a[448:464] with twiddles[59]
+	for i := 448; i < 456; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[59])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 29: a[464:480] with twiddles[60]
+	for i := 464; i < 472; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[60])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 30: a[480:496] with twiddles[61]
+	for i := 480; i < 488; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[61])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	// split 31: a[496:512] with twiddles[62]
+	for i := 496; i < 504; i++ {
+		a[i+8].Mul(&a[i+8], &twiddles[62])
+		koalabear.Butterfly(&a[i], &a[i+8])
+	}
+
+	//
+	// stage 6
+	//
+
+	// split 0: a[0:8] with twiddles[63]
+	for i := 0; i < 4; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[63])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 1: a[8:16] with twiddles[64]
+	for i := 8; i < 12; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[64])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 2: a[16:24] with twiddles[65]
+	for i := 16; i < 20; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[65])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 3: a[24:32] with twiddles[66]
+	for i := 24; i < 28; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[66])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 4: a[32:40] with twiddles[67]
+	for i := 32; i < 36; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[67])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 5: a[40:48] with twiddles[68]
+	for i := 40; i < 44; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[68])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 6: a[48:56] with twiddles[69]
+	for i := 48; i < 52; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[69])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 7: a[56:64] with twiddles[70]
+	for i := 56; i < 60; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[70])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 8: a[64:72] with twiddles[71]
+	for i := 64; i < 68; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[71])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 9: a[72:80] with twiddles[72]
+	for i := 72; i < 76; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[72])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 10: a[80:88] with twiddles[73]
+	for i := 80; i < 84; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[73])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 11: a[88:96] with twiddles[74]
+	for i := 88; i < 92; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[74])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 12: a[96:104] with twiddles[75]
+	for i := 96; i < 100; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[75])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 13: a[104:112] with twiddles[76]
+	for i := 104; i < 108; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[76])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 14: a[112:120] with twiddles[77]
+	for i := 112; i < 116; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[77])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 15: a[120:128] with twiddles[78]
+	for i := 120; i < 124; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[78])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 16: a[128:136] with twiddles[79]
+	for i := 128; i < 132; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[79])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 17: a[136:144] with twiddles[80]
+	for i := 136; i < 140; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[80])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 18: a[144:152] with twiddles[81]
+	for i := 144; i < 148; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[81])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 19: a[152:160] with twiddles[82]
+	for i := 152; i < 156; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[82])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 20: a[160:168] with twiddles[83]
+	for i := 160; i < 164; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[83])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 21: a[168:176] with twiddles[84]
+	for i := 168; i < 172; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[84])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 22: a[176:184] with twiddles[85]
+	for i := 176; i < 180; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[85])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 23: a[184:192] with twiddles[86]
+	for i := 184; i < 188; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[86])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 24: a[192:200] with twiddles[87]
+	for i := 192; i < 196; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[87])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 25: a[200:208] with twiddles[88]
+	for i := 200; i < 204; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[88])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 26: a[208:216] with twiddles[89]
+	for i := 208; i < 212; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[89])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 27: a[216:224] with twiddles[90]
+	for i := 216; i < 220; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[90])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 28: a[224:232] with twiddles[91]
+	for i := 224; i < 228; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[91])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 29: a[232:240] with twiddles[92]
+	for i := 232; i < 236; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[92])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 30: a[240:248] with twiddles[93]
+	for i := 240; i < 244; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[93])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 31: a[248:256] with twiddles[94]
+	for i := 248; i < 252; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[94])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 32: a[256:264] with twiddles[95]
+	for i := 256; i < 260; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[95])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 33: a[264:272] with twiddles[96]
+	for i := 264; i < 268; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[96])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 34: a[272:280] with twiddles[97]
+	for i := 272; i < 276; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[97])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 35: a[280:288] with twiddles[98]
+	for i := 280; i < 284; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[98])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 36: a[288:296] with twiddles[99]
+	for i := 288; i < 292; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[99])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 37: a[296:304] with twiddles[100]
+	for i := 296; i < 300; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[100])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 38: a[304:312] with twiddles[101]
+	for i := 304; i < 308; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[101])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 39: a[312:320] with twiddles[102]
+	for i := 312; i < 316; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[102])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 40: a[320:328] with twiddles[103]
+	for i := 320; i < 324; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[103])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 41: a[328:336] with twiddles[104]
+	for i := 328; i < 332; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[104])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 42: a[336:344] with twiddles[105]
+	for i := 336; i < 340; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[105])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 43: a[344:352] with twiddles[106]
+	for i := 344; i < 348; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[106])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 44: a[352:360] with twiddles[107]
+	for i := 352; i < 356; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[107])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 45: a[360:368] with twiddles[108]
+	for i := 360; i < 364; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[108])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 46: a[368:376] with twiddles[109]
+	for i := 368; i < 372; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[109])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 47: a[376:384] with twiddles[110]
+	for i := 376; i < 380; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[110])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 48: a[384:392] with twiddles[111]
+	for i := 384; i < 388; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[111])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 49: a[392:400] with twiddles[112]
+	for i := 392; i < 396; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[112])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 50: a[400:408] with twiddles[113]
+	for i := 400; i < 404; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[113])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 51: a[408:416] with twiddles[114]
+	for i := 408; i < 412; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[114])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 52: a[416:424] with twiddles[115]
+	for i := 416; i < 420; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[115])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 53: a[424:432] with twiddles[116]
+	for i := 424; i < 428; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[116])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 54: a[432:440] with twiddles[117]
+	for i := 432; i < 436; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[117])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 55: a[440:448] with twiddles[118]
+	for i := 440; i < 444; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[118])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 56: a[448:456] with twiddles[119]
+	for i := 448; i < 452; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[119])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 57: a[456:464] with twiddles[120]
+	for i := 456; i < 460; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[120])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 58: a[464:472] with twiddles[121]
+	for i := 464; i < 468; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[121])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 59: a[472:480] with twiddles[122]
+	for i := 472; i < 476; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[122])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 60: a[480:488] with twiddles[123]
+	for i := 480; i < 484; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[123])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 61: a[488:496] with twiddles[124]
+	for i := 488; i < 492; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[124])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 62: a[496:504] with twiddles[125]
+	for i := 496; i < 500; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[125])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	// split 63: a[504:512] with twiddles[126]
+	for i := 504; i < 508; i++ {
+		a[i+4].Mul(&a[i+4], &twiddles[126])
+		koalabear.Butterfly(&a[i], &a[i+4])
+	}
+
+	//
+	// stage 7
+	//
+
+	// split 0: a[0:4] with twiddles[127]
+	for i := 0; i < 2; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[127])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 1: a[4:8] with twiddles[128]
+	for i := 4; i < 6; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[128])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 2: a[8:12] with twiddles[129]
+	for i := 8; i < 10; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[129])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 3: a[12:16] with twiddles[130]
+	for i := 12; i < 14; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[130])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 4: a[16:20] with twiddles[131]
+	for i := 16; i < 18; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[131])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 5: a[20:24] with twiddles[132]
+	for i := 20; i < 22; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[132])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 6: a[24:28] with twiddles[133]
+	for i := 24; i < 26; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[133])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 7: a[28:32] with twiddles[134]
+	for i := 28; i < 30; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[134])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 8: a[32:36] with twiddles[135]
+	for i := 32; i < 34; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[135])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 9: a[36:40] with twiddles[136]
+	for i := 36; i < 38; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[136])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 10: a[40:44] with twiddles[137]
+	for i := 40; i < 42; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[137])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 11: a[44:48] with twiddles[138]
+	for i := 44; i < 46; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[138])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 12: a[48:52] with twiddles[139]
+	for i := 48; i < 50; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[139])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 13: a[52:56] with twiddles[140]
+	for i := 52; i < 54; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[140])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 14: a[56:60] with twiddles[141]
+	for i := 56; i < 58; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[141])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 15: a[60:64] with twiddles[142]
+	for i := 60; i < 62; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[142])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 16: a[64:68] with twiddles[143]
+	for i := 64; i < 66; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[143])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 17: a[68:72] with twiddles[144]
+	for i := 68; i < 70; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[144])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 18: a[72:76] with twiddles[145]
+	for i := 72; i < 74; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[145])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 19: a[76:80] with twiddles[146]
+	for i := 76; i < 78; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[146])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 20: a[80:84] with twiddles[147]
+	for i := 80; i < 82; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[147])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 21: a[84:88] with twiddles[148]
+	for i := 84; i < 86; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[148])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 22: a[88:92] with twiddles[149]
+	for i := 88; i < 90; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[149])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 23: a[92:96] with twiddles[150]
+	for i := 92; i < 94; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[150])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 24: a[96:100] with twiddles[151]
+	for i := 96; i < 98; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[151])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 25: a[100:104] with twiddles[152]
+	for i := 100; i < 102; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[152])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 26: a[104:108] with twiddles[153]
+	for i := 104; i < 106; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[153])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 27: a[108:112] with twiddles[154]
+	for i := 108; i < 110; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[154])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 28: a[112:116] with twiddles[155]
+	for i := 112; i < 114; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[155])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 29: a[116:120] with twiddles[156]
+	for i := 116; i < 118; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[156])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 30: a[120:124] with twiddles[157]
+	for i := 120; i < 122; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[157])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 31: a[124:128] with twiddles[158]
+	for i := 124; i < 126; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[158])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 32: a[128:132] with twiddles[159]
+	for i := 128; i < 130; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[159])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 33: a[132:136] with twiddles[160]
+	for i := 132; i < 134; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[160])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 34: a[136:140] with twiddles[161]
+	for i := 136; i < 138; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[161])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 35: a[140:144] with twiddles[162]
+	for i := 140; i < 142; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[162])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 36: a[144:148] with twiddles[163]
+	for i := 144; i < 146; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[163])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 37: a[148:152] with twiddles[164]
+	for i := 148; i < 150; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[164])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 38: a[152:156] with twiddles[165]
+	for i := 152; i < 154; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[165])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 39: a[156:160] with twiddles[166]
+	for i := 156; i < 158; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[166])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 40: a[160:164] with twiddles[167]
+	for i := 160; i < 162; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[167])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 41: a[164:168] with twiddles[168]
+	for i := 164; i < 166; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[168])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 42: a[168:172] with twiddles[169]
+	for i := 168; i < 170; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[169])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 43: a[172:176] with twiddles[170]
+	for i := 172; i < 174; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[170])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 44: a[176:180] with twiddles[171]
+	for i := 176; i < 178; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[171])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 45: a[180:184] with twiddles[172]
+	for i := 180; i < 182; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[172])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 46: a[184:188] with twiddles[173]
+	for i := 184; i < 186; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[173])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 47: a[188:192] with twiddles[174]
+	for i := 188; i < 190; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[174])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 48: a[192:196] with twiddles[175]
+	for i := 192; i < 194; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[175])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 49: a[196:200] with twiddles[176]
+	for i := 196; i < 198; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[176])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 50: a[200:204] with twiddles[177]
+	for i := 200; i < 202; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[177])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 51: a[204:208] with twiddles[178]
+	for i := 204; i < 206; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[178])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 52: a[208:212] with twiddles[179]
+	for i := 208; i < 210; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[179])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 53: a[212:216] with twiddles[180]
+	for i := 212; i < 214; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[180])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 54: a[216:220] with twiddles[181]
+	for i := 216; i < 218; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[181])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 55: a[220:224] with twiddles[182]
+	for i := 220; i < 222; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[182])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 56: a[224:228] with twiddles[183]
+	for i := 224; i < 226; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[183])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 57: a[228:232] with twiddles[184]
+	for i := 228; i < 230; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[184])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 58: a[232:236] with twiddles[185]
+	for i := 232; i < 234; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[185])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 59: a[236:240] with twiddles[186]
+	for i := 236; i < 238; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[186])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 60: a[240:244] with twiddles[187]
+	for i := 240; i < 242; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[187])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 61: a[244:248] with twiddles[188]
+	for i := 244; i < 246; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[188])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 62: a[248:252] with twiddles[189]
+	for i := 248; i < 250; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[189])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 63: a[252:256] with twiddles[190]
+	for i := 252; i < 254; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[190])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 64: a[256:260] with twiddles[191]
+	for i := 256; i < 258; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[191])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 65: a[260:264] with twiddles[192]
+	for i := 260; i < 262; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[192])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 66: a[264:268] with twiddles[193]
+	for i := 264; i < 266; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[193])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 67: a[268:272] with twiddles[194]
+	for i := 268; i < 270; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[194])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 68: a[272:276] with twiddles[195]
+	for i := 272; i < 274; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[195])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 69: a[276:280] with twiddles[196]
+	for i := 276; i < 278; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[196])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 70: a[280:284] with twiddles[197]
+	for i := 280; i < 282; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[197])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 71: a[284:288] with twiddles[198]
+	for i := 284; i < 286; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[198])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 72: a[288:292] with twiddles[199]
+	for i := 288; i < 290; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[199])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 73: a[292:296] with twiddles[200]
+	for i := 292; i < 294; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[200])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 74: a[296:300] with twiddles[201]
+	for i := 296; i < 298; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[201])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 75: a[300:304] with twiddles[202]
+	for i := 300; i < 302; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[202])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 76: a[304:308] with twiddles[203]
+	for i := 304; i < 306; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[203])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 77: a[308:312] with twiddles[204]
+	for i := 308; i < 310; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[204])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 78: a[312:316] with twiddles[205]
+	for i := 312; i < 314; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[205])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 79: a[316:320] with twiddles[206]
+	for i := 316; i < 318; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[206])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 80: a[320:324] with twiddles[207]
+	for i := 320; i < 322; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[207])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 81: a[324:328] with twiddles[208]
+	for i := 324; i < 326; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[208])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 82: a[328:332] with twiddles[209]
+	for i := 328; i < 330; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[209])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 83: a[332:336] with twiddles[210]
+	for i := 332; i < 334; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[210])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 84: a[336:340] with twiddles[211]
+	for i := 336; i < 338; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[211])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 85: a[340:344] with twiddles[212]
+	for i := 340; i < 342; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[212])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 86: a[344:348] with twiddles[213]
+	for i := 344; i < 346; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[213])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 87: a[348:352] with twiddles[214]
+	for i := 348; i < 350; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[214])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 88: a[352:356] with twiddles[215]
+	for i := 352; i < 354; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[215])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 89: a[356:360] with twiddles[216]
+	for i := 356; i < 358; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[216])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 90: a[360:364] with twiddles[217]
+	for i := 360; i < 362; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[217])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 91: a[364:368] with twiddles[218]
+	for i := 364; i < 366; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[218])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 92: a[368:372] with twiddles[219]
+	for i := 368; i < 370; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[219])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 93: a[372:376] with twiddles[220]
+	for i := 372; i < 374; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[220])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 94: a[376:380] with twiddles[221]
+	for i := 376; i < 378; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[221])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 95: a[380:384] with twiddles[222]
+	for i := 380; i < 382; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[222])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 96: a[384:388] with twiddles[223]
+	for i := 384; i < 386; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[223])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 97: a[388:392] with twiddles[224]
+	for i := 388; i < 390; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[224])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 98: a[392:396] with twiddles[225]
+	for i := 392; i < 394; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[225])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 99: a[396:400] with twiddles[226]
+	for i := 396; i < 398; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[226])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 100: a[400:404] with twiddles[227]
+	for i := 400; i < 402; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[227])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 101: a[404:408] with twiddles[228]
+	for i := 404; i < 406; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[228])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 102: a[408:412] with twiddles[229]
+	for i := 408; i < 410; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[229])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 103: a[412:416] with twiddles[230]
+	for i := 412; i < 414; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[230])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 104: a[416:420] with twiddles[231]
+	for i := 416; i < 418; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[231])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 105: a[420:424] with twiddles[232]
+	for i := 420; i < 422; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[232])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 106: a[424:428] with twiddles[233]
+	for i := 424; i < 426; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[233])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 107: a[428:432] with twiddles[234]
+	for i := 428; i < 430; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[234])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 108: a[432:436] with twiddles[235]
+	for i := 432; i < 434; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[235])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 109: a[436:440] with twiddles[236]
+	for i := 436; i < 438; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[236])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 110: a[440:444] with twiddles[237]
+	for i := 440; i < 442; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[237])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 111: a[444:448] with twiddles[238]
+	for i := 444; i < 446; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[238])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 112: a[448:452] with twiddles[239]
+	for i := 448; i < 450; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[239])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 113: a[452:456] with twiddles[240]
+	for i := 452; i < 454; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[240])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 114: a[456:460] with twiddles[241]
+	for i := 456; i < 458; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[241])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 115: a[460:464] with twiddles[242]
+	for i := 460; i < 462; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[242])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 116: a[464:468] with twiddles[243]
+	for i := 464; i < 466; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[243])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 117: a[468:472] with twiddles[244]
+	for i := 468; i < 470; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[244])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 118: a[472:476] with twiddles[245]
+	for i := 472; i < 474; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[245])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 119: a[476:480] with twiddles[246]
+	for i := 476; i < 478; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[246])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 120: a[480:484] with twiddles[247]
+	for i := 480; i < 482; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[247])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 121: a[484:488] with twiddles[248]
+	for i := 484; i < 486; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[248])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 122: a[488:492] with twiddles[249]
+	for i := 488; i < 490; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[249])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 123: a[492:496] with twiddles[250]
+	for i := 492; i < 494; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[250])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 124: a[496:500] with twiddles[251]
+	for i := 496; i < 498; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[251])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 125: a[500:504] with twiddles[252]
+	for i := 500; i < 502; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[252])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 126: a[504:508] with twiddles[253]
+	for i := 504; i < 506; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[253])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	// split 127: a[508:512] with twiddles[254]
+	for i := 508; i < 510; i++ {
+		a[i+2].Mul(&a[i+2], &twiddles[254])
+		koalabear.Butterfly(&a[i], &a[i+2])
+	}
+
+	//
+	// stage 8
+	//
+
+	// split 0: a[0:2] with twiddles[255]
+	for i := 0; i < 1; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[255])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 1: a[2:4] with twiddles[256]
+	for i := 2; i < 3; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[256])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 2: a[4:6] with twiddles[257]
+	for i := 4; i < 5; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[257])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 3: a[6:8] with twiddles[258]
+	for i := 6; i < 7; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[258])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 4: a[8:10] with twiddles[259]
+	for i := 8; i < 9; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[259])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 5: a[10:12] with twiddles[260]
+	for i := 10; i < 11; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[260])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 6: a[12:14] with twiddles[261]
+	for i := 12; i < 13; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[261])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 7: a[14:16] with twiddles[262]
+	for i := 14; i < 15; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[262])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 8: a[16:18] with twiddles[263]
+	for i := 16; i < 17; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[263])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 9: a[18:20] with twiddles[264]
+	for i := 18; i < 19; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[264])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 10: a[20:22] with twiddles[265]
+	for i := 20; i < 21; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[265])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 11: a[22:24] with twiddles[266]
+	for i := 22; i < 23; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[266])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 12: a[24:26] with twiddles[267]
+	for i := 24; i < 25; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[267])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 13: a[26:28] with twiddles[268]
+	for i := 26; i < 27; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[268])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 14: a[28:30] with twiddles[269]
+	for i := 28; i < 29; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[269])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 15: a[30:32] with twiddles[270]
+	for i := 30; i < 31; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[270])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 16: a[32:34] with twiddles[271]
+	for i := 32; i < 33; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[271])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 17: a[34:36] with twiddles[272]
+	for i := 34; i < 35; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[272])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 18: a[36:38] with twiddles[273]
+	for i := 36; i < 37; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[273])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 19: a[38:40] with twiddles[274]
+	for i := 38; i < 39; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[274])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 20: a[40:42] with twiddles[275]
+	for i := 40; i < 41; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[275])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 21: a[42:44] with twiddles[276]
+	for i := 42; i < 43; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[276])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 22: a[44:46] with twiddles[277]
+	for i := 44; i < 45; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[277])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 23: a[46:48] with twiddles[278]
+	for i := 46; i < 47; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[278])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 24: a[48:50] with twiddles[279]
+	for i := 48; i < 49; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[279])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 25: a[50:52] with twiddles[280]
+	for i := 50; i < 51; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[280])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 26: a[52:54] with twiddles[281]
+	for i := 52; i < 53; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[281])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 27: a[54:56] with twiddles[282]
+	for i := 54; i < 55; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[282])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 28: a[56:58] with twiddles[283]
+	for i := 56; i < 57; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[283])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 29: a[58:60] with twiddles[284]
+	for i := 58; i < 59; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[284])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 30: a[60:62] with twiddles[285]
+	for i := 60; i < 61; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[285])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 31: a[62:64] with twiddles[286]
+	for i := 62; i < 63; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[286])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 32: a[64:66] with twiddles[287]
+	for i := 64; i < 65; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[287])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 33: a[66:68] with twiddles[288]
+	for i := 66; i < 67; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[288])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 34: a[68:70] with twiddles[289]
+	for i := 68; i < 69; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[289])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 35: a[70:72] with twiddles[290]
+	for i := 70; i < 71; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[290])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 36: a[72:74] with twiddles[291]
+	for i := 72; i < 73; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[291])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 37: a[74:76] with twiddles[292]
+	for i := 74; i < 75; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[292])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 38: a[76:78] with twiddles[293]
+	for i := 76; i < 77; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[293])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 39: a[78:80] with twiddles[294]
+	for i := 78; i < 79; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[294])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 40: a[80:82] with twiddles[295]
+	for i := 80; i < 81; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[295])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 41: a[82:84] with twiddles[296]
+	for i := 82; i < 83; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[296])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 42: a[84:86] with twiddles[297]
+	for i := 84; i < 85; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[297])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 43: a[86:88] with twiddles[298]
+	for i := 86; i < 87; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[298])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 44: a[88:90] with twiddles[299]
+	for i := 88; i < 89; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[299])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 45: a[90:92] with twiddles[300]
+	for i := 90; i < 91; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[300])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 46: a[92:94] with twiddles[301]
+	for i := 92; i < 93; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[301])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 47: a[94:96] with twiddles[302]
+	for i := 94; i < 95; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[302])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 48: a[96:98] with twiddles[303]
+	for i := 96; i < 97; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[303])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 49: a[98:100] with twiddles[304]
+	for i := 98; i < 99; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[304])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 50: a[100:102] with twiddles[305]
+	for i := 100; i < 101; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[305])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 51: a[102:104] with twiddles[306]
+	for i := 102; i < 103; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[306])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 52: a[104:106] with twiddles[307]
+	for i := 104; i < 105; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[307])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 53: a[106:108] with twiddles[308]
+	for i := 106; i < 107; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[308])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 54: a[108:110] with twiddles[309]
+	for i := 108; i < 109; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[309])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 55: a[110:112] with twiddles[310]
+	for i := 110; i < 111; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[310])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 56: a[112:114] with twiddles[311]
+	for i := 112; i < 113; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[311])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 57: a[114:116] with twiddles[312]
+	for i := 114; i < 115; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[312])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 58: a[116:118] with twiddles[313]
+	for i := 116; i < 117; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[313])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 59: a[118:120] with twiddles[314]
+	for i := 118; i < 119; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[314])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 60: a[120:122] with twiddles[315]
+	for i := 120; i < 121; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[315])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 61: a[122:124] with twiddles[316]
+	for i := 122; i < 123; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[316])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 62: a[124:126] with twiddles[317]
+	for i := 124; i < 125; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[317])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 63: a[126:128] with twiddles[318]
+	for i := 126; i < 127; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[318])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 64: a[128:130] with twiddles[319]
+	for i := 128; i < 129; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[319])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 65: a[130:132] with twiddles[320]
+	for i := 130; i < 131; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[320])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 66: a[132:134] with twiddles[321]
+	for i := 132; i < 133; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[321])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 67: a[134:136] with twiddles[322]
+	for i := 134; i < 135; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[322])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 68: a[136:138] with twiddles[323]
+	for i := 136; i < 137; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[323])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 69: a[138:140] with twiddles[324]
+	for i := 138; i < 139; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[324])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 70: a[140:142] with twiddles[325]
+	for i := 140; i < 141; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[325])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 71: a[142:144] with twiddles[326]
+	for i := 142; i < 143; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[326])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 72: a[144:146] with twiddles[327]
+	for i := 144; i < 145; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[327])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 73: a[146:148] with twiddles[328]
+	for i := 146; i < 147; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[328])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 74: a[148:150] with twiddles[329]
+	for i := 148; i < 149; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[329])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 75: a[150:152] with twiddles[330]
+	for i := 150; i < 151; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[330])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 76: a[152:154] with twiddles[331]
+	for i := 152; i < 153; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[331])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 77: a[154:156] with twiddles[332]
+	for i := 154; i < 155; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[332])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 78: a[156:158] with twiddles[333]
+	for i := 156; i < 157; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[333])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 79: a[158:160] with twiddles[334]
+	for i := 158; i < 159; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[334])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 80: a[160:162] with twiddles[335]
+	for i := 160; i < 161; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[335])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 81: a[162:164] with twiddles[336]
+	for i := 162; i < 163; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[336])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 82: a[164:166] with twiddles[337]
+	for i := 164; i < 165; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[337])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 83: a[166:168] with twiddles[338]
+	for i := 166; i < 167; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[338])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 84: a[168:170] with twiddles[339]
+	for i := 168; i < 169; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[339])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 85: a[170:172] with twiddles[340]
+	for i := 170; i < 171; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[340])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 86: a[172:174] with twiddles[341]
+	for i := 172; i < 173; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[341])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 87: a[174:176] with twiddles[342]
+	for i := 174; i < 175; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[342])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 88: a[176:178] with twiddles[343]
+	for i := 176; i < 177; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[343])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 89: a[178:180] with twiddles[344]
+	for i := 178; i < 179; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[344])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 90: a[180:182] with twiddles[345]
+	for i := 180; i < 181; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[345])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 91: a[182:184] with twiddles[346]
+	for i := 182; i < 183; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[346])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 92: a[184:186] with twiddles[347]
+	for i := 184; i < 185; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[347])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 93: a[186:188] with twiddles[348]
+	for i := 186; i < 187; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[348])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 94: a[188:190] with twiddles[349]
+	for i := 188; i < 189; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[349])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 95: a[190:192] with twiddles[350]
+	for i := 190; i < 191; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[350])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 96: a[192:194] with twiddles[351]
+	for i := 192; i < 193; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[351])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 97: a[194:196] with twiddles[352]
+	for i := 194; i < 195; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[352])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 98: a[196:198] with twiddles[353]
+	for i := 196; i < 197; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[353])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 99: a[198:200] with twiddles[354]
+	for i := 198; i < 199; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[354])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 100: a[200:202] with twiddles[355]
+	for i := 200; i < 201; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[355])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 101: a[202:204] with twiddles[356]
+	for i := 202; i < 203; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[356])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 102: a[204:206] with twiddles[357]
+	for i := 204; i < 205; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[357])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 103: a[206:208] with twiddles[358]
+	for i := 206; i < 207; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[358])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 104: a[208:210] with twiddles[359]
+	for i := 208; i < 209; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[359])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 105: a[210:212] with twiddles[360]
+	for i := 210; i < 211; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[360])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 106: a[212:214] with twiddles[361]
+	for i := 212; i < 213; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[361])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 107: a[214:216] with twiddles[362]
+	for i := 214; i < 215; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[362])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 108: a[216:218] with twiddles[363]
+	for i := 216; i < 217; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[363])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 109: a[218:220] with twiddles[364]
+	for i := 218; i < 219; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[364])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 110: a[220:222] with twiddles[365]
+	for i := 220; i < 221; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[365])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 111: a[222:224] with twiddles[366]
+	for i := 222; i < 223; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[366])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 112: a[224:226] with twiddles[367]
+	for i := 224; i < 225; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[367])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 113: a[226:228] with twiddles[368]
+	for i := 226; i < 227; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[368])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 114: a[228:230] with twiddles[369]
+	for i := 228; i < 229; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[369])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 115: a[230:232] with twiddles[370]
+	for i := 230; i < 231; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[370])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 116: a[232:234] with twiddles[371]
+	for i := 232; i < 233; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[371])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 117: a[234:236] with twiddles[372]
+	for i := 234; i < 235; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[372])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 118: a[236:238] with twiddles[373]
+	for i := 236; i < 237; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[373])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 119: a[238:240] with twiddles[374]
+	for i := 238; i < 239; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[374])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 120: a[240:242] with twiddles[375]
+	for i := 240; i < 241; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[375])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 121: a[242:244] with twiddles[376]
+	for i := 242; i < 243; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[376])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 122: a[244:246] with twiddles[377]
+	for i := 244; i < 245; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[377])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 123: a[246:248] with twiddles[378]
+	for i := 246; i < 247; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[378])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 124: a[248:250] with twiddles[379]
+	for i := 248; i < 249; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[379])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 125: a[250:252] with twiddles[380]
+	for i := 250; i < 251; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[380])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 126: a[252:254] with twiddles[381]
+	for i := 252; i < 253; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[381])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 127: a[254:256] with twiddles[382]
+	for i := 254; i < 255; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[382])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 128: a[256:258] with twiddles[383]
+	for i := 256; i < 257; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[383])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 129: a[258:260] with twiddles[384]
+	for i := 258; i < 259; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[384])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 130: a[260:262] with twiddles[385]
+	for i := 260; i < 261; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[385])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 131: a[262:264] with twiddles[386]
+	for i := 262; i < 263; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[386])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 132: a[264:266] with twiddles[387]
+	for i := 264; i < 265; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[387])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 133: a[266:268] with twiddles[388]
+	for i := 266; i < 267; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[388])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 134: a[268:270] with twiddles[389]
+	for i := 268; i < 269; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[389])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 135: a[270:272] with twiddles[390]
+	for i := 270; i < 271; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[390])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 136: a[272:274] with twiddles[391]
+	for i := 272; i < 273; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[391])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 137: a[274:276] with twiddles[392]
+	for i := 274; i < 275; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[392])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 138: a[276:278] with twiddles[393]
+	for i := 276; i < 277; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[393])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 139: a[278:280] with twiddles[394]
+	for i := 278; i < 279; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[394])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 140: a[280:282] with twiddles[395]
+	for i := 280; i < 281; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[395])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 141: a[282:284] with twiddles[396]
+	for i := 282; i < 283; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[396])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 142: a[284:286] with twiddles[397]
+	for i := 284; i < 285; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[397])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 143: a[286:288] with twiddles[398]
+	for i := 286; i < 287; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[398])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 144: a[288:290] with twiddles[399]
+	for i := 288; i < 289; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[399])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 145: a[290:292] with twiddles[400]
+	for i := 290; i < 291; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[400])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 146: a[292:294] with twiddles[401]
+	for i := 292; i < 293; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[401])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 147: a[294:296] with twiddles[402]
+	for i := 294; i < 295; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[402])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 148: a[296:298] with twiddles[403]
+	for i := 296; i < 297; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[403])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 149: a[298:300] with twiddles[404]
+	for i := 298; i < 299; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[404])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 150: a[300:302] with twiddles[405]
+	for i := 300; i < 301; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[405])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 151: a[302:304] with twiddles[406]
+	for i := 302; i < 303; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[406])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 152: a[304:306] with twiddles[407]
+	for i := 304; i < 305; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[407])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 153: a[306:308] with twiddles[408]
+	for i := 306; i < 307; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[408])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 154: a[308:310] with twiddles[409]
+	for i := 308; i < 309; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[409])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 155: a[310:312] with twiddles[410]
+	for i := 310; i < 311; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[410])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 156: a[312:314] with twiddles[411]
+	for i := 312; i < 313; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[411])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 157: a[314:316] with twiddles[412]
+	for i := 314; i < 315; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[412])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 158: a[316:318] with twiddles[413]
+	for i := 316; i < 317; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[413])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 159: a[318:320] with twiddles[414]
+	for i := 318; i < 319; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[414])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 160: a[320:322] with twiddles[415]
+	for i := 320; i < 321; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[415])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 161: a[322:324] with twiddles[416]
+	for i := 322; i < 323; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[416])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 162: a[324:326] with twiddles[417]
+	for i := 324; i < 325; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[417])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 163: a[326:328] with twiddles[418]
+	for i := 326; i < 327; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[418])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 164: a[328:330] with twiddles[419]
+	for i := 328; i < 329; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[419])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 165: a[330:332] with twiddles[420]
+	for i := 330; i < 331; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[420])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 166: a[332:334] with twiddles[421]
+	for i := 332; i < 333; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[421])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 167: a[334:336] with twiddles[422]
+	for i := 334; i < 335; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[422])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 168: a[336:338] with twiddles[423]
+	for i := 336; i < 337; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[423])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 169: a[338:340] with twiddles[424]
+	for i := 338; i < 339; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[424])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 170: a[340:342] with twiddles[425]
+	for i := 340; i < 341; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[425])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 171: a[342:344] with twiddles[426]
+	for i := 342; i < 343; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[426])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 172: a[344:346] with twiddles[427]
+	for i := 344; i < 345; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[427])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 173: a[346:348] with twiddles[428]
+	for i := 346; i < 347; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[428])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 174: a[348:350] with twiddles[429]
+	for i := 348; i < 349; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[429])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 175: a[350:352] with twiddles[430]
+	for i := 350; i < 351; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[430])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 176: a[352:354] with twiddles[431]
+	for i := 352; i < 353; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[431])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 177: a[354:356] with twiddles[432]
+	for i := 354; i < 355; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[432])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 178: a[356:358] with twiddles[433]
+	for i := 356; i < 357; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[433])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 179: a[358:360] with twiddles[434]
+	for i := 358; i < 359; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[434])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 180: a[360:362] with twiddles[435]
+	for i := 360; i < 361; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[435])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 181: a[362:364] with twiddles[436]
+	for i := 362; i < 363; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[436])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 182: a[364:366] with twiddles[437]
+	for i := 364; i < 365; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[437])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 183: a[366:368] with twiddles[438]
+	for i := 366; i < 367; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[438])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 184: a[368:370] with twiddles[439]
+	for i := 368; i < 369; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[439])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 185: a[370:372] with twiddles[440]
+	for i := 370; i < 371; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[440])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 186: a[372:374] with twiddles[441]
+	for i := 372; i < 373; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[441])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 187: a[374:376] with twiddles[442]
+	for i := 374; i < 375; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[442])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 188: a[376:378] with twiddles[443]
+	for i := 376; i < 377; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[443])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 189: a[378:380] with twiddles[444]
+	for i := 378; i < 379; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[444])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 190: a[380:382] with twiddles[445]
+	for i := 380; i < 381; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[445])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 191: a[382:384] with twiddles[446]
+	for i := 382; i < 383; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[446])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 192: a[384:386] with twiddles[447]
+	for i := 384; i < 385; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[447])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 193: a[386:388] with twiddles[448]
+	for i := 386; i < 387; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[448])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 194: a[388:390] with twiddles[449]
+	for i := 388; i < 389; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[449])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 195: a[390:392] with twiddles[450]
+	for i := 390; i < 391; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[450])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 196: a[392:394] with twiddles[451]
+	for i := 392; i < 393; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[451])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 197: a[394:396] with twiddles[452]
+	for i := 394; i < 395; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[452])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 198: a[396:398] with twiddles[453]
+	for i := 396; i < 397; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[453])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 199: a[398:400] with twiddles[454]
+	for i := 398; i < 399; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[454])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 200: a[400:402] with twiddles[455]
+	for i := 400; i < 401; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[455])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 201: a[402:404] with twiddles[456]
+	for i := 402; i < 403; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[456])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 202: a[404:406] with twiddles[457]
+	for i := 404; i < 405; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[457])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 203: a[406:408] with twiddles[458]
+	for i := 406; i < 407; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[458])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 204: a[408:410] with twiddles[459]
+	for i := 408; i < 409; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[459])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 205: a[410:412] with twiddles[460]
+	for i := 410; i < 411; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[460])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 206: a[412:414] with twiddles[461]
+	for i := 412; i < 413; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[461])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 207: a[414:416] with twiddles[462]
+	for i := 414; i < 415; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[462])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 208: a[416:418] with twiddles[463]
+	for i := 416; i < 417; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[463])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 209: a[418:420] with twiddles[464]
+	for i := 418; i < 419; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[464])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 210: a[420:422] with twiddles[465]
+	for i := 420; i < 421; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[465])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 211: a[422:424] with twiddles[466]
+	for i := 422; i < 423; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[466])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 212: a[424:426] with twiddles[467]
+	for i := 424; i < 425; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[467])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 213: a[426:428] with twiddles[468]
+	for i := 426; i < 427; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[468])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 214: a[428:430] with twiddles[469]
+	for i := 428; i < 429; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[469])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 215: a[430:432] with twiddles[470]
+	for i := 430; i < 431; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[470])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 216: a[432:434] with twiddles[471]
+	for i := 432; i < 433; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[471])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 217: a[434:436] with twiddles[472]
+	for i := 434; i < 435; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[472])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 218: a[436:438] with twiddles[473]
+	for i := 436; i < 437; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[473])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 219: a[438:440] with twiddles[474]
+	for i := 438; i < 439; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[474])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 220: a[440:442] with twiddles[475]
+	for i := 440; i < 441; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[475])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 221: a[442:444] with twiddles[476]
+	for i := 442; i < 443; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[476])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 222: a[444:446] with twiddles[477]
+	for i := 444; i < 445; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[477])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 223: a[446:448] with twiddles[478]
+	for i := 446; i < 447; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[478])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 224: a[448:450] with twiddles[479]
+	for i := 448; i < 449; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[479])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 225: a[450:452] with twiddles[480]
+	for i := 450; i < 451; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[480])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 226: a[452:454] with twiddles[481]
+	for i := 452; i < 453; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[481])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 227: a[454:456] with twiddles[482]
+	for i := 454; i < 455; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[482])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 228: a[456:458] with twiddles[483]
+	for i := 456; i < 457; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[483])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 229: a[458:460] with twiddles[484]
+	for i := 458; i < 459; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[484])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 230: a[460:462] with twiddles[485]
+	for i := 460; i < 461; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[485])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 231: a[462:464] with twiddles[486]
+	for i := 462; i < 463; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[486])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 232: a[464:466] with twiddles[487]
+	for i := 464; i < 465; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[487])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 233: a[466:468] with twiddles[488]
+	for i := 466; i < 467; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[488])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 234: a[468:470] with twiddles[489]
+	for i := 468; i < 469; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[489])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 235: a[470:472] with twiddles[490]
+	for i := 470; i < 471; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[490])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 236: a[472:474] with twiddles[491]
+	for i := 472; i < 473; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[491])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 237: a[474:476] with twiddles[492]
+	for i := 474; i < 475; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[492])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 238: a[476:478] with twiddles[493]
+	for i := 476; i < 477; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[493])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 239: a[478:480] with twiddles[494]
+	for i := 478; i < 479; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[494])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 240: a[480:482] with twiddles[495]
+	for i := 480; i < 481; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[495])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 241: a[482:484] with twiddles[496]
+	for i := 482; i < 483; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[496])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 242: a[484:486] with twiddles[497]
+	for i := 484; i < 485; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[497])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 243: a[486:488] with twiddles[498]
+	for i := 486; i < 487; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[498])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 244: a[488:490] with twiddles[499]
+	for i := 488; i < 489; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[499])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 245: a[490:492] with twiddles[500]
+	for i := 490; i < 491; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[500])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 246: a[492:494] with twiddles[501]
+	for i := 492; i < 493; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[501])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 247: a[494:496] with twiddles[502]
+	for i := 494; i < 495; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[502])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 248: a[496:498] with twiddles[503]
+	for i := 496; i < 497; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[503])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 249: a[498:500] with twiddles[504]
+	for i := 498; i < 499; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[504])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 250: a[500:502] with twiddles[505]
+	for i := 500; i < 501; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[505])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 251: a[502:504] with twiddles[506]
+	for i := 502; i < 503; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[506])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 252: a[504:506] with twiddles[507]
+	for i := 504; i < 505; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[507])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 253: a[506:508] with twiddles[508]
+	for i := 506; i < 507; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[508])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 254: a[508:510] with twiddles[509]
+	for i := 508; i < 509; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[509])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// split 255: a[510:512] with twiddles[510]
+	for i := 510; i < 511; i++ {
+		a[i+1].Mul(&a[i+1], &twiddles[510])
+		koalabear.Butterfly(&a[i], &a[i+1])
+	}
+
+	// for level := 0; level < nbStages; level++ {
+	// 	for s := 0; s < nbSplits; s++ {
+	// 		for k := 0; k < split/2; k++ {
+	// 			i := s*split+split/2+k
+	// 			j := nbSplits-1+s
+
+	// 			a[i].Mul(&a[i], &twiddles[j])
+	// 		}
+	// 	}
+
+	// 	for s := 0; s < nbSplits; s++ {
+	// 		for k := 0; k < split/2; k++ {
+	// 			i := s*split+k
+	// 			j := s*split+split/2+k
+	// 			koalabear.Butterfly(&a[i], &a[j])
+	// 		}
+	// 	}
+
+	// 	split /= 2
+	// 	nbSplits *= 2
+	// }
 }

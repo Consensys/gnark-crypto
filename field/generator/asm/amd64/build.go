@@ -49,7 +49,7 @@ type FFAmd64 struct {
 	mDefines             map[string]defineFn
 }
 
-type defineFn func(args ...amd64.Register)
+type defineFn func(args ...any)
 
 func (f *FFAmd64) StackSize(maxNbRegistersNeeded, nbRegistersReserved, minStackSize int) int {
 	got := amd64.NbRegisters - nbRegistersReserved
@@ -96,7 +96,7 @@ startDefine:
 
 	f.StartDefine()
 	f.WriteLn("#define " + name + "(" + strings.Join(inputs, ", ") + ")")
-	inputsRegisters := make([]amd64.Register, nbInputs)
+	inputsRegisters := make([]any, nbInputs)
 	for i := 0; i < nbInputs; i++ {
 		inputsRegisters[i] = amd64.Register(inputs[i])
 	}
@@ -104,13 +104,22 @@ startDefine:
 	f.EndDefine()
 	f.WriteLn("")
 
-	toReturn := func(args ...amd64.Register) {
+	toReturn := func(args ...any) {
 		if len(args) != nbInputs {
 			panic("invalid number of arguments")
 		}
 		inputsStr := make([]string, len(args))
 		for i := 0; i < len(args); i++ {
-			inputsStr[i] = string(args[i])
+			switch t := args[i].(type) {
+			case amd64.Register:
+				inputsStr[i] = string(t)
+			case amd64.VectorRegister:
+				inputsStr[i] = string(t)
+			case string:
+				inputsStr[i] = t
+			default:
+				panic("invalid argument type")
+			}
 		}
 		f.WriteLn(name + "(" + strings.Join(inputsStr, ", ") + ")")
 	}

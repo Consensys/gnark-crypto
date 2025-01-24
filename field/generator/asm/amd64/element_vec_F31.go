@@ -477,7 +477,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 	f.Comment("in1 = (in0 - in1) mod 2q")
 	f.Comment("in2: q broadcasted on all dwords lanes")
 	f.Comment("in3: temporary Z register")
-	_ = f.Define("butterflyD2Q", 4, func(args ...amd64.Register) {
+	_ = f.Define("butterflyD2Q", 4, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		qd := args[2]
@@ -490,7 +490,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 	})
 
 	f.Comment("same as butterflyD2Q but reduces in1 to [0,q)")
-	_ = f.Define("butterflyD1Q", 5, func(args ...amd64.Register) {
+	_ = f.Define("butterflyD1Q", 5, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		qd := args[2]
@@ -506,7 +506,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 
 	f.Comment("same as butterflyD2Q but for qwords")
 	f.Comment("in2: must be broadcasted on all qwords lanes")
-	_ = f.Define("butterflyQ2Q", 4, func(args ...amd64.Register) {
+	_ = f.Define("butterflyQ2Q", 4, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		q := args[2]
@@ -519,7 +519,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPADDQ(q, y, y)   // y = (x-y) + q --> y in [0,2q)
 	})
 
-	_ = f.Define("butterflyQ1Q", 5, func(args ...amd64.Register) {
+	_ = f.Define("butterflyQ1Q", 5, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		q := args[2]
@@ -542,7 +542,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 	f.Comment("in4: qInvNeg broadcasted on all qwords lanes")
 	f.Comment("in5: temporary Z register")
 	f.Comment("in6: temporary Z register")
-	_ = f.Define("mul", 7, func(args ...amd64.Register) {
+	_ = f.Define("mul", 7, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		LSW := args[2]
@@ -569,7 +569,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 	// we want
 	// Z1 = A A A A C C C C
 	// Z2 = B B B B D D D D`)
-	_ = f.Define("permute4x4", 4, func(args ...amd64.Register) {
+	_ = f.Define("permute4x4", 4, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		b0 := args[2]
@@ -585,7 +585,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 	// we want
 	// Z1 = A A L L C C N N
 	// Z2 = B B M M D D O O`)
-	_ = f.Define("permute2x2", 5, func(args ...amd64.Register) {
+	_ = f.Define("permute2x2", 5, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		vInterleaveIndices := args[2]
@@ -597,7 +597,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPBLENDMQ(tmp, y, y, K)
 	})
 
-	_ = f.Define("permute1x1", 4, func(args ...amd64.Register) {
+	_ = f.Define("permute1x1", 4, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		b0 := args[2]
@@ -608,7 +608,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPBLENDMD(b0, y, y, K)
 	})
 
-	_ = f.Define("PACK_DWORDS", 4, func(args ...amd64.Register) {
+	_ = f.Define("PACK_DWORDS", 4, func(args ...any) {
 		x := args[0]
 		xx := args[1]
 		y := args[2]
@@ -809,13 +809,13 @@ func (f *FFAmd64) generateFFTInnerDIFF31() {
 	f.TESTQ(len, len)
 	f.JEQ(lblDone, "n == 0, we are done")
 
-	f.VMOVDQA32(addrA.At(0), a, "load a[i]")
-	f.VMOVDQA32(addrAPlusM.At(0), am, "load a[i+m]")
+	f.VMOVDQU32(addrA.At(0), a, "load a[i]")
+	f.VMOVDQU32(addrAPlusM.At(0), am, "load a[i+m]")
 
 	butterflyD2Q(a, am, qd, b0)
 
 	// a is ready to be stored, but we need to scale am by twiddles.
-	f.VMOVDQA32(a, addrA.At(0), "store a[i]")
+	f.VMOVDQU32(a, addrA.At(0), "store a[i]")
 
 	// we split am into m1 and m2;
 	// that is am contains 16 uint32
@@ -1089,7 +1089,7 @@ func (f *FFAmd64) generateFFTKernelF31(klog2 int) {
 	// end we store back a
 	f.Comment("store a[:128] in memory")
 	for i := 0; i < len(a); i += 2 {
-		f.VMOVDQA32(a[i], addrA.At(i*4))
+		f.VMOVDQU32(a[i], addrA.At(i*4))
 	}
 
 	f.RET()
@@ -1105,27 +1105,56 @@ func zToy(r amd64.Register) amd64.Register {
 }
 
 func (f *FFAmd64) generateSISToRefactorF31() {
-	const argSize = 6 * 8
-	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
-	registers := f.FnHeader("SISToRefactor", stackSize, argSize, amd64.AX)
-	defer f.AssertCleanStack(stackSize, 0)
+	const argSize = 5 * 3 * 8
+	// func SISToRefactor(k256, k512, cosets, rag, res []{{ .FF }}.Element)
+	stackSize := f.StackSize(f.NbWords*2+4, 1, 512*4+64) // we reserve 512*4bytes and some extra because we want to "align" SP
+	registers := f.FnHeader("SISToRefactor", stackSize, argSize, amd64.AX, amd64.DI)
+	// defer f.AssertCleanStack(stackSize, 0)
+	sp := amd64.DI
+	spm := f.Pop(&registers)
+	f.MOVQ(amd64.Register("SP"), sp)
+
+	// if sp is not aligned, we add an offset to it to align it;
+	// TODO @gbotrel double check this.
+	f.ANDQ("$-64", sp)
 
 	// for now we get
-	// SISToRefactor(k256, k512 []uint32)
+	// SISToRefactor(k256, k512, cosets, twiddles []uint32)
 	// we "limb split" k256 into k512 to start with.
 	addrK256 := f.Pop(&registers)
 	addrK512 := f.Pop(&registers)
 
-	x := amd64.Register("Z0")
-	q := amd64.Register("Z1")
-	qInvNeg := amd64.Register("Z2")
-	LSW := amd64.Register("Z3")
-	PL := amd64.Register("Z4")
+	addrK256m := f.Pop(&registers)
+	addrK512m := f.Pop(&registers)
+
+	addrCosets := f.Pop(&registers)
+	addrCosetsm := f.Pop(&registers)
+
+	a := registers.PopVN(16) // take 16 registers that will store up to 256 uint32 without using the stack
+	q := registers.PopV()
+	qd := registers.PopV()
+	qInvNeg := registers.PopV()
+	LSW := registers.PopV()
+	PL := registers.PopV()
+	am := registers.PopV()
+
+	// ya := amd64.Register("Y0")
+	// yam := amd64.Register("Y5")
+
+	// P := amd64.Register("Z8")
+
+	// t0 := amd64.Register("Z15")
+	// t1 := amd64.Register("Z16")
+
+	// amNext := amd64.Register("Z13")
+	// aNext := amd64.Register("Z14")
+	// y2 := amd64.Register("Y20")
 
 	// load q and qInvNeg
 	f.Comment("prepare constants needed for mul and reduce ops")
 	f.WriteLn("MOVD $const_q, AX")
 	f.VPBROADCASTQ(amd64.AX, q)
+	f.VPBROADCASTD(amd64.AX, qd)
 	f.WriteLn("MOVD $const_qInvNeg, AX")
 	f.VPBROADCASTQ(amd64.AX, qInvNeg)
 	f.VPCMPEQB("Y0", "Y0", "Y0")
@@ -1133,16 +1162,27 @@ func (f *FFAmd64) generateSISToRefactorF31() {
 
 	f.MOVQ("k256+0(FP)", addrK256)
 	f.MOVQ("k512+24(FP)", addrK512)
+	f.MOVQ("cosets+48(FP)", addrCosets)
+
+	f.MOVQ(addrK256, addrK256m)
+	f.MOVQ(addrK512, addrK512m)
+	f.MOVQ(addrCosets, addrCosetsm)
+
+	f.ADDQ(512, addrK256m)
+	f.ADDQ(1024, addrCosetsm)
+	f.ADDQ(1024, addrK512m)
+	f.MOVQ(sp, spm)
+	f.ADDQ(1024, spm)
 
 	n := 256 / 8
 
-	for i := 0; i < n; i++ {
-		// load 8 uint32 from k256 into a zmm register (zero extended)
-		f.VPMOVZXDQ(addrK256.At(i*4), x)
+	// ok let's go step by step during refactor to test...
 
-		// from Montgomery to regular form
-		// f.VPMULUDQ(x, y, P)
-		// f.VPANDQ(LSW, P, PL)
+	// we are going to blend the FFT 512 into that loop;
+	// so we want to iterate on the halves of the 512 vector.
+
+	fromMont := f.Define("fromMontgomery", 1, func(args ...any) {
+		x := args[0]
 		f.VPMULUDQ(x, qInvNeg, PL)
 		f.VPANDQ(LSW, PL, PL)
 		f.VPMULUDQ(PL, q, PL)
@@ -1150,20 +1190,100 @@ func (f *FFAmd64) generateSISToRefactorF31() {
 		f.VPSRLQ("$32", x, x)
 		f.VPSUBQ(q, x, PL)
 		f.VPMINUQ(x, PL, x)
+	})
 
+	// mul, _ := f.DefineFn("mul")
+	// butterflyD2Q, _ := f.DefineFn("butterflyD2Q")
+	// packDWORDS, _ := f.DefineFn("PACK_DWORDS")
+
+	limbSplit := f.Define("limbSplit", 1, func(args ...any) {
+		x := args[0]
 		// we have
 		// z0 = [ 0 0 a0 a1 | 0 0 b0 b1 | 0 0 c0 c1 | ... ]
 		// we want
-		// z0 = [ 0 a1 0 a0 | 0 b1 0 b0 | 0 c1 0 c0 | ... ]
+		// z0 = [ 0 a0 0 a1 | 0 b0 0 b1 | 0 c0 0 c1 | ... ]
 		f.VPSHUFLW(0b11011100, x, x)
 		f.VPSHUFHW(0b11011100, x, x)
+	})
 
+	//
+	// stage 0
+	//
+
+	// split 0: a[0:512] with twiddles[0]
+	// for i := 0; i < 256; i++ {
+	// 	a[i+256].Mul(&a[i+256], &twiddles[0])
+	// 	koalabear.Butterfly(&a[i], &a[i+256])
+	// }
+
+	for i := 0; i < n/2; i++ {
+		// load 8 uint32 from k256 into a zmm register (zero extended)
+		f.VPMOVZXDQ(addrK256.At(i*4), a[0])
+		f.VPMOVZXDQ(addrK256m.At(i*4), am)
+
+		// from Montgomery to regular form
+		// f.VPMULUDQ(x, y, P)
+		// f.VPANDQ(LSW, P, PL)
+		fromMont(a[0])
+		limbSplit(a[0])
+		fromMont(am)
+		limbSplit(am)
+
+		// we want to scale a by cosets;
+		// f.VPMOVZXDQ(addrCosets.At(i*8), t0)
+		// f.VPMOVZXDQ(addrCosets.At((i*8)+4), t1)
+
+		// f.VEXTRACTI32X8(1, a, y2)
+		// f.VPMOVZXDQ(y2, aNext)
+		// f.VPMOVZXDQ(ya, a)
+		// mul(a, t0, LSW, q, qInvNeg, P, PL)
+		// mul(aNext, t1, LSW, q, qInvNeg, P, PL)
+
+		// // we want to scale am by twiddle * cosets
+
+		// f.VPMOVZXDQ(addrCosetsm.At(i*8), t0)
+		// f.VPMOVZXDQ(addrCosetsm.At((i*8)+4), t1)
+
+		// f.VEXTRACTI32X8(1, am, y2)
+		// f.VPMOVZXDQ(y2, amNext)
+		// f.VPMOVZXDQ(yam, am)
+		// mul(am, t0, LSW, q, qInvNeg, P, PL)
+		// mul(amNext, t1, LSW, q, qInvNeg, P, PL)
+
+		// packDWORDS(a, zToy(a), aNext, zToy(aNext))
+		// packDWORDS(am, zToy(am), amNext, zToy(amNext))
+
+		// butterflyD2Q(a, am, qd, PL)
+
+		// f.VPMOVZXDQ(addrTwiddles.At(0), t0)
+		// f.VPMOVZXDQ(addrTwiddles.At(4), t1)
+
+		// // we can do the FFT 512 layer here;
+		// butterflyQ2Q(a, am, q, PL)
+		// mul(am, t0, LSW, q, qInvNeg, P, PL)
+		// butterflyQ2Q(aNext, amNext, q, PL)
+		// mul(amNext, t1, LSW, q, qInvNeg, P, PL)
+
+		// f.VPMOVQD(a, addrK512.At(i*8))
+		// f.VPMOVQD(am, addrK512m.At(i*8))
+		// f.VPMOVQD(aNext, addrK512.At(i*8+4))
+		// f.VPMOVQD(amNext, addrK512m.At(i*8+4))
+
+		// f.ADDQ("$64", addrTwiddles)
 		// now we consider that as a vector of dwords and move it into k512
-		f.VMOVDQU32(x, addrK512.At(i*8))
-
-		// f.ADDQ("$32", addrK256)
-		// f.ADDQ("$64", addrK512)
+		// f.VMOVDQU32(a, addrK512.At(i*8))
+		// f.VMOVDQU32(am, addrK512m.At(i*8))
+		f.VMOVDQA32(a[0], sp.At(i*8))
+		f.VMOVDQA32(am, spm.At(i*8))
 	}
+
+	// now let's copy the stack to k512;
+	for i := 0; i < n; i++ {
+		f.VMOVDQA32(sp.At(i*8), a[0])
+		f.VMOVDQU32(a[0], addrK512.At(i*8))
+	}
+
+	// now let's consider a[:256] and a[256:] for the 2 "halves" of the FFT 512
 
 	f.RET()
 
