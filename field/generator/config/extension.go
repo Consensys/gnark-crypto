@@ -8,13 +8,13 @@ type Element []big.Int
 type Extension struct {
 	Base   *Field  //Fp
 	Size   big.Int //q
-	Degree int     //n such that q = pⁿ TODO: Make uint8 so forced to be positive and small
+	Degree uint8   //n such that q = pⁿ
 	RootOf int64   //α
 }
 
 func NewTower(base *Field, degree uint8, rootOf int64) Extension {
 	ret := Extension{
-		Degree: int(degree),
+		Degree: degree,
 		RootOf: rootOf,
 		Base:   base,
 	}
@@ -48,7 +48,7 @@ func max(x int, y int) int {
 func (f *Extension) Add(x Element, y Element) Element {
 	z := make(Element, f.Degree)
 
-	for i := 0; i < f.Degree; i++ {
+	for i := 0; i < int(f.Degree); i++ {
 		z[i].
 			Add(&x[i], &y[i]).
 			Mod(&z[i], f.Base.ModulusBig)
