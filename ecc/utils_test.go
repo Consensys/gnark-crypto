@@ -9,12 +9,12 @@ func TestNafDecomposition(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		input    string // большое число в десятичной форме
-		expected []int8 // ожидаемое NAF представление
+		input    string // large number in decimal form
+		expected []int8 // expected NAF representation
 	}{
-		{"13", []int8{1, 0, -1, 0, 1}},          // существующий тестовый случай
-		{"0", []int8{}},                          // граничный случай - ноль
-		{"1", []int8{1}},                         // граничный случай - единица
+		{"13", []int8{1, 0, -1, 0, 1}},          // existing test case
+		{"0", []int8{}},                          // edge case - zero
+		{"1", []int8{1}},                         // edge case - one
 		{"7", []int8{1, 0, 0, -1}},              // 7 = 2³ - 2⁰ (8 - 1)
 		{"15", []int8{1, 0, 0, 0, 1}},           // 15 = 2⁴ - 2⁰
 		{"31", []int8{1, 0, 0, 0, 0, 1}},        // 31 = 2⁵ - 2⁰
@@ -31,14 +31,14 @@ func TestNafDecomposition(t *testing.T) {
 		length := NafDecomposition(input, result[:])
 		naf := result[:length]
 
-		// Проверка длины
+		// Length check
 		if len(naf) != len(test.expected) {
 			t.Errorf("Test %d: Incorrect length for input %s. Got %d, want %d", 
 				i, test.input, len(naf), len(test.expected))
 			continue
 		}
 
-		// Проверка значений
+		// Value check
 		for j := range naf {
 			if naf[j] != test.expected[j] {
 				t.Errorf("Test %d: Mismatch at position %d for input %s. Got %d, want %d",
@@ -46,9 +46,9 @@ func TestNafDecomposition(t *testing.T) {
 			}
 		}
 
-		// Проверка свойств NAF:
-		// 1. Все цифры должны быть -1, 0 или 1
-		// 2. Никакие два ненулевых числа не должны быть смежными
+		// Checking NAF properties:
+		// 1. All digits must be -1, 0, or 1
+		// 2. No two non-zero digits should be adjacent
 		for j := range naf {
 			if naf[j] < -1 || naf[j] > 1 {
 				t.Errorf("Test %d: Invalid NAF digit at position %d: %d", i, j, naf[j])
@@ -58,7 +58,7 @@ func TestNafDecomposition(t *testing.T) {
 			}
 		}
 
-		// Проверка, что NAF представление действительно равно исходному числу
+		// Verify that the NAF representation equals the original number
 		reconstructed := new(big.Int)
 		power := new(big.Int).SetInt64(1)
 		for j := range naf {
