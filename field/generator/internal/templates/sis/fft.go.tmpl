@@ -52,16 +52,21 @@ func fft512(a, twiddles {{.FF}}.Vector) {
 		//
 		// stage {{ $level }}
 		//
-		{{- range $s := iterate 0 $nbSplits}}
-			{{- $j := add (sub $nbSplits 1) $s}}
-			{{$startLoop := add (mul $s $split) $m}}
-			// split {{$s}}: a[{{sub $startLoop $m}}:{{add $startLoop $m}}] with twiddles[{{$j}}]
-			for i := {{sub $startLoop $m}}; i < {{$startLoop}}; i++ {
-				a[i+{{$m}}].Mul(&a[i+{{$m}}], &twiddles[{{$j}}])
-				koalabear.Butterfly(&a[i], &a[i+{{$m}}])
-			}
+		{{- if ne $level 0}}
+			{{- range $s := iterate 0 $nbSplits}}
+				{{- $j := add (sub $nbSplits 1) $s}}
+				{{$startLoop := add (mul $s $split) $m}}
+				// split {{$s}}: a[{{sub $startLoop $m}}:{{add $startLoop $m}}] with twiddles[{{$j}}]
+				{{- if or (eq $level 0) (and (eq $level 1) (eq $s 0))}}
+				
+				{{- else}}
+				for i := {{sub $startLoop $m}}; i < {{$startLoop}}; i++ {
+					a[i+{{$m}}].Mul(&a[i+{{$m}}], &twiddles[{{$j}}])
+					koalabear.Butterfly(&a[i], &a[i+{{$m}}])
+				}
+				{{- end}}
+			{{- end}}
 		{{- end}}
-
 		{{- $split = shr $split 1}}
 		{{- $nbSplits = mul $nbSplits 2}}
 		{{$m = shr $split 1}}

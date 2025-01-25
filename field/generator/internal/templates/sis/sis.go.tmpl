@@ -110,8 +110,8 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		if r.Degree == 512 {
 			// precompute twiddles for the unrolled FFT
 			r.twiddlesCoset = precomputeTwiddlesCoset(r.Domain.Generator, shift)
-			r.smallFFT = func(k {{ .FF }}.Vector, mask uint64) {
-				fft512(k, r.twiddlesCoset)
+			r.smallFFT = func(k {{.FF}}.Vector, _ uint64) {
+				r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 			}
 		} else {
 			r.smallFFT = func(k {{.FF}}.Vector, _ uint64) {
@@ -193,7 +193,7 @@ func (r *RSis) Hash(v, res []{{ .FF }}.Element) error {
 				}
 				// ok for now this does the first step of the fft + the scaling by cosets;
 				fft.SISToRefactor(_v, k512[:], r.twiddlesCoset, r.Ag[polId], res)
-				fft512(k512[:], r.twiddlesCoset)
+				// fft512(k512[:], r.twiddlesCoset)
 
 				// TODO --> incorporate one by one.
 				// fft.InnerDIFWithTwiddles_avx512(k512[:256], twiddles[1], 0, 128,128)
