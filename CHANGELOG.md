@@ -2213,7 +2213,7 @@
 ### Ci
 - install asmfmt before test step, now that goff field generation tests are included
 - move dep install up
-- ignore G204 rule in gosec (process lauched with var)
+- ignore G204 rule in gosec (process launched with var)
 - testing pr on develop with go 1.15 and go 1.16
 
 ### Docs
