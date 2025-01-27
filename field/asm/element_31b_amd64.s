@@ -100,39 +100,41 @@ done_6:
 // n is the number of blocks of 8 elements to process
 TEXT ·mulVec(SB), NOSPLIT, $0-32
 	MOVD         $const_q, AX
-	VPBROADCASTQ AX, Z3
+	VPBROADCASTD AX, Z0
 	MOVD         $const_qInvNeg, AX
-	VPBROADCASTQ AX, Z4
-
-	// Create mask for low dword in each qword
-	VPCMPEQB  Y0, Y0, Y0
-	VPMOVZXDQ Y0, Z6
-	MOVQ      res+0(FP), CX
-	MOVQ      a+8(FP), AX
-	MOVQ      b+16(FP), DX
-	MOVQ      n+24(FP), BX
+	VPBROADCASTD AX, Z1
+	MOVQ         res+0(FP), CX
+	MOVQ         a+8(FP), R15
+	MOVQ         b+16(FP), DX
+	MOVQ         n+24(FP), BX
 
 loop_7:
 	TESTQ     BX, BX
-	JEQ       done_8      // n == 0, we are done
-	VPMOVZXDQ 0(AX), Z0
-	VPMOVZXDQ 0(DX), Z1
-	VPMULUDQ  Z0, Z1, Z2  // P = a * b
-	VPANDQ    Z6, Z2, Z5  // m = uint32(P)
-	VPMULUDQ  Z5, Z4, Z5  // m = m * qInvNeg
-	VPANDQ    Z6, Z5, Z5  // m = uint32(m)
-	VPMULUDQ  Z5, Z3, Z5  // m = m * q
-	VPADDQ    Z2, Z5, Z2  // P = P + m
-	VPSRLQ    $32, Z2, Z2 // P = P >> 32
-	VPSUBQ    Z3, Z2, Z5  // PL = P - q
-	VPMINUQ   Z2, Z5, Z2  // P = min(P, PL)
-	VPMOVQD   Z2, 0(CX)   // res = P
+	JEQ       done_8                  // n == 0, we are done
+	MOVQ      $0x0000000000005555, AX
+	KMOVD     AX, K3
+	VMOVDQU32 0(R15), Z2
+	VMOVDQU32 0(DX), Z3
+	VMOVSHDUP Z2, Z5
+	VMOVSHDUP Z3, Z6
+	VPMULUDQ  Z2, Z3, Z7
+	VPMULUDQ  Z5, Z6, Z4
+	VPMULUDQ  Z7, Z1, Z8
+	VPMULUDQ  Z4, Z1, Z9
+	VPMULUDQ  Z8, Z0, Z8
+	VPMULUDQ  Z9, Z0, Z9
+	VPADDQ    Z7, Z8, Z7
+	VPADDQ    Z4, Z9, Z4
+	VMOVSHDUP Z7, K3, Z4
+	VPSUBD    Z0, Z4, Z9
+	VPMINUD   Z4, Z9, Z4
+	VMOVDQU32 Z4, 0(CX)               // res = P
 
 	// increment pointers to visit next element
-	ADDQ $32, AX
-	ADDQ $32, DX
-	ADDQ $32, CX
-	DECQ BX      // decrement n
+	ADDQ $64, R15
+	ADDQ $64, DX
+	ADDQ $64, CX
+	DECQ BX       // decrement n
 	JMP  loop_7
 
 done_8:

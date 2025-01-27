@@ -28,7 +28,7 @@ var vInterleaveIndices = []uint64{
 
 //go:nosplit
 //go:noescape
-func SISToRefactor(k256, k512, cosets, rag, res []koalabear.Element)
+func SISToRefactor(k256, k512, cosets []koalabear.Element, twiddles [][]koalabear.Element, rag, res []koalabear.Element)
 
 func InnerDIFWithTwiddles_avx512(a []koalabear.Element, twiddles []koalabear.Element, start, end, m int) {
 	innerDIFWithTwiddles_avx512(a, twiddles, start, end, m)

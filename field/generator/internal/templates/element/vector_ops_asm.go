@@ -426,7 +426,7 @@ func (vector *Vector) Mul(a, b Vector) {
 		return
 	}
 
-	const blockSize = 8
+	const blockSize = 16
 	mulVec(&(*vector)[0], &a[0], &b[0], n/blockSize)
 	if n % blockSize != 0 {
 		// call mulVecGeneric on the rest

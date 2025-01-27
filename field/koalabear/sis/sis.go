@@ -165,6 +165,9 @@ func (r *RSis) Hash(v, res []koalabear.Element) error {
 		vk := koalabear.Vector(k512[:])
 		vRes := koalabear.Vector(res)
 
+		cosets, _ := r.Domain.CosetTable()
+		twiddles, _ := r.Domain.Twiddles()
+
 		var k256 [256]koalabear.Element
 
 		for j := 0; j < len(v); j += 256 {
@@ -182,19 +185,22 @@ func (r *RSis) Hash(v, res []koalabear.Element) error {
 				_v = koalabear.Vector(k256[:])
 			}
 			// ok for now this does the first step of the fft + the scaling by cosets;
-			fft.SISToRefactor(_v, k512[:], r.twiddlesCoset, r.Ag[polId], res)
+			fft.SISToRefactor(_v, k512[:], cosets, twiddles, r.Ag[polId], res)
 			// fft512(k512[:], r.twiddlesCoset)
 
+			// vk.Mul(vk, vCosets)
+			// vvv := koalabear.Vector(twiddles[0][:256])
+			// vvvv := koalabear.Vector(k512[256:])
+			// vvvv.Mul(vvvv, vvv)
 			// TODO --> incorporate one by one.
-			// fft.InnerDIFWithTwiddles_avx512(k512[:256], twiddles[1], 0, 128,128)
-			// fft.KerDIFNP_128_avx512(k512[:128], twiddles, 2)
-			// fft.KerDIFNP_128_avx512(k512[128:256], twiddles, 2)
+			fft.InnerDIFWithTwiddles_avx512(k512[:], twiddles[0], 0, 256, 256)
+			fft.InnerDIFWithTwiddles_avx512(k512[:256], twiddles[1], 0, 128, 128)
+			fft.KerDIFNP_128_avx512(k512[:128], twiddles, 2)
+			fft.KerDIFNP_128_avx512(k512[128:256], twiddles, 2)
 
-			// _vv := koalabear.Vector(k512[256:])
-			// _vv.Mul(_vv, koalabear.Vector(twiddles[0][:256]))
-			// fft.InnerDIFWithTwiddles_avx512(k512[256:], twiddles[1], 0, 128,128)
-			// fft.KerDIFNP_128_avx512(k512[256:384], twiddles, 2)
-			// fft.KerDIFNP_128_avx512(k512[384:], twiddles, 2)
+			fft.InnerDIFWithTwiddles_avx512(k512[256:], twiddles[1], 0, 128, 128)
+			fft.KerDIFNP_128_avx512(k512[256:384], twiddles, 2)
+			fft.KerDIFNP_128_avx512(k512[384:], twiddles, 2)
 
 			// inner hash
 			// vk.Mul(vk, vCosets)
