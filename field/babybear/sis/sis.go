@@ -193,14 +193,9 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 			// vvvv := babybear.Vector(k512[256:])
 			// vvvv.Mul(vvvv, vvv)
 			// TODO --> incorporate one by one.
-			fft.InnerDIFWithTwiddles_avx512(k512[:], twiddles[0], 0, 256, 256)
-			fft.InnerDIFWithTwiddles_avx512(k512[:256], twiddles[1], 0, 128, 128)
-			fft.KerDIFNP_128_avx512(k512[:128], twiddles, 2)
-			fft.KerDIFNP_128_avx512(k512[128:256], twiddles, 2)
-
-			fft.InnerDIFWithTwiddles_avx512(k512[256:], twiddles[1], 0, 128, 128)
-			fft.KerDIFNP_128_avx512(k512[256:384], twiddles, 2)
-			fft.KerDIFNP_128_avx512(k512[384:], twiddles, 2)
+			// fft.InnerDIFWithTwiddles_avx512(k512[:], twiddles[0], 0, 256, 256)
+			fft.KerDIFNP_256_avx512(k512[:256], twiddles, 1)
+			fft.KerDIFNP_256_avx512(k512[256:], twiddles, 1)
 
 			// inner hash
 			// vk.Mul(vk, vCosets)
@@ -254,8 +249,8 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k, kz babybear.Vector, polId int
 		return
 	}
 	// this is equivalent to:
-	// 	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-	r.smallFFT(k, mask)
+	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+	// r.smallFFT(k, mask)
 
 	// we compute k * r.Ag[polId] in ℤ_{p}[X]/Xᵈ+1.
 	// k and r.Ag[polId] are in evaluation form on √(g) * <g>

@@ -602,6 +602,11 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 
 		f.VMOVSHDUPk(b0, kEvens, b1)
 
+		// this also works but is slower.
+		// f.VPCMPUD(5, b1, q, amd64.K4)
+		// f.VPSUBD(q, b1, a)
+		// f.VPADDDk(q, a, amd64.K4, a)
+
 		f.VPSUBD(q, b1, PL1)
 		f.VPMINUD(b1, PL1, a)
 	})
@@ -693,24 +698,23 @@ func (f *FFAmd64) generateFFTInnerDITF31() {
 	m := f.Pop(&registers)
 	len := f.Pop(&registers)
 
-	a := amd64.Register("Z0")
-	am := amd64.Register("Z1")
-	b0 := amd64.Register("Z3")
-	b1 := amd64.Register("Z4")
-	q := amd64.Register("Z8")
-	qInvNeg := amd64.Register("Z9")
-	PL := amd64.Register("Z10")
-	LSW := amd64.Register("Z11")
-	P := amd64.Register("Z12")
-	t0 := amd64.Register("Z15")
+	a := registers.PopV()
+	am := registers.PopV()
+	b0 := registers.PopV()
+	b1 := registers.PopV()
+	qd := registers.PopV()
+	qInvNeg := registers.PopV()
+	t0 := registers.PopV()
+	aOdd := registers.PopV()
+	bOdd := registers.PopV()
+	PL0 := registers.PopV()
+	PL1 := registers.PopV()
 
 	f.Comment("prepare constants needed for mul and reduce ops")
 	f.MOVD("$const_q", amd64.AX)
-	f.VPBROADCASTQ(amd64.AX, q)
+	f.VPBROADCASTD(amd64.AX, qd)
 	f.MOVD("$const_qInvNeg", amd64.AX)
-	f.VPBROADCASTQ(amd64.AX, qInvNeg)
-	f.VPCMPEQB("Y0", "Y0", "Y0")
-	f.VPMOVZXDQ("Y0", LSW)
+	f.VPBROADCASTD(amd64.AX, qInvNeg)
 
 	f.Comment("load arguments")
 	f.MOVQ("a+0(FP)", addrA)
@@ -718,18 +722,21 @@ func (f *FFAmd64) generateFFTInnerDITF31() {
 	f.MOVQ("end+56(FP)", len)
 	f.MOVQ("m+64(FP)", m)
 
+	f.MOVQ(uint64(0b0101010101010101), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
 	// get defines
-	butterflyQ1Q, _ := f.DefineFn("butterflyQ1Q")
-	mulQ, _ := f.DefineFn("mulQ")
+	butterflyD1Q, _ := f.DefineFn("butterflyD1Q")
+	mulD, _ := f.DefineFn("mulD")
 
 	// we do only m >= 8;
 	// if m < 8, we call the generic one; this can be called when doing a FFT
 	// smaller than the smallest generated kernel
-	lblSmallerThan8 := f.NewLabel("smallerThan8")
-	f.CMPQ(m, 8)
-	f.JL(lblSmallerThan8, "m < 8")
+	lblSmallerThan16 := f.NewLabel("smallerThan16")
+	f.CMPQ(m, 16)
+	f.JL(lblSmallerThan16, "m < 16")
 
-	f.SHRQ("$3", len, "we are processing 8 elements at a time")
+	f.SHRQ("$4", len, "we are processing 16 elements at a time")
 
 	// offset we want to add to a is m*4bytes
 	f.SHLQ("$2", m, "offset = m * 4bytes")
@@ -745,20 +752,20 @@ func (f *FFAmd64) generateFFTInnerDITF31() {
 	f.TESTQ(len, len)
 	f.JEQ(lblDone, "n == 0, we are done")
 
-	f.VPMOVZXDQ(addrA.At(0), a, "load a[i]")
-	f.VPMOVZXDQ(addrAPlusM.At(0), am, "load a[i+m]")
-	f.VPMOVZXDQ(addrTwiddles.At(0), t0)
+	f.VMOVDQU32(addrA.At(0), a, "load a[i]")
+	f.VMOVDQU32(addrAPlusM.At(0), am, "load a[i+m]")
+	f.VMOVDQU32(addrTwiddles.At(0), t0)
 
-	mulQ(am, t0, LSW, q, qInvNeg, P, PL)
-	butterflyQ1Q(a, am, q, b0, b1)
+	mulD(am, t0, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+	butterflyD1Q(a, am, qd, b0, b1)
 
 	// a is ready to be stored, but we need to scale am by twiddles.
-	f.VPMOVQD(a, addrA.At(0), "store a[i]")
-	f.VPMOVQD(am, addrAPlusM.At(0), "store a[i+m]")
+	f.VMOVDQU32(a, addrA.At(0), "store a[i]")
+	f.VMOVDQU32(am, addrAPlusM.At(0), "store a[i+m]")
 
-	f.ADDQ("$32", addrA)
-	f.ADDQ("$32", addrAPlusM)
-	f.ADDQ("$32", addrTwiddles)
+	f.ADDQ("$64", addrA)
+	f.ADDQ("$64", addrAPlusM)
+	f.ADDQ("$64", addrTwiddles)
 	f.DECQ(len, "decrement n")
 	f.JMP(lblLoop)
 
@@ -766,8 +773,8 @@ func (f *FFAmd64) generateFFTInnerDITF31() {
 
 	f.RET()
 
-	f.LABEL(lblSmallerThan8)
-	f.Comment("m < 8, we call the generic one")
+	f.LABEL(lblSmallerThan16)
+	f.Comment("m < 16, we call the generic one")
 	f.Comment("note that this should happen only when doing a FFT smaller than the smallest generated kernel")
 
 	// TODO @gbotrel should have dedicated tests
@@ -932,20 +939,11 @@ func (f *FFAmd64) generateFFTKernelF31(klog2 int) {
 	addrTwiddlesRoot := f.Pop(&registers)
 	addrTwiddles := f.Pop(&registers)
 	innerLen := f.Pop(&registers)
-	addrVInterleaveIndices := f.Pop(&registers)
 
 	// AVX512 registers
 	a := registers.PopVN(n / 16)
-	t := registers.PopVN(n / 32)
 	qd := registers.PopV()
 	qInvNeg := registers.PopV()
-	b0 := registers.PopV()
-	b1 := registers.PopV()
-
-	aOdd := registers.PopV()
-	bOdd := registers.PopV()
-	PL0 := registers.PopV()
-	PL1 := registers.PopV()
 
 	// load q and qInvNeg
 	f.Comment("prepare constants needed for mul and reduce ops")
@@ -961,15 +959,6 @@ func (f *FFAmd64) generateFFTKernelF31(klog2 int) {
 	f.IMULQ("$24", amd64.AX)
 	f.ADDQ(amd64.AX, addrTwiddlesRoot, "we want twiddles[stage] as starting point")
 
-	// get the defines
-	butterflyD2Q, _ := f.DefineFn("butterflyD2Q")
-	mulD, _ := f.DefineFn("mulD")
-	permute1x1, _ := f.DefineFn("permute1x1")
-	permute2x2, _ := f.DefineFn("permute2x2")
-	permute4x4, _ := f.DefineFn("permute4x4")
-	permute8x8, _ := f.DefineFn("permute8x8")
-	butterflyD1Q, _ := f.DefineFn("butterflyD1Q")
-
 	f.MOVQ(uint64(0x0f0f), amd64.AX)
 	f.KMOVQ(amd64.AX, amd64.K1)
 
@@ -979,14 +968,63 @@ func (f *FFAmd64) generateFFTKernelF31(klog2 int) {
 	f.MOVQ(uint64(0b0101010101010101), amd64.AX)
 	f.KMOVD(amd64.AX, amd64.K3)
 
-	m := n >> 1
-
-	kk := n
-
 	for i := range a {
 		// we want to advance by 32bytes to have 8 uint32 element loaded at a time.
 		f.VMOVDQU32(addrA.AtD(i*16), a[i], fmt.Sprintf("load a[%d]", i))
 	}
+
+	permute4x4, _ := f.DefineFn("permute4x4")
+	permute8x8, _ := f.DefineFn("permute8x8")
+	vInterleaveIndices := f.generateCoreDIFKernel(n, &registers, addrTwiddlesRoot, a, qd, qInvNeg)
+	b0 := registers.PopV()
+
+	for i := 0; i < len(a); i += 2 {
+		// ok let's say now each pair of vector v0 v1
+		// such that
+		// v0 = [a0 a2 a4 a6 a8 a10 a12 a14 | b0 b2 b4 b6 b8 b10 b12 b14]
+		// v1 = [a1 a3 a5 a7 a9 a11 a13 a15 | b1 b3 b5 b7 b9 b11 b13 b15]
+
+		// we need to repack them; let's do it the naive way for now
+		f.VPUNPCKLDQ(a[i+1], a[i], b0)
+		f.VPUNPCKHDQ(a[i+1], a[i], a[i+1])
+		f.VMOVDQA32(b0, a[i])
+		permute4x4(a[i], a[i+1], vInterleaveIndices, b0, amd64.K2)
+		permute8x8(a[i], a[i+1], b0, amd64.K1)
+
+		// store the result
+		f.VMOVDQU32(a[i], addrA.AtD(i*16))
+		f.VMOVDQU32(a[i+1], addrA.AtD((i+1)*16))
+	}
+
+	f.RET()
+
+	f.Push(&registers, addrA, addrTwiddles, addrAPlusM, innerLen)
+
+}
+
+func (f *FFAmd64) generateCoreDIFKernel(n int, registers *amd64.Registers, addrTwiddlesRoot amd64.Register, a []amd64.VectorRegister, qd, qInvNeg amd64.VectorRegister) amd64.VectorRegister {
+
+	m := n >> 1
+	kk := n
+
+	// get the defines
+	butterflyD2Q, _ := f.DefineFn("butterflyD2Q")
+	mulD, _ := f.DefineFn("mulD")
+	permute1x1, _ := f.DefineFn("permute1x1")
+	permute2x2, _ := f.DefineFn("permute2x2")
+	permute4x4, _ := f.DefineFn("permute4x4")
+	permute8x8, _ := f.DefineFn("permute8x8")
+	butterflyD1Q, _ := f.DefineFn("butterflyD1Q")
+
+	t := registers.PopVN(n / 32)
+	b0 := registers.PopV()
+	b1 := registers.PopV()
+	aOdd := registers.PopV()
+	bOdd := registers.PopV()
+	PL0 := registers.PopV()
+	PL1 := registers.PopV()
+
+	addrTwiddles := registers.Pop()
 
 	for m >= 16 {
 
@@ -1016,6 +1054,7 @@ func (f *FFAmd64) generateFFTKernelF31(klog2 int) {
 		registers.PushV(t[i])
 	}
 
+	addrVInterleaveIndices := f.Pop(registers)
 	vInterleaveIndices := registers.PopV()
 	f.MOVQ("·vInterleaveIndices+0(SB)", addrVInterleaveIndices)
 	f.VMOVDQU64(addrVInterleaveIndices.At(0), vInterleaveIndices)
@@ -1050,6 +1089,11 @@ func (f *FFAmd64) generateFFTKernelF31(klog2 int) {
 				permute2x2(a[i], a[i+1], b0, amd64.K3)
 			}
 
+			// perf note:
+			// we can optimize a bit further here by having a
+			// mulD version that takes b and bOdd as input;
+			// will save couple of VMOVSHDUP since the twiddles are known.
+
 			butterflyD2Q(a[i], a[i+1], qd, b0)
 			mulD(a[i+1], t[j], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
 		}
@@ -1060,7 +1104,208 @@ func (f *FFAmd64) generateFFTKernelF31(klog2 int) {
 		permute1x1(a[i], a[i+1], b0, amd64.K3)
 		// the last butterfly we reduce everything in [0, q)
 		butterflyD1Q(a[i], a[i+1], qd, b0, b1)
+	}
 
+	for i := 0; i < 4; i++ {
+		registers.PushV(t[i])
+	}
+	registers.PushV(b0, b1, aOdd, bOdd, PL0, PL1)
+	registers.Push(addrVInterleaveIndices, addrTwiddles)
+
+	return vInterleaveIndices
+}
+
+func (f *FFAmd64) generateSISToRefactorF31() {
+	const argSize = 5 * 3 * 8
+	// func SISToRefactor(k256,  cosets, twiddles, rag, res []{{ .FF }}.Element)
+	stackSize := f.StackSize(f.NbWords*2+4, 1, 256*4+64) // we reserve 512*4bytes and some extra because we want to "align" SP
+	registers := f.FnHeader("SISToRefactor", stackSize, argSize, amd64.AX, amd64.DI)
+	// defer f.AssertCleanStack(stackSize, 0)
+	sp := amd64.DI
+	f.MOVQ(amd64.Register("SP"), sp)
+
+	// if sp is not aligned, we add an offset to it to align it;
+	// TODO @gbotrel double check this.
+	f.ANDQ("$-64", sp)
+
+	addrK256 := f.Pop(&registers)
+
+	addrK256m := f.Pop(&registers)
+
+	addrCosets := f.Pop(&registers)
+	addrTwiddlesRoot := f.Pop(&registers)
+	addrTwiddles := f.Pop(&registers)
+
+	addrRag := f.Pop(&registers)
+	addrRes := f.Pop(&registers)
+
+	qd := registers.PopV()
+	qInvNeg := registers.PopV()
+
+	// load q and qInvNeg
+	f.Comment("prepare constants needed for mul and reduce ops")
+	f.MOVD("$const_q", amd64.AX)
+	f.VPBROADCASTD(amd64.AX, qd)
+	f.MOVD("$const_qInvNeg", amd64.AX)
+	f.VPBROADCASTD(amd64.AX, qInvNeg)
+
+	f.MOVQ("k256+0(FP)", addrK256)
+	f.MOVQ("cosets+24(FP)", addrCosets)
+	f.MOVQ("twiddles+48(FP)", addrTwiddlesRoot)
+	f.MOVQ("rag+72(FP)", addrRag)
+	f.MOVQ("res+96(FP)", addrRes)
+	f.MOVQ(addrTwiddlesRoot.At(0), addrTwiddles, "twiddles[0]") // stage 0
+
+	addrCosetsm := registers.Pop()
+
+	f.MOVQ(addrK256, addrK256m)
+	f.MOVQ(addrCosets, addrCosetsm)
+
+	f.ADDQ(512, addrK256m)
+	f.ADDQ(1024, addrCosetsm)
+
+	// ok let's go step by step during refactor to test...
+
+	// we are going to blend the FFT 512 into that loop;
+	// so we want to iterate on the halves of the 512 vector.
+
+	f.MOVQ(uint64(0x0f0f), amd64.AX)
+	f.KMOVQ(amd64.AX, amd64.K1)
+
+	f.MOVQ(uint64(0b00110011), amd64.AX)
+	f.KMOVQ(amd64.AX, amd64.K2)
+
+	f.MOVQ(uint64(0b0101010101010101), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
+	fromMont := f.Define("fromMontgomery", 8, func(args ...any) {
+		a := args[0]
+		b0 := args[1]
+		b1 := args[2]
+		PL0 := args[3]
+		PL1 := args[4]
+		q := args[5]
+		qInvNeg := args[6]
+		kEvens := args[7]
+
+		f.VPANDDkz(a, a, amd64.K3, b0) // keep low 32 bits
+		f.VPSRLQ("$32", a, b1)         // keep high 32 bits
+
+		f.VPMULUDQ(b0, qInvNeg, PL0)
+		f.VPMULUDQ(b1, qInvNeg, PL1)
+
+		f.VPMULUDQ(PL0, q, PL0)
+		f.VPMULUDQ(PL1, q, PL1)
+
+		f.VPADDQ(b0, PL0, b0)
+		f.VPADDQ(b1, PL1, b1)
+
+		f.VMOVSHDUPk(b0, kEvens, b1)
+
+		f.VPSUBD(q, b1, PL1)
+		f.VPMINUD(b1, PL1, a)
+	})
+
+	mulD, _ := f.DefineFn("mulD")
+	butterflyD2Q, _ := f.DefineFn("butterflyD2Q")
+
+	b0 := registers.PopV()
+	b1 := registers.PopV()
+	aOdd := registers.PopV()
+	bOdd := registers.PopV()
+	PL0 := registers.PopV()
+	PL1 := registers.PopV()
+
+	c1 := registers.PopV()
+	am1 := registers.PopV()
+
+	c0 := registers.PopV()
+	am0 := registers.PopV()
+
+	// we store the first 256 values directly in register
+	a := registers.PopVN(16)
+
+	n := 256 / 16
+	for i := 0; i < n/2; i++ {
+		a0 := a[i*2]
+		a1 := a[i*2+1]
+		// load 8 uint32 from k256 into a zmm register (zero extended)
+		f.VMOVDQU32(addrK256.AtD(i*16), a0)
+
+		// convert to regular form
+		fromMont(a0, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+
+		// split the limbs
+		f.VEXTRACTI64X4(1, a0, a1.Y())
+		f.VPMOVZXWD(a0.Y(), a0)
+		f.VPMOVZXWD(a1.Y(), a1)
+
+		// mul by cosets
+		f.VMOVDQU32(addrCosets.AtD((i*2)*16), c0)
+		f.VMOVDQU32(addrCosets.AtD((i*2+1)*16), c1)
+
+		mulD(a0, c0, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+		mulD(a1, c1, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+
+		f.VMOVDQU32(addrK256m.AtD(i*16), am0)
+		// convert to regular form
+		fromMont(am0, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+
+		// split the limbs
+		f.VEXTRACTI64X4(1, am0, am1.Y())
+		f.VPMOVZXWD(am0.Y(), am0)
+		f.VPMOVZXWD(am1.Y(), am1)
+
+		// mul by cosets
+		f.VMOVDQU32(addrCosetsm.AtD((i*2)*16), c0)
+		f.VMOVDQU32(addrCosetsm.AtD((i*2+1)*16), c1)
+
+		mulD(am0, c0, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+		mulD(am1, c1, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+
+		// now we can do the first layer of the fft easily
+		butterflyD2Q(a0, am0, qd, b0)
+		butterflyD2Q(a1, am1, qd, b0)
+
+		// scale am0 and am1 by twiddles
+		f.VMOVDQU32(addrTwiddles.AtD((i*2)*16), c0)
+		f.VMOVDQU32(addrTwiddles.AtD((i*2+1)*16), c1)
+
+		mulD(am0, c0, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+		mulD(am1, c1, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+
+		// f.VMOVDQU32(a0, addrK512.AtD((i*2)*16))
+		// f.VMOVDQU32(a1, addrK512.AtD((i*2+1)*16))
+		f.VMOVDQA32(am0, sp.AtD((i*2)*16))
+		f.VMOVDQA32(am1, sp.AtD((i*2+1)*16))
+	}
+
+	registers.PushV(b0, b1, aOdd, bOdd, PL0, PL1, c1, am1, c0, am0)
+
+	// next stage of twiddles
+	f.ADDQ("$24", addrTwiddlesRoot)
+	f.MOVQ(addrTwiddlesRoot, addrTwiddles) // backup addr twiddles for the other half
+
+	lblDone := f.NewLabel("done")
+	lblFFT256 := f.NewLabel("fft256")
+	o := registers.Pop()
+	f.MOVQ("$2", o)
+	f.LABEL(lblFFT256)
+	// we do the fft on the first half.
+	vInterleaveIndices := f.generateCoreDIFKernel(256, &registers, addrTwiddlesRoot, a, qd, qInvNeg)
+	permute4x4, _ := f.DefineFn("permute4x4")
+	permute8x8, _ := f.DefineFn("permute8x8")
+
+	b0 = registers.PopV()
+	b1 = registers.PopV()
+	aOdd = registers.PopV()
+	bOdd = registers.PopV()
+	PL0 = registers.PopV()
+	PL1 = registers.PopV()
+	c0 = registers.PopV()
+	c1 = registers.PopV()
+
+	for i := 0; i < len(a); i += 2 {
 		// ok let's say now each pair of vector v0 v1
 		// such that
 		// v0 = [a0 a2 a4 a6 a8 a10 a12 a14 | b0 b2 b4 b6 b8 b10 b12 b14]
@@ -1072,173 +1317,54 @@ func (f *FFAmd64) generateFFTKernelF31(klog2 int) {
 		f.VMOVDQA32(b0, a[i])
 		permute4x4(a[i], a[i+1], vInterleaveIndices, b0, amd64.K2)
 		permute8x8(a[i], a[i+1], b0, amd64.K1)
+	}
+	for i := 0; i < len(a); i += 2 {
+		// mul by rag
+		f.VMOVDQU32(addrRag.AtD(i*16), c0)
+		f.VMOVDQU32(addrRag.AtD((i+1)*16), c1)
+
+		mulD(a[i], c0, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+		mulD(a[i+1], c1, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+
+	}
+	for i := 0; i < len(a); i += 2 {
+		// accumulate in res
+		f.VMOVDQU32(addrRes.AtD(i*16), c0)
+		f.VMOVDQU32(addrRes.AtD((i+1)*16), c1)
+
+		f.VPADDD(c0, a[i], a[i])
+		f.VPSUBD(qd, a[i], PL0)
+		f.VPMINUD(PL0, a[i], a[i])
+		f.VPADDD(c1, a[i+1], a[i+1])
+		f.VPSUBD(qd, a[i+1], PL1)
+		f.VPMINUD(PL1, a[i+1], a[i+1])
 
 		// store the result
-		f.VMOVDQU32(a[i], addrA.AtD(i*16))
-		f.VMOVDQU32(a[i+1], addrA.AtD((i+1)*16))
+		f.VMOVDQU32(a[i], addrRes.AtD(i*16))
+		f.VMOVDQU32(a[i+1], addrRes.AtD((i+1)*16))
 	}
 
-	f.RET()
+	f.DECQ(o)
+	f.TESTQ(o, o)
+	f.JEQ(lblDone)
 
-	f.Push(&registers, addrA, addrTwiddles, addrAPlusM, innerLen)
-
-}
-
-func (f *FFAmd64) generateSISToRefactorF31() {
-	const argSize = 6 * 3 * 8
-	// func SISToRefactor(k256, k512, cosets, twiddles, rag, res []{{ .FF }}.Element)
-	stackSize := f.StackSize(f.NbWords*2+4, 1, 512*4+64) // we reserve 512*4bytes and some extra because we want to "align" SP
-	registers := f.FnHeader("SISToRefactor", stackSize, argSize, amd64.AX, amd64.DI)
-	// defer f.AssertCleanStack(stackSize, 0)
-	sp := amd64.DI
-	f.MOVQ(amd64.Register("SP"), sp)
-
-	// if sp is not aligned, we add an offset to it to align it;
-	// TODO @gbotrel double check this.
-	f.ANDQ("$-64", sp)
-
-	addrK256 := f.Pop(&registers)
-	addrK512 := f.Pop(&registers)
-
-	addrK256m := f.Pop(&registers)
-	addrK512m := f.Pop(&registers)
-
-	addrCosets := f.Pop(&registers)
-	addrTwiddlesRoot := f.Pop(&registers)
-	addrTwiddles := f.Pop(&registers)
-
-	q := registers.PopV()
-	qd := registers.PopV()
-	qInvNeg := registers.PopV()
-	LSW := registers.PopV()
-	P := registers.PopV()
-	PL := registers.PopV()
-	a0 := registers.PopV()
-	a1 := registers.PopV()
-	c0 := registers.PopV()
-	c1 := registers.PopV()
-	am0 := registers.PopV()
-	am1 := registers.PopV()
-
-	// load q and qInvNeg
-	f.Comment("prepare constants needed for mul and reduce ops")
-	f.VPCMPEQB("Y0", "Y0", "Y0")
-	f.VPMOVZXDQ("Y0", LSW)
-	f.MOVD("$const_q", amd64.AX)
-	f.VPBROADCASTQ(amd64.AX, q)
-	f.VPBROADCASTD(amd64.AX, qd)
-	f.MOVD("$const_qInvNeg", amd64.AX)
-	f.VPBROADCASTQ(amd64.AX, qInvNeg)
-
-	f.MOVQ("k256+0(FP)", addrK256)
-	f.MOVQ("k512+24(FP)", addrK512)
-	f.MOVQ("cosets+48(FP)", addrCosets)
-	f.MOVQ("twiddles+72(FP)", addrTwiddlesRoot)
-	f.MOVQ(addrTwiddlesRoot.At(0), addrTwiddles, "twiddles[0]") // stage 0
-
-	addrCosetsm := registers.Pop()
-
-	f.MOVQ(addrK256, addrK256m)
-	f.MOVQ(addrK512, addrK512m)
-	f.MOVQ(addrCosets, addrCosetsm)
-
-	f.ADDQ(512, addrK256m)
-	f.ADDQ(1024, addrK512m)
-	f.ADDQ(1024, addrCosetsm)
-
-	// ok let's go step by step during refactor to test...
-
-	// we are going to blend the FFT 512 into that loop;
-	// so we want to iterate on the halves of the 512 vector.
-
-	fromMont := f.Define("fromMontgomery", 1, func(args ...any) {
-		x := args[0]
-		f.VPMULUDQ(x, qInvNeg, PL)
-		f.VPANDQ(LSW, PL, PL)
-		f.VPMULUDQ(PL, q, PL)
-		f.VPADDQ(x, PL, x)
-		f.VPSRLQ("$32", x, x)
-		f.VPSUBQ(q, x, PL)
-		f.VPMINUQ(x, PL, x)
-	})
-
-	mulQ, _ := f.DefineFn("mulQ")
-	butterflyD2Q, _ := f.DefineFn("butterflyD2Q")
-	butterflyD1Q, _ := f.DefineFn("butterflyD1Q")
-	butterflyQ1Q, _ := f.DefineFn("butterflyQ1Q")
-	butterflyQ2Q, _ := f.DefineFn("butterflyQ2Q")
-	packDWORDS, _ := f.DefineFn("PACK_DWORDS")
-
-	_ = mulQ
-	_ = packDWORDS
-	_ = butterflyD2Q
-	_ = P
-	_ = butterflyD1Q
-	_ = butterflyQ1Q
-	_ = butterflyQ2Q
-
-	limbSplit := f.Define("limbSplit", 1, func(args ...any) {
-		x := args[0]
-		// we have
-		// z0 = [ 0 0 a0 a1 | 0 0 b0 b1 | 0 0 c0 c1 | ... ]
-		// we want
-		// z0 = [ 0 a0 0 a1 | 0 b0 0 b1 | 0 c0 0 c1 | ... ]
-		f.VPSHUFLW(0b11011100, x, x)
-		f.VPSHUFHW(0b11011100, x, x)
-	})
-
-	splitDWORDS := f.Define("splitDWORDS", 4, func(args ...any) {
-		z0 := args[0]
-		y0 := args[1]
-		z1 := args[2]
-		y1 := args[3]
-
-		f.VEXTRACTI32X8(1, z0, y1)
-		f.VPMOVZXDQ(y1, z1)
-		f.VPMOVZXDQ(y0, z0)
-	})
-
-	// load twiddles[0] and broadcast it
-	t0 := registers.PopV()
-	f.MOVD(addrCosets.At(0), amd64.AX)
-	f.VPBROADCASTQ(amd64.AX, t0)
-
-	n := 256 / 8
-	for i := 0; i < n/2; i++ {
-		// load 8 uint32 from k256 into a zmm register (zero extended)
-		f.VPMOVZXDQ(addrK256.AtD(i*8), a0)
-		fromMont(a0)
-		limbSplit(a0)
-
-		// mul by cosets
-		f.VPMOVZXDQ(addrCosets.AtD(i*16), c0)
-		f.VPMOVZXDQ(addrCosets.AtD(i*16+8), c1)
-
-		// split a0 into a0 a1
-		splitDWORDS(a0, a0.Y(), a1, a1.Y())
-
-		mulQ(a0, c0, LSW, q, qInvNeg, P, PL)
-		mulQ(a1, c1, LSW, q, qInvNeg, P, PL)
-
-		f.VPMOVQD(a0, addrK512.AtD(i*16))
-		f.VPMOVQD(a1, addrK512.AtD(i*16+8))
-
-		f.VPMOVZXDQ(addrK256m.AtD(i*8), am0)
-		fromMont(am0)
-		limbSplit(am0)
-
-		// mul by cosets
-		f.VPMOVZXDQ(addrCosetsm.AtD(i*16), c0)
-		f.VPMOVZXDQ(addrCosetsm.AtD(i*16+8), c1)
-
-		// split a0 into a0 a1
-		splitDWORDS(am0, am0.Y(), am1, am1.Y())
-
-		mulQ(am0, c0, LSW, q, qInvNeg, P, PL)
-		mulQ(am1, c1, LSW, q, qInvNeg, P, PL)
-
-		f.VPMOVQD(am0, addrK512m.AtD(i*16))
-		f.VPMOVQD(am1, addrK512m.AtD(i*16+8))
+	// here we are not done, so we setup the other half of the fft.
+	f.MOVQ(addrTwiddles, addrTwiddlesRoot)
+	for i := range a {
+		f.VMOVDQU32(sp.AtD(i*16), a[i])
 	}
+	f.ADDQ(1024, addrRag)
+	f.ADDQ(1024, addrRes)
+
+	f.JMP(lblFFT256)
+
+	registers.PushV(vInterleaveIndices)
+
+	// for i := range a {
+	// 	f.VMOVDQU32(a[i], addrK512.AtD(i*16))
+	// }
+
+	f.LABEL(lblDone)
+
 	f.RET()
 }

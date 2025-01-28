@@ -199,8 +199,8 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k, kz fr.Vector, polId int, mask
 		return
 	}
 	// this is equivalent to:
-	// 	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-	r.smallFFT(k, mask)
+	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+	// r.smallFFT(k, mask)
 
 	// we compute k * r.Ag[polId] in ℤ_{p}[X]/Xᵈ+1.
 	// k and r.Ag[polId] are in evaluation form on √(g) * <g>
