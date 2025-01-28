@@ -93,6 +93,7 @@ func generateDummyGoPackage(F *config.Field, asm *config.Assembly) error {
 	f.WriteString("package asm\n")
 	f.WriteString("\nconst DUMMY = 0")
 	f.WriteString("\nconst qInvNeg = 0")
+	f.WriteString("\nconst mu = 0")
 	f.WriteString("\nconst q = 0")
 	for i := 0; i < F.NbWords; i++ {
 		f.WriteString(fmt.Sprintf("\nconst q%d = 0", i))
