@@ -39,7 +39,8 @@ type RSis struct {
 	maxNbElementsToHash int
 	smallFFT            func(k babybear.Vector, mask uint64)
 
-	kz babybear.Vector // zeroes used to zeroize the limbs buffer faster.
+	kz            babybear.Vector // zeroes used to zeroize the limbs buffer faster.
+	twiddlesCoset []babybear.Element
 }
 
 // NewRSis creates an instance of RSis.
@@ -103,9 +104,9 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	// for degree == 64 we have a special fast path with a set of unrolled FFTs.
 	if r.Degree == 512 {
 		// precompute twiddles for the unrolled FFT
-		twiddlesCoset := precomputeTwiddlesCoset(r.Domain.Generator, shift)
-		r.smallFFT = func(k babybear.Vector, mask uint64) {
-			fft512(k, twiddlesCoset)
+		r.twiddlesCoset = precomputeTwiddlesCoset(r.Domain.Generator, shift)
+		r.smallFFT = func(k babybear.Vector, _ uint64) {
+			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
 	} else {
 		r.smallFFT = func(k babybear.Vector, _ uint64) {
@@ -184,15 +185,19 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 				_v = babybear.Vector(k256[:])
 			}
 			// ok for now this does the first step of the fft + the scaling by cosets;
-			fft.SISToRefactor(_v, k512[:], cosets, twiddles[0])
+			fft.SISToRefactor(_v, k512[:], cosets, twiddles, r.Ag[polId], res)
+			// fft512(k512[:], r.twiddlesCoset)
 
+			// vk.Mul(vk, vCosets)
+			// vvv := babybear.Vector(twiddles[0][:256])
+			// vvvv := babybear.Vector(k512[256:])
+			// vvvv.Mul(vvvv, vvv)
 			// TODO --> incorporate one by one.
+			fft.InnerDIFWithTwiddles_avx512(k512[:], twiddles[0], 0, 256, 256)
 			fft.InnerDIFWithTwiddles_avx512(k512[:256], twiddles[1], 0, 128, 128)
 			fft.KerDIFNP_128_avx512(k512[:128], twiddles, 2)
 			fft.KerDIFNP_128_avx512(k512[128:256], twiddles, 2)
 
-			_vv := babybear.Vector(k512[256:])
-			_vv.Mul(_vv, babybear.Vector(twiddles[0][:256]))
 			fft.InnerDIFWithTwiddles_avx512(k512[256:], twiddles[1], 0, 128, 128)
 			fft.KerDIFNP_128_avx512(k512[256:384], twiddles, 2)
 			fft.KerDIFNP_128_avx512(k512[384:], twiddles, 2)

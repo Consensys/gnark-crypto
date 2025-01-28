@@ -99,6 +99,7 @@ done_6:
 // mulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b[0...n]
 // n is the number of blocks of 8 elements to process
 TEXT ·mulVec(SB), NOSPLIT, $0-32
+	// code inspired by Plonky3: https://github.com/Plonky3/Plonky3/blob/36e619f3c6526ee86e2e5639a24b3224e1c1700f/monty-31/src/x86_64_avx512/packing.rs#L319
 	MOVD         $const_q, AX
 	VPBROADCASTD AX, Z0
 	MOVD         $const_qInvNeg, AX

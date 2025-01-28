@@ -39,7 +39,8 @@ type RSis struct {
 	maxNbElementsToHash int
 	smallFFT            func(k fr.Vector, mask uint64)
 
-	kz fr.Vector // zeroes used to zeroize the limbs buffer faster.
+	kz            fr.Vector // zeroes used to zeroize the limbs buffer faster.
+	twiddlesCoset []fr.Element
 }
 
 // NewRSis creates an instance of RSis.
@@ -103,9 +104,9 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	// for degree == 64 we have a special fast path with a set of unrolled FFTs.
 	if r.Degree == 512 {
 		// precompute twiddles for the unrolled FFT
-		twiddlesCoset := precomputeTwiddlesCoset(r.Domain.Generator, shift)
-		r.smallFFT = func(k fr.Vector, mask uint64) {
-			fft512(k, twiddlesCoset)
+		r.twiddlesCoset = precomputeTwiddlesCoset(r.Domain.Generator, shift)
+		r.smallFFT = func(k fr.Vector, _ uint64) {
+			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
 	} else {
 		r.smallFFT = func(k fr.Vector, _ uint64) {

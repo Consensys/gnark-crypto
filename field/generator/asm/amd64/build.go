@@ -115,6 +115,8 @@ startDefine:
 				inputsStr[i] = string(t)
 			case amd64.VectorRegister:
 				inputsStr[i] = string(t)
+			case amd64.MaskRegister:
+				inputsStr[i] = string(t)
 			case string:
 				inputsStr[i] = t
 			default:

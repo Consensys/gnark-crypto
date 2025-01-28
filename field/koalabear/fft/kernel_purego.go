@@ -19,9 +19,9 @@ func innerDITWithTwiddles(a []koalabear.Element, twiddles []koalabear.Element, s
 	innerDITWithTwiddlesGeneric(a, twiddles, start, end, m)
 }
 
-func kerDIFNP_128(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
-	kerDIFNP_128generic(a, twiddles, stage)
+func kerDIFNP_256(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
+	kerDIFNP_256generic(a, twiddles, stage)
 }
-func kerDITNP_128(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
-	kerDITNP_128generic(a, twiddles, stage)
+func kerDITNP_256(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
+	kerDITNP_256generic(a, twiddles, stage)
 }

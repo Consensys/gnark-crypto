@@ -1075,21 +1075,11 @@ func fft512(a, twiddles fr.Vector) {
 	// stage 0
 	//
 
-	// split 0: a[0:512] with twiddles[0]
-	for i := 0; i < 256; i++ {
-		a[i+256].Mul(&a[i+256], &twiddles[0])
-		koalabear.Butterfly(&a[i], &a[i+256])
-	}
-
 	//
 	// stage 1
 	//
 
 	// split 0: a[0:256] with twiddles[1]
-	for i := 0; i < 128; i++ {
-		a[i+128].Mul(&a[i+128], &twiddles[1])
-		koalabear.Butterfly(&a[i], &a[i+128])
-	}
 
 	// split 1: a[256:512] with twiddles[2]
 	for i := 256; i < 384; i++ {

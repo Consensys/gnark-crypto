@@ -56,21 +56,21 @@ func innerDITWithTwiddles(a []koalabear.Element, twiddles []koalabear.Element, s
 	innerDITWithTwiddles_avx512(a, twiddles, start, end, m)
 }
 
-func KerDIFNP_128_avx512(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
-	kerDIFNP_128_avx512(a, twiddles, stage)
+func KerDIFNP_256_avx512(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
+	kerDIFNP_256_avx512(a, twiddles, stage)
 }
 
 //go:noescape
-func kerDIFNP_128_avx512(a []koalabear.Element, twiddles [][]koalabear.Element, stage int)
+func kerDIFNP_256_avx512(a []koalabear.Element, twiddles [][]koalabear.Element, stage int)
 
-func kerDIFNP_128(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
+func kerDIFNP_256(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
 	if !supportAVX512 {
-		kerDIFNP_128generic(a, twiddles, stage)
+		kerDIFNP_256generic(a, twiddles, stage)
 		return
 	}
-	kerDIFNP_128_avx512(a, twiddles, stage)
+	kerDIFNP_256_avx512(a, twiddles, stage)
 }
 
-func kerDITNP_128(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
-	kerDITNP_128generic(a, twiddles, stage)
+func kerDITNP_256(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
+	kerDITNP_256generic(a, twiddles, stage)
 }

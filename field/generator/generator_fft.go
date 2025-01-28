@@ -43,7 +43,7 @@ func generateFFT(F *config.Field, fft *config.FFT, outputDir string) error {
 	pureGoBuildTag := ""
 	if data.HasASMKernel {
 		pureGoBuildTag = "purego || (!amd64)"
-		data.Kernels = []int{7}
+		data.Kernels = []int{8}
 	}
 
 	entries := []bavard.Entry{

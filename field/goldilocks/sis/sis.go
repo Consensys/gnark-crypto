@@ -38,7 +38,8 @@ type RSis struct {
 
 	maxNbElementsToHash int
 
-	kz goldilocks.Vector // zeroes used to zeroize the limbs buffer faster.
+	kz            goldilocks.Vector // zeroes used to zeroize the limbs buffer faster.
+	twiddlesCoset []goldilocks.Element
 }
 
 // NewRSis creates an instance of RSis.
