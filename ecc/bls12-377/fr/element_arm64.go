@@ -7,6 +7,12 @@
 
 package fr
 
+import (
+	"github.com/consensys/gnark-crypto/field/asm/element_4w"
+)
+
+const _ = asm.DUMMY
+
 // Butterfly sets
 //
 //	a = a + b (mod q)

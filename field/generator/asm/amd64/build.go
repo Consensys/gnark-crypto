@@ -7,6 +7,7 @@ package amd64
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 
 	"github.com/consensys/bavard/amd64"
@@ -278,11 +279,22 @@ func GenerateF31ASM(f *FFAmd64, hasVector bool) error {
 func ElementASMFileName(nbWords, nbBits int) string {
 	const nameW1 = "element_%db_amd64.s"
 	const nameWN = "element_%dw_amd64.s"
+
+	const fW1 = "element_%db"
+	const fWN = "element_%dw"
+
 	if nbWords == 1 {
-		if nbBits >= 32 {
-			panic("not implemented")
-		}
-		return fmt.Sprintf(nameW1, 31)
+		return filepath.Join(fmt.Sprintf(fW1, 31), fmt.Sprintf(nameW1, 31))
 	}
-	return fmt.Sprintf(nameWN, nbWords)
+	return filepath.Join(fmt.Sprintf(fWN, nbWords), fmt.Sprintf(nameWN, nbWords))
+}
+
+func ElementASMBaseDir(nbWords, nbBits int) string {
+	const fW1 = "element_%db"
+	const fWN = "element_%dw"
+
+	if nbWords == 1 {
+		return fmt.Sprintf(fW1, 31)
+	}
+	return fmt.Sprintf(fWN, nbWords)
 }

@@ -14,10 +14,11 @@ import (
 )
 
 var (
-	mARM64    sync.Map
-	mAMD64    sync.Map
-	lockARM64 sync.Mutex
-	lockAMD64 sync.Mutex
+	mARM64      sync.Map
+	mAMD64      sync.Map
+	lockARM64   sync.Mutex
+	lockAMD64   sync.Mutex
+	lockDummyGo sync.Mutex
 )
 
 // generateARM64 generates the assembly file for ARM64
@@ -28,11 +29,12 @@ func generateARM64(F *config.Field, asm *config.Assembly) (string, error) {
 		return "", nil
 	}
 
-	err := os.MkdirAll(asm.BuildDir, 0755)
-	if err != nil {
-		return "", fmt.Errorf("failed to create directory %s: %w", asm.BuildDir, err)
-	}
 	pathSrc := filepath.Join(asm.BuildDir, arm64.ElementASMFileName(F.NbWords, F.NbBits))
+	base := filepath.Dir(pathSrc)
+	err := os.MkdirAll(base, 0755)
+	if err != nil {
+		return "", fmt.Errorf("failed to create directory %s: %w", base, err)
+	}
 
 	hash, ok := mARM64.Load(pathSrc)
 	if ok {
@@ -63,7 +65,41 @@ func generateARM64(F *config.Field, asm *config.Assembly) (string, error) {
 	}
 
 	mARM64.Store(pathSrc, toReturn)
+
 	return toReturn, nil
+}
+
+func generateDummyGoPackage(F *config.Field, asm *config.Assembly) error {
+
+	// we add a dummy .go file in there to force go mod vendor to include the asm files
+	// see https://github.com/Consensys/gnark-crypto/issues/619
+	pathSrc := filepath.Join(asm.BuildDir, amd64.ElementASMFileName(F.NbWords, F.NbBits))
+	base := filepath.Dir(pathSrc)
+
+	// if dir doesn't exist we return
+	if _, err := os.Stat(base); os.IsNotExist(err) {
+		return nil
+	}
+
+	lockDummyGo.Lock()
+	defer lockDummyGo.Unlock()
+	goFile := filepath.Join(base, "asm.go")
+	f, err := os.Create(goFile)
+	if err != nil {
+		return err
+	}
+	f.WriteString("// Package asm is a workaround to force go mod vendor to include the asm files\n")
+	f.WriteString("// see https://github.com/Consensys/gnark-crypto/issues/619\n")
+	f.WriteString("package asm\n")
+	f.WriteString("\nconst DUMMY = 0")
+	f.WriteString("\nconst qInvNeg = 0")
+	f.WriteString("\nconst q = 0")
+	for i := 0; i < F.NbWords; i++ {
+		f.WriteString(fmt.Sprintf("\nconst q%d = 0", i))
+	}
+
+	f.WriteString("\n")
+	return f.Close()
 }
 
 // generateAMD64 generates the assembly file for AMD64
@@ -73,11 +109,14 @@ func generateAMD64(F *config.Field, asm *config.Assembly) (string, error) {
 	if !F.GenerateOpsAMD64 {
 		return "", nil
 	}
-	err := os.MkdirAll(asm.BuildDir, 0755)
-	if err != nil {
-		return "", fmt.Errorf("failed to create directory %s: %w", asm.BuildDir, err)
-	}
+
 	pathSrc := filepath.Join(asm.BuildDir, amd64.ElementASMFileName(F.NbWords, F.NbBits))
+
+	base := filepath.Dir(pathSrc)
+	err := os.MkdirAll(base, 0755)
+	if err != nil {
+		return "", fmt.Errorf("failed to create directory %s: %w", base, err)
+	}
 
 	hash, ok := mAMD64.Load(pathSrc)
 	if ok {

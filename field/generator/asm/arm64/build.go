@@ -3,6 +3,7 @@ package arm64
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 
 	"github.com/consensys/bavard/arm64"
@@ -216,13 +217,12 @@ func (f *FFArm64) qInv0() string {
 func ElementASMFileName(nbWords, nbBits int) string {
 	const nameW1 = "element_%db_arm64.s"
 	const nameWN = "element_%dw_arm64.s"
+	const fW1 = "element_%db"
+	const fWN = "element_%dw"
 	if nbWords == 1 {
-		if nbBits >= 32 {
-			panic("not implemented")
-		}
-		return fmt.Sprintf(nameW1, 31)
+		return filepath.Join(fmt.Sprintf(fW1, 31), fmt.Sprintf(nameW1, 31))
 	}
-	return fmt.Sprintf(nameWN, nbWords)
+	return filepath.Join(fmt.Sprintf(fWN, nbWords), fmt.Sprintf(nameWN, nbWords))
 }
 
 func GenerateF31ASM(f *FFArm64, hasVector bool) error {
