@@ -1273,6 +1273,139 @@ func (f *FFAmd64) generateCoreDITKernel(n int, registers *amd64.Registers, addrT
 
 }
 
+func (f *FFAmd64) generateSISShuffleF31() {
+	const argSize = 1 * 3 * 8
+	stackSize := f.StackSize(f.NbWords*2+4, 1, 0) // we reserve 512*4bytes and some extra because we want to "align" SP
+	registers := f.FnHeader("SISShuffle", stackSize, argSize, amd64.AX, amd64.DI)
+
+	addrA := registers.Pop()
+	lenA := registers.Pop()
+
+	b0 := registers.PopV()
+	a0 := registers.PopV()
+	a1 := registers.PopV()
+
+	f.MOVQ("a+0(FP)", addrA)
+	f.MOVQ("a_len+8(FP)", lenA)
+
+	// divide len by 32
+	f.SHRQ("$5", lenA)
+
+	lblDone := f.NewLabel("done")
+	lblLoop := f.NewLabel("loop")
+
+	permute1x1, _ := f.DefineFn("permute1x1")
+	permute2x2, _ := f.DefineFn("permute2x2")
+	permute4x4, _ := f.DefineFn("permute4x4")
+	permute8x8, _ := f.DefineFn("permute8x8")
+
+	f.MOVQ(uint64(0x0f0f), amd64.AX)
+	f.KMOVQ(amd64.AX, amd64.K1)
+
+	f.MOVQ(uint64(0b00110011), amd64.AX)
+	f.KMOVQ(amd64.AX, amd64.K2)
+
+	f.MOVQ(uint64(0b0101010101010101), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
+	addrVInterleaveIndices := registers.Pop()
+	vInterleaveIndices := registers.PopV()
+	f.MOVQ("·vInterleaveIndices+0(SB)", addrVInterleaveIndices)
+	f.VMOVDQU64(addrVInterleaveIndices.At(0), vInterleaveIndices)
+
+	f.LABEL(lblLoop)
+
+	f.TESTQ(lenA, lenA)
+	f.JEQ(lblDone, "n == 0, we are done")
+
+	f.VMOVDQU32(addrA.AtD(0), a0, "load a[i]")
+	f.VMOVDQU32(addrA.AtD(16), a1, "load a[i+16]")
+
+	// probably a faster way to do this, but let's do it the naive way for now
+	permute8x8(a0, a1, b0, amd64.K1)
+	permute4x4(a0, a1, vInterleaveIndices, b0, amd64.K2)
+	permute2x2(a0, a1, b0, amd64.K3)
+	permute1x1(a0, a1, b0, amd64.K3)
+
+	f.VMOVDQU32(a0, addrA.AtD(0), "store a[i]")
+	f.VMOVDQU32(a1, addrA.AtD(16), "store a[i+16]")
+
+	f.ADDQ("$128", addrA)
+	f.DECQ(lenA, "decrement n")
+	f.JMP(lblLoop)
+	f.LABEL(lblDone)
+	f.RET()
+}
+
+func (f *FFAmd64) generateSISUnhuffleF31() {
+	const argSize = 1 * 3 * 8
+	stackSize := f.StackSize(f.NbWords*2+4, 1, 0) // we reserve 512*4bytes and some extra because we want to "align" SP
+	registers := f.FnHeader("SISUnshuffle", stackSize, argSize, amd64.AX, amd64.DI)
+
+	addrA := registers.Pop()
+	lenA := registers.Pop()
+
+	b0 := registers.PopV()
+	a0 := registers.PopV()
+	a1 := registers.PopV()
+
+	f.MOVQ("a+0(FP)", addrA)
+	f.MOVQ("a_len+8(FP)", lenA)
+
+	// divide len by 32
+	f.SHRQ("$5", lenA)
+
+	lblDone := f.NewLabel("done")
+	lblLoop := f.NewLabel("loop")
+
+	permute4x4, _ := f.DefineFn("permute4x4")
+	permute8x8, _ := f.DefineFn("permute8x8")
+
+	f.MOVQ(uint64(0x0f0f), amd64.AX)
+	f.KMOVQ(amd64.AX, amd64.K1)
+
+	f.MOVQ(uint64(0b00110011), amd64.AX)
+	f.KMOVQ(amd64.AX, amd64.K2)
+
+	f.MOVQ(uint64(0b0101010101010101), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
+	addrVInterleaveIndices := registers.Pop()
+	vInterleaveIndices := registers.PopV()
+	f.MOVQ("·vInterleaveIndices+0(SB)", addrVInterleaveIndices)
+	f.VMOVDQU64(addrVInterleaveIndices.At(0), vInterleaveIndices)
+
+	f.LABEL(lblLoop)
+
+	f.TESTQ(lenA, lenA)
+	f.JEQ(lblDone, "n == 0, we are done")
+
+	f.VMOVDQU32(addrA.AtD(0), a0, "load a[i]")
+	f.VMOVDQU32(addrA.AtD(16), a1, "load a[i+16]")
+
+	// ok let's say now each pair of vector v0 v1
+	// such that
+	// v0 = [a0 a2 a4 a6 a8 a10 a12 a14 | b0 b2 b4 b6 b8 b10 b12 b14]
+	// v1 = [a1 a3 a5 a7 a9 a11 a13 a15 | b1 b3 b5 b7 b9 b11 b13 b15]
+
+	// we need to repack them; let's do it the naive way for now
+	f.VPUNPCKLDQ(a1, a0, b0)
+	f.VPUNPCKHDQ(a1, a0, a1)
+	f.VMOVDQA32(b0, a0)
+	permute4x4(a0, a1, vInterleaveIndices, b0, amd64.K2)
+	permute8x8(a0, a1, b0, amd64.K1)
+
+	f.VMOVDQU32(a0, addrA.AtD(0), "store a[i]")
+	f.VMOVDQU32(a1, addrA.AtD(16), "store a[i+16]")
+
+	f.ADDQ("$128", addrA)
+	f.DECQ(lenA, "decrement n")
+	f.JMP(lblLoop)
+	f.LABEL(lblDone)
+	f.RET()
+
+}
+
 func (f *FFAmd64) generateSISToRefactorF31() {
 	const argSize = 5 * 3 * 8
 	// func SISToRefactor(k256,  cosets, twiddles, rag, res []{{ .FF }}.Element)
@@ -1451,8 +1584,6 @@ func (f *FFAmd64) generateSISToRefactorF31() {
 	f.LABEL(lblFFT256)
 	// we do the fft on the first half.
 	vInterleaveIndices := f.generateCoreDIFKernel(256, &registers, addrTwiddlesRoot, a, qd, qInvNeg, false)
-	permute4x4, _ := f.DefineFn("permute4x4")
-	permute8x8, _ := f.DefineFn("permute8x8")
 
 	b0 = registers.PopV()
 	b1 = registers.PopV()
@@ -1463,19 +1594,21 @@ func (f *FFAmd64) generateSISToRefactorF31() {
 	c0 = registers.PopV()
 	c1 = registers.PopV()
 
-	for i := 0; i < len(a); i += 2 {
-		// ok let's say now each pair of vector v0 v1
-		// such that
-		// v0 = [a0 a2 a4 a6 a8 a10 a12 a14 | b0 b2 b4 b6 b8 b10 b12 b14]
-		// v1 = [a1 a3 a5 a7 a9 a11 a13 a15 | b1 b3 b5 b7 b9 b11 b13 b15]
+	// permute4x4, _ := f.DefineFn("permute4x4")
+	// permute8x8, _ := f.DefineFn("permute8x8")
+	// for i := 0; i < len(a); i += 2 {
+	// 	// ok let's say now each pair of vector v0 v1
+	// 	// such that
+	// 	// v0 = [a0 a2 a4 a6 a8 a10 a12 a14 | b0 b2 b4 b6 b8 b10 b12 b14]
+	// 	// v1 = [a1 a3 a5 a7 a9 a11 a13 a15 | b1 b3 b5 b7 b9 b11 b13 b15]
 
-		// we need to repack them; let's do it the naive way for now
-		f.VPUNPCKLDQ(a[i+1], a[i], b0)
-		f.VPUNPCKHDQ(a[i+1], a[i], a[i+1])
-		f.VMOVDQA32(b0, a[i])
-		permute4x4(a[i], a[i+1], vInterleaveIndices, b0, amd64.K2)
-		permute8x8(a[i], a[i+1], b0, amd64.K1)
-	}
+	// 	// we need to repack them; let's do it the naive way for now
+	// 	f.VPUNPCKLDQ(a[i+1], a[i], b0)
+	// 	f.VPUNPCKHDQ(a[i+1], a[i], a[i+1])
+	// 	f.VMOVDQA32(b0, a[i])
+	// 	permute4x4(a[i], a[i+1], vInterleaveIndices, b0, amd64.K2)
+	// 	permute8x8(a[i], a[i+1], b0, amd64.K1)
+	// }
 	for i := 0; i < len(a); i += 2 {
 		// mul by rag
 		f.VMOVDQU32(addrRag.AtD(i*16), c0)

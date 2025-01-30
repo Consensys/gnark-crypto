@@ -295,6 +295,8 @@ func GenerateF31FFTKernels(w io.Writer, nbBits int, kernels []int) error {
 	}
 
 	f.generateSISToRefactorF31()
+	f.generateSISShuffleF31()
+	f.generateSISUnhuffleF31()
 
 	return nil
 }

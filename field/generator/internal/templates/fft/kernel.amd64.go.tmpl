@@ -18,6 +18,12 @@ var vInterleaveIndices = []uint64 {
 	2, 3, 8, 9, 6, 7, 12, 13,
 }
 
+//go:noescape
+func SISUnshuffle(a []{{ .FF }}.Element)
+
+//go:noescape
+func SISShuffle(a []{{ .FF }}.Element)
+
 //go:nosplit
 //go:noescape
 func SISToRefactor(k256,  cosets []{{ .FF }}.Element, twiddles [][]{{ .FF }}.Element, rag, res []{{ .FF }}.Element)

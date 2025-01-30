@@ -24,6 +24,9 @@ type RSis struct {
 	// Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
 	A  [][]koalabear.Element
 	Ag [][]koalabear.Element
+	// we don't really need a copy of Ag, but since it is public
+	// need to check that callers don't use Ag for other purposes..
+	agShuffled [][]koalabear.Element
 
 	// LogTwoBound (Infinity norm) of the vector to hash. It means that each component in m
 	// is < 2^B, where m is the vector to hash (the hash being A*m).
@@ -104,7 +107,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	// for degree == 64 we have a special fast path with a set of unrolled FFTs.
 	if r.Degree == 512 {
 		// precompute twiddles for the unrolled FFT
-		r.twiddlesCoset = precomputeTwiddlesCoset(r.Domain.Generator, shift)
 		r.smallFFT = func(k koalabear.Vector, _ uint64) {
 			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
@@ -132,6 +134,14 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
 	})
+	if r.Degree == 512 {
+		r.agShuffled = make([][]koalabear.Element, len(r.Ag))
+		for i := range r.agShuffled {
+			r.agShuffled[i] = make([]koalabear.Element, r.Degree)
+			copy(r.agShuffled[i], r.Ag[i])
+			fft.SISShuffle(r.agShuffled[i])
+		}
+	}
 
 	return r, nil
 }
@@ -180,9 +190,10 @@ func (r *RSis) Hash(v, res []koalabear.Element) error {
 				_v = koalabear.Vector(k256[:])
 			}
 			// ok for now this does the first step of the fft + the scaling by cosets;
-			fft.SISToRefactor(_v, cosets, twiddles, r.Ag[polId], res)
+			fft.SISToRefactor(_v, cosets, twiddles, r.agShuffled[polId], res)
 			polId++
 		}
+		fft.SISUnshuffle(res)
 	} else {
 		// inner hash
 		k := make([]koalabear.Element, r.Degree)

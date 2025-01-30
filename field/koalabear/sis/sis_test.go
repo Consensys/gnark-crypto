@@ -166,6 +166,14 @@ func makeKeyDeterministic(t *testing.T, sis *RSis, _seed int64) {
 		sis.Domain.FFT(sis.Ag[i], fft.DIF, fft.OnCoset())
 		seed.Add(&seed, &one)
 	}
+	if sis.Degree == 512 {
+		sis.agShuffled = make([][]koalabear.Element, len(sis.Ag))
+		for i := range sis.agShuffled {
+			sis.agShuffled[i] = make([]koalabear.Element, sis.Degree)
+			copy(sis.agShuffled[i], sis.Ag[i])
+			fft.SISShuffle(sis.agShuffled[i])
+		}
+	}
 }
 
 const (
