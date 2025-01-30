@@ -37,7 +37,7 @@ func generateSIS(F *config.Field, outputDir string) error {
 	data := &sisTemplateData{
 		FF:               F.PackageName,
 		FieldPackagePath: fieldImportPath,
-		HasUnrolledFFT:   F.NbBytes == 32 || F.F31,
+		HasUnrolledFFT:   F.NbBytes == 32,
 		F31:              F.F31,
 	}
 
@@ -168,7 +168,7 @@ type PartialFFTCodeGen struct {
 
 func (p *PartialFFTCodeGen) header() {
 	writeIndent(p.Builder, p.NumIndent)
-	line := fmt.Sprintf("func partialFFT_%v(a, twiddles koalabear.Vector) {\n", p.Mask)
+	line := fmt.Sprintf("func partialFFT_%v(a, twiddles fr.Vector) {\n", p.Mask)
 	p.Builder.WriteString(line)
 }
 
@@ -188,7 +188,7 @@ func (p *PartialFFTCodeGen) butterFlyLine(i, j int) {
 
 	writeIndent(p.Builder, p.NumIndent)
 
-	line := fmt.Sprintf("koalabear.Butterfly(&a[%v], &a[%v])\n", i, j)
+	line := fmt.Sprintf("fr.Butterfly(&a[%v], &a[%v])\n", i, j)
 	if _, err := p.Builder.WriteString(line); err != nil {
 		panic(err)
 	}

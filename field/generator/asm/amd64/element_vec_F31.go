@@ -1341,7 +1341,6 @@ func (f *FFAmd64) generateSISUnhuffleF31() {
 
 func (f *FFAmd64) generateSISToRefactorF31() {
 	const argSize = 5 * 3 * 8
-	// func SISToRefactor(k256,  cosets, twiddles, rag, res []{{ .FF }}.Element)
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 256*4+64) // we reserve 512*4bytes and some extra because we want to "align" SP
 	registers := f.FnHeader("sis512_16_avx512", stackSize, argSize, amd64.AX, amd64.DI)
 	// defer f.AssertCleanStack(stackSize, 0)

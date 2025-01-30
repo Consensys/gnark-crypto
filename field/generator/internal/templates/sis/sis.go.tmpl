@@ -10,10 +10,9 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-{{- $f31 := or (eq .FF "babybear") (eq .FF "koalabear")}}
 {{$tReturn := "uint64"}}
-{{- if $f31 -}}
-{{$tReturn = "uint32"}}
+{{- if .F31 }}
+	{{$tReturn = "uint32"}}
 {{- end -}}
 
 
@@ -24,10 +23,12 @@ type RSis struct {
 	// Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
 	A  [][]{{ .FF }}.Element
 	Ag [][]{{ .FF }}.Element
-	{{- if .HasUnrolledFFT}}
-	// we don't really need a copy of Ag, but since it is public 
+	{{- if .F31}}
+	hasFast512_16 bool
+	// this is filled only when supportAVX512 is true and r.Degree == 512, r.LogTwoBound == 16
+	// we don't really need a copy of Ag, but since it is public
 	// need to check that callers don't use Ag for other purposes..
-	agShuffled [][]{{ .FF }}.Element 
+	agShuffled [][]{{ .FF }}.Element
 	{{- end}}
 
 	// LogTwoBound (Infinity norm) of the vector to hash. It means that each component in m
@@ -48,7 +49,6 @@ type RSis struct {
 	{{- end}}
 
 	kz {{.FF}}.Vector // zeroes used to zeroize the limbs buffer faster.
-	twiddlesCoset []{{ .FF }}.Element
 }
 
 // NewRSis creates an instance of RSis.
@@ -112,10 +112,11 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 
 	{{- if .HasUnrolledFFT}}
 		// for degree == 64 we have a special fast path with a set of unrolled FFTs.
-		if r.Degree == 512 {
+		if r.Degree == 64 {
 			// precompute twiddles for the unrolled FFT
-			r.smallFFT = func(k {{.FF}}.Vector, _ uint64) {
-				r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+			twiddlesCoset := precomputeTwiddlesCoset(r.Domain.Generator, shift)
+			r.smallFFT = func(k {{.FF}}.Vector, mask uint64) {
+				partialFFT_64[mask](k, twiddlesCoset)
 			}
 		} else {
 			r.smallFFT = func(k {{.FF}}.Vector, _ uint64) {
@@ -128,7 +129,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	// filling A
 	a := make([]{{ .FF }}.Element, n*r.Degree)
 	ag := make([]{{ .FF }}.Element, n*r.Degree)
-
 
 	parallel.Execute(n, func(start, end int) {
 		for i := start; i < end; i++ {
@@ -145,13 +145,14 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		}
 	})
 
-	{{- if .HasUnrolledFFT}}
-	if r.Degree == 512 {
+	{{- if .F31}}
+	r.hasFast512_16 = supportAVX512 && r.Degree == 512 && r.LogTwoBound == 16
+	if r.hasFast512_16 {
 		r.agShuffled = make([][]{{ .FF }}.Element, len(r.Ag))
 		for i := range r.agShuffled {
 			r.agShuffled[i] = make([]{{ .FF }}.Element, r.Degree)
 			copy(r.agShuffled[i], r.Ag[i])
-			fft.SISShuffle(r.agShuffled[i])
+			sisShuffle_avx512(r.agShuffled[i])
 		}
 	}
 	{{- end}}
@@ -179,10 +180,7 @@ func (r *RSis) Hash(v, res []{{ .FF }}.Element) error {
 	mask := ^uint64(0)
 
 	{{- if .F31}}
-		if r.Degree == 512 && r.LogTwoBound == 16 {
-			// this is our hot path, we don't use the iterator because with
-			// avx512 instructions, it actually ends up being most of the CPU time.
-			// er := {{ .FF }}.Element{1} // mul by 1 --> mont reduce
+		if r.hasFast512_16 {
 			polId := 0
 
 			cosets, _ := r.Domain.CosetTable()
@@ -192,7 +190,7 @@ func (r *RSis) Hash(v, res []{{ .FF }}.Element) error {
 			var k256 [256]{{ .FF }}.Element
 
 			for j := 0; j < len(v); j+=256 {
-				start := j 
+				start := j
 				end := j + 256
 				end = min(end, len(v))
 
@@ -206,10 +204,10 @@ func (r *RSis) Hash(v, res []{{ .FF }}.Element) error {
 					_v = {{ .FF }}.Vector(k256[:])
 				}
 				// ok for now this does the first step of the fft + the scaling by cosets;
-				fft.SISToRefactor(_v,  cosets, twiddles, r.agShuffled[polId], res)
+				sis512_16_avx512(_v,  cosets, twiddles, r.agShuffled[polId], res)
 				polId++
 			}
-			fft.SISUnshuffle(res)
+			sisUnshuffle_avx512(res)
 		} else {
 			// inner hash
 			k := make([]{{ .FF }}.Element, r.Degree)
@@ -219,6 +217,10 @@ func (r *RSis) Hash(v, res []{{ .FF }}.Element) error {
 			}
 		}
 	{{- else}}
+		{{- if .HasUnrolledFFT}}
+			// full FFT
+			mask = uint64(len(partialFFT_64) - 1)
+		{{- end}}
 		// inner hash
 		k := make([]{{ .FF }}.Element, r.Degree)
 		it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
@@ -272,6 +274,7 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k, kz {{ .FF }}.Vector, polId in
 
 	{{- if .HasUnrolledFFT}}
 		// this is equivalent to: 
+		// r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		r.smallFFT(k, mask)
 	{{- else}}
 		r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
@@ -349,7 +352,7 @@ func NewLimbIterator(it ElementIterator, limbSize int) *LimbIterator {
 		next = nextUint8
 	case 2:
 		next = nextUint16
-	{{if not $f31 }}
+	{{if not .F31 }}
 	case 4:
 		next = nextUint32
 	case 8:
@@ -396,7 +399,7 @@ func nextUint16(buf []byte, pos *int) {{$tReturn}} {
 	*pos += 2
 	return r
 }
-{{ if not $f31 }}
+{{ if not .F31 }}
 func nextUint32(buf []byte, pos *int) {{$tReturn}} {
 	r := {{$tReturn}} (binary.LittleEndian.Uint32(buf[*pos:]))
 	*pos += 4

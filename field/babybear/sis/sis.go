@@ -22,8 +22,10 @@ type RSis struct {
 	// Vectors in ℤ_{p}/Xⁿ+1
 	// A[i] is the i-th polynomial.
 	// Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
-	A  [][]babybear.Element
-	Ag [][]babybear.Element
+	A             [][]babybear.Element
+	Ag            [][]babybear.Element
+	hasFast512_16 bool
+	// this is filled only when supportAVX512 is true and r.Degree == 512, r.LogTwoBound == 16
 	// we don't really need a copy of Ag, but since it is public
 	// need to check that callers don't use Ag for other purposes..
 	agShuffled [][]babybear.Element
@@ -40,10 +42,8 @@ type RSis struct {
 	Domain *fft.Domain
 
 	maxNbElementsToHash int
-	smallFFT            func(k babybear.Vector, mask uint64)
 
-	kz            babybear.Vector // zeroes used to zeroize the limbs buffer faster.
-	twiddlesCoset []babybear.Element
+	kz babybear.Vector // zeroes used to zeroize the limbs buffer faster.
 }
 
 // NewRSis creates an instance of RSis.
@@ -104,17 +104,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		kz:                  make(babybear.Vector, degree),
 		maxNbElementsToHash: maxNbElementsToHash,
 	}
-	// for degree == 64 we have a special fast path with a set of unrolled FFTs.
-	if r.Degree == 512 {
-		// precompute twiddles for the unrolled FFT
-		r.smallFFT = func(k babybear.Vector, _ uint64) {
-			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-		}
-	} else {
-		r.smallFFT = func(k babybear.Vector, _ uint64) {
-			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-		}
-	}
 
 	// filling A
 	a := make([]babybear.Element, n*r.Degree)
@@ -134,12 +123,13 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
 	})
-	if r.Degree == 512 {
+	r.hasFast512_16 = supportAVX512 && r.Degree == 512 && r.LogTwoBound == 16
+	if r.hasFast512_16 {
 		r.agShuffled = make([][]babybear.Element, len(r.Ag))
 		for i := range r.agShuffled {
 			r.agShuffled[i] = make([]babybear.Element, r.Degree)
 			copy(r.agShuffled[i], r.Ag[i])
-			fft.SISShuffle(r.agShuffled[i])
+			sisShuffle_avx512(r.agShuffled[i])
 		}
 	}
 
@@ -164,10 +154,7 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 
 	// by default, the mask is ignored (unless we unrolled the FFT and have a degree 64)
 	mask := ^uint64(0)
-	if r.Degree == 512 && r.LogTwoBound == 16 {
-		// this is our hot path, we don't use the iterator because with
-		// avx512 instructions, it actually ends up being most of the CPU time.
-		// er := babybear.Element{1} // mul by 1 --> mont reduce
+	if r.hasFast512_16 {
 		polId := 0
 
 		cosets, _ := r.Domain.CosetTable()
@@ -190,10 +177,10 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 				_v = babybear.Vector(k256[:])
 			}
 			// ok for now this does the first step of the fft + the scaling by cosets;
-			fft.SISToRefactor(_v, cosets, twiddles, r.agShuffled[polId], res)
+			sis512_16_avx512(_v, cosets, twiddles, r.agShuffled[polId], res)
 			polId++
 		}
-		fft.SISUnshuffle(res)
+		sisUnshuffle_avx512(res)
 	} else {
 		// inner hash
 		k := make([]babybear.Element, r.Degree)
@@ -214,7 +201,7 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 // It does not reduce mod Xᵈ+1.
 // res, k, kz must have size r.Degree.
 // kz is a buffer of zeroes used to zeroize the limbs buffer faster.
-// mask is used to select the FFT to use when the FFT is unrolled.
+// mask is ignored since we do not unroll the FFT for this package.
 func (r *RSis) InnerHash(it *LimbIterator, res, k, kz babybear.Vector, polId int, mask uint64) {
 	copy(k, kz)
 	zero := uint32(0)
@@ -239,8 +226,7 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k, kz babybear.Vector, polId int
 		// we can skip this, FFT(0) = 0
 		return
 	}
-	// this is equivalent to:
-	r.smallFFT(k, mask)
+	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 
 	// we compute k * r.Ag[polId] in ℤ_{p}[X]/Xᵈ+1.
 	// k and r.Ag[polId] are in evaluation form on √(g) * <g>

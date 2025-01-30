@@ -17,7 +17,6 @@ import (
 	"github.com/consensys/gnark-crypto/field/babybear"
 	"github.com/consensys/gnark-crypto/field/babybear/fft"
 	"github.com/stretchr/testify/require"
-	// "golang.org/x/crypto/blake2b"
 )
 
 type sisParams struct {
@@ -166,12 +165,12 @@ func makeKeyDeterministic(t *testing.T, sis *RSis, _seed int64) {
 		sis.Domain.FFT(sis.Ag[i], fft.DIF, fft.OnCoset())
 		seed.Add(&seed, &one)
 	}
-	if sis.Degree == 512 {
+	if sis.hasFast512_16 {
 		sis.agShuffled = make([][]babybear.Element, len(sis.Ag))
 		for i := range sis.agShuffled {
 			sis.agShuffled[i] = make([]babybear.Element, sis.Degree)
 			copy(sis.agShuffled[i], sis.Ag[i])
-			fft.SISShuffle(sis.agShuffled[i])
+			sisShuffle_avx512(sis.agShuffled[i])
 		}
 	}
 }
@@ -242,23 +241,6 @@ func benchmarkSIS(b *testing.B, input []babybear.Element, sparse bool, logTwoBou
 		benchName += "sparse/"
 	}
 	benchName += fmt.Sprintf("inputs=%v/log2-bound=%v/log2-degree=%v", n, logTwoBound, logTwoDegree)
-
-	// b.Run(benchName, func(b *testing.B) {
-	// 	// report the throughput in MB/s
-	// 	nbBytes := int64(len(input)) * babybear.Bytes
-	// 	b.SetBytes(nbBytes)
-
-	// 	// input to byte array
-	// 	vv := babybear.Vector(input)
-	// 	inputBytes, _ := vv.MarshalBinary()
-
-	// 	// hash with blake2
-	// 	b.ResetTimer()
-
-	// 	for i := 0; i < b.N; i++ {
-	// 		_ = blake2b.Sum256(inputBytes[:nbBytes])
-	// 	}
-	// })
 
 	b.Run(benchName, func(b *testing.B) {
 		// report the throughput in MB/s

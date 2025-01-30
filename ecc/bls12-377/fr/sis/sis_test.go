@@ -17,7 +17,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/fft"
 	"github.com/stretchr/testify/require"
-	// "golang.org/x/crypto/blake2b"
 )
 
 type sisParams struct {
@@ -166,14 +165,6 @@ func makeKeyDeterministic(t *testing.T, sis *RSis, _seed int64) {
 		sis.Domain.FFT(sis.Ag[i], fft.DIF, fft.OnCoset())
 		seed.Add(&seed, &one)
 	}
-	if sis.Degree == 512 {
-		sis.agShuffled = make([][]fr.Element, len(sis.Ag))
-		for i := range sis.agShuffled {
-			sis.agShuffled[i] = make([]fr.Element, sis.Degree)
-			copy(sis.agShuffled[i], sis.Ag[i])
-			fft.SISShuffle(sis.agShuffled[i])
-		}
-	}
 }
 
 const (
@@ -243,23 +234,6 @@ func benchmarkSIS(b *testing.B, input []fr.Element, sparse bool, logTwoBound, lo
 	}
 	benchName += fmt.Sprintf("inputs=%v/log2-bound=%v/log2-degree=%v", n, logTwoBound, logTwoDegree)
 
-	// b.Run(benchName, func(b *testing.B) {
-	// 	// report the throughput in MB/s
-	// 	nbBytes := int64(len(input)) * fr.Bytes
-	// 	b.SetBytes(nbBytes)
-
-	// 	// input to byte array
-	// 	vv := fr.Vector(input)
-	// 	inputBytes, _ := vv.MarshalBinary()
-
-	// 	// hash with blake2
-	// 	b.ResetTimer()
-
-	// 	for i := 0; i < b.N; i++ {
-	// 		_ = blake2b.Sum256(inputBytes[:nbBytes])
-	// 	}
-	// })
-
 	b.Run(benchName, func(b *testing.B) {
 		// report the throughput in MB/s
 		b.SetBytes(int64(len(input)) * fr.Bytes)
@@ -293,4 +267,51 @@ func benchmarkSIS(b *testing.B, input []fr.Element, sparse bool, logTwoBound, lo
 		b.ReportMetric(theoretical, "ns/field(theory)")
 
 	})
+}
+
+func TestPartialFFT(t *testing.T) {
+	assert := require.New(t)
+
+	var (
+		domain   = fft.NewDomain(64)
+		twiddles = precomputeTwiddlesCoset(domain.Generator, domain.FrMultiplicativeGen)
+	)
+
+	for mask := 0; mask < 16; mask++ {
+
+		var (
+			a = vec123456()
+			b = vec123456()
+		)
+
+		zeroizeWithMask(a, mask)
+		zeroizeWithMask(b, mask)
+
+		domain.FFT(a, fft.DIF, fft.OnCoset())
+		partialFFT_64[mask](b, twiddles)
+		for i := range a {
+			assert.True(a[i].Equal(&b[i]), "mismatch at index %d", i)
+		}
+	}
+
+}
+
+func vec123456() []fr.Element {
+	vec := make([]fr.Element, 64)
+	for i := range vec {
+		vec[i].SetInt64(int64(i))
+	}
+	return vec
+}
+
+func zeroizeWithMask(v []fr.Element, mask int) {
+	for i := 0; i < 4; i++ {
+		if (mask>>i)&1 == 1 {
+			continue
+		}
+
+		for j := 0; j < 16; j++ {
+			v[16*i+j].SetZero()
+		}
+	}
 }

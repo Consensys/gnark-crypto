@@ -272,21 +272,6 @@ func innerProdVec(t *uint64, a, b *{{.ElementName}}, n uint64)
 //go:noescape
 func butterflyMulVec(a, twiddles *{{.ElementName}}, m int)
 
-//go:noescape
-func SISUnshuffle_avx512(a []{{ .FF }}.Element)
-
-//go:noescape
-func SISShuffle_avx512(a []{{ .FF }}.Element)
-
-//go:noescape
-func SIS512_16_avx512(k256, cosets []{{ .FF }}.Element, twiddles [][]{{ .FF }}.Element, rag, res []{{ .FF }}.Element)
-
-//go:noescape
-func KerDITNP_256_avx512(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int)
-
-//go:noescape
-func KerDIFNP_256_avx512(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int)
-
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {

@@ -27,20 +27,6 @@ var vInterleaveIndices = []uint64{
 }
 
 //go:noescape
-func SISUnshuffle(a []babybear.Element)
-
-//go:noescape
-func SISShuffle(a []babybear.Element)
-
-//go:nosplit
-//go:noescape
-func SISToRefactor(k256, cosets []babybear.Element, twiddles [][]babybear.Element, rag, res []babybear.Element)
-
-func InnerDIFWithTwiddles_avx512(a []babybear.Element, twiddles []babybear.Element, start, end, m int) {
-	innerDIFWithTwiddles_avx512(a, twiddles, start, end, m)
-}
-
-//go:noescape
 func innerDIFWithTwiddles_avx512(a []babybear.Element, twiddles []babybear.Element, start, end, m int)
 
 //go:noescape
@@ -60,10 +46,6 @@ func innerDITWithTwiddles(a []babybear.Element, twiddles []babybear.Element, sta
 		return
 	}
 	innerDITWithTwiddles_avx512(a, twiddles, start, end, m)
-}
-
-func KerDIFNP_256_avx512(a []babybear.Element, twiddles [][]babybear.Element, stage int) {
-	kerDIFNP_256_avx512(a, twiddles, stage)
 }
 
 //go:noescape
