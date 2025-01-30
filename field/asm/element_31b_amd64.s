@@ -9,14 +9,14 @@ TEXT ·addVec(SB), NOSPLIT, $0-32
 	MOVD         $const_q, AX
 	VPBROADCASTD AX, Z3
 	MOVQ         res+0(FP), CX
-	MOVQ         a+8(FP), AX
+	MOVQ         a+8(FP), R15
 	MOVQ         b+16(FP), DX
 	MOVQ         n+24(FP), BX
 
 loop_1:
 	TESTQ     BX, BX
 	JEQ       done_2     // n == 0, we are done
-	VMOVDQU32 0(AX), Z0
+	VMOVDQU32 0(R15), Z0
 	VMOVDQU32 0(DX), Z1
 	VPADDD    Z0, Z1, Z0 // a = a + b
 	VPSUBD    Z3, Z0, Z2 // t = a - q
@@ -24,10 +24,10 @@ loop_1:
 	VMOVDQU32 Z1, 0(CX)  // res = b
 
 	// increment pointers to visit next element
-	ADDQ $64, AX
+	ADDQ $64, R15
 	ADDQ $64, DX
 	ADDQ $64, CX
-	DECQ BX      // decrement n
+	DECQ BX       // decrement n
 	JMP  loop_1
 
 done_2:
@@ -39,14 +39,14 @@ TEXT ·subVec(SB), NOSPLIT, $0-32
 	MOVD         $const_q, AX
 	VPBROADCASTD AX, Z3
 	MOVQ         res+0(FP), CX
-	MOVQ         a+8(FP), AX
+	MOVQ         a+8(FP), R15
 	MOVQ         b+16(FP), DX
 	MOVQ         n+24(FP), BX
 
 loop_3:
 	TESTQ     BX, BX
 	JEQ       done_4     // n == 0, we are done
-	VMOVDQU32 0(AX), Z0
+	VMOVDQU32 0(R15), Z0
 	VMOVDQU32 0(DX), Z1
 	VPSUBD    Z1, Z0, Z0 // a = a - b
 	VPADDD    Z3, Z0, Z2 // t = a + q
@@ -54,10 +54,10 @@ loop_3:
 	VMOVDQU32 Z1, 0(CX)  // res = b
 
 	// increment pointers to visit next element
-	ADDQ $64, AX
+	ADDQ $64, R15
 	ADDQ $64, DX
 	ADDQ $64, CX
-	DECQ BX      // decrement n
+	DECQ BX       // decrement n
 	JMP  loop_3
 
 done_4:
