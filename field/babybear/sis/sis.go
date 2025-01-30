@@ -24,6 +24,9 @@ type RSis struct {
 	// Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
 	A  [][]babybear.Element
 	Ag [][]babybear.Element
+	// we don't really need a copy of Ag, but since it is public
+	// need to check that callers don't use Ag for other purposes..
+	agShuffled [][]babybear.Element
 
 	// LogTwoBound (Infinity norm) of the vector to hash. It means that each component in m
 	// is < 2^B, where m is the vector to hash (the hash being A*m).
@@ -104,7 +107,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	// for degree == 64 we have a special fast path with a set of unrolled FFTs.
 	if r.Degree == 512 {
 		// precompute twiddles for the unrolled FFT
-		r.twiddlesCoset = precomputeTwiddlesCoset(r.Domain.Generator, shift)
 		r.smallFFT = func(k babybear.Vector, _ uint64) {
 			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
@@ -132,6 +134,14 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
 	})
+	if r.Degree == 512 {
+		r.agShuffled = make([][]babybear.Element, len(r.Ag))
+		for i := range r.agShuffled {
+			r.agShuffled[i] = make([]babybear.Element, r.Degree)
+			copy(r.agShuffled[i], r.Ag[i])
+			fft.SISShuffle(r.agShuffled[i])
+		}
+	}
 
 	return r, nil
 }
@@ -151,8 +161,6 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 	for i := 0; i < len(res); i++ {
 		res[i].SetZero()
 	}
-
-	k := make([]babybear.Element, r.Degree)
 
 	// by default, the mask is ignored (unless we unrolled the FFT and have a degree 64)
 	mask := ^uint64(0)
@@ -182,27 +190,13 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 				_v = babybear.Vector(k256[:])
 			}
 			// ok for now this does the first step of the fft + the scaling by cosets;
-			fft.SISToRefactor(_v, cosets, twiddles, r.Ag[polId], res)
-			// fft512(k512[:], r.twiddlesCoset)
-
-			// vk.Mul(vk, vCosets)
-			// vvv := babybear.Vector(twiddles[0][:256])
-			// vvvv := babybear.Vector(k512[256:])
-			// vvvv.Mul(vvvv, vvv)
-			// TODO --> incorporate one by one.
-			// fft.InnerDIFWithTwiddles_avx512(k512[:], twiddles[0], 0, 256, 256)
-			// fft.KerDIFNP_256_avx512(k512[:256], twiddles, 1)
-			// fft.KerDIFNP_256_avx512(k512[256:], twiddles, 1)
-
-			// inner hash
-			// vk.Mul(vk, vCosets)
-			// r.Domain.FFT(k512[:], fft.DIF, fft.WithNbTasks(1))
-			// vk.Mul(vk, babybear.Vector(r.Ag[polId]))
-			// vRes.Add(vRes, vk)
+			fft.SISToRefactor(_v, cosets, twiddles, r.agShuffled[polId], res)
 			polId++
 		}
+		fft.SISUnshuffle(res)
 	} else {
 		// inner hash
+		k := make([]babybear.Element, r.Degree)
 		it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
 		for i := 0; i < len(r.Ag); i++ {
 			r.InnerHash(it, res, k, r.kz, i, mask)
@@ -246,8 +240,7 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k, kz babybear.Vector, polId int
 		return
 	}
 	// this is equivalent to:
-	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-	// r.smallFFT(k, mask)
+	r.smallFFT(k, mask)
 
 	// we compute k * r.Ag[polId] in ℤ_{p}[X]/Xᵈ+1.
 	// k and r.Ag[polId] are in evaluation form on √(g) * <g>

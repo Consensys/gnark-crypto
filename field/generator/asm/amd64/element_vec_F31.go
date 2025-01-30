@@ -278,8 +278,12 @@ func (f *FFAmd64) generateMulVecF31() {
 	// a = a * b
 	f.VMOVDQU32(addrA.At(0), a)
 	f.VMOVDQU32(addrB.At(0), b)
-	f.VMOVSHDUP(a, aOdd)
-	f.VMOVSHDUP(b, bOdd)
+	// f.VMOVSHDUP(a, aOdd)
+	// f.VMOVSHDUP(b, bOdd)
+
+	f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
+	f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
+
 	f.VPMULUDQ(a, b, b0)
 	f.VPMULUDQ(aOdd, bOdd, b1)
 	f.VPMULUDQ(b0, qInvNeg, PL0)
@@ -526,65 +530,6 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPMINUD(b1, y, y) // y %= q
 	})
 
-	f.Comment("same as butterflyD2Q but for qwords")
-	f.Comment("in2: must be broadcasted on all qwords lanes")
-	_ = f.Define("butterflyQ2Q", 4, func(args ...any) {
-		x := args[0]
-		y := args[1]
-		q := args[2]
-		b0 := args[3]
-
-		f.VPADDQ(x, y, b0)  // b0 = x + y
-		f.VPSUBQ(y, x, y)   // y = x - y
-		f.VPSUBQ(q, b0, x)  // x = (x+y) - q
-		f.VPMINUQ(b0, x, x) // x %= q
-		f.VPADDQ(q, y, y)   // y = (x-y) + q --> y in [0,2q)
-	})
-
-	_ = f.Define("butterflyQ1Q", 5, func(args ...any) {
-		x := args[0]
-		y := args[1]
-		q := args[2]
-		b0 := args[3]
-		b1 := args[4]
-
-		f.VPADDQ(x, y, b0)  // b0 = x + y
-		f.VPSUBQ(y, x, y)   // y = x - y
-		f.VPSUBQ(q, b0, x)  // x = (x+y) - q
-		f.VPMINUQ(b0, x, x) // x %= q
-		f.VPADDQ(q, y, b1)  // y = (x-y) + q --> y in [0,2q)
-		f.VPMINUQ(b1, y, y) // y %= q
-	})
-
-	f.Comment("performs a multiplication in place between 2 vectors of qwords (values should be dwords zero extended)")
-	f.Comment("in0 = (in0 * in1) mod q")
-	f.Comment("in1: second operand")
-	f.Comment("in2: mask for low dword in each qword")
-	f.Comment("in3: q broadcasted on all qwords lanes")
-	f.Comment("in4: qInvNeg broadcasted on all qwords lanes")
-	f.Comment("in5: temporary Z register")
-	f.Comment("in6: temporary Z register")
-	_ = f.Define("mulQ", 7, func(args ...any) {
-		x := args[0]
-		y := args[1]
-		LSW := args[2]
-		q := args[3]
-		qInvNeg := args[4]
-		P := args[5]
-		PL := args[6]
-
-		// TODO @gbotrel can avoid the ANDQ with LSW since MULUDQ ignores the high dword
-		f.VPMULUDQ(x, y, P)
-		f.VPANDQ(LSW, P, PL)
-		f.VPMULUDQ(PL, qInvNeg, PL)
-		f.VPANDQ(LSW, PL, PL)
-		f.VPMULUDQ(PL, q, PL)
-		f.VPADDQ(P, PL, P)
-		f.VPSRLQ("$32", P, P)
-		f.VPSUBQ(q, P, PL)
-		f.VPMINUQ(P, PL, x)
-	})
-
 	mulD := f.Define("mulD", 11, func(args ...any) {
 		a := args[0]
 		b := args[1]
@@ -598,25 +543,20 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		qInvNeg := args[9]
 		kEvens := args[10]
 
-		f.VMOVSHDUP(a, aOdd)
-		f.VMOVSHDUP(b, bOdd)
+		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
+		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
 		f.VPMULUDQ(a, b, b0)
 		f.VPMULUDQ(aOdd, bOdd, b1)
 		f.VPMULUDQ(b0, qInvNeg, PL0)
 		f.VPMULUDQ(b1, qInvNeg, PL1)
 
 		f.VPMULUDQ(PL0, q, PL0)
-		f.VPMULUDQ(PL1, q, PL1)
-
 		f.VPADDQ(b0, PL0, b0)
+
+		f.VPMULUDQ(PL1, q, PL1)
 		f.VPADDQ(b1, PL1, b1)
 
 		f.VMOVSHDUPk(b0, kEvens, b1)
-
-		// this also works but is slower.
-		// f.VPCMPUD(5, b1, q, amd64.K4)
-		// f.VPSUBD(q, b1, a)
-		// f.VPADDDk(q, a, amd64.K4, a)
 
 		f.VPSUBD(q, b1, PL1)
 		f.VPMINUD(b1, PL1, a)
@@ -677,17 +617,6 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPSHRDQ("$32", y, x, b0)
 		f.VPBLENDMD(x, b0, x, K)
 		f.VPBLENDMD(b0, y, y, K)
-	})
-
-	_ = f.Define("PACK_DWORDS", 4, func(args ...any) {
-		x := args[0]
-		xx := args[1]
-		y := args[2]
-		xy := args[3]
-
-		f.VPMOVQD(x, xx)
-		f.VPMOVQD(y, xy)
-		f.VINSERTI64X4(1, xy, x, x)
 	})
 
 	_ = f.Define("butterfly_mulD", 11+4, func(args ...any) {
@@ -930,6 +859,10 @@ func (f *FFAmd64) generateFFTInnerDIFF31() {
 	f.WriteLn("CALL ·innerDIFWithTwiddlesGeneric(SB)")
 	f.RET()
 
+}
+
+type fftKernelGenerator struct {
+	f *FFAmd64
 }
 
 func (f *FFAmd64) generateFFTKernelF31(klog2 int, dif bool) {
@@ -1594,21 +1527,6 @@ func (f *FFAmd64) generateSISToRefactorF31() {
 	c0 = registers.PopV()
 	c1 = registers.PopV()
 
-	// permute4x4, _ := f.DefineFn("permute4x4")
-	// permute8x8, _ := f.DefineFn("permute8x8")
-	// for i := 0; i < len(a); i += 2 {
-	// 	// ok let's say now each pair of vector v0 v1
-	// 	// such that
-	// 	// v0 = [a0 a2 a4 a6 a8 a10 a12 a14 | b0 b2 b4 b6 b8 b10 b12 b14]
-	// 	// v1 = [a1 a3 a5 a7 a9 a11 a13 a15 | b1 b3 b5 b7 b9 b11 b13 b15]
-
-	// 	// we need to repack them; let's do it the naive way for now
-	// 	f.VPUNPCKLDQ(a[i+1], a[i], b0)
-	// 	f.VPUNPCKHDQ(a[i+1], a[i], a[i+1])
-	// 	f.VMOVDQA32(b0, a[i])
-	// 	permute4x4(a[i], a[i+1], vInterleaveIndices, b0, amd64.K2)
-	// 	permute8x8(a[i], a[i+1], b0, amd64.K1)
-	// }
 	for i := 0; i < len(a); i += 2 {
 		// mul by rag
 		f.VMOVDQU32(addrRag.AtD(i*16), c0)
@@ -1650,10 +1568,6 @@ func (f *FFAmd64) generateSISToRefactorF31() {
 	f.JMP(lblFFT256)
 
 	registers.PushV(vInterleaveIndices)
-
-	// for i := range a {
-	// 	f.VMOVDQU32(a[i], addrK512.AtD(i*16))
-	// }
 
 	f.LABEL(lblDone)
 

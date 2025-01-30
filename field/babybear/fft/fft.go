@@ -152,12 +152,18 @@ func (domain *Domain) FFTInverse(a []babybear.Element, decimation Decimation, op
 
 	if decimation == DIT {
 		if domain.withPrecompute {
-			parallel.Execute(len(a), func(start, end int) {
-				for i := start; i < end; i++ {
-					a[i].Mul(&a[i], &domain.cosetTableInv[i]).
-						Mul(&a[i], &domain.CardinalityInv)
-				}
-			}, opt.nbTasks)
+			if opt.nbTasks == 1 {
+				va := babybear.Vector(a)
+				va.Mul(va, babybear.Vector(domain.cosetTableInv))
+				va.ScalarMul(va, &domain.CardinalityInv)
+			} else {
+				parallel.Execute(len(a), func(start, end int) {
+					for i := start; i < end; i++ {
+						a[i].Mul(&a[i], &domain.cosetTableInv[i]).
+							Mul(&a[i], &domain.CardinalityInv)
+					}
+				}, opt.nbTasks)
+			}
 		} else {
 			c := domain.FrMultiplicativeGenInv
 			parallel.Execute(len(a), func(start, end int) {

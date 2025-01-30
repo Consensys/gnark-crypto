@@ -30,52 +30,16 @@
 	VPADDD  in2, in1, in4 \
 	VPMINUD in4, in1, in1 \
 
-// same as butterflyD2Q but for qwords
-// in2: must be broadcasted on all qwords lanes
-#define BUTTERFLYQ2Q(in0, in1, in2, in3) \
-	VPADDQ  in0, in1, in3 \
-	VPSUBQ  in1, in0, in1 \
-	VPSUBQ  in2, in3, in0 \
-	VPMINUQ in3, in0, in0 \
-	VPADDQ  in2, in1, in1 \
-
-#define BUTTERFLYQ1Q(in0, in1, in2, in3, in4) \
-	VPADDQ  in0, in1, in3 \
-	VPSUBQ  in1, in0, in1 \
-	VPSUBQ  in2, in3, in0 \
-	VPMINUQ in3, in0, in0 \
-	VPADDQ  in2, in1, in4 \
-	VPMINUQ in4, in1, in1 \
-
-// performs a multiplication in place between 2 vectors of qwords (values should be dwords zero extended)
-// in0 = (in0 * in1) mod q
-// in1: second operand
-// in2: mask for low dword in each qword
-// in3: q broadcasted on all qwords lanes
-// in4: qInvNeg broadcasted on all qwords lanes
-// in5: temporary Z register
-// in6: temporary Z register
-#define MULQ(in0, in1, in2, in3, in4, in5, in6) \
-	VPMULUDQ in0, in1, in5 \
-	VPANDQ   in2, in5, in6 \
-	VPMULUDQ in6, in4, in6 \
-	VPANDQ   in2, in6, in6 \
-	VPMULUDQ in6, in3, in6 \
-	VPADDQ   in5, in6, in5 \
-	VPSRLQ   $32, in5, in5 \
-	VPSUBQ   in3, in5, in6 \
-	VPMINUQ  in5, in6, in0 \
-
 #define MULD(in0, in1, in2, in3, in4, in5, in6, in7, in8, in9, in10) \
-	VMOVSHDUP in0, in2       \
-	VMOVSHDUP in1, in3       \
+	VPSRLQ    $32, in0, in2  \
+	VPSRLQ    $32, in1, in3  \
 	VPMULUDQ  in0, in1, in4  \
 	VPMULUDQ  in2, in3, in5  \
 	VPMULUDQ  in4, in9, in6  \
 	VPMULUDQ  in5, in9, in7  \
 	VPMULUDQ  in6, in8, in6  \
-	VPMULUDQ  in7, in8, in7  \
 	VPADDQ    in4, in6, in4  \
+	VPMULUDQ  in7, in8, in7  \
 	VPADDQ    in5, in7, in5  \
 	VMOVSHDUP in4, in10, in5 \
 	VPSUBD    in8, in5, in7  \
@@ -112,11 +76,6 @@
 	VPSHRDQ   $32, in1, in0, in2 \
 	VPBLENDMD in0, in2, in3, in0 \
 	VPBLENDMD in2, in1, in3, in1 \
-
-#define PACK_DWORDS(in0, in1, in2, in3) \
-	VPMOVQD      in0, in1          \
-	VPMOVQD      in2, in3          \
-	VINSERTI64X4 $1, in3, in0, in0 \
 
 #define BUTTERFLY_MULD(in0, in1, in2, in3, in4, in5, in6, in7, in8, in9, in10, in11, in12, in13, in14) \
 BUTTERFLYD2Q(in0, in1, in2, in3)                                 \

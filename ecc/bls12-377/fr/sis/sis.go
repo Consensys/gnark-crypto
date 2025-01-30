@@ -24,6 +24,9 @@ type RSis struct {
 	// Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
 	A  [][]fr.Element
 	Ag [][]fr.Element
+	// we don't really need a copy of Ag, but since it is public
+	// need to check that callers don't use Ag for other purposes..
+	agShuffled [][]fr.Element
 
 	// LogTwoBound (Infinity norm) of the vector to hash. It means that each component in m
 	// is < 2^B, where m is the vector to hash (the hash being A*m).
@@ -104,7 +107,6 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	// for degree == 64 we have a special fast path with a set of unrolled FFTs.
 	if r.Degree == 512 {
 		// precompute twiddles for the unrolled FFT
-		r.twiddlesCoset = precomputeTwiddlesCoset(r.Domain.Generator, shift)
 		r.smallFFT = func(k fr.Vector, _ uint64) {
 			r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
@@ -132,6 +134,14 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
 	})
+	if r.Degree == 512 {
+		r.agShuffled = make([][]fr.Element, len(r.Ag))
+		for i := range r.agShuffled {
+			r.agShuffled[i] = make([]fr.Element, r.Degree)
+			copy(r.agShuffled[i], r.Ag[i])
+			fft.SISShuffle(r.agShuffled[i])
+		}
+	}
 
 	return r, nil
 }
@@ -152,11 +162,10 @@ func (r *RSis) Hash(v, res []fr.Element) error {
 		res[i].SetZero()
 	}
 
-	k := make([]fr.Element, r.Degree)
-
 	// by default, the mask is ignored (unless we unrolled the FFT and have a degree 64)
 	mask := ^uint64(0)
 	// inner hash
+	k := make([]fr.Element, r.Degree)
 	it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
 	for i := 0; i < len(r.Ag); i++ {
 		r.InnerHash(it, res, k, r.kz, i, mask)
@@ -199,8 +208,7 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k, kz fr.Vector, polId int, mask
 		return
 	}
 	// this is equivalent to:
-	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-	// r.smallFFT(k, mask)
+	r.smallFFT(k, mask)
 
 	// we compute k * r.Ag[polId] in ℤ_{p}[X]/Xᵈ+1.
 	// k and r.Ag[polId] are in evaluation form on √(g) * <g>
