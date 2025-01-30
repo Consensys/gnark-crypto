@@ -1209,7 +1209,7 @@ func (f *FFAmd64) generateCoreDITKernel(n int, registers *amd64.Registers, addrT
 func (f *FFAmd64) generateSISShuffleF31() {
 	const argSize = 1 * 3 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 0) // we reserve 512*4bytes and some extra because we want to "align" SP
-	registers := f.FnHeader("SISShuffle", stackSize, argSize, amd64.AX, amd64.DI)
+	registers := f.FnHeader("sisShuffle_avx512", stackSize, argSize, amd64.AX, amd64.DI)
 
 	addrA := registers.Pop()
 	lenA := registers.Pop()
@@ -1273,7 +1273,7 @@ func (f *FFAmd64) generateSISShuffleF31() {
 func (f *FFAmd64) generateSISUnhuffleF31() {
 	const argSize = 1 * 3 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 0) // we reserve 512*4bytes and some extra because we want to "align" SP
-	registers := f.FnHeader("SISUnshuffle", stackSize, argSize, amd64.AX, amd64.DI)
+	registers := f.FnHeader("sisUnshuffle_avx512", stackSize, argSize, amd64.AX, amd64.DI)
 
 	addrA := registers.Pop()
 	lenA := registers.Pop()
@@ -1343,7 +1343,7 @@ func (f *FFAmd64) generateSISToRefactorF31() {
 	const argSize = 5 * 3 * 8
 	// func SISToRefactor(k256,  cosets, twiddles, rag, res []{{ .FF }}.Element)
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 256*4+64) // we reserve 512*4bytes and some extra because we want to "align" SP
-	registers := f.FnHeader("SISToRefactor", stackSize, argSize, amd64.AX, amd64.DI)
+	registers := f.FnHeader("sis512_16_avx512", stackSize, argSize, amd64.AX, amd64.DI)
 	// defer f.AssertCleanStack(stackSize, 0)
 	sp := amd64.DI
 	f.MOVQ(amd64.Register("SP"), sp)

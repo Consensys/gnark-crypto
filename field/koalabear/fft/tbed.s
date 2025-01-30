@@ -1,0 +1,105 @@
+#include "textflag.h"
+#include "funcdata.h"
+#include "go_asm.h"
+
+TEXT ·tbed(SB), NOSPLIT, $0-48
+	MOVQ  $0x0000000000005555, AX
+	KMOVD AX, K3
+
+	MOVQ x+0(FP), BX
+	MOVQ res+24(FP), AX
+
+	VPBROADCASTD 0(BX), Z22
+	VPBROADCASTD 4(BX), Z23
+	VPBLENDMD    Z22, Z23, K3, Z22
+
+	VMOVDQU32 Z22, 0(AX)
+	RET
+
+#define PERMUTE4X4(in0, in1, in2, in3, in4) \
+	VMOVDQA64 in2, in3           \
+	VPERMI2Q  in1, in0, in3      \
+	VPBLENDMQ in0, in3, in4, in0 \
+	VPBLENDMQ in3, in1, in4, in1 \
+
+#define PERMUTE8X8(in0, in1, in2, in3) \
+	VSHUFI64X2 $0x000000000000004e, in1, in0, in2 \
+	VPBLENDMQ  in0, in2, in3, in0                 \
+	VPBLENDMQ  in2, in1, in3, in1                 \
+
+#define PERMUTE2X2(in0, in1, in2, in3) \
+	VSHUFPD   $0x0000000000000055, in1, in0, in2 \
+	VPBLENDMQ in0, in2, in3, in0                 \
+	VPBLENDMQ in2, in1, in3, in1                 \
+
+#define PERMUTE1X1(in0, in1, in2, in3) \
+	VPSHRDQ   $32, in1, in0, in2 \
+	VPBLENDMD in0, in2, in3, in0 \
+	VPBLENDMD in2, in1, in3, in1 \
+
+TEXT ·tbed2(SB), NOSPLIT, $0-72
+	MOVQ  $0x0000000000005555, AX
+	KMOVD AX, K3
+
+	MOVQ  $0x0000000000000033, AX
+	KMOVQ AX, K2
+
+	MOVQ  $0x0000000000000f0f, AX
+	KMOVQ AX, K1
+
+	MOVQ      ·vInterleaveIndices+0(SB), DI
+	VMOVDQU64 0(DI), Z26
+
+	MOVQ a+0(FP), AX
+	MOVQ b+24(FP), BX
+	MOVQ res+48(FP), CX
+
+	VMOVDQU32 0(AX), Z0
+	VMOVDQU32 0(BX), Z1
+
+	VPUNPCKLDQ Z1, Z0, Z22
+	VPUNPCKHDQ Z1, Z0, Z23
+	PERMUTE4X4(Z22, Z23, Z26, Z26, K2)
+	PERMUTE8X8(Z22, Z23, Z26, K1)
+
+	VMOVDQU32 Z22, 0(CX)
+	VMOVDQU32 Z23, 64(CX)
+
+	RET
+
+TEXT ·permuteID(SB), NOSPLIT, $0-48
+	MOVQ  $0x0000000000005555, AX
+	KMOVD AX, K3
+
+	MOVQ  $0x0000000000000033, AX
+	KMOVQ AX, K2
+
+	MOVQ  $0x0000000000000f0f, AX
+	KMOVQ AX, K1
+
+	MOVQ      ·vInterleaveIndices+0(SB), DI
+	VMOVDQU64 0(DI), Z27
+
+	MOVQ a+0(FP), AX
+	MOVQ b+24(FP), BX
+
+	VMOVDQU32 0(AX), Z0
+	VMOVDQU32 0(BX), Z1
+
+	PERMUTE1X1(Z0, Z1, Z26, K3)
+	PERMUTE1X1(Z0, Z1, Z26, K3)
+
+	PERMUTE2X2(Z0, Z1, Z26, K3)
+	PERMUTE2X2(Z0, Z1, Z26, K3)
+
+	PERMUTE4X4(Z0, Z1, Z27, Z26, K2)
+	PERMUTE4X4(Z0, Z1, Z27, Z26, K2)
+
+	PERMUTE8X8(Z0, Z1, Z26, K1)
+	PERMUTE8X8(Z0, Z1, Z26, K1)
+
+	VMOVDQU32 Z0, 0(AX)
+	VMOVDQU32 Z1, 0(BX)
+
+	RET
+

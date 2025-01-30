@@ -3,10 +3,12 @@ package generator
 import (
 	"fmt"
 	"math/big"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
 	"github.com/consensys/gnark-crypto/field/generator/config"
 )
 
@@ -29,6 +31,7 @@ func generateSIS(F *config.Field, outputDir string) error {
 		FieldPackagePath string
 		HasUnrolledFFT   bool
 		F31              bool
+		Q, QInvNeg       uint64
 	}
 
 	data := &sisTemplateData{
@@ -36,6 +39,27 @@ func generateSIS(F *config.Field, outputDir string) error {
 		FieldPackagePath: fieldImportPath,
 		HasUnrolledFFT:   F.NbBytes == 32 || F.F31,
 		F31:              F.F31,
+	}
+
+	if data.F31 {
+		data.Q = F.Q[0]
+		data.QInvNeg = F.QInverse[0]
+		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "sis_amd64.go"), Templates: []string{"sis.amd64.go.tmpl"}, BuildTag: "!purego"})
+		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "sis_purego.go"), Templates: []string{"sis.purego.go.tmpl"}, BuildTag: "purego || (!amd64)"})
+
+		// generate the assembly file;
+		asmFile, err := os.Create(filepath.Join(outputDir, "sis_amd64.s"))
+		if err != nil {
+			return err
+		}
+
+		asmFile.WriteString("//go:build !purego\n")
+
+		if err := amd64.GenerateF31SIS(asmFile, F.NbBits); err != nil {
+			asmFile.Close()
+			return err
+		}
+		asmFile.Close()
 	}
 
 	// only on field byte size == 32, we unroll a 64-wide FFT (used in linea for bls12-377)

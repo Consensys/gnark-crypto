@@ -6,15 +6,15 @@ import (
 // precomputeTwiddlesCoset precomputes twiddlesCoset from twiddles and coset table
 // it then return all elements in the correct order for the unrolled FFT.
 func precomputeTwiddlesCoset(generator, shifter {{ .FF }}.Element) []{{ .FF }}.Element {
-	toReturn := make([]{{ .FF }}.Element,  511)
+	toReturn := make([]{{ .FF }}.Element,  63)
 	var r, s {{ .FF }}.Element
 	e := new(big.Int)
-	{{ $n := 512}}
+	{{ $n := 64}}
 	{{ $m := div $n 2}}
 	{{ $split := 1}}
 	{{ $split = div $split 1}}
 	{{ $j := 0}}
-	{{- range $step := reverse (iterate 0 9)}} 
+	{{- range $step := reverse (iterate 0 6)}} 
 		s = shifter
 		for k:=0; k <{{$step}};k++ {
 			s.Square(&s)
@@ -26,13 +26,8 @@ func precomputeTwiddlesCoset(generator, shifter {{ .FF }}.Element) []{{ .FF }}.E
 			{{- if eq $exp 0}}
 				toReturn[{{$j}}] = s
 			{{- else}}
-				{{- if eq $step 0}}
-				r.Exp(generator, e.SetUint64({{$exp}}))
-				{{- else}}
-				r.Exp(generator, e.SetUint64({{mul (shl 1 $step) $exp}}))
-				{{- end}}
+				r.Exp(generator, e.SetUint64(uint64(1<<{{$step}} * {{$exp}})))
 				toReturn[{{$j}}].Mul(&r, &s)
-
 			{{- end}}
 			{{- $j = add $j 1}}
 		{{- end}}
@@ -42,56 +37,14 @@ func precomputeTwiddlesCoset(generator, shifter {{ .FF }}.Element) []{{ .FF }}.E
 	return toReturn
 }
 
-func fft512(a, twiddles {{.FF}}.Vector) {
-	{{$nbStages := 9}}
-	{{$nbSplits := 1}}
-	{{$split := 512}}
-	{{$m := shr $split 1 }}
+{{- $fieldPerPoly := 4 }}
+{{- $numMask := pow 2 $fieldPerPoly}}
 
-	{{- range $level := iterate 0 $nbStages}}
-		//
-		// stage {{ $level }}
-		//
-		{{- if ne $level 0}}
-			{{- range $s := iterate 0 $nbSplits}}
-				{{- $j := add (sub $nbSplits 1) $s}}
-				{{$startLoop := add (mul $s $split) $m}}
-				// split {{$s}}: a[{{sub $startLoop $m}}:{{add $startLoop $m}}] with twiddles[{{$j}}]
-				{{- if or (eq $level 0) (and (eq $level 1) (eq $s 0))}}
-				
-				{{- else}}
-				for i := {{sub $startLoop $m}}; i < {{$startLoop}}; i++ {
-					a[i+{{$m}}].Mul(&a[i+{{$m}}], &twiddles[{{$j}}])
-					koalabear.Butterfly(&a[i], &a[i+{{$m}}])
-				}
-				{{- end}}
-			{{- end}}
-		{{- end}}
-		{{- $split = shr $split 1}}
-		{{- $nbSplits = mul $nbSplits 2}}
-		{{$m = shr $split 1}}
+var partialFFT_64 = []func(a, twiddles {{.FF}}.Vector){
+	{{- range $i := iterate 0 $numMask}}
+	partialFFT_{{$i}},
 	{{- end}}
-
-
-	// for level := 0; level < nbStages; level++ {
-	// 	for s := 0; s < nbSplits; s++ {
-	// 		for k := 0; k < split/2; k++ {
-	// 			i := s*split+split/2+k
-	// 			j := nbSplits-1+s
-
-	// 			a[i].Mul(&a[i], &twiddles[j])
-	// 		}
-	// 	}
-
-	// 	for s := 0; s < nbSplits; s++ {
-	// 		for k := 0; k < split/2; k++ {
-	// 			i := s*split+k
-	// 			j := s*split+split/2+k
-	// 			koalabear.Butterfly(&a[i], &a[j])
-	// 		}
-	// 	}
-
-	// 	split /= 2
-	// 	nbSplits *= 2
-	// }
 }
+{{range $mask := iterate 0 $numMask}}
+{{partialFFT 64 $fieldPerPoly $mask}}
+{{- end}}

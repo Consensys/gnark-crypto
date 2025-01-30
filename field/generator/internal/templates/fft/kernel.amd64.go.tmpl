@@ -19,20 +19,6 @@ var vInterleaveIndices = []uint64 {
 }
 
 //go:noescape
-func SISUnshuffle(a []{{ .FF }}.Element)
-
-//go:noescape
-func SISShuffle(a []{{ .FF }}.Element)
-
-//go:nosplit
-//go:noescape
-func SISToRefactor(k256,  cosets []{{ .FF }}.Element, twiddles [][]{{ .FF }}.Element, rag, res []{{ .FF }}.Element)
-
-func InnerDIFWithTwiddles_avx512(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
-	innerDIFWithTwiddles_avx512(a, twiddles, start, end, m)
-}
-
-//go:noescape
 func innerDIFWithTwiddles_avx512(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int)
 
 //go:noescape
@@ -56,10 +42,6 @@ func innerDITWithTwiddles(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, s
 
 {{range $ki, $klog2 := $.Kernels}}
 	{{- $ksize := shl 1 $klog2}}
-
-func KerDIFNP_{{$ksize}}_avx512(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int) {
-	kerDIFNP_{{$ksize}}_avx512(a, twiddles, stage)
-}
 
 //go:noescape
 func kerDIFNP_{{$ksize}}_avx512(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int)
