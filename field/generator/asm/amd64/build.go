@@ -290,7 +290,8 @@ func GenerateF31FFTKernels(w io.Writer, nbBits int, kernels []int) error {
 	f.generateFFTInnerDIFF31()
 
 	for _, ksize := range kernels {
-		f.generateFFTKernelF31(ksize)
+		f.generateFFTKernelF31(ksize, true)
+		f.generateFFTKernelF31(ksize, false)
 	}
 
 	f.generateSISToRefactorF31()

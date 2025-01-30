@@ -66,8 +66,15 @@ func kerDIFNP_{{$ksize}}(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element
 	kerDIFNP_{{$ksize}}_avx512(a, twiddles, stage)
 }
 
+//go:noescape
+func kerDITNP_{{$ksize}}_avx512(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int)
+
 func kerDITNP_{{$ksize}}(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int) {
-	kerDITNP_{{$ksize}}generic(a, twiddles, stage)
+	if !supportAVX512 {
+		kerDITNP_{{$ksize}}generic(a, twiddles, stage)
+		return
+	}
+	kerDITNP_{{$ksize}}_avx512(a, twiddles, stage)
 }
 {{end}}
 

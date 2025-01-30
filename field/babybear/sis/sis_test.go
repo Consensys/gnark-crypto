@@ -17,6 +17,7 @@ import (
 	"github.com/consensys/gnark-crypto/field/babybear"
 	"github.com/consensys/gnark-crypto/field/babybear/fft"
 	"github.com/stretchr/testify/require"
+	// "golang.org/x/crypto/blake2b"
 )
 
 type sisParams struct {
@@ -233,6 +234,23 @@ func benchmarkSIS(b *testing.B, input []babybear.Element, sparse bool, logTwoBou
 		benchName += "sparse/"
 	}
 	benchName += fmt.Sprintf("inputs=%v/log2-bound=%v/log2-degree=%v", n, logTwoBound, logTwoDegree)
+
+	// b.Run(benchName, func(b *testing.B) {
+	// 	// report the throughput in MB/s
+	// 	nbBytes := int64(len(input)) * babybear.Bytes
+	// 	b.SetBytes(nbBytes)
+
+	// 	// input to byte array
+	// 	vv := babybear.Vector(input)
+	// 	inputBytes, _ := vv.MarshalBinary()
+
+	// 	// hash with blake2
+	// 	b.ResetTimer()
+
+	// 	for i := 0; i < b.N; i++ {
+	// 		_ = blake2b.Sum256(inputBytes[:nbBytes])
+	// 	}
+	// })
 
 	b.Run(benchName, func(b *testing.B) {
 		// report the throughput in MB/s

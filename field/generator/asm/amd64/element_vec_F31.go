@@ -488,7 +488,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 	f.Comment("in1 = (in0 - in1) mod 2q")
 	f.Comment("in2: q broadcasted on all dwords lanes")
 	f.Comment("in3: temporary Z register")
-	_ = f.Define("butterflyD2Q", 4, func(args ...any) {
+	butterflyD2Q := f.Define("butterflyD2Q", 4, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		qd := args[2]
@@ -500,8 +500,19 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPADDD(qd, y, y)  // y = (x-y) + q --> y in [0,2q)
 	})
 
+	// almost the same but we also keep result of the add in [0,2q)
+	_ = f.Define("butterflyD2Q2Q", 4, func(args ...any) {
+		x := args[0]
+		y := args[1]
+		qd := args[2]
+		b0 := args[3]
+		f.VPSUBD(y, x, b0)  // y = x - y
+		f.VPADDD(x, y, x)   // b0 = x + y
+		f.VPADDD(qd, b0, y) // y = (x-y) + q --> y in [0,2q)
+	})
+
 	f.Comment("same as butterflyD2Q but reduces in1 to [0,q)")
-	_ = f.Define("butterflyD1Q", 5, func(args ...any) {
+	butterflyD1Q := f.Define("butterflyD1Q", 5, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		qd := args[2]
@@ -574,7 +585,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPMINUQ(P, PL, x)
 	})
 
-	_ = f.Define("mulD", 11, func(args ...any) {
+	mulD := f.Define("mulD", 11, func(args ...any) {
 		a := args[0]
 		b := args[1]
 		aOdd := args[2]
@@ -677,6 +688,16 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPMOVQD(x, xx)
 		f.VPMOVQD(y, xy)
 		f.VINSERTI64X4(1, xy, x, x)
+	})
+
+	_ = f.Define("butterfly_mulD", 11+4, func(args ...any) {
+		butterflyD2Q(args[0], args[1], args[2], args[3])
+		mulD(args[4:]...)
+	})
+
+	_ = f.Define("mul_butterflyD", 11+5, func(args ...any) {
+		mulD(args[5:]...)
+		butterflyD1Q(args[0], args[1], args[2], args[3], args[4])
 	})
 }
 
@@ -840,8 +861,7 @@ func (f *FFAmd64) generateFFTInnerDIFF31() {
 	f.MOVQ("m+64(FP)", m)
 
 	// get defines
-	butterflyD2Q, _ := f.DefineFn("butterflyD2Q")
-	mulD, _ := f.DefineFn("mulD")
+	butterflyMulD, _ := f.DefineFn("butterfly_mulD")
 
 	// we do only m >= 16;
 	// if m < 16, we call the generic one; this can be called when doing a FFT
@@ -874,16 +894,11 @@ func (f *FFAmd64) generateFFTInnerDIFF31() {
 	f.VMOVDQU32(addrA.At(0), a, "load a[i]")
 	f.VMOVDQU32(addrAPlusM.At(0), am, "load a[i+m]")
 
-	butterflyD2Q(a, am, qd, b0)
-
-	// a is ready to be stored, but we need to scale am by twiddles.
-	f.VMOVDQU32(a, addrA.At(0), "store a[i]")
-
 	f.VMOVDQU32(addrTwiddles.At(0), t0)
+	butterflyMulD(a, am, qd, b0,
+		am, t0, aOdd, bOdd, b0, b1, PL0, PL1, q, qInvNeg, amd64.K3)
 
-	mulD(am, t0, aOdd, bOdd, b0, b1, PL0, PL1, q, qInvNeg, amd64.K3)
-
-	// store m1 and m2
+	f.VMOVDQU32(a, addrA.At(0), "store a[i]")
 	f.VMOVDQU32(am, addrAPlusM.At(0))
 
 	f.ADDQ("$64", addrA)
@@ -917,7 +932,7 @@ func (f *FFAmd64) generateFFTInnerDIFF31() {
 
 }
 
-func (f *FFAmd64) generateFFTKernelF31(klog2 int) {
+func (f *FFAmd64) generateFFTKernelF31(klog2 int, dif bool) {
 	if klog2 > 8 || klog2 < 7 {
 		panic("not implemented")
 	}
@@ -927,10 +942,13 @@ func (f *FFAmd64) generateFFTKernelF31(klog2 int) {
 	// fully in registers. may not be clearly worth it since it would only save 3 calls to the assembly
 	// innerDIFWithTwiddles ; + the latency to write a to L1 cache.
 	n := 1 << klog2
-	f.Comment(fmt.Sprintf("kerDIFNP_%d_avx512(a []{{ .FF }}.Element, twiddles [][]{{ .FF }}.Element, stage int)", n))
+	name := fmt.Sprintf("kerDIFNP_%d_avx512", n)
+	if !dif {
+		name = fmt.Sprintf("kerDITNP_%d_avx512", n)
+	}
 	const argSize = 7 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
-	registers := f.FnHeader(fmt.Sprintf("kerDIFNP_%d_avx512", n), stackSize, argSize, amd64.AX)
+	registers := f.FnHeader(name, stackSize, argSize, amd64.AX)
 	defer f.AssertCleanStack(stackSize, 0)
 
 	// registers & labels we need
@@ -975,25 +993,37 @@ func (f *FFAmd64) generateFFTKernelF31(klog2 int) {
 
 	permute4x4, _ := f.DefineFn("permute4x4")
 	permute8x8, _ := f.DefineFn("permute8x8")
-	vInterleaveIndices := f.generateCoreDIFKernel(n, &registers, addrTwiddlesRoot, a, qd, qInvNeg)
-	b0 := registers.PopV()
 
-	for i := 0; i < len(a); i += 2 {
-		// ok let's say now each pair of vector v0 v1
-		// such that
-		// v0 = [a0 a2 a4 a6 a8 a10 a12 a14 | b0 b2 b4 b6 b8 b10 b12 b14]
-		// v1 = [a1 a3 a5 a7 a9 a11 a13 a15 | b1 b3 b5 b7 b9 b11 b13 b15]
+	if dif {
+		vInterleaveIndices := f.generateCoreDIFKernel(n, &registers, addrTwiddlesRoot, a, qd, qInvNeg, true)
 
-		// we need to repack them; let's do it the naive way for now
-		f.VPUNPCKLDQ(a[i+1], a[i], b0)
-		f.VPUNPCKHDQ(a[i+1], a[i], a[i+1])
-		f.VMOVDQA32(b0, a[i])
-		permute4x4(a[i], a[i+1], vInterleaveIndices, b0, amd64.K2)
-		permute8x8(a[i], a[i+1], b0, amd64.K1)
+		b0 := registers.PopV()
 
-		// store the result
-		f.VMOVDQU32(a[i], addrA.AtD(i*16))
-		f.VMOVDQU32(a[i+1], addrA.AtD((i+1)*16))
+		for i := 0; i < len(a); i += 2 {
+			// ok let's say now each pair of vector v0 v1
+			// such that
+			// v0 = [a0 a2 a4 a6 a8 a10 a12 a14 | b0 b2 b4 b6 b8 b10 b12 b14]
+			// v1 = [a1 a3 a5 a7 a9 a11 a13 a15 | b1 b3 b5 b7 b9 b11 b13 b15]
+
+			// we need to repack them; let's do it the naive way for now
+			f.VPUNPCKLDQ(a[i+1], a[i], b0)
+			f.VPUNPCKHDQ(a[i+1], a[i], a[i+1])
+			f.VMOVDQA32(b0, a[i])
+			permute4x4(a[i], a[i+1], vInterleaveIndices, b0, amd64.K2)
+			permute8x8(a[i], a[i+1], b0, amd64.K1)
+
+			// store the result
+			f.VMOVDQU32(a[i], addrA.AtD(i*16))
+			f.VMOVDQU32(a[i+1], addrA.AtD((i+1)*16))
+		}
+	} else {
+		f.generateCoreDITKernel(n, &registers, addrTwiddlesRoot, a, qd, qInvNeg, true, klog2-2)
+		for i := 0; i < len(a); i += 2 {
+
+			// store the result
+			f.VMOVDQU32(a[i], addrA.AtD(i*16))
+			f.VMOVDQU32(a[i+1], addrA.AtD((i+1)*16))
+		}
 	}
 
 	f.RET()
@@ -1002,19 +1032,19 @@ func (f *FFAmd64) generateFFTKernelF31(klog2 int) {
 
 }
 
-func (f *FFAmd64) generateCoreDIFKernel(n int, registers *amd64.Registers, addrTwiddlesRoot amd64.Register, a []amd64.VectorRegister, qd, qInvNeg amd64.VectorRegister) amd64.VectorRegister {
+func (f *FFAmd64) generateCoreDIFKernel(n int, registers *amd64.Registers, addrTwiddlesRoot amd64.Register, a []amd64.VectorRegister, qd, qInvNeg amd64.VectorRegister, reduceModQ bool) amd64.VectorRegister {
 
 	m := n >> 1
 	kk := n
 
 	// get the defines
-	butterflyD2Q, _ := f.DefineFn("butterflyD2Q")
-	mulD, _ := f.DefineFn("mulD")
+	butterflyMulD, _ := f.DefineFn("butterfly_mulD")
 	permute1x1, _ := f.DefineFn("permute1x1")
 	permute2x2, _ := f.DefineFn("permute2x2")
 	permute4x4, _ := f.DefineFn("permute4x4")
 	permute8x8, _ := f.DefineFn("permute8x8")
 	butterflyD1Q, _ := f.DefineFn("butterflyD1Q")
+	butterflyD2Q2Q, _ := f.DefineFn("butterflyD2Q2Q")
 
 	t := registers.PopVN(n / 32)
 	b0 := registers.PopV()
@@ -1038,8 +1068,8 @@ func (f *FFAmd64) generateCoreDIFKernel(n int, registers *amd64.Registers, addrT
 			// for offset := 0; offset < 128; offset += n {
 			aa := a[offset/16:]
 			for i := 0; i < am; i++ {
-				butterflyD2Q(aa[i], aa[i+am], qd, b0)
-				mulD(aa[i+am], t[i], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+				butterflyMulD(aa[i], aa[i+am], qd, b0,
+					aa[i+am], t[i], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
 			}
 		}
 
@@ -1094,8 +1124,8 @@ func (f *FFAmd64) generateCoreDIFKernel(n int, registers *amd64.Registers, addrT
 			// mulD version that takes b and bOdd as input;
 			// will save couple of VMOVSHDUP since the twiddles are known.
 
-			butterflyD2Q(a[i], a[i+1], qd, b0)
-			mulD(a[i+1], t[j], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+			butterflyMulD(a[i], a[i+1], qd, b0,
+				a[i+1], t[j], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
 		}
 	}
 
@@ -1103,7 +1133,12 @@ func (f *FFAmd64) generateCoreDIFKernel(n int, registers *amd64.Registers, addrT
 		// m == 1
 		permute1x1(a[i], a[i+1], b0, amd64.K3)
 		// the last butterfly we reduce everything in [0, q)
-		butterflyD1Q(a[i], a[i+1], qd, b0, b1)
+
+		if reduceModQ {
+			butterflyD1Q(a[i], a[i+1], qd, b0, b1)
+		} else {
+			butterflyD2Q2Q(a[i], a[i+1], qd, b0)
+		}
 	}
 
 	for i := 0; i < 4; i++ {
@@ -1113,6 +1148,129 @@ func (f *FFAmd64) generateCoreDIFKernel(n int, registers *amd64.Registers, addrT
 	registers.Push(addrVInterleaveIndices, addrTwiddles)
 
 	return vInterleaveIndices
+}
+
+func (f *FFAmd64) generateCoreDITKernel(n int, registers *amd64.Registers, addrTwiddlesRoot amd64.Register, a []amd64.VectorRegister, qd, qInvNeg amd64.VectorRegister, reduceModQ bool, startStage int) {
+	// perf note: this is less optimized than the DIF one and unrolled a bit naively.
+	// not on a hot path at the moment.
+
+	// get the defines
+	permute1x1, _ := f.DefineFn("permute1x1")
+	permute2x2, _ := f.DefineFn("permute2x2")
+	permute4x4, _ := f.DefineFn("permute4x4")
+	permute8x8, _ := f.DefineFn("permute8x8")
+	butterflyD1Q, _ := f.DefineFn("butterflyD1Q")
+	mulD, _ := f.DefineFn("mulD")
+
+	t := registers.PopVN(4)
+	b0 := registers.PopV()
+	b1 := registers.PopV()
+	aOdd := registers.PopV()
+	bOdd := registers.PopV()
+	PL0 := registers.PopV()
+	PL1 := registers.PopV()
+
+	addrTwiddles := registers.Pop()
+
+	addrVInterleaveIndices := f.Pop(registers)
+	vInterleaveIndices := registers.PopV()
+	f.MOVQ("·vInterleaveIndices+0(SB)", addrVInterleaveIndices)
+	f.VMOVDQU64(addrVInterleaveIndices.At(0), vInterleaveIndices)
+
+	// m == 1
+	for i := 0; i < len(a); i += 2 {
+		// m == 1
+		permute1x1(a[i], a[i+1], b0, amd64.K3)
+		butterflyD1Q(a[i], a[i+1], qd, b0, b1)
+		permute1x1(a[i], a[i+1], b0, amd64.K3)
+	}
+
+	// m == 2
+	f.MOVQ(startStage, amd64.AX)
+	f.IMULQ("$24", amd64.AX)
+	f.ADDQ(amd64.AX, addrTwiddlesRoot)
+	f.MOVQ(addrTwiddlesRoot.At(0), addrTwiddles)
+	f.VPBROADCASTD(addrTwiddles.AtD(0), t[2])
+	f.VPBROADCASTD(addrTwiddles.AtD(1), t[3])
+	f.VPBLENDMD(t[2], t[3], t[2], amd64.K3)
+	for i := 0; i < len(a); i += 2 {
+		permute2x2(a[i], a[i+1], b0, amd64.K3)
+		mulD(a[i+1], t[2], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+		butterflyD1Q(a[i], a[i+1], qd, b0, b1)
+		permute2x2(a[i], a[i+1], b0, amd64.K3)
+	}
+
+	// m == 4
+	f.SUBQ("$24", addrTwiddlesRoot)
+	f.MOVQ(addrTwiddlesRoot.At(0), addrTwiddles)
+	f.VMOVDQU32(addrTwiddles.At(0), t[1].X())
+	f.VINSERTI64X2(1, t[1].X(), t[1], t[1])
+	f.VINSERTI64X2(2, t[1].X(), t[1], t[1])
+	f.VINSERTI64X2(3, t[1].X(), t[1], t[1])
+	for i := 0; i < len(a); i += 2 {
+		permute4x4(a[i], a[i+1], vInterleaveIndices, b0, amd64.K2)
+
+		mulD(a[i+1], t[1], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+		butterflyD1Q(a[i], a[i+1], qd, b0, b1)
+
+		permute4x4(a[i], a[i+1], vInterleaveIndices, b0, amd64.K2)
+	}
+
+	// m == 8
+	f.SUBQ("$24", addrTwiddlesRoot)
+	f.MOVQ(addrTwiddlesRoot.At(0), addrTwiddles)
+	f.VMOVDQU32(addrTwiddles.At(0), t[0].Y())
+	f.VINSERTI64X4(1, t[0].Y(), t[0], t[0])
+	for i := 0; i < len(a); i += 2 {
+		permute8x8(a[i], a[i+1], b0, amd64.K1)
+
+		mulD(a[i+1], t[0], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+		butterflyD1Q(a[i], a[i+1], qd, b0, b1)
+
+		permute8x8(a[i], a[i+1], b0, amd64.K1)
+	}
+
+	registers.PushV(t...)
+	registers.PushV(vInterleaveIndices)
+
+	t = registers.PopVN(n / 32)
+
+	targetM := n >> 1
+	kk := n
+	m := 16
+	_n := 32
+
+	for m <= targetM {
+		// increment addrTwiddlesRoot
+		f.SUBQ("$24", addrTwiddlesRoot)
+		f.MOVQ(addrTwiddlesRoot.At(0), addrTwiddles)
+		nbTwiddles := m
+		for i := 0; i < nbTwiddles/16; i++ {
+			f.VMOVDQU32(addrTwiddles.AtD(i*16), t[i])
+		}
+		am := m / 16
+		f.Comment(fmt.Sprintf("for offset := 0; offset < %d; offset += %d {\n", kk, _n))
+		for offset := 0; offset < kk; offset += _n {
+			// for offset := 0; offset < 128; offset += n {
+			aa := a[offset/16:]
+			for i := 0; i < am; i++ {
+				f.Comment(fmt.Sprintf("a[i=%d] = %v, a[i+am=%d] = %v\n", i+offset/16, aa[i], i+offset/16+am, aa[i+am]))
+				mulD(aa[i+am], t[i], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg, amd64.K3)
+				butterflyD1Q(aa[i], aa[i+am], qd, b0, b1)
+			}
+		}
+
+		_n <<= 1
+		m = _n >> 1
+
+	}
+
+	for i := range t {
+		registers.PushV(t[i])
+	}
+	registers.PushV(b0, b1, aOdd, bOdd, PL0, PL1)
+	registers.Push(addrVInterleaveIndices, addrTwiddles)
+
 }
 
 func (f *FFAmd64) generateSISToRefactorF31() {
@@ -1292,7 +1450,7 @@ func (f *FFAmd64) generateSISToRefactorF31() {
 	f.MOVQ("$2", o)
 	f.LABEL(lblFFT256)
 	// we do the fft on the first half.
-	vInterleaveIndices := f.generateCoreDIFKernel(256, &registers, addrTwiddlesRoot, a, qd, qInvNeg)
+	vInterleaveIndices := f.generateCoreDIFKernel(256, &registers, addrTwiddlesRoot, a, qd, qInvNeg, false)
 	permute4x4, _ := f.DefineFn("permute4x4")
 	permute8x8, _ := f.DefineFn("permute8x8")
 

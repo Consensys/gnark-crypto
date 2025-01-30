@@ -17,6 +17,7 @@ import (
 	"github.com/consensys/gnark-crypto/field/goldilocks"
 	"github.com/consensys/gnark-crypto/field/goldilocks/fft"
 	"github.com/stretchr/testify/require"
+	// "golang.org/x/crypto/blake2b"
 )
 
 type sisParams struct {
@@ -233,6 +234,23 @@ func benchmarkSIS(b *testing.B, input []goldilocks.Element, sparse bool, logTwoB
 		benchName += "sparse/"
 	}
 	benchName += fmt.Sprintf("inputs=%v/log2-bound=%v/log2-degree=%v", n, logTwoBound, logTwoDegree)
+
+	// b.Run(benchName, func(b *testing.B) {
+	// 	// report the throughput in MB/s
+	// 	nbBytes := int64(len(input)) * goldilocks.Bytes
+	// 	b.SetBytes(nbBytes)
+
+	// 	// input to byte array
+	// 	vv := goldilocks.Vector(input)
+	// 	inputBytes, _ := vv.MarshalBinary()
+
+	// 	// hash with blake2
+	// 	b.ResetTimer()
+
+	// 	for i := 0; i < b.N; i++ {
+	// 		_ = blake2b.Sum256(inputBytes[:nbBytes])
+	// 	}
+	// })
 
 	b.Run(benchName, func(b *testing.B) {
 		// report the throughput in MB/s

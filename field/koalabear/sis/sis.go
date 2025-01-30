@@ -152,8 +152,6 @@ func (r *RSis) Hash(v, res []koalabear.Element) error {
 		res[i].SetZero()
 	}
 
-	k := make([]koalabear.Element, r.Degree)
-
 	// by default, the mask is ignored (unless we unrolled the FFT and have a degree 64)
 	mask := ^uint64(0)
 	if r.Degree == 512 && r.LogTwoBound == 16 {
@@ -183,26 +181,11 @@ func (r *RSis) Hash(v, res []koalabear.Element) error {
 			}
 			// ok for now this does the first step of the fft + the scaling by cosets;
 			fft.SISToRefactor(_v, cosets, twiddles, r.Ag[polId], res)
-			// fft512(k512[:], r.twiddlesCoset)
-
-			// vk.Mul(vk, vCosets)
-			// vvv := koalabear.Vector(twiddles[0][:256])
-			// vvvv := koalabear.Vector(k512[256:])
-			// vvvv.Mul(vvvv, vvv)
-			// TODO --> incorporate one by one.
-			// fft.InnerDIFWithTwiddles_avx512(k512[:], twiddles[0], 0, 256, 256)
-			// fft.KerDIFNP_256_avx512(k512[:256], twiddles, 1)
-			// fft.KerDIFNP_256_avx512(k512[256:], twiddles, 1)
-
-			// inner hash
-			// vk.Mul(vk, vCosets)
-			// r.Domain.FFT(k512[:], fft.DIF, fft.WithNbTasks(1))
-			// vk.Mul(vk, koalabear.Vector(r.Ag[polId]))
-			// vRes.Add(vRes, vk)
 			polId++
 		}
 	} else {
 		// inner hash
+		k := make([]koalabear.Element, r.Degree)
 		it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
 		for i := 0; i < len(r.Ag); i++ {
 			r.InnerHash(it, res, k, r.kz, i, mask)
@@ -246,8 +229,7 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k, kz koalabear.Vector, polId in
 		return
 	}
 	// this is equivalent to:
-	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
-	// r.smallFFT(k, mask)
+	r.smallFFT(k, mask)
 
 	// we compute k * r.Ag[polId] in ℤ_{p}[X]/Xᵈ+1.
 	// k and r.Ag[polId] are in evaluation form on √(g) * <g>

@@ -21,7 +21,7 @@ import (
 
 func TestFFT(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 5
+	parameters.MinSuccessfulTests = 6
 	properties := gopter.NewProperties(parameters)
 
 	for maxSize := 2; maxSize <= 1<<10; maxSize <<= 1 {

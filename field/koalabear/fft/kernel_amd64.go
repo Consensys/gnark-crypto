@@ -71,6 +71,13 @@ func kerDIFNP_256(a []koalabear.Element, twiddles [][]koalabear.Element, stage i
 	kerDIFNP_256_avx512(a, twiddles, stage)
 }
 
+//go:noescape
+func kerDITNP_256_avx512(a []koalabear.Element, twiddles [][]koalabear.Element, stage int)
+
 func kerDITNP_256(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
-	kerDITNP_256generic(a, twiddles, stage)
+	if !supportAVX512 {
+		kerDITNP_256generic(a, twiddles, stage)
+		return
+	}
+	kerDITNP_256_avx512(a, twiddles, stage)
 }

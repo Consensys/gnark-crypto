@@ -28,7 +28,7 @@ var vInterleaveIndices = []uint64{
 
 //go:nosplit
 //go:noescape
-func SISToRefactor(k256, k512, cosets []babybear.Element, twiddles [][]babybear.Element, rag, res []babybear.Element)
+func SISToRefactor(k256, cosets []babybear.Element, twiddles [][]babybear.Element, rag, res []babybear.Element)
 
 func InnerDIFWithTwiddles_avx512(a []babybear.Element, twiddles []babybear.Element, start, end, m int) {
 	innerDIFWithTwiddles_avx512(a, twiddles, start, end, m)
@@ -71,6 +71,13 @@ func kerDIFNP_256(a []babybear.Element, twiddles [][]babybear.Element, stage int
 	kerDIFNP_256_avx512(a, twiddles, stage)
 }
 
+//go:noescape
+func kerDITNP_256_avx512(a []babybear.Element, twiddles [][]babybear.Element, stage int)
+
 func kerDITNP_256(a []babybear.Element, twiddles [][]babybear.Element, stage int) {
-	kerDITNP_256generic(a, twiddles, stage)
+	if !supportAVX512 {
+		kerDITNP_256generic(a, twiddles, stage)
+		return
+	}
+	kerDITNP_256_avx512(a, twiddles, stage)
 }
