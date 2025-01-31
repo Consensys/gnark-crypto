@@ -2,6 +2,12 @@ package element
 
 // OpsAMD64 is included with AMD64 builds (regardless of architecture or if F.ASM is set)
 const OpsAMD64 = `
+
+import (
+	_ "{{.ASMPackagePath}}"
+)
+
+
 //go:noescape
 func MulBy3(x *{{.ElementName}})
 
@@ -47,6 +53,11 @@ func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
 `
 
 const OpsARM64 = `
+import (
+	_ "{{.ASMPackagePath}}"
+)
+
+
 // Butterfly sets
 //  a = a + b (mod q)
 //  b = a - b (mod q)

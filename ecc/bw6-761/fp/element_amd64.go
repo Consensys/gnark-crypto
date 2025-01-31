@@ -7,6 +7,10 @@
 
 package fp
 
+import (
+	_ "github.com/consensys/gnark-crypto/field/asm/element_12w"
+)
+
 //go:noescape
 func MulBy3(x *Element)
 
