@@ -954,10 +954,6 @@ func (_f *FFAmd64) generateFFTKernelF31(klog2 int, dif bool) {
 }
 
 func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, addrTwiddlesRoot amd64.Register, a []amd64.VectorRegister, qd, qInvNeg amd64.VectorRegister, reduceModQ bool) amd64.VectorRegister {
-
-	m := n >> 1
-	kk := n
-
 	t := registers.PopVN(n / 32)
 	b0 := registers.PopV()
 	b1 := registers.PopV()
@@ -968,6 +964,7 @@ func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, add
 
 	addrTwiddles := registers.Pop()
 
+	m := n >> 1
 	for m >= 16 {
 
 		f.MOVQ(addrTwiddlesRoot.At(0), addrTwiddles)
@@ -976,11 +973,14 @@ func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, add
 			f.VMOVDQU32(addrTwiddles.AtD(i*16), t[i])
 		}
 		am := m / 16
-		for offset := 0; offset < kk; offset += n {
-			aa := a[offset/16:]
-			for i := 0; i < am; i++ {
-				f.butterfly_mulD(aa[i], aa[i+am], qd, PL1, b1,
-					aa[i+am], t[i], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
+		for i := 0; i < len(a); i += n / 16 {
+			for j := 0; j < am; j++ {
+				f.butterflyD2Q(a[i+j], a[i+j+am], qd, PL1, b1)
+			}
+		}
+		for i := 0; i < len(a); i += n / 16 {
+			for j := 0; j < am; j++ {
+				f.mulD(a[i+j+am], t[j], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
 			}
 		}
 
@@ -1030,19 +1030,23 @@ func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, add
 				f.permute2x2(a[i], a[i+1], b0)
 			}
 
+			f.butterflyD2Q(a[i], a[i+1], qd, PL1, b1)
+		}
+		for i := 0; i < len(a); i += 2 {
 			// perf note:
 			// we can optimize a bit further here by having a
 			// mulD version that takes b and bOdd as input;
 			// will save couple of high bit extraction
-
-			f.butterfly_mulD(a[i], a[i+1], qd, PL1, b1,
-				a[i+1], t[j], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
+			f.mulD(a[i+1], t[j], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
+			if j == 2 {
+				// m == 1 --> we do the permute here it gets us better
+				// throughput.
+				f.permute1x1(a[i], a[i+1], b0)
+			}
 		}
 	}
 
 	for i := 0; i < len(a); i += 2 {
-		// m == 1
-		f.permute1x1(a[i], a[i+1], b0)
 		if reduceModQ {
 			// the last butterfly we reduce everything in [0, q)
 			f.butterflyD1Q(a[i], a[i+1], qd, b0, b1)
