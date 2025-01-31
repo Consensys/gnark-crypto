@@ -94,7 +94,7 @@ func (vector *Vector) ScalarMul(a Vector, b *Element) {
 		return
 	}
 
-	const blockSize = 8
+	const blockSize = 16
 	scalarMulVec(&(*vector)[0], &a[0], b, n/blockSize)
 	if n%blockSize != 0 {
 		// call scalarMulVecGeneric on the rest

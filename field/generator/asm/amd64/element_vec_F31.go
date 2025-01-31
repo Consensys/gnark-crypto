@@ -225,7 +225,7 @@ func (f *FFAmd64) generateSumVecF31() {
 // mulVec res = a * b
 func (f *FFAmd64) generateMulVecF31() {
 	f.Comment("mulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b[0...n]")
-	f.Comment("n is the number of blocks of 8 elements to process")
+	f.Comment("n is the number of blocks of 16 elements to process")
 	const argSize = 4 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 0, 0)
 	registers := f.FnHeader("mulVec", stackSize, argSize, amd64.AX)
@@ -258,14 +258,13 @@ func (f *FFAmd64) generateMulVecF31() {
 	f.MOVQ("b+16(FP)", addrB)
 	f.MOVQ("n+24(FP)", len)
 
+	f.MOVQ(uint64(0b0101010101010101), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
 	f.LABEL(loop)
 
 	f.TESTQ(len, len)
 	f.JEQ(done, "n == 0, we are done")
-
-	const kBlendEven2 = 0b0101010101010101
-	f.MOVQ(uint64(kBlendEven2), amd64.AX)
-	f.KMOVD(amd64.AX, amd64.K3)
 
 	a := registers.PopV()
 	b := registers.PopV()
@@ -278,8 +277,6 @@ func (f *FFAmd64) generateMulVecF31() {
 	// a = a * b
 	f.VMOVDQU32(addrA.At(0), a)
 	f.VMOVDQU32(addrB.At(0), b)
-	// f.VMOVSHDUP(a, aOdd)
-	// f.VMOVSHDUP(b, bOdd)
 
 	f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
 	f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
@@ -319,12 +316,11 @@ func (f *FFAmd64) generateMulVecF31() {
 
 // scalarMulVec res = a * b
 func (f *FFAmd64) generateScalarMulVecF31() {
-	// TODO @gbotrel update to process 16 by 16 like mul.
 	f.Comment("scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b")
-	f.Comment("n is the number of blocks of 8 elements to process")
+	f.Comment("n is the number of blocks of 16 elements to process")
 	const argSize = 4 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 0, 0)
-	registers := f.FnHeader("scalarMulVec", stackSize, argSize)
+	registers := f.FnHeader("scalarMulVec", stackSize, argSize, amd64.AX)
 	defer f.AssertCleanStack(stackSize, 0)
 
 	// registers & labels we need
@@ -334,23 +330,24 @@ func (f *FFAmd64) generateScalarMulVecF31() {
 	len := registers.Pop()
 
 	// AVX512 registers
-	a := amd64.Register("Z0")
-	b := amd64.Register("Z1")
-	P := amd64.Register("Z2")
-	q := amd64.Register("Z3")
-	qInvNeg := amd64.Register("Z4")
-	PL := amd64.Register("Z5")
-	LSW := amd64.Register("Z6")
+	a := registers.PopV()
+	b := registers.PopV()
+	b1 := registers.PopV()
+	aOdd := registers.PopV()
+	b0 := registers.PopV()
+	PL0 := registers.PopV()
+	PL1 := registers.PopV()
+	q := registers.PopV()
+	qInvNeg := registers.PopV()
 
 	// load q in Z3
 	f.MOVD("$const_q", amd64.AX)
-	f.VPBROADCASTQ(amd64.AX, q)
+	f.VPBROADCASTD(amd64.AX, q)
 	f.MOVD("$const_qInvNeg", amd64.AX)
-	f.VPBROADCASTQ(amd64.AX, qInvNeg)
+	f.VPBROADCASTD(amd64.AX, qInvNeg)
 
-	f.Comment("Create mask for low dword in each qword")
-	f.VPCMPEQB("Y0", "Y0", "Y0")
-	f.VPMOVZXDQ("Y0", LSW)
+	f.MOVQ(uint64(0b0101010101010101), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
 
 	loop := f.NewLabel("loop")
 	done := f.NewLabel("done")
@@ -369,25 +366,30 @@ func (f *FFAmd64) generateScalarMulVecF31() {
 	f.JEQ(done, "n == 0, we are done")
 
 	// a = a * b
-	f.VPMOVZXDQ(addrA.At(0), a)
+	f.VMOVDQU32(addrA.At(0), a)
 
-	f.VPMULUDQ(a, b, P, "P = a * b")
-	f.VPANDQ(LSW, P, PL, "m = uint32(P)")
-	f.VPMULUDQ(PL, qInvNeg, PL, "m = m * qInvNeg")
-	f.VPANDQ(LSW, PL, PL, "m = uint32(m)")
-	f.VPMULUDQ(PL, q, PL, "m = m * q")
-	f.VPADDQ(P, PL, P, "P = P + m")
-	f.VPSRLQ("$32", P, P, "P = P >> 32")
+	f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
+	f.VPMULUDQ(a, b, b0)
+	f.VPMULUDQ(aOdd, b, b1)
+	f.VPMULUDQ(b0, qInvNeg, PL0)
+	f.VPMULUDQ(b1, qInvNeg, PL1)
 
-	f.VPSUBQ(q, P, PL, "PL = P - q")
-	f.VPMINUQ(P, PL, P, "P = min(P, PL)")
+	f.VPMULUDQ(PL0, q, PL0)
+	f.VPMULUDQ(PL1, q, PL1)
 
-	// move P to res
-	f.VPMOVQD(P, addrRes.At(0), "res = P")
+	f.VPADDQ(b0, PL0, b0)
+	f.VPADDQ(b1, PL1, b1)
+
+	f.VMOVSHDUPk(b0, amd64.K3, b1)
+
+	f.VPSUBD(q, b1, PL1)
+	f.VPMINUD(b1, PL1, b1)
+
+	f.VMOVDQU32(b1, addrRes.At(0), "res = P")
 
 	f.Comment("increment pointers to visit next element")
-	f.ADDQ("$32", addrA)
-	f.ADDQ("$32", addrRes)
+	f.ADDQ("$64", addrA)
+	f.ADDQ("$64", addrRes)
 	f.DECQ(len, "decrement n")
 	f.JMP(loop)
 
@@ -516,9 +518,6 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		qd := args[2]
 		b0 := args[3]
 		b1 := args[4]
-		// perf note:
-		// this is optimized for throughput, do not change the order of the instructions
-		// or the number of scratch registers
 		f.VPSUBD(y, x, b1)
 		f.VPADDD(x, y, b0)
 		f.VPADDD(qd, b1, y)
@@ -555,6 +554,8 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 
 		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
 		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
+
+		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
 		f.VPMULUDQ(a, b, b0)
 		f.VPMULUDQ(aOdd, bOdd, b1)
 		f.VPMULUDQ(b0, qInvNeg, PL0)
@@ -645,6 +646,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPBROADCASTD(amd64.AX, qInv)
 	})
 
+	// these masks are used in the permuteNxN functions
 	_ = f.Define("load_masks", 0, func(_ ...any) {
 		f.MOVQ(uint64(0b0000_1111_0000_1111), amd64.AX)
 		f.KMOVQ(amd64.AX, amd64.K1)
