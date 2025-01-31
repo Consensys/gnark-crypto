@@ -1332,31 +1332,50 @@ func (_f *FFAmd64) generateSIS512_16F31() {
 
 	// this convert vectors from montgomery form to regular form
 	// it is a mulD(a, 1)
-	fromMont := f.Define("fromMontgomery", 7, func(args ...any) {
+	fromMontx2 := f.Define("fromMontgomery", 12, func(args ...any) {
 		a := args[0]
-		b0 := args[1]
-		b1 := args[2]
-		PL0 := args[3]
-		PL1 := args[4]
-		q := args[5]
-		qInvNeg := args[6]
+		b := args[1]
 
-		f.VPSRLQ("$32", a, b1) // keep high 32 bits
+		tmp0 := args[2]
+		tmp1 := args[3]
+		tmp2 := args[4]
+		tmp3 := args[5]
+		tmp4 := args[6]
+		tmp5 := args[7]
+		tmp6 := args[8]
+		tmp7 := args[9]
 
-		f.VPMULUDQ(a, qInvNeg, PL0)
-		f.VPMULUDQ(b1, qInvNeg, PL1)
+		q := args[10]
+		qInvNeg := args[11]
 
-		f.VPMULUDQ(PL0, q, PL0)
-		f.VPMULUDQ(PL1, q, PL1)
+		f.VPSRLQ("$32", a, tmp1) // keep high 32 bits
+		f.VPSRLQ("$32", b, tmp5) // keep high 32 bits
 
-		f.VPANDDkz(a, a, amd64.K3, b0) // keep low 32 bits
-		f.VPADDQ(b0, PL0, b0)
-		f.VPADDQ(b1, PL1, b1)
+		f.VPMULUDQ(a, qInvNeg, tmp2)
+		f.VPMULUDQ(tmp1, qInvNeg, tmp3)
+		f.VPMULUDQ(b, qInvNeg, tmp6)
+		f.VPMULUDQ(tmp5, qInvNeg, tmp7)
 
-		f.VMOVSHDUPk(b0, amd64.K3, b1)
+		f.VPMULUDQ(tmp2, q, tmp2)
+		f.VPMULUDQ(tmp6, q, tmp6)
+		f.VPMULUDQ(tmp3, q, tmp3)
+		f.VPMULUDQ(tmp7, q, tmp7)
 
-		f.VPSUBD(q, b1, PL1)
-		f.VPMINUD(b1, PL1, a)
+		f.VPANDDkz(a, a, amd64.K3, tmp0) // keep low 32 bits
+		f.VPANDDkz(b, b, amd64.K3, tmp4) // keep low 32 bits
+
+		f.VPADDQ(tmp0, tmp2, tmp0)
+		f.VPADDQ(tmp4, tmp6, tmp4)
+		f.VPADDQ(tmp1, tmp3, tmp1)
+		f.VPADDQ(tmp5, tmp7, tmp5)
+
+		f.VMOVSHDUPk(tmp4, amd64.K3, tmp5)
+		f.VMOVSHDUPk(tmp0, amd64.K3, tmp1)
+
+		f.VPSUBD(q, tmp1, tmp3)
+		f.VPSUBD(q, tmp5, tmp7)
+		f.VPMINUD(tmp1, tmp3, a)
+		f.VPMINUD(tmp5, tmp7, b)
 	})
 
 	// scratch registers
@@ -1411,8 +1430,7 @@ func (_f *FFAmd64) generateSIS512_16F31() {
 		f.VMOVDQU32(addrK256m.AtD(i*16), am0)
 
 		// convert to regular form
-		fromMont(a0, s[2], s[3], s[4], s[5], qd, qInvNeg)
-		fromMont(am0, s[6], s[7], s[8], s[9], qd, qInvNeg)
+		fromMontx2(a0, am0, s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], qd, qInvNeg)
 
 		// split the limbs
 		splitLimbs(a0, a1)
