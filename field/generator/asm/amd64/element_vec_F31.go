@@ -510,16 +510,20 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 	// computes a = a + b and b = a - b,
 	// leaves a in [0, q)
 	// leaves b in [0,2q)
-	butterflyD2Q := f.Define("butterflyD2Q", 4, func(args ...any) {
+	butterflyD2Q := f.Define("butterflyD2Q", 5, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		qd := args[2]
 		b0 := args[3]
+		b1 := args[4]
+		// perf note:
+		// this is optimized for throughput, do not change the order of the instructions
+		// or the number of scratch registers
+		f.VPSUBD(y, x, b1)
 		f.VPADDD(x, y, b0)
-		f.VPSUBD(y, x, y)
+		f.VPADDD(qd, b1, y)
 		f.VPSUBD(qd, b0, x)
 		f.VPMINUD(b0, x, x)
-		f.VPADDD(qd, y, y)
 	})
 
 	// computes a = a + b and b = a - b,
@@ -652,9 +656,9 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.KMOVD(amd64.AX, amd64.K3)
 	})
 
-	_ = f.Define("butterfly_mulD", 10+4, func(args ...any) {
-		butterflyD2Q(args[0], args[1], args[2], args[3])
-		mulD(args[4:]...)
+	_ = f.Define("butterfly_mulD", 11+4, func(args ...any) {
+		butterflyD2Q(args[0], args[1], args[2], args[3], args[4])
+		mulD(args[5:]...)
 	})
 }
 
@@ -833,7 +837,7 @@ func (_f *FFAmd64) generateFFTInnerDIFF31() {
 	f.VMOVDQU32(addrAPlusM.At(0), am, "load a[i+m]")
 
 	f.VMOVDQU32(addrTwiddles.At(0), t0)
-	f.butterfly_mulD(a, am, qd, b0,
+	f.butterfly_mulD(a, am, qd, b0, b1,
 		am, t0, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
 
 	f.VMOVDQU32(a, addrA.At(0), "store a[i]")
@@ -975,7 +979,7 @@ func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, add
 		for offset := 0; offset < kk; offset += n {
 			aa := a[offset/16:]
 			for i := 0; i < am; i++ {
-				f.butterfly_mulD(aa[i], aa[i+am], qd, PL1,
+				f.butterfly_mulD(aa[i], aa[i+am], qd, PL1, b1,
 					aa[i+am], t[i], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
 			}
 		}
@@ -1031,7 +1035,7 @@ func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, add
 			// mulD version that takes b and bOdd as input;
 			// will save couple of high bit extraction
 
-			f.butterfly_mulD(a[i], a[i+1], qd, PL1,
+			f.butterfly_mulD(a[i], a[i+1], qd, PL1, b1,
 				a[i+1], t[j], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
 		}
 	}
@@ -1322,7 +1326,7 @@ func (_f *FFAmd64) generateSIS512_16F31() {
 	f.ADDQ(512, addrK256m)
 	f.ADDQ(1024, addrCosetsm)
 
-	// this batch convert vectors from montgomery form to regular form
+	// this convert vectors from montgomery form to regular form
 	// it is a mulD(a, 1)
 	fromMont := f.Define("fromMontgomery", 7, func(args ...any) {
 		a := args[0]
@@ -1352,16 +1356,7 @@ func (_f *FFAmd64) generateSIS512_16F31() {
 	})
 
 	// scratch registers
-	s0 := registers.PopV()
-	s1 := registers.PopV()
-	s2 := registers.PopV()
-	s3 := registers.PopV()
-	s4 := registers.PopV()
-	s5 := registers.PopV()
-	s6 := registers.PopV()
-	s7 := registers.PopV()
-	s8 := registers.PopV()
-	s9 := registers.PopV()
+	s := registers.PopVN(10)
 
 	c0 := registers.PopV()
 	c1 := registers.PopV()
@@ -1393,6 +1388,16 @@ func (_f *FFAmd64) generateSIS512_16F31() {
 		f.VPMOVZXWD(r1.Y(), r1)
 	}
 
+	// mul1 and mul2 are just helper to make the loop below more readable.
+	mul1 := func(x amd64.VectorRegister, y amd64.Register) {
+		f.VMOVDQU32(y, c0)
+		f.mulD(x, c0, s[0], s[1], s[2], s[3], s[4], s[5], qd, qInvNeg)
+	}
+	mul2 := func(x amd64.VectorRegister, y amd64.Register) {
+		f.VMOVDQU32(y, c1)
+		f.mulD(x, c1, s[6], s[7], s[8], s[9], s[4], s[5], qd, qInvNeg)
+	}
+
 	n := 256 / 16
 	for i := 0; i < n/2; i++ {
 		a0 := a[i*2]
@@ -1402,43 +1407,35 @@ func (_f *FFAmd64) generateSIS512_16F31() {
 		f.VMOVDQU32(addrK256m.AtD(i*16), am0)
 
 		// convert to regular form
-		fromMont(a0, s2, s3, s4, s5, qd, qInvNeg)
-		fromMont(am0, s6, s7, s8, s9, qd, qInvNeg)
+		fromMont(a0, s[2], s[3], s[4], s[5], qd, qInvNeg)
+		fromMont(am0, s[6], s[7], s[8], s[9], qd, qInvNeg)
 
 		// split the limbs
 		splitLimbs(a0, a1)
 
 		// mul by cosets
-		f.VMOVDQU32(addrCosets.AtD((i*2)*16), c0)
-		f.VMOVDQU32(addrCosets.AtD((i*2+1)*16), c1)
-
-		f.mulD(a0, c0, s0, s1, s2, s3, s4, s5, qd, qInvNeg)
-		f.mulD(a1, c1, s6, s7, s8, s9, s4, s5, qd, qInvNeg)
+		mul1(a0, addrCosets.AtD((i*2)*16))
+		mul2(a1, addrCosets.AtD((i*2+1)*16))
 
 		// mul by cosets
 		splitLimbs(am0, am1)
-		f.VMOVDQU32(addrCosetsm.AtD((i*2)*16), c0)
-		f.VMOVDQU32(addrCosetsm.AtD((i*2+1)*16), c1)
-		f.mulD(am0, c0, s0, s1, s2, s3, s4, s5, qd, qInvNeg)
-		f.mulD(am1, c1, s6, s7, s8, s9, s4, s5, qd, qInvNeg)
+		mul1(am0, addrCosetsm.AtD((i*2)*16))
+		mul2(am1, addrCosetsm.AtD((i*2+1)*16))
 
 		// now we can do the first layer of the fft easily
-		f.butterflyD2Q(a0, am0, qd, s2)
-		f.butterflyD2Q(a1, am1, qd, s3)
+		f.butterflyD2Q(a0, am0, qd, s[2], s[4])
+		f.butterflyD2Q(a1, am1, qd, s[3], s[5])
 
 		// scale am0 and am1 by twiddles
-		f.VMOVDQU32(addrTwiddles.AtD((i*2)*16), c0)
-		f.VMOVDQU32(addrTwiddles.AtD((i*2+1)*16), c1)
+		mul1(am0, addrTwiddles.AtD((i*2)*16))
+		mul2(am1, addrTwiddles.AtD((i*2+1)*16))
 
-		f.mulD(am0, c0, s0, s1, s2, s3, s4, s5, qd, qInvNeg)
-		f.mulD(am1, c1, s6, s7, s8, s9, s4, s5, qd, qInvNeg)
-
-		f.VMOVDQU32(am1, sp.AtD((i*2+1)*16))
 		f.VMOVDQU32(am0, sp.AtD((i*2)*16))
+		f.VMOVDQU32(am1, sp.AtD((i*2+1)*16))
 	}
 
-	registers.PushV(s2, s3, s0, s1, s4, s5, c1, am1, c0, am0)
-	registers.PushV(s6, s7, s8, s9)
+	registers.PushV(s...)
+	registers.PushV(c1, am1, c0, am0)
 
 	// next stage of twiddles
 	f.ADDQ("$24", addrTwiddlesRoot)
@@ -1454,39 +1451,33 @@ func (_f *FFAmd64) generateSIS512_16F31() {
 	// we do the fft on the first half.
 	_ = f.generateCoreDIFKernel(256, &registers, addrTwiddlesRoot, a, qd, qInvNeg, false)
 
-	s2 = registers.PopV()
-	s3 = registers.PopV()
-	s0 = registers.PopV()
-	s1 = registers.PopV()
-	s4 = registers.PopV()
-	s5 = registers.PopV()
 	c0 = registers.PopV()
 	c1 = registers.PopV()
-	s6 = registers.PopV()
-	s7 = registers.PopV()
-	s8 = registers.PopV()
-	s9 = registers.PopV()
+	s = registers.PopVN(10)
 
 	// we can now mul by RAG the result of the FFT256
 	for i := 0; i < len(a); i += 2 {
-		f.VMOVDQU32(addrRag.AtD(i*16), c0)
-		f.VMOVDQU32(addrRag.AtD((i+1)*16), c1)
-
-		f.mulD(a[i], c0, s0, s1, s2, s3, s4, s5, qd, qInvNeg)
-		f.mulD(a[i+1], c1, s6, s7, s8, s9, s0, s1, qd, qInvNeg)
+		mul1(a[i], addrRag.AtD(i*16))
+		mul2(a[i+1], addrRag.AtD((i+1)*16))
 	}
 
 	// accumulate in res
 	for i := 0; i < len(a); i += 2 {
-		f.VMOVDQU32(addrRes.AtD(i*16), c0)
-		f.VMOVDQU32(addrRes.AtD((i+1)*16), c1)
 
-		f.VPADDD(c0, a[i], a[i])
-		f.VPADDD(c1, a[i+1], a[i+1])
-		f.VPSUBD(qd, a[i], s4)
-		f.VPSUBD(qd, a[i+1], s5)
-		f.VPMINUD(s4, a[i], a[i])
-		f.VPMINUD(s5, a[i+1], a[i+1])
+		f.VPADDD(addrRes.AtD(i*16), a[i], a[i])
+		f.VPADDD(addrRes.AtD((i+1)*16), a[i+1], a[i+1])
+
+		// perf note:
+		// probably a sur-optimization (2-3% gain)
+		// but we could have res as a slice of uint64
+		// not do the mod reduce here and just do it at the end
+		// before the FFT inverse.
+		// not only do we skip this reduce here, but we also avoid reducing
+		// in [0, q) and reduce in [0, 2q) instead in the mul by rag before.
+		f.VPSUBD(qd, a[i], s[4])
+		f.VPSUBD(qd, a[i+1], s[5])
+		f.VPMINUD(s[4], a[i], a[i])
+		f.VPMINUD(s[5], a[i+1], a[i+1])
 
 		// store the result
 		f.VMOVDQU32(a[i], addrRes.AtD(i*16))
