@@ -13,6 +13,7 @@ import (
 	"os"
 	"testing"
 
+	"encoding/binary"
 	"github.com/consensys/gnark-crypto/field/babybear"
 	"github.com/consensys/gnark-crypto/field/babybear/fft"
 	"github.com/stretchr/testify/require"
@@ -227,5 +228,61 @@ func benchmarkSIS(b *testing.B, input []babybear.Element, sparse bool, logTwoBou
 		for i := 0; i < b.N; i++ {
 			_ = instance.Hash(input, res)
 		}
+	})
+}
+func FuzzSISAvx512(f *testing.F) {
+	if !supportAVX512 {
+		f.Skip("AVX512 not supported")
+	}
+
+	const logTwoBound = 16
+	const logTwoDegree = 9
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		if len(data) < babybear.Bytes+8 {
+			t.Skip("not enough data")
+		}
+
+		// Extract the seed from the data
+		seed := int64(binary.LittleEndian.Uint64(data[:8]))
+		data = data[8:]
+
+		// Create a new RSIS instance
+		instance, err := NewRSis(seed, logTwoDegree, logTwoBound, len(data)/babybear.Bytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		a0 := make([]babybear.Element, len(data)/babybear.Bytes)
+		a1 := make([]babybear.Element, len(data)/babybear.Bytes)
+
+		for i := range a0 {
+			a0[i][0] = binary.LittleEndian.Uint32(data[i*babybear.Bytes:])
+			a0[i][0] %= 2013265921
+		}
+
+		copy(a1[:], a0[:])
+
+		// Call the AVX512
+		var res0, res1 [512]babybear.Element
+		err = instance.Hash(a0, res0[:])
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		instance.hasFast512_16 = false
+		// call the generic --> note that this still may call FFT avx512 code
+		err = instance.Hash(a1, res1[:])
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// compare the results
+		for i := range res0 {
+			if res0[i][0] != res1[i][0] {
+				t.Fatal("results differ")
+			}
+		}
+
 	})
 }

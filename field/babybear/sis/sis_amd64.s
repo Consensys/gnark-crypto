@@ -84,6 +84,7 @@ BUTTERFLYD2Q(in0, in1, in2, in3, in4)                       \
 MULD(in5, in6, in7, in8, in9, in10, in11, in12, in13, in14) \
 
 TEXT ·sis512_16_avx512(SB), $1024-120
+	// refer to the code generator for comments and documentation.
 	LOAD_Q(Z0, Z1)
 	LOAD_MASKS()
 	MOVQ k256+0(FP), R15

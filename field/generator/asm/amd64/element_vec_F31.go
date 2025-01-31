@@ -676,6 +676,8 @@ func (_f *FFAmd64) generateFFTInnerDITF31() {
 	registers := f.FnHeader("innerDITWithTwiddles_avx512", stackSize, argSize, amd64.AX)
 	defer f.AssertCleanStack(stackSize, 0)
 
+	f.Comment("refer to the code generator for comments and documentation.")
+
 	addrA := registers.Pop()
 	addrAPlusM := registers.Pop()
 	addrTwiddles := registers.Pop()
@@ -703,9 +705,10 @@ func (_f *FFAmd64) generateFFTInnerDITF31() {
 	f.MOVQ("end+56(FP)", len)
 	f.MOVQ("m+64(FP)", m)
 
-	// we do only m >= 8;
-	// if m < 8, we call the generic one; this can be called when doing a FFT
-	// smaller than the smallest generated kernel
+	// we do only m >= 16;
+	// that ensures we can process 16 elements at a time
+	// avoid bound checks, and special cases with shuffling for m < 8
+	// note that this should only happen when we do a FFT with smaller domain than the smallest generated kernel
 	lblSmallerThan16 := f.NewLabel("smallerThan16")
 	f.CMPQ(m, 16)
 	f.JL(lblSmallerThan16, "m < 16")
@@ -728,7 +731,7 @@ func (_f *FFAmd64) generateFFTInnerDITF31() {
 
 	f.VMOVDQU32(addrA.At(0), a, "load a[i]")
 	f.VMOVDQU32(addrAPlusM.At(0), am, "load a[i+m]")
-	f.VMOVDQU32(addrTwiddles.At(0), t0)
+	f.VMOVDQU32(addrTwiddles.At(0), t0, "load twiddles[i]")
 
 	f.mulD(am, t0, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
 	f.butterflyD1Q(a, am, qd, b0, b1)
@@ -749,9 +752,7 @@ func (_f *FFAmd64) generateFFTInnerDITF31() {
 
 	f.LABEL(lblSmallerThan16)
 	f.Comment("m < 16, we call the generic one")
-	f.Comment("note that this should happen only when doing a FFT smaller than the smallest generated kernel")
 
-	// TODO @gbotrel should have dedicated tests
 	f.MOVQ("a+0(FP)", amd64.AX)
 	f.MOVQ(amd64.AX, "(SP)")
 	f.MOVQ("twiddles+24(FP)", amd64.AX)
@@ -780,6 +781,7 @@ func (_f *FFAmd64) generateFFTInnerDIFF31() {
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
 	registers := f.FnHeader("innerDIFWithTwiddles_avx512", stackSize, argSize, amd64.AX)
 	defer f.AssertCleanStack(stackSize, 0)
+	f.Comment("refer to the code generator for comments and documentation.")
 
 	addrA := registers.Pop()
 	addrAPlusM := registers.Pop()
@@ -810,8 +812,9 @@ func (_f *FFAmd64) generateFFTInnerDIFF31() {
 	f.MOVQ("m+64(FP)", m)
 
 	// we do only m >= 16;
-	// if m < 16, we call the generic one; this can be called when doing a FFT
-	// smaller than the smallest generated kernel
+	// that ensures we can process 16 elements at a time
+	// avoid bound checks, and special cases with shuffling for m < 8
+	// note that this should only happen when we do a FFT with smaller domain than the smallest generated kernel
 	lblSmallerThan16 := f.NewLabel("smallerThan16")
 	f.CMPQ(m, 16)
 	f.JL(lblSmallerThan16, "m < 16")
@@ -836,7 +839,7 @@ func (_f *FFAmd64) generateFFTInnerDIFF31() {
 	f.VMOVDQU32(addrA.At(0), a, "load a[i]")
 	f.VMOVDQU32(addrAPlusM.At(0), am, "load a[i+m]")
 
-	f.VMOVDQU32(addrTwiddles.At(0), t0)
+	f.VMOVDQU32(addrTwiddles.At(0), t0, "load twiddles[i]")
 	f.butterfly_mulD(a, am, qd, b0, b1,
 		am, t0, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
 
@@ -855,9 +858,7 @@ func (_f *FFAmd64) generateFFTInnerDIFF31() {
 
 	f.LABEL(lblSmallerThan16)
 	f.Comment("m < 16, we call the generic one")
-	f.Comment("note that this should happen only when doing a FFT smaller than the smallest generated kernel")
 
-	// TODO @gbotrel should have dedicated tests
 	f.MOVQ("a+0(FP)", amd64.AX)
 	f.MOVQ(amd64.AX, "(SP)")
 	f.MOVQ("twiddles+24(FP)", amd64.AX)
@@ -889,6 +890,8 @@ func (_f *FFAmd64) generateFFTKernelF31(klog2 int, dif bool) {
 	registers := f.FnHeader(name, stackSize, argSize, amd64.AX)
 	defer f.AssertCleanStack(stackSize, 0)
 
+	f.Comment("refer to the code generator for comments and documentation.")
+
 	// registers & labels we need
 	addrA := registers.Pop()
 	addrAPlusM := registers.Pop()
@@ -911,8 +914,9 @@ func (_f *FFAmd64) generateFFTKernelF31(klog2 int, dif bool) {
 	f.IMULQ("$24", amd64.AX)
 	f.ADDQ(amd64.AX, addrTwiddlesRoot, "we want twiddles[stage] as starting point")
 
+	// we load the full input in avx512 registers
+	// (16x uint32 per register)
 	for i := range a {
-		// we want to advance by 32bytes to have 8 uint32 element loaded at a time.
 		f.VMOVDQU32(addrA.AtD(i*16), a[i], fmt.Sprintf("load a[%d]", i))
 	}
 
@@ -952,7 +956,6 @@ func (_f *FFAmd64) generateFFTKernelF31(klog2 int, dif bool) {
 	f.Push(&registers, addrA, addrTwiddles, addrAPlusM, innerLen)
 
 }
-
 func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, addrTwiddlesRoot amd64.Register, a []amd64.VectorRegister, qd, qInvNeg amd64.VectorRegister, reduceModQ bool) amd64.VectorRegister {
 	t := registers.PopVN(n / 32)
 	b0 := registers.PopV()
@@ -966,7 +969,14 @@ func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, add
 
 	m := n >> 1
 	for m >= 16 {
+		// The purego code is roughly:
+		// for offset := 0; offset < 256; offset += X {
+		// 	innerDIFWithTwiddles(a[offset:offset+X], twiddles[stage+T], 0, m, m)
+		// }
+		// here we have m >= 16 so we can process 16 elements at a time, filling our ZMM registers
+		// of 16 DWORDS.
 
+		// load twiddles
 		f.MOVQ(addrTwiddlesRoot.At(0), addrTwiddles)
 		nbTwiddles := m
 		for i := 0; i < nbTwiddles/16; i++ {
@@ -987,7 +997,7 @@ func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, add
 		n >>= 1
 		m = n >> 1
 
-		// increment addrTwiddlesRoot
+		// increment addrTwiddlesRoot to go to the next stage
 		f.ADDQ("$24", addrTwiddlesRoot)
 	}
 
@@ -995,22 +1005,32 @@ func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, add
 		registers.PushV(t[i])
 	}
 
+	// here we have m == 8; we can't process
+	// vector of 16 elements anymore without some interleaving
+
 	addrVInterleaveIndices := f.Pop(registers)
 	vInterleaveIndices := registers.PopV()
 	f.MOVQ("·vInterleaveIndices+0(SB)", addrVInterleaveIndices)
 	f.VMOVDQU64(addrVInterleaveIndices.At(0), vInterleaveIndices)
 
-	// here we have m == 8; we can't process
-	// vector of 16 elements anymore without some interleaving
-
+	// prepare the twiddles for each stage
+	// m == 8
+	// we have 8 uint32 twiddles
+	// --> we load in the Y part and duplicate in the rest of the ZMM register
 	f.MOVQ(addrTwiddlesRoot.At(0), addrTwiddles)
 	f.VMOVDQU32(addrTwiddles.At(0), t[0].Y())
 	f.VINSERTI64X4(1, t[0].Y(), t[0], t[0])
+
+	// m == 4
+	// we have 4 uint32 twiddles
 	f.MOVQ(addrTwiddlesRoot.At(3), addrTwiddles)
 	f.VMOVDQU32(addrTwiddles.At(0), t[1].X())
 	f.VINSERTI64X2(1, t[1].X(), t[1], t[1])
 	f.VINSERTI64X2(2, t[1].X(), t[1], t[1])
 	f.VINSERTI64X2(3, t[1].X(), t[1], t[1])
+
+	// m == 2
+	// we have 2 uint32 twiddles
 	f.MOVQ(addrTwiddlesRoot.At(6), addrTwiddles)
 	f.VPBROADCASTD(addrTwiddles.AtD(0), t[2])
 	f.VPBROADCASTD(addrTwiddles.AtD(1), t[3])
@@ -1035,7 +1055,7 @@ func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, add
 		for i := 0; i < len(a); i += 2 {
 			// perf note:
 			// we can optimize a bit further here by having a
-			// mulD version that takes b and bOdd as input;
+			// mulD version that takes b and bOdd as fixed inputs;
 			// will save couple of high bit extraction
 			f.mulD(a[i+1], t[j], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
 			if j == 2 {
@@ -1046,6 +1066,8 @@ func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, add
 		}
 	}
 
+	// we already did the permute1x1 above; for the last stage we just do a butterfly
+	// (twiddles[lastStage][0] == 1)
 	for i := 0; i < len(a); i += 2 {
 		if reduceModQ {
 			// the last butterfly we reduce everything in [0, q)
@@ -1070,7 +1092,7 @@ func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, add
 func (f *fftHelper) generateCoreDITKernel(n int, registers *amd64.Registers, addrTwiddlesRoot amd64.Register, a []amd64.VectorRegister, qd, qInvNeg amd64.VectorRegister, reduceModQ bool, startStage int) {
 	// perf note: this is less optimized than the DIF one and unrolled a bit naively.
 	// not on a hot path at the moment.
-
+	// see generateCoreDIFKernel for more comments, it is the same code but in reverse order.
 	t := registers.PopVN(4)
 	b0 := registers.PopV()
 	b1 := registers.PopV()
@@ -1177,6 +1199,8 @@ func (f *fftHelper) generateCoreDITKernel(n int, registers *amd64.Registers, add
 }
 
 func (_f *FFAmd64) generateSISShuffleF31() {
+	// see comments in generateSIS512_16F31
+	// this does not need to be optimized as it's not on the hot path.
 	f := &fftHelper{_f}
 	const argSize = 1 * 3 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
@@ -1232,6 +1256,8 @@ func (_f *FFAmd64) generateSISShuffleF31() {
 }
 
 func (_f *FFAmd64) generateSISUnhuffleF31() {
+	// see comments in generateSIS512_16F31
+	// this does not need to be optimized as it's not on the hot path.
 	f := &fftHelper{_f}
 	const argSize = 1 * 3 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
@@ -1293,13 +1319,49 @@ func (_f *FFAmd64) generateSISUnhuffleF31() {
 	f.RET()
 
 }
-
 func (_f *FFAmd64) generateSIS512_16F31() {
+	// this is a specialized unrolled SIS hash for degree = 512 and log2(bound) = 16
+	// essentially, the "pure go" algorithm to hash(v), v being a vector of n elements, is as follows:
+	// 1. process v in chunks of 256elements
+	// 2. for each chunk of 256 elements, do the following:
+	//		- load 256 elements from v
+	//		- convert from montgomery to regular form
+	//		- split the limbs into (k) 512 values; i.e. separate the uint32 into 2 uint16 (this is the "split" part)
+	//		- do a FFT(k, fft.DIF, fft.OnCoset())
+	//		- multiply by the Ag[i] (i being the chunk index corresponding to the Ag index)
+	//		- accumulate the result in res
+	//
+	// the AVX512 version follows the same logic, but is unrolled and uses AVX512 instructions (duh.)
+	// it minimize memory access, unrolls code when possible, leverage ILP (instruction level parallelism)
+	// avoid doing reductions mod q when possible, and a flurry of other tricks.
+	//
+	// the algorithm is as follows:
+	// 1. load 256 values from the chunk (uint32);
+	// 		- note that we have 2 pointers; 1 at the beginning "x" and 1 at the middle "xm"
+	// 		- this enables us to do the first stage of the FFT directly, and save in registers the first half
+	// 		for the next stage of the FFT. the second half is stored on the stack.
+	// 2. convert from montgomery to regular form
+	// 3. split the limbs from the 256 values into 512 values
+	// 4. multiply by cosets
+	// 5. perform the FFT first stage (512)
+	//		- that is butterfly and multiply by twiddles
+	// 6. at the end of this first unrolled loop, we have the first 256 values in registers
+	// and the second 256 values on the stack.
+	// we still need to do the FFT on these 2 halves, then multiply by rag, and accumulate in res.
+	//
+	// The result is "shuffled", and before calling the FFT inverse, caller need to call sisUnshuffle.
+	// This shuffling is due to the fact that we want to process elements in blocks of 16 (use a full AVX512 DWORD register)
+	// And the FFT after a certain stage works with a stride of 8, then 4, then 2, then 1.
+	// So we need to shuffle the elements; we could unshuffle them here, but since we accumulate our result in res
+	// and this can be called multiple times, we prefer to amortize and do the unshuffle only once at the end.
+
 	f := &fftHelper{_f}
 	const argSize = 5 * 3 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 256*4)
 	registers := f.FnHeader("sis512_16_avx512", stackSize, argSize, amd64.AX)
 	sp := amd64.Register("SP")
+
+	f.Comment("refer to the code generator for comments and documentation.")
 
 	addrK256 := registers.Pop()
 	addrK256m := registers.Pop()
@@ -1327,11 +1389,13 @@ func (_f *FFAmd64) generateSIS512_16F31() {
 	f.MOVQ(addrK256, addrK256m)
 	f.MOVQ(addrCosets, addrCosetsm)
 
+	// "middle" pointers
 	f.ADDQ(512, addrK256m)
 	f.ADDQ(1024, addrCosetsm)
 
 	// this convert vectors from montgomery form to regular form
 	// it is a mulD(a, 1)
+	// see mulD define for documentation.
 	fromMontx2 := f.Define("fromMontgomery", 12, func(args ...any) {
 		a := args[0]
 		b := args[1]
@@ -1389,22 +1453,14 @@ func (_f *FFAmd64) generateSIS512_16F31() {
 	// we store the first 256 values directly in register
 	a := registers.PopVN(16)
 
-	// essentially, the algorithm is as follows:
-	// 1. load 256 values from k256 (uint32);
-	// 		note that we have 2 pointers; 1 at the beginning "x" and 1 at the middle "xm"
-	// 		this enables us to do the first stage of the FFT directly, and save in registers the first half
-	// 		for the next stage of the FFT. the second half is stored on the stack.
-	// 2. convert to regular form
-	// 3. split the limbs into 512 values (uint32)
-	// 4. multiply by cosets
-	// 5. perform the FFT first stage (512)
-	//		that is butterfly and multiply by twiddles
-	// 6. at the end of this first unrolled loop, we have the first 256 values in registers
-	// and the second 256 values on the stack.
-	// we still need to do the FFT on these 2 halves, then multiply by rag, and accumulate in res.
-	//
-	// The result is "shuffled", and before calling the FFT inverse, caller need to call sisUnshuffle
-
+	// split the limbs;
+	// we have as input
+	// r0 = [a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 a19 a20 a21 a22 a23 a24 a25 a26 a27 a28 a29 a30 a31]
+	// (r0 is seen as 32 uint16)
+	// we want to split it into
+	// r0 = [a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15]
+	// r1 = [a16 a17 a18 a19 a20 a21 a22 a23 a24 a25 a26 a27 a28 a29 a30 a31]
+	// (seen as 16 uint32)
 	splitLimbs := func(r0, r1 amd64.VectorRegister) {
 		f.VEXTRACTI64X4(1, r0, r1.Y())
 		f.VPMOVZXWD(r0.Y(), r0)
@@ -1412,6 +1468,8 @@ func (_f *FFAmd64) generateSIS512_16F31() {
 	}
 
 	// mul1 and mul2 are just helper to make the loop below more readable.
+	// they perform a multiplication of a 16 uint32 vector by a 16 uint32 vector
+	// second parameter is a memory address.
 	mul1 := func(x amd64.VectorRegister, y amd64.Register) {
 		f.VMOVDQU32(y, c0)
 		f.mulD(x, c0, s[0], s[1], s[2], s[3], s[4], s[5], qd, qInvNeg)
@@ -1421,37 +1479,37 @@ func (_f *FFAmd64) generateSIS512_16F31() {
 		f.mulD(x, c1, s[6], s[7], s[8], s[9], s[4], s[5], qd, qInvNeg)
 	}
 
-	n := 256 / 16
+	n := 256 / 16 // process 16 uint32 at a time
 	for i := 0; i < n/2; i++ {
+		// a0 and a1 are going to be kept in registers
+		// am0 and am1 are in the second half of our input, we will store them
+		// on the stack after the first layer of the FFT and get back to them later.
 		a0 := a[i*2]
 		a1 := a[i*2+1]
-		// load 8 uint32 from k256 into a zmm register (zero extended)
+
 		f.VMOVDQU32(addrK256.AtD(i*16), a0)
 		f.VMOVDQU32(addrK256m.AtD(i*16), am0)
 
 		// convert to regular form
 		fromMontx2(a0, am0, s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], qd, qInvNeg)
 
-		// split the limbs
+		// split the limbs and mul by coset the first half
 		splitLimbs(a0, a1)
-
-		// mul by cosets
 		mul1(a0, addrCosets.AtD((i*2)*16))
 		mul2(a1, addrCosets.AtD((i*2+1)*16))
 
-		// mul by cosets
+		// same thing for the second half
 		splitLimbs(am0, am1)
 		mul1(am0, addrCosetsm.AtD((i*2)*16))
 		mul2(am1, addrCosetsm.AtD((i*2+1)*16))
 
-		// now we can do the first layer of the fft easily
+		// now we can do the first layer of the fft
 		f.butterflyD2Q(a0, am0, qd, s[2], s[4])
 		f.butterflyD2Q(a1, am1, qd, s[3], s[5])
-
-		// scale am0 and am1 by twiddles
 		mul1(am0, addrTwiddles.AtD((i*2)*16))
 		mul2(am1, addrTwiddles.AtD((i*2+1)*16))
 
+		// store am0 and am1 on the stack
 		f.VMOVDQU32(am0, sp.AtD((i*2)*16))
 		f.VMOVDQU32(am1, sp.AtD((i*2+1)*16))
 	}
@@ -1471,6 +1529,7 @@ func (_f *FFAmd64) generateSIS512_16F31() {
 	f.MOVQ("$2", o)
 	f.LABEL(lblFFT256)
 	// we do the fft on the first half.
+	// a contains k[:256], addrTwiddlesRoot contains twiddles[1]
 	_ = f.generateCoreDIFKernel(256, &registers, addrTwiddlesRoot, a, qd, qInvNeg, false)
 
 	c0 = registers.PopV()
@@ -1485,10 +1544,11 @@ func (_f *FFAmd64) generateSIS512_16F31() {
 
 	// accumulate in res
 	for i := 0; i < len(a); i += 2 {
-
+		// res += a[i]
 		f.VPADDD(addrRes.AtD(i*16), a[i], a[i])
 		f.VPADDD(addrRes.AtD((i+1)*16), a[i+1], a[i+1])
 
+		// reduce in [0, q)
 		// perf note:
 		// probably a sur-optimization (2-3% gain)
 		// but we could have res as a slice of uint64
@@ -1512,10 +1572,13 @@ func (_f *FFAmd64) generateSIS512_16F31() {
 	f.JEQ(lblDone)
 
 	// here we are not done, so we setup the other half of the fft.
+	// put the second half of the FFT256 in a
+	// and twiddles[1] in addrTwiddlesRoot
 	f.MOVQ(addrTwiddles, addrTwiddlesRoot)
 	for i := range a {
 		f.VMOVDQU32(sp.AtD(i*16), a[i])
 	}
+	// increment the pointers to Rag and Res by 1024 (256*4)
 	f.ADDQ(1024, addrRag)
 	f.ADDQ(1024, addrRes)
 

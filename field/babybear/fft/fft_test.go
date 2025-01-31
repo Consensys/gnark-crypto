@@ -16,6 +16,7 @@ import (
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 
+	"encoding/binary"
 	"fmt"
 )
 
@@ -236,6 +237,52 @@ func TestFFT(t *testing.T) {
 		properties.TestingRun(t, gopter.ConsoleReporter(false))
 	}
 
+}
+func FuzzFFTAvx512(f *testing.F) {
+	if !supportAVX512 {
+		f.Skip("AVX512 not supported")
+	}
+
+	domain := NewDomain(512)
+
+	q := babybear.Modulus()
+	qUuint32 := uint32(q.Uint64())
+	f.Fuzz(func(t *testing.T, data []byte) {
+		if len(data) < 512*babybear.Bytes {
+			t.Skip("not enough data")
+		}
+
+		var a0, a1, a2, a3 [512]babybear.Element
+
+		for i := range a0 {
+			a0[i][0] = binary.LittleEndian.Uint32(data[i*babybear.Bytes:])
+			a0[i][0] %= qUuint32
+		}
+
+		copy(a1[:], a0[:])
+		copy(a2[:], a0[:])
+		copy(a3[:], a0[:])
+
+		// check that the AVX512 and generic implementations match for innerDIFWithTwiddles
+		innerDIFWithTwiddles(a0[:], domain.twiddles[0], 0, 256, 256)
+		innerDIFWithTwiddlesGeneric(a1[:], domain.twiddles[0], 0, 256, 256)
+
+		for i := range a0 {
+			if !a0[i].Equal(&a1[i]) {
+				t.Fatalf("innerDIFWithTwiddles mismatch at index %d: got %v, want %v", i, a0[i], a1[i])
+			}
+		}
+
+		// do the same thing with the kernel of size 256
+		kerDIFNP_256generic(a2[:], domain.twiddles, 1)
+		kerDIFNP_256(a3[:], domain.twiddles, 1)
+
+		for i := range a2 {
+			if !a2[i].Equal(&a3[i]) {
+				t.Fatalf("kerDIFNP_256 mismatch at index %d: got %v, want %v", i, a2[i], a3[i])
+			}
+		}
+	})
 }
 
 // --------------------------------------------------------------------

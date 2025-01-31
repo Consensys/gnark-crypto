@@ -84,6 +84,7 @@ BUTTERFLYD2Q(in0, in1, in2, in3, in4)                       \
 MULD(in5, in6, in7, in8, in9, in10, in11, in12, in13, in14) \
 
 TEXT ·innerDITWithTwiddles_avx512(SB), NOSPLIT, $0-72
+	// refer to the code generator for comments and documentation.
 	LOAD_Q(Z4, Z5)
 	LOAD_MASKS()
 
@@ -104,7 +105,7 @@ loop_3:
 	JEQ       done_2     // n == 0, we are done
 	VMOVDQU32 0(R15), Z0 // load a[i]
 	VMOVDQU32 0(DX), Z1  // load a[i+m]
-	VMOVDQU32 0(CX), Z6
+	VMOVDQU32 0(CX), Z6  // load twiddles[i]
 	MULD(Z1, Z6, Z7, Z8, Z2, Z3, Z9, Z10, Z4, Z5)
 	BUTTERFLYD1Q(Z0, Z1, Z4, Z2, Z3)
 	VMOVDQU32 Z0, 0(R15) // store a[i]
@@ -120,7 +121,6 @@ done_2:
 
 smallerThan16_1:
 	// m < 16, we call the generic one
-	// note that this should happen only when doing a FFT smaller than the smallest generated kernel
 	MOVQ a+0(FP), AX
 	MOVQ AX, (SP)
 	MOVQ twiddles+24(FP), AX
@@ -135,6 +135,7 @@ smallerThan16_1:
 	RET
 
 TEXT ·innerDIFWithTwiddles_avx512(SB), NOSPLIT, $0-72
+	// refer to the code generator for comments and documentation.
 	LOAD_Q(Z2, Z4)
 	LOAD_MASKS()
 
@@ -155,7 +156,7 @@ loop_6:
 	JEQ       done_5     // n == 0, we are done
 	VMOVDQU32 0(R15), Z0 // load a[i]
 	VMOVDQU32 0(DX), Z1  // load a[i+m]
-	VMOVDQU32 0(CX), Z5
+	VMOVDQU32 0(CX), Z5  // load twiddles[i]
 	BUTTERFLY_MULD(Z0, Z1, Z2, Z3, Z8, Z1, Z5, Z6, Z7, Z3, Z8, Z9, Z10, Z2, Z4)
 	VMOVDQU32 Z0, 0(R15) // store a[i]
 	VMOVDQU32 Z1, 0(DX)
@@ -170,7 +171,6 @@ done_5:
 
 smallerThan16_4:
 	// m < 16, we call the generic one
-	// note that this should happen only when doing a FFT smaller than the smallest generated kernel
 	MOVQ a+0(FP), AX
 	MOVQ AX, (SP)
 	MOVQ twiddles+24(FP), AX
@@ -185,6 +185,7 @@ smallerThan16_4:
 	RET
 
 TEXT ·kerDIFNP_256_avx512(SB), NOSPLIT, $0-56
+	// refer to the code generator for comments and documentation.
 	LOAD_Q(Z16, Z17)
 	LOAD_MASKS()
 
@@ -458,6 +459,7 @@ TEXT ·kerDIFNP_256_avx512(SB), NOSPLIT, $0-56
 	RET
 
 TEXT ·kerDITNP_256_avx512(SB), NOSPLIT, $0-56
+	// refer to the code generator for comments and documentation.
 	LOAD_Q(Z16, Z17)
 	LOAD_MASKS()
 
