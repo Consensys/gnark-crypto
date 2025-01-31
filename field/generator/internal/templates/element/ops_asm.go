@@ -4,10 +4,9 @@ package element
 const OpsAMD64 = `
 
 import (
-	"{{.ASMPackagePath}}"
+	_ "{{.ASMPackagePath}}"
 )
 
-const _ = asm.DUMMY
 
 //go:noescape
 func MulBy3(x *{{.ElementName}})
@@ -55,10 +54,9 @@ func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
 
 const OpsARM64 = `
 import (
-	"{{.ASMPackagePath}}"
+	_ "{{.ASMPackagePath}}"
 )
 
-const _ = asm.DUMMY
 
 // Butterfly sets
 //  a = a + b (mod q)

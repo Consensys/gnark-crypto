@@ -8,10 +8,8 @@
 package fp
 
 import (
-	"github.com/consensys/gnark-crypto/field/asm/element_12w"
+	_ "github.com/consensys/gnark-crypto/field/asm/element_12w"
 )
-
-const _ = asm.DUMMY
 
 //go:noescape
 func MulBy3(x *Element)

@@ -8,10 +8,8 @@
 package koalabear
 
 import (
-	"github.com/consensys/gnark-crypto/field/asm/element_31b"
+	_ "github.com/consensys/gnark-crypto/field/asm/element_31b"
 )
-
-const _ = asm.DUMMY
 
 //go:noescape
 func addVec(res, a, b *Element, n uint64)

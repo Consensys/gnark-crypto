@@ -284,7 +284,7 @@ func ElementASMFileName(nbWords, nbBits int) string {
 	const fWN = "element_%dw"
 
 	if nbWords == 1 {
-		return filepath.Join(fmt.Sprintf(fW1, 31), fmt.Sprintf(nameW1, 31))
+		return filepath.Join(fmt.Sprintf(fW1, nbBits), fmt.Sprintf(nameW1, nbBits))
 	}
 	return filepath.Join(fmt.Sprintf(fWN, nbWords), fmt.Sprintf(nameWN, nbWords))
 }
