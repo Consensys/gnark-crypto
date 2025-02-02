@@ -70,6 +70,8 @@ type Field struct {
 	GenerateOpsARM64       bool
 	GenerateVectorOpsAMD64 bool
 	GenerateVectorOpsARM64 bool
+
+	ASMPackagePath string
 }
 
 type Word struct {

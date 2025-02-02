@@ -119,6 +119,13 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 		}
 	}
 
+	if F.GenerateOpsAMD64 || F.GenerateOpsARM64 {
+		F.ASMPackagePath, err = getImportPath(filepath.Join(outputDir, asmDirIncludePath, amd64.ElementASMBaseDir(F.NbWords, F.NbBits)))
+		if err != nil {
+			return err
+		}
+	}
+
 	// purego files have no build tags if we don't generate asm
 	pureGoBuildTag := "purego || (!amd64 && !arm64)"
 	if !F.GenerateOpsAMD64 && !F.GenerateOpsARM64 {

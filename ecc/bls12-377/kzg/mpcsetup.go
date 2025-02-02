@@ -10,9 +10,11 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	curve "github.com/consensys/gnark-crypto/ecc/bls12-377"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/mpcsetup"
+	"github.com/consensys/gnark-crypto/utils"
 	"io"
 	"math/big"
 )
@@ -120,11 +122,27 @@ func (s *MpcSetup) Verify(next *MpcSetup) error {
 	}
 
 	if !next.srs.Vk.G2[1].IsInSubGroup() {
-		return errors.New("𝔾₂ representation not in subgroup")
+		return errors.New("[x]₂ representation not in subgroup")
 	}
-	for i := 1; i < len(next.srs.Pk.G1); i++ {
-		if !next.srs.Pk.G1[i].IsInSubGroup() {
-			return errors.New("𝔾₁ representation not in subgroup")
+
+	// TODO @Tabaie replace with batch subgroup check
+	n := len(next.srs.Pk.G1) - 1
+	wp := utils.NewWorkerPool()
+	defer wp.Stop()
+	fail := make(chan error, wp.NbWorkers())
+
+	wp.Submit(n, func(start, end int) {
+		for i := start; i < end; i++ {
+			if !next.srs.Pk.G1[i+1].IsInSubGroup() {
+				fail <- fmt.Errorf("[x^%d]₁ representation not in subgroup", i+1)
+				break
+			}
+		}
+	}, n/wp.NbWorkers()+1).Wait()
+	close(fail)
+	for err := range fail {
+		if err != nil {
+			return err
 		}
 	}
 

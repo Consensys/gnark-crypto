@@ -7,6 +7,10 @@
 
 package fr
 
+import (
+	_ "github.com/consensys/gnark-crypto/field/asm/element_6w"
+)
+
 // Butterfly sets
 //
 //	a = a + b (mod q)

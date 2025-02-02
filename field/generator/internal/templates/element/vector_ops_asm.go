@@ -1,6 +1,11 @@
 package element
 
 const VectorOpsAmd64 = `
+
+import (
+	_ "{{.ASMPackagePath}}"
+)
+
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
@@ -151,6 +156,10 @@ const VectorOpsArm64 = VectorOpsPureGo
 
 const VectorOpsArm64F31 = `
 
+import (
+	_ "{{.ASMPackagePath}}"
+)
+
 //go:noescape
 func addVec(res, a, b *{{.ElementName}}, n uint64)
 
@@ -250,6 +259,9 @@ func (vector *Vector) Mul(a, b Vector) {
 
 const VectorOpsAmd64F31 = `
 
+import (
+	_ "{{.ASMPackagePath}}"
+)
 
 //go:noescape
 func addVec(res, a, b *{{.ElementName}}, n uint64)

@@ -7,6 +7,10 @@
 
 package fp
 
+import (
+	_ "github.com/consensys/gnark-crypto/field/asm/element_4w"
+)
+
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
