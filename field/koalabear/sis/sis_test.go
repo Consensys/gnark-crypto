@@ -220,10 +220,6 @@ func benchmarkSIS(b *testing.B, input []koalabear.Element, sparse bool, logTwoBo
 
 		res := make([]koalabear.Element, 1<<logTwoDegree)
 
-		// We introduce a custom metric which is the time per field element
-		// Since the benchmark object allows to report extra meta but does
-		// not allow accessing them. We measure the time ourself.
-
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_ = instance.Hash(input, res)
