@@ -11,6 +11,8 @@ import (
 	"github.com/consensys/gnark-crypto/field/koalabear"
 )
 
+const supportAVX512 = false
+
 func innerDIFWithTwiddles(a []koalabear.Element, twiddles []koalabear.Element, start, end, m int) {
 	innerDIFWithTwiddlesGeneric(a, twiddles, start, end, m)
 }

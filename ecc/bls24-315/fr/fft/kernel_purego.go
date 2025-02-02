@@ -9,6 +9,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 )
 
+const supportAVX512 = false
+
 func innerDIFWithTwiddles(a []fr.Element, twiddles []fr.Element, start, end, m int) {
 	innerDIFWithTwiddlesGeneric(a, twiddles, start, end, m)
 }

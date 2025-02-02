@@ -9,6 +9,8 @@ import (
 	"github.com/consensys/gnark-crypto/field/goldilocks"
 )
 
+const supportAVX512 = false
+
 func innerDIFWithTwiddles(a []goldilocks.Element, twiddles []goldilocks.Element, start, end, m int) {
 	innerDIFWithTwiddlesGeneric(a, twiddles, start, end, m)
 }

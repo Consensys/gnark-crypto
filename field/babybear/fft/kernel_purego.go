@@ -11,6 +11,8 @@ import (
 	"github.com/consensys/gnark-crypto/field/babybear"
 )
 
+const supportAVX512 = false
+
 func innerDIFWithTwiddles(a []babybear.Element, twiddles []babybear.Element, start, end, m int) {
 	innerDIFWithTwiddlesGeneric(a, twiddles, start, end, m)
 }
