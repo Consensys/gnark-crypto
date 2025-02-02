@@ -10,6 +10,6 @@ package babybear
 import "golang.org/x/sys/cpu"
 
 var (
-	supportAvx512 = cpu.X86.HasAVX512 && cpu.X86.HasAVX512DQ
+	supportAvx512 = cpu.X86.HasAVX512 && cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512VBMI2
 	_             = supportAvx512
 )

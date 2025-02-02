@@ -11,7 +11,6 @@ import (
 //go:generate go run main.go
 func main() {
 	// generate the following fields
-
 	type field struct {
 		name    string
 		modulus string

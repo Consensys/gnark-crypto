@@ -8,7 +8,6 @@ import (
 )
 
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
-
 	// permutation data
 	conf.Package = "permutation"
 	entries := []bavard.Entry{

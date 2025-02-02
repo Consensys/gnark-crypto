@@ -29,6 +29,9 @@ func scalarMulVec(res, a, b *Element, n uint64)
 //go:noescape
 func innerProdVec(t *uint64, a, b *Element, n uint64)
 
+//go:noescape
+func butterflyMulVec(a, twiddles *Element, m int)
+
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
@@ -95,7 +98,7 @@ func (vector *Vector) ScalarMul(a Vector, b *Element) {
 		return
 	}
 
-	const blockSize = 8
+	const blockSize = 16
 	scalarMulVec(&(*vector)[0], &a[0], b, n/blockSize)
 	if n%blockSize != 0 {
 		// call scalarMulVecGeneric on the rest
@@ -184,7 +187,7 @@ func (vector *Vector) Mul(a, b Vector) {
 		return
 	}
 
-	const blockSize = 8
+	const blockSize = 16
 	mulVec(&(*vector)[0], &a[0], &b[0], n/blockSize)
 	if n%blockSize != 0 {
 		// call mulVecGeneric on the rest

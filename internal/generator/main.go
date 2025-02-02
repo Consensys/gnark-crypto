@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/consensys/gnark-crypto/internal/generator/mpcsetup"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
+
+	"github.com/consensys/gnark-crypto/internal/generator/mpcsetup"
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator"
@@ -20,6 +21,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/fflonk"
 	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
+
 	"github.com/consensys/gnark-crypto/internal/generator/gkr"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_field"
 	"github.com/consensys/gnark-crypto/internal/generator/iop"

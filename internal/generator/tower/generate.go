@@ -7,6 +7,7 @@ import (
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
+
 	"github.com/consensys/gnark-crypto/internal/generator/tower/asm/amd64"
 )
 
