@@ -218,8 +218,10 @@ func (r *RSis) Hash(v, res []{{ .FF }}.Element) error {
 		}
 	{{- else}}
 		{{- if .HasUnrolledFFT}}
+		if r.Degree == 64 {
 			// full FFT
 			mask = uint64(len(partialFFT_64) - 1)
+		}
 		{{- end}}
 		// inner hash
 		k := make([]{{ .FF }}.Element, r.Degree)

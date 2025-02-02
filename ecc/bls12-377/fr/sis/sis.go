@@ -153,8 +153,10 @@ func (r *RSis) Hash(v, res []fr.Element) error {
 
 	// by default, the mask is ignored (unless we unrolled the FFT and have a degree 64)
 	mask := ^uint64(0)
-	// full FFT
-	mask = uint64(len(partialFFT_64) - 1)
+	if r.Degree == 64 {
+		// full FFT
+		mask = uint64(len(partialFFT_64) - 1)
+	}
 	// inner hash
 	k := make([]fr.Element, r.Degree)
 	it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
