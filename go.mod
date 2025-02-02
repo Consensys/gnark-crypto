@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/bits-and-blooms/bitset v1.20.0
-	github.com/consensys/bavard v0.1.27
+	github.com/consensys/bavard v0.1.29
 	github.com/leanovate/gopter v0.2.11
 	github.com/mmcloughlin/addchain v0.4.0
 	github.com/spf13/cobra v1.8.1
@@ -18,12 +18,10 @@ require (
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	lukechampine.com/blake3 v1.3.0 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
