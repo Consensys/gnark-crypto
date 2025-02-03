@@ -7,6 +7,10 @@
 
 package koalabear
 
+import (
+	_ "github.com/consensys/gnark-crypto/field/asm/element_31b"
+)
+
 //go:noescape
 func addVec(res, a, b *Element, n uint64)
 

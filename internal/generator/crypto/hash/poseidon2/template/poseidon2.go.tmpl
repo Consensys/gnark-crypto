@@ -67,14 +67,14 @@ func InitRC(seed string, rf, rp, t int) [][]fr.Element {
 			_, _ = hash.Write(rnd)
 		}
 	}
-	for i := 0; i < rp; i++ {
+	for i := rf/2; i < rp+rf/2; i++ {
 		roundKeys[i] = make([]fr.Element, 1)
 		rnd = hash.Sum(nil)
 		roundKeys[i][0].SetBytes(rnd)
 		hash.Reset()
 		_, _ = hash.Write(rnd)
 	}
-	for i := 0; i < rf/2; i++ {
+	for i := rp+rf/2; i < rp+rf; i++ {
 		roundKeys[i] = make([]fr.Element, t)
 		for j := 0; j < t; j++ {
 			rnd = hash.Sum(nil)
