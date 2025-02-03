@@ -17,38 +17,38 @@ var (
 
 // reference implementation: https://github.com/HorizenLabs/poseidon2/blob/main/plain_implementations/src/poseidon2/poseidon2.rs
 // specifications: https://github.com/argumentcomputer/neptune/blob/main/spec/poseidon_spec.pdf
-// origina paper: https://eprint.iacr.org/2023/323.pdf
+// original paper: https://eprint.iacr.org/2023/323.pdf
 
-// parameters describing the poseidon2 implementation
-type parameters struct {
+// Parameters describing the poseidon2 implementation
+type Parameters struct {
 	// len(preimage)+len(digest)=len(preimage)+ceil(log(2*<security_level>/r))
-	t int
+	T int
 
 	// number of full rounds (even number)
-	rF int
+	Rf int
 
 	// number of partial rounds
-	rP int
+	Rp int
 
 	// diagonal elements of the internal matrices, minus one
-	diagInternalMatrices []fr.Element
+	DiagInternalMatrices []fr.Element
 
 	// round keys
-	roundKeys [][]fr.Element
+	RoundKeys [][]fr.Element
 }
 
 // Hash stores the buffer of the poseidon2 permutation and provides poseidon2 permutation
 // methods on the buffer
 type Hash struct {
 
-	// parameters describing the
-	params parameters
+	// Parameters describing the
+	params Parameters
 }
 
 // NewHash returns a new hash instance allowing to apply the poseidon2 permutation
 func NewHash(t, rf, rp int, seed string) Hash {
-	params := parameters{t: t, rF: rf, rP: rp}
-	params.roundKeys = InitRC(seed, rf, rp, t)
+	params := Parameters{T: t, Rf: rf, Rp: rp}
+	params.RoundKeys = InitRC(seed, rf, rp, t)
 	res := Hash{params: params}
 	return res
 }
@@ -134,39 +134,39 @@ func (h *Hash) matMulM4InPlace(s []fr.Element) {
 	}
 }
 
-// when t=2,3 the buffer is multiplied by circ(2,1) and circ(2,1,1)
-// see https://eprint.iacr.org/2023/323.pdf page 15, case t=2,3
+// when T=2,3 the buffer is multiplied by circ(2,1) and circ(2,1,1)
+// see https://eprint.iacr.org/2023/323.pdf page 15, case T=2,3
 //
-// when t=0[4], the buffer is multiplied by circ(2M4,M4,..,M4)
+// when T=0[4], the buffer is multiplied by circ(2M4,M4,..,M4)
 // see https://eprint.iacr.org/2023/323.pdf
 func (h *Hash) matMulExternalInPlace(input []fr.Element) {
 
-	if h.params.t == 2 {
+	if h.params.T == 2 {
 		var tmp fr.Element
 		tmp.Add(&input[0], &input[1])
 		input[0].Add(&tmp, &input[0])
 		input[1].Add(&tmp, &input[1])
-	} else if h.params.t == 3 {
+	} else if h.params.T == 3 {
 		var tmp fr.Element
 		tmp.Add(&input[0], &input[1]).
 			Add(&tmp, &input[2])
 		input[0].Add(&tmp, &input[0])
 		input[1].Add(&tmp, &input[1])
 		input[2].Add(&tmp, &input[2])
-	} else if h.params.t == 4 {
+	} else if h.params.T == 4 {
 		h.matMulM4InPlace(input)
 	} else {
-		// at this stage t is supposed to be a multiple of 4
+		// at this stage T is supposed to be a multiple of 4
 		// the MDS matrix is circ(2M4,M4,..,M4)
 		h.matMulM4InPlace(input)
 		tmp := make([]fr.Element, 4)
-		for i := 0; i < h.params.t/4; i++ {
+		for i := 0; i < h.params.T/4; i++ {
 			tmp[0].Add(&tmp[0], &input[4*i])
 			tmp[1].Add(&tmp[1], &input[4*i+1])
 			tmp[2].Add(&tmp[2], &input[4*i+2])
 			tmp[3].Add(&tmp[3], &input[4*i+3])
 		}
-		for i := 0; i < h.params.t/4; i++ {
+		for i := 0; i < h.params.T/4; i++ {
 			input[4*i].Add(&input[4*i], &tmp[0])
 			input[4*i+1].Add(&input[4*i], &tmp[1])
 			input[4*i+2].Add(&input[4*i], &tmp[2])
@@ -175,15 +175,15 @@ func (h *Hash) matMulExternalInPlace(input []fr.Element) {
 	}
 }
 
-// when t=2,3 the matrix are respectibely [[2,1][1,3]] and [[2,1,1][1,2,1][1,1,3]]
+// when T=2,3 the matrix are respectibely [[2,1][1,3]] and [[2,1,1][1,2,1][1,1,3]]
 // otherwise the matrix is filled with ones except on the diagonal,
 func (h *Hash) matMulInternalInPlace(input []fr.Element) {
-	if h.params.t == 2 {
+	if h.params.T == 2 {
 		var sum fr.Element
 		sum.Add(&input[0], &input[1])
 		input[0].Add(&input[0], &sum)
 		input[1].Double(&input[1]).Add(&input[1], &sum)
-	} else if h.params.t == 3 {
+	} else if h.params.T == 3 {
 		var sum fr.Element
 		sum.Add(&input[0], &input[1]).Add(&sum, &input[2])
 		input[0].Add(&input[0], &sum)
@@ -192,11 +192,11 @@ func (h *Hash) matMulInternalInPlace(input []fr.Element) {
 	} else {
 		var sum fr.Element
 		sum.Set(&input[0])
-		for i := 1; i < h.params.t; i++ {
+		for i := 1; i < h.params.T; i++ {
 			sum.Add(&sum, &input[i])
 		}
-		for i := 0; i < h.params.t; i++ {
-			input[i].Mul(&input[i], &h.params.diagInternalMatrices[i]).
+		for i := 0; i < h.params.T; i++ {
+			input[i].Mul(&input[i], &h.params.DiagInternalMatrices[i]).
 				Add(&input[i], &sum)
 		}
 	}
@@ -204,44 +204,68 @@ func (h *Hash) matMulInternalInPlace(input []fr.Element) {
 
 // addRoundKeyInPlace adds the round-th key to the buffer
 func (h *Hash) addRoundKeyInPlace(round int, input []fr.Element) {
-	for i := 0; i < len(h.params.roundKeys[round]); i++ {
-		input[i].Add(&input[i], &h.params.roundKeys[round][i])
+	for i := 0; i < len(h.params.RoundKeys[round]); i++ {
+		input[i].Add(&input[i], &h.params.RoundKeys[round][i])
 	}
+}
+
+func (h *Hash) BlockSize() int {
+	return fr.Bytes
 }
 
 // Permutation applies the permutation on input, and stores the result in input.
 func (h *Hash) Permutation(input []fr.Element) error {
-	if len(input) != h.params.t {
+	if len(input) != h.params.T {
 		return ErrInvalidSizebuffer
 	}
 
 	// external matrix multiplication, cf https://eprint.iacr.org/2023/323.pdf page 14 (part 6)
 	h.matMulExternalInPlace(input)
 
-	rf := h.params.rF / 2
+	rf := h.params.Rf / 2
 	for i := 0; i < rf; i++ {
 		// one round = matMulExternal(sBox_Full(addRoundKey))
 		h.addRoundKeyInPlace(i, input)
-		for j := 0; j < h.params.t; j++ {
+		for j := 0; j < h.params.T; j++ {
 			h.sBox(j, input)
 		}
 		h.matMulExternalInPlace(input)
 	}
 
-	for i := rf; i < rf+h.params.rP; i++ {
+	for i := rf; i < rf+h.params.Rp; i++ {
 		// one round = matMulInternal(sBox_sparse(addRoundKey))
 		h.addRoundKeyInPlace(i, input)
 		h.sBox(0, input)
 		h.matMulInternalInPlace(input)
 	}
-	for i := rf + h.params.rP; i < h.params.rF+h.params.rP; i++ {
+	for i := rf + h.params.Rp; i < h.params.Rf+h.params.Rp; i++ {
 		// one round = matMulExternal(sBox_Full(addRoundKey))
 		h.addRoundKeyInPlace(i, input)
-		for j := 0; j < h.params.t; j++ {
+		for j := 0; j < h.params.T; j++ {
 			h.sBox(j, input)
 		}
 		h.matMulExternalInPlace(input)
 	}
 
 	return nil
+}
+
+// Apply implements hash.CompressionFunction, as a generic wrapper for Permutation
+func (h *Hash) Apply(a []byte, b []byte) ([]byte, error) {
+	if h.params.T != 2 {
+		return nil, errors.New("need a 2-1 function")
+	}
+	var x [2]fr.Element
+
+	if err := x[0].SetBytesCanonical(a); err != nil {
+		return nil, err
+	}
+	if err := x[1].SetBytesCanonical(b); err != nil {
+		return nil, err
+	}
+	if err := h.Permutation(x[:]); err != nil {
+		return nil, err
+	}
+	res := x[1].Bytes()
+	return res[:], nil
 }
