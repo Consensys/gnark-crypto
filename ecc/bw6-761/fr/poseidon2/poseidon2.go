@@ -17,7 +17,7 @@ var (
 
 // reference implementation: https://github.com/HorizenLabs/poseidon2/blob/main/plain_implementations/src/poseidon2/poseidon2.rs
 // specifications: https://github.com/argumentcomputer/neptune/blob/main/spec/poseidon_spec.pdf
-// origina paper: https://eprint.iacr.org/2023/323.pdf
+// original paper: https://eprint.iacr.org/2023/323.pdf
 
 // parameters describing the poseidon2 implementation
 type parameters struct {
