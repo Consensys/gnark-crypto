@@ -13,6 +13,6 @@ func NewPoseidon2() hash.StateStorer {
 			t:         2,
 			rF:        6,
 			rP:        26,
-			roundKeys: InitRC("Poseidon2 hash for BLS12-377 with t=2, rF=6, rP=26, d=17", 6, 26, 2),
+			roundKeys: InitRC("Poseidon2 hash for BLS12_377 with t=2, rF=6, rP=26, d=17", 6, 26, 2),
 		}}, make([]byte, fr.Bytes))
 }
