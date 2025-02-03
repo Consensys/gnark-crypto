@@ -36,6 +36,7 @@ const (
 	BW6_633
 	STARK_CURVE
 	SECP256K1
+	GRUMPKIN
 )
 
 // Implemented return the list of curves fully implemented in gnark-crypto
@@ -91,6 +92,8 @@ func (id ID) config() *config.Curve {
 		return &config.STARK_CURVE
 	case SECP256K1:
 		return &config.SECP256K1
+	case GRUMPKIN:
+		return &config.GRUMPKIN
 	default:
 		panic("unimplemented ecc ID")
 	}

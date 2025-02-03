@@ -38,6 +38,8 @@ const (
 	MIMC_BLS24_317
 	// MIMC_BW6_633 is the MiMC hash function for the BW6-633 curve.
 	MIMC_BW6_633
+	// MIMC_GRUMPKIN is the MiMC hash function for the Grumpkin curve.
+	MIMC_GRUMPKIN
 
 	maxHash
 )
@@ -51,6 +53,7 @@ var digestSize = []uint8{
 	MIMC_BLS24_315: 48,
 	MIMC_BLS24_317: 48,
 	MIMC_BW6_633:   80,
+	MIMC_GRUMPKIN:  32,
 }
 
 // New initializes the hash function. This is a convenience function which does
@@ -87,6 +90,8 @@ func (m Hash) String() string {
 		return "MIMC_BLS24_317"
 	case MIMC_BW6_633:
 		return "MIMC_BW6_633"
+	case MIMC_GRUMPKIN:
+		return "MIMC_GRUMPKIN"
 	default:
 		return "unknown hash function"
 	}
