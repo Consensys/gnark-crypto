@@ -142,7 +142,7 @@ func (g extGate) Degree() int {
 func sBox2(x fr.Element) fr.Element {
 	var y fr.Element
 	y.Square(&x).Square(&y).Square(&y).Square(&y).Mul(&x, &y)
-	return x
+	return y
 }
 
 func DefineGkrGates() {
