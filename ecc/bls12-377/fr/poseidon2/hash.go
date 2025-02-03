@@ -5,16 +5,14 @@ import (
 	"github.com/consensys/gnark-crypto/hash"
 )
 
-func NewPoseidon2() hash.StateStorer {
-	return hash.NewMerkleDamgardHasher(&Hash{params: GetParameters()}, make([]byte, fr.Bytes))
-}
-
+// NewPoseidon2 returns a Poseidon2 hasher
 // TODO @Tabaie @ThomasPiellard Generify once Poseidon2 parameters are known for all curves
-func GetParameters() Parameters {
-	return Parameters{
-		T:         2,
-		Rf:        6,
-		Rp:        26,
-		RoundKeys: InitRC("Poseidon2 hash for BLS12-377 with t=2, rF=6, rP=26, d=17", 6, 26, 2),
-	}
+func NewPoseidon2() hash.StateStorer {
+	return hash.NewMerkleDamgardHasher(
+		&Hash{params: parameters{
+			t:         2,
+			rF:        6,
+			rP:        26,
+			roundKeys: InitRC("Poseidon2 hash for BLS12-377 with t=2, rF=6, rP=26, d=17", 6, 26, 2),
+		}}, make([]byte, fr.Bytes))
 }
