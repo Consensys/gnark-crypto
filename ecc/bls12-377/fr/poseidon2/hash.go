@@ -53,7 +53,7 @@ func (g *extKeySBoxGate) Evaluate(x ...fr.Element) fr.Element {
 		Double(&x[0]).
 		Add(&x[0], &x[1]).
 		Add(&x[0], &g.roundKey)
-	return powerFr(x[0], d)
+	return sBox2(x[0])
 }
 
 func (g *extKeySBoxGate) Degree() int {
@@ -115,7 +115,7 @@ func (g *intKeySBoxGate2) Evaluate(x ...fr.Element) fr.Element {
 		Add(&x[1], &x[0]).
 		Add(&x[1], &g.roundKey)
 
-	return powerFr(x[1], 17)
+	return sBox2(x[1])
 }
 
 func (g *intKeySBoxGate2) Degree() int {
@@ -138,22 +138,10 @@ func (g extGate) Degree() int {
 	return 1
 }
 
-func powerFr(x fr.Element, n int) fr.Element {
-	tmp := x
-	switch n {
-	case 3:
-		x.Square(&x).Mul(&tmp, &x)
-	case 5:
-		x.Square(&x).Square(&x).Mul(&x, &tmp)
-	case 7:
-		x.Square(&x).Mul(&x, &tmp).Square(&x).Mul(&x, &tmp)
-	case 17:
-		x.Square(&x).Square(&x).Square(&x).Square(&x).Mul(&x, &tmp)
-	case -1:
-		x.Inverse(&x)
-	default:
-		panic("unknown sBox degree")
-	}
+// sBox2 is Hash.sBox for t=2
+func sBox2(x fr.Element) fr.Element {
+	var y fr.Element
+	y.Square(&x).Square(&y).Square(&y).Square(&y).Mul(&x, &y)
 	return x
 }
 
