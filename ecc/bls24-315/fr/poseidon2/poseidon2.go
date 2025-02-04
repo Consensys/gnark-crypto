@@ -26,9 +26,6 @@ type parameters struct {
 	// number of partial rounds
 	rP int
 
-	// diagonal elements of the internal matrices, minus one
-	DiagInternalMatrices []fr.Element
-
 	// round keys
 	roundKeys [][]fr.Element
 }
@@ -41,8 +38,11 @@ type Hash struct {
 	params parameters
 }
 
-// NewHash returns a new hash instance allowing to apply the poseidon2 permutation
-func NewHash(t, rf, rp int, seed string) Hash {
+// NewPermutation returns a new Poseidon2 permutation instance.
+func NewPermutation(t, rf, rp int, seed string) Hash {
+	if t < 2 || t > 3 {
+		panic("only t=2,3 is supported")
+	}
 	params := parameters{t: t, rF: rf, rP: rp}
 	params.roundKeys = InitRC(seed, rf, rp, t)
 	res := Hash{params: params}
@@ -173,27 +173,29 @@ func (h *Hash) matMulExternalInPlace(input []fr.Element) {
 // when T=2,3 the matrix are respectibely [[2,1][1,3]] and [[2,1,1][1,2,1][1,1,3]]
 // otherwise the matrix is filled with ones except on the diagonal,
 func (h *Hash) matMulInternalInPlace(input []fr.Element) {
-	if h.params.t == 2 {
+	switch h.params.t {
+	case 2:
 		var sum fr.Element
 		sum.Add(&input[0], &input[1])
 		input[0].Add(&input[0], &sum)
 		input[1].Double(&input[1]).Add(&input[1], &sum)
-	} else if h.params.t == 3 {
+	case 3:
 		var sum fr.Element
 		sum.Add(&input[0], &input[1]).Add(&sum, &input[2])
 		input[0].Add(&input[0], &sum)
 		input[1].Add(&input[1], &sum)
 		input[2].Double(&input[2]).Add(&input[2], &sum)
-	} else {
-		var sum fr.Element
-		sum.Set(&input[0])
-		for i := 1; i < h.params.t; i++ {
-			sum.Add(&sum, &input[i])
-		}
-		for i := 0; i < h.params.t; i++ {
-			input[i].Mul(&input[i], &h.params.DiagInternalMatrices[i]).
-				Add(&input[i], &sum)
-		}
+	default:
+		// var sum fr.Element
+		// sum.Set(&input[0])
+		// for i := 1; i < h.params.t; i++ {
+		// 	sum.Add(&sum, &input[i])
+		// }
+		// for i := 0; i < h.params.t; i++ {
+		// 	input[i].Mul(&input[i], &h.params.diagInternalMatrices[i]).
+		// 		Add(&input[i], &sum)
+		// }
+		panic("only T=2,3 is supported")
 	}
 }
 
