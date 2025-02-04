@@ -51,7 +51,7 @@ type Parameters struct {
 // from the seed which is a digest of the parameters and curve ID.
 func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
-	seed := p.seedString()
+	seed := p.String()
 	p.initRC(seed)
 	return &p
 }
@@ -65,7 +65,9 @@ func NewParametersWithSeed(width, nbFullRounds, nbPartialRounds int, seed string
 	return &p
 }
 
-func (p *Parameters) seedString() string {
+// String returns a string representation of the parameters. It is unique for
+// specific parameters and curve.
+func (p *Parameters) String() string {
 	return fmt.Sprintf("Poseidon2-BLS12_377[t=%d,rF=%d,rP=%d,d=%d]", p.Width, p.NbFullRounds, p.NbPartialRounds, d)
 }
 
