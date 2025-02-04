@@ -31,8 +31,8 @@ type Hash struct {
 	params parameters
 }
 
-// NewHash returns a new hash instance allowing to apply the poseidon2 permutation
-func NewHash(t, rf, rp int, seed string) Hash {
+// NewPermutation returns a new Poseidon2 permutation instance.
+func NewPermutation(t, rf, rp int, seed string) Hash {
 	if t < 2 || t > 3 {
 		panic("only t=2,3 is supported")
 	}
