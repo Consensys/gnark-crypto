@@ -738,6 +738,20 @@ func (g _select) Degree() int {
 	return 1
 }
 
+// gateWrapper enables assigning an arbitrary degree to a gate
+type gateWrapper struct {
+	g Gate
+	d int
+}
+
+func (g gateWrapper) Degree() int {
+	return g.d
+}
+
+func (g gateWrapper) Evaluate(inputs ...fr.Element) fr.Element {
+	return g.g.Evaluate(inputs...)
+}
+
 func TestTestGateDegree(t *testing.T) {
 	onGate := func(g Gate, nbIn int) func(t *testing.T) {
 		return func(t *testing.T) {
