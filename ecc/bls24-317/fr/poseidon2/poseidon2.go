@@ -15,10 +15,6 @@ var (
 	ErrInvalidSizebuffer = errors.New("the size of the input should match the size of the hash buffer")
 )
 
-// reference implementation: https://github.com/HorizenLabs/poseidon2/blob/main/plain_implementations/src/poseidon2/poseidon2.rs
-// specifications: https://github.com/argumentcomputer/neptune/blob/main/spec/poseidon_spec.pdf
-// original paper: https://eprint.iacr.org/2023/323.pdf
-
 // parameters describing the poseidon2 implementation
 type parameters struct {
 	// len(preimage)+len(digest)=len(preimage)+ceil(log(2*<security_level>/r))
