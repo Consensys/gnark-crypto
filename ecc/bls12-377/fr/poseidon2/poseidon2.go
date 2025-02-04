@@ -9,8 +9,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"golang.org/x/crypto/sha3"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 var (
@@ -65,7 +66,7 @@ func NewParametersWithSeed(width, nbFullRounds, nbPartialRounds int, seed string
 }
 
 func (p *Parameters) seedString() string {
-	return fmt.Sprintf("Poseidon2-BLS12-377[t=%d,rF=%d,rP=%d,d=%d]", p.Width, p.NbFullRounds, p.NbPartialRounds, d)
+	return fmt.Sprintf("Poseidon2-BLS12_377[t=%d,rF=%d,rP=%d,d=%d]", p.Width, p.NbFullRounds, p.NbPartialRounds, d)
 }
 
 // initRC initiate round keys. Only one entry is non zero for the internal
@@ -135,7 +136,6 @@ func NewPermutationWithSeed(t, rf, rp int, seed string) *Permutation {
 	res := &Permutation{params: params}
 	return res
 }
-
 
 // sBox applies the sBox on buffer[index]
 func (h *Permutation) sBox(index int, input []fr.Element) {
@@ -298,7 +298,8 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 }
 
 // Compress applies the permutation on left and right and returns the right lane
-// of the result.
+// of the result. Panics if the permutation instance is not initialized with a
+// width of 2.
 func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 	if h.params.Width != 2 {
 		return nil, errors.New("need a 2-1 function")
