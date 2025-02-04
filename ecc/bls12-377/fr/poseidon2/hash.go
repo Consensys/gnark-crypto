@@ -56,7 +56,7 @@ func (g *extKeyGate) Evaluate(x ...fr.Element) fr.Element {
 		Double(&x[0]).
 		Add(&x[0], &x[1]).
 		Add(&x[0], &g.roundKey)
-	return sBox2(x[0])
+	return x[0]
 }
 
 func (g *extKeyGate) Degree() int {
@@ -118,11 +118,11 @@ func (g *intKeyGate2) Evaluate(x ...fr.Element) fr.Element {
 		Add(&x[1], &x[0]).
 		Add(&x[1], &g.roundKey)
 
-	return sBox2(x[1])
+	return x[1]
 }
 
 func (g *intKeyGate2) Degree() int {
-	return d
+	return 1
 }
 
 type extGate struct{}
@@ -167,13 +167,6 @@ func (g pow4TimesGate) Evaluate(x ...fr.Element) fr.Element {
 
 func (g pow4TimesGate) Degree() int {
 	return 5
-}
-
-// sBox2 is Hash.sBox for t=2
-func sBox2(x fr.Element) fr.Element {
-	var y fr.Element
-	y.Square(&x).Square(&y).Square(&y).Square(&y).Mul(&x, &y)
-	return y
 }
 
 func gateName(prefix string, i ...int) string {
