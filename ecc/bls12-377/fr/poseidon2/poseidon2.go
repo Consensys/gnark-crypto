@@ -251,17 +251,18 @@ func (h *Hash) Permutation(input []fr.Element) error {
 	return nil
 }
 
-// Apply implements hash.CompressionFunction, as a generic wrapper for Permutation
-func (h *Hash) Apply(a []byte, b []byte) ([]byte, error) {
+// Compress applies the permutation on left and right and returns the right lane
+// of the result.
+func (h *Hash) Compress(left []byte, right []byte) ([]byte, error) {
 	if h.params.t != 2 {
 		return nil, errors.New("need a 2-1 function")
 	}
 	var x [2]fr.Element
 
-	if err := x[0].SetBytesCanonical(a); err != nil {
+	if err := x[0].SetBytesCanonical(left); err != nil {
 		return nil, err
 	}
-	if err := x[1].SetBytesCanonical(b); err != nil {
+	if err := x[1].SetBytesCanonical(right); err != nil {
 		return nil, err
 	}
 	if err := h.Permutation(x[:]); err != nil {

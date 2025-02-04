@@ -1,14 +1,9 @@
 package hash
 
-// CompressionFunction is a 2 to 1 function
-type CompressionFunction interface {
-	Apply([]byte, []byte) ([]byte, error) // TODO @Tabaie @ThomasPiellard better name
-	BlockSize() int
-}
 type merkleDamgardHasher struct {
 	state []byte
 	iv    []byte
-	f     CompressionFunction
+	f     Compresser
 }
 
 // Write implements hash.Write
@@ -18,7 +13,7 @@ func (h *merkleDamgardHasher) Write(p []byte) (n int, err error) {
 		if len(p) < blockSize {
 			p = append(make([]byte, blockSize-len(p), blockSize), p...)
 		}
-		if h.state, err = h.f.Apply(h.state, p[:blockSize]); err != nil {
+		if h.state, err = h.f.Compress(h.state, p[:blockSize]); err != nil {
 			return
 		}
 		n += blockSize
@@ -60,7 +55,7 @@ func (h *merkleDamgardHasher) SetState(state []byte) error {
 // WARNING: The padding performed by the resulting hasher is trivial.
 // It simply left zero-pads the last block of input
 // THIS IS NOT COLLISION RESISTANT FOR GENERIC DATA
-func NewMerkleDamgardHasher(f CompressionFunction, initialState []byte) StateStorer {
+func NewMerkleDamgardHasher(f Compresser, initialState []byte) StateStorer {
 	return &merkleDamgardHasher{
 		state: initialState,
 		iv:    initialState,
