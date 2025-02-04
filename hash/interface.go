@@ -15,7 +15,7 @@ type StateStorer interface {
 	SetState(state []byte) error
 }
 
-// Compresser is a 2-1 one-way function. It takes two inputs and compresses
+// Compressor is a 2-1 one-way function. It takes two inputs and compresses
 // them into one output. The inputs and outputs are all of the same size, which
 // is the block size. See [BlockSize].
 //
@@ -23,9 +23,9 @@ type StateStorer interface {
 // be unique for different inputs. The output is guaranteed to be the same for
 // the same inputs.
 //
-// The Compresser is used in the Merkle-Damgard construction to build a hash
+// The Compressor is used in the Merkle-Damgard construction to build a hash
 // function.
-type Compresser interface {
+type Compressor interface {
 	// Compress compresses the two inputs into one output. All the inputs and
 	// outputs are of the same size, which is the block size. See [BlockSize].
 	Compress(left []byte, right []byte) (compressed []byte, err error)

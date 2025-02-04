@@ -3,7 +3,7 @@ package hash
 type merkleDamgardHasher struct {
 	state []byte
 	iv    []byte
-	f     Compresser
+	f     Compressor
 }
 
 // Write implements hash.Write
@@ -64,7 +64,7 @@ func (h *merkleDamgardHasher) SetState(state []byte) error {
 // The value initialState is provided as initial input to the compression
 // function. Its preimage should not be known and thus it should be generated
 // using a deterministic method.
-func NewMerkleDamgardHasher(f Compresser, initialState []byte) StateStorer {
+func NewMerkleDamgardHasher(f Compressor, initialState []byte) StateStorer {
 	return &merkleDamgardHasher{
 		state: initialState,
 		iv:    initialState,

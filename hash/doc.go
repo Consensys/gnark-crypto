@@ -10,7 +10,7 @@
 // See [Importing hash functions] below for more information.
 //
 // This package also provides a construction for a generic hash function from
-// the compression primitive. See the interface [Compresser] and the
+// the compression primitive. See the interface [Compressor] and the
 // corresponding initialization function [NewMerkleDamgardHasher].
 //
 // # Importing hash functions
