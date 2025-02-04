@@ -15,6 +15,17 @@ var (
 	ErrInvalidSizebuffer = errors.New("the size of the input should match the size of the hash buffer")
 )
 
+const (
+	// d is the degree of the sBox
+	d = 7
+)
+
+// DegreeSBox returns the degree of the sBox function used in the Poseidon2
+// permutation.
+func DegreeSBox() int {
+	return d
+}
+
 // parameters describing the poseidon2 implementation
 type parameters struct {
 	// len(preimage)+len(digest)=len(preimage)+ceil(log(2*<security_level>/r))
