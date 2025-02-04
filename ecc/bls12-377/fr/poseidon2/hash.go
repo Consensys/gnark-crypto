@@ -2,10 +2,11 @@ package poseidon2
 
 import (
 	"fmt"
+	"hash"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/gkr"
 	gnarkHash "github.com/consensys/gnark-crypto/hash"
-	"hash"
 )
 
 // NewPoseidon2 returns a Poseidon2 hasher
