@@ -5,10 +5,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/gkr"
 	gnarkHash "github.com/consensys/gnark-crypto/hash"
-	"github.com/consensys/gnark-crypto/utils"
 	"hash"
-	"strconv"
-	"strings"
 )
 
 // NewPoseidon2 returns a Poseidon2 hasher
@@ -157,6 +154,34 @@ func (g pow4Gate) Degree() int {
 
 type pow4TimesGate struct{}
 
+type pow2Gate struct{}
+
+func (g pow2Gate) Evaluate(x ...fr.Element) fr.Element {
+	if len(x) != 1 {
+		panic("expected 1 input")
+	}
+	x[0].Square(&x[0])
+	return x[0]
+}
+
+func (g pow2Gate) Degree() int {
+	return 2
+}
+
+type pow2TimesGate struct{}
+
+func (g pow2TimesGate) Degree() int {
+	return 3
+}
+
+func (g pow2TimesGate) Evaluate(x ...fr.Element) fr.Element {
+	if len(x) != 2 {
+		panic("expected 2 input")
+	}
+	x[0].Square(&x[0]).Mul(&x[0], &x[1])
+	return x[0]
+}
+
 func (g pow4TimesGate) Evaluate(x ...fr.Element) fr.Element {
 	if len(x) != 2 {
 		panic("expected 1 input")
@@ -169,8 +194,8 @@ func (g pow4TimesGate) Degree() int {
 	return 5
 }
 
-func gateName(prefix string, i ...int) string {
-	return fmt.Sprintf("%s-round=%s;%s", prefix, strings.Join(utils.Map(i, strconv.Itoa), "-"), seed)
+func gateName(prefix string, i int) string {
+	return fmt.Sprintf("%s-linear-op-round=%d;%s", prefix, i, seed)
 }
 
 func varIndex(varName string) int {
@@ -188,25 +213,22 @@ func DefineGkrGates() {
 	p := params()
 	halfRf := p.rF / 2
 
-	sBox := func(round int, varName string) {
-		gkr.Gates[gateName(varName, round, 1)] = pow4Gate{}
-
-		gkr.Gates[gateName(varName, round, 2)] = pow4TimesGate{}
-	}
+	gkr.Gates["pow2"] = pow2Gate{}
+	gkr.Gates["pow4"] = pow4Gate{}
+	gkr.Gates["pow2Times"] = pow2TimesGate{}
+	gkr.Gates["pow4Times"] = pow4TimesGate{}
 
 	extKeySBox := func(round int, varName string) {
-		gkr.Gates[gateName(varName, round, 0)] = &extKeyGate{
+		gkr.Gates[gateName(varName, round)] = &extKeyGate{
 			roundKey: p.roundKeys[round][varIndex(varName)],
 		}
-		sBox(round, varName)
 	}
 
 	intKeySBox2 := func(round int) {
-		gate := gateName("y", round, 0)
+		gate := gateName("y", round)
 		gkr.Gates[gate] = &intKeyGate2{
 			roundKey: p.roundKeys[round][1],
 		}
-		sBox(round, "y")
 	}
 
 	fullRound := func(i int) {
