@@ -50,11 +50,20 @@ func (h *merkleDamgardHasher) SetState(state []byte) error {
 	return nil
 }
 
-// NewMerkleDamgardHasher transforms a 2-1 one-way function into a hash
-// initialState is a value whose preimage is not known
-// WARNING: The padding performed by the resulting hasher is trivial.
-// It simply left zero-pads the last block of input
-// THIS IS NOT COLLISION RESISTANT FOR GENERIC DATA
+// NewMerkleDamgardHasher transforms a 2-1 one-way compression function into a
+// hash function using a Merkle-Damgard construction. The resulting hash
+// function has a block size equal to the block size of compression function.
+//
+// NB! The construction does not perform explicit padding on the input data. The
+// last block of input data is zero-padded to full block size. This means that
+// the construction is not collision resistant for generic data as the digest of
+// input and input concatenated with zeros (up to the same number of total
+// blocks) is same. For collision resistance the caller should perform explicit
+// padding on the input data.
+//
+// The value initialState is provided as initial input to the compression
+// function. Its preimage should not be known and thus it should be generated
+// using a deterministic method.
 func NewMerkleDamgardHasher(f Compresser, initialState []byte) StateStorer {
 	return &merkleDamgardHasher{
 		state: initialState,

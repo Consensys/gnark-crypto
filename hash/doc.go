@@ -1,13 +1,17 @@
-// Package hash provides MiMC hash function defined over implemented curves
+// Package hash provides algebraic hash function defined over implemented curves
 //
-// This package is kept for backwards compatibility. The recommended way to
-// initialize hash function is to directly use the constructors in the
-// corresponding packages (e.g. ecc/bn254/fr/mimc). Using the direct
-// constructors allows to apply options for altering the hash function behavior
-// (endianness, input splicing etc.) and returns more specific types with
-// additional methods.
+// This package is kept for backwards compatibility for initializing hash
+// functions directly. The recommended way to initialize hash function is to
+// directly use the constructors in the corresponding packages (e.g.
+// ecc/bn254/fr/mimc). Using the direct constructors allows to apply options for
+// altering the hash function behavior (endianness, input splicing etc.) and
+// returns more specific types with additional methods.
 //
 // See [Importing hash functions] below for more information.
+//
+// This package also provides a construction for a generic hash function from
+// the compression primitive. See the interface [Compresser] and the
+// corresponding initialization function [NewMerkleDamgardHasher].
 //
 // # Importing hash functions
 //
@@ -58,7 +62,7 @@
 // The MiMC hash function is defined over a field. The input to the hash
 // function is a byte slice. The byte slice is interpreted as a sequence of
 // field elements. Due to this interpretation, the input byte slice length must
-// be multiple of the field modulus size. And every secuence of byte slice for a
+// be multiple of the field modulus size. And every sequence of byte slice for a
 // single field element must be strictly less than the field modulus.
 //
 // See open issues:
