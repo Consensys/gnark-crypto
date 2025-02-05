@@ -46,7 +46,7 @@ func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
 		func(u {{$CoordType}}, v {{$CoordType}}) bool {
 
 			var seen {{$CoordType}}
-			qr := {{$CurveTitle}}SqrtRatio(&seen, &u, &v) == 0
+			qr := {{$CurveName}}SqrtRatio(&seen, &u, &v) == 0
 
 			seen.
 				Square(&seen).

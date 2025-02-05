@@ -32,7 +32,7 @@ func TestG2SqrtRatio(t *testing.T) {
 		func(u fptower.E2, v fptower.E2) bool {
 
 			var seen fptower.E2
-			qr := G2SqrtRatio(&seen, &u, &v) == 0
+			qr := g2SqrtRatio(&seen, &u, &v) == 0
 
 			seen.
 				Square(&seen).
