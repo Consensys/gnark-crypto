@@ -95,11 +95,11 @@ func {{$CurveName}}Isogeny(p *{{$AffineType}}) {
 {{ $c1Int := index $cInts 0}}
 {{ $c1IntBytes := printList (bytes $c1Int ) }}
 
-// {{$CurveName}}SqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
+// {{$CurveTitle}}SqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
 // If v = 0, u/v is meaningless and the output is unspecified, without raising an error.
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
-func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordType}}) uint64 {
+func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordType}}) uint64 {
 {{ if eq (mod .FieldSizeMod256 4) 3 }} // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-optimized-sqrt_ratio-for-q- (3 mod 4)
 	var tv1 {{$CoordType}}
 	tv1.Square(v)   // 1. tv1 = v²
@@ -344,7 +344,7 @@ func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 	x.Mul(&tv1, &tv3)   // 17.   x = tv1 * tv3
 
 	var y1 {{$CoordType}}
-	gx1NSquare := {{$CurveName}}SqrtRatio(&y1, &tv2, &tv6)  // 18. (is_gx1_square, y1) = sqrt_ratio(tv2, tv6)
+	gx1NSquare := {{$CurveTitle}}SqrtRatio(&y1, &tv2, &tv6)  // 18. (is_gx1_square, y1) = sqrt_ratio(tv2, tv6)
 
 	var y {{$CoordType}}
 	y.Mul(&tv1, u)  // 19.   y = tv1 * u

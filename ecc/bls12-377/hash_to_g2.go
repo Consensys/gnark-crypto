@@ -517,11 +517,11 @@ func g2Isogeny(p *G2Affine) {
 	p.Y.Mul(&p.Y, &den[1])
 }
 
-// g2SqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
+// G2SqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
 // If v = 0, u/v is meaningless and the output is unspecified, without raising an error.
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
-func g2SqrtRatio(z *fptower.E2, u *fptower.E2, v *fptower.E2) uint64 {
+func G2SqrtRatio(z *fptower.E2, u *fptower.E2, v *fptower.E2) uint64 {
 
 	// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-sqrt_ratio-for-any-field
 
@@ -662,7 +662,7 @@ func MapToCurve2(u *fptower.E2) G2Affine {
 	x.Mul(&tv1, &tv3) // 17.   x = tv1 * tv3
 
 	var y1 fptower.E2
-	gx1NSquare := g2SqrtRatio(&y1, &tv2, &tv6) // 18. (is_gx1_square, y1) = sqrt_ratio(tv2, tv6)
+	gx1NSquare := G2SqrtRatio(&y1, &tv2, &tv6) // 18. (is_gx1_square, y1) = sqrt_ratio(tv2, tv6)
 
 	var y fptower.E2
 	y.Mul(&tv1, u) // 19.   y = tv1 * u

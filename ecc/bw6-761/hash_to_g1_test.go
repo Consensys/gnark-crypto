@@ -30,7 +30,7 @@ func TestG1SqrtRatio(t *testing.T) {
 		func(u fp.Element, v fp.Element) bool {
 
 			var seen fp.Element
-			qr := g1SqrtRatio(&seen, &u, &v) == 0
+			qr := G1SqrtRatio(&seen, &u, &v) == 0
 
 			seen.
 				Square(&seen).
