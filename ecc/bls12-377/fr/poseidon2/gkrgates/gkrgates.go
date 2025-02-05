@@ -239,68 +239,6 @@ func varIndex(varName string) int {
 	}
 }
 
-func DefineGkrGates() {
-	p := params()
-	halfRf := p.rF / 2
-
-	gkr.Gates["pow2"] = pow2Gate{}
-	gkr.Gates["pow4"] = pow4Gate{}
-	gkr.Gates["pow2Times"] = pow2TimesGate{}
-	gkr.Gates["pow4Times"] = pow4TimesGate{}
-
-	extKeySBox := func(round int, varName string) {
-		gkr.Gates[gateNameLinear(varName, round)] = &extKeyGate{
-			roundKey: p.roundKeys[round][varIndex(varName)],
-		}
-	}
-
-	intKeySBox2 := func(round int) {
-		gate := gateNameLinear("y", round)
-		gkr.Gates[gate] = &intKeyGate2{
-			roundKey: p.roundKeys[round][1],
-		}
-	}
-
-	fullRound := func(i int) {
-		extKeySBox(i, "x")
-		extKeySBox(i, "y")
-	}
-
-	for i := range halfRf {
-		fullRound(i)
-	}
-
-	{ // i = halfRf: first partial round
-		extKeySBox(halfRf, "x")
-		gkr.Gates[gateNameLinear("y", halfRf)] = extGate2{}
-	}
-
-	for i := halfRf + 1; i < halfRf+p.rP; i++ {
-		extKeySBox(i, "x") // for x1, intKeySBox is identical to extKeySBox
-		gkr.Gates[gateNameLinear("y", i)] = intGate2{}
-	}
-
-	{
-		i := halfRf + p.rP
-		extKeySBox(i, "x")
-		intKeySBox2(i)
-	}
-
-	for i := halfRf + p.rP + 1; i < p.rP+p.rF; i++ {
-		fullRound(i)
-	}
-
-	gkr.Gates[gateNameLinear("y", p.rP+p.rF)] = extGate{}
-}
-
-func gateNameLinear(varName string, i int, params string) string {
-	return fmt.Sprintf("%s-linear-op-round=%d;%s", varName, i, params)
-}
-
-func gateNameIntegrated(varName string, i int, params string) string {
-	return fmt.Sprintf("%s-integrated-op-round=%d;%s", varName, i, params)
-}
-
 var initOnce sync.Once
 
 // RegisterGkrGates registers the Poseidon2 permutation gates for GKR
@@ -311,16 +249,41 @@ func RegisterGkrGates() {
 			halfRf := p.NbFullRounds / 2
 			params := p.String()
 
+			gkr.Gates["pow2"] = pow2Gate{}
+			gkr.Gates["pow4"] = pow4Gate{}
+			gkr.Gates["pow2Times"] = pow2TimesGate{}
+			gkr.Gates["pow4Times"] = pow4TimesGate{}
+
+			gateNameLinear := func(varName string, i int) string {
+				return fmt.Sprintf("%s-l-op-round=%d;%s", varName, i, params)
+			}
+
+			gateNameIntegrated := func(varName string, i int) string {
+				return fmt.Sprintf("%s-i-op-round=%d;%s", varName, i, params)
+			}
+
+			extKeySBox := func(round int, varName string) {
+				vI := varIndex(varName)
+				gkr.Gates[gateNameIntegrated(varName, round)] = &extKeySBoxGate{ // in case we use an integrated S-box
+					roundKey: p.RoundKeys[round][vI],
+				}
+				gkr.Gates[gateNameLinear(varName, round)] = &extKeyGate{ // in case we use a separate S-box
+					roundKey: p.RoundKeys[round][vI],
+				}
+			}
+
+			intKeySBox2 := func(round int) {
+				gkr.Gates[gateNameLinear("y", round)] = &intKeyGate2{
+					roundKey: p.RoundKeys[round][1],
+				}
+				gkr.Gates[gateNameIntegrated("y", round)] = &intKeySBoxGate2{
+					roundKey: p.RoundKeys[round][1],
+				}
+			}
+
 			fullRound := func(i int) {
-				gkr.Gates[gateNameIntegrated("x", i, params)] = &extKeySBoxGate{
-					roundKey: p.RoundKeys[i][0],
-				}
-
-				gkr.Gates[gateNameIntegrated("y", i, params)] = &extKeySBoxGate{
-					roundKey: p.RoundKeys[i][1],
-				}
-
-				//gkr.
+				extKeySBox(i, "x")
+				extKeySBox(i, "y")
 			}
 
 			for i := range halfRf {
@@ -328,39 +291,26 @@ func RegisterGkrGates() {
 			}
 
 			{ // i = halfRf: first partial round
-				i := halfRf
-				gkr.Gates[gateNameX(i)] = &extKeySBoxGate{
-					roundKey: p.RoundKeys[i][0],
-				}
-
-				gkr.Gates[gateNameY(i)] = extGate2{}
+				extKeySBox(halfRf, "x")
+				gkr.Gates[gateNameLinear("y", halfRf)] = extGate2{}
 			}
 
 			for i := halfRf + 1; i < halfRf+p.NbPartialRounds; i++ {
-				gkr.Gates[gateNameX(i)] = &extKeySBoxGate{ // for x1, intKeySBox is identical to extKeySBox
-					roundKey: p.RoundKeys[i][0],
-				}
-
-				gkr.Gates[gateNameY(i)] = intGate2{}
-
+				extKeySBox(i, "x") // for x1, intKeySBox is identical to extKeySBox
+				gkr.Gates[gateNameLinear("y", i)] = intGate2{}
 			}
 
 			{
 				i := halfRf + p.NbPartialRounds
-				gkr.Gates[gateNameX(i)] = &extKeySBoxGate{
-					roundKey: p.RoundKeys[i][0],
-				}
-
-				gkr.Gates[gateNameY(i)] = &intKeySBoxGate2{
-					roundKey: p.RoundKeys[i][1],
-				}
+				extKeySBox(i, "x")
+				intKeySBox2(i)
 			}
 
 			for i := halfRf + p.NbPartialRounds + 1; i < p.NbPartialRounds+p.NbFullRounds; i++ {
 				fullRound(i)
 			}
 
-			gkr.Gates[gateNameY(p.NbPartialRounds+p.NbFullRounds)] = extGate{}
+			gkr.Gates[gateNameLinear("y", p.NbPartialRounds+p.NbFullRounds)] = extGate{}
 		},
 	)
 }
