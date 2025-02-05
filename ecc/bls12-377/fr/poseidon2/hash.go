@@ -12,10 +12,10 @@ import (
 func NewMerkleDamgardHasher() gnarkHash.StateStorer {
 	// TODO @Tabaie @ThomasPiellard Generify once Poseidon2 parameters are known for all curves
 	return gnarkHash.NewMerkleDamgardHasher(
-		&Permutation{params: NewDefaultParameters()}, make([]byte, fr.Bytes))
+		NewPermutation(2, 6, 26), make([]byte, fr.Bytes))
 }
 
-// NewParameters returns a new set of parameters for the Poseidon2 permutation.
+// NewDefaultParameters returns a new set of parameters for the Poseidon2 permutation.
 // The default parameters are:
 // - width: 2
 // - nbFullRounds: 6
