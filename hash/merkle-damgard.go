@@ -1,14 +1,9 @@
 package hash
 
-// CompressionFunction is a 2 to 1 function
-type CompressionFunction interface {
-	Apply([]byte, []byte) ([]byte, error) // TODO @Tabaie @ThomasPiellard better name
-	BlockSize() int
-}
 type merkleDamgardHasher struct {
 	state []byte
 	iv    []byte
-	f     CompressionFunction
+	f     Compressor
 }
 
 // Write implements hash.Write
@@ -18,7 +13,7 @@ func (h *merkleDamgardHasher) Write(p []byte) (n int, err error) {
 		if len(p) < blockSize {
 			p = append(make([]byte, blockSize-len(p), blockSize), p...)
 		}
-		if h.state, err = h.f.Apply(h.state, p[:blockSize]); err != nil {
+		if h.state, err = h.f.Compress(h.state, p[:blockSize]); err != nil {
 			return
 		}
 		n += blockSize
@@ -55,12 +50,21 @@ func (h *merkleDamgardHasher) SetState(state []byte) error {
 	return nil
 }
 
-// NewMerkleDamgardHasher transforms a 2-1 one-way function into a hash
-// initialState is a value whose preimage is not known
-// WARNING: The padding performed by the resulting hasher is trivial.
-// It simply left zero-pads the last block of input
-// THIS IS NOT COLLISION RESISTANT FOR GENERIC DATA
-func NewMerkleDamgardHasher(f CompressionFunction, initialState []byte) StateStorer {
+// NewMerkleDamgardHasher transforms a 2-1 one-way compression function into a
+// hash function using a Merkle-Damgard construction. The resulting hash
+// function has a block size equal to the block size of compression function.
+//
+// NB! The construction does not perform explicit padding on the input data. The
+// last block of input data is zero-padded to full block size. This means that
+// the construction is not collision resistant for generic data as the digest of
+// input and input concatenated with zeros (up to the same number of total
+// blocks) is same. For collision resistance the caller should perform explicit
+// padding on the input data.
+//
+// The value initialState is provided as initial input to the compression
+// function. Its preimage should not be known and thus it should be generated
+// using a deterministic method.
+func NewMerkleDamgardHasher(f Compressor, initialState []byte) StateStorer {
 	return &merkleDamgardHasher{
 		state: initialState,
 		iv:    initialState,

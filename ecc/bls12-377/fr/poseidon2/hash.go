@@ -1,264 +1,31 @@
 package poseidon2
 
 import (
-	"fmt"
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/gkr"
-	gnarkHash "github.com/consensys/gnark-crypto/hash"
 	"hash"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	gnarkHash "github.com/consensys/gnark-crypto/hash"
 )
 
-// NewPoseidon2 returns a Poseidon2 hasher
-// TODO @Tabaie @ThomasPiellard Generify once Poseidon2 parameters are known for all curves
-func NewPoseidon2() gnarkHash.StateStorer {
+// NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard
+// construction with the default parameters.
+func NewMerkleDamgardHasher() gnarkHash.StateStorer {
+	// TODO @Tabaie @ThomasPiellard Generify once Poseidon2 parameters are known for all curves
 	return gnarkHash.NewMerkleDamgardHasher(
-		&Hash{params: params()}, make([]byte, fr.Bytes))
+		&Permutation{params: NewDefaultParameters()}, make([]byte, fr.Bytes))
 }
 
-const (
-	seed = "Poseidon2 hash for BLS12_377 with t=2, rF=6, rP=26, d=17"
-	d    = 17
-)
-
-func params() parameters {
-	return parameters{
-		t:         2,
-		rF:        6,
-		rP:        26,
-		roundKeys: InitRC(seed, 6, 26, 2),
-	}
+// NewParameters returns a new set of parameters for the Poseidon2 permutation.
+// The default parameters are:
+// - width: 2
+// - nbFullRounds: 6
+// - nbPartialRounds: 26
+func NewDefaultParameters() *Parameters {
+	return NewParameters(2, 6, 26)
 }
 
 func init() {
 	gnarkHash.RegisterHash(gnarkHash.POSEIDON2_BLS12_377, func() hash.Hash {
-		return NewPoseidon2()
+		return NewMerkleDamgardHasher()
 	})
-}
-
-// The GKR gates needed for proving Poseidon2 permutations
-// TODO @Tabaie @ThomasPiellard generify once Poseidon2 parameters are known for all curves
-
-// extKeyGate applies the external matrix mul, then adds the round key, then applies the sBox
-// because of its symmetry, we don't need to define distinct x1 and x2 versions of it
-type extKeyGate struct {
-	roundKey fr.Element
-}
-
-func (g *extKeyGate) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 2 inputs")
-	}
-
-	x[0].
-		Double(&x[0]).
-		Add(&x[0], &x[1]).
-		Add(&x[0], &g.roundKey)
-	return x[0]
-}
-
-func (g *extKeyGate) Degree() int {
-	return 1
-}
-
-// for x1, the partial round gates are identical to full round gates
-// for x2, the partial round gates are just a linear combination
-// TODO @Tabaie eliminate the x2 partial round gates and have the x1 gates depend on i - rf/2 or so previous x1's
-
-// extGate2 applies the external matrix mul, outputting the second element of the result
-type extGate2 struct{}
-
-func (extGate2) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 2 inputs")
-	}
-	x[1].
-		Double(&x[1]).
-		Add(&x[1], &x[0])
-	return x[1]
-}
-
-func (g extGate2) Degree() int {
-	return 1
-}
-
-// intGate2 applies the internal matrix mul, returning the second element
-type intGate2 struct {
-}
-
-func (g intGate2) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 2 inputs")
-	}
-	x[0].Add(&x[0], &x[1])
-	x[1].
-		Double(&x[1]).
-		Add(&x[1], &x[0])
-	return x[1]
-}
-
-func (g intGate2) Degree() int {
-	return 1
-}
-
-// intKeySBoxGateFr applies the second row of internal matrix mul, then adds the round key, then applies the sBox
-type intKeyGate2 struct {
-	roundKey fr.Element
-}
-
-func (g *intKeyGate2) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 2 inputs")
-	}
-	x[0].Add(&x[0], &x[1])
-	x[1].
-		Double(&x[1]).
-		Add(&x[1], &x[0]).
-		Add(&x[1], &g.roundKey)
-
-	return x[1]
-}
-
-func (g *intKeyGate2) Degree() int {
-	return 1
-}
-
-type extGate struct{}
-
-func (g extGate) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 2 inputs")
-	}
-	x[0].
-		Double(&x[0]).
-		Add(&x[0], &x[1])
-	return x[0]
-}
-
-func (g extGate) Degree() int {
-	return 1
-}
-
-type pow4Gate struct{}
-
-func (g pow4Gate) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 1 {
-		panic("expected 1 input")
-	}
-	x[0].Square(&x[0]).Square(&x[0])
-	return x[0]
-}
-
-func (g pow4Gate) Degree() int {
-	return 4
-}
-
-type pow4TimesGate struct{}
-
-type pow2Gate struct{}
-
-func (g pow2Gate) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 1 {
-		panic("expected 1 input")
-	}
-	x[0].Square(&x[0])
-	return x[0]
-}
-
-func (g pow2Gate) Degree() int {
-	return 2
-}
-
-type pow2TimesGate struct{}
-
-func (g pow2TimesGate) Degree() int {
-	return 3
-}
-
-func (g pow2TimesGate) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 2 input")
-	}
-	x[0].Square(&x[0]).Mul(&x[0], &x[1])
-	return x[0]
-}
-
-func (g pow4TimesGate) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 1 input")
-	}
-	x[0].Square(&x[0]).Square(&x[0]).Mul(&x[0], &x[1])
-	return x[0]
-}
-
-func (g pow4TimesGate) Degree() int {
-	return 5
-}
-
-func gateName(prefix string, i int) string {
-	return fmt.Sprintf("%s-linear-op-round=%d;%s", prefix, i, seed)
-}
-
-func varIndex(varName string) int {
-	switch varName {
-	case "x":
-		return 0
-	case "y":
-		return 1
-	default:
-		panic("unexpected varName")
-	}
-}
-
-func DefineGkrGates() {
-	p := params()
-	halfRf := p.rF / 2
-
-	gkr.Gates["pow2"] = pow2Gate{}
-	gkr.Gates["pow4"] = pow4Gate{}
-	gkr.Gates["pow2Times"] = pow2TimesGate{}
-	gkr.Gates["pow4Times"] = pow4TimesGate{}
-
-	extKeySBox := func(round int, varName string) {
-		gkr.Gates[gateName(varName, round)] = &extKeyGate{
-			roundKey: p.roundKeys[round][varIndex(varName)],
-		}
-	}
-
-	intKeySBox2 := func(round int) {
-		gate := gateName("y", round)
-		gkr.Gates[gate] = &intKeyGate2{
-			roundKey: p.roundKeys[round][1],
-		}
-	}
-
-	fullRound := func(i int) {
-		extKeySBox(i, "x")
-		extKeySBox(i, "y")
-	}
-
-	for i := range halfRf {
-		fullRound(i)
-	}
-
-	{ // i = halfRf: first partial round
-		extKeySBox(halfRf, "x")
-		gkr.Gates[gateName("y", halfRf)] = extGate2{}
-	}
-
-	for i := halfRf + 1; i < halfRf+p.rP; i++ {
-		extKeySBox(i, "x") // for x1, intKeySBox is identical to extKeySBox
-		gkr.Gates[gateName("y", i)] = intGate2{}
-	}
-
-	{
-		i := halfRf + p.rP
-		extKeySBox(i, "x")
-		intKeySBox2(i)
-	}
-
-	for i := halfRf + p.rP + 1; i < p.rP+p.rF; i++ {
-		fullRound(i)
-	}
-
-	gkr.Gates[gateName("y", p.rP+p.rF)] = extGate{}
 }
