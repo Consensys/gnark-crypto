@@ -77,16 +77,12 @@ func (g extGate) Degree() int {
 	return 1
 }
 
-// sBox2 is Hash.sBox for t=2
+// sBox2 is Permutation.sBox for t=2
 func sBox2(x fr.Element) fr.Element {
 	var y fr.Element
 	y.Square(&x).Square(&y).Square(&y).Square(&y).Mul(&x, &y)
 	return y
 }
-
-// arya
-// The GKR gates needed for proving Poseidon2 permutations
-// TODO @Tabaie @ThomasPiellard generify once Poseidon2 parameters are known for all curves
 
 // extKeyGate applies the external matrix mul, then adds the round key, then applies the sBox
 // because of its symmetry, we don't need to define distinct x1 and x2 versions of it
@@ -112,7 +108,6 @@ func (g *extKeyGate) Degree() int {
 
 // for x1, the partial round gates are identical to full round gates
 // for x2, the partial round gates are just a linear combination
-// TODO @Tabaie eliminate the x2 partial round gates and have the x1 gates depend on i - rf/2 or so previous x1's
 
 // extGate2 applies the external matrix mul, outputting the second element of the result
 type extGate2 struct{}
