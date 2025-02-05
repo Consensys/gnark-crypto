@@ -126,7 +126,11 @@ func toPrintableProof(proof gkr.Proof) (PrintableProof, error) {
 	return res, nil
 }
 
-var Gates = gkr.Gates
+// alias gate functions
+var (
+	RegisterGate = gkr.RegisterGate
+	GetGate      = gkr.GetGate
+)
 
 type WireInfo struct {
 	Gate   string `json:"gate"`
@@ -163,7 +167,7 @@ func getCircuit(path string) (gkr.Circuit, error) {
 func (c CircuitInfo) toCircuit() (circuit gkr.Circuit) {
 	circuit = make(gkr.Circuit, len(c))
 	for i := range c {
-		circuit[i].Gate = Gates[c[i].Gate]
+		circuit[i].Gate = GetGate(c[i].Gate)
 		circuit[i].Inputs = make([]*gkr.Wire, len(c[i].Inputs))
 		for k, inputCoord := range c[i].Inputs {
 			input := &circuit[inputCoord]
@@ -174,8 +178,8 @@ func (c CircuitInfo) toCircuit() (circuit gkr.Circuit) {
 }
 
 func init() {
-	Gates["mimc"] = mimcCipherGate{} //TODO: Add ark
-	Gates["select-input-3"] = _select(2)
+	RegisterGate("mimc", mimcCipherGate{}) //TODO: Add ark
+	RegisterGate("select-input-3", _select(2))
 }
 
 type mimcCipherGate struct {

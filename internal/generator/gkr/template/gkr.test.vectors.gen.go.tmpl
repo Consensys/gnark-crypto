@@ -119,6 +119,10 @@ func toPrintableProof(proof gkr.Proof) (PrintableProof, error) {
 	return res, nil
 }
 
-var Gates = gkr.Gates
+// alias gate functions
+var (
+    RegisterGate = gkr.RegisterGate
+    GetGate      = gkr.GetGate
+)
 
 {{template "gkrTestVectors" .}}

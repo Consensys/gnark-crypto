@@ -841,13 +841,27 @@ func frToBigInts(dst []*big.Int, src []{{.ElementType}}) {
 	}
 }
 
-// Gates defined by name
-var Gates = map[string]Gate{
-	"identity": IdentityGate{},
-	"add":		AddGate{},
-	"sub":		SubGate{},
-	"neg":		NegGate{},
-	"mul":      MulGate(2),
+// gates defined by name
+var gates sync.Map
+
+func RegisterGate(name string, gate Gate) {
+	gates.Store(name, gate)
+}
+
+func GetGate(name string) Gate {
+	gate, found := gates.Load(name)
+	if !found {
+		return nil
+	}
+	return gate.(Gate)
+}
+
+func init() {
+	RegisterGate("identity", IdentityGate{})
+	RegisterGate("add", AddGate{})
+	RegisterGate("sub", SubGate{})
+	RegisterGate("neg", NegGate{})
+	RegisterGate("mul", MulGate(2))
 }
 
 type IdentityGate struct{}

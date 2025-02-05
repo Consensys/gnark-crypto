@@ -204,7 +204,7 @@ func testNoGate(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
 func testSingleAddGate(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
 	c := make(Circuit, 3)
 	c[2] = Wire{
-		Gate: Gates["add"],
+		Gate: GateGate("add"),
 		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
@@ -224,7 +224,7 @@ func testSingleMulGate(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
 
 	c := make(Circuit, 3)
 	c[2] = Wire{
-		Gate:   Gates["mul"],
+		Gate:   GateGate("mul"),
 		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
@@ -354,7 +354,7 @@ func testATimesBSquared(t *testing.T, numRounds int, inputAssignments ...[]{{.El
 
 	for i := 2; i < len(c); i++ {
 		c[i] = Wire{
-			Gate:   Gates["mul"],
+			Gate:   GateGate("mul"),
 			Inputs: []*Wire{&c[i-1], &c[0]},
 		}
 	}
@@ -540,7 +540,7 @@ func TestTestGateDegree(t *testing.T) {
 	}
 
 	t.Run("select", onGate(_select(0), 1))
-	t.Run("add", onGate(Gates["add"], 2))
-	t.Run("mul", onGate(Gates["mul"], 2))
+	t.Run("add", onGate(GateGate("add"), 2))
+	t.Run("mul", onGate(GateGate("mul"), 2))
 	t.Run("mimc", onGate(mimcCipherGate{}, 2))
 }
