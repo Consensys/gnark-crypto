@@ -17,11 +17,11 @@ func NewMerkleDamgardHasher() gnarkHash.StateStorer {
 
 // NewParameters returns a new set of parameters for the Poseidon2 permutation.
 // The default parameters are:
-// - width: 8
+// - width: 16
 // - nbFullRounds: 6
 // - nbPartialRounds: 21
 func NewDefaultParameters() *Parameters {
-	return NewParameters(8, 6, 21)
+	return NewParameters(16, 6, 21)
 }
 
 func init() {
