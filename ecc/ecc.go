@@ -36,11 +36,12 @@ const (
 	BW6_633
 	STARK_CURVE
 	SECP256K1
+	GRUMPKIN
 )
 
 // Implemented return the list of curves fully implemented in gnark-crypto
 func Implemented() []ID {
-	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315, BW6_633, BLS24_317, STARK_CURVE, SECP256K1}
+	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315, BW6_633, BLS24_317, STARK_CURVE, SECP256K1, GRUMPKIN}
 }
 
 func IDFromString(s string) (ID, error) {
@@ -91,6 +92,8 @@ func (id ID) config() *config.Curve {
 		return &config.STARK_CURVE
 	case SECP256K1:
 		return &config.SECP256K1
+	case GRUMPKIN:
+		return &config.GRUMPKIN
 	default:
 		panic("unimplemented ecc ID")
 	}

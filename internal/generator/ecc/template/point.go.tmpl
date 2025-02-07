@@ -543,7 +543,7 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
 
 
-{{- if or (eq .Name "bn254") (eq .Name "secp256k1")}}
+{{- if or (eq .Name "bn254") (eq .Name "secp256k1") (eq .Name "grumpkin")}}
 	{{- if eq .PointName "g1"}}
 		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
         // the curve is of prime order i.e. E(𝔽p) is the full group
@@ -1753,7 +1753,7 @@ func batchAdd{{ $TAffine }}[TP p{{ $TAffine }}, TPP pp{{ $TAffine }}, TC c{{ $TA
 		lambdain[j].Sub(&(*P)[j].X, &(*R)[j].X)
 	}
 
-	// montgomery batch inversion; 
+	// montgomery batch inversion;
 	// lambda[0] = 1 / (P[0].X - R[0].X)
 	// lambda[1] = 1 / (P[1].X - R[1].X)
 	// ...

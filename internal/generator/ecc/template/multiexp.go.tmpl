@@ -16,11 +16,13 @@ import (
 	"runtime"
 )
 
-{{- if ne .Name "secp256k1"}}
+{{- if eq .Name "secp256k1"}}
+{{template "multiexp" dict "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "cmax" 15}}
+{{- else if eq .Name "grumpkin"}}
+{{template "multiexp" dict "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "cmax" 16}}
+{{- else}}
 {{template "multiexp" dict "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "cmax" 16}}
 {{template "multiexp" dict "PointName" .G2.PointName "UPointName" (toUpper .G2.PointName) "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange "cmax" 16}}
-{{- else}}
-{{template "multiexp" dict "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "cmax" 15}}
 {{- end}}
 
 
@@ -313,7 +315,7 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 	nbChunks := int(computeNbChunks(C))
 
 	// should we recursively split the msm in half? (see below)
-	// we want to minimize the execution time of the algorithm; 
+	// we want to minimize the execution time of the algorithm;
 	// splitting the msm will **add** operations, but if it allows to use more CPU, it might be worth it.
 
 	// costFunction returns a metric that represent the "wall time" of the algorithm
@@ -336,7 +338,7 @@ func (p *{{ $.TJacobian }}) MultiExp(points []{{ $.TAffine }}, scalars []fr.Elem
 	costPerTask := func(c uint64, nbPoints int) int {return (nbPoints + int((1 << c)))}
 
 	costPreSplit := costFunction(nbChunks, config.NbTasks, costPerTask(C, nbPoints))
-	
+
 	cPostSplit := bestC(nbPoints/2)
 	nbChunksPostSplit := int(computeNbChunks(cPostSplit))
 	costPostSplit := costFunction(nbChunksPostSplit * 2, config.NbTasks, costPerTask(cPostSplit, nbPoints/2))
@@ -383,7 +385,7 @@ func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.T
 	var sem chan struct{}
 	if config.NbTasks < runtime.NumCPU() {
 		// we add nbChunks because if chunk is overweight we split it in two
-		sem = make(chan struct{}, config.NbTasks + int(nbChunks)) 
+		sem = make(chan struct{}, config.NbTasks + int(nbChunks))
 		for i:=0; i < config.NbTasks; i++ {
 			sem <- struct{}{}
 		}
