@@ -44,25 +44,28 @@ const (
 	POSEIDON2_BLS12_377
 	// POSEIDON2_KOALABEAR is the Poseidon2 hash function for the KoalaBear field.
 	POSEIDON2_KOALABEAR
-	// POSEIDON2_BABYBEAR is the Poseidon2 hash function for the KoalaBear field.
+	// POSEIDON2_BABYBEAR is the Poseidon2 hash function for the BabyBear field.
 	POSEIDON2_BABYBEAR
+	// POSEIDON2_GOLDILOCKS is the Poseidon2 hash function for the Goldilocks field.
+	POSEIDON2_GOLDILOCKS
 
 	maxHash
 )
 
 // size of digests in bytes
 var digestSize = []uint8{
-	MIMC_BN254:          32,
-	MIMC_BLS12_381:      48,
-	MIMC_BLS12_377:      48,
-	MIMC_BW6_761:        96,
-	MIMC_BLS24_315:      48,
-	MIMC_BLS24_317:      48,
-	MIMC_BW6_633:        80,
-	MIMC_GRUMPKIN:       32,
-	POSEIDON2_BLS12_377: 48,
-	POSEIDON2_KOALABEAR: 4,
-	POSEIDON2_BABYBEAR:  4,
+	MIMC_BN254:           32,
+	MIMC_BLS12_381:       48,
+	MIMC_BLS12_377:       48,
+	MIMC_BW6_761:         96,
+	MIMC_BLS24_315:       48,
+	MIMC_BLS24_317:       48,
+	MIMC_BW6_633:         80,
+	MIMC_GRUMPKIN:        32,
+	POSEIDON2_BLS12_377:  48,
+	POSEIDON2_KOALABEAR:  4,
+	POSEIDON2_BABYBEAR:   4,
+	POSEIDON2_GOLDILOCKS: 8,
 }
 
 // New initializes the hash function. This is a convenience function which does
@@ -107,6 +110,8 @@ func (m Hash) String() string {
 		return "POSEIDON2_KOALABEAR"
 	case POSEIDON2_BABYBEAR:
 		return "POSEIDON2_BABYBEAR"
+	case POSEIDON2_GOLDILOCKS:
+		return "POSEIDON2_GOLDILOCKS"
 	default:
 		return "unknown hash function"
 	}
