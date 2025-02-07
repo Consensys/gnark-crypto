@@ -55,7 +55,7 @@ var digestSize = []uint8{
 	MIMC_BLS24_315:      48,
 	MIMC_BLS24_317:      48,
 	MIMC_BW6_633:        80,
-  MIMC_GRUMPKIN:       32,
+	MIMC_GRUMPKIN:       32,
 	POSEIDON2_BLS12_377: 48,
 }
 
