@@ -6,7 +6,7 @@ package poseidon2
 import (
 	"testing"
 
-	fr "github.com/consensys/gnark-crypto/field/koalabear"
+	fr "github.com/consensys/gnark-crypto/field/babybear"
 )
 
 func TestExternalMatrix(t *testing.T) {
