@@ -42,6 +42,10 @@ const (
 	MIMC_GRUMPKIN
 	// POSEIDON2_BLS12_377 is the Poseidon2 hash function for the BLS12-377 curve.
 	POSEIDON2_BLS12_377
+	// POSEIDON2_KOALABEAR is the Poseidon2 hash function for the KoalaBear field.
+	POSEIDON2_KOALABEAR
+	// POSEIDON2_BABYBEAR is the Poseidon2 hash function for the KoalaBear field.
+	POSEIDON2_BABYBEAR
 
 	maxHash
 )
@@ -57,6 +61,8 @@ var digestSize = []uint8{
 	MIMC_BW6_633:        80,
 	MIMC_GRUMPKIN:       32,
 	POSEIDON2_BLS12_377: 48,
+	POSEIDON2_KOALABEAR: 4,
+	POSEIDON2_BABYBEAR:  4,
 }
 
 // New initializes the hash function. This is a convenience function which does
@@ -97,6 +103,10 @@ func (m Hash) String() string {
 		return "MIMC_GRUMPKIN"
 	case POSEIDON2_BLS12_377:
 		return "POSEIDON2_BLS12_377"
+	case POSEIDON2_KOALABEAR:
+		return "POSEIDON2_KOALABEAR"
+	case POSEIDON2_BABYBEAR:
+		return "POSEIDON2_BABYBEAR"
 	default:
 		return "unknown hash function"
 	}
