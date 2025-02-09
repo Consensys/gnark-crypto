@@ -12,7 +12,7 @@ import (
 // errChallengeNotFound is returned when a wrong challenge name is provided.
 var (
 	errChallengeNotFound            = errors.New("challenge not recorded in the transcript")
-	errChallengeAlreadyComputed     = errors.New("challenge already computed, cannot be binded to other values")
+	errChallengeAlreadyComputed     = errors.New("challenge already computed, cannot be bound to other values")
 	errPreviousChallengeNotComputed = errors.New("the previous challenge is needed and has not been computed")
 )
 
@@ -27,7 +27,7 @@ type Transcript struct {
 
 type challenge struct {
 	position   int      // position of the challenge in the Transcript. order matters.
-	bindings   [][]byte // bindings stores the variables a challenge is binded to.
+	bindings   [][]byte // bindings stores the variables a challenge is bound to.
 	value      []byte   // value stores the computed challenge
 	isComputed bool
 }
@@ -47,10 +47,10 @@ func NewTranscript(h hash.Hash, challengesID ...string) *Transcript {
 	return t
 }
 
-// Bind binds the challenge to value. A challenge can be binded to an
-// arbitrary number of values, but the order in which the binded values
+// Bind binds the challenge to value. A challenge can be bound to an
+// arbitrary number of values, but the order in which the bound values
 // are added is important. Once a challenge is computed, it cannot be
-// binded to other values.
+// bound to other values.
 func (t *Transcript) Bind(challengeID string, bValue []byte) error {
 
 	currentChallenge, ok := t.challenges[challengeID]
