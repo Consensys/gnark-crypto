@@ -42,12 +42,15 @@ type Parameters struct {
 
 	// derived round keys from the parameter seed and curve ID
 	RoundKeys [][]fr.Element
+
+	// diagonal of the internal matrix
+	DiagInternalMatrices [16]fr.Element
 }
 
 // NewParameters returns a new set of parameters for the Poseidon2 permutation.
 // After creating the parameters, the round keys are initialized deterministically
 // from the seed which is a digest of the parameters and curve ID.
-func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
+func NewParameters(width, nbFullRounds, nbPartialRounds int, diagInternalMatrices [16]fr.Element) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
 	seed := p.String()
 	p.initRC(seed)
@@ -117,11 +120,8 @@ type Permutation struct {
 }
 
 // NewPermutation returns a new Poseidon2 permutation instance.
-func NewPermutation(t, rf, rp int) *Permutation {
-	if t < 2 || t > 3 {
-		panic("only t=2,3 is supported")
-	}
-	params := NewParameters(t, rf, rp)
+func NewPermutation(t, rf, rp int, diag [16]fr.Element) *Permutation {
+	params := NewParameters(t, rf, rp, diag)
 	res := &Permutation{params: params}
 	return res
 }
@@ -129,9 +129,6 @@ func NewPermutation(t, rf, rp int) *Permutation {
 // NewPermutationWithSeed returns a new Poseidon2 permutation instance with a
 // given seed.
 func NewPermutationWithSeed(t, rf, rp int, seed string) *Permutation {
-	if t < 2 || t > 3 {
-		panic("only t=2,3 is supported")
-	}
 	params := NewParametersWithSeed(t, rf, rp, seed)
 	res := &Permutation{params: params}
 	return res
@@ -142,7 +139,7 @@ func (h *Permutation) sBox(index int, input []fr.Element) {
 	var tmp fr.Element
 	tmp.Set(&input[index])
 
-	// sbox degree is 17
+	// sbox degree is 7
 	input[index].Square(&input[index]).
 		Square(&input[index]).
 		Square(&input[index]).
@@ -223,29 +220,18 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 // when T=2,3 the matrix are respectibely [[2,1][1,3]] and [[2,1,1][1,2,1][1,1,3]]
 // otherwise the matrix is filled with ones except on the diagonal,
 func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
-	switch h.params.Width {
-	case 2:
-		var sum fr.Element
-		sum.Add(&input[0], &input[1])
-		input[0].Add(&input[0], &sum)
-		input[1].Double(&input[1]).Add(&input[1], &sum)
-	case 3:
-		var sum fr.Element
-		sum.Add(&input[0], &input[1]).Add(&sum, &input[2])
-		input[0].Add(&input[0], &sum)
-		input[1].Add(&input[1], &sum)
-		input[2].Double(&input[2]).Add(&input[2], &sum)
-	default:
-		// var sum fr.Element
-		// sum.Set(&input[0])
-		// for i := 1; i < h.params.t; i++ {
-		// 	sum.Add(&sum, &input[i])
-		// }
-		// for i := 0; i < h.params.t; i++ {
-		// 	input[i].Mul(&input[i], &h.params.diagInternalMatrices[i]).
-		// 		Add(&input[i], &sum)
-		// }
-		panic("only T=2,3 is supported")
+	// TODO: use optimized diagonal as in plonky3
+	// https://github.com/Plonky3/Plonky3/blob/95f9774c435a629a7331d4fbabdb3f5a2b300de0/baby-bear/src/poseidon2.rs
+	//
+	// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/8, 1/2^24, -1/2^8, -1/8, -1/16, -1/2^24]
+	var sum fr.Element
+	sum.Set(&input[0])
+	for i := 1; i < h.params.Width; i++ {
+		sum.Add(&sum, &input[i])
+	}
+	for i := 0; i < h.params.Width; i++ {
+		input[i].Mul(&input[i], &h.params.DiagInternalMatrices[i]).
+			Add(&input[i], &sum)
 	}
 }
 

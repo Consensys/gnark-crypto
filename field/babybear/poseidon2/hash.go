@@ -21,7 +21,24 @@ func NewMerkleDamgardHasher() gnarkHash.StateStorer {
 // - nbFullRounds: 6
 // - nbPartialRounds: 12
 func NewDefaultParameters() *Parameters {
-	return NewParameters(16, 6, 12)
+	var diagonal [16]fr.Element
+	diagonal[0].SetString("1337680893")
+	diagonal[1].SetString("1849524340")
+	diagonal[2].SetString("945441141")
+	diagonal[3].SetString("110332385")
+	diagonal[4].SetString("981849927")
+	diagonal[5].SetString("511933108")
+	diagonal[6].SetString("1289844587")
+	diagonal[7].SetString("896077849")
+	diagonal[8].SetString("971707481")
+	diagonal[9].SetString("121792757")
+	diagonal[10].SetString("1598170707")
+	diagonal[11].SetString("1688648703")
+	diagonal[12].SetString("26932898")
+	diagonal[13].SetString("1760625654")
+	diagonal[14].SetString("1480423439")
+	diagonal[15].SetString("1903270600")
+	return NewParameters(16, 6, 21, diagonal)
 }
 
 func init() {
