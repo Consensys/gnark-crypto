@@ -42,15 +42,12 @@ type Parameters struct {
 
 	// derived round keys from the parameter seed and curve ID
 	RoundKeys [][]fr.Element
-
-	// diagonal of the internal matrix
-	DiagInternalMatrices [16]fr.Element
 }
 
 // NewParameters returns a new set of parameters for the Poseidon2 permutation.
 // After creating the parameters, the round keys are initialized deterministically
 // from the seed which is a digest of the parameters and curve ID.
-func NewParameters(width, nbFullRounds, nbPartialRounds int, diagInternalMatrices [16]fr.Element) *Parameters {
+func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
 	seed := p.String()
 	p.initRC(seed)
@@ -120,8 +117,11 @@ type Permutation struct {
 }
 
 // NewPermutation returns a new Poseidon2 permutation instance.
-func NewPermutation(t, rf, rp int, diag [16]fr.Element) *Permutation {
-	params := NewParameters(t, rf, rp, diag)
+func NewPermutation(t, rf, rp int) *Permutation {
+	if t != 16 && t != 24 {
+		panic("only Width=16,24 are supported")
+	}
+	params := NewParameters(t, rf, rp)
 	res := &Permutation{params: params}
 	return res
 }
@@ -129,6 +129,9 @@ func NewPermutation(t, rf, rp int, diag [16]fr.Element) *Permutation {
 // NewPermutationWithSeed returns a new Poseidon2 permutation instance with a
 // given seed.
 func NewPermutationWithSeed(t, rf, rp int, seed string) *Permutation {
+	if t != 16 && t != 24 {
+		panic("only Width=16,24 are supported")
+	}
 	params := NewParametersWithSeed(t, rf, rp, seed)
 	res := &Permutation{params: params}
 	return res
@@ -183,55 +186,58 @@ func (h *Permutation) matMulM4InPlace(s []fr.Element) {
 // see https://eprint.iacr.org/2023/323.pdf
 func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 
-	if h.params.Width == 2 {
-		var tmp fr.Element
-		tmp.Add(&input[0], &input[1])
-		input[0].Add(&tmp, &input[0])
-		input[1].Add(&tmp, &input[1])
-	} else if h.params.Width == 3 {
-		var tmp fr.Element
-		tmp.Add(&input[0], &input[1]).
-			Add(&tmp, &input[2])
-		input[0].Add(&tmp, &input[0])
-		input[1].Add(&tmp, &input[1])
-		input[2].Add(&tmp, &input[2])
-	} else if h.params.Width == 4 {
-		h.matMulM4InPlace(input)
-	} else {
-		// at this stage t is supposed to be a multiple of 4
-		// the MDS matrix is circ(2M4,M4,..,M4)
-		h.matMulM4InPlace(input)
-		tmp := make([]fr.Element, 4)
-		for i := 0; i < h.params.Width/4; i++ {
-			tmp[0].Add(&tmp[0], &input[4*i])
-			tmp[1].Add(&tmp[1], &input[4*i+1])
-			tmp[2].Add(&tmp[2], &input[4*i+2])
-			tmp[3].Add(&tmp[3], &input[4*i+3])
-		}
-		for i := 0; i < h.params.Width/4; i++ {
-			input[4*i].Add(&input[4*i], &tmp[0])
-			input[4*i+1].Add(&input[4*i], &tmp[1])
-			input[4*i+2].Add(&input[4*i], &tmp[2])
-			input[4*i+3].Add(&input[4*i], &tmp[3])
-		}
+	// at this stage t is supposed to be a multiple of 4
+	// the MDS matrix is circ(2M4,M4,..,M4)
+	h.matMulM4InPlace(input)
+	tmp := make([]fr.Element, 4)
+	for i := 0; i < h.params.Width/4; i++ {
+		tmp[0].Add(&tmp[0], &input[4*i])
+		tmp[1].Add(&tmp[1], &input[4*i+1])
+		tmp[2].Add(&tmp[2], &input[4*i+2])
+		tmp[3].Add(&tmp[3], &input[4*i+3])
+	}
+	for i := 0; i < h.params.Width/4; i++ {
+		input[4*i].Add(&input[4*i], &tmp[0])
+		input[4*i+1].Add(&input[4*i], &tmp[1])
+		input[4*i+2].Add(&input[4*i], &tmp[2])
+		input[4*i+3].Add(&input[4*i], &tmp[3])
 	}
 }
 
 // when T=2,3 the matrix are respectibely [[2,1][1,3]] and [[2,1,1][1,2,1][1,1,3]]
 // otherwise the matrix is filled with ones except on the diagonal,
 func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
-	// TODO: use optimized diagonal as in plonky3
-	// https://github.com/Plonky3/Plonky3/blob/95f9774c435a629a7331d4fbabdb3f5a2b300de0/koala-bear/src/poseidon2.rs
-	//
-	// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/8, 1/2^24, -1/2^8, -1/8, -1/16, -1/2^24]
-	var sum fr.Element
-	sum.Set(&input[0])
-	for i := 1; i < h.params.Width; i++ {
-		sum.Add(&sum, &input[i])
-	}
-	for i := 0; i < h.params.Width; i++ {
-		input[i].Mul(&input[i], &h.params.DiagInternalMatrices[i]).
-			Add(&input[i], &sum)
+	switch h.params.Width {
+	case 16:
+		// TODO: use optimized diagonal as in plonky3
+		// https://github.com/Plonky3/Plonky3/blob/95f9774c435a629a7331d4fbabdb3f5a2b300de0/koala-bear/src/poseidon2.rs
+		//
+		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/8, 1/2^24, -1/2^8, -1/8, -1/16, -1/2^24]
+		var sum fr.Element
+		sum.Set(&input[0])
+		for i := 1; i < h.params.Width; i++ {
+			sum.Add(&sum, &input[i])
+		}
+		for i := 0; i < h.params.Width; i++ {
+			input[i].Mul(&input[i], &diag16[i]).
+				Add(&input[i], &sum)
+		}
+	case 24:
+		// TODO: use optimized diagonal as in plonky3
+		// https://github.com/Plonky3/Plonky3/blob/95f9774c435a629a7331d4fbabdb3f5a2b300de0/koala-bear/src/poseidon2.rs
+		//
+		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/4, 1/8, 1/16, 1/32, 1/64, 1/2^24, -1/2^8, -1/8, -1/16, -1/32, -1/64, -1/2^7, -1/2^9, -1/2^24]
+		var sum fr.Element
+		sum.Set(&input[0])
+		for i := 1; i < h.params.Width; i++ {
+			sum.Add(&sum, &input[i])
+		}
+		for i := 0; i < h.params.Width; i++ {
+			input[i].Mul(&input[i], &diag24[i]).
+				Add(&input[i], &sum)
+		}
+	default:
+		panic("only t=16,24 are supported")
 	}
 }
 
