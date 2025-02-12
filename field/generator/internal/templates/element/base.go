@@ -338,7 +338,7 @@ func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 			return nil, err
 		}
 
-		// Clear unused bits in in the most significant byte to increase probability
+		// Clear unused bits in the most significant byte to increase probability
 		// that the candidate is < q.
 		bytes[k-1] &= uint8(int(1<<b) - 1)
 
