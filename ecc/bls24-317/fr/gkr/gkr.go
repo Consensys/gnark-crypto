@@ -934,8 +934,8 @@ func (g NegGate) Degree() int {
 }
 
 // TestGateDegree checks if deg(g) = g.Degree()
-// TODO when Gate is a struct, turn this into a method
 func TestGateDegree(g Gate, nbIn int) error {
+	// TODO when Gate is a struct, turn this into a method
 	if nbIn < 1 {
 		return errors.New("at least one input required")
 	}
