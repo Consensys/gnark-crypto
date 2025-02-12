@@ -179,13 +179,9 @@ func (h *Permutation) matMulM4InPlace(s []fr.Element) {
 	}
 }
 
-// when T=2,3 the buffer is multiplied by circ(2,1) and circ(2,1,1)
-// see https://eprint.iacr.org/2023/323.pdf page 15, case T=2,3
-//
-// when T=0[4], the buffer is multiplied by circ(2M4,M4,..,M4)
+// when Width = 0 mod 4, the buffer is multiplied by circ(2M4,M4,..,M4)
 // see https://eprint.iacr.org/2023/323.pdf
 func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
-
 	// at this stage t is supposed to be a multiple of 4
 	// the MDS matrix is circ(2M4,M4,..,M4)
 	h.matMulM4InPlace(input)
@@ -204,8 +200,7 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 	}
 }
 
-// when T=2,3 the matrix are respectibely [[2,1][1,3]] and [[2,1,1][1,2,1][1,1,3]]
-// otherwise the matrix is filled with ones except on the diagonal,
+// when Width = 0 mod 4 the matrix is filled with ones except on the diagonal
 func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 	switch h.params.Width {
 	case 16:
