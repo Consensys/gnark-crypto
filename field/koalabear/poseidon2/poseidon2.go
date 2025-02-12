@@ -209,9 +209,7 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 	switch h.params.Width {
 	case 16:
-		// TODO: use optimized diagonal as in plonky3
-		// https://github.com/Plonky3/Plonky3/blob/95f9774c435a629a7331d4fbabdb3f5a2b300de0/koala-bear/src/poseidon2.rs
-		//
+		// TODO: optimize multiplication by diag16
 		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/8, 1/2^24, -1/2^8, -1/8, -1/16, -1/2^24]
 		var sum fr.Element
 		sum.Set(&input[0])
@@ -223,9 +221,7 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 				Add(&input[i], &sum)
 		}
 	case 24:
-		// TODO: use optimized diagonal as in plonky3
-		// https://github.com/Plonky3/Plonky3/blob/95f9774c435a629a7331d4fbabdb3f5a2b300de0/koala-bear/src/poseidon2.rs
-		//
+		// TODO: optimize multiplication by diag24
 		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/4, 1/8, 1/16, 1/32, 1/64, 1/2^24, -1/2^8, -1/8, -1/16, -1/32, -1/64, -1/2^7, -1/2^9, -1/2^24]
 		var sum fr.Element
 		sum.Set(&input[0])
@@ -237,7 +233,7 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 				Add(&input[i], &sum)
 		}
 	default:
-		panic("only t=16,24 are supported")
+		panic("only Width=16,24 are supported")
 	}
 }
 
