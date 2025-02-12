@@ -737,3 +737,35 @@ func (g _select) Evaluate(in ...fr.Element) fr.Element {
 func (g _select) Degree() int {
 	return 1
 }
+
+// gateWrapper enables assigning an arbitrary degree to a gate
+type gateWrapper struct {
+	g Gate
+	d int
+}
+
+func (g gateWrapper) Degree() int {
+	return g.d
+}
+
+func (g gateWrapper) Evaluate(inputs ...fr.Element) fr.Element {
+	return g.g.Evaluate(inputs...)
+}
+
+func TestTestGateDegree(t *testing.T) {
+	onGate := func(g Gate, nbIn int) func(t *testing.T) {
+		return func(t *testing.T) {
+			w := gateWrapper{g: g, d: g.Degree()}
+			assert.NoError(t, TestGateDegree(w, nbIn), "must succeed on the gate itself")
+			w.d--
+			assert.Error(t, TestGateDegree(w, nbIn), "must fail on an underreported degree")
+			w.d += 2
+			assert.Error(t, TestGateDegree(w, nbIn), "must fail on an over-reported degree")
+		}
+	}
+
+	t.Run("select", onGate(_select(0), 1))
+	t.Run("add", onGate(Gates["add"], 2))
+	t.Run("mul", onGate(Gates["mul"], 2))
+	t.Run("mimc", onGate(mimcCipherGate{}, 2))
+}
