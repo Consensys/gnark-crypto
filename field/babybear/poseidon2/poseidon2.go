@@ -211,7 +211,19 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 		for i := 1; i < h.params.Width; i++ {
 			sum.Add(&sum, &input[i])
 		}
-		for i := 0; i < h.params.Width; i++ {
+		var temp fr.Element
+		input[0].Sub(&sum, temp.Double(&input[0]))
+		input[1].Add(&sum, &input[1])
+		input[2].Add(&sum, temp.Double(&input[2]))
+		temp.Set(&input[3]).Halve()
+		input[3].Add(&sum, &temp)
+		input[4].Add(&sum, temp.Double(&input[4]).Add(&temp, &input[4]))
+		input[5].Add(&sum, temp.Double(&input[5]).Double(&temp))
+		temp.Set(&input[6]).Halve()
+		input[6].Sub(&sum, &temp)
+		input[7].Sub(&sum, temp.Double(&input[7]).Add(&temp, &input[7]))
+		input[8].Sub(&sum, temp.Double(&input[8]).Double(&temp))
+		for i := 9; i < h.params.Width; i++ {
 			input[i].Mul(&input[i], &diag16[i]).
 				Add(&input[i], &sum)
 		}
@@ -223,7 +235,19 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 		for i := 1; i < h.params.Width; i++ {
 			sum.Add(&sum, &input[i])
 		}
-		for i := 0; i < h.params.Width; i++ {
+		var temp fr.Element
+		input[0].Sub(&sum, temp.Double(&input[0]))
+		input[1].Add(&sum, &input[1])
+		input[2].Add(&sum, temp.Double(&input[2]))
+		temp.Set(&input[3]).Halve()
+		input[3].Add(&sum, &temp)
+		input[4].Add(&sum, temp.Double(&input[4]).Add(&temp, &input[4]))
+		input[5].Add(&sum, temp.Double(&input[5]).Double(&temp))
+		temp.Set(&input[6]).Halve()
+		input[6].Sub(&sum, &temp)
+		input[7].Sub(&sum, temp.Double(&input[7]).Add(&temp, &input[7]))
+		input[8].Sub(&sum, temp.Double(&input[8]).Double(&temp))
+		for i := 9; i < h.params.Width; i++ {
 			input[i].Mul(&input[i], &diag24[i]).
 				Add(&input[i], &sum)
 		}
