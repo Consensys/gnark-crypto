@@ -12,7 +12,7 @@ import (
 func NewMerkleDamgardHasher() gnarkHash.StateStorer {
 	// TODO @Tabaie @ThomasPiellard Generify once Poseidon2 parameters are known for all curves
 	return gnarkHash.NewMerkleDamgardHasher(
-		NewPermutation(2, 6, 26), make([]byte, fr.Bytes))
+		&Permutation{NewDefaultParameters()}, make([]byte, fr.Bytes))
 }
 
 // NewDefaultParameters returns a new set of parameters for the Poseidon2 permutation.
