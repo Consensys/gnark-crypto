@@ -38,19 +38,25 @@ const (
 	MIMC_BLS24_317
 	// MIMC_BW6_633 is the MiMC hash function for the BW6-633 curve.
 	MIMC_BW6_633
+	// MIMC_GRUMPKIN is the MiMC hash function for the Grumpkin curve.
+	MIMC_GRUMPKIN
+	// POSEIDON2_BLS12_377 is the Poseidon2 hash function for the BLS12-377 curve.
+	POSEIDON2_BLS12_377
 
 	maxHash
 )
 
 // size of digests in bytes
 var digestSize = []uint8{
-	MIMC_BN254:     32,
-	MIMC_BLS12_381: 48,
-	MIMC_BLS12_377: 48,
-	MIMC_BW6_761:   96,
-	MIMC_BLS24_315: 48,
-	MIMC_BLS24_317: 48,
-	MIMC_BW6_633:   80,
+	MIMC_BN254:          32,
+	MIMC_BLS12_381:      48,
+	MIMC_BLS12_377:      48,
+	MIMC_BW6_761:        96,
+	MIMC_BLS24_315:      48,
+	MIMC_BLS24_317:      48,
+	MIMC_BW6_633:        80,
+	MIMC_GRUMPKIN:       32,
+	POSEIDON2_BLS12_377: 48,
 }
 
 // New initializes the hash function. This is a convenience function which does
@@ -87,6 +93,10 @@ func (m Hash) String() string {
 		return "MIMC_BLS24_317"
 	case MIMC_BW6_633:
 		return "MIMC_BW6_633"
+	case MIMC_GRUMPKIN:
+		return "MIMC_GRUMPKIN"
+	case POSEIDON2_BLS12_377:
+		return "POSEIDON2_BLS12_377"
 	default:
 		return "unknown hash function"
 	}
