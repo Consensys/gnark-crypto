@@ -328,7 +328,7 @@ func (f *FFAmd64) generateSumVecW4() {
 		hi, lo amd64.Register
 	}
 
-	splitLoHi := f.Define("SPLIT_LO_HI", 2, func(args ...amd64.Register) {
+	splitLoHi := f.Define("SPLIT_LO_HI", 2, func(args ...any) {
 		lo := args[0]
 		hi := args[1]
 		f.MOVQ(hi, lo)
@@ -523,7 +523,7 @@ func (f *FFAmd64) generateInnerProductW4() {
 
 	f.Comment("we multiply and accumulate partial products of 4 bytes * 32 bytes")
 
-	mac := f.Define("MAC", 3, func(inputs ...amd64.Register) {
+	mac := f.Define("MAC", 3, func(inputs ...any) {
 		opLeft := inputs[0]
 		lo := inputs[1]
 		hi := inputs[2]
@@ -581,7 +581,7 @@ func (f *FFAmd64) generateInnerProductW4() {
 	f.KSHIFTLW("$1", "K2", "K2")
 
 	f.Comment("macro to add partial products and store the result in Z0")
-	addPP := f.Define("ADDPP", 5, func(inputs ...amd64.Register) {
+	addPP := f.Define("ADDPP", 5, func(inputs ...any) {
 		AxH := inputs[0]
 		AyL := inputs[1]
 		AyH := inputs[2]
@@ -598,7 +598,7 @@ func (f *FFAmd64) generateInnerProductW4() {
 		f.VPADDQ(PPL, ACC, ACC)
 		f.VPANDQ(LSW, AzL, PPL)
 		f.VPADDQ(PPL, ACC, ACC)
-		f.VALIGND("$16-"+I, ACC, ACC, "K2", "Z0")
+		f.VALIGND("$16-"+I.(amd64.Register), ACC, ACC, "K2", "Z0")
 		f.KADDW("K2", "K2", "K2")
 	})
 
@@ -628,11 +628,11 @@ func (f *FFAmd64) generateInnerProductW4() {
 	f.VALIGND("$16-9", ACC, ACC, "K2", "Z0")
 	f.KSHIFTLW("$1", "K2", "K2")
 
-	addPP2 := f.Define("ADDPP2", 1, func(args ...amd64.Register) {
+	addPP2 := f.Define("ADDPP2", 1, func(args ...any) {
 		f.VPSRLQ("$32", ACC, PPL)
 		f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
 		f.VPADDQ(PPL, ACC, ACC)
-		f.VALIGND("$16-"+args[0], ACC, ACC, "K2", "Z0")
+		f.VALIGND("$16-"+args[0].(amd64.Register), ACC, ACC, "K2", "Z0")
 		f.KSHIFTLW("$1", "K2", "K2")
 	})
 
@@ -837,7 +837,7 @@ func (f *FFAmd64) generateMulVecW4(funcName string) {
 	// AVX_MUL_Q_LO:
 	AVX_MUL_Q_LO, err := f.DefineFn("AVX_MUL_Q_LO")
 	if err != nil {
-		AVX_MUL_Q_LO = f.Define("AVX_MUL_Q_LO", 0, func(args ...amd64.Register) {
+		AVX_MUL_Q_LO = f.Define("AVX_MUL_Q_LO", 0, func(args ...any) {
 			for i := 0; i < 4; i++ {
 				f.VPMULUDQ_BCST(f.qAt_bcst(i), "Z9", zi(10+i))
 				f.VPADDQ(zi(10+i), zi(i), zi(i))
@@ -848,7 +848,7 @@ func (f *FFAmd64) generateMulVecW4(funcName string) {
 	// AVX_MUL_Q_HI:
 	AVX_MUL_Q_HI, err := f.DefineFn("AVX_MUL_Q_HI")
 	if err != nil {
-		AVX_MUL_Q_HI = f.Define("AVX_MUL_Q_HI", 0, func(args ...amd64.Register) {
+		AVX_MUL_Q_HI = f.Define("AVX_MUL_Q_HI", 0, func(args ...any) {
 			for i := 0; i < 4; i++ {
 				f.VPMULUDQ_BCST(f.qAt_bcst(i+4), "Z9", zi(14+i))
 				f.VPADDQ(zi(14+i), zi(i+4), zi(i+4))
@@ -858,7 +858,7 @@ func (f *FFAmd64) generateMulVecW4(funcName string) {
 
 	SHIFT_ADD_AND, err := f.DefineFn("SHIFT_ADD_AND")
 	if err != nil {
-		SHIFT_ADD_AND = f.Define("SHIFT_ADD_AND", 4, func(args ...amd64.Register) {
+		SHIFT_ADD_AND = f.Define("SHIFT_ADD_AND", 4, func(args ...any) {
 			in0 := args[0]
 			in1 := args[1]
 			in2 := args[2]
@@ -872,7 +872,7 @@ func (f *FFAmd64) generateMulVecW4(funcName string) {
 	// CARRY1:
 	CARRY1, err := f.DefineFn("CARRY1")
 	if err != nil {
-		CARRY1 = f.Define("CARRY1", 0, func(args ...amd64.Register) {
+		CARRY1 = f.Define("CARRY1", 0, func(args ...any) {
 			for i := 0; i < 4; i++ {
 				SHIFT_ADD_AND(zi(i), zi(10+i), zi(i+1), "Z8")
 			}
@@ -882,7 +882,7 @@ func (f *FFAmd64) generateMulVecW4(funcName string) {
 	// CARRY2:
 	CARRY2, err := f.DefineFn("CARRY2")
 	if err != nil {
-		CARRY2 = f.Define("CARRY2", 0, func(args ...amd64.Register) {
+		CARRY2 = f.Define("CARRY2", 0, func(args ...any) {
 			for i := 0; i < 3; i++ {
 				SHIFT_ADD_AND(zi(i+4), zi(14+i), zi(i+5), "Z8")
 			}
@@ -893,7 +893,7 @@ func (f *FFAmd64) generateMulVecW4(funcName string) {
 	// CARRY3:
 	CARRY3, err := f.DefineFn("CARRY3")
 	if err != nil {
-		CARRY3 = f.Define("CARRY3", 0, func(args ...amd64.Register) {
+		CARRY3 = f.Define("CARRY3", 0, func(args ...any) {
 			for i := 0; i < 4; i++ {
 				f.VPSRLQ("$32", zi(i), zi(10+i))
 				f.VPANDQ("Z8", zi(i), zi(i))
@@ -905,7 +905,7 @@ func (f *FFAmd64) generateMulVecW4(funcName string) {
 	// CARRY4:
 	CARRY4, err := f.DefineFn("CARRY4")
 	if err != nil {
-		CARRY4 = f.Define("CARRY4", 0, func(args ...amd64.Register) {
+		CARRY4 = f.Define("CARRY4", 0, func(args ...any) {
 			for i := 0; i < 3; i++ {
 				f.VPSRLQ("$32", zi(i+4), zi(14+i))
 				f.VPANDQ("Z8", zi(i+4), zi(i+4))

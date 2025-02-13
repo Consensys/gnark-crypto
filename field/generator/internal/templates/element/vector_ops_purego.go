@@ -37,4 +37,5 @@ func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
 func (vector *Vector) Mul(a, b Vector) {
 	mulVecGeneric(*vector, a, b)
 }
+
 `

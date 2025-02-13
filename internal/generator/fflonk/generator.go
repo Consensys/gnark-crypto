@@ -8,7 +8,6 @@ import (
 )
 
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
-
 	// kzg commitment scheme
 	conf.Package = "fflonk"
 	entries := []bavard.Entry{

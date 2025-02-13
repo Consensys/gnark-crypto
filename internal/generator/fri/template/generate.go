@@ -8,7 +8,6 @@ import (
 )
 
 func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
-
 	// fri commitment scheme
 	conf.Package = "fri"
 	entries := []bavard.Entry{

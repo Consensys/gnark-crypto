@@ -222,12 +222,12 @@ degrees = [5,6,7,8,9]
 
 for bound in bounds:
     for degree in degrees:
-        PARAMS.append(SISParams(5, degree, bound, 10))
+        PARAMS.append(SISParams(5, degree, bound, 260))
 
 def random_inputs(size, modulus):
     return [GFR(random.randint(0, modulus - 1)) for _ in range(size)]
 
-INPUTS = random_inputs(10, R)
+INPUTS = random_inputs(260, R)
 
 TEST_CASES = {}
 

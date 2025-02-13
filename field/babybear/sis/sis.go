@@ -22,8 +22,13 @@ type RSis struct {
 	// Vectors in ℤ_{p}/Xⁿ+1
 	// A[i] is the i-th polynomial.
 	// Ag the evaluation form of the polynomials in A on the coset √(g) * <g>
-	A  [][]babybear.Element
-	Ag [][]babybear.Element
+	A             [][]babybear.Element
+	Ag            [][]babybear.Element
+	hasFast512_16 bool
+	// this is filled only when supportAVX512 is true and r.Degree == 512, r.LogTwoBound == 16
+	// we don't really need a copy of Ag, but since it is public
+	// need to check that callers don't use Ag for other purposes..
+	agShuffled [][]babybear.Element
 
 	// LogTwoBound (Infinity norm) of the vector to hash. It means that each component in m
 	// is < 2^B, where m is the vector to hash (the hash being A*m).
@@ -118,6 +123,15 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
 	})
+	r.hasFast512_16 = supportAVX512 && r.Degree == 512 && r.LogTwoBound == 16
+	if r.hasFast512_16 {
+		r.agShuffled = make([][]babybear.Element, len(r.Ag))
+		for i := range r.agShuffled {
+			r.agShuffled[i] = make([]babybear.Element, r.Degree)
+			copy(r.agShuffled[i], r.Ag[i])
+			sisShuffle_avx512(r.agShuffled[i])
+		}
+	}
 
 	return r, nil
 }
@@ -138,15 +152,42 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 		res[i].SetZero()
 	}
 
-	k := make([]babybear.Element, r.Degree)
-
 	// by default, the mask is ignored (unless we unrolled the FFT and have a degree 64)
 	mask := ^uint64(0)
+	if r.hasFast512_16 {
+		polId := 0
 
-	// inner hash
-	it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
-	for i := 0; i < len(r.Ag); i++ {
-		r.InnerHash(it, res, k, r.kz, i, mask)
+		cosets, _ := r.Domain.CosetTable()
+		twiddles, _ := r.Domain.Twiddles()
+
+		var k256 [256]babybear.Element
+
+		for j := 0; j < len(v); j += 256 {
+			start := j
+			end := j + 256
+			end = min(end, len(v))
+
+			_v := babybear.Vector(v[start:end])
+			if len(_v) != 256 {
+				// we need a buffer here
+				copy(k256[:], _v)
+				for k := len(_v); k < 256; k++ {
+					k256[k][0] = 0
+				}
+				_v = babybear.Vector(k256[:])
+			}
+			// ok for now this does the first step of the fft + the scaling by cosets;
+			sis512_16_avx512(_v, cosets, twiddles, r.agShuffled[polId], res)
+			polId++
+		}
+		sisUnshuffle_avx512(res)
+	} else {
+		// inner hash
+		k := make([]babybear.Element, r.Degree)
+		it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
+		for i := 0; i < len(r.Ag); i++ {
+			r.InnerHash(it, res, k, r.kz, i, mask)
+		}
 	}
 
 	// reduces mod Xᵈ+1

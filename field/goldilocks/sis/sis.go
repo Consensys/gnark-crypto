@@ -138,12 +138,10 @@ func (r *RSis) Hash(v, res []goldilocks.Element) error {
 		res[i].SetZero()
 	}
 
-	k := make([]goldilocks.Element, r.Degree)
-
 	// by default, the mask is ignored (unless we unrolled the FFT and have a degree 64)
 	mask := ^uint64(0)
-
 	// inner hash
+	k := make([]goldilocks.Element, r.Degree)
 	it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
 	for i := 0; i < len(r.Ag); i++ {
 		r.InnerHash(it, res, k, r.kz, i, mask)

@@ -63,7 +63,7 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 		}
 	}
 
-	mac := f.Define("MACC", 3, func(args ...amd64.Register) {
+	mac := f.Define("MACC", 3, func(args ...any) {
 		in0 := args[0]
 		in1 := args[1]
 		in2 := args[2]
@@ -72,7 +72,7 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 		f.ADOXQ(amd64.AX, in1)
 	})
 
-	divShift := f.Define("DIV_SHIFT", 0, func(_ ...amd64.Register) {
+	divShift := f.Define("DIV_SHIFT", 0, func(_ ...any) {
 		if !hasFreeRegister {
 			f.PUSHQ(A)
 		}
@@ -106,7 +106,7 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 
 	})
 
-	mulWord0 := f.Define("MUL_WORD_0", 0, func(_ ...amd64.Register) {
+	mulWord0 := f.Define("MUL_WORD_0", 0, func(_ ...any) {
 		f.XORQ(amd64.AX, amd64.AX)
 		// for j=0 to N-1
 		//    (A,t[j])  := t[j] + x[j]*y[i] + A
@@ -129,7 +129,7 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 		divShift()
 	})
 
-	mulWordN := f.Define("MUL_WORD_N", 0, func(args ...amd64.Register) {
+	mulWordN := f.Define("MUL_WORD_N", 0, func(args ...any) {
 		f.XORQ(amd64.AX, amd64.AX)
 		// for j=0 to N-1
 		//    (A,t[j])  := t[j] + x[j]*y[i] + A

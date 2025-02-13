@@ -21,7 +21,7 @@ import (
 
 func TestFFT(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 5
+	parameters.MinSuccessfulTests = 6
 	properties := gopter.NewProperties(parameters)
 
 	for maxSize := 2; maxSize <= 1<<10; maxSize <<= 1 {
@@ -288,8 +288,42 @@ func BenchmarkFFTDITCosetReference(b *testing.B) {
 	}
 }
 
+func BenchmarkFFTDITReferenceSmall(b *testing.B) {
+	const maxSize = 1 << 9
+
+	pol := make([]goldilocks.Element, maxSize)
+	pol[0].SetRandom()
+	for i := 1; i < maxSize; i++ {
+		pol[i] = pol[i-1]
+	}
+
+	domain := NewDomain(maxSize)
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		domain.FFT(pol, DIT, OnCoset())
+	}
+}
+
 func BenchmarkFFTDIFReference(b *testing.B) {
 	const maxSize = 1 << 20
+
+	pol := make([]goldilocks.Element, maxSize)
+	pol[0].SetRandom()
+	for i := 1; i < maxSize; i++ {
+		pol[i] = pol[i-1]
+	}
+
+	domain := NewDomain(maxSize)
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		domain.FFT(pol, DIF)
+	}
+}
+
+func BenchmarkFFTDIFReferenceSmall(b *testing.B) {
+	const maxSize = 1 << 9
 
 	pol := make([]goldilocks.Element, maxSize)
 	pol[0].SetRandom()

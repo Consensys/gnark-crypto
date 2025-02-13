@@ -3,10 +3,12 @@ package generator
 import (
 	"fmt"
 	"math/big"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
 	"github.com/consensys/gnark-crypto/field/generator/config"
 )
 
@@ -23,26 +25,57 @@ func generateSIS(F *config.Field, outputDir string) error {
 		{File: filepath.Join(outputDir, "sis.go"), Templates: []string{"sis.go.tmpl"}},
 		{File: filepath.Join(outputDir, "sis_test.go"), Templates: []string{"sis.test.go.tmpl"}},
 	}
-	// only on field byte size == 32, we unroll a 64-wide FFT (used in linea for bls12-377)
-	if F.NbBytes == 32 {
-		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "sis_fft.go"), Templates: []string{"fft.go.tmpl"}})
-	}
 
 	type sisTemplateData struct {
 		FF               string
 		FieldPackagePath string
 		HasUnrolledFFT   bool
+		F31              bool
+		Q, QInvNeg       uint64
 	}
 
 	data := &sisTemplateData{
 		FF:               F.PackageName,
 		FieldPackagePath: fieldImportPath,
 		HasUnrolledFFT:   F.NbBytes == 32,
+		F31:              F.F31,
+	}
+
+	if data.F31 {
+		data.Q = F.Q[0]
+		data.QInvNeg = F.QInverse[0]
+		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "sis_amd64.go"), Templates: []string{"sis.amd64.go.tmpl"}, BuildTag: "!purego"})
+		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "sis_purego.go"), Templates: []string{"sis.purego.go.tmpl"}, BuildTag: "purego || (!amd64)"})
+
+		// generate the assembly file;
+		asmFile, err := os.Create(filepath.Join(outputDir, "sis_amd64.s"))
+		if err != nil {
+			return err
+		}
+
+		asmFile.WriteString("//go:build !purego\n")
+
+		if err := amd64.GenerateF31SIS(asmFile, F.NbBits); err != nil {
+			asmFile.Close()
+			return err
+		}
+		asmFile.Close()
+	}
+
+	// only on field byte size == 32, we unroll a 64-wide FFT (used in linea for bls12-377)
+	if data.HasUnrolledFFT {
+		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "sis_fft.go"), Templates: []string{"fft.go.tmpl"}})
 	}
 
 	funcs := make(map[string]interface{})
 	funcs["bitReverse"] = bitReverse
 	funcs["pow"] = pow
+	funcs["shl"] = func(x, n any) uint64 {
+		return anyToUint64(x) << anyToUint64(n)
+	}
+	funcs["shr"] = func(x, n any) uint64 {
+		return anyToUint64(x) >> anyToUint64(n)
+	}
 
 	bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
 	if data.HasUnrolledFFT {
