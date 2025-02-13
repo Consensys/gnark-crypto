@@ -204,7 +204,7 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 	switch h.params.Width {
 	case 16:
-		// TODO: optimize multiplication by diag16
+		// mul by diag16:
 		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/4, 1/8, 1/2^27, -1/2^8, -1/16, -1/2^27]
 		var sum fr.Element
 		sum.Set(&input[0])
@@ -223,10 +223,18 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 		input[6].Sub(&sum, &temp)
 		input[7].Sub(&sum, temp.Double(&input[7]).Add(&temp, &input[7]))
 		input[8].Sub(&sum, temp.Double(&input[8]).Double(&temp))
-		for i := 9; i < h.params.Width; i++ {
-			input[i].Mul(&input[i], &diag16[i]).
-				Add(&input[i], &sum)
-		}
+		input[9].Add(&sum, temp.Mul2ExpNegN(&input[9], 8))
+		input[10].Add(&sum, temp.Mul2ExpNegN(&input[10], 2))
+		input[11].Add(&sum, temp.Mul2ExpNegN(&input[11], 3))
+		input[12].Add(&sum, temp.Mul2ExpNegN(&input[12], 27))
+		input[13].Sub(&sum, temp.Mul2ExpNegN(&input[13], 8))
+		input[14].Sub(&sum, temp.Mul2ExpNegN(&input[14], 4))
+		input[15].Sub(&sum, temp.Mul2ExpNegN(&input[15], 27))
+		// naive version:
+		// for i := 0; i < h.params.Width; i++ {
+		// 	input[i].Mul(&input[i], &diag16[i]).
+		// 		Add(&input[i], &sum)
+		// }
 	case 24:
 		// TODO: optimize multiplication by diag24
 		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/4, 1/8, 1/16, 1/2^7, 1/2^9, 1/2^27, -1/2^8, -1/4, -1/8, -1/16, -1/32, -1/64, -1/2^7, -1/2^27]
@@ -247,10 +255,26 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 		input[6].Sub(&sum, &temp)
 		input[7].Sub(&sum, temp.Double(&input[7]).Add(&temp, &input[7]))
 		input[8].Sub(&sum, temp.Double(&input[8]).Double(&temp))
-		for i := 9; i < h.params.Width; i++ {
-			input[i].Mul(&input[i], &diag24[i]).
-				Add(&input[i], &sum)
-		}
+		input[9].Add(&sum, temp.Mul2ExpNegN(&input[9], 8))
+		input[10].Add(&sum, temp.Mul2ExpNegN(&input[10], 2))
+		input[11].Add(&sum, temp.Mul2ExpNegN(&input[11], 3))
+		input[12].Add(&sum, temp.Mul2ExpNegN(&input[12], 4))
+		input[13].Add(&sum, temp.Mul2ExpNegN(&input[13], 7))
+		input[14].Add(&sum, temp.Mul2ExpNegN(&input[14], 9))
+		input[15].Add(&sum, temp.Mul2ExpNegN(&input[15], 27))
+		input[16].Sub(&sum, temp.Mul2ExpNegN(&input[16], 8))
+		input[17].Sub(&sum, temp.Mul2ExpNegN(&input[17], 2))
+		input[18].Sub(&sum, temp.Mul2ExpNegN(&input[18], 3))
+		input[19].Sub(&sum, temp.Mul2ExpNegN(&input[19], 4))
+		input[20].Sub(&sum, temp.Mul2ExpNegN(&input[20], 5))
+		input[21].Sub(&sum, temp.Mul2ExpNegN(&input[21], 6))
+		input[22].Sub(&sum, temp.Mul2ExpNegN(&input[22], 7))
+		input[23].Sub(&sum, temp.Mul2ExpNegN(&input[23], 27))
+		// naive version:
+		// for i := 0; i < h.params.Width; i++ {
+		// 	input[i].Mul(&input[i], &diag24[i]).
+		// 		Add(&input[i], &sum)
+		// }
 	default:
 		panic("only Width=16,24 are supported")
 	}
