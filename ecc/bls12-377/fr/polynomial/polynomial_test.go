@@ -11,7 +11,6 @@ import (
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 )
@@ -250,6 +249,6 @@ func TestPrecomputeLagrange(t *testing.T) {
 func TestLagrangeCache(t *testing.T) {
 	for _, i := range []int{5, 2, 8, 4, 6, 3, 0} {
 		b := getLagrangeBasis(uint8(i))
-		require.Equal(t, b, getLagrangeBasis(uint8(i))) // second call must yield the same result
+		assert.Equal(t, b, getLagrangeBasis(uint8(i))) // second call must yield the same result
 	}
 }
