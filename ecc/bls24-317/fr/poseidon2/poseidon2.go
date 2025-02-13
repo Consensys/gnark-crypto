@@ -117,8 +117,8 @@ func (p *Parameters) initRC(seed string) {
 // Permutation stores the buffer of the Poseidon2 permutation and provides
 // Poseidon2 permutation methods on the buffer
 type Permutation struct {
-	// parameters describing the instance
-	Parameters *Parameters
+	// params parameters describing the instance
+	params *Parameters
 }
 
 // NewPermutation returns a new Poseidon2 permutation instance.
@@ -127,7 +127,7 @@ func NewPermutation(t, rf, rp int) *Permutation {
 		panic("only t=2,3 is supported")
 	}
 	params := NewParameters(t, rf, rp)
-	res := &Permutation{Parameters: params}
+	res := &Permutation{params: params}
 	return res
 }
 
@@ -138,7 +138,7 @@ func NewPermutationWithSeed(t, rf, rp int, seed string) *Permutation {
 		panic("only t=2,3 is supported")
 	}
 	params := NewParametersWithSeed(t, rf, rp, seed)
-	res := &Permutation{Parameters: params}
+	res := &Permutation{params: params}
 	return res
 }
 
@@ -190,32 +190,32 @@ func (h *Permutation) matMulM4InPlace(s []fr.Element) {
 // see https://eprint.iacr.org/2023/323.pdf
 func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 
-	if h.Parameters.Width == 2 {
+	if h.params.Width == 2 {
 		var tmp fr.Element
 		tmp.Add(&input[0], &input[1])
 		input[0].Add(&tmp, &input[0])
 		input[1].Add(&tmp, &input[1])
-	} else if h.Parameters.Width == 3 {
+	} else if h.params.Width == 3 {
 		var tmp fr.Element
 		tmp.Add(&input[0], &input[1]).
 			Add(&tmp, &input[2])
 		input[0].Add(&tmp, &input[0])
 		input[1].Add(&tmp, &input[1])
 		input[2].Add(&tmp, &input[2])
-	} else if h.Parameters.Width == 4 {
+	} else if h.params.Width == 4 {
 		h.matMulM4InPlace(input)
 	} else {
 		// at this stage t is supposed to be a multiple of 4
 		// the MDS matrix is circ(2M4,M4,..,M4)
 		h.matMulM4InPlace(input)
 		tmp := make([]fr.Element, 4)
-		for i := 0; i < h.Parameters.Width/4; i++ {
+		for i := 0; i < h.params.Width/4; i++ {
 			tmp[0].Add(&tmp[0], &input[4*i])
 			tmp[1].Add(&tmp[1], &input[4*i+1])
 			tmp[2].Add(&tmp[2], &input[4*i+2])
 			tmp[3].Add(&tmp[3], &input[4*i+3])
 		}
-		for i := 0; i < h.Parameters.Width/4; i++ {
+		for i := 0; i < h.params.Width/4; i++ {
 			input[4*i].Add(&input[4*i], &tmp[0])
 			input[4*i+1].Add(&input[4*i], &tmp[1])
 			input[4*i+2].Add(&input[4*i], &tmp[2])
@@ -227,7 +227,7 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 // when T=2,3 the matrix are respectibely [[2,1][1,3]] and [[2,1,1][1,2,1][1,1,3]]
 // otherwise the matrix is filled with ones except on the diagonal,
 func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
-	switch h.Parameters.Width {
+	switch h.params.Width {
 	case 2:
 		var sum fr.Element
 		sum.Add(&input[0], &input[1])
@@ -242,11 +242,11 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 	default:
 		// var sum fr.Element
 		// sum.Set(&input[0])
-		// for i := 1; i < h.Parameters.t; i++ {
+		// for i := 1; i < h.params.t; i++ {
 		// 	sum.Add(&sum, &input[i])
 		// }
-		// for i := 0; i < h.Parameters.t; i++ {
-		// 	input[i].Mul(&input[i], &h.Parameters.diagInternalMatrices[i]).
+		// for i := 0; i < h.params.t; i++ {
+		// 	input[i].Mul(&input[i], &h.params.diagInternalMatrices[i]).
 		// 		Add(&input[i], &sum)
 		// }
 		panic("only T=2,3 is supported")
@@ -255,8 +255,8 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 
 // addRoundKeyInPlace adds the round-th key to the buffer
 func (h *Permutation) addRoundKeyInPlace(round int, input []fr.Element) {
-	for i := 0; i < len(h.Parameters.RoundKeys[round]); i++ {
-		input[i].Add(&input[i], &h.Parameters.RoundKeys[round][i])
+	for i := 0; i < len(h.params.RoundKeys[round]); i++ {
+		input[i].Add(&input[i], &h.params.RoundKeys[round][i])
 	}
 }
 
@@ -266,33 +266,33 @@ func (h *Permutation) BlockSize() int {
 
 // Permutation applies the permutation on input, and stores the result in input.
 func (h *Permutation) Permutation(input []fr.Element) error {
-	if len(input) != h.Parameters.Width {
+	if len(input) != h.params.Width {
 		return ErrInvalidSizebuffer
 	}
 
 	// external matrix multiplication, cf https://eprint.iacr.org/2023/323.pdf page 14 (part 6)
 	h.matMulExternalInPlace(input)
 
-	rf := h.Parameters.NbFullRounds / 2
+	rf := h.params.NbFullRounds / 2
 	for i := 0; i < rf; i++ {
 		// one round = matMulExternal(sBox_Full(addRoundKey))
 		h.addRoundKeyInPlace(i, input)
-		for j := 0; j < h.Parameters.Width; j++ {
+		for j := 0; j < h.params.Width; j++ {
 			h.sBox(j, input)
 		}
 		h.matMulExternalInPlace(input)
 	}
 
-	for i := rf; i < rf+h.Parameters.NbPartialRounds; i++ {
+	for i := rf; i < rf+h.params.NbPartialRounds; i++ {
 		// one round = matMulInternal(sBox_sparse(addRoundKey))
 		h.addRoundKeyInPlace(i, input)
 		h.sBox(0, input)
 		h.matMulInternalInPlace(input)
 	}
-	for i := rf + h.Parameters.NbPartialRounds; i < h.Parameters.NbFullRounds+h.Parameters.NbPartialRounds; i++ {
+	for i := rf + h.params.NbPartialRounds; i < h.params.NbFullRounds+h.params.NbPartialRounds; i++ {
 		// one round = matMulExternal(sBox_Full(addRoundKey))
 		h.addRoundKeyInPlace(i, input)
-		for j := 0; j < h.Parameters.Width; j++ {
+		for j := 0; j < h.params.Width; j++ {
 			h.sBox(j, input)
 		}
 		h.matMulExternalInPlace(input)
@@ -305,7 +305,7 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 // of the result. Panics if the permutation instance is not initialized with a
 // width of 2.
 func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
-	if h.Parameters.Width != 2 {
+	if h.params.Width != 2 {
 		return nil, errors.New("need a 2-1 function")
 	}
 	var x [2]fr.Element

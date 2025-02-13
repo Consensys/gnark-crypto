@@ -234,7 +234,7 @@ func RegisterGkrGates() {
 
 	initOnce.Do(
 		func() {
-			p := poseidon2.NewDefaultParameters()
+			p := poseidon2.GetDefaultParameters()
 			halfRf := p.NbFullRounds / 2
 			params := p.String()
 
