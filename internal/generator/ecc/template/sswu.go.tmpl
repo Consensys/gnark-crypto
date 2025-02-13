@@ -239,6 +239,19 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
    return isQNr
 }
 
+{{if eq $TowerDegree 2 }}
+func {{$CurveTitle}}SqrtRatio(z0, z1, u0, u1, v0, v1 *fp.Element) uint64 {
+	var z {{$CoordType}}
+	u := {{$CoordType}}{A0: *u0, A1: *u1}
+	v := {{$CoordType}}{A0: *v0, A1: *v1}
+	ret := {{$CurveName}}SqrtRatio(&z, &u, &v)
+	*z0 = z.A0
+	*z1 = z.A1
+
+	return ret
+}
+{{end}}
+
 func {{$CurveName}}NotOne(x *{{$CoordType}}) uint64 {
     {{if eq $TowerDegree 1 }}
 	    var one {{$CoordType}}
