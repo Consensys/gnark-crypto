@@ -4,7 +4,7 @@ const InverseTests = `
 
 {{if $.UsingP20Inverse}}
 
-func Test{{.ElementName}}InversionApproximation(t *testing.T) {
+func Test{{toTitle .ElementName}}InversionApproximation(t *testing.T) {
 	var x {{.ElementName}}
 	for i := 0; i < 1000; i++ {
 		x.SetRandom()
@@ -24,7 +24,7 @@ func Test{{.ElementName}}InversionApproximation(t *testing.T) {
 	}
 }
 
-func Test{{.ElementName}}InversionCorrectionFactorFormula(t *testing.T) {
+func Test{{toTitle .ElementName}}InversionCorrectionFactorFormula(t *testing.T) {
 	const kLimbs = k * Limbs
 	const power = kLimbs*6 + invIterationsN*(kLimbs-k+1)
 	factorInt := big.NewInt(1)
@@ -44,7 +44,7 @@ func Test{{.ElementName}}InversionCorrectionFactorFormula(t *testing.T) {
 	}
 }
 
-func Test{{.ElementName}}LinearComb(t *testing.T) {
+func Test{{toTitle .ElementName}}LinearComb(t *testing.T) {
 	var x {{.ElementName}}
 	var y {{.ElementName}}
 
@@ -56,7 +56,7 @@ func Test{{.ElementName}}LinearComb(t *testing.T) {
 }
 
 // Probably unnecessary post-dev. In case the output of inv is wrong, this checks whether it's only off by a constant factor.
-func Test{{.ElementName}}InversionCorrectionFactor(t *testing.T) {
+func Test{{toTitle .ElementName}}InversionCorrectionFactor(t *testing.T) {
 
 	// (1/x)/inv(x) = (1/1)/inv(1) ⇔ inv(1) = x inv(x)
 
@@ -95,7 +95,7 @@ func Test{{.ElementName}}InversionCorrectionFactor(t *testing.T) {
 	}
 }
 
-func Test{{.ElementName}}BigNumNeg(t *testing.T) {
+func Test{{toTitle .ElementName}}BigNumNeg(t *testing.T) {
 	var a {{.ElementName}}
 	aHi := negL(&a, 0)
 	if !a.IsZero() || aHi != 0 {
@@ -103,7 +103,7 @@ func Test{{.ElementName}}BigNumNeg(t *testing.T) {
 	}
 }
 
-func Test{{.ElementName}}BigNumWMul(t *testing.T) {
+func Test{{toTitle .ElementName}}BigNumWMul(t *testing.T) {
 	var x {{.ElementName}}
 
 	for i := 0; i < 1000; i++ {
@@ -113,7 +113,7 @@ func Test{{.ElementName}}BigNumWMul(t *testing.T) {
 	}
 }
 
-func Test{{.ElementName}}VeryBigIntConversion(t *testing.T) {
+func Test{{toTitle .ElementName}}VeryBigIntConversion(t *testing.T) {
 	xHi := mrand.Uint64() //#nosec G404 weak rng is fine here
 	var x {{.ElementName}}
 	x.SetRandom()
@@ -154,7 +154,7 @@ func genVeryBigIntSigned(sign int) gopter.Gen {
 	}
 }
 
-func Test{{.ElementName}}MontReduce(t *testing.T) {
+func Test{{toTitle .ElementName}}MontReduce(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -185,7 +185,7 @@ func Test{{.ElementName}}MontReduce(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func Test{{.ElementName}}MontReduceMultipleOfR(t *testing.T) {
+func Test{{toTitle .ElementName}}MontReduceMultipleOfR(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -218,7 +218,7 @@ func Test{{.ElementName}}MontReduceMultipleOfR(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func Test{{.ElementName}}0Inverse(t *testing.T) {
+func Test{{toTitle .ElementName}}0Inverse(t *testing.T) {
 	var x {{.ElementName}}
 	x.Inverse(&x)
 	if !x.IsZero() {

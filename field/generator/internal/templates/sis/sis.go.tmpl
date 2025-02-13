@@ -8,6 +8,10 @@ import (
 	"{{ .FieldPackagePath }}/fft"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"golang.org/x/crypto/blake2b"
+
+	{{- if .F31}}
+	"github.com/consensys/gnark-crypto/utils/cpu"
+	{{- end}}
 )
 
 {{$tReturn := "uint64"}}
@@ -146,7 +150,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 	})
 
 	{{- if .F31}}
-	r.hasFast512_16 = supportAVX512 && r.Degree == 512 && r.LogTwoBound == 16
+	r.hasFast512_16 = cpu.SupportAVX512 && r.Degree == 512 && r.LogTwoBound == 16
 	if r.hasFast512_16 {
 		r.agShuffled = make([][]{{ .FF }}.Element, len(r.Ag))
 		for i := range r.agShuffled {

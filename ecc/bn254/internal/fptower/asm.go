@@ -7,10 +7,10 @@
 
 package fptower
 
-import "golang.org/x/sys/cpu"
+import "github.com/consensys/gnark-crypto/utils/cpu"
 
 // supportAdx will be set only on amd64 that has MULX and ADDX instructions
 var (
-	supportAdx = cpu.X86.HasADX && cpu.X86.HasBMI2
+	supportAdx = cpu.SupportADX
 	_          = supportAdx // used in asm
 )

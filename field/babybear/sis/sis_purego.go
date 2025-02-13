@@ -11,8 +11,6 @@ import (
 	"github.com/consensys/gnark-crypto/field/babybear"
 )
 
-const supportAVX512 = false
-
 func sisShuffle_avx512(a []babybear.Element) {
 	panic("should not be called when purego is set")
 }

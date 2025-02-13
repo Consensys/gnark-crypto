@@ -2,8 +2,6 @@ import (
 	"{{ .FieldPackagePath }}"
 )
 
-const supportAVX512 = false
-
 func innerDIFWithTwiddles(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
 	innerDIFWithTwiddlesGeneric(a, twiddles, start, end, m)
 }

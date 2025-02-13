@@ -9,6 +9,7 @@ package fp
 
 import (
 	_ "github.com/consensys/gnark-crypto/field/asm/element_4w"
+	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
 // Add adds two vectors element-wise and stores the result in self.
@@ -43,7 +44,7 @@ func (vector *Vector) ScalarMul(a Vector, b *Element) {
 		panic("vector.ScalarMul: vectors don't have the same length")
 	}
 	const maxN = (1 << 32) - 1
-	if !supportAvx512 || uint64(len(a)) >= maxN {
+	if !cpu.SupportAVX512 || uint64(len(a)) >= maxN {
 		// call scalarMulVecGeneric
 		scalarMulVecGeneric(*vector, a, b)
 		return
@@ -77,7 +78,7 @@ func (vector *Vector) Sum() (res Element) {
 	}
 	const minN = 16 * 7 // AVX512 slower than generic for small n
 	const maxN = (1 << 32) - 1
-	if !supportAvx512 || n <= minN || n >= maxN {
+	if !cpu.SupportAVX512 || n <= minN || n >= maxN {
 		// call sumVecGeneric
 		sumVecGeneric(&res, *vector)
 		return
@@ -100,7 +101,7 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 		panic("vector.InnerProduct: vectors don't have the same length")
 	}
 	const maxN = (1 << 32) - 1
-	if !supportAvx512 || n >= maxN {
+	if !cpu.SupportAVX512 || n >= maxN {
 		// call innerProductVecGeneric
 		// note; we could split the vector into smaller chunks and call innerProductVec
 		innerProductVecGeneric(&res, *vector, other)
@@ -125,7 +126,7 @@ func (vector *Vector) Mul(a, b Vector) {
 		return
 	}
 	const maxN = (1 << 32) - 1
-	if !supportAvx512 || n >= maxN {
+	if !cpu.SupportAVX512 || n >= maxN {
 		// call mulVecGeneric
 		mulVecGeneric(*vector, a, b)
 		return

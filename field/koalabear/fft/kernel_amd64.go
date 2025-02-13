@@ -9,11 +9,7 @@ package fft
 
 import (
 	"github.com/consensys/gnark-crypto/field/koalabear"
-	"golang.org/x/sys/cpu"
-)
-
-var (
-	supportAVX512 = cpu.X86.HasAVX512 && cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512VBMI2
+	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
@@ -33,7 +29,7 @@ func innerDIFWithTwiddles_avx512(a []koalabear.Element, twiddles []koalabear.Ele
 func innerDITWithTwiddles_avx512(a []koalabear.Element, twiddles []koalabear.Element, start, end, m int)
 
 func innerDIFWithTwiddles(a []koalabear.Element, twiddles []koalabear.Element, start, end, m int) {
-	if !supportAVX512 {
+	if !cpu.SupportAVX512 {
 		innerDIFWithTwiddlesGeneric(a, twiddles, start, end, m)
 		return
 	}
@@ -41,7 +37,7 @@ func innerDIFWithTwiddles(a []koalabear.Element, twiddles []koalabear.Element, s
 }
 
 func innerDITWithTwiddles(a []koalabear.Element, twiddles []koalabear.Element, start, end, m int) {
-	if !supportAVX512 {
+	if !cpu.SupportAVX512 {
 		innerDITWithTwiddlesGeneric(a, twiddles, start, end, m)
 		return
 	}
@@ -52,7 +48,7 @@ func innerDITWithTwiddles(a []koalabear.Element, twiddles []koalabear.Element, s
 func kerDIFNP_256_avx512(a []koalabear.Element, twiddles [][]koalabear.Element, stage int)
 
 func kerDIFNP_256(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
-	if !supportAVX512 {
+	if !cpu.SupportAVX512 {
 		kerDIFNP_256generic(a, twiddles, stage)
 		return
 	}
@@ -63,7 +59,7 @@ func kerDIFNP_256(a []koalabear.Element, twiddles [][]koalabear.Element, stage i
 func kerDITNP_256_avx512(a []koalabear.Element, twiddles [][]koalabear.Element, stage int)
 
 func kerDITNP_256(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
-	if !supportAVX512 {
+	if !cpu.SupportAVX512 {
 		kerDITNP_256generic(a, twiddles, stage)
 		return
 	}

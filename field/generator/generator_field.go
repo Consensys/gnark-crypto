@@ -169,11 +169,6 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 
 	g.Go(generate("vector_purego.go", []string{element.VectorOpsPureGo}, withBuildTag(pureGoVectorBuildTag)))
 
-	g.Go(generate("asm_adx.go", []string{element.Asm}, only(F.GenerateOpsAMD64 && !F.F31), withBuildTag("!noadx")))
-	g.Go(generate("asm_noadx.go", []string{element.AsmNoAdx}, only(F.GenerateOpsAMD64 && !F.F31), withBuildTag("noadx")))
-	g.Go(generate("asm_avx.go", []string{element.Avx}, only(F.GenerateVectorOpsAMD64), withBuildTag("!noavx")))
-	g.Go(generate("asm_noavx.go", []string{element.NoAvx}, only(F.GenerateVectorOpsAMD64), withBuildTag("noavx")))
-
 	if F.UseAddChain {
 		g.Go(generate("element_exp.go", []string{element.FixedExp}))
 	}

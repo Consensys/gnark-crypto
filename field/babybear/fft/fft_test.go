@@ -18,6 +18,7 @@ import (
 
 	"encoding/binary"
 	"fmt"
+	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
 func TestFFT(t *testing.T) {
@@ -239,7 +240,7 @@ func TestFFT(t *testing.T) {
 
 }
 func FuzzFFTAvx512(f *testing.F) {
-	if !supportAVX512 {
+	if !cpu.SupportAVX512 {
 		f.Skip("AVX512 not supported")
 	}
 

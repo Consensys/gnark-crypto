@@ -16,6 +16,7 @@ import (
 	"encoding/binary"
 	"github.com/consensys/gnark-crypto/field/babybear"
 	"github.com/consensys/gnark-crypto/field/babybear/fft"
+	"github.com/consensys/gnark-crypto/utils/cpu"
 	"github.com/stretchr/testify/require"
 )
 
@@ -227,7 +228,7 @@ func benchmarkSIS(b *testing.B, input []babybear.Element, sparse bool, logTwoBou
 	})
 }
 func FuzzSISAvx512(f *testing.F) {
-	if !supportAVX512 {
+	if !cpu.SupportAVX512 {
 		f.Skip("AVX512 not supported")
 	}
 
