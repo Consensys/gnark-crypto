@@ -178,7 +178,7 @@ func (m MultiLin) NumVars() int {
 }
 
 func init() {
-	//TODO: Check for whether already computed in the Getter or this?
+	// TODO @Tabaie replace this with sync.Once and move to lagrange.go
 	lagrangeBasis = make([][]Polynomial, maxLagrangeDomainSize+1)
 
 	//size = 0: Cannot extrapolate with no data points
@@ -194,7 +194,6 @@ func init() {
 }
 
 func getLagrangeBasis(domainSize int) []Polynomial {
-	//TODO: Precompute everything at init or this?
 	/*if lagrangeBasis[domainSize] == nil {
 		lagrangeBasis[domainSize] = computeLagrangeBasis(domainSize)
 	}*/
@@ -260,19 +259,20 @@ func computeLagrangeBasis(domainSize uint8) []Polynomial {
 	return res
 }
 
-// InterpolateOnRange performs the interpolation of the given list of elements
-// On the range [0, 1,..., len(values) - 1]
-func InterpolateOnRange(values []small_rational.SmallRational) Polynomial {
-	nEvals := len(values)
+// InterpolateOnRange maps vector v to polynomial f
+// such that f(i) = v[i] for 0 ≤ i < len(v).
+// len(f) = len(v) and deg(f) ≤ len(v) - 1
+func InterpolateOnRange(v []small_rational.SmallRational) Polynomial {
+	nEvals := len(v)
 	lagrange := getLagrangeBasis(nEvals)
 
 	var res Polynomial
-	res.Scale(&values[0], lagrange[0])
+	res.Scale(&v[0], lagrange[0])
 
 	temp := make(Polynomial, nEvals)
 
 	for i := 1; i < nEvals; i++ {
-		temp.Scale(&values[i], lagrange[i])
+		temp.Scale(&v[i], lagrange[i])
 		res.Add(res, temp)
 	}
 

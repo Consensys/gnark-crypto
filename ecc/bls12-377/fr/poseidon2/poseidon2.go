@@ -18,6 +18,9 @@ var (
 	ErrInvalidSizebuffer = errors.New("the size of the input should match the size of the hash buffer")
 )
 
+// reference implementation: https://github.com/HorizenLabs/poseidon2/blob/main/plain_implementations/src/poseidon2/poseidon2.rs
+// specifications: https://github.com/argumentcomputer/neptune/blob/main/spec/poseidon_spec.pdf
+// original paper: https://eprint.iacr.org/2023/323.pdf
 const (
 	// d is the degree of the sBox
 	d = 17
@@ -114,7 +117,7 @@ func (p *Parameters) initRC(seed string) {
 // Permutation stores the buffer of the Poseidon2 permutation and provides
 // Poseidon2 permutation methods on the buffer
 type Permutation struct {
-	// parameters describing the instance
+	// params parameters describing the instance
 	params *Parameters
 }
 

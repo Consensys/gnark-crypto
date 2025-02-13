@@ -932,3 +932,49 @@ func (g NegGate) Evaluate(element ...small_rational.SmallRational) (neg small_ra
 func (g NegGate) Degree() int {
 	return 1
 }
+
+// TestGateDegree checks if deg(g) = g.Degree()
+func TestGateDegree(g Gate, nbIn int) error {
+	// TODO when Gate is a struct, turn this into a method
+	if nbIn < 1 {
+		return errors.New("at least one input required")
+	}
+
+	d := g.Degree()
+	// evaluate g at 0 .. d
+	var one, _x small_rational.SmallRational
+	one.SetOne()
+	x := make([]small_rational.SmallRational, nbIn)
+	y := make([]small_rational.SmallRational, d+1)
+	for i := range y {
+		y[i] = g.Evaluate(x...)
+		_x.Add(&_x, &one)
+		for j := range x {
+			x[j] = _x
+		}
+	}
+
+	p := polynomial.InterpolateOnRange(y)
+	// test if p matches g
+	if _, err := _x.SetRandom(); err != nil {
+		return err
+	}
+	for j := range x {
+		x[j] = _x
+	}
+
+	if expected, encountered := p.Eval(&x[0]), g.Evaluate(x...); !expected.Equal(&encountered) {
+		return fmt.Errorf("interpolation failed: not a polynomial of degree %d or lower", d)
+	}
+
+	// check if the degree is LESS than d
+	degP := d
+	for degP >= 0 && p[degP].IsZero() {
+		degP--
+	}
+	if degP != d {
+		return fmt.Errorf("expected polynomial of degree %d, interpolation yielded %d", d, degP)
+	}
+
+	return nil
+}
