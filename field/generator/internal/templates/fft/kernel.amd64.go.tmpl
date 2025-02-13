@@ -1,12 +1,9 @@
 import (
-	"golang.org/x/sys/cpu"
+	"github.com/consensys/gnark-crypto/utils/cpu"
 	"{{ .FieldPackagePath }}"
 )
 
 
-var (
-	supportAVX512 = cpu.X86.HasAVX512 && cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512VBMI2
-)
 
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 // used for Montgomery reduction
@@ -25,7 +22,7 @@ func innerDIFWithTwiddles_avx512(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Ele
 func innerDITWithTwiddles_avx512(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int)
 
 func innerDIFWithTwiddles(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
-	if !supportAVX512 {
+	if !cpu.SupportAVX512 {
 		innerDIFWithTwiddlesGeneric(a, twiddles, start, end, m)
 		return
 	}
@@ -33,7 +30,7 @@ func innerDIFWithTwiddles(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, s
 }
 
 func innerDITWithTwiddles(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
-	if !supportAVX512 {
+	if !cpu.SupportAVX512 {
 		innerDITWithTwiddlesGeneric(a, twiddles, start, end, m)
 		return
 	}
@@ -47,7 +44,7 @@ func innerDITWithTwiddles(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, s
 func kerDIFNP_{{$ksize}}_avx512(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int)
 
 func kerDIFNP_{{$ksize}}(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int) {
-	if !supportAVX512 {
+	if !cpu.SupportAVX512 {
 		kerDIFNP_{{$ksize}}generic(a, twiddles, stage)
 		return
 	}
@@ -58,7 +55,7 @@ func kerDIFNP_{{$ksize}}(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element
 func kerDITNP_{{$ksize}}_avx512(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int)
 
 func kerDITNP_{{$ksize}}(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int) {
-	if !supportAVX512 {
+	if !cpu.SupportAVX512 {
 		kerDITNP_{{$ksize}}generic(a, twiddles, stage)
 		return
 	}
