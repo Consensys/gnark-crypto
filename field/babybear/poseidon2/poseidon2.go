@@ -153,28 +153,29 @@ func (h *Permutation) sBox(index int, input []fr.Element) {
 // matMulM4 computes
 // s <- M4*s
 // where M4=
-// (5 7 1 3)
-// (4 6 1 1)
-// (1 3 5 7)
-// (1 1 4 6)
+// (2 3 1 1)
+// (1 2 3 1)
+// (1 1 2 3)
+// (3 1 1 2)
 // on chunks of 4 elemts on each part of the buffer
-// see https://eprint.iacr.org/2023/323.pdf appendix B for the addition chain
+// for the addition chain, see:
+// https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/poseidon2/src/external.rs#L43
+// this MDS matrix is more efficient than
+// https://eprint.iacr.org/2023/323.pdf appendix Bb
 func (h *Permutation) matMulM4InPlace(s []fr.Element) {
 	c := len(s) / 4
 	for i := 0; i < c; i++ {
-		var t0, t1, t2, t3, t4, t5, t6, t7 fr.Element
-		t0.Add(&s[4*i], &s[4*i+1])               // s0+s1
-		t1.Add(&s[4*i+2], &s[4*i+3])             // s2+s3
-		t2.Double(&s[4*i+1]).Add(&t2, &t1)       // 2s1+t1
-		t3.Double(&s[4*i+3]).Add(&t3, &t0)       // 2s3+t0
-		t4.Double(&t1).Double(&t4).Add(&t4, &t3) // 4t1+t3
-		t5.Double(&t0).Double(&t5).Add(&t5, &t2) // 4t0+t2
-		t6.Add(&t3, &t5)                         // t3+t4
-		t7.Add(&t2, &t4)                         // t2+t4
-		s[4*i].Set(&t6)
-		s[4*i+1].Set(&t5)
-		s[4*i+2].Set(&t7)
-		s[4*i+3].Set(&t4)
+		var t01, t23, t0123, t01123, t01233 fr.Element
+		t01.Add(&s[4*i], &s[4*i+1])
+		t23.Add(&s[4*i+2], &s[4*i+3])
+		t0123.Add(&t01, &t23)
+		t01123.Add(&t0123, &s[4*i+1])
+		t01233.Add(&t0123, &s[4*i+3])
+		// The order here is important. Need to overwrite x[0] and x[2] after x[1] and x[3].
+		s[4*i+3].Double(&s[4*i]).Add(&s[4*i+3], &t01233)
+		s[4*i+1].Double(&s[4*i+2]).Add(&s[4*i+1], &t01123)
+		s[4*i].Add(&t01, &t01123)
+		s[4*i+2].Add(&t23, &t01233)
 	}
 }
 
@@ -203,13 +204,13 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 	switch h.params.Width {
 	case 16:
-		// mul by diag16:
-		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/4, 1/8, 1/2^27, -1/2^8, -1/16, -1/2^27]
 		var sum fr.Element
 		sum.Set(&input[0])
 		for i := 1; i < h.params.Width; i++ {
 			sum.Add(&sum, &input[i])
 		}
+		// mul by diag16:
+		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/4, 1/8, 1/2^27, -1/2^8, -1/16, -1/2^27]
 		var temp fr.Element
 		input[0].Sub(&sum, temp.Double(&input[0]))
 		input[1].Add(&sum, &input[1])
@@ -235,13 +236,13 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 		// 		Add(&input[i], &sum)
 		// }
 	case 24:
-		// TODO: optimize multiplication by diag24
-		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/4, 1/8, 1/16, 1/2^7, 1/2^9, 1/2^27, -1/2^8, -1/4, -1/8, -1/16, -1/32, -1/64, -1/2^7, -1/2^27]
 		var sum fr.Element
 		sum.Set(&input[0])
 		for i := 1; i < h.params.Width; i++ {
 			sum.Add(&sum, &input[i])
 		}
+		// mul by diag24:
+		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/4, 1/8, 1/16, 1/2^7, 1/2^9, 1/2^27, -1/2^8, -1/4, -1/8, -1/16, -1/32, -1/64, -1/2^7, -1/2^27]
 		var temp fr.Element
 		input[0].Sub(&sum, temp.Double(&input[0]))
 		input[1].Add(&sum, &input[1])
