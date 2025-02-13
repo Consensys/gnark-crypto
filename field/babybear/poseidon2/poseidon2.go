@@ -18,7 +18,7 @@ var (
 
 const (
 	// d is the degree of the sBox
-	d = 3
+	d = 7
 )
 
 // DegreeSBox returns the degree of the sBox function used in the Poseidon2
@@ -139,15 +139,14 @@ func NewPermutationWithSeed(t, rf, rp int, seed string) *Permutation {
 
 // sBox applies the sBox on buffer[index]
 func (h *Permutation) sBox(index int, input []fr.Element) {
-	var tmp fr.Element
-	tmp.Set(&input[index])
+	var tmp1, tmp2 fr.Element
+	tmp1.Set(&input[index])
+	tmp2.Square(&input[index])
 
-	// sbox degree is 3
-	input[index].Square(&input[index]).
-		Square(&input[index]).
-		Square(&input[index]).
-		Square(&input[index]).
-		Mul(&input[index], &tmp)
+	// sbox degree is 7
+	input[index].Square(&tmp2).
+		Mul(&input[index], &tmp1).
+		Mul(&input[index], &tmp2)
 
 }
 

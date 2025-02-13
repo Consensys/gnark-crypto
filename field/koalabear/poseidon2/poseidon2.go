@@ -144,9 +144,6 @@ func (h *Permutation) sBox(index int, input []fr.Element) {
 
 	// sbox degree is 3
 	input[index].Square(&input[index]).
-		Square(&input[index]).
-		Square(&input[index]).
-		Square(&input[index]).
 		Mul(&input[index], &tmp)
 
 }
