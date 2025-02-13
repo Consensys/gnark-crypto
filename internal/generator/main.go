@@ -25,7 +25,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_field"
 	"github.com/consensys/gnark-crypto/internal/generator/iop"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
-	"github.com/consensys/gnark-crypto/internal/generator/mpcsetup"
 	"github.com/consensys/gnark-crypto/internal/generator/pairing"
 	"github.com/consensys/gnark-crypto/internal/generator/pedersen"
 	"github.com/consensys/gnark-crypto/internal/generator/permutation"
