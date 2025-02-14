@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/crypto/sha3"
 
-	fr "github.com/consensys/gnark-crypto/field/koalabear"
+	fr "github.com/consensys/gnark-crypto/field/goldilocks"
 )
 
 var (
@@ -20,7 +20,7 @@ var (
 
 const (
 	// d is the degree of the sBox
-	d = 3
+	d = 7
 )
 
 // DegreeSBox returns the degree of the sBox function used in the Poseidon2
@@ -68,7 +68,7 @@ func NewParametersWithSeed(width, nbFullRounds, nbPartialRounds int, seed string
 // String returns a string representation of the parameters. It is unique for
 // specific parameters and curve.
 func (p *Parameters) String() string {
-	return fmt.Sprintf("Poseidon2-koalabear[t=%d,rF=%d,rP=%d,d=%d]", p.Width, p.NbFullRounds, p.NbPartialRounds, d)
+	return fmt.Sprintf("Poseidon2-goldilocks[t=%d,rF=%d,rP=%d,d=%d]", p.Width, p.NbFullRounds, p.NbPartialRounds, d)
 }
 
 // initRC initiate round keys. Only one entry is non zero for the internal
@@ -120,8 +120,8 @@ type Permutation struct {
 
 // NewPermutation returns a new Poseidon2 permutation instance.
 func NewPermutation(t, rf, rp int) *Permutation {
-	if t != 16 && t != 24 {
-		panic("only Width=16,24 are supported")
+	if t != 8 {
+		panic("only Width=8 is supported")
 	}
 	params := NewParameters(t, rf, rp)
 	res := &Permutation{params: params}
@@ -131,8 +131,8 @@ func NewPermutation(t, rf, rp int) *Permutation {
 // NewPermutationWithSeed returns a new Poseidon2 permutation instance with a
 // given seed.
 func NewPermutationWithSeed(t, rf, rp int, seed string) *Permutation {
-	if t != 16 && t != 24 {
-		panic("only Width=16,24 are supported")
+	if t != 8 {
+		panic("only Width=8 is supported")
 	}
 	params := NewParametersWithSeed(t, rf, rp, seed)
 	res := &Permutation{params: params}
@@ -141,40 +141,41 @@ func NewPermutationWithSeed(t, rf, rp int, seed string) *Permutation {
 
 // sBox applies the sBox on buffer[index]
 func (h *Permutation) sBox(index int, input []fr.Element) {
-	var tmp fr.Element
-	tmp.Set(&input[index])
-	// sbox degree is 3
-	input[index].Square(&input[index]).
-		Mul(&input[index], &tmp)
+	var tmp1, tmp2 fr.Element
+	tmp1.Set(&input[index])
+	tmp2.Square(&input[index])
+	// sbox degree is 7
+	input[index].Square(&tmp2).
+		Mul(&input[index], &tmp1).
+		Mul(&input[index], &tmp2)
 
 }
 
 // matMulM4 computes
 // s <- M4*s
 // where M4=
-// (2 3 1 1)
-// (1 2 3 1)
-// (1 1 2 3)
-// (3 1 1 2)
+// (5 7 1 3)
+// (4 6 1 1)
+// (1 3 5 7)
+// (1 1 4 6)
 // on chunks of 4 elemts on each part of the buffer
-// for the addition chain, see:
-// https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/poseidon2/src/external.rs#L43
-// this MDS matrix is more efficient than
-// https://eprint.iacr.org/2023/323.pdf appendix Bb
+// see https://eprint.iacr.org/2023/323.pdf appendix B for the addition chain
 func (h *Permutation) matMulM4InPlace(s []fr.Element) {
 	c := len(s) / 4
 	for i := 0; i < c; i++ {
-		var t01, t23, t0123, t01123, t01233 fr.Element
-		t01.Add(&s[4*i], &s[4*i+1])
-		t23.Add(&s[4*i+2], &s[4*i+3])
-		t0123.Add(&t01, &t23)
-		t01123.Add(&t0123, &s[4*i+1])
-		t01233.Add(&t0123, &s[4*i+3])
-		// The order here is important. Need to overwrite x[0] and x[2] after x[1] and x[3].
-		s[4*i+3].Double(&s[4*i]).Add(&s[4*i+3], &t01233)
-		s[4*i+1].Double(&s[4*i+2]).Add(&s[4*i+1], &t01123)
-		s[4*i].Add(&t01, &t01123)
-		s[4*i+2].Add(&t23, &t01233)
+		var t0, t1, t2, t3, t4, t5, t6, t7 fr.Element
+		t0.Add(&s[4*i], &s[4*i+1])               // s0+s1
+		t1.Add(&s[4*i+2], &s[4*i+3])             // s2+s3
+		t2.Double(&s[4*i+1]).Add(&t2, &t1)       // 2s1+t1
+		t3.Double(&s[4*i+3]).Add(&t3, &t0)       // 2s3+t0
+		t4.Double(&t1).Double(&t4).Add(&t4, &t3) // 4t1+t3
+		t5.Double(&t0).Double(&t5).Add(&t5, &t2) // 4t0+t2
+		t6.Add(&t3, &t5)                         // t3+t4
+		t7.Add(&t2, &t4)                         // t2+t4
+		s[4*i].Set(&t6)
+		s[4*i+1].Set(&t5)
+		s[4*i+2].Set(&t7)
+		s[4*i+3].Set(&t4)
 	}
 }
 
@@ -202,80 +203,25 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 // when Width = 0 mod 4 the matrix is filled with ones except on the diagonal
 func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 	switch h.params.Width {
-	case 16:
-		var sum fr.Element
-		sum.Set(&input[0])
-		for i := 1; i < h.params.Width; i++ {
-			sum.Add(&sum, &input[i])
+	case 8:
+		// at this stage t is supposed to be a multiple of 4
+		// the MDS matrix is circ(2M4,M4,..,M4)
+		h.matMulM4InPlace(input)
+		tmp := make([]fr.Element, 4)
+		for i := 0; i < h.params.Width/4; i++ {
+			tmp[0].Add(&tmp[0], &input[4*i])
+			tmp[1].Add(&tmp[1], &input[4*i+1])
+			tmp[2].Add(&tmp[2], &input[4*i+2])
+			tmp[3].Add(&tmp[3], &input[4*i+3])
 		}
-		// mul by diag16:
-		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/8, 1/2^24, -1/2^8, -1/8, -1/16, -1/2^24]
-		var temp fr.Element
-		input[0].Sub(&sum, temp.Double(&input[0]))
-		input[1].Add(&sum, &input[1])
-		input[2].Add(&sum, temp.Double(&input[2]))
-		temp.Set(&input[3]).Halve()
-		input[3].Add(&sum, &temp)
-		input[4].Add(&sum, temp.Double(&input[4]).Add(&temp, &input[4]))
-		input[5].Add(&sum, temp.Double(&input[5]).Double(&temp))
-		temp.Set(&input[6]).Halve()
-		input[6].Sub(&sum, &temp)
-		input[7].Sub(&sum, temp.Double(&input[7]).Add(&temp, &input[7]))
-		input[8].Sub(&sum, temp.Double(&input[8]).Double(&temp))
-		input[9].Add(&sum, temp.Mul2ExpNegN(&input[9], 8))
-		input[10].Add(&sum, temp.Mul2ExpNegN(&input[10], 3))
-		input[11].Add(&sum, temp.Mul2ExpNegN(&input[11], 24))
-		input[12].Sub(&sum, temp.Mul2ExpNegN(&input[12], 8))
-		input[13].Sub(&sum, temp.Mul2ExpNegN(&input[13], 3))
-		input[14].Sub(&sum, temp.Mul2ExpNegN(&input[14], 4))
-		input[15].Sub(&sum, temp.Mul2ExpNegN(&input[15], 24))
-		// naive version:
-		// for i := 0; i < h.params.Width; i++ {
-		// 	input[i].Mul(&input[i], &diag16[i]).
-		// 		Add(&input[i], &sum)
-		// }
-	case 24:
-		var sum fr.Element
-		sum.Set(&input[0])
-		for i := 1; i < h.params.Width; i++ {
-			sum.Add(&sum, &input[i])
+		for i := 0; i < h.params.Width/4; i++ {
+			input[4*i].Add(&input[4*i], &tmp[0])
+			input[4*i+1].Add(&input[4*i], &tmp[1])
+			input[4*i+2].Add(&input[4*i], &tmp[2])
+			input[4*i+3].Add(&input[4*i], &tmp[3])
 		}
-		// mul by diag24:
-		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/4, 1/8, 1/16, 1/32, 1/64, 1/2^24, -1/2^8, -1/8, -1/16, -1/32, -1/64, -1/2^7, -1/2^9, -1/2^24]
-		var temp fr.Element
-		input[0].Sub(&sum, temp.Double(&input[0]))
-		input[1].Add(&sum, &input[1])
-		input[2].Add(&sum, temp.Double(&input[2]))
-		temp.Set(&input[3]).Halve()
-		input[3].Add(&sum, &temp)
-		input[4].Add(&sum, temp.Double(&input[4]).Add(&temp, &input[4]))
-		input[5].Add(&sum, temp.Double(&input[5]).Double(&temp))
-		temp.Set(&input[6]).Halve()
-		input[6].Sub(&sum, &temp)
-		input[7].Sub(&sum, temp.Double(&input[7]).Add(&temp, &input[7]))
-		input[8].Sub(&sum, temp.Double(&input[8]).Double(&temp))
-		input[9].Add(&sum, temp.Mul2ExpNegN(&input[9], 8))
-		input[10].Add(&sum, temp.Mul2ExpNegN(&input[10], 2))
-		input[11].Add(&sum, temp.Mul2ExpNegN(&input[11], 3))
-		input[12].Add(&sum, temp.Mul2ExpNegN(&input[12], 4))
-		input[13].Add(&sum, temp.Mul2ExpNegN(&input[13], 5))
-		input[14].Add(&sum, temp.Mul2ExpNegN(&input[14], 6))
-		input[15].Add(&sum, temp.Mul2ExpNegN(&input[15], 24))
-		input[16].Sub(&sum, temp.Mul2ExpNegN(&input[16], 8))
-		input[17].Sub(&sum, temp.Mul2ExpNegN(&input[17], 3))
-		input[18].Sub(&sum, temp.Mul2ExpNegN(&input[18], 4))
-		input[19].Sub(&sum, temp.Mul2ExpNegN(&input[19], 5))
-		input[20].Sub(&sum, temp.Mul2ExpNegN(&input[20], 6))
-		input[21].Sub(&sum, temp.Mul2ExpNegN(&input[21], 7))
-		input[22].Sub(&sum, temp.Mul2ExpNegN(&input[22], 9))
-		input[23].Sub(&sum, temp.Mul2ExpNegN(&input[23], 24))
-		// naive version:
-		// for i := 0; i < h.params.Width; i++ {
-		// 	input[i].Mul(&input[i], &diag24[i]).
-		// 		Add(&input[i], &sum)
-		// }
 	default:
-		panic("only Width=16,24 are supported")
+		panic("only Width=8 is supported")
 	}
 }
 
