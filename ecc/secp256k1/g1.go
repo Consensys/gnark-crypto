@@ -181,9 +181,14 @@ func (p *G1Affine) IsInfinity() bool {
 
 // IsOnCurve returns true if the affine point p in on the curve.
 func (p *G1Affine) IsOnCurve() bool {
-	var point G1Jac
-	point.FromAffine(p)
-	return point.IsOnCurve() // call this function to handle infinity point
+	if p.IsInfinity() {
+		return true
+	}
+	var left, right fp.Element
+	left.Square(&p.Y)
+	right.Square(&p.X).Mul(&right, &p.X)
+	right.Add(&right, &bCurveCoeff)
+	return left.Equal(&right)
 }
 
 // IsInSubGroup returns true if the affine point p is in the correct subgroup, false otherwise.

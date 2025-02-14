@@ -187,9 +187,14 @@ func (p *G2Affine) IsInfinity() bool {
 
 // IsOnCurve returns true if the affine point p in on the curve.
 func (p *G2Affine) IsOnCurve() bool {
-	var point G2Jac
-	point.FromAffine(p)
-	return point.IsOnCurve() // call this function to handle infinity point
+	if p.IsInfinity() {
+		return true
+	}
+	var left, right fptower.E4
+	left.Square(&p.Y)
+	right.Square(&p.X).Mul(&right, &p.X)
+	right.Add(&right, &bTwistCurveCoeff)
+	return left.Equal(&right)
 }
 
 // IsInSubGroup returns true if the affine point p is in the correct subgroup, false otherwise.
@@ -482,12 +487,15 @@ func (p *G2Jac) IsOnCurve() bool {
 // and https://eprint.iacr.org/2022/352.pdf, sec. 4.2
 // ψ(p) = [x₀]P
 func (p *G2Jac) IsInSubGroup() bool {
+	if !p.IsOnCurve() {
+		return false
+	}
 	var res, tmp G2Jac
 	tmp.psi(p)
-	res.mulWindowed(p, &xGen).
+	res.mulBySeed(p).
 		AddAssign(&tmp)
 
-	return res.IsOnCurve() && res.Z.IsZero()
+	return res.Z.IsZero()
 
 }
 
@@ -523,6 +531,13 @@ func (p *G2Jac) mulWindowed(q *G2Jac, s *big.Int) *G2Jac {
 
 	return p
 
+}
+
+// mulBySeed multiplies the point q by the seed xGen in Jacobian coordinates
+// using an optimized addition chain.
+func (p *G2Jac) mulBySeed(q *G2Jac) *G2Jac {
+	p.mulWindowed(q, &xGen)
+	return p
 }
 
 // psi sets p to ψ(q) = u o π o u⁻¹ where u:E'→E is the isomorphism from the twist to the curve E and π is the Frobenius map.
@@ -631,10 +646,10 @@ func (p *G2Jac) ClearCofactor(q *G2Jac) *G2Jac {
 	// multiply by (3x⁴-3)*cofacor
 
 	var xg, xxg, xxxg, xxxxg, res, t G2Jac
-	xg.mulWindowed(q, &xGen).Neg(&xg).SubAssign(q)
-	xxg.mulWindowed(&xg, &xGen).Neg(&xxg)
-	xxxg.mulWindowed(&xxg, &xGen).Neg(&xxxg)
-	xxxxg.mulWindowed(&xxxg, &xGen).Neg(&xxxxg)
+	xg.mulBySeed(q).Neg(&xg).SubAssign(q)
+	xxg.mulBySeed(&xg).Neg(&xxg)
+	xxxg.mulBySeed(&xxg).Neg(&xxxg)
+	xxxxg.mulBySeed(&xxxg).Neg(&xxxxg)
 
 	res.Set(&xxxxg).
 		SubAssign(q)
