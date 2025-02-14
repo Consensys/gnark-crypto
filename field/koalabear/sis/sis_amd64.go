@@ -9,11 +9,6 @@ package sis
 
 import (
 	"github.com/consensys/gnark-crypto/field/koalabear"
-	"golang.org/x/sys/cpu"
-)
-
-var (
-	supportAVX512 = cpu.X86.HasAVX512 && cpu.X86.HasAVX512DQ && cpu.X86.HasAVX512VBMI2
 )
 
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r

@@ -11,6 +11,7 @@ import (
 
 	"fmt"
 	{{- if .HasASMKernel}}
+	"github.com/consensys/gnark-crypto/utils/cpu"
 	"encoding/binary"
 	{{- end}}
 )
@@ -239,7 +240,7 @@ func TestFFT(t *testing.T) {
 }
 {{- if .HasASMKernel}}
 func FuzzFFTAvx512(f *testing.F) {
-	if !supportAVX512 {
+	if !cpu.SupportAVX512 {
 		f.Skip("AVX512 not supported")
 	}
 

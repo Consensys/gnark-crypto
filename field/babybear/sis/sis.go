@@ -14,6 +14,7 @@ import (
 	"github.com/consensys/gnark-crypto/field/babybear"
 	"github.com/consensys/gnark-crypto/field/babybear/fft"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/utils/cpu"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -123,7 +124,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 			r.Domain.FFT(r.Ag[i], fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 		}
 	})
-	r.hasFast512_16 = supportAVX512 && r.Degree == 512 && r.LogTwoBound == 16
+	r.hasFast512_16 = cpu.SupportAVX512 && r.Degree == 512 && r.LogTwoBound == 16
 	if r.hasFast512_16 {
 		r.agShuffled = make([][]babybear.Element, len(r.Ag))
 		for i := range r.agShuffled {
