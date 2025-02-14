@@ -181,16 +181,19 @@ func (p *G1Affine) IsInfinity() bool {
 
 // IsOnCurve returns true if the affine point p in on the curve.
 func (p *G1Affine) IsOnCurve() bool {
-	var point G1Jac
-	point.FromAffine(p)
-	return point.IsOnCurve() // call this function to handle infinity point
+	if p.IsInfinity() {
+		return true
+	}
+	var left, right fp.Element
+	left.Square(&p.Y)
+	right.Square(&p.X).Mul(&right, &p.X)
+	right.Add(&right, &bCurveCoeff)
+	return left.Equal(&right)
 }
 
 // IsInSubGroup returns true if the affine point p is in the correct subgroup, false otherwise.
 func (p *G1Affine) IsInSubGroup() bool {
-	var _p G1Jac
-	_p.FromAffine(p)
-	return _p.IsInSubGroup()
+	return p.IsOnCurve()
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -513,6 +516,13 @@ func (p *G1Jac) mulWindowed(q *G1Jac, s *big.Int) *G1Jac {
 
 	return p
 
+}
+
+// mulBySeed multiplies the point q by the seed xGen in Jacobian coordinates
+// using an optimized addition chain.
+func (p *G1Jac) mulBySeed(q *G1Jac) *G1Jac {
+	p.mulWindowed(q, &xGen)
+	return p
 }
 
 // phi sets p to ϕ(a) where ϕ: (x,y) → (w x,y),

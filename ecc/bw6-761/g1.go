@@ -181,9 +181,14 @@ func (p *G1Affine) IsInfinity() bool {
 
 // IsOnCurve returns true if the affine point p in on the curve.
 func (p *G1Affine) IsOnCurve() bool {
-	var point G1Jac
-	point.FromAffine(p)
-	return point.IsOnCurve() // call this function to handle infinity point
+	if p.IsInfinity() {
+		return true
+	}
+	var left, right fp.Element
+	left.Square(&p.Y)
+	right.Square(&p.X).Mul(&right, &p.X)
+	right.Add(&right, &bCurveCoeff)
+	return left.Equal(&right)
 }
 
 // IsInSubGroup returns true if the affine point p is in the correct subgroup, false otherwise.
@@ -480,18 +485,20 @@ func (p *G1Jac) IsOnCurve() bool {
 // (x+1), (x³-x²+1). So we check that (x+1)p+(x³-x²+1)ϕ(p)
 // is the infinity.
 func (p *G1Jac) IsInSubGroup() bool {
-
+	if !p.IsOnCurve() {
+		return false
+	}
 	var res, phip G1Jac
 	phip.phi(p)
-	res.mulWindowed(&phip, &xGen).
+	res.mulBySeed(&phip).
 		SubAssign(&phip).
-		mulWindowed(&res, &xGen).
-		mulWindowed(&res, &xGen).
+		mulBySeed(&res).
+		mulBySeed(&res).
 		AddAssign(&phip)
 
-	phip.mulWindowed(p, &xGen).AddAssign(p).AddAssign(&res)
+	phip.mulBySeed(p).AddAssign(p).Neg(&phip)
 
-	return phip.IsOnCurve() && phip.Z.IsZero()
+	return phip.Equal(&res)
 
 }
 
@@ -527,6 +534,13 @@ func (p *G1Jac) mulWindowed(q *G1Jac, s *big.Int) *G1Jac {
 
 	return p
 
+}
+
+// mulBySeed multiplies the point q by the seed xGen in Jacobian coordinates
+// using an optimized addition chain.
+func (p *G1Jac) mulBySeed(q *G1Jac) *G1Jac {
+	p.mulWindowed(q, &xGen)
+	return p
 }
 
 // phi sets p to ϕ(a) where ϕ: (x,y) → (w x,y),
@@ -626,9 +640,9 @@ func (p *G1Jac) ClearCofactor(q *G1Jac) *G1Jac {
 	// https://eprint.iacr.org/2020/351.pdf
 	var points [4]G1Jac
 	points[0].Set(q)
-	points[1].mulWindowed(q, &xGen)
-	points[2].mulWindowed(&points[1], &xGen)
-	points[3].mulWindowed(&points[2], &xGen)
+	points[1].mulBySeed(q)
+	points[2].mulBySeed(&points[1])
+	points[3].mulBySeed(&points[2])
 
 	var scalars [7]big.Int
 	scalars[0].SetInt64(103)

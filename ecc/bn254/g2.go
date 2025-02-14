@@ -187,16 +187,34 @@ func (p *G2Affine) IsInfinity() bool {
 
 // IsOnCurve returns true if the affine point p in on the curve.
 func (p *G2Affine) IsOnCurve() bool {
-	var point G2Jac
-	point.FromAffine(p)
-	return point.IsOnCurve() // call this function to handle infinity point
+	if p.IsInfinity() {
+		return true
+	}
+	var left, right fptower.E2
+	left.Square(&p.Y)
+	right.Square(&p.X).Mul(&right, &p.X)
+	right.Add(&right, &bTwistCurveCoeff)
+	return left.Equal(&right)
 }
 
 // IsInSubGroup returns true if the affine point p is in the correct subgroup, false otherwise.
 func (p *G2Affine) IsInSubGroup() bool {
-	var _p G2Jac
+	if !p.IsOnCurve() {
+		return false
+	}
+	var a, b, c, res, _p G2Jac
 	_p.FromAffine(p)
-	return _p.IsInSubGroup()
+	a.mulBySeed(&_p)
+	b.psi(&a)
+	a.AddAssign(&_p)
+	res.psi(&b)
+	c.Set(&res).
+		AddAssign(&b).
+		AddAssign(&a)
+	res.psi(&res).
+		Double(&res)
+
+	return res.Equal(&c)
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -481,8 +499,11 @@ func (p *G2Jac) IsOnCurve() bool {
 // https://eprint.iacr.org/2022/348.pdf, sec. 3 and 5.1
 // [r]P == 0 <==> [x₀+1]P + ψ([x₀]P) + ψ²([x₀]P) = ψ³([2x₀]P)
 func (p *G2Jac) IsInSubGroup() bool {
+	if !p.IsOnCurve() {
+		return false
+	}
 	var a, b, c, res G2Jac
-	a.mulWindowed(p, &xGen)
+	a.mulBySeed(p)
 	b.psi(&a)
 	a.AddAssign(p)
 	res.psi(&b)
@@ -490,10 +511,9 @@ func (p *G2Jac) IsInSubGroup() bool {
 		AddAssign(&b).
 		AddAssign(&a)
 	res.psi(&res).
-		Double(&res).
-		SubAssign(&c)
+		Double(&res)
 
-	return res.IsOnCurve() && res.Z.IsZero()
+	return res.Equal(&c)
 }
 
 // mulWindowed computes the 2-bits windowed double-and-add scalar
@@ -528,6 +548,13 @@ func (p *G2Jac) mulWindowed(q *G2Jac, s *big.Int) *G2Jac {
 
 	return p
 
+}
+
+// mulBySeed multiplies the point q by the seed xGen in Jacobian coordinates
+// using an optimized addition chain.
+func (p *G2Jac) mulBySeed(q *G2Jac) *G2Jac {
+	p.mulWindowed(q, &xGen)
+	return p
 }
 
 // psi sets p to ψ(q) = u o π o u⁻¹ where u:E'→E is the isomorphism from the twist to the curve E and π is the Frobenius map.
@@ -635,7 +662,7 @@ func (p *G2Jac) ClearCofactor(q *G2Jac) *G2Jac {
 	// cf http://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf, 6.1
 	var points [4]G2Jac
 
-	points[0].mulWindowed(q, &xGen)
+	points[0].mulBySeed(q)
 
 	points[1].Double(&points[0]).
 		AddAssign(&points[0]).
