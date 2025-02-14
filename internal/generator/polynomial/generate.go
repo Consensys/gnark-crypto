@@ -8,7 +8,6 @@ import (
 )
 
 func Generate(conf config.FieldDependency, baseDir string, generateTests bool, bgen *bavard.BatchGenerator) error {
-
 	entries := []bavard.Entry{
 		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
 		{File: filepath.Join(baseDir, "polynomial.go"), Templates: []string{"polynomial.go.tmpl"}},

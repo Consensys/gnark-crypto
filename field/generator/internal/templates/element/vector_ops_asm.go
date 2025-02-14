@@ -4,6 +4,7 @@ const VectorOpsAmd64 = `
 
 import (
 	_ "{{.ASMPackagePath}}"
+	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
 // Add adds two vectors element-wise and stores the result in self.
@@ -38,7 +39,7 @@ func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
 		panic("vector.ScalarMul: vectors don't have the same length")
 	}
 	const maxN = (1 << 32) - 1
-	if !supportAvx512 || uint64(len(a)) >= maxN {
+	if !cpu.SupportAVX512 || uint64(len(a)) >= maxN {
 		// call scalarMulVecGeneric
 		scalarMulVecGeneric(*vector, a, b)
 		return
@@ -72,7 +73,7 @@ func (vector *Vector) Sum() (res {{.ElementName}}) {
 	}
 	const minN = 16*7 // AVX512 slower than generic for small n
 	const maxN = (1 << 32) - 1
-	if !supportAvx512 || n <= minN || n >= maxN {
+	if !cpu.SupportAVX512 || n <= minN || n >= maxN {
 		// call sumVecGeneric
 		sumVecGeneric(&res, *vector)
 		return
@@ -95,7 +96,7 @@ func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
 		panic("vector.InnerProduct: vectors don't have the same length")
 	}
 	const maxN = (1 << 32) - 1
-	if !supportAvx512 || n >= maxN {
+	if !cpu.SupportAVX512 || n >= maxN {
 		// call innerProductVecGeneric
 		// note; we could split the vector into smaller chunks and call innerProductVec
 		innerProductVecGeneric(&res, *vector, other)
@@ -120,7 +121,7 @@ func (vector *Vector) Mul(a, b Vector) {
 		return
 	}
 	const maxN = (1 << 32) - 1
-	if !supportAvx512 || n >= maxN {
+	if !cpu.SupportAVX512 || n >= maxN {
 		// call mulVecGeneric
 		mulVecGeneric(*vector, a, b)
 		return
@@ -146,6 +147,9 @@ var (
 
 //go:noescape
 func mulVec(res, a, b *{{.ElementName}}, n uint64, qInvNeg uint64)
+
+
+
 
 `
 
@@ -258,6 +262,7 @@ const VectorOpsAmd64F31 = `
 
 import (
 	_ "{{.ASMPackagePath}}"
+	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
 //go:noescape
@@ -278,6 +283,9 @@ func scalarMulVec(res, a, b *{{.ElementName}}, n uint64)
 //go:noescape
 func innerProdVec(t *uint64, a, b *{{.ElementName}}, n uint64)
 
+//go:noescape
+func butterflyMulVec(a, twiddles *{{.ElementName}}, m int)
+
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
@@ -288,7 +296,7 @@ func (vector *Vector) Add(a, b Vector) {
 	if n == 0 {
 		return
 	}
-	if !supportAvx512 {
+	if !cpu.SupportAVX512 {
 		// call addVecGeneric
 		addVecGeneric(*vector, a, b)
 		return
@@ -313,7 +321,7 @@ func (vector *Vector) Sub(a, b Vector) {
 	if n == 0 {
 		return
 	}
-	if !supportAvx512 {
+	if !cpu.SupportAVX512 {
 		// call subVecGeneric
 		subVecGeneric(*vector, a, b)
 		return
@@ -338,13 +346,13 @@ func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
 	if n == 0 {
 		return
 	}
-	if !supportAvx512 {
+	if !cpu.SupportAVX512 {
 		// call scalarMulVecGeneric
 		scalarMulVecGeneric(*vector, a, b)
 		return
 	}
 
-	const blockSize = 8
+	const blockSize = 16
 	scalarMulVec(&(*vector)[0], &a[0], b, n/blockSize)
 	if n % blockSize != 0 {
 		// call scalarMulVecGeneric on the rest
@@ -359,7 +367,7 @@ func (vector *Vector) Sum() (res {{.ElementName}}) {
 	if n == 0 {
 		return
 	}
-	if !supportAvx512 {
+	if !cpu.SupportAVX512 {
 		// call sumVecGeneric
 		sumVecGeneric(&res, *vector)
 		return
@@ -393,7 +401,7 @@ func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
 	if n != uint64(len(other)) {
 		panic("vector.InnerProduct: vectors don't have the same length")
 	}
-	if !supportAvx512 {
+	if !cpu.SupportAVX512 {
 		// call innerProductVecGeneric
 		innerProductVecGeneric(&res, *vector, other)
 		return
@@ -427,13 +435,13 @@ func (vector *Vector) Mul(a, b Vector) {
 	if n == 0 {
 		return
 	}
-	if !supportAvx512 {
+	if !cpu.SupportAVX512 {
 		// call mulVecGeneric
 		mulVecGeneric(*vector, a, b)
 		return
 	}
 
-	const blockSize = 8
+	const blockSize = 16
 	mulVec(&(*vector)[0], &a[0], &b[0], n/blockSize)
 	if n % blockSize != 0 {
 		// call mulVecGeneric on the rest
@@ -441,7 +449,4 @@ func (vector *Vector) Mul(a, b Vector) {
 		mulVecGeneric((*vector)[start:], a[start:], b[start:])
 	}
 }
-
-
-
 `

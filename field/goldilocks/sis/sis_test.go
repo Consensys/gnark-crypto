@@ -12,7 +12,6 @@ import (
 	"math/bits"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/consensys/gnark-crypto/field/goldilocks"
 	"github.com/consensys/gnark-crypto/field/goldilocks/fft"
@@ -167,39 +166,6 @@ func makeKeyDeterministic(t *testing.T, sis *RSis, _seed int64) {
 	}
 }
 
-const (
-	LATENCY_MUL_FIELD_NS int = 15
-	LATENCY_ADD_FIELD_NS int = 4
-)
-
-// Estimate the theoretical performances that are achievable using ring-SIS
-// operations. The time is obtained by counting the number of additions and
-// multiplications occurring in the computation. This does not account for the
-// possibilities to use SIMD instructions or for cache-locality issues. Thus, it
-// does not represents a maximum even though it returns a good idea of what is
-// achievable . This returns performances in term of ns/field. This also does not
-// account for the time taken for "limb-splitting" the input.
-func estimateSisTheory(p sisParams) float64 {
-
-	// Since the FFT occurs over a coset, we need to multiply all the coefficients
-	// of the input by some coset factors (for an entire polynomial)
-	timeCosetShift := (1 << p.logTwoDegree) * LATENCY_MUL_FIELD_NS
-
-	// The two additions are from the butterfly, and the multiplication represents
-	// the one by the twiddle. (for an entire polynomial)
-	timeFFT := (1 << p.logTwoDegree) * p.logTwoDegree * (2*LATENCY_ADD_FIELD_NS + LATENCY_MUL_FIELD_NS)
-
-	// Time taken to multiply by the key and accumulate (for an entire polynomial)
-	timeMulAddKey := (1 << p.logTwoDegree) * (LATENCY_MUL_FIELD_NS + LATENCY_ADD_FIELD_NS)
-
-	// Total computation time for an entire polynomial
-	totalTimePoly := timeCosetShift + timeFFT + timeMulAddKey
-
-	// Convert this into a time per input field
-	r := totalTimePoly * goldilocks.Bits / p.logTwoBound / (1 << p.logTwoDegree)
-	return float64(r)
-}
-
 func BenchmarkSIS(b *testing.B) {
 
 	// max nb field elements to hash
@@ -217,13 +183,13 @@ func BenchmarkSIS(b *testing.B) {
 	for _, param := range params128Bits {
 		for n := 1 << 10; n <= nbInputs; n <<= 1 {
 			in := inputs[:n]
-			benchmarkSIS(b, in, false, param.logTwoBound, param.logTwoDegree, estimateSisTheory(param))
+			benchmarkSIS(b, in, false, param.logTwoBound, param.logTwoDegree)
 		}
 
 	}
 }
 
-func benchmarkSIS(b *testing.B, input []goldilocks.Element, sparse bool, logTwoBound, logTwoDegree int, theoretical float64) {
+func benchmarkSIS(b *testing.B, input []goldilocks.Element, sparse bool, logTwoBound, logTwoDegree int) {
 	b.Helper()
 
 	n := len(input)
@@ -235,6 +201,9 @@ func benchmarkSIS(b *testing.B, input []goldilocks.Element, sparse bool, logTwoB
 	benchName += fmt.Sprintf("inputs=%v/log2-bound=%v/log2-degree=%v", n, logTwoBound, logTwoDegree)
 
 	b.Run(benchName, func(b *testing.B) {
+		// report the throughput in MB/s
+		b.SetBytes(int64(len(input)) * goldilocks.Bytes)
+
 		instance, err := NewRSis(0, logTwoDegree, logTwoBound, n)
 		if err != nil {
 			b.Fatal(err)
@@ -242,26 +211,9 @@ func benchmarkSIS(b *testing.B, input []goldilocks.Element, sparse bool, logTwoB
 
 		res := make([]goldilocks.Element, 1<<logTwoDegree)
 
-		// We introduce a custom metric which is the time per field element
-		// Since the benchmark object allows to report extra meta but does
-		// not allow accessing them. We measure the time ourself.
-
-		startTime := time.Now()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			err = instance.Hash(input, res)
-			if err != nil {
-				b.Fatal(err)
-			}
+			_ = instance.Hash(input, res)
 		}
-		b.StopTimer()
-
-		totalDuration := time.Since(startTime)
-		nsPerField := totalDuration.Nanoseconds() / int64(b.N) / int64(n)
-
-		b.ReportMetric(float64(nsPerField), "ns/field")
-
-		b.ReportMetric(theoretical, "ns/field(theory)")
-
 	})
 }
