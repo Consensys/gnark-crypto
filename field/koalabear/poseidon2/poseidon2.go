@@ -229,11 +229,6 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 		input[13].Sub(&sum, temp.Mul2ExpNegN(&input[13], 3))
 		input[14].Sub(&sum, temp.Mul2ExpNegN(&input[14], 4))
 		input[15].Sub(&sum, temp.Mul2ExpNegN(&input[15], 24))
-		// naive version:
-		// for i := 0; i < h.params.Width; i++ {
-		// 	input[i].Mul(&input[i], &diag16[i]).
-		// 		Add(&input[i], &sum)
-		// }
 	case 24:
 		var sum fr.Element
 		sum.Set(&input[0])
@@ -261,19 +256,14 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 		input[13].Add(&sum, temp.Mul2ExpNegN(&input[13], 5))
 		input[14].Add(&sum, temp.Mul2ExpNegN(&input[14], 6))
 		input[15].Add(&sum, temp.Mul2ExpNegN(&input[15], 24))
-		input[16].Sub(&sum, temp.Mul2ExpNegN(&input[16], 8))
-		input[17].Sub(&sum, temp.Mul2ExpNegN(&input[17], 3))
-		input[18].Sub(&sum, temp.Mul2ExpNegN(&input[18], 4))
-		input[19].Sub(&sum, temp.Mul2ExpNegN(&input[19], 5))
-		input[20].Sub(&sum, temp.Mul2ExpNegN(&input[20], 6))
-		input[21].Sub(&sum, temp.Mul2ExpNegN(&input[21], 7))
-		input[22].Sub(&sum, temp.Mul2ExpNegN(&input[22], 9))
-		input[23].Sub(&sum, temp.Mul2ExpNegN(&input[23], 24))
-		// naive version:
-		// for i := 0; i < h.params.Width; i++ {
-		// 	input[i].Mul(&input[i], &diag24[i]).
-		// 		Add(&input[i], &sum)
-		// }
+		input[16].Sub(&sum, temp.Mul2ExpNegN(&input[16], 8))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
+		input[17].Sub(&sum, temp.Mul2ExpNegN(&input[17], 3))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
+		input[18].Sub(&sum, temp.Mul2ExpNegN(&input[18], 4))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
+		input[19].Sub(&sum, temp.Mul2ExpNegN(&input[19], 5))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
+		input[20].Sub(&sum, temp.Mul2ExpNegN(&input[20], 6))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
+		input[21].Sub(&sum, temp.Mul2ExpNegN(&input[21], 7))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
+		input[22].Sub(&sum, temp.Mul2ExpNegN(&input[22], 9))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
+		input[23].Sub(&sum, temp.Mul2ExpNegN(&input[23], 24)) //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
 	default:
 		panic("only Width=16,24 are supported")
 	}
