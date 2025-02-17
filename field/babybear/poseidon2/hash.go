@@ -1,18 +1,8 @@
 package poseidon2
 
 import (
-	"hash"
-
 	fr "github.com/consensys/gnark-crypto/field/babybear"
-	gnarkHash "github.com/consensys/gnark-crypto/hash"
 )
-
-// NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard
-// construction with the default parameters.
-func NewMerkleDamgardHasher() gnarkHash.StateStorer {
-	return gnarkHash.NewMerkleDamgardHasher(
-		&Permutation{params: NewDefaultParameters()}, make([]byte, fr.Bytes))
-}
 
 // NewParameters returns a new set of parameters for the Poseidon2 permutation.
 // The default parameters are,
@@ -35,10 +25,6 @@ var diag16 [16]fr.Element
 var diag24 [24]fr.Element
 
 func init() {
-	gnarkHash.RegisterHash(gnarkHash.POSEIDON2_BABYBEAR, func() hash.Hash {
-		return NewMerkleDamgardHasher()
-	})
-
 	// diagonal of internal matrix when Width=16
 	diag16[0].SetUint64(2013265919)
 	diag16[1].SetUint64(1)
