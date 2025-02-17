@@ -233,21 +233,12 @@ func InterpolateOnRange(v []fr.Element) Polynomial {
 }
 
 // lagrange bases used by InterpolateOnRange
-var (
-	lagrangeBasisLock sync.RWMutex
-	lagrangeBasis     [][]Polynomial
-)
+var lagrangeBasis sync.Map
 
 func getLagrangeBasis(domainSize uint8) []Polynomial {
-	lagrangeBasisLock.RLock()
-	if int(domainSize) < len(lagrangeBasis) {
-		res := lagrangeBasis[domainSize]
-		if res != nil {
-			lagrangeBasisLock.RUnlock()
-			return res
-		}
+	if res, ok := lagrangeBasis.Load(domainSize); ok {
+		return res.([]Polynomial)
 	}
-	lagrangeBasisLock.RUnlock()
 
 	// not found. compute
 	var res []Polynomial
@@ -257,16 +248,7 @@ func getLagrangeBasis(domainSize uint8) []Polynomial {
 		res = []Polynomial{make(Polynomial, 1)}
 		res[0][0].SetOne()
 	}
-
-	// cache result
-	lagrangeBasisLock.Lock()
-	if int(domainSize) >= len(lagrangeBasis) {
-		for i := len(lagrangeBasis); i <= int(domainSize); i++ {
-			lagrangeBasis = append(lagrangeBasis, nil)
-		}
-	}
-	lagrangeBasis[domainSize] = res
-	lagrangeBasisLock.Unlock()
+	lagrangeBasis.Store(domainSize, res)
 
 	return res
 }
