@@ -36,6 +36,21 @@ func MulBy{{$i}}(x *{{$.ElementName}}) {
 
 {{- end}}
 
+{{- if $.F31}}
+// Mul2ExpNegN multiplies x by -1/2^n
+//
+// Since the Montgomery constant is 2^32, the Montgomery form of 1/2^n is
+// 2^{32-n}. Montgomery reduction works provided the input is < 2^32 so this
+// works for 0 <= n <= 32.
+//
+// N.B. n must be < 33.
+func (z *Element) Mul2ExpNegN(x *Element, n uint32) *Element {
+       v := uint64(x[0]) << (32 - n)
+       z[0] = montReduce(v)
+       return z
+}
+{{- end}}
+
 func fromMont(z *{{.ElementName}} ) {
 	_fromMontGeneric(z)
 }

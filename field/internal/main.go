@@ -34,6 +34,7 @@ func main() {
 			generator.WithASM(&config.Assembly{BuildDir: asmDirIncludePath, IncludeDir: asmDirIncludePath}),
 			generator.WithFFT(&config.FFT{}), // TODO @gbotrel
 			generator.WithSIS(),
+			generator.WithPoseidon2(),
 		); err != nil {
 			panic(err)
 		}
