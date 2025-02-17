@@ -9,6 +9,56 @@ import (
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 )
 
+func TestMulMulInternalInPlaceWidth16(t *testing.T) {
+	var input, expected [16]fr.Element
+	for i := 0; i < 16; i++ {
+		input[i].SetRandom()
+	}
+
+	expected = input
+
+	h := NewPermutation(16, 6, 12)
+	h.matMulInternalInPlace(expected[:])
+
+	var sum fr.Element
+	sum.Set(&input[0])
+	for i := 1; i < h.params.Width; i++ {
+		sum.Add(&sum, &input[i])
+	}
+	for i := 0; i < h.params.Width; i++ {
+		input[i].Mul(&input[i], &diag16[i]).
+			Add(&input[i], &sum)
+		if !input[i].Equal(&expected[i]) {
+			t.Fatal("mismatch error")
+		}
+	}
+}
+
+func TestMulMulInternalInPlaceWidth24(t *testing.T) {
+	var input, expected [24]fr.Element
+	for i := 0; i < 24; i++ {
+		input[i].SetRandom()
+	}
+
+	expected = input
+
+	h := NewPermutation(24, 6, 19)
+	h.matMulInternalInPlace(expected[:])
+
+	var sum fr.Element
+	sum.Set(&input[0])
+	for i := 1; i < h.params.Width; i++ {
+		sum.Add(&sum, &input[i])
+	}
+	for i := 0; i < h.params.Width; i++ {
+		input[i].Mul(&input[i], &diag24[i]).
+			Add(&input[i], &sum)
+		if !input[i].Equal(&expected[i]) {
+			t.Fatal("mismatch error")
+		}
+	}
+}
+
 func TestPoseidon2Width16(t *testing.T) {
 	var input, expected [16]fr.Element
 	input[0].SetUint64(894848333)

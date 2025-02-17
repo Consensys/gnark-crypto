@@ -2143,6 +2143,41 @@ func TestElementJSON(t *testing.T) {
 	assert.Equal(s, decodedS, " json with strings  -> element  failed")
 
 }
+func TestElementMul2ExpNegN(t *testing.T) {
+	t.Parallel()
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("x * 2⁻ᵏ == Mul2ExpNegN(x, k) for 0 <= k <= 32", prop.ForAll(
+		func(a testPairElement) bool {
+
+			var b, e, two Element
+			var c [33]Element
+			two.SetUint64(2)
+			for n := 0; n < 33; n++ {
+				e.Exp(two, big.NewInt(int64(n))).Inverse(&e)
+				b.Mul(&a.element, &e)
+				c[n].Mul2ExpNegN(&a.element, uint32(n))
+				if !c[n].Equal(&b) {
+					return false
+				}
+			}
+			return true
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
 
 type testPairElement struct {
 	element Element
