@@ -23,13 +23,6 @@ func RegisterHash(h Hash, new func() hash.Hash) {
 // Hash defines an unique identifier for a hash function.
 type Hash uint
 
-/*
-./ecc/bls24-317/fr/poseidon2/hash.go:   gnarkHash.RegisterHash(gnarkHash.POSEIDON2_BLS24_317, func() hash.Hash {
-		./ecc/bw6-761/fr/poseidon2/hash.go:     gnarkHash.RegisterHash(gnarkHash.POSEIDON2_BW6_761, func() hash.Hash {
-				./ecc/bls24-315/fr/poseidon2/hash.go:   gnarkHash.RegisterHash(gnarkHash.POSEIDON2_BLS24_315, func() hash.Hash {
-							./ecc/bw6-633/fr/poseidon2/hash.go:     gnarkHash.RegisterHash(gnarkHash.POSEIDON2_BW6_633, func() hash.Hash {})
-*/
-
 const (
 	// MIMC_BN254 is the MiMC hash function for the BN254 curve.
 	MIMC_BN254 Hash = iota
