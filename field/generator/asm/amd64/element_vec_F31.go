@@ -402,9 +402,8 @@ func (f *FFAmd64) generateScalarMulVecF31() {
 
 // innerProdVec res = sum(a * b)
 func (f *FFAmd64) generateInnerProdVecF31() {
-	// TODO @gbotrel update to process 16 by 16 like mul.
 	f.Comment("innerProdVec(t *uint64, a,b *[]uint32, n uint64) res = sum(a[0...n] * b[0...n])")
-	f.Comment("n is the number of blocks of 8 elements to process")
+	f.Comment("n is the number of blocks of 16 elements to process")
 	const argSize = 4 * 8
 	stackSize := f.StackSize(f.NbWords*4+2, 0, 0)
 	registers := f.FnHeader("innerProdVec", stackSize, argSize, amd64.DX, amd64.AX)
@@ -423,29 +422,17 @@ func (f *FFAmd64) generateInnerProdVecF31() {
 	len := registers.Pop()
 
 	// AVX512 registers
-	a := registers.PopV()
-	b := registers.PopV()
-	acc := registers.PopV()
 	q := registers.PopV()
 	qInvNeg := registers.PopV()
-	PL := registers.PopV()
-	LSW := registers.PopV()
-	P := registers.PopV()
+
+	// load q in Z3
+	f.MOVD("$const_q", amd64.AX)
+	f.VPBROADCASTD(amd64.AX, q)
+	f.MOVD("$const_qInvNeg", amd64.AX)
+	f.VPBROADCASTD(amd64.AX, qInvNeg)
 
 	loop := f.NewLabel("loop")
 	done := f.NewLabel("done")
-
-	f.MOVD("$const_q", amd64.AX)
-	f.VPBROADCASTQ(amd64.AX, q)
-	f.MOVD("$const_qInvNeg", amd64.AX)
-	f.VPBROADCASTQ(amd64.AX, qInvNeg)
-
-	f.Comment("Create mask for low dword in each qword")
-	f.VPCMPEQB("Y0", "Y0", "Y0")
-	f.VPMOVZXDQ("Y0", LSW)
-
-	// zeroize the accumulators
-	f.VXORPS(acc, acc, acc, "acc = 0")
 
 	// load arguments
 	f.MOVQ("t+0(FP)", addrT)
@@ -453,41 +440,67 @@ func (f *FFAmd64) generateInnerProdVecF31() {
 	f.MOVQ("b+16(FP)", addrB)
 	f.MOVQ("n+24(FP)", len)
 
+	a := registers.PopV()
+	b := registers.PopV()
+	b1 := registers.PopV()
+	aOdd := registers.PopV()
+	bOdd := registers.PopV()
+	b0 := registers.PopV()
+	PL0 := registers.PopV()
+	PL1 := registers.PopV()
+
+	acc0 := registers.PopV()
+	acc1 := registers.PopV()
+
+	f.MOVQ(uint64(0b0101010101010101), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
+	// zeroize the accumulators
+	f.VXORPS(acc0, acc0, acc0, "acc0 = 0")
+	f.VMOVDQA64(acc0, acc1, "acc1 = 0")
+
 	f.LABEL(loop)
 
 	f.TESTQ(len, len)
 	f.JEQ(done, "n == 0, we are done")
 
-	f.VPMOVZXDQ(addrA.At(0), a)
-	f.VPMOVZXDQ(addrB.At(0), b)
+	// a = a * b
+	f.VMOVDQU32(addrA.At(0), a)
+	f.VMOVDQU32(addrB.At(0), b)
 
-	f.VPMULUDQ(a, b, P, "P = a * b")
-	f.VPANDQ(LSW, P, PL, "m = uint32(P)")
-	f.VPMULUDQ(PL, qInvNeg, PL, "m = m * qInvNeg")
-	f.VPANDQ(LSW, PL, PL, "m = uint32(m)")
-	f.VPMULUDQ(PL, q, PL, "m = m * q")
-	f.VPADDQ(P, PL, P, "P = P + m")
-	f.VPSRLQ("$32", P, P, "P = P >> 32")
+	f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
+	f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
 
-	// we can accumulate ~2**32 32bits values into a single accumulator without overflow;
-	// that gives us a maximum of 2**32 * 8 = 2**35 32bits values to sum safely.
-	f.Comment("accumulate P into acc, P is in [0, 2q] on 32bits max")
-	f.VPADDQ(P, acc, acc, "acc += P")
+	f.VPMULUDQ(a, b, b0)
+	f.VPMULUDQ(aOdd, bOdd, b1)
+	f.VPMULUDQ(b0, qInvNeg, PL0)
+	f.VPMULUDQ(b1, qInvNeg, PL1)
+
+	f.VPMULUDQ(PL0, q, PL0)
+	f.VPMULUDQ(PL1, q, PL1)
+
+	f.VPADDQ(b0, PL0, b0)
+	f.VPSRLQ("$32", b0, b0)
+	f.VPADDQ(b0, acc0, acc0)
+	f.VPADDQ(b1, PL1, b1)
+	f.VPSRLQ("$32", b1, b1)
+	f.VPADDQ(b1, acc1, acc1)
 
 	f.Comment("increment pointers to visit next element")
-	f.ADDQ("$32", addrA)
-	f.ADDQ("$32", addrB)
+	f.ADDQ("$64", addrA)
+	f.ADDQ("$64", addrB)
 	f.DECQ(len, "decrement n")
 	f.JMP(loop)
 
 	f.LABEL(done)
 
 	// store t into res
-	f.VMOVDQU64(acc, addrT.At(0), "res = acc")
+	f.VPADDQ(acc1, acc0, acc1, "acc1 += acc0")
+	f.VMOVDQU64(acc1, addrT.At(0), "res = acc1")
 
 	f.RET()
 
-	f.Push(&registers, addrA, addrT, len)
+	f.Push(&registers, addrA, addrB, addrT, len)
 }
 
 func (f *FFAmd64) generateFFTDefinesF31() {

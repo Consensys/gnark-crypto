@@ -407,7 +407,7 @@ func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
 		return
 	}
 
-	const blockSize = 8
+	const blockSize = 16
 	var t [8]uint64 // stores the accumulators (not reduced mod q)
 	innerProdVec(&t[0], &(*vector)[0], &other[0], n/blockSize)
 	// we reduce the accumulators mod q and add to res
