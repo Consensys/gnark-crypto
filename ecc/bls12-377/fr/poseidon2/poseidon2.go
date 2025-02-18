@@ -278,24 +278,42 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 	return nil
 }
 
-// Compress applies the permutation on left and right and returns the right lane
-// of the result. Panics if the permutation instance is not initialized with a
-// width of 2.
+// Compress uses the permutation to compress the left and right input in a collision resistant manner.
+// left and right must each be concatenations of t/2 fr.Elements, where t is the width of the permutation.
+// The result is the concatenation of t/2 fr.Elements.
 func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
-	if h.params.Width != 2 {
-		return nil, errors.New("need a 2-1 function")
+	n := h.params.Width / 2
+	if h.params.Width != 2*n {
+		return nil, errors.New("need a  function")
 	}
-	var x [2]fr.Element
 
-	if err := x[0].SetBytesCanonical(left); err != nil {
-		return nil, err
+	desiredLen := n * fr.Bytes
+	if len(left) != desiredLen || len(right) != desiredLen {
+		return nil, fmt.Errorf("left input should be %d bytes", desiredLen)
 	}
-	if err := x[1].SetBytesCanonical(right); err != nil {
-		return nil, err
+
+	reader := io.MultiReader(bytes.NewReader(left), bytes.NewReader(right))
+	x := make([]fr.Element, h.params.Width)
+	var buf [fr.Bytes]byte
+
+	for i := range x {
+		if _, err := io.ReadFull(reader, buf[:]); err != nil {
+			return nil, err
+		}
+		if err := x[i].SetBytes(buf[:]); err != nil {
+			return nil, err
+		}
 	}
+
+	res := slices.Clone(x[n:]) // saved to feed forward later
 	if err := h.Permutation(x[:]); err != nil {
 		return nil, err
 	}
-	res := x[1].Bytes()
-	return res[:], nil
+
+	outBytes := make([]byte, n*fr.Bytes)
+	for i := range res {
+		res[i].Add(&res[i], &x[n+i]).FillBytes(outBytes[i*fr.Bytes : (i+1)*fr.Bytes])
+	}
+
+	return outBytes, nil
 }
