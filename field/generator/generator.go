@@ -60,6 +60,13 @@ func GenerateFF(F *config.Field, outputDir string, options ...Option) error {
 		}
 	}
 
+	// generate Poseidon2
+	if cfg.HasPoseidon2() {
+		if err := generatePoseidon2(F, outputDir); err != nil {
+			return err
+		}
+	}
+
 	return runFormatters(outputDir)
 }
 

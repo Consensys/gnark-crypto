@@ -7,9 +7,14 @@ import (
 type Option func(*generatorConfig)
 
 type generatorConfig struct {
-	fftConfig *config.FFT
-	asmConfig *config.Assembly
-	withSIS   bool
+	fftConfig     *config.FFT
+	asmConfig     *config.Assembly
+	withSIS       bool
+	withPoseidon2 bool
+}
+
+func (cfg *generatorConfig) HasPoseidon2() bool {
+	return cfg.withPoseidon2
 }
 
 func (cfg *generatorConfig) HasSIS() bool {
@@ -31,6 +36,12 @@ func (cfg *generatorConfig) HasAMD64() bool {
 func WithSIS() Option {
 	return func(opt *generatorConfig) {
 		opt.withSIS = true
+	}
+}
+
+func WithPoseidon2() Option {
+	return func(opt *generatorConfig) {
+		opt.withPoseidon2 = true
 	}
 }
 
