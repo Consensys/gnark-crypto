@@ -26,14 +26,16 @@ jobs:
                 state: "closed"
               });
 
-              await github.rest.issues.createComment({
+             await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: prNumber,
                 body: `
-                  Thank you for your pull request and changes.
-                  Due to a change in our contribution guideline policy, I am closing this pull request as it does not meet the contribution criteria.
-                  Please [see here for more details](https://github.com/Consensys/gnark-crypto/blob/master/CONTRIBUTING.md#guidelines-for-non-code-and-other-trivial-contributions)
+                  **Thank you for your pull request and changes.**
+
+                  Due to a change in our contribution guideline policy, we are closing this pull request as it does not meet the contribution criteria.
+
+                  Please [see here for more details](https://github.com/Consensys/gnark-crypto/blob/master/CONTRIBUTING.md#guidelines-for-non-code-and-other-trivial-contributions).
                 `
               });
             }
