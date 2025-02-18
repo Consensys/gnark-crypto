@@ -1,8 +1,6 @@
 package vortex
 
 import (
-	"hash"
-
 	"github.com/consensys/gnark-crypto/field/koalabear/fft"
 	"github.com/consensys/gnark-crypto/field/koalabear/sis"
 )
@@ -13,7 +11,7 @@ import (
 type Params struct {
 	// RSis stores the public parameters of the ring-SIS instance in use to
 	// hash the columns.
-	Key sis.RSis
+	Key *sis.RSis
 	// ReedSolomonInvRate corresponds to the inverse-rate of the Reed-Solomon code
 	// in use to encode the rows of the committed matrices. This is a power of
 	// two and can't be one.
@@ -32,13 +30,32 @@ type Params struct {
 	// polynomial p is appended whose size if not 0 mod MaxNbRows, it is padded
 	// as p' so that len(p')=0 mod MaxNbRows.
 	MaxNbRows int
-	// HashFunc is an optional function that returns a `hash.Hash` it is used
-	// when vortex is used in "Merkle-tree" mode. In this case, the hash
-	// function is mandatory.
-	HashFunc func() hash.Hash
-	// NoSisHashFunc is an optional hash function that is used in place of the
-	// SIS. If it is set,
-	NoSisHashFunc func() hash.Hash
+	// NumSelectedColumns indicates the number of columns to open in the
+	// column opening phase.
+	NumSelectedColumns int
+}
+
+// NewParams constructs a new set of public parameters.
+func NewParams(
+	numColumns int,
+	maxNumRow int,
+	sisParams *sis.RSis,
+	reedSolomonInvRate int,
+	numSelectedColumns int,
+) *Params {
+
+	return &Params{
+		Key: sisParams,
+		Domains: [2]*fft.Domain{
+			fft.NewDomain(uint64(numColumns)),
+			fft.NewDomain(uint64(numColumns * reedSolomonInvRate)),
+		},
+		ReedSolomonInvRate: reedSolomonInvRate,
+		NbColumns:          numColumns,
+		MaxNbRows:          maxNumRow,
+		NumSelectedColumns: numSelectedColumns,
+	}
+
 }
 
 // NbEncodedColumns returns the number of columns of the matrix *after* the encoding
