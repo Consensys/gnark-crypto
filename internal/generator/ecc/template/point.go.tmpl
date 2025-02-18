@@ -211,16 +211,72 @@ func (p *{{ $TAffine }}) IsInfinity() bool {
 
 // IsOnCurve returns true if the affine point p in on the curve.
 func (p *{{ $TAffine }}) IsOnCurve() bool {
-	var point {{ $TJacobian }}
-	point.FromAffine(p)
-	return point.IsOnCurve() // call this function to handle infinity point
+    if p.IsInfinity() {
+		return true
+	}
+	var left, right  {{.CoordType}}
+	left.Square(&p.Y)
+	right.Square(&p.X).Mul(&right, &p.X)
+	{{- if eq .PointName "g1"}}
+    right.Add(&right, &bCurveCoeff)
+    {{- else}}
+    right.Add(&right, &bTwistCurveCoeff)
+    {{- end}}
+	return left.Equal(&right)
 }
 
 // IsInSubGroup returns true if the affine point p is in the correct subgroup, false otherwise.
 func (p *{{ $TAffine }}) IsInSubGroup() bool {
+{{- if eq .Name "bn254"}}
+    {{- if eq .PointName "g1"}}
+    return p.IsOnCurve()
+    {{- else if eq .PointName "g2"}}
+    if !p.IsOnCurve() {
+        return false
+    }
+    var a, b, c, res, _p {{ $TJacobian }}
+	_p.FromAffine(p)
+    a.mulBySeed(&_p)
+    b.psi(&a)
+    a.AddAssign(&_p)
+    res.psi(&b)
+    c.Set(&res).
+        AddAssign(&b).
+        AddAssign(&a)
+    res.psi(&res).
+        Double(&res)
+
+    return res.Equal(&c)
+    {{- end}}
+{{- else if eq .Name "bls12-381"}}
+    {{- if eq .PointName "g1"}}
+    if !p.IsOnCurve() {
+        return false
+    }
+    var res, _p {{ $TJacobian }}
+	_p.FromAffine(p)
+    res.phi(&_p).
+        mulBySeed(&res).
+        mulBySeed(&res).
+        Neg(&res)
+
+    return res.Equal(&_p)
+    {{- else if eq .PointName "g2"}}
+    if !p.IsOnCurve() {
+        return false
+    }
+    var _p, res, img {{ $TJacobian }}
+	_p.FromAffine(p)
+    img.psi(&_p)
+    res.mulBySeed(&_p).Neg(&res)
+
+    return res.Equal(&img)
+{{- end}}
+{{- else}}
 	var _p {{ $TJacobian }}
 	_p.FromAffine(p)
 	return _p.IsInSubGroup()
+{{- end}}
 }
 
 
@@ -558,8 +614,11 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
         // https://eprint.iacr.org/2022/348.pdf, sec. 3 and 5.1
         // [r]P == 0 <==> [x₀+1]P + ψ([x₀]P) + ψ²([x₀]P) = ψ³([2x₀]P)
 		func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+            if !p.IsOnCurve() {
+                return false
+            }
             var a, b, c, res G2Jac
-            a.mulWindowed(p, &xGen)
+            a.mulBySeed(p)
             b.psi(&a)
             a.AddAssign(p)
             res.psi(&b)
@@ -567,10 +626,9 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
                 AddAssign(&b).
                 AddAssign(&a)
             res.psi(&res).
-                Double(&res).
-            SubAssign(&c)
+                Double(&res)
 
-            return res.IsOnCurve() && res.Z.IsZero()
+            return res.Equal(&c)
 		}
 	{{- end}}
 {{else if eq .Name "bw6-761"}}
@@ -582,24 +640,28 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 	// (x+1), (x³-x²+1). So we check that (x+1)p+(x³-x²+1)ϕ(p)
 	// is the infinity.
 	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
-
+        if !p.IsOnCurve() {
+            return false
+        }
 		var res, phip {{ $TJacobian }}
 		phip.phi(p)
-		res.mulWindowed(&phip, &xGen).
+		res.mulBySeed(&phip).
 			SubAssign(&phip).
-			mulWindowed(&res, &xGen).
-			mulWindowed(&res, &xGen).
+			mulBySeed(&res).
+			mulBySeed(&res).
 			AddAssign(&phip)
 
-		phip.mulWindowed(p, &xGen).AddAssign(p).AddAssign(&res)
+		phip.mulBySeed(p).AddAssign(p).Neg(&phip)
 
-		return phip.IsOnCurve() && phip.Z.IsZero()
+		return phip.Equal(&res)
     {{ else}}
 	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
-
+        if !p.IsOnCurve() {
+            return false
+        }
 		var res {{ $TJacobian }}
         res.mulWindowed(p, fr.Modulus())
-		return res.IsOnCurve() && res.Z.IsZero()
+		return res.Z.IsZero()
     {{ end}}
 
 	}
@@ -608,13 +670,15 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
     {{ if .GLV}}
     // 3r P = (x+1)ϕ(P) + (-x^5 + x⁴ + x)P
 	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
-
+        if !p.IsOnCurve() {
+            return false
+        }
         var uP, u4P, u5P, q, r {{ $TJacobian }}
-        uP.mulWindowed(p, &xGen)
-        u4P.mulWindowed(&uP, &xGen).
-            mulWindowed(&u4P, &xGen).
-            mulWindowed(&u4P, &xGen)
-        u5P.mulWindowed(&u4P, &xGen)
+        uP.mulBySeed(p)
+        u4P.mulBySeed(&uP).
+            mulBySeed(&u4P).
+            mulBySeed(&u4P)
+        u5P.mulBySeed(&u4P)
         q.Set(p).SubAssign(&uP)
         r.phi(&q).SubAssign(&uP).
             AddAssign(&u4P).
@@ -622,11 +686,13 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
     {{ else}}
 	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
-
+        if !p.IsOnCurve() {
+            return false
+        }
         var r {{ $TJacobian }}
         r.mulWindowed(p, fr.Modulus())
     {{ end}}
-		return r.IsOnCurve() && r.Z.IsZero()
+		return r.Z.IsZero()
 	}
 {{else if or (eq .Name "bls24-315") (eq .Name "bls24-317")}}
 	{{- if eq .PointName "g1"}}
@@ -638,23 +704,27 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
         // 1, x⁴. So we check that p+x⁴ϕ(p)
         // is the infinity.
         func (p *{{ $TJacobian }}) IsInSubGroup() bool {
-
+            if !p.IsOnCurve() {
+                return false
+            }
             var res {{ $TJacobian }}
             res.phi(p).
-                mulWindowed(&res, &xGen).
-                mulWindowed(&res, &xGen).
-                mulWindowed(&res, &xGen).
-                mulWindowed(&res, &xGen).
+                mulBySeed(&res).
+                mulBySeed(&res).
+                mulBySeed(&res).
+                mulBySeed(&res).
                 AddAssign(p)
     {{ else}}
 	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
-
+        if !p.IsOnCurve() {
+            return false
+        }
         var res {{ $TJacobian }}
         res.mulWindowed(p, fr.Modulus())
-		return res.IsOnCurve() && res.Z.IsZero()
+		return res.Z.IsZero()
     {{ end}}
 
-            return res.IsOnCurve() && res.Z.IsZero()
+            return res.Z.IsZero()
 
         }
 	{{else if eq .PointName "g2"}}
@@ -663,16 +733,19 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
         // and https://eprint.iacr.org/2022/352.pdf, sec. 4.2
         // ψ(p) = [x₀]P
         func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+            if !p.IsOnCurve() {
+                return false
+            }
             var res, tmp {{ $TJacobian }}
             tmp.psi(p)
-            res.mulWindowed(p, &xGen).
+            res.mulBySeed(p).
             {{ if eq .Name "bls24-315"}}
                 AddAssign(&tmp)
             {{ else }}
                 SubAssign(&tmp)
             {{ end }}
 
-            return res.IsOnCurve() && res.Z.IsZero()
+            return res.Z.IsZero()
 
         }
     {{- end}}
@@ -685,19 +758,22 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
         // 1, x². So we check that p+x²ϕ(p)
         // is the infinity.
         func (p *{{ $TJacobian }}) IsInSubGroup() bool {
-
+            if !p.IsOnCurve() {
+                return false
+            }
             var res {{ $TJacobian }}
             {{ if .GLV}}
             res.phi(p).
-                mulWindowed(&res, &xGen).
-                mulWindowed(&res, &xGen).
-                AddAssign(p)
+                mulBySeed(&res).
+                mulBySeed(&res).
+                Neg(&res)
+
+            return res.Equal(p)
             {{ else}}
             res.mulWindowed(p, fr.Modulus())
+
+            return res.Z.IsZero()
             {{ end}}
-
-            return res.IsOnCurve() && res.Z.IsZero()
-
         }
 	{{else if eq .PointName "g2"}}
         {{if eq .Name "bls12-381"}}
@@ -706,24 +782,28 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
             // and https://eprint.iacr.org/2022/352.pdf, sec. 4.2
             // ψ(p) = [x₀]P
             func (p *{{ $TJacobian }}) IsInSubGroup() bool {
-                var res, tmp {{ $TJacobian }}
-                tmp.psi(p)
-                res.mulWindowed(p, &xGen).
-                    AddAssign(&tmp)
+                if !p.IsOnCurve() {
+                    return false
+                }
+                var res, img {{ $TJacobian }}
+                img.psi(p)
+                res.mulBySeed(p).Neg(&res)
 
-                return res.IsOnCurve() && res.Z.IsZero()
+                return res.Equal(&img)
         }
         {{else if eq .Name "bls12-377"}}
             // https://eprint.iacr.org/2021/1130.pdf, sec.4
             // and https://eprint.iacr.org/2022/352.pdf, sec. 4.2
             // ψ(p) = [x₀]P
             func (p *{{ $TJacobian }}) IsInSubGroup() bool {
-                var res, tmp {{ $TJacobian }}
-                tmp.psi(p)
-                res.mulWindowed(p, &xGen).
-                    SubAssign(&tmp)
+                if !p.IsOnCurve() {
+                    return false
+                }
+                var res, img {{ $TJacobian }}
+                img.psi(p)
+                res.mulBySeed(p)
 
-                return res.IsOnCurve() && res.Z.IsZero()
+                return res.Equal(&img)
         }
         {{- end}}
 	{{- end}}
@@ -763,6 +843,122 @@ func (p *{{ $TJacobian }}) mulWindowed(q *{{ $TJacobian }}, s *big.Int) *{{ $TJa
 	return p
 
 }
+
+{{- if not (eq .Name "secp256k1")}}
+// mulBySeed multiplies the point q by the seed xGen in Jacobian coordinates
+// using an optimized addition chain.
+func (p *{{ $TJacobian }}) mulBySeed(q *{{ $TJacobian }}) *{{ $TJacobian }} {
+{{- if eq .Name "bls12-381"}}
+	// Generated by github.com/mmcloughlin/addchain v0.4.0.
+	// Operations: 63 doublings 5 additions
+
+    var res {{ $TJacobian }}
+	res.Double(q)
+	res.AddAssign(q)
+	for i := 0; i < 2; i++ {
+		res.Double(&res)
+	}
+	res.AddAssign(q)
+	for i := 0; i < 3; i++ {
+		res.Double(&res)
+	}
+	res.AddAssign(q)
+	for i := 0; i < 9; i++ {
+		res.Double(&res)
+	}
+	res.AddAssign(q)
+	for i := 0; i < 32; i++ {
+		res.Double(&res)
+	}
+	res.AddAssign(q)
+	for i := 0; i < 16; i++ {
+		res.Double(&res)
+	}
+    p.Set(&res)
+{{- else if or (eq .Name "bls12-377") (eq .Name "bw6-761")}}
+	// Generated by github.com/mmcloughlin/addchain v0.4.0.
+	// Operations: 61 doublings 7 additions
+
+	// Allocate Temporaries.
+	var res, t0, t1 {{ $TJacobian }}
+	res.Double(q)
+	res.AddAssign(q)
+	res.Double(&res)
+	res.AddAssign(q)
+	t0.Double(&res)
+	for i := 1; i < 2; i++ {
+		t0.Double(&t0)
+	}
+	res.AddAssign(&t0)
+	t1.Double(&res)
+	t1.AddAssign(&res)
+	t0.AddAssign(&t1)
+	for i := 0; i < 10; i++ {
+		t0.Double(&t0)
+	}
+	res.AddAssign(&t0)
+	for i := 0; i < 46; i++ {
+		res.Double(&res)
+	}
+	res.AddAssign(q)
+    p.Set(&res)
+{{- else if eq .Name "bn254"}}
+	// Generated by github.com/mmcloughlin/addchain v0.4.0.
+	// Operations: 62 squares 17 multiplies
+
+	// Allocate Temporaries.
+	var res, t0, t1, t2, t3 {{ $TJacobian }}
+
+	res.Double(q)
+	t0.Set(q).AddAssign(&res)
+	t2.Set(q).AddAssign(&t0)
+	t1.Set(&res).AddAssign(&t2)
+	res.Double(&t1)
+	res.AddAssign(&t0)
+	t0.AddAssign(&res)
+	t2.AddAssign(&t0)
+	t1.AddAssign(&t2)
+	t0.AddAssign(&t1)
+	t1.AddAssign(&t0)
+	t0.AddAssign(&t1)
+	t2.AddAssign(&t0)
+	t3.Double(&t2)
+	t1.AddAssign(&t3)
+	t2.AddAssign(&t1)
+	res.AddAssign(&t2)
+	t2.AddAssign(&res)
+	t3.Double(&t2)
+	res.AddAssign(&t3)
+	t0.AddAssign(&res)
+	t1.AddAssign(&t0)
+	t3.Double(&t1)
+	for s := 1; s < 2; s++ {
+		t3.Double(&t3)
+	}
+	t3.AddAssign(&t1)
+	t2.AddAssign(&t3)
+	t1.AddAssign(&t2)
+	t2.AddAssign(&t1)
+	for s := 0; s < 17; s++ {
+		t2.Double(&t2)
+	}
+	t1.AddAssign(&t2)
+	for s := 0; s < 14; s++ {
+		t1.Double(&t1)
+	}
+	t0.AddAssign(&t1)
+	for s := 0; s < 16; s++ {
+		t0.Double(&t0)
+	}
+	res.AddAssign(&t0)
+
+	p.Set(&res)
+{{- else}}
+    p.mulWindowed(q, &xGen)
+{{- end}}
+	return p
+}
+{{- end}}
 
 {{ if eq .CoordType "fptower.E2"  }}
 	// psi sets p to ψ(q) = u o π o u⁻¹ where u:E'→E is the isomorphism from the twist to the curve E and π is the Frobenius map.
@@ -893,13 +1089,13 @@ func (p *{{$TJacobian}}) ClearCofactor(q *{{$TJacobian}}) *{{$TJacobian}} {
 {{- if or (eq .Name "bls12-381") (eq .Name "bls24-315")}}
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res {{$TJacobian}}
-	res.mulWindowed(q, &xGen).AddAssign(q)
+	res.mulBySeed(q).AddAssign(q)
 	p.Set(&res)
 	return p
 {{else if or (eq .Name "bls12-377") (eq .Name "bls24-317")}}
 	// cf https://eprint.iacr.org/2019/403.pdf, 5
 	var res {{$TJacobian}}
-	res.mulWindowed(q, &xGen).Neg(&res).AddAssign(q)
+	res.mulBySeed(q).Neg(&res).AddAssign(q)
 	p.Set(&res)
 	return p
 {{else if eq .Name "bw6-761"}}
@@ -907,9 +1103,9 @@ func (p *{{$TJacobian}}) ClearCofactor(q *{{$TJacobian}}) *{{$TJacobian}} {
 	// https://eprint.iacr.org/2020/351.pdf
 	var points [4]{{$TJacobian}}
 	points[0].Set(q)
-	points[1].mulWindowed(q, &xGen)
-	points[2].mulWindowed(&points[1], &xGen)
-	points[3].mulWindowed(&points[2], &xGen)
+	points[1].mulBySeed(q)
+	points[2].mulBySeed(&points[1])
+	points[3].mulBySeed(&points[2])
 
 	var scalars [7]big.Int
 	scalars[0].SetInt64(103)
@@ -957,7 +1153,7 @@ func (p *{{$TJacobian}}) ClearCofactor(q *{{$TJacobian}}) *{{$TJacobian}} {
 	ht.SetInt64(7)
 	v.Mul(&xGen, &xGen).Add(&v, &one).Mul(&v, &uPlusOne)
 
-	uP.mulWindowed(q, &xGen).Neg(&uP)
+	uP.mulBySeed(q).Neg(&uP)
 	vP.Set(q).SubAssign(&uP).
         mulWindowed(&vP, &v)
 	wP.mulWindowed(&vP, &uMinusOne).Neg(&wP).
@@ -991,7 +1187,7 @@ func (p *{{$TJacobian}}) ClearCofactor(q *{{$TJacobian}}) *{{$TJacobian}} {
 	// cf http://cacr.uwaterloo.ca/techreports/2011/cacr2011-26.pdf, 6.1
 	var points [4]{{$TJacobian}}
 
-	points[0].mulWindowed(q, &xGen)
+	points[0].mulBySeed(q)
 
 	points[1].Double(&points[0]).
 		AddAssign(&points[0]).
@@ -1012,8 +1208,8 @@ func (p *{{$TJacobian}}) ClearCofactor(q *{{$TJacobian}}) *{{$TJacobian}} {
 {{else if eq .Name "bls12-381"}}
 	// https://eprint.iacr.org/2017/419.pdf, 4.1
 	var xg, xxg, res, t G2Jac
-	xg.mulWindowed(q, &xGen).Neg(&xg)
-	xxg.mulWindowed(&xg, &xGen).Neg(&xxg)
+	xg.mulBySeed(q).Neg(&xg)
+	xxg.mulBySeed(&xg).Neg(&xxg)
 
 	res.Set(&xxg).
 		SubAssign(&xg).
@@ -1037,8 +1233,8 @@ func (p *{{$TJacobian}}) ClearCofactor(q *{{$TJacobian}}) *{{$TJacobian}} {
 {{else if eq .Name "bls12-377"}}
     // https://eprint.iacr.org/2017/419.pdf, 4.1
 	var xg, xxg, res, t G2Jac
-	xg.mulWindowed(q, &xGen)
-	xxg.mulWindowed(&xg, &xGen)
+	xg.mulBySeed(q)
+	xxg.mulBySeed(&xg)
 
 	res.Set(&xxg).
 		SubAssign(&xg).
@@ -1064,16 +1260,16 @@ func (p *{{$TJacobian}}) ClearCofactor(q *{{$TJacobian}}) *{{$TJacobian}} {
 	// multiply by (3x⁴-3)*cofacor
     {{ if eq .Name "bls24-315"}}
 	var xg, xxg, xxxg, xxxxg, res, t G2Jac
-	xg.mulWindowed(q, &xGen).Neg(&xg).SubAssign(q)
-	xxg.mulWindowed(&xg, &xGen).Neg(&xxg)
-	xxxg.mulWindowed(&xxg, &xGen).Neg(&xxxg)
-	xxxxg.mulWindowed(&xxxg, &xGen).Neg(&xxxxg)
+	xg.mulBySeed(q).Neg(&xg).SubAssign(q)
+	xxg.mulBySeed(&xg).Neg(&xxg)
+	xxxg.mulBySeed(&xxg).Neg(&xxxg)
+	xxxxg.mulBySeed(&xxxg).Neg(&xxxxg)
     {{ else }}
 	var xg, xxg, xxxg, xxxxg, res, t G2Jac
-	xg.mulWindowed(q, &xGen).SubAssign(q)
-	xxg.mulWindowed(&xg, &xGen)
-	xxxg.mulWindowed(&xxg, &xGen)
-	xxxxg.mulWindowed(&xxxg, &xGen)
+	xg.mulBySeed(q).SubAssign(q)
+	xxg.mulBySeed(&xg)
+	xxxg.mulBySeed(&xxg)
+	xxxxg.mulBySeed(&xxxg)
     {{ end }}
 
 	res.Set(&xxxxg).
@@ -1109,9 +1305,9 @@ func (p *{{$TJacobian}}) ClearCofactor(q *{{$TJacobian}}) *{{$TJacobian}} {
 {{- if .GLV}}
 	var points [4]{{$TJacobian}}
 	points[0].Set(q)
-	points[1].mulWindowed(q, &xGen)
-	points[2].mulWindowed(&points[1], &xGen)
-	points[3].mulWindowed(&points[2], &xGen)
+	points[1].mulBySeed(q)
+	points[2].mulBySeed(&points[1])
+	points[3].mulBySeed(&points[2])
 
 	var scalars [7]big.Int
 	scalars[0].SetInt64(103)
@@ -1155,11 +1351,11 @@ func (p *{{$TJacobian}}) ClearCofactor(q *{{$TJacobian}}) *{{$TJacobian}} {
 	d1.SetInt64(13)
 	d3.SetInt64(5) // negative
 
-	uP.mulWindowed(q, &xGen) // negative
-	u2P.mulWindowed(&uP, &xGen)
-	u3P.mulWindowed(&u2P, &xGen) // negative
-	u4P.mulWindowed(&u3P, &xGen)
-	u5P.mulWindowed(&u4P, &xGen) // negative
+	uP.mulBySeed(q) // negative
+	u2P.mulBySeed(&uP)
+	u3P.mulBySeed(&u2P) // negative
+	u4P.mulBySeed(&u3P)
+	u5P.mulBySeed(&u4P) // negative
 	vP.Set(&u2P).AddAssign(&uP).
 	    AddAssign(&u3P).
 	    Double(&vP).

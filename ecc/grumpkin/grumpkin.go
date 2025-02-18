@@ -49,6 +49,9 @@ var g1Infinity G1Jac
 var thirdRootOneG1 fp.Element
 var lambdaGLV big.Int
 
+// seed x₀ of the BN254 curve
+var xGen big.Int
+
 // glvBasis stores R-linearly independent vectors (a,b), (c,d)
 // in ker((u,v) → u+vλ[r]), and their determinant
 var glvBasis ecc.Lattice
@@ -71,6 +74,8 @@ func init() {
 	lambdaGLV.SetString("2203960485148121921418603742825762020974279258880205651966", 10)
 	_r := fr.Modulus()
 	ecc.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
+
+	xGen.SetString("4965661367192848881", 10)
 }
 
 // Generators return the generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)

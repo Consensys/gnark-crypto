@@ -187,9 +187,14 @@ func (p *G2Affine) IsInfinity() bool {
 
 // IsOnCurve returns true if the affine point p in on the curve.
 func (p *G2Affine) IsOnCurve() bool {
-	var point G2Jac
-	point.FromAffine(p)
-	return point.IsOnCurve() // call this function to handle infinity point
+	if p.IsInfinity() {
+		return true
+	}
+	var left, right fp.Element
+	left.Square(&p.Y)
+	right.Square(&p.X).Mul(&right, &p.X)
+	right.Add(&right, &bTwistCurveCoeff)
+	return left.Equal(&right)
 }
 
 // IsInSubGroup returns true if the affine point p is in the correct subgroup, false otherwise.
@@ -482,19 +487,21 @@ func (p *G2Jac) IsOnCurve() bool {
 
 // 3r P = (x+1)ϕ(P) + (-x^5 + x⁴ + x)P
 func (p *G2Jac) IsInSubGroup() bool {
-
+	if !p.IsOnCurve() {
+		return false
+	}
 	var uP, u4P, u5P, q, r G2Jac
-	uP.mulWindowed(p, &xGen)
-	u4P.mulWindowed(&uP, &xGen).
-		mulWindowed(&u4P, &xGen).
-		mulWindowed(&u4P, &xGen)
-	u5P.mulWindowed(&u4P, &xGen)
+	uP.mulBySeed(p)
+	u4P.mulBySeed(&uP).
+		mulBySeed(&u4P).
+		mulBySeed(&u4P)
+	u5P.mulBySeed(&u4P)
 	q.Set(p).SubAssign(&uP)
 	r.phi(&q).SubAssign(&uP).
 		AddAssign(&u4P).
 		AddAssign(&u5P)
 
-	return r.IsOnCurve() && r.Z.IsZero()
+	return r.Z.IsZero()
 }
 
 // mulWindowed computes the 2-bits windowed double-and-add scalar
@@ -529,6 +536,13 @@ func (p *G2Jac) mulWindowed(q *G2Jac, s *big.Int) *G2Jac {
 
 	return p
 
+}
+
+// mulBySeed multiplies the point q by the seed xGen in Jacobian coordinates
+// using an optimized addition chain.
+func (p *G2Jac) mulBySeed(q *G2Jac) *G2Jac {
+	p.mulWindowed(q, &xGen)
+	return p
 }
 
 // phi sets p to ϕ(a) where ϕ: (x,y) → (w x,y),
@@ -630,11 +644,11 @@ func (p *G2Jac) ClearCofactor(q *G2Jac) *G2Jac {
 	d1.SetInt64(13)
 	d3.SetInt64(5) // negative
 
-	uP.mulWindowed(q, &xGen) // negative
-	u2P.mulWindowed(&uP, &xGen)
-	u3P.mulWindowed(&u2P, &xGen) // negative
-	u4P.mulWindowed(&u3P, &xGen)
-	u5P.mulWindowed(&u4P, &xGen) // negative
+	uP.mulBySeed(q) // negative
+	u2P.mulBySeed(&uP)
+	u3P.mulBySeed(&u2P) // negative
+	u4P.mulBySeed(&u3P)
+	u5P.mulBySeed(&u4P) // negative
 	vP.Set(&u2P).AddAssign(&uP).
 		AddAssign(&u3P).
 		Double(&vP).
