@@ -6,21 +6,16 @@ import (
 
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 // used for Montgomery reduction
-const qInvNeg uint64 = 725501752471715839
+const qInvNeg uint64 = 2130706431
 
-// Field modulus q (Fr)
+// Field modulus q (Fp)
 const (
-	q0 uint64 = 725501752471715841
-	q1 uint64 = 6461107452199829505
-	q2 uint64 = 6968279316240510977
-	q3 uint64 = 1345280370688173398
+	q0 uint64 = 2130706433
+	q  uint64 = q0
 )
 
-var qElement = fr.Element{
+var qElement = fp.Element{
 	q0,
-	q1,
-	q2,
-	q3,
 }
 
 //go:noescape

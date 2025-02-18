@@ -178,7 +178,9 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 func TestE2MulMaxed(t *testing.T) {
 	// let's pick a and b, with maxed A0 and A1
 	var a, b E2
-	frMaxValue := fr.Element{2130706432}
+	frMaxValue := fr.Element{
+		2130706433,
+	}
 	frMaxValue[0]--
 
 	a.A0 = frMaxValue
