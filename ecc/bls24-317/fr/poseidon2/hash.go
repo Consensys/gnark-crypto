@@ -9,7 +9,7 @@ import (
 	"hash"
 	"sync"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	gnarkHash "github.com/consensys/gnark-crypto/hash"
 )
 
@@ -27,11 +27,11 @@ func NewMerkleDamgardHasher() gnarkHash.StateStorer {
 // - nbFullRounds: 6
 // - nbPartialRounds: 26
 var GetDefaultParameters = sync.OnceValue(func() *Parameters {
-	return NewParameters(2, 6, 26)
+	return NewParameters(2, 6, 40)
 })
 
 func init() {
-	gnarkHash.RegisterHash(gnarkHash.POSEIDON2_BLS12_377, func() hash.Hash {
+	gnarkHash.RegisterHash(gnarkHash.POSEIDON2_BLS24_317, func() hash.Hash {
 		return NewMerkleDamgardHasher()
 	})
 }
