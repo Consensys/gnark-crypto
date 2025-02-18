@@ -5,6 +5,8 @@
 - update ci for slack bot ([#538](https://github.com/Consensys/gnark-crypto/issues/538))
 - **deps:** bump golang.org/x/crypto from 0.26.0 to 0.31.0 ([#579](https://github.com/Consensys/gnark-crypto/issues/579))
 
+// dummy PR
+
 ### Chore
 - update bavard to 0.1.26
 - update citation
