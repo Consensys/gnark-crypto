@@ -10,6 +10,7 @@ import (
 	"github.com/consensys/gnark-crypto/utils"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // Polynomial represented by coefficients in the field.
@@ -206,4 +207,103 @@ func (p Polynomial) Text(base int) string {
 	}
 
 	return builder.String()
+}
+
+// InterpolateOnRange maps vector v to polynomial f
+// such that f(i) = v[i] for 0 ≤ i < len(v).
+// len(f) = len(v) and deg(f) ≤ len(v) - 1
+func InterpolateOnRange(v []fr.Element) Polynomial {
+	nEvals := uint8(len(v))
+	if int(nEvals) != len(v) {
+		panic("interpolation method too inefficient for nEvals > 255")
+	}
+	lagrange := getLagrangeBasis(nEvals)
+
+	var res Polynomial
+	res.Scale(&v[0], lagrange[0])
+
+	temp := make(Polynomial, nEvals)
+
+	for i := uint8(1); i < nEvals; i++ {
+		temp.Scale(&v[i], lagrange[i])
+		res.Add(res, temp)
+	}
+
+	return res
+}
+
+// lagrange bases used by InterpolateOnRange
+var lagrangeBasis sync.Map
+
+func getLagrangeBasis(domainSize uint8) []Polynomial {
+	if res, ok := lagrangeBasis.Load(domainSize); ok {
+		return res.([]Polynomial)
+	}
+
+	// not found. compute
+	var res []Polynomial
+	if domainSize >= 2 {
+		res = computeLagrangeBasis(domainSize)
+	} else if domainSize == 1 {
+		res = []Polynomial{make(Polynomial, 1)}
+		res[0][0].SetOne()
+	}
+	lagrangeBasis.Store(domainSize, res)
+
+	return res
+}
+
+// computeLagrangeBasis precomputes in explicit coefficient form for each 0 ≤ l < domainSize the polynomial
+// pₗ := X (X-1) ... (X-l-1) (X-l+1) ... (X - domainSize + 1) / ( l (l-1) ... 2 (-1) ... (l - domainSize +1) )
+// Note that pₗ(l) = 1 and pₗ(n) = 0 if 0 ≤ l < domainSize, n ≠ l
+func computeLagrangeBasis(domainSize uint8) []Polynomial {
+
+	constTerms := make([]fr.Element, domainSize)
+	for i := uint8(0); i < domainSize; i++ {
+		constTerms[i].SetInt64(-int64(i))
+	}
+
+	res := make([]Polynomial, domainSize)
+	multScratch := make(Polynomial, domainSize-1)
+
+	// compute pₗ
+	for l := uint8(0); l < domainSize; l++ {
+
+		// TODO @Tabaie Optimize this with some trees? O(log(domainSize)) polynomial mults instead of O(domainSize)? Then again it would be fewer big poly mults vs many small poly mults
+		d := uint8(0) //d is the current degree of res
+		for i := uint8(0); i < domainSize; i++ {
+			if i == l {
+				continue
+			}
+			if d == 0 {
+				res[l] = make(Polynomial, domainSize)
+				res[l][domainSize-2] = constTerms[i]
+				res[l][domainSize-1].SetOne()
+			} else {
+				current := res[l][domainSize-d-2:]
+				timesConst := multScratch[domainSize-d-2:]
+
+				timesConst.Scale(&constTerms[i], current[1:]) //TODO: Directly double and add since constTerms are tiny? (even less than 4 bits)
+				nonLeading := current[0 : d+1]
+
+				nonLeading.Add(nonLeading, timesConst)
+
+			}
+			d++
+		}
+
+	}
+
+	// We have pₗ(i≠l)=0. Now scale so that pₗ(l)=1
+	// Replace the constTerms with norms
+	for l := uint8(0); l < domainSize; l++ {
+		constTerms[l].Neg(&constTerms[l])
+		constTerms[l] = res[l].Eval(&constTerms[l])
+	}
+	constTerms = fr.BatchInvert(constTerms)
+	for l := uint8(0); l < domainSize; l++ {
+		res[l].ScaleInPlace(&constTerms[l])
+	}
+
+	return res
 }
