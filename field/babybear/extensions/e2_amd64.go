@@ -6,12 +6,12 @@ import (
 
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 // used for Montgomery reduction
-const qInvNeg uint64 = 2013265919
+const qInvNeg uint32 = 2013265919
 
 // Field modulus q (Fr)
 const (
-	q0 uint64 = 2013265921
-	q  uint64 = q0
+	q0 uint32 = 2013265921
+	q  uint32 = q0
 )
 
 var qElement = fr.Element{
