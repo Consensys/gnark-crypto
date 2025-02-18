@@ -42,7 +42,7 @@ type Field struct {
 	QMinusOneHalvedP          []uint64 // ((q-1) / 2 ) + 1
 	Mu                        uint64   // mu = 2^288 / q for 4.5 word barrett reduction
 	RSquare                   []uint64
-	One, Thirteen             []uint64
+	One, Eleven, Thirteen     []uint64
 	LegendreExponent          string // big.Int to base16 string
 	NoCarry                   bool
 	NoCarrySquare             bool // used if NoCarry is set, but some op may overflow in square optimization
@@ -181,6 +181,13 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	one.SetUint64(1)
 	one.Lsh(&one, uint(F.NbWords)*radix).Mod(&one, &bModulus)
 	F.One = toUint64Slice(&one, F.NbWords)
+
+	{
+		var n big.Int
+		n.SetUint64(11)
+		n.Lsh(&n, uint(F.NbWords)*radix).Mod(&n, &bModulus)
+		F.Eleven = toUint64Slice(&n, F.NbWords)
+	}
 
 	{
 		var n big.Int
