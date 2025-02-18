@@ -326,7 +326,7 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 	n := h.params.Width / 2
 	if h.params.Width != 2*n {
-		return nil, errors.New("need a  function")
+		return nil, errors.New("need even width")
 	}
 
 	desiredLen := n * fr.Bytes
