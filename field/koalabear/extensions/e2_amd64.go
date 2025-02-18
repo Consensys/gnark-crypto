@@ -8,13 +8,13 @@ import (
 // used for Montgomery reduction
 const qInvNeg uint64 = 2130706431
 
-// Field modulus q (Fp)
+// Field modulus q (Fr)
 const (
 	q0 uint64 = 2130706433
 	q  uint64 = q0
 )
 
-var qElement = fp.Element{
+var qElement = fr.Element{
 	q0,
 }
 
