@@ -1017,7 +1017,7 @@ accumulate_14:
 	SBBQ  AX, R8
 	SBBQ  R10, R9
 
-	// we need up to 2 conditional substractions to be < q
+	// we need up to 2 conditional subtractions to be < q
 	MOVQ res+0(FP), R11
 	MOVQ BX, 0(R11)
 	MOVQ SI, 8(R11)
