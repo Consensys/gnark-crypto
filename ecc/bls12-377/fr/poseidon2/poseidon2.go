@@ -6,8 +6,11 @@
 package poseidon2
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"slices"
 
 	"golang.org/x/crypto/sha3"
 
@@ -300,7 +303,7 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 		if _, err := io.ReadFull(reader, buf[:]); err != nil {
 			return nil, err
 		}
-		if err := x[i].SetBytes(buf[:]); err != nil {
+		if err := x[i].SetBytesCanonical(buf[:]); err != nil {
 			return nil, err
 		}
 	}
@@ -310,9 +313,9 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	outBytes := make([]byte, n*fr.Bytes)
+	outBytes := make([]byte, 0, n*fr.Bytes)
 	for i := range res {
-		res[i].Add(&res[i], &x[n+i]).FillBytes(outBytes[i*fr.Bytes : (i+1)*fr.Bytes])
+		outBytes = append(outBytes, res[i].Add(&res[i], &x[n+i]).Marshal()...)
 	}
 
 	return outBytes, nil

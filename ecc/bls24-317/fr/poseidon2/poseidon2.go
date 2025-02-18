@@ -6,8 +6,11 @@
 package poseidon2
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"slices"
 
 	"golang.org/x/crypto/sha3"
 
