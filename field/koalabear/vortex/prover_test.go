@@ -1,7 +1,9 @@
 package vortex
 
 import (
+	"encoding/binary"
 	"math/rand/v2"
+	"sync"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
@@ -137,4 +139,77 @@ func runTest(t *testing.T, tc *testcaseVortex) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+// BenchmarkVortexReal benchmarks Vortex in (estimated) production conditions for the
+// zkEVM. We aim to have it commit to 4GiB of data. So about 1<<30 koalabear elements.
+func BenchmarkVortexReal(b *testing.B) {
+
+	var (
+		numCol             = 1 << 19
+		numRow             = 1 << 11
+		invRate            = 2
+		numSelectedColumns = 256
+		wg                 sync.WaitGroup
+		sisParams, _       = sis.NewRSis(0, 9, 16, numRow)
+		params             = NewParams(numCol, numRow, sisParams, invRate, numSelectedColumns)
+		topRng             = rand.New(rand.NewChaCha8([32]byte{}))
+		alpha              = randFext(topRng)
+		selectedColumns    = make([]int, 256)
+	)
+
+	for i := range selectedColumns {
+		selectedColumns[i] = topRng.IntN(numCol * 2)
+	}
+
+	// Generating the matrix and filling it with PRNG elements on a single-thread would
+	// be very time-consuming so we parallelize it, giving it different seeds for each
+	// row.
+	m := make([][]koalabear.Element, numRow)
+	for row := range m {
+		wg.Add(1)
+		go func(row int) {
+			defer wg.Done()
+			m[row] = make([]koalabear.Element, numCol)
+			seed := [32]byte{}
+			binary.PutVarint(seed[:], int64(row))
+			rng := rand.New(rand.NewChaCha8(seed))
+			for j := range m[row] {
+				m[row][j] = randElement(rng)
+			}
+		}(row)
+	}
+
+	var (
+		proverState *ProverState
+		err         error
+	)
+
+	b.Run("commiting", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			proverState, err = Commit(params, m)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("opening-alpha", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			proverState.OpenLinComb(alpha)
+		}
+	})
+
+	b.Run("opening-columns", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := proverState.OpenColumns(selectedColumns)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
 }
