@@ -147,8 +147,8 @@ func runTest(t *testing.T, tc *testcaseVortex) {
 func BenchmarkVortexReal(b *testing.B) {
 
 	var (
-		numCol             = 1 << 19
-		numRow             = 1 << 11
+		numCol             = 1 << 15 // 1 << 19
+		numRow             = 1 << 8  // 1 << 11
 		invRate            = 2
 		numSelectedColumns = 256
 		wg                 sync.WaitGroup
@@ -183,6 +183,8 @@ func BenchmarkVortexReal(b *testing.B) {
 			}
 		}(row)
 	}
+
+	wg.Wait()
 
 	var (
 		proverState *ProverState
