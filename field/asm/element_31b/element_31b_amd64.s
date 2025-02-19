@@ -96,6 +96,23 @@ done_6:
 	VMOVDQU64 Z2, 0(R15) // res = acc1
 	RET
 
+// sumVec(res *uint64, a *[]uint32) res = sum(a[0...n])
+TEXT ·sumVec16(SB), NOSPLIT, $0-16
+	MOVQ          t+0(FP), R15
+	MOVQ          a+8(FP), R14
+	VPMOVZXDQ     0(R14), Z0   // load 8 31bits values in a1
+	VPMOVZXDQ     32(R14), Z1  // load 8 31bits values in a2
+	VPADDQ        Z0, Z1, Z0
+	VEXTRACTI64X4 $1, Z0, Y1
+	VPADDQ        Y0, Y1, Y0
+	VEXTRACTI64X2 $1, Y0, X1
+	VPADDQ        X0, X1, X0
+	PEXTRQ        $0, X0, AX
+	PEXTRQ        $1, X0, DX
+	ADDQ          DX, AX
+	MOVQ          AX, 0(R15)
+	RET
+
 // mulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b[0...n]
 // n is the number of blocks of 16 elements to process
 TEXT ·mulVec(SB), NOSPLIT, $0-32
