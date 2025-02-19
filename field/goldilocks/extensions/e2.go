@@ -8,7 +8,7 @@ package extensions
 import (
 	"math/big"
 
-	fr "github.com/consensys/gnark-crypto/field/babybear"
+	fr "github.com/consensys/gnark-crypto/field/goldilocks"
 )
 
 // E2 is a degree two finite field extension of fr.Element

@@ -9,7 +9,7 @@ import (
 	"math/big"
 	"sync"
 
-	fr "github.com/consensys/gnark-crypto/field/babybear"
+	fr "github.com/consensys/gnark-crypto/field/goldilocks"
 	"github.com/leanovate/gopter"
 )
 
