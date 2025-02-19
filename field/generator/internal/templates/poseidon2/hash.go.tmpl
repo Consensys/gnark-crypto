@@ -1,6 +1,16 @@
 import (
     fr "{{ .FieldPackagePath }}"
+	"sync"
+	"hash"
+	gnarkHash "github.com/consensys/gnark-crypto/hash"
 )
+
+// NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard
+// construction with the default parameters.
+func NewMerkleDamgardHasher() gnarkHash.StateStorer {
+	return gnarkHash.NewMerkleDamgardHasher(
+		&Permutation{GetDefaultParameters()}, make([]byte, fr.Bytes))
+}
 
 {{ $widthCompression := 16 }}
 {{ $widthSponge := 24 }}
@@ -11,7 +21,7 @@ import (
 {{ if eq .FF "koalabear" }} {{ $nbPartialCompression = 21 }} {{ $nbPartialSponge = 21 }} {{ end }}
 
 
-// NewDefaultParameters returns a new set of parameters for the Poseidon2 permutation.
+// GetDefaultParameters returns a set of parameters for the Poseidon2 permutation.
 // The default parameters are,
 //
 //  1. for compression:
@@ -23,10 +33,10 @@ import (
 //     - width: {{$widthSponge}}
 //     - nbFullRounds: 6
 //     - nbPartialRounds: {{$nbPartialSponge}}
-func NewDefaultParameters() *Parameters {
+var GetDefaultParameters = sync.OnceValue(func() *Parameters {
 	return NewParameters({{$widthCompression}}, 6, {{$nbPartialCompression}})
 	// return NewParameters({{$widthSponge}}, 6, {{$nbPartialSponge}})
-}
+})
 
 {{ if eq .FF "babybear" }}
 var diag16 [16]fr.Element
@@ -76,7 +86,6 @@ func init() {
 	diag24[21].SetUint64(31457280)
 	diag24[22].SetUint64(15728640)
 	diag24[23].SetUint64(15)
-}
 {{ end }}
 
 {{ if eq .FF "koalabear" }}
@@ -127,7 +136,6 @@ func init() {
 	diag24[21].SetUint64(16646144)
 	diag24[22].SetUint64(4161536)
 	diag24[23].SetUint64(127)
-}
 {{ end }}
 
 {{ if eq .FF "goldilocks" }}
@@ -144,5 +152,9 @@ func init() {
 	diag8[5].SetUint64(0x2a6fe8085797e791)
 	diag8[6].SetUint64(0x3de6e93329f8d5ad)
 	diag8[7].SetUint64(0x3f7af9125da962fe)
-}
 {{ end }}
+
+	gnarkHash.RegisterHash(gnarkHash.POSEIDON2_{{toUpper .FF }}, func() hash.Hash {
+		return NewMerkleDamgardHasher()
+	})
+}
