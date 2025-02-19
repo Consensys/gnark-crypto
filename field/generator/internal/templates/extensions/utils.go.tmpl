@@ -35,6 +35,7 @@ func GenE2() gopter.Gen {
 	})
 }
 
+{{- if or (eq .FF "babybear") (eq .FF "koalabear")}}
 // E4 generates an E4 elmt
 func GenE4() gopter.Gen {
 	return gopter.CombineGens(
@@ -44,3 +45,4 @@ func GenE4() gopter.Gen {
 		return &E4{B0: *values[0].(*E2), B1: *values[1].(*E2)}
 	})
 }
+{{- end}}

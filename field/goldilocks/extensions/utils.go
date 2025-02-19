@@ -41,13 +41,3 @@ func GenE2() gopter.Gen {
 		return &E2{A0: values[0].(fr.Element), A1: values[1].(fr.Element)}
 	})
 }
-
-// E4 generates an E4 elmt
-func GenE4() gopter.Gen {
-	return gopter.CombineGens(
-		GenE2(),
-		GenE2(),
-	).Map(func(values []interface{}) *E4 {
-		return &E4{B0: *values[0].(*E2), B1: *values[1].(*E2)}
-	})
-}
