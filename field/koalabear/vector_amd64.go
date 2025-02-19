@@ -22,7 +22,10 @@ func subVec(res, a, b *Element, n uint64)
 func sumVec(t *uint64, a *Element, n uint64)
 
 //go:noescape
-func sumVec16(t *uint64, a *Element)
+func SumVec16_AVX512(t *uint64, a *Element)
+
+//go:noescape
+func SumVec24_AVX512(t *uint64, a *Element)
 
 //go:noescape
 func mulVec(res, a, b *Element, n uint64)
@@ -112,29 +115,6 @@ func (vector *Vector) ScalarMul(a Vector, b *Element) {
 	}
 }
 
-func (vector *Vector) Sum16_Naive() (res Element) {
-	acc0 := uint64(0)
-	acc1 := uint64(0)
-	for i := 0; i < 16; i += 2 {
-		acc0 += uint64((*vector)[i][0])
-		acc1 += uint64((*vector)[i+1][0])
-	}
-	res[0] = uint32((acc0 + acc1) % q)
-	return
-}
-
-func (vector *Vector) Sum16_avx512() (res Element) {
-	if !cpu.SupportAVX512 {
-		// call sumVecGeneric
-		sumVecGeneric(&res, *vector)
-		return
-	}
-	var t uint64
-	sumVec16(&t, &(*vector)[0])
-	res[0] = uint32(t % q)
-	return
-}
-
 // Sum computes the sum of all elements in the vector.
 func (vector *Vector) Sum() (res Element) {
 	if !cpu.SupportAVX512 {
@@ -144,13 +124,18 @@ func (vector *Vector) Sum() (res Element) {
 	}
 
 	n := uint64(len(*vector))
-	if n == 16 {
+	switch n {
+	case 0:
+		return
+	case 16:
 		var t uint64
-		sumVec16(&t, &(*vector)[0])
+		SumVec16_AVX512(&t, &(*vector)[0])
 		res[0] = uint32(t % q)
 		return
-	}
-	if n == 0 {
+	case 24:
+		var t uint64
+		SumVec24_AVX512(&t, &(*vector)[0])
+		res[0] = uint32(t % q)
 		return
 	}
 

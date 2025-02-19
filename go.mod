@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/bits-and-blooms/bitset v1.20.0
-	github.com/consensys/bavard v0.1.29
+	github.com/consensys/bavard v0.1.30-0.20250219212726-d56edb6b86b2
 	github.com/leanovate/gopter v0.2.11
 	github.com/mmcloughlin/addchain v0.4.0
 	github.com/spf13/cobra v1.8.1

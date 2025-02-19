@@ -222,12 +222,15 @@ func (f *FFAmd64) generateSumVecF31() {
 	f.Push(&registers, addrA, addrT, len)
 }
 
-// sumVec res = sum(a[0...n])
-func (f *FFAmd64) generateSumVec16F31() {
-	f.Comment("sumVec(res *uint64, a *[]uint32) res = sum(a[0...n])")
+func (f *FFAmd64) generateSumVecSmallF31(size int) {
+	// size must be 16 or 24
+	if size != 16 && size != 24 {
+		panic("size must be 16 or 24")
+	}
+	fName := fmt.Sprintf("SumVec%d_AVX512", size)
 	const argSize = 2 * 8
 	stackSize := f.StackSize(f.NbWords*3+2, 0, 0)
-	registers := f.FnHeader("sumVec16", stackSize, argSize, amd64.DX, amd64.AX)
+	registers := f.FnHeader(fName, stackSize, argSize, amd64.DX, amd64.AX)
 	defer f.AssertCleanStack(stackSize, 0)
 
 	// registers & labels we need
@@ -237,14 +240,18 @@ func (f *FFAmd64) generateSumVec16F31() {
 	// AVX512 registers
 	a1 := registers.PopV()
 	a2 := registers.PopV()
+	a3 := registers.PopV()
 
 	// load arguments
 	f.MOVQ("t+0(FP)", addrT)
 	f.MOVQ("a+8(FP)", addrA)
 
-	// 1 cache line is typically 64 bytes, so we maintain 2 accumulators
-	f.VPMOVZXDQ(addrA.At(0), a1, "load 8 31bits values in a1")
-	f.VPMOVZXDQ(addrA.At(4), a2, "load 8 31bits values in a2")
+	f.VPMOVZXDQ(addrA.AtD(0), a1)
+	f.VPMOVZXDQ(addrA.AtD(8), a2)
+	if size == 24 {
+		f.VPMOVZXDQ(addrA.AtD(16), a3)
+		f.VPADDQ(a3, a2, a2)
+	}
 
 	f.VPADDQ(a1, a2, a1)
 	f.VEXTRACTI64X4(1, a1, a2.Y())
@@ -252,14 +259,10 @@ func (f *FFAmd64) generateSumVec16F31() {
 	f.VEXTRACTI64X2(1, a1.Y(), a2.X())
 	f.VPADDQ(a1.X(), a2.X(), a1.X())
 
-	// PEXTRQ $0, a1.X() AX
-	f.WriteLn(fmt.Sprintf("PEXTRQ $0, %s, %s", a1.X(), amd64.AX))
-	// PEXTRQ $1, a1.X() DX
-	f.WriteLn(fmt.Sprintf("PEXTRQ $1, %s, %s", a1.X(), amd64.DX))
+	f.PEXTRQ(0, a1.X(), amd64.AX)
+	f.PEXTRQ(1, a1.X(), amd64.DX)
 	f.ADDQ(amd64.DX, amd64.AX)
 	f.MOVQ(amd64.AX, addrT.At(0))
-
-	// f.VMOVDQU64(a1.X(), addrT.At(0), "res = acc1")
 
 	f.RET()
 
