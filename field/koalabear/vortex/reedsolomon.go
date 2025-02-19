@@ -29,8 +29,10 @@ func (p *Params) EncodeReedSolomon(input []koalabear.Element) ([]koalabear.Eleme
 		codeword[i].SetZero()
 	}
 
-	p.Domains[0].FFTInverse(codeword[:p.NbColumns], fft.DIT)
-	p.Domains[1].FFT(codeword, fft.DIT)
+	p.Domains[0].FFTInverse(codeword[:p.NbColumns], fft.DIF)
+	fft.BitReverse(codeword[:p.NbColumns])
+	p.Domains[1].FFT(codeword, fft.DIF)
+	fft.BitReverse(codeword)
 
 	return codeword, nil
 }
@@ -50,7 +52,8 @@ func (p *Params) IsReedSolomonCodewords(codeword []fext.E4) error {
 		coeffs[i] = codeword[i].B0.A0
 	}
 
-	p.Domains[1].FFTInverse(coeffs, fft.DIT)
+	p.Domains[1].FFTInverse(coeffs, fft.DIF)
+	fft.BitReverse(coeffs)
 	for i := p.NbColumns; i < p.NbEncodedColumns(); i++ {
 		if !coeffs[i].IsZero() {
 			return fmt.Errorf("not a reed-solomon codeword")
@@ -61,7 +64,8 @@ func (p *Params) IsReedSolomonCodewords(codeword []fext.E4) error {
 		coeffs[i] = codeword[i].B0.A1
 	}
 
-	p.Domains[1].FFTInverse(coeffs, fft.DIT)
+	p.Domains[1].FFTInverse(coeffs, fft.DIF)
+	fft.BitReverse(coeffs)
 	for i := p.NbColumns; i < p.NbEncodedColumns(); i++ {
 		if !coeffs[i].IsZero() {
 			return fmt.Errorf("not a reed-solomon codeword")
@@ -72,7 +76,8 @@ func (p *Params) IsReedSolomonCodewords(codeword []fext.E4) error {
 		coeffs[i] = codeword[i].B1.A0
 	}
 
-	p.Domains[1].FFTInverse(coeffs, fft.DIT)
+	p.Domains[1].FFTInverse(coeffs, fft.DIF)
+	fft.BitReverse(coeffs)
 	for i := p.NbColumns; i < p.NbEncodedColumns(); i++ {
 		if !coeffs[i].IsZero() {
 			return fmt.Errorf("not a reed-solomon codeword")
@@ -83,7 +88,8 @@ func (p *Params) IsReedSolomonCodewords(codeword []fext.E4) error {
 		coeffs[i] = codeword[i].B1.A1
 	}
 
-	p.Domains[1].FFTInverse(coeffs, fft.DIT)
+	p.Domains[1].FFTInverse(coeffs, fft.DIF)
+	fft.BitReverse(coeffs)
 	for i := p.NbColumns; i < p.NbEncodedColumns(); i++ {
 		if !coeffs[i].IsZero() {
 			return fmt.Errorf("not a reed-solomon codeword")
