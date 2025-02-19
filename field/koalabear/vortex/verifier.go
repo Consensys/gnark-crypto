@@ -43,9 +43,13 @@ func (p *Params) Verify(input VerifierInput) error {
 
 	// This checks the consistency between uAlpha and the claimed value
 	var (
-		uAlphaAtX     = evalHornerExt(input.Proof.UAlpha, input.EvaluationPoint)
-		claimsAtAlpha = evalHornerExt(input.ClaimedValues, input.Alpha)
+		uAlphaAtX, uErr = EvalFextPolyLagrange(input.Proof.UAlpha, input.EvaluationPoint)
+		claimsAtAlpha   = EvalFextPolyHorner(input.ClaimedValues, input.Alpha)
 	)
+
+	if uErr != nil {
+		return fmt.Errorf("invalid proof: could not evaluate uAlpha: %w", uErr)
+	}
 
 	if uAlphaAtX != claimsAtAlpha {
 		return errors.New("invalid proof: ualpha and the claim do not match")
@@ -74,15 +78,4 @@ func (p *Params) Verify(input VerifierInput) error {
 
 	return nil
 
-}
-
-// evalHorner evaluates p at point x using the Horner algorithm
-// where p is a polynomial of degree len(p) - 1
-func evalHornerExt(p []fext.E4, x fext.E4) fext.E4 {
-	res := fext.E4{}
-	for i := len(p) - 1; i >= 0; i-- {
-		res.Mul(&res, &x)
-		res.Add(&res, &p[i])
-	}
-	return res
 }
