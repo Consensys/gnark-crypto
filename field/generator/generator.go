@@ -67,6 +67,13 @@ func GenerateFF(F *config.Field, outputDir string, options ...Option) error {
 		}
 	}
 
+	// generate Extensions
+	if cfg.HasExtensions() {
+		if err := generateExtensions(F, outputDir); err != nil {
+			return err
+		}
+	}
+
 	return runFormatters(outputDir)
 }
 

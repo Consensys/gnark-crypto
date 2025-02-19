@@ -7,10 +7,15 @@ import (
 type Option func(*generatorConfig)
 
 type generatorConfig struct {
-	fftConfig     *config.FFT
-	asmConfig     *config.Assembly
-	withSIS       bool
-	withPoseidon2 bool
+	fftConfig      *config.FFT
+	asmConfig      *config.Assembly
+	withSIS        bool
+	withPoseidon2  bool
+	withExtensions bool
+}
+
+func (cfg *generatorConfig) HasExtensions() bool {
+	return cfg.withExtensions
 }
 
 func (cfg *generatorConfig) HasPoseidon2() bool {
@@ -42,6 +47,12 @@ func WithSIS() Option {
 func WithPoseidon2() Option {
 	return func(opt *generatorConfig) {
 		opt.withPoseidon2 = true
+	}
+}
+
+func WithExtensions() Option {
+	return func(opt *generatorConfig) {
+		opt.withExtensions = true
 	}
 }
 
