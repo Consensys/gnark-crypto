@@ -17,7 +17,12 @@ var _bigIntPool = sync.Pool{
 type bigIntPool struct{}
 
 func (bigIntPool) Get() *big.Int {
-	return _bigIntPool.Get().(*big.Int)
+	v, ok := _bigIntPool.Get().(*big.Int)
+	if !ok {
+		// If somehow we got a wrong type, create a new one
+		return new(big.Int)
+	}
+	return v
 }
 
 func (bigIntPool) Put(v *big.Int) {
