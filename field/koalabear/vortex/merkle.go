@@ -27,10 +27,10 @@ type MerkleTree struct {
 // last one is the one just under the root. So it has a length of depth.
 type MerkleProof []Hash
 
-// MerkleCompute builds a Merkle tree from a list of hashes. If the provided
+// BuildMerkleTree builds a Merkle tree from a list of hashes. If the provided
 // number of leaves is not a power of two, the leaves are padded with zero
 // hashes.
-func MerkleCompute(hashes []Hash) *MerkleTree {
+func BuildMerkleTree(hashes []Hash) *MerkleTree {
 
 	var (
 		numLeaves    = len(hashes)
@@ -57,6 +57,8 @@ func MerkleCompute(hashes []Hash) *MerkleTree {
 			left, right := levels[i+1][2*k], levels[i+1][2*k+1]
 			levels[i][k] = CompressPoseidon2(left, right)
 		}
+
+		fmt.Printf("[build tree] level=%v #nodes=%v\n", i, len(levels[i]))
 	}
 
 	return &MerkleTree{
@@ -79,8 +81,12 @@ func (mt *MerkleTree) Open(i int) (MerkleProof, error) {
 	}
 
 	for level := len(mt.Levels) - 1; level > 0; level-- {
-		fmt.Printf("level %v\n", level)
-		neighborPos := parentPos ^ 1
+		var (
+			neighborPos = parentPos ^ 1
+			parent      = mt.Levels[level][parentPos]
+			neighbor    = mt.Levels[level][neighborPos]
+		)
+		fmt.Printf("[open] level=%v neighbor-pos=%v parent=%v neighbor=%v\n", level, neighborPos, parent.Hex(), neighbor.Hex())
 		res = append(res, mt.Levels[level][neighborPos])
 		parentPos = parentPos >> 1
 	}
@@ -104,10 +110,12 @@ func (proof MerkleProof) Verify(i int, leaf, root Hash) error {
 
 	for _, h := range proof {
 
-		a, b := leaf, h
+		a, b := curNode, h
 		if parentPos&1 == 1 {
 			a, b = b, a
 		}
+
+		fmt.Printf("[verify] parent-pos=%v a=%v b=%v\n", parentPos, a.Hex(), b.Hex())
 
 		curNode = CompressPoseidon2(a, b)
 		parentPos = parentPos >> 1
@@ -176,4 +184,17 @@ func Log2Ceil(a int) int {
 		floor++
 	}
 	return floor
+}
+
+// Hex returns an hexadecimal repr of the hash
+func (h Hash) Hex() string {
+	return "0x" +
+		h[0].Text(16) +
+		h[1].Text(16) +
+		h[2].Text(16) +
+		h[3].Text(16) +
+		h[4].Text(16) +
+		h[5].Text(16) +
+		h[6].Text(16) +
+		h[7].Text(16)
 }
