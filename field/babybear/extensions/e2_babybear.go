@@ -4,6 +4,14 @@ import (
 	fr "github.com/consensys/gnark-crypto/field/babybear"
 )
 
+// MulBy11 x *= 11 (mod q)
+func MulBy11(x *fr.Element) {
+	var y fr.Element
+	y.SetUint64(11)
+	x.Mul(x, &y)
+
+}
+
 // Mul sets z to the E2-product of x,y, returns z
 func (z *E2) Mul(x, y *E2) *E2 {
 	var a, b, c fr.Element
@@ -13,7 +21,7 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	b.Mul(&x.A0, &y.A0)
 	c.Mul(&x.A1, &y.A1)
 	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
-	fr.MulBy11(&c)
+	MulBy11(&c)
 	z.A0.Add(&b, &c)
 	return z
 }
@@ -24,7 +32,7 @@ func (z *E2) Square(x *E2) *E2 {
 	a.Mul(&x.A0, &x.A1).Double(&a)
 	c.Square(&x.A0)
 	b.Square(&x.A1)
-	fr.MulBy11(&b)
+	MulBy11(&b)
 	z.A0.Add(&c, &b)
 	z.A1 = a
 	return z
@@ -34,7 +42,7 @@ func (z *E2) Square(x *E2) *E2 {
 func (z *E2) MulByNonResidue(x *E2) *E2 {
 	a := x.A0
 	b := x.A1 // fetching x.A1 in the function below is slower
-	fr.MulBy11(&b)
+	MulBy11(&b)
 	z.A0 = b
 	z.A1 = a
 	return z
@@ -60,7 +68,7 @@ func (z *E2) Inverse(x *E2) *E2 {
 	t0.Square(a)
 	t1.Square(b)
 	tmp.Set(&t1)
-	fr.MulBy11(&tmp)
+	MulBy11(&tmp)
 	t0.Sub(&t0, &tmp)
 	t1.Inverse(&t0)
 	z.A0.Mul(a, &t1)
@@ -74,6 +82,6 @@ func (z *E2) norm(x *fr.Element) {
 	var tmp fr.Element
 	x.Square(&z.A1)
 	tmp.Set(x)
-	fr.MulBy11(&tmp)
+	MulBy11(&tmp)
 	x.Square(&z.A0).Sub(x, &tmp)
 }

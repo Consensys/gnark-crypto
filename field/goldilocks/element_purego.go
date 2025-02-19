@@ -21,13 +21,6 @@ func MulBy5(x *Element) {
 	x.Mul(x, &y)
 }
 
-// MulBy11 x *= 11 (mod q)
-func MulBy11(x *Element) {
-	var y Element
-	y.SetUint64(11)
-	x.Mul(x, &y)
-}
-
 // MulBy13 x *= 13 (mod q)
 func MulBy13(x *Element) {
 	var y Element

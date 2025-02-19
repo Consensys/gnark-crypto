@@ -17,9 +17,6 @@ func MulBy3(x *{{.ElementName}})
 func MulBy5(x *{{.ElementName}})
 
 //go:noescape
-func MulBy11(x *{{.ElementName}})
-
-//go:noescape
 func MulBy13(x *{{.ElementName}})
 
 //go:noescape
@@ -96,7 +93,7 @@ func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
 }
 
 
-{{ $mulConsts := list 3 5 11 13 }}
+{{ $mulConsts := list 3 5 13 }}
 {{- range $i := $mulConsts }}
 
 // MulBy{{$i}} x *= {{$i}} (mod q)
@@ -112,12 +109,6 @@ func MulBy{{$i}}(x *{{$.ElementName}}) {
 		{{- else if eq $i 5}}
 			_x := *x
 			x.Double(x).Double(x).Add(x, &_x)
-		{{- else if eq $i 11}}
-			var y = {{$.ElementName}}{
-				{{- range $i := $.Eleven}}
-				{{$i}},{{end}}
-			}
-			x.Mul(x, &y)
 		{{- else if eq $i 13}}
 			var y = {{$.ElementName}}{
 				{{- range $i := $.Thirteen}}

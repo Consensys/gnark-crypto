@@ -51,17 +51,6 @@ func MulBy5(x *Element) {
 	x.Double(x).Double(x).Add(x, &_x)
 }
 
-// MulBy11 x *= 11 (mod q)
-func MulBy11(x *Element) {
-	var y = Element{
-		1855201571499933546,
-		8511318076631809892,
-		6222514765367795509,
-		1122129207579058019,
-	}
-	x.Mul(x, &y)
-}
-
 // MulBy13 x *= 13 (mod q)
 func MulBy13(x *Element) {
 	var y = Element{
