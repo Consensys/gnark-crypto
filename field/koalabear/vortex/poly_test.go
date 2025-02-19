@@ -12,6 +12,7 @@ func TestPolyLagrangeSimple(t *testing.T) {
 
 	t.Run("constant-base", func(t *testing.T) {
 
+		// #nosec #G404 -- test case generation does not require a cryptographic PRNG
 		rng := rand.New(rand.NewChaCha8([32]byte{}))
 
 		var (

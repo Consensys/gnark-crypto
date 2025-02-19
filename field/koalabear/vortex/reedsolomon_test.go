@@ -83,8 +83,10 @@ func TestReedSolomonProperty(t *testing.T) {
 		v            = make([]koalabear.Element, size)
 		encodedVFext = make([]fext.E4, size*invRate)
 		params       = NewParams(size, 4, nil, 2, 2)
-		rng          = rand.New(rand.NewChaCha8([32]byte{}))
-		randX        = randFext(rng)
+
+		// #nosec G404 -- test case generation does not require a cryptographic PRNG
+		rng   = rand.New(rand.NewChaCha8([32]byte{}))
+		randX = randFext(rng)
 	)
 
 	for i := range v {

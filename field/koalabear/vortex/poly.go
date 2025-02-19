@@ -39,7 +39,7 @@ func EvalBasePolyLagrange(poly []koalabear.Element, x fext.E4) (fext.E4, error) 
 	}
 
 	for i := 0; i < n; i++ {
-		// This substracts a field extension by a base field element.
+		// This subtracts a field extension by a base field element.
 		denominators[i].B0.A0.Sub(&denominators[i].B0.A0, &one)
 		if denominators[i].IsZero() {
 			// edge-case : x is a root of unity of the domain. In this case, we can just return
@@ -95,7 +95,7 @@ func EvalFextPolyLagrange(poly []fext.E4, x fext.E4) (fext.E4, error) {
 	}
 
 	for i := 0; i < n; i++ {
-		// This substracts a field extension by a base field element.
+		// This subtracts a field extension by a base field element.
 		denominators[i].B0.A0.Sub(&denominators[i].B0.A0, &one)
 		if denominators[i].IsZero() {
 			// edge-case : x is a root of unity of the domain. In this case, we can just return

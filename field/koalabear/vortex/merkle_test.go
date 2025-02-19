@@ -33,6 +33,7 @@ func TestMerkleTree(t *testing.T) {
 	t.Run("full-random", func(t *testing.T) {
 
 		var (
+			// #nosec G404 -- test case generation does not require a cryptographic PRNG
 			rng     = rand.New(rand.NewChaCha8([32]byte{}))
 			modulus = uint32(koalabear.Modulus().Int64())
 		)

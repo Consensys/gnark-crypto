@@ -53,7 +53,8 @@ func TestFullRandom(t *testing.T) {
 	var (
 		numCol = 16
 		numRow = 8
-		rng    = rand.New(rand.NewChaCha8([32]byte{}))
+		// #nosec G404 -- test case generation does not require a cryptographic PRNG
+		rng = rand.New(rand.NewChaCha8([32]byte{}))
 	)
 
 	var (
@@ -153,9 +154,10 @@ func BenchmarkVortexReal(b *testing.B) {
 		wg                 sync.WaitGroup
 		sisParams, _       = sis.NewRSis(0, 9, 16, numRow)
 		params             = NewParams(numCol, numRow, sisParams, invRate, numSelectedColumns)
-		topRng             = rand.New(rand.NewChaCha8([32]byte{}))
-		alpha              = randFext(topRng)
-		selectedColumns    = make([]int, 256)
+		// #nosec G404 -- test case generation does not require a cryptographic PRNG
+		topRng          = rand.New(rand.NewChaCha8([32]byte{}))
+		alpha           = randFext(topRng)
+		selectedColumns = make([]int, 256)
 	)
 
 	for i := range selectedColumns {
@@ -173,6 +175,8 @@ func BenchmarkVortexReal(b *testing.B) {
 			m[row] = make([]koalabear.Element, numCol)
 			seed := [32]byte{}
 			binary.PutVarint(seed[:], int64(row))
+
+			// #nosec G404 -- test case generation does not require a cryptographic PRNG
 			rng := rand.New(rand.NewChaCha8(seed))
 			for j := range m[row] {
 				m[row][j] = randElement(rng)
@@ -185,7 +189,7 @@ func BenchmarkVortexReal(b *testing.B) {
 		err         error
 	)
 
-	b.Run("commiting", func(b *testing.B) {
+	b.Run("committing", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			proverState, err = Commit(params, m)
