@@ -2,7 +2,6 @@ package vortex
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/poseidon2"
@@ -57,8 +56,6 @@ func BuildMerkleTree(hashes []Hash) *MerkleTree {
 			left, right := levels[i+1][2*k], levels[i+1][2*k+1]
 			levels[i][k] = CompressPoseidon2(left, right)
 		}
-
-		fmt.Printf("[build tree] level=%v #nodes=%v\n", i, len(levels[i]))
 	}
 
 	return &MerkleTree{
@@ -83,10 +80,7 @@ func (mt *MerkleTree) Open(i int) (MerkleProof, error) {
 	for level := len(mt.Levels) - 1; level > 0; level-- {
 		var (
 			neighborPos = parentPos ^ 1
-			parent      = mt.Levels[level][parentPos]
-			neighbor    = mt.Levels[level][neighborPos]
 		)
-		fmt.Printf("[open] level=%v neighbor-pos=%v parent=%v neighbor=%v\n", level, neighborPos, parent.Hex(), neighbor.Hex())
 		res = append(res, mt.Levels[level][neighborPos])
 		parentPos = parentPos >> 1
 	}
@@ -114,8 +108,6 @@ func (proof MerkleProof) Verify(i int, leaf, root Hash) error {
 		if parentPos&1 == 1 {
 			a, b = b, a
 		}
-
-		fmt.Printf("[verify] parent-pos=%v a=%v b=%v\n", parentPos, a.Hex(), b.Hex())
 
 		curNode = CompressPoseidon2(a, b)
 		parentPos = parentPos >> 1
