@@ -24,17 +24,22 @@ contract KzgVerifier {
 
   uint256 private constant R_MOD = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
   uint256 private constant R_MOD_MINUS_ONE = 21888242871839275222246405745257275088548364400416034343698204186575808495616;
-  uint256 private constant P_MOD = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
   
   {{ range $index, $element := .Vk.G2 }}
-  uint256 private constant G2_SRS_{{ $index }}_X_0 = {{ (fpstr $element.X.A1) }};
-  uint256 private constant G2_SRS_{{ $index }}_X_1 = {{ (fpstr $element.X.A0) }};
-  uint256 private constant G2_SRS_{{ $index }}_Y_0 = {{ (fpstr $element.Y.A1) }};
-  uint256 private constant G2_SRS_{{ $index }}_Y_1 = {{ (fpstr $element.Y.A0) }};
+  uint256 private constant G2_SRS_{{ $index }}_X_0_MSB = {{ (fpstrMSB $element.X.A1) }};
+  uint256 private constant G2_SRS_{{ $index }}_X_0_LSB = {{ (fpstrLSB $element.X.A1) }};
+  uint256 private constant G2_SRS_{{ $index }}_X_1_MSB = {{ (fpstrMSB $element.X.A0) }};
+  uint256 private constant G2_SRS_{{ $index }}_X_1_LSB = {{ (fpstrLSB $element.X.A0) }};
+  uint256 private constant G2_SRS_{{ $index }}_Y_0_MSB = {{ (fpstrMSB $element.Y.A1) }};
+  uint256 private constant G2_SRS_{{ $index }}_Y_0_LSB = {{ (fpstrLSB $element.Y.A1) }};
+  uint256 private constant G2_SRS_{{ $index }}_Y_1_MSB = {{ (fpstrMSB $element.Y.A0) }};
+  uint256 private constant G2_SRS_{{ $index }}_Y_1_LSB = {{ (fpstrLSB $element.Y.A0) }};
   {{ end }}
-  uint256 private constant G1_SRS_X = {{ fpstr .Vk.G1.X }};
-  uint256 private constant G1_SRS_Y = {{ fpstr .Vk.G1.Y }};
-  uint256 private constant G1_SRS_Y_NEG = {{ neg .Vk.G1.Y }};
+  uint256 private constant G1_SRS_X_MSB = {{ fpstrMSB .Vk.G1.X }};
+  uint256 private constant G1_SRS_X_LSB = {{ fpstrLSB .Vk.G1.X }};
+  uint256 private constant G1_SRS_Y_MSB = {{ fpstrMSB .Vk.G1.Y }};
+  uint256 private constant G1_SRS_Y_LSB = {{ fpstrLSB .Vk.G1.Y }};
+  // uint256 private constant G1_SRS_Y_NEG = {{ neg .Vk.G1.Y }};
 
 
   // -------- proofs layout
@@ -60,6 +65,7 @@ contract KzgVerifier {
   uint8 private constant EC_MSM = 0x0c;
   uint8 private constant EC_PAIR = 0x0f;
     
+event PrintUint256(uint256 test);
 
   /// @notice verifies a batched opening proof at a single point of a list of polynomials.
   /// @dev Reverts if the proof or the public inputs are malformed.
@@ -67,9 +73,11 @@ contract KzgVerifier {
   /// @return success true if the proof passes false otherwise
   function BatchVerifySinglePoint(bytes calldata batchOpeningProof) 
 
-  public view returns (bool) {
+  public returns (bool) {
 
     bool res;
+
+    uint256  test;
 
     assembly {
 
@@ -77,13 +85,14 @@ contract KzgVerifier {
       nb_digests := sub(batchOpeningProof.length, SIZE_POINT)
       nb_digests := div(nb_digests, add(SIZE_POINT, SIZE_SCALAR_FIELD))
 
+      test := nb_digests
       let free_mem := mload(0x40)
       let gamma := derive_challenge(batchOpeningProof.offset, nb_digests, free_mem)
-      fold_proof(batchOpeningProof.offset, nb_digests, gamma, add(free_mem, add(SIZE_POINT, SIZE_SCALAR_FIELD)), free_mem)
+      // fold_proof(batchOpeningProof.offset, nb_digests, gamma, add(free_mem, add(SIZE_POINT, SIZE_SCALAR_FIELD)), free_mem)
 
-      let H := add(batchOpeningProof.offset, sub(batchOpeningProof.length, SIZE_POINT))
+      // let H := add(batchOpeningProof.offset, sub(batchOpeningProof.length, SIZE_POINT))
       
-      res := verify(free_mem, H, batchOpeningProof.offset, add(free_mem, add(SIZE_POINT, SIZE_BASE_FIELD)))
+      // res := verify(free_mem, H, batchOpeningProof.offset, add(free_mem, add(SIZE_POINT, SIZE_BASE_FIELD)))
   
       /// @notice error returned when SHA256 failed
       function error_sha256() {
@@ -106,72 +115,72 @@ contract KzgVerifier {
         revert(ptError, 0x64)
       }
 
-      /// @dev dst <- dst + [s]dst
+      /// @dev dst &lt;- dst + [s]dst
       /// @param dst pointer storing the result
       /// @param pt calldata pointer to an EC point
       /// @param s scalar
       /// @param mPtr free memory
-      function point_acc_mul_calldata(dst, pt, s, mPtr) {
-        mstore(mPtr, calldataload(pt))
-        mstore(add(mPtr, 0x20), calldataload(add(pt, 0x20)))
-        mstore(add(mPtr, 0x40), s)
-        let l_success := staticcall(gas(), EC_MUL, mPtr, 0x60, mPtr, 0x40)
-        if iszero(l_success) {
-          error_math_op()
-        }
-        // TODO change offset for bls12
-        mstore(add(mPtr, 0x40), mload(dst))
-        mstore(add(mPtr, 0x60), mload(add(dst, 0x20)))
-        l_success := staticcall(gas(), EC_ADD, mPtr, 0x80, dst, 0x40)
-        if iszero(l_success) {
-          error_math_op()
-        }
-      }
+      // function point_acc_mul_calldata(dst, pt, s, mPtr) {
+      //   mstore(mPtr, calldataload(pt))
+      //   mstore(add(mPtr, 0x20), calldataload(add(pt, 0x20)))
+      //   mstore(add(mPtr, 0x40), s)
+      //   let l_success := staticcall(gas(), EC_MUL, mPtr, 0x60, mPtr, 0x40)
+      //   if iszero(l_success) {
+      //     error_math_op()
+      //   }
+      //   // TODO change offset for bls12
+      //   mstore(add(mPtr, 0x40), mload(dst))
+      //   mstore(add(mPtr, 0x60), mload(add(dst, 0x20)))
+      //   l_success := staticcall(gas(), EC_ADD, mPtr, 0x80, dst, 0x40)
+      //   if iszero(l_success) {
+      //     error_math_op()
+      //   }
+      // }
 
-      /// @dev dst <- dst + [s]pt
+      /// @dev dst &lt;- dst + [s]pt
       /// @param dst pointer storing the result
       /// @param pt pointer to an EC point
       /// @param s scalar
       /// @param mPtr free memory
-      function point_acc_mul(dst, pt, s, mPtr) {
-        mstore(mPtr, mload(pt))
-        mstore(add(mPtr, SIZE_BASE_FIELD), mload(add(pt, SIZE_BASE_FIELD)))
-        mstore(add(mPtr, SIZE_POINT), s)
-        let l_success := staticcall(gas(), EC_MUL, mPtr, add(SIZE_POINT, SIZE_SCALAR_FIELD), mPtr, SIZE_POINT)
-        if iszero(l_success) {
-          error_math_op()
-        }
-        mstore(add(mPtr, SIZE_POINT), mload(dst))
-        mstore(add(mPtr, add(SIZE_POINT, SIZE_BASE_FIELD)), mload(add(dst, SIZE_BASE_FIELD)))
-        l_success := staticcall(gas(), EC_ADD, mPtr, add(SIZE_POINT, SIZE_POINT), dst, SIZE_POINT)
-        if iszero(l_success) {
-          error_math_op()
-        }
-      }
+      // function point_acc_mul(dst, pt, s, mPtr) {
+      //   mstore(mPtr, mload(pt))
+      //   mstore(add(mPtr, SIZE_BASE_FIELD), mload(add(pt, SIZE_BASE_FIELD)))
+      //   mstore(add(mPtr, SIZE_POINT), s)
+      //   let l_success := staticcall(gas(), EC_MUL, mPtr, add(SIZE_POINT, SIZE_SCALAR_FIELD), mPtr, SIZE_POINT)
+      //   if iszero(l_success) {
+      //     error_math_op()
+      //   }
+      //   mstore(add(mPtr, SIZE_POINT), mload(dst))
+      //   mstore(add(mPtr, add(SIZE_POINT, SIZE_BASE_FIELD)), mload(add(dst, SIZE_BASE_FIELD)))
+      //   l_success := staticcall(gas(), EC_ADD, mPtr, add(SIZE_POINT, SIZE_POINT), dst, SIZE_POINT)
+      //   if iszero(l_success) {
+      //     error_math_op()
+      //   }
+      // }
 
-      /// @dev dst <- [s]dst + pt
+      /// @dev dst &lt;- [s]dst + pt
       /// @param dst pointer storing the result
       /// @param pt calldata pointer to an EC point
       /// @param s scalar
       /// @param mPtr free memory
-      function point_mul_add_calldata(dst, pt, s, mPtr) {
+      // function point_mul_add_calldata(dst, pt, s, mPtr) {
 
-        mstore(mPtr, mload(dst))
-        mstore(add(mPtr, SIZE_BASE_FIELD), mload(add(dst, SIZE_BASE_FIELD)))
-        mstore(add(mPtr, SIZE_POINT), s)
-        let l_success := staticcall(gas(), EC_MUL, mPtr, add(SIZE_POINT, SIZE_SCALAR_FIELD), mPtr, SIZE_POINT)
-        if iszero(l_success) {
-          error_math_op()
-        }
+      //   mstore(mPtr, mload(dst))
+      //   mstore(add(mPtr, SIZE_BASE_FIELD), mload(add(dst, SIZE_BASE_FIELD)))
+      //   mstore(add(mPtr, SIZE_POINT), s)
+      //   let l_success := staticcall(gas(), EC_MUL, mPtr, add(SIZE_POINT, SIZE_SCALAR_FIELD), mPtr, SIZE_POINT)
+      //   if iszero(l_success) {
+      //     error_math_op()
+      //   }
 
-        calldatacopy(add(mPtr, SIZE_POINT), pt, SIZE_POINT)
-        l_success := staticcall(gas(), EC_ADD, mPtr, add(SIZE_POINT, SIZE_POINT), dst, SIZE_POINT)
-        if iszero(l_success) {
-          error_math_op()
-        }
-      }
+      //   calldatacopy(add(mPtr, SIZE_POINT), pt, SIZE_POINT)
+      //   l_success := staticcall(gas(), EC_ADD, mPtr, add(SIZE_POINT, SIZE_POINT), dst, SIZE_POINT)
+      //   if iszero(l_success) {
+      //     error_math_op()
+      //   }
+      // }
 
-      /// @dev dst <- pt + s*dst [R_MOD]
+      /// @dev dst &lt;- pt + s*dst [R_MOD]
       /// @param dst pointer storing the result
       /// @param pt calldata pointer to a scalar
       /// @param s scalar
@@ -187,44 +196,44 @@ contract KzgVerifier {
       /// @param quotient calldata pointer to the quotient of the batch opening proof
       /// @param point calldata pointer to the point at which the proofs are opened
       /// @param mPtr pointer to free memory
-      function verify(folded_digest_and_claimed_values, quotient, point, mPtr)->res_pairing {
+      // function verify(folded_digest_and_claimed_values, quotient, point, mPtr)->res_pairing {
 
-        let _mPtr := add(mPtr, SIZE_POINT)
+      //   let _mPtr := add(mPtr, SIZE_POINT)
 
-        // folded_digest + [z]quotient
-        mstore(mPtr, mload(folded_digest_and_claimed_values))
-        mstore(add(mPtr, SIZE_BASE_FIELD), mload(add(folded_digest_and_claimed_values, SIZE_BASE_FIELD)))
-        point_acc_mul_calldata(mPtr, quotient, calldataload(point), _mPtr)
+      //   // folded_digest + [z]quotient
+      //   mstore(mPtr, mload(folded_digest_and_claimed_values))
+      //   mstore(add(mPtr, SIZE_BASE_FIELD), mload(add(folded_digest_and_claimed_values, SIZE_BASE_FIELD)))
+      //   point_acc_mul_calldata(mPtr, quotient, calldataload(point), _mPtr)
         
-        // folded_digest + [z]quotient - [folded_claimed_values]G
-        mstore(_mPtr, G1_SRS_X)
-        mstore(add(_mPtr, SIZE_BASE_FIELD), G1_SRS_Y_NEG)
-        let g1_ptr := _mPtr
-        _mPtr := add(_mPtr, SIZE_POINT)
-        point_acc_mul(mPtr, g1_ptr, mload(add(folded_digest_and_claimed_values, SIZE_POINT)), add(_mPtr, SIZE_POINT))
-        let tmp := mload(add(mPtr, SIZE_BASE_FIELD))
-        tmp := sub(P_MOD, tmp)
+      //   // folded_digest + [z]quotient - [folded_claimed_values]G
+      //   mstore(_mPtr, G1_SRS_X)
+      //   mstore(add(_mPtr, SIZE_BASE_FIELD), G1_SRS_Y_NEG)
+      //   let g1_ptr := _mPtr
+      //   _mPtr := add(_mPtr, SIZE_POINT)
+      //   point_acc_mul(mPtr, g1_ptr, mload(add(folded_digest_and_claimed_values, SIZE_POINT)), add(_mPtr, SIZE_POINT))
+      //   let tmp := mload(add(mPtr, SIZE_BASE_FIELD))
+      //   tmp := sub(P_MOD, tmp)
 
-        // - [ folded_digest + [z]quotient - [folded_claimed_values]G ]
-        mstore(add(mPtr, SIZE_BASE_FIELD), tmp)
+      //   // - [ folded_digest + [z]quotient - [folded_claimed_values]G ]
+      //   mstore(add(mPtr, SIZE_BASE_FIELD), tmp)
 
-        // check e(- [ f(\alpha) + [z]H(\alpha) - [f(z)]G ], G2).e(H(\alpha)G1, [\alpha]G2)==1
-        mstore(add(mPtr, 0x40), G2_SRS_0_X_0)
-        mstore(add(mPtr, 0x60), G2_SRS_0_X_1)
-        mstore(add(mPtr, 0x80), G2_SRS_0_Y_0)
-        mstore(add(mPtr, 0xa0), G2_SRS_0_Y_1)
-        mstore(add(mPtr, 0xc0), calldataload(quotient))
-        mstore(add(mPtr, 0xe0), calldataload(add(quotient, SIZE_BASE_FIELD)))
-        mstore(add(mPtr, 0x100), G2_SRS_1_X_0)
-        mstore(add(mPtr, 0x120), G2_SRS_1_X_1)
-        mstore(add(mPtr, 0x140), G2_SRS_1_Y_0)
-        mstore(add(mPtr, 0x160), G2_SRS_1_Y_1)
-        let pairing_op := staticcall(gas(), EC_PAIR, mPtr, 0x180, mPtr, 0x20)
-        if iszero(pairing_op) {
-          error_math_op()
-        }
-        res_pairing := mload(mPtr)
-      }
+      //   // check e(- [ f(\alpha) + [z]H(\alpha) - [f(z)]G ], G2).e(H(\alpha)G1, [\alpha]G2)==1
+      //   mstore(add(mPtr, 0x40), G2_SRS_0_X_0)
+      //   mstore(add(mPtr, 0x60), G2_SRS_0_X_1)
+      //   mstore(add(mPtr, 0x80), G2_SRS_0_Y_0)
+      //   mstore(add(mPtr, 0xa0), G2_SRS_0_Y_1)
+      //   mstore(add(mPtr, 0xc0), calldataload(quotient))
+      //   mstore(add(mPtr, 0xe0), calldataload(add(quotient, SIZE_BASE_FIELD)))
+      //   mstore(add(mPtr, 0x100), G2_SRS_1_X_0)
+      //   mstore(add(mPtr, 0x120), G2_SRS_1_X_1)
+      //   mstore(add(mPtr, 0x140), G2_SRS_1_Y_0)
+      //   mstore(add(mPtr, 0x160), G2_SRS_1_Y_1)
+      //   let pairing_op := staticcall(gas(), EC_PAIR, mPtr, 0x180, mPtr, 0x20)
+      //   if iszero(pairing_op) {
+      //     error_math_op()
+      //   }
+      //   res_pairing := mload(mPtr)
+      // }
 
       /// @notice compute the challenge for kzg 
       /// @param proof calldata pointer to the proof, [ point || digests || claimed values || proof ]
@@ -232,27 +241,27 @@ contract KzgVerifier {
       /// @param _gamma challenge for folding the proofs
       /// @param mPtr free memory
       /// @param dst pointer where the result is stored. The result is [folded_digests, folded_claimed_values]
-      function fold_proof(proof, nbDigests, _gamma, mPtr, dst) {
+      // function fold_proof(proof, nbDigests, _gamma, mPtr, dst) {
 
-        let current_claimed_value := add(SIZE_SCALAR_FIELD, mul(nbDigests, add(SIZE_BASE_FIELD, SIZE_POINT)))
-        let current_digest := add(SIZE_SCALAR_FIELD, mul(nbDigests, SIZE_POINT))
+      //   let current_claimed_value := add(SIZE_SCALAR_FIELD, mul(nbDigests, add(SIZE_BASE_FIELD, SIZE_POINT)))
+      //   let current_digest := add(SIZE_SCALAR_FIELD, mul(nbDigests, SIZE_POINT))
         
-        current_claimed_value := sub(current_claimed_value, SIZE_SCALAR_FIELD)
-        current_digest := sub(current_digest, SIZE_POINT)
+      //   current_claimed_value := sub(current_claimed_value, SIZE_SCALAR_FIELD)
+      //   current_digest := sub(current_digest, SIZE_POINT)
       
-        calldatacopy(dst, add(proof, current_digest), SIZE_POINT)
-        mstore(add(dst, SIZE_POINT), calldataload(add(proof, current_claimed_value)))
+      //   calldatacopy(dst, add(proof, current_digest), SIZE_POINT)
+      //   mstore(add(dst, SIZE_POINT), calldataload(add(proof, current_claimed_value)))
 
-        for {let i := 0} lt(i, sub(nbDigests,1)) {i:=add(i,1)}{
+      //   for {let i := 0} lt(i, sub(nbDigests,1)) {i:=add(i,1)}{
           
-          current_claimed_value := sub(current_claimed_value, SIZE_SCALAR_FIELD)
-          scalar_mul_add_calldata(add(dst, SIZE_POINT), add(proof, current_claimed_value), _gamma)
+      //     current_claimed_value := sub(current_claimed_value, SIZE_SCALAR_FIELD)
+      //     scalar_mul_add_calldata(add(dst, SIZE_POINT), add(proof, current_claimed_value), _gamma)
           
-          current_digest := sub(current_digest, SIZE_POINT)
-          point_mul_add_calldata(dst, add(proof, current_digest), _gamma, mPtr)
-        }
+      //     current_digest := sub(current_digest, SIZE_POINT)
+      //     point_mul_add_calldata(dst, add(proof, current_digest), _gamma, mPtr)
+      //   }
 
-      }
+      // }
 
       /// @notice verify the folded proof
       /// @param proof calldata pointer to the proof
@@ -292,6 +301,7 @@ contract KzgVerifier {
 
       }
     }
+    emit PrintUint256(test);
     return res;
   
   }
