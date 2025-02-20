@@ -12,12 +12,12 @@ func TestNafDecomposition(t *testing.T) {
 		input    string // large number in decimal form
 		expected []int8 // expected NAF representation
 	}{
-		{"13", []int8{1, 0, -1, 0, 1}},          // existing test case
-		{"0", []int8{}},                          // edge case - zero
-		{"1", []int8{1}},                         // edge case - one
-		{"7", []int8{-1, 0, 0, 1}},              // 7 = 2³ - 2⁰ (8 - 1)
-		{"15", []int8{-1, 0, 0, 0, 1}},           // 15 = 2⁴ - 2⁰
-		{"31", []int8{-1, 0, 0, 0, 0, 1}},        // 31 = 2⁵ - 2⁰
+		{"13", []int8{1, 0, -1, 0, 1}},    // existing test case
+		{"0", []int8{}},                    // edge case - zero
+		{"1", []int8{1}},                   // edge case - one
+		{"7", []int8{-1, 0, 0, 1}},        // 7 = 2³ - 2⁰ (8 - 1)
+		{"15", []int8{-1, 0, 0, 0, 1}},    // 15 = 2⁴ - 2⁰
+		{"31", []int8{-1, 0, 0, 0, 0, 1}}, // 31 = 2⁵ - 2⁰
 	}
 
 	for i, test := range tests {
@@ -33,7 +33,7 @@ func TestNafDecomposition(t *testing.T) {
 
 		// Length check
 		if len(naf) != len(test.expected) {
-			t.Errorf("Test %d: Incorrect length for input %s. Got %d, want %d", 
+			t.Errorf("Test %d: Incorrect length for input %s. Got %d, want %d",
 				i, test.input, len(naf), len(test.expected))
 			continue
 		}
@@ -69,7 +69,7 @@ func TestNafDecomposition(t *testing.T) {
 			power.Mul(power, big.NewInt(2))
 		}
 		if reconstructed.Cmp(input) != 0 {
-			t.Errorf("Test %d: NAF reconstruction failed for input %s. Got %s", 
+			t.Errorf("Test %d: NAF reconstruction failed for input %s. Got %s",
 				i, test.input, reconstructed.String())
 		}
 	}
@@ -94,11 +94,9 @@ func TestSplitting(t *testing.T) {
 	if _s.Cmp(&zero) != 0 {
 		t.Fatal("Error split scalar")
 	}
-
 }
 
 func BenchmarkSplitting256(b *testing.B) {
-
 	var lambda, r, s big.Int
 	var l Lattice
 
@@ -111,5 +109,4 @@ func BenchmarkSplitting256(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		SplitScalar(&s, &l)
 	}
-
 }
