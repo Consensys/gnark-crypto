@@ -123,8 +123,8 @@ type Permutation struct {
 
 // NewPermutation returns a new Poseidon2 permutation instance.
 func NewPermutation(t, rf, rp int) *Permutation {
-	if t != 8 {
-		panic("only Width=8 is supported")
+	if t != 8 && t != 12 {
+		panic("only Width=8,12 are supported")
 	}
 	params := NewParameters(t, rf, rp)
 	res := &Permutation{params: params}
@@ -134,8 +134,8 @@ func NewPermutation(t, rf, rp int) *Permutation {
 // NewPermutationWithSeed returns a new Poseidon2 permutation instance with a
 // given seed.
 func NewPermutationWithSeed(t, rf, rp int, seed string) *Permutation {
-	if t != 8 {
-		panic("only Width=8 is supported")
+	if t != 8 && t != 12 {
+		panic("only Width=8,12 are supported")
 	}
 	params := NewParametersWithSeed(t, rf, rp, seed)
 	res := &Permutation{params: params}
@@ -210,24 +210,27 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 	switch h.params.Width {
 	case 8:
-		// at this stage t is supposed to be a multiple of 4
-		// the MDS matrix is circ(2M4,M4,..,M4)
-		h.matMulM4InPlace(input)
-		tmp := make([]fr.Element, 4)
-		for i := 0; i < h.params.Width/4; i++ {
-			tmp[0].Add(&tmp[0], &input[4*i])
-			tmp[1].Add(&tmp[1], &input[4*i+1])
-			tmp[2].Add(&tmp[2], &input[4*i+2])
-			tmp[3].Add(&tmp[3], &input[4*i+3])
+		var sum fr.Element
+		sum.Set(&input[0])
+		for i := 1; i < h.params.Width; i++ {
+			sum.Add(&sum, &input[i])
 		}
-		for i := 0; i < h.params.Width/4; i++ {
-			input[4*i].Add(&input[4*i], &tmp[0])
-			input[4*i+1].Add(&input[4*i], &tmp[1])
-			input[4*i+2].Add(&input[4*i], &tmp[2])
-			input[4*i+3].Add(&input[4*i], &tmp[3])
+		for i := 0; i < h.params.Width; i++ {
+			input[i].Mul(&input[i], &diag8[i]).
+				Add(&input[i], &sum)
+		}
+	case 12:
+		var sum fr.Element
+		sum.Set(&input[0])
+		for i := 1; i < h.params.Width; i++ {
+			sum.Add(&sum, &input[i])
+		}
+		for i := 0; i < h.params.Width; i++ {
+			input[i].Mul(&input[i], &diag12[i]).
+				Add(&input[i], &sum)
 		}
 	default:
-		panic("only Width=8 is supported")
+		panic("only Width=8,12 are supported")
 	}
 }
 
