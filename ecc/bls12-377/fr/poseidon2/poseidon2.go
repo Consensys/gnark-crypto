@@ -278,9 +278,8 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 	return nil
 }
 
-// Compress applies the permutation on left and right and returns the right lane
-// of the result. Panics if the permutation instance is not initialized with a
-// width of 2.
+// Compress uses the permutation to compress the left and right input in a collision resistant manner.
+// Returns an error if the permutation instance is not initialized with a width of 2.
 func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 	if h.params.Width != 2 {
 		return nil, errors.New("need a 2-1 function")
@@ -293,9 +292,10 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 	if err := x[1].SetBytesCanonical(right); err != nil {
 		return nil, err
 	}
+	res := x[1] // save right to feed forward later
 	if err := h.Permutation(x[:]); err != nil {
 		return nil, err
 	}
-	res := x[1].Bytes()
-	return res[:], nil
+	res.Add(&res, &x[1])
+	return res.Marshal(), nil
 }
