@@ -23,10 +23,31 @@ func ExportContract(srs *kzg_bls12381.SRS, w io.Writer) error {
 			x.BigInt(bv)
 			return bv.String()
 		},
-		"fpstr": func(x fp.Element) string {
-			bv := new(big.Int)
-			x.BigInt(bv)
-			return bv.String()
+		"fpstrMSB": func(x fp.Element) string {
+			bb := x.Bytes()
+			res := "0x00000000000000000000000000000000"
+			for i := 0; i < 16; i++ {
+				tmp := int(bb[i])
+				if tmp < 16 {
+					res += fmt.Sprintf("0%x", bb[i])
+				} else {
+					res += fmt.Sprintf("%x", bb[i])
+				}
+			}
+			return res
+		},
+		"fpstrLSB": func(x fp.Element) string {
+			bb := x.Bytes()
+			res := "0x"
+			for i := 16; i < 48; i++ {
+				tmp := int(bb[i])
+				if tmp < 16 {
+					res += fmt.Sprintf("0%x", bb[i])
+				} else {
+					res += fmt.Sprintf("%x", bb[i])
+				}
+			}
+			return res
 		},
 		"add": func(i, j int) int {
 			return i + j

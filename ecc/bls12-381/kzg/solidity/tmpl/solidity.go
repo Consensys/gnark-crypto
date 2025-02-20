@@ -22,8 +22,8 @@ pragma solidity ^0.8.20;
 
 contract KzgVerifier {
 
-  uint256 private constant R_MOD = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
-  uint256 private constant R_MOD_MINUS_ONE = 21888242871839275222246405745257275088548364400416034343698204186575808495616;
+  uint256 private constant R_MOD = 52435875175126190479447740508185965837690552500527637822603658699938581184513;
+  uint256 private constant R_MOD_MINUS_ONE = 52435875175126190479447740508185965837690552500527637822603658699938581184512;
   
   {{ range $index, $element := .Vk.G2 }}
   uint256 private constant G2_SRS_{{ $index }}_X_0_MSB = {{ (fpstrMSB $element.X.A1) }};
@@ -65,7 +65,7 @@ contract KzgVerifier {
   uint8 private constant EC_MSM = 0x0c;
   uint8 private constant EC_PAIR = 0x0f;
     
-event PrintUint256(uint256 test);
+  event PrintUint256(uint256 test);
 
   /// @notice verifies a batched opening proof at a single point of a list of polynomials.
   /// @dev Reverts if the proof or the public inputs are malformed.
@@ -85,9 +85,9 @@ event PrintUint256(uint256 test);
       nb_digests := sub(batchOpeningProof.length, SIZE_POINT)
       nb_digests := div(nb_digests, add(SIZE_POINT, SIZE_SCALAR_FIELD))
 
-      test := nb_digests
       let free_mem := mload(0x40)
       let gamma := derive_challenge(batchOpeningProof.offset, nb_digests, free_mem)
+      test := gamma
       // fold_proof(batchOpeningProof.offset, nb_digests, gamma, add(free_mem, add(SIZE_POINT, SIZE_SCALAR_FIELD)), free_mem)
 
       // let H := add(batchOpeningProof.offset, sub(batchOpeningProof.length, SIZE_POINT))
@@ -269,6 +269,7 @@ event PrintUint256(uint256 test);
       /// @param mPtr free memory
       function derive_challenge(proof, nbDigests, mPtr)->_gamma {
 
+        let offset_proof
         let total_size_data
 
         // load gamma
@@ -278,19 +279,88 @@ event PrintUint256(uint256 test);
         // load the point
         mstore(_mPtr, calldataload(proof))
         total_size_data := SIZE_SCALAR_FIELD
+        offset_proof := SIZE_SCALAR_FIELD
 
-        // load the digests
-        let size_data :=  mul(nbDigests, SIZE_POINT)
-        calldatacopy(add(_mPtr, total_size_data), add(proof, total_size_data), size_data)
-        total_size_data := add(total_size_data, size_data)
+        // load the digests. Carefull: the elements in the base field are prepended with 16 bytes
+        // set to zero.
+        // let size_data :=  mul(nbDigests, SIZE_POINT)
+        for {let i:=0} lt(i, nbDigests) {i:=add(i,1)} {
+          _gamma := calldataload(add(proof, offset_proof))
+
+          // x coordinate
+          offset_proof := add(offset_proof, 0x10) // skip the first 16 bytes
+          calldatacopy(add(_mPtr, total_size_data), add(proof, offset_proof), SIZE_BASE_FIELD)
+          total_size_data := add(total_size_data, SIZE_BASE_FIELD)
+          offset_proof := add(offset_proof, SIZE_BASE_FIELD)
+
+          // y coordinate
+          offset_proof := add(offset_proof, 0x10) // skip the first 16 bytes
+          calldatacopy(add(_mPtr, total_size_data), add(proof, offset_proof), SIZE_BASE_FIELD)
+          total_size_data := add(total_size_data, SIZE_BASE_FIELD)
+          offset_proof := add(offset_proof, SIZE_BASE_FIELD)
+        }
 
         // load the claimed values
-        size_data := mul(nbDigests, SIZE_SCALAR_FIELD)
-        calldatacopy(add(_mPtr, total_size_data), add(proof, total_size_data), size_data)
+        let size_data := mul(nbDigests, SIZE_SCALAR_FIELD)
+        calldatacopy(add(_mPtr, total_size_data), add(proof, offset_proof), size_data)
         total_size_data := add(total_size_data, size_data)
+        offset_proof := add(offset_proof, size_data)
 
         // hash
-        total_size_data := add(total_size_data, 5)
+        total_size_data := add(total_size_data, 5) // add 5 for the challenge's name, "gamma"
+        let check_staticcall := staticcall(gas(), SHA256, add(mPtr,0x1b), total_size_data, mPtr, 0x20)
+        if iszero(check_staticcall) {
+          error_sha256()
+        }
+
+        // reduce
+        _gamma := mod(mload(mPtr), R_MOD)
+
+      }/// @notice verify the folded proof
+      /// @param proof calldata pointer to the proof
+      /// @param nbDigests number of digests
+      /// @param mPtr free memory
+      function derive_challenge(proof, nbDigests, mPtr)->_gamma {
+
+        let offset_proof
+        let total_size_data
+
+        // load gamma
+        mstore(mPtr, GAMMA)
+        let _mPtr := add(mPtr, 0x20)
+
+        // load the point
+        mstore(_mPtr, calldataload(proof))
+        total_size_data := SIZE_SCALAR_FIELD
+        offset_proof := SIZE_SCALAR_FIELD
+
+        // load the digests. Carefull: the elements in the base field are prepended with 16 bytes
+        // set to zero.
+        // let size_data :=  mul(nbDigests, SIZE_POINT)
+        for {let i:=0} lt(i, nbDigests) {i:=add(i,1)} {
+          _gamma := calldataload(add(proof, offset_proof))
+
+          // x coordinate
+          offset_proof := add(offset_proof, 0x10) // skip the first 16 bytes
+          calldatacopy(add(_mPtr, total_size_data), add(proof, offset_proof), SIZE_BASE_FIELD)
+          total_size_data := add(total_size_data, SIZE_BASE_FIELD)
+          offset_proof := add(offset_proof, SIZE_BASE_FIELD)
+
+          // y coordinate
+          offset_proof := add(offset_proof, 0x10) // skip the first 16 bytes
+          calldatacopy(add(_mPtr, total_size_data), add(proof, offset_proof), SIZE_BASE_FIELD)
+          total_size_data := add(total_size_data, SIZE_BASE_FIELD)
+          offset_proof := add(offset_proof, SIZE_BASE_FIELD)
+        }
+
+        // load the claimed values
+        let size_data := mul(nbDigests, SIZE_SCALAR_FIELD)
+        calldatacopy(add(_mPtr, total_size_data), add(proof, offset_proof), size_data)
+        total_size_data := add(total_size_data, size_data)
+        offset_proof := add(offset_proof, size_data)
+
+        // hash
+        total_size_data := add(total_size_data, 5) // add 5 for the challenge's name, "gamma"
         let check_staticcall := staticcall(gas(), SHA256, add(mPtr,0x1b), total_size_data, mPtr, 0x20)
         if iszero(check_staticcall) {
           error_sha256()
