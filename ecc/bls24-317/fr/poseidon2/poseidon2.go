@@ -155,39 +155,8 @@ func (h *Permutation) sBox(index int, input []fr.Element) {
 
 }
 
-// matMulM4 computes
-// s <- M4*s
-// where M4=
-// (5 7 1 3)
-// (4 6 1 1)
-// (1 3 5 7)
-// (1 1 4 6)
-// on chunks of 4 elemts on each part of the buffer
-// see https://eprint.iacr.org/2023/323.pdf appendix B for the addition chain
-func (h *Permutation) matMulM4InPlace(s []fr.Element) {
-	c := len(s) / 4
-	for i := 0; i < c; i++ {
-		var t0, t1, t2, t3, t4, t5, t6, t7 fr.Element
-		t0.Add(&s[4*i], &s[4*i+1])               // s0+s1
-		t1.Add(&s[4*i+2], &s[4*i+3])             // s2+s3
-		t2.Double(&s[4*i+1]).Add(&t2, &t1)       // 2s1+t1
-		t3.Double(&s[4*i+3]).Add(&t3, &t0)       // 2s3+t0
-		t4.Double(&t1).Double(&t4).Add(&t4, &t3) // 4t1+t3
-		t5.Double(&t0).Double(&t5).Add(&t5, &t2) // 4t0+t2
-		t6.Add(&t3, &t5)                         // t3+t4
-		t7.Add(&t2, &t4)                         // t2+t4
-		s[4*i].Set(&t6)
-		s[4*i+1].Set(&t5)
-		s[4*i+2].Set(&t7)
-		s[4*i+3].Set(&t4)
-	}
-}
-
 // when T=2,3 the buffer is multiplied by circ(2,1) and circ(2,1,1)
 // see https://eprint.iacr.org/2023/323.pdf page 15, case T=2,3
-//
-// when T=0[4], the buffer is multiplied by circ(2M4,M4,..,M4)
-// see https://eprint.iacr.org/2023/323.pdf
 func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 
 	if h.params.Width == 2 {
@@ -202,8 +171,6 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 		input[0].Add(&tmp, &input[0])
 		input[1].Add(&tmp, &input[1])
 		input[2].Add(&tmp, &input[2])
-	} else if h.params.Width == 4 {
-		h.matMulM4InPlace(input)
 	} else {
 		panic("only Width=2,3 are supported")
 	}

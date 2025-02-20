@@ -37,6 +37,7 @@ var GetDefaultParameters = sync.OnceValue(func() *Parameters {
 })
 
 var diag8 [8]fr.Element
+var diag12 [12]fr.Element
 
 func init() {
 	// diagonal of internal matrix when Width=8
@@ -49,6 +50,21 @@ func init() {
 	diag8[5].SetUint64(0x2a6fe8085797e791)
 	diag8[6].SetUint64(0x3de6e93329f8d5ad)
 	diag8[7].SetUint64(0x3f7af9125da962fe)
+
+	// diagonal of internal matrix when Width=12
+	// same as https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/goldilocks/src/poseidon2.rs#L65
+	diag12[0].SetUint64(0xc3b6c08e23ba9300)
+	diag12[1].SetUint64(0xd84b5de94a324fb6)
+	diag12[2].SetUint64(0x0d0c371c5b35b84f)
+	diag12[3].SetUint64(0x7964f570e7188037)
+	diag12[4].SetUint64(0x5daf18bbd996604b)
+	diag12[5].SetUint64(0x6743bc47b9595257)
+	diag12[6].SetUint64(0x5528b9362c59bb70)
+	diag12[7].SetUint64(0xac45e25b7127b68b)
+	diag12[8].SetUint64(0xa2077d7dfbb606b5)
+	diag12[9].SetUint64(0xf3faac6faee378ae)
+	diag12[10].SetUint64(0x0c6388b51545e883)
+	diag12[11].SetUint64(0xd27dbb6944917b60)
 
 	gnarkHash.RegisterHash(gnarkHash.POSEIDON2_GOLDILOCKS, func() hash.Hash {
 		return NewMerkleDamgardHasher()
