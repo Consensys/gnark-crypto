@@ -243,27 +243,44 @@ contract KzgVerifier {
       /// @param dst pointer where the result is stored. The result is [folded_digests, folded_claimed_values]
       function fold_proof(proof, nbDigests, _gamma, mPtr, dst) {
 
-        // compute [1,γ,γ²,..,γⁿ⁻¹], store them at mPtr
-        // also compute the folded claimed value
+        // compute [c,γ,γ²,..,γⁿ⁻¹]/
+        // mPtr will store [digests_0, 1, digest_1, γ, .., digest_{n-1}, γⁿ⁻¹]
         let acc := 1
         let _mPtr := mPtr
         let tmp
         let cur_claimed_value := add(proof, add(SIZE_SCALAR_FIELD, mul(SIZE_POINT_SERIALISED, nbDigests)))
+        let cur_digest := add(proof, SIZE_SCALAR_FIELD)
         let folded_claimed_values := 0
+        let size_msm
         for {let i := 0} lt(i, nbDigests) {i:=add(i,1)} {
+          
           tmp := mulmod(acc, calldataload(cur_claimed_value), R_MOD)
           folded_claimed_values := addmod(folded_claimed_values, tmp, R_MOD)
+          
+          // _mPtr <- digest_{i} || γ^{)i
+          calldatacopy(_mPtr, cur_digest, SIZE_POINT_SERIALISED)
+          _mPtr := add(_mPtr, SIZE_POINT_SERIALISED)      
           mstore(_mPtr, acc)
-          acc := mulmod(acc, _gamma, R_MOD)
           _mPtr := add(_mPtr, SIZE_SCALAR_FIELD)
+          
           cur_claimed_value := add(cur_claimed_value, SIZE_SCALAR_FIELD)
+          cur_digest := add(cur_digest, SIZE_POINT_SERIALISED)
+
+          // acc = γ^{i}
+          acc := mulmod(acc, _gamma, R_MOD)
+
+          size_msm := add(size_msm, add(SIZE_POINT_SERIALISED, SIZE_SCALAR_FIELD))
         }
         mstore(add(dst, SIZE_POINT_SERIALISED), folded_claimed_values)
 
         // compute the folded digest
+        let msm_op := staticcall(gas(), EC_MSM, mPtr, size_msm, dst, 0x80)
+        if iszero(msm_op) {
+          error_math_op()
+        }
 
       }
-        
+
       /// @notice verify the folded proof
       /// @param proof calldata pointer to the proof
       /// @param nbDigests number of digests
