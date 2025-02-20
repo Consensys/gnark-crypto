@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	kzg_bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381/kzg"
 )
 
@@ -27,14 +28,27 @@ func TestMarshalSolidity(t *testing.T) {
 
 	solidityProof, err := proof.MarshalSolidity()
 	checkError(err, t)
-	for i := 0; i < len(solidityProof); i++ {
-		tmp := int(solidityProof[i])
-		if tmp < 16 {
-			fmt.Printf("0%x", solidityProof[i])
-		} else {
-			fmt.Printf("%x", solidityProof[i])
-		}
+
+	var tt fp.Element
+	for i := 0; i < len(solidityProof); {
+		bb := solidityProof[i : i+32]
+		tt.SetBytes(bb)
+		fmt.Println(tt.String())
+		// for j := 0; j < 32; j++ {
+		// 	tmp := int(solidityProof[i+j])
+		// 	if tmp < 16 {
+		// 		fmt.Printf("0%x", solidityProof[i+j])
+		// 	} else {
+		// 		fmt.Printf("%x", solidityProof[i+j])
+		// 	}
+		// }
+		i += 32
 	}
+
+	// sizeFr := 32
+	// var tmp fp.Element
+	// tmp.SetBytes(solidityProof[2*sizeFr : 2*sizeFr+32])
+	// fmt.Printf("%s\n", tmp.String())
 
 }
 func TestSerialisation(t *testing.T) {

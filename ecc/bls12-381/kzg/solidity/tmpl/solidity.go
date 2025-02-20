@@ -241,82 +241,30 @@ contract KzgVerifier {
       /// @param _gamma challenge for folding the proofs
       /// @param mPtr free memory
       /// @param dst pointer where the result is stored. The result is [folded_digests, folded_claimed_values]
-      // function fold_proof(proof, nbDigests, _gamma, mPtr, dst) {
+      function fold_proof(proof, nbDigests, _gamma, mPtr, dst) {
 
-      //   let current_claimed_value := add(SIZE_SCALAR_FIELD, mul(nbDigests, add(SIZE_BASE_FIELD, SIZE_POINT)))
-      //   let current_digest := add(SIZE_SCALAR_FIELD, mul(nbDigests, SIZE_POINT))
+        // compute [1,γ,γ²,..,γⁿ⁻¹], store them at mPtr
+        // also compute the folded claimed value
+        let acc := 1
+        let _mPtr := mPtr
+        let tmp
+        let cur_claimed_value := add(proof, add(SIZE_SCALAR_FIELD, mul(SIZE_POINT_SERIALISED, nbDigests)))
+        let folded_claimed_values := 0
+        for {let i := 0} lt(i, nbDigests) {i:=add(i,1)} {
+          tmp := mulmod(acc, calldataload(cur_claimed_value), R_MOD)
+          folded_claimed_values := addmod(folded_claimed_values, tmp, R_MOD)
+          mstore(_mPtr, acc)
+          acc := mulmod(acc, _gamma, R_MOD)
+          _mPtr := add(_mPtr, SIZE_SCALAR_FIELD)
+          cur_claimed_value := add(cur_claimed_value, SIZE_SCALAR_FIELD)
+        }
+        mstore(add(dst, SIZE_POINT_SERIALISED), folded_claimed_values)
+
+        // compute the folded digest
+
+      }
         
-      //   current_claimed_value := sub(current_claimed_value, SIZE_SCALAR_FIELD)
-      //   current_digest := sub(current_digest, SIZE_POINT)
-      
-      //   calldatacopy(dst, add(proof, current_digest), SIZE_POINT)
-      //   mstore(add(dst, SIZE_POINT), calldataload(add(proof, current_claimed_value)))
-
-      //   for {let i := 0} lt(i, sub(nbDigests,1)) {i:=add(i,1)}{
-          
-      //     current_claimed_value := sub(current_claimed_value, SIZE_SCALAR_FIELD)
-      //     scalar_mul_add_calldata(add(dst, SIZE_POINT), add(proof, current_claimed_value), _gamma)
-          
-      //     current_digest := sub(current_digest, SIZE_POINT)
-      //     point_mul_add_calldata(dst, add(proof, current_digest), _gamma, mPtr)
-      //   }
-
-      // }
-
       /// @notice verify the folded proof
-      /// @param proof calldata pointer to the proof
-      /// @param nbDigests number of digests
-      /// @param mPtr free memory
-      function derive_challenge(proof, nbDigests, mPtr)->_gamma {
-
-        let offset_proof
-        let total_size_data
-
-        // load gamma
-        mstore(mPtr, GAMMA)
-        let _mPtr := add(mPtr, 0x20)
-
-        // load the point
-        mstore(_mPtr, calldataload(proof))
-        total_size_data := SIZE_SCALAR_FIELD
-        offset_proof := SIZE_SCALAR_FIELD
-
-        // load the digests. Carefull: the elements in the base field are prepended with 16 bytes
-        // set to zero.
-        // let size_data :=  mul(nbDigests, SIZE_POINT)
-        for {let i:=0} lt(i, nbDigests) {i:=add(i,1)} {
-          _gamma := calldataload(add(proof, offset_proof))
-
-          // x coordinate
-          offset_proof := add(offset_proof, 0x10) // skip the first 16 bytes
-          calldatacopy(add(_mPtr, total_size_data), add(proof, offset_proof), SIZE_BASE_FIELD)
-          total_size_data := add(total_size_data, SIZE_BASE_FIELD)
-          offset_proof := add(offset_proof, SIZE_BASE_FIELD)
-
-          // y coordinate
-          offset_proof := add(offset_proof, 0x10) // skip the first 16 bytes
-          calldatacopy(add(_mPtr, total_size_data), add(proof, offset_proof), SIZE_BASE_FIELD)
-          total_size_data := add(total_size_data, SIZE_BASE_FIELD)
-          offset_proof := add(offset_proof, SIZE_BASE_FIELD)
-        }
-
-        // load the claimed values
-        let size_data := mul(nbDigests, SIZE_SCALAR_FIELD)
-        calldatacopy(add(_mPtr, total_size_data), add(proof, offset_proof), size_data)
-        total_size_data := add(total_size_data, size_data)
-        offset_proof := add(offset_proof, size_data)
-
-        // hash
-        total_size_data := add(total_size_data, 5) // add 5 for the challenge's name, "gamma"
-        let check_staticcall := staticcall(gas(), SHA256, add(mPtr,0x1b), total_size_data, mPtr, 0x20)
-        if iszero(check_staticcall) {
-          error_sha256()
-        }
-
-        // reduce
-        _gamma := mod(mload(mPtr), R_MOD)
-
-      }/// @notice verify the folded proof
       /// @param proof calldata pointer to the proof
       /// @param nbDigests number of digests
       /// @param mPtr free memory
