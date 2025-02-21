@@ -24,7 +24,7 @@ func generateExtensions(F *config.Field, outputDir string) error {
 	}
 	entries_ext4 := []bavard.Entry{
 		{File: filepath.Join(outputDir, "e4.go"), Templates: []string{"e4.go.tmpl"}},
-		{File: filepath.Join(outputDir, "e4_direct_test.go"), Templates: []string{"e4_direct_test.go.tmpl"}},
+		{File: filepath.Join(outputDir, "e4_test.go"), Templates: []string{"e4_test.go.tmpl"}},
 		{File: filepath.Join(outputDir, "e4_direct.go"), Templates: []string{"e4_direct.go.tmpl"}},
 		{File: filepath.Join(outputDir, "e4_direct_test.go"), Templates: []string{"e4_direct_test.go.tmpl"}},
 	}
