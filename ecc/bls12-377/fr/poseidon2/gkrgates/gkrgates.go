@@ -61,19 +61,21 @@ func (g *intKeySBoxGate2) Degree() int {
 	return poseidon2.DegreeSBox()
 }
 
-type extGate struct{}
+// extAddGate (x,y,z) -> Ext . (x,y) + z
+type extAddGate struct{}
 
-func (g extGate) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 2 inputs")
+func (g extAddGate) Evaluate(x ...fr.Element) fr.Element {
+	if len(x) != 3 {
+		panic("expected 3 inputs")
 	}
 	x[0].
 		Double(&x[0]).
-		Add(&x[0], &x[1])
+		Add(&x[0], &x[1]).
+		Add(&x[0], &x[2])
 	return x[0]
 }
 
-func (g extGate) Degree() int {
+func (g extAddGate) Degree() int {
 	return 1
 }
 
@@ -225,7 +227,7 @@ func (g pow4TimesGate) Degree() int {
 
 var initOnce sync.Once
 
-// RegisterGkrGates registers the Poseidon2 permutation gates for GKR
+// RegisterGkrGates registers the Poseidon2 compression gates for GKR
 func RegisterGkrGates() {
 	const (
 		x = iota
@@ -298,7 +300,7 @@ func RegisterGkrGates() {
 				fullRound(i)
 			}
 
-			gkr.Gates[gateNameLinear(y, p.NbPartialRounds+p.NbFullRounds)] = extGate{}
+			gkr.Gates[gateNameLinear(y, p.NbPartialRounds+p.NbFullRounds)] = extAddGate{}
 		},
 	)
 }
