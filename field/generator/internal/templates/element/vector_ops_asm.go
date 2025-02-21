@@ -256,6 +256,8 @@ func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
 func (vector *Vector) Mul(a, b Vector) {
 	mulVecGeneric(*vector, a, b)
 }
+
+
 `
 
 const VectorOpsAmd64F31 = `
@@ -275,10 +277,10 @@ func subVec(res, a, b *{{.ElementName}}, n uint64)
 func sumVec(t *uint64, a *{{.ElementName}}, n uint64)
 
 //go:noescape
-func SumVec16_AVX512(t *uint64, a *{{.ElementName}})
+func sumVec16_AVX512(t *uint64, a *{{.ElementName}})
 
 //go:noescape
-func SumVec24_AVX512(t *uint64, a *{{.ElementName}})
+func sumVec24_AVX512(t *uint64, a *{{.ElementName}})
 
 //go:noescape
 func mulVec(res, a, b *{{.ElementName}}, n uint64)
@@ -382,12 +384,12 @@ func (vector *Vector) Sum() (res {{.ElementName}}) {
 		return
 	case 16:
 		var t uint64
-		SumVec16_AVX512(&t, &(*vector)[0])
+		sumVec16_AVX512(&t, &(*vector)[0])
 		res[0] = uint32(t % q)
 		return
 	case 24:
 		var t uint64
-		SumVec24_AVX512(&t, &(*vector)[0])
+		sumVec24_AVX512(&t, &(*vector)[0])
 		res[0] = uint32(t % q)
 		return
 	}

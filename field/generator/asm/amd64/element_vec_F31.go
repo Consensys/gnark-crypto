@@ -227,7 +227,7 @@ func (f *FFAmd64) generateSumVecSmallF31(size int) {
 	if size != 16 && size != 24 {
 		panic("size must be 16 or 24")
 	}
-	fName := fmt.Sprintf("SumVec%d_AVX512", size)
+	fName := fmt.Sprintf("sumVec%d_AVX512", size)
 	const argSize = 2 * 8
 	stackSize := f.StackSize(f.NbWords*3+2, 0, 0)
 	registers := f.FnHeader(fName, stackSize, argSize, amd64.DX, amd64.AX)
@@ -1708,4 +1708,309 @@ func (f *fftHelper) permute4x4(args ...any) {
 func (f *fftHelper) permute8x8(args ...any) {
 	permute8x8, _ := f.DefineFn("permute8x8")
 	permute8x8(args...)
+}
+
+func (f *FFAmd64) generatePoseidon2_24_F31() {
+	// func permutation24_avx512(input []fr.Element, roundKeys [][]fr.Element)
+
+	const argSize = 2 * 3 * 8
+	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
+	registers := f.FnHeader("permutation24_avx512", stackSize, argSize, amd64.AX, amd64.DX)
+
+	addrInput := registers.Pop()
+	addrRoundKeys := registers.Pop()
+
+	qd := registers.PopV()
+	qInvNeg := registers.PopV()
+
+	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
+	f.MOVD("$const_q", amd64.AX)
+	f.VPBROADCASTD(amd64.AX, qd)
+	f.MOVD("$const_qInvNeg", amd64.AX)
+	f.VPBROADCASTD(amd64.AX, qInvNeg)
+
+	f.MOVQ("input+0(FP)", addrInput)
+	f.MOVQ("roundKeys+24(FP)", addrRoundKeys)
+
+	// we have 3 * 8 uint32 to load (zero extend to uint64 to be able to add without reduction)
+	b0 := registers.PopV()
+	b1 := registers.PopV()
+
+	// load the 3 * 8 uint32
+	f.VMOVDQU32(addrInput.AtD(0), b0)
+	f.VMOVDQU32(addrInput.AtD(16), b1.Y())
+
+	t0 := registers.PopV()
+	t1 := registers.PopV()
+	t2 := registers.PopV()
+
+	r0 := registers.PopV()
+
+	add := func(a, b, qd, r0 amd64.VectorRegister) {
+		f.VPADDD(a, b, a)
+		f.VPSUBD(qd, a, r0)
+		f.VPMINUD(a, r0, a)
+	}
+
+	matMulM4 := func(block, t0, t1, t2, qd, r0 amd64.VectorRegister) {
+		f.VPSHUFD(uint64(0x4e), block, t0)
+		add(t0, block, qd, r0)
+		f.VPSHUFD(uint64(0xb1), t0, t1)
+		add(t0, t1, qd, r0)
+		f.VPSHUFD(uint64(0x39), block, t2)
+		f.VPSLLD("$1", t2, t2)
+		f.VPSUBD(qd, t2, r0)
+		f.VPMINUD(t2, r0, t2)
+		// compute the sum
+		add(block, t0, qd, r0)
+		add(block, t2, qd, r0)
+	}
+
+	matMulExternalInPlace := func(b0, b1 amd64.VectorRegister) {
+		matMulM4(b0, t0, t1, t2, qd, r0)
+		matMulM4(b1.Y(), t0.Y(), t1.Y(), t2.Y(), qd.Y(), r0.Y())
+
+		// matMulExternalInPlace
+		acc := registers.PopV().Y()
+		f.VEXTRACTI64X4(1, b0, acc)
+		add(acc, b1.Y(), qd.Y(), r0.Y())
+		add(acc, b0.Y(), qd.Y(), r0.Y())
+
+		// // here we still have 8 dwords; we need to go to 4
+		accFinal := registers.PopV().X()
+		f.VEXTRACTI64X2(1, acc, accFinal)
+		add(acc.X(), accFinal, qd.X(), r0.X())
+
+		// // need to broadcast
+		f.VINSERTI64X2(1, acc.X(), acc.Y(), acc.Y())
+		f.VINSERTI64X4(1, acc.Y(), acc.Z(), acc.Z())
+
+		add(b0, acc.Z(), qd, r0)
+		add(b1.Y(), acc.Y(), qd.Y(), r0.Y())
+
+		registers.PushV(acc, accFinal)
+
+	}
+
+	// computes c = a * b mod q
+	// a and b can be in [0, 2q)
+	mulD := f.Define("mulD", 11, func(args ...any) {
+		a := args[0]
+		b := args[1]
+		aOdd := args[2]
+		bOdd := args[3]
+		b0 := args[4]
+		b1 := args[5]
+		PL0 := args[6]
+		PL1 := args[7]
+		q := args[8]
+		qInvNeg := args[9]
+		c := args[10]
+
+		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
+		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
+
+		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
+		f.VPMULUDQ(a, b, b0)
+		f.VPMULUDQ(aOdd, bOdd, b1)
+		f.VPMULUDQ(b0, qInvNeg, PL0)
+		f.VPMULUDQ(b1, qInvNeg, PL1)
+
+		f.VPMULUDQ(PL0, q, PL0)
+		f.VPADDQ(b0, PL0, b0)
+
+		f.VPMULUDQ(PL1, q, PL1)
+		f.VPADDQ(b1, PL1, b1)
+
+		f.VMOVSHDUPk(b0, amd64.K3, b1)
+
+		f.VPSUBD(q, b1, PL1)
+		f.VPMINUD(b1, PL1, c)
+	})
+
+	sbox0 := f.Define("sbox0", 7, func(args ...any) {
+		a := args[0]
+		a2 := args[1]
+		aOdd := args[2]
+		PL0 := args[3]
+		q := args[4]
+		qInvNeg := args[5]
+		c := args[6]
+
+		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
+
+		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
+		f.VPMULUDQ(aOdd, aOdd, a2)
+		f.VPMULUDQ(a2, qInvNeg, PL0)
+
+		f.VPMULUDQ(PL0, q, PL0)
+		f.VPADDQ(a2, PL0, a2)
+
+		f.VPSRLQ("$32", a2, a2) // keep high 32 bits
+
+		f.VPMULUDQ(aOdd, a2, a2)
+		f.VPMULUDQ(a2, qInvNeg, PL0)
+
+		f.VPMULUDQ(PL0, q, PL0)
+		f.VPADDQ(a2, PL0, a2)
+
+		// f.VPSRLQ("$32", a2, a2) // keep high 32 bits
+
+		f.VPSUBD(q, a2, PL0)
+		f.VPMINUD(a2, PL0, c)
+	})
+	_ = sbox0
+
+	const fullRounds = 6
+	const partialRounds = 21
+	const rf = fullRounds / 2
+	const width = 24
+
+	v0 := registers.PopV()
+	v1 := registers.PopV()
+	rKey := registers.Pop()
+
+	aOdd := registers.PopV()
+	bOdd := registers.PopV()
+	PL0 := registers.PopV()
+	PL1 := registers.PopV()
+
+	matMulExternalInPlace(b0, b1)
+
+	for i := 0; i < rf; i++ {
+		// one round = matMulExternal(sBox_Full(addRoundKey))
+		f.MOVQ(addrRoundKeys.At(i*3), rKey)
+		f.VMOVDQU32(rKey.AtD(0), v0)
+		f.VMOVDQU32(rKey.AtD(16), v1.Y())
+
+		// note: no need to reduce here.
+		// add round keys
+		add(b0, v0, qd, r0)
+		add(b1.Y(), v1.Y(), qd.Y(), r0.Y())
+
+		// sbox: can do with one less reduction.
+		mulD(b0, b0, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, t2)
+		mulD(b0, t2, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b0)
+
+		mulD(b1, b1, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, t2)
+		mulD(b1, t2, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b1)
+
+		matMulExternalInPlace(b0, b1)
+	}
+
+	// for i := rf; i < rf+partialRounds; i++ {
+	// 	// one round = matMulInternal(sBox_sparse(addRoundKey))
+	// 	addRoundKeyInPlace(i, input, roundKeys)
+	// 	sBox(0, input)
+	// 	matMulInternalInPlace(input)
+	// }
+
+	addrVInterleaveIndices := registers.Pop()
+	vInterleaveIndices := registers.PopV().Y()
+	f.MOVQ("·vInterleaveIndices2+0(SB)", addrVInterleaveIndices)
+	f.VMOVDQU32(addrVInterleaveIndices.At(0), vInterleaveIndices)
+
+	addrDiag24 := registers.Pop()
+	d0 := registers.PopV()
+	d1 := registers.PopV()
+
+	f.MOVQ("·diag24+0(SB)", addrDiag24)
+	f.VMOVDQU32(addrDiag24.AtD(0), d0)
+	f.VMOVDQU32(addrDiag24.AtD(16), d1.Y())
+	acc := registers.PopV().Y()
+	accShuffled := registers.PopV().Y()
+
+	f.MOVQ(uint64(0x1), amd64.AX)
+	f.KMOVQ(amd64.AX, amd64.K2)
+
+	vrkey := registers.PopV()
+	f.VXORPS(vrkey, vrkey, vrkey)
+
+	for i := rf; i < rf+partialRounds; i++ {
+		f.MOVQ(addrRoundKeys.At(i*3), rKey)
+		f.VMOVD(rKey.At(0), vrkey.X())
+
+		// // zero t0
+		// f.PEXTRD(0, b0.X(), amd64.AX)
+		// f.MOVD(rKey.At(0), amd64.DX)
+		// f.ADDQ(amd64.DX, amd64.AX)
+		// f.VPINSRD(0, amd64.AX, b0.X(), b0.X())
+		add(b0, vrkey, qd, r0)
+
+		// add round key to [0]
+		// f.VPADDD(b0.X(), t0.X(), b0.X()) // not reduced mod q
+		// f.VPSUBD(qd.X(), b0.X(), r0.X())
+		// f.VPMINUD(b0.X(), r0.X(), b0.X())
+
+		// sbox0(b0.X(), t0.X(), aOdd.X(), PL0.X(), qd.X(), qInvNeg.X(), t2.X())
+		// mulD(b0.X(), b0.X(), aOdd.X(), bOdd.X(), t0.X(), t1.X(), PL0.X(), PL1.X(), qd.X(), qInvNeg.X(), t2.X())
+		// mulD(t2.X(), b0.X(), aOdd.X(), bOdd.X(), t0.X(), t1.X(), PL0.X(), PL1.X(), qd.X(), qInvNeg.X(), t2.X())
+		mulD(b0, b0, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, t2)
+		mulD(b0, t2, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, t2)
+		f.VPBLENDMD(t2, b0, b0, amd64.K2)
+		// f.PEXTRD(0, t2.X(), amd64.DX)
+		// f.VPINSRD(0, amd64.DX, b0.X(), b0.X())
+
+		// matMulInternalInPlace(input)
+		// first we compute the sum
+		f.VEXTRACTI64X4(1, b0, acc)
+		add(acc, b1.Y(), qd.Y(), r0.Y())
+		add(acc, b0.Y(), qd.Y(), r0.Y())
+
+		// now we can work with acc.Y()
+		f.VMOVDQA32(vInterleaveIndices, accShuffled)
+		f.VPERMI2D(acc, acc, accShuffled)
+		add(acc, accShuffled, qd.Y(), r0.Y())
+
+		f.VPSHUFD(uint64(0x4e), acc, accShuffled)
+		add(acc, accShuffled, qd.Y(), r0.Y())
+		f.VPSHUFD(uint64(0xb1), acc, accShuffled)
+		add(acc, accShuffled, qd.Y(), r0.Y())
+
+		f.VINSERTI64X4(1, acc, acc.Z(), acc.Z())
+
+		// now we need to multiply b0 and b1 by the diagonal
+		mulD(b0, d0, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b0)
+		mulD(b1.Y(), d1.Y(), aOdd.Y(), bOdd.Y(), t0.Y(), t1.Y(), PL0.Y(), PL1.Y(), qd.Y(), qInvNeg.Y(), b1.Y())
+
+		// now we add the sum
+		add(b0, acc.Z(), qd, r0)
+		add(b1.Y(), acc.Y(), qd.Y(), r0.Y())
+
+	}
+
+	for i := rf + partialRounds; i < fullRounds+partialRounds; i++ {
+		// // one round = matMulExternal(sBox_Full(addRoundKey))
+		// addRoundKeyInPlace(i, input, roundKeys)
+		// for j := 0; j < width; j++ {
+		// 	sBox(j, input)
+		// }
+		// matMulExternalInPlace(input)
+
+		f.MOVQ(addrRoundKeys.At(i*3), rKey)
+		f.VMOVDQU32(rKey.AtD(0), v0)
+		f.VMOVDQU32(rKey.AtD(16), v1.Y())
+
+		// note: no need to reduce here.
+		// add round keys
+		add(b0, v0, qd, r0)
+		add(b1.Y(), v1.Y(), qd.Y(), r0.Y())
+
+		// sbox: can do with one less reduction.
+		mulD(b0, b0, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, t2)
+		mulD(b0, t2, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b0)
+
+		mulD(b1, b1, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, t2)
+		mulD(b1, t2, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b1)
+
+		matMulExternalInPlace(b0, b1)
+
+	}
+
+	f.VMOVDQU32(b0, addrInput.AtD(0))
+	f.VMOVDQU32(b1.Y(), addrInput.AtD(16))
+
+	f.RET()
 }

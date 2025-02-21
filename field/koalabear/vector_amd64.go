@@ -22,10 +22,10 @@ func subVec(res, a, b *Element, n uint64)
 func sumVec(t *uint64, a *Element, n uint64)
 
 //go:noescape
-func SumVec16_AVX512(t *uint64, a *Element)
+func sumVec16_AVX512(t *uint64, a *Element)
 
 //go:noescape
-func SumVec24_AVX512(t *uint64, a *Element)
+func sumVec24_AVX512(t *uint64, a *Element)
 
 //go:noescape
 func mulVec(res, a, b *Element, n uint64)
@@ -129,12 +129,12 @@ func (vector *Vector) Sum() (res Element) {
 		return
 	case 16:
 		var t uint64
-		SumVec16_AVX512(&t, &(*vector)[0])
+		sumVec16_AVX512(&t, &(*vector)[0])
 		res[0] = uint32(t % q)
 		return
 	case 24:
 		var t uint64
-		SumVec24_AVX512(&t, &(*vector)[0])
+		sumVec24_AVX512(&t, &(*vector)[0])
 		res[0] = uint32(t % q)
 		return
 	}

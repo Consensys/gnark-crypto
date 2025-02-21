@@ -96,7 +96,7 @@ done_6:
 	VMOVDQU64 Z2, 0(R15) // res = acc1
 	RET
 
-TEXT ·SumVec16_AVX512(SB), NOSPLIT, $0-16
+TEXT ·sumVec16_AVX512(SB), NOSPLIT, $0-16
 	MOVQ          t+0(FP), R15
 	MOVQ          a+8(FP), R14
 	VPMOVZXDQ     0(R14), Z0
@@ -112,7 +112,7 @@ TEXT ·SumVec16_AVX512(SB), NOSPLIT, $0-16
 	MOVQ          AX, 0(R15)
 	RET
 
-TEXT ·SumVec24_AVX512(SB), NOSPLIT, $0-16
+TEXT ·sumVec24_AVX512(SB), NOSPLIT, $0-16
 	MOVQ          t+0(FP), R15
 	MOVQ          a+8(FP), R14
 	VPMOVZXDQ     0(R14), Z0

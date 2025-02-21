@@ -21,7 +21,7 @@ func NewDefaultParameters() *Parameters {
 }
 
 var diag16 [16]fr.Element
-var diag24 [24]fr.Element
+var diag24 []fr.Element = make([]fr.Element, 24)
 
 func init() {
 	// diagonal of internal matrix when Width=16
@@ -67,4 +67,5 @@ func init() {
 	diag24[21].SetUint64(16646144)
 	diag24[22].SetUint64(4161536)
 	diag24[23].SetUint64(127)
+
 }
