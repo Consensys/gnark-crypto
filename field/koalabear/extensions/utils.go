@@ -51,3 +51,15 @@ func GenE4() gopter.Gen {
 		return &E4{B0: *values[0].(*E2), B1: *values[1].(*E2)}
 	})
 }
+
+// GenE4D generates an E4D elmt
+func GenE4D() gopter.Gen {
+	return gopter.CombineGens(
+		GenFr(),
+		GenFr(),
+		GenFr(),
+		GenFr(),
+	).Map(func(values []interface{}) *E4D {
+		return &E4D{A0: values[0].(fr.Element), A1: values[1].(fr.Element), A2: values[2].(fr.Element), A3: values[3].(fr.Element)}
+	})
+}
