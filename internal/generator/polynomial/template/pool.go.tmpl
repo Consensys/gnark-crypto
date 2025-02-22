@@ -34,13 +34,13 @@ func (p *Pool) Clone(slice []{{.ElementType}}) []{{.ElementType}} {
 }
 {{ else}}
 // Memory management for polynomials
-// WARNING: This is not thread safe TODO: Make sure that is not a problem
-// TODO: There is a lot of "unsafe" memory management here and needs to be vetted thoroughly
+// Thread-safe implementation of polynomial memory pool
 
 type sizedPool struct {
 	maxN  int
 	pool  sync.Pool
 	stats poolStats
+	mu    sync.Mutex // Protect stats
 }
 
 type inUseData struct {
@@ -49,23 +49,25 @@ type inUseData struct {
 }
 
 type Pool struct {
-	//lock     sync.Mutex
 	inUse    sync.Map
 	subPools []sizedPool
 }
 
 func (p *sizedPool) get(n int) *{{.ElementType}} {
+	p.mu.Lock()
 	p.stats.make(n)
+	p.mu.Unlock()
 	return p.pool.Get().(*{{.ElementType}})
 }
 
 func (p *sizedPool) put(ptr *{{.ElementType}}) {
+	p.mu.Lock()
 	p.stats.dump()
+	p.mu.Unlock()
 	p.pool.Put(ptr)
 }
 
 func NewPool(maxN ...int) (pool Pool) {
-
 	sort.Ints(maxN)
 	pool = Pool{
 		subPools: make([]sizedPool, len(maxN)),
@@ -76,7 +78,9 @@ func NewPool(maxN ...int) (pool Pool) {
 		subPool.maxN = maxN[i]
 		subPool.pool = sync.Pool{
 			New: func() interface{} {
+				subPool.mu.Lock()
 				subPool.stats.Allocated++
+				subPool.mu.Unlock()
 				return getDataPointer(make([]{{.ElementType}}, 0, subPool.maxN))
 			},
 		}
@@ -103,8 +107,7 @@ func (p *Pool) Make(n int) []{{.ElementType}} {
 func (p *Pool) Dump(slices ...[]{{.ElementType}}) {
 	for _, slice := range slices {
 		ptr := getDataPointer(slice)
-		if metadata, ok := p.inUse.Load(ptr); ok {
-			p.inUse.Delete(ptr)
+		if metadata, ok := p.inUse.LoadAndDelete(ptr); ok {
 			metadata.(inUseData).pool.put(ptr)
 		} else {
 			panic("attempting to dump a slice not created by the pool")
@@ -116,13 +119,13 @@ func (p *Pool) addInUse(ptr *{{.ElementType}}, pool *sizedPool) {
 	pcs := make([]uintptr, 2)
 	n := runtime.Callers(3, pcs)
 
-	if prevPcs, ok := p.inUse.Load(ptr); ok { // TODO: remove if unnecessary for security
-		panic(fmt.Errorf("re-allocated non-dumped slice, previously allocated at %v", runtime.CallersFrames(prevPcs.(inUseData).allocatedFor)))
-	}
-	p.inUse.Store(ptr, inUseData{
+	// Use LoadOrStore to atomically check and store
+	if actual, loaded := p.inUse.LoadOrStore(ptr, inUseData{
 		allocatedFor: pcs[:n],
 		pool:         pool,
-	})
+	}); loaded {
+		panic(fmt.Errorf("re-allocated non-dumped slice, previously allocated at %v", runtime.CallersFrames(actual.(inUseData).allocatedFor)))
+	}
 }
 
 func printFrame(frame runtime.Frame) {
@@ -187,9 +190,11 @@ func (p *Pool) PrintPoolStats() {
 	subStats := make([]poolStats, len(p.subPools))
 	for i := range p.subPools {
 		subPool := &p.subPools[i]
+		subPool.mu.Lock()
 		subPool.stats.finalize()
 		subStats[i] = subPool.stats
 		InUse += subPool.stats.InUse
+		subPool.mu.Unlock()
 	}
 
 	stats := poolsStats{
