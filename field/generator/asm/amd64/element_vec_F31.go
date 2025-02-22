@@ -1719,78 +1719,110 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 
 	addrInput := registers.Pop()
 	addrRoundKeys := registers.Pop()
+	rKey := registers.Pop()
+	addrVInterleaveIndices := registers.Pop()
+	addrDiag24 := registers.Pop()
 
+	qq := registers.PopV()
 	qd := registers.PopV()
 	qInvNeg := registers.PopV()
+
+	b0 := registers.PopV()
+	b1 := registers.PopV()
+	v0 := registers.PopV()
+	v1 := registers.PopV()
+	t0 := registers.PopV()
+	t1 := registers.PopV()
+	t2 := registers.PopV()
+	r0 := registers.PopV()
+	aOdd := registers.PopV()
+	bOdd := registers.PopV()
+	PL0 := registers.PopV()
+	PL1 := registers.PopV()
+	d0 := registers.PopV()
+	d1 := registers.PopV()
+	acc := registers.PopV().Y()
+	accFinal := registers.PopV().X()
+	accShuffled := registers.PopV().Y()
+	vInterleaveIndices := registers.PopV().Y()
 
 	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
 	f.KMOVD(amd64.AX, amd64.K3)
 
+	f.MOVQ(uint64(0x1), amd64.AX)
+	f.KMOVQ(amd64.AX, amd64.K2)
+
 	f.MOVD("$const_q", amd64.AX)
 	f.VPBROADCASTD(amd64.AX, qd)
+	f.VPBROADCASTQ(amd64.AX, qq)
 	f.MOVD("$const_qInvNeg", amd64.AX)
 	f.VPBROADCASTD(amd64.AX, qInvNeg)
 
 	f.MOVQ("input+0(FP)", addrInput)
 	f.MOVQ("roundKeys+24(FP)", addrRoundKeys)
 
-	// we have 3 * 8 uint32 to load (zero extend to uint64 to be able to add without reduction)
-	b0 := registers.PopV()
-	b1 := registers.PopV()
+	f.MOVQ("·vInterleaveIndices2+0(SB)", addrVInterleaveIndices)
+	f.VMOVDQU32(addrVInterleaveIndices.At(0), vInterleaveIndices)
+
+	f.MOVQ("·diag24+0(SB)", addrDiag24)
+	f.VMOVDQU32(addrDiag24.AtD(0), d0)
+	f.VMOVDQU32(addrDiag24.AtD(16), d1.Y())
 
 	// load the 3 * 8 uint32
 	f.VMOVDQU32(addrInput.AtD(0), b0)
 	f.VMOVDQU32(addrInput.AtD(16), b1.Y())
 
-	t0 := registers.PopV()
-	t1 := registers.PopV()
-	t2 := registers.PopV()
+	add := f.Define("add", 4, func(args ...any) {
+		a := args[0]
+		b := args[1]
+		qd := args[2]
+		r0 := args[3]
 
-	r0 := registers.PopV()
-
-	add := func(a, b, qd, r0 amd64.VectorRegister) {
 		f.VPADDD(a, b, a)
 		f.VPSUBD(qd, a, r0)
 		f.VPMINUD(a, r0, a)
-	}
+	})
 
-	matMulM4 := func(block, t0, t1, t2, qd, r0 amd64.VectorRegister) {
+	matMulM4 := f.Define("matMulM4", 6, func(args ...any) {
+		block := args[0]
+		t0 := args[1]
+		t1 := args[2]
+		t2 := args[3]
+		qd := args[4]
+		r0 := args[5]
+
 		f.VPSHUFD(uint64(0x4e), block, t0)
 		add(t0, block, qd, r0)
 		f.VPSHUFD(uint64(0xb1), t0, t1)
 		add(t0, t1, qd, r0)
+
 		f.VPSHUFD(uint64(0x39), block, t2)
 		f.VPSLLD("$1", t2, t2)
 		f.VPSUBD(qd, t2, r0)
 		f.VPMINUD(t2, r0, t2)
+
 		// compute the sum
 		add(block, t0, qd, r0)
 		add(block, t2, qd, r0)
-	}
+	})
 
 	matMulExternalInPlace := func(b0, b1 amd64.VectorRegister) {
 		matMulM4(b0, t0, t1, t2, qd, r0)
 		matMulM4(b1.Y(), t0.Y(), t1.Y(), t2.Y(), qd.Y(), r0.Y())
 
 		// matMulExternalInPlace
-		acc := registers.PopV().Y()
 		f.VEXTRACTI64X4(1, b0, acc)
 		add(acc, b1.Y(), qd.Y(), r0.Y())
 		add(acc, b0.Y(), qd.Y(), r0.Y())
 
-		// // here we still have 8 dwords; we need to go to 4
-		accFinal := registers.PopV().X()
 		f.VEXTRACTI64X2(1, acc, accFinal)
 		add(acc.X(), accFinal, qd.X(), r0.X())
 
-		// // need to broadcast
 		f.VINSERTI64X2(1, acc.X(), acc.Y(), acc.Y())
 		f.VINSERTI64X4(1, acc.Y(), acc.Z(), acc.Z())
 
 		add(b0, acc.Z(), qd, r0)
 		add(b1.Y(), acc.Y(), qd.Y(), r0.Y())
-
-		registers.PushV(acc, accFinal)
 
 	}
 
@@ -1830,52 +1862,102 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		f.VPMINUD(b1, PL1, c)
 	})
 
-	sbox0 := f.Define("sbox0", 7, func(args ...any) {
+	mulD2Q := f.Define("mulD2Q", 11, func(args ...any) {
 		a := args[0]
-		a2 := args[1]
+		b := args[1]
 		aOdd := args[2]
-		PL0 := args[3]
-		q := args[4]
-		qInvNeg := args[5]
-		c := args[6]
+		bOdd := args[3]
+		b0 := args[4]
+		b1 := args[5]
+		PL0 := args[6]
+		PL1 := args[7]
+		q := args[8]
+		qInvNeg := args[9]
+		c := args[10]
 
 		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
+		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
 
 		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
-		f.VPMULUDQ(aOdd, aOdd, a2)
-		f.VPMULUDQ(a2, qInvNeg, PL0)
+		f.VPMULUDQ(a, b, b0)
+		f.VPMULUDQ(aOdd, bOdd, b1)
+		f.VPMULUDQ(b0, qInvNeg, PL0)
+		f.VPMULUDQ(b1, qInvNeg, PL1)
 
 		f.VPMULUDQ(PL0, q, PL0)
-		f.VPADDQ(a2, PL0, a2)
+		f.VPADDQ(b0, PL0, b0)
 
-		f.VPSRLQ("$32", a2, a2) // keep high 32 bits
+		f.VPMULUDQ(PL1, q, PL1)
+		f.VPADDQ(b1, PL1, c)
 
-		f.VPMULUDQ(aOdd, a2, a2)
-		f.VPMULUDQ(a2, qInvNeg, PL0)
+		f.VMOVSHDUPk(b0, amd64.K3, c)
 
-		f.VPMULUDQ(PL0, q, PL0)
-		f.VPADDQ(a2, PL0, a2)
-
-		// f.VPSRLQ("$32", a2, a2) // keep high 32 bits
-
-		f.VPSUBD(q, a2, PL0)
-		f.VPMINUD(a2, PL0, c)
+		// f.VPSUBD(q, b1, PL1)
+		// f.VPMINUD(b1, PL1, c)
 	})
-	_ = sbox0
+
+	mulQ := f.Define("mulQ", 11, func(args ...any) {
+		a := args[0]
+		b := args[1]
+		aOdd := args[2]
+		bOdd := args[3]
+		b0 := args[4]
+		b1 := args[5]
+		_ = args[6]
+		_ = args[7]
+		q := args[8]
+		qInvNeg := args[9]
+		c := args[10]
+
+		// a and b are Y registers; we zero extend them
+		f.VPMOVZXDQ(a, aOdd)
+		f.VPMOVZXDQ(b, bOdd)
+
+		// f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
+		// f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
+
+		f.VPMULUDQ(aOdd, bOdd, b1)
+		f.VPMULUDQ(b1, qInvNeg, PL1)
+
+		f.VPMULUDQ(PL1, q, PL1)
+		f.VPADDQ(b1, PL1, b1)
+
+		f.VPSRLQ("$32", b1, b1)
+
+		f.VPSUBQ(qq, b1, PL1)
+		f.VPMINUQ(b1, PL1, b0)
+
+		f.VPMOVQD(b0, c)
+	})
+	_ = mulQ
+
+	sbox := func(a, res amd64.VectorRegister) {
+		mulD2Q(a, a, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, t2)
+		mulD(a, t2, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, res)
+	}
+
+	sum24 := func(b0, b1, b3, acc amd64.VectorRegister) {
+		// first we compute the sum
+		f.VEXTRACTI64X4(1, b0, acc)
+		add(acc, b1.Y(), qd.Y(), r0.Y())
+		add(acc, b3.Y(), qd.Y(), r0.Y())
+
+		// now we can work with acc.Y()
+		f.VMOVDQA32(vInterleaveIndices, accShuffled)
+		f.VPERMI2D(acc, acc, accShuffled)
+		add(acc, accShuffled, qd.Y(), r0.Y())
+
+		f.VPSHUFD(uint64(0x4e), acc, accShuffled)
+		add(acc, accShuffled, qd.Y(), r0.Y())
+		f.VPSHUFD(uint64(0xb1), acc, accShuffled)
+		add(acc, accShuffled, qd.Y(), r0.Y())
+
+		f.VINSERTI64X4(1, acc, acc.Z(), acc.Z())
+	}
 
 	const fullRounds = 6
 	const partialRounds = 21
 	const rf = fullRounds / 2
-	const width = 24
-
-	v0 := registers.PopV()
-	v1 := registers.PopV()
-	rKey := registers.Pop()
-
-	aOdd := registers.PopV()
-	bOdd := registers.PopV()
-	PL0 := registers.PopV()
-	PL1 := registers.PopV()
 
 	matMulExternalInPlace(b0, b1)
 
@@ -1890,105 +1972,54 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		add(b0, v0, qd, r0)
 		add(b1.Y(), v1.Y(), qd.Y(), r0.Y())
 
-		// sbox: can do with one less reduction.
-		mulD(b0, b0, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, t2)
-		mulD(b0, t2, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b0)
-
-		mulD(b1, b1, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, t2)
-		mulD(b1, t2, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b1)
+		// sbox
+		sbox(b0, b0)
+		sbox(b1, b1)
 
 		matMulExternalInPlace(b0, b1)
 	}
 
-	// for i := rf; i < rf+partialRounds; i++ {
-	// 	// one round = matMulInternal(sBox_sparse(addRoundKey))
-	// 	addRoundKeyInPlace(i, input, roundKeys)
-	// 	sBox(0, input)
-	// 	matMulInternalInPlace(input)
-	// }
+	f.VXORPS(v0, v0, v0)
+	f.VXORPS(v1, v1, v1)
+	_ = sum24
 
-	addrVInterleaveIndices := registers.Pop()
-	vInterleaveIndices := registers.PopV().Y()
-	f.MOVQ("·vInterleaveIndices2+0(SB)", addrVInterleaveIndices)
-	f.VMOVDQU32(addrVInterleaveIndices.At(0), vInterleaveIndices)
-
-	addrDiag24 := registers.Pop()
-	d0 := registers.PopV()
-	d1 := registers.PopV()
-
-	f.MOVQ("·diag24+0(SB)", addrDiag24)
-	f.VMOVDQU32(addrDiag24.AtD(0), d0)
-	f.VMOVDQU32(addrDiag24.AtD(16), d1.Y())
-	acc := registers.PopV().Y()
-	accShuffled := registers.PopV().Y()
-
-	f.MOVQ(uint64(0x1), amd64.AX)
-	f.KMOVQ(amd64.AX, amd64.K2)
-
-	vrkey := registers.PopV()
-	f.VXORPS(vrkey, vrkey, vrkey)
+	b3 := registers.PopV()
 
 	for i := rf; i < rf+partialRounds; i++ {
 		f.MOVQ(addrRoundKeys.At(i*3), rKey)
-		f.VMOVD(rKey.At(0), vrkey.X())
+		f.VPBROADCASTD(rKey.At(0), v0.Y())
+		// f.VPBLENDMD(b0, v1, v1, amd64.K2)
+		f.VPBROADCASTD(b0.X(), v1.Y())
+		// f.VMOVDQA32(b0.X(), v1.X())
+		// f.VMOVDQA32_Z(b0.X(), amd64.K2, v1.X())
 
-		// // zero t0
-		// f.PEXTRD(0, b0.X(), amd64.AX)
-		// f.MOVD(rKey.At(0), amd64.DX)
-		// f.ADDQ(amd64.DX, amd64.AX)
-		// f.VPINSRD(0, amd64.AX, b0.X(), b0.X())
-		add(b0, vrkey, qd, r0)
+		add(v1.Y(), v0.Y(), qd.Y(), r0.Y())
 
-		// add round key to [0]
-		// f.VPADDD(b0.X(), t0.X(), b0.X()) // not reduced mod q
-		// f.VPSUBD(qd.X(), b0.X(), r0.X())
-		// f.VPMINUD(b0.X(), r0.X(), b0.X())
+		// f.VMOVD(b0.X(), amd64.AX)
+		// f.sboxScalar(amd64.AX, rKey)
+		// f.VMOVD(amd64.AX, b0.X())
+		// f.VPINSRD("$0", amd64.AX, b0.X(), b0.X())
+		// sbox(b0, t2)
+		mulD2Q(v1.Y(), v1.Y(), aOdd.Y(), bOdd.Y(), t0.Y(), t1.Y(), PL0.Y(), PL1.Y(), qd.Y(), qInvNeg.Y(), t2.Y())
+		mulD(v1.Y(), t2.Y(), aOdd.Y(), bOdd.Y(), t0.Y(), t1.Y(), PL0.Y(), PL1.Y(), qd.Y(), qInvNeg.Y(), v1.Y())
 
-		// sbox0(b0.X(), t0.X(), aOdd.X(), PL0.X(), qd.X(), qInvNeg.X(), t2.X())
-		// mulD(b0.X(), b0.X(), aOdd.X(), bOdd.X(), t0.X(), t1.X(), PL0.X(), PL1.X(), qd.X(), qInvNeg.X(), t2.X())
-		// mulD(t2.X(), b0.X(), aOdd.X(), bOdd.X(), t0.X(), t1.X(), PL0.X(), PL1.X(), qd.X(), qInvNeg.X(), t2.X())
-		mulD(b0, b0, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, t2)
-		mulD(b0, t2, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, t2)
-		f.VPBLENDMD(t2, b0, b0, amd64.K2)
-		// f.PEXTRD(0, t2.X(), amd64.DX)
-		// f.VPINSRD(0, amd64.DX, b0.X(), b0.X())
+		// f.VMOVD(t2.X(), b0.X())
+		// f.VMOVDQA32(v1.X(), b0.X())
+		f.VPBLENDMD(v1, b0, b3, amd64.K2)
+		sum24(b0, b1, b3, acc)
 
-		// matMulInternalInPlace(input)
-		// first we compute the sum
-		f.VEXTRACTI64X4(1, b0, acc)
-		add(acc, b1.Y(), qd.Y(), r0.Y())
-		add(acc, b0.Y(), qd.Y(), r0.Y())
-
-		// now we can work with acc.Y()
-		f.VMOVDQA32(vInterleaveIndices, accShuffled)
-		f.VPERMI2D(acc, acc, accShuffled)
-		add(acc, accShuffled, qd.Y(), r0.Y())
-
-		f.VPSHUFD(uint64(0x4e), acc, accShuffled)
-		add(acc, accShuffled, qd.Y(), r0.Y())
-		f.VPSHUFD(uint64(0xb1), acc, accShuffled)
-		add(acc, accShuffled, qd.Y(), r0.Y())
-
-		f.VINSERTI64X4(1, acc, acc.Z(), acc.Z())
+		// // matMulInternalInPlace(input)
 
 		// now we need to multiply b0 and b1 by the diagonal
-		mulD(b0, d0, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b0)
-		mulD(b1.Y(), d1.Y(), aOdd.Y(), bOdd.Y(), t0.Y(), t1.Y(), PL0.Y(), PL1.Y(), qd.Y(), qInvNeg.Y(), b1.Y())
+		mulD(b3, d0, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b0)
+		mulQ(b1.Y(), d1.Y(), aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b1.Y())
 
 		// now we add the sum
 		add(b0, acc.Z(), qd, r0)
 		add(b1.Y(), acc.Y(), qd.Y(), r0.Y())
-
 	}
 
 	for i := rf + partialRounds; i < fullRounds+partialRounds; i++ {
-		// // one round = matMulExternal(sBox_Full(addRoundKey))
-		// addRoundKeyInPlace(i, input, roundKeys)
-		// for j := 0; j < width; j++ {
-		// 	sBox(j, input)
-		// }
-		// matMulExternalInPlace(input)
-
 		f.MOVQ(addrRoundKeys.At(i*3), rKey)
 		f.VMOVDQU32(rKey.AtD(0), v0)
 		f.VMOVDQU32(rKey.AtD(16), v1.Y())
@@ -1999,18 +2030,48 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		add(b1.Y(), v1.Y(), qd.Y(), r0.Y())
 
 		// sbox: can do with one less reduction.
-		mulD(b0, b0, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, t2)
-		mulD(b0, t2, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b0)
-
-		mulD(b1, b1, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, t2)
-		mulD(b1, t2, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b1)
+		sbox(b0, b0)
+		sbox(b1, b1)
 
 		matMulExternalInPlace(b0, b1)
-
 	}
 
 	f.VMOVDQU32(b0, addrInput.AtD(0))
 	f.VMOVDQU32(b1.Y(), addrInput.AtD(16))
 
 	f.RET()
+}
+
+func (f *FFAmd64) sboxScalar(ax, rkey amd64.Register) {
+	cx := amd64.CX
+	dx := amd64.DX
+	bx := amd64.BX
+
+	f.ADDQ(rkey.At(0), ax)
+	// TODO reduce
+
+	f.MOVL(ax, cx)
+	f.MOVQ(cx, dx)
+	f.IMULQ(cx, cx)
+	f.IMUL3L("$2130706431", cx, bx)
+	f.MOVL(bx, bx)
+	f.IMUL3Q("$2130706433", bx, bx)
+	f.ADDQ(bx, cx)
+	f.SHRQ("$32", cx)
+	f.LEAL("-2130706433", cx, bx)
+	f.XCHGL(ax, ax)
+	f.XCHGL(ax, ax)
+	f.CMPL(cx, "$2130706433")
+	f.CMOVLCC(bx, cx)
+	f.MOVL(cx, cx)
+	f.IMULQ(dx, cx)
+	f.IMUL3L("$2130706431", cx, dx)
+	f.MOVL(dx, dx)
+	f.IMUL3Q("$2130706433", dx, dx)
+	f.ADDQ(dx, cx)
+	f.SHRQ("$32", cx)
+	f.LEAL("-2130706433", cx, dx)
+	f.CMPL(cx, "$2130706433")
+	f.CMOVLCC(dx, cx)
+	f.MOVL(cx, ax)
 }
