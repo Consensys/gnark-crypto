@@ -1865,10 +1865,9 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		f.VPADDQ(b1, PL1, c)
 
 		f.VMOVSHDUPk(b0, amd64.K3, c)
-		f.VPSUBD(q, c, PL1)
-		f.VPMINUD(c, PL1, c)
+		// f.VPSUBD(q, c, PL1)
+		// f.VPMINUD(c, PL1, c)
 	})
-	mulD := _mulD
 
 	mulX := func(a, b, c amd64.VectorRegister, reduce bool) {
 		_mulD(a.X(), b.X(), aOdd.X(), bOdd.X(), t0.X(), t1.X(), PL0.X(), PL1.X(), qd.X(), qInvNeg.X(), c.X())
@@ -1898,42 +1897,14 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 	_ = mulY
 	_ = mulZ
 
-	mulD2Q := f.Define("mulD2Q", 11, func(args ...any) {
-		a := args[0]
-		b := args[1]
-		aOdd := args[2]
-		bOdd := args[3]
-		b0 := args[4]
-		b1 := args[5]
-		PL0 := args[6]
-		PL1 := args[7]
-		q := args[8]
-		qInvNeg := args[9]
-		c := args[10]
+	sboxZ := func(a, res amd64.VectorRegister) {
+		mulZ(a, a, t2, false)
+		mulZ(a, t2, res, true)
+	}
 
-		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
-		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
-
-		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
-		f.VPMULUDQ(a, b, b0)
-		f.VPMULUDQ(aOdd, bOdd, b1)
-		f.VPMULUDQ(b0, qInvNeg, PL0)
-		f.VPMULUDQ(b1, qInvNeg, PL1)
-
-		f.VPMULUDQ(PL0, q, PL0)
-		f.VPADDQ(b0, PL0, b0)
-
-		f.VPMULUDQ(PL1, q, PL1)
-		f.VPADDQ(b1, PL1, c)
-
-		f.VMOVSHDUPk(b0, amd64.K3, c)
-		// f.VPSUBD(q, b1, PL1)
-		// f.VPMINUD(b1, PL1, c)
-	})
-
-	sbox := func(a, res amd64.VectorRegister) {
-		mulD2Q(a, a, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, t2)
-		mulD(a, t2, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, res)
+	sboxY := func(a, res amd64.VectorRegister) {
+		mulY(a, a, t2, false)
+		mulY(a, t2, res, true)
 	}
 
 	sum24 := func(b0, b1, b3, acc amd64.VectorRegister) {
@@ -1972,8 +1943,8 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		add(b1.Y(), v1.Y(), qd.Y(), t2.Y())
 
 		// sbox
-		sbox(b0, b0)
-		sbox(b1, b1)
+		sboxZ(b0, b0)
+		sboxY(b1, b1)
 
 		matMulExternalInPlace(b0, b1)
 	}
@@ -1991,11 +1962,14 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		add(v1.X(), v0.X(), qd.X(), r0.X())
 
 		// do the sbox
-		mulD2Q(v1.X(), v1.X(), aOdd.X(), bOdd.X(), t0.X(), t1.X(), PL0.X(), PL1.X(), qd.X(), qInvNeg.X(), t2.X())
-		mulD(v1.X(), t2.X(), aOdd.X(), bOdd.X(), t0.X(), t1.X(), PL0.X(), PL1.X(), qd.X(), qInvNeg.X(), v1.X())
+		mulX(v1, v1, t2, false)
+		mulX(v1, t2, v1, true)
+		// mulD2Q(v1.X(), v1.X(), aOdd.X(), bOdd.X(), t0.X(), t1.X(), PL0.X(), PL1.X(), qd.X(), qInvNeg.X(), t2.X())
+		// mulD(v1.X(), t2.X(), aOdd.X(), bOdd.X(), t0.X(), t1.X(), PL0.X(), PL1.X(), qd.X(), qInvNeg.X(), v1.X())
 
 		// multiply b1 by diagonal[1] (diag24)
-		mulD(b1.Y(), d1.Y(), aOdd.Y(), bOdd.Y(), t0.Y(), t1.Y(), PL0.Y(), PL1.Y(), qd.Y(), qInvNeg.Y(), t3.Y())
+		mulY(b1, d1, t3, true)
+		// mulD(b1.Y(), d1.Y(), aOdd.Y(), bOdd.Y(), t0.Y(), t1.Y(), PL0.Y(), PL1.Y(), qd.Y(), qInvNeg.Y(), t3.Y())
 
 		// merge the sbox at the first index of b0
 		f.VPBLENDMD(v1, b0, b3, amd64.K2)
@@ -2004,7 +1978,8 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		sum24(b0, b1, b3, acc)
 
 		// multiply b0 by diagonal[0] (diag24)
-		mulD(b3, d0, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b0)
+		mulZ(b3, d0, b0, true)
+		// mulD(b3, d0, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b0)
 
 		// now we add the sum
 		add(b0, acc.Z(), qd, r0)
@@ -2022,8 +1997,8 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		add(b1.Y(), v1.Y(), qd.Y(), r0.Y())
 
 		// sbox: can do with one less reduction.
-		sbox(b0, b0)
-		sbox(b1, b1)
+		sboxZ(b0, b0)
+		sboxY(b1, b1)
 
 		matMulExternalInPlace(b0, b1)
 	}
