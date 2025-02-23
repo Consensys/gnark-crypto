@@ -21,6 +21,10 @@ var vInterleaveIndices = []uint64{
 	1, 0, 3, 2, 5, 4, 7, 6,
 }
 
+var vInterleaveIndices2 = []uint32{
+	4, 5, 6, 7, 0, 1, 2, 3,
+}
+
 var vM4Indices = []uint64{
 	1, 2, 3, 0, 5, 6, 7, 4,
 }
@@ -31,36 +35,36 @@ func permutation24_avx512(input []fr.Element, roundKeys [][]fr.Element)
 const width = 24
 
 func Permutation24_avx512(input []fr.Element, roundKeys [][]fr.Element) {
-	// permutation24_avx512(input, roundKeys)
+	permutation24_avx512(input, roundKeys)
 
-	matMulExternalInPlace(input)
+	// matMulExternalInPlace(input)
 
 	const fullRounds = 6
 	const partialRounds = 21
 	const rf = fullRounds / 2
-	for i := 0; i < rf; i++ {
-		// one round = matMulExternal(sBox_Full(addRoundKey))
-		addRoundKeyInPlace(i, input, roundKeys)
-		for j := 0; j < width; j++ {
-			sBox(j, input)
-		}
-		matMulExternalInPlace(input)
-	}
+	// for i := 0; i < rf; i++ {
+	// 	// one round = matMulExternal(sBox_Full(addRoundKey))
+	// 	addRoundKeyInPlace(i, input, roundKeys)
+	// 	for j := 0; j < width; j++ {
+	// 		sBox(j, input)
+	// 	}
+	// 	matMulExternalInPlace(input)
+	// }
 
-	for i := rf; i < rf+partialRounds; i++ {
-		// one round = matMulInternal(sBox_sparse(addRoundKey))
-		addRoundKeyInPlace(i, input, roundKeys)
-		sBox(0, input)
-		matMulInternalInPlace(input)
-	}
-	for i := rf + partialRounds; i < fullRounds+partialRounds; i++ {
-		// one round = matMulExternal(sBox_Full(addRoundKey))
-		addRoundKeyInPlace(i, input, roundKeys)
-		for j := 0; j < width; j++ {
-			sBox(j, input)
-		}
-		matMulExternalInPlace(input)
-	}
+	// for i := rf; i < rf+partialRounds; i++ {
+	// 	// one round = matMulInternal(sBox_sparse(addRoundKey))
+	// 	// addRoundKeyInPlace(i, input, roundKeys)
+	// 	sBox(0, input)
+	// 	matMulInternalInPlace(input)
+	// }
+	// for i := rf + partialRounds; i < fullRounds +partialRounds; i++ {
+	// 	// one round = matMulExternal(sBox_Full(addRoundKey))
+	// 	addRoundKeyInPlace(i, input, roundKeys)
+	// 	for j := 0; j < width; j++ {
+	// 		sBox(j, input)
+	// 	}
+	// 	matMulExternalInPlace(input)
+	// }
 
 }
 
@@ -72,41 +76,17 @@ func sBox(index int, input []fr.Element) {
 		Mul(&input[index], &tmp)
 }
 
-func matMulInternalInPlace(input []fr.Element) {
+func matMulInternalInPlace(input fr.Vector) {
 	var sum fr.Element
 	sum.Set(&input[0])
 	for i := 1; i < width; i++ {
 		sum.Add(&sum, &input[i])
 	}
-	// mul by diag24:
-	// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/4, 1/8, 1/16, 1/32, 1/64, 1/2^24, -1/2^8, -1/8, -1/16, -1/32, -1/64, -1/2^7, -1/2^9, -1/2^24]
-	var temp fr.Element
-	input[0].Sub(&sum, temp.Double(&input[0]))
-	input[1].Add(&sum, &input[1])
-	input[2].Add(&sum, temp.Double(&input[2]))
-	temp.Set(&input[3]).Halve()
-	input[3].Add(&sum, &temp)
-	input[4].Add(&sum, temp.Double(&input[4]).Add(&temp, &input[4]))
-	input[5].Add(&sum, temp.Double(&input[5]).Double(&temp))
-	temp.Set(&input[6]).Halve()
-	input[6].Sub(&sum, &temp)
-	input[7].Sub(&sum, temp.Double(&input[7]).Add(&temp, &input[7]))
-	input[8].Sub(&sum, temp.Double(&input[8]).Double(&temp))
-	input[9].Add(&sum, temp.Mul2ExpNegN(&input[9], 8))
-	input[10].Add(&sum, temp.Mul2ExpNegN(&input[10], 2))
-	input[11].Add(&sum, temp.Mul2ExpNegN(&input[11], 3))
-	input[12].Add(&sum, temp.Mul2ExpNegN(&input[12], 4))
-	input[13].Add(&sum, temp.Mul2ExpNegN(&input[13], 5))
-	input[14].Add(&sum, temp.Mul2ExpNegN(&input[14], 6))
-	input[15].Add(&sum, temp.Mul2ExpNegN(&input[15], 24))
-	input[16].Sub(&sum, temp.Mul2ExpNegN(&input[16], 8))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-	input[17].Sub(&sum, temp.Mul2ExpNegN(&input[17], 3))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-	input[18].Sub(&sum, temp.Mul2ExpNegN(&input[18], 4))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-	input[19].Sub(&sum, temp.Mul2ExpNegN(&input[19], 5))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-	input[20].Sub(&sum, temp.Mul2ExpNegN(&input[20], 6))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-	input[21].Sub(&sum, temp.Mul2ExpNegN(&input[21], 7))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-	input[22].Sub(&sum, temp.Mul2ExpNegN(&input[22], 9))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-	input[23].Sub(&sum, temp.Mul2ExpNegN(&input[23], 24)) //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
+	vDiag24 := fr.Vector(diag24[:])
+	input.Mul(input, vDiag24)
+	for i := range input {
+		input[i].Add(&sum, &input[i])
+	}
 }
 
 func addRoundKeyInPlace(round int, input []fr.Element, roundKeys [][]fr.Element) {
@@ -115,9 +95,27 @@ func addRoundKeyInPlace(round int, input []fr.Element, roundKeys [][]fr.Element)
 	}
 }
 
+func matMulM4InPlace(s []fr.Element) {
+	c := len(s) / 4
+	for i := 0; i < c; i++ {
+		var t01, t23, t0123, t01123, t01233 fr.Element
+		t01.Add(&s[4*i], &s[4*i+1])
+		t23.Add(&s[4*i+2], &s[4*i+3])
+		t0123.Add(&t01, &t23)
+		t01123.Add(&t0123, &s[4*i+1])
+		t01233.Add(&t0123, &s[4*i+3])
+		// The order here is important. Need to overwrite x[0] and x[2] after x[1] and x[3].
+		s[4*i+3].Double(&s[4*i]).Add(&s[4*i+3], &t01233)
+		s[4*i+1].Double(&s[4*i+2]).Add(&s[4*i+1], &t01123)
+		s[4*i].Add(&t01, &t01123)
+		s[4*i+2].Add(&t23, &t01233)
+	}
+}
+
 func matMulExternalInPlace(input []fr.Element) {
 	// at this stage t is supposed to be a multiple of 4
 	// the MDS matrix is circ(2M4,M4,..,M4)
+	// permutation24_avx512(input, nil)
 	matMulM4InPlace(input)
 	tmp := make([]fr.Element, 4)
 	for i := 0; i < width/4; i++ {
@@ -128,58 +126,8 @@ func matMulExternalInPlace(input []fr.Element) {
 	}
 	for i := 0; i < width/4; i++ {
 		input[4*i].Add(&input[4*i], &tmp[0])
-		input[4*i+1].Add(&input[4*i], &tmp[1])
-		input[4*i+2].Add(&input[4*i], &tmp[2])
-		input[4*i+3].Add(&input[4*i], &tmp[3])
+		input[4*i+1].Add(&input[4*i+1], &tmp[1])
+		input[4*i+2].Add(&input[4*i+2], &tmp[2])
+		input[4*i+3].Add(&input[4*i+3], &tmp[3])
 	}
-}
-
-func matMulM4InPlace(s []fr.Element) {
-	permutation24_avx512(s, nil)
-	/*
-	   c := len(s) / 4
-
-	   	for i := 0; i < c; i++ {
-	   		// (2 3 1 1)
-	   		// (1 2 3 1)
-	   		// (1 1 2 3)
-	   		// (3 1 1 2)
-	   		s0 := uint64(s[4*i][0])
-	   		s1 := uint64(s[4*i+1][0])
-	   		s2 := uint64(s[4*i+2][0])
-	   		s3 := uint64(s[4*i+3][0])
-	   		sum := s0 + s1 + s2 + s3
-	   		ds3 := s3 << 1
-	   		ds2 := s2 << 1
-	   		ds1 := s1 << 1
-	   		ds0 := s0 << 1
-	   		s0 = (s0 + sum + ds1) % q
-	   		s1 = (s1 + sum + ds2) % q
-	   		s2 = (s2 + sum + ds3) % q
-	   		s3 = (s3 + sum + ds0) % q
-
-	   		s[4*i][0] = uint32(s0)
-	   		s[4*i+1][0] = uint32(s1)
-	   		s[4*i+2][0] = uint32(s2)
-	   		s[4*i+3][0] = uint32(s3)
-
-	   		// s[4*i][0] =   uint32((2*s0+3*s1+1*s2+1*s3) % q)
-	   		// s[4*i+1][0] = uint32((1*s0+2*s1+3*s2+1*s3) % q)
-	   		// s[4*i+2][0] = uint32((1*s0+1*s1+2*s2+3*s3) % q)
-	   		// s[4*i+3][0] = uint32((3*s0+1*s1+1*s2+2*s3) % q)
-
-
-	   		// var t01, t23, t0123, t01123, t01233 fr.Element
-	   		// t01.Add(&s[4*i], &s[4*i+1])
-	   		// t23.Add(&s[4*i+2], &s[4*i+3])
-	   		// t0123.Add(&t01, &t23)
-	   		// t01123.Add(&t0123, &s[4*i+1])
-	   		// t01233.Add(&t0123, &s[4*i+3])
-	   		// // The order here is important. Need to overwrite x[0] and x[2] after x[1] and x[3].
-	   		// s[4*i+3].Double(&s[4*i]).Add(&s[4*i+3], &t01233)
-	   		// s[4*i+1].Double(&s[4*i+2]).Add(&s[4*i+1], &t01123)
-	   		// s[4*i].Add(&t01, &t01123)
-	   		// s[4*i+2].Add(&t23, &t01233)
-	   	}
-	*/
 }

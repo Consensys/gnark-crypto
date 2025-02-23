@@ -1720,7 +1720,6 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 	addrInput := registers.Pop()
 	addrRoundKeys := registers.Pop()
 	rKey := registers.Pop()
-	addrVInterleaveIndices := registers.Pop()
 	addrDiag24 := registers.Pop()
 
 	qq := registers.PopV()
@@ -1734,6 +1733,7 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 	t0 := registers.PopV()
 	t1 := registers.PopV()
 	t2 := registers.PopV()
+	t3 := registers.PopV()
 	r0 := registers.PopV()
 	aOdd := registers.PopV()
 	bOdd := registers.PopV()
@@ -1744,7 +1744,6 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 	acc := registers.PopV().Y()
 	accFinal := registers.PopV().X()
 	accShuffled := registers.PopV().Y()
-	vInterleaveIndices := registers.PopV().Y()
 
 	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
 	f.KMOVD(amd64.AX, amd64.K3)
@@ -1760,9 +1759,6 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 
 	f.MOVQ("input+0(FP)", addrInput)
 	f.MOVQ("roundKeys+24(FP)", addrRoundKeys)
-
-	f.MOVQ("·vInterleaveIndices2+0(SB)", addrVInterleaveIndices)
-	f.VMOVDQU32(addrVInterleaveIndices.At(0), vInterleaveIndices)
 
 	f.MOVQ("·diag24+0(SB)", addrDiag24)
 	f.VMOVDQU32(addrDiag24.AtD(0), d0)
@@ -1781,6 +1777,18 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		f.VPADDD(a, b, a)
 		f.VPSUBD(qd, a, r0)
 		f.VPMINUD(a, r0, a)
+	})
+
+	addInto := f.Define("addInto", 5, func(args ...any) {
+		a := args[0]
+		b := args[1]
+		qd := args[2]
+		r0 := args[3]
+		into := args[4]
+
+		f.VPADDD(a, b, into)
+		f.VPSUBD(qd, into, r0)
+		f.VPMINUD(into, r0, into)
 	})
 
 	matMulM4 := f.Define("matMulM4", 6, func(args ...any) {
@@ -1812,8 +1820,8 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 
 		// matMulExternalInPlace
 		f.VEXTRACTI64X4(1, b0, acc)
-		add(acc, b1.Y(), qd.Y(), r0.Y())
 		add(acc, b0.Y(), qd.Y(), r0.Y())
+		add(acc, b1.Y(), qd.Y(), r0.Y())
 
 		f.VEXTRACTI64X2(1, acc, accFinal)
 		add(acc.X(), accFinal, qd.X(), r0.X())
@@ -1821,14 +1829,14 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		f.VINSERTI64X2(1, acc.X(), acc.Y(), acc.Y())
 		f.VINSERTI64X4(1, acc.Y(), acc.Z(), acc.Z())
 
-		add(b0, acc.Z(), qd, r0)
 		add(b1.Y(), acc.Y(), qd.Y(), r0.Y())
+		add(b0, acc.Z(), qd, r0)
 
 	}
 
 	// computes c = a * b mod q
 	// a and b can be in [0, 2q)
-	mulD := f.Define("mulD", 11, func(args ...any) {
+	_mulD := f.Define("mulD", 11, func(args ...any) {
 		a := args[0]
 		b := args[1]
 		aOdd := args[2]
@@ -1854,13 +1862,41 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		f.VPADDQ(b0, PL0, b0)
 
 		f.VPMULUDQ(PL1, q, PL1)
-		f.VPADDQ(b1, PL1, b1)
+		f.VPADDQ(b1, PL1, c)
 
-		f.VMOVSHDUPk(b0, amd64.K3, b1)
-
-		f.VPSUBD(q, b1, PL1)
-		f.VPMINUD(b1, PL1, c)
+		f.VMOVSHDUPk(b0, amd64.K3, c)
+		f.VPSUBD(q, c, PL1)
+		f.VPMINUD(c, PL1, c)
 	})
+	mulD := _mulD
+
+	mulX := func(a, b, c amd64.VectorRegister, reduce bool) {
+		_mulD(a.X(), b.X(), aOdd.X(), bOdd.X(), t0.X(), t1.X(), PL0.X(), PL1.X(), qd.X(), qInvNeg.X(), c.X())
+		if reduce {
+			f.VPSUBD(qd.X(), c.X(), PL1.X())
+			f.VPMINUD(c.X(), PL1.X(), c.X())
+		}
+	}
+
+	mulY := func(a, b, c amd64.VectorRegister, reduce bool) {
+		_mulD(a.Y(), b.Y(), aOdd.Y(), bOdd.Y(), t0.Y(), t1.Y(), PL0.Y(), PL1.Y(), qd.Y(), qInvNeg.Y(), c.Y())
+		if reduce {
+			f.VPSUBD(qd.Y(), c.Y(), PL1.Y())
+			f.VPMINUD(c.Y(), PL1.Y(), c.Y())
+		}
+	}
+
+	mulZ := func(a, b, c amd64.VectorRegister, reduce bool) {
+		_mulD(a.Z(), b.Z(), aOdd.Z(), bOdd.Z(), t0.Z(), t1.Z(), PL0.Z(), PL1.Z(), qd.Z(), qInvNeg.Z(), c.Z())
+		if reduce {
+			f.VPSUBD(qd.Z(), c.Z(), PL1.Z())
+			f.VPMINUD(c.Z(), PL1.Z(), c.Z())
+		}
+	}
+
+	_ = mulX
+	_ = mulY
+	_ = mulZ
 
 	mulD2Q := f.Define("mulD2Q", 11, func(args ...any) {
 		a := args[0]
@@ -1891,45 +1927,9 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		f.VPADDQ(b1, PL1, c)
 
 		f.VMOVSHDUPk(b0, amd64.K3, c)
-
 		// f.VPSUBD(q, b1, PL1)
 		// f.VPMINUD(b1, PL1, c)
 	})
-
-	mulQ := f.Define("mulQ", 11, func(args ...any) {
-		a := args[0]
-		b := args[1]
-		aOdd := args[2]
-		bOdd := args[3]
-		b0 := args[4]
-		b1 := args[5]
-		_ = args[6]
-		_ = args[7]
-		q := args[8]
-		qInvNeg := args[9]
-		c := args[10]
-
-		// a and b are Y registers; we zero extend them
-		f.VPMOVZXDQ(a, aOdd)
-		f.VPMOVZXDQ(b, bOdd)
-
-		// f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
-		// f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
-
-		f.VPMULUDQ(aOdd, bOdd, b1)
-		f.VPMULUDQ(b1, qInvNeg, PL1)
-
-		f.VPMULUDQ(PL1, q, PL1)
-		f.VPADDQ(b1, PL1, b1)
-
-		f.VPSRLQ("$32", b1, b1)
-
-		f.VPSUBQ(qq, b1, PL1)
-		f.VPMINUQ(b1, PL1, b0)
-
-		f.VPMOVQD(b0, c)
-	})
-	_ = mulQ
 
 	sbox := func(a, res amd64.VectorRegister) {
 		mulD2Q(a, a, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, t2)
@@ -1943,8 +1943,7 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		add(acc, b3.Y(), qd.Y(), r0.Y())
 
 		// now we can work with acc.Y()
-		f.VMOVDQA32(vInterleaveIndices, accShuffled)
-		f.VPERMI2D(acc, acc, accShuffled)
+		f.VSHUFF64X2(0b1, acc, acc, accShuffled)
 		add(acc, accShuffled, qd.Y(), r0.Y())
 
 		f.VPSHUFD(uint64(0x4e), acc, accShuffled)
@@ -1970,7 +1969,7 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		// note: no need to reduce here.
 		// add round keys
 		add(b0, v0, qd, r0)
-		add(b1.Y(), v1.Y(), qd.Y(), r0.Y())
+		add(b1.Y(), v1.Y(), qd.Y(), t2.Y())
 
 		// sbox
 		sbox(b0, b0)
@@ -1979,44 +1978,37 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		matMulExternalInPlace(b0, b1)
 	}
 
-	f.VXORPS(v0, v0, v0)
-	f.VXORPS(v1, v1, v1)
 	_ = sum24
 
 	b3 := registers.PopV()
 
 	for i := rf; i < rf+partialRounds; i++ {
 		f.MOVQ(addrRoundKeys.At(i*3), rKey)
-		f.VPBROADCASTD(rKey.At(0), v0.Y())
-		// f.VPBLENDMD(b0, v1, v1, amd64.K2)
-		f.VPBROADCASTD(b0.X(), v1.Y())
-		// f.VMOVDQA32(b0.X(), v1.X())
-		// f.VMOVDQA32_Z(b0.X(), amd64.K2, v1.X())
+		f.VMOVD(rKey.At(0), v0.X())
+		f.VMOVDQA32(b0.X(), v1.X())
 
-		add(v1.Y(), v0.Y(), qd.Y(), r0.Y())
+		// add the round key
+		add(v1.X(), v0.X(), qd.X(), r0.X())
 
-		// f.VMOVD(b0.X(), amd64.AX)
-		// f.sboxScalar(amd64.AX, rKey)
-		// f.VMOVD(amd64.AX, b0.X())
-		// f.VPINSRD("$0", amd64.AX, b0.X(), b0.X())
-		// sbox(b0, t2)
-		mulD2Q(v1.Y(), v1.Y(), aOdd.Y(), bOdd.Y(), t0.Y(), t1.Y(), PL0.Y(), PL1.Y(), qd.Y(), qInvNeg.Y(), t2.Y())
-		mulD(v1.Y(), t2.Y(), aOdd.Y(), bOdd.Y(), t0.Y(), t1.Y(), PL0.Y(), PL1.Y(), qd.Y(), qInvNeg.Y(), v1.Y())
+		// do the sbox
+		mulD2Q(v1.X(), v1.X(), aOdd.X(), bOdd.X(), t0.X(), t1.X(), PL0.X(), PL1.X(), qd.X(), qInvNeg.X(), t2.X())
+		mulD(v1.X(), t2.X(), aOdd.X(), bOdd.X(), t0.X(), t1.X(), PL0.X(), PL1.X(), qd.X(), qInvNeg.X(), v1.X())
 
-		// f.VMOVD(t2.X(), b0.X())
-		// f.VMOVDQA32(v1.X(), b0.X())
+		// multiply b1 by diagonal[1] (diag24)
+		mulD(b1.Y(), d1.Y(), aOdd.Y(), bOdd.Y(), t0.Y(), t1.Y(), PL0.Y(), PL1.Y(), qd.Y(), qInvNeg.Y(), t3.Y())
+
+		// merge the sbox at the first index of b0
 		f.VPBLENDMD(v1, b0, b3, amd64.K2)
+
+		// compute the sum
 		sum24(b0, b1, b3, acc)
 
-		// // matMulInternalInPlace(input)
-
-		// now we need to multiply b0 and b1 by the diagonal
+		// multiply b0 by diagonal[0] (diag24)
 		mulD(b3, d0, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b0)
-		mulQ(b1.Y(), d1.Y(), aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, b1.Y())
 
 		// now we add the sum
 		add(b0, acc.Z(), qd, r0)
-		add(b1.Y(), acc.Y(), qd.Y(), r0.Y())
+		addInto(t3.Y(), acc.Y(), qd.Y(), v1.Y(), b1.Y())
 	}
 
 	for i := rf + partialRounds; i < fullRounds+partialRounds; i++ {
@@ -2040,38 +2032,4 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 	f.VMOVDQU32(b1.Y(), addrInput.AtD(16))
 
 	f.RET()
-}
-
-func (f *FFAmd64) sboxScalar(ax, rkey amd64.Register) {
-	cx := amd64.CX
-	dx := amd64.DX
-	bx := amd64.BX
-
-	f.ADDQ(rkey.At(0), ax)
-	// TODO reduce
-
-	f.MOVL(ax, cx)
-	f.MOVQ(cx, dx)
-	f.IMULQ(cx, cx)
-	f.IMUL3L("$2130706431", cx, bx)
-	f.MOVL(bx, bx)
-	f.IMUL3Q("$2130706433", bx, bx)
-	f.ADDQ(bx, cx)
-	f.SHRQ("$32", cx)
-	f.LEAL("-2130706433", cx, bx)
-	f.XCHGL(ax, ax)
-	f.XCHGL(ax, ax)
-	f.CMPL(cx, "$2130706433")
-	f.CMOVLCC(bx, cx)
-	f.MOVL(cx, cx)
-	f.IMULQ(dx, cx)
-	f.IMUL3L("$2130706431", cx, dx)
-	f.MOVL(dx, dx)
-	f.IMUL3Q("$2130706433", dx, dx)
-	f.ADDQ(dx, cx)
-	f.SHRQ("$32", cx)
-	f.LEAL("-2130706433", cx, dx)
-	f.CMPL(cx, "$2130706433")
-	f.CMOVLCC(dx, cx)
-	f.MOVL(cx, ax)
 }

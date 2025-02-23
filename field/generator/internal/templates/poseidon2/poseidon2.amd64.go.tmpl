@@ -31,11 +31,11 @@ const width = 24
 func Permutation24_avx512(input []fr.Element, roundKeys [][]fr.Element) {
 	permutation24_avx512(input, roundKeys)
 
-	// matMulExternalInPlace(input)
+	// matMulExternalInPlace2(input)
 
-	const fullRounds = 6
-	const partialRounds = 21
-	const rf = fullRounds / 2
+	// const fullRounds = 6
+	// const partialRounds = 21
+	// const rf = fullRounds / 2
 	// for i := 0; i < rf; i++ {
 	// 	// one round = matMulExternal(sBox_Full(addRoundKey))
 	// 	addRoundKeyInPlace(i, input, roundKeys)
@@ -47,7 +47,7 @@ func Permutation24_avx512(input []fr.Element, roundKeys [][]fr.Element) {
 
 	// for i := rf; i < rf+partialRounds; i++ {
 	// 	// one round = matMulInternal(sBox_sparse(addRoundKey))
-	// 	// addRoundKeyInPlace(i, input, roundKeys)
+	// 	addRoundKeyInPlace(i, input, roundKeys)
 	// 	sBox(0, input)
 	// 	matMulInternalInPlace(input)
 	// }
@@ -114,6 +114,27 @@ func  matMulExternalInPlace(input []fr.Element) {
 	// the MDS matrix is circ(2M4,M4,..,M4)
 	// permutation24_avx512(input, nil)
 	matMulM4InPlace(input)
+	tmp := make([]fr.Element, 4)
+	for i := 0; i < width/4; i++ {
+		tmp[0].Add(&tmp[0], &input[4*i])
+		tmp[1].Add(&tmp[1], &input[4*i+1])
+		tmp[2].Add(&tmp[2], &input[4*i+2])
+		tmp[3].Add(&tmp[3], &input[4*i+3])
+	}
+	for i := 0; i < width/4; i++ {
+		input[4*i].Add(&input[4*i], &tmp[0])
+		input[4*i+1].Add(&input[4*i+1], &tmp[1])
+		input[4*i+2].Add(&input[4*i+2], &tmp[2])
+		input[4*i+3].Add(&input[4*i+3], &tmp[3])
+	}
+}
+
+
+func  matMulExternalInPlace2(input []fr.Element) {
+	// at this stage t is supposed to be a multiple of 4
+	// the MDS matrix is circ(2M4,M4,..,M4)
+	// permutation24_avx512(input, nil)
+	// matMulM4InPlace(input)
 	tmp := make([]fr.Element, 4)
 	for i := 0; i < width/4; i++ {
 		tmp[0].Add(&tmp[0], &input[4*i])

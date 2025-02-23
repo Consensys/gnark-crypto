@@ -195,9 +195,9 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 	}
 	for i := 0; i < h.params.Width/4; i++ {
 		input[4*i].Add(&input[4*i], &tmp[0])
-		input[4*i+1].Add(&input[4*i], &tmp[1])
-		input[4*i+2].Add(&input[4*i], &tmp[2])
-		input[4*i+3].Add(&input[4*i], &tmp[3])
+		input[4*i+1].Add(&input[4*i+1], &tmp[1])
+		input[4*i+2].Add(&input[4*i+2], &tmp[2])
+		input[4*i+3].Add(&input[4*i+3], &tmp[3])
 	}
 }
 
