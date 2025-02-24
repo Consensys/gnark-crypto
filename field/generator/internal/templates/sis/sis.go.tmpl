@@ -116,7 +116,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 
 	{{- if .HasUnrolledFFT}}
 		// for degree == 64 we have a special fast path with a set of unrolled FFTs.
-		if r.Degree == 64 {
+		if r.Degree == 64 && r.LogTwoBound == 16 {
 			// precompute twiddles for the unrolled FFT
 			twiddlesCoset := precomputeTwiddlesCoset(r.Domain.Generator, shift)
 			r.smallFFT = func(k {{.FF}}.Vector, mask uint64) {
@@ -222,7 +222,7 @@ func (r *RSis) Hash(v, res []{{ .FF }}.Element) error {
 		}
 	{{- else}}
 		{{- if .HasUnrolledFFT}}
-		if r.Degree == 64 {
+		if r.Degree == 64 && r.LogTwoBound == 16 {
 			// full FFT
 			mask = uint64(len(partialFFT_64) - 1)
 		}
