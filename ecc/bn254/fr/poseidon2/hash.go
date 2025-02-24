@@ -6,11 +6,10 @@
 package poseidon2
 
 import (
-	"hash"
-	"sync"
-
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	gnarkHash "github.com/consensys/gnark-crypto/hash"
+	"hash"
+	"sync"
 )
 
 // NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard
@@ -22,7 +21,6 @@ func NewMerkleDamgardHasher() gnarkHash.StateStorer {
 
 // GetDefaultParameters returns a set of parameters for the Poseidon2 permutation.
 // The default parameters are:
-
 // - width: 2
 // - nbFullRounds: 6
 // - nbPartialRounds: 50

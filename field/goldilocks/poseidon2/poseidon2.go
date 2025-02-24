@@ -6,8 +6,11 @@
 package poseidon2
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"slices"
 
 	"golang.org/x/crypto/sha3"
 
@@ -271,4 +274,44 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 	}
 
 	return nil
+}
+
+// Compress uses the permutation to compress the left and right input in a collision resistant manner.
+// left and right must each be concatenations of t/2 fr.Elements, where t is the width of the permutation.
+// The result is the concatenation of t/2 fr.Elements.
+func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
+	n := h.params.Width / 2
+	if h.params.Width != 2*n {
+		return nil, errors.New("need even width")
+	}
+
+	desiredLen := n * fr.Bytes
+	if len(left) != desiredLen || len(right) != desiredLen {
+		return nil, fmt.Errorf("left input should be %d bytes", desiredLen)
+	}
+
+	reader := io.MultiReader(bytes.NewReader(left), bytes.NewReader(right))
+	x := make([]fr.Element, h.params.Width)
+	var buf [fr.Bytes]byte
+
+	for i := range x {
+		if _, err := io.ReadFull(reader, buf[:]); err != nil {
+			return nil, err
+		}
+		if err := x[i].SetBytesCanonical(buf[:]); err != nil {
+			return nil, err
+		}
+	}
+
+	res := slices.Clone(x[n:]) // saved to feed forward later
+	if err := h.Permutation(x[:]); err != nil {
+		return nil, err
+	}
+
+	outBytes := make([]byte, 0, n*fr.Bytes)
+	for i := range res {
+		outBytes = append(outBytes, res[i].Add(&res[i], &x[n+i]).Marshal()...)
+	}
+
+	return outBytes, nil
 }
