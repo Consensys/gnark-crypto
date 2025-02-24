@@ -2,7 +2,6 @@
 import (
 "{{.FieldPackagePath}}"
 {{- if not $sham}}
-	"encoding/json"
 	"fmt"
 	"runtime"
 	"sort"
@@ -37,10 +36,8 @@ func (p *Pool) Clone(slice []{{.ElementType}}) []{{.ElementType}} {
 // Thread-safe implementation of polynomial memory pool
 
 type sizedPool struct {
-	maxN  int
-	pool  sync.Pool
-	stats poolStats
-	mu    sync.Mutex // Protect stats
+	maxN int
+	pool sync.Pool
 }
 
 type inUseData struct {
@@ -54,16 +51,10 @@ type Pool struct {
 }
 
 func (p *sizedPool) get(n int) *{{.ElementType}} {
-	p.mu.Lock()
-	p.stats.make(n)
-	p.mu.Unlock()
 	return p.pool.Get().(*{{.ElementType}})
 }
 
 func (p *sizedPool) put(ptr *{{.ElementType}}) {
-	p.mu.Lock()
-	p.stats.dump()
-	p.mu.Unlock()
 	p.pool.Put(ptr)
 }
 
@@ -78,9 +69,6 @@ func NewPool(maxN ...int) (pool Pool) {
 		subPool.maxN = maxN[i]
 		subPool.pool = sync.Pool{
 			New: func() interface{} {
-				subPool.mu.Lock()
-				subPool.stats.Allocated++
-				subPool.mu.Unlock()
 				return getDataPointer(make([]{{.ElementType}}, 0, subPool.maxN))
 			},
 		}
@@ -148,62 +136,8 @@ func (p *Pool) printInUse() {
 	})
 }
 
-type poolStats struct {
-	Used          int
-	Allocated     int
-	ReuseRate     float64
-	InUse         int
-	GreatestNUsed int
-	SmallestNUsed int
-}
-
-type poolsStats struct {
-	SubPools []poolStats
-	InUse    int
-}
-
-func (s *poolStats) make(n int) {
-	s.Used++
-	s.InUse++
-	if n > s.GreatestNUsed {
-		s.GreatestNUsed = n
-	}
-	if s.SmallestNUsed == 0 || s.SmallestNUsed > n {
-		s.SmallestNUsed = n
-	}
-}
-
-func (s *poolStats) dump() {
-	s.InUse--
-}
-
-func (s *poolStats) finalize() {
-	s.ReuseRate = float64(s.Used) / float64(s.Allocated)
-}
-
 func getDataPointer(slice []{{.ElementType}}) *{{.ElementType}} {
 	return (*{{.ElementType}})(unsafe.SliceData(slice))
-}
-
-func (p *Pool) PrintPoolStats() {
-	InUse := 0
-	subStats := make([]poolStats, len(p.subPools))
-	for i := range p.subPools {
-		subPool := &p.subPools[i]
-		subPool.mu.Lock()
-		subPool.stats.finalize()
-		subStats[i] = subPool.stats
-		InUse += subPool.stats.InUse
-		subPool.mu.Unlock()
-	}
-
-	stats := poolsStats{
-		SubPools: subStats,
-		InUse:    InUse,
-	}
-	serialized, _ := json.MarshalIndent(stats, "", "  ")
-	fmt.Println(string(serialized))
-	p.printInUse()
 }
 
 func (p *Pool) Clone(slice []{{.ElementType}}) []{{.ElementType}} {
