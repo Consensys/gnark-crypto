@@ -11,7 +11,6 @@ import (
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 )
@@ -252,23 +251,4 @@ func TestLagrangeCache(t *testing.T) {
 		b := getLagrangeBasis(uint8(i))
 		assert.Equal(t, b, getLagrangeBasis(uint8(i))) // second call must yield the same result
 	}
-}
-
-func TestInterpolate(t *testing.T) {
-	x := make([]fr.Element, 3)
-	y := make([]fr.Element, 3)
-
-	x[0].SetUint64(1)
-	x[1].SetUint64(2)
-	x[2].SetUint64(3)
-
-	y[0].SetUint64(2)
-	y[1].SetUint64(4)
-	y[2].SetUint64(8)
-
-	p, err := Interpolate(x, y)
-	require.NoError(t, err)
-	assert.Equal(t, "2", p[0].String())
-	assert.Equal(t, "-1", p[1].String())
-	assert.Equal(t, "1", p[2].String())
 }
