@@ -21,14 +21,237 @@ import (
 
 // The goal is to prove/verify evaluations of many instances of the same circuit
 
-// Gate must be a low-degree polynomial
-type Gate interface {
-	Evaluate(...fr.Element) fr.Element
-	Degree() int
+// a Gate is a low-degree multivariate polynomial
+type Gate struct {
+	f         func(...fr.Element) fr.Element
+	nbIn      int // number of inputs
+	degree    int // total degree of f
+	linearVar int // if there is a variable of degree 1, its index, -1 otherwise
+}
+
+func (g *Gate) Evaluate(inputs ...fr.Element) fr.Element {
+	if len(inputs) != g.nbIn {
+		panic("invalid number of inputs")
+	}
+	return g.f(inputs...)
+}
+
+// Degree returns the total degree of the gate's polynomial i.e. Degree(xy²) = 3
+func (g *Gate) Degree() int {
+	return g.degree
+}
+
+// LinearVar returns the index of a variable of degree 1 in the gate's polynomial. If there is no such variable, it returns -1.
+func (g *Gate) LinearVar() int {
+	return g.linearVar
+}
+
+var (
+	gates     = make(map[string]*Gate)
+	gatesLock sync.Mutex
+)
+
+type registerGateSettings struct {
+	linearVar               int
+	noLinearVarVerification bool
+	noDegreeVerification    bool
+	degree                  int
+}
+
+type registerGateOption func(*registerGateSettings)
+
+// WithLinearVar gives the index of a variable of degree 1 in the gate's polynomial. RegisterGate will return an error if the given index is not correct.
+func WithLinearVar(linearVar int) registerGateOption {
+	return func(settings *registerGateSettings) {
+		settings.linearVar = linearVar
+	}
+}
+
+// WithUnverifiedLinearVar sets the index of a variable of degree 1 in the gate's polynomial. RegisterGate will not verify that the given index is correct.
+func WithUnverifiedLinearVar(linearVar int) registerGateOption {
+	return func(settings *registerGateSettings) {
+		settings.noLinearVarVerification = true
+		settings.linearVar = linearVar
+	}
+}
+
+// WithNoLinearVar sets the gate as having no variable of degree 1. RegisterGate will not check the correctness of this claim.
+func WithNoLinearVar() registerGateOption {
+	return func(settings *registerGateSettings) {
+		settings.linearVar = -1
+		settings.noLinearVarVerification = true
+	}
+}
+
+// WithUnverifiedDegree sets the degree of the gate. RegisterGate will not verify that the given degree is correct.
+func WithUnverifiedDegree(degree int) registerGateOption {
+	return func(settings *registerGateSettings) {
+		settings.noDegreeVerification = true
+		settings.degree = degree
+	}
+}
+
+// WithDegree sets the degree of the gate. RegisterGate will return an error if the degree is not correct.
+func WithDegree(degree int) registerGateOption {
+	return func(settings *registerGateSettings) {
+		settings.degree = degree
+	}
+}
+
+// setRandom panics if SetRandom returns an error
+func setRandom(x *fr.Element) {
+	if _, err := x.SetRandom(); err != nil {
+		panic(err)
+	}
+}
+
+// isLinear returns whether f is linear in its i-th variable
+func isLinear(f func(...fr.Element) fr.Element, i, nbIn int) bool {
+	// fix all variables except the i-th one at random points
+	// pick random values x0, x1 for the i-th variable
+	// check if f(-, x0, -) + f(-, x1, -) = 2*f(-, (x0 + x1)/2, -)
+	x := make([]fr.Element, nbIn)
+	for i := range x {
+		setRandom(&x[i])
+	}
+	y0 := f(x...)
+	x0 := x[i]
+
+	setRandom(&x[i])
+	y1 := f(x...)
+
+	x[i].Add(&x[i], &x0).Halve()
+	y2 := f(x...)
+
+	return y2.Double(&y2).Sub(&y2, &y1).Equal(&y0)
+}
+
+// fitPoly tries to fit a polynomial of maximum degree maxDeg to f
+func fitPoly(f func(...fr.Element) fr.Element, nbIn, maxDeg int) (p polynomial.Polynomial, ok bool, err error) {
+
+	// turn f univariate by defining p(x) as f(x, x, ..., x)
+	// evaluate p at random points
+	x := make([]fr.Element, maxDeg+1)
+	y := make([]fr.Element, maxDeg+1)
+	fIn := make([]fr.Element, nbIn)
+	for i := range x {
+		setRandom(&x[i])
+		for j := range fIn {
+			fIn[j] = x[i]
+		}
+		y[i] = f(fIn...)
+	}
+
+	// interpolate p
+	p, err = polynomial.Interpolate(x, y)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// check if p is equal to f. This not being the case means that f is of a degree higher than maxDeg
+	setRandom(&fIn[0])
+	for i := range fIn {
+		fIn[i] = fIn[0]
+	}
+	pAt := p.Eval(&fIn[0])
+	fAt := f(fIn...)
+	if !pAt.Equal(&fAt) {
+		return nil, false, nil
+	}
+
+	// trim p
+	lastNonZero := len(p) - 1
+	for lastNonZero >= 0 && p[lastNonZero].IsZero() {
+		lastNonZero--
+	}
+	return p[:lastNonZero+1], true, nil
+}
+
+// RegisterGate creates a gate object and stores it in the gates registry
+// name is a human-readable name for the gate
+// f is the polynomial function defining the gate
+// nbIn is the number of inputs to the gate
+func RegisterGate(name string, f func(...fr.Element) fr.Element, nbIn int, options ...registerGateOption) error {
+	s := registerGateSettings{degree: -1, linearVar: -1}
+	for _, option := range options {
+		option(&s)
+	}
+
+	if s.linearVar == -1 {
+		if !s.noLinearVarVerification { // find a linear variable
+			for i := range nbIn {
+				if isLinear(f, i, nbIn) {
+					s.linearVar = i
+					break
+				}
+			}
+		}
+	} else {
+		// linear variable given
+		if !s.noLinearVarVerification && !isLinear(f, s.linearVar, nbIn) {
+			return fmt.Errorf("variable %d is not linear in gate %s", s.linearVar, name)
+		}
+	}
+
+	if s.degree == -1 { // find a degree
+		if s.noDegreeVerification {
+			panic("invalid settings")
+		}
+		found := false
+		const maxAutoDegree = 10
+		for s.degree = 5; s.degree <= maxAutoDegree; s.degree += 5 {
+			p, ok, err := fitPoly(f, nbIn, s.degree)
+			if err != nil {
+				return err
+			}
+			if ok {
+				found = true
+				s.degree = len(p) - 1
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("could not find a degree for gate %s: tried up to %d", name, maxAutoDegree)
+		}
+	} else {
+		if !s.noDegreeVerification { // check that the given degree is correct
+			p, ok, err := fitPoly(f, nbIn, s.degree)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return fmt.Errorf("detected a higher degree than %d for gate %s", s.degree, name)
+			}
+			if len(p)-1 != s.degree {
+				return fmt.Errorf("detected degree %d for gate %s, claimed %d", len(p)-1, name, s.degree)
+			}
+		}
+	}
+
+	gatesLock.Lock()
+	defer gatesLock.Unlock()
+	gates[name] = &Gate{f: f, nbIn: nbIn, degree: s.degree, linearVar: s.linearVar}
+	return nil
+}
+
+func GetGate(name string) *Gate {
+	gatesLock.Lock()
+	defer gatesLock.Unlock()
+	return gates[name]
+}
+
+func RemoveGate(name string) bool {
+	gatesLock.Lock()
+	defer gatesLock.Unlock()
+	_, found := gates[name]
+	if found {
+		delete(gates, name)
+	}
+	return found
 }
 
 type Wire struct {
-	Gate            Gate
+	Gate            *Gate
 	Inputs          []*Wire // if there are no Inputs, the wire is assumed an input wire
 	nbUniqueOutputs int     // number of other wires using it as input, not counting duplicates (i.e. providing two inputs to the same gate counts as one)
 }
@@ -690,12 +913,13 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSetting
 
 // outputsList also sets the nbUniqueOutputs fields. It also sets the wire metadata.
 func outputsList(c Circuit, indexes map[*Wire]int) [][]int {
+	idGate := GetGate("identity")
 	res := make([][]int, len(c))
 	for i := range c {
 		res[i] = make([]int, 0)
 		c[i].nbUniqueOutputs = 0
 		if c[i].IsInput() {
-			c[i].Gate = IdentityGate{}
+			c[i].Gate = idGate
 		}
 	}
 	ins := make(map[int]struct{}, len(c))
@@ -845,136 +1069,44 @@ func frToBigInts(dst []*big.Int, src []fr.Element) {
 	}
 }
 
-// Gates defined by name
-var Gates = map[string]Gate{
-	"identity": IdentityGate{},
-	"add":      AddGate{},
-	"sub":      SubGate{},
-	"neg":      NegGate{},
-	"mul":      MulGate(2),
-}
+func init() {
+	// register some basic gates
 
-type IdentityGate struct{}
-type AddGate struct{}
-type MulGate int
-type SubGate struct{}
-type NegGate struct{}
+	if err := RegisterGate("identity", func(x ...fr.Element) fr.Element {
+		return x[0]
+	}, 1); err != nil {
+		panic(err)
+	}
 
-func (IdentityGate) Evaluate(input ...fr.Element) fr.Element {
-	return input[0]
-}
-
-func (IdentityGate) Degree() int {
-	return 1
-}
-
-func (g AddGate) Evaluate(x ...fr.Element) (res fr.Element) {
-	switch len(x) {
-	case 0:
-	// set zero
-	case 1:
-		res.Set(&x[0])
-	default:
+	if err := RegisterGate("add2", func(x ...fr.Element) fr.Element {
+		var res fr.Element
 		res.Add(&x[0], &x[1])
-		for i := 2; i < len(x); i++ {
-			res.Add(&res, &x[i])
-		}
+		return res
+	}, 2); err != nil {
+		panic(err)
 	}
-	return
-}
 
-func (g AddGate) Degree() int {
-	return 1
-}
-
-func (g MulGate) Evaluate(x ...fr.Element) (res fr.Element) {
-	if len(x) != int(g) {
-		panic("wrong input count")
+	if err := RegisterGate("sub2", func(x ...fr.Element) fr.Element {
+		var res fr.Element
+		res.Sub(&x[0], &x[1])
+		return res
+	}, 2); err != nil {
+		panic(err)
 	}
-	switch len(x) {
-	case 0:
-		res.SetOne()
-	case 1:
-		res.Set(&x[0])
-	default:
+
+	if err := RegisterGate("neg", func(x ...fr.Element) fr.Element {
+		var res fr.Element
+		res.Neg(&x[0])
+		return res
+	}, 1); err != nil {
+		panic(err)
+	}
+
+	if err := RegisterGate("mul2", func(x ...fr.Element) fr.Element {
+		var res fr.Element
 		res.Mul(&x[0], &x[1])
-		for i := 2; i < len(x); i++ {
-			res.Mul(&res, &x[i])
-		}
+		return res
+	}, 2); err != nil {
+		panic(err)
 	}
-	return
-}
-
-func (g MulGate) Degree() int {
-	return int(g)
-}
-
-func (g SubGate) Evaluate(element ...fr.Element) (diff fr.Element) {
-	if len(element) > 2 {
-		panic("not implemented") //TODO
-	}
-	diff.Sub(&element[0], &element[1])
-	return
-}
-
-func (g SubGate) Degree() int {
-	return 1
-}
-
-func (g NegGate) Evaluate(element ...fr.Element) (neg fr.Element) {
-	if len(element) != 1 {
-		panic("univariate gate")
-	}
-	neg.Neg(&element[0])
-	return
-}
-
-func (g NegGate) Degree() int {
-	return 1
-}
-
-// TestGateDegree checks if deg(g) = g.Degree()
-func TestGateDegree(g Gate, nbIn int) error {
-	// TODO when Gate is a struct, turn this into a method
-	if nbIn < 1 {
-		return errors.New("at least one input required")
-	}
-
-	d := g.Degree()
-	// evaluate g at 0 .. d
-	var one, _x fr.Element
-	one.SetOne()
-	x := make([]fr.Element, nbIn)
-	y := make([]fr.Element, d+1)
-	for i := range y {
-		y[i] = g.Evaluate(x...)
-		_x.Add(&_x, &one)
-		for j := range x {
-			x[j] = _x
-		}
-	}
-
-	p := polynomial.InterpolateOnRange(y)
-	// test if p matches g
-	if _, err := _x.SetRandom(); err != nil {
-		return err
-	}
-	for j := range x {
-		x[j] = _x
-	}
-
-	if expected, encountered := p.Eval(&x[0]), g.Evaluate(x...); !expected.Equal(&encountered) {
-		return fmt.Errorf("interpolation failed: not a polynomial of degree %d or lower", d)
-	}
-
-	// check if the degree is LESS than d
-	degP := d
-	for degP >= 0 && p[degP].IsZero() {
-		degP--
-	}
-	if degP != d {
-		return fmt.Errorf("expected polynomial of degree %d, interpolation yielded %d", d, degP)
-	}
-
-	return nil
 }

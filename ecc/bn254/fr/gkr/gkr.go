@@ -21,6 +21,7 @@ import (
 
 // The goal is to prove/verify evaluations of many instances of the same circuit
 
+// a Gate is a low-degree multivariate polynomial
 type Gate struct {
 	f         func(...fr.Element) fr.Element
 	nbIn      int // number of inputs
