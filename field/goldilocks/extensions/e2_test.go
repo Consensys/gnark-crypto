@@ -9,7 +9,7 @@ import (
 	"crypto/rand"
 	"testing"
 
-	fr "github.com/consensys/gnark-crypto/field/babybear"
+	fr "github.com/consensys/gnark-crypto/field/goldilocks"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -38,7 +38,7 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 	genB := GenE2()
 	genfr := GenFr()
 
-	properties.Property("[babybear] Having the receiver as operand (addition) should output the same result", prop.ForAll(
+	properties.Property("[goldilocks] Having the receiver as operand (addition) should output the same result", prop.ForAll(
 		func(a, b *E2) bool {
 			var c, d E2
 			d.Set(a)
@@ -51,7 +51,7 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[babybear] Having the receiver as operand (sub) should output the same result", prop.ForAll(
+	properties.Property("[goldilocks] Having the receiver as operand (sub) should output the same result", prop.ForAll(
 		func(a, b *E2) bool {
 			var c, d E2
 			d.Set(a)
@@ -64,7 +64,7 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[babybear] Having the receiver as operand (mul) should output the same result", prop.ForAll(
+	properties.Property("[goldilocks] Having the receiver as operand (mul) should output the same result", prop.ForAll(
 		func(a, b *E2) bool {
 			var c, d E2
 			d.Set(a)
@@ -77,7 +77,7 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[babybear] Having the receiver as operand (square) should output the same result", prop.ForAll(
+	properties.Property("[goldilocks] Having the receiver as operand (square) should output the same result", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			b.Square(a)
@@ -87,7 +87,7 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] Having the receiver as operand (neg) should output the same result", prop.ForAll(
+	properties.Property("[goldilocks] Having the receiver as operand (neg) should output the same result", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			b.Neg(a)
@@ -97,7 +97,7 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] Having the receiver as operand (double) should output the same result", prop.ForAll(
+	properties.Property("[goldilocks] Having the receiver as operand (double) should output the same result", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			b.Double(a)
@@ -107,7 +107,7 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] Having the receiver as operand (mul by non residue) should output the same result", prop.ForAll(
+	properties.Property("[goldilocks] Having the receiver as operand (mul by non residue) should output the same result", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			b.MulByNonResidue(a)
@@ -117,7 +117,7 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] Having the receiver as operand (mul by non residue inverse) should output the same result", prop.ForAll(
+	properties.Property("[goldilocks] Having the receiver as operand (mul by non residue inverse) should output the same result", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			b.MulByNonResidueInv(a)
@@ -127,7 +127,7 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
+	properties.Property("[goldilocks] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			b.Inverse(a)
@@ -137,7 +137,7 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] Having the receiver as operand (Conjugate) should output the same result", prop.ForAll(
+	properties.Property("[goldilocks] Having the receiver as operand (Conjugate) should output the same result", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			b.Conjugate(a)
@@ -147,7 +147,7 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] Having the receiver as operand (mul by element) should output the same result", prop.ForAll(
+	properties.Property("[goldilocks] Having the receiver as operand (mul by element) should output the same result", prop.ForAll(
 		func(a *E2, b fr.Element) bool {
 			var c E2
 			c.MulByElement(a, &b)
@@ -158,7 +158,7 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		genfr,
 	))
 
-	properties.Property("[babybear] Having the receiver as operand (Sqrt) should output the same result", prop.ForAll(
+	properties.Property("[goldilocks] Having the receiver as operand (Sqrt) should output the same result", prop.ForAll(
 		func(a *E2) bool {
 			var b, c, d, s E2
 
@@ -184,7 +184,7 @@ func TestE2MulMaxed(t *testing.T) {
 	// let's pick a and b, with maxed A0 and A1
 	var a, b E2
 	frMaxValue := fr.Element{
-		2013265921,
+		18446744069414584321,
 	}
 	frMaxValue[0]--
 
@@ -218,7 +218,7 @@ func TestE2Ops(t *testing.T) {
 	genB := GenE2()
 	genfr := GenFr()
 
-	properties.Property("[babybear] sub & add should leave an element invariant", prop.ForAll(
+	properties.Property("[goldilocks] sub & add should leave an element invariant", prop.ForAll(
 		func(a, b *E2) bool {
 			var c E2
 			c.Set(a)
@@ -229,7 +229,7 @@ func TestE2Ops(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[babybear] mul & inverse should leave an element invariant", prop.ForAll(
+	properties.Property("[goldilocks] mul & inverse should leave an element invariant", prop.ForAll(
 		func(a, b *E2) bool {
 			var c, d E2
 			d.Inverse(b)
@@ -241,7 +241,7 @@ func TestE2Ops(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[babybear] BatchInvertE2 should output the same result as Inverse", prop.ForAll(
+	properties.Property("[goldilocks] BatchInvertE2 should output the same result as Inverse", prop.ForAll(
 		func(a, b, c *E2) bool {
 
 			batch := BatchInvertE2([]E2{*a, *b, *c})
@@ -255,7 +255,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] inverse twice should leave an element invariant", prop.ForAll(
+	properties.Property("[goldilocks] inverse twice should leave an element invariant", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			b.Inverse(a).Inverse(&b)
@@ -264,7 +264,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] neg twice should leave an element invariant", prop.ForAll(
+	properties.Property("[goldilocks] neg twice should leave an element invariant", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			b.Neg(a).Neg(&b)
@@ -273,7 +273,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] square and mul should output the same result", prop.ForAll(
+	properties.Property("[goldilocks] square and mul should output the same result", prop.ForAll(
 		func(a *E2) bool {
 			var b, c E2
 			b.Mul(a, a)
@@ -283,7 +283,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] MulByElement MulByElement inverse should leave an element invariant", prop.ForAll(
+	properties.Property("[goldilocks] MulByElement MulByElement inverse should leave an element invariant", prop.ForAll(
 		func(a *E2, b fr.Element) bool {
 			var c E2
 			var d fr.Element
@@ -295,7 +295,7 @@ func TestE2Ops(t *testing.T) {
 		genfr,
 	))
 
-	properties.Property("[babybear] Double and mul by 2 should output the same result", prop.ForAll(
+	properties.Property("[goldilocks] Double and mul by 2 should output the same result", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			var c fr.Element
@@ -307,7 +307,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] Mulbynonres mulbynonresinv should leave the element invariant", prop.ForAll(
+	properties.Property("[goldilocks] Mulbynonres mulbynonresinv should leave the element invariant", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			b.MulByNonResidue(a).MulByNonResidueInv(&b)
@@ -316,7 +316,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] a + pi(a), a-pi(a) should be real", prop.ForAll(
+	properties.Property("[goldilocks] a + pi(a), a-pi(a) should be real", prop.ForAll(
 		func(a *E2) bool {
 			var b, c, d E2
 			var e, f fr.Element
@@ -330,7 +330,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] Legendre on square should output 1", prop.ForAll(
+	properties.Property("[goldilocks] Legendre on square should output 1", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			b.Square(a)
@@ -340,7 +340,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] square(sqrt) should leave an element invariant", prop.ForAll(
+	properties.Property("[goldilocks] square(sqrt) should leave an element invariant", prop.ForAll(
 		func(a *E2) bool {
 			var b, c, d, e E2
 			b.Square(a)
@@ -352,7 +352,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] neg(E2) == neg(E2.A0, E2.A1)", prop.ForAll(
+	properties.Property("[goldilocks] neg(E2) == neg(E2.A0, E2.A1)", prop.ForAll(
 		func(a *E2) bool {
 			var b, c E2
 			b.Neg(a)
@@ -363,7 +363,7 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] Cmp and LexicographicallyLargest should be consistent", prop.ForAll(
+	properties.Property("[goldilocks] Cmp and LexicographicallyLargest should be consistent", prop.ForAll(
 		func(a *E2) bool {
 			var negA E2
 			negA.Neg(a)
@@ -500,7 +500,7 @@ func TestE2Div(t *testing.T) {
 	genA := GenE2()
 	genB := GenE2()
 
-	properties.Property("[babybear] dividing then multiplying by the same element does nothing", prop.ForAll(
+	properties.Property("[goldilocks] dividing then multiplying by the same element does nothing", prop.ForAll(
 		func(a, b *E2) bool {
 			var c E2
 			c.Div(a, b)
