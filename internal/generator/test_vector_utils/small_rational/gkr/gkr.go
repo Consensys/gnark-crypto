@@ -21,12 +21,14 @@ import (
 
 // The goal is to prove/verify evaluations of many instances of the same circuit
 
-// a Gate is a low-degree multivariate polynomial
+type GateFunction func(...small_rational.SmallRational) small_rational.SmallRational
+
+// A Gate is a low-degree multivariate polynomial
 type Gate struct {
-	Evaluate  func(...small_rational.SmallRational) small_rational.SmallRational // Evaluate the polynomial function defining the gate
-	nbIn      int                                                                // number of inputs
-	degree    int                                                                // total degree of f
-	linearVar int                                                                // if there is a variable of degree 1, its index, -1 otherwise
+	Evaluate  GateFunction // Evaluate the polynomial function defining the gate
+	nbIn      int          // number of inputs
+	degree    int          // total degree of f
+	linearVar int          // if there is a variable of degree 1, its index, -1 otherwise
 }
 
 // Degree returns the total degree of the gate's polynomial i.e. Degree(xy²) = 3
@@ -104,7 +106,7 @@ func setRandom(x *small_rational.SmallRational) {
 }
 
 // isLinear returns whether f is linear in its i-th variable
-func isLinear(f func(...small_rational.SmallRational) small_rational.SmallRational, i, nbIn int) bool {
+func isLinear(f GateFunction, i, nbIn int) bool {
 	// fix all variables except the i-th one at random points
 	// pick random values x0, x1 for the i-th variable
 	// check if f(-, x0, -) + f(-, x1, -) = 2*f(-, (x0 + x1)/2, -)
@@ -125,7 +127,7 @@ func isLinear(f func(...small_rational.SmallRational) small_rational.SmallRation
 }
 
 // fitPoly tries to fit a polynomial of maximum degree maxDeg to f
-func fitPoly(f func(...small_rational.SmallRational) small_rational.SmallRational, nbIn, maxDeg int) (p polynomial.Polynomial, ok bool, err error) {
+func fitPoly(f GateFunction, nbIn, maxDeg int) (p polynomial.Polynomial, ok bool, err error) {
 
 	// turn f univariate by defining p(x) as f(x, x, ..., x)
 	// evaluate p at random points
@@ -169,26 +171,10 @@ func fitPoly(f func(...small_rational.SmallRational) small_rational.SmallRationa
 // name is a human-readable name for the gate
 // f is the polynomial function defining the gate
 // nbIn is the number of inputs to the gate
-func RegisterGate(name string, f func(...small_rational.SmallRational) small_rational.SmallRational, nbIn int, options ...registerGateOption) error {
+func RegisterGate(name string, f GateFunction, nbIn int, options ...registerGateOption) error {
 	s := registerGateSettings{degree: -1, linearVar: -1}
 	for _, option := range options {
 		option(&s)
-	}
-
-	if s.linearVar == -1 {
-		if !s.noLinearVarVerification { // find a linear variable
-			for i := range nbIn {
-				if isLinear(f, i, nbIn) {
-					s.linearVar = i
-					break
-				}
-			}
-		}
-	} else {
-		// linear variable given
-		if !s.noLinearVarVerification && !isLinear(f, s.linearVar, nbIn) {
-			return fmt.Errorf("variable %d is not linear in gate %s", s.linearVar, name)
-		}
 	}
 
 	if s.degree == -1 { // find a degree
@@ -223,6 +209,26 @@ func RegisterGate(name string, f func(...small_rational.SmallRational) small_rat
 			if len(p)-1 != s.degree {
 				return fmt.Errorf("detected degree %d for gate %s, claimed %d", len(p)-1, name, s.degree)
 			}
+		}
+	}
+
+	if s.linearVar == -1 {
+		if !s.noLinearVarVerification { // find a linear variable
+			if s.degree == 1 { // all variables are linear
+				s.linearVar = 0
+			} else {
+				for i := range nbIn {
+					if isLinear(f, i, nbIn) {
+						s.linearVar = i
+						break
+					}
+				}
+			}
+		}
+	} else {
+		// linear variable given
+		if !s.noLinearVarVerification && !isLinear(f, s.linearVar, nbIn) {
+			return fmt.Errorf("variable %d is not linear in gate %s", s.linearVar, name)
 		}
 	}
 
