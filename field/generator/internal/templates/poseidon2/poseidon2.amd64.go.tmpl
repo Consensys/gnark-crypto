@@ -72,15 +72,15 @@ func sBox(index int, input []fr.Element) {
 
 func matMulInternalInPlace(input fr.Vector) {
 	var sum fr.Element
-		sum.Set(&input[0])
-		for i := 1; i < width; i++ {
-			sum.Add(&sum, &input[i])
-		}
-		vDiag24 := fr.Vector(diag24[:])
-		input.Mul(input, vDiag24)
-		for i := range input {
-			input[i].Add(&sum, &input[i])
-		}
+	sum.Set(&input[0])
+	for i := 1; i < width; i++ {
+		sum.Add(&sum, &input[i])
+	}
+	vDiag24 := fr.Vector(diag24[:])
+	input.Mul(input, vDiag24)
+	for i := range input {
+		input[i].Add(&sum, &input[i])
+	}
 }
 
 
