@@ -23,17 +23,10 @@ import (
 
 // a Gate is a low-degree multivariate polynomial
 type Gate struct {
-	f         func(...small_rational.SmallRational) small_rational.SmallRational
-	nbIn      int // number of inputs
-	degree    int // total degree of f
-	linearVar int // if there is a variable of degree 1, its index, -1 otherwise
-}
-
-func (g *Gate) Evaluate(inputs ...small_rational.SmallRational) small_rational.SmallRational {
-	if len(inputs) != g.nbIn {
-		panic("invalid number of inputs")
-	}
-	return g.f(inputs...)
+	Evaluate  func(...small_rational.SmallRational) small_rational.SmallRational // Evaluate the polynomial function defining the gate
+	nbIn      int                                                                // number of inputs
+	degree    int                                                                // total degree of f
+	linearVar int                                                                // if there is a variable of degree 1, its index, -1 otherwise
 }
 
 // Degree returns the total degree of the gate's polynomial i.e. Degree(xy²) = 3
@@ -44,6 +37,11 @@ func (g *Gate) Degree() int {
 // LinearVar returns the index of a variable of degree 1 in the gate's polynomial. If there is no such variable, it returns -1.
 func (g *Gate) LinearVar() int {
 	return g.linearVar
+}
+
+// NbIn returns the number of inputs to the gate (its fan-in)
+func (g *Gate) NbIn() int {
+	return g.nbIn
 }
 
 var (
@@ -230,7 +228,7 @@ func RegisterGate(name string, f func(...small_rational.SmallRational) small_rat
 
 	gatesLock.Lock()
 	defer gatesLock.Unlock()
-	gates[name] = &Gate{f: f, nbIn: nbIn, degree: s.degree, linearVar: s.linearVar}
+	gates[name] = &Gate{Evaluate: f, nbIn: nbIn, degree: s.degree, linearVar: s.linearVar}
 	return nil
 }
 
