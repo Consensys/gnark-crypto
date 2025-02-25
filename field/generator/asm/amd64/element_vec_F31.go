@@ -1722,7 +1722,6 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 	rKey := registers.Pop()
 	addrDiag24 := registers.Pop()
 
-	qq := registers.PopV()
 	qd := registers.PopV()
 	qInvNeg := registers.PopV()
 
@@ -1744,8 +1743,9 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 	d0 := registers.PopV()
 	d0odd := registers.PopV()
 	d1 := registers.PopV()
+	d1odd := registers.PopV()
 	acc := registers.PopV().Y()
-	accFinal := registers.PopV().X()
+	accFinal := registers.PopV().Y()
 	accShuffled := registers.PopV().Y()
 
 	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
@@ -1756,7 +1756,6 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 
 	f.MOVD("$const_q", amd64.AX)
 	f.VPBROADCASTD(amd64.AX, qd)
-	f.VPBROADCASTQ(amd64.AX, qq)
 	f.MOVD("$const_qInvNeg", amd64.AX)
 	f.VPBROADCASTD(amd64.AX, qInvNeg)
 
@@ -1767,6 +1766,7 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 	f.VMOVDQU32(addrDiag24.AtD(0), d0)
 	f.VMOVDQU32(addrDiag24.AtD(16), d1.Y())
 	f.VPSRLQ("$32", d0, d0odd)
+	f.VPSRLQ("$32", d1.Y(), d1odd.Y())
 
 	// load the 3 * 8 uint32
 	f.VMOVDQU32(addrInput.AtD(0), b0)
@@ -1782,7 +1782,7 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		f.VPADDD(a, b, into)
 		f.VPSUBD(qd, into, r0)
 		f.VPMINUD(into, r0, into)
-	})
+	}, true)
 
 	matMulM4 := f.Define("matMulM4", 6, func(args ...any) {
 		block := args[0]
@@ -1791,7 +1791,19 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		t2 := args[3]
 		qd := args[4]
 		r0 := args[5]
-
+		// We multiply by this matrix, each block of 4:
+		// (2 3 1 1)
+		// (1 2 3 1)
+		// (1 1 2 3)
+		// (3 1 1 2)
+		// so we have
+		// s0 = Σ + s0 + 2s1
+		// s1 = Σ + s1 + 2s2
+		// s2 = Σ + s2 + 2s3
+		// s3 = Σ + s3 + 2s0
+		// 1. we compute the sum
+		// 2. we compute the shifted double(s)
+		// 3. we add
 		f.VPSHUFD(uint64(0x4e), block, t0)
 		add(t0, block, qd, r0, t0)
 		f.VPSHUFD(uint64(0xb1), t0, t1)
@@ -1805,27 +1817,32 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		// compute the sum
 		add(block, t0, qd, r0, block)
 		add(block, t2, qd, r0, block)
-	})
+	}, true)
 
 	matMulExternalInPlace := f.Define("mat_mul_external", 0, func(args ...any) {
 		matMulM4(b0, t0, t1, t2, qd, r0)
 		matMulM4(b1.Y(), t0.Y(), t1.Y(), t2.Y(), qd.Y(), r0.Y())
 
 		// matMulExternalInPlace
+		// we need to compute
+		// acc[0] = Σ s[i%4]
+		// acc[1] = Σ s[(i+1)%4]
+		// acc[2] = Σ s[(i+2)%4]
+		// acc[3] = Σ s[(i+3)%4]
 		f.VEXTRACTI64X4(1, b0, acc)
 		add(acc, b0.Y(), qd.Y(), r0.Y(), acc)
 		add(acc, b1.Y(), qd.Y(), r0.Y(), acc)
 
-		f.VEXTRACTI64X2(1, acc, accFinal)
-		add(acc.X(), accFinal, qd.X(), r0.X(), acc.X())
+		// we now have a Y register with the 8 elements
+		// we permute to compute the desired result duplicated in acc[0..3] and acc[4..7]
+		f.VSHUFF64X2(0b1, acc, acc, accFinal)
+		add(acc.Y(), accFinal, qd.Y(), r0.Y(), acc.Y())
 
-		f.VINSERTI64X2(1, acc.X(), acc.Y(), acc.Y())
 		f.VINSERTI64X4(1, acc.Y(), acc.Z(), acc.Z())
 
-		add(b1.Y(), acc.Y(), qd.Y(), r0.Y(), b1.Y())
+		add(b1.Y(), acc.Y(), qd.Y(), t3.Y(), b1.Y())
 		add(b0, acc.Z(), qd, r0, b0)
-
-	})
+	}, true)
 
 	// computes c = a * b mod q
 	// a and b can be in [0, 2q)
@@ -1858,16 +1875,16 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		f.VPADDQ(b1, PL1, c)
 
 		f.VMOVSHDUPk(b0, amd64.K3, c)
-	})
+	}, true)
 
 	reduce1Q := f.Define("reduce1Q", 3, func(args ...any) {
 		qd := args[0]
-		a := args[1]
+		c := args[1]
 		r0 := args[2]
 
-		f.VPSUBD(qd, a, r0)
-		f.VPMINUD(a, r0, a)
-	})
+		f.VPSUBD(qd, c, r0)
+		f.VPMINUD(c, r0, c)
+	}, true)
 
 	mulY := func(a, b, c amd64.VectorRegister, reduce bool) {
 		mulInput := []any{a, b, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, c}
@@ -1880,7 +1897,7 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		}
 	}
 
-	mulZ := func(a, b, c amd64.VectorRegister, reduce bool) {
+	mul := func(a, b, c amd64.VectorRegister, reduce bool) {
 		mulInput := []any{a, b, aOdd, bOdd, t0, t1, PL0, PL1, qd, qInvNeg, c}
 		for i := range mulInput {
 			mulInput[i] = (mulInput[i]).(amd64.VectorRegister).Z()
@@ -1892,13 +1909,13 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 	}
 
 	sbox := f.Define("sbox", 0, func(args ...any) {
-		mulZ(b0, b0, t2, false)
-		mulZ(b0, t2, b0, true)
+		mul(b0, b0, t2, false)
+		mul(b0, t2, b0, true)
 
 		mulY(b1, b1, t1, false)
 		mulY(b1, t1, b1, true)
 
-	})
+	}, true)
 
 	sumState := f.Define("sumState", 0, func(args ...any) {
 		// first we compute the sum
@@ -1916,7 +1933,7 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		add(acc, accShuffled, qd.Y(), r0.Y(), acc)
 
 		f.VINSERTI64X4(1, acc, acc.Z(), acc.Z())
-	})
+	}, true)
 
 	fullRound := f.Define("fullRound", 0, func(args ...any) {
 		// load round keys
@@ -1928,21 +1945,13 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		add(b1.Y(), v1.Y(), qd.Y(), t2.Y(), b1.Y())
 		sbox()
 		matMulExternalInPlace()
-	})
+	}, true)
 
-	_ = sumState
-
-	partialRound := f.Define("partialRound", 0, func(args ...any) {
-
-		f.VMOVD(rKey.At(0), v0.X())
-		f.VMOVDQA32(b0, b3)
-
-		f.VPADDD(b3.X(), v0.X(), v1.X())
-		f.VPSUBD(qd.X(), v1.X(), PL0.X())
-		f.VPMINUD(v1.X(), PL0.X(), v1.X())
-
-		// do the sbox
+	sboxPartial := f.Define("sboxPartial", 0, func(args ...any) {
 		// t2.X() = b0 * b0
+		// this is similar to the mulD macro
+		// but since we only care about the mul result at [0],
+		// we unroll and remove unnecessary code.
 		f.VPMULUDQ(v1.X(), v1.X(), t0.X())
 		f.VPMULUDQ(t0.X(), qInvNeg.X(), PL0.X())
 		f.VPMULUDQ(PL0.X(), qd.X(), PL0.X())
@@ -1957,24 +1966,52 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		f.VPSRLQ("$32", t0.X(), v1.X())
 		f.VPSUBD(qd.X(), v1.X(), PL0.X())
 		f.VPMINUD(v1.X(), PL0.X(), v1.X())
+	}, true)
+
+	partialRound := f.Define("partialRound", 0, func(args ...any) {
+		// load round keys
+		f.VMOVD(rKey.At(0), v0.X())
+		// copy b0 to break the dependency chain
+		f.VMOVDQA32(b0, b3)
+
+		add(b3.X(), v0.X(), qd.X(), PL0.X(), v1.X())
+
+		// do the sbox
+		sboxPartial()
 
 		// merge the sbox at the first index of b0
 		f.VPBLENDMD(v1, b3, b3, amd64.K2)
 
 		// multiply b1 by diagonal[1] (diag24)
-		mulY(b1, d1, t3, true)
+		// this is equivalent to mulY(b1, d1, t3, true)
+		// but we already have d1Odd that don't change so we unroll and modify the code
+		f.VPSRLQ("$32", b1.Y(), aOdd.Y())
+		f.VPMULUDQ(b1.Y(), d1.Y(), t0.Y())
+		f.VPMULUDQ(aOdd.Y(), d1odd.Y(), t1.Y())
+		f.VPMULUDQ(t0.Y(), qInvNeg.Y(), PL0.Y())
+		f.VPMULUDQ(t1.Y(), qInvNeg.Y(), PL1.Y())
 
+		f.VPMULUDQ(PL0.Y(), qd.Y(), PL0.Y())
+		f.VPADDQ(t0.Y(), PL0.Y(), t0.Y())
+
+		f.VPMULUDQ(PL1.Y(), qd.Y(), PL1.Y())
+		f.VPADDQ(t1.Y(), PL1.Y(), t3.Y())
+
+		f.VMOVSHDUPk(t0.Y(), amd64.K3, t3.Y())
+		f.VPSUBD(qd.Y(), t3.Y(), r0.Y())
+		f.VPMINUD(t3.Y(), r0.Y(), t3.Y())
+
+		// multiply the part of b0 that don't depend on b[0] (i.e. round keys + sbox)
 		f.VPSRLQ("$32", b0, aOdd)
 		f.VPMULUDQ(aOdd, d0odd, t2)
 		f.VPMULUDQ(t2, qInvNeg, PL1)
 		f.VPMULUDQ(PL1, qd, PL1)
 		f.VPADDQ(t2, PL1, t2)
 
-		// compute the sum
+		// compute the sum: this depends on applying the sbox to b[0]
 		sumState()
 
-		// multiply b0 by diagonal[0] (diag24)
-		// mulZ(b3, d0, b0, true)
+		// multiply the part of b0 that depends on b[0]
 		f.VPMULUDQ(b3, d0, t0)
 		f.VPMULUDQ(t0, qInvNeg, PL0)
 		f.VPMULUDQ(PL0, qd, PL0)
@@ -1987,7 +2024,7 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		// now we add the sum
 		add(b0, acc.Z(), qd, r0, b0)
 		add(t3.Y(), acc.Y(), qd.Y(), v1.Y(), b1.Y())
-	})
+	}, true)
 
 	const fullRounds = 6
 	const partialRounds = 21
@@ -2013,16 +2050,17 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		f.LABEL(lblLoop)
 		f.TESTQ(n, n)
 		f.JEQ(lblDone)
+		f.DECQ(n)
 
 		f.MOVQ(addrRoundKeys2.At(0), rKey)
 		partialRound()
 		f.ADDQ("$24", addrRoundKeys2)
-		f.DECQ(n)
+
 		f.JMP(lblLoop)
 
 		f.LABEL(lblDone)
 	}
-	// Inlining does not seem to help much..
+	// Inlining does not help much.
 	// {
 	// 	for i := rf; i < rf+partialRounds; i++ {
 	// 		f.MOVQ(addrRoundKeys.At(i*3), rKey)

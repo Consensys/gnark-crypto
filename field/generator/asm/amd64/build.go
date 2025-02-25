@@ -71,7 +71,7 @@ func (f *FFAmd64) DefineFn(name string) (fn defineFn, err error) {
 	return fn, nil
 }
 
-func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn) defineFn {
+func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn, forceGet ...bool) defineFn {
 
 	inputs := make([]string, nbInputs)
 	for i := 0; i < nbInputs; i++ {
@@ -79,7 +79,12 @@ func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn) defineFn {
 	}
 	name = strings.ToUpper(name)
 
-	for _, ok := f.mDefines[name]; ok; {
+	for fn, ok := f.mDefines[name]; ok; {
+		if len(forceGet) > 0 && forceGet[0] {
+			// in that case, we don't redefine the define;
+			// user explicitly asked for it
+			return fn
+		}
 		// name already exist, for code generation purpose we add a suffix
 		// should happen only with e2 deprecated functions
 		// fmt.Println("WARNING: function name already defined, adding suffix")
