@@ -13,8 +13,8 @@ func TestNafDecomposition(t *testing.T) {
 		expected []int8 // expected NAF representation
 	}{
 		{"13", []int8{1, 0, -1, 0, 1}},    // existing test case
-		{"0", []int8{}},                    // edge case - zero
-		{"1", []int8{1}},                   // edge case - one
+		{"0", []int8{}},                   // edge case - zero
+		{"1", []int8{1}},                  // edge case - one
 		{"7", []int8{-1, 0, 0, 1}},        // 7 = 2³ - 2⁰ (8 - 1)
 		{"15", []int8{-1, 0, 0, 0, 1}},    // 15 = 2⁴ - 2⁰
 		{"31", []int8{-1, 0, 0, 0, 0, 1}}, // 31 = 2⁵ - 2⁰
