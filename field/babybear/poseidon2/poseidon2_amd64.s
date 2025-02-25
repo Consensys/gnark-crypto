@@ -20,20 +20,20 @@ TEXT ·permutation24_avx512(SB), NOSPLIT, $0-48
 	VPBROADCASTD AX, Z1
 	MOVQ         input+0(FP), R15
 	MOVQ         roundKeys+24(FP), R14
-	MOVQ         ·diag24+0(SB), BX
-	VMOVDQU32    0(BX), Z16
-	VMOVDQU32    64(BX), Y18
-	VPSRLQ       $32, Z16, Z17
-	VPSRLQ       $32, Y18, Y19
 	VMOVDQU32    0(R15), Z2
 	VMOVDQU32    64(R15), Y3
+	MOVQ         ·diag24+0(SB), CX
+	VMOVDQU32    0(CX), Z18
+	VMOVDQU32    64(CX), Y20
+	VPSRLQ       $32, Z18, Z19
+	VPSRLQ       $32, Y20, Y21
 
 #define ADD(in0, in1, in2, in3, in4) \
 	VPADDD  in0, in1, in4 \
 	VPSUBD  in2, in4, in3 \
 	VPMINUD in4, in3, in4 \
 
-#define MATMULM4(in0, in1, in2, in3, in4, in5) \
+#define MAT_MUL_M4(in0, in1, in2, in3, in4, in5) \
 	VPSHUFD $0x000000000000004e, in0, in1 \
 	ADD(in1, in0, in4, in5, in1)          \
 	VPSHUFD $0x00000000000000b1, in1, in2 \
@@ -46,16 +46,16 @@ TEXT ·permutation24_avx512(SB), NOSPLIT, $0-48
 	ADD(in0, in3, in4, in5, in0)          \
 
 #define MAT_MUL_EXTERNAL() \
-	MATMULM4(Z2, Z7, Z8, Z9, Z0, Z11) \
-	MATMULM4(Y3, Y7, Y8, Y9, Y0, Y11) \
-	VEXTRACTI64X4 $1, Z2, Y20         \
-	ADD(Y20, Y2, Y0, Y11, Y20)        \
-	ADD(Y20, Y3, Y0, Y11, Y20)        \
-	VSHUFF64X2    $1, Y20, Y20, Y21   \
-	ADD(Y20, Y21, Y0, Y11, Y20)       \
-	VINSERTI64X4  $1, Y20, Z20, Z20   \
-	ADD(Y3, Y20, Y0, Y10, Y3)         \
-	ADD(Z2, Z20, Z0, Z11, Z2)         \
+	MAT_MUL_M4(Z2, Z6, Z7, Z8, Z0, Z11) \
+	MAT_MUL_M4(Y3, Y6, Y7, Y8, Y0, Y11) \
+	VEXTRACTI64X4 $1, Z2, Y16           \
+	ADD(Y16, Y2, Y0, Y11, Y16)          \
+	ADD(Y16, Y3, Y0, Y11, Y16)          \
+	VSHUFF64X2    $1, Y16, Y16, Y17     \
+	ADD(Y16, Y17, Y0, Y11, Y16)         \
+	VINSERTI64X4  $1, Y16, Z16, Z16     \
+	ADD(Y3, Y16, Y0, Y9, Y3)            \
+	ADD(Z2, Z16, Z0, Z11, Z2)           \
 
 #define MULD(in0, in1, in2, in3, in4, in5, in6, in7, in8, in9, in10) \
 	VPSRLQ    $32, in0, in2  \
@@ -74,89 +74,89 @@ TEXT ·permutation24_avx512(SB), NOSPLIT, $0-48
 	VPSUBD  in0, in1, in2 \
 	VPMINUD in1, in2, in1 \
 
-#define SBOX() \
-	MULD(Z2, Z2, Z12, Z13, Z7, Z8, Z14, Z15, Z0, Z1, Z9) \
-	MULD(Z2, Z9, Z12, Z13, Z7, Z8, Z14, Z15, Z0, Z1, Z2) \
+#define SBOX_FULL() \
+	MULD(Z2, Z2, Z12, Z13, Z6, Z7, Z14, Z15, Z0, Z1, Z8) \
+	MULD(Z2, Z8, Z12, Z13, Z6, Z7, Z14, Z15, Z0, Z1, Z2) \
 	REDUCE1Q(Z0, Z2, Z15)                                \
-	MULD(Y3, Y3, Y12, Y13, Y7, Y8, Y14, Y15, Y0, Y1, Y8) \
-	MULD(Y3, Y8, Y12, Y13, Y7, Y8, Y14, Y15, Y0, Y1, Y3) \
+	MULD(Y3, Y3, Y12, Y13, Y6, Y7, Y14, Y15, Y0, Y1, Y7) \
+	MULD(Y3, Y7, Y12, Y13, Y6, Y7, Y14, Y15, Y0, Y1, Y3) \
 	REDUCE1Q(Y0, Y3, Y15)                                \
 
-#define SUMSTATE() \
-	VEXTRACTI64X4 $1, Z2, Y20                   \
-	ADD(Y20, Y3, Y0, Y11, Y20)                  \
-	ADD(Y20, Y4, Y0, Y11, Y20)                  \
-	VSHUFF64X2    $1, Y20, Y20, Y22             \
-	ADD(Y20, Y22, Y0, Y11, Y20)                 \
-	VPSHUFD       $0x000000000000004e, Y20, Y22 \
-	ADD(Y20, Y22, Y0, Y11, Y20)                 \
-	VPSHUFD       $0x00000000000000b1, Y20, Y22 \
-	ADD(Y20, Y22, Y0, Y11, Y20)                 \
-	VINSERTI64X4  $1, Y20, Z20, Z20             \
+#define SUM_STATE() \
+	VEXTRACTI64X4 $1, Z2, Y16                   \
+	ADD(Y16, Y3, Y0, Y11, Y16)                  \
+	ADD(Y16, Y10, Y0, Y11, Y16)                 \
+	VSHUFF64X2    $1, Y16, Y16, Y17             \
+	ADD(Y16, Y17, Y0, Y11, Y16)                 \
+	VPSHUFD       $0x000000000000004e, Y16, Y17 \
+	ADD(Y16, Y17, Y0, Y11, Y16)                 \
+	VPSHUFD       $0x00000000000000b1, Y16, Y17 \
+	ADD(Y16, Y17, Y0, Y11, Y16)                 \
+	VINSERTI64X4  $1, Y16, Z16, Z16             \
 
-#define FULLROUND() \
-	VMOVDQU32 0(CX), Z5      \
-	VMOVDQU32 64(CX), Y6     \
-	ADD(Z2, Z5, Z0, Z11, Z2) \
-	ADD(Y3, Y6, Y0, Y9, Y3)  \
-	SBOX()                   \
+#define FULL_ROUND() \
+	VMOVDQU32 0(BX), Z4      \
+	VMOVDQU32 64(BX), Y5     \
+	ADD(Z2, Z4, Z0, Z11, Z2) \
+	ADD(Y3, Y5, Y0, Y8, Y3)  \
+	SBOX_FULL()              \
 	MAT_MUL_EXTERNAL()       \
 
-#define SBOXPARTIAL() \
-	VPMULUDQ X6, X6, X7   \
-	VPMULUDQ X7, X1, X14  \
+#define SBOX_PARTIAL() \
+	VPMULUDQ X5, X5, X6   \
+	VPMULUDQ X6, X1, X14  \
 	VPMULUDQ X14, X0, X14 \
-	VPADDQ   X7, X14, X7  \
-	VPSRLQ   $32, X7, X9  \
-	VPMULUDQ X6, X9, X7   \
-	VPMULUDQ X7, X1, X14  \
+	VPADDQ   X6, X14, X6  \
+	VPSRLQ   $32, X6, X8  \
+	VPMULUDQ X5, X8, X6   \
+	VPMULUDQ X6, X1, X14  \
 	VPMULUDQ X14, X0, X14 \
-	VPADDQ   X7, X14, X7  \
-	VPSRLQ   $32, X7, X6  \
-	VPSUBD   X0, X6, X14  \
-	VPMINUD  X6, X14, X6  \
+	VPADDQ   X6, X14, X6  \
+	VPSRLQ   $32, X6, X5  \
+	VPSUBD   X0, X5, X14  \
+	VPMINUD  X5, X14, X5  \
 
-#define PARTIALROUND() \
-	VMOVD     0(CX), X5       \
-	VMOVDQA32 Z2, Z4          \
-	ADD(X4, X5, X0, X14, X6)  \
-	SBOXPARTIAL()             \
-	VPBLENDMD Z6, Z4, K2, Z4  \
-	VPSRLQ    $32, Y3, Y12    \
-	VPMULUDQ  Y3, Y18, Y7     \
-	VPMULUDQ  Y12, Y19, Y8    \
-	VPMULUDQ  Y7, Y1, Y14     \
-	VPMULUDQ  Y8, Y1, Y15     \
-	VPMULUDQ  Y14, Y0, Y14    \
-	VPADDQ    Y7, Y14, Y7     \
-	VPMULUDQ  Y15, Y0, Y15    \
-	VPADDQ    Y8, Y15, Y10    \
-	VMOVSHDUP Y7, K3, Y10     \
-	VPSUBD    Y0, Y10, Y11    \
-	VPMINUD   Y10, Y11, Y10   \
-	VPSRLQ    $32, Z2, Z12    \
-	VPMULUDQ  Z12, Z17, Z9    \
-	VPMULUDQ  Z9, Z1, Z15     \
-	VPMULUDQ  Z15, Z0, Z15    \
-	VPADDQ    Z9, Z15, Z9     \
-	SUMSTATE()                \
-	VPMULUDQ  Z4, Z16, Z7     \
-	VPMULUDQ  Z7, Z1, Z14     \
-	VPMULUDQ  Z14, Z0, Z14    \
-	VPADDQ    Z7, Z14, Z7     \
-	VMOVSHDUP Z7, K3, Z9      \
-	VPSUBD    Z0, Z9, Z11     \
-	VPMINUD   Z9, Z11, Z2     \
-	ADD(Z2, Z20, Z0, Z11, Z2) \
-	ADD(Y10, Y20, Y0, Y6, Y3) \
+#define PARTIAL_ROUND() \
+	VMOVD     0(BX), X4        \
+	VMOVDQA32 Z2, Z10          \
+	ADD(X10, X4, X0, X14, X5)  \
+	SBOX_PARTIAL()             \
+	VPBLENDMD Z5, Z10, K2, Z10 \
+	VPSRLQ    $32, Y3, Y12     \
+	VPMULUDQ  Y3, Y20, Y6      \
+	VPMULUDQ  Y12, Y21, Y7     \
+	VPMULUDQ  Y6, Y1, Y14      \
+	VPMULUDQ  Y7, Y1, Y15      \
+	VPMULUDQ  Y14, Y0, Y14     \
+	VPADDQ    Y6, Y14, Y6      \
+	VPMULUDQ  Y15, Y0, Y15     \
+	VPADDQ    Y7, Y15, Y9      \
+	VMOVSHDUP Y6, K3, Y9       \
+	VPSUBD    Y0, Y9, Y11      \
+	VPMINUD   Y9, Y11, Y9      \
+	VPSRLQ    $32, Z2, Z12     \
+	VPMULUDQ  Z12, Z19, Z8     \
+	VPMULUDQ  Z8, Z1, Z15      \
+	VPMULUDQ  Z15, Z0, Z15     \
+	VPADDQ    Z8, Z15, Z8      \
+	SUM_STATE()                \
+	VPMULUDQ  Z10, Z18, Z6     \
+	VPMULUDQ  Z6, Z1, Z14      \
+	VPMULUDQ  Z14, Z0, Z14     \
+	VPADDQ    Z6, Z14, Z6      \
+	VMOVSHDUP Z6, K3, Z8       \
+	VPSUBD    Z0, Z8, Z11      \
+	VPMINUD   Z8, Z11, Z2      \
+	ADD(Z2, Z16, Z0, Z11, Z2)  \
+	ADD(Y9, Y16, Y0, Y5, Y3)   \
 
 	MAT_MUL_EXTERNAL()
-	MOVQ 0(R14), CX
-	FULLROUND()
-	MOVQ 24(R14), CX
-	FULLROUND()
-	MOVQ 48(R14), CX
-	FULLROUND()
+	MOVQ 0(R14), BX
+	FULL_ROUND()
+	MOVQ 24(R14), BX
+	FULL_ROUND()
+	MOVQ 48(R14), BX
+	FULL_ROUND()
 
 	// loop over the partial rounds
 	MOVQ $0x0000000000000015, SI // nb partial rounds --> 21
@@ -167,18 +167,18 @@ loop_1:
 	TESTQ SI, SI
 	JEQ   done_2
 	DECQ  SI
-	MOVQ  0(DI), CX
-	PARTIALROUND()
+	MOVQ  0(DI), BX
+	PARTIAL_ROUND()
 	ADDQ  $24, DI
 	JMP   loop_1
 
 done_2:
-	MOVQ      576(R14), CX
-	FULLROUND()
-	MOVQ      600(R14), CX
-	FULLROUND()
-	MOVQ      624(R14), CX
-	FULLROUND()
+	MOVQ      576(R14), BX
+	FULL_ROUND()
+	MOVQ      600(R14), BX
+	FULL_ROUND()
+	MOVQ      624(R14), BX
+	FULL_ROUND()
 	VMOVDQU32 Z2, 0(R15)
 	VMOVDQU32 Y3, 64(R15)
 	RET
