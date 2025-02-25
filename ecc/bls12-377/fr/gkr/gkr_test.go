@@ -99,7 +99,7 @@ func generateTestMimc(numRounds int) func(*testing.T, ...[]fr.Element) {
 
 func TestSumcheckFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
 	circuit := Circuit{Wire{
-		Gate:            IdentityGate{},
+		Gate:            GetGate("identity"),
 		Inputs:          []*Wire{},
 		nbUniqueOutputs: 2,
 	}}
@@ -167,7 +167,7 @@ func testManyInstances(t *testing.T, numInput int, test func(*testing.T, ...[]fr
 
 	for i := range fullAssignments {
 		fullAssignments[i] = make([]fr.Element, maxSize)
-		setRandom(fullAssignments[i])
+		setRandomSlice(fullAssignments[i])
 	}
 
 	inputAssignments := make([][]fr.Element, numInput)
@@ -203,7 +203,7 @@ func testNoGate(t *testing.T, inputAssignments ...[]fr.Element) {
 func testSingleAddGate(t *testing.T, inputAssignments ...[]fr.Element) {
 	c := make(Circuit, 3)
 	c[2] = Wire{
-		Gate:   Gates["add"],
+		Gate:   GetGate("add2"),
 		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
@@ -223,7 +223,7 @@ func testSingleMulGate(t *testing.T, inputAssignments ...[]fr.Element) {
 
 	c := make(Circuit, 3)
 	c[2] = Wire{
-		Gate:   Gates["mul"],
+		Gate:   GetGate("mul2"),
 		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
@@ -243,12 +243,12 @@ func testSingleInputTwoIdentityGates(t *testing.T, inputAssignments ...[]fr.Elem
 	c := make(Circuit, 3)
 
 	c[1] = Wire{
-		Gate:   IdentityGate{},
+		Gate:   GetGate("identity"),
 		Inputs: []*Wire{&c[0]},
 	}
 
 	c[2] = Wire{
-		Gate:   IdentityGate{},
+		Gate:   GetGate("identity"),
 		Inputs: []*Wire{&c[0]},
 	}
 
@@ -268,7 +268,7 @@ func testSingleMimcCipherGate(t *testing.T, inputAssignments ...[]fr.Element) {
 	c := make(Circuit, 3)
 
 	c[2] = Wire{
-		Gate:   mimcCipherGate{},
+		Gate:   GetGate("mimc"),
 		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
@@ -291,11 +291,11 @@ func testSingleInputTwoIdentityGatesComposed(t *testing.T, inputAssignments ...[
 	c := make(Circuit, 3)
 
 	c[1] = Wire{
-		Gate:   IdentityGate{},
+		Gate:   GetGate("identity"),
 		Inputs: []*Wire{&c[0]},
 	}
 	c[2] = Wire{
-		Gate:   IdentityGate{},
+		Gate:   GetGate("identity"),
 		Inputs: []*Wire{&c[1]},
 	}
 
@@ -316,7 +316,7 @@ func mimcCircuit(numRounds int) Circuit {
 
 	for i := 2; i < len(c); i++ {
 		c[i] = Wire{
-			Gate:   mimcCipherGate{},
+			Gate:   GetGate("mimc"),
 			Inputs: []*Wire{&c[i-1], &c[0]},
 		}
 	}
@@ -353,7 +353,7 @@ func testATimesBSquared(t *testing.T, numRounds int, inputAssignments ...[]fr.El
 
 	for i := 2; i < len(c); i++ {
 		c[i] = Wire{
-			Gate:   Gates["mul"],
+			Gate:   GetGate("mul2"),
 			Inputs: []*Wire{&c[i-1], &c[0]},
 		}
 	}
@@ -370,7 +370,7 @@ func testATimesBSquared(t *testing.T, numRounds int, inputAssignments ...[]fr.El
 	assert.NotNil(t, err, "bad proof accepted")
 }
 
-func setRandom(slice []fr.Element) {
+func setRandomSlice(slice []fr.Element) {
 	for i := range slice {
 		slice[i].SetRandom()
 	}
@@ -448,8 +448,8 @@ func benchmarkGkrMiMC(b *testing.B, nbInstances, mimcDepth int) {
 
 	in0 := make([]fr.Element, nbInstances)
 	in1 := make([]fr.Element, nbInstances)
-	setRandom(in0)
-	setRandom(in1)
+	setRandomSlice(in0)
+	setRandomSlice(in1)
 
 	fmt.Println("evaluating circuit")
 	start := time.Now().UnixMicro()
@@ -545,7 +545,7 @@ func getCircuit(path string) (Circuit, error) {
 func (c CircuitInfo) toCircuit() (circuit Circuit) {
 	circuit = make(Circuit, len(c))
 	for i := range c {
-		circuit[i].Gate = Gates[c[i].Gate]
+		circuit[i].Gate = GetGate(c[i].Gate)
 		circuit[i].Inputs = make([]*Wire, len(c[i].Inputs))
 		for k, inputCoord := range c[i].Inputs {
 			input := &circuit[inputCoord]
@@ -555,22 +555,11 @@ func (c CircuitInfo) toCircuit() (circuit Circuit) {
 	return
 }
 
-func init() {
-	Gates["mimc"] = mimcCipherGate{} //TODO: Add ark
-	Gates["select-input-3"] = _select(2)
-}
-
-type mimcCipherGate struct {
-	ark fr.Element
-}
-
-func (m mimcCipherGate) Evaluate(input ...fr.Element) (res fr.Element) {
+func mimcRound(input ...fr.Element) (res fr.Element) {
 	var sum fr.Element
 
 	sum.
-		Add(&input[0], &input[1]).
-		Add(&sum, &m.ark)
-
+		Add(&input[0], &input[1]) //.Add(&sum, &m.ark)  TODO: add ark
 	res.Square(&sum)    // sum^2
 	res.Mul(&res, &sum) // sum^3
 	res.Square(&res)    //sum^6
@@ -579,8 +568,16 @@ func (m mimcCipherGate) Evaluate(input ...fr.Element) (res fr.Element) {
 	return
 }
 
-func (m mimcCipherGate) Degree() int {
-	return 7
+func init() {
+	if err := RegisterGate("mimc", mimcRound, 2, WithUnverifiedDegree(7)); err != nil {
+		panic(err)
+	}
+
+	if err := RegisterGate("select-input-3", func(input ...fr.Element) fr.Element {
+		return input[2]
+	}, 3, WithUnverifiedDegree(1)); err != nil {
+		panic(err)
+	}
 }
 
 type PrintableProof []PrintableSumcheckProof
@@ -728,44 +725,59 @@ func newTestCase(path string) (*TestCase, error) {
 	return tCase, nil
 }
 
-type _select int
+func TestRegisterGateDegreeDetection(t *testing.T) {
+	testGate := func(name string, f func(...fr.Element) fr.Element, nbIn, degree int) {
+		t.Run(name, func(t *testing.T) {
+			name = name + "-register-gate-test"
 
-func (g _select) Evaluate(in ...fr.Element) fr.Element {
-	return in[g]
-}
+			assert.NoError(t, RegisterGate(name, f, nbIn, WithDegree(degree)), "given degree must be accepted")
+			RemoveGate(name)
 
-func (g _select) Degree() int {
-	return 1
-}
+			assert.Error(t, RegisterGate(name, f, nbIn, WithDegree(degree-1)), "lower degree must be rejected")
+			RemoveGate(name)
 
-// gateWrapper enables assigning an arbitrary degree to a gate
-type gateWrapper struct {
-	g Gate
-	d int
-}
+			assert.Error(t, RegisterGate(name, f, nbIn, WithDegree(degree+1)), "higher degree must be rejected")
+			RemoveGate(name)
 
-func (g gateWrapper) Degree() int {
-	return g.d
-}
-
-func (g gateWrapper) Evaluate(inputs ...fr.Element) fr.Element {
-	return g.g.Evaluate(inputs...)
-}
-
-func TestTestGateDegree(t *testing.T) {
-	onGate := func(g Gate, nbIn int) func(t *testing.T) {
-		return func(t *testing.T) {
-			w := gateWrapper{g: g, d: g.Degree()}
-			assert.NoError(t, TestGateDegree(w, nbIn), "must succeed on the gate itself")
-			w.d--
-			assert.Error(t, TestGateDegree(w, nbIn), "must fail on an underreported degree")
-			w.d += 2
-			assert.Error(t, TestGateDegree(w, nbIn), "must fail on an over-reported degree")
-		}
+			assert.NoError(t, RegisterGate(name, f, nbIn), "no degree must be accepted")
+			assert.Equal(t, degree, GetGate(name).Degree(), "degree must be detected correctly")
+			RemoveGate(name)
+		})
 	}
 
-	t.Run("select", onGate(_select(0), 1))
-	t.Run("add", onGate(Gates["add"], 2))
-	t.Run("mul", onGate(Gates["mul"], 2))
-	t.Run("mimc", onGate(mimcCipherGate{}, 2))
+	testGate("select", func(x ...fr.Element) fr.Element {
+		return x[0]
+	}, 3, 1)
+
+	testGate("add2", func(x ...fr.Element) fr.Element {
+		var res fr.Element
+		res.Add(&x[0], &x[1])
+		res.Add(&res, &x[2])
+		return res
+	}, 3, 1)
+
+	testGate("mul2", func(x ...fr.Element) fr.Element {
+		var res fr.Element
+		res.Mul(&x[0], &x[1])
+		return res
+	}, 2, 2)
+
+	testGate("mimc", mimcRound, 2, 7)
+}
+
+func TestIsLinear(t *testing.T) {
+
+	// f: x,y -> x² + xy
+	f := func(x ...fr.Element) fr.Element {
+		if len(x) != 2 {
+			panic("bivariate input needed")
+		}
+		var res fr.Element
+		res.Add(&x[0], &x[1])
+		res.Mul(&res, &x[0])
+		return res
+	}
+
+	assert.True(t, isLinear(f, 1, 2))
+	assert.False(t, isLinear(f, 0, 2))
 }

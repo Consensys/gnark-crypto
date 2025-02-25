@@ -1074,7 +1074,7 @@ func init() {
 
 	if err := RegisterGate("identity", func(x ...small_rational.SmallRational) small_rational.SmallRational {
 		return x[0]
-	}, 1); err != nil {
+	}, 1, WithUnverifiedDegree(1), WithUnverifiedLinearVar(0)); err != nil {
 		panic(err)
 	}
 
@@ -1082,7 +1082,7 @@ func init() {
 		var res small_rational.SmallRational
 		res.Add(&x[0], &x[1])
 		return res
-	}, 2); err != nil {
+	}, 2, WithUnverifiedDegree(1), WithUnverifiedLinearVar(0)); err != nil {
 		panic(err)
 	}
 
@@ -1090,7 +1090,7 @@ func init() {
 		var res small_rational.SmallRational
 		res.Sub(&x[0], &x[1])
 		return res
-	}, 2); err != nil {
+	}, 2, WithUnverifiedDegree(1), WithUnverifiedLinearVar(0)); err != nil {
 		panic(err)
 	}
 
@@ -1098,7 +1098,7 @@ func init() {
 		var res small_rational.SmallRational
 		res.Neg(&x[0])
 		return res
-	}, 1); err != nil {
+	}, 1, WithUnverifiedDegree(1), WithUnverifiedLinearVar(0)); err != nil {
 		panic(err)
 	}
 
@@ -1106,7 +1106,7 @@ func init() {
 		var res small_rational.SmallRational
 		res.Mul(&x[0], &x[1])
 		return res
-	}, 2); err != nil {
+	}, 2, WithUnverifiedDegree(2), WithUnverifiedLinearVar(0)); err != nil {
 		panic(err)
 	}
 }

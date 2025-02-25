@@ -120,6 +120,11 @@ func toPrintableProof(proof gkr.Proof) (PrintableProof, error) {
 	return res, nil
 }
 
-var Gates = gkr.Gates
+var (
+	GetGate = gkr.GetGate
+	RegisterGate = gkr.RegisterGate
+	WithUnverifiedDegree = gkr.WithUnverifiedDegree
+)
+
 
 {{template "gkrTestVectors" .}}
