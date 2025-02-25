@@ -47,6 +47,8 @@ type Parameters struct {
 	RoundKeys [][]fr.Element
 	// hasFast24_6_21 is true if the permutation has a fast path for Width=24 (avx512)
 	hasFast24_6_21 bool
+
+	hasFast16_6_21 bool
 }
 
 // NewParameters returns a new set of parameters for the Poseidon2 permutation.
@@ -55,6 +57,7 @@ type Parameters struct {
 func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
 	p.hasFast24_6_21 = width == 24 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
+	p.hasFast16_6_21 = width == 16 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
 	seed := p.String()
 	p.initRC(seed)
 	return &p
@@ -66,6 +69,7 @@ func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 func NewParametersWithSeed(width, nbFullRounds, nbPartialRounds int, seed string) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
 	p.hasFast24_6_21 = width == 24 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
+	p.hasFast16_6_21 = width == 16 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
 	p.initRC(seed)
 	return &p
 }
@@ -292,6 +296,10 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 	}
 	if h.params.hasFast24_6_21 {
 		Permutation24_avx512(input, h.params.RoundKeys)
+		return nil
+	}
+	if h.params.hasFast16_6_21 {
+		Permutation16_avx512(input, h.params.RoundKeys)
 		return nil
 	}
 

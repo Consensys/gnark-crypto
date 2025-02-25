@@ -45,7 +45,7 @@ func TestValidation(t *testing.T) {
 	// }
 }
 
-func TestAVX512(t *testing.T) {
+func TestAVX512_24_6_21(t *testing.T) {
 	// generate 1 random vector of 24 elements
 	for j := 0; j < 10; j++ {
 		var input, expected [24]fr.Element
@@ -62,6 +62,30 @@ func TestAVX512(t *testing.T) {
 		h.Permutation(expected[:])
 
 		for i := 0; i < 24; i++ {
+			if !input[i].Equal(&expected[i]) {
+				t.Fatal("mismatch error avx512")
+			}
+		}
+	}
+}
+
+func TestAVX512_16_6_21(t *testing.T) {
+	// generate 1 random vector of 16 elements
+	for j := 0; j < 10; j++ {
+		var input, expected [16]fr.Element
+		for i := 0; i < 16; i++ {
+			input[i].SetRandom()
+		}
+
+		expected = input
+
+		h := NewPermutation(16, 6, 21)
+		h.params.hasFast16_6_21 = false
+		h.Permutation(input[:])
+		h.params.hasFast16_6_21 = true
+		h.Permutation(expected[:])
+
+		for i := 0; i < 16; i++ {
 			if !input[i].Equal(&expected[i]) {
 				t.Fatal("mismatch error avx512")
 			}

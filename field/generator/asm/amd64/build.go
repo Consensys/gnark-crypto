@@ -352,7 +352,8 @@ func GenerateF31Poseidon2(w io.Writer, nbBits int) error {
 	f.WriteLn("#include \"go_asm.h\"")
 	f.WriteLn("")
 
-	f.generatePoseidon2_24_F31()
+	f.generatePoseidon2_24_F31(24)
+	f.generatePoseidon2_24_F31(16)
 
 	// f.generateFFTDefinesF31()
 

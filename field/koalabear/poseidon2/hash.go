@@ -20,7 +20,7 @@ func NewDefaultParameters() *Parameters {
 	return NewParameters(16, 6, 21)
 }
 
-var diag16 [16]fr.Element
+var diag16 []fr.Element = make([]fr.Element, 16)
 var diag24 []fr.Element = make([]fr.Element, 24)
 
 func init() {

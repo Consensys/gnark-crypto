@@ -1710,16 +1710,21 @@ func (f *fftHelper) permute8x8(args ...any) {
 	permute8x8(args...)
 }
 
-func (f *FFAmd64) generatePoseidon2_24_F31() {
-	// func permutation24_avx512(input []fr.Element, roundKeys [][]fr.Element)
+func (f *FFAmd64) generatePoseidon2_24_F31(width int) {
+	if width != 16 && width != 24 {
+		panic("only width 16 and 24 are supported")
+	}
+	fnName := fmt.Sprintf("permutation%d_avx512", width)
+
+	width24 := width == 24
 
 	const argSize = 2 * 3 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
-	registers := f.FnHeader("permutation24_avx512", stackSize, argSize, amd64.AX, amd64.DX)
+	registers := f.FnHeader(fnName, stackSize, argSize, amd64.AX, amd64.DX)
 
 	addrInput := registers.Pop()
 	addrRoundKeys := registers.Pop()
-	addrDiag24 := registers.Pop()
+	addrDiagonal := registers.Pop()
 	rKey := registers.Pop()
 
 	// constants
@@ -1769,13 +1774,18 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 	f.MOVQ("roundKeys+24(FP)", addrRoundKeys)
 	// load the 3 * 8 uint32
 	f.VMOVDQU32(addrInput.AtD(0), b0)
-	f.VMOVDQU32(addrInput.AtD(16), b1.Y())
-
-	f.MOVQ("·diag24+0(SB)", addrDiag24)
-	f.VMOVDQU32(addrDiag24.AtD(0), d0)
-	f.VMOVDQU32(addrDiag24.AtD(16), d1.Y())
-	f.VPSRLQ("$32", d0, d0odd)
-	f.VPSRLQ("$32", d1.Y(), d1odd.Y())
+	if width24 {
+		f.VMOVDQU32(addrInput.AtD(16), b1.Y())
+		f.MOVQ("·diag24+0(SB)", addrDiagonal)
+		f.VMOVDQU32(addrDiagonal.AtD(0), d0)
+		f.VMOVDQU32(addrDiagonal.AtD(16), d1.Y())
+		f.VPSRLQ("$32", d0, d0odd)
+		f.VPSRLQ("$32", d1.Y(), d1odd.Y())
+	} else {
+		f.MOVQ("·diag16+0(SB)", addrDiagonal)
+		f.VMOVDQU32(addrDiagonal.AtD(0), d0)
+		f.VPSRLQ("$32", d0, d0odd)
+	}
 
 	add := f.Define("add", 5, func(args ...any) {
 		a := args[0]
@@ -1848,6 +1858,17 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		add(b1.Y(), acc.Y(), qd.Y(), t3.Y(), b1.Y())
 		add(b0, acc.Z(), qd, t5, b0)
 	}, true)
+	if !width24 {
+		matMulExternalInPlace = f.Define("mat_mul_external_16", 0, func(args ...any) {
+			matMulM4(b0, t0, t1, t2, qd, t5)
+			f.VEXTRACTI64X4(1, b0, acc)
+			add(acc, b0.Y(), qd.Y(), t5.Y(), acc)
+			f.VSHUFF64X2(0b1, acc, acc, accShuffled)
+			add(acc.Y(), accShuffled, qd.Y(), t5.Y(), acc.Y())
+			f.VINSERTI64X4(1, acc.Y(), acc.Z(), acc.Z())
+			add(b0, acc.Z(), qd, t5, b0)
+		})
+	}
 
 	// computes c = a * b mod q
 	// a and b can be in [0, 2q)
@@ -1921,10 +1942,16 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		mulY(b1, t1, b1, true)
 
 	}, true)
+	if !width24 {
+		sbox = f.Define("sbox_full_16", 0, func(args ...any) {
+			mul(b0, b0, t2, false)
+			mul(b0, t2, b0, true)
+		})
+	}
 
 	sumState := f.Define("sum_state", 0, func(args ...any) {
 		// first we compute the sum
-		f.VEXTRACTI64X4(1, b0, acc)
+		f.VEXTRACTI64X4(1, b0, acc) // TODO @gbotrel here
 		add(acc, b1.Y(), qd.Y(), t5.Y(), acc)
 		add(acc, t4.Y(), qd.Y(), t5.Y(), acc)
 
@@ -1939,6 +1966,24 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 
 		f.VINSERTI64X4(1, acc, acc.Z(), acc.Z())
 	}, true)
+	if !width24 {
+		sumState = f.Define("sum_state_16", 0, func(args ...any) {
+			// first we compute the sum
+			f.VEXTRACTI64X4(1, b0, acc)
+			add(acc, t4.Y(), qd.Y(), t5.Y(), acc)
+
+			// now we can work with acc.Y()
+			f.VSHUFF64X2(0b1, acc, acc, accShuffled)
+			add(acc, accShuffled, qd.Y(), t5.Y(), acc)
+
+			f.VPSHUFD(uint64(0x4e), acc, accShuffled)
+			add(acc, accShuffled, qd.Y(), t5.Y(), acc)
+			f.VPSHUFD(uint64(0xb1), acc, accShuffled)
+			add(acc, accShuffled, qd.Y(), t5.Y(), acc)
+
+			f.VINSERTI64X4(1, acc, acc.Z(), acc.Z())
+		})
+	}
 
 	fullRound := f.Define("full_round", 0, func(args ...any) {
 		// load round keys
@@ -1951,6 +1996,17 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		sbox()
 		matMulExternalInPlace()
 	}, true)
+	if !width24 {
+		fullRound = f.Define("full_round_16", 0, func(args ...any) {
+			// load round keys
+			f.VMOVDQU32(rKey.AtD(0), v0)
+
+			// add round keys
+			add(b0, v0, qd, t5, b0)
+			sbox()
+			matMulExternalInPlace()
+		})
+	}
 
 	sboxPartial := f.Define("sbox_partial", 0, func(args ...any) {
 		// t2.X() = b0 * b0
@@ -1973,7 +2029,7 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		f.VPMINUD(v1.X(), PL0.X(), v1.X())
 	}, true)
 
-	partialRound := f.Define("partial_round", 0, func(args ...any) {
+	partialRound := func() {
 		// load round keys
 		f.VMOVD(rKey.At(0), v0.X())
 		// copy b0 to break the dependency chain
@@ -1990,21 +2046,23 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 		// multiply b1 by diagonal[1] (diag24)
 		// this is equivalent to mulY(b1, d1, t3, true)
 		// but we already have d1Odd that don't change so we unroll and modify the code
-		f.VPSRLQ("$32", b1.Y(), aOdd.Y())
-		f.VPMULUDQ(b1.Y(), d1.Y(), t0.Y())
-		f.VPMULUDQ(aOdd.Y(), d1odd.Y(), t1.Y())
-		f.VPMULUDQ(t0.Y(), qInvNeg.Y(), PL0.Y())
-		f.VPMULUDQ(t1.Y(), qInvNeg.Y(), PL1.Y())
+		if width24 {
+			f.VPSRLQ("$32", b1.Y(), aOdd.Y())
+			f.VPMULUDQ(b1.Y(), d1.Y(), t0.Y())
+			f.VPMULUDQ(aOdd.Y(), d1odd.Y(), t1.Y())
+			f.VPMULUDQ(t0.Y(), qInvNeg.Y(), PL0.Y())
+			f.VPMULUDQ(t1.Y(), qInvNeg.Y(), PL1.Y())
 
-		f.VPMULUDQ(PL0.Y(), qd.Y(), PL0.Y())
-		f.VPADDQ(t0.Y(), PL0.Y(), t0.Y())
+			f.VPMULUDQ(PL0.Y(), qd.Y(), PL0.Y())
+			f.VPADDQ(t0.Y(), PL0.Y(), t0.Y())
 
-		f.VPMULUDQ(PL1.Y(), qd.Y(), PL1.Y())
-		f.VPADDQ(t1.Y(), PL1.Y(), t3.Y())
+			f.VPMULUDQ(PL1.Y(), qd.Y(), PL1.Y())
+			f.VPADDQ(t1.Y(), PL1.Y(), t3.Y())
 
-		f.VMOVSHDUPk(t0.Y(), amd64.K3, t3.Y())
-		f.VPSUBD(qd.Y(), t3.Y(), t5.Y())
-		f.VPMINUD(t3.Y(), t5.Y(), t3.Y())
+			f.VMOVSHDUPk(t0.Y(), amd64.K3, t3.Y())
+			f.VPSUBD(qd.Y(), t3.Y(), t5.Y())
+			f.VPMINUD(t3.Y(), t5.Y(), t3.Y())
+		}
 
 		// multiply the part of b0 that don't depend on b[0] (i.e. round keys + sbox)
 		f.VPSRLQ("$32", b0, aOdd)
@@ -2028,8 +2086,10 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 
 		// now we add the sum
 		add(b0, acc.Z(), qd, t5, b0)
-		add(t3.Y(), acc.Y(), qd.Y(), v1.Y(), b1.Y())
-	}, true)
+		if width24 {
+			add(t3.Y(), acc.Y(), qd.Y(), v1.Y(), b1.Y())
+		}
+	}
 
 	const fullRounds = 6
 	const partialRounds = 21
@@ -2072,7 +2132,9 @@ func (f *FFAmd64) generatePoseidon2_24_F31() {
 	}
 
 	f.VMOVDQU32(b0, addrInput.AtD(0))
-	f.VMOVDQU32(b1.Y(), addrInput.AtD(16))
+	if width24 {
+		f.VMOVDQU32(b1.Y(), addrInput.AtD(16))
+	}
 
 	f.RET()
 }
