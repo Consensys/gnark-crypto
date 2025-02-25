@@ -1,0 +1,65 @@
+import (
+	"github.com/consensys/gnark-crypto/utils/cpu"
+	"{{ .FieldPackagePath }}"
+)
+
+
+
+// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+// used for Montgomery reduction
+const qInvNeg = {{.QInvNeg}}
+const q = {{.Q}}
+
+// index table used in avx512 shuffling
+var vInterleaveIndices = []uint64 {
+	2, 3, 8, 9, 6, 7, 12, 13,
+}
+
+//go:noescape
+func innerDIFWithTwiddles_avx512(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int)
+
+//go:noescape
+func innerDITWithTwiddles_avx512(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int)
+
+func innerDIFWithTwiddles(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
+	if !cpu.SupportAVX512 {
+		innerDIFWithTwiddlesGeneric(a, twiddles, start, end, m)
+		return
+	}
+	innerDIFWithTwiddles_avx512(a, twiddles, start, end, m)
+}
+
+func innerDITWithTwiddles(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
+	if !cpu.SupportAVX512 {
+		innerDITWithTwiddlesGeneric(a, twiddles, start, end, m)
+		return
+	}
+	innerDITWithTwiddles_avx512(a, twiddles, start, end, m)
+}
+
+{{range $ki, $klog2 := $.Kernels}}
+	{{- $ksize := shl 1 $klog2}}
+
+//go:noescape
+func kerDIFNP_{{$ksize}}_avx512(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int)
+
+func kerDIFNP_{{$ksize}}(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int) {
+	if !cpu.SupportAVX512 {
+		kerDIFNP_{{$ksize}}generic(a, twiddles, stage)
+		return
+	}
+	kerDIFNP_{{$ksize}}_avx512(a, twiddles, stage)
+}
+
+//go:noescape
+func kerDITNP_{{$ksize}}_avx512(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int)
+
+func kerDITNP_{{$ksize}}(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int) {
+	if !cpu.SupportAVX512 {
+		kerDITNP_{{$ksize}}generic(a, twiddles, stage)
+		return
+	}
+	kerDITNP_{{$ksize}}_avx512(a, twiddles, stage)
+}
+{{end}}
+

@@ -2,6 +2,7 @@
 
 * BLS12-381 (Zcash)
 * BN254 (Ethereum)
+* GRUMPKIN (2-cycle with BN254)
 * BLS12-377 (ZEXE)
 * BW6-761 (2-chain with BLS12-377)
 * BLS24-315

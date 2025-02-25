@@ -37,6 +37,9 @@ func GenerateFF(F *config.Field, outputDir string, options ...Option) error {
 	// generate field
 	asmIncludeDir := ""
 	if cfg.HasArm64() || cfg.HasAMD64() {
+		if err = generateDummyGoPackage(F, cfg.asmConfig); err != nil {
+			return err
+		}
 		asmIncludeDir = cfg.asmConfig.IncludeDir
 	}
 	if err := generateField(F, outputDir, asmIncludeDir, hashArm64, hashAMD64); err != nil {
@@ -53,6 +56,13 @@ func GenerateFF(F *config.Field, outputDir string, options ...Option) error {
 	// generate SIS
 	if cfg.HasSIS() {
 		if err := generateSIS(F, outputDir); err != nil {
+			return err
+		}
+	}
+
+	// generate Poseidon2
+	if cfg.HasPoseidon2() {
+		if err := generatePoseidon2(F, outputDir); err != nil {
 			return err
 		}
 	}

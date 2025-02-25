@@ -8,10 +8,11 @@ import (
 	"github.com/consensys/gnark-crypto/field/generator/config"
 )
 
+// the expected working directory is gnark-crypto/field
+//
 //go:generate go run main.go
 func main() {
 	// generate the following fields
-
 	type field struct {
 		name    string
 		modulus string
@@ -35,6 +36,7 @@ func main() {
 			generator.WithASM(&config.Assembly{BuildDir: asmDirIncludePath, IncludeDir: asmDirIncludePath}),
 			generator.WithFFT(&config.FFT{}), // TODO @gbotrel
 			generator.WithSIS(),
+			generator.WithPoseidon2(),
 		); err != nil {
 			panic(err)
 		}

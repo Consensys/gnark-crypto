@@ -7,6 +7,11 @@
 
 package babybear
 
+import (
+	_ "github.com/consensys/gnark-crypto/field/asm/element_31b"
+	"github.com/consensys/gnark-crypto/utils/cpu"
+)
+
 //go:noescape
 func addVec(res, a, b *Element, n uint64)
 
@@ -25,6 +30,9 @@ func scalarMulVec(res, a, b *Element, n uint64)
 //go:noescape
 func innerProdVec(t *uint64, a, b *Element, n uint64)
 
+//go:noescape
+func butterflyMulVec(a, twiddles *Element, m int)
+
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
@@ -35,7 +43,7 @@ func (vector *Vector) Add(a, b Vector) {
 	if n == 0 {
 		return
 	}
-	if !supportAvx512 {
+	if !cpu.SupportAVX512 {
 		// call addVecGeneric
 		addVecGeneric(*vector, a, b)
 		return
@@ -60,7 +68,7 @@ func (vector *Vector) Sub(a, b Vector) {
 	if n == 0 {
 		return
 	}
-	if !supportAvx512 {
+	if !cpu.SupportAVX512 {
 		// call subVecGeneric
 		subVecGeneric(*vector, a, b)
 		return
@@ -85,13 +93,13 @@ func (vector *Vector) ScalarMul(a Vector, b *Element) {
 	if n == 0 {
 		return
 	}
-	if !supportAvx512 {
+	if !cpu.SupportAVX512 {
 		// call scalarMulVecGeneric
 		scalarMulVecGeneric(*vector, a, b)
 		return
 	}
 
-	const blockSize = 8
+	const blockSize = 16
 	scalarMulVec(&(*vector)[0], &a[0], b, n/blockSize)
 	if n%blockSize != 0 {
 		// call scalarMulVecGeneric on the rest
@@ -106,7 +114,7 @@ func (vector *Vector) Sum() (res Element) {
 	if n == 0 {
 		return
 	}
-	if !supportAvx512 {
+	if !cpu.SupportAVX512 {
 		// call sumVecGeneric
 		sumVecGeneric(&res, *vector)
 		return
@@ -140,7 +148,7 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 	if n != uint64(len(other)) {
 		panic("vector.InnerProduct: vectors don't have the same length")
 	}
-	if !supportAvx512 {
+	if !cpu.SupportAVX512 {
 		// call innerProductVecGeneric
 		innerProductVecGeneric(&res, *vector, other)
 		return
@@ -174,13 +182,13 @@ func (vector *Vector) Mul(a, b Vector) {
 	if n == 0 {
 		return
 	}
-	if !supportAvx512 {
+	if !cpu.SupportAVX512 {
 		// call mulVecGeneric
 		mulVecGeneric(*vector, a, b)
 		return
 	}
 
-	const blockSize = 8
+	const blockSize = 16
 	mulVec(&(*vector)[0], &a[0], &b[0], n/blockSize)
 	if n%blockSize != 0 {
 		// call mulVecGeneric on the rest
