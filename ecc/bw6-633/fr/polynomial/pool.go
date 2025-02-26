@@ -6,7 +6,6 @@
 package polynomial
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 	"runtime"
@@ -16,13 +15,11 @@ import (
 )
 
 // Memory management for polynomials
-// WARNING: This is not thread safe TODO: Make sure that is not a problem
-// TODO: There is a lot of "unsafe" memory management here and needs to be vetted thoroughly
+// Thread-safe implementation of polynomial memory pool
 
 type sizedPool struct {
-	maxN  int
-	pool  sync.Pool
-	stats poolStats
+	maxN int
+	pool sync.Pool
 }
 
 type inUseData struct {
@@ -31,23 +28,19 @@ type inUseData struct {
 }
 
 type Pool struct {
-	//lock     sync.Mutex
 	inUse    sync.Map
 	subPools []sizedPool
 }
 
 func (p *sizedPool) get(n int) *fr.Element {
-	p.stats.make(n)
 	return p.pool.Get().(*fr.Element)
 }
 
 func (p *sizedPool) put(ptr *fr.Element) {
-	p.stats.dump()
 	p.pool.Put(ptr)
 }
 
 func NewPool(maxN ...int) (pool Pool) {
-
 	sort.Ints(maxN)
 	pool = Pool{
 		subPools: make([]sizedPool, len(maxN)),
@@ -58,7 +51,6 @@ func NewPool(maxN ...int) (pool Pool) {
 		subPool.maxN = maxN[i]
 		subPool.pool = sync.Pool{
 			New: func() interface{} {
-				subPool.stats.Allocated++
 				return getDataPointer(make([]fr.Element, 0, subPool.maxN))
 			},
 		}
@@ -85,8 +77,7 @@ func (p *Pool) Make(n int) []fr.Element {
 func (p *Pool) Dump(slices ...[]fr.Element) {
 	for _, slice := range slices {
 		ptr := getDataPointer(slice)
-		if metadata, ok := p.inUse.Load(ptr); ok {
-			p.inUse.Delete(ptr)
+		if metadata, ok := p.inUse.LoadAndDelete(ptr); ok {
 			metadata.(inUseData).pool.put(ptr)
 		} else {
 			panic("attempting to dump a slice not created by the pool")
@@ -98,13 +89,13 @@ func (p *Pool) addInUse(ptr *fr.Element, pool *sizedPool) {
 	pcs := make([]uintptr, 2)
 	n := runtime.Callers(3, pcs)
 
-	if prevPcs, ok := p.inUse.Load(ptr); ok { // TODO: remove if unnecessary for security
-		panic(fmt.Errorf("re-allocated non-dumped slice, previously allocated at %v", runtime.CallersFrames(prevPcs.(inUseData).allocatedFor)))
-	}
-	p.inUse.Store(ptr, inUseData{
+	// Use LoadOrStore to atomically check and store
+	if actual, loaded := p.inUse.LoadOrStore(ptr, inUseData{
 		allocatedFor: pcs[:n],
 		pool:         pool,
-	})
+	}); loaded {
+		panic(fmt.Errorf("re-allocated non-dumped slice, previously allocated at %v", runtime.CallersFrames(actual.(inUseData).allocatedFor)))
+	}
 }
 
 func printFrame(frame runtime.Frame) {
@@ -127,60 +118,8 @@ func (p *Pool) printInUse() {
 	})
 }
 
-type poolStats struct {
-	Used          int
-	Allocated     int
-	ReuseRate     float64
-	InUse         int
-	GreatestNUsed int
-	SmallestNUsed int
-}
-
-type poolsStats struct {
-	SubPools []poolStats
-	InUse    int
-}
-
-func (s *poolStats) make(n int) {
-	s.Used++
-	s.InUse++
-	if n > s.GreatestNUsed {
-		s.GreatestNUsed = n
-	}
-	if s.SmallestNUsed == 0 || s.SmallestNUsed > n {
-		s.SmallestNUsed = n
-	}
-}
-
-func (s *poolStats) dump() {
-	s.InUse--
-}
-
-func (s *poolStats) finalize() {
-	s.ReuseRate = float64(s.Used) / float64(s.Allocated)
-}
-
 func getDataPointer(slice []fr.Element) *fr.Element {
 	return (*fr.Element)(unsafe.SliceData(slice))
-}
-
-func (p *Pool) PrintPoolStats() {
-	InUse := 0
-	subStats := make([]poolStats, len(p.subPools))
-	for i := range p.subPools {
-		subPool := &p.subPools[i]
-		subPool.stats.finalize()
-		subStats[i] = subPool.stats
-		InUse += subPool.stats.InUse
-	}
-
-	stats := poolsStats{
-		SubPools: subStats,
-		InUse:    InUse,
-	}
-	serialized, _ := json.MarshalIndent(stats, "", "  ")
-	fmt.Println(string(serialized))
-	p.printInUse()
 }
 
 func (p *Pool) Clone(slice []fr.Element) []fr.Element {
