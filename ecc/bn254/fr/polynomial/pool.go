@@ -7,7 +7,7 @@ package polynomial
 
 import (
 	"fmt"
-	"github.com/consensys/gnark-crypto/ecc/grumpkin/fr"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"runtime"
 	"sort"
 	"sync"
