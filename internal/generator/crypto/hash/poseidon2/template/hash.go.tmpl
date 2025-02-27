@@ -1,0 +1,42 @@
+import (
+	"hash"
+	"sync"
+	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
+	gnarkHash "github.com/consensys/gnark-crypto/hash"
+)
+
+// NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard
+// construction with the default parameters.
+func NewMerkleDamgardHasher() gnarkHash.StateStorer {
+	return gnarkHash.NewMerkleDamgardHasher(
+		&Permutation{GetDefaultParameters()}, make([]byte, fr.Bytes))
+}
+
+// GetDefaultParameters returns a set of parameters for the Poseidon2 permutation.
+// The default parameters are:
+{{- if or (eq .Name "bn254") (eq .Name "grumpkin") (eq .Name "bls12-381") (eq .Name "bw6-761") (eq .Name "bw6-633") (eq .Name "bls24-315")}}
+// - width: 2
+// - nbFullRounds: 6
+// - nbPartialRounds: 50
+var GetDefaultParameters = sync.OnceValue(func() *Parameters {
+	return NewParameters(2, 6, 50)
+{{- else if eq .Name "bls12-377"}}
+// - width: 2
+// - nbFullRounds: 6
+// - nbPartialRounds: 26
+var GetDefaultParameters = sync.OnceValue(func() *Parameters {
+	return NewParameters(2, 6, 26)
+{{- else if eq .Name "bls24-317"}}
+// - width: 2
+// - nbFullRounds: 6
+// - nbPartialRounds: 26
+var GetDefaultParameters = sync.OnceValue(func() *Parameters {
+	return NewParameters(2, 6, 40)
+{{- end}}
+})
+
+func init() {
+	gnarkHash.RegisterHash(gnarkHash.POSEIDON2_{{ .EnumID }}, func() hash.Hash {
+		return NewMerkleDamgardHasher()
+	})
+}

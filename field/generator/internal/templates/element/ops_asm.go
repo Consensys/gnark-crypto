@@ -5,8 +5,10 @@ const OpsAMD64 = `
 
 import (
 	_ "{{.ASMPackagePath}}"
+	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
+var supportAdx = cpu.SupportADX
 
 //go:noescape
 func MulBy3(x *{{.ElementName}})
