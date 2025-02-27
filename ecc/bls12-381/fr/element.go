@@ -970,14 +970,14 @@ func (z *Element) setBigInt(v *big.Int) *Element {
 // SetString creates a big.Int with number and calls SetBigInt on z
 //
 // The number prefix determines the actual base: A prefix of
-// ”0b” or ”0B” selects base 2, ”0”, ”0o” or ”0O” selects base 8,
-// and ”0x” or ”0X” selects base 16. Otherwise, the selected base is 10
+// "0b" or "0B" selects base 2, "0", "0o" or "0O" selects base 8,
+// and "0x" or "0X" selects base 16. Otherwise, the selected base is 10
 // and no prefix is accepted.
 //
 // For base 16, lower and upper case letters are considered the same:
 // The letters 'a' to 'f' and 'A' to 'F' represent digit values 10 to 15.
 //
-// An underscore character ”_” may appear between a base
+// An underscore character "_" may appear between a base
 // prefix and an adjacent digit, and between successive digits; such
 // underscores do not change the value of the number.
 // Incorrect placement of underscores is reported as a panic if there
@@ -1587,4 +1587,76 @@ func (z *Element) linearCombNonModular(x *Element, xC int64, y *Element, yC int6
 	yHi, _ = bits.Add64(xHi, yHi, carry)
 
 	return yHi
+}
+
+// SetRandomWithSource sets z to a random value using the provided randomness source and returns z
+func (z *Element) SetRandomWithSource(rs hash.RandomnessSource) (*Element, error) {
+	// this code is generated for all modulus
+	// and derived from go/src/crypto/rand/util.go
+
+	// l is number of limbs * 8; the number of bytes needed to reconstruct 4 uint64
+	const l = 32
+
+	// bitLen is the maximum bit length needed to encode a value < q.
+	const bitLen = 255
+
+	// k is the maximum byte length needed to encode a value < q.
+	const k = (bitLen + 7) / 8
+
+	// b is the number of bits in the most significant byte of q-1.
+	b := uint(bitLen % 8)
+	if b == 0 {
+		b = 8
+	}
+
+	var bytes [l]byte
+
+	for {
+		// note that bytes[k:l] is always 0
+		if _, err := rs.GetRandomness(bytes[:k]); err != nil {
+			return nil, err
+		}
+
+		// Clear unused bits in in the most significant byte to increase probability
+		// that the candidate is < q.
+		bytes[k-1] &= uint8(int(1<<b) - 1)
+		z[0] = binary.LittleEndian.Uint64(bytes[0:8])
+		z[1] = binary.LittleEndian.Uint64(bytes[8:16])
+		z[2] = binary.LittleEndian.Uint64(bytes[16:24])
+		z[3] = binary.LittleEndian.Uint64(bytes[24:32])
+
+		if !z.smallerThanModulus() {
+			continue // ignore the candidate and re-sample
+		}
+
+		return z, nil
+	}
+}
+
+// HashWithHashFunction hashes a message to field elements using a custom hash function
+func HashWithHashFunction(msg, dst []byte, count int, hashFunc hash.HashFunction) ([]Element, error) {
+	// 128 bits of security
+	// L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter = 128
+	const Bytes = 1 + (Bits-1)/8
+	const L = 16 + Bytes
+
+	lenInBytes := count * L
+	pseudoRandomBytes, err := hashFunc.Hash(msg, dst, lenInBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// get temporary big int from the pool
+	vv := pool.BigInt.Get()
+
+	res := make([]Element, count)
+	for i := 0; i < count; i++ {
+		vv.SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
+		res[i].SetBigInt(vv)
+	}
+
+	// release object into pool
+	pool.BigInt.Put(vv)
+
+	return res, nil
 }
