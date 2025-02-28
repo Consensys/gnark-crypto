@@ -36,23 +36,6 @@ var GetDefaultParameters = sync.OnceValue(func() *Parameters {
 	// return NewParameters(12, 6, 17)
 })
 
-// GetDefaultParameters returns a set of parameters for the Poseidon2 permutation.
-// The default parameters are,
-//
-//  1. for compression:
-//     - width: 8
-//     - nbFullRounds: 6
-//     - nbPartialRounds: 17
-//
-//  2. for sponge:
-//     - width: 12
-//     - nbFullRounds: 6
-//     - nbPartialRounds: 17
-var GetDefaultParameters = sync.OnceValue(func() *Parameters {
-	return NewParameters(8, 6, 17)
-	// return NewParameters(12, 6, 17)
-})
-
 var diag8 [8]fr.Element
 var diag12 [12]fr.Element
 
