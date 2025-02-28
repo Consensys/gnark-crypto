@@ -19,8 +19,6 @@ func NewMerkleDamgardHasher() gnarkHash.StateStorer {
 		&Permutation{GetDefaultParameters()}, make([]byte, fr.Bytes))
 }
 
-
-
 // GetDefaultParameters returns a set of parameters for the Poseidon2 permutation.
 // The default parameters are,
 //
@@ -37,7 +35,6 @@ var GetDefaultParameters = sync.OnceValue(func() *Parameters {
 	return NewParameters(8, 6, 17)
 	// return NewParameters(12, 6, 17)
 })
-
 
 // GetDefaultParameters returns a set of parameters for the Poseidon2 permutation.
 // The default parameters are,
@@ -71,7 +68,6 @@ func init() {
 	diag8[6].SetUint64(0x3de6e93329f8d5ad)
 	diag8[7].SetUint64(0x3f7af9125da962fe)
 
-
 	// diagonal of internal matrix when Width=12
 	// same as https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/goldilocks/src/poseidon2.rs#L65
 	diag12[0].SetUint64(0xc3b6c08e23ba9300)
@@ -86,8 +82,6 @@ func init() {
 	diag12[9].SetUint64(0xf3faac6faee378ae)
 	diag12[10].SetUint64(0x0c6388b51545e883)
 	diag12[11].SetUint64(0xd27dbb6944917b60)
-
-
 
 	gnarkHash.RegisterHash(gnarkHash.POSEIDON2_GOLDILOCKS, func() hash.Hash {
 		return NewMerkleDamgardHasher()
