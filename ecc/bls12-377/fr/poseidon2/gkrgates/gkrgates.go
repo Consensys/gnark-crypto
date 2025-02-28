@@ -66,7 +66,7 @@ type extAddGate struct{}
 
 func (g extAddGate) Evaluate(x ...fr.Element) fr.Element {
 	if len(x) != 3 {
-		panic("expected 2 inputs")
+		panic("expected 3 inputs")
 	}
 	x[0].
 		Double(&x[0]).
