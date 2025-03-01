@@ -184,6 +184,9 @@ func (h *Permutation) matMulM4InPlace(s []fr.Element) {
 // when Width = 0 mod 4, the buffer is multiplied by circ(2M4,M4,..,M4)
 // see https://eprint.iacr.org/2023/323.pdf
 func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
+	if h.params.Width%4 != 0 {
+		panic("only Width = 0 mod 4 are supported")
+	}
 	// at this stage t is supposed to be a multiple of 4
 	// the MDS matrix is circ(2M4,M4,..,M4)
 	h.matMulM4InPlace(input)
@@ -196,9 +199,9 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 	}
 	for i := 0; i < h.params.Width/4; i++ {
 		input[4*i].Add(&input[4*i], &tmp[0])
-		input[4*i+1].Add(&input[4*i], &tmp[1])
-		input[4*i+2].Add(&input[4*i], &tmp[2])
-		input[4*i+3].Add(&input[4*i], &tmp[3])
+		input[4*i+1].Add(&input[4*i+1], &tmp[1])
+		input[4*i+2].Add(&input[4*i+2], &tmp[2])
+		input[4*i+3].Add(&input[4*i+3], &tmp[3])
 	}
 }
 
