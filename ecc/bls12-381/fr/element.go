@@ -970,14 +970,14 @@ func (z *Element) setBigInt(v *big.Int) *Element {
 // SetString creates a big.Int with number and calls SetBigInt on z
 //
 // The number prefix determines the actual base: A prefix of
-// "0b" or "0B" selects base 2, "0", "0o" or "0O" selects base 8,
-// and "0x" or "0X" selects base 16. Otherwise, the selected base is 10
+// ”0b” or ”0B” selects base 2, ”0”, ”0o” or ”0O” selects base 8,
+// and ”0x” or ”0X” selects base 16. Otherwise, the selected base is 10
 // and no prefix is accepted.
 //
 // For base 16, lower and upper case letters are considered the same:
 // The letters 'a' to 'f' and 'A' to 'F' represent digit values 10 to 15.
 //
-// An underscore character "_" may appear between a base
+// An underscore character ”_” may appear between a base
 // prefix and an adjacent digit, and between successive digits; such
 // underscores do not change the value of the number.
 // Incorrect placement of underscores is reported as a panic if there
