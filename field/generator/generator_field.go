@@ -73,11 +73,7 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 			if opt.buildTag != "" {
 				bavardOpts = append(bavardOpts, bavard.BuildTag(opt.buildTag))
 			}
-			if suffix == ".go" {
-				suffix = filepath.Join(outputDir, suffix)
-			} else {
-				suffix = filepath.Join(outputDir, suffix)
-			}
+			suffix = filepath.Join(outputDir, suffix)
 
 			tmplData := any(F)
 			if opt.tmplData != nil {
