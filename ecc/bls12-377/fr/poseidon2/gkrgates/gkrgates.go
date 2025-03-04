@@ -175,7 +175,7 @@ func RegisterGkrGates() error {
 				if err := gkr.RegisterGate(gateNameLinear(y, round), intKeyGate2(&p.RoundKeys[round][1]), 2, gkr.WithUnverifiedDegree(1)); err != nil {
 					return err
 				}
-				return gkr.RegisterGate(gateNameIntegrated(y, round), intKeySBoxGate2(&p.RoundKeys[round][1]), poseidon2.DegreeSBox(), gkr.WithNoLinearVar())
+				return gkr.RegisterGate(gateNameIntegrated(y, round), intKeySBoxGate2(&p.RoundKeys[round][1]), 2, gkr.WithUnverifiedDegree(poseidon2.DegreeSBox()), gkr.WithNoLinearVar())
 			}
 
 			fullRound := func(i int) error {
