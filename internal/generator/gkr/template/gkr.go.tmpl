@@ -53,17 +53,17 @@ type registerGateSettings struct {
 	degree                  int
 }
 
-type registerGateOption func(*registerGateSettings)
+type RegisterGateOption func(*registerGateSettings)
 
 // WithLinearVar gives the index of a variable of degree 1 in the gate's polynomial. RegisterGate will return an error if the given index is not correct.
-func WithLinearVar(linearVar int) registerGateOption {
+func WithLinearVar(linearVar int) RegisterGateOption {
 	return func(settings *registerGateSettings) {
 		settings.linearVar = linearVar
 	}
 }
 
 // WithUnverifiedLinearVar sets the index of a variable of degree 1 in the gate's polynomial. RegisterGate will not verify that the given index is correct.
-func WithUnverifiedLinearVar(linearVar int) registerGateOption {
+func WithUnverifiedLinearVar(linearVar int) RegisterGateOption {
 	return func(settings *registerGateSettings) {
 		settings.noLinearVarVerification = true
 		settings.linearVar = linearVar
@@ -71,7 +71,7 @@ func WithUnverifiedLinearVar(linearVar int) registerGateOption {
 }
 
 // WithNoLinearVar sets the gate as having no variable of degree 1. RegisterGate will not check the correctness of this claim.
-func WithNoLinearVar() registerGateOption {
+func WithNoLinearVar() RegisterGateOption {
 	return func(settings *registerGateSettings) {
 		settings.linearVar = -1
 		settings.noLinearVarVerification = true
@@ -79,7 +79,7 @@ func WithNoLinearVar() registerGateOption {
 }
 
 // WithUnverifiedDegree sets the degree of the gate. RegisterGate will not verify that the given degree is correct.
-func WithUnverifiedDegree(degree int) registerGateOption {
+func WithUnverifiedDegree(degree int) RegisterGateOption {
 	return func(settings *registerGateSettings) {
 		settings.noDegreeVerification = true
 		settings.degree = degree
@@ -87,7 +87,7 @@ func WithUnverifiedDegree(degree int) registerGateOption {
 }
 
 // WithDegree sets the degree of the gate. RegisterGate will return an error if the degree is not correct.
-func WithDegree(degree int) registerGateOption {
+func WithDegree(degree int) RegisterGateOption {
 	return func(settings *registerGateSettings) {
 		settings.degree = degree
 	}
@@ -166,7 +166,7 @@ func fitPoly(f GateFunction, nbIn, maxDeg int) (p polynomial.Polynomial, ok bool
 // name is a human-readable name for the gate
 // f is the polynomial function defining the gate
 // nbIn is the number of inputs to the gate
-func RegisterGate(name string, f GateFunction, nbIn int, options ...registerGateOption) error {
+func RegisterGate(name string, f GateFunction, nbIn int, options ...RegisterGateOption) error {
 	s := registerGateSettings{degree: -1, linearVar: -1}
 	for _, option := range options {
 		option(&s)
