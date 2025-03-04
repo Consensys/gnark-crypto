@@ -25,10 +25,10 @@ type GateFunction func(...small_rational.SmallRational) small_rational.SmallRati
 
 // A Gate is a low-degree multivariate polynomial
 type Gate struct {
-	Evaluate  GateFunction // Evaluate the polynomial function defining the gate
-	nbIn      int          // number of inputs
-	degree    int          // total degree of f
-	linearVar int          // if there is a variable of degree 1, its index, -1 otherwise
+	Evaluate    GateFunction // Evaluate the polynomial function defining the gate
+	nbIn        int          // number of inputs
+	degree      int          // total degree of f
+	solvableVar int          // if there is a solvable variable, its index, -1 otherwise
 }
 
 // Degree returns the total degree of the gate's polynomial i.e. Degree(xy²) = 3
@@ -36,9 +36,9 @@ func (g *Gate) Degree() int {
 	return g.degree
 }
 
-// LinearVar returns the index of a variable of degree 1 in the gate's polynomial. If there is no such variable, it returns -1.
-func (g *Gate) LinearVar() int {
-	return g.linearVar
+// SolvableVar returns I such that x_I can always be determined from {x_i} - {x_I} and f(x...). If there is no such variable, it returns -1.
+func (g *Gate) SolvableVar() int {
+	return g.solvableVar
 }
 
 // NbIn returns the number of inputs to the gate (its fan-in)
@@ -52,34 +52,37 @@ var (
 )
 
 type registerGateSettings struct {
-	linearVar               int
-	noLinearVarVerification bool
-	noDegreeVerification    bool
-	degree                  int
+	solvableVar               int
+	noSolvableVarVerification bool
+	noDegreeVerification      bool
+	degree                    int
 }
 
 type RegisterGateOption func(*registerGateSettings)
 
-// WithLinearVar gives the index of a variable of degree 1 in the gate's polynomial. RegisterGate will return an error if the given index is not correct.
-func WithLinearVar(linearVar int) RegisterGateOption {
+// WithSolvableVar gives the index of a variable whose value can be uniquely determined from that of the other variables along with the gate's output.
+// RegisterGate will return an error if it cannot verify that this claim is correct.
+func WithSolvableVar(solvableVar int) RegisterGateOption {
 	return func(settings *registerGateSettings) {
-		settings.linearVar = linearVar
+		settings.solvableVar = solvableVar
 	}
 }
 
-// WithUnverifiedLinearVar sets the index of a variable of degree 1 in the gate's polynomial. RegisterGate will not verify that the given index is correct.
-func WithUnverifiedLinearVar(linearVar int) RegisterGateOption {
+// WithUnverifiedSolvableVar sets the index of a variable whose value can be uniquely determined from that of the other variables along with the gate's output.
+// RegisterGate will not verify that the given index is correct.
+func WithUnverifiedSolvableVar(solvableVar int) RegisterGateOption {
 	return func(settings *registerGateSettings) {
-		settings.noLinearVarVerification = true
-		settings.linearVar = linearVar
+		settings.noSolvableVarVerification = true
+		settings.solvableVar = solvableVar
 	}
 }
 
-// WithNoLinearVar sets the gate as having no variable of degree 1. RegisterGate will not check the correctness of this claim.
-func WithNoLinearVar() RegisterGateOption {
+// WithNoSolvableVar sets the gate as having no variable whose value can be uniquely determined from that of the other variables along with the gate's output.
+// RegisterGate will not check the correctness of this claim.
+func WithNoSolvableVar() RegisterGateOption {
 	return func(settings *registerGateSettings) {
-		settings.linearVar = -1
-		settings.noLinearVarVerification = true
+		settings.solvableVar = -1
+		settings.noSolvableVarVerification = true
 	}
 }
 
@@ -105,25 +108,50 @@ func setRandom(x *small_rational.SmallRational) {
 	}
 }
 
-// isLinear returns whether f is linear in its i-th variable
-func isLinear(f GateFunction, i, nbIn int) bool {
+// isAdditive returns whether x_i occurs only in a monomial of total degree 1 in f
+func isAdditive(f GateFunction, i, nbIn int) bool {
 	// fix all variables except the i-th one at random points
-	// pick random values x0, x1 for the i-th variable
-	// check if f(-, x0, -) + f(-, x1, -) = 2*f(-, (x0 + x1)/2, -)
+	// pick random value x1 for the i-th variable
+	// check if f(-, 0, -) + f(-, 2*x1, -) = 2*f(-, x1, -)
 	x := make([]small_rational.SmallRational, nbIn)
 	for i := range x {
 		setRandom(&x[i])
 	}
-	y0 := f(x...)
 	x0 := x[i]
+	x[i].SetZero()
+	y0 := f(x...)
 
-	setRandom(&x[i])
+	x[i] = x0
 	y1 := f(x...)
 
-	x[i].Add(&x[i], &x0).Halve()
+	x[i].Double(&x[i])
 	y2 := f(x...)
 
-	return y2.Double(&y2).Sub(&y2, &y1).Equal(&y0)
+	y2.Sub(&y2, &y1)
+	y1.Sub(&y1, &y0)
+
+	if !y2.Equal(&y1) {
+		return false // not linear
+	}
+
+	// check if the coefficient of x_i is nonzero and independent of the other variables (so that we know it is ALWAYS nonzero)
+	if y1.IsZero() { // f(-, x1, -) = f(-, 0, -), so the coefficient of x_i is 0
+		return false
+	}
+
+	// compute the slope with another assignment for the other variables
+	for i := range x {
+		setRandom(&x[i])
+	}
+	x[i].SetZero()
+	y0 = f(x...)
+
+	x[i] = x0
+	y1 = f(x...)
+
+	y1.Sub(&y1, &y0)
+
+	return y1.Equal(&y2)
 }
 
 // fitPoly tries to fit a polynomial of maximum degree maxDeg to f
@@ -172,7 +200,7 @@ func fitPoly(f GateFunction, nbIn, maxDeg int) (p polynomial.Polynomial, ok bool
 // f is the polynomial function defining the gate
 // nbIn is the number of inputs to the gate
 func RegisterGate(name string, f GateFunction, nbIn int, options ...RegisterGateOption) error {
-	s := registerGateSettings{degree: -1, linearVar: -1}
+	s := registerGateSettings{degree: -1, solvableVar: -1}
 	for _, option := range options {
 		option(&s)
 	}
@@ -212,29 +240,25 @@ func RegisterGate(name string, f GateFunction, nbIn int, options ...RegisterGate
 		}
 	}
 
-	if s.linearVar == -1 {
-		if !s.noLinearVarVerification { // find a linear variable
-			if s.degree == 1 { // all variables are linear
-				s.linearVar = 0
-			} else {
-				for i := range nbIn {
-					if isLinear(f, i, nbIn) {
-						s.linearVar = i
-						break
-					}
+	if s.solvableVar == -1 {
+		if !s.noSolvableVarVerification { // find a solvable variable
+			for i := range nbIn {
+				if isAdditive(f, i, nbIn) {
+					s.solvableVar = i
+					break
 				}
 			}
 		}
 	} else {
-		// linear variable given
-		if !s.noLinearVarVerification && !isLinear(f, s.linearVar, nbIn) {
-			return fmt.Errorf("variable %d is not linear in gate %s", s.linearVar, name)
+		// solvable variable given
+		if !s.noSolvableVarVerification && !isAdditive(f, s.solvableVar, nbIn) {
+			return fmt.Errorf("cannot verify the solvability of variable %d in gate %s", s.solvableVar, name)
 		}
 	}
 
 	gatesLock.Lock()
 	defer gatesLock.Unlock()
-	gates[name] = &Gate{Evaluate: f, nbIn: nbIn, degree: s.degree, linearVar: s.linearVar}
+	gates[name] = &Gate{Evaluate: f, nbIn: nbIn, degree: s.degree, solvableVar: s.solvableVar}
 	return nil
 }
 
@@ -1078,7 +1102,7 @@ func init() {
 
 	if err := RegisterGate("identity", func(x ...small_rational.SmallRational) small_rational.SmallRational {
 		return x[0]
-	}, 1, WithUnverifiedDegree(1), WithUnverifiedLinearVar(0)); err != nil {
+	}, 1, WithUnverifiedDegree(1), WithUnverifiedSolvableVar(0)); err != nil {
 		panic(err)
 	}
 
@@ -1086,7 +1110,7 @@ func init() {
 		var res small_rational.SmallRational
 		res.Add(&x[0], &x[1])
 		return res
-	}, 2, WithUnverifiedDegree(1), WithUnverifiedLinearVar(0)); err != nil {
+	}, 2, WithUnverifiedDegree(1), WithUnverifiedSolvableVar(0)); err != nil {
 		panic(err)
 	}
 
@@ -1094,7 +1118,7 @@ func init() {
 		var res small_rational.SmallRational
 		res.Sub(&x[0], &x[1])
 		return res
-	}, 2, WithUnverifiedDegree(1), WithUnverifiedLinearVar(0)); err != nil {
+	}, 2, WithUnverifiedDegree(1), WithUnverifiedSolvableVar(0)); err != nil {
 		panic(err)
 	}
 
@@ -1102,7 +1126,7 @@ func init() {
 		var res small_rational.SmallRational
 		res.Neg(&x[0])
 		return res
-	}, 1, WithUnverifiedDegree(1), WithUnverifiedLinearVar(0)); err != nil {
+	}, 1, WithUnverifiedDegree(1), WithUnverifiedSolvableVar(0)); err != nil {
 		panic(err)
 	}
 
@@ -1110,7 +1134,7 @@ func init() {
 		var res small_rational.SmallRational
 		res.Mul(&x[0], &x[1])
 		return res
-	}, 2, WithUnverifiedDegree(2), WithUnverifiedLinearVar(0)); err != nil {
+	}, 2, WithUnverifiedDegree(2), WithUnverifiedSolvableVar(0)); err != nil {
 		panic(err)
 	}
 }

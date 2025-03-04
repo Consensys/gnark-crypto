@@ -560,10 +560,10 @@ func mimcRound(input ...fr.Element) (res fr.Element) {
 
 	sum.
 		Add(&input[0], &input[1]) //.Add(&sum, &m.ark)  TODO: add ark
-	res.Square(&sum)              // sum^2
-	res.Mul(&res, &sum)           // sum^3
-	res.Square(&res)              //sum^6
-	res.Mul(&res, &sum)           //sum^7
+	res.Square(&sum)    // sum^2
+	res.Mul(&res, &sum) // sum^3
+	res.Square(&res)    //sum^6
+	res.Mul(&res, &sum) //sum^7
 
 	return
 }

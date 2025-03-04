@@ -778,6 +778,18 @@ func TestIsLinear(t *testing.T) {
 		return res
 	}
 
-	assert.True(t, isLinear(f, 1, 2))
-	assert.False(t, isLinear(f, 0, 2))
+	// g: x,y -> x² + 3y
+	g := func(x ...fr.Element) fr.Element {
+		var res, y3 fr.Element
+		res.Square(&x[0])
+		y3.Mul(&x[1], &three)
+		res.Add(&res, &y3)
+		return res
+	}
+
+	assert.False(t, isAdditive(f, 1, 2))
+	assert.False(t, isAdditive(f, 0, 2))
+
+	assert.False(t, isAdditive(g, 0, 2))
+	assert.True(t, isAdditive(g, 1, 2))
 }

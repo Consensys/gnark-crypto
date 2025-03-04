@@ -62,18 +62,18 @@ type RegisterGateOption func(*registerGateSettings)
 
 // WithSolvableVar gives the index of a variable whose value can be uniquely determined from that of the other variables along with the gate's output.
 // RegisterGate will return an error if it cannot verify that this claim is correct.
-func WithSolvableVar(linearVar int) RegisterGateOption {
+func WithSolvableVar(solvableVar int) RegisterGateOption {
 	return func(settings *registerGateSettings) {
-		settings.solvableVar = linearVar
+		settings.solvableVar = solvableVar
 	}
 }
 
 // WithUnverifiedSolvableVar sets the index of a variable whose value can be uniquely determined from that of the other variables along with the gate's output.
 // RegisterGate will not verify that the given index is correct.
-func WithUnverifiedSolvableVar(linearVar int) RegisterGateOption {
+func WithUnverifiedSolvableVar(solvableVar int) RegisterGateOption {
 	return func(settings *registerGateSettings) {
 		settings.noSolvableVarVerification = true
-		settings.solvableVar = linearVar
+		settings.solvableVar = solvableVar
 	}
 }
 
@@ -250,9 +250,9 @@ func RegisterGate(name string, f GateFunction, nbIn int, options ...RegisterGate
 			}
 		}
 	} else {
-		// linear variable given
+		// solvable variable given
 		if !s.noSolvableVarVerification && !isAdditive(f, s.solvableVar, nbIn) {
-			return fmt.Errorf("variable %d is not linear in gate %s", s.solvableVar, name)
+			return fmt.Errorf("cannot verify the solvability of variable %d in gate %s", s.solvableVar, name)
 		}
 	}
 
