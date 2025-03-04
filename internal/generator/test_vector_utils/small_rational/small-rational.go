@@ -220,6 +220,32 @@ func (z *SmallRational) Mul(x, y *SmallRational) *SmallRational {
 	return z
 }
 
+func (z *SmallRational) Div(x, y *SmallRational) *SmallRational {
+	var num, den big.Int
+
+	num.Mul(&x.numerator, &y.denominator)
+	den.Mul(&x.denominator, &y.numerator)
+
+	z.numerator = num
+	z.denominator = den
+
+	z.simplify()
+	z.UpdateText()
+	return z
+}
+
+func (z *SmallRational) Halve() *SmallRational {
+	if z.numerator.Bit(0) == 0 {
+		z.numerator.Rsh(&z.numerator, 1)
+	} else {
+		z.denominator.Lsh(&z.denominator, 1)
+	}
+
+	z.simplify()
+	z.UpdateText()
+	return z
+}
+
 func (z *SmallRational) SetOne() *SmallRational {
 	return z.SetInt64(1)
 }

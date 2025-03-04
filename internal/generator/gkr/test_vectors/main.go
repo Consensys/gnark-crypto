@@ -126,7 +126,11 @@ func toPrintableProof(proof gkr.Proof) (PrintableProof, error) {
 	return res, nil
 }
 
-var Gates = gkr.Gates
+var (
+	GetGate              = gkr.GetGate
+	RegisterGate         = gkr.RegisterGate
+	WithUnverifiedDegree = gkr.WithUnverifiedDegree
+)
 
 type WireInfo struct {
 	Gate   string `json:"gate"`
@@ -163,7 +167,7 @@ func getCircuit(path string) (gkr.Circuit, error) {
 func (c CircuitInfo) toCircuit() (circuit gkr.Circuit) {
 	circuit = make(gkr.Circuit, len(c))
 	for i := range c {
-		circuit[i].Gate = Gates[c[i].Gate]
+		circuit[i].Gate = GetGate(c[i].Gate)
 		circuit[i].Inputs = make([]*gkr.Wire, len(c[i].Inputs))
 		for k, inputCoord := range c[i].Inputs {
 			input := &circuit[inputCoord]
@@ -173,22 +177,11 @@ func (c CircuitInfo) toCircuit() (circuit gkr.Circuit) {
 	return
 }
 
-func init() {
-	Gates["mimc"] = mimcCipherGate{} //TODO: Add ark
-	Gates["select-input-3"] = _select(2)
-}
-
-type mimcCipherGate struct {
-	ark small_rational.SmallRational
-}
-
-func (m mimcCipherGate) Evaluate(input ...small_rational.SmallRational) (res small_rational.SmallRational) {
+func mimcRound(input ...small_rational.SmallRational) (res small_rational.SmallRational) {
 	var sum small_rational.SmallRational
 
 	sum.
-		Add(&input[0], &input[1]).
-		Add(&sum, &m.ark)
-
+		Add(&input[0], &input[1]) //.Add(&sum, &m.ark)  TODO: add ark
 	res.Square(&sum)    // sum^2
 	res.Mul(&res, &sum) // sum^3
 	res.Square(&res)    //sum^6
@@ -197,8 +190,16 @@ func (m mimcCipherGate) Evaluate(input ...small_rational.SmallRational) (res sma
 	return
 }
 
-func (m mimcCipherGate) Degree() int {
-	return 7
+func init() {
+	if err := RegisterGate("mimc", mimcRound, 2, WithUnverifiedDegree(7)); err != nil {
+		panic(err)
+	}
+
+	if err := RegisterGate("select-input-3", func(input ...small_rational.SmallRational) small_rational.SmallRational {
+		return input[2]
+	}, 3, WithUnverifiedDegree(1)); err != nil {
+		panic(err)
+	}
 }
 
 type PrintableProof []PrintableSumcheckProof
@@ -346,14 +347,4 @@ func newTestCase(path string) (*TestCase, error) {
 	}
 
 	return tCase, nil
-}
-
-type _select int
-
-func (g _select) Evaluate(in ...small_rational.SmallRational) small_rational.SmallRational {
-	return in[g]
-}
-
-func (g _select) Degree() int {
-	return 1
 }
