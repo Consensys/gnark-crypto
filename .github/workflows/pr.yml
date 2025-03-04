@@ -22,7 +22,12 @@ jobs:
         go generate ./...
         git update-index --assume-unchanged go.mod
         git update-index --assume-unchanged go.sum
-        if [[ -n $(git status --porcelain) ]]; then echo "git repo is dirty after running go generate -- please don't modify generated files"; echo $(git diff);echo $(git status --porcelain); exit 1; fi
+        if [[ -n $(git status --porcelain) ]]; then 
+          echo "git repo is dirty after running go generate -- please don't modify generated files"
+          echo $(git diff)
+          echo $(git status --porcelain)
+          exit 1
+        fi
 
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v6
