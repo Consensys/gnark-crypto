@@ -8,6 +8,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"github.com/consensys/gnark-crypto/utils"
 	"math/big"
+	"slices"
 	"strconv"
 	"sync"
 )
@@ -16,6 +17,7 @@ import (
 
 // The goal is to prove/verify evaluations of many instances of the same circuit
 
+// GateFunction a polynomial defining a gate. It may modify its input. The changes will be ignored.
 type GateFunction func(...{{.ElementType}}) {{.ElementType}}
 
 // A Gate is a low-degree multivariate polynomial
@@ -114,13 +116,16 @@ func isAdditive(f GateFunction, i, nbIn int) bool {
 	}
 	x0 := x[i]
 	x[i].SetZero()
-	y0 := f(x...)
+	in := slices.Clone(x)
+	y0 := f(in...)
 
 	x[i] = x0
-	y1 := f(x...)
+	copy(in, x)
+	y1 := f(in...)
 
 	x[i].Double(&x[i])
-	y2 := f(x...)
+	copy(in, x)
+	y2 := f(in...)
 
 	y2.Sub(&y2, &y1)
 	y1.Sub(&y1, &y0)
@@ -139,10 +144,12 @@ func isAdditive(f GateFunction, i, nbIn int) bool {
 		setRandom(&x[i])
 	}
 	x[i].SetZero()
-	y0 = f(x...)
+	copy(in, x)
+	y0 = f(in...)
 
 	x[i] = x0
-	y1 = f(x...)
+	copy(in, x)
+	y1 = f(in...)
 
 	y1.Sub(&y1, &y0)
 

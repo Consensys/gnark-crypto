@@ -148,10 +148,10 @@ func RegisterGkrGates() error {
 			if err = gkr.RegisterGate("pow4", pow4Gate, 1, gkr.WithUnverifiedDegree(4), gkr.WithNoSolvableVar()); err != nil {
 				return
 			}
-			if err = gkr.RegisterGate("pow2Times", pow2TimesGate, 2, gkr.WithUnverifiedDegree(3), gkr.WithUnverifiedSolvableVar(1)); err != nil {
+			if err = gkr.RegisterGate("pow2Times", pow2TimesGate, 2, gkr.WithUnverifiedDegree(3), gkr.WithNoSolvableVar()); err != nil {
 				return
 			}
-			if err = gkr.RegisterGate("pow4Times", pow4TimesGate, 2, gkr.WithUnverifiedDegree(5), gkr.WithUnverifiedSolvableVar(1)); err != nil {
+			if err = gkr.RegisterGate("pow4Times", pow4TimesGate, 2, gkr.WithUnverifiedDegree(5), gkr.WithNoSolvableVar()); err != nil {
 				return
 			}
 

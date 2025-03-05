@@ -765,7 +765,7 @@ func TestRegisterGateDegreeDetection(t *testing.T) {
 	testGate("mimc", mimcRound, 2, 7)
 }
 
-func TestIsLinear(t *testing.T) {
+func TestIsAdditive(t *testing.T) {
 
 	// f: x,y -> x² + xy
 	f := func(x ...fr.Element) fr.Element {
@@ -787,9 +787,18 @@ func TestIsLinear(t *testing.T) {
 		return res
 	}
 
+	// h: x -> 2x
+	// but it edits it input
+	h := func(x ...fr.Element) fr.Element {
+		x[0].Double(&x[0])
+		return x[0]
+	}
+
 	assert.False(t, isAdditive(f, 1, 2))
 	assert.False(t, isAdditive(f, 0, 2))
 
 	assert.False(t, isAdditive(g, 0, 2))
 	assert.True(t, isAdditive(g, 1, 2))
+
+	assert.True(t, isAdditive(h, 0, 1))
 }
