@@ -55,9 +55,7 @@ type Domain struct {
 // GeneratorFullMultiplicativeGroup returns a generator of 𝔽ᵣˣ
 func GeneratorFullMultiplicativeGroup() fr.Element {
 	var res fr.Element
-
 	res.SetUint64(22)
-
 	return res
 }
 
@@ -165,7 +163,6 @@ func (d *Domain) preComputeTwiddles() {
 	go expTable(d.FrMultiplicativeGenInv, d.cosetTableInv)
 
 	wg.Wait()
-
 }
 
 func buildTwiddles(t [][]fr.Element, omega fr.Element, nbStages uint64) {
@@ -188,7 +185,6 @@ func buildTwiddles(t [][]fr.Element, omega fr.Element, nbStages uint64) {
 			k += 1 << i
 		}
 	}
-
 }
 
 // BuildExpTable precomputes the first n powers of w in parallel
@@ -205,16 +201,13 @@ func BuildExpTable(w fr.Element, table []fr.Element) {
 		interval = (n - 1) / (runtime.NumCPU() / 4)
 	}
 
-	// this ratio roughly correspond to the number of multiplication one can do in place of a Exp operation
-	// TODO @gbotrel revisit this; Exps in this context will be by a "small power of 2" so faster than this ref ratio.
-	const ratioExpMul = 6000 / 17
-
-	if interval < ratioExpMul {
+	// Simplify the branching logic: if interval < 1, do it all in one chunk.
+	if interval < 1 {
 		precomputeExpTableChunk(w, 1, table[1:])
 		return
 	}
 
-	// we parallelize
+	// Otherwise, we parallelize.
 	var wg sync.WaitGroup
 	for i := 1; i < n; i += interval {
 		start := i
@@ -223,17 +216,15 @@ func BuildExpTable(w fr.Element, table []fr.Element) {
 			end = n
 		}
 		wg.Add(1)
-		go func() {
-			precomputeExpTableChunk(w, uint64(start), table[start:end])
+		go func(s, e int) {
+			precomputeExpTableChunk(w, uint64(s), table[s:e])
 			wg.Done()
-		}()
+		}(start, end)
 	}
 	wg.Wait()
 }
 
 func precomputeExpTableChunk(w fr.Element, power uint64, table []fr.Element) {
-
-	// this condition ensures that creating a domain of size 1 with cosets don't fail
 	if len(table) > 0 {
 		table[0].Exp(w, new(big.Int).SetUint64(power))
 		for i := 1; i < len(table); i++ {
@@ -289,7 +280,6 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 	read += 8
 
 	toDecode := []*fr.Element{&d.CardinalityInv, &d.Generator, &d.GeneratorInv, &d.FrMultiplicativeGen, &d.FrMultiplicativeGenInv}
-
 	for _, v := range toDecode {
 		var buf [fr.Bytes]byte
 		_, err = r.Read(buf[:])
