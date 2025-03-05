@@ -168,11 +168,11 @@ func RegisterGkrGates() error {
 					return err
 				}
 
-				return gkr.RegisterGate(gateNameLinear(varIndex, round), extKeyGate(&p.RoundKeys[round][varIndex]), 2, gkr.WithUnverifiedDegree(1))
+				return gkr.RegisterGate(gateNameLinear(varIndex, round), extKeyGate(&p.RoundKeys[round][varIndex]), 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0))
 			}
 
 			intKeySBox2 := func(round int) error {
-				if err := gkr.RegisterGate(gateNameLinear(y, round), intKeyGate2(&p.RoundKeys[round][1]), 2, gkr.WithUnverifiedDegree(1)); err != nil {
+				if err := gkr.RegisterGate(gateNameLinear(y, round), intKeyGate2(&p.RoundKeys[round][1]), 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0)); err != nil {
 					return err
 				}
 				return gkr.RegisterGate(gateNameIntegrated(y, round), intKeySBoxGate2(&p.RoundKeys[round][1]), 2, gkr.WithUnverifiedDegree(poseidon2.DegreeSBox()), gkr.WithNoSolvableVar())
@@ -195,7 +195,7 @@ func RegisterGkrGates() error {
 				if err = extKeySBox(halfRf, x); err != nil {
 					return
 				}
-				if err = gkr.RegisterGate(gateNameLinear(y, halfRf), extGate2, 2, gkr.WithUnverifiedDegree(1)); err != nil {
+				if err = gkr.RegisterGate(gateNameLinear(y, halfRf), extGate2, 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0)); err != nil {
 					return
 				}
 			}
@@ -204,7 +204,7 @@ func RegisterGkrGates() error {
 				if err = extKeySBox(i, x); err != nil { // for x1, intKeySBox is identical to extKeySBox
 					return
 				}
-				if err = gkr.RegisterGate(gateNameLinear(y, i), intGate2, 2, gkr.WithUnverifiedDegree(1)); err != nil {
+				if err = gkr.RegisterGate(gateNameLinear(y, i), intGate2, 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0)); err != nil {
 					return
 				}
 			}
@@ -225,7 +225,7 @@ func RegisterGkrGates() error {
 				}
 			}
 
-			err = gkr.RegisterGate(gateNameLinear(y, p.NbPartialRounds+p.NbFullRounds), extAddGate, 3, gkr.WithUnverifiedDegree(1))
+			err = gkr.RegisterGate(gateNameLinear(y, p.NbPartialRounds+p.NbFullRounds), extAddGate, 3, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0))
 		},
 	)
 	return err
