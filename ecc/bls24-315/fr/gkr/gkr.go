@@ -1141,7 +1141,7 @@ func init() {
 		var res fr.Element
 		res.Mul(&x[0], &x[1])
 		return res
-	}, 2, WithUnverifiedDegree(2), WithUnverifiedSolvableVar(0)); err != nil {
+	}, 2, WithUnverifiedDegree(2), WithNoSolvableVar()); err != nil {
 		panic(err)
 	}
 }
