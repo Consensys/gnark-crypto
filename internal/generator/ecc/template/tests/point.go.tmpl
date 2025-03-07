@@ -150,7 +150,7 @@ func TestIsOn{{ toUpper .PointName }}(t *testing.T) {
 		{{$fuzzer}},
 	))
 
-    {{- if eq .Name "bls12-381"}}
+    {{- if or (eq .Name "bls12-381") (and (eq .Name "bn254") (eq .PointName "g2"))}}
 	properties.Property("[{{ toUpper .Name }}] IsInSubGroup should return false for a point on the cofactor-torsion", prop.ForAll(
 		func(a {{ .CoordType}}) bool {
 			op := fuzzCofactorOf{{ $TJacobian }}(a)

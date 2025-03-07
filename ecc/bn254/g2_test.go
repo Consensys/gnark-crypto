@@ -118,6 +118,13 @@ func TestIsOnG2(t *testing.T) {
 		},
 		GenE2(),
 	))
+	properties.Property("[BN254] IsInSubGroup should return false for a point on the cofactor-torsion", prop.ForAll(
+		func(a fptower.E2) bool {
+			op := fuzzCofactorOfG2Jac(a)
+			return op.IsOnCurve() && !op.IsInSubGroup()
+		},
+		GenE2(),
+	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
