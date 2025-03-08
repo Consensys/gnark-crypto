@@ -120,7 +120,7 @@ func TestIsOnG2(t *testing.T) {
 	))
 	properties.Property("[BN254] IsInSubGroup should return false for a point on the cofactor-torsion", prop.ForAll(
 		func(a fptower.E2) bool {
-			op := fuzzCofactorOfG2Jac(a)
+			op := fuzzCofactorOfG2(a)
 			return op.IsOnCurve() && !op.IsInSubGroup()
 		},
 		GenE2(),
@@ -847,7 +847,7 @@ func BenchmarkG2AffineDouble(b *testing.B) {
 		a.Double(&a)
 	}
 }
-func fuzzCofactorOfG2Jac(f fptower.E2) G2Jac {
+func fuzzCofactorOfG2(f fptower.E2) G2Jac {
 	var res, jac, a, b, c G2Jac
 	aff := MapToCurve2(&f)
 	jac.FromAffine(&aff)
@@ -863,6 +863,10 @@ func fuzzCofactorOfG2Jac(f fptower.E2) G2Jac {
 		Double(&res).
 		SubAssign(&c)
 	return res
+}
+
+func GeneratePointNotInG2(f fptower.E2) G2Jac {
+	return fuzzCofactorOfG2(f)
 }
 
 func fuzzG2Jac(p *G2Jac, f fptower.E2) G2Jac {

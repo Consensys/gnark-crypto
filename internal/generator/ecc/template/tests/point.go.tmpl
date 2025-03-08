@@ -153,7 +153,7 @@ func TestIsOn{{ toUpper .PointName }}(t *testing.T) {
     {{- if or (eq .Name "bls12-381") (and (eq .Name "bn254") (eq .PointName "g2"))}}
 	properties.Property("[{{ toUpper .Name }}] IsInSubGroup should return false for a point on the cofactor-torsion", prop.ForAll(
 		func(a {{ .CoordType}}) bool {
-			op := fuzzCofactorOf{{ $TJacobian }}(a)
+			op := fuzzCofactorOf{{ toUpper .PointName}}(a)
 			return op.IsOnCurve() && !op.IsInSubGroup()
 		},
 		{{$fuzzer}},
@@ -952,7 +952,7 @@ func Benchmark{{ toUpper .PointName}}AffineDouble(b *testing.B) {
 }
 
 {{- if eq .Name "bls12-381"}}
-func fuzzCofactorOf{{ $TJacobian }}(f {{ .CoordType}}) {{ $TJacobian }} {
+func fuzzCofactorOf{{ toUpper .PointName}}(f {{ .CoordType}}) {{ $TJacobian }} {
 	var res, jac {{ $TJacobian }}
     {{- if eq .PointName "g1" }}
 	aff := MapToCurve1(&f)
@@ -974,8 +974,13 @@ func fuzzCofactorOf{{ $TJacobian }}(f {{ .CoordType}}) {{ $TJacobian }} {
     {{- end}}
 	return res
 }
+
+func GeneratePointNotIn{{ toUpper .PointName}}(f {{ .CoordType}}) {{ $TJacobian }} {
+	return fuzzCofactorOf{{ toUpper .PointName}}(f)
+}
+
 {{- else if and (eq .Name "bn254") (eq .PointName "g2")}}
-func fuzzCofactorOf{{ $TJacobian }}(f {{ .CoordType}}) {{ $TJacobian }} {
+func fuzzCofactorOf{{ toUpper .PointName}}(f {{ .CoordType}}) {{ $TJacobian }} {
 	var res, jac, a, b, c {{ $TJacobian }}
    	aff := MapToCurve2(&f)
 	jac.FromAffine(&aff)
@@ -992,6 +997,11 @@ func fuzzCofactorOf{{ $TJacobian }}(f {{ .CoordType}}) {{ $TJacobian }} {
         SubAssign(&c)
 	return res
 }
+
+func GeneratePointNotIn{{ toUpper .PointName}}(f {{ .CoordType}}) {{ $TJacobian }} {
+	return fuzzCofactorOf{{ toUpper .PointName}}(f)
+}
+
 {{- end}}
 
 func fuzz{{ $TJacobian }}(p *{{ $TJacobian }}, f {{ .CoordType}}) {{ $TJacobian }} {
