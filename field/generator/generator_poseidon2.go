@@ -37,7 +37,9 @@ func generatePoseidon2(F *config.Field, outputDir string) error {
 		F31:              F.F31,
 	}
 
-	if data.F31 {
+	if data.FF == "koalabear" {
+		// note that we can also generate for baby bear if needed, just need to tweak the number of
+		// rounds and add the sbox.
 		data.Q = F.Q[0]
 		data.QInvNeg = F.QInverse[0]
 		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "poseidon2_amd64.go"), Templates: []string{"poseidon2.amd64.go.tmpl"}, BuildTag: "!purego"})

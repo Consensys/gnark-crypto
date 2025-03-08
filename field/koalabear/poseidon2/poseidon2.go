@@ -48,9 +48,8 @@ type Parameters struct {
 
 	// derived round keys from the parameter seed and curve ID
 	RoundKeys [][]fr.Element
-	// hasFast24_6_21 is true if the permutation has a fast path for Width=24 (avx512)
+	// indicates if we have a fast path (avx512)
 	hasFast24_6_21 bool
-
 	hasFast16_6_21 bool
 }
 
