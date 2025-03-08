@@ -74,25 +74,25 @@ TEXT ·permutation24_avx512(SB), NOSPLIT, $0-48
 
 #define SBOX_FULL() \
 	MULD(Z2, Z2, Z12, Z13, Z6, Z7, Z14, Z15, Z0, Z1, Z8) \
+	REDUCE1Q(Z0, Z8, Z15)                                \
+	MULD(Z8, Z8, Z12, Z13, Z6, Z7, Z14, Z15, Z0, Z1, Z9) \
 	MULD(Z2, Z8, Z12, Z13, Z6, Z7, Z14, Z15, Z0, Z1, Z2) \
+	MULD(Z2, Z9, Z12, Z13, Z6, Z7, Z14, Z15, Z0, Z1, Z2) \
 	REDUCE1Q(Z0, Z2, Z15)                                \
-	MULD(Y3, Y3, Y12, Y13, Y6, Y7, Y14, Y15, Y0, Y1, Y7) \
-	MULD(Y3, Y7, Y12, Y13, Y6, Y7, Y14, Y15, Y0, Y1, Y3) \
+	MULD(Y3, Y3, Y12, Y13, Y6, Y7, Y14, Y15, Y0, Y1, Y8) \
+	REDUCE1Q(Y0, Y8, Y15)                                \
+	MULD(Y8, Y8, Y12, Y13, Y6, Y7, Y14, Y15, Y0, Y1, Y9) \
+	MULD(Y3, Y8, Y12, Y13, Y6, Y7, Y14, Y15, Y0, Y1, Y3) \
+	MULD(Y3, Y9, Y12, Y13, Y6, Y7, Y14, Y15, Y0, Y1, Y3) \
 	REDUCE1Q(Y0, Y3, Y15)                                \
 
 #define SBOX_PARTIAL() \
-	VPMULUDQ X5, X5, X6   \
-	VPMULUDQ X6, X1, X14  \
-	VPMULUDQ X14, X0, X14 \
-	VPADDQ   X6, X14, X6  \
-	VPSRLQ   $32, X6, X8  \
-	VPMULUDQ X5, X8, X6   \
-	VPMULUDQ X6, X1, X14  \
-	VPMULUDQ X14, X0, X14 \
-	VPADDQ   X6, X14, X6  \
-	VPSRLQ   $32, X6, X5  \
-	VPSUBD   X0, X5, X14  \
-	VPMINUD  X5, X14, X5  \
+	MULD(Y5, Y5, Y12, Y13, Y6, Y7, Y14, Y15, Y0, Y1, Y8) \
+	REDUCE1Q(Y0, Y8, Y15)                                \
+	MULD(Y8, Y8, Y12, Y13, Y6, Y7, Y14, Y15, Y0, Y1, Y9) \
+	MULD(Y5, Y8, Y12, Y13, Y6, Y7, Y14, Y15, Y0, Y1, Y5) \
+	MULD(Y5, Y9, Y12, Y13, Y6, Y7, Y14, Y15, Y0, Y1, Y5) \
+	REDUCE1Q(Y0, Y5, Y15)                                \
 
 #define SUM_STATE() \
 	VEXTRACTI64X4 $1, Z2, Y16                   \
@@ -123,7 +123,7 @@ TEXT ·permutation24_avx512(SB), NOSPLIT, $0-48
 	FULL_ROUND()
 
 	// loop over the partial rounds
-	MOVQ $0x0000000000000015, SI // nb partial rounds --> 21
+	MOVQ $0x0000000000000013, SI // nb partial rounds --> 19
 	MOVQ R14, DI
 	ADDQ $0x0000000000000048, DI
 
@@ -168,11 +168,11 @@ loop_1:
 	JMP       loop_1
 
 done_2:
+	MOVQ      528(R14), BX
+	FULL_ROUND()
+	MOVQ      552(R14), BX
+	FULL_ROUND()
 	MOVQ      576(R14), BX
-	FULL_ROUND()
-	MOVQ      600(R14), BX
-	FULL_ROUND()
-	MOVQ      624(R14), BX
 	FULL_ROUND()
 	VMOVDQU32 Z2, 0(R15)
 	VMOVDQU32 Y3, 64(R15)
@@ -205,7 +205,10 @@ TEXT ·permutation16_avx512(SB), NOSPLIT, $0-48
 
 #define SBOX_FULL_16() \
 	MULD(Z2, Z2, Z12, Z13, Z6, Z7, Z14, Z15, Z0, Z1, Z8) \
+	REDUCE1Q(Z0, Z8, Z15)                                \
+	MULD(Z8, Z8, Z12, Z13, Z6, Z7, Z14, Z15, Z0, Z1, Z9) \
 	MULD(Z2, Z8, Z12, Z13, Z6, Z7, Z14, Z15, Z0, Z1, Z2) \
+	MULD(Z2, Z9, Z12, Z13, Z6, Z7, Z14, Z15, Z0, Z1, Z2) \
 	REDUCE1Q(Z0, Z2, Z15)                                \
 
 #define SUM_STATE_16() \
@@ -234,7 +237,7 @@ TEXT ·permutation16_avx512(SB), NOSPLIT, $0-48
 	FULL_ROUND_16()
 
 	// loop over the partial rounds
-	MOVQ $0x0000000000000015, SI // nb partial rounds --> 21
+	MOVQ $0x000000000000000c, SI // nb partial rounds --> 12
 	MOVQ R14, DI
 	ADDQ $0x0000000000000048, DI
 
@@ -266,11 +269,11 @@ loop_3:
 	JMP       loop_3
 
 done_4:
-	MOVQ      576(R14), BX
+	MOVQ      360(R14), BX
 	FULL_ROUND_16()
-	MOVQ      600(R14), BX
+	MOVQ      384(R14), BX
 	FULL_ROUND_16()
-	MOVQ      624(R14), BX
+	MOVQ      408(R14), BX
 	FULL_ROUND_16()
 	VMOVDQU32 Z2, 0(R15)
 	RET

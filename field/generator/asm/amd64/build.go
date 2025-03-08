@@ -335,7 +335,11 @@ func GenerateF31SIS(w io.Writer, nbBits int) error {
 	return nil
 }
 
-func GenerateF31Poseidon2(w io.Writer, nbBits int) error {
+type Poseidon2Parameters struct {
+	Width, FullRounds, PartialRounds, SBoxDegree int
+}
+
+func GenerateF31Poseidon2(w io.Writer, nbBits int, params []Poseidon2Parameters) error {
 	if nbBits != 31 {
 		return fmt.Errorf("only 31 bits supported for now")
 	}
@@ -350,8 +354,9 @@ func GenerateF31Poseidon2(w io.Writer, nbBits int) error {
 	f.WriteLn("#include \"go_asm.h\"")
 	f.WriteLn("")
 
-	f.generatePoseidon2_24_F31(24)
-	f.generatePoseidon2_24_F31(16)
+	for _, p := range params {
+		f.generatePoseidon2_F31(p)
+	}
 
 	return nil
 }

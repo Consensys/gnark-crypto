@@ -37,7 +37,7 @@ func generatePoseidon2(F *config.Field, outputDir string) error {
 		F31:              F.F31,
 	}
 
-	if data.FF == "koalabear" {
+	if data.F31 {
 		// note that we can also generate for baby bear if needed, just need to tweak the number of
 		// rounds and add the sbox.
 		data.Q = F.Q[0]
@@ -53,7 +53,22 @@ func generatePoseidon2(F *config.Field, outputDir string) error {
 
 		asmFile.WriteString("//go:build !purego\n")
 
-		if err := amd64.GenerateF31Poseidon2(asmFile, F.NbBits); err != nil {
+		var params []amd64.Poseidon2Parameters
+		if data.FF == "koalabear" {
+			params = []amd64.Poseidon2Parameters{
+				{Width: 24, FullRounds: 6, PartialRounds: 21, SBoxDegree: 3},
+				{Width: 16, FullRounds: 6, PartialRounds: 21, SBoxDegree: 3},
+			}
+		} else if data.FF == "babybear" {
+			params = []amd64.Poseidon2Parameters{
+				{Width: 24, FullRounds: 6, PartialRounds: 19, SBoxDegree: 7},
+				{Width: 16, FullRounds: 6, PartialRounds: 12, SBoxDegree: 7},
+			}
+		} else {
+			panic("not implemented")
+		}
+
+		if err := amd64.GenerateF31Poseidon2(asmFile, F.NbBits, params); err != nil {
 			asmFile.Close()
 			return err
 		}

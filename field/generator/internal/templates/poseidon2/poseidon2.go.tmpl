@@ -9,7 +9,7 @@ import (
 
 	fr "{{ .FieldPackagePath }}"
 
-	{{- if eq .FF "koalabear"}}
+	{{- if .F31}}
 	"github.com/consensys/gnark-crypto/utils/cpu"
 	{{- end}}
 )
@@ -54,6 +54,11 @@ type Parameters struct {
 	hasFast24_6_21 bool
 	hasFast16_6_21 bool
 	{{- end}}
+	{{- if eq .FF "babybear"}}
+	// indicates if we have a fast path (avx512)
+	hasFast24_6_12 bool
+	hasFast16_6_19 bool
+	{{- end}}
 }
 
 // NewParameters returns a new set of parameters for the Poseidon2 permutation.
@@ -64,6 +69,10 @@ func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 	{{- if eq .FF "koalabear"}}
 	p.hasFast24_6_21 = width == 24 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
 	p.hasFast16_6_21 = width == 16 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
+	{{- end}}
+	{{- if eq .FF "babybear"}}
+	p.hasFast24_6_12 = width == 24 && nbFullRounds == 6 && nbPartialRounds == 19 && cpu.SupportAVX512
+	p.hasFast16_6_19 = width == 16 && nbFullRounds == 6 && nbPartialRounds == 12 && cpu.SupportAVX512
 	{{- end}}
 	seed := p.String()
 	p.initRC(seed)
@@ -78,6 +87,10 @@ func NewParametersWithSeed(width, nbFullRounds, nbPartialRounds int, seed string
 	{{- if eq .FF "koalabear"}}
 	p.hasFast24_6_21 = width == 24 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
 	p.hasFast16_6_21 = width == 16 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
+	{{- end}}
+	{{- if eq .FF "babybear"}}
+	p.hasFast24_6_12 = width == 24 && nbFullRounds == 6 && nbPartialRounds == 12 && cpu.SupportAVX512
+	p.hasFast16_6_19 = width == 16 && nbFullRounds == 6 && nbPartialRounds == 19 && cpu.SupportAVX512
 	{{- end}}
 	p.initRC(seed)
 	return &p
@@ -456,6 +469,16 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 		return nil
 	}
 	if h.params.hasFast16_6_21 {
+		permutation16_avx512(input, h.params.RoundKeys)
+		return nil
+	}
+	{{- end}}
+	{{- if eq .FF "babybear"}}
+	if h.params.hasFast24_6_12 {
+		permutation24_avx512(input, h.params.RoundKeys)
+		return nil
+	}
+	if h.params.hasFast16_6_19 {
 		permutation16_avx512(input, h.params.RoundKeys)
 		return nil
 	}

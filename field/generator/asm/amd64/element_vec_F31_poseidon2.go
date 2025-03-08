@@ -20,7 +20,12 @@ import (
 	"github.com/consensys/bavard/amd64"
 )
 
-func (f *FFAmd64) generatePoseidon2_24_F31(width int) {
+func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
+	fullRounds := params.FullRounds
+	partialRounds := params.PartialRounds
+	width := params.Width
+	rf := fullRounds / 2
+
 	if width != 16 && width != 24 {
 		panic("only width 16 and 24 are supported")
 	}
@@ -244,19 +249,92 @@ func (f *FFAmd64) generatePoseidon2_24_F31(width int) {
 		}
 	}
 
-	sbox := f.Define("sbox_full", 0, func(args ...any) {
-		mul(b0, b0, t2, false)
-		mul(b0, t2, b0, true)
-
-		mulY(b1, b1, t1, false)
-		mulY(b1, t1, b1, true)
-
-	}, true)
-	if !width24 {
-		sbox = f.Define("sbox_full_16", 0, func(args ...any) {
+	var sbox, sboxPartial defineFn
+	switch params.SBoxDegree {
+	case 3:
+		sbox = f.Define("sbox_full", 0, func(args ...any) {
 			mul(b0, b0, t2, false)
 			mul(b0, t2, b0, true)
-		})
+
+			mulY(b1, b1, t1, false)
+			mulY(b1, t1, b1, true)
+
+		}, true)
+		if !width24 {
+			sbox = f.Define("sbox_full_16", 0, func(args ...any) {
+				mul(b0, b0, t2, false)
+				mul(b0, t2, b0, true)
+			})
+		}
+
+		sboxPartial = f.Define("sbox_partial", 0, func(args ...any) {
+			// t2.X() = b0 * b0
+			// this is similar to the mulD macro
+			// but since we only care about the mul result at [0],
+			// we unroll and remove unnecessary code.
+			f.VPMULUDQ(v1.X(), v1.X(), t0.X())
+			f.VPMULUDQ(t0.X(), qInvNeg.X(), PL0.X())
+			f.VPMULUDQ(PL0.X(), qd.X(), PL0.X())
+			f.VPADDQ(t0.X(), PL0.X(), t0.X())
+			f.VPSRLQ("$32", t0.X(), t2.X())
+
+			// b0 = b0 * t2.X()
+			f.VPMULUDQ(v1.X(), t2.X(), t0.X())
+			f.VPMULUDQ(t0.X(), qInvNeg.X(), PL0.X())
+			f.VPMULUDQ(PL0.X(), qd.X(), PL0.X())
+			f.VPADDQ(t0.X(), PL0.X(), t0.X())
+			f.VPSRLQ("$32", t0.X(), v1.X())
+			f.VPSUBD(qd.X(), v1.X(), PL0.X())
+			f.VPMINUD(v1.X(), PL0.X(), v1.X())
+		}, true)
+	case 7:
+		sbox = f.Define("sbox_full", 0, func(args ...any) {
+			mul(b0, b0, t2, true)
+			mul(t2, t2, t3, false)
+			mul(b0, t2, b0, false)
+			mul(b0, t3, b0, true)
+
+			mulY(b1, b1, t2, true)
+			mulY(t2, t2, t3, false)
+			mulY(b1, t2, b1, false)
+			mulY(b1, t3, b1, true)
+		}, true)
+		if !width24 {
+			sbox = f.Define("sbox_full_16", 0, func(args ...any) {
+				mul(b0, b0, t2, true)
+				mul(t2, t2, t3, false)
+				mul(b0, t2, b0, false)
+				mul(b0, t3, b0, true)
+			})
+		}
+
+		sboxPartial = f.Define("sbox_partial", 0, func(args ...any) {
+			mulY(v1, v1, t2, true)
+			mulY(t2, t2, t3, false)
+			mulY(v1, t2, v1, false)
+			mulY(v1, t3, v1, true)
+			// TODO: do it the following way.
+			// // t2.X() = b0 * b0
+			// // this is similar to the mulD macro
+			// // but since we only care about the mul result at [0],
+			// // we unroll and remove unnecessary code.
+			// f.VPMULUDQ(v1.X(), v1.X(), t0.X())
+			// f.VPMULUDQ(t0.X(), qInvNeg.X(), PL0.X())
+			// f.VPMULUDQ(PL0.X(), qd.X(), PL0.X())
+			// f.VPADDQ(t0.X(), PL0.X(), t0.X())
+			// f.VPSRLQ("$32", t0.X(), t2.X())
+
+			// // b0 = b0 * t2.X()
+			// f.VPMULUDQ(v1.X(), t2.X(), t0.X())
+			// f.VPMULUDQ(t0.X(), qInvNeg.X(), PL0.X())
+			// f.VPMULUDQ(PL0.X(), qd.X(), PL0.X())
+			// f.VPADDQ(t0.X(), PL0.X(), t0.X())
+			// f.VPSRLQ("$32", t0.X(), v1.X())
+			// f.VPSUBD(qd.X(), v1.X(), PL0.X())
+			// f.VPMINUD(v1.X(), PL0.X(), v1.X())
+		}, true)
+	default:
+		panic("only SBox degree 3 and 7 are supported")
 	}
 
 	sumState := f.Define("sum_state", 0, func(args ...any) {
@@ -317,27 +395,6 @@ func (f *FFAmd64) generatePoseidon2_24_F31(width int) {
 			matMulExternalInPlace()
 		})
 	}
-
-	sboxPartial := f.Define("sbox_partial", 0, func(args ...any) {
-		// t2.X() = b0 * b0
-		// this is similar to the mulD macro
-		// but since we only care about the mul result at [0],
-		// we unroll and remove unnecessary code.
-		f.VPMULUDQ(v1.X(), v1.X(), t0.X())
-		f.VPMULUDQ(t0.X(), qInvNeg.X(), PL0.X())
-		f.VPMULUDQ(PL0.X(), qd.X(), PL0.X())
-		f.VPADDQ(t0.X(), PL0.X(), t0.X())
-		f.VPSRLQ("$32", t0.X(), t2.X())
-
-		// b0 = b0 * t2.X()
-		f.VPMULUDQ(v1.X(), t2.X(), t0.X())
-		f.VPMULUDQ(t0.X(), qInvNeg.X(), PL0.X())
-		f.VPMULUDQ(PL0.X(), qd.X(), PL0.X())
-		f.VPADDQ(t0.X(), PL0.X(), t0.X())
-		f.VPSRLQ("$32", t0.X(), v1.X())
-		f.VPSUBD(qd.X(), v1.X(), PL0.X())
-		f.VPMINUD(v1.X(), PL0.X(), v1.X())
-	}, true)
 
 	partialRound := func() {
 		// load round keys
@@ -400,10 +457,6 @@ func (f *FFAmd64) generatePoseidon2_24_F31(width int) {
 			add(t3.Y(), acc.Y(), qd.Y(), v1.Y(), b1.Y())
 		}
 	}
-
-	const fullRounds = 6
-	const partialRounds = 21
-	const rf = fullRounds / 2
 
 	matMulExternalInPlace()
 
