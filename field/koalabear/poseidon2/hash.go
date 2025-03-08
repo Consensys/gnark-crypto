@@ -36,8 +36,8 @@ var GetDefaultParameters = sync.OnceValue(func() *Parameters {
 	// return NewParameters(24, 6, 21)
 })
 
-var diag16 [16]fr.Element
-var diag24 [24]fr.Element
+var diag16 []fr.Element = make([]fr.Element, 16)
+var diag24 []fr.Element = make([]fr.Element, 24)
 
 func init() {
 	// diagonal of internal matrix when Width=16

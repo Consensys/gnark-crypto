@@ -1,0 +1,15 @@
+import (
+	fr "{{ .FieldPackagePath }}"
+)
+
+// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+// used for Montgomery reduction
+const qInvNeg = {{.QInvNeg}}
+const q = {{.Q}}
+
+
+//go:noescape
+func permutation24_avx512(input []fr.Element, roundKeys [][]fr.Element)
+
+//go:noescape
+func permutation16_avx512(input []fr.Element, roundKeys [][]fr.Element)
