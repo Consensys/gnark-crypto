@@ -337,6 +337,7 @@ func GenerateF31SIS(w io.Writer, nbBits int) error {
 
 type Poseidon2Parameters struct {
 	Width, FullRounds, PartialRounds, SBoxDegree int
+	DiagInternal                                 []uint64
 }
 
 func GenerateF31Poseidon2(w io.Writer, nbBits int, params []Poseidon2Parameters) error {

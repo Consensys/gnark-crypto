@@ -26,16 +26,84 @@ func generatePoseidon2(F *config.Field, outputDir string) error {
 	}
 
 	type poseidon2TemplateData struct {
-		FF               string
-		FieldPackagePath string
-		F31              bool
-		Q, QInvNeg       uint64
+		FF                string
+		FieldPackagePath  string
+		F31               bool
+		Q, QInvNeg        uint64
+		ParamsCompression amd64.Poseidon2Parameters
+		ParamsSponge      amd64.Poseidon2Parameters
+		Params            []amd64.Poseidon2Parameters
 	}
 
 	data := &poseidon2TemplateData{
 		FF:               F.PackageName,
 		FieldPackagePath: fieldImportPath,
 		F31:              F.F31,
+	}
+	switch data.FF {
+	case "koalabear":
+		data.ParamsCompression = amd64.Poseidon2Parameters{
+			Width:         16,
+			FullRounds:    6,
+			PartialRounds: 21,
+			SBoxDegree:    3,
+			DiagInternal:  []uint64{2130706431, 1, 2, 1065353217, 3, 4, 1065353216, 2130706430, 2130706429, 2122383361, 1864368129, 2130706306, 8323072, 266338304, 133169152, 127},
+		}
+
+		data.ParamsSponge = amd64.Poseidon2Parameters{
+			Width:         24,
+			FullRounds:    6,
+			PartialRounds: 21,
+			SBoxDegree:    3,
+			DiagInternal:  []uint64{2130706431, 1, 2, 1065353217, 3, 4, 1065353216, 2130706430, 2130706429, 2122383361, 1598029825, 1864368129, 1997537281, 2064121857, 2097414145, 2130706306, 8323072, 266338304, 133169152, 66584576, 33292288, 16646144, 4161536, 127},
+		}
+
+		data.Params = []amd64.Poseidon2Parameters{
+			data.ParamsSponge,
+			data.ParamsCompression,
+		}
+	case "babybear":
+		data.ParamsCompression = amd64.Poseidon2Parameters{
+			Width:         16,
+			FullRounds:    6,
+			PartialRounds: 12,
+			SBoxDegree:    7,
+			DiagInternal:  []uint64{2013265919, 1, 2, 1006632961, 3, 4, 1006632960, 2013265918, 2013265917, 2005401601, 1509949441, 1761607681, 2013265906, 7864320, 125829120, 15},
+		}
+		data.ParamsSponge = amd64.Poseidon2Parameters{
+			Width:         24,
+			FullRounds:    6,
+			PartialRounds: 19,
+			SBoxDegree:    7,
+			DiagInternal:  []uint64{2013265919, 1, 2, 1006632961, 3, 4, 1006632960, 2013265918, 2013265917, 2005401601, 1509949441, 1761607681, 1887436801, 1997537281, 2009333761, 2013265906, 7864320, 503316480, 251658240, 125829120, 62914560, 31457280, 15728640, 15},
+		}
+		data.Params = []amd64.Poseidon2Parameters{
+			data.ParamsSponge,
+			data.ParamsCompression,
+		}
+	case "goldilocks":
+		data.ParamsCompression = amd64.Poseidon2Parameters{
+			Width:         8,
+			FullRounds:    6,
+			PartialRounds: 17,
+			SBoxDegree:    7,
+			// same as https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/goldilocks/src/poseidon2.rs#L54
+			DiagInternal: []uint64{0xa98811a1fed4e3a5, 0x1cc48b54f377e2a0, 0xe40cd4f6c5609a26, 0x11de79ebca97a4a3, 0x9177c73d8b7e929c, 0x2a6fe8085797e791, 0x3de6e93329f8d5ad, 0x3f7af9125da962fe},
+		}
+		data.ParamsSponge = amd64.Poseidon2Parameters{
+			Width:         12,
+			FullRounds:    6,
+			PartialRounds: 17,
+			SBoxDegree:    7,
+			// same as https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/goldilocks/src/poseidon2.rs#L65
+			DiagInternal: []uint64{0xc3b6c08e23ba9300, 0xd84b5de94a324fb6, 0x0d0c371c5b35b84f, 0x7964f570e7188037, 0x5daf18bbd996604b, 0x6743bc47b9595257, 0x5528b9362c59bb70, 0xac45e25b7127b68b, 0xa2077d7dfbb606b5, 0xf3faac6faee378ae, 0x0c6388b51545e883, 0xd27dbb6944917b60},
+		}
+		data.Params = []amd64.Poseidon2Parameters{
+			data.ParamsSponge,
+			data.ParamsCompression,
+		}
+	default:
+		panic("unknown field")
 	}
 
 	if data.F31 {
@@ -54,22 +122,7 @@ func generatePoseidon2(F *config.Field, outputDir string) error {
 
 		asmFile.WriteString("//go:build !purego\n")
 
-		var params []amd64.Poseidon2Parameters
-		if data.FF == "koalabear" {
-			params = []amd64.Poseidon2Parameters{
-				{Width: 24, FullRounds: 6, PartialRounds: 21, SBoxDegree: 3},
-				{Width: 16, FullRounds: 6, PartialRounds: 21, SBoxDegree: 3},
-			}
-		} else if data.FF == "babybear" {
-			params = []amd64.Poseidon2Parameters{
-				{Width: 24, FullRounds: 6, PartialRounds: 19, SBoxDegree: 7},
-				{Width: 16, FullRounds: 6, PartialRounds: 12, SBoxDegree: 7},
-			}
-		} else {
-			panic("not implemented")
-		}
-
-		if err := amd64.GenerateF31Poseidon2(asmFile, F.NbBits, params); err != nil {
+		if err := amd64.GenerateF31Poseidon2(asmFile, F.NbBits, data.Params); err != nil {
 			asmFile.Close()
 			return err
 		}

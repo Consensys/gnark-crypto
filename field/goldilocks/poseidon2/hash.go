@@ -33,38 +33,35 @@ func NewMerkleDamgardHasher() gnarkHash.StateStorer {
 //     - nbPartialRounds: 17
 var GetDefaultParameters = sync.OnceValue(func() *Parameters {
 	return NewParameters(8, 6, 17)
-	// return NewParameters(12, 6, 17)
 })
 
-var diag8 [8]fr.Element
-var diag12 [12]fr.Element
+var diag8 []fr.Element = make([]fr.Element, 8)
+var diag12 []fr.Element = make([]fr.Element, 12)
 
 func init() {
-	// diagonal of internal matrix when Width=8
-	// same as https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/goldilocks/src/poseidon2.rs#L54
-	diag8[0].SetUint64(0xa98811a1fed4e3a5)
-	diag8[1].SetUint64(0x1cc48b54f377e2a0)
-	diag8[2].SetUint64(0xe40cd4f6c5609a26)
-	diag8[3].SetUint64(0x11de79ebca97a4a3)
-	diag8[4].SetUint64(0x9177c73d8b7e929c)
-	diag8[5].SetUint64(0x2a6fe8085797e791)
-	diag8[6].SetUint64(0x3de6e93329f8d5ad)
-	diag8[7].SetUint64(0x3f7af9125da962fe)
+	// diagnoal diag8 for the internal diagonal of the matrix of the compression layer
+	diag8[0].SetUint64(12216033376705242021)
+	diag8[1].SetUint64(2072934925475504800)
+	diag8[2].SetUint64(16432743296706583078)
+	diag8[3].SetUint64(1287600597097751715)
+	diag8[4].SetUint64(10482065724875379356)
+	diag8[5].SetUint64(3057917794534811537)
+	diag8[6].SetUint64(4460508886913832365)
+	diag8[7].SetUint64(4574242228824269566)
 
-	// diagonal of internal matrix when Width=12
-	// same as https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/goldilocks/src/poseidon2.rs#L65
-	diag12[0].SetUint64(0xc3b6c08e23ba9300)
-	diag12[1].SetUint64(0xd84b5de94a324fb6)
-	diag12[2].SetUint64(0x0d0c371c5b35b84f)
-	diag12[3].SetUint64(0x7964f570e7188037)
-	diag12[4].SetUint64(0x5daf18bbd996604b)
-	diag12[5].SetUint64(0x6743bc47b9595257)
-	diag12[6].SetUint64(0x5528b9362c59bb70)
-	diag12[7].SetUint64(0xac45e25b7127b68b)
-	diag12[8].SetUint64(0xa2077d7dfbb606b5)
-	diag12[9].SetUint64(0xf3faac6faee378ae)
-	diag12[10].SetUint64(0x0c6388b51545e883)
-	diag12[11].SetUint64(0xd27dbb6944917b60)
+	// diagnoal diag12 for the internal diagonal of the matrix of the sponge layer
+	diag12[0].SetUint64(14102670999874605824)
+	diag12[1].SetUint64(15585654191999307702)
+	diag12[2].SetUint64(940187017142450255)
+	diag12[3].SetUint64(8747386241522630711)
+	diag12[4].SetUint64(6750641561540124747)
+	diag12[5].SetUint64(7440998025584530007)
+	diag12[6].SetUint64(6136358134615751536)
+	diag12[7].SetUint64(12413576830284969611)
+	diag12[8].SetUint64(11675438539028694709)
+	diag12[9].SetUint64(17580553691069642926)
+	diag12[10].SetUint64(892707462476851331)
+	diag12[11].SetUint64(15167485180850043744)
 
 	gnarkHash.RegisterHash(gnarkHash.POSEIDON2_GOLDILOCKS, func() hash.Hash {
 		return NewMerkleDamgardHasher()
