@@ -39,7 +39,7 @@ var diag16 []fr.Element = make([]fr.Element, 16)
 var diag24 []fr.Element = make([]fr.Element, 24)
 
 func init() {
-	// diagnoal diag16 for the internal diagonal of the matrix of the compression layer
+	// diagonal diag16 for the internal diagonal of the matrix of the compression layer
 	diag16[0].SetUint64(2013265919)
 	diag16[1].SetUint64(1)
 	diag16[2].SetUint64(2)
@@ -57,7 +57,7 @@ func init() {
 	diag16[14].SetUint64(125829120)
 	diag16[15].SetUint64(15)
 
-	// diagnoal diag24 for the internal diagonal of the matrix of the sponge layer
+	// diagonal diag24 for the internal diagonal of the matrix of the sponge layer
 	diag24[0].SetUint64(2013265919)
 	diag24[1].SetUint64(1)
 	diag24[2].SetUint64(2)

@@ -35,14 +35,14 @@ var diag{{- $w0}} []fr.Element = make([]fr.Element, {{- $w0}})
 var diag{{- $w1}} []fr.Element = make([]fr.Element, {{- $w1}})
 
 func init() {
-	// diagnoal diag{{- $w0}} for the internal diagonal of the matrix of the compression layer
+	// diagonal diag{{- $w0}} for the internal diagonal of the matrix of the compression layer
 	{{- $i := 0}}
 	{{- range $d := .ParamsCompression.DiagInternal}}
 	diag{{$w0}}[{{$i}}].SetUint64({{$d}})
 	{{- $i = add $i 1}}
 	{{- end}}
 
-	// diagnoal diag{{- $w1}} for the internal diagonal of the matrix of the sponge layer
+	// diagonal diag{{- $w1}} for the internal diagonal of the matrix of the sponge layer
 	{{- $i = 0}}
 	{{- range $d := .ParamsSponge.DiagInternal}}
 	diag{{$w1}}[{{$i}}].SetUint64({{$d}})
