@@ -13,12 +13,13 @@ import (
 
 func TestMulMulInternalInPlaceWidth16(t *testing.T) {
 	var input, expected [16]fr.Element
-	for i := 0; i < 16; i++ {
+	for i := range input {
 		input[i].SetRandom()
 	}
 
 	expected = input
-	h := NewPermutation(16, 6, 12)
+
+	h := NewPermutation(16, 8, 13)
 	h.matMulInternalInPlace(expected[:])
 
 	var sum fr.Element
@@ -30,19 +31,20 @@ func TestMulMulInternalInPlaceWidth16(t *testing.T) {
 		input[i].Mul(&input[i], &diag16[i]).
 			Add(&input[i], &sum)
 		if !input[i].Equal(&expected[i]) {
-			t.Fatal("mismatch error")
+			t.Fatal("mat mul internal w/ diagonal doesn't match hand calculated")
 		}
 	}
 }
 
 func TestMulMulInternalInPlaceWidth24(t *testing.T) {
 	var input, expected [24]fr.Element
-	for i := 0; i < 24; i++ {
+	for i := range input {
 		input[i].SetRandom()
 	}
 
 	expected = input
-	h := NewPermutation(24, 6, 19)
+
+	h := NewPermutation(24, 8, 21)
 	h.matMulInternalInPlace(expected[:])
 
 	var sum fr.Element
@@ -54,7 +56,7 @@ func TestMulMulInternalInPlaceWidth24(t *testing.T) {
 		input[i].Mul(&input[i], &diag24[i]).
 			Add(&input[i], &sum)
 		if !input[i].Equal(&expected[i]) {
-			t.Fatal("mismatch error")
+			t.Fatal("mat mul internal w/ diagonal doesn't match hand calculated")
 		}
 	}
 }
@@ -167,12 +169,11 @@ func TestPoseidon2Width24(t *testing.T) {
 	}
 }
 
-// bench
 func BenchmarkPoseidon2Width16(b *testing.B) {
-	h := NewPermutation(16, 6, 12)
+	h := NewPermutation(16, 8, 13)
 
 	var tmp [16]fr.Element
-	for i := 0; i < 16; i++ {
+	for i := range tmp {
 		tmp[i].SetRandom()
 	}
 	b.ResetTimer()
@@ -182,9 +183,10 @@ func BenchmarkPoseidon2Width16(b *testing.B) {
 }
 
 func BenchmarkPoseidon2Width24(b *testing.B) {
-	h := NewPermutation(24, 6, 19)
+	h := NewPermutation(24, 8, 21)
+
 	var tmp [24]fr.Element
-	for i := 0; i < 24; i++ {
+	for i := range tmp {
 		tmp[i].SetRandom()
 	}
 	b.ResetTimer()

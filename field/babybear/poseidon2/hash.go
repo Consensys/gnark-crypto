@@ -24,15 +24,15 @@ func NewMerkleDamgardHasher() gnarkHash.StateStorer {
 //
 //  1. for compression:
 //     - width: 16
-//     - nbFullRounds: 6
-//     - nbPartialRounds: 12
+//     - nbFullRounds: 8
+//     - nbPartialRounds: 13
 //
 //  2. for sponge:
 //     - width: 24
-//     - nbFullRounds: 6
-//     - nbPartialRounds: 19
+//     - nbFullRounds: 8
+//     - nbPartialRounds: 21
 var GetDefaultParameters = sync.OnceValue(func() *Parameters {
-	return NewParameters(16, 6, 12)
+	return NewParameters(16, 8, 13)
 })
 
 var diag16 []fr.Element = make([]fr.Element, 16)
