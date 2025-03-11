@@ -19,6 +19,7 @@ func generatePoseidon2(F *config.Field, outputDir string) error {
 	entries := []bavard.Entry{
 		{File: filepath.Join(outputDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
 		{File: filepath.Join(outputDir, "poseidon2.go"), Templates: []string{"poseidon2.go.tmpl"}},
+		{File: filepath.Join(outputDir, "poseidon2_test.go"), Templates: []string{"poseidon2_test.go.tmpl"}},
 		{File: filepath.Join(outputDir, "hash.go"), Templates: []string{"hash.go.tmpl"}},
 	}
 
