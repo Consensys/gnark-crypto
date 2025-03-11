@@ -18,7 +18,7 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
-func TestG2AffineEndomorphism(t *testing.T) {
+func TestG2Endomorphism(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -60,7 +60,7 @@ func TestG2AffineEndomorphism(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG2AffineIsOnCurve(t *testing.T) {
+func TestIsOnG2(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -109,7 +109,7 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG2AffineConversions(t *testing.T) {
+func TestG2Conversions(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -469,7 +469,7 @@ func TestG2AffineOps(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG2AffineCofactorCleaning(t *testing.T) {
+func TestG2CofactorClearing(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -508,7 +508,7 @@ func TestG2AffineCofactorCleaning(t *testing.T) {
 
 }
 
-func TestG2AffineBatchScalarMultiplication(t *testing.T) {
+func TestG2BatchScalarMultiplication(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {

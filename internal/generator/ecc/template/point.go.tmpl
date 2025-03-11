@@ -810,6 +810,51 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 {{- end}}
 
 
+{{- if eq .Name "bls12-381"}}
+    {{- if eq .PointName "g1" }}
+func GeneratePointNotIn{{ toUpper .PointName}}(f {{ .CoordType}}) {{ $TJacobian }} {
+	var res, jac {{ $TJacobian }}
+	aff := MapToCurve1(&f)
+	g1Isogeny(&aff)
+	jac.FromAffine(&aff)
+    // p+x²ϕ(p) = [r]p
+	res.phi(&jac).
+		mulBySeed(&res).
+		mulBySeed(&res).
+		AddAssign(&jac)
+    {{- else}}
+func GeneratePointNotIn{{ toUpper .PointName}}(f E2) {{ $TJacobian }} {
+	var res, jac {{ $TJacobian }}
+	aff := MapToCurve2(&f)
+	g2Isogeny(&aff)
+	jac.FromAffine(&aff)
+    // ψ(p)-[x₀]P = [r]p
+	res.mulBySeed(&jac)
+	jac.psi(&jac)
+    res.AddAssign(&jac)
+    {{- end}}
+	return res
+}
+{{- else if and (eq .Name "bn254") (eq .PointName "g2")}}
+func GeneratePointNotIn{{ toUpper .PointName}}(f E2) {{ $TJacobian }} {
+	var res, jac, a, b, c {{ $TJacobian }}
+   	aff := MapToCurve2(&f)
+	jac.FromAffine(&aff)
+    // [x₀+1]P + ψ([x₀]P) + ψ²([x₀]P) - ψ³([2x₀]P) = [r]P
+	a.mulBySeed(&jac)
+	b.psi(&a)
+	a.AddAssign(&jac)
+	res.psi(&b)
+	c.Set(&res).
+		AddAssign(&b).
+		AddAssign(&a)
+	res.psi(&res).
+		Double(&res).
+        SubAssign(&c)
+	return res
+}
+{{- end}}
+
 // mulWindowed computes the 2-bits windowed double-and-add scalar
 // multiplication p=[s]q in Jacobian coordinates.
 func (p *{{ $TJacobian }}) mulWindowed(q *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
