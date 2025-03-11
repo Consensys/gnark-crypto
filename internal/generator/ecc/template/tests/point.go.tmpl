@@ -975,10 +975,6 @@ func fuzzCofactorOf{{ toUpper .PointName}}(f {{ .CoordType}}) {{ $TJacobian }} {
 	return res
 }
 
-func GeneratePointNotIn{{ toUpper .PointName}}(f {{ .CoordType}}) {{ $TJacobian }} {
-	return fuzzCofactorOf{{ toUpper .PointName}}(f)
-}
-
 {{- else if and (eq .Name "bn254") (eq .PointName "g2")}}
 func fuzzCofactorOf{{ toUpper .PointName}}(f {{ .CoordType}}) {{ $TJacobian }} {
 	var res, jac, a, b, c {{ $TJacobian }}

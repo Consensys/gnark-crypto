@@ -872,10 +872,6 @@ func fuzzCofactorOfG1(f fp.Element) G1Jac {
 	return res
 }
 
-func GeneratePointNotInG1(f fp.Element) G1Jac {
-	return fuzzCofactorOfG1(f)
-}
-
 func fuzzG1Jac(p *G1Jac, f fp.Element) G1Jac {
 	var res G1Jac
 	res.X.Mul(&p.X, &f).Mul(&res.X, &f)

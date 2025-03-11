@@ -860,10 +860,6 @@ func fuzzCofactorOfG2(f fptower.E2) G2Jac {
 	return res
 }
 
-func GeneratePointNotInG2(f fptower.E2) G2Jac {
-	return fuzzCofactorOfG2(f)
-}
-
 func fuzzG2Jac(p *G2Jac, f fptower.E2) G2Jac {
 	var res G2Jac
 	res.X.Mul(&p.X, &f).Mul(&res.X, &f)
