@@ -12,163 +12,44 @@ func NewMerkleDamgardHasher() gnarkHash.StateStorer {
 		&Permutation{GetDefaultParameters()}, make([]byte, fr.Bytes))
 }
 
-{{ $widthCompression := 16 }}
-{{ $widthSponge := 24 }}
-{{ $nbPartialCompression := 12 }}
-{{ $nbPartialSponge := 19 }}
-
-{{ if eq .FF "goldilocks" }} {{ $widthCompression = 8}} {{$widthSponge = 12}} {{ $nbPartialCompression = 17 }} {{$nbPartialSponge = 17}} {{ end }}
-{{ if eq .FF "koalabear" }} {{ $nbPartialCompression = 21 }} {{ $nbPartialSponge = 21 }} {{ end }}
-
-
 // GetDefaultParameters returns a set of parameters for the Poseidon2 permutation.
 // The default parameters are,
 //
 //  1. for compression:
-//     - width: {{$widthCompression}}
-//     - nbFullRounds: 6
-//     - nbPartialRounds: {{$nbPartialCompression}}
+//     - width: {{.ParamsCompression.Width}}
+//     - nbFullRounds: {{.ParamsCompression.FullRounds}}
+//     - nbPartialRounds: {{.ParamsCompression.PartialRounds}}
 //
 //  2. for sponge:
-//     - width: {{$widthSponge}}
-//     - nbFullRounds: 6
-//     - nbPartialRounds: {{$nbPartialSponge}}
+//     - width: {{.ParamsSponge.Width}}
+//     - nbFullRounds: {{.ParamsSponge.FullRounds}}
+//     - nbPartialRounds: {{.ParamsSponge.PartialRounds}}
 var GetDefaultParameters = sync.OnceValue(func() *Parameters {
-	return NewParameters({{$widthCompression}}, 6, {{$nbPartialCompression}})
-	// return NewParameters({{$widthSponge}}, 6, {{$nbPartialSponge}})
+	return NewParameters({{.ParamsCompression.Width}}, {{.ParamsCompression.FullRounds}}, {{.ParamsCompression.PartialRounds}})
 })
 
-{{ if eq .FF "babybear" }}
-var diag16 []fr.Element = make([]fr.Element, 16)
-var diag24 []fr.Element = make([]fr.Element, 24)
+{{- $w0 := .ParamsCompression.Width}}
+{{- $w1 := .ParamsSponge.Width}}
+
+var diag{{- $w0}} []fr.Element = make([]fr.Element, {{- $w0}})
+var diag{{- $w1}} []fr.Element = make([]fr.Element, {{- $w1}})
 
 func init() {
-	// diagonal of internal matrix when Width=16
-	diag16[0].SetUint64(2013265919)
-	diag16[1].SetUint64(1)
-	diag16[2].SetUint64(2)
-	diag16[3].SetUint64(1006632961)
-	diag16[4].SetUint64(3)
-	diag16[5].SetUint64(4)
-	diag16[6].SetUint64(1006632960)
-	diag16[7].SetUint64(2013265918)
-	diag16[8].SetUint64(2013265917)
-	diag16[9].SetUint64(2005401601)
-	diag16[10].SetUint64(1509949441)
-	diag16[11].SetUint64(1761607681)
-	diag16[12].SetUint64(2013265906)
-	diag16[13].SetUint64(7864320)
-	diag16[14].SetUint64(125829120)
-	diag16[15].SetUint64(15)
+	// diagonal diag{{- $w0}} for the internal diagonal of the matrix of the compression layer
+	// (from https://github.com/Plonky3/Plonky3 )
+	{{- $i := 0}}
+	{{- range $d := .ParamsCompression.DiagInternal}}
+	diag{{$w0}}[{{$i}}].SetUint64({{$d}})
+	{{- $i = add $i 1}}
+	{{- end}}
 
-	// diagonal of internal matrix when Width=24
-	diag24[0].SetUint64(2013265919)
-	diag24[1].SetUint64(1)
-	diag24[2].SetUint64(2)
-	diag24[3].SetUint64(1006632961)
-	diag24[4].SetUint64(3)
-	diag24[5].SetUint64(4)
-	diag24[6].SetUint64(1006632960)
-	diag24[7].SetUint64(2013265918)
-	diag24[8].SetUint64(2013265917)
-	diag24[9].SetUint64(2005401601)
-	diag24[10].SetUint64(1509949441)
-	diag24[11].SetUint64(1761607681)
-	diag24[12].SetUint64(1887436801)
-	diag24[13].SetUint64(1997537281)
-	diag24[14].SetUint64(2009333761)
-	diag24[15].SetUint64(2013265906)
-	diag24[16].SetUint64(7864320)
-	diag24[17].SetUint64(503316480)
-	diag24[18].SetUint64(251658240)
-	diag24[19].SetUint64(125829120)
-	diag24[20].SetUint64(62914560)
-	diag24[21].SetUint64(31457280)
-	diag24[22].SetUint64(15728640)
-	diag24[23].SetUint64(15)
-{{ end }}
-
-{{ if eq .FF "koalabear" }}
-var diag16 []fr.Element = make([]fr.Element, 16)
-var diag24 []fr.Element = make([]fr.Element, 24)
-
-func init() {
-	// diagonal of internal matrix when Width=16
-	diag16[0].SetUint64(2130706431)
-	diag16[1].SetUint64(1)
-	diag16[2].SetUint64(2)
-	diag16[3].SetUint64(1065353217)
-	diag16[4].SetUint64(3)
-	diag16[5].SetUint64(4)
-	diag16[6].SetUint64(1065353216)
-	diag16[7].SetUint64(2130706430)
-	diag16[8].SetUint64(2130706429)
-	diag16[9].SetUint64(2122383361)
-	diag16[10].SetUint64(1864368129)
-	diag16[11].SetUint64(2130706306)
-	diag16[12].SetUint64(8323072)
-	diag16[13].SetUint64(266338304)
-	diag16[14].SetUint64(133169152)
-	diag16[15].SetUint64(127)
-
-	// diagonal of internal matrix when Width=24
-	diag24[0].SetUint64(2130706431)
-	diag24[1].SetUint64(1)
-	diag24[2].SetUint64(2)
-	diag24[3].SetUint64(1065353217)
-	diag24[4].SetUint64(3)
-	diag24[5].SetUint64(4)
-	diag24[6].SetUint64(1065353216)
-	diag24[7].SetUint64(2130706430)
-	diag24[8].SetUint64(2130706429)
-	diag24[9].SetUint64(2122383361)
-	diag24[10].SetUint64(1598029825)
-	diag24[11].SetUint64(1864368129)
-	diag24[12].SetUint64(1997537281)
-	diag24[13].SetUint64(2064121857)
-	diag24[14].SetUint64(2097414145)
-	diag24[15].SetUint64(2130706306)
-	diag24[16].SetUint64(8323072)
-	diag24[17].SetUint64(266338304)
-	diag24[18].SetUint64(133169152)
-	diag24[19].SetUint64(66584576)
-	diag24[20].SetUint64(33292288)
-	diag24[21].SetUint64(16646144)
-	diag24[22].SetUint64(4161536)
-	diag24[23].SetUint64(127)
-{{ end }}
-
-{{ if eq .FF "goldilocks" }}
-var diag8 [8]fr.Element
-var diag12 [12]fr.Element
-
-func init() {
-	// diagonal of internal matrix when Width=8
-	// same as https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/goldilocks/src/poseidon2.rs#L54
-	diag8[0].SetUint64(0xa98811a1fed4e3a5)
-	diag8[1].SetUint64(0x1cc48b54f377e2a0)
-	diag8[2].SetUint64(0xe40cd4f6c5609a26)
-	diag8[3].SetUint64(0x11de79ebca97a4a3)
-	diag8[4].SetUint64(0x9177c73d8b7e929c)
-	diag8[5].SetUint64(0x2a6fe8085797e791)
-	diag8[6].SetUint64(0x3de6e93329f8d5ad)
-	diag8[7].SetUint64(0x3f7af9125da962fe)
-
-	// diagonal of internal matrix when Width=12
-	// same as https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/goldilocks/src/poseidon2.rs#L65
-	diag12[0].SetUint64(0xc3b6c08e23ba9300)
-	diag12[1].SetUint64(0xd84b5de94a324fb6)
-	diag12[2].SetUint64(0x0d0c371c5b35b84f)
-	diag12[3].SetUint64(0x7964f570e7188037)
-	diag12[4].SetUint64(0x5daf18bbd996604b)
-	diag12[5].SetUint64(0x6743bc47b9595257)
-	diag12[6].SetUint64(0x5528b9362c59bb70)
-	diag12[7].SetUint64(0xac45e25b7127b68b)
-	diag12[8].SetUint64(0xa2077d7dfbb606b5)
-	diag12[9].SetUint64(0xf3faac6faee378ae)
-	diag12[10].SetUint64(0x0c6388b51545e883)
-	diag12[11].SetUint64(0xd27dbb6944917b60)
-{{ end }}
+	// diagonal diag{{- $w1}} for the internal diagonal of the matrix of the sponge layer
+	// (from https://github.com/Plonky3/Plonky3 )
+	{{- $i = 0}}
+	{{- range $d := .ParamsSponge.DiagInternal}}
+	diag{{$w1}}[{{$i}}].SetUint64({{$d}})
+	{{- $i = add $i 1}}
+	{{- end}}
 
 	gnarkHash.RegisterHash(gnarkHash.POSEIDON2_{{toUpper .FF }}, func() hash.Hash {
 		return NewMerkleDamgardHasher()

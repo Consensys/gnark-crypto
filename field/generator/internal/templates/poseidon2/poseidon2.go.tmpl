@@ -14,6 +14,14 @@ import (
 	{{- end}}
 )
 
+{{- $wc := .ParamsCompression.Width}}
+{{- $fc := .ParamsCompression.FullRounds}}
+{{- $pc := .ParamsCompression.PartialRounds}}
+{{- $ws := .ParamsSponge.Width}}
+{{- $fs := .ParamsSponge.FullRounds}}
+{{- $ps := .ParamsSponge.PartialRounds}}
+
+
 var (
 	ErrInvalidSizebuffer = errors.New("the size of the input should match the size of the hash buffer")
 )
@@ -49,15 +57,10 @@ type Parameters struct {
 	// derived round keys from the parameter seed and curve ID
 	RoundKeys [][]fr.Element
 
-	{{- if eq .FF "koalabear"}}
+	{{- if .F31}}
 	// indicates if we have a fast path (avx512)
-	hasFast24_6_21 bool
-	hasFast16_6_21 bool
-	{{- end}}
-	{{- if eq .FF "babybear"}}
-	// indicates if we have a fast path (avx512)
-	hasFast24_6_12 bool
-	hasFast16_6_19 bool
+	hasFast{{- $wc}}_{{- $fc}}_{{- $pc}} bool
+	hasFast{{- $ws}}_{{- $fs}}_{{- $ps}} bool
 	{{- end}}
 }
 
@@ -66,13 +69,9 @@ type Parameters struct {
 // from the seed which is a digest of the parameters and curve ID.
 func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
-	{{- if eq .FF "koalabear"}}
-	p.hasFast24_6_21 = width == 24 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
-	p.hasFast16_6_21 = width == 16 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
-	{{- end}}
-	{{- if eq .FF "babybear"}}
-	p.hasFast24_6_12 = width == 24 && nbFullRounds == 6 && nbPartialRounds == 19 && cpu.SupportAVX512
-	p.hasFast16_6_19 = width == 16 && nbFullRounds == 6 && nbPartialRounds == 12 && cpu.SupportAVX512
+	{{- if .F31}}
+	p.hasFast{{- $wc}}_{{- $fc}}_{{- $pc}} = width == {{- $wc}} && nbFullRounds == {{- $fc}} && nbPartialRounds == {{- $pc}} && cpu.SupportAVX512
+	p.hasFast{{- $ws}}_{{- $fs}}_{{- $ps}} = width == {{- $ws}} && nbFullRounds == {{- $fs}} && nbPartialRounds == {{- $ps}} && cpu.SupportAVX512
 	{{- end}}
 	seed := p.String()
 	p.initRC(seed)
@@ -84,13 +83,9 @@ func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 // from the given seed.
 func NewParametersWithSeed(width, nbFullRounds, nbPartialRounds int, seed string) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
-	{{- if eq .FF "koalabear"}}
-	p.hasFast24_6_21 = width == 24 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
-	p.hasFast16_6_21 = width == 16 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
-	{{- end}}
-	{{- if eq .FF "babybear"}}
-	p.hasFast24_6_12 = width == 24 && nbFullRounds == 6 && nbPartialRounds == 12 && cpu.SupportAVX512
-	p.hasFast16_6_19 = width == 16 && nbFullRounds == 6 && nbPartialRounds == 19 && cpu.SupportAVX512
+	{{- if .F31}}
+	p.hasFast{{- $wc}}_{{- $fc}}_{{- $pc}} = width == {{- $wc}} && nbFullRounds == {{- $fc}} && nbPartialRounds == {{- $pc}} && cpu.SupportAVX512
+	p.hasFast{{- $ws}}_{{- $fs}}_{{- $ps}} = width == {{- $ws}} && nbFullRounds == {{- $fs}} && nbPartialRounds == {{- $ps}} && cpu.SupportAVX512
 	{{- end}}
 	p.initRC(seed)
 	return &p
@@ -462,24 +457,14 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 	if len(input) != h.params.Width {
 		return ErrInvalidSizebuffer
 	}
-
-	{{- if eq .FF "koalabear"}}
-	if h.params.hasFast24_6_21 {
-		permutation24_avx512(input, h.params.RoundKeys)
-		return nil
-	}
-	if h.params.hasFast16_6_21 {
+	
+	{{- if .F31}}
+	if h.params.hasFast{{- $wc}}_{{- $fc}}_{{- $pc}} {
 		permutation16_avx512(input, h.params.RoundKeys)
 		return nil
 	}
-	{{- end}}
-	{{- if eq .FF "babybear"}}
-	if h.params.hasFast24_6_12 {
+	if h.params.hasFast{{- $ws}}_{{- $fs}}_{{- $ps}} {
 		permutation24_avx512(input, h.params.RoundKeys)
-		return nil
-	}
-	if h.params.hasFast16_6_19 {
-		permutation16_avx512(input, h.params.RoundKeys)
 		return nil
 	}
 	{{- end}}

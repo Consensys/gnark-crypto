@@ -24,23 +24,23 @@ func NewMerkleDamgardHasher() gnarkHash.StateStorer {
 //
 //  1. for compression:
 //     - width: 16
-//     - nbFullRounds: 6
-//     - nbPartialRounds: 12
+//     - nbFullRounds: 8
+//     - nbPartialRounds: 13
 //
 //  2. for sponge:
 //     - width: 24
-//     - nbFullRounds: 6
-//     - nbPartialRounds: 19
+//     - nbFullRounds: 8
+//     - nbPartialRounds: 21
 var GetDefaultParameters = sync.OnceValue(func() *Parameters {
-	return NewParameters(16, 6, 12)
-	// return NewParameters(24, 6, 19)
+	return NewParameters(16, 8, 13)
 })
 
 var diag16 []fr.Element = make([]fr.Element, 16)
 var diag24 []fr.Element = make([]fr.Element, 24)
 
 func init() {
-	// diagonal of internal matrix when Width=16
+	// diagonal diag16 for the internal diagonal of the matrix of the compression layer
+	// (from https://github.com/Plonky3/Plonky3 )
 	diag16[0].SetUint64(2013265919)
 	diag16[1].SetUint64(1)
 	diag16[2].SetUint64(2)
@@ -58,7 +58,8 @@ func init() {
 	diag16[14].SetUint64(125829120)
 	diag16[15].SetUint64(15)
 
-	// diagonal of internal matrix when Width=24
+	// diagonal diag24 for the internal diagonal of the matrix of the sponge layer
+	// (from https://github.com/Plonky3/Plonky3 )
 	diag24[0].SetUint64(2013265919)
 	diag24[1].SetUint64(1)
 	diag24[2].SetUint64(2)

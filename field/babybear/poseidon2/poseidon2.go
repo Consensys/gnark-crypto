@@ -49,8 +49,8 @@ type Parameters struct {
 	// derived round keys from the parameter seed and curve ID
 	RoundKeys [][]fr.Element
 	// indicates if we have a fast path (avx512)
-	hasFast24_6_12 bool
-	hasFast16_6_19 bool
+	hasFast16_8_13 bool
+	hasFast24_8_21 bool
 }
 
 // NewParameters returns a new set of parameters for the Poseidon2 permutation.
@@ -58,8 +58,8 @@ type Parameters struct {
 // from the seed which is a digest of the parameters and curve ID.
 func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
-	p.hasFast24_6_12 = width == 24 && nbFullRounds == 6 && nbPartialRounds == 19 && cpu.SupportAVX512
-	p.hasFast16_6_19 = width == 16 && nbFullRounds == 6 && nbPartialRounds == 12 && cpu.SupportAVX512
+	p.hasFast16_8_13 = width == 16 && nbFullRounds == 8 && nbPartialRounds == 13 && cpu.SupportAVX512
+	p.hasFast24_8_21 = width == 24 && nbFullRounds == 8 && nbPartialRounds == 21 && cpu.SupportAVX512
 	seed := p.String()
 	p.initRC(seed)
 	return &p
@@ -70,8 +70,8 @@ func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 // from the given seed.
 func NewParametersWithSeed(width, nbFullRounds, nbPartialRounds int, seed string) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
-	p.hasFast24_6_12 = width == 24 && nbFullRounds == 6 && nbPartialRounds == 12 && cpu.SupportAVX512
-	p.hasFast16_6_19 = width == 16 && nbFullRounds == 6 && nbPartialRounds == 19 && cpu.SupportAVX512
+	p.hasFast16_8_13 = width == 16 && nbFullRounds == 8 && nbPartialRounds == 13 && cpu.SupportAVX512
+	p.hasFast24_8_21 = width == 24 && nbFullRounds == 8 && nbPartialRounds == 21 && cpu.SupportAVX512
 	p.initRC(seed)
 	return &p
 }
@@ -301,12 +301,12 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 	if len(input) != h.params.Width {
 		return ErrInvalidSizebuffer
 	}
-	if h.params.hasFast24_6_12 {
-		permutation24_avx512(input, h.params.RoundKeys)
+	if h.params.hasFast16_8_13 {
+		permutation16_avx512(input, h.params.RoundKeys)
 		return nil
 	}
-	if h.params.hasFast16_6_19 {
-		permutation16_avx512(input, h.params.RoundKeys)
+	if h.params.hasFast24_8_21 {
+		permutation24_avx512(input, h.params.RoundKeys)
 		return nil
 	}
 

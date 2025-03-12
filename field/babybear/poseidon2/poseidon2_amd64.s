@@ -121,11 +121,13 @@ TEXT ·permutation24_avx512(SB), NOSPLIT, $0-48
 	FULL_ROUND()
 	MOVQ 48(R14), BX
 	FULL_ROUND()
+	MOVQ 72(R14), BX
+	FULL_ROUND()
 
 	// loop over the partial rounds
-	MOVQ $0x0000000000000013, SI // nb partial rounds --> 19
+	MOVQ $0x0000000000000015, SI // nb partial rounds --> 21
 	MOVQ R14, DI
-	ADDQ $0x0000000000000048, DI
+	ADDQ $0x0000000000000060, DI
 
 loop_1:
 	TESTQ     SI, SI
@@ -168,11 +170,13 @@ loop_1:
 	JMP       loop_1
 
 done_2:
-	MOVQ      528(R14), BX
+	MOVQ      600(R14), BX
 	FULL_ROUND()
-	MOVQ      552(R14), BX
+	MOVQ      624(R14), BX
 	FULL_ROUND()
-	MOVQ      576(R14), BX
+	MOVQ      648(R14), BX
+	FULL_ROUND()
+	MOVQ      672(R14), BX
 	FULL_ROUND()
 	VMOVDQU32 Z2, 0(R15)
 	VMOVDQU32 Y3, 64(R15)
@@ -235,11 +239,13 @@ TEXT ·permutation16_avx512(SB), NOSPLIT, $0-48
 	FULL_ROUND_16()
 	MOVQ 48(R14), BX
 	FULL_ROUND_16()
+	MOVQ 72(R14), BX
+	FULL_ROUND_16()
 
 	// loop over the partial rounds
-	MOVQ $0x000000000000000c, SI // nb partial rounds --> 12
+	MOVQ $0x000000000000000d, SI // nb partial rounds --> 13
 	MOVQ R14, DI
-	ADDQ $0x0000000000000048, DI
+	ADDQ $0x0000000000000060, DI
 
 loop_3:
 	TESTQ     SI, SI
@@ -269,11 +275,13 @@ loop_3:
 	JMP       loop_3
 
 done_4:
-	MOVQ      360(R14), BX
-	FULL_ROUND_16()
-	MOVQ      384(R14), BX
-	FULL_ROUND_16()
 	MOVQ      408(R14), BX
+	FULL_ROUND_16()
+	MOVQ      432(R14), BX
+	FULL_ROUND_16()
+	MOVQ      456(R14), BX
+	FULL_ROUND_16()
+	MOVQ      480(R14), BX
 	FULL_ROUND_16()
 	VMOVDQU32 Z2, 0(R15)
 	RET
