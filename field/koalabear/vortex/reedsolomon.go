@@ -12,22 +12,12 @@ import (
 // The function checks that:
 //   - the input argument has the right size
 func (p *Params) EncodeReedSolomon(input []koalabear.Element) ([]koalabear.Element, error) {
-
-	codeword := make([]koalabear.Element, p.NbEncodedColumns())
-
 	if len(input) != p.NbColumns {
 		return nil, fmt.Errorf("expected %d input values, got %d", p.NbColumns, len(input))
 	}
 
-	if len(codeword) != p.NbEncodedColumns() {
-		return nil, fmt.Errorf("expected %d codeword values, got %v", p.NbColumns*p.ReedSolomonInvRate, len(codeword))
-	}
-
+	codeword := make([]koalabear.Element, p.NbEncodedColumns())
 	copy(codeword, input)
-
-	for i := p.NbColumns; i < p.NbEncodedColumns(); i++ {
-		codeword[i].SetZero()
-	}
 
 	p.Domains[0].FFTInverse(codeword[:p.NbColumns], fft.DIF)
 	fft.BitReverse(codeword[:p.NbColumns])

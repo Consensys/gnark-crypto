@@ -147,8 +147,8 @@ func runTest(t *testing.T, tc *testcaseVortex) {
 func BenchmarkVortexReal(b *testing.B) {
 
 	var (
-		numCol             = 1 << 15 // 1 << 19
-		numRow             = 1 << 8  // 1 << 11
+		numCol             = 1 << 19
+		numRow             = 1 << 11
 		invRate            = 2
 		numSelectedColumns = 256
 		wg                 sync.WaitGroup
@@ -200,22 +200,24 @@ func BenchmarkVortexReal(b *testing.B) {
 			}
 		}
 	})
+	_ = proverState
+	_ = alpha
 
-	b.Run("opening-alpha", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			proverState.OpenLinComb(alpha)
-		}
-	})
+	// b.Run("opening-alpha", func(b *testing.B) {
+	// 	b.ResetTimer()
+	// 	for i := 0; i < b.N; i++ {
+	// 		proverState.OpenLinComb(alpha)
+	// 	}
+	// })
 
-	b.Run("opening-columns", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, err := proverState.OpenColumns(selectedColumns)
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
+	// b.Run("opening-columns", func(b *testing.B) {
+	// 	b.ResetTimer()
+	// 	for i := 0; i < b.N; i++ {
+	// 		_, err := proverState.OpenColumns(selectedColumns)
+	// 		if err != nil {
+	// 			b.Fatal(err)
+	// 		}
+	// 	}
+	// })
 
 }
