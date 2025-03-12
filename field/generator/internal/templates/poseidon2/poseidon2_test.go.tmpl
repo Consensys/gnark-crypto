@@ -2,6 +2,12 @@ import (
 	"testing"
 
 	fr "{{ .FieldPackagePath }}"
+
+	{{- if .F31}}
+	"github.com/consensys/gnark-crypto/utils/cpu"
+	{{- end}}
+
+	"github.com/stretchr/testify/require"
 )
 
 {{- $w0 := .ParamsCompression.Width}}
@@ -61,7 +67,72 @@ func TestMulMulInternalInPlaceWidth{{- $w1}}(t *testing.T) {
 
 
 
-{{- if not (eq .FF "goldilocks")}}
+{{- if .F31}}
+
+func TestAVX512Width{{- $w0}}(t *testing.T) {
+	if !cpu.SupportAVX512 {
+		t.Skip("AVX512 not supported")
+	}
+	assert := require.New(t)
+	var input, expected [{{- $w0}}]fr.Element
+	for i := range input {
+		input[i].SetRandom()
+	}
+
+	expected = input
+
+	h := NewPermutation({{- $w0}}, {{- .ParamsCompression.FullRounds}}, {{- .ParamsCompression.PartialRounds}})
+
+	err := h.Permutation(input[:])
+	assert.NoError(err)
+
+	h.disableAVX512()
+	err = h.Permutation(expected[:])
+	assert.NoError(err)
+
+	// compare results
+	for i := 0; i < h.params.Width; i++ {
+		assert.True(input[i].Equal(&expected[i]), "avx512 result don't match purego")
+	}
+}
+
+func TestAVX512Width{{- $w1}}(t *testing.T) {
+	if !cpu.SupportAVX512 {
+		t.Skip("AVX512 not supported")
+	}
+	assert := require.New(t)
+	var input, expected [{{- $w1}}]fr.Element
+	for i := range input {
+		input[i].SetRandom()
+	}
+
+	expected = input
+
+	h := NewPermutation({{- $w1}}, {{- .ParamsSponge.FullRounds}}, {{- .ParamsSponge.PartialRounds}})
+
+	err := h.Permutation(input[:])
+	assert.NoError(err)
+
+	h.disableAVX512()
+	err = h.Permutation(expected[:])
+	assert.NoError(err)
+
+	// compare results
+	for i := 0; i < h.params.Width; i++ {
+		assert.True(input[i].Equal(&expected[i]), "avx512 result don't match purego")
+	}
+}
+
+func (h *Permutation) disableAVX512() {
+	{{- $wc := .ParamsCompression.Width}}
+	{{- $fc := .ParamsCompression.FullRounds}}
+	{{- $pc := .ParamsCompression.PartialRounds}}
+	{{- $ws := .ParamsSponge.Width}}
+	{{- $fs := .ParamsSponge.FullRounds}}
+	{{- $ps := .ParamsSponge.PartialRounds}}
+	h.params.hasFast{{- $wc}}_{{- $fc}}_{{- $pc}} = false
+	h.params.hasFast{{- $ws}}_{{- $fs}}_{{- $ps}} = false
+}
 
 func TestPoseidon2Width16(t *testing.T) {
 	var input, expected [16]fr.Element

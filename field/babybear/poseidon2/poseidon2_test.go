@@ -9,6 +9,9 @@ import (
 	"testing"
 
 	fr "github.com/consensys/gnark-crypto/field/babybear"
+	"github.com/consensys/gnark-crypto/utils/cpu"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestMulMulInternalInPlaceWidth16(t *testing.T) {
@@ -59,6 +62,65 @@ func TestMulMulInternalInPlaceWidth24(t *testing.T) {
 			t.Fatal("mat mul internal w/ diagonal doesn't match hand calculated")
 		}
 	}
+}
+
+func TestAVX512Width16(t *testing.T) {
+	if !cpu.SupportAVX512 {
+		t.Skip("AVX512 not supported")
+	}
+	assert := require.New(t)
+	var input, expected [16]fr.Element
+	for i := range input {
+		input[i].SetRandom()
+	}
+
+	expected = input
+
+	h := NewPermutation(16, 8, 13)
+
+	err := h.Permutation(input[:])
+	assert.NoError(err)
+
+	h.disableAVX512()
+	err = h.Permutation(expected[:])
+	assert.NoError(err)
+
+	// compare results
+	for i := 0; i < h.params.Width; i++ {
+		assert.True(input[i].Equal(&expected[i]), "avx512 result don't match purego")
+	}
+}
+
+func TestAVX512Width24(t *testing.T) {
+	if !cpu.SupportAVX512 {
+		t.Skip("AVX512 not supported")
+	}
+	assert := require.New(t)
+	var input, expected [24]fr.Element
+	for i := range input {
+		input[i].SetRandom()
+	}
+
+	expected = input
+
+	h := NewPermutation(24, 8, 21)
+
+	err := h.Permutation(input[:])
+	assert.NoError(err)
+
+	h.disableAVX512()
+	err = h.Permutation(expected[:])
+	assert.NoError(err)
+
+	// compare results
+	for i := 0; i < h.params.Width; i++ {
+		assert.True(input[i].Equal(&expected[i]), "avx512 result don't match purego")
+	}
+}
+
+func (h *Permutation) disableAVX512() {
+	h.params.hasFast16_8_13 = false
+	h.params.hasFast24_8_21 = false
 }
 
 func TestPoseidon2Width16(t *testing.T) {

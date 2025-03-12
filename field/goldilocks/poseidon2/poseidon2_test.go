@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	fr "github.com/consensys/gnark-crypto/field/goldilocks"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestMulMulInternalInPlaceWidth8(t *testing.T) {
