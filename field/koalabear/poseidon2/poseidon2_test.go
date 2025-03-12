@@ -10,7 +10,6 @@ import (
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/utils/cpu"
-
 	"github.com/stretchr/testify/require"
 )
 
