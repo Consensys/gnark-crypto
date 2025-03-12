@@ -37,6 +37,7 @@ func generateFFT(F *config.Field, fft *config.FFT, outputDir string) error {
 		HasASMKernel:     F.F31,
 		Kernels:          []int{5, 8},
 		Package:          "fft",
+		F31:              F.F31,
 	}
 	outputDir = filepath.Join(outputDir, "fft")
 
@@ -131,6 +132,7 @@ type fftTemplateData struct {
 	Kernels          []int  // indicates which kernels to generate
 	Package          string // package name
 	Q, QInvNeg       uint64
+	F31              bool
 }
 
 func findTemplatesRootDir() (string, error) {

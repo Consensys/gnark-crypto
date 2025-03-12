@@ -19,7 +19,9 @@ const maxSizeBitReverse = 1 << 23
 var bitReverse = []bitReverseVariant{
 	{name: "bitReverseNaive", buf: make([]{{ .FF }}.Element, maxSizeBitReverse), fn: bitReverseNaive},
 	{name: "BitReverse", buf: make([]{{ .FF }}.Element, maxSizeBitReverse), fn: BitReverse},
+	{{- if not .F31}}
 	{name: "bitReverseCobraInPlace", buf: make([]{{ .FF }}.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace},
+	{{- end}}
 }
 
 func TestBitReverse(t *testing.T) {

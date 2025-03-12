@@ -23,7 +23,6 @@ const maxSizeBitReverse = 1 << 23
 var bitReverse = []bitReverseVariant{
 	{name: "bitReverseNaive", buf: make([]koalabear.Element, maxSizeBitReverse), fn: bitReverseNaive},
 	{name: "BitReverse", buf: make([]koalabear.Element, maxSizeBitReverse), fn: BitReverse},
-	{name: "bitReverseCobraInPlace", buf: make([]koalabear.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace},
 }
 
 func TestBitReverse(t *testing.T) {

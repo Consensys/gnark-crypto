@@ -8,7 +8,7 @@ package extensions
 import (
 	"math/big"
 
-	fr "github.com/consensys/gnark-crypto/field/babybear"
+	fr "github.com/consensys/gnark-crypto/field/goldilocks"
 )
 
 // E2 is a degree two finite field extension of fr.Element
@@ -282,10 +282,10 @@ func (z *E2) Div(x *E2, y *E2) *E2 {
 	return z.Set(&r)
 }
 
-// MulBy11 x *= 11 (mod q)
-func MulBy11(x *fr.Element) {
+// MulBy7 x *= 7 (mod q)
+func MulBy7(x *fr.Element) {
 	var y fr.Element
-	y.SetUint64(11)
+	y.SetUint64(7)
 	x.Mul(x, &y)
 }
 
@@ -298,7 +298,7 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	b.Mul(&x.A0, &y.A0)
 	c.Mul(&x.A1, &y.A1)
 	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
-	MulBy11(&c)
+	MulBy7(&c)
 	z.A0.Add(&b, &c)
 	return z
 }
@@ -309,7 +309,7 @@ func (z *E2) Square(x *E2) *E2 {
 	a.Mul(&x.A0, &x.A1).Double(&a)
 	c.Square(&x.A0)
 	b.Square(&x.A1)
-	MulBy11(&b)
+	MulBy7(&b)
 	z.A0.Add(&c, &b)
 	z.A1 = a
 	return z
@@ -319,7 +319,7 @@ func (z *E2) Square(x *E2) *E2 {
 func (z *E2) MulByNonResidue(x *E2) *E2 {
 	a := x.A0
 	b := x.A1 // fetching x.A1 in the function below is slower
-	MulBy11(&b)
+	MulBy7(&b)
 	z.A0 = b
 	z.A1 = a
 	return z
@@ -328,10 +328,10 @@ func (z *E2) MulByNonResidue(x *E2) *E2 {
 // MulByNonResidueInv multiplies a E2 by (0,1)^{-1}
 func (z *E2) MulByNonResidueInv(x *E2) *E2 {
 	a := x.A1
-	// 1/11 mod r
-	var elevenInv fr.Element
-	elevenInv.SetUint64(549072524)
-	z.A1.Mul(&x.A0, &elevenInv)
+	// 1/7 mod r
+	var sevenInv fr.Element
+	sevenInv.SetUint64(2635249152773512046)
+	z.A1.Mul(&x.A0, &sevenInv)
 	z.A0 = a
 	return z
 }
@@ -345,7 +345,7 @@ func (z *E2) Inverse(x *E2) *E2 {
 	t0.Square(a)
 	t1.Square(b)
 	tmp.Set(&t1)
-	MulBy11(&tmp)
+	MulBy7(&tmp)
 	t0.Sub(&t0, &tmp)
 	t1.Inverse(&t0)
 	z.A0.Mul(a, &t1)
@@ -359,6 +359,6 @@ func (z *E2) norm(x *fr.Element) {
 	var tmp fr.Element
 	x.Square(&z.A1)
 	tmp.Set(x)
-	MulBy11(&tmp)
+	MulBy7(&tmp)
 	x.Square(&z.A0).Sub(x, &tmp)
 }
