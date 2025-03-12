@@ -6,12 +6,16 @@
 package poseidon2
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"slices"
 
 	"golang.org/x/crypto/sha3"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
+	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
 var (
@@ -44,6 +48,9 @@ type Parameters struct {
 
 	// derived round keys from the parameter seed and curve ID
 	RoundKeys [][]fr.Element
+	// indicates if we have a fast path (avx512)
+	hasFast16_6_21 bool
+	hasFast24_6_21 bool
 }
 
 // NewParameters returns a new set of parameters for the Poseidon2 permutation.
@@ -51,6 +58,8 @@ type Parameters struct {
 // from the seed which is a digest of the parameters and curve ID.
 func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
+	p.hasFast16_6_21 = width == 16 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
+	p.hasFast24_6_21 = width == 24 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
 	seed := p.String()
 	p.initRC(seed)
 	return &p
@@ -61,6 +70,8 @@ func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 // from the given seed.
 func NewParametersWithSeed(width, nbFullRounds, nbPartialRounds int, seed string) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
+	p.hasFast16_6_21 = width == 16 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
+	p.hasFast24_6_21 = width == 24 && nbFullRounds == 6 && nbPartialRounds == 21 && cpu.SupportAVX512
 	p.initRC(seed)
 	return &p
 }
@@ -181,6 +192,9 @@ func (h *Permutation) matMulM4InPlace(s []fr.Element) {
 // when Width = 0 mod 4, the buffer is multiplied by circ(2M4,M4,..,M4)
 // see https://eprint.iacr.org/2023/323.pdf
 func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
+	if h.params.Width%4 != 0 {
+		panic("only Width = 0 mod 4 are supported")
+	}
 	// at this stage t is supposed to be a multiple of 4
 	// the MDS matrix is circ(2M4,M4,..,M4)
 	h.matMulM4InPlace(input)
@@ -193,9 +207,9 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 	}
 	for i := 0; i < h.params.Width/4; i++ {
 		input[4*i].Add(&input[4*i], &tmp[0])
-		input[4*i+1].Add(&input[4*i], &tmp[1])
-		input[4*i+2].Add(&input[4*i], &tmp[2])
-		input[4*i+3].Add(&input[4*i], &tmp[3])
+		input[4*i+1].Add(&input[4*i+1], &tmp[1])
+		input[4*i+2].Add(&input[4*i+2], &tmp[2])
+		input[4*i+3].Add(&input[4*i+3], &tmp[3])
 	}
 }
 
@@ -285,6 +299,14 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 	if len(input) != h.params.Width {
 		return ErrInvalidSizebuffer
 	}
+	if h.params.hasFast16_6_21 {
+		permutation16_avx512(input, h.params.RoundKeys)
+		return nil
+	}
+	if h.params.hasFast24_6_21 {
+		permutation24_avx512(input, h.params.RoundKeys)
+		return nil
+	}
 
 	// external matrix multiplication, cf https://eprint.iacr.org/2023/323.pdf page 14 (part 6)
 	h.matMulExternalInPlace(input)
@@ -315,4 +337,44 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 	}
 
 	return nil
+}
+
+// Compress uses the permutation to compress the left and right input in a collision resistant manner.
+// left and right must each be concatenations of t/2 fr.Elements, where t is the width of the permutation.
+// The result is the concatenation of t/2 fr.Elements.
+func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
+	n := h.params.Width / 2
+	if h.params.Width != 2*n {
+		return nil, errors.New("need even width")
+	}
+
+	desiredLen := n * fr.Bytes
+	if len(left) != desiredLen || len(right) != desiredLen {
+		return nil, fmt.Errorf("left input should be %d bytes", desiredLen)
+	}
+
+	reader := io.MultiReader(bytes.NewReader(left), bytes.NewReader(right))
+	x := make([]fr.Element, h.params.Width)
+	var buf [fr.Bytes]byte
+
+	for i := range x {
+		if _, err := io.ReadFull(reader, buf[:]); err != nil {
+			return nil, err
+		}
+		if err := x[i].SetBytesCanonical(buf[:]); err != nil {
+			return nil, err
+		}
+	}
+
+	res := slices.Clone(x[n:]) // saved to feed forward later
+	if err := h.Permutation(x[:]); err != nil {
+		return nil, err
+	}
+
+	outBytes := make([]byte, 0, n*fr.Bytes)
+	for i := range res {
+		outBytes = append(outBytes, res[i].Add(&res[i], &x[n+i]).Marshal()...)
+	}
+
+	return outBytes, nil
 }

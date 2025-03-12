@@ -6,8 +6,11 @@
 package poseidon2
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"slices"
 
 	"golang.org/x/crypto/sha3"
 
@@ -120,8 +123,8 @@ type Permutation struct {
 
 // NewPermutation returns a new Poseidon2 permutation instance.
 func NewPermutation(t, rf, rp int) *Permutation {
-	if t != 8 {
-		panic("only Width=8 is supported")
+	if t != 8 && t != 12 {
+		panic("only Width=8,12 are supported")
 	}
 	params := NewParameters(t, rf, rp)
 	res := &Permutation{params: params}
@@ -131,8 +134,8 @@ func NewPermutation(t, rf, rp int) *Permutation {
 // NewPermutationWithSeed returns a new Poseidon2 permutation instance with a
 // given seed.
 func NewPermutationWithSeed(t, rf, rp int, seed string) *Permutation {
-	if t != 8 {
-		panic("only Width=8 is supported")
+	if t != 8 && t != 12 {
+		panic("only Width=8,12 are supported")
 	}
 	params := NewParametersWithSeed(t, rf, rp, seed)
 	res := &Permutation{params: params}
@@ -182,6 +185,9 @@ func (h *Permutation) matMulM4InPlace(s []fr.Element) {
 // when Width = 0 mod 4, the buffer is multiplied by circ(2M4,M4,..,M4)
 // see https://eprint.iacr.org/2023/323.pdf
 func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
+	if h.params.Width%4 != 0 {
+		panic("only Width = 0 mod 4 are supported")
+	}
 	// at this stage t is supposed to be a multiple of 4
 	// the MDS matrix is circ(2M4,M4,..,M4)
 	h.matMulM4InPlace(input)
@@ -194,9 +200,9 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 	}
 	for i := 0; i < h.params.Width/4; i++ {
 		input[4*i].Add(&input[4*i], &tmp[0])
-		input[4*i+1].Add(&input[4*i], &tmp[1])
-		input[4*i+2].Add(&input[4*i], &tmp[2])
-		input[4*i+3].Add(&input[4*i], &tmp[3])
+		input[4*i+1].Add(&input[4*i+1], &tmp[1])
+		input[4*i+2].Add(&input[4*i+2], &tmp[2])
+		input[4*i+3].Add(&input[4*i+3], &tmp[3])
 	}
 }
 
@@ -204,24 +210,27 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 	switch h.params.Width {
 	case 8:
-		// at this stage t is supposed to be a multiple of 4
-		// the MDS matrix is circ(2M4,M4,..,M4)
-		h.matMulM4InPlace(input)
-		tmp := make([]fr.Element, 4)
-		for i := 0; i < h.params.Width/4; i++ {
-			tmp[0].Add(&tmp[0], &input[4*i])
-			tmp[1].Add(&tmp[1], &input[4*i+1])
-			tmp[2].Add(&tmp[2], &input[4*i+2])
-			tmp[3].Add(&tmp[3], &input[4*i+3])
+		var sum fr.Element
+		sum.Set(&input[0])
+		for i := 1; i < h.params.Width; i++ {
+			sum.Add(&sum, &input[i])
 		}
-		for i := 0; i < h.params.Width/4; i++ {
-			input[4*i].Add(&input[4*i], &tmp[0])
-			input[4*i+1].Add(&input[4*i], &tmp[1])
-			input[4*i+2].Add(&input[4*i], &tmp[2])
-			input[4*i+3].Add(&input[4*i], &tmp[3])
+		for i := 0; i < h.params.Width; i++ {
+			input[i].Mul(&input[i], &diag8[i]).
+				Add(&input[i], &sum)
+		}
+	case 12:
+		var sum fr.Element
+		sum.Set(&input[0])
+		for i := 1; i < h.params.Width; i++ {
+			sum.Add(&sum, &input[i])
+		}
+		for i := 0; i < h.params.Width; i++ {
+			input[i].Mul(&input[i], &diag12[i]).
+				Add(&input[i], &sum)
 		}
 	default:
-		panic("only Width=8 is supported")
+		panic("only Width=8,12 are supported")
 	}
 }
 
@@ -271,4 +280,44 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 	}
 
 	return nil
+}
+
+// Compress uses the permutation to compress the left and right input in a collision resistant manner.
+// left and right must each be concatenations of t/2 fr.Elements, where t is the width of the permutation.
+// The result is the concatenation of t/2 fr.Elements.
+func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
+	n := h.params.Width / 2
+	if h.params.Width != 2*n {
+		return nil, errors.New("need even width")
+	}
+
+	desiredLen := n * fr.Bytes
+	if len(left) != desiredLen || len(right) != desiredLen {
+		return nil, fmt.Errorf("left input should be %d bytes", desiredLen)
+	}
+
+	reader := io.MultiReader(bytes.NewReader(left), bytes.NewReader(right))
+	x := make([]fr.Element, h.params.Width)
+	var buf [fr.Bytes]byte
+
+	for i := range x {
+		if _, err := io.ReadFull(reader, buf[:]); err != nil {
+			return nil, err
+		}
+		if err := x[i].SetBytesCanonical(buf[:]); err != nil {
+			return nil, err
+		}
+	}
+
+	res := slices.Clone(x[n:]) // saved to feed forward later
+	if err := h.Permutation(x[:]); err != nil {
+		return nil, err
+	}
+
+	outBytes := make([]byte, 0, n*fr.Bytes)
+	for i := range res {
+		outBytes = append(outBytes, res[i].Add(&res[i], &x[n+i]).Marshal()...)
+	}
+
+	return outBytes, nil
 }

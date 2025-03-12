@@ -503,6 +503,18 @@ func (p *G2Jac) IsInSubGroup() bool {
 	return res.Equal(&img)
 }
 
+func GeneratePointNotInG2(f E2) G2Jac {
+	var res, jac G2Jac
+	aff := MapToCurve2(&f)
+	g2Isogeny(&aff)
+	jac.FromAffine(&aff)
+	// ψ(p)-[x₀]P = [r]p
+	res.mulBySeed(&jac)
+	jac.psi(&jac)
+	res.AddAssign(&jac)
+	return res
+}
+
 // mulWindowed computes the 2-bits windowed double-and-add scalar
 // multiplication p=[s]q in Jacobian coordinates.
 func (p *G2Jac) mulWindowed(q *G2Jac, s *big.Int) *G2Jac {

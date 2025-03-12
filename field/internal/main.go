@@ -8,6 +8,8 @@ import (
 	"github.com/consensys/gnark-crypto/field/generator/config"
 )
 
+// the expected working directory is gnark-crypto/field
+//
 //go:generate go run main.go
 func main() {
 	// generate the following fields
