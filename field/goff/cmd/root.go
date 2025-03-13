@@ -13,7 +13,6 @@ import (
 
 	"github.com/consensys/gnark-crypto/field/generator"
 	"github.com/consensys/gnark-crypto/field/generator/config"
-	field "github.com/consensys/gnark-crypto/field/generator/config"
 	"github.com/spf13/cobra"
 )
 
