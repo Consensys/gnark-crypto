@@ -175,9 +175,6 @@ func main() {
 			// generate permutation on fr
 			assertNoError(permutation.Generate(conf, filepath.Join(curveDir, "fr", "permutation"), bgen))
 
-			// generate eddsa on companion curves
-			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
-
 			// generate iop functions
 			assertNoError(iop.Generate(conf, filepath.Join(curveDir, "fr", "iop"), bgen))
 
