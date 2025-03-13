@@ -2,6 +2,7 @@ package vortex
 
 import (
 	"fmt"
+	"math/bits"
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
@@ -51,7 +52,7 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 	)
 
 	for i := range input {
-		if codewords[i], err = p.EncodeReedSolomon(input[i]); err != nil {
+		if codewords[i], err = p.EncodeReedSolomon(input[i], false); err != nil {
 			return nil, fmt.Errorf("error in reed-solomon encode: %w", err)
 		}
 	}
@@ -70,19 +71,34 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 		sisHashes    = make([][sisKeySize]koalabear.Element, len(codewords[0]))
 		merkleLeaves = make([]Hash, len(codewords[0]))
 	)
-	var colBuffer [blockSize][]koalabear.Element
-	for i := range colBuffer {
-		colBuffer[i] = make([]koalabear.Element, len(input))
+	// var colBuffer [blockSize][]koalabear.Element
+	// for i := range colBuffer {
+	// 	colBuffer[i] = make([]koalabear.Element, len(input))
+	// }
+
+	colBuffer := make([]koalabear.Element, len(input))
+
+	for col := 0; col < len(codewords[0]); col++ {
+
+		// transpose blockSize columns at a time.
+		transposeCodewordsX1(codewords, col, colBuffer)
+		_ = p.Key.Hash(colBuffer, sisHashes[col][:])
+	}
+
+	// now we need to shuffle the sisHashes columns because they are bitReversed.
+	{
+		n := uint64(len(sisHashes))
+		nn := uint64(64 - bits.TrailingZeros64(n))
+
+		for i := uint64(0); i < n; i++ {
+			iRev := bits.Reverse64(i) >> nn
+			if iRev > i {
+				sisHashes[i], sisHashes[iRev] = sisHashes[iRev], sisHashes[i]
+			}
+		}
 	}
 
 	for col := 0; col < len(codewords[0]); col += blockSize {
-
-		// transpose blockSize columns at a time.
-		transposeCodewords(codewords, col, blockSize, colBuffer)
-
-		for i := range colBuffer {
-			_ = p.Key.Hash(colBuffer[i], sisHashes[col+i][:])
-		}
 		HashPoseidon2x16(sisHashes[col:col+blockSize], merkleLeaves[col:col+blockSize])
 	}
 
@@ -92,6 +108,12 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 		SisHashes:     sisHashes,
 		MerkleTree:    BuildMerkleTree(merkleLeaves),
 	}, nil
+}
+
+func transposeCodewordsX1(codewords [][]koalabear.Element, col int, colBuffer []koalabear.Element) {
+	for row := range colBuffer {
+		colBuffer[row] = codewords[row][col]
+	}
 }
 
 func transposeCodewords(codewords [][]koalabear.Element, col, blockSize int, colBuffer [16][]koalabear.Element) {
@@ -116,9 +138,16 @@ func (ps *ProverState) OpenLinComb(alpha fext.E4) {
 
 	// We don't use the Horner algorithm because we can save on fext
 	// operations using the naive algorithm.
+
+	n := uint64(ps.Params.NbEncodedColumns())
+	nn := uint64(64 - bits.TrailingZeros64(n))
+
 	for row := 0; row < len(encodedMatrix); row++ {
 		for col := 0; col < ps.Params.NbEncodedColumns(); col++ {
-			tmp.MulByElement(alphaPow, &encodedMatrix[row][col])
+
+			colRev := int(bits.Reverse64(uint64(col)) >> nn)
+
+			tmp.MulByElement(alphaPow, &encodedMatrix[row][colRev])
 			ualpha[col].Add(&ualpha[col], &tmp)
 		}
 
@@ -139,7 +168,8 @@ func (ps *ProverState) OpenColumns(selectedColumns []int) (*Proof, error) {
 		encodedMatrix            = ps.EncodedMatrix
 		err                      error
 	)
-
+	n := uint64(ps.Params.NbEncodedColumns())
+	nn := uint64(64 - bits.TrailingZeros64(n))
 	for i, col := range selectedColumns {
 
 		// an error here indicates that the user samples integers that are
@@ -147,8 +177,8 @@ func (ps *ProverState) OpenColumns(selectedColumns []int) (*Proof, error) {
 		if col >= ps.Params.NbEncodedColumns() {
 			return nil, fmt.Errorf("column index out of range")
 		}
-
-		openedColumns[i] = getTransposedColumn(encodedMatrix, col)
+		colRev := int(bits.Reverse64(uint64(col)) >> nn)
+		openedColumns[i] = getTransposedColumn(encodedMatrix, colRev)
 		if merkleProofOpenedColumns[i], err = ps.MerkleTree.Open(col); err != nil {
 			return nil, fmt.Errorf("error in merkle proof generation: %w", err)
 		}

@@ -22,7 +22,7 @@ func TestLagrangeSimple(t *testing.T) {
 			koalabear.NewElement(3),
 		}
 
-		codeword, err := params.EncodeReedSolomon(v)
+		codeword, err := params.EncodeReedSolomon(v, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -50,12 +50,12 @@ func TestLagrangeSimple(t *testing.T) {
 			koalabear.NewElement(0),
 		}
 
-		codeword, err := params.EncodeReedSolomon(v)
+		codeword, err := params.EncodeReedSolomon(v, true)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		codewordShifted, err := params.EncodeReedSolomon(vShifted)
+		codewordShifted, err := params.EncodeReedSolomon(vShifted, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -93,7 +93,7 @@ func TestReedSolomonProperty(t *testing.T) {
 		v[i] = randElement(rng)
 	}
 
-	encodedV, err := params.EncodeReedSolomon(v)
+	encodedV, err := params.EncodeReedSolomon(v, true)
 	if err != nil {
 		panic(err)
 	}

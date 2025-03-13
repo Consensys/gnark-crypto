@@ -11,7 +11,7 @@ import (
 // EncodeReedSolomon encodes a vector of field elements into a reed-solomon codewords.
 // The function checks that:
 //   - the input argument has the right size
-func (p *Params) EncodeReedSolomon(input []koalabear.Element) ([]koalabear.Element, error) {
+func (p *Params) EncodeReedSolomon(input []koalabear.Element, bitReverse bool) ([]koalabear.Element, error) {
 	if len(input) != p.NbColumns {
 		return nil, fmt.Errorf("expected %d input values, got %d", p.NbColumns, len(input))
 	}
@@ -22,8 +22,9 @@ func (p *Params) EncodeReedSolomon(input []koalabear.Element) ([]koalabear.Eleme
 	p.Domains[0].FFTInverse(codeword[:p.NbColumns], fft.DIF)
 	fft.BitReverse(codeword[:p.NbColumns])
 	p.Domains[1].FFT(codeword, fft.DIF)
-	fft.BitReverse(codeword)
-
+	if bitReverse {
+		fft.BitReverse(codeword)
+	}
 	return codeword, nil
 }
 
