@@ -21,3 +21,9 @@ func permutation24_avx512(input []fr.Element, roundKeys [][]fr.Element)
 
 //go:noescape
 func permutation16_avx512(input []fr.Element, roundKeys [][]fr.Element)
+
+func (h *Permutation) Permutation16x24(input *[16][24]fr.Element) {
+	for j := 0; j < 16; j++ {
+		h.Permutation(input[j][:])
+	}
+}

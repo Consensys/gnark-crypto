@@ -18,6 +18,8 @@ type Proof struct {
 	MerkleProofOpenedColumns []MerkleProof
 }
 
+const sisKeySize = 512
+
 // ProverState stores the state of the prover in the Vortex protocol
 // and tracks the internal values.
 type ProverState struct {
@@ -27,7 +29,7 @@ type ProverState struct {
 	// time.
 	EncodedMatrix [][]koalabear.Element
 	// SisHashes are the SIS hashes of the encoded matrix
-	SisHashes [][]koalabear.Element
+	SisHashes [][sisKeySize]koalabear.Element
 	// MerkleTree is the Merkle tree of the SIS hashes
 	MerkleTree *MerkleTree
 	// Ualpha is the linear combination of the rows of the encoded matrix
@@ -54,25 +56,34 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 		}
 	}
 
+	const (
+		blockSize = 16
+	)
+	if len(codewords[0])%blockSize != 0 {
+		panic("len of codewords must be a multiple of 16")
+	}
+	if p.Key.Degree != sisKeySize {
+		panic("sis key size must be 512")
+	}
+
 	var (
-		colBuffer    = make([]koalabear.Element, len(input))
-		sisHashes    = make([][]koalabear.Element, len(codewords[0]))
+		sisHashes    = make([][sisKeySize]koalabear.Element, len(codewords[0]))
 		merkleLeaves = make([]Hash, len(codewords[0]))
 	)
+	var colBuffer [blockSize][]koalabear.Element
+	for i := range colBuffer {
+		colBuffer[i] = make([]koalabear.Element, len(input))
+	}
 
-	for col := 0; col < len(codewords[0]); col++ {
+	for col := 0; col < len(codewords[0]); col += blockSize {
 
-		// Transpose the values of the
-		for row := range colBuffer {
-			colBuffer[row] = codewords[row][col]
+		// transpose blockSize columns at a time.
+		transposeCodewords(codewords, col, blockSize, colBuffer)
+
+		for i := range colBuffer {
+			_ = p.Key.Hash(colBuffer[i], sisHashes[col+i][:])
 		}
-
-		sisHashes[col] = make([]koalabear.Element, p.Key.Degree)
-		if err := p.Key.Hash(colBuffer, sisHashes[col]); err != nil {
-			return nil, fmt.Errorf("error in sis hash: %w", err)
-		}
-
-		merkleLeaves[col] = HashPoseidon2(sisHashes[col])
+		HashPoseidon2x16(sisHashes[col:col+blockSize], merkleLeaves[col:col+blockSize])
 	}
 
 	return &ProverState{
@@ -81,6 +92,15 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 		SisHashes:     sisHashes,
 		MerkleTree:    BuildMerkleTree(merkleLeaves),
 	}, nil
+}
+
+func transposeCodewords(codewords [][]koalabear.Element, col, blockSize int, colBuffer [16][]koalabear.Element) {
+	n := len(colBuffer[0])
+	for i := 0; i < blockSize; i++ {
+		for row := 0; row < n; row++ {
+			colBuffer[i][row] = codewords[row][col+i]
+		}
+	}
 }
 
 // OpenLinComb performs the "UAlpha" part of the proof computation.
