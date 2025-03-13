@@ -587,6 +587,7 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		bOdd := registers.PopV()
 		t0 := registers.PopV()
 		t1 := registers.PopV()
+		PL0 := registers.PopV()
 
 		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
 		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
@@ -595,7 +596,7 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		f.VPMULUDQ(a, b, t0)
 		f.VPMULUDQ(aOdd, bOdd, t1)
 		registers.PushV(bOdd)
-		PL0 := registers.PopV()
+
 		f.VPMULUDQ(t0, qInvNeg, PL0)
 		registers.PushV(aOdd)
 		PL1 := registers.PopV()
@@ -614,6 +615,51 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		}
 
 		registers.PushV(t0, t1, PL0, PL1)
+	}
+
+	// Mul2ExpNegN multiplies x by -1/2^n
+	//
+	// Since the Montgomery constant is 2^32, the Montgomery form of 1/2^n is
+	// 2^{32-n}. Montgomery reduction works provided the input is < 2^32 so this
+	// works for 0 <= n <= 32.
+	//
+	// N.B. n must be < 33.
+	// perf: see Plonky3 for a more optimized version
+	mul2ExpNegN := func(a, t0, c amd64.VectorRegister, n uint64, reduce bool) {
+		aOdd := registers.PopV()
+		t1 := registers.PopV()
+		PL0 := registers.PopV()
+		PL1 := registers.PopV()
+
+		m := 32 - n
+
+		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
+
+		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
+		// but now we must "zero out the high bits"
+		// so we shift left;
+		// then instead of shifting right by 32 and left by (32 - n)
+		// we just shift right by n
+		f.VPSLLQ("$32", a, a)
+		f.VPSRLQ(n, a, t0)
+		f.VPSLLQ(m, aOdd, t1)
+
+		f.VPMULUDQ(t0, qInvNeg, PL0)
+		f.VPMULUDQ(t1, qInvNeg, PL1)
+
+		f.VPMULUDQ(PL0, qd, PL0)
+		f.VPADDQ(t0, PL0, t0)
+
+		f.VPMULUDQ(PL1, qd, PL1)
+		f.VPADDQ(t1, PL1, c)
+
+		f.VMOVSHDUPk(t0, amd64.K3, c)
+
+		if reduce {
+			reduce1Q(qd, c, t0)
+		}
+
+		registers.PushV(aOdd, t1, PL0, PL1)
 	}
 
 	var sbox func(a amd64.VectorRegister)
@@ -762,14 +808,14 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		matMulExternal()
 	}
 
-	addrDiagonal := registers.Pop()
-	f.MOVQ("·diag24+0(SB)", addrDiagonal)
+	// addrDiagonal := registers.Pop()
+	// f.MOVQ("·diag24+0(SB)", addrDiagonal)
 
-	mulDiag := func(a, t0 amd64.VectorRegister, n int) {
-		f.MOVD(addrDiagonal.AtD(n), amd64.AX)
-		f.VPBROADCASTD(amd64.AX, t0)
-		mul(a, t0, a, true)
-	}
+	// mulDiag := func(a, t0 amd64.VectorRegister, n int) {
+	// 	f.MOVD(addrDiagonal.AtD(n), amd64.AX)
+	// 	f.VPBROADCASTD(amd64.AX, t0)
+	// 	mul(a, t0, a, true)
+	// }
 
 	partialRound := func() {
 		// add round key 0;
@@ -840,26 +886,16 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 		registers.PushV(t1)
 
+		ns := []uint64{8, 2, 3, 4, 5, 6, 24, 8, 3, 4, 5, 6, 7, 9, 24}
+
 		for i := 9; i < len(v); i++ {
-			mulDiag(v[i], t0, i)
-			add(v[i], sum, qd, t0, v[i])
+			mul2ExpNegN(v[i], t0, v[i], ns[i-9], true)
+			if i <= 15 {
+				add(v[i], sum, qd, t0, v[i])
+			} else {
+				sub(sum, v[i], qd, t0, v[i])
+			}
 		}
-		// TODO @gbotrel implement Mul2ExpNegN
-		// input[9].Add(&sum, temp.Mul2ExpNegN(&input[9], 8))
-		// input[10].Add(&sum, temp.Mul2ExpNegN(&input[10], 2))
-		// input[11].Add(&sum, temp.Mul2ExpNegN(&input[11], 3))
-		// input[12].Add(&sum, temp.Mul2ExpNegN(&input[12], 4))
-		// input[13].Add(&sum, temp.Mul2ExpNegN(&input[13], 5))
-		// input[14].Add(&sum, temp.Mul2ExpNegN(&input[14], 6))
-		// input[15].Add(&sum, temp.Mul2ExpNegN(&input[15], 24))
-		// input[16].Sub(&sum, temp.Mul2ExpNegN(&input[16], 8))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-		// input[17].Sub(&sum, temp.Mul2ExpNegN(&input[17], 3))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-		// input[18].Sub(&sum, temp.Mul2ExpNegN(&input[18], 4))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-		// input[19].Sub(&sum, temp.Mul2ExpNegN(&input[19], 5))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-		// input[20].Sub(&sum, temp.Mul2ExpNegN(&input[20], 6))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-		// input[21].Sub(&sum, temp.Mul2ExpNegN(&input[21], 7))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-		// input[22].Sub(&sum, temp.Mul2ExpNegN(&input[22], 9))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-		// input[23].Sub(&sum, temp.Mul2ExpNegN(&input[23], 24)) //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
 
 		registers.PushV(sum, t0)
 	}
