@@ -363,31 +363,3 @@ func Interpolate(X, Y []small_rational.SmallRational) (Polynomial, error) {
 
 	return res, nil
 }
-
-// setRandom panics if SetRandom returns an error
-func setRandom(x *small_rational.SmallRational) {
-	if _, err := x.SetRandom(); err != nil {
-		panic(err)
-	}
-}
-
-// isLinear returns whether f is linear in its i-th variable
-func isLinear(f func(...small_rational.SmallRational) small_rational.SmallRational, i, fanIn int) bool {
-	// fix all variables except the i-th one at random points
-	// pick random values x0, x1 for the i-th variable
-	// check if f(-, x0, -) + f(-, x1, -) = 2*f(-, (x0 + x1)/2, -)
-	x := make([]small_rational.SmallRational, fanIn)
-	for i := range x {
-		setRandom(&x[i])
-	}
-	y0 := f(x...)
-	x0 := x[i]
-
-	setRandom(&x[i])
-	y1 := f(x...)
-
-	x[i].Add(&x[i], &x0).Halve()
-	y2 := f(x...)
-
-	return y2.Double(&y2).Sub(&y2, &y1).Equal(&y0)
-}

@@ -363,31 +363,3 @@ func Interpolate(X, Y []fr.Element) (Polynomial, error) {
 
 	return res, nil
 }
-
-// setRandom panics if SetRandom returns an error
-func setRandom(x *fr.Element) {
-	if _, err := x.SetRandom(); err != nil {
-		panic(err)
-	}
-}
-
-// isLinear returns whether f is linear in its i-th variable
-func isLinear(f func(...fr.Element) fr.Element, i, fanIn int) bool {
-	// fix all variables except the i-th one at random points
-	// pick random values x0, x1 for the i-th variable
-	// check if f(-, x0, -) + f(-, x1, -) = 2*f(-, (x0 + x1)/2, -)
-	x := make([]fr.Element, fanIn)
-	for i := range x {
-		setRandom(&x[i])
-	}
-	y0 := f(x...)
-	x0 := x[i]
-
-	setRandom(&x[i])
-	y1 := f(x...)
-
-	x[i].Add(&x[i], &x0).Halve()
-	y2 := f(x...)
-
-	return y2.Double(&y2).Sub(&y2, &y1).Equal(&y0)
-}
