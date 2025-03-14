@@ -1,6 +1,5 @@
 import (
 	fr "{{ .FieldPackagePath }}"
-	"fmt"
 )
 
 func permutation24_avx512(input []fr.Element, roundKeys [][]fr.Element) {
@@ -28,9 +27,6 @@ func (h *Permutation) Permutation16x24(_x [][512]fr.Element, merkleLeaves [][8]f
 	for i := 0; i < n; i += p2blockSize {
 		for j := 0; j < width; j++ {
 			copy(state[j][m:], _x[j][i:])
-			if i == 0 && j == 0 {
-				fmt.Printf("state: %v\n", state[j])
-			}
 			h.Permutation(state[j][:])
 		}
 		// spongePerm.Permutation16x24(&state)

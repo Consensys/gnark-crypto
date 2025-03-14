@@ -68,16 +68,18 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 	}
 
 	var (
-		sisHashes    = make([][sisKeySize]koalabear.Element, len(codewords[0]))
+		// sisHashes    = make([][sisKeySize]koalabear.Element, len(codewords[0]))
 		merkleLeaves = make([]Hash, len(codewords[0]))
 	)
 
-	colBuffer := make([]koalabear.Element, len(input))
+	// colBuffer := make([]koalabear.Element, len(input))
 
-	for col := 0; col < len(codewords[0]); col++ {
-		transposeM(codewords, col, colBuffer)
-		_ = p.Key.Hash(colBuffer, sisHashes[col][:])
-	}
+	// for col := 0; col < len(codewords[0]); col++ {
+	// 	transposeM(codewords, col, colBuffer)
+	// 	_ = p.Key.Hash(colBuffer, sisHashes[col][:])
+	// }
+
+	sisHashes := transversalHash(codewords, p.Key)
 
 	// now we need to shuffle the sisHashes columns because they are bitReversed.
 	{
