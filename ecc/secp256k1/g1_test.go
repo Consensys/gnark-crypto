@@ -566,7 +566,7 @@ func BenchmarkG1JacIsInSubGroup(b *testing.B) {
 
 func BenchmarkG1JacEqual(b *testing.B) {
 	var scalar fp.Element
-	if _, err := scalar.SetRandom(); err != nil {
+	if _, err := scalar.MustSetRandom(); err != nil {
 		b.Fatalf("failed to set scalar: %s", err)
 	}
 
@@ -840,7 +840,7 @@ func GenFr() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fr.Element
 
-		if _, err := elmt.SetRandom(); err != nil {
+		if _, err := elmt.MustSetRandom(); err != nil {
 			panic(err)
 		}
 
@@ -853,7 +853,7 @@ func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fp.Element
 
-		if _, err := elmt.SetRandom(); err != nil {
+		if _, err := elmt.MustSetRandom(); err != nil {
 			panic(err)
 		}
 

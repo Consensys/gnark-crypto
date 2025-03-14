@@ -564,7 +564,7 @@ func BenchmarkG1JacIsInSubGroup(b *testing.B) {
 
 func BenchmarkG1JacEqual(b *testing.B) {
 	var scalar fp.Element
-	if _, err := scalar.SetRandom(); err != nil {
+	if _, err := scalar.MustSetRandom(); err != nil {
 		b.Fatalf("failed to set scalar: %s", err)
 	}
 
