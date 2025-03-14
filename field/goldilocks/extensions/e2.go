@@ -88,6 +88,7 @@ func (z *E2) MustSetRandom() *E2 {
 	if _, err := z.A0.SetRandom(); err != nil {
 		panic(err)
 	}
+	return z
 }
 
 // IsZero returns true if z is zero, false otherwise
