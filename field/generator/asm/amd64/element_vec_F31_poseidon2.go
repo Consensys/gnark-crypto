@@ -515,14 +515,18 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		panic("only width 24 is supported")
 	}
 	const fnName = "permutation16x24_avx512"
-
-	const argSize = 2 * 3 * 8
+	// func permutation16x24_avx512(input *fr.Element, nbBlocks uint64, res *fr.Element, roundKeys [][]fr.Element)
+	const argSize = 6 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
 	registers := f.FnHeader(fnName, stackSize, argSize, amd64.AX, amd64.DX)
 
 	addrInput := registers.Pop()
+	maskFFFF := registers.Pop()
+	nbBlocksExternal := registers.Pop()
+	addrRes := registers.Pop()
 	addrRoundKeys := registers.Pop()
-	// addrDiagonal := registers.Pop()
+	addrIndexGather8 := registers.Pop()
+	addrIndexGather512 := registers.Pop()
 	rKey := registers.Pop()
 
 	// input
@@ -538,15 +542,23 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	f.MOVD("$const_qInvNeg", amd64.AX)
 	f.VPBROADCASTD(amd64.AX, qInvNeg)
 
-	f.MOVQ("input+0(FP)", addrInput)
-	f.MOVQ("roundKeys+8(FP)", addrRoundKeys)
+	f.MOVQ("$0xffffffffffffffff", maskFFFF)
 
-	for i := range v {
-		f.VMOVDQU32(addrInput.AtD(i*16), v[i])
-	}
+	f.MOVQ("·indexGather8+0(SB)", addrIndexGather8)
+	f.MOVQ("·indexGather512+0(SB)", addrIndexGather512)
+
+	f.MOVQ("input+0(FP)", addrInput)
+	f.MOVQ("nbBlocks+8(FP)", nbBlocksExternal)
+	f.MOVQ("res+16(FP)", addrRes)
+	f.MOVQ("roundKeys+24(FP)", addrRoundKeys)
 
 	const blockSize = 4
 	const nbBlocks = 24 / blockSize
+
+	for i := 0; i < 8; i++ {
+		// zero first v[i]
+		f.VXORPS(v[i], v[i], v[i])
+	}
 
 	// h.matMulExternalInPlace(input)
 	// 		h.matMulM4InPlace(input)
@@ -779,6 +791,30 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 		registers.PushV(tmp0, tmp1, tmp2, tmp3, t0)
 	}
+
+	// outer loop
+	lblOuterLoop := f.NewLabel("outer_loop")
+	lblOuterLoopEnd := f.NewLabel("outer_loop_end")
+
+	f.LABEL(lblOuterLoop)
+	f.TESTQ(nbBlocksExternal, nbBlocksExternal)
+	f.JEQ(lblOuterLoopEnd)
+
+	{
+		vIndexGather := registers.PopV()
+		f.VMOVDQU32(addrIndexGather512.At(0), vIndexGather)
+
+		// copy (and transpose) input into v[8:24]
+		for i := 8; i < 24; i++ {
+			f.KMOVD(maskFFFF, amd64.K1)
+			f.VPGATHERDD((i-8)*4, addrInput, vIndexGather, 4, amd64.K1, v[i])
+		}
+		// increment addrInput
+		f.ADDQ(16*4, addrInput)
+
+		registers.PushV(vIndexGather)
+	}
+
 	matMulExternal()
 
 	// for i := 0; i < rf; i++ {
@@ -934,8 +970,26 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		matMulExternal()
 	}
 
-	for i := range v {
-		f.VMOVDQU32(v[i], addrInput.AtD(i*16))
+	// for i := range v {
+	// 	f.VMOVDQU32(v[i], addrInput.AtD(i*16))
+	// }
+
+	f.DECQ(nbBlocksExternal)
+	f.JMP(lblOuterLoop)
+
+	f.LABEL(lblOuterLoopEnd)
+
+	// now we just copy the result
+	// need to transpose 8x16 to 16x8
+	{
+		vIndexGather := registers.PopV()
+		f.VMOVDQU32(addrIndexGather8.At(0), vIndexGather)
+		transposed := v[:8]
+		for i := range transposed {
+			f.KMOVD(maskFFFF, amd64.K1)
+			f.VPSCATTERDD(i*4, addrRes, vIndexGather, 4, amd64.K1, transposed[i])
+		}
+		registers.PushV(vIndexGather)
 	}
 
 	f.RET()

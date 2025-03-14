@@ -8,7 +8,7 @@ import (
 )
 
 // Hash represents a hash as they occur in Merkle trees
-type Hash [8]koalabear.Element
+type Hash = [8]koalabear.Element
 
 // MerkleTree represents a Merkle tree.
 type MerkleTree struct {
@@ -179,7 +179,7 @@ func Log2Ceil(a int) int {
 }
 
 // Hex returns an hexadecimal repr of the hash
-func (h Hash) Hex() string {
+func HashHex(h *Hash) string {
 	return "0x" +
 		h[0].Text(16) +
 		h[1].Text(16) +

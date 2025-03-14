@@ -71,17 +71,11 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 		sisHashes    = make([][sisKeySize]koalabear.Element, len(codewords[0]))
 		merkleLeaves = make([]Hash, len(codewords[0]))
 	)
-	// var colBuffer [blockSize][]koalabear.Element
-	// for i := range colBuffer {
-	// 	colBuffer[i] = make([]koalabear.Element, len(input))
-	// }
 
 	colBuffer := make([]koalabear.Element, len(input))
 
 	for col := 0; col < len(codewords[0]); col++ {
-
-		// transpose blockSize columns at a time.
-		transposeCodewordsX1(codewords, col, colBuffer)
+		transposeM(codewords, col, colBuffer)
 		_ = p.Key.Hash(colBuffer, sisHashes[col][:])
 	}
 
@@ -110,9 +104,9 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 	}, nil
 }
 
-func transposeCodewordsX1(codewords [][]koalabear.Element, col int, colBuffer []koalabear.Element) {
-	for row := range colBuffer {
-		colBuffer[row] = codewords[row][col]
+func transposeM(m [][]koalabear.Element, col int, v []koalabear.Element) {
+	for row := range v {
+		v[row] = m[row][col]
 	}
 }
 
