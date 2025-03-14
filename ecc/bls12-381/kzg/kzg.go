@@ -423,8 +423,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	randomNumbers := make([]fr.Element, len(digests))
 	randomNumbers[0].SetOne()
 	for i := 1; i < len(randomNumbers); i++ {
-		_, err := randomNumbers[i].SetRandom()
-		if err != nil {
+		if _, err := randomNumbers[i].SetRandom(); err != nil {
 			return err
 		}
 	}
