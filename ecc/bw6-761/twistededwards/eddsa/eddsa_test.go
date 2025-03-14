@@ -31,7 +31,7 @@ func Example() {
 
 	// generate a message (the size must be a multiple of the size of Fr)
 	var _msg fr.Element
-	_msg.SetRandom()
+	_msg.MustSetRandom()
 	msg := _msg.Marshal()
 
 	// sign the message

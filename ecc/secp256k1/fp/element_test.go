@@ -30,8 +30,8 @@ var benchResElement Element
 
 func BenchmarkElementSelect(b *testing.B) {
 	var x, y Element
-	x.SetRandom()
-	y.SetRandom()
+	x.MustSetRandom()
+	y.MustSetRandom()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -41,17 +41,17 @@ func BenchmarkElementSelect(b *testing.B) {
 
 func BenchmarkElementSetRandom(b *testing.B) {
 	var x Element
-	x.SetRandom()
+	x.MustSetRandom()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = x.SetRandom()
+		_, _ = x.MustSetRandom()
 	}
 }
 
 func BenchmarkElementSetBytes(b *testing.B) {
 	var x Element
-	x.SetRandom()
+	x.MustSetRandom()
 	bb := x.Bytes()
 	b.ResetTimer()
 
@@ -63,21 +63,21 @@ func BenchmarkElementSetBytes(b *testing.B) {
 
 func BenchmarkElementMulByConstants(b *testing.B) {
 	b.Run("mulBy3", func(b *testing.B) {
-		benchResElement.SetRandom()
+		benchResElement.MustSetRandom()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			MulBy3(&benchResElement)
 		}
 	})
 	b.Run("mulBy5", func(b *testing.B) {
-		benchResElement.SetRandom()
+		benchResElement.MustSetRandom()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			MulBy5(&benchResElement)
 		}
 	})
 	b.Run("mulBy13", func(b *testing.B) {
-		benchResElement.SetRandom()
+		benchResElement.MustSetRandom()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			MulBy13(&benchResElement)
@@ -87,8 +87,8 @@ func BenchmarkElementMulByConstants(b *testing.B) {
 
 func BenchmarkElementInverse(b *testing.B) {
 	var x Element
-	x.SetRandom()
-	benchResElement.SetRandom()
+	x.MustSetRandom()
+	benchResElement.MustSetRandom()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -99,8 +99,8 @@ func BenchmarkElementInverse(b *testing.B) {
 
 func BenchmarkElementButterfly(b *testing.B) {
 	var x Element
-	x.SetRandom()
-	benchResElement.SetRandom()
+	x.MustSetRandom()
+	benchResElement.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		Butterfly(&x, &benchResElement)
@@ -109,8 +109,8 @@ func BenchmarkElementButterfly(b *testing.B) {
 
 func BenchmarkElementExp(b *testing.B) {
 	var x Element
-	x.SetRandom()
-	benchResElement.SetRandom()
+	x.MustSetRandom()
+	benchResElement.MustSetRandom()
 	b1, _ := rand.Int(rand.Reader, Modulus())
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -119,7 +119,7 @@ func BenchmarkElementExp(b *testing.B) {
 }
 
 func BenchmarkElementDouble(b *testing.B) {
-	benchResElement.SetRandom()
+	benchResElement.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResElement.Double(&benchResElement)
@@ -128,8 +128,8 @@ func BenchmarkElementDouble(b *testing.B) {
 
 func BenchmarkElementAdd(b *testing.B) {
 	var x Element
-	x.SetRandom()
-	benchResElement.SetRandom()
+	x.MustSetRandom()
+	benchResElement.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResElement.Add(&x, &benchResElement)
@@ -138,8 +138,8 @@ func BenchmarkElementAdd(b *testing.B) {
 
 func BenchmarkElementSub(b *testing.B) {
 	var x Element
-	x.SetRandom()
-	benchResElement.SetRandom()
+	x.MustSetRandom()
+	benchResElement.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResElement.Sub(&x, &benchResElement)
@@ -147,7 +147,7 @@ func BenchmarkElementSub(b *testing.B) {
 }
 
 func BenchmarkElementNeg(b *testing.B) {
-	benchResElement.SetRandom()
+	benchResElement.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResElement.Neg(&benchResElement)
@@ -156,8 +156,8 @@ func BenchmarkElementNeg(b *testing.B) {
 
 func BenchmarkElementDiv(b *testing.B) {
 	var x Element
-	x.SetRandom()
-	benchResElement.SetRandom()
+	x.MustSetRandom()
+	benchResElement.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResElement.Div(&x, &benchResElement)
@@ -165,7 +165,7 @@ func BenchmarkElementDiv(b *testing.B) {
 }
 
 func BenchmarkElementFromMont(b *testing.B) {
-	benchResElement.SetRandom()
+	benchResElement.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResElement.fromMont()
@@ -173,7 +173,7 @@ func BenchmarkElementFromMont(b *testing.B) {
 }
 
 func BenchmarkElementSquare(b *testing.B) {
-	benchResElement.SetRandom()
+	benchResElement.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchResElement.Square(&benchResElement)
@@ -252,8 +252,8 @@ func TestElementCmp(t *testing.T) {
 func TestElementIsRandom(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		var x, y Element
-		x.SetRandom()
-		y.SetRandom()
+		x.MustSetRandom()
+		y.MustSetRandom()
 		if x.Equal(&y) {
 			t.Fatal("2 random numbers are unlikely to be equal")
 		}
@@ -292,7 +292,7 @@ func TestElementNegZero(t *testing.T) {
 	var a, b Element
 	b.SetZero()
 	for a.IsZero() {
-		a.SetRandom()
+		a.MustSetRandom()
 	}
 	a.Neg(&b)
 	if !a.IsZero() {

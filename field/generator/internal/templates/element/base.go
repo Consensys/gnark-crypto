@@ -359,8 +359,7 @@ func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 //
 // It panics if reading from crypto/rand.Reader errors.
 func (z *{{.ElementName}}) MustSetRandom() *{{.ElementName}} {
-	_, err := z.SetRandom()
-	if err != nil {
+	if _, err := z.SetRandom(); err != nil {
 		panic(err)
 	}
 	return z

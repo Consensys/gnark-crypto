@@ -31,8 +31,8 @@ var benchRes{{.ElementName}} {{.ElementName}}
 
 func Benchmark{{toTitle .ElementName}}Select(b *testing.B) {
 	var x, y {{.ElementName}}
-	x.SetRandom()
-	y.SetRandom()
+	x.MustSetRandom()
+	y.MustSetRandom()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -42,17 +42,17 @@ func Benchmark{{toTitle .ElementName}}Select(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}SetRandom(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
+	x.MustSetRandom()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = x.SetRandom()
+		_, _ = x.MustSetRandom()
 	}
 }
 
 func Benchmark{{toTitle .ElementName}}SetBytes(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
+	x.MustSetRandom()
 	bb := x.Bytes()
 	b.ResetTimer()
 
@@ -64,21 +64,21 @@ func Benchmark{{toTitle .ElementName}}SetBytes(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}MulByConstants(b *testing.B) {
 	b.Run("mulBy3", func(b *testing.B){
-		benchRes{{.ElementName}}.SetRandom()
+		benchRes{{.ElementName}}.MustSetRandom()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			MulBy3(&benchRes{{.ElementName}})
 		}
 	})
 	b.Run("mulBy5", func(b *testing.B){
-		benchRes{{.ElementName}}.SetRandom()
+		benchRes{{.ElementName}}.MustSetRandom()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			MulBy5(&benchRes{{.ElementName}})
 		}
 	})
 	b.Run("mulBy13", func(b *testing.B){
-		benchRes{{.ElementName}}.SetRandom()
+		benchRes{{.ElementName}}.MustSetRandom()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			MulBy13(&benchRes{{.ElementName}})
@@ -88,8 +88,8 @@ func Benchmark{{toTitle .ElementName}}MulByConstants(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Inverse(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
-	benchRes{{.ElementName}}.SetRandom()
+	x.MustSetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -100,8 +100,8 @@ func Benchmark{{toTitle .ElementName}}Inverse(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Butterfly(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
-	benchRes{{.ElementName}}.SetRandom()
+	x.MustSetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		Butterfly(&x, &benchRes{{.ElementName}})
@@ -111,8 +111,8 @@ func Benchmark{{toTitle .ElementName}}Butterfly(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Exp(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
-	benchRes{{.ElementName}}.SetRandom()
+	x.MustSetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b1, _ := rand.Int(rand.Reader, Modulus())
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -122,7 +122,7 @@ func Benchmark{{toTitle .ElementName}}Exp(b *testing.B) {
 
 
 func Benchmark{{toTitle .ElementName}}Double(b *testing.B) {
-	benchRes{{.ElementName}}.SetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Double(&benchRes{{.ElementName}})
@@ -132,8 +132,8 @@ func Benchmark{{toTitle .ElementName}}Double(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Add(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
-	benchRes{{.ElementName}}.SetRandom()
+	x.MustSetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Add(&x, &benchRes{{.ElementName}})
@@ -142,8 +142,8 @@ func Benchmark{{toTitle .ElementName}}Add(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Sub(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
-	benchRes{{.ElementName}}.SetRandom()
+	x.MustSetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Sub(&x, &benchRes{{.ElementName}})
@@ -151,7 +151,7 @@ func Benchmark{{toTitle .ElementName}}Sub(b *testing.B) {
 }
 
 func Benchmark{{toTitle .ElementName}}Neg(b *testing.B) {
-	benchRes{{.ElementName}}.SetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Neg(&benchRes{{.ElementName}})
@@ -160,8 +160,8 @@ func Benchmark{{toTitle .ElementName}}Neg(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Div(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
-	benchRes{{.ElementName}}.SetRandom()
+	x.MustSetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Div(&x, &benchRes{{.ElementName}})
@@ -170,7 +170,7 @@ func Benchmark{{toTitle .ElementName}}Div(b *testing.B) {
 
 
 func Benchmark{{toTitle .ElementName}}FromMont(b *testing.B) {
-	benchRes{{.ElementName}}.SetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.fromMont()
@@ -178,7 +178,7 @@ func Benchmark{{toTitle .ElementName}}FromMont(b *testing.B) {
 }
 
 func Benchmark{{toTitle .ElementName}}Square(b *testing.B) {
-	benchRes{{.ElementName}}.SetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Square(&benchRes{{.ElementName}})
@@ -256,8 +256,8 @@ func Test{{toTitle .ElementName}}Cmp(t *testing.T) {
 func Test{{toTitle .ElementName}}IsRandom(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		var x, y {{.ElementName}}
-		x.SetRandom()
-		y.SetRandom()
+		x.MustSetRandom()
+		y.MustSetRandom()
 		if x.Equal(&y) {
 			t.Fatal("2 random numbers are unlikely to be equal")
 		}
@@ -299,7 +299,7 @@ func Test{{toTitle .ElementName}}NegZero(t *testing.T) {
 	var a, b {{.ElementName}}
 	b.SetZero()
 	for a.IsZero() {
-		a.SetRandom()
+		a.MustSetRandom()
 	}
 	a.Neg(&b)
 	if !a.IsZero() {
