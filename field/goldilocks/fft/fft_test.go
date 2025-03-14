@@ -45,7 +45,7 @@ func TestFFT(t *testing.T) {
 					backupPol := make([]goldilocks.Element, maxSize)
 
 					for i := 0; i < maxSize; i++ {
-						pol[i].SetRandom()
+						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
 
@@ -72,7 +72,7 @@ func TestFFT(t *testing.T) {
 					backupPol := make([]goldilocks.Element, maxSize)
 
 					for i := 0; i < maxSize; i++ {
-						pol[i].SetRandom()
+						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
 
@@ -100,7 +100,7 @@ func TestFFT(t *testing.T) {
 					backupPol := make([]goldilocks.Element, maxSize)
 
 					for i := 0; i < maxSize; i++ {
-						pol[i].SetRandom()
+						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
 
@@ -126,7 +126,7 @@ func TestFFT(t *testing.T) {
 					backupPol := make([]goldilocks.Element, maxSize)
 
 					for i := 0; i < maxSize; i++ {
-						pol[i].SetRandom()
+						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
 
@@ -152,7 +152,7 @@ func TestFFT(t *testing.T) {
 						backupPol := make([]goldilocks.Element, maxSize)
 
 						for i := 0; i < maxSize; i++ {
-							pol[i].SetRandom()
+							pol[i].MustSetRandom()
 						}
 						copy(backupPol, pol)
 
@@ -183,7 +183,7 @@ func TestFFT(t *testing.T) {
 					backupPol := make([]goldilocks.Element, maxSize)
 
 					for i := 0; i < maxSize; i++ {
-						pol[i].SetRandom()
+						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
 
@@ -206,7 +206,7 @@ func TestFFT(t *testing.T) {
 					backupPol := make([]goldilocks.Element, maxSize)
 
 					for i := 0; i < maxSize; i++ {
-						pol[i].SetRandom()
+						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
 
@@ -246,7 +246,7 @@ func BenchmarkFFT(b *testing.B) {
 	const maxSize = 1 << 20
 
 	pol := make([]goldilocks.Element, maxSize)
-	pol[0].SetRandom()
+	pol[0].MustSetRandom()
 	for i := 1; i < maxSize; i++ {
 		pol[i] = pol[i-1]
 	}
@@ -275,7 +275,7 @@ func BenchmarkFFTDITCosetReference(b *testing.B) {
 	const maxSize = 1 << 20
 
 	pol := make([]goldilocks.Element, maxSize)
-	pol[0].SetRandom()
+	pol[0].MustSetRandom()
 	for i := 1; i < maxSize; i++ {
 		pol[i] = pol[i-1]
 	}
@@ -292,7 +292,7 @@ func BenchmarkFFTDITReferenceSmall(b *testing.B) {
 	const maxSize = 1 << 9
 
 	pol := make([]goldilocks.Element, maxSize)
-	pol[0].SetRandom()
+	pol[0].MustSetRandom()
 	for i := 1; i < maxSize; i++ {
 		pol[i] = pol[i-1]
 	}
@@ -309,7 +309,7 @@ func BenchmarkFFTDIFReference(b *testing.B) {
 	const maxSize = 1 << 20
 
 	pol := make([]goldilocks.Element, maxSize)
-	pol[0].SetRandom()
+	pol[0].MustSetRandom()
 	for i := 1; i < maxSize; i++ {
 		pol[i] = pol[i-1]
 	}
@@ -326,7 +326,7 @@ func BenchmarkFFTDIFReferenceSmall(b *testing.B) {
 	const maxSize = 1 << 9
 
 	pol := make([]goldilocks.Element, maxSize)
-	pol[0].SetRandom()
+	pol[0].MustSetRandom()
 	for i := 1; i < maxSize; i++ {
 		pol[i] = pol[i-1]
 	}

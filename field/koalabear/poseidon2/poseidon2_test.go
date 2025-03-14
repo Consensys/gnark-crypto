@@ -14,7 +14,7 @@ import (
 func TestMulMulInternalInPlaceWidth16(t *testing.T) {
 	var input, expected [16]fr.Element
 	for i := 0; i < 16; i++ {
-		input[i].SetRandom()
+		input[i].MustSetRandom()
 	}
 
 	expected = input
@@ -38,7 +38,7 @@ func TestMulMulInternalInPlaceWidth16(t *testing.T) {
 func TestMulMulInternalInPlaceWidth24(t *testing.T) {
 	var input, expected [24]fr.Element
 	for i := 0; i < 24; i++ {
-		input[i].SetRandom()
+		input[i].MustSetRandom()
 	}
 
 	expected = input
@@ -173,7 +173,7 @@ func BenchmarkPoseidon2Width16(b *testing.B) {
 
 	var tmp [16]fr.Element
 	for i := 0; i < 16; i++ {
-		tmp[i].SetRandom()
+		tmp[i].MustSetRandom()
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -185,7 +185,7 @@ func BenchmarkPoseidon2Width24(b *testing.B) {
 	h := NewPermutation(24, 6, 21)
 	var tmp [24]fr.Element
 	for i := 0; i < 24; i++ {
-		tmp[i].SetRandom()
+		tmp[i].MustSetRandom()
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
