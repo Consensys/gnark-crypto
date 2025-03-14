@@ -355,6 +355,17 @@ func (z *{{.ElementName}}) SetRandom() (*{{.ElementName}}, error) {
 	}
 }
 
+// MustSetRandom sets z to a uniform random value in [0, q).
+//
+// It panics if reading from crypto/rand.Reader errors.
+func (z *{{.ElementName}}) MustSetRandom() *{{.ElementName}} {
+	_, err := z.SetRandom()
+	if err != nil {
+		panic(err)
+	}
+	return z
+}
+
 // smallerThanModulus returns true if z < q
 // This is not constant time
 func (z *{{.ElementName}}) smallerThanModulus() bool {
