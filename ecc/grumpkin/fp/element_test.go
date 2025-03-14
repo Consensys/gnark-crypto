@@ -2363,7 +2363,7 @@ func bigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
 func TestElementInversionApproximation(t *testing.T) {
 	var x Element
 	for i := 0; i < 1000; i++ {
-		x.SetRandom()
+		x.MustSetRandom()
 
 		// Normally small elements are unlikely. Here we give them a higher chance
 		xZeros := mrand.Int() % Limbs //#nosec G404 weak rng is fine here
@@ -2406,8 +2406,8 @@ func TestElementLinearComb(t *testing.T) {
 	var y Element
 
 	for i := 0; i < 1000; i++ {
-		x.SetRandom()
-		y.SetRandom()
+		x.MustSetRandom()
+		y.MustSetRandom()
 		testLinearComb(t, &x, mrand.Int63(), &y, mrand.Int63()) //#nosec G404 weak rng is fine here
 	}
 }
@@ -2425,7 +2425,7 @@ func TestElementInversionCorrectionFactor(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		var x Element
 		var xInv Element
-		x.SetRandom()
+		x.MustSetRandom()
 		xInv.Inverse(&x)
 
 		x.Mul(&x, &xInv)
@@ -2465,7 +2465,7 @@ func TestElementBigNumWMul(t *testing.T) {
 	var x Element
 
 	for i := 0; i < 1000; i++ {
-		x.SetRandom()
+		x.MustSetRandom()
 		w := mrand.Int63() //#nosec G404 weak rng is fine here
 		testBigNumWMul(t, &x, w)
 	}
@@ -2474,7 +2474,7 @@ func TestElementBigNumWMul(t *testing.T) {
 func TestElementVeryBigIntConversion(t *testing.T) {
 	xHi := mrand.Uint64() //#nosec G404 weak rng is fine here
 	var x Element
-	x.SetRandom()
+	x.MustSetRandom()
 	var xInt big.Int
 	x.toVeryBigIntSigned(&xInt, xHi)
 	x.assertMatchVeryBigInt(t, xHi, &xInt)

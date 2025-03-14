@@ -102,7 +102,7 @@ func TestLimbDecomposeBytes(t *testing.T) {
 	nbElmts := 10
 	a := make([]fr.Element, nbElmts)
 	for i := 0; i < nbElmts; i++ {
-		a[i].SetRandom()
+		a[i].MustSetRandom()
 	}
 
 	logTwoBound := 8
@@ -177,7 +177,7 @@ func BenchmarkSIS(b *testing.B) {
 	// accounted for in the benchmark.
 	inputs := make(fr.Vector, nbInputs)
 	for i := 0; i < len(inputs); i++ {
-		inputs[i].SetRandom()
+		inputs[i].MustSetRandom()
 	}
 
 	for _, param := range params128Bits {
