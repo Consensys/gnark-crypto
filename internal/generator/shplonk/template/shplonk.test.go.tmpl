@@ -20,7 +20,7 @@ var bAlpha *big.Int
 func init() {
 	const srsSize = 230
 	var frAlpha fr.Element
-	frAlpha.SetRandom()
+	frAlpha.MustSetRandom()
 	bAlpha = big.NewInt(0)
 	frAlpha.BigInt(bAlpha)
 	var err error
@@ -40,9 +40,7 @@ func TestSerialization(t *testing.T) {
 	proof.ClaimedValues = make([][]fr.Element, nbClaimedValues)
 	for i := 0; i < nbClaimedValues; i++ {
 		proof.ClaimedValues[i] = make([]fr.Element, i+2)
-		for j := 0; j < i+2; j++ {
-			proof.ClaimedValues[i][j].SetRandom()
-		}
+		fr.Vector(proof.ClaimedValues[i]).MustSetRandom()
 	}
 
 	t.Run("opening proof round trip", testutils.SerializationRoundTrip(&proof))
@@ -60,9 +58,7 @@ func TestOpening(t *testing.T) {
 	polys := make([][]fr.Element, nbPolys)
 	for i := 0; i < nbPolys; i++ {
 		polys[i] = make([]fr.Element, sizePoly[i])
-		for j := 0; j < sizePoly[i]; j++ {
-			polys[i][j].SetRandom()
-		}
+		fr.Vector(polys[i]).MustSetRandom()
 	}
 
 	digests := make([]kzg.Digest, nbPolys)
@@ -73,9 +69,7 @@ func TestOpening(t *testing.T) {
 	points := make([][]fr.Element, nbPolys)
 	for i := 0; i < nbPolys; i++ {
 		points[i] = make([]fr.Element, i+2)
-		for j := 0; j < i+2; j++ {
-			points[i][j].SetRandom()
-		}
+		fr.Vector(points[i]).MustSetRandom()
 	}
 
 	hf := sha256.New()
@@ -87,7 +81,7 @@ func TestOpening(t *testing.T) {
 	assert.NoError(err)
 
 	// tampered proof
-	openingProof.ClaimedValues[0][0].SetRandom()
+	openingProof.ClaimedValues[0][0].MustSetRandom()
 	err = BatchVerify(openingProof, digests, points, hf, testSrs.Vk)
 	assert.Error(err)
 
@@ -103,9 +97,7 @@ func TestBuildZtMinusSi(t *testing.T) {
 		sizeSi[i] = 5 + i
 		nbPoints += sizeSi[i]
 		points[i] = make([]fr.Element, sizeSi[i])
-		for j := 0; j < sizeSi[i]; j++ {
-			points[i][j].SetRandom()
-		}
+		fr.Vector(points[i]).MustSetRandom()
 	}
 	for i := 0; i < nbSi; i++ {
 		ztMinusSi := buildZtMinusSi(points, i)
@@ -138,10 +130,9 @@ func TestInterpolate(t *testing.T) {
 	nbPoints := 10
 	x := make([]fr.Element, nbPoints)
 	y := make([]fr.Element, nbPoints)
-	for i := 0; i < nbPoints; i++ {
-		x[i].SetRandom()
-		y[i].SetRandom()
-	}
+	fr.Vector(x).MustSetRandom()
+	fr.Vector(y).MustSetRandom()
+
 	f := interpolate(x, y)
 	for i := 0; i < nbPoints; i++ {
 		fx := eval(f, x[i])
@@ -156,9 +147,8 @@ func TestBuildLagrangeFromDomain(t *testing.T) {
 
 	nbPoints := 10
 	points := make([]fr.Element, nbPoints)
-	for i := 0; i < nbPoints; i++ {
-		points[i].SetRandom()
-	}
+	fr.Vector(points).MustSetRandom()
+
 	var r fr.Element
 	for i := 0; i < nbPoints; i++ {
 
@@ -177,7 +167,7 @@ func TestBuildLagrangeFromDomain(t *testing.T) {
 				}
 			}
 		}
-		r.SetRandom()
+		r.MustSetRandom()
 		y := eval(l, r)
 		if y.IsZero() {
 			t.Fatal("l_{i}(x) should not be zero if x is random")
@@ -189,9 +179,8 @@ func TestBuildLagrangeFromDomain(t *testing.T) {
 func TestBuildVanishingPoly(t *testing.T) {
 	s := 10
 	x := make([]fr.Element, s)
-	for i := 0; i < s; i++ {
-		x[i].SetRandom()
-	}
+	fr.Vector(x).MustSetRandom()
+
 	r := buildVanishingPoly(x)
 
 	if len(r) != s+1 {
@@ -208,7 +197,7 @@ func TestBuildVanishingPoly(t *testing.T) {
 
 	// check that r(y)!=0 for a random point
 	var a fr.Element
-	a.SetRandom()
+	a.MustSetRandom()
 	y := eval(r, a)
 	if y.IsZero() {
 		t.Fatal("πᵢ(X-xᵢ) at r \neq xᵢ should not be zero")
@@ -219,18 +208,16 @@ func TestMultiplyLinearFactor(t *testing.T) {
 
 	s := 10
 	f := make([]fr.Element, s, s+1)
-	for i := 0; i < 10; i++ {
-		f[i].SetRandom()
-	}
+	fr.Vector(f).MustSetRandom()
 
 	var a, y fr.Element
-	a.SetRandom()
+	a.MustSetRandom()
 	f = multiplyLinearFactor(f, a)
 	y = eval(f, a)
 	if !y.IsZero() {
 		t.Fatal("(X-a)f(X) should be zero at a")
 	}
-	a.SetRandom()
+	a.MustSetRandom()
 	y = eval(f, a)
 	if y.IsZero() {
 		t.Fatal("(X-1)f(X) at a random point should not be zero")
@@ -242,15 +229,11 @@ func TestNaiveMul(t *testing.T) {
 
 	size := 10
 	f := make([]fr.Element, size)
-	for i := 0; i < size; i++ {
-		f[i].SetRandom()
-	}
+	fr.Vector(f).MustSetRandom()
 
 	nbPoints := 10
 	points := make([]fr.Element, nbPoints)
-	for i := 0; i < nbPoints; i++ {
-		points[i].SetRandom()
-	}
+	fr.Vector(points).MustSetRandom()
 
 	v := buildVanishingPoly(points)
 	buf := make([]fr.Element, size+nbPoints-1)
@@ -266,7 +249,7 @@ func TestNaiveMul(t *testing.T) {
 
 	// check that g(r) != 0 for a random point
 	var a fr.Element
-	a.SetRandom()
+	a.MustSetRandom()
 	y := eval(g, a)
 	if y.IsZero() {
 		t.Fatal("f(X)(X-x_{1})..(X-x_{n}) at a random point should not be zero")
@@ -279,18 +262,16 @@ func TestDiv(t *testing.T) {
 	nbPoints := 10
 	s := 10
 	f := make([]fr.Element, s, s+nbPoints)
-	for i := 0; i < s; i++ {
-		f[i].SetRandom()
-	}
+	fr.Vector(f).MustSetRandom()
 
 	// backup
 	g := make([]fr.Element, s)
 	copy(g, f)
 
-	// successive divions of linear terms
+	// successive divisions of linear terms
 	x := make([]fr.Element, nbPoints)
 	for i := 0; i < nbPoints; i++ {
-		x[i].SetRandom()
+		x[i].MustSetRandom()
 		f = multiplyLinearFactor(f, x[i])
 	}
 	q := make([][2]fr.Element, nbPoints)
@@ -312,7 +293,7 @@ func TestDiv(t *testing.T) {
 
 	// division by a degree > 1 polynomial
 	for i := 0; i < nbPoints; i++ {
-		x[i].SetRandom()
+		x[i].MustSetRandom()
 		f = multiplyLinearFactor(f, x[i])
 	}
 	r := buildVanishingPoly(x)

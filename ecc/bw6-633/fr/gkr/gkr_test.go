@@ -372,7 +372,7 @@ func testATimesBSquared(t *testing.T, numRounds int, inputAssignments ...[]fr.El
 
 func setRandom(slice []fr.Element) {
 	for i := range slice {
-		slice[i].SetRandom()
+		slice[i].MustSetRandom()
 	}
 }
 
