@@ -52,7 +52,7 @@ func TestEvaluation(t *testing.T) {
 
 	// get reference values
 	var x fr.Element
-	x.SetRandom()
+	x.MustSetRandom()
 	expectedEval := p.ToRegular().Evaluate(x)
 	expectedEvalShifted := ps.ToRegular().Evaluate(x)
 
@@ -107,11 +107,8 @@ func TestEvaluation(t *testing.T) {
 }
 
 func randomVector(size int) *[]fr.Element {
-
 	r := make([]fr.Element, size)
-	for i := 0; i < size; i++ {
-		r[i].SetRandom()
-	}
+	fr.Vector(r).MustSetRandom()
 	return &r
 }
 

@@ -18,16 +18,10 @@ func TestFoldBilinear(t *testing.T) {
 
 		// f = c₀ + c₁ X₁ + c₂ X₂ + c₃ X₁ X₂
 		var coefficients [4]fr.Element
-		for i := 0; i < 4; i++ {
-			if _, err := coefficients[i].SetRandom(); err != nil {
-				t.Error(err)
-			}
-		}
+		fr.Vector(coefficients[:]).MustSetRandom()
 
 		var r fr.Element
-		if _, err := r.SetRandom(); err != nil {
-			t.Error(err)
-		}
+		r.MustSetRandom()
 
 		// interpolate at {0,1}²:
 		m := make(MultiLin, 4)
