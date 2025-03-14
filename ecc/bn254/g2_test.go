@@ -598,9 +598,7 @@ func BenchmarkG2JacIsInSubGroup(b *testing.B) {
 
 func BenchmarkG2JacEqual(b *testing.B) {
 	var scalar fptower.E2
-	if _, err := scalar.MustSetRandom(); err != nil {
-		b.Fatalf("failed to set scalar: %s", err)
-	}
+	scalar.MustSetRandom()
 
 	var a G2Jac
 	a.ScalarMultiplication(&g2Gen, big.NewInt(42))
