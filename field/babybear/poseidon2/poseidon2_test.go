@@ -9,16 +9,19 @@ import (
 	"testing"
 
 	fr "github.com/consensys/gnark-crypto/field/babybear"
+	"github.com/consensys/gnark-crypto/utils/cpu"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMulMulInternalInPlaceWidth16(t *testing.T) {
 	var input, expected [16]fr.Element
-	for i := 0; i < 16; i++ {
+	for i := range input {
 		input[i].SetRandom()
 	}
 
 	expected = input
-	h := NewPermutation(16, 6, 12)
+
+	h := NewPermutation(16, 8, 13)
 	h.matMulInternalInPlace(expected[:])
 
 	var sum fr.Element
@@ -30,19 +33,20 @@ func TestMulMulInternalInPlaceWidth16(t *testing.T) {
 		input[i].Mul(&input[i], &diag16[i]).
 			Add(&input[i], &sum)
 		if !input[i].Equal(&expected[i]) {
-			t.Fatal("mismatch error")
+			t.Fatal("mat mul internal w/ diagonal doesn't match hand calculated")
 		}
 	}
 }
 
 func TestMulMulInternalInPlaceWidth24(t *testing.T) {
 	var input, expected [24]fr.Element
-	for i := 0; i < 24; i++ {
+	for i := range input {
 		input[i].SetRandom()
 	}
 
 	expected = input
-	h := NewPermutation(24, 6, 19)
+
+	h := NewPermutation(24, 8, 21)
 	h.matMulInternalInPlace(expected[:])
 
 	var sum fr.Element
@@ -54,9 +58,68 @@ func TestMulMulInternalInPlaceWidth24(t *testing.T) {
 		input[i].Mul(&input[i], &diag24[i]).
 			Add(&input[i], &sum)
 		if !input[i].Equal(&expected[i]) {
-			t.Fatal("mismatch error")
+			t.Fatal("mat mul internal w/ diagonal doesn't match hand calculated")
 		}
 	}
+}
+
+func TestAVX512Width16(t *testing.T) {
+	if !cpu.SupportAVX512 {
+		t.Skip("AVX512 not supported")
+	}
+	assert := require.New(t)
+	var input, expected [16]fr.Element
+	for i := range input {
+		input[i].SetRandom()
+	}
+
+	expected = input
+
+	h := NewPermutation(16, 8, 13)
+
+	err := h.Permutation(input[:])
+	assert.NoError(err)
+
+	h.disableAVX512()
+	err = h.Permutation(expected[:])
+	assert.NoError(err)
+
+	// compare results
+	for i := 0; i < h.params.Width; i++ {
+		assert.True(input[i].Equal(&expected[i]), "avx512 result don't match purego")
+	}
+}
+
+func TestAVX512Width24(t *testing.T) {
+	if !cpu.SupportAVX512 {
+		t.Skip("AVX512 not supported")
+	}
+	assert := require.New(t)
+	var input, expected [24]fr.Element
+	for i := range input {
+		input[i].SetRandom()
+	}
+
+	expected = input
+
+	h := NewPermutation(24, 8, 21)
+
+	err := h.Permutation(input[:])
+	assert.NoError(err)
+
+	h.disableAVX512()
+	err = h.Permutation(expected[:])
+	assert.NoError(err)
+
+	// compare results
+	for i := 0; i < h.params.Width; i++ {
+		assert.True(input[i].Equal(&expected[i]), "avx512 result don't match purego")
+	}
+}
+
+func (h *Permutation) disableAVX512() {
+	h.params.hasFast16_8_13 = false
+	h.params.hasFast24_8_21 = false
 }
 
 func TestPoseidon2Width16(t *testing.T) {
@@ -167,12 +230,11 @@ func TestPoseidon2Width24(t *testing.T) {
 	}
 }
 
-// bench
 func BenchmarkPoseidon2Width16(b *testing.B) {
-	h := NewPermutation(16, 6, 12)
+	h := NewPermutation(16, 8, 13)
 
 	var tmp [16]fr.Element
-	for i := 0; i < 16; i++ {
+	for i := range tmp {
 		tmp[i].SetRandom()
 	}
 	b.ResetTimer()
@@ -182,9 +244,10 @@ func BenchmarkPoseidon2Width16(b *testing.B) {
 }
 
 func BenchmarkPoseidon2Width24(b *testing.B) {
-	h := NewPermutation(24, 6, 19)
+	h := NewPermutation(24, 8, 21)
+
 	var tmp [24]fr.Element
-	for i := 0; i < 24; i++ {
+	for i := range tmp {
 		tmp[i].SetRandom()
 	}
 	b.ResetTimer()
