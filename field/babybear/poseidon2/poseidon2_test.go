@@ -117,6 +117,52 @@ func TestAVX512Width24(t *testing.T) {
 	}
 }
 
+func TestAVX512Permutation16x24(t *testing.T) {
+	if !cpu.SupportAVX512 {
+		t.Skip("AVX512 not supported")
+	}
+	assert := require.New(t)
+	input := make([][512]fr.Element, 16)
+	result := make([][8]fr.Element, 16)
+	expected := make([][8]fr.Element, 16)
+
+	for i := range input {
+		for j := range input[i] {
+			input[i][j].SetRandom()
+		}
+	}
+	h := NewPermutation(24, 8, 21)
+
+	h.Permutation16x24(input, result)
+
+	h.disableAVX512()
+	h.Permutation16x24(input, expected)
+
+	// compare results
+	for i := 0; i < 16; i++ {
+		for j := 0; j < 8; j++ {
+			assert.True(result[i][j].Equal(&expected[i][j]), "avx512 result don't match purego")
+		}
+	}
+}
+
+func BenchmarkPermutation16x24(b *testing.B) {
+	input := make([][512]fr.Element, 16)
+	res := make([][8]fr.Element, 16)
+	for i := range input {
+		for j := range input[i] {
+			input[i][j].SetRandom()
+		}
+	}
+	h := NewPermutation(24, 8, 21)
+
+	b.SetBytes(16 * 512 * 4)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		h.Permutation16x24(input, res)
+	}
+}
+
 func (h *Permutation) disableAVX512() {
 	h.params.hasFast16_8_13 = false
 	h.params.hasFast24_8_21 = false

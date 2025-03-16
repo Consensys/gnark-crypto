@@ -20,33 +20,5 @@ func permutation16_avx512(input []fr.Element, roundKeys [][]fr.Element) {
 }
 
 func (h *Permutation) Permutation16x24(_x [][512]fr.Element, merkleLeaves [][8]fr.Element) {
-	// input *[16][24]fr.Element
-	const (
-		width       = 16
-		p2blockSize = 16
-		stateSize   = 24
-	)
-	if len(_x) != width || len(merkleLeaves) != width {
-		panic("invalid input size")
-	}
-
-	var state [width][stateSize]fr.Element
-	n := len(_x[0])
-	const m = 8
-	for i := 0; i < n; i += p2blockSize {
-		for j := 0; j < width; j++ {
-			copy(state[j][m:], _x[j][i:])
-			h.Permutation(state[j][:])
-		}
-		// spongePerm.Permutation16x24(&state)
-		// spongePerm.Permutation(state[j][:])
-	}
-
-	for i := range merkleLeaves {
-		copy(merkleLeaves[i][:], state[i][:])
-	}
-
-	// for j := 0; j < 16; j++ {
-	// 	h.Permutation(input[j][:])
-	// }
+	h.permutation16x24_generic(_x, merkleLeaves)
 }

@@ -38,19 +38,18 @@ func permutation16_avx512(input []fr.Element, roundKeys [][]fr.Element)
 func permutation16x24_avx512(input *fr.Element, nbBlocks uint64, res *fr.Element, roundKeys [][]fr.Element)
 
 func (h *Permutation) Permutation16x24(_x [][512]fr.Element, merkleLeaves [][8]fr.Element) {
-	// var transposed [24][16]fr.Element
-	// for i := 0; i < 16; i++ {
-	// 	for j := 0; j < 24; j++ {
-	// 		transposed[j][i] = input[i][j]
-	// 	}
-	// }
-	nbBlocks := uint64(len(_x[0]) / 16)
+	if !h.params.hasFast24_6_21 {
+		h.permutation16x24_generic(_x, merkleLeaves)
+		return
+	}
+	const (
+		width       = 16
+		p2blockSize = 16
+		stateSize   = 24
+	)
+	if len(_x) != width || len(merkleLeaves) != width {
+		panic("invalid input size")
+	}
+	const nbBlocks = 512 / 16
 	permutation16x24_avx512(&_x[0][0], nbBlocks, &merkleLeaves[0][0], h.params.RoundKeys)
-
-	// // do the transpose inverse
-	// for i := 0; i < 16; i++ {
-	// 	for j := 0; j < 24; j++ {
-	// 		input[i][j] = transposed[j][i]
-	// 	}
-	// }
 }

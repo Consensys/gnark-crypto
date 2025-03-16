@@ -539,3 +539,32 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 
 	return outBytes, nil
 }
+
+{{- if .F31}}
+
+func (h *Permutation) permutation16x24_generic(_x [][512]fr.Element, merkleLeaves [][8]fr.Element) {
+	const (
+		width       = 16
+		p2blockSize = 16
+		stateSize   = 24
+	)
+	if len(_x) != width || len(merkleLeaves) != width {
+		panic("invalid input size")
+	}
+
+	var state [width][stateSize]fr.Element
+	n := len(_x[0])
+	const m = 8
+	for i := 0; i < n; i += p2blockSize {
+		for j := 0; j < width; j++ {
+			copy(state[j][m:], _x[j][i:])
+			h.Permutation(state[j][:])
+		}
+	}
+
+	for i := range merkleLeaves {
+		copy(merkleLeaves[i][:], state[i][:])
+	}
+}
+
+{{- end}}
