@@ -16,15 +16,15 @@ import (
 const qInvNeg = 2013265919
 const q = 2013265921
 
-// indices used for gather (transpose) operation
-var indexGather512, indexGather8 []uint32
+// indices used for gather / scatter (transpose) operation
+var indexGather512, indexScatter8 []uint32
 
 func init() {
 	indexGather512 = make([]uint32, 16)
-	indexGather8 = make([]uint32, 16)
+	indexScatter8 = make([]uint32, 16)
 	for i := 0; i < 16; i++ {
 		indexGather512[i] = uint32(i * 512)
-		indexGather8[i] = uint32(i * 8)
+		indexScatter8[i] = uint32(i * 8)
 	}
 }
 

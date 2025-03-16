@@ -16,6 +16,7 @@ package amd64
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/consensys/bavard/amd64"
 )
@@ -525,7 +526,7 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	nbBlocksExternal := registers.Pop()
 	addrRes := registers.Pop()
 	addrRoundKeys := registers.Pop()
-	addrIndexGather8 := registers.Pop()
+	addrIndexScatter8 := registers.Pop()
 	addrIndexGather512 := registers.Pop()
 	rKey := registers.Pop()
 
@@ -544,7 +545,7 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 	f.MOVQ("$0xffffffffffffffff", maskFFFF)
 
-	f.MOVQ("·indexGather8+0(SB)", addrIndexGather8)
+	f.MOVQ("·indexScatter8+0(SB)", addrIndexScatter8)
 	f.MOVQ("·indexGather512+0(SB)", addrIndexGather512)
 
 	f.MOVQ("input+0(FP)", addrInput)
@@ -565,6 +566,17 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 	add, _ := f.DefineFn("add")
 	reduce1Q, _ := f.DefineFn("reduce1Q")
+
+	double := f.Define("double", 4, func(args ...any) {
+		a := args[0]
+		qd := args[1]
+		r0 := args[2]
+		into := args[3]
+
+		f.VPSLLD("$1", a, into)
+		f.VPSUBD(qd, into, r0)
+		f.VPMINUD(into, r0, into)
+	})
 
 	sub := f.Define("sub", 5, func(args ...any) {
 		a := args[0]
@@ -594,12 +606,15 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		registers.PushV(t0)
 	}
 
-	mul := func(a, b, c amd64.VectorRegister, reduce bool) {
-		aOdd := registers.PopV()
-		bOdd := registers.PopV()
-		t0 := registers.PopV()
-		t1 := registers.PopV()
-		PL0 := registers.PopV()
+	_mul := f.Define("mul_w", 8, func(args ...any) {
+		a := args[0]
+		b := args[1]
+		aOdd := args[2]
+		bOdd := args[3]
+		t0 := args[4]
+		t1 := args[5]
+		PL0 := args[6]
+		c := args[7]
 
 		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
 		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
@@ -607,11 +622,9 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
 		f.VPMULUDQ(a, b, t0)
 		f.VPMULUDQ(aOdd, bOdd, t1)
-		registers.PushV(bOdd)
 
 		f.VPMULUDQ(t0, qInvNeg, PL0)
-		registers.PushV(aOdd)
-		PL1 := registers.PopV()
+		PL1 := bOdd
 		f.VPMULUDQ(t1, qInvNeg, PL1)
 
 		f.VPMULUDQ(PL0, qd, PL0)
@@ -622,11 +635,22 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 		f.VMOVSHDUPk(t0, amd64.K3, c)
 
+	})
+
+	mul := func(a, b, c amd64.VectorRegister, reduce bool) {
+		aOdd := registers.PopV()
+		bOdd := registers.PopV()
+		t0 := registers.PopV()
+		t1 := registers.PopV()
+		PL0 := registers.PopV()
+
+		_mul(a, b, aOdd, bOdd, t0, t1, PL0, c)
+
 		if reduce {
 			reduce1Q(qd, c, t0)
 		}
 
-		registers.PushV(t0, t1, PL0, PL1)
+		registers.PushV(aOdd, bOdd, t0, t1, PL0)
 	}
 
 	// Mul2ExpNegN multiplies x by -1/2^n
@@ -637,13 +661,16 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	//
 	// N.B. n must be < 33.
 	// perf: see Plonky3 for a more optimized version
-	mul2ExpNegN := func(a, t0, c amd64.VectorRegister, n uint64, reduce bool) {
-		aOdd := registers.PopV()
-		t1 := registers.PopV()
-		PL0 := registers.PopV()
-		PL1 := registers.PopV()
-
-		m := 32 - n
+	_mul2ExpNegN := f.Define("mul2ExpNegN", 9, func(args ...any) {
+		a := args[0]
+		t0 := args[1]
+		c := args[2]
+		n := args[3]
+		m := args[4]
+		aOdd := args[5]
+		t1 := args[6]
+		PL0 := args[7]
+		PL1 := args[8]
 
 		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
 
@@ -667,9 +694,18 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 		f.VMOVSHDUPk(t0, amd64.K3, c)
 
-		if reduce {
-			reduce1Q(qd, c, t0)
-		}
+		reduce1Q(qd, c, t0)
+	})
+
+	mul2ExpNegN := func(a, t0, c amd64.VectorRegister, n uint64) {
+		aOdd := registers.PopV()
+		t1 := registers.PopV()
+		PL0 := registers.PopV()
+		PL1 := registers.PopV()
+
+		m := 32 - n
+
+		_mul2ExpNegN(a, t0, c, "$"+strconv.Itoa(int(n)), "$"+strconv.Itoa(int(m)), aOdd, t1, PL0, PL1)
 
 		registers.PushV(aOdd, t1, PL0, PL1)
 	}
@@ -704,13 +740,13 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		panic("only SBox degree 3 and 7 are supported")
 	}
 
-	matMul4 := func() {
-		sum := registers.PopV()
-		sd0 := registers.PopV()
-		sd1 := registers.PopV()
-		sd2 := registers.PopV()
-		sd3 := registers.PopV()
-		t0 := registers.PopV()
+	matMul4 := f.Define("mat_mul_4_w", 6, func(args ...any) {
+		sum := args[0]
+		sd0 := args[1]
+		sd1 := args[2]
+		sd2 := args[3]
+		sd3 := args[4]
+		t0 := args[5]
 
 		// for each block in v
 		for i := 0; i < nbBlocks; i++ {
@@ -733,11 +769,10 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 			add(sum, s2, qd, t0, sum)
 			add(sum, s3, qd, t0, sum)
 
-			// TODO @gbotrel use shift for doubling
-			add(s0, s0, qd, t0, sd0)
-			add(s1, s1, qd, t0, sd1)
-			add(s2, s2, qd, t0, sd2)
-			add(s3, s3, qd, t0, sd3)
+			double(s0, qd, t0, sd0)
+			double(s1, qd, t0, sd1)
+			double(s2, qd, t0, sd2)
+			double(s3, qd, t0, sd3)
 
 			add(s0, sum, qd, t0, s0)
 			add(s0, sd1, qd, t0, s0)
@@ -748,17 +783,22 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 			add(s3, sum, qd, t0, s3)
 			add(s3, sd0, qd, t0, s3)
 		}
+	})
 
-		registers.PushV(sum, sd0, sd1, sd2, sd3, t0)
-	}
+	_matMulExternal := f.Define("mat_mul_external_w", 6, func(args ...any) {
+		sum := args[0]
+		sd0 := args[1]
+		sd1 := args[2]
+		sd2 := args[3]
+		sd3 := args[4]
+		t0 := args[5]
 
-	matMulExternal := func() {
-		matMul4()
-		tmp0 := registers.PopV()
-		tmp1 := registers.PopV()
-		tmp2 := registers.PopV()
-		tmp3 := registers.PopV()
-		t0 := registers.PopV()
+		matMul4(sum, sd0, sd1, sd2, sd3, t0)
+
+		tmp0 := sd0
+		tmp1 := sd1
+		tmp2 := sd2
+		tmp3 := sd3
 
 		add(v[0], v[4], qd, t0, tmp0)
 		add(v[1], v[5], qd, t0, tmp1)
@@ -788,8 +828,19 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 			add(s2, tmp2, qd, t0, s2)
 			add(s3, tmp3, qd, t0, s3)
 		}
+	})
 
-		registers.PushV(tmp0, tmp1, tmp2, tmp3, t0)
+	matMulExternal := func() {
+		sum := registers.PopV()
+		sd0 := registers.PopV()
+		sd1 := registers.PopV()
+		sd2 := registers.PopV()
+		sd3 := registers.PopV()
+		t0 := registers.PopV()
+
+		_matMulExternal(sum, sd0, sd1, sd2, sd3, t0)
+
+		registers.PushV(sum, sd0, sd1, sd2, sd3, t0)
 	}
 
 	// outer loop
@@ -817,15 +868,6 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 	matMulExternal()
 
-	// for i := 0; i < rf; i++ {
-	// one round = matMulExternal(sBox_Full(addRoundKey))
-	// 	h.addRoundKeyInPlace(i, input)
-	// 	for j := 0; j < h.params.Width; j++ {
-	// 		h.sBox(j, input)
-	// 	}
-	// 	h.matMulExternalInPlace(input)
-	// }
-
 	addRoundKey := func(round, index int) {
 		t0 := registers.PopV()
 		f.MOVQ(addrRoundKeys.At(round*3), rKey)
@@ -843,15 +885,6 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		}
 		matMulExternal()
 	}
-
-	// addrDiagonal := registers.Pop()
-	// f.MOVQ("·diag24+0(SB)", addrDiagonal)
-
-	// mulDiag := func(a, t0 amd64.VectorRegister, n int) {
-	// 	f.MOVD(addrDiagonal.AtD(n), amd64.AX)
-	// 	f.VPBROADCASTD(amd64.AX, t0)
-	// 	mul(a, t0, a, true)
-	// }
 
 	partialRound := func() {
 		// add round key 0;
@@ -880,14 +913,14 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/4, 1/8, 1/16, 1/32, 1/64, 1/2^24, -1/2^8, -1/8, -1/16, -1/32, -1/64, -1/2^7, -1/2^9, -1/2^24]
 		// var temp fr.Element
 		// input[0].Sub(&sum, temp.Double(&input[0]))
-		add(v[0], v[0], qd, t0, t1)
+		double(v[0], qd, t0, t1)
 		sub(sum, t1, qd, t0, v[0])
 
 		// input[1].Add(&sum, &input[1])
 		add(sum, v[1], qd, t0, v[1])
 
 		// input[2].Add(&sum, temp.Double(&input[2]))
-		add(v[2], v[2], qd, t0, v[2])
+		double(v[2], qd, t0, v[2])
 		add(v[2], sum, qd, t0, v[2])
 
 		// temp.Set(&input[3]).Halve()
@@ -896,12 +929,12 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		add(sum, v[3], qd, t0, v[3])
 
 		// input[4].Add(&sum, temp.Double(&input[4]).Add(&temp, &input[4]))
-		add(v[4], v[4], qd, t0, t1)
+		double(v[4], qd, t0, t1)
 		add(v[4], t1, qd, t0, v[4])
 		add(v[4], sum, qd, t0, v[4])
 
 		// input[5].Add(&sum, temp.Double(&input[5]).Double(&temp))
-		add(v[5], v[5], qd, t0, v[5])
+		double(v[5], qd, t0, v[5])
 		add(v[5], v[5], qd, t0, v[5])
 		add(v[5], sum, qd, t0, v[5])
 
@@ -911,13 +944,13 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		sub(sum, v[6], qd, t0, v[6])
 
 		// input[7].Sub(&sum, temp.Double(&input[7]).Add(&temp, &input[7]))
-		add(v[7], v[7], qd, t0, t1)
+		double(v[7], qd, t0, t1)
 		add(v[7], t1, qd, t0, v[7])
 		sub(sum, v[7], qd, t0, v[7])
 
 		// input[8].Sub(&sum, temp.Double(&input[8]).Double(&temp))
-		add(v[8], v[8], qd, t0, v[8])
-		add(v[8], v[8], qd, t0, v[8])
+		double(v[8], qd, t0, v[8])
+		double(v[8], qd, t0, v[8])
 		sub(sum, v[8], qd, t0, v[8])
 
 		registers.PushV(t1)
@@ -925,7 +958,7 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		ns := []uint64{8, 2, 3, 4, 5, 6, 24, 8, 3, 4, 5, 6, 7, 9, 24}
 
 		for i := 9; i < len(v); i++ {
-			mul2ExpNegN(v[i], t0, v[i], ns[i-9], true)
+			mul2ExpNegN(v[i], t0, v[i], ns[i-9])
 			if i <= 15 {
 				add(v[i], sum, qd, t0, v[i])
 			} else {
@@ -970,10 +1003,6 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		matMulExternal()
 	}
 
-	// for i := range v {
-	// 	f.VMOVDQU32(v[i], addrInput.AtD(i*16))
-	// }
-
 	f.DECQ(nbBlocksExternal)
 	f.JMP(lblOuterLoop)
 
@@ -982,14 +1011,14 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	// now we just copy the result
 	// need to transpose 8x16 to 16x8
 	{
-		vIndexGather := registers.PopV()
-		f.VMOVDQU32(addrIndexGather8.At(0), vIndexGather)
+		vIndexScatter := registers.PopV()
+		f.VMOVDQU32(addrIndexScatter8.At(0), vIndexScatter)
 		transposed := v[:8]
 		for i := range transposed {
 			f.KMOVD(maskFFFF, amd64.K1)
-			f.VPSCATTERDD(i*4, addrRes, vIndexGather, 4, amd64.K1, transposed[i])
+			f.VPSCATTERDD(i*4, addrRes, vIndexScatter, 4, amd64.K1, transposed[i])
 		}
-		registers.PushV(vIndexGather)
+		registers.PushV(vIndexScatter)
 	}
 
 	f.RET()
