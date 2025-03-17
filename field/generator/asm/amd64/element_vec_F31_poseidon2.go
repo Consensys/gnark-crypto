@@ -894,6 +894,7 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		t0 := registers.PopV()
 		t1 := registers.PopV()
 
+		panic(registers.AvailableV())
 		// TODO @gbotrel do less adds.
 		add(v[0], v[1], qd, t0, sum)
 		for i := 2; i < len(v); i++ {
