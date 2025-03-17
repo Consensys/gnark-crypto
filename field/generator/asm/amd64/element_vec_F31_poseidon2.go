@@ -545,6 +545,10 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 	f.MOVQ("$0xffffffffffffffff", maskFFFF)
 
+	// prepare the masks used for shuffling the vectors
+	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
 	f.MOVQ("·indexScatter8+0(SB)", addrIndexScatter8)
 	f.MOVQ("·indexGather512+0(SB)", addrIndexGather512)
 

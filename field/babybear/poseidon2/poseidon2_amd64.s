@@ -188,6 +188,8 @@ TEXT ·permutation16x24_avx512(SB), NOSPLIT, $0-48
 	MOVD         $const_qInvNeg, AX
 	VPBROADCASTD AX, Z25
 	MOVQ         $0xffffffffffffffff, R14
+	MOVQ         $0x0000000000005555, AX
+	KMOVD        AX, K3
 	MOVQ         ·indexScatter8+0(SB), DI
 	MOVQ         ·indexGather512+0(SB), R8
 	MOVQ         input+0(FP), R15
