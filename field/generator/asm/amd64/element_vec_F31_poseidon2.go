@@ -588,7 +588,7 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		f.VPSUBD(b, a, into)
 		f.VPADDD(qd, into, r0)
 		f.VPMINUD(into, r0, into)
-	}, false)
+	})
 
 	halve := func(a amd64.VectorRegister) {
 		// TODO @gbotrel we can save the broadcasts
