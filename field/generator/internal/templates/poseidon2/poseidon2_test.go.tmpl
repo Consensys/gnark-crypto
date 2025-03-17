@@ -161,7 +161,7 @@ func BenchmarkPermutation16x24(b *testing.B) {
 			input[i][j].SetRandom()
 		}
 	}
-	h := NewPermutation(24, 6, 21)
+	h := NewPermutation({{- $w1}}, {{- .ParamsSponge.FullRounds}}, {{- .ParamsSponge.PartialRounds}})
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

@@ -587,15 +587,14 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		f.VPSRLD(1, a, a)
 	}
 
-	_mul := f.Define("mul_w", 8, func(args ...any) {
+	_mul := f.Define("mul_w", 7, func(args ...any) {
 		a := args[0]
 		b := args[1]
 		aOdd := args[2]
 		bOdd := args[3]
 		t0 := args[4]
 		t1 := args[5]
-		PL0 := args[6]
-		c := args[7]
+		c := args[6]
 
 		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
 		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
@@ -603,7 +602,7 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
 		f.VPMULUDQ(a, b, t0)
 		f.VPMULUDQ(aOdd, bOdd, t1)
-
+		PL0 := aOdd
 		f.VPMULUDQ(t0, qInvNeg, PL0)
 		PL1 := bOdd
 		f.VPMULUDQ(t1, qInvNeg, PL1)
@@ -615,7 +614,6 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		f.VPADDQ(t1, PL1, c)
 
 		f.VMOVSHDUPk(t0, amd64.K3, c)
-
 	})
 
 	// Mul2ExpNegN multiplies x by -1/2^n
@@ -685,15 +683,29 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 			t1 := args[2]
 			t2 := args[3]
 			t3 := args[4]
-			t4 := args[5]
+			// t4 := args[5]
 			t5 := args[6]
-			_mul(a, a, t0, t1, t2, t3, t4, t5)
-			_mul(a, t5, t0, t1, t2, t3, t4, a)
+			_mul(a, a, t0, t1, t2, t3, t5)
+			_mul(a, t5, t0, t1, t2, t3, a)
 			reduce1Q(qd, a, t2)
 		})
 
 	case 7:
-		sbox = f.Define("sbox_w", 7, func(args ...any) {})
+		sbox = f.Define("sbox_w", 7, func(args ...any) {
+			a := args[0]
+			t0 := args[1]
+			t1 := args[2]
+			t2 := args[3]
+			t3 := args[4]
+			t4 := args[5]
+			t5 := args[6]
+			_mul(a, a, t0, t1, t2, t3, t5)
+			reduce1Q(qd, t5, t2)
+			_mul(t5, t5, t0, t1, t2, t3, t4)
+			_mul(a, t5, t0, t1, t2, t3, a)
+			_mul(a, t4, t0, t1, t2, t3, a)
+			reduce1Q(qd, a, t2)
+		})
 	default:
 		panic("only SBox degree 3 and 7 are supported")
 	}
@@ -871,7 +883,10 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		}
 
 		// mul by diag24:
+		// koalabear:
 		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/4, 1/8, 1/16, 1/32, 1/64, 1/2^24, -1/2^8, -1/8, -1/16, -1/32, -1/64, -1/2^7, -1/2^9, -1/2^24]
+		// babybear:
+		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/4, 1/8, 1/16, 1/2^7, 1/2^9, 1/2^27, -1/2^8, -1/4, -1/8, -1/16, -1/32, -1/64, -1/2^7, -1/2^27]
 		// var temp fr.Element
 		// input[0].Sub(&sum, temp.Double(&input[0]))
 		double(v[0], qd, t0, v[0])
@@ -912,7 +927,14 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 		registers.PushV(t1, t2, t3, t4)
 
-		ns := []uint64{8, 2, 3, 4, 5, 6, 24, 8, 3, 4, 5, 6, 7, 9, 24}
+		var ns []uint64
+		if params.SBoxDegree == 3 {
+			// koalabear
+			ns = []uint64{8, 2, 3, 4, 5, 6, 24, 8, 3, 4, 5, 6, 7, 9, 24}
+		} else {
+			// babybear
+			ns = []uint64{8, 2, 3, 4, 7, 9, 27, 8, 2, 3, 4, 5, 6, 7, 27}
+		}
 
 		for i := 9; i < len(v); i++ {
 			mul2ExpNegN(v[i], t0, v[i], ns[i-9])
@@ -937,6 +959,7 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		}
 
 		registers.PushV(sum, t0)
+
 	}
 
 	// private function to help write for loops with known bounds

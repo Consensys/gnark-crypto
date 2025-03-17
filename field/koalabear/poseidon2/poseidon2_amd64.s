@@ -222,18 +222,18 @@ TEXT ·permutation16x24_avx512(SB), NOSPLIT, $0-32
 	VPADDD  in2, in4, in3 \
 	VPMINUD in4, in3, in4 \
 
-#define MUL_W(in0, in1, in2, in3, in4, in5, in6, in7) \
+#define MUL_W(in0, in1, in2, in3, in4, in5, in6) \
 	VPSRLQ    $32, in0, in2 \
 	VPSRLQ    $32, in1, in3 \
 	VPMULUDQ  in0, in1, in4 \
 	VPMULUDQ  in2, in3, in5 \
-	VPMULUDQ  in4, Z25, in6 \
+	VPMULUDQ  in4, Z25, in2 \
 	VPMULUDQ  in5, Z25, in3 \
-	VPMULUDQ  in6, Z24, in6 \
-	VPADDQ    in4, in6, in4 \
+	VPMULUDQ  in2, Z24, in2 \
+	VPADDQ    in4, in2, in4 \
 	VPMULUDQ  in3, Z24, in3 \
-	VPADDQ    in5, in3, in7 \
-	VMOVSHDUP in4, K3, in7  \
+	VPADDQ    in5, in3, in6 \
+	VMOVSHDUP in4, K3, in6  \
 
 #define MUL_2_EXP_NEGN(in0, in1, in2, in3, in4, in5, in6, in7, in8) \
 	VPSRLQ    $32, in0, in5 \
@@ -250,9 +250,9 @@ TEXT ·permutation16x24_avx512(SB), NOSPLIT, $0-32
 	REDUCE1Q(Z24, in2, in1) \
 
 #define SBOX_W(in0, in1, in2, in3, in4, in5, in6) \
-MUL_W(in0, in0, in1, in2, in3, in4, in5, in6) \
-MUL_W(in0, in6, in1, in2, in3, in4, in5, in0) \
-REDUCE1Q(Z24, in0, in3)                       \
+MUL_W(in0, in0, in1, in2, in3, in4, in6) \
+MUL_W(in0, in6, in1, in2, in3, in4, in0) \
+REDUCE1Q(Z24, in0, in3)                  \
 
 #define MAT_MUL_4_W(in0, in1, in2, in3, in4, in5) \
 ADD(Z0, Z1, Z24, in5, in0)   \

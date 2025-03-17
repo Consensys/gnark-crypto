@@ -226,18 +226,18 @@ TEXT ·permutation16x24_avx512(SB), NOSPLIT, $0-32
 	VPADDD  in2, in4, in3 \
 	VPMINUD in4, in3, in4 \
 
-#define MUL_W(in0, in1, in2, in3, in4, in5, in6, in7) \
+#define MUL_W(in0, in1, in2, in3, in4, in5, in6) \
 	VPSRLQ    $32, in0, in2 \
 	VPSRLQ    $32, in1, in3 \
 	VPMULUDQ  in0, in1, in4 \
 	VPMULUDQ  in2, in3, in5 \
-	VPMULUDQ  in4, Z25, in6 \
+	VPMULUDQ  in4, Z25, in2 \
 	VPMULUDQ  in5, Z25, in3 \
-	VPMULUDQ  in6, Z24, in6 \
-	VPADDQ    in4, in6, in4 \
+	VPMULUDQ  in2, Z24, in2 \
+	VPADDQ    in4, in2, in4 \
 	VPMULUDQ  in3, Z24, in3 \
-	VPADDQ    in5, in3, in7 \
-	VMOVSHDUP in4, K3, in7  \
+	VPADDQ    in5, in3, in6 \
+	VMOVSHDUP in4, K3, in6  \
 
 #define MUL_2_EXP_NEGN(in0, in1, in2, in3, in4, in5, in6, in7, in8) \
 	VPSRLQ    $32, in0, in5 \
@@ -254,6 +254,12 @@ TEXT ·permutation16x24_avx512(SB), NOSPLIT, $0-32
 	REDUCE1Q(Z24, in2, in1) \
 
 #define SBOX_W(in0, in1, in2, in3, in4, in5, in6) \
+MUL_W(in0, in0, in1, in2, in3, in4, in6) \
+REDUCE1Q(Z24, in6, in3)                  \
+MUL_W(in6, in6, in1, in2, in3, in4, in5) \
+MUL_W(in0, in6, in1, in2, in3, in4, in0) \
+MUL_W(in0, in5, in1, in2, in3, in4, in0) \
+REDUCE1Q(Z24, in0, in3)                  \
 
 #define MAT_MUL_4_W(in0, in1, in2, in3, in4, in5) \
 ADD(Z0, Z1, Z24, in5, in0)   \
@@ -468,17 +474,17 @@ loop_5:
 	MUL_2_EXP_NEGN(Z10, Z27, Z10, $2, $30, Z28, Z29, Z30, Z31)
 	MUL_2_EXP_NEGN(Z11, Z27, Z11, $3, $29, Z28, Z29, Z30, Z31)
 	MUL_2_EXP_NEGN(Z12, Z27, Z12, $4, $28, Z28, Z29, Z30, Z31)
-	MUL_2_EXP_NEGN(Z13, Z27, Z13, $5, $27, Z28, Z29, Z30, Z31)
-	MUL_2_EXP_NEGN(Z14, Z27, Z14, $6, $26, Z28, Z29, Z30, Z31)
-	MUL_2_EXP_NEGN(Z15, Z27, Z15, $24, $8, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z13, Z27, Z13, $7, $25, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z14, Z27, Z14, $9, $23, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z15, Z27, Z15, $27, $5, Z28, Z29, Z30, Z31)
 	MUL_2_EXP_NEGN(Z16, Z27, Z16, $8, $24, Z28, Z29, Z30, Z31)
-	MUL_2_EXP_NEGN(Z17, Z27, Z17, $3, $29, Z28, Z29, Z30, Z31)
-	MUL_2_EXP_NEGN(Z18, Z27, Z18, $4, $28, Z28, Z29, Z30, Z31)
-	MUL_2_EXP_NEGN(Z19, Z27, Z19, $5, $27, Z28, Z29, Z30, Z31)
-	MUL_2_EXP_NEGN(Z20, Z27, Z20, $6, $26, Z28, Z29, Z30, Z31)
-	MUL_2_EXP_NEGN(Z21, Z27, Z21, $7, $25, Z28, Z29, Z30, Z31)
-	MUL_2_EXP_NEGN(Z22, Z27, Z22, $9, $23, Z28, Z29, Z30, Z31)
-	MUL_2_EXP_NEGN(Z23, Z27, Z23, $24, $8, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z17, Z27, Z17, $2, $30, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z18, Z27, Z18, $3, $29, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z19, Z27, Z19, $4, $28, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z20, Z27, Z20, $5, $27, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z21, Z27, Z21, $6, $26, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z22, Z27, Z22, $7, $25, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z23, Z27, Z23, $27, $5, Z28, Z29, Z30, Z31)
 	SUB(Z26, Z0, Z24, Z27, Z0)
 	ADD(Z26, Z1, Z24, Z27, Z1)
 	ADD(Z2, Z26, Z24, Z27, Z2)

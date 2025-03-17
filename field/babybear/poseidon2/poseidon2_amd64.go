@@ -16,18 +16,6 @@ import (
 const qInvNeg = 2013265919
 const q = 2013265921
 
-// indices used for gather / scatter (transpose) operation
-var indexGather512, indexScatter8 []uint32
-
-func init() {
-	indexGather512 = make([]uint32, 16)
-	indexScatter8 = make([]uint32, 16)
-	for i := 0; i < 16; i++ {
-		indexGather512[i] = uint32(i * 512)
-		indexScatter8[i] = uint32(i * 8)
-	}
-}
-
 //go:noescape
 func permutation24_avx512(input []fr.Element, roundKeys [][]fr.Element)
 
@@ -35,21 +23,4 @@ func permutation24_avx512(input []fr.Element, roundKeys [][]fr.Element)
 func permutation16_avx512(input []fr.Element, roundKeys [][]fr.Element)
 
 //go:noescape
-func permutation16x24_avx512(input *fr.Element, nbBlocks uint64, res *fr.Element, roundKeys [][]fr.Element)
-
-func (h *Permutation) Permutation16x24(_x [][512]fr.Element, merkleLeaves [][8]fr.Element) {
-	if !h.params.hasFast24_8_21 {
-		h.permutation16x24_generic(_x, merkleLeaves)
-		return
-	}
-	const (
-		width       = 16
-		p2blockSize = 16
-		stateSize   = 24
-	)
-	if len(_x) != width || len(merkleLeaves) != width {
-		panic("invalid input size")
-	}
-	const nbBlocks = 512 / 16
-	permutation16x24_avx512(&_x[0][0], nbBlocks, &merkleLeaves[0][0], h.params.RoundKeys)
-}
+func permutation16x24_avx512(input *[24][16]fr.Element, roundKeys [][]fr.Element)
