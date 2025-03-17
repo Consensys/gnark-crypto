@@ -548,12 +548,10 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	const blockSize = 4
 	const nbBlocks = 24 / blockSize
 
+	// load input
 	for i := range v {
 		f.VMOVDQU32(addrInput.AtD(i*16), v[i])
 	}
-
-	// h.matMulExternalInPlace(input)
-	// 		h.matMulM4InPlace(input)
 
 	add, _ := f.DefineFn("add")
 	reduce1Q, _ := f.DefineFn("reduce1Q")
@@ -627,7 +625,8 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	// works for 0 <= n <= 32.
 	//
 	// N.B. n must be < 33.
-	// perf: see Plonky3 for a more optimized version
+	// perf: see Plonky3 impl for specific N values
+	// gains are minimal so keeping this generic version for simplicity of the code.
 	_mul2ExpNegN := f.Define("mul_2_Exp_NegN", 9, func(args ...any) {
 		a := args[0]
 		t0 := args[1]
@@ -804,8 +803,6 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		registers.PushV(sum, sd0, sd1, sd2, sd3, t0)
 	}
 
-	matMulExternal()
-
 	_addRoundKeySbox := f.Define("add_rc_sbox", 8, func(args ...any) {
 		t0 := args[0]
 		t1 := args[1]
@@ -834,16 +831,7 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		registers.PushV(t0, t1, t2, t3, t4, t5)
 	}
 
-	// for round := 0; round < rf; round++ {
-	// 	for j := range v {
-	// 		f.MOVQ(addrRoundKeys.At(round*3), rKey)
-	// 		addRoundKeySbox(j)
-	// 	}
-	// 	matMulExternal()
-	// }
-
 	fullRound := func() {
-		// load round keys
 		for j := range v {
 			addRoundKeySbox(j)
 		}
@@ -851,7 +839,6 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	}
 
 	partialRound := func() {
-		// add round key 0;
 		addRoundKeySbox(0)
 
 		// h.matMulInternalInPlace(input)
@@ -976,6 +963,8 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		registers.Push(n)
 	}
 
+	matMulExternal()
+
 	f.Comment("loop over the first full rounds")
 	loop(rf, fullRound)
 
@@ -985,6 +974,7 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	f.Comment("loop over the final full rounds")
 	loop(rf, fullRound)
 
+	// store the result back
 	for i := range v {
 		f.VMOVDQU32(v[i], addrInput.AtD(i*16))
 	}

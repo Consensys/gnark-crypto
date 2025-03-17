@@ -369,12 +369,12 @@ ADD(Z21, in2, Z24, in5, Z21)              \
 ADD(Z22, in3, Z24, in5, Z22)              \
 ADD(Z23, in4, Z24, in5, Z23)              \
 
-	MAT_MUL_EXTERNAL_W(Z26, Z27, Z28, Z29, Z30, Z31)
-
 #define ADD_RC_SBOX(in0, in1, in2, in3, in4, in5, in6, in7) \
 	VPBROADCASTD in7, in5                     \
 	ADD(in6, in5, Z24, in5, in6)              \
 	SBOX_W(in6, in0, in1, in2, in3, in4, in5) \
+
+	MAT_MUL_EXTERNAL_W(Z26, Z27, Z28, Z29, Z30, Z31)
 
 	// loop over the first full rounds
 	MOVQ $0x0000000000000003, BX
