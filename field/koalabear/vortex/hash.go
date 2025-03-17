@@ -49,41 +49,31 @@ func HashPoseidon2(x []koalabear.Element) Hash {
 }
 
 func HashPoseidon2x16(_x [][sisKeySize]koalabear.Element, merkleLeaves []Hash) {
-	spongePerm.Permutation16x24(_x, merkleLeaves)
-	// const (
-	// 	width       = 16
-	// 	p2blockSize = 16
-	// 	stateSize   = 24
-	// )
-	// if len(_x) != width || len(merkleLeaves) != width {
-	// 	panic("invalid input size")
-	// }
+	const (
+		width       = 16
+		p2blockSize = 16
+		stateSize   = 24
+	)
+	if len(_x) != width || len(merkleLeaves) != width {
+		panic("invalid input size")
+	}
 
-	// var state [width][stateSize]koalabear.Element
-	// n := len(_x[0])
-	// m := len(Hash{})
-	// for i := 0; i < n; i += p2blockSize {
-	// 	for j := 0; j < width; j++ {
-	// 		copy(state[j][m:], _x[j][i:])
-	// 	}
-	// 	spongePerm.Permutation16x24(&state)
-	// 	// spongePerm.Permutation(state[j][:])
-	// }
+	var state [stateSize][width]koalabear.Element
+	n := len(_x[0])
+	for i := 0; i < n; i += p2blockSize {
+		// transpose state
+		for k := 8; k < stateSize; k++ {
+			for j := 0; j < width; j++ {
+				state[k][j] = _x[j][(k-8)+i]
+			}
+		}
+		spongePerm.Permutation16x24(&state)
+	}
 
-	// for i := range merkleLeaves {
-	// 	copy(merkleLeaves[i][:], state[i][:])
-	// }
-
-	// for i, x := range _x {
-	// 	var (
-	// 		res Hash
-	// 	)
-	// 	for i := 0; i < len(x); i += p2blockSize {
-	// 		copy(state[len(res):], x[i:])
-	// 		spongePerm.Permutation(state[:])
-	// 	}
-
-	// 	copy(res[:], state[:])
-	// 	merkleLeaves[i] = res
-	// }
+	// transpose back the first 8 into merkleLeaves
+	for k := 0; k < 8; k++ {
+		for j := 0; j < width; j++ {
+			merkleLeaves[j][k] = state[k][j]
+		}
+	}
 }
