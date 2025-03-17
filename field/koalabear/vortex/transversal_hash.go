@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
-	"github.com/consensys/gnark-crypto/field/koalabear/fft"
 	"github.com/consensys/gnark-crypto/field/koalabear/sis"
 )
 
@@ -40,17 +39,12 @@ func transversalHash(codewords [][]koalabear.Element, s *sis.RSis) [][sisKeySize
 
 	*/
 
-	nbBytePerLimb := s.LogTwoBound / 8
-	nbLimbsPerField := koalabear.Bytes / nbBytePerLimb
-	nbFieldPerPoly := s.Degree / nbLimbsPerField
-
 	// N := s.Degree
 	const N = 512
 	if N != s.Degree {
 		panic("sis key size must be 512")
 	}
 
-	nbPolys := divCeil(len(codewords), nbFieldPerPoly)
 	res := make([][N]koalabear.Element, nbCols)
 
 	nbRows := len(codewords)
@@ -66,71 +60,75 @@ func transversalHash(codewords [][]koalabear.Element, s *sis.RSis) [][sisKeySize
 		}
 	}
 	return res
+	// nbBytePerLimb := s.LogTwoBound / 8
+	// nbLimbsPerField := koalabear.Bytes / nbBytePerLimb
+	// nbFieldPerPoly := s.Degree / nbLimbsPerField
 
-	// First we take care of the constant rows;
-	// since they repeat the same value, we can compute them once for the matrix (instead of once per column)
-	// and accumulate in res
+	// nbPolys := divCeil(len(codewords), nbFieldPerPoly)
+	// // First we take care of the constant rows;
+	// // since they repeat the same value, we can compute them once for the matrix (instead of once per column)
+	// // and accumulate in res
 
-	// indicates if a block of N rows is constant: in that case we can skip the computation
-	// of all the columns sub-hashes in that block.
-	// more over; we set the bit of a mask if the row is NOT constant, and exploit the mask
-	// to minimize the number of operations we do (partial FFT)
-	masks := make([]uint64, nbPolys)
+	// // indicates if a block of N rows is constant: in that case we can skip the computation
+	// // of all the columns sub-hashes in that block.
+	// // more over; we set the bit of a mask if the row is NOT constant, and exploit the mask
+	// // to minimize the number of operations we do (partial FFT)
+	// masks := make([]uint64, nbPolys)
 
-	nbCpus := runtime.NumCPU()
+	// nbCpus := runtime.NumCPU()
 
-	nbColPerTile := 16
-	nbJobs := divCeil(nbCols, nbColPerTile)
+	// nbColPerTile := 16
+	// nbJobs := divCeil(nbCols, nbColPerTile)
 
-	if nbCols < nbCpus {
-		nbJobs = nbCols
-		nbColPerTile = 1
-	}
+	// if nbCols < nbCpus {
+	// 	nbJobs = nbCols
+	// 	nbColPerTile = 1
+	// }
 
-	for nbJobs < nbCpus && nbColPerTile > 1 {
-		nbColPerTile--
-		nbJobs = divCeil(nbCols, nbColPerTile)
-	}
+	// for nbJobs < nbCpus && nbColPerTile > 1 {
+	// 	nbColPerTile--
+	// 	nbJobs = divCeil(nbCols, nbColPerTile)
+	// }
 
-	executePoolChunky(nbJobs, func(jobID int) {
-		startCol := jobID * nbColPerTile
-		stopCol := startCol + nbColPerTile
-		stopCol = min(stopCol, nbCols)
+	// executePoolChunky(nbJobs, func(jobID int) {
+	// 	startCol := jobID * nbColPerTile
+	// 	stopCol := startCol + nbColPerTile
+	// 	stopCol = min(stopCol, nbCols)
 
-		// each go routine will iterate over a range of columns; we will hash the columns in parallel
-		// and accumulate the result in res (no conflict since each go routine writes to a different range of res)
+	// 	// each go routine will iterate over a range of columns; we will hash the columns in parallel
+	// 	// and accumulate the result in res (no conflict since each go routine writes to a different range of res)
 
-		itM := newMatrixIterator(codewords, s.LogTwoBound)
-		k := make([]koalabear.Element, N)
-		kz := make([]koalabear.Element, N)
+	// 	itM := newMatrixIterator(codewords, s.LogTwoBound)
+	// 	k := make([]koalabear.Element, N)
+	// 	kz := make([]koalabear.Element, N)
 
-		for startRow := 0; startRow < len(codewords); startRow += nbFieldPerPoly {
-			polID := startRow / nbFieldPerPoly
+	// 	for startRow := 0; startRow < len(codewords); startRow += nbFieldPerPoly {
+	// 		polID := startRow / nbFieldPerPoly
 
-			// // if it's a constant block, we can skip.
-			// if masks[polID] == 0 {
-			// 	continue
-			// }
+	// 		// // if it's a constant block, we can skip.
+	// 		// if masks[polID] == 0 {
+	// 		// 	continue
+	// 		// }
 
-			stopRow := startRow + nbFieldPerPoly
-			stopRow = min(stopRow, len(codewords))
+	// 		stopRow := startRow + nbFieldPerPoly
+	// 		stopRow = min(stopRow, len(codewords))
 
-			// hash the subcolumns.
-			for colID := startCol; colID < stopCol; colID++ {
-				itM.reset(startRow, stopRow, colID)
-				s.InnerHash(itM.lit, res[colID][:], k, kz, polID, masks[polID])
-			}
+	// 		// hash the subcolumns.
+	// 		for colID := startCol; colID < stopCol; colID++ {
+	// 			itM.reset(startRow, stopRow, colID)
+	// 			s.InnerHash(itM.lit, res[colID][:], k, kz, polID, masks[polID])
+	// 		}
 
-		}
+	// 	}
 
-		// mod X^n - 1
-		for colID := startCol; colID < stopCol; colID++ {
-			s.Domain.FFTInverse(res[colID][:], fft.DIT, fft.OnCoset(), fft.WithNbTasks(1))
-		}
+	// 	// mod X^n - 1
+	// 	for colID := startCol; colID < stopCol; colID++ {
+	// 		s.Domain.FFTInverse(res[colID][:], fft.DIT, fft.OnCoset(), fft.WithNbTasks(1))
+	// 	}
 
-	})
+	// })
 
-	return res
+	// return res
 }
 
 // matrixIterator helps allocate resources per go routine
