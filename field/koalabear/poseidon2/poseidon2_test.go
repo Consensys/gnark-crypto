@@ -168,7 +168,6 @@ func BenchmarkPermutation16x24(b *testing.B) {
 	}
 	h := NewPermutation(24, 6, 21)
 
-	b.SetBytes(32 * 24 * 16 * 4)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		h.Permutation16x24(input, res)

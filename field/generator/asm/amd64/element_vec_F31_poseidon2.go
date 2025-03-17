@@ -594,20 +594,12 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		f.VPMINUD(into, r0, into)
 	})
 
-	halve := func(a amd64.VectorRegister) {
-		// TODO @gbotrel we can save the broadcasts
-		t0 := registers.PopV()
-		k4 := amd64.K4
-		f.MOVQ(1, amd64.AX)
-		f.VPBROADCASTD(amd64.AX, t0)
-
-		f.VPTESTMD(a, t0, k4)
+	halve := func(a, ones amd64.VectorRegister) {
+		f.VPTESTMD(a, ones, amd64.K4)
 		// if a & 1 == 1 ; we add q;
-		f.VPADDDk(a, qd, a, k4)
+		f.VPADDDk(a, qd, a, amd64.K4)
 		// we shift right
 		f.VPSRLD(1, a, a)
-
-		registers.PushV(t0)
 	}
 
 	_mul := f.Define("mul_w", 8, func(args ...any) {
@@ -640,22 +632,6 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		f.VMOVSHDUPk(t0, amd64.K3, c)
 
 	})
-
-	mul := func(a, b, c amd64.VectorRegister, reduce bool) {
-		aOdd := registers.PopV()
-		bOdd := registers.PopV()
-		t0 := registers.PopV()
-		t1 := registers.PopV()
-		PL0 := registers.PopV()
-
-		_mul(a, b, aOdd, bOdd, t0, t1, PL0, c)
-
-		if reduce {
-			reduce1Q(qd, c, t0)
-		}
-
-		registers.PushV(aOdd, bOdd, t0, t1, PL0)
-	}
 
 	// Mul2ExpNegN multiplies x by -1/2^n
 	//
@@ -714,32 +690,24 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		registers.PushV(aOdd, t1, PL0, PL1)
 	}
 
-	var sbox func(a amd64.VectorRegister)
+	var sbox defineFn
 	switch params.SBoxDegree {
 	case 3:
-		sbox = func(a amd64.VectorRegister) {
-			t0 := registers.PopV()
-			mul(a, a, t0, false)
-			mul(a, t0, a, true)
-			registers.PushV(t0)
-		}
+		sbox = f.Define("sbox_w", 7, func(args ...any) {
+			a := args[0]
+			t0 := args[1]
+			t1 := args[2]
+			t2 := args[3]
+			t3 := args[4]
+			t4 := args[5]
+			t5 := args[6]
+			_mul(a, a, t0, t1, t2, t3, t4, t5)
+			_mul(a, t5, t0, t1, t2, t3, t4, a)
+			reduce1Q(qd, a, t2)
+		})
 
 	case 7:
-		sbox = func(a amd64.VectorRegister) {
-			// TODO @gbotrel not enough registers for 7 for now.
-			t0 := registers.PopV()
-			mul(a, a, t0, false)
-			mul(a, t0, a, true)
-			registers.PushV(t0)
-		}
-		// 	t1 := registers.PopV()
-		// 	mul(a, a, t0, true)
-		// 	mul(t0, t0, t1, false)
-		// 	mul(a, t0, a, false)
-		// 	mul(a, t1, a, true)
-		// 	registers.PushV(t1)
-		// }
-
+		sbox = f.Define("sbox_w", 7, func(args ...any) {})
 	default:
 		panic("only SBox degree 3 and 7 are supported")
 	}
@@ -872,34 +840,53 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 	matMulExternal()
 
-	addRoundKey := func(round, index int) {
+	_addRoundKeySbox := f.Define("add_rc_sbox", 8, func(args ...any) {
+		t0 := args[0]
+		t1 := args[1]
+		t2 := args[2]
+		t3 := args[3]
+		t4 := args[4]
+		t5 := args[5]
+		vi := args[6]
+		rKeyAt := args[7]
+
+		f.VPBROADCASTD(rKeyAt, t5)
+		add(vi, t5, qd, t5, vi)
+		sbox(vi, t0, t1, t2, t3, t4, t5)
+	})
+
+	addRoundKeySbox := func(index int) {
 		t0 := registers.PopV()
-		f.MOVQ(addrRoundKeys.At(round*3), rKey)
-		f.VPBROADCASTD(rKey.AtD(index), t0)
+		t1 := registers.PopV()
+		t2 := registers.PopV()
+		t3 := registers.PopV()
+		t4 := registers.PopV()
+		t5 := registers.PopV()
 
-		add(v[index], t0, qd, t0, v[index])
+		_addRoundKeySbox(t0, t1, t2, t3, t4, t5, v[index], rKey.AtD(index))
 
-		registers.PushV(t0)
+		registers.PushV(t0, t1, t2, t3, t4, t5)
 	}
 
-	for i := 0; i < rf; i++ {
+	// for round := 0; round < rf; round++ {
+	// 	for j := range v {
+	// 		f.MOVQ(addrRoundKeys.At(round*3), rKey)
+	// 		addRoundKeySbox(j)
+	// 	}
+	// 	matMulExternal()
+	// }
+
+	fullRound := func() {
+		// load round keys
 		for j := range v {
-			addRoundKey(i, j)
-			sbox(v[j])
+			addRoundKeySbox(j)
 		}
 		matMulExternal()
 	}
 
 	partialRound := func() {
 		// add round key 0;
-		{
-			t0 := registers.PopV()
-			f.VPBROADCASTD(rKey.AtD(0), t0)
-			add(v[0], t0, qd, t0, v[0])
-			registers.PushV(t0)
-		}
-
-		sbox(v[0])
+		addRoundKeySbox(0)
 
 		// h.matMulInternalInPlace(input)
 		// let's do it for koalabear only for now.
@@ -927,10 +914,21 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		double(v[2], qd, t0, v[2])
 		add(v[2], sum, qd, t0, v[2])
 
-		// temp.Set(&input[3]).Halve()
-		// input[3].Add(&sum, &temp)
-		halve(v[3])
-		add(sum, v[3], qd, t0, v[3])
+		{
+			ones := t1
+			f.MOVQ(1, amd64.AX)
+			f.VPBROADCASTD(amd64.AX, ones)
+
+			// temp.Set(&input[3]).Halve()
+			// input[3].Add(&sum, &temp)
+			halve(v[3], ones)
+			add(sum, v[3], qd, t0, v[3])
+
+			// temp.Set(&input[6]).Halve()
+			// input[6].Sub(&sum, &temp)
+			halve(v[6], ones)
+			sub(sum, v[6], qd, t0, v[6])
+		}
 
 		// input[4].Add(&sum, temp.Double(&input[4]).Add(&temp, &input[4]))
 		double(v[4], qd, t0, t1)
@@ -941,11 +939,6 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		double(v[5], qd, t0, v[5])
 		add(v[5], v[5], qd, t0, v[5])
 		add(v[5], sum, qd, t0, v[5])
-
-		// temp.Set(&input[6]).Halve()
-		// input[6].Sub(&sum, &temp)
-		halve(v[6])
-		sub(sum, v[6], qd, t0, v[6])
 
 		// input[7].Sub(&sum, temp.Double(&input[7]).Add(&temp, &input[7]))
 		double(v[7], qd, t0, t1)
@@ -973,15 +966,16 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		registers.PushV(sum, t0)
 	}
 
-	f.Comment("loop over the partial rounds")
-	{
+	roundLoop := func(nbRounds, roundKeyOffset int, fn func()) {
 		n := registers.Pop()
 		addrRoundKeys2 := registers.Pop()
-		f.MOVQ(partialRounds, n, fmt.Sprintf("nb partial rounds --> %d", partialRounds))
+		f.MOVQ(nbRounds, n)
 		lblLoop := f.NewLabel("loop")
 		lblDone := f.NewLabel("done")
 		f.MOVQ(addrRoundKeys, addrRoundKeys2)
-		f.ADDQ(rf*24, addrRoundKeys2)
+		if roundKeyOffset != 0 {
+			f.ADDQ(roundKeyOffset*24, addrRoundKeys2)
+		}
 
 		f.LABEL(lblLoop)
 		f.TESTQ(n, n)
@@ -990,22 +984,23 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 		f.MOVQ(addrRoundKeys2.At(0), rKey)
 
-		partialRound()
+		fn()
 
 		f.ADDQ("$24", addrRoundKeys2)
-
 		f.JMP(lblLoop)
-
 		f.LABEL(lblDone)
+
+		registers.Push(n, addrRoundKeys2)
 	}
 
-	for i := rf + partialRounds; i < fullRounds+partialRounds; i++ {
-		for j := range v {
-			addRoundKey(i, j)
-			sbox(v[j])
-		}
-		matMulExternal()
-	}
+	f.Comment("loop over the first full rounds")
+	roundLoop(rf, 0, fullRound)
+
+	f.Comment("loop over the partial rounds")
+	roundLoop(partialRounds, rf, partialRound)
+
+	f.Comment("loop over the final full rounds")
+	roundLoop(rf, rf+partialRounds, fullRound)
 
 	f.DECQ(nbBlocksExternal)
 	f.JMP(lblOuterLoop)
