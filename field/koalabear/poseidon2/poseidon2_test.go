@@ -122,10 +122,8 @@ func TestAVX512Permutation16x24(t *testing.T) {
 		t.Skip("AVX512 not supported")
 	}
 	assert := require.New(t)
-	input := make([][512]fr.Element, 16)
-	inputCopy := make([][512]fr.Element, 16)
-	resultAVX := make([][8]fr.Element, 16)
-	resultPureGO := make([][8]fr.Element, 16)
+	input := make([][16]fr.Element, 24)
+	expected := make([][16]fr.Element, 24)
 
 	for i := range input {
 		for j := range input[i] {
@@ -134,33 +132,25 @@ func TestAVX512Permutation16x24(t *testing.T) {
 	}
 
 	for i := range input {
-		copy(inputCopy[i][:], input[i][:])
+		copy(expected[i][:], input[i][:])
 	}
 
 	h := NewPermutation(24, 6, 21)
-	h.Permutation16x24(input, resultAVX)
-
-	// ensure input is not modified
-	for i := 0; i < 16; i++ {
-		for j := 0; j < 512; j++ {
-			assert.True(input[i][j].Equal(&inputCopy[i][j]), "input modified")
-		}
-	}
+	h.Permutation16x24((*[24][16]fr.Element)(input))
 
 	h.disableAVX512()
-	h.permutation16x24_generic(input, resultPureGO)
+	h.Permutation16x24((*[24][16]fr.Element)(expected))
 
 	// compare results
-	for i := range resultAVX {
-		for j := range resultAVX[i] {
-			assert.True(resultAVX[i][j].Equal(&resultPureGO[i][j]), "avx512 result don't match purego")
+	for i := range input {
+		for j := range input[i] {
+			assert.True(input[i][j].Equal(&expected[i][j]), "avx512 result don't match purego")
 		}
 	}
 }
 
 func BenchmarkPermutation16x24(b *testing.B) {
-	input := make([][512]fr.Element, 16)
-	res := make([][8]fr.Element, 16)
+	input := make([][16]fr.Element, 24)
 	for i := range input {
 		for j := range input[i] {
 			input[i][j].SetRandom()
@@ -170,7 +160,7 @@ func BenchmarkPermutation16x24(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		h.Permutation16x24(input, res)
+		h.Permutation16x24((*[24][16]fr.Element)(input))
 	}
 }
 

@@ -379,27 +379,32 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 	return outBytes, nil
 }
 
-func (h *Permutation) permutation16x24_generic(_x [][512]fr.Element, merkleLeaves [][8]fr.Element) {
-	const (
-		width       = 16
-		p2blockSize = 16
-		stateSize   = 24
-	)
-	if len(_x) != width || len(merkleLeaves) != width {
-		panic("invalid input size")
+func (h *Permutation) Permutation16x24(input *[24][16]fr.Element) {
+	if h.params.hasFast24_6_21 {
+		permutation16x24_avx512(input, h.params.RoundKeys)
+		return
 	}
 
-	var state [width][stateSize]fr.Element
-	n := len(_x[0])
-	const m = 8
-	for i := 0; i < n; i += p2blockSize {
-		for j := 0; j < width; j++ {
-			copy(state[j][m:], _x[j][i:])
-			h.Permutation(state[j][:])
+	// note: we pay a cost in the generic case of transposing
+	// obviously the caller can directly call h.Permutation if the input had to be transposed
+	// prior to this call.
+
+	var transposed [16][24]fr.Element
+
+	for i := 0; i < 16; i++ {
+		for j := 0; j < 24; j++ {
+			transposed[i][j] = input[j][i]
 		}
 	}
 
-	for i := range merkleLeaves {
-		copy(merkleLeaves[i][:], state[i][:])
+	for i := 0; i < 16; i++ {
+		h.Permutation(transposed[i][:])
+	}
+
+	// transpose back
+	for i := 0; i < 16; i++ {
+		for j := 0; j < 24; j++ {
+			input[j][i] = transposed[i][j]
+		}
 	}
 }

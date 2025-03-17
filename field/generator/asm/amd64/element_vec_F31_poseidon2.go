@@ -516,18 +516,13 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		panic("only width 24 is supported")
 	}
 	const fnName = "permutation16x24_avx512"
-	// func permutation16x24_avx512(input *fr.Element, nbBlocks uint64, res *fr.Element, roundKeys [][]fr.Element)
-	const argSize = 6 * 8
+	// func permutation16x24_avx512(input *[24][16]fr.Element, roundKeys [][]fr.Element)
+	const argSize = 4 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
 	registers := f.FnHeader(fnName, stackSize, argSize, amd64.AX, amd64.DX)
 
 	addrInput := registers.Pop()
-	maskFFFF := registers.Pop()
-	nbBlocksExternal := registers.Pop()
-	addrRes := registers.Pop()
 	addrRoundKeys := registers.Pop()
-	addrIndexScatter8 := registers.Pop()
-	addrIndexGather512 := registers.Pop()
 	rKey := registers.Pop()
 
 	// input
@@ -543,26 +538,18 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	f.MOVD("$const_qInvNeg", amd64.AX)
 	f.VPBROADCASTD(amd64.AX, qInvNeg)
 
-	f.MOVQ("$0xffffffffffffffff", maskFFFF)
-
 	// prepare the masks used for shuffling the vectors
 	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
 	f.KMOVD(amd64.AX, amd64.K3)
 
-	f.MOVQ("·indexScatter8+0(SB)", addrIndexScatter8)
-	f.MOVQ("·indexGather512+0(SB)", addrIndexGather512)
-
 	f.MOVQ("input+0(FP)", addrInput)
-	f.MOVQ("nbBlocks+8(FP)", nbBlocksExternal)
-	f.MOVQ("res+16(FP)", addrRes)
-	f.MOVQ("roundKeys+24(FP)", addrRoundKeys)
+	f.MOVQ("roundKeys+8(FP)", addrRoundKeys)
 
 	const blockSize = 4
 	const nbBlocks = 24 / blockSize
 
-	for i := 0; i < 8; i++ {
-		// zero first v[i]
-		f.VXORPS(v[i], v[i], v[i])
+	for i := range v {
+		f.VMOVDQU32(addrInput.AtD(i*16), v[i])
 	}
 
 	// h.matMulExternalInPlace(input)
@@ -815,29 +802,6 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		registers.PushV(sum, sd0, sd1, sd2, sd3, t0)
 	}
 
-	// outer loop
-	lblOuterLoop := f.NewLabel("outer_loop")
-	lblOuterLoopEnd := f.NewLabel("outer_loop_end")
-
-	f.LABEL(lblOuterLoop)
-	f.TESTQ(nbBlocksExternal, nbBlocksExternal)
-	f.JEQ(lblOuterLoopEnd)
-
-	{
-		vIndexGather := registers.PopV()
-		f.VMOVDQU32(addrIndexGather512.At(0), vIndexGather)
-
-		// copy (and transpose) input into v[8:24]
-		for i := 8; i < 24; i++ {
-			f.KMOVD(maskFFFF, amd64.K1)
-			f.VPGATHERDD((i-8)*4, addrInput, vIndexGather, 4, amd64.K1, v[i])
-		}
-		// increment addrInput
-		f.ADDQ(16*4, addrInput)
-
-		registers.PushV(vIndexGather)
-	}
-
 	matMulExternal()
 
 	_addRoundKeySbox := f.Define("add_rc_sbox", 8, func(args ...any) {
@@ -893,26 +857,41 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		sum := registers.PopV()
 		t0 := registers.PopV()
 		t1 := registers.PopV()
+		t2 := registers.PopV()
+		t3 := registers.PopV()
+		t4 := registers.PopV()
 
-		panic(registers.AvailableV())
-		// TODO @gbotrel do less adds.
-		add(v[0], v[1], qd, t0, sum)
-		for i := 2; i < len(v); i++ {
-			add(v[i], sum, qd, t0, sum)
+		{
+			// compute the sum of all v[i]
+
+			add(v[0], v[1], qd, t0, t2)
+			add(v[2], v[3], qd, t0, t3)
+			add(v[4], v[5], qd, t0, t4)
+			add(v[6], v[7], qd, t0, sum)
+			for i := 8; i < len(v); i += 4 {
+				add(v[i], t2, qd, t0, t2)
+				add(v[i+1], t3, qd, t0, t3)
+				add(v[i+2], t4, qd, t0, t4)
+				add(v[i+3], sum, qd, t0, sum)
+			}
+			add(t2, t3, qd, t0, t2)
+			add(t4, sum, qd, t0, t4)
+			add(t2, t4, qd, t0, sum)
+
 		}
 
 		// mul by diag24:
 		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/4, 1/8, 1/16, 1/32, 1/64, 1/2^24, -1/2^8, -1/8, -1/16, -1/32, -1/64, -1/2^7, -1/2^9, -1/2^24]
 		// var temp fr.Element
 		// input[0].Sub(&sum, temp.Double(&input[0]))
-		double(v[0], qd, t0, t1)
-		sub(sum, t1, qd, t0, v[0])
+		double(v[0], qd, t0, v[0])
+		sub(sum, v[0], qd, t0, v[0])
 
 		// input[1].Add(&sum, &input[1])
-		add(sum, v[1], qd, t0, v[1])
+		add(sum, v[1], qd, t2, v[1])
 
 		// input[2].Add(&sum, temp.Double(&input[2]))
-		double(v[2], qd, t0, v[2])
+		double(v[2], qd, t3, v[2])
 		add(v[2], sum, qd, t0, v[2])
 
 		{
@@ -938,7 +917,7 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 		// input[5].Add(&sum, temp.Double(&input[5]).Double(&temp))
 		double(v[5], qd, t0, v[5])
-		add(v[5], v[5], qd, t0, v[5])
+		double(v[5], qd, t0, v[5])
 		add(v[5], sum, qd, t0, v[5])
 
 		// input[7].Sub(&sum, temp.Double(&input[7]).Add(&temp, &input[7]))
@@ -951,7 +930,7 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		double(v[8], qd, t0, v[8])
 		sub(sum, v[8], qd, t0, v[8])
 
-		registers.PushV(t1)
+		registers.PushV(t1, t2, t3, t4)
 
 		ns := []uint64{8, 2, 3, 4, 5, 6, 24, 8, 3, 4, 5, 6, 7, 9, 24}
 
@@ -1003,22 +982,8 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	f.Comment("loop over the final full rounds")
 	roundLoop(rf, rf+partialRounds, fullRound)
 
-	f.DECQ(nbBlocksExternal)
-	f.JMP(lblOuterLoop)
-
-	f.LABEL(lblOuterLoopEnd)
-
-	// now we just copy the result
-	// need to transpose 8x16 to 16x8
-	{
-		vIndexScatter := registers.PopV()
-		f.VMOVDQU32(addrIndexScatter8.At(0), vIndexScatter)
-		transposed := v[:8]
-		for i := range transposed {
-			f.KMOVD(maskFFFF, amd64.K1)
-			f.VPSCATTERDD(i*4, addrRes, vIndexScatter, 4, amd64.K1, transposed[i])
-		}
-		registers.PushV(vIndexScatter)
+	for i := range v {
+		f.VMOVDQU32(v[i], addrInput.AtD(i*16))
 	}
 
 	f.RET()

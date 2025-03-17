@@ -19,6 +19,6 @@ func permutation16_avx512(input []fr.Element, roundKeys [][]fr.Element) {
 	panic("permutation16_avx512 is not implemented")
 }
 
-func (h *Permutation) Permutation16x24(_x [][512]fr.Element, merkleLeaves [][8]fr.Element) {
-	h.permutation16x24_generic(_x, merkleLeaves)
+func permutation16x24_avx512(input *[24][16]fr.Element, roundKeys [][]fr.Element) {
+	panic("permutation16x24_avx512 is not implemented")
 }
