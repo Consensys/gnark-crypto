@@ -379,20 +379,23 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 	return outBytes, nil
 }
 
+// Permutation16x24 applies the permutation on input.
+// input is a 24x16 matrix, the permutation is applied on each column.
+// That is, the input must be "transposed" by the caller.
+// The result stays in input (transposed).
+// If available, this leverage avx512 instructions to perform 16x "parallel" permutations.
 func (h *Permutation) Permutation16x24(input *[24][16]fr.Element) {
 	if h.params.hasFast24_6_21 {
 		permutation16x24_avx512(input, h.params.RoundKeys)
 		return
 	}
 
-	// note: we pay a cost in the generic case of transposing
-	// obviously the caller can directly call h.Permutation if the input had to be transposed
-	// prior to this call.
-
+	// note: we pay a cost of potentially double transposition in case we don't have avx512
+	// this is for the sake of having simple APIs, but can be revisited.
 	var transposed [16][24]fr.Element
 
-	for i := 0; i < 16; i++ {
-		for j := 0; j < 24; j++ {
+	for i := range transposed {
+		for j := range transposed[i] {
 			transposed[i][j] = input[j][i]
 		}
 	}
@@ -402,8 +405,8 @@ func (h *Permutation) Permutation16x24(input *[24][16]fr.Element) {
 	}
 
 	// transpose back
-	for i := 0; i < 16; i++ {
-		for j := 0; j < 24; j++ {
+	for i := range transposed {
+		for j := range transposed[i] {
 			input[j][i] = transposed[i][j]
 		}
 	}

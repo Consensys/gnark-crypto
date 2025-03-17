@@ -235,7 +235,7 @@ TEXT ·permutation16x24_avx512(SB), NOSPLIT, $0-32
 	VPADDQ    in5, in3, in7 \
 	VMOVSHDUP in4, K3, in7  \
 
-#define MUL2EXPNEGN(in0, in1, in2, in3, in4, in5, in6, in7, in8) \
+#define MUL_2_EXP_NEGN(in0, in1, in2, in3, in4, in5, in6, in7, in8) \
 	VPSRLQ    $32, in0, in5 \
 	VPSLLQ    $32, in0, in0 \
 	VPSRLQ    in3, in0, in1 \
@@ -256,95 +256,71 @@ REDUCE1Q(Z24, in0, in3)                       \
 
 #define MAT_MUL_4_W(in0, in1, in2, in3, in4, in5) \
 ADD(Z0, Z1, Z24, in5, in0)   \
-ADD(in0, Z2, Z24, in5, in0)  \
-ADD(in0, Z3, Z24, in5, in0)  \
-DOUBLE(Z0, Z24, in5, in1)    \
-DOUBLE(Z1, Z24, in5, in2)    \
-DOUBLE(Z2, Z24, in5, in3)    \
-DOUBLE(Z3, Z24, in5, in4)    \
-ADD(Z0, in0, Z24, in5, Z0)   \
-ADD(Z0, in2, Z24, in5, Z0)   \
-ADD(Z1, in0, Z24, in5, Z1)   \
+ADD(Z2, Z3, Z24, in5, in1)   \
+ADD(in0, in1, Z24, in5, in2) \
+ADD(in2, Z1, Z24, in5, in3)  \
+ADD(in2, Z3, Z24, in5, in4)  \
+DOUBLE(Z0, Z24, in5, Z3)     \
+ADD(Z3, in4, Z24, in5, Z3)   \
+DOUBLE(Z2, Z24, in5, Z1)     \
 ADD(Z1, in3, Z24, in5, Z1)   \
-ADD(Z2, in0, Z24, in5, Z2)   \
-ADD(Z2, in4, Z24, in5, Z2)   \
-ADD(Z3, in0, Z24, in5, Z3)   \
-ADD(Z3, in1, Z24, in5, Z3)   \
+ADD(in0, in3, Z24, in5, Z0)  \
+ADD(in1, in4, Z24, in5, Z2)  \
 ADD(Z4, Z5, Z24, in5, in0)   \
-ADD(in0, Z6, Z24, in5, in0)  \
-ADD(in0, Z7, Z24, in5, in0)  \
-DOUBLE(Z4, Z24, in5, in1)    \
-DOUBLE(Z5, Z24, in5, in2)    \
-DOUBLE(Z6, Z24, in5, in3)    \
-DOUBLE(Z7, Z24, in5, in4)    \
-ADD(Z4, in0, Z24, in5, Z4)   \
-ADD(Z4, in2, Z24, in5, Z4)   \
-ADD(Z5, in0, Z24, in5, Z5)   \
+ADD(Z6, Z7, Z24, in5, in1)   \
+ADD(in0, in1, Z24, in5, in2) \
+ADD(in2, Z5, Z24, in5, in3)  \
+ADD(in2, Z7, Z24, in5, in4)  \
+DOUBLE(Z4, Z24, in5, Z7)     \
+ADD(Z7, in4, Z24, in5, Z7)   \
+DOUBLE(Z6, Z24, in5, Z5)     \
 ADD(Z5, in3, Z24, in5, Z5)   \
-ADD(Z6, in0, Z24, in5, Z6)   \
-ADD(Z6, in4, Z24, in5, Z6)   \
-ADD(Z7, in0, Z24, in5, Z7)   \
-ADD(Z7, in1, Z24, in5, Z7)   \
+ADD(in0, in3, Z24, in5, Z4)  \
+ADD(in1, in4, Z24, in5, Z6)  \
 ADD(Z8, Z9, Z24, in5, in0)   \
-ADD(in0, Z10, Z24, in5, in0) \
-ADD(in0, Z11, Z24, in5, in0) \
-DOUBLE(Z8, Z24, in5, in1)    \
-DOUBLE(Z9, Z24, in5, in2)    \
-DOUBLE(Z10, Z24, in5, in3)   \
-DOUBLE(Z11, Z24, in5, in4)   \
-ADD(Z8, in0, Z24, in5, Z8)   \
-ADD(Z8, in2, Z24, in5, Z8)   \
-ADD(Z9, in0, Z24, in5, Z9)   \
+ADD(Z10, Z11, Z24, in5, in1) \
+ADD(in0, in1, Z24, in5, in2) \
+ADD(in2, Z9, Z24, in5, in3)  \
+ADD(in2, Z11, Z24, in5, in4) \
+DOUBLE(Z8, Z24, in5, Z11)    \
+ADD(Z11, in4, Z24, in5, Z11) \
+DOUBLE(Z10, Z24, in5, Z9)    \
 ADD(Z9, in3, Z24, in5, Z9)   \
-ADD(Z10, in0, Z24, in5, Z10) \
-ADD(Z10, in4, Z24, in5, Z10) \
-ADD(Z11, in0, Z24, in5, Z11) \
-ADD(Z11, in1, Z24, in5, Z11) \
+ADD(in0, in3, Z24, in5, Z8)  \
+ADD(in1, in4, Z24, in5, Z10) \
 ADD(Z12, Z13, Z24, in5, in0) \
-ADD(in0, Z14, Z24, in5, in0) \
-ADD(in0, Z15, Z24, in5, in0) \
-DOUBLE(Z12, Z24, in5, in1)   \
-DOUBLE(Z13, Z24, in5, in2)   \
-DOUBLE(Z14, Z24, in5, in3)   \
-DOUBLE(Z15, Z24, in5, in4)   \
-ADD(Z12, in0, Z24, in5, Z12) \
-ADD(Z12, in2, Z24, in5, Z12) \
-ADD(Z13, in0, Z24, in5, Z13) \
+ADD(Z14, Z15, Z24, in5, in1) \
+ADD(in0, in1, Z24, in5, in2) \
+ADD(in2, Z13, Z24, in5, in3) \
+ADD(in2, Z15, Z24, in5, in4) \
+DOUBLE(Z12, Z24, in5, Z15)   \
+ADD(Z15, in4, Z24, in5, Z15) \
+DOUBLE(Z14, Z24, in5, Z13)   \
 ADD(Z13, in3, Z24, in5, Z13) \
-ADD(Z14, in0, Z24, in5, Z14) \
-ADD(Z14, in4, Z24, in5, Z14) \
-ADD(Z15, in0, Z24, in5, Z15) \
-ADD(Z15, in1, Z24, in5, Z15) \
+ADD(in0, in3, Z24, in5, Z12) \
+ADD(in1, in4, Z24, in5, Z14) \
 ADD(Z16, Z17, Z24, in5, in0) \
-ADD(in0, Z18, Z24, in5, in0) \
-ADD(in0, Z19, Z24, in5, in0) \
-DOUBLE(Z16, Z24, in5, in1)   \
-DOUBLE(Z17, Z24, in5, in2)   \
-DOUBLE(Z18, Z24, in5, in3)   \
-DOUBLE(Z19, Z24, in5, in4)   \
-ADD(Z16, in0, Z24, in5, Z16) \
-ADD(Z16, in2, Z24, in5, Z16) \
-ADD(Z17, in0, Z24, in5, Z17) \
+ADD(Z18, Z19, Z24, in5, in1) \
+ADD(in0, in1, Z24, in5, in2) \
+ADD(in2, Z17, Z24, in5, in3) \
+ADD(in2, Z19, Z24, in5, in4) \
+DOUBLE(Z16, Z24, in5, Z19)   \
+ADD(Z19, in4, Z24, in5, Z19) \
+DOUBLE(Z18, Z24, in5, Z17)   \
 ADD(Z17, in3, Z24, in5, Z17) \
-ADD(Z18, in0, Z24, in5, Z18) \
-ADD(Z18, in4, Z24, in5, Z18) \
-ADD(Z19, in0, Z24, in5, Z19) \
-ADD(Z19, in1, Z24, in5, Z19) \
+ADD(in0, in3, Z24, in5, Z16) \
+ADD(in1, in4, Z24, in5, Z18) \
 ADD(Z20, Z21, Z24, in5, in0) \
-ADD(in0, Z22, Z24, in5, in0) \
-ADD(in0, Z23, Z24, in5, in0) \
-DOUBLE(Z20, Z24, in5, in1)   \
-DOUBLE(Z21, Z24, in5, in2)   \
-DOUBLE(Z22, Z24, in5, in3)   \
-DOUBLE(Z23, Z24, in5, in4)   \
-ADD(Z20, in0, Z24, in5, Z20) \
-ADD(Z20, in2, Z24, in5, Z20) \
-ADD(Z21, in0, Z24, in5, Z21) \
+ADD(Z22, Z23, Z24, in5, in1) \
+ADD(in0, in1, Z24, in5, in2) \
+ADD(in2, Z21, Z24, in5, in3) \
+ADD(in2, Z23, Z24, in5, in4) \
+DOUBLE(Z20, Z24, in5, Z23)   \
+ADD(Z23, in4, Z24, in5, Z23) \
+DOUBLE(Z22, Z24, in5, Z21)   \
 ADD(Z21, in3, Z24, in5, Z21) \
-ADD(Z22, in0, Z24, in5, Z22) \
-ADD(Z22, in4, Z24, in5, Z22) \
-ADD(Z23, in0, Z24, in5, Z23) \
-ADD(Z23, in1, Z24, in5, Z23) \
+ADD(in0, in3, Z24, in5, Z20) \
+ADD(in1, in4, Z24, in5, Z22) \
 
 #define MAT_MUL_EXTERNAL_W(in0, in1, in2, in3, in4, in5) \
 MAT_MUL_4_W(in0, in1, in2, in3, in4, in5) \
@@ -402,13 +378,12 @@ ADD(Z23, in4, Z24, in5, Z23)              \
 
 	// loop over the first full rounds
 	MOVQ $0x0000000000000003, BX
-	MOVQ R14, SI
 
 loop_3:
 	TESTQ BX, BX
 	JEQ   done_4
 	DECQ  BX
-	MOVQ  0(SI), CX
+	MOVQ  0(R14), CX
 	ADD_RC_SBOX(Z26, Z27, Z28, Z29, Z30, Z31, Z0, 0(CX))
 	ADD_RC_SBOX(Z26, Z27, Z28, Z29, Z30, Z31, Z1, 4(CX))
 	ADD_RC_SBOX(Z26, Z27, Z28, Z29, Z30, Z31, Z2, 8(CX))
@@ -434,20 +409,18 @@ loop_3:
 	ADD_RC_SBOX(Z26, Z27, Z28, Z29, Z30, Z31, Z22, 88(CX))
 	ADD_RC_SBOX(Z26, Z27, Z28, Z29, Z30, Z31, Z23, 92(CX))
 	MAT_MUL_EXTERNAL_W(Z26, Z27, Z28, Z29, Z30, Z31)
-	ADDQ  $24, SI
+	ADDQ  $24, R14
 	JMP   loop_3
 
 done_4:
 	// loop over the partial rounds
-	MOVQ $0x0000000000000015, DI
-	MOVQ R14, R8
-	ADDQ $0x0000000000000048, R8
+	MOVQ $0x0000000000000015, SI
 
 loop_5:
-	TESTQ        DI, DI
+	TESTQ        SI, SI
 	JEQ          done_6
-	DECQ         DI
-	MOVQ         0(R8), CX
+	DECQ         SI
+	MOVQ         0(R14), CX
 	ADD_RC_SBOX(Z26, Z27, Z28, Z29, Z30, Z31, Z0, 0(CX))
 	ADD(Z0, Z1, Z24, Z27, Z29)
 	ADD(Z2, Z3, Z24, Z27, Z30)
@@ -473,76 +446,74 @@ loop_5:
 	ADD(Z31, Z26, Z24, Z27, Z31)
 	ADD(Z29, Z31, Z24, Z27, Z26)
 	DOUBLE(Z0, Z24, Z27, Z0)
-	SUB(Z26, Z0, Z24, Z27, Z0)
-	ADD(Z26, Z1, Z24, Z29, Z1)
 	DOUBLE(Z2, Z24, Z30, Z2)
-	ADD(Z2, Z26, Z24, Z27, Z2)
 	MOVQ         $1, AX
 	VPBROADCASTD AX, Z28
 	VPTESTMD     Z3, Z28, K4
 	VPADDD       Z3, Z24, K4, Z3
 	VPSRLD       $1, Z3, Z3
-	ADD(Z26, Z3, Z24, Z27, Z3)
 	VPTESTMD     Z6, Z28, K4
 	VPADDD       Z6, Z24, K4, Z6
 	VPSRLD       $1, Z6, Z6
-	SUB(Z26, Z6, Z24, Z27, Z6)
-	DOUBLE(Z4, Z24, Z27, Z28)
-	ADD(Z4, Z28, Z24, Z27, Z4)
-	ADD(Z4, Z26, Z24, Z27, Z4)
+	DOUBLE(Z4, Z24, Z27, Z29)
+	ADD(Z4, Z29, Z24, Z27, Z4)
 	DOUBLE(Z5, Z24, Z27, Z5)
 	DOUBLE(Z5, Z24, Z27, Z5)
-	ADD(Z5, Z26, Z24, Z27, Z5)
 	DOUBLE(Z7, Z24, Z27, Z28)
 	ADD(Z7, Z28, Z24, Z27, Z7)
+	DOUBLE(Z8, Z24, Z27, Z8)
+	DOUBLE(Z8, Z24, Z27, Z8)
+	MUL_2_EXP_NEGN(Z9, Z27, Z9, $8, $24, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z10, Z27, Z10, $2, $30, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z11, Z27, Z11, $3, $29, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z12, Z27, Z12, $4, $28, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z13, Z27, Z13, $5, $27, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z14, Z27, Z14, $6, $26, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z15, Z27, Z15, $24, $8, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z16, Z27, Z16, $8, $24, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z17, Z27, Z17, $3, $29, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z18, Z27, Z18, $4, $28, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z19, Z27, Z19, $5, $27, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z20, Z27, Z20, $6, $26, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z21, Z27, Z21, $7, $25, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z22, Z27, Z22, $9, $23, Z28, Z29, Z30, Z31)
+	MUL_2_EXP_NEGN(Z23, Z27, Z23, $24, $8, Z28, Z29, Z30, Z31)
+	SUB(Z26, Z0, Z24, Z27, Z0)
+	ADD(Z26, Z1, Z24, Z27, Z1)
+	ADD(Z2, Z26, Z24, Z27, Z2)
+	ADD(Z3, Z26, Z24, Z27, Z3)
+	ADD(Z4, Z26, Z24, Z27, Z4)
+	ADD(Z5, Z26, Z24, Z27, Z5)
+	SUB(Z26, Z6, Z24, Z27, Z6)
 	SUB(Z26, Z7, Z24, Z27, Z7)
-	DOUBLE(Z8, Z24, Z27, Z8)
-	DOUBLE(Z8, Z24, Z27, Z8)
 	SUB(Z26, Z8, Z24, Z27, Z8)
-	MUL2EXPNEGN(Z9, Z27, Z9, $8, $24, Z28, Z29, Z30, Z31)
 	ADD(Z9, Z26, Z24, Z27, Z9)
-	MUL2EXPNEGN(Z10, Z27, Z10, $2, $30, Z28, Z29, Z30, Z31)
 	ADD(Z10, Z26, Z24, Z27, Z10)
-	MUL2EXPNEGN(Z11, Z27, Z11, $3, $29, Z28, Z29, Z30, Z31)
 	ADD(Z11, Z26, Z24, Z27, Z11)
-	MUL2EXPNEGN(Z12, Z27, Z12, $4, $28, Z28, Z29, Z30, Z31)
 	ADD(Z12, Z26, Z24, Z27, Z12)
-	MUL2EXPNEGN(Z13, Z27, Z13, $5, $27, Z28, Z29, Z30, Z31)
 	ADD(Z13, Z26, Z24, Z27, Z13)
-	MUL2EXPNEGN(Z14, Z27, Z14, $6, $26, Z28, Z29, Z30, Z31)
 	ADD(Z14, Z26, Z24, Z27, Z14)
-	MUL2EXPNEGN(Z15, Z27, Z15, $24, $8, Z28, Z29, Z30, Z31)
 	ADD(Z15, Z26, Z24, Z27, Z15)
-	MUL2EXPNEGN(Z16, Z27, Z16, $8, $24, Z28, Z29, Z30, Z31)
 	SUB(Z26, Z16, Z24, Z27, Z16)
-	MUL2EXPNEGN(Z17, Z27, Z17, $3, $29, Z28, Z29, Z30, Z31)
 	SUB(Z26, Z17, Z24, Z27, Z17)
-	MUL2EXPNEGN(Z18, Z27, Z18, $4, $28, Z28, Z29, Z30, Z31)
 	SUB(Z26, Z18, Z24, Z27, Z18)
-	MUL2EXPNEGN(Z19, Z27, Z19, $5, $27, Z28, Z29, Z30, Z31)
 	SUB(Z26, Z19, Z24, Z27, Z19)
-	MUL2EXPNEGN(Z20, Z27, Z20, $6, $26, Z28, Z29, Z30, Z31)
 	SUB(Z26, Z20, Z24, Z27, Z20)
-	MUL2EXPNEGN(Z21, Z27, Z21, $7, $25, Z28, Z29, Z30, Z31)
 	SUB(Z26, Z21, Z24, Z27, Z21)
-	MUL2EXPNEGN(Z22, Z27, Z22, $9, $23, Z28, Z29, Z30, Z31)
 	SUB(Z26, Z22, Z24, Z27, Z22)
-	MUL2EXPNEGN(Z23, Z27, Z23, $24, $8, Z28, Z29, Z30, Z31)
 	SUB(Z26, Z23, Z24, Z27, Z23)
-	ADDQ         $24, R8
+	ADDQ         $24, R14
 	JMP          loop_5
 
 done_6:
 	// loop over the final full rounds
-	MOVQ $0x0000000000000003, R9
-	MOVQ R14, R10
-	ADDQ $0x0000000000000240, R10
+	MOVQ $0x0000000000000003, DI
 
 loop_7:
-	TESTQ R9, R9
+	TESTQ DI, DI
 	JEQ   done_8
-	DECQ  R9
-	MOVQ  0(R10), CX
+	DECQ  DI
+	MOVQ  0(R14), CX
 	ADD_RC_SBOX(Z28, Z29, Z30, Z31, Z26, Z27, Z0, 0(CX))
 	ADD_RC_SBOX(Z28, Z29, Z30, Z31, Z26, Z27, Z1, 4(CX))
 	ADD_RC_SBOX(Z28, Z29, Z30, Z31, Z26, Z27, Z2, 8(CX))
@@ -568,7 +539,7 @@ loop_7:
 	ADD_RC_SBOX(Z28, Z29, Z30, Z31, Z26, Z27, Z22, 88(CX))
 	ADD_RC_SBOX(Z28, Z29, Z30, Z31, Z26, Z27, Z23, 92(CX))
 	MAT_MUL_EXTERNAL_W(Z28, Z29, Z30, Z31, Z26, Z27)
-	ADDQ  $24, R10
+	ADDQ  $24, R14
 	JMP   loop_7
 
 done_8:

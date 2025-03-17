@@ -538,7 +538,7 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	f.MOVD("$const_qInvNeg", amd64.AX)
 	f.VPBROADCASTD(amd64.AX, qInvNeg)
 
-	// prepare the masks used for shuffling the vectors
+	// prepare the mask used for the merging mul results
 	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
 	f.KMOVD(amd64.AX, amd64.K3)
 
@@ -628,7 +628,7 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	//
 	// N.B. n must be < 33.
 	// perf: see Plonky3 for a more optimized version
-	_mul2ExpNegN := f.Define("mul2ExpNegN", 9, func(args ...any) {
+	_mul2ExpNegN := f.Define("mul_2_Exp_NegN", 9, func(args ...any) {
 		a := args[0]
 		t0 := args[1]
 		c := args[2]
@@ -700,11 +700,11 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	}
 
 	matMul4 := f.Define("mat_mul_4_w", 6, func(args ...any) {
-		sum := args[0]
-		sd0 := args[1]
-		sd1 := args[2]
-		sd2 := args[3]
-		sd3 := args[4]
+		t01 := args[0]
+		t23 := args[1]
+		t0123 := args[2]
+		t01123 := args[3]
+		t01233 := args[4]
 		t0 := args[5]
 
 		// for each block in v
@@ -714,33 +714,35 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 			s2 := v[4*i+2]
 			s3 := v[4*i+3]
 
-			// We multiply by this matrix, each block of 4:
-			// (2 3 1 1)
-			// (1 2 3 1)
-			// (1 1 2 3)
-			// (3 1 1 2)
-			// so we have
-			// s0 = Σ + s0 + 2s1
-			// s1 = Σ + s1 + 2s2
-			// s2 = Σ + s2 + 2s3
-			// s3 = Σ + s3 + 2s0
-			add(s0, s1, qd, t0, sum)
-			add(sum, s2, qd, t0, sum)
-			add(sum, s3, qd, t0, sum)
+			// for the addition chain, see:
+			// https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/poseidon2/src/external.rs#L43
+			// for i := 0; i < c; i++ {
+			// 	var t01, t23, t0123, t01123, t01233 fr.Element
+			// 	t01.Add(&s[4*i], &s[4*i+1])
+			// 	t23.Add(&s[4*i+2], &s[4*i+3])
+			// 	t0123.Add(&t01, &t23)
+			// 	t01123.Add(&t0123, &s[4*i+1])
+			// 	t01233.Add(&t0123, &s[4*i+3])
+			// The order here is important. Need to overwrite x[0] and x[2] after x[1] and x[3].
+			// 	s[4*i+3].Double(&s[4*i]).Add(&s[4*i+3], &t01233)
+			// 	s[4*i+1].Double(&s[4*i+2]).Add(&s[4*i+1], &t01123)
+			// 	s[4*i].Add(&t01, &t01123)
+			// 	s[4*i+2].Add(&t23, &t01233)
+			// }
+			add(s0, s1, qd, t0, t01)
+			add(s2, s3, qd, t0, t23)
+			add(t01, t23, qd, t0, t0123)
+			add(t0123, s1, qd, t0, t01123)
+			add(t0123, s3, qd, t0, t01233)
 
-			double(s0, qd, t0, sd0)
-			double(s1, qd, t0, sd1)
-			double(s2, qd, t0, sd2)
-			double(s3, qd, t0, sd3)
+			double(s0, qd, t0, s3)
+			add(s3, t01233, qd, t0, s3)
 
-			add(s0, sum, qd, t0, s0)
-			add(s0, sd1, qd, t0, s0)
-			add(s1, sum, qd, t0, s1)
-			add(s1, sd2, qd, t0, s1)
-			add(s2, sum, qd, t0, s2)
-			add(s2, sd3, qd, t0, s2)
-			add(s3, sum, qd, t0, s3)
-			add(s3, sd0, qd, t0, s3)
+			double(s2, qd, t0, s1)
+			add(s1, t01123, qd, t0, s1)
+
+			add(t01, t01123, qd, t0, s0)
+			add(t23, t01233, qd, t0, s2)
 		}
 	})
 
@@ -863,7 +865,8 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 		{
 			// compute the sum of all v[i]
-
+			// we do it that way rather than accumulate to break some
+			// dependencies chains
 			add(v[0], v[1], qd, t0, t2)
 			add(v[2], v[3], qd, t0, t3)
 			add(v[4], v[5], qd, t0, t4)
@@ -885,14 +888,11 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		// var temp fr.Element
 		// input[0].Sub(&sum, temp.Double(&input[0]))
 		double(v[0], qd, t0, v[0])
-		sub(sum, v[0], qd, t0, v[0])
 
 		// input[1].Add(&sum, &input[1])
-		add(sum, v[1], qd, t2, v[1])
 
 		// input[2].Add(&sum, temp.Double(&input[2]))
 		double(v[2], qd, t3, v[2])
-		add(v[2], sum, qd, t0, v[2])
 
 		{
 			ones := t1
@@ -902,33 +902,26 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 			// temp.Set(&input[3]).Halve()
 			// input[3].Add(&sum, &temp)
 			halve(v[3], ones)
-			add(sum, v[3], qd, t0, v[3])
-
 			// temp.Set(&input[6]).Halve()
 			// input[6].Sub(&sum, &temp)
 			halve(v[6], ones)
-			sub(sum, v[6], qd, t0, v[6])
 		}
 
 		// input[4].Add(&sum, temp.Double(&input[4]).Add(&temp, &input[4]))
-		double(v[4], qd, t0, t1)
-		add(v[4], t1, qd, t0, v[4])
-		add(v[4], sum, qd, t0, v[4])
+		double(v[4], qd, t0, t2)
+		add(v[4], t2, qd, t0, v[4])
 
 		// input[5].Add(&sum, temp.Double(&input[5]).Double(&temp))
 		double(v[5], qd, t0, v[5])
 		double(v[5], qd, t0, v[5])
-		add(v[5], sum, qd, t0, v[5])
 
 		// input[7].Sub(&sum, temp.Double(&input[7]).Add(&temp, &input[7]))
 		double(v[7], qd, t0, t1)
 		add(v[7], t1, qd, t0, v[7])
-		sub(sum, v[7], qd, t0, v[7])
 
 		// input[8].Sub(&sum, temp.Double(&input[8]).Double(&temp))
 		double(v[8], qd, t0, v[8])
 		double(v[8], qd, t0, v[8])
-		sub(sum, v[8], qd, t0, v[8])
 
 		registers.PushV(t1, t2, t3, t4)
 
@@ -936,6 +929,19 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 		for i := 9; i < len(v); i++ {
 			mul2ExpNegN(v[i], t0, v[i], ns[i-9])
+		}
+
+		// Sum part.
+		sub(sum, v[0], qd, t0, v[0])
+		add(sum, v[1], qd, t0, v[1])
+		add(v[2], sum, qd, t0, v[2])
+		add(v[3], sum, qd, t0, v[3])
+		add(v[4], sum, qd, t0, v[4])
+		add(v[5], sum, qd, t0, v[5])
+		sub(sum, v[6], qd, t0, v[6])
+		sub(sum, v[7], qd, t0, v[7])
+		sub(sum, v[8], qd, t0, v[8])
+		for i := 9; i < len(v); i++ {
 			if i <= 15 {
 				add(v[i], sum, qd, t0, v[i])
 			} else {
@@ -946,41 +952,38 @@ func (f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		registers.PushV(sum, t0)
 	}
 
-	roundLoop := func(nbRounds, roundKeyOffset int, fn func()) {
+	// private function to help write for loops with known bounds
+	// for the rounds
+	loop := func(nbRounds int, fn func()) {
 		n := registers.Pop()
-		addrRoundKeys2 := registers.Pop()
 		f.MOVQ(nbRounds, n)
 		lblLoop := f.NewLabel("loop")
 		lblDone := f.NewLabel("done")
-		f.MOVQ(addrRoundKeys, addrRoundKeys2)
-		if roundKeyOffset != 0 {
-			f.ADDQ(roundKeyOffset*24, addrRoundKeys2)
-		}
 
 		f.LABEL(lblLoop)
 		f.TESTQ(n, n)
 		f.JEQ(lblDone)
 		f.DECQ(n)
 
-		f.MOVQ(addrRoundKeys2.At(0), rKey)
+		f.MOVQ(addrRoundKeys.At(0), rKey)
 
 		fn()
 
-		f.ADDQ("$24", addrRoundKeys2)
+		f.ADDQ("$24", addrRoundKeys)
 		f.JMP(lblLoop)
 		f.LABEL(lblDone)
 
-		registers.Push(n, addrRoundKeys2)
+		registers.Push(n)
 	}
 
 	f.Comment("loop over the first full rounds")
-	roundLoop(rf, 0, fullRound)
+	loop(rf, fullRound)
 
 	f.Comment("loop over the partial rounds")
-	roundLoop(partialRounds, rf, partialRound)
+	loop(partialRounds, partialRound)
 
 	f.Comment("loop over the final full rounds")
-	roundLoop(rf, rf+partialRounds, fullRound)
+	loop(rf, fullRound)
 
 	for i := range v {
 		f.VMOVDQU32(v[i], addrInput.AtD(i*16))
