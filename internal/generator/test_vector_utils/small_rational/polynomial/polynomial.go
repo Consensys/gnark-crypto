@@ -6,6 +6,7 @@
 package polynomial
 
 import (
+	"errors"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
 	"github.com/consensys/gnark-crypto/utils"
 	"strconv"
@@ -309,62 +310,56 @@ func computeLagrangeBasis(domainSize uint8) []Polynomial {
 }
 
 // Interpolate fits a polynomial of degree len(X) - 1 = len(Y) - 1 to the points (X[i], Y[i])
-// Returns the evaluation at r
-//
-// Note that this runs in O(len(X)²).
-// When possible, it is better to exploit any structure in the domain
-// (i.e. the values in X) to compute the polynomial in linear time.
-func Interpolate(X, Y []small_rational.SmallRational, r small_rational.SmallRational) small_rational.SmallRational {
+// Note that the runtime is O(len(X)³)
+func Interpolate(X, Y []small_rational.SmallRational) (Polynomial, error) {
 	if len(X) != len(Y) {
-		panic("X and Y must have the same length")
-	}
-	switch len(X) {
-	case 0:
-		return small_rational.SmallRational{}
-	case 1:
-		return Y[0]
+		return nil, errors.New("X and Y must have the same length")
 	}
 
-	// weights[i] = 1 / [(X[i] - X[0]) * (X[i] - X[1]) * ... * (X[i] - X[i-1]) * (X[i] - X[i+1]) * ... * (X[i] - X[n-1])]
-	weights := make([]small_rational.SmallRational, len(X))
-	for i := range weights {
-		weights[i].SetOne()
-		for j := range weights {
-			if i == j {
-				continue
+	// solve the system of equations by Gaussian elimination
+	augmentedRows := make([][]small_rational.SmallRational, len(X)) // the last column is the Y values
+	for i := range augmentedRows {
+		augmentedRows[i] = make([]small_rational.SmallRational, len(X)+1)
+		augmentedRows[i][0].SetOne()
+		augmentedRows[i][1].Set(&X[i])
+		for j := 2; j < len(augmentedRows[i])-1; j++ {
+			augmentedRows[i][j].Mul(&augmentedRows[i][j-1], &X[i])
+		}
+		augmentedRows[i][len(augmentedRows[i])-1].Set(&Y[i])
+	}
+
+	// make the upper triangle
+	for i := range len(augmentedRows) - 1 {
+		// use row i to eliminate the ith element in all rows below
+		var negInv small_rational.SmallRational
+		if augmentedRows[i][i].IsZero() {
+			return nil, errors.New("singular matrix")
+		}
+		negInv.Inverse(&augmentedRows[i][i])
+		negInv.Neg(&negInv)
+		for j := i + 1; j < len(augmentedRows); j++ {
+			var c small_rational.SmallRational
+			c.Mul(&augmentedRows[j][i], &negInv)
+			// augmentedRows[j][i].SetZero() omitted
+			for k := i + 1; k < len(augmentedRows[i]); k++ {
+				var t small_rational.SmallRational
+				t.Mul(&augmentedRows[i][k], &c)
+				augmentedRows[j][k].Add(&augmentedRows[j][k], &t)
 			}
-			var t small_rational.SmallRational
-			t.Sub(&X[i], &X[j])
-			weights[i].Mul(&weights[i], &t)
 		}
 	}
-	weights = small_rational.BatchInvert(weights)
 
-	// prods[i] = (r-X[i+1]) * (r-X[i+2]) * ... (r-X[n-1])
-	prods := make([]small_rational.SmallRational, len(X))
-	prods[len(X)-1].SetOne()
-	prods[len(X)-2].Sub(&r, &X[len(X)-1])
-	for i := len(X) - 3; i >= 0; i-- {
-		var t small_rational.SmallRational
-		t.Sub(&r, &X[i+1])
-		prods[i].Mul(&prods[i+1], &t)
+	// back substitution
+	res := make(Polynomial, len(X))
+	for i := len(augmentedRows) - 1; i >= 0; i-- {
+		res[i] = augmentedRows[i][len(augmentedRows[i])-1]
+		for j := i + 1; j < len(augmentedRows[i])-1; j++ {
+			var t small_rational.SmallRational
+			t.Mul(&res[j], &augmentedRows[i][j])
+			res[i].Sub(&res[i], &t)
+		}
+		res[i].Div(&res[i], &augmentedRows[i][i])
 	}
 
-	// at iteration i, prod = (r-X[0]) * (r-X[1]) * ... * (r-X[i-1])
-	prod := small_rational.One()
-	var res small_rational.SmallRational
-
-	for i := range X {
-		var t small_rational.SmallRational
-		t.Mul(&prod, &prods[i]) // t = (r-X[0]) * (r-X[1]) * ... * (r-X[i-1]) * (r-X[i+1]) * ... * (r-X[n-1])
-		t.Mul(&t, &weights[i])  // t = (r-X[0]) * (r-X[1]) * ... * (r-X[i-1]) * (r-X[i+1]) * ... * (r-X[n-1]) / [(X[i] - X[0]) * (X[i] - X[1]) * ... * (X[i] - X[i-1]) * (X[i] - X[i+1]) * ... * (X[i] - X[n-1])]
-		// t is now the evaluation of the i'th Lagrange basis at r
-
-		t.Mul(&t, &Y[i])
-		res.Add(&res, &t)
-
-		t.Sub(&r, &X[i])
-		prod.Mul(&prod, &t)
-	}
-	return res
+	return res, nil
 }
