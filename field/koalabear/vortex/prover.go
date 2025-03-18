@@ -151,15 +151,10 @@ func (ps *ProverState) OpenLinComb(alpha fext.E4) {
 	// We don't use the Horner algorithm because we can save on fext
 	// operations using the naive algorithm.
 
-	n := uint64(ps.Params.SizeCodeWord())
-	nn := uint64(64 - bits.TrailingZeros64(n))
-
 	for row := 0; row < len(encodedMatrix); row++ {
 		for col := 0; col < ps.Params.SizeCodeWord(); col++ {
 
-			colRev := int(bits.Reverse64(uint64(col)) >> nn)
-
-			tmp.MulByElement(alphaPow, &encodedMatrix[row][colRev])
+			tmp.MulByElement(alphaPow, &encodedMatrix[row][col])
 			ualpha[col].Add(&ualpha[col], &tmp)
 		}
 

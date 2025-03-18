@@ -9,6 +9,37 @@ import (
 	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
 )
 
+// func TestLocal(t *testing.T) {
+
+// 	params := NewParams(4, 4, nil, 2, 2)
+
+// 	size := 4
+// 	toEncode := make([]koalabear.Element, size)
+// 	for i := 0; i < size; i++ {
+// 		toEncode[i].SetUint64(uint64(i + 2))
+// 	}
+
+// 	encodedRS, _ := params.EncodeReedSolomon(toEncode, false)
+// 	for i := 0; i < len(encodedRS); i++ {
+// 		fmt.Println(encodedRS[i].String())
+// 	}
+// 	fmt.Println("--")
+
+// 	rho := 2
+// 	ds := fft.NewDomain(uint64(size))
+// 	db := fft.NewDomain(uint64(size * rho))
+// 	encodedClassic := make([]koalabear.Element, rho*size)
+// 	copy(encodedClassic, toEncode)
+// 	ds.FFTInverse(encodedClassic[:size], fft.DIF)
+// 	fft.BitReverse(encodedClassic[:size])
+// 	db.FFT(encodedClassic, fft.DIF)
+// 	fft.BitReverse(encodedClassic)
+// 	for i := 0; i < len(encodedRS); i++ {
+// 		fmt.Println(encodedClassic[i].String())
+// 	}
+
+// }
+
 func TestLagrangeSimple(t *testing.T) {
 
 	params := NewParams(4, 4, nil, 2, 2)
