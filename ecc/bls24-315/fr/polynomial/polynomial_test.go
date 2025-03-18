@@ -260,8 +260,7 @@ func TestInterpolate(t *testing.T) {
 		poly[i].SetRandom()
 	} // TODO @Tabaie change to fr.Vector(poly).MustSetRandom
 
-	// the first elements of x, y are the interpolation point and value, respectively
-	x := make([]fr.Element, len(poly)+1)
+	x := make([]fr.Element, len(poly))
 	for i := range x {
 		x[i].SetRandom()
 	}
@@ -269,11 +268,16 @@ func TestInterpolate(t *testing.T) {
 
 	for _, d := range ds {
 		p := poly[:d+1]
-		x := x[:d+2]
-		for i := range x {
+		for i := range p {
 			y[i] = p.Eval(&x[i])
 		}
-		y0 := Interpolate(x[1:], y[1:d+2], x[0])
-		require.Equalf(t, y[0].String(), y0.String(), "at degree %d", d)
+		q, err := Interpolate(x[:d+1], y[:d+1])
+		require.NoError(t, err)
+		require.Equal(t, len(p), len(q))
+		for i := range p {
+			if !p[i].Equal(&q[i]) {
+				t.Fatalf("degree %d: coefficient for x^%d do not match: expected %s, got %s", d, i, p[i].Text(10), q[i].Text(10))
+			}
+		}
 	}
 }
