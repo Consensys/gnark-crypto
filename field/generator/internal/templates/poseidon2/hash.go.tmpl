@@ -36,6 +36,7 @@ var diag{{- $w1}} []fr.Element = make([]fr.Element, {{- $w1}})
 
 func init() {
 	// diagonal diag{{- $w0}} for the internal diagonal of the matrix of the compression layer
+	// (from https://github.com/Plonky3/Plonky3 )
 	{{- $i := 0}}
 	{{- range $d := .ParamsCompression.DiagInternal}}
 	diag{{$w0}}[{{$i}}].SetUint64({{$d}})
@@ -43,6 +44,7 @@ func init() {
 	{{- end}}
 
 	// diagonal diag{{- $w1}} for the internal diagonal of the matrix of the sponge layer
+	// (from https://github.com/Plonky3/Plonky3 )
 	{{- $i = 0}}
 	{{- range $d := .ParamsSponge.DiagInternal}}
 	diag{{$w1}}[{{$i}}].SetUint64({{$d}})

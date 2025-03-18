@@ -71,6 +71,15 @@ func (f *FFAmd64) DefineFn(name string) (fn defineFn, err error) {
 	return fn, nil
 }
 
+func (f *FFAmd64) CallDefine(name string, args ...any) {
+	name = strings.ToUpper(name)
+	fn, ok := f.mDefines[name]
+	if !ok {
+		panic(fmt.Sprintf("function %s not defined", name))
+	}
+	fn(args...)
+}
+
 func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn, forceGet ...bool) defineFn {
 
 	inputs := make([]string, nbInputs)
@@ -85,20 +94,21 @@ func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn, forceGet ...boo
 			// user explicitly asked for it
 			return fn
 		}
+		panic("WARNING: function name already defined")
 		// name already exist, for code generation purpose we add a suffix
 		// should happen only with e2 deprecated functions
 		// fmt.Println("WARNING: function name already defined, adding suffix")
-		i := 0
-		for {
-			newName := fmt.Sprintf("%s_%d", name, i)
-			if _, ok := f.mDefines[newName]; !ok {
-				name = newName
-				goto startDefine
-			}
-			i++
-		}
+		// i := 0
+		// for {
+		// 	newName := fmt.Sprintf("%s_%d", name, i)
+		// 	if _, ok := f.mDefines[newName]; !ok {
+		// 		name = newName
+		// 		goto startDefine
+		// 	}
+		// 	i++
+		// }
 	}
-startDefine:
+	// startDefine:
 
 	f.StartDefine()
 	f.WriteLn("#define " + name + "(" + strings.Join(inputs, ", ") + ")")
