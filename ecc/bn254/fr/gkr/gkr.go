@@ -8,6 +8,7 @@ package gkr
 import (
 	"errors"
 	"fmt"
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
@@ -162,19 +163,18 @@ func isAdditive(f GateFunction, i, nbIn int) bool {
 	return y1.Equal(&y2)
 }
 
-// fitPoly tries to fit a polynomial of maximum degree maxDeg to f.
-// maxDeg must be a power of 2.
+// fitPoly tries to fit a polynomial of degree less than degreeBound to f.
+// degreeBound must be a power of 2.
 // It returns the polynomial if successful, nil otherwise
-func fitPoly(f GateFunction, nbIn, maxDeg int) polynomial.Polynomial {
-
-	domain := fft.NewDomain(uint64(maxDeg))
+func fitPoly(f GateFunction, nbIn int, degreeBound uint64) polynomial.Polynomial {
+	domain := fft.NewDomain(degreeBound)
 
 	// turn f univariate by defining p(x) as f(x, x, ..., x)
 	// evaluate p on the unit circle (first filling p with evaluations rather than coefficients)
 	x := fr.One()
-	p := make(polynomial.Polynomial, maxDeg+1)
+	p := make(polynomial.Polynomial, degreeBound)
 	fIn := make([]fr.Element, nbIn)
-	for i := range x {
+	for i := range p {
 		for j := range fIn {
 			fIn[j] = x
 		}
@@ -183,12 +183,10 @@ func fitPoly(f GateFunction, nbIn, maxDeg int) polynomial.Polynomial {
 		x.Mul(&x, &domain.Generator)
 	}
 
-	// interpolate p
-	fft.BitReverse(p)
 	domain.FFTInverse(p, fft.DIF)
 	fft.BitReverse(p)
 
-	// check if p is equal to f. This not being the case means that f is of a degree higher than maxDeg
+	// check if p is equal to f. This not being the case means that f is of a degree higher than degreeBound
 	setRandom(&fIn[0])
 	for i := range fIn {
 		fIn[i] = fIn[0]
@@ -222,20 +220,20 @@ func RegisterGate(name string, f GateFunction, nbIn int, options ...RegisterGate
 			panic("invalid settings")
 		}
 		found := false
-		const maxAutoDegree = 32
-		for s.degree = 4; s.degree <= maxAutoDegree; s.degree *= 2 {
-			if p := fitPoly(f, nbIn, s.degree); p != nil {
+		const maxAutoDegreeBound = 32
+		for degreeBound := uint64(4); degreeBound <= maxAutoDegreeBound; degreeBound *= 2 {
+			if p := fitPoly(f, nbIn, degreeBound); p != nil {
 				found = true
 				s.degree = len(p) - 1
 				break
 			}
 		}
 		if !found {
-			return fmt.Errorf("could not find a degree for gate %s: tried up to %d", name, maxAutoDegree)
+			return fmt.Errorf("could not find a degree for gate %s: tried up to %d", name, maxAutoDegreeBound-1)
 		}
 	} else {
 		if !s.noDegreeVerification { // check that the given degree is correct
-			if p := fitPoly(f, nbIn, s.degree); p == nil {
+			if p := fitPoly(f, nbIn, ecc.NextPowerOfTwo(uint64(s.degree)+1)); p == nil {
 				return fmt.Errorf("detected a higher degree than %d for gate %s", s.degree, name)
 			} else if len(p)-1 != s.degree {
 				return fmt.Errorf("detected degree %d for gate %s, claimed %d", len(p)-1, name, s.degree)

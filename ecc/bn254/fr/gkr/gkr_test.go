@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/sumcheck"
@@ -560,10 +561,10 @@ func mimcRound(input ...fr.Element) (res fr.Element) {
 
 	sum.
 		Add(&input[0], &input[1]) //.Add(&sum, &m.ark)  TODO: add ark
-	res.Square(&sum)    // sum^2
-	res.Mul(&res, &sum) // sum^3
-	res.Square(&res)    //sum^6
-	res.Mul(&res, &sum) //sum^7
+	res.Square(&sum)              // sum^2
+	res.Mul(&res, &sum)           // sum^3
+	res.Square(&res)              //sum^6
+	res.Mul(&res, &sum)           //sum^7
 
 	return
 }
@@ -801,4 +802,20 @@ func TestIsAdditive(t *testing.T) {
 	assert.True(t, isAdditive(g, 1, 2))
 
 	assert.True(t, isAdditive(h, 0, 1))
+}
+
+func TestBoop(t *testing.T) {
+	domain := fft.NewDomain(4)
+	y := make([]fr.Element, 4)
+	y[0].SetOne()
+	for i := 1; i < len(y); i++ {
+		y[i].Mul(&y[i-1], &domain.Generator)
+	}
+	/*p := iop.NewPolynomial(&y, iop.Form{
+		Basis:  iop.Lagrange,
+		Layout: iop.Regular,
+	})
+	p.ToCanonical(domain)*/
+	domain.FFTInverse(y, fft.DIF)
+	fft.BitReverse(y)
 }
