@@ -142,7 +142,7 @@ func transposeCodewords(codewords [][]koalabear.Element, col, blockSize int, col
 func (ps *ProverState) OpenLinComb(alpha fext.E4) {
 
 	var (
-		ualpha        = make([]fext.E4, ps.Params.NbEncodedColumns())
+		ualpha        = make([]fext.E4, ps.Params.SizeCodeWord())
 		tmp           = fext.E4{}
 		alphaPow      = new(fext.E4).SetOne()
 		encodedMatrix = ps.EncodedMatrix
@@ -151,11 +151,11 @@ func (ps *ProverState) OpenLinComb(alpha fext.E4) {
 	// We don't use the Horner algorithm because we can save on fext
 	// operations using the naive algorithm.
 
-	n := uint64(ps.Params.NbEncodedColumns())
+	n := uint64(ps.Params.SizeCodeWord())
 	nn := uint64(64 - bits.TrailingZeros64(n))
 
 	for row := 0; row < len(encodedMatrix); row++ {
-		for col := 0; col < ps.Params.NbEncodedColumns(); col++ {
+		for col := 0; col < ps.Params.SizeCodeWord(); col++ {
 
 			colRev := int(bits.Reverse64(uint64(col)) >> nn)
 
@@ -180,13 +180,13 @@ func (ps *ProverState) OpenColumns(selectedColumns []int) (*Proof, error) {
 		encodedMatrix            = ps.EncodedMatrix
 		err                      error
 	)
-	n := uint64(ps.Params.NbEncodedColumns())
+	n := uint64(ps.Params.SizeCodeWord())
 	nn := uint64(64 - bits.TrailingZeros64(n))
 	for i, col := range selectedColumns {
 
 		// an error here indicates that the user samples integers that are
 		// too large.
-		if col >= ps.Params.NbEncodedColumns() {
+		if col >= ps.Params.SizeCodeWord() {
 			return nil, fmt.Errorf("column index out of range")
 		}
 		colRev := int(bits.Reverse64(uint64(col)) >> nn)

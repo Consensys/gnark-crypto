@@ -1,6 +1,7 @@
 package vortex
 
 import (
+	"github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/fft"
 	"github.com/consensys/gnark-crypto/field/koalabear/sis"
 )
@@ -33,6 +34,9 @@ type Params struct {
 	// NumSelectedColumns indicates the number of columns to open in the
 	// column opening phase.
 	NumSelectedColumns int
+
+	// Coset table of the small domain, bit reversed
+	CosetTableBitReverse []koalabear.Element
 }
 
 // NewParams constructs a new set of public parameters.
@@ -44,22 +48,36 @@ func NewParams(
 	numSelectedColumns int,
 ) *Params {
 
+	shift, err := koalabear.Generator(uint64(numColumns * reedSolomonInvRate))
+	if err != nil {
+		panic(err) // Handle that properly
+	}
+
+	smallDomain := fft.NewDomain(uint64(numColumns), fft.WithShift(shift))
+	cosetTableBitReverse, err := smallDomain.CosetTable()
+	if err != nil {
+		panic(err) // Handle that properly
+	}
+	fft.BitReverse(cosetTableBitReverse)
+	bigDomain := fft.NewDomain(uint64(numColumns * reedSolomonInvRate))
+
 	return &Params{
 		Key: sisParams,
 		Domains: [2]*fft.Domain{
-			fft.NewDomain(uint64(numColumns)),
-			fft.NewDomain(uint64(numColumns * reedSolomonInvRate)),
+			smallDomain,
+			bigDomain,
 		},
-		ReedSolomonInvRate: reedSolomonInvRate,
-		NbColumns:          numColumns,
-		MaxNbRows:          maxNumRow,
-		NumSelectedColumns: numSelectedColumns,
+		ReedSolomonInvRate:   reedSolomonInvRate,
+		NbColumns:            numColumns,
+		MaxNbRows:            maxNumRow,
+		NumSelectedColumns:   numSelectedColumns,
+		CosetTableBitReverse: cosetTableBitReverse,
 	}
 
 }
 
-// NbEncodedColumns returns the number of columns of the matrix *after* the encoding
+// SizeCodeWord returns the number of columns of the matrix *after* the encoding
 // has been performed.
-func (p *Params) NbEncodedColumns() int {
+func (p *Params) SizeCodeWord() int {
 	return p.NbColumns * p.ReedSolomonInvRate
 }
