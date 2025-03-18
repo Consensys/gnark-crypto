@@ -1031,13 +1031,13 @@ func (f *poseidon2Helper) mul2ExpNegN(a amd64.VectorRegister, N int, into amd64.
 // reduce1Q reduces a by q and stores the result in into
 func (f *poseidon2Helper) reduce1Q(a amd64.VectorRegister) {
 	r0 := f.registers.PopV()
-	f.Define("reduce1Q_bis", 3, func(args ...any) {
-		a := args[0]
-		qd := args[1]
+	f.Define("reduce1Q", 3, func(args ...any) {
+		qd := args[0]
+		c := args[1]
 		r0 := args[2]
 
-		f.VPSUBD(qd, a, r0)
-		f.VPMINUD(a, r0, a)
-	}, true)(a, f.qd, r0)
+		f.VPSUBD(qd, c, r0)
+		f.VPMINUD(c, r0, c)
+	}, true)(f.qd, a, r0)
 	f.registers.PushV(r0)
 }
