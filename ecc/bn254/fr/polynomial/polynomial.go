@@ -6,7 +6,6 @@
 package polynomial
 
 import (
-	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/utils"
 	"strconv"
@@ -368,30 +367,4 @@ func Interpolate(X, Y []fr.Element, r fr.Element) fr.Element {
 		prod.Mul(&prod, &t)
 	}
 	return res
-}
-
-func printArray[T any](s []T) {
-	if len(s) == 0 {
-		fmt.Println("[]")
-		return
-	}
-
-	ss := make([]string, len(s))
-
-	f := func(i T) string {
-		return (any(i)).(fmt.Stringer).String()
-	}
-	if _, ok := any(s[0]).(fmt.Stringer); !ok {
-		if _, ok = any(&s[0]).(fmt.Stringer); !ok {
-			panic("printArray only works for types that implement Stringer")
-		}
-		f = func(i T) string {
-			return any(&i).(fmt.Stringer).String()
-		}
-	}
-
-	for i := range s {
-		ss[i] = f(s[i])
-	}
-	fmt.Println("[", strings.Join(ss, ", "), "]")
 }

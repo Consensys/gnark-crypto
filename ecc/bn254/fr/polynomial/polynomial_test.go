@@ -11,7 +11,6 @@ import (
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 )

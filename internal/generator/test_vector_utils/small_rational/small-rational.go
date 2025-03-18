@@ -429,6 +429,15 @@ func (z *SmallRational) SetBytes(b []byte) {
 	z.UpdateText()
 }
 
+func One() SmallRational {
+	res := SmallRational{
+		text: "1",
+	}
+	res.numerator.SetInt64(1)
+	res.denominator.SetInt64(1)
+	return res
+}
+
 func Modulus() *big.Int {
 	res := big.NewInt(1)
 	res.Lsh(res, 64)
