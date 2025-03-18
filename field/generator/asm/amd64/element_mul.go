@@ -70,7 +70,7 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 		f.ADCXQ(in0, in1)
 		f.MULXQ(in2, amd64.AX, in0)
 		f.ADOXQ(amd64.AX, in1)
-	})
+	}, true)
 
 	divShift := f.Define("DIV_SHIFT", 0, func(_ ...any) {
 		if !hasFreeRegister {
@@ -104,7 +104,7 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 		f.ADCXQ(amd64.AX, t[f.NbWordsLastIndex])
 		f.ADOXQ(A, t[f.NbWordsLastIndex])
 
-	})
+	}, true)
 
 	mulWord0 := f.Define("MUL_WORD_0", 0, func(_ ...any) {
 		f.XORQ(amd64.AX, amd64.AX)
@@ -127,7 +127,7 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 		f.MOVQ(0, amd64.AX)
 		f.ADOXQ(amd64.AX, A)
 		divShift()
-	})
+	}, true)
 
 	mulWordN := f.Define("MUL_WORD_N", 0, func(args ...any) {
 		f.XORQ(amd64.AX, amd64.AX)
@@ -142,7 +142,7 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 		f.ADCXQ(amd64.AX, A)
 		f.ADOXQ(amd64.AX, A)
 		divShift()
-	})
+	}, true)
 
 	f.Comment("mul body")
 

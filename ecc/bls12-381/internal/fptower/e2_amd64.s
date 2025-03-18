@@ -557,73 +557,19 @@ TEXT ·squareAdxE2(SB), $48-16
 	// t[3] -> R11
 	// t[4] -> R12
 	// t[5] -> R13
-#define MACC_0(in0, in1, in2) \
-	ADCXQ in0, in1     \
-	MULXQ in2, AX, in0 \
-	ADOXQ AX, in1      \
-
-#define DIV_SHIFT_0() \
-	PUSHQ BP                           \
-	MOVQ  $const_qInvNeg, DX           \
-	IMULQ R8, DX                       \
-	XORQ  AX, AX                       \
-	MULXQ ·qElement+0(SB), AX, BP      \
-	ADCXQ R8, AX                       \
-	MOVQ  BP, R8                       \
-	POPQ  BP                           \
-	MACC_0(R9, R8, ·qElement+8(SB))    \
-	MACC_0(R10, R9, ·qElement+16(SB))  \
-	MACC_0(R11, R10, ·qElement+24(SB)) \
-	MACC_0(R12, R11, ·qElement+32(SB)) \
-	MACC_0(R13, R12, ·qElement+40(SB)) \
-	MOVQ  $0, AX                       \
-	ADCXQ AX, R13                      \
-	ADOXQ BP, R13                      \
-
-#define MUL_WORD_0_0() \
-	XORQ  AX, AX       \
-	MULXQ R14, R8, R9  \
-	MULXQ R15, AX, R10 \
-	ADOXQ AX, R9       \
-	MULXQ CX, AX, R11  \
-	ADOXQ AX, R10      \
-	MULXQ BX, AX, R12  \
-	ADOXQ AX, R11      \
-	MULXQ SI, AX, R13  \
-	ADOXQ AX, R12      \
-	MULXQ DI, AX, BP   \
-	ADOXQ AX, R13      \
-	MOVQ  $0, AX       \
-	ADOXQ AX, BP       \
-	DIV_SHIFT_0()      \
-
-#define MUL_WORD_N_0() \
-	XORQ  AX, AX        \
-	MULXQ R14, AX, BP   \
-	ADOXQ AX, R8        \
-	MACC_0(BP, R9, R15) \
-	MACC_0(BP, R10, CX) \
-	MACC_0(BP, R11, BX) \
-	MACC_0(BP, R12, SI) \
-	MACC_0(BP, R13, DI) \
-	MOVQ  $0, AX        \
-	ADCXQ AX, BP        \
-	ADOXQ AX, BP        \
-	DIV_SHIFT_0()       \
-
 	// mul body
 	MOVQ s0-8(SP), DX
-	MUL_WORD_0_0()
+	MUL_WORD_0()
 	MOVQ s1-16(SP), DX
-	MUL_WORD_N_0()
+	MUL_WORD_N()
 	MOVQ s2-24(SP), DX
-	MUL_WORD_N_0()
+	MUL_WORD_N()
 	MOVQ s3-32(SP), DX
-	MUL_WORD_N_0()
+	MUL_WORD_N()
 	MOVQ s4-40(SP), DX
-	MUL_WORD_N_0()
+	MUL_WORD_N()
 	MOVQ s5-48(SP), DX
-	MUL_WORD_N_0()
+	MUL_WORD_N()
 
 	// reduce element(R8,R9,R10,R11,R12,R13) using temp registers (R14,R15,CX,BX,SI,DI)
 	REDUCE(R8,R9,R10,R11,R12,R13,R14,R15,CX,BX,SI,DI)
@@ -674,79 +620,25 @@ TEXT ·mulAdxE2(SB), $96-24
 	// t[3] -> R11
 	// t[4] -> R12
 	// t[5] -> R13
-#define MACC_1(in0, in1, in2) \
-	ADCXQ in0, in1     \
-	MULXQ in2, AX, in0 \
-	ADOXQ AX, in1      \
-
-#define DIV_SHIFT_1() \
-	PUSHQ BP                           \
-	MOVQ  $const_qInvNeg, DX           \
-	IMULQ R8, DX                       \
-	XORQ  AX, AX                       \
-	MULXQ ·qElement+0(SB), AX, BP      \
-	ADCXQ R8, AX                       \
-	MOVQ  BP, R8                       \
-	POPQ  BP                           \
-	MACC_1(R9, R8, ·qElement+8(SB))    \
-	MACC_1(R10, R9, ·qElement+16(SB))  \
-	MACC_1(R11, R10, ·qElement+24(SB)) \
-	MACC_1(R12, R11, ·qElement+32(SB)) \
-	MACC_1(R13, R12, ·qElement+40(SB)) \
-	MOVQ  $0, AX                       \
-	ADCXQ AX, R13                      \
-	ADOXQ BP, R13                      \
-
-#define MUL_WORD_0_1() \
-	XORQ  AX, AX       \
-	MULXQ R14, R8, R9  \
-	MULXQ R15, AX, R10 \
-	ADOXQ AX, R9       \
-	MULXQ CX, AX, R11  \
-	ADOXQ AX, R10      \
-	MULXQ BX, AX, R12  \
-	ADOXQ AX, R11      \
-	MULXQ SI, AX, R13  \
-	ADOXQ AX, R12      \
-	MULXQ DI, AX, BP   \
-	ADOXQ AX, R13      \
-	MOVQ  $0, AX       \
-	ADOXQ AX, BP       \
-	DIV_SHIFT_1()      \
-
-#define MUL_WORD_N_1() \
-	XORQ  AX, AX        \
-	MULXQ R14, AX, BP   \
-	ADOXQ AX, R8        \
-	MACC_1(BP, R9, R15) \
-	MACC_1(BP, R10, CX) \
-	MACC_1(BP, R11, BX) \
-	MACC_1(BP, R12, SI) \
-	MACC_1(BP, R13, DI) \
-	MOVQ  $0, AX        \
-	ADCXQ AX, BP        \
-	ADOXQ AX, BP        \
-	DIV_SHIFT_1()       \
-
 	// mul body
 	MOVQ y+16(FP), DX
 	MOVQ 48(DX), DX
-	MUL_WORD_0_1()
+	MUL_WORD_0()
 	MOVQ y+16(FP), DX
 	MOVQ 56(DX), DX
-	MUL_WORD_N_1()
+	MUL_WORD_N()
 	MOVQ y+16(FP), DX
 	MOVQ 64(DX), DX
-	MUL_WORD_N_1()
+	MUL_WORD_N()
 	MOVQ y+16(FP), DX
 	MOVQ 72(DX), DX
-	MUL_WORD_N_1()
+	MUL_WORD_N()
 	MOVQ y+16(FP), DX
 	MOVQ 80(DX), DX
-	MUL_WORD_N_1()
+	MUL_WORD_N()
 	MOVQ y+16(FP), DX
 	MOVQ 88(DX), DX
-	MUL_WORD_N_1()
+	MUL_WORD_N()
 
 	// reduce element(R8,R9,R10,R11,R12,R13) using temp registers (R14,R15,CX,BX,SI,DI)
 	REDUCE(R8,R9,R10,R11,R12,R13,R14,R15,CX,BX,SI,DI)
@@ -797,73 +689,19 @@ TEXT ·mulAdxE2(SB), $96-24
 	// t[3] -> R11
 	// t[4] -> R12
 	// t[5] -> R13
-#define MACC_2(in0, in1, in2) \
-	ADCXQ in0, in1     \
-	MULXQ in2, AX, in0 \
-	ADOXQ AX, in1      \
-
-#define DIV_SHIFT_2() \
-	PUSHQ BP                           \
-	MOVQ  $const_qInvNeg, DX           \
-	IMULQ R8, DX                       \
-	XORQ  AX, AX                       \
-	MULXQ ·qElement+0(SB), AX, BP      \
-	ADCXQ R8, AX                       \
-	MOVQ  BP, R8                       \
-	POPQ  BP                           \
-	MACC_2(R9, R8, ·qElement+8(SB))    \
-	MACC_2(R10, R9, ·qElement+16(SB))  \
-	MACC_2(R11, R10, ·qElement+24(SB)) \
-	MACC_2(R12, R11, ·qElement+32(SB)) \
-	MACC_2(R13, R12, ·qElement+40(SB)) \
-	MOVQ  $0, AX                       \
-	ADCXQ AX, R13                      \
-	ADOXQ BP, R13                      \
-
-#define MUL_WORD_0_2() \
-	XORQ  AX, AX       \
-	MULXQ R14, R8, R9  \
-	MULXQ R15, AX, R10 \
-	ADOXQ AX, R9       \
-	MULXQ CX, AX, R11  \
-	ADOXQ AX, R10      \
-	MULXQ BX, AX, R12  \
-	ADOXQ AX, R11      \
-	MULXQ SI, AX, R13  \
-	ADOXQ AX, R12      \
-	MULXQ DI, AX, BP   \
-	ADOXQ AX, R13      \
-	MOVQ  $0, AX       \
-	ADOXQ AX, BP       \
-	DIV_SHIFT_2()      \
-
-#define MUL_WORD_N_2() \
-	XORQ  AX, AX        \
-	MULXQ R14, AX, BP   \
-	ADOXQ AX, R8        \
-	MACC_2(BP, R9, R15) \
-	MACC_2(BP, R10, CX) \
-	MACC_2(BP, R11, BX) \
-	MACC_2(BP, R12, SI) \
-	MACC_2(BP, R13, DI) \
-	MOVQ  $0, AX        \
-	ADCXQ AX, BP        \
-	ADOXQ AX, BP        \
-	DIV_SHIFT_2()       \
-
 	// mul body
 	MOVQ s0-8(SP), DX
-	MUL_WORD_0_2()
+	MUL_WORD_0()
 	MOVQ s1-16(SP), DX
-	MUL_WORD_N_2()
+	MUL_WORD_N()
 	MOVQ s2-24(SP), DX
-	MUL_WORD_N_2()
+	MUL_WORD_N()
 	MOVQ s3-32(SP), DX
-	MUL_WORD_N_2()
+	MUL_WORD_N()
 	MOVQ s4-40(SP), DX
-	MUL_WORD_N_2()
+	MUL_WORD_N()
 	MOVQ s5-48(SP), DX
-	MUL_WORD_N_2()
+	MUL_WORD_N()
 
 	// reduce element(R8,R9,R10,R11,R12,R13) using temp registers (R14,R15,CX,BX,SI,DI)
 	REDUCE(R8,R9,R10,R11,R12,R13,R14,R15,CX,BX,SI,DI)
@@ -889,79 +727,25 @@ TEXT ·mulAdxE2(SB), $96-24
 	// t[3] -> R11
 	// t[4] -> R12
 	// t[5] -> R13
-#define MACC_3(in0, in1, in2) \
-	ADCXQ in0, in1     \
-	MULXQ in2, AX, in0 \
-	ADOXQ AX, in1      \
-
-#define DIV_SHIFT_3() \
-	PUSHQ BP                           \
-	MOVQ  $const_qInvNeg, DX           \
-	IMULQ R8, DX                       \
-	XORQ  AX, AX                       \
-	MULXQ ·qElement+0(SB), AX, BP      \
-	ADCXQ R8, AX                       \
-	MOVQ  BP, R8                       \
-	POPQ  BP                           \
-	MACC_3(R9, R8, ·qElement+8(SB))    \
-	MACC_3(R10, R9, ·qElement+16(SB))  \
-	MACC_3(R11, R10, ·qElement+24(SB)) \
-	MACC_3(R12, R11, ·qElement+32(SB)) \
-	MACC_3(R13, R12, ·qElement+40(SB)) \
-	MOVQ  $0, AX                       \
-	ADCXQ AX, R13                      \
-	ADOXQ BP, R13                      \
-
-#define MUL_WORD_0_3() \
-	XORQ  AX, AX       \
-	MULXQ R14, R8, R9  \
-	MULXQ R15, AX, R10 \
-	ADOXQ AX, R9       \
-	MULXQ CX, AX, R11  \
-	ADOXQ AX, R10      \
-	MULXQ BX, AX, R12  \
-	ADOXQ AX, R11      \
-	MULXQ SI, AX, R13  \
-	ADOXQ AX, R12      \
-	MULXQ DI, AX, BP   \
-	ADOXQ AX, R13      \
-	MOVQ  $0, AX       \
-	ADOXQ AX, BP       \
-	DIV_SHIFT_3()      \
-
-#define MUL_WORD_N_3() \
-	XORQ  AX, AX        \
-	MULXQ R14, AX, BP   \
-	ADOXQ AX, R8        \
-	MACC_3(BP, R9, R15) \
-	MACC_3(BP, R10, CX) \
-	MACC_3(BP, R11, BX) \
-	MACC_3(BP, R12, SI) \
-	MACC_3(BP, R13, DI) \
-	MOVQ  $0, AX        \
-	ADCXQ AX, BP        \
-	ADOXQ AX, BP        \
-	DIV_SHIFT_3()       \
-
 	// mul body
 	MOVQ y+16(FP), DX
 	MOVQ 0(DX), DX
-	MUL_WORD_0_3()
+	MUL_WORD_0()
 	MOVQ y+16(FP), DX
 	MOVQ 8(DX), DX
-	MUL_WORD_N_3()
+	MUL_WORD_N()
 	MOVQ y+16(FP), DX
 	MOVQ 16(DX), DX
-	MUL_WORD_N_3()
+	MUL_WORD_N()
 	MOVQ y+16(FP), DX
 	MOVQ 24(DX), DX
-	MUL_WORD_N_3()
+	MUL_WORD_N()
 	MOVQ y+16(FP), DX
 	MOVQ 32(DX), DX
-	MUL_WORD_N_3()
+	MUL_WORD_N()
 	MOVQ y+16(FP), DX
 	MOVQ 40(DX), DX
-	MUL_WORD_N_3()
+	MUL_WORD_N()
 
 	// reduce element(R8,R9,R10,R11,R12,R13) using temp registers (R14,R15,CX,BX,SI,DI)
 	REDUCE(R8,R9,R10,R11,R12,R13,R14,R15,CX,BX,SI,DI)
