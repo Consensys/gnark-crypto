@@ -2,23 +2,28 @@ import (
 	"testing"
 
 	fr "{{ .FieldPackagePath }}"
+
+	{{- if .F31}}
+	"github.com/consensys/gnark-crypto/utils/cpu"
+	"github.com/stretchr/testify/require"
+	{{- end}}
 )
 
-{{- if not (eq .FF "goldilocks")}}
-func TestMulMulInternalInPlaceWidth16(t *testing.T) {
-	var input, expected [16]fr.Element
-	for i := 0; i < 16; i++ {
+{{- $w0 := .ParamsCompression.Width}}
+{{- $w1 := .ParamsSponge.Width}}
+
+
+func TestMulMulInternalInPlaceWidth{{- $w0}}(t *testing.T) {
+	var input, expected [{{- $w0}}]fr.Element
+	for i := range input {
 		input[i].SetRandom()
 	}
 
 	expected = input
 
-    {{- if eq .FF "babybear"}}
-	h := NewPermutation(16, 6, 12)
-    {{- else}}
-	h := NewPermutation(16, 6, 21)
-	{{- end}}
-	h.matMulInternalInPlace(expected[:])
+	h := NewPermutation({{- $w0}}, {{- .ParamsCompression.FullRounds}}, {{- .ParamsCompression.PartialRounds}})
+	h.matMulInternalInPlace(expected[:]) 
+
 
 	var sum fr.Element
 	sum.Set(&input[0])
@@ -26,28 +31,24 @@ func TestMulMulInternalInPlaceWidth16(t *testing.T) {
 		sum.Add(&sum, &input[i])
 	}
 	for i := 0; i < h.params.Width; i++ {
-		input[i].Mul(&input[i], &diag16[i]).
+		input[i].Mul(&input[i], &diag{{- $w0}}[i]).
 			Add(&input[i], &sum)
 		if !input[i].Equal(&expected[i]) {
-			t.Fatal("mismatch error")
+			t.Fatal("mat mul internal w/ diagonal doesn't match hand calculated")
 		}
 	}
 }
 
-func TestMulMulInternalInPlaceWidth24(t *testing.T) {
-	var input, expected [24]fr.Element
-	for i := 0; i < 24; i++ {
+func TestMulMulInternalInPlaceWidth{{- $w1}}(t *testing.T) {
+	var input, expected [{{- $w1}}]fr.Element
+	for i := range input {
 		input[i].SetRandom()
 	}
 
 	expected = input
 
-    {{- if eq .FF "babybear"}}
-	h := NewPermutation(24, 6, 19)
-    {{- else}}
-	h := NewPermutation(24, 6, 21)
-	{{- end}}
-	h.matMulInternalInPlace(expected[:])
+	h := NewPermutation({{- $w1}}, {{- .ParamsSponge.FullRounds}}, {{- .ParamsSponge.PartialRounds}})
+	h.matMulInternalInPlace(expected[:]) 
 
 	var sum fr.Element
 	sum.Set(&input[0])
@@ -55,12 +56,128 @@ func TestMulMulInternalInPlaceWidth24(t *testing.T) {
 		sum.Add(&sum, &input[i])
 	}
 	for i := 0; i < h.params.Width; i++ {
-		input[i].Mul(&input[i], &diag24[i]).
+		input[i].Mul(&input[i], &diag{{- $w1}}[i]).
 			Add(&input[i], &sum)
 		if !input[i].Equal(&expected[i]) {
-			t.Fatal("mismatch error")
+			t.Fatal("mat mul internal w/ diagonal doesn't match hand calculated")
 		}
 	}
+}
+
+
+
+{{- if .F31}}
+
+func TestAVX512Width{{- $w0}}(t *testing.T) {
+	if !cpu.SupportAVX512 {
+		t.Skip("AVX512 not supported")
+	}
+	assert := require.New(t)
+	var input, expected [{{- $w0}}]fr.Element
+	for i := range input {
+		input[i].SetRandom()
+	}
+
+	expected = input
+
+	h := NewPermutation({{- $w0}}, {{- .ParamsCompression.FullRounds}}, {{- .ParamsCompression.PartialRounds}})
+
+	err := h.Permutation(input[:])
+	assert.NoError(err)
+
+	h.disableAVX512()
+	err = h.Permutation(expected[:])
+	assert.NoError(err)
+
+	// compare results
+	for i := 0; i < h.params.Width; i++ {
+		assert.True(input[i].Equal(&expected[i]), "avx512 result don't match purego")
+	}
+}
+
+func TestAVX512Width{{- $w1}}(t *testing.T) {
+	if !cpu.SupportAVX512 {
+		t.Skip("AVX512 not supported")
+	}
+	assert := require.New(t)
+	var input, expected [{{- $w1}}]fr.Element
+	for i := range input {
+		input[i].SetRandom()
+	}
+
+	expected = input
+
+	h := NewPermutation({{- $w1}}, {{- .ParamsSponge.FullRounds}}, {{- .ParamsSponge.PartialRounds}})
+
+	err := h.Permutation(input[:])
+	assert.NoError(err)
+
+	h.disableAVX512()
+	err = h.Permutation(expected[:])
+	assert.NoError(err)
+
+	// compare results
+	for i := 0; i < h.params.Width; i++ {
+		assert.True(input[i].Equal(&expected[i]), "avx512 result don't match purego")
+	}
+}
+
+func TestAVX512Permutation16x24(t *testing.T) {
+	if !cpu.SupportAVX512 {
+		t.Skip("AVX512 not supported")
+	}
+	assert := require.New(t)
+	input := make([][16]fr.Element, 24)
+	expected := make([][16]fr.Element, 24)
+
+	for i := range input {
+		for j := range input[i] {
+			input[i][j].SetRandom()
+		}
+	}
+
+	for i := range input {
+		copy(expected[i][:], input[i][:])
+	}
+
+	h := NewPermutation({{- $w1}}, {{- .ParamsSponge.FullRounds}}, {{- .ParamsSponge.PartialRounds}})
+	h.Permutation16x24((*[24][16]fr.Element)(input))
+
+	h.disableAVX512()
+	h.Permutation16x24((*[24][16]fr.Element)(expected))
+
+	// compare results
+	for i := range input {
+		for j := range input[i] {
+			assert.True(input[i][j].Equal(&expected[i][j]), "avx512 result don't match purego")
+		}
+	}
+}
+
+func BenchmarkPermutation16x24(b *testing.B) {
+	input := make([][16]fr.Element, 24)
+	for i := range input {
+		for j := range input[i] {
+			input[i][j].SetRandom()
+		}
+	}
+	h := NewPermutation({{- $w1}}, {{- .ParamsSponge.FullRounds}}, {{- .ParamsSponge.PartialRounds}})
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		h.Permutation16x24((*[24][16]fr.Element)(input))
+	}
+}
+
+func (h *Permutation) disableAVX512() {
+	{{- $wc := .ParamsCompression.Width}}
+	{{- $fc := .ParamsCompression.FullRounds}}
+	{{- $pc := .ParamsCompression.PartialRounds}}
+	{{- $ws := .ParamsSponge.Width}}
+	{{- $fs := .ParamsSponge.FullRounds}}
+	{{- $ps := .ParamsSponge.PartialRounds}}
+	h.params.hasFast{{- $wc}}_{{- $fc}}_{{- $pc}} = false
+	h.params.hasFast{{- $ws}}_{{- $fs}}_{{- $ps}} = false
 }
 
 func TestPoseidon2Width16(t *testing.T) {
@@ -264,39 +381,7 @@ func TestPoseidon2Width24(t *testing.T) {
 	}
 }
 
-// bench
-func BenchmarkPoseidon2Width16(b *testing.B) {
-    {{- if eq .FF "babybear"}}
-	h := NewPermutation(16, 6, 12)
-    {{- else}}
-	h := NewPermutation(16, 6, 21)
-	{{- end}}
 
-	var tmp [16]fr.Element
-	for i := 0; i < 16; i++ {
-		tmp[i].SetRandom()
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		h.Permutation(tmp[:])
-	}
-}
-
-func BenchmarkPoseidon2Width24(b *testing.B) {
-    {{- if eq .FF "babybear"}}
-	h := NewPermutation(24, 6, 19)
-    {{- else}}
-	h := NewPermutation(24, 6, 21)
-	{{- end}}
-	var tmp [24]fr.Element
-	for i := 0; i < 24; i++ {
-		tmp[i].SetRandom()
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		h.Permutation(tmp[:])
-	}
-}
 {{- else}}
 func TestPoseidon2Width8(t *testing.T) {
 	var input, expected [8]fr.Element
@@ -365,29 +450,31 @@ func TestPoseidon2Width12(t *testing.T) {
 		}
 	}
 }
-
-// bench
-func BenchmarkPoseidon2Width8(b *testing.B) {
-	h := NewPermutation(8, 6, 17)
-	var tmp [8]fr.Element
-	for i := 0; i < 8; i++ {
-		tmp[i].SetRandom()
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		h.Permutation(tmp[:])
-	}
-}
-
-func BenchmarkPoseidon2Width12(b *testing.B) {
-	h := NewPermutation(12, 6, 17)
-	var tmp [12]fr.Element
-	for i := 0; i < 12; i++ {
-		tmp[i].SetRandom()
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		h.Permutation(tmp[:])
-	}
-}
 {{- end}}
+
+func BenchmarkPoseidon2Width{{- $w0}}(b *testing.B) {
+	h := NewPermutation({{- $w0}}, {{- .ParamsCompression.FullRounds}}, {{- .ParamsCompression.PartialRounds}})
+
+	var tmp [{{- $w0}}]fr.Element
+	for i := range tmp {
+		tmp[i].SetRandom()
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		h.Permutation(tmp[:])
+	}
+}
+
+func BenchmarkPoseidon2Width{{- $w1}}(b *testing.B) {
+	h := NewPermutation({{- $w1}}, {{- .ParamsSponge.FullRounds}}, {{- .ParamsSponge.PartialRounds}})
+
+	var tmp [{{- $w1}}]fr.Element
+	for i := range tmp {
+		tmp[i].SetRandom()
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		h.Permutation(tmp[:])
+	}
+}
+
