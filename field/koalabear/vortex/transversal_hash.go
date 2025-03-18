@@ -18,29 +18,39 @@ func transversalHash(codewords [][]koalabear.Element, s *sis.RSis) [][sisKeySize
 	res := make([][N]koalabear.Element, nbCols)
 
 	parallel.Execute(nbCols, func(start, end int) {
-		const blockSize = 2
-		var column [blockSize][]koalabear.Element
-		for i := range column {
-			column[i] = make([]koalabear.Element, len(codewords))
-		}
-
-		for col := start; col < end-blockSize; col += blockSize {
+		column := make([]koalabear.Element, len(codewords))
+		for col := start; col < end; col++ {
 			for r := 0; r < len(codewords); r++ {
-				for i := 0; i < blockSize; i++ {
-					column[i][r] = codewords[r][col+i]
-				}
+				column[r] = codewords[r][col]
 			}
-			for i := 0; i < blockSize; i++ {
-				s.Hash(column[i], res[col+i][:])
-			}
-		}
-		for col := end - 4; col < end && col >= 0; col++ {
-			for r := 0; r < len(codewords); r++ {
-				column[0][r] = codewords[r][col]
-			}
-			s.Hash(column[0], res[col][:])
+			s.Hash(column[:], res[col][:])
 		}
 	})
+
+	// parallel.Execute(nbCols, func(start, end int) {
+	// 	const blockSize = 2
+	// 	var column [blockSize][]koalabear.Element
+	// 	for i := range column {
+	// 		column[i] = make([]koalabear.Element, len(codewords))
+	// 	}
+
+	// 	for col := start; col < end-blockSize; col += blockSize {
+	// 		for r := 0; r < len(codewords); r++ {
+	// 			for i := 0; i < blockSize; i++ {
+	// 				column[i][r] = codewords[r][col+i]
+	// 			}
+	// 		}
+	// 		for i := 0; i < blockSize; i++ {
+	// 			s.Hash(column[i], res[col+i][:])
+	// 		}
+	// 	}
+	// 	for col := end - 4; col < end && col >= 0; col++ {
+	// 		for r := 0; r < len(codewords); r++ {
+	// 			column[0][r] = codewords[r][col]
+	// 		}
+	// 		s.Hash(column[0], res[col][:])
+	// 	}
+	// })
 
 	return res
 }

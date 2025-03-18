@@ -6,6 +6,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
+	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
 // Proof is an opening proof
@@ -51,11 +52,19 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 		err       error
 	)
 
-	for i := range input {
-		if codewords[i], err = p.EncodeReedSolomon(input[i], false); err != nil {
-			return nil, fmt.Errorf("error in reed-solomon encode: %w", err)
+	parallel.Execute(len(input), func(start, end int) {
+		for i := start; i < end; i++ {
+			if codewords[i], err = p.EncodeReedSolomon(input[i], false); err != nil {
+				panic(fmt.Errorf("error in reed-solomon encode: %w", err))
+			}
 		}
-	}
+	})
+
+	// for i := range input {
+	// 	if codewords[i], err = p.EncodeReedSolomon(input[i], false); err != nil {
+	// 		return nil, fmt.Errorf("error in reed-solomon encode: %w", err)
+	// 	}
+	// }
 
 	const (
 		blockSize = 16
@@ -94,9 +103,16 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 		}
 	}
 
-	for col := 0; col < len(codewords[0]); col += blockSize {
-		HashPoseidon2x16(sisHashes[col:col+blockSize], merkleLeaves[col:col+blockSize])
-	}
+	parallel.Execute(max(1, len(codewords[0])/blockSize), func(start, end int) {
+		for block := start; block < end; block++ {
+			b := block * blockSize
+			HashPoseidon2x16(sisHashes[b:b+blockSize], merkleLeaves[b:b+blockSize])
+		}
+	})
+
+	// for col := 0; col < len(codewords[0]); col += blockSize {
+	// 	HashPoseidon2x16(sisHashes[col:col+blockSize], merkleLeaves[col:col+blockSize])
+	// }
 
 	return &ProverState{
 		Params:        p,
