@@ -8,9 +8,9 @@ package gkr
 import (
 	"errors"
 	"fmt"
-	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
-	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/fft"
+
+	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
 	"github.com/consensys/gnark-crypto/internal/parallel"
@@ -160,48 +160,6 @@ func isAdditive(f GateFunction, i, nbIn int) bool {
 	y1.Sub(&y1, &y0)
 
 	return y1.Equal(&y2)
-}
-
-// fitPoly tries to fit a polynomial of degree less than degreeBound to f.
-// degreeBound must be a power of 2.
-// It returns the polynomial if successful, nil otherwise
-func fitPoly(f GateFunction, nbIn int, degreeBound uint64) polynomial.Polynomial {
-	domain := fft.NewDomain(degreeBound)
-
-	// turn f univariate by defining p(x) as f(x, x, ..., x)
-	// evaluate p on the unit circle (first filling p with evaluations rather than coefficients)
-	x := small_rational.One()
-	p := make(polynomial.Polynomial, degreeBound)
-	fIn := make([]small_rational.SmallRational, nbIn)
-	for i := range p {
-		for j := range fIn {
-			fIn[j] = x
-		}
-		p[i] = f(fIn...)
-
-		x.Mul(&x, &domain.Generator)
-	}
-
-	domain.FFTInverse(p, fft.DIF)
-	fft.BitReverse(p)
-
-	// check if p is equal to f. This not being the case means that f is of a degree higher than degreeBound
-	setRandom(&fIn[0])
-	for i := range fIn {
-		fIn[i] = fIn[0]
-	}
-	pAt := p.Eval(&fIn[0])
-	fAt := f(fIn...)
-	if !pAt.Equal(&fAt) {
-		return nil
-	}
-
-	// trim p
-	lastNonZero := len(p) - 1
-	for lastNonZero >= 0 && p[lastNonZero].IsZero() {
-		lastNonZero--
-	}
-	return p[:lastNonZero+1]
 }
 
 // RegisterGate creates a gate object and stores it in the gates registry

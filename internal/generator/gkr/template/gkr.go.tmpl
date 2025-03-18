@@ -2,7 +2,7 @@ import (
 	"errors"
 	"fmt"
 	"{{.FieldPackagePath}}"
-	"{{.FieldPackagePath}}/fft"
+	{{ if eq .FieldPackageName "fr" }}"{{.FieldPackagePath}}/fft" {{ end }}
 	"{{.FieldPackagePath}}/polynomial"
 	"{{.FieldPackagePath}}/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
@@ -157,6 +157,7 @@ func isAdditive(f GateFunction, i, nbIn int) bool {
 	return y1.Equal(&y2)
 }
 
+{{- if eq .FieldPackageName "fr" }}
 // fitPoly tries to fit a polynomial of degree less than degreeBound to f.
 // degreeBound must be a power of 2.
 // It returns the polynomial if successful, nil otherwise
@@ -198,6 +199,7 @@ func fitPoly(f GateFunction, nbIn int, degreeBound uint64) polynomial.Polynomial
 	}
 	return p[:lastNonZero+1]
 }
+{{- end}}
 
 // RegisterGate creates a gate object and stores it in the gates registry
 // name is a human-readable name for the gate
