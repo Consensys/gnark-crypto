@@ -6,7 +6,6 @@
 package polynomial
 
 import (
-	"errors"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"github.com/consensys/gnark-crypto/utils"
 	"strconv"
@@ -307,59 +306,4 @@ func computeLagrangeBasis(domainSize uint8) []Polynomial {
 	}
 
 	return res
-}
-
-// Interpolate fits a polynomial of degree len(X) - 1 = len(Y) - 1 to the points (X[i], Y[i])
-// Note that the runtime is O(len(X)³)
-func Interpolate(X, Y []fr.Element) (Polynomial, error) {
-	if len(X) != len(Y) {
-		return nil, errors.New("X and Y must have the same length")
-	}
-
-	// solve the system of equations by Gaussian elimination
-	augmentedRows := make([][]fr.Element, len(X)) // the last column is the Y values
-	for i := range augmentedRows {
-		augmentedRows[i] = make([]fr.Element, len(X)+1)
-		augmentedRows[i][0].SetOne()
-		augmentedRows[i][1].Set(&X[i])
-		for j := 2; j < len(augmentedRows[i])-1; j++ {
-			augmentedRows[i][j].Mul(&augmentedRows[i][j-1], &X[i])
-		}
-		augmentedRows[i][len(augmentedRows[i])-1].Set(&Y[i])
-	}
-
-	// make the upper triangle
-	for i := range len(augmentedRows) - 1 {
-		// use row i to eliminate the ith element in all rows below
-		var negInv fr.Element
-		if augmentedRows[i][i].IsZero() {
-			return nil, errors.New("singular matrix")
-		}
-		negInv.Inverse(&augmentedRows[i][i])
-		negInv.Neg(&negInv)
-		for j := i + 1; j < len(augmentedRows); j++ {
-			var c fr.Element
-			c.Mul(&augmentedRows[j][i], &negInv)
-			// augmentedRows[j][i].SetZero() omitted
-			for k := i + 1; k < len(augmentedRows[i]); k++ {
-				var t fr.Element
-				t.Mul(&augmentedRows[i][k], &c)
-				augmentedRows[j][k].Add(&augmentedRows[j][k], &t)
-			}
-		}
-	}
-
-	// back substitution
-	res := make(Polynomial, len(X))
-	for i := len(augmentedRows) - 1; i >= 0; i-- {
-		res[i] = augmentedRows[i][len(augmentedRows[i])-1]
-		for j := i + 1; j < len(augmentedRows[i])-1; j++ {
-			var t fr.Element
-			t.Mul(&res[j], &augmentedRows[i][j])
-			res[i].Sub(&res[i], &t)
-		}
-		res[i].Div(&res[i], &augmentedRows[i][i])
-	}
-
-	return res, nil
 }

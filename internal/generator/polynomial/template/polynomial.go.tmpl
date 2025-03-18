@@ -1,5 +1,4 @@
 import (
-	"errors"
 	"{{.FieldPackagePath}}"
 	"github.com/consensys/gnark-crypto/utils"
 	"strconv"
@@ -299,66 +298,5 @@ func computeLagrangeBasis(domainSize uint8) []Polynomial {
 		res[l].ScaleInPlace(&constTerms[l])
 	}
 
-	return res
-}
-
-// Interpolate fits a polynomial of degree len(X) - 1 = len(Y) - 1 to the points (X[i], Y[i])
-// Returns the evaluation at r
-//
-// Note that this runs in O(len(X)²).
-// When possible, it is better to exploit any structure in the domain
-// (i.e. the values in X) to compute the polynomial in linear time.
-func Interpolate(X, Y []{{.ElementType}}, r {{.ElementType}}) {{.ElementType}} {
-	if len(X) != len(Y) {
-		panic("X and Y must have the same length")
-	}
-	switch len(X) {
-	case 0:
-		return {{.ElementType}}{}
-	case 1:
-		return Y[0]
-	}
-
-	// weights[i] = 1 / [(X[i] - X[0]) * (X[i] - X[1]) * ... * (X[i] - X[i-1]) * (X[i] - X[i+1]) * ... * (X[i] - X[n-1])]
-	weights := make([]{{.ElementType}}, len(X))
-	for i := range weights {
-		weights[i].SetOne()
-		for j := range weights {
-			if i == j {
-				continue
-			}
-			var t {{.ElementType}}
-			t.Sub(&X[i], &X[j])
-			weights[i].Mul(&weights[i], &t)
-		}
-	}
-	weights = {{.FieldPackageName}}.BatchInvert(weights)
-
-	// prods[i] = (r-X[i+1]) * (r-X[i+2]) * ... (r-X[n-1])
-	prods := make([]{{.ElementType}}, len(X))
-	prods[len(X)-1].SetOne()
-	prods[len(X)-2].Sub(&r, &X[len(X)-1])
-	for i := len(X) - 3; i >= 0; i-- {
-		var t {{.ElementType}}
-		t.Sub(&r, &X[i+1])
-		prods[i].Mul(&prods[i+1], &t)
-	}
-
-	// at iteration i, prod = (r-X[0]) * (r-X[1]) * ... * (r-X[i-1])
-	prod := {{.FieldPackageName}}.One()
-	var res {{.ElementType}}
-
-	for i := range X {
-		var t {{.ElementType}}
-		t.Mul(&prod, &prods[i]) // t = (r-X[0]) * (r-X[1]) * ... * (r-X[i-1]) * (r-X[i+1]) * ... * (r-X[n-1])
-		t.Mul(&t, &weights[i])  // t = (r-X[0]) * (r-X[1]) * ... * (r-X[i-1]) * (r-X[i+1]) * ... * (r-X[n-1]) / [(X[i] - X[0]) * (X[i] - X[1]) * ... * (X[i] - X[i-1]) * (X[i] - X[i+1]) * ... * (X[i] - X[n-1])]
-		// t is now the evaluation of the i'th Lagrange basis at r
-
-		t.Mul(&t, &Y[i])
-		res.Add(&res, &t)
-
-		t.Sub(&r, &X[i])
-		prod.Mul(&prod, &t)
-	}
 	return res
 }

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
@@ -103,7 +104,7 @@ func WithDegree(degree int) RegisterGateOption {
 	}
 }
 
-// setRandom panics if SetRandom returns an error
+// setRandom panics if SetRandom returns an error TODO replace with MustSetRandom
 func setRandom(x *fr.Element) {
 	if _, err := x.SetRandom(); err != nil {
 		panic(err)
@@ -161,27 +162,31 @@ func isAdditive(f GateFunction, i, nbIn int) bool {
 	return y1.Equal(&y2)
 }
 
-// fitPoly tries to fit a polynomial of maximum degree maxDeg to f
-func fitPoly(f GateFunction, nbIn, maxDeg int) (p polynomial.Polynomial, ok bool, err error) {
+// fitPoly tries to fit a polynomial of maximum degree maxDeg to f.
+// maxDeg must be a power of 2.
+// It returns the polynomial if successful, nil otherwise
+func fitPoly(f GateFunction, nbIn, maxDeg int) polynomial.Polynomial {
+
+	domain := fft.NewDomain(uint64(maxDeg))
 
 	// turn f univariate by defining p(x) as f(x, x, ..., x)
-	// evaluate p at random points
-	x := make([]fr.Element, maxDeg+1)
-	y := make([]fr.Element, maxDeg+1)
+	// evaluate p on the unit circle (first filling p with evaluations rather than coefficients)
+	x := fr.One()
+	p := make(polynomial.Polynomial, maxDeg+1)
 	fIn := make([]fr.Element, nbIn)
 	for i := range x {
-		setRandom(&x[i])
 		for j := range fIn {
-			fIn[j] = x[i]
+			fIn[j] = x
 		}
-		y[i] = f(fIn...)
+		p[i] = f(fIn...)
+
+		x.Mul(&x, &domain.Generator)
 	}
 
 	// interpolate p
-	p, err = polynomial.Interpolate(x, y)
-	if err != nil {
-		return nil, false, err
-	}
+	fft.BitReverse(p)
+	domain.FFTInverse(p, fft.DIF)
+	fft.BitReverse(p)
 
 	// check if p is equal to f. This not being the case means that f is of a degree higher than maxDeg
 	setRandom(&fIn[0])
@@ -191,7 +196,7 @@ func fitPoly(f GateFunction, nbIn, maxDeg int) (p polynomial.Polynomial, ok bool
 	pAt := p.Eval(&fIn[0])
 	fAt := f(fIn...)
 	if !pAt.Equal(&fAt) {
-		return nil, false, nil
+		return nil
 	}
 
 	// trim p
@@ -199,7 +204,7 @@ func fitPoly(f GateFunction, nbIn, maxDeg int) (p polynomial.Polynomial, ok bool
 	for lastNonZero >= 0 && p[lastNonZero].IsZero() {
 		lastNonZero--
 	}
-	return p[:lastNonZero+1], true, nil
+	return p[:lastNonZero+1]
 }
 
 // RegisterGate creates a gate object and stores it in the gates registry
@@ -217,13 +222,9 @@ func RegisterGate(name string, f GateFunction, nbIn int, options ...RegisterGate
 			panic("invalid settings")
 		}
 		found := false
-		const maxAutoDegree = 10
-		for s.degree = 5; s.degree <= maxAutoDegree; s.degree += 5 {
-			p, ok, err := fitPoly(f, nbIn, s.degree)
-			if err != nil {
-				return err
-			}
-			if ok {
+		const maxAutoDegree = 32
+		for s.degree = 4; s.degree <= maxAutoDegree; s.degree *= 2 {
+			if p := fitPoly(f, nbIn, s.degree); p != nil {
 				found = true
 				s.degree = len(p) - 1
 				break
@@ -234,14 +235,9 @@ func RegisterGate(name string, f GateFunction, nbIn int, options ...RegisterGate
 		}
 	} else {
 		if !s.noDegreeVerification { // check that the given degree is correct
-			p, ok, err := fitPoly(f, nbIn, s.degree)
-			if err != nil {
-				return err
-			}
-			if !ok {
+			if p := fitPoly(f, nbIn, s.degree); p == nil {
 				return fmt.Errorf("detected a higher degree than %d for gate %s", s.degree, name)
-			}
-			if len(p)-1 != s.degree {
+			} else if len(p)-1 != s.degree {
 				return fmt.Errorf("detected degree %d for gate %s, claimed %d", len(p)-1, name, s.degree)
 			}
 		}
