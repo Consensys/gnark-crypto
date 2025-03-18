@@ -182,6 +182,7 @@ func fitPoly(f GateFunction, nbIn int, degreeBound uint64) polynomial.Polynomial
 		x.Mul(&x, &domain.Generator)
 	}
 
+	// obtain p's coefficients
 	domain.FFTInverse(p, fft.DIF)
 	fft.BitReverse(p)
 
