@@ -88,8 +88,7 @@ func TestFullRandom(t *testing.T) {
 }
 
 func randElement(rng *rand.Rand) koalabear.Element {
-	modulus := uint32(koalabear.Modulus().Int64())
-	return koalabear.Element{rng.Uint32N(modulus)}
+	return koalabear.Element{rng.Uint32N(2130706433)}
 }
 
 func randFext(rng *rand.Rand) fext.E4 {
