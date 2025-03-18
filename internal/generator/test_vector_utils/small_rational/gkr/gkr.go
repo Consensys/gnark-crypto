@@ -10,6 +10,7 @@ import (
 	"fmt"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/fft"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
 	"github.com/consensys/gnark-crypto/internal/parallel"
@@ -161,29 +162,30 @@ func isAdditive(f GateFunction, i, nbIn int) bool {
 	return y1.Equal(&y2)
 }
 
-// fitPoly tries to fit a polynomial of maximum degree maxDeg to f
-func fitPoly(f GateFunction, nbIn, maxDeg int) (p polynomial.Polynomial, ok bool, err error) {
+// fitPoly tries to fit a polynomial of degree less than degreeBound to f.
+// degreeBound must be a power of 2.
+// It returns the polynomial if successful, nil otherwise
+func fitPoly(f GateFunction, nbIn int, degreeBound uint64) polynomial.Polynomial {
+	domain := fft.NewDomain(degreeBound)
 
 	// turn f univariate by defining p(x) as f(x, x, ..., x)
-	// evaluate p at random points
-	x := make([]small_rational.SmallRational, maxDeg+1)
-	y := make([]small_rational.SmallRational, maxDeg+1)
+	// evaluate p on the unit circle (first filling p with evaluations rather than coefficients)
+	x := small_rational.One()
+	p := make(polynomial.Polynomial, degreeBound)
 	fIn := make([]small_rational.SmallRational, nbIn)
-	for i := range x {
-		setRandom(&x[i])
+	for i := range p {
 		for j := range fIn {
-			fIn[j] = x[i]
+			fIn[j] = x
 		}
-		y[i] = f(fIn...)
+		p[i] = f(fIn...)
+
+		x.Mul(&x, &domain.Generator)
 	}
 
-	// interpolate p
-	p, err = polynomial.Interpolate(x, y)
-	if err != nil {
-		return nil, false, err
-	}
+	domain.FFTInverse(p, fft.DIF)
+	fft.BitReverse(p)
 
-	// check if p is equal to f. This not being the case means that f is of a degree higher than maxDeg
+	// check if p is equal to f. This not being the case means that f is of a degree higher than degreeBound
 	setRandom(&fIn[0])
 	for i := range fIn {
 		fIn[i] = fIn[0]
@@ -191,7 +193,7 @@ func fitPoly(f GateFunction, nbIn, maxDeg int) (p polynomial.Polynomial, ok bool
 	pAt := p.Eval(&fIn[0])
 	fAt := f(fIn...)
 	if !pAt.Equal(&fAt) {
-		return nil, false, nil
+		return nil
 	}
 
 	// trim p
@@ -199,7 +201,7 @@ func fitPoly(f GateFunction, nbIn, maxDeg int) (p polynomial.Polynomial, ok bool
 	for lastNonZero >= 0 && p[lastNonZero].IsZero() {
 		lastNonZero--
 	}
-	return p[:lastNonZero+1], true, nil
+	return p[:lastNonZero+1]
 }
 
 // RegisterGate creates a gate object and stores it in the gates registry

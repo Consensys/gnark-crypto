@@ -245,32 +245,3 @@ func TestLagrangeCache(t *testing.T) {
 		assert.Equal(t, b, getLagrangeBasis(uint8(i))) // second call must yield the same result
 	}
 }
-
-func TestInterpolate(t *testing.T) {
-	ds := []int{0, 1, 2, 3, 4, 5}             // degrees of the test polynomials TODO add 0 back
-	poly := make(Polynomial, ds[len(ds)-1]+1) // make a polynomial large enough to hold the largest degree
-	for i := range poly {
-		poly[i].SetRandom()
-	} // TODO @Tabaie change to fr.Vector(poly).MustSetRandom
-
-	x := make([]{{.ElementType}}, len(poly))
-	for i := range x {
-		x[i].SetRandom()
-	}
-	y := make([]{{.ElementType}}, len(x))
-
-	for _, d := range ds {
-		p := poly[:d+1]
-		for i := range p {
-			y[i] = p.Eval(&x[i])
-		}
-		q, err := Interpolate(x[:d+1], y[:d+1])
-		require.NoError(t, err)
-		require.Equal(t, len(p), len(q))
-		for i := range p {
-			if !p[i].Equal(&q[i]) {
-				t.Fatalf("degree %d: coefficient for x^%d do not match: expected %s, got %s", d, i, p[i].Text(10), q[i].Text(10))
-			}
-		}
-	}
-}

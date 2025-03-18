@@ -8,7 +8,6 @@ package gkr
 import (
 	"errors"
 	"fmt"
-	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/polynomial"
@@ -105,7 +104,7 @@ func WithDegree(degree int) RegisterGateOption {
 	}
 }
 
-// setRandom panics if SetRandom returns an error TODO replace with MustSetRandom
+// setRandom panics if SetRandom returns an error
 func setRandom(x *fr.Element) {
 	if _, err := x.SetRandom(); err != nil {
 		panic(err)
@@ -220,22 +219,31 @@ func RegisterGate(name string, f GateFunction, nbIn int, options ...RegisterGate
 			panic("invalid settings")
 		}
 		found := false
-		const maxAutoDegreeBound = 32
-		for degreeBound := uint64(4); degreeBound <= maxAutoDegreeBound; degreeBound *= 2 {
-			if p := fitPoly(f, nbIn, degreeBound); p != nil {
+		const maxAutoDegree = 10
+		for s.degree = 5; s.degree <= maxAutoDegree; s.degree += 5 {
+			p, ok, err := fitPoly(f, nbIn, s.degree)
+			if err != nil {
+				return err
+			}
+			if ok {
 				found = true
 				s.degree = len(p) - 1
 				break
 			}
 		}
 		if !found {
-			return fmt.Errorf("could not find a degree for gate %s: tried up to %d", name, maxAutoDegreeBound-1)
+			return fmt.Errorf("could not find a degree for gate %s: tried up to %d", name, maxAutoDegree)
 		}
 	} else {
 		if !s.noDegreeVerification { // check that the given degree is correct
-			if p := fitPoly(f, nbIn, ecc.NextPowerOfTwo(uint64(s.degree)+1)); p == nil {
+			p, ok, err := fitPoly(f, nbIn, s.degree)
+			if err != nil {
+				return err
+			}
+			if !ok {
 				return fmt.Errorf("detected a higher degree than %d for gate %s", s.degree, name)
-			} else if len(p)-1 != s.degree {
+			}
+			if len(p)-1 != s.degree {
 				return fmt.Errorf("detected degree %d for gate %s, claimed %d", len(p)-1, name, s.degree)
 			}
 		}
