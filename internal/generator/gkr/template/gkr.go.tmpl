@@ -1,6 +1,7 @@
 import (
 	"errors"
 	"fmt"
+	"github.com/consensys/gnark-crypto/ecc"
 	"{{.FieldPackagePath}}"
 	{{ if eq .FieldPackageName "fr" }}"{{.FieldPackagePath}}/fft" {{ end }}
 	"{{.FieldPackagePath}}/polynomial"
@@ -217,31 +218,22 @@ func RegisterGate(name string, f GateFunction, nbIn int, options ...RegisterGate
 			panic("invalid settings")
 		}
 		found := false
-		const maxAutoDegree = 10
-		for s.degree = 5; s.degree <= maxAutoDegree; s.degree += 5 {
-			p, ok, err := fitPoly(f, nbIn, s.degree)
-			if err != nil {
-				return err
-			}
-			if ok {
+		const maxAutoDegreeBound = 32
+		for degreeBound := uint64(4); degreeBound <= maxAutoDegreeBound; degreeBound *= 2 {
+			if p := fitPoly(f, nbIn, degreeBound); p != nil {
 				found = true
 				s.degree = len(p) - 1
 				break
 			}
 		}
 		if !found {
-			return fmt.Errorf("could not find a degree for gate %s: tried up to %d", name, maxAutoDegree)
+			return fmt.Errorf("could not find a degree for gate %s: tried up to %d", name, maxAutoDegreeBound-1)
 		}
 	} else {
 		if !s.noDegreeVerification { // check that the given degree is correct
-			p, ok, err := fitPoly(f, nbIn, s.degree)
-			if err != nil {
-				return err
-			}
-			if !ok {
+			if p := fitPoly(f, nbIn, ecc.NextPowerOfTwo(uint64(s.degree)+1)); p == nil {
 				return fmt.Errorf("detected a higher degree than %d for gate %s", s.degree, name)
-			}
-			if len(p)-1 != s.degree {
+			} else if len(p)-1 != s.degree {
 				return fmt.Errorf("detected degree %d for gate %s, claimed %d", len(p)-1, name, s.degree)
 			}
 		}
