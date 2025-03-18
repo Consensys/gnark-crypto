@@ -11,6 +11,7 @@ import (
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 )
@@ -250,5 +251,30 @@ func TestLagrangeCache(t *testing.T) {
 	for _, i := range []int{5, 2, 8, 4, 6, 3, 0} {
 		b := getLagrangeBasis(uint8(i))
 		assert.Equal(t, b, getLagrangeBasis(uint8(i))) // second call must yield the same result
+	}
+}
+
+func TestInterpolate(t *testing.T) {
+	ds := []int{0, 1, 2, 3, 4, 5}             // degrees of the test polynomials TODO add 0 back
+	poly := make(Polynomial, ds[len(ds)-1]+1) // make a polynomial large enough to hold the largest degree
+	for i := range poly {
+		poly[i].SetRandom()
+	} // TODO @Tabaie change to fr.Vector(poly).MustSetRandom
+
+	// the first elements of x, y are the interpolation point and value, respectively
+	x := make([]fr.Element, len(poly)+1)
+	for i := range x {
+		x[i].SetRandom()
+	}
+	y := make([]fr.Element, len(x))
+
+	for _, d := range ds {
+		p := poly[:d+1]
+		x := x[:d+2]
+		for i := range x {
+			y[i] = p.Eval(&x[i])
+		}
+		y0 := Interpolate(x[1:], y[1:d+2], x[0])
+		require.Equalf(t, y[0].String(), y0.String(), "at degree %d", d)
 	}
 }
