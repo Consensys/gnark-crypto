@@ -94,21 +94,21 @@ func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn, forceGet ...boo
 			// user explicitly asked for it
 			return fn
 		}
-		panic("here")
+		panic("WARNING: function name already defined")
 		// name already exist, for code generation purpose we add a suffix
 		// should happen only with e2 deprecated functions
 		// fmt.Println("WARNING: function name already defined, adding suffix")
-		i := 0
-		for {
-			newName := fmt.Sprintf("%s_%d", name, i)
-			if _, ok := f.mDefines[newName]; !ok {
-				name = newName
-				goto startDefine
-			}
-			i++
-		}
+		// i := 0
+		// for {
+		// 	newName := fmt.Sprintf("%s_%d", name, i)
+		// 	if _, ok := f.mDefines[newName]; !ok {
+		// 		name = newName
+		// 		goto startDefine
+		// 	}
+		// 	i++
+		// }
 	}
-startDefine:
+	// startDefine:
 
 	f.StartDefine()
 	f.WriteLn("#define " + name + "(" + strings.Join(inputs, ", ") + ")")
