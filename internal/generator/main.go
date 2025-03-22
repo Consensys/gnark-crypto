@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/consensys/gnark-crypto/internal/generator/gkr"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,7 +22,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/fflonk"
 	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
-	"github.com/consensys/gnark-crypto/internal/generator/gkr"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_field"
 	"github.com/consensys/gnark-crypto/internal/generator/iop"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
@@ -76,9 +76,23 @@ func main() {
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
+			frInfo := config.FieldDependency{
+				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
+				FieldPackageName: "fr",
+				ElementType:      "fr.Element",
+			}
+
 			frOpts := []generator.Option{generator.WithASM(asmConfig)}
 			if !(conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) {
 				frOpts = append(frOpts, generator.WithFFT(fftConfig))
+
+				// generate gkr on fr
+				// while GKR itself doesn't require FFT, the RegisterGate utilities do
+				assertNoError(gkr.Generate(gkr.Config{
+					FieldDependency:         frInfo,
+					GenerateTests:           true,
+					TestVectorsRelativePath: "../../../../internal/generator/gkr/test_vectors",
+				}, filepath.Join(curveDir, "fr", "gkr"), bgen))
 			}
 			if conf.Equal(config.BLS12_377) {
 				frOpts = append(frOpts, generator.WithSIS())
@@ -106,24 +120,11 @@ func main() {
 			// generate poseidon2 on fr
 			assertNoError(poseidon2.Generate(conf, filepath.Join(curveDir, "fr", "poseidon2"), bgen))
 
-			frInfo := config.FieldDependency{
-				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
-				FieldPackageName: "fr",
-				ElementType:      "fr.Element",
-			}
-
 			// generate polynomial on fr
 			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
 
 			// generate sumcheck on fr
 			assertNoError(sumcheck.Generate(frInfo, filepath.Join(curveDir, "fr", "sumcheck"), bgen))
-
-			// generate gkr on fr
-			assertNoError(gkr.Generate(gkr.Config{
-				FieldDependency:         frInfo,
-				GenerateTests:           true,
-				TestVectorsRelativePath: "../../../../internal/generator/gkr/test_vectors",
-			}, filepath.Join(curveDir, "fr", "gkr"), bgen))
 
 			// generate test vector utils on fr
 			assertNoError(test_vector_utils.Generate(test_vector_utils.Config{
