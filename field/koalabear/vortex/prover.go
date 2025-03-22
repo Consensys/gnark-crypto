@@ -101,12 +101,8 @@ func (ps *ProverState) OpenLinComb(alpha fext.E4) {
 		ualpha := make([]fext.E4, ps.Params.SizeCodeWord())
 		alphaPow := new(fext.E4).SetOne()
 		alphaPow.Exp(alpha, big.NewInt(int64(start)))
-		var tmp fext.E4
 		for i := start; i < end; i++ {
-			for j := 0; j < N; j++ {
-				tmp.MulByElement(alphaPow, &codewords[i*N+j])
-				ualpha[j].Add(&ualpha[j], &tmp)
-			}
+			fext.MulAccE4(alphaPow, codewords[i*N:i*N+N], ualpha)
 			alphaPow.Mul(alphaPow, &alpha)
 		}
 		lock.Lock()
