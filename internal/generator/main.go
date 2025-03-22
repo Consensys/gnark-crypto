@@ -82,17 +82,17 @@ func main() {
 				ElementType:      "fr.Element",
 			}
 
+			gkrConfig := gkr.Config{
+				FieldDependency:         frInfo,
+				GenerateTests:           true,
+				CanUseFFT:               true,
+				TestVectorsRelativePath: "../../../../internal/generator/gkr/test_vectors",
+			}
+
 			frOpts := []generator.Option{generator.WithASM(asmConfig)}
 			if !(conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) {
 				frOpts = append(frOpts, generator.WithFFT(fftConfig))
-
-				// generate gkr on fr
-				// while GKR itself doesn't require FFT, the RegisterGate utilities do
-				assertNoError(gkr.Generate(gkr.Config{
-					FieldDependency:         frInfo,
-					GenerateTests:           true,
-					TestVectorsRelativePath: "../../../../internal/generator/gkr/test_vectors",
-				}, filepath.Join(curveDir, "fr", "gkr"), bgen))
+				gkrConfig.CanUseFFT = false
 			}
 			if conf.Equal(config.BLS12_377) {
 				frOpts = append(frOpts, generator.WithSIS())
@@ -102,6 +102,9 @@ func main() {
 
 			// generate ecdsa
 			assertNoError(ecdsa.Generate(conf, curveDir, bgen))
+
+			// generate gkr on fr
+			assertNoError(gkr.Generate(gkrConfig, filepath.Join(curveDir, "fr", "gkr"), bgen))
 
 			if conf.Equal(config.STARK_CURVE) {
 				return // TODO @yelhousni
