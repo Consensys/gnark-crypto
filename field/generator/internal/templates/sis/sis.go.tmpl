@@ -176,7 +176,7 @@ func (r *RSis) Hash(v, res []{{ .FF }}.Element) error {
 	}
 
 	// zeroing res
-	for i := 0; i < len(res); i++ {
+	for i := range res {
 		res[i].SetZero()
 	}
 
@@ -235,13 +235,12 @@ func (r *RSis) Hash(v, res []{{ .FF }}.Element) error {
 		}
 	{{- end}}
 
-
-
 	// reduces mod Xᵈ+1
 	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1))
 
 	return nil
 }
+
 
 // InnerHash computes the inner hash of the polynomial corresponding to the i-th polynomial in A.
 // It accumulates the result in res.

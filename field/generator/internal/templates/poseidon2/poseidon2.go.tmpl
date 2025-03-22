@@ -8,7 +8,19 @@ import (
 	"golang.org/x/crypto/sha3"
 
 	fr "{{ .FieldPackagePath }}"
+
+	{{- if .F31}}
+	"github.com/consensys/gnark-crypto/utils/cpu"
+	{{- end}}
 )
+
+{{- $wc := .ParamsCompression.Width}}
+{{- $fc := .ParamsCompression.FullRounds}}
+{{- $pc := .ParamsCompression.PartialRounds}}
+{{- $ws := .ParamsSponge.Width}}
+{{- $fs := .ParamsSponge.FullRounds}}
+{{- $ps := .ParamsSponge.PartialRounds}}
+
 
 var (
 	ErrInvalidSizebuffer = errors.New("the size of the input should match the size of the hash buffer")
@@ -44,6 +56,12 @@ type Parameters struct {
 
 	// derived round keys from the parameter seed and curve ID
 	RoundKeys [][]fr.Element
+
+	{{- if .F31}}
+	// indicates if we have a fast path (avx512)
+	hasFast{{- $wc}}_{{- $fc}}_{{- $pc}} bool
+	hasFast{{- $ws}}_{{- $fs}}_{{- $ps}} bool
+	{{- end}}
 }
 
 // NewParameters returns a new set of parameters for the Poseidon2 permutation.
@@ -51,6 +69,10 @@ type Parameters struct {
 // from the seed which is a digest of the parameters and curve ID.
 func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
+	{{- if .F31}}
+	p.hasFast{{- $wc}}_{{- $fc}}_{{- $pc}} = width == {{- $wc}} && nbFullRounds == {{- $fc}} && nbPartialRounds == {{- $pc}} && cpu.SupportAVX512
+	p.hasFast{{- $ws}}_{{- $fs}}_{{- $ps}} = width == {{- $ws}} && nbFullRounds == {{- $fs}} && nbPartialRounds == {{- $ps}} && cpu.SupportAVX512
+	{{- end}}
 	seed := p.String()
 	p.initRC(seed)
 	return &p
@@ -61,6 +83,10 @@ func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 // from the given seed.
 func NewParametersWithSeed(width, nbFullRounds, nbPartialRounds int, seed string) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
+	{{- if .F31}}
+	p.hasFast{{- $wc}}_{{- $fc}}_{{- $pc}} = width == {{- $wc}} && nbFullRounds == {{- $fc}} && nbPartialRounds == {{- $pc}} && cpu.SupportAVX512
+	p.hasFast{{- $ws}}_{{- $fs}}_{{- $ps}} = width == {{- $ws}} && nbFullRounds == {{- $fs}} && nbPartialRounds == {{- $ps}} && cpu.SupportAVX512
+	{{- end}}
 	p.initRC(seed)
 	return &p
 }
@@ -431,6 +457,17 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 	if len(input) != h.params.Width {
 		return ErrInvalidSizebuffer
 	}
+	
+	{{- if .F31}}
+	if h.params.hasFast{{- $wc}}_{{- $fc}}_{{- $pc}} {
+		permutation16_avx512(input, h.params.RoundKeys)
+		return nil
+	}
+	if h.params.hasFast{{- $ws}}_{{- $fs}}_{{- $ps}} {
+		permutation24_avx512(input, h.params.RoundKeys)
+		return nil
+	}
+	{{- end}}
 
 	// external matrix multiplication, cf https://eprint.iacr.org/2023/323.pdf page 14 (part 6)
 	h.matMulExternalInPlace(input)
@@ -502,3 +539,40 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 
 	return outBytes, nil
 }
+
+{{- if .F31}}
+
+// Permutation16x24 applies the permutation on input.
+// input is a 24x16 matrix, the permutation is applied on each column.
+// That is, the input must be "transposed" by the caller.
+// The result stays in input (transposed).
+// If available, this leverage avx512 instructions to perform 16x "parallel" permutations.
+func (h *Permutation) Permutation16x24(input *[24][16]fr.Element) {
+	if h.params.hasFast{{- $ws}}_{{- $fs}}_{{- $ps}} {
+		permutation16x24_avx512(input, h.params.RoundKeys)
+		return
+	}
+
+	// note: we pay a cost of potentially double transposition in case we don't have avx512
+	// this is for the sake of having simple APIs, but can be revisited.
+	var transposed [16][24]fr.Element
+
+	for i := range transposed {
+		for j := range transposed[i] {
+			transposed[i][j] = input[j][i]
+		}
+	}
+
+	for i := 0; i < 16; i++ {
+		h.Permutation(transposed[i][:])
+	}
+
+	// transpose back
+	for i := range transposed {
+		for j := range transposed[i] {
+			input[j][i] = transposed[i][j]
+		}
+	}
+}
+
+{{- end}}

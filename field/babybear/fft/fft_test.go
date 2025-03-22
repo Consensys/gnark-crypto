@@ -349,7 +349,7 @@ func BenchmarkFFTDITReferenceSmall(b *testing.B) {
 
 	b.ResetTimer()
 	for j := 0; j < b.N; j++ {
-		domain.FFT(pol, DIT, OnCoset())
+		domain.FFT(pol, DIT)
 	}
 }
 

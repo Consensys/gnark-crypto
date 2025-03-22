@@ -172,7 +172,7 @@ func TestVectorOps(t *testing.T) {
 		return true
 	}
 
-	sizes := []int{1, 2, 3, 4,8,9,15,16, 509, 510, 511, 512, 513, 514}
+	sizes := []int{1, 2, 3, 4,8,9,15,16, {{- if .F31}}24,{{- end}} 509, 510, 511, 512, 513, 514}
 	type genPair struct {
 		g1, g2 gopter.Gen
 		label string
