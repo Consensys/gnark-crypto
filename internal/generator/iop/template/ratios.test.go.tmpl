@@ -71,7 +71,7 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	expectedForm := Form{Basis: Lagrange, Layout: Regular}
 	domain := fft.NewDomain(uint64(sizePolynomials))
 	var beta fr.Element
-	beta.SetRandom()
+	beta.MustSetRandom()
 	ratio, err := BuildRatioShuffledVectors(numerator, denominator, beta, expectedForm, domain)
 	if err != nil {
 		t.Fatal()
@@ -183,7 +183,7 @@ func getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials int) ([]
 		v := make([]fr.Element, sizePolynomials)
 		res[i] = NewPolynomial(&v, form)
 		for j := 0; j < sizePolynomials/2; j++ {
-			res[i].Coefficients()[2*j].SetRandom()
+			res[i].Coefficients()[2*j].MustSetRandom()
 			res[i].Coefficients()[2*j+1].Set(&res[i].Coefficients()[2*j])
 		}
 	}
@@ -214,8 +214,8 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	expectedForm := Form{Basis: Lagrange, Layout: Regular}
 	domain := fft.NewDomain(uint64(sizePolynomials))
 	var beta, gamma fr.Element
-	beta.SetRandom()
-	gamma.SetRandom()
+	beta.MustSetRandom()
+	gamma.MustSetRandom()
 	ratio, err := BuildRatioCopyConstraint(entries, sigma, beta, gamma, expectedForm, domain)
 	if err != nil {
 		t.Fatal()

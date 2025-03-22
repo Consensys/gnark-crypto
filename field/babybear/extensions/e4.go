@@ -131,6 +131,15 @@ func (z *E4) SetRandom() (*E4, error) {
 	return z, nil
 }
 
+// MustSetRandom sets the element to a random value.
+// It panics if reading from crypto/rand fails.
+func (z *E4) MustSetRandom() *E4 {
+	if _, err := z.SetRandom(); err != nil {
+		panic(err)
+	}
+	return z
+}
+
 // IsZero returns true if z is zero, false otherwise
 func (z *E4) IsZero() bool {
 	return z.B0.IsZero() && z.B1.IsZero()

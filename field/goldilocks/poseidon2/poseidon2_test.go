@@ -84,7 +84,7 @@ func BenchmarkPoseidon2Width8(b *testing.B) {
 	h := NewPermutation(8, 6, 17)
 	var tmp [8]fr.Element
 	for i := 0; i < 8; i++ {
-		tmp[i].SetRandom()
+		tmp[i].MustSetRandom()
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -96,7 +96,7 @@ func BenchmarkPoseidon2Width12(b *testing.B) {
 	h := NewPermutation(12, 6, 17)
 	var tmp [12]fr.Element
 	for i := 0; i < 12; i++ {
-		tmp[i].SetRandom()
+		tmp[i].MustSetRandom()
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

@@ -38,7 +38,7 @@ func TestProof(t *testing.T) {
 
 	// wrong proof
 	{
-		a[0].SetRandom()
+		a[0].MustSetRandom()
 		proof, err := Prove(kzgSrs.Pk, a, b)
 		if err != nil {
 			t.Fatal(err)

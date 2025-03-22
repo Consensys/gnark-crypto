@@ -49,8 +49,8 @@ func TestDivideByXMinusOne(t *testing.T) {
 
 	for i := 0; i < sizeSystem; i++ {
 
-		entries[0].Coefficients()[i].SetRandom()
-		entries[1].Coefficients()[i].SetRandom()
+		entries[0].Coefficients()[i].MustSetRandom()
+		entries[1].Coefficients()[i].MustSetRandom()
 		tmp := computex3(
 			[]fr.Element{entries[0].Coefficients()[i],
 				entries[1].Coefficients()[i]})
@@ -101,7 +101,7 @@ func TestDivideByXMinusOne(t *testing.T) {
 	// evaluate the quotient at a random point and check that
 	// the relation holds.
 	var x fr.Element
-	x.SetRandom()
+	x.MustSetRandom()
 	qx := q.Evaluate(x)
 	entries[0].ToCanonical(domains[1])
 	entries[1].ToCanonical(domains[1])

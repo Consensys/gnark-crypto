@@ -593,7 +593,7 @@ func Test{{ toUpper .PointName }}CofactorClearing(t *testing.T) {
 	properties.Property("[{{ toUpper .Name }}] Clearing the cofactor of a random point should set it in the r-torsion", prop.ForAll(
 		func() bool {
 			var a, x, b {{ .CoordType }}
-			a.SetRandom()
+			a.MustSetRandom()
 			{{if eq .CoordType "fp.Element" }}
 				{{if eq .PointName "g2" }}
 					x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
@@ -601,7 +601,7 @@ func Test{{ toUpper .PointName }}CofactorClearing(t *testing.T) {
 					x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
 				{{end}}
 				for x.Legendre() != 1 {
-					a.SetRandom()
+					a.MustSetRandom()
 					{{if eq .PointName "g2" }}
 						x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 					{{else}}
@@ -612,7 +612,7 @@ func Test{{ toUpper .PointName }}CofactorClearing(t *testing.T) {
 			{{/* eq .CoordType "fptower.E2" */}}
 				x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 				for x.Legendre() != 1 {
-					a.SetRandom()
+					a.MustSetRandom()
 					x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 				}
 			{{end}}
@@ -696,9 +696,7 @@ func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 
 func Benchmark{{ $TJacobian }}Equal(b *testing.B) {
 	var scalar {{ .CoordType}}
-	if _, err := scalar.SetRandom(); err != nil {
-		b.Fatalf("failed to set scalar: %s", err)
-	}
+	scalar.MustSetRandom()
 
 	var a {{ $TJacobian }}
 	a.ScalarMultiplication(&{{.PointName}}Gen, big.NewInt(42))
@@ -1028,10 +1026,7 @@ const (
 func GenFr() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fr.Element
-
-		if _, err := elmt.SetRandom(); err != nil {
-			panic(err)
-		}
+		elmt.MustSetRandom()
 
 		return gopter.NewGenResult(elmt, gopter.NoShrinker)
 	}
@@ -1041,10 +1036,7 @@ func GenFr() gopter.Gen {
 func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fp.Element
-
-		if _, err := elmt.SetRandom(); err != nil {
-			panic(err)
-		}
+		elmt.MustSetRandom()
 
 		return gopter.NewGenResult(elmt, gopter.NoShrinker)
 	}

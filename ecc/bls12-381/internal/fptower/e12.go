@@ -88,6 +88,14 @@ func (z *E12) SetRandom() (*E12, error) {
 	return z, nil
 }
 
+// MustSetRandom sets a0 and a1 to random values.
+// It panics if reading form crypto/rand fails
+func (z *E12) MustSetRandom() {
+	if _, err := z.SetRandom(); err != nil {
+		panic(err)
+	}
+}
+
 // IsZero returns true if z is zero, false otherwise
 func (z *E12) IsZero() bool {
 	return z.C0.IsZero() && z.C1.IsZero()

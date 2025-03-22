@@ -22,8 +22,8 @@ func TestG1AffineSerialization(t *testing.T) {
 		// uncompressed
 		{
 			var p1, p2 G1Affine
-			p2.X.SetRandom()
-			p2.Y.SetRandom()
+			p2.X.MustSetRandom()
+			p2.Y.MustSetRandom()
 			buf := p1.RawBytes()
 			n, err := p2.SetBytes(buf[:])
 			if err != nil {

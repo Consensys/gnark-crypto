@@ -437,6 +437,6 @@ func fillBenchBasesG1(samplePoints []G1Affine) {
 func fillBenchScalars(sampleScalars []fr.Element) {
 	// ensure every words of the scalars are filled
 	for i := 0; i < len(sampleScalars); i++ {
-		sampleScalars[i].SetRandom()
+		sampleScalars[i].MustSetRandom()
 	}
 }
