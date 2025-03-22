@@ -15,8 +15,10 @@ import (
 	"sync"
 )
 
+type GateName string
+
 var (
-	gates     = make(map[string]*Gate)
+	gates     = make(map[GateName]*Gate)
 	gatesLock sync.Mutex
 )
 
@@ -162,7 +164,7 @@ func fitPoly(f GateFunction, nbIn int, degreeBound uint64) polynomial.Polynomial
 // name is a human-readable name for the gate
 // f is the polynomial function defining the gate
 // nbIn is the number of inputs to the gate
-func RegisterGate(name string, f GateFunction, nbIn int, options ...RegisterGateOption) error {
+func RegisterGate(name GateName, f GateFunction, nbIn int, options ...RegisterGateOption) error {
 	s := registerGateSettings{degree: -1, solvableVar: -1}
 	for _, option := range options {
 		option(&s)
@@ -216,13 +218,13 @@ func RegisterGate(name string, f GateFunction, nbIn int, options ...RegisterGate
 	return nil
 }
 
-func GetGate(name string) *Gate {
+func GetGate(name GateName) *Gate {
 	gatesLock.Lock()
 	defer gatesLock.Unlock()
 	return gates[name]
 }
 
-func RemoveGate(name string) bool {
+func RemoveGate(name GateName) bool {
 	gatesLock.Lock()
 	defer gatesLock.Unlock()
 	_, found := gates[name]
@@ -285,4 +287,54 @@ func interpolate(X, Y []small_rational.SmallRational) (polynomial.Polynomial, er
 	}
 
 	return res, nil
+}
+
+const (
+	IdentityGateName GateName = "identity"
+	Add2GateName     GateName = "add2"
+	Sub2GateName     GateName = "sub2"
+	NegGateName      GateName = "neg"
+	Mul2GateName     GateName = "mul2"
+)
+
+func init() {
+	// register some basic gates
+
+	if err := RegisterGate(IdentityGateName, func(x ...small_rational.SmallRational) small_rational.SmallRational {
+		return x[0]
+	}, 1, WithUnverifiedDegree(1), WithUnverifiedSolvableVar(0)); err != nil {
+		panic(err)
+	}
+
+	if err := RegisterGate(Add2GateName, func(x ...small_rational.SmallRational) small_rational.SmallRational {
+		var res small_rational.SmallRational
+		res.Add(&x[0], &x[1])
+		return res
+	}, 2, WithUnverifiedDegree(1), WithUnverifiedSolvableVar(0)); err != nil {
+		panic(err)
+	}
+
+	if err := RegisterGate(Sub2GateName, func(x ...small_rational.SmallRational) small_rational.SmallRational {
+		var res small_rational.SmallRational
+		res.Sub(&x[0], &x[1])
+		return res
+	}, 2, WithUnverifiedDegree(1), WithUnverifiedSolvableVar(0)); err != nil {
+		panic(err)
+	}
+
+	if err := RegisterGate(NegGateName, func(x ...small_rational.SmallRational) small_rational.SmallRational {
+		var res small_rational.SmallRational
+		res.Neg(&x[0])
+		return res
+	}, 1, WithUnverifiedDegree(1), WithUnverifiedSolvableVar(0)); err != nil {
+		panic(err)
+	}
+
+	if err := RegisterGate(Mul2GateName, func(x ...small_rational.SmallRational) small_rational.SmallRational {
+		var res small_rational.SmallRational
+		res.Mul(&x[0], &x[1])
+		return res
+	}, 2, WithUnverifiedDegree(2), WithNoSolvableVar()); err != nil {
+		panic(err)
+	}
 }

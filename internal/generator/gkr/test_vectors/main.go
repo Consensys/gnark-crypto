@@ -126,15 +126,9 @@ func toPrintableProof(proof gkr.Proof) (PrintableProof, error) {
 	return res, nil
 }
 
-var (
-	GetGate              = gkr.GetGate
-	RegisterGate         = gkr.RegisterGate
-	WithUnverifiedDegree = gkr.WithUnverifiedDegree
-)
-
 type WireInfo struct {
-	Gate   string `json:"gate"`
-	Inputs []int  `json:"inputs"`
+	Gate   gkr.GateName `json:"gate"`
+	Inputs []int        `json:"inputs"`
 }
 
 type CircuitInfo []WireInfo
@@ -167,7 +161,7 @@ func getCircuit(path string) (gkr.Circuit, error) {
 func (c CircuitInfo) toCircuit() (circuit gkr.Circuit) {
 	circuit = make(gkr.Circuit, len(c))
 	for i := range c {
-		circuit[i].Gate = GetGate(c[i].Gate)
+		circuit[i].Gate = gkr.GetGate(c[i].Gate)
 		circuit[i].Inputs = make([]*gkr.Wire, len(c[i].Inputs))
 		for k, inputCoord := range c[i].Inputs {
 			input := &circuit[inputCoord]
@@ -190,14 +184,19 @@ func mimcRound(input ...small_rational.SmallRational) (res small_rational.SmallR
 	return
 }
 
+const (
+	MiMCGateName         gkr.GateName = "mimc"
+	SelectInput3GateName gkr.GateName = "select-input-3"
+)
+
 func init() {
-	if err := RegisterGate("mimc", mimcRound, 2, WithUnverifiedDegree(7)); err != nil {
+	if err := gkr.RegisterGate(MiMCGateName, mimcRound, 2, gkr.WithUnverifiedDegree(7)); err != nil {
 		panic(err)
 	}
 
-	if err := RegisterGate("select-input-3", func(input ...small_rational.SmallRational) small_rational.SmallRational {
+	if err := gkr.RegisterGate(SelectInput3GateName, func(input ...small_rational.SmallRational) small_rational.SmallRational {
 		return input[2]
-	}, 3, WithUnverifiedDegree(1)); err != nil {
+	}, 3, gkr.WithUnverifiedDegree(1)); err != nil {
 		panic(err)
 	}
 }

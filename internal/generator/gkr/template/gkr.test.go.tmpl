@@ -100,7 +100,7 @@ func generateTestMimc(numRounds int) func(*testing.T, ...[]{{.ElementType}}) {
 
 func TestSumcheckFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
 	circuit := Circuit{ Wire{
-		Gate:            GetGate("identity"),
+		Gate:            GetGate(IdentityGateName),
 		Inputs:          []*Wire{},
 		nbUniqueOutputs: 2,
 	} }
@@ -204,7 +204,7 @@ func testNoGate(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
 func testSingleAddGate(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
 	c := make(Circuit, 3)
 	c[2] = Wire{
-		Gate: GetGate("add2"),
+		Gate: GetGate(Add2GateName),
 		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
@@ -224,7 +224,7 @@ func testSingleMulGate(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
 
 	c := make(Circuit, 3)
 	c[2] = Wire{
-		Gate:   GetGate("mul2"),
+		Gate:   GetGate(Mul2GateName),
 		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
@@ -244,12 +244,12 @@ func testSingleInputTwoIdentityGates(t *testing.T, inputAssignments ...[]{{.Elem
 	c := make(Circuit, 3)
 
 	c[1] = Wire{
-		Gate:   GetGate("identity"),
+		Gate:   GetGate(IdentityGateName),
 		Inputs: []*Wire{&c[0]},
 	}
 
 	c[2] = Wire{
-		Gate:   GetGate("identity"),
+		Gate:   GetGate(IdentityGateName),
 		Inputs: []*Wire{&c[0]},
 	}
 
@@ -292,11 +292,11 @@ func testSingleInputTwoIdentityGatesComposed(t *testing.T, inputAssignments ...[
 	c := make(Circuit, 3)
 
 	c[1] = Wire{
-		Gate:   GetGate("identity"),
+		Gate:   GetGate(IdentityGateName),
 		Inputs: []*Wire{&c[0]},
 	}
 	c[2] = Wire{
-		Gate:   GetGate("identity"),
+		Gate:   GetGate(IdentityGateName),
 		Inputs: []*Wire{&c[1]},
 	}
 
@@ -354,7 +354,7 @@ func testATimesBSquared(t *testing.T, numRounds int, inputAssignments ...[]{{.El
 
 	for i := 2; i < len(c); i++ {
 		c[i] = Wire{
-			Gate:   GetGate("mul2"),
+			Gate:   GetGate(Mul2GateName),
 			Inputs: []*Wire{&c[i-1], &c[0]},
 		}
 	}
@@ -514,8 +514,8 @@ func TestTopSortWide(t *testing.T) {
 {{template "gkrTestVectors" .}}
 
 func TestRegisterGateDegreeDetection(t *testing.T) {
-	testGate := func(name string, f func(...fr.Element) fr.Element, nbIn, degree int) {
-		t.Run(name, func(t *testing.T) {
+	testGate := func(name GateName, f func(...fr.Element) fr.Element, nbIn, degree int) {
+		t.Run(string(name), func(t *testing.T) {
 			name = name + "-register-gate-test"
 
 			assert.NoError(t, RegisterGate(name, f, nbIn, WithDegree(degree)), "given degree must be accepted")

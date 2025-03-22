@@ -127,6 +127,30 @@ func pow2TimesGate(x ...fr.Element) fr.Element {
 	return x[0]
 }
 
+const (
+	Pow2GateName      gkr.GateName = "pow2"
+	Pow4GateName      gkr.GateName = "pow4"
+	Pow2TimesGateName gkr.GateName = "pow2Times"
+	Pow4TimesGateName gkr.GateName = "pow4Times"
+)
+
+type roundGateNamer string
+
+// RoundGateNamer returns an object that returns standardized names for gates in the GKR circuit
+func RoundGateNamer(p *poseidon2.Parameters) roundGateNamer {
+	return roundGateNamer(p.String())
+}
+
+// Linear is the name of a gate where a polynomial of total degree 1 is applied to the input
+func (n roundGateNamer) Linear(varIndex, round int) gkr.GateName {
+	return gkr.GateName(fmt.Sprintf("x%d-l-op-round=%d;%s", varIndex, round, n))
+}
+
+// Integrated is the name of a gate where a polynomial of total degree 1 is applied to the input, followed by an S-box
+func (n roundGateNamer) Integrated(varIndex, round int) gkr.GateName {
+	return gkr.GateName(fmt.Sprintf("x%d-i-op-round=%d;%s", varIndex, round, n))
+}
+
 var initOnce sync.Once
 
 // RegisterGkrGates registers the Poseidon2 compression gates for GKR
@@ -140,42 +164,34 @@ func RegisterGkrGates() error {
 		func() {
 			p := poseidon2.GetDefaultParameters()
 			halfRf := p.NbFullRounds / 2
-			params := p.String()
+			gateNames := RoundGateNamer(p)
 
-			if err = gkr.RegisterGate("pow2", pow2Gate, 1, gkr.WithUnverifiedDegree(2), gkr.WithNoSolvableVar()); err != nil {
+			if err = gkr.RegisterGate(Pow2GateName, pow2Gate, 1, gkr.WithUnverifiedDegree(2), gkr.WithNoSolvableVar()); err != nil {
 				return
 			}
-			if err = gkr.RegisterGate("pow4", pow4Gate, 1, gkr.WithUnverifiedDegree(4), gkr.WithNoSolvableVar()); err != nil {
+			if err = gkr.RegisterGate(Pow4GateName, pow4Gate, 1, gkr.WithUnverifiedDegree(4), gkr.WithNoSolvableVar()); err != nil {
 				return
 			}
-			if err = gkr.RegisterGate("pow2Times", pow2TimesGate, 2, gkr.WithUnverifiedDegree(3), gkr.WithNoSolvableVar()); err != nil {
+			if err = gkr.RegisterGate(Pow2TimesGateName, pow2TimesGate, 2, gkr.WithUnverifiedDegree(3), gkr.WithNoSolvableVar()); err != nil {
 				return
 			}
-			if err = gkr.RegisterGate("pow4Times", pow4TimesGate, 2, gkr.WithUnverifiedDegree(5), gkr.WithNoSolvableVar()); err != nil {
+			if err = gkr.RegisterGate(Pow4TimesGateName, pow4TimesGate, 2, gkr.WithUnverifiedDegree(5), gkr.WithNoSolvableVar()); err != nil {
 				return
-			}
-
-			gateNameLinear := func(varIndex, i int) string {
-				return fmt.Sprintf("x%d-l-op-round=%d;%s", varIndex, i, params)
-			}
-
-			gateNameIntegrated := func(varIndex, i int) string {
-				return fmt.Sprintf("x%d-i-op-round=%d;%s", varIndex, i, params)
 			}
 
 			extKeySBox := func(round int, varIndex int) error {
-				if err := gkr.RegisterGate(gateNameIntegrated(varIndex, round), extKeySBoxGate(&p.RoundKeys[round][varIndex]), 2, gkr.WithUnverifiedDegree(poseidon2.DegreeSBox()), gkr.WithNoSolvableVar()); err != nil {
+				if err := gkr.RegisterGate(gateNames.Integrated(varIndex, round), extKeySBoxGate(&p.RoundKeys[round][varIndex]), 2, gkr.WithUnverifiedDegree(poseidon2.DegreeSBox()), gkr.WithNoSolvableVar()); err != nil {
 					return err
 				}
 
-				return gkr.RegisterGate(gateNameLinear(varIndex, round), extKeyGate(&p.RoundKeys[round][varIndex]), 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0))
+				return gkr.RegisterGate(gateNames.Linear(varIndex, round), extKeyGate(&p.RoundKeys[round][varIndex]), 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0))
 			}
 
 			intKeySBox2 := func(round int) error {
-				if err := gkr.RegisterGate(gateNameLinear(y, round), intKeyGate2(&p.RoundKeys[round][1]), 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0)); err != nil {
+				if err := gkr.RegisterGate(gateNames.Linear(y, round), intKeyGate2(&p.RoundKeys[round][1]), 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0)); err != nil {
 					return err
 				}
-				return gkr.RegisterGate(gateNameIntegrated(y, round), intKeySBoxGate2(&p.RoundKeys[round][1]), 2, gkr.WithUnverifiedDegree(poseidon2.DegreeSBox()), gkr.WithNoSolvableVar())
+				return gkr.RegisterGate(gateNames.Integrated(y, round), intKeySBoxGate2(&p.RoundKeys[round][1]), 2, gkr.WithUnverifiedDegree(poseidon2.DegreeSBox()), gkr.WithNoSolvableVar())
 			}
 
 			fullRound := func(i int) error {
@@ -195,7 +211,7 @@ func RegisterGkrGates() error {
 				if err = extKeySBox(halfRf, x); err != nil {
 					return
 				}
-				if err = gkr.RegisterGate(gateNameLinear(y, halfRf), extGate2, 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0)); err != nil {
+				if err = gkr.RegisterGate(gateNames.Linear(y, halfRf), extGate2, 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0)); err != nil {
 					return
 				}
 			}
@@ -204,7 +220,7 @@ func RegisterGkrGates() error {
 				if err = extKeySBox(i, x); err != nil { // for x1, intKeySBox is identical to extKeySBox
 					return
 				}
-				if err = gkr.RegisterGate(gateNameLinear(y, i), intGate2, 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0)); err != nil {
+				if err = gkr.RegisterGate(gateNames.Linear(y, i), intGate2, 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0)); err != nil {
 					return
 				}
 			}
@@ -225,7 +241,7 @@ func RegisterGkrGates() error {
 				}
 			}
 
-			err = gkr.RegisterGate(gateNameLinear(y, p.NbPartialRounds+p.NbFullRounds), extAddGate, 3, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0))
+			err = gkr.RegisterGate(gateNames.Linear(y, p.NbPartialRounds+p.NbFullRounds), extAddGate, 3, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0))
 		},
 	)
 	return err

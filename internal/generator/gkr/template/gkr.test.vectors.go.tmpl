@@ -10,8 +10,13 @@
 {{$Wire             := print $GkrPackagePrefix "Wire"}}
 {{$CircuitLayer     := print $GkrPackagePrefix "CircuitLayer"}}
 
+{{$PackagePrefix := ""}}
+{{- if .OutsideGkrPackage}}
+	{{$PackagePrefix = "gkr."}}
+{{end}}
+
 type WireInfo struct {
-	Gate   string `json:"gate"`
+	Gate   {{$PackagePrefix}}GateName `json:"gate"`
 	Inputs []int  `json:"inputs"`
 }
 
@@ -45,7 +50,7 @@ func getCircuit(path string) ({{$Circuit}}, error) {
 func (c CircuitInfo) toCircuit() (circuit {{$Circuit}}) {
 	circuit = make({{$Circuit}}, len(c))
 	for i := range c {
-		circuit[i].Gate = GetGate(c[i].Gate)
+		circuit[i].Gate = {{$PackagePrefix}}GetGate(c[i].Gate)
 		circuit[i].Inputs = make([]*{{$Wire}}, len(c[i].Inputs))
 		for k, inputCoord := range c[i].Inputs {
 			input := &circuit[inputCoord]
@@ -68,14 +73,19 @@ func mimcRound(input ...{{.ElementType}}) (res {{.ElementType}}) {
 	return
 }
 
+const (
+	MiMCGateName {{$PackagePrefix}}GateName = "mimc"
+	SelectInput3GateName {{$PackagePrefix}}GateName = "select-input-3"
+)
+
 func init() {
-	if err := RegisterGate("mimc", mimcRound, 2, WithUnverifiedDegree(7)); err != nil {
+	if err := {{$PackagePrefix}}RegisterGate(MiMCGateName, mimcRound, 2, {{$PackagePrefix}}WithUnverifiedDegree(7)); err != nil {
 		panic(err)
 	}
 
-	if err := RegisterGate("select-input-3", func(input ...{{.ElementType}}) {{.ElementType}} {
+	if err := {{$PackagePrefix}}RegisterGate(SelectInput3GateName, func(input ...{{.ElementType}}) {{.ElementType}} {
 		return input[2]
-	}, 3, WithUnverifiedDegree(1)); err != nil {
+	}, 3, {{$PackagePrefix}}WithUnverifiedDegree(1)); err != nil {
 		panic(err)
 	}
 }
