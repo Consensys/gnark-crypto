@@ -85,14 +85,13 @@ func main() {
 			gkrConfig := gkr.Config{
 				FieldDependency:         frInfo,
 				GenerateTests:           true,
-				CanUseFFT:               true,
 				TestVectorsRelativePath: "../../../../internal/generator/gkr/test_vectors",
 			}
 
 			frOpts := []generator.Option{generator.WithASM(asmConfig)}
 			if !(conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) {
 				frOpts = append(frOpts, generator.WithFFT(fftConfig))
-				gkrConfig.CanUseFFT = false
+				gkrConfig.CanUseFFT = true
 			}
 			if conf.Equal(config.BLS12_377) {
 				frOpts = append(frOpts, generator.WithSIS())

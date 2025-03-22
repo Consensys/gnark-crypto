@@ -1,7 +1,6 @@
 import (
 	"errors"
 	"fmt"
-	"github.com/consensys/gnark-crypto/ecc"
 	"{{.FieldPackagePath}}"
 	{{ if eq .FieldPackageName "fr" }}"{{.FieldPackagePath}}/fft" {{ end }}
 	"{{.FieldPackagePath}}/polynomial"
@@ -10,7 +9,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"github.com/consensys/gnark-crypto/utils"
 	"math/big"
-	"slices"
 	"strconv"
 	"sync"
 )
