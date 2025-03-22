@@ -8,27 +8,280 @@ package gkr
 import (
 	"errors"
 	"fmt"
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"github.com/consensys/gnark-crypto/utils"
 	"math/big"
+	"slices"
 	"strconv"
 	"sync"
 )
 
 // The goal is to prove/verify evaluations of many instances of the same circuit
 
-// Gate must be a low-degree polynomial
-type Gate interface {
-	Evaluate(...fr.Element) fr.Element
-	Degree() int
+// GateFunction a polynomial defining a gate. It may modify its input. The changes will be ignored.
+type GateFunction func(...fr.Element) fr.Element
+
+// A Gate is a low-degree multivariate polynomial
+type Gate struct {
+	Evaluate    GateFunction // Evaluate the polynomial function defining the gate
+	nbIn        int          // number of inputs
+	degree      int          // total degree of f
+	solvableVar int          // if there is a solvable variable, its index, -1 otherwise
+}
+
+// Degree returns the total degree of the gate's polynomial i.e. Degree(xy²) = 3
+func (g *Gate) Degree() int {
+	return g.degree
+}
+
+// SolvableVar returns I such that x_I can always be determined from {x_i} - {x_I} and f(x...). If there is no such variable, it returns -1.
+func (g *Gate) SolvableVar() int {
+	return g.solvableVar
+}
+
+// NbIn returns the number of inputs to the gate (its fan-in)
+func (g *Gate) NbIn() int {
+	return g.nbIn
+}
+
+var (
+	gates     = make(map[string]*Gate)
+	gatesLock sync.Mutex
+)
+
+type registerGateSettings struct {
+	solvableVar               int
+	noSolvableVarVerification bool
+	noDegreeVerification      bool
+	degree                    int
+}
+
+type RegisterGateOption func(*registerGateSettings)
+
+// WithSolvableVar gives the index of a variable whose value can be uniquely determined from that of the other variables along with the gate's output.
+// RegisterGate will return an error if it cannot verify that this claim is correct.
+func WithSolvableVar(solvableVar int) RegisterGateOption {
+	return func(settings *registerGateSettings) {
+		settings.solvableVar = solvableVar
+	}
+}
+
+// WithUnverifiedSolvableVar sets the index of a variable whose value can be uniquely determined from that of the other variables along with the gate's output.
+// RegisterGate will not verify that the given index is correct.
+func WithUnverifiedSolvableVar(solvableVar int) RegisterGateOption {
+	return func(settings *registerGateSettings) {
+		settings.noSolvableVarVerification = true
+		settings.solvableVar = solvableVar
+	}
+}
+
+// WithNoSolvableVar sets the gate as having no variable whose value can be uniquely determined from that of the other variables along with the gate's output.
+// RegisterGate will not check the correctness of this claim.
+func WithNoSolvableVar() RegisterGateOption {
+	return func(settings *registerGateSettings) {
+		settings.solvableVar = -1
+		settings.noSolvableVarVerification = true
+	}
+}
+
+// WithUnverifiedDegree sets the degree of the gate. RegisterGate will not verify that the given degree is correct.
+func WithUnverifiedDegree(degree int) RegisterGateOption {
+	return func(settings *registerGateSettings) {
+		settings.noDegreeVerification = true
+		settings.degree = degree
+	}
+}
+
+// WithDegree sets the degree of the gate. RegisterGate will return an error if the degree is not correct.
+func WithDegree(degree int) RegisterGateOption {
+	return func(settings *registerGateSettings) {
+		settings.degree = degree
+	}
+}
+
+// setRandom panics if SetRandom returns an error
+func setRandom(x *fr.Element) {
+	if _, err := x.SetRandom(); err != nil {
+		panic(err)
+	}
+}
+
+// isAdditive returns whether x_i occurs only in a monomial of total degree 1 in f
+func isAdditive(f GateFunction, i, nbIn int) bool {
+	// fix all variables except the i-th one at random points
+	// pick random value x1 for the i-th variable
+	// check if f(-, 0, -) + f(-, 2*x1, -) = 2*f(-, x1, -)
+	x := make([]fr.Element, nbIn)
+	for i := range x {
+		setRandom(&x[i])
+	}
+	x0 := x[i]
+	x[i].SetZero()
+	in := slices.Clone(x)
+	y0 := f(in...)
+
+	x[i] = x0
+	copy(in, x)
+	y1 := f(in...)
+
+	x[i].Double(&x[i])
+	copy(in, x)
+	y2 := f(in...)
+
+	y2.Sub(&y2, &y1)
+	y1.Sub(&y1, &y0)
+
+	if !y2.Equal(&y1) {
+		return false // not linear
+	}
+
+	// check if the coefficient of x_i is nonzero and independent of the other variables (so that we know it is ALWAYS nonzero)
+	if y1.IsZero() { // f(-, x1, -) = f(-, 0, -), so the coefficient of x_i is 0
+		return false
+	}
+
+	// compute the slope with another assignment for the other variables
+	for i := range x {
+		setRandom(&x[i])
+	}
+	x[i].SetZero()
+	copy(in, x)
+	y0 = f(in...)
+
+	x[i] = x0
+	copy(in, x)
+	y1 = f(in...)
+
+	y1.Sub(&y1, &y0)
+
+	return y1.Equal(&y2)
+}
+
+// fitPoly tries to fit a polynomial of degree less than degreeBound to f.
+// degreeBound must be a power of 2.
+// It returns the polynomial if successful, nil otherwise
+func fitPoly(f GateFunction, nbIn int, degreeBound uint64) polynomial.Polynomial {
+	domain := fft.NewDomain(degreeBound)
+
+	// turn f univariate by defining p(x) as f(x, x, ..., x)
+	// evaluate p on the unit circle (first filling p with evaluations rather than coefficients)
+	x := fr.One()
+	p := make(polynomial.Polynomial, degreeBound)
+	fIn := make([]fr.Element, nbIn)
+	for i := range p {
+		for j := range fIn {
+			fIn[j] = x
+		}
+		p[i] = f(fIn...)
+
+		x.Mul(&x, &domain.Generator)
+	}
+
+	// obtain p's coefficients
+	domain.FFTInverse(p, fft.DIF)
+	fft.BitReverse(p)
+
+	// check if p is equal to f. This not being the case means that f is of a degree higher than degreeBound
+	setRandom(&fIn[0])
+	for i := range fIn {
+		fIn[i] = fIn[0]
+	}
+	pAt := p.Eval(&fIn[0])
+	fAt := f(fIn...)
+	if !pAt.Equal(&fAt) {
+		return nil
+	}
+
+	// trim p
+	lastNonZero := len(p) - 1
+	for lastNonZero >= 0 && p[lastNonZero].IsZero() {
+		lastNonZero--
+	}
+	return p[:lastNonZero+1]
+}
+
+// RegisterGate creates a gate object and stores it in the gates registry
+// name is a human-readable name for the gate
+// f is the polynomial function defining the gate
+// nbIn is the number of inputs to the gate
+func RegisterGate(name string, f GateFunction, nbIn int, options ...RegisterGateOption) error {
+	s := registerGateSettings{degree: -1, solvableVar: -1}
+	for _, option := range options {
+		option(&s)
+	}
+
+	if s.degree == -1 { // find a degree
+		if s.noDegreeVerification {
+			panic("invalid settings")
+		}
+		found := false
+		const maxAutoDegreeBound = 32
+		for degreeBound := uint64(4); degreeBound <= maxAutoDegreeBound; degreeBound *= 2 {
+			if p := fitPoly(f, nbIn, degreeBound); p != nil {
+				found = true
+				s.degree = len(p) - 1
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("could not find a degree for gate %s: tried up to %d", name, maxAutoDegreeBound-1)
+		}
+	} else {
+		if !s.noDegreeVerification { // check that the given degree is correct
+			if p := fitPoly(f, nbIn, ecc.NextPowerOfTwo(uint64(s.degree)+1)); p == nil {
+				return fmt.Errorf("detected a higher degree than %d for gate %s", s.degree, name)
+			} else if len(p)-1 != s.degree {
+				return fmt.Errorf("detected degree %d for gate %s, claimed %d", len(p)-1, name, s.degree)
+			}
+		}
+	}
+
+	if s.solvableVar == -1 {
+		if !s.noSolvableVarVerification { // find a solvable variable
+			for i := range nbIn {
+				if isAdditive(f, i, nbIn) {
+					s.solvableVar = i
+					break
+				}
+			}
+		}
+	} else {
+		// solvable variable given
+		if !s.noSolvableVarVerification && !isAdditive(f, s.solvableVar, nbIn) {
+			return fmt.Errorf("cannot verify the solvability of variable %d in gate %s", s.solvableVar, name)
+		}
+	}
+
+	gatesLock.Lock()
+	defer gatesLock.Unlock()
+	gates[name] = &Gate{Evaluate: f, nbIn: nbIn, degree: s.degree, solvableVar: s.solvableVar}
+	return nil
+}
+
+func GetGate(name string) *Gate {
+	gatesLock.Lock()
+	defer gatesLock.Unlock()
+	return gates[name]
+}
+
+func RemoveGate(name string) bool {
+	gatesLock.Lock()
+	defer gatesLock.Unlock()
+	_, found := gates[name]
+	if found {
+		delete(gates, name)
+	}
+	return found
 }
 
 type Wire struct {
-	Gate            Gate
+	Gate            *Gate
 	Inputs          []*Wire // if there are no Inputs, the wire is assumed an input wire
 	nbUniqueOutputs int     // number of other wires using it as input, not counting duplicates (i.e. providing two inputs to the same gate counts as one)
 }
@@ -690,12 +943,13 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSetting
 
 // outputsList also sets the nbUniqueOutputs fields. It also sets the wire metadata.
 func outputsList(c Circuit, indexes map[*Wire]int) [][]int {
+	idGate := GetGate("identity")
 	res := make([][]int, len(c))
 	for i := range c {
 		res[i] = make([]int, 0)
 		c[i].nbUniqueOutputs = 0
 		if c[i].IsInput() {
-			c[i].Gate = IdentityGate{}
+			c[i].Gate = idGate
 		}
 	}
 	ins := make(map[int]struct{}, len(c))
@@ -845,136 +1099,44 @@ func frToBigInts(dst []*big.Int, src []fr.Element) {
 	}
 }
 
-// Gates defined by name
-var Gates = map[string]Gate{
-	"identity": IdentityGate{},
-	"add":      AddGate{},
-	"sub":      SubGate{},
-	"neg":      NegGate{},
-	"mul":      MulGate(2),
-}
+func init() {
+	// register some basic gates
 
-type IdentityGate struct{}
-type AddGate struct{}
-type MulGate int
-type SubGate struct{}
-type NegGate struct{}
+	if err := RegisterGate("identity", func(x ...fr.Element) fr.Element {
+		return x[0]
+	}, 1, WithUnverifiedDegree(1), WithUnverifiedSolvableVar(0)); err != nil {
+		panic(err)
+	}
 
-func (IdentityGate) Evaluate(input ...fr.Element) fr.Element {
-	return input[0]
-}
-
-func (IdentityGate) Degree() int {
-	return 1
-}
-
-func (g AddGate) Evaluate(x ...fr.Element) (res fr.Element) {
-	switch len(x) {
-	case 0:
-	// set zero
-	case 1:
-		res.Set(&x[0])
-	default:
+	if err := RegisterGate("add2", func(x ...fr.Element) fr.Element {
+		var res fr.Element
 		res.Add(&x[0], &x[1])
-		for i := 2; i < len(x); i++ {
-			res.Add(&res, &x[i])
-		}
+		return res
+	}, 2, WithUnverifiedDegree(1), WithUnverifiedSolvableVar(0)); err != nil {
+		panic(err)
 	}
-	return
-}
 
-func (g AddGate) Degree() int {
-	return 1
-}
-
-func (g MulGate) Evaluate(x ...fr.Element) (res fr.Element) {
-	if len(x) != int(g) {
-		panic("wrong input count")
+	if err := RegisterGate("sub2", func(x ...fr.Element) fr.Element {
+		var res fr.Element
+		res.Sub(&x[0], &x[1])
+		return res
+	}, 2, WithUnverifiedDegree(1), WithUnverifiedSolvableVar(0)); err != nil {
+		panic(err)
 	}
-	switch len(x) {
-	case 0:
-		res.SetOne()
-	case 1:
-		res.Set(&x[0])
-	default:
+
+	if err := RegisterGate("neg", func(x ...fr.Element) fr.Element {
+		var res fr.Element
+		res.Neg(&x[0])
+		return res
+	}, 1, WithUnverifiedDegree(1), WithUnverifiedSolvableVar(0)); err != nil {
+		panic(err)
+	}
+
+	if err := RegisterGate("mul2", func(x ...fr.Element) fr.Element {
+		var res fr.Element
 		res.Mul(&x[0], &x[1])
-		for i := 2; i < len(x); i++ {
-			res.Mul(&res, &x[i])
-		}
+		return res
+	}, 2, WithUnverifiedDegree(2), WithNoSolvableVar()); err != nil {
+		panic(err)
 	}
-	return
-}
-
-func (g MulGate) Degree() int {
-	return int(g)
-}
-
-func (g SubGate) Evaluate(element ...fr.Element) (diff fr.Element) {
-	if len(element) > 2 {
-		panic("not implemented") //TODO
-	}
-	diff.Sub(&element[0], &element[1])
-	return
-}
-
-func (g SubGate) Degree() int {
-	return 1
-}
-
-func (g NegGate) Evaluate(element ...fr.Element) (neg fr.Element) {
-	if len(element) != 1 {
-		panic("univariate gate")
-	}
-	neg.Neg(&element[0])
-	return
-}
-
-func (g NegGate) Degree() int {
-	return 1
-}
-
-// TestGateDegree checks if deg(g) = g.Degree()
-func TestGateDegree(g Gate, nbIn int) error {
-	// TODO when Gate is a struct, turn this into a method
-	if nbIn < 1 {
-		return errors.New("at least one input required")
-	}
-
-	d := g.Degree()
-	// evaluate g at 0 .. d
-	var one, _x fr.Element
-	one.SetOne()
-	x := make([]fr.Element, nbIn)
-	y := make([]fr.Element, d+1)
-	for i := range y {
-		y[i] = g.Evaluate(x...)
-		_x.Add(&_x, &one)
-		for j := range x {
-			x[j] = _x
-		}
-	}
-
-	p := polynomial.InterpolateOnRange(y)
-	// test if p matches g
-	if _, err := _x.SetRandom(); err != nil {
-		return err
-	}
-	for j := range x {
-		x[j] = _x
-	}
-
-	if expected, encountered := p.Eval(&x[0]), g.Evaluate(x...); !expected.Equal(&encountered) {
-		return fmt.Errorf("interpolation failed: not a polynomial of degree %d or lower", d)
-	}
-
-	// check if the degree is LESS than d
-	degP := d
-	for degP >= 0 && p[degP].IsZero() {
-		degP--
-	}
-	if degP != d {
-		return fmt.Errorf("expected polynomial of degree %d, interpolation yielded %d", d, degP)
-	}
-
-	return nil
 }
