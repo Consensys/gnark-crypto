@@ -2,6 +2,8 @@ package vortex
 
 import (
 	"fmt"
+	"math/big"
+	"sync"
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
@@ -87,25 +89,34 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 // UAlpha is computed as uAlpha := \sum_i row_i * alpha^i.
 func (ps *ProverState) OpenLinComb(alpha fext.E4) {
 
-	var (
-		ualpha        = make([]fext.E4, ps.Params.SizeCodeWord())
-		tmp           = fext.E4{}
-		alphaPow      = new(fext.E4).SetOne()
-		encodedMatrix = ps.EncodedMatrix
-	)
+	codewords := ps.EncodedMatrix
 
 	// We don't use the Horner algorithm because we can save on fext
 	// operations using the naive algorithm.
 	N := ps.Params.SizeCodeWord()
-	for i := 0; i < len(encodedMatrix); i += N {
-		for j := 0; j < N; j++ {
-			tmp.MulByElement(alphaPow, &encodedMatrix[i+j])
-			ualpha[j].Add(&ualpha[j], &tmp)
+	nbCodewords := len(codewords) / N
+	_ualpha := make([]fext.E4, ps.Params.SizeCodeWord())
+	var lock sync.Mutex
+	parallel.Execute(nbCodewords, func(start, end int) {
+		ualpha := make([]fext.E4, ps.Params.SizeCodeWord())
+		alphaPow := new(fext.E4).SetOne()
+		alphaPow.Exp(alpha, big.NewInt(int64(start)))
+		var tmp fext.E4
+		for i := start; i < end; i++ {
+			for j := 0; j < N; j++ {
+				tmp.MulByElement(alphaPow, &codewords[i*N+j])
+				ualpha[j].Add(&ualpha[j], &tmp)
+			}
+			alphaPow.Mul(alphaPow, &alpha)
 		}
-		alphaPow.Mul(alphaPow, &alpha)
-	}
+		lock.Lock()
+		for j := 0; j < N; j++ {
+			_ualpha[j].Add(&_ualpha[j], &ualpha[j])
+		}
+		lock.Unlock()
+	})
 
-	ps.Ualpha = ualpha
+	ps.Ualpha = _ualpha
 }
 
 // OpenColumns sets the OpenedColumns field of the proof using the provided

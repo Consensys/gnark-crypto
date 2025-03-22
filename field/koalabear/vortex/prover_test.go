@@ -202,12 +202,16 @@ func BenchmarkVortexReal(b *testing.B) {
 	_ = proverState
 	_ = alpha
 
-	// b.Run("opening-alpha", func(b *testing.B) {
-	// 	b.ResetTimer()
-	// 	for i := 0; i < b.N; i++ {
-	// 		proverState.OpenLinComb(alpha)
-	// 	}
-	// })
+	b.Run("opening-alpha", func(b *testing.B) {
+		proverState, err = Commit(params, m)
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			proverState.OpenLinComb(alpha)
+		}
+	})
 
 	// b.Run("opening-columns", func(b *testing.B) {
 	// 	b.ResetTimer()
