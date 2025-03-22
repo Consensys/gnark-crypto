@@ -36,7 +36,7 @@ type Params struct {
 	NumSelectedColumns int
 
 	// Coset table of the small domain, bit reversed
-	CosetTableBitReverse []koalabear.Element
+	CosetTableBitReverse koalabear.Vector
 }
 
 // NewParams constructs a new set of public parameters.

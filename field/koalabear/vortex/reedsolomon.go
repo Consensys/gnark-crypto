@@ -11,38 +11,34 @@ import (
 // EncodeReedSolomon encodes a vector of field elements into a reed-solomon codewords.
 // The function checks that:
 //   - the input argument has the right size
-func (p *Params) EncodeReedSolomon(input []koalabear.Element, bitReverse bool) ([]koalabear.Element, error) {
+func (p *Params) EncodeReedSolomon(input, res []koalabear.Element) {
 	if len(input) != p.NbColumns {
-		return nil, fmt.Errorf("expected %d input values, got %d", p.NbColumns, len(input))
+		panic(fmt.Sprintf("expected %d input values, got %d", p.NbColumns, len(input)))
 	}
 
-	codeword := make([]koalabear.Element, p.SizeCodeWord())
+	copy(res, input)
 
-	rho := p.ReedSolomonInvRate
-	for i := 0; i < p.NbColumns; i++ {
-		codeword[rho*i].Set(&input[i])
+	const rho = 2
+	if rho != p.ReedSolomonInvRate {
+		// slow path
+		p.Domains[0].FFTInverse(res[:p.NbColumns], fft.DIF, fft.WithNbTasks(1))
+		fft.BitReverse(res[:p.NbColumns])
+		p.Domains[1].FFT(res, fft.DIF, fft.WithNbTasks(1))
+		fft.BitReverse(res)
+		return
 	}
 
-	inputCoeffs := make([]koalabear.Element, p.NbColumns)
-	copy(inputCoeffs, input)
-	p.Domains[0].FFTInverse(inputCoeffs, fft.DIF)
+	// fast path; we avoid the bit reverse operations and work on the smaller domain.
+	inputCoeffs := koalabear.Vector(res[:p.NbColumns])
 
-	// stores the current FFT
-	buf := make([]koalabear.Element, p.NbColumns)
+	p.Domains[0].FFTInverse(inputCoeffs, fft.DIF, fft.WithNbTasks(1))
+	inputCoeffs.Mul(inputCoeffs, p.CosetTableBitReverse)
 
-	for i := 0; i < rho-1; i++ {
-		for j := 0; j < p.NbColumns; j++ {
-			inputCoeffs[j].Mul(&inputCoeffs[j], &p.CosetTableBitReverse[j])
-		}
-		copy(buf, inputCoeffs)
-		p.Domains[0].FFT(buf, fft.DIT)
-		for j := 0; j < p.NbColumns; j++ {
-			codeword[rho*j+i+1].Set(&buf[j])
-		}
+	p.Domains[0].FFT(inputCoeffs, fft.DIT, fft.WithNbTasks(1))
+	for j := p.NbColumns - 1; j >= 0; j-- {
+		res[rho*j+1] = res[j]
+		res[rho*j] = input[j]
 	}
-
-	// codeword is in the correct order at this stage
-	return codeword, nil
 }
 
 // IsCodeword returns nil iff the argument `v` is a correct codeword and an

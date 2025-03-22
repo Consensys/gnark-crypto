@@ -149,7 +149,9 @@ func (r *RSis) Hash(v, res []koalabear.Element) error {
 	}
 
 	// zeroing res
-	copy(res, r.kz)
+	for i := range res {
+		res[i].SetZero()
+	}
 
 	// by default, the mask is ignored (unless we unrolled the FFT and have a degree 64)
 	mask := ^uint64(0)
@@ -193,40 +195,6 @@ func (r *RSis) Hash(v, res []koalabear.Element) error {
 	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1))
 
 	return nil
-}
-func (r *RSis) PartialHash512_16(k256 *[256]koalabear.Element, res []koalabear.Element, polID int) int {
-	if polID >= len(r.Ag) || polID < 0 {
-		panic("invalid polID")
-	}
-	if len(res) != r.Degree {
-		panic("output vector must have length r.Degree")
-	}
-	if r.hasFast512_16 {
-		cosets, _ := r.Domain.CosetTable()
-		twiddles, _ := r.Domain.Twiddles()
-
-		_v := koalabear.Vector(k256[:])
-		// ok for now this does the first step of the fft + the scaling by cosets;
-		sis512_16_avx512(_v, cosets, twiddles, r.agShuffled[polID], res)
-
-		// sisUnshuffle_avx512(res)
-	} else {
-		// inner hash
-		mask := ^uint64(0)
-		k := make([]koalabear.Element, r.Degree)
-		it := NewLimbIterator(&VectorIterator{v: k256[:]}, r.LogTwoBound/8)
-		r.InnerHash(it, res, k, r.kz, polID, mask)
-	}
-
-	return polID + 1
-}
-
-func (r *RSis) FinalizeHash512_16(res []koalabear.Element) {
-	if r.hasFast512_16 {
-		sisUnshuffle_avx512(res)
-	}
-	// reduces mod Xᵈ+1
-	r.Domain.FFTInverse(res, fft.DIT, fft.OnCoset(), fft.WithNbTasks(1))
 }
 
 // InnerHash computes the inner hash of the polynomial corresponding to the i-th polynomial in A.

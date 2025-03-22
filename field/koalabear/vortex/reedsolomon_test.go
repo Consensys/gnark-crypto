@@ -53,10 +53,8 @@ func TestLagrangeSimple(t *testing.T) {
 			koalabear.NewElement(3),
 		}
 
-		codeword, err := params.EncodeReedSolomon(v, true)
-		if err != nil {
-			t.Fatal(err)
-		}
+		codeword := make([]koalabear.Element, params.SizeCodeWord())
+		params.EncodeReedSolomon(v, codeword)
 
 		for i := 0; i < len(codeword); i += 2 {
 			if codeword[i] != v[i/2] {
@@ -81,15 +79,11 @@ func TestLagrangeSimple(t *testing.T) {
 			koalabear.NewElement(0),
 		}
 
-		codeword, err := params.EncodeReedSolomon(v, true)
-		if err != nil {
-			t.Fatal(err)
-		}
+		codeword := make([]koalabear.Element, params.SizeCodeWord())
+		params.EncodeReedSolomon(v, codeword)
 
-		codewordShifted, err := params.EncodeReedSolomon(vShifted, true)
-		if err != nil {
-			t.Fatal(err)
-		}
+		codewordShifted := make([]koalabear.Element, params.SizeCodeWord())
+		params.EncodeReedSolomon(vShifted, codewordShifted)
 
 		for i := 0; i < len(codeword); i++ {
 
@@ -124,10 +118,8 @@ func TestReedSolomonProperty(t *testing.T) {
 		v[i] = randElement(rng)
 	}
 
-	encodedV, err := params.EncodeReedSolomon(v, true)
-	if err != nil {
-		panic(err)
-	}
+	encodedV := make([]koalabear.Element, params.SizeCodeWord())
+	params.EncodeReedSolomon(v, encodedV)
 
 	for i := range encodedVFext {
 		encodedVFext[i].B0.A0.Set(&encodedV[i])

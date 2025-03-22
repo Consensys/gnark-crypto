@@ -6,51 +6,35 @@ import (
 	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
-func transversalHash(codewords [][]koalabear.Element, s *sis.RSis) [][sisKeySize]koalabear.Element {
-	nbCols := len(codewords[0])
+func transversalHash(codewords []koalabear.Element, s *sis.RSis, sizeCodeWord int) []koalabear.Element {
+	N := s.Degree
 
-	// N := s.Degree
-	const N = 512
-	if N != s.Degree {
-		panic("sis key size must be 512")
-	}
+	nbCols := sizeCodeWord
+	nbRows := len(codewords) / sizeCodeWord
 
-	res := make([][N]koalabear.Element, nbCols)
+	res := make([]koalabear.Element, nbCols*N)
 
 	parallel.Execute(nbCols, func(start, end int) {
-		column := make([]koalabear.Element, len(codewords))
-		for col := start; col < end; col++ {
-			for r := 0; r < len(codewords); r++ {
-				column[r] = codewords[r][col]
+		windowSize := 4
+		n := end - start
+		for n%windowSize != 0 {
+			windowSize /= 2
+		}
+		transposed := make([][]koalabear.Element, windowSize)
+		for i := range transposed {
+			transposed[i] = make([]koalabear.Element, nbRows)
+		}
+		for col := start; col < end; col += windowSize {
+			for i := 0; i < nbRows; i++ {
+				for j := range transposed {
+					transposed[j][i] = codewords[i*sizeCodeWord+col+j]
+				}
 			}
-			s.Hash(column[:], res[col][:])
+			for j := range transposed {
+				s.Hash(transposed[j], res[(col+j)*N:(col+j)*N+N])
+			}
 		}
 	})
-
-	// parallel.Execute(nbCols, func(start, end int) {
-	// 	const blockSize = 2
-	// 	var column [blockSize][]koalabear.Element
-	// 	for i := range column {
-	// 		column[i] = make([]koalabear.Element, len(codewords))
-	// 	}
-
-	// 	for col := start; col < end-blockSize; col += blockSize {
-	// 		for r := 0; r < len(codewords); r++ {
-	// 			for i := 0; i < blockSize; i++ {
-	// 				column[i][r] = codewords[r][col+i]
-	// 			}
-	// 		}
-	// 		for i := 0; i < blockSize; i++ {
-	// 			s.Hash(column[i], res[col+i][:])
-	// 		}
-	// 	}
-	// 	for col := end - 4; col < end && col >= 0; col++ {
-	// 		for r := 0; r < len(codewords); r++ {
-	// 			column[0][r] = codewords[r][col]
-	// 		}
-	// 		s.Hash(column[0], res[col][:])
-	// 	}
-	// })
 
 	return res
 }

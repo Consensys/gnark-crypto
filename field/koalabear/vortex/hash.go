@@ -48,23 +48,23 @@ func HashPoseidon2(x []koalabear.Element) Hash {
 	return res
 }
 
-func HashPoseidon2x16(_x [][sisKeySize]koalabear.Element, merkleLeaves []Hash) {
+func HashPoseidon2x16(_x []koalabear.Element, merkleLeaves []Hash) {
 	const (
 		width       = 16
 		p2blockSize = 16
 		stateSize   = 24
 	)
-	if len(_x) != width || len(merkleLeaves) != width {
+	if len(_x)/sisKeySize != width || len(merkleLeaves) != width {
 		panic("invalid input size")
 	}
 
 	var state [stateSize][width]koalabear.Element
-	n := len(_x[0])
+	n := sisKeySize
 	for i := 0; i < n; i += p2blockSize {
 		// transpose state
 		for k := 8; k < stateSize; k++ {
 			for j := 0; j < width; j++ {
-				state[k][j] = _x[j][(k-8)+i]
+				state[k][j] = _x[j*n+(k-8)+i]
 			}
 		}
 		spongePerm.Permutation16x24(&state)

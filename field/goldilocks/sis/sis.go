@@ -134,7 +134,9 @@ func (r *RSis) Hash(v, res []goldilocks.Element) error {
 	}
 
 	// zeroing res
-	copy(res, r.kz)
+	for i := range res {
+		res[i].SetZero()
+	}
 
 	// by default, the mask is ignored (unless we unrolled the FFT and have a degree 64)
 	mask := ^uint64(0)
