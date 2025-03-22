@@ -127,10 +127,8 @@ func (z *E2) String() string {
 
 // MulByElement multiplies an element in E2 by an element in fr
 func (z *E2) MulByElement(x *E2, y *fr.Element) *E2 {
-	var yCopy fr.Element
-	yCopy.Set(y)
-	z.A0.Mul(&x.A0, &yCopy)
-	z.A1.Mul(&x.A1, &yCopy)
+	z.A0.Mul(&x.A0, y)
+	z.A1.Mul(&x.A1, y)
 	return z
 }
 

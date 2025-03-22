@@ -10,6 +10,8 @@ import (
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
+
+	fr "github.com/consensys/gnark-crypto/field/koalabear"
 )
 
 // ------------------------------------------------------------
@@ -256,6 +258,17 @@ func BenchmarkE4Mul(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Mul(&a, &c)
+	}
+}
+
+func BenchmarkE4MulByElement(b *testing.B) {
+	var a E4
+	var c fr.Element
+	_, _ = a.SetRandom()
+	_, _ = c.SetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.MulByElement(&a, &c)
 	}
 }
 
