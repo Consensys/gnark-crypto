@@ -200,10 +200,10 @@ func (f GateFunction) IsVarSolvable(claimedSolvableVar, nbIn int) bool {
 	return f.isAdditive(claimedSolvableVar, nbIn)
 }
 
-// RegisterGate creates a gate object and stores it in the gates registry
-// name is a human-readable name for the gate
-// f is the polynomial function defining the gate
-// nbIn is the number of inputs to the gate
+// RegisterGate creates a gate object and stores it in the gates registry.
+// name is a human-readable name for the gate.
+// f is the polynomial function defining the gate.
+// nbIn is the number of inputs to the gate.
 func RegisterGate(name GateName, f GateFunction, nbIn int, options ...RegisterGateOption) error {
 	s := registerGateSettings{degree: -1, solvableVar: -1}
 	for _, option := range options {
@@ -247,16 +247,6 @@ func GetGate(name GateName) *Gate {
 	gatesLock.Lock()
 	defer gatesLock.Unlock()
 	return gates[name]
-}
-
-func removeGate(name GateName) bool {
-	gatesLock.Lock()
-	defer gatesLock.Unlock()
-	_, found := gates[name]
-	if found {
-		delete(gates, name)
-	}
-	return found
 }
 
 // interpolate fits a polynomial of degree len(X) - 1 = len(Y) - 1 to the points (X[i], Y[i])

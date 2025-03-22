@@ -519,17 +519,14 @@ func TestRegisterGateDegreeDetection(t *testing.T) {
 			name = name + "-register-gate-test"
 
 			assert.NoError(t, RegisterGate(name, f, nbIn, WithDegree(degree)), "given degree must be accepted")
-			removeGate(name)
 
 			assert.Error(t, RegisterGate(name, f, nbIn, WithDegree(degree-1)), "lower degree must be rejected")
-			removeGate(name)
 
 			assert.Error(t, RegisterGate(name, f, nbIn, WithDegree(degree+1)), "higher degree must be rejected")
-			removeGate(name)
 
 			assert.NoError(t, RegisterGate(name, f, nbIn), "no degree must be accepted")
+
 			assert.Equal(t, degree, GetGate(name).Degree(), "degree must be detected correctly")
-			removeGate(name)
 		})
 	}
 
