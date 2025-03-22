@@ -23,7 +23,6 @@ const maxSizeBitReverse = 1 << 23
 var bitReverse = []bitReverseVariant{
 	{name: "bitReverseNaive", buf: make([]babybear.Element, maxSizeBitReverse), fn: bitReverseNaive},
 	{name: "BitReverse", buf: make([]babybear.Element, maxSizeBitReverse), fn: BitReverse},
-	{name: "bitReverseCobraInPlace", buf: make([]babybear.Element, maxSizeBitReverse), fn: bitReverseCobraInPlace},
 }
 
 func TestBitReverse(t *testing.T) {
@@ -31,7 +30,7 @@ func TestBitReverse(t *testing.T) {
 	// generate a random []babybear.Element array of size 2**20
 	pol := make([]babybear.Element, maxSizeBitReverse)
 	one := babybear.One()
-	pol[0].SetRandom()
+	pol[0].MustSetRandom()
 	for i := 1; i < maxSizeBitReverse; i++ {
 		pol[i].Add(&pol[i-1], &one)
 	}
@@ -78,7 +77,7 @@ func BenchmarkBitReverse(b *testing.B) {
 	// generate a random []babybear.Element array of size 2**22
 	pol := make([]babybear.Element, maxSizeBitReverse)
 	one := babybear.One()
-	pol[0].SetRandom()
+	pol[0].MustSetRandom()
 	for i := 1; i < maxSizeBitReverse; i++ {
 		pol[i].Add(&pol[i-1], &one)
 	}

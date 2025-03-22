@@ -58,9 +58,7 @@ func TestExternalMatrix(t *testing.T) {
 func BenchmarkPoseidon2(b *testing.B) {
 	h := NewPermutation(3, 8, 56)
 	var tmp [3]fr.Element
-	tmp[0].SetRandom()
-	tmp[1].SetRandom()
-	tmp[2].SetRandom()
+	fr.Vector(tmp[:]).MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		h.Permutation(tmp[:])

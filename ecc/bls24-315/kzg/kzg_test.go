@@ -121,9 +121,9 @@ func TestCommitLagrange(t *testing.T) {
 	// sample a sparse polynomial (here in Lagrange form)
 	size := 64
 	pol := make([]fr.Element, size)
-	pol[0].SetRandom()
+	pol[0].MustSetRandom()
 	for i := 0; i < size; i = i + 8 {
-		pol[i].SetRandom()
+		pol[i].MustSetRandom()
 	}
 
 	test := func(srs *SRS) func(*testing.T) {
@@ -160,19 +160,19 @@ func TestDividePolyByXminusA(t *testing.T) {
 
 	// build random polynomial
 	pol := make([]fr.Element, pSize)
-	pol[0].SetRandom()
+	pol[0].MustSetRandom()
 	for i := 1; i < pSize; i++ {
 		pol[i] = pol[i-1]
 	}
 
 	// evaluate the polynomial at a random point
 	var point fr.Element
-	point.SetRandom()
+	point.MustSetRandom()
 	evaluation := eval(pol, point)
 
 	// probabilistic test (using Schwartz Zippel lemma, evaluation at one point is enough)
 	var randPoint, xminusa fr.Element
-	randPoint.SetRandom()
+	randPoint.MustSetRandom()
 	polRandpoint := eval(pol, randPoint)
 	polRandpoint.Sub(&polRandpoint, &evaluation) // f(rand)-f(point)
 
@@ -211,7 +211,7 @@ func TestCommit(t *testing.T) {
 	// create a polynomial
 	f := make([]fr.Element, 60)
 	for i := 0; i < 60; i++ {
-		f[i].SetRandom()
+		f[i].MustSetRandom()
 	}
 
 	// commit using the method from KZG
@@ -306,12 +306,12 @@ func TestVerifySinglePointQuickSRS(t *testing.T) {
 	// random polynomial
 	p := make([]fr.Element, size)
 	for i := 0; i < size; i++ {
-		p[i].SetRandom()
+		p[i].MustSetRandom()
 	}
 
 	// random value
 	var x fr.Element
-	x.SetRandom()
+	x.MustSetRandom()
 
 	// verify valid proof
 	d, err := Commit(p, srs.Pk)
@@ -328,7 +328,7 @@ func TestVerifySinglePointQuickSRS(t *testing.T) {
 	}
 
 	// verify wrong proof
-	proof.ClaimedValue.SetRandom()
+	proof.ClaimedValue.MustSetRandom()
 	err = Verify(&d, &proof, x, srs.Vk)
 	if err == nil {
 		t.Fatal(err)
@@ -367,7 +367,7 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 			}
 
 			var salt fr.Element
-			salt.SetRandom()
+			salt.MustSetRandom()
 			proofExtendedTranscript, err := BatchOpenSinglePoint(f, digests, point, hf, srs.Pk, salt.Marshal())
 			if err != nil {
 				t.Fatal(err)
@@ -439,9 +439,9 @@ func TestBatchVerifyMultiPoints(t *testing.T) {
 			// compute 2 batch opening proofs at 2 random points
 			points := make([]fr.Element, 2)
 			batchProofs := make([]BatchOpeningProof, 2)
-			points[0].SetRandom()
+			points[0].MustSetRandom()
 			batchProofs[0], _ = BatchOpenSinglePoint(f[:5], digests[:5], points[0], hf, srs.Pk)
-			points[1].SetRandom()
+			points[1].MustSetRandom()
 			batchProofs[1], _ = BatchOpenSinglePoint(f[5:], digests[5:], points[1], hf, srs.Pk)
 
 			// fold the 2 batch opening proofs
@@ -578,13 +578,13 @@ func BenchmarkDivideByXMinusA(b *testing.B) {
 
 	// build random polynomial
 	pol := make([]fr.Element, pSize)
-	pol[0].SetRandom()
+	pol[0].MustSetRandom()
 	for i := 1; i < pSize; i++ {
 		pol[i] = pol[i-1]
 	}
 	var a, fa fr.Element
-	a.SetRandom()
-	fa.SetRandom()
+	a.MustSetRandom()
+	fa.MustSetRandom()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -601,7 +601,7 @@ func BenchmarkKZGOpen(b *testing.B) {
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
 	var r fr.Element
-	r.SetRandom()
+	r.MustSetRandom()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -616,7 +616,7 @@ func BenchmarkKZGVerify(b *testing.B) {
 	// random polynomial
 	p := randomPolynomial(benchSize / 2)
 	var r fr.Element
-	r.SetRandom()
+	r.MustSetRandom()
 
 	// commit
 	comm, err := Commit(p, srs.Pk)
@@ -652,7 +652,7 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 	hf := sha256.New()
 
 	var r fr.Element
-	r.SetRandom()
+	r.MustSetRandom()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -682,7 +682,7 @@ func BenchmarkKZGBatchVerify10(b *testing.B) {
 	hf := sha256.New()
 
 	var r fr.Element
-	r.SetRandom()
+	r.MustSetRandom()
 
 	proof, err := BatchOpenSinglePoint(ps[:], commitments[:], r, hf, srs.Pk)
 	if err != nil {
@@ -698,7 +698,7 @@ func BenchmarkKZGBatchVerify10(b *testing.B) {
 func randomPolynomial(size int) []fr.Element {
 	f := make([]fr.Element, size)
 	for i := 0; i < size; i++ {
-		f[i].SetRandom()
+		f[i].MustSetRandom()
 	}
 	return f
 }

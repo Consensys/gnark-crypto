@@ -45,7 +45,7 @@ func (z *E12) SetOne() *E12 {
 	return z
 }
 
-// SetRandom sets z to a random elmt
+// SetRandom sets z to a random value
 func (z *E12) SetRandom() (*E12, error) {
 	if _, err := z.C0.SetRandom(); err != nil {
 		return nil, err
@@ -57,6 +57,15 @@ func (z *E12) SetRandom() (*E12, error) {
 		return nil, err
 	}
 	return z, nil
+}
+
+// MustSetRandom sets z to a random value
+// Panics if reading from crypto/rand fails
+func (z *E12) MustSetRandom() *E12 {
+	if _, err := z.SetRandom(); err != nil {
+		panic(err)
+	}
+	return z
 }
 
 // IsZero returns true if z is zero, false otherwise

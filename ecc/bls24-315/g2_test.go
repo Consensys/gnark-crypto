@@ -18,7 +18,7 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
-func TestG2AffineEndomorphism(t *testing.T) {
+func TestG2Endomorphism(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -74,7 +74,7 @@ func TestG2AffineEndomorphism(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG2AffineIsOnCurve(t *testing.T) {
+func TestIsOnG2(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -123,7 +123,7 @@ func TestG2AffineIsOnCurve(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG2AffineConversions(t *testing.T) {
+func TestG2Conversions(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -491,7 +491,7 @@ func TestG2AffineOps(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG2AffineCofactorCleaning(t *testing.T) {
+func TestG2CofactorClearing(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -505,11 +505,11 @@ func TestG2AffineCofactorCleaning(t *testing.T) {
 	properties.Property("[BLS24-315] Clearing the cofactor of a random point should set it in the r-torsion", prop.ForAll(
 		func() bool {
 			var a, x, b fptower.E4
-			a.SetRandom()
+			a.MustSetRandom()
 
 			x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 			for x.Legendre() != 1 {
-				a.SetRandom()
+				a.MustSetRandom()
 				x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 			}
 
@@ -527,7 +527,7 @@ func TestG2AffineCofactorCleaning(t *testing.T) {
 
 }
 
-func TestG2AffineBatchScalarMultiplication(t *testing.T) {
+func TestG2BatchScalarMultiplication(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -592,9 +592,7 @@ func BenchmarkG2JacIsInSubGroup(b *testing.B) {
 
 func BenchmarkG2JacEqual(b *testing.B) {
 	var scalar fptower.E4
-	if _, err := scalar.SetRandom(); err != nil {
-		b.Fatalf("failed to set scalar: %s", err)
-	}
+	scalar.MustSetRandom()
 
 	var a G2Jac
 	a.ScalarMultiplication(&g2Gen, big.NewInt(42))

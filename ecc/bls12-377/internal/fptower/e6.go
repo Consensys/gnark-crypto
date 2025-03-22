@@ -52,6 +52,14 @@ func (z *E6) SetRandom() (*E6, error) {
 	return z, nil
 }
 
+// MustSetRandom sets a0 and a1 to random values.
+// It panics if reading form crypto/rand fails
+func (z *E6) MustSetRandom() {
+	if _, err := z.SetRandom(); err != nil {
+		panic(err)
+	}
+}
+
 // IsZero returns true if z is zero, false otherwise
 func (z *E6) IsZero() bool {
 	return z.B0.IsZero() && z.B1.IsZero() && z.B2.IsZero()

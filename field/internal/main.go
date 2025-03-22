@@ -37,6 +37,7 @@ func main() {
 			generator.WithFFT(&config.FFT{}), // TODO @gbotrel
 			generator.WithSIS(),
 			generator.WithPoseidon2(),
+			generator.WithExtensions(),
 		); err != nil {
 			panic(err)
 		}
