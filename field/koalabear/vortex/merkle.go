@@ -5,6 +5,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/poseidon2"
+	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
 // Hash represents a hash as they occur in Merkle trees
@@ -45,17 +46,26 @@ func BuildMerkleTree(hashes []Hash) *MerkleTree {
 
 	levels := make([][]Hash, depth+1)
 	for i := depth; i >= 0; i-- {
-
 		if i == depth {
 			levels[i] = paddedHashes
 			continue
 		}
 
 		levels[i] = make([]Hash, newPow2>>(depth-i))
-		for k := range levels[i] {
-			left, right := levels[i+1][2*k], levels[i+1][2*k+1]
-			levels[i][k] = CompressPoseidon2(left, right)
+		if len(levels[i]) >= 512 {
+			parallel.Execute(len(levels[i]), func(start, end int) {
+				for k := start; k < end; k++ {
+					left, right := levels[i+1][2*k], levels[i+1][2*k+1]
+					levels[i][k] = CompressPoseidon2(left, right)
+				}
+			})
+		} else {
+			for k := range levels[i] {
+				left, right := levels[i+1][2*k], levels[i+1][2*k+1]
+				levels[i][k] = CompressPoseidon2(left, right)
+			}
 		}
+
 	}
 
 	return &MerkleTree{
