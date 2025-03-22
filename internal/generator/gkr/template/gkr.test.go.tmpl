@@ -519,17 +519,17 @@ func TestRegisterGateDegreeDetection(t *testing.T) {
 			name = name + "-register-gate-test"
 
 			assert.NoError(t, RegisterGate(name, f, nbIn, WithDegree(degree)), "given degree must be accepted")
-			RemoveGate(name)
+			removeGate(name)
 
 			assert.Error(t, RegisterGate(name, f, nbIn, WithDegree(degree-1)), "lower degree must be rejected")
-			RemoveGate(name)
+			removeGate(name)
 
 			assert.Error(t, RegisterGate(name, f, nbIn, WithDegree(degree+1)), "higher degree must be rejected")
-			RemoveGate(name)
+			removeGate(name)
 
 			assert.NoError(t, RegisterGate(name, f, nbIn), "no degree must be accepted")
 			assert.Equal(t, degree, GetGate(name).Degree(), "degree must be detected correctly")
-			RemoveGate(name)
+			removeGate(name)
 		})
 	}
 
@@ -582,11 +582,11 @@ func TestIsAdditive(t *testing.T) {
 		return x[0]
 	}
 
-	assert.False(t, isAdditive(f, 1, 2))
-	assert.False(t, isAdditive(f, 0, 2))
+	assert.False(t, GateFunction(f).isAdditive(1, 2))
+	assert.False(t, GateFunction(f).isAdditive(0, 2))
 
-	assert.False(t, isAdditive(g, 0, 2))
-	assert.True(t, isAdditive(g, 1, 2))
+	assert.False(t, GateFunction(g).isAdditive(0, 2))
+	assert.True(t, GateFunction(g).isAdditive(1, 2))
 
-	assert.True(t, isAdditive(h, 0, 1))
+	assert.True(t, GateFunction(h).isAdditive(0, 1))
 }

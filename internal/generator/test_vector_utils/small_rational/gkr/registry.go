@@ -73,7 +73,7 @@ func WithDegree(degree int) RegisterGateOption {
 }
 
 // isAdditive returns whether x_i occurs only in a monomial of total degree 1 in f
-func isAdditive(f GateFunction, i, nbIn int) bool {
+func (f GateFunction) isAdditive(i, nbIn int) bool {
 	// fix all variables except the i-th one at random points
 	// pick random value x1 for the i-th variable
 	// check if f(-, 0, -) + f(-, 2*x1, -) = 2*f(-, x1, -)
@@ -122,7 +122,7 @@ func isAdditive(f GateFunction, i, nbIn int) bool {
 // fitPoly tries to fit a polynomial of degree less than degreeBound to f.
 // degreeBound must be a power of 2.
 // It returns the polynomial if successful, nil otherwise
-func fitPoly(f GateFunction, nbIn int, degreeBound uint64) polynomial.Polynomial {
+func (f GateFunction) fitPoly(nbIn int, degreeBound uint64) polynomial.Polynomial {
 	// turn f univariate by defining p(x) as f(x, x, ..., x)
 	fIn := make([]small_rational.SmallRational, nbIn)
 	p := make(polynomial.Polynomial, degreeBound)
@@ -160,6 +160,46 @@ func fitPoly(f GateFunction, nbIn int, degreeBound uint64) polynomial.Polynomial
 	return p[:lastNonZero+1]
 }
 
+// FindDegree returns the degree of the gate function, or -1 if it fails.
+// Failure could be due to the degree being higher than max or the function not being a polynomial at all.
+func (f GateFunction) FindDegree(max, nbIn int) int {
+	bound := uint64(max) + 1
+	for degreeBound := uint64(4); degreeBound <= bound; degreeBound *= 2 {
+		if p := f.fitPoly(nbIn, degreeBound); p != nil {
+			return len(p) - 1
+		}
+	}
+	return -1
+}
+
+func (f GateFunction) VerifyDegree(claimedDegree, nbIn int) error {
+	if p := f.fitPoly(nbIn, ecc.NextPowerOfTwo(uint64(claimedDegree)+1)); p == nil {
+		return fmt.Errorf("detected a higher degree than %d", claimedDegree)
+	} else if len(p)-1 != claimedDegree {
+		return fmt.Errorf("detected degree %d, claimed %d", len(p)-1, claimedDegree)
+	}
+	return nil
+}
+
+// FindSolvableVar returns the index of a variable whose value can be uniquely determined from that of the other variables along with the gate's output.
+// It returns -1 if it fails to find one.
+// nbIn is the number of inputs to the gate
+func (f GateFunction) FindSolvableVar(nbIn int) int {
+	for i := range nbIn {
+		if f.isAdditive(i, nbIn) {
+			return i
+		}
+	}
+	return -1
+}
+
+// IsVarSolvable returns whether claimedSolvableVar is a variable whose value can be uniquely determined from that of the other variables along with the gate's output.
+// It returns false if it fails to verify this claim.
+// nbIn is the number of inputs to the gate.
+func (f GateFunction) IsVarSolvable(claimedSolvableVar, nbIn int) bool {
+	return f.isAdditive(claimedSolvableVar, nbIn)
+}
+
 // RegisterGate creates a gate object and stores it in the gates registry
 // name is a human-readable name for the gate
 // f is the polynomial function defining the gate
@@ -174,40 +214,25 @@ func RegisterGate(name GateName, f GateFunction, nbIn int, options ...RegisterGa
 		if s.noDegreeVerification {
 			panic("invalid settings")
 		}
-		found := false
 		const maxAutoDegreeBound = 32
-		for degreeBound := uint64(4); degreeBound <= maxAutoDegreeBound; degreeBound *= 2 {
-			if p := fitPoly(f, nbIn, degreeBound); p != nil {
-				found = true
-				s.degree = len(p) - 1
-				break
-			}
-		}
-		if !found {
+		if s.degree = f.FindDegree(32, nbIn); s.degree == -1 {
 			return fmt.Errorf("could not find a degree for gate %s: tried up to %d", name, maxAutoDegreeBound-1)
 		}
 	} else {
 		if !s.noDegreeVerification { // check that the given degree is correct
-			if p := fitPoly(f, nbIn, ecc.NextPowerOfTwo(uint64(s.degree)+1)); p == nil {
-				return fmt.Errorf("detected a higher degree than %d for gate %s", s.degree, name)
-			} else if len(p)-1 != s.degree {
-				return fmt.Errorf("detected degree %d for gate %s, claimed %d", len(p)-1, name, s.degree)
+			if err := f.VerifyDegree(s.degree, nbIn); err != nil {
+				return fmt.Errorf("for gate %s: %v", name, err)
 			}
 		}
 	}
 
 	if s.solvableVar == -1 {
 		if !s.noSolvableVarVerification { // find a solvable variable
-			for i := range nbIn {
-				if isAdditive(f, i, nbIn) {
-					s.solvableVar = i
-					break
-				}
-			}
+			s.solvableVar = f.FindSolvableVar(nbIn)
 		}
 	} else {
 		// solvable variable given
-		if !s.noSolvableVarVerification && !isAdditive(f, s.solvableVar, nbIn) {
+		if !s.noSolvableVarVerification && !f.IsVarSolvable(s.solvableVar, nbIn) {
 			return fmt.Errorf("cannot verify the solvability of variable %d in gate %s", s.solvableVar, name)
 		}
 	}
@@ -224,7 +249,7 @@ func GetGate(name GateName) *Gate {
 	return gates[name]
 }
 
-func RemoveGate(name GateName) bool {
+func removeGate(name GateName) bool {
 	gatesLock.Lock()
 	defer gatesLock.Unlock()
 	_, found := gates[name]
