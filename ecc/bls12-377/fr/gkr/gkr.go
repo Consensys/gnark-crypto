@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"

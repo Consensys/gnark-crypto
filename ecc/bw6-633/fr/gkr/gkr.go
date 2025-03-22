@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
-	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"

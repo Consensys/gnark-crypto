@@ -2,7 +2,6 @@ import (
 	"errors"
 	"fmt"
 	"{{.FieldPackagePath}}"
-	{{ if eq .FieldPackageName "fr" }}"{{.FieldPackagePath}}/fft" {{ end }}
 	"{{.FieldPackagePath}}/polynomial"
 	"{{.FieldPackagePath}}/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"

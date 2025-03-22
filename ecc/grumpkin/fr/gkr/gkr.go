@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/grumpkin/fr"
-	"github.com/consensys/gnark-crypto/ecc/grumpkin/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/grumpkin/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/grumpkin/fr/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"

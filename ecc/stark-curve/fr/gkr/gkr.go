@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fr"
-	"github.com/consensys/gnark-crypto/ecc/stark-curve/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fr/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr/polynomial"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr/sumcheck"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
