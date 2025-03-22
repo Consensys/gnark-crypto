@@ -281,6 +281,13 @@ func (z *SmallRational) SetRandom() (*SmallRational, error) {
 	return z, nil
 }
 
+func (z *SmallRational) MustSetRandom() *SmallRational {
+	if _, err := z.SetRandom(); err != nil {
+		panic(err)
+	}
+	return z
+}
+
 func (z *SmallRational) SetUint64(i uint64) {
 	var num big.Int
 	num.SetUint64(i)

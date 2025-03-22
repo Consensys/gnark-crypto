@@ -102,9 +102,6 @@ func main() {
 			// generate ecdsa
 			assertNoError(ecdsa.Generate(conf, curveDir, bgen))
 
-			// generate gkr on fr
-			assertNoError(gkr.Generate(gkrConfig, filepath.Join(curveDir, "fr", "gkr"), bgen))
-
 			if conf.Equal(config.STARK_CURVE) {
 				return // TODO @yelhousni
 			}
@@ -115,6 +112,10 @@ func main() {
 			if conf.Equal(config.SECP256K1) {
 				return
 			}
+
+			// generate gkr on fr
+			// GKR tests use MiMC. Once SECP256K1 has a mimc implementation, we can generate GKR for it.
+			assertNoError(gkr.Generate(gkrConfig, filepath.Join(curveDir, "fr", "gkr"), bgen))
 
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))

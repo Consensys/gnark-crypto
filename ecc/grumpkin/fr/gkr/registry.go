@@ -70,22 +70,13 @@ func WithDegree(degree int) RegisterGateOption {
 	}
 }
 
-// setRandom panics if SetRandom returns an error
-func setRandom(x *fr.Element) {
-	if _, err := x.SetRandom(); err != nil {
-		panic(err)
-	}
-}
-
 // isAdditive returns whether x_i occurs only in a monomial of total degree 1 in f
 func isAdditive(f GateFunction, i, nbIn int) bool {
 	// fix all variables except the i-th one at random points
 	// pick random value x1 for the i-th variable
 	// check if f(-, 0, -) + f(-, 2*x1, -) = 2*f(-, x1, -)
-	x := make([]fr.Element, nbIn)
-	for i := range x {
-		setRandom(&x[i])
-	}
+	x := make(fr.Vector, nbIn)
+	x.MustSetRandom()
 	x0 := x[i]
 	x[i].SetZero()
 	in := slices.Clone(x)
@@ -112,9 +103,7 @@ func isAdditive(f GateFunction, i, nbIn int) bool {
 	}
 
 	// compute the slope with another assignment for the other variables
-	for i := range x {
-		setRandom(&x[i])
-	}
+	x.MustSetRandom()
 	x[i].SetZero()
 	copy(in, x)
 	y0 = f(in...)
@@ -135,9 +124,9 @@ func fitPoly(f GateFunction, nbIn int, degreeBound uint64) polynomial.Polynomial
 	// turn f univariate by defining p(x) as f(x, x, ..., x)
 	fIn := make([]fr.Element, nbIn)
 	p := make(polynomial.Polynomial, degreeBound)
-	x := make([]fr.Element, degreeBound)
+	x := make(fr.Vector, degreeBound)
+	x.MustSetRandom()
 	for i := range x {
-		setRandom(&x[i])
 		for j := range fIn {
 			fIn[j] = x[i]
 		}
@@ -151,7 +140,7 @@ func fitPoly(f GateFunction, nbIn int, degreeBound uint64) polynomial.Polynomial
 	}
 
 	// check if p is equal to f. This not being the case means that f is of a degree higher than degreeBound
-	setRandom(&fIn[0])
+	fIn[0].MustSetRandom()
 	for i := range fIn {
 		fIn[i] = fIn[0]
 	}
