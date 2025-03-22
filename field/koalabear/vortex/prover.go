@@ -50,9 +50,9 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 	if N%blockSize != 0 {
 		panic("len of codewords must be a multiple of 16")
 	}
-	if p.Key.Degree != sisKeySize {
-		panic("sis key size must be 512")
-	}
+	// if p.Key.Degree != sisKeySize {
+	// 	panic("sis key size must be 512")
+	// }
 
 	codewords := make([]koalabear.Element, len(input)*N)
 	merkleLeaves := make([]Hash, N)
@@ -66,6 +66,7 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 	sisHashes := transversalHash(codewords, p.Key, p.SizeCodeWord())
 
 	parallel.Execute(N/blockSize, func(start, end int) {
+		sisKeySize := p.Key.Degree
 		for block := start; block < end; block++ {
 			b := block * blockSize
 			_start := b * sisKeySize
