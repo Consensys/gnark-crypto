@@ -11,5 +11,10 @@ import (
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 )
 
+// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+// used for Montgomery reduction
+const qInvNeg = 2130706431
+const q = 2130706433
+
 //go:noescape
 func mulAccE4_avx512(alpha *E4, scale *fr.Element, res *E4, N uint64)

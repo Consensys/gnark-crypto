@@ -1,9 +1,11 @@
 package generator
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
 	"github.com/consensys/gnark-crypto/field/generator/config"
 )
 
@@ -61,6 +63,20 @@ func generateExtensions(F *config.Field, outputDir string) error {
 		if err := bgen.GenerateWithOptions(data, "extensions", extensionsTemplatesRootDir, nil, entries_ext4...); err != nil {
 			return err
 		}
+
+		// generate the assembly file;
+		asmFile, err := os.Create(filepath.Join(outputDir, "e4_amd64.s"))
+		if err != nil {
+			return err
+		}
+
+		asmFile.WriteString("//go:build !purego\n")
+
+		if err := amd64.GenerateF31E4(asmFile); err != nil {
+			asmFile.Close()
+			return err
+		}
+		asmFile.Close()
 	}
 
 	return runFormatters(outputDir)

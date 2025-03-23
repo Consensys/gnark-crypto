@@ -343,45 +343,20 @@ func (z *E4) Div(x *E4, y *E4) *E4 {
 	r.Inverse(y).Mul(x, &r)
 	return z.Set(&r)
 }
+
 func MulAccE4(alpha *E4, scale []fr.Element, res []E4) {
 	N := len(res)
 	if N != len(scale) {
 		panic("MulAccE4: len(res) != len(scale)")
 	}
-	if cpu.SupportAVX512 && N%4 == 0 {
-		mulAccE4_avx512(alpha, &scale[0], &res[0], uint64(N))
+	if !cpu.SupportAVX512 || N%4 != 0 {
+		var tmp E4
+		for i := 0; i < N; i++ {
+			tmp.MulByElement(alpha, &scale[i])
+			res[i].Add(&res[i], &tmp)
+		}
 		return
 	}
 
-	var tmp E4
-	for i := 0; i < N; i++ {
-		tmp.MulByElement(alpha, &scale[i])
-		res[i].Add(&res[i], &tmp)
-	}
+	mulAccE4_avx512(alpha, &scale[0], &res[0], uint64(N))
 }
-
-// for j := 0; j < N; j++ {
-// 	tmp.MulByElement(alphaPow, &codewords[i*N+j])
-// 	ualpha[j].Add(&ualpha[j], &tmp)
-// }
-
-// // what API do we need for E4 ?
-
-// var ualpha [N]E4
-// var alphaPow E4
-// var codewords []fr.Element
-
-// func mulAcc(alphaPow *E4, ualpha *[N]E4, codewords []fr.Element) {
-// 	var tmp E4
-// 	for j := 0; j < N; j++ {
-// 		tmp.MulByElement(alphaPow, &codewords[j])
-// 		ualpha[j].Add(&ualpha[j], &tmp)
-// 	}
-// }
-
-// // N % 4 == 0
-
-// // 1. repeat alphaPow * 4 on a ZMM of 16uint32
-// // 2. broadcast codewords[j%4], codewords[j+1%4], codewords[j+2%4], codewords[j+3%4] to one ZMM
-// // 3. mul the ZMM with the ZMM of 16uint32
-// // 4. accumulate the result.

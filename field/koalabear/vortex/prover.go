@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"unsafe"
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
@@ -105,10 +106,15 @@ func (ps *ProverState) OpenLinComb(alpha fext.E4) {
 			fext.MulAccE4(alphaPow, codewords[i*N:i*N+N], ualpha)
 			alphaPow.Mul(alphaPow, &alpha)
 		}
+
+		// using unsafe, we take the address of _ualpha[0] and
+		// create a vector of fr.Element of size M starting at _ualpha[0]
+		M := len(ualpha) * 4
+		vUalpha := koalabear.Vector(unsafe.Slice((*koalabear.Element)(unsafe.Pointer(&ualpha[0])), M))
+		_vUalpha := koalabear.Vector(unsafe.Slice((*koalabear.Element)(unsafe.Pointer(&_ualpha[0])), M))
+
 		lock.Lock()
-		for j := 0; j < N; j++ {
-			_ualpha[j].Add(&_ualpha[j], &ualpha[j])
-		}
+		_vUalpha.Add(_vUalpha, vUalpha)
 		lock.Unlock()
 	})
 
