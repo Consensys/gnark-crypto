@@ -586,40 +586,10 @@ func (f *FFAmd64) generateMulAccE4() {
 	// 	res[i].Add(&res[i], &tmp)
 	// }
 
-	// computes c = a * b mod q
-	// a and b can be in [0, 2q)
-	mul := func(a, b, into amd64.VectorRegister) {
-		aOdd := registers.PopV()
-		bOdd := registers.PopV()
-		b0 := registers.PopV()
-		b1 := registers.PopV()
-		PL0 := registers.PopV()
-		PL1 := registers.PopV()
-
-		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
-		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
-
-		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
-		f.VPMULUDQ(a, b, b0)
-		f.VPMULUDQ(aOdd, bOdd, b1)
-		f.VPMULUDQ(b0, qInvNeg, PL0)
-		f.VPMULUDQ(b1, qInvNeg, PL1)
-
-		f.VPMULUDQ(PL0, qd, PL0)
-		f.VPADDQ(b0, PL0, b0)
-
-		f.VPMULUDQ(PL1, qd, PL1)
-		f.VPADDQ(b1, PL1, into)
-
-		f.VMOVSHDUPk(b0, amd64.K3, into)
-
-		f.VPSUBD(qd, into, PL0)
-		f.VPMINUD(into, PL0, into)
-	}
-
 	// alpha is an E4, so it is 4 uint32
 	// we load it into a XMM register and repeat it to a YMM, then to a ZMM
 	alpha := registers.PopV()
+	alphaOdd := registers.PopV()
 	result := registers.PopV()
 	s0 := registers.PopV()
 	s1 := registers.PopV()
@@ -630,6 +600,8 @@ func (f *FFAmd64) generateMulAccE4() {
 	f.VMOVDQU32(addrAlpha.At(0), alpha.X())
 	f.VINSERTI64X2(1, alpha.X(), alpha.Y(), alpha.Y())
 	f.VINSERTI64X4(1, alpha.Y(), alpha.Z(), alpha.Z())
+
+	f.VPSRLQ("$32", alpha, alphaOdd) // keep high 32 bits
 
 	// N % 4 == 0 (pre condition checked by caller)
 	// divide N by 4
@@ -645,7 +617,6 @@ func (f *FFAmd64) generateMulAccE4() {
 	f.VMOVDQU32(addrRes.At(0), result)
 
 	// load scale
-	// f.VMOVDQU32(addrScale.At(0), scale)
 	f.VPBROADCASTD(addrScale.AtD(0), s0.X())
 	f.VPBROADCASTD(addrScale.AtD(1), s1.X())
 	f.VPBROADCASTD(addrScale.AtD(2), s2.X())
@@ -655,6 +626,31 @@ func (f *FFAmd64) generateMulAccE4() {
 	f.VINSERTI64X2(1, s3.X(), s2.Y(), s2.Y())
 	f.VINSERTI64X4(1, s2.Y(), s0.Z(), s0.Z())
 
+	// computes c = a * b mod q
+	// a and b can be in [0, 2q)
+	mul := func(alpha, s0, acc amd64.VectorRegister) {
+
+		b0 := registers.PopV()
+		b1 := registers.PopV()
+		PL0 := registers.PopV()
+		PL1 := registers.PopV()
+
+		f.VPMULUDQ(s0, alpha, b0)
+		f.VPMULUDQ(s0, alphaOdd, b1)
+		f.VPMULUDQ(b0, qInvNeg, PL0)
+		f.VPMULUDQ(b1, qInvNeg, PL1)
+
+		f.VPMULUDQ(PL0, qd, PL0)
+		f.VPADDQ(b0, PL0, b0)
+
+		f.VPMULUDQ(PL1, qd, PL1)
+		f.VPADDQ(b1, PL1, b1)
+
+		f.VMOVSHDUPk(b0, amd64.K3, b1)
+
+		f.VPSUBD(qd, b1, PL0)
+		f.VPMINUD(b1, PL0, acc)
+	}
 	mul(alpha, s0, acc)
 
 	f.VPADDD(result, acc, result, "result = result + acc")
@@ -673,9 +669,4 @@ func (f *FFAmd64) generateMulAccE4() {
 	f.LABEL(lblEnd)
 
 	f.RET()
-
-	// 1. repeat alphaPow * 4 on a ZMM of 16uint32
-	// 2. broadcast codewords[j%4], codewords[j+1%4], codewords[j+2%4], codewords[j+3%4] to one ZMM
-	// 3. mul the ZMM with the ZMM of 16uint32
-	// 4. accumulate the result.
 }
