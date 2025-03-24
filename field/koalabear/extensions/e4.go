@@ -9,6 +9,7 @@ import (
 	"math/big"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
+	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
 // E4 is a degree two finite field extension of fr2
@@ -341,4 +342,21 @@ func (z *E4) Div(x *E4, y *E4) *E4 {
 	var r E4
 	r.Inverse(y).Mul(x, &r)
 	return z.Set(&r)
+}
+
+func MulAccE4(alpha *E4, scale []fr.Element, res []E4) {
+	N := len(res)
+	if N != len(scale) {
+		panic("MulAccE4: len(res) != len(scale)")
+	}
+	if !cpu.SupportAVX512 || N%4 != 0 {
+		var tmp E4
+		for i := 0; i < N; i++ {
+			tmp.MulByElement(alpha, &scale[i])
+			res[i].Add(&res[i], &tmp)
+		}
+		return
+	}
+
+	mulAccE4_avx512(alpha, &scale[0], &res[0], uint64(N))
 }
