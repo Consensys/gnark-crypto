@@ -38,13 +38,6 @@ func (f *Extension) Neg(x Element) Element {
 	return z
 }
 
-func max(x int, y int) int {
-	if x > y {
-		return x
-	}
-	return y
-}
-
 func (f *Extension) Add(x Element, y Element) Element {
 	z := make(Element, f.Degree)
 
