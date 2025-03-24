@@ -17,11 +17,13 @@ var (
 // CompressPoseidon2 runs the Poseidon2 compression function over two hashes
 func CompressPoseidon2(a, b Hash) Hash {
 	res := Hash{}
-	x := append(a[:], b[:]...)
-	if err := compressPerm.Permutation(x); err != nil {
+	var x [16]koalabear.Element
+	copy(x[:], a[:])
+	copy(x[8:], b[:])
+	if err := compressPerm.Permutation(x[:]); err != nil {
 		panic(err)
 	}
-	copy(res[:], x)
+	copy(res[:], x[:8])
 	return res
 }
 
