@@ -505,11 +505,11 @@ func TestG2CofactorClearing(t *testing.T) {
 	properties.Property("[BLS12-377] Clearing the cofactor of a random point should set it in the r-torsion", prop.ForAll(
 		func() bool {
 			var a, x, b fptower.E2
-			a.SetRandom()
+			a.MustSetRandom()
 
 			x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 			for x.Legendre() != 1 {
-				a.SetRandom()
+				a.MustSetRandom()
 				x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 			}
 
@@ -592,9 +592,7 @@ func BenchmarkG2JacIsInSubGroup(b *testing.B) {
 
 func BenchmarkG2JacEqual(b *testing.B) {
 	var scalar fptower.E2
-	if _, err := scalar.SetRandom(); err != nil {
-		b.Fatalf("failed to set scalar: %s", err)
-	}
+	scalar.MustSetRandom()
 
 	var a G2Jac
 	a.ScalarMultiplication(&g2Gen, big.NewInt(42))

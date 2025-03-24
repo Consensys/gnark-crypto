@@ -396,7 +396,7 @@ func BenchmarkMillerLoop(b *testing.B) {
 func BenchmarkFinalExponentiation(b *testing.B) {
 
 	var a GT
-	a.SetRandom()
+	a.MustSetRandom()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -460,11 +460,11 @@ func BenchmarkMultiPair(b *testing.B) {
 func BenchmarkExpGT(b *testing.B) {
 
 	var a GT
-	a.SetRandom()
+	a.MustSetRandom()
 	a = FinalExponentiation(&a)
 
 	var e fp.Element
-	e.SetRandom()
+	e.MustSetRandom()
 
 	k := new(big.Int).SetUint64(24)
 

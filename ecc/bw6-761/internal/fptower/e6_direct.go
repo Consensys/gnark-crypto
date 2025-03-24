@@ -111,6 +111,15 @@ func (z *E6D) SetRandom() (*E6D, error) {
 	return z, nil
 }
 
+// MustSetRandom sets z to a random value.
+// It panics if reading from crypto/rand fails.
+func (z *E6D) MustSetRandom() *E6D {
+	if _, err := z.SetRandom(); err != nil {
+		panic(err)
+	}
+	return z
+}
+
 // IsZero returns true if z is zero, false otherwise
 func (z *E6D) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero() && z.A2.IsZero() && z.A3.IsZero() && z.A4.IsZero() && z.A5.IsZero()

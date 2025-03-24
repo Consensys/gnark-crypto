@@ -75,6 +75,15 @@ func (z *E2) SetRandom() (*E2, error) {
 	return z, nil
 }
 
+// MustSetRandom sets a0 and a1 to random values.
+// It panics if reading from crypto/rand fails.
+func (z *E2) MustSetRandom() *E2 {
+	if _, err := z.A0.SetRandom(); err != nil {
+		panic(err)
+	}
+	return z
+}
+
 // IsZero returns true if z is zero, false otherwise
 func (z *E2) IsZero() bool {
 	return z.A0.IsZero() && z.A1.IsZero()
@@ -120,10 +129,8 @@ func (z *E2) String() string {
 
 // MulByElement multiplies an element in E2 by an element in fr
 func (z *E2) MulByElement(x *E2, y *fr.Element) *E2 {
-	var yCopy fr.Element
-	yCopy.Set(y)
-	z.A0.Mul(&x.A0, &yCopy)
-	z.A1.Mul(&x.A1, &yCopy)
+	z.A0.Mul(&x.A0, y)
+	z.A1.Mul(&x.A1, y)
 	return z
 }
 

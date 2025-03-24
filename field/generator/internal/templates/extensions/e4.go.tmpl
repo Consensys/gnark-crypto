@@ -71,10 +71,8 @@ func (z *E4) SetOne() *E4 {
 
 // MulByElement multiplies an element in E4 by an element in fr
 func (z *E4) MulByElement(x *E4, y *fr.Element) *E4 {
-	var yCopy fr.Element
-	yCopy.Set(y)
-	z.B0.MulByElement(&x.B0, &yCopy)
-	z.B1.MulByElement(&x.B1, &yCopy)
+	z.B0.MulByElement(&x.B0, y)
+	z.B1.MulByElement(&x.B1, y)
 	return z
 }
 
@@ -124,6 +122,15 @@ func (z *E4) SetRandom() (*E4, error) {
 		return nil, err
 	}
 	return z, nil
+}
+
+// MustSetRandom sets the element to a random value.
+// It panics if reading from crypto/rand fails.
+func (z *E4) MustSetRandom() *E4 {
+	if _, err := z.SetRandom(); err != nil {
+		panic(err)
+	}
+	return z
 }
 
 // IsZero returns true if z is zero, false otherwise

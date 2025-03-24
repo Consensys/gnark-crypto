@@ -7,7 +7,7 @@ const InverseTests = `
 func Test{{toTitle .ElementName}}InversionApproximation(t *testing.T) {
 	var x {{.ElementName}}
 	for i := 0; i < 1000; i++ {
-		x.SetRandom()
+		x.MustSetRandom()
 
 		// Normally small elements are unlikely. Here we give them a higher chance
 		xZeros := mrand.Int() % Limbs //#nosec G404 weak rng is fine here
@@ -49,8 +49,8 @@ func Test{{toTitle .ElementName}}LinearComb(t *testing.T) {
 	var y {{.ElementName}}
 
 	for i := 0; i < 1000; i++ {
-		x.SetRandom()
-		y.SetRandom()
+		x.MustSetRandom()
+		y.MustSetRandom()
 		testLinearComb(t, &x, mrand.Int63(), &y, mrand.Int63()) //#nosec G404 weak rng is fine here
 	}
 }
@@ -68,7 +68,7 @@ func Test{{toTitle .ElementName}}InversionCorrectionFactor(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		var x {{.ElementName}}
 		var xInv {{.ElementName}}
-		x.SetRandom()
+		x.MustSetRandom()
 		xInv.Inverse(&x)
 
 		x.Mul(&x, &xInv)
@@ -107,7 +107,7 @@ func Test{{toTitle .ElementName}}BigNumWMul(t *testing.T) {
 	var x {{.ElementName}}
 
 	for i := 0; i < 1000; i++ {
-		x.SetRandom()
+		x.MustSetRandom()
 		w := mrand.Int63() //#nosec G404 weak rng is fine here
 		testBigNumWMul(t, &x, w)
 	}
@@ -116,7 +116,7 @@ func Test{{toTitle .ElementName}}BigNumWMul(t *testing.T) {
 func Test{{toTitle .ElementName}}VeryBigIntConversion(t *testing.T) {
 	xHi := mrand.Uint64() //#nosec G404 weak rng is fine here
 	var x {{.ElementName}}
-	x.SetRandom()
+	x.MustSetRandom()
 	var xInt big.Int
 	x.toVeryBigIntSigned(&xInt, xHi)
 	x.assertMatchVeryBigInt(t, xHi, &xInt)

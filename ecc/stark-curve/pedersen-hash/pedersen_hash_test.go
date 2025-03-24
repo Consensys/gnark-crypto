@@ -120,13 +120,9 @@ var feltBench fp.Element
 func BenchmarkPedersenArray(b *testing.B) {
 	numOfElems := []int{3, 5, 10, 15, 20, 25, 30, 35, 40}
 	createRandomFelts := func(n int) []*fp.Element {
-		var felts []*fp.Element
-		for i := 0; i < n; i++ {
-			f, err := new(fp.Element).SetRandom()
-			if err != nil {
-				b.Fatalf("error while generating random felt: %x", err)
-			}
-			felts = append(felts, f)
+		felts := make([]*fp.Element, n)
+		for i := range felts {
+			felts[i] = new(fp.Element).MustSetRandom()
 		}
 		return felts
 	}

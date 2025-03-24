@@ -59,7 +59,7 @@ func (z *E3) SetOne() *E3 {
 	return z
 }
 
-// SetRandom sets z to a random elmt
+// SetRandom sets z to a uniform random value
 func (z *E3) SetRandom() (*E3, error) {
 	if _, err := z.A0.SetRandom(); err != nil {
 		return nil, err
@@ -71,6 +71,15 @@ func (z *E3) SetRandom() (*E3, error) {
 		return nil, err
 	}
 	return z, nil
+}
+
+// MustSetRandom sets z to a uniform random value.
+// Panics if reading from crypto/rand fails.
+func (z *E3) MustSetRandom() *E3 {
+	if _, err := z.SetRandom(); err != nil {
+		panic(err)
+	}
+	return z
 }
 
 // IsZero returns true if z is zero, false otherwise
@@ -131,31 +140,31 @@ func (z *E3) MulByElement(x *E3, y *fp.Element) *E3 {
 }
 
 // MulBy12 multiplication by sparse element (0,b1,b2)
-func (x *E3) MulBy12(b1, b2 *fp.Element) *E3 {
+func (z *E3) MulBy12(b1, b2 *fp.Element) *E3 {
 	var t1, t2, c0, tmp, c1, c2 fp.Element
-	t1.Mul(&x.A1, b1)
-	t2.Mul(&x.A2, b2)
-	c0.Add(&x.A1, &x.A2)
+	t1.Mul(&z.A1, b1)
+	t2.Mul(&z.A2, b2)
+	c0.Add(&z.A1, &z.A2)
 	tmp.Add(b1, b2)
 	c0.Mul(&c0, &tmp)
 	c0.Sub(&c0, &t1)
 	c0.Sub(&c0, &t2)
 	c0.MulByNonResidue(&c0)
-	c1.Add(&x.A0, &x.A1)
+	c1.Add(&z.A0, &z.A1)
 	c1.Mul(&c1, b1)
 	c1.Sub(&c1, &t1)
 	tmp.MulByNonResidue(&t2)
 	c1.Add(&c1, &tmp)
-	tmp.Add(&x.A0, &x.A2)
+	tmp.Add(&z.A0, &z.A2)
 	c2.Mul(b2, &tmp)
 	c2.Sub(&c2, &t2)
 	c2.Add(&c2, &t1)
 
-	x.A0 = c0
-	x.A1 = c1
-	x.A2 = c2
+	z.A0 = c0
+	z.A1 = c1
+	z.A2 = c2
 
-	return x
+	return z
 }
 
 // MulBy01 multiplication by sparse element (c0,c1,0)
