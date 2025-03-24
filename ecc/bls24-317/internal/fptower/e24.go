@@ -86,6 +86,15 @@ func (z *E24) SetRandom() (*E24, error) {
 	return z, nil
 }
 
+// MustSetRandom sets z to a uniform random value.
+// It panics if reading from crypto/rand fails.
+func (z *E24) MustSetRandom() *E24 {
+	if _, err := z.SetRandom(); err != nil {
+		panic(err)
+	}
+	return z
+}
+
 // IsZero returns true if z is zero, false otherwise
 func (z *E24) IsZero() bool {
 	return z.D0.IsZero() && z.D1.IsZero()

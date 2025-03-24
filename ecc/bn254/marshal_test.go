@@ -48,8 +48,8 @@ func TestEncoder(t *testing.T) {
 
 	// set values of inputs
 	inA = rand.Uint64() //#nosec G404 weak rng is fine here
-	inB.SetRandom()
-	inC.SetRandom()
+	inB.MustSetRandom()
+	inC.MustSetRandom()
 	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
 	// inE --> infinity
 	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
@@ -67,10 +67,9 @@ func TestEncoder(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		inN[i] = make([][]fr.Element, i+2)
 		for j := 0; j < i+2; j++ {
-			inN[i][j] = make([]fr.Element, j+3)
-			for k := 0; k < j+3; k++ {
-				inN[i][j][k].SetRandom()
-			}
+			inNIJ := make(fr.Vector, j+3)
+			inNIJ.MustSetRandom()
+			inN[i][j] = inNIJ
 		}
 	}
 
@@ -240,8 +239,8 @@ func TestG1AffineSerialization(t *testing.T) {
 		// compressed
 		{
 			var p1, p2 G1Affine
-			p2.X.SetRandom()
-			p2.Y.SetRandom()
+			p2.X.MustSetRandom()
+			p2.Y.MustSetRandom()
 			buf := p1.Bytes()
 			n, err := p2.SetBytes(buf[:])
 			if err != nil {
@@ -258,8 +257,8 @@ func TestG1AffineSerialization(t *testing.T) {
 		// uncompressed
 		{
 			var p1, p2 G1Affine
-			p2.X.SetRandom()
-			p2.Y.SetRandom()
+			p2.X.MustSetRandom()
+			p2.Y.MustSetRandom()
 			buf := p1.RawBytes()
 			n, err := p2.SetBytes(buf[:])
 			if err != nil {
@@ -333,8 +332,8 @@ func TestG2AffineSerialization(t *testing.T) {
 		// compressed
 		{
 			var p1, p2 G2Affine
-			p2.X.SetRandom()
-			p2.Y.SetRandom()
+			p2.X.MustSetRandom()
+			p2.Y.MustSetRandom()
 			buf := p1.Bytes()
 			n, err := p2.SetBytes(buf[:])
 			if err != nil {
@@ -351,8 +350,8 @@ func TestG2AffineSerialization(t *testing.T) {
 		// uncompressed
 		{
 			var p1, p2 G2Affine
-			p2.X.SetRandom()
-			p2.Y.SetRandom()
+			p2.X.MustSetRandom()
+			p2.Y.MustSetRandom()
 			buf := p1.RawBytes()
 			n, err := p2.SetBytes(buf[:])
 			if err != nil {
@@ -425,10 +424,7 @@ func TestG2AffineSerialization(t *testing.T) {
 func GenFr() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fr.Element
-
-		if _, err := elmt.SetRandom(); err != nil {
-			panic(err)
-		}
+		elmt.MustSetRandom()
 
 		return gopter.NewGenResult(elmt, gopter.NoShrinker)
 	}
@@ -438,10 +434,7 @@ func GenFr() gopter.Gen {
 func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fp.Element
-
-		if _, err := elmt.SetRandom(); err != nil {
-			panic(err)
-		}
+		elmt.MustSetRandom()
 
 		return gopter.NewGenResult(elmt, gopter.NoShrinker)
 	}

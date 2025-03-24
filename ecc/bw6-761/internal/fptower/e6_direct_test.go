@@ -200,8 +200,8 @@ func TestE6DOps(t *testing.T) {
 // bench
 func BenchmarkE6DMulTower(b *testing.B) {
 	var a, c E6D
-	a.SetRandom()
-	c.SetRandom()
+	a.MustSetRandom()
+	c.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.mulTower(&a, &c)
@@ -210,8 +210,8 @@ func BenchmarkE6DMulTower(b *testing.B) {
 
 func BenchmarkE6DMulMontgomery6(b *testing.B) {
 	var a, c E6D
-	a.SetRandom()
-	c.SetRandom()
+	a.MustSetRandom()
+	c.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.mulMontgomery6(&a, &c)

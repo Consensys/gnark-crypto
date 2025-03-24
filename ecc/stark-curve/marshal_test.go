@@ -1,8 +1,6 @@
 // Copyright 2020-2025 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
-// FOO
-
 package starkcurve
 
 import (
@@ -34,8 +32,8 @@ func TestEncoder(t *testing.T) {
 
 	// set values of inputs
 	inA = rand.Uint64() //#nosec G404 weak rng is fine here
-	inB.SetRandom()
-	inC.SetRandom()
+	inB.MustSetRandom()
+	inC.MustSetRandom()
 	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
 	// inE --> infinity
 	inG = make([]G1Affine, 2)
@@ -156,8 +154,8 @@ func TestG1AffineSerialization(t *testing.T) {
 		// compressed
 		{
 			var p1, p2 G1Affine
-			p2.X.SetRandom()
-			p2.Y.SetRandom()
+			p2.X.MustSetRandom()
+			p2.Y.MustSetRandom()
 			buf := p1.Bytes()
 			n, err := p2.SetBytes(buf[:])
 			if err != nil {
@@ -174,8 +172,8 @@ func TestG1AffineSerialization(t *testing.T) {
 		// uncompressed
 		{
 			var p1, p2 G1Affine
-			p2.X.SetRandom()
-			p2.Y.SetRandom()
+			p2.X.MustSetRandom()
+			p2.Y.MustSetRandom()
 			buf := p1.RawBytes()
 			n, err := p2.SetBytes(buf[:])
 			if err != nil {

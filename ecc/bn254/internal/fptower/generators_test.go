@@ -5,14 +5,12 @@ import (
 	"github.com/leanovate/gopter"
 )
 
-// GenFp generates an Fp element
+// Fp generates an Fp element
 func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fp.Element
+		elmt.MustSetRandom()
 
-		if _, err := elmt.SetRandom(); err != nil {
-			panic(err)
-		}
 		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
 		return genResult
 	}

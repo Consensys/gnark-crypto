@@ -44,7 +44,7 @@ func TestLookupVector(t *testing.T) {
 
 	// wrong proofs vector
 	{
-		fvector[0].SetRandom()
+		fvector[0].MustSetRandom()
 
 		proof, err := ProveLookupVector(kzgSrs.Pk, fvector, lookupVector)
 		if err != nil {
@@ -94,7 +94,7 @@ func TestLookupTable(t *testing.T) {
 
 	// wrong proof
 	{
-		fTable[0][0].SetRandom()
+		fTable[0][0].MustSetRandom()
 		proof, err := ProveLookupTables(kzgSrs.Pk, fTable, lookupTable)
 		if err != nil {
 			t.Fatal(err)

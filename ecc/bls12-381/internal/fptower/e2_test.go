@@ -405,8 +405,8 @@ func TestE2Ops(t *testing.T) {
 
 func BenchmarkE2Add(b *testing.B) {
 	var a, c E2
-	_, _ = a.SetRandom()
-	_, _ = c.SetRandom()
+	a.MustSetRandom()
+	c.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Add(&a, &c)
@@ -415,8 +415,8 @@ func BenchmarkE2Add(b *testing.B) {
 
 func BenchmarkE2Sub(b *testing.B) {
 	var a, c E2
-	_, _ = a.SetRandom()
-	_, _ = c.SetRandom()
+	a.MustSetRandom()
+	c.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Sub(&a, &c)
@@ -425,8 +425,8 @@ func BenchmarkE2Sub(b *testing.B) {
 
 func BenchmarkE2Mul(b *testing.B) {
 	var a, c E2
-	_, _ = a.SetRandom()
-	_, _ = c.SetRandom()
+	a.MustSetRandom()
+	c.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Mul(&a, &c)
@@ -436,8 +436,8 @@ func BenchmarkE2Mul(b *testing.B) {
 func BenchmarkE2MulByElement(b *testing.B) {
 	var a E2
 	var c fp.Element
-	_, _ = c.SetRandom()
-	_, _ = a.SetRandom()
+	c.MustSetRandom()
+	a.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.MulByElement(&a, &c)
@@ -446,7 +446,7 @@ func BenchmarkE2MulByElement(b *testing.B) {
 
 func BenchmarkE2Square(b *testing.B) {
 	var a E2
-	_, _ = a.SetRandom()
+	a.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Square(&a)
@@ -455,7 +455,7 @@ func BenchmarkE2Square(b *testing.B) {
 
 func BenchmarkE2Sqrt(b *testing.B) {
 	var a E2
-	_, _ = a.SetRandom()
+	a.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Sqrt(&a)
@@ -464,7 +464,7 @@ func BenchmarkE2Sqrt(b *testing.B) {
 
 func BenchmarkE2Exp(b *testing.B) {
 	var x E2
-	_, _ = x.SetRandom()
+	x.MustSetRandom()
 	b1, _ := rand.Int(rand.Reader, fp.Modulus())
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -474,7 +474,7 @@ func BenchmarkE2Exp(b *testing.B) {
 
 func BenchmarkE2Inverse(b *testing.B) {
 	var a E2
-	_, _ = a.SetRandom()
+	a.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Inverse(&a)
@@ -483,7 +483,7 @@ func BenchmarkE2Inverse(b *testing.B) {
 
 func BenchmarkE2MulNonRes(b *testing.B) {
 	var a E2
-	_, _ = a.SetRandom()
+	a.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.MulByNonResidue(&a)
@@ -492,7 +492,7 @@ func BenchmarkE2MulNonRes(b *testing.B) {
 
 func BenchmarkE2MulNonResInv(b *testing.B) {
 	var a E2
-	_, _ = a.SetRandom()
+	a.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.MulByNonResidueInv(&a)
@@ -501,7 +501,7 @@ func BenchmarkE2MulNonResInv(b *testing.B) {
 
 func BenchmarkE2Conjugate(b *testing.B) {
 	var a E2
-	_, _ = a.SetRandom()
+	a.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Conjugate(&a)

@@ -773,9 +773,7 @@ func BenchmarkProjEqual(b *testing.B) {
 	params := GetEdwardsCurve()
 
 	var scalar fr.Element
-	if _, err := scalar.SetRandom(); err != nil {
-		b.Fatalf("error generating random scalar: %v", err)
-	}
+	scalar.MustSetRandom()
 
 	var baseProj PointProj
 	baseProj.FromAffine(&params.Base)

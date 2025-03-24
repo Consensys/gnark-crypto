@@ -31,7 +31,7 @@ func TestBitReverse(t *testing.T) {
 	// generate a random []fr.Element array of size 2**20
 	pol := make([]fr.Element, maxSizeBitReverse)
 	one := fr.One()
-	pol[0].SetRandom()
+	pol[0].MustSetRandom()
 	for i := 1; i < maxSizeBitReverse; i++ {
 		pol[i].Add(&pol[i-1], &one)
 	}
@@ -78,7 +78,7 @@ func BenchmarkBitReverse(b *testing.B) {
 	// generate a random []fr.Element array of size 2**22
 	pol := make([]fr.Element, maxSizeBitReverse)
 	one := fr.One()
-	pol[0].SetRandom()
+	pol[0].MustSetRandom()
 	for i := 1; i < maxSizeBitReverse; i++ {
 		pol[i].Add(&pol[i-1], &one)
 	}

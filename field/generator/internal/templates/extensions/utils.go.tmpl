@@ -16,10 +16,8 @@ var bigIntPool = sync.Pool{
 func GenFr() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fr.Element
+		elmt.MustSetRandom()
 
-		if _, err := elmt.SetRandom(); err != nil {
-			panic(err)
-		}
 		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
 		return genResult
 	}

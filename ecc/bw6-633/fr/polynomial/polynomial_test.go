@@ -25,7 +25,7 @@ func TestPolynomialEval(t *testing.T) {
 
 	// random value
 	var point fr.Element
-	point.SetRandom()
+	point.MustSetRandom()
 
 	// compute manually f(val)
 	var expectedEval, one, den fr.Element
@@ -56,7 +56,7 @@ func TestPolynomialAddConstantInPlace(t *testing.T) {
 
 	// constant to add
 	var c fr.Element
-	c.SetRandom()
+	c.MustSetRandom()
 
 	// add constant
 	f.AddConstantInPlace(&c)
@@ -82,7 +82,7 @@ func TestPolynomialSubConstantInPlace(t *testing.T) {
 
 	// constant to sub
 	var c fr.Element
-	c.SetRandom()
+	c.MustSetRandom()
 
 	// sub constant
 	f.SubConstantInPlace(&c)
@@ -108,7 +108,7 @@ func TestPolynomialScaleInPlace(t *testing.T) {
 
 	// constant to scale by
 	var c fr.Element
-	c.SetRandom()
+	c.MustSetRandom()
 
 	// scale by constant
 	f.ScaleInPlace(&c)
