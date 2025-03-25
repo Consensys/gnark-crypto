@@ -22,8 +22,6 @@ type Proof struct {
 	MerkleProofOpenedColumns []MerkleProof
 }
 
-const sisKeySize = 512
-
 // ProverState stores the state of the prover in the Vortex protocol
 // and tracks the internal values.
 type ProverState struct {
@@ -48,33 +46,38 @@ func (ps *ProverState) GetCommitment() Hash {
 // CommitSis returns the commitment to the input matrix. The
 // matrix is provided row-by-row in the input.
 func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
-	N := p.SizeCodeWord()
-	const blockSize = 16
-	if N%blockSize != 0 {
-		panic("len of codewords must be a multiple of 16")
-	}
-	// if p.Key.Degree != sisKeySize {
-	// 	panic("sis key size must be 512")
-	// }
+	sizeCodeWord := p.SizeCodeWord()
 
-	codewords := make([]koalabear.Element, len(input)*N)
-	merkleLeaves := make([]Hash, N)
-
+	// 1. Encode the input matrix
+	codewords := make([]koalabear.Element, len(input)*sizeCodeWord)
 	parallel.Execute(len(input), func(start, end int) {
 		for i := start; i < end; i++ {
-			p.EncodeReedSolomon(input[i], codewords[i*N:i*N+N])
+			p.EncodeReedSolomon(input[i], codewords[i*sizeCodeWord:i*sizeCodeWord+sizeCodeWord])
 		}
 	})
 
+	// 2. Compute the SIS hashes of the encoded matrix (column-wise)
 	sisHashes := transversalHash(codewords, p.Key, p.SizeCodeWord())
 
-	parallel.Execute(N/blockSize, func(start, end int) {
+	// 3. Compute the Merkle tree of the SIS hashes using Poseidon2
+	merkleLeaves := make([]Hash, sizeCodeWord)
+
+	const blockSize = 16
+	if sizeCodeWord%blockSize != 0 {
+		// we should be fine here; the size of the codewords match a FFT domain
+		// (large power of 2)
+		panic("len of codewords must be a multiple of 16")
+	}
+
+	// we hash by blocks of 16 to leverage optimized SIMD implementation
+	// of Poseidon2 which require 16 hashes to be computed independently.
+	parallel.Execute(sizeCodeWord/blockSize, func(start, end int) {
 		sisKeySize := p.Key.Degree
 		for block := start; block < end; block++ {
 			b := block * blockSize
-			_start := b * sisKeySize
-			_end := _start + sisKeySize*blockSize
-			HashPoseidon2x16(sisHashes[_start:_end], merkleLeaves[b:b+blockSize])
+			sStart := b * sisKeySize
+			sEnd := sStart + sisKeySize*blockSize
+			HashPoseidon2x16(sisHashes[sStart:sEnd], merkleLeaves[b:b+blockSize], sisKeySize)
 		}
 	})
 

@@ -6,15 +6,18 @@ import (
 	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
+// transversalHash hashes the columns of the codewords in parallel
+// using the SIS hash function.
 func transversalHash(codewords []koalabear.Element, s *sis.RSis, sizeCodeWord int) []koalabear.Element {
-	N := s.Degree
-
 	nbCols := sizeCodeWord
 	nbRows := len(codewords) / sizeCodeWord
+	sisKeySize := s.Degree
 
-	res := make([]koalabear.Element, nbCols*N)
+	res := make([]koalabear.Element, nbCols*sisKeySize)
 
 	parallel.Execute(nbCols, func(start, end int) {
+		// we transpose the columns using a windowed approach
+		// this is done to improve memory accesses when transposing the matrix
 		windowSize := 4
 		n := end - start
 		for n%windowSize != 0 {
@@ -31,7 +34,7 @@ func transversalHash(codewords []koalabear.Element, s *sis.RSis, sizeCodeWord in
 				}
 			}
 			for j := range transposed {
-				s.Hash(transposed[j], res[(col+j)*N:(col+j)*N+N])
+				s.Hash(transposed[j], res[(col+j)*sisKeySize:(col+j)*sisKeySize+sisKeySize])
 			}
 		}
 	})
