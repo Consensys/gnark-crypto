@@ -123,8 +123,12 @@ func (f GateFunction) isAdditive(i, nbIn int) bool {
 // degreeBound must be a power of 2.
 // It returns the polynomial if successful, nil otherwise
 func (f GateFunction) fitPoly(nbIn int, degreeBound uint64) polynomial.Polynomial {
-	// turn f univariate by defining p(x) as f(x, x, ..., x)
+	// turn f univariate by defining p(x) as f(x, rx, ..., sx)
+	// where r, s, ... are random constants
 	fIn := make([]small_rational.SmallRational, nbIn)
+	consts := make(small_rational.Vector, nbIn-1)
+	consts.MustSetRandom()
+
 	p := make(polynomial.Polynomial, degreeBound)
 	x := make(small_rational.Vector, degreeBound)
 	x.MustSetRandom()

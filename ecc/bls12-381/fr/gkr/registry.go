@@ -123,15 +123,20 @@ func (f GateFunction) isAdditive(i, nbIn int) bool {
 // degreeBound must be a power of 2.
 // It returns the polynomial if successful, nil otherwise
 func (f GateFunction) fitPoly(nbIn int, degreeBound uint64) polynomial.Polynomial {
-	// turn f univariate by defining p(x) as f(x, x, ..., x)
+	// turn f univariate by defining p(x) as f(x, rx, ..., sx)
+	// where r, s, ... are random constants
 	fIn := make([]fr.Element, nbIn)
+	consts := make(fr.Vector, nbIn-1)
+	consts.MustSetRandom()
+
 	p := make(polynomial.Polynomial, degreeBound)
 	domain := fft.NewDomain(degreeBound)
 	// evaluate p on the unit circle (first filling p with evaluations rather than coefficients)
 	x := fr.One()
 	for i := range p {
-		for j := range fIn {
-			fIn[j] = x
+		fIn[0] = x
+		for j := range consts {
+			fIn[j+1].Mul(&x, &consts[j])
 		}
 		p[i] = f(fIn...)
 
