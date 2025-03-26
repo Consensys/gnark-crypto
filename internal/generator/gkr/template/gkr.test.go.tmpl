@@ -100,7 +100,7 @@ func generateTestMimc(numRounds int) func(*testing.T, ...[]{{.ElementType}}) {
 
 func TestSumcheckFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
 	circuit := Circuit{ Wire{
-		Gate:            GetGate(IdentityGateName),
+		Gate:            GetGate(Identity),
 		Inputs:          []*Wire{},
 		nbUniqueOutputs: 2,
 	} }
@@ -204,7 +204,7 @@ func testNoGate(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
 func testSingleAddGate(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
 	c := make(Circuit, 3)
 	c[2] = Wire{
-		Gate: GetGate(Add2GateName),
+		Gate: GetGate(Add2),
 		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
@@ -224,7 +224,7 @@ func testSingleMulGate(t *testing.T, inputAssignments ...[]{{.ElementType}}) {
 
 	c := make(Circuit, 3)
 	c[2] = Wire{
-		Gate:   GetGate(Mul2GateName),
+		Gate:   GetGate(Mul2),
 		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
@@ -244,12 +244,12 @@ func testSingleInputTwoIdentityGates(t *testing.T, inputAssignments ...[]{{.Elem
 	c := make(Circuit, 3)
 
 	c[1] = Wire{
-		Gate:   GetGate(IdentityGateName),
+		Gate:   GetGate(Identity),
 		Inputs: []*Wire{&c[0]},
 	}
 
 	c[2] = Wire{
-		Gate:   GetGate(IdentityGateName),
+		Gate:   GetGate(Identity),
 		Inputs: []*Wire{&c[0]},
 	}
 
@@ -292,11 +292,11 @@ func testSingleInputTwoIdentityGatesComposed(t *testing.T, inputAssignments ...[
 	c := make(Circuit, 3)
 
 	c[1] = Wire{
-		Gate:   GetGate(IdentityGateName),
+		Gate:   GetGate(Identity),
 		Inputs: []*Wire{&c[0]},
 	}
 	c[2] = Wire{
-		Gate:   GetGate(IdentityGateName),
+		Gate:   GetGate(Identity),
 		Inputs: []*Wire{&c[1]},
 	}
 
@@ -354,7 +354,7 @@ func testATimesBSquared(t *testing.T, numRounds int, inputAssignments ...[]{{.El
 
 	for i := 2; i < len(c); i++ {
 		c[i] = Wire{
-			Gate:   GetGate(Mul2GateName),
+			Gate:   GetGate(Mul2),
 			Inputs: []*Wire{&c[i-1], &c[0]},
 		}
 	}

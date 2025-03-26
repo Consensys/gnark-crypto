@@ -324,23 +324,23 @@ func interpolate(X, Y []fr.Element) (polynomial.Polynomial, error) {
 }
 
 const (
-	IdentityGateName GateName = "identity"
-	Add2GateName     GateName = "add2"
-	Sub2GateName     GateName = "sub2"
-	NegGateName      GateName = "neg"
-	Mul2GateName     GateName = "mul2"
+	Identity GateName = "identity"
+	Add2     GateName = "add2"
+	Sub2     GateName = "sub2"
+	Neg      GateName = "neg"
+	Mul2     GateName = "mul2"
 )
 
 func init() {
 	// register some basic gates
 
-	if err := RegisterGate(IdentityGateName, func(x ...fr.Element) fr.Element {
+	if err := RegisterGate(Identity, func(x ...fr.Element) fr.Element {
 		return x[0]
 	}, 1, WithUnverifiedDegree(1), WithUnverifiedSolvableVar(0)); err != nil {
 		panic(err)
 	}
 
-	if err := RegisterGate(Add2GateName, func(x ...fr.Element) fr.Element {
+	if err := RegisterGate(Add2, func(x ...fr.Element) fr.Element {
 		var res fr.Element
 		res.Add(&x[0], &x[1])
 		return res
@@ -348,7 +348,7 @@ func init() {
 		panic(err)
 	}
 
-	if err := RegisterGate(Sub2GateName, func(x ...fr.Element) fr.Element {
+	if err := RegisterGate(Sub2, func(x ...fr.Element) fr.Element {
 		var res fr.Element
 		res.Sub(&x[0], &x[1])
 		return res
@@ -356,7 +356,7 @@ func init() {
 		panic(err)
 	}
 
-	if err := RegisterGate(NegGateName, func(x ...fr.Element) fr.Element {
+	if err := RegisterGate(Neg, func(x ...fr.Element) fr.Element {
 		var res fr.Element
 		res.Neg(&x[0])
 		return res
@@ -364,7 +364,7 @@ func init() {
 		panic(err)
 	}
 
-	if err := RegisterGate(Mul2GateName, func(x ...fr.Element) fr.Element {
+	if err := RegisterGate(Mul2, func(x ...fr.Element) fr.Element {
 		var res fr.Element
 		res.Mul(&x[0], &x[1])
 		return res

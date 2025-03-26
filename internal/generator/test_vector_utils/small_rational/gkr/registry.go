@@ -324,23 +324,23 @@ func interpolate(X, Y []small_rational.SmallRational) (polynomial.Polynomial, er
 }
 
 const (
-	IdentityGateName GateName = "identity"
-	Add2GateName     GateName = "add2"
-	Sub2GateName     GateName = "sub2"
-	NegGateName      GateName = "neg"
-	Mul2GateName     GateName = "mul2"
+	Identity GateName = "identity"
+	Add2     GateName = "add2"
+	Sub2     GateName = "sub2"
+	Neg      GateName = "neg"
+	Mul2     GateName = "mul2"
 )
 
 func init() {
 	// register some basic gates
 
-	if err := RegisterGate(IdentityGateName, func(x ...small_rational.SmallRational) small_rational.SmallRational {
+	if err := RegisterGate(Identity, func(x ...small_rational.SmallRational) small_rational.SmallRational {
 		return x[0]
 	}, 1, WithUnverifiedDegree(1), WithUnverifiedSolvableVar(0)); err != nil {
 		panic(err)
 	}
 
-	if err := RegisterGate(Add2GateName, func(x ...small_rational.SmallRational) small_rational.SmallRational {
+	if err := RegisterGate(Add2, func(x ...small_rational.SmallRational) small_rational.SmallRational {
 		var res small_rational.SmallRational
 		res.Add(&x[0], &x[1])
 		return res
@@ -348,7 +348,7 @@ func init() {
 		panic(err)
 	}
 
-	if err := RegisterGate(Sub2GateName, func(x ...small_rational.SmallRational) small_rational.SmallRational {
+	if err := RegisterGate(Sub2, func(x ...small_rational.SmallRational) small_rational.SmallRational {
 		var res small_rational.SmallRational
 		res.Sub(&x[0], &x[1])
 		return res
@@ -356,7 +356,7 @@ func init() {
 		panic(err)
 	}
 
-	if err := RegisterGate(NegGateName, func(x ...small_rational.SmallRational) small_rational.SmallRational {
+	if err := RegisterGate(Neg, func(x ...small_rational.SmallRational) small_rational.SmallRational {
 		var res small_rational.SmallRational
 		res.Neg(&x[0])
 		return res
@@ -364,7 +364,7 @@ func init() {
 		panic(err)
 	}
 
-	if err := RegisterGate(Mul2GateName, func(x ...small_rational.SmallRational) small_rational.SmallRational {
+	if err := RegisterGate(Mul2, func(x ...small_rational.SmallRational) small_rational.SmallRational {
 		var res small_rational.SmallRational
 		res.Mul(&x[0], &x[1])
 		return res

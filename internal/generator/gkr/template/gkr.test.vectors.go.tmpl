@@ -74,16 +74,16 @@ func mimcRound(input ...{{.ElementType}}) (res {{.ElementType}}) {
 }
 
 const (
-	MiMCGateName {{$PackagePrefix}}GateName = "mimc"
-	SelectInput3GateName {{$PackagePrefix}}GateName = "select-input-3"
+	MiMC {{$PackagePrefix}}GateName = "mimc"
+	SelectInput3 {{$PackagePrefix}}GateName = "select-input-3"
 )
 
 func init() {
-	if err := {{$PackagePrefix}}RegisterGate(MiMCGateName, mimcRound, 2, {{$PackagePrefix}}WithUnverifiedDegree(7)); err != nil {
+	if err := {{$PackagePrefix}}RegisterGate(MiMC, mimcRound, 2, {{$PackagePrefix}}WithUnverifiedDegree(7)); err != nil {
 		panic(err)
 	}
 
-	if err := {{$PackagePrefix}}RegisterGate(SelectInput3GateName, func(input ...{{.ElementType}}) {{.ElementType}} {
+	if err := {{$PackagePrefix}}RegisterGate(SelectInput3, func(input ...{{.ElementType}}) {{.ElementType}} {
 		return input[2]
 	}, 3, {{$PackagePrefix}}WithUnverifiedDegree(1)); err != nil {
 		panic(err)

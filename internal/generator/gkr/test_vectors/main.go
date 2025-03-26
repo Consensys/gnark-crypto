@@ -185,16 +185,16 @@ func mimcRound(input ...small_rational.SmallRational) (res small_rational.SmallR
 }
 
 const (
-	MiMCGateName         gkr.GateName = "mimc"
-	SelectInput3GateName gkr.GateName = "select-input-3"
+	MiMC         gkr.GateName = "mimc"
+	SelectInput3 gkr.GateName = "select-input-3"
 )
 
 func init() {
-	if err := gkr.RegisterGate(MiMCGateName, mimcRound, 2, gkr.WithUnverifiedDegree(7)); err != nil {
+	if err := gkr.RegisterGate(MiMC, mimcRound, 2, gkr.WithUnverifiedDegree(7)); err != nil {
 		panic(err)
 	}
 
-	if err := gkr.RegisterGate(SelectInput3GateName, func(input ...small_rational.SmallRational) small_rational.SmallRational {
+	if err := gkr.RegisterGate(SelectInput3, func(input ...small_rational.SmallRational) small_rational.SmallRational {
 		return input[2]
 	}, 3, gkr.WithUnverifiedDegree(1)); err != nil {
 		panic(err)

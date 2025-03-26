@@ -99,7 +99,7 @@ func generateTestMimc(numRounds int) func(*testing.T, ...[]fr.Element) {
 
 func TestSumcheckFromSingleInputTwoIdentityGatesGateTwoInstances(t *testing.T) {
 	circuit := Circuit{Wire{
-		Gate:            GetGate(IdentityGateName),
+		Gate:            GetGate(Identity),
 		Inputs:          []*Wire{},
 		nbUniqueOutputs: 2,
 	}}
@@ -203,7 +203,7 @@ func testNoGate(t *testing.T, inputAssignments ...[]fr.Element) {
 func testSingleAddGate(t *testing.T, inputAssignments ...[]fr.Element) {
 	c := make(Circuit, 3)
 	c[2] = Wire{
-		Gate:   GetGate(Add2GateName),
+		Gate:   GetGate(Add2),
 		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
@@ -223,7 +223,7 @@ func testSingleMulGate(t *testing.T, inputAssignments ...[]fr.Element) {
 
 	c := make(Circuit, 3)
 	c[2] = Wire{
-		Gate:   GetGate(Mul2GateName),
+		Gate:   GetGate(Mul2),
 		Inputs: []*Wire{&c[0], &c[1]},
 	}
 
@@ -243,12 +243,12 @@ func testSingleInputTwoIdentityGates(t *testing.T, inputAssignments ...[]fr.Elem
 	c := make(Circuit, 3)
 
 	c[1] = Wire{
-		Gate:   GetGate(IdentityGateName),
+		Gate:   GetGate(Identity),
 		Inputs: []*Wire{&c[0]},
 	}
 
 	c[2] = Wire{
-		Gate:   GetGate(IdentityGateName),
+		Gate:   GetGate(Identity),
 		Inputs: []*Wire{&c[0]},
 	}
 
@@ -291,11 +291,11 @@ func testSingleInputTwoIdentityGatesComposed(t *testing.T, inputAssignments ...[
 	c := make(Circuit, 3)
 
 	c[1] = Wire{
-		Gate:   GetGate(IdentityGateName),
+		Gate:   GetGate(Identity),
 		Inputs: []*Wire{&c[0]},
 	}
 	c[2] = Wire{
-		Gate:   GetGate(IdentityGateName),
+		Gate:   GetGate(Identity),
 		Inputs: []*Wire{&c[1]},
 	}
 
@@ -353,7 +353,7 @@ func testATimesBSquared(t *testing.T, numRounds int, inputAssignments ...[]fr.El
 
 	for i := 2; i < len(c); i++ {
 		c[i] = Wire{
-			Gate:   GetGate(Mul2GateName),
+			Gate:   GetGate(Mul2),
 			Inputs: []*Wire{&c[i-1], &c[0]},
 		}
 	}
@@ -569,16 +569,16 @@ func mimcRound(input ...fr.Element) (res fr.Element) {
 }
 
 const (
-	MiMCGateName         GateName = "mimc"
-	SelectInput3GateName GateName = "select-input-3"
+	MiMC         GateName = "mimc"
+	SelectInput3 GateName = "select-input-3"
 )
 
 func init() {
-	if err := RegisterGate(MiMCGateName, mimcRound, 2, WithUnverifiedDegree(7)); err != nil {
+	if err := RegisterGate(MiMC, mimcRound, 2, WithUnverifiedDegree(7)); err != nil {
 		panic(err)
 	}
 
-	if err := RegisterGate(SelectInput3GateName, func(input ...fr.Element) fr.Element {
+	if err := RegisterGate(SelectInput3, func(input ...fr.Element) fr.Element {
 		return input[2]
 	}, 3, WithUnverifiedDegree(1)); err != nil {
 		panic(err)
