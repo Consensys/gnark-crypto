@@ -166,21 +166,34 @@ func (f GateFunction) fitPoly(nbIn int, degreeBound uint64) polynomial.Polynomia
 	return p[:lastNonZero+1]
 }
 
+type errorString string
+
+func (e errorString) Error() string {
+	return string(e)
+}
+
+const errZeroFunction = errorString("detected a zero function")
+
 // FindDegree returns the degree of the gate function, or -1 if it fails.
 // Failure could be due to the degree being higher than max or the function not being a polynomial at all.
-func (f GateFunction) FindDegree(max, nbIn int) int {
+func (f GateFunction) FindDegree(max, nbIn int) (int, error) {
 	bound := uint64(max) + 1
 	for degreeBound := uint64(4); degreeBound <= bound; degreeBound *= 2 {
 		if p := f.fitPoly(nbIn, degreeBound); p != nil {
-			return len(p) - 1
+			if len(p) == 0 {
+				return -1, errZeroFunction
+			}
+			return len(p) - 1, nil
 		}
 	}
-	return -1
+	return -1, fmt.Errorf("could not find a degree: tried up to %d", max)
 }
 
 func (f GateFunction) VerifyDegree(claimedDegree, nbIn int) error {
 	if p := f.fitPoly(nbIn, ecc.NextPowerOfTwo(uint64(claimedDegree)+1)); p == nil {
 		return fmt.Errorf("detected a higher degree than %d", claimedDegree)
+	} else if len(p) == 0 {
+		return errZeroFunction
 	} else if len(p)-1 != claimedDegree {
 		return fmt.Errorf("detected degree %d, claimed %d", len(p)-1, claimedDegree)
 	}
@@ -221,8 +234,9 @@ func RegisterGate(name GateName, f GateFunction, nbIn int, options ...RegisterGa
 			panic("invalid settings")
 		}
 		const maxAutoDegreeBound = 32
-		if s.degree = f.FindDegree(32, nbIn); s.degree == -1 {
-			return fmt.Errorf("could not find a degree for gate %s: tried up to %d", name, maxAutoDegreeBound-1)
+		var err error
+		if s.degree, err = f.FindDegree(maxAutoDegreeBound, nbIn); err != nil {
+			return fmt.Errorf("for gate %s: %v", name, err)
 		}
 	} else {
 		if !s.noDegreeVerification { // check that the given degree is correct
