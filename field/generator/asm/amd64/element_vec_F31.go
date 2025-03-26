@@ -549,3 +549,124 @@ func (f *FFAmd64) generateInnerProdVecF31() {
 
 	f.Push(&registers, addrA, addrB, addrT, len)
 }
+
+func (f *FFAmd64) generateMulAccE4() {
+	// func mulAccE4_avx512(alpha *E4, scale *fr.Element, res *E4, N uint64)
+
+	const argSize = 4 * 8
+	stackSize := f.StackSize(f.NbWords*4+2, 0, 0)
+	registers := f.FnHeader("mulAccE4_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer f.AssertCleanStack(stackSize, 0)
+
+	addrAlpha := registers.Pop()
+	addrScale := registers.Pop()
+	addrRes := registers.Pop()
+	N := registers.Pop()
+
+	qd := registers.PopV()
+	qInvNeg := registers.PopV()
+
+	f.MOVD("$const_q", amd64.AX)
+	f.VPBROADCASTD(amd64.AX, qd)
+	f.MOVD("$const_qInvNeg", amd64.AX)
+	f.VPBROADCASTD(amd64.AX, qInvNeg)
+
+	// prepare the mask used for the merging mul results
+	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
+	f.MOVQ("alpha+0(FP)", addrAlpha)
+	f.MOVQ("scale+8(FP)", addrScale)
+	f.MOVQ("res+16(FP)", addrRes)
+	f.MOVQ("n+24(FP)", N)
+
+	// var tmp E4
+	// for i := 0; i < N; i++ {
+	// 	tmp.MulByElement(alpha, &scale[i])
+	// 	res[i].Add(&res[i], &tmp)
+	// }
+
+	// alpha is an E4, so it is 4 uint32
+	// we load it into a XMM register and repeat it to a YMM, then to a ZMM
+	alpha := registers.PopV()
+	alphaOdd := registers.PopV()
+	result := registers.PopV()
+	s0 := registers.PopV()
+	s1 := registers.PopV()
+	s2 := registers.PopV()
+	s3 := registers.PopV()
+	acc := registers.PopV()
+
+	f.VMOVDQU32(addrAlpha.At(0), alpha.X())
+	f.VINSERTI64X2(1, alpha.X(), alpha.Y(), alpha.Y())
+	f.VINSERTI64X4(1, alpha.Y(), alpha.Z(), alpha.Z())
+
+	f.VPSRLQ("$32", alpha, alphaOdd) // keep high 32 bits
+
+	// N % 4 == 0 (pre condition checked by caller)
+	// divide N by 4
+	f.SHRQ("$2", N)
+
+	lblStart := f.NewLabel("start")
+	lblEnd := f.NewLabel("end")
+	f.LABEL(lblStart)
+	f.TESTQ(N, N)
+	f.JEQ(lblEnd, "N == 0, we are done")
+
+	// load result
+	f.VMOVDQU32(addrRes.At(0), result)
+
+	// load scale
+	f.VPBROADCASTD(addrScale.AtD(0), s0.X())
+	f.VPBROADCASTD(addrScale.AtD(1), s1.X())
+	f.VPBROADCASTD(addrScale.AtD(2), s2.X())
+	f.VPBROADCASTD(addrScale.AtD(3), s3.X())
+
+	f.VINSERTI64X2(1, s1.X(), s0.Y(), s0.Y())
+	f.VINSERTI64X2(1, s3.X(), s2.Y(), s2.Y())
+	f.VINSERTI64X4(1, s2.Y(), s0.Z(), s0.Z())
+
+	// computes c = a * b mod q
+	// a and b can be in [0, 2q)
+	mul := func(alpha, s0, acc amd64.VectorRegister) {
+
+		b0 := registers.PopV()
+		b1 := registers.PopV()
+		PL0 := registers.PopV()
+		PL1 := registers.PopV()
+
+		f.VPMULUDQ(s0, alpha, b0)
+		f.VPMULUDQ(s0, alphaOdd, b1)
+		f.VPMULUDQ(b0, qInvNeg, PL0)
+		f.VPMULUDQ(b1, qInvNeg, PL1)
+
+		f.VPMULUDQ(PL0, qd, PL0)
+		f.VPADDQ(b0, PL0, b0)
+
+		f.VPMULUDQ(PL1, qd, PL1)
+		f.VPADDQ(b1, PL1, b1)
+
+		f.VMOVSHDUPk(b0, amd64.K3, b1)
+
+		f.VPSUBD(qd, b1, PL0)
+		f.VPMINUD(b1, PL0, acc)
+	}
+	mul(alpha, s0, acc)
+
+	f.VPADDD(result, acc, result, "result = result + acc")
+	f.VPSUBD(qd, result, acc)
+	f.VPMINUD(result, acc, result)
+
+	// save result
+	f.VMOVDQU32(result, addrRes.At(0))
+
+	// increment result by 16uint32
+	f.ADDQ("$64", addrRes)
+	f.ADDQ("$16", addrScale)
+
+	f.DECQ(N, "decrement N")
+	f.JMP(lblStart, "loop")
+	f.LABEL(lblEnd)
+
+	f.RET()
+}

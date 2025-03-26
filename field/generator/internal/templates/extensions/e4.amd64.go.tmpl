@@ -1,0 +1,11 @@
+import (
+	fr "{{ .FieldPackagePath }}"
+)
+
+// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+// used for Montgomery reduction
+const qInvNeg = {{.QInvNeg}}
+const q = {{.Q}}
+
+//go:noescape
+func mulAccE4_avx512(alpha *E4, scale *fr.Element, res *E4, N uint64)
