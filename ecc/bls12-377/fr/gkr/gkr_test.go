@@ -765,6 +765,15 @@ func TestRegisterGateDegreeDetection(t *testing.T) {
 	}, 2, 2)
 
 	testGate("mimc", mimcRound, 2, 7)
+
+	testGate("sub2PlusOne", func(x ...fr.Element) fr.Element {
+		var res fr.Element
+		res.
+			SetOne().
+			Add(&res, &x[0]).
+			Sub(&res, &x[1])
+		return res
+	}, 2, 1)
 }
 
 func TestIsAdditive(t *testing.T) {
