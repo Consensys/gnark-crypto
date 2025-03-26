@@ -147,8 +147,8 @@ func (f GateFunction) fitPoly(nbIn int, degreeBound uint64) polynomial.Polynomia
 
 	// check if p is equal to f. This not being the case means that f is of a degree higher than degreeBound
 	fIn[0].MustSetRandom()
-	for i := range fIn {
-		fIn[i] = fIn[0]
+	for i := range consts {
+		fIn[i+1].Mul(&fIn[0], &consts[i])
 	}
 	pAt := p.Eval(&fIn[0])
 	fAt := f(fIn...)

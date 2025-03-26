@@ -125,7 +125,7 @@ func (f GateFunction) isAdditive(i, nbIn int) bool {
 func (f GateFunction) fitPoly(nbIn int, degreeBound uint64) polynomial.Polynomial {
 	// turn f univariate by defining p(x) as f(x, rx, ..., sx)
 	// where r, s, ... are random constants
-	fIn := make(fr.Vector, nbIn)
+	fIn := make([]fr.Element, nbIn)
 	consts := make(fr.Vector, nbIn-1)
 	consts.MustSetRandom()
 
@@ -148,7 +148,7 @@ func (f GateFunction) fitPoly(nbIn int, degreeBound uint64) polynomial.Polynomia
 	fft.BitReverse(p)
 
 	// check if p is equal to f. This not being the case means that f is of a degree higher than degreeBound
-	fIn.MustSetRandom()
+	fIn[0].MustSetRandom()
 	for i := range consts {
 		fIn[i+1].Mul(&fIn[0], &consts[i])
 	}
