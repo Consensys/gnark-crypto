@@ -133,8 +133,9 @@ func (f GateFunction) fitPoly(nbIn int, degreeBound uint64) polynomial.Polynomia
 	x := make(fr.Vector, degreeBound)
 	x.MustSetRandom()
 	for i := range x {
-		for j := range fIn {
-			fIn[j] = x[i]
+		fIn[0] = x[i]
+		for j := range consts {
+			fIn[j+1].Mul(&x[i], &consts[j])
 		}
 		p[i] = f(fIn...)
 	}
