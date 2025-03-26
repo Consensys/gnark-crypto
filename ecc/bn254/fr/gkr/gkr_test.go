@@ -560,10 +560,10 @@ func mimcRound(input ...fr.Element) (res fr.Element) {
 
 	sum.
 		Add(&input[0], &input[1]) //.Add(&sum, &m.ark)  TODO: add ark
-	res.Square(&sum)    // sum^2
-	res.Mul(&res, &sum) // sum^3
-	res.Square(&res)    //sum^6
-	res.Mul(&res, &sum) //sum^7
+	res.Square(&sum)              // sum^2
+	res.Mul(&res, &sum)           // sum^3
+	res.Square(&res)              //sum^6
+	res.Mul(&res, &sum)           //sum^7
 
 	return
 }
@@ -774,6 +774,20 @@ func TestRegisterGateDegreeDetection(t *testing.T) {
 			Sub(&res, &x[1])
 		return res
 	}, 2, 1)
+
+	// zero polynomial must not be accepted
+	t.Run("zero", func(t *testing.T) {
+		const gateName GateName = "zero-register-gate-test"
+		expectedError := fmt.Errorf("for gate %s: %v", gateName, errZeroFunction)
+		zeroGate := func(x ...fr.Element) fr.Element {
+			var res fr.Element
+			return res
+		}
+		assert.Equal(t, expectedError, RegisterGate(gateName, zeroGate, 1))
+
+		assert.Equal(t, expectedError, RegisterGate(gateName, zeroGate, 1, WithDegree(2)))
+
+	})
 }
 
 func TestIsAdditive(t *testing.T) {
