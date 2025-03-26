@@ -324,11 +324,11 @@ func interpolate(X, Y []small_rational.SmallRational) (polynomial.Polynomial, er
 }
 
 const (
-	Identity GateName = "identity"
-	Add2     GateName = "add2"
-	Sub2     GateName = "sub2"
-	Neg      GateName = "neg"
-	Mul2     GateName = "mul2"
+	Identity GateName = "identity" // Identity gate: x -> x
+	Add2     GateName = "add2"     // Add2 gate: (x, y) -> x + y
+	Sub2     GateName = "sub2"     // Sub2 gate: (x, y) -> x - y
+	Neg      GateName = "neg"      // Neg gate: x -> -x
+	Mul2     GateName = "mul2"     // Mul2 gate: (x, y) -> x * y
 )
 
 func init() {
