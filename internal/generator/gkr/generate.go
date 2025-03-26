@@ -11,6 +11,7 @@ type Config struct {
 	config.FieldDependency
 	GenerateTests           bool
 	RetainTestCaseRawInfo   bool
+	CanUseFFT               bool
 	OutsideGkrPackage       bool
 	TestVectorsRelativePath string
 }
@@ -18,6 +19,7 @@ type Config struct {
 func Generate(config Config, baseDir string, bgen *bavard.BatchGenerator) error {
 	entries := []bavard.Entry{
 		{File: filepath.Join(baseDir, "gkr.go"), Templates: []string{"gkr.go.tmpl"}},
+		{File: filepath.Join(baseDir, "registry.go"), Templates: []string{"registry.go.tmpl"}},
 	}
 
 	if config.GenerateTests {

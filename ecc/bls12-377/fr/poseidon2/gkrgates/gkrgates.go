@@ -19,64 +19,36 @@ import (
 
 // extKeySBoxGate applies the external matrix mul, then adds the round key, then applies the sBox
 // because of its symmetry, we don't need to define distinct x1 and x2 versions of it
-type extKeySBoxGate struct {
-	roundKey fr.Element
-}
-
-func (g *extKeySBoxGate) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 2 inputs")
+func extKeySBoxGate(roundKey *fr.Element) gkr.GateFunction {
+	return func(x ...fr.Element) fr.Element {
+		x[0].
+			Double(&x[0]).
+			Add(&x[0], &x[1]).
+			Add(&x[0], roundKey)
+		return sBox2(x[0])
 	}
-
-	x[0].
-		Double(&x[0]).
-		Add(&x[0], &x[1]).
-		Add(&x[0], &g.roundKey)
-	return sBox2(x[0])
 }
 
-func (g *extKeySBoxGate) Degree() int {
-	return poseidon2.DegreeSBox()
-}
+// intKeySBoxGate2 applies the second row of internal matrix mul, then adds the round key, then applies the sBox, returning the second element
+func intKeySBoxGate2(roundKey *fr.Element) gkr.GateFunction {
+	return func(x ...fr.Element) fr.Element {
+		x[0].Add(&x[0], &x[1])
+		x[1].
+			Double(&x[1]).
+			Add(&x[1], &x[0]).
+			Add(&x[1], roundKey)
 
-// intKeySBoxGateFr applies the second row of internal matrix mul, then adds the round key, then applies the sBox
-type intKeySBoxGate2 struct {
-	roundKey fr.Element
-}
-
-func (g *intKeySBoxGate2) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 2 inputs")
+		return sBox2(x[1])
 	}
-	x[0].Add(&x[0], &x[1])
-	x[1].
-		Double(&x[1]).
-		Add(&x[1], &x[0]).
-		Add(&x[1], &g.roundKey)
-
-	return sBox2(x[1])
-}
-
-func (g *intKeySBoxGate2) Degree() int {
-	return poseidon2.DegreeSBox()
 }
 
 // extAddGate (x,y,z) -> Ext . (x,y) + z
-type extAddGate struct{}
-
-func (g extAddGate) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 3 {
-		panic("expected 3 inputs")
-	}
+func extAddGate(x ...fr.Element) fr.Element {
 	x[0].
 		Double(&x[0]).
 		Add(&x[0], &x[1]).
 		Add(&x[0], &x[2])
 	return x[0]
-}
-
-func (g extAddGate) Degree() int {
-	return 1
 }
 
 // sBox2 is Permutation.sBox for t=2
@@ -88,54 +60,29 @@ func sBox2(x fr.Element) fr.Element {
 
 // extKeyGate applies the external matrix mul, then adds the round key, then applies the sBox
 // because of its symmetry, we don't need to define distinct x1 and x2 versions of it
-type extKeyGate struct {
-	roundKey fr.Element
-}
-
-func (g *extKeyGate) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 2 inputs")
+func extKeyGate(roundKey *fr.Element) func(...fr.Element) fr.Element {
+	return func(x ...fr.Element) fr.Element {
+		x[0].
+			Double(&x[0]).
+			Add(&x[0], &x[1]).
+			Add(&x[0], roundKey)
+		return x[0]
 	}
-
-	x[0].
-		Double(&x[0]).
-		Add(&x[0], &x[1]).
-		Add(&x[0], &g.roundKey)
-	return x[0]
-}
-
-func (g *extKeyGate) Degree() int {
-	return 1
 }
 
 // for x1, the partial round gates are identical to full round gates
 // for x2, the partial round gates are just a linear combination
 
 // extGate2 applies the external matrix mul, outputting the second element of the result
-type extGate2 struct{}
-
-func (extGate2) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 2 inputs")
-	}
+func extGate2(x ...fr.Element) fr.Element {
 	x[1].
 		Double(&x[1]).
 		Add(&x[1], &x[0])
 	return x[1]
-}
-
-func (g extGate2) Degree() int {
-	return 1
 }
 
 // intGate2 applies the internal matrix mul, returning the second element
-type intGate2 struct {
-}
-
-func (g intGate2) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 2 inputs")
-	}
+func intGate2(x ...fr.Element) fr.Element {
 	x[0].Add(&x[0], &x[1])
 	x[1].
 		Double(&x[1]).
@@ -143,164 +90,159 @@ func (g intGate2) Evaluate(x ...fr.Element) fr.Element {
 	return x[1]
 }
 
-func (g intGate2) Degree() int {
-	return 1
-}
+// intKeyGate2 applies the second row of internal matrix mul, then adds the round key
+func intKeyGate2(roundKey *fr.Element) gkr.GateFunction {
+	return func(x ...fr.Element) fr.Element {
+		x[0].Add(&x[0], &x[1])
+		x[1].
+			Double(&x[1]).
+			Add(&x[1], &x[0]).
+			Add(&x[1], roundKey)
 
-// intKeySBoxGateFr applies the second row of internal matrix mul, then adds the round key, then applies the sBox
-type intKeyGate2 struct {
-	roundKey fr.Element
-}
-
-func (g *intKeyGate2) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 2 inputs")
+		return x[1]
 	}
-	x[0].Add(&x[0], &x[1])
-	x[1].
-		Double(&x[1]).
-		Add(&x[1], &x[0]).
-		Add(&x[1], &g.roundKey)
-
-	return x[1]
 }
 
-func (g *intKeyGate2) Degree() int {
-	return 1
-}
-
-type pow4Gate struct{}
-
-func (g pow4Gate) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 1 {
-		panic("expected 1 input")
-	}
+// powGate4 x -> x⁴
+func pow4Gate(x ...fr.Element) fr.Element {
 	x[0].Square(&x[0]).Square(&x[0])
 	return x[0]
 }
 
-func (g pow4Gate) Degree() int {
-	return 4
-}
-
-type pow4TimesGate struct{}
-
-type pow2Gate struct{}
-
-func (g pow2Gate) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 1 {
-		panic("expected 1 input")
-	}
-	x[0].Square(&x[0])
-	return x[0]
-}
-
-func (g pow2Gate) Degree() int {
-	return 2
-}
-
-type pow2TimesGate struct{}
-
-func (g pow2TimesGate) Degree() int {
-	return 3
-}
-
-func (g pow2TimesGate) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 2 input")
-	}
-	x[0].Square(&x[0]).Mul(&x[0], &x[1])
-	return x[0]
-}
-
-func (g pow4TimesGate) Evaluate(x ...fr.Element) fr.Element {
-	if len(x) != 2 {
-		panic("expected 1 input")
-	}
+// pow4TimesGate x,y -> x⁴ * y
+func pow4TimesGate(x ...fr.Element) fr.Element {
 	x[0].Square(&x[0]).Square(&x[0]).Mul(&x[0], &x[1])
 	return x[0]
 }
 
-func (g pow4TimesGate) Degree() int {
-	return 5
+// pow2Gate x -> x²
+func pow2Gate(x ...fr.Element) fr.Element {
+	x[0].Square(&x[0])
+	return x[0]
+}
+
+// pow2TimesGate x,y -> x² * y
+func pow2TimesGate(x ...fr.Element) fr.Element {
+	x[0].Square(&x[0]).Mul(&x[0], &x[1])
+	return x[0]
+}
+
+const (
+	Pow2GateName      gkr.GateName = "pow2"
+	Pow4GateName      gkr.GateName = "pow4"
+	Pow2TimesGateName gkr.GateName = "pow2Times"
+	Pow4TimesGateName gkr.GateName = "pow4Times"
+)
+
+type roundGateNamer string
+
+// RoundGateNamer returns an object that returns standardized names for gates in the GKR circuit
+func RoundGateNamer(p *poseidon2.Parameters) roundGateNamer {
+	return roundGateNamer(p.String())
+}
+
+// Linear is the name of a gate where a polynomial of total degree 1 is applied to the input
+func (n roundGateNamer) Linear(varIndex, round int) gkr.GateName {
+	return gkr.GateName(fmt.Sprintf("x%d-l-op-round=%d;%s", varIndex, round, n))
+}
+
+// Integrated is the name of a gate where a polynomial of total degree 1 is applied to the input, followed by an S-box
+func (n roundGateNamer) Integrated(varIndex, round int) gkr.GateName {
+	return gkr.GateName(fmt.Sprintf("x%d-i-op-round=%d;%s", varIndex, round, n))
 }
 
 var initOnce sync.Once
 
 // RegisterGkrGates registers the Poseidon2 compression gates for GKR
-func RegisterGkrGates() {
+func RegisterGkrGates() error {
 	const (
 		x = iota
 		y
 	)
-
+	var err error
 	initOnce.Do(
 		func() {
 			p := poseidon2.GetDefaultParameters()
 			halfRf := p.NbFullRounds / 2
-			params := p.String()
+			gateNames := RoundGateNamer(p)
 
-			gkr.Gates["pow2"] = pow2Gate{}
-			gkr.Gates["pow4"] = pow4Gate{}
-			gkr.Gates["pow2Times"] = pow2TimesGate{}
-			gkr.Gates["pow4Times"] = pow4TimesGate{}
-
-			gateNameLinear := func(varIndex, i int) string {
-				return fmt.Sprintf("x%d-l-op-round=%d;%s", varIndex, i, params)
+			if err = gkr.RegisterGate(Pow2GateName, pow2Gate, 1, gkr.WithUnverifiedDegree(2), gkr.WithNoSolvableVar()); err != nil {
+				return
+			}
+			if err = gkr.RegisterGate(Pow4GateName, pow4Gate, 1, gkr.WithUnverifiedDegree(4), gkr.WithNoSolvableVar()); err != nil {
+				return
+			}
+			if err = gkr.RegisterGate(Pow2TimesGateName, pow2TimesGate, 2, gkr.WithUnverifiedDegree(3), gkr.WithNoSolvableVar()); err != nil {
+				return
+			}
+			if err = gkr.RegisterGate(Pow4TimesGateName, pow4TimesGate, 2, gkr.WithUnverifiedDegree(5), gkr.WithNoSolvableVar()); err != nil {
+				return
 			}
 
-			gateNameIntegrated := func(varIndex, i int) string {
-				return fmt.Sprintf("x%d-i-op-round=%d;%s", varIndex, i, params)
+			extKeySBox := func(round int, varIndex int) error {
+				if err := gkr.RegisterGate(gateNames.Integrated(varIndex, round), extKeySBoxGate(&p.RoundKeys[round][varIndex]), 2, gkr.WithUnverifiedDegree(poseidon2.DegreeSBox()), gkr.WithNoSolvableVar()); err != nil {
+					return err
+				}
+
+				return gkr.RegisterGate(gateNames.Linear(varIndex, round), extKeyGate(&p.RoundKeys[round][varIndex]), 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0))
 			}
 
-			extKeySBox := func(round int, varIndex int) {
-				gkr.Gates[gateNameIntegrated(varIndex, round)] = &extKeySBoxGate{ // in case we use an integrated S-box
-					roundKey: p.RoundKeys[round][varIndex],
+			intKeySBox2 := func(round int) error {
+				if err := gkr.RegisterGate(gateNames.Linear(y, round), intKeyGate2(&p.RoundKeys[round][1]), 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0)); err != nil {
+					return err
 				}
-				gkr.Gates[gateNameLinear(varIndex, round)] = &extKeyGate{ // in case we use a separate S-box
-					roundKey: p.RoundKeys[round][varIndex],
-				}
+				return gkr.RegisterGate(gateNames.Integrated(y, round), intKeySBoxGate2(&p.RoundKeys[round][1]), 2, gkr.WithUnverifiedDegree(poseidon2.DegreeSBox()), gkr.WithNoSolvableVar())
 			}
 
-			intKeySBox2 := func(round int) {
-				gkr.Gates[gateNameLinear(y, round)] = &intKeyGate2{
-					roundKey: p.RoundKeys[round][1],
+			fullRound := func(i int) error {
+				if err := extKeySBox(i, x); err != nil {
+					return err
 				}
-				gkr.Gates[gateNameIntegrated(y, round)] = &intKeySBoxGate2{
-					roundKey: p.RoundKeys[round][1],
-				}
-			}
-
-			fullRound := func(i int) {
-				extKeySBox(i, x)
-				extKeySBox(i, y)
+				return extKeySBox(i, y)
 			}
 
 			for i := range halfRf {
-				fullRound(i)
+				if err = fullRound(i); err != nil {
+					return
+				}
 			}
 
 			{ // i = halfRf: first partial round
-				extKeySBox(halfRf, x)
-				gkr.Gates[gateNameLinear(y, halfRf)] = extGate2{}
+				if err = extKeySBox(halfRf, x); err != nil {
+					return
+				}
+				if err = gkr.RegisterGate(gateNames.Linear(y, halfRf), extGate2, 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0)); err != nil {
+					return
+				}
 			}
 
 			for i := halfRf + 1; i < halfRf+p.NbPartialRounds; i++ {
-				extKeySBox(i, x) // for x1, intKeySBox is identical to extKeySBox
-				gkr.Gates[gateNameLinear(y, i)] = intGate2{}
+				if err = extKeySBox(i, x); err != nil { // for x1, intKeySBox is identical to extKeySBox
+					return
+				}
+				if err = gkr.RegisterGate(gateNames.Linear(y, i), intGate2, 2, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0)); err != nil {
+					return
+				}
 			}
 
 			{
 				i := halfRf + p.NbPartialRounds
-				extKeySBox(i, x)
-				intKeySBox2(i)
+				if err = extKeySBox(i, x); err != nil {
+					return
+				}
+				if err = intKeySBox2(i); err != nil {
+					return
+				}
 			}
 
 			for i := halfRf + p.NbPartialRounds + 1; i < p.NbPartialRounds+p.NbFullRounds; i++ {
-				fullRound(i)
+				if err = fullRound(i); err != nil {
+					return
+				}
 			}
 
-			gkr.Gates[gateNameLinear(y, p.NbPartialRounds+p.NbFullRounds)] = extAddGate{}
+			err = gkr.RegisterGate(gateNames.Linear(y, p.NbPartialRounds+p.NbFullRounds), extAddGate, 3, gkr.WithUnverifiedDegree(1), gkr.WithUnverifiedSolvableVar(0))
 		},
 	)
+	return err
 }

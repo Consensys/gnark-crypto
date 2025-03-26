@@ -24,6 +24,7 @@ func GenerateRationals(bgen *bavard.BatchGenerator) error {
 		},
 		GenerateTests:           false,
 		RetainTestCaseRawInfo:   true,
+		CanUseFFT:               false,
 		TestVectorsRelativePath: "../../../gkr/test_vectors",
 	}
 

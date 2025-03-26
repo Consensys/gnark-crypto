@@ -220,6 +220,32 @@ func (z *SmallRational) Mul(x, y *SmallRational) *SmallRational {
 	return z
 }
 
+func (z *SmallRational) Div(x, y *SmallRational) *SmallRational {
+	var num, den big.Int
+
+	num.Mul(&x.numerator, &y.denominator)
+	den.Mul(&x.denominator, &y.numerator)
+
+	z.numerator = num
+	z.denominator = den
+
+	z.simplify()
+	z.UpdateText()
+	return z
+}
+
+func (z *SmallRational) Halve() *SmallRational {
+	if z.numerator.Bit(0) == 0 {
+		z.numerator.Rsh(&z.numerator, 1)
+	} else {
+		z.denominator.Lsh(&z.denominator, 1)
+	}
+
+	z.simplify()
+	z.UpdateText()
+	return z
+}
+
 func (z *SmallRational) SetOne() *SmallRational {
 	return z.SetInt64(1)
 }
@@ -253,6 +279,13 @@ func (z *SmallRational) SetRandom() (*SmallRational, error) {
 	z.UpdateText()
 
 	return z, nil
+}
+
+func (z *SmallRational) MustSetRandom() *SmallRational {
+	if _, err := z.SetRandom(); err != nil {
+		panic(err)
+	}
+	return z
 }
 
 func (z *SmallRational) SetUint64(i uint64) {
@@ -401,6 +434,15 @@ func (z *SmallRational) SetBytes(b []byte) {
 	}
 	z.simplify()
 	z.UpdateText()
+}
+
+func One() SmallRational {
+	res := SmallRational{
+		text: "1",
+	}
+	res.numerator.SetInt64(1)
+	res.denominator.SetInt64(1)
+	return res
 }
 
 func Modulus() *big.Int {
