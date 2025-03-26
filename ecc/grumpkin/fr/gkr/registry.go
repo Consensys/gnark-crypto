@@ -177,7 +177,7 @@ const errZeroFunction = errorString("detected a zero function")
 // Failure could be due to the degree being higher than max or the function not being a polynomial at all.
 func (f GateFunction) FindDegree(max, nbIn int) (int, error) {
 	bound := uint64(max) + 1
-	for degreeBound := uint64(4); degreeBound <= bound; degreeBound *= 2 {
+	for degreeBound := uint64(4); degreeBound <= bound; degreeBound *= 8 {
 		if p := f.fitPoly(nbIn, degreeBound); p != nil {
 			if len(p) == 0 {
 				return -1, errZeroFunction
