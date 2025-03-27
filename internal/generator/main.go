@@ -182,6 +182,8 @@ func main() {
 
 	}
 
+	wg.Wait()
+
 	// format the whole directory
 
 	cmd := exec.Command("gofmt", "-s", "-w", baseDir)
