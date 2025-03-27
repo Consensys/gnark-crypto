@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/consensys/gnark-crypto/internal/generator/gkr"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,8 +30,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/plookup"
 	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/shplonk"
-	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
-	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils"
 	"github.com/consensys/gnark-crypto/internal/generator/tower"
 )
 
@@ -82,16 +79,9 @@ func main() {
 				ElementType:      "fr.Element",
 			}
 
-			gkrConfig := gkr.Config{
-				FieldDependency:         frInfo,
-				GenerateTests:           true,
-				TestVectorsRelativePath: "../../../../internal/generator/gkr/test_vectors",
-			}
-
 			frOpts := []generator.Option{generator.WithASM(asmConfig)}
 			if !(conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) {
 				frOpts = append(frOpts, generator.WithFFT(fftConfig))
-				gkrConfig.CanUseFFT = true
 			}
 			if conf.Equal(config.BLS12_377) {
 				frOpts = append(frOpts, generator.WithSIS())
@@ -113,10 +103,6 @@ func main() {
 				return
 			}
 
-			// generate gkr on fr
-			// GKR tests use MiMC. Once SECP256K1 has a mimc implementation, we can generate GKR for it.
-			assertNoError(gkr.Generate(gkrConfig, filepath.Join(curveDir, "fr", "gkr"), bgen))
-
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
 
@@ -125,15 +111,6 @@ func main() {
 
 			// generate polynomial on fr
 			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
-
-			// generate sumcheck on fr
-			assertNoError(sumcheck.Generate(frInfo, filepath.Join(curveDir, "fr", "sumcheck"), bgen))
-
-			// generate test vector utils on fr
-			assertNoError(test_vector_utils.Generate(test_vector_utils.Config{
-				FieldDependency:             frInfo,
-				RandomizeMissingHashEntries: false,
-			}, filepath.Join(curveDir, "fr", "test_vector_utils"), bgen))
 
 			fpInfo := config.FieldDependency{
 				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fp",
@@ -204,13 +181,6 @@ func main() {
 		}(conf)
 
 	}
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		assertNoError(test_vector_utils.GenerateRationals(bgen))
-	}()
-	wg.Wait()
 
 	// format the whole directory
 
