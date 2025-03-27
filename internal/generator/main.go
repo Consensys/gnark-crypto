@@ -201,28 +201,6 @@ func main() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())*/
-
-	wg.Add(2)
-
-	go func() {
-		// generate test vectors for sumcheck
-		cmd := exec.Command("go", "run", "./sumcheck/test_vectors")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		assertNoError(cmd.Run())
-		wg.Done()
-	}()
-
-	go func() {
-		// generate test vectors for gkr
-		cmd := exec.Command("go", "run", "./gkr/test_vectors")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		assertNoError(cmd.Run())
-		wg.Done()
-	}()
-
-	wg.Wait()
 }
 
 func assertNoError(err error) {
