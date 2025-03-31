@@ -1,10 +1,10 @@
 package hash_to_field
 
 import (
+	"github.com/consensys/gnark-crypto/field/generator/config"
 	"path/filepath"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/internal/generator/config"
 )
 
 func Generate(conf config.FieldDependency, baseDir string, bgen *bavard.BatchGenerator) error {

@@ -73,7 +73,7 @@ func main() {
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
-			frInfo := config.FieldDependency{
+			frInfo := fieldConfig.FieldDependency{
 				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
 				FieldPackageName: "fr",
 				ElementType:      "fr.Element",
@@ -112,7 +112,7 @@ func main() {
 			// generate polynomial on fr
 			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
 
-			fpInfo := config.FieldDependency{
+			fpInfo := fieldConfig.FieldDependency{
 				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fp",
 				FieldPackageName: "fp",
 				ElementType:      "fp.Element",
