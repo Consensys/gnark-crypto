@@ -64,10 +64,12 @@ func NewParams(
 	}
 
 	smallDomain := fft.NewDomain(uint64(numColumns), fft.WithShift(shift))
-	cosetTableBitReverse, err := smallDomain.CosetTable()
+	cosetTable, err := smallDomain.CosetTable()
 	if err != nil {
 		return nil, err
 	}
+	cosetTableBitReverse := make(koalabear.Vector, len(cosetTable))
+	copy(cosetTableBitReverse, cosetTable)
 	fft.BitReverse(cosetTableBitReverse)
 	bigDomain := fft.NewDomain(uint64(numColumns * reedSolomonInvRate))
 
