@@ -178,6 +178,7 @@ func FuzzVortex(f *testing.F) {
 
 		var seed [32]byte
 		binary.PutVarint(seed[:], rngSeed)
+		// #nosec G404 -- fuzz does not require a cryptographic PRNG
 		rng := rand.New(rand.NewChaCha8(seed))
 
 		sisParams, err := sis.NewRSis(sisSeed, sisLog2Degree, sisLog2Bound, numRow)
