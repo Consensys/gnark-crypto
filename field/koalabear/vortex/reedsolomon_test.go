@@ -1,48 +1,18 @@
 package vortex
 
 import (
-	"errors"
 	"math/rand/v2"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
+	"github.com/stretchr/testify/require"
 )
 
-// func TestLocal(t *testing.T) {
-
-// 	params := NewParams(4, 4, nil, 2, 2)
-
-// 	size := 4
-// 	toEncode := make([]koalabear.Element, size)
-// 	for i := 0; i < size; i++ {
-// 		toEncode[i].SetUint64(uint64(i + 2))
-// 	}
-
-// 	encodedRS, _ := params.EncodeReedSolomon(toEncode, false)
-// 	for i := 0; i < len(encodedRS); i++ {
-// 		fmt.Println(encodedRS[i].String())
-// 	}
-// 	fmt.Println("--")
-
-// 	rho := 2
-// 	ds := fft.NewDomain(uint64(size))
-// 	db := fft.NewDomain(uint64(size * rho))
-// 	encodedClassic := make([]koalabear.Element, rho*size)
-// 	copy(encodedClassic, toEncode)
-// 	ds.FFTInverse(encodedClassic[:size], fft.DIF)
-// 	fft.BitReverse(encodedClassic[:size])
-// 	db.FFT(encodedClassic, fft.DIF)
-// 	fft.BitReverse(encodedClassic)
-// 	for i := 0; i < len(encodedRS); i++ {
-// 		fmt.Println(encodedClassic[i].String())
-// 	}
-
-// }
-
 func TestLagrangeSimple(t *testing.T) {
-
-	params := NewParams(4, 4, nil, 2, 2)
+	assert := require.New(t)
+	params, err := NewParams(4, 4, nil, 2, 2)
+	assert.NoError(err)
 
 	t.Run("0-1-2-3", func(t *testing.T) {
 
@@ -101,18 +71,20 @@ func TestLagrangeSimple(t *testing.T) {
 }
 
 func TestReedSolomonProperty(t *testing.T) {
+	assert := require.New(t)
 
 	var (
 		size         = 16
 		invRate      = 2
 		v            = make([]koalabear.Element, size)
 		encodedVFext = make([]fext.E4, size*invRate)
-		params       = NewParams(size, 4, nil, 2, 2)
 
 		// #nosec G404 -- test case generation does not require a cryptographic PRNG
 		rng   = rand.New(rand.NewChaCha8([32]byte{}))
 		randX = randFext(rng)
 	)
+	params, err := NewParams(size, 4, nil, 2, 2)
+	assert.NoError(err)
 
 	for i := range v {
 		v[i] = randElement(rng)
@@ -125,22 +97,18 @@ func TestReedSolomonProperty(t *testing.T) {
 		encodedVFext[i].B0.A0.Set(&encodedV[i])
 	}
 
-	if err := params.IsReedSolomonCodewords(encodedVFext); err != nil {
-		t.Fatalf("codeword does not pass rs check")
-	}
+	assert.True(params.IsReedSolomonCodewords(encodedVFext), "codeword does not pass rs check")
 
-	var (
-		y0, err0 = EvalBasePolyLagrange(v, randX)
-		y1, err1 = EvalBasePolyLagrange(encodedV, randX)
-		y2, err2 = EvalFextPolyLagrange(encodedVFext, randX)
-	)
+	y0, err := EvalBasePolyLagrange(v, randX)
+	assert.NoError(err)
 
-	if err := errors.Join(err0, err1, err2); err != nil {
-		t.Fatal(err)
-	}
+	y1, err := EvalBasePolyLagrange(encodedV, randX)
+	assert.NoError(err)
 
-	if y0 != y1 || y1 != y2 {
-		t.Fatalf("rs inconsistent with lagrange basis evaluation, %v %v %v", y0.String(), y1.String(), y2.String())
-	}
+	y2, err := EvalFextPolyLagrange(encodedVFext, randX)
+	assert.NoError(err)
+
+	assert.Equal(y0, y1)
+	assert.Equal(y0, y2)
 
 }

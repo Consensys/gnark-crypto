@@ -9,6 +9,7 @@ import (
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
 	"github.com/consensys/gnark-crypto/field/koalabear/sis"
+	"github.com/stretchr/testify/require"
 )
 
 type testcaseVortex struct {
@@ -112,7 +113,7 @@ func runTest(t *testing.T, tc *testcaseVortex) {
 		reedSolomonInvRate = 2
 		numSelectedColumns = len(tc.SelectedColumns)
 		sisParams, _       = sis.NewRSis(0, 9, 16, numRow)
-		params             = NewParams(numCol, numRow, sisParams, reedSolomonInvRate, numSelectedColumns)
+		params, _          = NewParams(numCol, numRow, sisParams, reedSolomonInvRate, numSelectedColumns)
 	)
 
 	proverState, err := Commit(params, tc.M)
@@ -141,6 +142,82 @@ func runTest(t *testing.T, tc *testcaseVortex) {
 	}
 }
 
+func FuzzVortex(f *testing.F) {
+	const (
+		invRate       = 2
+		sisLog2Degree = 8
+		sisLog2Bound  = 8
+	)
+
+	f.Add(uint16(128), uint16(128), uint16(4), int64(0), int64(0))
+	f.Add(uint16(64), uint16(64), uint16(126), int64(43), int64(42))
+	f.Add(uint16(64), uint16(1), uint16(1), int64(43), int64(42))
+	f.Add(uint16(3), uint16(116), uint16(6), int64(26), int64(63))
+
+	f.Fuzz(func(t *testing.T, _numCol, _numRow, _numSelectedColumns uint16, rngSeed, sisSeed int64) {
+		assert := require.New(t)
+		numCol := int(_numCol)
+		numRow := int(_numRow)
+		numSelectedColumns := int(_numSelectedColumns)
+
+		numCol = nextPowerOfTwo(numCol)
+		if numCol == 0 || numRow == 0 || numSelectedColumns == 0 {
+			t.Skip()
+		}
+		if numCol > 1<<11 || numRow > 1<<11 || numSelectedColumns > numCol*2-1 {
+			t.Skip()
+		}
+
+		var seed [32]byte
+		binary.PutVarint(seed[:], rngSeed)
+		rng := rand.New(rand.NewChaCha8(seed))
+
+		sisParams, err := sis.NewRSis(sisSeed, sisLog2Degree, sisLog2Bound, numRow)
+		assert.NoError(err, "failed to create SIS params")
+
+		params, err := NewParams(numCol, numRow, sisParams, invRate, numSelectedColumns)
+		assert.NoError(err, "failed to create vortex params")
+
+		alpha := randFext(rng)
+		x := randFext(rng)
+		ys := make([]fext.E4, numRow)
+		selectedColumns := make([]int, numSelectedColumns)
+		m := make([][]koalabear.Element, numRow)
+
+		for i := range selectedColumns {
+			selectedColumns[i] = rng.IntN(numCol*2 - 1)
+		}
+
+		for row := range m {
+			m[row] = make([]koalabear.Element, numCol)
+
+			for j := range m[row] {
+				m[row][j] = randElement(rng)
+			}
+
+			ys[row], err = EvalBasePolyLagrange(m[row], x)
+			assert.NoError(err, "failed to evaluate polynomial")
+		}
+
+		proverState, err := Commit(params, m)
+		assert.NoError(err, "failed to commit")
+
+		proverState.OpenLinComb(alpha)
+		proof, err := proverState.OpenColumns(selectedColumns)
+		assert.NoError(err, "failed to open columns")
+
+		err = params.Verify(VerifierInput{
+			Proof:           proof,
+			MerkleRoot:      proverState.GetCommitment(),
+			ClaimedValues:   ys,
+			EvaluationPoint: x,
+			Alpha:           alpha,
+			SelectedColumns: selectedColumns,
+		})
+		assert.NoError(err, "failed to verify proof")
+	})
+}
+
 // BenchmarkVortexReal benchmarks Vortex in (estimated) production conditions for the
 // zkEVM. We aim to have it commit to 4GiB of data. So about 1<<30 koalabear elements.
 func BenchmarkVortexReal(b *testing.B) {
@@ -152,7 +229,7 @@ func BenchmarkVortexReal(b *testing.B) {
 		numSelectedColumns = 256
 		wg                 sync.WaitGroup
 		sisParams, _       = sis.NewRSis(0, 9, 16, numRow)
-		params             = NewParams(numCol, numRow, sisParams, invRate, numSelectedColumns)
+		params, _          = NewParams(numCol, numRow, sisParams, invRate, numSelectedColumns)
 		// #nosec G404 -- test case generation does not require a cryptographic PRNG
 		topRng          = rand.New(rand.NewChaCha8([32]byte{}))
 		alpha           = randFext(topRng)
@@ -213,14 +290,14 @@ func BenchmarkVortexReal(b *testing.B) {
 		}
 	})
 
-	// b.Run("opening-columns", func(b *testing.B) {
-	// 	b.ResetTimer()
-	// 	for i := 0; i < b.N; i++ {
-	// 		_, err := proverState.OpenColumns(selectedColumns)
-	// 		if err != nil {
-	// 			b.Fatal(err)
-	// 		}
-	// 	}
-	// })
+	b.Run("opening-columns", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := proverState.OpenColumns(selectedColumns)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
 
 }

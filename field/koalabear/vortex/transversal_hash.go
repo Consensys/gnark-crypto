@@ -18,6 +18,10 @@ func transversalHash(codewords []koalabear.Element, s *sis.RSis, sizeCodeWord in
 	parallel.Execute(nbCols, func(start, end int) {
 		// we transpose the columns using a windowed approach
 		// this is done to improve memory accesses when transposing the matrix
+
+		// perf note; we could allocate only blocks of 256 elements here and do the SIS hash
+		// block by block, but surprisingly it is slower than the current implementation
+		// it would however save some memory allocation.
 		windowSize := 4
 		n := end - start
 		for n%windowSize != 0 {

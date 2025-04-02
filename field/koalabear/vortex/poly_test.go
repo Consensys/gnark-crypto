@@ -6,11 +6,13 @@ import (
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPolyLagrangeSimple(t *testing.T) {
 
 	t.Run("constant-base", func(t *testing.T) {
+		assert := require.New(t)
 
 		// #nosec #G404 -- test case generation does not require a cryptographic PRNG
 		rng := rand.New(rand.NewChaCha8([32]byte{}))
@@ -26,14 +28,9 @@ func TestPolyLagrangeSimple(t *testing.T) {
 		}
 
 		y, err := EvalBasePolyLagrange(vec, x)
+		assert.NoError(err)
 
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if y != (fext.E4{B0: fext.E2{A0: val}}) {
-			t.Errorf("expected %v, got %v", val.String(), y.String())
-		}
+		assert.Equal(y, fext.E4{B0: fext.E2{A0: val}})
 	})
 
 }

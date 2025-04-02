@@ -36,19 +36,15 @@ type VerifierInput struct {
 // Verify implements the verification algorithm for a Vortex opening proof.
 func (p *Params) Verify(input VerifierInput) error {
 
-	var (
-		proof = input.Proof
-		root  = input.MerkleRoot
-	)
+	proof := input.Proof
+	root := input.MerkleRoot
 
 	// This checks the consistency between uAlpha and the claimed value
-	var (
-		uAlphaAtX, uErr = EvalFextPolyLagrange(input.Proof.UAlpha, input.EvaluationPoint)
-		claimsAtAlpha   = EvalFextPolyHorner(input.ClaimedValues, input.Alpha)
-	)
+	uAlphaAtX, err := EvalFextPolyLagrange(input.Proof.UAlpha, input.EvaluationPoint)
+	claimsAtAlpha := EvalFextPolyHorner(input.ClaimedValues, input.Alpha)
 
-	if uErr != nil {
-		return fmt.Errorf("invalid proof: could not evaluate uAlpha: %w", uErr)
+	if err != nil {
+		return fmt.Errorf("invalid proof: could not evaluate uAlpha: %w", err)
 	}
 
 	if uAlphaAtX != claimsAtAlpha {
@@ -56,8 +52,8 @@ func (p *Params) Verify(input VerifierInput) error {
 	}
 
 	// This checks the reed-solomon member ship of UAlpha
-	if err := p.IsReedSolomonCodewords(proof.UAlpha); err != nil {
-		return fmt.Errorf("invalid proof: uAlpha is not a reed-solomon codeword: %w", err)
+	if !p.IsReedSolomonCodewords(proof.UAlpha) {
+		return fmt.Errorf("invalid proof: uAlpha is not a reed-solomon codeword")
 	}
 
 	// This checks the consistency between the proof and the selected columns

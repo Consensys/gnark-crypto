@@ -63,23 +63,28 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 	merkleLeaves := make([]Hash, sizeCodeWord)
 
 	const blockSize = 16
-	if sizeCodeWord%blockSize != 0 {
-		// we should be fine here; the size of the codewords match a FFT domain
-		// (large power of 2)
-		panic("len of codewords must be a multiple of 16")
-	}
-
-	// we hash by blocks of 16 to leverage optimized SIMD implementation
-	// of Poseidon2 which require 16 hashes to be computed independently.
-	parallel.Execute(sizeCodeWord/blockSize, func(start, end int) {
-		sisKeySize := p.Key.Degree
-		for block := start; block < end; block++ {
-			b := block * blockSize
-			sStart := b * sisKeySize
-			sEnd := sStart + sisKeySize*blockSize
-			HashPoseidon2x16(sisHashes[sStart:sEnd], merkleLeaves[b:b+blockSize], sisKeySize)
+	if sizeCodeWord%blockSize == 0 {
+		// we hash by blocks of 16 to leverage optimized SIMD implementation
+		// of Poseidon2 which require 16 hashes to be computed independently.
+		parallel.Execute(sizeCodeWord/blockSize, func(start, end int) {
+			sisKeySize := p.Key.Degree
+			for block := start; block < end; block++ {
+				b := block * blockSize
+				sStart := b * sisKeySize
+				sEnd := sStart + sisKeySize*blockSize
+				HashPoseidon2x16(sisHashes[sStart:sEnd], merkleLeaves[b:b+blockSize], sisKeySize)
+			}
+		})
+	} else {
+		// unusual path; it means we have < 16 columns (tiny code words)
+		// so we do the hashes one by one.
+		for i := 0; i < sizeCodeWord; i++ {
+			sisKeySize := p.Key.Degree
+			sStart := i * sisKeySize
+			sEnd := sStart + sisKeySize
+			merkleLeaves[i] = HashPoseidon2(sisHashes[sStart:sEnd])
 		}
-	})
+	}
 
 	return &ProverState{
 		Params:        p,

@@ -13,7 +13,7 @@ import (
 // at a given point in the field extension basis.
 func EvalBasePolyLagrange(poly []koalabear.Element, x fext.E4) (fext.E4, error) {
 
-	if !IsPowerOfTwo(len(poly)) {
+	if !isPowerOfTwo(len(poly)) {
 		return fext.E4{}, fmt.Errorf("only support powers of two but poly has length %v", len(poly))
 	}
 
@@ -69,7 +69,7 @@ func EvalBasePolyLagrange(poly []koalabear.Element, x fext.E4) (fext.E4, error) 
 // at a given point in the field extension.
 func EvalFextPolyLagrange(poly []fext.E4, x fext.E4) (fext.E4, error) {
 
-	if !IsPowerOfTwo(len(poly)) {
+	if !isPowerOfTwo(len(poly)) {
 		return fext.E4{}, fmt.Errorf("only support powers of two but poly has length %v", len(poly))
 	}
 

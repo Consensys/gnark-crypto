@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMerkleTree(t *testing.T) {
@@ -12,7 +13,7 @@ func TestMerkleTree(t *testing.T) {
 	posLists := []int{0, 1, 12, 31}
 
 	t.Run("full-zero-leaves", func(t *testing.T) {
-
+		assert := require.New(t)
 		leaves := [32]Hash{}
 
 		tree := BuildMerkleTree(leaves[:])
@@ -20,17 +21,15 @@ func TestMerkleTree(t *testing.T) {
 		for _, pos := range posLists {
 
 			proof, err := tree.Open(pos)
-			if err != nil {
-				t.Fatal(err)
-			}
+			assert.NoError(err)
 
-			if err := proof.Verify(pos, leaves[pos], tree.Root()); err != nil {
-				t.Fatal(err)
-			}
+			err = proof.Verify(pos, leaves[pos], tree.Root())
+			assert.NoError(err)
 		}
 	})
 
 	t.Run("full-random", func(t *testing.T) {
+		assert := require.New(t)
 
 		var (
 			// #nosec G404 -- test case generation does not require a cryptographic PRNG
@@ -48,15 +47,11 @@ func TestMerkleTree(t *testing.T) {
 		tree := BuildMerkleTree(leaves[:])
 
 		for _, pos := range posLists {
-
 			proof, err := tree.Open(pos)
-			if err != nil {
-				t.Fatal(err)
-			}
+			assert.NoError(err)
 
-			if err := proof.Verify(pos, leaves[pos], tree.Root()); err != nil {
-				t.Fatal(err)
-			}
+			err = proof.Verify(pos, leaves[pos], tree.Root())
+			assert.NoError(err)
 		}
 
 	})

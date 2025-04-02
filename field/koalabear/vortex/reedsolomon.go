@@ -43,7 +43,7 @@ func (p *Params) EncodeReedSolomon(input, res []koalabear.Element) {
 
 // IsCodeword returns nil iff the argument `v` is a correct codeword and an
 // error is returned otherwise.
-func (p *Params) IsReedSolomonCodewords(codeword []fext.E4) error {
+func (p *Params) IsReedSolomonCodewords(codeword []fext.E4) bool {
 
 	// As we don't have a dedicated FFT for field extensions, we apply
 	// the FFT algorithm coordinates-by-coordinates. This might be
@@ -60,7 +60,7 @@ func (p *Params) IsReedSolomonCodewords(codeword []fext.E4) error {
 	fft.BitReverse(coeffs)
 	for i := p.NbColumns; i < p.SizeCodeWord(); i++ {
 		if !coeffs[i].IsZero() {
-			return fmt.Errorf("not a reed-solomon codeword")
+			return false
 		}
 	}
 
@@ -72,7 +72,7 @@ func (p *Params) IsReedSolomonCodewords(codeword []fext.E4) error {
 	fft.BitReverse(coeffs)
 	for i := p.NbColumns; i < p.SizeCodeWord(); i++ {
 		if !coeffs[i].IsZero() {
-			return fmt.Errorf("not a reed-solomon codeword")
+			return false
 		}
 	}
 
@@ -84,7 +84,7 @@ func (p *Params) IsReedSolomonCodewords(codeword []fext.E4) error {
 	fft.BitReverse(coeffs)
 	for i := p.NbColumns; i < p.SizeCodeWord(); i++ {
 		if !coeffs[i].IsZero() {
-			return fmt.Errorf("not a reed-solomon codeword")
+			return false
 		}
 	}
 
@@ -96,9 +96,9 @@ func (p *Params) IsReedSolomonCodewords(codeword []fext.E4) error {
 	fft.BitReverse(coeffs)
 	for i := p.NbColumns; i < p.SizeCodeWord(); i++ {
 		if !coeffs[i].IsZero() {
-			return fmt.Errorf("not a reed-solomon codeword")
+			return false
 		}
 	}
 
-	return nil
+	return true
 }

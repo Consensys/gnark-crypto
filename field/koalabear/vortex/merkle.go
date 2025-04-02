@@ -34,8 +34,8 @@ func BuildMerkleTree(hashes []Hash) *MerkleTree {
 
 	var (
 		numLeaves    = len(hashes)
-		newPow2      = NextPowerOfTwo(numLeaves)
-		depth        = Log2Ceil(numLeaves)
+		newPow2      = nextPowerOfTwo(numLeaves)
+		depth        = log2Ceil(numLeaves)
 		paddedHashes = hashes
 	)
 
@@ -141,12 +141,12 @@ func (mt *MerkleTree) Root() Hash {
 }
 
 // Return true if n is a power of two
-func IsPowerOfTwo[T ~int](n T) bool {
+func isPowerOfTwo[T ~int](n T) bool {
 	return n&(n-1) == 0 && n > 0
 }
 
 /*
-NextPowerOfTwo returns the next power of two for the given number.
+nextPowerOfTwo returns the next power of two for the given number.
 It returns the number itself if it's a power of two. As an edge case,
 zero returns zero.
 
@@ -154,7 +154,7 @@ Taken from :
 https://github.com/protolambda/zrnt/blob/v0.13.2/eth2/util/math/math_util.go#L58
 The function panics if the input is more than  2**62 as this causes overflow
 */
-func NextPowerOfTwo[T ~int64 | ~uint64 | ~uintptr | ~int | ~uint](in T) T {
+func nextPowerOfTwo[T ~int64 | ~uint64 | ~uintptr | ~int | ~uint](in T) T {
 	if in < 0 || uint64(in) > 1<<62 {
 		panic("input out of range")
 	}
@@ -170,8 +170,8 @@ func NextPowerOfTwo[T ~int64 | ~uint64 | ~uintptr | ~int | ~uint](in T) T {
 	return v
 }
 
-// Log2Floor computes the floored value of Log2
-func Log2Floor(a int) int {
+// log2Floor computes the floored value of Log2
+func log2Floor(a int) int {
 	res := 0
 	for i := a; i > 1; i = i >> 1 {
 		res++
@@ -179,9 +179,9 @@ func Log2Floor(a int) int {
 	return res
 }
 
-// Log2Ceil computes the ceiled value of Log2
-func Log2Ceil(a int) int {
-	floor := Log2Floor(a)
+// log2Ceil computes the ceiled value of Log2
+func log2Ceil(a int) int {
+	floor := log2Floor(a)
 	if a != 1<<floor {
 		floor++
 	}

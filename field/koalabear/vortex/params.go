@@ -1,6 +1,8 @@
 package vortex
 
 import (
+	"errors"
+
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/fft"
 	"github.com/consensys/gnark-crypto/field/koalabear/sis"
@@ -46,17 +48,20 @@ func NewParams(
 	sisParams *sis.RSis,
 	reedSolomonInvRate int,
 	numSelectedColumns int,
-) *Params {
+) (*Params, error) {
+	if numColumns < 1 || !isPowerOfTwo(numColumns) {
+		return nil, errors.New("number of columns must be a power of two")
+	}
 
 	shift, err := koalabear.Generator(uint64(numColumns * reedSolomonInvRate))
 	if err != nil {
-		panic(err) // Handle that properly
+		return nil, err
 	}
 
 	smallDomain := fft.NewDomain(uint64(numColumns), fft.WithShift(shift))
 	cosetTableBitReverse, err := smallDomain.CosetTable()
 	if err != nil {
-		panic(err) // Handle that properly
+		return nil, err
 	}
 	fft.BitReverse(cosetTableBitReverse)
 	bigDomain := fft.NewDomain(uint64(numColumns * reedSolomonInvRate))
@@ -72,7 +77,7 @@ func NewParams(
 		MaxNbRows:            maxNumRow,
 		NumSelectedColumns:   numSelectedColumns,
 		CosetTableBitReverse: cosetTableBitReverse,
-	}
+	}, nil
 
 }
 
