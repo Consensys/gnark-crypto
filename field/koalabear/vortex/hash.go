@@ -21,6 +21,7 @@ func CompressPoseidon2(a, b Hash) Hash {
 	copy(x[:], a[:])
 	copy(x[8:], b[:])
 	if err := compressPerm.Permutation(x[:]); err != nil {
+		// can't error (size is correct)
 		panic(err)
 	}
 	copy(res[:], x[:8])

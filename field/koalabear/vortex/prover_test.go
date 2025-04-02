@@ -144,27 +144,35 @@ func runTest(t *testing.T, tc *testcaseVortex) {
 
 func FuzzVortex(f *testing.F) {
 	const (
-		invRate       = 2
-		sisLog2Degree = 8
+		sisLog2Degree = 4
 		sisLog2Bound  = 8
 	)
 
-	f.Add(uint16(128), uint16(128), uint16(4), int64(0), int64(0))
-	f.Add(uint16(64), uint16(64), uint16(126), int64(43), int64(42))
-	f.Add(uint16(64), uint16(1), uint16(1), int64(43), int64(42))
-	f.Add(uint16(3), uint16(116), uint16(6), int64(26), int64(63))
+	f.Add(uint16(128), uint16(128), uint16(4), int64(0), int64(0), false)
+	f.Add(uint16(64), uint16(64), uint16(126), int64(43), int64(42), true)
+	f.Add(uint16(64), uint16(1), uint16(1), int64(43), int64(42), false)
+	f.Add(uint16(3), uint16(116), uint16(6), int64(26), int64(63), true)
 
-	f.Fuzz(func(t *testing.T, _numCol, _numRow, _numSelectedColumns uint16, rngSeed, sisSeed int64) {
+	f.Fuzz(func(t *testing.T,
+		_numCol, _numRow, _numSelectedColumns uint16,
+		rngSeed, sisSeed int64,
+		invRate8 bool,
+	) {
 		assert := require.New(t)
 		numCol := int(_numCol)
 		numRow := int(_numRow)
 		numSelectedColumns := int(_numSelectedColumns)
 
+		invRate := 2
+		if invRate8 {
+			invRate = 8
+		}
+
 		numCol = nextPowerOfTwo(numCol)
 		if numCol == 0 || numRow == 0 || numSelectedColumns == 0 {
 			t.Skip()
 		}
-		if numCol > 1<<11 || numRow > 1<<11 || numSelectedColumns > numCol*2-1 {
+		if numCol > 1<<11 || numRow > 1<<11 || numSelectedColumns > numCol*invRate-1 {
 			t.Skip()
 		}
 
@@ -185,7 +193,7 @@ func FuzzVortex(f *testing.F) {
 		m := make([][]koalabear.Element, numRow)
 
 		for i := range selectedColumns {
-			selectedColumns[i] = rng.IntN(numCol*2 - 1)
+			selectedColumns[i] = rng.IntN(numCol*invRate - 1)
 		}
 
 		for row := range m {

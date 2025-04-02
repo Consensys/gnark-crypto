@@ -53,6 +53,11 @@ func NewParams(
 		return nil, errors.New("number of columns must be a power of two")
 	}
 
+	if reedSolomonInvRate != 2 && reedSolomonInvRate != 4 && reedSolomonInvRate != 8 {
+		// note: tested only with these.
+		return nil, errors.New("reed solomon rate must be 2, 4 or 8")
+	}
+
 	shift, err := koalabear.Generator(uint64(numColumns * reedSolomonInvRate))
 	if err != nil {
 		return nil, err
