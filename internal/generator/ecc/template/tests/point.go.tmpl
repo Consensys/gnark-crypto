@@ -36,7 +36,7 @@ import (
 )
 
 {{if .GLV}}
-    func Test{{ $TAffine }}Endomorphism(t *testing.T) {
+    func Test{{ toUpper .PointName }}Endomorphism(t *testing.T) {
 		t.Parallel()
         parameters := gopter.DefaultTestParameters()
         if testing.Short() {
@@ -104,7 +104,7 @@ import (
     }
 {{end}}
 
-func Test{{ $TAffine }}IsOnCurve(t *testing.T) {
+func TestIsOn{{ toUpper .PointName }}(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -150,11 +150,21 @@ func Test{{ $TAffine }}IsOnCurve(t *testing.T) {
 		{{$fuzzer}},
 	))
 
+    {{- if or (eq .Name "bls12-381") (and (eq .Name "bn254") (eq .PointName "g2"))}}
+	properties.Property("[{{ toUpper .Name }}] IsInSubGroup should return false for a point on the cofactor-torsion", prop.ForAll(
+		func(a {{ .CoordType}}) bool {
+			op := fuzzCofactorOf{{ toUpper .PointName}}(a)
+			return op.IsOnCurve() && !op.IsInSubGroup()
+		},
+		{{$fuzzer}},
+	))
+    {{- end}}
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 
-func Test{{ $TAffine }}Conversions(t *testing.T) {
+func Test{{ toUpper .PointName }}Conversions(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -569,7 +579,7 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 
 
 {{if .CofactorCleaning }}
-func Test{{ $TAffine }}CofactorCleaning(t *testing.T) {
+func Test{{ toUpper .PointName }}CofactorClearing(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -583,7 +593,7 @@ func Test{{ $TAffine }}CofactorCleaning(t *testing.T) {
 	properties.Property("[{{ toUpper .Name }}] Clearing the cofactor of a random point should set it in the r-torsion", prop.ForAll(
 		func() bool {
 			var a, x, b {{ .CoordType }}
-			a.SetRandom()
+			a.MustSetRandom()
 			{{if eq .CoordType "fp.Element" }}
 				{{if eq .PointName "g2" }}
 					x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
@@ -591,7 +601,7 @@ func Test{{ $TAffine }}CofactorCleaning(t *testing.T) {
 					x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
 				{{end}}
 				for x.Legendre() != 1 {
-					a.SetRandom()
+					a.MustSetRandom()
 					{{if eq .PointName "g2" }}
 						x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 					{{else}}
@@ -602,7 +612,7 @@ func Test{{ $TAffine }}CofactorCleaning(t *testing.T) {
 			{{/* eq .CoordType "fptower.E2" */}}
 				x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 				for x.Legendre() != 1 {
-					a.SetRandom()
+					a.MustSetRandom()
 					x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 				}
 			{{end}}
@@ -621,7 +631,7 @@ func Test{{ $TAffine }}CofactorCleaning(t *testing.T) {
 }
 {{end}}
 
-func Test{{ $TAffine }}BatchScalarMultiplication(t *testing.T) {
+func Test{{ toUpper .PointName }}BatchScalarMultiplication(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -686,9 +696,7 @@ func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 
 func Benchmark{{ $TJacobian }}Equal(b *testing.B) {
 	var scalar {{ .CoordType}}
-	if _, err := scalar.SetRandom(); err != nil {
-		b.Fatalf("failed to set scalar: %s", err)
-	}
+	scalar.MustSetRandom()
 
 	var a {{ $TJacobian }}
 	a.ScalarMultiplication(&{{.PointName}}Gen, big.NewInt(42))
@@ -941,6 +949,50 @@ func Benchmark{{ toUpper .PointName}}AffineDouble(b *testing.B) {
 	}
 }
 
+{{- if eq .Name "bls12-381"}}
+func fuzzCofactorOf{{ toUpper .PointName}}(f {{ .CoordType}}) {{ $TJacobian }} {
+	var res, jac {{ $TJacobian }}
+    {{- if eq .PointName "g1" }}
+	aff := MapToCurve1(&f)
+	g1Isogeny(&aff)
+	jac.FromAffine(&aff)
+    // p+x²ϕ(p) = [r]p
+	res.phi(&jac).
+		mulBySeed(&res).
+		mulBySeed(&res).
+		AddAssign(&jac)
+    {{- else}}
+	aff := MapToCurve2(&f)
+	g2Isogeny(&aff)
+	jac.FromAffine(&aff)
+    // ψ(p)-[x₀]P = [r]p
+	res.mulBySeed(&jac)
+	jac.psi(&jac)
+    res.AddAssign(&jac)
+    {{- end}}
+	return res
+}
+
+{{- else if and (eq .Name "bn254") (eq .PointName "g2")}}
+func fuzzCofactorOf{{ toUpper .PointName}}(f {{ .CoordType}}) {{ $TJacobian }} {
+	var res, jac, a, b, c {{ $TJacobian }}
+   	aff := MapToCurve2(&f)
+	jac.FromAffine(&aff)
+    // [x₀+1]P + ψ([x₀]P) + ψ²([x₀]P) - ψ³([2x₀]P) = [r]P
+	a.mulBySeed(&jac)
+	b.psi(&a)
+	a.AddAssign(&jac)
+	res.psi(&b)
+	c.Set(&res).
+		AddAssign(&b).
+		AddAssign(&a)
+	res.psi(&res).
+		Double(&res).
+        SubAssign(&c)
+	return res
+}
+{{- end}}
+
 func fuzz{{ $TJacobian }}(p *{{ $TJacobian }}, f {{ .CoordType}}) {{ $TJacobian }} {
 	var res {{ $TJacobian }}
 	res.X.Mul(&p.X, &f).Mul(&res.X, &f)
@@ -974,10 +1026,7 @@ const (
 func GenFr() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fr.Element
-
-		if _, err := elmt.SetRandom(); err != nil {
-			panic(err)
-		}
+		elmt.MustSetRandom()
 
 		return gopter.NewGenResult(elmt, gopter.NoShrinker)
 	}
@@ -987,10 +1036,7 @@ func GenFr() gopter.Gen {
 func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fp.Element
-
-		if _, err := elmt.SetRandom(); err != nil {
-			panic(err)
-		}
+		elmt.MustSetRandom()
 
 		return gopter.NewGenResult(elmt, gopter.NoShrinker)
 	}

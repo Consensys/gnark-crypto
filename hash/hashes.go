@@ -38,6 +38,31 @@ const (
 	MIMC_BLS24_317
 	// MIMC_BW6_633 is the MiMC hash function for the BW6-633 curve.
 	MIMC_BW6_633
+	// MIMC_GRUMPKIN is the MiMC hash function for the Grumpkin curve.
+	MIMC_GRUMPKIN
+
+	// POSEIDON2_BLS12_377 is the Poseidon2 hash function for the BLS12-377 curve.
+	POSEIDON2_BLS12_377
+	// POSEIDON2_BLS12_381 is the Poseidon2 hash function for the BLS12-381 curve.
+	POSEIDON2_BLS12_381
+	// POSEIDON2_BN254 is the Poseidon2 hash function for the BN254 curve.
+	POSEIDON2_BN254
+	// POSEIDON2_GRUMPKIN is the Poseidon2 hash function for the Grumpkin curve.
+	POSEIDON2_GRUMPKIN
+	// POSEIDON2_BW6_761 is the Poseidon2 hash function for the BW6-761 curve.
+	POSEIDON2_BW6_761
+	// POSEIDON2_BW6_633 is the Poseidon2 hash function for the BW6-633 curve.
+	POSEIDON2_BW6_633
+	// POSEIDON2_BLS24_315 is the Poseidon2 hash function for the BLS21-315 curve.
+	POSEIDON2_BLS24_315
+	// POSEIDON2_BLS24_317 is the Poseidon2 hash function for the BLS21-317 curve.
+	POSEIDON2_BLS24_317
+	// POSEIDON2_KOALABEAR is the Poseidon2 hash function for the KoalaBear field.
+	POSEIDON2_KOALABEAR
+	// POSEIDON2_BABYBEAR is the Poseidon2 hash function for the BabyBear field.
+	POSEIDON2_BABYBEAR
+	// POSEIDON2_GOLDILOCKS is the Poseidon2 hash function for the Goldilocks field.
+	POSEIDON2_GOLDILOCKS
 
 	maxHash
 )
@@ -51,6 +76,20 @@ var digestSize = []uint8{
 	MIMC_BLS24_315: 48,
 	MIMC_BLS24_317: 48,
 	MIMC_BW6_633:   80,
+	MIMC_GRUMPKIN:  32,
+
+	POSEIDON2_BN254:     32,
+	POSEIDON2_BLS12_381: 48,
+	POSEIDON2_BLS12_377: 48,
+	POSEIDON2_BW6_761:   96,
+	POSEIDON2_BLS24_315: 48,
+	POSEIDON2_BLS24_317: 48,
+	POSEIDON2_BW6_633:   80,
+	POSEIDON2_GRUMPKIN:  32,
+
+	POSEIDON2_KOALABEAR:  4,
+	POSEIDON2_BABYBEAR:   4,
+	POSEIDON2_GOLDILOCKS: 8,
 }
 
 // New initializes the hash function. This is a convenience function which does
@@ -87,6 +126,31 @@ func (m Hash) String() string {
 		return "MIMC_BLS24_317"
 	case MIMC_BW6_633:
 		return "MIMC_BW6_633"
+	case MIMC_GRUMPKIN:
+		return "MIMC_GRUMPKIN"
+
+	case POSEIDON2_BN254:
+		return "POSEIDON2_BN254"
+	case POSEIDON2_BLS12_381:
+		return "POSEIDON2_BLS12_381"
+	case POSEIDON2_BLS12_377:
+		return "POSEIDON2_BLS12_377"
+	case POSEIDON2_BW6_761:
+		return "POSEIDON2_BW6_761"
+	case POSEIDON2_BLS24_315:
+		return "POSEIDON2_BLS24_315"
+	case POSEIDON2_BLS24_317:
+		return "POSEIDON2_BLS24_317"
+	case POSEIDON2_BW6_633:
+		return "POSEIDON2_BW6_633"
+	case POSEIDON2_GRUMPKIN:
+		return "POSEIDON2_GRUMPKIN"
+	case POSEIDON2_KOALABEAR:
+		return "POSEIDON2_KOALABEAR"
+	case POSEIDON2_BABYBEAR:
+		return "POSEIDON2_BABYBEAR"
+	case POSEIDON2_GOLDILOCKS:
+		return "POSEIDON2_GOLDILOCKS"
 	default:
 		return "unknown hash function"
 	}

@@ -8,18 +8,18 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
-	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
-	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/gkr"
-	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
-	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
-	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/test_vector_utils"
 	"hash"
 	"os"
 	"path/filepath"
 	"reflect"
 
 	"github.com/consensys/bavard"
+	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/gkr"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/polynomial"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/sumcheck"
+	"github.com/consensys/gnark-crypto/internal/generator/test_vector_utils/small_rational/test_vector_utils"
 )
 
 func main() {
@@ -126,11 +126,9 @@ func toPrintableProof(proof gkr.Proof) (PrintableProof, error) {
 	return res, nil
 }
 
-var Gates = gkr.Gates
-
 type WireInfo struct {
-	Gate   string `json:"gate"`
-	Inputs []int  `json:"inputs"`
+	Gate   gkr.GateName `json:"gate"`
+	Inputs []int        `json:"inputs"`
 }
 
 type CircuitInfo []WireInfo
@@ -163,7 +161,7 @@ func getCircuit(path string) (gkr.Circuit, error) {
 func (c CircuitInfo) toCircuit() (circuit gkr.Circuit) {
 	circuit = make(gkr.Circuit, len(c))
 	for i := range c {
-		circuit[i].Gate = Gates[c[i].Gate]
+		circuit[i].Gate = gkr.GetGate(c[i].Gate)
 		circuit[i].Inputs = make([]*gkr.Wire, len(c[i].Inputs))
 		for k, inputCoord := range c[i].Inputs {
 			input := &circuit[inputCoord]
@@ -173,22 +171,11 @@ func (c CircuitInfo) toCircuit() (circuit gkr.Circuit) {
 	return
 }
 
-func init() {
-	Gates["mimc"] = mimcCipherGate{} //TODO: Add ark
-	Gates["select-input-3"] = _select(2)
-}
-
-type mimcCipherGate struct {
-	ark small_rational.SmallRational
-}
-
-func (m mimcCipherGate) Evaluate(input ...small_rational.SmallRational) (res small_rational.SmallRational) {
+func mimcRound(input ...small_rational.SmallRational) (res small_rational.SmallRational) {
 	var sum small_rational.SmallRational
 
 	sum.
-		Add(&input[0], &input[1]).
-		Add(&sum, &m.ark)
-
+		Add(&input[0], &input[1]) //.Add(&sum, &m.ark)  TODO: add ark
 	res.Square(&sum)    // sum^2
 	res.Mul(&res, &sum) // sum^3
 	res.Square(&res)    //sum^6
@@ -197,8 +184,21 @@ func (m mimcCipherGate) Evaluate(input ...small_rational.SmallRational) (res sma
 	return
 }
 
-func (m mimcCipherGate) Degree() int {
-	return 7
+const (
+	MiMC         gkr.GateName = "mimc"
+	SelectInput3 gkr.GateName = "select-input-3"
+)
+
+func init() {
+	if err := gkr.RegisterGate(MiMC, mimcRound, 2, gkr.WithUnverifiedDegree(7)); err != nil {
+		panic(err)
+	}
+
+	if err := gkr.RegisterGate(SelectInput3, func(input ...small_rational.SmallRational) small_rational.SmallRational {
+		return input[2]
+	}, 3, gkr.WithUnverifiedDegree(1)); err != nil {
+		panic(err)
+	}
 }
 
 type PrintableProof []PrintableSumcheckProof
@@ -346,14 +346,4 @@ func newTestCase(path string) (*TestCase, error) {
 	}
 
 	return tCase, nil
-}
-
-type _select int
-
-func (g _select) Evaluate(in ...small_rational.SmallRational) small_rational.SmallRational {
-	return in[g]
-}
-
-func (g _select) Degree() int {
-	return 1
 }

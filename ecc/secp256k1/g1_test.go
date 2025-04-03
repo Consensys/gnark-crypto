@@ -20,7 +20,7 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
-func TestG1AffineEndomorphism(t *testing.T) {
+func TestG1Endomorphism(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -62,7 +62,7 @@ func TestG1AffineEndomorphism(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG1AffineIsOnCurve(t *testing.T) {
+func TestIsOnG1(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -111,7 +111,7 @@ func TestG1AffineIsOnCurve(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG1AffineConversions(t *testing.T) {
+func TestG1Conversions(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -501,7 +501,7 @@ func TestG1AffineOps(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG1AffineBatchScalarMultiplication(t *testing.T) {
+func TestG1BatchScalarMultiplication(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -566,9 +566,7 @@ func BenchmarkG1JacIsInSubGroup(b *testing.B) {
 
 func BenchmarkG1JacEqual(b *testing.B) {
 	var scalar fp.Element
-	if _, err := scalar.SetRandom(); err != nil {
-		b.Fatalf("failed to set scalar: %s", err)
-	}
+	scalar.MustSetRandom()
 
 	var a G1Jac
 	a.ScalarMultiplication(&g1Gen, big.NewInt(42))
@@ -839,10 +837,7 @@ const (
 func GenFr() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fr.Element
-
-		if _, err := elmt.SetRandom(); err != nil {
-			panic(err)
-		}
+		elmt.MustSetRandom()
 
 		return gopter.NewGenResult(elmt, gopter.NoShrinker)
 	}
@@ -852,10 +847,7 @@ func GenFr() gopter.Gen {
 func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fp.Element
-
-		if _, err := elmt.SetRandom(); err != nil {
-			panic(err)
-		}
+		elmt.MustSetRandom()
 
 		return gopter.NewGenResult(elmt, gopter.NoShrinker)
 	}

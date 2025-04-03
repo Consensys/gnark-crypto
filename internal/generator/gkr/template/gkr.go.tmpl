@@ -16,14 +16,34 @@ import (
 
 // The goal is to prove/verify evaluations of many instances of the same circuit
 
-// Gate must be a low-degree polynomial
-type Gate interface {
-	Evaluate(...{{.ElementType}}) {{.ElementType}}
-	Degree() int
+// GateFunction a polynomial defining a gate. It may modify its input. The changes will be ignored.
+type GateFunction func(...{{.ElementType}}) {{.ElementType}}
+
+// A Gate is a low-degree multivariate polynomial
+type Gate struct {
+	Evaluate         GateFunction	// Evaluate the polynomial function defining the gate
+	nbIn      int // number of inputs
+	degree    int // total degree of f
+	solvableVar int // if there is a solvable variable, its index, -1 otherwise
+}
+
+// Degree returns the total degree of the gate's polynomial i.e. Degree(xy²) = 3
+func (g *Gate) Degree() int {
+	return g.degree
+}
+
+// SolvableVar returns I such that x_I can always be determined from {x_i} - {x_I} and f(x...). If there is no such variable, it returns -1.
+func (g *Gate) SolvableVar() int {
+	return g.solvableVar
+}
+
+// NbIn returns the number of inputs to the gate (its fan-in)
+func (g *Gate) NbIn() int {
+	return g.nbIn
 }
 
 type Wire struct {
-	Gate            Gate
+	Gate            *Gate
 	Inputs          []*Wire // if there are no Inputs, the wire is assumed an input wire
 	nbUniqueOutputs int     // number of other wires using it as input, not counting duplicates (i.e. providing two inputs to the same gate counts as one)
 }
@@ -686,12 +706,13 @@ func Verify(c Circuit, assignment WireAssignment, proof Proof, transcriptSetting
 
 // outputsList also sets the nbUniqueOutputs fields. It also sets the wire metadata.
 func outputsList(c Circuit, indexes map[*Wire]int) [][]int {
+	idGate := GetGate("identity")
 	res := make([][]int, len(c))
 	for i := range c {
 		res[i] = make([]int, 0)
 		c[i].nbUniqueOutputs = 0
 		if c[i].IsInput() {
-			c[i].Gate = IdentityGate{}
+			c[i].Gate = idGate
 		}
 	}
 	ins := make(map[int]struct{}, len(c))
@@ -839,92 +860,4 @@ func frToBigInts(dst []*big.Int, src []{{.ElementType}}) {
 	for i := range src {
 		src[i].BigInt(dst[i])
 	}
-}
-
-// Gates defined by name
-var Gates = map[string]Gate{
-	"identity": IdentityGate{},
-	"add":		AddGate{},
-	"sub":		SubGate{},
-	"neg":		NegGate{},
-	"mul":      MulGate(2),
-}
-
-type IdentityGate struct{}
-type AddGate struct{}
-type MulGate int
-type SubGate struct{}
-type NegGate struct{}
-
-func (IdentityGate) Evaluate(input ...{{.ElementType}}) {{.ElementType}} {
-	return input[0]
-}
-
-func (IdentityGate) Degree() int {
-	return 1
-}
-
-func (g AddGate) Evaluate(x ...{{.ElementType}}) (res {{.ElementType}}) {
-	switch len(x) {
-	case 0:
-	// set zero
-	case 1:
-		res.Set(&x[0])
-	default:
-		res.Add(&x[0], &x[1])
-		for i := 2; i < len(x); i++ {
-			res.Add(&res, &x[i])
-		}
-	}
-	return
-}
-
-func (g AddGate) Degree() int {
-	return 1
-}
-
-func (g MulGate) Evaluate(x ...{{.ElementType}}) (res {{.ElementType}}) {
-	if len(x) != int(g) {
-		panic("wrong input count")
-	}
-	switch len(x) {
-	case 0:
-		res.SetOne()
-	case 1:
-		res.Set(&x[0])
-	default:
-		res.Mul(&x[0], &x[1])
-		for i := 2; i < len(x); i++ {
-			res.Mul(&res, &x[i])
-		}
-	}
-	return
-}
-
-func (g MulGate) Degree() int {
-	return int(g)
-}
-
-func (g SubGate) Evaluate(element ...{{.ElementType}}) (diff {{.ElementType}}) {
-	if len(element) > 2 {
-		panic("not implemented") //TODO
-	}
-	diff.Sub(&element[0], &element[1])
-	return
-}
-
-func (g SubGate) Degree() int {
-	return 1
-}
-
-func (g NegGate) Evaluate(element ...{{.ElementType}}) (neg {{.ElementType}}) {
-	if len(element) != 1 {
-		panic("univariate gate")
-	}
-	neg.Neg(&element[0])
-	return
-}
-
-func (g NegGate) Degree() int {
-	return 1
 }

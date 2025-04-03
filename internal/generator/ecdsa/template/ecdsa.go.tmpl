@@ -84,7 +84,7 @@ func GenerateKey(rand io.Reader) (*PrivateKey, error) {
 
 	}
 
-    {{- if or (eq .Name "secp256k1") (eq .Name "stark-curve")}}
+    {{- if or (eq .Name "secp256k1") (eq .Name "stark-curve") (eq .Name "grumpkin")}}
         _, g := {{ .CurvePackage }}.Generators()
     {{- else}}
         _, _, g, _ := {{ .CurvePackage }}.Generators()

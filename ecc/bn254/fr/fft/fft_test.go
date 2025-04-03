@@ -21,7 +21,7 @@ import (
 
 func TestFFT(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSuccessfulTests = 5
+	parameters.MinSuccessfulTests = 6
 	properties := gopter.NewProperties(parameters)
 
 	for maxSize := 2; maxSize <= 1<<10; maxSize <<= 1 {
@@ -45,7 +45,7 @@ func TestFFT(t *testing.T) {
 					backupPol := make([]fr.Element, maxSize)
 
 					for i := 0; i < maxSize; i++ {
-						pol[i].SetRandom()
+						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
 
@@ -72,7 +72,7 @@ func TestFFT(t *testing.T) {
 					backupPol := make([]fr.Element, maxSize)
 
 					for i := 0; i < maxSize; i++ {
-						pol[i].SetRandom()
+						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
 
@@ -100,7 +100,7 @@ func TestFFT(t *testing.T) {
 					backupPol := make([]fr.Element, maxSize)
 
 					for i := 0; i < maxSize; i++ {
-						pol[i].SetRandom()
+						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
 
@@ -126,7 +126,7 @@ func TestFFT(t *testing.T) {
 					backupPol := make([]fr.Element, maxSize)
 
 					for i := 0; i < maxSize; i++ {
-						pol[i].SetRandom()
+						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
 
@@ -152,7 +152,7 @@ func TestFFT(t *testing.T) {
 						backupPol := make([]fr.Element, maxSize)
 
 						for i := 0; i < maxSize; i++ {
-							pol[i].SetRandom()
+							pol[i].MustSetRandom()
 						}
 						copy(backupPol, pol)
 
@@ -183,7 +183,7 @@ func TestFFT(t *testing.T) {
 					backupPol := make([]fr.Element, maxSize)
 
 					for i := 0; i < maxSize; i++ {
-						pol[i].SetRandom()
+						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
 
@@ -206,7 +206,7 @@ func TestFFT(t *testing.T) {
 					backupPol := make([]fr.Element, maxSize)
 
 					for i := 0; i < maxSize; i++ {
-						pol[i].SetRandom()
+						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
 
@@ -246,7 +246,7 @@ func BenchmarkFFT(b *testing.B) {
 	const maxSize = 1 << 20
 
 	pol := make([]fr.Element, maxSize)
-	pol[0].SetRandom()
+	pol[0].MustSetRandom()
 	for i := 1; i < maxSize; i++ {
 		pol[i] = pol[i-1]
 	}
@@ -275,7 +275,24 @@ func BenchmarkFFTDITCosetReference(b *testing.B) {
 	const maxSize = 1 << 20
 
 	pol := make([]fr.Element, maxSize)
-	pol[0].SetRandom()
+	pol[0].MustSetRandom()
+	for i := 1; i < maxSize; i++ {
+		pol[i] = pol[i-1]
+	}
+
+	domain := NewDomain(maxSize)
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		domain.FFT(pol, DIT, OnCoset())
+	}
+}
+
+func BenchmarkFFTDITReferenceSmall(b *testing.B) {
+	const maxSize = 1 << 9
+
+	pol := make([]fr.Element, maxSize)
+	pol[0].MustSetRandom()
 	for i := 1; i < maxSize; i++ {
 		pol[i] = pol[i-1]
 	}
@@ -292,7 +309,24 @@ func BenchmarkFFTDIFReference(b *testing.B) {
 	const maxSize = 1 << 20
 
 	pol := make([]fr.Element, maxSize)
-	pol[0].SetRandom()
+	pol[0].MustSetRandom()
+	for i := 1; i < maxSize; i++ {
+		pol[i] = pol[i-1]
+	}
+
+	domain := NewDomain(maxSize)
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		domain.FFT(pol, DIF)
+	}
+}
+
+func BenchmarkFFTDIFReferenceSmall(b *testing.B) {
+	const maxSize = 1 << 9
+
+	pol := make([]fr.Element, maxSize)
+	pol[0].MustSetRandom()
 	for i := 1; i < maxSize; i++ {
 		pol[i] = pol[i-1]
 	}

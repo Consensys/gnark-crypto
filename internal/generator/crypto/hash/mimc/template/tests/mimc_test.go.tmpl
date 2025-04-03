@@ -79,10 +79,8 @@ func TestSetState(t *testing.T) {
 	// we use for restoring from state
 	h3 := mimc.NewMiMC()
 
-	randInputs := make([]fr.Element, 10)
-	for i := range randInputs {
-		randInputs[i].SetRandom()
-	}
+	randInputs := make(fr.Vector, 10)
+	randInputs.MustSetRandom()
 
 	storedStates := make([][]byte, len(randInputs))
 

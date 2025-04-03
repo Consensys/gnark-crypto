@@ -101,7 +101,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 		maxNbElementsToHash: maxNbElementsToHash,
 	}
 	// for degree == 64 we have a special fast path with a set of unrolled FFTs.
-	if r.Degree == 64 {
+	if r.Degree == 64 && r.LogTwoBound == 16 {
 		// precompute twiddles for the unrolled FFT
 		twiddlesCoset := precomputeTwiddlesCoset(r.Domain.Generator, shift)
 		r.smallFFT = func(k fr.Vector, mask uint64) {
@@ -151,16 +151,14 @@ func (r *RSis) Hash(v, res []fr.Element) error {
 		res[i].SetZero()
 	}
 
-	k := make([]fr.Element, r.Degree)
-
 	// by default, the mask is ignored (unless we unrolled the FFT and have a degree 64)
 	mask := ^uint64(0)
-	if r.Degree == 64 {
+	if r.Degree == 64 && r.LogTwoBound == 16 {
 		// full FFT
 		mask = uint64(len(partialFFT_64) - 1)
 	}
-
 	// inner hash
+	k := make([]fr.Element, r.Degree)
 	it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
 	for i := 0; i < len(r.Ag); i++ {
 		r.InnerHash(it, res, k, r.kz, i, mask)
@@ -203,7 +201,7 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k, kz fr.Vector, polId int, mask
 		return
 	}
 	// this is equivalent to:
-	// 	r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
+	// r.Domain.FFT(k, fft.DIF, fft.OnCoset(), fft.WithNbTasks(1))
 	r.smallFFT(k, mask)
 
 	// we compute k * r.Ag[polId] in ℤ_{p}[X]/Xᵈ+1.

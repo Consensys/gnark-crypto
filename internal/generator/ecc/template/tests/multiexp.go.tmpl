@@ -23,7 +23,7 @@ import (
 )
 
 
-{{- if ne .Name "secp256k1"}}
+{{- if and (ne .Name "secp256k1") (ne .Name "grumpkin")}}
 {{template "multiexp" dict "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "cmax" 16}}
 {{template "multiexp" dict "PointName" .G2.PointName "UPointName" (toUpper .G2.PointName) "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange "cmax" 16}}
 {{- else}}
@@ -484,6 +484,6 @@ func fillBenchBases{{ $.UPointName }}(samplePoints []{{ $.TAffine }}) {
 func fillBenchScalars(sampleScalars []fr.Element) {
 	// ensure every words of the scalars are filled
 	for i := 0; i < len(sampleScalars); i++ {
-		sampleScalars[i].SetRandom()
+		sampleScalars[i].MustSetRandom()
 	}
 }

@@ -40,7 +40,7 @@ func TestFflonk(t *testing.T) {
 			curSizePoly := j + 10
 			p[i][j] = make([]fr.Element, curSizePoly)
 			for k := 0; k < curSizePoly; k++ {
-				p[i][j][k].SetRandom()
+				p[i][j][k].MustSetRandom()
 			}
 		}
 	}
@@ -51,7 +51,7 @@ func TestFflonk(t *testing.T) {
 		curSetSize := i + 4
 		x[i] = make([]fr.Element, curSetSize)
 		for j := 0; j < curSetSize; j++ {
-			x[i][j].SetRandom()
+			x[i][j].MustSetRandom()
 		}
 	}
 
@@ -73,7 +73,7 @@ func TestFflonk(t *testing.T) {
 	assert.NoError(err)
 
 	// tamper the proof
-	proof.ClaimedValues[0][0][0].SetRandom()
+	proof.ClaimedValues[0][0][0].MustSetRandom()
 	err = BatchVerify(proof, digests, x, hf, testSrs.Vk)
 	assert.Error(err)
 
@@ -89,13 +89,13 @@ func TestCommit(t *testing.T) {
 	for i := 0; i < nbPolys; i++ {
 		p[i] = make([]fr.Element, i+10)
 		for j := 0; j < i+10; j++ {
-			p[i][j].SetRandom()
+			p[i][j].MustSetRandom()
 		}
 	}
 
 	// fflonk commit to them
 	var x fr.Element
-	x.SetRandom()
+	x.MustSetRandom()
 	proof, err := kzg.Open(Fold(p), x, testSrs.Pk)
 	assert.NoError(err)
 

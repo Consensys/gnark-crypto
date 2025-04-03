@@ -18,7 +18,7 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
-func TestG1AffineEndomorphism(t *testing.T) {
+func TestG1Endomorphism(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -60,7 +60,7 @@ func TestG1AffineEndomorphism(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG1AffineIsOnCurve(t *testing.T) {
+func TestIsOnG1(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -105,11 +105,18 @@ func TestG1AffineIsOnCurve(t *testing.T) {
 		},
 		GenFp(),
 	))
+	properties.Property("[BLS12-381] IsInSubGroup should return false for a point on the cofactor-torsion", prop.ForAll(
+		func(a fp.Element) bool {
+			op := fuzzCofactorOfG1(a)
+			return op.IsOnCurve() && !op.IsInSubGroup()
+		},
+		GenFp(),
+	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG1AffineConversions(t *testing.T) {
+func TestG1Conversions(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -499,7 +506,7 @@ func TestG1AffineOps(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestG1AffineCofactorCleaning(t *testing.T) {
+func TestG1CofactorClearing(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -513,12 +520,12 @@ func TestG1AffineCofactorCleaning(t *testing.T) {
 	properties.Property("[BLS12-381] Clearing the cofactor of a random point should set it in the r-torsion", prop.ForAll(
 		func() bool {
 			var a, x, b fp.Element
-			a.SetRandom()
+			a.MustSetRandom()
 
 			x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
 
 			for x.Legendre() != 1 {
-				a.SetRandom()
+				a.MustSetRandom()
 
 				x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
 
@@ -538,7 +545,7 @@ func TestG1AffineCofactorCleaning(t *testing.T) {
 
 }
 
-func TestG1AffineBatchScalarMultiplication(t *testing.T) {
+func TestG1BatchScalarMultiplication(t *testing.T) {
 
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -603,9 +610,7 @@ func BenchmarkG1JacIsInSubGroup(b *testing.B) {
 
 func BenchmarkG1JacEqual(b *testing.B) {
 	var scalar fp.Element
-	if _, err := scalar.SetRandom(); err != nil {
-		b.Fatalf("failed to set scalar: %s", err)
-	}
+	scalar.MustSetRandom()
 
 	var a G1Jac
 	a.ScalarMultiplication(&g1Gen, big.NewInt(42))
@@ -851,6 +856,18 @@ func BenchmarkG1AffineDouble(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		a.Double(&a)
 	}
+}
+func fuzzCofactorOfG1(f fp.Element) G1Jac {
+	var res, jac G1Jac
+	aff := MapToCurve1(&f)
+	g1Isogeny(&aff)
+	jac.FromAffine(&aff)
+	// p+x²ϕ(p) = [r]p
+	res.phi(&jac).
+		mulBySeed(&res).
+		mulBySeed(&res).
+		AddAssign(&jac)
+	return res
 }
 
 func fuzzG1Jac(p *G1Jac, f fp.Element) G1Jac {

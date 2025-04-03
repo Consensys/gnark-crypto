@@ -1,6 +1,9 @@
 import (
 	"math/bits"
+	
+	{{- if not .F31}}
 	"runtime"
+	{{- end}}
 	
 	"{{ .FieldPackagePath }}"
 )
@@ -13,11 +16,15 @@ func BitReverse(v []{{ .FF }}.Element) {
 		panic("len(a) must be a power of 2")
 	}
 
-	if runtime.GOARCH == "arm64" {
+	{{ if .F31}}
 		bitReverseNaive(v)
-	} else {
-		bitReverseCobra(v)
-	}
+	{{- else}}
+		if runtime.GOARCH == "arm64" {
+			bitReverseNaive(v)
+		} else {
+			bitReverseCobra(v)
+		}
+	{{- end}}
 }
 
 // bitReverseNaive applies the bit-reversal permutation to v.
@@ -34,6 +41,7 @@ func bitReverseNaive(v []{{ .FF }}.Element) {
 	}
 }
 
+{{- if not .F31}}
 
 // bitReverseCobraInPlace applies the bit-reversal permutation to v.
 // len(v) must be a power of 2
@@ -169,6 +177,8 @@ func deriveLogTileSize(logN uint64) uint64 {
 {{bitReverseCobraInPlace 9 25 $.FF }}
 {{bitReverseCobraInPlace 9 26 $.FF }}
 {{bitReverseCobraInPlace 9 27 $.FF }}
+
+{{- end}}
 
 
 {{define "bitReverseCobraInPlace logTileSize logN FF"}}

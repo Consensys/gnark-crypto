@@ -9,11 +9,11 @@ import (
 	"math/big"
 	"math/bits"
 	"fmt"
-	{{if .UsingP20Inverse}} 
-	mrand "math/rand" 
+	{{if .UsingP20Inverse}}
+	mrand "math/rand"
 	{{end}}
 	"testing"
-	
+
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 	ggen "github.com/leanovate/gopter/gen"
@@ -31,8 +31,8 @@ var benchRes{{.ElementName}} {{.ElementName}}
 
 func Benchmark{{toTitle .ElementName}}Select(b *testing.B) {
 	var x, y {{.ElementName}}
-	x.SetRandom()
-	y.SetRandom()
+	x.MustSetRandom()
+	y.MustSetRandom()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -42,17 +42,17 @@ func Benchmark{{toTitle .ElementName}}Select(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}SetRandom(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
+	x.MustSetRandom()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = x.SetRandom()
+		x.MustSetRandom()
 	}
 }
 
 func Benchmark{{toTitle .ElementName}}SetBytes(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
+	x.MustSetRandom()
 	bb := x.Bytes()
 	b.ResetTimer()
 
@@ -64,21 +64,21 @@ func Benchmark{{toTitle .ElementName}}SetBytes(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}MulByConstants(b *testing.B) {
 	b.Run("mulBy3", func(b *testing.B){
-		benchRes{{.ElementName}}.SetRandom()
+		benchRes{{.ElementName}}.MustSetRandom()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			MulBy3(&benchRes{{.ElementName}})
 		}
 	})
 	b.Run("mulBy5", func(b *testing.B){
-		benchRes{{.ElementName}}.SetRandom()
+		benchRes{{.ElementName}}.MustSetRandom()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			MulBy5(&benchRes{{.ElementName}})
 		}
 	})
 	b.Run("mulBy13", func(b *testing.B){
-		benchRes{{.ElementName}}.SetRandom()
+		benchRes{{.ElementName}}.MustSetRandom()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			MulBy13(&benchRes{{.ElementName}})
@@ -88,8 +88,8 @@ func Benchmark{{toTitle .ElementName}}MulByConstants(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Inverse(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
-	benchRes{{.ElementName}}.SetRandom()
+	x.MustSetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -100,8 +100,8 @@ func Benchmark{{toTitle .ElementName}}Inverse(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Butterfly(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
-	benchRes{{.ElementName}}.SetRandom()
+	x.MustSetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		Butterfly(&x, &benchRes{{.ElementName}})
@@ -111,8 +111,8 @@ func Benchmark{{toTitle .ElementName}}Butterfly(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Exp(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
-	benchRes{{.ElementName}}.SetRandom()
+	x.MustSetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b1, _ := rand.Int(rand.Reader, Modulus())
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -122,7 +122,7 @@ func Benchmark{{toTitle .ElementName}}Exp(b *testing.B) {
 
 
 func Benchmark{{toTitle .ElementName}}Double(b *testing.B) {
-	benchRes{{.ElementName}}.SetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Double(&benchRes{{.ElementName}})
@@ -132,8 +132,8 @@ func Benchmark{{toTitle .ElementName}}Double(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Add(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
-	benchRes{{.ElementName}}.SetRandom()
+	x.MustSetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Add(&x, &benchRes{{.ElementName}})
@@ -142,8 +142,8 @@ func Benchmark{{toTitle .ElementName}}Add(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Sub(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
-	benchRes{{.ElementName}}.SetRandom()
+	x.MustSetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Sub(&x, &benchRes{{.ElementName}})
@@ -151,7 +151,7 @@ func Benchmark{{toTitle .ElementName}}Sub(b *testing.B) {
 }
 
 func Benchmark{{toTitle .ElementName}}Neg(b *testing.B) {
-	benchRes{{.ElementName}}.SetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Neg(&benchRes{{.ElementName}})
@@ -160,8 +160,8 @@ func Benchmark{{toTitle .ElementName}}Neg(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Div(b *testing.B) {
 	var x {{.ElementName}}
-	x.SetRandom()
-	benchRes{{.ElementName}}.SetRandom()
+	x.MustSetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Div(&x, &benchRes{{.ElementName}})
@@ -170,7 +170,7 @@ func Benchmark{{toTitle .ElementName}}Div(b *testing.B) {
 
 
 func Benchmark{{toTitle .ElementName}}FromMont(b *testing.B) {
-	benchRes{{.ElementName}}.SetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.fromMont()
@@ -178,7 +178,7 @@ func Benchmark{{toTitle .ElementName}}FromMont(b *testing.B) {
 }
 
 func Benchmark{{toTitle .ElementName}}Square(b *testing.B) {
-	benchRes{{.ElementName}}.SetRandom()
+	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Square(&benchRes{{.ElementName}})
@@ -213,7 +213,7 @@ func Benchmark{{toTitle .ElementName}}Cmp(b *testing.B) {
 		{{- range $i := .RSquare}}
 		{{$i}},{{end}}
 	}
-	benchRes{{.ElementName}} = x 
+	benchRes{{.ElementName}} = x
 	benchRes{{.ElementName}}[0] = 0
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -223,7 +223,7 @@ func Benchmark{{toTitle .ElementName}}Cmp(b *testing.B) {
 
 func Test{{toTitle .ElementName}}Cmp(t *testing.T) {
 	var x, y {{.ElementName}}
-	
+
 	if x.Cmp(&y) != 0 {
 		t.Fatal("x == y")
 	}
@@ -238,7 +238,7 @@ func Test{{toTitle .ElementName}}Cmp(t *testing.T) {
 		t.Fatal("x < y")
 	}
 
-	x = y 
+	x = y
 	if x.Cmp(&y) != 0 {
 		t.Fatal("x == y")
 	}
@@ -256,8 +256,8 @@ func Test{{toTitle .ElementName}}Cmp(t *testing.T) {
 func Test{{toTitle .ElementName}}IsRandom(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		var x, y {{.ElementName}}
-		x.SetRandom()
-		y.SetRandom()
+		x.MustSetRandom()
+		y.MustSetRandom()
 		if x.Equal(&y) {
 			t.Fatal("2 random numbers are unlikely to be equal")
 		}
@@ -299,7 +299,7 @@ func Test{{toTitle .ElementName}}NegZero(t *testing.T) {
 	var a, b {{.ElementName}}
 	b.SetZero()
 	for a.IsZero() {
-		a.SetRandom()
+		a.MustSetRandom()
 	}
 	a.Neg(&b)
 	if !a.IsZero() {
@@ -335,7 +335,7 @@ func init() {
 	e.Sub(&qElement, &one)
 	staticTestValues = append(staticTestValues, e) 	// q - 1
 	e.Double(&one)
-	staticTestValues = append(staticTestValues, e) 	// 2 
+	staticTestValues = append(staticTestValues, e) 	// 2
 
 
 	{
@@ -416,7 +416,7 @@ func Test{{toTitle .ElementName}}Reduce(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
-	
+
 }
 
 func Test{{toTitle .ElementName}}Equal(t *testing.T) {
@@ -540,8 +540,8 @@ func Test{{toTitle .ElementName}}MulByConstants(t *testing.T) {
 			for _, c := range implemented {
 				var constant {{.ElementName}}
 				constant.SetUint64(uint64(c))
-	
-				b := a.element 
+
+				b := a.element
 				b.Mul(&b, &constant)
 
 				aa := a.element
@@ -551,19 +551,19 @@ func Test{{toTitle .ElementName}}MulByConstants(t *testing.T) {
 					return false
 				}
 			}
-			
+
 			return true
 		},
 		genA,
 	))
-	
+
 
 	properties.Property("MulBy3(x) == Mul(x, 3)", prop.ForAll(
 		func(a testPair{{.ElementName}}) bool {
 			var constant {{.ElementName}}
 			constant.SetUint64(3)
 
-			b := a.element 
+			b := a.element
 			b.Mul(&b, &constant)
 
 			MulBy3(&a.element)
@@ -578,7 +578,7 @@ func Test{{toTitle .ElementName}}MulByConstants(t *testing.T) {
 			var constant {{.ElementName}}
 			constant.SetUint64(5)
 
-			b := a.element 
+			b := a.element
 			b.Mul(&b, &constant)
 
 			MulBy5(&a.element)
@@ -593,7 +593,7 @@ func Test{{toTitle .ElementName}}MulByConstants(t *testing.T) {
 			var constant {{.ElementName}}
 			constant.SetUint64(13)
 
-			b := a.element 
+			b := a.element
 			b.Mul(&b, &constant)
 
 			MulBy13(&a.element)
@@ -605,7 +605,7 @@ func Test{{toTitle .ElementName}}MulByConstants(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
-	
+
 }
 
 func Test{{toTitle .ElementName}}Legendre(t *testing.T) {
@@ -623,14 +623,14 @@ func Test{{toTitle .ElementName}}Legendre(t *testing.T) {
 
 	properties.Property("legendre should output same result than big.Int.Jacobi", prop.ForAll(
 		func(a testPair{{.ElementName}}) bool {
-			return a.element.Legendre() == big.Jacobi(&a.bigint, Modulus()) 
+			return a.element.Legendre() == big.Jacobi(&a.bigint, Modulus())
 		},
 		genA,
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
-	
+
 }
 
 func Test{{toTitle .ElementName}}BitLen(t *testing.T) {
@@ -674,8 +674,8 @@ func Test{{toTitle .ElementName}}Butterflies(t *testing.T) {
 
 	properties.Property("butterfly0 == a -b; a +b", prop.ForAll(
 		func(a,b testPair{{.ElementName}}) bool {
-			a0, b0 := a.element, b.element 
-			
+			a0, b0 := a.element, b.element
+
 			_butterflyGeneric(&a.element, &b.element)
 			Butterfly(&a0, &b0)
 
@@ -712,7 +712,7 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 			lResult := a.element.LexicographicallyLargest()
 
 			if lResult && cmpResult == 1 {
-				return true 
+				return true
 			}
 			if !lResult && cmpResult !=1 {
 				return true
@@ -724,7 +724,7 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
-	
+
 }
 
 
@@ -754,7 +754,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 	} else {
 		parameters.MinSuccessfulTests = nbFuzz
 	}
-	
+
 
 	properties := gopter.NewProperties(parameters)
 
@@ -789,7 +789,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 				{{else}}
 					c.{{.Op}}(&a.element, &b.element)
 				{{end}}
-				var d, e big.Int 
+				var d, e big.Int
 				{{- if eq .Op "Div"}}
 					d.ModInverse(&b.bigint, Modulus())
 					d.Mul(&d, &a.bigint).Mod(&d, Modulus())
@@ -802,7 +802,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 
 				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
-				} 
+				}
 			}
 
 			// fixed elements
@@ -813,8 +813,8 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 
 			for i := range testValues {
 				r := testValues[i]
-				var d, e, rb big.Int 
-				r.BigInt(&rb) 
+				var d, e, rb big.Int
+				r.BigInt(&rb)
 
 				var c {{.all.ElementName}}
 				{{- if eq .Op "Div"}}
@@ -841,9 +841,9 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 
 				if c.BigInt(&e).Cmp(&d) != 0 {
 					return false
-				} 
+				}
 			}
-			return true 
+			return true
 		},
 		genA,
 		genB,
@@ -882,18 +882,18 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 		// test special values against special values
 		testValues := make([]{{.all.ElementName}}, len(staticTestValues))
 		copy(testValues, staticTestValues)
-	
+
 		for i := range testValues {
 			a := testValues[i]
 			var aBig big.Int
 			a.BigInt(&aBig)
 			for j := range testValues {
 				b := testValues[j]
-				var bBig, d, e big.Int 
+				var bBig, d, e big.Int
 				b.BigInt(&bBig)
 
 				var c {{.all.ElementName}}
-				
+
 
 
 				{{- if eq .Op "Div"}}
@@ -907,7 +907,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 					c.{{.Op}}(&a, &b)
 					d.{{.Op}}(&aBig, &bBig).Mod(&d, Modulus())
 				{{- end }}
-	
+
 				{{if .GenericOp}}
 					// checking asm against generic impl
 					var cGeneric {{.all.ElementName}}
@@ -916,11 +916,11 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 						t.Fatal("{{.Op}} failed special test values: asm and generic impl don't match")
 					}
 				{{end}}
-				
+
 
 				if c.BigInt(&e).Cmp(&d) != 0 {
 					t.Fatal("{{.Op}} failed special test values")
-				} 
+				}
 			}
 		}
 	}
@@ -968,7 +968,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 			var c {{.all.ElementName}}
 			c.{{.Op}}(&a.element)
 
-			var d, e big.Int 
+			var d, e big.Int
 			{{- if eq .Op "Square"}}
 				d.Mul(&a.bigint, &a.bigint).Mod(&d, Modulus())
 			{{- else if eq .Op "Inverse"}}
@@ -1014,7 +1014,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 		// test special values
 		testValues := make([]{{.all.ElementName}}, len(staticTestValues))
 		copy(testValues, staticTestValues)
-	
+
 		for i := range testValues {
 			a := testValues[i]
 			var aBig big.Int
@@ -1022,7 +1022,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 			var c {{.all.ElementName}}
 			c.{{.Op}}(&a)
 
-			var  d, e big.Int 
+			var  d, e big.Int
 			{{- if eq .Op "Square"}}
 				d.Mul(&aBig, &aBig).Mod(&d, Modulus())
 			{{- else if eq .Op "Inverse"}}
@@ -1043,11 +1043,11 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 					t.Fatal("{{.Op}} failed special test values: asm and generic impl don't match")
 				}
 			{{end}}
-			
+
 
 			if c.BigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("{{.Op}} failed special test values")
-			} 
+			}
 		}
 	}
 
@@ -1182,7 +1182,7 @@ func Test{{toTitle .ElementName}}Select(t *testing.T) {
 
 			var c {{.ElementName}}
 			c.Select(condC, &a, &b)
-			
+
 			if condC == 0 {
 				return c.Equal(&a)
 			}
@@ -1197,7 +1197,7 @@ func Test{{toTitle .ElementName}}Select(t *testing.T) {
 	properties.Property("Select: having the receiver as operand should output the same result", prop.ForAll(
 		func(a, b {{.ElementName}}, cond int64, z int8) bool {
 			condC := combineSelectionArguments(cond, z)
-			
+
 			var c, d {{.ElementName}}
 			d.Set(&a)
 			c.Select(condC, &a, &b)
@@ -1342,11 +1342,11 @@ func Test{{toTitle .ElementName}}NegativeExp(t *testing.T) {
 	properties := gopter.NewProperties(parameters)
 
 	genA := gen()
-	
+
 	properties.Property("x⁻ᵏ == 1/xᵏ", prop.ForAll(
 		func(a,b testPair{{.ElementName}}) bool {
 
-			var nb, d, e big.Int 
+			var nb, d, e big.Int
 			nb.Neg(&b.bigint)
 
 			var c {{.ElementName}}
@@ -1448,15 +1448,15 @@ func Test{{toTitle .ElementName}}BatchInvert(t *testing.T) {
 			for i:=1; i <len(a);i++ {
 				a[i].Add(&a[i-1], &one)
 			}
-	
+
 			aInv := BatchInvert(a)
-	
+
 			assert.True(len(aInv) == len(a))
-	
+
 			for i:=0; i <len(a);i++ {
 				if a[i].IsZero() {
 					if !aInv[i].IsZero() {
-						return false 
+						return false
 					}
 				} else {
 					if !a[i].Mul(&a[i], &aInv[i]).IsOne() {
@@ -1534,12 +1534,12 @@ func Test{{toTitle .ElementName}}JSON(t *testing.T) {
 	{{- $noNeg := and (eq $.NbWords 1) (ltu64 (index $.Q 0) 1000000)}}
 	// we may need to adjust "42" and "8000" values for some moduli; see Text() method for more details.
 	formatValue := func(v int64) string {
-		var a big.Int 
+		var a big.Int
 		a.SetInt64(v)
 		a.Mod(&a, Modulus())
 		{{- if not $noNeg}}
 		const maxUint16 = 65535
-		var aNeg big.Int 
+		var aNeg big.Int
 		aNeg.Neg(&a).Mod(&aNeg, Modulus())
 		if aNeg.Uint64() != 0 && aNeg.Uint64() <= maxUint16 {
 			return "-"+aNeg.Text(10)
@@ -1568,6 +1568,44 @@ func Test{{toTitle .ElementName}}JSON(t *testing.T) {
 
 }
 
+{{- if $.F31}}
+func Test{{toTitle .ElementName}}Mul2ExpNegN(t *testing.T) {
+	t.Parallel()
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("x * 2⁻ᵏ == Mul2ExpNegN(x, k) for 0 <= k <= 32", prop.ForAll(
+		func(a testPairElement) bool {
+
+			var b, e, two {{.ElementName}}
+			var c [33]{{.ElementName}}
+			two.SetUint64(2)
+			for n := 0; n < 33; n++ {
+				e.Exp(two, big.NewInt(int64(n))).Inverse(&e)
+				b.Mul(&a.element, &e)
+				c[n].Mul2ExpNegN(&a.element, uint32(n))
+				if !c[n].Equal(&b) {
+					return false
+				}
+			}
+			return true
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+{{- end}}
+
 type testPair{{.ElementName}} struct {
 	element {{.ElementName}}
 	bigint       big.Int
@@ -1589,7 +1627,7 @@ func gen() gopter.Gen {
 		if qElement[{{.NbWordsLastIndex}}] != ^{{$.Word.TypeLower}}(0) {
 			g.element[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
 		}
-		
+
 
 		for !g.element.smallerThanModulus() {
 			g.element = {{.ElementName}}{
@@ -1629,7 +1667,7 @@ func genRandomFq(genParams *gopter.GenParameters) {{.ElementName}} {
 		}
 	}
 
-	return g 
+	return g
 }
 
 
@@ -1645,7 +1683,7 @@ func genFull() gopter.Gen {
 			a[{{$i}}], carry = bits.{{$.Word.Add}}(a[{{$i}}], qElement[{{$i}}], carry)
 			{{- end}}
 		{{- end}}
-		
+
 		genResult := gopter.NewGenResult(a, gopter.NoShrinker)
 		return genResult
 	}

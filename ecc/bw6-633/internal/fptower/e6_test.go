@@ -378,8 +378,8 @@ func TestE6Ops(t *testing.T) {
 
 func BenchmarkE6Add(b *testing.B) {
 	var a, c E6
-	a.SetRandom()
-	c.SetRandom()
+	a.MustSetRandom()
+	c.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Add(&a, &c)
@@ -388,8 +388,8 @@ func BenchmarkE6Add(b *testing.B) {
 
 func BenchmarkE6Sub(b *testing.B) {
 	var a, c E6
-	a.SetRandom()
-	c.SetRandom()
+	a.MustSetRandom()
+	c.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Sub(&a, &c)
@@ -398,8 +398,8 @@ func BenchmarkE6Sub(b *testing.B) {
 
 func BenchmarkE6Mul(b *testing.B) {
 	var a, c E6
-	a.SetRandom()
-	c.SetRandom()
+	a.MustSetRandom()
+	c.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Mul(&a, &c)
@@ -408,7 +408,7 @@ func BenchmarkE6Mul(b *testing.B) {
 
 func BenchmarkE6Cyclosquare(b *testing.B) {
 	var a E6
-	a.SetRandom()
+	a.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.CyclotomicSquare(&a)
@@ -417,7 +417,7 @@ func BenchmarkE6Cyclosquare(b *testing.B) {
 
 func BenchmarkE6Square(b *testing.B) {
 	var a E6
-	a.SetRandom()
+	a.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Square(&a)
@@ -426,7 +426,7 @@ func BenchmarkE6Square(b *testing.B) {
 
 func BenchmarkE6Inverse(b *testing.B) {
 	var a E6
-	a.SetRandom()
+	a.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Inverse(&a)
@@ -435,7 +435,7 @@ func BenchmarkE6Inverse(b *testing.B) {
 
 func BenchmarkE6Conjugate(b *testing.B) {
 	var a E6
-	a.SetRandom()
+	a.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Conjugate(&a)
@@ -444,7 +444,7 @@ func BenchmarkE6Conjugate(b *testing.B) {
 
 func BenchmarkE6Frobenius(b *testing.B) {
 	var a E6
-	a.SetRandom()
+	a.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Frobenius(&a)
@@ -453,7 +453,7 @@ func BenchmarkE6Frobenius(b *testing.B) {
 
 func BenchmarkE6Expt(b *testing.B) {
 	var a, c E6
-	a.SetRandom()
+	a.MustSetRandom()
 	b.ResetTimer()
 	c.Conjugate(&a)
 	a.Inverse(&a)

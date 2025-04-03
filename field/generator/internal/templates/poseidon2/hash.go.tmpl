@@ -1,0 +1,57 @@
+import (
+    fr "{{ .FieldPackagePath }}"
+	"sync"
+	"hash"
+	gnarkHash "github.com/consensys/gnark-crypto/hash"
+)
+
+// NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard
+// construction with the default parameters.
+func NewMerkleDamgardHasher() gnarkHash.StateStorer {
+	return gnarkHash.NewMerkleDamgardHasher(
+		&Permutation{GetDefaultParameters()}, make([]byte, fr.Bytes))
+}
+
+// GetDefaultParameters returns a set of parameters for the Poseidon2 permutation.
+// The default parameters are,
+//
+//  1. for compression:
+//     - width: {{.ParamsCompression.Width}}
+//     - nbFullRounds: {{.ParamsCompression.FullRounds}}
+//     - nbPartialRounds: {{.ParamsCompression.PartialRounds}}
+//
+//  2. for sponge:
+//     - width: {{.ParamsSponge.Width}}
+//     - nbFullRounds: {{.ParamsSponge.FullRounds}}
+//     - nbPartialRounds: {{.ParamsSponge.PartialRounds}}
+var GetDefaultParameters = sync.OnceValue(func() *Parameters {
+	return NewParameters({{.ParamsCompression.Width}}, {{.ParamsCompression.FullRounds}}, {{.ParamsCompression.PartialRounds}})
+})
+
+{{- $w0 := .ParamsCompression.Width}}
+{{- $w1 := .ParamsSponge.Width}}
+
+var diag{{- $w0}} []fr.Element = make([]fr.Element, {{- $w0}})
+var diag{{- $w1}} []fr.Element = make([]fr.Element, {{- $w1}})
+
+func init() {
+	// diagonal diag{{- $w0}} for the internal diagonal of the matrix of the compression layer
+	// (from https://github.com/Plonky3/Plonky3 )
+	{{- $i := 0}}
+	{{- range $d := .ParamsCompression.DiagInternal}}
+	diag{{$w0}}[{{$i}}].SetUint64({{$d}})
+	{{- $i = add $i 1}}
+	{{- end}}
+
+	// diagonal diag{{- $w1}} for the internal diagonal of the matrix of the sponge layer
+	// (from https://github.com/Plonky3/Plonky3 )
+	{{- $i = 0}}
+	{{- range $d := .ParamsSponge.DiagInternal}}
+	diag{{$w1}}[{{$i}}].SetUint64({{$d}})
+	{{- $i = add $i 1}}
+	{{- end}}
+
+	gnarkHash.RegisterHash(gnarkHash.POSEIDON2_{{toUpper .FF }}, func() hash.Hash {
+		return NewMerkleDamgardHasher()
+	})
+}

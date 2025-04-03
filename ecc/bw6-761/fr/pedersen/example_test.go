@@ -43,7 +43,7 @@ func Example_singleProof() {
 	pk := pks[0]
 	toCommit := make([]fr.Element, nbElem)
 	for i := range toCommit {
-		toCommit[i].SetRandom()
+		toCommit[i].MustSetRandom()
 	}
 	// commit to the values
 	commitment, err := pk.Commit(toCommit)
@@ -95,7 +95,7 @@ func ExampleBatchProve() {
 	for i := range toCommit {
 		toCommit[i] = make([]fr.Element, nbElem)
 		for j := range toCommit[i] {
-			toCommit[i][j].SetRandom()
+			toCommit[i][j].MustSetRandom()
 		}
 	}
 	// commit to the values
@@ -108,7 +108,7 @@ func ExampleBatchProve() {
 	}
 	// combination coefficient is randomly sampled by the verifier. NB! In non-interactive protocol use Fiat-Shamir!
 	var combinationCoeff fr.Element
-	combinationCoeff.SetRandom()
+	combinationCoeff.MustSetRandom()
 	proof, err := BatchProve(pks, toCommit, combinationCoeff)
 	if err != nil {
 		panic(err)
@@ -167,7 +167,7 @@ func ExampleBatchVerifyMultiVk() {
 	for i := range toCommit {
 		toCommit[i] = make([]fr.Element, nbElem)
 		for j := range toCommit[i] {
-			toCommit[i][j].SetRandom()
+			toCommit[i][j].MustSetRandom()
 		}
 	}
 	// commit to the values
@@ -190,7 +190,7 @@ func ExampleBatchVerifyMultiVk() {
 	}
 	// combination coefficient is randomly sampled by the verifier. NB! In non-interactive protocol use Fiat-Shamir!
 	var combinationCoeff fr.Element
-	combinationCoeff.SetRandom()
+	combinationCoeff.MustSetRandom()
 	// batch verify the proofs
 	if err := BatchVerifyMultiVk(vks, commitments, proofs, combinationCoeff); err != nil {
 		panic(err)

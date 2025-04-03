@@ -7,6 +7,9 @@ package polynomial
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/gen"
+	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
@@ -22,7 +25,7 @@ func TestPolynomialEval(t *testing.T) {
 
 	// random value
 	var point fr.Element
-	point.SetRandom()
+	point.MustSetRandom()
 
 	// compute manually f(val)
 	var expectedEval, one, den fr.Element
@@ -53,7 +56,7 @@ func TestPolynomialAddConstantInPlace(t *testing.T) {
 
 	// constant to add
 	var c fr.Element
-	c.SetRandom()
+	c.MustSetRandom()
 
 	// add constant
 	f.AddConstantInPlace(&c)
@@ -79,7 +82,7 @@ func TestPolynomialSubConstantInPlace(t *testing.T) {
 
 	// constant to sub
 	var c fr.Element
-	c.SetRandom()
+	c.MustSetRandom()
 
 	// sub constant
 	f.SubConstantInPlace(&c)
@@ -105,7 +108,7 @@ func TestPolynomialScaleInPlace(t *testing.T) {
 
 	// constant to scale by
 	var c fr.Element
-	c.SetRandom()
+	c.MustSetRandom()
 
 	// scale by constant
 	f.ScaleInPlace(&c)
@@ -204,4 +207,48 @@ func TestPolynomialText(t *testing.T) {
 	p := Polynomial{one, negTwo, one}
 
 	assert.Equal(t, "X² - 2X + 1", p.Text(10))
+}
+
+func TestPrecomputeLagrange(t *testing.T) {
+
+	testForDomainSize := func(domainSize uint8) bool {
+		polys := computeLagrangeBasis(domainSize)
+
+		for l := uint8(0); l < domainSize; l++ {
+			for i := uint8(0); i < domainSize; i++ {
+				var I fr.Element
+				I.SetUint64(uint64(i))
+				y := polys[l].Eval(&I)
+
+				if i == l && !y.IsOne() || i != l && !y.IsZero() {
+					t.Errorf("domainSize = %d: p_%d(%d) = %s", domainSize, l, i, y.Text(10))
+					return false
+				}
+			}
+		}
+		return true
+	}
+
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+
+	const maxLagrangeDomainSize = 12
+
+	parameters.MinSuccessfulTests = maxLagrangeDomainSize
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("l'th lagrange polynomials must evaluate to 1 on l and 0 on other values in the domain", prop.ForAll(
+		testForDomainSize,
+		gen.UInt8Range(2, maxLagrangeDomainSize),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestLagrangeCache(t *testing.T) {
+	for _, i := range []int{5, 2, 8, 4, 6, 3, 0} {
+		b := getLagrangeBasis(uint8(i))
+		assert.Equal(t, b, getLagrangeBasis(uint8(i))) // second call must yield the same result
+	}
 }

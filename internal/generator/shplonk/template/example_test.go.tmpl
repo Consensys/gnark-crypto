@@ -20,14 +20,10 @@ func Example_batchOpen() {
 	for i := 0; i < nbPolynomials; i++ {
 
 		polynomials[i] = make([]fr.Element, 20+2*i) // random size
-		for j := 0; j < 20+2*i; j++ {
-			polynomials[i][j].SetRandom()
-		}
+		fr.Vector(polynomials[i]).MustSetRandom()
 
-		points[i] = make([]fr.Element, i+1) // random number of point
-		for j := 0; j < i+1; j++ {
-			points[i][j].SetRandom()
-		}
+		points[i] = make([]fr.Element, i+1) // random number of points
+		fr.Vector(points[i]).MustSetRandom()
 	}
 
 	// Create commitments for each polynomials

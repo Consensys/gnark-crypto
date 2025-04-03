@@ -172,7 +172,7 @@ func TestVectorOps(t *testing.T) {
 		return true
 	}
 
-	sizes := []int{1, 2, 3, 4, 8, 9, 15, 16, 509, 510, 511, 512, 513, 514}
+	sizes := []int{1, 2, 3, 4, 8, 9, 15, 16, 24, 509, 510, 511, 512, 513, 514}
 	type genPair struct {
 		g1, g2 gopter.Gen
 		label  string
@@ -234,7 +234,7 @@ func BenchmarkVectorOps(b *testing.B) {
 	b1 := make(Vector, N)
 	c1 := make(Vector, N)
 	var mixer Element
-	mixer.SetRandom()
+	mixer.MustSetRandom()
 	for i := 1; i < N; i++ {
 		a1[i-1].SetUint64(uint64(i)).
 			Mul(&a1[i-1], &mixer)

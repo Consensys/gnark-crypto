@@ -18,13 +18,11 @@ func interfaceSliceToFrSlice(t *testing.T, values ...interface{}) []fr.Element {
 	return res
 }
 
-func randomFrSlice(t *testing.T, size int) []interface{} {
+func randomFrSlice(size int) []interface{} {
 	res := make([]interface{}, size)
-	var err error
 	for i := range res {
 		var v fr.Element
-		res[i], err = v.SetRandom()
-		assert.NoError(t, err)
+		res[i] = v.MustSetRandom()
 	}
 	return res
 }
@@ -74,9 +72,9 @@ func testCommit(t *testing.T, values ...interface{}) {
 func TestFoldProofs(t *testing.T) {
 
 	values := [][]fr.Element{
-		interfaceSliceToFrSlice(t, randomFrSlice(t, 5)...),
-		interfaceSliceToFrSlice(t, randomFrSlice(t, 5)...),
-		interfaceSliceToFrSlice(t, randomFrSlice(t, 5)...),
+		interfaceSliceToFrSlice(t, randomFrSlice(5)...),
+		interfaceSliceToFrSlice(t, randomFrSlice(5)...),
+		interfaceSliceToFrSlice(t, randomFrSlice(5)...),
 	}
 
 	bases := make([][]curve.G1Affine, len(values))
@@ -144,11 +142,11 @@ func TestCommitToOne(t *testing.T) {
 }
 
 func TestCommitSingle(t *testing.T) {
-	testCommit(t, randomFrSlice(t, 1)...)
+	testCommit(t, randomFrSlice(1)...)
 }
 
 func TestCommitFiveElements(t *testing.T) {
-	testCommit(t, randomFrSlice(t, 5)...)
+	testCommit(t, randomFrSlice(5)...)
 }
 
 func TestMarshal(t *testing.T) {
@@ -190,13 +188,10 @@ func TestSemiFoldProofs(t *testing.T) {
 		pk[i] = pk0[0]
 	}
 
-	values := make([][]fr.Element, nbCommitments)
+	values := make([]fr.Vector, nbCommitments)
 	for i := range values {
-		values[i] = make([]fr.Element, commitmentLength)
-		for j := range values[i] {
-			_, err = values[i][j].SetRandom()
-			assert.NoError(t, err)
-		}
+		values[i] = make(fr.Vector, commitmentLength)
+		values[i].MustSetRandom()
 	}
 
 	commitments := make([]curve.G1Affine, nbCommitments)
@@ -209,8 +204,7 @@ func TestSemiFoldProofs(t *testing.T) {
 	}
 
 	var challenge fr.Element
-	_, err = challenge.SetRandom()
-	assert.NoError(t, err)
+	challenge.MustSetRandom()
 
 	assert.NoError(t, BatchVerifyMultiVk(vk, commitments, proofs, challenge))
 

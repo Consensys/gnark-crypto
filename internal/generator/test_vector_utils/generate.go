@@ -1,12 +1,13 @@
 package test_vector_utils
 
 import (
+	"path/filepath"
+
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/gkr"
 	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/sumcheck"
-	"path/filepath"
 )
 
 type Config struct {
@@ -23,6 +24,7 @@ func GenerateRationals(bgen *bavard.BatchGenerator) error {
 		},
 		GenerateTests:           false,
 		RetainTestCaseRawInfo:   true,
+		CanUseFFT:               false,
 		TestVectorsRelativePath: "../../../gkr/test_vectors",
 	}
 

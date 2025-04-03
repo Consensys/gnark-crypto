@@ -17,7 +17,7 @@ func init() {
 }
 
 const (
-{{ if eq .Name "bn254" }}
+{{ if or (eq .Name "bn254") (eq .Name "grumpkin")}}
 	mimcNbRounds = 110
 {{- else if eq .Name "bls12-381"}}
 	mimcNbRounds = 111
@@ -256,7 +256,7 @@ func (d *digest) WriteString(rawBytes []byte) error {
 // SetState manually sets the state of the hasher to an user-provided value. In
 // the context of MiMC, the method expects a byte slice of 32 elements.
 func  (d *digest) SetState(newState []byte) error {
-	
+
 	if len(newState) != {{ .Fr.NbBytes }} {
 		return errors.New("the mimc state expects a state of {{ .Fr.NbBytes }} bytes")
 	}

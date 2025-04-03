@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/consensys/gnark-crypto/internal/generator/mpcsetup"
+	"github.com/consensys/gnark-crypto/internal/generator/gkr"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
+
+	"github.com/consensys/gnark-crypto/internal/generator/mpcsetup"
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator"
@@ -20,7 +22,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/fflonk"
 	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
-	"github.com/consensys/gnark-crypto/internal/generator/gkr"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_field"
 	"github.com/consensys/gnark-crypto/internal/generator/iop"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
@@ -75,9 +76,22 @@ func main() {
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
+			frInfo := config.FieldDependency{
+				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
+				FieldPackageName: "fr",
+				ElementType:      "fr.Element",
+			}
+
+			gkrConfig := gkr.Config{
+				FieldDependency:         frInfo,
+				GenerateTests:           true,
+				TestVectorsRelativePath: "../../../../internal/generator/gkr/test_vectors",
+			}
+
 			frOpts := []generator.Option{generator.WithASM(asmConfig)}
-			if !(conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1)) {
+			if !(conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) {
 				frOpts = append(frOpts, generator.WithFFT(fftConfig))
+				gkrConfig.CanUseFFT = true
 			}
 			if conf.Equal(config.BLS12_377) {
 				frOpts = append(frOpts, generator.WithSIS())
@@ -98,6 +112,45 @@ func main() {
 			if conf.Equal(config.SECP256K1) {
 				return
 			}
+
+			// generate gkr on fr
+			// GKR tests use MiMC. Once SECP256K1 has a mimc implementation, we can generate GKR for it.
+			assertNoError(gkr.Generate(gkrConfig, filepath.Join(curveDir, "fr", "gkr"), bgen))
+
+			// generate mimc on fr
+			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
+
+			// generate poseidon2 on fr
+			assertNoError(poseidon2.Generate(conf, filepath.Join(curveDir, "fr", "poseidon2"), bgen))
+
+			// generate polynomial on fr
+			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
+
+			// generate sumcheck on fr
+			assertNoError(sumcheck.Generate(frInfo, filepath.Join(curveDir, "fr", "sumcheck"), bgen))
+
+			// generate test vector utils on fr
+			assertNoError(test_vector_utils.Generate(test_vector_utils.Config{
+				FieldDependency:             frInfo,
+				RandomizeMissingHashEntries: false,
+			}, filepath.Join(curveDir, "fr", "test_vector_utils"), bgen))
+
+			fpInfo := config.FieldDependency{
+				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fp",
+				FieldPackageName: "fp",
+				ElementType:      "fp.Element",
+			}
+
+			// generate wrapped hash-to-field for both fr and fp
+			assertNoError(hash_to_field.Generate(frInfo, filepath.Join(curveDir, "fr", "hash_to_field"), bgen))
+			assertNoError(hash_to_field.Generate(fpInfo, filepath.Join(curveDir, "fp", "hash_to_field"), bgen))
+
+			if conf.Equal(config.GRUMPKIN) {
+				return
+			}
+
+			// generate pedersen on fr
+			assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), bgen))
 
 			// generate tower of extension
 			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), bgen))
@@ -120,61 +173,17 @@ func main() {
 			// generate fflonk on fr
 			assertNoError(fflonk.Generate(conf, filepath.Join(curveDir, "fflonk"), bgen))
 
-			// generate pedersen on fr
-			assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), bgen))
-
 			// generate plookup on fr
 			assertNoError(plookup.Generate(conf, filepath.Join(curveDir, "fr", "plookup"), bgen))
 
 			// generate permutation on fr
 			assertNoError(permutation.Generate(conf, filepath.Join(curveDir, "fr", "permutation"), bgen))
 
-			// generate mimc on fr
-			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
-
-			// generate poseidon2 on fr
-			assertNoError(poseidon2.Generate(conf, filepath.Join(curveDir, "fr", "poseidon2"), bgen))
-
-			frInfo := config.FieldDependency{
-				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
-				FieldPackageName: "fr",
-				ElementType:      "fr.Element",
-			}
-
-			// generate polynomial on fr
-			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
-
 			// generate eddsa on companion curves
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
 
-			// generate sumcheck on fr
-			assertNoError(sumcheck.Generate(frInfo, filepath.Join(curveDir, "fr", "sumcheck"), bgen))
-
-			// generate gkr on fr
-			assertNoError(gkr.Generate(gkr.Config{
-				FieldDependency:         frInfo,
-				GenerateTests:           true,
-				TestVectorsRelativePath: "../../../../internal/generator/gkr/test_vectors",
-			}, filepath.Join(curveDir, "fr", "gkr"), bgen))
-
-			// generate test vector utils on fr
-			assertNoError(test_vector_utils.Generate(test_vector_utils.Config{
-				FieldDependency:             frInfo,
-				RandomizeMissingHashEntries: false,
-			}, filepath.Join(curveDir, "fr", "test_vector_utils"), bgen))
-
 			// generate iop functions
 			assertNoError(iop.Generate(conf, filepath.Join(curveDir, "fr", "iop"), bgen))
-
-			fpInfo := config.FieldDependency{
-				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fp",
-				FieldPackageName: "fp",
-				ElementType:      "fp.Element",
-			}
-
-			// generate wrapped hash-to-field for both fr and fp
-			assertNoError(hash_to_field.Generate(frInfo, filepath.Join(curveDir, "fr", "hash_to_field"), bgen))
-			assertNoError(hash_to_field.Generate(fpInfo, filepath.Join(curveDir, "fp", "hash_to_field"), bgen))
 
 		}(conf)
 
