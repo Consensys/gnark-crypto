@@ -9,62 +9,20 @@
 {{$CurveIndex := "2"}}
 {{if $IsG1}}{{$CurveIndex = "1"}}{{end}}
 
-import(
-    "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
-    {{- if not (eq $TowerDegree 1) }}
+import (
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/hash_to_curve"
+	{{- if not (eq $TowerDegree 1) }}
         "github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
     {{- end}}
+)
 
-{{if eq $.MappingAlgorithm "SSWU"}}
-    {{template "sswu" .}}
-{{end}}
-{{if eq $.MappingAlgorithm "SVDW"}}
-    {{template "svdw" .}}
-{{end}}
-
-// {{$CurveName}}Sgn0 is an algebraic substitute for the notion of sign in ordered fields
-// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-the-sgn0-function
-// The sign of an element is not obviously related to that of its Montgomery form
-func {{$CurveName}}Sgn0(z *{{$CoordType}}) uint64 {
-
-    nonMont := z.Bits()
-    
-	{{if eq $TowerDegree 1}}    // m == 1
-        return nonMont[0]%2
-	{{else}}
-        sign := uint64(0)   // 1. sign = 0
-        zero := uint64(1)   // 2. zero = 1
-        var signI uint64
-        var zeroI uint64
-        {{ range $i := interval 0 $TowerDegree}}
-		// 3. i = {{add $i 1}}
-            signI = nonMont.{{$.FieldCoordName}}{{$i}}[0] % 2   // 4.   sign_i = x_i mod 2
-            {{- $notLast := not (eq $i (sub $TowerDegree 1))}}
-			{{- if $notLast}}
-                zeroI = g1NotZero(&nonMont.{{$.FieldCoordName}}{{$i}})
-                zeroI = 1 ^ (zeroI|-zeroI)>>63  // 5.   zero_i = x_i == 0
-			{{- else}}
-                // 5.   zero_i = x_i == 0
-            {{- end}}
-            sign = sign | (zero & signI)    // 6.   sign = sign OR (zero AND sign_i) # Avoid short-circuit logic ops
-			{{- if $notLast}}
-			    zero = zero & zeroI // 7.   zero = zero AND zero_i
-			{{- else}}
-                // 7.   zero = zero AND zero_i
-            {{- end}}
-        {{- end}}
-        return sign
-    {{end}}
-}
-
-
-// MapTo{{$CurveTitle}} invokes the {{.MappingAlgorithm}} map, and guarantees that the result is in {{$CurveName}}
+// MapTo{{$CurveTitle}} invokes the {{.MappingAlgorithm}} map, and guarantees that the result is in {{$CurveTitle}}
 func MapTo{{$CurveTitle}}(u {{$CoordType}}) {{$AffineType}} {
     res := MapToCurve{{$CurveIndex}}(&u)
     {{- if $isogenyNeeded }}
     //this is in an isogenous curve
-        {{$CurveName}}Isogeny(&res)
+        hash_to_curve.{{$CurveTitle}}Isogeny(&res.X, &res.Y)
     {{- end }}
     {{- if .Point.CofactorCleaning}}
         res.ClearCofactor(&res)
@@ -94,7 +52,7 @@ func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 
     {{- if $isogenyNeeded }}
         //this is in an isogenous curve
-        {{$CurveName}}Isogeny(&res)
+        hash_to_curve.{{$CurveTitle}}Isogeny(&res.X, &res.Y)
     {{- end }}
     {{- if .Point.CofactorCleaning}}
  	    res.ClearCofactor(&res)
@@ -126,8 +84,8 @@ func HashTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 
 {{ if $isogenyNeeded }}
 	//TODO (perf): Add in E' first, then apply isogeny
-    {{$CurveName}}Isogeny(&Q0)
-    {{$CurveName}}Isogeny(&Q1)
+    hash_to_curve.{{$CurveTitle}}Isogeny(&Q0.X, &Q0.Y)
+    hash_to_curve.{{$CurveTitle}}Isogeny(&Q1.X, &Q1.Y)
 {{ end }}
 
 	var _Q0, _Q1 {{$JacType}}
@@ -141,10 +99,9 @@ func HashTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
     return Q1, nil
 }
 
-func {{$CurveName}}NotZero(x *{{$CoordType}}) uint64 {
-	{{if eq $TowerDegree 1}}
-    return x[0] {{ range $i := $.Field.Base.NbWordsIndexesNoZero}} | x[{{$i}}] {{ end}}
-	{{else}}    //Assuming G1 is over Fp and that if hashing is available for G2, it also is for G1
-	return g1NotZero(&x.A0) {{ range $i := interval 1 $TowerDegree }} | g1NotZero(&x.{{$.FieldCoordName}}{{$i}}) {{end}}
-	{{end}}
-}
+{{if eq $.MappingAlgorithm "SSWU"}}
+    {{template "root_sswu" .}}
+{{end}}
+{{if eq $.MappingAlgorithm "SVDW"}}
+	{{template "root_svdw" .}}
+{{end}}

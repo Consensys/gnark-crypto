@@ -1,0 +1,89 @@
+{{ define "root_sswu" }}
+{{$isogenyNeeded := notNil .Isogeny}}
+{{$CoordType := .Point.CoordType}}
+{{$CurveName := .Point.PointName}}
+{{$CurveTitle := toTitle $CurveName}}
+{{$TowerDegree := .Field.Degree}}
+{{$AffineType := print $CurveTitle "Affine"}}
+{{$JacType := print $CurveTitle "Jac"}}
+{{$IsG1 := eq $CurveTitle "G1"}}
+{{$CurveIndex := "2"}}
+{{if $IsG1}}{{$CurveIndex = "1"}}{{end}}
+{{$sswuCurveACoeff := select $isogenyNeeded "This is meant to produce an error. Since most likely A = 0, there is opportunity for optimizations that need to be looked at." "sswuIsoCurveCoeffA"}}
+{{$sswuCurveBCoeff := select $isogenyNeeded "bCurveConf" "sswuIsoCurveCoeffB"}}
+
+// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
+// MapToCurve{{$CurveIndex}} implements the SSWU map
+// No cofactor clearing or isogeny
+func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
+
+    {{if $isogenyNeeded}}
+        var {{$sswuCurveACoeff}} = {{$CoordType}} {{asElement .A}}
+        var {{$sswuCurveBCoeff}} = {{$CoordType}} {{asElement .B}}
+    {{end}}
+
+	var tv1 {{$CoordType}}
+	tv1.Square(u)   // 1.  tv1 = u²
+
+	//mul tv1 by Z
+    hash_to_curve.{{$CurveTitle}}MulByZ(&tv1, &tv1)    // 2.  tv1 = Z * tv1
+
+	var tv2 {{$CoordType}}
+	tv2.Square(&tv1)    // 3.  tv2 = tv1²
+	tv2.Add(&tv2, &tv1) // 4.  tv2 = tv2 + tv1
+
+	var tv3 {{$CoordType}}
+	var tv4 {{$CoordType}}
+	tv4.SetOne()
+	tv3.Add(&tv2, &tv4) // 5.  tv3 = tv2 + 1
+	tv3.Mul(&tv3, &{{$sswuCurveBCoeff}})    // 6.  tv3 = B * tv3
+
+    tv2NZero := hash_to_curve.{{$CurveTitle}}NotZero(&tv2)
+
+	// tv4 = Z
+	tv4 = {{$CoordType}}{{ asElement  .Z }}
+
+    tv2.Neg(&tv2)
+    tv4.Select(int(tv2NZero), &tv4, &tv2)   // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
+    tv4.Mul(&tv4, &{{$sswuCurveACoeff}})    // 8.  tv4 = A * tv4
+
+    tv2.Square(&tv3)    // 9.  tv2 = tv3²
+
+	var tv6 {{$CoordType}}
+	tv6.Square(&tv4)    // 10. tv6 = tv4²
+
+	var tv5 {{$CoordType}}
+	tv5.Mul(&tv6, &{{$sswuCurveACoeff}})    // 11. tv5 = A * tv6
+
+	tv2.Add(&tv2, &tv5) // 12. tv2 = tv2 + tv5
+	tv2.Mul(&tv2, &tv3) // 13. tv2 = tv2 * tv3
+	tv6.Mul(&tv6, &tv4) // 14. tv6 = tv6 * tv4
+
+	tv5.Mul(&tv6, &{{$sswuCurveBCoeff}})    // 15. tv5 = B * tv6
+	tv2.Add(&tv2, &tv5) // 16. tv2 = tv2 + tv5
+
+	var x {{$CoordType}}
+	x.Mul(&tv1, &tv3)   // 17.   x = tv1 * tv3
+
+	var y1 {{$CoordType}}
+	gx1NSquare := hash_to_curve.{{$CurveTitle}}SqrtRatio(&y1, &tv2, &tv6)  // 18. (is_gx1_square, y1) = sqrt_ratio(tv2, tv6)
+
+	var y {{$CoordType}}
+	y.Mul(&tv1, u)  // 19.   y = tv1 * u
+
+	y.Mul(&y, &y1)  // 20.   y = y * y1
+
+    x.Select(int(gx1NSquare), &tv3, &x) // 21.   x = CMOV(x, tv3, is_gx1_square)
+    y.Select(int(gx1NSquare), &y1, &y)  // 22.   y = CMOV(y, y1, is_gx1_square)
+
+    y1.Neg(&y)
+    y.Select(int(hash_to_curve.{{$CurveTitle}}Sgn0(u)^hash_to_curve.{{$CurveTitle}}Sgn0(&y)), &y, &y1)
+
+    // 23.  e1 = sgn0(u) == sgn0(y)
+    // 24.   y = CMOV(-y, y, e1)
+
+    x.Div(&x, &tv4) // 25.   x = x / tv4
+
+	return {{$AffineType}}{x, y}
+}
+{{ end }}

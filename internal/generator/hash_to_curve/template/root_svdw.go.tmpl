@@ -1,5 +1,4 @@
-{{define "svdw"}}
-)
+{{define "root_svdw"}}
 {{$TowerDegree := .Field.Degree}}
 {{$CoordType := .Point.CoordType}}
 {{$CurveName := .Point.PointName}}
@@ -81,7 +80,7 @@ func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
     gx.Add(&gx, &{{$B}}) //    32.  gx = gx + B
 
     y.Sqrt(&gx)                              //    33.   y = sqrt(gx)
-    signsNotEqual := {{$CurveName}}Sgn0(u) ^ {{$CurveName}}Sgn0(&y) //    34.  e3 = sgn0(u) == sgn0(y)
+    signsNotEqual := hash_to_curve.{{$CurveTitle}}Sgn0(u) ^ hash_to_curve.{{$CurveTitle}}Sgn0(&y) //    34.  e3 = sgn0(u) == sgn0(y)
 
     tv1.Neg(&y)
     y.Select(int(signsNotEqual), &y, &tv1) //    35.   y = CMOV(-y, y, e3)       # Select correct sign of y

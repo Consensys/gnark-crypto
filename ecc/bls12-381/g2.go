@@ -13,6 +13,8 @@ import (
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"math/big"
 	"runtime"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/hash_to_curve"
 )
 
 // G2Affine is a point in affine coordinates (x,y)
@@ -506,7 +508,7 @@ func (p *G2Jac) IsInSubGroup() bool {
 func GeneratePointNotInG2(f E2) G2Jac {
 	var res, jac G2Jac
 	aff := MapToCurve2(&f)
-	g2Isogeny(&aff)
+	hash_to_curve.G2Isogeny(&aff.X, &aff.Y)
 	jac.FromAffine(&aff)
 	// ψ(p)-[x₀]P = [r]p
 	res.mulBySeed(&jac)
