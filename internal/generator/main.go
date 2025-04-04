@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/consensys/gnark-crypto/internal/generator/mpcsetup"
-
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator"
 	fieldConfig "github.com/consensys/gnark-crypto/field/generator/config"
@@ -21,9 +19,12 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/fflonk"
 	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
+	"github.com/consensys/gnark-crypto/internal/generator/gkr"
+	"github.com/consensys/gnark-crypto/internal/generator/hash_to_curve"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_field"
 	"github.com/consensys/gnark-crypto/internal/generator/iop"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
+	"github.com/consensys/gnark-crypto/internal/generator/mpcsetup"
 	"github.com/consensys/gnark-crypto/internal/generator/pairing"
 	"github.com/consensys/gnark-crypto/internal/generator/pedersen"
 	"github.com/consensys/gnark-crypto/internal/generator/permutation"
@@ -121,6 +122,9 @@ func main() {
 			// generate wrapped hash-to-field for both fr and fp
 			assertNoError(hash_to_field.Generate(frInfo, filepath.Join(curveDir, "fr", "hash_to_field"), bgen))
 			assertNoError(hash_to_field.Generate(fpInfo, filepath.Join(curveDir, "fp", "hash_to_field"), bgen))
+
+			// generate hash to curve for both G1 and G2
+			assertNoError(hash_to_curve.Generate(conf, curveDir, bgen))
 
 			if conf.Equal(config.GRUMPKIN) {
 				return

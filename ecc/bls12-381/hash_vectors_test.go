@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/hash_to_curve"
 )
 
 func TestG1IsogenyVectors(t *testing.T) {
@@ -33,7 +34,7 @@ func TestG1IsogenyVectors(t *testing.T) {
 	toMont(&ref.X)
 	toMont(&ref.Y)
 
-	g1Isogeny(&p)
+	hash_to_curve.G1Isogeny(&p.X, &p.Y)
 
 	if ref != p {
 		t.Fail()

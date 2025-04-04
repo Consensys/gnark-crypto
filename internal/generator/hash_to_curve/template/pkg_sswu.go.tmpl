@@ -1,6 +1,4 @@
-{{define "sswu"}}
-"math/big"
-)
+{{define "pkg_sswu"}}
 {{$isogenyNeeded := notNil .Isogeny}}
 {{$CoordType := .Point.CoordType}}
 {{$CurveName := .Point.PointName}}
@@ -14,8 +12,8 @@
 {{$sswuCurveACoeff := select $isogenyNeeded "This is meant to produce an error. Since most likely A = 0, there is opportunity for optimizations that need to be looked at." "sswuIsoCurveCoeffA"}}
 {{$sswuCurveBCoeff := select $isogenyNeeded "bCurveConf" "sswuIsoCurveCoeffB"}}
 
-//Note: This only works for simple extensions
 
+//Note: This only works for simple extensions
 
 {{ if $isogenyNeeded }}
 
@@ -66,15 +64,15 @@ func {{$CurveName}}IsogenyYDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
         x)
 }
 
-func {{$CurveName}}Isogeny(p *{{$AffineType}}) {
+func {{$CurveTitle}}Isogeny(pX, pY *{{$CoordType}}) {
 
 	den := make([]{{$CoordType}}, 2)
 
-    {{$CurveName}}IsogenyYDenominator(&den[1], &p.X)
-    {{$CurveName}}IsogenyXDenominator(&den[0], &p.X)
+    {{$CurveName}}IsogenyYDenominator(&den[1], pX)
+    {{$CurveName}}IsogenyXDenominator(&den[0], pX)
 
-    {{$CurveName}}IsogenyYNumerator(&p.Y, &p.X, &p.Y)
-    {{$CurveName}}IsogenyXNumerator(&p.X, &p.X)
+    {{$CurveName}}IsogenyYNumerator(pY, pX, pY)
+    {{$CurveName}}IsogenyXNumerator(pX, pX)
 
 	{{if eq $CoordType "fptower.E2"}}
         den = {{$package}}.BatchInvertE2(den)
@@ -84,8 +82,8 @@ func {{$CurveName}}Isogeny(p *{{$AffineType}}) {
         den = {{$package}}.BatchInvert(den)
 	{{- end}}
 
-	p.X.Mul(&p.X, &den[0])
-	p.Y.Mul(&p.Y, &den[1])
+	pX.Mul(pX, &den[0])
+	pY.Mul(pY, &den[1])
 }
 
 {{ end }}
@@ -95,11 +93,11 @@ func {{$CurveName}}Isogeny(p *{{$AffineType}}) {
 {{ $c1Int := index $cInts 0}}
 {{ $c1IntBytes := printList (bytes $c1Int ) }}
 
-// {{$CurveName}}SqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
+// {{$CurveTitle}}SqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
 // if not, we get sqrt(Z * u / v). Recall that Z is non-residue
 // If v = 0, u/v is meaningless and the output is unspecified, without raising an error.
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
-func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordType}}) uint64 {
+func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordType}}) uint64 {
 {{ if eq (mod .FieldSizeMod256 4) 3 }} // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-optimized-sqrt_ratio-for-q- (3 mod 4)
 	var tv1 {{$CoordType}}
 	tv1.Square(v)   // 1. tv1 = v²
@@ -164,7 +162,7 @@ func {{$CurveName}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordTy
     tv2.Mul(&tv2, v)    // 19. tv2 = tv2 * v
     var tv3 {{$CoordType}}
     // Z = [{{printList .Z}}]
-    {{$CurveName}}MulByZ(&tv3, u)   // 20. tv3 = Z * u
+    {{$CurveTitle}}MulByZ(&tv3, u)   // 20. tv3 = Z * u
 	// 21. e2 = tv2 == tv3
 	y2.Select(int(tv2.NotEqual(&tv3)), &tv1, &y2)   // 22. y2 = CMOV(y2, tv1, e2)
 	z.Select(int(isQNr), &y1, &y2)  // 23. y = CMOV(y2, y1, isQR)
@@ -246,13 +244,13 @@ func {{$CurveName}}NotOne(x *{{$CoordType}}) uint64 {
     {{else}}
         //Assuming hash is implemented for G1 and that the curve is over Fp
 	    var one fp.Element
-        return one.SetOne().NotEqual(&x.{{.FieldCoordName}}0) {{range $i := interval 1 $TowerDegree}} | g1NotZero(&x.{{$.FieldCoordName}}{{$i}}) {{end}}
+        return one.SetOne().NotEqual(&x.{{.FieldCoordName}}0) {{range $i := interval 1 $TowerDegree}} | G1NotZero(&x.{{$.FieldCoordName}}{{$i}}) {{end}}
     {{end}}
 }
 {{ end }}
 
-// {{$CurveName}}MulByZ multiplies x by [{{printList .Z}}] and stores the result in z
-func {{$CurveName}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
+// {{$CurveTitle}}MulByZ multiplies x by [{{printList .Z}}] and stores the result in z
+func {{$CurveTitle}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 
 {{ if eq $TowerDegree 1 }}
 
@@ -290,80 +288,6 @@ func {{$CurveName}}MulByZ(z *{{$CoordType}}, x *{{$CoordType}}) {
 
 {{ end }}}
 
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
-// MapToCurve{{$CurveIndex}} implements the SSWU map
-// No cofactor clearing or isogeny
-func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
-
-    {{if $isogenyNeeded}}
-        var {{$sswuCurveACoeff}} = {{$CoordType}} {{asElement .A}}
-        var {{$sswuCurveBCoeff}} = {{$CoordType}} {{asElement .B}}
-    {{end}}
-
-	var tv1 {{$CoordType}}
-	tv1.Square(u)   // 1.  tv1 = u²
-
-	//mul tv1 by Z
-    {{$CurveName}}MulByZ(&tv1, &tv1)    // 2.  tv1 = Z * tv1
-
-	var tv2 {{$CoordType}}
-	tv2.Square(&tv1)    // 3.  tv2 = tv1²
-	tv2.Add(&tv2, &tv1) // 4.  tv2 = tv2 + tv1
-
-	var tv3 {{$CoordType}}
-	var tv4 {{$CoordType}}
-	tv4.SetOne()
-	tv3.Add(&tv2, &tv4) // 5.  tv3 = tv2 + 1
-	tv3.Mul(&tv3, &{{$sswuCurveBCoeff}})    // 6.  tv3 = B * tv3
-
-    tv2NZero := {{$CurveName}}NotZero(&tv2)
-
-	// tv4 = Z
-	tv4 = {{$CoordType}}{{ asElement  .Z }}
-
-    tv2.Neg(&tv2)
-    tv4.Select(int(tv2NZero), &tv4, &tv2)   // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
-    tv4.Mul(&tv4, &{{$sswuCurveACoeff}})    // 8.  tv4 = A * tv4
-
-    tv2.Square(&tv3)    // 9.  tv2 = tv3²
-
-	var tv6 {{$CoordType}}
-	tv6.Square(&tv4)    // 10. tv6 = tv4²
-
-	var tv5 {{$CoordType}}
-	tv5.Mul(&tv6, &{{$sswuCurveACoeff}})    // 11. tv5 = A * tv6
-
-	tv2.Add(&tv2, &tv5) // 12. tv2 = tv2 + tv5
-	tv2.Mul(&tv2, &tv3) // 13. tv2 = tv2 * tv3
-	tv6.Mul(&tv6, &tv4) // 14. tv6 = tv6 * tv4
-
-	tv5.Mul(&tv6, &{{$sswuCurveBCoeff}})    // 15. tv5 = B * tv6
-	tv2.Add(&tv2, &tv5) // 16. tv2 = tv2 + tv5
-
-	var x {{$CoordType}}
-	x.Mul(&tv1, &tv3)   // 17.   x = tv1 * tv3
-
-	var y1 {{$CoordType}}
-	gx1NSquare := {{$CurveName}}SqrtRatio(&y1, &tv2, &tv6)  // 18. (is_gx1_square, y1) = sqrt_ratio(tv2, tv6)
-
-	var y {{$CoordType}}
-	y.Mul(&tv1, u)  // 19.   y = tv1 * u
-
-	y.Mul(&y, &y1)  // 20.   y = y * y1
-
-    x.Select(int(gx1NSquare), &tv3, &x) // 21.   x = CMOV(x, tv3, is_gx1_square)
-    y.Select(int(gx1NSquare), &y1, &y)  // 22.   y = CMOV(y, y1, is_gx1_square)
-
-    y1.Neg(&y)
-    y.Select(int({{$CurveName}}Sgn0(u)^{{$CurveName}}Sgn0(&y)), &y, &y1)
-
-    // 23.  e1 = sgn0(u) == sgn0(y)
-    // 24.   y = CMOV(-y, y, e1)
-
-    x.Div(&x, &tv4) // 25.   x = x / tv4
-
-	return {{$AffineType}}{x, y}
-}
 
 func {{$CurveName}}EvalPolynomial(z *{{$CoordType}}, monic bool, coefficients []{{$CoordType}}, x *{{$CoordType}}) {
     dst := coefficients[len(coefficients) - 1]

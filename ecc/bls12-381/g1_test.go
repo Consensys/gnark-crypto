@@ -14,6 +14,9 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/hash_to_curve"
+
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -860,7 +863,7 @@ func BenchmarkG1AffineDouble(b *testing.B) {
 func fuzzCofactorOfG1(f fp.Element) G1Jac {
 	var res, jac G1Jac
 	aff := MapToCurve1(&f)
-	g1Isogeny(&aff)
+	hash_to_curve.G1Isogeny(&aff.X, &aff.Y)
 	jac.FromAffine(&aff)
 	// p+x²ϕ(p) = [r]p
 	res.phi(&jac).

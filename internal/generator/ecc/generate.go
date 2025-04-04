@@ -1,7 +1,6 @@
 package ecc
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -17,32 +16,6 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	packageName := strings.ReplaceAll(conf.Name, "-", "")
 
 	var entries []bavard.Entry
-
-	// hash To curve
-	genHashToCurve := func(point *config.Point, suite config.HashSuite) error {
-		if suite == nil { //Nothing to generate. Bypass
-			return nil
-		}
-
-		entries = []bavard.Entry{
-			{File: filepath.Join(baseDir, fmt.Sprintf("hash_to_%s.go", point.PointName)), Templates: []string{"hash_to_curve.go.tmpl", "sswu.go.tmpl", "svdw.go.tmpl"}},
-			{File: filepath.Join(baseDir, fmt.Sprintf("hash_to_%s_test.go", point.PointName)), Templates: []string{"tests/hash_to_curve.go.tmpl"}}}
-
-		hashConf := suite.GetInfo(conf.Fp, point, conf.Name)
-
-		funcs := make(template.FuncMap)
-		funcs["asElement"] = hashConf.Field.Base.WriteElement
-		bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
-
-		return bgen.GenerateWithOptions(hashConf, packageName, "./ecc/template", bavardOpts, entries...)
-	}
-
-	if err := genHashToCurve(&conf.G1, conf.HashE1); err != nil {
-		return err
-	}
-	if err := genHashToCurve(&conf.G2, conf.HashE2); err != nil {
-		return err
-	}
 
 	// G1
 	entries = []bavard.Entry{

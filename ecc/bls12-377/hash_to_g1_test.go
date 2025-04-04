@@ -7,6 +7,8 @@ package bls12377
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/hash_to_curve"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 	"math/rand"
@@ -30,7 +32,7 @@ func TestG1SqrtRatio(t *testing.T) {
 		func(u fp.Element, v fp.Element) bool {
 
 			var seen fp.Element
-			qr := g1SqrtRatio(&seen, &u, &v) == 0
+			qr := hash_to_curve.G1SqrtRatio(&seen, &u, &v) == 0
 
 			seen.
 				Square(&seen).
@@ -40,7 +42,7 @@ func TestG1SqrtRatio(t *testing.T) {
 			if qr {
 				ref = u
 			} else {
-				g1MulByZ(&ref, &u)
+				hash_to_curve.G1MulByZ(&ref, &u)
 			}
 
 			return seen.Equal(&ref)
@@ -88,7 +90,7 @@ func TestMapToCurve1(t *testing.T) {
 				t.Log("Mapping output not on E' curve")
 				return false
 			}
-			g1Isogeny(&g)
+			hash_to_curve.G1Isogeny(&g.X, &g.Y)
 
 			if !g.IsOnCurve() {
 				t.Log("Isogeny∘SSWU output not on curve")
@@ -106,7 +108,7 @@ func TestMapToCurve1(t *testing.T) {
 		var u fp.Element
 		g1CoordSetString(&u, c.u)
 		q := MapToCurve1(&u)
-		g1Isogeny(&q)
+		hash_to_curve.G1Isogeny(&q.X, &q.Y)
 		g1TestMatchPoint(t, "Q", c.msg, c.Q, &q)
 	}
 
@@ -114,12 +116,12 @@ func TestMapToCurve1(t *testing.T) {
 		var u fp.Element
 		g1CoordSetString(&u, c.u0)
 		q := MapToCurve1(&u)
-		g1Isogeny(&q)
+		hash_to_curve.G1Isogeny(&q.X, &q.Y)
 		g1TestMatchPoint(t, "Q0", c.msg, c.Q0, &q)
 
 		g1CoordSetString(&u, c.u1)
 		q = MapToCurve1(&u)
-		g1Isogeny(&q)
+		hash_to_curve.G1Isogeny(&q.X, &q.Y)
 		g1TestMatchPoint(t, "Q1", c.msg, c.Q1, &q)
 	}
 }
