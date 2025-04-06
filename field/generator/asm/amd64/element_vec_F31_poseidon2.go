@@ -36,7 +36,7 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 
 	const argSize = 2 * 3 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
-	registers := f.FnHeaderRegABI(fnName, stackSize, argSize, amd64.AX, amd64.DX, amd64.DI, amd64.CX)
+	registers := f.FnHeader(fnName, stackSize, argSize, amd64.AX, amd64.DX)
 
 	// with register ABI we have arguments passed as :
 	// RDI --> a.ptr
@@ -48,8 +48,8 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 	// signature we have is
 	// func (input []fr.Element, roundKeys [][]fr.Element)
 
-	addrInput := amd64.DI
-	addrRoundKeys := amd64.CX
+	addrInput := registers.Pop()
+	addrRoundKeys := registers.Pop()
 
 	addrDiagonal := registers.Pop()
 	rKey := registers.Pop()

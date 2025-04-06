@@ -7,7 +7,7 @@
 #include "funcdata.h"
 #include "go_asm.h"
 
-TEXT ·permutation24_avx512(SB), NOSPLIT, $0
+TEXT ·permutation24_avx512(SB), NOSPLIT, $0-48
 	MOVQ         $0x0000000000005555, AX
 	KMOVD        AX, K3
 	MOVQ         $1, AX
@@ -16,13 +16,13 @@ TEXT ·permutation24_avx512(SB), NOSPLIT, $0
 	VPBROADCASTD AX, Z0
 	MOVD         $const_qInvNeg, AX
 	VPBROADCASTD AX, Z1
-	MOVQ         input+0(FP), DI
-	MOVQ         roundKeys+24(FP), CX
-	VMOVDQU32    0(DI), Z2
-	VMOVDQU32    64(DI), Y3
-	MOVQ         ·diag24+0(SB), R15
-	VMOVDQU32    0(R15), Z18
-	VMOVDQU32    64(R15), Y20
+	MOVQ         input+0(FP), R15
+	MOVQ         roundKeys+24(FP), R14
+	VMOVDQU32    0(R15), Z2
+	VMOVDQU32    64(R15), Y3
+	MOVQ         ·diag24+0(SB), CX
+	VMOVDQU32    0(CX), Z18
+	VMOVDQU32    64(CX), Y20
 	VPSRLQ       $32, Z18, Z19
 	VPSRLQ       $32, Y20, Y21
 
@@ -107,32 +107,32 @@ TEXT ·permutation24_avx512(SB), NOSPLIT, $0
 	VINSERTI64X4  $1, Y16, Z16, Z16             \
 
 #define FULL_ROUND() \
-	VMOVDQU32 0(R14), Z4     \
-	VMOVDQU32 64(R14), Y5    \
+	VMOVDQU32 0(BX), Z4      \
+	VMOVDQU32 64(BX), Y5     \
 	ADD(Z2, Z4, Z0, Z11, Z2) \
 	ADD(Y3, Y5, Y0, Y8, Y3)  \
 	SBOX_FULL()              \
 	MAT_MUL_EXTERNAL()       \
 
 	MAT_MUL_EXTERNAL()
-	MOVQ 0(CX), R14
+	MOVQ 0(R14), BX
 	FULL_ROUND()
-	MOVQ 24(CX), R14
+	MOVQ 24(R14), BX
 	FULL_ROUND()
-	MOVQ 48(CX), R14
+	MOVQ 48(R14), BX
 	FULL_ROUND()
 
 	// loop over the partial rounds
-	MOVQ $0x0000000000000015, R12 // nb partial rounds --> 21
-	MOVQ CX, BX
-	ADDQ $0x0000000000000048, BX
+	MOVQ $0x0000000000000015, SI // nb partial rounds --> 21
+	MOVQ R14, DI
+	ADDQ $0x0000000000000048, DI
 
 loop_1:
-	TESTQ     R12, R12
+	TESTQ     SI, SI
 	JEQ       done_2
-	DECQ      R12
-	MOVQ      0(BX), R14
-	VMOVD     0(R14), X4
+	DECQ      SI
+	MOVQ      0(DI), BX
+	VMOVD     0(BX), X4
 	VMOVDQA32 Z2, Z10
 	ADD(X10, X4, X0, X14, X5)
 	SBOX_PARTIAL()
@@ -164,18 +164,18 @@ loop_1:
 	VPMINUD   Z8, Z11, Z2
 	ADD(Z2, Z16, Z0, Z11, Z2)
 	ADD(Y9, Y16, Y0, Y5, Y3)
-	ADDQ      $24, BX
+	ADDQ      $24, DI
 	JMP       loop_1
 
 done_2:
-	MOVQ      576(CX), R14
+	MOVQ      576(R14), BX
 	FULL_ROUND()
-	MOVQ      600(CX), R14
+	MOVQ      600(R14), BX
 	FULL_ROUND()
-	MOVQ      624(CX), R14
+	MOVQ      624(R14), BX
 	FULL_ROUND()
-	VMOVDQU32 Z2, 0(DI)
-	VMOVDQU32 Y3, 64(DI)
+	VMOVDQU32 Z2, 0(R15)
+	VMOVDQU32 Y3, 64(R15)
 	RET
 
 TEXT ·permutation16x24_avx512(SB), NOSPLIT, $0-32
@@ -973,7 +973,7 @@ done_8:
 	VMOVDQU32 Z23, 1472(R15)
 	RET
 
-TEXT ·permutation16_avx512(SB), NOSPLIT, $0
+TEXT ·permutation16_avx512(SB), NOSPLIT, $0-48
 	MOVQ         $0x0000000000005555, AX
 	KMOVD        AX, K3
 	MOVQ         $1, AX
@@ -982,11 +982,11 @@ TEXT ·permutation16_avx512(SB), NOSPLIT, $0
 	VPBROADCASTD AX, Z0
 	MOVD         $const_qInvNeg, AX
 	VPBROADCASTD AX, Z1
-	MOVQ         input+0(FP), DI
-	MOVQ         roundKeys+24(FP), CX
-	VMOVDQU32    0(DI), Z2
-	MOVQ         ·diag16+0(SB), R15
-	VMOVDQU32    0(R15), Z18
+	MOVQ         input+0(FP), R15
+	MOVQ         roundKeys+24(FP), R14
+	VMOVDQU32    0(R15), Z2
+	MOVQ         ·diag16+0(SB), CX
+	VMOVDQU32    0(CX), Z18
 	VPSRLQ       $32, Z18, Z19
 
 #define MAT_MUL_EXTERNAL_16() \
@@ -1015,30 +1015,30 @@ TEXT ·permutation16_avx512(SB), NOSPLIT, $0
 	VINSERTI64X4  $1, Y16, Z16, Z16             \
 
 #define FULL_ROUND_16() \
-	VMOVDQU32 0(R14), Z4     \
+	VMOVDQU32 0(BX), Z4      \
 	ADD(Z2, Z4, Z0, Z11, Z2) \
 	SBOX_FULL_16()           \
 	MAT_MUL_EXTERNAL_16()    \
 
 	MAT_MUL_EXTERNAL_16()
-	MOVQ 0(CX), R14
+	MOVQ 0(R14), BX
 	FULL_ROUND_16()
-	MOVQ 24(CX), R14
+	MOVQ 24(R14), BX
 	FULL_ROUND_16()
-	MOVQ 48(CX), R14
+	MOVQ 48(R14), BX
 	FULL_ROUND_16()
 
 	// loop over the partial rounds
-	MOVQ $0x0000000000000015, R12 // nb partial rounds --> 21
-	MOVQ CX, BX
-	ADDQ $0x0000000000000048, BX
+	MOVQ $0x0000000000000015, SI // nb partial rounds --> 21
+	MOVQ R14, DI
+	ADDQ $0x0000000000000048, DI
 
 loop_9:
-	TESTQ     R12, R12
+	TESTQ     SI, SI
 	JEQ       done_10
-	DECQ      R12
-	MOVQ      0(BX), R14
-	VMOVD     0(R14), X4
+	DECQ      SI
+	MOVQ      0(DI), BX
+	VMOVD     0(BX), X4
 	VMOVDQA32 Z2, Z10
 	ADD(X10, X4, X0, X14, X5)
 	SBOX_PARTIAL()
@@ -1057,15 +1057,15 @@ loop_9:
 	VPSUBD    Z0, Z8, Z11
 	VPMINUD   Z8, Z11, Z2
 	ADD(Z2, Z16, Z0, Z11, Z2)
-	ADDQ      $24, BX
+	ADDQ      $24, DI
 	JMP       loop_9
 
 done_10:
-	MOVQ      576(CX), R14
+	MOVQ      576(R14), BX
 	FULL_ROUND_16()
-	MOVQ      600(CX), R14
+	MOVQ      600(R14), BX
 	FULL_ROUND_16()
-	MOVQ      624(CX), R14
+	MOVQ      624(R14), BX
 	FULL_ROUND_16()
-	VMOVDQU32 Z2, 0(DI)
+	VMOVDQU32 Z2, 0(R15)
 	RET

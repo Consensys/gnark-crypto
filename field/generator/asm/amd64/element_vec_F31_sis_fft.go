@@ -205,16 +205,17 @@ func (_f *FFAmd64) generateFFTInnerDITF31() {
 	// }
 	const argSize = 5 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
+
 	registers := f.FnHeader("innerDITWithTwiddles_avx512", stackSize, argSize, amd64.AX)
 	defer f.AssertCleanStack(stackSize, 0)
 
 	f.Comment("refer to the code generator for comments and documentation.")
 
 	addrA := registers.Pop()
-	addrAPlusM := registers.Pop()
 	addrTwiddles := registers.Pop()
-	m := registers.Pop()
 	len := registers.Pop()
+	m := registers.Pop()
+	addrAPlusM := registers.Pop()
 
 	a := registers.PopV()
 	am := registers.PopV()
@@ -279,14 +280,16 @@ func (_f *FFAmd64) generateFFTInnerDIFF31() {
 	// }
 	const argSize = 5 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
+
 	registers := f.FnHeader("innerDIFWithTwiddles_avx512", stackSize, argSize, amd64.AX)
 	defer f.AssertCleanStack(stackSize, 0)
 	f.Comment("refer to the code generator for comments and documentation.")
+
 	addrA := registers.Pop()
-	addrAPlusM := registers.Pop()
 	addrTwiddles := registers.Pop()
 	len := registers.Pop()
 	m := registers.Pop()
+	addrAPlusM := registers.Pop()
 
 	a := registers.PopV()
 	am := registers.PopV()

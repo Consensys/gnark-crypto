@@ -88,28 +88,28 @@ TEXT ·innerDITWithTwiddles_avx512(SB), NOSPLIT, $0-40
 	LOAD_Q(Z4, Z5)
 	LOAD_MASKS()
 	MOVQ a+0(FP), R15
-	MOVQ twiddles+8(FP), CX
-	MOVQ end+24(FP), SI
+	MOVQ twiddles+8(FP), DX
+	MOVQ end+24(FP), CX
 	MOVQ m+32(FP), BX
-	SHRQ $4, SI             // we are processing 16 elements at a time
+	SHRQ $4, CX             // we are processing 16 elements at a time
 	SHLQ $2, BX             // offset = m * 4bytes
-	MOVQ R15, DX
-	ADDQ BX, DX
+	MOVQ R15, SI
+	ADDQ BX, SI
 
 loop_1:
-	TESTQ     SI, SI
+	TESTQ     CX, CX
 	JEQ       done_2
-	DECQ      SI
+	DECQ      CX
 	VMOVDQU32 0(R15), Z0 // load a[i]
-	VMOVDQU32 0(DX), Z1  // load a[i+m]
-	VMOVDQU32 0(CX), Z6  // load twiddles[i]
+	VMOVDQU32 0(SI), Z1  // load a[i+m]
+	VMOVDQU32 0(DX), Z6  // load twiddles[i]
 	MULD(Z1, Z6, Z7, Z8, Z2, Z3, Z9, Z10, Z4, Z5)
 	BUTTERFLYD1Q(Z0, Z1, Z4, Z2, Z3)
 	VMOVDQU32 Z0, 0(R15) // store a[i]
-	VMOVDQU32 Z1, 0(DX)  // store a[i+m]
+	VMOVDQU32 Z1, 0(SI)  // store a[i+m]
 	ADDQ      $64, R15
+	ADDQ      $64, SI
 	ADDQ      $64, DX
-	ADDQ      $64, CX
 	JMP       loop_1
 
 done_2:
@@ -118,29 +118,29 @@ done_2:
 TEXT ·innerDIFWithTwiddles_avx512(SB), NOSPLIT, $0-40
 	// refer to the code generator for comments and documentation.
 	MOVQ a+0(FP), R15
-	MOVQ twiddles+8(FP), CX
-	MOVQ end+24(FP), BX
-	MOVQ m+32(FP), SI
+	MOVQ twiddles+8(FP), DX
+	MOVQ end+24(FP), CX
+	MOVQ m+32(FP), BX
 	LOAD_Q(Z2, Z4)
 	LOAD_MASKS()
-	SHLQ $2, SI             // offset = m * 4bytes
-	MOVQ R15, DX
-	ADDQ SI, DX
-	SHRQ $4, BX             // we are processing 16 elements at a time
+	SHLQ $2, BX             // offset = m * 4bytes
+	MOVQ R15, SI
+	ADDQ BX, SI
+	SHRQ $4, CX             // we are processing 16 elements at a time
 
 loop_3:
-	TESTQ     BX, BX
+	TESTQ     CX, CX
 	JEQ       done_4
-	DECQ      BX
+	DECQ      CX
 	VMOVDQU32 0(R15), Z0 // load a[i]
-	VMOVDQU32 0(DX), Z1  // load a[i+m]
-	VMOVDQU32 0(CX), Z5  // load twiddles[i]
+	VMOVDQU32 0(SI), Z1  // load a[i+m]
+	VMOVDQU32 0(DX), Z5  // load twiddles[i]
 	BUTTERFLY_MULD(Z0, Z1, Z2, Z3, Z8, Z1, Z5, Z6, Z7, Z3, Z8, Z9, Z10, Z2, Z4)
 	VMOVDQU32 Z0, 0(R15) // store a[i]
-	VMOVDQU32 Z1, 0(DX)
+	VMOVDQU32 Z1, 0(SI)
 	ADDQ      $64, R15
+	ADDQ      $64, SI
 	ADDQ      $64, DX
-	ADDQ      $64, CX
 	JMP       loop_3
 
 done_4:
