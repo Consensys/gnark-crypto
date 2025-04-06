@@ -11,6 +11,22 @@ import (
 	"github.com/consensys/bavard/amd64"
 )
 
+func (f *FFAmd64) Loop(n amd64.Register, fn func()) {
+	lblLoop := f.NewLabel("loop")
+	lblDone := f.NewLabel("done")
+
+	// while n > 0, do:
+	f.LABEL(lblLoop)
+	f.TESTQ(n, n)
+	f.JEQ(lblDone)
+	f.DECQ(n)
+
+	fn()
+
+	f.JMP(lblLoop)
+	f.LABEL(lblDone)
+}
+
 // LabelRegisters write comment with friendler name to registers
 func (f *FFAmd64) LabelRegisters(name string, r ...amd64.Register) {
 	switch len(r) {

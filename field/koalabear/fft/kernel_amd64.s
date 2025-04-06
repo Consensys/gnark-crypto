@@ -83,26 +83,23 @@
 BUTTERFLYD2Q(in0, in1, in2, in3, in4)                       \
 MULD(in5, in6, in7, in8, in9, in10, in11, in12, in13, in14) \
 
-TEXT ·innerDITWithTwiddles_avx512(SB), NOSPLIT, $0-72
+TEXT ·innerDITWithTwiddles_avx512(SB), NOSPLIT, $0-40
 	// refer to the code generator for comments and documentation.
 	LOAD_Q(Z4, Z5)
 	LOAD_MASKS()
-
-	// load arguments
 	MOVQ a+0(FP), R15
-	MOVQ twiddles+24(FP), CX
-	MOVQ end+56(FP), SI
-	MOVQ m+64(FP), BX
-	CMPQ BX, $0x0000000000000010
-	JL   smallerThan16_1         // m < 16
-	SHRQ $4, SI                  // we are processing 16 elements at a time
-	SHLQ $2, BX                  // offset = m * 4bytes
+	MOVQ twiddles+8(FP), CX
+	MOVQ end+24(FP), SI
+	MOVQ m+32(FP), BX
+	SHRQ $4, SI             // we are processing 16 elements at a time
+	SHLQ $2, BX             // offset = m * 4bytes
 	MOVQ R15, DX
 	ADDQ BX, DX
 
-loop_3:
+loop_1:
 	TESTQ     SI, SI
-	JEQ       done_2     // n == 0, we are done
+	JEQ       done_2
+	DECQ      SI
 	VMOVDQU32 0(R15), Z0 // load a[i]
 	VMOVDQU32 0(DX), Z1  // load a[i+m]
 	VMOVDQU32 0(CX), Z6  // load twiddles[i]
@@ -113,47 +110,28 @@ loop_3:
 	ADDQ      $64, R15
 	ADDQ      $64, DX
 	ADDQ      $64, CX
-	DECQ      SI         // decrement n
-	JMP       loop_3
+	JMP       loop_1
 
 done_2:
 	RET
 
-smallerThan16_1:
-	// m < 16, we call the generic one
-	MOVQ a+0(FP), AX
-	MOVQ AX, (SP)
-	MOVQ twiddles+24(FP), AX
-	MOVQ AX, 24(SP)
-	MOVQ start+48(FP), AX
-	MOVQ AX, 48(SP)
-	MOVQ end+56(FP), AX
-	MOVQ AX, 56(SP)
-	MOVQ m+64(FP), AX
-	MOVQ AX, 64(SP)
-	CALL ·innerDITWithTwiddlesGeneric(SB)
-	RET
-
-TEXT ·innerDIFWithTwiddles_avx512(SB), NOSPLIT, $0-72
+TEXT ·innerDIFWithTwiddles_avx512(SB), NOSPLIT, $0-40
 	// refer to the code generator for comments and documentation.
+	MOVQ a+0(FP), R15
+	MOVQ twiddles+8(FP), CX
+	MOVQ end+24(FP), BX
+	MOVQ m+32(FP), SI
 	LOAD_Q(Z2, Z4)
 	LOAD_MASKS()
-
-	// load arguments
-	MOVQ a+0(FP), R15
-	MOVQ twiddles+24(FP), CX
-	MOVQ end+56(FP), SI
-	MOVQ m+64(FP), BX
-	CMPQ BX, $0x0000000000000010
-	JL   smallerThan16_4         // m < 16
-	SHRQ $4, SI                  // we are processing 16 elements at a time
-	SHLQ $2, BX                  // offset = m * 4bytes
+	SHLQ $2, SI             // offset = m * 4bytes
 	MOVQ R15, DX
-	ADDQ BX, DX
+	ADDQ SI, DX
+	SHRQ $4, BX             // we are processing 16 elements at a time
 
-loop_6:
-	TESTQ     SI, SI
-	JEQ       done_5     // n == 0, we are done
+loop_3:
+	TESTQ     BX, BX
+	JEQ       done_4
+	DECQ      BX
 	VMOVDQU32 0(R15), Z0 // load a[i]
 	VMOVDQU32 0(DX), Z1  // load a[i+m]
 	VMOVDQU32 0(CX), Z5  // load twiddles[i]
@@ -163,25 +141,9 @@ loop_6:
 	ADDQ      $64, R15
 	ADDQ      $64, DX
 	ADDQ      $64, CX
-	DECQ      SI         // decrement n
-	JMP       loop_6
+	JMP       loop_3
 
-done_5:
-	RET
-
-smallerThan16_4:
-	// m < 16, we call the generic one
-	MOVQ a+0(FP), AX
-	MOVQ AX, (SP)
-	MOVQ twiddles+24(FP), AX
-	MOVQ AX, 24(SP)
-	MOVQ start+48(FP), AX
-	MOVQ AX, 48(SP)
-	MOVQ end+56(FP), AX
-	MOVQ AX, 56(SP)
-	MOVQ m+64(FP), AX
-	MOVQ AX, 64(SP)
-	CALL ·innerDIFWithTwiddlesGeneric(SB)
+done_4:
 	RET
 
 TEXT ·kerDIFNP_256_avx512(SB), NOSPLIT, $0-56

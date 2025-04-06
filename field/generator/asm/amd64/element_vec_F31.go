@@ -578,7 +578,7 @@ func (f *FFAmd64) generateMulAccE4() {
 	f.MOVQ("alpha+0(FP)", addrAlpha)
 	f.MOVQ("scale+8(FP)", addrScale)
 	f.MOVQ("res+16(FP)", addrRes)
-	f.MOVQ("n+24(FP)", N)
+	f.MOVQ("N+24(FP)", N)
 
 	// var tmp E4
 	// for i := 0; i < N; i++ {

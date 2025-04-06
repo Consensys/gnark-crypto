@@ -16,8 +16,8 @@ import (
 	"encoding/binary"
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/fft"
-	"github.com/consensys/gnark-crypto/utils/cpu"
 	"github.com/stretchr/testify/require"
+	"math/rand/v2"
 )
 
 type sisParams struct {
@@ -227,58 +227,65 @@ func benchmarkSIS(b *testing.B, input []koalabear.Element, sparse bool, logTwoBo
 		}
 	})
 }
-func FuzzSISAvx512(f *testing.F) {
-	if !cpu.SupportAVX512 {
-		f.Skip("AVX512 not supported")
-	}
 
-	const logTwoBound = 16
-	const logTwoDegree = 9
+func randElement(rng *rand.Rand) koalabear.Element {
+	return koalabear.Element{rng.Uint32N(2130706433)}
+}
 
-	f.Fuzz(func(t *testing.T, data []byte) {
-		if len(data) < koalabear.Bytes+8 {
-			t.Skip("not enough data")
+func FuzzSIS(f *testing.F) {
+
+	f.Fuzz(func(t *testing.T, rngSeed, sisSeed int64, logTwoDegree uint16, logTwoBoundSwitch bool) {
+		assert := require.New(t)
+
+		if logTwoDegree > 10 || logTwoDegree < 2 {
+			t.Skip("logTwoDegree out of range")
+		}
+		degree := int(1 << logTwoDegree)
+
+		logTwoBound := 16
+		if logTwoBoundSwitch {
+			logTwoBound = 8
 		}
 
-		// Extract the seed from the data
-		seed := int64(binary.LittleEndian.Uint64(data[:8]))
-		data = data[8:]
+		var seed [32]byte
+		binary.PutVarint(seed[:], rngSeed)
+		// #nosec G404 -- fuzz does not require a cryptographic PRNG
+		rng := rand.New(rand.NewChaCha8(seed))
+
+		// max elements to hash will be in [degree: 4*degree]
+		maxElementsToHash := int(rng.IntN(3*degree)) + degree
+
+		// size of input will be in [1: maxElementsToHash]
+		size := int(rng.IntN(maxElementsToHash)) + 1
 
 		// Create a new RSIS instance
-		instance, err := NewRSis(seed, logTwoDegree, logTwoBound, len(data)/koalabear.Bytes)
-		if err != nil {
-			t.Fatal(err)
-		}
+		instance, err := NewRSis(sisSeed, int(logTwoDegree), logTwoBound, maxElementsToHash)
+		assert.NoError(err, "failed to create SIS params")
 
-		a0 := make([]koalabear.Element, len(data)/koalabear.Bytes)
-		a1 := make([]koalabear.Element, len(data)/koalabear.Bytes)
+		a0 := make([]koalabear.Element, size)
+		a1 := make([]koalabear.Element, size)
 
 		for i := range a0 {
-			a0[i][0] = binary.LittleEndian.Uint32(data[i*koalabear.Bytes:])
-			a0[i][0] %= 2130706433
+			a0[i] = randElement(rng)
 		}
 
 		copy(a1[:], a0[:])
 
 		// Call the AVX512
-		var res0, res1 [512]koalabear.Element
-		err = instance.Hash(a0, res0[:])
-		if err != nil {
-			t.Fatal(err)
-		}
+		res0 := make([]koalabear.Element, degree)
+		res1 := make([]koalabear.Element, degree)
+		err = instance.Hash(a0, res0)
+		assert.NoError(err, "hashing failed")
 
-		instance.hasFast512_16 = false
 		// call the generic --> note that this still may call FFT avx512 code
-		err = instance.Hash(a1, res1[:])
-		if err != nil {
-			t.Fatal(err)
-		}
+		// and when params are not 512_16, it will call the generic code..
+		instance.hasFast512_16 = false
+		err = instance.Hash(a1, res1)
+		assert.NoError(err, "hashing failed")
 
 		// compare the results
 		for i := range res0 {
-			if res0[i][0] != res1[i][0] {
-				t.Fatal("results differ")
-			}
+			assert.True(res0[i].Equal(&res1[i]), "results differ at index %d", i)
 		}
 
 	})

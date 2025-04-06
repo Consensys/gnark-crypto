@@ -17,7 +17,7 @@ TEXT ·mulAccE4_avx512(SB), NOSPLIT, $0-32
 	MOVQ         alpha+0(FP), R14
 	MOVQ         scale+8(FP), R15
 	MOVQ         res+16(FP), CX
-	MOVQ         n+24(FP), BX
+	MOVQ         N+24(FP), BX
 	VMOVDQU32    0(R14), X2
 	VINSERTI64X2 $1, X2, Y2, Y2
 	VINSERTI64X4 $1, Y2, Z2, Z2

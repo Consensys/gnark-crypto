@@ -18,7 +18,8 @@ import (
 
 	"encoding/binary"
 	"fmt"
-	"github.com/consensys/gnark-crypto/utils/cpu"
+	"github.com/stretchr/testify/require"
+	"math/rand/v2"
 )
 
 func TestFFT(t *testing.T) {
@@ -239,49 +240,42 @@ func TestFFT(t *testing.T) {
 	}
 
 }
-func FuzzFFTAvx512(f *testing.F) {
-	if !cpu.SupportAVX512 {
-		f.Skip("AVX512 not supported")
-	}
 
-	domain := NewDomain(512)
+func randElement(rng *rand.Rand) koalabear.Element {
+	return koalabear.Element{rng.Uint32N(2130706433)}
+}
 
-	q := koalabear.Modulus()
-	qUuint32 := uint32(q.Uint64())
-	f.Fuzz(func(t *testing.T, data []byte) {
-		if len(data) < 512*koalabear.Bytes {
-			t.Skip("not enough data")
+func FuzzFFT(f *testing.F) {
+	f.Fuzz(func(t *testing.T, domainSize uint16, rngSeed int64) {
+		if domainSize > (1 << 13) {
+			t.Skip("domain size too large")
+		}
+		if domainSize < 2 {
+			t.Skip("domain size too small")
 		}
 
-		var a0, a1, a2, a3 [512]koalabear.Element
+		domain := NewDomain(uint64(domainSize))
 
-		for i := range a0 {
-			a0[i][0] = binary.LittleEndian.Uint32(data[i*koalabear.Bytes:])
-			a0[i][0] %= qUuint32
+		var seed [32]byte
+		binary.PutVarint(seed[:], rngSeed)
+		// #nosec G404 -- fuzz does not require a cryptographic PRNG
+		rng := rand.New(rand.NewChaCha8(seed))
+
+		cardinality := domain.Cardinality
+
+		// we just check that FFT-1(FFT(pol)) == pol
+		a, b := make([]koalabear.Element, cardinality), make([]koalabear.Element, cardinality)
+		for i := 0; i < int(cardinality); i++ {
+			a[i] = randElement(rng)
 		}
+		copy(b, a)
 
-		copy(a1[:], a0[:])
-		copy(a2[:], a0[:])
-		copy(a3[:], a0[:])
+		domain.FFTInverse(a, DIF)
+		domain.FFT(a, DIT)
 
-		// check that the AVX512 and generic implementations match for innerDIFWithTwiddles
-		innerDIFWithTwiddles(a0[:], domain.twiddles[0], 0, 256, 256)
-		innerDIFWithTwiddlesGeneric(a1[:], domain.twiddles[0], 0, 256, 256)
-
-		for i := range a0 {
-			if !a0[i].Equal(&a1[i]) {
-				t.Fatalf("innerDIFWithTwiddles mismatch at index %d: got %v, want %v", i, a0[i], a1[i])
-			}
-		}
-
-		// do the same thing with the kernel of size 256
-		kerDIFNP_256generic(a2[:], domain.twiddles, 1)
-		kerDIFNP_256(a3[:], domain.twiddles, 1)
-
-		for i := range a2 {
-			if !a2[i].Equal(&a3[i]) {
-				t.Fatalf("kerDIFNP_256 mismatch at index %d: got %v, want %v", i, a2[i], a3[i])
-			}
+		assert := require.New(t)
+		for i := 0; i < int(cardinality); i++ {
+			assert.True(a[i].Equal(&b[i]), "FFT-1(FFT(pol)) != pol at index %d", i)
 		}
 	})
 }
