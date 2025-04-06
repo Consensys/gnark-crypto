@@ -203,18 +203,19 @@ func (_f *FFAmd64) generateFFTInnerDITF31() {
 	// 		Butterfly(&a[i], &a[i+m])
 	// 	}
 	// }
-	const argSize = 9 * 8
+	const argSize = 5 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
+
 	registers := f.FnHeader("innerDITWithTwiddles_avx512", stackSize, argSize, amd64.AX)
 	defer f.AssertCleanStack(stackSize, 0)
 
 	f.Comment("refer to the code generator for comments and documentation.")
 
 	addrA := registers.Pop()
-	addrAPlusM := registers.Pop()
 	addrTwiddles := registers.Pop()
-	m := registers.Pop()
 	len := registers.Pop()
+	m := registers.Pop()
+	addrAPlusM := registers.Pop()
 
 	a := registers.PopV()
 	am := registers.PopV()
@@ -231,20 +232,15 @@ func (_f *FFAmd64) generateFFTInnerDITF31() {
 	f.loadQ(qd, qInvNeg)
 	f.loadMasks()
 
-	f.Comment("load arguments")
+	// load arguments
 	f.MOVQ("a+0(FP)", addrA)
-	f.MOVQ("twiddles+24(FP)", addrTwiddles)
-	f.MOVQ("end+56(FP)", len)
-	f.MOVQ("m+64(FP)", m)
+	f.MOVQ("twiddles+8(FP)", addrTwiddles)
+	f.MOVQ("end+24(FP)", len)
+	f.MOVQ("m+32(FP)", m)
 
 	// we do only m >= 16;
 	// that ensures we can process 16 elements at a time
-	// avoid bound checks, and special cases with shuffling for m < 8
-	// note that this should only happen when we do a FFT with smaller domain than the smallest generated kernel
-	lblSmallerThan16 := f.NewLabel("smallerThan16")
-	f.CMPQ(m, 16)
-	f.JL(lblSmallerThan16, "m < 16")
-
+	// avoid bound checks and edge cases
 	f.SHRQ("$4", len, "we are processing 16 elements at a time")
 
 	// offset we want to add to a is m*4bytes
@@ -253,73 +249,47 @@ func (_f *FFAmd64) generateFFTInnerDITF31() {
 	f.MOVQ(addrA, addrAPlusM)
 	f.ADDQ(m, addrAPlusM)
 
-	lblDone := f.NewLabel("done")
-	lblLoop := f.NewLabel("loop")
+	f.Loop(len, func() {
+		f.VMOVDQU32(addrA.At(0), a, "load a[i]")
+		f.VMOVDQU32(addrAPlusM.At(0), am, "load a[i+m]")
+		f.VMOVDQU32(addrTwiddles.At(0), t0, "load twiddles[i]")
 
-	f.LABEL(lblLoop)
+		f.mulD(am, t0, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
+		f.butterflyD1Q(a, am, qd, b0, b1)
 
-	f.TESTQ(len, len)
-	f.JEQ(lblDone, "n == 0, we are done")
+		// a is ready to be stored, but we need to scale am by twiddles.
+		f.VMOVDQU32(a, addrA.At(0), "store a[i]")
+		f.VMOVDQU32(am, addrAPlusM.At(0), "store a[i+m]")
 
-	f.VMOVDQU32(addrA.At(0), a, "load a[i]")
-	f.VMOVDQU32(addrAPlusM.At(0), am, "load a[i+m]")
-	f.VMOVDQU32(addrTwiddles.At(0), t0, "load twiddles[i]")
-
-	f.mulD(am, t0, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
-	f.butterflyD1Q(a, am, qd, b0, b1)
-
-	// a is ready to be stored, but we need to scale am by twiddles.
-	f.VMOVDQU32(a, addrA.At(0), "store a[i]")
-	f.VMOVDQU32(am, addrAPlusM.At(0), "store a[i+m]")
-
-	f.ADDQ("$64", addrA)
-	f.ADDQ("$64", addrAPlusM)
-	f.ADDQ("$64", addrTwiddles)
-	f.DECQ(len, "decrement n")
-	f.JMP(lblLoop)
-
-	f.LABEL(lblDone)
+		f.ADDQ("$64", addrA)
+		f.ADDQ("$64", addrAPlusM)
+		f.ADDQ("$64", addrTwiddles)
+	})
 
 	f.RET()
-
-	f.LABEL(lblSmallerThan16)
-	f.Comment("m < 16, we call the generic one")
-
-	f.MOVQ("a+0(FP)", amd64.AX)
-	f.MOVQ(amd64.AX, "(SP)")
-	f.MOVQ("twiddles+24(FP)", amd64.AX)
-	f.MOVQ(amd64.AX, "24(SP)") // go vet says 24(SP) should be a_cap+16(FP)
-	f.MOVQ("start+48(FP)", amd64.AX)
-	f.MOVQ(amd64.AX, "48(SP)") // go vet says 48(SP) should be twiddles_cap+40(FP)
-	f.MOVQ("end+56(FP)", amd64.AX)
-	f.MOVQ(amd64.AX, "56(SP)")
-	f.MOVQ("m+64(FP)", amd64.AX)
-	f.MOVQ(amd64.AX, "64(SP)")
-
-	f.WriteLn("CALL ·innerDITWithTwiddlesGeneric(SB)")
-	f.RET()
-
 }
 
 func (_f *FFAmd64) generateFFTInnerDIFF31() {
 	f := &fftHelper{_f}
-	// func innerDIFWithTwiddles(a []Element, twiddles []Element, start, end, m int) {
+
+	// func innerDIFWithTwiddles_avx512(a, twiddles *{{ .FF }}.Element, start, end, m int)
 	// 	for i := start; i < end; i++ {
 	// 		Butterfly(&a[i], &a[i+m])
 	// 		a[i+m].Mul(&a[i+m], &twiddles[i])
 	// 	}
 	// }
-	const argSize = 9 * 8
+	const argSize = 5 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
+
 	registers := f.FnHeader("innerDIFWithTwiddles_avx512", stackSize, argSize, amd64.AX)
 	defer f.AssertCleanStack(stackSize, 0)
 	f.Comment("refer to the code generator for comments and documentation.")
 
 	addrA := registers.Pop()
-	addrAPlusM := registers.Pop()
 	addrTwiddles := registers.Pop()
-	m := registers.Pop()
 	len := registers.Pop()
+	m := registers.Pop()
+	addrAPlusM := registers.Pop()
 
 	a := registers.PopV()
 	am := registers.PopV()
@@ -334,25 +304,18 @@ func (_f *FFAmd64) generateFFTInnerDIFF31() {
 	PL0 := registers.PopV()
 	PL1 := registers.PopV()
 
+	// load arguments
+	f.MOVQ("a+0(FP)", addrA)
+	f.MOVQ("twiddles+8(FP)", addrTwiddles)
+	f.MOVQ("end+24(FP)", len)
+	f.MOVQ("m+32(FP)", m)
+
 	f.loadQ(qd, qInvNeg)
 	f.loadMasks()
 
-	f.Comment("load arguments")
-	f.MOVQ("a+0(FP)", addrA)
-	f.MOVQ("twiddles+24(FP)", addrTwiddles)
-	f.MOVQ("end+56(FP)", len)
-	f.MOVQ("m+64(FP)", m)
-
 	// we do only m >= 16;
 	// that ensures we can process 16 elements at a time
-	// avoid bound checks, and special cases with shuffling for m < 8
-	// note that this should only happen when we do a FFT with smaller domain than the smallest generated kernel
-	lblSmallerThan16 := f.NewLabel("smallerThan16")
-	f.CMPQ(m, 16)
-	f.JL(lblSmallerThan16, "m < 16")
-
-	// we are processing elements 16x16 so we divide len by 16
-	f.SHRQ("$4", len, "we are processing 16 elements at a time")
+	// avoid bound checks, and edge cases
 
 	// offset we want to add to a is m*4bytes
 	f.SHLQ("$2", m, "offset = m * 4bytes")
@@ -360,51 +323,26 @@ func (_f *FFAmd64) generateFFTInnerDIFF31() {
 	f.MOVQ(addrA, addrAPlusM)
 	f.ADDQ(m, addrAPlusM)
 
-	lblDone := f.NewLabel("done")
-	lblLoop := f.NewLabel("loop")
+	// we are processing elements 16x16 so we divide len by 16
+	f.SHRQ("$4", len, "we are processing 16 elements at a time")
 
-	f.LABEL(lblLoop)
+	f.Loop(len, func() {
+		f.VMOVDQU32(addrA.At(0), a, "load a[i]")
+		f.VMOVDQU32(addrAPlusM.At(0), am, "load a[i+m]")
 
-	f.TESTQ(len, len)
-	f.JEQ(lblDone, "n == 0, we are done")
+		f.VMOVDQU32(addrTwiddles.At(0), t0, "load twiddles[i]")
+		f.butterfly_mulD(a, am, qd, b0, b1,
+			am, t0, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
 
-	f.VMOVDQU32(addrA.At(0), a, "load a[i]")
-	f.VMOVDQU32(addrAPlusM.At(0), am, "load a[i+m]")
+		f.VMOVDQU32(a, addrA.At(0), "store a[i]")
+		f.VMOVDQU32(am, addrAPlusM.At(0))
 
-	f.VMOVDQU32(addrTwiddles.At(0), t0, "load twiddles[i]")
-	f.butterfly_mulD(a, am, qd, b0, b1,
-		am, t0, aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
-
-	f.VMOVDQU32(a, addrA.At(0), "store a[i]")
-	f.VMOVDQU32(am, addrAPlusM.At(0))
-
-	f.ADDQ("$64", addrA)
-	f.ADDQ("$64", addrAPlusM)
-	f.ADDQ("$64", addrTwiddles)
-	f.DECQ(len, "decrement n")
-	f.JMP(lblLoop)
-
-	f.LABEL(lblDone)
+		f.ADDQ("$64", addrA)
+		f.ADDQ("$64", addrAPlusM)
+		f.ADDQ("$64", addrTwiddles)
+	})
 
 	f.RET()
-
-	f.LABEL(lblSmallerThan16)
-	f.Comment("m < 16, we call the generic one")
-
-	f.MOVQ("a+0(FP)", amd64.AX)
-	f.MOVQ(amd64.AX, "(SP)")
-	f.MOVQ("twiddles+24(FP)", amd64.AX)
-	f.MOVQ(amd64.AX, "24(SP)") // go vet says 24(SP) should be a_cap+16(FP)
-	f.MOVQ("start+48(FP)", amd64.AX)
-	f.MOVQ(amd64.AX, "48(SP)") // go vet says 48(SP) should be twiddles_cap+40(FP)
-	f.MOVQ("end+56(FP)", amd64.AX)
-	f.MOVQ(amd64.AX, "56(SP)")
-	f.MOVQ("m+64(FP)", amd64.AX)
-	f.MOVQ(amd64.AX, "64(SP)")
-
-	f.WriteLn("CALL ·innerDIFWithTwiddlesGeneric(SB)")
-	f.RET()
-
 }
 
 func (_f *FFAmd64) generateFFTKernelF31(klog2 int, dif bool) {
@@ -751,9 +689,6 @@ func (_f *FFAmd64) generateSISShuffleF31() {
 	// divide len by 32
 	f.SHRQ("$5", lenA)
 
-	lblDone := f.NewLabel("done")
-	lblLoop := f.NewLabel("loop")
-
 	f.loadMasks()
 
 	addrVInterleaveIndices := registers.Pop()
@@ -761,29 +696,23 @@ func (_f *FFAmd64) generateSISShuffleF31() {
 	f.MOVQ("·vInterleaveIndices+0(SB)", addrVInterleaveIndices)
 	f.VMOVDQU64(addrVInterleaveIndices.At(0), vInterleaveIndices)
 
-	f.LABEL(lblLoop)
+	f.Loop(lenA, func() {
+		f.VMOVDQU32(addrA.AtD(0), a0, "load a[i]")
+		f.VMOVDQU32(addrA.AtD(16), a1, "load a[i+16]")
 
-	f.TESTQ(lenA, lenA)
-	f.JEQ(lblDone, "n == 0, we are done")
+		// probably a faster way to do this, but let's do it the naive way for now
+		// it's not on the hot path.
+		// the idea here is to "shuffle" a vector the way the avx512 fft DIF would.
+		f.permute8x8(a0, a1, b0)
+		f.permute4x4(a0, a1, vInterleaveIndices, b0)
+		f.permute2x2(a0, a1, b0)
+		f.permute1x1(a0, a1, b0)
 
-	f.VMOVDQU32(addrA.AtD(0), a0, "load a[i]")
-	f.VMOVDQU32(addrA.AtD(16), a1, "load a[i+16]")
+		f.VMOVDQU32(a0, addrA.AtD(0), "store a[i]")
+		f.VMOVDQU32(a1, addrA.AtD(16), "store a[i+16]")
 
-	// probably a faster way to do this, but let's do it the naive way for now
-	// it's not on the hot path.
-	// the idea here is to "shuffle" a vector the way the avx512 fft DIF would.
-	f.permute8x8(a0, a1, b0)
-	f.permute4x4(a0, a1, vInterleaveIndices, b0)
-	f.permute2x2(a0, a1, b0)
-	f.permute1x1(a0, a1, b0)
-
-	f.VMOVDQU32(a0, addrA.AtD(0), "store a[i]")
-	f.VMOVDQU32(a1, addrA.AtD(16), "store a[i+16]")
-
-	f.ADDQ("$128", addrA)
-	f.DECQ(lenA, "decrement n")
-	f.JMP(lblLoop)
-	f.LABEL(lblDone)
+		f.ADDQ("$128", addrA)
+	})
 	f.RET()
 }
 
@@ -808,9 +737,6 @@ func (_f *FFAmd64) generateSISUnhuffleF31() {
 	// divide len by 32
 	f.SHRQ("$5", lenA)
 
-	lblDone := f.NewLabel("done")
-	lblLoop := f.NewLabel("loop")
-
 	f.loadMasks()
 
 	addrVInterleaveIndices := registers.Pop()
@@ -818,36 +744,31 @@ func (_f *FFAmd64) generateSISUnhuffleF31() {
 	f.MOVQ("·vInterleaveIndices+0(SB)", addrVInterleaveIndices)
 	f.VMOVDQU64(addrVInterleaveIndices.At(0), vInterleaveIndices)
 
-	f.LABEL(lblLoop)
+	f.Loop(lenA, func() {
+		f.VMOVDQU32(addrA.AtD(0), a0, "load a[i]")
+		f.VMOVDQU32(addrA.AtD(16), a1, "load a[i+16]")
 
-	f.TESTQ(lenA, lenA)
-	f.JEQ(lblDone, "n == 0, we are done")
+		// ok let's say now each pair of vector v0 v1
+		// such that
+		// v0 = [a0 a2 a4 a6 a8 a10 a12 a14 | b0 b2 b4 b6 b8 b10 b12 b14]
+		// v1 = [a1 a3 a5 a7 a9 a11 a13 a15 | b1 b3 b5 b7 b9 b11 b13 b15]
 
-	f.VMOVDQU32(addrA.AtD(0), a0, "load a[i]")
-	f.VMOVDQU32(addrA.AtD(16), a1, "load a[i+16]")
+		// we need to repack them; let's do it the naive way for now
+		// this is what the FFT avx512 DIF would do as last step;
+		// but for SIS we can skip it and do it only once at the end, very useful
+		// when hashing lots of vectors.
+		f.VPUNPCKLDQ(a1, a0, b0)
+		f.VPUNPCKHDQ(a1, a0, a1)
+		f.VMOVDQA32(b0, a0)
+		f.permute4x4(a0, a1, vInterleaveIndices, b0)
+		f.permute8x8(a0, a1, b0)
 
-	// ok let's say now each pair of vector v0 v1
-	// such that
-	// v0 = [a0 a2 a4 a6 a8 a10 a12 a14 | b0 b2 b4 b6 b8 b10 b12 b14]
-	// v1 = [a1 a3 a5 a7 a9 a11 a13 a15 | b1 b3 b5 b7 b9 b11 b13 b15]
+		f.VMOVDQU32(a0, addrA.AtD(0), "store a[i]")
+		f.VMOVDQU32(a1, addrA.AtD(16), "store a[i+16]")
 
-	// we need to repack them; let's do it the naive way for now
-	// this is what the FFT avx512 DIF would do as last step;
-	// but for SIS we can skip it and do it only once at the end, very useful
-	// when hashing lots of vectors.
-	f.VPUNPCKLDQ(a1, a0, b0)
-	f.VPUNPCKHDQ(a1, a0, a1)
-	f.VMOVDQA32(b0, a0)
-	f.permute4x4(a0, a1, vInterleaveIndices, b0)
-	f.permute8x8(a0, a1, b0)
+		f.ADDQ("$128", addrA)
+	})
 
-	f.VMOVDQU32(a0, addrA.AtD(0), "store a[i]")
-	f.VMOVDQU32(a1, addrA.AtD(16), "store a[i+16]")
-
-	f.ADDQ("$128", addrA)
-	f.DECQ(lenA, "decrement n")
-	f.JMP(lblLoop)
-	f.LABEL(lblDone)
 	f.RET()
 
 }

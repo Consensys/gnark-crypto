@@ -23,25 +23,25 @@ var vInterleaveIndices = []uint64{
 }
 
 //go:noescape
-func innerDIFWithTwiddles_avx512(a []babybear.Element, twiddles []babybear.Element, start, end, m int)
+func innerDIFWithTwiddles_avx512(a, twiddles *babybear.Element, start, end, m int)
 
 //go:noescape
-func innerDITWithTwiddles_avx512(a []babybear.Element, twiddles []babybear.Element, start, end, m int)
+func innerDITWithTwiddles_avx512(a, twiddles *babybear.Element, start, end, m int)
 
 func innerDIFWithTwiddles(a []babybear.Element, twiddles []babybear.Element, start, end, m int) {
-	if !cpu.SupportAVX512 {
+	if !cpu.SupportAVX512 || m < 16 {
 		innerDIFWithTwiddlesGeneric(a, twiddles, start, end, m)
 		return
 	}
-	innerDIFWithTwiddles_avx512(a, twiddles, start, end, m)
+	innerDIFWithTwiddles_avx512(&a[0], &twiddles[0], start, end, m)
 }
 
 func innerDITWithTwiddles(a []babybear.Element, twiddles []babybear.Element, start, end, m int) {
-	if !cpu.SupportAVX512 {
+	if !cpu.SupportAVX512 || m < 16 {
 		innerDITWithTwiddlesGeneric(a, twiddles, start, end, m)
 		return
 	}
-	innerDITWithTwiddles_avx512(a, twiddles, start, end, m)
+	innerDITWithTwiddles_avx512(&a[0], &twiddles[0], start, end, m)
 }
 
 //go:noescape

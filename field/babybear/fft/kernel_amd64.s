@@ -83,105 +83,67 @@
 BUTTERFLYD2Q(in0, in1, in2, in3, in4)                       \
 MULD(in5, in6, in7, in8, in9, in10, in11, in12, in13, in14) \
 
-TEXT ·innerDITWithTwiddles_avx512(SB), NOSPLIT, $0-72
+TEXT ·innerDITWithTwiddles_avx512(SB), NOSPLIT, $0-40
 	// refer to the code generator for comments and documentation.
 	LOAD_Q(Z4, Z5)
 	LOAD_MASKS()
-
-	// load arguments
 	MOVQ a+0(FP), R15
-	MOVQ twiddles+24(FP), CX
-	MOVQ end+56(FP), SI
-	MOVQ m+64(FP), BX
-	CMPQ BX, $0x0000000000000010
-	JL   smallerThan16_1         // m < 16
-	SHRQ $4, SI                  // we are processing 16 elements at a time
-	SHLQ $2, BX                  // offset = m * 4bytes
-	MOVQ R15, DX
-	ADDQ BX, DX
+	MOVQ twiddles+8(FP), DX
+	MOVQ end+24(FP), CX
+	MOVQ m+32(FP), BX
+	SHRQ $4, CX             // we are processing 16 elements at a time
+	SHLQ $2, BX             // offset = m * 4bytes
+	MOVQ R15, SI
+	ADDQ BX, SI
 
-loop_3:
-	TESTQ     SI, SI
-	JEQ       done_2     // n == 0, we are done
+loop_1:
+	TESTQ     CX, CX
+	JEQ       done_2
+	DECQ      CX
 	VMOVDQU32 0(R15), Z0 // load a[i]
-	VMOVDQU32 0(DX), Z1  // load a[i+m]
-	VMOVDQU32 0(CX), Z6  // load twiddles[i]
+	VMOVDQU32 0(SI), Z1  // load a[i+m]
+	VMOVDQU32 0(DX), Z6  // load twiddles[i]
 	MULD(Z1, Z6, Z7, Z8, Z2, Z3, Z9, Z10, Z4, Z5)
 	BUTTERFLYD1Q(Z0, Z1, Z4, Z2, Z3)
 	VMOVDQU32 Z0, 0(R15) // store a[i]
-	VMOVDQU32 Z1, 0(DX)  // store a[i+m]
+	VMOVDQU32 Z1, 0(SI)  // store a[i+m]
 	ADDQ      $64, R15
+	ADDQ      $64, SI
 	ADDQ      $64, DX
-	ADDQ      $64, CX
-	DECQ      SI         // decrement n
-	JMP       loop_3
+	JMP       loop_1
 
 done_2:
 	RET
 
-smallerThan16_1:
-	// m < 16, we call the generic one
-	MOVQ a+0(FP), AX
-	MOVQ AX, (SP)
-	MOVQ twiddles+24(FP), AX
-	MOVQ AX, 24(SP)
-	MOVQ start+48(FP), AX
-	MOVQ AX, 48(SP)
-	MOVQ end+56(FP), AX
-	MOVQ AX, 56(SP)
-	MOVQ m+64(FP), AX
-	MOVQ AX, 64(SP)
-	CALL ·innerDITWithTwiddlesGeneric(SB)
-	RET
-
-TEXT ·innerDIFWithTwiddles_avx512(SB), NOSPLIT, $0-72
+TEXT ·innerDIFWithTwiddles_avx512(SB), NOSPLIT, $0-40
 	// refer to the code generator for comments and documentation.
+	MOVQ a+0(FP), R15
+	MOVQ twiddles+8(FP), DX
+	MOVQ end+24(FP), CX
+	MOVQ m+32(FP), BX
 	LOAD_Q(Z2, Z4)
 	LOAD_MASKS()
+	SHLQ $2, BX             // offset = m * 4bytes
+	MOVQ R15, SI
+	ADDQ BX, SI
+	SHRQ $4, CX             // we are processing 16 elements at a time
 
-	// load arguments
-	MOVQ a+0(FP), R15
-	MOVQ twiddles+24(FP), CX
-	MOVQ end+56(FP), SI
-	MOVQ m+64(FP), BX
-	CMPQ BX, $0x0000000000000010
-	JL   smallerThan16_4         // m < 16
-	SHRQ $4, SI                  // we are processing 16 elements at a time
-	SHLQ $2, BX                  // offset = m * 4bytes
-	MOVQ R15, DX
-	ADDQ BX, DX
-
-loop_6:
-	TESTQ     SI, SI
-	JEQ       done_5     // n == 0, we are done
+loop_3:
+	TESTQ     CX, CX
+	JEQ       done_4
+	DECQ      CX
 	VMOVDQU32 0(R15), Z0 // load a[i]
-	VMOVDQU32 0(DX), Z1  // load a[i+m]
-	VMOVDQU32 0(CX), Z5  // load twiddles[i]
+	VMOVDQU32 0(SI), Z1  // load a[i+m]
+	VMOVDQU32 0(DX), Z5  // load twiddles[i]
 	BUTTERFLY_MULD(Z0, Z1, Z2, Z3, Z8, Z1, Z5, Z6, Z7, Z3, Z8, Z9, Z10, Z2, Z4)
 	VMOVDQU32 Z0, 0(R15) // store a[i]
-	VMOVDQU32 Z1, 0(DX)
+	VMOVDQU32 Z1, 0(SI)
 	ADDQ      $64, R15
+	ADDQ      $64, SI
 	ADDQ      $64, DX
-	ADDQ      $64, CX
-	DECQ      SI         // decrement n
-	JMP       loop_6
+	JMP       loop_3
 
-done_5:
-	RET
-
-smallerThan16_4:
-	// m < 16, we call the generic one
-	MOVQ a+0(FP), AX
-	MOVQ AX, (SP)
-	MOVQ twiddles+24(FP), AX
-	MOVQ AX, 24(SP)
-	MOVQ start+48(FP), AX
-	MOVQ AX, 48(SP)
-	MOVQ end+56(FP), AX
-	MOVQ AX, 56(SP)
-	MOVQ m+64(FP), AX
-	MOVQ AX, 64(SP)
-	CALL ·innerDIFWithTwiddlesGeneric(SB)
+done_4:
 	RET
 
 TEXT ·kerDIFNP_256_avx512(SB), NOSPLIT, $0-56

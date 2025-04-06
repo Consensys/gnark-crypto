@@ -149,7 +149,7 @@ func (r *RSis) Hash(v, res []babybear.Element) error {
 	}
 
 	// zeroing res
-	for i := 0; i < len(res); i++ {
+	for i := range res {
 		res[i].SetZero()
 	}
 

@@ -291,9 +291,6 @@ func scalarMulVec(res, a, b *{{.ElementName}}, n uint64)
 //go:noescape
 func innerProdVec(t *uint64, a, b *{{.ElementName}}, n uint64)
 
-//go:noescape
-func butterflyMulVec(a, twiddles *{{.ElementName}}, m int)
-
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {

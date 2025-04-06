@@ -452,23 +452,14 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 		n := registers.Pop()
 		addrRoundKeys2 := registers.Pop()
 		f.MOVQ(partialRounds, n, fmt.Sprintf("nb partial rounds --> %d", partialRounds))
-		lblLoop := f.NewLabel("loop")
-		lblDone := f.NewLabel("done")
 		f.MOVQ(addrRoundKeys, addrRoundKeys2)
 		f.ADDQ(rf*24, addrRoundKeys2)
 
-		f.LABEL(lblLoop)
-		f.TESTQ(n, n)
-		f.JEQ(lblDone)
-		f.DECQ(n)
-
-		f.MOVQ(addrRoundKeys2.At(0), rKey)
-		partialRound()
-		f.ADDQ("$24", addrRoundKeys2)
-
-		f.JMP(lblLoop)
-
-		f.LABEL(lblDone)
+		f.Loop(n, func() {
+			f.MOVQ(addrRoundKeys2.At(0), rKey)
+			partialRound()
+			f.ADDQ("$24", addrRoundKeys2)
+		})
 	}
 
 	for i := rf + partialRounds; i < fullRounds+partialRounds; i++ {
@@ -759,27 +750,19 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	// private function to help write for loops with known bounds
 	// for the rounds
 	loop := func(nbRounds int, fn func()) {
-		lblLoop := f.NewLabel("loop")
-		lblDone := f.NewLabel("done")
 
 		n := registers.Pop()
 		f.MOVQ(nbRounds, n)
 
-		// while n > 0, do:
-		f.LABEL(lblLoop)
-		f.TESTQ(n, n)
-		f.JEQ(lblDone)
-		f.DECQ(n)
+		f.Loop(n, func() {
+			// move the current round key address into rKey
+			f.MOVQ(addrRoundKeys.At(0), rKey)
 
-		// move the current round key address into rKey
-		f.MOVQ(addrRoundKeys.At(0), rKey)
+			fn()
 
-		fn()
-
-		// move to the next round key
-		f.ADDQ("$24", addrRoundKeys)
-		f.JMP(lblLoop)
-		f.LABEL(lblDone)
+			// move to the next round key
+			f.ADDQ("$24", addrRoundKeys)
+		})
 
 		registers.Push(n)
 	}
