@@ -647,9 +647,10 @@ TEXT ·sisShuffle_avx512(SB), NOSPLIT, $0-24
 	MOVQ      ·vInterleaveIndices+0(SB), CX
 	VMOVDQU64 0(CX), Z3
 
-loop_4:
+loop_3:
 	TESTQ     DX, DX
-	JEQ       done_3      // n == 0, we are done
+	JEQ       done_4
+	DECQ      DX
 	VMOVDQU32 0(R15), Z1  // load a[i]
 	VMOVDQU32 64(R15), Z2 // load a[i+16]
 	PERMUTE8X8(Z1, Z2, Z0)
@@ -659,10 +660,9 @@ loop_4:
 	VMOVDQU32 Z1, 0(R15)  // store a[i]
 	VMOVDQU32 Z2, 64(R15) // store a[i+16]
 	ADDQ      $128, R15
-	DECQ      DX          // decrement n
-	JMP       loop_4
+	JMP       loop_3
 
-done_3:
+done_4:
 	RET
 
 TEXT ·sisUnshuffle_avx512(SB), NOSPLIT, $0-24
@@ -673,9 +673,10 @@ TEXT ·sisUnshuffle_avx512(SB), NOSPLIT, $0-24
 	MOVQ      ·vInterleaveIndices+0(SB), CX
 	VMOVDQU64 0(CX), Z3
 
-loop_6:
+loop_5:
 	TESTQ      DX, DX
-	JEQ        done_5      // n == 0, we are done
+	JEQ        done_6
+	DECQ       DX
 	VMOVDQU32  0(R15), Z1  // load a[i]
 	VMOVDQU32  64(R15), Z2 // load a[i+16]
 	VPUNPCKLDQ Z2, Z1, Z0
@@ -686,8 +687,7 @@ loop_6:
 	VMOVDQU32  Z1, 0(R15)  // store a[i]
 	VMOVDQU32  Z2, 64(R15) // store a[i+16]
 	ADDQ       $128, R15
-	DECQ       DX          // decrement n
-	JMP        loop_6
+	JMP        loop_5
 
-done_5:
+done_6:
 	RET

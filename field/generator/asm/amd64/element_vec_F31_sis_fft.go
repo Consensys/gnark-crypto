@@ -689,9 +689,6 @@ func (_f *FFAmd64) generateSISShuffleF31() {
 	// divide len by 32
 	f.SHRQ("$5", lenA)
 
-	lblDone := f.NewLabel("done")
-	lblLoop := f.NewLabel("loop")
-
 	f.loadMasks()
 
 	addrVInterleaveIndices := registers.Pop()
@@ -699,29 +696,23 @@ func (_f *FFAmd64) generateSISShuffleF31() {
 	f.MOVQ("·vInterleaveIndices+0(SB)", addrVInterleaveIndices)
 	f.VMOVDQU64(addrVInterleaveIndices.At(0), vInterleaveIndices)
 
-	f.LABEL(lblLoop)
+	f.Loop(lenA, func() {
+		f.VMOVDQU32(addrA.AtD(0), a0, "load a[i]")
+		f.VMOVDQU32(addrA.AtD(16), a1, "load a[i+16]")
 
-	f.TESTQ(lenA, lenA)
-	f.JEQ(lblDone, "n == 0, we are done")
+		// probably a faster way to do this, but let's do it the naive way for now
+		// it's not on the hot path.
+		// the idea here is to "shuffle" a vector the way the avx512 fft DIF would.
+		f.permute8x8(a0, a1, b0)
+		f.permute4x4(a0, a1, vInterleaveIndices, b0)
+		f.permute2x2(a0, a1, b0)
+		f.permute1x1(a0, a1, b0)
 
-	f.VMOVDQU32(addrA.AtD(0), a0, "load a[i]")
-	f.VMOVDQU32(addrA.AtD(16), a1, "load a[i+16]")
+		f.VMOVDQU32(a0, addrA.AtD(0), "store a[i]")
+		f.VMOVDQU32(a1, addrA.AtD(16), "store a[i+16]")
 
-	// probably a faster way to do this, but let's do it the naive way for now
-	// it's not on the hot path.
-	// the idea here is to "shuffle" a vector the way the avx512 fft DIF would.
-	f.permute8x8(a0, a1, b0)
-	f.permute4x4(a0, a1, vInterleaveIndices, b0)
-	f.permute2x2(a0, a1, b0)
-	f.permute1x1(a0, a1, b0)
-
-	f.VMOVDQU32(a0, addrA.AtD(0), "store a[i]")
-	f.VMOVDQU32(a1, addrA.AtD(16), "store a[i+16]")
-
-	f.ADDQ("$128", addrA)
-	f.DECQ(lenA, "decrement n")
-	f.JMP(lblLoop)
-	f.LABEL(lblDone)
+		f.ADDQ("$128", addrA)
+	})
 	f.RET()
 }
 
@@ -746,9 +737,6 @@ func (_f *FFAmd64) generateSISUnhuffleF31() {
 	// divide len by 32
 	f.SHRQ("$5", lenA)
 
-	lblDone := f.NewLabel("done")
-	lblLoop := f.NewLabel("loop")
-
 	f.loadMasks()
 
 	addrVInterleaveIndices := registers.Pop()
@@ -756,36 +744,31 @@ func (_f *FFAmd64) generateSISUnhuffleF31() {
 	f.MOVQ("·vInterleaveIndices+0(SB)", addrVInterleaveIndices)
 	f.VMOVDQU64(addrVInterleaveIndices.At(0), vInterleaveIndices)
 
-	f.LABEL(lblLoop)
+	f.Loop(lenA, func() {
+		f.VMOVDQU32(addrA.AtD(0), a0, "load a[i]")
+		f.VMOVDQU32(addrA.AtD(16), a1, "load a[i+16]")
 
-	f.TESTQ(lenA, lenA)
-	f.JEQ(lblDone, "n == 0, we are done")
+		// ok let's say now each pair of vector v0 v1
+		// such that
+		// v0 = [a0 a2 a4 a6 a8 a10 a12 a14 | b0 b2 b4 b6 b8 b10 b12 b14]
+		// v1 = [a1 a3 a5 a7 a9 a11 a13 a15 | b1 b3 b5 b7 b9 b11 b13 b15]
 
-	f.VMOVDQU32(addrA.AtD(0), a0, "load a[i]")
-	f.VMOVDQU32(addrA.AtD(16), a1, "load a[i+16]")
+		// we need to repack them; let's do it the naive way for now
+		// this is what the FFT avx512 DIF would do as last step;
+		// but for SIS we can skip it and do it only once at the end, very useful
+		// when hashing lots of vectors.
+		f.VPUNPCKLDQ(a1, a0, b0)
+		f.VPUNPCKHDQ(a1, a0, a1)
+		f.VMOVDQA32(b0, a0)
+		f.permute4x4(a0, a1, vInterleaveIndices, b0)
+		f.permute8x8(a0, a1, b0)
 
-	// ok let's say now each pair of vector v0 v1
-	// such that
-	// v0 = [a0 a2 a4 a6 a8 a10 a12 a14 | b0 b2 b4 b6 b8 b10 b12 b14]
-	// v1 = [a1 a3 a5 a7 a9 a11 a13 a15 | b1 b3 b5 b7 b9 b11 b13 b15]
+		f.VMOVDQU32(a0, addrA.AtD(0), "store a[i]")
+		f.VMOVDQU32(a1, addrA.AtD(16), "store a[i+16]")
 
-	// we need to repack them; let's do it the naive way for now
-	// this is what the FFT avx512 DIF would do as last step;
-	// but for SIS we can skip it and do it only once at the end, very useful
-	// when hashing lots of vectors.
-	f.VPUNPCKLDQ(a1, a0, b0)
-	f.VPUNPCKHDQ(a1, a0, a1)
-	f.VMOVDQA32(b0, a0)
-	f.permute4x4(a0, a1, vInterleaveIndices, b0)
-	f.permute8x8(a0, a1, b0)
+		f.ADDQ("$128", addrA)
+	})
 
-	f.VMOVDQU32(a0, addrA.AtD(0), "store a[i]")
-	f.VMOVDQU32(a1, addrA.AtD(16), "store a[i+16]")
-
-	f.ADDQ("$128", addrA)
-	f.DECQ(lenA, "decrement n")
-	f.JMP(lblLoop)
-	f.LABEL(lblDone)
 	f.RET()
 
 }

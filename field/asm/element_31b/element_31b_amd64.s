@@ -15,7 +15,8 @@ TEXT ·addVec(SB), NOSPLIT, $0-32
 
 loop_1:
 	TESTQ     BX, BX
-	JEQ       done_2     // n == 0, we are done
+	JEQ       done_2
+	DECQ      BX
 	VMOVDQU32 0(R15), Z0
 	VMOVDQU32 0(DX), Z1
 	VPADDD    Z0, Z1, Z0 // a = a + b
@@ -27,7 +28,6 @@ loop_1:
 	ADDQ $64, R15
 	ADDQ $64, DX
 	ADDQ $64, CX
-	DECQ BX       // decrement n
 	JMP  loop_1
 
 done_2:
@@ -45,7 +45,8 @@ TEXT ·subVec(SB), NOSPLIT, $0-32
 
 loop_3:
 	TESTQ     BX, BX
-	JEQ       done_4     // n == 0, we are done
+	JEQ       done_4
+	DECQ      BX
 	VMOVDQU32 0(R15), Z0
 	VMOVDQU32 0(DX), Z1
 	VPSUBD    Z1, Z0, Z0 // a = a - b
@@ -57,7 +58,6 @@ loop_3:
 	ADDQ $64, R15
 	ADDQ $64, DX
 	ADDQ $64, CX
-	DECQ BX       // decrement n
 	JMP  loop_3
 
 done_4:
@@ -80,7 +80,8 @@ TEXT ·sumVec(SB), NOSPLIT, $0-24
 
 loop_5:
 	TESTQ     CX, CX
-	JEQ       done_6      // n == 0, we are done
+	JEQ       done_6
+	DECQ      CX
 	VPMOVZXDQ 0(R14), Z0  // load 8 31bits values in a1
 	VPMOVZXDQ 32(R14), Z1 // load 8 31bits values in a2
 	VPADDQ    Z0, Z2, Z2  // acc1 += a1
@@ -88,7 +89,6 @@ loop_5:
 
 	// increment pointers to visit next element
 	ADDQ $64, R14
-	DECQ CX       // decrement n
 	JMP  loop_5
 
 done_6:
@@ -147,7 +147,8 @@ TEXT ·mulVec(SB), NOSPLIT, $0-32
 
 loop_7:
 	TESTQ     BX, BX
-	JEQ       done_8      // n == 0, we are done
+	JEQ       done_8
+	DECQ      BX
 	VMOVDQU32 0(R15), Z2
 	VMOVDQU32 0(DX), Z3
 	VPSRLQ    $32, Z2, Z5
@@ -169,7 +170,6 @@ loop_7:
 	ADDQ $64, R15
 	ADDQ $64, DX
 	ADDQ $64, CX
-	DECQ BX       // decrement n
 	JMP  loop_7
 
 done_8:
@@ -192,7 +192,8 @@ TEXT ·scalarMulVec(SB), NOSPLIT, $0-32
 
 loop_9:
 	TESTQ     BX, BX
-	JEQ       done_10     // n == 0, we are done
+	JEQ       done_10
+	DECQ      BX
 	VMOVDQU32 0(R15), Z0
 	VPSRLQ    $32, Z0, Z3
 	VPMULUDQ  Z0, Z1, Z4
@@ -211,7 +212,6 @@ loop_9:
 	// increment pointers to visit next element
 	ADDQ $64, R15
 	ADDQ $64, CX
-	DECQ BX       // decrement n
 	JMP  loop_9
 
 done_10:
@@ -240,7 +240,8 @@ TEXT ·innerProdVec(SB), NOSPLIT, $0-32
 
 loop_11:
 	TESTQ     BX, BX
-	JEQ       done_12      // n == 0, we are done
+	JEQ       done_12
+	DECQ      BX
 	VMOVDQU32 0(R14), Z2
 	VMOVDQU32 0(R15), Z3
 	VPSRLQ    $32, Z2, Z5
@@ -261,7 +262,6 @@ loop_11:
 	// increment pointers to visit next element
 	ADDQ $64, R14
 	ADDQ $64, R15
-	DECQ BX       // decrement n
 	JMP  loop_11
 
 done_12:

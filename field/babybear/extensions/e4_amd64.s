@@ -24,9 +24,10 @@ TEXT ·mulAccE4_avx512(SB), NOSPLIT, $0-32
 	VPSRLQ       $32, Z2, Z3
 	SHRQ         $2, BX
 
-start_1:
+loop_1:
 	TESTQ        BX, BX
-	JEQ          end_2          // N == 0, we are done
+	JEQ          done_2
+	DECQ         BX
 	VMOVDQU32    0(CX), Z4
 	VPBROADCASTD 0(R15), X5
 	VPBROADCASTD 4(R15), X6
@@ -52,8 +53,7 @@ start_1:
 	VMOVDQU32    Z4, 0(CX)
 	ADDQ         $64, CX
 	ADDQ         $16, R15
-	DECQ         BX             // decrement N
-	JMP          start_1        // loop
+	JMP          loop_1
 
-end_2:
+done_2:
 	RET
