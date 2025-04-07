@@ -17,7 +17,7 @@ import (
     {{- end}}
 )
 
-// MapTo{{$CurveTitle}} invokes the {{.MappingAlgorithm}} map, and guarantees that the result is in {{$CurveTitle}}
+// MapTo{{$CurveTitle}} invokes the {{.MappingAlgorithm}} map, and guarantees that the result is in {{$CurveTitle}}.
 func MapTo{{$CurveTitle}}(u {{$CoordType}}) {{$AffineType}} {
     res := MapToCurve{{$CurveIndex}}(&u)
     {{- if $isogenyNeeded }}
@@ -31,9 +31,10 @@ func MapTo{{$CurveTitle}}(u {{$CoordType}}) {{$AffineType}} {
 }
 
 // EncodeTo{{$CurveTitle}} hashes a message to a point on the {{$CurveTitle}} curve using the {{.MappingAlgorithm}} map.
-// It is faster than HashTo{{$CurveTitle}}, but the result is not uniformly distributed. Unsuitable as a random oracle.
+// It is faster than [HashTo{{$CurveTitle}}], but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
+//
+// See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 
 	var res {{$AffineType}}
@@ -61,9 +62,10 @@ func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 }
 
 // HashTo{{$CurveTitle}} hashes a message to a point on the {{$CurveTitle}} curve using the {{.MappingAlgorithm}} map.
-// Slower than EncodeTo{{$CurveTitle}}, but usable as a random oracle.
-// dst stands for "domain separation tag", a string unique to the construction using the hash function
-//https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
+// Slower than [EncodeTo{{$CurveTitle}}], but usable as a random oracle.
+// dst stands for "domain separation tag", a string unique to the construction using the hash function.
+//
+// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func HashTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 	u, err := fp.Hash(msg, dst, 2 * {{$TowerDegree}})
 	if err != nil {

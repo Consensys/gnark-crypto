@@ -26,9 +26,11 @@ import (
     {{template "pkg_sswu" .}}
 {{end}}
 
-// {{$CurveTitle}}Sgn0 is an algebraic substitute for the notion of sign in ordered fields
-// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-the-sgn0-function
+// {{$CurveTitle}}Sgn0 is an algebraic substitute for the notion of sign in ordered fields.
+// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign.
+//
+// See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-the-sgn0-function
+//
 // The sign of an element is not obviously related to that of its Montgomery form
 func {{$CurveTitle}}Sgn0(z *{{$CoordType}}) uint64 {
 
@@ -61,7 +63,6 @@ func {{$CurveTitle}}Sgn0(z *{{$CoordType}}) uint64 {
         return sign
     {{end}}
 }
-
 
 func {{$CurveTitle}}NotZero(x *{{$CoordType}}) uint64 {
 	{{if eq $TowerDegree 1}}

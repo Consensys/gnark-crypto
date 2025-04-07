@@ -12,9 +12,9 @@
 {{$sswuCurveACoeff := select $isogenyNeeded "This is meant to produce an error. Since most likely A = 0, there is opportunity for optimizations that need to be looked at." "sswuIsoCurveCoeffA"}}
 {{$sswuCurveBCoeff := select $isogenyNeeded "bCurveConf" "sswuIsoCurveCoeffB"}}
 
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
-// MapToCurve{{$CurveIndex}} implements the SSWU map
-// No cofactor clearing or isogeny
+// MapToCurve{{$CurveIndex}} implements the SSWU map. It does not perform cofactor clearing nor isogeny. For map to group, use [MapTo{{$CurveTitle}}].
+//
+// See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
 func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 
     {{if $isogenyNeeded}}

@@ -11,7 +11,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/internal/fptower"
 )
 
-// MapToG2 invokes the SVDW map, and guarantees that the result is in G2
+// MapToG2 invokes the SVDW map, and guarantees that the result is in G2.
 func MapToG2(u fptower.E2) G2Affine {
 	res := MapToCurve2(&u)
 	res.ClearCofactor(&res)
@@ -19,9 +19,10 @@ func MapToG2(u fptower.E2) G2Affine {
 }
 
 // EncodeToG2 hashes a message to a point on the G2 curve using the SVDW map.
-// It is faster than HashToG2, but the result is not uniformly distributed. Unsuitable as a random oracle.
+// It is faster than [HashToG2], but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
+//
+// See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 
 	var res G2Affine
@@ -40,8 +41,9 @@ func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 }
 
 // HashToG2 hashes a message to a point on the G2 curve using the SVDW map.
-// Slower than EncodeToG2, but usable as a random oracle.
-// dst stands for "domain separation tag", a string unique to the construction using the hash function
+// Slower than [EncodeToG2], but usable as a random oracle.
+// dst stands for "domain separation tag", a string unique to the construction using the hash function.
+//
 // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func HashToG2(msg, dst []byte) (G2Affine, error) {
 	u, err := fp.Hash(msg, dst, 2*2)
@@ -68,9 +70,10 @@ func HashToG2(msg, dst []byte) (G2Affine, error) {
 	return Q1, nil
 }
 
-// MapToCurve2 implements the Shallue and van de Woestijne method, applicable to any elliptic curve in Weierstrass form
-// No cofactor clearing or isogeny
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#straightline-svdw
+// MapToCurve2 implements the Shallue and van de Woestijne method, applicable to any elliptic curve in Weierstrass form.
+// It does not perform cofactor clearing nor isogeny. Use [MapToG2] for mapping to group.
+//
+// See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#straightline-svdw
 func MapToCurve2(u *fptower.E2) G2Affine {
 	var tv1, tv2, tv3, tv4 fptower.E2
 	var x1, x2, x3, gx1, gx2, gx, x, y fptower.E2
