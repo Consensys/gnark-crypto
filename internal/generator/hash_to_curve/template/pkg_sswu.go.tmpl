@@ -17,51 +17,54 @@
 
 {{ if $isogenyNeeded }}
 
-func {{$CurveName}}IsogenyXNumerator(dst *{{$CoordType}}, x *{{$CoordType}}) {
-    {{$CurveName}}EvalPolynomial(dst,
-        false,
-        []{{$CoordType}} {
+var (
+    {{$CurveName}}IsogenyXNumeratorMap = []{{$CoordType}} {
             {{- range $c := .Isogeny.XMap.Num}}
             {{ asElement $c}},
             {{- end}}
-        },
-        x)
-}
-
-func {{$CurveName}}IsogenyXDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
-    {{$CurveName}}EvalPolynomial(dst,
-        true,
-        []{{$CoordType}} {
+        }
+    {{$CurveName}}IsogenyXDenominatorMap = []{{$CoordType}} {
             {{- range $c := .Isogeny.XMap.Den}}
                 {{ asElement $c}},
             {{- end}}
-        },
-        x)
+        }
+    {{$CurveName}}IsogenyYNumeratorMap = []{{$CoordType}} {
+            {{- range $c := .Isogeny.YMap.Num}}
+                {{ asElement $c}},
+            {{- end}}
+        }
+    {{$CurveName}}IsogenyYDenominatorMap = []{{$CoordType}} {
+            {{- range $c := .Isogeny.YMap.Den}}
+                {{ asElement $c}},
+            {{- end}}
+        }
+)
+
+func {{$CurveTitle}}IsogenyMap() [4][]{{$CoordType}} {
+    return [4][]{{$CoordType}}{
+        {{$CurveName}}IsogenyXNumeratorMap,
+        {{$CurveName}}IsogenyXDenominatorMap,
+        {{$CurveName}}IsogenyYNumeratorMap,
+        {{$CurveName}}IsogenyYDenominatorMap,
+    }
+}
+
+func {{$CurveName}}IsogenyXNumerator(dst *{{$CoordType}}, x *{{$CoordType}}) {
+    {{$CurveName}}EvalPolynomial(dst, false, {{$CurveName}}IsogenyXNumeratorMap, x)
+}
+
+func {{$CurveName}}IsogenyXDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
+    {{$CurveName}}EvalPolynomial(dst, true, {{$CurveName}}IsogenyXDenominatorMap, x)
 }
 
 func {{$CurveName}}IsogenyYNumerator(dst *{{$CoordType}}, x *{{$CoordType}}, y *{{$CoordType}}) {
     var _dst {{$CoordType}}
-    {{$CurveName}}EvalPolynomial(&_dst,
-        false,
-        []{{$CoordType}} {
-            {{- range $c := .Isogeny.YMap.Num}}
-                {{ asElement $c}},
-            {{- end}}
-        },
-        x)
-
-   dst.Mul(&_dst, y)
+    {{$CurveName}}EvalPolynomial(&_dst, false, {{$CurveName}}IsogenyYNumeratorMap, x)
+    dst.Mul(&_dst, y)
 }
 
 func {{$CurveName}}IsogenyYDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
-    {{$CurveName}}EvalPolynomial(dst,
-        true,
-        []{{$CoordType}} {
-            {{- range $c := .Isogeny.YMap.Den}}
-                {{ asElement $c}},
-            {{- end}}
-        },
-        x)
+    {{$CurveName}}EvalPolynomial(dst, true, {{$CurveName}}IsogenyYDenominatorMap, x)
 }
 
 // {{ $CurveTitle }} computes the isogeny map of the curve element, given by its coordinates pX and pY.
