@@ -35,6 +35,10 @@ var (
 	}
 )
 
+// G1IsogenyMap returns the isogeny map for the curve.
+// The isogeny map is a list of polynomial coefficients for the x and y coordinate computation.
+// The order of the coefficients is as follows:
+// - x numerator, x denominator, y numerator, y denominator.
 func G1IsogenyMap() [4][]fp.Element {
 	return [4][]fp.Element{
 		g1IsogenyXNumeratorMap,
