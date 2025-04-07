@@ -13,7 +13,7 @@
 {{$sswuCurveBCoeff := select $isogenyNeeded "bCurveConf" "sswuIsoCurveCoeffB"}}
 
 
-//Note: This only works for simple extensions
+// Note: This only works for simple extensions
 
 {{ if $isogenyNeeded }}
 
@@ -64,6 +64,8 @@ func {{$CurveName}}IsogenyYDenominator(dst *{{$CoordType}}, x *{{$CoordType}}) {
         x)
 }
 
+// {{ $CurveTitle }} computes the isogeny map of the curve element, given by its coordinates pX and pY.
+// It mutates the coordinates pX and pY to the new coordinates of the isogeny map.
 func {{$CurveTitle}}Isogeny(pX, pY *{{$CoordType}}) {
 
 	den := make([]{{$CoordType}}, 2)
@@ -93,8 +95,8 @@ func {{$CurveTitle}}Isogeny(pX, pY *{{$CoordType}}) {
 {{ $c1Int := index $cInts 0}}
 {{ $c1IntBytes := printList (bytes $c1Int ) }}
 
-// {{$CurveTitle}}SqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
-// if not, we get sqrt(Z * u / v). Recall that Z is non-residue
+// {{$CurveTitle}}SqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue.
+// If not, we get sqrt(Z * u / v). Recall that Z is non-residue.
 // If v = 0, u/v is meaningless and the output is unspecified, without raising an error.
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordType}}) uint64 {

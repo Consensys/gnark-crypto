@@ -10,7 +10,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/hash_to_curve"
 )
 
-// MapToG2 invokes the SSWU map, and guarantees that the result is in G2
+// MapToG2 invokes the SSWU map, and guarantees that the result is in G2.
 func MapToG2(u fp.Element) G2Affine {
 	res := MapToCurve2(&u)
 	//this is in an isogenous curve
@@ -20,9 +20,10 @@ func MapToG2(u fp.Element) G2Affine {
 }
 
 // EncodeToG2 hashes a message to a point on the G2 curve using the SSWU map.
-// It is faster than HashToG2, but the result is not uniformly distributed. Unsuitable as a random oracle.
+// It is faster than [HashToG2], but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
+//
+// See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 
 	var res G2Affine
@@ -40,8 +41,9 @@ func EncodeToG2(msg, dst []byte) (G2Affine, error) {
 }
 
 // HashToG2 hashes a message to a point on the G2 curve using the SSWU map.
-// Slower than EncodeToG2, but usable as a random oracle.
-// dst stands for "domain separation tag", a string unique to the construction using the hash function
+// Slower than [EncodeToG2], but usable as a random oracle.
+// dst stands for "domain separation tag", a string unique to the construction using the hash function.
+//
 // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
 func HashToG2(msg, dst []byte) (G2Affine, error) {
 	u, err := fp.Hash(msg, dst, 2*1)
@@ -66,9 +68,9 @@ func HashToG2(msg, dst []byte) (G2Affine, error) {
 	return Q1, nil
 }
 
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
-// MapToCurve2 implements the SSWU map
-// No cofactor clearing or isogeny
+// MapToCurve2 implements the SSWU map. It does not perform cofactor clearing nor isogeny. For map to group, use [MapToG2].
+//
+// See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
 func MapToCurve2(u *fp.Element) G2Affine {
 
 	var sswuIsoCurveCoeffA = fp.Element{13704010396169241312, 14330175345318364589, 4449492585807198633, 9884564993510771995, 16507506367033405761, 12171409358426895620, 3759742122315801393, 6972450370136308820, 13649992927502603798, 15742083997009939515, 4062268800652448528, 42571325818609943}

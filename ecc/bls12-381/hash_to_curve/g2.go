@@ -12,7 +12,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/internal/fptower"
 )
 
-//Note: This only works for simple extensions
+// Note: This only works for simple extensions
 
 func g2IsogenyXNumerator(dst *fptower.E2, x *fptower.E2) {
 	g2EvalPolynomial(dst,
@@ -101,6 +101,8 @@ func g2IsogenyYDenominator(dst *fptower.E2, x *fptower.E2) {
 		x)
 }
 
+// G2 computes the isogeny map of the curve element, given by its coordinates pX and pY.
+// It mutates the coordinates pX and pY to the new coordinates of the isogeny map.
 func G2Isogeny(pX, pY *fptower.E2) {
 
 	den := make([]fptower.E2, 2)
@@ -117,8 +119,8 @@ func G2Isogeny(pX, pY *fptower.E2) {
 	pY.Mul(pY, &den[1])
 }
 
-// G2SqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue
-// if not, we get sqrt(Z * u / v). Recall that Z is non-residue
+// G2SqrtRatio computes the square root of u/v and returns 0 iff u/v was indeed a quadratic residue.
+// If not, we get sqrt(Z * u / v). Recall that Z is non-residue.
 // If v = 0, u/v is meaningless and the output is unspecified, without raising an error.
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func G2SqrtRatio(z *fptower.E2, u *fptower.E2, v *fptower.E2) uint64 {
@@ -216,9 +218,11 @@ func g2EvalPolynomial(z *fptower.E2, monic bool, coefficients []fptower.E2, x *f
 	z.Set(&dst)
 }
 
-// G2Sgn0 is an algebraic substitute for the notion of sign in ordered fields
-// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-the-sgn0-function
+// G2Sgn0 is an algebraic substitute for the notion of sign in ordered fields.
+// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign.
+//
+// See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-the-sgn0-function
+//
 // The sign of an element is not obviously related to that of its Montgomery form
 func G2Sgn0(z *fptower.E2) uint64 {
 
