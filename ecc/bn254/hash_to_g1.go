@@ -20,7 +20,7 @@ func MapToG1(u fp.Element) G1Affine {
 // It is faster than [HashToG1], but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
 //
-// See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
+// See: https://www.rfc-editor.org/rfc/rfc9380.html#roadmap
 func EncodeToG1(msg, dst []byte) (G1Affine, error) {
 
 	var res G1Affine
@@ -38,7 +38,7 @@ func EncodeToG1(msg, dst []byte) (G1Affine, error) {
 // Slower than [EncodeToG1], but usable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function.
 //
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
+// See https://www.rfc-editor.org/rfc/rfc9380.html#roadmap
 func HashToG1(msg, dst []byte) (G1Affine, error) {
 	u, err := fp.Hash(msg, dst, 2*1)
 	if err != nil {
@@ -59,7 +59,7 @@ func HashToG1(msg, dst []byte) (G1Affine, error) {
 // MapToCurve1 implements the Shallue and van de Woestijne method, applicable to any elliptic curve in Weierstrass form.
 // It does not perform cofactor clearing nor isogeny. Use [MapToG1] for mapping to group.
 //
-// See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#straightline-svdw
+// See: https://www.rfc-editor.org/rfc/rfc9380.html#straightline-svdw
 func MapToCurve1(u *fp.Element) G1Affine {
 	var tv1, tv2, tv3, tv4 fp.Element
 	var x1, x2, x3, gx1, gx2, gx, x, y fp.Element

@@ -23,7 +23,7 @@ func MapToG1(u fp.Element) G1Affine {
 // It is faster than [HashToG1], but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
 //
-// See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
+// See: https://www.rfc-editor.org/rfc/rfc9380.html#roadmap
 func EncodeToG1(msg, dst []byte) (G1Affine, error) {
 
 	var res G1Affine
@@ -44,7 +44,7 @@ func EncodeToG1(msg, dst []byte) (G1Affine, error) {
 // Slower than [EncodeToG1], but usable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function.
 //
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
+// See https://www.rfc-editor.org/rfc/rfc9380.html#roadmap
 func HashToG1(msg, dst []byte) (G1Affine, error) {
 	u, err := fp.Hash(msg, dst, 2*1)
 	if err != nil {
@@ -70,7 +70,7 @@ func HashToG1(msg, dst []byte) (G1Affine, error) {
 
 // MapToCurve1 implements the SSWU map. It does not perform cofactor clearing nor isogeny. For map to group, use [MapToG1].
 //
-// See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
+// See: https://www.rfc-editor.org/rfc/rfc9380.html#name-simplified-swu-method
 func MapToCurve1(u *fp.Element) G1Affine {
 	g1sswuCurveACoeff, g1sswuCurveBCoeff := hash_to_curve.G1SSWUIsogenyCurveCoefficients()
 
