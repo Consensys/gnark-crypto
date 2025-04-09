@@ -13,7 +13,7 @@
 
 // MapToCurve{{$CurveIndex}} implements the SSWU map. It does not perform cofactor clearing nor isogeny. For map to group, use [MapTo{{$CurveTitle}}].
 //
-// See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
+// See: https://www.rfc-editor.org/rfc/rfc9380.html#name-simplified-swu-method
 func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 	{{$CurveName}}sswuCurveACoeff, {{$CurveName}}sswuCurveBCoeff := hash_to_curve.{{$CurveTitle}}SSWUIsogenyCurveCoefficients()
 
