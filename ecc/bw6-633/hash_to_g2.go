@@ -72,7 +72,7 @@ func HashToG2(msg, dst []byte) (G2Affine, error) {
 //
 // See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
 func MapToCurve2(u *fp.Element) G2Affine {
-	sswuIsogenyCoefficients := hash_to_curve.G2SSWUIsogenyCurveCoefficients()
+	g2sswuCurveACoeff, g2sswuCurveBCoeff := hash_to_curve.G2SSWUIsogenyCurveCoefficients()
 
 	var tv1 fp.Element
 	tv1.Square(u) // 1.  tv1 = u²
@@ -87,8 +87,8 @@ func MapToCurve2(u *fp.Element) G2Affine {
 	var tv3 fp.Element
 	var tv4 fp.Element
 	tv4.SetOne()
-	tv3.Add(&tv2, &tv4)                        // 5.  tv3 = tv2 + 1
-	tv3.Mul(&tv3, &sswuIsogenyCoefficients[1]) // 6.  tv3 = B * tv3
+	tv3.Add(&tv2, &tv4)               // 5.  tv3 = tv2 + 1
+	tv3.Mul(&tv3, &g2sswuCurveBCoeff) // 6.  tv3 = B * tv3
 
 	tv2NZero := hash_to_curve.G2NotZero(&tv2)
 
@@ -96,8 +96,8 @@ func MapToCurve2(u *fp.Element) G2Affine {
 	tv4 = fp.Element{14263791471689722215, 10958139817512614717, 646289283071182148, 16194112285086178910, 12391927829343171647, 3698619178316197998, 14879001273850772332, 4646357410414107532, 14313982959885664825, 19561843432566578}
 
 	tv2.Neg(&tv2)
-	tv4.Select(int(tv2NZero), &tv4, &tv2)      // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
-	tv4.Mul(&tv4, &sswuIsogenyCoefficients[0]) // 8.  tv4 = A * tv4
+	tv4.Select(int(tv2NZero), &tv4, &tv2) // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
+	tv4.Mul(&tv4, &g2sswuCurveACoeff)     // 8.  tv4 = A * tv4
 
 	tv2.Square(&tv3) // 9.  tv2 = tv3²
 
@@ -105,14 +105,14 @@ func MapToCurve2(u *fp.Element) G2Affine {
 	tv6.Square(&tv4) // 10. tv6 = tv4²
 
 	var tv5 fp.Element
-	tv5.Mul(&tv6, &sswuIsogenyCoefficients[0]) // 11. tv5 = A * tv6
+	tv5.Mul(&tv6, &g2sswuCurveACoeff) // 11. tv5 = A * tv6
 
 	tv2.Add(&tv2, &tv5) // 12. tv2 = tv2 + tv5
 	tv2.Mul(&tv2, &tv3) // 13. tv2 = tv2 * tv3
 	tv6.Mul(&tv6, &tv4) // 14. tv6 = tv6 * tv4
 
-	tv5.Mul(&tv6, &sswuIsogenyCoefficients[1]) // 15. tv5 = B * tv6
-	tv2.Add(&tv2, &tv5)                        // 16. tv2 = tv2 + tv5
+	tv5.Mul(&tv6, &g2sswuCurveBCoeff) // 15. tv5 = B * tv6
+	tv2.Add(&tv2, &tv5)               // 16. tv2 = tv2 + tv5
 
 	var x fp.Element
 	x.Mul(&tv1, &tv3) // 17.   x = tv1 * tv3

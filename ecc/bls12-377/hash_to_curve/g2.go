@@ -26,12 +26,8 @@ var (
 )
 
 // G2SSWUCurveCoefficients returns the coefficients of the SSWU curve.
-// The coefficients are in the order of A and B.
-func G2SSWUIsogenyCurveCoefficients() [2]fptower.E2 {
-	return [2]fptower.E2{
-		g2sswuCurveACoeff,
-		g2sswuCurveBCoeff,
-	}
+func G2SSWUIsogenyCurveCoefficients() (A fptower.E2, B fptower.E2) {
+	return g2sswuCurveACoeff, g2sswuCurveBCoeff
 }
 
 var (

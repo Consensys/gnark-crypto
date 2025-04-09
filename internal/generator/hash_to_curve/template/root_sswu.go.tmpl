@@ -13,7 +13,7 @@
 //
 // See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
 func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
-	sswuIsogenyCoefficients := hash_to_curve.{{$CurveTitle}}SSWUIsogenyCurveCoefficients()
+	{{$CurveName}}sswuCurveACoeff, {{$CurveName}}sswuCurveBCoeff := hash_to_curve.{{$CurveTitle}}SSWUIsogenyCurveCoefficients()
 
 	var tv1 {{$CoordType}}
 	tv1.Square(u)   // 1.  tv1 = u²
@@ -29,7 +29,7 @@ func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 	var tv4 {{$CoordType}}
 	tv4.SetOne()
 	tv3.Add(&tv2, &tv4) // 5.  tv3 = tv2 + 1
-	tv3.Mul(&tv3, &sswuIsogenyCoefficients[1])    // 6.  tv3 = B * tv3
+	tv3.Mul(&tv3, &{{$CurveName}}sswuCurveBCoeff)    // 6.  tv3 = B * tv3
 
     tv2NZero := hash_to_curve.{{$CurveTitle}}NotZero(&tv2)
 
@@ -38,7 +38,7 @@ func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 
     tv2.Neg(&tv2)
     tv4.Select(int(tv2NZero), &tv4, &tv2)   // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
-    tv4.Mul(&tv4, &sswuIsogenyCoefficients[0])    // 8.  tv4 = A * tv4
+    tv4.Mul(&tv4, &{{$CurveName}}sswuCurveACoeff)    // 8.  tv4 = A * tv4
 
     tv2.Square(&tv3)    // 9.  tv2 = tv3²
 
@@ -46,13 +46,13 @@ func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 	tv6.Square(&tv4)    // 10. tv6 = tv4²
 
 	var tv5 {{$CoordType}}
-	tv5.Mul(&tv6, &sswuIsogenyCoefficients[0])    // 11. tv5 = A * tv6
+	tv5.Mul(&tv6, &{{$CurveName}}sswuCurveACoeff)    // 11. tv5 = A * tv6
 
 	tv2.Add(&tv2, &tv5) // 12. tv2 = tv2 + tv5
 	tv2.Mul(&tv2, &tv3) // 13. tv2 = tv2 * tv3
 	tv6.Mul(&tv6, &tv4) // 14. tv6 = tv6 * tv4
 
-	tv5.Mul(&tv6, &sswuIsogenyCoefficients[1])    // 15. tv5 = B * tv6
+	tv5.Mul(&tv6, &{{$CurveName}}sswuCurveBCoeff)    // 15. tv5 = B * tv6
 	tv2.Add(&tv2, &tv5) // 16. tv2 = tv2 + tv5
 
 	var x {{$CoordType}}

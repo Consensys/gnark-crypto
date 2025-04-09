@@ -17,12 +17,8 @@ var (
 )
 
 // {{$CurveTitle}}SSWUCurveCoefficients returns the coefficients of the SSWU curve.
-// The coefficients are in the order of A and B.
-func {{$CurveTitle}}SSWUIsogenyCurveCoefficients() [2]{{$CoordType}} {
-    return [2]{{$CoordType}}{
-        {{$CurveName}}sswuCurveACoeff,
-        {{$CurveName}}sswuCurveBCoeff,
-    }
+func {{$CurveTitle}}SSWUIsogenyCurveCoefficients() (A {{$CoordType}}, B {{$CoordType}}) {
+    return {{$CurveName}}sswuCurveACoeff, {{$CurveName}}sswuCurveBCoeff
 }
 
 var (
