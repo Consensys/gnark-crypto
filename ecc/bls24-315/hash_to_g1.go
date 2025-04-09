@@ -72,9 +72,7 @@ func HashToG1(msg, dst []byte) (G1Affine, error) {
 //
 // See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
 func MapToCurve1(u *fp.Element) G1Affine {
-
-	var sswuIsoCurveCoeffA = fp.Element{5402807948305211529, 9163880483319140034, 7646126700453841420, 11071466103913358468, 124200740526673728}
-	var sswuIsoCurveCoeffB = fp.Element{16058189711238232929, 8302337653269510588, 11411933349841587630, 8954038365926617417, 177308873523699836}
+	sswuIsogenyCoefficients := hash_to_curve.G1SSWUIsogenyCurveCoefficients()
 
 	var tv1 fp.Element
 	tv1.Square(u) // 1.  tv1 = u²
@@ -89,8 +87,8 @@ func MapToCurve1(u *fp.Element) G1Affine {
 	var tv3 fp.Element
 	var tv4 fp.Element
 	tv4.SetOne()
-	tv3.Add(&tv2, &tv4)                // 5.  tv3 = tv2 + 1
-	tv3.Mul(&tv3, &sswuIsoCurveCoeffB) // 6.  tv3 = B * tv3
+	tv3.Add(&tv2, &tv4)                        // 5.  tv3 = tv2 + 1
+	tv3.Mul(&tv3, &sswuIsogenyCoefficients[1]) // 6.  tv3 = B * tv3
 
 	tv2NZero := hash_to_curve.G1NotZero(&tv2)
 
@@ -98,8 +96,8 @@ func MapToCurve1(u *fp.Element) G1Affine {
 	tv4 = fp.Element{8178485296672800069, 8476448362227282520, 14180928431697993131, 4308307642551989706, 120359802761433421}
 
 	tv2.Neg(&tv2)
-	tv4.Select(int(tv2NZero), &tv4, &tv2) // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
-	tv4.Mul(&tv4, &sswuIsoCurveCoeffA)    // 8.  tv4 = A * tv4
+	tv4.Select(int(tv2NZero), &tv4, &tv2)      // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
+	tv4.Mul(&tv4, &sswuIsogenyCoefficients[0]) // 8.  tv4 = A * tv4
 
 	tv2.Square(&tv3) // 9.  tv2 = tv3²
 
@@ -107,14 +105,14 @@ func MapToCurve1(u *fp.Element) G1Affine {
 	tv6.Square(&tv4) // 10. tv6 = tv4²
 
 	var tv5 fp.Element
-	tv5.Mul(&tv6, &sswuIsoCurveCoeffA) // 11. tv5 = A * tv6
+	tv5.Mul(&tv6, &sswuIsogenyCoefficients[0]) // 11. tv5 = A * tv6
 
 	tv2.Add(&tv2, &tv5) // 12. tv2 = tv2 + tv5
 	tv2.Mul(&tv2, &tv3) // 13. tv2 = tv2 * tv3
 	tv6.Mul(&tv6, &tv4) // 14. tv6 = tv6 * tv4
 
-	tv5.Mul(&tv6, &sswuIsoCurveCoeffB) // 15. tv5 = B * tv6
-	tv2.Add(&tv2, &tv5)                // 16. tv2 = tv2 + tv5
+	tv5.Mul(&tv6, &sswuIsogenyCoefficients[1]) // 15. tv5 = B * tv6
+	tv2.Add(&tv2, &tv5)                        // 16. tv2 = tv2 + tv5
 
 	var x fp.Element
 	x.Mul(&tv1, &tv3) // 17.   x = tv1 * tv3
