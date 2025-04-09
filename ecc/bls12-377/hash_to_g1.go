@@ -93,7 +93,7 @@ func MapToCurve1(u *fp.Element) G1Affine {
 	tv2NZero := hash_to_curve.G1NotZero(&tv2)
 
 	// tv4 = Z
-	tv4 = fp.Element{9871116327010172167, 9167007004823125620, 18338974479346628539, 5649234265355377548, 13442091487463296847, 77904398905292312}
+	tv4 = hash_to_curve.G1SSWUIsogenyZ()
 
 	tv2.Neg(&tv2)
 	tv4.Select(int(tv2NZero), &tv4, &tv2) // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
