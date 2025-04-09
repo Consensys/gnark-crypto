@@ -19,12 +19,8 @@ var (
 )
 
 // G1SSWUCurveCoefficients returns the coefficients of the SSWU curve.
-// The coefficients are in the order of A and B.
-func G1SSWUIsogenyCurveCoefficients() [2]fp.Element {
-	return [2]fp.Element{
-		g1sswuCurveACoeff,
-		g1sswuCurveBCoeff,
-	}
+func G1SSWUIsogenyCurveCoefficients() (A fp.Element, B fp.Element) {
+	return g1sswuCurveACoeff, g1sswuCurveBCoeff
 }
 
 var (
