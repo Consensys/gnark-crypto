@@ -29,7 +29,7 @@ func {{$CurveTitle}}SSWUIsogenyCurveCoefficients() (A {{$CoordType}}, B {{$Coord
 
 // {{$CurveTitle}}SSWUIsogenyZ returns the recommended Z value of the SSWU curve.
 //
-// See https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#weierstrass
+// See https://www.rfc-editor.org/rfc/rfc9380.html#weierstrass
 func {{$CurveTitle}}SSWUIsogenyZ() {{$CoordType}} {
     return {{$CurveName}}sswuCurveZ
 }
@@ -124,7 +124,7 @@ func {{$CurveTitle}}Isogeny(pX, pY *{{$CoordType}}) {
 // If v = 0, u/v is meaningless and the output is unspecified, without raising an error.
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordType}}) uint64 {
-{{ if eq (mod .FieldSizeMod256 4) 3 }} // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-optimized-sqrt_ratio-for-q- (3 mod 4)
+{{ if eq (mod .FieldSizeMod256 4) 3 }} // https://www.rfc-editor.org/rfc/rfc9380.html#name-optimized-sqrt_ratio-for-q- (3 mod 4)
 	var tv1 {{$CoordType}}
 	tv1.Square(v)   // 1. tv1 = v²
 	var tv2 {{$CoordType}}
@@ -155,7 +155,7 @@ func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordT
 
 {{ end }}
 
-{{ if eq (mod .FieldSizeMod256 8) 5 }} // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-optimized-sqrt_ratio-for-q-5 (mod 8)
+{{ if eq (mod .FieldSizeMod256 8) 5 }} // https://www.rfc-editor.org/rfc/rfc9380.html#name-optimized-sqrt_ratio-for-q-5 (mod 8)
 
     var tv1, tv2 {{$CoordType}}
     tv1.Square(v)   // 1. tv1 = v²
@@ -197,7 +197,7 @@ func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordT
 
 {{ end }}
 
-{{ if eq (mod .FieldSizeMod256 8) 1 }}// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-sqrt_ratio-for-any-field
+{{ if eq (mod .FieldSizeMod256 8) 1 }}// https://www.rfc-editor.org/rfc/rfc9380.html#name-sqrt_ratio-for-any-field
 
 {{ $c2Int := index $cInts 1}}
 {{ $c2IntBytes := printList (bytes $c2Int ) }}

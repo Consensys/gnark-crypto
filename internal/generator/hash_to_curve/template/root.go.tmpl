@@ -34,7 +34,7 @@ func MapTo{{$CurveTitle}}(u {{$CoordType}}) {{$AffineType}} {
 // It is faster than [HashTo{{$CurveTitle}}], but the result is not uniformly distributed. Unsuitable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function
 //
-// See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
+// See: https://www.rfc-editor.org/rfc/rfc9380.html#roadmap
 func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 
 	var res {{$AffineType}}
@@ -65,7 +65,7 @@ func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 // Slower than [EncodeTo{{$CurveTitle}}], but usable as a random oracle.
 // dst stands for "domain separation tag", a string unique to the construction using the hash function.
 //
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
+// See https://www.rfc-editor.org/rfc/rfc9380.html#roadmap
 func HashTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
 	u, err := fp.Hash(msg, dst, 2 * {{$TowerDegree}})
 	if err != nil {
