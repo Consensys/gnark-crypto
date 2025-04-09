@@ -1,5 +1,4 @@
 {{ define "root_sswu" }}
-{{$isogenyNeeded := notNil .Isogeny}}
 {{$CoordType := .Point.CoordType}}
 {{$CurveName := .Point.PointName}}
 {{$CurveTitle := toTitle $CurveName}}
@@ -9,8 +8,6 @@
 {{$IsG1 := eq $CurveTitle "G1"}}
 {{$CurveIndex := "2"}}
 {{if $IsG1}}{{$CurveIndex = "1"}}{{end}}
-{{$sswuCurveACoeff := select $isogenyNeeded "This is meant to produce an error. Since most likely A = 0, there is opportunity for optimizations that need to be looked at." "sswuIsoCurveCoeffA"}}
-{{$sswuCurveBCoeff := select $isogenyNeeded "bCurveConf" "sswuIsoCurveCoeffB"}}
 
 // MapToCurve{{$CurveIndex}} implements the SSWU map. It does not perform cofactor clearing nor isogeny. For map to group, use [MapTo{{$CurveTitle}}].
 //

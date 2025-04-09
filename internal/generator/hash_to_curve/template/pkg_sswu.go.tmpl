@@ -1,5 +1,4 @@
 {{define "pkg_sswu"}}
-{{$isogenyNeeded := notNil .Isogeny}}
 {{$CoordType := .Point.CoordType}}
 {{$CurveName := .Point.PointName}}
 {{$CurveTitle := toTitle $CurveName}}
@@ -9,13 +8,9 @@
 {{$IsG1 := eq $CurveTitle "G1"}}
 {{$CurveIndex := select $IsG1 "2" "1"}}
 {{$package := select (eq $TowerDegree 1) "fptower" "fp"}}
-{{$sswuCurveACoeff := select $isogenyNeeded "This is meant to produce an error. Since most likely A = 0, there is opportunity for optimizations that need to be looked at." "sswuIsoCurveCoeffA"}}
-{{$sswuCurveBCoeff := select $isogenyNeeded "bCurveConf" "sswuIsoCurveCoeffB"}}
-
 
 // Note: This only works for simple extensions
 
-{{ if $isogenyNeeded }}
 var (
     {{$CurveName}}sswuCurveACoeff = {{$CoordType}} {{asElement .A}}
     {{$CurveName}}sswuCurveBCoeff = {{$CoordType}} {{asElement .B}}
@@ -107,8 +102,6 @@ func {{$CurveTitle}}Isogeny(pX, pY *{{$CoordType}}) {
 	pX.Mul(pX, &den[0])
 	pY.Mul(pY, &den[1])
 }
-
-{{ end }}
 
 {{ $cInts := index .PrecomputedParams 0 }}
 
