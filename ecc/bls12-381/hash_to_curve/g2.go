@@ -15,6 +15,26 @@ import (
 // Note: This only works for simple extensions
 
 var (
+	g2sswuCurveACoeff = fptower.E2{
+		A0: fp.Element{0},
+		A1: fp.Element{16517514583386313282, 74322656156451461, 16683759486841714365, 815493829203396097, 204518332920448171, 1306242806803223655},
+	}
+	g2sswuCurveBCoeff = fptower.E2{
+		A0: fp.Element{2515823342057463218, 7982686274772798116, 7934098172177393262, 8484566552980779962, 4455086327883106868, 1323173589274087377},
+		A1: fp.Element{2515823342057463218, 7982686274772798116, 7934098172177393262, 8484566552980779962, 4455086327883106868, 1323173589274087377},
+	}
+)
+
+// G2SSWUCurveCoefficients returns the coefficients of the SSWU curve.
+// The coefficients are in the order of A and B.
+func G2SSWUIsogenyCurveCoefficients() [2]fptower.E2 {
+	return [2]fptower.E2{
+		g2sswuCurveACoeff,
+		g2sswuCurveBCoeff,
+	}
+}
+
+var (
 	g2IsogenyXNumeratorMap = []fptower.E2{
 		{
 			A0: fp.Element{5185457120960601698, 494647221959407934, 8971396042087821730, 324544954362548322, 14214792730224113654, 1405280679127738945},

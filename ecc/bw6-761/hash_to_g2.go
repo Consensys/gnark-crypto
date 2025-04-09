@@ -72,9 +72,7 @@ func HashToG2(msg, dst []byte) (G2Affine, error) {
 //
 // See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-simplified-swu-method
 func MapToCurve2(u *fp.Element) G2Affine {
-
-	var sswuIsoCurveCoeffA = fp.Element{13704010396169241312, 14330175345318364589, 4449492585807198633, 9884564993510771995, 16507506367033405761, 12171409358426895620, 3759742122315801393, 6972450370136308820, 13649992927502603798, 15742083997009939515, 4062268800652448528, 42571325818609943}
-	var sswuIsoCurveCoeffB = fp.Element{17251063859315847117, 13422534455279952781, 15626212001505409941, 8548929388122544483, 12216093319907597521, 15761783579263790289, 10925761432004348632, 8228665107915194054, 13147767302058909808, 5735540302608306489, 5152863309501448410, 45595036249636616}
+	sswuIsogenyCoefficients := hash_to_curve.G2SSWUIsogenyCurveCoefficients()
 
 	var tv1 fp.Element
 	tv1.Square(u) // 1.  tv1 = u²
@@ -89,8 +87,8 @@ func MapToCurve2(u *fp.Element) G2Affine {
 	var tv3 fp.Element
 	var tv4 fp.Element
 	tv4.SetOne()
-	tv3.Add(&tv2, &tv4)                // 5.  tv3 = tv2 + 1
-	tv3.Mul(&tv3, &sswuIsoCurveCoeffB) // 6.  tv3 = B * tv3
+	tv3.Add(&tv2, &tv4)                        // 5.  tv3 = tv2 + 1
+	tv3.Mul(&tv3, &sswuIsogenyCoefficients[1]) // 6.  tv3 = B * tv3
 
 	tv2NZero := hash_to_curve.G2NotZero(&tv2)
 
@@ -98,8 +96,8 @@ func MapToCurve2(u *fp.Element) G2Affine {
 	tv4 = fp.Element{4056054414400208518, 3320816571827031140, 10263935383895698150, 11003897938091601562, 15597443347325643510, 13135057492086854609, 2659919018052618801, 3683105852685266909, 6137961753831301777, 15077955943918945393, 14961510259660508891, 8138608324875079}
 
 	tv2.Neg(&tv2)
-	tv4.Select(int(tv2NZero), &tv4, &tv2) // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
-	tv4.Mul(&tv4, &sswuIsoCurveCoeffA)    // 8.  tv4 = A * tv4
+	tv4.Select(int(tv2NZero), &tv4, &tv2)      // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
+	tv4.Mul(&tv4, &sswuIsogenyCoefficients[0]) // 8.  tv4 = A * tv4
 
 	tv2.Square(&tv3) // 9.  tv2 = tv3²
 
@@ -107,14 +105,14 @@ func MapToCurve2(u *fp.Element) G2Affine {
 	tv6.Square(&tv4) // 10. tv6 = tv4²
 
 	var tv5 fp.Element
-	tv5.Mul(&tv6, &sswuIsoCurveCoeffA) // 11. tv5 = A * tv6
+	tv5.Mul(&tv6, &sswuIsogenyCoefficients[0]) // 11. tv5 = A * tv6
 
 	tv2.Add(&tv2, &tv5) // 12. tv2 = tv2 + tv5
 	tv2.Mul(&tv2, &tv3) // 13. tv2 = tv2 * tv3
 	tv6.Mul(&tv6, &tv4) // 14. tv6 = tv6 * tv4
 
-	tv5.Mul(&tv6, &sswuIsoCurveCoeffB) // 15. tv5 = B * tv6
-	tv2.Add(&tv2, &tv5)                // 16. tv2 = tv2 + tv5
+	tv5.Mul(&tv6, &sswuIsogenyCoefficients[1]) // 15. tv5 = B * tv6
+	tv2.Add(&tv2, &tv5)                        // 16. tv2 = tv2 + tv5
 
 	var x fp.Element
 	x.Mul(&tv1, &tv3) // 17.   x = tv1 * tv3
