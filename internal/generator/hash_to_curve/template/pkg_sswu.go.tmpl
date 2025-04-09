@@ -16,6 +16,19 @@
 // Note: This only works for simple extensions
 
 {{ if $isogenyNeeded }}
+var (
+    {{$CurveName}}sswuCurveACoeff = {{$CoordType}} {{asElement .A}}
+    {{$CurveName}}sswuCurveBCoeff = {{$CoordType}} {{asElement .B}}
+)
+
+// {{$CurveTitle}}SSWUCurveCoefficients returns the coefficients of the SSWU curve.
+// The coefficients are in the order of A and B.
+func {{$CurveTitle}}SSWUIsogenyCurveCoefficients() [2]{{$CoordType}} {
+    return [2]{{$CoordType}}{
+        {{$CurveName}}sswuCurveACoeff,
+        {{$CurveName}}sswuCurveBCoeff,
+    }
+}
 
 var (
     {{$CurveName}}IsogenyXNumeratorMap = []{{$CoordType}} {
