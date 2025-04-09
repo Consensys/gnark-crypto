@@ -16,9 +16,18 @@ var (
     {{$CurveName}}sswuCurveBCoeff = {{$CoordType}} {{asElement .B}}
 )
 
+var {{$CurveName}}sswuCurveZ = {{$CoordType}} {{asElement .Z}}
+
 // {{$CurveTitle}}SSWUCurveCoefficients returns the coefficients of the SSWU curve.
 func {{$CurveTitle}}SSWUIsogenyCurveCoefficients() (A {{$CoordType}}, B {{$CoordType}}) {
     return {{$CurveName}}sswuCurveACoeff, {{$CurveName}}sswuCurveBCoeff
+}
+
+// {{$CurveTitle}}SSWUIsogenyZ returns the recommended Z value of the SSWU curve.
+//
+// See https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#weierstrass
+func {{$CurveTitle}}SSWUIsogenyZ() {{$CoordType}} {
+    return {{$CurveName}}sswuCurveZ
 }
 
 var (

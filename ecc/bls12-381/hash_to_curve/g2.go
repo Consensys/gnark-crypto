@@ -25,9 +25,21 @@ var (
 	}
 )
 
+var g2sswuCurveZ = fptower.E2{
+	A0: fp.Element{9794203289623549276, 7309342082925068282, 1139538881605221074, 15659550692327388916, 16008355200866287827, 582484205531694093},
+	A1: fp.Element{4897101644811774638, 3654671041462534141, 569769440802610537, 17053147383018470266, 17227549637287919721, 291242102765847046},
+}
+
 // G2SSWUCurveCoefficients returns the coefficients of the SSWU curve.
 func G2SSWUIsogenyCurveCoefficients() (A fptower.E2, B fptower.E2) {
 	return g2sswuCurveACoeff, g2sswuCurveBCoeff
+}
+
+// G2SSWUIsogenyZ returns the recommended Z value of the SSWU curve.
+//
+// See https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#weierstrass
+func G2SSWUIsogenyZ() fptower.E2 {
+	return g2sswuCurveZ
 }
 
 var (

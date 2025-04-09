@@ -34,7 +34,7 @@ func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
     tv2NZero := hash_to_curve.{{$CurveTitle}}NotZero(&tv2)
 
 	// tv4 = Z
-	tv4 = {{$CoordType}}{{ asElement  .Z }}
+	tv4 = hash_to_curve.{{$CurveTitle}}SSWUIsogenyZ()
 
     tv2.Neg(&tv2)
     tv4.Select(int(tv2NZero), &tv4, &tv2)   // 7.  tv4 = CMOV(Z, -tv2, tv2 != 0)
