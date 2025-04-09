@@ -5,7 +5,6 @@
 {{$CurveTitle := toTitle $CurveName}}
 {{$TowerDegree := .Field.Degree}}
 {{$AffineType := print $CurveTitle "Affine"}}
-{{$JacType := print $CurveTitle "Jac"}}
 {{$IsG1 := eq $CurveTitle "G1"}}
 {{$CurveIndex := select $IsG1 "2" "1"}}
 {{$package := select (eq $TowerDegree 1) "fptower" "fp"}}
