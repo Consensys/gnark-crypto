@@ -27,7 +27,7 @@ func G1SSWUIsogenyCurveCoefficients() (A fp.Element, B fp.Element) {
 
 // G1SSWUIsogenyZ returns the recommended Z value of the SSWU curve.
 //
-// See https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#weierstrass
+// See https://www.rfc-editor.org/rfc/rfc9380.html#weierstrass
 func G1SSWUIsogenyZ() fp.Element {
 	return g1sswuCurveZ
 }
@@ -108,7 +108,7 @@ func G1Isogeny(pX, pY *fp.Element) {
 // If v = 0, u/v is meaningless and the output is unspecified, without raising an error.
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func G1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
-	// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-optimized-sqrt_ratio-for-q- (3 mod 4)
+	// https://www.rfc-editor.org/rfc/rfc9380.html#name-optimized-sqrt_ratio-for-q- (3 mod 4)
 	var tv1 fp.Element
 	tv1.Square(v) // 1. tv1 = v²
 	var tv2 fp.Element
@@ -165,7 +165,7 @@ func g1EvalPolynomial(z *fp.Element, monic bool, coefficients []fp.Element, x *f
 // G1Sgn0 is an algebraic substitute for the notion of sign in ordered fields.
 // Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign.
 //
-// See: https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-the-sgn0-function
+// See: https://www.rfc-editor.org/rfc/rfc9380.html#name-the-sgn0-function
 //
 // The sign of an element is not obviously related to that of its Montgomery form
 func G1Sgn0(z *fp.Element) uint64 {
