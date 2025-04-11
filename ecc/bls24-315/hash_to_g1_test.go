@@ -15,42 +15,6 @@ import (
 	"testing"
 )
 
-func TestG1SqrtRatio(t *testing.T) {
-	t.Parallel()
-	parameters := gopter.DefaultTestParameters()
-	if testing.Short() {
-		parameters.MinSuccessfulTests = nbFuzzShort
-	} else {
-		parameters.MinSuccessfulTests = nbFuzz
-	}
-
-	properties := gopter.NewProperties(parameters)
-
-	gen := GenFp()
-
-	properties.Property("G1SqrtRatio must square back to the right value", prop.ForAll(
-		func(u fp.Element, v fp.Element) bool {
-
-			var seen fp.Element
-			qr := hash_to_curve.G1SqrtRatio(&seen, &u, &v) == 0
-
-			seen.
-				Square(&seen).
-				Mul(&seen, &v)
-
-			var ref fp.Element
-			if qr {
-				ref = u
-			} else {
-				hash_to_curve.G1MulByZ(&ref, &u)
-			}
-
-			return seen.Equal(&ref)
-		}, gen, gen))
-
-	properties.TestingRun(t, gopter.ConsoleReporter(false))
-}
-
 func TestHashToFpG1(t *testing.T) {
 	for _, c := range encodeToG1Vector.cases {
 		elems, err := fp.Hash([]byte(c.msg), encodeToG1Vector.dst, 1)

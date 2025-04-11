@@ -36,6 +36,11 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		}
 
 		hashConf := suite.GetInfo(conf.Fp, point, conf.Name)
+		if hashConf.MappingAlgorithm == "SSWU" {
+			htcEntries = append(htcEntries,
+				bavard.Entry{File: filepath.Join(baseDir, htcPackageName, fmt.Sprintf("%s_test.go", point.PointName)), Templates: []string{"tests/pkg.go.tmpl"}},
+			)
+		}
 
 		funcs := make(template.FuncMap)
 		funcs["asElement"] = hashConf.Field.Base.WriteElement
