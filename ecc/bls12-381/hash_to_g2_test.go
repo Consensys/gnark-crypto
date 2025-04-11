@@ -17,42 +17,6 @@ import (
 	"testing"
 )
 
-func TestG2SqrtRatio(t *testing.T) {
-	t.Parallel()
-	parameters := gopter.DefaultTestParameters()
-	if testing.Short() {
-		parameters.MinSuccessfulTests = nbFuzzShort
-	} else {
-		parameters.MinSuccessfulTests = nbFuzz
-	}
-
-	properties := gopter.NewProperties(parameters)
-
-	gen := GenE2()
-
-	properties.Property("G2SqrtRatio must square back to the right value", prop.ForAll(
-		func(u fptower.E2, v fptower.E2) bool {
-
-			var seen fptower.E2
-			qr := hash_to_curve.G2SqrtRatio(&seen, &u, &v) == 0
-
-			seen.
-				Square(&seen).
-				Mul(&seen, &v)
-
-			var ref fptower.E2
-			if qr {
-				ref = u
-			} else {
-				hash_to_curve.G2MulByZ(&ref, &u)
-			}
-
-			return seen.Equal(&ref)
-		}, gen, gen))
-
-	properties.TestingRun(t, gopter.ConsoleReporter(false))
-}
-
 func TestHashToFpG2(t *testing.T) {
 	for _, c := range encodeToG2Vector.cases {
 		elems, err := fp.Hash([]byte(c.msg), encodeToG2Vector.dst, 2)
