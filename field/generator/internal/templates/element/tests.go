@@ -1584,7 +1584,7 @@ func Test{{toTitle .ElementName}}Mul2ExpNegN(t *testing.T) {
 	genA := gen()
 
 	properties.Property("x * 2⁻ᵏ == Mul2ExpNegN(x, k) for 0 <= k <= 32", prop.ForAll(
-		func(a testPairElement) bool {
+		func(a testPair{{.ElementName}}) bool {
 
 			var b, e, two {{.ElementName}}
 			var c [33]{{.ElementName}}

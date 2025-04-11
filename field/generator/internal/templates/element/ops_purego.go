@@ -44,7 +44,7 @@ func MulBy{{$i}}(x *{{$.ElementName}}) {
 // works for 0 <= n <= 32.
 //
 // N.B. n must be < 33.
-func (z *Element) Mul2ExpNegN(x *Element, n uint32) *Element {
+func (z *{{.ElementName}}) Mul2ExpNegN(x *{{.ElementName}}, n uint32) *{{.ElementName}} {
        v := uint64(x[0]) << (32 - n)
        z[0] = montReduce(v)
        return z
