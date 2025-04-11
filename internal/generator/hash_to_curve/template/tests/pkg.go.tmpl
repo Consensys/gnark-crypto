@@ -1,0 +1,69 @@
+{{$CoordType := .Point.CoordType}}
+{{$CurveName := .Point.PointName}}
+{{$CurveTitle := toTitle $CurveName}}
+{{$CurveIndex := "2"}}
+{{if eq $CurveTitle "G1" }}{{$CurveIndex = "1"}}{{end}}
+{{$TowerDegree := .Field.Degree}}
+{{$sswu := eq .MappingAlgorithm "SSWU"}}
+
+{{if $sswu}}
+import (
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+	{{ if $sswu }}
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/hash_to_curve"
+	{{- end }}
+	{{- if ne $TowerDegree 1}}
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
+	"strings"
+	{{- end}}
+	"testing"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
+	"math/rand"
+)
+
+{{$fuzzer := "GenFp()"}}
+{{if eq $CoordType "fptower.E2" }}
+	{{$fuzzer = "GenE2()"}}
+{{- else if eq $CoordType "fptower.E4" }}
+	{{$fuzzer = "GenE4()"}}
+{{- end}}
+
+func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+
+	properties := gopter.NewProperties(parameters)
+
+	gen := {{$fuzzer}}
+
+
+	properties.Property("{{$CurveTitle}}SqrtRatio must square back to the right value", prop.ForAll(
+		func(u {{$CoordType}}, v {{$CoordType}}) bool {
+
+			var seen {{$CoordType}}
+			qr := hash_to_curve.{{$CurveTitle}}SqrtRatio(&seen, &u, &v) == 0
+
+			seen.
+				Square(&seen).
+				Mul(&seen, &v)
+
+			var ref {{$CoordType}}
+			if qr {
+				ref = u
+			} else {
+				hash_to_curve.{{$CurveTitle}}MulByZ(&ref, &u)
+			}
+
+			return seen.Equal(&ref)
+		}, gen, gen))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+{{end}}

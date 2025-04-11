@@ -7,11 +7,59 @@ package bn254
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
+	"github.com/consensys/gnark-crypto/ecc/bn254/hash_to_curve"
 )
 
-// MapToCurve1 implements the Shallue and van de Woestijne method, applicable to any elliptic curve in Weierstrass form
-// No cofactor clearing or isogeny
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#straightline-svdw
+// MapToG1 invokes the SVDW map, and guarantees that the result is in G1.
+func MapToG1(u fp.Element) G1Affine {
+	res := MapToCurve1(&u)
+	return res
+}
+
+// EncodeToG1 hashes a message to a point on the G1 curve using the SVDW map.
+// It is faster than [HashToG1], but the result is not uniformly distributed. Unsuitable as a random oracle.
+// dst stands for "domain separation tag", a string unique to the construction using the hash function
+//
+// See: https://www.rfc-editor.org/rfc/rfc9380.html#roadmap
+func EncodeToG1(msg, dst []byte) (G1Affine, error) {
+
+	var res G1Affine
+	u, err := fp.Hash(msg, dst, 1)
+	if err != nil {
+		return res, err
+	}
+
+	res = MapToCurve1(&u[0])
+
+	return res, nil
+}
+
+// HashToG1 hashes a message to a point on the G1 curve using the SVDW map.
+// Slower than [EncodeToG1], but usable as a random oracle.
+// dst stands for "domain separation tag", a string unique to the construction using the hash function.
+//
+// See https://www.rfc-editor.org/rfc/rfc9380.html#roadmap
+func HashToG1(msg, dst []byte) (G1Affine, error) {
+	u, err := fp.Hash(msg, dst, 2*1)
+	if err != nil {
+		return G1Affine{}, err
+	}
+
+	Q0 := MapToCurve1(&u[0])
+	Q1 := MapToCurve1(&u[1])
+
+	var _Q0, _Q1 G1Jac
+	_Q0.FromAffine(&Q0)
+	_Q1.FromAffine(&Q1).AddAssign(&_Q0)
+
+	Q1.FromJacobian(&_Q1)
+	return Q1, nil
+}
+
+// MapToCurve1 implements the Shallue and van de Woestijne method, applicable to any elliptic curve in Weierstrass form.
+// It does not perform cofactor clearing nor isogeny. Use [MapToG1] for mapping to group.
+//
+// See: https://www.rfc-editor.org/rfc/rfc9380.html#straightline-svdw
 func MapToCurve1(u *fp.Element) G1Affine {
 	var tv1, tv2, tv3, tv4 fp.Element
 	var x1, x2, x3, gx1, gx2, gx, x, y fp.Element
@@ -78,73 +126,10 @@ func MapToCurve1(u *fp.Element) G1Affine {
 	gx.Mul(&gx, &x)           //    31.  gx = gx * x
 	gx.Add(&gx, &bCurveCoeff) //    32.  gx = gx + B
 
-	y.Sqrt(&gx)                             //    33.   y = sqrt(gx)
-	signsNotEqual := g1Sgn0(u) ^ g1Sgn0(&y) //    34.  e3 = sgn0(u) == sgn0(y)
+	y.Sqrt(&gx)                                                         //    33.   y = sqrt(gx)
+	signsNotEqual := hash_to_curve.G1Sgn0(u) ^ hash_to_curve.G1Sgn0(&y) //    34.  e3 = sgn0(u) == sgn0(y)
 
 	tv1.Neg(&y)
 	y.Select(int(signsNotEqual), &y, &tv1) //    35.   y = CMOV(-y, y, e3)       # Select correct sign of y
 	return G1Affine{x, y}
-}
-
-// g1Sgn0 is an algebraic substitute for the notion of sign in ordered fields
-// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-the-sgn0-function
-// The sign of an element is not obviously related to that of its Montgomery form
-func g1Sgn0(z *fp.Element) uint64 {
-
-	nonMont := z.Bits()
-
-	// m == 1
-	return nonMont[0] % 2
-
-}
-
-// MapToG1 invokes the SVDW map, and guarantees that the result is in g1
-func MapToG1(u fp.Element) G1Affine {
-	res := MapToCurve1(&u)
-	return res
-}
-
-// EncodeToG1 hashes a message to a point on the G1 curve using the SVDW map.
-// It is faster than HashToG1, but the result is not uniformly distributed. Unsuitable as a random oracle.
-// dst stands for "domain separation tag", a string unique to the construction using the hash function
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
-func EncodeToG1(msg, dst []byte) (G1Affine, error) {
-
-	var res G1Affine
-	u, err := fp.Hash(msg, dst, 1)
-	if err != nil {
-		return res, err
-	}
-
-	res = MapToCurve1(&u[0])
-
-	return res, nil
-}
-
-// HashToG1 hashes a message to a point on the G1 curve using the SVDW map.
-// Slower than EncodeToG1, but usable as a random oracle.
-// dst stands for "domain separation tag", a string unique to the construction using the hash function
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#roadmap
-func HashToG1(msg, dst []byte) (G1Affine, error) {
-	u, err := fp.Hash(msg, dst, 2*1)
-	if err != nil {
-		return G1Affine{}, err
-	}
-
-	Q0 := MapToCurve1(&u[0])
-	Q1 := MapToCurve1(&u[1])
-
-	var _Q0, _Q1 G1Jac
-	_Q0.FromAffine(&Q0)
-	_Q1.FromAffine(&Q1).AddAssign(&_Q0)
-
-	Q1.FromJacobian(&_Q1)
-	return Q1, nil
-}
-
-func g1NotZero(x *fp.Element) uint64 {
-
-	return x[0] | x[1] | x[2] | x[3]
-
 }
