@@ -128,22 +128,21 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 
 	// purego files have no build tags if we don't generate asm
 	pureGoBuildTag := "purego || (!amd64 && !arm64)"
-	if !F.GenerateOpsAMD64 && !F.GenerateOpsARM64 {
+	if !(F.GenerateOpsAMD64 && hashAMD64 != "") && !(F.GenerateOpsARM64 && hashArm64 != "") {
 		pureGoBuildTag = ""
-	} else if !F.GenerateOpsARM64 {
+	} else if !(F.GenerateOpsARM64 && hashArm64 != "") {
 		pureGoBuildTag = "purego || (!amd64)"
 	}
 
 	pureGoVectorBuildTag := "purego || (!amd64 && !arm64)"
-	if !F.GenerateVectorOpsAMD64 && !F.GenerateVectorOpsARM64 {
+	if !(F.GenerateVectorOpsAMD64 && hashAMD64 != "") && !(F.GenerateVectorOpsARM64 && hashArm64 != "") {
 		pureGoVectorBuildTag = ""
-	} else if !F.GenerateVectorOpsARM64 {
+	} else if !(F.GenerateVectorOpsARM64 && hashArm64 != "") {
 		pureGoVectorBuildTag = "purego || (!amd64)"
 	}
 
 	if F.F31 {
 		pureGoBuildTag = "" // always generate pure go for F31
-		pureGoVectorBuildTag = ""
 	}
 
 	var g errgroup.Group
