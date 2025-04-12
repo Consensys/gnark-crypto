@@ -491,3 +491,9 @@ func (f *Field) WriteElement(element Element) string {
 	builder.WriteString("}")
 	return builder.String()
 }
+
+type FieldDependency struct {
+	ElementType      string
+	FieldPackagePath string
+	FieldPackageName string
+}
