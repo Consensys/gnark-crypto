@@ -9,6 +9,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/hash_to_curve"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"math/big"
 	"runtime"
@@ -509,7 +510,7 @@ func (p *G1Jac) IsInSubGroup() bool {
 func GeneratePointNotInG1(f fp.Element) G1Jac {
 	var res, jac G1Jac
 	aff := MapToCurve1(&f)
-	g1Isogeny(&aff)
+	hash_to_curve.G1Isogeny(&aff.X, &aff.Y)
 	jac.FromAffine(&aff)
 	// p+x²ϕ(p) = [r]p
 	res.phi(&jac).

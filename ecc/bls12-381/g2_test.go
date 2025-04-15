@@ -14,6 +14,9 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/internal/fptower"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/hash_to_curve"
+
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -849,7 +852,7 @@ func BenchmarkG2AffineDouble(b *testing.B) {
 func fuzzCofactorOfG2(f fptower.E2) G2Jac {
 	var res, jac G2Jac
 	aff := MapToCurve2(&f)
-	g2Isogeny(&aff)
+	hash_to_curve.G2Isogeny(&aff.X, &aff.Y)
 	jac.FromAffine(&aff)
 	// ψ(p)-[x₀]P = [r]p
 	res.mulBySeed(&jac)

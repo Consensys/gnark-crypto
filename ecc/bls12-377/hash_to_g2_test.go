@@ -7,6 +7,8 @@ package bls12377
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/hash_to_curve"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/internal/fptower"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -14,42 +16,6 @@ import (
 	"strings"
 	"testing"
 )
-
-func TestG2SqrtRatio(t *testing.T) {
-	t.Parallel()
-	parameters := gopter.DefaultTestParameters()
-	if testing.Short() {
-		parameters.MinSuccessfulTests = nbFuzzShort
-	} else {
-		parameters.MinSuccessfulTests = nbFuzz
-	}
-
-	properties := gopter.NewProperties(parameters)
-
-	gen := GenE2()
-
-	properties.Property("G2SqrtRatio must square back to the right value", prop.ForAll(
-		func(u fptower.E2, v fptower.E2) bool {
-
-			var seen fptower.E2
-			qr := g2SqrtRatio(&seen, &u, &v) == 0
-
-			seen.
-				Square(&seen).
-				Mul(&seen, &v)
-
-			var ref fptower.E2
-			if qr {
-				ref = u
-			} else {
-				g2MulByZ(&ref, &u)
-			}
-
-			return seen.Equal(&ref)
-		}, gen, gen))
-
-	properties.TestingRun(t, gopter.ConsoleReporter(false))
-}
 
 func TestHashToFpG2(t *testing.T) {
 	for _, c := range encodeToG2Vector.cases {
@@ -90,7 +56,7 @@ func TestMapToCurve2(t *testing.T) {
 				t.Log("Mapping output not on E' curve")
 				return false
 			}
-			g2Isogeny(&g)
+			hash_to_curve.G2Isogeny(&g.X, &g.Y)
 
 			if !g.IsOnCurve() {
 				t.Log("Isogeny∘SSWU output not on curve")
@@ -108,7 +74,7 @@ func TestMapToCurve2(t *testing.T) {
 		var u fptower.E2
 		g2CoordSetString(&u, c.u)
 		q := MapToCurve2(&u)
-		g2Isogeny(&q)
+		hash_to_curve.G2Isogeny(&q.X, &q.Y)
 		g2TestMatchPoint(t, "Q", c.msg, c.Q, &q)
 	}
 
@@ -116,12 +82,12 @@ func TestMapToCurve2(t *testing.T) {
 		var u fptower.E2
 		g2CoordSetString(&u, c.u0)
 		q := MapToCurve2(&u)
-		g2Isogeny(&q)
+		hash_to_curve.G2Isogeny(&q.X, &q.Y)
 		g2TestMatchPoint(t, "Q0", c.msg, c.Q0, &q)
 
 		g2CoordSetString(&u, c.u1)
 		q = MapToCurve2(&u)
-		g2Isogeny(&q)
+		hash_to_curve.G2Isogeny(&q.X, &q.Y)
 		g2TestMatchPoint(t, "Q1", c.msg, c.Q1, &q)
 	}
 }

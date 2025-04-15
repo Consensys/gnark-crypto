@@ -1,0 +1,97 @@
+{{$CoordType := .Point.CoordType}}
+{{$CurveName := .Point.PointName}}
+{{$CurveTitle := toTitle $CurveName}}
+{{$CurveIndex := "2"}}
+{{if eq $CurveTitle "G1" }}{{$CurveIndex = "1"}}{{end}}
+{{$TowerDegree := .Field.Degree}}
+{{$sswu := eq .MappingAlgorithm "SSWU"}}
+
+{{if $sswu}}
+import (
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+	{{- if ne $TowerDegree 1}}
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
+	{{- end}}
+	"testing"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
+)
+
+{{ $fuzzer := "" }}
+{{ if eq $CurveIndex "1" }}
+// GenFp generates an Fp element
+func GenFp() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fp.Element
+		elmt.MustSetRandom()
+
+		return gopter.NewGenResult(elmt, gopter.NoShrinker)
+	}
+}
+    {{ $fuzzer = "GenFp()"}}
+{{ else if eq $CurveIndex "2" }}
+    {{ if eq $CoordType "fptower.E2" }}
+    // GenE2 generates an fptower.E2 elmt
+func GenE2() gopter.Gen {
+    return gopter.CombineGens(
+        GenFp(),
+        GenFp(),
+    ).Map(func(values []interface{}) fptower.E2 {
+        return fptower.E2{A0: values[0].(fp.Element), A1: values[1].(fp.Element)}
+    })
+}
+        {{ $fuzzer = "GenE2()" }}
+    {{- else if eq $CoordType "fptower.E4" }}
+// GenE4 generates an fptower.E4 elmt
+func GenE4() gopter.Gen {
+    return gopter.CombineGens(
+        GenE2(),
+        GenE2(),
+    ).Map(func(values []interface{}) fptower.E4 {
+        return fptower.E4{B0: values[0].(fptower.E2), B1: values[1].(fptower.E2)}
+    })
+}
+        {{ $fuzzer = "GenE4()" }}
+	{{- else if eq $CoordType "fp.Element" }}
+	{{ $fuzzer = "GenFp()" }}
+    {{- end }}
+{{ end }}
+
+func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = 10
+	} else {
+		parameters.MinSuccessfulTests = 100
+	}
+
+
+	properties := gopter.NewProperties(parameters)
+
+	gen := {{$fuzzer}}
+
+
+	properties.Property("{{$CurveTitle}}SqrtRatio must square back to the right value", prop.ForAll(
+		func(u {{$CoordType}}, v {{$CoordType}}) bool {
+
+			var seen {{$CoordType}}
+			qr := {{$CurveTitle}}SqrtRatio(&seen, &u, &v) == 0
+
+			seen.
+				Square(&seen).
+				Mul(&seen, &v)
+
+			var ref {{$CoordType}}
+			if qr {
+				ref = u
+			} else {
+				{{$CurveTitle}}MulByZ(&ref, &u)
+			}
+
+			return seen.Equal(&ref)
+		}, gen, gen))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+{{end}}

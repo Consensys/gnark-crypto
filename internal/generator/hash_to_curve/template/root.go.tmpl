@@ -1,0 +1,109 @@
+{{$isogenyNeeded := notNil .Isogeny}}
+{{$CoordType := .Point.CoordType}}
+{{$CurveName := .Point.PointName}}
+{{$CurveTitle := toTitle $CurveName}}
+{{$TowerDegree := .Field.Degree}}
+{{$AffineType := print $CurveTitle "Affine"}}
+{{$JacType := print $CurveTitle "Jac"}}
+{{$IsG1 := eq $CurveTitle "G1"}}
+{{$CurveIndex := "2"}}
+{{if $IsG1}}{{$CurveIndex = "1"}}{{end}}
+
+import (
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/hash_to_curve"
+	{{- if not (eq $TowerDegree 1) }}
+        "github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
+    {{- end}}
+)
+
+// MapTo{{$CurveTitle}} invokes the {{.MappingAlgorithm}} map, and guarantees that the result is in {{$CurveTitle}}.
+func MapTo{{$CurveTitle}}(u {{$CoordType}}) {{$AffineType}} {
+    res := MapToCurve{{$CurveIndex}}(&u)
+    {{- if $isogenyNeeded }}
+    //this is in an isogenous curve
+        hash_to_curve.{{$CurveTitle}}Isogeny(&res.X, &res.Y)
+    {{- end }}
+    {{- if .Point.CofactorCleaning}}
+        res.ClearCofactor(&res)
+    {{- end }}
+	return res
+}
+
+// EncodeTo{{$CurveTitle}} hashes a message to a point on the {{$CurveTitle}} curve using the {{.MappingAlgorithm}} map.
+// It is faster than [HashTo{{$CurveTitle}}], but the result is not uniformly distributed. Unsuitable as a random oracle.
+// dst stands for "domain separation tag", a string unique to the construction using the hash function
+//
+// See: https://www.rfc-editor.org/rfc/rfc9380.html#roadmap
+func EncodeTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
+
+	var res {{$AffineType}}
+	u, err := fp.Hash(msg, dst, {{$TowerDegree}})
+	if err != nil {
+		return res, err
+	}
+
+    {{if eq $TowerDegree 1}}
+    res = MapToCurve{{$CurveIndex}}(&u[0])
+    {{else}}
+    res = MapToCurve{{$CurveIndex}}( &{{$CoordType}} {
+        {{range $i := interval 0 $TowerDegree }} {{if eq $TowerDegree 2}}A{{end}}{{$i}}: u[{{$i}}],
+    {{end}} })
+    {{end}}
+
+    {{- if $isogenyNeeded }}
+        //this is in an isogenous curve
+        hash_to_curve.{{$CurveTitle}}Isogeny(&res.X, &res.Y)
+    {{- end }}
+    {{- if .Point.CofactorCleaning}}
+ 	    res.ClearCofactor(&res)
+ 	{{- end }}
+ 	return res, nil
+}
+
+// HashTo{{$CurveTitle}} hashes a message to a point on the {{$CurveTitle}} curve using the {{.MappingAlgorithm}} map.
+// Slower than [EncodeTo{{$CurveTitle}}], but usable as a random oracle.
+// dst stands for "domain separation tag", a string unique to the construction using the hash function.
+//
+// See https://www.rfc-editor.org/rfc/rfc9380.html#roadmap
+func HashTo{{$CurveTitle}}(msg, dst []byte) ({{$AffineType}}, error) {
+	u, err := fp.Hash(msg, dst, 2 * {{$TowerDegree}})
+	if err != nil {
+		return {{$AffineType}}{}, err
+	}
+
+	{{if eq $TowerDegree 1}}
+	Q0 := MapToCurve{{$CurveIndex}}(&u[0])
+	Q1 := MapToCurve{{$CurveIndex}}(&u[1])
+	{{else}}
+	Q0 := MapToCurve{{$CurveIndex}}( &{{$CoordType}} {
+		{{range $i := interval 0 $TowerDegree }} {{if eq $TowerDegree 2}}A{{end}}{{$i}}: u[{{$i}}],
+		{{end}} })
+	Q1 := MapToCurve{{$CurveIndex}}( &{{$CoordType}} {
+        {{range $i := interval 0 $TowerDegree }} {{if eq $TowerDegree 2}}A{{end}}{{$i}}: u[{{$TowerDegree}} + {{$i}}],
+        {{end}} })
+	{{end}}
+
+{{ if $isogenyNeeded }}
+	//TODO (perf): Add in E' first, then apply isogeny
+    hash_to_curve.{{$CurveTitle}}Isogeny(&Q0.X, &Q0.Y)
+    hash_to_curve.{{$CurveTitle}}Isogeny(&Q1.X, &Q1.Y)
+{{ end }}
+
+	var _Q0, _Q1 {{$JacType}}
+	_Q0.FromAffine(&Q0)
+	_Q1.FromAffine(&Q1).AddAssign(&_Q0)
+	{{ if .Point.CofactorCleaning}}
+	    _Q1.ClearCofactor(&_Q1)
+	{{ end }}
+
+    Q1.FromJacobian(&_Q1)
+    return Q1, nil
+}
+
+{{if eq $.MappingAlgorithm "SSWU"}}
+    {{template "root_sswu" .}}
+{{end}}
+{{if eq $.MappingAlgorithm "SVDW"}}
+	{{template "root_svdw" .}}
+{{end}}

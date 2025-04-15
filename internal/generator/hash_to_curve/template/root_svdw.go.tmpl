@@ -1,5 +1,4 @@
-{{define "svdw"}}
-)
+{{define "root_svdw"}}
 {{$TowerDegree := .Field.Degree}}
 {{$CoordType := .Point.CoordType}}
 {{$CurveName := .Point.PointName}}
@@ -11,9 +10,10 @@
 {{if $IsG1}}{{$CurveIndex = "1"}}{{$B = "bCurveCoeff"}}{{end}}
 
 
-// MapToCurve{{$CurveIndex}} implements the Shallue and van de Woestijne method, applicable to any elliptic curve in Weierstrass form
-// No cofactor clearing or isogeny
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#straightline-svdw
+// MapToCurve{{$CurveIndex}} implements the Shallue and van de Woestijne method, applicable to any elliptic curve in Weierstrass form.
+// It does not perform cofactor clearing nor isogeny. Use [MapTo{{$CurveTitle}}] for mapping to group.
+//
+// See: https://www.rfc-editor.org/rfc/rfc9380.html#straightline-svdw
 func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
     var tv1, tv2, tv3, tv4 {{$CoordType}}
     var x1, x2, x3, gx1, gx2, gx, x, y {{$CoordType}}
@@ -81,7 +81,7 @@ func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
     gx.Add(&gx, &{{$B}}) //    32.  gx = gx + B
 
     y.Sqrt(&gx)                              //    33.   y = sqrt(gx)
-    signsNotEqual := {{$CurveName}}Sgn0(u) ^ {{$CurveName}}Sgn0(&y) //    34.  e3 = sgn0(u) == sgn0(y)
+    signsNotEqual := hash_to_curve.{{$CurveTitle}}Sgn0(u) ^ hash_to_curve.{{$CurveTitle}}Sgn0(&y) //    34.  e3 = sgn0(u) == sgn0(y)
 
     tv1.Neg(&y)
     y.Select(int(signsNotEqual), &y, &tv1) //    35.   y = CMOV(-y, y, e3)       # Select correct sign of y

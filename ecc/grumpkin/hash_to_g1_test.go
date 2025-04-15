@@ -7,6 +7,7 @@ package grumpkin
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/grumpkin/fp"
+
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 	"math/rand"

@@ -9,6 +9,9 @@
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+	{{ if $sswu }}
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/hash_to_curve"
+	{{- end }}
 	{{- if ne $TowerDegree 1}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
 	"strings"
@@ -25,46 +28,6 @@ import (
 {{- else if eq $CoordType "fptower.E4" }}
 	{{$fuzzer = "GenE4()"}}
 {{- end}}
-
-{{if $sswu}}
-func Test{{$CurveTitle}}SqrtRatio(t *testing.T) {
-	t.Parallel()
-	parameters := gopter.DefaultTestParameters()
-	if testing.Short() {
-		parameters.MinSuccessfulTests = nbFuzzShort
-	} else {
-		parameters.MinSuccessfulTests = nbFuzz
-	}
-
-
-	properties := gopter.NewProperties(parameters)
-
-	gen := {{$fuzzer}}
-
-
-	properties.Property("{{$CurveTitle}}SqrtRatio must square back to the right value", prop.ForAll(
-		func(u {{$CoordType}}, v {{$CoordType}}) bool {
-
-			var seen {{$CoordType}}
-			qr := {{$CurveName}}SqrtRatio(&seen, &u, &v) == 0
-
-			seen.
-				Square(&seen).
-				Mul(&seen, &v)
-
-			var ref {{$CoordType}}
-			if qr {
-				ref = u
-			} else {
-				{{$CurveName}}MulByZ(&ref, &u)
-			}
-
-			return seen.Equal(&ref)
-		}, gen, gen))
-
-	properties.TestingRun(t, gopter.ConsoleReporter(false))
-}
-{{end}}
 
 func TestHashToFp{{$CurveTitle}}(t *testing.T) {
 	for _, c := range encodeTo{{$CurveTitle}}Vector.cases {
@@ -106,7 +69,7 @@ func TestMapToCurve{{$CurveIndex}}(t *testing.T) {
 					t.Log("Mapping output not on E' curve")
 					return false
 				}
-				{{$CurveName}}Isogeny(&g)
+				hash_to_curve.{{$CurveTitle}}Isogeny(&g.X, &g.Y)
 			{{end}}
 
 			if !g.IsOnCurve() {
@@ -121,7 +84,7 @@ func TestMapToCurve{{$CurveIndex}}(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
-	{{$runIsogeny := select $isogenyNeeded "" (print $CurveName "Isogeny(&q)\n")}}
+	{{$runIsogeny := select $isogenyNeeded "" (print "hash_to_curve." $CurveTitle "Isogeny(&q.X, &q.Y)\n")}}
 
 	for _, c := range encodeTo{{$CurveTitle}}Vector.cases {
 		var u {{$CoordType}}
