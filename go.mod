@@ -2,6 +2,8 @@ module github.com/consensys/gnark-crypto
 
 go 1.23.0
 
+toolchain go1.23.8
+
 require (
 	github.com/bits-and-blooms/bitset v1.20.0
 	github.com/consensys/bavard v0.1.31-0.20250406004941-2db259e4b582
