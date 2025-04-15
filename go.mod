@@ -1,6 +1,7 @@
 module github.com/consensys/gnark-crypto
 
 go 1.22
+toolchain go1.24.1
 
 require (
 	github.com/bits-and-blooms/bitset v1.20.0
@@ -9,7 +10,7 @@ require (
 	github.com/mmcloughlin/addchain v0.4.0
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/crypto v0.33.0
+	golang.org/x/crypto v0.35.0
 	golang.org/x/sync v0.11.0
 	golang.org/x/sys v0.30.0
 	gopkg.in/yaml.v2 v2.4.0
