@@ -28,6 +28,7 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 		element.Sqrt,
 		element.Inverse,
 		element.BigNum,
+		element.CustomRandom,
 	}
 
 	// test file templates
