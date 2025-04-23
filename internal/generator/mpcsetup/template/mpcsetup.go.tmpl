@@ -19,7 +19,7 @@ func pokBase(xG curve.G1Affine, challenge []byte, dst byte) curve.G2Affine {
 	buf.Grow(len(challenge) + curve.SizeOfG1AffineUncompressed)
 	buf.Write(xG.Marshal())
 	buf.Write(challenge)
-	xpG2, err := curve.HashToG2(buf.Bytes(), []byte{dst})
+	xpG2, err := mpcHash(buf.Bytes(), []byte{dst})
 	if err != nil {
 		panic(err)
 	}
@@ -42,7 +42,7 @@ func UpdateValues(contributionValue *fr.Element, challenge []byte, dst byte, rep
 		contributionValue = new(fr.Element)
 	}
 	if contributionValue.IsZero() {
-		if _, err := contributionValue.SetRandom(); err != nil {
+		if _, err := setElementRandom(contributionValue); err != nil {
 			panic(err)
 		}	
 	}
@@ -215,7 +215,7 @@ func powersOfRandom(N int) []fr.Element {
 		x[0].SetOne()
 	}
 	if N > 1 {
-		if _, err := x[1].SetRandom(); err != nil {
+		if _, err := setElementRandom(&x[1]); err != nil {
 			panic(err)
 		}
 	}
