@@ -1,0 +1,111 @@
+package mpcsetup
+
+import (
+	"crypto/rand"
+	"io"
+	"sync"
+	
+	curve "github.com/consensys/gnark-crypto/ecc/{{.Name}}"
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+)
+
+// HashToG2Func defines a custom hash function interface for MPC setup ceremonies
+type HashToG2Func func(msg, dst []byte) (curve.G2Affine, error)
+
+// RandomSourceFunc defines a custom random source interface for generating random values
+type RandomSourceFunc func() (io.Reader, error)
+
+// MPCOptions holds configuration options for MPC operations
+type MPCOptions struct {
+	hashToG2Func    HashToG2Func
+	randomSourceFunc RandomSourceFunc
+}
+
+// defaultRandomSource returns crypto/rand.Reader as the default source of randomness
+func defaultRandomSource() (io.Reader, error) {
+	return rand.Reader, nil
+}
+
+var (
+	// defaultHashToG2 uses the standard curve.HashToG2 function
+	defaultHashToG2 = curve.HashToG2
+
+	// thread-safe global option defaults
+	globalMPCOptions = MPCOptions{
+		hashToG2Func:    defaultHashToG2,
+		randomSourceFunc: defaultRandomSource,
+	}
+	
+	// mutex to protect global options during updates
+	optionsMutex sync.RWMutex
+)
+
+// MPCOption defines a function that can configure MPC options
+type MPCOption func(*MPCOptions)
+
+// WithHashToG2 configures a custom hash-to-G2 function for MPC operations
+func WithHashToG2(hashFunc HashToG2Func) MPCOption {
+	return func(opts *MPCOptions) {
+		opts.hashToG2Func = hashFunc
+	}
+}
+
+// WithRandomSource configures a custom random source for MPC operations
+func WithRandomSource(randFunc RandomSourceFunc) MPCOption {
+	return func(opts *MPCOptions) {
+		opts.randomSourceFunc = randFunc
+	}
+}
+
+// mpcHash implements HashToG2 using the configured hash function
+func mpcHash(msg, dst []byte) (curve.G2Affine, error) {
+	optionsMutex.RLock()
+	hashFunc := globalMPCOptions.hashToG2Func
+	optionsMutex.RUnlock()
+	
+	return hashFunc(msg, dst)
+}
+
+// getRandomSource returns the configured random source
+func getRandomSource() (io.Reader, error) {
+	optionsMutex.RLock()
+	randFunc := globalMPCOptions.randomSourceFunc
+	optionsMutex.RUnlock()
+	
+	return randFunc()
+}
+
+// ConfigureMPC applies the provided options to the global MPC configuration
+func ConfigureMPC(opts ...MPCOption) {
+	optionsMutex.Lock()
+	defer optionsMutex.Unlock()
+	
+	for _, opt := range opts {
+		opt(&globalMPCOptions)
+	}
+}
+
+// setElementRandom sets an fr.Element to a random value using the configured random source
+func setElementRandom(e *fr.Element) (*fr.Element, error) {
+	reader, err := getRandomSource()
+	if err != nil {
+		return nil, err
+	}
+	
+	// l is number of limbs * 8; the number of bytes needed to reconstruct the fr.Element
+	const l = {{ if eq .FrNbWords 6 }}48{{ else if eq .FrNbWords 5 }}40{{ else if eq .FrNbWords 4 }}32{{ else }}32{{ end }}
+
+	// bitLen is the maximum bit length needed to encode a value < q
+	const bitLen = {{ .Fr.NbBits }}
+
+	// k is the maximum byte length needed to encode a value < q
+	const k = (bitLen + 7) / 8
+
+	// b is the number of bits in the most significant byte of q-1
+	b := uint(bitLen % 8)
+	if b == 0 {
+		b = 8
+	}
+
+	return e.SetRandomWithSource(reader, l, k, b)
+} 
