@@ -1,0 +1,189 @@
+package mpcsetup
+
+import (
+	"bytes"
+	"crypto/rand"
+	"crypto/sha256"
+	"io"
+	"testing"
+
+	curve "github.com/consensys/gnark-crypto/ecc/{{.Name}}"
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+)
+
+// ExampleCustomHashFunction demonstrates how to use a custom hash function for MPC setup
+func TestCustomHashFunction(t *testing.T) {
+	// Create a custom hash function that uses SHA-256 instead of the default HashToG2
+	customHashFunc := func(msg, dst []byte) (curve.G2Affine, error) {
+		// A simple example: hash the message with SHA-256 and map the result to G2
+		h := sha256.New()
+		h.Write(msg)
+		h.Write(dst)
+		digest := h.Sum(nil)
+		
+		// Use the built-in HashToG2 but with our custom digest
+		return curve.HashToG2(digest, []byte{0x01})
+	}
+
+	// Configure MPC with the custom hash function
+	ConfigureMPC(WithHashToG2(customHashFunc))
+
+	// Example challenge
+	challenge := []byte("test challenge")
+	
+	// Create a contribution
+	contributionValue := fr.NewElement(42)
+	
+	// Create a representation to update
+	_, _, g1, _ := curve.Generators()
+	repr := g1
+
+	// UpdateValues will now use our custom hash function through mpcHash
+	proof := UpdateValues(&contributionValue, challenge, 0x01, &repr)
+	
+	// Verify should also work with our custom hash function
+	err := proof.Verify(challenge, 0x01, ValueUpdate{Previous: g1, Next: repr})
+	if err != nil {
+		t.Fatalf("verification failed: %v", err)
+	}
+
+	// Reset to default hash function when done
+	ConfigureMPC(WithHashToG2(defaultHashToG2))
+}
+
+// ExampleCustomRandomSource demonstrates how to use a custom randomness source for MPC setup
+func TestCustomRandomSource(t *testing.T) {
+	// Create a deterministic random source for testing
+	deterministicSeed := []byte("fixed seed for deterministic randomness")
+	customRandomReader := bytes.NewReader(deterministicSeed)
+	
+	customRandomSource := func() (io.Reader, error) {
+		// In real applications, you might use a more complex source of randomness
+		// Reset the reader to the beginning for this example
+		customRandomReader.Reset(deterministicSeed)
+		return customRandomReader, nil
+	}
+
+	// Configure MPC with the custom randomness source
+	ConfigureMPC(WithRandomSource(customRandomSource))
+
+	// Generate two proofs with the same seed - they should be identical
+	challenge := []byte("test challenge")
+	
+	_, _, g1, _ := curve.Generators()
+	repr1 := g1
+	repr2 := g1
+
+	// UpdateValues without specifying a contribution value will use our custom randomness
+	proof1 := UpdateValues(nil, challenge, 0x01, &repr1)
+	
+	// Reset the reader to get the same "random" values
+	customRandomReader.Reset(deterministicSeed)
+	
+	proof2 := UpdateValues(nil, challenge, 0x01, &repr2)
+
+	// Both proofs should be identical because they used the same deterministic random source
+	if !proof1.contributionCommitment.Equal(&proof2.contributionCommitment) {
+		t.Fatal("expected identical contribution commitments")
+	}
+
+	if !proof1.contributionPok.Equal(&proof2.contributionPok) {
+		t.Fatal("expected identical contribution proofs of knowledge")
+	}
+
+	// Reset to default random source when done
+	ConfigureMPC(WithRandomSource(defaultRandomSource))
+}
+
+// ExampleCombinedOptions demonstrates using both custom hash and randomness together
+func TestCombinedOptions(t *testing.T) {
+	// Define custom hash function
+	customHashFunc := func(msg, dst []byte) (curve.G2Affine, error) {
+		h := sha256.New()
+		h.Write(msg)
+		h.Write(dst)
+		digest := h.Sum(nil)
+		return curve.HashToG2(digest, []byte{0x01})
+	}
+
+	// Define custom randomness source
+	fixedRandom := make([]byte, 64)
+	for i := range fixedRandom {
+		fixedRandom[i] = byte(i)
+	}
+	
+	customRandomSource := func() (io.Reader, error) {
+		return bytes.NewReader(fixedRandom), nil
+	}
+
+	// Configure MPC with both options at once
+	ConfigureMPC(
+		WithHashToG2(customHashFunc),
+		WithRandomSource(customRandomSource),
+	)
+
+	// Use the configured options
+	challenge := []byte("test challenge")
+	_, _, g1, _ := curve.Generators()
+	repr := g1
+
+	proof := UpdateValues(nil, challenge, 0x01, &repr)
+	
+	err := proof.Verify(challenge, 0x01, ValueUpdate{Previous: g1, Next: repr})
+	if err != nil {
+		t.Fatalf("verification failed: %v", err)
+	}
+
+	// Reset to defaults
+	ConfigureMPC(
+		WithHashToG2(defaultHashToG2),
+		WithRandomSource(defaultRandomSource),
+	)
+}
+
+// TestMPCThreadSafety verifies that different goroutines can use different options
+func TestMPCThreadSafety(t *testing.T) {
+	// Skip in short mode
+	if testing.Short() {
+		t.Skip("skipping thread safety test in short mode")
+	}
+
+	// Create two different random sources
+	source1 := rand.Reader
+	source2 := bytes.NewReader([]byte("second source"))
+
+	done := make(chan bool)
+	
+	// First goroutine uses the first random source
+	go func() {
+		ConfigureMPC(WithRandomSource(func() (io.Reader, error) {
+			return source1, nil
+		}))
+		
+		// Use randomness
+		var e fr.Element
+		setElementRandom(&e)
+		
+		done <- true
+	}()
+	
+	// Second goroutine uses the second random source
+	go func() {
+		ConfigureMPC(WithRandomSource(func() (io.Reader, error) {
+			return source2, nil
+		}))
+		
+		// Use randomness
+		var e fr.Element
+		setElementRandom(&e)
+		
+		done <- true
+	}()
+	
+	// Wait for both goroutines
+	<-done
+	<-done
+	
+	// Reset to default
+	ConfigureMPC(WithRandomSource(defaultRandomSource))
+} 
