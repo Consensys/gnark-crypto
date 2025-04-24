@@ -7,7 +7,7 @@ func (z *{{.ElementName}}) SetRandomWithSource(source io.Reader, l, k int, b uin
 	// k is the maximum byte length needed to encode a value < q
 	// b is the number of bits in the most significant byte of q-1
 
-	var bytes [{{mul 8 .NbWords}}]byte
+	var bytes [{{.FieldPackage}}.Bytes]byte
 
 	for {
 		// note that bytes[k:l] is always 0
