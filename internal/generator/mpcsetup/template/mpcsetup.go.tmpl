@@ -14,12 +14,12 @@ import (
 // Generate R∈𝔾₂ as Hash(gˢ, challenge, dst)
 // it is to be used as a challenge for generating a proof of knowledge to x
 // π ≔ x.R; e([1]₁, π) =﹖ e([x]₁, R)
-func pokBase(xG curve.G1Affine, challenge []byte, dst byte) curve.G2Affine {
+func (ceremony *Ceremony) pokBase(xG curve.G1Affine, challenge []byte, dst byte) curve.G2Affine {
 	var buf bytes.Buffer
 	buf.Grow(len(challenge) + curve.SizeOfG1AffineUncompressed)
 	buf.Write(xG.Marshal())
 	buf.Write(challenge)
-	xpG2, err := mpcHash(buf.Bytes(), []byte{dst})
+	xpG2, err := ceremony.Hash(buf.Bytes(), []byte{dst})
 	if err != nil {
 		panic(err)
 	}
@@ -37,12 +37,12 @@ type ValueUpdate struct {
 
 // UpdateValues scales g1 and g2 representations by the given contribution value and provides a proof of update correctness.
 // If the provided contribution value is zero, it will be randomized.
-func UpdateValues(contributionValue *fr.Element, challenge []byte, dst byte, representations ...any) UpdateProof {
+func (ceremony *Ceremony) UpdateValues(contributionValue *fr.Element, challenge []byte, dst byte, representations ...any) UpdateProof {
 	if contributionValue == nil {
 		contributionValue = new(fr.Element)
 	}
 	if contributionValue.IsZero() {
-		if _, err := setElementRandom(contributionValue); err != nil {
+		if _, err := ceremony.SetElementRandom(contributionValue); err != nil {
 			panic(err)
 		}	
 	}
@@ -74,7 +74,7 @@ func UpdateValues(contributionValue *fr.Element, challenge []byte, dst byte, rep
 	}
 
 	// proof of knowledge to commitment. Algorithm 3 from section 3.7
-	pokBase := pokBase(proof.contributionCommitment, challenge, dst) // r
+	pokBase := ceremony.pokBase(proof.contributionCommitment, challenge, dst) // r
 	proof.contributionPok.ScalarMultiplication(&pokBase, &contributionValueI)
 
 	return proof
@@ -82,7 +82,7 @@ func UpdateValues(contributionValue *fr.Element, challenge []byte, dst byte, rep
 
 // Verify that the updates to representations are consistent with the contribution in x.
 // Verify does not subgroup check the representations.
-func (x *UpdateProof) Verify(challenge []byte, dst byte, representations ...ValueUpdate) error {
+func (x *UpdateProof) Verify(ceremony *Ceremony, challenge []byte, dst byte, representations ...ValueUpdate) error {
 	if !x.contributionCommitment.IsInSubGroup() || !x.contributionPok.IsInSubGroup() {
 		return errors.New("proof subgroup check failed")
 	}
@@ -143,9 +143,9 @@ func (x *UpdateProof) Verify(challenge []byte, dst byte, representations ...Valu
 		}
 	}
 
-	r := powersOfRandom(max(g1Len, g2Len))
+	r := ceremony.powersOfRandom(max(g1Len, g2Len))
 
-	pokBase := pokBase(x.contributionCommitment, challenge, dst)
+	pokBase := ceremony.pokBase(x.contributionCommitment, challenge, dst)
 
 	_, _, g1, _ := curve.Generators()
 	if !sameRatio(x.contributionCommitment, g1, x.contributionPok, pokBase) { // π =? x.r i.e. x/g1 =? π/r
@@ -177,7 +177,7 @@ func (x *UpdateProof) Verify(challenge []byte, dst byte, representations ...Valu
 // used for the final update in a multiparty setup ceremony.
 // beaconChallenge is a publicly checkable value at time t, of
 // moderate entropy to any party before time t.
-func BeaconContributions(hash, dst, beaconChallenge []byte, n int) []fr.Element {
+func (ceremony *Ceremony) BeaconContributions(hash, dst, beaconChallenge []byte, n int) []fr.Element {
 	var (
 		bb  bytes.Buffer
 		err error
@@ -209,13 +209,13 @@ func BeaconContributions(hash, dst, beaconChallenge []byte, n int) []fr.Element 
 }
 
 // Returns [1, a, a², ..., aᴺ⁻¹ ] for random a
-func powersOfRandom(N int) []fr.Element {
+func (ceremony *Ceremony) powersOfRandom(N int) []fr.Element {
 	x := make([]fr.Element, N)
 	if N > 0 {
 		x[0].SetOne()
 	}
 	if N > 1 {
-		if _, err := setElementRandom(&x[1]); err != nil {
+		if _, err := ceremony.SetElementRandom(&x[1]); err != nil {
 			panic(err)
 		}
 	}
@@ -265,7 +265,7 @@ func (x *UpdateProof) ReadFrom(reader io.Reader) (n int64, err error) {
 // Caller must ensure that in one group,
 // there is a slice with a non-penultimate non-zero element
 // and in the other, there is a slice with a non-zero element
-func SameRatioMany(slices ...any) error {
+func (ceremony *Ceremony) SameRatioMany(slices ...any) error {
 
 	// let a₀ⱼ, a₁ⱼ, ..., b₀ₗ, b₁ₗ, ... represent the sequences
 	// such that all the aᵢⱼ are represented in one group
@@ -333,8 +333,8 @@ func SameRatioMany(slices ...any) error {
 	ends1 := utils.PartialSumsF(len(g1), func(i int) int { return len(g1[i]) })
 	ends2 := utils.PartialSumsF(len(g2), func(i int) int { return len(g2[i]) })
 
-	r1 := powersOfRandom(ends1[len(ends1)-1])
-	r2 := powersOfRandom(ends2[len(ends2)-1])
+	r1 := ceremony.powersOfRandom(ends1[len(ends1)-1])
+	r2 := ceremony.powersOfRandom(ends2[len(ends2)-1])
 
 	g1Flat := make([]curve.G1Affine, 0, ends1[len(ends1)-1])
 	for i := range g1 {
@@ -453,3 +453,21 @@ func linearCombinationG{{.I}}(A []curve.G{{.I}}Affine, r []fr.Element) curve.G{{
 
 {{ template "curveFuncs" dict "I" 1}}
 {{ template "curveFuncs" dict "I" 2}}
+
+// SameRatioMany is a global function that uses the default ceremony
+// for backward compatibility.
+func SameRatioMany(slices ...any) error {
+	return defaultCeremony.SameRatioMany(slices...)
+}
+
+// UpdateValues is a global function that uses the default ceremony
+// for backward compatibility.
+func UpdateValues(contributionValue *fr.Element, challenge []byte, dst byte, representations ...any) UpdateProof {
+	return defaultCeremony.UpdateValues(contributionValue, challenge, dst, representations...)
+}
+
+// BeaconContributions is a global function that uses the default ceremony
+// for backward compatibility.
+func BeaconContributions(hash, dst, beaconChallenge []byte, n int) []fr.Element {
+	return defaultCeremony.BeaconContributions(hash, dst, beaconChallenge, n)
+}
