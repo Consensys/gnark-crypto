@@ -1,0 +1,101 @@
+package mpcsetup
+
+import (
+	"crypto/rand"
+	"io"
+	
+	curve "github.com/consensys/gnark-crypto/ecc/{{.Name}}"
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+)
+
+// HashToG2Func defines a custom hash function interface for MPC setup ceremonies
+type HashToG2Func func(msg, dst []byte) (curve.G2Affine, error)
+
+// RandomSourceFunc defines a custom random source interface for generating random values
+type RandomSourceFunc func() (io.Reader, error)
+
+// defaultRandomSource returns crypto/rand.Reader as the default source of randomness
+func defaultRandomSource() (io.Reader, error) {
+	return rand.Reader, nil
+}
+
+// Ceremony represents an MPC setup ceremony with customizable options
+type Ceremony struct {
+	hashToG2      HashToG2Func
+	randomSource  RandomSourceFunc
+}
+
+// NewCeremony creates a new MPC ceremony with default options
+func NewCeremony() *Ceremony {
+	return &Ceremony{
+		hashToG2:     curve.HashToG2,
+		randomSource: defaultRandomSource,
+	}
+}
+
+// Default global ceremony instance for backward compatibility
+var defaultCeremony = NewCeremony()
+
+// DefaultCeremony returns the global default ceremony instance
+func DefaultCeremony() *Ceremony {
+	return defaultCeremony
+}
+
+// Option defines a function that can configure Ceremony options
+type Option func(*Ceremony)
+
+// WithHashToG2 configures a custom hash-to-G2 function for MPC operations
+func WithHashToG2(hashFunc HashToG2Func) Option {
+	return func(c *Ceremony) {
+		c.hashToG2 = hashFunc
+	}
+}
+
+// WithRandomSource configures a custom random source for MPC operations
+func WithRandomSource(randFunc RandomSourceFunc) Option {
+	return func(c *Ceremony) {
+		c.randomSource = randFunc
+	}
+}
+
+// Configure applies the provided options to the ceremony
+func (c *Ceremony) Configure(opts ...Option) {
+	for _, opt := range opts {
+		opt(c)
+	}
+}
+
+// Hash implements HashToG2 using the configured hash function
+func (c *Ceremony) Hash(msg, dst []byte) (curve.G2Affine, error) {
+	return c.hashToG2(msg, dst)
+}
+
+// GetRandomSource returns the configured random source
+func (c *Ceremony) GetRandomSource() (io.Reader, error) {
+	return c.randomSource()
+}
+
+// SetElementRandom sets an fr.Element to a random value using the configured random source
+func (c *Ceremony) SetElementRandom(e *fr.Element) (*fr.Element, error) {
+	reader, err := c.GetRandomSource()
+	if err != nil {
+		return nil, err
+	}
+	
+	// l is number of bytes needed to reconstruct the fr.Element
+	const l = {{ .Fr.NbBytes }}
+
+	// bitLen is the maximum bit length needed to encode a value < q
+	const bitLen = {{ .Fr.NbBits }}
+
+	// k is the maximum byte length needed to encode a value < q
+	const k = (bitLen + 7) / 8
+
+	// b is the number of bits in the most significant byte of q-1
+	b := uint(bitLen % 8)
+	if b == 0 {
+		b = 8
+	}
+
+	return e.SetRandomWithSource(reader, l, k, b)
+} 
