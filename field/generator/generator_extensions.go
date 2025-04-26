@@ -54,6 +54,7 @@ func generateExtensions(F *config.Field, outputDir string) error {
 		data.QInvNeg = F.QInverse[0]
 		entries_ext4 := []bavard.Entry{
 			{File: filepath.Join(outputDir, "e4.go"), Templates: []string{"e4.go.tmpl"}},
+			{File: filepath.Join(outputDir, "e4_vector.go"), Templates: []string{"e4.vector.go.tmpl"}},
 			{File: filepath.Join(outputDir, "e4_test.go"), Templates: []string{"e4_test.go.tmpl"}},
 		}
 
