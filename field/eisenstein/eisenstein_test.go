@@ -240,6 +240,42 @@ func TestEisensteinHalfGCD(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestEisensteinQuoRem(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+	genE := GenComplexNumber(boundSize)
+
+	properties.Property("QuoRem should be correct", prop.ForAll(
+		func(a, b *ComplexNumber) bool {
+			var z, rem ComplexNumber
+			z.QuoRem(a, b, &rem)
+			var res ComplexNumber
+			res.Mul(b, &z)
+			res.Add(&res, &rem)
+			return res.Equal(a)
+		},
+		genE,
+		genE,
+	))
+
+	properties.Property("QuoRem remainder should be smaller than divisor", prop.ForAll(
+		func(a, b *ComplexNumber) bool {
+			var z, rem ComplexNumber
+			z.QuoRem(a, b, &rem)
+			return rem.Norm().Cmp(b.Norm()) == -1
+		},
+		genE,
+		genE,
+	))
+}
+
 // GenNumber generates a random integer
 func GenNumber(boundSize int64) gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
