@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -274,6 +275,30 @@ func TestEisensteinQuoRem(t *testing.T) {
 		genE,
 		genE,
 	))
+}
+
+func TestRegressionHalfGCD1483(t *testing.T) {
+	// This test is a regression test for issue #1483 in gnark
+	a0, _ := new(big.Int).SetString("64502973549206556628585045361533709077", 10)
+	a1, _ := new(big.Int).SetString("-303414439467246543595250775667605759171", 10)
+	c0, _ := new(big.Int).SetString("-432420386565659656852420866390673177323", 10)
+	c1, _ := new(big.Int).SetString("238911465918039986966665730306072050094", 10)
+	a := ComplexNumber{A0: a0, A1: a1}
+	c := ComplexNumber{A0: c0, A1: c1}
+
+	ticker := time.NewTimer(time.Second * 3)
+	doneCh := make(chan struct{})
+	go func() {
+		HalfGCD(&a, &c)
+		close(doneCh)
+	}()
+
+	select {
+	case <-ticker.C:
+		t.Error("HalfGCD took too long to compute")
+	case <-doneCh:
+		// Test passed
+	}
 }
 
 // GenNumber generates a random integer
