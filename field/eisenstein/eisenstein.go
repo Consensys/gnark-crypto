@@ -9,6 +9,27 @@ type ComplexNumber struct {
 	A0, A1 *big.Int
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// helpers – hex-lattice geometry & symmetric rounding
+// ──────────────────────────────────────────────────────────────────────────────
+
+// six axial directions of the hexagonal lattice
+var neighbours = [][2]int64{
+	{1, 0}, {0, 1}, {-1, 1}, {-1, 0}, {0, -1}, {1, -1},
+}
+
+// roundNearest returns ⌊(z + d/2) / d⌋  for *any* sign of z, d>0
+func roundNearest(z, d *big.Int) *big.Int {
+	half := new(big.Int).Rsh(d, 1) // d / 2
+	if z.Sign() >= 0 {
+		return new(big.Int).Div(new(big.Int).Add(z, half), d)
+	}
+	tmp := new(big.Int).Neg(z)
+	tmp.Add(tmp, half)
+	tmp.Div(tmp, d)
+	return tmp.Neg(tmp)
+}
+
 func (z *ComplexNumber) init() {
 	if z.A0 == nil {
 		z.A0 = new(big.Int)
@@ -124,19 +145,55 @@ func (z *ComplexNumber) Norm() *big.Int {
 	return norm
 }
 
-// QuoRem sets z to the quotient of x and y, r to the remainder, and returns z and r.
+// QuoRem sets z to the Euclidean quotient of x / y, r to the remainder,
+// and guarantees ‖r‖ < ‖y‖ (true Euclidean division in ℤ[ω]).
 func (z *ComplexNumber) QuoRem(x, y, r *ComplexNumber) (*ComplexNumber, *ComplexNumber) {
-	norm := y.Norm()
-	if norm.Cmp(big.NewInt(0)) == 0 {
+
+	norm := y.Norm() // > 0  (Eisenstein norm is always non-neg)
+	if norm.Sign() == 0 {
 		panic("division by zero")
 	}
-	z.Conjugate(y)
-	z.Mul(x, z)
-	z.A0.Div(z.A0, norm)
-	z.A1.Div(z.A1, norm)
+
+	// num = x * ȳ   (ȳ computed in a fresh variable → y unchanged)
+	var yConj, num ComplexNumber
+	yConj.Conjugate(y)
+	num.Mul(x, &yConj)
+
+	// first guess by *symmetric* rounding of both coordinates
+	q0 := roundNearest(num.A0, norm)
+	q1 := roundNearest(num.A1, norm)
+	z.A0, z.A1 = q0, q1
+
+	// r = x – q*y
 	r.Mul(y, z)
 	r.Sub(x, r)
 
+	// If Euclidean inequality already holds we're done.
+	// Otherwise walk ≤2 unit steps in the hex lattice until N(r) < N(y).
+	if r.Norm().Cmp(norm) >= 0 {
+		bestQ0, bestQ1 := new(big.Int).Set(z.A0), new(big.Int).Set(z.A1)
+		bestR := new(ComplexNumber).Set(r)
+		bestN2 := bestR.Norm()
+
+		for _, dir := range neighbours {
+			candQ0 := new(big.Int).Add(z.A0, big.NewInt(dir[0]))
+			candQ1 := new(big.Int).Add(z.A1, big.NewInt(dir[1]))
+			var candQ ComplexNumber
+			candQ.A0, candQ.A1 = candQ0, candQ1
+
+			var candR ComplexNumber
+			candR.Mul(y, &candQ)
+			candR.Sub(x, &candR)
+
+			if candR.Norm().Cmp(bestN2) < 0 {
+				bestQ0, bestQ1 = candQ0, candQ1
+				bestR.Set(&candR)
+				bestN2 = bestR.Norm()
+			}
+		}
+		z.A0, z.A1 = bestQ0, bestQ1
+		r.Set(bestR) // update remainder and retry; Euclidean property ⇒ ≤ 2 loops
+	}
 	return z, r
 }
 
