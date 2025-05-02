@@ -170,7 +170,7 @@ func (z *ComplexNumber) QuoRem(x, y, r *ComplexNumber) (*ComplexNumber, *Complex
 
 	// If Euclidean inequality already holds we're done.
 	// Otherwise walk ≤2 unit steps in the hex lattice until N(r) < N(y).
-	for r.Norm().Cmp(norm) >= 0 {
+	if r.Norm().Cmp(norm) >= 0 {
 		bestQ0, bestQ1 := new(big.Int).Set(z.A0), new(big.Int).Set(z.A1)
 		bestR := new(ComplexNumber).Set(r)
 		bestN2 := bestR.Norm()
