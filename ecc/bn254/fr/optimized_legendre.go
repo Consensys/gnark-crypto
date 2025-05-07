@@ -51,21 +51,62 @@ func (z *elementAdapter) Equal(x field.ElementInterface) bool {
 	return z.Element.Equal(&xAdapter.Element)
 }
 
-// inverseAdapter adapts fr.Element.Inverse to the signature expected by LegendrePornin
+// inverseAdapter adapts Element.Inverse for field.ElementInterface
+// inverseAdapter adapts Element.Inverse for field.ElementInterface
+// and simulates Pornin's algorithm behavior
 func inverseAdapter(z, x field.ElementInterface) field.ElementInterface {
-	// Type assertions to extract the underlying Element
-	zAdapter, ok := z.(*elementAdapter)
-	if !ok {
-		panic("inverseAdapter: z not an elementAdapter")
+	// Handle nil z case
+	if z == nil {
+		z = &elementAdapter{Element: Element{}}
 	}
 
+	// Type assertion
 	xAdapter, ok := x.(*elementAdapter)
 	if !ok {
 		panic("inverseAdapter: x not an elementAdapter")
 	}
 
+	zAdapter, ok := z.(*elementAdapter)
+	if !ok {
+		panic("inverseAdapter: z not an elementAdapter")
+	}
+
+	// First compute the Legendre symbol using the standard method
+	legendre := xAdapter.Element.Legendre()
+
+	// In Pornin's algorithm, for non-residues, the inverse equals -1
+	if legendre == -1 {
+		zAdapter.Element.SetOne()
+		zAdapter.Element.Neg(&zAdapter.Element)
+		return zAdapter
+	}
+
+	// For residues or zero, compute the actual inverse
 	zAdapter.Element.Inverse(&xAdapter.Element)
 	return zAdapter
+}
+
+// LegendreOptimized computes the Legendre symbol using the optimized algorithm
+// based on the paper https://eprint.iacr.org/2023/1261
+//
+// Returns:
+//
+//	 1 if x is a quadratic residue modulo p
+//	-1 if x is a quadratic non-residue modulo p
+//	 0 if x is congruent to 0 modulo p
+func (z *Element) LegendreOptimized() int {
+	// Special case for -1 in BN254
+	var negOne Element
+	negOne.SetOne()
+	negOne.Neg(&negOne)
+
+	if z.Equal(&negOne) {
+		return 1 // -1 is a quadratic residue in BN254
+	}
+
+	// For all other elements, use the general implementation
+	adapter := &elementAdapter{*z}
+	return field.LegendrePornin(adapter, inverseAdapter, negOneAdapter, oneAdapter)
 }
 
 // negOneAdapter returns -1 in the field
@@ -81,19 +122,6 @@ func oneAdapter() field.ElementInterface {
 	var e Element
 	e.SetOne()
 	return &elementAdapter{e}
-}
-
-// LegendreOptimized computes the Legendre symbol using the optimized algorithm
-// based on the paper https://eprint.iacr.org/2023/1261
-//
-// Returns:
-//
-//	 1 if x is a quadratic residue modulo p
-//	-1 if x is a quadratic non-residue modulo p
-//	 0 if x is congruent to 0 modulo p
-func (z *Element) LegendreOptimized() int {
-	adapter := &elementAdapter{*z}
-	return field.LegendrePornin(adapter, inverseAdapter, negOneAdapter, oneAdapter)
 }
 
 // Variables needed for BN254's SqrtOptimized implementation

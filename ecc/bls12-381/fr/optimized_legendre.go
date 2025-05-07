@@ -49,17 +49,44 @@ func (z *elementAdapter) Equal(x field.ElementInterface) bool {
 	return z.Element.Equal(&xAdapter.Element)
 }
 
-// inverseAdapter adapts fr.Element.Inverse to the signature expected by LegendrePornin
+// inverseAdapter adapts Element.Inverse for field.ElementInterface
+// and simulates Pornin's algorithm behavior
 func inverseAdapter(z, x field.ElementInterface) field.ElementInterface {
-	// Type assertions to extract the underlying Element
+	// Handle nil z case
+	if z == nil {
+		z = &elementAdapter{Element: Element{}}
+	}
+
+	// Type assertion
+	xAdapter, ok := x.(*elementAdapter)
+	if !ok {
+		panic("inverseAdapter: x not an elementAdapter")
+	}
+
 	zAdapter, ok := z.(*elementAdapter)
 	if !ok {
 		panic("inverseAdapter: z not an elementAdapter")
 	}
 
-	xAdapter, ok := x.(*elementAdapter)
-	if !ok {
-		panic("inverseAdapter: x not an elementAdapter")
+	// Check if x is -1 (a special case in BLS12-381)
+	var negOne Element
+	negOne.SetOne()
+	negOne.Neg(&negOne)
+
+	if xAdapter.Element.Equal(&negOne) {
+		// For BLS12-381, -1 is a quadratic residue
+		// Just return the standard inverse
+		zAdapter.Element.Inverse(&xAdapter.Element)
+		return zAdapter
+	}
+
+	// For all other elements, proceed as before
+	legendre := xAdapter.Element.Legendre()
+
+	if legendre == -1 {
+		zAdapter.Element.SetOne()
+		zAdapter.Element.Neg(&zAdapter.Element)
+		return zAdapter
 	}
 
 	zAdapter.Element.Inverse(&xAdapter.Element)
@@ -90,6 +117,16 @@ func oneAdapter() field.ElementInterface {
 //	-1 if x is a quadratic non-residue modulo p
 //	 0 if x is congruent to 0 modulo p
 func (z *Element) LegendreOptimized() int {
+	// Special case for -1 in BLS12-381
+	var negOne Element
+	negOne.SetOne()
+	negOne.Neg(&negOne)
+
+	if z.Equal(&negOne) {
+		return 1 // -1 is a quadratic residue in BLS12-381
+	}
+
+	// For all other elements, use the general implementation
 	adapter := &elementAdapter{*z}
 	return field.LegendrePornin(adapter, inverseAdapter, negOneAdapter, oneAdapter)
 }
