@@ -1,3 +1,15 @@
 // Package mpcsetup provides tools for multiparty setup ceremonies for various protocols,
 // based on the MMPORPG paper https://eprint.iacr.org/2017/1050.pdf
+//
+// The package supports customization of hash functions and randomness sources:
+//
+// To use a custom hash function:
+//   customHashFunc := func(msg, dst []byte) (curve.G2Affine, error) { ... }
+//   mpcsetup.ConfigureMPC(mpcsetup.WithHashToG2(customHashFunc))
+//
+// To use a custom randomness source:
+//   customRandomSource := func() (io.Reader, error) { ... }
+//   mpcsetup.ConfigureMPC(mpcsetup.WithRandomSource(customRandomSource))
+//
+// These options can be combined and are thread-safe.
 package mpcsetup
