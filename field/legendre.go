@@ -44,16 +44,16 @@ func LegendrePornin(x ElementInterface,
 	}
 
 	// Allocate temporary elements
-	var inv, negOne, one ElementInterface
+	var inv ElementInterface
 
 	// Get the value of -1 in the field
-	negOne = negOneFunc()
+	negOne := negOneFunc()
 
 	// Get the value of 1 in the field
-	one = oneFunc()
+	one := oneFunc()
 
 	// Compute the inverse of x
-	inv = inverseFunc(inv, x)
+	inv = inverseFunc(nil, x)
 
 	// The key insight from the paper is that the Legendre symbol can be recovered
 	// from the Pornin's inversion algorithm without additional cost
@@ -70,8 +70,9 @@ func LegendrePornin(x ElementInterface,
 
 	// For other cases, we need to check if negation of inv is equal to inv
 	// If inv + inv = 0, then inv = -inv, which means x is a quadratic non-residue
-	var sum ElementInterface
-	sum = sum.Set(inv)
+	// Initialize sum to same concrete type as inv
+	sum := inverseFunc(nil, inv) // Use inverseFunc to create a new object of same type
+	sum.Set(inv)
 	sum = sum.Neg(sum)
 
 	if sum.Equal(inv) {

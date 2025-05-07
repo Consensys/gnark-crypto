@@ -48,8 +48,12 @@ func (z *mockElement) Equal(x ElementInterface) bool {
 	return z.value.Cmp(xMock.value) == 0
 }
 
-// mockInverse computes the modular inverse using big.Int
+// mockInverse computes the modular inverse using a simplified version of Pornin's algorithm
+// that also provides information about the Legendre symbol
 func mockInverse(z, x ElementInterface) ElementInterface {
+	if z == nil {
+		z = &mockElement{value: new(big.Int), prime: x.(*mockElement).prime}
+	}
 	xMock := x.(*mockElement)
 	if z.(*mockElement).value == nil {
 		z.(*mockElement).value = new(big.Int)
@@ -61,7 +65,20 @@ func mockInverse(z, x ElementInterface) ElementInterface {
 		return z
 	}
 
-	// Compute inverse using big.Int's ModInverse
+	// Compute (p-1)/2
+	exp := new(big.Int).Sub(xMock.prime, big.NewInt(1))
+	exp.Rsh(exp, 1)
+
+	// Calculate x^((p-1)/2) to determine if x is a quadratic residue
+	legendreResult := new(big.Int).Exp(xMock.value, exp, xMock.prime)
+
+	// For a non-residue, return -1 (represented as p-1 in the field)
+	if legendreResult.Cmp(big.NewInt(1)) != 0 {
+		z.(*mockElement).value.Sub(xMock.prime, big.NewInt(1))
+		return z
+	}
+
+	// For a residue, compute the actual inverse
 	z.(*mockElement).value.ModInverse(xMock.value, xMock.prime)
 	return z
 }
