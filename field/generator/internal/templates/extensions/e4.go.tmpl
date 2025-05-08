@@ -368,7 +368,6 @@ func MulAccE4(alpha *E4, scale []fr.Element, res []E4) {
 }
 {{- end}}
 
-
 // Butterfly computes the butterfly operation on two E4 elements
 func Butterfly(a, b *E4) {
 	fr.Butterfly(&a.B0.A0, &b.B0.A0)
