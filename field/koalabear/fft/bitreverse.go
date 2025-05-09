@@ -46,7 +46,7 @@ func BitReverseGeneric[T SmallField](v []T) {
 
 // BitReverse applies the bit-reversal permutation to v.
 // len(v) must be a power of 2
-func BitReverse[T SmallField](v []T) {
+func BitReverse(v []koalabear.Element) {
 	n := uint64(len(v))
 	if bits.OnesCount64(n) != 1 {
 		panic("len(a) must be a power of 2")
@@ -57,7 +57,7 @@ func BitReverse[T SmallField](v []T) {
 
 // bitReverseNaive applies the bit-reversal permutation to v.
 // len(v) must be a power of 2
-func bitReverseNaive[T SmallField](v []T) {
+func bitReverseNaive(v []koalabear.Element) {
 	n := uint64(len(v))
 	nn := uint64(64 - bits.TrailingZeros64(n))
 
