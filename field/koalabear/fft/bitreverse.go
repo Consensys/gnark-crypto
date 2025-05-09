@@ -16,37 +16,9 @@ type SmallField interface {
 	koalabear.Element | fext.E4
 }
 
-// BitReverseGeneric applies the bit-reversal permutation to the elements of slice v.
-// It is a generic function that works on slices of any type T.
-// Type T can be for example: koalabear.Element or fext.E4.
-func BitReverseGeneric[T SmallField](v []T) {
-	n := uint64(len(v))
-	// Check if the length is a power of 2 using bit manipulation
-	if bits.OnesCount64(n) != 1 {
-		panic("len(v) must be a power of 2")
-	}
-
-	// This is the naive bit-reversal algorithm (in-place swap)
-	// nn is used to calculate the significant bits for reversal
-	nn := uint64(64 - bits.TrailingZeros64(n))
-
-	for i := uint64(0); i < n; i++ {
-		// Calculate the bit-reversed index
-		// bits.Reverse64 reverses the 64-bit representation of i
-		// We then right-shift by nn to get the reversal within the range [0, n-1]
-		iRev := bits.Reverse64(i) >> nn
-
-		// Swap elements only if the reversed index is greater than the current index
-		// This prevents swapping elements twice (i -> iRev, then later iRev -> i)
-		if iRev > i {
-			v[i], v[iRev] = v[iRev], v[i]
-		}
-	}
-}
-
 // BitReverse applies the bit-reversal permutation to v.
 // len(v) must be a power of 2
-func BitReverse(v []koalabear.Element) {
+func BitReverse[T SmallField](v []T) {
 	n := uint64(len(v))
 	if bits.OnesCount64(n) != 1 {
 		panic("len(a) must be a power of 2")
@@ -57,7 +29,7 @@ func BitReverse(v []koalabear.Element) {
 
 // bitReverseNaive applies the bit-reversal permutation to v.
 // len(v) must be a power of 2
-func bitReverseNaive(v []koalabear.Element) {
+func bitReverseNaive[T SmallField](v []T) {
 	n := uint64(len(v))
 	nn := uint64(64 - bits.TrailingZeros64(n))
 

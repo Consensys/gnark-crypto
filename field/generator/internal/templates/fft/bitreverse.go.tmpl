@@ -19,10 +19,8 @@ type SmallField interface {
 
 // BitReverse applies the bit-reversal permutation to v.
 // len(v) must be a power of 2
-{{ if .F31}}
-func BitReverse[T SmallField](v []T) {
-{{- else}}
-func BitReverse(v []{{ .FF }}.Element) {
+{{ if .F31}}func BitReverse[T SmallField](v []T) {
+{{- else}}func BitReverse(v []{{ .FF }}.Element) {
 {{- end}}
 	n := uint64(len(v))
 	if bits.OnesCount64(n) != 1 {
@@ -42,10 +40,8 @@ func BitReverse(v []{{ .FF }}.Element) {
 
 // bitReverseNaive applies the bit-reversal permutation to v.
 // len(v) must be a power of 2
-{{ if .F31}}
-func bitReverseNaive[T SmallField](v []T) {
-{{- else}}
-func bitReverseNaive(v []{{ .FF }}.Element) {
+{{ if .F31}}func bitReverseNaive[T SmallField](v []T) {
+{{- else}}func bitReverseNaive(v []{{ .FF }}.Element) {
 {{- end}}
 	n := uint64(len(v))
 	nn := uint64(64 - bits.TrailingZeros64(n))
