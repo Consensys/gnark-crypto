@@ -33,10 +33,10 @@ func innerDITWithTwiddlesExt(a []fext.E4, twiddles []{{ .FF }}.Element, start, e
 }
 {{range $ki, $klog2 := $.Kernels}}
 	{{- $ksize := shl 1 $klog2}}
-func kerDIFNP_{{$ksize}}Ext(a []fext.E4, twiddles [][]{{ .FF }}.Element, stage int) {
+func kerDIFNP_{{$ksize}}Ext(a []fext.E4, twiddles [][]{{ $.FF }}.Element, stage int) {
 	kerDIFNP_{{$ksize}}genericExt(a, twiddles, stage)
 }
-func kerDITNP_{{$ksize}}Ext(a []fext.E4, twiddles [][]{{ .FF }}.Element, stage int) {
+func kerDITNP_{{$ksize}}Ext(a []fext.E4, twiddles [][]{{ $.FF }}.Element, stage int) {
 	kerDITNP_{{$ksize}}genericExt(a, twiddles, stage)
 }
 {{end}}

@@ -12,8 +12,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 
-	"github.com/consensys/gnark-crypto/field/koalabear"
-	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
+	"github.com/consensys/gnark-crypto/field/babybear"
+	fext "github.com/consensys/gnark-crypto/field/babybear/extensions"
 )
 
 // FFTExt computes the discrete Fourier transform of a slice of extension field elements.
@@ -39,7 +39,7 @@ func (domain *Domain) FFTExt(a []fext.E4, decimation Decimation, opts ...Option)
 			cosetTable := domain.cosetTable
 			if !domain.withPrecompute {
 				// we need to build the full table or do a bit reverse dance.
-				cosetTable = make([]koalabear.Element, len(a))
+				cosetTable = make([]babybear.Element, len(a))
 				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 			}
 			parallel.Execute(len(a), func(start, end int) {
@@ -61,7 +61,7 @@ func (domain *Domain) FFTExt(a []fext.E4, decimation Decimation, opts ...Option)
 			} else {
 				c := domain.FrMultiplicativeGen
 				parallel.Execute(len(a), func(start, end int) {
-					var at koalabear.Element
+					var at babybear.Element
 					at.Exp(c, big.NewInt(int64(start)))
 					for i := start; i < end; i++ {
 						a[i].MulByElement(&a[i], &at)
@@ -79,7 +79,7 @@ func (domain *Domain) FFTExt(a []fext.E4, decimation Decimation, opts ...Option)
 		twiddlesStartStage = 3
 		nbStages := int(bits.TrailingZeros64(domain.Cardinality))
 		if nbStages-twiddlesStartStage > 0 {
-			twiddles = make([][]koalabear.Element, nbStages-twiddlesStartStage)
+			twiddles = make([][]babybear.Element, nbStages-twiddlesStartStage)
 			w := domain.Generator
 			w.Exp(w, big.NewInt(int64(1<<twiddlesStartStage)))
 			buildTwiddles(twiddles, w, uint64(nbStages-twiddlesStartStage))
@@ -118,7 +118,7 @@ func (domain *Domain) FFTInverseExt(a []fext.E4, decimation Decimation, opts ...
 		twiddlesStartStage = 3
 		nbStages := int(bits.TrailingZeros64(domain.Cardinality))
 		if nbStages-twiddlesStartStage > 0 {
-			twiddlesInv = make([][]koalabear.Element, nbStages-twiddlesStartStage)
+			twiddlesInv = make([][]babybear.Element, nbStages-twiddlesStartStage)
 			w := domain.GeneratorInv
 			w.Exp(w, big.NewInt(int64(1<<twiddlesStartStage)))
 			buildTwiddles(twiddlesInv, w, uint64(nbStages-twiddlesStartStage))
@@ -162,7 +162,7 @@ func (domain *Domain) FFTInverseExt(a []fext.E4, decimation Decimation, opts ...
 		} else {
 			c := domain.FrMultiplicativeGenInv
 			parallel.Execute(len(a), func(start, end int) {
-				var at koalabear.Element
+				var at babybear.Element
 				at.Exp(c, big.NewInt(int64(start)))
 				at.Mul(&at, &domain.CardinalityInv)
 				for i := start; i < end; i++ {
@@ -178,7 +178,7 @@ func (domain *Domain) FFTInverseExt(a []fext.E4, decimation Decimation, opts ...
 	cosetTableInv := domain.cosetTableInv
 	if !domain.withPrecompute {
 		// we need to build the full table or do a bit reverse dance.
-		cosetTableInv = make([]koalabear.Element, len(a))
+		cosetTableInv = make([]babybear.Element, len(a))
 		BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
 	}
 	parallel.Execute(len(a), func(start, end int) {
@@ -193,7 +193,7 @@ func (domain *Domain) FFTInverseExt(a []fext.E4, decimation Decimation, opts ...
 
 }
 
-func difFFTExt(a []fext.E4, w koalabear.Element, twiddles [][]koalabear.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
+func difFFTExt(a []fext.E4, w babybear.Element, twiddles [][]babybear.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
 	if chDone != nil {
 		defer close(chDone)
 	}
@@ -219,7 +219,7 @@ func difFFTExt(a []fext.E4, w koalabear.Element, twiddles [][]koalabear.Element,
 					fext.Butterfly(&a[0], &a[m])
 					start++
 				}
-				var at koalabear.Element
+				var at babybear.Element
 				at.Exp(w, big.NewInt(int64(start)))
 				innerDIFWithoutTwiddlesExt(a, at, w, start, end, m)
 			}, nbTasks/(1<<(stage))) // 1 << stage == estimated used CPUs
@@ -249,7 +249,7 @@ func difFFTExt(a []fext.E4, w koalabear.Element, twiddles [][]koalabear.Element,
 
 }
 
-func innerDIFWithTwiddlesGenericExt(a []fext.E4, twiddles []koalabear.Element, start, end, m int) {
+func innerDIFWithTwiddlesGenericExt(a []fext.E4, twiddles []babybear.Element, start, end, m int) {
 	if start == 0 {
 		fext.Butterfly(&a[0], &a[m])
 		start++
@@ -260,7 +260,7 @@ func innerDIFWithTwiddlesGenericExt(a []fext.E4, twiddles []koalabear.Element, s
 	}
 }
 
-func innerDIFWithoutTwiddlesExt(a []fext.E4, at, w koalabear.Element, start, end, m int) {
+func innerDIFWithoutTwiddlesExt(a []fext.E4, at, w babybear.Element, start, end, m int) {
 	if start == 0 {
 		fext.Butterfly(&a[0], &a[m])
 		start++
@@ -272,7 +272,7 @@ func innerDIFWithoutTwiddlesExt(a []fext.E4, at, w koalabear.Element, start, end
 	}
 }
 
-func ditFFTExt(a []fext.E4, w koalabear.Element, twiddles [][]koalabear.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
+func ditFFTExt(a []fext.E4, w babybear.Element, twiddles [][]babybear.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
 	if chDone != nil {
 		defer close(chDone)
 	}
@@ -316,7 +316,7 @@ func ditFFTExt(a []fext.E4, w koalabear.Element, twiddles [][]koalabear.Element,
 					fext.Butterfly(&a[0], &a[m])
 					start++
 				}
-				var at koalabear.Element
+				var at babybear.Element
 				at.Exp(w, big.NewInt(int64(start)))
 				innerDITWithoutTwiddlesExt(a, at, w, start, end, m)
 			}, nbTasks/(1<<(stage))) // 1 << stage == estimated used CPUs
@@ -329,7 +329,7 @@ func ditFFTExt(a []fext.E4, w koalabear.Element, twiddles [][]koalabear.Element,
 	innerDITWithTwiddlesExt(a, twiddles[stage-twiddlesStartStage], 0, m, m)
 }
 
-func innerDITWithTwiddlesGenericExt(a []fext.E4, twiddles []koalabear.Element, start, end, m int) {
+func innerDITWithTwiddlesGenericExt(a []fext.E4, twiddles []babybear.Element, start, end, m int) {
 	if start == 0 {
 		fext.Butterfly(&a[0], &a[m])
 		start++
@@ -340,7 +340,7 @@ func innerDITWithTwiddlesGenericExt(a []fext.E4, twiddles []koalabear.Element, s
 	}
 }
 
-func innerDITWithoutTwiddlesExt(a []fext.E4, at, w koalabear.Element, start, end, m int) {
+func innerDITWithoutTwiddlesExt(a []fext.E4, at, w babybear.Element, start, end, m int) {
 	if start == 0 {
 		fext.Butterfly(&a[0], &a[m])
 		start++
@@ -352,7 +352,7 @@ func innerDITWithoutTwiddlesExt(a []fext.E4, at, w koalabear.Element, start, end
 	}
 }
 
-func kerDIFNP_256genericExt(a []fext.E4, twiddles [][]koalabear.Element, stage int) {
+func kerDIFNP_256genericExt(a []fext.E4, twiddles [][]babybear.Element, stage int) {
 	// code unrolled & generated by internal/generator/fft/template/fftext.go.tmpl
 
 	innerDIFWithTwiddlesGenericExt(a[:256], twiddles[stage+0], 0, 128, 128)
@@ -379,7 +379,7 @@ func kerDIFNP_256genericExt(a []fext.E4, twiddles [][]koalabear.Element, stage i
 	}
 }
 
-func kerDITNP_256genericExt(a []fext.E4, twiddles [][]koalabear.Element, stage int) {
+func kerDITNP_256genericExt(a []fext.E4, twiddles [][]babybear.Element, stage int) {
 	// code unrolled & generated by internal/generator/fft/template/fftext.go.tmpl
 
 	for offset := 0; offset < 256; offset += 2 {

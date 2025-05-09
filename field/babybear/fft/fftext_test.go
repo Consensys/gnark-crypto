@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/field/koalabear"
-	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
+	"github.com/consensys/gnark-crypto/field/babybear"
+	fext "github.com/consensys/gnark-crypto/field/babybear/extensions"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
@@ -244,10 +244,10 @@ func TestFFTExt(t *testing.T) {
 
 func randElementExt(rng *rand.Rand) fext.E4 {
 	var v fext.E4
-	v.B0.A0 = koalabear.Element{rng.Uint32N(2130706433)}
-	v.B0.A1 = koalabear.Element{rng.Uint32N(2130706433)}
-	v.B1.A0 = koalabear.Element{rng.Uint32N(2130706433)}
-	v.B1.A1 = koalabear.Element{rng.Uint32N(2130706433)}
+	v.B0.A0 = babybear.Element{rng.Uint32N(2013265921)}
+	v.B0.A1 = babybear.Element{rng.Uint32N(2013265921)}
+	v.B1.A0 = babybear.Element{rng.Uint32N(2013265921)}
+	v.B1.A1 = babybear.Element{rng.Uint32N(2013265921)}
 	return v
 }
 
@@ -386,9 +386,9 @@ func BenchmarkFFTDIFReferenceSmallExt(b *testing.B) {
 	}
 }
 
-func evaluatePolynomialExt(pol []fext.E4, val koalabear.Element) fext.E4 {
+func evaluatePolynomialExt(pol []fext.E4, val babybear.Element) fext.E4 {
 	var res, tmp fext.E4
-	var acc koalabear.Element
+	var acc babybear.Element
 	res.Set(&pol[0])
 	acc.Set(&val)
 	for i := 1; i < len(pol); i++ {

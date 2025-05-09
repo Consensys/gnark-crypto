@@ -58,7 +58,10 @@ func generateFFT(F *config.Field, fft *config.FFT, outputDir string) error {
 		{File: filepath.Join(outputDir, "bitreverse.go"), Templates: []string{"bitreverse.go.tmpl"}},
 		{File: filepath.Join(outputDir, "options.go"), Templates: []string{"options.go.tmpl"}},
 	}
-
+	if F.F31 {
+		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "fftext_test.go"), Templates: []string{"tests/fftext.go.tmpl"}})
+		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "fftext.go"), Templates: []string{"fftext.go.tmpl"}})
+	}
 	if data.HasASMKernel {
 		data.Q = F.Q[0]
 		data.QInvNeg = F.QInverse[0]
