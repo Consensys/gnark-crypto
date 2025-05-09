@@ -67,7 +67,7 @@ func TestFFTExt(t *testing.T) {
 					copy(backupPol, pol)
 
 					domain.FFTExt(pol, DIF)
-					BitReverseGeneric(pol)
+					BitReverse(pol)
 
 					sample := domain.Generator
 					sample.Exp(sample, big.NewInt(int64(ithpower)))
@@ -94,7 +94,7 @@ func TestFFTExt(t *testing.T) {
 					copy(backupPol, pol)
 
 					domain.FFTExt(pol, DIF, OnCoset())
-					BitReverseGeneric(pol)
+					BitReverse(pol)
 
 					sample := domain.Generator
 					sample.Exp(sample, big.NewInt(int64(ithpower))).
@@ -121,7 +121,7 @@ func TestFFTExt(t *testing.T) {
 					}
 					copy(backupPol, pol)
 
-					BitReverseGeneric(pol)
+					BitReverse(pol)
 					domain.FFTExt(pol, DIT)
 
 					sample := domain.Generator
@@ -147,10 +147,10 @@ func TestFFTExt(t *testing.T) {
 					}
 					copy(backupPol, pol)
 
-					BitReverseGeneric(pol)
+					BitReverse(pol)
 					domain.FFTExt(pol, DIT)
 					domain.FFTInverseExt(pol, DIF)
-					BitReverseGeneric(pol)
+					BitReverse(pol)
 
 					check := true
 					for i := 0; i < len(pol); i++ {
@@ -177,10 +177,10 @@ func TestFFTExt(t *testing.T) {
 
 						for i := 1; i <= nbCosets; i++ {
 
-							BitReverseGeneric(pol)
+							BitReverse(pol)
 							domain.FFTExt(pol, DIT, OnCoset())
 							domain.FFTInverseExt(pol, DIF, OnCoset())
-							BitReverseGeneric(pol)
+							BitReverse(pol)
 
 							for i := 0; i < len(pol); i++ {
 								check = check && pol[i].Equal(&backupPol[i])

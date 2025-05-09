@@ -12,14 +12,14 @@ import (
 	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
 )
 
-type SmallFiled interface {
+type SmallField interface {
 	koalabear.Element | fext.E4
 }
 
 // BitReverseGeneric applies the bit-reversal permutation to the elements of slice v.
 // It is a generic function that works on slices of any type T.
 // Type T can be for example: koalabear.Element or fext.E4.
-func BitReverseGeneric[T SmallFiled](v []T) {
+func BitReverseGeneric[T SmallField](v []T) {
 	n := uint64(len(v))
 	// Check if the length is a power of 2 using bit manipulation
 	if bits.OnesCount64(n) != 1 {
@@ -46,7 +46,7 @@ func BitReverseGeneric[T SmallFiled](v []T) {
 
 // BitReverse applies the bit-reversal permutation to v.
 // len(v) must be a power of 2
-func BitReverse(v []koalabear.Element) {
+func BitReverse[T SmallField](v []T) {
 	n := uint64(len(v))
 	if bits.OnesCount64(n) != 1 {
 		panic("len(a) must be a power of 2")
@@ -57,7 +57,7 @@ func BitReverse(v []koalabear.Element) {
 
 // bitReverseNaive applies the bit-reversal permutation to v.
 // len(v) must be a power of 2
-func bitReverseNaive(v []koalabear.Element) {
+func bitReverseNaive[T SmallField](v []T) {
 	n := uint64(len(v))
 	nn := uint64(64 - bits.TrailingZeros64(n))
 
