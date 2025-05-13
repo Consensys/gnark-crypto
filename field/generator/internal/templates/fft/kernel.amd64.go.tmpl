@@ -1,6 +1,8 @@
 import (
 	"github.com/consensys/gnark-crypto/utils/cpu"
 	"{{ .FieldPackagePath }}"
+	fext "{{ .FieldPackagePath }}/extensions"
+
 )
 
 
@@ -63,3 +65,72 @@ func kerDITNP_{{$ksize}}(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element
 }
 {{end}}
 
+
+func ConvertE4SliceToCoefficientSlices(input []fext.E4) [4][]{{ .FF }}.Element {
+	n := len(input)
+
+	// Create the four output slices, each with the same length as the input slice
+	outputC0 := make([]{{ .FF }}.Element, n)
+	outputC1 := make([]{{ .FF }}.Element, n)
+	outputC2 := make([]{{ .FF }}.Element, n)
+	outputC3 := make([]{{ .FF }}.Element, n)
+
+	// Iterate through the input slice and distribute the coefficients
+	for i := 0; i < n; i++ {
+		e4Element := input[i] // Get the current fext.E4 element
+
+		// Extract coefficients and place them into the corresponding output slices
+		outputC0[i] = e4Element.B0.A0
+		outputC1[i] = e4Element.B0.A1
+		outputC2[i] = e4Element.B1.A0
+		outputC3[i] = e4Element.B1.A1
+	}
+
+	// Return the four slices packaged in an array
+	return [4][]{{ .FF }}.Element{outputC0, outputC1, outputC2, outputC3}
+}
+
+func innerDIFWithTwiddlesExt(a []fext.E4, twiddles []{{ .FF }}.Element, start, end, m int) {
+	if !cpu.SupportAVX512 || m < 16 {
+		innerDIFWithTwiddlesGenericExt(a, twiddles, start, end, m)
+		return
+	}
+	for _, v :=range ConvertE4SliceToCoefficientSlices(a) {
+		innerDIFWithTwiddles_avx512(&v[0], &twiddles[0], start, end, m)
+	}
+}
+
+func innerDITWithTwiddlesExt(a []fext.E4, twiddles []{{ .FF }}.Element, start, end, m int) {
+	if !cpu.SupportAVX512 || m < 16 {
+		innerDITWithTwiddlesGenericExt(a, twiddles, start, end, m)
+		return
+	}
+	for _, v :=range ConvertE4SliceToCoefficientSlices(a) {
+		innerDITWithTwiddles_avx512(&v[0], &twiddles[0], start, end, m)
+	}
+}
+
+
+{{range $ki, $klog2 := $.Kernels}}
+	{{- $ksize := shl 1 $klog2}}
+
+func kerDIFNP_{{$ksize}}Ext(a []fext.E4, twiddles [][]{{ $.FF }}.Element, stage int) {
+	if !cpu.SupportAVX512 {
+		kerDIFNP_{{$ksize}}genericExt(a, twiddles, stage)
+		return
+	}
+	for _, v :=range ConvertE4SliceToCoefficientSlices(a) {
+		kerDIFNP_{{$ksize}}_avx512(v, twiddles, stage)
+	}
+}
+
+func kerDITNP_{{$ksize}}Ext(a []fext.E4, twiddles [][]{{ $.FF }}.Element, stage int) {
+	if !cpu.SupportAVX512 {
+		kerDITNP_{{$ksize}}genericExt(a, twiddles, stage)
+		return
+	}
+	for _, v :=range ConvertE4SliceToCoefficientSlices(a) {
+		kerDITNP_{{$ksize}}_avx512(v, twiddles, stage)
+	}
+}
+{{end}}
