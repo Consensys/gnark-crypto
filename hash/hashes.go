@@ -9,7 +9,36 @@ import (
 	"strings"
 )
 
-var hashes = make([]func() hash.Hash, maxHash)
+var (
+	hashes       = make([]func() hash.Hash, maxHash)
+	hashesByName = make(map[string]func() hash.Hash)
+)
+
+func findStdHashByName(name string) Hash {
+	for h := range maxHash {
+		if h.String() == name {
+			return h
+		}
+	}
+	return maxHash
+}
+
+// NewHash returns a new hash.Hash object for the given hash function name.
+// It can be a standard hash function (e.g. "MIMC_BN254"),
+// or a custom hash function defined by the user through RegisterCustomHash.
+func NewHash(name string) hash.Hash {
+	// first see if it's a standard hash function
+	if h := findStdHashByName(name); h < maxHash {
+		return h.New()
+	}
+
+	// see if it's a custom hash function - registered by the user
+	if f, ok := hashesByName[name]; ok {
+		return f()
+	}
+
+	panic(fmt.Errorf("hash function \"%s\" not registered", name))
+}
 
 // RegisterHash registers a new hash function constructor. Should be called in
 // the init function of the hash package.
@@ -20,7 +49,16 @@ func RegisterHash(h Hash, new func() hash.Hash) {
 	hashes[h] = new
 }
 
-// Hash defines an unique identifier for a hash function.
+// RegisterCustomHash registers a new hash function constructor, retrievable by name
+// using NewHash. It does not allow overwriting standard hash functions.
+func RegisterCustomHash(name string, new func() hash.Hash) {
+	if h := findStdHashByName(name); h < maxHash {
+		panic(fmt.Errorf("cannot overwrite standard hash function \"%s\"", name))
+	}
+	hashesByName[name] = new
+}
+
+// Hash defines a unique identifier for a hash function.
 type Hash uint
 
 const (
