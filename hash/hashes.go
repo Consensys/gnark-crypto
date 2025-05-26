@@ -25,7 +25,7 @@ func findStdHashByName(name string) Hash {
 
 // NewHash returns a new hash.Hash object for the given hash function name.
 // It can be a standard hash function (e.g. "MIMC_BN254"),
-// or a custom hash function defined by the user through RegisterCustomHash.
+// or a custom hash function defined by the user through [RegisterCustomHash].
 func NewHash(name string) hash.Hash {
 	// first see if it's a standard hash function
 	if h := findStdHashByName(name); h < maxHash {
