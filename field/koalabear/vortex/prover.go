@@ -56,7 +56,7 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 		}
 	})
 
-	// 2. Compute the SIS hashes of the encoded matrix (column-wise)
+	// 2. Compute the hashes of the encoded matrix (column-wise). By default, the hash function that is used is SIS.
 	sisHashes := transversalHash(codewords, p.Key, p.SizeCodeWord())
 
 	// 3. Compute the Merkle tree of the SIS hashes using Poseidon2

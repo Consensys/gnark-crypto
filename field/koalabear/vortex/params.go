@@ -9,12 +9,20 @@ import (
 	"github.com/consensys/gnark-crypto/field/koalabear/sis"
 )
 
+var (
+	ErrWrongSizeHash = errors.New("the hash size should be 32 bytes")
+)
+
+// NewHash a functions returning a hash. Hash functions are stored this way, to allocate
+// them when needed and parallelise the execution when possible.
+type NewHash = func() hash.Hash
+
 // Configuration options of the vortex prover
 type Config struct {
 	// hash function used to build the Merkle tree. By default, this hash is poseidon2.
-	merkleHashFunc hash.Hash
+	merkleHashFunc NewHash
 	// hash function used to hash the stacked codewords. By default, this hash function is SIS.
-	otherThanSis hash.Hash
+	otherThanSis NewHash
 }
 
 // Option provides options for altering the default behavior of the vortex prover.
@@ -26,15 +34,23 @@ type Option func(opt *Config) error
 // columns of the stacked codewords.
 func WithMerkleHash(h hash.Hash) Option {
 	return func(opt *Config) error {
-		opt.merkleHashFunc = h
+		bs := h.Size()
+		if bs != 32 {
+			return ErrWrongSizeHash
+		}
+		opt.merkleHashFunc = func() hash.Hash { return h }
 		return nil
 	}
 }
 
-// WithNoSis specifies the hash functino used to hash the columns of the stacked codewords.
+// WithNoSis specifies the hash function used to hash the columns of the stacked codewords.
 func WithNoSis(h hash.Hash) Option {
 	return func(opt *Config) error {
-		opt.otherThanSis = h
+		bs := h.Size()
+		if bs != 32 {
+			return ErrWrongSizeHash
+		}
+		opt.otherThanSis = func() hash.Hash { return h }
 		return nil
 	}
 }
