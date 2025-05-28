@@ -74,8 +74,7 @@ func TestMerkleTree(t *testing.T) {
 			}
 		}
 
-		var nh NewHash
-		nh = func() hash.Hash { return sha256.New() }
+		nh := func() hash.Hash { return sha256.New() }
 
 		tree := BuildMerkleTree(leaves[:], nh)
 
