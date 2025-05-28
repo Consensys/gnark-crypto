@@ -1,6 +1,8 @@
 import (
 	"github.com/consensys/gnark-crypto/utils/cpu"
 	"{{ .FieldPackagePath }}"
+	fext "{{ .FieldPackagePath }}/extensions"
+
 )
 
 
@@ -63,3 +65,39 @@ func kerDITNP_{{$ksize}}(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element
 }
 {{end}}
 
+func innerDIFWithTwiddlesExt(a []fext.E4, twiddles []{{ .FF }}.Element, start, end, m int) {
+	if !cpu.SupportAVX512 || m < 16 {
+		innerDIFWithTwiddlesGenericExt(a, twiddles, start, end, m)
+		return
+	}
+	//todo: use AVX512
+}
+
+func innerDITWithTwiddlesExt(a []fext.E4, twiddles []{{ .FF }}.Element, start, end, m int) {
+	if !cpu.SupportAVX512 || m < 16 {
+		innerDITWithTwiddlesGenericExt(a, twiddles, start, end, m)
+		return
+	}
+	//todo: use AVX512
+}
+
+
+{{range $ki, $klog2 := $.Kernels}}
+	{{- $ksize := shl 1 $klog2}}
+
+func kerDIFNP_{{$ksize}}Ext(a []fext.E4, twiddles [][]{{ $.FF }}.Element, stage int) {
+	if !cpu.SupportAVX512 {
+		kerDIFNP_{{$ksize}}genericExt(a, twiddles, stage)
+		return
+	}
+	//todo: use AVX512
+}
+
+func kerDITNP_{{$ksize}}Ext(a []fext.E4, twiddles [][]{{ $.FF }}.Element, stage int) {
+	if !cpu.SupportAVX512 {
+		kerDITNP_{{$ksize}}genericExt(a, twiddles, stage)
+		return
+	}
+	//todo: use AVX512
+}
+{{end}}

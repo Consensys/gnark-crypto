@@ -9,6 +9,7 @@ package fft
 
 import (
 	"github.com/consensys/gnark-crypto/field/koalabear"
+	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
 )
 
 func innerDIFWithTwiddles(a []koalabear.Element, twiddles []koalabear.Element, start, end, m int) {
@@ -24,4 +25,19 @@ func kerDIFNP_256(a []koalabear.Element, twiddles [][]koalabear.Element, stage i
 }
 func kerDITNP_256(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
 	kerDITNP_256generic(a, twiddles, stage)
+}
+
+func innerDIFWithTwiddlesExt(a []fext.E4, twiddles []koalabear.Element, start, end, m int) {
+	innerDIFWithTwiddlesGenericExt(a, twiddles, start, end, m)
+}
+
+func innerDITWithTwiddlesExt(a []fext.E4, twiddles []koalabear.Element, start, end, m int) {
+	innerDITWithTwiddlesGenericExt(a, twiddles, start, end, m)
+}
+
+func kerDIFNP_256Ext(a []fext.E4, twiddles [][]koalabear.Element, stage int) {
+	kerDIFNP_256genericExt(a, twiddles, stage)
+}
+func kerDITNP_256Ext(a []fext.E4, twiddles [][]koalabear.Element, stage int) {
+	kerDITNP_256genericExt(a, twiddles, stage)
 }

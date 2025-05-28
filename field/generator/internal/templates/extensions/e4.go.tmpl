@@ -367,3 +367,12 @@ func MulAccE4(alpha *E4, scale []fr.Element, res []E4) {
 	mulAccE4_avx512(alpha, &scale[0], &res[0], uint64(N))
 }
 {{- end}}
+
+// Butterfly computes the butterfly operation on two E4 elements
+func Butterfly(a, b *E4) {
+	fr.Butterfly(&a.B0.A0, &b.B0.A0)
+	fr.Butterfly(&a.B0.A1, &b.B0.A1)
+
+	fr.Butterfly(&a.B1.A0, &b.B1.A0)
+	fr.Butterfly(&a.B1.A1, &b.B1.A1)
+}

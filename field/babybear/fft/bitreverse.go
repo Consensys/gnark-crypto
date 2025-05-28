@@ -9,11 +9,16 @@ import (
 	"math/bits"
 
 	"github.com/consensys/gnark-crypto/field/babybear"
+	fext "github.com/consensys/gnark-crypto/field/babybear/extensions"
 )
+
+type SmallField interface {
+	babybear.Element | fext.E4
+}
 
 // BitReverse applies the bit-reversal permutation to v.
 // len(v) must be a power of 2
-func BitReverse(v []babybear.Element) {
+func BitReverse[T SmallField](v []T) {
 	n := uint64(len(v))
 	if bits.OnesCount64(n) != 1 {
 		panic("len(a) must be a power of 2")
@@ -24,7 +29,7 @@ func BitReverse(v []babybear.Element) {
 
 // bitReverseNaive applies the bit-reversal permutation to v.
 // len(v) must be a power of 2
-func bitReverseNaive(v []babybear.Element) {
+func bitReverseNaive[T SmallField](v []T) {
 	n := uint64(len(v))
 	nn := uint64(64 - bits.TrailingZeros64(n))
 
