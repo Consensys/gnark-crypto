@@ -1,5 +1,8 @@
 import (
 	"{{ .FieldPackagePath }}"
+	{{- if .F31}}
+	fext "{{ .FieldPackagePath }}/extensions"
+	{{- end}}
 )
 
 func innerDIFWithTwiddles(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
@@ -19,3 +22,22 @@ func kerDITNP_{{$ksize}}(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element
 	kerDITNP_{{$ksize}}generic(a, twiddles, stage)
 }
 {{end}}
+
+{{- if .F31}}
+func innerDIFWithTwiddlesExt(a []fext.E4, twiddles []{{ .FF }}.Element, start, end, m int) {
+	innerDIFWithTwiddlesGenericExt(a, twiddles, start, end, m)
+}
+
+func innerDITWithTwiddlesExt(a []fext.E4, twiddles []{{ .FF }}.Element, start, end, m int) {
+	innerDITWithTwiddlesGenericExt(a, twiddles, start, end, m)
+}
+{{range $ki, $klog2 := $.Kernels}}
+	{{- $ksize := shl 1 $klog2}}
+func kerDIFNP_{{$ksize}}Ext(a []fext.E4, twiddles [][]{{ $.FF }}.Element, stage int) {
+	kerDIFNP_{{$ksize}}genericExt(a, twiddles, stage)
+}
+func kerDITNP_{{$ksize}}Ext(a []fext.E4, twiddles [][]{{ $.FF }}.Element, stage int) {
+	kerDITNP_{{$ksize}}genericExt(a, twiddles, stage)
+}
+{{end}}
+{{- end}}

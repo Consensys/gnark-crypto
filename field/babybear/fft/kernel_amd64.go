@@ -9,6 +9,7 @@ package fft
 
 import (
 	"github.com/consensys/gnark-crypto/field/babybear"
+	fext "github.com/consensys/gnark-crypto/field/babybear/extensions"
 	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
@@ -64,4 +65,36 @@ func kerDITNP_256(a []babybear.Element, twiddles [][]babybear.Element, stage int
 		return
 	}
 	kerDITNP_256_avx512(a, twiddles, stage)
+}
+
+func innerDIFWithTwiddlesExt(a []fext.E4, twiddles []babybear.Element, start, end, m int) {
+	if !cpu.SupportAVX512 || m < 16 {
+		innerDIFWithTwiddlesGenericExt(a, twiddles, start, end, m)
+		return
+	}
+	//todo: use AVX512
+}
+
+func innerDITWithTwiddlesExt(a []fext.E4, twiddles []babybear.Element, start, end, m int) {
+	if !cpu.SupportAVX512 || m < 16 {
+		innerDITWithTwiddlesGenericExt(a, twiddles, start, end, m)
+		return
+	}
+	//todo: use AVX512
+}
+
+func kerDIFNP_256Ext(a []fext.E4, twiddles [][]babybear.Element, stage int) {
+	if !cpu.SupportAVX512 {
+		kerDIFNP_256genericExt(a, twiddles, stage)
+		return
+	}
+	//todo: use AVX512
+}
+
+func kerDITNP_256Ext(a []fext.E4, twiddles [][]babybear.Element, stage int) {
+	if !cpu.SupportAVX512 {
+		kerDITNP_256genericExt(a, twiddles, stage)
+		return
+	}
+	//todo: use AVX512
 }

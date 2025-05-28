@@ -10,22 +10,23 @@ import (
 	"testing"
 
 	"github.com/consensys/gnark-crypto/field/babybear"
+	fext "github.com/consensys/gnark-crypto/field/babybear/extensions"
 )
 
-type bitReverseVariant struct {
+type bitReverseVariant[T SmallField] struct {
 	name string
-	buf  []babybear.Element
-	fn   func([]babybear.Element)
+	buf  []T
+	fn   func([]T)
 }
 
 const maxSizeBitReverse = 1 << 23
 
-var bitReverse = []bitReverseVariant{
-	{name: "bitReverseNaive", buf: make([]babybear.Element, maxSizeBitReverse), fn: bitReverseNaive},
-	{name: "BitReverse", buf: make([]babybear.Element, maxSizeBitReverse), fn: BitReverse},
+var babybearBitReverse = []bitReverseVariant[babybear.Element]{
+	{name: "bitReverseNaive", buf: make([]babybear.Element, maxSizeBitReverse), fn: bitReverseNaive[babybear.Element]},
+	{name: "BitReverse", buf: make([]babybear.Element, maxSizeBitReverse), fn: BitReverse[babybear.Element]},
 }
 
-func TestBitReverse(t *testing.T) {
+func TestElementBitReverse(t *testing.T) {
 
 	// generate a random []babybear.Element array of size 2**20
 	pol := make([]babybear.Element, maxSizeBitReverse)
@@ -39,33 +40,33 @@ func TestBitReverse(t *testing.T) {
 	for size := 2; size <= maxSizeBitReverse; size <<= 1 {
 
 		// copy pol into the buffers
-		for _, data := range bitReverse {
+		for _, data := range babybearBitReverse {
 			copy(data.buf, pol[:size])
 		}
 
 		// compute bit reverse shuffling
-		for _, data := range bitReverse {
+		for _, data := range babybearBitReverse {
 			data.fn(data.buf[:size])
 		}
 
 		// all bitReverse.buf should hold the same result
 		for i := 0; i < size; i++ {
-			for j := 1; j < len(bitReverse); j++ {
-				if !bitReverse[0].buf[i].Equal(&bitReverse[j].buf[i]) {
-					t.Fatalf("bitReverse %s and %s do not compute the same result", bitReverse[0].name, bitReverse[j].name)
+			for j := 1; j < len(babybearBitReverse); j++ {
+				if !babybearBitReverse[0].buf[i].Equal(&babybearBitReverse[j].buf[i]) {
+					t.Fatalf("bitReverse %s and %s do not compute the same result", babybearBitReverse[0].name, babybearBitReverse[j].name)
 				}
 			}
 		}
 
 		// bitReverse back should be identity
-		for _, data := range bitReverse {
+		for _, data := range babybearBitReverse {
 			data.fn(data.buf[:size])
 		}
 
 		for i := 0; i < size; i++ {
-			for j := 1; j < len(bitReverse); j++ {
-				if !bitReverse[0].buf[i].Equal(&bitReverse[j].buf[i]) {
-					t.Fatalf("(fn-1) bitReverse %s and %s do not compute the same result", bitReverse[0].name, bitReverse[j].name)
+			for j := 1; j < len(babybearBitReverse); j++ {
+				if !babybearBitReverse[0].buf[i].Equal(&babybearBitReverse[j].buf[i]) {
+					t.Fatalf("(fn-1) bitReverse %s and %s do not compute the same result", babybearBitReverse[0].name, babybearBitReverse[j].name)
 				}
 			}
 		}
@@ -73,7 +74,7 @@ func TestBitReverse(t *testing.T) {
 
 }
 
-func BenchmarkBitReverse(b *testing.B) {
+func BenchmarkElementBitReverse(b *testing.B) {
 	// generate a random []babybear.Element array of size 2**22
 	pol := make([]babybear.Element, maxSizeBitReverse)
 	one := babybear.One()
@@ -83,13 +84,95 @@ func BenchmarkBitReverse(b *testing.B) {
 	}
 
 	// copy pol into the buffers
-	for _, data := range bitReverse {
+	for _, data := range babybearBitReverse {
 		copy(data.buf, pol[:maxSizeBitReverse])
 	}
 
 	// benchmark for each size, each bitReverse function
 	for size := 1 << 18; size <= maxSizeBitReverse; size <<= 1 {
-		for _, data := range bitReverse {
+		for _, data := range babybearBitReverse {
+			b.Run(fmt.Sprintf("name=%s/size=%d", data.name, size), func(b *testing.B) {
+				b.ResetTimer()
+				for j := 0; j < b.N; j++ {
+					data.fn(data.buf[:size])
+				}
+			})
+		}
+	}
+}
+
+var e4BitReverse = []bitReverseVariant[fext.E4]{
+	{name: "bitReverseNaive", buf: make([]fext.E4, maxSizeBitReverse), fn: bitReverseNaive[fext.E4]},
+	{name: "BitReverse", buf: make([]fext.E4, maxSizeBitReverse), fn: BitReverse[fext.E4]},
+}
+
+func TestE4BitReverse(t *testing.T) {
+
+	// generate a random []babybear.Element array of size 2**20
+	pol := make([]fext.E4, maxSizeBitReverse)
+	var one fext.E4
+	one.SetOne()
+	pol[0].MustSetRandom()
+	for i := 1; i < maxSizeBitReverse; i++ {
+		pol[i].Add(&pol[i-1], &one)
+	}
+
+	// for each size, check that all the bitReverse functions fn compute the same result.
+	for size := 2; size <= maxSizeBitReverse; size <<= 1 {
+
+		// copy pol into the buffers
+		for _, data := range e4BitReverse {
+			copy(data.buf, pol[:size])
+		}
+
+		// compute bit reverse shuffling
+		for _, data := range e4BitReverse {
+			data.fn(data.buf[:size])
+		}
+
+		// all bitReverse.buf should hold the same result
+		for i := 0; i < size; i++ {
+			for j := 1; j < len(e4BitReverse); j++ {
+				if !e4BitReverse[0].buf[i].Equal(&e4BitReverse[j].buf[i]) {
+					t.Fatalf("bitReverse %s and %s do not compute the same result", e4BitReverse[0].name, e4BitReverse[j].name)
+				}
+			}
+		}
+
+		// bitReverse back should be identity
+		for _, data := range e4BitReverse {
+			data.fn(data.buf[:size])
+		}
+
+		for i := 0; i < size; i++ {
+			for j := 1; j < len(e4BitReverse); j++ {
+				if !e4BitReverse[0].buf[i].Equal(&e4BitReverse[j].buf[i]) {
+					t.Fatalf("(fn-1) bitReverse %s and %s do not compute the same result", e4BitReverse[0].name, e4BitReverse[j].name)
+				}
+			}
+		}
+	}
+
+}
+
+func BenchmarkE4BitReverse(b *testing.B) {
+	// generate a random []E4 array of size 2**22
+	pol := make([]fext.E4, maxSizeBitReverse)
+	var one fext.E4
+	one.SetOne()
+	pol[0].MustSetRandom()
+	for i := 1; i < maxSizeBitReverse; i++ {
+		pol[i].Add(&pol[i-1], &one)
+	}
+
+	// copy pol into the buffers
+	for _, data := range e4BitReverse {
+		copy(data.buf, pol[:maxSizeBitReverse])
+	}
+
+	// benchmark for each size, each bitReverse function
+	for size := 1 << 18; size <= maxSizeBitReverse; size <<= 1 {
+		for _, data := range e4BitReverse {
 			b.Run(fmt.Sprintf("name=%s/size=%d", data.name, size), func(b *testing.B) {
 				b.ResetTimer()
 				for j := 0; j < b.N; j++ {
