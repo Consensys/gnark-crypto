@@ -117,7 +117,7 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 		Params:        p,
 		EncodedMatrix: codewords,
 		HashedColumns: hashedColumns,
-		MerkleTree:    BuildMerkleTree(merkleLeaves),
+		MerkleTree:    BuildMerkleTree(merkleLeaves, p.Conf.merkleHashFunc),
 	}, nil
 }
 

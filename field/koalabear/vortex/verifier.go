@@ -67,7 +67,7 @@ func (p *Params) Verify(input VerifierInput) error {
 
 		leaf := HashPoseidon2(sisHash)
 
-		if err := proof.MerkleProofOpenedColumns[i].Verify(c, leaf, root); err != nil {
+		if err := proof.MerkleProofOpenedColumns[i].Verify(c, leaf, root, p.Conf.merkleHashFunc); err != nil {
 			return fmt.Errorf("invalid proof: merkle proof verification failed: %w", err)
 		}
 	}

@@ -16,14 +16,14 @@ func TestMerkleTree(t *testing.T) {
 		assert := require.New(t)
 		leaves := [32]Hash{}
 
-		tree := BuildMerkleTree(leaves[:])
+		tree := BuildMerkleTree(leaves[:], nil)
 
 		for _, pos := range posLists {
 
 			proof, err := tree.Open(pos)
 			assert.NoError(err)
 
-			err = proof.Verify(pos, leaves[pos], tree.Root())
+			err = proof.Verify(pos, leaves[pos], tree.Root(), nil)
 			assert.NoError(err)
 		}
 	})
@@ -44,13 +44,13 @@ func TestMerkleTree(t *testing.T) {
 			}
 		}
 
-		tree := BuildMerkleTree(leaves[:])
+		tree := BuildMerkleTree(leaves[:], nil)
 
 		for _, pos := range posLists {
 			proof, err := tree.Open(pos)
 			assert.NoError(err)
 
-			err = proof.Verify(pos, leaves[pos], tree.Root())
+			err = proof.Verify(pos, leaves[pos], tree.Root(), nil)
 			assert.NoError(err)
 		}
 
