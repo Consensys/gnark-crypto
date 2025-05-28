@@ -45,8 +45,9 @@ func Implemented() []ID {
 }
 
 func IDFromString(s string) (ID, error) {
+	s = strings.ToLower(s)
 	for _, id := range Implemented() {
-		if strings.ToLower(s) == id.String() {
+		if s == id.String() {
 			return id, nil
 		}
 	}
