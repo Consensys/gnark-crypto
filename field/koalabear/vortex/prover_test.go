@@ -1,7 +1,9 @@
 package vortex
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
+	"hash"
 	"math/rand/v2"
 	"sync"
 	"testing"
@@ -18,6 +20,8 @@ type testcaseVortex struct {
 	Ys              []fext.E4
 	Alpha           fext.E4
 	SelectedColumns []int
+	NoSis           NewHash
+	MerkleHash      NewHash
 }
 
 func TestZeroMatrix(t *testing.T) {
@@ -85,6 +89,127 @@ func TestFullRandom(t *testing.T) {
 		Ys:              ys,
 		Alpha:           alpha,
 		SelectedColumns: selectedColumns,
+	})
+}
+
+func TestFullRandomNoSis(t *testing.T) {
+
+	var (
+		numCol = 16
+		numRow = 8
+		// #nosec G404 -- test case generation does not require a cryptographic PRNG
+		rng = rand.New(rand.NewChaCha8([32]byte{}))
+	)
+
+	var (
+		m               = make([][]koalabear.Element, numRow)
+		x               = randFext(rng)
+		ys              = make([]fext.E4, numRow)
+		alpha           = randFext(rng)
+		selectedColumns = []int{0, 1, 2, 3}
+		err             error
+	)
+
+	for i := range m {
+		m[i] = make([]koalabear.Element, numCol)
+		for j := range m[i] {
+			m[i][j] = randElement(rng)
+		}
+
+		ys[i], err = EvalBasePolyLagrange(m[i], x)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	runTest(t, &testcaseVortex{
+		M:               m,
+		X:               x,
+		Ys:              ys,
+		Alpha:           alpha,
+		SelectedColumns: selectedColumns,
+		NoSis:           func() hash.Hash { return sha256.New() },
+	})
+}
+
+func TestFullRandomNoPoseidon(t *testing.T) {
+
+	var (
+		numCol = 16
+		numRow = 8
+		// #nosec G404 -- test case generation does not require a cryptographic PRNG
+		rng = rand.New(rand.NewChaCha8([32]byte{}))
+	)
+
+	var (
+		m               = make([][]koalabear.Element, numRow)
+		x               = randFext(rng)
+		ys              = make([]fext.E4, numRow)
+		alpha           = randFext(rng)
+		selectedColumns = []int{0, 1, 2, 3}
+		err             error
+	)
+
+	for i := range m {
+		m[i] = make([]koalabear.Element, numCol)
+		for j := range m[i] {
+			m[i][j] = randElement(rng)
+		}
+
+		ys[i], err = EvalBasePolyLagrange(m[i], x)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	runTest(t, &testcaseVortex{
+		M:               m,
+		X:               x,
+		Ys:              ys,
+		Alpha:           alpha,
+		SelectedColumns: selectedColumns,
+		MerkleHash:      func() hash.Hash { return sha256.New() },
+	})
+}
+
+func TestFullRandomNoPoseidonNoSis(t *testing.T) {
+
+	var (
+		numCol = 16
+		numRow = 8
+		// #nosec G404 -- test case generation does not require a cryptographic PRNG
+		rng = rand.New(rand.NewChaCha8([32]byte{}))
+	)
+
+	var (
+		m               = make([][]koalabear.Element, numRow)
+		x               = randFext(rng)
+		ys              = make([]fext.E4, numRow)
+		alpha           = randFext(rng)
+		selectedColumns = []int{0, 1, 2, 3}
+		err             error
+	)
+
+	for i := range m {
+		m[i] = make([]koalabear.Element, numCol)
+		for j := range m[i] {
+			m[i][j] = randElement(rng)
+		}
+
+		ys[i], err = EvalBasePolyLagrange(m[i], x)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	runTest(t, &testcaseVortex{
+		M:               m,
+		X:               x,
+		Ys:              ys,
+		Alpha:           alpha,
+		SelectedColumns: selectedColumns,
+		NoSis:           func() hash.Hash { return sha256.New() },
+		MerkleHash:      func() hash.Hash { return sha256.New() },
 	})
 }
 
