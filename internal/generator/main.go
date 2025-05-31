@@ -80,7 +80,7 @@ func main() {
 			}
 
 			frOpts := []generator.Option{generator.WithASM(asmConfig)}
-			if !(conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) {
+			if !(conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN) || conf.Equal(config.BLS12_377_STRONG)) {
 				frOpts = append(frOpts, generator.WithFFT(fftConfig))
 			}
 			if conf.Equal(config.BLS12_377) {
@@ -103,6 +103,22 @@ func main() {
 				return
 			}
 
+			// generate tower of extension
+			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), bgen))
+
+			// generate pairing tests
+			assertNoError(pairing.Generate(conf, curveDir, bgen))
+
+			// generate hash to curve for both G1 and G2
+			assertNoError(hash_to_curve.Generate(conf, curveDir, bgen))
+
+			// generate kzg on fr
+			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), bgen))
+
+			if conf.Equal(config.BLS12_377_STRONG) {
+				return
+			}
+
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
 
@@ -122,9 +138,6 @@ func main() {
 			assertNoError(hash_to_field.Generate(frInfo, filepath.Join(curveDir, "fr", "hash_to_field"), bgen))
 			assertNoError(hash_to_field.Generate(fpInfo, filepath.Join(curveDir, "fp", "hash_to_field"), bgen))
 
-			// generate hash to curve for both G1 and G2
-			assertNoError(hash_to_curve.Generate(conf, curveDir, bgen))
-
 			if conf.Equal(config.GRUMPKIN) {
 				return
 			}
@@ -132,20 +145,11 @@ func main() {
 			// generate pedersen on fr
 			assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), bgen))
 
-			// generate tower of extension
-			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), bgen))
-
-			// generate pairing tests
-			assertNoError(pairing.Generate(conf, curveDir, bgen))
-
 			// generate fri on fr
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
 
 			// generate mpc setup tools
 			assertNoError(mpcsetup.Generate(conf, filepath.Join(curveDir, "mpcsetup"), bgen))
-
-			// generate kzg on fr
-			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), bgen))
 
 			// generate shplonk on fr
 			assertNoError(shplonk.Generate(conf, filepath.Join(curveDir, "shplonk"), bgen))

@@ -1,7 +1,7 @@
 // Copyright 2020-2025 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
-// Package ecc provides bls12-381, bls12-377, bn254, bw6-761, bls24-315, bls24-317, bw6-633, secp256k1 and stark-curve elliptic curves implementation (+pairing).
+// Package ecc provides bls12-381, bls12-377, bn254, bw6-761, bls24-315, bls24-317, bw6-633, secp256k1, stark-curve, grumpkin and bls12-377-strong elliptic curves implementation (+pairing).
 //
 // Also
 //
@@ -37,11 +37,12 @@ const (
 	STARK_CURVE
 	SECP256K1
 	GRUMPKIN
+	BLS12_377_STRONG
 )
 
 // Implemented return the list of curves fully implemented in gnark-crypto
 func Implemented() []ID {
-	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315, BW6_633, BLS24_317, STARK_CURVE, SECP256K1, GRUMPKIN}
+	return []ID{BN254, BLS12_377, BLS12_381, BW6_761, BLS24_315, BW6_633, BLS24_317, STARK_CURVE, SECP256K1, GRUMPKIN, BLS12_377_STRONG}
 }
 
 func IDFromString(s string) (ID, error) {
@@ -94,6 +95,8 @@ func (id ID) config() *config.Curve {
 		return &config.SECP256K1
 	case GRUMPKIN:
 		return &config.GRUMPKIN
+	case BLS12_377_STRONG:
+		return &config.BLS12_377_STRONG
 	default:
 		panic("unimplemented ecc ID")
 	}
