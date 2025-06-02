@@ -57,7 +57,7 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 	})
 
 	// 2. Compute the hashes of the encoded matrix (column-wise). By default, the hash function that is used is SIS.
-	hashedColumns := transversalHash(codewords, p.Key, p.SizeCodeWord(), p.Conf.otherThanSis)
+	hashedColumns := transversalHash(codewords, p.Key, p.SizeCodeWord(), p.Conf.columnHash)
 
 	// 3. Compute the Merkle tree of the SIS hashes using Poseidon2, or the provided hash if needed.
 	merkleLeaves := make([]Hash, sizeCodeWord)
@@ -67,7 +67,7 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 		// if for hashing the columns, we did not use poseidon, then keySize should be interpreted
 		// as 8, because in that case, the hashes of the columns are on 32bytes = 8 koalabear elements.
 		var sisKeySize int
-		if p.Conf.otherThanSis != nil {
+		if p.Conf.columnHash != nil {
 			sisKeySize = 8
 		} else {
 			sisKeySize = p.Key.Degree

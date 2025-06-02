@@ -13,16 +13,16 @@ var (
 	ErrWrongSizeHash = errors.New("the hash size should be 32 bytes")
 )
 
-// NewHash a functions returning a hash. Hash functions are stored this way, to allocate
+// HashConstructor a functions returning a hash. Hash functions are stored this way, to allocate
 // them when needed and parallelise the execution when possible.
-type NewHash = func() hash.Hash
+type HashConstructor = func() hash.Hash
 
 // Configuration options of the vortex prover
 type Config struct {
 	// hash function used to build the Merkle tree. By default, this hash is poseidon2.
-	merkleHashFunc NewHash
+	merkleHashFunc HashConstructor
 	// hash function used to hash the stacked codewords. By default, this hash function is SIS.
-	otherThanSis NewHash
+	columnHash HashConstructor
 }
 
 // Option provides options for altering the default behavior of the vortex prover.
@@ -43,20 +43,20 @@ func WithMerkleHash(h hash.Hash) Option {
 	}
 }
 
-// WithNoSis specifies the hash function used to hash the columns of the stacked codewords.
-func WithNoSis(h hash.Hash) Option {
+// WithColumnHash specifies the hash function used to hash the columns of the stacked codewords.
+func WithColumnHash(h hash.Hash) Option {
 	return func(opt *Config) error {
 		bs := h.Size()
 		if bs != 32 {
 			return ErrWrongSizeHash
 		}
-		opt.otherThanSis = func() hash.Hash { return h }
+		opt.columnHash = func() hash.Hash { return h }
 		return nil
 	}
 }
 
 func defaultConfig() Config {
-	return Config{merkleHashFunc: nil, otherThanSis: nil}
+	return Config{merkleHashFunc: nil, columnHash: nil}
 }
 
 // Params collects the public parameters of the commitment scheme. The object

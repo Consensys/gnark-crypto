@@ -28,8 +28,8 @@ type MerkleTree struct {
 // last one is the one just under the root. So it has a length of depth.
 type MerkleProof []Hash
 
-// hashNodesGeneric computes h(left || right), interpered the 32 bytes output as 8 koalabear elements.
-func hashNodesGeneric(h hash.Hash, left, right [8]koalabear.Element) [8]koalabear.Element {
+// hashNodes computes h(left || right), interpered the 32 bytes output as 8 koalabear elements.
+func hashNodes(h hash.Hash, left, right [8]koalabear.Element) [8]koalabear.Element {
 	h.Reset()
 	var res [8]koalabear.Element
 	for i := 0; i < 8; i++ {
@@ -47,8 +47,8 @@ func hashNodesGeneric(h hash.Hash, left, right [8]koalabear.Element) [8]koalabea
 
 // BuildMerkleTree builds a Merkle tree from a list of hashes. If the provided
 // number of leaves is not a power of two, the leaves are padded with zero
-// hashes. If newHash is nil, then poseidon is used by default.
-func BuildMerkleTree(hashes []Hash, newHash NewHash) *MerkleTree {
+// hashes. If altHash is nil, then poseidon is used by default.
+func BuildMerkleTree(hashes []Hash, altHash HashConstructor) *MerkleTree {
 
 	var (
 		numLeaves    = len(hashes)
@@ -70,7 +70,7 @@ func BuildMerkleTree(hashes []Hash, newHash NewHash) *MerkleTree {
 		}
 
 		levels[i] = make([]Hash, newPow2>>(depth-i))
-		if newHash == nil {
+		if altHash == nil {
 			if len(levels[i]) >= 512 {
 				parallel.Execute(len(levels[i]), func(start, end int) {
 					for k := start; k < end; k++ {
@@ -87,17 +87,17 @@ func BuildMerkleTree(hashes []Hash, newHash NewHash) *MerkleTree {
 		} else {
 			if len(levels[i]) >= 512 {
 				parallel.Execute(len(levels[i]), func(start, end int) {
-					h := newHash()
+					h := altHash()
 					for k := start; k < end; k++ {
 						left, right := levels[i+1][2*k], levels[i+1][2*k+1]
-						levels[i][k] = hashNodesGeneric(h, left, right)
+						levels[i][k] = hashNodes(h, left, right)
 					}
 				})
 			} else {
-				h := newHash()
+				h := altHash()
 				for k := range levels[i] {
 					left, right := levels[i+1][2*k], levels[i+1][2*k+1]
-					levels[i][k] = hashNodesGeneric(h, left, right)
+					levels[i][k] = hashNodes(h, left, right)
 				}
 			}
 		}
@@ -141,16 +141,16 @@ func (mt *MerkleTree) Open(i int) (MerkleProof, error) {
 
 // Verify checks the validity of a merkle membership proof. Returns nil
 // if it passes and an error indicating the failed check.
-// When newHash is nil, by default the poseidon2 hash function is used.
-func (proof MerkleProof) Verify(i int, leaf, root Hash, newHash NewHash) error {
+// When altHash is nil, by default the poseidon2 hash function is used.
+func (proof MerkleProof) Verify(i int, leaf, root Hash, altHash HashConstructor) error {
 
 	var (
 		parentPos = i
 		curNode   = leaf
 	)
 
-	if newHash != nil {
-		nh := newHash()
+	if altHash != nil {
+		nh := altHash()
 		for _, h := range proof {
 
 			a, b := curNode, h
@@ -158,7 +158,7 @@ func (proof MerkleProof) Verify(i int, leaf, root Hash, newHash NewHash) error {
 				a, b = b, a
 			}
 
-			curNode = hashNodesGeneric(nh, a, b)
+			curNode = hashNodes(nh, a, b)
 			parentPos = parentPos >> 1
 		}
 	} else {

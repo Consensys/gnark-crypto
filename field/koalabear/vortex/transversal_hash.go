@@ -7,7 +7,7 @@ import (
 )
 
 // transversalHash hashes the columns of codewords, using SIS by default, unless ots (="other than sis") is not nil.
-func transversalHash(codewords []koalabear.Element, s *sis.RSis, sizeCodeWord int, ots NewHash) []koalabear.Element {
+func transversalHash(codewords []koalabear.Element, s *sis.RSis, sizeCodeWord int, ots HashConstructor) []koalabear.Element {
 	if ots != nil {
 		return transveralHashGeneric(codewords, ots, sizeCodeWord)
 	} else {
@@ -18,7 +18,7 @@ func transversalHash(codewords []koalabear.Element, s *sis.RSis, sizeCodeWord in
 // transveralHashGeneric hashes the columns of the codewords in parallel
 // using the provided hash function, whose sum is on 32bytes. The result is a slice that should be read
 // 8 elements at a time, which makes 32 bytes, the i-th batch of 8 koalbear elements is the hash of the i-th column.
-func transveralHashGeneric(codewords []koalabear.Element, newHash NewHash, sizeCodeWord int) []koalabear.Element {
+func transveralHashGeneric(codewords []koalabear.Element, newHash HashConstructor, sizeCodeWord int) []koalabear.Element {
 
 	const nbKoalbearElementsPerHash = 8
 

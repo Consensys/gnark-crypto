@@ -20,8 +20,8 @@ type testcaseVortex struct {
 	Ys              []fext.E4
 	Alpha           fext.E4
 	SelectedColumns []int
-	NoSis           NewHash
-	MerkleHash      NewHash
+	ColumnHash      HashConstructor
+	MerkleHash      HashConstructor
 }
 
 func TestZeroMatrix(t *testing.T) {
@@ -92,7 +92,7 @@ func TestFullRandom(t *testing.T) {
 	})
 }
 
-func TestFullRandomNoSis(t *testing.T) {
+func TestFullRandomColumnHash(t *testing.T) {
 
 	var (
 		numCol = 16
@@ -128,7 +128,7 @@ func TestFullRandomNoSis(t *testing.T) {
 		Ys:              ys,
 		Alpha:           alpha,
 		SelectedColumns: selectedColumns,
-		NoSis:           func() hash.Hash { return sha256.New() },
+		ColumnHash:      func() hash.Hash { return sha256.New() },
 	})
 }
 
@@ -172,7 +172,7 @@ func TestFullRandomNoPoseidon(t *testing.T) {
 	})
 }
 
-func TestFullRandomNoPoseidonNoSis(t *testing.T) {
+func TestFullRandomNoPoseidonColumnHash(t *testing.T) {
 
 	var (
 		numCol = 16
@@ -208,7 +208,7 @@ func TestFullRandomNoPoseidonNoSis(t *testing.T) {
 		Ys:              ys,
 		Alpha:           alpha,
 		SelectedColumns: selectedColumns,
-		NoSis:           func() hash.Hash { return sha256.New() },
+		ColumnHash:      func() hash.Hash { return sha256.New() },
 		MerkleHash:      func() hash.Hash { return sha256.New() },
 	})
 }
