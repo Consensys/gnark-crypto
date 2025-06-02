@@ -31,7 +31,7 @@ type ProverState struct {
 	// time.
 	EncodedMatrix []koalabear.Element
 	// SisHashes are the SIS hashes of the encoded matrix
-	SisHashes []koalabear.Element
+	HashedColumns []koalabear.Element
 	// MerkleTree is the Merkle tree of the SIS hashes
 	MerkleTree *MerkleTree
 	// Ualpha is the linear combination of the rows of the encoded matrix
@@ -56,41 +56,68 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 		}
 	})
 
-	// 2. Compute the SIS hashes of the encoded matrix (column-wise)
-	sisHashes := transversalHash(codewords, p.Key, p.SizeCodeWord())
+	// 2. Compute the hashes of the encoded matrix (column-wise). By default, the hash function that is used is SIS.
+	hashedColumns := transversalHash(codewords, p.Key, p.SizeCodeWord(), p.Conf.columnHash)
 
-	// 3. Compute the Merkle tree of the SIS hashes using Poseidon2
+	// 3. Compute the Merkle tree of the SIS hashes using Poseidon2, or the provided hash if needed.
 	merkleLeaves := make([]Hash, sizeCodeWord)
 
-	const blockSize = 16
-	if sizeCodeWord%blockSize == 0 {
-		// we hash by blocks of 16 to leverage optimized SIMD implementation
-		// of Poseidon2 which require 16 hashes to be computed independently.
-		parallel.Execute(sizeCodeWord/blockSize, func(start, end int) {
-			sisKeySize := p.Key.Degree
-			for block := start; block < end; block++ {
-				b := block * blockSize
-				sStart := b * sisKeySize
-				sEnd := sStart + sisKeySize*blockSize
-				HashPoseidon2x16(sisHashes[sStart:sEnd], merkleLeaves[b:b+blockSize], sisKeySize)
+	if p.Conf.merkleHashFunc == nil { // in this case, we use poseidon2
+		const blockSize = 16
+		// if for hashing the columns, we did not use poseidon, then keySize should be interpreted
+		// as 8, because in that case, the hashes of the columns are on 32bytes = 8 koalabear elements.
+		var sisKeySize int
+		if p.Conf.columnHash != nil {
+			sisKeySize = 8
+		} else {
+			sisKeySize = p.Key.Degree
+		}
+		if sizeCodeWord%blockSize == 0 {
+			// we hash by blocks of 16 to leverage optimized SIMD implementation
+			// of Poseidon2 which require 16 hashes to be computed independently.
+			parallel.Execute(sizeCodeWord/blockSize, func(start, end int) {
+				for block := start; block < end; block++ {
+					b := block * blockSize
+					sStart := b * sisKeySize
+					sEnd := sStart + sisKeySize*blockSize
+					HashPoseidon2x16(hashedColumns[sStart:sEnd], merkleLeaves[b:b+blockSize], sisKeySize)
+				}
+			})
+		} else {
+			// unusual path; it means we have < 16 columns (tiny code words)
+			// so we do the hashes one by one.
+			for i := 0; i < sizeCodeWord; i++ {
+				sStart := i * sisKeySize
+				sEnd := sStart + sisKeySize
+				merkleLeaves[i] = HashPoseidon2(hashedColumns[sStart:sEnd])
+			}
+		}
+	} else {
+		// in this case, we split hashedColumns in sizeCodeWord blocks of equal size,
+		// and we hash them using the provided hash
+		sizeBatch := len(hashedColumns) / sizeCodeWord
+		nbBytes := koalabear.Bytes
+		parallel.Execute(sizeCodeWord, func(start, end int) {
+			h := p.Conf.merkleHashFunc()
+			for i := start; i < end; i++ {
+				sStart := sizeBatch * i
+				sEnd := sStart + sizeBatch
+				for j := sStart; j < sEnd; j++ {
+					h.Write(hashedColumns[j].Marshal())
+				}
+				curHash := h.Sum(nil)
+				for j := 0; j < 8; j++ {
+					merkleLeaves[i][j].SetBytes(curHash[nbBytes*j : nbBytes*j+nbBytes])
+				}
 			}
 		})
-	} else {
-		// unusual path; it means we have < 16 columns (tiny code words)
-		// so we do the hashes one by one.
-		for i := 0; i < sizeCodeWord; i++ {
-			sisKeySize := p.Key.Degree
-			sStart := i * sisKeySize
-			sEnd := sStart + sisKeySize
-			merkleLeaves[i] = HashPoseidon2(sisHashes[sStart:sEnd])
-		}
 	}
 
 	return &ProverState{
 		Params:        p,
 		EncodedMatrix: codewords,
-		SisHashes:     sisHashes,
-		MerkleTree:    BuildMerkleTree(merkleLeaves),
+		HashedColumns: hashedColumns,
+		MerkleTree:    BuildMerkleTree(merkleLeaves, p.Conf.merkleHashFunc),
 	}, nil
 }
 

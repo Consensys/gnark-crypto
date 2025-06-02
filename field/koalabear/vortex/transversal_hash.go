@@ -6,9 +6,50 @@ import (
 	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
-// transversalHash hashes the columns of the codewords in parallel
+// transversalHash hashes the columns of codewords, using SIS by default, unless ots (="other than sis") is not nil.
+func transversalHash(codewords []koalabear.Element, s *sis.RSis, sizeCodeWord int, ots HashConstructor) []koalabear.Element {
+	if ots != nil {
+		return transveralHashGeneric(codewords, ots, sizeCodeWord)
+	} else {
+		return transversalHashSIS(codewords, s, sizeCodeWord)
+	}
+}
+
+// transveralHashGeneric hashes the columns of the codewords in parallel
+// using the provided hash function, whose sum is on 32bytes. The result is a slice that should be read
+// 8 elements at a time, which makes 32 bytes, the i-th batch of 8 koalbear elements is the hash of the i-th column.
+func transveralHashGeneric(codewords []koalabear.Element, newHash HashConstructor, sizeCodeWord int) []koalabear.Element {
+
+	const nbKoalbearElementsPerHash = 8
+
+	nbCols := sizeCodeWord
+	nbRows := len(codewords) / sizeCodeWord
+
+	// the result in that case consists of concatenated blocks of 32 bytes, interpreted as 8 consecutive koalabear elements.
+	res := make([]koalabear.Element, nbCols*nbKoalbearElementsPerHash)
+
+	parallel.Execute(nbCols, func(start, end int) {
+		h := newHash()
+		for i := start; i < end; i++ {
+			for j := 0; j < nbRows; j++ {
+				curElmt := codewords[j*nbCols+i]
+				h.Write(curElmt.Marshal())
+			}
+			curHash := h.Sum(nil)
+			s := i * nbKoalbearElementsPerHash
+			byteSize := koalabear.Bytes
+			for j := 0; j < nbKoalbearElementsPerHash; j++ {
+				res[s+j].SetBytes(curHash[j*byteSize : (j+1)*byteSize])
+			}
+		}
+	})
+	return res
+}
+
+// transversalHashSIS hashes the columns of the codewords in parallel
 // using the SIS hash function.
-func transversalHash(codewords []koalabear.Element, s *sis.RSis, sizeCodeWord int) []koalabear.Element {
+func transversalHashSIS(codewords []koalabear.Element, s *sis.RSis, sizeCodeWord int) []koalabear.Element {
+
 	nbCols := sizeCodeWord
 	nbRows := len(codewords) / sizeCodeWord
 	sisKeySize := s.Degree

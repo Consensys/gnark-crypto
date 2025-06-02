@@ -2,6 +2,7 @@ package vortex
 
 import (
 	"errors"
+	"hash"
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/poseidon2"
@@ -27,10 +28,27 @@ type MerkleTree struct {
 // last one is the one just under the root. So it has a length of depth.
 type MerkleProof []Hash
 
+// hashNodes computes h(left || right), interpered the 32 bytes output as 8 koalabear elements.
+func hashNodes(h hash.Hash, left, right [8]koalabear.Element) [8]koalabear.Element {
+	h.Reset()
+	var res [8]koalabear.Element
+	for i := 0; i < 8; i++ {
+		h.Write(left[i].Marshal())
+	}
+	for i := 0; i < 8; i++ {
+		h.Write(right[i].Marshal())
+	}
+	s := h.Sum(nil)
+	for i := 0; i < 8; i++ {
+		res[i].SetBytes(s[4*i : 4*i+4])
+	}
+	return res
+}
+
 // BuildMerkleTree builds a Merkle tree from a list of hashes. If the provided
 // number of leaves is not a power of two, the leaves are padded with zero
-// hashes.
-func BuildMerkleTree(hashes []Hash) *MerkleTree {
+// hashes. If altHash is nil, then poseidon is used by default.
+func BuildMerkleTree(hashes []Hash, altHash HashConstructor) *MerkleTree {
 
 	var (
 		numLeaves    = len(hashes)
@@ -52,17 +70,35 @@ func BuildMerkleTree(hashes []Hash) *MerkleTree {
 		}
 
 		levels[i] = make([]Hash, newPow2>>(depth-i))
-		if len(levels[i]) >= 512 {
-			parallel.Execute(len(levels[i]), func(start, end int) {
-				for k := start; k < end; k++ {
+		if altHash == nil {
+			if len(levels[i]) >= 512 {
+				parallel.Execute(len(levels[i]), func(start, end int) {
+					for k := start; k < end; k++ {
+						left, right := levels[i+1][2*k], levels[i+1][2*k+1]
+						levels[i][k] = CompressPoseidon2(left, right)
+					}
+				})
+			} else {
+				for k := range levels[i] {
 					left, right := levels[i+1][2*k], levels[i+1][2*k+1]
 					levels[i][k] = CompressPoseidon2(left, right)
 				}
-			})
+			}
 		} else {
-			for k := range levels[i] {
-				left, right := levels[i+1][2*k], levels[i+1][2*k+1]
-				levels[i][k] = CompressPoseidon2(left, right)
+			if len(levels[i]) >= 512 {
+				parallel.Execute(len(levels[i]), func(start, end int) {
+					h := altHash()
+					for k := start; k < end; k++ {
+						left, right := levels[i+1][2*k], levels[i+1][2*k+1]
+						levels[i][k] = hashNodes(h, left, right)
+					}
+				})
+			} else {
+				h := altHash()
+				for k := range levels[i] {
+					left, right := levels[i+1][2*k], levels[i+1][2*k+1]
+					levels[i][k] = hashNodes(h, left, right)
+				}
 			}
 		}
 
@@ -105,22 +141,37 @@ func (mt *MerkleTree) Open(i int) (MerkleProof, error) {
 
 // Verify checks the validity of a merkle membership proof. Returns nil
 // if it passes and an error indicating the failed check.
-func (proof MerkleProof) Verify(i int, leaf, root Hash) error {
+// When altHash is nil, by default the poseidon2 hash function is used.
+func (proof MerkleProof) Verify(i int, leaf, root Hash, altHash HashConstructor) error {
 
 	var (
 		parentPos = i
 		curNode   = leaf
 	)
 
-	for _, h := range proof {
+	if altHash != nil {
+		nh := altHash()
+		for _, h := range proof {
 
-		a, b := curNode, h
-		if parentPos&1 == 1 {
-			a, b = b, a
+			a, b := curNode, h
+			if parentPos&1 == 1 {
+				a, b = b, a
+			}
+
+			curNode = hashNodes(nh, a, b)
+			parentPos = parentPos >> 1
 		}
+	} else {
+		for _, h := range proof {
 
-		curNode = CompressPoseidon2(a, b)
-		parentPos = parentPos >> 1
+			a, b := curNode, h
+			if parentPos&1 == 1 {
+				a, b = b, a
+			}
+
+			curNode = CompressPoseidon2(a, b)
+			parentPos = parentPos >> 1
+		}
 	}
 
 	if curNode != root {

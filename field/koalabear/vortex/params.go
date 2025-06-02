@@ -2,11 +2,62 @@ package vortex
 
 import (
 	"errors"
+	"hash"
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/fft"
 	"github.com/consensys/gnark-crypto/field/koalabear/sis"
 )
+
+var (
+	ErrWrongSizeHash = errors.New("the hash size should be 32 bytes")
+)
+
+// HashConstructor a functions returning a hash. Hash functions are stored this way, to allocate
+// them when needed and parallelise the execution when possible.
+type HashConstructor = func() hash.Hash
+
+// Configuration options of the vortex prover
+type Config struct {
+	// hash function used to build the Merkle tree. By default, this hash is poseidon2.
+	merkleHashFunc HashConstructor
+	// hash function used to hash the stacked codewords. By default, this hash function is SIS.
+	columnHash HashConstructor
+}
+
+// Option provides options for altering the default behavior of the vortex prover.
+// See the descriptions of the functions returning instances of this
+// type for available options.
+type Option func(opt *Config) error
+
+// WithMerkleHash specifies the hash function used to build the Merkle tree of the hashed
+// columns of the stacked codewords.
+func WithMerkleHash(h hash.Hash) Option {
+	return func(opt *Config) error {
+		bs := h.Size()
+		if bs != 32 {
+			return ErrWrongSizeHash
+		}
+		opt.merkleHashFunc = func() hash.Hash { return h }
+		return nil
+	}
+}
+
+// WithColumnHash specifies the hash function used to hash the columns of the stacked codewords.
+func WithColumnHash(h hash.Hash) Option {
+	return func(opt *Config) error {
+		bs := h.Size()
+		if bs != 32 {
+			return ErrWrongSizeHash
+		}
+		opt.columnHash = func() hash.Hash { return h }
+		return nil
+	}
+}
+
+func defaultConfig() Config {
+	return Config{merkleHashFunc: nil, columnHash: nil}
+}
 
 // Params collects the public parameters of the commitment scheme. The object
 // should not be constructed directly (use [NewParamsSis] or [NewParamsNoSis])
@@ -39,6 +90,10 @@ type Params struct {
 
 	// Coset table of the small domain, bit reversed
 	CosetTableBitReverse koalabear.Vector
+
+	// Conf is used to provide some customisation and to alter the default behavior
+	// of the vortex prover.
+	Conf Config
 }
 
 // NewParams constructs a new set of public parameters.
@@ -48,6 +103,7 @@ func NewParams(
 	sisParams *sis.RSis,
 	reedSolomonInvRate int,
 	numSelectedColumns int,
+	opts ...Option,
 ) (*Params, error) {
 	if numColumns < 1 || !isPowerOfTwo(numColumns) {
 		return nil, errors.New("number of columns must be a power of two")
@@ -56,6 +112,16 @@ func NewParams(
 	if reedSolomonInvRate != 2 && reedSolomonInvRate != 4 && reedSolomonInvRate != 8 {
 		// note: tested only with these.
 		return nil, errors.New("reed solomon rate must be 2, 4 or 8")
+	}
+
+	conf := defaultConfig()
+	if len(opts) != 0 {
+		for _, opt := range opts {
+			err := opt(&conf)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	shift, err := koalabear.Generator(uint64(numColumns * reedSolomonInvRate))
