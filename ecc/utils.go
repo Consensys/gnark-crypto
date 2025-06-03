@@ -155,6 +155,21 @@ func SplitScalar(s *big.Int, l *Lattice) [2]big.Int {
 	return v
 }
 
+// SplitScalarStrict similar to SplitScalar but does not increase bounds on k1
+// and k2
+func SplitScalarStrict(s *big.Int, l *Lattice) [2]big.Int {
+
+	var k1, k2 big.Int
+	k1.Mul(s, &l.V2[1])
+	k2.Mul(s, &l.V1[1]).Neg(&k2)
+	rounding(&k1, &l.Det, &k1)
+	rounding(&k2, &l.Det, &k2)
+	v := getVector(l, &k1, &k2)
+	v[0].Sub(s, &v[0])
+	v[1].Neg(&v[1])
+	return v
+}
+
 // sets res to the closest integer from n/d
 func rounding(n, d, res *big.Int) {
 	var dshift, r, one big.Int
