@@ -1,0 +1,61 @@
+import (
+	"math/big"
+	"errors"
+	"strings"
+)
+
+var mID = map[string]ID{
+	{{- range $curve := .}}
+	"{{toLower $curve.EnumID}}": {{toUpper $curve.EnumID}},
+	{{- end}}
+}
+
+// ScalarField returns the scalar field of the curve
+func (id ID) ScalarField() *big.Int {
+	f := new(big.Int)
+	switch id {
+	{{- range $curve := .}}
+	case {{toUpper $curve.EnumID}}:
+		f.SetString("{{$curve.FrModulus}}", 10)
+	{{- end}}
+	default:
+		panic("unimplemented ecc ID")
+	}
+	return f
+}
+
+// BaseField returns the base field of the curve
+func (id ID) BaseField() *big.Int {
+	f := new(big.Int)
+	switch id {
+	{{- range $curve := .}}
+	case {{toUpper $curve.EnumID}}:
+		f.SetString("{{$curve.FpModulus}}", 10)
+	{{- end}}
+	default:
+		panic("unimplemented ecc ID")
+	}
+	return f
+}
+
+// String returns the string representation of the ID
+func (id ID) String() string {
+	switch id {
+	{{- range $curve := .}}
+	case {{toUpper $curve.EnumID}}:
+		return "{{toLower $curve.EnumID}}"
+	{{- end}}
+	default:
+		panic("unimplemented ecc ID")
+	}
+}
+
+// IDFromString returns the ID corresponding to the string representation of the curve ID.
+// It returns UNKNOWN if the string does not match any known curve ID.
+func IDFromString(s string) (ID, error) {
+	s = strings.ToLower(s)
+	if id, ok := mID[s]; ok {
+		return id, nil
+	}
+	return UNKNOWN, errors.New("unknown curve ID")
+}

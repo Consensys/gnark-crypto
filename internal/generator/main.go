@@ -187,6 +187,15 @@ func main() {
 
 	wg.Wait()
 
+	// generate the ecc_field.go file
+	{
+		entries := []bavard.Entry{
+			{File: filepath.Join(baseDir, "ecc", "ecc_field.go"), Templates: []string{"ecc_field.go.tmpl"}},
+		}
+
+		assertNoError(bgen.Generate(config.Curves, "ecc", "./config/template", entries...))
+	}
+
 	// format the whole directory
 
 	cmd := exec.Command("gofmt", "-s", "-w", baseDir)
