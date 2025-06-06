@@ -143,6 +143,41 @@ func TestIsInSubGroupBatchProbabilistic(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestTatePairings(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 1
+
+	properties := gopter.NewProperties(parameters)
+
+	// size of the multiExps
+	const nbSamples = 100
+
+	properties.Property("[BLS12-381] Tate(P3,Q) should be 1", prop.ForAll(
+		func(a fr.Element) bool {
+			var g G1Affine
+			var s big.Int
+			a.BigInt(&s)
+			g.ScalarMultiplication(&g1GenAff, &s)
+			return isFirstTateOne(g)
+		},
+		GenFr(),
+	))
+
+	properties.Property("[BLS12-381] Tate(P11,Q) should be 1", prop.ForAll(
+		func(a fr.Element) bool {
+			var g G1Affine
+			var s big.Int
+			a.BigInt(&s)
+			g.ScalarMultiplication(&g1GenAff, &s)
+			return isSecondTateOne(g)
+		},
+		GenFr(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 // benches
 func BenchmarkIsInSubGroupBatchNaive(b *testing.B) {
 	const nbSamples = 100

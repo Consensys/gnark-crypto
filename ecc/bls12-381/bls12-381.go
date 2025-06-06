@@ -86,10 +86,6 @@ var endo struct {
 // seed x₀ of the curve
 var xGen big.Int
 
-// exp1 = (p-1)/3 and exp2 = (p-1)/11
-// TODO: short addition chain or Euclidean-friendly alg.
-var exp1, exp2 big.Int
-
 // 𝔽p²
 type E2 = fptower.E2
 
@@ -144,11 +140,6 @@ func init() {
 	// -x₀
 	xGen.SetString("15132376222941642752", 10)
 
-	// (p-1)/3
-	exp1.SetString("1334136518407222464472596608578634718852294273313002628444019378708010550163612621480895876376338554679298090853262", 10)
-
-	// (p-1)/11
-	exp2.SetString("363855414111060672128889984157809468777898438176273444121096194193093786408257987676607966284455969457990388414526", 10)
 }
 
 // Generators return the generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
