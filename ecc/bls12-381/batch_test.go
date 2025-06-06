@@ -75,8 +75,8 @@ func TestIsInSubGroupBatch(t *testing.T) {
 			// random points in G1
 			result := BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:])
 
-			bound := big.NewInt(10)
-			rounds := 16
+			bound := big.NewInt(10177)
+			rounds := 5
 			return IsInSubGroupBatch(result, bound, rounds)
 		},
 		GenFr(),
@@ -99,8 +99,8 @@ func TestIsInSubGroupBatch(t *testing.T) {
 			h := fuzzCofactorOfG1(a)
 			result[0].FromJacobian(&h)
 
-			bound := big.NewInt(10)
-			rounds := 16
+			bound := big.NewInt(10177)
+			rounds := 5
 			return !IsInSubGroupBatch(result, bound, rounds)
 		},
 		GenFr(),
@@ -134,8 +134,8 @@ func TestIsInSubGroupBatchProbabilistic(t *testing.T) {
 				result[i-1].Y.SetUint64(2)
 			}
 
-			bound := big.NewInt(10)
-			rounds := 1
+			bound := big.NewInt(10177)
+			rounds := 5
 			return !IsInSubGroupBatch(result, bound, rounds)
 		},
 		GenFr(),
@@ -178,8 +178,8 @@ func BenchmarkIsInSubGroupBatch(b *testing.B) {
 	}
 
 	result := BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:])
-	bound := big.NewInt(10)
-	round := 16
+	bound := big.NewInt(10177)
+	round := 5
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
