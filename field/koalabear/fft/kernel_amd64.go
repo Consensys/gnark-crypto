@@ -68,33 +68,17 @@ func kerDITNP_256(a []koalabear.Element, twiddles [][]koalabear.Element, stage i
 }
 
 func innerDIFWithTwiddlesExt(a []fext.E4, twiddles []koalabear.Element, start, end, m int) {
-	if !cpu.SupportAVX512 || m < 16 {
-		innerDIFWithTwiddlesGenericExt(a, twiddles, start, end, m)
-		return
-	}
-	//todo: use AVX512
+	innerDIFWithTwiddlesGenericExt(a, twiddles, start, end, m)
 }
 
 func innerDITWithTwiddlesExt(a []fext.E4, twiddles []koalabear.Element, start, end, m int) {
-	if !cpu.SupportAVX512 || m < 16 {
-		innerDITWithTwiddlesGenericExt(a, twiddles, start, end, m)
-		return
-	}
-	//todo: use AVX512
+	innerDITWithTwiddlesGenericExt(a, twiddles, start, end, m)
 }
 
 func kerDIFNP_256Ext(a []fext.E4, twiddles [][]koalabear.Element, stage int) {
-	if !cpu.SupportAVX512 {
-		kerDIFNP_256genericExt(a, twiddles, stage)
-		return
-	}
-	//todo: use AVX512
+	kerDIFNP_256genericExt(a, twiddles, stage)
 }
 
 func kerDITNP_256Ext(a []fext.E4, twiddles [][]koalabear.Element, stage int) {
-	if !cpu.SupportAVX512 {
-		kerDITNP_256genericExt(a, twiddles, stage)
-		return
-	}
-	//todo: use AVX512
+	kerDITNP_256genericExt(a, twiddles, stage)
 }
