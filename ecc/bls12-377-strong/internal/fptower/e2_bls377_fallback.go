@@ -8,13 +8,12 @@ package fptower
 
 import "github.com/consensys/gnark-crypto/ecc/bls12-377-strong/fp"
 
-// MulByNonResidue multiplies a E2 by (2,1)
+// MulByNonResidue multiplies a E2 by (1,1)
 func (z *E2) MulByNonResidue(x *E2) *E2 {
-	var a, b fp.Element
-	a.Sub(&x.A0, &x.A1).Add(&a, &x.A0)
-	b.Add(&x.A0, &x.A1).Add(&b, &x.A1)
+	var a fp.Element
+	a.Sub(&x.A0, &x.A1)
+	z.A1.Add(&x.A0, &x.A1)
 	z.A0.Set(&a)
-	z.A1.Set(&b)
 	return z
 }
 

@@ -194,10 +194,10 @@ func BenchmarkElementSqrt(b *testing.B) {
 
 func BenchmarkElementMul(b *testing.B) {
 	x := Element{
-		159601395380919676,
-		17053060860846466642,
-		1323309642859107810,
-		746212071199815604,
+		18273044879332403152,
+		16312153591867235799,
+		9803066275926783043,
+		431477938147681453,
 	}
 	benchResElement.SetOne()
 	b.ResetTimer()
@@ -208,10 +208,10 @@ func BenchmarkElementMul(b *testing.B) {
 
 func BenchmarkElementCmp(b *testing.B) {
 	x := Element{
-		159601395380919676,
-		17053060860846466642,
-		1323309642859107810,
-		746212071199815604,
+		18273044879332403152,
+		16312153591867235799,
+		9803066275926783043,
+		431477938147681453,
 	}
 	benchResElement = x
 	benchResElement[0] = 0
@@ -1661,8 +1661,8 @@ func TestElementFixedExp(t *testing.T) {
 		_bSqrtExponentElement     *big.Int
 	)
 
-	_bLegendreExponentElement, _ = new(big.Int).SetString("800000000000458c000000000e2b936a000001487f850898000b27c08e49044", 16)
-	const sqrtExponentElement = "10000000000008b18000000001c5726d400000290ff0a113000164f811c9208"
+	_bLegendreExponentElement, _ = new(big.Int).SetString("859c9533410b8adb0e60b1111b9f288196f5984532baf5707c3e3471f000000", 16)
+	const sqrtExponentElement = "42ce4a99a085c56d873058888dcf9440cb7acc22995d7ab83e1f1a38f"
 	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
 
 	genA := gen()
@@ -1678,7 +1678,7 @@ func TestElementFixedExp(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("expByLegendreExp must match Exp(800000000000458c000000000e2b936a000001487f850898000b27c08e49044)", prop.ForAll(
+	properties.Property("expByLegendreExp must match Exp(859c9533410b8adb0e60b1111b9f288196f5984532baf5707c3e3471f000000)", prop.ForAll(
 		func(a testPairElement) bool {
 			c := a.element
 			d := a.element

@@ -37,6 +37,22 @@ func squareGenericE2(z, x *E2) *E2 {
 	return z
 }
 
+var twoInv = fp.Element{
+	15952676756872232930, 14764254841087517144, 13045867254554899604,
+	10700960296423856768, 1904153463246014616, 1638958640659776,
+}
+
+// MulByNonResidueInv multiplies a E2 by (1,1)^{-1}
+func (z *E2) MulByNonResidueInv(x *E2) *E2 {
+
+	var tmp fp.Element
+	tmp.Add(&x.A0, &x.A1)
+	z.A1.Sub(&x.A1, &x.A0).Mul(&z.A1, &twoInv)
+	z.A0.Set(&tmp).Mul(&z.A0, &twoInv)
+
+	return z
+}
+
 // Inverse sets z to the E2-inverse of x, returns z
 //
 // if x == 0, sets and returns z = x
@@ -59,4 +75,16 @@ func (z *E2) norm(x *fp.Element) {
 	x.Square(&z.A0)
 	tmp.Square(&z.A1)
 	x.Add(x, &tmp)
+}
+
+// MulBybTwistCurveCoeff multiplies by 4(1,1)
+func (z *E2) MulBybTwistCurveCoeff(x *E2) *E2 {
+
+	var res E2
+	res.A0.Sub(&x.A0, &x.A1)
+	res.A1.Add(&x.A0, &x.A1)
+	z.Double(&res).
+		Double(z)
+
+	return z
 }

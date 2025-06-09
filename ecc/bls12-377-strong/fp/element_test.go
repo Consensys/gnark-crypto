@@ -194,12 +194,12 @@ func BenchmarkElementSqrt(b *testing.B) {
 
 func BenchmarkElementMul(b *testing.B) {
 	x := Element{
-		17599306305741842302,
-		16075926941644460092,
-		5427367467824897535,
-		5872812056614056306,
-		5537689564981473247,
-		71021079354328188,
+		11155516739721382988,
+		323027086828325589,
+		3969592409465466183,
+		13782052275062300807,
+		13529392618712101120,
+		78158621036988104,
 	}
 	benchResElement.SetOne()
 	b.ResetTimer()
@@ -210,12 +210,12 @@ func BenchmarkElementMul(b *testing.B) {
 
 func BenchmarkElementCmp(b *testing.B) {
 	x := Element{
-		17599306305741842302,
-		16075926941644460092,
-		5427367467824897535,
-		5872812056614056306,
-		5537689564981473247,
-		71021079354328188,
+		11155516739721382988,
+		323027086828325589,
+		3969592409465466183,
+		13782052275062300807,
+		13529392618712101120,
+		78158621036988104,
 	}
 	benchResElement = x
 	benchResElement[0] = 0
@@ -1665,8 +1665,8 @@ func TestElementFixedExp(t *testing.T) {
 		_bSqrtExponentElement     *big.Int
 	)
 
-	_bLegendreExponentElement, _ = new(big.Int).SetString("aaaaaaaaaaab35c0000000002f3a1bc2aaaab338298564e000df09efe108aa41736e74d2bd7150ce6c21012096d1f7", 16)
-	const sqrtExponentElement = "5555555555559ae000000000179d0de15555599c14c2b270006f84f7f0845520b9b73a695eb8a867361080904b68fc"
+	_bLegendreExponentElement, _ = new(big.Int).SetString("b60318b655eef2d807eda2dd352dd1a4271a6291bbdf244342c6c852a1372caf379d9fec7ca3b91b36ea4003d55555", 16)
+	const sqrtExponentElement = "5b018c5b2af7796c03f6d16e9a96e8d2138d3148ddef9221a1636429509b96579bcecff63e51dc8d9b752001eaaaab"
 	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
 
 	genA := gen()
@@ -1682,7 +1682,7 @@ func TestElementFixedExp(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("expByLegendreExp must match Exp(aaaaaaaaaaab35c0000000002f3a1bc2aaaab338298564e000df09efe108aa41736e74d2bd7150ce6c21012096d1f7)", prop.ForAll(
+	properties.Property("expByLegendreExp must match Exp(b60318b655eef2d807eda2dd352dd1a4271a6291bbdf244342c6c852a1372caf379d9fec7ca3b91b36ea4003d55555)", prop.ForAll(
 		func(a testPairElement) bool {
 			c := a.element
 			d := a.element

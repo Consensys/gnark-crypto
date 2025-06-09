@@ -117,6 +117,16 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS12-377-STRONG] Having the receiver as operand (mul by non residue inverse) should output the same result", prop.ForAll(
+		func(a *E2) bool {
+			var b E2
+			b.MulByNonResidueInv(a)
+			a.MulByNonResidueInv(a)
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
 	properties.Property("[BLS12-377-STRONG] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
@@ -174,12 +184,12 @@ func TestE2MulMaxed(t *testing.T) {
 	// let's pick a and b, with maxed A0 and A1
 	var a, b E2
 	fpMaxValue := fp.Element{
-		11301855842337137647,
-		9432469365635867297,
-		13835548522826568020,
-		9607679278524336841,
-		9223372036860965943,
-		96076792050570859,
+		3922024496859097771,
+		6804722707389302642,
+		9693309425372261977,
+		5210159840222494280,
+		12686599767852735395,
+		102463700869045733,
 	}
 	fpMaxValue[0]--
 
@@ -297,6 +307,15 @@ func TestE2Ops(t *testing.T) {
 			c.SetUint64(2)
 			b.Double(a)
 			a.MulByElement(a, &c)
+			return a.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS12-377-STRONG] Mulbynonres mulbynonresinv should leave the element invariant", prop.ForAll(
+		func(a *E2) bool {
+			var b E2
+			b.MulByNonResidue(a).MulByNonResidueInv(&b)
 			return a.Equal(&b)
 		},
 		genA,
@@ -457,6 +476,15 @@ func BenchmarkE2MulNonRes(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.MulByNonResidue(&a)
+	}
+}
+
+func BenchmarkE2MulNonResInv(b *testing.B) {
+	var a E2
+	a.MustSetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.MulByNonResidueInv(&a)
 	}
 }
 

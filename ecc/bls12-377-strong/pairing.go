@@ -124,8 +124,10 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 
 	// projective points for Q
 	qProj := make([]g2Proj, n)
+	qNeg := make([]G2Affine, n)
 	for k := 0; k < n; k++ {
 		qProj[k].FromAffine(&q[k])
+		qNeg[k].Neg(&q[k])
 	}
 
 	var result GT
@@ -134,52 +136,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 	var prodLines [5]E2
 
 	// Compute ∏ᵢ { fᵢ_{x₀,Q}(P) }
-	if n >= 1 {
-		// i = 62, separately to avoid an E12 Square
-		// (Square(res) = 1² = 1)
-		// LoopCounter[62] = 0
-		// k = 0, separately to avoid MulBy034 (res × ℓ)
-		// (assign line to res)
-
-		// qProj[0] ← 2qProj[0] and l1 the tangent ℓ passing 2qProj[0]
-		qProj[0].doubleStep(&l1)
-		// line evaluation at P[0] (assign)
-		result.C0.B0.MulByElement(&l1.r0, &p[0].Y)
-		result.C1.B0.MulByElement(&l1.r1, &p[0].X)
-		result.C1.B1.Set(&l1.r2)
-	}
-
-	if n >= 2 {
-		// k = 1, separately to avoid MulBy034 (res × ℓ)
-		// (res is also a line at this point, so we use Mul034By034 ℓ × ℓ)
-
-		// qProj[1] ← 2qProj[1] and l1 the tangent ℓ passing 2qProj[1]
-		qProj[1].doubleStep(&l1)
-		// line evaluation at P[1]
-		l1.r0.MulByElement(&l1.r0, &p[1].Y)
-		l1.r1.MulByElement(&l1.r1, &p[1].X)
-		// ℓ × res
-		prodLines = fptower.Mul034By034(&l1.r0, &l1.r1, &l1.r2, &result.C0.B0, &result.C1.B0, &result.C1.B1)
-		result.C0.B0 = prodLines[0]
-		result.C0.B1 = prodLines[1]
-		result.C0.B2 = prodLines[2]
-		result.C1.B0 = prodLines[3]
-		result.C1.B1 = prodLines[4]
-	}
-
-	// k >= 2
-	for k := 2; k < n; k++ {
-		// qProj[k] ← 2qProj[k] and l1 the tangent ℓ passing 2qProj[k]
-		qProj[k].doubleStep(&l1)
-		// line evaluation at P[k]
-		l1.r0.MulByElement(&l1.r0, &p[k].Y)
-		l1.r1.MulByElement(&l1.r1, &p[k].X)
-		// ℓ × res
-		result.MulBy034(&l1.r0, &l1.r1, &l1.r2)
-	}
-
-	// i <= 61
-	for i := len(LoopCounter) - 3; i >= 1; i-- {
+	for i := len(LoopCounter) - 2; i >= 1; i-- {
 		// mutualize the square among n Miller loops
 		// (∏ᵢfᵢ)²
 		result.Square(&result)
@@ -191,10 +148,7 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 			l1.r0.MulByElement(&l1.r0, &p[k].Y)
 			l1.r1.MulByElement(&l1.r1, &p[k].X)
 
-			if LoopCounter[i] == 0 {
-				// ℓ × res
-				result.MulBy034(&l1.r0, &l1.r1, &l1.r2)
-			} else {
+			if LoopCounter[i] == 1 {
 				// qProj[k] ← qProj[k]+Q[k] and
 				// l2 the line ℓ passing qProj[k] and Q[k]
 				qProj[k].addMixedStep(&l2, &q[k])
@@ -205,6 +159,21 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 				prodLines = fptower.Mul034By034(&l1.r0, &l1.r1, &l1.r2, &l2.r0, &l2.r1, &l2.r2)
 				// (ℓ × ℓ) × res
 				result.MulBy01234(&prodLines)
+
+			} else if LoopCounter[i] == -1 {
+				// qProj[k] ← qProj[k]-Q[k] and
+				// l2 the line ℓ passing qProj[k] and -Q[k]
+				qProj[k].addMixedStep(&l2, &qNeg[k])
+				// line evaluation at P[k]
+				l2.r0.MulByElement(&l2.r0, &p[k].Y)
+				l2.r1.MulByElement(&l2.r1, &p[k].X)
+				// ℓ × ℓ
+				prodLines = fptower.Mul034By034(&l1.r0, &l1.r1, &l1.r2, &l2.r0, &l2.r1, &l2.r2)
+				// (ℓ × ℓ) × res
+				result.MulBy01234(&prodLines)
+			} else {
+				// ℓ × res
+				result.MulBy034(&l1.r0, &l1.r1, &l1.r2)
 			}
 		}
 
@@ -230,6 +199,9 @@ func MillerLoop(P []G1Affine, Q []G2Affine) (GT, error) {
 		// (ℓ × ℓ) × res
 		result.MulBy01234(&prodLines)
 	}
+
+	// negative x₀
+	result.Conjugate(&result)
 
 	return result, nil
 }
@@ -369,16 +341,23 @@ func PairingCheckFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvalu
 
 // PrecomputeLines precomputes the lines for the fixed-argument Miller loop
 func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter) - 1]LineEvaluationAff) {
-	var accQ G2Affine
+	var accQ, negQ G2Affine
 	accQ.Set(&Q)
+	negQ.Neg(&Q)
 
 	for i := len(LoopCounter) - 2; i >= 0; i-- {
-		if LoopCounter[i] == 0 {
+		switch LoopCounter[i] {
+		case 0:
 			accQ.doubleStep(&PrecomputedLines[0][i])
-		} else {
+		case 1:
 			accQ.doubleAndAddStep(&PrecomputedLines[0][i], &PrecomputedLines[1][i], &Q)
+		case -1:
+			accQ.doubleAndAddStep(&PrecomputedLines[0][i], &PrecomputedLines[1][i], &negQ)
+		default:
+			return [2][len(LoopCounter) - 1]LineEvaluationAff{}
 		}
 	}
+
 	return PrecomputedLines
 }
 
@@ -418,47 +397,7 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluat
 	var prodLines [5]E2
 
 	// Compute ∏ᵢ { fᵢ_{x₀,Q}(P) }
-	if n >= 1 {
-		// i = 62, separately to avoid an E12 Square
-		// (Square(res) = 1² = 1)
-		// LoopCounter[62] = 0
-		// k = 0, separately to avoid MulBy34 (res × ℓ)
-		// (assign line to res)
-
-		// line evaluation at P[0] (assign)
-		result.C1.B0.MulByElement(&lines[0][0][62].R0, &xNegOverY[0])
-		result.C1.B1.MulByElement(&lines[0][0][62].R1, &yInv[0])
-		// the coefficient which MulBy34 sets to 1 happens to be already 1 (result = 1)
-	}
-
-	if n >= 2 {
-		// k = 1, separately to avoid MulBy34 (res × ℓ)
-		// (res is also a line at this point, so we use Mul34By34 ℓ × ℓ)
-		// line evaluation at P[1]
-		lines[1][0][62].R0.MulByElement(&lines[1][0][62].R0, &xNegOverY[1])
-		lines[1][0][62].R1.MulByElement(&lines[1][0][62].R1, &yInv[1])
-		// ℓ × res
-		prodLines = fptower.Mul34By34(&lines[1][0][62].R0, &lines[1][0][62].R1, &result.C1.B0, &result.C1.B1)
-		result.C0.B0 = prodLines[0]
-		result.C0.B1 = prodLines[1]
-		result.C0.B2 = prodLines[2]
-		result.C1.B0 = prodLines[3]
-		result.C1.B1 = prodLines[4]
-	}
-
-	// k >= 2
-	for k := 2; k < n; k++ {
-		// line evaluation at P[k]
-		lines[k][0][62].R0.MulByElement(&lines[k][0][62].R0, &xNegOverY[k])
-		lines[k][0][62].R1.MulByElement(&lines[k][0][62].R1, &yInv[k])
-		// ℓ × res
-		result.MulBy34(
-			&lines[k][0][62].R0,
-			&lines[k][0][62].R1,
-		)
-	}
-
-	for i := len(LoopCounter) - 3; i >= 0; i-- {
+	for i := len(LoopCounter) - 2; i >= 0; i-- {
 		// mutualize the square among n Miller loops
 		// (∏ᵢfᵢ)²
 		result.Square(&result)
@@ -504,6 +443,9 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluat
 			}
 		}
 	}
+
+	// negative x₀
+	result.Conjugate(&result)
 
 	return result, nil
 }

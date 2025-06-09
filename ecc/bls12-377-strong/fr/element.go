@@ -27,8 +27,8 @@ import (
 //
 // Modulus q =
 //
-//	q[base10] = 7237005577332276183663098666111146362930114572581192658214227313882802233481
-//	q[base16] = 0x10000000000008b18000000001c5726d400000290ff0a113000164f811c92089
+//	q[base10] = 7554283343211607082028855435917288596682775933503216046513251104476408840193
+//	q[base16] = 0x10b392a66821715b61cc16222373e51032deb308a6575eae0f87c68e3e000001
 //
 // # Warning
 //
@@ -43,10 +43,10 @@ const (
 
 // Field modulus q
 const (
-	q0 = 392491589771401
-	q1 = 4611686194788475155
-	q2 = 9223372036884492909
-	q3 = 1152921504606849201
+	q0 = 1119081346652700673
+	q1 = 3665563996458016430
+	q2 = 7047031852807480592
+	q3 = 1203466768847303003
 )
 
 var qElement = Element{
@@ -60,21 +60,21 @@ var _modulus big.Int // q stored as big.Int
 
 // Modulus returns q as a big.Int
 //
-//	q[base10] = 7237005577332276183663098666111146362930114572581192658214227313882802233481
-//	q[base16] = 0x10000000000008b18000000001c5726d400000290ff0a113000164f811c92089
+//	q[base10] = 7554283343211607082028855435917288596682775933503216046513251104476408840193
+//	q[base16] = 0x10b392a66821715b61cc16222373e51032deb308a6575eae0f87c68e3e000001
 func Modulus() *big.Int {
 	return new(big.Int).Set(&_modulus)
 }
 
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 // used for Montgomery reduction
-const qInvNeg = 636273720116488775
+const qInvNeg = 4072316802300903423
 
 // mu = 2^288 / q needed for partial Barrett reduction
-const mu uint64 = 68719476735
+const mu uint64 = 65833278130
 
 func init() {
-	_modulus.SetString("10000000000008b18000000001c5726d400000290ff0a113000164f811c92089", 16)
+	_modulus.SetString("10b392a66821715b61cc16222373e51032deb308a6575eae0f87c68e3e000001", 16)
 }
 
 // NewElement returns a new Element from a uint64 value
@@ -192,10 +192,10 @@ func (z *Element) SetZero() *Element {
 
 // SetOne z = 1 (in Montgomery form)
 func (z *Element) SetOne() *Element {
-	z[0] = 18440856699862980601
-	z[1] = 4611683373011079138
-	z[2] = 9223372036409019289
-	z[3] = 1152921504606813593
+	z[0] = 1660523873919041521
+	z[1] = 356772274258408397
+	z[2] = 4974986650145100813
+	z[3] = 394742541000006565
 	return z
 }
 
@@ -224,7 +224,7 @@ func (z *Element) IsZero() bool {
 
 // IsOne returns z == 1
 func (z *Element) IsOne() bool {
-	return ((z[3] ^ 1152921504606813593) | (z[2] ^ 9223372036409019289) | (z[1] ^ 4611683373011079138) | (z[0] ^ 18440856699862980601)) == 0
+	return ((z[3] ^ 394742541000006565) | (z[2] ^ 4974986650145100813) | (z[1] ^ 356772274258408397) | (z[0] ^ 1660523873919041521)) == 0
 }
 
 // IsUint64 reports whether z can be represented as an uint64.
@@ -287,10 +287,10 @@ func (z *Element) LexicographicallyLargest() bool {
 	_z := z.Bits()
 
 	var b uint64
-	_, b = bits.Sub64(_z[0], 9223568282649661509, 0)
-	_, b = bits.Sub64(_z[1], 11529215134249013385, b)
-	_, b = bits.Sub64(_z[2], 13835058055297022262, b)
-	_, b = bits.Sub64(_z[3], 576460752303424600, b)
+	_, b = bits.Sub64(_z[0], 559540673326350337, 0)
+	_, b = bits.Sub64(_z[1], 1832781998229008215, b)
+	_, b = bits.Sub64(_z[2], 12746887963258516104, b)
+	_, b = bits.Sub64(_z[3], 601733384423651501, b)
 
 	return b == 0
 }
@@ -781,10 +781,10 @@ func (z *Element) Exp(x Element, k *big.Int) *Element {
 // see section 2.3.2 of Tolga Acar's thesis
 // https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
 var rSquare = Element{
-	159601395380919676,
-	17053060860846466642,
-	1323309642859107810,
-	746212071199815604,
+	18273044879332403152,
+	16312153591867235799,
+	9803066275926783043,
+	431477938147681453,
 }
 
 // toMont converts z to Montgomery form
@@ -1166,12 +1166,12 @@ func (z *Element) Sqrt(x *Element) *Element {
 
 	// g = nonResidue ^ s
 	var g = Element{
-		12468621333170613539,
-		12624902967070130685,
-		1146320371403682607,
-		284208429225168038,
+		6873551978026229956,
+		2256260863398084097,
+		10857729285436807312,
+		705989263330819223,
 	}
-	r := uint64(3)
+	r := uint64(25)
 
 	// compute legendre symbol
 	// t = x^((q-1)/2) = r-1 squaring of xˢ
@@ -1222,10 +1222,10 @@ const (
 )
 
 const (
-	inversionCorrectionFactorWord0 = 16924820535424310880
-	inversionCorrectionFactorWord1 = 8872871371279371713
-	inversionCorrectionFactorWord2 = 11747019121509404343
-	inversionCorrectionFactorWord3 = 294351441975163143
+	inversionCorrectionFactorWord0 = 2892290979708397714
+	inversionCorrectionFactorWord1 = 12396691022063011697
+	inversionCorrectionFactorWord2 = 13255546088404380125
+	inversionCorrectionFactorWord3 = 640384632635743293
 	invIterationsN                 = 18
 )
 

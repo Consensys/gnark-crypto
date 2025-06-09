@@ -533,8 +533,9 @@ func (p *G1Jac) mulWindowed(q *G1Jac, s *big.Int) *G1Jac {
 
 // mulBySeed multiplies the point q by the seed xGen in Jacobian coordinates
 // using an optimized addition chain.
+// TODO: addchain
 func (p *G1Jac) mulBySeed(q *G1Jac) *G1Jac {
-	p.mulWindowed(q, &xGen)
+	p.mulWindowed(q, &xGen).Neg(p)
 	return p
 }
 

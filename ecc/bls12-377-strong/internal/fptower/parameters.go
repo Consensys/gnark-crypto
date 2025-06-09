@@ -16,7 +16,7 @@ var xGen big.Int
 var glvBasis ecc.Lattice
 
 func init() {
-	xGen.SetString("9223372036854780259", 10)
+	xGen.SetString("-9322841860747558913", 10)
 	_r := fr.Modulus()
 	ecc.PrecomputeLattice(_r, &xGen, &glvBasis)
 }

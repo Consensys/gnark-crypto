@@ -5,7 +5,10 @@ import (
 	"github.com/leanovate/gopter"
 )
 
-// Fp generates an Fp element
+// ------------------------------------------------------------
+// Tower generators
+
+// GenFp generates an Fp element
 func GenFp() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var elmt fp.Element
@@ -16,7 +19,7 @@ func GenFp() gopter.Gen {
 	}
 }
 
-// E2 generates an E2 elmt
+// GenE2 generates an E2 elmt
 func GenE2() gopter.Gen {
 	return gopter.CombineGens(
 		GenFp(),
@@ -26,7 +29,7 @@ func GenE2() gopter.Gen {
 	})
 }
 
-// E6 generates an E6 elmt
+// GenE6 generates an E6 elmt
 func GenE6() gopter.Gen {
 	return gopter.CombineGens(
 		GenE2(),
@@ -37,7 +40,7 @@ func GenE6() gopter.Gen {
 	})
 }
 
-// E12 generates an E6 elmt
+// GenE12 generates an E6 elmt
 func GenE12() gopter.Gen {
 	return gopter.CombineGens(
 		GenE6(),
