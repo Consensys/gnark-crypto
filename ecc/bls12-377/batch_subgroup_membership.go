@@ -45,13 +45,13 @@ func IsInSubGroupBatch(points []G1Affine, bound *big.Int, rounds int) bool {
 
 	var nbErrors int64
 	parallel.Execute(rounds, func(start, end int) {
-		var sum G1Jac
 
 		const windowSize = 64
 		var br [windowSize / 8]byte
 
 		// Check Sj are on E[r]
 		for i := start; i < end; i++ {
+			var sum g1JacExtended
 			for j := range len(points) {
 				pos := j % windowSize
 				if pos == 0 {
@@ -63,13 +63,18 @@ func IsInSubGroupBatch(points []G1Affine, bound *big.Int, rounds int) bool {
 				// check if the bit is set
 				if br[pos/8]&(1<<(pos%8)) != 0 {
 					// add the point to the sum
-					sum.AddMixed(&points[j])
+					sum.addMixed(&points[j])
 				}
 			}
+
+			var p G1Jac
+			p.fromJacExtended(&sum)
+			if !p.IsInSubGroup() {
+				atomic.AddInt64(&nbErrors, 1)
+				return
+			}
 		}
-		if !sum.IsInSubGroup() {
-			atomic.AddInt64(&nbErrors, 1)
-		}
+
 	})
 
 	return nbErrors == 0
