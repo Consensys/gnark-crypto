@@ -1,7 +1,6 @@
 package bls12377
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
@@ -14,7 +13,6 @@ import (
 // For highly 2-adic curves the bound is always 2.
 // For a failure probability of 2⁻ᵝ we need to set rounds=β.
 // For example β=64 gives rounds=64 and β=128 gives rounds=128.
-var bound = big.NewInt(2)
 var rounds = 64
 
 func TestIsInSubGroupBatch(t *testing.T) {
@@ -79,7 +77,7 @@ func TestIsInSubGroupBatch(t *testing.T) {
 			}
 			result := BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:])
 
-			return IsInSubGroupBatch(result, bound, rounds)
+			return IsInSubGroupBatch(result, rounds)
 		},
 		GenFr(),
 	))
@@ -101,7 +99,7 @@ func TestIsInSubGroupBatch(t *testing.T) {
 			h = fuzzCofactorOfG1(a)
 			result[nbSamples-1].FromJacobian(&h)
 
-			return !IsInSubGroupBatch(result, bound, rounds)
+			return !IsInSubGroupBatch(result, rounds)
 		},
 		GenFr(),
 		GenFp(),
@@ -146,7 +144,7 @@ func BenchmarkIsInSubGroupBatch(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		IsInSubGroupBatch(result, bound, rounds)
+		IsInSubGroupBatch(result, rounds)
 	}
 
 }

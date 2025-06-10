@@ -2,7 +2,6 @@ package bls12377
 
 import (
 	"crypto/rand"
-	"math/big"
 	"sync/atomic"
 
 	"github.com/consensys/gnark-crypto/internal/parallel"
@@ -32,17 +31,7 @@ func IsInSubGroupBatchNaive(points []G1Affine) bool {
 // checks if Sj are on E[r] using Scott test [Scott21].
 //
 // [Scott21]: https://eprint.iacr.org/2021/1130.pdf
-func IsInSubGroupBatch(points []G1Affine, bound *big.Int, rounds int) bool {
-	// ensure bound is 2 for now.
-	if !bound.IsUint64() && bound.Uint64() != 2 {
-		panic("IsInSubGroupBatch only supports bound=2 for now")
-	}
-	// ensure rounds == 64
-	const nbRounds = 64
-	if rounds != nbRounds {
-		panic("IsInSubGroupBatch only supports rounds=64 for now")
-	}
-
+func IsInSubGroupBatch(points []G1Affine, rounds int) bool {
 	var nbErrors int64
 	parallel.Execute(rounds, func(start, end int) {
 
