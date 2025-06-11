@@ -74,8 +74,8 @@ func IsInSubGroupBatch(points []G1Affine, rounds int) bool {
 
 func _msmCheck(points []G1Affine) bool {
 	const nbBitsBounds = 13
-	const c = 4
-	const nbChunks = (nbBitsBounds + c - 1) / c
+	const c = 6
+	const nbChunks = 3 //(nbBitsBounds + c - 1) / c
 
 	// for each chunk, spawn one go routine that'll loop through all the scalars in the
 	// corresponding bit-window
@@ -88,7 +88,7 @@ func _msmCheck(points []G1Affine) bool {
 	}
 
 	for j := int(nbChunks - 1); j >= 0; j-- {
-		go processChunkG1Simplified[bucketg1JacExtendedC4](uint64(j), chChunks[j], c, points)
+		go processChunkG1Simplified[bucketg1JacExtendedC6](uint64(j), chChunks[j], c, points)
 	}
 
 	var p G1Jac
@@ -108,8 +108,8 @@ func processChunkG1Simplified[B ibg1JacExtended](chunk uint64,
 	// interpret br as an array of uint16 of size windowSize/2
 	randomScalars := (*[windowSize]uint16)(unsafe.Pointer(&br[0]))
 
-	// we need a mask to get only the c lowest bits of each scalar
-	mask := uint16((1 << c) - 1)
+	// we need a mask to get only the (c-1) lowest bits of each scalar
+	mask := uint16((1 << (c - 1)) - 1)
 
 	var buckets B
 	for i := 0; i < len(buckets); i++ {
@@ -126,15 +126,7 @@ func processChunkG1Simplified[B ibg1JacExtended](chunk uint64,
 		if digit == 0 {
 			continue
 		}
-
-		// if msbWindow bit is set, we need to subtract
-		if digit&1 == 0 {
-			// add
-			buckets[(digit>>1)-1].addMixed(&points[i])
-		} else {
-			// sub
-			buckets[(digit >> 1)].subMixed(&points[i])
-		}
+		buckets[digit-1].addMixed(&points[i])
 	}
 
 	// reduce buckets into total
