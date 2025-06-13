@@ -1296,21 +1296,92 @@ func (littleEndian) PutElement(b *[Bytes]byte, e Element) {
 
 func (littleEndian) String() string { return "LittleEndian" }
 
-// Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
-func (z *Element) Legendre() int {
-	var l Element
-	// z^((q-1)/2)
-	l.expByLegendreExp(*z)
+func (x *Element) Legendre() int {
+	// initialize a = x
+	a := *x
+	// initialize n = q
+	var n = Element{
+		13402431016077863595,
+		2210141511517208575,
+		7435674573564081700,
+		7239337960414712511,
+		5412103778470702295,
+		1873798617647539866,
+	}
+	ls := 1
+	var borrow uint64
+	var bigger bool
 
-	if l.IsZero() {
+	for (a[0] | a[1] | a[2] | a[3] | a[4] | a[5]) != 0 {
+		for a[0]&1 == 0 {
+
+			// a = a >> 1
+			a[0] = a[0]>>1 | a[1]<<63
+			a[1] = a[1]>>1 | a[2]<<63
+			a[2] = a[2]>>1 | a[3]<<63
+			a[3] = a[3]>>1 | a[4]<<63
+			a[4] = a[4]>>1 | a[5]<<63
+			a[5] >>= 1
+
+			if n[0]&7 == 3 || n[0]&7 == 5 {
+				ls = -ls
+			}
+		}
+
+		// a >= n
+		bigger = !(a[5] < n[5] || (a[5] == n[5] && (a[4] < n[4] || (a[4] == n[4] && (a[3] < n[3] || (a[3] == n[3] && (a[2] < n[2] || (a[2] == n[2] && (a[1] < n[1] || (a[1] == n[1] && (a[0] < n[0])))))))))))
+
+		if !bigger {
+			borrow = a[0]
+			a[0] = n[0]
+			n[0] = borrow
+			borrow = a[1]
+			a[1] = n[1]
+			n[1] = borrow
+			borrow = a[2]
+			a[2] = n[2]
+			n[2] = borrow
+			borrow = a[3]
+			a[3] = n[3]
+			n[3] = borrow
+			borrow = a[4]
+			a[4] = n[4]
+			n[4] = borrow
+			borrow = a[5]
+			a[5] = n[5]
+			n[5] = borrow
+
+			if a[0]&3 == 3 && n[0]&3 == 3 {
+				ls = -ls
+			}
+		}
+
+		// a = a - n
+		a[0], borrow = bits.Sub64(a[0], n[0], 0)
+		a[1], borrow = bits.Sub64(a[1], n[1], borrow)
+		a[2], borrow = bits.Sub64(a[2], n[2], borrow)
+		a[3], borrow = bits.Sub64(a[3], n[3], borrow)
+		a[4], borrow = bits.Sub64(a[4], n[4], borrow)
+		a[5], _ = bits.Sub64(a[5], n[5], borrow)
+
+		// a = a >> 1
+		a[0] = a[0]>>1 | a[1]<<63
+		a[1] = a[1]>>1 | a[2]<<63
+		a[2] = a[2]>>1 | a[3]<<63
+		a[3] = a[3]>>1 | a[4]<<63
+		a[4] = a[4]>>1 | a[5]<<63
+		a[5] >>= 1
+
+		if n[0]&7 == 3 || n[0]&7 == 5 {
+			ls = -ls
+		}
+	}
+	if n[0] == 1 && (n[5]|n[4]|n[3]|n[2]|n[1]) == 0 {
+		return ls
+	} else {
 		return 0
 	}
 
-	// if l == 1
-	if l.IsOne() {
-		return 1
-	}
-	return -1
 }
 
 // Sqrt z = √x (mod q)

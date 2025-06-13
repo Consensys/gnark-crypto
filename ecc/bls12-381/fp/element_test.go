@@ -99,6 +99,16 @@ func BenchmarkElementInverse(b *testing.B) {
 
 }
 
+func BenchmarkElementLegendre(b *testing.B) {
+	var x Element
+	x.MustSetRandom()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		x.Legendre()
+	}
+
+}
 func BenchmarkElementButterfly(b *testing.B) {
 	var x Element
 	x.MustSetRandom()
