@@ -74,7 +74,7 @@ func main() {
 
 			frOpts := []generator.Option{generator.WithASM(asmConfig)}
 			if !(conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) {
-				frOpts = append(frOpts, generator.WithFFT(fftConfig))
+				frOpts = append(frOpts, generator.WithFFT(fftConfig), generator.WithIOP())
 			}
 			if conf.Equal(config.BLS12_377) {
 				frOpts = append(frOpts, generator.WithSIS())

@@ -51,7 +51,7 @@ func TestEvaluation(t *testing.T) {
 	}
 
 	// get reference values
-	var x ElementType
+	var x fr.Element
 	x.MustSetRandom()
 	expectedEval := p.ToRegular().Evaluate(x)
 	expectedEvalShifted := ps.ToRegular().Evaluate(x)
@@ -106,8 +106,8 @@ func TestEvaluation(t *testing.T) {
 
 }
 
-func randomVector(size int) *[]ElementType {
-	r := make([]ElementType, size)
+func randomVector(size int) *[]fr.Element {
+	r := make([]fr.Element, size)
 	fr.Vector(r).MustSetRandom()
 	return &r
 }
@@ -115,14 +115,14 @@ func randomVector(size int) *[]ElementType {
 func TestGetCoeff(t *testing.T) {
 
 	size := 8
-	v := make([]ElementType, size)
+	v := make([]fr.Element, size)
 	for i := 0; i < size; i++ {
 		v[i].SetUint64(uint64(i))
 	}
 	wp := NewPolynomial(&v, Form{Layout: Regular, Basis: Canonical})
 	wsp := wp.ShallowClone().Shift(1)
 
-	var aa, bb ElementType
+	var aa, bb fr.Element
 
 	// regular layout
 	for i := 0; i < size; i++ {
