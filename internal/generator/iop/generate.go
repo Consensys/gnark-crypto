@@ -4,12 +4,11 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/internal/generator/config"
+	"github.com/consensys/gnark-crypto/field/generator/config"
 )
 
-func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
+func Generate(conf config.FieldDependency, baseDir string, bgen *bavard.BatchGenerator) error {
 	// fri commitment scheme
-	conf.Package = "iop"
 	entries := []bavard.Entry{
 		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
 		{File: filepath.Join(baseDir, "polynomial.go"), Templates: []string{"polynomial.go.tmpl"}},
@@ -27,6 +26,6 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "utils.go"), Templates: []string{"utils.go.tmpl"}},
 	}
 
-	return bgen.Generate(conf, conf.Package, "./iop/template/", entries...)
+	return bgen.Generate(conf, "iop", "./iop/template/", entries...)
 
 }

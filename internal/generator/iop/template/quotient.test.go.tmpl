@@ -2,15 +2,15 @@ import (
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
-	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr/fft"
+	"{{ .FieldPackagePath }}"
+	"{{ .FieldPackagePath }}/fft"
 )
 
 // computes x₃ in h(x₁,x₂,x₃) = x₁^{2}*x₂ + x₃ - x₁^{3}
 // from x₁ and x₂.
-func computex3(x []fr.Element) fr.Element {
+func computex3(x []{{ .ElementType }}) {{ .ElementType }} {
 
-	var a, b fr.Element
+	var a, b {{ .ElementType }}
 	a.Square(&x[0]).Mul(&a, &x[1])
 	b.Square(&x[0]).Mul(&b, &x[0])
 	a.Sub(&b, &a)
@@ -19,14 +19,14 @@ func computex3(x []fr.Element) fr.Element {
 }
 
 func buildPoly(size int, form Form) *Polynomial {
-	v := make([]fr.Element, size)
+	v := make([]{{ .ElementType }}, size)
 	return NewPolynomial(&v, form)
 }
 
 func TestDivideByXMinusOne(t *testing.T) {
 
-	f := func(_ int, x ...fr.Element) fr.Element {
-		var a, b fr.Element
+	f := func(_ int, x ...{{ .ElementType }}) {{ .ElementType }} {
+		var a, b {{ .ElementType }}
 		a.Square(&x[0]).Mul(&a, &x[1]).Add(&a, &x[2])
 		b.Square(&x[0]).Mul(&b, &x[0])
 		a.Sub(&a, &b)
@@ -52,11 +52,11 @@ func TestDivideByXMinusOne(t *testing.T) {
 		entries[0].Coefficients()[i].MustSetRandom()
 		entries[1].Coefficients()[i].MustSetRandom()
 		tmp := computex3(
-			[]fr.Element{entries[0].Coefficients()[i],
+			[]{{ .ElementType }}{entries[0].Coefficients()[i],
 				entries[1].Coefficients()[i]})
 		entries[2].Coefficients()[i].Set(&tmp)
 
-		x := []fr.Element{
+		x := []{{ .ElementType }}{
 			entries[0].GetCoeff(i),
 			entries[1].GetCoeff(i),
 			entries[2].GetCoeff(i),
@@ -100,7 +100,7 @@ func TestDivideByXMinusOne(t *testing.T) {
 
 	// evaluate the quotient at a random point and check that
 	// the relation holds.
-	var x fr.Element
+	var x {{ .ElementType }}
 	x.MustSetRandom()
 	qx := q.Evaluate(x)
 	entries[0].ToCanonical(domains[1])
@@ -111,7 +111,7 @@ func TestDivideByXMinusOne(t *testing.T) {
 	cx := entries[2].Evaluate(x)
 	hx := f(0, ax, bx, cx)
 
-	var xnminusone, one fr.Element
+	var xnminusone, one {{ .ElementType }}
 	one.SetOne()
 	xnminusone.Set(&x).
 		Square(&xnminusone).

@@ -73,12 +73,6 @@ func main() {
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
-			frInfo := fieldConfig.FieldDependency{
-				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
-				FieldPackageName: "fr",
-				ElementType:      "fr.Element",
-			}
-
 			frOpts := []generator.Option{generator.WithASM(asmConfig)}
 			if !(conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) {
 				frOpts = append(frOpts, generator.WithFFT(fftConfig))
@@ -106,11 +100,19 @@ func main() {
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
 
+			// generate polynomial on fr
+			frInfo := fieldConfig.FieldDependency{
+				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
+				FieldPackageName: "fr",
+				ElementType:      "fr.Element",
+			}
+			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
+
+			// generate iop functions
+			assertNoError(iop.Generate(frInfo, filepath.Join(curveDir, "fr", "iop"), bgen))
+
 			// generate poseidon2 on fr
 			assertNoError(poseidon2.Generate(conf, filepath.Join(curveDir, "fr", "poseidon2"), bgen))
-
-			// generate polynomial on fr
-			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
 
 			fpInfo := fieldConfig.FieldDependency{
 				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fp",
@@ -161,9 +163,6 @@ func main() {
 
 			// generate eddsa on companion curves
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
-
-			// generate iop functions
-			assertNoError(iop.Generate(conf, filepath.Join(curveDir, "fr", "iop"), bgen))
 
 		}(conf)
 

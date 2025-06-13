@@ -7,8 +7,8 @@ import (
 
 	"github.com/consensys/gnark-crypto/internal/parallel"
 
-	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
-	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr/fft"
+	"{{ .FieldPackagePath }}"
+	"{{ .FieldPackagePath }}/fft"
 )
 
 // errors related to the computation of the quotient and the ratios.
@@ -35,7 +35,7 @@ var (
 // * Return: say beta=β, numerator = [P₁,...,P_m], denominator = [Q₁,..,Q_m]. The function
 // returns a polynomial whose evaluation on the j-th root of unity is
 // (Π_{k<j}Π_{i<m}(β-Pᵢ(ωᵏ)))/(β-Qᵢ(ωᵏ))
-func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Element, expectedForm Form, domain *fft.Domain) (*Polynomial, error) {
+func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta {{ .ElementType }}, expectedForm Form, domain *fft.Domain) (*Polynomial, error) {
 
 	// check that len(numerator)=len(denominator)
 	if len(numerator) != len(denominator) {
@@ -68,11 +68,11 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 
 	// build the ratio (careful with the indices of
 	// the polynomials which are bit reversed)
-	coeffs := make([]fr.Element, n)
-	t := make([]fr.Element, n)
+	coeffs := make([]{{ .ElementType }}, n)
+	t := make([]{{ .ElementType }}, n)
 	coeffs[0].SetOne()
 	t[0].SetOne()
-	var a, b, c, d fr.Element
+	var a, b, c, d {{ .ElementType }}
 
 	nn := uint64(64 - bits.TrailingZeros(uint(n)))
 	for i := 0; i < n-1; i++ {
@@ -129,7 +129,7 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 func BuildRatioCopyConstraint(
 	entries []*Polynomial,
 	permutation []int64,
-	beta, gamma fr.Element,
+	beta, gamma {{ .ElementType }},
 	expectedForm Form,
 	domain *fft.Domain) (*Polynomial, error) {
 
@@ -159,13 +159,13 @@ func BuildRatioCopyConstraint(
 
 	// build the ratio (careful with the indices of
 	// the polynomials which are bit reversed)
-	coeffs := make([]fr.Element, n)
-	t := make([]fr.Element, n)
+	coeffs := make([]{{ .ElementType }}, n)
+	t := make([]{{ .ElementType }}, n)
 	coeffs[0].SetOne()
 	t[0].SetOne()
 
 	parallel.Execute(n-1, func(start, end int) {
-		var a, b, c, d fr.Element
+		var a, b, c, d {{ .ElementType }}
 		nn := uint64(64 - bits.TrailingZeros(uint(n)))
 		for i := start; i < end; i++ {
 			b.SetOne()
@@ -310,12 +310,12 @@ func buildDomain(n int, domain *fft.Domain) (*fft.Domain, error) {
 // [1,ω,..,ωˢ⁻¹,g,g*ω,..,g*ωˢ⁻¹,..,gⁿ⁻¹,gⁿ⁻¹*ω,..,gⁿ⁻¹*ωˢ⁻¹]
 // nbCopies is the number of cosets of the roots of unity that are needed, including the set of
 // roots of unity itself.
-func getSupportIdentityPermutation(nbCopies int, domain *fft.Domain) []fr.Element {
+func getSupportIdentityPermutation(nbCopies int, domain *fft.Domain) []{{ .ElementType }} {
 	if nbCopies <= 0 {
 		panic("getSupportIdentityPermutation: nbCopies must be positive")
 	}
 
-	res := make([]fr.Element, uint64(nbCopies)*domain.Cardinality)
+	res := make([]{{ .ElementType }}, uint64(nbCopies)*domain.Cardinality)
 	sizePoly := int(domain.Cardinality)
 
 	// TODO @gbotrel check if we can reuse the pre-computed twiddles from the domain.
@@ -335,7 +335,7 @@ func getSupportIdentityPermutation(nbCopies int, domain *fft.Domain) []fr.Elemen
 	for i := 1; i < nbCopies; i++ {
 		i := i
 
-		var coset fr.Element
+		var coset {{ .ElementType }}
 		coset.Exp(domain.FrMultiplicativeGen, big.NewInt(int64(i)))
 
 		go func() {

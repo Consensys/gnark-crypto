@@ -1,8 +1,8 @@
 import (
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
-	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr/fft"
+	"{{ .FieldPackagePath }}"
+	"{{ .FieldPackagePath }}/fft"
 )
 
 // getPermutation returns a deterministic permutation
@@ -70,7 +70,7 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	// build the ratio polynomial
 	expectedForm := Form{Basis: Lagrange, Layout: Regular}
 	domain := fft.NewDomain(uint64(sizePolynomials))
-	var beta fr.Element
+	var beta {{ .ElementType }}
 	beta.MustSetRandom()
 	ratio, err := BuildRatioShuffledVectors(numerator, denominator, beta, expectedForm, domain)
 	if err != nil {
@@ -78,7 +78,7 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	}
 
 	// check that the whole product is equal to one
-	var a, b, c, d fr.Element
+	var a, b, c, d {{ .ElementType }}
 	b.SetOne()
 	d.SetOne()
 	for i := 0; i < nbPolynomials; i++ {
@@ -89,7 +89,7 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	}
 	a.Mul(&b, &ratio.Coefficients()[sizePolynomials-1]).
 		Div(&a, &d)
-	var one fr.Element
+	var one {{ .ElementType }}
 	one.SetOne()
 	if !a.Equal(&one) {
 		t.Fatal("accumulating ratio is not equal to one")
@@ -180,7 +180,7 @@ func getInvariantEntriesUnderPermutation(sizePolynomials, nbPolynomials int) ([]
 	res := make([]*Polynomial, nbPolynomials)
 	form := Form{Layout: Regular, Basis: Lagrange}
 	for i := 0; i < nbPolynomials; i++ {
-		v := make([]fr.Element, sizePolynomials)
+		v := make([]{{ .ElementType }}, sizePolynomials)
 		res[i] = NewPolynomial(&v, form)
 		for j := 0; j < sizePolynomials/2; j++ {
 			res[i].Coefficients()[2*j].MustSetRandom()
@@ -213,7 +213,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	// build the ratio polynomial
 	expectedForm := Form{Basis: Lagrange, Layout: Regular}
 	domain := fft.NewDomain(uint64(sizePolynomials))
-	var beta, gamma fr.Element
+	var beta, gamma {{ .ElementType }}
 	beta.MustSetRandom()
 	gamma.MustSetRandom()
 	ratio, err := BuildRatioCopyConstraint(entries, sigma, beta, gamma, expectedForm, domain)
@@ -223,7 +223,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 
 	// check that the whole product is equal to one
 	suppID := getSupportIdentityPermutation(nbPolynomials, domain)
-	var a, b, c, d fr.Element
+	var a, b, c, d {{ .ElementType }}
 	b.SetOne()
 	d.SetOne()
 	for i := 0; i < nbPolynomials; i++ {
@@ -239,7 +239,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	}
 	a.Mul(&b, &ratio.Coefficients()[sizePolynomials-1]).
 		Div(&a, &d)
-	var one fr.Element
+	var one {{ .ElementType }}
 	one.SetOne()
 	if !a.Equal(&one) {
 		t.Fatal("accumulating ratio is not equal to one")

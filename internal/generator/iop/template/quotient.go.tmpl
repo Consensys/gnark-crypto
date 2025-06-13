@@ -4,8 +4,8 @@ import (
 
 	"github.com/consensys/gnark-crypto/internal/parallel"
 
-	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
-	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr/fft"
+	"{{ .FieldPackagePath }}"
+	"{{ .FieldPackagePath }}/fft"
 )
 
 // DivideByXMinusOne
@@ -25,7 +25,7 @@ func DivideByXMinusOne(a *Polynomial, domains [2]*fft.Domain) (*Polynomial, erro
 
 	nbElmts := a.coefficients.Len()
 
-	coeffs := make([]fr.Element, a.coefficients.Len())
+	coeffs := make([]{{ .ElementType }}, a.coefficients.Len())
 	res := NewPolynomial(&coeffs, Form{Layout: BitReverse, Basis: LagrangeCoset})
 	res.size = a.size
 
@@ -46,16 +46,16 @@ func DivideByXMinusOne(a *Polynomial, domains [2]*fft.Domain) (*Polynomial, erro
 }
 
 // evaluateXnMinusOneDomainBigCoset evaluates Xᵐ-1 on DomainBig coset
-func evaluateXnMinusOneDomainBigCoset(domains [2]*fft.Domain) []fr.Element {
+func evaluateXnMinusOneDomainBigCoset(domains [2]*fft.Domain) []{{ .ElementType }} {
 
 	ratio := domains[1].Cardinality / domains[0].Cardinality
 
-	res := make([]fr.Element, ratio)
+	res := make([]{{ .ElementType }}, ratio)
 
 	expo := big.NewInt(int64(domains[0].Cardinality))
 	res[0].Exp(domains[1].FrMultiplicativeGen, expo)
 
-	var t fr.Element
+	var t {{ .ElementType }}
 	t.Exp(domains[1].Generator, big.NewInt(int64(domains[0].Cardinality)))
 
 	one := fr.One()
