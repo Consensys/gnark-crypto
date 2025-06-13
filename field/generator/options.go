@@ -12,6 +12,7 @@ type generatorConfig struct {
 	withSIS        bool
 	withPoseidon2  bool
 	withExtensions bool
+	withIOP        bool
 }
 
 func (cfg *generatorConfig) HasExtensions() bool {
@@ -26,6 +27,10 @@ func (cfg *generatorConfig) HasSIS() bool {
 	return cfg.withSIS
 }
 
+func (cfg *generatorConfig) HashIOP() bool {
+	return cfg.withIOP
+}
+
 func (cfg *generatorConfig) HasFFT() bool {
 	return cfg.fftConfig != nil
 }
@@ -36,6 +41,12 @@ func (cfg *generatorConfig) HasArm64() bool {
 
 func (cfg *generatorConfig) HasAMD64() bool {
 	return cfg.asmConfig != nil && cfg.asmConfig.BuildDir != ""
+}
+
+func WithIOP() Option {
+	return func(opt *generatorConfig) {
+		opt.withIOP = true
+	}
 }
 
 func WithSIS() Option {
