@@ -21,7 +21,6 @@ import (
 	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_curve"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_field"
-	"github.com/consensys/gnark-crypto/internal/generator/iop"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
 	"github.com/consensys/gnark-crypto/internal/generator/mpcsetup"
 	"github.com/consensys/gnark-crypto/internal/generator/pairing"
@@ -109,7 +108,7 @@ func main() {
 			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
 
 			// generate iop functions
-			assertNoError(iop.Generate(frInfo, filepath.Join(curveDir, "fr", "iop"), bgen))
+			// assertNoError(iop.Generate(frInfo, filepath.Join(curveDir, "fr", "iop"), bgen))
 
 			// generate poseidon2 on fr
 			assertNoError(poseidon2.Generate(conf, filepath.Join(curveDir, "fr", "poseidon2"), bgen))
