@@ -69,7 +69,7 @@ var LoopCounter [33]int8
 // endomorphisms ϕ₁ and ϕ₂ for <G1Affine> and <G2Affine>. lambda is such that <r, ϕ-λ> lies above
 // <r> in the ring Z[ϕ]. More concretely it's the associated eigenvalue
 // of ϕ₁ (resp ϕ₂) restricted to <G1Affine> (resp <G2Affine>)
-// see https://www.cosic.esat.kuleuven.be/nessie/reports/phase2/GLV.pdf
+// https://link.springer.com/content/pdf/10.1007/3-540-36492-7_3
 var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
