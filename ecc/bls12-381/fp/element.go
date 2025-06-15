@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/bits-and-blooms/bitset"
+	"github.com/consensys/gnark-crypto/field/eisenstein"
 	"github.com/consensys/gnark-crypto/field/hash"
 	"github.com/consensys/gnark-crypto/field/pool"
 )
@@ -60,7 +61,7 @@ var qElement = Element{
 	q5,
 }
 
-var _modulus big.Int // q stored as big.Int
+var _modulus, a, b big.Int // q stored as big.Int
 
 // Modulus returns q as a big.Int
 //
@@ -74,8 +75,14 @@ func Modulus() *big.Int {
 // used for Montgomery reduction
 const qInvNeg = 9940570264628428797
 
+var beta eisenstein.ComplexNumber
+
 func init() {
 	_modulus.SetString("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab", 16)
+	// _modulus = Norm(a+ωb), b = 0 mod 3
+	a.SetString("-1155048275357884106335086113613464118783412807316232579754", 10)
+	b.SetString("1155048275357884106335086113613464118768280431093290937003", 10)
+	beta = eisenstein.ComplexNumber{A0: &a, A1: &b}
 }
 
 // NewElement returns a new Element from a uint64 value
@@ -1382,6 +1389,98 @@ func (x *Element) Legendre() int {
 		return 0
 	}
 
+}
+
+var (
+	mone  = big.NewInt(-1)
+	zero  = big.NewInt(0)
+	one   = big.NewInt(1)
+	two   = big.NewInt(2)
+	three = big.NewInt(3)
+	six   = big.NewInt(6)
+	nine  = big.NewInt(9)
+)
+
+var mInt, nInt big.Int
+
+func (x *Element) IsCubicResidue() bool {
+	return CubicSymbol(*x).A0.Cmp(one) == 0
+}
+
+func CubicSymbol(x Element) *eisenstein.ComplexNumber {
+	// alpha = x+ω*0
+	var _x big.Int
+	alpha := eisenstein.ComplexNumber{A0: x.BigInt(&_x), A1: zero}
+	var quo, rem, gamma eisenstein.ComplexNumber
+	return cubicSymbol(&alpha, &beta, &quo, &rem, &gamma)
+}
+
+func cubicSymbol(alpha, beta, quo, rem, gamma *eisenstein.ComplexNumber) *eisenstein.ComplexNumber {
+	if (alpha.A1.Sign() == 0 && alpha.A0.Cmp(one) == 0) || (alpha.A1.Sign() == 0 && alpha.A0.Cmp(mone) == 0) || (beta.A1.Sign() == 0 && beta.A0.Cmp(one) == 0) || (beta.A1.Sign() == 0 && beta.A0.Cmp(mone) == 0) {
+		return &eisenstein.ComplexNumber{A0: one, A1: zero}
+	}
+	quo.QuoRem(alpha, beta, rem)
+	gamma.Mul(quo, beta)
+	gamma.Sub(alpha, gamma)
+	if gamma.A0.Sign() == 0 && gamma.A1.Sign() == 0 {
+		return &eisenstein.ComplexNumber{A0: zero, A1: zero}
+	}
+	quo.A0.Mul(gamma.A0, two).Sub(quo.A0, gamma.A1)
+	quo.A1.Add(gamma.A0, gamma.A1)
+	m := 0
+	quo.A0.QuoRem(quo.A0, three, rem.A0)
+	quo.A1.QuoRem(quo.A1, three, rem.A1)
+	for rem.A0.Sign() == 0 && rem.A1.Sign() == 0 {
+		m += 1
+		gamma.A0.Set(quo.A0)
+		gamma.A1.Set(quo.A1)
+		quo.A0.Mul(gamma.A0, two).Sub(quo.A0, gamma.A1)
+		quo.A1.Add(gamma.A0, gamma.A1)
+		quo.A0.QuoRem(quo.A0, three, rem.A0)
+		quo.A1.QuoRem(quo.A1, three, rem.A1)
+	}
+	n := 0
+	quo.A0.Neg(gamma.A0)
+	quo.A1.Sub(gamma.A0, gamma.A1)
+	rem.A0.Mod(quo.A0, three)
+	rem.A1.Mod(quo.A1, three)
+	if rem.A0.Sign() == 0 {
+		n = 1
+		gamma.A0.Neg(quo.A1)
+		gamma.A1.Set(quo.A0)
+	} else if rem.A1.Sign() == 0 {
+		n = 2
+		gamma.A0.Neg(gamma.A1)
+		gamma.A1.Set(quo.A1)
+	}
+	// (-m * (c^2-1) + n * (c^2-c*d-1))%9 / 3
+	mInt.SetInt64(int64(m))
+	nInt.SetInt64(int64(n))
+	quo.A1.Mul(beta.A0, beta.A0)
+	quo.A0.Sub(quo.A1, one).
+		Mul(quo.A0, &mInt)
+	rem.A0.Mul(beta.A0, beta.A1).
+		Add(rem.A0, one)
+	rem.A0.Sub(quo.A1, rem.A0).
+		Mul(rem.A0, &nInt)
+	quo.A0.Sub(rem.A0, quo.A0).
+		Mod(quo.A0, nine)
+	rem.SetZero()
+	if quo.A0.Cmp(six) == 0 {
+		rem.A0.Set(mone)
+		rem.A1.Set(mone)
+	} else if quo.A0.Cmp(three) == 0 {
+		rem.A1.Set(one)
+	} else if quo.A0.Sign() == 0 {
+		rem.A0.Set(one)
+	} else {
+		panic("unexpected value")
+	}
+
+	return rem.Mul(
+		rem,
+		cubicSymbol(beta, gamma, quo, new(eisenstein.ComplexNumber), new(eisenstein.ComplexNumber)),
+	)
 }
 
 // Sqrt z = √x (mod q)

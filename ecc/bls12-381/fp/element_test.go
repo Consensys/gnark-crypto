@@ -619,6 +619,34 @@ func TestElementLegendre(t *testing.T) {
 
 }
 
+func TestElementCubicSymbol(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("IsCubicResidue should output same result than Exp by (p-1)/3", prop.ForAll(
+		func(a testPairElement) bool {
+			var exp big.Int
+			exp.Sub(Modulus(), big.NewInt(1)).Div(&exp, big.NewInt(3))
+			var b Element
+			b.Exp(a.element, &exp)
+			return a.element.IsCubicResidue() == b.IsOne()
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+
+}
+
 func TestElementBitLen(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
