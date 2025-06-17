@@ -338,3 +338,34 @@ func BenchmarkHalfGCD(b *testing.B) {
 		benchRes = HalfGCD(&a, &c)
 	}
 }
+
+func BenchmarkMul(b *testing.B) {
+	var n, _ = new(big.Int).SetString("100000000000000000000000000000000", 16) // 2^128
+	a0, _ := rand.Int(rand.Reader, n)
+	a1, _ := rand.Int(rand.Reader, n)
+	c0, _ := rand.Int(rand.Reader, n)
+	c1, _ := rand.Int(rand.Reader, n)
+	a := ComplexNumber{A0: a0, A1: a1}
+	c := ComplexNumber{A0: c0, A1: c1}
+	var res ComplexNumber
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		res.Mul(&a, &c)
+	}
+
+}
+
+func BenchmarkQuoRem(b *testing.B) {
+	var n, _ = new(big.Int).SetString("100000000000000000000000000000000", 16) // 2^128
+	a0, _ := rand.Int(rand.Reader, n)
+	a1, _ := rand.Int(rand.Reader, n)
+	c0, _ := rand.Int(rand.Reader, n)
+	c1, _ := rand.Int(rand.Reader, n)
+	a := ComplexNumber{A0: a0, A1: a1}
+	c := ComplexNumber{A0: c0, A1: c1}
+	var quo, rem ComplexNumber
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		quo.QuoRem(&a, &c, &rem)
+	}
+}
