@@ -109,6 +109,18 @@ func BenchmarkElementLegendre(b *testing.B) {
 	}
 
 }
+
+func BenchmarkElementIsCubicResidue(b *testing.B) {
+	var x Element
+	x.MustSetRandom()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		x.IsCubicResidue()
+	}
+
+}
+
 func BenchmarkElementButterfly(b *testing.B) {
 	var x Element
 	x.MustSetRandom()
