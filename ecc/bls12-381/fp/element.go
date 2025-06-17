@@ -1391,96 +1391,114 @@ func (x *Element) Legendre() int {
 
 }
 
-var (
-	mone  = big.NewInt(-1)
-	zero  = big.NewInt(0)
-	one   = big.NewInt(1)
-	two   = big.NewInt(2)
-	three = big.NewInt(3)
-	six   = big.NewInt(6)
-	nine  = big.NewInt(9)
-)
-
-var mInt, nInt big.Int
-
 func (x *Element) IsCubicResidue() bool {
-	return CubicSymbol(*x).A0.Cmp(one) == 0
+	return CubicSymbol(*x).A0.Cmp(big.NewInt(1)) == 0
 }
 
 func CubicSymbol(x Element) *eisenstein.ComplexNumber {
 	// alpha = x+ω*0
 	var _x big.Int
-	alpha := eisenstein.ComplexNumber{A0: x.BigInt(&_x), A1: zero}
-	var quo, rem, gamma eisenstein.ComplexNumber
-	return cubicSymbol(&alpha, &beta, &quo, &rem, &gamma)
+	alpha := eisenstein.ComplexNumber{A0: x.BigInt(&_x), A1: big.NewInt(0)}
+	return cubicSymbolIterative(alpha, beta)
 }
 
-func cubicSymbol(alpha, beta, quo, rem, gamma *eisenstein.ComplexNumber) *eisenstein.ComplexNumber {
-	if (alpha.A1.Sign() == 0 && alpha.A0.Cmp(one) == 0) || (alpha.A1.Sign() == 0 && alpha.A0.Cmp(mone) == 0) || (beta.A1.Sign() == 0 && beta.A0.Cmp(one) == 0) || (beta.A1.Sign() == 0 && beta.A0.Cmp(mone) == 0) {
-		return &eisenstein.ComplexNumber{A0: one, A1: zero}
-	}
-	quo.QuoRem(alpha, beta, rem)
-	gamma.Mul(quo, beta)
-	gamma.Sub(alpha, gamma)
-	if gamma.A0.Sign() == 0 && gamma.A1.Sign() == 0 {
-		return &eisenstein.ComplexNumber{A0: zero, A1: zero}
-	}
-	quo.A0.Mul(gamma.A0, two).Sub(quo.A0, gamma.A1)
-	quo.A1.Add(gamma.A0, gamma.A1)
-	m := 0
-	quo.A0.QuoRem(quo.A0, three, rem.A0)
-	quo.A1.QuoRem(quo.A1, three, rem.A1)
-	for rem.A0.Sign() == 0 && rem.A1.Sign() == 0 {
-		m += 1
-		gamma.A0.Set(quo.A0)
-		gamma.A1.Set(quo.A1)
-		quo.A0.Mul(gamma.A0, two).Sub(quo.A0, gamma.A1)
-		quo.A1.Add(gamma.A0, gamma.A1)
-		quo.A0.QuoRem(quo.A0, three, rem.A0)
-		quo.A1.QuoRem(quo.A1, three, rem.A1)
-	}
-	n := 0
-	quo.A0.Neg(gamma.A0)
-	quo.A1.Sub(gamma.A0, gamma.A1)
-	rem.A0.Mod(quo.A0, three)
-	rem.A1.Mod(quo.A1, three)
-	if rem.A0.Sign() == 0 {
-		n = 1
-		gamma.A0.Neg(quo.A1)
-		gamma.A1.Set(quo.A0)
-	} else if rem.A1.Sign() == 0 {
-		n = 2
-		gamma.A0.Neg(gamma.A1)
-		gamma.A1.Set(quo.A1)
-	}
-	// (-m * (c^2-1) + n * (c^2-c*d-1))%9 / 3
-	mInt.SetInt64(int64(m))
-	nInt.SetInt64(int64(n))
-	quo.A1.Mul(beta.A0, beta.A0)
-	quo.A0.Sub(quo.A1, one).
-		Mul(quo.A0, &mInt)
-	rem.A0.Mul(beta.A0, beta.A1).
-		Add(rem.A0, one)
-	rem.A0.Sub(quo.A1, rem.A0).
-		Mul(rem.A0, &nInt)
-	quo.A0.Sub(rem.A0, quo.A0).
-		Mod(quo.A0, nine)
-	rem.SetZero()
-	if quo.A0.Cmp(six) == 0 {
-		rem.A0.Set(mone)
-		rem.A1.Set(mone)
-	} else if quo.A0.Cmp(three) == 0 {
-		rem.A1.Set(one)
-	} else if quo.A0.Sign() == 0 {
-		rem.A0.Set(one)
-	} else {
-		panic("unexpected value")
-	}
+func cubicSymbolIterative(alpha, beta eisenstein.ComplexNumber) *eisenstein.ComplexNumber {
+	var zero, one, mone, two, three, six, nine, mInt, nInt big.Int
+	zero.SetInt64(0)
+	one.SetInt64(1)
+	mone.Neg(&one)
+	three.SetInt64(3)
+	six.SetInt64(6)
+	nine.SetInt64(9)
+	two.SetInt64(2)
 
-	return rem.Mul(
-		rem,
-		cubicSymbol(beta, gamma, quo, new(eisenstein.ComplexNumber), new(eisenstein.ComplexNumber)),
-	)
+	var result, quo, rem, gamma eisenstein.ComplexNumber
+	result.SetOne()
+
+	for {
+		// Base case
+		if (alpha.A1.Sign() == 0 && (alpha.A0.Cmp(&one) == 0 || alpha.A0.Cmp(&mone) == 0)) ||
+			(beta.A1.Sign() == 0 && (beta.A0.Cmp(&one) == 0 || beta.A0.Cmp(&mone) == 0)) {
+			return &result
+		}
+
+		// gamma = &alpha % &beta
+		quo.QuoRem(&alpha, &beta, &rem)
+		gamma.Mul(&quo, &beta)
+		gamma.Sub(&alpha, &gamma)
+
+		// If gamma == 0
+		if gamma.A0.Sign() == 0 && gamma.A1.Sign() == 0 {
+			return &eisenstein.ComplexNumber{A0: big.NewInt(0), A1: big.NewInt(0)}
+		}
+
+		// Compute m
+		quo.A0.Mul(gamma.A0, &two).Sub(quo.A0, gamma.A1)
+		quo.A1.Add(gamma.A0, gamma.A1)
+		m := 0
+		quo.A0.QuoRem(quo.A0, &three, rem.A0)
+		quo.A1.QuoRem(quo.A1, &three, rem.A1)
+		for rem.A0.Sign() == 0 && rem.A1.Sign() == 0 {
+			m++
+			gamma.A0.Set(quo.A0)
+			gamma.A1.Set(quo.A1)
+			quo.A0.Mul(gamma.A0, &two).Sub(quo.A0, gamma.A1)
+			quo.A1.Add(gamma.A0, gamma.A1)
+			quo.A0.QuoRem(quo.A0, &three, rem.A0)
+			quo.A1.QuoRem(quo.A1, &three, rem.A1)
+		}
+
+		// Compute n
+		n := 0
+		quo.A0.Neg(gamma.A0)
+		quo.A1.Sub(gamma.A0, gamma.A1)
+		rem.A0.Mod(quo.A0, &three)
+		rem.A1.Mod(quo.A1, &three)
+		if rem.A0.Sign() == 0 {
+			n = 1
+			gamma.A0.Neg(quo.A1)
+			gamma.A1.Set(quo.A0)
+		} else if rem.A1.Sign() == 0 {
+			n = 2
+			gamma.A0.Neg(gamma.A1)
+			gamma.A1.Set(quo.A1)
+		}
+
+		// Compute exponent
+		mInt.SetInt64(int64(m))
+		nInt.SetInt64(int64(n))
+		quo.A1.Mul(beta.A0, beta.A0)                   // c^2
+		quo.A0.Sub(quo.A1, &one).Mul(quo.A0, &mInt)    // m(c^2-1)
+		rem.A0.Mul(beta.A0, beta.A1).Add(rem.A0, &one) // cd + 1
+		rem.A0.Sub(quo.A1, rem.A0).Mul(rem.A0, &nInt)  // n(c^2 - cd - 1)
+		quo.A0.Sub(rem.A0, quo.A0)
+		quo.A0.Mod(quo.A0, &nine)
+
+		// Multiply result by one of the roots of unity
+		rem.A0.Set(&zero)
+		rem.A1.Set(&zero)
+		if quo.A0.Cmp(&six) == 0 {
+			rem.A0.Set(&mone)
+			rem.A1.Set(&mone)
+		} else if quo.A0.Cmp(&three) == 0 {
+			rem.A1.Set(&one)
+		} else if quo.A0.Sign() == 0 {
+			rem.A0.Set(&one)
+		} else {
+			panic("unexpected value in cubic symbol computation")
+		}
+
+		// Multiply into result
+		result.Mul(&result, &rem)
+
+		// Swap for next iteration
+		alpha = beta
+		beta = gamma
+
+		// fresh gamma
+		gamma = quo
+
+	}
 }
 
 // Sqrt z = √x (mod q)
