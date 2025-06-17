@@ -61,7 +61,7 @@ var qElement = Element{
 	q5,
 }
 
-var _modulus, a, b big.Int // q stored as big.Int
+var _modulus big.Int // q stored as big.Int
 
 // Modulus returns q as a big.Int
 //
@@ -80,9 +80,8 @@ var beta eisenstein.ComplexNumber
 func init() {
 	_modulus.SetString("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab", 16)
 	// _modulus = Norm(a+ωb), b = 0 mod 3
-	a.SetString("-1155048275357884106335086113613464118783412807316232579754", 10)
-	b.SetString("1155048275357884106335086113613464118768280431093290937003", 10)
-	beta = eisenstein.ComplexNumber{A0: &a, A1: &b}
+	beta.A0.SetString("-1155048275357884106335086113613464118783412807316232579754", 10)
+	beta.A1.SetString("1155048275357884106335086113613464118768280431093290937003", 10)
 }
 
 // NewElement returns a new Element from a uint64 value
@@ -1397,12 +1396,15 @@ func (x *Element) IsCubicResidue() bool {
 
 func CubicSymbol(x Element) *eisenstein.ComplexNumber {
 	// alpha = x+ω*0
-	var _x big.Int
-	alpha := eisenstein.ComplexNumber{A0: x.BigInt(&_x), A1: big.NewInt(0)}
-	return cubicSymbolIterative(alpha, beta)
+	var alpha eisenstein.ComplexNumber
+	 x.BigInt(&alpha.A0)
+	  alpha.A1.SetInt64(0)
+	  var _beta  eisenstein.ComplexNumber
+	  _beta.Set(&beta)
+	return cubicSymbolIterative(&alpha, &_beta)
 }
 
-func cubicSymbolIterative(alpha, beta eisenstein.ComplexNumber) *eisenstein.ComplexNumber {
+func cubicSymbolIterative(alpha, beta *eisenstein.ComplexNumber) *eisenstein.ComplexNumber {
 	var zero, one, mone, two, three, six, nine, mInt, nInt big.Int
 	zero.SetInt64(0)
 	one.SetInt64(1)
@@ -1423,56 +1425,56 @@ func cubicSymbolIterative(alpha, beta eisenstein.ComplexNumber) *eisenstein.Comp
 		}
 
 		// gamma = &alpha % &beta
-		quo.QuoRem(&alpha, &beta, &rem)
-		gamma.Mul(&quo, &beta)
-		gamma.Sub(&alpha, &gamma)
+		quo.QuoRem(alpha, beta, &rem)
+		gamma.Mul(&quo, beta)
+		gamma.Sub(alpha, &gamma)
 
 		// If gamma == 0
 		if gamma.A0.Sign() == 0 && gamma.A1.Sign() == 0 {
-			return &eisenstein.ComplexNumber{A0: big.NewInt(0), A1: big.NewInt(0)}
+			return &eisenstein.ComplexNumber{}
 		}
 
 		// Compute m
-		quo.A0.Mul(gamma.A0, &two).Sub(quo.A0, gamma.A1)
-		quo.A1.Add(gamma.A0, gamma.A1)
+		quo.A0.Mul(&gamma.A0, &two).Sub(&quo.A0, &gamma.A1)
+		quo.A1.Add(&gamma.A0, &gamma.A1)
 		m := 0
-		quo.A0.QuoRem(quo.A0, &three, rem.A0)
-		quo.A1.QuoRem(quo.A1, &three, rem.A1)
+		quo.A0.QuoRem(&quo.A0, &three, &rem.A0)
+		quo.A1.QuoRem(&quo.A1, &three, &rem.A1)
 		for rem.A0.Sign() == 0 && rem.A1.Sign() == 0 {
 			m++
-			gamma.A0.Set(quo.A0)
-			gamma.A1.Set(quo.A1)
-			quo.A0.Mul(gamma.A0, &two).Sub(quo.A0, gamma.A1)
-			quo.A1.Add(gamma.A0, gamma.A1)
-			quo.A0.QuoRem(quo.A0, &three, rem.A0)
-			quo.A1.QuoRem(quo.A1, &three, rem.A1)
+			gamma.A0.Set(&quo.A0)
+			gamma.A1.Set(&quo.A1)
+			quo.A0.Mul(&gamma.A0, &two).Sub(&quo.A0, &gamma.A1)
+			quo.A1.Add(&gamma.A0, &gamma.A1)
+			quo.A0.QuoRem(&quo.A0, &three, &rem.A0)
+			quo.A1.QuoRem(&quo.A1, &three, &rem.A1)
 		}
 
 		// Compute n
 		n := 0
-		quo.A0.Neg(gamma.A0)
-		quo.A1.Sub(gamma.A0, gamma.A1)
-		rem.A0.Mod(quo.A0, &three)
-		rem.A1.Mod(quo.A1, &three)
+		quo.A0.Neg(&gamma.A0)
+		quo.A1.Sub(&gamma.A0, &gamma.A1)
+		rem.A0.Mod(&quo.A0, &three)
+		rem.A1.Mod(&quo.A1, &three)
 		if rem.A0.Sign() == 0 {
 			n = 1
-			gamma.A0.Neg(quo.A1)
-			gamma.A1.Set(quo.A0)
+			gamma.A0.Neg(&quo.A1)
+			gamma.A1.Set(&quo.A0)
 		} else if rem.A1.Sign() == 0 {
 			n = 2
-			gamma.A0.Neg(gamma.A1)
-			gamma.A1.Set(quo.A1)
+			gamma.A0.Neg(&gamma.A1)
+			gamma.A1.Set(&quo.A1)
 		}
 
 		// Compute exponent
 		mInt.SetInt64(int64(m))
 		nInt.SetInt64(int64(n))
-		quo.A1.Mul(beta.A0, beta.A0)                   // c^2
-		quo.A0.Sub(quo.A1, &one).Mul(quo.A0, &mInt)    // m(c^2-1)
-		rem.A0.Mul(beta.A0, beta.A1).Add(rem.A0, &one) // cd + 1
-		rem.A0.Sub(quo.A1, rem.A0).Mul(rem.A0, &nInt)  // n(c^2 - cd - 1)
-		quo.A0.Sub(rem.A0, quo.A0)
-		quo.A0.Mod(quo.A0, &nine)
+		quo.A1.Mul(&beta.A0, &beta.A0)                   // c^2
+		quo.A0.Sub(&quo.A1, &one).Mul(&quo.A0, &mInt)    // m(c^2-1)
+		rem.A0.Mul(&beta.A0,& beta.A1).Add(&rem.A0, &one) // cd + 1
+		rem.A0.Sub(&quo.A1, &rem.A0).Mul(&rem.A0, &nInt)  // n(c^2 - cd - 1)
+		quo.A0.Sub(&rem.A0, &quo.A0)
+		quo.A0.Mod(&quo.A0, &nine)
 
 		// Multiply result by one of the roots of unity
 		rem.A0.Set(&zero)
@@ -1492,11 +1494,12 @@ func cubicSymbolIterative(alpha, beta eisenstein.ComplexNumber) *eisenstein.Comp
 		result.Mul(&result, &rem)
 
 		// Swap for next iteration
-		alpha = beta
-		beta = gamma
+		alpha.Set(beta)
+		beta.Set(&gamma)
+		// beta = gamma
 
 		// fresh gamma
-		gamma = quo
+		gamma.Set(&quo)
 
 	}
 }
