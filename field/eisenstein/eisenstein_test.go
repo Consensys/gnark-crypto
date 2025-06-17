@@ -203,7 +203,7 @@ func TestEisensteinArithmetic(t *testing.T) {
 
 	properties.Property("norm should always be positive", prop.ForAll(
 		func(a *ComplexNumber) bool {
-			return a.Norm().Sign() >= 0
+			return a.Norm(new(big.Int)).Sign() >= 0
 		},
 		genE,
 	))
@@ -270,7 +270,7 @@ func TestEisensteinQuoRem(t *testing.T) {
 		func(a, b *ComplexNumber) bool {
 			var z, rem ComplexNumber
 			z.QuoRem(a, b, &rem)
-			return rem.Norm().Cmp(b.Norm()) == -1
+			return rem.Norm(new(big.Int)).Cmp(b.Norm(new(big.Int))) == -1
 		},
 		genE,
 		genE,
@@ -283,8 +283,11 @@ func TestRegressionHalfGCD1483(t *testing.T) {
 	a1, _ := new(big.Int).SetString("-303414439467246543595250775667605759171", 10)
 	c0, _ := new(big.Int).SetString("-432420386565659656852420866390673177323", 10)
 	c1, _ := new(big.Int).SetString("238911465918039986966665730306072050094", 10)
-	a := ComplexNumber{A0: a0, A1: a1}
-	c := ComplexNumber{A0: c0, A1: c1}
+	var a, c ComplexNumber
+	a.A0.Set(a0)
+	a.A1.Set(a1)
+	c.A0.Set(c0)
+	c.A1.Set(c1)
 
 	ticker := time.NewTimer(time.Second * 3)
 	doneCh := make(chan struct{})
@@ -318,7 +321,10 @@ func GenComplexNumber(boundSize int64) gopter.Gen {
 		GenNumber(boundSize),
 		GenNumber(boundSize),
 	).Map(func(values []interface{}) *ComplexNumber {
-		return &ComplexNumber{A0: values[0].(*big.Int), A1: values[1].(*big.Int)}
+		var r ComplexNumber
+		r.A0.Set(values[0].(*big.Int))
+		r.A1.Set(values[1].(*big.Int))
+		return &r
 	})
 }
 
@@ -331,10 +337,50 @@ func BenchmarkHalfGCD(b *testing.B) {
 	a1, _ := rand.Int(rand.Reader, n)
 	c0, _ := rand.Int(rand.Reader, n)
 	c1, _ := rand.Int(rand.Reader, n)
-	a := ComplexNumber{A0: a0, A1: a1}
-	c := ComplexNumber{A0: c0, A1: c1}
+	var a, c ComplexNumber
+	a.A0.Set(a0)
+	a.A1.Set(a1)
+	c.A0.Set(c0)
+	c.A1.Set(c1)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes = HalfGCD(&a, &c)
+	}
+}
+
+func BenchmarkMul(b *testing.B) {
+	var n, _ = new(big.Int).SetString("100000000000000000000000000000000", 16) // 2^128
+	a0, _ := rand.Int(rand.Reader, n)
+	a1, _ := rand.Int(rand.Reader, n)
+	c0, _ := rand.Int(rand.Reader, n)
+	c1, _ := rand.Int(rand.Reader, n)
+	var a, c ComplexNumber
+	a.A0.Set(a0)
+	a.A1.Set(a1)
+	c.A0.Set(c0)
+	c.A1.Set(c1)
+	var res ComplexNumber
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		res.Mul(&a, &c)
+	}
+
+}
+
+func BenchmarkQuoRem(b *testing.B) {
+	var n, _ = new(big.Int).SetString("100000000000000000000000000000000", 16) // 2^128
+	a0, _ := rand.Int(rand.Reader, n)
+	a1, _ := rand.Int(rand.Reader, n)
+	c0, _ := rand.Int(rand.Reader, n)
+	c1, _ := rand.Int(rand.Reader, n)
+	var a, c ComplexNumber
+	a.A0.Set(a0)
+	a.A1.Set(a1)
+	c.A0.Set(c0)
+	c.A1.Set(c1)
+	var quo, rem ComplexNumber
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		quo.QuoRem(&a, &c, &rem)
 	}
 }

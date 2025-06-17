@@ -45,7 +45,7 @@ var g1Infinity G1Jac
 // endomorphisms ϕ₁ for <G1Affine>. lambda is such that <r, ϕ-λ> lies above
 // <r> in the ring Z[ϕ]. More concretely it's the associated eigenvalue
 // of ϕ₁ restricted to <G1Affine>.
-// see https://www.cosic.esat.kuleuven.be/nessie/reports/phase2/GLV.pdf
+// see https://link.springer.com/content/pdf/10.1007/3-540-36492-7_3
 var thirdRootOneG1 fp.Element
 var lambdaGLV big.Int
 
