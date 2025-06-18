@@ -5,7 +5,7 @@ package element
 // Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS"
 // by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
 //
-// There are couple of variations to the multiplication (and squaring) algorithms.
+// There are a couple of variations to the multiplication (and squaring) algorithms.
 //
 // All versions are derived from the Montgomery CIOS algorithm: see
 // section 2.3.2 of Tolga Acar's thesis
