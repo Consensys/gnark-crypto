@@ -1483,11 +1483,6 @@ func (z *Element) legendreP20() int {
 			} else {
 				s, borrow := bits.Sub64(aApprox, bApprox, 0)
 				if borrow == 1 {
-					s = bApprox - aApprox
-					bApprox = aApprox
-					c0, c1 = c1, c0
-					// invariants unchanged
-
 					// Compute (b-a|a)
 					// Generally, (x-y|z) = (x|z) unless z < 0 and sign(x-y) ≠ sign(x)
 					// We know from P20 that at least one of a and b is non-negative. TODO WHY
@@ -1499,6 +1494,10 @@ func (z *Element) legendreP20() int {
 					if bApprox&3 == 3 && aApprox&3 == 3 {
 						l = -l
 					}
+
+					s = bApprox - aApprox
+					bApprox = aApprox
+					c0, c1 = c1, c0
 				}
 
 				aApprox = s / 2
