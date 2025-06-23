@@ -46,7 +46,9 @@ func (h *merkleDamgardHasher) State() []byte {
 }
 
 func (h *merkleDamgardHasher) SetState(state []byte) error {
-	h.state = state
+	bs := h.BlockSize()
+	h.state = make([]byte, bs)
+	copy(h.state, state)
 	return nil
 }
 
@@ -65,9 +67,12 @@ func (h *merkleDamgardHasher) SetState(state []byte) error {
 // function. Its preimage should not be known and thus it should be generated
 // using a deterministic method.
 func NewMerkleDamgardHasher(f Compressor, initialState []byte) StateStorer {
-	return &merkleDamgardHasher{
+	h := merkleDamgardHasher{
 		state: initialState,
-		iv:    initialState,
 		f:     f,
 	}
+	bs := h.BlockSize()
+	h.state = make([]byte, bs)
+	copy(h.state, initialState)
+	return &h
 }
