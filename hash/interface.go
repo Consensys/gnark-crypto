@@ -18,12 +18,11 @@ type StateStorer interface {
 // Compressor is a 2-1 one-way function. It takes two inputs and compresses
 // them into one output. The inputs and outputs are all of the same size, which
 // is the block size. See [BlockSize].
-// The function must be stateless. Any two calls with the same input must yield the same output.
-// It must furthermore not modify its input, even temporarily.
 //
 // NB! This is lossy compression, meaning that the output is not guaranteed to
-// be unique for different inputs. The output is guaranteed to be the same for
-// the same inputs.
+// be unique for different inputs. The function must be stateless, meaning that
+// the output is guaranteed to be the same for the same inputs.
+// It must furthermore not modify its input, even temporarily.
 //
 // The Compressor is used in the Merkle-Damgard construction to build a hash
 // function.
