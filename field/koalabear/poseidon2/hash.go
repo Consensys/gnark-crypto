@@ -15,8 +15,11 @@ import (
 // NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard
 // construction with the default parameters.
 func NewMerkleDamgardHasher() gnarkHash.StateStorer {
+	params := GetDefaultParameters()
 	return gnarkHash.NewMerkleDamgardHasher(
-		&Permutation{GetDefaultParameters()}, make([]byte, (16>>1)*fr.Bytes))
+		&Permutation{params},
+		make([]byte, params.Width/2*fr.Bytes),
+	)
 }
 
 // GetDefaultParameters returns a set of parameters for the Poseidon2 permutation.

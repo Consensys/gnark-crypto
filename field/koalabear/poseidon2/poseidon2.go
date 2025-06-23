@@ -291,7 +291,7 @@ func (h *Permutation) addRoundKeyInPlace(round int, input []fr.Element) {
 }
 
 func (h *Permutation) BlockSize() int {
-	return (16 >> 1) * fr.Bytes
+	return h.Width / 2 * fr.Bytes
 }
 
 // Permutation applies the permutation on input, and stores the result in input.
