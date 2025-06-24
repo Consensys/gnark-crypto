@@ -68,15 +68,16 @@ func BenchmarkPoseidon2(b *testing.B) {
 	}
 }
 
+const msbMask = 0xff >> (9 - (fr.Bits % 8)) // to make sure randomized buffers are smaller than the modulus
+
 func TestHashSmall(t *testing.T) {
 	// hash two elements using Merkle-Damgard
-	const lastByteMask = 0xff >> (9 - (fr.Bits % 8)) // to make sure it's smaller than the modulus
 	var b [2][fr.Bytes]byte
 	h := NewMerkleDamgardHasher()
 	for i := range b {
 		_, err := rand.Read(b[i][:])
 		require.NoError(t, err)
-		b[i][0] &= lastByteMask
+		b[i][0] &= msbMask
 		_, err = h.Write(b[i][:])
 		require.NoError(t, err)
 	}
@@ -91,12 +92,11 @@ func TestHashSmall(t *testing.T) {
 
 func TestHashReset(t *testing.T) {
 	// hash a single element using Merkle-Damgard and a nonzero IV, twice
-	const lastByteMask = 0xff >> (9 - (fr.Bits % 8))
 	var iv, b [fr.Bytes]byte
 	iv[0] = 1
 	_, err := rand.Read(b[:])
 	require.NoError(t, err)
-	b[0] &= lastByteMask
+	b[0] &= msbMask
 	p := Permutation{GetDefaultParameters()}
 	h := hash.NewMerkleDamgardHasher(&p, iv[:])
 	_, err = h.Write(b[:])
