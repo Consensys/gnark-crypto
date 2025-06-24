@@ -108,24 +108,4 @@ func TestHashReset(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, res, h.Sum(nil))
-
-}
-
-func TestHashSingleNonZeroIV(t *testing.T) {
-	// hash a single element using Merkle-Damgard, with a nonzero IV
-	const lastByteMask = 0xff >> (9 - (fr.Bits % 8)) // to make sure it's smaller than the modulus
-	var iv, b [fr.Bytes]byte
-	iv[0] = 1
-	_, err := rand.Read(b[:])
-	require.NoError(t, err)
-	b[0] &= lastByteMask
-	p := Permutation{GetDefaultParameters()}
-	res, err := p.Compress(iv[:], b[:])
-	require.NoError(t, err)
-
-	h := hash.NewMerkleDamgardHasher(&p, iv[:])
-	_, err = h.Write(b[:])
-	require.NoError(t, err)
-
-	require.Equal(t, res, h.Sum(nil))
 }

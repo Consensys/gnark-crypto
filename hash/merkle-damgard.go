@@ -1,10 +1,9 @@
 package hash
 
 import (
-	"errors"
+	"bytes"
+	"fmt"
 )
-
-var errStateOverflow = errors.New("the size of the state should not exceed the block size")
 
 type merkleDamgardHasher struct {
 	state []byte
@@ -17,7 +16,9 @@ func (h *merkleDamgardHasher) Write(p []byte) (n int, err error) {
 	blockSize := h.f.BlockSize()
 	for len(p) != 0 {
 		if len(p) < blockSize {
-			p = append(make([]byte, blockSize-len(p), blockSize), p...)
+			if p, err = cloneLeftPadded(p, blockSize); err != nil {
+				panic(err) // this should not be possible
+			}
 		}
 		if h.state, err = h.f.Compress(h.state, p[:blockSize]); err != nil {
 			return
@@ -36,7 +37,7 @@ func (h *merkleDamgardHasher) Sum(b []byte) []byte {
 }
 
 func (h *merkleDamgardHasher) Reset() {
-	h.state = h.iv
+	h.state = bytes.Clone(h.iv)
 }
 
 func (h *merkleDamgardHasher) Size() int {
@@ -52,16 +53,12 @@ func (h *merkleDamgardHasher) State() []byte {
 }
 
 // SetState sets h's state to state. If len(state) > BlockSize, an error is thrown.
-// if len(state) < BlockSize, h's state is set to state, and left padded with zeroes.
+// If len(state) < BlockSize, h's state is set to state, and left padded with zeroes.
+// len(state) > BlockSize will result in an error.
 func (h *merkleDamgardHasher) SetState(state []byte) error {
-	bs := h.BlockSize()
-	if len(state) > bs {
-		return errStateOverflow
-	}
-	h.state = make([]byte, bs)
-	ss := len(state)
-	copy(h.state[bs-ss:], state)
-	return nil
+	var err error
+	h.state, err = cloneLeftPadded(state, h.BlockSize())
+	return err
 }
 
 // NewMerkleDamgardHasher transforms a 2-1 one-way compression function into a
@@ -75,22 +72,31 @@ func (h *merkleDamgardHasher) SetState(state []byte) error {
 // blocks) is same. For collision resistance the caller should perform explicit
 // padding on the input data.
 //
-// The value initialState is provided as initial input to the compression
+// - initialState is provided as initial input to the compression
 // function. Its preimage should not be known and thus it should be generated
 // using a deterministic method.
+// If the given initialState is shorter than the hash block size, it will be zero-padded
+// on the left. An oversized initialState will cause a panic.
 func NewMerkleDamgardHasher(f Compressor, initialState []byte) StateStorer {
-	h := merkleDamgardHasher{
-		f: f,
+	iv, err := cloneLeftPadded(initialState, f.BlockSize())
+	if err != nil {
+		panic(err)
 	}
-	bs := h.BlockSize()
-	h.state = make([]byte, bs)
-	if len(initialState) > len(h.state) {
-		copy(h.iv, initialState)
-		copy(h.state, initialState)
-	} else { // in that case, we left pad with zeroes
-		is := len(initialState)
-		copy(h.iv[bs-is:], initialState)
-		copy(h.state[bs-is:], initialState)
+	return &merkleDamgardHasher{
+		f:     f,
+		iv:    iv,
+		state: bytes.Clone(iv),
 	}
-	return &h
+}
+
+// cloneLeftPadded copies b into a new byte slice of size n.
+// If len(b) < n, it will be padded on the left.
+// len(b) > n will result in an error.
+func cloneLeftPadded(b []byte, n int) ([]byte, error) {
+	if len(b) > n {
+		return nil, fmt.Errorf("buffer too large: %d > %d", len(b), n)
+	}
+	res := make([]byte, n)
+	copy(res[n-len(b):], b)
+	return res, nil
 }
