@@ -6,9 +6,12 @@
 package poseidon2
 
 import (
+	"crypto/rand"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/gnark-crypto/hash"
+	"github.com/stretchr/testify/require"
 )
 
 func TestExternalMatrix(t *testing.T) {
@@ -63,4 +66,66 @@ func BenchmarkPoseidon2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		h.Permutation(tmp[:])
 	}
+}
+
+func TestHashSmall(t *testing.T) {
+	// hash two elements using Merkle-Damgard
+	const lastByteMask = 0xff >> (9 - (fr.Bits % 8)) // to make sure it's smaller than the modulus
+	var b [2][fr.Bytes]byte
+	h := NewMerkleDamgardHasher()
+	for i := range b {
+		_, err := rand.Read(b[i][:])
+		require.NoError(t, err)
+		b[i][0] &= lastByteMask
+		_, err = h.Write(b[i][:])
+		require.NoError(t, err)
+	}
+	p := Permutation{GetDefaultParameters()}
+	res, err := p.Compress(make([]byte, fr.Bytes), b[0][:])
+	require.NoError(t, err)
+	res, err = p.Compress(res, b[1][:])
+	require.NoError(t, err)
+
+	require.Equal(t, res, h.Sum(nil))
+}
+
+func TestHashReset(t *testing.T) {
+	// hash a single element using Merkle-Damgard and a nonzero IV, twice
+	const lastByteMask = 0xff >> (9 - (fr.Bits % 8))
+	var iv, b [fr.Bytes]byte
+	iv[0] = 1
+	_, err := rand.Read(b[:])
+	require.NoError(t, err)
+	b[0] &= lastByteMask
+	p := Permutation{GetDefaultParameters()}
+	h := hash.NewMerkleDamgardHasher(&p, iv[:])
+	_, err = h.Write(b[:])
+	require.NoError(t, err)
+	res := h.Sum(nil)
+
+	h.Reset()
+	_, err = h.Write(b[:])
+	require.NoError(t, err)
+
+	require.Equal(t, res, h.Sum(nil))
+
+}
+
+func TestHashSingleNonZeroIV(t *testing.T) {
+	// hash a single element using Merkle-Damgard, with a nonzero IV
+	const lastByteMask = 0xff >> (9 - (fr.Bits % 8)) // to make sure it's smaller than the modulus
+	var iv, b [fr.Bytes]byte
+	iv[0] = 1
+	_, err := rand.Read(b[:])
+	require.NoError(t, err)
+	b[0] &= lastByteMask
+	p := Permutation{GetDefaultParameters()}
+	res, err := p.Compress(iv[:], b[:])
+	require.NoError(t, err)
+
+	h := hash.NewMerkleDamgardHasher(&p, iv[:])
+	_, err = h.Write(b[:])
+	require.NoError(t, err)
+
+	require.Equal(t, res, h.Sum(nil))
 }
