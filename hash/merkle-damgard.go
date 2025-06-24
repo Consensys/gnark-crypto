@@ -1,5 +1,11 @@
 package hash
 
+import (
+	"errors"
+)
+
+var errStateOverflow = errors.New("the size of the state should not exceed the block size")
+
 type merkleDamgardHasher struct {
 	state []byte
 	iv    []byte
@@ -47,6 +53,9 @@ func (h *merkleDamgardHasher) State() []byte {
 
 func (h *merkleDamgardHasher) SetState(state []byte) error {
 	bs := h.BlockSize()
+	if len(state) > bs {
+		return errStateOverflow
+	}
 	h.state = make([]byte, bs)
 	copy(h.state, state)
 	return nil
@@ -68,8 +77,8 @@ func (h *merkleDamgardHasher) SetState(state []byte) error {
 // using a deterministic method.
 func NewMerkleDamgardHasher(f Compressor, initialState []byte) StateStorer {
 	h := merkleDamgardHasher{
-		state: initialState,
-		f:     f,
+		iv: initialState,
+		f:  f,
 	}
 	bs := h.BlockSize()
 	h.state = make([]byte, bs)
