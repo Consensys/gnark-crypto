@@ -94,7 +94,7 @@ func NewMerkleDamgardHasher(f Compressor, initialState []byte) StateStorer {
 // len(b) > n will result in an error.
 func cloneLeftPadded(b []byte, n int) ([]byte, error) {
 	if len(b) > n {
-		return nil, fmt.Errorf("buffer too large: %d > %d", len(b), n)
+		return nil, fmt.Errorf("state/iv must not exceed the hash block size: %d > %d", len(b), n)
 	}
 	res := make([]byte, n)
 	copy(res[n-len(b):], b)
