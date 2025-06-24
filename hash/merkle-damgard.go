@@ -1,5 +1,11 @@
 package hash
 
+import (
+	"errors"
+)
+
+var errStateOverflow = errors.New("the size of the state should not exceed the block size")
+
 type merkleDamgardHasher struct {
 	state []byte
 	iv    []byte
@@ -45,8 +51,16 @@ func (h *merkleDamgardHasher) State() []byte {
 	return h.state
 }
 
+// SetState sets h's state to state. If len(state) > BlockSize, an error is thrown.
+// if len(state) < BlockSize, h's state is set to state, and left padded with zeroes.
 func (h *merkleDamgardHasher) SetState(state []byte) error {
-	h.state = state
+	bs := h.BlockSize()
+	if len(state) > bs {
+		return errStateOverflow
+	}
+	h.state = make([]byte, bs)
+	ss := len(state)
+	copy(h.state[bs-ss:], state)
 	return nil
 }
 
@@ -65,9 +79,18 @@ func (h *merkleDamgardHasher) SetState(state []byte) error {
 // function. Its preimage should not be known and thus it should be generated
 // using a deterministic method.
 func NewMerkleDamgardHasher(f Compressor, initialState []byte) StateStorer {
-	return &merkleDamgardHasher{
-		state: initialState,
-		iv:    initialState,
-		f:     f,
+	h := merkleDamgardHasher{
+		f: f,
 	}
+	bs := h.BlockSize()
+	h.state = make([]byte, bs)
+	if len(initialState) > len(h.state) {
+		copy(h.iv, initialState)
+		copy(h.state, initialState)
+	} else { // in that case, we left pad with zeroes
+		is := len(initialState)
+		copy(h.iv[bs-is:], initialState)
+		copy(h.state[bs-is:], initialState)
+	}
+	return &h
 }
