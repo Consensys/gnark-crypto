@@ -52,6 +52,12 @@ var lambdaGLV big.Int
 // in ker((u,v) → u+vλ[r]), and their determinant
 var glvBasis ecc.Lattice
 
+// g1ScalarMulChoose and g2ScalarmulChoose indicate the bitlength of the scalar
+// in scalar multiplication from which it is more efficient to use the GLV
+// decomposition. It is computed from the GLV basis and considers the overhead
+// for the GLV decomposition. It is heuristic and may change in the future.
+var g1ScalarMulChoose, g2ScalarMulChoose int
+
 func init() {
 	aCurveCoeff.SetUint64(0)
 	bCurveCoeff.SetUint64(7)
@@ -70,7 +76,8 @@ func init() {
 	lambdaGLV.SetString("37718080363155996902926221483475020450927657555482586988616620542887997980018", 10)  // 3^((r-1)/3)
 	_r := fr.Modulus()
 	ecc.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
-
+	g1ScalarMulChoose = fr.Bits/16 + max(glvBasis.V1[0].BitLen(), glvBasis.V1[1].BitLen(), glvBasis.V2[0].BitLen(), glvBasis.V2[1].BitLen())
+	g2ScalarMulChoose = fr.Bits/32 + max(glvBasis.V1[0].BitLen(), glvBasis.V1[1].BitLen(), glvBasis.V2[0].BitLen(), glvBasis.V2[1].BitLen())
 }
 
 // Generators return the generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
