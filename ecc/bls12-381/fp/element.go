@@ -1439,10 +1439,6 @@ func (z *Element) legendreP20() int {
 
 	var s Element
 
-	//var alaki, blaki Element
-
-	const nbIterationsInnerLoop = approxLowBitsN - 2
-
 	l := 1 // loop invariant: (x|q) = (a|b) . l
 	// this means that every time a and b are updated into a' and b',
 	// l is updated into l' = (x|q)(a'|b')=(x|q)(a|b)(a|b)(a'|b') = l (a|b)(a'|b')
@@ -1456,11 +1452,9 @@ func (z *Element) legendreP20() int {
 		// f₀, g₀, f₁, g₁ = 1, 0, 0, 1
 		c0, c1 = updateFactorIdentityMatrixRow0, updateFactorIdentityMatrixRow1
 
-		// TODO: What if a or b is negative? Then the way we compute mods are incorrect.
-		// Could it be correct based on the low bits of the field modulus?
-
+		const nbIterations = approxLowBitsN - 2
 		// running fewer iterations because we need access to 3 low bits from b, rather than 1 in the inversion algorithm
-		for range nbIterationsInnerLoop { // calling the loop variable j in the comments below
+		for range nbIterations { // calling the loop variable j in the comments below
 
 			// -2ʲ < f₀, f₁ ≤ 2ʲ
 			// |f₀| + |f₁| < 2ʲ⁺¹
@@ -1476,7 +1470,7 @@ func (z *Element) legendreP20() int {
 				// so we may here assume b is odd.
 				// (2|b) = 1 if b ≡ 1 or 7 (mod 8), and -1 if b ≡ 3 or 5 (mod 8)
 
-				if bMod8 := bApprox & 7; bMod8 == 1 || bMod8 == 7 {
+				if bMod8 := bApprox & 7; bMod8 == 3 || bMod8 == 5 {
 					l = -l
 				}
 
@@ -1485,7 +1479,7 @@ func (z *Element) legendreP20() int {
 				if borrow == 1 {
 					// Compute (b-a|a)
 					// Generally, (x-y|z) = (x|z) unless z < 0 and sign(x-y) ≠ sign(x)
-					// We know from P20 that at least one of a and b is non-negative. TODO WHY
+					// P20 asserts that at least one of a and b is non-negative.
 					// If a is non-negative, we immediately get (b-a|a) = (b|a)
 					// If a is negative, b-a > b. But b is already non-negative, so the b-a and b have the same sign.
 					// Thus in that case also (b-a|a) = (b|a)
@@ -1503,7 +1497,7 @@ func (z *Element) legendreP20() int {
 				aApprox = s / 2
 				c0 = c0 - c1
 
-				if bMod8 := bApprox & 7; bMod8 == 1 || bMod8 == 7 {
+				if bMod8 := bApprox & 7; bMod8 == 3 || bMod8 == 5 {
 					l = -l
 				}
 
@@ -1534,12 +1528,12 @@ func (z *Element) legendreP20() int {
 			}
 		}
 		// right-shift a by k-3 bits
-		a[0] = (a[0] >> nbIterationsInnerLoop) | ((a[1]) << (2*k - nbIterationsInnerLoop))
-		a[1] = (a[1] >> nbIterationsInnerLoop) | ((a[2]) << (2*k - nbIterationsInnerLoop))
-		a[2] = (a[2] >> nbIterationsInnerLoop) | ((a[3]) << (2*k - nbIterationsInnerLoop))
-		a[3] = (a[3] >> nbIterationsInnerLoop) | ((a[4]) << (2*k - nbIterationsInnerLoop))
-		a[4] = (a[4] >> nbIterationsInnerLoop) | ((a[5]) << (2*k - nbIterationsInnerLoop))
-		a[5] = (a[5] >> nbIterationsInnerLoop) | (aHi << (2*k - nbIterationsInnerLoop))
+		a[0] = (a[0] >> nbIterations) | ((a[1]) << (2*k - nbIterations))
+		a[1] = (a[1] >> nbIterations) | ((a[2]) << (2*k - nbIterations))
+		a[2] = (a[2] >> nbIterations) | ((a[3]) << (2*k - nbIterations))
+		a[3] = (a[3] >> nbIterations) | ((a[4]) << (2*k - nbIterations))
+		a[4] = (a[4] >> nbIterations) | ((a[5]) << (2*k - nbIterations))
+		a[5] = (a[5] >> nbIterations) | (aHi << (2*k - nbIterations))
 
 		var f1 int64
 		// from this point on c1 aliases for g0
@@ -1552,12 +1546,12 @@ func (z *Element) legendreP20() int {
 			// (a|-1) = 1 if a ≥ 0
 		}
 		// right-shift b by k-3 bits
-		b[0] = (b[0] >> nbIterationsInnerLoop) | ((b[1]) << (2*k - nbIterationsInnerLoop))
-		b[1] = (b[1] >> nbIterationsInnerLoop) | ((b[2]) << (2*k - nbIterationsInnerLoop))
-		b[2] = (b[2] >> nbIterationsInnerLoop) | ((b[3]) << (2*k - nbIterationsInnerLoop))
-		b[3] = (b[3] >> nbIterationsInnerLoop) | ((b[4]) << (2*k - nbIterationsInnerLoop))
-		b[4] = (b[4] >> nbIterationsInnerLoop) | ((b[5]) << (2*k - nbIterationsInnerLoop))
-		b[5] = (b[5] >> nbIterationsInnerLoop) | (bHi << (2*k - nbIterationsInnerLoop))
+		b[0] = (b[0] >> nbIterations) | ((b[1]) << (2*k - nbIterations))
+		b[1] = (b[1] >> nbIterations) | ((b[2]) << (2*k - nbIterations))
+		b[2] = (b[2] >> nbIterations) | ((b[3]) << (2*k - nbIterations))
+		b[3] = (b[3] >> nbIterations) | ((b[4]) << (2*k - nbIterations))
+		b[4] = (b[4] >> nbIterations) | ((b[5]) << (2*k - nbIterations))
+		b[5] = (b[5] >> nbIterations) | (bHi << (2*k - nbIterations))
 	}
 
 	if b[0] == 1 && (b[1]|b[2]|b[3]|b[4]|b[5]) == 0 {
