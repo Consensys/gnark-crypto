@@ -727,6 +727,24 @@ func BenchmarkG1JacScalarMultiplication(b *testing.B) {
 	}
 }
 
+func BenchmarkG1JacScalarMultiplicationMethod(b *testing.B) {
+	for i := 0; i <= fr.Modulus().BitLen(); i += 8 {
+		bound := new(big.Int).Lsh(big.NewInt(1), uint(i))
+		scalar, err := crand.Int(crand.Reader, bound)
+		if err != nil {
+			b.Fatalf("failed to generate random scalar: %v", err)
+		}
+
+		var res G1Jac
+		b.Run(fmt.Sprintf("scalarwidth=%d", i), func(b *testing.B) {
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				res.ScalarMultiplication(&g1Gen, scalar)
+			}
+		})
+	}
+}
+
 func BenchmarkG1AffineCofactorClearing(b *testing.B) {
 	var a G1Jac
 	a.Set(&g1Gen)
