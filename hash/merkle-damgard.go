@@ -30,10 +30,7 @@ func (h *merkleDamgardHasher) Write(p []byte) (n int, err error) {
 }
 
 func (h *merkleDamgardHasher) Sum(b []byte) []byte {
-	if _, err := h.Write(b); err != nil {
-		panic(err)
-	}
-	return h.state
+	return append(b, h.state...)
 }
 
 func (h *merkleDamgardHasher) Reset() {
