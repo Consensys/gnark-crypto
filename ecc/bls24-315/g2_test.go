@@ -697,19 +697,19 @@ func BenchmarkG2JacScalarMultiplication(b *testing.B) {
 			b.Fatalf("failed to generate random scalar: %v", err)
 		}
 
-		var doubleAndAdd G1Jac
+		var doubleAndAdd G2Jac
 		b.Run(fmt.Sprintf("method=window/scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				doubleAndAdd.mulWindowed(&g1Gen, scalar)
+				doubleAndAdd.mulWindowed(&g2Gen, scalar)
 			}
 		})
 
-		var glv G1Jac
+		var glv G2Jac
 		b.Run(fmt.Sprintf("method=GLV/scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				glv.mulGLV(&g1Gen, scalar)
+				glv.mulGLV(&g2Gen, scalar)
 			}
 		})
 
@@ -724,11 +724,11 @@ func BenchmarkG2JacScalarMultiplicationMethod(b *testing.B) {
 			b.Fatalf("failed to generate random scalar: %v", err)
 		}
 
-		var res G1Jac
+		var res G2Jac
 		b.Run(fmt.Sprintf("scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				res.ScalarMultiplication(&g1Gen, scalar)
+				res.ScalarMultiplication(&g2Gen, scalar)
 			}
 		})
 	}

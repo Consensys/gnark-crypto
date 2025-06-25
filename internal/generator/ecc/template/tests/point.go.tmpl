@@ -799,19 +799,19 @@ func Benchmark{{ $TJacobian }}ScalarMultiplication(b *testing.B) {
 			b.Fatalf("failed to generate random scalar: %v", err)
 		}
 
-		var doubleAndAdd G1Jac
+		var doubleAndAdd {{ $TJacobian }}
 		b.Run(fmt.Sprintf("method=window/scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				doubleAndAdd.mulWindowed(&g1Gen, scalar)
+				doubleAndAdd.mulWindowed(&{{ .PointName }}Gen, scalar)
 			}
 		})
 		{{ if .GLV }}
-		var glv G1Jac
+		var glv {{ $TJacobian }}
 		b.Run(fmt.Sprintf("method=GLV/scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				glv.mulGLV(&g1Gen, scalar)
+				glv.mulGLV(&{{ .PointName }}Gen, scalar)
 			}
 		})
 		{{ end }}
@@ -826,11 +826,11 @@ func Benchmark{{ $TJacobian }}ScalarMultiplicationMethod(b *testing.B) {
 			b.Fatalf("failed to generate random scalar: %v", err)
 		}
 
-		var res G1Jac
+		var res {{ $TJacobian }}
 		b.Run(fmt.Sprintf("scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				res.ScalarMultiplication(&g1Gen, scalar)
+				res.ScalarMultiplication(&{{ .PointName }}Gen, scalar)
 			}
 		})
 	}
