@@ -22,8 +22,148 @@ func init() {
 
 {{- end }}
 
+{{- $p20 := and  .UsingP20Inverse (not (eq .NbWords 1))}}
+
 // Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
-func (z *{{.ElementName}}) Legendre() int {
+func (z *Element) Legendre() int {
+{{- if $p20}}
+
+	// Adapts "Optimized Binary GCD for Modular Inversion"
+	// https://github.com/pornin/bingcd/blob/main/doc/bingcd.pdf
+	// For a faithful implementation of Pornin20 see [Inverse].
+
+	// We don't need to account for z being in Montgomery form.
+	// (xR|q) = (x|q)(R|q). R is a square (an even power of 2), so (R|q) = 1.
+	a := *z
+	b := {{.ElementName}} {
+		{{- range $i := .NbWordsIndexesFull}}
+		q{{$i}},{{end}}
+	}	// b := q
+
+	// Update factors: we get [a; b] ← [f₀ g₀; f₁ g₁] [a; b]
+	// cᵢ = fᵢ + 2³¹ - 1 + 2³² * (gᵢ + 2³¹ - 1)
+	var c0, c1 int64
+
+	var s Element
+
+	l := 1 // loop invariant: (x|q) = (a|b) . l
+	// This means that every time a and b are updated into a' and b',
+	// l is updated into l' = (x|q)(a'|b')=(x|q)(a|b)(a|b)(a'|b') = l (a|b)(a'|b')
+	// During the algorithm's run, there is no guarantee that b remains prime, or even positive.
+	// Therefore, we use the properties of the Kronecker symbol, a generalization of the Legendre symbol to all integers.
+
+	for !a.IsZero() {
+		n := max(a.BitLen(), b.BitLen())
+		aApprox, bApprox := approximate(&a, n), approximate(&b, n)
+
+		// f₀, g₀, f₁, g₁ = 1, 0, 0, 1
+		c0, c1 = updateFactorIdentityMatrixRow0, updateFactorIdentityMatrixRow1
+
+		const nbIterations = approxLowBitsN - 2
+		// running fewer iterations because we need access to 3 low bits from b, rather than 1 in the inversion algorithm
+		for range nbIterations {
+
+			if aApprox&1 == 0 {
+				aApprox /= 2
+
+				// update the Kronecker symbol
+				//
+				// (a/2 | b) (2|b) = (a|b)
+				//
+				// b is either odd or zero, the latter case implying a non-trivial GCD and an ultimate result of 0,
+				// regardless of what value l holds.
+				// So in updating l, we may assume that b is odd.
+				// Since a is even, we only need to correctly compute l if b is odd.
+				// if b is also even, the non-trivial GCD will result in the function returning 0 anyway.
+				// so we may here assume b is odd.
+				// (2|b) = 1 if b ≡ 1 or 7 (mod 8), and -1 if b ≡ 3 or 5 (mod 8)
+				if bMod8 := bApprox & 7; bMod8 == 3 || bMod8 == 5 {
+					l = -l
+				}
+
+			} else {
+				s, borrow := bits.Sub64(aApprox, bApprox, 0)
+				if borrow == 1 {
+					// Compute (b-a|a)
+					// (x-y|z) = (x|z) unless z < 0 and sign(x-y) ≠ sign(x)
+					// Pornin20 asserts that at least one of a and b is non-negative.
+					// If a is non-negative, we immediately get (b-a|a) = (b|a)
+					// If a is negative, b-a > b. But b is already non-negative, so the b-a and b have the same sign.
+					// Thus in that case also (b-a|a) = (b|a)
+					// Since not both a and b are negative, we get a quadratic reciprocity law
+					// like that of the Legendre symbol: (b|a) = (a|b), unless a, b ≡ 3 (mod 4), in which case (b|a) = -(a|b)
+					if bApprox&3 == 3 && aApprox&3 == 3 {
+						l = -l
+					}
+
+					s = bApprox - aApprox
+					bApprox = aApprox
+					c0, c1 = c1, c0
+				}
+
+				aApprox = s / 2
+				c0 = c0 - c1
+
+				// update l to reflect halving a, just like in the case where a is even
+				if bMod8 := bApprox & 7; bMod8 == 3 || bMod8 == 5 {
+					l = -l
+				}
+			}
+
+			c1 *= 2
+		}
+
+		s = a
+
+		var g0 int64
+		// from this point on c0 aliases for f0
+		c0, g0 = updateFactorsDecompose(c0)
+		aHi := a.linearCombNonModular(&s, c0, &b, g0)
+		if aHi&signBitSelector != 0 {
+			// if aHi < 0
+			aHi = negL(&a, aHi)
+			// Since a is negative, b is not and hence b ≠ -1
+			// So we get (-a|b)=(-1|b)(a|b)
+			// b is odd so we get (-1|b) = 1 if b ≡ 1 (mod 4) and -1 otherwise.
+			if bApprox&3 == 3 { // we still have two valid lower bits for b
+				l = -l
+			}
+		}
+		// right-shift a by k-3 bits
+		{{- range $i := .NbWordsIndexesFull}}
+			{{-  if eq $i $.NbWordsLastIndex}}
+				a[{{$i}}] = (a[{{$i}}] >> nbIterations) | (aHi << (2*k - nbIterations))
+			{{-  else  }}
+				a[{{$i}}] = (a[{{$i}}] >> nbIterations) | ((a[{{add $i 1}}]) << (2*k - nbIterations))
+			{{- end}}
+		{{- end}}
+
+		var f1 int64
+		// from this point on c1 aliases for g0
+		f1, c1 = updateFactorsDecompose(c1)
+		bHi := b.linearCombNonModular(&s, f1, &b, c1)
+		if bHi&signBitSelector != 0 {
+			// if bHi < 0
+			bHi = negL(&b, bHi)
+			// no need to update l, since we know a ≥ 0
+			// (a|-1) = 1 if a ≥ 0
+		}
+		// right-shift b by k-3 bits
+		{{- range $i := .NbWordsIndexesFull}}
+			{{-  if eq $i $.NbWordsLastIndex}}
+				b[{{$i}}] = (b[{{$i}}] >> nbIterations) | (bHi << (2*k - nbIterations))
+			{{-  else  }}
+				b[{{$i}}] = (b[{{$i}}] >> nbIterations) | ((b[{{add $i 1}}]) << (2*k - nbIterations))
+			{{- end}}
+		{{- end}}
+	}
+
+	if b[0] == 1 && ({{ range $i := .NbWordsIndexesNoZeroNoLast}}b[{{$i}}]|{{end}}b[{{.NbWordsLastIndex}}]) == 0 {
+		return l // (0|1) = 1
+	} else {
+		return 0 // if b ≠ 1, then (z,q) ≠ 0 ⇒ (z|q) = 0
+	}
+{{- else}}
 	var l {{.ElementName}}
 	// z^((q-1)/2)
 	{{- if .UseAddChain}}
@@ -41,6 +181,7 @@ func (z *{{.ElementName}}) Legendre() int {
 		return 1
 	}
 	return -1
+{{- end}}
 }
 
 
