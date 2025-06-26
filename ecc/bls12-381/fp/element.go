@@ -1334,7 +1334,7 @@ func (z *Element) Legendre() int {
 		// f₀, g₀, f₁, g₁ = 1, 0, 0, 1
 		c0, c1 = updateFactorIdentityMatrixRow0, updateFactorIdentityMatrixRow1
 
-		const nbIterations = approxLowBitsN - 2
+		const nbIterations = k - 2
 		// running fewer iterations because we need access to 3 low bits from b, rather than 1 in the inversion algorithm
 		for range nbIterations {
 
@@ -1444,6 +1444,7 @@ func (z *Element) Legendre() int {
 // we need to access the 3 low bits of b, rather than just one. So lo ≥ n+2 where n is the number of inner iterations.
 // The requirement on the high bits is unchanged, hi ≥ n+1.
 // Thus we hit a maximum of hi = lo = k and n = k-2 as opposed to n = lo = k-1 and hi = k+1 in the standard approximate function.
+// Since we are doing fewer iterations than in the inversion algorithm, all the arguments on bounds for update factors remain valid.
 func approximateForLegendre(x *Element, nBits int) uint64 {
 
 	if nBits <= 64 {
