@@ -163,6 +163,39 @@ func (z *{{.ElementName}}) Legendre() int {
 	} else {
 		return 0 // if b ≠ 1, then (z,q) ≠ 0 ⇒ (z|q) = 0
 	}
+{{- else if eq .NbWords 1}}
+	{{- $regBits := mul .NbBytes 8}}
+	// Use Binary GCD to compute the Legendre symbol.
+	a := z[0]
+	b := uint{{$regBits}}(q0)
+	l := 1
+
+	for a != 0 {
+		pow2 := bits.TrailingZeros{{$regBits}}(a)
+		if bMod8 := b % 8; pow2%2 == 1 && (bMod8 == 3 || bMod8 == 5) {
+			l = -l
+		}
+		a >>= pow2
+
+		s, borrow := bits.Sub{{$regBits}}(a, b, 0)
+		if borrow == 1 {
+			if b&3 == 3 && a&3 == 3 {
+				l = -l
+			}
+			s = b - a
+			b = a
+		}
+		a = s / 2
+		if bMod8 := b & 7; bMod8 == 3 || bMod8 == 5 {
+			l = -l
+		}
+	}
+
+	if b == 1 {
+		return l
+	} else {
+		return 0
+	}
 {{- else}}
 	var l {{.ElementName}}
 	// z^((q-1)/2)

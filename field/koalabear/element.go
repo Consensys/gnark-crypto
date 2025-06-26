@@ -832,19 +832,37 @@ func (littleEndian) String() string { return "LittleEndian" }
 
 // Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
 func (z *Element) Legendre() int {
-	var l Element
-	// z^((q-1)/2)
-	l.expByLegendreExp(*z)
+	// Use Binary GCD to compute the Legendre symbol.
+	a := z[0]
+	b := uint32(q0)
+	l := 1
 
-	if l.IsZero() {
+	for a != 0 {
+		pow2 := bits.TrailingZeros32(a)
+		if bMod8 := b % 8; pow2%2 == 1 && (bMod8 == 3 || bMod8 == 5) {
+			l = -l
+		}
+		a >>= pow2
+
+		s, borrow := bits.Sub32(a, b, 0)
+		if borrow == 1 {
+			if b&3 == 3 && a&3 == 3 {
+				l = -l
+			}
+			s = b - a
+			b = a
+		}
+		a = s / 2
+		if bMod8 := b & 7; bMod8 == 3 || bMod8 == 5 {
+			l = -l
+		}
+	}
+
+	if b == 1 {
+		return l
+	} else {
 		return 0
 	}
-
-	// if l == 1
-	if l.IsOne() {
-		return 1
-	}
-	return -1
 }
 
 // Sqrt z = √x (mod q)
