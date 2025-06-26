@@ -179,15 +179,12 @@ func (z *{{.ElementName}}) Legendre() int {
 
 		s, borrow := bits.Sub{{$regBits}}(a, b, 0)
 		if borrow == 1 {
-			if b&3 == 3 && a&3 == 3 {
+			if b%4 == 3 && a%4 == 3 {
 				l = -l
 			}
-			s = b - a
-			b = a
-		}
-		a = s / 2
-		if bMod8 := b & 7; bMod8 == 3 || bMod8 == 5 {
-			l = -l
+			a, b = b-a, a
+		} else {
+		 	a = s
 		}
 	}
 
