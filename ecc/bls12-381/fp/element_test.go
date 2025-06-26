@@ -107,8 +107,8 @@ func BenchmarkElementLegendre(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		x.Legendre()
 	}
-
 }
+
 func BenchmarkElementButterfly(b *testing.B) {
 	var x Element
 	x.MustSetRandom()
@@ -2940,4 +2940,22 @@ func approximateRef(x *Element) uint64 {
 
 	hi.Add(&hi, &lo)
 	return hi.Uint64()
+}
+
+func TestLegendreNew(t *testing.T) {
+	var x Element
+
+	for i := range 100000 {
+		x.MustSetRandom()
+		require.Equal(t, x.Legendre(), x.legendreP20(), "x = %s found after %d iterations", x.String(), i)
+	}
+}
+
+func BenchmarkLegendreP20(b *testing.B) {
+	var x Element
+	x.MustSetRandom()
+	b.ResetTimer()
+	for range b.N {
+		x.legendreP20()
+	}
 }
