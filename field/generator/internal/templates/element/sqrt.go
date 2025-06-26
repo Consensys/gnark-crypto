@@ -59,7 +59,7 @@ func (z *{{.ElementName}}) Legendre() int {
 		// f₀, g₀, f₁, g₁ = 1, 0, 0, 1
 		c0, c1 = updateFactorIdentityMatrixRow0, updateFactorIdentityMatrixRow1
 
-		const nbIterations = k - 2
+		const nbIterations = k - 3
 		// running fewer iterations because we need access to 3 low bits from b, rather than 1 in the inversion algorithm
 		for range nbIterations {
 
