@@ -1315,7 +1315,7 @@ func (z *Element) Legendre() int {
 				l = -l
 			}
 		}
-		// right-shift a by k-3 bits
+		// right-shift a by k-2 bits
 		a[0] = (a[0] >> nbIterations) | ((a[1]) << (2*k - nbIterations))
 		a[1] = (a[1] >> nbIterations) | ((a[2]) << (2*k - nbIterations))
 		a[2] = (a[2] >> nbIterations) | ((a[3]) << (2*k - nbIterations))
@@ -1332,7 +1332,7 @@ func (z *Element) Legendre() int {
 			// no need to update l, since we know a ≥ 0
 			// (a|-1) = 1 if a ≥ 0
 		}
-		// right-shift b by k-3 bits
+		// right-shift b by k-2 bits
 		b[0] = (b[0] >> nbIterations) | ((b[1]) << (2*k - nbIterations))
 		b[1] = (b[1] >> nbIterations) | ((b[2]) << (2*k - nbIterations))
 		b[2] = (b[2] >> nbIterations) | ((b[3]) << (2*k - nbIterations))

@@ -129,7 +129,7 @@ func (z *{{.ElementName}}) Legendre() int {
 				l = -l
 			}
 		}
-		// right-shift a by k-3 bits
+		// right-shift a by k-2 bits
 		{{- range $i := .NbWordsIndexesFull}}
 			{{-  if eq $i $.NbWordsLastIndex}}
 				a[{{$i}}] = (a[{{$i}}] >> nbIterations) | (aHi << (2*k - nbIterations))
@@ -148,7 +148,7 @@ func (z *{{.ElementName}}) Legendre() int {
 			// no need to update l, since we know a ≥ 0
 			// (a|-1) = 1 if a ≥ 0
 		}
-		// right-shift b by k-3 bits
+		// right-shift b by k-2 bits
 		{{- range $i := .NbWordsIndexesFull}}
 			{{-  if eq $i $.NbWordsLastIndex}}
 				b[{{$i}}] = (b[{{$i}}] >> nbIterations) | (bHi << (2*k - nbIterations))
