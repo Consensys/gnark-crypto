@@ -54,12 +54,12 @@ func (z *{{.ElementName}}) Legendre() int {
 
 	for !a.IsZero() {
 		n := max(a.BitLen(), b.BitLen())
-		aApprox, bApprox := approximate(&a, n), approximate(&b, n)
+		aApprox, bApprox := approximateForLegendre(&a, n), approximateForLegendre(&b, n)
 
 		// f₀, g₀, f₁, g₁ = 1, 0, 0, 1
 		c0, c1 = updateFactorIdentityMatrixRow0, updateFactorIdentityMatrixRow1
 
-		const nbIterations = k - 3
+		const nbIterations = k - 2
 		// running fewer iterations because we need access to 3 low bits from b, rather than 1 in the inversion algorithm
 		for range nbIterations {
 

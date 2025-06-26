@@ -1160,7 +1160,7 @@ func (z *Element) Legendre() int {
 
 	for !a.IsZero() {
 		n := max(a.BitLen(), b.BitLen())
-		aApprox, bApprox := approximate(&a, n), approximate(&b, n)
+		aApprox, bApprox := approximateForLegendre(&a, n), approximateForLegendre(&b, n)
 
 		// f₀, g₀, f₁, g₁ = 1, 0, 0, 1
 		c0, c1 = updateFactorIdentityMatrixRow0, updateFactorIdentityMatrixRow1
