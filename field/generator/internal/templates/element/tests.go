@@ -1072,12 +1072,7 @@ func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	var (
-		_bLegendreExponent{{.ElementName}} *big.Int
-		_bSqrtExponent{{.ElementName}} *big.Int
-	)
-
-	_bLegendreExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.LegendreExponent}}", 16)
+	var _bSqrtExponent{{.ElementName}} *big.Int
 	{{- if .SqrtQ3Mod4}}
 		const sqrtExponent{{.ElementName}} = "{{.SqrtQ3Mod4Exponent}}"
 	{{- else if .SqrtAtkin}}
@@ -1100,6 +1095,10 @@ func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 		genA,
 	))
 
+{{- if and (not .UsingP20Inverse) (not (eq .NbWords 1))}}
+	var _bLegendreExponent{{.ElementName}} *big.Int
+	_bLegendreExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.LegendreExponent}}", 16)
+
 	properties.Property("expByLegendreExp must match Exp({{.LegendreExponent}})", prop.ForAll(
 		func(a testPair{{.ElementName}}) bool {
 			c := a.element
@@ -1110,6 +1109,7 @@ func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 		},
 		genA,
 	))
+{{- end}}
 
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))

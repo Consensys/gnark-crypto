@@ -1657,12 +1657,7 @@ func TestElementFixedExp(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	var (
-		_bLegendreExponentElement *big.Int
-		_bSqrtExponentElement     *big.Int
-	)
-
-	_bLegendreExponentElement, _ = new(big.Int).SetString("39f6d3a994cebea4199cec0404d0ec02a9ded2017fff2dff7fffffff80000000", 16)
+	var _bSqrtExponentElement *big.Int
 	const sqrtExponentElement = "39f6d3a994cebea4199cec0404d0ec02a9ded2017fff2dff7fffffff"
 	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
 
@@ -1674,17 +1669,6 @@ func TestElementFixedExp(t *testing.T) {
 			d := a.element
 			c.expBySqrtExp(c)
 			d.Exp(d, _bSqrtExponentElement)
-			return c.Equal(&d)
-		},
-		genA,
-	))
-
-	properties.Property("expByLegendreExp must match Exp(39f6d3a994cebea4199cec0404d0ec02a9ded2017fff2dff7fffffff80000000)", prop.ForAll(
-		func(a testPairElement) bool {
-			c := a.element
-			d := a.element
-			c.expByLegendreExp(c)
-			d.Exp(d, _bLegendreExponentElement)
 			return c.Equal(&d)
 		},
 		genA,
