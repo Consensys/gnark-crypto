@@ -121,7 +121,7 @@ func (z *Element) Set(x *Element) *Element {
 }
 
 // SetInterface converts provided interface into Element
-// returns an error if provided type is not supported
+// returns an error if provided type is not supported.
 // supported types:
 //
 //	Element

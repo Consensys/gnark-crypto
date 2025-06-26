@@ -25,7 +25,7 @@ func init() {
 {{- $p20 := and  .UsingP20Inverse (not (eq .NbWords 1))}}
 
 // Legendre returns the Legendre symbol of z (either +1, -1, or 0.)
-func (z *Element) Legendre() int {
+func (z *{{.ElementName}}) Legendre() int {
 {{- if $p20}}
 
 	// Adapts "Optimized Binary GCD for Modular Inversion"
@@ -44,7 +44,7 @@ func (z *Element) Legendre() int {
 	// cᵢ = fᵢ + 2³¹ - 1 + 2³² * (gᵢ + 2³¹ - 1)
 	var c0, c1 int64
 
-	var s Element
+	var s {{.ElementName}}
 
 	l := 1 // loop invariant: (x|q) = (a|b) . l
 	// This means that every time a and b are updated into a' and b',
@@ -183,6 +183,37 @@ func (z *Element) Legendre() int {
 	return -1
 {{- end}}
 }
+
+{{- if $p20}}
+// approximate a big number x into a single 64 bit word using its uppermost and lowermost bits.
+// If x fits in a word as is, no approximation necessary.
+// This differs from the standard approximate function in that in the Legendre symbol computation
+// we need to access the 3 low bits of b, rather than just one. So lo ≥ n+2 where n is the number of inner iterations.
+// The requirement on the high bits is unchanged, hi ≥ n+1.
+// Thus we hit a maximum of hi = lo = k and n = k-2 as opposed to n = lo = k-1 and hi = k+1 in the standard approximate function.
+func approximateForLegendre(x *{{.ElementName}}, nBits int) uint64 {
+
+	if nBits <= 64 {
+		return x[0]
+	}
+
+	const mask = (uint64(1) << k ) - 1 // k ones
+	lo := mask & x[0]
+
+	hiWordIndex := (nBits - 1) / 64
+
+	hiWordBitsAvailable := nBits - hiWordIndex * 64
+	hiWordBitsUsed := min(hiWordBitsAvailable, k)
+
+	mask_ := uint64(^((1 << (hiWordBitsAvailable - hiWordBitsUsed)) - 1))
+	hi := (x[hiWordIndex] & mask_) << (64 - hiWordBitsAvailable)
+
+	mask_ = ^(1<<(k + hiWordBitsUsed) - 1)
+	mid := (mask_ & x[hiWordIndex-1]) >> hiWordBitsUsed
+
+	return lo | mid | hi
+}
+{{- end}}
 
 
 // Sqrt z = √x (mod q)

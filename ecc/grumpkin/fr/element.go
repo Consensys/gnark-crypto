@@ -121,7 +121,7 @@ func (z *Element) Set(x *Element) *Element {
 }
 
 // SetInterface converts provided interface into Element
-// returns an error if provided type is not supported
+// returns an error if provided type is not supported.
 // supported types:
 //
 //	Element
@@ -1265,6 +1265,35 @@ func (z *Element) Legendre() int {
 	}
 }
 
+// approximate a big number x into a single 64 bit word using its uppermost and lowermost bits.
+// If x fits in a word as is, no approximation necessary.
+// This differs from the standard approximate function in that in the Legendre symbol computation
+// we need to access the 3 low bits of b, rather than just one. So lo ≥ n+2 where n is the number of inner iterations.
+// The requirement on the high bits is unchanged, hi ≥ n+1.
+// Thus we hit a maximum of hi = lo = k and n = k-2 as opposed to n = lo = k-1 and hi = k+1 in the standard approximate function.
+func approximateForLegendre(x *Element, nBits int) uint64 {
+
+	if nBits <= 64 {
+		return x[0]
+	}
+
+	const mask = (uint64(1) << k) - 1 // k ones
+	lo := mask & x[0]
+
+	hiWordIndex := (nBits - 1) / 64
+
+	hiWordBitsAvailable := nBits - hiWordIndex*64
+	hiWordBitsUsed := min(hiWordBitsAvailable, k)
+
+	mask_ := uint64(^((1 << (hiWordBitsAvailable - hiWordBitsUsed)) - 1))
+	hi := (x[hiWordIndex] & mask_) << (64 - hiWordBitsAvailable)
+
+	mask_ = ^(1<<(k+hiWordBitsUsed) - 1)
+	mid := (mask_ & x[hiWordIndex-1]) >> hiWordBitsUsed
+
+	return lo | mid | hi
+}
+
 // Sqrt z = √x (mod q)
 // if the square root doesn't exist (x is not a square mod q)
 // Sqrt leaves z unchanged and returns nil
@@ -1478,7 +1507,7 @@ func approximate(x *Element, nBits int) uint64 {
 		return x[0]
 	}
 
-	const mask = (uint64(1) << (k - 1)) - 1 // k-1 ones
+	const mask = (uint64(1) << approxLowBitsN) - 1 // k-1 ones
 	lo := mask & x[0]
 
 	hiWordIndex := (nBits - 1) / 64
