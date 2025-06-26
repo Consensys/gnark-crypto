@@ -601,7 +601,7 @@ func TestElementLegendre(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
-	require.Equal(t, 0, new(Element).Legendre(), "(0|q)")
+	require.Equal(t, 0, new(Element).Legendre(), "(0|q) must be zero")
 }
 
 func TestElementBitLen(t *testing.T) {
