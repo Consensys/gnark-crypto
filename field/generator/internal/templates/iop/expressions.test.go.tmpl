@@ -1,27 +1,27 @@
 import (
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
+	"{{ .FieldPackagePath }}"
 )
 
 func TestEvaluate(t *testing.T) {
 
-	f := func(_ int, x ...fr.Element) fr.Element {
-		var a fr.Element
+	f := func(_ int, x ...{{.ElementType}}) {{.ElementType}} {
+		var a {{.ElementType}}
 		a.Add(&x[0], &x[1]).Add(&a, &x[2])
 		return a
 	}
 
 	size := 64
-	u := make([]fr.Element, size)
-	v := make([]fr.Element, size)
-	w := make([]fr.Element, size)
+	u := make([]{{.ElementType}}, size)
+	v := make([]{{.ElementType}}, size)
+	w := make([]{{.ElementType}}, size)
 	for i := 0; i < size; i++ {
 		u[i].SetUint64(uint64(i))
 		v[i].SetUint64(uint64(i + 1))
 		w[i].SetUint64(uint64(i + 2))
 	}
-	r := make([]fr.Element, size)
+	r := make([]{{.ElementType}}, size)
 	for i := 0; i < size; i++ {
 		r[i].SetUint64(uint64(3 * (i + 1)))
 	}
