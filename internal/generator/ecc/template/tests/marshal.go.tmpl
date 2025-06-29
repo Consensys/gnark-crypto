@@ -1,3 +1,4 @@
+{{ $FpUnusedBits := sub 64 (mod .Fp.NbBits 64) }}
 {{ $G1TAffine := print (toUpper .G1.PointName) "Affine" }}
 {{ $G1TJacobian := print (toUpper .G1.PointName) "Jac" }}
 {{ $G1TJacobianExtended := print (toLower .G1.PointName) "JacExtended" }}
@@ -242,8 +243,8 @@ func TestIsCompressed(t *testing.T) {
 {{- $sizeOfFp := mul .Fp.NbWords 8}}
 {{- $FpUnusedBits := .FpUnusedBits}}
 
-{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp "CoordType" .G1.CoordType "PointName" .G1.PointName "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "FpUnusedBits" $FpUnusedBits}}
-{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp  "CoordType" .G2.CoordType "PointName" .G2.PointName "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange "FpUnusedBits" $FpUnusedBits}}
+{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp "CoordType" .G1.CoordType "PointName" .G1.PointName "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbBytes "CRange" .G1.CRange "FpUnusedBits" $FpUnusedBits}}
+{{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp  "CoordType" .G2.CoordType "PointName" .G2.PointName "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbBytes "CRange" .G2.CRange "FpUnusedBits" $FpUnusedBits}}
 
 
 {{define "marshalpoint"}}

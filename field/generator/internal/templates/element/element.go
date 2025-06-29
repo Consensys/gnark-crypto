@@ -1,0 +1,36 @@
+package element
+
+const CustomRandom = `
+// SetRandomWithSource sets z to a uniform random value in [0, q) using the provided random source.
+//
+// This might error only if reading from source errors,
+// in which case, value of z is undefined.
+func (z *{{.ElementName}}) SetRandomWithSource(source io.Reader, l, k int, b uint) (*{{.ElementName}}, error) {
+	// l is total number of bytes needed to reconstruct z
+	// k is the maximum byte length needed to encode a value < q
+	// b is the number of bits in the most significant byte of q-1
+
+	var bytes [{{mul 8 .NbWords}}]byte
+
+	for {
+		// note that bytes[k:l] is always 0
+		if _, err := io.ReadFull(source, bytes[:k]); err != nil {
+			return nil, err
+		}
+
+		// Clear unused bits in in the most significant byte to increase probability
+		// that the candidate is < q.
+		bytes[k-1] &= uint8(int(1<<b) - 1)
+		{{- range $i :=  .NbWordsIndexesFull}}
+			{{- $k := add $i 1}}
+			z[{{$i}}] = binary.LittleEndian.{{$.Word.TypeUpper}}(bytes[{{mul $i $.Word.ByteSize}}:{{mul $k $.Word.ByteSize}}])
+		{{- end}}
+
+		if !z.smallerThanModulus() {
+			continue // ignore the candidate and re-sample
+		}
+
+		return z, nil
+	}
+}
+`
