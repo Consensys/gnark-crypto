@@ -56,6 +56,12 @@ var xGen big.Int
 // in ker((u,v) → u+vλ[r]), and their determinant
 var glvBasis ecc.Lattice
 
+// g1ScalarMulChoose and g2ScalarmulChoose indicate the bitlength of the scalar
+// in scalar multiplication from which it is more efficient to use the GLV
+// decomposition. It is computed from the GLV basis and considers the overhead
+// for the GLV decomposition. It is heuristic and may change in the future.
+var g1ScalarMulChoose, g2ScalarMulChoose int
+
 func init() {
 	aCurveCoeff.SetUint64(0)
 	bCurveCoeff.SetUint64(17).Neg(&bCurveCoeff)
@@ -74,6 +80,8 @@ func init() {
 	lambdaGLV.SetString("2203960485148121921418603742825762020974279258880205651966", 10)
 	_r := fr.Modulus()
 	ecc.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
+	g1ScalarMulChoose = fr.Bits/16 + max(glvBasis.V1[0].BitLen(), glvBasis.V1[1].BitLen(), glvBasis.V2[0].BitLen(), glvBasis.V2[1].BitLen())
+	g2ScalarMulChoose = fr.Bits/32 + max(glvBasis.V1[0].BitLen(), glvBasis.V1[1].BitLen(), glvBasis.V2[0].BitLen(), glvBasis.V2[1].BitLen())
 
 	xGen.SetString("4965661367192848881", 10)
 }

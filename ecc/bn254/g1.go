@@ -51,7 +51,11 @@ func (p *G1Affine) SetInfinity() *G1Affine {
 func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
 	var _p G1Jac
 	_p.FromAffine(a)
-	_p.mulGLV(&_p, s)
+	if s.BitLen() >= g1ScalarMulChoose {
+		_p.mulGLV(&_p, s)
+	} else {
+		_p.mulWindowed(&_p, s)
+	}
 	p.FromJacobian(&_p)
 	return p
 }
@@ -60,7 +64,11 @@ func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
 // where g is the affine point generating the prime subgroup.
 func (p *G1Affine) ScalarMultiplicationBase(s *big.Int) *G1Affine {
 	var _p G1Jac
-	_p.mulGLV(&g1Gen, s)
+	if s.BitLen() >= g1ScalarMulChoose {
+		_p.mulGLV(&g1Gen, s)
+	} else {
+		_p.mulWindowed(&g1Gen, s)
+	}
 	p.FromJacobian(&_p)
 	return p
 }
@@ -431,13 +439,21 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 // using the GLV technique.
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
 func (p *G1Jac) ScalarMultiplication(q *G1Jac, s *big.Int) *G1Jac {
-	return p.mulGLV(q, s)
+	if s.BitLen() >= g1ScalarMulChoose {
+		return p.mulGLV(q, s)
+	} else {
+		return p.mulWindowed(q, s)
+	}
 }
 
 // ScalarMultiplicationBase computes and returns p = [s]g
 // where g is the prime subgroup generator.
 func (p *G1Jac) ScalarMultiplicationBase(s *big.Int) *G1Jac {
-	return p.mulGLV(&g1Gen, s)
+	if s.BitLen() >= g1ScalarMulChoose {
+		return p.mulGLV(&g1Gen, s)
+	} else {
+		return p.mulWindowed(&g1Gen, s)
+	}
 
 }
 
