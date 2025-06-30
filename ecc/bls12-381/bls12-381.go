@@ -77,6 +77,12 @@ var lambdaGLV big.Int
 // in ker((u,v) → u+vλ[r]), and their determinant
 var glvBasis ecc.Lattice
 
+// g1ScalarMulChoose and g2ScalarmulChoose indicate the bitlength of the scalar
+// in scalar multiplication from which it is more efficient to use the GLV
+// decomposition. It is computed from the GLV basis and considers the overhead
+// for the GLV decomposition. It is heuristic and may change in the future.
+var g1ScalarMulChoose, g2ScalarMulChoose int
+
 // ψ o π o ψ^{-1}, where ψ:E → E' is the degree 6 iso defined over 𝔽p¹²
 var endo struct {
 	u fptower.E2
@@ -128,6 +134,8 @@ func init() {
 	lambdaGLV.SetString("228988810152649578064853576960394133503", 10) //(x₀²-1)
 	_r := fr.Modulus()
 	ecc.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
+	g1ScalarMulChoose = fr.Bits/16 + max(glvBasis.V1[0].BitLen(), glvBasis.V1[1].BitLen(), glvBasis.V2[0].BitLen(), glvBasis.V2[1].BitLen())
+	g2ScalarMulChoose = fr.Bits/32 + max(glvBasis.V1[0].BitLen(), glvBasis.V1[1].BitLen(), glvBasis.V2[0].BitLen(), glvBasis.V2[1].BitLen())
 
 	endo.u.A0.SetString("0")
 	endo.u.A1.SetString("4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939437")
