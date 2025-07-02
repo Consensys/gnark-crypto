@@ -160,6 +160,8 @@ func (z *E2) Halve() {
 }
 
 // Legendre returns the Legendre symbol of z
+// Uses optimized fp.Element.Legendre (Aranha et al, ePrint 2023/1261)
+// This is a fast, constant-time implementation for quadratic extension fields.
 func (z *E2) Legendre() int {
 	var n fp.Element
 	z.norm(&n)
