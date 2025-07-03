@@ -203,9 +203,9 @@ func (z *ComplexNumber) roundNearest(num *ComplexNumber, d *big.Int) {
 // and guarantees ‖r‖ < ‖y‖ (true Euclidean division in ℤ[ω]).
 func (z *ComplexNumber) Quo(x, y *ComplexNumber) *ComplexNumber {
 
-	// x.t0 = Norm(y)
-	y.Norm(&x.t0)
-	if x.t0.Sign() == 0 {
+	// y.t0 = Norm(y)
+	y.Norm(&y.t0)
+	if y.t0.Sign() == 0 {
 		panic("division by zero")
 	}
 
@@ -213,7 +213,7 @@ func (z *ComplexNumber) Quo(x, y *ComplexNumber) *ComplexNumber {
 	z.MulByConjugate(x, y)
 
 	// rounding of both coordinates
-	z.roundNearest(z, &x.t0)
+	z.roundNearest(z, &y.t0)
 
 	return z
 }
@@ -222,8 +222,8 @@ func (z *ComplexNumber) Quo(x, y *ComplexNumber) *ComplexNumber {
 // and guarantees ‖r‖ < ‖y‖ (true Euclidean division in ℤ[ω]).
 func (z *ComplexNumber) QuoRem(x, y, r *ComplexNumber) (*ComplexNumber, *ComplexNumber) {
 
-	y.Norm(&x.t0) // > 0  (Eisenstein norm is always non-neg)
-	if x.t0.Sign() == 0 {
+	y.Norm(&y.t0) // > 0  (Eisenstein norm is always non-neg)
+	if y.t0.Sign() == 0 {
 		panic("division by zero")
 	}
 
@@ -231,14 +231,14 @@ func (z *ComplexNumber) QuoRem(x, y, r *ComplexNumber) (*ComplexNumber, *Complex
 	z.MulByConjugate(x, y)
 
 	// first guess by *symmetric* rounding of both coordinates
-	z.roundNearest(z, &x.t0)
+	z.roundNearest(z, &y.t0)
 
 	// r = x – q*y
 	r.Mul(y, z)
 	r.Sub(x, r)
 
 	// If Euclidean inequality already holds we're done.
-	if r.Norm(&x.t1).Cmp(&x.t0) < 0 {
+	if r.Norm(&x.t1).Cmp(&y.t0) < 0 {
 		return z, r
 	}
 
