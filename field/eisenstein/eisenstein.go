@@ -1,7 +1,6 @@
 package eisenstein
 
 import (
-	"math"
 	"math/big"
 	"sync"
 )
@@ -122,12 +121,11 @@ func (z *ComplexNumber) MulByConjugate(x, y *ComplexNumber) *ComplexNumber {
 	z.t3.Add(&y.A0, &y.A1) // t3 = y₀ + y₁
 	z.t2.Mul(&z.t2, &z.t3) // t2 = (x₀ + x₁)(y₀ + y₁) = x₀y₀ + x₁y₁ + x₀y₁ + x₁y₀
 
-	z.A0.Add(&z.t2, &z.t1) // A0 = x₀y₀ + x₁y₁ - x₀y₁ = t2 - t0 - 2t1
 	z.t3.Add(&z.t1, &z.t1)
 	z.t3.Add(&z.t3, &z.t0)
-	z.A0.Sub(&z.t2, &z.t3)
+	z.A0.Sub(&z.t2, &z.t3) // A0 = x₀y₀ + x₁y₁ - x₀y₁ = t₂ - t₀ - 2t₁
 
-	z.A1.Sub(&z.t0, &z.t1) // A1 = x₁y₀ - x₀y₁ = t0 - t1
+	z.A1.Sub(&z.t0, &z.t1) // A1 = x₁y₀ - x₀y₁ = t₀ - t₁
 
 	return z
 }
@@ -136,10 +134,9 @@ func (z *ComplexNumber) MulByConjugate(x, y *ComplexNumber) *ComplexNumber {
 //
 // The explicit formula is:
 //
-//	N(x0+x1ω) = x0² + x1² - x0*x1
+//	N(x0+x1ω) = x₀² + x₁² - x₀x₁
 //
-// We rearrange into it (x0-x1)² + x0x1
-// TODO: mathfmt
+// We rearrange into it (x₀-x₁)² + x₀x₁
 func (z *ComplexNumber) Norm(norm *big.Int) *big.Int {
 	z.t1.Sub(&z.A0, &z.A1).Mul(&z.t1, &z.t1)
 	z.t2.Mul(&z.A0, &z.A1)
@@ -188,7 +185,8 @@ func (z *ComplexNumber) roundNearest(num *ComplexNumber, d *big.Int) {
 			}
 			z.t3.Lsh(&z.t2, 1)
 			if z.t3.Cmp(&z.t1) >= 0 {
-				increment(result)
+				z.t4.SetUint64(1)
+				result.Add(result, &z.t4)
 			}
 			if isNegativeResult {
 				result.Neg(result)
@@ -257,16 +255,18 @@ func (z *ComplexNumber) QuoRem(x, y, r *ComplexNumber) (*ComplexNumber, *Complex
 
 	// six axial directions of the hexagonal lattice
 	// {1, 0}, {0, 1}, {-1, 1}, {-1, 0}, {0, -1}, {1, -1}
+	var candR ComplexNumber
 	for _, dir := range neighbours {
 		z.A0.Add(a0, dir[0])
 		z.A1.Add(a1, dir[1])
 
-		r.Mul(y, z)
-		r.Sub(x, r)
+		candR.Mul(y, z)
+		candR.Sub(x, &candR)
 
-		if r.Norm(&x.t1).Cmp(bestNorm) < 0 {
+		if candR.Norm(&x.t1).Cmp(bestNorm) < 0 {
 			bestQ0.Set(&z.A0)
 			bestQ1.Set(&z.A1)
+			r.Set(&candR)
 			bestNorm.Set(&x.t1)
 		}
 	}
@@ -306,17 +306,4 @@ func HalfGCD(a, b *ComplexNumber) [3]*ComplexNumber {
 	}
 
 	return [3]*ComplexNumber{&bRun, &v_, &u_}
-}
-
-var one = big.NewInt(1)
-
-func increment(z *big.Int) {
-	if z.Sign() > 0 {
-		zBits := z.Bits()
-		if zBits[0] < math.MaxUint64 {
-			zBits[0] = big.Word(uint64(zBits[0]) + 1)
-			return
-		}
-	}
-	z.Add(z, one)
 }
