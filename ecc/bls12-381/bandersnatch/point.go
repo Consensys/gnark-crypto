@@ -168,6 +168,46 @@ func (p *PointAffine) IsOnCurve() bool {
 	return lhs.Equal(&rhs)
 }
 
+// IsInSubGroup checks if a point is in the prime subgroup
+func (p *PointAffine) IsInSubGroup() bool {
+	initOnce.Do(initCurveParams)
+
+	// Given (x_e, x_e) a point on the twisted Edwards curve Ed_{a,d},
+	// (x_w, y_w) is a point on the birationally equivalent short Weierstrass curve W,
+	// where:
+	// 		x_w = ((1+y_e)/(1-y_e) + A/3 ) / B and
+	//  	A = 2(a+d)/(a-d), B = 4/(a-d)
+	//
+	// We need to check that the two tate pairings t_{2,P2}(P) and t_{2,Q2}(P) are 1,
+	// where P2, Q2 form a basis of W[2].
+	// The Miller functions are:
+	// 		f1 = f_{2,P2}(P) = x_w - P2.X
+	// 		f2 = f_{2,Q2}(P) = x_w - Q2.X
+	// and the final exponentiations to (r-1)/2 are replaced by Legendre symbols.
+	//
+	// To avoid inverses we use the fact that ((a/b) / r)_2 = (a * b / r)_2.
+	// So f_{2,P2}(P) and f_{2,Q2}(P) are simplified as:
+	// 		f1 = (1 + y) * (B * (1-y)) and
+	// 		f2 = (t0 + t1 * y) * (3B * (1-y))
+	// where:
+	// 		t0 = 3+A-3B*Q2.X
+	// 		t1 = 3-A+3B*Q2.X
+
+	var tate1, tate2, temp fr.Element
+	temp.SetOne()
+	tate2.Sub(&temp, &p.Y).
+		Mul(&tate2, &curveParams.b)
+	tate1.Add(&temp, &p.Y).
+		Mul(&tate1, &tate2)
+
+	fr.MulBy3(&tate2)
+	temp.Mul(&curveParams.t1, &p.Y).
+		Add(&temp, &curveParams.t0)
+	tate2.Mul(&temp, &tate2)
+
+	return tate1.Legendre() == 1 && tate2.Legendre() == 1
+}
+
 // Neg sets p to -p1 and returns it
 func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
 	p.X.Neg(&p1.X)
