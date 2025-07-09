@@ -733,7 +733,6 @@ func TestOps(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }
-
 func TestIsInSubGroup(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
@@ -1014,7 +1013,6 @@ func BenchmarkIsOnCurve(b *testing.B) {
 		}
 	})
 }
-
 func BenchmarkIsInSubGroup(b *testing.B) {
 	params := GetEdwardsCurve()
 	var s big.Int

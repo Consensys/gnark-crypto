@@ -13,13 +13,13 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 )
 
-// CurveParams curve parameters: A*x^2 + y^2 = 1 + D*x^2*y^2
+// CurveParams curve parameters: ax^2 + y^2 = 1 + d*x^2*y^2
 type CurveParams struct {
 	A, D              fr.Element
 	Cofactor          fr.Element
-	t0, t1, b, x1, x2 fr.Element
 	Order             big.Int
 	Base              PointAffine
+	t0, t1, b, x1, x2 fr.Element
 	// endomorphism
 	endo     [2]fr.Element
 	lambda   big.Int
@@ -35,13 +35,13 @@ func GetEdwardsCurve() CurveParams {
 	res.A.Set(&curveParams.A)
 	res.D.Set(&curveParams.D)
 	res.Cofactor.Set(&curveParams.Cofactor)
+	res.Order.Set(&curveParams.Order)
+	res.Base.Set(&curveParams.Base)
 	res.x1.Set(&curveParams.x1)
 	res.x2.Set(&curveParams.x2)
 	res.t0.Set(&curveParams.t0)
 	res.t1.Set(&curveParams.t1)
 	res.b.Set(&curveParams.b)
-	res.Order.Set(&curveParams.Order)
-	res.Base.Set(&curveParams.Base)
 	res.endo[0].Set(&curveParams.endo[0])
 	res.endo[1].Set(&curveParams.endo[1])
 	res.lambda.Set(&curveParams.lambda)
@@ -59,15 +59,15 @@ func initCurveParams() {
 	curveParams.A.SetString("-5")
 	curveParams.D.SetString("45022363124591815672509500913686876175488063829319466900776701791074614335719")
 	curveParams.Cofactor.SetString("4")
+	curveParams.Order.SetString("13108968793781547619861935127046491459309155893440570251786403306729687672801", 10)
+
+	curveParams.Base.X.SetString("18886178867200960497001835917649091219057080094937609519140440539760939937304")
+	curveParams.Base.Y.SetString("19188667384257783945677642223292697773471335439753913231509108946878080696678")
 	curveParams.x1.SetString("42460977304182762931716743824405123254375045638571669698531889431804823178961")
 	curveParams.x2.SetString("16243039716619667691992873570312140335529769388307850787230060081835532586707")
 	curveParams.t0.SetString("44968234042453258989421494579017642355260750649112422763795205757285533011434")
 	curveParams.t1.SetString("7467641132672931490026245929168323482429801851415215058808452942653048173085")
 	curveParams.b.SetString("25465760566081946422412445027709227188579564747101592991722834452325077642517")
-	curveParams.Order.SetString("13108968793781547619861935127046491459309155893440570251786403306729687672801", 10)
-
-	curveParams.Base.X.SetString("18886178867200960497001835917649091219057080094937609519140440539760939937304")
-	curveParams.Base.Y.SetString("19188667384257783945677642223292697773471335439753913231509108946878080696678")
 	curveParams.endo[0].SetString("37446463827641770816307242315180085052603635617490163568005256780843403514036")
 	curveParams.endo[1].SetString("49199877423542878313146170939139662862850515542392585932876811575731455068989")
 	curveParams.lambda.SetString("8913659658109529928382530854484400854125314752504019737736543920008458395397", 10)

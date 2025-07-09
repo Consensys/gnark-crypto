@@ -16,9 +16,9 @@ import (
 type CurveParams struct {
 	A, D              fr.Element
 	Cofactor          fr.Element
-	t0, t1, b, x1, x2 fr.Element
 	Order             big.Int
 	Base              PointAffine
+	t0, t1, b, x1, x2 fr.Element
 }
 
 // GetEdwardsCurve returns the twisted Edwards curve on bls12-381/Fr
@@ -30,13 +30,13 @@ func GetEdwardsCurve() CurveParams {
 	res.A.Set(&curveParams.A)
 	res.D.Set(&curveParams.D)
 	res.Cofactor.Set(&curveParams.Cofactor)
+	res.Order.Set(&curveParams.Order)
+	res.Base.Set(&curveParams.Base)
 	res.x1.Set(&curveParams.x1)
 	res.x2.Set(&curveParams.x2)
 	res.t0.Set(&curveParams.t0)
 	res.t1.Set(&curveParams.t1)
 	res.b.Set(&curveParams.b)
-	res.Order.Set(&curveParams.Order)
-	res.Base.Set(&curveParams.Base)
 
 	return res
 }
@@ -51,12 +51,13 @@ func initCurveParams() {
 	curveParams.D.SetString("19257038036680949359750312669786877991949435402254120286184196891950884077233")
 	curveParams.Cofactor.SetString("8")
 	curveParams.Order.SetString("6554484396890773809930967563523245729705921265872317281365359162392183254199", 10)
+
+	curveParams.Base.X.SetString("23426137002068529236790192115758361610982344002369094106619281483467893291614")
+	curveParams.Base.Y.SetString("39325435222430376843701388596190331198052476467368316772266670064146548432123")
 	curveParams.x1.SetString("37294229906716882220550340306010068240529756174978307973693041063956155361833")
 	curveParams.x2.SetString("3582495053564051069415139246118551298173441382455236828175314843170931667663")
 	curveParams.t0.SetString("11559150214845257189482260956057346298987354943094093020735302792811494155017")
 	curveParams.b.SetString("52435875175126190479447740508185965837690552500527637822603658699938581184512")
-	curveParams.Base.X.SetString("23426137002068529236790192115758361610982344002369094106619281483467893291614")
-	curveParams.Base.Y.SetString("39325435222430376843701388596190331198052476467368316772266670064146548432123")
 }
 
 // mulByA multiplies fr.Element by curveParams.A
