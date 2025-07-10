@@ -32,11 +32,11 @@ func GetEdwardsCurve() CurveParams {
 	res.Cofactor.Set(&curveParams.Cofactor)
 	res.Order.Set(&curveParams.Order)
 	res.Base.Set(&curveParams.Base)
-	res.x1.Set(&curveParams.x1)
-	res.x2.Set(&curveParams.x2)
 	res.t0.Set(&curveParams.t0)
 	res.t1.Set(&curveParams.t1)
 	res.b.Set(&curveParams.b)
+	res.x1.Set(&curveParams.x1)
+	res.x2.Set(&curveParams.x2)
 
 	return res
 }

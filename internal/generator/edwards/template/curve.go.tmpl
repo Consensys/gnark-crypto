@@ -17,7 +17,11 @@ type CurveParams struct {
 	Order    big.Int
 	Base     PointAffine
 	{{- if eq .Name "bls12-381"}}
+	{{- if .HasEndomorphism}}
+	t0, t1, b fr.Element
+	{{- else}}
 	t0, t1, b, x1, x2 fr.Element
+	{{- end}}
 	{{- end}}
 
 	{{- if .HasEndomorphism}}
@@ -40,11 +44,13 @@ func GetEdwardsCurve() CurveParams {
 	res.Order.Set(&curveParams.Order)
 	res.Base.Set(&curveParams.Base)
 	{{- if eq .Name "bls12-381"}}
-	res.x1.Set(&curveParams.x1)
-	res.x2.Set(&curveParams.x2)
 	res.t0.Set(&curveParams.t0)
 	res.t1.Set(&curveParams.t1)
 	res.b.Set(&curveParams.b)
+	{{- if not .HasEndomorphism}}
+	res.x1.Set(&curveParams.x1)
+	res.x2.Set(&curveParams.x2)
+	{{- end}}
 	{{- end}}
 
 	{{- if .HasEndomorphism}}
@@ -74,8 +80,6 @@ func initCurveParams() {
 	curveParams.Base.Y.SetString("{{.BaseY}}")
 	{{- if eq .Name "bls12-381"}}
 	{{- if .HasEndomorphism}}
-	curveParams.x1.SetString("42460977304182762931716743824405123254375045638571669698531889431804823178961")
-	curveParams.x2.SetString("16243039716619667691992873570312140335529769388307850787230060081835532586707")
 	curveParams.t0.SetString("44968234042453258989421494579017642355260750649112422763795205757285533011434")
 	curveParams.t1.SetString("7467641132672931490026245929168323482429801851415215058808452942653048173085")
 	curveParams.b.SetString("25465760566081946422412445027709227188579564747101592991722834452325077642517")

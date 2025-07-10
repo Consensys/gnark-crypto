@@ -15,11 +15,11 @@ import (
 
 // CurveParams curve parameters: ax^2 + y^2 = 1 + d*x^2*y^2
 type CurveParams struct {
-	A, D              fr.Element
-	Cofactor          fr.Element
-	Order             big.Int
-	Base              PointAffine
-	t0, t1, b, x1, x2 fr.Element
+	A, D      fr.Element
+	Cofactor  fr.Element
+	Order     big.Int
+	Base      PointAffine
+	t0, t1, b fr.Element
 	// endomorphism
 	endo     [2]fr.Element
 	lambda   big.Int
@@ -37,8 +37,6 @@ func GetEdwardsCurve() CurveParams {
 	res.Cofactor.Set(&curveParams.Cofactor)
 	res.Order.Set(&curveParams.Order)
 	res.Base.Set(&curveParams.Base)
-	res.x1.Set(&curveParams.x1)
-	res.x2.Set(&curveParams.x2)
 	res.t0.Set(&curveParams.t0)
 	res.t1.Set(&curveParams.t1)
 	res.b.Set(&curveParams.b)
@@ -63,8 +61,6 @@ func initCurveParams() {
 
 	curveParams.Base.X.SetString("18886178867200960497001835917649091219057080094937609519140440539760939937304")
 	curveParams.Base.Y.SetString("19188667384257783945677642223292697773471335439753913231509108946878080696678")
-	curveParams.x1.SetString("42460977304182762931716743824405123254375045638571669698531889431804823178961")
-	curveParams.x2.SetString("16243039716619667691992873570312140335529769388307850787230060081835532586707")
 	curveParams.t0.SetString("44968234042453258989421494579017642355260750649112422763795205757285533011434")
 	curveParams.t1.SetString("7467641132672931490026245929168323482429801851415215058808452942653048173085")
 	curveParams.b.SetString("25465760566081946422412445027709227188579564747101592991722834452325077642517")
