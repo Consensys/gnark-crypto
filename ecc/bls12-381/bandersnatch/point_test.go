@@ -745,6 +745,16 @@ func TestIsInSubGroup(t *testing.T) {
 	properties := gopter.NewProperties(parameters)
 	genS := GenBigInt()
 
+	properties.Property("Identity element (0,1) should be in subgroup", prop.ForAll(
+		func() bool {
+
+			var p PointAffine
+			p.setInfinity()
+
+			return p.IsInSubGroup()
+		},
+	))
+
 	properties.Property("Test IsInSubGroup", prop.ForAll(
 		func(s big.Int) bool {
 
