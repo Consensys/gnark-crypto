@@ -12,13 +12,12 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 )
 
-// CurveParams curve parameters: ax^2 + y^2 = 1 + d*x^2*y^2
+// CurveParams curve parameters: Ax^2 + y^2 = 1 + Dx^2*y^2
 type CurveParams struct {
-	A, D              fr.Element
-	Cofactor          fr.Element
-	Order             big.Int
-	Base              PointAffine
-	t0, t1, b, x1, x2 fr.Element
+	A, D     fr.Element
+	Cofactor fr.Element
+	Order    big.Int
+	Base     PointAffine
 }
 
 // GetEdwardsCurve returns the twisted Edwards curve on bls12-381/Fr
@@ -32,11 +31,6 @@ func GetEdwardsCurve() CurveParams {
 	res.Cofactor.Set(&curveParams.Cofactor)
 	res.Order.Set(&curveParams.Order)
 	res.Base.Set(&curveParams.Base)
-	res.t0.Set(&curveParams.t0)
-	res.t1.Set(&curveParams.t1)
-	res.b.Set(&curveParams.b)
-	res.x1.Set(&curveParams.x1)
-	res.x2.Set(&curveParams.x2)
 
 	return res
 }
@@ -54,10 +48,6 @@ func initCurveParams() {
 
 	curveParams.Base.X.SetString("23426137002068529236790192115758361610982344002369094106619281483467893291614")
 	curveParams.Base.Y.SetString("39325435222430376843701388596190331198052476467368316772266670064146548432123")
-	curveParams.x1.SetString("37294229906716882220550340306010068240529756174978307973693041063956155361833")
-	curveParams.x2.SetString("3582495053564051069415139246118551298173441382455236828175314843170931667663")
-	curveParams.t0.SetString("11559150214845257189482260956057346298987354943094093020735302792811494155017")
-	curveParams.b.SetString("52435875175126190479447740508185965837690552500527637822603658699938581184512")
 }
 
 // mulByA multiplies fr.Element by curveParams.A

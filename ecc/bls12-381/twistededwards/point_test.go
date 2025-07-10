@@ -701,43 +701,6 @@ func TestOps(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }
-func TestIsInSubGroup(t *testing.T) {
-	t.Parallel()
-	parameters := gopter.DefaultTestParameters()
-	if testing.Short() {
-		parameters.MinSuccessfulTests = nbFuzzShort
-	} else {
-		parameters.MinSuccessfulTests = nbFuzz
-	}
-
-	properties := gopter.NewProperties(parameters)
-	genS := GenBigInt()
-
-	properties.Property("Identity element (0,1) should be in subgroup", prop.ForAll(
-		func() bool {
-
-			var p PointAffine
-			p.setInfinity()
-
-			return p.IsInSubGroup()
-		},
-	))
-
-	properties.Property("Test IsInSubGroup", prop.ForAll(
-		func(s big.Int) bool {
-
-			params := GetEdwardsCurve()
-
-			var p PointAffine
-			p.ScalarMultiplication(&params.Base, &s)
-
-			return p.IsInSubGroup()
-		},
-		genS,
-	))
-
-	properties.TestingRun(t, gopter.ConsoleReporter(false))
-}
 
 func TestMarshal(t *testing.T) {
 	t.Parallel()
@@ -990,17 +953,4 @@ func BenchmarkIsOnCurve(b *testing.B) {
 			_ = point.IsOnCurve()
 		}
 	})
-}
-func BenchmarkIsInSubGroup(b *testing.B) {
-	params := GetEdwardsCurve()
-	var s big.Int
-	s.SetString("52435875175126190479447705081859658376581184513", 10)
-
-	var point PointAffine
-	point.ScalarMultiplication(&params.Base, &s)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = point.IsInSubGroup()
-	}
 }

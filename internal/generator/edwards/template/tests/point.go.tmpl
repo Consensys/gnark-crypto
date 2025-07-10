@@ -737,6 +737,7 @@ func TestOps(t *testing.T) {
 
 }
 
+{{- if eq .Cofactor "4"}}
 {{- if eq .Name "bls12-381"}}
 func TestIsInSubGroup(t *testing.T) {
 	t.Parallel()
@@ -775,6 +776,7 @@ func TestIsInSubGroup(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+{{- end}}
 {{- end}}
 
 func TestMarshal(t *testing.T) {
@@ -1030,6 +1032,7 @@ func BenchmarkIsOnCurve(b *testing.B) {
 	})
 }
 
+{{- if eq .Cofactor "4"}}
 {{- if eq .Name "bls12-381"}}
 func BenchmarkIsInSubGroup(b *testing.B) {
        params := GetEdwardsCurve()
@@ -1044,4 +1047,5 @@ func BenchmarkIsInSubGroup(b *testing.B) {
                _ = point.IsInSubGroup()
        }
 }
+{{- end}}
 {{- end}}

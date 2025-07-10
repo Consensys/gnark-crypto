@@ -13,7 +13,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 )
 
-// CurveParams curve parameters: ax^2 + y^2 = 1 + d*x^2*y^2
+// CurveParams curve parameters: Ax^2 + y^2 = 1 + Dx^2*y^2
 type CurveParams struct {
 	A, D      fr.Element
 	Cofactor  fr.Element
