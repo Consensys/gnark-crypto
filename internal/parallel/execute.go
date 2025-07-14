@@ -1,12 +1,19 @@
 package parallel
 
 import (
+	"os"
 	"runtime"
 	"sync"
 )
 
 // Execute process in parallel the work function
 func Execute(nbIterations int, work func(int, int), maxCpus ...int) {
+	if os.Getenv("DISABLE_GOROUTINE") == "1" {
+		for i := 0; i < nbIterations; i++ {
+			work(i, i+1)
+		}
+		return
+	}
 
 	nbTasks := runtime.NumCPU()
 	if len(maxCpus) == 1 {

@@ -11,6 +11,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"math"
+	"os"
 	"runtime"
 )
 
@@ -128,13 +129,18 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 	if costPostSplit < costPreSplit {
 		config.NbTasks = int(math.Ceil(float64(config.NbTasks) / 2.0))
 		var _p G1Jac
-		chDone := make(chan struct{}, 1)
-		go func() {
+		if os.Getenv("DISABLE_GOROUTINE") == "1" {
 			_p.MultiExp(points[:nbPoints/2], scalars[:nbPoints/2], config)
-			close(chDone)
-		}()
-		p.MultiExp(points[nbPoints/2:], scalars[nbPoints/2:], config)
-		<-chDone
+			p.MultiExp(points[nbPoints/2:], scalars[nbPoints/2:], config)
+		} else {
+			chDone := make(chan struct{}, 1)
+			go func() {
+				_p.MultiExp(points[:nbPoints/2], scalars[:nbPoints/2], config)
+				close(chDone)
+			}()
+			p.MultiExp(points[nbPoints/2:], scalars[nbPoints/2:], config)
+			<-chDone
+		}
 		p.AddAssign(&_p)
 		return p, nil
 	}
@@ -146,6 +152,10 @@ func (p *G1Jac) MultiExp(points []G1Affine, scalars []fr.Element, config ecc.Mul
 }
 
 func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) *G1Jac {
+	if os.Getenv("DISABLE_GOROUTINE") == "1" {
+		return serialInnerMsmG1(p, c, points, scalars, config)
+	}
+
 	// partition the scalars
 	digits, chunkStats := partitionScalars(scalars, c, config.NbTasks)
 
@@ -203,6 +213,55 @@ func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, scalars []fr.Element, co
 			continue
 		}
 		go processChunk(uint64(j), chChunks[j], c, points, digits[j*n:(j+1)*n], sem)
+	}
+
+	return msmReduceChunkG1Affine(p, int(c), chChunks[:])
+}
+
+func serialInnerMsmG1(p *G1Jac, c uint64, points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) *G1Jac {
+	// partition the scalars
+	//fmt.Printf("serialInnerMsmG1\n")
+
+	digits, chunkStats := partitionScalars(scalars, c, config.NbTasks)
+
+	nbChunks := computeNbChunks(c)
+
+	// for each chunk, spawn one go routine that'll loop through all the scalars in the
+	// corresponding bit-window
+	// note that buckets is an array allocated on the stack and this is critical for performance
+
+	// each go routine sends its result in chChunks[i] channel
+	chChunks := make([]chan g1JacExtended, nbChunks)
+	for i := 0; i < len(chChunks); i++ {
+		chChunks[i] = make(chan g1JacExtended, 1)
+	}
+
+	// the last chunk may be processed with a different method than the rest, as it could be smaller.
+	n := len(points)
+	for j := int(nbChunks - 1); j >= 0; j-- {
+		processChunk := getChunkProcessorG1(c, chunkStats[j])
+		if j == int(nbChunks-1) {
+			processChunk = getChunkProcessorG1(lastC(c), chunkStats[j])
+		}
+		if chunkStats[j].weight >= 115 {
+			// we split this in more go routines since this chunk has more work to do than the others.
+			// else what would happen is this go routine would finish much later than the others.
+			chSplit := make(chan g1JacExtended, 2)
+			split := n / 2
+
+			processChunk(uint64(j), chSplit, c, points[:split], digits[j*n:(j*n)+split], nil)
+			processChunk(uint64(j), chSplit, c, points[split:], digits[(j*n)+split:(j+1)*n], nil)
+
+			{
+				s1 := <-chSplit
+				s2 := <-chSplit
+				close(chSplit)
+				s1.add(&s2)
+				chChunks[j] <- s1
+			}
+			continue
+		}
+		processChunk(uint64(j), chChunks[j], c, points, digits[j*n:(j+1)*n], nil)
 	}
 
 	return msmReduceChunkG1Affine(p, int(c), chChunks[:])
