@@ -171,8 +171,8 @@ func (p *PointAffine) IsOnCurve() bool {
 // IsInSubGroup checks if a point is in the prime subgroup (and on the curve)
 // based on https://eprint.iacr.org/2022/037.pdf by D. Koshelev.
 func (p *PointAffine) IsInSubGroup() bool {
-	if p.IsOnCurve() {
-		return true
+	if !p.IsOnCurve() {
+		return false
 	}
 	if p.IsZero() {
 		return true
