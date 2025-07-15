@@ -184,6 +184,7 @@ func (p *PointAffine) IsInSubGroup() bool {
 	// where:
 	// 		x_w = ((1+y_e)/(1-y_e) + A/3 ) / B and
 	//  	A = 2(a+d)/(a-d), B = 4/(a-d)
+	//
 	// N.B.: We only need x_w in the following formula.
 	//
 	// We need to check that the two tate pairings t_{2,P1}(P) and t_{2,P2}(P) are 1,
@@ -195,8 +196,8 @@ func (p *PointAffine) IsInSubGroup() bool {
 	//
 	// To avoid inverses we use the fact that ((a/b) / r)_2 = (a * b / r)_2.
 	// So f_{2,P2} and f_{2,Q2} are simplified as:
-	// 		f1 = (t0 + t1 * y) * (3B * (1-y)) and
-	// 		f2 = (t2 + t3 * y) * (3B * (1-y))
+	//              f1 = (t0 + t1 * y) * (3B * (1-y)) and
+	//              f2 = (t2 + t3 * y) * (3B * (1-y))
 	// where:
 	// 		t0 = 3+A-3B*P1.X
 	// 		t1 = 3-A+3B*P1.X
