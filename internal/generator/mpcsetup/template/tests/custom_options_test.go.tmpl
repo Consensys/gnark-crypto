@@ -1,0 +1,238 @@
+package mpcsetup
+
+import (
+	"bytes"
+	"crypto/rand"
+	"crypto/sha256"
+	"io"
+	"testing"
+
+	curve "github.com/consensys/gnark-crypto/ecc/{{.Name}}"
+	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+)
+
+// TestCustomHashFunction demonstrates how to use a custom hash function for MPC setup
+func TestCustomHashFunction(t *testing.T) {
+	// Create a custom hash function that uses SHA-256 instead of the default HashToG2
+	customHashFunc := func(msg, dst []byte) (curve.G2Affine, error) {
+		// A simple example: hash the message with SHA-256 and map the result to G2
+		h := sha256.New()
+		h.Write(msg)
+		h.Write(dst)
+		digest := h.Sum(nil)
+		
+		// Use the built-in HashToG2 but with our custom digest
+		return curve.HashToG2(digest, []byte{0x01})
+	}
+
+	// Create a new ceremony with the custom hash function
+	ceremony := NewCeremony()
+	ceremony.Configure(WithHashToG2(customHashFunc))
+
+	// Example challenge
+	challenge := []byte("test challenge")
+	
+	// Create a contribution
+	contributionValue := fr.NewElement(42)
+	
+	// Create a representation to update
+	_, _, g1, _ := curve.Generators()
+	repr := g1
+
+	// UpdateValues will now use our custom hash function through Hash
+	proof := ceremony.UpdateValues(&contributionValue, challenge, 0x01, &repr)
+	
+	// Verify should also work with our custom hash function
+	err := proof.Verify(ceremony, challenge, 0x01, ValueUpdate{Previous: g1, Next: repr})
+	if err != nil {
+		t.Fatalf("verification failed: %v", err)
+	}
+}
+
+// TestCustomRandomSource demonstrates how to use a custom randomness source for MPC setup
+func TestCustomRandomSource(t *testing.T) {
+	// Create a deterministic random source for testing
+	deterministicSeed := []byte("fixed seed for deterministic randomness")
+	customRandomReader := bytes.NewReader(deterministicSeed)
+	
+	customRandomSource := func() (io.Reader, error) {
+		// In real applications, you might use a more complex source of randomness
+		// Reset the reader to the beginning for this example
+		customRandomReader.Reset(deterministicSeed)
+		return customRandomReader, nil
+	}
+
+	// Create a new ceremony with the custom randomness source
+	ceremony := NewCeremony()
+	ceremony.Configure(WithRandomSource(customRandomSource))
+
+	// Generate two proofs with the same seed - they should be identical
+	challenge := []byte("test challenge")
+	
+	_, _, g1, _ := curve.Generators()
+	repr1 := g1
+	repr2 := g1
+
+	// UpdateValues without specifying a contribution value will use our custom randomness
+	proof1 := ceremony.UpdateValues(nil, challenge, 0x01, &repr1)
+	
+	// Reset the reader to get the same "random" values
+	customRandomReader.Reset(deterministicSeed)
+	
+	proof2 := ceremony.UpdateValues(nil, challenge, 0x01, &repr2)
+
+	// Both proofs should be identical because they used the same deterministic random source
+	if !proof1.contributionCommitment.Equal(&proof2.contributionCommitment) {
+		t.Fatal("expected identical contribution commitments")
+	}
+
+	if !proof1.contributionPok.Equal(&proof2.contributionPok) {
+		t.Fatal("expected identical contribution proofs of knowledge")
+	}
+}
+
+// TestCombinedOptions demonstrates using both custom hash and randomness together
+func TestCombinedOptions(t *testing.T) {
+	// Define custom hash function
+	customHashFunc := func(msg, dst []byte) (curve.G2Affine, error) {
+		h := sha256.New()
+		h.Write(msg)
+		h.Write(dst)
+		digest := h.Sum(nil)
+		return curve.HashToG2(digest, []byte{0x01})
+	}
+
+	// Define custom randomness source
+	fixedRandom := make([]byte, 64)
+	for i := range fixedRandom {
+		fixedRandom[i] = byte(i)
+	}
+	
+	customRandomSource := func() (io.Reader, error) {
+		return bytes.NewReader(fixedRandom), nil
+	}
+
+	// Create a new ceremony with both options at once
+	ceremony := NewCeremony()
+	ceremony.Configure(
+		WithHashToG2(customHashFunc),
+		WithRandomSource(customRandomSource),
+	)
+
+	// Use the configured options
+	challenge := []byte("test challenge")
+	_, _, g1, _ := curve.Generators()
+	repr := g1
+
+	proof := ceremony.UpdateValues(nil, challenge, 0x01, &repr)
+	
+	err := proof.Verify(ceremony, challenge, 0x01, ValueUpdate{Previous: g1, Next: repr})
+	if err != nil {
+		t.Fatalf("verification failed: %v", err)
+	}
+}
+
+// TestMultipleCeremonies verifies that different ceremonies can use different options
+func TestMultipleCeremonies(t *testing.T) {
+	// Create two different ceremonies with different options
+	source1Data := []byte("first source")
+	source2Data := []byte("second source")
+	
+	// First ceremony with custom hash function
+	ceremony1 := NewCeremony()
+	ceremony1.Configure(WithHashToG2(func(msg, dst []byte) (curve.G2Affine, error) {
+		h := sha256.New()
+		h.Write(msg)
+		h.Write(dst)
+		h.Write([]byte("ceremony1"))
+		digest := h.Sum(nil)
+		return curve.HashToG2(digest, []byte{0x01})
+	}))
+	
+	// Second ceremony with custom random source
+	ceremony2 := NewCeremony()
+	ceremony2.Configure(WithRandomSource(func() (io.Reader, error) {
+		return bytes.NewReader(source2Data), nil
+		}))
+		
+	// Use both ceremonies with their own configurations
+	challenge := []byte("test challenge")
+	_, _, g1, _ := curve.Generators()
+	
+	repr1 := g1
+	repr2 := g1
+	
+	// Generate proofs with each ceremony
+	proof1 := ceremony1.UpdateValues(nil, challenge, 0x01, &repr1)
+	proof2 := ceremony2.UpdateValues(nil, challenge, 0x01, &repr2)
+	
+	// Proofs should be different due to different configurations
+	if proof1.contributionCommitment.Equal(&proof2.contributionCommitment) {
+		t.Fatal("expected different contribution commitments")
+	}
+	
+	// Each proof should verify with its own ceremony
+	if err := proof1.Verify(ceremony1, challenge, 0x01, ValueUpdate{Previous: g1, Next: repr1}); err != nil {
+		t.Fatalf("verification of proof1 failed: %v", err)
+	}
+	
+	if err := proof2.Verify(ceremony2, challenge, 0x01, ValueUpdate{Previous: g1, Next: repr2}); err != nil {
+		t.Fatalf("verification of proof2 failed: %v", err)
+	}
+}
+
+// TestBackwardCompatibility demonstrates using the global functions 
+// that provide backward compatibility
+func TestBackwardCompatibility(t *testing.T) {
+	// Get default ceremony
+	defaultCeremony := DefaultCeremony()
+	
+	// Configure the default ceremony with custom options
+	customHashFunc := func(msg, dst []byte) (curve.G2Affine, error) {
+		h := sha256.New()
+		h.Write(msg)
+		h.Write(dst)
+		digest := h.Sum(nil)
+		return curve.HashToG2(digest, []byte{0x01})
+	}
+	
+	defaultCeremony.Configure(WithHashToG2(customHashFunc))
+		
+	// Example challenge
+	challenge := []byte("test challenge")
+	
+	// Create a representation to update
+	_, _, g1, _ := curve.Generators()
+	repr1 := g1
+	repr2 := g1
+	
+	// Use the global UpdateValues function (which uses the default ceremony)
+	proof := UpdateValues(nil, challenge, 0x01, &repr1)
+	
+	// Verify using the default ceremony's method
+	err := proof.Verify(defaultCeremony, challenge, 0x01, ValueUpdate{Previous: g1, Next: repr1})
+	if err != nil {
+		t.Fatalf("verification failed: %v", err)
+	}
+	
+	// Create a slice for SameRatioMany test
+	g1Slice := make([]curve.G1Affine, 3)
+	g2Slice := make([]curve.G2Affine, 3)
+	
+	for i := range g1Slice {
+		g1Slice[i] = g1
+		g2Slice[i] = g2Slice[0]
+	}
+	
+	// Use the global SameRatioMany function
+	err = SameRatioMany(g1Slice, g2Slice)
+	if err != nil {
+		t.Fatalf("SameRatioMany failed: %v", err)
+	}
+	
+	// Use the global BeaconContributions function
+	contributions := BeaconContributions([]byte("hash"), []byte("dst"), []byte("beacon"), 2)
+	if len(contributions) != 2 {
+		t.Fatalf("expected 2 contributions, got %d", len(contributions))
+	}
+} 
