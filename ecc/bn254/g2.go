@@ -13,6 +13,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"math/big"
 	"runtime"
+	"sync/atomic"
 )
 
 // G2Affine is a point in affine coordinates (x,y)
@@ -223,6 +224,76 @@ func (p *G2Affine) IsInSubGroup() bool {
 		Double(&res)
 
 	return res.Equal(&c)
+}
+
+// IsInSubGroupBatchG2 checks if a batch of points P_i are in G1.
+// It uses a deterministic naive method for batch size < 80 and a probabilistic
+// method otherwise.
+func IsInSubGroupBatchG2(points []G2Affine) bool {
+	if len(points) < 160 {
+		return isInSubGroupBatchG2Naive(points)
+	} else {
+		return isInSubGroupBatchG2Prob(points)
+	}
+}
+
+// isInSubGroupBatchG2Naive checks if a batch of points P_i are in G1.
+// This is a naive method that checks each point individually using
+// IsInSubGroup method.
+func isInSubGroupBatchG2Naive(points []G2Affine) bool {
+	var nbErrors int64
+	parallel.Execute(len(points), func(start, end int) {
+		for i := start; i < end; i++ {
+			if !points[i].IsInSubGroup() {
+				atomic.AddInt64(&nbErrors, 1)
+				return
+			}
+		}
+	})
+	return nbErrors == 0
+}
+
+// isInSubGroupBatchG2Prob probabilistically checks if a batch of points P_i are in
+// G2.  It generates random scalars s_i in the range {0,1}, performs 64 MSM
+// Sj=∑[s_i]P_i of sizes N=len(points) and checks if Sj are on E[r] using
+// IsInSubGroup method. The error probability is < 1/2^64.
+func isInSubGroupBatchG2Prob(points []G2Affine) bool {
+	var nbErrors int64
+	const windowSize = 64
+	parallel.Execute(windowSize, func(start, end int) {
+
+		var br [windowSize / 8]byte
+
+		// Check Sj are on E[r]
+		for i := start; i < end; i++ {
+			var sum g2JacExtended
+			for j := range len(points) {
+				pos := j % windowSize
+				if pos == 0 {
+					// re sample the random bytes every windowSize points
+					// as per the doc:
+					// Read fills b with cryptographically secure random bytes. It never returns an error, and always fills b entirely.
+					rand.Read(br[:])
+				}
+				// check if the bit is set
+				if br[pos/8]&(1<<(pos%8)) != 0 {
+					// add the point to the sum
+					sum.addMixed(&points[j])
+				}
+			}
+
+			var p G2Jac
+			p.fromJacExtended(&sum)
+			if !p.IsInSubGroup() {
+				atomic.AddInt64(&nbErrors, 1)
+				return
+			}
+		}
+
+	})
+
+	return nbErrors == 0
+
 }
 
 // -------------------------------------------------------------------------------------------------
