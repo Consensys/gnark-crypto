@@ -226,7 +226,7 @@ func (p *G2Affine) IsInSubGroup() bool {
 	return res.Equal(&c)
 }
 
-// IsInSubGroupBatchG2 checks if a batch of points P_i are in G1.
+// IsInSubGroupBatchG2 checks if a batch of points P_i are in G2.
 // It uses a deterministic naive method for batch size < 80 and a probabilistic
 // method otherwise.
 func IsInSubGroupBatchG2(points []G2Affine) bool {
@@ -237,7 +237,7 @@ func IsInSubGroupBatchG2(points []G2Affine) bool {
 	}
 }
 
-// isInSubGroupBatchG2Naive checks if a batch of points P_i are in G1.
+// isInSubGroupBatchG2Naive checks if a batch of points P_i are in G2.
 // This is a naive method that checks each point individually using
 // IsInSubGroup method.
 func isInSubGroupBatchG2Naive(points []G2Affine) bool {
@@ -267,7 +267,7 @@ func isInSubGroupBatchG2Prob(points []G2Affine) bool {
 		// Check Sj are on E[r]
 		for i := start; i < end; i++ {
 			var sum g2JacExtended
-			for j := range len(points) {
+			for j := 0; j < len(points); j++ {
 				pos := j % windowSize
 				if pos == 0 {
 					// re sample the random bytes every windowSize points

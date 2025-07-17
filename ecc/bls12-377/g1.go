@@ -249,7 +249,7 @@ func isInSubGroupBatchG1Prob(points []G1Affine) bool {
 		// Check Sj are on E[r]
 		for i := start; i < end; i++ {
 			var sum g1JacExtended
-			for j := range len(points) {
+			for j := 0; j < len(points); j++ {
 				pos := j % windowSize
 				if pos == 0 {
 					// re sample the random bytes every windowSize points
