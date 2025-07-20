@@ -874,6 +874,12 @@ func (z *Element) Bytes() (res [Bytes]byte) {
 	return
 }
 
+// BytesMont returns the value of z as a big-endian byte array in Montgomery form
+func (z *Element) BytesMont() (res [Bytes]byte) {
+	LittleEndian.PutElementMont(&res, *z)
+	return
+}
+
 // Marshal returns the value of z as a big-endian byte slice
 func (z *Element) Marshal() []byte {
 	b := z.Bytes()
@@ -1103,6 +1109,13 @@ func (bigEndian) String() string { return "BigEndian" }
 var LittleEndian littleEndian
 
 type littleEndian struct{}
+
+func (littleEndian) PutElementMont(b *[Bytes]byte, e Element) {
+	binary.LittleEndian.PutUint64((*b)[0:8], e[0])
+	binary.LittleEndian.PutUint64((*b)[8:16], e[1])
+	binary.LittleEndian.PutUint64((*b)[16:24], e[2])
+	binary.LittleEndian.PutUint64((*b)[24:32], e[3])
+}
 
 func (littleEndian) Element(b *[Bytes]byte) (Element, error) {
 	var z Element

@@ -474,6 +474,18 @@ func (z *Element) Select(c int, x0 *Element, x1 *Element) *Element {
 	return z
 }
 
+func (littleEndian) PutElementMont(b *[Bytes]byte, e Element) {
+	binary.LittleEndian.PutUint64((*b)[0:8], e[0])
+	binary.LittleEndian.PutUint64((*b)[8:16], e[1])
+	binary.LittleEndian.PutUint64((*b)[16:24], e[2])
+	binary.LittleEndian.PutUint64((*b)[24:32], e[3])
+}
+
+func (z *Element) BytesMont() (b [Bytes]byte) {
+	LittleEndian.PutElementMont(&b, *z)
+	return b
+}
+
 // _mulGeneric is unoptimized textbook CIOS
 // it is a fallback solution on x86 when ADX instruction set is not available
 // and is used for testing purposes.
