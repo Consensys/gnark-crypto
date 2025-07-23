@@ -39,5 +39,5 @@ func (f *FFAmd64) Reduce(registers *amd64.Registers, t []amd64.Register, avoidGl
 		scratch = append(scratch, spare)
 	}
 	f.ReduceElement(t, scratch, avoidGlobal)
-	f.Push(registers, scratch...)
+	f.UnsafePush(registers, scratch...)
 }
