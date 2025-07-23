@@ -124,10 +124,9 @@ const tmplReduceDefineNoGlobal = `
 	{{- end}}
 `
 
-// TODO @gbotrel rename to avoidGlobal for consistency and check if it's used somewhere else than e2.
-func (f *FFAmd64) GenerateReduceDefine(noGlobal ...bool) {
+func (f *FFAmd64) GenerateReduceDefine(avoidGlobal ...bool) {
 	tmplReduceDefine := tmplReduceDefine
-	if len(noGlobal) > 0 && noGlobal[0] {
+	if len(avoidGlobal) > 0 && avoidGlobal[0] {
 		tmplReduceDefine = tmplReduceDefineNoGlobal
 	}
 	tmpl := template.Must(template.New("").

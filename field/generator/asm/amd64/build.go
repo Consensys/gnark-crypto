@@ -315,9 +315,6 @@ func GenerateCommonASM(w io.Writer, nbWords, nbBits int, hasVector bool) error {
 	}
 
 	f.GenerateReduceDefine()
-	// if nbWords == 12 {
-	f.GenerateReduceDefine(true)
-	// }
 
 	// reduce
 	f.generateReduce()

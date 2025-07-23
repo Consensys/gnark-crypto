@@ -23,32 +23,6 @@
 	CMOVQCS rb4, ra4; \
 	CMOVQCS rb5, ra5; \
 
-#define REDUCE_NOGLOBAL(ra0, ra1, ra2, ra3, ra4, ra5, rb0, rb1, rb2, rb3, rb4, rb5, scratch0) \
-	MOVQ    ra0, rb0;            \
-	MOVQ    $const_q0, scratch0; \
-	SUBQ    scratch0, ra0;       \
-	MOVQ    ra1, rb1;            \
-	MOVQ    $const_q1, scratch0; \
-	SBBQ    scratch0, ra1;       \
-	MOVQ    ra2, rb2;            \
-	MOVQ    $const_q2, scratch0; \
-	SBBQ    scratch0, ra2;       \
-	MOVQ    ra3, rb3;            \
-	MOVQ    $const_q3, scratch0; \
-	SBBQ    scratch0, ra3;       \
-	MOVQ    ra4, rb4;            \
-	MOVQ    $const_q4, scratch0; \
-	SBBQ    scratch0, ra4;       \
-	MOVQ    ra5, rb5;            \
-	MOVQ    $const_q5, scratch0; \
-	SBBQ    scratch0, ra5;       \
-	CMOVQCS rb0, ra0;            \
-	CMOVQCS rb1, ra1;            \
-	CMOVQCS rb2, ra2;            \
-	CMOVQCS rb3, ra3;            \
-	CMOVQCS rb4, ra4;            \
-	CMOVQCS rb5, ra5;            \
-
 TEXT ·reduce(SB), NOSPLIT, $0-8
 	MOVQ res+0(FP), AX
 	MOVQ 0(AX), DX
