@@ -37,6 +37,7 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 	const argSize = 2 * 3 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 2, 0)
 	registers := f.FnHeader(fnName, stackSize, argSize, amd64.AX, amd64.DX)
+	defer f.AssertCleanStack(stackSize, 0)
 
 	addrInput := registers.Pop()
 	addrRoundKeys := registers.Pop()
@@ -493,6 +494,7 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	const argSize = 4 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 2, 0)
 	registers := f.FnHeader(fnName, stackSize, argSize, amd64.AX, amd64.DX)
+	defer f.AssertCleanStack(stackSize, 0)
 	f.registers = &registers
 
 	// input

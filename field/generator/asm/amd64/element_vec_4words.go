@@ -816,19 +816,19 @@ func (f *FFAmd64) generateMulVecW4(funcName string) {
 
 	const argSize = 6 * 8
 	const minStackSize = 1*8 + 4*8
-	stackSize := f.StackSize(4-1+4, 2, minStackSize)
+	stackSize := f.StackSize(4-1+4 /* this is incorrect but minStackSize > anyway */, 2, minStackSize)
 	registers := f.FnHeader(funcName, stackSize, argSize, amd64.AX, amd64.DX)
 	registers.UnsafePush(amd64.R15)
 	defer f.AssertCleanStack(stackSize, minStackSize)
 
 	// to simplify the generated assembly, we only handle n/16 (and do blocks of 16 muls).
 	// that is if n%16 != 0, we let the caller (Go) handle the remaining elements.
-	// PZ := f.Pop(&registers, true)
 	LEN := f.Pop(&registers, true)
 	PZ := f.Pop(&registers)
 	PX := f.Pop(&registers)
 	PY := f.Pop(&registers)
 
+	// we put q words on the stack, so that we don't need to clobber R15 with global memory access.
 	_q := f.PopN(&registers, true)
 	for i := 0; i < f.NbWords; i++ {
 		f.MOVQ(fmt.Sprintf("$const_q%d", i), amd64.AX)

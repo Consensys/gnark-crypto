@@ -675,6 +675,7 @@ func (_f *FFAmd64) generateSISShuffleF31() {
 	const argSize = 1 * 3 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 2, 0)
 	registers := f.FnHeader("sisShuffle_avx512", stackSize, argSize, amd64.AX, amd64.DI)
+	defer f.AssertCleanStack(stackSize, 0)
 
 	addrA := registers.Pop()
 	lenA := registers.Pop()
@@ -723,6 +724,7 @@ func (_f *FFAmd64) generateSISUnhuffleF31() {
 	const argSize = 1 * 3 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 2, 0)
 	registers := f.FnHeader("sisUnshuffle_avx512", stackSize, argSize, amd64.AX, amd64.DI)
+	defer f.AssertCleanStack(stackSize, 0)
 
 	addrA := registers.Pop()
 	lenA := registers.Pop()

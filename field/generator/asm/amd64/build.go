@@ -50,7 +50,7 @@ type FFAmd64 struct {
 	NbWordsIndexesNoZero []int
 	mDefines             map[string]defineFn
 
-	qStack []amd64.Register
+	qStack []amd64.Register // when set, contains the words of q, the modulus, on the stack.
 }
 
 type defineFn func(args ...any)
@@ -190,6 +190,8 @@ func (f *FFAmd64) Push(registers *amd64.Registers, rIn ...amd64.Register) {
 	}
 }
 
+// UnsafePush behaves as Push, but doesn't check that the register is a valid register.
+// This is useful when using R15 which is not included by default on the available registers.
 func (f *FFAmd64) UnsafePush(registers *amd64.Registers, rIn ...amd64.Register) {
 	for _, r := range rIn {
 		if strings.HasPrefix(string(r), "s") {
