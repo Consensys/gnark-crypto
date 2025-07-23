@@ -18,14 +18,26 @@ func (f *FFAmd64) generateReduce() {
 
 	f.MOVQ("res+0(FP)", r)
 	f.Mov(r, t)
-	f.Reduce(&registers, t)
+	f.Reduce(&registers, t, false)
 	f.Mov(t, r)
 	f.RET()
+
+	f.UnsafePush(&registers, r)
+	f.UnsafePush(&registers, t...) // ensure the stack is clean
 }
 
 // Reduce scratch can be on the stack or a set of registers.
-func (f *FFAmd64) Reduce(registers *amd64.Registers, t []amd64.Register) {
+// If useQGlobal is true, the global qElement variable is used for reduction.
+// If false, the reduction is done without using the global variable (using defines / IMMs)
+func (f *FFAmd64) Reduce(registers *amd64.Registers, t []amd64.Register, avoidGlobal bool) {
+	var spare amd64.Register
+	if avoidGlobal && f.qStack == nil {
+		spare = f.Pop(registers)
+	}
 	scratch := f.PopN(registers)
-	f.ReduceElement(t, scratch)
+	if avoidGlobal && f.qStack == nil {
+		scratch = append(scratch, spare)
+	}
+	f.ReduceElement(t, scratch, avoidGlobal)
 	f.Push(registers, scratch...)
 }

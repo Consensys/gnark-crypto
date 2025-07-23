@@ -35,7 +35,7 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 	width24 := width == 24
 
 	const argSize = 2 * 3 * 8
-	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
+	stackSize := f.StackSize(f.NbWords*2+4, 2, 0)
 	registers := f.FnHeader(fnName, stackSize, argSize, amd64.AX, amd64.DX)
 
 	addrInput := registers.Pop()
@@ -183,7 +183,7 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 			add(acc.Y(), accShuffled, qd.Y(), t5.Y(), acc.Y())
 			f.VINSERTI64X4(1, acc.Y(), acc.Z(), acc.Z())
 			add(b0, acc.Z(), qd, t5, b0)
-		})
+		}, true)
 	}
 
 	// computes c = a * b mod q
@@ -265,7 +265,7 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 			sbox = f.Define("sbox_full_16", 0, func(args ...any) {
 				mul(b0, b0, t2, false)
 				mul(b0, t2, b0, true)
-			})
+			}, true)
 		}
 
 		sboxPartial = f.Define("sbox_partial", 0, func(args ...any) {
@@ -306,7 +306,7 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 				mul(t2, t2, t3, false)
 				mul(b0, t2, b0, false)
 				mul(b0, t3, b0, true)
-			})
+			}, true)
 		}
 
 		sboxPartial = f.Define("sbox_partial", 0, func(args ...any) {
@@ -352,7 +352,7 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 			add(acc, accShuffled, qd.Y(), t5.Y(), acc)
 
 			f.VINSERTI64X4(1, acc, acc.Z(), acc.Z())
-		})
+		}, true)
 	}
 
 	fullRound := f.Define("full_round", 0, func(args ...any) {
@@ -375,7 +375,7 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 			add(b0, v0, qd, t5, b0)
 			sbox()
 			matMulExternalInPlace()
-		})
+		}, true)
 	}
 
 	partialRound := func() {
@@ -491,7 +491,7 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	const fnName = "permutation16x24_avx512"
 	// func permutation16x24_avx512(input *[24][16]fr.Element, roundKeys [][]fr.Element)
 	const argSize = 4 * 8
-	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
+	stackSize := f.StackSize(f.NbWords*2+4, 2, 0)
 	registers := f.FnHeader(fnName, stackSize, argSize, amd64.AX, amd64.DX)
 	f.registers = &registers
 
