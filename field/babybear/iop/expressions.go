@@ -25,7 +25,7 @@ type Expression func(i int, x ...babybear.Element) babybear.Element
 // The Shift field of the result is 0.
 func Evaluate(f Expression, r []babybear.Element, form Form, x ...*Polynomial) (*Polynomial, error) {
 	if len(x) == 0 {
-		return nil, errors.New("need at lest one input")
+		return nil, errors.New("need at least one input")
 	}
 
 	// check that the sizes are consistent
