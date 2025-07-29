@@ -27,7 +27,7 @@ func (cfg *generatorConfig) HasSIS() bool {
 	return cfg.withSIS
 }
 
-func (cfg *generatorConfig) HashIOP() bool {
+func (cfg *generatorConfig) HasIOP() bool {
 	return cfg.withIOP
 }
 

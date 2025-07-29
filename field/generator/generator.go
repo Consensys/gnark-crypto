@@ -75,7 +75,7 @@ func GenerateFF(F *config.Field, outputDir string, options ...Option) error {
 	}
 
 	// generate iop
-	if cfg.HashIOP() {
+	if cfg.HasIOP() {
 		if err := generateIOP(F, outputDir); err != nil {
 			return err
 		}
