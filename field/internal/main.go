@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator"
 	"github.com/consensys/gnark-crypto/field/generator/config"
 )
@@ -13,8 +12,6 @@ const (
 	copyrightHolder = "Consensys Software Inc."
 	copyrightYear   = 2020
 )
-
-var bgen = bavard.NewBatchGenerator(copyrightHolder, copyrightYear, "consensys/gnark-crypto")
 
 // the expected working directory is gnark-crypto/field
 //
