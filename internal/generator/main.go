@@ -107,9 +107,6 @@ func main() {
 			}
 			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
 
-			// generate iop functions
-			// assertNoError(iop.Generate(frInfo, filepath.Join(curveDir, "fr", "iop"), bgen))
-
 			// generate poseidon2 on fr
 			assertNoError(poseidon2.Generate(conf, filepath.Join(curveDir, "fr", "poseidon2"), bgen))
 
