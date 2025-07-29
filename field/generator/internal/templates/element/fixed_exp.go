@@ -10,8 +10,9 @@ const FixedExp = `
 	{{expByAddChain "SqrtExp" .SqrtSMinusOneOver2Data .ElementName}}
 {{- end }}
 
-{{expByAddChain "LegendreExp" .LegendreExponentData .ElementName}}
-
+{{- if and (not .UsingP20Inverse) (not (eq .NbWords 1))}}
+	{{expByAddChain "LegendreExp" .LegendreExponentData .ElementName}}
+{{- end}}
 
 {{define "expByAddChain name data eName"}}
 	

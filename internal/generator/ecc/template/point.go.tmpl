@@ -75,7 +75,11 @@ func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{
 	var _p {{ $TJacobian }}
 	_p.FromAffine(a)
 	{{- if .GLV}}
-        _p.mulGLV(&_p, s)
+		if s.BitLen() >= {{ .PointName }}ScalarMulChoose {
+			_p.mulGLV(&_p, s)
+		} else {
+			_p.mulWindowed(&_p, s)
+		}
 	{{- else }}
         _p.mulWindowed(&_p, s)
 	{{- end }}
@@ -88,7 +92,11 @@ func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{
 func (p *{{ $TAffine }}) ScalarMultiplicationBase(s *big.Int) *{{ $TAffine }} {
 	var _p {{ $TJacobian }}
 	{{- if .GLV}}
-	_p.mulGLV(&{{ toLower .PointName}}Gen, s)
+		if s.BitLen() >= {{ .PointName }}ScalarMulChoose {
+			_p.mulGLV(&{{ toLower .PointName}}Gen, s)
+		} else {
+			_p.mulWindowed(&{{ toLower .PointName}}Gen, s)
+		}
 	{{- else }}
         _p.mulWindowed(&{{ toLower .PointName}}Gen, s)
 	{{- end }}
@@ -523,7 +531,11 @@ func (p *{{ $TJacobian }}) DoubleAssign() *{{ $TJacobian }} {
 {{- end }}
 func (p *{{ $TJacobian }}) ScalarMultiplication(q *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
 	{{- if .GLV}}
-		return p.mulGLV(q, s)
+		if s.BitLen() >= {{ .PointName }}ScalarMulChoose {
+			return p.mulGLV(q, s)
+		} else {
+			return p.mulWindowed(q, s)
+		}
 	{{- else }}
 		return p.mulWindowed(q, s)
 	{{- end }}
@@ -533,9 +545,13 @@ func (p *{{ $TJacobian }}) ScalarMultiplication(q *{{ $TJacobian }}, s *big.Int)
 // where g is the prime subgroup generator.
 func (p *{{ $TJacobian  }}) ScalarMultiplicationBase(s *big.Int) *{{ $TJacobian  }} {
     {{- if .GLV}}
-        return p.mulGLV(&{{ toLower .PointName }}Gen, s)
+		if s.BitLen() >= {{ .PointName }}ScalarMulChoose {
+			return p.mulGLV(&{{ toLower .PointName }}Gen, s)
+		} else {
+			return p.mulWindowed(&{{ toLower .PointName }}Gen, s)
+		}
     {{- else }}
-        _p.mulWindowed(&{{ toLower .PointName }}Gen, s)
+        return p.mulWindowed(&{{ toLower .PointName }}Gen, s)
     {{- end }}
 
 }

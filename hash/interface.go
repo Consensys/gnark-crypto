@@ -20,8 +20,9 @@ type StateStorer interface {
 // is the block size. See [BlockSize].
 //
 // NB! This is lossy compression, meaning that the output is not guaranteed to
-// be unique for different inputs. The output is guaranteed to be the same for
-// the same inputs.
+// be unique for different inputs. The function must be stateless, meaning that
+// the output is guaranteed to be the same for the same inputs.
+// It must furthermore not modify its input, even temporarily.
 //
 // The Compressor is used in the Merkle-Damgard construction to build a hash
 // function.

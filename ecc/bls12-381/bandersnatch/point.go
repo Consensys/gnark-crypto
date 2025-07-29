@@ -168,6 +168,64 @@ func (p *PointAffine) IsOnCurve() bool {
 	return lhs.Equal(&rhs)
 }
 
+// IsInSubGroup checks if a point is in the prime subgroup (and on the curve)
+// based on https://eprint.iacr.org/2022/037.pdf by D. Koshelev.
+func (p *PointAffine) IsInSubGroup() bool {
+	if !p.IsOnCurve() {
+		return false
+	}
+	if p.IsZero() {
+		return true
+	}
+	initOnce.Do(initCurveParams)
+
+	// Given (x_e, x_e) a point on the twisted Edwards curve Ed_{a,d},
+	// (x_w, y_w) is a point on the birationally equivalent short Weierstrass curve W,
+	// where:
+	// 		x_w = ((1+y_e)/(1-y_e) + A/3 ) / B and
+	//  	A = 2(a+d)/(a-d), B = 4/(a-d)
+	//
+	// N.B.: We only need x_w in the following formula.
+	//
+	// We need to check that the two tate pairings t_{2,P1}(P) and t_{2,P2}(P) are 1,
+	// where P1, P2 form a basis of W[2].
+	// The Miller functions are:
+	// 		f1 = f_{2,P1} = x_w - P1.X
+	// 		f2 = f_{2,P2} = x_w - P2.X
+	// and the final exponentiations to (r-1)/2 are replaced by Legendre symbols.
+	//
+	// To avoid inverses we use the fact that ((a/b) / r)_2 = (a * b / r)_2.
+	// So f_{2,P2} and f_{2,Q2} are simplified as:
+	//              f1 = (t0 + t1 * y) * (3B * (1-y)) and
+	//              f2 = (t2 + t3 * y) * (3B * (1-y))
+	// where:
+	// 		t0 = 3+A-3B*P1.X
+	// 		t1 = 3-A+3B*P1.X
+	// 		t2 = 3+A-3B*P2.X
+	// 		t3 = 3-A+3B*P2.X
+	//
+	// With
+	// P1=(0x5de00fbdcf0964d2188e44aec311d927af0f7e94e94fca97c891a87d84178ed1,0)
+	// and
+	// P2=(0x23e93c143a3aa62dfef158aabe40ed250530ac9369509c984891a87e04178ed3,0)
+	// on W: y^2 = x^3 + x*(3-A^2)/(3*B^2) + (2*A^3-9*A)/(27*B^3),
+	// it happens that t0=t1=3 and f1 = (1 + y) * (B * (1-y))
+
+	var tate1, tate2, temp fr.Element
+	temp.SetOne()
+	tate2.Sub(&temp, &p.Y).
+		Mul(&tate2, &curveParams.b)
+	tate1.Add(&temp, &p.Y).
+		Mul(&tate1, &tate2)
+
+	fr.MulBy3(&tate2)
+	temp.Mul(&curveParams.t1, &p.Y).
+		Add(&temp, &curveParams.t0)
+	tate2.Mul(&temp, &tate2)
+
+	return tate1.Legendre() == 1 && tate2.Legendre() == 1
+}
+
 // Neg sets p to -p1 and returns it
 func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
 	p.X.Neg(&p1.X)

@@ -306,7 +306,7 @@ func approximate(x *{{.ElementName}}, nBits int) uint64 {
 		return x[0]
 	}
 
-	const mask = (uint64(1) << (k - 1)) - 1 // k-1 ones
+	const mask = (uint64(1) << approxLowBitsN) - 1 // k-1 ones
 	lo := mask & x[0]
 
 	hiWordIndex := (nBits - 1) / 64

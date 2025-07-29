@@ -70,7 +70,7 @@ var LoopCounter1 [190]int8
 // endomorphisms ϕ₁ and ϕ₂ for <G1Affine> and <G2Affine>. lambda is such that <r, ϕ-λ> lies above
 // <r> in the ring Z[ϕ]. More concretely it's the associated eigenvalue
 // of ϕ₁ (resp ϕ₂) restricted to <G1Affine> (resp <G2Affine>)
-// see https://www.cosic.esat.kuleuven.be/nessie/reports/phase2/GLV.pdf
+// see https://link.springer.com/content/pdf/10.1007/3-540-36492-7_3
 var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
@@ -78,6 +78,12 @@ var lambdaGLV big.Int
 // glvBasis stores R-linearly independent vectors (a,b), (c,d)
 // in ker((u,v) → u+vλ[r]), and their determinant
 var glvBasis ecc.Lattice
+
+// g1ScalarMulChoose and g2ScalarmulChoose indicate the bitlength of the scalar
+// in scalar multiplication from which it is more efficient to use the GLV
+// decomposition. It is computed from the GLV basis and considers the overhead
+// for the GLV decomposition. It is heuristic and may change in the future.
+var g1ScalarMulChoose, g2ScalarMulChoose int
 
 // seed x₀ of the curve
 var xGen big.Int
@@ -123,6 +129,8 @@ func init() {
 	lambdaGLV.SetString("80949648264912719408558363140637477264845294720710499478137287262712535938301461879813459410945", 10) // (x⁵-3x⁴+3x³-x+1)
 	_r := fr.Modulus()
 	ecc.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
+	g1ScalarMulChoose = fr.Bits/16 + max(glvBasis.V1[0].BitLen(), glvBasis.V1[1].BitLen(), glvBasis.V2[0].BitLen(), glvBasis.V2[1].BitLen())
+	g2ScalarMulChoose = fr.Bits/32 + max(glvBasis.V1[0].BitLen(), glvBasis.V1[1].BitLen(), glvBasis.V2[0].BitLen(), glvBasis.V2[1].BitLen())
 
 	// x₀
 	xGen.SetString("9586122913090633729", 10)

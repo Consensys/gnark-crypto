@@ -131,7 +131,7 @@ func (z *{{.ElementName}}) Set(x *{{.ElementName}}) *{{.ElementName}} {
 }
 
 // SetInterface converts provided interface into {{.ElementName}}
-// returns an error if provided type is not supported
+// returns an error if provided type is not supported.
 // supported types:
 //  {{.ElementName}}
 //  *{{.ElementName}}

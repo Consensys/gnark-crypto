@@ -601,6 +601,7 @@ func TestElementLegendre(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
+	require.Equal(t, 0, new(Element).Legendre(), "(0|q) must be zero")
 }
 
 func TestElementBitLen(t *testing.T) {
@@ -1654,12 +1655,7 @@ func TestElementFixedExp(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	var (
-		_bLegendreExponentElement *big.Int
-		_bSqrtExponentElement     *big.Int
-	)
-
-	_bLegendreExponentElement, _ = new(big.Int).SetString("7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0", 16)
+	var _bSqrtExponentElement *big.Int
 	const sqrtExponentElement = "1fffffffffffffffffffffffffffffffd755db9cd5e9140777fa4bd19a06c82"
 	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
 
@@ -1675,6 +1671,8 @@ func TestElementFixedExp(t *testing.T) {
 		},
 		genA,
 	))
+	var _bLegendreExponentElement *big.Int
+	_bLegendreExponentElement, _ = new(big.Int).SetString("7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0", 16)
 
 	properties.Property("expByLegendreExp must match Exp(7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0)", prop.ForAll(
 		func(a testPairElement) bool {

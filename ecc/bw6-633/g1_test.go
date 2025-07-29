@@ -6,6 +6,7 @@
 package bw6633
 
 import (
+	crand "crypto/rand"
 	"fmt"
 	"math/big"
 	"math/rand/v2"
@@ -700,29 +701,48 @@ func BenchmarkG1AffineBatchScalarMultiplication(b *testing.B) {
 }
 
 func BenchmarkG1JacScalarMultiplication(b *testing.B) {
-
-	var scalar big.Int
-	r := fr.Modulus()
-	scalar.SetString("5243587517512619047944770508185965837690552500527637822603658699938581184513", 10)
-	scalar.Add(&scalar, r)
-
-	var doubleAndAdd G1Jac
-
-	b.Run("double and add", func(b *testing.B) {
-		b.ResetTimer()
-		for j := 0; j < b.N; j++ {
-			doubleAndAdd.mulWindowed(&g1Gen, &scalar)
+	for i := 0; i <= fr.Modulus().BitLen(); i += 8 {
+		bound := new(big.Int).Lsh(big.NewInt(1), uint(i))
+		scalar, err := crand.Int(crand.Reader, bound)
+		if err != nil {
+			b.Fatalf("failed to generate random scalar: %v", err)
 		}
-	})
 
-	var glv G1Jac
-	b.Run("GLV", func(b *testing.B) {
-		b.ResetTimer()
-		for j := 0; j < b.N; j++ {
-			glv.mulGLV(&g1Gen, &scalar)
+		var doubleAndAdd G1Jac
+		b.Run(fmt.Sprintf("method=window/scalarwidth=%d", i), func(b *testing.B) {
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				doubleAndAdd.mulWindowed(&g1Gen, scalar)
+			}
+		})
+
+		var glv G1Jac
+		b.Run(fmt.Sprintf("method=GLV/scalarwidth=%d", i), func(b *testing.B) {
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				glv.mulGLV(&g1Gen, scalar)
+			}
+		})
+
+	}
+}
+
+func BenchmarkG1JacScalarMultiplicationMethod(b *testing.B) {
+	for i := 0; i <= fr.Modulus().BitLen(); i += 8 {
+		bound := new(big.Int).Lsh(big.NewInt(1), uint(i))
+		scalar, err := crand.Int(crand.Reader, bound)
+		if err != nil {
+			b.Fatalf("failed to generate random scalar: %v", err)
 		}
-	})
 
+		var res G1Jac
+		b.Run(fmt.Sprintf("scalarwidth=%d", i), func(b *testing.B) {
+			b.ResetTimer()
+			for j := 0; j < b.N; j++ {
+				res.ScalarMultiplication(&g1Gen, scalar)
+			}
+		})
+	}
 }
 
 func BenchmarkG1AffineCofactorClearing(b *testing.B) {

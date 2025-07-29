@@ -13,12 +13,13 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 )
 
-// CurveParams curve parameters: ax^2 + y^2 = 1 + d*x^2*y^2
+// CurveParams curve parameters: Ax^2 + y^2 = 1 + Dx^2*y^2
 type CurveParams struct {
-	A, D     fr.Element
-	Cofactor fr.Element
-	Order    big.Int
-	Base     PointAffine
+	A, D      fr.Element
+	Cofactor  fr.Element
+	Order     big.Int
+	Base      PointAffine
+	t0, t1, b fr.Element
 	// endomorphism
 	endo     [2]fr.Element
 	lambda   big.Int
@@ -36,6 +37,9 @@ func GetEdwardsCurve() CurveParams {
 	res.Cofactor.Set(&curveParams.Cofactor)
 	res.Order.Set(&curveParams.Order)
 	res.Base.Set(&curveParams.Base)
+	res.t0.Set(&curveParams.t0)
+	res.t1.Set(&curveParams.t1)
+	res.b.Set(&curveParams.b)
 	res.endo[0].Set(&curveParams.endo[0])
 	res.endo[1].Set(&curveParams.endo[1])
 	res.lambda.Set(&curveParams.lambda)
@@ -57,6 +61,9 @@ func initCurveParams() {
 
 	curveParams.Base.X.SetString("18886178867200960497001835917649091219057080094937609519140440539760939937304")
 	curveParams.Base.Y.SetString("19188667384257783945677642223292697773471335439753913231509108946878080696678")
+	curveParams.t0.SetString("44968234042453258989421494579017642355260750649112422763795205757285533011434")
+	curveParams.t1.SetString("7467641132672931490026245929168323482429801851415215058808452942653048173085")
+	curveParams.b.SetString("25465760566081946422412445027709227188579564747101592991722834452325077642517")
 	curveParams.endo[0].SetString("37446463827641770816307242315180085052603635617490163568005256780843403514036")
 	curveParams.endo[1].SetString("49199877423542878313146170939139662862850515542392585932876811575731455068989")
 	curveParams.lambda.SetString("8913659658109529928382530854484400854125314752504019737736543920008458395397", 10)
