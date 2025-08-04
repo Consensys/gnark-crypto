@@ -629,12 +629,12 @@ func (p *G1Jac) mulGLV(q *G1Jac, s *big.Int) *G1Jac {
 	table[6].Set(&table[3]).AddAssign(&table[2])
 	table[7].Double(&table[3])
 	table[8].Set(&table[7]).AddAssign(&table[0])
-	table[9].Set(&table[7]).AddAssign(&table[1])
+	table[9].Double(&table[4])
 	table[10].Set(&table[7]).AddAssign(&table[2])
 	table[11].Triple(&table[3])
 	table[12].Set(&table[11]).AddAssign(&table[0])
 	table[13].Set(&table[11]).AddAssign(&table[1])
-	table[14].Set(&table[11]).AddAssign(&table[2])
+	table[14].Triple(&table[4])
 
 	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 or len(r)/2+1 bits long max
 	// this is because we use a probabilistic scalar decomposition that replaces a division by a right-shift
@@ -702,12 +702,12 @@ func (p *G1Jac) JointScalarMultiplication(a1, a2 *G1Affine, s1, s2 *big.Int) *G1
 	table[6].Set(&table[3]).AddAssign(&table[2])
 	table[7].Double(&table[3])
 	table[8].Set(&table[7]).AddAssign(&table[0])
-	table[9].Set(&table[7]).AddAssign(&table[1])
+	table[9].Double(&table[4])
 	table[10].Set(&table[7]).AddAssign(&table[2])
 	table[11].Triple(&table[3])
 	table[12].Set(&table[11]).AddAssign(&table[0])
 	table[13].Set(&table[11]).AddAssign(&table[1])
-	table[14].Set(&table[11]).AddAssign(&table[2])
+	table[14].Triple(&table[4])
 
 	var s [2]fr.Element
 	s[0] = s[0].SetBigInt(&k1).Bits()
