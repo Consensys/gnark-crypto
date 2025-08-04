@@ -442,6 +442,49 @@ func (p *G2Jac) DoubleAssign() *G2Jac {
 	return p
 }
 
+// Triple sets p to [3]q in Jacobian coordinates. Only on j=0 curves.
+//
+// https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1
+func (p *G2Jac) Triple(q *G2Jac) *G2Jac {
+	// Xτ = 4Y² − 3X³
+	// Yτ = Y(9X³ − 8Y²)
+	var xxx, yy, xτ, yτ, temp fp.Element
+	temp.Square(&q.X).
+		Mul(&temp, &q.X)
+	xxx.Double(&temp).
+		Add(&xxx, &temp)
+	yy.Square(&q.Y).
+		Double(&yy).
+		Double(&yy)
+	xτ.Sub(&yy, &xxx)
+	temp.Double(&xxx)
+	xxx.Add(&xxx, &temp)
+	yy.Double(&yy)
+	yτ.Sub(&xxx, &yy).
+		Mul(&yτ, &q.Y)
+	// X3 = 4Yτ² − 3Xτ³
+	// Y3 = Yτ(9Xτ³ − 8Yτ²)
+	// Z3 = 3Xτ(XZ)
+	yy.Square(&yτ).
+		Double(&yy).
+		Double(&yy)
+	temp.Square(&xτ).
+		Mul(&temp, &xτ)
+	xxx.Double(&temp).
+		Add(&xxx, &temp)
+	temp.Mul(&q.Z, &q.X).
+		Mul(&temp, &xτ)
+	p.Z.Double(&temp).
+		Add(&p.Z, &temp)
+	p.X.Sub(&yy, &xxx)
+	yy.Double(&yy)
+	temp.Double(&xxx)
+	xxx.Add(&xxx, &temp)
+	p.Y.Sub(&xxx, &yy).
+		Mul(&p.Y, &yτ)
+	return p
+}
+
 // ScalarMultiplication computes and returns p = [s]a
 // where p and a are Jacobian points.
 // using the GLV technique.

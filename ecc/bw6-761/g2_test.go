@@ -59,6 +59,20 @@ func TestG2Endomorphism(t *testing.T) {
 		GenFp(),
 	))
 
+	properties.Property("[BW6-761] [3]P == [2]P+P", prop.ForAll(
+		func(a fp.Element) bool {
+			var p, res1, res2 G2Jac
+			g := MapToG2(a)
+			p.FromAffine(&g)
+			res1.Triple(&p)
+			res2.Double(&p).
+				AddAssign(&p)
+
+			return res1.Equal(&res2)
+		},
+		GenFp(),
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
