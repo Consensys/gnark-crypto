@@ -12,8 +12,8 @@ import (
 	"math/bits"
 	"runtime"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/fft"
+	"github.com/consensys/gnark-crypto/field/babybear"
+	"github.com/consensys/gnark-crypto/field/babybear/fft"
 )
 
 // Basis indicates the basis in which a polynomial is represented.
@@ -63,14 +63,14 @@ type Polynomial struct {
 	*polynomial
 	shift int
 	size  int
-	coset fr.Element // needed for evaluating the polynomial when it is expressed in Lagrange shifted basis
+	coset babybear.Element // needed for evaluating the polynomial when it is expressed in Lagrange shifted basis
 }
 
 // NewPolynomial returned a Polynomial from the provided coefficients in the given form.
 // A Polynomial can be seen as a "shared pointer" on a list of coefficients.
 // It is the responsibility of the user to call the Clone method if the coefficients
 // shouldn't be mutated.
-func NewPolynomial(coeffs *[]fr.Element, form Form) *Polynomial {
+func NewPolynomial(coeffs *[]babybear.Element, form Form) *Polynomial {
 	return &Polynomial{
 		polynomial: newPolynomial(coeffs, form),
 		size:       len(*coeffs),
@@ -103,7 +103,7 @@ func (p *Polynomial) SetSize(size int) {
 
 // Evaluate evaluates p at x.
 // The code panics if the function is not in canonical form.
-func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
+func (p *Polynomial) Evaluate(x babybear.Element) babybear.Element {
 
 	if p.Basis == LagrangeCoset {
 		x.Div(&x, &p.coset)
@@ -147,7 +147,7 @@ func (p *Polynomial) ShallowClone() *Polynomial {
 }
 
 // GetCoeff returns the i-th entry of p, taking the layout in account.
-func (p *Polynomial) GetCoeff(i int) fr.Element {
+func (p *Polynomial) GetCoeff(i int) babybear.Element {
 
 	n := p.coefficients.Len()
 	rho := n / p.size
@@ -164,19 +164,19 @@ func (p *Polynomial) GetCoeff(i int) fr.Element {
 // polynomial represents a polynomial, the vector of coefficients
 // along with the basis and the layout.
 type polynomial struct {
-	coefficients *fr.Vector
+	coefficients *babybear.Vector
 	Form
 }
 
 // Coefficients returns a slice on the underlying data structure.
-func (p *polynomial) Coefficients() []fr.Element {
+func (p *polynomial) Coefficients() []babybear.Element {
 	return (*p.coefficients)
 }
 
 // newPolynomial creates a new polynomial. The slice coeff NOT copied
 // but directly assigned to the new polynomial.
-func newPolynomial(coeffs *[]fr.Element, form Form) *polynomial {
-	return &polynomial{coefficients: (*fr.Vector)(coeffs), Form: form}
+func newPolynomial(coeffs *[]babybear.Element, form Form) *polynomial {
+	return &polynomial{coefficients: (*babybear.Vector)(coeffs), Form: form}
 }
 
 // clone returns a deep copy of the underlying data structure.
@@ -185,7 +185,7 @@ func (p *polynomial) clone(capacity ...int) *polynomial {
 	if len(capacity) == 1 && capacity[0] > c {
 		c = capacity[0]
 	}
-	newCoeffs := make(fr.Vector, p.coefficients.Len(), c)
+	newCoeffs := make(babybear.Vector, p.coefficients.Len(), c)
 	r := &polynomial{
 		coefficients: &newCoeffs,
 		Form:         p.Form,
@@ -196,9 +196,9 @@ func (p *polynomial) clone(capacity ...int) *polynomial {
 
 // evaluate evaluates p at x.
 // The code panics if the function is not in canonical form.
-func (p *polynomial) evaluate(x fr.Element) fr.Element {
+func (p *polynomial) evaluate(x babybear.Element) babybear.Element {
 
-	var r fr.Element
+	var r babybear.Element
 
 	evalLagrange := func() {
 		sizeP := p.coefficients.Len()
@@ -206,19 +206,19 @@ func (p *polynomial) evaluate(x fr.Element) fr.Element {
 		if err != nil {
 			panic(err)
 		}
-		var accw fr.Element
+		var accw babybear.Element
 		accw.SetOne()
-		dens := make([]fr.Element, sizeP) // [x-1, x-ω, x-ω², ...]
+		dens := make([]babybear.Element, sizeP) // [x-1, x-ω, x-ω², ...]
 		for i := 0; i < sizeP; i++ {
 			dens[i].Sub(&x, &accw)
 			accw.Mul(&accw, &w)
 		}
-		invdens := fr.BatchInvert(dens) // [1/(x-1), 1/(x-ω), 1/(x-ω²), ...]
-		var tmp fr.Element
-		var one fr.Element
+		invdens := babybear.BatchInvert(dens) // [1/(x-1), 1/(x-ω), 1/(x-ω²), ...]
+		var tmp babybear.Element
+		var one babybear.Element
 		one.SetOne()
 		tmp.Exp(x, big.NewInt(int64(sizeP))).Sub(&tmp, &one) // xⁿ-1
-		var li fr.Element
+		var li babybear.Element
 		li.SetUint64(uint64(sizeP)).Inverse(&li).Mul(&li, &tmp) // 1/n * (xⁿ-1)
 		if p.Layout == Regular {
 			for i := 0; i < sizeP; i++ {
@@ -350,7 +350,7 @@ func (p *Polynomial) ToCanonical(d *fft.Domain, nbTasks ...int) *Polynomial {
 func (p *polynomial) grow(newSize int) {
 	offset := newSize - p.coefficients.Len()
 	if offset > 0 {
-		(*p.coefficients) = append((*p.coefficients), make(fr.Vector, offset)...)
+		(*p.coefficients) = append((*p.coefficients), make(babybear.Vector, offset)...)
 	}
 }
 
@@ -412,8 +412,8 @@ func (p *Polynomial) WriteTo(w io.Writer) (int64, error) {
 		n += 4
 	}
 
-	var buf [fr.Bytes]byte
-	fr.BigEndian.PutElement(&buf, p.coset)
+	var buf [babybear.Bytes]byte
+	babybear.BigEndian.PutElement(&buf, p.coset)
 	m, err := w.Write(buf[:])
 	n += int64(m)
 	if err != nil {
@@ -430,7 +430,7 @@ func (p *Polynomial) ReadFrom(r io.Reader) (int64, error) {
 		p.polynomial = new(polynomial)
 	}
 	if p.polynomial.coefficients == nil {
-		v := make(fr.Vector, 0)
+		v := make(babybear.Vector, 0)
 		p.polynomial.coefficients = &v
 	}
 	n, err := p.polynomial.coefficients.ReadFrom(r)
@@ -455,13 +455,13 @@ func (p *Polynomial) ReadFrom(r io.Reader) (int64, error) {
 	p.shift = int(data[2])
 	p.size = int(data[3])
 
-	var bufFr [fr.Bytes]byte
+	var bufFr [babybear.Bytes]byte
 	read, err := io.ReadFull(r, bufFr[:])
 	n += int64(read)
 	if err != nil {
 		return n, err
 	}
-	p.coset, err = fr.BigEndian.Element(&bufFr)
+	p.coset, err = babybear.BigEndian.Element(&bufFr)
 	if err != nil {
 		return n, err
 	}

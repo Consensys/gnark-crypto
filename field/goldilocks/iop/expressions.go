@@ -7,13 +7,13 @@ package iop
 
 import (
 	"errors"
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/gnark-crypto/field/goldilocks"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"math/bits"
 )
 
 // Expression represents a multivariate polynomial.
-type Expression func(i int, x ...fr.Element) fr.Element
+type Expression func(i int, x ...goldilocks.Element) goldilocks.Element
 
 // Evaluate evaluates f on each entry of x. The returned value is
 // the vector of evaluations of e on x.
@@ -23,7 +23,7 @@ type Expression func(i int, x ...fr.Element) fr.Element
 // The Size field of the result is the same as the one of x[0].
 // The blindedSize field of the result is the same as Size.
 // The Shift field of the result is 0.
-func Evaluate(f Expression, r []fr.Element, form Form, x ...*Polynomial) (*Polynomial, error) {
+func Evaluate(f Expression, r []goldilocks.Element, form Form, x ...*Polynomial) (*Polynomial, error) {
 	if len(x) == 0 {
 		return nil, errors.New("need at least one input")
 	}
@@ -39,7 +39,7 @@ func Evaluate(f Expression, r []fr.Element, form Form, x ...*Polynomial) (*Polyn
 
 	// check result len
 	if r == nil {
-		r = make([]fr.Element, n)
+		r = make([]goldilocks.Element, n)
 	} else if len(r) != n {
 		return nil, ErrInconsistentSize
 	}
@@ -56,7 +56,7 @@ func Evaluate(f Expression, r []fr.Element, form Form, x ...*Polynomial) (*Polyn
 	}
 
 	parallel.Execute(n, func(start, end int) {
-		vx := make([]fr.Element, m)
+		vx := make([]goldilocks.Element, m)
 		for i := start; i < end; i++ {
 			for j := 0; j < m; j++ {
 				vx[j] = x[j].GetCoeff(i)
