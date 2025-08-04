@@ -636,10 +636,11 @@ func (p *G2Jac) mulBySeed(q *G2Jac) *G2Jac {
 	// Allocate Temporaries.
 	var res, t0, t1, t2, t3 G2Jac
 
+	t0.Triple(q) //3q
 	res.Double(q)
-	t0.Set(q).AddAssign(&res)
-	t2.Set(q).AddAssign(&t0)
-	t1.Set(&res).AddAssign(&t2)
+	t2.Double(&res) //4q
+	t1.Double(&t0)  //6q
+	// toz
 	res.Double(&t1)
 	res.AddAssign(&t0)
 	t0.AddAssign(&res)
