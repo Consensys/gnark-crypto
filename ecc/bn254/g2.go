@@ -790,8 +790,7 @@ func (p *G2Jac) ClearCofactor(q *G2Jac) *G2Jac {
 
 	points[0].mulBySeed(q)
 
-	points[1].Double(&points[0]).
-		AddAssign(&points[0]).
+	points[1].Triple(&points[0]).
 		psi(&points[1])
 
 	points[2].psi(&points[0]).
@@ -799,12 +798,10 @@ func (p *G2Jac) ClearCofactor(q *G2Jac) *G2Jac {
 
 	points[3].psi(q).psi(&points[3]).psi(&points[3])
 
-	var res G2Jac
-	res.Set(&g2Infinity)
-	for i := 0; i < 4; i++ {
-		res.AddAssign(&points[i])
-	}
-	p.Set(&res)
+	p.Set(&points[0]).AddAssign(&points[1]).
+		AddAssign(&points[2]).
+		AddAssign(&points[3])
+
 	return p
 
 }

@@ -728,15 +728,12 @@ func (p *G2Jac) ClearCofactor(q *G2Jac) *G2Jac {
 	points[2].mulBySeed(&points[1])
 	points[3].mulBySeed(&points[2])
 
-	var scalars [7]big.Int
+	var scalars [5]big.Int
 	scalars[0].SetInt64(103)
 	scalars[1].SetInt64(83)
 	scalars[2].SetInt64(143)
-	scalars[3].SetInt64(27)
-
-	scalars[4].SetInt64(7)
-	scalars[5].SetInt64(117)
-	scalars[6].SetInt64(109)
+	scalars[3].SetInt64(117)
+	scalars[4].SetInt64(109)
 
 	var p1, p2, tmp G2Jac
 	p1.mulWindowed(&points[3], &scalars[0])
@@ -744,13 +741,17 @@ func (p *G2Jac) ClearCofactor(q *G2Jac) *G2Jac {
 	p1.AddAssign(&tmp)
 	tmp.mulWindowed(&points[1], &scalars[2]).Neg(&tmp)
 	p1.AddAssign(&tmp)
-	tmp.mulWindowed(&points[0], &scalars[3])
+	tmp.Triple(&points[0]).
+		Triple(&tmp).
+		Triple(&tmp)
 	p1.AddAssign(&tmp)
 
-	p2.mulWindowed(&points[2], &scalars[4])
-	tmp.mulWindowed(&points[1], &scalars[5]).Neg(&tmp)
+	p2.Triple(&points[2]).
+		Double(&p2).
+		AddAssign(&points[2])
+	tmp.mulWindowed(&points[1], &scalars[3]).Neg(&tmp)
 	p2.AddAssign(&tmp)
-	tmp.mulWindowed(&points[0], &scalars[6]).Neg(&tmp)
+	tmp.mulWindowed(&points[0], &scalars[4]).Neg(&tmp)
 	p2.AddAssign(&tmp)
 	p2.phi(&p2).phi(&p2)
 
