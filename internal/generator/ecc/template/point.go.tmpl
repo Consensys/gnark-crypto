@@ -930,7 +930,7 @@ func (p *{{ $TJacobian }}) mulWindowed(q *{{ $TJacobian }}, s *big.Int) *{{ $TJa
 	}
 	res.Set(&{{ toLower .PointName}}Infinity)
 	ops[1].Double(&ops[0])
-	ops[2].Set(&ops[0]).AddAssign(&ops[1])
+	ops[2].Triple(&ops[0])
 
 	b := s.Bytes()
 	for i := range b {
@@ -1011,11 +1011,10 @@ func (p *{{ $TJacobian }}) mulBySeed(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 	// Allocate Temporaries.
 	var res, t0, t1, t2, t3 {{ $TJacobian }}
 
-	t0.Triple(q) //3q
+	t0.Triple(q)
 	res.Double(q)
-	t2.Double(&res) //4q
-	t1.Double(&t0) //6q
-// toz
+	t2.Double(&res)
+	t1.Double(&t0)
 	res.Double(&t1)
 	res.AddAssign(&t0)
 	t0.AddAssign(&res)
@@ -1127,7 +1126,7 @@ func (p *{{ $TJacobian }}) mulGLV(q *{{ $TJacobian }}, s *big.Int) *{{ $TJacobia
 	// precompute table (2 bits sliding window)
 	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(q) + b1b0 ⋅ q if b3b2b1b0 != 0
 	table[1].Double(&table[0])
-	table[2].Set(&table[1]).AddAssign(&table[0])
+	table[2].Triple(&table[0])
 	table[4].Set(&table[3]).AddAssign(&table[0])
 	table[5].Set(&table[3]).AddAssign(&table[1])
 	table[6].Set(&table[3]).AddAssign(&table[2])
@@ -1135,7 +1134,7 @@ func (p *{{ $TJacobian }}) mulGLV(q *{{ $TJacobian }}, s *big.Int) *{{ $TJacobia
 	table[8].Set(&table[7]).AddAssign(&table[0])
 	table[9].Set(&table[7]).AddAssign(&table[1])
 	table[10].Set(&table[7]).AddAssign(&table[2])
-	table[11].Set(&table[7]).AddAssign(&table[3])
+	table[11].Triple(&table[3])
 	table[12].Set(&table[11]).AddAssign(&table[0])
 	table[13].Set(&table[11]).AddAssign(&table[1])
 	table[14].Set(&table[11]).AddAssign(&table[2])
@@ -1522,7 +1521,7 @@ func (p *{{$TJacobian}}) JointScalarMultiplication(a1, a2 *G1Affine, s1, s2 *big
 
 	// precompute table (2 bits sliding window)
 	table[1].Double(&table[0])
-	table[2].Set(&table[1]).AddAssign(&table[0])
+	table[2].Triple(&table[0])
 	table[4].Set(&table[3]).AddAssign(&table[0])
 	table[5].Set(&table[3]).AddAssign(&table[1])
 	table[6].Set(&table[3]).AddAssign(&table[2])
@@ -1530,7 +1529,7 @@ func (p *{{$TJacobian}}) JointScalarMultiplication(a1, a2 *G1Affine, s1, s2 *big
 	table[8].Set(&table[7]).AddAssign(&table[0])
 	table[9].Set(&table[7]).AddAssign(&table[1])
 	table[10].Set(&table[7]).AddAssign(&table[2])
-	table[11].Set(&table[7]).AddAssign(&table[3])
+	table[11].Triple(&table[3])
 	table[12].Set(&table[11]).AddAssign(&table[0])
 	table[13].Set(&table[11]).AddAssign(&table[1])
 	table[14].Set(&table[11]).AddAssign(&table[2])

@@ -571,7 +571,7 @@ func (p *G1Jac) mulWindowed(q *G1Jac, s *big.Int) *G1Jac {
 	}
 	res.Set(&g1Infinity)
 	ops[1].Double(&ops[0])
-	ops[2].Set(&ops[0]).AddAssign(&ops[1])
+	ops[2].Triple(&ops[0])
 
 	b := s.Bytes()
 	for i := range b {
@@ -637,7 +637,7 @@ func (p *G1Jac) mulGLV(q *G1Jac, s *big.Int) *G1Jac {
 	// precompute table (2 bits sliding window)
 	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(q) + b1b0 ⋅ q if b3b2b1b0 != 0
 	table[1].Double(&table[0])
-	table[2].Set(&table[1]).AddAssign(&table[0])
+	table[2].Triple(&table[0])
 	table[4].Set(&table[3]).AddAssign(&table[0])
 	table[5].Set(&table[3]).AddAssign(&table[1])
 	table[6].Set(&table[3]).AddAssign(&table[2])
@@ -645,7 +645,7 @@ func (p *G1Jac) mulGLV(q *G1Jac, s *big.Int) *G1Jac {
 	table[8].Set(&table[7]).AddAssign(&table[0])
 	table[9].Set(&table[7]).AddAssign(&table[1])
 	table[10].Set(&table[7]).AddAssign(&table[2])
-	table[11].Set(&table[7]).AddAssign(&table[3])
+	table[11].Triple(&table[3])
 	table[12].Set(&table[11]).AddAssign(&table[0])
 	table[13].Set(&table[11]).AddAssign(&table[1])
 	table[14].Set(&table[11]).AddAssign(&table[2])
@@ -729,7 +729,7 @@ func (p *G1Jac) JointScalarMultiplication(a1, a2 *G1Affine, s1, s2 *big.Int) *G1
 
 	// precompute table (2 bits sliding window)
 	table[1].Double(&table[0])
-	table[2].Set(&table[1]).AddAssign(&table[0])
+	table[2].Triple(&table[0])
 	table[4].Set(&table[3]).AddAssign(&table[0])
 	table[5].Set(&table[3]).AddAssign(&table[1])
 	table[6].Set(&table[3]).AddAssign(&table[2])
@@ -737,7 +737,7 @@ func (p *G1Jac) JointScalarMultiplication(a1, a2 *G1Affine, s1, s2 *big.Int) *G1
 	table[8].Set(&table[7]).AddAssign(&table[0])
 	table[9].Set(&table[7]).AddAssign(&table[1])
 	table[10].Set(&table[7]).AddAssign(&table[2])
-	table[11].Set(&table[7]).AddAssign(&table[3])
+	table[11].Triple(&table[3])
 	table[12].Set(&table[11]).AddAssign(&table[0])
 	table[13].Set(&table[11]).AddAssign(&table[1])
 	table[14].Set(&table[11]).AddAssign(&table[2])

@@ -606,7 +606,7 @@ func (p *G2Jac) mulWindowed(q *G2Jac, s *big.Int) *G2Jac {
 	}
 	res.Set(&g2Infinity)
 	ops[1].Double(&ops[0])
-	ops[2].Set(&ops[0]).AddAssign(&ops[1])
+	ops[2].Triple(&ops[0])
 
 	b := s.Bytes()
 	for i := range b {
@@ -636,11 +636,10 @@ func (p *G2Jac) mulBySeed(q *G2Jac) *G2Jac {
 	// Allocate Temporaries.
 	var res, t0, t1, t2, t3 G2Jac
 
-	t0.Triple(q) //3q
+	t0.Triple(q)
 	res.Double(q)
-	t2.Double(&res) //4q
-	t1.Double(&t0)  //6q
-	// toz
+	t2.Double(&res)
+	t1.Double(&t0)
 	res.Double(&t1)
 	res.AddAssign(&t0)
 	t0.AddAssign(&res)
@@ -731,7 +730,7 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 	// precompute table (2 bits sliding window)
 	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(q) + b1b0 ⋅ q if b3b2b1b0 != 0
 	table[1].Double(&table[0])
-	table[2].Set(&table[1]).AddAssign(&table[0])
+	table[2].Triple(&table[0])
 	table[4].Set(&table[3]).AddAssign(&table[0])
 	table[5].Set(&table[3]).AddAssign(&table[1])
 	table[6].Set(&table[3]).AddAssign(&table[2])
@@ -739,7 +738,7 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 	table[8].Set(&table[7]).AddAssign(&table[0])
 	table[9].Set(&table[7]).AddAssign(&table[1])
 	table[10].Set(&table[7]).AddAssign(&table[2])
-	table[11].Set(&table[7]).AddAssign(&table[3])
+	table[11].Triple(&table[3])
 	table[12].Set(&table[11]).AddAssign(&table[0])
 	table[13].Set(&table[11]).AddAssign(&table[1])
 	table[14].Set(&table[11]).AddAssign(&table[2])
