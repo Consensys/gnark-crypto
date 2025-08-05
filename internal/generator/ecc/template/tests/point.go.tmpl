@@ -75,6 +75,21 @@ import (
             {{$fuzzer}},
         ))
 
+        properties.Property("[{{ toUpper .Name }}] [3]P == [2]P+P", prop.ForAll(
+            func(a {{ .CoordType}}) bool {
+                var p, res1, res2 {{ $TJacobian }}
+                g := MapTo{{ toUpper .PointName}}(a)
+                p.FromAffine(&g)
+                res1.Triple(&p)
+                res2.Double(&p).
+                    AddAssign(&p)
+
+                return res1.Equal(&res2)
+            },
+            {{$fuzzer}},
+        ))
+
+
         {{if eq .PointName "g2" }}
         {{- if and (eq .PointName "g2") (ne .Name "bw6-761") (ne .Name "bw6-633")}}
             properties.Property("[{{ toUpper .Name }}] check that psi^2(P) = -phi(P)", prop.ForAll(
