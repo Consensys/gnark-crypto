@@ -28,9 +28,10 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
 	{{end}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
-	{{if eq .Name "bls12-381"}}
+    {{if eq .Name "bls12-381"}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/hash_to_curve"
-	{{ end }}
+	{{end}}
+
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -159,6 +160,41 @@ func TestIsOn{{ toUpper .PointName }}(t *testing.T) {
 		{{$fuzzer}},
 	))
     {{- end}}
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestIsInSubGroupBatch{{ toUpper .PointName}}(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = 1
+	} else {
+		parameters.MinSuccessfulTests = 100
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	// number of points to test
+	const nbSamples = 100
+
+	properties.Property("[{{ toUpper .Name }}] IsInSubGroupBatch{{ toUpper .PointName}} test should pass with high probability", prop.ForAll(
+		func(mixer fr.Element) bool {
+			// mixer ensures that all the words of a frElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					Mul(&sampleScalars[i-1], &mixer)
+			}
+
+			// random points in {{ toUpper .PointName}}
+			result := BatchScalarMultiplication{{ toUpper .PointName}}(&{{.PointName}}GenAff, sampleScalars[:])
+
+			return IsInSubGroupBatch{{ toUpper .PointName}}(result)
+		},
+		GenFr(),
+	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
