@@ -9,7 +9,7 @@ TEXT ·addVec(SB), NOSPLIT, $0-32
 	MOVD         $const_q, AX
 	VPBROADCASTD AX, Z3
 	MOVQ         res+0(FP), CX
-	MOVQ         a+8(FP), R15
+	MOVQ         a+8(FP), R14
 	MOVQ         b+16(FP), DX
 	MOVQ         n+24(FP), BX
 
@@ -17,7 +17,7 @@ loop_1:
 	TESTQ     BX, BX
 	JEQ       done_2
 	DECQ      BX
-	VMOVDQU32 0(R15), Z0
+	VMOVDQU32 0(R14), Z0
 	VMOVDQU32 0(DX), Z1
 	VPADDD    Z0, Z1, Z0 // a = a + b
 	VPSUBD    Z3, Z0, Z2 // t = a - q
@@ -25,7 +25,7 @@ loop_1:
 	VMOVDQU32 Z1, 0(CX)  // res = b
 
 	// increment pointers to visit next element
-	ADDQ $64, R15
+	ADDQ $64, R14
 	ADDQ $64, DX
 	ADDQ $64, CX
 	JMP  loop_1
@@ -39,7 +39,7 @@ TEXT ·subVec(SB), NOSPLIT, $0-32
 	MOVD         $const_q, AX
 	VPBROADCASTD AX, Z3
 	MOVQ         res+0(FP), CX
-	MOVQ         a+8(FP), R15
+	MOVQ         a+8(FP), R14
 	MOVQ         b+16(FP), DX
 	MOVQ         n+24(FP), BX
 
@@ -47,7 +47,7 @@ loop_3:
 	TESTQ     BX, BX
 	JEQ       done_4
 	DECQ      BX
-	VMOVDQU32 0(R15), Z0
+	VMOVDQU32 0(R14), Z0
 	VMOVDQU32 0(DX), Z1
 	VPSUBD    Z1, Z0, Z0 // a = a - b
 	VPADDD    Z3, Z0, Z2 // t = a + q
@@ -55,7 +55,7 @@ loop_3:
 	VMOVDQU32 Z1, 0(CX)  // res = b
 
 	// increment pointers to visit next element
-	ADDQ $64, R15
+	ADDQ $64, R14
 	ADDQ $64, DX
 	ADDQ $64, CX
 	JMP  loop_3
@@ -72,8 +72,8 @@ TEXT ·sumVec(SB), NOSPLIT, $0-24
 	// We can safely accumulate ~2**33 31bits values into a single accumulator.
 	// That gives us a maximum of 2**33 * 8 = 2**36 31bits values to sum safely.
 
-	MOVQ      t+0(FP), R15
-	MOVQ      a+8(FP), R14
+	MOVQ      t+0(FP), R14
+	MOVQ      a+8(FP), R13
 	MOVQ      n+16(FP), CX
 	VXORPS    Z2, Z2, Z2   // acc1 = 0
 	VMOVDQA64 Z2, Z3       // acc2 = 0
@@ -82,25 +82,25 @@ loop_5:
 	TESTQ     CX, CX
 	JEQ       done_6
 	DECQ      CX
-	VPMOVZXDQ 0(R14), Z0  // load 8 31bits values in a1
-	VPMOVZXDQ 32(R14), Z1 // load 8 31bits values in a2
+	VPMOVZXDQ 0(R13), Z0  // load 8 31bits values in a1
+	VPMOVZXDQ 32(R13), Z1 // load 8 31bits values in a2
 	VPADDQ    Z0, Z2, Z2  // acc1 += a1
 	VPADDQ    Z1, Z3, Z3  // acc2 += a2
 
 	// increment pointers to visit next element
-	ADDQ $64, R14
+	ADDQ $64, R13
 	JMP  loop_5
 
 done_6:
 	VPADDQ    Z2, Z3, Z2 // acc1 += acc2
-	VMOVDQU64 Z2, 0(R15) // res = acc1
+	VMOVDQU64 Z2, 0(R14) // res = acc1
 	RET
 
 TEXT ·sumVec16_AVX512(SB), NOSPLIT, $0-16
-	MOVQ          t+0(FP), R15
-	MOVQ          a+8(FP), R14
-	VPMOVZXDQ     0(R14), Z0
-	VPMOVZXDQ     32(R14), Z1
+	MOVQ          t+0(FP), R14
+	MOVQ          a+8(FP), R13
+	VPMOVZXDQ     0(R13), Z0
+	VPMOVZXDQ     32(R13), Z1
 	VPADDQ        Z0, Z1, Z0
 	VEXTRACTI64X4 $1, Z0, Y1
 	VPADDQ        Y0, Y1, Y0
@@ -109,15 +109,15 @@ TEXT ·sumVec16_AVX512(SB), NOSPLIT, $0-16
 	PEXTRQ        $0, X0, AX
 	PEXTRQ        $1, X0, DX
 	ADDQ          DX, AX
-	MOVQ          AX, 0(R15)
+	MOVQ          AX, 0(R14)
 	RET
 
 TEXT ·sumVec24_AVX512(SB), NOSPLIT, $0-16
-	MOVQ          t+0(FP), R15
-	MOVQ          a+8(FP), R14
-	VPMOVZXDQ     0(R14), Z0
-	VPMOVZXDQ     32(R14), Z1
-	VPMOVZXDQ     64(R14), Z2
+	MOVQ          t+0(FP), R14
+	MOVQ          a+8(FP), R13
+	VPMOVZXDQ     0(R13), Z0
+	VPMOVZXDQ     32(R13), Z1
+	VPMOVZXDQ     64(R13), Z2
 	VPADDQ        Z2, Z1, Z1
 	VPADDQ        Z0, Z1, Z0
 	VEXTRACTI64X4 $1, Z0, Y1
@@ -127,7 +127,7 @@ TEXT ·sumVec24_AVX512(SB), NOSPLIT, $0-16
 	PEXTRQ        $0, X0, AX
 	PEXTRQ        $1, X0, DX
 	ADDQ          DX, AX
-	MOVQ          AX, 0(R15)
+	MOVQ          AX, 0(R14)
 	RET
 
 // mulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b[0...n]
@@ -139,7 +139,7 @@ TEXT ·mulVec(SB), NOSPLIT, $0-32
 	MOVD         $const_qInvNeg, AX
 	VPBROADCASTD AX, Z1
 	MOVQ         res+0(FP), CX
-	MOVQ         a+8(FP), R15
+	MOVQ         a+8(FP), R14
 	MOVQ         b+16(FP), DX
 	MOVQ         n+24(FP), BX
 	MOVQ         $0x0000000000005555, AX
@@ -149,7 +149,7 @@ loop_7:
 	TESTQ     BX, BX
 	JEQ       done_8
 	DECQ      BX
-	VMOVDQU32 0(R15), Z2
+	VMOVDQU32 0(R14), Z2
 	VMOVDQU32 0(DX), Z3
 	VPSRLQ    $32, Z2, Z5
 	VPSRLQ    $32, Z3, Z6
@@ -167,7 +167,7 @@ loop_7:
 	VMOVDQU32 Z4, 0(CX)   // res = P
 
 	// increment pointers to visit next element
-	ADDQ $64, R15
+	ADDQ $64, R14
 	ADDQ $64, DX
 	ADDQ $64, CX
 	JMP  loop_7
@@ -185,7 +185,7 @@ TEXT ·scalarMulVec(SB), NOSPLIT, $0-32
 	MOVQ         $0x0000000000005555, AX
 	KMOVD        AX, K3
 	MOVQ         res+0(FP), CX
-	MOVQ         a+8(FP), R15
+	MOVQ         a+8(FP), R14
 	MOVQ         b+16(FP), DX
 	MOVQ         n+24(FP), BX
 	VPBROADCASTD 0(DX), Z1
@@ -194,7 +194,7 @@ loop_9:
 	TESTQ     BX, BX
 	JEQ       done_10
 	DECQ      BX
-	VMOVDQU32 0(R15), Z0
+	VMOVDQU32 0(R14), Z0
 	VPSRLQ    $32, Z0, Z3
 	VPMULUDQ  Z0, Z1, Z4
 	VPMULUDQ  Z3, Z1, Z2
@@ -210,7 +210,7 @@ loop_9:
 	VMOVDQU32 Z2, 0(CX)   // res = P
 
 	// increment pointers to visit next element
-	ADDQ $64, R15
+	ADDQ $64, R14
 	ADDQ $64, CX
 	JMP  loop_9
 
@@ -230,8 +230,8 @@ TEXT ·innerProdVec(SB), NOSPLIT, $0-32
 	MOVD         $const_qInvNeg, AX
 	VPBROADCASTD AX, Z1
 	MOVQ         t+0(FP), CX
-	MOVQ         a+8(FP), R14
-	MOVQ         b+16(FP), R15
+	MOVQ         a+8(FP), R13
+	MOVQ         b+16(FP), R14
 	MOVQ         n+24(FP), BX
 	MOVQ         $0x0000000000005555, AX
 	KMOVD        AX, K3
@@ -242,8 +242,8 @@ loop_11:
 	TESTQ     BX, BX
 	JEQ       done_12
 	DECQ      BX
-	VMOVDQU32 0(R14), Z2
-	VMOVDQU32 0(R15), Z3
+	VMOVDQU32 0(R13), Z2
+	VMOVDQU32 0(R14), Z3
 	VPSRLQ    $32, Z2, Z5
 	VPSRLQ    $32, Z3, Z6
 	VPMULUDQ  Z2, Z3, Z7
@@ -260,8 +260,8 @@ loop_11:
 	VPADDQ    Z4, Z11, Z11
 
 	// increment pointers to visit next element
+	ADDQ $64, R13
 	ADDQ $64, R14
-	ADDQ $64, R15
 	JMP  loop_11
 
 done_12:

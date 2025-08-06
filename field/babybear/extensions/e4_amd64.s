@@ -14,11 +14,11 @@ TEXT ·mulAccE4_avx512(SB), NOSPLIT, $0-32
 	VPBROADCASTD AX, Z1
 	MOVQ         $0x0000000000005555, AX
 	KMOVD        AX, K3
-	MOVQ         alpha+0(FP), R14
-	MOVQ         scale+8(FP), R15
+	MOVQ         alpha+0(FP), R13
+	MOVQ         scale+8(FP), R14
 	MOVQ         res+16(FP), CX
 	MOVQ         N+24(FP), BX
-	VMOVDQU32    0(R14), X2
+	VMOVDQU32    0(R13), X2
 	VINSERTI64X2 $1, X2, Y2, Y2
 	VINSERTI64X4 $1, Y2, Z2, Z2
 	VPSRLQ       $32, Z2, Z3
@@ -29,10 +29,10 @@ loop_1:
 	JEQ          done_2
 	DECQ         BX
 	VMOVDQU32    0(CX), Z4
-	VPBROADCASTD 0(R15), X5
-	VPBROADCASTD 4(R15), X6
-	VPBROADCASTD 8(R15), X7
-	VPBROADCASTD 12(R15), X8
+	VPBROADCASTD 0(R14), X5
+	VPBROADCASTD 4(R14), X6
+	VPBROADCASTD 8(R14), X7
+	VPBROADCASTD 12(R14), X8
 	VINSERTI64X2 $1, X6, Y5, Y5
 	VINSERTI64X2 $1, X8, Y7, Y7
 	VINSERTI64X4 $1, Y7, Z5, Z5
@@ -52,7 +52,7 @@ loop_1:
 	VPMINUD      Z4, Z9, Z4
 	VMOVDQU32    Z4, 0(CX)
 	ADDQ         $64, CX
-	ADDQ         $16, R15
+	ADDQ         $16, R14
 	JMP          loop_1
 
 done_2:

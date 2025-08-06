@@ -4,6 +4,7 @@
 package amd64
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/consensys/bavard"
@@ -40,9 +41,7 @@ func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 	fq2.WriteLn("#include \"go_asm.h\"")
 
 	fq2.GenerateReduceDefine()
-	if fq2.config.Equal(config.BN254) {
-		fq2.generateMulDefine()
-	}
+	fq2.GenerateReduceDefine(true)
 
 	fq2.generateAddE2()
 	fq2.generateDoubleE2()
@@ -52,23 +51,25 @@ func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 	if fq2.config.Equal(config.BN254) {
 		fq2.generateMulByNonResidueE2BN254()
 		fq2.generateMulE2BN254(forceADXCheck)
-		fq2.generateSquareE2BN254(forceADXCheck)
+		fq2.generateSquareE2(forceADXCheck)
 	} else if fq2.config.Equal(config.BLS12_381) {
 		fq2.generateMulByNonResidueE2BLS381()
-		fq2.generateSquareE2BLS381(forceADXCheck)
 		fq2.generateMulE2BLS381(forceADXCheck)
+		fq2.generateSquareE2(forceADXCheck)
 	}
-
 	return nil
 }
 
 func (fq2 *Fq2Amd64) generateAddE2() {
-	registers := fq2.FnHeader("addE2", 0, 24)
+	const avoidGlobal = true
+	stackSize := fq2.StackSize(fq2.NbWords*2+2, 0, 0)
+	registers := fq2.FnHeader("addE2", stackSize, 24)
+	defer fq2.AssertCleanStack(stackSize, 0)
+	registers.UnsafePush(ramd64.R15) // we are not using global variables
 
 	// registers
 	x := registers.Pop()
 	y := registers.Pop()
-	r := registers.Pop()
 	t := registers.PopN(fq2.NbWords)
 
 	fq2.MOVQ("x+8(FP)", x)
@@ -82,7 +83,9 @@ func (fq2 *Fq2Amd64) generateAddE2() {
 	fq2.Add(y, t)
 
 	// reduce
-	fq2.Reduce(&registers, t)
+	fq2.Reduce(&registers, t, avoidGlobal)
+
+	r := registers.Pop()
 	fq2.MOVQ("res+0(FP)", r)
 	fq2.Mov(t, r)
 
@@ -92,8 +95,11 @@ func (fq2 *Fq2Amd64) generateAddE2() {
 	// add y+offset(fq2.NbWords) into t
 	fq2.Add(y, t, fq2.NbWords)
 
+	registers.Push(x)
+	registers.Push(y)
+
 	// reduce t into r with offset fq2.NbWords
-	fq2.Reduce(&registers, t)
+	fq2.Reduce(&registers, t, avoidGlobal)
 	fq2.Mov(t, r, 0, fq2.NbWords)
 
 	fq2.RET()
@@ -101,8 +107,11 @@ func (fq2 *Fq2Amd64) generateAddE2() {
 }
 
 func (fq2 *Fq2Amd64) generateDoubleE2() {
-	// func header
-	registers := fq2.FnHeader("doubleE2", 0, 16)
+	const avoidGlobal = true
+	stackSize := fq2.StackSize(fq2.NbWords*2+2, 0, 0)
+	registers := fq2.FnHeader("doubleE2", stackSize, 16)
+	registers.UnsafePush(ramd64.R15) // we are not using global variables
+	defer fq2.AssertCleanStack(stackSize, 0)
 
 	// registers
 	x := registers.Pop()
@@ -114,18 +123,20 @@ func (fq2 *Fq2Amd64) generateDoubleE2() {
 
 	fq2.Mov(x, t)
 	fq2.Add(t, t)
-	fq2.Reduce(&registers, t)
+	fq2.Reduce(&registers, t, avoidGlobal)
 	fq2.Mov(t, r)
 	fq2.Mov(x, t, fq2.NbWords)
 	fq2.Add(t, t)
-	fq2.Reduce(&registers, t)
+	fq2.Reduce(&registers, t, avoidGlobal)
 	fq2.Mov(t, r, 0, fq2.NbWords)
 
 	fq2.RET()
 }
 
 func (fq2 *Fq2Amd64) generateNegE2() {
-	registers := fq2.FnHeader("negE2", 0, 16)
+	stackSize := fq2.StackSize(fq2.NbWords+3, 0, 0)
+	registers := fq2.FnHeader("negE2", stackSize, 16)
+	defer fq2.AssertCleanStack(stackSize, 0)
 
 	nonZeroA := fq2.NewLabel()
 	nonZeroB := fq2.NewLabel()
@@ -212,13 +223,15 @@ func (fq2 *Fq2Amd64) generateNegE2() {
 }
 
 func (fq2 *Fq2Amd64) generateSubE2() {
-	registers := fq2.FnHeader("subE2", 0, 24)
+	stackSize := fq2.StackSize(2*fq2.NbWords+1, 0, 0)
+	registers := fq2.FnHeader("subE2", stackSize, 24)
+	defer fq2.AssertCleanStack(stackSize, 0)
 
 	// registers
 	t := registers.PopN(fq2.NbWords)
 	xy := registers.Pop()
 
-	zero := registers.Pop()
+	zero := ramd64.R15
 	fq2.XORQ(zero, zero)
 
 	fq2.MOVQ("x+8(FP)", xy)
@@ -268,4 +281,127 @@ func (fq2 *Fq2Amd64) modReduceAfterSubScratch(zero ramd64.Register, t, scratch [
 	}
 	// add registers (q or 0) to t, and set to result
 	fq2.Add(scratch, t)
+}
+
+func (fq2 *Fq2Amd64) generateSquareE2(forceCheck bool) {
+	// // Square sets z to the E2-product of x,x returns z
+	// func (z *E2) Square(x *E2) *E2 {
+	// 	// adapted from algo 22 https://eprint.iacr.org/2010/354.pdf
+	// 	var a, b fp.Element
+	// 	a.Add(&x.A0, &x.A1)
+	// 	b.Sub(&x.A0, &x.A1)
+	// 	a.Mul(&a, &b)
+	// 	b.Mul(&x.A0, &x.A1).Double(&b)
+	// 	z.A0.Set(&a)
+	// 	z.A1.Set(&b)
+	// 	return z
+	// }
+	const argSize = 16
+	minStackSize := fq2.NbWords * 2 * 8 // q stack + a0a1
+	stackSize := fq2.StackSize(fq2.NbWords*4-1, 2, minStackSize)
+	registers := fq2.FnHeader("squareAdxE2", stackSize, argSize, ramd64.DX, ramd64.AX)
+	registers.UnsafePush(ramd64.R15)
+	defer fq2.AssertCleanStack(stackSize, minStackSize)
+	fq2.WriteLn("NO_LOCAL_POINTERS")
+
+	// check ADX instruction support
+	lblNoAdx := fq2.NewLabel()
+	if forceCheck {
+		fq2.CMPB("·supportAdx(SB)", 1)
+		fq2.JNE(lblNoAdx)
+	}
+
+	fq2.WriteLn(`
+	// z.A0 = (x.A0 + x.A1) * (x.A0 - x.A1)
+	// z.A1 = 2 * x.A0 * x.A1
+	`)
+
+	// used in the mul operation
+	op1 := fq2.PopN(&registers)
+	res := fq2.PopN(&registers)
+
+	xat := func(i int) string {
+		return string(op1[i])
+	}
+
+	ax := ramd64.AX
+	dx := ramd64.DX
+
+	qStack := fq2.PopN(&registers, true)
+	// move q to the stack
+	for i := 0; i < fq2.NbWords; i++ {
+		fq2.MOVQ(fmt.Sprintf("$const_q%d", i), ax)
+		fq2.MOVQ(ax, qStack[i])
+	}
+	fq2.SetQStack(qStack)
+	defer fq2.UnsetQStack()
+
+	// b = a0 * a1 * 2
+
+	fq2.Comment("2 * x.A0 * x.A1")
+	fq2.MOVQ("x+8(FP)", ax)
+
+	fq2.LabelRegisters("2 * x.A1", op1...)
+	fq2.Mov(ax, op1, fq2.NbWords)
+	fq2.Add(op1, op1) // op1, no reduce
+
+	fq2.MulADX(&registers, xat, func(i int) string {
+		fq2.MOVQ("x+8(FP)", dx)
+		return dx.At(i)
+	}, res)
+	fq2.ReduceElement(res, concat(op1, dx), true)
+
+	fq2.MOVQ("x+8(FP)", ax)
+
+	fq2.LabelRegisters("x.A1", op1...)
+	fq2.Mov(ax, op1, fq2.NbWords)
+
+	fq2.MOVQ("res+0(FP)", dx)
+	fq2.Mov(res, dx, 0, fq2.NbWords)
+	fq2.Mov(op1, res)
+
+	// op1 and res both contains x.A1 at this point
+	// res+0(FP) (z.A1) must not be referenced.
+
+	// a = a0 + a1
+	fq2.Comment("Add(&x.A0, &x.A1)")
+	fq2.Add(ax, op1)
+	//--> must save on stack
+	a0a1 := fq2.PopN(&registers, true)
+	fq2.Mov(op1, a0a1)
+
+	zero := dx
+	fq2.XORQ(zero, zero)
+
+	// b = a0 - a1
+	fq2.Comment("Sub(&x.A0, &x.A1)")
+	fq2.Mov(ax, op1)
+	fq2.Sub(res, op1)
+	fq2.modReduceAfterSubScratch(zero, op1, res) // using res as scratch registers
+
+	// a = a * b
+	fq2.MulADX(&registers, xat, func(i int) string { return string(a0a1[i]) }, res)
+	fq2.ReduceElement(res, concat(op1, dx), true)
+
+	fq2.MOVQ("res+0(FP)", ax)
+	fq2.Mov(res, ax)
+
+	// result.a0 = a
+	fq2.RET()
+
+	fq2.UnsafePush(&registers, a0a1...)
+	fq2.UnsafePush(&registers, op1...)
+	fq2.UnsafePush(&registers, res...)
+	fq2.UnsafePush(&registers, qStack...)
+
+	if forceCheck {
+		fq2.LABEL(lblNoAdx)
+		fq2.MOVQ("res+0(FP)", ramd64.AX)
+		fq2.MOVQ(ramd64.AX, "(SP)")
+		fq2.MOVQ("x+8(FP)", ramd64.AX)
+		fq2.MOVQ(ramd64.AX, "8(SP)")
+		fq2.WriteLn("CALL ·squareGenericE2(SB)")
+		fq2.RET()
+	}
+
 }

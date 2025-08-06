@@ -17,9 +17,9 @@ func (f *FFAmd64) generateMulBy3() {
 	f.Mov(x, t)
 	f.Add(t, t)
 
-	f.Reduce(&registers, t)
+	f.Reduce(&registers, t, false)
 	f.Add(x, t)
-	f.Reduce(&registers, t)
+	f.Reduce(&registers, t, false)
 	f.Mov(t, x)
 
 	f.RET()
@@ -39,11 +39,11 @@ func (f *FFAmd64) generateMulBy5() {
 
 	f.Mov(x, t)
 	f.Add(t, t)
-	f.Reduce(&registers, t)
+	f.Reduce(&registers, t, false)
 	f.Add(t, t)
-	f.Reduce(&registers, t)
+	f.Reduce(&registers, t, false)
 	f.Add(x, t)
-	f.Reduce(&registers, t)
+	f.Reduce(&registers, t, false)
 
 	f.Mov(t, x)
 	f.RET()
@@ -66,20 +66,20 @@ func (f *FFAmd64) generateMulBy13() {
 	f.Mov(x, t)
 
 	f.Add(t, t)
-	f.ReduceElement(t, s)
+	f.ReduceElement(t, s, false)
 	f.Add(t, t)
-	f.ReduceElement(t, u)
+	f.ReduceElement(t, u, false)
 
 	f.Mov(t, u) // u == 4
 
 	f.Add(t, t) // t == 8
-	f.ReduceElement(t, s)
+	f.ReduceElement(t, s, false)
 
 	f.Add(u, t) // t == 12
-	f.ReduceElement(t, s)
+	f.ReduceElement(t, s, false)
 
 	f.Add(x, t) // t == 13
-	f.ReduceElement(t, s)
+	f.ReduceElement(t, s, false)
 
 	f.Mov(t, x)
 	f.RET()

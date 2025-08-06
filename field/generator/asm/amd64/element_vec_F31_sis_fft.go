@@ -37,7 +37,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPMINUD(b0, x, x)
 		f.VPADDD(qd, y, b1)
 		f.VPMINUD(b1, y, y)
-	})
+	}, true)
 
 	// computes a = a + b and b = a - b,
 	// leaves a in [0, q)
@@ -53,7 +53,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPADDD(qd, b1, y)
 		f.VPSUBD(qd, b0, x)
 		f.VPMINUD(b0, x, x)
-	})
+	}, true)
 
 	// computes a = a + b and b = a - b,
 	// leaves a in [0,2q)
@@ -66,7 +66,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPSUBD(y, x, b0)
 		f.VPADDD(x, y, x)
 		f.VPADDD(qd, b0, y)
-	})
+	}, true)
 
 	// computes a = a * b mod q
 	// a and b can be in [0, 2q)
@@ -101,7 +101,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 
 		f.VPSUBD(q, b1, PL1)
 		f.VPMINUD(b1, PL1, a)
-	})
+	}, true)
 
 	// goes from
 	// in0 = [a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15]
@@ -116,7 +116,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VSHUFI64X2(uint64(0b01_00_11_10), y, x, b0)
 		f.VPBLENDMQ(x, b0, x, amd64.K1)
 		f.VPBLENDMQ(b0, y, y, amd64.K1)
-	})
+	}, true)
 
 	// goes from
 	// in0 = [a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15]
@@ -133,7 +133,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPERMI2Q(y, x, tmp)
 		f.VPBLENDMQ(x, tmp, x, amd64.K2)
 		f.VPBLENDMQ(tmp, y, y, amd64.K2)
-	})
+	}, true)
 
 	// goes from
 	// in0 = [a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15]
@@ -149,7 +149,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VSHUFPD(0b01010101, y, x, b0)
 		f.VPBLENDMQ(x, b0, x, amd64.K3)
 		f.VPBLENDMQ(b0, y, y, amd64.K3)
-	})
+	}, true)
 
 	// goes from
 	// in0 = [a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15]
@@ -165,7 +165,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPSHRDQ("$32", y, x, b0)
 		f.VPBLENDMD(x, b0, x, amd64.K3)
 		f.VPBLENDMD(b0, y, y, amd64.K3)
-	})
+	}, true)
 
 	_ = f.Define("load_q", 2, func(args ...any) {
 		q := args[0]
@@ -174,7 +174,7 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		f.VPBROADCASTD(amd64.AX, q)
 		f.MOVD("$const_qInvNeg", amd64.AX)
 		f.VPBROADCASTD(amd64.AX, qInv)
-	})
+	}, true)
 
 	// these masks are used in the permuteNxN functions
 	_ = f.Define("load_masks", 0, func(_ ...any) {
@@ -186,12 +186,12 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 
 		f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
 		f.KMOVD(amd64.AX, amd64.K3)
-	})
+	}, true)
 
 	_ = f.Define("butterfly_mulD", 11+4, func(args ...any) {
 		butterflyD2Q(args[0], args[1], args[2], args[3], args[4])
 		mulD(args[5:]...)
-	})
+	}, true)
 }
 
 func (_f *FFAmd64) generateFFTInnerDITF31() {
@@ -673,8 +673,9 @@ func (_f *FFAmd64) generateSISShuffleF31() {
 	// this does not need to be optimized as it's not on the hot path.
 	f := &fftHelper{_f}
 	const argSize = 1 * 3 * 8
-	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
+	stackSize := f.StackSize(f.NbWords*2+4, 2, 0)
 	registers := f.FnHeader("sisShuffle_avx512", stackSize, argSize, amd64.AX, amd64.DI)
+	defer f.AssertCleanStack(stackSize, 0)
 
 	addrA := registers.Pop()
 	lenA := registers.Pop()
@@ -721,8 +722,9 @@ func (_f *FFAmd64) generateSISUnhuffleF31() {
 	// this does not need to be optimized as it's not on the hot path.
 	f := &fftHelper{_f}
 	const argSize = 1 * 3 * 8
-	stackSize := f.StackSize(f.NbWords*2+4, 1, 0)
+	stackSize := f.StackSize(f.NbWords*2+4, 2, 0)
 	registers := f.FnHeader("sisUnshuffle_avx512", stackSize, argSize, amd64.AX, amd64.DI)
+	defer f.AssertCleanStack(stackSize, 0)
 
 	addrA := registers.Pop()
 	lenA := registers.Pop()
@@ -893,7 +895,7 @@ func (_f *FFAmd64) generateSIS512_16F31() {
 		f.VPSUBD(q, tmp5, tmp7)
 		f.VPMINUD(tmp1, tmp3, a)
 		f.VPMINUD(tmp5, tmp7, b)
-	})
+	}, true)
 
 	// scratch registers
 	s := registers.PopVN(10)

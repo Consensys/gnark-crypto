@@ -3,7 +3,11 @@
 
 package amd64
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/consensys/bavard/amd64"
+)
 
 // Butterfly sets
 // a = a + b
@@ -17,7 +21,7 @@ import "fmt"
 func (f *FFAmd64) generateButterfly() {
 	f.Comment("Butterfly(a, b *Element) sets a = a + b; b = a - b")
 
-	nbRegisters := f.NbWords*3 + 2
+	nbRegisters := f.NbWords*3 + 1
 	if f.NbWords > 6 {
 		nbRegisters = 2*f.NbWords + 1
 	}
@@ -26,8 +30,9 @@ func (f *FFAmd64) generateButterfly() {
 	defer f.AssertCleanStack(stackSize, 0)
 
 	if f.NbWords <= 6 {
+		// registers.UnsafePush(amd64.R15)
 		// registers
-		a := f.Pop(&registers)
+		a := amd64.R15 //f.Pop(&registers)
 		b := f.Pop(&registers)
 		t0 := f.PopN(&registers)
 		t1 := f.PopN(&registers)
@@ -67,13 +72,13 @@ func (f *FFAmd64) generateButterfly() {
 			f.Add(q, t1)
 		}
 
-		f.Push(&registers, q...)
+		f.UnsafePush(&registers, q...)
 
 		// save t1
 		f.Mov(t1, b)
 
 		// reduce t0
-		f.ReduceElement(t0, t1)
+		f.ReduceElement(t0, t1, false)
 
 		// save t0
 		f.MOVQ("a+0(FP)", a)
@@ -81,9 +86,9 @@ func (f *FFAmd64) generateButterfly() {
 
 		f.RET()
 
-		f.Push(&registers, t0...)
-		f.Push(&registers, t1...)
-		f.Push(&registers, a, b)
+		f.UnsafePush(&registers, t0...)
+		f.UnsafePush(&registers, t1...)
+		f.UnsafePush(&registers, a, b)
 	} else {
 		// registers
 		r := f.Pop(&registers)
@@ -120,7 +125,7 @@ func (f *FFAmd64) generateButterfly() {
 
 		// reduce t0
 		f.Mov(t1, t0)
-		f.ReduceElement(t0, t1)
+		f.ReduceElement(t0, t1, false)
 
 		// save t0
 		f.MOVQ("a+0(FP)", r)

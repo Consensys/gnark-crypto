@@ -87,27 +87,27 @@ TEXT ·innerDITWithTwiddles_avx512(SB), NOSPLIT, $0-40
 	// refer to the code generator for comments and documentation.
 	LOAD_Q(Z4, Z5)
 	LOAD_MASKS()
-	MOVQ a+0(FP), R15
+	MOVQ a+0(FP), R14
 	MOVQ twiddles+8(FP), DX
 	MOVQ end+24(FP), CX
 	MOVQ m+32(FP), BX
 	SHRQ $4, CX             // we are processing 16 elements at a time
 	SHLQ $2, BX             // offset = m * 4bytes
-	MOVQ R15, SI
+	MOVQ R14, SI
 	ADDQ BX, SI
 
 loop_1:
 	TESTQ     CX, CX
 	JEQ       done_2
 	DECQ      CX
-	VMOVDQU32 0(R15), Z0 // load a[i]
+	VMOVDQU32 0(R14), Z0 // load a[i]
 	VMOVDQU32 0(SI), Z1  // load a[i+m]
 	VMOVDQU32 0(DX), Z6  // load twiddles[i]
 	MULD(Z1, Z6, Z7, Z8, Z2, Z3, Z9, Z10, Z4, Z5)
 	BUTTERFLYD1Q(Z0, Z1, Z4, Z2, Z3)
-	VMOVDQU32 Z0, 0(R15) // store a[i]
+	VMOVDQU32 Z0, 0(R14) // store a[i]
 	VMOVDQU32 Z1, 0(SI)  // store a[i+m]
-	ADDQ      $64, R15
+	ADDQ      $64, R14
 	ADDQ      $64, SI
 	ADDQ      $64, DX
 	JMP       loop_1
@@ -117,14 +117,14 @@ done_2:
 
 TEXT ·innerDIFWithTwiddles_avx512(SB), NOSPLIT, $0-40
 	// refer to the code generator for comments and documentation.
-	MOVQ a+0(FP), R15
+	MOVQ a+0(FP), R14
 	MOVQ twiddles+8(FP), DX
 	MOVQ end+24(FP), CX
 	MOVQ m+32(FP), BX
 	LOAD_Q(Z2, Z4)
 	LOAD_MASKS()
 	SHLQ $2, BX             // offset = m * 4bytes
-	MOVQ R15, SI
+	MOVQ R14, SI
 	ADDQ BX, SI
 	SHRQ $4, CX             // we are processing 16 elements at a time
 
@@ -132,13 +132,13 @@ loop_3:
 	TESTQ     CX, CX
 	JEQ       done_4
 	DECQ      CX
-	VMOVDQU32 0(R15), Z0 // load a[i]
+	VMOVDQU32 0(R14), Z0 // load a[i]
 	VMOVDQU32 0(SI), Z1  // load a[i+m]
 	VMOVDQU32 0(DX), Z5  // load twiddles[i]
 	BUTTERFLY_MULD(Z0, Z1, Z2, Z3, Z8, Z1, Z5, Z6, Z7, Z3, Z8, Z9, Z10, Z2, Z4)
-	VMOVDQU32 Z0, 0(R15) // store a[i]
+	VMOVDQU32 Z0, 0(R14) // store a[i]
 	VMOVDQU32 Z1, 0(SI)
-	ADDQ      $64, R15
+	ADDQ      $64, R14
 	ADDQ      $64, SI
 	ADDQ      $64, DX
 	JMP       loop_3
@@ -152,27 +152,27 @@ TEXT ·kerDIFNP_256_avx512(SB), NOSPLIT, $0-56
 	LOAD_MASKS()
 
 	// load arguments
-	MOVQ         a+0(FP), R15
+	MOVQ         a+0(FP), R14
 	MOVQ         twiddles+24(FP), CX
 	MOVQ         stage+48(FP), AX
 	IMULQ        $24, AX
 	ADDQ         AX, CX                             // we want twiddles[stage] as starting point
-	VMOVDQU32    0(R15), Z0                         // load a[0]
-	VMOVDQU32    64(R15), Z1                        // load a[1]
-	VMOVDQU32    128(R15), Z2                       // load a[2]
-	VMOVDQU32    192(R15), Z3                       // load a[3]
-	VMOVDQU32    256(R15), Z4                       // load a[4]
-	VMOVDQU32    320(R15), Z5                       // load a[5]
-	VMOVDQU32    384(R15), Z6                       // load a[6]
-	VMOVDQU32    448(R15), Z7                       // load a[7]
-	VMOVDQU32    512(R15), Z8                       // load a[8]
-	VMOVDQU32    576(R15), Z9                       // load a[9]
-	VMOVDQU32    640(R15), Z10                      // load a[10]
-	VMOVDQU32    704(R15), Z11                      // load a[11]
-	VMOVDQU32    768(R15), Z12                      // load a[12]
-	VMOVDQU32    832(R15), Z13                      // load a[13]
-	VMOVDQU32    896(R15), Z14                      // load a[14]
-	VMOVDQU32    960(R15), Z15                      // load a[15]
+	VMOVDQU32    0(R14), Z0                         // load a[0]
+	VMOVDQU32    64(R14), Z1                        // load a[1]
+	VMOVDQU32    128(R14), Z2                       // load a[2]
+	VMOVDQU32    192(R14), Z3                       // load a[3]
+	VMOVDQU32    256(R14), Z4                       // load a[4]
+	VMOVDQU32    320(R14), Z5                       // load a[5]
+	VMOVDQU32    384(R14), Z6                       // load a[6]
+	VMOVDQU32    448(R14), Z7                       // load a[7]
+	VMOVDQU32    512(R14), Z8                       // load a[8]
+	VMOVDQU32    576(R14), Z9                       // load a[9]
+	VMOVDQU32    640(R14), Z10                      // load a[10]
+	VMOVDQU32    704(R14), Z11                      // load a[11]
+	VMOVDQU32    768(R14), Z12                      // load a[12]
+	VMOVDQU32    832(R14), Z13                      // load a[13]
+	VMOVDQU32    896(R14), Z14                      // load a[14]
+	VMOVDQU32    960(R14), Z15                      // load a[15]
 	MOVQ         0(CX), DI
 	VMOVDQU32    0(DI), Z18
 	VMOVDQU32    64(DI), Z19
@@ -367,57 +367,57 @@ TEXT ·kerDIFNP_256_avx512(SB), NOSPLIT, $0-56
 	VMOVDQA32    Z23, Z0
 	PERMUTE4X4(Z0, Z1, Z22, Z23)
 	PERMUTE8X8(Z0, Z1, Z23)
-	VMOVDQU32    Z0, 0(R15)
-	VMOVDQU32    Z1, 64(R15)
+	VMOVDQU32    Z0, 0(R14)
+	VMOVDQU32    Z1, 64(R14)
 	VPUNPCKLDQ   Z3, Z2, Z23
 	VPUNPCKHDQ   Z3, Z2, Z3
 	VMOVDQA32    Z23, Z2
 	PERMUTE4X4(Z2, Z3, Z22, Z23)
 	PERMUTE8X8(Z2, Z3, Z23)
-	VMOVDQU32    Z2, 128(R15)
-	VMOVDQU32    Z3, 192(R15)
+	VMOVDQU32    Z2, 128(R14)
+	VMOVDQU32    Z3, 192(R14)
 	VPUNPCKLDQ   Z5, Z4, Z23
 	VPUNPCKHDQ   Z5, Z4, Z5
 	VMOVDQA32    Z23, Z4
 	PERMUTE4X4(Z4, Z5, Z22, Z23)
 	PERMUTE8X8(Z4, Z5, Z23)
-	VMOVDQU32    Z4, 256(R15)
-	VMOVDQU32    Z5, 320(R15)
+	VMOVDQU32    Z4, 256(R14)
+	VMOVDQU32    Z5, 320(R14)
 	VPUNPCKLDQ   Z7, Z6, Z23
 	VPUNPCKHDQ   Z7, Z6, Z7
 	VMOVDQA32    Z23, Z6
 	PERMUTE4X4(Z6, Z7, Z22, Z23)
 	PERMUTE8X8(Z6, Z7, Z23)
-	VMOVDQU32    Z6, 384(R15)
-	VMOVDQU32    Z7, 448(R15)
+	VMOVDQU32    Z6, 384(R14)
+	VMOVDQU32    Z7, 448(R14)
 	VPUNPCKLDQ   Z9, Z8, Z23
 	VPUNPCKHDQ   Z9, Z8, Z9
 	VMOVDQA32    Z23, Z8
 	PERMUTE4X4(Z8, Z9, Z22, Z23)
 	PERMUTE8X8(Z8, Z9, Z23)
-	VMOVDQU32    Z8, 512(R15)
-	VMOVDQU32    Z9, 576(R15)
+	VMOVDQU32    Z8, 512(R14)
+	VMOVDQU32    Z9, 576(R14)
 	VPUNPCKLDQ   Z11, Z10, Z23
 	VPUNPCKHDQ   Z11, Z10, Z11
 	VMOVDQA32    Z23, Z10
 	PERMUTE4X4(Z10, Z11, Z22, Z23)
 	PERMUTE8X8(Z10, Z11, Z23)
-	VMOVDQU32    Z10, 640(R15)
-	VMOVDQU32    Z11, 704(R15)
+	VMOVDQU32    Z10, 640(R14)
+	VMOVDQU32    Z11, 704(R14)
 	VPUNPCKLDQ   Z13, Z12, Z23
 	VPUNPCKHDQ   Z13, Z12, Z13
 	VMOVDQA32    Z23, Z12
 	PERMUTE4X4(Z12, Z13, Z22, Z23)
 	PERMUTE8X8(Z12, Z13, Z23)
-	VMOVDQU32    Z12, 768(R15)
-	VMOVDQU32    Z13, 832(R15)
+	VMOVDQU32    Z12, 768(R14)
+	VMOVDQU32    Z13, 832(R14)
 	VPUNPCKLDQ   Z15, Z14, Z23
 	VPUNPCKHDQ   Z15, Z14, Z15
 	VMOVDQA32    Z23, Z14
 	PERMUTE4X4(Z14, Z15, Z22, Z23)
 	PERMUTE8X8(Z14, Z15, Z23)
-	VMOVDQU32    Z14, 896(R15)
-	VMOVDQU32    Z15, 960(R15)
+	VMOVDQU32    Z14, 896(R14)
+	VMOVDQU32    Z15, 960(R14)
 	RET
 
 TEXT ·kerDITNP_256_avx512(SB), NOSPLIT, $0-56
@@ -426,27 +426,27 @@ TEXT ·kerDITNP_256_avx512(SB), NOSPLIT, $0-56
 	LOAD_MASKS()
 
 	// load arguments
-	MOVQ         a+0(FP), R15
+	MOVQ         a+0(FP), R14
 	MOVQ         twiddles+24(FP), CX
 	MOVQ         stage+48(FP), AX
 	IMULQ        $24, AX
 	ADDQ         AX, CX                             // we want twiddles[stage] as starting point
-	VMOVDQU32    0(R15), Z0                         // load a[0]
-	VMOVDQU32    64(R15), Z1                        // load a[1]
-	VMOVDQU32    128(R15), Z2                       // load a[2]
-	VMOVDQU32    192(R15), Z3                       // load a[3]
-	VMOVDQU32    256(R15), Z4                       // load a[4]
-	VMOVDQU32    320(R15), Z5                       // load a[5]
-	VMOVDQU32    384(R15), Z6                       // load a[6]
-	VMOVDQU32    448(R15), Z7                       // load a[7]
-	VMOVDQU32    512(R15), Z8                       // load a[8]
-	VMOVDQU32    576(R15), Z9                       // load a[9]
-	VMOVDQU32    640(R15), Z10                      // load a[10]
-	VMOVDQU32    704(R15), Z11                      // load a[11]
-	VMOVDQU32    768(R15), Z12                      // load a[12]
-	VMOVDQU32    832(R15), Z13                      // load a[13]
-	VMOVDQU32    896(R15), Z14                      // load a[14]
-	VMOVDQU32    960(R15), Z15                      // load a[15]
+	VMOVDQU32    0(R14), Z0                         // load a[0]
+	VMOVDQU32    64(R14), Z1                        // load a[1]
+	VMOVDQU32    128(R14), Z2                       // load a[2]
+	VMOVDQU32    192(R14), Z3                       // load a[3]
+	VMOVDQU32    256(R14), Z4                       // load a[4]
+	VMOVDQU32    320(R14), Z5                       // load a[5]
+	VMOVDQU32    384(R14), Z6                       // load a[6]
+	VMOVDQU32    448(R14), Z7                       // load a[7]
+	VMOVDQU32    512(R14), Z8                       // load a[8]
+	VMOVDQU32    576(R14), Z9                       // load a[9]
+	VMOVDQU32    640(R14), Z10                      // load a[10]
+	VMOVDQU32    704(R14), Z11                      // load a[11]
+	VMOVDQU32    768(R14), Z12                      // load a[12]
+	VMOVDQU32    832(R14), Z13                      // load a[13]
+	VMOVDQU32    896(R14), Z14                      // load a[14]
+	VMOVDQU32    960(R14), Z15                      // load a[15]
 	MOVQ         ·vInterleaveIndices+0(SB), R8
 	VMOVDQU64    0(R8), Z28
 	PERMUTE1X1(Z0, Z1, Z22)
@@ -673,20 +673,20 @@ TEXT ·kerDITNP_256_avx512(SB), NOSPLIT, $0-56
 	BUTTERFLYD1Q(Z6, Z14, Z16, Z22, Z23)
 	MULD(Z15, Z28, Z24, Z25, Z22, Z23, Z26, Z27, Z16, Z17)
 	BUTTERFLYD1Q(Z7, Z15, Z16, Z22, Z23)
-	VMOVDQU32    Z0, 0(R15)
-	VMOVDQU32    Z1, 64(R15)
-	VMOVDQU32    Z2, 128(R15)
-	VMOVDQU32    Z3, 192(R15)
-	VMOVDQU32    Z4, 256(R15)
-	VMOVDQU32    Z5, 320(R15)
-	VMOVDQU32    Z6, 384(R15)
-	VMOVDQU32    Z7, 448(R15)
-	VMOVDQU32    Z8, 512(R15)
-	VMOVDQU32    Z9, 576(R15)
-	VMOVDQU32    Z10, 640(R15)
-	VMOVDQU32    Z11, 704(R15)
-	VMOVDQU32    Z12, 768(R15)
-	VMOVDQU32    Z13, 832(R15)
-	VMOVDQU32    Z14, 896(R15)
-	VMOVDQU32    Z15, 960(R15)
+	VMOVDQU32    Z0, 0(R14)
+	VMOVDQU32    Z1, 64(R14)
+	VMOVDQU32    Z2, 128(R14)
+	VMOVDQU32    Z3, 192(R14)
+	VMOVDQU32    Z4, 256(R14)
+	VMOVDQU32    Z5, 320(R14)
+	VMOVDQU32    Z6, 384(R14)
+	VMOVDQU32    Z7, 448(R14)
+	VMOVDQU32    Z8, 512(R14)
+	VMOVDQU32    Z9, 576(R14)
+	VMOVDQU32    Z10, 640(R14)
+	VMOVDQU32    Z11, 704(R14)
+	VMOVDQU32    Z12, 768(R14)
+	VMOVDQU32    Z13, 832(R14)
+	VMOVDQU32    Z14, 896(R14)
+	VMOVDQU32    Z15, 960(R14)
 	RET
