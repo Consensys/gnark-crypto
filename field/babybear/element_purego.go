@@ -5,6 +5,8 @@
 
 package babybear
 
+import "math/bits"
+
 // MulBy3 x *= 3 (mod q)
 func MulBy3(x *Element) {
 	var y Element
@@ -47,12 +49,19 @@ func reduce(z *Element) {
 	_reduceGeneric(z)
 }
 func montReduce(v uint64) uint32 {
-	m := uint32(v) * qInvNeg
-	t := uint32((v + uint64(m)*q) >> 32)
-	if t >= q {
-		t -= q
+	const (
+		R    = 1 << 32
+		qInv = R - qInvNeg
+	)
+
+	m := uint32(v) * qInv
+	t, borrow := bits.Sub64(v, uint64(m)*q, 0)
+
+	res := uint32(t / R)
+	if borrow != 0 {
+		res += q
 	}
-	return t
+	return res
 }
 
 // Mul z = x * y (mod q)

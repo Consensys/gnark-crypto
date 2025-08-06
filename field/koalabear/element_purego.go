@@ -90,12 +90,3 @@ func (z *Element) Square(x *Element) *Element {
 func Butterfly(a, b *Element) {
 	_butterflyGeneric(a, b)
 }
-
-func ModSub(x, y uint32) uint32 {
-	const q = 0x12345
-	res, borrow := bits.Sub32(x, y, 0)
-	if borrow != 0 {
-		res += q
-	}
-	return res
-}
