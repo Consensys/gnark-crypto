@@ -83,6 +83,7 @@ func (p *G2Affine) ScalarMultiplicationBase(s *big.Int) *G2Affine {
 // It uses the Jacobian addition with a.Z=b.Z=1 and converts the result to affine coordinates.
 //
 // https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-mmadd-2007-bl
+// ~Cost: 4M + 2S
 func (p *G2Affine) Add(a, b *G2Affine) *G2Affine {
 	var q G2Jac
 	// a is infinity, return b
@@ -131,6 +132,7 @@ func (p *G2Affine) Add(a, b *G2Affine) *G2Affine {
 // addition with a.Z=1, and converts it back to affine coordinates.
 //
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-mdbl-2007-bl
+// ~Cost: 1M + 5S
 func (p *G2Affine) Double(a *G2Affine) *G2Affine {
 	var q G2Jac
 	q.FromAffine(a)
@@ -258,7 +260,8 @@ func (p *G2Jac) Neg(q *G2Jac) *G2Jac {
 
 // AddAssign sets p to p+a in Jacobian coordinates.
 //
-// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
+// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-add-2007-bl
+// ~Cost: 11M + 5S
 func (p *G2Jac) AddAssign(q *G2Jac) *G2Jac {
 
 	// p is infinity, return q
@@ -322,7 +325,8 @@ func (p *G2Jac) SubAssign(q *G2Jac) *G2Jac {
 
 // Double sets p to [2]q in Jacobian coordinates.
 //
-// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+// https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-mdbl-2007-bl
+// ~Cost: 1M + 5S
 func (p *G2Jac) DoubleMixed(a *G2Affine) *G2Jac {
 	var XX, YY, YYYY, S, M, T fptower.E4
 	XX.Square(&a.X)
@@ -353,6 +357,7 @@ func (p *G2Jac) DoubleMixed(a *G2Affine) *G2Jac {
 // AddMixed sets p to p+a in Jacobian coordinates, where a.Z = 1.
 //
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
+// ~Cost: 7M + 4S
 func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 
 	//if a is infinity return p
@@ -402,7 +407,8 @@ func (p *G2Jac) AddMixed(a *G2Affine) *G2Jac {
 
 // Double sets p to [2]q in Jacobian coordinates.
 //
-// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+// https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
+// ~Cost: 2M + 5S
 func (p *G2Jac) Double(q *G2Jac) *G2Jac {
 	p.Set(q)
 	p.DoubleAssign()
@@ -411,33 +417,31 @@ func (p *G2Jac) Double(q *G2Jac) *G2Jac {
 
 // DoubleAssign doubles p in Jacobian coordinates.
 //
-// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2007-bl
+// https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
+// ~Cost: 2M + 5S
 func (p *G2Jac) DoubleAssign() *G2Jac {
-
-	var XX, YY, YYYY, ZZ, S, M, T fptower.E4
-
-	XX.Square(&p.X)
-	YY.Square(&p.Y)
-	YYYY.Square(&YY)
-	ZZ.Square(&p.Z)
-	S.Add(&p.X, &YY)
-	S.Square(&S).
-		Sub(&S, &XX).
-		Sub(&S, &YYYY).
-		Double(&S)
-	M.Double(&XX).Add(&M, &XX)
-	p.Z.Add(&p.Z, &p.Y).
-		Square(&p.Z).
-		Sub(&p.Z, &YY).
-		Sub(&p.Z, &ZZ)
-	T.Square(&M)
-	p.X = T
-	T.Double(&S)
-	p.X.Sub(&p.X, &T)
-	p.Y.Sub(&S, &p.X).
-		Mul(&p.Y, &M)
-	YYYY.Double(&YYYY).Double(&YYYY).Double(&YYYY)
-	p.Y.Sub(&p.Y, &YYYY)
+	var A, B, C, D, E, F, t fptower.E4
+	A.Square(&p.X)
+	B.Square(&p.Y)
+	C.Square(&B)
+	D.Add(&p.X, &B).
+		Square(&D).
+		Sub(&D, &A).
+		Sub(&D, &C).
+		Double(&D)
+	E.Double(&A).
+		Add(&E, &A)
+	F.Square(&E)
+	t.Double(&D)
+	p.Z.Mul(&p.Y, &p.Z).
+		Double(&p.Z)
+	p.X.Sub(&F, &t)
+	p.Y.Sub(&D, &p.X).
+		Mul(&p.Y, &E)
+	t.Double(&C).
+		Double(&t).
+		Double(&t)
+	p.Y.Sub(&p.Y, &t)
 
 	return p
 }
@@ -799,6 +803,7 @@ func (p *G2Jac) unsafeFromJacExtended(q *g2JacExtended) *G2Jac {
 // add sets p to p+q in extended Jacobian coordinates.
 //
 // https://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-add-2008-s
+// ~Cost: 12M + 2S
 func (p *g2JacExtended) add(q *g2JacExtended) *g2JacExtended {
 	//if q is infinity return p
 	if q.ZZ.IsZero() {
@@ -856,6 +861,8 @@ func (p *g2JacExtended) add(q *g2JacExtended) *g2JacExtended {
 // double sets p to [2]q in Jacobian extended coordinates.
 //
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+// ~Cost: 6M + 3S
+//
 // N.B.: since we consider any point on Z=0 as the point at infinity
 // this doubling formula works for infinity points as well.
 func (p *g2JacExtended) double(q *g2JacExtended) *g2JacExtended {
@@ -885,6 +892,7 @@ func (p *g2JacExtended) double(q *g2JacExtended) *g2JacExtended {
 // addMixed sets p to p+q in extended Jacobian coordinates, where a.ZZ=1.
 //
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
+// ~Cost: 8M + 2S
 func (p *g2JacExtended) addMixed(a *G2Affine) *g2JacExtended {
 
 	//if a is infinity return p
@@ -941,6 +949,7 @@ func (p *g2JacExtended) addMixed(a *G2Affine) *g2JacExtended {
 // subMixed works the same as addMixed, but negates a.Y.
 //
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
+// ~Cost: 8M + 2S
 func (p *g2JacExtended) subMixed(a *G2Affine) *g2JacExtended {
 
 	//if a is infinity return p
@@ -995,27 +1004,29 @@ func (p *g2JacExtended) subMixed(a *G2Affine) *g2JacExtended {
 
 }
 
-// doubleNegMixed works the same as double, but negates q.Y.
+// doubleNegMixed works the same as doubleMixed, but negates q.Y.
+//
+// https://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-mdbl-2008-s-1
+// ~Cost: 4M + 3S
 func (p *g2JacExtended) doubleNegMixed(a *G2Affine) *g2JacExtended {
 
-	var U, V, W, S, XX, M, S2, L fptower.E4
+	var U, V, W, S, M, t fptower.E4
 
 	U.Double(&a.Y)
 	U.Neg(&U)
 	V.Square(&U)
 	W.Mul(&U, &V)
 	S.Mul(&a.X, &V)
-	XX.Square(&a.X)
-	M.Double(&XX).
-		Add(&M, &XX) // -> + A, but A=0 here
-	S2.Double(&S)
-	L.Mul(&W, &a.Y)
-
-	p.X.Square(&M).
-		Sub(&p.X, &S2)
+	t.Square(&a.X)
+	M.Double(&t).
+		Add(&M, &t) // -> + A, but A=0 here
+	p.X.Square(&M)
+	t.Double(&S)
+	p.X.Sub(&p.X, &t)
+	t.Mul(&W, &a.Y)
 	p.Y.Sub(&S, &p.X).
 		Mul(&p.Y, &M).
-		Add(&p.Y, &L)
+		Add(&p.Y, &t)
 	p.ZZ.Set(&V)
 	p.ZZZ.Set(&W)
 
@@ -1024,26 +1035,26 @@ func (p *g2JacExtended) doubleNegMixed(a *G2Affine) *g2JacExtended {
 
 // doubleMixed sets p to [2]a in Jacobian extended coordinates, where a.ZZ=1.
 //
-// http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+// https://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-mdbl-2008-s-1
+// ~Cost: 4M + 3S
 func (p *g2JacExtended) doubleMixed(a *G2Affine) *g2JacExtended {
 
-	var U, V, W, S, XX, M, S2, L fptower.E4
+	var U, V, W, S, M, t fptower.E4
 
 	U.Double(&a.Y)
 	V.Square(&U)
 	W.Mul(&U, &V)
 	S.Mul(&a.X, &V)
-	XX.Square(&a.X)
-	M.Double(&XX).
-		Add(&M, &XX) // -> + A, but A=0 here
-	S2.Double(&S)
-	L.Mul(&W, &a.Y)
-
-	p.X.Square(&M).
-		Sub(&p.X, &S2)
+	t.Square(&a.X)
+	M.Double(&t).
+		Add(&M, &t) // -> + A, but A=0 here
+	p.X.Square(&M)
+	t.Double(&S)
+	p.X.Sub(&p.X, &t)
+	t.Mul(&W, &a.Y)
 	p.Y.Sub(&S, &p.X).
 		Mul(&p.Y, &M).
-		Sub(&p.Y, &L)
+		Sub(&p.Y, &t)
 	p.ZZ.Set(&V)
 	p.ZZZ.Set(&W)
 
