@@ -49,15 +49,6 @@ func reduce(z *Element) {
 	_reduceGeneric(z)
 }
 func montReduce(v uint64) uint32 {
-	m := uint32(v) * qInvNeg
-	t := uint32((v + uint64(m)*q) >> 32)
-	if t >= q {
-		t -= q
-	}
-	return t
-}
-
-func MontReduce2(v uint64) uint32 {
 	const (
 		R    = 1 << 32
 		qInv = R - qInvNeg
