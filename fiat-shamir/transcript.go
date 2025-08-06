@@ -120,7 +120,7 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 	challenge.isComputed = true
 
 	t.challenges[challengeID] = challenge
-	t.previous = &challenge
+	t.previous = &t.challenges[challengeID]
 
 	return res, nil
 
