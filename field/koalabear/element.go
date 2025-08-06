@@ -511,7 +511,7 @@ func (z *Element) Exp(x Element, k *big.Int) *Element {
 	return z
 }
 
-// rSquare where r is the Montgommery constant
+// rSquare where r is the Montgomery constant
 // see section 2.3.2 of Tolga Acar's thesis
 // https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
 var rSquare = Element{
@@ -519,10 +519,11 @@ var rSquare = Element{
 }
 
 // toMont converts z to Montgomery form
-// sets and returns z = z * r²
+// sets and returns z = z * r
 func (z *Element) toMont() *Element {
-	const rBits = 32
-	z[0] = uint32((uint64(z[0]) << rBits) % q)
+	const rSquaredModQ = ((1 << 32) % q << 32) % q
+
+	z[0] = montReduce(uint64(z[0]) * rSquaredModQ)
 	return z
 }
 

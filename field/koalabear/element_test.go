@@ -2237,3 +2237,55 @@ func genElement() gopter.Gen {
 		return genResult
 	}
 }
+
+func TestMontReduce(t *testing.T) {
+	bg := big.NewInt(1 << 32)
+	rInv := bg.ModInverse(bg, big.NewInt(q)).Uint64()
+	require.Equal(t, uint64(1), (rInv<<32)%q)
+
+	bound := big.NewInt(q << 32)
+
+	for range 10000000 {
+		iBig, err := rand.Int(rand.Reader, bound)
+		require.NoError(t, err)
+		i := iBig.Uint64()
+		res := uint32((rInv * (i % q)) % q)
+
+		require.Equal(t, i%q, (uint64(res)<<32)%q)
+
+		require.Equal(t, res, MontReduce2(i), "reducing %d", i)
+	}
+}
+
+func BenchmarkMontReduce(b *testing.B) {
+	iBig, err := rand.Int(rand.Reader, big.NewInt(q<<32))
+	require.NoError(b, err)
+	i := iBig.Uint64()
+	b.ResetTimer()
+	for range b.N {
+		montReduce(i)
+	}
+}
+
+func BenchmarkMontReduceNew(b *testing.B) {
+	iBig, err := rand.Int(rand.Reader, big.NewInt(q<<32))
+	require.NoError(b, err)
+	i := iBig.Uint64()
+	b.ResetTimer()
+	for range b.N {
+		MontReduce2(i)
+	}
+}
+
+func TestToMont(t *testing.T) {
+	var x Element
+
+	for range 10000000 {
+		x.MustSetRandom()
+		i := x[0]
+
+		x.toMont()
+
+		require.Equal(t, uint32((uint64(i)<<32)%q), x[0], i)
+	}
+}

@@ -5,6 +5,8 @@
 
 package koalabear
 
+import "math/bits"
+
 // MulBy3 x *= 3 (mod q)
 func MulBy3(x *Element) {
 	var y Element
@@ -55,6 +57,22 @@ func montReduce(v uint64) uint32 {
 	return t
 }
 
+func MontReduce2(v uint64) uint32 {
+	const (
+		R    = 1 << 32
+		qInv = R - qInvNeg
+	)
+
+	m := uint32(v) * qInv
+	t, borrow := bits.Sub64(v, uint64(m)*q, 0)
+
+	res := uint32(t / R)
+	if borrow != 0 {
+		res += q
+	}
+	return res
+}
+
 // Mul z = x * y (mod q)
 //
 // x and y must be less than q
@@ -80,4 +98,13 @@ func (z *Element) Square(x *Element) *Element {
 //	b = a - b (mod q)
 func Butterfly(a, b *Element) {
 	_butterflyGeneric(a, b)
+}
+
+func ModSub(x, y uint32) uint32 {
+	const q = 0x12345
+	res, borrow := bits.Sub32(x, y, 0)
+	if borrow != 0 {
+		res += q
+	}
+	return res
 }
