@@ -59,6 +59,20 @@ func TestG2Endomorphism(t *testing.T) {
 		GenE2(),
 	))
 
+	properties.Property("[BN254] [3]P == [2]P+P", prop.ForAll(
+		func(a fptower.E2) bool {
+			var p, res1, res2 G2Jac
+			g := MapToG2(a)
+			p.FromAffine(&g)
+			res1.Triple(&p)
+			res2.Double(&p).
+				AddAssign(&p)
+
+			return res1.Equal(&res2)
+		},
+		GenE2(),
+	))
+
 	properties.Property("[BN254] check that psi^2(P) = -phi(P)", prop.ForAll(
 		func(a fptower.E2) bool {
 			var p, res1, res2 G2Jac
