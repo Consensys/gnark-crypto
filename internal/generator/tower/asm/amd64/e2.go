@@ -320,7 +320,7 @@ func (fq2 *Fq2Amd64) generateSquareE2(forceCheck bool) {
 	op1 := fq2.PopN(&registers)
 	res := fq2.PopN(&registers)
 
-	xat := func(i int) string {
+	op1At := func(i int) string {
 		return string(op1[i])
 	}
 
@@ -345,7 +345,7 @@ func (fq2 *Fq2Amd64) generateSquareE2(forceCheck bool) {
 	fq2.Mov(ax, op1, fq2.NbWords)
 	fq2.Add(op1, op1) // op1, no reduce
 
-	fq2.MulADX(&registers, xat, func(i int) string {
+	fq2.MulADX(&registers, op1At, func(i int) string {
 		fq2.MOVQ("x+8(FP)", dx)
 		return dx.At(i)
 	}, res)
@@ -380,7 +380,7 @@ func (fq2 *Fq2Amd64) generateSquareE2(forceCheck bool) {
 	fq2.modReduceAfterSubScratch(zero, op1, res) // using res as scratch registers
 
 	// a = a * b
-	fq2.MulADX(&registers, xat, func(i int) string { return string(a0a1[i]) }, res)
+	fq2.MulADX(&registers, op1At, func(i int) string { return string(a0a1[i]) }, res)
 	fq2.ReduceElement(res, concat(op1, dx), true)
 
 	fq2.MOVQ("res+0(FP)", ax)

@@ -73,7 +73,7 @@ func (fq2 *Fq2Amd64) generateMulE2BN254(forceCheck bool) {
 
 	// we need a bit of stack space to store the results of the xA0yA0 and xA1yA1 multiplications
 	const argSize = 24
-	minStackSize := (4 + 2) * 8 // aStack and cStack are (partially) on the stack
+	const minStackSize = (4 + 2) * 8 // aStack and cStack are (partially) on the stack
 	stackSize := fq2.StackSize(fq2.NbWords*4, 2, minStackSize)
 	registers := fq2.FnHeader("mulAdxE2", stackSize, argSize, amd64.DX, amd64.AX)
 	defer fq2.AssertCleanStack(stackSize, minStackSize)

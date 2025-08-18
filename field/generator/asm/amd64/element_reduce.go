@@ -27,8 +27,11 @@ func (f *FFAmd64) generateReduce() {
 }
 
 // Reduce scratch can be on the stack or a set of registers.
-// If useQGlobal is true, the global qElement variable is used for reduction.
-// If false, the reduction is done without using the global variable (using defines / IMMs)
+// If avoidGlobal is true:
+// 1. f.qStack is set, in which case f.qAt should return the address of q on the stack
+// 2. f.qStack is not set, in which case we use an extra register to move immediates values from
+// constants.
+// If avoidGlobal is false: we use f.qAt (which by default fetch q from global memory)
 func (f *FFAmd64) Reduce(registers *amd64.Registers, t []amd64.Register, avoidGlobal bool) {
 	var spare amd64.Register
 	if avoidGlobal && f.qStack == nil {
