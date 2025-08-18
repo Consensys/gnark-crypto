@@ -25,6 +25,7 @@ func NewFFAmd64(w io.Writer, nbWords int) *FFAmd64 {
 		make([]int, nbWords),
 		make([]int, nbWords-1),
 		make(map[string]defineFn),
+		nil,
 	}
 
 	// indexes (template helpers)
@@ -48,9 +49,19 @@ type FFAmd64 struct {
 	NbWordsIndexesFull   []int
 	NbWordsIndexesNoZero []int
 	mDefines             map[string]defineFn
+
+	qStack []amd64.Register // when set, contains the words of q, the modulus, on the stack.
 }
 
 type defineFn func(args ...any)
+
+func (f *FFAmd64) SetQStack(qStack []amd64.Register) {
+	f.qStack = qStack
+}
+
+func (f *FFAmd64) UnsetQStack() {
+	f.qStack = nil
+}
 
 func (f *FFAmd64) StackSize(maxNbRegistersNeeded, nbRegistersReserved, minStackSize int) int {
 	got := amd64.NbRegisters - nbRegistersReserved
@@ -80,7 +91,7 @@ func (f *FFAmd64) CallDefine(name string, args ...any) {
 	fn(args...)
 }
 
-func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn, forceGet ...bool) defineFn {
+func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn, reuse bool) defineFn {
 
 	inputs := make([]string, nbInputs)
 	for i := 0; i < nbInputs; i++ {
@@ -89,12 +100,12 @@ func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn, forceGet ...boo
 	name = strings.ToUpper(name)
 
 	for fn, ok := f.mDefines[name]; ok; {
-		if len(forceGet) > 0 && forceGet[0] {
+		if reuse {
 			// in that case, we don't redefine the define;
 			// user explicitly asked for it
 			return fn
 		}
-		panic("WARNING: function name already defined")
+		panic("WARNING: not used at the moment, but if we reach this point, it means the function name already exist, for code generation purpose we add a suffix")
 		// name already exist, for code generation purpose we add a suffix
 		// should happen only with e2 deprecated functions
 		// fmt.Println("WARNING: function name already defined, adding suffix")
@@ -148,18 +159,21 @@ func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn, forceGet ...boo
 }
 
 func (f *FFAmd64) AssertCleanStack(reservedStackSize, minStackSize int) {
+	if f.qStack != nil {
+		panic("qStack not empty, use f.UnsetQStack()")
+	}
 	if f.nbElementsOnStack != 0 {
-		panic("missing f.Push stack elements")
+		panic(fmt.Sprintf("missing f.Push stack elements (NbWords=%d)", f.NbWords))
 	}
 	if reservedStackSize < minStackSize {
-		panic("invalid minStackSize or reservedStackSize")
+		panic(fmt.Sprintf("invalid minStackSize or reservedStackSize (NbWords=%d, reserved=%d, min=%d)", f.NbWords, reservedStackSize, minStackSize))
 	}
 	usedStackSize := f.maxOnStack * 8
 	if usedStackSize > reservedStackSize {
-		panic("using more stack size than reserved")
+		panic(fmt.Sprintf("using more stack size than reserved (NbWords=%d, reserved=%d, used=%d)", f.NbWords, reservedStackSize, usedStackSize))
 	} else if max(usedStackSize, minStackSize) < reservedStackSize {
-		// this panic is for dev purposes as this may be by design for aligment
-		panic("reserved more stack size than needed")
+		// this panic is for dev purposes as this may be by design for alignment
+		panic(fmt.Sprintf("reserved more stack size than needed (NbWords=%d, reserved=%d, used=%d)", f.NbWords, reservedStackSize, usedStackSize))
 	}
 
 	f.maxOnStack = 0
@@ -173,6 +187,19 @@ func (f *FFAmd64) Push(registers *amd64.Registers, rIn ...amd64.Register) {
 			continue
 		}
 		registers.Push(r)
+	}
+}
+
+// UnsafePush behaves as Push, but doesn't check that the register is a valid register.
+// This is useful when using R15 which is not included by default on the available registers.
+func (f *FFAmd64) UnsafePush(registers *amd64.Registers, rIn ...amd64.Register) {
+	for _, r := range rIn {
+		if strings.HasPrefix(string(r), "s") {
+			// it's on the stack, decrease the offset
+			f.nbElementsOnStack--
+			continue
+		}
+		registers.UnsafePush(r)
 	}
 }
 
@@ -219,10 +246,46 @@ func (f *FFAmd64) PopN(registers *amd64.Registers, forceStack ...bool) []amd64.R
 }
 
 func (f *FFAmd64) qAt(index int) string {
+	if f.qStack != nil {
+		return string(f.qStack[index])
+	}
 	return fmt.Sprintf("·qElement+%d(SB)", index*8)
 }
 
-func (f *FFAmd64) qAt_bcst(index int) string {
+func (f *FFAmd64) qAt_u32(index int) string {
+	if f.qStack != nil && f.NbWords == 4 {
+		// so we have q on the stack as 4 uint64
+		// but we want the addresses for 8 uint32
+		// this is a not-future proof hack but should work for only current use case..;
+		// ensure we have these:
+		if f.qStack[0] != "s1-16(SP)" ||
+			f.qStack[1] != "s2-24(SP)" ||
+			f.qStack[2] != "s3-32(SP)" ||
+			f.qStack[3] != "s4-40(SP)" {
+			panic("qStack not initialized properly for qAt_bcst")
+		}
+		switch index {
+		case 0:
+			return "s10-16(SP)"
+		case 1:
+			return "s11-12(SP)" // stack grows down, so this is 12
+		case 2:
+			return "s20-24(SP)"
+		case 3:
+			return "s21-20(SP)"
+		case 4:
+			return "s30-32(SP)"
+		case 5:
+			return "s31-28(SP)"
+		case 6:
+			return "s40-40(SP)"
+		case 7:
+			return "s41-36(SP)"
+		default:
+			panic(fmt.Sprintf("invalid index %d for qAt_bcst", index))
+		}
+
+	}
 	return fmt.Sprintf("·qElement+%d(SB)", index*4)
 }
 

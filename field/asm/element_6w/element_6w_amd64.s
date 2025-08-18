@@ -3,25 +3,25 @@
 #include "funcdata.h"
 #include "go_asm.h"
 
-#define REDUCE(ra0, ra1, ra2, ra3, ra4, ra5, rb0, rb1, rb2, rb3, rb4, rb5) \
-	MOVQ    ra0, rb0;              \
-	SUBQ    ·qElement(SB), ra0;    \
-	MOVQ    ra1, rb1;              \
-	SBBQ    ·qElement+8(SB), ra1;  \
-	MOVQ    ra2, rb2;              \
-	SBBQ    ·qElement+16(SB), ra2; \
-	MOVQ    ra3, rb3;              \
-	SBBQ    ·qElement+24(SB), ra3; \
-	MOVQ    ra4, rb4;              \
-	SBBQ    ·qElement+32(SB), ra4; \
-	MOVQ    ra5, rb5;              \
-	SBBQ    ·qElement+40(SB), ra5; \
-	CMOVQCS rb0, ra0;              \
-	CMOVQCS rb1, ra1;              \
-	CMOVQCS rb2, ra2;              \
-	CMOVQCS rb3, ra3;              \
-	CMOVQCS rb4, ra4;              \
-	CMOVQCS rb5, ra5;              \
+#define REDUCE(ra0, ra1, ra2, ra3, ra4, ra5, rb0, rb1, rb2, rb3, rb4, rb5, q0, q1, q2, q3, q4, q5) \
+	MOVQ    ra0, rb0; \
+	SUBQ    q0, ra0;  \
+	MOVQ    ra1, rb1; \
+	SBBQ    q1, ra1;  \
+	MOVQ    ra2, rb2; \
+	SBBQ    q2, ra2;  \
+	MOVQ    ra3, rb3; \
+	SBBQ    q3, ra3;  \
+	MOVQ    ra4, rb4; \
+	SBBQ    q4, ra4;  \
+	MOVQ    ra5, rb5; \
+	SBBQ    q5, ra5;  \
+	CMOVQCS rb0, ra0; \
+	CMOVQCS rb1, ra1; \
+	CMOVQCS rb2, ra2; \
+	CMOVQCS rb3, ra3; \
+	CMOVQCS rb4, ra4; \
+	CMOVQCS rb5, ra5; \
 
 TEXT ·reduce(SB), NOSPLIT, $0-8
 	MOVQ res+0(FP), AX
@@ -33,7 +33,7 @@ TEXT ·reduce(SB), NOSPLIT, $0-8
 	MOVQ 40(AX), R8
 
 	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (R9,R10,R11,R12,R13,R14)
-	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14)
+	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14,·qElement+0(SB),·qElement+8(SB),·qElement+16(SB),·qElement+24(SB),·qElement+32(SB),·qElement+40(SB))
 
 	MOVQ DX, 0(AX)
 	MOVQ CX, 8(AX)
@@ -60,7 +60,7 @@ TEXT ·MulBy3(SB), NOSPLIT, $0-8
 	ADCQ R8, R8
 
 	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (R9,R10,R11,R12,R13,R14)
-	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14)
+	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14,·qElement+0(SB),·qElement+8(SB),·qElement+16(SB),·qElement+24(SB),·qElement+32(SB),·qElement+40(SB))
 
 	ADDQ 0(AX), DX
 	ADCQ 8(AX), CX
@@ -69,8 +69,8 @@ TEXT ·MulBy3(SB), NOSPLIT, $0-8
 	ADCQ 32(AX), DI
 	ADCQ 40(AX), R8
 
-	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (R15,R9,R10,R11,R12,R13)
-	REDUCE(DX,CX,BX,SI,DI,R8,R15,R9,R10,R11,R12,R13)
+	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (R9,R10,R11,R12,R13,R14)
+	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14,·qElement+0(SB),·qElement+8(SB),·qElement+16(SB),·qElement+24(SB),·qElement+32(SB),·qElement+40(SB))
 
 	MOVQ DX, 0(AX)
 	MOVQ CX, 8(AX)
@@ -97,7 +97,7 @@ TEXT ·MulBy5(SB), NOSPLIT, $0-8
 	ADCQ R8, R8
 
 	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (R9,R10,R11,R12,R13,R14)
-	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14)
+	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14,·qElement+0(SB),·qElement+8(SB),·qElement+16(SB),·qElement+24(SB),·qElement+32(SB),·qElement+40(SB))
 
 	ADDQ DX, DX
 	ADCQ CX, CX
@@ -106,8 +106,8 @@ TEXT ·MulBy5(SB), NOSPLIT, $0-8
 	ADCQ DI, DI
 	ADCQ R8, R8
 
-	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (R15,R9,R10,R11,R12,R13)
-	REDUCE(DX,CX,BX,SI,DI,R8,R15,R9,R10,R11,R12,R13)
+	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (R9,R10,R11,R12,R13,R14)
+	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14,·qElement+0(SB),·qElement+8(SB),·qElement+16(SB),·qElement+24(SB),·qElement+32(SB),·qElement+40(SB))
 
 	ADDQ 0(AX), DX
 	ADCQ 8(AX), CX
@@ -116,8 +116,8 @@ TEXT ·MulBy5(SB), NOSPLIT, $0-8
 	ADCQ 32(AX), DI
 	ADCQ 40(AX), R8
 
-	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (R14,R15,R9,R10,R11,R12)
-	REDUCE(DX,CX,BX,SI,DI,R8,R14,R15,R9,R10,R11,R12)
+	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (R9,R10,R11,R12,R13,R14)
+	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14,·qElement+0(SB),·qElement+8(SB),·qElement+16(SB),·qElement+24(SB),·qElement+32(SB),·qElement+40(SB))
 
 	MOVQ DX, 0(AX)
 	MOVQ CX, 8(AX)
@@ -128,7 +128,7 @@ TEXT ·MulBy5(SB), NOSPLIT, $0-8
 	RET
 
 // MulBy13(x *Element)
-TEXT ·MulBy13(SB), $40-8
+TEXT ·MulBy13(SB), $48-8
 	MOVQ x+0(FP), AX
 	MOVQ 0(AX), DX
 	MOVQ 8(AX), CX
@@ -144,7 +144,7 @@ TEXT ·MulBy13(SB), $40-8
 	ADCQ R8, R8
 
 	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (R9,R10,R11,R12,R13,R14)
-	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14)
+	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14,·qElement+0(SB),·qElement+8(SB),·qElement+16(SB),·qElement+24(SB),·qElement+32(SB),·qElement+40(SB))
 
 	ADDQ DX, DX
 	ADCQ CX, CX
@@ -153,15 +153,15 @@ TEXT ·MulBy13(SB), $40-8
 	ADCQ DI, DI
 	ADCQ R8, R8
 
-	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (R15,s0-8(SP),s1-16(SP),s2-24(SP),s3-32(SP),s4-40(SP))
-	REDUCE(DX,CX,BX,SI,DI,R8,R15,s0-8(SP),s1-16(SP),s2-24(SP),s3-32(SP),s4-40(SP))
+	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (s0-8(SP),s1-16(SP),s2-24(SP),s3-32(SP),s4-40(SP),s5-48(SP))
+	REDUCE(DX,CX,BX,SI,DI,R8,s0-8(SP),s1-16(SP),s2-24(SP),s3-32(SP),s4-40(SP),s5-48(SP),·qElement+0(SB),·qElement+8(SB),·qElement+16(SB),·qElement+24(SB),·qElement+32(SB),·qElement+40(SB))
 
-	MOVQ DX, R15
-	MOVQ CX, s0-8(SP)
-	MOVQ BX, s1-16(SP)
-	MOVQ SI, s2-24(SP)
-	MOVQ DI, s3-32(SP)
-	MOVQ R8, s4-40(SP)
+	MOVQ DX, s0-8(SP)
+	MOVQ CX, s1-16(SP)
+	MOVQ BX, s2-24(SP)
+	MOVQ SI, s3-32(SP)
+	MOVQ DI, s4-40(SP)
+	MOVQ R8, s5-48(SP)
 	ADDQ DX, DX
 	ADCQ CX, CX
 	ADCQ BX, BX
@@ -170,17 +170,17 @@ TEXT ·MulBy13(SB), $40-8
 	ADCQ R8, R8
 
 	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (R9,R10,R11,R12,R13,R14)
-	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14)
+	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14,·qElement+0(SB),·qElement+8(SB),·qElement+16(SB),·qElement+24(SB),·qElement+32(SB),·qElement+40(SB))
 
-	ADDQ R15, DX
-	ADCQ s0-8(SP), CX
-	ADCQ s1-16(SP), BX
-	ADCQ s2-24(SP), SI
-	ADCQ s3-32(SP), DI
-	ADCQ s4-40(SP), R8
+	ADDQ s0-8(SP), DX
+	ADCQ s1-16(SP), CX
+	ADCQ s2-24(SP), BX
+	ADCQ s3-32(SP), SI
+	ADCQ s4-40(SP), DI
+	ADCQ s5-48(SP), R8
 
 	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (R9,R10,R11,R12,R13,R14)
-	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14)
+	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14,·qElement+0(SB),·qElement+8(SB),·qElement+16(SB),·qElement+24(SB),·qElement+32(SB),·qElement+40(SB))
 
 	ADDQ 0(AX), DX
 	ADCQ 8(AX), CX
@@ -190,7 +190,7 @@ TEXT ·MulBy13(SB), $40-8
 	ADCQ 40(AX), R8
 
 	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (R9,R10,R11,R12,R13,R14)
-	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14)
+	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14,·qElement+0(SB),·qElement+8(SB),·qElement+16(SB),·qElement+24(SB),·qElement+32(SB),·qElement+40(SB))
 
 	MOVQ DX, 0(AX)
 	MOVQ CX, 8(AX)
@@ -202,80 +202,80 @@ TEXT ·MulBy13(SB), $40-8
 
 // Butterfly(a, b *Element) sets a = a + b; b = a - b
 TEXT ·Butterfly(SB), $48-16
-	MOVQ    a+0(FP), AX
-	MOVQ    0(AX), CX
-	MOVQ    8(AX), BX
-	MOVQ    16(AX), SI
-	MOVQ    24(AX), DI
-	MOVQ    32(AX), R8
-	MOVQ    40(AX), R9
+	MOVQ    a+0(FP), R15
+	MOVQ    0(R15), DX
+	MOVQ    8(R15), CX
+	MOVQ    16(R15), BX
+	MOVQ    24(R15), SI
+	MOVQ    32(R15), DI
+	MOVQ    40(R15), R8
+	MOVQ    DX, R9
 	MOVQ    CX, R10
 	MOVQ    BX, R11
 	MOVQ    SI, R12
 	MOVQ    DI, R13
 	MOVQ    R8, R14
-	MOVQ    R9, R15
-	XORQ    AX, AX
-	MOVQ    b+8(FP), DX
-	ADDQ    0(DX), CX
-	ADCQ    8(DX), BX
-	ADCQ    16(DX), SI
-	ADCQ    24(DX), DI
-	ADCQ    32(DX), R8
-	ADCQ    40(DX), R9
-	SUBQ    0(DX), R10
-	SBBQ    8(DX), R11
-	SBBQ    16(DX), R12
-	SBBQ    24(DX), R13
-	SBBQ    32(DX), R14
-	SBBQ    40(DX), R15
-	MOVQ    CX, s0-8(SP)
-	MOVQ    BX, s1-16(SP)
-	MOVQ    SI, s2-24(SP)
-	MOVQ    DI, s3-32(SP)
-	MOVQ    R8, s4-40(SP)
-	MOVQ    R9, s5-48(SP)
-	MOVQ    $const_q0, CX
-	MOVQ    $const_q1, BX
-	MOVQ    $const_q2, SI
-	MOVQ    $const_q3, DI
-	MOVQ    $const_q4, R8
-	MOVQ    $const_q5, R9
-	CMOVQCC AX, CX
-	CMOVQCC AX, BX
-	CMOVQCC AX, SI
-	CMOVQCC AX, DI
-	CMOVQCC AX, R8
-	CMOVQCC AX, R9
-	ADDQ    CX, R10
+	XORQ    R15, R15
+	MOVQ    b+8(FP), AX
+	ADDQ    0(AX), DX
+	ADCQ    8(AX), CX
+	ADCQ    16(AX), BX
+	ADCQ    24(AX), SI
+	ADCQ    32(AX), DI
+	ADCQ    40(AX), R8
+	SUBQ    0(AX), R9
+	SBBQ    8(AX), R10
+	SBBQ    16(AX), R11
+	SBBQ    24(AX), R12
+	SBBQ    32(AX), R13
+	SBBQ    40(AX), R14
+	MOVQ    DX, s0-8(SP)
+	MOVQ    CX, s1-16(SP)
+	MOVQ    BX, s2-24(SP)
+	MOVQ    SI, s3-32(SP)
+	MOVQ    DI, s4-40(SP)
+	MOVQ    R8, s5-48(SP)
+	MOVQ    $const_q0, DX
+	MOVQ    $const_q1, CX
+	MOVQ    $const_q2, BX
+	MOVQ    $const_q3, SI
+	MOVQ    $const_q4, DI
+	MOVQ    $const_q5, R8
+	CMOVQCC R15, DX
+	CMOVQCC R15, CX
+	CMOVQCC R15, BX
+	CMOVQCC R15, SI
+	CMOVQCC R15, DI
+	CMOVQCC R15, R8
+	ADDQ    DX, R9
+	ADCQ    CX, R10
 	ADCQ    BX, R11
 	ADCQ    SI, R12
 	ADCQ    DI, R13
 	ADCQ    R8, R14
-	ADCQ    R9, R15
-	MOVQ    s0-8(SP), CX
-	MOVQ    s1-16(SP), BX
-	MOVQ    s2-24(SP), SI
-	MOVQ    s3-32(SP), DI
-	MOVQ    s4-40(SP), R8
-	MOVQ    s5-48(SP), R9
-	MOVQ    R10, 0(DX)
-	MOVQ    R11, 8(DX)
-	MOVQ    R12, 16(DX)
-	MOVQ    R13, 24(DX)
-	MOVQ    R14, 32(DX)
-	MOVQ    R15, 40(DX)
+	MOVQ    s0-8(SP), DX
+	MOVQ    s1-16(SP), CX
+	MOVQ    s2-24(SP), BX
+	MOVQ    s3-32(SP), SI
+	MOVQ    s4-40(SP), DI
+	MOVQ    s5-48(SP), R8
+	MOVQ    R9, 0(AX)
+	MOVQ    R10, 8(AX)
+	MOVQ    R11, 16(AX)
+	MOVQ    R12, 24(AX)
+	MOVQ    R13, 32(AX)
+	MOVQ    R14, 40(AX)
 
-	// reduce element(CX,BX,SI,DI,R8,R9) using temp registers (R10,R11,R12,R13,R14,R15)
-	REDUCE(CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14,R15)
+	// reduce element(DX,CX,BX,SI,DI,R8) using temp registers (R9,R10,R11,R12,R13,R14)
+	REDUCE(DX,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13,R14,·qElement+0(SB),·qElement+8(SB),·qElement+16(SB),·qElement+24(SB),·qElement+32(SB),·qElement+40(SB))
 
-	MOVQ a+0(FP), AX
-	MOVQ CX, 0(AX)
-	MOVQ BX, 8(AX)
-	MOVQ SI, 16(AX)
-	MOVQ DI, 24(AX)
-	MOVQ R8, 32(AX)
-	MOVQ R9, 40(AX)
+	MOVQ a+0(FP), R15
+	MOVQ DX, 0(R15)
+	MOVQ CX, 8(R15)
+	MOVQ BX, 16(R15)
+	MOVQ SI, 24(R15)
+	MOVQ DI, 32(R15)
+	MOVQ R8, 40(R15)
 	RET
 
 // mul(res, x, y *Element)
@@ -292,15 +292,13 @@ TEXT ·mul(SB), $24-24
 
 	// x[0] -> R10
 	// x[1] -> R11
-	// x[2] -> R12
 	MOVQ 0(R8), R10
 	MOVQ 8(R8), R11
-	MOVQ 16(R8), R12
-	MOVQ y+16(FP), R13
+	MOVQ y+16(FP), R12
 
 	// A -> BP
 	// t[0] -> R14
-	// t[1] -> R15
+	// t[1] -> R13
 	// t[2] -> CX
 	// t[3] -> BX
 	// t[4] -> SI
@@ -317,8 +315,8 @@ TEXT ·mul(SB), $24-24
 	MULXQ ·qElement+0(SB), AX, R9   \
 	ADCXQ R14, AX                   \
 	MOVQ  R9, R14                   \
-	MACC(R15, R14, ·qElement+8(SB)) \
-	MACC(CX, R15, ·qElement+16(SB)) \
+	MACC(R13, R14, ·qElement+8(SB)) \
+	MACC(CX, R13, ·qElement+16(SB)) \
 	MACC(BX, CX, ·qElement+24(SB))  \
 	MACC(SI, BX, ·qElement+32(SB))  \
 	MACC(DI, SI, ·qElement+40(SB))  \
@@ -328,10 +326,10 @@ TEXT ·mul(SB), $24-24
 
 #define MUL_WORD_0() \
 	XORQ  AX, AX         \
-	MULXQ R10, R14, R15  \
+	MULXQ R10, R14, R13  \
 	MULXQ R11, AX, CX    \
-	ADOXQ AX, R15        \
-	MULXQ R12, AX, BX    \
+	ADOXQ AX, R13        \
+	MULXQ 16(R8), AX, BX \
 	ADOXQ AX, CX         \
 	MULXQ 24(R8), AX, SI \
 	ADOXQ AX, BX         \
@@ -347,8 +345,8 @@ TEXT ·mul(SB), $24-24
 	XORQ  AX, AX         \
 	MULXQ R10, AX, BP    \
 	ADOXQ AX, R14        \
-	MACC(BP, R15, R11)   \
-	MACC(BP, CX, R12)    \
+	MACC(BP, R13, R11)   \
+	MACC(BP, CX, 16(R8)) \
 	MACC(BP, BX, 24(R8)) \
 	MACC(BP, SI, 32(R8)) \
 	MACC(BP, DI, 40(R8)) \
@@ -358,25 +356,25 @@ TEXT ·mul(SB), $24-24
 	DIV_SHIFT()          \
 
 	// mul body
-	MOVQ 0(R13), DX
+	MOVQ 0(R12), DX
 	MUL_WORD_0()
-	MOVQ 8(R13), DX
+	MOVQ 8(R12), DX
 	MUL_WORD_N()
-	MOVQ 16(R13), DX
+	MOVQ 16(R12), DX
 	MUL_WORD_N()
-	MOVQ 24(R13), DX
+	MOVQ 24(R12), DX
 	MUL_WORD_N()
-	MOVQ 32(R13), DX
+	MOVQ 32(R12), DX
 	MUL_WORD_N()
-	MOVQ 40(R13), DX
+	MOVQ 40(R12), DX
 	MUL_WORD_N()
 
-	// reduce element(R14,R15,CX,BX,SI,DI) using temp registers (R9,R8,R13,R10,R11,R12)
-	REDUCE(R14,R15,CX,BX,SI,DI,R9,R8,R13,R10,R11,R12)
+	// reduce element(R14,R13,CX,BX,SI,DI) using temp registers (R9,R8,R12,R10,R11,AX)
+	REDUCE(R14,R13,CX,BX,SI,DI,R9,R8,R12,R10,R11,AX,·qElement+0(SB),·qElement+8(SB),·qElement+16(SB),·qElement+24(SB),·qElement+32(SB),·qElement+40(SB))
 
 	MOVQ res+0(FP), AX
 	MOVQ R14, 0(AX)
-	MOVQ R15, 8(AX)
+	MOVQ R13, 8(AX)
 	MOVQ CX, 16(AX)
 	MOVQ BX, 24(AX)
 	MOVQ SI, 32(AX)
@@ -410,8 +408,8 @@ TEXT ·fromMont(SB), $8-8
 	CMPB ·supportAdx(SB), $1
 	JNE  noAdx_2
 	MOVQ res+0(FP), DX
-	MOVQ 0(DX), R14
-	MOVQ 8(DX), R15
+	MOVQ 0(DX), R13
+	MOVQ 8(DX), R14
 	MOVQ 16(DX), CX
 	MOVQ 24(DX), BX
 	MOVQ 32(DX), SI
@@ -420,23 +418,23 @@ TEXT ·fromMont(SB), $8-8
 
 	// m := t[0]*q'[0] mod W
 	MOVQ  $const_qInvNeg, DX
-	IMULQ R14, DX
+	IMULQ R13, DX
 	XORQ  AX, AX
 
 	// C,_ := t[0] + m*q[0]
 	MULXQ ·qElement+0(SB), AX, BP
-	ADCXQ R14, AX
-	MOVQ  BP, R14
+	ADCXQ R13, AX
+	MOVQ  BP, R13
 
 	// (C,t[0]) := t[1] + m*q[1] + C
-	ADCXQ R15, R14
-	MULXQ ·qElement+8(SB), AX, R15
-	ADOXQ AX, R14
+	ADCXQ R14, R13
+	MULXQ ·qElement+8(SB), AX, R14
+	ADOXQ AX, R13
 
 	// (C,t[1]) := t[2] + m*q[2] + C
-	ADCXQ CX, R15
+	ADCXQ CX, R14
 	MULXQ ·qElement+16(SB), AX, CX
-	ADOXQ AX, R15
+	ADOXQ AX, R14
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
@@ -459,23 +457,23 @@ TEXT ·fromMont(SB), $8-8
 
 	// m := t[0]*q'[0] mod W
 	MOVQ  $const_qInvNeg, DX
-	IMULQ R14, DX
+	IMULQ R13, DX
 	XORQ  AX, AX
 
 	// C,_ := t[0] + m*q[0]
 	MULXQ ·qElement+0(SB), AX, BP
-	ADCXQ R14, AX
-	MOVQ  BP, R14
+	ADCXQ R13, AX
+	MOVQ  BP, R13
 
 	// (C,t[0]) := t[1] + m*q[1] + C
-	ADCXQ R15, R14
-	MULXQ ·qElement+8(SB), AX, R15
-	ADOXQ AX, R14
+	ADCXQ R14, R13
+	MULXQ ·qElement+8(SB), AX, R14
+	ADOXQ AX, R13
 
 	// (C,t[1]) := t[2] + m*q[2] + C
-	ADCXQ CX, R15
+	ADCXQ CX, R14
 	MULXQ ·qElement+16(SB), AX, CX
-	ADOXQ AX, R15
+	ADOXQ AX, R14
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
@@ -498,23 +496,23 @@ TEXT ·fromMont(SB), $8-8
 
 	// m := t[0]*q'[0] mod W
 	MOVQ  $const_qInvNeg, DX
-	IMULQ R14, DX
+	IMULQ R13, DX
 	XORQ  AX, AX
 
 	// C,_ := t[0] + m*q[0]
 	MULXQ ·qElement+0(SB), AX, BP
-	ADCXQ R14, AX
-	MOVQ  BP, R14
+	ADCXQ R13, AX
+	MOVQ  BP, R13
 
 	// (C,t[0]) := t[1] + m*q[1] + C
-	ADCXQ R15, R14
-	MULXQ ·qElement+8(SB), AX, R15
-	ADOXQ AX, R14
+	ADCXQ R14, R13
+	MULXQ ·qElement+8(SB), AX, R14
+	ADOXQ AX, R13
 
 	// (C,t[1]) := t[2] + m*q[2] + C
-	ADCXQ CX, R15
+	ADCXQ CX, R14
 	MULXQ ·qElement+16(SB), AX, CX
-	ADOXQ AX, R15
+	ADOXQ AX, R14
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
@@ -537,23 +535,23 @@ TEXT ·fromMont(SB), $8-8
 
 	// m := t[0]*q'[0] mod W
 	MOVQ  $const_qInvNeg, DX
-	IMULQ R14, DX
+	IMULQ R13, DX
 	XORQ  AX, AX
 
 	// C,_ := t[0] + m*q[0]
 	MULXQ ·qElement+0(SB), AX, BP
-	ADCXQ R14, AX
-	MOVQ  BP, R14
+	ADCXQ R13, AX
+	MOVQ  BP, R13
 
 	// (C,t[0]) := t[1] + m*q[1] + C
-	ADCXQ R15, R14
-	MULXQ ·qElement+8(SB), AX, R15
-	ADOXQ AX, R14
+	ADCXQ R14, R13
+	MULXQ ·qElement+8(SB), AX, R14
+	ADOXQ AX, R13
 
 	// (C,t[1]) := t[2] + m*q[2] + C
-	ADCXQ CX, R15
+	ADCXQ CX, R14
 	MULXQ ·qElement+16(SB), AX, CX
-	ADOXQ AX, R15
+	ADOXQ AX, R14
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
@@ -576,23 +574,23 @@ TEXT ·fromMont(SB), $8-8
 
 	// m := t[0]*q'[0] mod W
 	MOVQ  $const_qInvNeg, DX
-	IMULQ R14, DX
+	IMULQ R13, DX
 	XORQ  AX, AX
 
 	// C,_ := t[0] + m*q[0]
 	MULXQ ·qElement+0(SB), AX, BP
-	ADCXQ R14, AX
-	MOVQ  BP, R14
+	ADCXQ R13, AX
+	MOVQ  BP, R13
 
 	// (C,t[0]) := t[1] + m*q[1] + C
-	ADCXQ R15, R14
-	MULXQ ·qElement+8(SB), AX, R15
-	ADOXQ AX, R14
+	ADCXQ R14, R13
+	MULXQ ·qElement+8(SB), AX, R14
+	ADOXQ AX, R13
 
 	// (C,t[1]) := t[2] + m*q[2] + C
-	ADCXQ CX, R15
+	ADCXQ CX, R14
 	MULXQ ·qElement+16(SB), AX, CX
-	ADOXQ AX, R15
+	ADOXQ AX, R14
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
@@ -615,23 +613,23 @@ TEXT ·fromMont(SB), $8-8
 
 	// m := t[0]*q'[0] mod W
 	MOVQ  $const_qInvNeg, DX
-	IMULQ R14, DX
+	IMULQ R13, DX
 	XORQ  AX, AX
 
 	// C,_ := t[0] + m*q[0]
 	MULXQ ·qElement+0(SB), AX, BP
-	ADCXQ R14, AX
-	MOVQ  BP, R14
+	ADCXQ R13, AX
+	MOVQ  BP, R13
 
 	// (C,t[0]) := t[1] + m*q[1] + C
-	ADCXQ R15, R14
-	MULXQ ·qElement+8(SB), AX, R15
-	ADOXQ AX, R14
+	ADCXQ R14, R13
+	MULXQ ·qElement+8(SB), AX, R14
+	ADOXQ AX, R13
 
 	// (C,t[1]) := t[2] + m*q[2] + C
-	ADCXQ CX, R15
+	ADCXQ CX, R14
 	MULXQ ·qElement+16(SB), AX, CX
-	ADOXQ AX, R15
+	ADOXQ AX, R14
 
 	// (C,t[2]) := t[3] + m*q[3] + C
 	ADCXQ BX, CX
@@ -651,12 +649,12 @@ TEXT ·fromMont(SB), $8-8
 	ADCXQ AX, DI
 	ADOXQ AX, DI
 
-	// reduce element(R14,R15,CX,BX,SI,DI) using temp registers (R8,R9,R10,R11,R12,R13)
-	REDUCE(R14,R15,CX,BX,SI,DI,R8,R9,R10,R11,R12,R13)
+	// reduce element(R13,R14,CX,BX,SI,DI) using temp registers (R8,R9,R10,R11,R12,DX)
+	REDUCE(R13,R14,CX,BX,SI,DI,R8,R9,R10,R11,R12,DX,·qElement+0(SB),·qElement+8(SB),·qElement+16(SB),·qElement+24(SB),·qElement+32(SB),·qElement+40(SB))
 
 	MOVQ res+0(FP), AX
-	MOVQ R14, 0(AX)
-	MOVQ R15, 8(AX)
+	MOVQ R13, 0(AX)
+	MOVQ R14, 8(AX)
 	MOVQ CX, 16(AX)
 	MOVQ BX, 24(AX)
 	MOVQ SI, 32(AX)
