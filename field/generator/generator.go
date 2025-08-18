@@ -74,6 +74,13 @@ func GenerateFF(F *config.Field, outputDir string, options ...Option) error {
 		}
 	}
 
+	// generate iop
+	if cfg.HasIOP() {
+		if err := generateIOP(F, outputDir); err != nil {
+			return err
+		}
+	}
+
 	return runFormatters(outputDir)
 }
 

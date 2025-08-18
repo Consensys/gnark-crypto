@@ -21,7 +21,6 @@ import (
 	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_curve"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_field"
-	"github.com/consensys/gnark-crypto/internal/generator/iop"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
 	"github.com/consensys/gnark-crypto/internal/generator/mpcsetup"
 	"github.com/consensys/gnark-crypto/internal/generator/pairing"
@@ -73,15 +72,9 @@ func main() {
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
-			frInfo := fieldConfig.FieldDependency{
-				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
-				FieldPackageName: "fr",
-				ElementType:      "fr.Element",
-			}
-
 			frOpts := []generator.Option{generator.WithASM(asmConfig)}
 			if !(conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) {
-				frOpts = append(frOpts, generator.WithFFT(fftConfig))
+				frOpts = append(frOpts, generator.WithFFT(fftConfig), generator.WithIOP())
 			}
 			if conf.Equal(config.BLS12_377) {
 				frOpts = append(frOpts, generator.WithSIS())
@@ -106,11 +99,16 @@ func main() {
 			// generate mimc on fr
 			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
 
+			// generate polynomial on fr
+			frInfo := fieldConfig.FieldDependency{
+				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
+				FieldPackageName: "fr",
+				ElementType:      "fr.Element",
+			}
+			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
+
 			// generate poseidon2 on fr
 			assertNoError(poseidon2.Generate(conf, filepath.Join(curveDir, "fr", "poseidon2"), bgen))
-
-			// generate polynomial on fr
-			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
 
 			fpInfo := fieldConfig.FieldDependency{
 				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fp",
@@ -161,9 +159,6 @@ func main() {
 
 			// generate eddsa on companion curves
 			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
-
-			// generate iop functions
-			assertNoError(iop.Generate(conf, filepath.Join(curveDir, "fr", "iop"), bgen))
 
 		}(conf)
 
