@@ -574,6 +574,40 @@ func TestG2BatchScalarMultiplication(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestG2JacTriple(t *testing.T) {
+	// test triple on the generator and the infinity point
+	// against double and add
+	var a G2Jac
+	a.Set(&g2Gen)
+	var infinity G2Jac
+	infinity.Set(&g2Infinity)
+
+	var pTriple, pDoubleAdd G2Jac
+	pTriple.Triple(&a)
+	pDoubleAdd.Double(&a).AddAssign(&a)
+
+	if !pTriple.Equal(&pDoubleAdd) {
+		t.Fatalf("triple and double+add do not match: %s != %s", pTriple.String(), pDoubleAdd.String())
+	}
+
+	// same thing with infinity point
+	pTriple.Triple(&infinity)
+	pDoubleAdd.Double(&infinity).AddAssign(&infinity)
+
+	if !pTriple.Equal(&pDoubleAdd) {
+		t.Fatalf("triple and double+add do not match: %s != %s", pTriple.String(), pDoubleAdd.String())
+	}
+}
+
+func BenchmarkG2JacTriple(b *testing.B) {
+	var a G2Jac
+	a.Set(&g2Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Triple(&a)
+	}
+}
+
 // ------------------------------------------------------------
 // benches
 
