@@ -235,6 +235,9 @@ func (privKey *PrivateKey) Public() signature.PublicKey {
 func (privKey *PrivateKey) SignForRecover(message []byte, hFunc hash.Hash) (v uint, r, s *big.Int, err error) {
 	r, s = new(big.Int), new(big.Int)
 
+	bHalfR := new(big.Int)
+	bHalfR.Rsh(order, 1)
+
 	scalar, kInv := new(big.Int), new(big.Int)
 	scalar.SetBytes(privKey.scalar[:sizeFr])
 	for {
@@ -252,6 +255,7 @@ func (privKey *PrivateKey) SignForRecover(message []byte, hFunc hash.Hash) (v ui
 			P.ScalarMultiplicationBase(k)
 			kInv.ModInverse(k, order)
 
+			v = 0
 			P.X.BigInt(r)
 			// set how many times we overflow the scalar field
 			v |= (uint(new(big.Int).Div(r, order).Uint64())) << 1
@@ -284,7 +288,9 @@ func (privKey *PrivateKey) SignForRecover(message []byte, hFunc hash.Hash) (v ui
 		s.Add(m, s).
 			Mul(kInv, s).
 			Mod(s, order) // order != 0
-		if s.Sign() != 0 {
+
+		// ensure that s < r/2 to prevent malleability
+		if s.Sign() != 0 && s.Cmp(bHalfR) != 1 {
 			break
 		}
 	}
