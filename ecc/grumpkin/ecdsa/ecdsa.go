@@ -236,7 +236,7 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 		}
 	}
 
-	// ensure s < R/2 to prevent malleability
+	// ensure s <= (r-1)/2 to prevent malleability
 	if s.Cmp(bHalfR) == 1 {
 		s.Sub(order, s)
 	}
