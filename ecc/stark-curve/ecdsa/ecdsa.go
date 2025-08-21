@@ -289,7 +289,7 @@ func (privKey *PrivateKey) SignForRecover(message []byte, hFunc hash.Hash) (v ui
 			Mul(kInv, s).
 			Mod(s, order) // order != 0
 
-		// ensure that s < r/2 to prevent malleability
+		// ensure that s <= (r-1)/2 to prevent malleability
 		if s.Sign() != 0 && s.Cmp(bHalfR) != 1 {
 			break
 		}
