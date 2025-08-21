@@ -334,7 +334,13 @@ func (publicKey *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (boo
 
 	r, s := new(big.Int), new(big.Int)
 	r.SetBytes(sig.R[:sizeFr])
+
+	bHalfR := new(big.Int)
+	bHalfR.Rsh(order, 1)
 	s.SetBytes(sig.S[:sizeFr])
+	if s.Cmp(bHalfR) == 1 {
+		return false, errSBiggerThanHalfRMod
+	}
 
 	sInv := new(big.Int).ModInverse(s, order)
 
