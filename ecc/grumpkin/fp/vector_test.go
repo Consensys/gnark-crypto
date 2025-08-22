@@ -74,6 +74,44 @@ func TestVectorEmptyRoundTrip(t *testing.T) {
 	assert.True(reflect.DeepEqual(v3, v2))
 }
 
+func TestVectorEmptyOps(t *testing.T) {
+	assert := require.New(t)
+
+	// Test operations with empty vectors
+	empty := make(Vector, 0)
+	result := make(Vector, 0)
+
+	// Test Add with empty vectors
+	assert.NotPanics(func() {
+		result.Add(empty, empty)
+	})
+
+	// Test Sub with empty vectors
+	assert.NotPanics(func() {
+		result.Sub(empty, empty)
+	})
+
+	// Test ScalarMul with empty vector
+	var scalar Element
+	scalar.SetUint64(42)
+	assert.NotPanics(func() {
+		result.ScalarMul(empty, &scalar)
+	})
+
+	// Test Mul with empty vectors
+	assert.NotPanics(func() {
+		result.Mul(empty, empty)
+	})
+
+	// Test Sum with empty vector
+	sum := empty.Sum()
+	assert.True(sum.IsZero())
+
+	// Test InnerProduct with empty vectors
+	innerProd := empty.InnerProduct(empty)
+	assert.True(innerProd.IsZero())
+}
+
 func (vector *Vector) unmarshalBinaryAsync(data []byte) error {
 	r := bytes.NewReader(data)
 	_, err, chErr := vector.AsyncReadFrom(r)
