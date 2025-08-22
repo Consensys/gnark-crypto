@@ -467,11 +467,11 @@ func (p *G1Jac) Triple(q *G1Jac) *G1Jac {
 
 	// Xτ = 4Y² − 3X³
 	// Yτ = Y(9X³ − 8Y²)
-	xτ, yτ = mulByTauG2Jac(q.X, q.Y)
+	xτ, yτ = mulByTauG1Jac(q.X, q.Y)
 
 	// X3 = 4Yτ² − 3Xτ³
 	// Y3 = Yτ(9Xτ³ − 8Yτ²)
-	xx, yy = mulByTauG2Jac(xτ, yτ)
+	xx, yy = mulByTauG1Jac(xτ, yτ)
 
 	// Z3 = 3XτXZ
 	p.Z.Mul(&q.Z, &q.X). // z*x
