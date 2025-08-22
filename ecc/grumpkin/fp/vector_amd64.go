@@ -38,7 +38,7 @@ func (vector *Vector) Sub(a, b Vector) {
 	if n == 0 {
 		return
 	}
-	subVec(&(*vector)[0], &a[0], &b[0], uint64(len(a)))
+	subVec(&(*vector)[0], &a[0], &b[0], n)
 }
 
 //go:noescape
