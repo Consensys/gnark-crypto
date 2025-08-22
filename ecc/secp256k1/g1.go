@@ -440,6 +440,49 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 	return p
 }
 
+// Triple sets p to [3]q in Jacobian coordinates. Only on j=0 curves.
+//
+// https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1
+func (p *G1Jac) Triple(q *G1Jac) *G1Jac {
+	// Xτ = 4Y² − 3X³
+	// Yτ = Y(9X³ − 8Y²)
+	var xxx, yy, xτ, yτ, temp fp.Element
+	temp.Square(&q.X).
+		Mul(&temp, &q.X)
+	xxx.Double(&temp).
+		Add(&xxx, &temp)
+	yy.Square(&q.Y).
+		Double(&yy).
+		Double(&yy)
+	xτ.Sub(&yy, &xxx)
+	temp.Double(&xxx)
+	xxx.Add(&xxx, &temp)
+	yy.Double(&yy)
+	yτ.Sub(&xxx, &yy).
+		Mul(&yτ, &q.Y)
+	// X3 = 4Yτ² − 3Xτ³
+	// Y3 = Yτ(9Xτ³ − 8Yτ²)
+	// Z3 = 3Xτ(XZ)
+	yy.Square(&yτ).
+		Double(&yy).
+		Double(&yy)
+	temp.Square(&xτ).
+		Mul(&temp, &xτ)
+	xxx.Double(&temp).
+		Add(&xxx, &temp)
+	temp.Mul(&q.Z, &q.X).
+		Mul(&temp, &xτ)
+	p.Z.Double(&temp).
+		Add(&p.Z, &temp)
+	p.X.Sub(&yy, &xxx)
+	yy.Double(&yy)
+	temp.Double(&xxx)
+	xxx.Add(&xxx, &temp)
+	p.Y.Sub(&xxx, &yy).
+		Mul(&p.Y, &yτ)
+	return p
+}
+
 // ScalarMultiplication computes and returns p = [s]a
 // where p and a are Jacobian points.
 // using the GLV technique.
@@ -518,7 +561,7 @@ func (p *G1Jac) mulWindowed(q *G1Jac, s *big.Int) *G1Jac {
 	}
 	res.Set(&g1Infinity)
 	ops[1].Double(&ops[0])
-	ops[2].Set(&ops[0]).AddAssign(&ops[1])
+	ops[2].Triple(&ops[0])
 
 	b := s.Bytes()
 	for i := range b {
@@ -577,18 +620,18 @@ func (p *G1Jac) mulGLV(q *G1Jac, s *big.Int) *G1Jac {
 	// precompute table (2 bits sliding window)
 	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(q) + b1b0 ⋅ q if b3b2b1b0 != 0
 	table[1].Double(&table[0])
-	table[2].Set(&table[1]).AddAssign(&table[0])
+	table[2].Triple(&table[0])
 	table[4].Set(&table[3]).AddAssign(&table[0])
 	table[5].Set(&table[3]).AddAssign(&table[1])
 	table[6].Set(&table[3]).AddAssign(&table[2])
 	table[7].Double(&table[3])
 	table[8].Set(&table[7]).AddAssign(&table[0])
-	table[9].Set(&table[7]).AddAssign(&table[1])
+	table[9].Double(&table[4])
 	table[10].Set(&table[7]).AddAssign(&table[2])
-	table[11].Set(&table[7]).AddAssign(&table[3])
+	table[11].Triple(&table[3])
 	table[12].Set(&table[11]).AddAssign(&table[0])
 	table[13].Set(&table[11]).AddAssign(&table[1])
-	table[14].Set(&table[11]).AddAssign(&table[2])
+	table[14].Triple(&table[4])
 
 	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 or len(r)/2+1 bits long max
 	// this is because we use a probabilistic scalar decomposition that replaces a division by a right-shift
@@ -650,18 +693,18 @@ func (p *G1Jac) JointScalarMultiplication(a1, a2 *G1Affine, s1, s2 *big.Int) *G1
 
 	// precompute table (2 bits sliding window)
 	table[1].Double(&table[0])
-	table[2].Set(&table[1]).AddAssign(&table[0])
+	table[2].Triple(&table[0])
 	table[4].Set(&table[3]).AddAssign(&table[0])
 	table[5].Set(&table[3]).AddAssign(&table[1])
 	table[6].Set(&table[3]).AddAssign(&table[2])
 	table[7].Double(&table[3])
 	table[8].Set(&table[7]).AddAssign(&table[0])
-	table[9].Set(&table[7]).AddAssign(&table[1])
+	table[9].Double(&table[4])
 	table[10].Set(&table[7]).AddAssign(&table[2])
-	table[11].Set(&table[7]).AddAssign(&table[3])
+	table[11].Triple(&table[3])
 	table[12].Set(&table[11]).AddAssign(&table[0])
 	table[13].Set(&table[11]).AddAssign(&table[1])
-	table[14].Set(&table[11]).AddAssign(&table[2])
+	table[14].Triple(&table[4])
 
 	var s [2]fr.Element
 	s[0] = s[0].SetBigInt(&k1).Bits()
