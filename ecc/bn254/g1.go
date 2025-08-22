@@ -434,46 +434,49 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 	return p
 }
 
+// mulByTau returns (4Y² − 3X³, Y(9X³ − 8Y²) )
+// see https://eprint.iacr.org/2024/1906.pdf p.14
+func mulByTauG1Jac(x, y fp.Element) (fp.Element, fp.Element) {
+	// Xτ = 4Y² − 3X³
+	// Yτ = Y(9X³ − 8Y²)
+	var xxx, xτ, yτ, tmp fp.Element
+	xxx.Square(&x). // X²
+			Mul(&xxx, &x) // X³
+	tmp.Double(&xxx)    // 2X³
+	xxx.Add(&tmp, &xxx) // 3X³
+	yτ.Square(&y).      // Y²
+				Double(&yτ). // 2Y²
+				Double(&yτ)  // 4Y²
+	xτ.Sub(&yτ, &xxx) // 4Y² − 3X³
+	tmp.Double(&xxx). // 6X³
+				Add(&tmp, &xxx) // 9X³
+	yτ.Double(&yτ)     // 8Y²
+	yτ.Sub(&tmp, &yτ). // 9X³ − 8Y²
+				Mul(&yτ, &y) // Y(9X³ − 8Y²)
+	return xτ, yτ
+}
+
 // Triple sets p to [3]q in Jacobian coordinates. Only on j=0 curves.
 //
 // https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1
 func (p *G1Jac) Triple(q *G1Jac) *G1Jac {
+
+	var xτ, yτ, tmp fp.Element
+
 	// Xτ = 4Y² − 3X³
 	// Yτ = Y(9X³ − 8Y²)
-	var xxx, yy, xτ, yτ, temp fp.Element
-	temp.Square(&q.X).
-		Mul(&temp, &q.X)
-	xxx.Double(&temp).
-		Add(&xxx, &temp)
-	yy.Square(&q.Y).
-		Double(&yy).
-		Double(&yy)
-	xτ.Sub(&yy, &xxx)
-	temp.Double(&xxx)
-	xxx.Add(&xxx, &temp)
-	yy.Double(&yy)
-	yτ.Sub(&xxx, &yy).
-		Mul(&yτ, &q.Y)
+	xτ, yτ = mulByTauG1Jac(q.X, q.Y)
+
 	// X3 = 4Yτ² − 3Xτ³
 	// Y3 = Yτ(9Xτ³ − 8Yτ²)
-	// Z3 = 3Xτ(XZ)
-	yy.Square(&yτ).
-		Double(&yy).
-		Double(&yy)
-	temp.Square(&xτ).
-		Mul(&temp, &xτ)
-	xxx.Double(&temp).
-		Add(&xxx, &temp)
-	temp.Mul(&q.Z, &q.X).
-		Mul(&temp, &xτ)
-	p.Z.Double(&temp).
-		Add(&p.Z, &temp)
-	p.X.Sub(&yy, &xxx)
-	yy.Double(&yy)
-	temp.Double(&xxx)
-	xxx.Add(&xxx, &temp)
-	p.Y.Sub(&xxx, &yy).
-		Mul(&p.Y, &yτ)
+	p.X, p.Y = mulByTauG1Jac(xτ, yτ)
+
+	// Z3 = 3XτXZ
+	p.Z.Mul(&q.Z, &q.X). // z*x
+				Mul(&p.Z, &xτ) // xτ*z*x
+	tmp.Double(&p.Z)    // 2xτ*z*x
+	p.Z.Add(&p.Z, &tmp) // 3xτ*z*x
+
 	return p
 }
 
