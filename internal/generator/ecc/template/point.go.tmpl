@@ -548,21 +548,24 @@ func mulByTau{{ $TJacobian }}(x, y {{.CoordType}}) ({{.CoordType}}, {{.CoordType
 // https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1
 func (p *{{ $TJacobian }}) Triple(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 
-	var xτ, yτ, tmp {{.CoordType}}
+	var xx, yy, xτ, yτ, tmp {{.CoordType}}
 
 	// Xτ = 4Y² − 3X³
 	// Yτ = Y(9X³ − 8Y²)
-	xτ, yτ = mulByTau{{ $TJacobian }}(q.X, q.Y)
+	xτ, yτ = mulByTauG2Jac(q.X, q.Y)
 
 	// X3 = 4Yτ² − 3Xτ³
 	// Y3 = Yτ(9Xτ³ − 8Yτ²)
-	p.X, p.Y = mulByTau{{ $TJacobian }}(xτ, yτ)
+	xx, yy = mulByTauG2Jac(xτ, yτ)
 
 	// Z3 = 3XτXZ
 	p.Z.Mul(&q.Z, &q.X). // z*x
 				Mul(&p.Z, &xτ) // xτ*z*x
 	tmp.Double(&p.Z)    // 2xτ*z*x
 	p.Z.Add(&p.Z, &tmp) // 3xτ*z*x
+
+	p.X.Set(&xx)
+	p.Y.Set(&yy)
 
 	return p
 }

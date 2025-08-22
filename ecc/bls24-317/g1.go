@@ -463,21 +463,24 @@ func mulByTauG1Jac(x, y fp.Element) (fp.Element, fp.Element) {
 // https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1
 func (p *G1Jac) Triple(q *G1Jac) *G1Jac {
 
-	var xτ, yτ, tmp fp.Element
+	var xx, yy, xτ, yτ, tmp fp.Element
 
 	// Xτ = 4Y² − 3X³
 	// Yτ = Y(9X³ − 8Y²)
-	xτ, yτ = mulByTauG1Jac(q.X, q.Y)
+	xτ, yτ = mulByTauG2Jac(q.X, q.Y)
 
 	// X3 = 4Yτ² − 3Xτ³
 	// Y3 = Yτ(9Xτ³ − 8Yτ²)
-	p.X, p.Y = mulByTauG1Jac(xτ, yτ)
+	xx, yy = mulByTauG2Jac(xτ, yτ)
 
 	// Z3 = 3XτXZ
 	p.Z.Mul(&q.Z, &q.X). // z*x
 				Mul(&p.Z, &xτ) // xτ*z*x
 	tmp.Double(&p.Z)    // 2xτ*z*x
 	p.Z.Add(&p.Z, &tmp) // 3xτ*z*x
+
+	p.X.Set(&xx)
+	p.Y.Set(&yy)
 
 	return p
 }
