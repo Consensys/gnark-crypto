@@ -13,7 +13,6 @@ import (
 
 	"github.com/consensys/gnark-crypto/field/generator"
 	"github.com/consensys/gnark-crypto/field/generator/config"
-	field "github.com/consensys/gnark-crypto/field/generator/config"
 	"github.com/spf13/cobra"
 )
 
@@ -56,7 +55,7 @@ func cmdGenerate(cmd *cobra.Command, args []string) {
 	}
 
 	// generate code
-	F, err := field.NewFieldConfig(fPackageName, fElementName, fModulus, false)
+	F, err := config.NewFieldConfig(fPackageName, fElementName, fModulus, false)
 	if err != nil {
 		fmt.Printf("\n%s\n", err.Error())
 		os.Exit(-1)

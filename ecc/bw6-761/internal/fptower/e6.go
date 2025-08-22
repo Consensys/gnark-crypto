@@ -446,7 +446,7 @@ func (z *E6) CyclotomicExp(x E6, k *big.Int) *E6 {
 	n := ecc.NafDecomposition(e, eNAF[:])
 	for i := n - 1; i >= 0; i-- {
 		res.CyclotomicSquare(&res)
-		if eNAF[i] == 1 {
+		if eNAF[i] == 1 { // nolint QF1003
 			res.Mul(&res, &x)
 		} else if eNAF[i] == -1 {
 			res.Mul(&res, &xInv)

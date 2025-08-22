@@ -110,7 +110,7 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 	}
 
 	if p.shift == 0 {
-		return p.polynomial.evaluate(x)
+		return p.evaluate(x)
 	}
 
 	gen, err := fft.Generator(uint64(p.size))
@@ -120,14 +120,14 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 	if p.shift <= 5 {
 		gen = smallExp(gen, p.shift)
 		x.Mul(&x, &gen)
-		return p.polynomial.evaluate(x)
+		return p.evaluate(x)
 	}
 
 	bs := big.NewInt(int64(p.shift))
 	gen.Exp(gen, bs)
 	x.Mul(&x, &gen)
 
-	return p.polynomial.evaluate(x)
+	return p.evaluate(x)
 }
 
 // Clone returns a deep copy of p. The underlying polynomial is cloned;
@@ -135,7 +135,7 @@ func (p *Polynomial) Evaluate(x fr.Element) fr.Element {
 // If capacity is provided, the new coefficient slice capacity will be set accordingly.
 func (p *Polynomial) Clone(capacity ...int) *Polynomial {
 	res := p.ShallowClone()
-	res.polynomial = p.polynomial.clone(capacity...)
+	res.polynomial = p.clone(capacity...)
 	return res
 }
 
@@ -151,7 +151,7 @@ func (p *Polynomial) GetCoeff(i int) fr.Element {
 
 	n := p.coefficients.Len()
 	rho := n / p.size
-	if p.polynomial.Form.Layout == Regular {
+	if p.Layout == Regular {
 		return (*p.coefficients)[(i+rho*p.shift)%n]
 	} else {
 		nn := uint64(64 - bits.TrailingZeros(uint(n)))
@@ -392,7 +392,7 @@ func (p *Polynomial) ToLagrangeCoset(d *fft.Domain) *Polynomial {
 func (p *Polynomial) WriteTo(w io.Writer) (int64, error) {
 
 	// encode coefficients
-	n, err := p.polynomial.coefficients.WriteTo(w)
+	n, err := p.coefficients.WriteTo(w)
 	if err != nil {
 		return n, err
 	}
@@ -429,11 +429,11 @@ func (p *Polynomial) ReadFrom(r io.Reader) (int64, error) {
 	if p.polynomial == nil {
 		p.polynomial = new(polynomial)
 	}
-	if p.polynomial.coefficients == nil {
+	if p.coefficients == nil {
 		v := make(fr.Vector, 0)
-		p.polynomial.coefficients = &v
+		p.coefficients = &v
 	}
-	n, err := p.polynomial.coefficients.ReadFrom(r)
+	n, err := p.coefficients.ReadFrom(r)
 	if err != nil {
 		return n, err
 	}
