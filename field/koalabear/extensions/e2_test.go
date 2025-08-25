@@ -387,44 +387,42 @@ func TestE2Ops(t *testing.T) {
 // ------------------------------------------------------------
 // benches
 
+var benchRes E2
+
 func BenchmarkE2Add(b *testing.B) {
-	var a, c E2
+	var a E2
 	a.MustSetRandom()
-	c.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.Add(&a, &c)
+		benchRes.Add(&a, &benchRes)
 	}
 }
 
 func BenchmarkE2Sub(b *testing.B) {
-	var a, c E2
+	var a E2
 	a.MustSetRandom()
-	c.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.Sub(&a, &c)
+		benchRes.Sub(&a, &benchRes)
 	}
 }
 
 func BenchmarkE2Mul(b *testing.B) {
-	var a, c E2
+	var a E2
 	a.MustSetRandom()
-	c.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.Mul(&a, &c)
+		benchRes.Mul(&a, &benchRes)
 	}
 }
 
 func BenchmarkE2MulByElement(b *testing.B) {
-	var a E2
 	var c fr.Element
 	c.MustSetRandom()
-	a.MustSetRandom()
+	benchRes.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.MulByElement(&a, &c)
+		benchRes.MulByElement(&benchRes, &c)
 	}
 }
 
