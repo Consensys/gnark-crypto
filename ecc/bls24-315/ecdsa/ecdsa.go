@@ -184,6 +184,10 @@ func (privKey *PrivateKey) Public() signature.PublicKey {
 func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error) {
 	scalar, r, s, kInv := new(big.Int), new(big.Int), new(big.Int), new(big.Int)
 	scalar.SetBytes(privKey.scalar[:sizeFr])
+
+	bHalfR := new(big.Int)
+	bHalfR.Rsh(order, 1)
+
 	for {
 		for {
 			csprng, err := nonce(privKey, message)
@@ -232,6 +236,11 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 		}
 	}
 
+	// ensure s <= (r-1)/2 to prevent malleability
+	if s.Cmp(bHalfR) == 1 {
+		s.Sub(order, s)
+	}
+
 	var sig Signature
 	r.FillBytes(sig.R[:sizeFr])
 	s.FillBytes(sig.S[:sizeFr])
@@ -254,7 +263,13 @@ func (publicKey *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (boo
 
 	r, s := new(big.Int), new(big.Int)
 	r.SetBytes(sig.R[:sizeFr])
+
+	bHalfR := new(big.Int)
+	bHalfR.Rsh(order, 1)
 	s.SetBytes(sig.S[:sizeFr])
+	if s.Cmp(bHalfR) == 1 {
+		return false, errSBiggerThanHalfRMod
+	}
 
 	sInv := new(big.Int).ModInverse(s, order)
 
