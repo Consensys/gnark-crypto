@@ -442,51 +442,66 @@ func (p *G2Jac) DoubleAssign() *G2Jac {
 	return p
 }
 
-// mulByTau returns (4Y² − 3X³, Y(9X³ − 8Y²) )
-// see https://eprint.iacr.org/2024/1906.pdf p.14
-func mulByTauG2Jac(x, y fptower.E2) (fptower.E2, fptower.E2) {
-	// Xτ = 4Y² − 3X³
-	// Yτ = Y(9X³ − 8Y²)
-	var xxx, xτ, yτ, tmp fptower.E2
-	xxx.Square(&x). // X²
-			Mul(&xxx, &x) // X³
-	tmp.Double(&xxx)    // 2X³
-	xxx.Add(&tmp, &xxx) // 3X³
-	yτ.Square(&y).      // Y²
-				Double(&yτ). // 2Y²
-				Double(&yτ)  // 4Y²
-	xτ.Sub(&yτ, &xxx) // 4Y² − 3X³
-	tmp.Double(&xxx). // 6X³
-				Add(&tmp, &xxx) // 9X³
-	yτ.Double(&yτ)     // 8Y²
-	yτ.Sub(&tmp, &yτ). // 9X³ − 8Y²
-				Mul(&yτ, &y) // Y(9X³ − 8Y²)
-	return xτ, yτ
-}
-
-// Triple sets p to [3]q in Jacobian coordinates. Only on j=0 curves.
+// Triple sets p to [3]q in Jacobian coordinates for j=0 curves.
 //
 // https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1
 func (p *G2Jac) Triple(q *G2Jac) *G2Jac {
+	// Helper functions for multiplication by 3 and 4.
+	mulBy3 := func(v *fptower.E2) {
+		tmp := *v
+		v.Double(v)
+		v.Add(v, &tmp)
+	}
+	mulBy4 := func(v *fptower.E2) {
+		v.Double(v).Double(v)
+	}
 
-	var xx, yy, xτ, yτ, tmp fptower.E2
+	// --- Step 1: Compute initial terms from input q ---
+	var X3, Y2, XZ fptower.E2
+	X3.Square(&q.X)    // X3 = q.X^2
+	Y2.Square(&q.Y)    // Y2 = q.Y^2
+	X3.Mul(&X3, &q.X)  // X3 = q.X^3
+	XZ.Mul(&q.X, &q.Z) // XZ = q.X * q.Z
 
-	// Xτ = 4Y² − 3X³
-	// Yτ = Y(9X³ − 8Y²)
-	xτ, yτ = mulByTauG2Jac(q.X, q.Y)
+	// --- Step 2: Compute the X-coordinate of an intermediate point τ ---
+	// Calculates Xτ = 4*q.Y^2 - 3*q.X^3.
+	// The variable p.Z is used for temporary storage and finalized in Step 6.
+	mulBy3(&X3) // X3 = 3*q.X^3
+	mulBy4(&Y2) // Y2 = 4*q.Y^2
+	var Xτ fptower.E2
+	Xτ.Sub(&Y2, &X3)
+	p.Z.Mul(&Xτ, &XZ) // p.Z = Xτ * (q.X * q.Z)
 
-	// X3 = 4Yτ² − 3Xτ³
-	// Y3 = Yτ(9Xτ³ − 8Yτ²)
-	xx, yy = mulByTauG2Jac(xτ, yτ)
+	// --- Step 3: Compute the Y-coordinate of the intermediate point τ ---
+	// Calculates Yτ = q.Y * (9*q.X^3 - 8*q.Y^2).
+	// Reuses X3 and Y2 from previous steps.
+	mulBy3(&X3) // X3 = 9*q.X^3
+	var Yτ fptower.E2
+	Yτ.Double(&Y2) // Yτ = 8*q.Y^2
+	Yτ.Sub(&X3, &Yτ).Mul(&Yτ, &q.Y)
 
-	// Z3 = 3XτXZ
-	p.Z.Mul(&q.Z, &q.X). // z*x
-				Mul(&p.Z, &xτ) // xτ*z*x
-	tmp.Double(&p.Z)    // 2xτ*z*x
-	p.Z.Add(&p.Z, &tmp) // 3xτ*z*x
+	// --- Step 4: Compute powers of the intermediate point's coordinates ---
+	var Xτ2, Xτ3, Yτ2 fptower.E2
+	Xτ2.Square(&Xτ)    // Xτ2 = Xτ^2
+	Xτ3.Mul(&Xτ2, &Xτ) // Xτ3 = Xτ^3
+	Yτ2.Square(&Yτ)    // Yτ2 = Yτ^2
 
-	p.X.Set(&xx)
-	p.Y.Set(&yy)
+	// --- Step 5: Compute the final X and Y coordinates of the result [3]q ---
+	// This step re-applies the same transformation using (Xτ, Yτ) as input.
+	// p.X = 4*Yτ^2 - 3*Xτ^3
+	mulBy3(&Xτ3) // Xτ3 = 3*Xτ^3
+	mulBy4(&Yτ2) // Yτ2 = 4*Yτ^2
+	p.X.Sub(&Yτ2, &Xτ3)
+
+	// p.Y = Yτ * (9*Xτ^3 - 8*Yτ^2)
+	// Reuses Xτ3 and Yτ2 from the previous calculation.
+	mulBy3(&Xτ3)     // Xτ3 = 9*Xτ^3
+	Yτ2.Double(&Yτ2) // Yτ2 = 8*Yτ^2
+	p.Y.Sub(&Xτ3, &Yτ2).Mul(&p.Y, &Yτ)
+
+	// --- Step 6: Finalize the Z-coordinate ---
+	// p.Z = 3 * p.Z = 3 * Xτ * (q.X * q.Z)
+	mulBy3(&p.Z)
 
 	return p
 }
