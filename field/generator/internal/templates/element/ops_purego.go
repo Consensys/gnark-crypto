@@ -2,9 +2,7 @@ package element
 
 const OpsNoAsm = `
 
-{{- if not .F31}}
 import "math/bits"
-{{- end}}
 
 {{ $mulConsts := list 3 5 13 }}
 {{- range $i := $mulConsts }}
@@ -61,12 +59,19 @@ func reduce(z *{{.ElementName}})  {
 
 {{- if $.F31}}
 func montReduce(v uint64) uint32 {
-	m := uint32(v) * qInvNeg
-	t := uint32((v + uint64(m) * q) >> 32)
-	if t >= q {
-		t -= q
+	const (
+		R    = 1 << 32
+		qInv = R - qInvNeg
+	)
+
+	m := uint32(v) * qInv
+	t, borrow := bits.Sub64(v, uint64(m)*q, 0)
+
+	res := uint32(t / R)
+	if borrow != 0 {
+		res += q
 	}
-	return t
+	return res
 }
 {{- end}}
 
