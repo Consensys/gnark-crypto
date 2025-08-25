@@ -13,8 +13,13 @@ import "math/bits"
 func MulBy{{$i}}(x *{{$.ElementName}}) {
 	{{- if eq 1 $.NbWords}}
 	var y {{$.ElementName}}
-	y.SetUint64({{$i}})
-	x.Mul(x, &y)
+		{{- if eq $i 3}}
+			y.Double(x)
+			x.Add(x, &y)
+		{{- else}}
+			y.SetUint64({{$i}})
+			x.Mul(x, &y)
+		{{- end}}
 	{{- else}}
 		{{- if eq $i 3}}
 			_x := *x
