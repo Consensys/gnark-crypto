@@ -168,7 +168,7 @@ func (h *Permutation) sBox(index int, input []fr.Element) {
 // (1 1 2 3)
 // (3 1 1 2)
 // on chunks of 4 elemts on each part of the buffer
-// for the addition chain, see:
+// for the addition chain, see:NbFullRounds
 // https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/poseidon2/src/external.rs#L43
 // this MDS matrix is more efficient than
 // https://eprint.iacr.org/2023/323.pdf appendix Bb
@@ -181,11 +181,14 @@ func (h *Permutation) matMulM4InPlace(s []fr.Element) {
 		t0123.Add(&t01, &t23)
 		t01123.Add(&t0123, &s[4*i+1])
 		t01233.Add(&t0123, &s[4*i+3])
+
 		// The order here is important. Need to overwrite x[0] and x[2] after x[1] and x[3].
-		s[4*i+3].Double(&s[4*i]).Add(&s[4*i+3], &t01233)
-		s[4*i+1].Double(&s[4*i+2]).Add(&s[4*i+1], &t01123)
 		s[4*i].Add(&t01, &t01123)
+		s[4*i+1].Double(&s[4*i+2]).Add(&s[4*i+1], &t01123)
+
 		s[4*i+2].Add(&t23, &t01233)
+		s[4*i+3].Double(&s[4*i]).Add(&s[4*i+3], &t01233)
+
 	}
 }
 
@@ -198,12 +201,14 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 	// at this stage t is supposed to be a multiple of 4
 	// the MDS matrix is circ(2M4,M4,..,M4)
 	h.matMulM4InPlace(input)
+
 	tmp := make([]fr.Element, 4)
 	for i := 0; i < h.params.Width/4; i++ {
 		tmp[0].Add(&tmp[0], &input[4*i])
 		tmp[1].Add(&tmp[1], &input[4*i+1])
 		tmp[2].Add(&tmp[2], &input[4*i+2])
 		tmp[3].Add(&tmp[3], &input[4*i+3])
+
 	}
 	for i := 0; i < h.params.Width/4; i++ {
 		input[4*i].Add(&input[4*i], &tmp[0])
@@ -285,7 +290,10 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 
 // addRoundKeyInPlace adds the round-th key to the buffer
 func (h *Permutation) addRoundKeyInPlace(round int, input []fr.Element) {
+	// fmt.Printf("RoundKeys %v=%v,\n", round, h.params.RoundKeys[round])
+
 	for i := 0; i < len(h.params.RoundKeys[round]); i++ {
+
 		input[i].Add(&input[i], &h.params.RoundKeys[round][i])
 	}
 }
@@ -335,6 +343,7 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 		}
 		h.matMulExternalInPlace(input)
 	}
+	fmt.Printf("init= %v\n", input)
 
 	return nil
 }
@@ -371,6 +380,7 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	// fmt.Printf("state hash%v\n", x)
 	outBytes := make([]byte, 0, n*fr.Bytes)
 	for i := range res {
 		outBytes = append(outBytes, res[i].Add(&res[i], &x[n+i]).Marshal()...)

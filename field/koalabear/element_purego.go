@@ -34,8 +34,12 @@ func MulBy13(x *Element) {
 //
 // N.B. n must be < 33.
 func (z *Element) Mul2ExpNegN(x *Element, n uint32) *Element {
-	v := uint64(x[0]) << (32 - n)
+	v := uint64(x[0]) * uint64(1<<(32-n))
+	// fmt.Printf("v=%v\n", 1<<(32-n))
+
 	z[0] = montReduce(v)
+	// fmt.Printf("z=%v\n", z[0])
+
 	return z
 }
 
@@ -60,7 +64,13 @@ func montReduce(v uint64) uint32 {
 // x and y must be less than q
 func (z *Element) Mul(x, y *Element) *Element {
 	v := uint64(x[0]) * uint64(y[0])
+	// fmt.Printf("y=%v\n", y)
+
 	z[0] = montReduce(v)
+	// z[0] = montReduce(uint64(z[0]))
+
+	// fmt.Printf("zz=%v\n", z[0])
+
 	return z
 }
 

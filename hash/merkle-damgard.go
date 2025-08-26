@@ -14,12 +14,14 @@ type merkleDamgardHasher struct {
 // Write implements hash.Write
 func (h *merkleDamgardHasher) Write(p []byte) (n int, err error) {
 	blockSize := h.f.BlockSize()
+
 	for len(p) != 0 {
 		if len(p) < blockSize {
 			if p, err = cloneLeftPadded(p, blockSize); err != nil {
 				panic(err) // this should not be possible
 			}
 		}
+
 		if h.state, err = h.f.Compress(h.state, p[:blockSize]); err != nil {
 			return
 		}

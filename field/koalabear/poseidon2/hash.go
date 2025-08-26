@@ -6,10 +6,11 @@
 package poseidon2
 
 import (
-	fr "github.com/consensys/gnark-crypto/field/koalabear"
-	gnarkHash "github.com/consensys/gnark-crypto/hash"
 	"hash"
 	"sync"
+
+	fr "github.com/consensys/gnark-crypto/field/koalabear"
+	gnarkHash "github.com/consensys/gnark-crypto/hash"
 )
 
 // NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard
@@ -19,6 +20,15 @@ func NewMerkleDamgardHasher() gnarkHash.StateStorer {
 	return gnarkHash.NewMerkleDamgardHasher(
 		&Permutation{params},
 		make([]byte, params.Width/2*fr.Bytes),
+	)
+}
+
+// NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard
+// construction with the default parameters.
+func NewMerkleDamgardHasher24() gnarkHash.StateStorer {
+	return gnarkHash.NewMerkleDamgardHasher(
+		&Permutation{NewParameters(24, 6, 21)},
+		make([]byte, 12*fr.Bytes),
 	)
 }
 

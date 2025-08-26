@@ -1,6 +1,8 @@
 package vortex
 
 import (
+	"fmt"
+
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/poseidon2"
 )
@@ -22,12 +24,17 @@ func CompressPoseidon2(a, b Hash) Hash {
 	copy(x[8:], b[:])
 
 	// Create a buffer to hold the feed-forward input.
+	// fmt.Printf("CompressPoseidon2 input=%v\n", x)
+
 	copy(res[:], x[8:])
+	fmt.Printf("res=%v\n", res)
+
 	if err := compressPerm.Permutation(x[:]); err != nil {
 		// can't error (size is correct)
 		panic(err)
 	}
 
+	fmt.Printf("CompressPoseidon2 res=%v\n", x)
 	for i := range res {
 		res[i].Add(&res[i], &x[8+i])
 	}
@@ -38,6 +45,7 @@ func CompressPoseidon2(a, b Hash) Hash {
 // input is zero-padded so it should be used only in the context of fixed
 // length hashes to avoid padding attacks.
 func HashPoseidon2(x []koalabear.Element) Hash {
+	fmt.Printf("x %v\n", x)
 
 	const (
 		blockSize = 16
@@ -54,6 +62,8 @@ func HashPoseidon2(x []koalabear.Element) Hash {
 	}
 
 	copy(res[:], state[:])
+	fmt.Printf("res %v\n", res)
+
 	return res
 }
 

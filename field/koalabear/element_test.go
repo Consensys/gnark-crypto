@@ -201,6 +201,41 @@ func BenchmarkElementMul(b *testing.B) {
 	}
 }
 
+func TestMul(t *testing.T) {
+	x := Element{
+		402124772,
+	}
+
+	// benchResElement.Double(&benchResElement)
+	// benchResElement := Element{1}
+	// fmt.Printf("benchResElement init=%v\n", benchResElement.String())
+
+	var one Element
+	benchResElement = NewElement(2)
+	benchResElement.Mul(&benchResElement, &x)
+	fmt.Printf("benchResElement mul=%v\n", benchResElement)
+
+	benchResElement.Add(&x, &x)
+
+	fmt.Printf("benchResElement double=%v\n", benchResElement)
+
+	one.SetOne()
+	for i := 0; i < 32; i++ {
+		fmt.Printf("\ni=%v\n", i)
+
+		benchResElement = NewElement(1 << (32 - i))
+		benchResElement.Mul(&benchResElement, &x)
+
+		// benchResElement.Add(&x, &x)
+		fmt.Printf("benchResElement mul=%v\n", benchResElement)
+
+		benchResElement.Mul2ExpNegN(&x, uint32(i))
+		fmt.Printf("benchResElement=%v\n", benchResElement)
+
+	}
+
+}
+
 func BenchmarkElementCmp(b *testing.B) {
 	x := Element{
 		402124772,

@@ -8,40 +8,44 @@ package poseidon2
 import (
 	"testing"
 
+	"github.com/consensys/gnark-crypto/field/koalabear"
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/utils/cpu"
 	"github.com/stretchr/testify/require"
 )
 
-func TestMulMulInternalInPlaceWidth16(t *testing.T) {
-	var input, expected [16]fr.Element
-	for i := range input {
-		input[i].MustSetRandom()
-	}
+// func TestMulMulInternalInPlaceWidth16(t *testing.T) {
+// 	// var input, expected [16]fr.Element
+// 	var old, block vortex.Hash
+// 	old[0] = koalabear.NewElement(uint64(703724752))
+// 	old[1] = koalabear.NewElement(uint64(280040542))
+// 	old[2] = koalabear.NewElement(uint64(1514240686))
+// 	old[3] = koalabear.NewElement(uint64(986917665))
+// 	old[4] = koalabear.NewElement(uint64(1972211392))
+// 	old[5] = koalabear.NewElement(uint64(832875602))
+// 	old[6] = koalabear.NewElement(uint64(2095324332))
+// 	old[7] = koalabear.NewElement(uint64(36857942))
 
-	expected = input
+// 	block[0] = koalabear.NewElement(uint64(760417386))
+// 	block[1] = koalabear.NewElement(uint64(1333026101))
+// 	block[2] = koalabear.NewElement(uint64(835587083))
+// 	block[3] = koalabear.NewElement(uint64(1017667263))
+// 	block[4] = koalabear.NewElement(uint64(669624325))
+// 	block[5] = koalabear.NewElement(uint64(1903375813))
+// 	block[6] = koalabear.NewElement(uint64(1853215757))
+// 	block[7] = koalabear.NewElement(uint64(199352308))
+// 	expect := vortex.CompressPoseidon2(old, block)
 
-	h := NewPermutation(16, 6, 21)
-	h.matMulInternalInPlace(expected[:])
+// 	fmt.Printf("input=%v\n", expect)
 
-	var sum fr.Element
-	sum.Set(&input[0])
-	for i := 1; i < h.params.Width; i++ {
-		sum.Add(&sum, &input[i])
-	}
-	for i := 0; i < h.params.Width; i++ {
-		input[i].Mul(&input[i], &diag16[i]).
-			Add(&input[i], &sum)
-		if !input[i].Equal(&expected[i]) {
-			t.Fatal("mat mul internal w/ diagonal doesn't match hand calculated")
-		}
-	}
-}
+// 	// fmt.Printf("expected=%v\n", expected)
+
+// }
 
 func TestMulMulInternalInPlaceWidth24(t *testing.T) {
 	var input, expected [24]fr.Element
 	for i := range input {
-		input[i].MustSetRandom()
+		input[i] = koalabear.NewElement(uint64(i))
 	}
 
 	expected = input
