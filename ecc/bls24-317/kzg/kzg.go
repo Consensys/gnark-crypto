@@ -26,6 +26,8 @@ var (
 	ErrVerifyOpeningProof            = errors.New("can't verify opening proof")
 	ErrVerifyBatchOpeningSinglePoint = errors.New("can't verify batch opening proof at single point")
 	ErrMinSRSSize                    = errors.New("minimum srs size is 2")
+	ErrCommitmentNotInSubgroup       = errors.New("commitment is not in the correct subgroup")
+	ErrQuotientNotNotInSubgroup      = errors.New("proof quotient is not in the correct subgroup")
 )
 
 // Digest commitment of a polynomial.
@@ -55,8 +57,7 @@ type SRS struct {
 func eval(p []fr.Element, point fr.Element) fr.Element {
 	var res fr.Element
 	n := len(p)
-	res.Set(&p[n-1])
-	for i := n - 2; i >= 0; i-- {
+	for i := n - 1; i >= 0; i-- {
 		res.Mul(&res, &point).Add(&res, &p[i])
 	}
 	return res
@@ -178,7 +179,7 @@ func Commit(p []fr.Element, pk ProvingKey, nbTasks ...int) (Digest, error) {
 // Open computes an opening proof of polynomial p at given point.
 // fft.Domain Cardinality must be larger than p.Degree()
 func Open(p []fr.Element, point fr.Element, pk ProvingKey) (OpeningProof, error) {
-	if len(p) == 0 || len(p) > len(pk.G1) {
+	if len(p) > len(pk.G1) {
 		return OpeningProof{}, ErrInvalidPolynomialSize
 	}
 
@@ -205,6 +206,14 @@ func Open(p []fr.Element, point fr.Element, pk ProvingKey) (OpeningProof, error)
 
 // Verify verifies a KZG opening proof at a single point
 func Verify(commitment *Digest, proof *OpeningProof, point fr.Element, vk VerifyingKey) error {
+
+	// check that the commitment and the proof are on the curve
+	if !commitment.IsInSubGroup() {
+		return ErrCommitmentNotInSubgroup
+	}
+	if !proof.H.IsInSubGroup() {
+		return ErrQuotientNotNotInSubgroup
+	}
 
 	// [f(a)]G₁ + [-a]([H(α)]G₁) = [f(a) - a*H(α)]G₁
 	var totalG1 bls24317.G1Jac
@@ -254,7 +263,7 @@ func BatchOpenSinglePoint(polynomials [][]fr.Element, digests []Digest, point fr
 	// TODO ensure the polynomials are of the same size
 	largestPoly := -1
 	for _, p := range polynomials {
-		if len(p) == 0 || len(p) > len(pk.G1) {
+		if len(p) > len(pk.G1) {
 			return BatchOpeningProof{}, ErrInvalidPolynomialSize
 		}
 		if len(p) > largestPoly {
@@ -384,6 +393,15 @@ func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.
 // * dataTranscript extra data that might be needed to derive the challenge used for the folding
 func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.Element, hf hash.Hash, vk VerifyingKey, dataTranscript ...[]byte) error {
 
+	for i := 0; i < len(digests); i++ {
+		if !digests[i].IsInSubGroup() {
+			return ErrCommitmentNotInSubgroup
+		}
+	}
+	if !batchOpeningProof.H.IsInSubGroup() {
+		return ErrQuotientNotNotInSubgroup
+	}
+
 	// fold the proof
 	foldedProof, foldedDigest, err := FoldProof(digests, batchOpeningProof, point, hf, dataTranscript...)
 	if err != nil {
@@ -403,6 +421,17 @@ func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningPro
 // * proofs list of opening proofs, one for each digest
 // * points the list of points at which the opening are done
 func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr.Element, vk VerifyingKey) error {
+
+	for i := 0; i < len(digests); i++ {
+		if !digests[i].IsInSubGroup() {
+			return ErrCommitmentNotInSubgroup
+		}
+	}
+	for i := 0; i < len(proofs); i++ {
+		if !proofs[i].H.IsInSubGroup() {
+			return ErrQuotientNotNotInSubgroup
+		}
+	}
 
 	// check consistency nb proogs vs nb digests
 	if len(digests) != len(proofs) || len(digests) != len(points) {
@@ -564,6 +593,10 @@ func deriveGamma(point fr.Element, digests []Digest, claimedValues []fr.Element,
 // dividePolyByXminusA computes (f-f(a))/(x-a), in canonical basis, in regular form
 // f memory is re-used for the result
 func dividePolyByXminusA(f []fr.Element, fa, a fr.Element) []fr.Element {
+
+	if len(f) == 0 {
+		return []fr.Element{}
+	}
 
 	// first we compute f-f(a)
 	f[0].Sub(&f[0], &fa)

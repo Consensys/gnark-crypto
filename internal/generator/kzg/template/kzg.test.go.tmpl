@@ -266,7 +266,9 @@ func TestVerifySinglePoint(t *testing.T) {
 
 			{
 				// verify wrong proof
-				proof.ClaimedValue.Double(&proof.ClaimedValue)
+				var one fr.Element
+				one.SetOne()
+				proof.ClaimedValue.Add(&proof.ClaimedValue, &one)
 				err = Verify(&digest, &proof, point, srs.Vk)
 				if err == nil {
 					t.Fatal("verifying wrong proof should have failed")
@@ -286,6 +288,9 @@ func TestVerifySinglePoint(t *testing.T) {
 	}
 	t.Run("unsafe", test(testSrs))
 	t.Run("mpcsetup", test(mpcGetSrs(t)))
+	// size 0 polynomial
+	f = randomPolynomial(0)
+	t.Run("unsafe", test(testSrs))
 	// size 1 polynomial
 	f = randomPolynomial(1)
 	t.Run("unsafe", test(testSrs))
