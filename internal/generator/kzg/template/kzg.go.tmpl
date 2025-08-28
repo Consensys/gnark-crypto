@@ -155,7 +155,7 @@ type BatchOpeningProof struct {
 // It is assumed that the polynomial is in canonical form, in Montgomery form.
 func Commit(p []fr.Element, pk ProvingKey, nbTasks ...int) (Digest, error) {
 
-	if len(p) == 0 || len(p) > len(pk.G1) {
+	if len(p) > len(pk.G1) {
 		return Digest{}, ErrInvalidPolynomialSize
 	}
 

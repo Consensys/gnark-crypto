@@ -293,6 +293,9 @@ func TestVerifySinglePoint(t *testing.T) {
 	}
 	t.Run("unsafe", test(testSrs))
 	t.Run("mpcsetup", test(mpcGetSrs(t)))
+	// size 1 polynomial
+	f = randomPolynomial(1)
+	t.Run("unsafe", test(testSrs))
 }
 
 func TestVerifySinglePointQuickSRS(t *testing.T) {
