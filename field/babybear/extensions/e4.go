@@ -160,29 +160,32 @@ func (z *E4) MulByNonResidue(x *E4) *E4 {
 
 // Mul sets z=x*y in E4 and returns z
 func (z *E4) Mul(x, y *E4) *E4 {
-	var a, b, c E2
+	var a, b, c, d E2
 	a.Add(&x.B0, &x.B1)
 	b.Add(&y.B0, &y.B1)
-	a.Mul(&a, &b)
-	b.Mul(&x.B0, &y.B0)
+	d.Mul(&x.B0, &y.B0)
 	c.Mul(&x.B1, &y.B1)
-	z.B1.Sub(&a, &b).Sub(&z.B1, &c)
-	z.B0.MulByNonResidue(&c).Add(&z.B0, &b)
+	a.Mul(&a, &b)
+	var bc E2
+	bc.Add(&d, &c)
+	z.B1.Sub(&a, &bc)
+	z.B0.MulByNonResidue(&c).Add(&z.B0, &d)
 	return z
 }
 
 // Square sets z=x*x in E4 and returns z
 func (z *E4) Square(x *E4) *E4 {
-
-	//Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
-	var c0, c2, c3 E2
-	c0.Sub(&x.B0, &x.B1)
-	c3.MulByNonResidue(&x.B1).Sub(&x.B0, &c3)
-	c2.Mul(&x.B0, &x.B1)
-	c0.Mul(&c0, &c3).Add(&c0, &c2)
-	z.B1.Double(&c2)
-	c2.MulByNonResidue(&c2)
-	z.B0.Add(&c0, &c2)
+	// same as mul, but we remove duplicate add and simplify multiplications with squaring
+	// note: this is more efficient than Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
+	var a, c, d E2
+	a.Add(&x.B0, &x.B1)
+	d.Square(&x.B0)
+	c.Square(&x.B1)
+	a.Square(&a)
+	var bc E2
+	bc.Add(&d, &c)
+	z.B1.Sub(&a, &bc)
+	z.B0.MulByNonResidue(&c).Add(&z.B0, &d)
 
 	return z
 }

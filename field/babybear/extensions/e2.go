@@ -298,48 +298,45 @@ func MulBy11(x *fr.Element) {
 
 // Mul sets z to the E2-product of x,y, returns z
 func (z *E2) Mul(x, y *E2) *E2 {
-	var a, b, c fr.Element
+	var a, b, c, d fr.Element
 	a.Add(&x.A0, &x.A1)
 	b.Add(&y.A0, &y.A1)
-	a.Mul(&a, &b)
-	b.Mul(&x.A0, &y.A0)
+	d.Mul(&x.A0, &y.A0)
 	c.Mul(&x.A1, &y.A1)
-	z.A1.Sub(&a, &b).Sub(&z.A1, &c)
+	a.Mul(&a, &b)
+	z.A1.Sub(&a, &d).Sub(&z.A1, &c)
 	MulBy11(&c)
-	z.A0.Add(&b, &c)
+	z.A0.Add(&d, &c)
+
 	return z
 }
 
 // Square sets z to the E2-product of x,x returns z
 func (z *E2) Square(x *E2) *E2 {
 	var a, b, c fr.Element
-	a.Mul(&x.A0, &x.A1).Double(&a)
+	a.Mul(&x.A0, &x.A1)
 	c.Square(&x.A0)
 	b.Square(&x.A1)
 	MulBy11(&b)
 	z.A0.Add(&c, &b)
-	z.A1 = a
+	z.A1.Double(&a)
 	return z
 }
 
 // MulByNonResidue multiplies a E2 by (0,1)
 func (z *E2) MulByNonResidue(x *E2) *E2 {
-	a := x.A0
-	b := x.A1 // fetching x.A1 in the function below is slower
-	MulBy11(&b)
-	z.A0 = b
-	z.A1 = a
+	z.A0, z.A1 = x.A1, x.A0
+	MulBy11(&z.A0)
 	return z
 }
 
 // MulByNonResidueInv multiplies a E2 by (0,1)^{-1}
 func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	a := x.A1
+	z.A0, z.A1 = x.A1, x.A0
 	// 1/11 mod r
 	var elevenInv fr.Element
 	elevenInv.SetUint64(549072524)
-	z.A1.Mul(&x.A0, &elevenInv)
-	z.A0 = a
+	z.A1.Mul(&z.A1, &elevenInv)
 	return z
 }
 
