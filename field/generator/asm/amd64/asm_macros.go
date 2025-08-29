@@ -11,41 +11,41 @@ import (
 	"github.com/consensys/bavard/amd64"
 )
 
-func (f *FFAmd64) Loop(n amd64.Register, fn func()) {
-	lblLoop := f.NewLabel("loop")
-	lblDone := f.NewLabel("done")
+func (_f *FFAmd64) Loop(n amd64.Register, fn func()) {
+	lblLoop := _f.NewLabel("loop")
+	lblDone := _f.NewLabel("done")
 
 	// while n > 0, do:
-	f.LABEL(lblLoop)
-	f.TESTQ(n, n)
-	f.JEQ(lblDone)
-	f.DECQ(n)
+	_f.LABEL(lblLoop)
+	_f.TESTQ(n, n)
+	_f.JEQ(lblDone)
+	_f.DECQ(n)
 
 	fn()
 
-	f.JMP(lblLoop)
-	f.LABEL(lblDone)
+	_f.JMP(lblLoop)
+	_f.LABEL(lblDone)
 }
 
 // LabelRegisters write comment with friendler name to registers
-func (f *FFAmd64) LabelRegisters(name string, r ...amd64.Register) {
+func (_f *FFAmd64) LabelRegisters(name string, r ...amd64.Register) {
 	switch len(r) {
 	case 0:
 		return
 	case 1:
-		f.Comment(fmt.Sprintf("%s -> %s", name, string(r[0])))
+		_f.Comment(fmt.Sprintf("%s -> %s", name, string(r[0])))
 	default:
 		for i := 0; i < len(r); i++ {
-			f.Comment(fmt.Sprintf("%s[%d] -> %s", name, i, string(r[i])))
+			_f.Comment(fmt.Sprintf("%s[%d] -> %s", name, i, string(r[i])))
 		}
 	}
 	// f.WriteLn("")
 }
 
-func (f *FFAmd64) ReduceElement(t, scratch []amd64.Register, avoidGlobal bool) {
+func (_f *FFAmd64) ReduceElement(t, scratch []amd64.Register, avoidGlobal bool) {
 	var buf bytes.Buffer
 	var err error
-	if f.qStack == nil && avoidGlobal {
+	if _f.qStack == nil && avoidGlobal {
 		if len(scratch) != len(t)+1 {
 			panic(fmt.Sprintf("expected %d scratch registers, got %d", len(t)+1, len(scratch)))
 		}
@@ -63,8 +63,8 @@ func (f *FFAmd64) ReduceElement(t, scratch []amd64.Register, avoidGlobal bool) {
 
 		// we can use f.qAt(...)
 		var Q []string
-		for i := 0; i < f.NbWords; i++ {
-			Q = append(Q, f.qAt(i))
+		for i := 0; i < _f.NbWords; i++ {
+			Q = append(Q, _f.qAt(i))
 		}
 
 		const tmplReduce = `// reduce element({{- range $i, $a := .A}}{{$a}}{{- if ne $.Last $i}},{{ end}}{{- end}}) using temp registers ({{- range $i, $b := .B}}{{$b}}{{- if ne $.Last $i}},{{ end}}{{- end}})
@@ -84,8 +84,8 @@ func (f *FFAmd64) ReduceElement(t, scratch []amd64.Register, avoidGlobal bool) {
 		panic(err)
 	}
 
-	f.WriteLn(buf.String())
-	f.WriteLn("")
+	_f.WriteLn(buf.String())
+	_f.WriteLn("")
 }
 
 // This template uses ·qElement (global variable)
@@ -124,7 +124,7 @@ const tmplReduceDefineNoGlobal = `
 	{{- end}}
 `
 
-func (f *FFAmd64) GenerateReduceDefine(avoidGlobal ...bool) {
+func (_f *FFAmd64) GenerateReduceDefine(avoidGlobal ...bool) {
 	tmplReduceDefine := tmplReduceDefine
 	if len(avoidGlobal) > 0 && avoidGlobal[0] {
 		tmplReduceDefine = tmplReduceDefineNoGlobal
@@ -135,14 +135,14 @@ func (f *FFAmd64) GenerateReduceDefine(avoidGlobal ...bool) {
 
 	// execute template
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, f); err != nil {
+	if err := tmpl.Execute(&buf, _f); err != nil {
 		panic(err)
 	}
 
-	f.WriteLn(buf.String())
+	_f.WriteLn(buf.String())
 }
 
-func (f *FFAmd64) Mov(i1, i2 interface{}, offsets ...int) {
+func (_f *FFAmd64) Mov(i1, i2 interface{}, offsets ...int) {
 	var o1, o2 int
 	if len(offsets) >= 1 {
 		o1 = offsets[0]
@@ -156,19 +156,19 @@ func (f *FFAmd64) Mov(i1, i2 interface{}, offsets ...int) {
 		default:
 			panic("unsupported")
 		case []amd64.Register:
-			for i := 0; i < f.NbWords; i++ {
-				f.MOVQ(c1[i+o1], c2[i+o2])
+			for i := 0; i < _f.NbWords; i++ {
+				_f.MOVQ(c1[i+o1], c2[i+o2])
 			}
 		}
 	case amd64.Register:
 		switch c2 := i2.(type) {
 		case amd64.Register:
-			for i := 0; i < f.NbWords; i++ {
-				f.MOVQ(c1.At(i+o1), c2.At(i+o2))
+			for i := 0; i < _f.NbWords; i++ {
+				_f.MOVQ(c1.At(i+o1), c2.At(i+o2))
 			}
 		case []amd64.Register:
-			for i := 0; i < f.NbWords; i++ {
-				f.MOVQ(c1.At(i+o1), c2[i+o2])
+			for i := 0; i < _f.NbWords; i++ {
+				_f.MOVQ(c1.At(i+o1), c2[i+o2])
 			}
 		default:
 			panic("unsupported")
@@ -176,13 +176,13 @@ func (f *FFAmd64) Mov(i1, i2 interface{}, offsets ...int) {
 	case []amd64.Register:
 		switch c2 := i2.(type) {
 		case amd64.Register:
-			for i := 0; i < f.NbWords; i++ {
-				f.MOVQ(c1[i+o1], c2.At(i+o2))
+			for i := 0; i < _f.NbWords; i++ {
+				_f.MOVQ(c1[i+o1], c2.At(i+o2))
 			}
 		case []amd64.Register:
 			// f.copyElement(c1[o1:], c2[o2:])
-			for i := 0; i < f.NbWords; i++ {
-				f.MOVQ(c1[i+o1], c2[i+o2])
+			for i := 0; i < _f.NbWords; i++ {
+				_f.MOVQ(c1[i+o1], c2[i+o2])
 			}
 		default:
 			panic("unsupported")
@@ -193,7 +193,7 @@ func (f *FFAmd64) Mov(i1, i2 interface{}, offsets ...int) {
 
 }
 
-func (f *FFAmd64) Add(i1, i2 interface{}, offsets ...int) {
+func (_f *FFAmd64) Add(i1, i2 interface{}, offsets ...int) {
 	var o1, o2 int
 	if len(offsets) >= 1 {
 		o1 = offsets[0]
@@ -208,11 +208,11 @@ func (f *FFAmd64) Add(i1, i2 interface{}, offsets ...int) {
 		default:
 			panic("unsupported")
 		case []amd64.Register:
-			for i := 0; i < f.NbWords; i++ {
+			for i := 0; i < _f.NbWords; i++ {
 				if i == 0 {
-					f.ADDQ(c1.At(i+o1), c2[i+o2])
+					_f.ADDQ(c1.At(i+o1), c2[i+o2])
 				} else {
-					f.ADCQ(c1.At(i+o1), c2[i+o2])
+					_f.ADCQ(c1.At(i+o1), c2[i+o2])
 				}
 			}
 		}
@@ -221,11 +221,11 @@ func (f *FFAmd64) Add(i1, i2 interface{}, offsets ...int) {
 		default:
 			panic("unsupported")
 		case []amd64.Register:
-			for i := 0; i < f.NbWords; i++ {
+			for i := 0; i < _f.NbWords; i++ {
 				if i == 0 {
-					f.ADDQ(c1[i+o1], c2[i+o2])
+					_f.ADDQ(c1[i+o1], c2[i+o2])
 				} else {
-					f.ADCQ(c1[i+o1], c2[i+o2])
+					_f.ADCQ(c1[i+o1], c2[i+o2])
 				}
 			}
 		}
@@ -234,7 +234,7 @@ func (f *FFAmd64) Add(i1, i2 interface{}, offsets ...int) {
 	}
 }
 
-func (f *FFAmd64) Sub(i1, i2 interface{}, offsets ...int) {
+func (_f *FFAmd64) Sub(i1, i2 interface{}, offsets ...int) {
 	var o1, o2 int
 	if len(offsets) >= 1 {
 		o1 = offsets[0]
@@ -249,11 +249,11 @@ func (f *FFAmd64) Sub(i1, i2 interface{}, offsets ...int) {
 		default:
 			panic("unsupported")
 		case []amd64.Register:
-			for i := 0; i < f.NbWords; i++ {
+			for i := 0; i < _f.NbWords; i++ {
 				if i == 0 {
-					f.SUBQ(c1.At(i+o1), c2[i+o2])
+					_f.SUBQ(c1.At(i+o1), c2[i+o2])
 				} else {
-					f.SBBQ(c1.At(i+o1), c2[i+o2])
+					_f.SBBQ(c1.At(i+o1), c2[i+o2])
 				}
 			}
 		}
@@ -262,11 +262,11 @@ func (f *FFAmd64) Sub(i1, i2 interface{}, offsets ...int) {
 		default:
 			panic("unsupported")
 		case []amd64.Register:
-			for i := 0; i < f.NbWords; i++ {
+			for i := 0; i < _f.NbWords; i++ {
 				if i == 0 {
-					f.SUBQ(c1[i+o1], c2[i+o2])
+					_f.SUBQ(c1[i+o1], c2[i+o2])
 				} else {
-					f.SBBQ(c1[i+o1], c2[i+o2])
+					_f.SBBQ(c1[i+o1], c2[i+o2])
 				}
 			}
 		}

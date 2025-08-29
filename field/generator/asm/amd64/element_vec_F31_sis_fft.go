@@ -20,57 +20,57 @@ import (
 	"github.com/consensys/bavard/amd64"
 )
 
-func (f *FFAmd64) generateFFTDefinesF31() {
+func (_f *FFAmd64) generateFFTDefinesF31() {
 
 	// computes a = a + b and b = a - b,
 	// leaves a in [0, q)
 	// leaves b in [0,q)
-	_ = f.Define("butterflyD1Q", 5, func(args ...any) {
+	_ = _f.Define("butterflyD1Q", 5, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		qd := args[2]
 		b0 := args[3]
 		b1 := args[4]
-		f.VPADDD(x, y, b0)
-		f.VPSUBD(y, x, y)
-		f.VPSUBD(qd, b0, x)
-		f.VPMINUD(b0, x, x)
-		f.VPADDD(qd, y, b1)
-		f.VPMINUD(b1, y, y)
+		_f.VPADDD(x, y, b0)
+		_f.VPSUBD(y, x, y)
+		_f.VPSUBD(qd, b0, x)
+		_f.VPMINUD(b0, x, x)
+		_f.VPADDD(qd, y, b1)
+		_f.VPMINUD(b1, y, y)
 	}, true)
 
 	// computes a = a + b and b = a - b,
 	// leaves a in [0, q)
 	// leaves b in [0,2q)
-	butterflyD2Q := f.Define("butterflyD2Q", 5, func(args ...any) {
+	butterflyD2Q := _f.Define("butterflyD2Q", 5, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		qd := args[2]
 		b0 := args[3]
 		b1 := args[4]
-		f.VPSUBD(y, x, b1)
-		f.VPADDD(x, y, b0)
-		f.VPADDD(qd, b1, y)
-		f.VPSUBD(qd, b0, x)
-		f.VPMINUD(b0, x, x)
+		_f.VPSUBD(y, x, b1)
+		_f.VPADDD(x, y, b0)
+		_f.VPADDD(qd, b1, y)
+		_f.VPSUBD(qd, b0, x)
+		_f.VPMINUD(b0, x, x)
 	}, true)
 
 	// computes a = a + b and b = a - b,
 	// leaves a in [0,2q)
 	// leaves b in [0,2q)
-	_ = f.Define("butterflyD2Q2Q", 4, func(args ...any) {
+	_ = _f.Define("butterflyD2Q2Q", 4, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		qd := args[2]
 		b0 := args[3]
-		f.VPSUBD(y, x, b0)
-		f.VPADDD(x, y, x)
-		f.VPADDD(qd, b0, y)
+		_f.VPSUBD(y, x, b0)
+		_f.VPADDD(x, y, x)
+		_f.VPADDD(qd, b0, y)
 	}, true)
 
 	// computes a = a * b mod q
 	// a and b can be in [0, 2q)
-	mulD := f.Define("mulD", 10, func(args ...any) {
+	mulD := _f.Define("mulD", 10, func(args ...any) {
 		a := args[0]
 		b := args[1]
 		aOdd := args[2]
@@ -82,25 +82,25 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 		q := args[8]
 		qInvNeg := args[9]
 
-		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
-		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
+		_f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
+		_f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
 
 		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
-		f.VPMULUDQ(a, b, b0)
-		f.VPMULUDQ(aOdd, bOdd, b1)
-		f.VPMULUDQ(b0, qInvNeg, PL0)
-		f.VPMULUDQ(b1, qInvNeg, PL1)
+		_f.VPMULUDQ(a, b, b0)
+		_f.VPMULUDQ(aOdd, bOdd, b1)
+		_f.VPMULUDQ(b0, qInvNeg, PL0)
+		_f.VPMULUDQ(b1, qInvNeg, PL1)
 
-		f.VPMULUDQ(PL0, q, PL0)
-		f.VPADDQ(b0, PL0, b0)
+		_f.VPMULUDQ(PL0, q, PL0)
+		_f.VPADDQ(b0, PL0, b0)
 
-		f.VPMULUDQ(PL1, q, PL1)
-		f.VPADDQ(b1, PL1, b1)
+		_f.VPMULUDQ(PL1, q, PL1)
+		_f.VPADDQ(b1, PL1, b1)
 
-		f.VMOVSHDUPk(b0, amd64.K3, b1)
+		_f.VMOVSHDUPk(b0, amd64.K3, b1)
 
-		f.VPSUBD(q, b1, PL1)
-		f.VPMINUD(b1, PL1, a)
+		_f.VPSUBD(q, b1, PL1)
+		_f.VPMINUD(b1, PL1, a)
 	}, true)
 
 	// goes from
@@ -109,13 +109,13 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 	// to
 	// in0 = [a0 a1 a2 a3 a4 a5 a6 a7 b0 b1 b2 b3 b4 b5 b6 b7]
 	// in1 = [a8 a9 a10 a11 a12 a13 a14 a15 b8 b9 b10 b11 b12 b13 b14 b15]
-	_ = f.Define("permute8x8", 3, func(args ...any) {
+	_ = _f.Define("permute8x8", 3, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		b0 := args[2]
-		f.VSHUFI64X2(uint64(0b01_00_11_10), y, x, b0)
-		f.VPBLENDMQ(x, b0, x, amd64.K1)
-		f.VPBLENDMQ(b0, y, y, amd64.K1)
+		_f.VSHUFI64X2(uint64(0b01_00_11_10), y, x, b0)
+		_f.VPBLENDMQ(x, b0, x, amd64.K1)
+		_f.VPBLENDMQ(b0, y, y, amd64.K1)
 	}, true)
 
 	// goes from
@@ -124,15 +124,15 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 	// to
 	// in0 = [a0 a1 a2 a3 b0 b1 b2 b3 a8 a9 a10 a11 b8 b9 b10 b11]
 	// in1 = [a4 a5 a6 a7 b4 b5 b6 b7 a12 a13 a14 a15 b12 b13 b14 b15]
-	_ = f.Define("permute4x4", 4, func(args ...any) {
+	_ = _f.Define("permute4x4", 4, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		vInterleaveIndices := args[2]
 		tmp := args[3]
-		f.VMOVDQA64(vInterleaveIndices, tmp)
-		f.VPERMI2Q(y, x, tmp)
-		f.VPBLENDMQ(x, tmp, x, amd64.K2)
-		f.VPBLENDMQ(tmp, y, y, amd64.K2)
+		_f.VMOVDQA64(vInterleaveIndices, tmp)
+		_f.VPERMI2Q(y, x, tmp)
+		_f.VPBLENDMQ(x, tmp, x, amd64.K2)
+		_f.VPBLENDMQ(tmp, y, y, amd64.K2)
 	}, true)
 
 	// goes from
@@ -141,14 +141,14 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 	// to
 	// in0 = [a0 a1 b0 b1 a4 a5 b4 b5 a8 a9 b8 b9 a12 a13 b12 b13]
 	// in1 = [a2 a3 b2 b3 a6 a7 b6 b7 a10 a11 b10 b11 a14 a15 b14 b15]
-	_ = f.Define("permute2x2", 3, func(args ...any) {
+	_ = _f.Define("permute2x2", 3, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		b0 := args[2]
 
-		f.VSHUFPD(0b01010101, y, x, b0)
-		f.VPBLENDMQ(x, b0, x, amd64.K3)
-		f.VPBLENDMQ(b0, y, y, amd64.K3)
+		_f.VSHUFPD(0b01010101, y, x, b0)
+		_f.VPBLENDMQ(x, b0, x, amd64.K3)
+		_f.VPBLENDMQ(b0, y, y, amd64.K3)
 	}, true)
 
 	// goes from
@@ -157,38 +157,38 @@ func (f *FFAmd64) generateFFTDefinesF31() {
 	// to
 	// in0 = [a0 b0 a2 b2 a4 b4 a6 b6 a8 b8 a10 b10 a12 b12 a14 b14]
 	// in1 = [a1 b1 a3 b3 a5 b5 a7 b7 a9 b9 a11 b11 a13 b13 a15 b15]
-	_ = f.Define("permute1x1", 3, func(args ...any) {
+	_ = _f.Define("permute1x1", 3, func(args ...any) {
 		x := args[0]
 		y := args[1]
 		b0 := args[2]
 
-		f.VPSHRDQ("$32", y, x, b0)
-		f.VPBLENDMD(x, b0, x, amd64.K3)
-		f.VPBLENDMD(b0, y, y, amd64.K3)
+		_f.VPSHRDQ("$32", y, x, b0)
+		_f.VPBLENDMD(x, b0, x, amd64.K3)
+		_f.VPBLENDMD(b0, y, y, amd64.K3)
 	}, true)
 
-	_ = f.Define("load_q", 2, func(args ...any) {
+	_ = _f.Define("load_q", 2, func(args ...any) {
 		q := args[0]
 		qInv := args[1]
-		f.MOVD("$const_q", amd64.AX)
-		f.VPBROADCASTD(amd64.AX, q)
-		f.MOVD("$const_qInvNeg", amd64.AX)
-		f.VPBROADCASTD(amd64.AX, qInv)
+		_f.MOVD("$const_q", amd64.AX)
+		_f.VPBROADCASTD(amd64.AX, q)
+		_f.MOVD("$const_qInvNeg", amd64.AX)
+		_f.VPBROADCASTD(amd64.AX, qInv)
 	}, true)
 
 	// these masks are used in the permuteNxN functions
-	_ = f.Define("load_masks", 0, func(_ ...any) {
-		f.MOVQ(uint64(0b0000_1111_0000_1111), amd64.AX)
-		f.KMOVQ(amd64.AX, amd64.K1)
+	_ = _f.Define("load_masks", 0, func(_ ...any) {
+		_f.MOVQ(uint64(0b0000_1111_0000_1111), amd64.AX)
+		_f.KMOVQ(amd64.AX, amd64.K1)
 
-		f.MOVQ(uint64(0b00_11_00_11), amd64.AX)
-		f.KMOVQ(amd64.AX, amd64.K2)
+		_f.MOVQ(uint64(0b00_11_00_11), amd64.AX)
+		_f.KMOVQ(amd64.AX, amd64.K2)
 
-		f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
-		f.KMOVD(amd64.AX, amd64.K3)
+		_f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
+		_f.KMOVD(amd64.AX, amd64.K3)
 	}, true)
 
-	_ = f.Define("butterfly_mulD", 11+4, func(args ...any) {
+	_ = _f.Define("butterfly_mulD", 11+4, func(args ...any) {
 		butterflyD2Q(args[0], args[1], args[2], args[3], args[4])
 		mulD(args[5:]...)
 	}, true)

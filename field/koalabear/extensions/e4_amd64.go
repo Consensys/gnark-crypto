@@ -11,10 +11,32 @@ import (
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 )
 
+// indices used for gather (transpose) operation
+var indexGather4 []uint32
+
+func init() {
+	indexGather4 = make([]uint32, 16)
+	for i := 0; i < 16; i++ {
+		indexGather4[i] = uint32(i * 4)
+	}
+}
+
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 // used for Montgomery reduction
 const qInvNeg = 2130706431
 const q = 2130706433
 
 //go:noescape
-func mulAccE4_avx512(alpha *E4, scale *fr.Element, res *E4, N uint64)
+func mulAccByElement_avx512(alpha *E4, scale *fr.Element, res *E4, N uint64)
+
+//go:noescape
+func vectorAdd_avx512(res, a, b *E4, N uint64)
+
+//go:noescape
+func vectorSub_avx512(res, a, b *E4, N uint64)
+
+//go:noescape
+func vectorMul_avx512(res, a, b *E4, N uint64)
+
+//go:noescape
+func vectorScalarMul_avx512(res, a, b *E4, N uint64)
