@@ -55,15 +55,15 @@ type FFAmd64 struct {
 
 type defineFn func(args ...any)
 
-func (_f *FFAmd64) SetQStack(qStack []amd64.Register) {
-	_f.qStack = qStack
+func (f *FFAmd64) SetQStack(qStack []amd64.Register) {
+	f.qStack = qStack
 }
 
-func (_f *FFAmd64) UnsetQStack() {
-	_f.qStack = nil
+func (f *FFAmd64) UnsetQStack() {
+	f.qStack = nil
 }
 
-func (_f *FFAmd64) StackSize(maxNbRegistersNeeded, nbRegistersReserved, minStackSize int) int {
+func (f *FFAmd64) StackSize(maxNbRegistersNeeded, nbRegistersReserved, minStackSize int) int {
 	got := amd64.NbRegisters - nbRegistersReserved
 	r := got - maxNbRegistersNeeded
 	if r >= 0 {
@@ -73,25 +73,25 @@ func (_f *FFAmd64) StackSize(maxNbRegistersNeeded, nbRegistersReserved, minStack
 	return max(r, minStackSize)
 }
 
-func (_f *FFAmd64) DefineFn(name string) (fn defineFn, err error) {
+func (f *FFAmd64) DefineFn(name string) (fn defineFn, err error) {
 	name = strings.ToUpper(name)
-	fn, ok := _f.mDefines[name]
+	fn, ok := f.mDefines[name]
 	if !ok {
 		return nil, fmt.Errorf("function %s not defined", name)
 	}
 	return fn, nil
 }
 
-func (_f *FFAmd64) CallDefine(name string, args ...any) {
+func (f *FFAmd64) CallDefine(name string, args ...any) {
 	name = strings.ToUpper(name)
-	fn, ok := _f.mDefines[name]
+	fn, ok := f.mDefines[name]
 	if !ok {
 		panic(fmt.Sprintf("function %s not defined", name))
 	}
 	fn(args...)
 }
 
-func (_f *FFAmd64) Define(name string, nbInputs int, fn defineFn, reuse bool) defineFn {
+func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn, reuse bool) defineFn {
 
 	inputs := make([]string, nbInputs)
 	for i := 0; i < nbInputs; i++ {
@@ -99,7 +99,7 @@ func (_f *FFAmd64) Define(name string, nbInputs int, fn defineFn, reuse bool) de
 	}
 	name = strings.ToUpper(name)
 
-	for fn, ok := _f.mDefines[name]; ok; {
+	for fn, ok := f.mDefines[name]; ok; {
 		if reuse {
 			// in that case, we don't redefine the define;
 			// user explicitly asked for it
@@ -121,15 +121,15 @@ func (_f *FFAmd64) Define(name string, nbInputs int, fn defineFn, reuse bool) de
 	}
 	// startDefine:
 
-	_f.StartDefine()
-	_f.WriteLn("#define " + name + "(" + strings.Join(inputs, ", ") + ")")
+	f.StartDefine()
+	f.WriteLn("#define " + name + "(" + strings.Join(inputs, ", ") + ")")
 	inputsRegisters := make([]any, nbInputs)
 	for i := 0; i < nbInputs; i++ {
 		inputsRegisters[i] = amd64.Register(inputs[i])
 	}
 	fn(inputsRegisters...)
-	_f.EndDefine()
-	_f.WriteLn("")
+	f.EndDefine()
+	f.WriteLn("")
 
 	toReturn := func(args ...any) {
 		if len(args) != nbInputs {
@@ -150,40 +150,40 @@ func (_f *FFAmd64) Define(name string, nbInputs int, fn defineFn, reuse bool) de
 				panic("invalid argument type")
 			}
 		}
-		_f.WriteLn(name + "(" + strings.Join(inputsStr, ", ") + ")")
+		f.WriteLn(name + "(" + strings.Join(inputsStr, ", ") + ")")
 	}
 
-	_f.mDefines[name] = toReturn
+	f.mDefines[name] = toReturn
 
 	return toReturn
 }
 
-func (_f *FFAmd64) AssertCleanStack(reservedStackSize, minStackSize int) {
-	if _f.qStack != nil {
+func (f *FFAmd64) AssertCleanStack(reservedStackSize, minStackSize int) {
+	if f.qStack != nil {
 		panic("qStack not empty, use f.UnsetQStack()")
 	}
-	if _f.nbElementsOnStack != 0 {
-		panic(fmt.Sprintf("missing f.Push stack elements (NbWords=%d)", _f.NbWords))
+	if f.nbElementsOnStack != 0 {
+		panic(fmt.Sprintf("missing f.Push stack elements (NbWords=%d)", f.NbWords))
 	}
 	if reservedStackSize < minStackSize {
-		panic(fmt.Sprintf("invalid minStackSize or reservedStackSize (NbWords=%d, reserved=%d, min=%d)", _f.NbWords, reservedStackSize, minStackSize))
+		panic(fmt.Sprintf("invalid minStackSize or reservedStackSize (NbWords=%d, reserved=%d, min=%d)", f.NbWords, reservedStackSize, minStackSize))
 	}
-	usedStackSize := _f.maxOnStack * 8
+	usedStackSize := f.maxOnStack * 8
 	if usedStackSize > reservedStackSize {
-		panic(fmt.Sprintf("using more stack size than reserved (NbWords=%d, reserved=%d, used=%d)", _f.NbWords, reservedStackSize, usedStackSize))
+		panic(fmt.Sprintf("using more stack size than reserved (NbWords=%d, reserved=%d, used=%d)", f.NbWords, reservedStackSize, usedStackSize))
 	} else if max(usedStackSize, minStackSize) < reservedStackSize {
 		// this panic is for dev purposes as this may be by design for alignment
-		panic(fmt.Sprintf("reserved more stack size than needed (NbWords=%d, reserved=%d, used=%d)", _f.NbWords, reservedStackSize, usedStackSize))
+		panic(fmt.Sprintf("reserved more stack size than needed (NbWords=%d, reserved=%d, used=%d)", f.NbWords, reservedStackSize, usedStackSize))
 	}
 
-	_f.maxOnStack = 0
+	f.maxOnStack = 0
 }
 
-func (_f *FFAmd64) Push(registers *amd64.Registers, rIn ...amd64.Register) {
+func (f *FFAmd64) Push(registers *amd64.Registers, rIn ...amd64.Register) {
 	for _, r := range rIn {
 		if strings.HasPrefix(string(r), "s") {
 			// it's on the stack, decrease the offset
-			_f.nbElementsOnStack--
+			f.nbElementsOnStack--
 			continue
 		}
 		registers.Push(r)
@@ -192,76 +192,76 @@ func (_f *FFAmd64) Push(registers *amd64.Registers, rIn ...amd64.Register) {
 
 // UnsafePush behaves as Push, but doesn't check that the register is a valid register.
 // This is useful when using R15 which is not included by default on the available registers.
-func (_f *FFAmd64) UnsafePush(registers *amd64.Registers, rIn ...amd64.Register) {
+func (f *FFAmd64) UnsafePush(registers *amd64.Registers, rIn ...amd64.Register) {
 	for _, r := range rIn {
 		if strings.HasPrefix(string(r), "s") {
 			// it's on the stack, decrease the offset
-			_f.nbElementsOnStack--
+			f.nbElementsOnStack--
 			continue
 		}
 		registers.UnsafePush(r)
 	}
 }
 
-func (_f *FFAmd64) Pop(registers *amd64.Registers, forceStack ...bool) amd64.Register {
+func (f *FFAmd64) Pop(registers *amd64.Registers, forceStack ...bool) amd64.Register {
 	if registers.Available() >= 1 && (len(forceStack) == 0 || !forceStack[0]) {
 		return registers.Pop()
 	}
-	r := amd64.Register(fmt.Sprintf("s%d-%d(SP)", _f.nbElementsOnStack, 8+_f.nbElementsOnStack*8))
-	_f.nbElementsOnStack++
-	if _f.nbElementsOnStack > _f.maxOnStack {
-		_f.maxOnStack = _f.nbElementsOnStack
+	r := amd64.Register(fmt.Sprintf("s%d-%d(SP)", f.nbElementsOnStack, 8+f.nbElementsOnStack*8))
+	f.nbElementsOnStack++
+	if f.nbElementsOnStack > f.maxOnStack {
+		f.maxOnStack = f.nbElementsOnStack
 	}
 	return r
 }
 
-func (_f *FFAmd64) PopN(registers *amd64.Registers, forceStack ...bool) []amd64.Register {
+func (f *FFAmd64) PopN(registers *amd64.Registers, forceStack ...bool) []amd64.Register {
 	if len(forceStack) > 0 && forceStack[0] {
-		nbStack := _f.NbWords
+		nbStack := f.NbWords
 		var u []amd64.Register
 
-		for i := _f.nbElementsOnStack; i < nbStack+_f.nbElementsOnStack; i++ {
+		for i := f.nbElementsOnStack; i < nbStack+f.nbElementsOnStack; i++ {
 			u = append(u, amd64.Register(fmt.Sprintf("s%d-%d(SP)", i, 8+i*8)))
 		}
-		_f.nbElementsOnStack += nbStack
-		if _f.nbElementsOnStack > _f.maxOnStack {
-			_f.maxOnStack = _f.nbElementsOnStack
+		f.nbElementsOnStack += nbStack
+		if f.nbElementsOnStack > f.maxOnStack {
+			f.maxOnStack = f.nbElementsOnStack
 		}
 		return u
 	}
-	if registers.Available() >= _f.NbWords {
-		return registers.PopN(_f.NbWords)
+	if registers.Available() >= f.NbWords {
+		return registers.PopN(f.NbWords)
 	}
-	nbStack := _f.NbWords - registers.Available()
+	nbStack := f.NbWords - registers.Available()
 	u := registers.PopN(registers.Available())
 
-	for i := _f.nbElementsOnStack; i < nbStack+_f.nbElementsOnStack; i++ {
+	for i := f.nbElementsOnStack; i < nbStack+f.nbElementsOnStack; i++ {
 		u = append(u, amd64.Register(fmt.Sprintf("s%d-%d(SP)", i, 8+i*8)))
 	}
-	_f.nbElementsOnStack += nbStack
-	if _f.nbElementsOnStack > _f.maxOnStack {
-		_f.maxOnStack = _f.nbElementsOnStack
+	f.nbElementsOnStack += nbStack
+	if f.nbElementsOnStack > f.maxOnStack {
+		f.maxOnStack = f.nbElementsOnStack
 	}
 	return u
 }
 
-func (_f *FFAmd64) qAt(index int) string {
-	if _f.qStack != nil {
-		return string(_f.qStack[index])
+func (f *FFAmd64) qAt(index int) string {
+	if f.qStack != nil {
+		return string(f.qStack[index])
 	}
 	return fmt.Sprintf("·qElement+%d(SB)", index*8)
 }
 
-func (_f *FFAmd64) qAt_u32(index int) string {
-	if _f.qStack != nil && _f.NbWords == 4 {
+func (f *FFAmd64) qAt_u32(index int) string {
+	if f.qStack != nil && f.NbWords == 4 {
 		// so we have q on the stack as 4 uint64
 		// but we want the addresses for 8 uint32
 		// this is a not-future proof hack but should work for only current use case..;
 		// ensure we have these:
-		if _f.qStack[0] != "s1-16(SP)" ||
-			_f.qStack[1] != "s2-24(SP)" ||
-			_f.qStack[2] != "s3-32(SP)" ||
-			_f.qStack[3] != "s4-40(SP)" {
+		if f.qStack[0] != "s1-16(SP)" ||
+			f.qStack[1] != "s2-24(SP)" ||
+			f.qStack[2] != "s3-32(SP)" ||
+			f.qStack[3] != "s4-40(SP)" {
 			panic("qStack not initialized properly for qAt_bcst")
 		}
 		switch index {
@@ -289,11 +289,11 @@ func (_f *FFAmd64) qAt_u32(index int) string {
 	return fmt.Sprintf("·qElement+%d(SB)", index*4)
 }
 
-func (_f *FFAmd64) qInv0() string {
+func (f *FFAmd64) qInv0() string {
 	return "$const_qInvNeg"
 }
 
-func (_f *FFAmd64) mu() string {
+func (f *FFAmd64) mu() string {
 	return "$const_mu"
 }
 

@@ -21,7 +21,7 @@ import (
 	"github.com/consensys/bavard/amd64"
 )
 
-func (_f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
+func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 	fullRounds := params.FullRounds
 	partialRounds := params.PartialRounds
 	width := params.Width
@@ -35,9 +35,9 @@ func (_f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 	width24 := width == 24
 
 	const argSize = 2 * 3 * 8
-	stackSize := _f.StackSize(_f.NbWords*2+4, 2, 0)
-	registers := _f.FnHeader(fnName, stackSize, argSize, amd64.AX, amd64.DX)
-	defer _f.AssertCleanStack(stackSize, 0)
+	stackSize := f.StackSize(f.NbWords*2+4, 2, 0)
+	registers := f.FnHeader(fnName, stackSize, argSize, amd64.AX, amd64.DX)
+	defer f.AssertCleanStack(stackSize, 0)
 
 	addrInput := registers.Pop()
 	addrRoundKeys := registers.Pop()
@@ -75,48 +75,48 @@ func (_f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 	d1odd := registers.PopV()
 
 	// prepare the masks used for shuffling the vectors
-	_f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
-	_f.KMOVD(amd64.AX, amd64.K3)
+	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
 
-	_f.MOVQ(uint64(0x1), amd64.AX)
-	_f.KMOVQ(amd64.AX, amd64.K2)
+	f.MOVQ(uint64(0x1), amd64.AX)
+	f.KMOVQ(amd64.AX, amd64.K2)
 
 	// load the constants
-	_f.MOVD("$const_q", amd64.AX)
-	_f.VPBROADCASTD(amd64.AX, qd)
-	_f.MOVD("$const_qInvNeg", amd64.AX)
-	_f.VPBROADCASTD(amd64.AX, qInvNeg)
+	f.MOVD("$const_q", amd64.AX)
+	f.VPBROADCASTD(amd64.AX, qd)
+	f.MOVD("$const_qInvNeg", amd64.AX)
+	f.VPBROADCASTD(amd64.AX, qInvNeg)
 
-	_f.MOVQ("input+0(FP)", addrInput)
-	_f.MOVQ("roundKeys+24(FP)", addrRoundKeys)
+	f.MOVQ("input+0(FP)", addrInput)
+	f.MOVQ("roundKeys+24(FP)", addrRoundKeys)
 	// load the 3 * 8 uint32
-	_f.VMOVDQU32(addrInput.AtD(0), b0)
+	f.VMOVDQU32(addrInput.AtD(0), b0)
 	if width24 {
-		_f.VMOVDQU32(addrInput.AtD(16), b1.Y())
-		_f.MOVQ("·diag24+0(SB)", addrDiagonal)
-		_f.VMOVDQU32(addrDiagonal.AtD(0), d0)
-		_f.VMOVDQU32(addrDiagonal.AtD(16), d1.Y())
-		_f.VPSRLQ("$32", d0, d0odd)
-		_f.VPSRLQ("$32", d1.Y(), d1odd.Y())
+		f.VMOVDQU32(addrInput.AtD(16), b1.Y())
+		f.MOVQ("·diag24+0(SB)", addrDiagonal)
+		f.VMOVDQU32(addrDiagonal.AtD(0), d0)
+		f.VMOVDQU32(addrDiagonal.AtD(16), d1.Y())
+		f.VPSRLQ("$32", d0, d0odd)
+		f.VPSRLQ("$32", d1.Y(), d1odd.Y())
 	} else {
-		_f.MOVQ("·diag16+0(SB)", addrDiagonal)
-		_f.VMOVDQU32(addrDiagonal.AtD(0), d0)
-		_f.VPSRLQ("$32", d0, d0odd)
+		f.MOVQ("·diag16+0(SB)", addrDiagonal)
+		f.VMOVDQU32(addrDiagonal.AtD(0), d0)
+		f.VPSRLQ("$32", d0, d0odd)
 	}
 
-	add := _f.Define("add", 5, func(args ...any) {
+	add := f.Define("add", 5, func(args ...any) {
 		a := args[0]
 		b := args[1]
 		qd := args[2]
 		r0 := args[3]
 		into := args[4]
 
-		_f.VPADDD(a, b, into)
-		_f.VPSUBD(qd, into, r0)
-		_f.VPMINUD(into, r0, into)
+		f.VPADDD(a, b, into)
+		f.VPSUBD(qd, into, r0)
+		f.VPMINUD(into, r0, into)
 	}, true)
 
-	matMulM4 := _f.Define("mat_mul_m4", 6, func(args ...any) {
+	matMulM4 := f.Define("mat_mul_m4", 6, func(args ...any) {
 		block := args[0]
 		t0 := args[1]
 		t1 := args[2]
@@ -136,22 +136,22 @@ func (_f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 		// 1. we compute the sum
 		// 2. we compute the shifted double(s)
 		// 3. we add
-		_f.VPSHUFD(uint64(0x4e), block, t0)
+		f.VPSHUFD(uint64(0x4e), block, t0)
 		add(t0, block, qd, r0, t0)
-		_f.VPSHUFD(uint64(0xb1), t0, t1)
+		f.VPSHUFD(uint64(0xb1), t0, t1)
 		add(t0, t1, qd, r0, t0)
 
-		_f.VPSHUFD(uint64(0x39), block, t2)
-		_f.VPSLLD("$1", t2, t2)
-		_f.VPSUBD(qd, t2, r0)
-		_f.VPMINUD(t2, r0, t2)
+		f.VPSHUFD(uint64(0x39), block, t2)
+		f.VPSLLD("$1", t2, t2)
+		f.VPSUBD(qd, t2, r0)
+		f.VPMINUD(t2, r0, t2)
 
 		// compute the sum
 		add(block, t0, qd, r0, block)
 		add(block, t2, qd, r0, block)
 	}, true)
 
-	matMulExternalInPlace := _f.Define("mat_mul_external", 0, func(args ...any) {
+	matMulExternalInPlace := f.Define("mat_mul_external", 0, func(args ...any) {
 		matMulM4(b0, t0, t1, t2, qd, t5)
 		matMulM4(b1.Y(), t0.Y(), t1.Y(), t2.Y(), qd.Y(), t5.Y())
 
@@ -161,35 +161,35 @@ func (_f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 		// acc[1] = Σ s[(i+1)%4]
 		// acc[2] = Σ s[(i+2)%4]
 		// acc[3] = Σ s[(i+3)%4]
-		_f.VEXTRACTI64X4(1, b0, acc)
+		f.VEXTRACTI64X4(1, b0, acc)
 		add(acc, b0.Y(), qd.Y(), t5.Y(), acc)
 		add(acc, b1.Y(), qd.Y(), t5.Y(), acc)
 
 		// we now have a Y register with the 8 elements
 		// we permute to compute the desired result duplicated in acc[0..3] and acc[4..7]
-		_f.VSHUFF64X2(0b1, acc, acc, accShuffled)
+		f.VSHUFF64X2(0b1, acc, acc, accShuffled)
 		add(acc.Y(), accShuffled, qd.Y(), t5.Y(), acc.Y())
 
-		_f.VINSERTI64X4(1, acc.Y(), acc.Z(), acc.Z())
+		f.VINSERTI64X4(1, acc.Y(), acc.Z(), acc.Z())
 
 		add(b1.Y(), acc.Y(), qd.Y(), t3.Y(), b1.Y())
 		add(b0, acc.Z(), qd, t5, b0)
 	}, true)
 	if !width24 {
-		matMulExternalInPlace = _f.Define("mat_mul_external_16", 0, func(args ...any) {
+		matMulExternalInPlace = f.Define("mat_mul_external_16", 0, func(args ...any) {
 			matMulM4(b0, t0, t1, t2, qd, t5)
-			_f.VEXTRACTI64X4(1, b0, acc)
+			f.VEXTRACTI64X4(1, b0, acc)
 			add(acc, b0.Y(), qd.Y(), t5.Y(), acc)
-			_f.VSHUFF64X2(0b1, acc, acc, accShuffled)
+			f.VSHUFF64X2(0b1, acc, acc, accShuffled)
 			add(acc.Y(), accShuffled, qd.Y(), t5.Y(), acc.Y())
-			_f.VINSERTI64X4(1, acc.Y(), acc.Z(), acc.Z())
+			f.VINSERTI64X4(1, acc.Y(), acc.Z(), acc.Z())
 			add(b0, acc.Z(), qd, t5, b0)
 		}, true)
 	}
 
 	// computes c = a * b mod q
 	// a and b can be in [0, 2q)
-	_mulD := _f.Define("mulD", 11, func(args ...any) {
+	_mulD := f.Define("mulD", 11, func(args ...any) {
 		a := args[0]
 		b := args[1]
 		aOdd := args[2]
@@ -202,31 +202,31 @@ func (_f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 		qInvNeg := args[9]
 		c := args[10]
 
-		_f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
-		_f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
+		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
+		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
 
 		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
-		_f.VPMULUDQ(a, b, b0)
-		_f.VPMULUDQ(aOdd, bOdd, b1)
-		_f.VPMULUDQ(b0, qInvNeg, PL0)
-		_f.VPMULUDQ(b1, qInvNeg, PL1)
+		f.VPMULUDQ(a, b, b0)
+		f.VPMULUDQ(aOdd, bOdd, b1)
+		f.VPMULUDQ(b0, qInvNeg, PL0)
+		f.VPMULUDQ(b1, qInvNeg, PL1)
 
-		_f.VPMULUDQ(PL0, q, PL0)
-		_f.VPADDQ(b0, PL0, b0)
+		f.VPMULUDQ(PL0, q, PL0)
+		f.VPADDQ(b0, PL0, b0)
 
-		_f.VPMULUDQ(PL1, q, PL1)
-		_f.VPADDQ(b1, PL1, c)
+		f.VPMULUDQ(PL1, q, PL1)
+		f.VPADDQ(b1, PL1, c)
 
-		_f.VMOVSHDUPk(b0, amd64.K3, c)
+		f.VMOVSHDUPk(b0, amd64.K3, c)
 	}, true)
 
-	reduce1Q := _f.Define("reduce1Q", 3, func(args ...any) {
+	reduce1Q := f.Define("reduce1Q", 3, func(args ...any) {
 		qd := args[0]
 		c := args[1]
 		r0 := args[2]
 
-		_f.VPSUBD(qd, c, r0)
-		_f.VPMINUD(c, r0, c)
+		f.VPSUBD(qd, c, r0)
+		f.VPMINUD(c, r0, c)
 	}, true)
 
 	mulY := func(a, b, c amd64.VectorRegister, reduce bool) {
@@ -254,7 +254,7 @@ func (_f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 	var sbox, sboxPartial defineFn
 	switch params.SBoxDegree {
 	case 3:
-		sbox = _f.Define("sbox_full", 0, func(args ...any) {
+		sbox = f.Define("sbox_full", 0, func(args ...any) {
 			mul(b0, b0, t2, false)
 			mul(b0, t2, b0, true)
 
@@ -263,34 +263,34 @@ func (_f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 
 		}, true)
 		if !width24 {
-			sbox = _f.Define("sbox_full_16", 0, func(args ...any) {
+			sbox = f.Define("sbox_full_16", 0, func(args ...any) {
 				mul(b0, b0, t2, false)
 				mul(b0, t2, b0, true)
 			}, true)
 		}
 
-		sboxPartial = _f.Define("sbox_partial", 0, func(args ...any) {
+		sboxPartial = f.Define("sbox_partial", 0, func(args ...any) {
 			// t2.X() = b0 * b0
 			// this is similar to the mulD macro
 			// but since we only care about the mul result at [0],
 			// we unroll and remove unnecessary code.
-			_f.VPMULUDQ(v1.X(), v1.X(), t0.X())
-			_f.VPMULUDQ(t0.X(), qInvNeg.X(), PL0.X())
-			_f.VPMULUDQ(PL0.X(), qd.X(), PL0.X())
-			_f.VPADDQ(t0.X(), PL0.X(), t0.X())
-			_f.VPSRLQ("$32", t0.X(), t2.X())
+			f.VPMULUDQ(v1.X(), v1.X(), t0.X())
+			f.VPMULUDQ(t0.X(), qInvNeg.X(), PL0.X())
+			f.VPMULUDQ(PL0.X(), qd.X(), PL0.X())
+			f.VPADDQ(t0.X(), PL0.X(), t0.X())
+			f.VPSRLQ("$32", t0.X(), t2.X())
 
 			// b0 = b0 * t2.X()
-			_f.VPMULUDQ(v1.X(), t2.X(), t0.X())
-			_f.VPMULUDQ(t0.X(), qInvNeg.X(), PL0.X())
-			_f.VPMULUDQ(PL0.X(), qd.X(), PL0.X())
-			_f.VPADDQ(t0.X(), PL0.X(), t0.X())
-			_f.VPSRLQ("$32", t0.X(), v1.X())
-			_f.VPSUBD(qd.X(), v1.X(), PL0.X())
-			_f.VPMINUD(v1.X(), PL0.X(), v1.X())
+			f.VPMULUDQ(v1.X(), t2.X(), t0.X())
+			f.VPMULUDQ(t0.X(), qInvNeg.X(), PL0.X())
+			f.VPMULUDQ(PL0.X(), qd.X(), PL0.X())
+			f.VPADDQ(t0.X(), PL0.X(), t0.X())
+			f.VPSRLQ("$32", t0.X(), v1.X())
+			f.VPSUBD(qd.X(), v1.X(), PL0.X())
+			f.VPMINUD(v1.X(), PL0.X(), v1.X())
 		}, true)
 	case 7:
-		sbox = _f.Define("sbox_full", 0, func(args ...any) {
+		sbox = f.Define("sbox_full", 0, func(args ...any) {
 			mul(b0, b0, t2, true)
 			mul(t2, t2, t3, false)
 			mul(b0, t2, b0, false)
@@ -302,7 +302,7 @@ func (_f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 			mulY(b1, t3, b1, true)
 		}, true)
 		if !width24 {
-			sbox = _f.Define("sbox_full_16", 0, func(args ...any) {
+			sbox = f.Define("sbox_full_16", 0, func(args ...any) {
 				mul(b0, b0, t2, true)
 				mul(t2, t2, t3, false)
 				mul(b0, t2, b0, false)
@@ -310,7 +310,7 @@ func (_f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 			}, true)
 		}
 
-		sboxPartial = _f.Define("sbox_partial", 0, func(args ...any) {
+		sboxPartial = f.Define("sbox_partial", 0, func(args ...any) {
 			mulY(v1, v1, t2, true)
 			mulY(t2, t2, t3, false)
 			mulY(v1, t2, v1, false)
@@ -320,46 +320,46 @@ func (_f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 		panic("only SBox degree 3 and 7 are supported")
 	}
 
-	sumState := _f.Define("sum_state", 0, func(args ...any) {
+	sumState := f.Define("sum_state", 0, func(args ...any) {
 		// first we compute the sum
-		_f.VEXTRACTI64X4(1, b0, acc) // TODO @gbotrel here
+		f.VEXTRACTI64X4(1, b0, acc) // TODO @gbotrel here
 		add(acc, b1.Y(), qd.Y(), t5.Y(), acc)
 		add(acc, t4.Y(), qd.Y(), t5.Y(), acc)
 
 		// now we can work with acc.Y()
-		_f.VSHUFF64X2(0b1, acc, acc, accShuffled)
+		f.VSHUFF64X2(0b1, acc, acc, accShuffled)
 		add(acc, accShuffled, qd.Y(), t5.Y(), acc)
 
-		_f.VPSHUFD(uint64(0x4e), acc, accShuffled)
+		f.VPSHUFD(uint64(0x4e), acc, accShuffled)
 		add(acc, accShuffled, qd.Y(), t5.Y(), acc)
-		_f.VPSHUFD(uint64(0xb1), acc, accShuffled)
+		f.VPSHUFD(uint64(0xb1), acc, accShuffled)
 		add(acc, accShuffled, qd.Y(), t5.Y(), acc)
 
-		_f.VINSERTI64X4(1, acc, acc.Z(), acc.Z())
+		f.VINSERTI64X4(1, acc, acc.Z(), acc.Z())
 	}, true)
 	if !width24 {
-		sumState = _f.Define("sum_state_16", 0, func(args ...any) {
+		sumState = f.Define("sum_state_16", 0, func(args ...any) {
 			// first we compute the sum
-			_f.VEXTRACTI64X4(1, b0, acc)
+			f.VEXTRACTI64X4(1, b0, acc)
 			add(acc, t4.Y(), qd.Y(), t5.Y(), acc)
 
 			// now we can work with acc.Y()
-			_f.VSHUFF64X2(0b1, acc, acc, accShuffled)
+			f.VSHUFF64X2(0b1, acc, acc, accShuffled)
 			add(acc, accShuffled, qd.Y(), t5.Y(), acc)
 
-			_f.VPSHUFD(uint64(0x4e), acc, accShuffled)
+			f.VPSHUFD(uint64(0x4e), acc, accShuffled)
 			add(acc, accShuffled, qd.Y(), t5.Y(), acc)
-			_f.VPSHUFD(uint64(0xb1), acc, accShuffled)
+			f.VPSHUFD(uint64(0xb1), acc, accShuffled)
 			add(acc, accShuffled, qd.Y(), t5.Y(), acc)
 
-			_f.VINSERTI64X4(1, acc, acc.Z(), acc.Z())
+			f.VINSERTI64X4(1, acc, acc.Z(), acc.Z())
 		}, true)
 	}
 
-	fullRound := _f.Define("full_round", 0, func(args ...any) {
+	fullRound := f.Define("full_round", 0, func(args ...any) {
 		// load round keys
-		_f.VMOVDQU32(rKey.AtD(0), v0)
-		_f.VMOVDQU32(rKey.AtD(16), v1.Y())
+		f.VMOVDQU32(rKey.AtD(0), v0)
+		f.VMOVDQU32(rKey.AtD(16), v1.Y())
 
 		// add round keys
 		add(b0, v0, qd, t5, b0)
@@ -368,9 +368,9 @@ func (_f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 		matMulExternalInPlace()
 	}, true)
 	if !width24 {
-		fullRound = _f.Define("full_round_16", 0, func(args ...any) {
+		fullRound = f.Define("full_round_16", 0, func(args ...any) {
 			// load round keys
-			_f.VMOVDQU32(rKey.AtD(0), v0)
+			f.VMOVDQU32(rKey.AtD(0), v0)
 
 			// add round keys
 			add(b0, v0, qd, t5, b0)
@@ -381,9 +381,9 @@ func (_f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 
 	partialRound := func() {
 		// load round keys
-		_f.VMOVD(rKey.At(0), v0.X())
+		f.VMOVD(rKey.At(0), v0.X())
 		// copy b0 to break the dependency chain
-		_f.VMOVDQA32(b0, t4)
+		f.VMOVDQA32(b0, t4)
 
 		add(t4.X(), v0.X(), qd.X(), PL0.X(), v1.X())
 
@@ -391,48 +391,48 @@ func (_f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 		sboxPartial()
 
 		// merge the sbox at the first index of b0
-		_f.VPBLENDMD(v1, t4, t4, amd64.K2)
+		f.VPBLENDMD(v1, t4, t4, amd64.K2)
 
 		// multiply b1 by diagonal[1] (diag24)
 		// this is equivalent to mulY(b1, d1, t3, true)
 		// but we already have d1Odd that don't change so we unroll and modify the code
 		if width24 {
-			_f.VPSRLQ("$32", b1.Y(), aOdd.Y())
-			_f.VPMULUDQ(b1.Y(), d1.Y(), t0.Y())
-			_f.VPMULUDQ(aOdd.Y(), d1odd.Y(), t1.Y())
-			_f.VPMULUDQ(t0.Y(), qInvNeg.Y(), PL0.Y())
-			_f.VPMULUDQ(t1.Y(), qInvNeg.Y(), PL1.Y())
+			f.VPSRLQ("$32", b1.Y(), aOdd.Y())
+			f.VPMULUDQ(b1.Y(), d1.Y(), t0.Y())
+			f.VPMULUDQ(aOdd.Y(), d1odd.Y(), t1.Y())
+			f.VPMULUDQ(t0.Y(), qInvNeg.Y(), PL0.Y())
+			f.VPMULUDQ(t1.Y(), qInvNeg.Y(), PL1.Y())
 
-			_f.VPMULUDQ(PL0.Y(), qd.Y(), PL0.Y())
-			_f.VPADDQ(t0.Y(), PL0.Y(), t0.Y())
+			f.VPMULUDQ(PL0.Y(), qd.Y(), PL0.Y())
+			f.VPADDQ(t0.Y(), PL0.Y(), t0.Y())
 
-			_f.VPMULUDQ(PL1.Y(), qd.Y(), PL1.Y())
-			_f.VPADDQ(t1.Y(), PL1.Y(), t3.Y())
+			f.VPMULUDQ(PL1.Y(), qd.Y(), PL1.Y())
+			f.VPADDQ(t1.Y(), PL1.Y(), t3.Y())
 
-			_f.VMOVSHDUPk(t0.Y(), amd64.K3, t3.Y())
-			_f.VPSUBD(qd.Y(), t3.Y(), t5.Y())
-			_f.VPMINUD(t3.Y(), t5.Y(), t3.Y())
+			f.VMOVSHDUPk(t0.Y(), amd64.K3, t3.Y())
+			f.VPSUBD(qd.Y(), t3.Y(), t5.Y())
+			f.VPMINUD(t3.Y(), t5.Y(), t3.Y())
 		}
 
 		// multiply the part of b0 that don't depend on b[0] (i.e. round keys + sbox)
-		_f.VPSRLQ("$32", b0, aOdd)
-		_f.VPMULUDQ(aOdd, d0odd, t2)
-		_f.VPMULUDQ(t2, qInvNeg, PL1)
-		_f.VPMULUDQ(PL1, qd, PL1)
-		_f.VPADDQ(t2, PL1, t2)
+		f.VPSRLQ("$32", b0, aOdd)
+		f.VPMULUDQ(aOdd, d0odd, t2)
+		f.VPMULUDQ(t2, qInvNeg, PL1)
+		f.VPMULUDQ(PL1, qd, PL1)
+		f.VPADDQ(t2, PL1, t2)
 
 		// compute the sum: this depends on applying the sbox to b[0]
 		sumState()
 
 		// multiply the part of b0 that depends on b[0]
-		_f.VPMULUDQ(t4, d0, t0)
-		_f.VPMULUDQ(t0, qInvNeg, PL0)
-		_f.VPMULUDQ(PL0, qd, PL0)
-		_f.VPADDQ(t0, PL0, t0)
+		f.VPMULUDQ(t4, d0, t0)
+		f.VPMULUDQ(t0, qInvNeg, PL0)
+		f.VPMULUDQ(PL0, qd, PL0)
+		f.VPADDQ(t0, PL0, t0)
 
-		_f.VMOVSHDUPk(t0, amd64.K3, t2)
-		_f.VPSUBD(qd, t2, t5)
-		_f.VPMINUD(t2, t5, b0)
+		f.VMOVSHDUPk(t0, amd64.K3, t2)
+		f.VPSUBD(qd, t2, t5)
+		f.VPMINUD(t2, t5, b0)
 
 		// now we add the sum
 		add(b0, acc.Z(), qd, t5, b0)
@@ -444,36 +444,36 @@ func (_f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 	matMulExternalInPlace()
 
 	for i := 0; i < rf; i++ {
-		_f.MOVQ(addrRoundKeys.At(i*3), rKey)
+		f.MOVQ(addrRoundKeys.At(i*3), rKey)
 		fullRound()
 	}
 
-	_f.Comment("loop over the partial rounds")
+	f.Comment("loop over the partial rounds")
 	{
 		n := registers.Pop()
 		addrRoundKeys2 := registers.Pop()
-		_f.MOVQ(partialRounds, n, fmt.Sprintf("nb partial rounds --> %d", partialRounds))
-		_f.MOVQ(addrRoundKeys, addrRoundKeys2)
-		_f.ADDQ(rf*24, addrRoundKeys2)
+		f.MOVQ(partialRounds, n, fmt.Sprintf("nb partial rounds --> %d", partialRounds))
+		f.MOVQ(addrRoundKeys, addrRoundKeys2)
+		f.ADDQ(rf*24, addrRoundKeys2)
 
-		_f.Loop(n, func() {
-			_f.MOVQ(addrRoundKeys2.At(0), rKey)
+		f.Loop(n, func() {
+			f.MOVQ(addrRoundKeys2.At(0), rKey)
 			partialRound()
-			_f.ADDQ("$24", addrRoundKeys2)
+			f.ADDQ("$24", addrRoundKeys2)
 		})
 	}
 
 	for i := rf + partialRounds; i < fullRounds+partialRounds; i++ {
-		_f.MOVQ(addrRoundKeys.At(i*3), rKey)
+		f.MOVQ(addrRoundKeys.At(i*3), rKey)
 		fullRound()
 	}
 
-	_f.VMOVDQU32(b0, addrInput.AtD(0))
+	f.VMOVDQU32(b0, addrInput.AtD(0))
 	if width24 {
-		_f.VMOVDQU32(b1.Y(), addrInput.AtD(16))
+		f.VMOVDQU32(b1.Y(), addrInput.AtD(16))
 	}
 
-	_f.RET()
+	f.RET()
 }
 
 func (_f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
