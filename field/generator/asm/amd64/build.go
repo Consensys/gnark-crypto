@@ -394,7 +394,11 @@ func GenerateF31E4(w io.Writer) error {
 	f.WriteLn("#include \"go_asm.h\"")
 	f.WriteLn("")
 
-	f.generateMulAccE4()
+	f.generateMulAccByElement()
+	f.generateAddVecE4()
+	f.generateSubVecE4()
+	f.generateMulVecE4(true)
+	f.generateMulVecE4(false)
 
 	return nil
 

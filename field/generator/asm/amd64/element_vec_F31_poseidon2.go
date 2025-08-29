@@ -477,7 +477,7 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 }
 
 func (_f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
-	f := &poseidon2Helper{FFAmd64: _f}
+	f := &fieldHelper{FFAmd64: _f}
 	width := params.Width
 	fullRounds := params.FullRounds
 	partialRounds := params.PartialRounds
@@ -502,6 +502,7 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 	// constants
 	f.loadQ()
+	f.loadQInvNeg()
 
 	addrInput := registers.Pop()
 	addrRoundKeys := registers.Pop()
@@ -788,24 +789,28 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	f.RET()
 }
 
-type poseidon2Helper struct {
+type fieldHelper struct {
 	*FFAmd64
 	registers   *amd64.Registers
 	qd, qInvNeg amd64.VectorRegister
 }
 
-func (f *poseidon2Helper) loadQ() {
-	f.qd, f.qInvNeg = f.registers.PopV(), f.registers.PopV()
+func (f *fieldHelper) loadQ() {
+	f.qd = f.registers.PopV()
 	f.MOVD("$const_q", amd64.AX)
 	f.VPBROADCASTD(amd64.AX, f.qd)
+}
+
+func (f *fieldHelper) loadQInvNeg() {
+	f.qInvNeg = f.registers.PopV()
 	f.MOVD("$const_qInvNeg", amd64.AX)
 	f.VPBROADCASTD(amd64.AX, f.qInvNeg)
 }
 
 // add a and b and store the result in into
-func (f *poseidon2Helper) add(a, b, into amd64.VectorRegister) {
+func (f *fieldHelper) add(a, b, into amd64.VectorRegister) {
 	r0 := f.registers.PopV()
-	f.Define("add", 4, func(args ...any) {
+	f.Define("add", 5, func(args ...any) {
 		a := args[0]
 		b := args[1]
 		qd := args[2]
@@ -819,8 +824,12 @@ func (f *poseidon2Helper) add(a, b, into amd64.VectorRegister) {
 	f.registers.PushV(r0)
 }
 
+func (f *fieldHelper) addNoReduce(a, b, into amd64.VectorRegister) {
+	f.VPADDD(b, a, into)
+}
+
 // double a and store the result in into
-func (f *poseidon2Helper) double(a, into amd64.VectorRegister) {
+func (f *fieldHelper) double(a, into amd64.VectorRegister) {
 	r0 := f.registers.PopV()
 	f.Define("double", 4, func(args ...any) {
 		a := args[0]
@@ -836,7 +845,7 @@ func (f *poseidon2Helper) double(a, into amd64.VectorRegister) {
 }
 
 // sub a and b and store the result in into
-func (f *poseidon2Helper) sub(a, b, into amd64.VectorRegister) {
+func (f *fieldHelper) sub(a, b, into amd64.VectorRegister) {
 	r0 := f.registers.PopV()
 	f.Define("sub", 5, func(args ...any) {
 		a := args[0]
@@ -853,7 +862,7 @@ func (f *poseidon2Helper) sub(a, b, into amd64.VectorRegister) {
 }
 
 // halve a and store the result in into
-func (f *poseidon2Helper) halve(a, into amd64.VectorRegister) {
+func (f *fieldHelper) halve(a, into amd64.VectorRegister) {
 	ones := f.registers.PopV()
 
 	f.Define("halve", 2, func(args ...any) {
@@ -871,7 +880,7 @@ func (f *poseidon2Helper) halve(a, into amd64.VectorRegister) {
 	f.registers.PushV(ones)
 }
 
-func (f *poseidon2Helper) mul(a, b, into amd64.VectorRegister, reduce bool) {
+func (f *fieldHelper) mul(a, b, into amd64.VectorRegister, reduce bool) {
 	if f.registers.AvailableV() >= 5 {
 		f.mul_5(a, b, into, reduce)
 	} else {
@@ -883,7 +892,7 @@ func (f *poseidon2Helper) mul(a, b, into amd64.VectorRegister, reduce bool) {
 // this version uses only 4 temporary registers
 // see mul_5 for the version with 5 temporary registers
 // see mul_6 for the version with 6 temporary registers
-func (f *poseidon2Helper) mul_4(a, b, into amd64.VectorRegister, reduce bool) {
+func (f *fieldHelper) mul_4(a, b, into amd64.VectorRegister, reduce bool) {
 	t := f.registers.PopVN(4)
 
 	f.Define("mul_w", 7, func(args ...any) {
@@ -922,7 +931,7 @@ func (f *poseidon2Helper) mul_4(a, b, into amd64.VectorRegister, reduce bool) {
 	}
 }
 
-func (f *poseidon2Helper) mul_5(a, b, into amd64.VectorRegister, reduce bool) {
+func (f *fieldHelper) mul_5(a, b, into amd64.VectorRegister, reduce bool) {
 	t := f.registers.PopVN(5)
 	// same as mul_4, except we don't reuse aOdd for PL0
 
@@ -963,7 +972,7 @@ func (f *poseidon2Helper) mul_5(a, b, into amd64.VectorRegister, reduce bool) {
 
 // mul2ExpNegN multiplies a by -1/2^n (and reduces mod q)
 // uses 5 temporary registers
-func (f *poseidon2Helper) mul2ExpNegN(a amd64.VectorRegister, N int, into amd64.VectorRegister) {
+func (f *fieldHelper) mul2ExpNegN(a amd64.VectorRegister, N int, into amd64.VectorRegister) {
 	t := f.registers.PopVN(5)
 
 	// Since the Montgomery constant is 2^32, the Montgomery form of 1/2^n is
@@ -1014,7 +1023,7 @@ func (f *poseidon2Helper) mul2ExpNegN(a amd64.VectorRegister, N int, into amd64.
 }
 
 // reduce1Q reduces a by q and stores the result in into
-func (f *poseidon2Helper) reduce1Q(a amd64.VectorRegister) {
+func (f *fieldHelper) reduce1Q(a amd64.VectorRegister) {
 	r0 := f.registers.PopV()
 	f.Define("reduce1Q", 3, func(args ...any) {
 		qd := args[0]

@@ -2,10 +2,12 @@ import (
 	"math/big"
 
 	fr "{{ .FieldPackagePath }}"
-	{{- if .F31}}
-	"github.com/consensys/gnark-crypto/utils/cpu"
+	{{- if .IsKoalaBear}}
+		"github.com/consensys/gnark-crypto/utils/cpu"
 	{{- end}}
 )
+
+type Vector []E4
 
 // E4 is a degree two finite field extension of fr2
 type E4 struct {
@@ -351,26 +353,6 @@ func (z *E4) Div(x *E4, y *E4) *E4 {
 	return z.Set(&r)
 }
 
-{{- if .F31}}
-
-func MulAccE4(alpha *E4, scale []fr.Element, res []E4) {
-	N := len(res)
-	if N != len(scale) {
-		panic("MulAccE4: len(res) != len(scale)")
-	}
-	if !cpu.SupportAVX512 || N%4 != 0 {
-		var tmp E4
-		for i := 0; i < N; i++ {
-			tmp.MulByElement(alpha, &scale[i])
-			res[i].Add(&res[i], &tmp)
-		}
-		return
-	}
-
-	mulAccE4_avx512(alpha, &scale[0], &res[0], uint64(N))
-}
-{{- end}}
-
 // Butterfly computes the butterfly operation on two E4 elements
 func Butterfly(a, b *E4) {
 	fr.Butterfly(&a.B0.A0, &b.B0.A0)
@@ -378,4 +360,163 @@ func Butterfly(a, b *E4) {
 
 	fr.Butterfly(&a.B1.A0, &b.B1.A0)
 	fr.Butterfly(&a.B1.A1, &b.B1.A1)
+}
+
+// Vector operations
+
+func (vector Vector) Add(a, b Vector) {
+	N := len(a)
+	if N != len(b) || N != len(vector) {
+		panic("vector.Add: vectors don't have the same length")
+	}
+	{{- if .IsKoalaBear}}
+		if !cpu.SupportAVX512 || N < 4 {
+			vectorAddGeneric(vector, a, b)
+			return
+		}
+		r := N % 4
+		nr := uint64(N - r)
+		vectorAdd_avx512(&vector[0], &a[0], &b[0], nr)
+		if r != 0 {
+			vectorAddGeneric(vector[N-r:], a[N-r:], b[N-r:])
+		}
+	{{- else}}
+		vectorAddGeneric(vector, a, b)
+	{{- end}}
+}
+
+func (vector Vector) Sub(a, b Vector) {
+	N := len(a)
+	if N != len(b) || N != len(vector) {
+		panic("vector.Sub: vectors don't have the same length")
+	}
+	{{- if .IsKoalaBear}}
+		if !cpu.SupportAVX512 || N < 4 {
+			vectorSubGeneric(vector, a, b)
+			return
+		}
+		r := N % 4
+		nr := uint64(N - r)
+		vectorSub_avx512(&vector[0], &a[0], &b[0], nr)
+		if r != 0 {
+			vectorSubGeneric(vector[N-r:], a[N-r:], b[N-r:])
+		}
+	{{- else}}
+		vectorSubGeneric(vector, a, b)
+	{{- end}}
+}
+
+func (vector Vector) Mul(a, b Vector) {
+	N := len(a)
+	if N != len(b) || N != len(vector) {
+		panic("vector.Mul: vectors don't have the same length")
+	}
+	{{- if .IsKoalaBear}}
+		if !cpu.SupportAVX512 || N < 16 {
+			vectorMulGeneric(vector, a, b)
+			return
+		}
+		r := N % 16
+		nr := uint64(N - r)
+		vectorMul_avx512(&vector[0], &a[0], &b[0], nr)
+		if r != 0 {
+			vectorMulGeneric(vector[N-r:], a[N-r:], b[N-r:])
+		}
+	{{- else}}
+		vectorMulGeneric(vector, a, b)
+	{{- end}}
+}
+
+func (vector Vector) ScalarMul(a Vector, b *E4) {
+	N := len(a)
+	if N != len(vector) {
+		panic("vector.ScalarMul: vectors don't have the same length")
+	}
+	{{- if .IsKoalaBear}}
+		if !cpu.SupportAVX512 || N < 16 {
+			vectorScalarMulGeneric(vector, a, b)
+			return
+		}
+		r := N % 16
+		nr := uint64(N - r)
+		vectorScalarMul_avx512(&vector[0], &a[0], b, nr)
+		if r != 0 {
+			vectorScalarMulGeneric(vector[N-r:], a[N-r:], b)
+		}
+	{{- else}}
+		vectorScalarMulGeneric(vector, a, b)
+	{{- end}}
+}
+
+// Sum computes the sum of all elements in the vector.
+func (vector Vector) Sum() E4 {
+	var sum E4
+	for i := 0; i < len(vector); i++ {
+		sum.Add(&sum, &vector[i])
+	}
+	return sum
+}
+
+func (vector Vector) InnerProduct(a Vector) E4 {
+	if len(a) != len(vector) {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	return vectorInnerProductGeneric(vector, a)
+}
+
+// MulAccByElement multiplies each element of the vector v by the E4 element alpha,
+// accumulating the result in the same vector.
+func (vector Vector) MulAccByElement(scale []fr.Element, alpha *E4)  {
+	N := len(vector)
+	if N != len(scale) {
+		panic("MulAccE4: len(res) != len(scale)")
+	}
+	{{- if .IsKoalaBear}}
+		if !cpu.SupportAVX512 || N%4 != 0 {
+			vectorMulAccByElementGeneric(vector, scale, alpha)
+			return
+		}
+		mulAccByElement_avx512(alpha, &scale[0], &vector[0], uint64(N))
+	{{- else}}
+		vectorMulAccByElementGeneric(vector, scale, alpha)
+	{{- end}}
+}
+
+
+func vectorAddGeneric(res, a, b Vector) {
+	for i := 0; i < len(res); i++ {
+		res[i].Add(&a[i], &b[i])
+	}
+}
+func vectorSubGeneric(res, a, b Vector) {
+	for i := 0; i < len(res); i++ {
+		res[i].Sub(&a[i], &b[i])
+	}
+}
+func vectorMulGeneric(res, a, b Vector) {
+	for i := 0; i < len(res); i++ {
+		res[i].Mul(&a[i], &b[i])
+	}
+}
+func vectorScalarMulGeneric(res, a Vector, b *E4) {
+	for i := 0; i < len(res); i++ {
+		res[i].Mul(&a[i], b)
+	}
+}
+
+func vectorInnerProductGeneric(a, b Vector) E4 {
+	var res, tmp E4
+	for i := 0; i < len(a); i++ {
+		tmp.Mul(&a[i], &b[i])
+		res.Add(&res, &tmp)
+	}
+	return res
+}
+
+func vectorMulAccByElementGeneric(v Vector, scale []fr.Element, alpha *E4) {
+	var tmp E4
+	for i := 0; i < len(v); i++ {
+		tmp.MulByElement(alpha, &scale[i])
+		v[i].Add(&v[i], &tmp)
+	}
 }
