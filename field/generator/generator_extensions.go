@@ -66,7 +66,6 @@ func generateExtensions(F *config.Field, outputDir string) error {
 		}
 
 		if err := bgen.GenerateWithOptions(data, "extensions", extensionsTemplatesRootDir, nil, entries_ext4...); err != nil {
-			panic(err)
 			return err
 		}
 
