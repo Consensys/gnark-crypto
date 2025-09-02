@@ -11,6 +11,8 @@ import (
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 )
 
+const q = 2130706433
+
 func mulAccByElement_avx512(alpha *E4, scale *fr.Element, res *E4, N uint64) {
 	panic("mulAccByElement_avx512 is not implemented")
 }
@@ -29,4 +31,8 @@ func vectorMul_avx512(res, a, b *E4, N uint64) {
 
 func vectorScalarMul_avx512(res, a, b *E4, N uint64) {
 	panic("vectorScalarMul_avx512 is not implemented")
+}
+
+func vectorSum_avx512(res *[4]uint64, a *E4, N uint64) {
+	panic("vectorSum_avx512 is not implemented")
 }

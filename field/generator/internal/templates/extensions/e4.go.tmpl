@@ -478,7 +478,7 @@ func (vector Vector) Sum() E4 {
 
 		return res
 	{{- else}}
-	return vectorSumGeneric(vector)
+		return vectorSumGeneric(vector)
 	{{- end}}
 }
 
