@@ -341,3 +341,25 @@ loop_9:
 
 done_10:
 	RET
+
+TEXT ·vectorSum_avx512(SB), NOSPLIT, $0-24
+	MOVQ   res+0(FP), R13
+	MOVQ   a+8(FP), R14
+	MOVQ   N+16(FP), CX
+	VXORPS Z0, Z0, Z0     // vSum = 0
+	SHRQ   $1, CX
+
+loop_11:
+	TESTQ     CX, CX
+	JEQ       done_12
+	DECQ      CX
+	VPMOVZXDQ 0(R14), Z1 // load 2 E4 into vA
+	VPADDQ    Z1, Z0, Z0 // vSum += vA
+	ADDQ      $32, R14
+	JMP       loop_11
+
+done_12:
+	VEXTRACTI64X4 $1, Z0, Y2
+	VPADDQ        Y2, Y0, Y0
+	VMOVDQU64     Y0, 0(R13)
+	RET

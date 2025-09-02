@@ -399,6 +399,7 @@ func GenerateF31E4(w io.Writer) error {
 	f.generateSubVecE4()
 	f.generateMulVecE4(true)
 	f.generateMulVecE4(false)
+	f.generateSumVecE4()
 
 	return nil
 

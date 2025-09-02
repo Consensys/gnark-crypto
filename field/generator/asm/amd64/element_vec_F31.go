@@ -495,6 +495,49 @@ func (f *FFAmd64) generateInnerProdVecF31() {
 	f.Push(&registers, addrA, addrB, addrT, len)
 }
 
+func (f *FFAmd64) generateSumVecE4() {
+	// func vectorSum_avx512(res *[4]uint64, a *E4, N uint64)
+	const argSize = 3 * 8
+	stackSize := f.StackSize(f.NbWords*4+2, 0, 0)
+	registers := f.FnHeader("vectorSum_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer f.AssertCleanStack(stackSize, 0)
+
+	addrRes := registers.Pop()
+	addrA := registers.Pop()
+	N := registers.Pop()
+
+	f.MOVQ("res+0(FP)", addrRes)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("N+16(FP)", N)
+
+	// here we load 2 E4 at a time, we zero extend into zmm register of qwords
+	// last step, we fold the results into a single YMM register, then return 4 uint64 that the caller
+	// reduces mod q.
+	vSum := registers.PopV()
+	vA := registers.PopV()
+
+	// zeroize vSum
+	f.VXORPS(vSum, vSum, vSum, "vSum = 0")
+
+	// N % 2 == 0 (pre condition checked by caller)
+	// divide N by 2
+	f.SHRQ("$1", N)
+
+	f.Loop(N, func() {
+		f.VPMOVZXDQ(addrA.At(0), vA, "load 2 E4 into vA")
+		f.VPADDQ(vA, vSum, vSum, "vSum += vA")
+		f.ADDQ("$32", addrA)
+	})
+
+	vT := registers.PopV()
+	f.VEXTRACTI64X4(1, vSum, vT.Y())
+	f.VPADDQ(vT.Y(), vSum.Y(), vSum.Y())
+
+	f.VMOVDQU64(vSum.Y(), addrRes.At(0))
+
+	f.RET()
+}
+
 func (_f *FFAmd64) generateAddVecE4() {
 	// func vectorAdd_avx512(res, a, b *E4, N uint64)
 	const argSize = 4 * 8

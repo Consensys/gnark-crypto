@@ -402,11 +402,7 @@ func (vector Vector) ScalarMul(a Vector, b *E4) {
 
 // Sum computes the sum of all elements in the vector.
 func (vector Vector) Sum() E4 {
-	var sum E4
-	for i := 0; i < len(vector); i++ {
-		sum.Add(&sum, &vector[i])
-	}
-	return sum
+	return vectorSumGeneric(vector)
 }
 
 func (vector Vector) InnerProduct(a Vector) E4 {
@@ -454,6 +450,14 @@ func vectorInnerProductGeneric(a, b Vector) E4 {
 		res.Add(&res, &tmp)
 	}
 	return res
+}
+
+func vectorSumGeneric(v Vector) E4 {
+	var sum E4
+	for i := 0; i < len(v); i++ {
+		sum.Add(&sum, &v[i])
+	}
+	return sum
 }
 
 func vectorMulAccByElementGeneric(v Vector, scale []fr.Element, alpha *E4) {

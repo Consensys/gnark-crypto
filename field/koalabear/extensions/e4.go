@@ -374,11 +374,12 @@ func (vector Vector) Add(a, b Vector) {
 	if N != len(b) || N != len(vector) {
 		panic("vector.Add: vectors don't have the same length")
 	}
-	if !cpu.SupportAVX512 || N < 4 {
+	const blockSize = 4
+	if !cpu.SupportAVX512 || N < blockSize {
 		vectorAddGeneric(vector, a, b)
 		return
 	}
-	r := N % 4
+	r := N % blockSize
 	nr := uint64(N - r)
 	vectorAdd_avx512(&vector[0], &a[0], &b[0], nr)
 	if r != 0 {
@@ -391,11 +392,12 @@ func (vector Vector) Sub(a, b Vector) {
 	if N != len(b) || N != len(vector) {
 		panic("vector.Sub: vectors don't have the same length")
 	}
-	if !cpu.SupportAVX512 || N < 4 {
+	const blockSize = 4
+	if !cpu.SupportAVX512 || N < blockSize {
 		vectorSubGeneric(vector, a, b)
 		return
 	}
-	r := N % 4
+	r := N % blockSize
 	nr := uint64(N - r)
 	vectorSub_avx512(&vector[0], &a[0], &b[0], nr)
 	if r != 0 {
@@ -408,11 +410,12 @@ func (vector Vector) Mul(a, b Vector) {
 	if N != len(b) || N != len(vector) {
 		panic("vector.Mul: vectors don't have the same length")
 	}
-	if !cpu.SupportAVX512 || N < 16 {
+	const blockSize = 16
+	if !cpu.SupportAVX512 || N < blockSize {
 		vectorMulGeneric(vector, a, b)
 		return
 	}
-	r := N % 16
+	r := N % blockSize
 	nr := uint64(N - r)
 	vectorMul_avx512(&vector[0], &a[0], &b[0], nr)
 	if r != 0 {
@@ -425,11 +428,12 @@ func (vector Vector) ScalarMul(a Vector, b *E4) {
 	if N != len(vector) {
 		panic("vector.ScalarMul: vectors don't have the same length")
 	}
-	if !cpu.SupportAVX512 || N < 16 {
+	const blockSize = 16
+	if !cpu.SupportAVX512 || N < blockSize {
 		vectorScalarMulGeneric(vector, a, b)
 		return
 	}
-	r := N % 16
+	r := N % blockSize
 	nr := uint64(N - r)
 	vectorScalarMul_avx512(&vector[0], &a[0], b, nr)
 	if r != 0 {
@@ -439,11 +443,28 @@ func (vector Vector) ScalarMul(a Vector, b *E4) {
 
 // Sum computes the sum of all elements in the vector.
 func (vector Vector) Sum() E4 {
-	var sum E4
-	for i := 0; i < len(vector); i++ {
-		sum.Add(&sum, &vector[i])
+	const blockSize = 2
+	N := len(vector)
+	if !cpu.SupportAVX512 || N < blockSize {
+		return vectorSumGeneric(vector)
 	}
-	return sum
+
+	r := N % blockSize
+	nr := uint64(N - r)
+
+	var res E4
+	var t [4]uint64 // stores the accumulators (not reduced mod q)
+	vectorSum_avx512(&t, &vector[0], uint64(nr))
+	res.B0.A0[0] = uint32(t[0] % q)
+	res.B0.A1[0] = uint32(t[1] % q)
+	res.B1.A0[0] = uint32(t[2] % q)
+	res.B1.A1[0] = uint32(t[3] % q)
+
+	if r != 0 { // blockSize == 2; so we just add the last odd element
+		res.Add(&res, &vector[len(vector)-1])
+	}
+
+	return res
 }
 
 func (vector Vector) InnerProduct(a Vector) E4 {
@@ -460,7 +481,8 @@ func (vector Vector) MulAccByElement(scale []fr.Element, alpha *E4) {
 	if N != len(scale) {
 		panic("MulAccE4: len(res) != len(scale)")
 	}
-	if !cpu.SupportAVX512 || N%4 != 0 {
+	const blockSize = 4
+	if !cpu.SupportAVX512 || N%blockSize != 0 {
 		vectorMulAccByElementGeneric(vector, scale, alpha)
 		return
 	}
@@ -495,6 +517,14 @@ func vectorInnerProductGeneric(a, b Vector) E4 {
 		res.Add(&res, &tmp)
 	}
 	return res
+}
+
+func vectorSumGeneric(v Vector) E4 {
+	var sum E4
+	for i := 0; i < len(v); i++ {
+		sum.Add(&sum, &v[i])
+	}
+	return sum
 }
 
 func vectorMulAccByElementGeneric(v Vector, scale []fr.Element, alpha *E4) {
