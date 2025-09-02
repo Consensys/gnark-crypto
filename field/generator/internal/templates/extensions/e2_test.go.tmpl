@@ -519,8 +519,13 @@ func genFr() gopter.Gen {
 		// to have a deterministic generator.
 		e := bigIntPool.Get().(*big.Int)
 		e.Rand(genParams.Rng, modulus)
+		
 		for i, w := range e.Bits() {
-			elmt[i] = uint32(w)
+			{{- if or (eq .FF "babybear") (eq .FF "koalabear")}}
+				elmt[i] = uint32(w)
+			{{- else}}
+				elmt[i] = uint64(w)
+			{{- end}}
 		}
 		bigIntPool.Put(e)
 
