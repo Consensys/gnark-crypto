@@ -33,6 +33,10 @@ func vectorScalarMul_avx512(res, a, b *E4, N uint64) {
 	panic("vectorScalarMul_avx512 is not implemented")
 }
 
+func vectorInnerProduct_avx512(res *[32]uint64, a, b *E4, N uint64) {
+	panic("vectorInnerProduct_avx512 is not implemented")
+}
+
 func vectorSum_avx512(res *[4]uint64, a *E4, N uint64) {
 	panic("vectorSum_avx512 is not implemented")
 }

@@ -640,14 +640,29 @@ func (_f *FFAmd64) generateSubVecE4() {
 	f.RET()
 }
 
-func (_f *FFAmd64) generateMulVecE4(isScalarMul bool) {
+type e4VecOp int
+
+const (
+	e4VecMul e4VecOp = iota
+	e4VecScalarMul
+	e4VecInnerProd
+)
+
+func (_f *FFAmd64) generateMulVecE4(op e4VecOp) {
 
 	// func vectorMul_avx512(res, a, b *E4, N uint64)
 	const argSize = 4 * 8
 	stackSize := _f.StackSize(_f.NbWords*4+2, 0, 0)
-	name := "vectorMul_avx512"
-	if isScalarMul {
+	var name string
+	switch op {
+	case e4VecMul:
+		name = "vectorMul_avx512"
+	case e4VecScalarMul:
 		name = "vectorScalarMul_avx512"
+	case e4VecInnerProd:
+		name = "vectorInnerProduct_avx512"
+	default:
+		panic("invalid E4VecOp")
 	}
 	registers := _f.FnHeader(name, stackSize, argSize, amd64.DX, amd64.AX)
 	defer _f.AssertCleanStack(stackSize, 0)
@@ -678,8 +693,17 @@ func (_f *FFAmd64) generateMulVecE4(isScalarMul bool) {
 	f.VMOVDQU32(addrIndexGather4.At(0), vIndexGather)
 
 	z := registers.PopVN(8)
+	var accInnerProd []amd64.VectorRegister
+	if op == e4VecInnerProd {
+		accInnerProd = registers.PopVN(4)
+		// zeroize accInnerProd[...]
+		f.VXORPS(accInnerProd[0], accInnerProd[0], accInnerProd[0])
+		for i := 1; i < 4; i++ {
+			f.VMOVDQA64(accInnerProd[0], accInnerProd[i])
+		}
+	}
 
-	if isScalarMul {
+	if op == e4VecScalarMul {
 		// we load b only once.
 		for i := 4; i < 8; i++ {
 			f.MOVD(addrB.AtD(i-4), amd64.AX)
@@ -691,18 +715,24 @@ func (_f *FFAmd64) generateMulVecE4(isScalarMul bool) {
 	// divide N by 16
 	f.SHRQ("$4", N)
 	f.Loop(N, func() {
-		// first we fetch 16 E4 values from a and from b, and then we transpose them
-		// into 2*4 vectors of 16 dwords
-		// such that z0 == [a[0].B0.A0, a[1].B0.A0, ...]
-		for i := 0; i < 4; i++ {
-			// interleave ops for better throughput
-			f.KMOVD(maskFFFF, amd64.K1)
-			if !isScalarMul {
+		switch op {
+		case e4VecMul, e4VecInnerProd:
+			// first we fetch 16 E4 values from a and from b, and then we transpose them
+			// into 2*4 vectors of 16 dwords
+			// such that z0 == [a[0].B0.A0, a[1].B0.A0, ...]
+			for i := 0; i < 4; i++ {
+				// interleave ops for better throughput
+				f.KMOVD(maskFFFF, amd64.K1)
 				f.KMOVD(maskFFFF, amd64.K2)
-			}
-			f.VPGATHERDD(i*4, addrA, vIndexGather, 4, amd64.K1, z[i])
-			if !isScalarMul {
+				f.VPGATHERDD(i*4, addrA, vIndexGather, 4, amd64.K1, z[i])
 				f.VPGATHERDD(i*4, addrB, vIndexGather, 4, amd64.K2, z[i+4])
+			}
+		case e4VecScalarMul:
+			// for scalar mul, we don't need to fetch b.
+			for i := 0; i < 4; i++ {
+				// interleave ops for better throughput
+				f.KMOVD(maskFFFF, amd64.K1)
+				f.VPGATHERDD(i*4, addrA, vIndexGather, 4, amd64.K1, z[i])
 			}
 		}
 
@@ -718,7 +748,7 @@ func (_f *FFAmd64) generateMulVecE4(isScalarMul bool) {
 		f.add(z[0], z[2], a0)
 		f.add(z[1], z[3], a1)
 
-		// // Inline E2.Add(&y.B0, &y.B1)
+		// Inline E2.Add(&y.B0, &y.B1)
 		// var b0, b1 fr.Element
 		// b0.Add(&zmm4, &zmm6)
 		// b1.Add(&zmm5, &zmm7)
@@ -726,10 +756,10 @@ func (_f *FFAmd64) generateMulVecE4(isScalarMul bool) {
 		f.add(z[4], z[6], b0)
 		f.add(z[5], z[7], b1)
 
-		// // Inline E2.Mul(&x.B0, &y.B0)
+		// Inline E2.Mul(&x.B0, &y.B0)
 		// var dA0, dA1 fr.Element
 		// {
-		// 	// E2.Mul(x.B0, y.B0)
+		// E2.Mul(x.B0, y.B0)
 		// 	var  t1, t2 fr.Element
 		// 	dA1.Add(&zmm0, &zmm1)
 		// 	t1.Add(&zmm4, &zmm5)
@@ -776,13 +806,13 @@ func (_f *FFAmd64) generateMulVecE4(isScalarMul bool) {
 		}
 		dA0, dA1 := e2Mul(z[0], z[1], z[4], z[5])
 
-		// // Inline E2.Mul(&x.B1, &y.B1)
+		// Inline E2.Mul(&x.B1, &y.B1)
 		cA0, cA1 := e2Mul(z[2], z[3], z[6], z[7])
 
-		// // Inline E2.Mul(&a, &b)
+		// Inline E2.Mul(&a, &b)
 		aMbA0, aMbA1 := e2Mul(a0, a1, b0, b1)
 
-		// // Inline E2.Add(&d, &c)
+		// Inline E2.Add(&d, &c)
 		// var bcA0, bcA1 fr.Element
 		// bcA0.Add(&dA0, &cA0)
 		// bcA1.Add(&dA1, &cA1)
@@ -790,7 +820,7 @@ func (_f *FFAmd64) generateMulVecE4(isScalarMul bool) {
 		f.add(dA0, cA0, bcA0)
 		f.add(dA1, cA1, bcA1)
 
-		// // Inline E2.Add(&a, &b)
+		// Inline E2.Add(&a, &b)
 		// var abA0, abA1 fr.Element
 		// abA0.Add(&a0, &b0)
 		// abA1.Add(&a1, &b1)
@@ -799,14 +829,14 @@ func (_f *FFAmd64) generateMulVecE4(isScalarMul bool) {
 		f.add(a1, b1, abA1)
 
 		// let's use z[0:4] for z result, we don't need them anymore.
-		// // z.B1 = a - (d + c)
+		// z.B1 = a - (d + c)
 		// z.B1.A0.Sub(&aMbA0, &bcA0)
 		// z.B1.A1.Sub(&aMbA1, &bcA1)
 		f.sub(aMbA0, bcA0, z[2])
 		f.sub(aMbA1, bcA1, z[3])
 
-		// // z.B0 = MulByNonResidue(c) + d
-		// // MulByNonResidue: (A0, A1) -> (A1*3, A0)
+		// z.B0 = MulByNonResidue(c) + d
+		// MulByNonResidue: (A0, A1) -> (A1*3, A0)
 		// fr.MulBy3(&cA1)
 		// z.B0.A0.Add(&cA1, &dA0)
 		// z.B0.A1.Add(&cA0, &dA1)
@@ -815,19 +845,49 @@ func (_f *FFAmd64) generateMulVecE4(isScalarMul bool) {
 		f.add(cA0, dA1, z[1])
 		f.add(a0, dA0, z[0]) // 3x
 
-		// transpose result back
-		for i := range z[:4] {
-			f.KMOVD(maskFFFF, amd64.K1)
-			f.VPSCATTERDD(i*4, addrRes, vIndexGather, 4, amd64.K1, z[i])
-		}
+		switch op {
+		case e4VecMul, e4VecScalarMul:
+			// transpose result back
+			for i := range z[:4] {
+				f.KMOVD(maskFFFF, amd64.K1)
+				f.VPSCATTERDD(i*4, addrRes, vIndexGather, 4, amd64.K1, z[i])
+			}
 
-		// increment result by 16*4uint32 (16*E4)
-		f.ADDQ("$256", addrRes)
-		f.ADDQ("$256", addrA)
-		if !isScalarMul {
+			// increment result by 16*4uint32 (16*E4)
+			f.ADDQ("$256", addrRes)
+			f.ADDQ("$256", addrA)
+			if op == e4VecMul {
+				f.ADDQ("$256", addrB)
+			}
+		case e4VecInnerProd:
+			// here we have 4 zmm vectors that we need to accumulate;
+			// we use z[4:7] as temps;
+			// z[0] contains the result of the product r[0].B0.A0, r[1].B0.A0, ...
+			// z[1] --> r[0].B0.A1, r[1].B0.A1, ...
+			// so the idea is we accumulate these coordinates in accInnerProd
+			// (in mul and scalar mul we transpose the result back, here we skip this step.)
+			// and let the caller reduce mod q.
+			for i := 0; i < 4; i++ {
+				f.VEXTRACTI64X4(1, z[i], z[i+4].Y())
+				f.add(z[i], z[i+4], z[i+4], fY)
+				f.VEXTRACTI64X2(1, z[i+4].Y(), z[i].X())
+				f.VPADDD(z[i+4].X(), z[i].X(), z[i].X())
+				f.VPMOVZXDQ(z[i].X(), z[i+4].Y())
+				f.VPADDQ(z[i+4].Y(), accInnerProd[i].Y(), accInnerProd[i].Y())
+			}
+
+			f.ADDQ("$256", addrA)
 			f.ADDQ("$256", addrB)
 		}
 	})
+
+	if op == e4VecInnerProd {
+		// we have 4 * 8 uint64 to store in result from the accumulators;
+		f.VMOVDQU64(accInnerProd[0].Y(), addrRes.At(0))
+		f.VMOVDQU64(accInnerProd[1].Y(), addrRes.At(8))
+		f.VMOVDQU64(accInnerProd[2].Y(), addrRes.At(16))
+		f.VMOVDQU64(accInnerProd[3].Y(), addrRes.At(24))
+	}
 
 	f.RET()
 }
@@ -945,94 +1005,3 @@ func (f *FFAmd64) generateMulAccByElement() {
 
 	f.RET()
 }
-
-// TODO @gbotrel keeping a bit for debugging these 2
-
-// func (f *FFAmd64) generateVectorScatter() {
-// 	// func vectorScatter_avx512(in *fr.Element, res *E4)
-
-// 	const argSize = 2 * 8
-// 	stackSize := f.StackSize(f.NbWords*4+2, 0, 0)
-// 	registers := f.FnHeader("vectorScatter_avx512", stackSize, argSize, amd64.DX, amd64.AX)
-// 	defer f.AssertCleanStack(stackSize, 0)
-
-// 	addrIn := registers.Pop()
-// 	addrRes := registers.Pop()
-
-// 	f.MOVQ("in+0(FP)", addrIn)
-// 	f.MOVQ("res+8(FP)", addrRes)
-
-// 	// in has 4 vectors of 16uint32
-// 	// we need to transpose that into 1 vector of res[E4] of 16 E4 elements.
-// 	z := registers.PopVN(4)
-// 	f.VMOVDQU32(addrIn.AtD(0), z[0])
-// 	f.VMOVDQU32(addrIn.AtD(16), z[1])
-// 	f.VMOVDQU32(addrIn.AtD(32), z[2])
-// 	f.VMOVDQU32(addrIn.AtD(48), z[3])
-
-// 	maskFFFF := registers.Pop()
-// 	addrIndexGather4 := registers.Pop()
-// 	vIndexGather := registers.PopV()
-// 	f.MOVQ("$0xffffffffffffffff", maskFFFF)
-// 	f.MOVQ("·indexGather4+0(SB)", addrIndexGather4)
-// 	f.VMOVDQU32(addrIndexGather4.At(0), vIndexGather)
-
-// 	for i := range z {
-// 		f.KMOVD(maskFFFF, amd64.K1)
-// 		f.VPSCATTERDD(i*4, addrRes, vIndexGather, 4, amd64.K1, z[i])
-// 	}
-
-// 	f.RET()
-// }
-
-// func (f *FFAmd64) generateVectorGather() {
-// 	// func vectorGather_avx512(res *fr.Element, a, b *E4)
-// 	const argSize = 3 * 8
-// 	stackSize := f.StackSize(f.NbWords*4+2, 0, 0)
-// 	registers := f.FnHeader("vectorGather_avx512", stackSize, argSize, amd64.DX, amd64.AX)
-// 	defer f.AssertCleanStack(stackSize, 0)
-
-// 	addrRes := registers.Pop()
-// 	addrA := registers.Pop()
-// 	addrB := registers.Pop()
-
-// 	f.MOVQ("res+0(FP)", addrRes)
-// 	f.MOVQ("a+8(FP)", addrA)
-// 	f.MOVQ("b+16(FP)", addrB)
-
-// 	maskFFFF := registers.Pop()
-// 	f.MOVQ("$0xffffffffffffffff", maskFFFF)
-
-// 	addrIndexGather4 := registers.Pop()
-// 	f.MOVQ("·indexGather4+0(SB)", addrIndexGather4)
-// 	vIndexGather := registers.PopV()
-// 	f.VMOVDQU32(addrIndexGather4.At(0), vIndexGather)
-
-// 	z := registers.PopVN(8)
-
-// 	for i := 0; i < 4; i++ {
-// 		f.KMOVD(maskFFFF, amd64.K1)
-// 		f.VPGATHERDD(i*4, addrA, vIndexGather, 4, amd64.K1, z[i])
-// 	}
-// 	for i := 0; i < 4; i++ {
-// 		f.KMOVD(maskFFFF, amd64.K2)
-// 		f.VPGATHERDD(i*4, addrB, vIndexGather, 4, amd64.K2, z[i+4])
-// 	}
-
-// 	// // Stores
-// 	for i := range z {
-// 		f.VMOVDQU32(z[i], addrRes.AtD(i*16))
-// 	}
-
-// 	// MOVQ a0Out+8(FP), R9
-// 	// MOVQ a1Out+16(FP), R10
-// 	// MOVQ a2Out+24(FP), R11
-// 	// MOVQ a3Out+32(FP), R12
-// 	// VMOVDQU32 ZMM12, 0(R9)
-// 	// VMOVDQU32 ZMM13, 0(R10)
-// 	// VMOVDQU32 ZMM14, 0(R11)
-// 	// VMOVDQU32 ZMM15, 0(R12)
-
-// 	f.RET()
-
-// }

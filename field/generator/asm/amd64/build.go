@@ -397,8 +397,9 @@ func GenerateF31E4(w io.Writer) error {
 	f.generateMulAccByElement()
 	f.generateAddVecE4()
 	f.generateSubVecE4()
-	f.generateMulVecE4(true)
-	f.generateMulVecE4(false)
+	f.generateMulVecE4(e4VecMul)
+	f.generateMulVecE4(e4VecScalarMul)
+	f.generateMulVecE4(e4VecInnerProd)
 	f.generateSumVecE4()
 
 	return nil

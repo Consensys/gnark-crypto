@@ -807,9 +807,44 @@ func (f *fieldHelper) loadQInvNeg() {
 	f.VPBROADCASTD(amd64.AX, f.qInvNeg)
 }
 
+type width int
+
+const (
+	fX width = iota
+	fY
+	fZ
+)
+
 // add a and b and store the result in into
-func (f *fieldHelper) add(a, b, into amd64.VectorRegister) {
+func (f *fieldHelper) add(a, b, into amd64.VectorRegister, width ...width) {
+	qd := f.qd
 	r0 := f.registers.PopV()
+
+	if len(width) > 0 {
+		switch width[0] {
+		case fX:
+			qd = qd.X()
+			r0 = r0.X()
+			a = a.X()
+			b = b.X()
+			into = into.X()
+		case fY:
+			qd = qd.Y()
+			r0 = r0.Y()
+			a = a.Y()
+			b = b.Y()
+			into = into.Y()
+		case fZ:
+			qd = qd.Z()
+			r0 = r0.Z()
+			a = a.Z()
+			b = b.Z()
+			into = into.Z()
+		default:
+			panic("unknown field width")
+		}
+	}
+
 	f.Define("add", 5, func(args ...any) {
 		a := args[0]
 		b := args[1]
@@ -820,7 +855,7 @@ func (f *fieldHelper) add(a, b, into amd64.VectorRegister) {
 		f.VPADDD(b, a, into)
 		f.VPSUBD(qd, into, r0)
 		f.VPMINUD(into, r0, into)
-	}, true)(a, b, f.qd, r0, into)
+	}, true)(a, b, qd, r0, into)
 	f.registers.PushV(r0)
 }
 
@@ -895,7 +930,7 @@ func (f *fieldHelper) mul(a, b, into amd64.VectorRegister, reduce bool) {
 func (f *fieldHelper) mul_4(a, b, into amd64.VectorRegister, reduce bool) {
 	t := f.registers.PopVN(4)
 
-	f.Define("mul_w", 7, func(args ...any) {
+	f.Define("mul_4w", 7, func(args ...any) {
 		a := args[0]
 		b := args[1]
 		aOdd := args[2]
@@ -935,7 +970,7 @@ func (f *fieldHelper) mul_5(a, b, into amd64.VectorRegister, reduce bool) {
 	t := f.registers.PopVN(5)
 	// same as mul_4, except we don't reuse aOdd for PL0
 
-	f.Define("mul_w", 8, func(args ...any) {
+	f.Define("mul_5w", 8, func(args ...any) {
 		a := args[0]
 		b := args[1]
 		aOdd := args[2]

@@ -406,7 +406,8 @@ func (vector Vector) Sum() E4 {
 }
 
 func (vector Vector) InnerProduct(a Vector) E4 {
-	if len(a) != len(vector) {
+	N := len(vector)
+	if len(a) != N {
 		panic("vector.InnerProduct: vectors don't have the same length")
 	}
 	return vectorInnerProductGeneric(vector, a)

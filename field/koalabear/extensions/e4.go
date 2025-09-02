@@ -468,10 +468,45 @@ func (vector Vector) Sum() E4 {
 }
 
 func (vector Vector) InnerProduct(a Vector) E4 {
-	if len(a) != len(vector) {
+	N := len(vector)
+	if len(a) != N {
 		panic("vector.InnerProduct: vectors don't have the same length")
 	}
-	return vectorInnerProductGeneric(vector, a)
+	const blockSize = 16
+	if !cpu.SupportAVX512 || N < blockSize {
+		return vectorInnerProductGeneric(vector, a)
+	}
+	var t [8 * 4]uint64 // accumulators
+	r := N % blockSize
+	nr := uint64(N - r)
+	vectorInnerProduct_avx512(&t, &vector[0], &a[0], nr)
+
+	// reduce accumulator
+	for i := 1; i < 8; i++ {
+		t[0] += (t[i] % q)
+	}
+	for i := 9; i < 16; i++ {
+		t[8] += (t[i] % q)
+	}
+	for i := 17; i < 24; i++ {
+		t[16] += (t[i] % q)
+	}
+	for i := 25; i < 32; i++ {
+		t[24] += (t[i] % q)
+	}
+
+	var res E4
+	res.B0.A0[0] = uint32(t[0] % q)
+	res.B0.A1[0] = uint32(t[8] % q)
+	res.B1.A0[0] = uint32(t[16] % q)
+	res.B1.A1[0] = uint32(t[24] % q)
+
+	if r != 0 {
+		partialResult := vectorInnerProductGeneric(vector[N-r:], a[N-r:])
+		res.Add(&res, &partialResult)
+	}
+
+	return res
 }
 
 // MulAccByElement multiplies each element of the vector v by the E4 element alpha,

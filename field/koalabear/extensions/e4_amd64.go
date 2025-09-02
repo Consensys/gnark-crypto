@@ -42,4 +42,7 @@ func vectorMul_avx512(res, a, b *E4, N uint64)
 func vectorScalarMul_avx512(res, a, b *E4, N uint64)
 
 //go:noescape
+func vectorInnerProduct_avx512(res *[32]uint64, a, b *E4, N uint64)
+
+//go:noescape
 func vectorSum_avx512(res *[4]uint64, a *E4, N uint64)
