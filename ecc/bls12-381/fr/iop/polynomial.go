@@ -12,6 +12,8 @@ import (
 	"math/bits"
 	"runtime"
 
+	"github.com/consensys/gnark-crypto/utils"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr/fft"
 )
@@ -265,7 +267,7 @@ func (p *Polynomial) ToRegular() *Polynomial {
 	if p.Layout == Regular {
 		return p
 	}
-	fft.BitReverse((*p.coefficients))
+	utils.BitReverse((*p.coefficients))
 	p.Layout = Regular
 	return p
 }
@@ -276,7 +278,7 @@ func (p *Polynomial) ToBitReverse() *Polynomial {
 	if p.Layout == BitReverse {
 		return p
 	}
-	fft.BitReverse((*p.coefficients))
+	utils.BitReverse((*p.coefficients))
 	p.Layout = BitReverse
 	return p
 }

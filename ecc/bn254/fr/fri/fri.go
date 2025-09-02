@@ -18,6 +18,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"github.com/consensys/gnark-crypto/utils"
 )
 
 var (
@@ -257,7 +258,7 @@ func (s radixTwoFri) Open(p []fr.Element, position uint64) (OpeningProof, error)
 	q := make([]fr.Element, s.domain.Cardinality)
 	copy(q, p)
 	s.domain.FFT(q, fft.DIF)
-	fft.BitReverse(q)
+	utils.BitReverse(q)
 
 	// sort q to have fibers in contiguous entries. The goal is to have one
 	// Merkle path for both openings of entries which are in the same fiber.
@@ -503,7 +504,7 @@ func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, er
 	_p := make([]fr.Element, s.domain.Cardinality)
 	copy(_p, p)
 	s.domain.FFT(_p, fft.DIF)
-	fft.BitReverse(_p)
+	utils.BitReverse(_p)
 
 	var err error
 	var salt, one fr.Element

@@ -5,6 +5,7 @@ import (
 	"math/bits"
 	"sort"
 
+	"github.com/consensys/gnark-crypto/utils"
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/kzg"
@@ -16,7 +17,6 @@ var (
 	ErrPlookupVerification = errors.New("plookup verification failed")
 	ErrGenerator           = errors.New("wrong generator")
 )
-
 
 // Proof Plookup proof, containing opening proofs
 type ProofLookupVector struct {
@@ -90,7 +90,8 @@ func evaluateAccumulationPolynomial(lf, lt, lh1, lh2 []fr.Element, beta, gamma f
 
 // evaluateNumBitReversed computes the evaluation (shifted, bit reversed) of h where
 // h = (x-1)*z*(1+\beta)*(\gamma+f)*(\gamma(1+\beta) + t+ \beta*t(gX)) -
-//		(x-1)*z(gX)*(\gamma(1+\beta) + h_{1} + \beta*h_{1}(gX))*(\gamma(1+\beta) + h_{2} + \beta*h_{2}(gX) )
+//
+//	(x-1)*z(gX)*(\gamma(1+\beta) + h_{1} + \beta*h_{1}(gX))*(\gamma(1+\beta) + h_{2} + \beta*h_{2}(gX) )
 //
 // * cz, ch1, ch2, ct, cf are the polynomials z, h1, h2, t, f in canonical basis
 // * _lz, _lh1, _lh2, _lt, _lf are the polynomials z, h1, h2, t, f in shifted Lagrange basis (domainBig)
@@ -335,7 +336,6 @@ func computeQuotientCanonical(alpha fr.Element, lh, lh0, lhn, lh1h2 []fr.Element
 // before generating a lookup proof), the commitment needs to be done on the
 // table sorted. Otherwise the commitment in proof.t will not be the same as
 // the public commitment: it will contain the same values, but permuted.
-//
 func ProveLookupVector(pk kzg.ProvingKey, f, t fr.Vector) (ProofLookupVector, error) {
 
 	// res
@@ -382,8 +382,8 @@ func ProveLookupVector(pk kzg.ProvingKey, f, t fr.Vector) (ProofLookupVector, er
 	copy(cf, lf)
 	domainSmall.FFTInverse(ct, fft.DIF)
 	domainSmall.FFTInverse(cf, fft.DIF)
-	fft.BitReverse(ct)
-	fft.BitReverse(cf)
+	utils.BitReverse(ct)
+	utils.BitReverse(cf)
 	proof.t, err = kzg.Commit(ct, pk)
 	if err != nil {
 		return proof, err
@@ -411,8 +411,8 @@ func ProveLookupVector(pk kzg.ProvingKey, f, t fr.Vector) (ProofLookupVector, er
 	copy(ch2, lfSortedByt[sizeDomainSmall-1:])
 	domainSmall.FFTInverse(ch1, fft.DIF)
 	domainSmall.FFTInverse(ch2, fft.DIF)
-	fft.BitReverse(ch1)
-	fft.BitReverse(ch2)
+	utils.BitReverse(ch1)
+	utils.BitReverse(ch2)
 
 	proof.h1, err = kzg.Commit(ch1, pk)
 	if err != nil {
@@ -438,7 +438,7 @@ func ProveLookupVector(pk kzg.ProvingKey, f, t fr.Vector) (ProofLookupVector, er
 	cz := make([]fr.Element, len(lz))
 	copy(cz, lz)
 	domainSmall.FFTInverse(cz, fft.DIF)
-	fft.BitReverse(cz)
+	utils.BitReverse(cz)
 	proof.z, err = kzg.Commit(cz, pk)
 	if err != nil {
 		return proof, err
