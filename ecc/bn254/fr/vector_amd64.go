@@ -19,6 +19,9 @@ func (vector *Vector) Add(a, b Vector) {
 		panic("vector.Add: vectors don't have the same length")
 	}
 	n := uint64(len(a))
+	if n == 0 {
+		return
+	}
 	addVec(&(*vector)[0], &a[0], &b[0], n)
 }
 
@@ -31,7 +34,11 @@ func (vector *Vector) Sub(a, b Vector) {
 	if len(a) != len(b) || len(a) != len(*vector) {
 		panic("vector.Sub: vectors don't have the same length")
 	}
-	subVec(&(*vector)[0], &a[0], &b[0], uint64(len(a)))
+	n := uint64(len(a))
+	if n == 0 {
+		return
+	}
+	subVec(&(*vector)[0], &a[0], &b[0], n)
 }
 
 //go:noescape
@@ -94,11 +101,11 @@ func sumVec(res *Element, a *Element, n uint64)
 // It panics if the vectors don't have the same length.
 func (vector *Vector) InnerProduct(other Vector) (res Element) {
 	n := uint64(len(*vector))
-	if n == 0 {
-		return
-	}
 	if n != uint64(len(other)) {
 		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	if n == 0 {
+		return
 	}
 	const maxN = (1 << 32) - 1
 	if !cpu.SupportAVX512 || n >= maxN {
