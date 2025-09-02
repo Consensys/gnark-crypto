@@ -649,8 +649,12 @@ const (
 )
 
 func (_f *FFAmd64) generateMulVecE4(op e4VecOp) {
-
-	// func vectorMul_avx512(res, a, b *E4, N uint64)
+	// the code for Mul, ScalarMul and InnerProduct are very similar;
+	// we load 16 E4 at a time, transpose them to ZMM vectors
+	// perform the mul.
+	// for scalarMul, we load the second operand only once.
+	// for innerProduct, we don't transpose back but instead accumulate into other zmm registers
+	// to return the sum.
 	const argSize = 4 * 8
 	stackSize := _f.StackSize(_f.NbWords*4+2, 0, 0)
 	var name string
@@ -695,8 +699,8 @@ func (_f *FFAmd64) generateMulVecE4(op e4VecOp) {
 	z := registers.PopVN(8)
 	var accInnerProd []amd64.VectorRegister
 	if op == e4VecInnerProd {
+		// zeroize accInnerProd
 		accInnerProd = registers.PopVN(4)
-		// zeroize accInnerProd[...]
 		f.VXORPS(accInnerProd[0], accInnerProd[0], accInnerProd[0])
 		for i := 1; i < 4; i++ {
 			f.VMOVDQA64(accInnerProd[0], accInnerProd[i])

@@ -498,7 +498,6 @@ func (vector Vector) InnerProduct(a Vector) E4 {
 		nr := uint64(N - r)
 		vectorInnerProduct_avx512(&t, &vector[0], &a[0], nr)
 
-		
 		// reduce accumulator
 		for i := 1; i < 8; i++ {
 			t[0] += (t[i] % q)
