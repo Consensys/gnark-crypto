@@ -61,11 +61,30 @@ func GeneratorFullMultiplicativeGroup() koalabear.Element {
 	return res
 }
 
+var (
+	domainCache = make(map[uint64]*Domain)
+	domainMutex sync.Mutex
+)
+
 // NewDomain returns a subgroup with a power of 2 cardinality
 // cardinality >= m
 // shift: when specified, it's the element by which the set of root of unity is shifted.
+// If domain is cached, it will directly returns the cached domain
 func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	opt := domainOptions(opts...)
+
+	// Lock the mutex to protect the cache.
+	// Check for a cache hit only for the default configuration.
+	if opt.shift == nil && opt.withPrecompute {
+		domainMutex.Lock()
+		if domain, ok := domainCache[m]; ok {
+			domainMutex.Unlock()
+			return domain
+		}
+		domainMutex.Unlock()
+	}
+
+	// If it's a cache miss (or a non-default configuration), create the domain.
 	domain := &Domain{}
 	x := ecc.NextPowerOfTwo(m)
 	domain.Cardinality = uint64(x)
@@ -88,6 +107,12 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	domain.withPrecompute = opt.withPrecompute
 	if domain.withPrecompute {
 		domain.preComputeTwiddles()
+	}
+	// Cache the domain only if it's the default configuration.
+	if opt.shift == nil && opt.withPrecompute {
+		domainMutex.Lock()
+		domainCache[m] = domain
+		domainMutex.Unlock()
 	}
 
 	return domain
@@ -314,16 +339,4 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 	}
 
 	return read, nil
-}
-
-var domainCache = make(map[uint64]*Domain)
-
-// GetDomainFromCache retrieves a Domain from the cache, creating it if it doesn't exist.
-func GetDomainFromCache(size uint64) *Domain {
-	if domain, ok := domainCache[size]; ok {
-		return domain
-	}
-	domain := NewDomain(size)
-	domainCache[size] = domain
-	return domain
 }

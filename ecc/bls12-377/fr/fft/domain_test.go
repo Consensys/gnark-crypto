@@ -7,6 +7,8 @@ package fft
 
 import (
 	"bytes"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/stretchr/testify/require"
 	"reflect"
 	"testing"
 )
@@ -33,4 +35,20 @@ func TestDomainSerialization(t *testing.T) {
 	if !reflect.DeepEqual(domain, &reconstructed) {
 		t.Fatal("Domain.SetBytes(Bytes()) failed")
 	}
+}
+
+func TestGetDomainFromCache(t *testing.T) {
+	assert := require.New(t)
+
+	assert.Nil(domainCache[256], "Before Domain generation, domainCache should be nil")
+	domain1 := NewDomain(256)
+	assert.NotNil(domainCache[256], "After Domain generation, domainCache[cacheKey1] should not be nil")
+	assert.Equal(domain1, domainCache[256], "domain1 = domainCache[cacheKey1]")
+
+	shift := fr.NewElement(2)
+	assert.Nil(domainCache[512], "Before Domain generation, domainCache should be nil")
+	domain2 := NewDomain(512, WithShift(shift))
+	assert.Nil(domainCache[512], "Domain generation with shift is not default configuration, domainCache[cacheKey2] should still be nil")
+
+	assert.NotSame(domain1, domain2, "The pointers for different domains should not be the same")
 }
