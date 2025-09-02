@@ -184,15 +184,13 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 func TestE2MulMaxed(t *testing.T) {
 	// let's pick a and b, with maxed A0 and A1
 	var a, b E2
-	frMaxValue := fr.Element{
-		2013265921,
-	}
-	frMaxValue[0]--
+	qMinusOne := fr.Element{2013265921}
+	qMinusOne[0]--
 
-	a.A0 = frMaxValue
-	a.A1 = frMaxValue
-	b.A0 = frMaxValue
-	b.A1 = frMaxValue
+	a.A0 = qMinusOne
+	a.A1 = qMinusOne
+	b.A0 = qMinusOne
+	b.A1 = qMinusOne
 
 	var c, d E2
 	d.Inverse(&b)

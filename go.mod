@@ -1,8 +1,6 @@
 module github.com/consensys/gnark-crypto
 
-go 1.23.0
-
-toolchain go1.23.8
+go 1.24.0
 
 require (
 	github.com/bits-and-blooms/bitset v1.24.0

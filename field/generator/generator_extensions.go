@@ -39,6 +39,8 @@ func generateExtensions(F *config.Field, outputDir string) error {
 		FieldPackagePath: fieldImportPath,
 		F31:              F.F31,
 		IsKoalaBear:      isKoalaBear,
+		Q:                F.Q[0],
+		QInvNeg:          F.QInverse[0],
 	}
 
 	bgen := bavard.NewBatchGenerator("Consensys Software Inc.", 2020, "consensys/gnark-crypto")
@@ -53,8 +55,6 @@ func generateExtensions(F *config.Field, outputDir string) error {
 		return err
 	}
 	if F.F31 {
-		data.Q = F.Q[0]
-		data.QInvNeg = F.QInverse[0]
 		entries_ext4 := []bavard.Entry{
 			{File: filepath.Join(outputDir, "e4.go"), Templates: []string{"e4.go.tmpl"}},
 			{File: filepath.Join(outputDir, "e4_test.go"), Templates: []string{"e4_test.go.tmpl"}},

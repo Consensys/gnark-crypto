@@ -542,45 +542,38 @@ func BenchmarkVectorOps(b *testing.B) {
 		})
 	}
 }
-
 func genZeroVector(size int) gopter.Gen {
-	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		g := make(Vector, size)
-		genResult := gopter.NewGenResult(g, gopter.NoShrinker)
-		return genResult
+	return func(*gopter.GenParameters) *gopter.GenResult {
+		return gopter.NewGenResult(make(Vector, size), gopter.NoShrinker)
 	}
 }
 
 func genMaxVector(size int) gopter.Gen {
-	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		g := make(Vector, size)
-
+	return func(*gopter.GenParameters) *gopter.GenResult {
 		qMinusOne := fr.Element{2013265921}
 		qMinusOne[0]--
-
-		for i := 0; i < size; i++ {
-			g[i].B0.A0 = qMinusOne
-			g[i].B0.A1 = qMinusOne
-			g[i].B1.A0 = qMinusOne
-			g[i].B1.A1 = qMinusOne
+		v := make(Vector, size)
+		for i := range v {
+			v[i].B0.A0 = qMinusOne
+			v[i].B0.A1 = qMinusOne
+			v[i].B1.A0 = qMinusOne
+			v[i].B1.A1 = qMinusOne
 		}
-		genResult := gopter.NewGenResult(g, gopter.NoShrinker)
-		return genResult
+		return gopter.NewGenResult(v, gopter.NoShrinker)
 	}
 }
 
 func genVector(size int) gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		vec := make(Vector, size)
-		for i := 0; i < size; i++ {
-			e4Gen := genE4()
-			genRes := e4Gen(genParams)
-			val, ok := genRes.Retrieve()
+		v := make(Vector, size)
+		gen := genE4()
+		for i := range v {
+			val, ok := gen(genParams).Retrieve()
 			if !ok {
-				return gopter.NewGenResult(vec, gopter.NoShrinker)
+				panic("genE4 failed")
 			}
-			vec[i] = val.(E4)
+			v[i] = val.(E4)
 		}
-		return gopter.NewGenResult(vec, gopter.NoShrinker)
+		return gopter.NewGenResult(v, gopter.NoShrinker)
 	}
 }
