@@ -77,22 +77,19 @@ func TestVectorEmptyRoundTrip(t *testing.T) {
 func TestVectorEmptyOps(t *testing.T) {
 	assert := require.New(t)
 
+	var sum, inner, scalar Element
+	scalar.SetUint64(42)
 	empty := make(Vector, 0)
 	result := make(Vector, 0)
 
 	assert.NotPanics(func() { result.Add(empty, empty) })
 	assert.NotPanics(func() { result.Sub(empty, empty) })
-
-	var scalar Element
-	scalar.SetUint64(42)
 	assert.NotPanics(func() { result.ScalarMul(empty, &scalar) })
-
 	assert.NotPanics(func() { result.Mul(empty, empty) })
+	assert.NotPanics(func() { sum = empty.Sum() })
+	assert.NotPanics(func() { inner = empty.InnerProduct(empty) })
 
-	sum := empty.Sum()
 	assert.True(sum.IsZero())
-
-	inner := empty.InnerProduct(empty)
 	assert.True(inner.IsZero())
 }
 
