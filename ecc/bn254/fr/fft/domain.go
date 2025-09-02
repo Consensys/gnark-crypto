@@ -315,3 +315,15 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 
 	return read, nil
 }
+
+var domainCache = make(map[uint64]*Domain)
+
+// GetDomainFromCache retrieves a Domain from the cache, creating it if it doesn't exist.
+func GetDomainFromCache(size uint64) *Domain {
+	if domain, ok := domainCache[size]; ok {
+		return domain
+	}
+	domain := NewDomain(size)
+	domainCache[size] = domain
+	return domain
+}

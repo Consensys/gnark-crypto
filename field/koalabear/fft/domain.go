@@ -14,7 +14,6 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/consensys/gnark-crypto/field/babybear/fft"
 	"github.com/consensys/gnark-crypto/field/koalabear"
 
 	"github.com/consensys/gnark-crypto/ecc"
@@ -317,14 +316,14 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 	return read, nil
 }
 
-var domainCache = make(map[uint64]*fft.Domain)
+var domainCache = make(map[uint64]*Domain)
 
 // GetDomainFromCache retrieves a Domain from the cache, creating it if it doesn't exist.
-func GetDomainFromCache(size uint64) *fft.Domain {
+func GetDomainFromCache(size uint64) *Domain {
 	if domain, ok := domainCache[size]; ok {
 		return domain
 	}
-	domain := fft.NewDomain(size)
+	domain := NewDomain(size)
 	domainCache[size] = domain
 	return domain
 }
