@@ -6,6 +6,8 @@ import (
 
 	fr "{{ .FieldPackagePath }}"
 	"fmt"
+
+	"github.com/stretchr/testify/require"
 )
 
 // ------------------------------------------------------------
@@ -222,70 +224,6 @@ func TestE4Ops(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-// TODO @gbotrel keeping for debug.
-// // test func vectorGather_avx512(res *fr.Element, a, b *E4)
-// func TestGatherAVX(t *testing.T) {
-// 	// we have a, b, vectors of 16 E4 each.
-// 	// res should hold the 16*4 uint32, but transposed.
-// 	var a, b [16]E4
-
-// 	// set deterministic values for a and b
-// 	for i := 0; i < 16; i++ {
-// 		s := i * 4
-// 		a[i].B0.A0.SetUint64(uint64(s))
-// 		a[i].B0.A1.SetUint64(uint64(s + 1))
-// 		a[i].B1.A0.SetUint64(uint64(s + 2))
-// 		a[i].B1.A1.SetUint64(uint64(s + 3))
-// 	}
-
-// 	// same for b, but we do s= i * 4 * 16
-// 	for i := 0; i < 16; i++ {
-// 		s := i * 4 * 16
-// 		b[i].B0.A0.SetUint64(uint64(s))
-// 		b[i].B0.A1.SetUint64(uint64(s + 1))
-// 		b[i].B1.A0.SetUint64(uint64(s + 2))
-// 		b[i].B1.A1.SetUint64(uint64(s + 3))
-// 	}
-
-// 	var res [16 * 8]fr.Element
-// 	vectorGather_avx512(&res[0], &a[0], &b[0])
-
-// 	// we should have
-// 	zmm0 := res[0:16]
-// 	zmm1 := res[16:32]
-// 	zmm2 := res[32:48]
-// 	zmm3 := res[48:64]
-// 	zmm4 := res[64:80]
-// 	zmm5 := res[80:96]
-// 	zmm6 := res[96:112]
-// 	zmm7 := res[112:128]
-
-// 	// zmm0[0] == a[0].B0.A0, zmm0[1] = a[1].B0.A0, ...
-// 	// zmm1[0] == a[0].B0.A1, zmm1[1] = a[1].B0.A1, ...
-
-// 	assert := require.New(t)
-// 	for i := 0; i < 16; i++ {
-// 		assert.Equal(zmm0[i], a[i].B0.A0)
-// 		assert.Equal(zmm1[i], a[i].B0.A1)
-// 		assert.Equal(zmm2[i], a[i].B1.A0)
-// 		assert.Equal(zmm3[i], a[i].B1.A1)
-// 		assert.Equal(zmm4[i], b[i].B0.A0)
-// 		assert.Equal(zmm5[i], b[i].B0.A1)
-// 		assert.Equal(zmm6[i], b[i].B1.A0)
-// 		assert.Equal(zmm7[i], b[i].B1.A1)
-// 	}
-
-// 	// now let's scatter it again
-// 	aReconstructed := make([]E4, 16)
-// 	vectorScatter_avx512(&res[0], &aReconstructed[0])
-
-// 	// check that aReconstructed match a
-// 	for i := 0; i < 16; i++ {
-// 		assert.Equal(aReconstructed[i], a[i])
-// 	}
-
-// }
-
 func TestVectorOps(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -427,6 +365,26 @@ func TestVectorOps(t *testing.T) {
 	}
 
 	properties.TestingRun(t, gopter.NewFormatedReporter(false, 260, os.Stdout))
+}
+
+
+func TestVectorEmptyOps(t *testing.T) {
+	assert := require.New(t)
+	
+	var sum, inner, scalar E4
+	scalar.MustSetRandom()
+	empty := make(Vector, 0)
+	result := make(Vector, 0)
+
+	assert.NotPanics(func() { result.Add(empty, empty) })
+	assert.NotPanics(func() { result.Sub(empty, empty) })
+	assert.NotPanics(func() { result.ScalarMul(empty, &scalar) })
+	assert.NotPanics(func() { result.Mul(empty, empty) })
+	assert.NotPanics(func() { sum = empty.Sum() })
+	assert.NotPanics(func() { inner = empty.InnerProduct(empty) })
+
+	assert.True(sum.IsZero())
+	assert.True(inner.IsZero())
 }
 
 // ------------------------------------------------------------
