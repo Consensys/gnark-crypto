@@ -6,12 +6,15 @@
 package extensions
 
 import (
-	"testing"
-
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
+	"os"
+	"testing"
 
+	"fmt"
 	fr "github.com/consensys/gnark-crypto/field/babybear"
+
+	"github.com/stretchr/testify/require"
 )
 
 // ------------------------------------------------------------
@@ -24,110 +27,110 @@ func TestE4ReceiverIsOperand(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	genA := GenE4()
-	genB := GenE4()
+	genA := genE4()
+	genB := genE4()
 
 	properties.Property("[babybear] Having the receiver as operand (addition) should output the same result", prop.ForAll(
-		func(a, b *E4) bool {
+		func(a, b E4) bool {
 			var c, d E4
-			d.Set(a)
-			c.Add(a, b)
-			a.Add(a, b)
-			b.Add(&d, b)
-			return a.Equal(b) && a.Equal(&c) && b.Equal(&c)
+			d.Set(&a)
+			c.Add(&a, &b)
+			a.Add(&a, &b)
+			b.Add(&d, &b)
+			return a.Equal(&b) && a.Equal(&c) && b.Equal(&c)
 		},
 		genA,
 		genB,
 	))
 
 	properties.Property("[babybear] Having the receiver as operand (sub) should output the same result", prop.ForAll(
-		func(a, b *E4) bool {
+		func(a, b E4) bool {
 			var c, d E4
-			d.Set(a)
-			c.Sub(a, b)
-			a.Sub(a, b)
-			b.Sub(&d, b)
-			return a.Equal(b) && a.Equal(&c) && b.Equal(&c)
+			d.Set(&a)
+			c.Sub(&a, &b)
+			a.Sub(&a, &b)
+			b.Sub(&d, &b)
+			return a.Equal(&b) && a.Equal(&c) && b.Equal(&c)
 		},
 		genA,
 		genB,
 	))
 
 	properties.Property("[babybear] Having the receiver as operand (mul) should output the same result", prop.ForAll(
-		func(a, b *E4) bool {
+		func(a, b E4) bool {
 			var c, d E4
-			d.Set(a)
-			c.Mul(a, b)
-			a.Mul(a, b)
-			b.Mul(&d, b)
-			return a.Equal(b) && a.Equal(&c) && b.Equal(&c)
+			d.Set(&a)
+			c.Mul(&a, &b)
+			a.Mul(&a, &b)
+			b.Mul(&d, &b)
+			return a.Equal(&b) && a.Equal(&c) && b.Equal(&c)
 		},
 		genA,
 		genB,
 	))
 
 	properties.Property("[babybear] Having the receiver as operand (square) should output the same result", prop.ForAll(
-		func(a *E4) bool {
+		func(a E4) bool {
 			var b E4
-			b.Square(a)
-			a.Square(a)
+			b.Square(&a)
+			a.Square(&a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[babybear] Having the receiver as operand (double) should output the same result", prop.ForAll(
-		func(a *E4) bool {
+		func(a E4) bool {
 			var b E4
-			b.Double(a)
-			a.Double(a)
+			b.Double(&a)
+			a.Double(&a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[babybear] Having the receiver as operand (mul by non residue) should output the same result", prop.ForAll(
-		func(a *E4) bool {
+		func(a E4) bool {
 			var b E4
-			b.MulByNonResidue(a)
-			a.MulByNonResidue(a)
+			b.MulByNonResidue(&a)
+			a.MulByNonResidue(&a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[babybear] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
-		func(a *E4) bool {
+		func(a E4) bool {
 			var b E4
-			b.Inverse(a)
-			a.Inverse(a)
+			b.Inverse(&a)
+			a.Inverse(&a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[babybear] Having the receiver as operand (Conjugate) should output the same result", prop.ForAll(
-		func(a *E4) bool {
+		func(a E4) bool {
 			var b E4
-			b.Conjugate(a)
-			a.Conjugate(a)
+			b.Conjugate(&a)
+			a.Conjugate(&a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[babybear] Having the receiver as operand (Sqrt) should output the same result", prop.ForAll(
-		func(a *E4) bool {
+		func(a E4) bool {
 			var b, c, d, s E4
 
-			s.Square(a)
+			s.Square(&a)
 			a.Set(&s)
 			b.Set(&s)
 
-			a.Sqrt(a)
+			a.Sqrt(&a)
 			b.Sqrt(&b)
 
-			c.Square(a)
+			c.Square(&a)
 			d.Square(&b)
 			return c.Equal(&d)
 		},
@@ -144,39 +147,39 @@ func TestE4Ops(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	genA := GenE4()
-	genB := GenE4()
+	genA := genE4()
+	genB := genE4()
 
 	properties.Property("[babybear] sub & add should leave an element invariant", prop.ForAll(
-		func(a, b *E4) bool {
+		func(a, b E4) bool {
 			var c E4
-			c.Set(a)
-			c.Add(&c, b).Sub(&c, b)
-			return c.Equal(a)
+			c.Set(&a)
+			c.Add(&c, &b).Sub(&c, &b)
+			return c.Equal(&a)
 		},
 		genA,
 		genB,
 	))
 
 	properties.Property("[babybear] mul & inverse should leave an element invariant", prop.ForAll(
-		func(a, b *E4) bool {
+		func(a, b E4) bool {
 			var c, d E4
-			d.Inverse(b)
-			c.Set(a)
-			c.Mul(&c, b).Mul(&c, &d)
-			return c.Equal(a)
+			d.Inverse(&b)
+			c.Set(&a)
+			c.Mul(&c, &b).Mul(&c, &d)
+			return c.Equal(&a)
 		},
 		genA,
 		genB,
 	))
 
 	properties.Property("[babybear] BatchInvertE4 should output the same result as Inverse", prop.ForAll(
-		func(a, b, c *E4) bool {
+		func(a, b, c E4) bool {
 
-			batch := BatchInvertE4([]E4{*a, *b, *c})
-			a.Inverse(a)
-			b.Inverse(b)
-			c.Inverse(c)
+			batch := BatchInvertE4([]E4{a, b, c})
+			a.Inverse(&a)
+			b.Inverse(&b)
+			c.Inverse(&c)
 			return a.Equal(&batch[0]) && b.Equal(&batch[1]) && c.Equal(&batch[2])
 		},
 		genA,
@@ -185,28 +188,28 @@ func TestE4Ops(t *testing.T) {
 	))
 
 	properties.Property("[babybear] inverse twice should leave an element invariant", prop.ForAll(
-		func(a *E4) bool {
+		func(a E4) bool {
 			var b E4
-			b.Inverse(a).Inverse(&b)
+			b.Inverse(&a).Inverse(&b)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[babybear] square and mul should output the same result", prop.ForAll(
-		func(a *E4) bool {
+		func(a E4) bool {
 			var b, c E4
-			b.Mul(a, a)
-			c.Square(a)
+			b.Mul(&a, &a)
+			c.Square(&a)
 			return b.Equal(&c)
 		},
 		genA,
 	))
 
 	properties.Property("[babybear] Legendre on square should output 1", prop.ForAll(
-		func(a *E4) bool {
+		func(a E4) bool {
 			var b E4
-			b.Square(a)
+			b.Square(&a)
 			c := b.Legendre()
 			return c == 1
 		},
@@ -214,18 +217,180 @@ func TestE4Ops(t *testing.T) {
 	))
 
 	properties.Property("[babybear] square(sqrt) should leave an element invariant", prop.ForAll(
-		func(a *E4) bool {
+		func(a E4) bool {
 			var b, c, d, e E4
-			b.Square(a)
+			b.Square(&a)
 			c.Sqrt(&b)
 			d.Square(&c)
-			e.Neg(a)
-			return (c.Equal(a) || c.Equal(&e)) && d.Equal(&b)
+			e.Neg(&a)
+			return (c.Equal(&a) || c.Equal(&e)) && d.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestVectorOps(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = 2
+	} else {
+		parameters.MinSuccessfulTests = 10
+	}
+	properties := gopter.NewProperties(parameters)
+
+	addVector := func(a, b Vector) bool {
+		c := make(Vector, len(a))
+		c.Add(a, b)
+
+		for i := 0; i < len(a); i++ {
+			var tmp E4
+			tmp.Add(&a[i], &b[i])
+			if !tmp.Equal(&c[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
+	subVector := func(a, b Vector) bool {
+		c := make(Vector, len(a))
+		c.Sub(a, b)
+
+		for i := 0; i < len(a); i++ {
+			var tmp E4
+			tmp.Sub(&a[i], &b[i])
+			if !tmp.Equal(&c[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
+	scalarMulVector := func(a Vector, b E4) bool {
+		c := make(Vector, len(a))
+		c.ScalarMul(a, &b)
+
+		for i := 0; i < len(a); i++ {
+			var tmp E4
+			tmp.Mul(&a[i], &b)
+			if !tmp.Equal(&c[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
+	sumVector := func(a Vector) bool {
+		var sum E4
+		computed := a.Sum()
+		for i := 0; i < len(a); i++ {
+			sum.Add(&sum, &a[i])
+		}
+
+		return sum.Equal(&computed)
+	}
+
+	innerProductVector := func(a, b Vector) bool {
+		computed := a.InnerProduct(b)
+		var innerProduct E4
+		for i := 0; i < len(a); i++ {
+			var tmp E4
+			tmp.Mul(&a[i], &b[i])
+			innerProduct.Add(&innerProduct, &tmp)
+		}
+
+		return innerProduct.Equal(&computed)
+	}
+
+	mulVector := func(a, b Vector) bool {
+		c := make(Vector, len(a))
+		a[0].B0.A0.SetUint64(0x24)
+		b[0].B0.A0.SetUint64(0x42)
+		c.Mul(a, b)
+
+		for i := 0; i < len(a); i++ {
+			var tmp E4
+			tmp.Mul(&a[i], &b[i])
+			if !tmp.Equal(&c[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
+	sizes := []int{1, 2, 3, 4, 8, 9, 15, 16, 24, 32, 509, 510, 511, 512, 513, 514}
+	type genPair struct {
+		g1, g2 gopter.Gen
+		label  string
+	}
+
+	for _, size := range sizes {
+		generators := []genPair{
+			{genZeroVector(size), genZeroVector(size), "zero vectors"},
+			{genMaxVector(size), genMaxVector(size), "max vectors"},
+			{genVector(size), genVector(size), "random vectors"},
+			{genVector(size), genZeroVector(size), "random and zero vectors"},
+		}
+		for _, gp := range generators {
+			properties.Property(fmt.Sprintf("vector addition %d - %s", size, gp.label), prop.ForAll(
+				addVector,
+				gp.g1,
+				gp.g2,
+			))
+
+			properties.Property(fmt.Sprintf("vector subtraction %d - %s", size, gp.label), prop.ForAll(
+				subVector,
+				gp.g1,
+				gp.g2,
+			))
+
+			properties.Property(fmt.Sprintf("vector scalar multiplication %d - %s", size, gp.label), prop.ForAll(
+				scalarMulVector,
+				gp.g1,
+				genE4(),
+			))
+
+			properties.Property(fmt.Sprintf("vector sum %d - %s", size, gp.label), prop.ForAll(
+				sumVector,
+				gp.g1,
+			))
+
+			properties.Property(fmt.Sprintf("vector inner product %d - %s", size, gp.label), prop.ForAll(
+				innerProductVector,
+				gp.g1,
+				gp.g2,
+			))
+
+			properties.Property(fmt.Sprintf("vector multiplication %d - %s", size, gp.label), prop.ForAll(
+				mulVector,
+				gp.g1,
+				gp.g2,
+			))
+		}
+	}
+
+	properties.TestingRun(t, gopter.NewFormatedReporter(false, 260, os.Stdout))
+}
+
+func TestVectorEmptyOps(t *testing.T) {
+	assert := require.New(t)
+
+	var sum, inner, scalar E4
+	scalar.MustSetRandom()
+	empty := make(Vector, 0)
+	result := make(Vector, 0)
+
+	assert.NotPanics(func() { result.Add(empty, empty) })
+	assert.NotPanics(func() { result.Sub(empty, empty) })
+	assert.NotPanics(func() { result.ScalarMul(empty, &scalar) })
+	assert.NotPanics(func() { result.Mul(empty, empty) })
+	assert.NotPanics(func() { sum = empty.Sum() })
+	assert.NotPanics(func() { inner = empty.InnerProduct(empty) })
+
+	assert.True(sum.IsZero())
+	assert.True(inner.IsZero())
 }
 
 // ------------------------------------------------------------
@@ -315,4 +480,110 @@ func BenchmarkE4Conjugate(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		a.Conjugate(&a)
 	}
+}
+
+func BenchmarkVectorOps(b *testing.B) {
+	// note; to benchmark against "no asm" version, use the following
+	// build tag: -tags purego
+	const N = 1 << 20
+	a1 := make(Vector, N)
+	b1 := make(Vector, N)
+	c1 := make(Vector, N)
+	for i := 1; i < N; i++ {
+		a1[i-1].MustSetRandom()
+		b1[i-1].MustSetRandom()
+	}
+
+	for n := 4; n <= N; n <<= 1 {
+		_a := a1[:n]
+		_b := b1[:n]
+		_c := c1[:n]
+
+		b.Run(fmt.Sprintf("add %d", n), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_c.Add(_a, _b)
+			}
+		})
+
+		b.Run(fmt.Sprintf("sub %d", n), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_c.Sub(_a, _b)
+			}
+		})
+
+		b.Run(fmt.Sprintf("scalarMul %d", n), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_c.ScalarMul(_a, &b1[0])
+			}
+		})
+
+		b.Run(fmt.Sprintf("sum %d", n), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = _a.Sum()
+			}
+		})
+
+		b.Run(fmt.Sprintf("innerProduct %d", n), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = _a.InnerProduct(_b)
+			}
+		})
+
+		b.Run(fmt.Sprintf("mul %d", n), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_c.Mul(_a, _b)
+			}
+		})
+	}
+}
+func genZeroVector(size int) gopter.Gen {
+	return func(*gopter.GenParameters) *gopter.GenResult {
+		return gopter.NewGenResult(make(Vector, size), gopter.NoShrinker)
+	}
+}
+
+func genMaxVector(size int) gopter.Gen {
+	return func(*gopter.GenParameters) *gopter.GenResult {
+		qMinusOne := fr.Element{2013265921}
+		qMinusOne[0]--
+		v := make(Vector, size)
+		for i := range v {
+			v[i].B0.A0 = qMinusOne
+			v[i].B0.A1 = qMinusOne
+			v[i].B1.A0 = qMinusOne
+			v[i].B1.A1 = qMinusOne
+		}
+		return gopter.NewGenResult(v, gopter.NoShrinker)
+	}
+}
+
+func genVector(size int) gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		v := make(Vector, size)
+		gen := genE4()
+		for i := range v {
+			val, ok := gen(genParams).Retrieve()
+			if !ok {
+				panic("genE4 failed")
+			}
+			v[i] = val.(E4)
+		}
+		return gopter.NewGenResult(v, gopter.NoShrinker)
+	}
+}
+
+// genE4 generates an E4 element
+func genE4() gopter.Gen {
+	return gopter.CombineGens(
+		genE2(),
+		genE2(),
+	).Map(func(values []interface{}) E4 {
+		return E4{B0: values[0].(E2), B1: values[1].(E2)}
+	})
 }

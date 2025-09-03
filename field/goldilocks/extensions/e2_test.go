@@ -7,6 +7,7 @@ package extensions
 
 import (
 	"crypto/rand"
+	"math/big"
 	"testing"
 
 	fr "github.com/consensys/gnark-crypto/field/goldilocks"
@@ -34,124 +35,124 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	genA := GenE2()
-	genB := GenE2()
-	genfr := GenFr()
+	genA := genE2()
+	genB := genE2()
+	genfr := genFr()
 
 	properties.Property("[goldilocks] Having the receiver as operand (addition) should output the same result", prop.ForAll(
-		func(a, b *E2) bool {
+		func(a, b E2) bool {
 			var c, d E2
-			d.Set(a)
-			c.Add(a, b)
-			a.Add(a, b)
-			b.Add(&d, b)
-			return a.Equal(b) && a.Equal(&c) && b.Equal(&c)
+			d.Set(&a)
+			c.Add(&a, &b)
+			a.Add(&a, &b)
+			b.Add(&d, &b)
+			return a.Equal(&b) && a.Equal(&c) && b.Equal(&c)
 		},
 		genA,
 		genB,
 	))
 
 	properties.Property("[goldilocks] Having the receiver as operand (sub) should output the same result", prop.ForAll(
-		func(a, b *E2) bool {
+		func(a, b E2) bool {
 			var c, d E2
-			d.Set(a)
-			c.Sub(a, b)
-			a.Sub(a, b)
-			b.Sub(&d, b)
-			return a.Equal(b) && a.Equal(&c) && b.Equal(&c)
+			d.Set(&a)
+			c.Sub(&a, &b)
+			a.Sub(&a, &b)
+			b.Sub(&d, &b)
+			return a.Equal(&b) && a.Equal(&c) && b.Equal(&c)
 		},
 		genA,
 		genB,
 	))
 
 	properties.Property("[goldilocks] Having the receiver as operand (mul) should output the same result", prop.ForAll(
-		func(a, b *E2) bool {
+		func(a, b E2) bool {
 			var c, d E2
-			d.Set(a)
-			c.Mul(a, b)
-			a.Mul(a, b)
-			b.Mul(&d, b)
-			return a.Equal(b) && a.Equal(&c) && b.Equal(&c)
+			d.Set(&a)
+			c.Mul(&a, &b)
+			a.Mul(&a, &b)
+			b.Mul(&d, &b)
+			return a.Equal(&b) && a.Equal(&c) && b.Equal(&c)
 		},
 		genA,
 		genB,
 	))
 
 	properties.Property("[goldilocks] Having the receiver as operand (square) should output the same result", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b E2
-			b.Square(a)
-			a.Square(a)
+			b.Square(&a)
+			a.Square(&a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[goldilocks] Having the receiver as operand (neg) should output the same result", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b E2
-			b.Neg(a)
-			a.Neg(a)
+			b.Neg(&a)
+			a.Neg(&a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[goldilocks] Having the receiver as operand (double) should output the same result", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b E2
-			b.Double(a)
-			a.Double(a)
+			b.Double(&a)
+			a.Double(&a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[goldilocks] Having the receiver as operand (mul by non residue) should output the same result", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b E2
-			b.MulByNonResidue(a)
-			a.MulByNonResidue(a)
+			b.MulByNonResidue(&a)
+			a.MulByNonResidue(&a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[goldilocks] Having the receiver as operand (mul by non residue inverse) should output the same result", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b E2
-			b.MulByNonResidueInv(a)
-			a.MulByNonResidueInv(a)
+			b.MulByNonResidueInv(&a)
+			a.MulByNonResidueInv(&a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[goldilocks] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b E2
-			b.Inverse(a)
-			a.Inverse(a)
+			b.Inverse(&a)
+			a.Inverse(&a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[goldilocks] Having the receiver as operand (Conjugate) should output the same result", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b E2
-			b.Conjugate(a)
-			a.Conjugate(a)
+			b.Conjugate(&a)
+			a.Conjugate(&a)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[goldilocks] Having the receiver as operand (mul by element) should output the same result", prop.ForAll(
-		func(a *E2, b fr.Element) bool {
+		func(a E2, b fr.Element) bool {
 			var c E2
-			c.MulByElement(a, &b)
-			a.MulByElement(a, &b)
+			c.MulByElement(&a, &b)
+			a.MulByElement(&a, &b)
 			return a.Equal(&c)
 		},
 		genA,
@@ -159,17 +160,17 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 	))
 
 	properties.Property("[goldilocks] Having the receiver as operand (Sqrt) should output the same result", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b, c, d, s E2
 
-			s.Square(a)
+			s.Square(&a)
 			a.Set(&s)
 			b.Set(&s)
 
-			a.Sqrt(a)
+			a.Sqrt(&a)
 			b.Sqrt(&b)
 
-			c.Square(a)
+			c.Square(&a)
 			d.Square(&b)
 			return c.Equal(&d)
 		},
@@ -183,15 +184,13 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 func TestE2MulMaxed(t *testing.T) {
 	// let's pick a and b, with maxed A0 and A1
 	var a, b E2
-	frMaxValue := fr.Element{
-		18446744069414584321,
-	}
-	frMaxValue[0]--
+	qMinusOne := fr.Element{18446744069414584321}
+	qMinusOne[0]--
 
-	a.A0 = frMaxValue
-	a.A1 = frMaxValue
-	b.A0 = frMaxValue
-	b.A1 = frMaxValue
+	a.A0 = qMinusOne
+	a.A1 = qMinusOne
+	b.A0 = qMinusOne
+	b.A1 = qMinusOne
 
 	var c, d E2
 	d.Inverse(&b)
@@ -214,40 +213,40 @@ func TestE2Ops(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	genA := GenE2()
-	genB := GenE2()
-	genfr := GenFr()
+	genA := genE2()
+	genB := genE2()
+	genfr := genFr()
 
 	properties.Property("[goldilocks] sub & add should leave an element invariant", prop.ForAll(
-		func(a, b *E2) bool {
+		func(a, b E2) bool {
 			var c E2
-			c.Set(a)
-			c.Add(&c, b).Sub(&c, b)
-			return c.Equal(a)
+			c.Set(&a)
+			c.Add(&c, &b).Sub(&c, &b)
+			return c.Equal(&a)
 		},
 		genA,
 		genB,
 	))
 
 	properties.Property("[goldilocks] mul & inverse should leave an element invariant", prop.ForAll(
-		func(a, b *E2) bool {
+		func(a, b E2) bool {
 			var c, d E2
-			d.Inverse(b)
-			c.Set(a)
-			c.Mul(&c, b).Mul(&c, &d)
-			return c.Equal(a)
+			d.Inverse(&b)
+			c.Set(&a)
+			c.Mul(&c, &b).Mul(&c, &d)
+			return c.Equal(&a)
 		},
 		genA,
 		genB,
 	))
 
 	properties.Property("[goldilocks] BatchInvertE2 should output the same result as Inverse", prop.ForAll(
-		func(a, b, c *E2) bool {
+		func(a, b, c E2) bool {
 
-			batch := BatchInvertE2([]E2{*a, *b, *c})
-			a.Inverse(a)
-			b.Inverse(b)
-			c.Inverse(c)
+			batch := BatchInvertE2([]E2{a, b, c})
+			a.Inverse(&a)
+			b.Inverse(&b)
+			c.Inverse(&c)
 			return a.Equal(&batch[0]) && b.Equal(&batch[1]) && c.Equal(&batch[2])
 		},
 		genA,
@@ -256,73 +255,73 @@ func TestE2Ops(t *testing.T) {
 	))
 
 	properties.Property("[goldilocks] inverse twice should leave an element invariant", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b E2
-			b.Inverse(a).Inverse(&b)
+			b.Inverse(&a).Inverse(&b)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[goldilocks] neg twice should leave an element invariant", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b E2
-			b.Neg(a).Neg(&b)
+			b.Neg(&a).Neg(&b)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[goldilocks] square and mul should output the same result", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b, c E2
-			b.Mul(a, a)
-			c.Square(a)
+			b.Mul(&a, &a)
+			c.Square(&a)
 			return b.Equal(&c)
 		},
 		genA,
 	))
 
 	properties.Property("[goldilocks] MulByElement MulByElement inverse should leave an element invariant", prop.ForAll(
-		func(a *E2, b fr.Element) bool {
+		func(a E2, b fr.Element) bool {
 			var c E2
 			var d fr.Element
 			d.Inverse(&b)
-			c.MulByElement(a, &b).MulByElement(&c, &d)
-			return c.Equal(a)
+			c.MulByElement(&a, &b).MulByElement(&c, &d)
+			return c.Equal(&a)
 		},
 		genA,
 		genfr,
 	))
 
 	properties.Property("[goldilocks] Double and mul by 2 should output the same result", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b E2
 			var c fr.Element
 			c.SetUint64(2)
-			b.Double(a)
-			a.MulByElement(a, &c)
+			b.Double(&a)
+			a.MulByElement(&a, &c)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[goldilocks] Mulbynonres mulbynonresinv should leave the element invariant", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b E2
-			b.MulByNonResidue(a).MulByNonResidueInv(&b)
+			b.MulByNonResidue(&a).MulByNonResidueInv(&b)
 			return a.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[goldilocks] a + pi(a), a-pi(a) should be real", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b, c, d E2
 			var e, f fr.Element
-			b.Conjugate(a)
-			c.Add(a, &b)
-			d.Sub(a, &b)
+			b.Conjugate(&a)
+			c.Add(&a, &b)
+			d.Sub(&a, &b)
 			e.Double(&a.A0)
 			f.Double(&a.A1)
 			return c.A1.IsZero() && d.A0.IsZero() && e.Equal(&c.A0) && f.Equal(&d.A1)
@@ -331,9 +330,9 @@ func TestE2Ops(t *testing.T) {
 	))
 
 	properties.Property("[goldilocks] Legendre on square should output 1", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b E2
-			b.Square(a)
+			b.Square(&a)
 			c := b.Legendre()
 			return c == 1
 		},
@@ -341,21 +340,21 @@ func TestE2Ops(t *testing.T) {
 	))
 
 	properties.Property("[goldilocks] square(sqrt) should leave an element invariant", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b, c, d, e E2
-			b.Square(a)
+			b.Square(&a)
 			c.Sqrt(&b)
 			d.Square(&c)
-			e.Neg(a)
-			return (c.Equal(a) || c.Equal(&e)) && d.Equal(&b)
+			e.Neg(&a)
+			return (c.Equal(&a) || c.Equal(&e)) && d.Equal(&b)
 		},
 		genA,
 	))
 
 	properties.Property("[goldilocks] neg(E2) == neg(E2.A0, E2.A1)", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var b, c E2
-			b.Neg(a)
+			b.Neg(&a)
 			c.A0.Neg(&a.A0)
 			c.A1.Neg(&a.A1)
 			return c.Equal(&b)
@@ -364,9 +363,9 @@ func TestE2Ops(t *testing.T) {
 	))
 
 	properties.Property("[goldilocks] Cmp and LexicographicallyLargest should be consistent", prop.ForAll(
-		func(a *E2) bool {
+		func(a E2) bool {
 			var negA E2
-			negA.Neg(a)
+			negA.Neg(&a)
 			cmpResult := a.Cmp(&negA)
 			lResult := a.LexicographicallyLargest()
 			if lResult && cmpResult == 1 {
@@ -495,19 +494,52 @@ func TestE2Div(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
 	properties := gopter.NewProperties(parameters)
 
-	genA := GenE2()
-	genB := GenE2()
+	genA := genE2()
+	genB := genE2()
 
 	properties.Property("[goldilocks] dividing then multiplying by the same element does nothing", prop.ForAll(
-		func(a, b *E2) bool {
+		func(a, b E2) bool {
 			var c E2
-			c.Div(a, b)
-			c.Mul(&c, b)
-			return c.Equal(a)
+			c.Div(&a, &b)
+			c.Mul(&c, &b)
+			return c.Equal(&a)
 		},
 		genA,
 		genB,
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+var modulus = fr.Modulus()
+
+// genFr generates an Fr element
+func genFr() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fr.Element
+		// SetBigInt will reduce the value modulo the field order
+		// genParams.Rng is a math/rand.Rand which is not a cryptographically secure
+		// source of randomness. However, for property based testing, it is desirable
+		// to have a deterministic generator.
+		e := bigIntPool.Get().(*big.Int)
+		e.Rand(genParams.Rng, modulus)
+
+		for i, w := range e.Bits() {
+			elmt[i] = uint64(w)
+		}
+		bigIntPool.Put(e)
+
+		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
+		return genResult
+	}
+}
+
+// genE2 generates an E2 element
+func genE2() gopter.Gen {
+	return gopter.CombineGens(
+		genFr(),
+		genFr(),
+	).Map(func(values []interface{}) E2 {
+		return E2{A0: values[0].(fr.Element), A1: values[1].(fr.Element)}
+	})
 }
