@@ -534,22 +534,12 @@ func genFr() gopter.Gen {
 	}
 }
 
-// genE2 generates an E2 elmt
+// genE2 generates an E2 element
 func genE2() gopter.Gen {
 	return gopter.CombineGens(
 		genFr(),
 		genFr(),
 	).Map(func(values []interface{}) E2 {
 		return E2{A0: values[0].(fr.Element), A1: values[1].(fr.Element)}
-	})
-}
-
-// genE4 generates an E4 elmt
-func genE4() gopter.Gen {
-	return gopter.CombineGens(
-		genE2(),
-		genE2(),
-	).Map(func(values []interface{}) E4 {
-		return E4{B0: values[0].(E2), B1: values[1].(E2)}
 	})
 }
