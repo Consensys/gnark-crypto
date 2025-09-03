@@ -514,7 +514,7 @@ func (vector Vector) InnerProduct(a Vector) E4 {
 func (vector Vector) MulAccByElement(scale []fr.Element, alpha *E4) {
 	N := len(vector)
 	if N != len(scale) {
-		panic("MulAccE4: len(res) != len(scale)")
+		panic("MulAccByElement: len(vector) != len(scale)")
 	}
 	const blockSize = 4
 	if !cpu.SupportAVX512 || N%blockSize != 0 {
