@@ -52,10 +52,8 @@ func generateFFT(F *config.Field, fft *config.FFT, outputDir string) error {
 		{File: filepath.Join(outputDir, "domain_test.go"), Templates: []string{"tests/domain.go.tmpl"}},
 		{File: filepath.Join(outputDir, "domain.go"), Templates: []string{"domain.go.tmpl"}},
 		{File: filepath.Join(outputDir, "fft_test.go"), Templates: []string{"tests/fft.go.tmpl"}},
-		{File: filepath.Join(outputDir, "bitreverse_test.go"), Templates: []string{"tests/bitreverse.go.tmpl"}},
 		{File: filepath.Join(outputDir, "fft.go"), Templates: []string{"fft.go.tmpl"}},
 		{File: filepath.Join(outputDir, "kernel_purego.go"), Templates: []string{"kernel.purego.go.tmpl"}, BuildTag: pureGoBuildTag},
-		{File: filepath.Join(outputDir, "bitreverse.go"), Templates: []string{"bitreverse.go.tmpl"}},
 		{File: filepath.Join(outputDir, "options.go"), Templates: []string{"options.go.tmpl"}},
 	}
 	if F.F31 {
