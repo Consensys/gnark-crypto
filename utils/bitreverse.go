@@ -142,11 +142,7 @@ func bitReverseCobra[T any](v []T) {
 	case 1 << 27:
 		bitReverseCobraInPlace_9_27(v)
 	default:
-		if len(v) > 1<<27 {
-			bitReverseCobraInPlace(v)
-		} else {
-			bitReverseNaive(v)
-		}
+		bitReverseCobraInPlace(v)
 	}
 }
 
