@@ -66,18 +66,35 @@ var (
 func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	opt := domainOptions(opts...)
 
-	// Lock the mutex to protect the cache.
-	// Check for a cache hit only for the default configuration.
-	if opt.shift == nil && opt.withPrecompute {
-		domainMutex.Lock()
-		if domain, ok := domainCache[m]; ok {
-			domainMutex.Unlock()
-			return domain
-		}
-		domainMutex.Unlock()
+	// For non-default configurations, skip caching logic entirely.
+	// If the options include:
+	// - a shift (customization), or
+	// - withPrecompute == false,
+	// then caching is skipped
+	if opt.shift != nil || !opt.withPrecompute {
+		return createDomain(m, opt)
 	}
 
-	// If it's a cache miss (or a non-default configuration), create the domain.
+	// Lock the mutex for the entire caching block.
+	domainMutex.Lock()
+	defer domainMutex.Unlock()
+
+	// Check the cache under the lock.
+	if domain, ok := domainCache[m]; ok {
+		return domain
+	}
+
+	// If it's a cache miss, create the domain.
+	domain := createDomain(m, opt)
+
+	// Cache the domain before unlocking.
+	domainCache[m] = domain
+
+	return domain
+}
+
+// createDomain is a helper function to create the domain without caching logic.
+func createDomain(m uint64, opt domainConfig) *Domain {
 	domain := &Domain{}
 	x := ecc.NextPowerOfTwo(m)
 	domain.Cardinality = uint64(x)
@@ -101,13 +118,6 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	if domain.withPrecompute {
 		domain.preComputeTwiddles()
 	}
-	// Cache the domain only if it's the default configuration.
-	if opt.shift == nil && opt.withPrecompute {
-		domainMutex.Lock()
-		domainCache[m] = domain
-		domainMutex.Unlock()
-	}
-
 	return domain
 }
 
