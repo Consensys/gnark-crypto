@@ -6,14 +6,12 @@
 package extensions
 
 import (
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
 	"os"
 	"testing"
 
-	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/prop"
-
 	"fmt"
-
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 
 	"github.com/stretchr/testify/require"

@@ -2,7 +2,6 @@ import (
 	"crypto/rand"
 	"testing"
 	"math/big"
-	"math/big"
 
 	fr "{{ .FieldPackagePath }}"
 	"github.com/leanovate/gopter"
@@ -544,55 +543,3 @@ func genE2() gopter.Gen {
 		return E2{A0: values[0].(fr.Element), A1: values[1].(fr.Element)}
 	})
 }
-
-
-
-
-var modulus = fr.Modulus()
-
-// genFr generates an Fr element
-func genFr() gopter.Gen {
-	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		var elmt fr.Element
-		// SetBigInt will reduce the value modulo the field order
-		// genParams.Rng is a math/rand.Rand which is not a cryptographically secure
-		// source of randomness. However, for property based testing, it is desirable
-		// to have a deterministic generator.
-		e := bigIntPool.Get().(*big.Int)
-		e.Rand(genParams.Rng, modulus)
-		
-		for i, w := range e.Bits() {
-			{{- if or (eq .FF "babybear") (eq .FF "koalabear")}}
-				elmt[i] = uint32(w)
-			{{- else}}
-				elmt[i] = uint64(w)
-			{{- end}}
-		}
-		bigIntPool.Put(e)
-
-		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
-		return genResult
-	}
-}
-
-// genE2 generates an E2 elmt
-func genE2() gopter.Gen {
-	return gopter.CombineGens(
-		genFr(),
-		genFr(),
-	).Map(func(values []interface{}) E2 {
-		return E2{A0: values[0].(fr.Element), A1: values[1].(fr.Element)}
-	})
-}
-
-{{- if or (eq .FF "babybear") (eq .FF "koalabear")}}
-// genE4 generates an E4 elmt
-func genE4() gopter.Gen {
-	return gopter.CombineGens(
-		genE2(),
-		genE2(),
-	).Map(func(values []interface{}) E4 {
-		return E4{B0: values[0].(E2), B1: values[1].(E2)}
-	})
-}
-{{- end}}
