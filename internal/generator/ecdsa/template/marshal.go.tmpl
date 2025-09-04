@@ -34,9 +34,8 @@ func (pk *PublicKey) Bytes() []byte {
 }
 
 // SetBytes sets p from binary representation in buf.
-// buf represents a public key as x||y where x, y are
-// interpreted as big endian binary numbers corresponding
-// to the coordinates of a point on the curve.
+// buf must contain the compressed public key as produced by Bytes(),
+// of length sizePublicKey bytes.
 // It returns the number of bytes read from the buffer.
 func (pk *PublicKey) SetBytes(buf []byte) (int, error) {
 	n := 0
