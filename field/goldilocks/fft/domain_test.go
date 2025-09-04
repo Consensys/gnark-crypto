@@ -45,7 +45,7 @@ func TestNewDomainGenerateCache(t *testing.T) {
 	assert.NotNil(domainCache[256], "After Domain generation, domainCache[cacheKey1] should not be nil")
 	assert.Equal(domain1, domainCache[256], "domain1 = domainCache[cacheKey1]")
 
-	shift := koalabear.NewElement(2)
+	shift := goldilocks.NewElement(2)
 	assert.Nil(domainCache[512], "Before Domain generation, domainCache should be nil")
 	domain2 := NewDomain(512, WithShift(shift))
 	assert.Nil(domainCache[512], "Domain generation with shift is not default configuration, domainCache[cacheKey2] should still be nil")
