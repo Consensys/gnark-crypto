@@ -6,15 +6,15 @@
 package extensions
 
 import (
-	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/prop"
+	"fmt"
 	"os"
 	"testing"
 
-	"fmt"
-	fr "github.com/consensys/gnark-crypto/field/koalabear"
-
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/require"
+
+	fr "github.com/consensys/gnark-crypto/field/koalabear"
 )
 
 // ------------------------------------------------------------
@@ -27,8 +27,8 @@ func TestE4ReceiverIsOperand(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	genA := genE4()
-	genB := genE4()
+	genA := GenE4()
+	genB := GenE4()
 
 	properties.Property("[koalabear] Having the receiver as operand (addition) should output the same result", prop.ForAll(
 		func(a, b E4) bool {
@@ -576,4 +576,14 @@ func genVector(size int) gopter.Gen {
 		}
 		return gopter.NewGenResult(v, gopter.NoShrinker)
 	}
+}
+
+// genE4 generates an E4 element
+func genE4() gopter.Gen {
+	return gopter.CombineGens(
+		genE2(),
+		genE2(),
+	).Map(func(values []interface{}) E4 {
+		return E4{B0: values[0].(E2), B1: values[1].(E2)}
+	})
 }

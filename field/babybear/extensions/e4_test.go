@@ -6,12 +6,14 @@
 package extensions
 
 import (
-	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/prop"
 	"os"
 	"testing"
 
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
+
 	"fmt"
+
 	fr "github.com/consensys/gnark-crypto/field/babybear"
 
 	"github.com/stretchr/testify/require"
@@ -576,4 +578,14 @@ func genVector(size int) gopter.Gen {
 		}
 		return gopter.NewGenResult(v, gopter.NoShrinker)
 	}
+}
+
+// genE4 generates an E4 element
+func genE4() gopter.Gen {
+	return gopter.CombineGens(
+		genE2(),
+		genE2(),
+	).Map(func(values []interface{}) E4 {
+		return E4{B0: values[0].(E2), B1: values[1].(E2)}
+	})
 }

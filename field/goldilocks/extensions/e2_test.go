@@ -534,7 +534,7 @@ func genFr() gopter.Gen {
 	}
 }
 
-// genE2 generates an E2 elmt
+// genE2 generates an E2 element
 func genE2() gopter.Gen {
 	return gopter.CombineGens(
 		genFr(),

@@ -19,6 +19,7 @@ import (
 	curve "github.com/consensys/gnark-crypto/ecc/bw6-761"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/fft"
+	"github.com/consensys/gnark-crypto/utils"
 
 	"github.com/consensys/gnark-crypto/utils/testutils"
 )
@@ -142,7 +143,7 @@ func TestCommitLagrange(t *testing.T) {
 			// commitment using canonical SRS
 			d := fft.NewDomain(uint64(size))
 			d.FFTInverse(pol, fft.DIF)
-			fft.BitReverse(pol)
+			utils.BitReverse(pol)
 			digestCanonical, err := Commit(pol, srs.Pk)
 			assert.NoError(err)
 
