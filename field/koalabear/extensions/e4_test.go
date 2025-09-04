@@ -6,15 +6,17 @@
 package extensions
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
-	"github.com/stretchr/testify/require"
+
+	"fmt"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
+
+	"github.com/stretchr/testify/require"
 )
 
 // ------------------------------------------------------------
@@ -27,8 +29,8 @@ func TestE4ReceiverIsOperand(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	genA := GenE4()
-	genB := GenE4()
+	genA := genE4()
+	genB := genE4()
 
 	properties.Property("[koalabear] Having the receiver as operand (addition) should output the same result", prop.ForAll(
 		func(a, b E4) bool {
