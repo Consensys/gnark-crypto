@@ -357,7 +357,7 @@ func SameRatioMany(slices ...any) error {
 
 {{ define "curveFuncs" }}
 // UpdateMonomialsG{{.I}} A[i] <- r^i.A[i]
-func UpdateMonomialsG{{.I}}(A []curve.G1Affine, r *fr.Element) {
+func UpdateMonomialsG{{.I}}(A []curve.G{{.I}}Affine, r *fr.Element) {
 	var (
 		rExp fr.Element
 		I big.Int
