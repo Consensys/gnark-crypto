@@ -37,7 +37,7 @@ func TestDomainSerialization(t *testing.T) {
 	}
 }
 
-func TestGetDomainFromCache(t *testing.T) {
+func TestNewDomainGenerateCache(t *testing.T) {
 	assert := require.New(t)
 
 	assert.Nil(domainCache[256], "Before Domain generation, domainCache should be nil")
@@ -45,10 +45,37 @@ func TestGetDomainFromCache(t *testing.T) {
 	assert.NotNil(domainCache[256], "After Domain generation, domainCache[cacheKey1] should not be nil")
 	assert.Equal(domain1, domainCache[256], "domain1 = domainCache[cacheKey1]")
 
-	shift := fr.NewElement(2)
+	shift := koalabear.NewElement(2)
 	assert.Nil(domainCache[512], "Before Domain generation, domainCache should be nil")
 	domain2 := NewDomain(512, WithShift(shift))
 	assert.Nil(domainCache[512], "Domain generation with shift is not default configuration, domainCache[cacheKey2] should still be nil")
 
 	assert.NotSame(domain1, domain2, "The pointers for different domains should not be the same")
+}
+
+// Compare the performance of a cache hit versus a cache miss
+func BenchmarkNewDomainCache(b *testing.B) {
+	b.Run("NewDomainCacheHit", func(b *testing.B) {
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			NewDomain(1 << 20)
+		}
+	})
+
+	b.Run("NewDomainCacheMiss", func(b *testing.B) {
+		b.ReportAllocs()
+
+		for i := 0; i < b.N; i++ {
+			// Clear the cache before each iteration to force a cache miss
+			ClearDomainCache()
+			NewDomain(1 << 20)
+		}
+	})
+}
+
+func ClearDomainCache() {
+	domainMutex.Lock()
+	domainCache = make(map[uint64]*Domain)
+	domainMutex.Unlock()
 }
