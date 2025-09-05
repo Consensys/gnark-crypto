@@ -84,17 +84,14 @@ func TestGCBehavior(t *testing.T) {
 	})
 
 	t.Run("UnreferencedDomainCollected", func(t *testing.T) {
-		var key domainCacheKey
-		{
-			domain := NewDomain(1<<19, WithCache())
-			key := domainCacheKey{
-				m:   1 << 19,
-				gen: GeneratorFullMultiplicativeGroup(),
-			}
-			require.NotNil(t, getCachedDomain(key), "domain should be cached")
-			// Last use of domain
-			_ = domain.Cardinality
+		domain := NewDomain(1<<19, WithCache())
+		key := domainCacheKey{
+			m:   1 << 19,
+			gen: GeneratorFullMultiplicativeGroup(),
 		}
+		require.NotNil(t, getCachedDomain(key), "domain should be cached")
+		// Last use of domain
+		_ = domain.Cardinality
 		runtime.GC()
 		require.Nil(t, getCachedDomain(key), "unreferenced domain should be collected and removed from cache")
 	})
