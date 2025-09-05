@@ -8,7 +8,12 @@ package fft
 import (
 	"bytes"
 	"reflect"
+	"runtime"
 	"testing"
+	"weak"
+
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDomainSerialization(t *testing.T) {
@@ -33,4 +38,103 @@ func TestDomainSerialization(t *testing.T) {
 	if !reflect.DeepEqual(domain, &reconstructed) {
 		t.Fatal("Domain.SetBytes(Bytes()) failed")
 	}
+}
+
+func TestNewDomainCache(t *testing.T) {
+	// Clean up cache after test
+	t.Cleanup(clearDomainCache)
+
+	t.Run("CacheWithoutShift", func(t *testing.T) {
+		key1 := domainCacheKey{
+			m:   256,
+			gen: GeneratorFullMultiplicativeGroup(),
+		}
+		require.Nil(t, getCachedDomain(key1), "cache should be empty initially")
+		domain1 := NewDomain(256, WithCache())
+		expected1 := NewDomain(256)
+		require.Equal(t, domain1, expected1, "domain1 should equal expected1")
+		require.Same(t, domain1, getCachedDomain(key1), "domain1 should be stored in cache")
+	})
+
+	t.Run("CacheWithShift", func(t *testing.T) {
+		shift := fr.NewElement(5)
+		key2 := domainCacheKey{
+			m:   512,
+			gen: shift,
+		}
+		require.Nil(t, getCachedDomain(key2), "cache should be empty initially")
+		domain2 := NewDomain(512, WithShift(shift), WithCache())
+		expected2 := NewDomain(512, WithShift(shift))
+		require.Equal(t, domain2, expected2, "domain2 should equal expected2")
+		require.Same(t, domain2, getCachedDomain(key2), "domain2 should be stored in cache")
+	})
+}
+
+func TestGCBehavior(t *testing.T) {
+	// Clean up cache after test
+	t.Cleanup(clearDomainCache)
+
+	t.Run("DomainKeptAliveNotCollected", func(t *testing.T) {
+		domain := NewDomain(1<<20, WithCache())
+		require.NotNil(t, domain, "domain should not be empty")
+		key := domainCacheKey{
+			m:   1 << 20,
+			gen: GeneratorFullMultiplicativeGroup(),
+		}
+		require.NotNil(t, getCachedDomain(key), "domain should be cached")
+		runtime.GC()
+		require.NotNil(t, getCachedDomain(key), "domain should still be cached")
+		runtime.KeepAlive(domain)
+	})
+
+	t.Run("UnreferencedDomainCollected", func(t *testing.T) {
+		domain := NewDomain(1<<19, WithCache())
+		key := domainCacheKey{
+			m:   1 << 19,
+			gen: GeneratorFullMultiplicativeGroup(),
+		}
+		require.NotNil(t, getCachedDomain(key), "domain should be cached")
+		// Last use of domain
+		_ = domain.Cardinality
+		runtime.GC()
+		require.Nil(t, getCachedDomain(key), "unreferenced domain should be collected and removed from cache")
+	})
+}
+
+func BenchmarkNewDomainCache(b *testing.B) {
+	b.Run("WithCache", func(b *testing.B) {
+		// Clear cache before benchmark
+		clearDomainCache()
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			_ = NewDomain(1<<20, WithCache())
+		}
+	})
+
+	b.Run("WithoutCache", func(b *testing.B) {
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			_ = NewDomain(1 << 20)
+		}
+	})
+
+}
+
+// Helper functions
+func clearDomainCache() {
+	domainMutex.Lock()
+	domainCache = make(map[domainCacheKey]weak.Pointer[Domain])
+	domainMutex.Unlock()
+}
+
+func getCachedDomain(key domainCacheKey) *Domain {
+	domainMutex.Lock()
+	defer domainMutex.Unlock()
+
+	if weak, exists := domainCache[key]; exists {
+		return weak.Value()
+	}
+	return nil
 }
