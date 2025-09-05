@@ -13,6 +13,7 @@ import (
 	"math/bits"
 	"runtime"
 	"sync"
+	"weak"
 
 	"github.com/consensys/gnark-crypto/field/babybear"
 
@@ -61,46 +62,72 @@ func GeneratorFullMultiplicativeGroup() babybear.Element {
 	return res
 }
 
+// domainCacheKey is the composite key for the cache.
+// It uses a struct with comparable types as the map key.
+type domainCacheKey struct {
+	m   uint64
+	gen babybear.Element
+}
+
 var (
-	domainCache = make(map[uint64]*Domain)
+	domainCache = make(map[domainCacheKey]weak.Pointer[Domain])
 	domainMutex sync.Mutex
 )
 
-// NewDomain returns a subgroup with a power of 2 cardinality
-// cardinality >= m
-// shift: when specified, it's the element by which the set of root of unity is shifted.
-// If domain is cached, it will directly returns the cached domain
+// NewDomain returns a subgroup with a power of 2 cardinality >= m.
+//
+// Parameters:
+//   - m: minimum cardinality (will be rounded up to next power of 2)
+//   - opts: configuration options (WithShift, WithCache, WithoutPrecompute, etc.)
+//
+// The domain can be cached when both withCache and withPrecompute are enabled.
+// Cached domains are automatically cleaned up when no longer in use.
 func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	opt := domainOptions(opts...)
 
-	// For non-default configurations, skip caching logic entirely.
-	// If the options include:
-	// - a shift (customization), or
-	// - withPrecompute == false,
-	// then caching is skipped
-	if opt.shift != nil || !opt.withPrecompute {
+	// Skip caching if disabled or precomputation is off
+	if !opt.withCache || !opt.withPrecompute {
 		return createDomain(m, opt)
+	}
+
+	// Compute the cache key.
+	key := domainCacheKey{m: m}
+	if opt.shift != nil {
+		key.gen.Set(opt.shift)
+	} else {
+		key.gen = GeneratorFullMultiplicativeGroup() // Default generator
 	}
 
 	// Lock the mutex for the entire caching block.
 	domainMutex.Lock()
 	defer domainMutex.Unlock()
 
-	// Check the cache under the lock.
-	if domain, ok := domainCache[m]; ok {
-		return domain
+	// Return from cache if available.
+	// Fast path: check cache with minimal locking
+	if weakDomain, exists := domainCache[key]; exists {
+		if domain := weakDomain.Value(); domain != nil {
+			return domain
+		}
+		// Clean up dead weak reference
+		delete(domainCache, key)
 	}
 
-	// If it's a cache miss, create the domain.
+	// Create a new domain.
 	domain := createDomain(m, opt)
 
-	// Cache the domain before unlocking.
-	domainCache[m] = domain
+	// Store in cache with cleanup
+	domainCache[key] = weak.Make(domain)
+
+	// Add cleanup to remove from cache when domain is garbage collected.
+	runtime.AddCleanup(domain, func(key domainCacheKey) {
+		domainMutex.Lock()
+		delete(domainCache, key)
+		domainMutex.Unlock()
+	}, key)
 
 	return domain
 }
 
-// createDomain is a helper function to create the domain without caching logic.
 func createDomain(m uint64, opt domainConfig) *Domain {
 	domain := &Domain{}
 	x := ecc.NextPowerOfTwo(m)
@@ -125,6 +152,7 @@ func createDomain(m uint64, opt domainConfig) *Domain {
 	if domain.withPrecompute {
 		domain.preComputeTwiddles()
 	}
+
 	return domain
 }
 
