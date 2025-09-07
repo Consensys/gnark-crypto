@@ -521,7 +521,7 @@ func (z *Element) ExpInt64(x Element, k int64) *Element {
 		// negative k, we invert
 		// if k < 0: xᵏ (mod q) == (x⁻¹)⁻ᵏ (mod q)
 		x.Inverse(&x)
-		k = -k
+		k = -k // if k == math.MinInt64, -k overflows, but uint64(-k) is correct
 	}
 	e := uint64(k)
 

@@ -49,7 +49,7 @@ func (z *{{.ElementName}}) ExpInt64(x {{.ElementName}}, k int64) *{{.ElementName
 		// negative k, we invert
 		// if k < 0: xᵏ (mod q) == (x⁻¹)⁻ᵏ (mod q)
 		x.Inverse(&x)
-		k = -k
+		k = -k // if k == math.MinInt64, -k overflows, but uint64(-k) is correct
 	}
 	e := uint64(k)
 

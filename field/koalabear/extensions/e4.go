@@ -254,7 +254,7 @@ func (z *E4) ExpInt64(x E4, k int64) *E4 {
 	exp := k
 	if k < 0 {
 		x.Inverse(&x)
-		exp = -k
+		exp = -k // if k == math.MinInt64, -k overflows, but uint64(-k) is correct
 	}
 
 	z.Set(&x)
