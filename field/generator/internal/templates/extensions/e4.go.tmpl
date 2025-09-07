@@ -556,6 +556,37 @@ func (vector Vector) InnerProduct(a Vector) E4 {
 	{{- end}}
 }
 
+// Exp sets vector[i] = a[i]ᵏ for all i
+func (vector Vector) Exp(a Vector, k int64) {
+	N := len(a)
+	if N != len(vector) {
+		panic("vector.Exp: vectors don't have the same length")
+	}
+	if k == 0 {
+		for i := range vector {
+			vector[i].SetOne()
+		}
+		return
+	}
+	base := a
+	exp := k
+	if k < 0 {
+		// call batch inverse
+		base = BatchInvertE4(a)
+		exp = -k // if k == math.MinInt64, -k overflows, but uint64(-k) is correct
+	}
+
+	copy(vector, base)
+
+	// Use bits.Len64 to iterate only over significant bits
+	for i := bits.Len64(uint64(exp)) - 2; i >= 0; i-- {
+		vector.Mul(vector, vector)
+		if (uint64(exp)>>uint(i))&1 != 0 {
+			vector.Mul(vector, base)
+		}
+	}
+}
+ 
 // MulAccByElement multiplies each element of the vector v by the E4 element alpha,
 // accumulating the result in the same vector.
 func (vector Vector) MulAccByElement(scale []fr.Element, alpha *E4)  {
