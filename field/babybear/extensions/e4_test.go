@@ -239,7 +239,7 @@ func TestE4Exp(t *testing.T) {
 	properties := gopter.NewProperties(parameters)
 	genA := genE4()
 
-	properties.Property("[koalabear] Exp(x, 0) should return one", prop.ForAll(
+	properties.Property("[babybear] Exp(x, 0) should return one", prop.ForAll(
 		func(a E4) bool {
 			var res E4
 			var one E4
@@ -250,7 +250,7 @@ func TestE4Exp(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[koalabear] Exp(x, 1) should return x", prop.ForAll(
+	properties.Property("[babybear] Exp(x, 1) should return x", prop.ForAll(
 		func(a E4) bool {
 			var res E4
 			res.Exp(a, big.NewInt(1))
@@ -259,7 +259,7 @@ func TestE4Exp(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[koalabear] Exp(x, 2) should return x squared", prop.ForAll(
+	properties.Property("[babybear] Exp(x, 2) should return x squared", prop.ForAll(
 		func(a E4) bool {
 			var res, sq E4
 			res.Exp(a, big.NewInt(2))
@@ -269,7 +269,7 @@ func TestE4Exp(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[koalabear] Exp(x, k) should match repeated multiplication", prop.ForAll(
+	properties.Property("[babybear] Exp(x, k) should match repeated multiplication", prop.ForAll(
 		func(a E4) bool {
 			var res, mul E4
 			k := int64(0b101101) // 45
