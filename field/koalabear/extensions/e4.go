@@ -7,6 +7,7 @@ package extensions
 
 import (
 	"math/big"
+	"math/bits"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/utils/cpu"
@@ -212,8 +213,8 @@ func (z *E4) Inverse(x *E4) *E4 {
 
 // Exp sets z=xᵏ (mod q⁴) and returns it
 func (z *E4) Exp(x E4, k *big.Int) *E4 {
-	if k.IsUint64() && k.Uint64() == 0 {
-		return z.SetOne()
+	if k.IsInt64() {
+		return z.ExpInt64(x, k.Int64())
 	}
 
 	e := k
@@ -238,6 +239,31 @@ func (z *E4) Exp(x E4, k *big.Int) *E4 {
 			if (w & (0b10000000 >> j)) != 0 {
 				z.Mul(z, &x)
 			}
+		}
+	}
+
+	return z
+}
+
+// ExpInt64 sets z=xᵏ (mod q⁴) and returns it, where k is an int64
+func (z *E4) ExpInt64(x E4, k int64) *E4 {
+	if k == 0 {
+		return z.SetOne()
+	}
+
+	exp := k
+	if k < 0 {
+		x.Inverse(&x)
+		exp = -k
+	}
+
+	z.Set(&x)
+
+	// Use bits.Len64 to iterate only over significant bits
+	for i := bits.Len64(uint64(exp)) - 2; i >= 0; i-- {
+		z.Square(z)
+		if (uint64(exp)>>uint(i))&1 != 0 {
+			z.Mul(z, &x)
 		}
 	}
 
