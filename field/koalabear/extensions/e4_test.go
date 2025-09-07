@@ -663,14 +663,14 @@ func BenchmarkVectorOps(b *testing.B) {
 		b.Run(fmt.Sprintf("exp %d", n), func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				_c.Exp(_a, int64(q>>2))
+				_c.Exp(_a, int64(2130706433>>2))
 			}
 		})
 
 		b.Run(fmt.Sprintf("exp neg %d", n), func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				_c.Exp(_a, -int64(q>>2))
+				_c.Exp(_a, -int64(2130706433>>2))
 			}
 		})
 	}
