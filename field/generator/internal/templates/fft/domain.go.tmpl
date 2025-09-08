@@ -117,19 +117,31 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	domain := createDomain(m, opt)
 
 	// Store in cache with cleanup
-	domainCache[key] = weak.Make(domain)
+	weakDomain := weak.Make(domain)
+	domainCache[key] = weakDomain
 
 	// Add cleanup to remove from cache when domain is garbage collected
 	runtime.AddCleanup(domain, func(key domainCacheKey) {
-		globalLock.Lock()
-		if keyLock, ok := keysLock[key]; ok {
-			keyLock.Lock()
-			// We can now safely delete from both maps.
-			delete(domainCache, key)
-			keyLock.Unlock()
-			delete(keysLock, key) // Delete after unlocking 
-		}
-		globalLock.Unlock()
+		// cleanup *may* be called concurrently, but could be sequential. We run it
+		// in a separate goroutine to avoid block other cleanups being run if this
+		// cleanup is being run on the same key which is being generated (thus lock 
+		// being held).
+		go func() {
+			globalLock.Lock()
+			if keyLock, ok := keysLock[key]; ok {
+				keyLock.Lock()
+				// We can now safely delete from both maps. But we only do if
+				// the cached weak pointer is the same one we created. Otherwise
+				// this means this cleanup is running after a new domain was
+				// already cached (double cleanup).
+				if cacheWeakDomain := domainCache[key]; cacheWeakDomain == weakDomain {
+					delete(domainCache, key)
+					delete(keysLock, key)
+				}
+				keyLock.Unlock()
+			}
+			globalLock.Unlock()
+		}()
 	}, key)
 	return domain
 }
