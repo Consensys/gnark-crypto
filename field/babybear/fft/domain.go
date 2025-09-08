@@ -71,7 +71,8 @@ type domainCacheKey struct {
 
 var (
 	domainCache = make(map[domainCacheKey]weak.Pointer[Domain])
-	domainMutex sync.Mutex
+	keysLock    = make(map[domainCacheKey]*sync.Mutex) // Per-key mutexes
+	globalLock  sync.Mutex                             // Protects keysLock map
 )
 
 // NewDomain returns a subgroup with a power of 2 cardinality >= m.
@@ -98,33 +99,44 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 		key.gen = GeneratorFullMultiplicativeGroup() // Default generator
 	}
 
-	// Lock the mutex for the entire caching block.
-	domainMutex.Lock()
-	defer domainMutex.Unlock()
+	// Get or create the per-key lock
+	globalLock.Lock()
+	keyLock := keysLock[key]
+	if keyLock == nil {
+		keyLock = new(sync.Mutex)
+		keysLock[key] = keyLock
+	}
+	globalLock.Unlock() // Release global lock immediately
 
-	// Return from cache if available.
-	// Fast path: check cache with minimal locking
+	keyLock.Lock()
+	defer keyLock.Unlock()
+
+	// Now we have exclusive access for this specific key
+	// Check cache first
 	if weakDomain, exists := domainCache[key]; exists {
 		if domain := weakDomain.Value(); domain != nil {
 			return domain
 		}
-		// Clean up dead weak reference
-		delete(domainCache, key)
 	}
 
-	// Create a new domain.
+	// Create a new domain (expensive operation, but only blocks same key)
 	domain := createDomain(m, opt)
 
 	// Store in cache with cleanup
 	domainCache[key] = weak.Make(domain)
 
-	// Add cleanup to remove from cache when domain is garbage collected.
+	// Add cleanup to remove from cache when domain is garbage collected
 	runtime.AddCleanup(domain, func(key domainCacheKey) {
-		domainMutex.Lock()
-		delete(domainCache, key)
-		domainMutex.Unlock()
+		globalLock.Lock()
+		if keyLock, ok := keysLock[key]; ok {
+			keyLock.Lock()
+			// We can now safely delete from both maps.
+			delete(domainCache, key)
+			delete(keysLock, key)
+			keyLock.Unlock()
+		}
+		globalLock.Unlock()
 	}, key)
-
 	return domain
 }
 

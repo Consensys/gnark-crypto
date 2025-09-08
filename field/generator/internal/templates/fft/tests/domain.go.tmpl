@@ -3,6 +3,7 @@ import (
 	"bytes"
 	"reflect"
 	"runtime"
+	"sync"
 	"testing"
 	"weak"
 	
@@ -120,14 +121,24 @@ func BenchmarkNewDomainCache(b *testing.B) {
 
 // Helper functions
 func clearDomainCache() {
-	domainMutex.Lock()
+	globalLock.Lock()
 	domainCache = make(map[domainCacheKey]weak.Pointer[Domain])
-	domainMutex.Unlock()
+	keysLock = make(map[domainCacheKey]*sync.Mutex)
+	globalLock.Unlock()
 }
 
 func getCachedDomain(key domainCacheKey) *Domain {
-	domainMutex.Lock()
-	defer domainMutex.Unlock()
+	globalLock.Lock()
+	keyLock, exists := keysLock[key]
+	globalLock.Unlock()
+
+	if !exists {
+		return nil
+	}
+
+	// Now, use the per-key lock to safely access the domainCache map
+	keyLock.Lock()
+	defer keyLock.Unlock()
 
 	if weak, exists := domainCache[key]; exists {
 		return weak.Value()
