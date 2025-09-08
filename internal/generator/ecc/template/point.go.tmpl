@@ -524,6 +524,73 @@ func (p *{{ $TJacobian }}) DoubleAssign() *{{ $TJacobian }} {
 
  	return p
 }
+// Triple sets p to [3]q in Jacobian coordinates for j=0 curves.
+//
+// https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1
+func (p *{{ $TJacobian }}) Triple(q *{{ $TJacobian }}) *{{ $TJacobian }} {
+	// Helper functions for multiplication by 3 and 4.
+	mulBy3 := func(v *{{.CoordType}}) {
+		{{- if eq .CoordType "fp.Element"}}
+		fp.MulBy3(v)
+		{{- else}}
+		tmp := *v
+		v.Double(v)
+		v.Add(v, &tmp)
+		{{- end}}
+	}
+	mulBy4 := func(v *{{.CoordType}}) {
+		v.Double(v).Double(v)
+	}
+
+	// --- Step 1: Compute initial terms from input q ---
+	var X3, Y2, XZ {{.CoordType}}
+	X3.Square(&q.X)    // X3 = q.X^2
+	Y2.Square(&q.Y)    // Y2 = q.Y^2
+	X3.Mul(&X3, &q.X)  // X3 = q.X^3
+	XZ.Mul(&q.X, &q.Z) // XZ = q.X * q.Z
+
+	// --- Step 2: Compute the X-coordinate of an intermediate point τ ---
+	// Calculates Xτ = 4*q.Y^2 - 3*q.X^3.
+	// The variable p.Z is used for temporary storage and finalized in Step 6.
+	mulBy3(&X3)     // X3 = 3*q.X^3
+	mulBy4(&Y2)     // Y2 = 4*q.Y^2
+	var Xτ {{.CoordType}}
+	Xτ.Sub(&Y2, &X3)
+	p.Z.Mul(&Xτ, &XZ) // p.Z = Xτ * (q.X * q.Z)
+
+	// --- Step 3: Compute the Y-coordinate of the intermediate point τ ---
+	// Calculates Yτ = q.Y * (9*q.X^3 - 8*q.Y^2).
+	// Reuses X3 and Y2 from previous steps.
+	mulBy3(&X3)     // X3 = 9*q.X^3
+	var Yτ {{.CoordType}}
+	Yτ.Double(&Y2)  // Yτ = 8*q.Y^2
+	Yτ.Sub(&X3, &Yτ).Mul(&Yτ, &q.Y)
+
+	// --- Step 4: Compute powers of the intermediate point's coordinates ---
+	var Xτ2, Xτ3, Yτ2 {{.CoordType}}
+	Xτ2.Square(&Xτ)     // Xτ2 = Xτ^2
+	Xτ3.Mul(&Xτ2, &Xτ)  // Xτ3 = Xτ^3
+	Yτ2.Square(&Yτ)     // Yτ2 = Yτ^2
+
+	// --- Step 5: Compute the final X and Y coordinates of the result [3]q ---
+	// This step re-applies the same transformation using (Xτ, Yτ) as input.
+	// p.X = 4*Yτ^2 - 3*Xτ^3
+	mulBy3(&Xτ3)    // Xτ3 = 3*Xτ^3
+	mulBy4(&Yτ2)    // Yτ2 = 4*Yτ^2
+	p.X.Sub(&Yτ2, &Xτ3)
+
+	// p.Y = Yτ * (9*Xτ^3 - 8*Yτ^2)
+	// Reuses Xτ3 and Yτ2 from the previous calculation.
+	mulBy3(&Xτ3)    // Xτ3 = 9*Xτ^3
+	Yτ2.Double(&Yτ2) // Yτ2 = 8*Yτ^2
+	p.Y.Sub(&Xτ3, &Yτ2).Mul(&p.Y, &Yτ)
+
+	// --- Step 6: Finalize the Z-coordinate ---
+	// p.Z = 3 * p.Z = 3 * Xτ * (q.X * q.Z)
+	mulBy3(&p.Z)
+
+	return p
+}
 
 // Triple sets p to [3]q in Jacobian coordinates. Only on j=0 curves.
 //

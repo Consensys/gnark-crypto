@@ -17,6 +17,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 
 	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/utils"
 )
 
 // Domain with a power of 2 cardinality
@@ -314,4 +315,13 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 	}
 
 	return read, nil
+}
+
+// BitReverse applies the bit-reversal permutation to v.
+//
+// The length of v must be a power of 2.
+//
+// Deprecated: Use [utils.BitReverse] instead.
+func BitReverse(v []fr.Element) {
+	utils.BitReverse(v)
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/kzg"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"github.com/consensys/gnark-crypto/utils"
 )
 
 var (
@@ -388,8 +389,8 @@ func ProveLookupVector(pk kzg.ProvingKey, f, t fr.Vector) (ProofLookupVector, er
 	copy(cf, lf)
 	domainSmall.FFTInverse(ct, fft.DIF)
 	domainSmall.FFTInverse(cf, fft.DIF)
-	fft.BitReverse(ct)
-	fft.BitReverse(cf)
+	utils.BitReverse(ct)
+	utils.BitReverse(cf)
 	proof.t, err = kzg.Commit(ct, pk)
 	if err != nil {
 		return proof, err
@@ -417,8 +418,8 @@ func ProveLookupVector(pk kzg.ProvingKey, f, t fr.Vector) (ProofLookupVector, er
 	copy(ch2, lfSortedByt[sizeDomainSmall-1:])
 	domainSmall.FFTInverse(ch1, fft.DIF)
 	domainSmall.FFTInverse(ch2, fft.DIF)
-	fft.BitReverse(ch1)
-	fft.BitReverse(ch2)
+	utils.BitReverse(ch1)
+	utils.BitReverse(ch2)
 
 	proof.h1, err = kzg.Commit(ch1, pk)
 	if err != nil {
@@ -444,7 +445,7 @@ func ProveLookupVector(pk kzg.ProvingKey, f, t fr.Vector) (ProofLookupVector, er
 	cz := make([]fr.Element, len(lz))
 	copy(cz, lz)
 	domainSmall.FFTInverse(cz, fft.DIF)
-	fft.BitReverse(cz)
+	utils.BitReverse(cz)
 	proof.z, err = kzg.Commit(cz, pk)
 	if err != nil {
 		return proof, err

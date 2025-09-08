@@ -4,13 +4,7 @@
 package amd64
 
 import (
-	"bytes"
-	"html/template"
-	"io"
-	"strings"
-
 	"github.com/consensys/bavard/amd64"
-	gamd64 "github.com/consensys/gnark-crypto/field/generator/asm/amd64"
 )
 
 func (fq2 *Fq2Amd64) generateMulByNonResidueE2BN254() {
@@ -29,37 +23,36 @@ func (fq2 *Fq2Amd64) generateMulByNonResidueE2BN254() {
 	fq2.Mov(x, a) // a = a0
 
 	fq2.Add(a, a)
-	fq2.Reduce(&registers, a)
+	fq2.Reduce(&registers, a, false)
 
 	fq2.Add(a, a)
-	fq2.Reduce(&registers, a)
+	fq2.Reduce(&registers, a, false)
 
 	fq2.Add(a, a)
-	fq2.Reduce(&registers, a)
+	fq2.Reduce(&registers, a, false)
 
 	fq2.Add(x, a)
-	fq2.Reduce(&registers, a)
+	fq2.Reduce(&registers, a, false)
 
 	fq2.Mov(x, b, fq2.NbWords) // b = a1
-	zero := registers.Pop()
+	zero := amd64.R15
 	fq2.XORQ(zero, zero)
 	fq2.Sub(b, a)
 	fq2.modReduceAfterSub(&registers, zero, a)
-	registers.Push(zero)
 
 	fq2.Add(b, b)
-	fq2.Reduce(&registers, b)
+	fq2.Reduce(&registers, b, false)
 
 	fq2.Add(b, b)
-	fq2.Reduce(&registers, b)
+	fq2.Reduce(&registers, b, false)
 
 	fq2.Add(b, b)
-	fq2.Reduce(&registers, b)
+	fq2.Reduce(&registers, b, false)
 
 	fq2.Add(x, b, fq2.NbWords)
-	fq2.Reduce(&registers, b)
+	fq2.Reduce(&registers, b, false)
 	fq2.Add(x, b)
-	fq2.Reduce(&registers, b)
+	fq2.Reduce(&registers, b, false)
 
 	fq2.MOVQ("res+0(FP)", x)
 	fq2.Mov(a, x)
@@ -68,23 +61,24 @@ func (fq2 *Fq2Amd64) generateMulByNonResidueE2BN254() {
 	fq2.RET()
 }
 
-func (fq2 *Fq2Amd64) generateSquareE2BN254(forceCheck bool) {
+func (fq2 *Fq2Amd64) generateMulE2BN254(forceCheck bool) {
+	// var a, b, c fp.Element
+	// a.Add(&x.A0, &x.A1)
+	// b.Add(&y.A0, &y.A1)
+	// a.Mul(&a, &b)
+	// b.Mul(&x.A0, &y.A0)
+	// c.Mul(&x.A1, &y.A1)
+	// z.A1.Sub(&a, &b).Sub(&z.A1, &c)
+	// z.A0.Sub(&b, &c)
 
-	const argSize = 16
-	minStackSize := 0
-	if forceCheck {
-		minStackSize = argSize
-	}
-
-	stackSize := fq2.StackSize(fq2.NbWords*3, 2, minStackSize)
-	registers := fq2.FnHeader("squareAdxE2", stackSize, argSize, amd64.DX, amd64.AX)
+	// we need a bit of stack space to store the results of the xA0yA0 and xA1yA1 multiplications
+	const argSize = 24
+	const minStackSize = (4 + 2) * 8 // aStack and cStack are (partially) on the stack
+	stackSize := fq2.StackSize(fq2.NbWords*4, 2, minStackSize)
+	registers := fq2.FnHeader("mulAdxE2", stackSize, argSize, amd64.DX, amd64.AX)
 	defer fq2.AssertCleanStack(stackSize, minStackSize)
-	fq2.WriteLn("NO_LOCAL_POINTERS")
 
-	fq2.WriteLn(`
-	// z.A0 = (x.A0 + x.A1) * (x.A0 - x.A1)
-	// z.A1 = 2 * x.A0 * x.A1
-	`)
+	fq2.WriteLn("NO_LOCAL_POINTERS")
 
 	// check ADX instruction support
 	lblNoAdx := fq2.NewLabel()
@@ -93,83 +87,6 @@ func (fq2 *Fq2Amd64) generateSquareE2BN254(forceCheck bool) {
 		fq2.JNE(lblNoAdx)
 	}
 
-	// used in the mul operation
-	op1 := registers.PopN(fq2.NbWords)
-	op2 := registers.PopN(fq2.NbWords)
-	res := registers.PopN(fq2.NbWords)
-
-	ax := amd64.AX
-	dx := amd64.DX
-	// b = a0 * a1 * 2
-
-	fq2.Comment("2 * x.A0 * x.A1")
-	fq2.MOVQ("x+8(FP)", ax)
-
-	fq2.LabelRegisters("x.A0", op2...)
-	fq2.Mov(ax, op2)
-
-	fq2.LabelRegisters("2 * x.A1", op1...)
-	fq2.Mov(ax, op1, fq2.NbWords)
-	fq2.Add(op1, op1) // op1, no reduce
-
-	fq2.mulElement()
-	fq2.ReduceElement(res, op1)
-
-	fq2.MOVQ("x+8(FP)", ax)
-
-	fq2.LabelRegisters("x.A1", op1...)
-	fq2.Mov(ax, op1, fq2.NbWords)
-
-	fq2.MOVQ("res+0(FP)", dx)
-	fq2.Mov(res, dx, 0, fq2.NbWords)
-	fq2.Mov(op1, res)
-
-	// a = a0 + a1
-	fq2.Comment("Add(&x.A0, &x.A1)")
-	fq2.Add(op2, op1)
-
-	zero := amd64.BP
-	fq2.XORQ(zero, zero)
-
-	// b = a0 - a1
-	fq2.Comment("Sub(&x.A0, &x.A1)")
-	fq2.Sub(res, op2)
-	fq2.modReduceAfterSubScratch(zero, op2, res) // using res as scratch registers
-
-	// a = a * b
-	fq2.mulElement()
-	fq2.ReduceElement(res, op1)
-
-	fq2.MOVQ("res+0(FP)", ax)
-	fq2.Mov(res, ax)
-
-	// result.a0 = a
-	fq2.RET()
-
-	// No adx
-	if forceCheck {
-		fq2.LABEL(lblNoAdx)
-		fq2.MOVQ("res+0(FP)", amd64.AX)
-		fq2.MOVQ(amd64.AX, "(SP)")
-		fq2.MOVQ("x+8(FP)", amd64.AX)
-		fq2.MOVQ(amd64.AX, "8(SP)")
-		fq2.WriteLn("CALL ·squareGenericE2(SB)")
-		fq2.RET()
-	}
-
-}
-
-func (fq2 *Fq2Amd64) generateMulE2BN254(forceCheck bool) {
-	const argSize = 24
-	minStackSize := 0
-	if forceCheck {
-		minStackSize = argSize
-	}
-	stackSize := fq2.StackSize(fq2.NbWords*5, 2, minStackSize)
-	registers := fq2.FnHeader("mulAdxE2", stackSize, argSize, amd64.DX, amd64.AX)
-	defer fq2.AssertCleanStack(stackSize, minStackSize)
-
-	fq2.WriteLn("NO_LOCAL_POINTERS")
 	fq2.WriteLn(`
 	// var a, b, c fp.Element
 	// a.Add(&x.A0, &x.A1)
@@ -180,33 +97,32 @@ func (fq2 *Fq2Amd64) generateMulE2BN254(forceCheck bool) {
 	// z.A1.Sub(&a, &b).Sub(&z.A1, &c)
 	// z.A0.Sub(&b, &c)
 	`)
-	lblNoAdx := fq2.NewLabel()
-
-	if forceCheck {
-		fq2.CMPB("·supportAdx(SB)", 1)
-		fq2.JNE(lblNoAdx)
-	}
 
 	// used in the mul operation
 	op1 := registers.PopN(fq2.NbWords)
-	op2 := registers.PopN(fq2.NbWords)
 	res := registers.PopN(fq2.NbWords)
+
+	xat := func(i int) string {
+		return string(op1[i])
+	}
 
 	ax := amd64.AX
 	dx := amd64.DX
 
-	aStack := fq2.PopN(&registers, true)
-	cStack := fq2.PopN(&registers, true)
+	_r0 := fq2.Pop(&registers) // reserve this one for the MulADX
+	aStack := fq2.PopN(&registers)
+	cStack := fq2.PopN(&registers)
+	fq2.Push(&registers, _r0)
 
 	fq2.MOVQ("x+8(FP)", ax)
-	fq2.MOVQ("y+16(FP)", dx)
 
 	// c = x.A1 * y.A1
 	fq2.Mov(ax, op1, fq2.NbWords)
-	fq2.Mov(dx, op2, fq2.NbWords)
-
-	fq2.mulElement()
-	fq2.ReduceElement(res, op2)
+	fq2.MulADX(&registers, xat, func(i int) string {
+		fq2.MOVQ("y+16(FP)", dx)
+		return dx.At(i + fq2.NbWords)
+	}, res)
+	fq2.ReduceElement(res, op1, false)
 	// res = x.A1 * y.A1
 	// pushing on stack for later use.
 	fq2.Mov(res, cStack)
@@ -215,30 +131,33 @@ func (fq2 *Fq2Amd64) generateMulE2BN254(forceCheck bool) {
 	fq2.MOVQ("y+16(FP)", dx)
 
 	// a = x.a0 + x.a1
+	fq2.Mov(ax, op1, fq2.NbWords)
 	fq2.Add(ax, op1)
+	fq2.Mov(op1, aStack)
 
 	// b = y.a0 + y.a1
-	fq2.Mov(dx, op2)
-	fq2.Add(dx, op2, fq2.NbWords)
+	fq2.Mov(dx, op1)
+	fq2.Add(dx, op1, fq2.NbWords)
 	// --> note, we don't reduce, as this is used as input to the mul which accept input of size D-1/2 -1
-	// TODO @gbotrel prove the upper bound / lower bound case for the no_carry mul
 
 	// a = 	a * b = (x.a0 + x.a1) *  (y.a0 + y.a1)
-	fq2.mulElement()
-	fq2.ReduceElement(res, op2)
+	fq2.MulADX(&registers, xat, func(i int) string {
+		return string(aStack[i])
+	}, res)
+	fq2.ReduceElement(res, op1, false)
 
 	// moving result to the stack.
 	fq2.Mov(res, aStack)
 
 	// b = x.A0 * y.AO
 	fq2.MOVQ("x+8(FP)", ax)
-	fq2.MOVQ("y+16(FP)", dx)
 
 	fq2.Mov(ax, op1)
-	fq2.Mov(dx, op2)
-
-	fq2.mulElement()
-	fq2.ReduceElement(res, op2)
+	fq2.MulADX(&registers, xat, func(i int) string {
+		fq2.MOVQ("y+16(FP)", dx)
+		return dx.At(i)
+	}, res)
+	fq2.ReduceElement(res, op1, false)
 
 	zero := dx
 	fq2.XORQ(zero, zero)
@@ -246,17 +165,18 @@ func (fq2 *Fq2Amd64) generateMulE2BN254(forceCheck bool) {
 	// a = a - b -c
 	fq2.Mov(aStack, op1)
 	fq2.Sub(res, op1) // a -= b
-	fq2.modReduceAfterSubScratch(zero, op1, op2)
+	fq2.Mov(res, aStack)
+	fq2.modReduceAfterSubScratch(zero, op1, res)
 
 	fq2.Sub(cStack, op1) // a -= c
-	fq2.modReduceAfterSubScratch(zero, op1, op2)
+	fq2.modReduceAfterSubScratch(zero, op1, res)
 
 	fq2.MOVQ("res+0(FP)", ax)
 	fq2.Mov(op1, ax, 0, fq2.NbWords)
 
 	// b = b - c
-	fq2.Mov(cStack, op2)
-	fq2.Sub(op2, res) // b -= c
+	fq2.Mov(aStack, res)
+	fq2.Sub(cStack, res) // b -= c
 	fq2.modReduceAfterSubScratch(zero, res, op1)
 
 	fq2.Mov(res, ax)
@@ -275,83 +195,7 @@ func (fq2 *Fq2Amd64) generateMulE2BN254(forceCheck bool) {
 		fq2.WriteLn("CALL ·mulGenericE2(SB)")
 		fq2.RET()
 	}
+
 	fq2.Push(&registers, aStack...)
 	fq2.Push(&registers, cStack...)
-
-}
-
-func (fq2 *Fq2Amd64) generateMulDefine() {
-	r := amd64.NewRegisters()
-	r.Remove(amd64.DX)
-	r.Remove(amd64.AX)
-	op1 := r.PopN(fq2.NbWords)
-	op2 := r.PopN(fq2.NbWords)
-	res := r.PopN(fq2.NbWords)
-	xat := func(i int) string {
-		return string(op1[i])
-	}
-	yat := func(i int) string {
-		return string(op2[i])
-	}
-
-	wd := writerDefine{fq2.w, 0, false}
-	tw := gamd64.NewFFAmd64(&wd, fq2.F.NbWords)
-
-	_, _ = io.WriteString(fq2.w, "// this code is generated and identical to fp.Mul(...)\n")
-	tw.MulADX(&r, xat, yat, res)
-}
-
-func (fq2 *Fq2Amd64) mulElement() {
-	r := amd64.NewRegisters()
-	r.Remove(amd64.DX)
-	r.Remove(amd64.AX)
-	op1 := r.PopN(fq2.NbWords)
-	op2 := r.PopN(fq2.NbWords)
-	res := r.PopN(fq2.NbWords)
-	const tmplMul = `// mul ({{- range $i, $a := .A}}{{$a}}{{- if ne $.Last $i}},{{ end}}{{- end}}) with ({{- range $i, $b := .B}}{{$b}}{{- if ne $.Last $i}},{{ end}}{{- end}}) into ({{- range $i, $c := .C}}{{$c}}{{- if ne $.Last $i}},{{ end}}{{- end}})
-	MUL()`
-
-	var buf bytes.Buffer
-	err := template.Must(template.New("").
-		Parse(tmplMul)).Execute(&buf, struct {
-		A, B, C []amd64.Register
-		Last    int
-	}{op1, op2, res, len(op1) - 1})
-
-	if err != nil {
-		panic(err)
-	}
-
-	fq2.WriteLn(buf.String())
-	fq2.WriteLn("")
-}
-
-type writerDefine struct {
-	w       io.Writer
-	cptXORQ int
-	first   bool
-}
-
-func (w *writerDefine) Write(p []byte) (n int, err error) {
-	// TODO @gbotrel temporary hack to re-use new struct in mul;
-	// then if it's the first time we are here, we print the header
-	if strings.Contains(string(p), "mul body") {
-		w.first = true
-		n, err = io.WriteString(w.w, "#define MUL() \\ \n")
-		if err != nil {
-			return
-		}
-	}
-	if !w.first {
-		return w.w.Write(p)
-	}
-
-	line := string(p)
-	line = strings.TrimSpace(line)
-	if strings.HasPrefix(line, "//") {
-		return // drop comments
-	}
-	line = string(p)
-	line = strings.ReplaceAll(line, "\n", "; \\ \n")
-	return io.WriteString(w.w, line)
 }

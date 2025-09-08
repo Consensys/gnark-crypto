@@ -19,6 +19,7 @@ import (
 	curve "github.com/consensys/gnark-crypto/ecc/bls12-377"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/fft"
+	"github.com/consensys/gnark-crypto/utils"
 
 	"github.com/consensys/gnark-crypto/utils/testutils"
 )
@@ -142,7 +143,7 @@ func TestCommitLagrange(t *testing.T) {
 			// commitment using canonical SRS
 			d := fft.NewDomain(uint64(size))
 			d.FFTInverse(pol, fft.DIF)
-			fft.BitReverse(pol)
+			utils.BitReverse(pol)
 			digestCanonical, err := Commit(pol, srs.Pk)
 			assert.NoError(err)
 
@@ -273,7 +274,9 @@ func TestVerifySinglePoint(t *testing.T) {
 
 			{
 				// verify wrong proof
-				proof.ClaimedValue.Double(&proof.ClaimedValue)
+				var one fr.Element
+				one.SetOne()
+				proof.ClaimedValue.Add(&proof.ClaimedValue, &one)
 				err = Verify(&digest, &proof, point, srs.Vk)
 				if err == nil {
 					t.Fatal("verifying wrong proof should have failed")
@@ -293,6 +296,12 @@ func TestVerifySinglePoint(t *testing.T) {
 	}
 	t.Run("unsafe", test(testSrs))
 	t.Run("mpcsetup", test(mpcGetSrs(t)))
+	// size 0 polynomial
+	f = randomPolynomial(0)
+	t.Run("unsafe", test(testSrs))
+	// size 1 polynomial
+	f = randomPolynomial(1)
+	t.Run("unsafe", test(testSrs))
 }
 
 func TestVerifySinglePointQuickSRS(t *testing.T) {

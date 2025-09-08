@@ -7,10 +7,12 @@ package extensions
 
 import (
 	"math/big"
+	"math/bits"
 
 	fr "github.com/consensys/gnark-crypto/field/babybear"
-	"github.com/consensys/gnark-crypto/utils/cpu"
 )
+
+type Vector []E4
 
 // E4 is a degree two finite field extension of fr2
 type E4 struct {
@@ -160,29 +162,32 @@ func (z *E4) MulByNonResidue(x *E4) *E4 {
 
 // Mul sets z=x*y in E4 and returns z
 func (z *E4) Mul(x, y *E4) *E4 {
-	var a, b, c E2
+	var a, b, c, d E2
 	a.Add(&x.B0, &x.B1)
 	b.Add(&y.B0, &y.B1)
-	a.Mul(&a, &b)
-	b.Mul(&x.B0, &y.B0)
+	d.Mul(&x.B0, &y.B0)
 	c.Mul(&x.B1, &y.B1)
-	z.B1.Sub(&a, &b).Sub(&z.B1, &c)
-	z.B0.MulByNonResidue(&c).Add(&z.B0, &b)
+	a.Mul(&a, &b)
+	var bc E2
+	bc.Add(&d, &c)
+	z.B1.Sub(&a, &bc)
+	z.B0.MulByNonResidue(&c).Add(&z.B0, &d)
 	return z
 }
 
 // Square sets z=x*x in E4 and returns z
 func (z *E4) Square(x *E4) *E4 {
-
-	//Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
-	var c0, c2, c3 E2
-	c0.Sub(&x.B0, &x.B1)
-	c3.MulByNonResidue(&x.B1).Sub(&x.B0, &c3)
-	c2.Mul(&x.B0, &x.B1)
-	c0.Mul(&c0, &c3).Add(&c0, &c2)
-	z.B1.Double(&c2)
-	c2.MulByNonResidue(&c2)
-	z.B0.Add(&c0, &c2)
+	// same as mul, but we remove duplicate add and simplify multiplications with squaring
+	// note: this is more efficient than Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
+	var a, c, d E2
+	a.Add(&x.B0, &x.B1)
+	d.Square(&x.B0)
+	c.Square(&x.B1)
+	a.Square(&a)
+	var bc E2
+	bc.Add(&d, &c)
+	z.B1.Sub(&a, &bc)
+	z.B0.MulByNonResidue(&c).Add(&z.B0, &d)
 
 	return z
 }
@@ -207,8 +212,8 @@ func (z *E4) Inverse(x *E4) *E4 {
 
 // Exp sets z=xᵏ (mod q⁴) and returns it
 func (z *E4) Exp(x E4, k *big.Int) *E4 {
-	if k.IsUint64() && k.Uint64() == 0 {
-		return z.SetOne()
+	if k.IsInt64() {
+		return z.ExpInt64(x, k.Int64())
 	}
 
 	e := k
@@ -233,6 +238,31 @@ func (z *E4) Exp(x E4, k *big.Int) *E4 {
 			if (w & (0b10000000 >> j)) != 0 {
 				z.Mul(z, &x)
 			}
+		}
+	}
+
+	return z
+}
+
+// ExpInt64 sets z=xᵏ (mod q⁴) and returns it, where k is an int64
+func (z *E4) ExpInt64(x E4, k int64) *E4 {
+	if k == 0 {
+		return z.SetOne()
+	}
+
+	exp := k
+	if k < 0 {
+		x.Inverse(&x)
+		exp = -k // if k == math.MinInt64, -k overflows, but uint64(-k) is correct
+	}
+
+	z.Set(&x)
+
+	// Use bits.Len64 to iterate only over significant bits
+	for i := bits.Len64(uint64(exp)) - 2; i >= 0; i-- {
+		z.Square(z)
+		if (uint64(exp)>>uint(i))&1 != 0 {
+			z.Mul(z, &x)
 		}
 	}
 
@@ -353,23 +383,6 @@ func (z *E4) Div(x *E4, y *E4) *E4 {
 	return z.Set(&r)
 }
 
-func MulAccE4(alpha *E4, scale []fr.Element, res []E4) {
-	N := len(res)
-	if N != len(scale) {
-		panic("MulAccE4: len(res) != len(scale)")
-	}
-	if !cpu.SupportAVX512 || N%4 != 0 {
-		var tmp E4
-		for i := 0; i < N; i++ {
-			tmp.MulByElement(alpha, &scale[i])
-			res[i].Add(&res[i], &tmp)
-		}
-		return
-	}
-
-	mulAccE4_avx512(alpha, &scale[0], &res[0], uint64(N))
-}
-
 // Butterfly computes the butterfly operation on two E4 elements
 func Butterfly(a, b *E4) {
 	fr.Butterfly(&a.B0.A0, &b.B0.A0)
@@ -377,4 +390,107 @@ func Butterfly(a, b *E4) {
 
 	fr.Butterfly(&a.B1.A0, &b.B1.A0)
 	fr.Butterfly(&a.B1.A1, &b.B1.A1)
+}
+
+// Vector operations
+
+func (vector Vector) Add(a, b Vector) {
+	N := len(a)
+	if N != len(b) || N != len(vector) {
+		panic("vector.Add: vectors don't have the same length")
+	}
+	vectorAddGeneric(vector, a, b)
+}
+
+func (vector Vector) Sub(a, b Vector) {
+	N := len(a)
+	if N != len(b) || N != len(vector) {
+		panic("vector.Sub: vectors don't have the same length")
+	}
+	vectorSubGeneric(vector, a, b)
+}
+
+func (vector Vector) Mul(a, b Vector) {
+	N := len(a)
+	if N != len(b) || N != len(vector) {
+		panic("vector.Mul: vectors don't have the same length")
+	}
+	vectorMulGeneric(vector, a, b)
+}
+
+func (vector Vector) ScalarMul(a Vector, b *E4) {
+	N := len(a)
+	if N != len(vector) {
+		panic("vector.ScalarMul: vectors don't have the same length")
+	}
+	vectorScalarMulGeneric(vector, a, b)
+}
+
+// Sum computes the sum of all elements in the vector.
+func (vector Vector) Sum() E4 {
+	return vectorSumGeneric(vector)
+}
+
+func (vector Vector) InnerProduct(a Vector) E4 {
+	N := len(vector)
+	if len(a) != N {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	return vectorInnerProductGeneric(vector, a)
+}
+
+// MulAccByElement multiplies each element of the vector v by the E4 element alpha,
+// accumulating the result in the same vector.
+func (vector Vector) MulAccByElement(scale []fr.Element, alpha *E4) {
+	N := len(vector)
+	if N != len(scale) {
+		panic("MulAccByElement: len(vector) != len(scale)")
+	}
+	vectorMulAccByElementGeneric(vector, scale, alpha)
+}
+
+func vectorAddGeneric(res, a, b Vector) {
+	for i := 0; i < len(res); i++ {
+		res[i].Add(&a[i], &b[i])
+	}
+}
+func vectorSubGeneric(res, a, b Vector) {
+	for i := 0; i < len(res); i++ {
+		res[i].Sub(&a[i], &b[i])
+	}
+}
+func vectorMulGeneric(res, a, b Vector) {
+	for i := 0; i < len(res); i++ {
+		res[i].Mul(&a[i], &b[i])
+	}
+}
+func vectorScalarMulGeneric(res, a Vector, b *E4) {
+	for i := 0; i < len(res); i++ {
+		res[i].Mul(&a[i], b)
+	}
+}
+
+func vectorInnerProductGeneric(a, b Vector) E4 {
+	var res, tmp E4
+	for i := 0; i < len(a); i++ {
+		tmp.Mul(&a[i], &b[i])
+		res.Add(&res, &tmp)
+	}
+	return res
+}
+
+func vectorSumGeneric(v Vector) E4 {
+	var sum E4
+	for i := 0; i < len(v); i++ {
+		sum.Add(&sum, &v[i])
+	}
+	return sum
+}
+
+func vectorMulAccByElementGeneric(v Vector, scale []fr.Element, alpha *E4) {
+	var tmp E4
+	for i := 0; i < len(v); i++ {
+		tmp.MulByElement(alpha, &scale[i])
+		v[i].Add(&v[i], &tmp)
+	}
 }

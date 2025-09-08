@@ -73,7 +73,7 @@ func main() {
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
 			frOpts := []generator.Option{generator.WithASM(asmConfig)}
-			if !(conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) {
+			if !(conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) { // nolint QF1001
 				frOpts = append(frOpts, generator.WithFFT(fftConfig), generator.WithIOP())
 			}
 			if conf.Equal(config.BLS12_377) {

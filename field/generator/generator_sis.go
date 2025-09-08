@@ -107,9 +107,9 @@ func partialFFT(domainSize, numField int, mask int64) string {
 	gen.indent()
 
 	var (
-		numStages int = log2Ceil(int(domainSize))
-		numSplits int = 1
-		splitSize int = int(domainSize)
+		numStages = log2Ceil(domainSize)
+		numSplits = 1
+		splitSize = domainSize
 	)
 
 	for level := 0; level < numStages; level++ {

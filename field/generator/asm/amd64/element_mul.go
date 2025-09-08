@@ -9,18 +9,6 @@ import (
 	"github.com/consensys/bavard/amd64"
 )
 
-// Registers used when f.NbWords == 4
-// for the multiplication.
-// They are re-referenced in defines in the vectorized operations.
-var mul4Registers = []amd64.Register{
-	// t
-	amd64.R14, amd64.R13, amd64.CX, amd64.BX,
-	// x
-	amd64.DI, amd64.R8, amd64.R9, amd64.R10,
-	// tr
-	amd64.R12,
-}
-
 // MulADX uses AX, DX and BP
 // sets x * y into t, without modular reduction
 // x() will have more accesses than y()
@@ -40,28 +28,6 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 
 	f.LabelRegisters("A", A)
 	f.LabelRegisters("t", t...)
-
-	if f.NbWords == 4 && hasFreeRegister {
-		// ensure the registers match the "hardcoded ones" in mul4Registers for the vecops
-		match := true
-		for i := 0; i < 4; i++ {
-			if mul4Registers[i] != t[i] {
-				match = false
-				fmt.Printf("expected %s, got t[%d] %s\n", mul4Registers[i], i, t[i])
-			}
-			if mul4Registers[i+4] != amd64.Register(x(i)) {
-				match = false
-				fmt.Printf("expected %s, got x[%d] %s\n", mul4Registers[i+4], i, x(i))
-			}
-		}
-		if tr != mul4Registers[8] {
-			match = false
-			fmt.Printf("expected %s, got tr %s\n", mul4Registers[8], tr)
-		}
-		if !match {
-			panic("registers do not match hardcoded ones")
-		}
-	}
 
 	mac := f.Define("MACC", 3, func(args ...any) {
 		in0 := args[0]
@@ -163,24 +129,40 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 	return t
 }
 
-func (f *FFAmd64) generateMul(forceADX bool) {
+func (f *FFAmd64) generateMul(_ bool) {
 	f.Comment("mul(res, x, y *Element)")
 
 	const argSize = 3 * 8
-	minStackSize := argSize
-	if forceADX {
-		minStackSize = 0
+	const minStackSize = argSize
+
+	nbRegistersNeeded := (f.NbWords * 2) - 2
+
+	// we need to use R15 register, and to avoid issue with dynamic linking
+	// see https://github.com/Consensys/gnark-crypto/issues/707
+	// we avoid using global variables in this particular instance.
+	needR15 := f.NbWords >= 12
+	if needR15 {
+		nbRegistersNeeded += f.NbWords // we need to store Q on the stack.
+		nbRegistersNeeded++            // account for R15, and the path of available registers == 0 below
 	}
-	stackSize := f.StackSize(f.NbWords*2, 2, minStackSize)
-	reserved := []amd64.Register{amd64.DX, amd64.AX}
-	if f.NbWords <= 5 {
-		// when dynamic linking, R15 is clobbered by a global variable access
-		// this is a temporary workaround --> don't use R15 when we can avoid it.
-		// see https://github.com/Consensys/gnark-crypto/issues/113
-		reserved = append(reserved, amd64.R15)
-	}
-	registers := f.FnHeader("mul", stackSize, argSize, reserved...)
+
+	stackSize := f.StackSize(nbRegistersNeeded, 2, minStackSize)
+	registers := f.FnHeader("mul", stackSize, argSize, amd64.AX, amd64.DX)
 	defer f.AssertCleanStack(stackSize, minStackSize)
+
+	if needR15 {
+		registers.UnsafePush(amd64.R15)
+		_q := f.PopN(&registers, true)
+		for i := 0; i < f.NbWords; i++ {
+			f.MOVQ(fmt.Sprintf("$const_q%d", i), amd64.AX)
+			f.MOVQ(amd64.AX, _q[i])
+		}
+		f.SetQStack(_q)
+		defer func() {
+			f.Push(&registers, _q...)
+			f.UnsetQStack()
+		}()
+	}
 
 	f.WriteLn(`
 	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS" 
@@ -193,7 +175,7 @@ func (f *FFAmd64) generateMul(forceADX bool) {
 
 	noAdx := f.NewLabel("noAdx")
 
-	if !forceADX {
+	{
 		// check ADX instruction support
 		f.CMPB("·supportAdx(SB)", 1)
 		f.JNE(noAdx)
@@ -207,13 +189,14 @@ func (f *FFAmd64) generateMul(forceADX bool) {
 		// we need NbWords registers for t, plus optionally one for tmp register in mulADX if we want to avoid PUSH/POP
 		nbRegisters := registers.Available()
 		if nbRegisters < f.NbWords {
-			panic("not enough registers, not supported.")
+			panic(fmt.Sprintf("not enough registers, not supported: %d < %d", nbRegisters, f.NbWords))
 		}
-
 		t := registers.PopN(f.NbWords)
+
 		nbRegisters = registers.Available()
 		switch nbRegisters {
 		case 0:
+
 			// y is access through use of AX/DX
 			yat = func(i int) string {
 				y := amd64.AX
@@ -230,6 +213,7 @@ func (f *FFAmd64) generateMul(forceADX bool) {
 			xat = func(i int) string {
 				return string(_x[i])
 			}
+
 			gc = func() {
 				f.Push(&registers, _x...)
 			}
@@ -246,6 +230,7 @@ func (f *FFAmd64) generateMul(forceADX bool) {
 			xat = func(i int) string {
 				return x.At(i)
 			}
+
 			gc = func() {
 				registers.Push(x)
 			}
@@ -329,10 +314,11 @@ func (f *FFAmd64) generateMul(forceADX bool) {
 
 		f.MulADX(&registers, xat, yat, t)
 		gc()
+		f.Push(&registers, amd64.AX, amd64.DX)
 
 		// ---------------------------------------------------------------------------------------------
 		// reduce
-		f.Reduce(&registers, t)
+		f.Reduce(&registers, t, needR15)
 
 		f.MOVQ("res+0(FP)", amd64.AX)
 		f.Mov(t, amd64.AX)
@@ -341,7 +327,7 @@ func (f *FFAmd64) generateMul(forceADX bool) {
 
 	// ---------------------------------------------------------------------------------------------
 	// no MULX, ADX instructions
-	if !forceADX {
+	{
 		f.LABEL(noAdx)
 
 		f.MOVQ("res+0(FP)", amd64.AX)

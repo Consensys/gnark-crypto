@@ -10,6 +10,8 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/fft"
+
+	"github.com/consensys/gnark-crypto/utils"
 )
 
 // getPermutation returns a deterministic permutation
@@ -106,11 +108,11 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	// bit reversed
 	for i := 0; i < nbPolynomials; i++ {
 		numerator[i] = backupNumerator[i].Clone()
-		fft.BitReverse(numerator[i].Coefficients())
+		utils.BitReverse(numerator[i].Coefficients())
 		numerator[i].Layout = BitReverse
 
 		denominator[i] = backupDenominator[i].Clone()
-		fft.BitReverse(denominator[i].Coefficients())
+		utils.BitReverse(denominator[i].Coefficients())
 		denominator[i].Layout = BitReverse
 	}
 	{
@@ -130,12 +132,12 @@ func TestBuildRatioShuffledVectors(t *testing.T) {
 	for i := 0; i < nbPolynomials; i++ {
 		numerator[i] = backupNumerator[i].Clone()
 		domain.FFTInverse(numerator[i].Coefficients(), fft.DIF)
-		fft.BitReverse(numerator[i].Coefficients())
+		utils.BitReverse(numerator[i].Coefficients())
 		numerator[i].Basis = Canonical
 
 		denominator[i] = backupDenominator[i].Clone()
 		domain.FFTInverse(denominator[i].Coefficients(), fft.DIF)
-		fft.BitReverse(denominator[i].Coefficients())
+		utils.BitReverse(denominator[i].Coefficients())
 		denominator[i].Basis = Canonical
 	}
 	{
@@ -256,7 +258,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	// bit reversed
 	for i := 0; i < nbPolynomials; i++ {
 		entries[i] = backupEntries[i].Clone()
-		fft.BitReverse(entries[i].Coefficients())
+		utils.BitReverse(entries[i].Coefficients())
 		entries[i].Layout = BitReverse
 	}
 	{
@@ -276,7 +278,7 @@ func TestBuildRatioCopyConstraint(t *testing.T) {
 	for i := 0; i < nbPolynomials; i++ {
 		entries[i] = backupEntries[i].Clone()
 		domain.FFTInverse(entries[i].Coefficients(), fft.DIF)
-		fft.BitReverse(entries[i].Coefficients())
+		utils.BitReverse(entries[i].Coefficients())
 		entries[i].Layout = Regular
 		entries[i].Basis = Canonical
 	}

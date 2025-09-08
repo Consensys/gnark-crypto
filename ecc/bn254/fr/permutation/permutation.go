@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 	"github.com/consensys/gnark-crypto/ecc/bn254/kzg"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"github.com/consensys/gnark-crypto/utils"
 )
 
 var (
@@ -154,8 +155,8 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 	copy(ct2, t2)
 	d.FFTInverse(ct1, fft.DIF)
 	d.FFTInverse(ct2, fft.DIF)
-	fft.BitReverse(ct1)
-	fft.BitReverse(ct2)
+	utils.BitReverse(ct1)
+	utils.BitReverse(ct2)
 	proof.t1, err = kzg.Commit(ct1, pk)
 	if err != nil {
 		return proof, err

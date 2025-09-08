@@ -201,10 +201,10 @@ func difFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStart
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
-		if n == 1<<5 {
+		if n == 1<<5 { // nolint QF1003
 			kerDIFNP_32(a, twiddles, stage-twiddlesStartStage)
 			return
-		} else if n == 1<<8 {
+		} else if n == 1<<8 { // nolint QF1003
 			kerDIFNP_256(a, twiddles, stage-twiddlesStartStage)
 			return
 		}
@@ -290,10 +290,10 @@ func ditFFT(a []fr.Element, w fr.Element, twiddles [][]fr.Element, twiddlesStart
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
-		if n == 1<<5 {
+		if n == 1<<5 { // nolint QF1003
 			kerDITNP_32(a, twiddles, stage-twiddlesStartStage)
 			return
-		} else if n == 1<<8 {
+		} else if n == 1<<8 { // nolint QF1003
 			kerDITNP_256(a, twiddles, stage-twiddlesStartStage)
 			return
 		}

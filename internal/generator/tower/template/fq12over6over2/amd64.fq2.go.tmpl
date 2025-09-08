@@ -33,7 +33,7 @@ func doubleE2(res,x *E2)
 //go:noescape
 func negE2(res,x *E2)
 
-{{if eq .Name "bn254"}}
+{{if or (eq .Name "bn254") (eq .Name "bls12-381")}}
 
 //go:noescape
 func mulNonResE2(res, x *E2)
@@ -56,35 +56,6 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	return z
 }
 
-// Square sets z to the E2-product of x,x, returns z
-func (z *E2) Square(x *E2) *E2 {
-	squareAdxE2(z, x)
-	return z
-}
-
-{{else if eq .Name "bls12-381"}}
-
-//go:noescape
-func mulNonResE2(res, x *E2)
-
-//go:noescape
-func squareAdxE2(res, x *E2)
-
-//go:noescape
-func mulAdxE2(z, x, y *E2)
-
-// Mul sets z to the E2-product of x,y, returns z
-func (z *E2) Mul(x, y *E2) *E2 {
-	mulAdxE2(z, x, y)
-	return z
-}
-
-
-// MulByNonResidue multiplies a E2 by (1,1)
-func (z *E2) MulByNonResidue(x *E2) *E2 {
-	mulNonResE2(z, x)
-	return z
-}
 // Square sets z to the E2-product of x,x, returns z
 func (z *E2) Square(x *E2) *E2 {
 	squareAdxE2(z, x)

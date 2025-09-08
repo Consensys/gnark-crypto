@@ -30,12 +30,17 @@ func generateExtensions(F *config.Field, outputDir string) error {
 		FieldPackagePath string
 		F31              bool
 		Q, QInvNeg       uint64
+		IsKoalaBear      bool
 	}
 
+	isKoalaBear := F.Q[0] == 2130706433
 	data := &extensionsTemplateData{
 		FF:               F.PackageName,
 		FieldPackagePath: fieldImportPath,
 		F31:              F.F31,
+		IsKoalaBear:      isKoalaBear,
+		Q:                F.Q[0],
+		QInvNeg:          F.QInverse[0],
 	}
 
 	bgen := bavard.NewBatchGenerator("Consensys Software Inc.", 2020, "consensys/gnark-crypto")
@@ -50,33 +55,35 @@ func generateExtensions(F *config.Field, outputDir string) error {
 		return err
 	}
 	if F.F31 {
-		data.Q = F.Q[0]
-		data.QInvNeg = F.QInverse[0]
 		entries_ext4 := []bavard.Entry{
 			{File: filepath.Join(outputDir, "e4.go"), Templates: []string{"e4.go.tmpl"}},
 			{File: filepath.Join(outputDir, "e4_test.go"), Templates: []string{"e4_test.go.tmpl"}},
 		}
 
-		entries_ext4 = append(entries_ext4, bavard.Entry{File: filepath.Join(outputDir, "e4_amd64.go"), Templates: []string{"e4.amd64.go.tmpl"}, BuildTag: "!purego"})
-		entries_ext4 = append(entries_ext4, bavard.Entry{File: filepath.Join(outputDir, "e4_purego.go"), Templates: []string{"e4.purego.go.tmpl"}, BuildTag: "purego || (!amd64)"})
+		if isKoalaBear {
+			entries_ext4 = append(entries_ext4, bavard.Entry{File: filepath.Join(outputDir, "e4_amd64.go"), Templates: []string{"e4.amd64.go.tmpl"}, BuildTag: "!purego"})
+			entries_ext4 = append(entries_ext4, bavard.Entry{File: filepath.Join(outputDir, "e4_purego.go"), Templates: []string{"e4.purego.go.tmpl"}, BuildTag: "purego || (!amd64)"})
+		}
 
 		if err := bgen.GenerateWithOptions(data, "extensions", extensionsTemplatesRootDir, nil, entries_ext4...); err != nil {
 			return err
 		}
 
-		// generate the assembly file;
-		asmFile, err := os.Create(filepath.Join(outputDir, "e4_amd64.s"))
-		if err != nil {
-			return err
-		}
+		if isKoalaBear {
+			// generate the assembly file;
+			asmFile, err := os.Create(filepath.Join(outputDir, "e4_amd64.s"))
+			if err != nil {
+				return err
+			}
 
-		asmFile.WriteString("//go:build !purego\n")
+			asmFile.WriteString("//go:build !purego\n")
 
-		if err := amd64.GenerateF31E4(asmFile); err != nil {
+			if err := amd64.GenerateF31E4(asmFile); err != nil {
+				asmFile.Close()
+				return err
+			}
 			asmFile.Close()
-			return err
 		}
-		asmFile.Close()
 	}
 
 	return runFormatters(outputDir)
