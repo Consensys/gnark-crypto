@@ -483,6 +483,14 @@ func TestVectorExp(t *testing.T) {
 		assert.True(expK[i].Equal(&mul), "Exp(x, k) should match repeated multiplication for all elements")
 	}
 
+	// Test to check v.Exp(v, k) is correct (no modification of v during the process)
+	vCopy := make(Vector, size)
+	copy(vCopy, v)
+	vCopy.Exp(vCopy, k)
+	for i := range v {
+		assert.True(vCopy[i].Equal(&expK[i]), "Exp(x, k) should be consistent for all elements")
+	}
+
 	// Test with random vector and negative exponent -1
 	expNegOne := make(Vector, size)
 	expNegOne.Exp(v, -1)
@@ -491,6 +499,7 @@ func TestVectorExp(t *testing.T) {
 		inv.Inverse(&v[i])
 		assert.True(expNegOne[i].Equal(&inv), "Exp(x, -1) should be inverse for all elements")
 	}
+
 }
 
 func TestVectorEmptyOps(t *testing.T) {
