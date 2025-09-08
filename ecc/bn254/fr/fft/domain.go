@@ -322,6 +322,6 @@ func (d *Domain) ReadFrom(r io.Reader) (int64, error) {
 // The length of v must be a power of 2.
 //
 // Deprecated: Use [utils.BitReverse] instead.
-func BitReverse(v []fr.Element) {
+func BitReverse[T any](v []T) {
 	utils.BitReverse(v)
 }
