@@ -423,6 +423,80 @@ func TestVectorOps(t *testing.T) {
 	properties.TestingRun(t, gopter.NewFormatedReporter(false, 260, os.Stdout))
 }
 
+// TestVectorExp tests the Exp method for Vector type.
+func TestVectorExp(t *testing.T) {
+	assert := require.New(t)
+
+	// Test with empty vector
+	empty := make(Vector, 0)
+	expEmpty := make(Vector, 0)
+	expEmpty.Exp(empty, 5)
+	assert.Equal(0, len(expEmpty), "Exp of empty vector should be empty")
+
+	// Test with vector of ones and exponent 0
+	const size = 32
+	v := make(Vector, size)
+	for i := range v {
+		v[i].SetOne()
+	}
+	expZero := make(Vector, size)
+	expZero.Exp(v, 0)
+	for i := range expZero {
+		assert.True(expZero[i].IsOne(), "Exp(x, 0) should be one for all elements")
+	}
+
+	// Test with random vector and exponent 1
+	for i := range v {
+		v[i].MustSetRandom()
+	}
+	expOne := make(Vector, size)
+	expOne.Exp(v, 1)
+	for i := range v {
+		assert.True(expOne[i].Equal(&v[i]), "Exp(x, 1) should be x for all elements")
+	}
+
+	// Test with random vector and exponent 2
+	expTwo := make(Vector, size)
+	expTwo.Exp(v, 2)
+	for i := range v {
+		var sq E4
+		sq.Square(&v[i])
+		assert.True(expTwo[i].Equal(&sq), "Exp(x, 2) should be x squared for all elements")
+	}
+
+	// Test with random vector and exponent k
+	k := int64(7)
+	expK := make(Vector, size)
+	expK.Exp(v, k)
+	for i := range v {
+		var mul E4
+		mul.SetOne()
+		for j := int64(0); j < k; j++ {
+			mul.Mul(&mul, &v[i])
+		}
+		assert.True(expK[i].Equal(&mul), "Exp(x, k) should match repeated multiplication for all elements")
+	}
+
+	// Test to check v.Exp(v, k) is correct (no modification of v during the process)
+	vCopy := make(Vector, size)
+	copy(vCopy, v)
+	vCopy.Exp(vCopy, k)
+	for i := range v {
+		assert.True(vCopy[i].Equal(&expK[i]), "Exp(x, k) should be consistent for all elements")
+	}
+
+	// Test with random vector and negative exponent -1
+	expNegOne := make(Vector, size)
+	expNegOne.Exp(v, -1)
+	for i := range v {
+		var inv E4
+		inv.Inverse(&v[i])
+		assert.True(expNegOne[i].Equal(&inv), "Exp(x, -1) should be inverse for all elements")
+	}
+
+	
+}
+
 
 func TestVectorEmptyOps(t *testing.T) {
 	assert := require.New(t)
@@ -588,6 +662,20 @@ func BenchmarkVectorOps(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_c.Mul(_a, _b)
+			}
+		})
+
+		b.Run(fmt.Sprintf("exp %d", n), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_c.Exp(_a, int64({{.Q}}  >> 2))
+			}
+		})
+
+		b.Run(fmt.Sprintf("exp neg %d", n), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_c.Exp(_a, -int64({{.Q}}  >> 2))
 			}
 		})
 	}
