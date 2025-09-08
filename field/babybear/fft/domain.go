@@ -106,10 +106,9 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 		keyLock = new(sync.Mutex)
 		keysLock[key] = keyLock
 	}
-	globalLock.Unlock() // Release global lock immediately
-
 	keyLock.Lock()
 	defer keyLock.Unlock()
+	globalLock.Unlock()
 
 	// Now we have exclusive access for this specific key
 	// Check cache first
@@ -132,8 +131,8 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 			keyLock.Lock()
 			// We can now safely delete from both maps.
 			delete(domainCache, key)
-			delete(keysLock, key)
 			keyLock.Unlock()
+			delete(keysLock, key) // Delete after unlocking
 		}
 		globalLock.Unlock()
 	}, key)
