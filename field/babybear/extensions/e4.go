@@ -459,7 +459,7 @@ func (vector Vector) Exp(a Vector, k int64) {
 		exp = -k // if k == math.MinInt64, -k overflows, but uint64(-k) is correct
 	} else if N > 0 {
 		// ensure that vector and a are not the same slice; else we need to copy a into base
-		if &vector[0] == &a[0] { // #nosec G602 (we check that N > 0 above)
+		if &vector[0] == &a[0] { //#nosec G602 we check that N > 0 above
 			base = make(Vector, N)
 			copy(base, a)
 		}
