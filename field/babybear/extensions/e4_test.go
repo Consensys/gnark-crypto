@@ -8,6 +8,7 @@ package extensions
 import (
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
+	"math/big"
 	"os"
 	"testing"
 
@@ -224,6 +225,60 @@ func TestE4Ops(t *testing.T) {
 			d.Square(&c)
 			e.Neg(&a)
 			return (c.Equal(&a) || c.Equal(&e)) && d.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestE4Exp(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 100
+
+	properties := gopter.NewProperties(parameters)
+	genA := genE4()
+
+	properties.Property("[babybear] Exp(x, 0) should return one", prop.ForAll(
+		func(a E4) bool {
+			var res E4
+			var one E4
+			one.SetOne()
+			res.Exp(a, big.NewInt(0))
+			return res.Equal(&one)
+		},
+		genA,
+	))
+
+	properties.Property("[babybear] Exp(x, 1) should return x", prop.ForAll(
+		func(a E4) bool {
+			var res E4
+			res.Exp(a, big.NewInt(1))
+			return res.Equal(&a)
+		},
+		genA,
+	))
+
+	properties.Property("[babybear] Exp(x, 2) should return x squared", prop.ForAll(
+		func(a E4) bool {
+			var res, sq E4
+			res.Exp(a, big.NewInt(2))
+			sq.Square(&a)
+			return res.Equal(&sq)
+		},
+		genA,
+	))
+
+	properties.Property("[babybear] Exp(x, k) should match repeated multiplication", prop.ForAll(
+		func(a E4) bool {
+			var res, mul E4
+			k := int64(0b101101) // 45
+			res.Exp(a, big.NewInt(k))
+			mul.SetOne()
+			for i := int64(0); i < k; i++ {
+				mul.Mul(&mul, &a)
+			}
+			return res.Equal(&mul)
 		},
 		genA,
 	))
