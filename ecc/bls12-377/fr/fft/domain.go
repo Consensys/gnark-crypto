@@ -70,10 +70,10 @@ type domainCacheKey struct {
 }
 
 var (
-	domainCache   = make(map[domainCacheKey]weak.Pointer[Domain])
-	keysLock      = make(map[domainCacheKey]*sync.Mutex) // Per-key mutexes
-	keyMapLock    sync.Mutex                             // Protects keysLock map
-	domainMapLock sync.Mutex                             // Protects domainCache map
+	domainCache    = make(map[domainCacheKey]weak.Pointer[Domain])
+	domainGenLocks = make(map[domainCacheKey]*sync.Mutex) // Per key mutex to avoid multiple concurrent generation of the same domain
+	keyMapLock     sync.Mutex                             // Ensures exclusive access to domainGenLocks map
+	domainMapLock  sync.Mutex                             // Ensures exclusive access to domainCache map
 )
 
 // NewDomain returns a subgroup with a power of 2 cardinality >= m.
@@ -100,19 +100,22 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 		key.gen = GeneratorFullMultiplicativeGroup() // Default generator
 	}
 
-	// Get or create the per-key lock
+	// Lets ensure that only one goroutine is generating a domain for this
+	// specific key. We acquire it already here to ensure if there is a existing
+	// goroutine generating a domain for this key, we wait for it to finish and
+	// then we can just return the cached domain.
 	keyMapLock.Lock()
-	keyLock := keysLock[key]
+	keyLock := domainGenLocks[key]
 	if keyLock == nil {
 		keyLock = new(sync.Mutex)
-		keysLock[key] = keyLock
+		domainGenLocks[key] = keyLock
 	}
 	keyLock.Lock()
 	defer keyLock.Unlock()
 	keyMapLock.Unlock()
-	// Now we have exclusive access for this specific key
 
-	// Check cache first. But for the cache, we need to lock the cache map.
+	// Check cache first. But for the cache, we need to lock the cache map (we
+	// currently only hold the per-key lock, not global cache lock).
 	domainMapLock.Lock()
 	defer domainMapLock.Unlock()
 	if weakDomain, exists := domainCache[key]; exists {
@@ -121,7 +124,9 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 		}
 	}
 
-	// Create a new domain (expensive operation, but only blocks same key). Lets release the global cache lock while we do this.
+	// Create a new domain (expensive operation, but only blocks same key). Lets
+	// release the global cache lock while we do this so that other keys can be
+	// added to cache.
 	domainMapLock.Unlock()
 	domain := createDomain(m, opt)
 
@@ -132,25 +137,28 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 
 	// Add cleanup to remove from cache when domain is garbage collected
 	runtime.AddCleanup(domain, func(key domainCacheKey) {
-		// cleanup *may* be called concurrently, but could be sequential. We run it
-		// in a separate goroutine to avoid block other cleanups being run if this
-		// cleanup is being run on the same key which is being generated (thus lock
-		// being held).
+		// cleanup *may* be called concurrently, but could be sequential. We run
+		// it in a separate goroutine to avoid block other cleanups being run if
+		// this cleanup is being run on the same key which is being generated
+		// (thus lock being held).
 		go func() {
 			keyMapLock.Lock()
 			defer keyMapLock.Unlock()
-			if keyLock, ok := keysLock[key]; ok {
+			if keyLock, ok := domainGenLocks[key]; ok {
 				keyLock.Lock()
 				defer keyLock.Unlock()
 				// We can now safely delete from both maps. But we only do if
 				// the cached weak pointer is the same one we created. Otherwise
 				// this means this cleanup is running after a new domain was
 				// already cached (double cleanup).
+
+				// We also want to hold both per-key and cache lock to avoid the
+				// maps being out of sync
 				domainMapLock.Lock()
 				defer domainMapLock.Unlock()
 				if cacheWeakDomain := domainCache[key]; cacheWeakDomain == weakDomain {
 					delete(domainCache, key)
-					delete(keysLock, key)
+					delete(domainGenLocks, key)
 				}
 			}
 		}()
