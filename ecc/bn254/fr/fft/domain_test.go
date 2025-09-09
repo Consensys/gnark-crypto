@@ -96,21 +96,19 @@ func TestGCBehavior(t *testing.T) {
 
 func BenchmarkNewDomainCache(b *testing.B) {
 	b.Run("WithCache", func(b *testing.B) {
-		b.ResetTimer()
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
+		// lets first initialize in cache already
+		cached := NewDomain(1<<20, WithCache())
+		for b.Loop() {
 			_ = NewDomain(1<<20, WithCache())
 		}
+		runtime.KeepAlive(cached) // prevent cached from being GCed
 	})
 
 	b.Run("WithoutCache", func(b *testing.B) {
-		b.ResetTimer()
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_ = NewDomain(1 << 20)
 		}
 	})
-
 }
 
 // Helper functions
