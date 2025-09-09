@@ -126,6 +126,29 @@ func BenchmarkNewDomainCache(b *testing.B) {
 // Helper functions
 func clearDomainCache() {
 	globalLock.Lock()
+
+	// 1. Collect references to existing locks BEFORE clearing
+	var keyLocks []*sync.Mutex
+	for _, keyLock := range keysLock {
+		keyLocks = append(keyLocks, keyLock)
+	}
+
+	globalLock.Unlock()
+
+	// 2. Wait for all operations to complete (WITHOUT clearing cache)
+	var wg sync.WaitGroup
+	for _, keyLock := range keyLocks {
+		wg.Add(1)
+		go func(lock *sync.Mutex) {
+			defer wg.Done()
+			lock.Lock()   // Wait for operation to finish
+			lock.Unlock() // Don't clear anything here!
+		}(keyLock)
+	}
+	wg.Wait()
+
+	// 3. NOW safely clear everything under global lock
+	globalLock.Lock()
 	domainCache = make(map[domainCacheKey]weak.Pointer[Domain])
 	keysLock = make(map[domainCacheKey]*sync.Mutex)
 	globalLock.Unlock()
@@ -134,15 +157,15 @@ func clearDomainCache() {
 func getCachedDomain(key domainCacheKey) *Domain {
 	globalLock.Lock()
 	keyLock, exists := keysLock[key]
-	globalLock.Unlock()
-
 	if !exists {
+		globalLock.Unlock()
 		return nil
 	}
 
-	// Now, use the per-key lock to safely access the domainCache map
+	// Acquire key lock while holding global lock to prevent races
 	keyLock.Lock()
 	defer keyLock.Unlock()
+	globalLock.Unlock()
 
 	if weak, exists := domainCache[key]; exists {
 		return weak.Value()
