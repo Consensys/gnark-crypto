@@ -513,3 +513,36 @@ func TestE2Div(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+
+var modulus = fr.Modulus()
+
+// genFr generates an Fr element
+func genFr() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fr.Element
+		// SetBigInt will reduce the value modulo the field order
+		// genParams.Rng is a math/rand.Rand which is not a cryptographically secure
+		// source of randomness. However, for property based testing, it is desirable
+		// to have a deterministic generator.
+		e := bigIntPool.Get().(*big.Int)
+		e.Rand(genParams.Rng, modulus)
+
+		for i, w := range e.Bits() {
+			elmt[i] = uint32(w)
+		}
+		bigIntPool.Put(e)
+
+		genResult := gopter.NewGenResult(elmt, gopter.NoShrinker)
+		return genResult
+	}
+}
+
+// genE2 generates an E2 element
+func genE2() gopter.Gen {
+	return gopter.CombineGens(
+		genFr(),
+		genFr(),
+	).Map(func(values []interface{}) E2 {
+		return E2{A0: values[0].(fr.Element), A1: values[1].(fr.Element)}
+	})
+}

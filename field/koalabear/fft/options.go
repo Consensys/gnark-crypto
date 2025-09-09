@@ -63,6 +63,7 @@ type DomainOption func(*domainConfig)
 type domainConfig struct {
 	shift          *koalabear.Element
 	withPrecompute bool
+	withCache      bool
 }
 
 // WithShift sets the FrMultiplicativeGen of the domain.
@@ -81,11 +82,19 @@ func WithoutPrecompute() DomainOption {
 	}
 }
 
+// WithCache enables domain caching
+func WithCache() DomainOption {
+	return func(opt *domainConfig) {
+		opt.withCache = true
+	}
+}
+
 // default options
 func domainOptions(opts ...DomainOption) domainConfig {
 	// apply options
 	opt := domainConfig{
 		withPrecompute: true,
+		withCache:      false,
 	}
 	for _, option := range opts {
 		option(&opt)
