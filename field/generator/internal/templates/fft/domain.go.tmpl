@@ -111,23 +111,27 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	// Check cache first. But for the cache, we need to lock the cache map (we
 	// currently only hold the per-key lock, not global cache lock).
 	domainMapLock.Lock()
-	defer domainMapLock.Unlock()
+	// we don't defer it because we want to release it while creating the
+	// domain. And domain creation can panic, leading to double unlock which
+	// hides the original panic.
 	if weakDomain, exists := domainCache[key]; exists {
 		if domain := weakDomain.Value(); domain != nil {
+			domainMapLock.Unlock()
 			return domain
 		}
 	}
-
-	// Create a new domain (expensive operation, but only blocks same key). Lets
-	// release the global cache lock while we do this so that other keys can be
-	// added to cache.
+	// Lets release the global cache lock while we do this so that other keys
+	// can be added to cache.
 	domainMapLock.Unlock()
+
+	// Create a new domain (expensive operation, but only blocks same key).
 	domain := createDomain(m, opt)
 
 	// Store in cache with cleanup
 	weakDomain := weak.Make(domain)
 	domainMapLock.Lock()
 	domainCache[key] = weakDomain
+	domainMapLock.Unlock()
 
 	// Add cleanup to remove from cache when domain is garbage collected
 	runtime.AddCleanup(domain, func(key domainCacheKey) {
