@@ -56,6 +56,11 @@ func (p *Params) Verify(input VerifierInput) error {
 		return fmt.Errorf("invalid proof: uAlpha is not a reed-solomon codeword")
 	}
 
+	// This checks linear combination of the opened columns matches the requested position of the UAlpha
+	if p.checkColLinCombination(input) != nil {
+		return fmt.Errorf("invalid proof: uAlpha is not a correct linear combination")
+	}
+
 	// This checks the consistency between the proof and the selected columns
 	// to the input matrix.
 	for i, c := range input.SelectedColumns {
@@ -74,4 +79,25 @@ func (p *Params) Verify(input VerifierInput) error {
 
 	return nil
 
+}
+
+// Check linear combination of the opened columns matches the requested position of the UAlpha
+func (p *Params) checkColLinCombination(input VerifierInput) error {
+	uAlpha := input.Proof.UAlpha
+
+	for i, selectedColID := range input.SelectedColumns {
+		if selectedColID < 0 || selectedColID >= len(uAlpha) {
+			return fmt.Errorf("column index %d is out of bounds for the linear combination array of size %d", selectedColID, len(uAlpha))
+		}
+
+		// Compute the linear combination of the opened column
+		y := EvalBasePolyHorner(input.Proof.OpenedColumns[i], input.Alpha)
+
+		// Check the consistency
+		if y != uAlpha[selectedColID] {
+			return fmt.Errorf("inconsistent linear combination at index %d (selected column ID %d): expected uAlpha[selectedColID] %s, got %s", i, selectedColID, uAlpha[selectedColID].String(), y.String())
+		}
+	}
+
+	return nil
 }
