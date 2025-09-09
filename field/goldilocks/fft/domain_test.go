@@ -9,9 +9,7 @@ import (
 	"bytes"
 	"reflect"
 	"runtime"
-	"sync"
 	"testing"
-	"weak"
 
 	"github.com/consensys/gnark-crypto/field/goldilocks"
 	"github.com/stretchr/testify/require"
