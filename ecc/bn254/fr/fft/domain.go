@@ -13,6 +13,7 @@ import (
 	"math/bits"
 	"runtime"
 	"sync"
+	"weak"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 
@@ -62,11 +63,115 @@ func GeneratorFullMultiplicativeGroup() fr.Element {
 	return res
 }
 
-// NewDomain returns a subgroup with a power of 2 cardinality
-// cardinality >= m
-// shift: when specified, it's the element by which the set of root of unity is shifted.
+// domainCacheKey is the composite key for the cache.
+// It uses a struct with comparable types as the map key.
+type domainCacheKey struct {
+	m   uint64
+	gen fr.Element
+}
+
+var (
+	domainCache    = make(map[domainCacheKey]weak.Pointer[Domain])
+	domainGenLocks = make(map[domainCacheKey]*sync.Mutex) // Per key mutex to avoid multiple concurrent generation of the same domain
+	keyMapLock     sync.Mutex                             // Ensures exclusive access to domainGenLocks map
+	domainMapLock  sync.Mutex                             // Ensures exclusive access to domainCache map
+)
+
+// NewDomain returns a subgroup with a power of 2 cardinality >= m.
+//
+// Parameters:
+//   - m: minimum cardinality (will be rounded up to next power of 2)
+//   - opts: configuration options (WithShift, WithCache, WithoutPrecompute, etc.)
+//
+// The domain can be cached when both withCache and withPrecompute are enabled.
+// Cached domains are automatically cleaned up when no longer in use.
 func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	opt := domainOptions(opts...)
+
+	// Skip caching if disabled or precomputation is off
+	if !opt.withCache || !opt.withPrecompute {
+		return createDomain(m, opt)
+	}
+
+	// Compute the cache key.
+	key := domainCacheKey{m: m}
+	if opt.shift != nil {
+		key.gen.Set(opt.shift)
+	} else {
+		key.gen = GeneratorFullMultiplicativeGroup() // Default generator
+	}
+
+	// Lets ensure that only one goroutine is generating a domain for this
+	// specific key. We acquire it already here to ensure if there is a existing
+	// goroutine generating a domain for this key, we wait for it to finish and
+	// then we can just return the cached domain.
+	keyMapLock.Lock()
+	keyLock := domainGenLocks[key]
+	if keyLock == nil {
+		keyLock = new(sync.Mutex)
+		domainGenLocks[key] = keyLock
+	}
+	keyLock.Lock()
+	defer keyLock.Unlock()
+	keyMapLock.Unlock()
+
+	// Check cache first. But for the cache, we need to lock the cache map (we
+	// currently only hold the per-key lock, not global cache lock).
+	domainMapLock.Lock()
+	// we don't defer it because we want to release it while creating the
+	// domain. And domain creation can panic, leading to double unlock which
+	// hides the original panic.
+	if weakDomain, exists := domainCache[key]; exists {
+		if domain := weakDomain.Value(); domain != nil {
+			domainMapLock.Unlock()
+			return domain
+		}
+	}
+	// Lets release the global cache lock while we do this so that other keys
+	// can be added to cache.
+	domainMapLock.Unlock()
+
+	// Create a new domain (expensive operation, but only blocks same key).
+	domain := createDomain(m, opt)
+
+	// Store in cache with cleanup
+	weakDomain := weak.Make(domain)
+	domainMapLock.Lock()
+	domainCache[key] = weakDomain
+	domainMapLock.Unlock()
+
+	// Add cleanup to remove from cache when domain is garbage collected
+	runtime.AddCleanup(domain, func(key domainCacheKey) {
+		// cleanup *may* be called concurrently, but could be sequential. We run
+		// it in a separate goroutine to avoid block other cleanups being run if
+		// this cleanup is being run on the same key which is being generated
+		// (thus lock being held).
+		go func() {
+			keyMapLock.Lock()
+			defer keyMapLock.Unlock()
+			if keyLock, ok := domainGenLocks[key]; ok {
+				keyLock.Lock()
+				defer keyLock.Unlock()
+				// We can now safely delete from both maps. But we only do if
+				// the cached weak pointer is the same one we created. Otherwise
+				// this means this cleanup is running after a new domain was
+				// already cached (double cleanup).
+
+				// We also want to hold both per-key and cache lock to avoid the
+				// maps being out of sync
+				domainMapLock.Lock()
+				defer domainMapLock.Unlock()
+				if cacheWeakDomain := domainCache[key]; cacheWeakDomain == weakDomain {
+					delete(domainCache, key)
+					delete(domainGenLocks, key)
+				}
+			}
+		}()
+	}, key)
+	return domain
+}
+
+func createDomain(m uint64, opt domainConfig) *Domain {
 	domain := &Domain{}
 	x := ecc.NextPowerOfTwo(m)
 	domain.Cardinality = uint64(x)
