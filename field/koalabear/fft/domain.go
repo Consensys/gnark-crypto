@@ -70,9 +70,10 @@ type domainCacheKey struct {
 }
 
 var (
-	domainCache = make(map[domainCacheKey]weak.Pointer[Domain])
-	keysLock    = make(map[domainCacheKey]*sync.Mutex) // Per-key mutexes
-	globalLock  sync.Mutex                             // Protects keysLock map
+	domainCache   = make(map[domainCacheKey]weak.Pointer[Domain])
+	keysLock      = make(map[domainCacheKey]*sync.Mutex) // Per-key mutexes
+	keyMapLock    sync.Mutex                             // Protects keysLock map
+	domainMapLock sync.Mutex                             // Protects domainCache map
 )
 
 // NewDomain returns a subgroup with a power of 2 cardinality >= m.
@@ -100,7 +101,7 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	}
 
 	// Get or create the per-key lock
-	globalLock.Lock()
+	keyMapLock.Lock()
 	keyLock := keysLock[key]
 	if keyLock == nil {
 		keyLock = new(sync.Mutex)
@@ -108,21 +109,25 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 	}
 	keyLock.Lock()
 	defer keyLock.Unlock()
-	globalLock.Unlock()
-
+	keyMapLock.Unlock()
 	// Now we have exclusive access for this specific key
-	// Check cache first
+
+	// Check cache first. But for the cache, we need to lock the cache map.
+	domainMapLock.Lock()
+	defer domainMapLock.Unlock()
 	if weakDomain, exists := domainCache[key]; exists {
 		if domain := weakDomain.Value(); domain != nil {
 			return domain
 		}
 	}
 
-	// Create a new domain (expensive operation, but only blocks same key)
+	// Create a new domain (expensive operation, but only blocks same key). Lets release the global cache lock while we do this.
+	domainMapLock.Unlock()
 	domain := createDomain(m, opt)
 
 	// Store in cache with cleanup
 	weakDomain := weak.Make(domain)
+	domainMapLock.Lock()
 	domainCache[key] = weakDomain
 
 	// Add cleanup to remove from cache when domain is garbage collected
@@ -132,20 +137,22 @@ func NewDomain(m uint64, opts ...DomainOption) *Domain {
 		// cleanup is being run on the same key which is being generated (thus lock
 		// being held).
 		go func() {
-			globalLock.Lock()
+			keyMapLock.Lock()
+			defer keyMapLock.Unlock()
 			if keyLock, ok := keysLock[key]; ok {
 				keyLock.Lock()
+				defer keyLock.Unlock()
 				// We can now safely delete from both maps. But we only do if
 				// the cached weak pointer is the same one we created. Otherwise
 				// this means this cleanup is running after a new domain was
 				// already cached (double cleanup).
+				domainMapLock.Lock()
+				defer domainMapLock.Unlock()
 				if cacheWeakDomain := domainCache[key]; cacheWeakDomain == weakDomain {
 					delete(domainCache, key)
 					delete(keysLock, key)
 				}
-				keyLock.Unlock()
 			}
-			globalLock.Unlock()
 		}()
 	}, key)
 	return domain

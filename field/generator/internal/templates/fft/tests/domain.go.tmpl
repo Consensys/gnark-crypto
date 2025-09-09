@@ -111,20 +111,20 @@ func BenchmarkNewDomainCache(b *testing.B) {
 
 // Helper functions
 func getCachedDomain(key domainCacheKey) *Domain {
-	globalLock.Lock()
-    keyLock, exists := keysLock[key]
-    if !exists {
-        globalLock.Unlock()
-        return nil
-    }
+	keyMapLock.Lock()
+	keyLock, exists := keysLock[key]
+	if !exists {
+		keyMapLock.Unlock()
+		return nil
+	}
 
-    // Acquire key lock while holding global lock to prevent races
-    keyLock.Lock()
-    defer keyLock.Unlock()
-    globalLock.Unlock()
+	// Acquire key lock while holding global lock to prevent races
+	keyLock.Lock()
+	defer keyLock.Unlock()
+	keyMapLock.Unlock()
 
-    if weak, exists := domainCache[key]; exists {
-        return weak.Value()
-    }
-    return nil
+	if weak, exists := domainCache[key]; exists {
+		return weak.Value()
+	}
+	return nil
 }
