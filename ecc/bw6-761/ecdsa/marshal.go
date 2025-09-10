@@ -109,7 +109,8 @@ func (sig *Signature) Bytes() []byte {
 //
 // It returns an error if:
 // * the buffer is shorter than the expected signature size
-// * r or s are not in the interval [1, r_mod-1] (to avoid malleability)
+// * r is not in the interval [1, r_mod-1] (to avoid malleability)
+// * s is not in the interval [1, (r_mod-1)/2] (to avoid malleability)
 //
 // Any excess bytes in the input buffer are ignored. The method returns the number of bytes
 // read.
