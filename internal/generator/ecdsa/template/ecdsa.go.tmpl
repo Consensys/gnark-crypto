@@ -234,15 +234,28 @@ func (privKey *PrivateKey) Public() signature.PublicKey {
 }
 
 {{- if or (eq .Name "secp256k1") (eq .Name "bn254") (eq .Name "stark-curve") }}
-// SignForRecover performs the ECDSA signature and returns public key recovery information
+// SignForRecover performs the ECDSA signature according to [SEC 1] Section 4.1.3 and returns public key recovery information.
 //
-// k ← 𝔽r (random)
-// P = k ⋅ g1Gen
-// r = x_P (mod order)
-// s = k⁻¹ . (m + sk ⋅ r)
-// v = (div(x_P, order)<<1) || y_P[-1]
+// The argument hFunc defines the hash function for computing the hash of the
+// message. If it is nil, then we assume that the message is already hashed.
+// NB! However, if the message is longer than the bit-length of the order of the 
+// curve, it is truncated to that length, allowing for message malleability!
 //
-// SEC 1, Version 2.0, Section 4.1.3
+// The signature is computed as follows:
+//
+//	k ← 𝔽r (random)
+//	P = k ⋅ g1Gen
+//	r = x_P (mod order)
+//	s = k⁻¹ . (m + sk ⋅ r)
+//	v = (div(x_P, order)<<1) || y_P[-1]
+//
+// The method ensures that s <= (order-1)/2 to prevent signature malleability and compatibility
+// with other implementations (see [BIP-62]).
+//
+// It returns an error when reading entropy from safe randomness source fails.
+//
+// [SEC 1]: https://www.secg.org/sec1-v2.pdf
+// [BIP-62]: https://en.bitcoin.it/wiki/BIP_0062#low-s-values-in-signatures
 func (privKey *PrivateKey) SignForRecover(message []byte, hFunc hash.Hash) (v uint, r, s *big.Int, err error) {
 	r, s = new(big.Int), new(big.Int)
 
@@ -309,15 +322,28 @@ func (privKey *PrivateKey) SignForRecover(message []byte, hFunc hash.Hash) (v ui
 	return v, r, s, nil
 }
 
-// Sign performs the ECDSA signature
+// Sign performs the ECDSA signature according to [SEC 1] Section 4.1.3
 //
-// k ← 𝔽r (random)
-// P = k ⋅ g1Gen
-// r = x_P (mod order)
-// s = k⁻¹ . (m + sk ⋅ r)
-// signature = {r, s}
+// The argument hFunc defines the hash function for computing the hash of the
+// message. If it is nil, then we assume that the message is already hashed.
+// NB! However, if the message is longer than the bit-length of the order of the 
+// curve, it is truncated to that length, allowing for message malleability!
 //
-// SEC 1, Version 2.0, Section 4.1.3
+// The signature is computed as follows:
+//
+//	k ← 𝔽r (random)
+//	P = k ⋅ g1Gen
+//	r = x_P (mod order)
+//	s = k⁻¹ . (m + sk ⋅ r)
+//	signature = {r, s}
+//
+// The method ensures that s <= (order-1)/2 to prevent signature malleability and compatibility
+// with other implementations (see [BIP-62]).
+//
+// It returns an error when reading entropy from safe randomness source fails.
+//
+// [SEC 1]: https://www.secg.org/sec1-v2.pdf
+// [BIP-62]: https://en.bitcoin.it/wiki/BIP_0062#low-s-values-in-signatures
 func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error) {
 	_, r, s, err := privKey.SignForRecover(message, hFunc)
 	if err != nil {
@@ -330,15 +356,28 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 	return sig.Bytes(), nil
 }
 {{- else }}
-// Sign performs the ECDSA signature
+// Sign performs the ECDSA signature according to [SEC 1] Section 4.1.3
 //
-// k ← 𝔽r (random)
-// P = k ⋅ g1Gen
-// r = x_P (mod order)
-// s = k⁻¹ . (m + sk ⋅ r)
-// signature = {r, s}
+// The argument hFunc defines the hash function for computing the hash of the
+// message. If it is nil, then we assume that the message is already hashed.
+// NB! However, if the message is longer than the bit-length of the order of the 
+// curve, it is truncated to that length, allowing for message malleability!
 //
-// SEC 1, Version 2.0, Section 4.1.3
+// The signature is computed as follows:
+//
+//	k ← 𝔽r (random)
+//	P = k ⋅ g1Gen
+//	r = x_P (mod order)
+//	s = k⁻¹ . (m + sk ⋅ r)
+//	signature = {r, s}
+//
+// The method ensures that s <= (order-1)/2 to prevent signature malleability and compatibility
+// with other implementations (see [BIP-62]).
+//
+// It returns an error when reading entropy from safe randomness source fails.
+//
+// [SEC 1]: https://www.secg.org/sec1-v2.pdf
+// [BIP-62]: https://en.bitcoin.it/wiki/BIP_0062#low-s-values-in-signatures
 func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error) {
 	scalar, r, s, kInv := new(big.Int), new(big.Int), new(big.Int), new(big.Int)
 	scalar.SetBytes(privKey.scalar[:sizeFr])
@@ -407,11 +446,28 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 }
 {{- end }}
 
-// Verify validates the ECDSA signature
+// Verify validates the ECDSA signature according to [SEC 1] Section 4.1.4.
 //
-// R ?= (s⁻¹ ⋅ m ⋅ Base + s⁻¹ ⋅ R ⋅ publiKey)_x
+// The argument hFunc defines the hash function for computing the hash of the
+// message. If it is nil, then we assume that the message is already hashed.
+// NB! However, if the message is longer than the bit-length of the order of the 
+// curve, it is truncated to that length, allowing for message malleability!
 //
-// SEC 1, Version 2.0, Section 4.1.4
+// The signature verification is performed as:
+//
+//	R ?= (s⁻¹ ⋅ m ⋅ Base + s⁻¹ ⋅ R ⋅ publicKey)_x
+//
+// The method additionally checks that the given signature is not canonical,
+// i.e. the s value of the signature is not larger than (order-1)/2. This is to
+// prevent signature malleability and ensure compatibility with other
+// implementations (see [BIP-62]).
+//
+// When the signature verificatio fails, it returns false and an error
+// indicating error type. When the signature is valid, it returns true and a nil
+// error.
+//
+// [SEC 1]: https://www.secg.org/sec1-v2.pdf
+// [BIP-62]: https://en.bitcoin.it/wiki/BIP_0062#low-s-values-in-signatures
 func (publicKey *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, error) {
 
 	// Deserialize the signature
