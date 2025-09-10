@@ -20,7 +20,7 @@ var errRBiggerThanRMod = errors.New("r >= r_mod")
 var errSBiggerThanRMod = errors.New("s >= r_mod")
 var errZero = errors.New("zero value")
 
-// Bytes returns the binary representation of the public key as concatentation
+// Bytes returns the binary representation of the public key as concatenation
 // of the X and Y coordinates.
 func (pk *PublicKey) Bytes() []byte {
 	var res [sizePublicKey]byte

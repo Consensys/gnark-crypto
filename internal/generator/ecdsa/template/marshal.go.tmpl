@@ -16,7 +16,7 @@ var errSBiggerThanRMod = errors.New("s >= r_mod")
 var errZero = errors.New("zero value")
 
 {{- if eq .Name "secp256k1"}}
-// Bytes returns the binary representation of the public key as concatentation
+// Bytes returns the binary representation of the public key as concatenation
 // of the X and Y coordinates.
 {{- else }}
 // Bytes returns the binary representation of the public key. The serialization
