@@ -17,6 +17,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/permutation"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/kzg"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+
+	"github.com/consensys/gnark-crypto/utils"
 )
 
 var (
@@ -104,7 +106,7 @@ func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, 
 			lfs[i][j] = f[i][len(f[i])-1]
 		}
 		d.FFTInverse(cfs[i], fft.DIF)
-		fft.BitReverse(cfs[i])
+		utils.BitReverse(cfs[i])
 		proof.fs[i], err = kzg.Commit(cfs[i], pk)
 		if err != nil {
 			return proof, err
@@ -119,7 +121,7 @@ func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, 
 			lts[i][j] = t[i][len(t[i])-1]
 		}
 		d.FFTInverse(cts[i], fft.DIF)
-		fft.BitReverse(cts[i])
+		utils.BitReverse(cts[i])
 		proof.ts[i], err = kzg.Commit(cts[i], pk)
 		if err != nil {
 			return proof, err

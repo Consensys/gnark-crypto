@@ -24,7 +24,7 @@ const (
 {{- if eq .Name "secp256k1"}}
 	sizePublicKey  = 2 * sizeFp
 {{- else}}
-	sizePublicKey  = sizeFp
+	sizePublicKey  = {{ .CurvePackage }}.SizeOfG1AffineCompressed
 {{- end}}
 	sizePrivateKey = sizeFr + sizePublicKey
 	sizeSignature  = 2 * sizeFr

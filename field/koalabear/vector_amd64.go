@@ -164,11 +164,11 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 	}
 
 	n := uint64(len(*vector))
-	if n == 0 {
-		return
-	}
 	if n != uint64(len(other)) {
 		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	if n == 0 {
+		return
 	}
 
 	const blockSize = 16

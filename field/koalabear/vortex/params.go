@@ -7,6 +7,7 @@ import (
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/fft"
 	"github.com/consensys/gnark-crypto/field/koalabear/sis"
+	"github.com/consensys/gnark-crypto/utils"
 )
 
 var (
@@ -136,7 +137,7 @@ func NewParams(
 	}
 	cosetTableBitReverse := make(koalabear.Vector, len(cosetTable))
 	copy(cosetTableBitReverse, cosetTable)
-	fft.BitReverse(cosetTableBitReverse)
+	utils.BitReverse(cosetTableBitReverse)
 	bigDomain := fft.NewDomain(uint64(numColumns * reedSolomonInvRate))
 
 	return &Params{

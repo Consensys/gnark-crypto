@@ -207,7 +207,7 @@ func difFFT(a []koalabear.Element, w koalabear.Element, twiddles [][]koalabear.E
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
-		if n == 1<<8 {
+		if n == 1<<8 { // nolint QF1003
 			kerDIFNP_256(a, twiddles, stage-twiddlesStartStage)
 			return
 		}
@@ -287,7 +287,7 @@ func ditFFT(a []koalabear.Element, w koalabear.Element, twiddles [][]koalabear.E
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
-		if n == 1<<8 {
+		if n == 1<<8 { // nolint QF1003
 			kerDITNP_256(a, twiddles, stage-twiddlesStartStage)
 			return
 		}

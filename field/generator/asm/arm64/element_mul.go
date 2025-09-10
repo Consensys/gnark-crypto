@@ -211,10 +211,10 @@ func (f *FFArm64) reduceAndStore(t, q []arm64.Register, zPtr arm64.Register) {
 }
 
 func (f *FFArm64) add0n(i int) func(op1, op2, dst interface{}, comment ...string) {
-	switch {
-	case i == 0:
+	switch i {
+	case 0:
 		return f.ADDS
-	case i == f.NbWordsLastIndex:
+	case f.NbWordsLastIndex:
 		return f.ADC
 	default:
 		return f.ADCS
@@ -222,10 +222,10 @@ func (f *FFArm64) add0n(i int) func(op1, op2, dst interface{}, comment ...string
 }
 
 func (f *FFArm64) add0m(i int) func(op1, op2, dst interface{}, comment ...string) {
-	switch {
-	case i == 0:
+	switch i {
+	case 0:
 		return f.ADDS
-	case i == f.NbWordsLastIndex+1:
+	case f.NbWordsLastIndex + 1:
 		return f.ADC
 	default:
 		return f.ADCS
@@ -233,10 +233,10 @@ func (f *FFArm64) add0m(i int) func(op1, op2, dst interface{}, comment ...string
 }
 
 func (f *FFArm64) add1m(i int, dumb ...bool) func(op1, op2, dst interface{}, comment ...string) {
-	switch {
-	case i == 1:
+	switch i {
+	case 1:
 		return f.ADDS
-	case i == f.NbWordsLastIndex+1:
+	case f.NbWordsLastIndex + 1:
 		if len(dumb) == 1 && dumb[0] {
 			// odd, but it performs better on c8g instances.
 			return f.ADCS

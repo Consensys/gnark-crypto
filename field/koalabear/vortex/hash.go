@@ -20,11 +20,17 @@ func CompressPoseidon2(a, b Hash) Hash {
 	var x [16]koalabear.Element
 	copy(x[:], a[:])
 	copy(x[8:], b[:])
+
+	// Create a buffer to hold the feed-forward input.
+	copy(res[:], x[8:])
 	if err := compressPerm.Permutation(x[:]); err != nil {
 		// can't error (size is correct)
 		panic(err)
 	}
-	copy(res[:], x[:8])
+
+	for i := range res {
+		res[i].Add(&res[i], &x[8+i])
+	}
 	return res
 }
 

@@ -213,7 +213,7 @@ func difFFT(a []{{ .FF }}.Element, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.E
 		return
 	} else if  stage >= twiddlesStartStage {
 		{{- range $ki, $klog2 :=  $.Kernels}}
-			{{- if ne $ki 0}} else {{- end}} if n == 1 << {{$klog2}} {
+			{{- if ne $ki 0}} else {{- end}} if n == 1 << {{$klog2}} {	// nolint QF1003
 				{{- $ksize := shl 1 $klog2}}
 				kerDIFNP_{{$ksize}}(a, twiddles, stage-twiddlesStartStage)
 				return
@@ -307,7 +307,7 @@ func ditFFT(a []{{ .FF }}.Element, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.E
 		return
 	} else if stage >= twiddlesStartStage {
 		{{- range $ki, $klog2 :=  $.Kernels}}
-			{{- if ne $ki 0}} else {{- end}} if n == 1 << {{$klog2}} {
+			{{- if ne $ki 0}} else {{- end}} if n == 1 << {{$klog2}} { // nolint QF1003
 				{{- $ksize := shl 1 $klog2}}
 				kerDITNP_{{$ksize}}(a, twiddles, stage-twiddlesStartStage)
 				return

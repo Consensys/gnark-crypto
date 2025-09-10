@@ -12,6 +12,8 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/consensys/gnark-crypto/utils"
+
 	"github.com/consensys/gnark-crypto/internal/parallel"
 
 	"github.com/consensys/gnark-crypto/field/babybear"
@@ -252,7 +254,7 @@ func putInExpectedFormFromLagrangeRegular(p *Polynomial, domain *fft.Domain, exp
 	if expectedForm.Basis == Canonical {
 		domain.FFTInverse(p.Coefficients(), fft.DIF)
 		if expectedForm.Layout == Regular {
-			fft.BitReverse(p.Coefficients())
+			utils.BitReverse(p.Coefficients())
 		}
 		return
 	}
@@ -261,13 +263,13 @@ func putInExpectedFormFromLagrangeRegular(p *Polynomial, domain *fft.Domain, exp
 		domain.FFTInverse(p.Coefficients(), fft.DIF)
 		domain.FFT(p.Coefficients(), fft.DIT, fft.OnCoset())
 		if expectedForm.Layout == BitReverse {
-			fft.BitReverse(p.Coefficients())
+			utils.BitReverse(p.Coefficients())
 		}
 		return
 	}
 
 	if expectedForm.Layout == BitReverse {
-		fft.BitReverse(p.Coefficients())
+		utils.BitReverse(p.Coefficients())
 	}
 
 }

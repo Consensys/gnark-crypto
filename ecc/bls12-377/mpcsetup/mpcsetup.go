@@ -456,7 +456,7 @@ func linearCombinationG1(A []curve.G1Affine, r []fr.Element) curve.G1Affine {
 }
 
 // UpdateMonomialsG2 A[i] <- r^i.A[i]
-func UpdateMonomialsG2(A []curve.G1Affine, r *fr.Element) {
+func UpdateMonomialsG2(A []curve.G2Affine, r *fr.Element) {
 	var (
 		rExp fr.Element
 		I    big.Int

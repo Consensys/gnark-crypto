@@ -204,7 +204,7 @@ func (f *FFAmd64) UnsafePush(registers *amd64.Registers, rIn ...amd64.Register) 
 }
 
 func (f *FFAmd64) Pop(registers *amd64.Registers, forceStack ...bool) amd64.Register {
-	if registers.Available() >= 1 && !(len(forceStack) > 0 && forceStack[0]) {
+	if registers.Available() >= 1 && (len(forceStack) == 0 || !forceStack[0]) {
 		return registers.Pop()
 	}
 	r := amd64.Register(fmt.Sprintf("s%d-%d(SP)", f.nbElementsOnStack, 8+f.nbElementsOnStack*8))
@@ -394,7 +394,13 @@ func GenerateF31E4(w io.Writer) error {
 	f.WriteLn("#include \"go_asm.h\"")
 	f.WriteLn("")
 
-	f.generateMulAccE4()
+	f.generateMulAccByElement()
+	f.generateAddVecE4()
+	f.generateSubVecE4()
+	f.generateMulVecE4(e4VecMul)
+	f.generateMulVecE4(e4VecScalarMul)
+	f.generateMulVecE4(e4VecInnerProd)
+	f.generateSumVecE4()
 
 	return nil
 

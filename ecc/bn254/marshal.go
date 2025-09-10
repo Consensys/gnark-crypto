@@ -379,7 +379,7 @@ func (dec *Decoder) readUint64() (r uint64, err error) {
 
 func isCompressed(msb byte) bool {
 	mData := msb & mMask
-	return !(mData == mUncompressed)
+	return mData != mUncompressed
 }
 
 // NewEncoder returns a binary encoder supporting curve bn254 objects

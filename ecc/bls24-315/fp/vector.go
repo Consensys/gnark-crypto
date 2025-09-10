@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math/bits"
 	"runtime"
 	"strings"
 	"sync"
@@ -73,7 +74,7 @@ func (vector *Vector) WriteTo(w io.Writer) (int64, error) {
 // It also returns a channel that will be closed when the validation is done.
 // The validation consist of checking that the elements are smaller than the modulus, and
 // converting them to montgomery form.
-func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) {
+func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) { // nolint ST1008
 	chErr := make(chan error, 1)
 	var buf [Bytes]byte
 	if read, err := io.ReadFull(r, buf[:4]); err != nil {
@@ -200,6 +201,45 @@ func (vector Vector) SetRandom() error {
 		}
 	}
 	return nil
+}
+
+// Exp sets vector[i] = a[i]ᵏ for all i
+func (vector Vector) Exp(a Vector, k int64) {
+	N := len(a)
+	if N != len(vector) {
+		panic("vector.Exp: vectors don't have the same length")
+	}
+	if k == 0 {
+		for i := range vector {
+			vector[i].SetOne()
+		}
+		return
+	}
+	base := a
+	exp := k
+	if k < 0 {
+		// call batch inverse
+		base = BatchInvert(a)
+		exp = -k // if k == math.MinInt64, -k overflows, but uint64(-k) is correct
+	} else if N > 0 {
+		// ensure that vector and a are not the same slice; else we need to copy a into base
+		v0 := &vector[0] // #nosec G602 we check that N > 0 above
+		a0 := &a[0]      // #nosec G602 we check that N > 0 above
+		if v0 == a0 {
+			base = make(Vector, N)
+			copy(base, a)
+		}
+	}
+
+	copy(vector, base)
+
+	// Use bits.Len64 to iterate only over significant bits
+	for i := bits.Len64(uint64(exp)) - 2; i >= 0; i-- {
+		vector.Mul(vector, vector)
+		if (uint64(exp)>>uint(i))&1 != 0 {
+			vector.Mul(vector, base)
+		}
+	}
 }
 
 // MustSetRandom sets the elements in vector to independent uniform random values in [0, q).

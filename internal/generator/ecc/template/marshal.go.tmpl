@@ -441,7 +441,7 @@ func isMaskInvalid(msb byte) bool {
 
 func isCompressed(msb byte) bool {
 	mData := msb & mMask
-	return !((mData == mUncompressed){{- if ge .FpUnusedBits 3}}||(mData == mUncompressedInfinity) {{- end}})
+	return mData != mUncompressed{{- if ge .FpUnusedBits 3}}&& mData != mUncompressedInfinity {{- end}}
 }
 
 

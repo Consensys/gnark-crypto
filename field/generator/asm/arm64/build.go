@@ -165,7 +165,7 @@ func (f *FFArm64) Push(registers *arm64.Registers, rIn ...arm64.Register) {
 }
 
 func (f *FFArm64) Pop(registers *arm64.Registers, forceStack ...bool) arm64.Register {
-	if registers.Available() >= 1 && !(len(forceStack) > 0 && forceStack[0]) {
+	if registers.Available() >= 1 && (len(forceStack) == 0 || !forceStack[0]) {
 		return registers.Pop()
 	}
 	r := arm64.Register(fmt.Sprintf("s%d-%d(SP)", f.nbElementsOnStack, 8+f.nbElementsOnStack*8))

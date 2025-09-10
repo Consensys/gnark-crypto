@@ -414,7 +414,7 @@ func isMaskInvalid(msb byte) bool {
 
 func isCompressed(msb byte) bool {
 	mData := msb & mMask
-	return !((mData == mUncompressed) || (mData == mUncompressedInfinity))
+	return mData != mUncompressed && mData != mUncompressedInfinity
 }
 
 // NewEncoder returns a binary encoder supporting curve bls12-381 objects

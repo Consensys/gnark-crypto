@@ -242,7 +242,7 @@ func (dec *Decoder) readUint32() (r uint32, err error) {
 
 func isCompressed(msb byte) bool {
 	mData := msb & mMask
-	return !(mData == mUncompressed)
+	return mData != mUncompressed
 }
 
 // NewEncoder returns a binary encoder supporting curve stark-curve objects
