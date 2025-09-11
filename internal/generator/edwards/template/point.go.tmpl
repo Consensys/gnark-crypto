@@ -233,49 +233,58 @@ func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
 // Add adds two points (x,y), (u,v) on a twisted Edwards curve with parameters a, d
 // modifies p
 func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
+
 	initOnce.Do(initCurveParams)
 
-	var xu, yv, xv, yu, dxyuv, one, denx, deny fr.Element
-	pRes := new(PointAffine)
-	xv.Mul(&p1.X, &p2.Y)
-	yu.Mul(&p1.Y, &p2.X)
-	pRes.X.Add(&xv, &yu)
+	var A, B, C, D, E, F, G, H, tmp fr.Element
+	A.Mul(&p1.X, &p2.X)
+	B.Mul(&p1.Y, &p2.Y)
+	C.Mul(&p1.X, &p1.Y).
+		Mul(&C, &p2.X).
+		Mul(&C, &p2.Y).
+		Mul(&C, &curveParams.D)
+	D.SetOne()
+	tmp.Add(&p1.X, &p1.Y)
+	E.Add(&p2.X, &p2.Y).
+		Mul(&E, &tmp).
+		Sub(&E, &A).
+		Sub(&E, &B)
+	F.Sub(&D, &C)
+	G.Add(&D, &C)
+	H.Set(&A)
+	mulByA(&H)
+	H.Sub(&B, &H)
 
-	xu.Mul(&p1.X, &p2.X)
-	mulByA(&xu)
-	yv.Mul(&p1.Y, &p2.Y)
-	pRes.Y.Sub(&yv, &xu)
-
-	dxyuv.Mul(&xv, &yu).Mul(&dxyuv, &curveParams.D)
-	one.SetOne()
-	denx.Add(&one, &dxyuv)
-	deny.Sub(&one, &dxyuv)
-
-	p.X.Div(&pRes.X, &denx)
-	p.Y.Div(&pRes.Y, &deny)
+	tmp.Mul(&F, &G).Inverse(&tmp)
+	p.X.Mul(&E, &F).Mul(&p.X, &tmp)
+	p.Y.Mul(&G, &H).Mul(&p.Y, &tmp)
 
 	return p
 }
+
 
 // Double doubles point (x,y) on a twisted Edwards curve with parameters a, d
 // modifies p
 func (p *PointAffine) Double(p1 *PointAffine) *PointAffine {
 
-	p.Set(p1)
-	var xx, yy, xy, denum, two fr.Element
+	var A, B, C, D, E, F, G, H fr.Element
 
-	xx.Square(&p.X)
-	yy.Square(&p.Y)
-	xy.Mul(&p.X, &p.Y)
-	mulByA(&xx)
-	denum.Add(&xx, &yy)
+	A.Square(&p1.X)
+	B.Square(&p1.Y)
+	C.SetUint64(2)
+	D.Set(&A)
+	mulByA(&D)
+	E.Add(&p1.X, &p1.Y).
+		Square(&E).
+		Sub(&E, &A).
+		Sub(&E, &B)
+	G.Add(&D, &B)
+	F.Sub(&G, &C)
+	H.Sub(&D, &B)
 
-	p.X.Double(&xy).Div(&p.X, &denum)
-
-	two.SetOne().Double(&two)
-	denum.Neg(&denum).Add(&denum, &two)
-
-	p.Y.Sub(&yy, &xx).Div(&p.Y, &denum)
+	A.Mul(&F, &G).Inverse(&A)
+	p.X.Mul(&E, &F).Mul(&p.X, &A)
+	p.Y.Mul(&G, &H).Mul(&p.Y, &A)
 
 	return p
 }
