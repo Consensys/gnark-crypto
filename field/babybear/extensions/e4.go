@@ -448,7 +448,7 @@ func (vector Vector) InnerProduct(a Vector) E4 {
 func (vector Vector) InnerProductByElement(a fr.Vector) E4 {
 	N := len(vector)
 	if len(a) != N {
-		panic("vector.InnerProduct: vectors don't have the same length")
+		panic("vector.InnerProductByElement: vectors don't have the same length")
 	}
 	//TODO: add AVX512 implementation
 	return vectorInnerProductByElementGeneric(vector, a)
