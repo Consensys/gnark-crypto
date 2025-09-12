@@ -535,3 +535,62 @@ loop_15:
 
 done_16:
 	RET
+
+TEXT ·vectorButterfly_avx512(SB), NOSPLIT, $0-24
+	MOVD         $const_q, AX
+	VPBROADCASTD AX, Z0
+	MOVQ         a+0(FP), R13
+	MOVQ         b+8(FP), R14
+	MOVQ         N+16(FP), CX
+	SHRQ         $2, CX
+
+loop_17:
+	TESTQ     CX, CX
+	JEQ       done_18
+	DECQ      CX
+	VMOVDQU32 0(R13), Z1
+	VMOVDQU32 0(R14), Z2
+	ADD(Z1, Z2, Z0, Z5, Z3)
+	SUB(Z1, Z2, Z0, Z6, Z4)
+	VMOVDQU32 Z3, 0(R13)
+	VMOVDQU32 Z4, 0(R14)
+	ADDQ      $64, R13
+	ADDQ      $64, R14
+	JMP       loop_17
+
+done_18:
+	RET
+
+TEXT ·vectorButterflyPair_avx512(SB), NOSPLIT, $0-16
+	MOVD         $const_q, AX
+	VPBROADCASTD AX, Z0
+	MOVQ         a+0(FP), R13
+	MOVQ         N+8(FP), R14
+	SHRQ         $2, R14
+	MOVQ         $0x0000000000000033, AX
+	KMOVQ        AX, K2
+	MOVQ         ·vInterleaveIndices+0(SB), CX
+	VMOVDQU64    0(CX), Z6
+
+#define PERMUTE4X4(in0, in1, in2, in3) \
+	VMOVDQA64 in2, in3          \
+	VPERMI2Q  in1, in0, in3     \
+	VPBLENDMQ in0, in3, K2, in0 \
+	VPBLENDMQ in3, in1, K2, in1 \
+
+loop_19:
+	TESTQ     R14, R14
+	JEQ       done_20
+	DECQ      R14
+	VMOVDQU32 0(R13), Z1
+	VMOVDQA32 Z1, Z2
+	PERMUTE4X4(Z1, Z2, Z6, Z3)
+	ADD(Z1, Z2, Z0, Z7, Z4)
+	SUB(Z1, Z2, Z0, Z8, Z5)
+	PERMUTE4X4(Z4, Z5, Z6, Z3)
+	VMOVDQU32 Z4, 0(R13)
+	ADDQ      $64, R13
+	JMP       loop_19
+
+done_20:
+	RET

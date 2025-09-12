@@ -19,6 +19,11 @@ func init() {
 	}
 }
 
+// index table used in avx512 shuffling
+var vInterleaveIndices = []uint64 {
+	2, 3, 8, 9, 6, 7, 12, 13,
+}
+
 
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 // used for Montgomery reduction
@@ -48,3 +53,9 @@ func vectorSum_avx512(res *[4]uint64, a *E4, N uint64)
 
 //go:noescape
 func vectorMulByElement_avx512(res, a *E4, b *fr.Element, N uint64)
+
+//go:noescape
+func vectorButterfly_avx512(a, b *E4, N uint64)
+
+//go:noescape
+func vectorButterflyPair_avx512(a *E4, N uint64)

@@ -639,6 +639,144 @@ func (_f *FFAmd64) generateSubVecE4() {
 
 	f.RET()
 }
+func (_f *FFAmd64) generateButterflyPairVecE4() {
+	// func vectorButterflyPair_avx512(a *E4, N uint64)
+	const argSize = 2 * 8
+	stackSize := _f.StackSize(_f.NbWords*2+2, 0, 0)
+	registers := _f.FnHeader("vectorButterflyPair_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrA := registers.Pop()
+	N := registers.Pop()
+
+	f.loadQ()
+
+	f.MOVQ("a+0(FP)", addrA)
+	f.MOVQ("N+8(FP)", N)
+
+	// N % 4 == 0 (pre condition checked by caller)
+	// divide N by 4
+	f.SHRQ("$2", N)
+
+	// so we load elements 4 by 4.
+	// that is, we end up with va == [a0,a1,a2,a3, b0,b1,b2,b3, c0,c1,c2,c3, d0,d1,d2,d3]
+	// and we want to compute
+	// butterfly between (a,b) and (c,d)
+	// so we first need to rearrange va into
+	// vb = [b0,b1,b2,b3, a0,a1,a2,a3, d0,d1,d2,d3, c0,c1,c2,c3]
+	// and compute the butterfly between va and vb
+	// and merge the results
+	// note: this is not optimal we should iterate on larger blocks, it will divide by 2 number of ops.
+	va := registers.PopV()
+	vb := registers.PopV()
+	vTmp := registers.PopV()
+	resultA := registers.PopV()
+	resultB := registers.PopV()
+
+	f.MOVQ(uint64(0b00_11_00_11), amd64.AX)
+	f.KMOVQ(amd64.AX, amd64.K2)
+
+	addrVInterleaveIndices := registers.Pop()
+	vInterleaveIndices := registers.PopV()
+	f.MOVQ("·vInterleaveIndices+0(SB)", addrVInterleaveIndices)
+	f.VMOVDQU64(addrVInterleaveIndices.At(0), vInterleaveIndices)
+
+	// goes from
+	// in0 = [a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15]
+	// in1 = [b0 b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15]
+	// to
+	// in0 = [a0 a1 a2 a3 b0 b1 b2 b3 a8 a9 a10 a11 b8 b9 b10 b11]
+	// in1 = [a4 a5 a6 a7 b4 b5 b6 b7 a12 a13 a14 a15 b12 b13 b14 b15]
+	permute4x4 := f.Define("permute4x4", 4, func(args ...any) {
+		x := args[0]
+		y := args[1]
+		vInterleaveIndices := args[2]
+		tmp := args[3]
+		f.VMOVDQA64(vInterleaveIndices, tmp)
+		f.VPERMI2Q(y, x, tmp)
+		f.VPBLENDMQ(x, tmp, x, amd64.K2)
+		f.VPBLENDMQ(tmp, y, y, amd64.K2)
+	}, true)
+
+	f.Loop(N, func() {
+
+		// load args
+		f.VMOVDQU32(addrA.At(0), va)
+		f.VMOVDQA32(va, vb)
+
+		permute4x4(va, vb, vInterleaveIndices, vTmp)
+
+		// a' = a + b
+		f.add(va, vb, resultA)
+		// b' = a - b
+		f.sub(va, vb, resultB)
+
+		// merge the results
+		permute4x4(resultA, resultB, vInterleaveIndices, vTmp)
+
+		// save result
+		f.VMOVDQU32(resultA, addrA.At(0))
+
+		// increment result by 16uint32
+		f.ADDQ("$64", addrA)
+	})
+
+	f.RET()
+
+}
+
+func (_f *FFAmd64) generateButterflyVecE4() {
+	// func vectorButterfly_avx512(a, b *E4, N uint64)
+
+	const argSize = 3 * 8
+	stackSize := _f.StackSize(_f.NbWords*2+2, 0, 0)
+	registers := _f.FnHeader("vectorButterfly_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrA := registers.Pop()
+	addrB := registers.Pop()
+	N := registers.Pop()
+
+	f.loadQ()
+
+	f.MOVQ("a+0(FP)", addrA)
+	f.MOVQ("b+8(FP)", addrB)
+	f.MOVQ("N+16(FP)", N)
+
+	// N % 4 == 0 (pre condition checked by caller)
+	// divide N by 4
+	f.SHRQ("$2", N)
+
+	// each e4 is 4 uint32; so we work with blocks of 4 E4 == 16 uint32 == 1 zmm vector
+	va := registers.PopV()
+	vb := registers.PopV()
+	resultA := registers.PopV()
+	resultB := registers.PopV()
+
+	f.Loop(N, func() {
+
+		// load args
+		f.VMOVDQU32(addrA.At(0), va)
+		f.VMOVDQU32(addrB.At(0), vb)
+
+		// a' = a + b
+		f.add(va, vb, resultA)
+		// b' = a - b
+		f.sub(va, vb, resultB)
+
+		// save result
+		f.VMOVDQU32(resultA, addrA.At(0))
+		f.VMOVDQU32(resultB, addrB.At(0))
+
+		// increment result by 16uint32
+		f.ADDQ("$64", addrA)
+		f.ADDQ("$64", addrB)
+	})
+
+	f.RET()
+}
 
 func (_f *FFAmd64) generateMulVecElementE4() {
 	// func vectorMulByElement_avx512(res, a *E4, b *fr.Element, N uint64)

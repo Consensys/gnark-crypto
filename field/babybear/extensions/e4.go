@@ -448,6 +448,28 @@ func (vector Vector) MulByElement(a Vector, b fr.Vector) {
 	vectorMulByElementGeneric(vector, a, b)
 }
 
+// Butterfly computes the in-place butterfly operation on two vectors of E4 elements
+// If other overlaps with vector, result is undefined, caller should use a temp vector.
+func (vector Vector) Butterfly(other Vector) {
+	N := len(other)
+	if N != len(vector) {
+		panic("vector.Butterfly: vectors don't have the same length")
+	}
+	vectorButterflyGeneric(vector, other)
+}
+
+// ButterflyPair computes the in-place butterfly operation of each pair in the vector
+// vector[0], vector[1]; vector[2], vector[3]; ...
+func (vector Vector) ButterflyPair() {
+	N := len(vector)
+	if N%2 != 0 {
+		panic("vector.ButterflyPair: vector length must be even")
+	}
+	for i := 0; i < N; i += 2 {
+		Butterfly(&vector[i], &vector[i+1])
+	}
+}
+
 func (vector Vector) ScalarMulByElement(a Vector, b *fr.Element) {
 	if len(a) != len(vector) {
 		panic("vector.ScalarMulByElement: vectors don't have the same length")
@@ -562,5 +584,11 @@ func vectorMulAccByElementGeneric(v Vector, scale []fr.Element, alpha *E4) {
 func vectorMulByElementGeneric(res, a Vector, b fr.Vector) {
 	for i := 0; i < len(res); i++ {
 		res[i].MulByElement(&a[i], &b[i])
+	}
+}
+
+func vectorButterflyGeneric(a, b Vector) {
+	for i := 0; i < len(a); i++ {
+		Butterfly(&a[i], &b[i])
 	}
 }

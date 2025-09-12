@@ -451,6 +451,57 @@ func TestVectorOps(t *testing.T) {
 				gp.g1,
 				genFrVector(size),
 			))
+
+			// checking that in-place butterfly works as intended;
+			properties.Property(fmt.Sprintf("vector butterfly %d - %s", size, gp.label), prop.ForAll(
+				func(a, b Vector) bool {
+					if len(a) != len(b) {
+						return false
+					}
+					c := make(Vector, len(a))
+					d := make(Vector, len(a))
+					copy(c, a)
+					copy(d, b)
+					c.Butterfly(d)
+					for i := range a {
+						Butterfly(&a[i], &b[i])
+					}
+					for i := range a {
+						if !a[i].Equal(&c[i]) {
+							return false
+						}
+						if !b[i].Equal(&d[i]) {
+							return false 
+						}
+					}
+					return true
+				},
+				genVector(256),
+				genVector(256),
+			))
+
+			properties.Property(fmt.Sprintf("vector butterfly pair %d - %s", size, gp.label), prop.ForAll(
+				func(a Vector) bool {
+					if len(a)%2 != 0 {
+						return true // skip odd-sized vectors
+					}
+					c := make(Vector, len(a))
+					copy(c, a)
+					c.ButterflyPair()
+					for i := 0; i < len(a); i += 2 {
+						var x, y E4
+						x.Set(&a[i])
+						y.Set(&a[i+1])
+						Butterfly(&x, &y)
+						if !c[i].Equal(&x) || !c[i+1].Equal(&y) {
+							return false
+						}
+					}
+					return true
+				},
+				gp.g1,
+			))
+
 		}
 	}
 
