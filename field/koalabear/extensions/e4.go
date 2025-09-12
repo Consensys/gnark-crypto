@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"math/bits"
 
+	"github.com/consensys/gnark-crypto/field/koalabear"
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/utils/cpu"
 )
@@ -633,4 +634,29 @@ func vectorMulAccByElementGeneric(v Vector, scale []fr.Element, alpha *E4) {
 		tmp.MulByElement(alpha, &scale[i])
 		v[i].Add(&v[i], &tmp)
 	}
+}
+
+func Lift(v koalabear.Element) E4 {
+	var res E4
+	res.B0.A0.Set(&v)
+	return res
+}
+
+func (vector Vector) InnerProductByElement(a koalabear.Vector) E4 {
+	N := len(vector)
+	if len(a) != N {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	//TODO: add AVX512 implementation
+	return InnerProductByElementGeneric(vector, a)
+
+}
+
+func InnerProductByElementGeneric(a Vector, b koalabear.Vector) E4 {
+	var res, tmp E4
+	for i := 0; i < len(a); i++ {
+		tmp.MulByElement(&a[i], &b[i])
+		res.Add(&res, &tmp)
+	}
+	return res
 }
