@@ -16,7 +16,10 @@ func BatchEvalFextPolyLagrange(polys [][]fext.E4, x fext.E4, oncoset ...bool) ([
 		return []fext.E4{}, nil
 	}
 
-	denominators, factor, _ := initialization(polys, x, oncoset...)
+	denominators, factor, err := initialization(polys, x, oncoset...)
+	if err != nil {
+		return nil, err
+	}
 
 	// Check for edge case: x is a root of unity
 	for i, denom := range denominators {
@@ -51,7 +54,10 @@ func BatchEvalBasePolyLagrange(polys [][]koalabear.Element, x fext.E4, oncoset .
 		return []fext.E4{}, nil
 	}
 
-	denominators, factor, _ := initialization(polys, x, oncoset...)
+	denominators, factor, err := initialization(polys, x, oncoset...)
+	if err != nil {
+		return nil, err
+	}
 
 	// Check for edge case: x is a root of unity
 	for i, denom := range denominators {
@@ -84,13 +90,12 @@ func BatchEvalBasePolyLagrange(polys [][]koalabear.Element, x fext.E4, oncoset .
 func initialization[T any](polys [][]T, x fext.E4, oncoset ...bool) ([]fext.E4, fext.E4, error) {
 
 	n := len(polys[0])
-	validateInput(polys, n)
-
-	generator, err := fft.Generator(uint64(n))
+	err := validateInput(polys, n)
 	if err != nil {
-		return nil, fext.E4{}, fmt.Errorf("failed to get generator: %w", err)
+		return nil, fext.E4{}, err
 	}
 
+	generator, _ := fft.Generator(uint64(n))
 	generatorInv := new(koalabear.Element).Inverse(&generator)
 	one := koalabear.One()
 
@@ -111,6 +116,9 @@ func initialization[T any](polys [][]T, x fext.E4, oncoset ...bool) ([]fext.E4, 
 	// Subtract 1 from each denominator
 	for i := range denominators {
 		denominators[i].B0.A0.Sub(&denominators[i].B0.A0, &one)
+		if denominators[i].IsZero() {
+			return denominators, fext.E4{}, nil
+		}
 	}
 
 	// Compute factor: (x^n - 1) / n
