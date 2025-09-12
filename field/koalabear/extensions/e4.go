@@ -8,6 +8,7 @@ package extensions
 import (
 	"math/big"
 	"math/bits"
+	"unsafe"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/utils/cpu"
@@ -533,6 +534,22 @@ func (vector Vector) InnerProduct(a Vector) E4 {
 	}
 
 	return res
+}
+
+func (vector Vector) ScalarMulByElement(a Vector, b *fr.Element) {
+	if len(a) != len(vector) {
+		panic("vector.ScalarMulByElement: vectors don't have the same length")
+	}
+	if len(vector) == 0 {
+		return
+	}
+
+	// for this one, since mul by element scales each coordinates, we cast a to a fr.Vector,
+	// and call the already optimized fr.Vector.ScalarMul
+	M := len(a) * 4
+	vBase := fr.Vector(unsafe.Slice((*fr.Element)(unsafe.Pointer(&a[0])), M))
+	vRes := fr.Vector(unsafe.Slice((*fr.Element)(unsafe.Pointer(&vector[0])), M))
+	vRes.ScalarMul(vBase, b)
 }
 
 // Exp sets vector[i] = a[i]ᵏ for all i

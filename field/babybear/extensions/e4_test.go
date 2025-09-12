@@ -423,6 +423,23 @@ func TestVectorOps(t *testing.T) {
 				gp.g1,
 				gp.g2,
 			))
+
+			properties.Property(fmt.Sprintf("vector scalar multiplication by element %d - %s", size, gp.label), prop.ForAll(
+				func(a Vector, b fr.Element) bool {
+					c := make(Vector, len(a))
+					c.ScalarMulByElement(a, &b)
+					for i := 0; i < len(a); i++ {
+						var tmp E4
+						tmp.MulByElement(&a[i], &b)
+						if !tmp.Equal(&c[i]) {
+							return false
+						}
+					}
+					return true
+				},
+				gp.g1,
+				genFr(),
+			))
 		}
 	}
 

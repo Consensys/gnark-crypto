@@ -137,9 +137,8 @@ func (domain *Domain) FFTInverseExt(a []fext.E4, decimation Decimation, opts ...
 	// scale by CardinalityInv
 	if !opt.coset {
 		parallel.Execute(len(a), func(start, end int) {
-			for i := start; i < end; i++ {
-				a[i].MulByElement(&a[i], &domain.CardinalityInv)
-			}
+			va := fext.Vector(a[start:end])
+			va.ScalarMulByElement(va, &domain.CardinalityInv)
 		}, opt.nbTasks)
 		return
 	}
@@ -149,14 +148,16 @@ func (domain *Domain) FFTInverseExt(a []fext.E4, decimation Decimation, opts ...
 			if opt.nbTasks == 1 {
 				for i := 0; i < len(a); i++ {
 					a[i].MulByElement(&a[i], &domain.cosetTableInv[i])
-					a[i].MulByElement(&a[i], &domain.CardinalityInv)
 				}
+				va := fext.Vector(a)
+				va.ScalarMulByElement(va, &domain.CardinalityInv)
 			} else {
 				parallel.Execute(len(a), func(start, end int) {
 					for i := start; i < end; i++ {
-						a[i].MulByElement(&a[i], &domain.cosetTableInv[i]).
-							MulByElement(&a[i], &domain.CardinalityInv)
+						a[i].MulByElement(&a[i], &domain.cosetTableInv[i])
 					}
+					va := fext.Vector(a[start:end])
+					va.ScalarMulByElement(va, &domain.CardinalityInv)
 				}, opt.nbTasks)
 			}
 		} else {
@@ -186,9 +187,11 @@ func (domain *Domain) FFTInverseExt(a []fext.E4, decimation Decimation, opts ...
 		nn := uint64(64 - bits.TrailingZeros64(n))
 		for i := start; i < end; i++ {
 			irev := int(bits.Reverse64(uint64(i)) >> nn)
-			a[i].MulByElement(&a[i], &cosetTableInv[irev]).
-				MulByElement(&a[i], &domain.CardinalityInv)
+			a[i].MulByElement(&a[i], &cosetTableInv[irev])
 		}
+
+		va := fext.Vector(a[start:end])
+		va.ScalarMulByElement(va, &domain.CardinalityInv)
 	}, opt.nbTasks)
 
 }
