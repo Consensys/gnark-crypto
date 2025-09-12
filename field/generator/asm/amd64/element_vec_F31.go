@@ -640,6 +640,77 @@ func (_f *FFAmd64) generateSubVecE4() {
 	f.RET()
 }
 
+func (_f *FFAmd64) generateMulVecElementE4() {
+	// func vectorMulByElement_avx512(res, a *E4, b *fr.Element, N uint64)
+
+	const argSize = 4 * 8
+	stackSize := _f.StackSize(_f.NbWords*4+2, 0, 0)
+
+	registers := _f.FnHeader("vectorMulByElement_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrRes := registers.Pop()
+	addrA := registers.Pop()
+	addrB := registers.Pop()
+	N := registers.Pop()
+
+	f.loadQ()
+	f.loadQInvNeg()
+
+	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
+	f.MOVQ("res+0(FP)", addrRes)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("N+24(FP)", N)
+
+	va, vb, vRes := registers.PopV(), registers.PopV(), registers.PopV()
+
+	// load the mask we use to duplicate the 4 uint32 of b into a zmm register
+	// maskPermD = [0,0,0,0, 1,1,1,1, 2,2,2,2, 3,3,3,3]
+	// so that if b = [b0,b1,b2,b3], then after permutation we get
+	// [b0,b0,b0,b0, b1,b1,b1,b1, b2,b2,b2,b2, b3,b3,b3,b3]
+	// which is what we need to multiply with a (4 E4 at a time)
+	addrMaskPermD := registers.Pop()
+	vMaskPermD := registers.PopV()
+	f.MOVQ("·maskPermD+0(SB)", addrMaskPermD)
+	f.VMOVDQU32(addrMaskPermD.At(0), vMaskPermD)
+
+	// code here is very similar to vector::Mul() (base)
+	// the only thing is we advance the iterators on a (on E4) and b (on Element) at
+	// different speeds, and need to load b a bit differently.
+
+	// N % 4 == 0 (pre condition checked by caller)
+	// divide N by 4
+	f.SHRQ("$2", N)
+
+	f.Loop(N, func() {
+		// load a
+		f.VMOVDQU32(addrA.At(0), va)
+		f.VMOVDQU32(addrB.At(0), vb.X()) // need only 4 of them
+
+		// now vb has [b0, b1, b2, b3, 0, 0, ..., 0]
+		// but we want [b0, b0, b0, b0, b1, b1, b1, b1, b2, b2, b2, b2, b3, b3, b3, b3]
+		f.VPERMD(vb, vMaskPermD, vb)
+
+		// now we can mul
+		f.mul(va, vb, vRes, true)
+
+		// save result
+		f.VMOVDQU32(vRes, addrRes.At(0))
+
+		// increment result by 16uint32 (4 E4)
+		f.ADDQ("$64", addrRes)
+		f.ADDQ("$64", addrA)
+		// increment b by 16 bytes (4 base element)
+		f.ADDQ("$16", addrB)
+	})
+
+	f.RET()
+}
+
 type e4VecOp int
 
 const (

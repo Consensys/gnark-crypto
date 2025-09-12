@@ -54,9 +54,8 @@ func (domain *Domain) FFTExt(a []fext.E4, decimation Decimation, opts ...Option)
 
 			if domain.withPrecompute {
 				parallel.Execute(len(a), func(start, end int) {
-					for i := start; i < end; i++ {
-						a[i].MulByElement(&a[i], &domain.cosetTable[i])
-					}
+					va := fext.Vector(a[start:end])
+					va.MulByElement(va, domain.cosetTable[start:end])
 				}, opt.nbTasks)
 			} else {
 				c := domain.FrMultiplicativeGen
@@ -146,17 +145,13 @@ func (domain *Domain) FFTInverseExt(a []fext.E4, decimation Decimation, opts ...
 	if decimation == DIT {
 		if domain.withPrecompute {
 			if opt.nbTasks == 1 {
-				for i := 0; i < len(a); i++ {
-					a[i].MulByElement(&a[i], &domain.cosetTableInv[i])
-				}
 				va := fext.Vector(a)
+				va.MulByElement(va, domain.cosetTableInv)
 				va.ScalarMulByElement(va, &domain.CardinalityInv)
 			} else {
 				parallel.Execute(len(a), func(start, end int) {
-					for i := start; i < end; i++ {
-						a[i].MulByElement(&a[i], &domain.cosetTableInv[i])
-					}
 					va := fext.Vector(a[start:end])
+					va.MulByElement(va, domain.cosetTableInv[start:end])
 					va.ScalarMulByElement(va, &domain.CardinalityInv)
 				}, opt.nbTasks)
 			}
@@ -253,14 +248,18 @@ func difFFTExt(a []fext.E4, w babybear.Element, twiddles [][]babybear.Element, t
 }
 
 func innerDIFWithTwiddlesGenericExt(a []fext.E4, twiddles []babybear.Element, start, end, m int) {
-	if start == 0 {
-		fext.Butterfly(&a[0], &a[m])
-		start++
-	}
 	for i := start; i < end; i++ {
 		fext.Butterfly(&a[i], &a[i+m])
-		a[i+m].MulByElement(&a[i+m], &twiddles[i])
 	}
+	// if start == 0 {
+	// 	start++
+	// }
+	va := fext.Vector(a[start+m : end+m])
+	va.MulByElement(va, twiddles[start:end])
+	//
+	// for i := start; i < end; i++ {
+	// 	a[i+m].MulByElement(&a[i+m], &twiddles[i])
+	// }
 }
 
 func innerDIFWithoutTwiddlesExt(a []fext.E4, at, w babybear.Element, start, end, m int) {
@@ -333,12 +332,10 @@ func ditFFTExt(a []fext.E4, w babybear.Element, twiddles [][]babybear.Element, t
 }
 
 func innerDITWithTwiddlesGenericExt(a []fext.E4, twiddles []babybear.Element, start, end, m int) {
-	if start == 0 {
-		fext.Butterfly(&a[0], &a[m])
-		start++
-	}
+	va := fext.Vector(a[start+m : end+m])
+	va.MulByElement(va, twiddles[start:end])
+
 	for i := start; i < end; i++ {
-		a[i+m].MulByElement(&a[i+m], &twiddles[i])
 		fext.Butterfly(&a[i], &a[i+m])
 	}
 }

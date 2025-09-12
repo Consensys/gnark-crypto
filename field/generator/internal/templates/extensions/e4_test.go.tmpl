@@ -434,6 +434,23 @@ func TestVectorOps(t *testing.T) {
 				gp.g1,
 				genFr(),
 			))
+
+			properties.Property(fmt.Sprintf("vector multiplication by element %d - %s", size, gp.label), prop.ForAll(
+				func(a Vector, b fr.Vector) bool {
+					c := make(Vector, len(a))
+					c.MulByElement(a, b)
+					for i := 0; i < len(a); i++ {
+						var tmp E4
+						tmp.MulByElement(&a[i], &b[i])
+						if !tmp.Equal(&c[i]) {
+							return false
+						}
+					}
+					return true
+				},
+				gp.g1,
+				genFrVector(size),
+			))
 		}
 	}
 
@@ -741,4 +758,20 @@ func genE4() gopter.Gen {
 		).Map(func(values []interface{}) E4 {
 			return E4{B0: values[0].(E2), B1: values[1].(E2)}
 	})
+}
+
+
+func genFrVector(size int) gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		v := make(fr.Vector, size)
+		gen := genFr()
+		for i := range v {
+			val, ok := gen(genParams).Retrieve()
+			if !ok {
+				panic("genFr failed")
+			}
+			v[i] = val.(fr.Element)
+		}
+		return gopter.NewGenResult(v, gopter.NoShrinker)
+	}
 }

@@ -13,11 +13,17 @@ import (
 
 // indices used for gather (transpose) operation
 var indexGather4 []uint32
+var maskPermD []uint32
 
 func init() {
 	indexGather4 = make([]uint32, 16)
 	for i := 0; i < 16; i++ {
 		indexGather4[i] = uint32(i * 4)
+	}
+	maskPermD = make([]uint32, 16)
+	// we want [0,0,0,0, 1,1,1,1, 2,2,2,2, 3,3,3,3]
+	for i := 0; i < 16; i++ {
+		maskPermD[i] = uint32(i / 4)
 	}
 }
 
@@ -46,3 +52,6 @@ func vectorInnerProduct_avx512(res *[32]uint64, a, b *E4, N uint64)
 
 //go:noescape
 func vectorSum_avx512(res *[4]uint64, a *E4, N uint64)
+
+//go:noescape
+func vectorMulByElement_avx512(res, a *E4, b *fr.Element, N uint64)

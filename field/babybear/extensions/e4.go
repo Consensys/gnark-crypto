@@ -440,6 +440,14 @@ func (vector Vector) InnerProduct(a Vector) E4 {
 	return vectorInnerProductGeneric(vector, a)
 }
 
+func (vector Vector) MulByElement(a Vector, b fr.Vector) {
+	N := len(vector)
+	if len(a) != N || len(b) != N {
+		panic("vector.MulByElement: vectors don't have the same length")
+	}
+	vectorMulByElementGeneric(vector, a, b)
+}
+
 func (vector Vector) ScalarMulByElement(a Vector, b *fr.Element) {
 	if len(a) != len(vector) {
 		panic("vector.ScalarMulByElement: vectors don't have the same length")
@@ -548,5 +556,11 @@ func vectorMulAccByElementGeneric(v Vector, scale []fr.Element, alpha *E4) {
 	for i := 0; i < len(v); i++ {
 		tmp.MulByElement(alpha, &scale[i])
 		v[i].Add(&v[i], &tmp)
+	}
+}
+
+func vectorMulByElementGeneric(res, a Vector, b fr.Vector) {
+	for i := 0; i < len(res); i++ {
+		res[i].MulByElement(&a[i], &b[i])
 	}
 }

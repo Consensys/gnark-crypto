@@ -502,3 +502,36 @@ done_14:
 	VPADDQ        Y2, Y0, Y0
 	VMOVDQU64     Y0, 0(R13)
 	RET
+
+TEXT ·vectorMulByElement_avx512(SB), NOSPLIT, $0-32
+	MOVD         $const_q, AX
+	VPBROADCASTD AX, Z0
+	MOVD         $const_qInvNeg, AX
+	VPBROADCASTD AX, Z1
+	MOVQ         $0x0000000000005555, AX
+	KMOVD        AX, K3
+	MOVQ         res+0(FP), R13
+	MOVQ         a+8(FP), R14
+	MOVQ         b+16(FP), CX
+	MOVQ         N+24(FP), BX
+	MOVQ         ·maskPermD+0(SB), SI
+	VMOVDQU32    0(SI), Z5
+	SHRQ         $2, BX
+
+loop_15:
+	TESTQ     BX, BX
+	JEQ       done_16
+	DECQ      BX
+	VMOVDQU32 0(R14), Z2
+	VMOVDQU32 0(CX), X3
+	VPERMD    Z3, Z5, Z3
+	MUL_5W(Z2, Z3, Z6, Z7, Z8, Z9, Z10, Z4)
+	REDUCE1Q(Z0, Z4, Z11)
+	VMOVDQU32 Z4, 0(R13)
+	ADDQ      $64, R13
+	ADDQ      $64, R14
+	ADDQ      $16, CX
+	JMP       loop_15
+
+done_16:
+	RET
