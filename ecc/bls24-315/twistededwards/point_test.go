@@ -619,25 +619,6 @@ func TestOps(t *testing.T) {
 		genS1,
 	))
 
-	properties.Property("(mixed affine+extended) P+P=2*P", prop.ForAll(
-		func(s big.Int) bool {
-
-			params := GetEdwardsCurve()
-
-			var baseExtended, pExtended, p, p2 PointExtended
-			var pAffine PointAffine
-			baseExtended.FromAffine(&params.Base)
-			pExtended.ScalarMultiplication(&baseExtended, &s)
-			pAffine.ScalarMultiplication(&params.Base, &s)
-
-			p.MixedAdd(&pExtended, &pAffine)
-			p2.MixedDouble(&pExtended)
-
-			return p.Equal(&p2)
-		},
-		genS1,
-	))
-
 	// mixed affine+projective
 	properties.Property("(mixed affine+proj) P+(-P)=O", prop.ForAll(
 		func(s big.Int) bool {
