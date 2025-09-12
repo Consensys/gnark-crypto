@@ -544,10 +544,44 @@ func (vector Vector) InnerProduct(a Vector) E4 {
 func (vector Vector) InnerProductByElement(a fr.Vector) E4 {
 	N := len(vector)
 	if len(a) != N {
-		panic("vector.InnerProduct: vectors don't have the same length")
+		panic("vector.InnerProductByElement: vectors don't have the same length")
 	}
-	//TODO: add AVX512 implementation
-	return vectorInnerProductByElementGeneric(vector, a)
+
+	const blockSize = 16
+	if !cpu.SupportAVX512 || N < blockSize {
+		return vectorInnerProductByElementGeneric(vector, a)
+	}
+
+	r := N % blockSize
+	nr := uint64(N - r)
+
+	var t [32]uint64 // stores the accumulators (not reduced mod q)
+	vectorInnerProductByElement_avx512(&t, &vector[0], &a[0], uint64(nr))
+	for i := 1; i < 8; i++ {
+		t[0] += (t[i] % q)
+	}
+	for i := 9; i < 16; i++ {
+		t[8] += (t[i] % q)
+	}
+	for i := 17; i < 24; i++ {
+		t[16] += (t[i] % q)
+	}
+	for i := 25; i < 32; i++ {
+		t[24] += (t[i] % q)
+	}
+
+	var res E4
+	res.B0.A0[0] = uint32(t[0] % q)
+	res.B0.A1[0] = uint32(t[8] % q)
+	res.B1.A0[0] = uint32(t[16] % q)
+	res.B1.A1[0] = uint32(t[24] % q)
+
+	if r != 0 {
+		partialResult := vectorInnerProductByElementGeneric(vector[N-r:], a[N-r:])
+		res.Add(&res, &partialResult)
+	}
+
+	return res
 
 }
 

@@ -502,3 +502,166 @@ done_14:
 	VPADDQ        Y2, Y0, Y0
 	VMOVDQU64     Y0, 0(R13)
 	RET
+
+TEXT ·vectorInnerProductByElement_avx512(SB), NOSPLIT, $0-32
+    MOVD         $const_q, AX
+    VPBROADCASTD AX, Z0                    // Z0 = modulus q
+    MOVD         $const_qInvNeg, AX
+    VPBROADCASTD AX, Z1                    // Z1 = -q^(-1) mod 2^32 for Montgomery reduction
+    MOVQ         $0x0000000000005555, AX
+    KMOVD        AX, K3                    // K3 = mask for selecting odd/even elements
+    
+    MOVQ         res+0(FP), R13           // res pointer (E4 result)
+    MOVQ         a+8(FP), R14             // a pointer ([]E4)  
+    MOVQ         b+16(FP), CX             // b pointer ([]E1)
+    MOVQ         N+24(FP), BX             // length
+    
+    // Initialize accumulators to zero
+    VXORPS       Z11, Z11, Z11            // acc[0] = 0
+    VMOVDQA64    Z11, Z12                 // acc[1] = 0
+    VMOVDQA64    Z11, Z13                 // acc[2] = 0  
+    VMOVDQA64    Z11, Z14                 // acc[3] = 0
+    
+    SHRQ         $4, BX                   // Process 16 elements at a time
+    
+loop_inner_product_by_element_15:
+    TESTQ        BX, BX
+    JEQ          done_inner_product_by_element_16
+    DECQ         BX
+    
+    // Load 16 E4 elements from vector a (4 components each)
+    VMOVDQU32    0(R14), Z3               // Load a[i].A0 (16 elements)
+    VMOVDQU32    64(R14), Z4              // Load a[i].A1 (16 elements)  
+    VMOVDQU32    128(R14), Z5             // Load a[i].A2 (16 elements)
+    VMOVDQU32    192(R14), Z6             // Load a[i].A3 (16 elements)
+    
+    // Load 16 E1 elements from vector b (1 component each)
+    VMOVDQU32    0(CX), Z7                // Load b[i].B (16 elements)
+    
+    // Multiply each E4 component by corresponding E1 element using MUL_5W macro
+    MUL_5W(Z3, Z7, Z15, Z16, Z17, Z18, Z19, Z20)  // a.A0 * b.B
+    REDUCE1Q(Z0, Z20, Z21)
+    
+    MUL_5W(Z4, Z7, Z15, Z16, Z17, Z18, Z19, Z22)  // a.A1 * b.B
+    REDUCE1Q(Z0, Z22, Z23)
+    
+    MUL_5W(Z5, Z7, Z15, Z16, Z17, Z18, Z19, Z24)  // a.A2 * b.B
+    REDUCE1Q(Z0, Z24, Z25)
+    
+    MUL_5W(Z6, Z7, Z15, Z16, Z17, Z18, Z19, Z26)  // a.A3 * b.B
+    REDUCE1Q(Z0, Z26, Z27)
+    
+    // Horizontal reduction and accumulation for each component
+    // Component 0 (A0 * B)
+    VEXTRACTI64X4 $1, Z21, Y28           // Extract high half
+    ADD(Y21, Y28, Y0, Y29, Y28)          // Add halves using existing ADD macro
+    VEXTRACTI64X2 $1, Y28, X29          // Extract high 128 bits  
+    VPADDD        X28, X29, X29          // Add 128-bit halves
+    VPSHUFD       $0xEE, X29, X30        // Shuffle to get high 64 bits
+    VPADDD        X29, X30, X30          // Final horizontal add
+    VPMOVZXDQ     X30, Y30               // Zero-extend to 64-bit
+    VPADDQ        Y30, Y11, Y11          // Add to accumulator[0]
+    
+    // Component 1 (A1 * B)  
+    VEXTRACTI64X4 $1, Z23, Y28
+    ADD(Y23, Y28, Y0, Y29, Y28)
+    VEXTRACTI64X2 $1, Y28, X29
+    VPADDD        X28, X29, X29
+    VPSHUFD       $0xEE, X29, X30
+    VPADDD        X29, X30, X30
+    VPMOVZXDQ     X30, Y30
+    VPADDQ        Y30, Y12, Y12          // Add to accumulator[1]
+    
+    // Component 2 (A2 * B)
+    VEXTRACTI64X4 $1, Z25, Y28
+    ADD(Y25, Y28, Y0, Y29, Y28)
+    VEXTRACTI64X2 $1, Y28, X29
+    VPADDD        X28, X29, X29
+    VPSHUFD       $0xEE, X29, X30
+    VPADDD        X29, X30, X30
+    VPMOVZXDQ     X30, Y30
+    VPADDQ        Y30, Y13, Y13          // Add to accumulator[2]
+    
+    // Component 3 (A3 * B)
+    VEXTRACTI64X4 $1, Z27, Y28
+    ADD(Y27, Y28, Y0, Y29, Y28)
+    VEXTRACTI64X2 $1, Y28, X29
+    VPADDD        X28, X29, X29
+    VPSHUFD       $0xEE, X29, X30
+    VPADDD        X29, X30, X30
+    VPMOVZXDQ     X30, Y30
+    VPADDQ        Y30, Y14, Y14          // Add to accumulator[3]
+    
+    // Advance pointers
+    ADDQ         $256, R14               // 16 E4 elements * 16 bytes each
+    ADDQ         $64, CX                 // 16 E1 elements * 4 bytes each
+    JMP          loop_inner_product_by_element_15
+
+done_inner_product_by_element_16:
+    // Final reduction of accumulators to single E4 result
+    // Each accumulator contains the sum for one component
+    
+    // Reduce accumulator[0] to single field element
+    VPEXTRD      $0, X11, EAX            // Extract low 32 bits
+    VPEXTRD      $1, X11, EDX            // Extract next 32 bits  
+    ADDL         EDX, EAX                // Add them
+    VEXTRACTI64X2 $1, Y11, X15          // Extract high 128 bits
+    VPEXTRD      $0, X15, EDX            // Extract low 32 bits of high part
+    ADDL         EDX, EAX                // Add
+    VPEXTRD      $1, X15, EDX            // Extract next 32 bits  
+    ADDL         EDX, EAX                // Add
+    
+    // Reduce modulo q
+    MOVD         $const_q, R15
+    MOVL         R15D, R15D              // Clear high bits
+    MOVL         EAX, EDX
+    SUBL         R15D, EDX               // EDX = EAX - q
+    CMOVLCC      EDX, EAX                // If no underflow, use EDX
+    MOVL         EAX, 0(R13)             // Store result.A0
+    
+    // Repeat for accumulator[1]  
+    VPEXTRD      $0, X12, EAX
+    VPEXTRD      $1, X12, EDX
+    ADDL         EDX, EAX
+    VEXTRACTI64X2 $1, Y12, X15
+    VPEXTRD      $0, X15, EDX
+    ADDL         EDX, EAX
+    VPEXTRD      $1, X15, EDX
+    ADDL         EDX, EAX
+    
+    MOVL         EAX, EDX
+    SUBL         R15D, EDX
+    CMOVLCC      EDX, EAX
+    MOVL         EAX, 4(R13)             // Store result.A1
+    
+    // Repeat for accumulator[2]
+    VPEXTRD      $0, X13, EAX
+    VPEXTRD      $1, X13, EDX  
+    ADDL         EDX, EAX
+    VEXTRACTI64X2 $1, Y13, X15
+    VPEXTRD      $0, X15, EDX
+    ADDL         EDX, EAX
+    VPEXTRD      $1, X15, EDX
+    ADDL         EDX, EAX
+    
+    MOVL         EAX, EDX
+    SUBL         R15D, EDX
+    CMOVLCC      EDX, EAX
+    MOVL         EAX, 8(R13)             // Store result.A2
+    
+    // Repeat for accumulator[3]
+    VPEXTRD      $0, X14, EAX
+    VPEXTRD      $1, X14, EDX
+    ADDL         EDX, EAX
+    VEXTRACTI64X2 $1, Y14, X15
+    VPEXTRD      $0, X15, EDX
+    ADDL         EDX, EAX  
+    VPEXTRD      $1, X15, EDX
+    ADDL         EDX, EAX
+    
+    MOVL         EAX, EDX
+    SUBL         R15D, EDX
+    CMOVLCC      EDX, EAX
+    MOVL         EAX, 12(R13)            // Store result.A3
+    
+    RET
