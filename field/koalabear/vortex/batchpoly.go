@@ -61,7 +61,7 @@ func BatchEvalBasePolyLagrange(polys [][]koalabear.Element, x fext.E4, oncoset .
 		if denom.IsZero() {
 			results := make([]fext.E4, len(polys))
 			for k := range polys {
-				results[k] = fext.Lift(polys[k][i])
+				results[k].Lift(&polys[k][i])
 			}
 			return results, nil
 		}

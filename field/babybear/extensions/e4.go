@@ -79,6 +79,12 @@ func (z *E4) SetOne() *E4 {
 	return z
 }
 
+// Lift sets the B0.A0 component of z to v and leaves other components as zero
+func (z *E4) Lift(v *fr.Element) *E4 {
+	z.B0.A0.Set(v)
+	return z
+}
+
 // MulByElement multiplies an element in E4 by an element in fr
 func (z *E4) MulByElement(x *E4, y *fr.Element) *E4 {
 	z.B0.MulByElement(&x.B0, y)
@@ -439,6 +445,16 @@ func (vector Vector) InnerProduct(a Vector) E4 {
 	return vectorInnerProductGeneric(vector, a)
 }
 
+func (vector Vector) InnerProductByElement(a fr.Vector) E4 {
+	N := len(vector)
+	if len(a) != N {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	//TODO: add AVX512 implementation
+	return vectorInnerProductByElementGeneric(vector, a)
+
+}
+
 // Exp sets vector[i] = a[i]ᵏ for all i
 func (vector Vector) Exp(a Vector, k int64) {
 	N := len(a)
@@ -513,6 +529,15 @@ func vectorInnerProductGeneric(a, b Vector) E4 {
 	var res, tmp E4
 	for i := 0; i < len(a); i++ {
 		tmp.Mul(&a[i], &b[i])
+		res.Add(&res, &tmp)
+	}
+	return res
+}
+
+func vectorInnerProductByElementGeneric(a Vector, b fr.Vector) E4 {
+	var res, tmp E4
+	for i := 0; i < len(a); i++ {
+		tmp.MulByElement(&a[i], &b[i])
 		res.Add(&res, &tmp)
 	}
 	return res
