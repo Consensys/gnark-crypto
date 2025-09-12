@@ -79,8 +79,9 @@ func (z *E4) SetOne() *E4 {
 	return z
 }
 
-// Lift sets the B0.A0 component of z to v and leaves other components as zero
+// Lift sets the B0.A0 component of z to v
 func (z *E4) Lift(v *fr.Element) *E4 {
+	*z = E4{}
 	z.B0.A0.Set(v)
 	return z
 }
