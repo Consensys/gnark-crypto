@@ -32,9 +32,6 @@ func BatchEvalFextPolyLagrange(polys [][]fext.E4, x fext.E4, oncoset ...bool) ([
 		}
 	}
 
-	// Batch invert denominators
-	denominators = fext.BatchInvertE4(denominators)
-
 	// Compute results in parallel
 	results := make([]fext.E4, len(polys))
 	parallel.Execute(len(polys), func(start, stop int) {
@@ -69,9 +66,6 @@ func BatchEvalBasePolyLagrange(polys [][]koalabear.Element, x fext.E4, oncoset .
 			return results, nil
 		}
 	}
-
-	// Batch invert denominators
-	denominators = fext.BatchInvertE4(denominators)
 
 	// Compute results in parallel
 	results := make([]fext.E4, len(polys))
@@ -120,6 +114,9 @@ func initialization[T any](polys [][]T, x fext.E4, oncoset ...bool) ([]fext.E4, 
 			return denominators, fext.E4{}, nil
 		}
 	}
+
+	// Batch invert denominators
+	denominators = fext.BatchInvertE4(denominators)
 
 	// Compute factor: (x^n - 1) / n
 	var factor fext.E4
