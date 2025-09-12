@@ -34,29 +34,34 @@ func (domain *Domain) FFTExt(a []fext.E4, decimation Decimation, opts ...Option)
 	if opt.coset {
 
 		if decimation == DIT {
-
-			// scale by coset table (in bit reversed order)
-			cosetTable := domain.cosetTable
-			if !domain.withPrecompute {
-				// we need to build the full table or do a bit reverse dance.
-				cosetTable = make([]babybear.Element, len(a))
-				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
-			}
-			parallel.Execute(len(a), func(start, end int) {
-				n := uint64(len(a))
-				nn := uint64(64 - bits.TrailingZeros64(n))
-				for i := start; i < end; i++ {
-					irev := int(bits.Reverse64(uint64(i)) >> nn)
-					a[i].MulByElement(&a[i], &cosetTable[irev])
+			if domain.cosetTableBitReversed != nil {
+				parallel.Execute(len(a), func(start, end int) {
+					va := fext.Vector(a[start:end])
+					va.MulByElement(va, domain.cosetTableBitReversed[start:end])
+				}, opt.nbTasks)
+			} else {
+				// scale by coset table (in bit reversed order)
+				cosetTable := domain.cosetTable
+				if !domain.withPrecompute {
+					// we need to build the full table or do a bit reverse dance.
+					cosetTable = make([]babybear.Element, len(a))
+					BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 				}
-			}, opt.nbTasks)
+				parallel.Execute(len(a), func(start, end int) {
+					n := uint64(len(a))
+					nn := uint64(64 - bits.TrailingZeros64(n))
+					for i := start; i < end; i++ {
+						irev := int(bits.Reverse64(uint64(i)) >> nn)
+						a[i].MulByElement(&a[i], &cosetTable[irev])
+					}
+				}, opt.nbTasks)
+			}
 		} else {
 
 			if domain.withPrecompute {
 				parallel.Execute(len(a), func(start, end int) {
-					for i := start; i < end; i++ {
-						a[i].MulByElement(&a[i], &domain.cosetTable[i])
-					}
+					va := fext.Vector(a[start:end])
+					va.MulByElement(va, domain.cosetTable[start:end])
 				}, opt.nbTasks)
 			} else {
 				c := domain.FrMultiplicativeGen
@@ -137,9 +142,8 @@ func (domain *Domain) FFTInverseExt(a []fext.E4, decimation Decimation, opts ...
 	// scale by CardinalityInv
 	if !opt.coset {
 		parallel.Execute(len(a), func(start, end int) {
-			for i := start; i < end; i++ {
-				a[i].MulByElement(&a[i], &domain.CardinalityInv)
-			}
+			va := fext.Vector(a[start:end])
+			va.ScalarMulByElement(va, &domain.CardinalityInv)
 		}, opt.nbTasks)
 		return
 	}
@@ -147,16 +151,14 @@ func (domain *Domain) FFTInverseExt(a []fext.E4, decimation Decimation, opts ...
 	if decimation == DIT {
 		if domain.withPrecompute {
 			if opt.nbTasks == 1 {
-				for i := 0; i < len(a); i++ {
-					a[i].MulByElement(&a[i], &domain.cosetTableInv[i])
-					a[i].MulByElement(&a[i], &domain.CardinalityInv)
-				}
+				va := fext.Vector(a)
+				va.MulByElement(va, domain.cosetTableInv)
+				va.ScalarMulByElement(va, &domain.CardinalityInv)
 			} else {
 				parallel.Execute(len(a), func(start, end int) {
-					for i := start; i < end; i++ {
-						a[i].MulByElement(&a[i], &domain.cosetTableInv[i]).
-							MulByElement(&a[i], &domain.CardinalityInv)
-					}
+					va := fext.Vector(a[start:end])
+					va.MulByElement(va, domain.cosetTableInv[start:end])
+					va.ScalarMulByElement(va, &domain.CardinalityInv)
 				}, opt.nbTasks)
 			}
 		} else {
@@ -186,9 +188,11 @@ func (domain *Domain) FFTInverseExt(a []fext.E4, decimation Decimation, opts ...
 		nn := uint64(64 - bits.TrailingZeros64(n))
 		for i := start; i < end; i++ {
 			irev := int(bits.Reverse64(uint64(i)) >> nn)
-			a[i].MulByElement(&a[i], &cosetTableInv[irev]).
-				MulByElement(&a[i], &domain.CardinalityInv)
+			a[i].MulByElement(&a[i], &cosetTableInv[irev])
 		}
+
+		va := fext.Vector(a[start:end])
+		va.ScalarMulByElement(va, &domain.CardinalityInv)
 	}, opt.nbTasks)
 
 }
@@ -202,8 +206,8 @@ func difFFTExt(a []fext.E4, w babybear.Element, twiddles [][]babybear.Element, t
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
-		if n == 1<<8 {
-			kerDIFNP_256Ext(a, twiddles, stage-twiddlesStartStage)
+		if n == 1<<9 {
+			kerDIFNP_512Ext(a, twiddles, stage-twiddlesStartStage)
 			return
 		}
 	}
@@ -229,7 +233,13 @@ func difFFTExt(a []fext.E4, w babybear.Element, twiddles [][]babybear.Element, t
 		// compute next twiddle
 		w.Square(&w)
 	} else {
-		innerDIFWithTwiddlesExt(a, twiddles[stage-twiddlesStartStage], 0, m, m)
+		if parallelButterfly {
+			parallel.Execute(m, func(start, end int) {
+				innerDIFWithTwiddlesExt(a, twiddles[stage-twiddlesStartStage], start, end, m)
+			}, nbTasks/(1<<(stage)))
+		} else {
+			innerDIFWithTwiddlesExt(a, twiddles[stage-twiddlesStartStage], 0, m, m)
+		}
 	}
 
 	if m == 1 {
@@ -249,15 +259,11 @@ func difFFTExt(a []fext.E4, w babybear.Element, twiddles [][]babybear.Element, t
 
 }
 
-func innerDIFWithTwiddlesGenericExt(a []fext.E4, twiddles []babybear.Element, start, end, m int) {
-	if start == 0 {
-		fext.Butterfly(&a[0], &a[m])
-		start++
-	}
-	for i := start; i < end; i++ {
-		fext.Butterfly(&a[i], &a[i+m])
-		a[i+m].MulByElement(&a[i+m], &twiddles[i])
-	}
+func innerDIFWithTwiddlesExt(a []fext.E4, twiddles []babybear.Element, start, end, m int) {
+	va0 := fext.Vector(a[start:end])
+	va1 := fext.Vector(a[start+m : end+m])
+	va0.Butterfly(va1)
+	va1.MulByElement(va1, twiddles[start:end])
 }
 
 func innerDIFWithoutTwiddlesExt(a []fext.E4, at, w babybear.Element, start, end, m int) {
@@ -280,8 +286,8 @@ func ditFFTExt(a []fext.E4, w babybear.Element, twiddles [][]babybear.Element, t
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
-		if n == 1<<8 {
-			kerDITNP_256Ext(a, twiddles, stage-twiddlesStartStage)
+		if n == 1<<9 {
+			kerDITNP_512Ext(a, twiddles, stage-twiddlesStartStage)
 			return
 		}
 	}
@@ -326,18 +332,26 @@ func ditFFTExt(a []fext.E4, w babybear.Element, twiddles [][]babybear.Element, t
 		}
 		return
 	}
-	innerDITWithTwiddlesExt(a, twiddles[stage-twiddlesStartStage], 0, m, m)
+	if parallelButterfly {
+		parallel.Execute(m, func(start, end int) {
+			innerDITWithTwiddlesExt(a, twiddles[stage-twiddlesStartStage], start, end, m)
+		}, nbTasks/(1<<(stage)))
+	} else {
+		innerDITWithTwiddlesExt(a, twiddles[stage-twiddlesStartStage], 0, m, m)
+	}
 }
 
-func innerDITWithTwiddlesGenericExt(a []fext.E4, twiddles []babybear.Element, start, end, m int) {
-	if start == 0 {
-		fext.Butterfly(&a[0], &a[m])
-		start++
-	}
-	for i := start; i < end; i++ {
-		a[i+m].MulByElement(&a[i+m], &twiddles[i])
-		fext.Butterfly(&a[i], &a[i+m])
-	}
+func innerDITWithTwiddlesExt(a []fext.E4, twiddles []babybear.Element, start, end, m int) {
+	va0 := fext.Vector(a[start:end])
+	va1 := fext.Vector(a[start+m : end+m])
+	va1.MulByElement(va1, twiddles[start:end])
+	va0.Butterfly(va1)
+}
+
+func innerDITWithTwiddlesExtM2(a []fext.E4, twiddles []babybear.Element) {
+	fext.Butterfly(&a[0], &a[2])
+	a[3].MulByElement(&a[3], &twiddles[1])
+	fext.Butterfly(&a[1], &a[3])
 }
 
 func innerDITWithoutTwiddlesExt(a []fext.E4, at, w babybear.Element, start, end, m int) {
@@ -352,56 +366,60 @@ func innerDITWithoutTwiddlesExt(a []fext.E4, at, w babybear.Element, start, end,
 	}
 }
 
-func kerDIFNP_256genericExt(a []fext.E4, twiddles [][]babybear.Element, stage int) {
+func kerDIFNP_512Ext(a []fext.E4, twiddles [][]babybear.Element, stage int) {
 	// code unrolled & generated by internal/generator/fft/template/fftext.go.tmpl
 
-	innerDIFWithTwiddlesGenericExt(a[:256], twiddles[stage+0], 0, 128, 128)
-	for offset := 0; offset < 256; offset += 128 {
-		innerDIFWithTwiddlesGenericExt(a[offset:offset+128], twiddles[stage+1], 0, 64, 64)
+	innerDIFWithTwiddlesExt(a[:512], twiddles[stage+0], 0, 256, 256)
+	for offset := 0; offset < 512; offset += 256 {
+		innerDIFWithTwiddlesExt(a[offset:offset+256], twiddles[stage+1], 0, 128, 128)
 	}
-	for offset := 0; offset < 256; offset += 64 {
-		innerDIFWithTwiddlesGenericExt(a[offset:offset+64], twiddles[stage+2], 0, 32, 32)
+	for offset := 0; offset < 512; offset += 128 {
+		innerDIFWithTwiddlesExt(a[offset:offset+128], twiddles[stage+2], 0, 64, 64)
 	}
-	for offset := 0; offset < 256; offset += 32 {
-		innerDIFWithTwiddlesGenericExt(a[offset:offset+32], twiddles[stage+3], 0, 16, 16)
+	for offset := 0; offset < 512; offset += 64 {
+		innerDIFWithTwiddlesExt(a[offset:offset+64], twiddles[stage+3], 0, 32, 32)
 	}
-	for offset := 0; offset < 256; offset += 16 {
-		innerDIFWithTwiddlesGenericExt(a[offset:offset+16], twiddles[stage+4], 0, 8, 8)
+	for offset := 0; offset < 512; offset += 32 {
+		innerDIFWithTwiddlesExt(a[offset:offset+32], twiddles[stage+4], 0, 16, 16)
 	}
-	for offset := 0; offset < 256; offset += 8 {
-		innerDIFWithTwiddlesGenericExt(a[offset:offset+8], twiddles[stage+5], 0, 4, 4)
+	for offset := 0; offset < 512; offset += 16 {
+		innerDIFWithTwiddlesExt(a[offset:offset+16], twiddles[stage+5], 0, 8, 8)
 	}
-	for offset := 0; offset < 256; offset += 4 {
-		innerDIFWithTwiddlesGenericExt(a[offset:offset+4], twiddles[stage+6], 0, 2, 2)
+	for offset := 0; offset < 512; offset += 8 {
+		innerDIFWithTwiddlesExt(a[offset:offset+8], twiddles[stage+6], 0, 4, 4)
 	}
-	for offset := 0; offset < 256; offset += 2 {
-		fext.Butterfly(&a[offset], &a[offset+1])
+	for offset := 0; offset < 512; offset += 4 {
+		innerDIFWithTwiddlesExt(a[offset:offset+4], twiddles[stage+7], 0, 2, 2)
 	}
+	va := fext.Vector(a[:512])
+	va.ButterflyPair()
 }
 
-func kerDITNP_256genericExt(a []fext.E4, twiddles [][]babybear.Element, stage int) {
+func kerDITNP_512Ext(a []fext.E4, twiddles [][]babybear.Element, stage int) {
 	// code unrolled & generated by internal/generator/fft/template/fftext.go.tmpl
 
-	for offset := 0; offset < 256; offset += 2 {
-		fext.Butterfly(&a[offset], &a[offset+1])
+	va := fext.Vector(a[:512])
+	va.ButterflyPair()
+	for offset := 0; offset < 512; offset += 4 {
+		innerDITWithTwiddlesExtM2(a[offset:offset+4], twiddles[stage+7])
 	}
-	for offset := 0; offset < 256; offset += 4 {
-		innerDITWithTwiddlesGenericExt(a[offset:offset+4], twiddles[stage+6], 0, 2, 2)
+	for offset := 0; offset < 512; offset += 8 {
+		innerDITWithTwiddlesExt(a[offset:offset+8], twiddles[stage+6], 0, 4, 4)
 	}
-	for offset := 0; offset < 256; offset += 8 {
-		innerDITWithTwiddlesGenericExt(a[offset:offset+8], twiddles[stage+5], 0, 4, 4)
+	for offset := 0; offset < 512; offset += 16 {
+		innerDITWithTwiddlesExt(a[offset:offset+16], twiddles[stage+5], 0, 8, 8)
 	}
-	for offset := 0; offset < 256; offset += 16 {
-		innerDITWithTwiddlesGenericExt(a[offset:offset+16], twiddles[stage+4], 0, 8, 8)
+	for offset := 0; offset < 512; offset += 32 {
+		innerDITWithTwiddlesExt(a[offset:offset+32], twiddles[stage+4], 0, 16, 16)
 	}
-	for offset := 0; offset < 256; offset += 32 {
-		innerDITWithTwiddlesGenericExt(a[offset:offset+32], twiddles[stage+3], 0, 16, 16)
+	for offset := 0; offset < 512; offset += 64 {
+		innerDITWithTwiddlesExt(a[offset:offset+64], twiddles[stage+3], 0, 32, 32)
 	}
-	for offset := 0; offset < 256; offset += 64 {
-		innerDITWithTwiddlesGenericExt(a[offset:offset+64], twiddles[stage+2], 0, 32, 32)
+	for offset := 0; offset < 512; offset += 128 {
+		innerDITWithTwiddlesExt(a[offset:offset+128], twiddles[stage+2], 0, 64, 64)
 	}
-	for offset := 0; offset < 256; offset += 128 {
-		innerDITWithTwiddlesGenericExt(a[offset:offset+128], twiddles[stage+1], 0, 64, 64)
+	for offset := 0; offset < 512; offset += 256 {
+		innerDITWithTwiddlesExt(a[offset:offset+256], twiddles[stage+1], 0, 128, 128)
 	}
-	innerDITWithTwiddlesGenericExt(a[:256], twiddles[stage+0], 0, 128, 128)
+	innerDITWithTwiddlesExt(a[:512], twiddles[stage+0], 0, 256, 256)
 }

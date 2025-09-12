@@ -49,6 +49,8 @@ type Domain struct {
 
 	// cosetTable <1, u, u², ..., uⁿ⁻¹> where u is the shifting element
 	cosetTable []koalabear.Element
+	// cosetTableBitReversed is filled only for "small" domains (up to 2^18)
+	cosetTableBitReversed []koalabear.Element
 
 	// cosetTableInv same as cosetTable but with u⁻¹
 	cosetTableInv []koalabear.Element
@@ -271,6 +273,12 @@ func (d *Domain) preComputeTwiddles() {
 	go expTable(d.FrMultiplicativeGenInv, d.cosetTableInv)
 
 	wg.Wait()
+	if d.Cardinality <= 1<<18 {
+		// we fill the bit-reversed version of the coset table for small domains only (up to 2^18)
+		d.cosetTableBitReversed = make([]koalabear.Element, d.Cardinality)
+		copy(d.cosetTableBitReversed, d.cosetTable)
+		utils.BitReverse(d.cosetTableBitReversed)
+	}
 
 }
 

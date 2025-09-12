@@ -41,7 +41,12 @@ type Domain struct {
 	// we precompute these mostly to avoid the memory intensive bit reverse permutation in the groth16.Prover
 
 	// cosetTable <1, u, u², ..., uⁿ⁻¹> where u is the shifting element
-	cosetTable         []{{ .FF }}.Element
+	cosetTable []{{ .FF }}.Element
+
+	{{- if .F31}}
+	// cosetTableBitReversed is filled only for "small" domains (up to 2^18)
+	cosetTableBitReversed         []{{ .FF }}.Element
+	{{- end}}
 
 	// cosetTableInv same as cosetTable but with u⁻¹
 	cosetTableInv         []{{ .FF }}.Element
@@ -267,6 +272,15 @@ func (d *Domain) preComputeTwiddles() {
 	go expTable(d.FrMultiplicativeGenInv, d.cosetTableInv)
 
 	wg.Wait()
+
+	{{- if .F31}}
+	if d.Cardinality <= 1<<18 {
+		// we fill the bit-reversed version of the coset table for small domains only (up to 2^18)
+		d.cosetTableBitReversed = make([]{{ .FF }}.Element, d.Cardinality)
+		copy(d.cosetTableBitReversed, d.cosetTable)
+		utils.BitReverse(d.cosetTableBitReversed)
+	}
+	{{- end}}
 
 }
 

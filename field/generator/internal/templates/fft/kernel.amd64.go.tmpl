@@ -1,8 +1,6 @@
 import (
 	"github.com/consensys/gnark-crypto/utils/cpu"
 	"{{ .FieldPackagePath }}"
-	fext "{{ .FieldPackagePath }}/extensions"
-
 )
 
 
@@ -62,26 +60,5 @@ func kerDITNP_{{$ksize}}(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element
 		return
 	}
 	kerDITNP_{{$ksize}}_avx512(a, twiddles, stage)
-}
-{{end}}
-
-func innerDIFWithTwiddlesExt(a []fext.E4, twiddles []{{ .FF }}.Element, start, end, m int) {
-	innerDIFWithTwiddlesGenericExt(a, twiddles, start, end, m)
-}
-
-func innerDITWithTwiddlesExt(a []fext.E4, twiddles []{{ .FF }}.Element, start, end, m int) {
-	innerDITWithTwiddlesGenericExt(a, twiddles, start, end, m)
-}
-
-
-{{range $ki, $klog2 := $.Kernels}}
-	{{- $ksize := shl 1 $klog2}}
-
-func kerDIFNP_{{$ksize}}Ext(a []fext.E4, twiddles [][]{{ $.FF }}.Element, stage int) {
-	kerDIFNP_{{$ksize}}genericExt(a, twiddles, stage)
-}
-
-func kerDITNP_{{$ksize}}Ext(a []fext.E4, twiddles [][]{{ $.FF }}.Element, stage int) {
-	kerDITNP_{{$ksize}}genericExt(a, twiddles, stage)
 }
 {{end}}

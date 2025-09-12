@@ -321,7 +321,7 @@ func BenchmarkFFTExt(b *testing.B) {
 }
 
 func BenchmarkFFTDITCosetReferenceExt(b *testing.B) {
-	const maxSize = 1 << 20
+	const maxSize = 1 << 18
 
 	pol := make([]fext.E4, maxSize)
 	pol[0].MustSetRandom()
@@ -355,7 +355,7 @@ func BenchmarkFFTDITReferenceSmallExt(b *testing.B) {
 }
 
 func BenchmarkFFTDIFReferenceExt(b *testing.B) {
-	const maxSize = 1 << 20
+	const maxSize = 1 << 18
 
 	pol := make([]fext.E4, maxSize)
 	pol[0].MustSetRandom()
