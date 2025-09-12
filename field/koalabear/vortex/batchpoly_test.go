@@ -6,6 +6,7 @@ import (
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
 	"github.com/consensys/gnark-crypto/field/koalabear/fft"
+	"github.com/consensys/gnark-crypto/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,7 +66,7 @@ func TestBatchEvaluateLagrangeOnFext(t *testing.T) {
 				} else {
 					domain.FFTExt(lagrangePolys[i], fft.DIF)
 				}
-				fft.BitReverse(lagrangePolys[i])
+				utils.BitReverse(lagrangePolys[i])
 			}
 
 			// Evaluate using Lagrange basis
@@ -121,7 +122,7 @@ func TestBatchEvalBasePolyLagrange(t *testing.T) {
 				} else {
 					domain.FFT(lagrangePolys[i], fft.DIF)
 				}
-				fft.BitReverse(lagrangePolys[i])
+				utils.BitReverse(lagrangePolys[i])
 			}
 
 			// Evaluate using Lagrange basis
