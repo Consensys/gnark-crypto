@@ -299,7 +299,8 @@ func (z *E2) Mul(x, y *E2) *E2 {
 	a.Mul(&a, &b)
 	d.Add(&d, &c)
 	a.Sub(&a, &d)
-	d.Add(&d, &c).Add(&d, &c)
+	b.Double(&c)
+	d.Add(&d, &b)
 	z.A0 = d
 	z.A1 = a
 
