@@ -494,6 +494,15 @@ func (vector Vector) Sum() E4 {
 	return res
 }
 
+func (vector Vector) InnerProductByElement(a fr.Vector) E4 {
+	N := len(vector)
+	if len(a) != N {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+
+	return vectorInnerProductByElementGeneric(vector, a)
+}
+
 func (vector Vector) InnerProduct(a Vector) E4 {
 	N := len(vector)
 	if len(a) != N {
@@ -728,4 +737,13 @@ func vectorButterflyGeneric(a, b Vector) {
 	for i := 0; i < len(a); i++ {
 		Butterfly(&a[i], &b[i])
 	}
+}
+
+func vectorInnerProductByElementGeneric(a Vector, b fr.Vector) E4 {
+	var res, tmp E4
+	for i := 0; i < len(a); i++ {
+		tmp.MulByElement(&a[i], &b[i])
+		res.Add(&res, &tmp)
+	}
+	return res
 }
