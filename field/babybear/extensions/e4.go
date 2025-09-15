@@ -432,6 +432,14 @@ func (vector Vector) Sum() E4 {
 	return vectorSumGeneric(vector)
 }
 
+func (vector Vector) InnerProductByElement(a fr.Vector) E4 {
+	N := len(vector)
+	if len(a) != N {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	return vectorInnerProductByElementGeneric(vector, a)
+}
+
 func (vector Vector) InnerProduct(a Vector) E4 {
 	N := len(vector)
 	if len(a) != N {
@@ -579,6 +587,15 @@ func vectorMulAccByElementGeneric(v Vector, scale []fr.Element, alpha *E4) {
 		tmp.MulByElement(alpha, &scale[i])
 		v[i].Add(&v[i], &tmp)
 	}
+}
+
+func vectorInnerProductByElementGeneric(a Vector, b fr.Vector) E4 {
+	var res, tmp E4
+	for i := 0; i < len(a); i++ {
+		tmp.MulByElement(&a[i], &b[i])
+		res.Add(&res, &tmp)
+	}
+	return res
 }
 
 func vectorMulByElementGeneric(res, a Vector, b fr.Vector) {

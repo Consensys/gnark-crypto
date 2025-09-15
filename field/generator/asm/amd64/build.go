@@ -404,6 +404,7 @@ func GenerateF31E4(w io.Writer) error {
 	f.generateMulVecElementE4()
 	f.generateButterflyVecE4()
 	f.generateButterflyPairVecE4()
+	f.generateInnerProdByElementE4()
 
 	return nil
 

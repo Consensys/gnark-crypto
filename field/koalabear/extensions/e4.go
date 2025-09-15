@@ -494,6 +494,26 @@ func (vector Vector) Sum() E4 {
 	return res
 }
 
+func (vector Vector) InnerProductByElement(a fr.Vector) E4 {
+	N := len(vector)
+	if len(a) != N {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	const blockSize = 4
+	if !cpu.SupportAVX512 || N < blockSize {
+		return vectorInnerProductByElementGeneric(vector, a)
+	}
+	r := N % blockSize
+	nr := uint64(N - r)
+	var res E4
+	vectorInnerProductByElement_avx512(&res, &vector[0], &a[0], nr)
+	if r != 0 {
+		partialResult := vectorInnerProductByElementGeneric(vector[N-r:], a[N-r:])
+		res.Add(&res, &partialResult)
+	}
+	return res
+}
+
 func (vector Vector) InnerProduct(a Vector) E4 {
 	N := len(vector)
 	if len(a) != N {
@@ -716,6 +736,15 @@ func vectorMulAccByElementGeneric(v Vector, scale []fr.Element, alpha *E4) {
 		tmp.MulByElement(alpha, &scale[i])
 		v[i].Add(&v[i], &tmp)
 	}
+}
+
+func vectorInnerProductByElementGeneric(a Vector, b fr.Vector) E4 {
+	var res, tmp E4
+	for i := 0; i < len(a); i++ {
+		tmp.MulByElement(&a[i], &b[i])
+		res.Add(&res, &tmp)
+	}
+	return res
 }
 
 func vectorMulByElementGeneric(res, a Vector, b fr.Vector) {

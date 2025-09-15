@@ -900,18 +900,19 @@ func (f *fieldHelper) sub(a, b, into amd64.VectorRegister) {
 func (f *fieldHelper) halve(a, into amd64.VectorRegister) {
 	ones := f.registers.PopV()
 
-	f.Define("halve", 2, func(args ...any) {
+	f.Define("halve", 3, func(args ...any) {
 		a := args[0]
 		ones := args[1]
+		qd := args[2]
 		f.MOVD("$1", amd64.AX)
 		f.VPBROADCASTD(amd64.AX, ones)
 
 		f.VPTESTMD(a, ones, amd64.K4)
 		// if a & 1 == 1 ; we add q;
-		f.VPADDDk(a, f.qd, a, amd64.K4)
+		f.VPADDDk(a, qd, a, amd64.K4)
 		// we shift right
 		f.VPSRLD(1, a, a)
-	}, true)(a, ones)
+	}, true)(a, ones, f.qd)
 	f.registers.PushV(ones)
 }
 
@@ -930,7 +931,7 @@ func (f *fieldHelper) mul(a, b, into amd64.VectorRegister, reduce bool) {
 func (f *fieldHelper) mul_4(a, b, into amd64.VectorRegister, reduce bool) {
 	t := f.registers.PopVN(4)
 
-	f.Define("mul_4w", 7, func(args ...any) {
+	f.Define("mul_4w", 9, func(args ...any) {
 		a := args[0]
 		b := args[1]
 		aOdd := args[2]
@@ -938,6 +939,8 @@ func (f *fieldHelper) mul_4(a, b, into amd64.VectorRegister, reduce bool) {
 		t0 := args[4]
 		t1 := args[5]
 		c := args[6]
+		qd := args[7]
+		qInvNeg := args[8]
 
 		PL0 := aOdd
 		PL1 := bOdd
@@ -948,17 +951,17 @@ func (f *fieldHelper) mul_4(a, b, into amd64.VectorRegister, reduce bool) {
 		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
 		f.VPMULUDQ(a, b, t0)
 		f.VPMULUDQ(aOdd, bOdd, t1)
-		f.VPMULUDQ(t0, f.qInvNeg, PL0)
-		f.VPMULUDQ(t1, f.qInvNeg, PL1)
+		f.VPMULUDQ(t0, qInvNeg, PL0)
+		f.VPMULUDQ(t1, qInvNeg, PL1)
 
-		f.VPMULUDQ(PL0, f.qd, PL0)
+		f.VPMULUDQ(PL0, qd, PL0)
 		f.VPADDQ(t0, PL0, t0)
 
-		f.VPMULUDQ(PL1, f.qd, PL1)
+		f.VPMULUDQ(PL1, qd, PL1)
 		f.VPADDQ(t1, PL1, c)
 
 		f.VMOVSHDUPk(t0, amd64.K3, c)
-	}, true)(a, b, t[0], t[1], t[2], t[3], into)
+	}, true)(a, b, t[0], t[1], t[2], t[3], into, f.qd, f.qInvNeg)
 	f.registers.PushV(t...)
 
 	if reduce {
@@ -970,7 +973,7 @@ func (f *fieldHelper) mul_5(a, b, into amd64.VectorRegister, reduce bool) {
 	t := f.registers.PopVN(5)
 	// same as mul_4, except we don't reuse aOdd for PL0
 
-	f.Define("mul_5w", 8, func(args ...any) {
+	f.Define("mul_5w", 10, func(args ...any) {
 		a := args[0]
 		b := args[1]
 		aOdd := args[2]
@@ -979,6 +982,8 @@ func (f *fieldHelper) mul_5(a, b, into amd64.VectorRegister, reduce bool) {
 		t1 := args[5]
 		PL0 := args[6]
 		c := args[7]
+		qd := args[8]
+		qInvNeg := args[9]
 
 		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
 		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
@@ -986,18 +991,18 @@ func (f *fieldHelper) mul_5(a, b, into amd64.VectorRegister, reduce bool) {
 		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
 		f.VPMULUDQ(a, b, t0)
 		f.VPMULUDQ(aOdd, bOdd, t1)
-		f.VPMULUDQ(t0, f.qInvNeg, PL0)
+		f.VPMULUDQ(t0, qInvNeg, PL0)
 		PL1 := bOdd
-		f.VPMULUDQ(t1, f.qInvNeg, PL1)
+		f.VPMULUDQ(t1, qInvNeg, PL1)
 
-		f.VPMULUDQ(PL0, f.qd, PL0)
+		f.VPMULUDQ(PL0, qd, PL0)
 		f.VPADDQ(t0, PL0, t0)
 
-		f.VPMULUDQ(PL1, f.qd, PL1)
+		f.VPMULUDQ(PL1, qd, PL1)
 		f.VPADDQ(t1, PL1, c)
 
 		f.VMOVSHDUPk(t0, amd64.K3, c)
-	}, true)(a, b, t[0], t[1], t[2], t[3], t[4], into)
+	}, true)(a, b, t[0], t[1], t[2], t[3], t[4], into, f.qd, f.qInvNeg)
 	f.registers.PushV(t...)
 
 	if reduce {
@@ -1018,7 +1023,7 @@ func (f *fieldHelper) mul2ExpNegN(a amd64.VectorRegister, N int, into amd64.Vect
 	// perf: see Plonky3 impl for specific N values
 	// gains are minimal so keeping this generic version for simplicity of the code.
 
-	f.Define("mul_2_exp_neg_n", 9, func(args ...any) {
+	f.Define("mul_2_exp_neg_n", 11, func(args ...any) {
 		a := args[0]
 		c := args[1]
 		n := args[2]
@@ -1028,6 +1033,8 @@ func (f *fieldHelper) mul2ExpNegN(a amd64.VectorRegister, N int, into amd64.Vect
 		t2 := args[6]
 		t3 := args[7]
 		t4 := args[8]
+		qd := args[9]
+		qInvNeg := args[10]
 
 		f.VPSRLQ("$32", a, t2) // keep high 32 bits
 
@@ -1040,19 +1047,19 @@ func (f *fieldHelper) mul2ExpNegN(a amd64.VectorRegister, N int, into amd64.Vect
 		f.VPSRLQ(n, a, t0)
 		f.VPSLLQ(m, t2, t1)
 
-		f.VPMULUDQ(t0, f.qInvNeg, t3)
-		f.VPMULUDQ(t1, f.qInvNeg, t4)
+		f.VPMULUDQ(t0, qInvNeg, t3)
+		f.VPMULUDQ(t1, qInvNeg, t4)
 
-		f.VPMULUDQ(t3, f.qd, t3)
+		f.VPMULUDQ(t3, qd, t3)
 		f.VPADDQ(t0, t3, t0)
 
-		f.VPMULUDQ(t4, f.qd, t4)
+		f.VPMULUDQ(t4, qd, t4)
 		f.VPADDQ(t1, t4, c)
 
 		f.VMOVSHDUPk(t0, amd64.K3, c)
-		f.VPSUBD(f.qd, c, t4)
+		f.VPSUBD(qd, c, t4)
 		f.VPMINUD(c, t4, c)
-	}, true)(a, into, "$"+strconv.Itoa(N), "$"+strconv.Itoa(32-N), t[0], t[1], t[2], t[3], t[4])
+	}, true)(a, into, "$"+strconv.Itoa(N), "$"+strconv.Itoa(32-N), t[0], t[1], t[2], t[3], t[4], f.qd, f.qInvNeg)
 	f.registers.PushV(t...)
 
 }

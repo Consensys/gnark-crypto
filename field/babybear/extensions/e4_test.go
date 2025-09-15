@@ -508,6 +508,21 @@ func TestVectorOps(t *testing.T) {
 				gp.g1,
 			))
 
+			properties.Property(fmt.Sprintf("vector inner product by element %d - %s", size, gp.label), prop.ForAll(
+				func(a Vector, b fr.Vector) bool {
+					computed := a.InnerProductByElement(b)
+					var innerProduct E4
+					for i := 0; i < len(a); i++ {
+						var tmp E4
+						tmp.MulByElement(&a[i], &b[i])
+						innerProduct.Add(&innerProduct, &tmp)
+					}
+					return innerProduct.Equal(&computed)
+				},
+				gp.g1,
+				genFrVector(size),
+			))
+
 		}
 	}
 
@@ -702,15 +717,18 @@ func BenchmarkVectorOps(b *testing.B) {
 	a1 := make(Vector, N)
 	b1 := make(Vector, N)
 	c1 := make(Vector, N)
+	b2 := make(fr.Vector, N)
 	for i := 1; i < N; i++ {
 		a1[i-1].MustSetRandom()
 		b1[i-1].MustSetRandom()
+		b2[i-1].MustSetRandom()
 	}
 
 	for n := 4; n <= N; n <<= 1 {
 		_a := a1[:n]
 		_b := b1[:n]
 		_c := c1[:n]
+		_b2 := b2[:n]
 
 		b.Run(fmt.Sprintf("add %d", n), func(b *testing.B) {
 			b.ResetTimer()
@@ -744,6 +762,13 @@ func BenchmarkVectorOps(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_ = _a.InnerProduct(_b)
+			}
+		})
+
+		b.Run(fmt.Sprintf("innerProductByElement %d", n), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = _a.InnerProductByElement(_b2)
 			}
 		})
 
