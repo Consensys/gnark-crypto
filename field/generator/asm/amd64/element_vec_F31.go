@@ -639,6 +639,215 @@ func (_f *FFAmd64) generateSubVecE4() {
 
 	f.RET()
 }
+func (_f *FFAmd64) generateButterflyPairVecE4() {
+	// func vectorButterflyPair_avx512(a *E4, N uint64)
+	const argSize = 2 * 8
+	stackSize := _f.StackSize(_f.NbWords*2+2, 0, 0)
+	registers := _f.FnHeader("vectorButterflyPair_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrA := registers.Pop()
+	N := registers.Pop()
+
+	f.loadQ()
+
+	f.MOVQ("a+0(FP)", addrA)
+	f.MOVQ("N+8(FP)", N)
+
+	// N % 4 == 0 (pre condition checked by caller)
+	// divide N by 4
+	f.SHRQ("$2", N)
+
+	// so we load elements 4 by 4.
+	// that is, we end up with va == [a0,a1,a2,a3, b0,b1,b2,b3, c0,c1,c2,c3, d0,d1,d2,d3]
+	// and we want to compute
+	// butterfly between (a,b) and (c,d)
+	// so we first need to rearrange va into
+	// vb = [b0,b1,b2,b3, a0,a1,a2,a3, d0,d1,d2,d3, c0,c1,c2,c3]
+	// and compute the butterfly between va and vb
+	// and merge the results
+	// note: this is not optimal we should iterate on larger blocks, it will divide by 2 number of ops.
+	va := registers.PopV()
+	vb := registers.PopV()
+	vTmp := registers.PopV()
+	resultA := registers.PopV()
+	resultB := registers.PopV()
+
+	f.MOVQ(uint64(0b00_11_00_11), amd64.AX)
+	f.KMOVQ(amd64.AX, amd64.K2)
+
+	addrVInterleaveIndices := registers.Pop()
+	vInterleaveIndices := registers.PopV()
+	f.MOVQ("·vInterleaveIndices+0(SB)", addrVInterleaveIndices)
+	f.VMOVDQU64(addrVInterleaveIndices.At(0), vInterleaveIndices)
+
+	// goes from
+	// in0 = [a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15]
+	// in1 = [b0 b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15]
+	// to
+	// in0 = [a0 a1 a2 a3 b0 b1 b2 b3 a8 a9 a10 a11 b8 b9 b10 b11]
+	// in1 = [a4 a5 a6 a7 b4 b5 b6 b7 a12 a13 a14 a15 b12 b13 b14 b15]
+	permute4x4 := f.Define("permute4x4", 4, func(args ...any) {
+		x := args[0]
+		y := args[1]
+		vInterleaveIndices := args[2]
+		tmp := args[3]
+		f.VMOVDQA64(vInterleaveIndices, tmp)
+		f.VPERMI2Q(y, x, tmp)
+		f.VPBLENDMQ(x, tmp, x, amd64.K2)
+		f.VPBLENDMQ(tmp, y, y, amd64.K2)
+	}, true)
+
+	f.Loop(N, func() {
+
+		// load args
+		f.VMOVDQU32(addrA.At(0), va)
+		f.VMOVDQA32(va, vb)
+
+		permute4x4(va, vb, vInterleaveIndices, vTmp)
+
+		// a' = a + b
+		f.add(va, vb, resultA)
+		// b' = a - b
+		f.sub(va, vb, resultB)
+
+		// merge the results
+		permute4x4(resultA, resultB, vInterleaveIndices, vTmp)
+
+		// save result
+		f.VMOVDQU32(resultA, addrA.At(0))
+
+		// increment result by 16uint32
+		f.ADDQ("$64", addrA)
+	})
+
+	f.RET()
+
+}
+
+func (_f *FFAmd64) generateButterflyVecE4() {
+	// func vectorButterfly_avx512(a, b *E4, N uint64)
+
+	const argSize = 3 * 8
+	stackSize := _f.StackSize(_f.NbWords*2+2, 0, 0)
+	registers := _f.FnHeader("vectorButterfly_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrA := registers.Pop()
+	addrB := registers.Pop()
+	N := registers.Pop()
+
+	f.loadQ()
+
+	f.MOVQ("a+0(FP)", addrA)
+	f.MOVQ("b+8(FP)", addrB)
+	f.MOVQ("N+16(FP)", N)
+
+	// N % 4 == 0 (pre condition checked by caller)
+	// divide N by 4
+	f.SHRQ("$2", N)
+
+	// each e4 is 4 uint32; so we work with blocks of 4 E4 == 16 uint32 == 1 zmm vector
+	va := registers.PopV()
+	vb := registers.PopV()
+	resultA := registers.PopV()
+	resultB := registers.PopV()
+
+	f.Loop(N, func() {
+
+		// load args
+		f.VMOVDQU32(addrA.At(0), va)
+		f.VMOVDQU32(addrB.At(0), vb)
+
+		// a' = a + b
+		f.add(va, vb, resultA)
+		// b' = a - b
+		f.sub(va, vb, resultB)
+
+		// save result
+		f.VMOVDQU32(resultA, addrA.At(0))
+		f.VMOVDQU32(resultB, addrB.At(0))
+
+		// increment result by 16uint32
+		f.ADDQ("$64", addrA)
+		f.ADDQ("$64", addrB)
+	})
+
+	f.RET()
+}
+
+func (_f *FFAmd64) generateMulVecElementE4() {
+	// func vectorMulByElement_avx512(res, a *E4, b *fr.Element, N uint64)
+
+	const argSize = 4 * 8
+	stackSize := _f.StackSize(_f.NbWords*4+2, 0, 0)
+
+	registers := _f.FnHeader("vectorMulByElement_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrRes := registers.Pop()
+	addrA := registers.Pop()
+	addrB := registers.Pop()
+	N := registers.Pop()
+
+	f.loadQ()
+	f.loadQInvNeg()
+
+	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
+	f.MOVQ("res+0(FP)", addrRes)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("N+24(FP)", N)
+
+	va, vb, vRes := registers.PopV(), registers.PopV(), registers.PopV()
+
+	// load the mask we use to duplicate the 4 uint32 of b into a zmm register
+	// maskPermD = [0,0,0,0, 1,1,1,1, 2,2,2,2, 3,3,3,3]
+	// so that if b = [b0,b1,b2,b3], then after permutation we get
+	// [b0,b0,b0,b0, b1,b1,b1,b1, b2,b2,b2,b2, b3,b3,b3,b3]
+	// which is what we need to multiply with a (4 E4 at a time)
+	addrMaskPermD := registers.Pop()
+	vMaskPermD := registers.PopV()
+	f.MOVQ("·maskPermD+0(SB)", addrMaskPermD)
+	f.VMOVDQU32(addrMaskPermD.At(0), vMaskPermD)
+
+	// code here is very similar to vector::Mul() (base)
+	// the only thing is we advance the iterators on a (on E4) and b (on Element) at
+	// different speeds, and need to load b a bit differently.
+
+	// N % 4 == 0 (pre condition checked by caller)
+	// divide N by 4
+	f.SHRQ("$2", N)
+
+	f.Loop(N, func() {
+		// load a
+		f.VMOVDQU32(addrA.At(0), va)
+		f.VMOVDQU32(addrB.At(0), vb.X()) // need only 4 of them
+
+		// now vb has [b0, b1, b2, b3, 0, 0, ..., 0]
+		// but we want [b0, b0, b0, b0, b1, b1, b1, b1, b2, b2, b2, b2, b3, b3, b3, b3]
+		f.VPERMD(vb, vMaskPermD, vb)
+
+		// now we can mul
+		f.mul(va, vb, vRes, true)
+
+		// save result
+		f.VMOVDQU32(vRes, addrRes.At(0))
+
+		// increment result by 16uint32 (4 E4)
+		f.ADDQ("$64", addrRes)
+		f.ADDQ("$64", addrA)
+		// increment b by 16 bytes (4 base element)
+		f.ADDQ("$16", addrB)
+	})
+
+	f.RET()
+}
 
 type e4VecOp int
 
@@ -896,26 +1105,105 @@ func (_f *FFAmd64) generateMulVecE4(op e4VecOp) {
 	f.RET()
 }
 
-func (f *FFAmd64) generateMulAccByElement() {
+func (_f *FFAmd64) generateInnerProdByElementE4() {
+	// func vectorInnerProductByElement_avx512(res, a *E4, b *fr.Element, N uint64)
+
+	const argSize = 4 * 8
+	stackSize := _f.StackSize(_f.NbWords*4+2, 0, 0)
+	registers := _f.FnHeader("vectorInnerProductByElement_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrRes := registers.Pop()
+	addrA := registers.Pop()
+	addrB := registers.Pop()
+	N := registers.Pop()
+
+	va, vb, vRes, vAcc := registers.PopV(), registers.PopV(), registers.PopV(), registers.PopV()
+
+	f.loadQ()
+	f.loadQInvNeg()
+
+	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
+	f.MOVQ("res+0(FP)", addrRes)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("N+24(FP)", N)
+
+	// N % 4 == 0 (pre condition checked by caller)
+	// divide N by 4
+	f.SHRQ("$2", N)
+
+	// code here is similar to MulVecElementE4, see this for comments
+	// we advance the iterators on a (on E4) and b (on Element) at
+	// different speeds, and need to load b a bit differently.
+	addrMaskPermD := registers.Pop()
+	vMaskPermD := registers.PopV()
+	f.MOVQ("·maskPermD+0(SB)", addrMaskPermD)
+	f.VMOVDQU32(addrMaskPermD.At(0), vMaskPermD)
+
+	// zero-out vAcc
+	f.VXORPS(vAcc, vAcc, vAcc)
+
+	f.Loop(N, func() {
+		// load a
+		f.VMOVDQU32(addrA.At(0), va)
+		f.VMOVDQU32(addrB.At(0), vb.X()) // need only 4 of them
+
+		// now vb has [b0, b1, b2, b3, 0, 0, ..., 0]
+		// but we want [b0, b0, b0, b0, b1, b1, b1, b1, b2, b2, b2, b2, b3, b3, b3, b3]
+		f.VPERMD(vb, vMaskPermD, vb)
+
+		// now we can mul
+		// note that we could avoid reduction here, and maintain 2 accumulators and do a lazy
+		// reduction after the loop, but in practice this does not seem to help perf.
+		f.mul(va, vb, vRes, true)
+
+		// accumulate
+		f.add(vRes, vAcc, vAcc)
+
+		// increment a by 4*4 uint32 (4 * E4)
+		f.ADDQ("$64", addrA)
+		// increment b by 4 uint32 (4 base element)
+		f.ADDQ("$16", addrB)
+	})
+
+	// now the result is in vAcc, with 4 E4. We want to reduce that to 1 E4.
+	// that is vAcc contains [a0, a1, a2, a3, b0, b1, b2, b3, c0, c1, c2, c3, d0, d1, d2, d3]
+	// and we want [a0+b0+c0+d0, a1+b1+c1+d1, a2+b2+c2+d2, a3+b3+c3+d3]
+	v0 := registers.PopV()
+	f.VEXTRACTI64X4(1, vAcc, v0.Y())
+	f.add(vAcc, v0, v0, fY)
+	f.VEXTRACTI64X2(1, v0.Y(), vAcc.X())
+	f.add(v0, vAcc, vAcc, fX)
+
+	// store result
+	f.VMOVDQU32(vAcc.X(), addrRes.At(0))
+
+	f.RET()
+
+}
+
+func (_f *FFAmd64) generateMulAccByElement() {
 	// func mulAccByElement_avx512(alpha *E4, scale *fr.Element, res *E4, N uint64)
 
 	const argSize = 4 * 8
-	stackSize := f.StackSize(f.NbWords*4+2, 0, 0)
-	registers := f.FnHeader("mulAccByElement_avx512", stackSize, argSize, amd64.DX, amd64.AX)
-	defer f.AssertCleanStack(stackSize, 0)
+	stackSize := _f.StackSize(_f.NbWords*4+2, 0, 0)
+	registers := _f.FnHeader("mulAccByElement_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	f.loadQ()
+	f.loadQInvNeg()
 
 	addrAlpha := registers.Pop()
 	addrScale := registers.Pop()
 	addrRes := registers.Pop()
 	N := registers.Pop()
-
-	qd := registers.PopV()
-	qInvNeg := registers.PopV()
-
-	f.MOVD("$const_q", amd64.AX)
-	f.VPBROADCASTD(amd64.AX, qd)
-	f.MOVD("$const_qInvNeg", amd64.AX)
-	f.VPBROADCASTD(amd64.AX, qInvNeg)
 
 	// prepare the mask used for the merging mul results
 	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
@@ -970,34 +1258,9 @@ func (f *FFAmd64) generateMulAccByElement() {
 
 		// computes c = a * b mod q
 		// a and b can be in [0, 2q)
-		mul := func(alpha, s0, acc amd64.VectorRegister) {
+		f.mul(s0, alpha, acc, true)
 
-			b0 := registers.PopV()
-			b1 := registers.PopV()
-			PL0 := registers.PopV()
-			PL1 := registers.PopV()
-
-			f.VPMULUDQ(s0, alpha, b0)
-			f.VPMULUDQ(s0, alphaOdd, b1)
-			f.VPMULUDQ(b0, qInvNeg, PL0)
-			f.VPMULUDQ(b1, qInvNeg, PL1)
-
-			f.VPMULUDQ(PL0, qd, PL0)
-			f.VPADDQ(b0, PL0, b0)
-
-			f.VPMULUDQ(PL1, qd, PL1)
-			f.VPADDQ(b1, PL1, b1)
-
-			f.VMOVSHDUPk(b0, amd64.K3, b1)
-
-			f.VPSUBD(qd, b1, PL0)
-			f.VPMINUD(b1, PL0, acc)
-		}
-		mul(alpha, s0, acc)
-
-		f.VPADDD(result, acc, result, "result = result + acc")
-		f.VPSUBD(qd, result, acc)
-		f.VPMINUD(result, acc, result)
+		f.add(result, acc, result)
 
 		// save result
 		f.VMOVDQU32(result, addrRes.At(0))

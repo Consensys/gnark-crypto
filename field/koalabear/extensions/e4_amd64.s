@@ -36,24 +36,38 @@ loop_1:
 	VINSERTI64X2 $1, X6, Y5, Y5
 	VINSERTI64X2 $1, X8, Y7, Y7
 	VINSERTI64X4 $1, Y7, Z5, Z5
-	VPMULUDQ     Z5, Z2, Z10
-	VPMULUDQ     Z5, Z3, Z11
-	VPMULUDQ     Z10, Z1, Z12
-	VPMULUDQ     Z11, Z1, Z13
-	VPMULUDQ     Z12, Z0, Z12
-	VPADDQ       Z10, Z12, Z10
-	VPMULUDQ     Z13, Z0, Z13
-	VPADDQ       Z11, Z13, Z11
-	VMOVSHDUP    Z10, K3, Z11
-	VPSUBD       Z0, Z11, Z12
-	VPMINUD      Z11, Z12, Z9
-	VPADDD       Z4, Z9, Z4     // result = result + acc
-	VPSUBD       Z0, Z4, Z9
-	VPMINUD      Z4, Z9, Z4
-	VMOVDQU32    Z4, 0(CX)
-	ADDQ         $64, CX
-	ADDQ         $16, R14
-	JMP          loop_1
+
+#define MUL_5W(in0, in1, in2, in3, in4, in5, in6, in7, in8, in9) \
+	VPSRLQ    $32, in0, in2 \
+	VPSRLQ    $32, in1, in3 \
+	VPMULUDQ  in0, in1, in4 \
+	VPMULUDQ  in2, in3, in5 \
+	VPMULUDQ  in4, in9, in6 \
+	VPMULUDQ  in5, in9, in3 \
+	VPMULUDQ  in6, in8, in6 \
+	VPADDQ    in4, in6, in4 \
+	VPMULUDQ  in3, in8, in3 \
+	VPADDQ    in5, in3, in7 \
+	VMOVSHDUP in4, K3, in7  \
+
+	MUL_5W(Z5, Z2, Z10, Z11, Z12, Z13, Z14, Z9, Z0, Z1)
+
+#define REDUCE1Q(in0, in1, in2) \
+	VPSUBD  in0, in1, in2 \
+	VPMINUD in1, in2, in1 \
+
+	REDUCE1Q(Z0, Z9, Z15)
+
+#define ADD(in0, in1, in2, in3, in4) \
+	VPADDD  in1, in0, in4 \
+	VPSUBD  in2, in4, in3 \
+	VPMINUD in4, in3, in4 \
+
+	ADD(Z4, Z9, Z0, Z16, Z4)
+	VMOVDQU32 Z4, 0(CX)
+	ADDQ      $64, CX
+	ADDQ      $16, R14
+	JMP       loop_1
 
 done_2:
 	RET
@@ -73,12 +87,6 @@ loop_3:
 	DECQ      BX
 	VMOVDQU32 0(R14), Z1
 	VMOVDQU32 0(CX), Z2
-
-#define ADD(in0, in1, in2, in3, in4) \
-	VPADDD  in1, in0, in4 \
-	VPSUBD  in2, in4, in3 \
-	VPMINUD in4, in3, in4 \
-
 	ADD(Z1, Z2, Z0, Z4, Z3)
 	VMOVDQU32 Z3, 0(R13)
 	ADDQ      $64, R13
@@ -137,55 +145,36 @@ TEXT ·vectorMul_avx512(SB), NOSPLIT, $0-32
 	SHRQ         $4, BX
 
 loop_7:
-	TESTQ      BX, BX
-	JEQ        done_8
-	DECQ       BX
-	KMOVD      SI, K1
-	KMOVD      SI, K2
-	VPGATHERDD 0(R14)(Z2*4), K1, Z3
-	VPGATHERDD 0(CX)(Z2*4), K2, Z7
-	KMOVD      SI, K1
-	KMOVD      SI, K2
-	VPGATHERDD 4(R14)(Z2*4), K1, Z4
-	VPGATHERDD 4(CX)(Z2*4), K2, Z8
-	KMOVD      SI, K1
-	KMOVD      SI, K2
-	VPGATHERDD 8(R14)(Z2*4), K1, Z5
-	VPGATHERDD 8(CX)(Z2*4), K2, Z9
-	KMOVD      SI, K1
-	KMOVD      SI, K2
-	VPGATHERDD 12(R14)(Z2*4), K1, Z6
-	VPGATHERDD 12(CX)(Z2*4), K2, Z10
+	TESTQ       BX, BX
+	JEQ         done_8
+	DECQ        BX
+	KMOVD       SI, K1
+	KMOVD       SI, K2
+	VPGATHERDD  0(R14)(Z2*4), K1, Z3
+	VPGATHERDD  0(CX)(Z2*4), K2, Z7
+	KMOVD       SI, K1
+	KMOVD       SI, K2
+	VPGATHERDD  4(R14)(Z2*4), K1, Z4
+	VPGATHERDD  4(CX)(Z2*4), K2, Z8
+	KMOVD       SI, K1
+	KMOVD       SI, K2
+	VPGATHERDD  8(R14)(Z2*4), K1, Z5
+	VPGATHERDD  8(CX)(Z2*4), K2, Z9
+	KMOVD       SI, K1
+	KMOVD       SI, K2
+	VPGATHERDD  12(R14)(Z2*4), K1, Z6
+	VPGATHERDD  12(CX)(Z2*4), K2, Z10
 	ADD(Z3, Z5, Z0, Z13, Z11)
 	ADD(Z4, Z6, Z0, Z14, Z12)
 	ADD(Z7, Z9, Z0, Z17, Z15)
 	ADD(Z8, Z10, Z0, Z18, Z16)
 	ADD(Z3, Z4, Z0, Z24, Z20)
-	VPADDD     Z8, Z7, Z21
-
-#define MUL_5W(in0, in1, in2, in3, in4, in5, in6, in7) \
-	VPSRLQ    $32, in0, in2 \
-	VPSRLQ    $32, in1, in3 \
-	VPMULUDQ  in0, in1, in4 \
-	VPMULUDQ  in2, in3, in5 \
-	VPMULUDQ  in4, Z1, in6  \
-	VPMULUDQ  in5, Z1, in3  \
-	VPMULUDQ  in6, Z0, in6  \
-	VPADDQ    in4, in6, in4 \
-	VPMULUDQ  in3, Z0, in3  \
-	VPADDQ    in5, in3, in7 \
-	VMOVSHDUP in4, K3, in7  \
-
-	MUL_5W(Z3, Z7, Z25, Z26, Z27, Z28, Z29, Z19)
-
-#define REDUCE1Q(in0, in1, in2) \
-	VPSUBD  in0, in1, in2 \
-	VPMINUD in1, in2, in1 \
-
+	VPADDD      Z8, Z7, Z21
+	MUL_5W(Z3, Z7, Z25, Z26, Z27, Z28, Z29, Z19, Z0, Z1)
 	REDUCE1Q(Z0, Z19, Z30)
-	MUL_5W(Z4, Z8, Z31, Z13, Z14, Z17, Z18, Z22)
+	MUL_5W(Z4, Z8, Z31, Z13, Z14, Z17, Z18, Z22, Z0, Z1)
 	REDUCE1Q(Z0, Z22, Z24)
-	MUL_5W(Z20, Z21, Z25, Z26, Z27, Z28, Z29, Z20)
+	MUL_5W(Z20, Z21, Z25, Z26, Z27, Z28, Z29, Z20, Z0, Z1)
 	REDUCE1Q(Z0, Z20, Z30)
 	ADD(Z19, Z22, Z0, Z31, Z23)
 	SUB(Z20, Z23, Z0, Z13, Z20)
@@ -193,11 +182,11 @@ loop_7:
 	ADD(Z19, Z22, Z0, Z17, Z19)
 	ADD(Z5, Z6, Z0, Z28, Z24)
 	VPADDD      Z10, Z9, Z25
-	MUL_5W(Z5, Z9, Z29, Z30, Z31, Z13, Z14, Z18)
+	MUL_5W(Z5, Z9, Z29, Z30, Z31, Z13, Z14, Z18, Z0, Z1)
 	REDUCE1Q(Z0, Z18, Z17)
-	MUL_5W(Z6, Z10, Z21, Z22, Z23, Z28, Z29, Z26)
+	MUL_5W(Z6, Z10, Z21, Z22, Z23, Z28, Z29, Z26, Z0, Z1)
 	REDUCE1Q(Z0, Z26, Z30)
-	MUL_5W(Z24, Z25, Z31, Z13, Z14, Z17, Z21, Z24)
+	MUL_5W(Z24, Z25, Z31, Z13, Z14, Z17, Z21, Z24, Z0, Z1)
 	REDUCE1Q(Z0, Z24, Z22)
 	ADD(Z18, Z26, Z0, Z23, Z27)
 	SUB(Z24, Z27, Z0, Z28, Z24)
@@ -205,11 +194,11 @@ loop_7:
 	ADD(Z18, Z26, Z0, Z30, Z18)
 	ADD(Z11, Z12, Z0, Z22, Z13)
 	VPADDD      Z16, Z15, Z14
-	MUL_5W(Z11, Z15, Z23, Z28, Z29, Z30, Z25, Z31)
+	MUL_5W(Z11, Z15, Z23, Z28, Z29, Z30, Z25, Z31, Z0, Z1)
 	REDUCE1Q(Z0, Z31, Z26)
-	MUL_5W(Z12, Z16, Z27, Z22, Z23, Z28, Z29, Z17)
+	MUL_5W(Z12, Z16, Z27, Z22, Z23, Z28, Z29, Z17, Z0, Z1)
 	REDUCE1Q(Z0, Z17, Z30)
-	MUL_5W(Z13, Z14, Z25, Z26, Z27, Z22, Z23, Z13)
+	MUL_5W(Z13, Z14, Z25, Z26, Z27, Z22, Z23, Z13, Z0, Z1)
 	REDUCE1Q(Z0, Z13, Z28)
 	ADD(Z31, Z17, Z0, Z29, Z21)
 	SUB(Z13, Z21, Z0, Z30, Z13)
@@ -283,11 +272,11 @@ loop_9:
 	ADD(Z8, Z10, Z0, Z18, Z16)
 	ADD(Z3, Z4, Z0, Z24, Z20)
 	VPADDD      Z8, Z7, Z21
-	MUL_5W(Z3, Z7, Z25, Z26, Z27, Z28, Z29, Z19)
+	MUL_5W(Z3, Z7, Z25, Z26, Z27, Z28, Z29, Z19, Z0, Z1)
 	REDUCE1Q(Z0, Z19, Z30)
-	MUL_5W(Z4, Z8, Z31, Z13, Z14, Z17, Z18, Z22)
+	MUL_5W(Z4, Z8, Z31, Z13, Z14, Z17, Z18, Z22, Z0, Z1)
 	REDUCE1Q(Z0, Z22, Z24)
-	MUL_5W(Z20, Z21, Z25, Z26, Z27, Z28, Z29, Z20)
+	MUL_5W(Z20, Z21, Z25, Z26, Z27, Z28, Z29, Z20, Z0, Z1)
 	REDUCE1Q(Z0, Z20, Z30)
 	ADD(Z19, Z22, Z0, Z31, Z23)
 	SUB(Z20, Z23, Z0, Z13, Z20)
@@ -295,11 +284,11 @@ loop_9:
 	ADD(Z19, Z22, Z0, Z17, Z19)
 	ADD(Z5, Z6, Z0, Z28, Z24)
 	VPADDD      Z10, Z9, Z25
-	MUL_5W(Z5, Z9, Z29, Z30, Z31, Z13, Z14, Z18)
+	MUL_5W(Z5, Z9, Z29, Z30, Z31, Z13, Z14, Z18, Z0, Z1)
 	REDUCE1Q(Z0, Z18, Z17)
-	MUL_5W(Z6, Z10, Z21, Z22, Z23, Z28, Z29, Z26)
+	MUL_5W(Z6, Z10, Z21, Z22, Z23, Z28, Z29, Z26, Z0, Z1)
 	REDUCE1Q(Z0, Z26, Z30)
-	MUL_5W(Z24, Z25, Z31, Z13, Z14, Z17, Z21, Z24)
+	MUL_5W(Z24, Z25, Z31, Z13, Z14, Z17, Z21, Z24, Z0, Z1)
 	REDUCE1Q(Z0, Z24, Z22)
 	ADD(Z18, Z26, Z0, Z23, Z27)
 	SUB(Z24, Z27, Z0, Z28, Z24)
@@ -307,11 +296,11 @@ loop_9:
 	ADD(Z18, Z26, Z0, Z30, Z18)
 	ADD(Z11, Z12, Z0, Z22, Z13)
 	VPADDD      Z16, Z15, Z14
-	MUL_5W(Z11, Z15, Z23, Z28, Z29, Z30, Z25, Z31)
+	MUL_5W(Z11, Z15, Z23, Z28, Z29, Z30, Z25, Z31, Z0, Z1)
 	REDUCE1Q(Z0, Z31, Z26)
-	MUL_5W(Z12, Z16, Z27, Z22, Z23, Z28, Z29, Z17)
+	MUL_5W(Z12, Z16, Z27, Z22, Z23, Z28, Z29, Z17, Z0, Z1)
 	REDUCE1Q(Z0, Z17, Z30)
-	MUL_5W(Z13, Z14, Z25, Z26, Z27, Z22, Z23, Z13)
+	MUL_5W(Z13, Z14, Z25, Z26, Z27, Z22, Z23, Z13, Z0, Z1)
 	REDUCE1Q(Z0, Z13, Z28)
 	ADD(Z31, Z17, Z0, Z29, Z21)
 	SUB(Z13, Z21, Z0, Z30, Z13)
@@ -388,11 +377,11 @@ loop_11:
 	ADD(Z8, Z10, Z0, Z22, Z20)
 	ADD(Z3, Z4, Z0, Z28, Z24)
 	VPADDD     Z8, Z7, Z25
-	MUL_5W(Z3, Z7, Z29, Z30, Z31, Z17, Z18, Z23)
+	MUL_5W(Z3, Z7, Z29, Z30, Z31, Z17, Z18, Z23, Z0, Z1)
 	REDUCE1Q(Z0, Z23, Z21)
-	MUL_5W(Z4, Z8, Z22, Z28, Z29, Z30, Z31, Z26)
+	MUL_5W(Z4, Z8, Z22, Z28, Z29, Z30, Z31, Z26, Z0, Z1)
 	REDUCE1Q(Z0, Z26, Z17)
-	MUL_5W(Z24, Z25, Z18, Z21, Z22, Z28, Z29, Z24)
+	MUL_5W(Z24, Z25, Z18, Z21, Z22, Z28, Z29, Z24, Z0, Z1)
 	REDUCE1Q(Z0, Z24, Z30)
 	ADD(Z23, Z26, Z0, Z31, Z27)
 	SUB(Z24, Z27, Z0, Z17, Z24)
@@ -400,11 +389,11 @@ loop_11:
 	ADD(Z23, Z26, Z0, Z21, Z23)
 	ADD(Z5, Z6, Z0, Z17, Z28)
 	VPADDD     Z10, Z9, Z29
-	MUL_5W(Z5, Z9, Z18, Z21, Z25, Z26, Z27, Z22)
+	MUL_5W(Z5, Z9, Z18, Z21, Z25, Z26, Z27, Z22, Z0, Z1)
 	REDUCE1Q(Z0, Z22, Z17)
-	MUL_5W(Z6, Z10, Z18, Z21, Z25, Z26, Z27, Z30)
+	MUL_5W(Z6, Z10, Z18, Z21, Z25, Z26, Z27, Z30, Z0, Z1)
 	REDUCE1Q(Z0, Z30, Z17)
-	MUL_5W(Z28, Z29, Z18, Z21, Z25, Z26, Z27, Z28)
+	MUL_5W(Z28, Z29, Z18, Z21, Z25, Z26, Z27, Z28, Z0, Z1)
 	REDUCE1Q(Z0, Z28, Z17)
 	ADD(Z22, Z30, Z0, Z18, Z31)
 	SUB(Z28, Z31, Z0, Z21, Z28)
@@ -413,24 +402,24 @@ loop_11:
 	ADD(Z15, Z16, Z0, Z26, Z17)
 	VPADDD     Z20, Z19, Z18
 
-#define MUL_4W(in0, in1, in2, in3, in4, in5, in6) \
+#define MUL_4W(in0, in1, in2, in3, in4, in5, in6, in7, in8) \
 	VPSRLQ    $32, in0, in2 \
 	VPSRLQ    $32, in1, in3 \
 	VPMULUDQ  in0, in1, in4 \
 	VPMULUDQ  in2, in3, in5 \
-	VPMULUDQ  in4, Z1, in2  \
-	VPMULUDQ  in5, Z1, in3  \
-	VPMULUDQ  in2, Z0, in2  \
+	VPMULUDQ  in4, in8, in2 \
+	VPMULUDQ  in5, in8, in3 \
+	VPMULUDQ  in2, in7, in2 \
 	VPADDQ    in4, in2, in4 \
-	VPMULUDQ  in3, Z0, in3  \
+	VPMULUDQ  in3, in7, in3 \
 	VPADDQ    in5, in3, in6 \
 	VMOVSHDUP in4, K3, in6  \
 
-	MUL_4W(Z15, Z19, Z29, Z30, Z31, Z26, Z27)
+	MUL_4W(Z15, Z19, Z29, Z30, Z31, Z26, Z27, Z0, Z1)
 	REDUCE1Q(Z0, Z27, Z29)
-	MUL_4W(Z16, Z20, Z30, Z31, Z26, Z29, Z21)
+	MUL_4W(Z16, Z20, Z30, Z31, Z26, Z29, Z21, Z0, Z1)
 	REDUCE1Q(Z0, Z21, Z30)
-	MUL_4W(Z17, Z18, Z31, Z26, Z29, Z30, Z17)
+	MUL_4W(Z17, Z18, Z31, Z26, Z29, Z30, Z17, Z0, Z1)
 	REDUCE1Q(Z0, Z17, Z31)
 	ADD(Z27, Z21, Z0, Z26, Z25)
 	SUB(Z17, Z25, Z0, Z29, Z17)
@@ -501,4 +490,134 @@ done_14:
 	VEXTRACTI64X4 $1, Z0, Y2
 	VPADDQ        Y2, Y0, Y0
 	VMOVDQU64     Y0, 0(R13)
+	RET
+
+TEXT ·vectorMulByElement_avx512(SB), NOSPLIT, $0-32
+	MOVD         $const_q, AX
+	VPBROADCASTD AX, Z0
+	MOVD         $const_qInvNeg, AX
+	VPBROADCASTD AX, Z1
+	MOVQ         $0x0000000000005555, AX
+	KMOVD        AX, K3
+	MOVQ         res+0(FP), R13
+	MOVQ         a+8(FP), R14
+	MOVQ         b+16(FP), CX
+	MOVQ         N+24(FP), BX
+	MOVQ         ·maskPermD+0(SB), SI
+	VMOVDQU32    0(SI), Z5
+	SHRQ         $2, BX
+
+loop_15:
+	TESTQ     BX, BX
+	JEQ       done_16
+	DECQ      BX
+	VMOVDQU32 0(R14), Z2
+	VMOVDQU32 0(CX), X3
+	VPERMD    Z3, Z5, Z3
+	MUL_5W(Z2, Z3, Z6, Z7, Z8, Z9, Z10, Z4, Z0, Z1)
+	REDUCE1Q(Z0, Z4, Z11)
+	VMOVDQU32 Z4, 0(R13)
+	ADDQ      $64, R13
+	ADDQ      $64, R14
+	ADDQ      $16, CX
+	JMP       loop_15
+
+done_16:
+	RET
+
+TEXT ·vectorButterfly_avx512(SB), NOSPLIT, $0-24
+	MOVD         $const_q, AX
+	VPBROADCASTD AX, Z0
+	MOVQ         a+0(FP), R13
+	MOVQ         b+8(FP), R14
+	MOVQ         N+16(FP), CX
+	SHRQ         $2, CX
+
+loop_17:
+	TESTQ     CX, CX
+	JEQ       done_18
+	DECQ      CX
+	VMOVDQU32 0(R13), Z1
+	VMOVDQU32 0(R14), Z2
+	ADD(Z1, Z2, Z0, Z5, Z3)
+	SUB(Z1, Z2, Z0, Z6, Z4)
+	VMOVDQU32 Z3, 0(R13)
+	VMOVDQU32 Z4, 0(R14)
+	ADDQ      $64, R13
+	ADDQ      $64, R14
+	JMP       loop_17
+
+done_18:
+	RET
+
+TEXT ·vectorButterflyPair_avx512(SB), NOSPLIT, $0-16
+	MOVD         $const_q, AX
+	VPBROADCASTD AX, Z0
+	MOVQ         a+0(FP), R13
+	MOVQ         N+8(FP), R14
+	SHRQ         $2, R14
+	MOVQ         $0x0000000000000033, AX
+	KMOVQ        AX, K2
+	MOVQ         ·vInterleaveIndices+0(SB), CX
+	VMOVDQU64    0(CX), Z6
+
+#define PERMUTE4X4(in0, in1, in2, in3) \
+	VMOVDQA64 in2, in3          \
+	VPERMI2Q  in1, in0, in3     \
+	VPBLENDMQ in0, in3, K2, in0 \
+	VPBLENDMQ in3, in1, K2, in1 \
+
+loop_19:
+	TESTQ     R14, R14
+	JEQ       done_20
+	DECQ      R14
+	VMOVDQU32 0(R13), Z1
+	VMOVDQA32 Z1, Z2
+	PERMUTE4X4(Z1, Z2, Z6, Z3)
+	ADD(Z1, Z2, Z0, Z7, Z4)
+	SUB(Z1, Z2, Z0, Z8, Z5)
+	PERMUTE4X4(Z4, Z5, Z6, Z3)
+	VMOVDQU32 Z4, 0(R13)
+	ADDQ      $64, R13
+	JMP       loop_19
+
+done_20:
+	RET
+
+TEXT ·vectorInnerProductByElement_avx512(SB), NOSPLIT, $0-32
+	MOVD         $const_q, AX
+	VPBROADCASTD AX, Z4
+	MOVD         $const_qInvNeg, AX
+	VPBROADCASTD AX, Z5
+	MOVQ         $0x0000000000005555, AX
+	KMOVD        AX, K3
+	MOVQ         res+0(FP), R13
+	MOVQ         a+8(FP), R14
+	MOVQ         b+16(FP), CX
+	MOVQ         N+24(FP), BX
+	SHRQ         $2, BX
+	MOVQ         ·maskPermD+0(SB), SI
+	VMOVDQU32    0(SI), Z6
+	VXORPS       Z3, Z3, Z3
+
+loop_21:
+	TESTQ     BX, BX
+	JEQ       done_22
+	DECQ      BX
+	VMOVDQU32 0(R14), Z0
+	VMOVDQU32 0(CX), X1
+	VPERMD    Z1, Z6, Z1
+	MUL_5W(Z0, Z1, Z7, Z8, Z9, Z10, Z11, Z2, Z4, Z5)
+	REDUCE1Q(Z4, Z2, Z12)
+	ADD(Z2, Z3, Z4, Z13, Z3)
+	ADDQ      $64, R14
+	ADDQ      $16, CX
+	JMP       loop_21
+
+done_22:
+	VEXTRACTI64X4 $1, Z3, Y14
+	ADD(Y3, Y14, Y4, Y15, Y14)
+	VEXTRACTI64X2 $1, Y14, X3
+	ADD(X14, X3, X4, X16, X3)
+	VMOVDQU32     X3, 0(R13)
 	RET
