@@ -93,6 +93,27 @@ func (z *{{.ElementName}}) Text(base int) string {
 		return r
 	{{- end}}
 }
+	
+{{- if eq $.NbWords 1}}
+// IsNonNeg returns if an element is non negative
+func (z *{{.ElementName}}) IsNonNeg() bool {
+
+	if z == nil {
+		panic("nil pointer")
+	}
+
+	const maxUint16 = 65535
+
+	var zzNeg {{.ElementName}}
+	zzNeg.Neg(z)
+	zzNeg.fromMont()
+	if zzNeg[0] <= maxUint16 && zzNeg[0] != 0 {
+		return false
+	} else {
+		return true
+	}
+}
+{{- end}}
 
 // BigInt sets and return z as a *big.Int
 func (z *{{.ElementName}}) BigInt(res *big.Int) *big.Int {

@@ -255,6 +255,23 @@ func TestElementNegZero(t *testing.T) {
 		t.Fatal("neg(0) != 0")
 	}
 }
+func TestElementNonNeg(t *testing.T) {
+	var pos, neg, zero Element
+	pos.SetString("2")
+	neg.SetString("-1")
+	zero.SetZero()
+	if !pos.IsNonNeg() {
+		t.Fatal("pos should be non negative")
+	}
+
+	if neg.IsNonNeg() {
+		t.Fatal("neg should not be non negative")
+	}
+
+	if !pos.IsNonNeg() {
+		t.Fatal("zero should be non negative")
+	}
+}
 
 // -------------------------------------------------------------------------------------------------
 // Gopter tests

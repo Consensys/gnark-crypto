@@ -593,6 +593,25 @@ func (z *Element) Text(base int) string {
 	return strconv.FormatUint(uint64(zz[0]), base)
 }
 
+// IsNonNeg returns if an element is non negative
+func (z *Element) IsNonNeg() bool {
+
+	if z == nil {
+		panic("nil pointer")
+	}
+
+	const maxUint16 = 65535
+
+	var zzNeg Element
+	zzNeg.Neg(z)
+	zzNeg.fromMont()
+	if zzNeg[0] <= maxUint16 && zzNeg[0] != 0 {
+		return false
+	} else {
+		return true
+	}
+}
+
 // BigInt sets and return z as a *big.Int
 func (z *Element) BigInt(res *big.Int) *big.Int {
 	_z := *z

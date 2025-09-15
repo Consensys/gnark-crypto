@@ -593,7 +593,8 @@ func (z *Element) Text(base int) string {
 	return strconv.FormatUint(uint64(zz[0]), base)
 }
 
-func (z *Element) CheckNonNeg() bool {
+// IsNonNeg returns if an element is non negative
+func (z *Element) IsNonNeg() bool {
 
 	if z == nil {
 		panic("nil pointer")

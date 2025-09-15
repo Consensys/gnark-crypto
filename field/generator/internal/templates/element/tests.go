@@ -307,6 +307,25 @@ func Test{{toTitle .ElementName}}NegZero(t *testing.T) {
 	}
 }
 
+{{- if eq $.NbWords 1}}
+func Test{{toTitle .ElementName}}NonNeg(t *testing.T) {
+	var pos, neg, zero {{.ElementName}}
+	pos.SetString("2")
+	neg.SetString("-1")
+	zero.SetZero()
+	if !pos.IsNonNeg() {
+		t.Fatal("pos should be non negative")
+	}
+
+	if neg.IsNonNeg() {
+		t.Fatal("neg should not be non negative")
+	}
+
+	if !pos.IsNonNeg() {
+		t.Fatal("zero should be non negative")
+	}
+}
+{{- end}}
 // -------------------------------------------------------------------------------------------------
 // Gopter tests
 // most of them are generated with a template
