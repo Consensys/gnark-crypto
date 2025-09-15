@@ -437,7 +437,6 @@ func (vector Vector) InnerProductByElement(a fr.Vector) E4 {
 	if len(a) != N {
 		panic("vector.InnerProduct: vectors don't have the same length")
 	}
-
 	return vectorInnerProductByElementGeneric(vector, a)
 }
 
@@ -590,6 +589,15 @@ func vectorMulAccByElementGeneric(v Vector, scale []fr.Element, alpha *E4) {
 	}
 }
 
+func vectorInnerProductByElementGeneric(a Vector, b fr.Vector) E4 {
+	var res, tmp E4
+	for i := 0; i < len(a); i++ {
+		tmp.MulByElement(&a[i], &b[i])
+		res.Add(&res, &tmp)
+	}
+	return res
+}
+
 func vectorMulByElementGeneric(res, a Vector, b fr.Vector) {
 	for i := 0; i < len(res); i++ {
 		res[i].MulByElement(&a[i], &b[i])
@@ -600,13 +608,4 @@ func vectorButterflyGeneric(a, b Vector) {
 	for i := 0; i < len(a); i++ {
 		Butterfly(&a[i], &b[i])
 	}
-}
-
-func vectorInnerProductByElementGeneric(a Vector, b fr.Vector) E4 {
-	var res, tmp E4
-	for i := 0; i < len(a); i++ {
-		tmp.MulByElement(&a[i], &b[i])
-		res.Add(&res, &tmp)
-	}
-	return res
 }

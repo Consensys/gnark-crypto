@@ -66,3 +66,6 @@ func vectorButterfly_avx512(a, b *E4, N uint64)
 
 //go:noescape
 func vectorButterflyPair_avx512(a *E4, N uint64)
+
+//go:noescape
+func vectorInnerProductByElement_avx512(res, a *E4, b *fr.Element, N uint64)
