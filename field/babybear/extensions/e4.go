@@ -8,6 +8,7 @@ package extensions
 import (
 	"math/big"
 	"math/bits"
+	"unsafe"
 
 	fr "github.com/consensys/gnark-crypto/field/babybear"
 )
@@ -431,12 +432,66 @@ func (vector Vector) Sum() E4 {
 	return vectorSumGeneric(vector)
 }
 
+func (vector Vector) InnerProductByElement(a fr.Vector) E4 {
+	N := len(vector)
+	if len(a) != N {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	return vectorInnerProductByElementGeneric(vector, a)
+}
+
 func (vector Vector) InnerProduct(a Vector) E4 {
 	N := len(vector)
 	if len(a) != N {
 		panic("vector.InnerProduct: vectors don't have the same length")
 	}
 	return vectorInnerProductGeneric(vector, a)
+}
+
+func (vector Vector) MulByElement(a Vector, b fr.Vector) {
+	N := len(vector)
+	if len(a) != N || len(b) != N {
+		panic("vector.MulByElement: vectors don't have the same length")
+	}
+	vectorMulByElementGeneric(vector, a, b)
+}
+
+// Butterfly computes the in-place butterfly operation on two vectors of E4 elements
+// If other overlaps with vector, result is undefined, caller should use a temp vector.
+func (vector Vector) Butterfly(other Vector) {
+	N := len(other)
+	if N != len(vector) {
+		panic("vector.Butterfly: vectors don't have the same length")
+	}
+	vectorButterflyGeneric(vector, other)
+}
+
+// ButterflyPair computes the in-place butterfly operation of each pair in the vector
+// vector[0], vector[1]; vector[2], vector[3]; ...
+func (vector Vector) ButterflyPair() {
+	N := len(vector)
+	if N%2 != 0 {
+		panic("vector.ButterflyPair: vector length must be even")
+	}
+	for i := 0; i < N; i += 2 {
+		Butterfly(&vector[i], &vector[i+1])
+	}
+}
+
+func (vector Vector) ScalarMulByElement(a Vector, b *fr.Element) {
+	if len(a) != len(vector) {
+		panic("vector.ScalarMulByElement: vectors don't have the same length")
+	}
+	if len(vector) == 0 {
+		return
+	}
+
+	// for this one, since mul by element scales each coordinates, we cast a to a fr.Vector,
+	// and call the already optimized fr.Vector.ScalarMul
+	M := len(a) * 4
+	vBase := fr.Vector(unsafe.Slice((*fr.Element)(unsafe.Pointer(&a[0])), M))
+	vRes := fr.Vector(unsafe.Slice((*fr.Element)(unsafe.Pointer(&vector[0])), M))
+	vRes.ScalarMul(vBase, b)
 }
 
 // Exp sets vector[i] = a[i]ᵏ for all i
@@ -531,5 +586,26 @@ func vectorMulAccByElementGeneric(v Vector, scale []fr.Element, alpha *E4) {
 	for i := 0; i < len(v); i++ {
 		tmp.MulByElement(alpha, &scale[i])
 		v[i].Add(&v[i], &tmp)
+	}
+}
+
+func vectorInnerProductByElementGeneric(a Vector, b fr.Vector) E4 {
+	var res, tmp E4
+	for i := 0; i < len(a); i++ {
+		tmp.MulByElement(&a[i], &b[i])
+		res.Add(&res, &tmp)
+	}
+	return res
+}
+
+func vectorMulByElementGeneric(res, a Vector, b fr.Vector) {
+	for i := 0; i < len(res); i++ {
+		res[i].MulByElement(&a[i], &b[i])
+	}
+}
+
+func vectorButterflyGeneric(a, b Vector) {
+	for i := 0; i < len(a); i++ {
+		Butterfly(&a[i], &b[i])
 	}
 }

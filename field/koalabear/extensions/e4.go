@@ -8,6 +8,7 @@ package extensions
 import (
 	"math/big"
 	"math/bits"
+	"unsafe"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/utils/cpu"
@@ -493,6 +494,26 @@ func (vector Vector) Sum() E4 {
 	return res
 }
 
+func (vector Vector) InnerProductByElement(a fr.Vector) E4 {
+	N := len(vector)
+	if len(a) != N {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	const blockSize = 4
+	if !cpu.SupportAVX512 || N < blockSize {
+		return vectorInnerProductByElementGeneric(vector, a)
+	}
+	r := N % blockSize
+	nr := uint64(N - r)
+	var res E4
+	vectorInnerProductByElement_avx512(&res, &vector[0], &a[0], nr)
+	if r != 0 {
+		partialResult := vectorInnerProductByElementGeneric(vector[N-r:], a[N-r:])
+		res.Add(&res, &partialResult)
+	}
+	return res
+}
+
 func (vector Vector) InnerProduct(a Vector) E4 {
 	N := len(vector)
 	if len(a) != N {
@@ -533,6 +554,88 @@ func (vector Vector) InnerProduct(a Vector) E4 {
 	}
 
 	return res
+}
+
+func (vector Vector) MulByElement(a Vector, b fr.Vector) {
+	N := len(vector)
+	if len(a) != N || len(b) != N {
+		panic("vector.MulByElement: vectors don't have the same length")
+	}
+	const blockSize = 4
+	if !cpu.SupportAVX512 || N < blockSize {
+		vectorMulByElementGeneric(vector, a, b)
+		return
+	}
+
+	r := N % blockSize
+	nr := uint64(N - r)
+
+	vectorMulByElement_avx512(&vector[0], &a[0], &b[0], nr)
+	if r != 0 {
+		// call vectorMulByElementGeneric on the rest
+		start := N - r
+		vectorMulByElementGeneric(vector[start:], a[start:], b[start:])
+	}
+}
+
+// Butterfly computes the in-place butterfly operation on two vectors of E4 elements
+// If other overlaps with vector, result is undefined, caller should use a temp vector.
+func (vector Vector) Butterfly(other Vector) {
+	N := len(other)
+	if N != len(vector) {
+		panic("vector.Butterfly: vectors don't have the same length")
+	}
+	const blockSize = 4
+	if !cpu.SupportAVX512 || N < blockSize {
+		vectorButterflyGeneric(vector, other)
+		return
+	}
+	r := N % blockSize
+	nr := uint64(N - r)
+	vectorButterfly_avx512(&vector[0], &other[0], nr)
+	if r != 0 {
+		vectorButterflyGeneric(vector[N-r:], other[N-r:])
+	}
+}
+
+// ButterflyPair computes the in-place butterfly operation of each pair in the vector
+// vector[0], vector[1]; vector[2], vector[3]; ...
+func (vector Vector) ButterflyPair() {
+	N := len(vector)
+	if N%2 != 0 {
+		panic("vector.ButterflyPair: vector length must be even")
+	}
+	const blockSize = 4
+	if !cpu.SupportAVX512 || N < blockSize {
+		for i := 0; i < N; i += 2 {
+			Butterfly(&vector[i], &vector[i+1])
+		}
+		return
+	}
+	r := N % blockSize
+	nr := uint64(N - r)
+	vectorButterflyPair_avx512(&vector[0], nr)
+	if r != 0 {
+		for i := N - r; i < N; i += 2 {
+			Butterfly(&vector[i], &vector[i+1])
+		}
+	}
+}
+
+func (vector Vector) ScalarMulByElement(a Vector, b *fr.Element) {
+	if len(a) != len(vector) {
+		panic("vector.ScalarMulByElement: vectors don't have the same length")
+	}
+	if len(vector) == 0 {
+		return
+	}
+
+	// for this one, since mul by element scales each coordinates, we cast a to a fr.Vector,
+	// and call the already optimized fr.Vector.ScalarMul
+	M := len(a) * 4
+	vBase := fr.Vector(unsafe.Slice((*fr.Element)(unsafe.Pointer(&a[0])), M))
+	vRes := fr.Vector(unsafe.Slice((*fr.Element)(unsafe.Pointer(&vector[0])), M))
+	vRes.ScalarMul(vBase, b)
 }
 
 // Exp sets vector[i] = a[i]ᵏ for all i
@@ -632,5 +735,26 @@ func vectorMulAccByElementGeneric(v Vector, scale []fr.Element, alpha *E4) {
 	for i := 0; i < len(v); i++ {
 		tmp.MulByElement(alpha, &scale[i])
 		v[i].Add(&v[i], &tmp)
+	}
+}
+
+func vectorInnerProductByElementGeneric(a Vector, b fr.Vector) E4 {
+	var res, tmp E4
+	for i := 0; i < len(a); i++ {
+		tmp.MulByElement(&a[i], &b[i])
+		res.Add(&res, &tmp)
+	}
+	return res
+}
+
+func vectorMulByElementGeneric(res, a Vector, b fr.Vector) {
+	for i := 0; i < len(res); i++ {
+		res[i].MulByElement(&a[i], &b[i])
+	}
+}
+
+func vectorButterflyGeneric(a, b Vector) {
+	for i := 0; i < len(a); i++ {
+		Butterfly(&a[i], &b[i])
 	}
 }
