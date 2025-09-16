@@ -10,7 +10,10 @@ import (
 	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
-// BatchEvalFextPolyLagrange evaluates extension field polynomials in Lagrange basis
+// BatchEvalFextPolyLagrange evaluates extension field polynomials in Lagrange basis at the same point x
+//
+// Key optimization: The Lagrange basis {L₀(x), L₁(x), ..., Lₙ₋₁(x)} is computed once and reused
+// for all polynomials, making batch evaluation significantly more efficient than individual evaluations.
 func BatchEvalFextPolyLagrange(polys [][]fext.E4, x fext.E4, oncoset ...bool) ([]fext.E4, error) {
 
 	if len(polys) == 0 {
@@ -40,7 +43,10 @@ func BatchEvalFextPolyLagrange(polys [][]fext.E4, x fext.E4, oncoset ...bool) ([
 	return results, nil
 }
 
-// BatchEvalBasePolyLagrange evaluates base field polynomials in Lagrange basis, returning extension field results
+// BatchEvalBasePolyLagrange evaluates base field polynomials in Lagrange basis at the same point x, returning extension field results
+//
+// Key optimization: The Lagrange basis {L₀(x), L₁(x), ..., Lₙ₋₁(x)} is computed once and reused
+// for all polynomials, making batch evaluation significantly more efficient than individual evaluations.
 func BatchEvalBasePolyLagrange(polys [][]koalabear.Element, x fext.E4, oncoset ...bool) ([]fext.E4, error) {
 
 	if len(polys) == 0 {
