@@ -80,6 +80,13 @@ func (z *E4) SetOne() *E4 {
 	return z
 }
 
+// Lift sets the B0.A0 component of z to v
+func (z *E4) Lift(v *fr.Element) *E4 {
+	*z = E4{}
+	z.B0.A0.Set(v)
+	return z
+}
+
 // MulByElement multiplies an element in E4 by an element in fr
 func (z *E4) MulByElement(x *E4, y *fr.Element) *E4 {
 	z.B0.MulByElement(&x.B0, y)
@@ -573,6 +580,15 @@ func vectorInnerProductGeneric(a, b Vector) E4 {
 	return res
 }
 
+func vectorInnerProductByElementGeneric(a Vector, b fr.Vector) E4 {
+	var res, tmp E4
+	for i := 0; i < len(a); i++ {
+		tmp.MulByElement(&a[i], &b[i])
+		res.Add(&res, &tmp)
+	}
+	return res
+}
+
 func vectorSumGeneric(v Vector) E4 {
 	var sum E4
 	for i := 0; i < len(v); i++ {
@@ -587,15 +603,6 @@ func vectorMulAccByElementGeneric(v Vector, scale []fr.Element, alpha *E4) {
 		tmp.MulByElement(alpha, &scale[i])
 		v[i].Add(&v[i], &tmp)
 	}
-}
-
-func vectorInnerProductByElementGeneric(a Vector, b fr.Vector) E4 {
-	var res, tmp E4
-	for i := 0; i < len(a); i++ {
-		tmp.MulByElement(&a[i], &b[i])
-		res.Add(&res, &tmp)
-	}
-	return res
 }
 
 func vectorMulByElementGeneric(res, a Vector, b fr.Vector) {
