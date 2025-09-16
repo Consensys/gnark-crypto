@@ -18,6 +18,30 @@ func randomPoly(size int) []koalabear.Element {
 	return res
 }
 
+func TestComputeLagrangeBasisAtX(t *testing.T) {
+
+	n := 8
+	g, _ := fft.Generator(8)
+	var ge, gi fext.E4
+	ge.Lift(&g)
+	gi.SetOne()
+
+	expected := make([]fext.E4, n)
+	for i := 0; i < n; i++ {
+		expected[i].SetOne()
+		cc, _ := computeLagrangeBasisAtX(n, gi)
+		for j := 0; j < n; j++ {
+
+			if !cc[j].Equal(&expected[j]) {
+				t.Fatal("error computeLagrangeBasisAtX")
+			}
+		}
+		expected[i].SetZero()
+		gi.Mul(&gi, &ge)
+	}
+
+}
+
 func randomPolyExt(size int) []fext.E4 {
 	res := make([]fext.E4, size)
 	for i := range res {
