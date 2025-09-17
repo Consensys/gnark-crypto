@@ -16,7 +16,7 @@ import (
 
 var errWrongSize = errors.New("wrong size buffer")
 var errRBiggerThanRMod = errors.New("r >= r_mod")
-var errSBiggerThanRMod = errors.New("s >= r_mod")
+var errSBiggerThanHalfRMod = errors.New("s > r_mod/2")
 var errZero = errors.New("zero value")
 
 // Bytes returns the binary representation of the public key. The serialization
@@ -109,7 +109,8 @@ func (sig *Signature) Bytes() []byte {
 //
 // It returns an error if:
 // * the buffer is shorter than the expected signature size
-// * r or s are not in the interval [1, r_mod-1] (to avoid malleability)
+// * r is not in the interval [1, r_mod-1] (to avoid malleability)
+// * s is not in the interval [1, (r_mod-1)/2] (to avoid malleability)
 //
 // Any excess bytes in the input buffer are ignored. The method returns the number of bytes
 // read.
@@ -134,8 +135,11 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	if bufBigInt.Cmp(zero) == 0 {
 		return 0, errZero
 	}
-	if bufBigInt.Cmp(frMod) != -1 {
-		return 0, errSBiggerThanRMod
+	bHalfR := new(big.Int)
+	bHalfR.Rsh(order, 1)
+
+	if bufBigInt.Cmp(bHalfR) == 1 {
+		return 0, errSBiggerThanHalfRMod
 	}
 
 	subtle.ConstantTimeCopy(1, sig.R[:], buf[:sizeFr])
