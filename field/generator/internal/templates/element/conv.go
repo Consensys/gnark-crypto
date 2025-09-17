@@ -102,7 +102,7 @@ func (z *{{.ElementName}}) IsNonNeg() bool {
 		panic("nil pointer")
 	}
 
-	const maxUint16 = 65535
+	const maxUint16 = q - 1>>1
 
 	var zzNeg {{.ElementName}}
 	zzNeg.Neg(z)
