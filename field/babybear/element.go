@@ -600,12 +600,12 @@ func (z *Element) IsNonNeg() bool {
 		panic("nil pointer")
 	}
 
-	const maxUint16 = q - 1>>1
+	const maxVal = q - 1>>1
 
 	var zzNeg Element
 	zzNeg.Neg(z)
 	zzNeg.fromMont()
-	if zzNeg[0] <= maxUint16 && zzNeg[0] != 0 {
+	if zzNeg[0] <= maxVal && zzNeg[0] != 0 {
 		return false
 	} else {
 		return true
