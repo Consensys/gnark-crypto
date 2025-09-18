@@ -6,13 +6,19 @@
 package extensions
 
 import (
+	"bytes"
+	"encoding/binary"
+	"io"
 	"math/bits"
+	"slices"
+	"strings"
 	"unsafe"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
+// Vector represents a vector of E4 elements
 type Vector []E4
 
 func (vector Vector) Add(a, b Vector) {
@@ -309,6 +315,177 @@ func (vector Vector) MulAccByElement(scale []fr.Element, alpha *E4) {
 		return
 	}
 	mulAccByElement_avx512(alpha, &scale[0], &vector[0], uint64(N))
+}
+
+// Equal checks whether two vectors are equal
+func (vector Vector) Equal(other Vector) bool {
+	return slices.Equal(vector, other)
+}
+
+// Len is the number of elements in the collection.
+func (vector Vector) Len() int {
+	return len(vector)
+}
+
+// Less reports whether the element with
+// index i should sort before the element with index j.
+func (vector Vector) Less(i, j int) bool {
+	return vector[i].Cmp(&vector[j]) == -1
+}
+
+// Swap swaps the elements with indexes i and j.
+func (vector Vector) Swap(i, j int) {
+	vector[i], vector[j] = vector[j], vector[i]
+}
+
+// String implements fmt.Stringer interface
+func (vector Vector) String() string {
+	var sbb strings.Builder
+	sbb.Grow(len(vector) * 16)
+	sbb.WriteByte('[')
+	for i := 0; i < len(vector); i++ {
+		sbb.WriteString(vector[i].String())
+		if i != len(vector)-1 {
+			sbb.WriteByte(',')
+		}
+	}
+	sbb.WriteByte(']')
+	return sbb.String()
+}
+
+// MarshalBinary implements encoding.BinaryMarshaler
+func (vector *Vector) MarshalBinary() (data []byte, err error) {
+	var buf bytes.Buffer
+
+	if _, err = vector.WriteTo(&buf); err != nil {
+		return
+	}
+	return buf.Bytes(), nil
+}
+
+// UnmarshalBinary implements encoding.BinaryUnmarshaler
+func (vector *Vector) UnmarshalBinary(data []byte) error {
+	r := bytes.NewReader(data)
+	_, err := vector.ReadFrom(r)
+	return err
+}
+
+// WriteTo implements io.WriterTo and writes a vector of big endian encoded Element.
+// Length of the vector is encoded as a uint32 on the first 4 bytes.
+func (vector *Vector) WriteTo(w io.Writer) (int64, error) {
+
+	// encode slice length
+	if err := binary.Write(w, binary.BigEndian, uint32(len(*vector))); err != nil {
+		return 0, err
+	}
+
+	n := int64(4)
+
+	const e4Bytes = 4 * fr.Bytes
+	buf := make([]byte, len(*vector)*e4Bytes)
+
+	for i := 0; i < len(*vector); i++ {
+		offset := i * e4Bytes
+		fr.BigEndian.PutElement((*[fr.Bytes]byte)(buf[offset+0*fr.Bytes:offset+1*fr.Bytes]), (*vector)[i].B0.A0)
+		fr.BigEndian.PutElement((*[fr.Bytes]byte)(buf[offset+1*fr.Bytes:offset+2*fr.Bytes]), (*vector)[i].B0.A1)
+		fr.BigEndian.PutElement((*[fr.Bytes]byte)(buf[offset+2*fr.Bytes:offset+3*fr.Bytes]), (*vector)[i].B1.A0)
+		fr.BigEndian.PutElement((*[fr.Bytes]byte)(buf[offset+3*fr.Bytes:offset+4*fr.Bytes]), (*vector)[i].B1.A1)
+	}
+
+	m, err := w.Write(buf)
+	n += int64(m)
+	if err != nil {
+		return n, err
+	}
+	return n, nil
+}
+
+// AsyncReadFrom reads a vector of big endian encoded Element.
+// Length of the vector must be encoded as a uint32 on the first 4 bytes.
+// It consumes the needed bytes from the reader and returns the number of bytes read and an error if any.
+// It also returns a channel that will be closed when the validation is done.
+// The validation consist of checking that the elements are smaller than the modulus, and
+// converting them to montgomery form.
+func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) {
+
+	chErr := make(chan error, 1)
+	var bufSizeSlice [4]byte
+	if read, err := io.ReadFull(r, bufSizeSlice[:]); err != nil {
+		close(chErr)
+		return int64(read), err, chErr
+	}
+	sliceLen := binary.BigEndian.Uint32(bufSizeSlice[:])
+
+	n := int64(4)
+	(*vector) = make(Vector, sliceLen)
+	if sliceLen == 0 {
+		close(chErr)
+		return n, nil, chErr
+	}
+
+	const e4Bytes = 4 * fr.Bytes
+
+	bSlice := unsafe.Slice((*byte)(unsafe.Pointer(&(*vector)[0])), sliceLen*uint32(e4Bytes))
+	read, err := io.ReadFull(r, bSlice)
+	n += int64(read)
+	if err != nil {
+		close(chErr)
+		return n, err, chErr
+	}
+
+	go func() {
+
+		setCoord := func(b *[fr.Bytes]byte) (fr.Element, bool) {
+			e, err := fr.BigEndian.Element(b)
+			if err != nil {
+				chErr <- err
+				close(chErr)
+				return e, false
+			}
+			return e, true
+		}
+
+		var ok bool
+		for i := 0; i < int(sliceLen); i++ {
+
+			bstart := i * e4Bytes
+			bend := bstart + e4Bytes
+			b := bSlice[bstart:bend]
+
+			(*vector)[i].B0.A0, ok = setCoord((*[fr.Bytes]byte)(b[0*fr.Bytes:]))
+			if !ok {
+				return
+			}
+			(*vector)[i].B0.A1, ok = setCoord((*[fr.Bytes]byte)(b[1*fr.Bytes:]))
+			if !ok {
+				return
+			}
+			(*vector)[i].B1.A0, ok = setCoord((*[fr.Bytes]byte)(b[2*fr.Bytes:]))
+			if !ok {
+				return
+			}
+			(*vector)[i].B1.A1, ok = setCoord((*[fr.Bytes]byte)(b[3*fr.Bytes:]))
+			if !ok {
+				return
+			}
+
+		}
+
+		close(chErr)
+	}()
+	return n, nil, chErr
+}
+
+// ReadFrom implements io.ReaderFrom and reads a vector of big endian encoded Element.
+// Length of the vector must be encoded as a uint32 on the first 4 bytes.
+func (vector *Vector) ReadFrom(r io.Reader) (int64, error) {
+
+	// call the async version and wait for the channel to be closed
+	n, err, chErr := vector.AsyncReadFrom(r)
+	if err != nil {
+		return n, err
+	}
+	return n, <-chErr
 }
 
 func vectorAddGeneric(res, a, b Vector) {
