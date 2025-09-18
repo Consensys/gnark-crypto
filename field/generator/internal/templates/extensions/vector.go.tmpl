@@ -473,7 +473,7 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) { //
 
 	const e4Bytes = 4 * fr.Bytes
 
-	bSlice := unsafe.Slice((*byte)(unsafe.Pointer(&(*vector)[0])), sliceLen*uint32(e4Bytes))
+	bSlice := unsafe.Slice((*byte)(unsafe.Pointer(&(*vector)[0])), int(sliceLen)*e4Bytes)
 	read, err := io.ReadFull(r, bSlice)
 	n += int64(read)
 	if err != nil {
