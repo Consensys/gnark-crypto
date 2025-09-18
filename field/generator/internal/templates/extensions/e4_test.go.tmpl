@@ -4,6 +4,9 @@ import (
 	"github.com/leanovate/gopter/prop"
 	"os"
 	"math/big"
+	"reflect"
+	"sort"
+	"bytes"
 
 	fr "{{ .FieldPackagePath }}"
 	"fmt"
@@ -617,6 +620,81 @@ func TestVectorEmptyOps(t *testing.T) {
 	assert.True(inner.IsZero())
 }
 
+
+func TestVectorSort(t *testing.T) {
+	assert := require.New(t)
+
+	v := make(Vector, 3)
+	v[0].B0.A0.SetUint64(2)
+	v[1].B0.A0.SetUint64(3)
+	v[2].B0.A0.SetUint64(1)
+
+	expected := make(Vector, 3)
+	expected[0].B0.A0.SetUint64(1)
+	expected[1].B0.A0.SetUint64(2)
+	expected[2].B0.A0.SetUint64(3)
+	
+	assert.False(v.Equal(expected))
+
+	sort.Sort(v)
+
+	assert.True(v.Equal(expected))
+}
+
+func TestVectorRoundTrip(t *testing.T) {
+	assert := require.New(t)
+
+	v1 := make(Vector, 3)
+	v1[0].MustSetRandom()
+	v1[1].MustSetRandom()
+	v1[2].MustSetRandom()
+
+	b, err := v1.MarshalBinary()
+	assert.NoError(err)
+
+	var v2, v3 Vector
+
+	err = v2.UnmarshalBinary(b)
+	assert.NoError(err)
+
+	err = v3.unmarshalBinaryAsync(b)
+	assert.NoError(err)
+
+	assert.True(reflect.DeepEqual(v1, v2))
+	assert.True(reflect.DeepEqual(v3, v2))
+}
+
+func TestVectorEmptyRoundTrip(t *testing.T) {
+	assert := require.New(t)
+
+	v1 := make(Vector, 0)
+
+	b, err := v1.MarshalBinary()
+	assert.NoError(err)
+
+	var v2, v3 Vector
+
+	err = v2.UnmarshalBinary(b)
+	assert.NoError(err)
+
+	err = v3.unmarshalBinaryAsync(b)
+	assert.NoError(err)
+
+	assert.True(reflect.DeepEqual(v1, v2))
+	assert.True(reflect.DeepEqual(v3, v2))
+}
+
+
+func (vector *Vector) unmarshalBinaryAsync(data []byte) error {
+	r := bytes.NewReader(data)
+	_, err, chErr := vector.AsyncReadFrom(r)
+	if err != nil {
+		return err
+	}
+	return <-chErr
+}
+
+
 // ------------------------------------------------------------
 // benches
 
@@ -790,6 +868,53 @@ func BenchmarkVectorOps(b *testing.B) {
 		})
 	}
 }
+
+
+
+func BenchmarkVectorSerialization(b *testing.B) {
+	const N = 1 << 15
+	a1 := make(Vector, N)
+	for i := 1; i < N; i++ {
+		a1[i-1].MustSetRandom()
+	}
+	b.Run("MarshalBinary", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := a1.MarshalBinary()
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	data, err := a1.MarshalBinary()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.Run("UnmarshalBinary", func(b *testing.B) {
+		var a2 Vector
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			err := a2.UnmarshalBinary(data)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+	
+	b.Run("unmarshalBinaryAsync", func(b *testing.B) {
+		var a2 Vector
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			err := a2.unmarshalBinaryAsync(data)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
+
 func genZeroVector(size int) gopter.Gen {
 	return func(*gopter.GenParameters) *gopter.GenResult {
 		return gopter.NewGenResult(make(Vector, size), gopter.NoShrinker)
@@ -851,3 +976,5 @@ func genFrVector(size int) gopter.Gen {
 		return gopter.NewGenResult(v, gopter.NoShrinker)
 	}
 }
+
+
