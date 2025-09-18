@@ -397,6 +397,7 @@ func (vector *Vector) WriteTo(w io.Writer) (int64, error) {
 	if err != nil {
 		return n, err
 	}
+
 	return n, nil
 }
 
