@@ -29,7 +29,7 @@ func TestComputeLagrangeBasisAtX(t *testing.T) {
 	expected := make([]fext.E4, n)
 	for i := 0; i < n; i++ {
 		expected[i].SetOne()
-		cc, _ := computeLagrangeBasisAtX(n, gi)
+		cc, _ := ComputeLagrangeBasisAtX(n, gi)
 		for j := 0; j < n; j++ {
 
 			if !cc[j].Equal(&expected[j]) {

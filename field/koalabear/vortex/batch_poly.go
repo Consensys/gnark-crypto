@@ -26,7 +26,7 @@ func BatchEvalFextPolyLagrange(polys [][]fext.E4, x fext.E4, oncoset ...bool) ([
 	}
 
 	n := len(polys[0])
-	lagrangeBasis, err := computeLagrangeBasisAtX(n, x, oncoset...)
+	lagrangeBasis, err := ComputeLagrangeBasisAtX(n, x, oncoset...)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func BatchEvalBasePolyLagrange(polys [][]koalabear.Element, x fext.E4, oncoset .
 	}
 
 	n := len(polys[0])
-	lagrangeBasis, err := computeLagrangeBasisAtX(n, x, oncoset...)
+	lagrangeBasis, err := ComputeLagrangeBasisAtX(n, x, oncoset...)
 	if err != nil {
 		return nil, err
 	}
@@ -75,8 +75,8 @@ func BatchEvalBasePolyLagrange(polys [][]koalabear.Element, x fext.E4, oncoset .
 	return results, nil
 }
 
-// computeLagrangeBasisAtX computes (Lᵢ(x))_{i<n} and numerator for Lagrange basis evaluation
-func computeLagrangeBasisAtX(n int, x fext.E4, oncoset ...bool) ([]fext.E4, error) {
+// ComputeLagrangeBasisAtX computes (Lᵢ(x))_{i<n} and numerator for Lagrange basis evaluation
+func ComputeLagrangeBasisAtX(n int, x fext.E4, oncoset ...bool) ([]fext.E4, error) {
 
 	generator, _ := fft.Generator(uint64(n))
 	generatorInv := new(koalabear.Element).Inverse(&generator)
@@ -100,25 +100,25 @@ func computeLagrangeBasisAtX(n int, x fext.E4, oncoset ...bool) ([]fext.E4, erro
 	numerator.Inverse(&numerator)
 
 	// compute x-1, x/ω-1, x/ω²-1, ...
-	res := make([]fext.E4, n)
+	res := make(fext.Vector, n)
 	res[0] = x
 	for i := 1; i < n; i++ {
 		res[i].MulByElement(&res[i-1], generatorInv)
 	}
+	isRootOfUnity := -1
 	for i := range res {
 		res[i].B0.A0.Sub(&res[i].B0.A0, &one)
 		if res[i].IsZero() { // it means that x is a root of unity
-			for j := 0; j < n; j++ {
-				if j == i {
-					res[i].SetOne()
-					continue
-				}
-				res[j].SetZero()
-			}
-			return res, nil
+			isRootOfUnity = i
+			break
 		}
-		res[i].Mul(&res[i], &numerator)
 	}
+	if isRootOfUnity != -1 {
+		res = make(fext.Vector, n)
+		res[isRootOfUnity].SetOne()
+		return res, nil
+	}
+	res.ScalarMul(res, &numerator)
 
 	// 1/(x-1), 1/(x/ω-1), 1/(x/ω²-1), ...
 	res = fext.BatchInvertE4(res)
