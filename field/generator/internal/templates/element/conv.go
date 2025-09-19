@@ -102,7 +102,7 @@ func (z *{{.ElementName}}) IsNonNeg() bool {
 		panic("nil pointer")
 	}
 
-	const maxVal = q - 1>>1
+	const maxVal = (q - 1) >> 1
 
 	var zzNeg {{.ElementName}}
 	zzNeg.Neg(z)
