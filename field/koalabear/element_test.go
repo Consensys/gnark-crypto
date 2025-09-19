@@ -263,8 +263,8 @@ func TestElementNonNeg(t *testing.T) {
 	// 1: Should be non-negative
 	one.SetOne()
 
-	// 12345: A small positive value, should be non-negative
-	smallPositive.SetUint64(12345)
+	// 12: Should be non-negative
+	smallPositive.SetUint64(12)
 
 	// q/2: The largest value considered non-negative
 	largestPositive.SetUint64(q >> 1)

@@ -600,11 +600,13 @@ func (z *Element) IsNonNeg() bool {
 	}
 
 	const maxVal = (q - 1) >> 1
-	z.fromMont()
-	if z[0] <= maxVal || z[0] == 0 {
-		return true
-	} else {
+	var zzNeg Element
+	zzNeg.Neg(z)
+	zzNeg.fromMont()
+	if zzNeg[0] <= maxVal && zzNeg[0] != 0 {
 		return false
+	} else {
+		return true
 	}
 }
 
