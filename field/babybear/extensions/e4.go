@@ -12,8 +12,6 @@ import (
 	fr "github.com/consensys/gnark-crypto/field/babybear"
 )
 
-type Vector []E4
-
 // E4 is a degree two finite field extension of fr2
 type E4 struct {
 	B0, B1 E2
@@ -76,6 +74,13 @@ func (z *E4) SetZero() *E4 {
 func (z *E4) SetOne() *E4 {
 	*z = E4{}
 	z.B0.A0.SetOne()
+	return z
+}
+
+// Lift sets the B0.A0 component of z to v
+func (z *E4) Lift(v *fr.Element) *E4 {
+	*z = E4{}
+	z.B0.A0.Set(v)
 	return z
 }
 
@@ -390,146 +395,4 @@ func Butterfly(a, b *E4) {
 
 	fr.Butterfly(&a.B1.A0, &b.B1.A0)
 	fr.Butterfly(&a.B1.A1, &b.B1.A1)
-}
-
-// Vector operations
-
-func (vector Vector) Add(a, b Vector) {
-	N := len(a)
-	if N != len(b) || N != len(vector) {
-		panic("vector.Add: vectors don't have the same length")
-	}
-	vectorAddGeneric(vector, a, b)
-}
-
-func (vector Vector) Sub(a, b Vector) {
-	N := len(a)
-	if N != len(b) || N != len(vector) {
-		panic("vector.Sub: vectors don't have the same length")
-	}
-	vectorSubGeneric(vector, a, b)
-}
-
-func (vector Vector) Mul(a, b Vector) {
-	N := len(a)
-	if N != len(b) || N != len(vector) {
-		panic("vector.Mul: vectors don't have the same length")
-	}
-	vectorMulGeneric(vector, a, b)
-}
-
-func (vector Vector) ScalarMul(a Vector, b *E4) {
-	N := len(a)
-	if N != len(vector) {
-		panic("vector.ScalarMul: vectors don't have the same length")
-	}
-	vectorScalarMulGeneric(vector, a, b)
-}
-
-// Sum computes the sum of all elements in the vector.
-func (vector Vector) Sum() E4 {
-	return vectorSumGeneric(vector)
-}
-
-func (vector Vector) InnerProduct(a Vector) E4 {
-	N := len(vector)
-	if len(a) != N {
-		panic("vector.InnerProduct: vectors don't have the same length")
-	}
-	return vectorInnerProductGeneric(vector, a)
-}
-
-// Exp sets vector[i] = a[i]ᵏ for all i
-func (vector Vector) Exp(a Vector, k int64) {
-	N := len(a)
-	if N != len(vector) {
-		panic("vector.Exp: vectors don't have the same length")
-	}
-	if k == 0 {
-		for i := range vector {
-			vector[i].SetOne()
-		}
-		return
-	}
-	base := a
-	exp := k
-	if k < 0 {
-		// call batch inverse
-		base = BatchInvertE4(a)
-		exp = -k // if k == math.MinInt64, -k overflows, but uint64(-k) is correct
-	} else if N > 0 {
-		// ensure that vector and a are not the same slice; else we need to copy a into base
-		v0 := &vector[0] // #nosec G602 we check that N > 0 above
-		a0 := &a[0]      // #nosec G602 we check that N > 0 above
-		if v0 == a0 {
-			base = make(Vector, N)
-			copy(base, a)
-		}
-	}
-
-	copy(vector, base)
-
-	// Use bits.Len64 to iterate only over significant bits
-	for i := bits.Len64(uint64(exp)) - 2; i >= 0; i-- {
-		vector.Mul(vector, vector)
-		if (uint64(exp)>>uint(i))&1 != 0 {
-			vector.Mul(vector, base)
-		}
-	}
-}
-
-// MulAccByElement multiplies each element of the vector v by the E4 element alpha,
-// accumulating the result in the same vector.
-func (vector Vector) MulAccByElement(scale []fr.Element, alpha *E4) {
-	N := len(vector)
-	if N != len(scale) {
-		panic("MulAccByElement: len(vector) != len(scale)")
-	}
-	vectorMulAccByElementGeneric(vector, scale, alpha)
-}
-
-func vectorAddGeneric(res, a, b Vector) {
-	for i := 0; i < len(res); i++ {
-		res[i].Add(&a[i], &b[i])
-	}
-}
-func vectorSubGeneric(res, a, b Vector) {
-	for i := 0; i < len(res); i++ {
-		res[i].Sub(&a[i], &b[i])
-	}
-}
-func vectorMulGeneric(res, a, b Vector) {
-	for i := 0; i < len(res); i++ {
-		res[i].Mul(&a[i], &b[i])
-	}
-}
-func vectorScalarMulGeneric(res, a Vector, b *E4) {
-	for i := 0; i < len(res); i++ {
-		res[i].Mul(&a[i], b)
-	}
-}
-
-func vectorInnerProductGeneric(a, b Vector) E4 {
-	var res, tmp E4
-	for i := 0; i < len(a); i++ {
-		tmp.Mul(&a[i], &b[i])
-		res.Add(&res, &tmp)
-	}
-	return res
-}
-
-func vectorSumGeneric(v Vector) E4 {
-	var sum E4
-	for i := 0; i < len(v); i++ {
-		sum.Add(&sum, &v[i])
-	}
-	return sum
-}
-
-func vectorMulAccByElementGeneric(v Vector, scale []fr.Element, alpha *E4) {
-	var tmp E4
-	for i := 0; i < len(v); i++ {
-		tmp.MulByElement(alpha, &scale[i])
-		v[i].Add(&v[i], &tmp)
-	}
 }

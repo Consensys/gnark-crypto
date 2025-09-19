@@ -401,6 +401,10 @@ func GenerateF31E4(w io.Writer) error {
 	f.generateMulVecE4(e4VecScalarMul)
 	f.generateMulVecE4(e4VecInnerProd)
 	f.generateSumVecE4()
+	f.generateMulVecElementE4()
+	f.generateButterflyVecE4()
+	f.generateButterflyPairVecE4()
+	f.generateInnerProdByElementE4()
 
 	return nil
 

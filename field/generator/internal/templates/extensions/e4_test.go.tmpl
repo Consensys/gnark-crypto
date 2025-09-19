@@ -4,6 +4,9 @@ import (
 	"github.com/leanovate/gopter/prop"
 	"os"
 	"math/big"
+	"reflect"
+	"sort"
+	"bytes"
 
 	fr "{{ .FieldPackagePath }}"
 	"fmt"
@@ -417,6 +420,106 @@ func TestVectorOps(t *testing.T) {
 				gp.g1,
 				gp.g2,
 			))
+
+			properties.Property(fmt.Sprintf("vector scalar multiplication by element %d - %s", size, gp.label), prop.ForAll(
+				func(a Vector, b fr.Element) bool {
+					c := make(Vector, len(a))
+					c.ScalarMulByElement(a, &b)
+					for i := 0; i < len(a); i++ {
+						var tmp E4
+						tmp.MulByElement(&a[i], &b)
+						if !tmp.Equal(&c[i]) {
+							return false
+						}
+					}
+					return true
+				},
+				gp.g1,
+				genFr(),
+			))
+
+			properties.Property(fmt.Sprintf("vector multiplication by element %d - %s", size, gp.label), prop.ForAll(
+				func(a Vector, b fr.Vector) bool {
+					c := make(Vector, len(a))
+					c.MulByElement(a, b)
+					for i := 0; i < len(a); i++ {
+						var tmp E4
+						tmp.MulByElement(&a[i], &b[i])
+						if !tmp.Equal(&c[i]) {
+							return false
+						}
+					}
+					return true
+				},
+				gp.g1,
+				genFrVector(size),
+			))
+
+			// checking that in-place butterfly works as intended;
+			properties.Property(fmt.Sprintf("vector butterfly %d - %s", size, gp.label), prop.ForAll(
+				func(a, b Vector) bool {
+					if len(a) != len(b) {
+						return false
+					}
+					c := make(Vector, len(a))
+					d := make(Vector, len(a))
+					copy(c, a)
+					copy(d, b)
+					c.Butterfly(d)
+					for i := range a {
+						Butterfly(&a[i], &b[i])
+					}
+					for i := range a {
+						if !a[i].Equal(&c[i]) {
+							return false
+						}
+						if !b[i].Equal(&d[i]) {
+							return false 
+						}
+					}
+					return true
+				},
+				genVector(256),
+				genVector(256),
+			))
+
+			properties.Property(fmt.Sprintf("vector butterfly pair %d - %s", size, gp.label), prop.ForAll(
+				func(a Vector) bool {
+					if len(a)%2 != 0 {
+						return true // skip odd-sized vectors
+					}
+					c := make(Vector, len(a))
+					copy(c, a)
+					c.ButterflyPair()
+					for i := 0; i < len(a); i += 2 {
+						var x, y E4
+						x.Set(&a[i])
+						y.Set(&a[i+1])
+						Butterfly(&x, &y)
+						if !c[i].Equal(&x) || !c[i+1].Equal(&y) {
+							return false
+						}
+					}
+					return true
+				},
+				gp.g1,
+			))
+
+			properties.Property(fmt.Sprintf("vector inner product by element %d - %s", size, gp.label), prop.ForAll(
+				func(a Vector, b fr.Vector) bool {
+					computed := a.InnerProductByElement(b)
+					var innerProduct E4
+					for i := 0; i < len(a); i++ {
+						var tmp E4
+						tmp.MulByElement(&a[i], &b[i])
+						innerProduct.Add(&innerProduct, &tmp)
+					}
+					return innerProduct.Equal(&computed)
+				},
+				gp.g1,
+				genFrVector(size),
+			))
+
 		}
 	}
 
@@ -517,6 +620,81 @@ func TestVectorEmptyOps(t *testing.T) {
 	assert.True(inner.IsZero())
 }
 
+
+func TestVectorSort(t *testing.T) {
+	assert := require.New(t)
+
+	v := make(Vector, 3)
+	v[0].B0.A0.SetUint64(2)
+	v[1].B0.A0.SetUint64(3)
+	v[2].B0.A0.SetUint64(1)
+
+	expected := make(Vector, 3)
+	expected[0].B0.A0.SetUint64(1)
+	expected[1].B0.A0.SetUint64(2)
+	expected[2].B0.A0.SetUint64(3)
+	
+	assert.False(v.Equal(expected))
+
+	sort.Sort(v)
+
+	assert.True(v.Equal(expected))
+}
+
+func TestVectorRoundTrip(t *testing.T) {
+	assert := require.New(t)
+
+	v1 := make(Vector, 3)
+	v1[0].MustSetRandom()
+	v1[1].MustSetRandom()
+	v1[2].MustSetRandom()
+
+	b, err := v1.MarshalBinary()
+	assert.NoError(err)
+
+	var v2, v3 Vector
+
+	err = v2.UnmarshalBinary(b)
+	assert.NoError(err)
+
+	err = v3.unmarshalBinaryAsync(b)
+	assert.NoError(err)
+
+	assert.True(reflect.DeepEqual(v1, v2))
+	assert.True(reflect.DeepEqual(v3, v2))
+}
+
+func TestVectorEmptyRoundTrip(t *testing.T) {
+	assert := require.New(t)
+
+	v1 := make(Vector, 0)
+
+	b, err := v1.MarshalBinary()
+	assert.NoError(err)
+
+	var v2, v3 Vector
+
+	err = v2.UnmarshalBinary(b)
+	assert.NoError(err)
+
+	err = v3.unmarshalBinaryAsync(b)
+	assert.NoError(err)
+
+	assert.True(reflect.DeepEqual(v1, v2))
+	assert.True(reflect.DeepEqual(v3, v2))
+}
+
+
+func (vector *Vector) unmarshalBinaryAsync(data []byte) error {
+	r := bytes.NewReader(data)
+	_, err, chErr := vector.AsyncReadFrom(r)
+	if err != nil {
+		return err
+	}
+	return <-chErr
+}
+
+
 // ------------------------------------------------------------
 // benches
 
@@ -613,15 +791,18 @@ func BenchmarkVectorOps(b *testing.B) {
 	a1 := make(Vector, N)
 	b1 := make(Vector, N)
 	c1 := make(Vector, N)
+	b2 := make(fr.Vector, N)
 	for i := 1; i < N; i++ {
 		a1[i-1].MustSetRandom()
 		b1[i-1].MustSetRandom()
+		b2[i-1].MustSetRandom()
 	}
 
 	for n := 4; n <= N; n <<= 1 {
 		_a := a1[:n]
 		_b := b1[:n]
 		_c := c1[:n]
+		_b2 := b2[:n]
 
 		b.Run(fmt.Sprintf("add %d", n), func(b *testing.B) {
 			b.ResetTimer()
@@ -658,6 +839,13 @@ func BenchmarkVectorOps(b *testing.B) {
 			}
 		})
 
+		b.Run(fmt.Sprintf("innerProductByElement %d", n), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = _a.InnerProductByElement(_b2)
+			}
+		})
+
 		b.Run(fmt.Sprintf("mul %d", n), func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
@@ -680,6 +868,53 @@ func BenchmarkVectorOps(b *testing.B) {
 		})
 	}
 }
+
+
+
+func BenchmarkVectorSerialization(b *testing.B) {
+	const N = 1 << 15
+	a1 := make(Vector, N)
+	for i := 1; i < N; i++ {
+		a1[i-1].MustSetRandom()
+	}
+	b.Run("MarshalBinary", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, err := a1.MarshalBinary()
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	data, err := a1.MarshalBinary()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.Run("UnmarshalBinary", func(b *testing.B) {
+		var a2 Vector
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			err := a2.UnmarshalBinary(data)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+	
+	b.Run("unmarshalBinaryAsync", func(b *testing.B) {
+		var a2 Vector
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			err := a2.unmarshalBinaryAsync(data)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
+
 func genZeroVector(size int) gopter.Gen {
 	return func(*gopter.GenParameters) *gopter.GenResult {
 		return gopter.NewGenResult(make(Vector, size), gopter.NoShrinker)
@@ -725,3 +960,21 @@ func genE4() gopter.Gen {
 			return E4{B0: values[0].(E2), B1: values[1].(E2)}
 	})
 }
+
+
+func genFrVector(size int) gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		v := make(fr.Vector, size)
+		gen := genFr()
+		for i := range v {
+			val, ok := gen(genParams).Retrieve()
+			if !ok {
+				panic("genFr failed")
+			}
+			v[i] = val.(fr.Element)
+		}
+		return gopter.NewGenResult(v, gopter.NoShrinker)
+	}
+}
+
+
