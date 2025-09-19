@@ -8,8 +8,10 @@ package extensions
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/consensys/gnark-crypto/internal/parallel"
 	"io"
 	"math/bits"
+	"runtime"
 	"slices"
 	"strings"
 	"unsafe"
@@ -338,6 +340,61 @@ func (vector *Vector) ReadFrom(r io.Reader) (int64, error) {
 		return n, err
 	}
 	return n, <-chErr
+}
+
+// PrefixProduct computes the prefix product of the vector in place.
+// i.e. vector[i] = vector[0] * vector[1] * ... * vector[i]
+// If nbTasks > 1, it uses nbTasks goroutines to compute the prefix product in parallel.
+// If nbTasks is not provided, it uses the number of CPU cores.
+func (vector Vector) PrefixProduct(nbTasks ...int) {
+	N := len(vector)
+	if N < 2 {
+		return
+	}
+
+	if N < 512 {
+		vector.prefixProductGeneric()
+		return
+	}
+
+	// Use one worker per available CPU core.
+	numWorkers := runtime.GOMAXPROCS(0)
+	if len(nbTasks) == 1 && nbTasks[0] > 0 && nbTasks[0] < numWorkers {
+		numWorkers = nbTasks[0]
+	}
+
+	for N/numWorkers < 64 && numWorkers > 1 {
+		numWorkers >>= 1
+	}
+	numWorkers = max(1, numWorkers)
+
+	// --- PASS 1: Calculate prefix product for each chunk independently ---
+	parallel.Execute(N, func(start, stop int) {
+		// This is the original sequential algorithm applied to the smaller chunk.
+		for j := start + 1; j < stop; j++ {
+			vector[j].Mul(&vector[j], &vector[j-1])
+		}
+	}, numWorkers)
+
+	chunks := parallel.Chunks(N, numWorkers)
+
+	// the first chunk is correct, we need to update the other chunks
+	for i := 1; i < len(chunks); i++ {
+		// take last value from previous chunk
+		prevChunkEnd := chunks[i-1][1] - 1
+		multiplier := vector[prevChunkEnd]
+		// multiply all values in current chunk by this value
+		start, stop := chunks[i][0], chunks[i][1]
+		subVector := vector[start:stop]
+		subVector.ScalarMul(subVector, &multiplier)
+	}
+
+}
+
+func (vector Vector) prefixProductGeneric() {
+	for i := 1; i < len(vector); i++ {
+		vector[i].Mul(&vector[i], &vector[i-1])
+	}
 }
 
 func vectorAddGeneric(res, a, b Vector) {

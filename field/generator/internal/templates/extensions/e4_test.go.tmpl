@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"reflect"
 	"sort"
+	"runtime"
 	"bytes"
 
 	fr "{{ .FieldPackagePath }}"
@@ -600,6 +601,49 @@ func TestVectorExp(t *testing.T) {
 	
 }
 
+// prefixProductGeneric computes the prefix product of the vector in place (single-threaded).
+func prefixProductGeneric(vector Vector) {
+	if len(vector) == 0 {
+		return
+	}
+	for i := 1; i < len(vector); i++ {
+		vector[i].Mul(&vector[i-1], &vector[i])
+	}
+}
+
+func randomVector(size int) Vector {
+	v := make(Vector, size)
+	for i := range v {
+		v[i].MustSetRandom()
+	}
+	return v
+}
+
+func TestPrefixProduct_EmptyVector(t *testing.T) {
+	assert := require.New(t)
+	v := make(Vector, 0)
+	expected := make(Vector, 0)
+	prefixProductGeneric(expected)
+	v.PrefixProduct()
+	assert.Equal(expected, v)
+}
+
+func TestPrefixProduct_VariousNbTasks(t *testing.T) {
+	assert := require.New(t)
+	sizes := []int{1, 2, 256, 1024}
+	nbTasksList := []int{1, 16, 32, runtime.NumCPU()}
+	for _, size := range sizes {
+		for _, nbTasks := range nbTasksList {
+			v := randomVector(size)
+			expected := make(Vector, size)
+			copy(expected, v)
+			prefixProductGeneric(expected)
+			v.PrefixProduct(nbTasks)
+			assert.Equal(expected, v, "size=%d nbTasks=%d", size, nbTasks)
+		}
+	}
+}
+
 
 func TestVectorEmptyOps(t *testing.T) {
 	assert := require.New(t)
@@ -869,6 +913,28 @@ func BenchmarkVectorOps(b *testing.B) {
 	}
 }
 
+func BenchmarkPrefixProduct(b *testing.B) {
+	const N = 1 << 19
+	a1 := make(Vector, N)
+	for i := 0; i < N; i++ {
+		a1[i].MustSetRandom()
+	}
+
+	b.Run("generic", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			prefixProductGeneric(a1)
+		}
+	})
+
+	b.Run("PrefixProduct", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			a1.PrefixProduct()
+		}
+	})
+
+}
 
 
 func BenchmarkVectorSerialization(b *testing.B) {
