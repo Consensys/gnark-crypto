@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"runtime"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"sync"
 
 	fr "{{ .FieldPackagePath }}"
 	{{- if .IsKoalaBear}}
@@ -573,18 +574,33 @@ func (vector Vector) PrefixProduct(nbTasks ...int) {
 		}
 	}, numWorkers)
 
+	// get the chunk indices
 	chunks := parallel.Chunks(N, numWorkers)
 
-	// the first chunk is correct, we need to update the other chunks
+	// Compute multipliers for each chunk (product of all previous chunks)
+	multipliers := make([]E4, len(chunks))
+	multipliers[0].SetOne()
 	for i := 1; i < len(chunks); i++ {
-		// take last value from previous chunk
-		prevChunkEnd := chunks[i-1][1] - 1
-		multiplier := vector[prevChunkEnd]
-		// multiply all values in current chunk by this value
-		start, stop := chunks[i][0], chunks[i][1]
-		subVector := vector[start:stop]
-		subVector.ScalarMul(subVector, &multiplier)
+		multipliers[i].SetOne()
+		for j := 0; j < i; j++ {
+			prevChunkEnd := chunks[j][1] - 1
+			multipliers[i].Mul(&multipliers[i], &vector[prevChunkEnd])
+		}
 	}
+
+	// propagate the multipliers to each chunk in parallel
+	// note: the first chunk is not modified (multiplier is 1)
+	var wg sync.WaitGroup
+	wg.Add(len(chunks) - 1)
+	for i := 1; i < len(chunks); i++ {
+		go func(i int) {
+			defer wg.Done()
+			start, stop := chunks[i][0], chunks[i][1]
+			subVector := vector[start:stop]
+			subVector.ScalarMul(subVector, &multipliers[i])
+		}(i)
+	}
+	wg.Wait()
 
 }
 
