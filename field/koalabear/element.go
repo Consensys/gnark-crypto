@@ -595,20 +595,16 @@ func (z *Element) Text(base int) string {
 
 // IsNonNeg returns if an element is non negative
 func (z *Element) IsNonNeg() bool {
-
 	if z == nil {
 		panic("nil pointer")
 	}
 
 	const maxVal = (q - 1) >> 1
-
-	var zzNeg Element
-	zzNeg.Neg(z)
-	zzNeg.fromMont()
-	if zzNeg[0] <= maxVal && zzNeg[0] != 0 {
-		return false
-	} else {
+	z.fromMont()
+	if z[0] <= maxVal || z[0] == 0 {
 		return true
+	} else {
+		return false
 	}
 }
 

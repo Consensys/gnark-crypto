@@ -309,20 +309,42 @@ func Test{{toTitle .ElementName}}NegZero(t *testing.T) {
 
 {{- if eq $.NbWords 1}}
 func Test{{toTitle .ElementName}}NonNeg(t *testing.T) {
-	var pos, neg, zero {{.ElementName}}
-	pos.SetString("2")
-	neg.SetString("-1")
+	var zero, one, smallPositive, largestPositive, smallestNegative, pMinusOne {{.ElementName}}
+	// 0: Should be non-negative
 	zero.SetZero()
-	if !pos.IsNonNeg() {
-		t.Fatal("pos should be non negative")
-	}
 
-	if neg.IsNonNeg() {
-		t.Fatal("neg should not be non negative")
-	}
+	// 1: Should be non-negative
+	one.SetOne()
 
-	if !pos.IsNonNeg() {
+	// 12345: A small positive value, should be non-negative
+	smallPositive.SetUint64(12345)
+
+	// q/2: The largest value considered non-negative
+	largestPositive.SetUint64(q >> 1)
+
+	// q/2 + 1: The smallest value considered negative
+	smallestNegative.SetUint64(q>>1 + 1)
+
+	// q-1: should be negative
+	pMinusOne.SetUint64(q - 1)
+
+	if !zero.IsNonNeg() {
 		t.Fatal("zero should be non negative")
+	}
+	if !one.IsNonNeg() {
+		t.Fatal("one should be non negative")
+	}
+	if !smallPositive.IsNonNeg() {
+		t.Fatal("smallPositive should be non negative")
+	}
+	if !largestPositive.IsNonNeg() {
+		t.Fatal("largestPositive should be non negative")
+	}
+	if smallestNegative.IsNonNeg() {
+		t.Fatal("smallestNegative should be negative")
+	}
+	if pMinusOne.IsNonNeg() {
+		t.Fatal("pMinusOne should be negative")
 	}
 }
 {{- end}}
