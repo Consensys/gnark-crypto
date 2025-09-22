@@ -102,14 +102,9 @@ func (z *{{.ElementName}}) IsNonNeg() bool {
 	}
 
 	const maxVal = (q - 1) >> 1
-	var zzNeg {{.ElementName}}
-	zzNeg.Neg(z)
-	zzNeg.fromMont()
-	if zzNeg[0] <= maxVal && zzNeg[0] != 0 {
-		return false
-	} else {
-		return true
-	}
+	zpos := *z
+	zpos.fromMont()
+	return zpos[0] <= maxVal
 }
 {{- end}}
 
