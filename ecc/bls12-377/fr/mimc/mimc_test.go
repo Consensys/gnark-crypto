@@ -142,4 +142,11 @@ func TestFieldHasher(t *testing.T) {
 	_dgst3 := h3.SumElement()
 	dgst3 := _dgst3.Bytes()
 	assert.Equal(dgst1, dgst3[:], "hashes do not match")
+
+	// test SumElements
+	h3.Reset()
+	_dgst3 = h3.SumElements(randInputs)
+	dgst3 = _dgst3.Bytes()
+	assert.Equal(dgst1, dgst3[:], "hashes do not match")
+
 }
