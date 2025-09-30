@@ -116,3 +116,30 @@ func TestSetState(t *testing.T) {
 		}
 	}
 }
+
+func TestFieldHasher(t *testing.T) {
+	assert := require.New(t)
+
+	h1 := mimc.NewMiMC()
+	h2 := mimc.NewMiMC()
+	h3 := mimc.NewMiMC()
+	randInputs := make(fr.Vector, 10)
+	randInputs.MustSetRandom()
+
+	for i := range randInputs {
+		h1.Write(randInputs[i].Marshal())
+		h2.WriteElement(randInputs[i])
+	}
+	dgst1 := h1.Sum(nil)
+	dgst2 := h2.Sum(nil)
+	assert.Equal(dgst1, dgst2, "hashes do not match")
+
+	// test SumElement
+	h3.WriteElement(randInputs[0])
+	for i := 1; i < len(randInputs); i++ {
+		h3.Write(randInputs[i].Marshal())
+	}
+	_dgst3 := h3.SumElement()
+	dgst3 := _dgst3.Bytes()
+	assert.Equal(dgst1, dgst3[:], "hashes do not match")
+}
