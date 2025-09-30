@@ -17,6 +17,14 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+type FieldHasher interface {
+	hash.StateStorer
+	WriteElement(e fr.Element)
+	SumElement() fr.Element
+}
+
+var _ FieldHasher = NewMiMC()
+
 func init() {
 	hash.RegisterHash(hash.MIMC_BN254, func() stdhash.Hash {
 		return NewMiMC()
@@ -54,7 +62,7 @@ func GetConstants() []big.Int {
 }
 
 // NewMiMC returns a MiMC implementation, pure Go reference implementation.
-func NewMiMC(opts ...Option) hash.StateStorer {
+func NewMiMC(opts ...Option) FieldHasher {
 	d := new(digest)
 	d.Reset()
 	cfg := mimcOptions(opts...)
@@ -72,10 +80,17 @@ func (d *digest) Reset() {
 // It does not change the underlying hash state.
 func (d *digest) Sum(b []byte) []byte {
 	buffer := d.checksum()
-	d.data = nil // flush the data already hashed
+	d.data = d.data[:0]
 	hash := buffer.Bytes()
 	b = append(b, hash[:]...)
 	return b
+}
+
+// SumElement returns the current hash as a field element.
+func (d *digest) SumElement() fr.Element {
+	r := d.checksum()
+	d.data = d.data[:0]
+	return r
 }
 
 // BlockSize returns the hash's underlying block size.
@@ -122,6 +137,11 @@ func (d *digest) Write(p []byte) (int, error) {
 		return 0, errors.New("invalid input length: must represent a list of field elements, expects a []byte of len m*BlockSize")
 	}
 	return len(p), nil
+}
+
+// WriteElement adds a field element to the running hash.
+func (d *digest) WriteElement(e fr.Element) {
+	d.data = append(d.data, e)
 }
 
 // Hash hash using Miyaguchi-Preneel:
