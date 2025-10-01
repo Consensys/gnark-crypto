@@ -17,6 +17,31 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+// FieldHasher is an interface for a hash function that operates on field elements
+type FieldHasher interface {
+	hash.StateStorer
+
+	// WriteElement adds a field element to the running hash.
+	WriteElement(e fr.Element)
+
+	// SumElement returns the current hash as a field element.
+	SumElement() fr.Element
+
+	// SumElements returns the current hash as a field element,
+	// after hashing all the provided elements (in addition to the already hashed ones).
+	// This is a convenience method to avoid multiple calls to WriteElement
+	// followed by a call to SumElement.
+	// It is equivalent to:
+	//   for _, e := range elems {
+	//       h.WriteElement(e)
+	//   }
+	//   return h. SumElement()
+	//
+	// This avoids copying the elements into the data slice and
+	// is more efficient.
+	SumElements([]fr.Element) fr.Element
+}
+
 func init() {
 	hash.RegisterHash(hash.MIMC_BLS12_377, func() stdhash.Hash {
 		return NewMiMC()
@@ -53,6 +78,17 @@ func GetConstants() []big.Int {
 	return res
 }
 
+// NewFieldHasher returns a FieldHasher (works with typed field elements, not bytes)
+func NewFieldHasher(opts ...Option) FieldHasher {
+	r := NewMiMC(opts...)
+	return r.(FieldHasher)
+}
+
+// NewBinaryHasher returns a hash.StateStorer (works with bytes, not typed field elements)
+func NewBinaryHasher(opts ...Option) hash.StateStorer {
+	return NewMiMC(opts...)
+}
+
 // NewMiMC returns a MiMC implementation, pure Go reference implementation.
 func NewMiMC(opts ...Option) hash.StateStorer {
 	d := new(digest)
@@ -72,10 +108,17 @@ func (d *digest) Reset() {
 // It does not change the underlying hash state.
 func (d *digest) Sum(b []byte) []byte {
 	buffer := d.checksum()
-	d.data = nil // flush the data already hashed
+	d.data = d.data[:0]
 	hash := buffer.Bytes()
 	b = append(b, hash[:]...)
 	return b
+}
+
+// SumElement returns the current hash as a field element.
+func (d *digest) SumElement() fr.Element {
+	r := d.checksum()
+	d.data = d.data[:0]
+	return r
 }
 
 // BlockSize returns the hash's underlying block size.
@@ -124,6 +167,11 @@ func (d *digest) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// WriteElement adds a field element to the running hash.
+func (d *digest) WriteElement(e fr.Element) {
+	d.data = append(d.data, e)
+}
+
 // Hash hash using Miyaguchi-Preneel:
 // https://en.wikipedia.org/wiki/One-way_compression_function
 // The XOR operation is replaced by field addition, data is in Montgomery form
@@ -141,6 +189,32 @@ func (d *digest) checksum() fr.Element {
 		d.h.Add(&r, &d.h).Add(&d.h, &d.data[i])
 	}
 
+	return d.h
+}
+
+// SumElements returns the current hash as a field element,
+// after hashing all the provided elements (in addition to the already hashed ones).
+// This is a convenience method to avoid multiple calls to WriteElement
+// followed by a call to SumElement.
+// It is equivalent to:
+//
+//	for _, e := range elems {
+//	    h.WriteElement(e)
+//	}
+//	return h. SumElement()
+//
+// This avoids copying the elements into the data slice and
+// is more efficient.
+func (d *digest) SumElements(elems []fr.Element) fr.Element {
+	for i := range d.data {
+		r := d.encrypt(d.data[i])
+		d.h.Add(&r, &d.h).Add(&d.h, &d.data[i])
+	}
+	for i := range elems {
+		r := d.encrypt(elems[i])
+		d.h.Add(&r, &d.h).Add(&d.h, &elems[i])
+	}
+	d.data = d.data[:0]
 	return d.h
 }
 
