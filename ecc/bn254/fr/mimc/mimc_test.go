@@ -120,9 +120,9 @@ func TestSetState(t *testing.T) {
 func TestFieldHasher(t *testing.T) {
 	assert := require.New(t)
 
-	h1 := mimc.NewMiMC()
-	h2 := mimc.NewMiMC()
-	h3 := mimc.NewMiMC()
+	h1 := mimc.NewFieldHasher()
+	h2 := mimc.NewFieldHasher()
+	h3 := mimc.NewFieldHasher()
 	randInputs := make(fr.Vector, 10)
 	randInputs.MustSetRandom()
 

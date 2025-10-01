@@ -17,6 +17,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+// FieldHasher is an interface for a hash function that operates on field elements
 type FieldHasher interface {
 	hash.StateStorer
 
@@ -40,8 +41,6 @@ type FieldHasher interface {
 	// is more efficient.
 	SumElements([]fr.Element) fr.Element
 }
-
-var _ FieldHasher = NewMiMC()
 
 func init() {
 	hash.RegisterHash(hash.MIMC_GRUMPKIN, func() stdhash.Hash {
@@ -79,8 +78,19 @@ func GetConstants() []big.Int {
 	return res
 }
 
+// NewFieldHasher returns a FieldHasher (works with typed field elements, not bytes)
+func NewFieldHasher(opts ...Option) FieldHasher {
+	r := NewMiMC(opts...)
+	return r.(FieldHasher)
+}
+
+// NewBinaryHasher returns a hash.StateStorer (works with bytes, not typed field elements)
+func NewBinaryHasher(opts ...Option) hash.StateStorer {
+	return NewMiMC(opts...)
+}
+
 // NewMiMC returns a MiMC implementation, pure Go reference implementation.
-func NewMiMC(opts ...Option) FieldHasher {
+func NewMiMC(opts ...Option) hash.StateStorer {
 	d := new(digest)
 	d.Reset()
 	cfg := mimcOptions(opts...)
