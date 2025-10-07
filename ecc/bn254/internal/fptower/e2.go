@@ -220,7 +220,7 @@ func (z *E2) Sqrt(a *E2) *E2 {
 
 	t0.Double(&x0)
 
-	x1.ExpBySqrtExp2(&t0)
+	x1.ExpBySqrtExp2(t0)
 
 	x0.Mul(&x0, &x1)
 

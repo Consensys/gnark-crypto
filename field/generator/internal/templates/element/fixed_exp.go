@@ -4,6 +4,7 @@ const FixedExp = `
 
 {{- if .SqrtQ3Mod4}}
 	{{expByAddChain "SqrtExp" .SqrtQ3Mod4ExponentData .ElementName}}
+	{{expByAddChain "SqrtExp2" .SqrtQ3Mod4ExponentData2 .ElementName}}
 {{- else if .SqrtAtkin}}
 	{{expByAddChain "SqrtExp" .SqrtAtkinExponentData .ElementName}}
 {{- else if .SqrtTonelliShanks}}

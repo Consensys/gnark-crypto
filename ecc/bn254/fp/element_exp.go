@@ -408,7 +408,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 // ExpBySqrtExp2 is equivalent to z.Exp(x, c19139cb84c680a6e14116da060561765e05aa45a1c72a34f082305b61f3f51)
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *Element) ExpBySqrtExp2(x *Element) *Element {
+func (z *Element) ExpBySqrtExp2(x Element) *Element {
 	// addition chain:
 	//
 	//	_10       = 2*1
@@ -480,17 +480,18 @@ func (z *Element) ExpBySqrtExp2(x *Element) *Element {
 		t20 = new(Element)
 	)
 
+	// var t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15,t16,t17,t18,t19,t20 Element
 	// Step 1: t7 = x^0x2
-	t7.Square(x)
+	t7.Square(&x)
 
 	// Step 2: t14 = x^0x3
-	t14.Mul(x, t7)
+	t14.Mul(&x, t7)
 
 	// Step 3: t1 = x^0x5
 	t1.Mul(t7, t14)
 
 	// Step 4: t0 = x^0x6
-	t0.Mul(x, t1)
+	t0.Mul(&x, t1)
 
 	// Step 5: t2 = x^0x8
 	t2.Mul(t7, t0)
@@ -502,10 +503,10 @@ func (z *Element) ExpBySqrtExp2(x *Element) *Element {
 	t5.Mul(t1, t8)
 
 	// Step 8: t18 = x^0x13
-	t18.Mul(x, t5)
+	t18.Mul(&x, t5)
 
 	// Step 9: z = x^0x14
-	z.Mul(x, t18)
+	z.Mul(&x, t18)
 
 	// Step 10: t19 = x^0x17
 	t19.Mul(t14, z)
@@ -784,7 +785,7 @@ func (z *Element) ExpBySqrtExp2(x *Element) *Element {
 	}
 
 	// Step 301: z = x^0xc19139cb84c680a6e14116da060561765e05aa45a1c72a34f082305b61f3f51
-	z.Mul(x, z)
+	z.Mul(&x, z)
 
 	return z
 }
