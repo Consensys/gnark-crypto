@@ -200,45 +200,44 @@ func (z *E2) Exp(x E2, k *big.Int) *E2 {
 	return z
 }
 
-func init() {
-	q := fp.Modulus()
-	tmp := big.NewInt(3)
-	sqrtExp1.Set(q).Sub(&sqrtExp1, tmp).Rsh(&sqrtExp1, 2)
-
-	tmp.SetUint64(1)
-	sqrtExp2.Set(q).Sub(&sqrtExp2, tmp).Rsh(&sqrtExp2, 1)
-}
-
-var sqrtExp1, sqrtExp2 big.Int
-
 // Sqrt sets z to the square root of x and returns z
 // The function does not test whether the square root
 // exists or not, it's up to the caller to call
 // Legendre beforehand.
-// cf https://eprint.iacr.org/2012/685.pdf (algo 9)
-func (z *E2) Sqrt(x *E2) *E2 {
+//
+// "Optimized One-Dimensional SQIsign Verification
+// on Intel and Cortex-M4" by Aardal et al.
+// https://eprint.iacr.org/2024/1563.pdf (algo 3)
+func (z *E2) Sqrt(a *E2) *E2 {
+	var delta, x0, x1, t0, t1 fp.Element
 
-	var a1, alpha, b, x0, minusone E2
+	x0.Square(&a.A0)
+	delta.Square(&a.A1).
+		Add(&delta, &x0).
+		ExpBySqrtExp(delta)
 
-	minusone.SetOne().Neg(&minusone)
+	x0.Add(&a.A0, &delta)
 
-	a1.Exp(*x, &sqrtExp1)
-	alpha.Square(&a1).
-		Mul(&alpha, x)
-	x0.Mul(x, &a1)
-	if alpha.Equal(&minusone) {
-		var c fp.Element
-		c.Set(&x0.A0)
-		z.A0.Neg(&x0.A1)
-		z.A1.Set(&c)
+	t0.Double(&x0)
+
+	x1.ExpBySqrtExp2(&t0)
+
+	x0.Mul(&x0, &x1)
+
+	x1.Mul(&a.A1, &x1)
+
+	t1.Double(&x0).
+		Square(&t1)
+
+	if t1.Equal(&t0) {
+		z.A0.Set(&x0)
+		z.A1.Set(&x1)
+		return z
+	} else {
+		z.A0.Set(&x1)
+		z.A1.Neg(&x0)
 		return z
 	}
-	a1.SetOne()
-	b.Add(&a1, &alpha)
-
-	b.Exp(b, &sqrtExp2).Mul(&x0, &b)
-	z.Set(&b)
-	return z
 }
 
 // BatchInvertE2 returns a new slice with every element in a inverted.

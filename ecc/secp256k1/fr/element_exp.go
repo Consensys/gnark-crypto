@@ -5,10 +5,10 @@
 
 package fr
 
-// expBySqrtExp is equivalent to z.Exp(x, 1fffffffffffffffffffffffffffffffd755db9cd5e9140777fa4bd19a06c82)
+// ExpBySqrtExp is equivalent to z.Exp(x, 1fffffffffffffffffffffffffffffffd755db9cd5e9140777fa4bd19a06c82)
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *Element) expBySqrtExp(x Element) *Element {
+func (z *Element) ExpBySqrtExp(x Element) *Element {
 	// addition chain:
 	//
 	//	_10       = 2*1
@@ -343,10 +343,10 @@ func (z *Element) expBySqrtExp(x Element) *Element {
 	return z
 }
 
-// expByLegendreExp is equivalent to z.Exp(x, 7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0)
+// ExpByLegendreExp is equivalent to z.Exp(x, 7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0)
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *Element) expByLegendreExp(x Element) *Element {
+func (z *Element) ExpByLegendreExp(x Element) *Element {
 	// addition chain:
 	//
 	//	_10       = 2*1

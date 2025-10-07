@@ -5,10 +5,10 @@
 
 package fr
 
-// expBySqrtExp is equivalent to z.Exp(x, 39f6d3a994cebea4199cec0404d0ec02a9ded2017fff2dff7fffffff)
+// ExpBySqrtExp is equivalent to z.Exp(x, 39f6d3a994cebea4199cec0404d0ec02a9ded2017fff2dff7fffffff)
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *Element) expBySqrtExp(x Element) *Element {
+func (z *Element) ExpBySqrtExp(x Element) *Element {
 	// addition chain:
 	//
 	//	_10       = 2*1

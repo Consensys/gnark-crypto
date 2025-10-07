@@ -15,11 +15,11 @@ const FixedExp = `
 {{- end}}
 
 {{define "expByAddChain name data eName"}}
-	
-// expBy{{.name}} is equivalent to z.Exp(x, {{ .data.N }})
-// 
+
+// ExpBy{{.name}} is equivalent to z.Exp(x, {{ .data.N }})
+//
 // uses {{ .data.Meta.Module }} {{ .data.Meta.ReleaseTag }} to generate a shorter addition chain
-func (z *{{.eName}}) expBy{{$.name}}(x {{.eName}}) *{{.eName}} {
+func (z *{{.eName}}) ExpBy{{$.name}}(x {{.eName}}) *{{.eName}} {
 	// addition chain:
 	//
 	{{- range lines_ (format_ .data.Script) }}
