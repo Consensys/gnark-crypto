@@ -208,6 +208,12 @@ func (z *E2) Exp(x E2, k *big.Int) *E2 {
 // on Intel and Cortex-M4" by Aardal et al.
 // https://eprint.iacr.org/2024/1563.pdf (algo 3)
 func (z *E2) Sqrt(a *E2) *E2 {
+    if a.A1.IsZero() {
+        z.A0.Sqrt(&a.A0)
+        z.A1.SetZero()
+        return z
+    }
+
 	var delta, x0, x1, t0, t1 fp.Element
 
 	x0.Square(&a.A0)
