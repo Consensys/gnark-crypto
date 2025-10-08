@@ -794,11 +794,12 @@ func BenchmarkE4Square(b *testing.B) {
 }
 
 func BenchmarkE4Sqrt(b *testing.B) {
-	var a E4
+	var a, c E4
 	a.MustSetRandom()
+	a.Square(&a)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.Sqrt(&a)
+		c.Sqrt(&a)
 	}
 }
 

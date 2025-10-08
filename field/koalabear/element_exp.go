@@ -5,10 +5,10 @@
 
 package koalabear
 
-// expBySqrtExp is equivalent to z.Exp(x, 3f)
+// ExpBySqrtExp is equivalent to z.Exp(x, 3f)
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *Element) expBySqrtExp(x Element) *Element {
+func (z *Element) ExpBySqrtExp(x Element) *Element {
 	// addition chain:
 	//
 	//	_10     = 2*1
