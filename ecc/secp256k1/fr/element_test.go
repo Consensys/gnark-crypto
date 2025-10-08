@@ -1674,11 +1674,11 @@ func TestElementFixedExp(t *testing.T) {
 	var _bLegendreExponentElement *big.Int
 	_bLegendreExponentElement, _ = new(big.Int).SetString("7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0", 16)
 
-	properties.Property("expByLegendreExp must match Exp(7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0)", prop.ForAll(
+	properties.Property("ExpByLegendreExp must match Exp(7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0)", prop.ForAll(
 		func(a testPairElement) bool {
 			c := a.element
 			d := a.element
-			c.expByLegendreExp(c)
+			c.ExpByLegendreExp(c)
 			d.Exp(d, _bLegendreExponentElement)
 			return c.Equal(&d)
 		},

@@ -197,7 +197,7 @@ func (z *{{.ElementName}}) Legendre() int {
 	var l {{.ElementName}}
 	// z^((q-1)/2)
 	{{- if .UseAddChain}}
-	l.expByLegendreExp(*z)
+	l.ExpByLegendreExp(*z)
 	{{- else}}
 	l.Exp(*z, _bLegendreExponent{{.ElementName}})
 	{{- end}}

@@ -1161,7 +1161,7 @@ func (littleEndian) String() string { return "LittleEndian" }
 func (z *Element) Legendre() int {
 	var l Element
 	// z^((q-1)/2)
-	l.expByLegendreExp(*z)
+	l.ExpByLegendreExp(*z)
 
 	if l.IsZero() {
 		return 0

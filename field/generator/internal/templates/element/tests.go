@@ -1099,11 +1099,11 @@ func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 	var _bLegendreExponent{{.ElementName}} *big.Int
 	_bLegendreExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.LegendreExponent}}", 16)
 
-	properties.Property("expByLegendreExp must match Exp({{.LegendreExponent}})", prop.ForAll(
+	properties.Property("ExpByLegendreExp must match Exp({{.LegendreExponent}})", prop.ForAll(
 		func(a testPair{{.ElementName}}) bool {
 			c := a.element
 			d := a.element
-			c.expByLegendreExp(c)
+			c.ExpByLegendreExp(c)
 			d.Exp(d, _bLegendreExponent{{.ElementName}})
 			return c.Equal(&d)
 		},
