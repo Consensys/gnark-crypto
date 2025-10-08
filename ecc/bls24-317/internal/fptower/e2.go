@@ -196,34 +196,50 @@ func init() {
 
 var sqrtExp1, sqrtExp2 big.Int
 
-// Sqrt sets z to the square root of and returns z
+// Sqrt sets z to the square root of x and returns z
 // The function does not test whether the square root
 // exists or not, it's up to the caller to call
 // Legendre beforehand.
-// cf https://eprint.iacr.org/2012/685.pdf (algo 9)
-func (z *E2) Sqrt(x *E2) *E2 {
-
-	var a1, alpha, b, x0, minusone E2
-
-	minusone.SetOne().Neg(&minusone)
-
-	a1.Exp(*x, &sqrtExp1)
-	alpha.Square(&a1).
-		Mul(&alpha, x)
-	x0.Mul(x, &a1)
-	if alpha.Equal(&minusone) {
-		var c fp.Element
-		c.Set(&x0.A0)
-		z.A0.Neg(&x0.A1)
-		z.A1.Set(&c)
+//
+// "Optimized One-Dimensional SQIsign Verification
+// on Intel and Cortex-M4" by Aardal et al.
+// https://eprint.iacr.org/2024/1563.pdf (algo 3)
+func (z *E2) Sqrt(a *E2) *E2 {
+	if a.A1.IsZero() {
+		z.A0.Sqrt(&a.A0)
+		z.A1.SetZero()
 		return z
 	}
-	a1.SetOne()
-	b.Add(&a1, &alpha)
 
-	b.Exp(b, &sqrtExp2).Mul(&x0, &b)
-	z.Set(&b)
-	return z
+	var delta, x0, x1, t0, t1 fp.Element
+
+	x0.Square(&a.A0)
+	delta.Square(&a.A1).
+		Add(&delta, &x0).
+		ExpBySqrtExp(delta)
+
+	x0.Add(&a.A0, &delta)
+
+	t0.Double(&x0)
+
+	x1.ExpBySqrtExp2(t0)
+
+	x0.Mul(&x0, &x1)
+
+	x1.Mul(&a.A1, &x1)
+
+	t1.Double(&x0).
+		Square(&t1)
+
+	if t1.Equal(&t0) {
+		z.A0.Set(&x0)
+		z.A1.Set(&x1)
+		return z
+	} else {
+		z.A0.Set(&x1)
+		z.A1.Neg(&x0)
+		return z
+	}
 }
 
 // Select is conditional move.
