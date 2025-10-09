@@ -261,10 +261,12 @@ func (z *E2) Sqrt(x *E2) *E2 {
 	if x1.Legendre() != 1 {
 		x1.Sub(&x.A0, &x0).Halve()
 	}
-	x1.Sqrt(&x1)
+	var inv fp.Element
+	x1.SqrtAndInverse(&x1, &inv)
 	z.A0.Set(&x1)
-	x1.Double(&x1)
-	z.A1.Div(&x.A1, &x1)
+	z.A1.Mul(&x.A1, &inv).
+		Mul(&z.A1, &x1).
+		Halve()
 
 	return z
 }
