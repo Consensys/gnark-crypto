@@ -81,8 +81,12 @@ func computeX(y *fr.Element) (x fr.Element) {
 	den.Mul(&num, &curveParams.D)
 	num.Sub(&one, &num)
 	den.Sub(&curveParams.A, &den)
-	x.Div(&num, &den)
-	x.Sqrt(&x)
+	// x = sqrt(num/den)
+	//   = num^2 * 1/(num^3 * v) * sqrt(num^3 * v)
+	x.Square(&num).Mul(&x, &num).Mul(&x, &den)
+	x.SqrtAndInverse(&x, &den)
+	num.Square(&num)
+	x.Mul(&x, &den).Mul(&x, &num)
 	return
 }
 

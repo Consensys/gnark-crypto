@@ -718,6 +718,20 @@ func GenBigInt() gopter.Gen {
 // ------------------------------------------------------------
 // benches
 
+func BenchmarkUnmarshal(b *testing.B) {
+	params := GetEdwardsCurve()
+	var a PointAffine
+	var s big.Int
+	s.SetString("52435875175126190479447705081859658376581184513", 10)
+	a.ScalarMultiplication(&params.Base, &s)
+	buf := a.Marshal()
+
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		a.Unmarshal(buf)
+	}
+}
+
 func BenchmarkProjEqual(b *testing.B) {
 	params := GetEdwardsCurve()
 
