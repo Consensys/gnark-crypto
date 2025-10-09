@@ -342,19 +342,10 @@ func (z *E2) MulByNonResidueInv(x *E2) *E2 {
 
 // Inverse sets z to the E2-inverse of x, returns z
 func (z *E2) Inverse(x *E2) *E2 {
-	// Algorithm 8 from https://eprint.iacr.org/2010/354.pdf
-	var t0, t1, tmp fr.Element
-	a := &x.A0 // creating the buffers a, b is faster than querying &x.A0, &x.A1 in the functions call below
-	b := &x.A1
-	t0.Square(a)
-	t1.Square(b)
-	tmp.Set(&t1)
-	MulBy7(&tmp)
-	t0.Sub(&t0, &tmp)
-	t1.Inverse(&t0)
-	z.A0.Mul(a, &t1)
-	z.A1.Mul(b, &t1).Neg(&z.A1)
-
+	var norm fr.Element
+	x.norm(&norm)
+	norm.Inverse(&norm)
+	z.Conjugate(x).MulByElement(z, &norm)
 	return z
 }
 

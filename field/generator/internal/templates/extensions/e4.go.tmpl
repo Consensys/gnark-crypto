@@ -194,17 +194,10 @@ func (z *E4) Square(x *E4) *E4 {
 //
 // if x == 0, sets and returns z = x
 func (z *E4) Inverse(x *E4) *E4 {
-	// Algorithm 23 from https://eprint.iacr.org/2010/354.pdf
-
-	var t0, t1, tmp E2
-	t0.Square(&x.B0)
-	t1.Square(&x.B1)
-	tmp.MulByNonResidue(&t1)
-	t0.Sub(&t0, &tmp)
-	t1.Inverse(&t0)
-	z.B0.Mul(&x.B0, &t1)
-	z.B1.Mul(&x.B1, &t1).Neg(&z.B1)
-
+	var norm E2
+	x.norm(&norm)
+	norm.Inverse(&norm)
+	z.Conjugate(x).MulByE2(z, &norm)
 	return z
 }
 
@@ -389,4 +382,3 @@ func Butterfly(a, b *E4) {
 	fr.Butterfly(&a.B1.A0, &b.B1.A0)
 	fr.Butterfly(&a.B1.A1, &b.B1.A1)
 }
-
