@@ -905,7 +905,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 
 	var y, b, t, w Element
 	// w = x^((s-1)/2))
-	w.expBySqrtExp(*x)
+	w.ExpBySqrtExp(*x)
 
 	// y = x^((s+1)/2)) = w * x
 	y.Mul(x, &w)

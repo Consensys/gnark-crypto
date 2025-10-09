@@ -428,11 +428,12 @@ func BenchmarkE2Square(b *testing.B) {
 }
 
 func BenchmarkE2Sqrt(b *testing.B) {
-	var a E2
+	var a, c E2
 	a.MustSetRandom()
+    a.Square(&a)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.Sqrt(&a)
+		c.Sqrt(&a)
 	}
 }
 
@@ -519,7 +520,7 @@ func genFr() gopter.Gen {
 		// to have a deterministic generator.
 		e := bigIntPool.Get().(*big.Int)
 		e.Rand(genParams.Rng, modulus)
-		
+
 		for i, w := range e.Bits() {
 			{{- if or (eq .FF "babybear") (eq .FF "koalabear")}}
 				elmt[i] = uint32(w)

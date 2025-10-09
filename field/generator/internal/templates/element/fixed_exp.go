@@ -4,6 +4,7 @@ const FixedExp = `
 
 {{- if .SqrtQ3Mod4}}
 	{{expByAddChain "SqrtExp" .SqrtQ3Mod4ExponentData .ElementName}}
+	{{expByAddChain "SqrtExp2" .SqrtQ3Mod4ExponentData2 .ElementName}}
 {{- else if .SqrtAtkin}}
 	{{expByAddChain "SqrtExp" .SqrtAtkinExponentData .ElementName}}
 {{- else if .SqrtTonelliShanks}}
@@ -15,11 +16,11 @@ const FixedExp = `
 {{- end}}
 
 {{define "expByAddChain name data eName"}}
-	
-// expBy{{.name}} is equivalent to z.Exp(x, {{ .data.N }})
-// 
+
+// ExpBy{{.name}} is equivalent to z.Exp(x, {{ .data.N }})
+//
 // uses {{ .data.Meta.Module }} {{ .data.Meta.ReleaseTag }} to generate a shorter addition chain
-func (z *{{.eName}}) expBy{{$.name}}(x {{.eName}}) *{{.eName}} {
+func (z *{{.eName}}) ExpBy{{$.name}}(x {{.eName}}) *{{.eName}} {
 	// addition chain:
 	//
 	{{- range lines_ (format_ .data.Script) }}
