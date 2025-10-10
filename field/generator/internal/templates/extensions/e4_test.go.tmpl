@@ -185,6 +185,18 @@ func TestE4Ops(t *testing.T) {
 		genB,
 	))
 
+	properties.Property("[{{.FF}}] BatchInvertE4 and BatchInvertE4Parallel should output the same result", prop.ForAll(
+		func(a, b, c E4) bool {
+
+			batch1 := BatchInvertE4([]E4{a, b, c})
+			batch2 := BatchInvertE4Parallel([]E4{a, b, c})
+			return batch1[0].Equal(&batch2[0]) && batch1[1].Equal(&batch2[1]) && batch1[2].Equal(&batch2[2])
+		},
+		genA,
+		genA,
+		genB,
+	))
+
 	properties.Property("[{{.FF}}] inverse twice should leave an element invariant", prop.ForAll(
 		func(a E4) bool {
 			var b E4
@@ -475,7 +487,7 @@ func TestVectorOps(t *testing.T) {
 							return false
 						}
 						if !b[i].Equal(&d[i]) {
-							return false 
+							return false
 						}
 					}
 					return true
@@ -598,7 +610,7 @@ func TestVectorExp(t *testing.T) {
 		assert.True(expNegOne[i].Equal(&inv), "Exp(x, -1) should be inverse for all elements")
 	}
 
-	
+
 }
 
 // prefixProductGeneric computes the prefix product of the vector in place (single-threaded).
@@ -647,7 +659,7 @@ func TestPrefixProduct_VariousNbTasks(t *testing.T) {
 
 func TestVectorEmptyOps(t *testing.T) {
 	assert := require.New(t)
-	
+
 	var sum, inner, scalar E4
 	scalar.MustSetRandom()
 	empty := make(Vector, 0)
@@ -677,7 +689,7 @@ func TestVectorSort(t *testing.T) {
 	expected[0].B0.A0.SetUint64(1)
 	expected[1].B0.A0.SetUint64(2)
 	expected[2].B0.A0.SetUint64(3)
-	
+
 	assert.False(v.Equal(expected))
 
 	sort.Sort(v)
@@ -741,6 +753,28 @@ func (vector *Vector) unmarshalBinaryAsync(data []byte) error {
 
 // ------------------------------------------------------------
 // benches
+
+func BenchmarkE4BatchInvert(b *testing.B) {
+    const N = 1 << 13
+	a := make([]E4, N)
+	for i := range a {
+		a[i].MustSetRandom()
+	}
+
+	b.Run("Sequential Montgomery", func(b *testing.B) {
+        b.ResetTimer()
+        for i := 0; i < b.N; i++ {
+            _ = BatchInvertE4(a)
+        }
+	})
+
+	b.Run("Parallel inverses", func(b *testing.B) {
+		b.ResetTimer()
+        for i := 0; i < b.N; i++ {
+            _ = BatchInvertE4Parallel(a)
+        }
+	})
+}
 
 func BenchmarkE4Add(b *testing.B) {
 	var a, c E4
@@ -968,7 +1002,7 @@ func BenchmarkVectorSerialization(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("unmarshalBinaryAsync", func(b *testing.B) {
 		var a2 Vector
 		b.ResetTimer()
@@ -1042,5 +1076,3 @@ func genFrVector(size int) gopter.Gen {
 		return gopter.NewGenResult(v, gopter.NoShrinker)
 	}
 }
-
-

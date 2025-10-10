@@ -192,6 +192,18 @@ func TestE4Ops(t *testing.T) {
 		genB,
 	))
 
+	properties.Property("[babybear] BatchInvertE4 and BatchInvertE4Parallel should output the same result", prop.ForAll(
+		func(a, b, c E4) bool {
+
+			batch1 := BatchInvertE4([]E4{a, b, c})
+			batch2 := BatchInvertE4Parallel([]E4{a, b, c})
+			return batch1[0].Equal(&batch2[0]) && batch1[1].Equal(&batch2[1]) && batch1[2].Equal(&batch2[2])
+		},
+		genA,
+		genA,
+		genB,
+	))
+
 	properties.Property("[babybear] inverse twice should leave an element invariant", prop.ForAll(
 		func(a E4) bool {
 			var b E4
@@ -742,6 +754,28 @@ func (vector *Vector) unmarshalBinaryAsync(data []byte) error {
 
 // ------------------------------------------------------------
 // benches
+
+func BenchmarkE4BatchInvert(b *testing.B) {
+	const N = 1 << 13
+	a := make([]E4, N)
+	for i := range a {
+		a[i].MustSetRandom()
+	}
+
+	b.Run("Sequential Montgomery", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = BatchInvertE4(a)
+		}
+	})
+
+	b.Run("Parallel inverses", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = BatchInvertE4Parallel(a)
+		}
+	})
+}
 
 func BenchmarkE4Add(b *testing.B) {
 	var a, c E4

@@ -10,6 +10,7 @@ import (
 	"math/bits"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
+	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
 // E4 is a degree two finite field extension of fr2
@@ -201,17 +202,10 @@ func (z *E4) Square(x *E4) *E4 {
 //
 // if x == 0, sets and returns z = x
 func (z *E4) Inverse(x *E4) *E4 {
-	// Algorithm 23 from https://eprint.iacr.org/2010/354.pdf
-
-	var t0, t1, tmp E2
-	t0.Square(&x.B0)
-	t1.Square(&x.B1)
-	tmp.MulByNonResidue(&t1)
-	t0.Sub(&t0, &tmp)
-	t1.Inverse(&t0)
-	z.B0.Mul(&x.B0, &t1)
-	z.B1.Mul(&x.B1, &t1).Neg(&z.B1)
-
+	var norm E2
+	x.norm(&norm)
+	norm.Inverse(&norm)
+	z.Conjugate(x).MulByE2(z, &norm)
 	return z
 }
 
@@ -343,6 +337,19 @@ func (z *E4) Sqrt(x *E4) *E4 {
 	z.Conjugate(&b).Mul(z, &_g).Mul(z, &e)
 
 	return z
+}
+
+// BatchInvertE4Parallel returns a new slice with every element in a inverted.
+// It uses parallel E4 inverses.
+func BatchInvertE4Parallel(a []E4) []E4 {
+	n := len(a)
+	res := make([]E4, n)
+	parallel.Execute(n, func(start, end int) {
+		for i := start; i < end; i++ {
+			res[i].Inverse(&a[i])
+		}
+	})
+	return res
 }
 
 // BatchInvertE4 returns a new slice with every element in a inverted.
