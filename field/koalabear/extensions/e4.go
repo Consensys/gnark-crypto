@@ -10,6 +10,7 @@ import (
 	"math/bits"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
+	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
 // E4 is a degree two finite field extension of fr2
@@ -343,6 +344,21 @@ func (z *E4) Sqrt(x *E4) *E4 {
 //
 // if a[i] == 0, returns result[i] = a[i]
 func BatchInvertE4(a []E4) []E4 {
+	n := len(a)
+	res := make([]E4, n)
+	parallel.Execute(n, func(start, end int) {
+		for i := start; i < end; i++ {
+			res[i].Inverse(&a[i])
+		}
+	})
+	return res
+}
+
+// batchInvertE4 returns a new slice with every element in a inverted.
+// It uses Montgomery batch inversion trick.
+//
+// if a[i] == 0, returns result[i] = a[i]
+func batchInvertE4(a []E4) []E4 {
 	res := make([]E4, len(a))
 	if len(a) == 0 {
 		return res

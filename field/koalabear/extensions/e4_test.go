@@ -743,6 +743,17 @@ func (vector *Vector) unmarshalBinaryAsync(data []byte) error {
 // ------------------------------------------------------------
 // benches
 
+func BenchmarkE4BatchInvert(b *testing.B) {
+	a := make([]E4, 1<<10)
+	for i := range a {
+		a[i].MustSetRandom()
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = BatchInvertE4(a)
+	}
+}
+
 func BenchmarkE4Add(b *testing.B) {
 	var a, c E4
 	a.MustSetRandom()
