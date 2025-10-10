@@ -339,11 +339,9 @@ func (z *E4) Sqrt(x *E4) *E4 {
 	return z
 }
 
-// BatchInvertE4 returns a new slice with every element in a inverted.
-// It uses Montgomery batch inversion trick.
-//
-// if a[i] == 0, returns result[i] = a[i]
-func BatchInvertE4(a []E4) []E4 {
+// BatchInvertE4Parallel returns a new slice with every element in a inverted.
+// It uses parallel E4 inverses.
+func BatchInvertE4Parallel(a []E4) []E4 {
 	n := len(a)
 	res := make([]E4, n)
 	parallel.Execute(n, func(start, end int) {
@@ -354,11 +352,11 @@ func BatchInvertE4(a []E4) []E4 {
 	return res
 }
 
-// batchInvertE4 returns a new slice with every element in a inverted.
+// BatchInvertE4 returns a new slice with every element in a inverted.
 // It uses Montgomery batch inversion trick.
 //
 // if a[i] == 0, returns result[i] = a[i]
-func batchInvertE4(a []E4) []E4 {
+func BatchInvertE4(a []E4) []E4 {
 	res := make([]E4, len(a))
 	if len(a) == 0 {
 		return res

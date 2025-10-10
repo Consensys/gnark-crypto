@@ -10,6 +10,7 @@ import (
 	"math/bits"
 
 	fr "github.com/consensys/gnark-crypto/field/babybear"
+	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
 // E4 is a degree two finite field extension of fr2
@@ -336,6 +337,19 @@ func (z *E4) Sqrt(x *E4) *E4 {
 	z.Conjugate(&b).Mul(z, &_g).Mul(z, &e)
 
 	return z
+}
+
+// BatchInvertE4Parallel returns a new slice with every element in a inverted.
+// It uses parallel E4 inverses.
+func BatchInvertE4Parallel(a []E4) []E4 {
+	n := len(a)
+	res := make([]E4, n)
+	parallel.Execute(n, func(start, end int) {
+		for i := start; i < end; i++ {
+			res[i].Inverse(&a[i])
+		}
+	})
+	return res
 }
 
 // BatchInvertE4 returns a new slice with every element in a inverted.
