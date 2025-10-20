@@ -7,7 +7,6 @@ import (
 	"testing"
 	"github.com/stretchr/testify/require"
 	"sort"
-	"reflect"
 	"bytes"
 	"os"
 	"fmt"
@@ -48,8 +47,8 @@ func TestVectorRoundTrip(t *testing.T) {
 	err = v3.unmarshalBinaryAsync(b)
 	assert.NoError(err)
 
-	assert.True(reflect.DeepEqual(v1,v2))
-	assert.True(reflect.DeepEqual(v3,v2))
+	assert.True(v1.Equal(v2), "vectors should be equal")
+	assert.True(v3.Equal(v2), "vectors should be equal")
 }
 
 func TestVectorEmptyRoundTrip(t *testing.T) {
@@ -68,8 +67,8 @@ func TestVectorEmptyRoundTrip(t *testing.T) {
 	err = v3.unmarshalBinaryAsync(b)
 	assert.NoError(err)
 
-	assert.True(reflect.DeepEqual(v1,v2))
-	assert.True(reflect.DeepEqual(v3,v2))
+	assert.True(v1.Equal(v2), "vectors should be equal")
+	assert.True(v3.Equal(v2), "vectors should be equal")
 }
 
 func TestVectorEmptyOps(t *testing.T) {
