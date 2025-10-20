@@ -130,16 +130,19 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) { //
 		// process the elements in parallel
 		execute(int(headerSliceLen), func(start, end int) {
 
-			var z Element
+			var z {{ .ElementName }}
 			for i := start; i < end; i++ {
 				// we have to set vector[i]
 				bstart := i * Bytes
 				bend := bstart + Bytes
 				b := bSlice[bstart:bend]
-				z[0] = binary.BigEndian.Uint64(b[24:32])
-				z[1] = binary.BigEndian.Uint64(b[16:24])
-				z[2] = binary.BigEndian.Uint64(b[8:16])
-				z[3] = binary.BigEndian.Uint64(b[0:8])
+				{{- range $i := reverse .NbWordsIndexesFull}}
+					{{- $j := mul $i $.Word.ByteSize}}
+					{{- $k := sub $.NbWords 1}}
+					{{- $k := sub $k $i}}
+					{{- $jj := add $j $.Word.ByteSize}}
+					z[{{$k}}] = binary.BigEndian.{{$.Word.TypeUpper}}(b[{{$j}}:{{$jj}}])
+				{{- end}}
 
 				if !z.smallerThanModulus() {
 					atomic.AddUint64(&cptErrors, 1)
