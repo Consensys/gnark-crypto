@@ -260,6 +260,19 @@ func (vector Vector) MustSetRandom() {
 	}
 }
 
+// Equal returns true if vector and other have the same length and same elements.
+func (vector Vector) Equal(other Vector) bool {
+	if len(vector) != len(other) {
+		return false
+	}
+	for i := 0; i < len(vector); i++ {
+		if !vector[i].Equal(&other[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 func addVecGeneric(res, a, b Vector) {
 	if len(a) != len(b) || len(a) != len(res) {
 		panic("vector.Add: vectors don't have the same length")
