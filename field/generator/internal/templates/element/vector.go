@@ -12,6 +12,8 @@ import (
 	"sync/atomic"
 	"fmt"
 	"math/bits"
+	"slices"
+	"errors"
 )
 
 // Vector represents a slice of {{.ElementName}}.
@@ -132,33 +134,56 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) { //
 	return n, nil, chErr
 }
 
-// ReadFrom implements io.ReaderFrom and reads a vector of big endian encoded {{.ElementName}}.
-// Length of the vector must be encoded as a uint32 on the first 4 bytes.
+// ReadFrom reads the vector from the reader r. It returns the number of bytes
+// read and an error, if any. The errors can be:
+//   - an error while reading from r (including [io.EOF] i.e. not enough bytes in r);
+//   - when decoding the bytes into elements.
+//
+// The reader can contain more bytes than needed to decode the vector, in which case
+// the extra bytes are ignored. In that case the reader is not seeked nor read further.
+//
+// The method allocates sufficiently large slice to store the vector. If the current slice fits
+// the vector, it is reused, otherwise the slice is grown to fit the vector.
+//
+// The serialized encoding is as follows:
+//   - first 4 bytes: length of the vector as a big-endian uint32
+//   - for each element of the vector, [Bytes] bytes representing the element in big-endian encoding.
+//
+// The method implements [io.ReaderFrom] interface.
 func (vector *Vector) ReadFrom(r io.Reader) (int64, error) {
-
-	var buf [Bytes]byte 
+	var buf [Bytes]byte
 	if read, err := io.ReadFull(r, buf[:4]); err != nil {
-        return int64(read), err 
-    }
-	sliceLen := binary.BigEndian.Uint32(buf[:4])
+		return int64(read), err
+	}
+	headerSliceLen := binary.BigEndian.Uint32(buf[:4])
+	// to avoid allocating too large slice when the header is tampered, we limit
+	// the maximum allocation. We set the target to 4GB. This incurs a performance
+	// hit when reading very large slices, but protects against OOM.
+	maxAllocateSliceLength := (1 << 32) / Bytes // 4GB
 
-    n := int64(4)
-	(*vector) = make(Vector, sliceLen)
+	totalRead := int64(4) // include already the header length
+	*vector = (*vector)[:0]
 
-    for i:=0; i < int(sliceLen); i++ {
-        read, err := io.ReadFull(r, buf[:])
-        n += int64(read)
-        if err != nil {
-            return n, err
-        }
-		(*vector)[i], err = BigEndian.Element(&buf)
-		if err != nil {
-			return n, err
+	for i := 0; i < int(headerSliceLen); i++ {
+		read, err := io.ReadFull(r, buf[:])
+		totalRead += int64(read)
+		if errors.Is(err, io.EOF) {
+			return totalRead, fmt.Errorf("less data than expected: read %d elements, expected %d", i, headerSliceLen)
 		}
-    }
-	
+		if err != nil {
+			return totalRead, fmt.Errorf("error reading element %d: %w", i, err)
+		}
+		if cap(*vector) <= i {
+			(*vector) = slices.Grow(*vector, min(int(headerSliceLen)-i, maxAllocateSliceLength))
+		}
+		el, err := BigEndian.Element(&buf)
+		if err != nil {
+			return totalRead, fmt.Errorf("error decoding element %d: %w", i, err)
+		}
+		*vector = append(*vector, el)
+	}
 
-    return n, nil 
+	return totalRead, nil
 }
 
 // String implements fmt.Stringer interface
