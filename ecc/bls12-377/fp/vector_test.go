@@ -469,6 +469,10 @@ func TestReuseSliceDeserialization(t *testing.T) {
 }
 
 func TestVectorEqualityLarge(t *testing.T) {
+	// this test requres very large memory allocation which is slow and not possible in
+	// small machines. We skip the test even with no-short flag. I have run it locally and
+	// it passes (@ivokub)
+	t.Skip("skipping test that requires large memory allocation")
 	// tests that the vectors equality works for large vectors (with multiple allocations)
 	const size = 1 << 28
 	assert := require.New(t)
