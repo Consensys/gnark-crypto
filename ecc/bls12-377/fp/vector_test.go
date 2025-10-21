@@ -409,6 +409,11 @@ func TestReadMismatchLength(t *testing.T) {
 }
 
 func TestReadLargeHeader(t *testing.T) {
+	// skip the test. Running it on its own requires only up to 4GB of RAM, but
+	// we run tests in parallel in test suite. In that case the RAM usage blows
+	// up quickly and the test OOMs.
+	t.Skip("skipping test that requires large memory allocation")
+
 	// if header is very large (128GB) we don't allocate it directly
 	// at once but rather in smaller chunks and then read it
 	assert := require.New(t)
