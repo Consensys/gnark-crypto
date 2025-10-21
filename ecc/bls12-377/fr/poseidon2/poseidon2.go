@@ -142,6 +142,10 @@ func NewPermutationWithSeed(t, rf, rp int, seed string) *Permutation {
 	return res
 }
 
+func NewDefaultPermutation() *Permutation {
+	return &Permutation{GetDefaultParameters()}
+}
+
 // sBox applies the sBox on buffer[index]
 func (h *Permutation) sBox(index int, input []fr.Element) {
 	var tmp fr.Element
