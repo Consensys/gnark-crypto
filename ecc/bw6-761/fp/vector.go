@@ -70,7 +70,7 @@ func (vector *Vector) WriteTo(w io.Writer) (int64, error) {
 	return n, nil
 }
 
-// AsyncReadFrom implements an asyncronous version of [Vector.ReadFrom]. It
+// AsyncReadFrom implements an asynchronous version of [Vector.ReadFrom]. It
 // reads the reader r in full and then performs the validation and conversion to
 // Montgomery form separately in a goroutine. Any error encountered during
 // reading is returned directly, while errors encountered during

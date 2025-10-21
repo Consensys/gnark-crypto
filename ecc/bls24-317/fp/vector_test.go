@@ -381,7 +381,7 @@ func genVector(size int) gopter.Gen {
 }
 
 func TestReadMismatchLength(t *testing.T) {
-	// ensure that the reader panics if the length encoded is larger than the actual
+	// ensure that the reader returns an error if the length encoded is larger than the actual
 	// input.
 	assert := require.New(t)
 
@@ -467,7 +467,7 @@ func TestReuseSliceDeserialization(t *testing.T) {
 }
 
 func TestVectorEqualityLarge(t *testing.T) {
-	// this test requres very large memory allocation which is slow and not possible in
+	// this test requires very large memory allocation which is slow and not possible in
 	// small machines. We skip the test even with no-short flag. I have run it locally and
 	// it passes (@ivokub)
 	t.Skip("skipping test that requires large memory allocation")
