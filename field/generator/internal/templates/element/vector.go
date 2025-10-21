@@ -99,7 +99,7 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) { //
 	// edge case -- when the array is empty then instead of keeping it nil, we
 	// set it to an empty slice
 	if headerSliceLen == 0 {
-		*vector = []Element{}
+		*vector = []{{ .ElementName }}{}
 		close(chErr)
 		return int64(4), nil, chErr
 	}
@@ -118,7 +118,7 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) { //
 
 	for i := 0; i < int(headerSliceLen); i += maxAllocateSliceLength {
 		if len(*vector) <= int(i) {
-			(*vector) = append(*vector, make([]Element, min(int(headerSliceLen)-i, maxAllocateSliceLength))...)
+			(*vector) = append(*vector, make([]{{ .ElementName }}, min(int(headerSliceLen)-i, maxAllocateSliceLength))...)
 		}
 		bSlice := unsafe.Slice((*byte)(unsafe.Pointer(&(*vector)[i])), min(int(headerSliceLen)-i, maxAllocateSliceLength)*Bytes)
 		read, err := io.ReadFull(r, bSlice)
@@ -196,7 +196,7 @@ func (vector *Vector) ReadFrom(r io.Reader) (int64, error) {
 	// edge case -- when the array is empty then instead of keeping it nil, we
 	// set it to an empty slice
 	if headerSliceLen == 0 {
-		*vector = []Element{}
+		*vector = []{{ .ElementName }}{}
 		return int64(4), nil
 	}
 
