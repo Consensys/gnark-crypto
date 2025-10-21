@@ -142,8 +142,10 @@ func NewPermutationWithSeed(t, rf, rp int, seed string) *Permutation {
 	return res
 }
 
+// NewDefaultPermutation returns a Poseidon2 permutation with the default
+// recommended parameters for this curve.
 func NewDefaultPermutation() *Permutation {
-	return &Permutation{GetDefaultParameters()}
+	return &Permutation{params: NewDefaultParameters()}
 }
 
 // sBox applies the sBox on buffer[index]
