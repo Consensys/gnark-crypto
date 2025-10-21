@@ -97,7 +97,7 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) { //
 		close(chErr)
 		return int64(read), err, chErr
 	}
-	headerSliceLen := binary.BigEndian.Uint32(buf[:4])
+	headerSliceLen := uint64(binary.BigEndian.Uint32(buf[:4]))
 
 	// edge case -- when the array is empty then instead of keeping it nil, we
 	// set it to an empty slice
@@ -110,7 +110,12 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) { //
 	// to avoid allocating too large slice when the header is tampered, we limit
 	// the maximum allocation. We set the target to 4GB. This incurs a performance
 	// hit when reading very large slices, but protects against OOM.
-	maxAllocateSliceLength := (1 << 32) / Bytes // 4GB
+	targetSize := uint64(1 << 32) // 4GB
+	if bits.UintSize == 32 {
+		// reduce target size to 1GB on 32 bits architectures
+		targetSize = uint64(1 << 30) // 1GB
+	}
+	maxAllocateSliceLength := targetSize / uint64(Bytes)
 
 	totalRead := int64(4)
 	*vector = (*vector)[:0]
@@ -119,16 +124,16 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) { //
 		return totalRead, nil, chErr
 	}
 
-	for i := 0; i < int(headerSliceLen); i += maxAllocateSliceLength {
+	for i := uint64(0); i < headerSliceLen; i += maxAllocateSliceLength {
 		if len(*vector) <= int(i) {
-			(*vector) = append(*vector, make([]Element, min(int(headerSliceLen)-i, maxAllocateSliceLength))...)
+			(*vector) = append(*vector, make([]Element, int(min(headerSliceLen-i, maxAllocateSliceLength)))...)
 		}
-		bSlice := unsafe.Slice((*byte)(unsafe.Pointer(&(*vector)[i])), min(int(headerSliceLen)-i, maxAllocateSliceLength)*Bytes)
+		bSlice := unsafe.Slice((*byte)(unsafe.Pointer(&(*vector)[i])), int(min(headerSliceLen-i, maxAllocateSliceLength))*Bytes)
 		read, err := io.ReadFull(r, bSlice)
 		totalRead += int64(read)
 		if errors.Is(err, io.ErrUnexpectedEOF) {
 			close(chErr)
-			return totalRead, fmt.Errorf("less data than expected: read %d elements, expected %d", i+read/Bytes, headerSliceLen), chErr
+			return totalRead, fmt.Errorf("less data than expected: read %d elements, expected %d", i+uint64(read)/Bytes, headerSliceLen), chErr
 		}
 		if err != nil {
 			close(chErr)
@@ -193,7 +198,7 @@ func (vector *Vector) ReadFrom(r io.Reader) (int64, error) {
 	if read, err := io.ReadFull(r, buf[:4]); err != nil {
 		return int64(read), err
 	}
-	headerSliceLen := binary.BigEndian.Uint32(buf[:4])
+	headerSliceLen := uint64(binary.BigEndian.Uint32(buf[:4]))
 
 	// edge case -- when the array is empty then instead of keeping it nil, we
 	// set it to an empty slice
@@ -205,12 +210,17 @@ func (vector *Vector) ReadFrom(r io.Reader) (int64, error) {
 	// to avoid allocating too large slice when the header is tampered, we limit
 	// the maximum allocation. We set the target to 4GB. This incurs a performance
 	// hit when reading very large slices, but protects against OOM.
-	maxAllocateSliceLength := (1 << 32) / Bytes // 4GB
+	targetSize := uint64(1 << 32) // 4GB
+	if bits.UintSize == 32 {
+		// reduce target size to 1GB on 32 bits architectures
+		targetSize = uint64(1 << 30) // 1GB
+	}
+	maxAllocateSliceLength := targetSize / uint64(Bytes)
 
 	totalRead := int64(4) // include already the header length
 	*vector = (*vector)[:0]
 
-	for i := 0; i < int(headerSliceLen); i++ {
+	for i := uint64(0); i < headerSliceLen; i++ {
 		read, err := io.ReadFull(r, buf[:])
 		totalRead += int64(read)
 		if errors.Is(err, io.EOF) {
@@ -219,8 +229,8 @@ func (vector *Vector) ReadFrom(r io.Reader) (int64, error) {
 		if err != nil {
 			return totalRead, fmt.Errorf("error reading element %d: %w", i, err)
 		}
-		if cap(*vector) <= i {
-			(*vector) = slices.Grow(*vector, min(int(headerSliceLen)-i, maxAllocateSliceLength))
+		if uint64(cap(*vector)) <= i {
+			(*vector) = slices.Grow(*vector, int(min(headerSliceLen-i, maxAllocateSliceLength)))
 		}
 		el, err := BigEndian.Element(&buf)
 		if err != nil {
