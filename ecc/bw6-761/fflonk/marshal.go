@@ -8,7 +8,7 @@ package fflonk
 import (
 	"io"
 
-	"github.com/consensys/gnark-crypto/ecc/bw6-761"
+	bw6761 "github.com/consensys/gnark-crypto/ecc/bw6-761"
 )
 
 // ReadFrom decodes OpeningProof data from reader.

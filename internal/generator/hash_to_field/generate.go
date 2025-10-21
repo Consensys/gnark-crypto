@@ -1,8 +1,9 @@
 package hash_to_field
 
 import (
-	"github.com/consensys/gnark-crypto/field/generator/config"
 	"path/filepath"
+
+	"github.com/consensys/gnark-crypto/field/generator/config"
 
 	"github.com/consensys/bavard"
 )

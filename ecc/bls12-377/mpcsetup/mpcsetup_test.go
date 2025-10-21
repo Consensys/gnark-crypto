@@ -7,12 +7,13 @@ package mpcsetup
 
 import (
 	"bytes"
+	"slices"
+	"testing"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	curve "github.com/consensys/gnark-crypto/ecc/bls12-377"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/stretchr/testify/require"
-	"slices"
-	"testing"
 )
 
 func TestContributionPok(t *testing.T) {
