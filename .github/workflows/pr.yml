@@ -18,7 +18,7 @@ jobs:
     - name: gofmt
       run: if [[ -n $(gofmt -l .) ]]; then echo "please run gofmt"; exit 1; fi
     - name: goimports
-      run: if [[ -n $(goimports -l .) ]]; then echo "please run gofmt"; exit 1; fi
+      run: if [[ -n $(goimports -l .) ]]; then echo "please run goimports"; exit 1; fi
     - name: generated files should not be modified
       run: |
         go generate ./...
