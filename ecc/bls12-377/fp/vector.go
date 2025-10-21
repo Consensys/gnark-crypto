@@ -98,6 +98,15 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) { //
 		return int64(read), err, chErr
 	}
 	headerSliceLen := binary.BigEndian.Uint32(buf[:4])
+
+	// edge case -- when the array is empty then instead of keeping it nil, we
+	// set it to an empty slice
+	if headerSliceLen == 0 {
+		*vector = []Element{}
+		close(chErr)
+		return int64(4), nil, chErr
+	}
+
 	// to avoid allocating too large slice when the header is tampered, we limit
 	// the maximum allocation. We set the target to 4GB. This incurs a performance
 	// hit when reading very large slices, but protects against OOM.
@@ -185,6 +194,14 @@ func (vector *Vector) ReadFrom(r io.Reader) (int64, error) {
 		return int64(read), err
 	}
 	headerSliceLen := binary.BigEndian.Uint32(buf[:4])
+
+	// edge case -- when the array is empty then instead of keeping it nil, we
+	// set it to an empty slice
+	if headerSliceLen == 0 {
+		*vector = []Element{}
+		return int64(4), nil
+	}
+
 	// to avoid allocating too large slice when the header is tampered, we limit
 	// the maximum allocation. We set the target to 4GB. This incurs a performance
 	// hit when reading very large slices, but protects against OOM.
