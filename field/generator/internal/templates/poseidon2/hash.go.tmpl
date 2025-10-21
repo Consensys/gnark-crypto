@@ -8,9 +8,10 @@ import (
 // NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard
 // construction with the default parameters.
 func NewMerkleDamgardHasher() gnarkHash.StateStorer {
+	p := NewDefaultPermutation()
 	return gnarkHash.NewMerkleDamgardHasher(
-		NewDefaultPermutation(),
-		make([]byte, params.Width/2*fr.Bytes),
+		p,
+		make([]byte, p.params.Width/2*fr.Bytes),
 	)
 }
 
