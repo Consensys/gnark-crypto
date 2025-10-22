@@ -1901,7 +1901,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 	var one, alpha, beta, tx, square Element
 	one.SetOne()
 	tx.Double(x)
-	alpha.ExpBySqrtExp(tx)
+	alpha.ExpBySqrtPm3o4(tx)
 
 	beta.Square(&alpha).
 		Mul(&beta, &tx).

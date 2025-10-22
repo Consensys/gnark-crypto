@@ -5,7 +5,9 @@
 
 package koalabear
 
-// ExpBySqrtExp is equivalent to z.Exp(x, 3f)
+// ExpBySqrtExp is equivalent to z.Exp(x, 3f).
+// It raises x to the (p-2^s-1)/2^(s+1) power using a shorter addition chain,
+// where s the 2-adic valuation of p-1.
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
 func (z *Element) ExpBySqrtExp(x Element) *Element {

@@ -1137,6 +1137,7 @@ var (
 func init() {
 	_bLegendreExponentElement, _ = new(big.Int).SetString("4000000000000087fffffffffffffffdbc08936e573d9190f335120d6e32697", 16)
 	const sqrtExponentElement = "2000000000000043fffffffffffffffede0449b72b9ec8c8799a8906b71934c"
+	const sqrtExponent2Element = "2000000000000043fffffffffffffffede0449b72b9ec8c8799a8906b71934c"
 	_bSqrtExponentElement, _ = new(big.Int).SetString(sqrtExponentElement, 16)
 }
 

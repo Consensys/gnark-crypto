@@ -1088,7 +1088,13 @@ func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 		func(a testPair{{.ElementName}}) bool {
 			c := a.element
 			d := a.element
-			c.ExpBySqrtExp(c)
+			{{- if .SqrtQ3Mod4}}
+				c.ExpBySqrtPp1o4(c)
+			{{- else if .SqrtAtkin}}
+				c.ExpBySqrtPm5o8(c)
+			{{- else if .SqrtTonelliShanks}}
+				c.ExpBySqrtExp(c)
+			{{- end }}
 			d.Exp(d, _bSqrtExponent{{.ElementName}})
 			return c.Equal(&d)
 		},

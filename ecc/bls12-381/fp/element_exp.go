@@ -5,10 +5,11 @@
 
 package fp
 
-// ExpBySqrtExp is equivalent to z.Exp(x, 680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeaab)
+// ExpBySqrtPp1o4 is equivalent to z.Exp(x, 680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeaab).
+// It raises x to the (p+1)/4 power using a shorter addition chain.
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *Element) ExpBySqrtExp(x Element) *Element {
+func (z *Element) ExpBySqrtPp1o4(x Element) *Element {
 	// addition chain:
 	//
 	//	_10       = 2*1
@@ -549,10 +550,11 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	return z
 }
 
-// ExpBySqrtExp2 is equivalent to z.Exp(x, 680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeaaa)
+// ExpBySqrtPm3o4 is equivalent to z.Exp(x, 680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeaaa).
+// It raises x to the (p-3)/4 power using a shorter addition chain.
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *Element) ExpBySqrtExp2(x Element) *Element {
+func (z *Element) ExpBySqrtPm3o4(x Element) *Element {
 	// addition chain:
 	//
 	//	_10       = 2*1

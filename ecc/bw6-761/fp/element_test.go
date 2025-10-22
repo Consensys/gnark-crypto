@@ -1683,7 +1683,7 @@ func TestElementFixedExp(t *testing.T) {
 		func(a testPairElement) bool {
 			c := a.element
 			d := a.element
-			c.ExpBySqrtExp(c)
+			c.ExpBySqrtPp1o4(c)
 			d.Exp(d, _bSqrtExponentElement)
 			return c.Equal(&d)
 		},

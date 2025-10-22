@@ -12,6 +12,7 @@ func init() {
 	_bLegendreExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.LegendreExponent}}", 16)
 	{{- if .SqrtQ3Mod4}}
 		const sqrtExponent{{.ElementName}} = "{{.SqrtQ3Mod4Exponent}}"
+		const sqrtExponent2{{.ElementName}} = "{{.SqrtQ3Mod4Exponent}}"
 	{{- else if .SqrtAtkin}}
 		const sqrtExponent{{.ElementName}} = "{{.SqrtAtkinExponent}}"
 	{{- else if .SqrtTonelliShanks}}
@@ -256,7 +257,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		// using  z ≡ ± x^((p+1)/4) (mod q)
 		var y, square {{.ElementName}}
 		{{- if .UseAddChain}}
-		y.ExpBySqrtExp(*x)
+		y.ExpBySqrtPp1o4(*x)
 		{{- else}}
 		y.Exp(*x, _bSqrtExponent{{.ElementName}})
 		{{- end }}
@@ -273,7 +274,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		one.SetOne()
 		tx.Double(x)
 		{{- if .UseAddChain}}
-		alpha.ExpBySqrtExp(tx)
+		alpha.ExpBySqrtPm3o4(tx)
 		{{ else }}
 		alpha.Exp(tx, _bSqrtExponent{{.ElementName}})
 		{{- end }}
@@ -359,7 +360,6 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		panic("not implemented")
 	{{- end}}
 }
-
 
 
 `

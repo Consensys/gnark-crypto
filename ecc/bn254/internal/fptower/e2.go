@@ -220,13 +220,13 @@ func (z *E2) Sqrt(a *E2) *E2 {
 	x0.Square(&a.A0)
 	delta.Square(&a.A1).
 		Add(&delta, &x0).
-		ExpBySqrtExp(delta)
+		ExpBySqrtPp1o4(delta)
 
 	x0.Add(&a.A0, &delta)
 
 	t0.Double(&x0)
 
-	x1.ExpBySqrtExp2(t0)
+	x1.ExpBySqrtPm3o4(t0)
 
 	x0.Mul(&x0, &x1)
 

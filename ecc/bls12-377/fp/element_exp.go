@@ -5,7 +5,9 @@
 
 package fp
 
-// ExpBySqrtExp is equivalent to z.Exp(x, 35c748c2f8a21d58c760b80d94292763445b3e601ea271e3de6c45f741290002e16ba88600000010a11)
+// ExpBySqrtExp is equivalent to z.Exp(x, 35c748c2f8a21d58c760b80d94292763445b3e601ea271e3de6c45f741290002e16ba88600000010a11).
+// It raises x to the (p-2^s-1)/2^(s+1) power using a shorter addition chain,
+// where s the 2-adic valuation of p-1.
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
 func (z *Element) ExpBySqrtExp(x Element) *Element {
