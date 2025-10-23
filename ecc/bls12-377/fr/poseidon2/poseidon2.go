@@ -160,19 +160,19 @@ func (h *Permutation) sBox(index int, input []fr.Element) {
 // see https://eprint.iacr.org/2023/323.pdf page 15, case T=2,3
 func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 
-	if h.params.Width == 2 {
-		var tmp fr.Element
+	var tmp fr.Element
+	switch h.params.Width {
+	case 2:
 		tmp.Add(&input[0], &input[1])
 		input[0].Add(&tmp, &input[0])
 		input[1].Add(&tmp, &input[1])
-	} else if h.params.Width == 3 {
-		var tmp fr.Element
+	case 3:
 		tmp.Add(&input[0], &input[1]).
 			Add(&tmp, &input[2])
 		input[0].Add(&tmp, &input[0])
 		input[1].Add(&tmp, &input[1])
 		input[2].Add(&tmp, &input[2])
-	} else {
+	default:
 		panic("only Width=2,3 are supported")
 	}
 }

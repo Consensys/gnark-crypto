@@ -42,21 +42,43 @@ func (f *FFAmd64) LabelRegisters(name string, r ...amd64.Register) {
 	// f.WriteLn("")
 }
 
-func (f *FFAmd64) ReduceElement(t, scratch []amd64.Register) {
-	if len(t) != len(scratch) {
-		panic("invalid call")
-	}
-
-	const tmplReduce = `// reduce element({{- range $i, $a := .A}}{{$a}}{{- if ne $.Last $i}},{{ end}}{{- end}}) using temp registers ({{- range $i, $b := .B}}{{$b}}{{- if ne $.Last $i}},{{ end}}{{- end}})
-	REDUCE({{- range $i, $a := .A}}{{$a}},{{- end}}
+func (f *FFAmd64) ReduceElement(t, scratch []amd64.Register, avoidGlobal bool) {
+	var buf bytes.Buffer
+	var err error
+	if f.qStack == nil && avoidGlobal {
+		if len(scratch) != len(t)+1 {
+			panic(fmt.Sprintf("expected %d scratch registers, got %d", len(t)+1, len(scratch)))
+		}
+		const tmplReduce = `// reduce element({{- range $i, $a := .A}}{{$a}}{{- if ne $.Last $i}},{{ end}}{{- end}}) using temp registers ({{- range $i, $b := .B}}{{$b}}{{- if ne $.Last $i}},{{ end}}{{- end}})
+	REDUCE_NOGLOBAL({{- range $i, $a := .A}}{{$a}},{{- end}}
 		{{- range $i, $b := .B}}{{$b}}{{- if ne $.Last $i}},{{ end}}{{- end}})`
 
-	var buf bytes.Buffer
-	err := template.Must(template.New("").
-		Parse(tmplReduce)).Execute(&buf, struct {
-		A, B []amd64.Register
-		Last int
-	}{t, scratch, len(scratch) - 1})
+		err = template.Must(template.New("").
+			Parse(tmplReduce)).Execute(&buf, struct {
+			A, B []amd64.Register
+			Last int
+		}{t, scratch, len(scratch) - 1})
+	} else {
+		scratch = scratch[:len(t)] // ensure we do not use more scratch registers than t
+
+		// we can use f.qAt(...)
+		var Q []string
+		for i := 0; i < f.NbWords; i++ {
+			Q = append(Q, f.qAt(i))
+		}
+
+		const tmplReduce = `// reduce element({{- range $i, $a := .A}}{{$a}}{{- if ne $.Last $i}},{{ end}}{{- end}}) using temp registers ({{- range $i, $b := .B}}{{$b}}{{- if ne $.Last $i}},{{ end}}{{- end}})
+	REDUCE({{- range $i, $a := .A}}{{$a}},{{- end}}
+		{{- range $i, $b := .B}}{{$b}},{{- end}}
+		{{- range $i, $q := .Q}}{{$q}}{{- if ne $.Last $i}},{{ end}}{{- end}})`
+
+		err = template.Must(template.New("").
+			Parse(tmplReduce)).Execute(&buf, struct {
+			A, B []amd64.Register
+			Q    []string
+			Last int
+		}{t, scratch, Q, len(scratch) - 1})
+	}
 
 	if err != nil {
 		panic(err)
@@ -66,22 +88,47 @@ func (f *FFAmd64) ReduceElement(t, scratch []amd64.Register) {
 	f.WriteLn("")
 }
 
+// This template uses ·qElement (global variable)
 const tmplReduceDefine = `
 
 #define REDUCE(	{{- range $i := .NbWordsIndexesFull}}ra{{$i}},{{- end}}
-				{{- range $i := .NbWordsIndexesFull}}rb{{$i}}{{- if ne $.NbWordsLastIndex $i}},{{- end}}{{- end}}) \
+				{{- range $i := .NbWordsIndexesFull}}rb{{$i}},{{- end}}
+				{{- range $i := .NbWordsIndexesFull}}q{{$i}}{{- if ne $.NbWordsLastIndex $i}},{{- end}}{{- end}}) \
 	MOVQ ra0, rb0;  \
-	SUBQ    ·qElement(SB), ra0; \
+	SUBQ    q0, ra0; \
 	{{- range $i := .NbWordsIndexesNoZero}}
 	MOVQ ra{{$i}}, rb{{$i}};  \
-	SBBQ  ·qElement+{{mul $i 8}}(SB), ra{{$i}}; \
+	SBBQ  q{{$i}}, ra{{$i}}; \
 	{{- end}}
 	{{- range $i := .NbWordsIndexesFull}}
 	CMOVQCS rb{{$i}}, ra{{$i}};  \
 	{{- end}}
 `
 
-func (f *FFAmd64) GenerateReduceDefine() {
+// This template uses a spare scratch register and uses define (const_q0, const_q1, etc.)
+// it allows to avoid global variable usage (no R15 clobbering)
+const tmplReduceDefineNoGlobal = `
+
+#define REDUCE_NOGLOBAL(	{{- range $i := .NbWordsIndexesFull}}ra{{$i}},{{- end}}
+				{{- range $i := .NbWordsIndexesFull}}rb{{$i}},{{- end}}, scratch0) \
+	MOVQ ra0, rb0;  \
+	MOVQ $const_q0, scratch0;  \
+	SUBQ    scratch0, ra0; \
+	{{- range $i := .NbWordsIndexesNoZero}}
+	MOVQ ra{{$i}}, rb{{$i}};  \
+	MOVQ $const_q{{$i}}, scratch0;  \
+	SBBQ  scratch0, ra{{$i}}; \
+	{{- end}}
+	{{- range $i := .NbWordsIndexesFull}}
+	CMOVQCS rb{{$i}}, ra{{$i}};  \
+	{{- end}}
+`
+
+func (f *FFAmd64) GenerateReduceDefine(avoidGlobal ...bool) {
+	tmplReduceDefine := tmplReduceDefine
+	if len(avoidGlobal) > 0 && avoidGlobal[0] {
+		tmplReduceDefine = tmplReduceDefineNoGlobal
+	}
 	tmpl := template.Must(template.New("").
 		Funcs(helpers()).
 		Parse(tmplReduceDefine))

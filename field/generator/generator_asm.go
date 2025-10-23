@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"os"
@@ -95,8 +96,10 @@ func generateDummyGoPackage(F *config.Field, asm *config.Assembly) error {
 	f.WriteString("\nconst qInvNeg = 0")
 	f.WriteString("\nconst mu = 0")
 	f.WriteString("\nconst q = 0")
-	for i := 0; i < F.NbWords; i++ {
-		f.WriteString(fmt.Sprintf("\nconst q%d = 0", i))
+	for i := range F.NbWords {
+		if _, err = fmt.Fprintf(f, "\nconst q%d = 0", i); err != nil {
+			return errors.Join(err, f.Close())
+		}
 	}
 
 	f.WriteString("\n")

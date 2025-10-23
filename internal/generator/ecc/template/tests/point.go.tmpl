@@ -76,6 +76,21 @@ import (
             {{$fuzzer}},
         ))
 
+        properties.Property("[{{ toUpper .Name }}] [3]P == [2]P+P", prop.ForAll(
+            func(a {{ .CoordType}}) bool {
+                var p, res1, res2 {{ $TJacobian }}
+                g := MapTo{{ toUpper .PointName}}(a)
+                p.FromAffine(&g)
+                res1.Triple(&p)
+                res2.Double(&p).
+                    AddAssign(&p)
+
+                return res1.Equal(&res2)
+            },
+            {{$fuzzer}},
+        ))
+
+
         {{if eq .PointName "g2" }}
         {{- if and (eq .PointName "g2") (ne .Name "bw6-761") (ne .Name "bw6-633")}}
             properties.Property("[{{ toUpper .Name }}] check that psi^2(P) = -phi(P)", prop.ForAll(
@@ -717,8 +732,46 @@ func Test{{ toUpper .PointName }}BatchScalarMultiplication(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+
+func Test{{ $TJacobian }}Triple(t *testing.T) {
+	// test triple on the generator and the infinity point
+	// against double and add 
+	var a {{ $TJacobian }}
+	a.Set(&{{.PointName}}Gen)
+	var infinity {{ $TJacobian }}
+	infinity.Set(&{{.PointName}}Infinity)
+
+	var pTriple, pDoubleAdd {{ $TJacobian }}
+	pTriple.Triple(&a)
+	pDoubleAdd.Double(&a).AddAssign(&a)
+
+	if !pTriple.Equal(&pDoubleAdd) {
+		t.Fatalf("triple and double+add do not match: %s != %s", pTriple.String(), pDoubleAdd.String())
+	}
+
+	// same thing with infinity point
+	pTriple.Triple(&infinity)
+	pDoubleAdd.Double(&infinity).AddAssign(&infinity)
+
+	if !pTriple.Equal(&pDoubleAdd) {
+		t.Fatalf("triple and double+add do not match: %s != %s", pTriple.String(), pDoubleAdd.String())
+	}
+}
+
+
+func Benchmark{{ $TJacobian }}Triple(b *testing.B) {
+	var a {{ $TJacobian }}
+	a.Set(&{{.PointName}}Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Triple(&a)
+	}
+}
+
 // ------------------------------------------------------------
 // benches
+
+
 
 func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 	var a {{ $TJacobian }}

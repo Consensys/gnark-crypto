@@ -14,6 +14,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 )
 
 var errWrongSize = errors.New("wrong size buffer")
@@ -21,13 +22,14 @@ var errRBiggerThanRMod = errors.New("r >= r_mod")
 var errSBiggerThanRMod = errors.New("s >= r_mod")
 var errZero = errors.New("zero value")
 
-// Bytes returns the binary representation of the public key
-// follows https://tools.ietf.org/html/rfc8032#section-3.1
-// and returns a compressed representation of the point (x,y)
+// Bytes returns the binary representation of the public key. The serialization
+// follows [ZCash serialization] format.
 //
-// x, y are the coordinates of the point
-// on the curve as big endian integers.
-// compressed representation store x with a parity bit to recompute y
+// The binary representation of the public key is the compressed representation
+// of the point (x,y) which is obtained by only encoding x and a infinity/parity
+// information in high bits.
+//
+// [ZCash serialization]: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-pairing-friendly-curves-11#zcash_rep_bls12_381
 func (pk *PublicKey) Bytes() []byte {
 	var res [sizePublicKey]byte
 	pkBin := pk.A.Bytes()
@@ -35,11 +37,16 @@ func (pk *PublicKey) Bytes() []byte {
 	return res[:]
 }
 
-// SetBytes sets p from binary representation in buf.
-// buf represents a public key as x||y where x, y are
-// interpreted as big endian binary numbers corresponding
-// to the coordinates of a point on the curve.
-// It returns the number of bytes read from the buffer.
+// SetBytes sets the public key from the serialized reprsentation obtained
+// using [PublicKey.Bytes].
+//
+// The length of the input buffer must be at least the size of the compressed
+// public key. It returns an error if:
+// * the buffer is too short
+// * computing valid point from compressed representation fails
+//
+// Any excess bytes in the input buffer are ignored. The method returns the number of bytes
+// read.
 func (pk *PublicKey) SetBytes(buf []byte) (int, error) {
 	n := 0
 	if len(buf) < sizePublicKey {
@@ -48,12 +55,12 @@ func (pk *PublicKey) SetBytes(buf []byte) (int, error) {
 	if _, err := pk.A.SetBytes(buf[:sizePublicKey]); err != nil {
 		return 0, err
 	}
-	n += sizeFp
+	n += sizePublicKey
 	return n, nil
 }
 
 // RecoverFrom recovers the public key from the message msg, recovery
-// information v and decompose signature {r,s}. If recovery succeeded, the
+// information v and decomposes signature {r,s}. If recovery succeeded, the
 // methods sets the current public key to the recovered value. Otherwise returns
 // error and leaves current public key unchanged.
 func (pk *PublicKey) RecoverFrom(msg []byte, v uint, r, s *big.Int) error {
@@ -80,10 +87,11 @@ func (pk *PublicKey) RecoverFrom(msg []byte, v uint, r, s *big.Int) error {
 	return nil
 }
 
-// Bytes returns the binary representation of pk,
-// as byte array publicKey||scalar
-// where publicKey is as publicKey.Bytes(), and
-// scalar is in big endian, of size sizeFr.
+// Bytes returns the binary representation of the private key. The binary representation
+// of the private key consists of the concatenation of the binary representation of the
+// corresponding public key and the private key scalar encoded in big-endian format.
+//
+// See also [PublicKey.Bytes].
 func (privKey *PrivateKey) Bytes() []byte {
 	var res [sizePrivateKey]byte
 	pubkBin := privKey.PublicKey.A.Bytes()
@@ -92,11 +100,15 @@ func (privKey *PrivateKey) Bytes() []byte {
 	return res[:]
 }
 
-// SetBytes sets pk from buf, where buf is interpreted
-// as  publicKey||scalar
-// where publicKey is as publicKey.Bytes(), and
-// scalar is in big endian, of size sizeFr.
-// It returns the number byte read.
+// SetBytes sets the private key from the serialized representation obtained
+// using [PrivateKey.Bytes].
+//
+// The length of the input buffer must be at least the size of the private key. It returns an error if:
+// * the buffer is too short
+// * computing valid point from compressed representation fails
+//
+// Any excess bytes in the input buffer are ignored. The method returns the number of bytes
+// read.
 func (privKey *PrivateKey) SetBytes(buf []byte) (int, error) {
 	n := 0
 	if len(buf) < sizePrivateKey {
@@ -111,8 +123,9 @@ func (privKey *PrivateKey) SetBytes(buf []byte) (int, error) {
 	return n, nil
 }
 
-// Bytes returns the binary representation of sig
-// as a byte array of size 2*sizeFr r||s
+// Bytes returns the binary representation of the signature. The binary
+// representation is the concatenation of the big-endian encoding of the r and s
+// values of the signature, padded to full scalar size.
 func (sig *Signature) Bytes() []byte {
 	var res [sizeSignature]byte
 	subtle.ConstantTimeCopy(1, res[:sizeFr], sig.R[:])
@@ -120,9 +133,17 @@ func (sig *Signature) Bytes() []byte {
 	return res[:]
 }
 
-// SetBytes sets sig from a buffer in binary.
-// buf is read interpreted as r||s
-// It returns the number of bytes read from buf.
+// SetBytes sets signature value from the binary representation. The binary
+// representation is assumed to be the concatenation of the big-endian encoding
+// of the r and s values of the signature, padded to full scalar size (see
+// [Signature.Bytes]).
+//
+// It returns an error if:
+// * the buffer is shorter than the expected signature size
+// * r or s are not in the interval [1, r_mod-1] (to avoid malleability)
+//
+// Any excess bytes in the input buffer are ignored. The method returns the number of bytes
+// read.
 func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	n := 0
 	if len(buf) != sizeSignature {

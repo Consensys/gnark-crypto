@@ -59,6 +59,20 @@ func TestG1Endomorphism(t *testing.T) {
 		GenFp(),
 	))
 
+	properties.Property("[BW6-633] [3]P == [2]P+P", prop.ForAll(
+		func(a fp.Element) bool {
+			var p, res1, res2 G1Jac
+			g := MapToG1(a)
+			p.FromAffine(&g)
+			res1.Triple(&p)
+			res2.Double(&p).
+				AddAssign(&p)
+
+			return res1.Equal(&res2)
+		},
+		GenFp(),
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -623,6 +637,40 @@ func TestG1BatchScalarMultiplication(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestG1JacTriple(t *testing.T) {
+	// test triple on the generator and the infinity point
+	// against double and add
+	var a G1Jac
+	a.Set(&g1Gen)
+	var infinity G1Jac
+	infinity.Set(&g1Infinity)
+
+	var pTriple, pDoubleAdd G1Jac
+	pTriple.Triple(&a)
+	pDoubleAdd.Double(&a).AddAssign(&a)
+
+	if !pTriple.Equal(&pDoubleAdd) {
+		t.Fatalf("triple and double+add do not match: %s != %s", pTriple.String(), pDoubleAdd.String())
+	}
+
+	// same thing with infinity point
+	pTriple.Triple(&infinity)
+	pDoubleAdd.Double(&infinity).AddAssign(&infinity)
+
+	if !pTriple.Equal(&pDoubleAdd) {
+		t.Fatalf("triple and double+add do not match: %s != %s", pTriple.String(), pDoubleAdd.String())
+	}
+}
+
+func BenchmarkG1JacTriple(b *testing.B) {
+	var a G1Jac
+	a.Set(&g1Gen)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Triple(&a)
+	}
 }
 
 // ------------------------------------------------------------

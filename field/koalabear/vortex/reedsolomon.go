@@ -6,6 +6,7 @@ import (
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
 	"github.com/consensys/gnark-crypto/field/koalabear/fft"
+	"github.com/consensys/gnark-crypto/utils"
 )
 
 // EncodeReedSolomon encodes a vector of field elements into a reed-solomon codewords.
@@ -22,9 +23,9 @@ func (p *Params) EncodeReedSolomon(input, res []koalabear.Element) {
 	if rho != p.ReedSolomonInvRate {
 		// slow path
 		p.Domains[0].FFTInverse(res[:p.NbColumns], fft.DIF, fft.WithNbTasks(1))
-		fft.BitReverse(res[:p.NbColumns])
+		utils.BitReverse(res[:p.NbColumns])
 		p.Domains[1].FFT(res, fft.DIF, fft.WithNbTasks(1))
-		fft.BitReverse(res)
+		utils.BitReverse(res)
 		return
 	}
 
@@ -57,7 +58,7 @@ func (p *Params) IsReedSolomonCodewords(codeword []fext.E4) bool {
 	}
 
 	p.Domains[1].FFTInverse(coeffs, fft.DIF)
-	fft.BitReverse(coeffs)
+	utils.BitReverse(coeffs)
 	for i := p.NbColumns; i < p.SizeCodeWord(); i++ {
 		if !coeffs[i].IsZero() {
 			return false
@@ -69,7 +70,7 @@ func (p *Params) IsReedSolomonCodewords(codeword []fext.E4) bool {
 	}
 
 	p.Domains[1].FFTInverse(coeffs, fft.DIF)
-	fft.BitReverse(coeffs)
+	utils.BitReverse(coeffs)
 	for i := p.NbColumns; i < p.SizeCodeWord(); i++ {
 		if !coeffs[i].IsZero() {
 			return false
@@ -81,7 +82,7 @@ func (p *Params) IsReedSolomonCodewords(codeword []fext.E4) bool {
 	}
 
 	p.Domains[1].FFTInverse(coeffs, fft.DIF)
-	fft.BitReverse(coeffs)
+	utils.BitReverse(coeffs)
 	for i := p.NbColumns; i < p.SizeCodeWord(); i++ {
 		if !coeffs[i].IsZero() {
 			return false
@@ -93,7 +94,7 @@ func (p *Params) IsReedSolomonCodewords(codeword []fext.E4) bool {
 	}
 
 	p.Domains[1].FFTInverse(coeffs, fft.DIF)
-	fft.BitReverse(coeffs)
+	utils.BitReverse(coeffs)
 	for i := p.NbColumns; i < p.SizeCodeWord(); i++ {
 		if !coeffs[i].IsZero() {
 			return false

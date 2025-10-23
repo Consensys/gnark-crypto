@@ -9,27 +9,28 @@ import (
 	"github.com/consensys/bavard/amd64"
 )
 
-func (f *FFAmd64) generateFromMont(forceADX bool) {
+func (f *FFAmd64) generateFromMont(_ bool) {
 	const argSize = 8
-	minStackSize := argSize
-	if forceADX {
-		minStackSize = 0
-	}
-	stackSize := f.StackSize(f.NbWords*2, 2, minStackSize)
+	const minStackSize = argSize
+	nbRegistersNeeded := (f.NbWords * 2) - 2
 
-	reserved := []amd64.Register{amd64.DX, amd64.AX}
-	if f.NbWords <= 5 {
-		// when dynamic linking, R15 is clobbered by a global variable access
-		// this is a temporary workaround --> don't use R15 when we can avoid it.
-		// see https://github.com/Consensys/gnark-crypto/issues/113
-		reserved = append(reserved, amd64.R15)
+	// we need to use R15 register, and to avoid issue with dynamic linking
+	// see https://github.com/Consensys/gnark-crypto/issues/707
+	// we avoid using global variables in this particular instance.
+	needR15 := f.NbWords >= 12
+	if needR15 {
+		nbRegistersNeeded += f.NbWords // we need to store Q on the stack.
+		nbRegistersNeeded--            // account for R15
 	}
-	registers := f.FnHeader("fromMont", stackSize, argSize, reserved...)
+
+	stackSize := f.StackSize(nbRegistersNeeded, 2, minStackSize)
+	registers := f.FnHeader("fromMont", stackSize, argSize, amd64.DX, amd64.AX)
 	defer f.AssertCleanStack(stackSize, minStackSize)
 
 	if stackSize > 0 {
 		f.WriteLn("NO_LOCAL_POINTERS")
 	}
+
 	f.WriteLn(`
 	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS" 
 	// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
@@ -43,8 +44,22 @@ func (f *FFAmd64) generateFromMont(forceADX bool) {
 	// 		    (C,t[j-1]) := t[j] + m*q[j] + C
 	// 		t[N-1] = C`)
 
+	if needR15 {
+		registers.UnsafePush(amd64.R15)
+		_q := f.PopN(&registers, true)
+		for i := 0; i < f.NbWords; i++ {
+			f.MOVQ(fmt.Sprintf("$const_q%d", i), amd64.AX)
+			f.MOVQ(amd64.AX, _q[i])
+		}
+		f.SetQStack(_q)
+		defer func() {
+			f.Push(&registers, _q...)
+			f.UnsetQStack()
+		}()
+	}
+
 	noAdx := f.NewLabel("noAdx")
-	if !forceADX {
+	{
 		// check ADX instruction support
 		f.CMPB("·supportAdx(SB)", 1)
 		f.JNE(noAdx)
@@ -95,13 +110,14 @@ func (f *FFAmd64) generateFromMont(forceADX bool) {
 
 	// ---------------------------------------------------------------------------------------------
 	// reduce
-	f.Reduce(&registers, t)
+	f.Push(&registers, amd64.DX, amd64.AX)
+	f.Reduce(&registers, t, needR15)
 	f.MOVQ("res+0(FP)", amd64.AX)
 	f.Mov(t, amd64.AX)
 	f.RET()
 
 	// No adx
-	if !forceADX {
+	{
 		f.LABEL(noAdx)
 		f.MOVQ("res+0(FP)", amd64.AX)
 		f.MOVQ(amd64.AX, "(SP)")

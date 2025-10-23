@@ -8,6 +8,11 @@ import (
 	"github.com/consensys/gnark-crypto/field/generator/config"
 )
 
+const (
+	copyrightHolder = "Consensys Software Inc."
+	copyrightYear   = 2020
+)
+
 // the expected working directory is gnark-crypto/field
 //
 //go:generate go run main.go
@@ -38,6 +43,7 @@ func main() {
 			generator.WithSIS(),
 			generator.WithPoseidon2(),
 			generator.WithExtensions(),
+			generator.WithIOP(),
 		); err != nil {
 			panic(err)
 		}

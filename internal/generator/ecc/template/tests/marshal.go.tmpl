@@ -290,7 +290,7 @@ func Test{{ $.TAffine }}Serialization(t *testing.T) {
 			if n != SizeOf{{ $.TAffine }}Compressed {
 				t.Fatal("invalid number of bytes consumed in buffer")
 			}
-			if !(p2.X.IsZero() && p2.Y.IsZero()) {
+			if !(p2.X.IsZero() && p2.Y.IsZero()) { // nolint QF1001
 				t.Fatal("deserialization of uncompressed infinity point is not infinity")
 			}
 		}
@@ -308,7 +308,7 @@ func Test{{ $.TAffine }}Serialization(t *testing.T) {
 			if n != SizeOf{{ $.TAffine }}Uncompressed {
 				t.Fatal("invalid number of bytes consumed in buffer")
 			}
-			if !(p2.X.IsZero() && p2.Y.IsZero()) {
+			if !(p2.X.IsZero() && p2.Y.IsZero()) { // nolint QF1001
 				t.Fatal("deserialization of uncompressed infinity point is not infinity")
 			}
 		}

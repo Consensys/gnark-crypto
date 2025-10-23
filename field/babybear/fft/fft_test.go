@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/consensys/gnark-crypto/utils"
+
 	"github.com/consensys/gnark-crypto/field/babybear"
 
 	"github.com/leanovate/gopter"
@@ -54,7 +56,7 @@ func TestFFT(t *testing.T) {
 					copy(backupPol, pol)
 
 					domain.FFT(pol, DIF)
-					BitReverse(pol)
+					utils.BitReverse(pol)
 
 					sample := domain.Generator
 					sample.Exp(sample, big.NewInt(int64(ithpower)))
@@ -81,7 +83,7 @@ func TestFFT(t *testing.T) {
 					copy(backupPol, pol)
 
 					domain.FFT(pol, DIF, OnCoset())
-					BitReverse(pol)
+					utils.BitReverse(pol)
 
 					sample := domain.Generator
 					sample.Exp(sample, big.NewInt(int64(ithpower))).
@@ -108,7 +110,7 @@ func TestFFT(t *testing.T) {
 					}
 					copy(backupPol, pol)
 
-					BitReverse(pol)
+					utils.BitReverse(pol)
 					domain.FFT(pol, DIT)
 
 					sample := domain.Generator
@@ -122,7 +124,7 @@ func TestFFT(t *testing.T) {
 				gen.IntRange(0, maxSize-1),
 			))
 
-			properties.Property("bitReverse(DIF FFT(DIT FFT (bitReverse))))==id", prop.ForAll(
+			properties.Property("BitReverse(DIF FFT(DIT FFT (BitReverse))))==id", prop.ForAll(
 
 				func() bool {
 
@@ -134,10 +136,10 @@ func TestFFT(t *testing.T) {
 					}
 					copy(backupPol, pol)
 
-					BitReverse(pol)
+					utils.BitReverse(pol)
 					domain.FFT(pol, DIT)
 					domain.FFTInverse(pol, DIF)
-					BitReverse(pol)
+					utils.BitReverse(pol)
 
 					check := true
 					for i := 0; i < len(pol); i++ {
@@ -148,7 +150,7 @@ func TestFFT(t *testing.T) {
 			))
 
 			for nbCosets := 2; nbCosets < 5; nbCosets++ {
-				properties.Property(fmt.Sprintf("bitReverse(DIF FFT(DIT FFT (bitReverse))))==id on %d cosets", nbCosets), prop.ForAll(
+				properties.Property(fmt.Sprintf("BitReverse(DIF FFT(DIT FFT (BitReverse))))==id on %d cosets", nbCosets), prop.ForAll(
 
 					func() bool {
 
@@ -164,10 +166,10 @@ func TestFFT(t *testing.T) {
 
 						for i := 1; i <= nbCosets; i++ {
 
-							BitReverse(pol)
+							utils.BitReverse(pol)
 							domain.FFT(pol, DIT, OnCoset())
 							domain.FFTInverse(pol, DIF, OnCoset())
-							BitReverse(pol)
+							utils.BitReverse(pol)
 
 							for i := 0; i < len(pol); i++ {
 								check = check && pol[i].Equal(&backupPol[i])

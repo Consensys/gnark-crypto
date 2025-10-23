@@ -25,7 +25,7 @@ const (
 	sizeFr         = fr.Bytes
 	sizeFrBits     = fr.Bits
 	sizeFp         = fp.Bytes
-	sizePublicKey  = sizeFp
+	sizePublicKey  = bw6633.SizeOfG1AffineCompressed
 	sizePrivateKey = sizeFr + sizePublicKey
 	sizeSignature  = 2 * sizeFr
 )

@@ -269,7 +269,7 @@ func TestG1AffineSerialization(t *testing.T) {
 			if n != SizeOfG1AffineCompressed {
 				t.Fatal("invalid number of bytes consumed in buffer")
 			}
-			if !(p2.X.IsZero() && p2.Y.IsZero()) {
+			if !(p2.X.IsZero() && p2.Y.IsZero()) { // nolint QF1001
 				t.Fatal("deserialization of uncompressed infinity point is not infinity")
 			}
 		}
@@ -287,7 +287,7 @@ func TestG1AffineSerialization(t *testing.T) {
 			if n != SizeOfG1AffineUncompressed {
 				t.Fatal("invalid number of bytes consumed in buffer")
 			}
-			if !(p2.X.IsZero() && p2.Y.IsZero()) {
+			if !(p2.X.IsZero() && p2.Y.IsZero()) { // nolint QF1001
 				t.Fatal("deserialization of uncompressed infinity point is not infinity")
 			}
 		}
@@ -382,7 +382,7 @@ func TestG2AffineSerialization(t *testing.T) {
 			if n != SizeOfG2AffineCompressed {
 				t.Fatal("invalid number of bytes consumed in buffer")
 			}
-			if !(p2.X.IsZero() && p2.Y.IsZero()) {
+			if !(p2.X.IsZero() && p2.Y.IsZero()) { // nolint QF1001
 				t.Fatal("deserialization of uncompressed infinity point is not infinity")
 			}
 		}
@@ -400,7 +400,7 @@ func TestG2AffineSerialization(t *testing.T) {
 			if n != SizeOfG2AffineUncompressed {
 				t.Fatal("invalid number of bytes consumed in buffer")
 			}
-			if !(p2.X.IsZero() && p2.Y.IsZero()) {
+			if !(p2.X.IsZero() && p2.Y.IsZero()) { // nolint QF1001
 				t.Fatal("deserialization of uncompressed infinity point is not infinity")
 			}
 		}

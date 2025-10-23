@@ -7,9 +7,9 @@ package extensions
 
 import (
 	"math/big"
+	"math/bits"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
-	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
 // E4 is a degree two finite field extension of fr2
@@ -74,6 +74,13 @@ func (z *E4) SetZero() *E4 {
 func (z *E4) SetOne() *E4 {
 	*z = E4{}
 	z.B0.A0.SetOne()
+	return z
+}
+
+// Lift sets the B0.A0 component of z to v
+func (z *E4) Lift(v *fr.Element) *E4 {
+	*z = E4{}
+	z.B0.A0.Set(v)
 	return z
 }
 
@@ -160,29 +167,32 @@ func (z *E4) MulByNonResidue(x *E4) *E4 {
 
 // Mul sets z=x*y in E4 and returns z
 func (z *E4) Mul(x, y *E4) *E4 {
-	var a, b, c E2
+	var a, b, c, d E2
 	a.Add(&x.B0, &x.B1)
 	b.Add(&y.B0, &y.B1)
-	a.Mul(&a, &b)
-	b.Mul(&x.B0, &y.B0)
+	d.Mul(&x.B0, &y.B0)
 	c.Mul(&x.B1, &y.B1)
-	z.B1.Sub(&a, &b).Sub(&z.B1, &c)
-	z.B0.MulByNonResidue(&c).Add(&z.B0, &b)
+	a.Mul(&a, &b)
+	var bc E2
+	bc.Add(&d, &c)
+	z.B1.Sub(&a, &bc)
+	z.B0.MulByNonResidue(&c).Add(&z.B0, &d)
 	return z
 }
 
 // Square sets z=x*x in E4 and returns z
 func (z *E4) Square(x *E4) *E4 {
-
-	//Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
-	var c0, c2, c3 E2
-	c0.Sub(&x.B0, &x.B1)
-	c3.MulByNonResidue(&x.B1).Sub(&x.B0, &c3)
-	c2.Mul(&x.B0, &x.B1)
-	c0.Mul(&c0, &c3).Add(&c0, &c2)
-	z.B1.Double(&c2)
-	c2.MulByNonResidue(&c2)
-	z.B0.Add(&c0, &c2)
+	// same as mul, but we remove duplicate add and simplify multiplications with squaring
+	// note: this is more efficient than Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
+	var a, c, d E2
+	a.Add(&x.B0, &x.B1)
+	d.Square(&x.B0)
+	c.Square(&x.B1)
+	a.Square(&a)
+	var bc E2
+	bc.Add(&d, &c)
+	z.B1.Sub(&a, &bc)
+	z.B0.MulByNonResidue(&c).Add(&z.B0, &d)
 
 	return z
 }
@@ -207,8 +217,8 @@ func (z *E4) Inverse(x *E4) *E4 {
 
 // Exp sets z=xᵏ (mod q⁴) and returns it
 func (z *E4) Exp(x E4, k *big.Int) *E4 {
-	if k.IsUint64() && k.Uint64() == 0 {
-		return z.SetOne()
+	if k.IsInt64() {
+		return z.ExpInt64(x, k.Int64())
 	}
 
 	e := k
@@ -233,6 +243,31 @@ func (z *E4) Exp(x E4, k *big.Int) *E4 {
 			if (w & (0b10000000 >> j)) != 0 {
 				z.Mul(z, &x)
 			}
+		}
+	}
+
+	return z
+}
+
+// ExpInt64 sets z=xᵏ (mod q⁴) and returns it, where k is an int64
+func (z *E4) ExpInt64(x E4, k int64) *E4 {
+	if k == 0 {
+		return z.SetOne()
+	}
+
+	exp := k
+	if k < 0 {
+		x.Inverse(&x)
+		exp = -k // if k == math.MinInt64, -k overflows, but uint64(-k) is correct
+	}
+
+	z.Set(&x)
+
+	// Use bits.Len64 to iterate only over significant bits
+	for i := bits.Len64(uint64(exp)) - 2; i >= 0; i-- {
+		z.Square(z)
+		if (uint64(exp)>>uint(i))&1 != 0 {
+			z.Mul(z, &x)
 		}
 	}
 
@@ -351,23 +386,6 @@ func (z *E4) Div(x *E4, y *E4) *E4 {
 	var r E4
 	r.Inverse(y).Mul(x, &r)
 	return z.Set(&r)
-}
-
-func MulAccE4(alpha *E4, scale []fr.Element, res []E4) {
-	N := len(res)
-	if N != len(scale) {
-		panic("MulAccE4: len(res) != len(scale)")
-	}
-	if !cpu.SupportAVX512 || N%4 != 0 {
-		var tmp E4
-		for i := 0; i < N; i++ {
-			tmp.MulByElement(alpha, &scale[i])
-			res[i].Add(&res[i], &tmp)
-		}
-		return
-	}
-
-	mulAccE4_avx512(alpha, &scale[0], &res[0], uint64(N))
 }
 
 // Butterfly computes the butterfly operation on two E4 elements

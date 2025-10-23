@@ -14,6 +14,9 @@ func (vector *Vector) Add(a, b Vector) {
 		panic("vector.Add: vectors don't have the same length")
 	}
 		n := uint64(len(a))
+	if n == 0 {
+		return
+	}
 	addVec(&(*vector)[0], &a[0], &b[0], n)
 }
 
@@ -26,7 +29,11 @@ func (vector *Vector) Sub(a, b Vector) {
 	if len(a) != len(b) || len(a) != len(*vector) {
 		panic("vector.Sub: vectors don't have the same length")
 	}
-	subVec(&(*vector)[0], &a[0], &b[0], uint64(len(a)))
+	n := uint64(len(a))
+	if n == 0 {
+		return
+	}
+	subVec(&(*vector)[0], &a[0], &b[0], n)
 }
 
 //go:noescape
@@ -54,7 +61,7 @@ func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
 	bb[0] = *b
 	bb[1] = *b
 	const blockSize = 16
-	scalarMulVec(&(*vector)[0], &a[0], &bb[0], n/blockSize, qInvNeg)
+	scalarMulVec(&(*vector)[0], &a[0], &bb[0], n/blockSize, qInvNeg, &patterns[0])
 	if n % blockSize != 0 {
 		// call scalarMulVecGeneric on the rest
 		start := n - n % blockSize
@@ -63,7 +70,7 @@ func (vector *Vector) ScalarMul(a Vector, b *{{.ElementName}}) {
 }
 
 //go:noescape
-func scalarMulVec(res, a, b *{{.ElementName}}, n uint64, qInvNeg uint64)
+func scalarMulVec(res, a, b *{{.ElementName}}, n uint64, qInvNeg uint64, patterns *uint64)
 
 // Sum computes the sum of all elements in the vector.
 func (vector *Vector) Sum() (res {{.ElementName}}) {
@@ -89,11 +96,11 @@ func sumVec(res *{{.ElementName}}, a *{{.ElementName}}, n uint64)
 // It panics if the vectors don't have the same length.
 func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
 	n := uint64(len(*vector))
-	if n == 0 {
-		return
-	}
 	if n != uint64(len(other)) {
 		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	if n == 0 {
+		return
 	}
 	const maxN = (1 << 32) - 1
 	if !cpu.SupportAVX512 || n >= maxN {
@@ -128,7 +135,7 @@ func (vector *Vector) Mul(a, b Vector) {
 	}
 
 	const blockSize = 16
-	mulVec(&(*vector)[0], &a[0], &b[0], n/blockSize, qInvNeg)
+	mulVec(&(*vector)[0], &a[0], &b[0], n/blockSize, qInvNeg, &patterns[0])
 	if n % blockSize != 0 {
 		// call mulVecGeneric on the rest
 		start := n - n % blockSize
@@ -139,14 +146,14 @@ func (vector *Vector) Mul(a, b Vector) {
 
 // Patterns use for transposing the vectors in mulVec
 var (
-	pattern1 = [8]uint64{0, 8, 1, 9, 2, 10, 3, 11}
-	pattern2 = [8]uint64{12, 4, 13, 5, 14, 6, 15, 7}
-	pattern3 = [8]uint64{0, 1, 8, 9, 2, 3, 10, 11}
-	pattern4 = [8]uint64{12, 13, 4, 5, 14, 15, 6, 7}
+	patterns = [8*4]uint64{	0, 8, 1, 9, 2, 10, 3, 11,
+							12, 4, 13, 5, 14, 6, 15, 7,
+							0, 1, 8, 9, 2, 3, 10, 11,
+							12, 13, 4, 5, 14, 15, 6, 7}
 )
 
 //go:noescape
-func mulVec(res, a, b *{{.ElementName}}, n uint64, qInvNeg uint64)
+func mulVec(res, a, b *{{.ElementName}}, n uint64, qInvNeg uint64, patterns *uint64)
 
 
 
@@ -419,11 +426,11 @@ func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
 	}
 
 	n := uint64(len(*vector))
-	if n == 0 {
-		return
-	}
 	if n != uint64(len(other)) {
 		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	if n == 0 {
+		return
 	}
 
 	const blockSize = 16
