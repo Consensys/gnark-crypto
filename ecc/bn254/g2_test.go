@@ -164,9 +164,9 @@ func TestIsInSubGroupBatchG2(t *testing.T) {
 			// mixer ensures that all the words of a frElement are set
 			var sampleScalars [nbSamples]fr.Element
 
-			for i := 1; i <= nbSamples; i++ {
-				sampleScalars[i-1].SetUint64(uint64(i)).
-					Mul(&sampleScalars[i-1], &mixer)
+			for i := range uint64(nbSamples) {
+				sampleScalars[i].SetUint64(i+1).
+					Mul(&sampleScalars[i], &mixer)
 			}
 
 			// random points in G2
