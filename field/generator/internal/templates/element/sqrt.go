@@ -12,7 +12,7 @@ func init() {
 	_bLegendreExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.LegendreExponent}}", 16)
 	{{- if .SqrtQ3Mod4}}
 		const sqrtExponent{{.ElementName}} = "{{.SqrtQ3Mod4Exponent}}"
-		const sqrtExponent2{{.ElementName}} = "{{.SqrtQ3Mod4Exponent}}"
+		const sqrtExponent2{{.ElementName}} = "{{.SqrtQ3Mod4Exponent2}}"
 	{{- else if .SqrtAtkin}}
 		const sqrtExponent{{.ElementName}} = "{{.SqrtAtkinExponent}}"
 	{{- else if .SqrtTonelliShanks}}
