@@ -11,8 +11,6 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-
 	"github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 )

@@ -11,8 +11,6 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
-
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
 )
