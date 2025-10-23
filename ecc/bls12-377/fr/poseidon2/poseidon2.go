@@ -131,6 +131,10 @@ func NewPermutation(t, rf, rp int) *Permutation {
 	return res
 }
 
+func NewDefaultPermutation() *Permutation {
+	return &Permutation{GetDefaultParameters()}
+}
+
 // NewPermutationWithSeed returns a new Poseidon2 permutation instance with a
 // given seed.
 func NewPermutationWithSeed(t, rf, rp int, seed string) *Permutation {
