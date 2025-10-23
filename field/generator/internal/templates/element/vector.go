@@ -116,7 +116,7 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) { //
 		// if the vector was nil previously even by reslicing we have a nil vector.
 		// but we want to have an empty slice to indicate that the vector has zero length.
 		if *vector == nil {
-			*vector = []Element{}
+			*vector = []{{ .ElementName }}{}
 		}
 		// we return already here to avoid launching a goroutine doing nothing below
 		close(chErr)
