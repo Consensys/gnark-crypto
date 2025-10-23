@@ -274,7 +274,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		one.SetOne()
 		tx.Double(x)
 		{{- if .UseAddChain}}
-		alpha.ExpBySqrtPm3o4(tx)
+		alpha.ExpBySqrtPm5o8(tx)
 		{{ else }}
 		alpha.Exp(tx, _bSqrtExponent{{.ElementName}})
 		{{- end }}
