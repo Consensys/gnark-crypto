@@ -255,15 +255,17 @@ func isInSubGroupBatchG2Prob(points []G2Affine) bool {
 		var br [windowSize / 8]byte
 
 		// Check Sj are on E[r]
-		for i := start; i < end; i++ {
+		for range end - start {
 			var sum g2JacExtended
-			for j := 0; j < len(points); j++ {
+			for j := range points {
 				pos := j % windowSize
 				if pos == 0 {
 					// re sample the random bytes every windowSize points
 					// as per the doc:
 					// Read fills b with cryptographically secure random bytes. It never returns an error, and always fills b entirely.
-					rand.Read(br[:])
+					if _, err := rand.Read(br[:]); err != nil {
+						panic(err)
+					}
 				}
 				// check if the bit is set
 				if br[pos/8]&(1<<(pos%8)) != 0 {
