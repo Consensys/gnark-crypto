@@ -6,12 +6,13 @@
 package grumpkin
 
 import (
+	"math/big"
+	"runtime"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/grumpkin/fp"
 	"github.com/consensys/gnark-crypto/ecc/grumpkin/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
-	"math/big"
-	"runtime"
 )
 
 // G1Affine is a point in affine coordinates (x,y)

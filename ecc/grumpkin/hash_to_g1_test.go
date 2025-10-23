@@ -8,10 +8,11 @@ package grumpkin
 import (
 	"github.com/consensys/gnark-crypto/ecc/grumpkin/fp"
 
-	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/prop"
 	"math/rand"
 	"testing"
+
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
 )
 
 func TestHashToFpG1(t *testing.T) {

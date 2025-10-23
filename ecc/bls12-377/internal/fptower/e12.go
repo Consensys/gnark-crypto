@@ -7,11 +7,12 @@ package fptower
 
 import (
 	"errors"
+	"math/big"
+	"sync"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"math/big"
-	"sync"
 )
 
 var bigIntPool = sync.Pool{

@@ -203,11 +203,10 @@ func main() {
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())
 
-	//mathfmt doesn't accept directories. TODO: PR pending
-	/*cmd = exec.Command("mathfmt", "-w", baseDir)
+	cmd = exec.Command("goimports", "-w", baseDir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	assertNoError(cmd.Run())*/
+	assertNoError(cmd.Run())
 }
 
 func assertNoError(err error) {

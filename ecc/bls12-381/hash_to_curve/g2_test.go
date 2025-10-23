@@ -6,11 +6,12 @@
 package hash_to_curve
 
 import (
+	"testing"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/internal/fptower"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
-	"testing"
 )
 
 // GenE2 generates an fptower.E2 elmt

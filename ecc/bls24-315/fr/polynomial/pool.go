@@ -8,11 +8,12 @@ package polynomial
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 	"runtime"
 	"sort"
 	"sync"
 	"unsafe"
+
+	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 )
 
 // Memory management for polynomials

@@ -8,7 +8,7 @@ package shplonk
 import (
 	"io"
 
-	"github.com/consensys/gnark-crypto/ecc/bw6-633"
+	bw6633 "github.com/consensys/gnark-crypto/ecc/bw6-633"
 )
 
 func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {

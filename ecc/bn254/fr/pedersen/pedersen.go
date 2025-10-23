@@ -8,11 +8,12 @@ package pedersen
 import (
 	"crypto/rand"
 	"errors"
+	"io"
+	"math/big"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	curve "github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"io"
-	"math/big"
 )
 
 // ProvingKey for committing and proofs of knowledge

@@ -13,6 +13,8 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/require"
