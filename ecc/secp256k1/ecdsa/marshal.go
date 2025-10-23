@@ -8,9 +8,10 @@ package ecdsa
 import (
 	"crypto/subtle"
 	"errors"
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
 	"io"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
 
 	"github.com/consensys/gnark-crypto/ecc/secp256k1"
 )

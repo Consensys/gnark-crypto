@@ -12,9 +12,9 @@ import (
 	"sync"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/ecc/bw6-761"
+	bw6761 "github.com/consensys/gnark-crypto/ecc/bw6-761"
 	"github.com/consensys/gnark-crypto/ecc/bw6-761/fr"
-	"github.com/consensys/gnark-crypto/fiat-shamir"
+	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 
 	"github.com/consensys/gnark-crypto/internal/parallel"
 )

@@ -7,13 +7,14 @@ package secp256k1
 
 import (
 	"crypto/rand"
+	"math/big"
+	"runtime"
+	"sync/atomic"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
-	"math/big"
-	"runtime"
-	"sync/atomic"
 )
 
 // G1Affine is a point in affine coordinates (x,y)

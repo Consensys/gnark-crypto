@@ -7,13 +7,14 @@ package bls24315
 
 import (
 	"crypto/rand"
+	"math/big"
+	"runtime"
+	"sync/atomic"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
-	"math/big"
-	"runtime"
-	"sync/atomic"
 )
 
 // G1Affine is a point in affine coordinates (x,y)

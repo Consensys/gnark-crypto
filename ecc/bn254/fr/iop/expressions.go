@@ -7,9 +7,10 @@ package iop
 
 import (
 	"errors"
+	"math/bits"
+
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
-	"math/bits"
 )
 
 // Expression represents a multivariate polynomial.

@@ -6,9 +6,10 @@
 package polynomial
 
 import (
+	"testing"
+
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 // TODO: Property based tests?

@@ -8,11 +8,12 @@ package bls12381
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 
+	"math/rand"
+	"testing"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/hash_to_curve"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
-	"math/rand"
-	"testing"
 )
 
 func TestHashToFpG1(t *testing.T) {

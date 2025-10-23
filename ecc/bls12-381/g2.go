@@ -7,13 +7,14 @@ package bls12381
 
 import (
 	"crypto/rand"
+	"math/big"
+	"runtime"
+	"sync/atomic"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/internal/fptower"
 	"github.com/consensys/gnark-crypto/internal/parallel"
-	"math/big"
-	"runtime"
-	"sync/atomic"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/hash_to_curve"
 )

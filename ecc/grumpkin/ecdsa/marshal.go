@@ -8,9 +8,10 @@ package ecdsa
 import (
 	"crypto/subtle"
 	"errors"
-	"github.com/consensys/gnark-crypto/ecc/grumpkin/fr"
 	"io"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/grumpkin/fr"
 )
 
 var errWrongSize = errors.New("wrong size buffer")

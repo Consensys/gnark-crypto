@@ -7,13 +7,14 @@ package bw6633
 
 import (
 	"crypto/rand"
+	"math/big"
+	"runtime"
+	"sync/atomic"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 	"github.com/consensys/gnark-crypto/internal/parallel"
-	"math/big"
-	"runtime"
-	"sync/atomic"
 )
 
 // G2Affine is a point in affine coordinates (x,y)
