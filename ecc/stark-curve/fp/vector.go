@@ -78,6 +78,10 @@ func (vector *Vector) WriteTo(w io.Writer) (int64, error) {
 // wait on the channel to ensure the vector is ready to use. The method
 // additionally returns the number of bytes read from r.
 //
+// The errors during reading can be:
+//   - an error while reading from r;
+//   - not enough bytes in r to read the full vector indicated by header.
+//
 // The reader can contain more bytes than needed to decode the vector, in which
 // case the extra bytes are ignored. In that case the reader is not seeked nor
 // read further.
@@ -175,7 +179,8 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) { //
 
 // ReadFrom reads the vector from the reader r. It returns the number of bytes
 // read and an error, if any. The errors can be:
-//   - an error while reading from r (including [io.EOF] i.e. not enough bytes in r);
+//   - an error while reading from r;
+//   - not enough bytes in r to read the full vector indicated by header;
 //   - when decoding the bytes into elements.
 //
 // The reader can contain more bytes than needed to decode the vector, in which case
