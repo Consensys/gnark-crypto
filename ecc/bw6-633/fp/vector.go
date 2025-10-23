@@ -229,7 +229,7 @@ func (vector *Vector) ReadFrom(r io.Reader) (int64, error) {
 	for i := uint64(0); i < headerSliceLen; i++ {
 		read, err := io.ReadFull(r, buf[:])
 		totalRead += int64(read)
-		if errors.Is(err, io.EOF) {
+		if errors.Is(err, io.ErrUnexpectedEOF) {
 			return totalRead, fmt.Errorf("less data than expected: read %d elements, expected %d", i, headerSliceLen)
 		}
 		if err != nil {
