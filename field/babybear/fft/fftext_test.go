@@ -20,8 +20,9 @@ import (
 
 	"encoding/binary"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"math/rand/v2"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestFFTExt(t *testing.T) {

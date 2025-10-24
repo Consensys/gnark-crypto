@@ -6,8 +6,9 @@
 package sis
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 // precomputeTwiddlesCoset precomputes twiddlesCoset from twiddles and coset table

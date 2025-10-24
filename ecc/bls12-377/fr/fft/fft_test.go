@@ -6,10 +6,11 @@
 package fft
 
 import (
-	"github.com/consensys/gnark-crypto/utils"
 	"math/big"
 	"strconv"
 	"testing"
+
+	"github.com/consensys/gnark-crypto/utils"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 

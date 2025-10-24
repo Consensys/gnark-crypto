@@ -6,9 +6,10 @@
 package polynomial
 
 import (
+	"math/bits"
+
 	"github.com/consensys/gnark-crypto/ecc/grumpkin/fr"
 	"github.com/consensys/gnark-crypto/utils"
-	"math/bits"
 )
 
 // MultiLin tracks the values of a (dense i.e. not sparse) multilinear polynomial

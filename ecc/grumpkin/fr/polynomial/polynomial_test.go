@@ -6,13 +6,14 @@
 package polynomial
 
 import (
+	"math/big"
+	"testing"
+
 	"github.com/consensys/gnark-crypto/ecc/grumpkin/fr"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/assert"
-	"math/big"
-	"testing"
 )
 
 func TestPolynomialEval(t *testing.T) {

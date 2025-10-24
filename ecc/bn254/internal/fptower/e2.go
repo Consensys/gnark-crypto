@@ -6,8 +6,9 @@
 package fptower
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
 )
 
 // E2 is a degree two finite field extension of fp.Element
