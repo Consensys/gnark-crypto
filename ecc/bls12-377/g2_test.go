@@ -15,6 +15,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/internal/fptower"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/hash_to_curve"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -135,6 +136,13 @@ func TestIsOnG2(t *testing.T) {
 		},
 		GenE2(),
 	))
+	properties.Property("[BLS12-377] IsInSubGroup should return false for a point on the cofactor-torsion", prop.ForAll(
+		func(a fptower.E2) bool {
+			op := fuzzCofactorOfG2(a)
+			return op.IsOnCurve() && !op.IsInSubGroup()
+		},
+		GenE2(),
+	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
@@ -169,6 +177,30 @@ func TestIsInSubGroupBatchG2(t *testing.T) {
 			return IsInSubGroupBatchG2(result)
 		},
 		GenFr(),
+	))
+	properties.Property("[BLS12-377] IsInSubGroupBatch test should not pass with high probability", prop.ForAll(
+		func(mixer fr.Element, a fptower.E2) bool {
+			// mixer ensures that all the words of a frElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					Mul(&sampleScalars[i-1], &mixer)
+			}
+
+			// random points in G2
+			result := BatchScalarMultiplicationG2(&g2GenAff, sampleScalars[:])
+
+			// random points in the h-torsion
+			h := fuzzCofactorOfG2(a)
+			result[0].FromJacobian(&h)
+			h = fuzzCofactorOfG2(a)
+			result[nbSamples-1].FromJacobian(&h)
+
+			return !IsInSubGroupBatchG2(result)
+		},
+		GenFr(),
+		GenE2(),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
@@ -942,6 +974,17 @@ func BenchmarkG2AffineDouble(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		a.Double(&a)
 	}
+}
+func fuzzCofactorOfG2(f fptower.E2) G2Jac {
+	var res, jac G2Jac
+	aff := MapToCurve2(&f)
+	hash_to_curve.G2Isogeny(&aff.X, &aff.Y)
+	jac.FromAffine(&aff)
+	// ψ(p)-[x₀]P = [r]p
+	res.mulBySeed(&jac)
+	jac.psi(&jac)
+	res.AddAssign(&jac)
+	return res
 }
 
 func fuzzG2Jac(p *G2Jac, f fptower.E2) G2Jac {

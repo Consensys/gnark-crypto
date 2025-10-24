@@ -15,7 +15,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
-
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/hash_to_curve"
 
 	"github.com/leanovate/gopter"
@@ -164,6 +163,30 @@ func TestIsInSubGroupBatchG1(t *testing.T) {
 			return IsInSubGroupBatchG1(result)
 		},
 		GenFr(),
+	))
+	properties.Property("[BLS12-381] IsInSubGroupBatch test should not pass with high probability", prop.ForAll(
+		func(mixer fr.Element, a fp.Element) bool {
+			// mixer ensures that all the words of a frElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					Mul(&sampleScalars[i-1], &mixer)
+			}
+
+			// random points in G1
+			result := BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:])
+
+			// random points in the h-torsion
+			h := fuzzCofactorOfG1(a)
+			result[0].FromJacobian(&h)
+			h = fuzzCofactorOfG1(a)
+			result[nbSamples-1].FromJacobian(&h)
+
+			return !IsInSubGroupBatchG1(result)
+		},
+		GenFr(),
+		GenFp(),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
