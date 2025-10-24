@@ -9,7 +9,7 @@ import (
 // construction with the default parameters.
 func NewMerkleDamgardHasher() gnarkHash.StateStorer {
 	return gnarkHash.NewMerkleDamgardHasher(
-		&Permutation{GetDefaultParameters()}, make([]byte, fr.Bytes))
+		NewDefaultPermutation(), make([]byte, fr.Bytes))
 }
 
 // GetDefaultParameters returns a set of parameters for the Poseidon2 permutation.
