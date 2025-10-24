@@ -12,6 +12,7 @@ func init() {
 	_bLegendreExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.LegendreExponent}}", 16)
 	{{- if .SqrtQ3Mod4}}
 		const sqrtExponent{{.ElementName}} = "{{.SqrtQ3Mod4Exponent}}"
+		const sqrtExponent2{{.ElementName}} = "{{.SqrtQ3Mod4Exponent2}}"
 	{{- else if .SqrtAtkin}}
 		const sqrtExponent{{.ElementName}} = "{{.SqrtAtkinExponent}}"
 	{{- else if .SqrtTonelliShanks}}
@@ -197,14 +198,14 @@ func (z *{{.ElementName}}) Legendre() int {
 	var l {{.ElementName}}
 	// z^((q-1)/2)
 	{{- if .UseAddChain}}
-	l.expByLegendreExp(*z)
+	l.ExpByLegendreExp(*z)
 	{{- else}}
 	l.Exp(*z, _bLegendreExponent{{.ElementName}})
 	{{- end}}
-	
+
 	if l.IsZero() {
 		return 0
-	} 
+	}
 
 	// if l == 1
 	if l.IsOne()  {
@@ -256,7 +257,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		// using  z ≡ ± x^((p+1)/4) (mod q)
 		var y, square {{.ElementName}}
 		{{- if .UseAddChain}}
-		y.expBySqrtExp(*x)
+		y.ExpBySqrtPp1o4(*x)
 		{{- else}}
 		y.Exp(*x, _bSqrtExponent{{.ElementName}})
 		{{- end }}
@@ -264,7 +265,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		square.Square(&y)
 		if square.Equal(x) {
 			return z.Set(&y)
-		} 
+		}
 		return nil
 	{{- else if .SqrtAtkin}}
 		// q ≡ 5 (mod 8)
@@ -273,7 +274,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		one.SetOne()
 		tx.Double(x)
 		{{- if .UseAddChain}}
-		alpha.expBySqrtExp(tx)
+		alpha.ExpBySqrtPm5o8(tx)
 		{{ else }}
 		alpha.Exp(tx, _bSqrtExponent{{.ElementName}})
 		{{- end }}
@@ -282,7 +283,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 			Sub(&beta, &one).
 			Mul(&beta, x).
 			Mul(&beta, &alpha)
-		
+
 		// as we didn't compute the legendre symbol, ensure we found beta such that beta * beta = x
 		square.Square(&beta)
 		if square.Equal(x) {
@@ -297,7 +298,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		var y, b,t, w  {{.ElementName}}
 		// w = x^((s-1)/2))
 		{{- if .UseAddChain}}
-		w.expBySqrtExp(*x)
+		w.ExpBySqrtExp(*x)
 		{{- else}}
 		w.Exp(*x, _bSqrtExponent{{.ElementName}})
 		{{- end}}
@@ -330,7 +331,7 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		}
 		for {
 			var m uint64
-			t = b 
+			t = b
 
 			// for t != 1
 			for !t.IsOne() {
@@ -356,10 +357,9 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		}
 
 	{{- else}}
-		panic("not implemented")	
+		panic("not implemented")
 	{{- end}}
 }
-
 
 
 `

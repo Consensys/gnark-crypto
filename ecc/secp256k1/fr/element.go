@@ -1161,7 +1161,7 @@ func (littleEndian) String() string { return "LittleEndian" }
 func (z *Element) Legendre() int {
 	var l Element
 	// z^((q-1)/2)
-	l.expByLegendreExp(*z)
+	l.ExpByLegendreExp(*z)
 
 	if l.IsZero() {
 		return 0
@@ -1184,7 +1184,7 @@ func (z *Element) Sqrt(x *Element) *Element {
 
 	var y, b, t, w Element
 	// w = x^((s-1)/2))
-	w.expBySqrtExp(*x)
+	w.ExpBySqrtExp(*x)
 
 	// y = x^((s+1)/2)) = w * x
 	y.Mul(x, &w)
