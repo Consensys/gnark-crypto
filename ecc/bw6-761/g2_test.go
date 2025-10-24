@@ -125,6 +125,41 @@ func TestIsOnG2(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestIsInSubGroupBatchG2(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = 1
+	} else {
+		parameters.MinSuccessfulTests = 100
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	// number of points to test
+	const nbSamples = 100
+
+	properties.Property("[BW6-761] IsInSubGroupBatchG2 test should pass with high probability", prop.ForAll(
+		func(mixer fr.Element) bool {
+			// mixer ensures that all the words of a frElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := range uint64(nbSamples) {
+				sampleScalars[i].SetUint64(i+1).
+					Mul(&sampleScalars[i], &mixer)
+			}
+
+			// random points in G2
+			result := BatchScalarMultiplicationG2(&g2GenAff, sampleScalars[:])
+
+			return IsInSubGroupBatchG2(result)
+		},
+		GenFr(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestG2Conversions(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
