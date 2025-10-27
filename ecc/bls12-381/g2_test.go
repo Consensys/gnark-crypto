@@ -15,7 +15,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/internal/fptower"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
-
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/hash_to_curve"
 
 	"github.com/leanovate/gopter"
@@ -142,6 +141,65 @@ func TestIsOnG2(t *testing.T) {
 			op := fuzzCofactorOfG2(a)
 			return op.IsOnCurve() && !op.IsInSubGroup()
 		},
+		GenE2(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestIsInSubGroupBatchG2(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = 1
+	} else {
+		parameters.MinSuccessfulTests = 100
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	// number of points to test
+	const nbSamples = 100
+
+	properties.Property("[BLS12-381] IsInSubGroupBatchG2 test should pass with high probability", prop.ForAll(
+		func(mixer fr.Element) bool {
+			// mixer ensures that all the words of a frElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := range uint64(nbSamples) {
+				sampleScalars[i].SetUint64(i+1).
+					Mul(&sampleScalars[i], &mixer)
+			}
+
+			// random points in G2
+			result := BatchScalarMultiplicationG2(&g2GenAff, sampleScalars[:])
+
+			return IsInSubGroupBatchG2(result)
+		},
+		GenFr(),
+	))
+	properties.Property("[BLS12-381] IsInSubGroupBatch test should not pass with high probability", prop.ForAll(
+		func(mixer fr.Element, a fptower.E2) bool {
+			// mixer ensures that all the words of a frElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					Mul(&sampleScalars[i-1], &mixer)
+			}
+
+			// random points in G2
+			result := BatchScalarMultiplicationG2(&g2GenAff, sampleScalars[:])
+
+			// random points in the h-torsion
+			h := fuzzCofactorOfG2(a)
+			result[0].FromJacobian(&h)
+			h = fuzzCofactorOfG2(a)
+			result[nbSamples-1].FromJacobian(&h)
+
+			return !IsInSubGroupBatchG2(result)
+		},
+		GenFr(),
 		GenE2(),
 	))
 
