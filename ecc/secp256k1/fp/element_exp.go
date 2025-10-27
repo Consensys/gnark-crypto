@@ -5,10 +5,11 @@
 
 package fp
 
-// expBySqrtExp is equivalent to z.Exp(x, 3fffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffff0c)
+// ExpBySqrtPp1o4 is equivalent to z.Exp(x, 3fffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffff0c).
+// It raises x to the (p+1)/4 power using a shorter addition chain.
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *Element) expBySqrtExp(x Element) *Element {
+func (z *Element) ExpBySqrtPp1o4(x Element) *Element {
 	// addition chain:
 	//
 	//	_10      = 2*1
@@ -155,10 +156,165 @@ func (z *Element) expBySqrtExp(x Element) *Element {
 	return z
 }
 
-// expByLegendreExp is equivalent to z.Exp(x, 7fffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffe17)
+// ExpBySqrtPm3o4 is equivalent to z.Exp(x, 3fffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffff0b).
+// It raises x to the (p-3)/4 power using a shorter addition chain.
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *Element) expByLegendreExp(x Element) *Element {
+func (z *Element) ExpBySqrtPm3o4(x Element) *Element {
+	// addition chain:
+	//
+	//	_10      = 2*1
+	//	_11      = 1 + _10
+	//	_1100    = _11 << 2
+	//	_1111    = _11 + _1100
+	//	_11110   = 2*_1111
+	//	_11111   = 1 + _11110
+	//	_1111100 = _11111 << 2
+	//	_1111111 = _11 + _1111100
+	//	x11      = _1111111 << 4 + _1111
+	//	x22      = x11 << 11 + x11
+	//	x27      = x22 << 5 + _11111
+	//	x54      = x27 << 27 + x27
+	//	x108     = x54 << 54 + x54
+	//	x216     = x108 << 108 + x108
+	//	x223     = x216 << 7 + _1111111
+	//	i266     = ((x223 << 23 + x22) << 5 + 1) << 3
+	//	return     _11 + i266
+	//
+	// Operations: 253 squares 14 multiplies
+
+	// Allocate Temporaries.
+	var (
+		t0 = new(Element)
+		t1 = new(Element)
+		t2 = new(Element)
+		t3 = new(Element)
+	)
+
+	// var t0,t1,t2,t3 Element
+	// Step 1: z = x^0x2
+	z.Square(&x)
+
+	// Step 2: z = x^0x3
+	z.Mul(&x, z)
+
+	// Step 4: t0 = x^0xc
+	t0.Square(z)
+	for s := 1; s < 2; s++ {
+		t0.Square(t0)
+	}
+
+	// Step 5: t0 = x^0xf
+	t0.Mul(z, t0)
+
+	// Step 6: t1 = x^0x1e
+	t1.Square(t0)
+
+	// Step 7: t2 = x^0x1f
+	t2.Mul(&x, t1)
+
+	// Step 9: t1 = x^0x7c
+	t1.Square(t2)
+	for s := 1; s < 2; s++ {
+		t1.Square(t1)
+	}
+
+	// Step 10: t1 = x^0x7f
+	t1.Mul(z, t1)
+
+	// Step 14: t3 = x^0x7f0
+	t3.Square(t1)
+	for s := 1; s < 4; s++ {
+		t3.Square(t3)
+	}
+
+	// Step 15: t0 = x^0x7ff
+	t0.Mul(t0, t3)
+
+	// Step 26: t3 = x^0x3ff800
+	t3.Square(t0)
+	for s := 1; s < 11; s++ {
+		t3.Square(t3)
+	}
+
+	// Step 27: t0 = x^0x3fffff
+	t0.Mul(t0, t3)
+
+	// Step 32: t3 = x^0x7ffffe0
+	t3.Square(t0)
+	for s := 1; s < 5; s++ {
+		t3.Square(t3)
+	}
+
+	// Step 33: t2 = x^0x7ffffff
+	t2.Mul(t2, t3)
+
+	// Step 60: t3 = x^0x3ffffff8000000
+	t3.Square(t2)
+	for s := 1; s < 27; s++ {
+		t3.Square(t3)
+	}
+
+	// Step 61: t2 = x^0x3fffffffffffff
+	t2.Mul(t2, t3)
+
+	// Step 115: t3 = x^0xfffffffffffffc0000000000000
+	t3.Square(t2)
+	for s := 1; s < 54; s++ {
+		t3.Square(t3)
+	}
+
+	// Step 116: t2 = x^0xfffffffffffffffffffffffffff
+	t2.Mul(t2, t3)
+
+	// Step 224: t3 = x^0xfffffffffffffffffffffffffff000000000000000000000000000
+	t3.Square(t2)
+	for s := 1; s < 108; s++ {
+		t3.Square(t3)
+	}
+
+	// Step 225: t2 = x^0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
+	t2.Mul(t2, t3)
+
+	// Step 232: t2 = x^0x7fffffffffffffffffffffffffffffffffffffffffffffffffffff80
+	for s := 0; s < 7; s++ {
+		t2.Square(t2)
+	}
+
+	// Step 233: t1 = x^0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffff
+	t1.Mul(t1, t2)
+
+	// Step 256: t1 = x^0x3fffffffffffffffffffffffffffffffffffffffffffffffffffffff800000
+	for s := 0; s < 23; s++ {
+		t1.Square(t1)
+	}
+
+	// Step 257: t0 = x^0x3fffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffff
+	t0.Mul(t0, t1)
+
+	// Step 262: t0 = x^0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffe0
+	for s := 0; s < 5; s++ {
+		t0.Square(t0)
+	}
+
+	// Step 263: t0 = x^0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffe1
+	t0.Mul(&x, t0)
+
+	// Step 266: t0 = x^0x3fffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffff08
+	for s := 0; s < 3; s++ {
+		t0.Square(t0)
+	}
+
+	// Step 267: z = x^0x3fffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffff0b
+	z.Mul(z, t0)
+
+	return z
+}
+
+// ExpByLegendreExp is equivalent to z.Exp(x, 7fffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffe17).
+//
+// uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
+func (z *Element) ExpByLegendreExp(x Element) *Element {
 	// addition chain:
 	//
 	//	_10       = 2*1

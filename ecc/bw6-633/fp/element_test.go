@@ -1675,11 +1675,11 @@ func TestElementFixedExp(t *testing.T) {
 
 	genA := gen()
 
-	properties.Property(fmt.Sprintf("expBySqrtExp must match Exp(%s)", sqrtExponentElement), prop.ForAll(
+	properties.Property(fmt.Sprintf("ExpBySqrtExp must match Exp(%s)", sqrtExponentElement), prop.ForAll(
 		func(a testPairElement) bool {
 			c := a.element
 			d := a.element
-			c.expBySqrtExp(c)
+			c.ExpBySqrtPm5o8(c)
 			d.Exp(d, _bSqrtExponentElement)
 			return c.Equal(&d)
 		},

@@ -1084,11 +1084,17 @@ func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 
 	genA := gen()
 
-	properties.Property(fmt.Sprintf("expBySqrtExp must match Exp(%s)", sqrtExponent{{.ElementName}}), prop.ForAll(
+	properties.Property(fmt.Sprintf("ExpBySqrtExp must match Exp(%s)", sqrtExponent{{.ElementName}}), prop.ForAll(
 		func(a testPair{{.ElementName}}) bool {
 			c := a.element
 			d := a.element
-			c.expBySqrtExp(c)
+			{{- if .SqrtQ3Mod4}}
+				c.ExpBySqrtPp1o4(c)
+			{{- else if .SqrtAtkin}}
+				c.ExpBySqrtPm5o8(c)
+			{{- else if .SqrtTonelliShanks}}
+				c.ExpBySqrtExp(c)
+			{{- end }}
 			d.Exp(d, _bSqrtExponent{{.ElementName}})
 			return c.Equal(&d)
 		},
@@ -1099,11 +1105,11 @@ func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 	var _bLegendreExponent{{.ElementName}} *big.Int
 	_bLegendreExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.LegendreExponent}}", 16)
 
-	properties.Property("expByLegendreExp must match Exp({{.LegendreExponent}})", prop.ForAll(
+	properties.Property("ExpByLegendreExp must match Exp({{.LegendreExponent}})", prop.ForAll(
 		func(a testPair{{.ElementName}}) bool {
 			c := a.element
 			d := a.element
-			c.expByLegendreExp(c)
+			c.ExpByLegendreExp(c)
 			d.Exp(d, _bLegendreExponent{{.ElementName}})
 			return c.Equal(&d)
 		},
