@@ -501,7 +501,8 @@ func BenchmarkVectorReadFrom(b *testing.B) {
 
 			b.Run("prealloc", func(b *testing.B) {
 				v2 := make(Vector, 1<<size)
-				for b.Loop() {
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
 					_, err = v2.ReadFrom(bytes.NewReader(data))
 					if err != nil {
 						b.Fatal("should read without error")
@@ -511,7 +512,8 @@ func BenchmarkVectorReadFrom(b *testing.B) {
 
 			b.Run("empty", func(b *testing.B) {
 				var v2 Vector
-				for b.Loop() {
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
 					_, err = v2.ReadFrom(bytes.NewReader(data))
 					if err != nil {
 						b.Fatal("should read without error")
@@ -538,7 +540,8 @@ func BenchmarkVectorAsyncReadFrom(b *testing.B) {
 
 			b.Run("prealloc", func(b *testing.B) {
 				v2 := make(Vector, 1<<size)
-				for b.Loop() {
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
 					_, err, errCh := v2.AsyncReadFrom(bytes.NewReader(data))
 					if err != nil {
 						b.Fatal("should read without error")
@@ -551,7 +554,8 @@ func BenchmarkVectorAsyncReadFrom(b *testing.B) {
 
 			b.Run("empty", func(b *testing.B) {
 				var v2 Vector
-				for b.Loop() {
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
 					_, err, errCh := v2.AsyncReadFrom(bytes.NewReader(data))
 					if err != nil {
 						b.Fatal("should read without error")
