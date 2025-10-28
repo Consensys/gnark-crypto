@@ -1,5 +1,14 @@
+<a name="v0.19.2"></a>
+## [v0.19.2] - 2025-10-28
+### Fix
+- avoid b.Loop in Go 1.23
+
+
 <a name="v0.19.1"></a>
-## [v0.19.1] - 2025-10-23
+## [v0.19.1] - 2025-10-28
+### Docs
+- update CHANGELOG to v0.19.1
+
 ### Perf
 - limit memory allocation during Vector deserialization ([#759](https://github.com/Consensys/gnark-crypto/issues/759))
 
@@ -2438,6 +2447,7 @@
 <a name="v0.0.1"></a>
 ## v0.0.1 - 2020-03-23
 
+[v0.19.2]: https://github.com/Consensys/gnark-crypto/compare/v0.19.1...v0.19.2
 [v0.19.1]: https://github.com/Consensys/gnark-crypto/compare/v0.19.0...v0.19.1
 [v0.19.0]: https://github.com/Consensys/gnark-crypto/compare/v0.18.1...v0.19.0
 [v0.18.1]: https://github.com/Consensys/gnark-crypto/compare/v0.18.0...v0.18.1
