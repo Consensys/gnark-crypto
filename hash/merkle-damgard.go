@@ -23,7 +23,7 @@ func (h *merkleDamgardHasher) Write(p []byte) (n int, err error) {
 	n = l
 
 	for len(h.buffer) == blockSize {
-		if h.state, err = h.f.Compress(h.state, p[:blockSize]); err != nil {
+		if h.state, err = h.f.Compress(h.state, h.buffer); err != nil {
 			h.buffer = h.buffer[:len(h.buffer)-l]
 			return n - l, err
 		}
