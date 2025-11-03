@@ -6,31 +6,58 @@ import (
 )
 
 type merkleDamgardHasher struct {
-	state []byte
-	iv    []byte
-	f     Compressor
+	state  []byte
+	iv     []byte
+	buffer []byte // invariant: len(buffer) < cap(buffer) = block len
+	f      Compressor
 }
 
-// Write implements hash.Write
+// Write implements hash.Write.
+// The input is buffered until it hits the hash block size.
 func (h *merkleDamgardHasher) Write(p []byte) (n int, err error) {
 	blockSize := h.f.BlockSize()
-	for len(p) != 0 {
-		if len(p) < blockSize {
-			if p, err = cloneLeftPadded(p, blockSize); err != nil {
-				panic(err) // this should not be possible
-			}
-		}
+
+	l := min(blockSize-len(h.buffer), len(p))
+	h.buffer = append(h.buffer, p[:l]...)
+	p = p[l:]
+	n = l
+
+	for len(h.buffer) == blockSize {
 		if h.state, err = h.f.Compress(h.state, p[:blockSize]); err != nil {
-			return
+			h.buffer = h.buffer[:len(h.buffer)-l]
+			return n - l, err
 		}
-		n += blockSize
-		p = p[blockSize:]
+
+		l = min(blockSize, len(p))
+		h.buffer = append(h.buffer[:0], p[:l]...)
+		p = p[l:]
+		n += l
 	}
+
 	return
 }
 
+// Sum returns the computed hash appended by the input b.
+// If the written input's size is not a multiple of the block size, it will be right padded
+// with zeros.
 func (h *merkleDamgardHasher) Sum(b []byte) []byte {
-	return append(b, h.state...)
+	if len(h.buffer) == 0 {
+		return append(b, h.state...)
+	}
+
+	// save the state
+	state, buffer := bytes.Clone(h.state), bytes.Clone(h.buffer)
+
+	// compute the sum
+	if _, err := h.Write(make([]byte, h.BlockSize()-len(h.buffer))); err != nil {
+		panic(err)
+	}
+	res := append(b, h.state...)
+
+	// rewind the state
+	h.state, h.buffer = state, buffer
+
+	return res
 }
 
 func (h *merkleDamgardHasher) Reset() {
@@ -80,9 +107,10 @@ func NewMerkleDamgardHasher(f Compressor, initialState []byte) StateStorer {
 		panic(err)
 	}
 	return &merkleDamgardHasher{
-		f:     f,
-		iv:    iv,
-		state: bytes.Clone(iv),
+		f:      f,
+		iv:     iv,
+		state:  bytes.Clone(iv),
+		buffer: make([]byte, 0, f.BlockSize()),
 	}
 }
 
