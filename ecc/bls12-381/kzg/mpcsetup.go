@@ -11,12 +11,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
+	"math/big"
+
 	curve "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/mpcsetup"
 	"github.com/consensys/gnark-crypto/utils"
-	"io"
-	"math/big"
 )
 
 type MpcSetup struct {

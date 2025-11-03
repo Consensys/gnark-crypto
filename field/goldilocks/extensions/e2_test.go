@@ -435,11 +435,12 @@ func BenchmarkE2Square(b *testing.B) {
 }
 
 func BenchmarkE2Sqrt(b *testing.B) {
-	var a E2
+	var a, c E2
 	a.MustSetRandom()
+	a.Square(&a)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.Sqrt(&a)
+		c.Sqrt(&a)
 	}
 }
 

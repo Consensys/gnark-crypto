@@ -451,6 +451,19 @@ func TestElementBytes(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("SetBytesCanonical(Bytes()) should stay constant", prop.ForAll(
+		func(a testPairElement) bool {
+			var b Element
+			bytes := a.element.Bytes()
+			if err := b.SetBytesCanonical(bytes[:]); err != nil {
+				t.Error(err)
+				return false
+			}
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -1661,11 +1674,11 @@ func TestElementFixedExp(t *testing.T) {
 
 	genA := gen()
 
-	properties.Property(fmt.Sprintf("expBySqrtExp must match Exp(%s)", sqrtExponentElement), prop.ForAll(
+	properties.Property(fmt.Sprintf("ExpBySqrtExp must match Exp(%s)", sqrtExponentElement), prop.ForAll(
 		func(a testPairElement) bool {
 			c := a.element
 			d := a.element
-			c.expBySqrtExp(c)
+			c.ExpBySqrtExp(c)
 			d.Exp(d, _bSqrtExponentElement)
 			return c.Equal(&d)
 		},
@@ -1674,11 +1687,11 @@ func TestElementFixedExp(t *testing.T) {
 	var _bLegendreExponentElement *big.Int
 	_bLegendreExponentElement, _ = new(big.Int).SetString("7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0", 16)
 
-	properties.Property("expByLegendreExp must match Exp(7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0)", prop.ForAll(
+	properties.Property("ExpByLegendreExp must match Exp(7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0)", prop.ForAll(
 		func(a testPairElement) bool {
 			c := a.element
 			d := a.element
-			c.expByLegendreExp(c)
+			c.ExpByLegendreExp(c)
 			d.Exp(d, _bLegendreExponentElement)
 			return c.Equal(&d)
 		},

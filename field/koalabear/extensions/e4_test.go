@@ -7,8 +7,6 @@ package extensions
 
 import (
 	"bytes"
-	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/prop"
 	"math/big"
 	"os"
 	"reflect"
@@ -16,7 +14,11 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
+
 	"fmt"
+
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 
 	"github.com/stretchr/testify/require"
@@ -794,11 +796,12 @@ func BenchmarkE4Square(b *testing.B) {
 }
 
 func BenchmarkE4Sqrt(b *testing.B) {
-	var a E4
+	var a, c E4
 	a.MustSetRandom()
+	a.Square(&a)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.Sqrt(&a)
+		c.Sqrt(&a)
 	}
 }
 

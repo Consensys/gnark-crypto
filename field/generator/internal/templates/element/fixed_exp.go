@@ -3,9 +3,10 @@ package element
 const FixedExp = `
 
 {{- if .SqrtQ3Mod4}}
-	{{expByAddChain "SqrtExp" .SqrtQ3Mod4ExponentData .ElementName}}
+	{{expByAddChain "SqrtPp1o4" .SqrtQ3Mod4ExponentData .ElementName}}
+	{{expByAddChain "SqrtPm3o4" .SqrtQ3Mod4ExponentData2 .ElementName}}
 {{- else if .SqrtAtkin}}
-	{{expByAddChain "SqrtExp" .SqrtAtkinExponentData .ElementName}}
+	{{expByAddChain "SqrtPm5o8" .SqrtAtkinExponentData .ElementName}}
 {{- else if .SqrtTonelliShanks}}
 	{{expByAddChain "SqrtExp" .SqrtSMinusOneOver2Data .ElementName}}
 {{- end }}
@@ -15,11 +16,21 @@ const FixedExp = `
 {{- end}}
 
 {{define "expByAddChain name data eName"}}
-	
-// expBy{{.name}} is equivalent to z.Exp(x, {{ .data.N }})
-// 
+
+// ExpBy{{.name}} is equivalent to z.Exp(x, {{ .data.N }}).
+{{- if eq .name "SqrtPp1o4"}}
+// It raises x to the (p+1)/4 power using a shorter addition chain.
+{{- else if eq .name "SqrtPm3o4"}}
+// It raises x to the (p-3)/4 power using a shorter addition chain.
+{{- else if eq .name "SqrtPm5o8"}}
+// It raises x to the (p-5)/8 power using a shorter addition chain.
+{{- else if eq .name "SqrtExp"}}
+// It raises x to the (p-2^s-1)/2^(s+1) power using a shorter addition chain,
+// where s the 2-adic valuation of p-1.
+{{- end }}
+//
 // uses {{ .data.Meta.Module }} {{ .data.Meta.ReleaseTag }} to generate a shorter addition chain
-func (z *{{.eName}}) expBy{{$.name}}(x {{.eName}}) *{{.eName}} {
+func (z *{{.eName}}) ExpBy{{$.name}}(x {{.eName}}) *{{.eName}} {
 	// addition chain:
 	//
 	{{- range lines_ (format_ .data.Script) }}

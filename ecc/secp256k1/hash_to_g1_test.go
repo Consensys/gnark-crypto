@@ -6,11 +6,12 @@
 package secp256k1
 
 import (
+	"math/rand"
+	"testing"
+
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
-	"math/rand"
-	"testing"
 )
 
 func TestHashToFpG1(t *testing.T) {

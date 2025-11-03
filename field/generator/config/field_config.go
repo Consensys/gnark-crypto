@@ -55,12 +55,14 @@ type Field struct {
 	SqrtAtkinExponent          string   // big.Int to base16 string
 	SqrtSMinusOneOver2         string   // big.Int to base16 string
 	SqrtQ3Mod4Exponent         string   // big.Int to base16 string
+	SqrtQ3Mod4Exponent2        string   // big.Int to base16 string
 	SqrtG                      []uint64 // NonResidue ^  SqrtR (montgomery form)
 	NonResidue                 big.Int  // (montgomery form)
 	LegendreExponentData       *addchain.AddChainData
 	SqrtAtkinExponentData      *addchain.AddChainData
 	SqrtSMinusOneOver2Data     *addchain.AddChainData
 	SqrtQ3Mod4ExponentData     *addchain.AddChainData
+	SqrtQ3Mod4ExponentData2    *addchain.AddChainData
 	UseAddChain                bool
 
 	Word Word // 32 iff Q < 2^32, else 64
@@ -230,15 +232,20 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 		// q ≡ 3 (mod 4)
 		// using  z ≡ ± x^((p+1)/4) (mod q)
 		F.SqrtQ3Mod4 = true
-		var sqrtExponent big.Int
+		var sqrtExponent, sqrtExponent2 big.Int
 		sqrtExponent.SetUint64(1)
 		sqrtExponent.Add(&bModulus, &sqrtExponent)
 		sqrtExponent.Rsh(&sqrtExponent, 2)
+		sqrtExponent2.SetUint64(3)
+		sqrtExponent2.Sub(&bModulus, &sqrtExponent2)
+		sqrtExponent2.Rsh(&sqrtExponent2, 2)
 		F.SqrtQ3Mod4Exponent = sqrtExponent.Text(16)
+		F.SqrtQ3Mod4Exponent2 = sqrtExponent2.Text(16)
 
 		// add chain stuff
 		if F.UseAddChain {
 			F.SqrtQ3Mod4ExponentData = addchain.GetAddChain(&sqrtExponent)
+			F.SqrtQ3Mod4ExponentData2 = addchain.GetAddChain(&sqrtExponent2)
 		}
 
 	} else {

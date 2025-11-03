@@ -6,8 +6,9 @@
 package fptower
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
 )
 
 // E2 is a degree two finite field extension of fp.Element
@@ -204,38 +205,24 @@ func (z *E2) Exp(x E2, k *big.Int) *E2 {
 // The function does not test whether the square root
 // exists or not, it's up to the caller to call
 // Legendre beforehand.
-// cf https://eprint.iacr.org/2012/685.pdf (algo 10)
+//
+// "A note on the calculation of some functions in
+// finite fields: Tricks of the Trade" by Michael Scott
+// https://eprint.iacr.org/2020/1497.pdf (Sec. 6.3)
 func (z *E2) Sqrt(x *E2) *E2 {
-
-	// precomputation
-	var b, c, d, e, f, x0 E2
-	var _b, o fp.Element
-
-	// c must be a non square (works for p=1 mod 12 hence 1 mod 4, only bls377 has such a p currently)
-	c.A1.SetOne()
-
-	q := fp.Modulus()
-	var exp, one big.Int
-	one.SetUint64(1)
-	exp.Set(q).Sub(&exp, &one).Rsh(&exp, 1)
-	d.Exp(c, &exp)
-	e.Mul(&d, &c).Inverse(&e)
-	f.Mul(&d, &c).Square(&f)
-
-	// computation
-	exp.Rsh(&exp, 1)
-	b.Exp(*x, &exp)
-	b.norm(&_b)
-	o.SetOne()
-	if _b.Equal(&o) {
-		x0.Square(&b).Mul(&x0, x)
-		_b.Set(&x0.A0).Sqrt(&_b)
-		z.Conjugate(&b).MulByElement(z, &_b)
-		return z
+	var x0, x1 fp.Element
+	x.norm(&x0)
+	x0.Sqrt(&x0)
+	x1.Add(&x.A0, &x0).Halve()
+	if x1.Legendre() != 1 {
+		x1.Sub(&x.A0, &x0).Halve()
 	}
-	x0.Square(&b).Mul(&x0, x).Mul(&x0, &f)
-	_b.Set(&x0.A0).Sqrt(&_b)
-	z.Conjugate(&b).MulByElement(z, &_b).Mul(z, &e)
+	var inv fp.Element
+	x1.SqrtAndInverse(&x1, &inv)
+	z.A0.Set(&x1)
+	z.A1.Mul(&x.A1, &inv).
+		Mul(&z.A1, &x1).
+		Halve()
 
 	return z
 }

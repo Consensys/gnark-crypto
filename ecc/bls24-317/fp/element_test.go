@@ -455,6 +455,19 @@ func TestElementBytes(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("SetBytesCanonical(Bytes()) should stay constant", prop.ForAll(
+		func(a testPairElement) bool {
+			var b Element
+			bytes := a.element.Bytes()
+			if err := b.SetBytesCanonical(bytes[:]); err != nil {
+				t.Error(err)
+				return false
+			}
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -1665,11 +1678,11 @@ func TestElementFixedExp(t *testing.T) {
 
 	genA := gen()
 
-	properties.Property(fmt.Sprintf("expBySqrtExp must match Exp(%s)", sqrtExponentElement), prop.ForAll(
+	properties.Property(fmt.Sprintf("ExpBySqrtExp must match Exp(%s)", sqrtExponentElement), prop.ForAll(
 		func(a testPairElement) bool {
 			c := a.element
 			d := a.element
-			c.expBySqrtExp(c)
+			c.ExpBySqrtPp1o4(c)
 			d.Exp(d, _bSqrtExponentElement)
 			return c.Equal(&d)
 		},

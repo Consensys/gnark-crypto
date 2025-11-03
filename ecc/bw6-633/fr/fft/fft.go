@@ -6,10 +6,11 @@
 package fft
 
 import (
-	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/internal/parallel"
 	"math/big"
 	"math/bits"
+
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/internal/parallel"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 )

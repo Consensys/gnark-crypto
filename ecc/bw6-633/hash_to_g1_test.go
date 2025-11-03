@@ -8,11 +8,12 @@ package bw6633
 import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
 
+	"math/rand"
+	"testing"
+
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/hash_to_curve"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
-	"math/rand"
-	"testing"
 )
 
 func TestHashToFpG1(t *testing.T) {

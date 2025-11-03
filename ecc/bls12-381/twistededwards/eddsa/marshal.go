@@ -8,10 +8,11 @@ package eddsa
 import (
 	"crypto/subtle"
 	"errors"
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/twistededwards"
 	"io"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-381/twistededwards"
 )
 
 // cf point.go (ugly copy)

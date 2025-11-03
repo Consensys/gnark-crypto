@@ -6,8 +6,9 @@
 package kzg
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377"
 	"io"
+
+	bls12377 "github.com/consensys/gnark-crypto/ecc/bls12-377"
 
 	"github.com/consensys/gnark-crypto/utils/unsafe"
 )

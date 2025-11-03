@@ -28,9 +28,10 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
 	{{end}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
-	{{if eq .Name "bls12-381"}}
+    {{- if or (eq .Name "bls12-381") (eq .Name "bls12-377")}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/hash_to_curve"
-	{{ end }}
+	{{end}}
+
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -165,7 +166,7 @@ func TestIsOn{{ toUpper .PointName }}(t *testing.T) {
 		{{$fuzzer}},
 	))
 
-    {{- if or (eq .Name "bls12-381") (and (eq .Name "bn254") (eq .PointName "g2"))}}
+    {{- if or (eq .Name "bls12-377") (eq .Name "bls12-381") (and (eq .Name "bn254") (eq .PointName "g2"))}}
 	properties.Property("[{{ toUpper .Name }}] IsInSubGroup should return false for a point on the cofactor-torsion", prop.ForAll(
 		func(a {{ .CoordType}}) bool {
 			op := fuzzCofactorOf{{ toUpper .PointName}}(a)
@@ -178,6 +179,67 @@ func TestIsOn{{ toUpper .PointName }}(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestIsInSubGroupBatch{{ toUpper .PointName}}(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = 1
+	} else {
+		parameters.MinSuccessfulTests = 100
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	// number of points to test
+	const nbSamples = 100
+
+	properties.Property("[{{ toUpper .Name }}] IsInSubGroupBatch{{ toUpper .PointName}} test should pass with high probability", prop.ForAll(
+		func(mixer fr.Element) bool {
+			// mixer ensures that all the words of a frElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := range uint64(nbSamples) {
+				sampleScalars[i].SetUint64(i+1).
+					Mul(&sampleScalars[i], &mixer)
+			}
+
+			// random points in {{ toUpper .PointName}}
+			result := BatchScalarMultiplication{{ toUpper .PointName}}(&{{.PointName}}GenAff, sampleScalars[:])
+
+			return IsInSubGroupBatch{{ toUpper .PointName}}(result)
+		},
+		GenFr(),
+	))
+
+    {{- if or (eq .Name "bls12-377") (eq .Name "bls12-381") (and (eq .Name "bn254") (eq .PointName "g2"))}}
+	properties.Property("[{{ toUpper .Name }}] IsInSubGroupBatch test should not pass with high probability", prop.ForAll(
+		func(mixer fr.Element, a {{ .CoordType}}) bool {
+			// mixer ensures that all the words of a frElement are set
+			var sampleScalars [nbSamples]fr.Element
+
+			for i := 1; i <= nbSamples; i++ {
+				sampleScalars[i-1].SetUint64(uint64(i)).
+					Mul(&sampleScalars[i-1], &mixer)
+			}
+
+			// random points in {{ toUpper .PointName}}
+			result := BatchScalarMultiplication{{ toUpper .PointName}}(&{{.PointName}}GenAff, sampleScalars[:])
+
+			// random points in the h-torsion
+			h := fuzzCofactorOf{{ toUpper .PointName}}(a)
+			result[0].FromJacobian(&h)
+			h = fuzzCofactorOf{{ toUpper .PointName}}(a)
+			result[nbSamples-1].FromJacobian(&h)
+
+			return !IsInSubGroupBatch{{ toUpper .PointName}}(result)
+		},
+		GenFr(),
+		{{$fuzzer}},
+	))
+    {{- end}}
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
 
 func Test{{ toUpper .PointName }}Conversions(t *testing.T) {
 	t.Parallel()
@@ -699,7 +761,7 @@ func Test{{ toUpper .PointName }}BatchScalarMultiplication(t *testing.T) {
 
 func Test{{ $TJacobian }}Triple(t *testing.T) {
 	// test triple on the generator and the infinity point
-	// against double and add 
+	// against double and add
 	var a {{ $TJacobian }}
 	a.Set(&{{.PointName}}Gen)
 	var infinity {{ $TJacobian }}
@@ -1018,7 +1080,7 @@ func Benchmark{{ toUpper .PointName}}AffineDouble(b *testing.B) {
 	}
 }
 
-{{- if eq .Name "bls12-381"}}
+{{- if or (eq .Name "bls12-381") (eq .Name "bls12-377")}}
 func fuzzCofactorOf{{ toUpper .PointName}}(f {{ .CoordType}}) {{ $TJacobian }} {
 	var res, jac {{ $TJacobian }}
     {{- if eq .PointName "g1" }}

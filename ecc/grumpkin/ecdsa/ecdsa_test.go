@@ -8,9 +8,10 @@ package ecdsa
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"github.com/consensys/gnark-crypto/ecc/grumpkin/fr"
 	"math/big"
 	"testing"
+
+	"github.com/consensys/gnark-crypto/ecc/grumpkin/fr"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
