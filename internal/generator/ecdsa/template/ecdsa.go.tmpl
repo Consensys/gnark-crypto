@@ -21,7 +21,7 @@ const (
 	sizeFr         = fr.Bytes
 	sizeFrBits     = fr.Bits
 	sizeFp         = fp.Bytes
-{{- if eq .Name "secp256k1"}}
+{{- if or (eq .Name "secp256k1") (eq .Name "secp256r1")}}
 	sizePublicKey  = 2 * sizeFp
 {{- else}}
 	sizePublicKey  = {{ .CurvePackage }}.SizeOfG1AffineCompressed

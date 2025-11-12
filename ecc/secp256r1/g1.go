@@ -569,12 +569,12 @@ func (p *G1Jac) IsInSubGroup() bool {
 
 // mulWindowed computes the 2-bits windowed double-and-add scalar
 // multiplication p=[s]q in Jacobian coordinates.
-func (p *G1Jac) mulWindowed(a *G1Jac, s *big.Int) *G1Jac {
+func (p *G1Jac) mulWindowed(q *G1Jac, s *big.Int) *G1Jac {
 
 	var res G1Jac
 	var ops [3]G1Jac
 
-	ops[0].Set(a)
+	ops[0].Set(q)
 	if s.Sign() == -1 {
 		ops[0].Neg(&ops[0])
 	}
@@ -795,7 +795,7 @@ func (p *g1JacExtended) add(q *g1JacExtended) *g1JacExtended {
 // double sets p to [2]q in Jacobian extended coordinates.
 //
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-// ~Cost: 6M + 4S
+// ~Cost: 7M + 2S
 //
 // N.B.: since we consider any point on Z=0 as the point at infinity
 // this doubling formula works for infinity points as well.
