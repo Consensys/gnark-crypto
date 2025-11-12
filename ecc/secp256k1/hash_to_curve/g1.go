@@ -9,9 +9,11 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 )
 
-// G1Sgn0 is an algebraic substitute for the notion of sign in ordered fields
-// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign
-// https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-16.html#name-the-sgn0-function
+// G1Sgn0 is an algebraic substitute for the notion of sign in ordered fields.
+// Namely, every non-zero quadratic residue in a finite field of characteristic =/= 2 has exactly two square roots, one of each sign.
+//
+// See: https://www.rfc-editor.org/rfc/rfc9380.html#name-the-sgn0-function
+//
 // The sign of an element is not obviously related to that of its Montgomery form
 func G1Sgn0(z *fp.Element) uint64 {
 

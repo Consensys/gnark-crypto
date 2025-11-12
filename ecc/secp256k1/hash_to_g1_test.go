@@ -6,10 +6,11 @@
 package secp256k1
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
+
 	"math/rand"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
