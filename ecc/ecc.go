@@ -30,8 +30,8 @@ const (
 	BW6_633
 	STARK_CURVE
 	SECP256K1
-	SECP256R1
 	GRUMPKIN
+	SECP256R1
 )
 
 // MultiExpConfig enables to set optional configuration attribute to a call to MultiExp
