@@ -269,8 +269,6 @@ func TestG1AffineOps(t *testing.T) {
 			var op1, op2 G1Jac
 			op1.mulWindowed(&g1Gen, &bs).Neg(&op1)
 			op2.mulWindowed(&g1Gen, &nbs)
-			fmt.Println("op1:", op1.String())
-			fmt.Println("op2:", op2.String())
 			res = res && op1.Equal(&op2)
 
 			return res

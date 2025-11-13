@@ -1,8 +1,6 @@
 // Copyright 2020-2025 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
-// FOO
-
 package secp256r1
 
 import (
@@ -12,11 +10,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/secp256r1/fp"
 )
 
-// SizeOfG1AffineCompressed represents the size in bytes that a G1Affine need in binary form, compressed
-const SizeOfG1AffineCompressed = 32
-
 // SizeOfG1AffineUncompressed represents the size in bytes that a G1Affine need in binary form, uncompressed
-const SizeOfG1AffineUncompressed = SizeOfG1AffineCompressed * 2
+const SizeOfG1AffineUncompressed = 64
 
 // RawBytes returns binary representation of p (stores X and Y coordinate)
 func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
@@ -44,7 +39,7 @@ func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 
 // we store both X and Y and there is no spare bit for flagging
 func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
-	if len(buf) < SizeOfG1AffineCompressed {
+	if len(buf) < SizeOfG1AffineUncompressed {
 		return 0, io.ErrShortBuffer
 	}
 

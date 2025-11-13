@@ -6,6 +6,7 @@ package secp256r1
 import (
 	"crypto/rand"
 	"math/big"
+	"runtime"
 	"sync/atomic"
 
 	"github.com/consensys/gnark-crypto/ecc/secp256r1/fp"
@@ -1046,4 +1047,152 @@ func BatchJacobianToAffineG1(points []G1Jac) []G1Affine {
 	})
 
 	return result
+}
+
+// BatchScalarMultiplicationG1 multiplies the same base by all scalars
+// and return resulting points in affine coordinates
+// uses a simple windowed-NAF-like multiplication algorithm.
+func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affine {
+	// approximate cost in group ops is
+	// cost = 2^{c-1} + n(scalar.nbBits+nbChunks)
+
+	nbPoints := uint64(len(scalars))
+	min := ^uint64(0)
+	bestC := 0
+	for c := 2; c <= 16; c++ {
+		cost := uint64(1 << (c - 1)) // pre compute the table
+		nbChunks := computeNbChunks(uint64(c))
+		cost += nbPoints * (uint64(c) + 1) * nbChunks // doublings + point add
+		if cost < min {
+			min = cost
+			bestC = c
+		}
+	}
+	c := uint64(bestC) // window size
+	nbChunks := int(computeNbChunks(c))
+
+	// last window may be slightly larger than c; in which case we need to compute one
+	// extra element in the baseTable
+	maxC := lastC(c)
+	if c > maxC {
+		maxC = c
+	}
+
+	// precompute all powers of base for our window
+	// note here that if performance is critical, we can implement as in the msmX methods
+	// this allocation to be on the stack
+	baseTable := make([]G1Jac, (1 << (maxC - 1)))
+	baseTable[0].FromAffine(base)
+	for i := 1; i < len(baseTable); i++ {
+		baseTable[i] = baseTable[i-1]
+		baseTable[i].AddMixed(base)
+	}
+	// convert our base exp table into affine to use AddMixed
+	baseTableAff := BatchJacobianToAffineG1(baseTable)
+	toReturn := make([]G1Jac, len(scalars))
+
+	// partition the scalars into digits
+	digits, _ := partitionScalars(scalars, c, runtime.NumCPU())
+
+	// for each digit, take value in the base table, double it c time, voilà.
+	parallel.Execute(len(scalars), func(start, end int) {
+		var p G1Jac
+		for i := start; i < end; i++ {
+			p.Set(&g1Infinity)
+			for chunk := nbChunks - 1; chunk >= 0; chunk-- {
+				if chunk != nbChunks-1 {
+					for j := uint64(0); j < c; j++ {
+						p.DoubleAssign()
+					}
+				}
+				offset := chunk * len(scalars)
+				digit := digits[i+offset]
+
+				if digit == 0 {
+					continue
+				}
+
+				// if msbWindow bit is set, we need to subtract
+				if digit&1 == 0 {
+					// add
+					p.AddMixed(&baseTableAff[(digit>>1)-1])
+				} else {
+					// sub
+					t := baseTableAff[digit>>1]
+					t.Neg(&t)
+					p.AddMixed(&t)
+				}
+			}
+
+			// set our result point
+			toReturn[i] = p
+
+		}
+	})
+	toReturnAff := BatchJacobianToAffineG1(toReturn)
+	return toReturnAff
+}
+
+// batchAddG1Affine adds affine points using the Montgomery batch inversion trick.
+// Special cases (doubling, infinity) must be filtered out before this call.
+func batchAddG1Affine[TP pG1Affine, TPP ppG1Affine, TC cG1Affine](R *TPP, P *TP, batchSize int) {
+	var lambda, lambdain TC
+
+	// from https://docs.zkproof.org/pages/standards/accepted-workshop3/proposal-turbo_plonk.pdf
+	// affine point addition formula
+	// R(X1, Y1) + P(X2, Y2) = Q(X3, Y3)
+	// λ  = (Y2 - Y1) / (X2 - X1)
+	// X3 = λ² - (X1 + X2)
+	// Y3 = λ * (X1 - X3) - Y1
+
+	// first we compute the 1 / (X2 - X1) for all points using Montgomery batch inversion trick
+
+	// X2 - X1
+	for j := 0; j < batchSize; j++ {
+		lambdain[j].Sub(&(*P)[j].X, &(*R)[j].X)
+	}
+
+	// montgomery batch inversion;
+	// lambda[0] = 1 / (P[0].X - R[0].X)
+	// lambda[1] = 1 / (P[1].X - R[1].X)
+	// ...
+	{
+		var accumulator fp.Element
+		lambda[0].SetOne()
+		accumulator.Set(&lambdain[0])
+
+		for i := 1; i < batchSize; i++ {
+			lambda[i] = accumulator
+			accumulator.Mul(&accumulator, &lambdain[i])
+		}
+
+		accumulator.Inverse(&accumulator)
+
+		for i := batchSize - 1; i > 0; i-- {
+			lambda[i].Mul(&lambda[i], &accumulator)
+			accumulator.Mul(&accumulator, &lambdain[i])
+		}
+		lambda[0].Set(&accumulator)
+	}
+
+	var t fp.Element
+	var Q G1Affine
+
+	for j := 0; j < batchSize; j++ {
+		// λ  = (Y2 - Y1) / (X2 - X1)
+		t.Sub(&(*P)[j].Y, &(*R)[j].Y)
+		lambda[j].Mul(&lambda[j], &t)
+
+		// X3 = λ² - (X1 + X2)
+		Q.X.Square(&lambda[j])
+		Q.X.Sub(&Q.X, &(*R)[j].X)
+		Q.X.Sub(&Q.X, &(*P)[j].X)
+
+		// Y3 = λ * (X1 - X3) - Y1
+		t.Sub(&(*R)[j].X, &Q.X)
+		Q.Y.Mul(&lambda[j], &t)
+		Q.Y.Sub(&Q.Y, &(*R)[j].Y)
+
+		(*R)[j].Set(&Q)
+	}
 }

@@ -1,0 +1,133 @@
+// Copyright 2020-2025 Consensys Software Inc.
+// Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
+
+package secp256r1
+
+import (
+	"github.com/consensys/gnark-crypto/ecc/secp256r1/fp"
+	"github.com/consensys/gnark-crypto/ecc/secp256r1/hash_to_curve"
+)
+
+// MapToG1 invokes the SVDW map, and guarantees that the result is in G1.
+func MapToG1(u fp.Element) G1Affine {
+	res := MapToCurve1(&u)
+	return res
+}
+
+// EncodeToG1 hashes a message to a point on the G1 curve using the SVDW map.
+// It is faster than [HashToG1], but the result is not uniformly distributed. Unsuitable as a random oracle.
+// dst stands for "domain separation tag", a string unique to the construction using the hash function
+//
+// See: https://www.rfc-editor.org/rfc/rfc9380.html#roadmap
+func EncodeToG1(msg, dst []byte) (G1Affine, error) {
+
+	var res G1Affine
+	u, err := fp.Hash(msg, dst, 1)
+	if err != nil {
+		return res, err
+	}
+
+	res = MapToCurve1(&u[0])
+
+	return res, nil
+}
+
+// HashToG1 hashes a message to a point on the G1 curve using the SVDW map.
+// Slower than [EncodeToG1], but usable as a random oracle.
+// dst stands for "domain separation tag", a string unique to the construction using the hash function.
+//
+// See https://www.rfc-editor.org/rfc/rfc9380.html#roadmap
+func HashToG1(msg, dst []byte) (G1Affine, error) {
+	u, err := fp.Hash(msg, dst, 2*1)
+	if err != nil {
+		return G1Affine{}, err
+	}
+
+	Q0 := MapToCurve1(&u[0])
+	Q1 := MapToCurve1(&u[1])
+
+	var _Q0, _Q1 G1Jac
+	_Q0.FromAffine(&Q0)
+	_Q1.FromAffine(&Q1).AddAssign(&_Q0)
+
+	Q1.FromJacobian(&_Q1)
+	return Q1, nil
+}
+
+// MapToCurve1 implements the Shallue and van de Woestijne method, applicable to any elliptic curve in Weierstrass form.
+// It does not perform cofactor clearing nor isogeny. Use [MapToG1] for mapping to group.
+//
+// See: https://www.rfc-editor.org/rfc/rfc9380.html#straightline-svdw
+func MapToCurve1(u *fp.Element) G1Affine {
+	var tv1, tv2, tv3, tv4 fp.Element
+	var x1, x2, x3, gx1, gx2, gx, x, y fp.Element
+	var one fp.Element
+	var gx1NotSquare, gx1SquareOrGx2Not int
+
+	//constants
+	//c1 = g(Z)
+	//c2 = -Z / 2
+	//c3 = sqrt(-g(Z) * (3 * Z² + 4 * A))     # sgn0(c3) MUST equal 0
+	//c4 = -4 * g(Z) / (3 * Z² + 4 * A)
+
+	Z := fp.Element{18446744073709551612, 17179869183, 0, 18446744056529682436}
+	c1 := fp.Element{15608596021259845069, 12461466626291937424, 16546823903870267094, 15866188131616639046}
+	c2 := fp.Element{1, 18446744069414584320, 18446744073709551615, 9223372041149743102}
+	c3 := fp.Element{14491264821266665062, 16044848171267301423, 18190410271107072784, 11594008941183335481}
+	c4 := fp.Element{5675971233642468843, 17583252185197293256, 5425777131613022969, 4377497063962368937}
+
+	one.SetOne()
+
+	tv1.Square(u)       //    1.  tv1 = u²
+	tv1.Mul(&tv1, &c1)  //    2.  tv1 = tv1 * c1
+	tv2.Add(&one, &tv1) //    3.  tv2 = 1 + tv1
+	tv1.Sub(&one, &tv1) //    4.  tv1 = 1 - tv1
+	tv3.Mul(&tv1, &tv2) //    5.  tv3 = tv1 * tv2
+
+	tv3.Inverse(&tv3)   //    6.  tv3 = inv0(tv3)
+	tv4.Mul(u, &tv1)    //    7.  tv4 = u * tv1
+	tv4.Mul(&tv4, &tv3) //    8.  tv4 = tv4 * tv3
+	tv4.Mul(&tv4, &c3)  //    9.  tv4 = tv4 * c3
+	x1.Sub(&c2, &tv4)   //    10.  x1 = c2 - tv4
+
+	gx1.Square(&x1)                    //    11. gx1 = x1²
+	gx1.Add(&gx1, &aCurveCoeff)        // 	 12. gx1 = gx1 + A
+	gx1.Mul(&gx1, &x1)                 //    13. gx1 = gx1 * x1
+	gx1.Add(&gx1, &bCurveCoeff)        //    14. gx1 = gx1 + B
+	gx1NotSquare = gx1.Legendre() >> 1 //    15.  e1 = is_square(gx1)
+	// gx1NotSquare = 0 if gx1 is a square, -1 otherwise
+
+	x2.Add(&c2, &tv4)           //    16.  x2 = c2 + tv4
+	gx2.Square(&x2)             //    17. gx2 = x2²
+	gx2.Add(&gx2, &aCurveCoeff) //    18. gx2 = gx2 + A
+	gx2.Mul(&gx2, &x2)          //    19. gx2 = gx2 * x2
+	gx2.Add(&gx2, &bCurveCoeff) //    20. gx2 = gx2 + B
+
+	{
+		gx2NotSquare := gx2.Legendre() >> 1              // gx2Square = 0 if gx2 is a square, -1 otherwise
+		gx1SquareOrGx2Not = gx2NotSquare | ^gx1NotSquare //    21.  e2 = is_square(gx2) AND NOT e1   # Avoid short-circuit logic ops
+	}
+
+	x3.Square(&tv2)   //    22.  x3 = tv2²
+	x3.Mul(&x3, &tv3) //    23.  x3 = x3 * tv3
+	x3.Square(&x3)    //    24.  x3 = x3²
+	x3.Mul(&x3, &c4)  //    25.  x3 = x3 * c4
+
+	x3.Add(&x3, &Z)                  //    26.  x3 = x3 + Z
+	x.Select(gx1NotSquare, &x1, &x3) //    27.   x = CMOV(x3, x1, e1)   # x = x1 if gx1 is square, else x = x3
+	// Select x1 iff gx1 is square iff gx1NotSquare = 0
+	x.Select(gx1SquareOrGx2Not, &x2, &x) //    28.   x = CMOV(x, x2, e2)    # x = x2 if gx2 is square and gx1 is not
+	// Select x2 iff gx2 is square and gx1 is not, iff gx1SquareOrGx2Not = 0
+	gx.Square(&x)             //    29.  gx = x²
+	gx.Add(&gx, &aCurveCoeff) //    30.  gx = gx + A
+
+	gx.Mul(&gx, &x)           //    31.  gx = gx * x
+	gx.Add(&gx, &bCurveCoeff) //    32.  gx = gx + B
+
+	y.Sqrt(&gx)                                                         //    33.   y = sqrt(gx)
+	signsNotEqual := hash_to_curve.G1Sgn0(u) ^ hash_to_curve.G1Sgn0(&y) //    34.  e3 = sgn0(u) == sgn0(y)
+
+	tv1.Neg(&y)
+	y.Select(int(signsNotEqual), &y, &tv1) //    35.   y = CMOV(-y, y, e3)       # Select correct sign of y
+	return G1Affine{x, y}
+}
