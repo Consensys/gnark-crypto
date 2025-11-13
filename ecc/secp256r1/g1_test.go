@@ -4,6 +4,7 @@
 package secp256r1
 
 import (
+	"crypto/elliptic"
 	crand "crypto/rand"
 	"fmt"
 	"math/big"
@@ -400,6 +401,37 @@ func TestG1AffineOps(t *testing.T) {
 		},
 		genScalar,
 		genScalar,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestG1CrossImplementations(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[SECP256R1] ScalarMultiplication should output the same result as crypto/elliptic", prop.ForAll(
+		func(s fr.Element) bool {
+			curve := elliptic.P256()
+			Gx, Gy := curve.Params().Gx, curve.Params().Gy
+			var S big.Int
+			s.BigInt(&S)
+			Qx, Qy := curve.ScalarMult(Gx, Gy, S.Bytes())
+			var Q G1Affine
+			Q.ScalarMultiplication(&g1GenAff, &S)
+			var qx, qy fp.Element
+			qx.SetBigInt(Qx)
+			qy.SetBigInt(Qy)
+			return Q.X.Equal(&qx) && Q.Y.Equal(&qy)
+		},
+		GenFr(),
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
