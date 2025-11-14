@@ -88,15 +88,15 @@ func TestNonMalleability(t *testing.T) {
 		bsig := make([]byte, 2*sizeFr)
 		r := big.NewInt(1)
 		frMod := fr.Modulus()
-		r.Add(r, frMod)
+		r.Sub(frMod, r)
 		buf := r.Bytes()
 		copy(bsig[sizeFr:], buf[:])
 		big.NewInt(1).FillBytes(bsig[:sizeFr])
 
 		var sig Signature
 		_, err := sig.SetBytes(bsig)
-		if err != errSBiggerThanRMod {
-			t.Fatal("should raise error s >= r_mod")
+		if err != errSBiggerThanHalfRMod {
+			t.Fatal("should raise error s > r_mod/2")
 		}
 	})
 
