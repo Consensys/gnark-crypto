@@ -6,7 +6,7 @@
 package hash_to_curve
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
+	"github.com/consensys/gnark-crypto/ecc/secp256r1/fp"
 )
 
 // G1Sgn0 is an algebraic substitute for the notion of sign in ordered fields.
