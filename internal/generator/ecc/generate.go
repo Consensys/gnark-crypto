@@ -23,7 +23,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "g1_test.go"), Templates: []string{"tests/point.go.tmpl"}},
 	}
 	// if not secp256k1, generate the lagrange transform
-	if conf.Name != config.SECP256K1.Name || conf.Name != config.GRUMPKIN.Name {
+	if conf.Name != config.SECP256K1.Name || conf.Name != config.GRUMPKIN.Name || conf.Name != config.SECP256R1.Name {
 		os.Remove(filepath.Join(baseDir, "g1_lagrange.go"))
 		os.Remove(filepath.Join(baseDir, "g1_lagrange_test.go"))
 	}
@@ -144,7 +144,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 	}
 
 	// No G2 for secp256k1 and grumpkin
-	if conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN) {
+	if conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN) || conf.Equal(config.SECP256R1) {
 		return nil
 	}
 

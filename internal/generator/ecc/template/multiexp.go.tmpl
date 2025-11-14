@@ -16,7 +16,7 @@ import (
 	"runtime"
 )
 
-{{- if eq .Name "secp256k1"}}
+{{- if or (eq .Name "secp256k1") (eq .Name "secp256r1")}}
 {{template "multiexp" dict "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "cmax" 15}}
 {{- else if eq .Name "grumpkin"}}
 {{template "multiexp" dict "PointName" .G1.PointName "UPointName" (toUpper .G1.PointName) "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "cmax" 16}}
@@ -180,7 +180,7 @@ func partitionScalars(scalars []fr.Element, c uint64,  nbTasks int) ([]uint16, [
 		// for each chunk compute the statistics
 		for chunkID := start; chunkID < end; chunkID++ {
 			// indicates if a bucket is hit.
-            {{- if eq .Name "secp256k1"}}
+            {{- if or (eq .Name "secp256k1") (eq .Name "secp256r1")}}
                 var b bitSetC15
             {{- else}}
                 var b bitSetC16
