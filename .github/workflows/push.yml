@@ -39,7 +39,7 @@ jobs:
     strategy:
       matrix:
         go-version: [1.23.x]
-        os: [ubuntu-latest-128, windows-latest, macos-latest]
+        os: [gha-runner-scale-set-ubuntu-24-amd64-xxl, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     needs:
       - staticcheck
@@ -64,11 +64,11 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
     - name: Test (windows / mac)
       # on macOS CI / Windows CI we avoid running the std/ tests (they are run on ubuntu CI)
-      if: startsWith(matrix.os, 'ubuntu') == false
+      if: startsWith(matrix.os, 'gha-runner-scale-set-ubuntu') == false
       run: |
         go test -short -v -timeout=60m ./...
     - name: Test (ubuntu - race and solc)
-      if: startsWith(matrix.os, 'ubuntu') == true
+      if: startsWith(matrix.os, 'gha-runner-scale-set-ubuntu') == true
       run: |
         set -euo pipefail
         go test -json -v -timeout=30m ./... 2>&1 | gotestfmt -hide=all | tee /tmp/gotest.log
