@@ -95,7 +95,7 @@ func (f *FFAmd64) MulADX(registers *amd64.Registers, x, y func(int) string, t []
 		divShift()
 	}, true)
 
-	mulWordN := f.Define("MUL_WORD_N", 0, func(args ...any) {
+	mulWordN := f.Define("MUL_WORD_N", 0, func(_ ...any) {
 		f.XORQ(amd64.AX, amd64.AX)
 		// for j=0 to N-1
 		//    (A,t[j])  := t[j] + x[j]*y[i] + A
