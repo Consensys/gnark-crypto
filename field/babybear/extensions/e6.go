@@ -9,7 +9,7 @@ import (
 	"math/big"
 	"math/bits"
 
-	fr "github.com/consensys/gnark-crypto/field/koalabear"
+	fr "github.com/consensys/gnark-crypto/field/babybear"
 )
 
 // E6 is a degree three finite field extension of fp2

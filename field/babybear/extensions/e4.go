@@ -128,7 +128,8 @@ func (z *E4) Neg(x *E4) *E4 {
 	return z
 }
 
-// SetRandom used only in tests
+// SetRandom set z to a random elmt
+// N.B.: used only in tests
 func (z *E4) SetRandom() (*E4, error) {
 	if _, err := z.B0.SetRandom(); err != nil {
 		return nil, err

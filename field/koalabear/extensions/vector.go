@@ -8,6 +8,7 @@ package extensions
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/consensys/gnark-crypto/internal/parallel"
 	"io"
 	"math/bits"
 	"runtime"
@@ -15,8 +16,6 @@ import (
 	"strings"
 	"sync"
 	"unsafe"
-
-	"github.com/consensys/gnark-crypto/internal/parallel"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/utils/cpu"

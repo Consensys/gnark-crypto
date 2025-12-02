@@ -4,9 +4,13 @@
 {{- if eq .FF "babybear"}}
 //	𝔽r²[u] = 𝔽r/u²-11
 //	𝔽r⁴[v] = 𝔽r²/v²-u
+//  or
+//	𝔽r⁶[v] = 𝔽r²/v³-u-1
 {{- else if eq .FF "koalabear"}}
 //	𝔽r²[u] = 𝔽r/u²-3
 //	𝔽r⁴[v] = 𝔽r²/v²-u
+//  or
+//	𝔽r⁶[v] = 𝔽r²/v³-u-1
 {{- else if eq .FF "goldilocks"}}
 //	𝔽r²[u] = 𝔽r/u²-7
 {{- end}}

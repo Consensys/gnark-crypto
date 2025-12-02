@@ -6,11 +6,10 @@
 package poseidon2
 
 import (
-	"hash"
-	"sync"
-
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 	gnarkHash "github.com/consensys/gnark-crypto/hash"
+	"hash"
+	"sync"
 )
 
 // NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard

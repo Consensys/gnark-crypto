@@ -14,11 +14,10 @@ import (
 	"testing"
 
 	"encoding/binary"
-	"math/rand/v2"
-
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/fft"
 	"github.com/stretchr/testify/require"
+	"math/rand/v2"
 )
 
 type sisParams struct {

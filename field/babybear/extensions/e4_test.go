@@ -7,6 +7,8 @@ package extensions
 
 import (
 	"bytes"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
 	"math/big"
 	"os"
 	"reflect"
@@ -14,11 +16,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/prop"
-
 	"fmt"
-
 	fr "github.com/consensys/gnark-crypto/field/babybear"
 
 	"github.com/stretchr/testify/require"

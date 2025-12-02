@@ -6,11 +6,10 @@
 package fft
 
 import (
+	"github.com/consensys/gnark-crypto/utils"
 	"math/big"
 	"strconv"
 	"testing"
-
-	"github.com/consensys/gnark-crypto/utils"
 
 	"github.com/consensys/gnark-crypto/field/babybear"
 
@@ -20,9 +19,8 @@ import (
 
 	"encoding/binary"
 	"fmt"
-	"math/rand/v2"
-
 	"github.com/stretchr/testify/require"
+	"math/rand/v2"
 )
 
 func TestFFT(t *testing.T) {
