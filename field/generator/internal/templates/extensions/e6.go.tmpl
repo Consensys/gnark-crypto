@@ -30,19 +30,6 @@ func (z *E6) Cmp(x *E6) int {
 	return z.B0.Cmp(&x.B0)
 }
 
-// LexicographicallyLargest returns true if this element is strictly lexicographically
-// larger than its negation, false otherwise
-func (z *E6) LexicographicallyLargest() bool {
-	// adapted from github.com/zkcrypto/bls12_381
-	if z.B2.IsZero() {
-		return z.B0.LexicographicallyLargest()
-	}
-	if z.B1.IsZero() {
-		return z.B0.LexicographicallyLargest()
-	}
-	return z.B1.LexicographicallyLargest()
-}
-
 // String puts E6 in string form
 func (z *E6) String() string {
 	return (z.B0.String() + "+(" + z.B1.String() + ")*v+(" + z.B2.String() + ")*v**2")
