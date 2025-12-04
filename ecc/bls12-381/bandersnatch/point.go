@@ -235,6 +235,8 @@ func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
 
 // Add adds two points (x,y), (u,v) on a twisted Edwards curve with parameters a, d
 // modifies p
+// Unified Addition from https://eprint.iacr.org/2008/522.pdf (Sec. 3.1)
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-add-2008-hwcd
 func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
 
 	initOnce.Do(initCurveParams)
@@ -267,6 +269,8 @@ func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
 
 // Double doubles point (x,y) on a twisted Edwards curve with parameters a, d
 // modifies p
+// (Dedicated) Doubling from https://eprint.iacr.org/2008/522.pdf (Sec. 3.3)
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#doubling-dbl-2008-hwcd
 func (p *PointAffine) Double(p1 *PointAffine) *PointAffine {
 
 	var A, B, C, D, E, F, G, H fr.Element
@@ -418,59 +422,9 @@ func (p *PointProj) FromAffine(p1 *PointAffine) *PointProj {
 	return p
 }
 
-// MixedAdd adds a point in projective to a point in affine coordinates
-// cf https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#addition-madd-2008-bbjlp
-func (p *PointProj) MixedAdd(p1 *PointProj, p2 *PointAffine) *PointProj {
-	initOnce.Do(initCurveParams)
-
-	var B, C, D, E, F, G, H, I fr.Element
-	B.Square(&p1.Z)
-	C.Mul(&p1.X, &p2.X)
-	D.Mul(&p1.Y, &p2.Y)
-	E.Mul(&curveParams.D, &C).Mul(&E, &D)
-	F.Sub(&B, &E)
-	G.Add(&B, &E)
-	H.Add(&p1.X, &p1.Y)
-	I.Add(&p2.X, &p2.Y)
-	p.X.Mul(&H, &I).
-		Sub(&p.X, &C).
-		Sub(&p.X, &D).
-		Mul(&p.X, &p1.Z).
-		Mul(&p.X, &F)
-	mulByA(&C)
-	p.Y.Sub(&D, &C).
-		Mul(&p.Y, &p1.Z).
-		Mul(&p.Y, &G)
-	p.Z.Mul(&F, &G)
-
-	return p
-}
-
-// Double adds points in projective coordinates
-// cf https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#doubling-dbl-2008-bbjlp
-func (p *PointProj) Double(p1 *PointProj) *PointProj {
-
-	var B, C, D, E, F, H, J fr.Element
-
-	B.Add(&p1.X, &p1.Y).Square(&B)
-	C.Square(&p1.X)
-	D.Square(&p1.Y)
-	E.Set(&C)
-	mulByA(&E)
-	F.Add(&E, &D)
-	H.Square(&p1.Z)
-	J.Sub(&F, &H).Sub(&J, &H)
-	p.X.Sub(&B, &C).
-		Sub(&p.X, &D).
-		Mul(&p.X, &J)
-	p.Y.Sub(&E, &D).Mul(&p.Y, &F)
-	p.Z.Mul(&F, &J)
-
-	return p
-}
-
 // Add adds points in projective coordinates
-// cf https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#addition-add-2008-bbjlp
+// Unified Addition from http://eprint.iacr.org/2008/013.pdf (Sec. 6)
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#addition-add-2008-bbjlp
 func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
 	initOnce.Do(initCurveParams)
 
@@ -493,6 +447,59 @@ func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
 	C.Neg(&C)
 	p.Y.Add(&D, &C).
 		Mul(&p.Y, &A).
+		Mul(&p.Y, &G)
+	p.Z.Mul(&F, &G)
+
+	return p
+}
+
+// Double adds points in projective coordinates
+// (Dedicated) Doubling from https://eprint.iacr.org/2008/013.pdf
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#doubling-dbl-2008-bbjlp
+func (p *PointProj) Double(p1 *PointProj) *PointProj {
+
+	var B, C, D, E, F, H, J fr.Element
+
+	B.Add(&p1.X, &p1.Y).Square(&B)
+	C.Square(&p1.X)
+	D.Square(&p1.Y)
+	E.Set(&C)
+	mulByA(&E)
+	F.Add(&E, &D)
+	H.Square(&p1.Z)
+	J.Sub(&F, &H).Sub(&J, &H)
+	p.X.Sub(&B, &C).
+		Sub(&p.X, &D).
+		Mul(&p.X, &J)
+	p.Y.Sub(&E, &D).Mul(&p.Y, &F)
+	p.Z.Mul(&F, &J)
+
+	return p
+}
+
+// MixedAdd adds a point in projective to a point in affine coordinates
+// Mixed Addition from http://eprint.iacr.org/2008/013.pdf (Sec. 6)
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#addition-madd-2008-bbjlp
+func (p *PointProj) MixedAdd(p1 *PointProj, p2 *PointAffine) *PointProj {
+	initOnce.Do(initCurveParams)
+
+	var B, C, D, E, F, G, H, I fr.Element
+	B.Square(&p1.Z)
+	C.Mul(&p1.X, &p2.X)
+	D.Mul(&p1.Y, &p2.Y)
+	E.Mul(&curveParams.D, &C).Mul(&E, &D)
+	F.Sub(&B, &E)
+	G.Add(&B, &E)
+	H.Add(&p1.X, &p1.Y)
+	I.Add(&p2.X, &p2.Y)
+	p.X.Mul(&H, &I).
+		Sub(&p.X, &C).
+		Sub(&p.X, &D).
+		Mul(&p.X, &p1.Z).
+		Mul(&p.X, &F)
+	mulByA(&C)
+	p.Y.Sub(&D, &C).
+		Mul(&p.Y, &p1.Z).
 		Mul(&p.Y, &G)
 	p.Z.Mul(&F, &G)
 
@@ -584,7 +591,8 @@ func (p *PointExtended) FromAffine(p1 *PointAffine) *PointExtended {
 }
 
 // Add adds points in extended coordinates
-// See https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-add-2008-hwcd
+// Unified Addition from https://eprint.iacr.org/2008/522.pdf (Sec. 3.1)
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-add-2008-hwcd
 func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
 	var A, B, C, D, E, F, G, H, tmp fr.Element
 	A.Mul(&p1.X, &p2.X)
@@ -610,37 +618,8 @@ func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
 	return p
 }
 
-// MixedAdd adds a point in extended coordinates to a point in affine coordinates
-// See https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-madd-2008-hwcd-2
-func (p *PointExtended) MixedAdd(p1 *PointExtended, p2 *PointAffine) *PointExtended {
-	var A, B, C, D, E, F, G, H, tmp fr.Element
-
-	A.Mul(&p1.X, &p2.X)
-	B.Mul(&p1.Y, &p2.Y)
-	C.Mul(&p1.Z, &p2.X).
-		Mul(&C, &p2.Y)
-	D.Set(&p1.T)
-	E.Add(&D, &C)
-	tmp.Sub(&p1.X, &p1.Y)
-	F.Add(&p2.X, &p2.Y).
-		Mul(&F, &tmp).
-		Add(&F, &B).
-		Sub(&F, &A)
-	G.Set(&A)
-	mulByA(&G)
-	G.Add(&G, &B)
-	H.Sub(&D, &C)
-
-	p.X.Mul(&E, &F)
-	p.Y.Mul(&G, &H)
-	p.T.Mul(&E, &H)
-	p.Z.Mul(&F, &G)
-
-	return p
-}
-
 // Double adds points in extended coordinates
-// Dedicated doubling
+// (Dedicated) doubling from https://eprint.iacr.org/2008/522.pdf (Sec. 3.3)
 // https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#doubling-dbl-2008-hwcd
 func (p *PointExtended) Double(p1 *PointExtended) *PointExtended {
 
@@ -668,32 +647,33 @@ func (p *PointExtended) Double(p1 *PointExtended) *PointExtended {
 	return p
 }
 
-// MixedDouble adds points in extended coordinates
-// Dedicated mixed doubling
-// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#doubling-mdbl-2008-hwcd
-func (p *PointExtended) MixedDouble(p1 *PointExtended) *PointExtended {
+// MixedAdd adds a point in extended coordinates to a point in affine coordinates
+// Unified Mixed Addition from https://eprint.iacr.org/2008/522.pdf (Sec. 3.1)
+// https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-madd-2008-hwcd
+func (p *PointExtended) MixedAdd(p1 *PointExtended, p2 *PointAffine) *PointExtended {
+	initOnce.Do(initCurveParams)
+	var A, B, C, D, E, F, G, H, tmp fr.Element
 
-	var A, B, D, E, G, H, two fr.Element
-	two.SetUint64(2)
-
-	A.Square(&p1.X)
-	B.Square(&p1.Y)
-	D.Set(&A)
-	mulByA(&D)
-	E.Add(&p1.X, &p1.Y).
-		Square(&E).
+	A.Mul(&p1.X, &p2.X)
+	B.Mul(&p1.Y, &p2.Y)
+	C.Mul(&p1.T, &p2.X).
+		Mul(&C, &p2.Y).
+		Mul(&C, &curveParams.D)
+	D.Set(&p1.Z)
+	tmp.Add(&p1.X, &p1.Y)
+	E.Add(&p2.X, &p2.Y).
+		Mul(&E, &tmp).
 		Sub(&E, &A).
 		Sub(&E, &B)
-	G.Add(&D, &B)
-	H.Sub(&D, &B)
-
-	p.X.Sub(&G, &two).
-		Mul(&p.X, &E)
+	F.Sub(&D, &C)
+	G.Add(&D, &C)
+	H.Set(&A)
+	mulByA(&H)
+	H.Sub(&B, &H)
+	p.X.Mul(&E, &F)
 	p.Y.Mul(&G, &H)
-	p.T.Mul(&H, &E)
-	p.Z.Square(&G).
-		Sub(&p.Z, &G).
-		Sub(&p.Z, &G)
+	p.T.Mul(&E, &H)
+	p.Z.Mul(&F, &G)
 
 	return p
 }
