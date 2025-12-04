@@ -555,24 +555,25 @@ func (p *PointExtended) Add(p1, p2 *PointExtended) *PointExtended {
 // MixedAdd adds a point in extended coordinates to a point in affine coordinates
 // See https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-madd-2008-hwcd-2
 func (p *PointExtended) MixedAdd(p1 *PointExtended, p2 *PointAffine) *PointExtended {
+	initOnce.Do(initCurveParams)
 	var A, B, C, D, E, F, G, H, tmp fr.Element
 
 	A.Mul(&p1.X, &p2.X)
 	B.Mul(&p1.Y, &p2.Y)
-	C.Mul(&p1.Z, &p2.X).
-		Mul(&C, &p2.Y)
-	D.Set(&p1.T)
-	E.Add(&D, &C)
-	tmp.Sub(&p1.X, &p1.Y)
-	F.Add(&p2.X, &p2.Y).
-		Mul(&F, &tmp).
-		Add(&F, &B).
-		Sub(&F, &A)
-	G.Set(&A)
-	mulByA(&G)
-	G.Add(&G, &B)
-	H.Sub(&D, &C)
-
+	C.Mul(&p1.T, &p2.X).
+		Mul(&C, &p2.Y).
+		Mul(&C, &curveParams.D)
+	D.Set(&p1.Z)
+	tmp.Add(&p1.X, &p1.Y)
+	E.Add(&p2.X, &p2.Y).
+		Mul(&E, &tmp).
+		Sub(&E, &A).
+		Sub(&E, &B)
+	F.Sub(&D, &C)
+	G.Add(&D, &C)
+	H.Set(&A)
+	mulByA(&H)
+	H.Sub(&B, &H)
 	p.X.Mul(&E, &F)
 	p.Y.Mul(&G, &H)
 	p.T.Mul(&E, &H)

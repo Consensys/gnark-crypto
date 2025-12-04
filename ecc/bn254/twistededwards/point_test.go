@@ -23,6 +23,102 @@ const (
 	nbFuzz      = 100
 )
 
+func TestBug(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+	genS1 := GenBigInt()
+
+	properties.Property("[random](0,1) == (0,1)", prop.ForAll(
+		func(s1 big.Int) bool {
+			var p1 PointAffine
+			p1.setInfinity()
+			p1.ScalarMultiplication(&p1, &s1)
+
+			return p1.IsZero()
+		},
+		genS1,
+	))
+
+	properties.Property("[2](0,1) == (0,1)", prop.ForAll(
+		func() bool {
+			var p1 PointAffine
+			p1.setInfinity()
+			p1.Double(&p1)
+
+			return p1.IsZero()
+		},
+	))
+
+	properties.Property("(0,1)+(0,1) == (0,1)", prop.ForAll(
+		func() bool {
+			var p1, p2 PointAffine
+			p1.setInfinity()
+			p2.setInfinity()
+			p1.Add(&p1, &p2)
+
+			return p1.IsZero()
+		},
+	))
+
+	properties.Property("(0,1)+(x,y) == (x,y)", prop.ForAll(
+		func(s1 big.Int) bool {
+			params := GetEdwardsCurve()
+			var p1, p2 PointAffine
+			p1.setInfinity()
+			p2.ScalarMultiplication(&params.Base, &s1)
+			p1.Add(&p1, &p2)
+
+			return p1.Equal(&p2)
+		},
+		genS1,
+	))
+
+	properties.Property("(0,1)+(x,y,z,t) == (x,y,z,t)", prop.ForAll(
+		func(s1 big.Int) bool {
+			params := GetEdwardsCurve()
+			var p1 PointAffine
+			p1.setInfinity()
+			var p2 PointExtended
+			p2.FromAffine(&params.Base)
+			p2.ScalarMultiplication(&p2, &s1)
+			var res PointExtended
+			res.MixedAdd(&p2, &p1)
+
+			var p2Aff, resAff PointAffine
+			p2Aff.FromExtended(&p2)
+			resAff.FromExtended(&res)
+
+			return resAff.Equal(&p2Aff)
+		},
+		genS1,
+	))
+
+	properties.Property("(0,1)+(0,1,1,0) == (0,1,1,0)", prop.ForAll(
+		func() bool {
+			var p1 PointAffine
+			p1.setInfinity()
+			var p2 PointExtended
+			p2.setInfinity()
+			var res PointExtended
+			res.MixedAdd(&p2, &p1)
+
+			var resAff PointAffine
+			resAff.FromExtended(&res)
+
+			return resAff.IsZero()
+		},
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestReceiverIsOperand(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
