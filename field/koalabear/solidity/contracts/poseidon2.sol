@@ -62,11 +62,72 @@ contract Poseidon2 {
 
       mstore(mPtr, aa)
       mstore(add(mPtr, 0x20), bb)
-      aa := matMulM4uint256(aa)
+      matMulExternalInPlace(mPtr)
 
-      mathMulM4InPlace(mPtr)
-      aa := mload(add(mPtr, 0x20))
-      check := ithChunk(aa, 7)
+      bb := mload(add(mPtr, 0x20))
+      check := ithChunk(bb, 3)
+
+      /// @param ptr pointer to 2 uint256 elements, We interpret them as 4 packs of 4 uint32 elmts ->
+      /// [[a0,a1,a2,a3],..,[a12,a13,a14,a15]]:=[v0,v1,v2,v3]
+      /// and we multiply [v0,v1,v2,v3] by circ(2M4,M4,..,M4)
+      function matMulExternalInPlace(ptr) {
+        mathMulM4InPlace(ptr)
+        let t0, t1, t2, t3 := sumColumns(ptr)
+
+        let n := mload(ptr)
+        let a, b, c, d, e, f, g, h
+        a := addmod(t0, ithChunk(n, 0), R_MOD)
+        b := addmod(t1, ithChunk(n, 1), R_MOD)
+        c := addmod(t2, ithChunk(n, 2), R_MOD)
+        d := addmod(t3, ithChunk(n, 3), R_MOD)
+        e := addmod(t0, ithChunk(n, 4), R_MOD)
+        f := addmod(t1, ithChunk(n, 5), R_MOD)
+        g := addmod(t2, ithChunk(n, 6), R_MOD)
+        h := addmod(t3, ithChunk(n, 7), R_MOD)
+        n := packToUint256(a, b, c, d, e, f, g, h)
+        mstore(ptr, n)
+
+        n := mload(add(ptr, 0x20))
+        a := addmod(t0, ithChunk(n, 0), R_MOD)
+        b := addmod(t1, ithChunk(n, 1), R_MOD)
+        c := addmod(t2, ithChunk(n, 2), R_MOD)
+        d := addmod(t3, ithChunk(n, 3), R_MOD)
+        e := addmod(t0, ithChunk(n, 4), R_MOD)
+        f := addmod(t1, ithChunk(n, 5), R_MOD)
+        g := addmod(t2, ithChunk(n, 6), R_MOD)
+        h := addmod(t3, ithChunk(n, 7), R_MOD)
+        n := packToUint256(a, b, c, d, e, f, g, h)
+        mstore(add(ptr, 0x20), n)
+      }
+
+      /// @param ptr pointer to 2 uint256 elements. We interpret them as 4 packs of 4 uint32 elmts ->
+      /// [[a0,a1,a2,a3],..,[a12,a13,a14,a15]] and we sum them:
+      /// [[a0+a4+a8+a12, .., a3+a7+a11+a15]]
+      function sumColumns(ptr)->t0, t1, t2, t3 {
+        
+        let a := mload(ptr)
+        
+        t0 := addmod(t0, ithChunk(a, 0), R_MOD)
+        t1 := addmod(t1, ithChunk(a, 1), R_MOD)
+        t2 := addmod(t2, ithChunk(a, 2), R_MOD)
+        t3 := addmod(t3, ithChunk(a, 3), R_MOD)
+
+        t0 := addmod(t0, ithChunk(a, 4), R_MOD)
+        t1 := addmod(t1, ithChunk(a, 5), R_MOD)
+        t2 := addmod(t2, ithChunk(a, 6), R_MOD)
+        t3 := addmod(t3, ithChunk(a, 7), R_MOD)
+
+        a := mload(add(ptr, 0x20))
+        t0 := addmod(t0, ithChunk(a, 0), R_MOD)
+        t1 := addmod(t1, ithChunk(a, 1), R_MOD)
+        t2 := addmod(t2, ithChunk(a, 2), R_MOD)
+        t3 := addmod(t3, ithChunk(a, 3), R_MOD)
+
+        t0 := addmod(t0, ithChunk(a, 4), R_MOD)
+        t1 := addmod(t1, ithChunk(a, 5), R_MOD)
+        t2 := addmod(t2, ithChunk(a, 6), R_MOD)
+        t3 := addmod(t3, ithChunk(a, 7), R_MOD)
+      }
 
       /// matMulM4 computes
       /// s <- diag_4(M4)*s
