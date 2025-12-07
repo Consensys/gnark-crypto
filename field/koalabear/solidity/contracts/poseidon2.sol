@@ -49,7 +49,8 @@ contract Poseidon2 {
     input[6] = 0x16;
     input[7] = 0x17;
 
-    // uint256 z = 431359146781120966242552843855944128473473360879759082526070001369111;
+    uint256 aa = 431359146781120966242552843855944128473473360879759082526070001369111;
+    uint256 bb = 431359146781120966242552843855944128473473360879759082526070001369111;
 
     uint256 check;
 
@@ -59,14 +60,13 @@ contract Poseidon2 {
       // permutation x = [16]koalabear
       let mPtr := mload(0x40)
 
-      let a0 := 111323
-	    let a1 := 3789269
-	    let a2 := 23980
-	    let a3 := 98723
+      mstore(mPtr, aa)
+      mstore(add(mPtr, 0x20), bb)
+      aa := matMulM4uint256(aa)
 
-      a0, a1, a2, a3 := matMulM4(a0, a1, a2, a3)
-
-      check := a3
+      mathMulM4InPlace(mPtr)
+      aa := mload(add(mPtr, 0x20))
+      check := ithChunk(aa, 7)
 
       /// matMulM4 computes
       /// s <- diag_4(M4)*s
@@ -80,30 +80,33 @@ contract Poseidon2 {
       /// https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/poseidon2/src/external.rs#L43
       /// this MDS matrix is more efficient than
       /// https://eprint.iacr.org/2023/323.pdf appendix Bb
-      /// @param ptr pointer to 2 uint256 elements, interpreted as 16 uint32 elements
-      /// the result is stored in ptr.
+      /// @param ptr pointer to 2 uint256 elements, interpreted as 4 blocks of 4 uint32 elements
+      /// that we multiply by M4. The resut is 4 blocks of 4 uint32 elements, aligned in ptr
       function mathMulM4InPlace(ptr) {
-
+        
         let a := mload(ptr)
+        a := matMulM4uint256(a)
+        mstore(ptr, a)
+        
+        a := mload(add(ptr, 0x20))
+        a := matMulM4uint256(a)
+        mstore(add(ptr, 0x20), a)
+      }
+
+      /// matMulM4uint256 splits a:= (c1<<128) || c2 in two chunks c1 c2 of 4 32bits elmts
+      /// and computes d1=M4*c1, d2=M4*c2, and returns (d1<<128) || d2
+      function matMulM4uint256(a)->b {
         let s0 := ithChunk(a, 0)
         let s1 := ithChunk(a, 1)
         let s2 := ithChunk(a, 2)
         let s3 := ithChunk(a, 3)
+        s0, s1, s2, s3 := matMulM4(s0, s1, s2, s3)
         let s4 := ithChunk(a, 4)
         let s5 := ithChunk(a, 5)
         let s6 := ithChunk(a, 6)
         let s7 := ithChunk(a, 7)
-
-        a := mload(add(ptr, 0x20))
-        s0 := ithChunk(a, 0)
-        s1 := ithChunk(a, 1)
-        s2 := ithChunk(a, 2)
-        s3 := ithChunk(a, 3)
-        s4 := ithChunk(a, 4)
-        s5 := ithChunk(a, 5)
-        s6 := ithChunk(a, 6)
-        s7 := ithChunk(a, 7)
-
+        s4, s5, s6, s7 := matMulM4(s4, s5, s6, s7)
+        b := packToUint256(s0, s1, s2, s3, s4, s5, s6, s7)
       }
 
       /// computes M4*[a, b , c, d]
@@ -112,6 +115,7 @@ contract Poseidon2 {
       /// (1 2 3 1)
       /// (1 1 2 3)
       /// (3 1 1 2)
+      /// a, b, c, d are uint32 elmts
       function matMulM4(a, b, c, d)->u,v,w,x {
         
         let t01, t23, t0123, t01123, t01233
@@ -133,6 +137,18 @@ contract Poseidon2 {
         v := b
         w := c
         x := d
+      }
+
+      /// @return u = a << 224 || b << 192 || .. || h
+      function packToUint256(a, b, c, d, e, f, g, h) -> u {
+        u := shl(224, a)
+        u := add(u, shl(192, b))
+        u := add(u, shl(160, c))
+        u := add(u, shl(128, d))
+        u := add(u, shl(96, e))
+        u := add(u, shl(64, f))
+        u := add(u, shl(32, g))
+        u := add(u, h)
       }
 
       // query i-th 32bits chunk of a uint256 number N.
