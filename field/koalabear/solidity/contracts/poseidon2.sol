@@ -39,16 +39,6 @@ contract Poseidon2 {
   /// Hash
   function Hash() public returns(bool success) {
 
-    uint32[] memory input = new uint32[](8);
-    input[0] = 0x10;
-    input[1] = 0x11;
-    input[2] = 0x12;
-    input[3] = 0x13;
-    input[4] = 0x14;
-    input[5] = 0x15;
-    input[6] = 0x16;
-    input[7] = 0x17;
-
     uint256 aa = 431359146781120966242552843855944128473473360879759082526070001369111;
     uint256 bb = 431359146781120966242552843855944128473473360879759082526070001369111;
 
@@ -62,10 +52,63 @@ contract Poseidon2 {
 
       mstore(mPtr, aa)
       mstore(add(mPtr, 0x20), bb)
-      matMulExternalInPlace(mPtr)
+      matMulInternalInPlace(mPtr)
 
       bb := mload(add(mPtr, 0x20))
-      check := ithChunk(bb, 3)
+      check := ithChunk(bb, 7)
+
+      /// interpret ptr as a sequence of 16 uint32 elmts and sums them
+      function computeSum(ptr)->s {
+        let a := mload(ptr)
+        let b := mload(add(ptr, 0x20))
+        for {let i} lt(i, 8) {i:=add(i,1)} 
+        {
+          s := addmod(s, ithChunk(a, i), R_MOD)
+          s := addmod(s, ithChunk(b, i), R_MOD)
+        }
+      }
+
+      function matMulInternalInPlace(ptr) {
+        let s := computeSum(ptr)
+        let a := mload(ptr)
+        a := matMulInternalInPlaceFirstHalf(a, s)
+        let b := mload(add(ptr, 0x20))
+        b := matMulInternalInPlaceSecondHalf(b, s)
+        mstore(ptr, a)
+        mstore(add(ptr, 0x20), b)
+      }
+
+      function matMulInternalInPlaceFirstHalf(a, sum)->ma {
+        
+        let t0, t1, t2, t3, t4, t5, t6, t7
+
+        t0 := addmod(sum, sub(R_MOD, mulmod(ithChunk(a, 0), 2, R_MOD)), R_MOD)
+        t1 := addmod(sum, ithChunk(a, 1), R_MOD)
+        t2 := ithChunk(a, 2)
+        t2 := addmod(sum, addmod(t2, t2, R_MOD), R_MOD)
+        t3 := addmod(sum, mulmod(ithChunk(a, 3), 1065353217, R_MOD), R_MOD) // 1065353217 -> 1/2
+        t4 := addmod(sum, mulmod(ithChunk(a, 4), 3, R_MOD), R_MOD)
+        t5 := addmod(sum, mulmod(ithChunk(a, 5), 4, R_MOD), R_MOD)
+        t6 := addmod(sum, mulmod(ithChunk(a, 6), 1065353216, R_MOD), R_MOD) // 1065353216 -> -1/2
+        t7 := addmod(sum, sub(R_MOD, mulmod(ithChunk(a, 7), 3, R_MOD)), R_MOD)
+        ma := packToUint256(t0, t1, t2, t3, t4, t5, t6, t7)
+
+      } 
+
+       function matMulInternalInPlaceSecondHalf(b, sum)->mb {
+        
+        let t0, t1, t2, t3, t4, t5, t6, t7
+
+        t0 := addmod(sum, sub(R_MOD, mulmod(ithChunk(b, 0), 4, R_MOD)), R_MOD)
+        t1 := addmod(sum, mulmod(ithChunk(b, 1), 2122383361, R_MOD), R_MOD) // 2122383361 -> 1/2^8
+        t2 := addmod(sum, mulmod(ithChunk(b, 2),1864368129, R_MOD), R_MOD) // 1864368129 -> 1/8
+        t3 := addmod(sum, mulmod(ithChunk(b, 3),2130706306, R_MOD), R_MOD) // 2130706306 -> 1/2^24
+        t4 := addmod(sum, mulmod(ithChunk(b, 4),8323072, R_MOD), R_MOD) // 8323072 ->  -1/2^8
+        t5 := addmod(sum, mulmod(ithChunk(b, 5),266338304, R_MOD), R_MOD) // 266338304 -> -1/8
+        t6 := addmod(sum, mulmod(ithChunk(b, 6),133169152, R_MOD), R_MOD) // 133169152 -> -1/16
+        t7 := addmod(sum, mulmod(ithChunk(b, 7),127, R_MOD), R_MOD) // 127 -> -1/2^24
+        mb :=  packToUint256(t0, t1, t2, t3, t4, t5, t6, t7)
+      } 
 
       /// @param ptr pointer to 2 uint256 elements, We interpret them as 4 packs of 4 uint32 elmts ->
       /// [[a0,a1,a2,a3],..,[a12,a13,a14,a15]]:=[v0,v1,v2,v3]
