@@ -22,11 +22,6 @@ contract Poseidon2 {
 
   uint32 private constant R_MOD = 2130706433;
   uint256 private constant WORD_MOD = 4294967296; // 2**32
-  
-  // poseidon2 params (vortex on koalabear)
-  uint32 private constant WIDTH = 16;
-  uint32 private constant NB_FULL_ROUNDS = 6;
-  uint32 private constant NB_PARTIAL_ROUNDS = 21;
 
   // precompile
   uint8 private constant MOD_EXP = 0x5;
@@ -36,11 +31,46 @@ contract Poseidon2 {
   event PrintUint32(uint32 res);
   event PrintUint256(uint256 res);
 
+  // round keys
+  uint256 private constant RK_0_0 = 52691802021506155758914962750280372212207119203515444126415105344946620971042;
+  uint256 private constant RK_0_1 = 32207471970256316655474490955553459742787419335289228299095903266455798739660;
+  uint256 private constant RK_1_0 = 22163791677048831312463448776400028385347383911100916908889018061663075177430;
+  uint256 private constant RK_1_1 = 52176870515245694198691020358647906763460864198395806999480367588806463375956;
+  uint256 private constant RK_2_0 = 20057732892593326318373784289292844513497509146673516636435948826170767804894;
+  uint256 private constant RK_2_1 = 18178750968836063378915279115560606579387492034215281114134869585318875352069;
+  uint256 private constant RK_3 = 271263440;
+  uint256 private constant RK_4 = 648183298;
+  uint256 private constant RK_5 = 1662653166;
+  uint256 private constant RK_6 = 1984135584;
+  uint256 private constant RK_7 = 594964655;
+  uint256 private constant RK_8 = 108023522;
+  uint256 private constant RK_9 = 849546096;
+  uint256 private constant RK_10 = 1961993938;
+  uint256 private constant RK_11 = 1546336947;
+  uint256 private constant RK_12 = 1036613726;
+  uint256 private constant RK_13 = 452088758;
+  uint256 private constant RK_14 = 275827416;
+  uint256 private constant RK_15 = 763236035;
+  uint256 private constant RK_16 = 1068717067;
+  uint256 private constant RK_17 = 1580958419;
+  uint256 private constant RK_18 = 1376393748;
+  uint256 private constant RK_19 = 892777736;
+  uint256 private constant RK_20 = 1345121022;
+  uint256 private constant RK_21 = 908739241;
+  uint256 private constant RK_22 = 908871000;
+  uint256 private constant RK_23 = 1053550888;
+  uint256 private constant RK_24_0 = 7748602703960850726417234176553190502144764796409545305676706613632081374108;
+  uint256 private constant RK_24_1 = 14236178139181542176197168604443439317755831764127965411495610808590768539130;
+  uint256 private constant RK_25_0 = 4390545490380878999875851257118004037103299792992754784803412502652715488373;
+  uint256 private constant RK_25_1 = 15895992674755709583772916119416271803214403026810424648839392700430632374893;
+  uint256 private constant RK_26_0 = 37373517675827041221658956101645979913006475784844873469590649853964048342988;
+  uint256 private constant RK_26_1 = 46010512812451809471058691124553676654818408969360806522307687423952321374687;
+
   /// Hash
   function Hash() public returns(bool success) {
 
     uint256 aa = 431359146781120966242552843855944128473473360879759082526070001369111;
-    uint256 bb = 431359146781120966242552843855944128473473360879759082526070001369111;
+    // uint256 bb = 431359146781120966242552843855944128473473360879759082526070001369111;
 
     uint256 check;
 
@@ -48,19 +78,13 @@ contract Poseidon2 {
     assembly {
 
       // permutation x = [16]koalabear
-      let mPtr := mload(0x40)
+      // aa, bb := matMulExternalInPlace(aa, bb)
 
-      mstore(mPtr, aa)
-      mstore(add(mPtr, 0x20), bb)
-      matMulInternalInPlace(mPtr)
-
-      bb := mload(add(mPtr, 0x20))
-      check := ithChunk(bb, 7)
+      check := sboxUint256(aa)
+      check := ithChunk(check, 7)
 
       /// interpret ptr as a sequence of 16 uint32 elmts and sums them
-      function computeSum(ptr)->s {
-        let a := mload(ptr)
-        let b := mload(add(ptr, 0x20))
+      function computeSum(a, b)->s {
         for {let i} lt(i, 8) {i:=add(i,1)} 
         {
           s := addmod(s, ithChunk(a, i), R_MOD)
@@ -68,14 +92,10 @@ contract Poseidon2 {
         }
       }
 
-      function matMulInternalInPlace(ptr) {
-        let s := computeSum(ptr)
-        let a := mload(ptr)
-        a := matMulInternalInPlaceFirstHalf(a, s)
-        let b := mload(add(ptr, 0x20))
-        b := matMulInternalInPlaceSecondHalf(b, s)
-        mstore(ptr, a)
-        mstore(add(ptr, 0x20), b)
+      function matMulInternalInPlace(a, b)->ra,rb {
+        let s := computeSum(a, b)
+        ra := matMulInternalInPlaceFirstHalf(a, s)
+        rb := matMulInternalInPlaceSecondHalf(b, s)
       }
 
       function matMulInternalInPlaceFirstHalf(a, sum)->ma {
@@ -110,45 +130,50 @@ contract Poseidon2 {
         mb :=  packToUint256(t0, t1, t2, t3, t4, t5, t6, t7)
       } 
 
+      function matMulExternalInPlaceFirstHalf(a, t0, t1, t2, t3)->ra {
+        let a0, a1, a2, a3, a4, a5, a6, a7
+        a0 := addmod(t0, ithChunk(a, 0), R_MOD)
+        a1 := addmod(t1, ithChunk(a, 1), R_MOD)
+        a2 := addmod(t2, ithChunk(a, 2), R_MOD)
+        a3 := addmod(t3, ithChunk(a, 3), R_MOD)
+        a4 := addmod(t0, ithChunk(a, 4), R_MOD)
+        a5 := addmod(t1, ithChunk(a, 5), R_MOD)
+        a6 := addmod(t2, ithChunk(a, 6), R_MOD)
+        a7 := addmod(t3, ithChunk(a, 7), R_MOD)
+        ra := packToUint256(a0, a1, a2, a3, a4, a5, a6, a7)
+      }
+
+      function matMulExternalInPlaceSecondHalf(b, t0, t1, t2, t3)->rb {
+        let a0, a1, a2, a3, a4, a5, a6, a7
+        a0 := addmod(t0, ithChunk(b, 0), R_MOD)
+        a1 := addmod(t1, ithChunk(b, 1), R_MOD)
+        a2 := addmod(t2, ithChunk(b, 2), R_MOD)
+        a3 := addmod(t3, ithChunk(b, 3), R_MOD)
+        a4 := addmod(t0, ithChunk(b, 4), R_MOD)
+        a5 := addmod(t1, ithChunk(b, 5), R_MOD)
+        a6 := addmod(t2, ithChunk(b, 6), R_MOD)
+        a7 := addmod(t3, ithChunk(b, 7), R_MOD)
+        rb := packToUint256(a0, a1, a2, a3, a4, a5, a6, a7)
+      }
+
       /// @param ptr pointer to 2 uint256 elements, We interpret them as 4 packs of 4 uint32 elmts ->
       /// [[a0,a1,a2,a3],..,[a12,a13,a14,a15]]:=[v0,v1,v2,v3]
       /// and we multiply [v0,v1,v2,v3] by circ(2M4,M4,..,M4)
-      function matMulExternalInPlace(ptr) {
-        mathMulM4InPlace(ptr)
-        let t0, t1, t2, t3 := sumColumns(ptr)
+      function matMulExternalInPlace(a, b)->ra, rb {
+        
+        a := matMulM4uint256(a)
+        b := matMulM4uint256(b)
+        
+        let t0, t1, t2, t3 := sumColumns(a, b)
 
-        let n := mload(ptr)
-        let a, b, c, d, e, f, g, h
-        a := addmod(t0, ithChunk(n, 0), R_MOD)
-        b := addmod(t1, ithChunk(n, 1), R_MOD)
-        c := addmod(t2, ithChunk(n, 2), R_MOD)
-        d := addmod(t3, ithChunk(n, 3), R_MOD)
-        e := addmod(t0, ithChunk(n, 4), R_MOD)
-        f := addmod(t1, ithChunk(n, 5), R_MOD)
-        g := addmod(t2, ithChunk(n, 6), R_MOD)
-        h := addmod(t3, ithChunk(n, 7), R_MOD)
-        n := packToUint256(a, b, c, d, e, f, g, h)
-        mstore(ptr, n)
-
-        n := mload(add(ptr, 0x20))
-        a := addmod(t0, ithChunk(n, 0), R_MOD)
-        b := addmod(t1, ithChunk(n, 1), R_MOD)
-        c := addmod(t2, ithChunk(n, 2), R_MOD)
-        d := addmod(t3, ithChunk(n, 3), R_MOD)
-        e := addmod(t0, ithChunk(n, 4), R_MOD)
-        f := addmod(t1, ithChunk(n, 5), R_MOD)
-        g := addmod(t2, ithChunk(n, 6), R_MOD)
-        h := addmod(t3, ithChunk(n, 7), R_MOD)
-        n := packToUint256(a, b, c, d, e, f, g, h)
-        mstore(add(ptr, 0x20), n)
+       ra := matMulExternalInPlaceFirstHalf(a, t0, t1, t2, t3)
+       rb := matMulExternalInPlaceFirstHalf(b, t0, t1, t2, t3)
       }
 
       /// @param ptr pointer to 2 uint256 elements. We interpret them as 4 packs of 4 uint32 elmts ->
       /// [[a0,a1,a2,a3],..,[a12,a13,a14,a15]] and we sum them:
       /// [[a0+a4+a8+a12, .., a3+a7+a11+a15]]
-      function sumColumns(ptr)->t0, t1, t2, t3 {
-        
-        let a := mload(ptr)
+      function sumColumns(a, b)->t0, t1, t2, t3 {
         
         t0 := addmod(t0, ithChunk(a, 0), R_MOD)
         t1 := addmod(t1, ithChunk(a, 1), R_MOD)
@@ -160,16 +185,15 @@ contract Poseidon2 {
         t2 := addmod(t2, ithChunk(a, 6), R_MOD)
         t3 := addmod(t3, ithChunk(a, 7), R_MOD)
 
-        a := mload(add(ptr, 0x20))
-        t0 := addmod(t0, ithChunk(a, 0), R_MOD)
-        t1 := addmod(t1, ithChunk(a, 1), R_MOD)
-        t2 := addmod(t2, ithChunk(a, 2), R_MOD)
-        t3 := addmod(t3, ithChunk(a, 3), R_MOD)
+        t0 := addmod(t0, ithChunk(b, 0), R_MOD)
+        t1 := addmod(t1, ithChunk(b, 1), R_MOD)
+        t2 := addmod(t2, ithChunk(b, 2), R_MOD)
+        t3 := addmod(t3, ithChunk(b, 3), R_MOD)
 
-        t0 := addmod(t0, ithChunk(a, 4), R_MOD)
-        t1 := addmod(t1, ithChunk(a, 5), R_MOD)
-        t2 := addmod(t2, ithChunk(a, 6), R_MOD)
-        t3 := addmod(t3, ithChunk(a, 7), R_MOD)
+        t0 := addmod(t0, ithChunk(b, 4), R_MOD)
+        t1 := addmod(t1, ithChunk(b, 5), R_MOD)
+        t2 := addmod(t2, ithChunk(b, 6), R_MOD)
+        t3 := addmod(t3, ithChunk(b, 7), R_MOD)
       }
 
       /// matMulM4 computes
@@ -259,20 +283,41 @@ contract Poseidon2 {
       // The 8-th chunk corresponds to the LSB of N,
       // the 0-th chunk corresponds to the MSB of N.
       function ithChunk(n, i)->m {
-        m := shr(mul(sub(7,i), 32), n)
-        m := mod(m, WORD_MOD)
+        m := mod(shr(mul(sub(7,i), 32), n), WORD_MOD)
       }
 
       // sbox
-      function sbox(x)->res {
+      function sboxSingleEntry(x)->rx {
+        rx := mulmod(x, mulmod(x, x, R_MOD), R_MOD)
+      }
+
+      // sbox
+      function sboxUint256(x)->rx {
         let tmp := mulmod(x, x, R_MOD)
-        res := mulmod(tmp, x, R_MOD)
+        let t0, t1, t2, t3, t4, t5, t6, t7
+        t0 := sboxSingleEntry(ithChunk(x, 0))
+        t1 := sboxSingleEntry(ithChunk(x, 1))
+        t2 := sboxSingleEntry(ithChunk(x, 2))
+        t3 := sboxSingleEntry(ithChunk(x, 3))
+        t4 := sboxSingleEntry(ithChunk(x, 4))
+        t5 := sboxSingleEntry(ithChunk(x, 5))
+        t6 := sboxSingleEntry(ithChunk(x, 6))
+        t7 := sboxSingleEntry(ithChunk(x, 7))
+        rx := packToUint256(t0, t1, t2, t3, t4, t5, t6, t7)
+      }
+
+      function sboxFirstEntry(x)->rx {
+        let tmp := ithChunk(x, 0)
+        let t0 := tmp
+        tmp := shl(224, tmp)
+        rx := sub(x, tmp)
+        t0 := sboxSingleEntry(t0)
+        rx := add(rx, shl(224, t0))
       }
 
     }
 
     emit PrintUint256(check);
-    // emit PrintUint32(input[0]);
 
     success = true;
   }
