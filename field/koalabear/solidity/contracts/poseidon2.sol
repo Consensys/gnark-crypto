@@ -70,7 +70,7 @@ contract Poseidon2 {
   function Hash() public returns(bool success) {
 
     uint256 aa = 431359146781120966242552843855944128473473360879759082526070001369111;
-    // uint256 bb = 431359146781120966242552843855944128473473360879759082526070001369111;
+    uint256 bb = 431359146781120966242552843855944128473473360879759082526070001369111;
 
     uint256 check;
 
@@ -80,8 +80,139 @@ contract Poseidon2 {
       // permutation x = [16]koalabear
       // aa, bb := matMulExternalInPlace(aa, bb)
 
-      check := sboxUint256(aa)
-      check := ithChunk(check, 7)
+      // check := addRoundKeyUint256(aa, RK_0_1)
+      // check := ithChunk(check, 7)
+
+      aa, bb := permutation(aa, bb)
+      check := bb
+
+      function permutation(a, b)->ra, rb {
+
+        ra, rb := matMulExternalInPlace(a, b)
+        
+        // first 3 rounds are full
+        ra := addRoundKeyUint256(ra, RK_0_0)
+        rb := addRoundKeyUint256(rb, RK_0_1)
+        ra := sboxUint256(ra)
+        rb := sboxUint256(rb)
+        ra, rb := matMulExternalInPlace(ra, rb)
+
+        ra := addRoundKeyUint256(ra, RK_1_0)
+        rb := addRoundKeyUint256(rb, RK_1_1)
+        ra := sboxUint256(ra)
+        rb := sboxUint256(rb)
+        ra, rb := matMulExternalInPlace(ra, rb)
+
+        ra := addRoundKeyUint256(ra, RK_2_0)
+        rb := addRoundKeyUint256(rb, RK_2_1)
+        ra := sboxUint256(ra)
+        rb := sboxUint256(rb)
+        ra, rb := matMulExternalInPlace(ra, rb)
+
+        // middle 21 rounds are partial
+        ra := addRoundKeyFirstEntry(ra, RK_3)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        ra := addRoundKeyFirstEntry(ra, RK_4)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+        
+        ra := addRoundKeyFirstEntry(ra, RK_5)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+        
+        ra := addRoundKeyFirstEntry(ra, RK_6)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        ra := addRoundKeyFirstEntry(ra, RK_7)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        ra := addRoundKeyFirstEntry(ra, RK_8)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+        
+        ra := addRoundKeyFirstEntry(ra, RK_9)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        ra := addRoundKeyFirstEntry(ra, RK_10)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+        
+        ra := addRoundKeyFirstEntry(ra, RK_11)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+        
+        ra := addRoundKeyFirstEntry(ra, RK_12)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        ra := addRoundKeyFirstEntry(ra, RK_13)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        ra := addRoundKeyFirstEntry(ra, RK_14)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        ra := addRoundKeyFirstEntry(ra, RK_15)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        ra := addRoundKeyFirstEntry(ra, RK_16)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        ra := addRoundKeyFirstEntry(ra, RK_17)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        ra := addRoundKeyFirstEntry(ra, RK_18)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        ra := addRoundKeyFirstEntry(ra, RK_19)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        ra := addRoundKeyFirstEntry(ra, RK_20)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        ra := addRoundKeyFirstEntry(ra, RK_21)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        ra := addRoundKeyFirstEntry(ra, RK_22)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        ra := addRoundKeyFirstEntry(ra, RK_23)
+        ra := sboxFirstEntry(ra)
+        ra, rb := matMulInternalInPlace(ra, rb)
+
+        // last 3 rounds are full
+        ra := addRoundKeyUint256(ra, RK_24_0)
+        rb := addRoundKeyUint256(rb, RK_24_1)
+        ra := sboxUint256(ra)
+        rb := sboxUint256(rb)
+        ra, rb := matMulExternalInPlace(ra, rb)
+
+        ra := addRoundKeyUint256(ra, RK_25_0)
+        rb := addRoundKeyUint256(rb, RK_25_1)
+        ra := sboxUint256(ra)
+        rb := sboxUint256(rb)
+        ra, rb := matMulExternalInPlace(ra, rb)
+
+        ra := addRoundKeyUint256(ra, RK_26_0)
+        rb := addRoundKeyUint256(rb, RK_26_1)
+        ra := sboxUint256(ra)
+        rb := sboxUint256(rb)
+        ra, rb := matMulExternalInPlace(ra, rb)
+      }
 
       /// interpret ptr as a sequence of 16 uint32 elmts and sums them
       function computeSum(a, b)->s {
@@ -130,6 +261,20 @@ contract Poseidon2 {
         mb :=  packToUint256(t0, t1, t2, t3, t4, t5, t6, t7)
       } 
 
+      /// @param ptr pointer to 2 uint256 elements, We interpret them as 4 packs of 4 uint32 elmts ->
+      /// [[a0,a1,a2,a3],..,[a12,a13,a14,a15]]:=[v0,v1,v2,v3]
+      /// and we multiply [v0,v1,v2,v3] by circ(2M4,M4,..,M4)
+      function matMulExternalInPlace(a, b)->ra, rb {
+        
+        a := matMulM4uint256(a)
+        b := matMulM4uint256(b)
+        
+        let t0, t1, t2, t3 := sumColumns(a, b)
+
+       ra := matMulExternalInPlaceFirstHalf(a, t0, t1, t2, t3)
+       rb := matMulExternalInPlaceFirstHalf(b, t0, t1, t2, t3)
+      }
+
       function matMulExternalInPlaceFirstHalf(a, t0, t1, t2, t3)->ra {
         let a0, a1, a2, a3, a4, a5, a6, a7
         a0 := addmod(t0, ithChunk(a, 0), R_MOD)
@@ -154,20 +299,6 @@ contract Poseidon2 {
         a6 := addmod(t2, ithChunk(b, 6), R_MOD)
         a7 := addmod(t3, ithChunk(b, 7), R_MOD)
         rb := packToUint256(a0, a1, a2, a3, a4, a5, a6, a7)
-      }
-
-      /// @param ptr pointer to 2 uint256 elements, We interpret them as 4 packs of 4 uint32 elmts ->
-      /// [[a0,a1,a2,a3],..,[a12,a13,a14,a15]]:=[v0,v1,v2,v3]
-      /// and we multiply [v0,v1,v2,v3] by circ(2M4,M4,..,M4)
-      function matMulExternalInPlace(a, b)->ra, rb {
-        
-        a := matMulM4uint256(a)
-        b := matMulM4uint256(b)
-        
-        let t0, t1, t2, t3 := sumColumns(a, b)
-
-       ra := matMulExternalInPlaceFirstHalf(a, t0, t1, t2, t3)
-       rb := matMulExternalInPlaceFirstHalf(b, t0, t1, t2, t3)
       }
 
       /// @param ptr pointer to 2 uint256 elements. We interpret them as 4 packs of 4 uint32 elmts ->
@@ -291,9 +422,31 @@ contract Poseidon2 {
         rx := mulmod(x, mulmod(x, x, R_MOD), R_MOD)
       }
 
+      // addroundkey on the first entry
+      function addRoundKeyFirstEntry(x, k)->rx {
+        let tmp := ithChunk(x, 0)
+        let t0 := tmp
+        t0 := addmod(k, t0, R_MOD)
+        tmp := shl(224, tmp)
+        rx := sub(x, tmp)
+        rx := add(rx, shl(224, t0))
+      }
+
+      function addRoundKeyUint256(x, k)->rx {
+        let t0, t1, t2, t3, t4, t5, t6, t7
+        t0 := addmod(ithChunk(x, 0), ithChunk(k, 0), R_MOD)
+        t1 := addmod(ithChunk(x, 1), ithChunk(k, 1), R_MOD)
+        t2 := addmod(ithChunk(x, 2), ithChunk(k, 2), R_MOD)
+        t3 := addmod(ithChunk(x, 3), ithChunk(k, 3), R_MOD)
+        t4 := addmod(ithChunk(x, 4), ithChunk(k, 4), R_MOD)
+        t5 := addmod(ithChunk(x, 5), ithChunk(k, 5), R_MOD)
+        t6 := addmod(ithChunk(x, 6), ithChunk(k, 6), R_MOD)
+        t7 := addmod(ithChunk(x, 7), ithChunk(k, 7), R_MOD)
+        rx := packToUint256(t0, t1, t2, t3, t4, t5, t6, t7)
+      }
+
       // sbox
       function sboxUint256(x)->rx {
-        let tmp := mulmod(x, x, R_MOD)
         let t0, t1, t2, t3, t4, t5, t6, t7
         t0 := sboxSingleEntry(ithChunk(x, 0))
         t1 := sboxSingleEntry(ithChunk(x, 1))
