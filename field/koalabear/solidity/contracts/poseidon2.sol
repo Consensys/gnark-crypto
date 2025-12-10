@@ -77,14 +77,16 @@ contract Poseidon2 {
     // params vortex t=16, rf=6, rp=21
     assembly {
 
-      // permutation x = [16]koalabear
-      // aa, bb := matMulExternalInPlace(aa, bb)
+      check := Compress(aa, bb)
 
-      // check := addRoundKeyUint256(aa, RK_0_1)
-      // check := ithChunk(check, 7)
-
-      aa, bb := permutation(aa, bb)
-      check := bb
+      /// Compress(a, b): 
+      ///   _, rb := permutation(a, b)
+      ///   return rb + b
+      function Compress(a, b)->rb {
+        let tmp := b
+        a, b := permutation(a, b)
+        rb := addRoundKeyUint256(tmp, b)
+      }
 
       function permutation(a, b)->ra, rb {
 
