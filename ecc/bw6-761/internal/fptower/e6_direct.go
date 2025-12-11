@@ -532,10 +532,280 @@ func (z *E6D) MulBy023(c0, c1 *fp.Element) *E6D {
 
 // Square sets z=x*x in E6D and returns z
 func (z *E6D) Square(x *E6D) *E6D {
+	return z.squareTower(x)
+}
+func (z *E6D) squareTower(x *E6D) *E6D {
 	_x := ToTower(x)
 	_x.Square(_x)
 	_z := FromTower(_x)
 	return z.Set(_z)
+}
+
+func (z *E6D) squareMontgomery6(a *E6D) *E6D {
+	// We proceed similarly to the multiplication.
+	//
+	// The square of a degree-5 polynomials a(X):
+	// a(X) = a0 + a1*X + a2*X^2 + a3*X^3 + a4*X^4 + a5*X^5
+	//
+	// Interpolation points Xi={0, ±1, ±2, ±3, ±4, 5,∞}:
+	//		v0 = (a0 + a1 + a2 + a3 + a4 + a5)^2
+	//		v2 = (a0 + a1 + a3 + a4)^2
+	//		v3 = (a0 − a2 − a3 + a5)^2
+	//		v4 = (a0 − a2 − a5)^2
+	//		v5 = (a0 + a3 − a5)^2
+	//		v6 = (a0 + a1 + a2)^2
+	//		v7 = (a3 + a4 + a5)^2
+	//		v8 = (a2 + a3)^2
+	//		v9 = (a1 − a4)^2
+	//		v10 = (a1 + a2)^2
+	//		v11 = (a3 + a4)^2
+	//		v12 = (a0 + a1)^2
+	//		v13 = (a4 + a5)^2
+	//		v14 = a0^2
+	//		v15 = a1^2
+	//		v16 = a4^2
+	//		v17 = a5^2
+	//
+	// 		We do this optimally in 17 squares and 15 additions/subtractions in Fp.
+
+	// v[0..17] stores the interpolation points v0..v17
+	// t[0..6] stores the intermediate sums for a and b, and later helper vars
+	var v [18]fp.Element
+	var t [7]fp.Element
+
+	// -------------------------------------------------------------------------
+	// Phase 1: Evaluation of A (Store results in v)
+	// -------------------------------------------------------------------------
+
+	// Level 1: Simple Sums
+	v[12].Add(&a.A0, &a.A1) // v12 factor
+	v[13].Add(&a.A4, &a.A5) // v13 factor
+	v[10].Add(&a.A1, &a.A2) // v10 factor
+	v[11].Add(&a.A3, &a.A4) // v11 factor
+	v[8].Add(&a.A2, &a.A3)  // v8 factor
+	v[9].Sub(&a.A1, &a.A4)  // v9 factor
+
+	// Level 2: Derived Sums (reuse v entries)
+	v[6].Add(&v[12], &a.A2)  // v6 factor
+	v[7].Add(&v[11], &a.A5)  // v7 factor
+	v[2].Add(&v[12], &v[11]) // v2 factor
+	v[0].Add(&v[6], &v[7])   // v0 factor
+
+	// Level 3: Difference Block (reuse t[0] as temp)
+	t[0].Sub(&a.A0, &a.A5)
+	v[4].Sub(&t[0], &a.A2) // v4 factor
+	v[5].Add(&v[4], &v[8]) // v5 factor
+	t[0].Add(&a.A0, &a.A5)
+	v[3].Sub(&t[0], &v[8]) // v3 factor
+
+	// -------------------------------------------------------------------------
+	// Phase 3: Squares
+	// -------------------------------------------------------------------------
+	// v[i] = A_factor[i]^2
+	v[0].Square(&v[0])
+	v[2].Square(&v[2])
+	v[3].Square(&v[3])
+	v[4].Square(&v[4])
+	v[5].Square(&v[5])
+	v[6].Square(&v[6])
+	v[7].Square(&v[7])
+	v[8].Square(&v[8])
+	v[9].Square(&v[9])
+	v[10].Square(&v[10])
+	v[11].Square(&v[11])
+	v[12].Square(&v[12])
+	v[13].Square(&v[13])
+
+	// Direct squares
+	v[14].Square(&a.A0)
+	v[15].Square(&a.A1)
+	v[16].Square(&a.A4)
+	v[17].Square(&a.A5)
+
+	// We then we re-arrange the terms in function of the degree of X and use
+	// the fact that X^6=-β, because we construct 𝔽p⁶[v] as 𝔽p/v⁶-β. The
+	// resulting coefficients c0,c1,c3,c4 and c5 are:
+	//
+	// 	c0 = v14 + β(v0 − v2 + v4 + 2(v3+v5+v6-v12) + 3(v7+v15-v8-v10-v11) +
+	// 	4(v16-v13) − 5(v14+v17))
+	//
+	//  c1 = v12 − (v14 + v15) + β(v8 + v10 + v12 − (v3 + v5 + v6 + v15) +
+	//  2(v14 + v17 + v13 - v7) + 3(v11 - v16))
+	//
+	// 	c2 = 2v15 + v6 − (v10 + v12) + β(2v16 + v7 − (v11 + v13))
+	//
+	// 	c3 = v8 + v11 + v13 − (v3 + v4 + v7 + v16) + 3(v10 - v15) + 2(v12 + v14
+	// 	+ v17 - v6) + β(v13 − (v16 + v17))
+	//
+	// 	c4 = v2 + v3 + v4 + v7 + v15 + v9 − (v8 + v13) − 3v12 + 2(v6 − (v17 +
+	// 	v10 + v11 + v14)) + βv17
+	//
+	//  c5 = −(v3 + v4 + v5 + v9 + v15 + v16) + 2(v8 + v10 + v11 + v12 + v13 −
+	//  (v6 + v7)) + 3(v14 + v17)
+	//
+	// Now given than β=-4, we compute the coefficients in 100
+	// additions/subtractions/doublings.
+
+	// -------------------------------------------------------------------------
+	// Phase 4: Reconstruction / Interpolation
+	// -------------------------------------------------------------------------
+	// Mapping helpers to t array:
+	// t[0] = s14_17 (v14 + v17)
+	// t[1] = s10_11 (v10 + v11)
+	// t[2] = s8_10_11 (v8 + v10 + v11)
+	// t[3] = s3_5_6 (v3 + v5 + v6)
+	// t[4] = s11_13 (v11 + v13)
+	// t[5], t[6] = scratch
+
+	t[0].Add(&v[14], &v[17])
+	t[1].Add(&v[10], &v[11])
+	t[2].Add(&v[8], &t[1])
+	t[3].Add(&v[3], &v[5])
+	t[3].Add(&t[3], &v[6])
+	t[4].Add(&v[11], &v[13])
+
+	// --- Compute c0 ---
+	// Inner: (v0 - v2 + v4) + 2(t3 - v12) + 3(v7 + v15 - t2) + 4(v16 - v13) - 5(t0)
+	// Use z.A0 as accumulator
+	z.A0.Sub(&t[3], &v[12])
+	z.A0.Add(&z.A0, &z.A0) // 2*...
+
+	t[5].Add(&v[7], &v[15])
+	t[5].Sub(&t[5], &t[2])
+	t[6].Add(&t[5], &t[5]) // reuse t[6] as scratch
+	t[5].Add(&t[5], &t[6]) // 3*...
+	z.A0.Add(&z.A0, &t[5])
+
+	t[5].Sub(&v[16], &v[13])
+	t[5].Add(&t[5], &t[5])
+	t[5].Add(&t[5], &t[5]) // 4*...
+	z.A0.Add(&z.A0, &t[5])
+
+	t[5].Add(&t[0], &t[0])
+	t[5].Add(&t[5], &t[5])
+	t[5].Add(&t[5], &t[0]) // 5*...
+	z.A0.Sub(&z.A0, &t[5])
+
+	t[5].Sub(&v[0], &v[2])
+	t[5].Add(&t[5], &v[4])
+	z.A0.Add(&z.A0, &t[5])
+
+	// Apply beta=-4: c0 = v14 - 4 * Inner
+	z.A0.Add(&z.A0, &z.A0)
+	z.A0.Add(&z.A0, &z.A0)
+	z.A0.Sub(&v[14], &z.A0)
+
+	// --- Compute c1 ---
+	// Inner: (v8 + v10 + v12) - (t3 + v15) + 2(t0 + v13 - v7) + 3(v11 - v16)
+	// Note: t[2] is (v8 + v10 + v11). We must subtract v11 to get (v8 + v10).
+	z.A1.Sub(&t[2], &v[11]) // z.A1 = v8 + v10
+	z.A1.Add(&z.A1, &v[12]) // z.A1 = v8 + v10 + v12
+
+	t[5].Add(&t[3], &v[15])
+	z.A1.Sub(&z.A1, &t[5])
+
+	t[5].Add(&t[0], &v[13])
+	t[5].Sub(&t[5], &v[7])
+	t[5].Add(&t[5], &t[5]) // 2*...
+	z.A1.Add(&z.A1, &t[5])
+
+	t[5].Sub(&v[11], &v[16])
+	t[6].Add(&t[5], &t[5])
+	t[5].Add(&t[5], &t[6]) // 3*...
+	z.A1.Add(&z.A1, &t[5])
+
+	// c1 = (v12 - v14 - v15) - 4 * Inner
+	z.A1.Add(&z.A1, &z.A1)
+	z.A1.Add(&z.A1, &z.A1)
+	t[5].Sub(&v[12], &v[14])
+	t[5].Sub(&t[5], &v[15])
+	z.A1.Sub(&t[5], &z.A1)
+
+	// --- Compute c2 ---
+	// Inner (for beta): 2v16 + v7 - t4
+	t[5].Add(&v[16], &v[16])
+	t[5].Add(&t[5], &v[7])
+	t[5].Sub(&t[5], &t[4])
+	t[5].Add(&t[5], &t[5])
+	t[5].Add(&t[5], &t[5]) // 4 * Inner
+
+	z.A2.Add(&v[15], &v[15])
+	z.A2.Add(&z.A2, &v[6])
+	z.A2.Sub(&z.A2, &v[10])
+	z.A2.Sub(&z.A2, &v[12])
+	z.A2.Sub(&z.A2, &t[5])
+
+	// --- Compute c3 ---
+	// Inner (for beta): v13 - (v16 + v17)
+	t[5].Add(&v[16], &v[17])
+	t[5].Sub(&v[13], &t[5])
+	t[5].Add(&t[5], &t[5])
+	t[5].Add(&t[5], &t[5]) // 4 * Inner
+
+	// Parts
+	t[6].Sub(&v[10], &v[15]) // 3(v10 - v15)
+	z.A3.Add(&t[6], &t[6])
+	z.A3.Add(&z.A3, &t[6])
+
+	t[6].Add(&v[12], &t[0]) // 2(v12 + t0 - v6)
+	t[6].Sub(&t[6], &v[6])
+	t[6].Add(&t[6], &t[6])
+	z.A3.Add(&z.A3, &t[6])
+
+	z.A3.Add(&z.A3, &v[8])
+	z.A3.Add(&z.A3, &t[4]) // v8 + s11_13
+	z.A3.Sub(&z.A3, &v[3])
+	z.A3.Sub(&z.A3, &v[4])
+	z.A3.Sub(&z.A3, &v[7])
+	z.A3.Sub(&z.A3, &v[16])
+	z.A3.Sub(&z.A3, &t[5]) // - beta term
+
+	// --- Compute c5 ---
+	// Calculate shared group t[6] = v3+v4+v9+v15
+	t[6].Add(&v[3], &v[4])
+	t[6].Add(&t[6], &v[9])
+	t[6].Add(&t[6], &v[15])
+
+	// NegGroup: t[6] + v5 + v16
+	t[5].Add(&t[6], &v[5])
+	t[5].Add(&t[5], &v[16])
+
+	// 2 * Group: 2(t2 + v12 + v13 - v6 - v7)
+	// Note: t2 is (v8 + v10 + v11), which is correct for c5.
+	z.A5.Add(&t[2], &v[12])
+	z.A5.Add(&z.A5, &v[13])
+	z.A5.Sub(&z.A5, &v[6])
+	z.A5.Sub(&z.A5, &v[7])
+	z.A5.Add(&z.A5, &z.A5)
+
+	// 3 * t0
+	z.A4.Add(&t[0], &t[0]) // reuse z.A4 as scratch
+	z.A4.Add(&z.A4, &t[0])
+
+	z.A5.Sub(&z.A5, &t[5])
+	z.A5.Add(&z.A5, &z.A4)
+
+	// --- Compute c4 ---
+	// c4 = (v2 + v7 + t6) - (v8 + v13) - 3v12 + 2(v6 - (t0 + t1)) - 4v17
+	z.A4.Add(&v[2], &v[7])
+	z.A4.Add(&z.A4, &t[6]) // Add shared group
+	z.A4.Sub(&z.A4, &v[8])
+	z.A4.Sub(&z.A4, &v[13])
+
+	t[5].Add(&v[12], &v[12])
+	t[5].Add(&t[5], &v[12])
+	z.A4.Sub(&z.A4, &t[5]) // -3v12
+
+	t[5].Add(&t[0], &t[1])
+	t[5].Sub(&v[6], &t[5])
+	t[5].Add(&t[5], &t[5])
+	z.A4.Add(&z.A4, &t[5]) // +2(...)
+
+	t[5].Add(&v[17], &v[17])
+	t[5].Add(&t[5], &t[5])
+	z.A4.Sub(&z.A4, &t[5]) // -4v17
+
+	return z
 }
 
 // Inverse sets z to the inverse of x in E6D and returns z
