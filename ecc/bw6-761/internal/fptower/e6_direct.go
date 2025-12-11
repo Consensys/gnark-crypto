@@ -297,7 +297,7 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	//  c5 = −(v3 + v4 + v5 + v9 + v15 + v16) + 2(v8 + v10 + v11 + v12 + v13 −
 	//  (v6 + v7)) + 3(v14 + v17)
 	//
-	// Now given than β=-4, we compute the coefficients in exaclty 100
+	// Now given than β=-4, we compute the coefficients in 100
 	// additions/subtractions/doublings.
 
 	// -------------------------------------------------------------------------
