@@ -44,7 +44,7 @@ func (z *E6D) Set(x *E6D) *E6D {
 	return z
 }
 
-// SetOne sets z to 1 in Montgomery form and returns z
+// SetOne sets z to 1 and returns z
 func (z *E6D) SetOne() *E6D {
 	z.A0.SetOne()
 	z.A1.SetZero()
@@ -136,11 +136,63 @@ func (z *E6D) Mul(x, y *E6D) *E6D {
 }
 
 func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
+	// Ref.: Peter L. Montgomery. Five, six, and seven-term Karatsuba-like formulae. IEEE
+	// Transactions on Computers, 54(3):362–369, 2005.
+	//
+	// The product of two degree-5 polynomials a(X) and b(X):
+	// a(X) = a0 + a1*X + a2*X^2 + a3*X^3 + a4*X^4 + a5*X^5
+	// b(X) = b0 + b1*X + b2*X^2 + b3*X^3 + b4*X^4 + b5*X^5
+	//
+	// The result c(X) = a(X) * b(X) according to the ref. is:
+	//
+	// c(X) =
+	//   	  (a0 + a1 + a2 + a3 + a4 + a5)(b0 + b1 + b2 + b3 + b4 + b5) * C
+	// 		+ (a1 + a2 + a4 + a5)(b1 + b2 + b4 + b5) * (-C + X^6)
+	// 		+ (a0 + a1 + a3 + a4)(b0 + b1 + b3 + b4) * (-C + X^4)
+	// 		+ (a0 - a2 - a3 + a5)(b0 - b2 - b3 + b5) * (C - X^7 + X^6 - X^5 + X^4 - X^3)
+	// 		+ (a0 - a2 - a5)(b0 - b2 - b5) * (C - X^5 + X^4 - X^3)
+	// 		+ (a0 + a3 - a5)(b0 + b3 - b5) * (C - X^7 + X^6 - X^5)
+	// 		+ (a0 + a1 + a2)(b0 + b1 + b2) * (C - X^7 + 6*X^6 - 2*X^5 + 2*X^4 - 2*X^3 + X^2)
+	// 		+ (a3 + a4 + a5)(b3 + b4 + b5) * (C + X^8 - 2*X^7 + 2*X^6 - 2*X^5 + X^4 - X^3)
+	// 		+ (a2 + a3)(b2 + b3) * (-2*C + X^7 - X^6 + 2*X^5 - X^4 + X^3)
+	// 		+ (a1 - a4)(b1 - b4) * (-C + X^4 - X^5 + X^6)
+	// 		+ (a1 + a2)(b1 + b2) * (-C + X^7 - 2*X^6 + 2*X^5 - 2*X^4 + 3*X^3 - X^2)
+	// 		+ (a3 + a4)(b3 + b4) * (-C - X^8 + 3*X^7 - 2*X^6 + 2*X^5 - 2*X^4 + X^3)
+	// 		+ (a0 + a1)(b0 + b1) * (-C + X^7 - X^6 + 2*X^5 - 3*X^4 + 2*X^3 - X^2 + X)
+	// 		+ (a4 + a5)(b4 + b5) * (-C + X^9 - X^8 + 2*X^7 - 3*X^6 + 2*X^5 - X^4 + X^3)
+	// 		+ a0*b0 * (3*C + 2*X^7 - 2*X^6 - 3*X^5 + 2*X^4 + 2*X^3 - X + 1)
+	// 		+ a1*b1 * (3*C - X^7 - X^5 - X^4 - 3*X^3 + 2*X^2 - X)
+	// 		+ a4*b4 * (3*C - X^9 + 2*X^8 - 3*X^7 + X^6 - X^5 - X^3)
+	// 		+ a5*b5 * (-3*C + X^10 - X^9 + 2*X^7 - 2*X^6 + 3*X^5 - 2*X^4 + 2*X^3)
+	//
+	// We fix the parameter C to X^6 so that the second term disappears. We then compute the interpolation points
+	// vi = a(Xi)*b(Xi) at Xi={0, ±1, ±2, ±3, ±4, 5,∞}:
+	//
+	//		v0 = (a0 + a1 + a2 + a3 + a4 + a5)(b0 + b1 + b2 + b3 + b4 + b5)
+	//		v2 = (a0 + a1 + a3 + a4)(b0 + b1 + b3 + b4)
+	//		v3 = (a0 − a2 − a3 + a5)(b0 − b2 − b3 + b5)
+	//		v4 = (a0 − a2 − a5)(b0 − b2 − b5)
+	//		v5 = (a0 + a3 − a5)(b0 + b3 − b5)
+	//		v6 = (a0 + a1 + a2)(b0 + b1 + b2)
+	//		v7 = (a3 + a4 + a5)(b3 + b4 + b5)
+	//		v8 = (a2 + a3)(b2 + b3)
+	//		v9 = (a1 − a4)(b1 − b4)
+	//		v10 = (a1 + a2)(b1 + b2)
+	//		v11 = (a3 + a4)(b3 + b4)
+	//		v12 = (a0 + a1)(b0 + b1)
+	//		v13 = (a4 + a5)(b4 + b5)
+	//		v14 = a0b0
+	//		v15 = a1b1
+	//		v16 = a4b4
+	//		v17 = a5b5
+	//
+	// 		We do this optimally in 17 multiplications and 30 additions/subtractions in Fr.
+
 	var v [18]fr.Element
 	var t [14]fr.Element
 
 	// -------------------------------------------------------------------------
-	// Phase 1: Evaluation of A
+	// Phase 1: Evaluation of a
 	// -------------------------------------------------------------------------
 	v[12].Add(&a.A0, &a.A1)
 	v[13].Add(&a.A4, &a.A5)
@@ -161,7 +213,7 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	v[3].Sub(&t[0], &v[8])
 
 	// -------------------------------------------------------------------------
-	// Phase 2: Evaluation of B
+	// Phase 2: Evaluation of b
 	// -------------------------------------------------------------------------
 	t[12].Add(&b.A0, &b.A1)
 	t[13].Add(&b.A4, &b.A5)
@@ -202,11 +254,30 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	v[16].Mul(&a.A4, &b.A4)
 	v[17].Mul(&a.A5, &b.A5)
 
+	// We then we re-arrange the terms in function of the degree of X and use
+	// the fact that X^6=2(X^3+1), because we construct 𝔽r⁶[w] as 𝔽r/w⁶-2w³-2. The
+	// resulting coefficients c0,c1,c3,c4 and c5 are:
+	//
+	// c5 = -(v3+v4+v5+2v6) + 2(v8+v10+v12) - v9 + 3v14 - v15 + 3v16 + 3v17
+	// c2 = v6 + 2(v7 - v11 - v13) - v10 - v12 + 2v15 + 4v16
+	// c1 = -2(v3+v5+v6+2v7) + 2(v8+v10+3v11+2v13)
+	//      + 3(v12+v14-v15) - 6v16 + 8v17
+	// c4 = (v2-v3+v4) - 2v5 - 3v7 + v8 + v9 + 4v11
+	//      - v12 + 3v13 + 2v14 - v15 - 6v16 + 8v17
+	// c3 = 2(v0 - v2) + 3v3 + v4 + 4v5 + 2v6 + 5v7
+	//      - 5v8 - 3v10 - 5v11 - 2v12 - v13
+	//      - 8v14 + 3v15 + v16 - 14v17
+	// c0 = c3 + v3 + v4 + 2v6 + v7 - v8
+	//      - 3v10 - v11 - 2v12 - 3v13
+	//      - v14 + 3v15 + 3v16
+	//
+	// 	We do this in 117 additions/subtractions in Fr.
+
 	// -------------------------------------------------------------------------
-	// Phase 4: Reconstruction
+	// Phase 4: Reconstruction (optimized adds/doubles)
 	// -------------------------------------------------------------------------
 
-	// Helper multiples
+	// Big helpers for v14, v16, v17
 	t[0].Add(&v[14], &v[14]) // 2v14
 	t[1].Add(&t[0], &v[14])  // 3v14
 
@@ -221,15 +292,28 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	t[8].Add(&t[6], &t[6])   // 6v17
 	t[8].Add(&t[8], &t[7])   // 14v17
 
-	// 3v15 (reused in c3 and c0)
-	t[9].Add(&v[15], &v[15])
-	t[9].Add(&t[9], &v[15]) // t[9] = 3v15
+	// Extra helpers to avoid recomputing small multiples:
+	var v5_2, v6_2, v10_3, v12_2, v13_3, v15_2 fr.Element
 
-	// --- Compute c5 ---
+	v5_2.Add(&v[5], &v[5]) // 2v5
+	v6_2.Add(&v[6], &v[6]) // 2v6
+
+	v10_3.Add(&v[10], &v[10])
+	v10_3.Add(&v10_3, &v[10]) // 3v10
+
+	v12_2.Add(&v[12], &v[12]) // 2v12
+
+	v13_3.Add(&v[13], &v[13])
+	v13_3.Add(&v13_3, &v[13]) // 3v13
+
+	v15_2.Add(&v[15], &v[15]) // 2v15
+	t[9].Add(&v15_2, &v[15])  // t[9] = 3v15
+
+	// --- c5 ---
 	// c5 = -(v3+v4+v5+2v6) + 2(v8+v10+v12) - v9 + 3v14 - v15 + 3v16 + 3v17
 	t[10].Add(&v[3], &v[4])
 	t[10].Add(&t[10], &v[5])
-	t[11].Add(&v[6], &v[6])   // 2v6
+	t[11].Set(&v6_2)          // 2v6
 	t[10].Add(&t[10], &t[11]) // v3+v4+v5+2v6
 
 	t[11].Add(&v[8], &v[10])
@@ -243,7 +327,7 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	z.A5.Add(&z.A5, &t[3]) // +3v16
 	z.A5.Add(&z.A5, &t[6]) // +3v17
 
-	// --- Compute c2 ---
+	// --- c2 ---
 	// c2 = v6 + 2(v7 - v11 - v13) - v10 - v12 + 2v15 + 4v16
 	t[10].Add(&v[11], &v[13])
 	t[10].Sub(&v[7], &t[10])
@@ -253,14 +337,14 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	z.A2.Sub(&z.A2, &v[10])
 	z.A2.Sub(&z.A2, &v[12])
 
-	t[10].Add(&v[15], &v[15]) // 2v15
-	z.A2.Add(&z.A2, &t[10])
+	z.A2.Add(&z.A2, &v15_2) // +2v15
 
 	t[10].Add(&t[2], &t[2]) // 4v16
 	z.A2.Add(&z.A2, &t[10])
 
-	// --- Compute c1 ---
-	// c1 = -2(v3+v5+v6+2v7) + 2(v8+v10+3v11+2v13) + 3(v12+v14-v15) - 6v16 + 8v17
+	// --- c1 ---
+	// c1 = -2(v3+v5+v6+2v7) + 2(v8+v10+3v11+2v13)
+	//      + 3(v12+v14-v15) - 6v16 + 8v17
 	t[10].Add(&v[3], &v[5])
 	t[10].Add(&t[10], &v[6])
 	t[11].Add(&v[7], &v[7])
@@ -286,13 +370,13 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	z.A1.Sub(&z.A1, &t[4]) // -6v16
 	z.A1.Add(&z.A1, &t[7]) // +8v17
 
-	// --- Compute c4 ---
-	// c4 = (v2-v3+v4) - 2v5 - 3v7 + v8 + v9 + 4v11 - v12 + 3v13 + 2v14 - v15 - 6v16 + 8v17
+	// --- c4 ---
+	// c4 = (v2-v3+v4) - 2v5 - 3v7 + v8 + v9 + 4v11
+	//      - v12 + 3v13 + 2v14 - v15 - 6v16 + 8v17
 	z.A4.Sub(&v[2], &v[3])
 	z.A4.Add(&z.A4, &v[4])
 
-	t[10].Add(&v[5], &v[5])
-	z.A4.Sub(&z.A4, &t[10]) // -2v5
+	z.A4.Sub(&z.A4, &v5_2) // -2v5
 
 	t[10].Add(&v[7], &v[7])
 	t[10].Add(&t[10], &v[7]) // 3v7
@@ -307,9 +391,7 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 
 	z.A4.Sub(&z.A4, &v[12])
 
-	t[10].Add(&v[13], &v[13])
-	t[10].Add(&t[10], &v[13]) // 3v13
-	z.A4.Add(&z.A4, &t[10])
+	z.A4.Add(&z.A4, &v13_3) // +3v13
 
 	z.A4.Add(&z.A4, &t[0]) // +2v14
 	z.A4.Sub(&z.A4, &v[15])
@@ -317,9 +399,10 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	z.A4.Sub(&z.A4, &t[4]) // -6v16
 	z.A4.Add(&z.A4, &t[7]) // +8v17
 
-	// --- Compute c3 ---
-	// c3 = 2(v0 - v2) + 3v3 + v4 + 4v5 + 2v6 + 5v7 - 5v8 - 3v10 - 5v11
-	//   - 2v12 - v13 - 8v14 + 3v15 + v16 - 14v17
+	// --- c3 ---
+	// c3 = 2(v0 - v2) + 3v3 + v4 + 4v5 + 2v6 + 5v7
+	//      - 5v8 - 3v10 - 5v11 - 2v12 - v13
+	//      - 8v14 + 3v15 + v16 - 14v17
 	t[10].Sub(&v[0], &v[2])
 	t[10].Add(&t[10], &t[10]) // 2(v0 - v2)
 	z.A3.Set(&t[10])
@@ -329,12 +412,10 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	z.A3.Add(&z.A3, &t[10])
 	z.A3.Add(&z.A3, &v[4])
 
-	t[10].Add(&v[5], &v[5])
-	t[10].Add(&t[10], &t[10]) // 4v5
+	t[10].Add(&v5_2, &v5_2) // 4v5
 	z.A3.Add(&z.A3, &t[10])
 
-	t[10].Add(&v[6], &v[6]) // 2v6
-	z.A3.Add(&z.A3, &t[10])
+	z.A3.Add(&z.A3, &v6_2) // +2v6
 
 	t[10].Add(&v[7], &v[7])
 	t[10].Add(&t[10], &t[10])
@@ -347,45 +428,38 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	t[10].Add(&t[10], &t[11]) // 5(v8+v11)
 	z.A3.Sub(&z.A3, &t[10])   // -5v8 -5v11
 
-	t[10].Add(&v[10], &v[10])
-	t[10].Add(&t[10], &v[10]) // 3v10
-	z.A3.Sub(&z.A3, &t[10])
+	z.A3.Sub(&z.A3, &v10_3) // -3v10
 
-	t[10].Add(&v[12], &v[12]) // 2v12
-	z.A3.Sub(&z.A3, &t[10])
+	z.A3.Sub(&z.A3, &v12_2) // -2v12
 
 	z.A3.Sub(&z.A3, &v[13])
 
+	// -8v14
 	t[10].Add(&t[0], &t[0])   // 4v14
 	t[10].Add(&t[10], &t[10]) // 8v14
-	z.A3.Sub(&z.A3, &t[10])   // -8v14
+	z.A3.Sub(&z.A3, &t[10])
 
 	z.A3.Add(&z.A3, &t[9]) // +3v15
 	z.A3.Add(&z.A3, &v[16])
 	z.A3.Sub(&z.A3, &t[8]) // -14v17
 
-	// --- Compute c0 ---
-	// c0 = c3 + v3 + v4 + 2v6 + v7 - v8 - 3v10 - v11 - 2v12 - 3v13 - v14 + 3v15 + 3v16
+	// --- c0 ---
+	// c0 = c3 + v3 + v4 + 2v6 + v7 - v8
+	//      - 3v10 - v11 - 2v12 - 3v13
+	//      - v14 + 3v15 + 3v16
 	z.A0.Add(&z.A3, &v[3])
 	z.A0.Add(&z.A0, &v[4])
 
-	t[10].Add(&v[6], &v[6]) // 2v6
-	z.A0.Add(&z.A0, &t[10])
+	z.A0.Add(&z.A0, &v6_2) // +2v6
 	z.A0.Add(&z.A0, &v[7])
 	z.A0.Sub(&z.A0, &v[8])
 
-	t[10].Add(&v[10], &v[10])
-	t[10].Add(&t[10], &v[10]) // 3v10
-	z.A0.Sub(&z.A0, &t[10])
-
+	z.A0.Sub(&z.A0, &v10_3) // -3v10
 	z.A0.Sub(&z.A0, &v[11])
 
-	t[10].Add(&v[12], &v[12]) // 2v12
-	z.A0.Sub(&z.A0, &t[10])
+	z.A0.Sub(&z.A0, &v12_2) // -2v12
 
-	t[10].Add(&v[13], &v[13])
-	t[10].Add(&t[10], &v[13]) // 3v13
-	z.A0.Sub(&z.A0, &t[10])
+	z.A0.Sub(&z.A0, &v13_3) // -3v13
 
 	z.A0.Sub(&z.A0, &v[14])
 
@@ -393,7 +467,6 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	z.A0.Add(&z.A0, &t[3]) // +3v16
 
 	return z
-
 }
 
 // Square sets z=x*x in E6D and returns z

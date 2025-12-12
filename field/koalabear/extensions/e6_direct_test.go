@@ -198,7 +198,7 @@ func TestE6DOps(t *testing.T) {
 }
 
 // bench
-func BenchmarkE6DMulMontgomery6(b *testing.B) {
+func BenchmarkE6DMul(b *testing.B) {
 	var a, c E6D
 	a.MustSetRandom()
 	c.MustSetRandom()
