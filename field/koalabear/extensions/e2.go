@@ -302,6 +302,17 @@ func (z *E2) Square(x *E2) *E2 {
 	return z
 }
 
+// mulByNonResidue multiplies a E2 by (1,1)
+// (a+ub)(1+u) = (a+3b) + (a+b)u
+func (z *E2) mulByNonResidue(x *E2) *E2 {
+	var z0, z1 fr.Element
+	z1.Add(&x.A0, &x.A1)
+	z0.Double(&x.A1).Add(&z0, &z1)
+	z.A0 = z0
+	z.A1 = z1
+	return z
+}
+
 // MulByNonResidue multiplies a E2 by (0,1)
 func (z *E2) MulByNonResidue(x *E2) *E2 {
 	z.A0, z.A1 = x.A1, x.A0

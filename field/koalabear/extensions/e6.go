@@ -162,14 +162,7 @@ func (z *E6) IsOne() bool {
 	return z.B0.IsOne() && z.B1.IsZero() && z.B2.IsZero()
 }
 
-// MulByNonResidue mul x by (0,1,0)
-func (z *E6) MulByNonResidue(x *E6) *E6 {
-	z.B2, z.B1, z.B0 = x.B1, x.B0, x.B2
-	z.B0.MulByNonResidue(&z.B0)
-	return z
-}
-
-// Mul sets z=x*y in E4 and returns z
+// Mul sets z=x*y in E6 and returns z
 func (z *E6) Mul(x, y *E6) *E6 {
 	// Algorithm 13 from https://eprint.iacr.org/2010/354.pdf
 	var t0, t1, t2, c0, c1, c2, tmp E2
@@ -179,12 +172,12 @@ func (z *E6) Mul(x, y *E6) *E6 {
 
 	c0.Add(&x.B1, &x.B2)
 	tmp.Add(&y.B1, &y.B2)
-	c0.Mul(&c0, &tmp).Sub(&c0, &t1).Sub(&c0, &t2).MulByNonResidue(&c0).Add(&c0, &t0)
+	c0.Mul(&c0, &tmp).Sub(&c0, &t1).Sub(&c0, &t2).mulByNonResidue(&c0).Add(&c0, &t0)
 
 	c1.Add(&x.B0, &x.B1)
 	tmp.Add(&y.B0, &y.B1)
 	c1.Mul(&c1, &tmp).Sub(&c1, &t0).Sub(&c1, &t1)
-	tmp.MulByNonResidue(&t2)
+	tmp.mulByNonResidue(&t2)
 	c1.Add(&c1, &tmp)
 
 	tmp.Add(&x.B0, &x.B2)
@@ -197,20 +190,20 @@ func (z *E6) Mul(x, y *E6) *E6 {
 	return z
 }
 
-// Square sets z=x*x in E4 and returns z
+// Square sets z=x*x in E6 and returns z
 func (z *E6) Square(x *E6) *E6 {
 
 	// Algorithm 16 from https://eprint.iacr.org/2010/354.pdf
 	var c4, c5, c1, c2, c3, c0 E2
 	c4.Mul(&x.B0, &x.B1).Double(&c4)
 	c5.Square(&x.B2)
-	c1.MulByNonResidue(&c5).Add(&c1, &c4)
+	c1.mulByNonResidue(&c5).Add(&c1, &c4)
 	c2.Sub(&c4, &c5)
 	c3.Square(&x.B0)
 	c4.Sub(&x.B0, &x.B1).Add(&c4, &x.B2)
 	c5.Mul(&x.B1, &x.B2).Double(&c5)
 	c4.Square(&c4)
-	c0.MulByNonResidue(&c5).Add(&c0, &c3)
+	c0.mulByNonResidue(&c5).Add(&c0, &c3)
 	z.B2.Add(&c2, &c4).Add(&z.B2, &c5).Sub(&z.B2, &c3)
 	z.B0.Set(&c0)
 	z.B1.Set(&c1)
@@ -218,7 +211,7 @@ func (z *E6) Square(x *E6) *E6 {
 	return z
 }
 
-// Inverse sets z to the inverse of x in E4 and returns z
+// Inverse sets z to the inverse of x in E6 and returns z
 //
 // if x == 0, sets and returns z = x
 func (z *E6) Inverse(x *E6) *E6 {
@@ -231,13 +224,13 @@ func (z *E6) Inverse(x *E6) *E6 {
 	t3.Mul(&x.B0, &x.B1)
 	t4.Mul(&x.B0, &x.B2)
 	t5.Mul(&x.B1, &x.B2)
-	c0.MulByNonResidue(&t5).Neg(&c0).Add(&c0, &t0)
-	c1.MulByNonResidue(&t2).Sub(&c1, &t3)
+	c0.mulByNonResidue(&t5).Neg(&c0).Add(&c0, &t0)
+	c1.mulByNonResidue(&t2).Sub(&c1, &t3)
 	c2.Sub(&t1, &t4)
 	t6.Mul(&x.B0, &c0)
 	d1.Mul(&x.B2, &c1)
 	d2.Mul(&x.B1, &c2)
-	d1.Add(&d1, &d2).MulByNonResidue(&d1)
+	d1.Add(&d1, &d2).mulByNonResidue(&d1)
 	t6.Add(&t6, &d1)
 	t6.Inverse(&t6)
 	z.B0.Mul(&c0, &t6)

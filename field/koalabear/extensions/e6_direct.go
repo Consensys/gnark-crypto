@@ -1,0 +1,463 @@
+// Copyright 2020-2025 Consensys Software Inc.
+// Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
+
+package extensions
+
+import (
+	fr "github.com/consensys/gnark-crypto/field/koalabear"
+)
+
+// E6D is a degree 6 finite field extension of fr
+type E6D struct {
+	A0, A1, A2, A3, A4, A5 fr.Element
+}
+
+// Equal returns true if z equals x, false otherwise
+func (z *E6D) Equal(x *E6D) bool {
+	return z.A0.Equal(&x.A0) &&
+		z.A1.Equal(&x.A1) &&
+		z.A2.Equal(&x.A2) &&
+		z.A3.Equal(&x.A3) &&
+		z.A4.Equal(&x.A4) &&
+		z.A5.Equal(&x.A5)
+}
+
+// String puts E6D elmt in string form
+func (z *E6D) String() string {
+	return (z.A0.String() + "+(" + z.A1.String() + ")*u+(" + z.A2.String() + ")*u**2+(" + z.A3.String() + ")*u**3+(" + z.A4.String() + ")*u**4+(" + z.A5.String() + ")*u**5")
+}
+
+// SetString sets a E6D elmt from string
+func (z *E6D) SetString(s1, s2, s3, s4, s5, s6 string) *E6D {
+	z.A0.SetString(s1)
+	z.A1.SetString(s2)
+	z.A2.SetString(s3)
+	z.A3.SetString(s4)
+	z.A4.SetString(s5)
+	z.A5.SetString(s6)
+	return z
+}
+
+// Set copies x into z and returns z
+func (z *E6D) Set(x *E6D) *E6D {
+	*z = *x
+	return z
+}
+
+// SetOne sets z to 1 in Montgomery form and returns z
+func (z *E6D) SetOne() *E6D {
+	z.A0.SetOne()
+	z.A1.SetZero()
+	z.A2.SetZero()
+	z.A3.SetZero()
+	z.A4.SetZero()
+	z.A5.SetZero()
+	return z
+}
+
+// Add sets z=x+y in E6D and returns z
+func (z *E6D) Add(x, y *E6D) *E6D {
+	z.A0.Add(&x.A0, &y.A0)
+	z.A1.Add(&x.A1, &y.A1)
+	z.A2.Add(&x.A2, &y.A2)
+	z.A3.Add(&x.A3, &y.A3)
+	z.A4.Add(&x.A4, &y.A4)
+	z.A5.Add(&x.A5, &y.A5)
+	return z
+}
+
+// Sub sets z to x-y and returns z
+func (z *E6D) Sub(x, y *E6D) *E6D {
+	z.A0.Sub(&x.A0, &y.A0)
+	z.A1.Sub(&x.A1, &y.A1)
+	z.A2.Sub(&x.A2, &y.A2)
+	z.A3.Sub(&x.A3, &y.A3)
+	z.A4.Sub(&x.A4, &y.A4)
+	z.A5.Sub(&x.A5, &y.A5)
+	return z
+}
+
+// Double sets z=2*x and returns z
+func (z *E6D) Double(x *E6D) *E6D {
+	z.A0.Double(&x.A0)
+	z.A1.Double(&x.A1)
+	z.A2.Double(&x.A2)
+	z.A3.Double(&x.A3)
+	z.A4.Double(&x.A4)
+	z.A5.Double(&x.A5)
+	return z
+}
+
+// SetRandom used only in tests
+func (z *E6D) SetRandom() (*E6D, error) {
+	if _, err := z.A0.SetRandom(); err != nil {
+		return nil, err
+	}
+	if _, err := z.A1.SetRandom(); err != nil {
+		return nil, err
+	}
+	if _, err := z.A2.SetRandom(); err != nil {
+		return nil, err
+	}
+	if _, err := z.A3.SetRandom(); err != nil {
+		return nil, err
+	}
+	if _, err := z.A4.SetRandom(); err != nil {
+		return nil, err
+	}
+	if _, err := z.A5.SetRandom(); err != nil {
+		return nil, err
+	}
+	return z, nil
+}
+
+// MustSetRandom sets z to a random value.
+// It panics if reading from crypto/rand fails.
+func (z *E6D) MustSetRandom() *E6D {
+	if _, err := z.SetRandom(); err != nil {
+		panic(err)
+	}
+	return z
+}
+
+// IsZero returns true if z is zero, false otherwise
+func (z *E6D) IsZero() bool {
+	return z.A0.IsZero() && z.A1.IsZero() && z.A2.IsZero() && z.A3.IsZero() && z.A4.IsZero() && z.A5.IsZero()
+}
+
+// IsOne returns true if z is one, false otherwise
+func (z *E6D) IsOne() bool {
+	return z.A0.IsOne() && z.A1.IsZero() && z.A2.IsZero() && z.A3.IsZero() && z.A4.IsZero() && z.A5.IsZero()
+}
+
+// Mul sets z=x*y in E6D and returns z
+func (z *E6D) Mul(x, y *E6D) *E6D {
+	return z.mulMontgomery6(x, y)
+}
+
+func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
+	var v [18]fr.Element
+	var t [14]fr.Element
+
+	// -------------------------------------------------------------------------
+	// Phase 1: Evaluation of A
+	// -------------------------------------------------------------------------
+	v[12].Add(&a.A0, &a.A1)
+	v[13].Add(&a.A4, &a.A5)
+	v[10].Add(&a.A1, &a.A2)
+	v[11].Add(&a.A3, &a.A4)
+	v[8].Add(&a.A2, &a.A3)
+	v[9].Sub(&a.A1, &a.A4)
+
+	v[6].Add(&v[12], &a.A2)
+	v[7].Add(&v[11], &a.A5)
+	v[2].Add(&v[12], &v[11])
+	v[0].Add(&v[6], &v[7])
+
+	t[0].Sub(&a.A0, &a.A5)
+	v[4].Sub(&t[0], &a.A2)
+	v[5].Add(&v[4], &v[8])
+	t[0].Add(&a.A0, &a.A5)
+	v[3].Sub(&t[0], &v[8])
+
+	// -------------------------------------------------------------------------
+	// Phase 2: Evaluation of B
+	// -------------------------------------------------------------------------
+	t[12].Add(&b.A0, &b.A1)
+	t[13].Add(&b.A4, &b.A5)
+	t[10].Add(&b.A1, &b.A2)
+	t[11].Add(&b.A3, &b.A4)
+	t[8].Add(&b.A2, &b.A3)
+	t[9].Sub(&b.A1, &b.A4)
+
+	t[6].Add(&t[12], &b.A2)
+	t[7].Add(&t[11], &b.A5)
+	t[2].Add(&t[12], &t[11])
+	t[0].Add(&t[6], &t[7])
+
+	t[1].Sub(&b.A0, &b.A5)
+	t[4].Sub(&t[1], &b.A2)
+	t[5].Add(&t[4], &t[8])
+	t[1].Add(&b.A0, &b.A5)
+	t[3].Sub(&t[1], &t[8])
+
+	// -------------------------------------------------------------------------
+	// Phase 3: Pointwise Multiplication
+	// -------------------------------------------------------------------------
+	v[0].Mul(&v[0], &t[0])
+	v[2].Mul(&v[2], &t[2])
+	v[3].Mul(&v[3], &t[3])
+	v[4].Mul(&v[4], &t[4])
+	v[5].Mul(&v[5], &t[5])
+	v[6].Mul(&v[6], &t[6])
+	v[7].Mul(&v[7], &t[7])
+	v[8].Mul(&v[8], &t[8])
+	v[9].Mul(&v[9], &t[9])
+	v[10].Mul(&v[10], &t[10])
+	v[11].Mul(&v[11], &t[11])
+	v[12].Mul(&v[12], &t[12])
+	v[13].Mul(&v[13], &t[13])
+	v[14].Mul(&a.A0, &b.A0)
+	v[15].Mul(&a.A1, &b.A1)
+	v[16].Mul(&a.A4, &b.A4)
+	v[17].Mul(&a.A5, &b.A5)
+
+	// -------------------------------------------------------------------------
+	// Phase 4: Reconstruction
+	// -------------------------------------------------------------------------
+
+	// Helper multiples
+	t[0].Add(&v[14], &v[14]) // 2v14
+	t[1].Add(&t[0], &v[14])  // 3v14
+
+	t[2].Add(&v[16], &v[16]) // 2v16
+	t[3].Add(&t[2], &v[16])  // 3v16
+	t[4].Add(&t[3], &t[3])   // 6v16
+
+	t[5].Add(&v[17], &v[17]) // 2v17
+	t[6].Add(&t[5], &v[17])  // 3v17
+	t[7].Add(&t[5], &t[5])   // 4v17
+	t[7].Add(&t[7], &t[7])   // 8v17
+	t[8].Add(&t[6], &t[6])   // 6v17
+	t[8].Add(&t[8], &t[7])   // 14v17
+
+	// 3v15 (reused in c3 and c0)
+	t[9].Add(&v[15], &v[15])
+	t[9].Add(&t[9], &v[15]) // t[9] = 3v15
+
+	// --- Compute c5 ---
+	// c5 = -(v3+v4+v5+2v6) + 2(v8+v10+v12) - v9 + 3v14 - v15 + 3v16 + 3v17
+	t[10].Add(&v[3], &v[4])
+	t[10].Add(&t[10], &v[5])
+	t[11].Add(&v[6], &v[6])   // 2v6
+	t[10].Add(&t[10], &t[11]) // v3+v4+v5+2v6
+
+	t[11].Add(&v[8], &v[10])
+	t[11].Add(&t[11], &v[12])
+	t[11].Add(&t[11], &t[11]) // 2(v8+v10+v12)
+
+	z.A5.Sub(&t[11], &t[10])
+	z.A5.Sub(&z.A5, &v[9])
+	z.A5.Add(&z.A5, &t[1]) // +3v14
+	z.A5.Sub(&z.A5, &v[15])
+	z.A5.Add(&z.A5, &t[3]) // +3v16
+	z.A5.Add(&z.A5, &t[6]) // +3v17
+
+	// --- Compute c2 ---
+	// c2 = v6 + 2(v7 - v11 - v13) - v10 - v12 + 2v15 + 4v16
+	t[10].Add(&v[11], &v[13])
+	t[10].Sub(&v[7], &t[10])
+	t[10].Add(&t[10], &t[10]) // 2(v7 - v11 - v13)
+
+	z.A2.Add(&v[6], &t[10])
+	z.A2.Sub(&z.A2, &v[10])
+	z.A2.Sub(&z.A2, &v[12])
+
+	t[10].Add(&v[15], &v[15]) // 2v15
+	z.A2.Add(&z.A2, &t[10])
+
+	t[10].Add(&t[2], &t[2]) // 4v16
+	z.A2.Add(&z.A2, &t[10])
+
+	// --- Compute c1 ---
+	// c1 = -2(v3+v5+v6+2v7) + 2(v8+v10+3v11+2v13) + 3(v12+v14-v15) - 6v16 + 8v17
+	t[10].Add(&v[3], &v[5])
+	t[10].Add(&t[10], &v[6])
+	t[11].Add(&v[7], &v[7])
+	t[10].Add(&t[10], &t[11]) // v3+v5+v6+2v7
+	t[10].Add(&t[10], &t[10]) // 2(...)
+
+	t[11].Add(&v[11], &v[11])
+	t[11].Add(&t[11], &v[11]) // 3v11
+	t[11].Add(&t[11], &v[10])
+	t[11].Add(&t[11], &v[8])
+	t[12].Add(&v[13], &v[13]) // 2v13
+	t[11].Add(&t[11], &t[12])
+	t[11].Add(&t[11], &t[11]) // 2(v8+v10+3v11+2v13)
+
+	z.A1.Sub(&t[11], &t[10])
+
+	t[10].Add(&v[12], &v[14])
+	t[10].Sub(&t[10], &v[15])
+	t[11].Add(&t[10], &t[10])
+	t[10].Add(&t[10], &t[11]) // 3(v12+v14-v15)
+	z.A1.Add(&z.A1, &t[10])
+
+	z.A1.Sub(&z.A1, &t[4]) // -6v16
+	z.A1.Add(&z.A1, &t[7]) // +8v17
+
+	// --- Compute c4 ---
+	// c4 = (v2-v3+v4) - 2v5 - 3v7 + v8 + v9 + 4v11 - v12 + 3v13 + 2v14 - v15 - 6v16 + 8v17
+	z.A4.Sub(&v[2], &v[3])
+	z.A4.Add(&z.A4, &v[4])
+
+	t[10].Add(&v[5], &v[5])
+	z.A4.Sub(&z.A4, &t[10]) // -2v5
+
+	t[10].Add(&v[7], &v[7])
+	t[10].Add(&t[10], &v[7]) // 3v7
+	z.A4.Sub(&z.A4, &t[10])
+
+	z.A4.Add(&z.A4, &v[8])
+	z.A4.Add(&z.A4, &v[9])
+
+	t[10].Add(&v[11], &v[11])
+	t[10].Add(&t[10], &t[10]) // 4v11
+	z.A4.Add(&z.A4, &t[10])
+
+	z.A4.Sub(&z.A4, &v[12])
+
+	t[10].Add(&v[13], &v[13])
+	t[10].Add(&t[10], &v[13]) // 3v13
+	z.A4.Add(&z.A4, &t[10])
+
+	z.A4.Add(&z.A4, &t[0]) // +2v14
+	z.A4.Sub(&z.A4, &v[15])
+
+	z.A4.Sub(&z.A4, &t[4]) // -6v16
+	z.A4.Add(&z.A4, &t[7]) // +8v17
+
+	// --- Compute c3 ---
+	// c3 = 2(v0 - v2) + 3v3 + v4 + 4v5 + 2v6 + 5v7 - 5v8 - 3v10 - 5v11
+	//   - 2v12 - v13 - 8v14 + 3v15 + v16 - 14v17
+	t[10].Sub(&v[0], &v[2])
+	t[10].Add(&t[10], &t[10]) // 2(v0 - v2)
+	z.A3.Set(&t[10])
+
+	t[10].Add(&v[3], &v[3])
+	t[10].Add(&t[10], &v[3]) // 3v3
+	z.A3.Add(&z.A3, &t[10])
+	z.A3.Add(&z.A3, &v[4])
+
+	t[10].Add(&v[5], &v[5])
+	t[10].Add(&t[10], &t[10]) // 4v5
+	z.A3.Add(&z.A3, &t[10])
+
+	t[10].Add(&v[6], &v[6]) // 2v6
+	z.A3.Add(&z.A3, &t[10])
+
+	t[10].Add(&v[7], &v[7])
+	t[10].Add(&t[10], &t[10])
+	t[10].Add(&t[10], &v[7]) // 5v7
+	z.A3.Add(&z.A3, &t[10])
+
+	t[10].Add(&v[8], &v[11])
+	t[11].Add(&t[10], &t[10])
+	t[11].Add(&t[11], &t[11]) // 4(v8+v11)
+	t[10].Add(&t[10], &t[11]) // 5(v8+v11)
+	z.A3.Sub(&z.A3, &t[10])   // -5v8 -5v11
+
+	t[10].Add(&v[10], &v[10])
+	t[10].Add(&t[10], &v[10]) // 3v10
+	z.A3.Sub(&z.A3, &t[10])
+
+	t[10].Add(&v[12], &v[12]) // 2v12
+	z.A3.Sub(&z.A3, &t[10])
+
+	z.A3.Sub(&z.A3, &v[13])
+
+	t[10].Add(&t[0], &t[0])   // 4v14
+	t[10].Add(&t[10], &t[10]) // 8v14
+	z.A3.Sub(&z.A3, &t[10])   // -8v14
+
+	z.A3.Add(&z.A3, &t[9]) // +3v15
+	z.A3.Add(&z.A3, &v[16])
+	z.A3.Sub(&z.A3, &t[8]) // -14v17
+
+	// --- Compute c0 ---
+	// c0 = c3 + v3 + v4 + 2v6 + v7 - v8 - 3v10 - v11 - 2v12 - 3v13 - v14 + 3v15 + 3v16
+	z.A0.Add(&z.A3, &v[3])
+	z.A0.Add(&z.A0, &v[4])
+
+	t[10].Add(&v[6], &v[6]) // 2v6
+	z.A0.Add(&z.A0, &t[10])
+	z.A0.Add(&z.A0, &v[7])
+	z.A0.Sub(&z.A0, &v[8])
+
+	t[10].Add(&v[10], &v[10])
+	t[10].Add(&t[10], &v[10]) // 3v10
+	z.A0.Sub(&z.A0, &t[10])
+
+	z.A0.Sub(&z.A0, &v[11])
+
+	t[10].Add(&v[12], &v[12]) // 2v12
+	z.A0.Sub(&z.A0, &t[10])
+
+	t[10].Add(&v[13], &v[13])
+	t[10].Add(&t[10], &v[13]) // 3v13
+	z.A0.Sub(&z.A0, &t[10])
+
+	z.A0.Sub(&z.A0, &v[14])
+
+	z.A0.Add(&z.A0, &t[9]) // +3v15
+	z.A0.Add(&z.A0, &t[3]) // +3v16
+
+	return z
+
+}
+
+// Square sets z=x*x in E6D and returns z
+func (z *E6D) Square(x *E6D) *E6D {
+	_x := ToTower(x)
+	_x.Square(_x)
+	_z := FromTower(_x)
+	return z.Set(_z)
+}
+
+// Inverse sets z to the inverse of x in E6D and returns z
+//
+// if x == 0, sets and returns z = x
+func (z *E6D) Inverse(x *E6D) *E6D {
+	_x := ToTower(x)
+	_x.Inverse(_x)
+	_z := FromTower(_x)
+	return z.Set(_z)
+}
+
+// InverseUnitary inverses a unitary element
+func (z *E6D) InverseUnitary(x *E6D) *E6D {
+	return z.Conjugate(x)
+}
+
+// Conjugate sets z to x conjugated and returns z
+func (z *E6D) Conjugate(x *E6D) *E6D {
+	z.A0.Set(&x.A0)
+	z.A1.Neg(&x.A1)
+	z.A2.Set(&x.A2)
+	z.A3.Neg(&x.A3)
+	z.A4.Set(&x.A4)
+	z.A5.Neg(&x.A5)
+	return z
+}
+
+// FromTower
+func FromTower(x *E6) *E6D {
+	// The 2-3 tower and direct extensions are isomorphic and the coefficients
+	// are permuted as follows:
+	// 		a00-a01 a10-a11 a20-a21 a01 a11 a21
+	// 		A0      A1      A2      A3  A4  A5
+	var z E6D
+	z.A0.Sub(&x.B0.A0, &x.B0.A1)
+	z.A1.Sub(&x.B1.A0, &x.B1.A1)
+	z.A2.Sub(&x.B2.A0, &x.B2.A1)
+	z.A3.Set(&x.B0.A1)
+	z.A4.Set(&x.B1.A1)
+	z.A5.Set(&x.B2.A1)
+	return &z
+}
+
+// ToTower
+func ToTower(x *E6D) *E6 {
+	// The 2-3 tower and direct extensions are isomorphic and the coefficients
+	// are permuted as follows:
+	// 		a00    a01 a10    a11 a20    a21
+	// 		A0+A3  A3  A1+A4  A4  A2+A5  A5
+	var z E6
+	z.B0.A0.Add(&x.A0, &x.A3)
+	z.B0.A1.Set(&x.A3)
+	z.B1.A0.Add(&x.A1, &x.A4)
+	z.B1.A1.Set(&x.A4)
+	z.B2.A0.Add(&x.A2, &x.A5)
+	z.B2.A1.Set(&x.A5)
+	return &z
+}
