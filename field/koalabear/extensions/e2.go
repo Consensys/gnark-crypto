@@ -64,7 +64,7 @@ func (z *E2) Set(x *E2) *E2 {
 	return z
 }
 
-// SetOne sets z to 1 in Montgomery form and returns z
+// SetOne sets z to 1 and returns z
 func (z *E2) SetOne() *E2 {
 	z.A0.SetOne()
 	z.A1.SetZero()
@@ -302,31 +302,21 @@ func (z *E2) Square(x *E2) *E2 {
 	return z
 }
 
-// mulByNonResidue multiplies a E2 by (1,1)
-// (a+ub)(1+u) = (a+3b) + (a+b)u
-func (z *E2) mulByNonResidue(x *E2) *E2 {
-	var z0, z1 fr.Element
-	z1.Add(&x.A0, &x.A1)
-	z0.Double(&x.A1).Add(&z0, &z1)
-	z.A0 = z0
-	z.A1 = z1
-	return z
-}
-
-// MulByNonResidue multiplies a E2 by (0,1)
-func (z *E2) MulByNonResidue(x *E2) *E2 {
+// MulByQuadraticNonResidue multiplies a E2 by u=(0,1)
+func (z *E2) MulByQuadraticNonResidue(x *E2) *E2 {
 	z.A0, z.A1 = x.A1, x.A0
 	fr.MulBy3(&z.A0)
 	return z
 }
 
-// MulByNonResidueInv multiplies a E2 by (0,1)^{-1}
-func (z *E2) MulByNonResidueInv(x *E2) *E2 {
-	z.A0, z.A1 = x.A1, x.A0
-	// 1/3 mod r
-	var threeInv fr.Element
-	threeInv[0] = 11184810 // threeInv.SetUint64(710235478)
-	z.A1.Mul(&z.A1, &threeInv)
+// MulByCubicNonResidue multiplies a E2 by 1+u=(1,1)
+func (z *E2) MulByCubicNonResidue(x *E2) *E2 {
+	var z0, z1 fr.Element
+	z1.Add(&x.A0, &x.A1)
+	z0.Double(&x.A1)
+	z0.Add(&z0, &z1)
+	z.A0 = z0
+	z.A1 = z1
 	return z
 }
 

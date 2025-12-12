@@ -85,16 +85,6 @@ func TestE6ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] Having the receiver as operand (mul by non residue) should output the same result", prop.ForAll(
-		func(a E6) bool {
-			var b E6
-			b.MulByNonResidue(&a)
-			a.MulByNonResidue(&a)
-			return a.Equal(&b)
-		},
-		genA,
-	))
-
 	properties.Property("[babybear] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
 		func(a E6) bool {
 			var b E6
@@ -199,17 +189,6 @@ func TestE6Ops(t *testing.T) {
 			b.Add(&a, &a)
 			a.Double(&a)
 			return a.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[babybear] Mul by non residue should be the same as multiplying by (0,1,0)", prop.ForAll(
-		func(a E6) bool {
-			var b, c E6
-			b.B1.A0.SetOne()
-			c.Mul(&a, &b)
-			a.MulByNonResidue(&a)
-			return a.Equal(&c)
 		},
 		genA,
 	))
