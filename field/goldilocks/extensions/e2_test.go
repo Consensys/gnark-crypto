@@ -118,16 +118,6 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[goldilocks] Having the receiver as operand (mul by cubic non-residue) should output the same result", prop.ForAll(
-		func(a E2) bool {
-			var b E2
-			b.MulByCubicNonResidue(&a)
-			a.MulByCubicNonResidue(&a)
-			return a.Equal(&b)
-		},
-		genA,
-	))
-
 	properties.Property("[goldilocks] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
 		func(a E2) bool {
 			var b E2
@@ -460,15 +450,6 @@ func BenchmarkE2MulQuadNonRes(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.MulByQuadraticNonResidue(&a)
-	}
-}
-
-func BenchmarkE2MulCubicNonRes(b *testing.B) {
-	var a E2
-	a.MustSetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.MulByCubicNonResidue(&a)
 	}
 }
 

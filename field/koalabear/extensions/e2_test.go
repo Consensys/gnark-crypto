@@ -117,7 +117,6 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		},
 		genA,
 	))
-
 	properties.Property("[koalabear] Having the receiver as operand (mul by cubic non-residue) should output the same result", prop.ForAll(
 		func(a E2) bool {
 			var b E2
@@ -462,7 +461,6 @@ func BenchmarkE2MulQuadNonRes(b *testing.B) {
 		a.MulByQuadraticNonResidue(&a)
 	}
 }
-
 func BenchmarkE2MulCubicNonRes(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
