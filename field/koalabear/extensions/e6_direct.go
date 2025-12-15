@@ -494,12 +494,9 @@ func (z *E6D) InverseUnitary(x *E6D) *E6D {
 
 // Conjugate sets z to x conjugated and returns z
 func (z *E6D) Conjugate(x *E6D) *E6D {
-	z.A0.Set(&x.A0)
-	z.A1.Neg(&x.A1)
-	z.A2.Set(&x.A2)
-	z.A3.Neg(&x.A3)
-	z.A4.Set(&x.A4)
-	z.A5.Neg(&x.A5)
+	_z := ToTower(x)
+	_z.Conjugate(_z)
+	z = FromTower(_z)
 	return z
 }
 
