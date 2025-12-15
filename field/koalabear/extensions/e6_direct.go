@@ -494,10 +494,10 @@ func (z *E6D) InverseUnitary(x *E6D) *E6D {
 
 // Conjugate sets z to x conjugated and returns z
 func (z *E6D) Conjugate(x *E6D) *E6D {
-	_z := ToTower(x)
-	_z.Conjugate(_z)
-	z = FromTower(_z)
-	return z
+	_x := ToTower(x)
+	_x.Conjugate(_x)
+	_z := FromTower(_x)
+	return z.Set(_z)
 }
 
 // FromTower
