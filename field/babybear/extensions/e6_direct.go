@@ -138,6 +138,10 @@ func (z *E6D) Mul(x, y *E6D) *E6D {
 }
 
 func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
+	return z.reconstruct(interpolate(a, b))
+}
+
+func interpolate(a, b *E6D) *[18]fr.Element {
 	// Ref.: Peter L. Montgomery. Five, six, and seven-term Karatsuba-like formulae. IEEE
 	// Transactions on Computers, 54(3):362–369, 2005.
 	//
@@ -255,6 +259,14 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	v[15].Mul(&a.A1, &b.A1)
 	v[16].Mul(&a.A4, &b.A4)
 	v[17].Mul(&a.A5, &b.A5)
+
+	return &v
+}
+
+func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
+	// Ref.: Peter L. Montgomery. Five, six, and seven-term Karatsuba-like formulae. IEEE
+	// Transactions on Computers, 54(3):362–369, 2005.
+	//
 	// We then we re-arrange the terms in function of the degree of X and use
 	// the fact that X^6=2(X^3+5), because we construct 𝔽r⁶[w] as 𝔽r/w⁶-2w³-10. The
 	// resulting coefficients c0,c1,c3,c4 and c5 are:
@@ -280,6 +292,7 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	// -------------------------------------------------------------------------
 	// Phase 4: Reconstruction (optimized adds/subs)
 	// -------------------------------------------------------------------------
+	var t [14]fr.Element
 
 	t[0].Add(&v[14], &v[14]) // 2v14
 	t[1].Add(&t[0], &v[14])  // 3v14
@@ -688,11 +701,52 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 }
 
 // Square sets z=x*x in E6D and returns z
-func (z *E6D) Square(x *E6D) *E6D {
-	_x := ToTower(x)
-	_x.Square(_x)
-	_z := FromTower(_x)
-	return z.Set(_z)
+func (z *E6D) Square(a *E6D) *E6D {
+	var v [18]fr.Element
+
+	// -------------------------------------------------------------------------
+	// Phase 1: Evaluation of a
+	// -------------------------------------------------------------------------
+	v[12].Add(&a.A0, &a.A1)
+	v[13].Add(&a.A4, &a.A5)
+	v[10].Add(&a.A1, &a.A2)
+	v[11].Add(&a.A3, &a.A4)
+	v[8].Add(&a.A2, &a.A3)
+	v[9].Sub(&a.A1, &a.A4)
+
+	v[6].Add(&v[12], &a.A2)
+	v[7].Add(&v[11], &a.A5)
+	v[2].Add(&v[12], &v[11])
+	v[0].Add(&v[6], &v[7])
+
+	v[1].Sub(&a.A0, &a.A5)
+	v[4].Sub(&v[1], &a.A2)
+	v[5].Add(&v[4], &v[8])
+	v[1].Add(&a.A0, &a.A5)
+	v[3].Sub(&v[1], &v[8])
+
+	// -------------------------------------------------------------------------
+	// Phase 3: Pointwise Multiplication
+	// -------------------------------------------------------------------------
+	v[0].Square(&v[0])
+	v[2].Square(&v[2])
+	v[3].Square(&v[3])
+	v[4].Square(&v[4])
+	v[5].Square(&v[5])
+	v[6].Square(&v[6])
+	v[7].Square(&v[7])
+	v[8].Square(&v[8])
+	v[9].Square(&v[9])
+	v[10].Square(&v[10])
+	v[11].Square(&v[11])
+	v[12].Square(&v[12])
+	v[13].Square(&v[13])
+	v[14].Square(&a.A0)
+	v[15].Square(&a.A1)
+	v[16].Square(&a.A4)
+	v[17].Square(&a.A5)
+
+	return z.reconstruct(&v)
 }
 
 // Inverse sets z to the inverse of x in E6D and returns z
