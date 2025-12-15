@@ -540,19 +540,6 @@ func (z *E6D) Inverse(x *E6D) *E6D {
 	return z.Set(_z)
 }
 
-// InverseUnitary inverses a unitary element
-func (z *E6D) InverseUnitary(x *E6D) *E6D {
-	return z.Conjugate(x)
-}
-
-// Conjugate sets z to x conjugated and returns z
-func (z *E6D) Conjugate(x *E6D) *E6D {
-	_x := ToTower(x)
-	_x.Conjugate(_x)
-	_z := FromTower(_x)
-	return z.Set(_z)
-}
-
 // FromTower
 func FromTower(x *E6) *E6D {
 	// The 2-3 tower and direct extensions are isomorphic and the coefficients

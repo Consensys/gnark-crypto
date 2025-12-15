@@ -117,16 +117,6 @@ func TestE6DReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[(direct) babybear] Having the receiver as operand (Conjugate) should output the same result", prop.ForAll(
-		func(a *E6D) bool {
-			var b E6D
-			b.Conjugate(a)
-			a.Conjugate(a)
-			return a.Equal(&b)
-		},
-		genA,
-	))
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 

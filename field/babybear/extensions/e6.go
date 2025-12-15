@@ -299,14 +299,6 @@ func (z *E6) ExpInt64(x E6, k int64) *E6 {
 	return z
 }
 
-// Conjugate sets z to x conjugated and returns z
-func (z *E6) Conjugate(x *E6) *E6 {
-	z.B0.Conjugate(&x.B0)
-	z.B1.Conjugate(&x.B1).Neg(&z.B1)
-	z.B2.Conjugate(&x.B2)
-	return z
-}
-
 func (z *E6) Halve() {
 
 	z.B0.A0.Halve()
