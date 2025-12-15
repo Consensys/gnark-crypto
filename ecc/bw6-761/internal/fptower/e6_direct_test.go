@@ -163,6 +163,18 @@ func TestE6DOps(t *testing.T) {
 		genB,
 	))
 
+	properties.Property("[(direct) BW6-761] tower square and direct square are the same", prop.ForAll(
+		func(a *E6D) bool {
+			var c E6D
+			c.Square(a)
+			var _c E6
+			_a := ToTower(a)
+			_c.Square(_a)
+			return c.Equal(FromTower(&_c))
+		},
+		genA,
+	))
+
 	properties.Property("[(direct) BW6-761] mul & inverse should leave an element invariant", prop.ForAll(
 		func(a, b *E6D) bool {
 			var c, d E6D
@@ -215,5 +227,22 @@ func BenchmarkE6DMulMontgomery6(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.mulMontgomery6(&a, &c)
+	}
+}
+func BenchmarkE6DSquareTower(b *testing.B) {
+	var a E6D
+	a.MustSetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.squareTower(&a)
+	}
+}
+
+func BenchmarkE6DSquareMontgomery6(b *testing.B) {
+	var a E6D
+	a.MustSetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.squareMontgomery6(&a)
 	}
 }
