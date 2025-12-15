@@ -134,7 +134,7 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	return z.reconstruct(interpolate(a, b))
 }
 
-func interpolate(a, b *E6D) *[18]fr.Element {
+func interpolate(a, b *E6D) *[17]fr.Element {
 	// Ref.: Peter L. Montgomery. Five, six, and seven-term Karatsuba-like formulae. IEEE
 	// Transactions on Computers, 54(3):362–369, 2005.
 	//
@@ -187,29 +187,29 @@ func interpolate(a, b *E6D) *[18]fr.Element {
 	//
 	// 		We do this optimally in 17 multiplications and 30 additions/subtractions in Fr.
 
-	var v [18]fr.Element
+	var v [17]fr.Element
 	var t [14]fr.Element
 
 	// -------------------------------------------------------------------------
 	// Phase 1: Evaluation of a
 	// -------------------------------------------------------------------------
-	v[12].Add(&a.A0, &a.A1)
-	v[13].Add(&a.A4, &a.A5)
-	v[10].Add(&a.A1, &a.A2)
-	v[11].Add(&a.A3, &a.A4)
-	v[8].Add(&a.A2, &a.A3)
-	v[9].Sub(&a.A1, &a.A4)
+	v[11].Add(&a.A0, &a.A1)
+	v[12].Add(&a.A4, &a.A5)
+	v[9].Add(&a.A1, &a.A2)
+	v[10].Add(&a.A3, &a.A4)
+	v[7].Add(&a.A2, &a.A3)
+	v[8].Sub(&a.A1, &a.A4)
 
-	v[6].Add(&v[12], &a.A2)
-	v[7].Add(&v[11], &a.A5)
-	v[2].Add(&v[12], &v[11])
-	v[0].Add(&v[6], &v[7])
+	v[5].Add(&v[11], &a.A2)
+	v[6].Add(&v[10], &a.A5)
+	v[1].Add(&v[11], &v[10])
+	v[0].Add(&v[5], &v[6])
 
 	t[0].Sub(&a.A0, &a.A5)
-	v[4].Sub(&t[0], &a.A2)
-	v[5].Add(&v[4], &v[8])
+	v[3].Sub(&t[0], &a.A2)
+	v[4].Add(&v[3], &v[7])
 	t[0].Add(&a.A0, &a.A5)
-	v[3].Sub(&t[0], &v[8])
+	v[2].Sub(&t[0], &v[7])
 
 	// -------------------------------------------------------------------------
 	// Phase 2: Evaluation of b
@@ -236,27 +236,27 @@ func interpolate(a, b *E6D) *[18]fr.Element {
 	// Phase 3: Pointwise Multiplication
 	// -------------------------------------------------------------------------
 	v[0].Mul(&v[0], &t[0])
-	v[2].Mul(&v[2], &t[2])
-	v[3].Mul(&v[3], &t[3])
-	v[4].Mul(&v[4], &t[4])
-	v[5].Mul(&v[5], &t[5])
-	v[6].Mul(&v[6], &t[6])
-	v[7].Mul(&v[7], &t[7])
-	v[8].Mul(&v[8], &t[8])
-	v[9].Mul(&v[9], &t[9])
-	v[10].Mul(&v[10], &t[10])
-	v[11].Mul(&v[11], &t[11])
-	v[12].Mul(&v[12], &t[12])
-	v[13].Mul(&v[13], &t[13])
-	v[14].Mul(&a.A0, &b.A0)
-	v[15].Mul(&a.A1, &b.A1)
-	v[16].Mul(&a.A4, &b.A4)
-	v[17].Mul(&a.A5, &b.A5)
+	v[1].Mul(&v[1], &t[2])
+	v[2].Mul(&v[2], &t[3])
+	v[3].Mul(&v[3], &t[4])
+	v[4].Mul(&v[4], &t[5])
+	v[5].Mul(&v[5], &t[6])
+	v[6].Mul(&v[6], &t[7])
+	v[7].Mul(&v[7], &t[8])
+	v[8].Mul(&v[8], &t[9])
+	v[9].Mul(&v[9], &t[10])
+	v[10].Mul(&v[10], &t[11])
+	v[11].Mul(&v[11], &t[12])
+	v[12].Mul(&v[12], &t[13])
+	v[13].Mul(&a.A0, &b.A0)
+	v[14].Mul(&a.A1, &b.A1)
+	v[15].Mul(&a.A4, &b.A4)
+	v[16].Mul(&a.A5, &b.A5)
 
 	return &v
 }
 
-func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
+func (z *E6D) reconstruct(v *[17]fr.Element) *E6D {
 	// Ref.: Peter L. Montgomery. Five, six, and seven-term Karatsuba-like formulae. IEEE
 	// Transactions on Computers, 54(3):362–369, 2005.
 	//
@@ -286,92 +286,92 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 
 	// Big helpers for v14, v16, v17
 	var t [14]fr.Element
-	t[0].Add(&v[14], &v[14]) // 2v14
-	t[1].Add(&t[0], &v[14])  // 3v14
+	t[0].Double(&v[13])     // 2v14
+	t[1].Add(&t[0], &v[13]) // 3v14
 
-	t[2].Add(&v[16], &v[16]) // 2v16
-	t[3].Add(&t[2], &v[16])  // 3v16
-	t[4].Add(&t[3], &t[3])   // 6v16
+	t[2].Double(&v[15])     // 2v16
+	t[3].Add(&t[2], &v[15]) // 3v16
+	t[4].Double(&t[3])      // 6v16
 
-	t[5].Add(&v[17], &v[17]) // 2v17
-	t[6].Add(&t[5], &v[17])  // 3v17
-	t[7].Add(&t[5], &t[5])   // 4v17
-	t[7].Add(&t[7], &t[7])   // 8v17
-	t[8].Add(&t[6], &t[6])   // 6v17
-	t[8].Add(&t[8], &t[7])   // 14v17
+	t[5].Double(&v[16])     // 2v17
+	t[6].Add(&t[5], &v[16]) // 3v17
+	t[7].Double(&t[5])      // 4v17
+	t[7].Double(&t[7])      // 8v17
+	t[8].Double(&t[6])      // 6v17
+	t[8].Add(&t[8], &t[7])  // 14v17
 
 	// Extra helpers to avoid recomputing small multiples:
 	var v5_2, v6_2, v10_3, v12_2, v13_3, v15_2 fr.Element
 
-	v5_2.Add(&v[5], &v[5]) // 2v5
-	v6_2.Add(&v[6], &v[6]) // 2v6
+	v5_2.Double(&v[4]) // 2v5
+	v6_2.Double(&v[5]) // 2v6
 
-	v10_3.Add(&v[10], &v[10])
-	v10_3.Add(&v10_3, &v[10]) // 3v10
+	v10_3.Double(&v[9])
+	v10_3.Add(&v10_3, &v[9]) // 3v10
 
-	v12_2.Add(&v[12], &v[12]) // 2v12
+	v12_2.Double(&v[11]) // 2v12
 
-	v13_3.Add(&v[13], &v[13])
-	v13_3.Add(&v13_3, &v[13]) // 3v13
+	v13_3.Double(&v[12])
+	v13_3.Add(&v13_3, &v[12]) // 3v13
 
-	v15_2.Add(&v[15], &v[15]) // 2v15
-	t[9].Add(&v15_2, &v[15])  // t[9] = 3v15
+	v15_2.Double(&v[14])     // 2v15
+	t[9].Add(&v15_2, &v[14]) // t[9] = 3v15
 
 	// --- c5 ---
 	// c5 = -(v3+v4+v5+2v6) + 2(v8+v10+v12) - v9 + 3v14 - v15 + 3v16 + 3v17
-	t[10].Add(&v[3], &v[4])
-	t[10].Add(&t[10], &v[5])
+	t[10].Add(&v[2], &v[3])
+	t[10].Add(&t[10], &v[4])
 	t[11].Set(&v6_2)          // 2v6
 	t[10].Add(&t[10], &t[11]) // v3+v4+v5+2v6
 
-	t[11].Add(&v[8], &v[10])
-	t[11].Add(&t[11], &v[12])
-	t[11].Add(&t[11], &t[11]) // 2(v8+v10+v12)
+	t[11].Add(&v[7], &v[9])
+	t[11].Add(&t[11], &v[11])
+	t[11].Double(&t[11]) // 2(v8+v10+v12)
 
 	z.A5.Sub(&t[11], &t[10])
-	z.A5.Sub(&z.A5, &v[9])
+	z.A5.Sub(&z.A5, &v[8])
 	z.A5.Add(&z.A5, &t[1]) // +3v14
-	z.A5.Sub(&z.A5, &v[15])
+	z.A5.Sub(&z.A5, &v[14])
 	z.A5.Add(&z.A5, &t[3]) // +3v16
 	z.A5.Add(&z.A5, &t[6]) // +3v17
 
 	// --- c2 ---
 	// c2 = v6 + 2(v7 - v11 - v13) - v10 - v12 + 2v15 + 4v16
-	t[10].Add(&v[11], &v[13])
-	t[10].Sub(&v[7], &t[10])
-	t[10].Add(&t[10], &t[10]) // 2(v7 - v11 - v13)
+	t[10].Add(&v[10], &v[12])
+	t[10].Sub(&v[6], &t[10])
+	t[10].Double(&t[10]) // 2(v7 - v11 - v13)
 
-	z.A2.Add(&v[6], &t[10])
-	z.A2.Sub(&z.A2, &v[10])
-	z.A2.Sub(&z.A2, &v[12])
+	z.A2.Add(&v[5], &t[10])
+	z.A2.Sub(&z.A2, &v[9])
+	z.A2.Sub(&z.A2, &v[11])
 
 	z.A2.Add(&z.A2, &v15_2) // +2v15
 
-	t[10].Add(&t[2], &t[2]) // 4v16
+	t[10].Double(&t[2]) // 4v16
 	z.A2.Add(&z.A2, &t[10])
 
 	// --- c1 ---
 	// c1 = -2(v3+v5+v6+2v7) + 2(v8+v10+3v11+2v13)
-	//      + 3(v12+v14-v15) - 6v16 + 8v17
-	t[10].Add(&v[3], &v[5])
-	t[10].Add(&t[10], &v[6])
-	t[11].Add(&v[7], &v[7])
+	//   - 3(v12+v14-v15) - 6v16 + 8v17
+	t[10].Add(&v[2], &v[4])
+	t[10].Add(&t[10], &v[5])
+	t[11].Double(&v[6])       // 2v7
 	t[10].Add(&t[10], &t[11]) // v3+v5+v6+2v7
-	t[10].Add(&t[10], &t[10]) // 2(...)
+	t[10].Double(&t[10])      // 2(...)
 
-	t[11].Add(&v[11], &v[11])
-	t[11].Add(&t[11], &v[11]) // 3v11
-	t[11].Add(&t[11], &v[10])
-	t[11].Add(&t[11], &v[8])
-	t[12].Add(&v[13], &v[13]) // 2v13
+	t[11].Double(&v[10])
+	t[11].Add(&t[11], &v[10]) // 3v11
+	t[11].Add(&t[11], &v[9])
+	t[11].Add(&t[11], &v[7])
+	t[12].Double(&v[12]) // 2v13
 	t[11].Add(&t[11], &t[12])
-	t[11].Add(&t[11], &t[11]) // 2(v8+v10+3v11+2v13)
+	t[11].Double(&t[11]) // 2(v8+v10+3v11+2v13)
 
 	z.A1.Sub(&t[11], &t[10])
 
-	t[10].Add(&v[12], &v[14])
-	t[10].Sub(&t[10], &v[15])
-	t[11].Add(&t[10], &t[10])
+	t[10].Add(&v[11], &v[13])
+	t[10].Sub(&t[10], &v[14])
+	t[11].Double(&t[10])
 	t[10].Add(&t[10], &t[11]) // 3(v12+v14-v15)
 	z.A1.Add(&z.A1, &t[10])
 
@@ -380,99 +380,97 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 
 	// --- c4 ---
 	// c4 = (v2-v3+v4) - 2v5 - 3v7 + v8 + v9 + 4v11
-	//      - v12 + 3v13 + 2v14 - v15 - 6v16 + 8v17
-	z.A4.Sub(&v[2], &v[3])
-	z.A4.Add(&z.A4, &v[4])
+	//   - v12 + 3v13 + 2v14 - v15 - 6v16 + 8v17
+	z.A4.Sub(&v[1], &v[2])
+	z.A4.Add(&z.A4, &v[3])
 
 	z.A4.Sub(&z.A4, &v5_2) // -2v5
 
-	t[10].Add(&v[7], &v[7])
-	t[10].Add(&t[10], &v[7]) // 3v7
+	t[10].Double(&v[6])
+	t[10].Add(&t[10], &v[6]) // 3v7
 	z.A4.Sub(&z.A4, &t[10])
 
+	z.A4.Add(&z.A4, &v[7])
 	z.A4.Add(&z.A4, &v[8])
-	z.A4.Add(&z.A4, &v[9])
 
-	t[10].Add(&v[11], &v[11])
-	t[10].Add(&t[10], &t[10]) // 4v11
+	t[10].Double(&v[10])
+	t[10].Double(&t[10]) // 4v11
 	z.A4.Add(&z.A4, &t[10])
 
-	z.A4.Sub(&z.A4, &v[12])
+	z.A4.Sub(&z.A4, &v[11])
 
 	z.A4.Add(&z.A4, &v13_3) // +3v13
 
 	z.A4.Add(&z.A4, &t[0]) // +2v14
-	z.A4.Sub(&z.A4, &v[15])
+	z.A4.Sub(&z.A4, &v[14])
 
 	z.A4.Sub(&z.A4, &t[4]) // -6v16
 	z.A4.Add(&z.A4, &t[7]) // +8v17
 
 	// --- c3 ---
 	// c3 = 2(v0 - v2) + 3v3 + v4 + 4v5 + 2v6 + 5v7
-	//      - 5v8 - 3v10 - 5v11 - 2v12 - v13
-	//      - 8v14 + 3v15 + v16 - 14v17
-	t[10].Sub(&v[0], &v[2])
-	t[10].Add(&t[10], &t[10]) // 2(v0 - v2)
+	//   - 5v8 - 3v10 - 5v11 - 2v12 - v13
+	//   - 8v14 + 3v15 + v16 - 14v17
+	t[10].Sub(&v[0], &v[1])
+	t[10].Double(&t[10]) // 2(v0 - v2)
 	z.A3.Set(&t[10])
 
-	t[10].Add(&v[3], &v[3])
-	t[10].Add(&t[10], &v[3]) // 3v3
+	t[10].Double(&v[2])
+	t[10].Add(&t[10], &v[2]) // 3v3
 	z.A3.Add(&z.A3, &t[10])
-	z.A3.Add(&z.A3, &v[4])
+	z.A3.Add(&z.A3, &v[3])
 
-	t[10].Add(&v5_2, &v5_2) // 4v5
+	t[10].Double(&v5_2) // 4v5
 	z.A3.Add(&z.A3, &t[10])
 
 	z.A3.Add(&z.A3, &v6_2) // +2v6
 
-	t[10].Add(&v[7], &v[7])
-	t[10].Add(&t[10], &t[10])
-	t[10].Add(&t[10], &v[7]) // 5v7
+	t[10].Double(&v[6])
+	t[10].Double(&t[10])
+	t[10].Add(&t[10], &v[6]) // 5v7
 	z.A3.Add(&z.A3, &t[10])
 
-	t[10].Add(&v[8], &v[11])
-	t[11].Add(&t[10], &t[10])
-	t[11].Add(&t[11], &t[11]) // 4(v8+v11)
+	t[10].Add(&v[7], &v[10])
+	t[11].Double(&t[10])
+	t[11].Double(&t[11])      // 4(v8+v11)
 	t[10].Add(&t[10], &t[11]) // 5(v8+v11)
 	z.A3.Sub(&z.A3, &t[10])   // -5v8 -5v11
 
 	z.A3.Sub(&z.A3, &v10_3) // -3v10
-
 	z.A3.Sub(&z.A3, &v12_2) // -2v12
-
-	z.A3.Sub(&z.A3, &v[13])
+	z.A3.Sub(&z.A3, &v[12])
 
 	// -8v14
-	t[10].Add(&t[0], &t[0])   // 4v14
-	t[10].Add(&t[10], &t[10]) // 8v14
+	t[10].Double(&t[0])  // 4v14
+	t[10].Double(&t[10]) // 8v14
 	z.A3.Sub(&z.A3, &t[10])
 
 	z.A3.Add(&z.A3, &t[9]) // +3v15
-	z.A3.Add(&z.A3, &v[16])
+	z.A3.Add(&z.A3, &v[15])
 	z.A3.Sub(&z.A3, &t[8]) // -14v17
 
 	// --- c0 ---
 	// c0 = c3 + v3 + v4 + 2v6 + v7 - v8
-	//      - 3v10 - v11 - 2v12 - 3v13
-	//      - v14 + 3v15 + 3v16
-	z.A0.Add(&z.A3, &v[3])
-	z.A0.Add(&z.A0, &v[4])
+	//   - 3v10 - v11 - 2v12 - 3v13
+	//   - v14 + 3v15 + 3v16
+	z.A0.Add(&z.A3, &v[2])
+	z.A0.Add(&z.A0, &v[3])
 
 	z.A0.Add(&z.A0, &v6_2) // +2v6
-	z.A0.Add(&z.A0, &v[7])
-	z.A0.Sub(&z.A0, &v[8])
+	z.A0.Add(&z.A0, &v[6])
+	z.A0.Sub(&z.A0, &v[7])
 
 	z.A0.Sub(&z.A0, &v10_3) // -3v10
-	z.A0.Sub(&z.A0, &v[11])
+	z.A0.Sub(&z.A0, &v[10])
 
 	z.A0.Sub(&z.A0, &v12_2) // -2v12
-
 	z.A0.Sub(&z.A0, &v13_3) // -3v13
 
-	z.A0.Sub(&z.A0, &v[14])
+	z.A0.Sub(&z.A0, &v[13])
 
 	z.A0.Add(&z.A0, &t[9]) // +3v15
 	z.A0.Add(&z.A0, &t[3]) // +3v16
+
     {{- else if eq .FF "babybear"}}
 	// We then we re-arrange the terms in function of the degree of X and use
 	// the fact that X^6=2(X^3+5), because we construct 𝔽r⁶[w] as 𝔽r/w⁶-2w³-10. The
@@ -501,37 +499,37 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	// -------------------------------------------------------------------------
 	var t [14]fr.Element
 
-	t[0].Add(&v[14], &v[14]) // 2v14
-	t[1].Add(&t[0], &v[14])  // 3v14
+	t[0].Add(&v[13], &v[13]) // 2v14
+	t[1].Add(&t[0], &v[13])  // 3v14
 
-	t[2].Add(&v[16], &v[16]) // 2v16
-	t[3].Add(&t[2], &v[16])  // 3v16
+	t[2].Add(&v[15], &v[15]) // 2v16
+	t[3].Add(&t[2], &v[15])  // 3v16
 	t[4].Add(&t[3], &t[3])   // 6v16
 
-	t[5].Add(&v[17], &v[17]) // 2v17
+	t[5].Add(&v[16], &v[16]) // 2v17
 	t[7].Add(&t[5], &t[5])   // 4v17
 	t[8].Add(&t[7], &t[7])   // 8v17
 	t[9].Add(&t[8], &t[8])   // 16v17
 	t[10].Add(&t[9], &t[9])  // 32v17
 	t[11].Add(&t[10], &t[8]) // 40v17
-	t[6].Add(&t[5], &v[17])  // 3v17
+	t[6].Add(&t[5], &v[16])  // 3v17
 
 	// -------------------------------------------------------------------------
 	// c5 = -(v3+v4+v5+2v6) + 2(v8+v10+v12) - v9 + 3v14 - v15 + 3v16 + 3v17
 	// -------------------------------------------------------------------------
-	t[12].Add(&v[3], &v[4])
-	t[12].Add(&t[12], &v[5])
-	t[13].Add(&v[6], &v[6])   // 2v6
+	t[12].Add(&v[2], &v[3])
+	t[12].Add(&t[12], &v[4])
+	t[13].Add(&v[5], &v[5])   // 2v6
 	t[12].Add(&t[12], &t[13]) // v3+v4+v5+2v6
 
-	t[13].Add(&v[8], &v[10])
-	t[13].Add(&t[13], &v[12])
+	t[13].Add(&v[7], &v[9])
+	t[13].Add(&t[13], &v[11])
 	t[13].Add(&t[13], &t[13]) // 2(v8+v10+v12)
 
 	z.A5.Sub(&t[13], &t[12])
-	z.A5.Sub(&z.A5, &v[9])
+	z.A5.Sub(&z.A5, &v[8])
 	z.A5.Add(&z.A5, &t[1])  // +3v14
-	z.A5.Sub(&z.A5, &v[15]) // -v15
+	z.A5.Sub(&z.A5, &v[14]) // -v15
 	z.A5.Add(&z.A5, &t[3])  // +3v16
 	z.A5.Add(&z.A5, &t[6])  // +3v17
 
@@ -540,31 +538,31 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	//   - 2v14 - v15 - 6v16 + 16v17
 	//
 	// -------------------------------------------------------------------------
-	z.A4.Sub(&v[2], &v[3])
-	z.A4.Add(&z.A4, &v[4])
+	z.A4.Sub(&v[1], &v[2])
+	z.A4.Add(&z.A4, &v[3])
 
-	t[12].Add(&v[5], &v[5]) // 2v5
+	t[12].Add(&v[4], &v[4]) // 2v5
 	z.A4.Sub(&z.A4, &t[12])
 
-	t[13].Add(&v[7], &v[7])
-	t[13].Add(&t[13], &v[7]) // 3v7
+	t[13].Add(&v[6], &v[6])
+	t[13].Add(&t[13], &v[6]) // 3v7
 	z.A4.Sub(&z.A4, &t[13])
 
+	z.A4.Add(&z.A4, &v[7])
 	z.A4.Add(&z.A4, &v[8])
-	z.A4.Add(&z.A4, &v[9])
 
-	t[12].Add(&v[11], &v[11])
+	t[12].Add(&v[10], &v[10])
 	t[12].Add(&t[12], &t[12]) // 4v11
 	z.A4.Add(&z.A4, &t[12])
 
-	z.A4.Sub(&z.A4, &v[12])
+	z.A4.Sub(&z.A4, &v[11])
 
-	t[13].Add(&v[13], &v[13])
-	t[13].Add(&t[13], &v[13]) // 3v13
+	t[13].Add(&v[12], &v[12])
+	t[13].Add(&t[13], &v[12]) // 3v13
 	z.A4.Add(&z.A4, &t[13])
 
 	z.A4.Add(&z.A4, &t[0])  // +2v14
-	z.A4.Sub(&z.A4, &v[15]) // -v15
+	z.A4.Sub(&z.A4, &v[14]) // -v15
 	z.A4.Sub(&z.A4, &t[4])  // -6v16
 	z.A4.Add(&z.A4, &t[9])  // +16v17
 
@@ -574,61 +572,61 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	//   - 8v14 + 3v15 - 7v16 - 22v17
 	//
 	// -------------------------------------------------------------------------
-	t[12].Sub(&v[0], &v[2])
+	t[12].Sub(&v[0], &v[1])
 	t[12].Add(&t[12], &t[12]) // 2(v0-v2)
 	z.A3.Set(&t[12])
 
-	t[12].Add(&v[3], &v[3])
-	t[12].Add(&t[12], &v[3]) // 3v3
+	t[12].Add(&v[2], &v[2])
+	t[12].Add(&t[12], &v[2]) // 3v3
 	z.A3.Add(&z.A3, &t[12])
-	z.A3.Add(&z.A3, &v[4])
+	z.A3.Add(&z.A3, &v[3])
 
-	t[12].Add(&v[5], &v[5])
+	t[12].Add(&v[4], &v[4])
 	t[12].Add(&t[12], &t[12]) // 4v5
 	z.A3.Add(&z.A3, &t[12])
 
-	t[12].Add(&v[6], &v[6]) // 2v6
+	t[12].Add(&v[5], &v[5]) // 2v6
 	z.A3.Add(&z.A3, &t[12])
 
-	t[12].Add(&v[7], &v[7])   // 2v7
+	t[12].Add(&v[6], &v[6])   // 2v7
 	t[13].Add(&t[12], &t[12]) // 4v7
-	t[13].Add(&t[13], &v[7])  // 5v7
+	t[13].Add(&t[13], &v[6])  // 5v7
 	z.A3.Add(&z.A3, &t[13])
 
-	t[12].Add(&v[8], &v[8])   // 2v8
+	t[12].Add(&v[7], &v[7])   // 2v8
 	t[13].Add(&t[12], &t[12]) // 4v8
-	t[13].Add(&t[13], &v[8])  // 5v8
+	t[13].Add(&t[13], &v[7])  // 5v8
 	z.A3.Sub(&z.A3, &t[13])
 
-	t[12].Add(&v[10], &v[10])
-	t[12].Add(&t[12], &v[10]) // 3v10
+	t[12].Add(&v[9], &v[9])
+	t[12].Add(&t[12], &v[9]) // 3v10
 	z.A3.Sub(&z.A3, &t[12])
 
-	t[12].Add(&v[11], &v[11]) // 2v11
+	t[12].Add(&v[10], &v[10]) // 2v11
 	t[13].Add(&t[12], &t[12]) // 4v11
-	t[13].Add(&t[13], &v[11]) // 5v11
+	t[13].Add(&t[13], &v[10]) // 5v11
 	z.A3.Sub(&z.A3, &t[13])
 
-	t[12].Add(&v[12], &v[12]) // 2v12
+	t[12].Add(&v[11], &v[11]) // 2v12
 	z.A3.Sub(&z.A3, &t[12])
 
-	t[12].Add(&v[13], &v[13]) // 2v13
+	t[12].Add(&v[12], &v[12]) // 2v13
 	t[13].Add(&t[12], &t[12]) // 4v13
 	t[12].Add(&t[12], &t[13]) // 6v13
-	t[12].Add(&t[12], &v[13]) // 7v13
+	t[12].Add(&t[12], &v[12]) // 7v13
 	z.A3.Add(&z.A3, &t[12])
 
 	t[12].Add(&t[0], &t[0])   // 4v14
 	t[12].Add(&t[12], &t[12]) // 8v14
 	z.A3.Sub(&z.A3, &t[12])
 
-	t[12].Add(&v[15], &v[15])
-	t[12].Add(&t[12], &v[15]) // 3v15
+	t[12].Add(&v[14], &v[14])
+	t[12].Add(&t[12], &v[14]) // 3v15
 	z.A3.Add(&z.A3, &t[12])
 
 	t[12].Add(&t[2], &t[2])   // 4v16
 	t[12].Add(&t[12], &t[12]) // 8v16
-	t[12].Sub(&t[12], &v[16]) // 7v16
+	t[12].Sub(&t[12], &v[15]) // 7v16
 	z.A3.Sub(&z.A3, &t[12])
 
 	t[12].Add(&t[9], &t[7])  // 16v17 + 4v17
@@ -638,29 +636,29 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	// -------------------------------------------------------------------------
 	// c2 = v6 + 10v7 - v10 - 10v11 - v12 - 10v13 + 2v15 + 20v16
 	// -------------------------------------------------------------------------
-	z.A2.Set(&v[6])
-	z.A2.Sub(&z.A2, &v[10])
-	z.A2.Sub(&z.A2, &v[12])
+	z.A2.Set(&v[5])
+	z.A2.Sub(&z.A2, &v[9])
+	z.A2.Sub(&z.A2, &v[11])
 
-	t[12].Add(&v[15], &v[15]) // 2v15
+	t[12].Add(&v[14], &v[14]) // 2v15
 	z.A2.Add(&z.A2, &t[12])
 
 	// +10v7  (8+2)
-	t[12].Add(&v[7], &v[7])   // 2v7
+	t[12].Add(&v[6], &v[6])   // 2v7
 	t[13].Add(&t[12], &t[12]) // 4v7
 	t[13].Add(&t[13], &t[13]) // 8v7
 	t[13].Add(&t[13], &t[12]) // 10v7
 	z.A2.Add(&z.A2, &t[13])
 
 	// -10v11
-	t[12].Add(&v[11], &v[11]) // 2v11
+	t[12].Add(&v[10], &v[10]) // 2v11
 	t[13].Add(&t[12], &t[12]) // 4v11
 	t[13].Add(&t[13], &t[13]) // 8v11
 	t[13].Add(&t[13], &t[12]) // 10v11
 	z.A2.Sub(&z.A2, &t[13])
 
 	// -10v13
-	t[12].Add(&v[13], &v[13]) // 2v13
+	t[12].Add(&v[12], &v[12]) // 2v13
 	t[13].Add(&t[12], &t[12]) // 4v13
 	t[13].Add(&t[13], &t[13]) // 8v13
 	t[13].Add(&t[13], &t[12]) // 10v13
@@ -683,14 +681,14 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	z.A1.Set(&t[11]) // 40v17
 
 	// +10v10
-	t[12].Add(&v[10], &v[10]) // 2
+	t[12].Add(&v[9], &v[9])   // 2
 	t[13].Add(&t[12], &t[12]) // 4
 	t[13].Add(&t[13], &t[13]) // 8
 	t[13].Add(&t[13], &t[12]) // 10
 	z.A1.Add(&z.A1, &t[13])
 
 	// +30v11 = 10v11 + 20v11
-	t[12].Add(&v[11], &v[11]) // 2
+	t[12].Add(&v[10], &v[10]) // 2
 	t[13].Add(&t[12], &t[12]) // 4
 	t[13].Add(&t[13], &t[13]) // 8
 	t[13].Add(&t[13], &t[12]) // 10
@@ -699,15 +697,15 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	z.A1.Add(&z.A1, &t[12])
 
 	// +11v12 = 10v12 + v12
-	t[12].Add(&v[12], &v[12]) // 2
+	t[12].Add(&v[11], &v[11]) // 2
 	t[13].Add(&t[12], &t[12]) // 4
 	t[13].Add(&t[13], &t[13]) // 8
 	t[13].Add(&t[13], &t[12]) // 10
-	t[13].Add(&t[13], &v[12]) // 11
+	t[13].Add(&t[13], &v[11]) // 11
 	z.A1.Add(&z.A1, &t[13])
 
 	// +20v13
-	t[12].Add(&v[13], &v[13]) // 2
+	t[12].Add(&v[12], &v[12]) // 2
 	t[13].Add(&t[12], &t[12]) // 4
 	t[13].Add(&t[13], &t[13]) // 8
 	t[13].Add(&t[13], &t[12]) // 10
@@ -719,15 +717,15 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	t[12].Add(&t[12], &t[12]) // 8v14
 	t[12].Add(&t[12], &t[12]) // 16v14
 	t[12].Add(&t[12], &t[0])  // 18v14
-	t[12].Add(&t[12], &v[14]) // 19v14
+	t[12].Add(&t[12], &v[13]) // 19v14
 	z.A1.Add(&z.A1, &t[12])
 
 	// -11v15
-	t[12].Add(&v[15], &v[15]) // 2
+	t[12].Add(&v[14], &v[14]) // 2
 	t[13].Add(&t[12], &t[12]) // 4
 	t[13].Add(&t[13], &t[13]) // 8
 	t[13].Add(&t[13], &t[12]) // 10
-	t[13].Add(&t[13], &v[15]) // 11
+	t[13].Add(&t[13], &v[14]) // 11
 	z.A1.Sub(&z.A1, &t[13])
 
 	// -30v16
@@ -740,28 +738,28 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	z.A1.Sub(&z.A1, &t[12])
 
 	// -10v3
-	t[12].Add(&v[3], &v[3])
+	t[12].Add(&v[2], &v[2])
 	t[13].Add(&t[12], &t[12])
 	t[13].Add(&t[13], &t[13])
 	t[13].Add(&t[13], &t[12]) // 10
 	z.A1.Sub(&z.A1, &t[13])
 
 	// -10v5
-	t[12].Add(&v[5], &v[5])
+	t[12].Add(&v[4], &v[4])
 	t[13].Add(&t[12], &t[12])
 	t[13].Add(&t[13], &t[13])
 	t[13].Add(&t[13], &t[12])
 	z.A1.Sub(&z.A1, &t[13])
 
 	// -10v6
-	t[12].Add(&v[6], &v[6])
+	t[12].Add(&v[5], &v[5])
 	t[13].Add(&t[12], &t[12])
 	t[13].Add(&t[13], &t[13])
 	t[13].Add(&t[13], &t[12])
 	z.A1.Sub(&z.A1, &t[13])
 
 	// -20v7
-	t[12].Add(&v[7], &v[7])   // 2
+	t[12].Add(&v[6], &v[6])   // 2
 	t[13].Add(&t[12], &t[12]) // 4
 	t[13].Add(&t[13], &t[13]) // 8
 	t[13].Add(&t[13], &t[12]) // 10
@@ -769,7 +767,7 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	z.A1.Sub(&z.A1, &t[13])
 
 	// +10v8
-	t[12].Add(&v[8], &v[8])
+	t[12].Add(&v[7], &v[7])
 	t[13].Add(&t[12], &t[12])
 	t[13].Add(&t[13], &t[13])
 	t[13].Add(&t[13], &t[12])
@@ -782,7 +780,7 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	// -------------------------------------------------------------------------
 
 	// z.A0 = 10*(v0 - v2)
-	t[12].Sub(&v[0], &v[2])   // s = v0 - v2
+	t[12].Sub(&v[0], &v[1])   // s = v0 - v2
 	t[13].Add(&t[12], &t[12]) // 2s
 	t[11].Add(&t[13], &t[13]) // 4s
 	t[11].Add(&t[11], &t[11]) // 8s
@@ -790,7 +788,7 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	z.A0.Set(&t[11])
 
 	// +20v3
-	t[12].Add(&v[3], &v[3])   // 2
+	t[12].Add(&v[2], &v[2])   // 2
 	t[13].Add(&t[12], &t[12]) // 4
 	t[13].Add(&t[13], &t[13]) // 8
 	t[13].Add(&t[13], &t[12]) // 10
@@ -798,14 +796,14 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	z.A0.Add(&z.A0, &t[13])
 
 	// +10v4
-	t[12].Add(&v[4], &v[4])
+	t[12].Add(&v[3], &v[3])
 	t[13].Add(&t[12], &t[12])
 	t[13].Add(&t[13], &t[13])
 	t[13].Add(&t[13], &t[12]) // 10
 	z.A0.Add(&z.A0, &t[13])
 
 	// +20v5
-	t[12].Add(&v[5], &v[5])
+	t[12].Add(&v[4], &v[4])
 	t[13].Add(&t[12], &t[12])
 	t[13].Add(&t[13], &t[13])
 	t[13].Add(&t[13], &t[12]) // 10
@@ -813,7 +811,7 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	z.A0.Add(&z.A0, &t[13])
 
 	// +20v6
-	t[12].Add(&v[6], &v[6])
+	t[12].Add(&v[5], &v[5])
 	t[13].Add(&t[12], &t[12])
 	t[13].Add(&t[13], &t[13])
 	t[13].Add(&t[13], &t[12]) // 10
@@ -821,7 +819,7 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	z.A0.Add(&z.A0, &t[13])
 
 	// +30v7
-	t[12].Add(&v[7], &v[7])   // 2
+	t[12].Add(&v[6], &v[6])   // 2
 	t[13].Add(&t[12], &t[12]) // 4
 	t[13].Add(&t[13], &t[13]) // 8
 	t[13].Add(&t[13], &t[12]) // 10
@@ -830,7 +828,7 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	z.A0.Add(&z.A0, &t[12])
 
 	// -30v8
-	t[12].Add(&v[8], &v[8])
+	t[12].Add(&v[7], &v[7])
 	t[13].Add(&t[12], &t[12])
 	t[13].Add(&t[13], &t[13])
 	t[13].Add(&t[13], &t[12]) // 10
@@ -839,7 +837,7 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	z.A0.Sub(&z.A0, &t[12])
 
 	// -30v10
-	t[12].Add(&v[10], &v[10])
+	t[12].Add(&v[9], &v[9])
 	t[13].Add(&t[12], &t[12])
 	t[13].Add(&t[13], &t[13])
 	t[13].Add(&t[13], &t[12]) // 10
@@ -848,7 +846,7 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	z.A0.Sub(&z.A0, &t[12])
 
 	// -30v11
-	t[12].Add(&v[11], &v[11])
+	t[12].Add(&v[10], &v[10])
 	t[13].Add(&t[12], &t[12])
 	t[13].Add(&t[13], &t[13])
 	t[13].Add(&t[13], &t[12]) // 10
@@ -857,7 +855,7 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	z.A0.Sub(&z.A0, &t[12])
 
 	// -20v12
-	t[12].Add(&v[12], &v[12])
+	t[12].Add(&v[11], &v[11])
 	t[13].Add(&t[12], &t[12])
 	t[13].Add(&t[13], &t[13])
 	t[13].Add(&t[13], &t[12]) // 10
@@ -865,7 +863,7 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	z.A0.Sub(&z.A0, &t[13])
 
 	// -20v13
-	t[12].Add(&v[13], &v[13])
+	t[12].Add(&v[12], &v[12])
 	t[13].Add(&t[12], &t[12])
 	t[13].Add(&t[13], &t[13])
 	t[13].Add(&t[13], &t[12]) // 10
@@ -878,11 +876,11 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	t[12].Add(&t[12], &t[12]) // 16v14
 	t[13].Add(&t[12], &t[12]) // 32v14
 	t[13].Add(&t[13], &t[12]) // 48v14
-	t[13].Add(&t[13], &v[14]) // 49v14
+	t[13].Add(&t[13], &v[13]) // 49v14
 	z.A0.Sub(&z.A0, &t[13])
 
 	// +30v15
-	t[12].Add(&v[15], &v[15])
+	t[12].Add(&v[14], &v[14])
 	t[13].Add(&t[12], &t[12])
 	t[13].Add(&t[13], &t[13])
 	t[13].Add(&t[13], &t[12]) // 10
@@ -903,6 +901,7 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 	t[12].Add(&t[12], &t[7])  // +4v17
 	t[12].Add(&t[12], &t[5])  // +2v17 = 70v17
 	z.A0.Sub(&z.A0, &t[12])
+
     {{- end}}
 
 	return z
@@ -910,33 +909,35 @@ func (z *E6D) reconstruct(v *[18]fr.Element) *E6D {
 
 // Square sets z=x*x in E6D and returns z
 func (z *E6D) Square(a *E6D) *E6D {
-	var v [18]fr.Element
+	var v [17]fr.Element
+	var t fr.Element
 
 	// -------------------------------------------------------------------------
 	// Phase 1: Evaluation of a
 	// -------------------------------------------------------------------------
-	v[12].Add(&a.A0, &a.A1)
-	v[13].Add(&a.A4, &a.A5)
-	v[10].Add(&a.A1, &a.A2)
-	v[11].Add(&a.A3, &a.A4)
-	v[8].Add(&a.A2, &a.A3)
-	v[9].Sub(&a.A1, &a.A4)
+	v[11].Add(&a.A0, &a.A1)
+	v[12].Add(&a.A4, &a.A5)
+	v[9].Add(&a.A1, &a.A2)
+	v[10].Add(&a.A3, &a.A4)
+	v[7].Add(&a.A2, &a.A3)
+	v[8].Sub(&a.A1, &a.A4)
 
-	v[6].Add(&v[12], &a.A2)
-	v[7].Add(&v[11], &a.A5)
-	v[2].Add(&v[12], &v[11])
-	v[0].Add(&v[6], &v[7])
+	v[5].Add(&v[11], &a.A2)
+	v[6].Add(&v[10], &a.A5)
+	v[1].Add(&v[11], &v[10])
+	v[0].Add(&v[5], &v[6])
 
-	v[1].Sub(&a.A0, &a.A5)
-	v[4].Sub(&v[1], &a.A2)
-	v[5].Add(&v[4], &v[8])
-	v[1].Add(&a.A0, &a.A5)
-	v[3].Sub(&v[1], &v[8])
+	t.Sub(&a.A0, &a.A5)
+	v[3].Sub(&t, &a.A2)
+	v[4].Add(&v[3], &v[7])
+	t.Add(&a.A0, &a.A5)
+	v[2].Sub(&t, &v[7])
 
 	// -------------------------------------------------------------------------
 	// Phase 3: Pointwise Multiplication
 	// -------------------------------------------------------------------------
 	v[0].Square(&v[0])
+	v[1].Square(&v[1])
 	v[2].Square(&v[2])
 	v[3].Square(&v[3])
 	v[4].Square(&v[4])
@@ -948,11 +949,10 @@ func (z *E6D) Square(a *E6D) *E6D {
 	v[10].Square(&v[10])
 	v[11].Square(&v[11])
 	v[12].Square(&v[12])
-	v[13].Square(&v[13])
-	v[14].Square(&a.A0)
-	v[15].Square(&a.A1)
-	v[16].Square(&a.A4)
-	v[17].Square(&a.A5)
+	v[13].Square(&a.A0)
+	v[14].Square(&a.A1)
+	v[15].Square(&a.A4)
+	v[16].Square(&a.A5)
 
 	return z.reconstruct(&v)
 }
