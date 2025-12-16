@@ -141,7 +141,7 @@ func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	return z.reconstruct(interpolate(a, b))
 }
 
-func interpolate(a, b *E6D) *[17]fr.Element {
+func interpolate(a, b *E6D) fr.Vector {
 	// Ref.: Peter L. Montgomery. Five, six, and seven-term Karatsuba-like formulae. IEEE
 	// Transactions on Computers, 54(3):362–369, 2005.
 	//
@@ -195,7 +195,8 @@ func interpolate(a, b *E6D) *[17]fr.Element {
 	// 		We do this optimally in 17 multiplications and 30 additions/subtractions in Fr.
 
 	var v [17]fr.Element
-	var t [14]fr.Element
+	var t [17]fr.Element
+	var t1 fr.Element
 
 	// -------------------------------------------------------------------------
 	// Phase 1: Evaluation of a
@@ -221,49 +222,44 @@ func interpolate(a, b *E6D) *[17]fr.Element {
 	// -------------------------------------------------------------------------
 	// Phase 2: Evaluation of b
 	// -------------------------------------------------------------------------
-	t[12].Add(&b.A0, &b.A1)
-	t[13].Add(&b.A4, &b.A5)
-	t[10].Add(&b.A1, &b.A2)
-	t[11].Add(&b.A3, &b.A4)
-	t[8].Add(&b.A2, &b.A3)
-	t[9].Sub(&b.A1, &b.A4)
+	t[11].Add(&b.A0, &b.A1)
+	t[12].Add(&b.A4, &b.A5)
+	t[9].Add(&b.A1, &b.A2)
+	t[10].Add(&b.A3, &b.A4)
+	t[7].Add(&b.A2, &b.A3)
+	t[8].Sub(&b.A1, &b.A4)
 
-	t[6].Add(&t[12], &b.A2)
-	t[7].Add(&t[11], &b.A5)
-	t[2].Add(&t[12], &t[11])
-	t[0].Add(&t[6], &t[7])
+	t[5].Add(&t[11], &b.A2)
+	t[6].Add(&t[10], &b.A5)
+	t[1].Add(&t[11], &t[10])
+	t[0].Add(&t[5], &t[6])
 
-	t[1].Sub(&b.A0, &b.A5)
-	t[4].Sub(&t[1], &b.A2)
-	t[5].Add(&t[4], &t[8])
-	t[1].Add(&b.A0, &b.A5)
-	t[3].Sub(&t[1], &t[8])
+	t1.Sub(&b.A0, &b.A5)
+	t[3].Sub(&t1, &b.A2)
+	t[4].Add(&t[3], &t[7])
+	t1.Add(&b.A0, &b.A5)
+	t[2].Sub(&t1, &t[7])
+
+	v[13].Set(&a.A0)
+	v[14].Set(&a.A1)
+	v[15].Set(&a.A4)
+	v[16].Set(&a.A5)
+	t[13].Set(&b.A0)
+	t[14].Set(&b.A1)
+	t[15].Set(&b.A4)
+	t[16].Set(&b.A5)
 
 	// -------------------------------------------------------------------------
 	// Phase 3: Pointwise Multiplication
 	// -------------------------------------------------------------------------
-	v[0].Mul(&v[0], &t[0])
-	v[1].Mul(&v[1], &t[2])
-	v[2].Mul(&v[2], &t[3])
-	v[3].Mul(&v[3], &t[4])
-	v[4].Mul(&v[4], &t[5])
-	v[5].Mul(&v[5], &t[6])
-	v[6].Mul(&v[6], &t[7])
-	v[7].Mul(&v[7], &t[8])
-	v[8].Mul(&v[8], &t[9])
-	v[9].Mul(&v[9], &t[10])
-	v[10].Mul(&v[10], &t[11])
-	v[11].Mul(&v[11], &t[12])
-	v[12].Mul(&v[12], &t[13])
-	v[13].Mul(&a.A0, &b.A0)
-	v[14].Mul(&a.A1, &b.A1)
-	v[15].Mul(&a.A4, &b.A4)
-	v[16].Mul(&a.A5, &b.A5)
 
-	return &v
+	vv := fr.Vector(v[:])
+	vv.Mul(vv, fr.Vector(t[:]))
+
+	return vv
 }
 
-func (z *E6D) reconstruct(v *[17]fr.Element) *E6D {
+func (z *E6D) reconstruct(v fr.Vector) *E6D {
 	// Ref.: Peter L. Montgomery. Five, six, and seven-term Karatsuba-like formulae. IEEE
 	// Transactions on Computers, 54(3):362–369, 2005.
 	//
@@ -506,28 +502,19 @@ func (z *E6D) Square(a *E6D) *E6D {
 	t.Add(&a.A0, &a.A5)
 	v[2].Sub(&t, &v[7])
 
+	v[13].Set(&a.A0)
+	v[14].Set(&a.A1)
+	v[15].Set(&a.A4)
+	v[16].Set(&a.A5)
+
 	// -------------------------------------------------------------------------
 	// Phase 3: Pointwise Multiplication
 	// -------------------------------------------------------------------------
-	v[0].Square(&v[0])
-	v[1].Square(&v[1])
-	v[2].Square(&v[2])
-	v[3].Square(&v[3])
-	v[4].Square(&v[4])
-	v[5].Square(&v[5])
-	v[6].Square(&v[6])
-	v[7].Square(&v[7])
-	v[8].Square(&v[8])
-	v[9].Square(&v[9])
-	v[10].Square(&v[10])
-	v[11].Square(&v[11])
-	v[12].Square(&v[12])
-	v[13].Square(&a.A0)
-	v[14].Square(&a.A1)
-	v[15].Square(&a.A4)
-	v[16].Square(&a.A5)
 
-	return z.reconstruct(&v)
+	vv := fr.Vector(v[:])
+	vv.Mul(vv, vv)
+
+	return z.reconstruct(vv)
 }
 
 // Inverse sets z to the inverse of x in E6D and returns z
