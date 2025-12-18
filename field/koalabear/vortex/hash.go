@@ -34,36 +34,10 @@ func CompressPoseidon2(a, b Hash) Hash {
 	return res
 }
 
+// CompressPoseidon2x16 runs the Poseidon2 compression function on multiple
+// inputs in a SIMD fashion.
 func CompressPoseidon2x16(matrix []koalabear.Element, colSize int, result []Hash) {
 	compressPerm.Compressx16(matrix, colSize, result)
-	// // ensure matrix has correct size
-	// if len(matrix) != 16*colSize {
-	// 	panic("invalid input size")
-	// }
-	// if len(result) != 16 {
-	// 	panic("invalid output size")
-	// }
-	// if colSize%8 != 0 {
-	// 	panic("invalid colSize, must be multiple of 8")
-	// }
-	// var x [16][16]koalabear.Element
-	// nbSteps := colSize / 8
-	// for step := 0; step < nbSteps; step++ {
-	// 	// load chunk
-	// 	for i := 0; i < 16; i++ {
-	// 		// init state
-	// 		copy(x[i][8:], matrix[i*colSize+step*8:i*colSize+step*8+8])
-	// 		compressPerm.Permutation(x[i][:])
-	// 		for j := 0; j < 8; j++ {
-	// 			x[i][j].Add(&x[i][8+j], &matrix[i*colSize+step*8+j])
-	// 		}
-	// 	}
-	// }
-	// // store result
-	// for i := 0; i < 16; i++ {
-	// 	copy(result[i][:], x[i][:8])
-	// }
-
 }
 
 // HashPoseidon2 returns a Poseidon2 hash of an array of field elements. The

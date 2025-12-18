@@ -9,7 +9,6 @@ package poseidon2
 
 import (
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
-	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
@@ -21,9 +20,8 @@ const q = 2130706433
 var indexGather512 []uint32
 var indexScatter8 []uint32
 
-const sisKeySize = 512
-
 func init() {
+	const sisKeySize = 512
 	indexGather512 = make([]uint32, 16)
 	for i := 0; i < 16; i++ {
 		indexGather512[i] = uint32(i * sisKeySize)
@@ -45,45 +43,3 @@ func permutation16x24_avx512(input *[24][16]fr.Element, roundKeys [][]fr.Element
 
 //go:noescape
 func permutation16x16xN_avx512(matrix *fr.Element, roundKeys [][]fr.Element, result *fr.Element)
-
-// Compressx16 computes the Poseidon2 compression function on 16 inputs in parallel.
-// matrix is expected to be of size 16 * colSize, where each chunk of colSize
-// elements corresponds to an input. The result is stored in result, which is
-// expected to be of size 16, each element being of size 8 (the output size of
-// the compression function).
-// This function applies a feed-forward: for each input, the first 8 elements of the input
-// are added to the output and iteratively processes chunks of 8 elements from each column in matrix.
-func (h *Permutation) Compressx16(matrix []fr.Element, colSize int, result [][8]fr.Element) {
-	// ensure matrix has correct size
-	if len(matrix) != 16*colSize {
-		panic("invalid input size")
-	}
-	if len(result) != 16 {
-		panic("invalid output size")
-	}
-	if colSize%8 != 0 {
-		panic("invalid colSize, must be multiple of 8")
-	}
-	if !cpu.SupportAVX512 || colSize != sisKeySize {
-		var x [16][16]fr.Element
-		nbSteps := colSize / 8
-		for step := 0; step < nbSteps; step++ {
-			// load chunk
-			for i := 0; i < 16; i++ {
-				// init state
-				copy(x[i][8:], matrix[i*colSize+step*8:i*colSize+step*8+8])
-				h.Permutation(x[i][:])
-				for j := 0; j < 8; j++ {
-					x[i][j].Add(&x[i][8+j], &matrix[i*colSize+step*8+j]) // feed-forward
-				}
-			}
-		}
-		// store result
-		for i := 0; i < 16; i++ {
-			copy(result[i][:], x[i][:8])
-		}
-		return
-	}
-	permutation16x16xN_avx512(&matrix[0], h.params.RoundKeys, &result[0][0])
-
-}

@@ -8,40 +8,8 @@ import (
 	"github.com/consensys/gnark-crypto/hash"
 )
 
-const (
-	sisKeySize = 512 // elements
-	nbCols     = 1024
-)
-
-// reference implementation
-func computeMTLeaves(sisHashes []koalabear.Element, nbCols, sisKeySize int) []Hash {
-	leaves := make([]Hash, nbCols)
-
-	hasher := newMDHasher()
-
-	for colID := 0; colID < nbCols; colID++ {
-		startChunk := colID * sisKeySize
-		hasher.Reset()
-		hasher.WriteElements(sisHashes[startChunk : startChunk+sisKeySize]...)
-		leaves[colID] = hasher.SumElement()
-	}
-	return leaves
-}
-
-func computeMTLeaves2x16(sisHashes []koalabear.Element, nbCols, sisKeySize int) []Hash {
-	leaves := make([]Hash, nbCols)
-
-	if nbCols%16 != 0 {
-		panic("nbCols must be multiple of 16")
-	}
-	chunkCol := nbCols / 16
-
-	for chunkID := 0; chunkID < chunkCol; chunkID++ {
-		CompressPoseidon2x16(sisHashes[chunkID*16*sisKeySize:(chunkID+1)*16*sisKeySize], sisKeySize, leaves[chunkID*16:(chunkID+1)*16])
-	}
-
-	return leaves
-}
+// TODO @gbotrel keeping that here for now, but we should clean up the API and packages
+// between this repo and linea-monorepo.
 
 func TestComputeMTLeaves(t *testing.T) {
 	sisHashes := make([]koalabear.Element, nbCols*sisKeySize)
@@ -78,6 +46,41 @@ func BenchmarkComputeMTLeaves(b *testing.B) {
 			_ = computeMTLeaves2x16(sisHashes, nbCols, sisKeySize)
 		}
 	})
+}
+
+const (
+	sisKeySize = 512 // elements
+	nbCols     = 1024 * 64
+)
+
+// reference implementation
+func computeMTLeaves(sisHashes []koalabear.Element, nbCols, sisKeySize int) []Hash {
+	leaves := make([]Hash, nbCols)
+
+	hasher := newMDHasher()
+
+	for colID := 0; colID < nbCols; colID++ {
+		startChunk := colID * sisKeySize
+		hasher.Reset()
+		hasher.WriteElements(sisHashes[startChunk : startChunk+sisKeySize]...)
+		leaves[colID] = hasher.SumElement()
+	}
+	return leaves
+}
+
+func computeMTLeaves2x16(sisHashes []koalabear.Element, nbCols, sisKeySize int) []Hash {
+	leaves := make([]Hash, nbCols)
+
+	if nbCols%16 != 0 {
+		panic("nbCols must be multiple of 16")
+	}
+	chunkCol := nbCols / 16
+
+	for chunkID := 0; chunkID < chunkCol; chunkID++ {
+		CompressPoseidon2x16(sisHashes[chunkID*16*sisKeySize:(chunkID+1)*16*sisKeySize], sisKeySize, leaves[chunkID*16:(chunkID+1)*16])
+	}
+
+	return leaves
 }
 
 const BlockSize = 8
