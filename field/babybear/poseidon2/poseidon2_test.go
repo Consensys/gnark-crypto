@@ -207,6 +207,7 @@ func TestPoseidon2Width16(t *testing.T) {
 	expected[15].SetUint64(652219983)
 
 	h := NewPermutation(16, 6, 12)
+
 	h.Permutation(input[:])
 	for i := 0; i < h.params.Width; i++ {
 		if !input[i].Equal(&expected[i]) {
