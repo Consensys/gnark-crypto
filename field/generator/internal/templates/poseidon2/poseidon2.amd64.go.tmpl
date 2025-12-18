@@ -8,6 +8,7 @@ import (
 const qInvNeg = {{.QInvNeg}}
 const q = {{.Q}}
 
+{{- if eq .FF "koalabear"}}
 // indices used for gather (transpose) operation
 var indexGather512 []uint32
 var indexScatter8 []uint32
@@ -23,6 +24,7 @@ func init() {
 		indexScatter8[i] = uint32(i * 8)
 	}
 }
+{{- end }}
 
 //go:noescape
 func permutation24_avx512(input []fr.Element, roundKeys [][]fr.Element)
