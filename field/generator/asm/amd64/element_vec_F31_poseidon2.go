@@ -543,127 +543,19 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16xN(params Poseidon2Parameters) {
 	f.MOVQ("·indexGather512+0(SB)", addrIndexGather512)
 	f.VMOVDQU32(addrIndexGather512.At(0), vIndexGather)
 
-	matMul4 := func() {
-		t01 := registers.PopV()
-		t23 := registers.PopV()
-		t0123 := registers.PopV()
-		t01123 := registers.PopV()
-		t01233 := registers.PopV()
-
-		// for each block in v
-		for i := 0; i < nbBlocks; i++ {
-			s0 := v[4*i]
-			s1 := v[4*i+1]
-			s2 := v[4*i+2]
-			s3 := v[4*i+3]
-
-			// for the addition chain, see:
-			// https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/poseidon2/src/external.rs#L43
-			// for i := 0; i < c; i++ {
-			// 	var t01, t23, t0123, t01123, t01233 fr.Element
-			// 	t01.Add(&s[4*i], &s[4*i+1])
-			// 	t23.Add(&s[4*i+2], &s[4*i+3])
-			// 	t0123.Add(&t01, &t23)
-			// 	t01123.Add(&t0123, &s[4*i+1])
-			// 	t01233.Add(&t0123, &s[4*i+3])
-			// The order here is important. Need to overwrite x[0] and x[2] after x[1] and x[3].
-			// 	s[4*i+3].Double(&s[4*i]).Add(&s[4*i+3], &t01233)
-			// 	s[4*i+1].Double(&s[4*i+2]).Add(&s[4*i+1], &t01123)
-			// 	s[4*i].Add(&t01, &t01123)
-			// 	s[4*i+2].Add(&t23, &t01233)
-			// }
-			f.add(s0, s1, t01)
-			f.add(s2, s3, t23)
-			f.add(t01, t23, t0123)
-			f.add(t0123, s1, t01123)
-			f.add(t0123, s3, t01233)
-
-			f.double(s0, s3)
-			f.add(s3, t01233, s3)
-
-			f.double(s2, s1)
-			f.add(s1, t01123, s1)
-
-			f.add(t01, t01123, s0)
-			f.add(t23, t01233, s2)
-		}
-
-		registers.PushV(t01, t23, t0123, t01123, t01233)
-	}
-
-	matMulExternal := func() {
-
-		matMul4()
-
-		tmp0 := registers.PopV()
-		tmp1 := registers.PopV()
-		tmp2 := registers.PopV()
-		tmp3 := registers.PopV()
-
-		f.add(v[0], v[4], tmp0)
-		f.add(v[1], v[5], tmp1)
-		f.add(v[2], v[6], tmp2)
-		f.add(v[3], v[7], tmp3)
-
-		for i := 2; i < nbBlocks; i++ {
-			s0 := v[4*i]
-			s1 := v[4*i+1]
-			s2 := v[4*i+2]
-			s3 := v[4*i+3]
-
-			f.add(s0, tmp0, tmp0)
-			f.add(s1, tmp1, tmp1)
-			f.add(s2, tmp2, tmp2)
-			f.add(s3, tmp3, tmp3)
-		}
-
-		for i := 0; i < nbBlocks; i++ {
-			s0 := v[4*i]
-			s1 := v[4*i+1]
-			s2 := v[4*i+2]
-			s3 := v[4*i+3]
-
-			f.add(s0, tmp0, s0)
-			f.add(s1, tmp1, s1)
-			f.add(s2, tmp2, s2)
-			f.add(s3, tmp3, s3)
-		}
-
-		registers.PushV(tmp0, tmp1, tmp2, tmp3)
-	}
-
-	sbox := func(a, into amd64.VectorRegister) {
-		t5 := registers.PopV()
-		f.mul(a, a, t5, false)
-		f.mul(a, t5, into, true)
-		registers.PushV(t5)
-	}
-
-	if params.SBoxDegree == 7 {
-		sbox = func(a, into amd64.VectorRegister) {
-			t5 := registers.PopV()
-			t6 := registers.PopV()
-			f.mul(a, a, t5, true)
-			f.mul(t5, t5, t6, false)
-			f.mul(a, t6, a, false)
-			f.mul(a, t5, into, true)
-			registers.PushV(t5, t6)
-		}
-	}
-
 	addRoundKeySbox := func(index int) {
 		rc := registers.PopV()
 		f.VPBROADCASTD(rKey.AtD(index), rc)
 		f.add(v[index], rc, v[index])
 		registers.PushV(rc)
-		sbox(v[index], v[index])
+		f.sbox(v[index], v[index], params.SBoxDegree)
 	}
 
 	fullRound := func() {
 		for j := range v {
 			addRoundKeySbox(j)
 		}
-		matMulExternal()
+		f.matMulExternal(v, nbBlocks)
 	}
 
 	partialRound := func() {
@@ -795,16 +687,22 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16xN(params Poseidon2Parameters) {
 	// so first we gather the 8 * 16 elements into v[0..15]
 	// then we do the 16 permutations
 	// then the feed forward
+	registers.PushV(vIndexGather)
 	f.Loop(N, func() {
+		vTmpInputs := registers.PopVN(8)
+		vIndexGather = registers.PopV()
+		f.VMOVDQU32(addrIndexGather512.At(0), vIndexGather)
 		for i := 0; i < 8; i++ {
 			// TODO @gbotrel use 2 gather at a time?
 			f.KMOVD(maskFFFF, amd64.K1)
 			f.VPGATHERDD(i*4, addrMatrix, vIndexGather, 4, amd64.K1, v[i+8])
+			f.VMOVDQA32(v[i+8], vTmpInputs[i])
 		}
+		registers.PushV(vIndexGather)
 		// here v[8..15] have the gathered values
 		// and v[0..7] is the state (zero at first iteration)
 
-		matMulExternal()
+		f.matMulExternal(v, nbBlocks)
 
 		f.Comment("loop over the first full rounds")
 		loop(rf, fullRound)
@@ -818,11 +716,13 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16xN(params Poseidon2Parameters) {
 		// feed forward
 		for i := 0; i < 8; i++ {
 			// reload the inputs into v[0:7]
-			f.KMOVD(maskFFFF, amd64.K1)
-			f.VPGATHERDD(i*4, addrMatrix, vIndexGather, 4, amd64.K1, v[i])
+			// f.KMOVD(maskFFFF, amd64.K1)
+			// f.VPGATHERDD(i*4, addrMatrix, vIndexGather, 4, amd64.K1, v[i])
 			// add to the state
-			f.add(v[i], v[i+8], v[i])
+			f.add(vTmpInputs[i], v[i+8], v[i])
 		}
+		// push vTmpInputs back
+		registers.PushV(vTmpInputs...)
 
 		// advance addrMatrix by 8 * 4 bytes
 		f.ADDQ(8*4, addrMatrix)
@@ -894,127 +794,19 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		f.VMOVDQU32(addrInput.AtD(i*16), v[i])
 	}
 
-	matMul4 := func() {
-		t01 := registers.PopV()
-		t23 := registers.PopV()
-		t0123 := registers.PopV()
-		t01123 := registers.PopV()
-		t01233 := registers.PopV()
-
-		// for each block in v
-		for i := 0; i < nbBlocks; i++ {
-			s0 := v[4*i]
-			s1 := v[4*i+1]
-			s2 := v[4*i+2]
-			s3 := v[4*i+3]
-
-			// for the addition chain, see:
-			// https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/poseidon2/src/external.rs#L43
-			// for i := 0; i < c; i++ {
-			// 	var t01, t23, t0123, t01123, t01233 fr.Element
-			// 	t01.Add(&s[4*i], &s[4*i+1])
-			// 	t23.Add(&s[4*i+2], &s[4*i+3])
-			// 	t0123.Add(&t01, &t23)
-			// 	t01123.Add(&t0123, &s[4*i+1])
-			// 	t01233.Add(&t0123, &s[4*i+3])
-			// The order here is important. Need to overwrite x[0] and x[2] after x[1] and x[3].
-			// 	s[4*i+3].Double(&s[4*i]).Add(&s[4*i+3], &t01233)
-			// 	s[4*i+1].Double(&s[4*i+2]).Add(&s[4*i+1], &t01123)
-			// 	s[4*i].Add(&t01, &t01123)
-			// 	s[4*i+2].Add(&t23, &t01233)
-			// }
-			f.add(s0, s1, t01)
-			f.add(s2, s3, t23)
-			f.add(t01, t23, t0123)
-			f.add(t0123, s1, t01123)
-			f.add(t0123, s3, t01233)
-
-			f.double(s0, s3)
-			f.add(s3, t01233, s3)
-
-			f.double(s2, s1)
-			f.add(s1, t01123, s1)
-
-			f.add(t01, t01123, s0)
-			f.add(t23, t01233, s2)
-		}
-
-		registers.PushV(t01, t23, t0123, t01123, t01233)
-	}
-
-	matMulExternal := func() {
-
-		matMul4()
-
-		tmp0 := registers.PopV()
-		tmp1 := registers.PopV()
-		tmp2 := registers.PopV()
-		tmp3 := registers.PopV()
-
-		f.add(v[0], v[4], tmp0)
-		f.add(v[1], v[5], tmp1)
-		f.add(v[2], v[6], tmp2)
-		f.add(v[3], v[7], tmp3)
-
-		for i := 2; i < nbBlocks; i++ {
-			s0 := v[4*i]
-			s1 := v[4*i+1]
-			s2 := v[4*i+2]
-			s3 := v[4*i+3]
-
-			f.add(s0, tmp0, tmp0)
-			f.add(s1, tmp1, tmp1)
-			f.add(s2, tmp2, tmp2)
-			f.add(s3, tmp3, tmp3)
-		}
-
-		for i := 0; i < nbBlocks; i++ {
-			s0 := v[4*i]
-			s1 := v[4*i+1]
-			s2 := v[4*i+2]
-			s3 := v[4*i+3]
-
-			f.add(s0, tmp0, s0)
-			f.add(s1, tmp1, s1)
-			f.add(s2, tmp2, s2)
-			f.add(s3, tmp3, s3)
-		}
-
-		registers.PushV(tmp0, tmp1, tmp2, tmp3)
-	}
-
-	sbox := func(a, into amd64.VectorRegister) {
-		t5 := registers.PopV()
-		f.mul(a, a, t5, false)
-		f.mul(a, t5, into, true)
-		registers.PushV(t5)
-	}
-
-	if params.SBoxDegree == 7 {
-		sbox = func(a, into amd64.VectorRegister) {
-			t5 := registers.PopV()
-			t6 := registers.PopV()
-			f.mul(a, a, t5, true)
-			f.mul(t5, t5, t6, false)
-			f.mul(a, t6, a, false)
-			f.mul(a, t5, into, true)
-			registers.PushV(t5, t6)
-		}
-	}
-
 	addRoundKeySbox := func(index int) {
 		rc := registers.PopV()
 		f.VPBROADCASTD(rKey.AtD(index), rc)
 		f.add(v[index], rc, v[index])
 		registers.PushV(rc)
-		sbox(v[index], v[index])
+		f.sbox(v[index], v[index], params.SBoxDegree)
 	}
 
 	fullRound := func() {
 		for j := range v {
 			addRoundKeySbox(j)
 		}
-		matMulExternal()
+		f.matMulExternal(v, nbBlocks)
 	}
 
 	partialRound := func() {
@@ -1141,7 +933,7 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		registers.Push(n)
 	}
 
-	matMulExternal()
+	f.matMulExternal(v, nbBlocks)
 
 	f.Comment("loop over the first full rounds")
 	loop(rf, fullRound)
@@ -1447,4 +1239,89 @@ func (f *fieldHelper) reduce1Q(a amd64.VectorRegister) {
 		f.VPMINUD(c, r0, c)
 	}, true)(f.qd, a, r0)
 	f.registers.PushV(r0)
+}
+
+func (f *fieldHelper) matMul4(v []amd64.VectorRegister, nbBlocks int) {
+	t01 := f.registers.PopV()
+	t23 := f.registers.PopV()
+	t0123 := f.registers.PopV()
+	t01123 := f.registers.PopV()
+	t01233 := f.registers.PopV()
+
+	// for each block in v
+	for i := 0; i < nbBlocks; i++ {
+		// t01.Add(&s[4*i], &s[4*i+1])
+		f.add(v[4*i], v[4*i+1], t01)
+		// t23.Add(&s[4*i+2], &s[4*i+3])
+		f.add(v[4*i+2], v[4*i+3], t23)
+		// t0123.Add(&t01, &t23)
+		f.add(t01, t23, t0123)
+		// t01123.Add(&t0123, &s[4*i+1])
+		f.add(t0123, v[4*i+1], t01123)
+		// t01233.Add(&t0123, &s[4*i+3])
+		f.add(t0123, v[4*i+3], t01233)
+
+		// s[4*i+3].Double(&s[4*i]).Add(&s[4*i+3], &t01233)
+		f.double(v[4*i], v[4*i+3])
+		f.add(v[4*i+3], t01233, v[4*i+3])
+
+		// s[4*i+1].Double(&s[4*i+2]).Add(&s[4*i+1], &t01123)
+		f.double(v[4*i+2], v[4*i+1])
+		f.add(v[4*i+1], t01123, v[4*i+1])
+
+		// s[4*i].Add(&t01, &t01123)
+		f.add(t01, t01123, v[4*i])
+
+		// s[4*i+2].Add(&t23, &t01233)
+		f.add(t23, t01233, v[4*i+2])
+	}
+
+	f.registers.PushV(t01, t23, t0123, t01123, t01233)
+}
+
+func (f *fieldHelper) matMulExternal(v []amd64.VectorRegister, nbBlocks int) {
+	f.matMul4(v, nbBlocks)
+
+	tmp0 := f.registers.PopV()
+	tmp1 := f.registers.PopV()
+	tmp2 := f.registers.PopV()
+	tmp3 := f.registers.PopV()
+
+	f.add(v[0], v[4], tmp0)
+	f.add(v[1], v[5], tmp1)
+	f.add(v[2], v[6], tmp2)
+	f.add(v[3], v[7], tmp3)
+
+	for i := 2; i < nbBlocks; i++ {
+		f.add(tmp0, v[4*i], tmp0)
+		f.add(tmp1, v[4*i+1], tmp1)
+		f.add(tmp2, v[4*i+2], tmp2)
+		f.add(tmp3, v[4*i+3], tmp3)
+	}
+
+	for i := 0; i < nbBlocks; i++ {
+		f.add(v[4*i], tmp0, v[4*i])
+		f.add(v[4*i+1], tmp1, v[4*i+1])
+		f.add(v[4*i+2], tmp2, v[4*i+2])
+		f.add(v[4*i+3], tmp3, v[4*i+3])
+	}
+
+	f.registers.PushV(tmp0, tmp1, tmp2, tmp3)
+}
+
+func (f *fieldHelper) sbox(a, into amd64.VectorRegister, degree int) {
+	if degree == 7 {
+		t0 := f.registers.PopV()
+		t1 := f.registers.PopV()
+		f.mul(a, a, t0, false)   // a^2
+		f.mul(t0, a, t0, false)  // a^3
+		f.mul(t0, t0, t1, false) // a^6
+		f.mul(t1, a, into, true) // a^7
+		f.registers.PushV(t0, t1)
+	} else {
+		t5 := f.registers.PopV()
+		f.mul(a, a, t5, false)
+		f.mul(a, t5, into, true)
+		f.registers.PushV(t5)
+	}
 }
