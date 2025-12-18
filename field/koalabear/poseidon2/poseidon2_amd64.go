@@ -16,6 +16,22 @@ import (
 const qInvNeg = 2130706431
 const q = 2130706433
 
+// indices used for gather (transpose) operation
+var indexGather512 []uint32
+var indexScatter8 []uint32
+
+func init() {
+	const sisKeySize = 512
+	indexGather512 = make([]uint32, 16)
+	for i := 0; i < 16; i++ {
+		indexGather512[i] = uint32(i * sisKeySize)
+	}
+	indexScatter8 = make([]uint32, 16)
+	for i := 0; i < 16; i++ {
+		indexScatter8[i] = uint32(i * 8)
+	}
+}
+
 //go:noescape
 func permutation24_avx512(input []fr.Element, roundKeys [][]fr.Element)
 
@@ -24,3 +40,6 @@ func permutation16_avx512(input []fr.Element, roundKeys [][]fr.Element)
 
 //go:noescape
 func permutation16x24_avx512(input *[24][16]fr.Element, roundKeys [][]fr.Element)
+
+//go:noescape
+func permutation16x16xN_avx512(matrix *fr.Element, roundKeys [][]fr.Element, result *fr.Element)

@@ -575,4 +575,44 @@ func (h *Permutation) Permutation16x24(input *[24][16]fr.Element) {
 	}
 }
 
+{{- if eq .FF "koalabear"}}
+// Compressx16 computes the Poseidon2 compression function on 16 inputs in parallel.
+// The input matrix is expected to be of size 16 * colSize, where each row corresponds to an input.
+// The result is stored in the result slice, which is expected to have a size of 16, 
+// with each element containing 8 elements (the output size of the compression function).
+// This function applies a feed-forward mechanism: for each input, the first 8 elements of the input
+// are added to the corresponding output, and then it processes chunks of 8 elements from each row in the matrix.
+func (h *Permutation) Compressx16(matrix []fr.Element, colSize int, result [][8]fr.Element) {
+	if len(matrix) != 16*colSize || len(result) != 16 || colSize%8 != 0 {
+		panic("invalid input: matrix must be 16*colSize, result must be 16, colSize must be multiple of 8")
+	}
+	// note: this is hard coded as we have an optimized avx512 implementation for this specific size
+	const sisKeySize = 512
+
+	if !h.params.hasFast{{- $wc}}_{{- $fc}}_{{- $pc}} || colSize != sisKeySize {
+		var x [16][16]fr.Element
+		nbSteps := colSize / 8
+		for step := 0; step < nbSteps; step++ {
+			// load chunk
+			for i := 0; i < 16; i++ {
+				// init state
+				copy(x[i][8:], matrix[i*colSize+step*8:i*colSize+step*8+8])
+				h.Permutation(x[i][:])
+				for j := 0; j < 8; j++ {
+					x[i][j].Add(&x[i][8+j], &matrix[i*colSize+step*8+j]) // feed-forward
+				}
+			}
+		}
+		// store result
+		for i := 0; i < 16; i++ {
+			copy(result[i][:], x[i][:8])
+		}
+		return 
+	}
+
+	// optimized path
+	permutation16x16xN_avx512(&matrix[0], h.params.RoundKeys, &result[0][0])
+}
+{{- end}}
+
 {{- end}}

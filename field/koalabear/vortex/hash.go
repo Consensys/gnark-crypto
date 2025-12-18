@@ -34,6 +34,12 @@ func CompressPoseidon2(a, b Hash) Hash {
 	return res
 }
 
+// CompressPoseidon2x16 runs the Poseidon2 compression function on multiple
+// inputs in a SIMD fashion.
+func CompressPoseidon2x16(matrix []koalabear.Element, colSize int, result []Hash) {
+	compressPerm.Compressx16(matrix, colSize, result)
+}
+
 // HashPoseidon2 returns a Poseidon2 hash of an array of field elements. The
 // input is zero-padded so it should be used only in the context of fixed
 // length hashes to avoid padding attacks.

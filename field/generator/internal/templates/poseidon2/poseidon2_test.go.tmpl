@@ -153,6 +153,38 @@ func TestAVX512Permutation16x24(t *testing.T) {
 		}
 	}
 }
+{{- if eq .FF "koalabear"}}
+func TestAVX512Compressx16(t *testing.T) {
+	if !cpu.SupportAVX512 {
+		t.Skip("AVX512 not supported")
+	}
+	assert := require.New(t)
+	const colSize = 512
+	matrix := make([]fr.Element, 16*colSize)
+	matrixCopy := make([]fr.Element, 16*colSize)
+	for i := range matrix {
+		matrix[i].MustSetRandom()
+		matrixCopy[i] = matrix[i]
+	}
+	resultAVX512 := make([][8]fr.Element, 16)
+	resultPureGo := make([][8]fr.Element, 16)
+
+	h := NewPermutation({{- $w0}}, {{- .ParamsCompression.FullRounds}}, {{- .ParamsCompression.PartialRounds}})
+	h.Compressx16(matrix, colSize, resultAVX512)
+
+	h.disableAVX512()
+	h.Compressx16(matrixCopy, colSize, resultPureGo)
+
+	// compare results
+	for i := 0; i < 16; i++ {
+		for j := 0; j < 8; j++ {
+			assert.True(resultAVX512[i][j].Equal(&resultPureGo[i][j]), "avx512 result don't match purego")
+		}
+	}
+}
+{{- end}}
+
+
 
 func BenchmarkPermutation16x24(b *testing.B) {
 	input := make([][16]fr.Element, 24)
