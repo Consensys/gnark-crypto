@@ -34,6 +34,7 @@ func generateExtensions(F *config.Field, outputDir string) error {
 	}
 
 	isKoalaBear := F.Q[0] == 2130706433
+	isBear := F.PackageName == "koalabear" || F.PackageName == "babybear"
 	data := &extensionsTemplateData{
 		FF:               F.PackageName,
 		FieldPackagePath: fieldImportPath,
@@ -59,6 +60,13 @@ func generateExtensions(F *config.Field, outputDir string) error {
 			{File: filepath.Join(outputDir, "e4.go"), Templates: []string{"e4.go.tmpl"}},
 			{File: filepath.Join(outputDir, "vector.go"), Templates: []string{"vector.go.tmpl"}},
 			{File: filepath.Join(outputDir, "e4_test.go"), Templates: []string{"e4_test.go.tmpl"}},
+		}
+
+		if isBear {
+			entries_ext4 = append(entries_ext4,
+				bavard.Entry{File: filepath.Join(outputDir, "e4_direct.go"), Templates: []string{"e4_direct.go.tmpl"}},
+				bavard.Entry{File: filepath.Join(outputDir, "e4_direct_test.go"), Templates: []string{"e4_direct_test.go.tmpl"}},
+			)
 		}
 
 		if isKoalaBear {
