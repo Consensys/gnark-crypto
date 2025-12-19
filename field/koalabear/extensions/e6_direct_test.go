@@ -141,6 +141,17 @@ func TestE6DOps(t *testing.T) {
 		genB,
 	))
 
+	properties.Property("[(direct) koalabear] mulMontgomery6 and mulNaive mul are the same", prop.ForAll(
+		func(a, b *E6D) bool {
+			var c1, c2 E6D
+			c1.mulMontgomery6(a, b)
+			c2.mulNaive(a, b)
+			return c1.Equal(&c2)
+		},
+		genA,
+		genB,
+	))
+
 	properties.Property("[(direct) koalabear] tower mul and direct mul are the same", prop.ForAll(
 		func(a, b *E6D) bool {
 			var c E6D

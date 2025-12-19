@@ -137,6 +137,111 @@ func (z *E6D) Mul(x, y *E6D) *E6D {
 	return z.mulMontgomery6(x, y)
 }
 
+// mulNaive is the schoolbook multiplication followed by reduction.
+func (z *E6D) mulNaive(a, b *E6D) *E6D {
+	var d [11]fr.Element
+	var t fr.Element
+
+	// degree 0
+	d[0].Mul(&a.A0, &b.A0)
+
+	// degree 1
+	d[1].Mul(&a.A0, &b.A1)
+	t.Mul(&a.A1, &b.A0)
+	d[1].Add(&d[1], &t)
+
+	// degree 2
+	d[2].Mul(&a.A0, &b.A2)
+	t.Mul(&a.A1, &b.A1)
+	d[2].Add(&d[2], &t)
+	t.Mul(&a.A2, &b.A0)
+	d[2].Add(&d[2], &t)
+
+	// degree 3
+	d[3].Mul(&a.A0, &b.A3)
+	t.Mul(&a.A1, &b.A2)
+	d[3].Add(&d[3], &t)
+	t.Mul(&a.A2, &b.A1)
+	d[3].Add(&d[3], &t)
+	t.Mul(&a.A3, &b.A0)
+	d[3].Add(&d[3], &t)
+
+	// degree 4
+	d[4].Mul(&a.A0, &b.A4)
+	t.Mul(&a.A1, &b.A3)
+	d[4].Add(&d[4], &t)
+	t.Mul(&a.A2, &b.A2)
+	d[4].Add(&d[4], &t)
+	t.Mul(&a.A3, &b.A1)
+	d[4].Add(&d[4], &t)
+	t.Mul(&a.A4, &b.A0)
+	d[4].Add(&d[4], &t)
+
+	// degree 5
+	d[5].Mul(&a.A0, &b.A5)
+	t.Mul(&a.A1, &b.A4)
+	d[5].Add(&d[5], &t)
+	t.Mul(&a.A2, &b.A3)
+	d[5].Add(&d[5], &t)
+	t.Mul(&a.A3, &b.A2)
+	d[5].Add(&d[5], &t)
+	t.Mul(&a.A4, &b.A1)
+	d[5].Add(&d[5], &t)
+	t.Mul(&a.A5, &b.A0)
+	d[5].Add(&d[5], &t)
+
+	// degree 6
+	d[6].Mul(&a.A1, &b.A5)
+	t.Mul(&a.A2, &b.A4)
+	d[6].Add(&d[6], &t)
+	t.Mul(&a.A3, &b.A3)
+	d[6].Add(&d[6], &t)
+	t.Mul(&a.A4, &b.A2)
+	d[6].Add(&d[6], &t)
+	t.Mul(&a.A5, &b.A1)
+	d[6].Add(&d[6], &t)
+
+	// degree 7
+	d[7].Mul(&a.A2, &b.A5)
+	t.Mul(&a.A3, &b.A4)
+	d[7].Add(&d[7], &t)
+	t.Mul(&a.A4, &b.A3)
+	d[7].Add(&d[7], &t)
+	t.Mul(&a.A5, &b.A2)
+	d[7].Add(&d[7], &t)
+
+	// degree 8
+	d[8].Mul(&a.A3, &b.A5)
+	t.Mul(&a.A4, &b.A4)
+	d[8].Add(&d[8], &t)
+	t.Mul(&a.A5, &b.A3)
+	d[8].Add(&d[8], &t)
+
+	// degree 9
+	d[9].Mul(&a.A4, &b.A5)
+	t.Mul(&a.A5, &b.A4)
+	d[9].Add(&d[9], &t)
+
+	// degree 10
+	d[10].Mul(&a.A5, &b.A5)
+	// Reduce using w^6 = 2w^3 + 2.
+	var t2 fr.Element
+	for k := 10; k >= 6; k-- {
+		t2.Double(&d[k])
+		d[k-3].Add(&d[k-3], &t2)
+		d[k-6].Add(&d[k-6], &t2)
+	}
+
+	z.A0.Set(&d[0])
+	z.A1.Set(&d[1])
+	z.A2.Set(&d[2])
+	z.A3.Set(&d[3])
+	z.A4.Set(&d[4])
+	z.A5.Set(&d[5])
+
+	return z
+}
+
 func (z *E6D) mulMontgomery6(a, b *E6D) *E6D {
 	return z.reconstruct(interpolate(a, b))
 }
@@ -262,7 +367,6 @@ func interpolate(a, b *E6D) *[17]fr.Element {
 
 	return &v
 }
-
 func (z *E6D) reconstruct(v *[17]fr.Element) *E6D {
 	// Ref.: Peter L. Montgomery. Five, six, and seven-term Karatsuba-like formulae. IEEE
 	// Transactions on Computers, 54(3):362–369, 2005.

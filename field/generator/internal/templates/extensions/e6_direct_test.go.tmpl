@@ -32,7 +32,7 @@ func TestE6DReceiverIsOperand(t *testing.T) {
 	genA := genE6D()
 	genB := genE6D()
 
-	properties.Property("[(direct) {{.FF}}] conversion between direct and tower extensions", prop.ForAll(
+	properties.Property("[(direct) {{ .FF }}] conversion between direct and tower extensions", prop.ForAll(
 		func(a *E6D) bool {
 			b := ToTower(a)
 			c := FromTower(b)
@@ -41,7 +41,7 @@ func TestE6DReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[(direct) {{.FF}}] Having the receiver as operand (addition) should output the same result", prop.ForAll(
+	properties.Property("[(direct) {{ .FF }}] Having the receiver as operand (addition) should output the same result", prop.ForAll(
 		func(a, b *E6D) bool {
 			var c, d E6D
 			d.Set(a)
@@ -54,7 +54,7 @@ func TestE6DReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[(direct) {{.FF}}] Having the receiver as operand (sub) should output the same result", prop.ForAll(
+	properties.Property("[(direct) {{ .FF }}] Having the receiver as operand (sub) should output the same result", prop.ForAll(
 		func(a, b *E6D) bool {
 			var c, d E6D
 			d.Set(a)
@@ -67,7 +67,7 @@ func TestE6DReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[(direct) {{.FF}}] Having the receiver as operand (mul) should output the same result", prop.ForAll(
+	properties.Property("[(direct) {{ .FF }}] Having the receiver as operand (mul) should output the same result", prop.ForAll(
 		func(a, b *E6D) bool {
 			var c, d E6D
 			d.Set(a)
@@ -80,7 +80,7 @@ func TestE6DReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[(direct) {{.FF}}] Having the receiver as operand (square) should output the same result", prop.ForAll(
+	properties.Property("[(direct) {{ .FF }}] Having the receiver as operand (square) should output the same result", prop.ForAll(
 		func(a *E6D) bool {
 			var b E6D
 			b.Square(a)
@@ -90,7 +90,7 @@ func TestE6DReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[(direct) {{.FF}}] Having the receiver as operand (double) should output the same result", prop.ForAll(
+	properties.Property("[(direct) {{ .FF }}] Having the receiver as operand (double) should output the same result", prop.ForAll(
 		func(a *E6D) bool {
 			var b E6D
 			b.Double(a)
@@ -100,7 +100,7 @@ func TestE6DReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[(direct) {{.FF}}] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
+	properties.Property("[(direct) {{ .FF }}] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
 		func(a *E6D) bool {
 			var b E6D
 			b.Inverse(a)
@@ -123,7 +123,7 @@ func TestE6DOps(t *testing.T) {
 	genA := genE6D()
 	genB := genE6D()
 
-	properties.Property("[(direct) {{.FF}}] sub & add should leave an element invariant", prop.ForAll(
+	properties.Property("[(direct) {{ .FF }}] sub & add should leave an element invariant", prop.ForAll(
 		func(a, b *E6D) bool {
 			var c E6D
 			c.Set(a)
@@ -134,7 +134,18 @@ func TestE6DOps(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[(direct) {{.FF}}] tower mul and direct mul are the same", prop.ForAll(
+	properties.Property("[(direct) {{ .FF }}] mulMontgomery6 and mulNaive mul are the same", prop.ForAll(
+		func(a, b *E6D) bool {
+			var c1, c2 E6D
+			c1.mulMontgomery6(a, b)
+			c2.mulNaive(a, b)
+			return c1.Equal(&c2)
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("[(direct) {{ .FF }}] tower mul and direct mul are the same", prop.ForAll(
 		func(a, b *E6D) bool {
 			var c E6D
 			c.Mul(a, b)
@@ -148,7 +159,7 @@ func TestE6DOps(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[(direct) {{.FF}}] mul & inverse should leave an element invariant", prop.ForAll(
+	properties.Property("[(direct) {{ .FF }}] mul & inverse should leave an element invariant", prop.ForAll(
 		func(a, b *E6D) bool {
 			var c, d E6D
 			d.Inverse(b)
@@ -160,7 +171,7 @@ func TestE6DOps(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[(direct) {{.FF}}] inverse twice should leave an element invariant", prop.ForAll(
+	properties.Property("[(direct) {{ .FF }}] inverse twice should leave an element invariant", prop.ForAll(
 		func(a *E6D) bool {
 			var b E6D
 			b.Inverse(a).Inverse(&b)
@@ -169,7 +180,7 @@ func TestE6DOps(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[(direct) {{.FF}}] square and mul should output the same result", prop.ForAll(
+	properties.Property("[(direct) {{ .FF }}] square and mul should output the same result", prop.ForAll(
 		func(a *E6D) bool {
 			var b, c E6D
 			b.Mul(a, a)
