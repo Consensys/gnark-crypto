@@ -170,6 +170,19 @@ func (z *E4) MulByNonResidue(x *E4) *E4 {
 	return z
 }
 
+func montReduce(v uint64) uint32 {
+	m := uint32(v) * qInvNeg
+	t := uint32((v + uint64(m)*uint64(q)) >> 32)
+	if t >= q {
+		t -= q
+	}
+	return t
+}
+
+func reduceSmall(z uint64) uint32 {
+	return uint32(z % uint64(q))
+}
+
 // Mul sets z=x*y in E4 and returns z
 func (z *E4) Mul(x, y *E4) *E4 {
 	// Unpack elements to uint64 for accumulation
