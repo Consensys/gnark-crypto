@@ -6,6 +6,14 @@
 // Package extensions implements the fields arithmetic of the 𝔽r² and 𝔽r⁴
 // extensions of the koalabear field.
 //
-//	𝔽r²[u] = 𝔽r/u²-3
-//	𝔽r⁴[v] = 𝔽r²/v²-u
+//   - For extension 4:
+//     𝔽r²[u] = 𝔽r/u²-3
+//     𝔽r⁴[v] = 𝔽r²/v²-u
+//
+//   - For extension 6:
+//     𝔽r⁶[w] = 𝔽r²/w³-u-1
+//
+// or equivalently:
+//
+//	𝔽r⁶[w] = 𝔽r/w⁶-2w³-2
 package extensions

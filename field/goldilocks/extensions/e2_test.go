@@ -108,21 +108,11 @@ func TestE2ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[goldilocks] Having the receiver as operand (mul by non residue) should output the same result", prop.ForAll(
+	properties.Property("[goldilocks] Having the receiver as operand (mul by quadratic non-residue) should output the same result", prop.ForAll(
 		func(a E2) bool {
 			var b E2
-			b.MulByNonResidue(&a)
-			a.MulByNonResidue(&a)
-			return a.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[goldilocks] Having the receiver as operand (mul by non residue inverse) should output the same result", prop.ForAll(
-		func(a E2) bool {
-			var b E2
-			b.MulByNonResidueInv(&a)
-			a.MulByNonResidueInv(&a)
+			b.MulByQuadraticNonResidue(&a)
+			a.MulByQuadraticNonResidue(&a)
 			return a.Equal(&b)
 		},
 		genA,
@@ -306,15 +296,6 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[goldilocks] Mulbynonres mulbynonresinv should leave the element invariant", prop.ForAll(
-		func(a E2) bool {
-			var b E2
-			b.MulByNonResidue(&a).MulByNonResidueInv(&b)
-			return a.Equal(&b)
-		},
-		genA,
-	))
-
 	properties.Property("[goldilocks] a + pi(a), a-pi(a) should be real", prop.ForAll(
 		func(a E2) bool {
 			var b, c, d E2
@@ -463,21 +444,12 @@ func BenchmarkE2Inverse(b *testing.B) {
 	}
 }
 
-func BenchmarkE2MulNonRes(b *testing.B) {
+func BenchmarkE2MulQuadNonRes(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a.MulByNonResidue(&a)
-	}
-}
-
-func BenchmarkE2MulNonResInv(b *testing.B) {
-	var a E2
-	a.MustSetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.MulByNonResidueInv(&a)
+		a.MulByQuadraticNonResidue(&a)
 	}
 }
 

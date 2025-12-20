@@ -59,6 +59,10 @@ func generateExtensions(F *config.Field, outputDir string) error {
 			{File: filepath.Join(outputDir, "e4.go"), Templates: []string{"e4.go.tmpl"}},
 			{File: filepath.Join(outputDir, "vector.go"), Templates: []string{"vector.go.tmpl"}},
 			{File: filepath.Join(outputDir, "e4_test.go"), Templates: []string{"e4_test.go.tmpl"}},
+			{File: filepath.Join(outputDir, "e6.go"), Templates: []string{"e6.go.tmpl"}},
+			{File: filepath.Join(outputDir, "e6_test.go"), Templates: []string{"e6_test.go.tmpl"}},
+			{File: filepath.Join(outputDir, "e6_direct.go"), Templates: []string{"e6_direct.go.tmpl"}},
+			{File: filepath.Join(outputDir, "e6_direct_test.go"), Templates: []string{"e6_direct_test.go.tmpl"}},
 		}
 
 		if isKoalaBear {

@@ -1,0 +1,358 @@
+import (
+	"math/big"
+	"math/bits"
+
+	fr "{{ .FieldPackagePath }}"
+)
+
+// E6 is a degree three finite field extension of fp2
+type E6 struct {
+	B0, B1, B2 E2
+}
+
+// Equal returns true if z equals x, false otherwise
+func (z *E6) Equal(x *E6) bool {
+	return z.B0.Equal(&x.B0) && z.B1.Equal(&x.B1) && z.B2.Equal(&x.B2)
+}
+
+// Cmp compares (lexicographic order) z and x and returns:
+//
+//	-1 if z <  x
+//	 0 if z == x
+//	+1 if z >  x
+func (z *E6) Cmp(x *E6) int {
+	if a2 := z.B2.Cmp(&x.B2); a2 != 0 {
+		return a2
+	}
+	if a1 := z.B1.Cmp(&x.B1); a1 != 0 {
+		return a1
+	}
+	return z.B0.Cmp(&x.B0)
+}
+
+// String puts E6 in string form
+func (z *E6) String() string {
+	return (z.B0.String() + "+(" + z.B1.String() + ")*v+(" + z.B2.String() + ")*v**2")
+}
+
+// SetString sets a E6 from string
+func (z *E6) SetString(s1, s2, s3, s4, s5, s6 string) *E6 {
+	z.B0.SetString(s1, s2)
+	z.B1.SetString(s3, s4)
+	z.B2.SetString(s5, s6)
+	return z
+}
+
+// Set copies x into z and returns z
+func (z *E6) Set(x *E6) *E6 {
+	z.B0 = x.B0
+	z.B1 = x.B1
+	z.B2 = x.B2
+	return z
+}
+
+// SetZero sets an E6 elmt to zero
+func (z *E6) SetZero() *E6 {
+	*z = E6{}
+	return z
+}
+
+// SetOne sets z to 1 and returns z
+func (z *E6) SetOne() *E6 {
+	*z = E6{}
+	z.B0.A0.SetOne()
+	return z
+}
+
+// Lift sets the B0.A0 component of z to v
+func (z *E6) Lift(v *fr.Element) *E6 {
+	*z = E6{}
+	z.B0.A0.Set(v)
+	return z
+}
+
+// MulByElement multiplies an element in E6 by an element in fr
+func (z *E6) MulByElement(x *E6, y *fr.Element) *E6 {
+	z.B0.MulByElement(&x.B0, y)
+	z.B1.MulByElement(&x.B1, y)
+	z.B2.MulByElement(&x.B2, y)
+	return z
+}
+
+// MulByE2 multiplies an element in E6 by an element in E2
+func (z *E6) MulByE2(x *E6, y *E2) *E6 {
+	var yCopy E2
+	yCopy.Set(y)
+	z.B0.Mul(&x.B0, &yCopy)
+	z.B1.Mul(&x.B1, &yCopy)
+	z.B2.Mul(&x.B2, &yCopy)
+	return z
+}
+
+// Add sets z=x+y in E6 and returns z
+func (z *E6) Add(x, y *E6) *E6 {
+	z.B0.Add(&x.B0, &y.B0)
+	z.B1.Add(&x.B1, &y.B1)
+	z.B2.Add(&x.B2, &y.B2)
+	return z
+}
+
+// Sub sets z to x-y and returns z
+func (z *E6) Sub(x, y *E6) *E6 {
+	z.B0.Sub(&x.B0, &y.B0)
+	z.B1.Sub(&x.B1, &y.B1)
+	z.B2.Sub(&x.B2, &y.B2)
+	return z
+}
+
+// Double sets z=2*x and returns z
+func (z *E6) Double(x *E6) *E6 {
+	z.B0.Double(&x.B0)
+	z.B1.Double(&x.B1)
+	z.B2.Double(&x.B2)
+	return z
+}
+
+// Neg negates an E6 element
+func (z *E6) Neg(x *E6) *E6 {
+	z.B0.Neg(&x.B0)
+	z.B1.Neg(&x.B1)
+	z.B2.Neg(&x.B2)
+	return z
+}
+
+// SetRandom set z to a random elmt
+// N.B.: used only in tests
+func (z *E6) SetRandom() (*E6, error) {
+	if _, err := z.B0.SetRandom(); err != nil {
+		return nil, err
+	}
+	if _, err := z.B1.SetRandom(); err != nil {
+		return nil, err
+	}
+	if _, err := z.B2.SetRandom(); err != nil {
+		return nil, err
+	}
+	return z, nil
+}
+
+// MustSetRandom sets the element to a random value.
+// It panics if reading form crypto/rand fails
+func (z *E6) MustSetRandom() *E6 {
+	if _, err := z.SetRandom(); err != nil {
+		panic(err)
+	}
+	return z
+}
+
+// IsZero returns true if z is zero, false otherwise
+func (z *E6) IsZero() bool {
+	return z.B0.IsZero() && z.B1.IsZero() && z.B2.IsZero()
+}
+
+// IsOne returns true if z is one, false otherwise
+func (z *E6) IsOne() bool {
+	return z.B0.IsOne() && z.B1.IsZero() && z.B2.IsZero()
+}
+
+// Mul sets z=x*y in E6 and returns z
+func (z *E6) Mul(x, y *E6) *E6 {
+	// Algorithm 13 from https://eprint.iacr.org/2010/354.pdf
+	var t0, t1, t2, c0, c1, c2, tmp E2
+	t0.Mul(&x.B0, &y.B0)
+	t1.Mul(&x.B1, &y.B1)
+	t2.Mul(&x.B2, &y.B2)
+
+	c0.Add(&x.B1, &x.B2)
+	tmp.Add(&y.B1, &y.B2)
+	c0.Mul(&c0, &tmp).Sub(&c0, &t1).Sub(&c0, &t2).MulByCubicNonResidue(&c0).Add(&c0, &t0)
+
+	c1.Add(&x.B0, &x.B1)
+	tmp.Add(&y.B0, &y.B1)
+	c1.Mul(&c1, &tmp).Sub(&c1, &t0).Sub(&c1, &t1)
+	tmp.MulByCubicNonResidue(&t2)
+	c1.Add(&c1, &tmp)
+
+	tmp.Add(&x.B0, &x.B2)
+	c2.Add(&y.B0, &y.B2).Mul(&c2, &tmp).Sub(&c2, &t0).Sub(&c2, &t2).Add(&c2, &t1)
+
+	z.B0.Set(&c0)
+	z.B1.Set(&c1)
+	z.B2.Set(&c2)
+
+	return z
+}
+
+// Square sets z=x*x in E6 and returns z
+func (z *E6) Square(x *E6) *E6 {
+
+	// Algorithm 16 from https://eprint.iacr.org/2010/354.pdf
+	var c4, c5, c1, c2, c3, c0 E2
+	c4.Mul(&x.B0, &x.B1).Double(&c4)
+	c5.Square(&x.B2)
+	c1.MulByCubicNonResidue(&c5).Add(&c1, &c4)
+	c2.Sub(&c4, &c5)
+	c3.Square(&x.B0)
+	c4.Sub(&x.B0, &x.B1).Add(&c4, &x.B2)
+	c5.Mul(&x.B1, &x.B2).Double(&c5)
+	c4.Square(&c4)
+	c0.MulByCubicNonResidue(&c5).Add(&c0, &c3)
+	z.B2.Add(&c2, &c4).Add(&z.B2, &c5).Sub(&z.B2, &c3)
+	z.B0.Set(&c0)
+	z.B1.Set(&c1)
+
+	return z
+}
+
+// Inverse sets z to the inverse of x in E6 and returns z
+//
+// if x == 0, sets and returns z = x
+func (z *E6) Inverse(x *E6) *E6 {
+	// Algorithm 17 from https://eprint.iacr.org/2010/354.pdf
+	// step 9 is wrong in the paper it's t1-t4
+	var t0, t1, t2, t3, t4, t5, t6, c0, c1, c2, d1, d2 E2
+	t0.Square(&x.B0)
+	t1.Square(&x.B1)
+	t2.Square(&x.B2)
+	t3.Mul(&x.B0, &x.B1)
+	t4.Mul(&x.B0, &x.B2)
+	t5.Mul(&x.B1, &x.B2)
+	c0.MulByCubicNonResidue(&t5).Neg(&c0).Add(&c0, &t0)
+	c1.MulByCubicNonResidue(&t2).Sub(&c1, &t3)
+	c2.Sub(&t1, &t4)
+	t6.Mul(&x.B0, &c0)
+	d1.Mul(&x.B2, &c1)
+	d2.Mul(&x.B1, &c2)
+	d1.Add(&d1, &d2).MulByCubicNonResidue(&d1)
+	t6.Add(&t6, &d1)
+	t6.Inverse(&t6)
+	z.B0.Mul(&c0, &t6)
+	z.B1.Mul(&c1, &t6)
+	z.B2.Mul(&c2, &t6)
+
+	return z
+}
+
+// Exp sets z=xᵏ (mod q⁴) and returns it
+func (z *E6) Exp(x E6, k *big.Int) *E6 {
+	if k.IsInt64() {
+		return z.ExpInt64(x, k.Int64())
+	}
+
+	e := k
+	if k.Sign() == -1 {
+		// negative k, we invert
+		// if k < 0: xᵏ (mod q⁴) == (x⁻¹)ᵏ (mod q⁴)
+		x.Inverse(&x)
+
+		// we negate k in a temp big.Int since
+		// Int.Bit(_) of k and -k is different
+		e = bigIntPool.Get().(*big.Int)
+		defer bigIntPool.Put(e)
+		e.Neg(k)
+	}
+
+	z.SetOne()
+	b := e.Bytes()
+	for i := 0; i < len(b); i++ {
+		w := b[i]
+		for j := 0; j < 8; j++ {
+			z.Square(z)
+			if (w & (0b10000000 >> j)) != 0 {
+				z.Mul(z, &x)
+			}
+		}
+	}
+
+	return z
+}
+
+// ExpInt64 sets z=xᵏ (mod q⁴) and returns it, where k is an int64
+func (z *E6) ExpInt64(x E6, k int64) *E6 {
+	if k == 0 {
+		return z.SetOne()
+	}
+
+	exp := k
+	if k < 0 {
+		x.Inverse(&x)
+		exp = -k // if k == math.MinInt64, -k overflows, but uint64(-k) is correct
+	}
+
+	z.Set(&x)
+
+	// Use bits.Len64 to iterate only over significant bits
+	for i := bits.Len64(uint64(exp)) - 2; i >= 0; i-- {
+		z.Square(z)
+		if (uint64(exp)>>uint(i))&1 != 0 {
+			z.Mul(z, &x)
+		}
+	}
+
+	return z
+}
+
+func (z *E6) Halve() {
+
+	z.B0.A0.Halve()
+	z.B0.A1.Halve()
+	z.B1.A0.Halve()
+	z.B1.A1.Halve()
+	z.B2.A0.Halve()
+	z.B2.A1.Halve()
+}
+
+// BatchInvertE6 returns a new slice with every element in a inverted.
+// It uses Montgomery batch inversion trick.
+//
+// if a[i] == 0, returns result[i] = a[i]
+func BatchInvertE6(a []E6) []E6 {
+	res := make([]E6, len(a))
+	if len(a) == 0 {
+		return res
+	}
+
+	zeroes := make([]bool, len(a))
+	var accumulator E6
+	accumulator.SetOne()
+
+	for i := 0; i < len(a); i++ {
+		if a[i].IsZero() {
+			zeroes[i] = true
+			continue
+		}
+		res[i].Set(&accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	accumulator.Inverse(&accumulator)
+
+	for i := len(a) - 1; i >= 0; i-- {
+		if zeroes[i] {
+			continue
+		}
+		res[i].Mul(&res[i], &accumulator)
+		accumulator.Mul(&accumulator, &a[i])
+	}
+
+	return res
+}
+
+// Div divides an element in E6 by an element in E6
+func (z *E6) Div(x *E6, y *E6) *E6 {
+	var r E6
+	r.Inverse(y).Mul(x, &r)
+	return z.Set(&r)
+}
+
+// ButterflyE6 computes the butterfly operation on two E6 elements
+func ButterflyE6(a, b *E6) {
+	fr.Butterfly(&a.B0.A0, &b.B0.A0)
+	fr.Butterfly(&a.B0.A1, &b.B0.A1)
+
+	fr.Butterfly(&a.B1.A0, &b.B1.A0)
+	fr.Butterfly(&a.B1.A1, &b.B1.A1)
+
+	fr.Butterfly(&a.B2.A0, &b.B2.A0)
+	fr.Butterfly(&a.B2.A1, &b.B2.A1)
+}

@@ -96,16 +96,6 @@ func TestE4ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[babybear] Having the receiver as operand (mul by non residue) should output the same result", prop.ForAll(
-		func(a E4) bool {
-			var b E4
-			b.MulByNonResidue(&a)
-			a.MulByNonResidue(&a)
-			return a.Equal(&b)
-		},
-		genA,
-	))
-
 	properties.Property("[babybear] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
 		func(a E4) bool {
 			var b E4
@@ -811,15 +801,6 @@ func BenchmarkE4Inverse(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		a.Inverse(&a)
-	}
-}
-
-func BenchmarkE4MulNonRes(b *testing.B) {
-	var a E4
-	a.MustSetRandom()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.MulByNonResidue(&a)
 	}
 }
 
