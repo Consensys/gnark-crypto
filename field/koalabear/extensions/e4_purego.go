@@ -11,8 +11,6 @@ import (
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 )
 
-const q = 2130706433
-
 func mulAccByElement_avx512(alpha *E4, scale *fr.Element, res *E4, N uint64) {
 	panic("mulAccByElement_avx512 is not implemented")
 }

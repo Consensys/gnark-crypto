@@ -524,8 +524,8 @@ func (z *{{.ElementName}}) Double( x *{{.ElementName}}) *{{.ElementName}} {
 // Sub z = x - y (mod q)
 func (z *{{.ElementName}}) Sub( x, y *{{.ElementName}}) *{{.ElementName}} {
 	{{- if $.F31}}
-		t, b := bits.Sub32(x[0], y[0], 0)
-		if b != 0 {
+		t := x[0] - y[0]
+		if t > q { // underflow occurred
 			t += q
 		}
 		z[0] = t
