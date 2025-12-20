@@ -129,6 +129,83 @@ func (z *E4D) IsOne() bool {
 		z.A3.IsZero()
 }
 
+{{- if .IsKoalaBear }}
+
+// Mul sets z=x*y in E4D and returns z.
+func (z *E4D) Mul(x, y *E4D) *E4D {
+	// Unpack elements to uint64 for accumulation
+	a0 := uint64(x.A0[0])
+	a1 := uint64(x.A1[0])
+	a2 := uint64(x.A2[0])
+	a3 := uint64(x.A3[0])
+
+	b0 := uint64(y.A0[0])
+	b1 := uint64(y.A1[0])
+	b2 := uint64(y.A2[0])
+	b3 := uint64(y.A3[0])
+
+	// d0 = a0*b0
+	d0 := a0 * b0
+	r0 := uint64(montReduce(d0))
+
+	// d1 = a0*b1 + a1*b0
+	d1 := a0*b1 + a1*b0
+	r1 := uint64(montReduce(d1))
+
+	// d2 = a0*b2 + a1*b1 + a2*b0
+	d2_a := a0*b2 + a1*b1
+	d2_b := a2 * b0
+	r2 := uint64(montReduce(d2_a)) + uint64(montReduce(d2_b))
+
+	// d3 = a0*b3 + a1*b2 + a2*b1 + a3*b0
+	d3_a := a0*b3 + a1*b2
+	d3_b := a2*b1 + a3*b0
+	r3 := uint64(montReduce(d3_a)) + uint64(montReduce(d3_b))
+
+	// d4 = a1*b3 + a2*b2 + a3*b1
+	d4_a := a1*b3 + a2*b2
+	d4_b := a3 * b1
+	r4 := uint64(montReduce(d4_a)) + uint64(montReduce(d4_b))
+
+	// d5 = a2*b3 + a3*b2
+	d5 := a2*b3 + a3*b2
+	r5 := uint64(montReduce(d5))
+
+	// d6 = a3*b3
+	d6 := a3 * b3
+	r6 := uint64(montReduce(d6))
+
+	// c0 = r0 + 3*r4
+	z.A0[0] = reduceSmall(r0 + 3*r4)
+
+	// c1 = r1 + 3*r5
+	z.A1[0] = reduceSmall(r1 + 3*r5)
+
+	// c2 = r2 + 3*r6
+	z.A2[0] = reduceSmall(r2 + 3*r6)
+
+	// c3 = r3
+	z.A3[0] = reduceSmall(r3)
+
+	return z
+}
+
+func montReduce(v uint64) uint32 {
+	m := uint32(v) * qInvNeg
+	t := uint32((v + uint64(m)*uint64(q)) >> 32)
+	if t >= q {
+		t -= q
+	}
+	return t
+}
+
+func reduceSmall(z uint64) uint32 {
+	return uint32(z % uint64(q))
+}
+{{- else}}
+
+
+
 // Mul sets z=x*y in E4D and returns z.
 func (z *E4D) Mul(x, y *E4D) *E4D {
 	return z.mulNaive(x, y)
@@ -215,6 +292,8 @@ func (z *E4D) mulNaive(a, b *E4D) *E4D {
 
 	return z
 }
+
+{{- end }}
 
 // Square sets z=x*x in E4D and returns z.
 func (z *E4D) Square(x *E4D) *E4D {

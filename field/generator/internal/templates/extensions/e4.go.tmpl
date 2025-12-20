@@ -5,6 +5,11 @@ import (
 	fr "{{ .FieldPackagePath }}"
 )
 
+// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+// used for Montgomery reduction
+const qInvNeg = {{.QInvNeg}}
+const q = {{.Q}}
+
 // E4 is a degree two finite field extension of fr2
 type E4 struct {
 	B0, B1 E2
@@ -160,17 +165,75 @@ func (z *E4) MulByNonResidue(x *E4) *E4 {
 
 // Mul sets z=x*y in E4 and returns z
 func (z *E4) Mul(x, y *E4) *E4 {
-	var a, b, c, d E2
-	a.Add(&x.B0, &x.B1)
-	b.Add(&y.B0, &y.B1)
-	d.Mul(&x.B0, &y.B0)
-	c.Mul(&x.B1, &y.B1)
-	a.Mul(&a, &b)
-	var bc E2
-	bc.Add(&d, &c)
-	z.B1.Sub(&a, &bc)
-	z.B0.MulByNonResidue(&c).Add(&z.B0, &d)
-	return z
+	{{- if .IsKoalaBear }} 
+		// Unpack elements to uint64 for accumulation
+		a0 := uint64(x.B0.A0[0])
+		a1 := uint64(x.B1.A0[0])
+		a2 := uint64(x.B0.A1[0])
+		a3 := uint64(x.B1.A1[0])
+
+		b0 := uint64(y.B0.A0[0])
+		b1 := uint64(y.B1.A0[0])
+		b2 := uint64(y.B0.A1[0])
+		b3 := uint64(y.B1.A1[0])
+
+		// d0 = a0*b0
+		d0 := a0 * b0
+		r0 := uint64(montReduce(d0))
+
+		// d1 = a0*b1 + a1*b0
+		d1 := a0*b1 + a1*b0
+		r1 := uint64(montReduce(d1))
+
+		// d2 = a0*b2 + a1*b1 + a2*b0
+		d2_a := a0*b2 + a1*b1
+		d2_b := a2 * b0
+		r2 := uint64(montReduce(d2_a)) + uint64(montReduce(d2_b))
+
+		// d3 = a0*b3 + a1*b2 + a2*b1 + a3*b0
+		d3_a := a0*b3 + a1*b2
+		d3_b := a2*b1 + a3*b0
+		r3 := uint64(montReduce(d3_a)) + uint64(montReduce(d3_b))
+
+		// d4 = a1*b3 + a2*b2 + a3*b1
+		d4_a := a1*b3 + a2*b2
+		d4_b := a3 * b1
+		r4 := uint64(montReduce(d4_a)) + uint64(montReduce(d4_b))
+
+		// d5 = a2*b3 + a3*b2
+		d5 := a2*b3 + a3*b2
+		r5 := uint64(montReduce(d5))
+
+		// d6 = a3*b3
+		d6 := a3 * b3
+		r6 := uint64(montReduce(d6))
+
+		// c0 = r0 + 3*r4
+		z.B0.A0[0] = reduceSmall(r0 + 3*r4)
+
+		// c1 = r1 + 3*r5
+		z.B1.A0[0] = reduceSmall(r1 + 3*r5)
+
+		// c2 = r2 + 3*r6
+		z.B0.A1[0] = reduceSmall(r2 + 3*r6)
+
+		// c3 = r3
+		z.B1.A1[0] = reduceSmall(r3)
+
+		return z
+	{{- else}}
+		var a, b, c, d E2
+		a.Add(&x.B0, &x.B1)
+		b.Add(&y.B0, &y.B1)
+		d.Mul(&x.B0, &y.B0)
+		c.Mul(&x.B1, &y.B1)
+		a.Mul(&a, &b)
+		var bc E2
+		bc.Add(&d, &c)
+		z.B1.Sub(&a, &bc)
+		z.B0.MulByNonResidue(&c).Add(&z.B0, &d)
+		return z
+	{{- end}}
 }
 
 // Square sets z=x*x in E4 and returns z

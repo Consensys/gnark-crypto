@@ -138,72 +138,74 @@ func (z *E4D) IsOne() bool {
 
 // Mul sets z=x*y in E4D and returns z.
 func (z *E4D) Mul(x, y *E4D) *E4D {
-	return z.mulNaive(x, y)
-}
+	// Unpack elements to uint64 for accumulation
+	a0 := uint64(x.A0[0])
+	a1 := uint64(x.A1[0])
+	a2 := uint64(x.A2[0])
+	a3 := uint64(x.A3[0])
 
-// mulNaive is the schoolbook multiplication followed by reduction.
-func (z *E4D) mulNaive(a, b *E4D) *E4D {
-	var d [7]fr.Element
-	var t fr.Element
+	b0 := uint64(y.A0[0])
+	b1 := uint64(y.A1[0])
+	b2 := uint64(y.A2[0])
+	b3 := uint64(y.A3[0])
 
-	// degree 0
-	d[0].Mul(&a.A0, &b.A0)
+	// d0 = a0*b0
+	d0 := a0 * b0
+	r0 := uint64(montReduce(d0))
 
-	// degree 1
-	d[1].Mul(&a.A0, &b.A1)
-	t.Mul(&a.A1, &b.A0)
-	d[1].Add(&d[1], &t)
+	// d1 = a0*b1 + a1*b0
+	d1 := a0*b1 + a1*b0
+	r1 := uint64(montReduce(d1))
 
-	// degree 2
-	d[2].Mul(&a.A0, &b.A2)
-	t.Mul(&a.A1, &b.A1)
-	d[2].Add(&d[2], &t)
-	t.Mul(&a.A2, &b.A0)
-	d[2].Add(&d[2], &t)
+	// d2 = a0*b2 + a1*b1 + a2*b0
+	d2_a := a0*b2 + a1*b1
+	d2_b := a2 * b0
+	r2 := uint64(montReduce(d2_a)) + uint64(montReduce(d2_b))
 
-	// degree 3
-	d[3].Mul(&a.A0, &b.A3)
-	t.Mul(&a.A1, &b.A2)
-	d[3].Add(&d[3], &t)
-	t.Mul(&a.A2, &b.A1)
-	d[3].Add(&d[3], &t)
-	t.Mul(&a.A3, &b.A0)
-	d[3].Add(&d[3], &t)
+	// d3 = a0*b3 + a1*b2 + a2*b1 + a3*b0
+	d3_a := a0*b3 + a1*b2
+	d3_b := a2*b1 + a3*b0
+	r3 := uint64(montReduce(d3_a)) + uint64(montReduce(d3_b))
 
-	// degree 4
-	d[4].Mul(&a.A1, &b.A3)
-	t.Mul(&a.A2, &b.A2)
-	d[4].Add(&d[4], &t)
-	t.Mul(&a.A3, &b.A1)
-	d[4].Add(&d[4], &t)
+	// d4 = a1*b3 + a2*b2 + a3*b1
+	d4_a := a1*b3 + a2*b2
+	d4_b := a3 * b1
+	r4 := uint64(montReduce(d4_a)) + uint64(montReduce(d4_b))
 
-	// degree 5
-	d[5].Mul(&a.A2, &b.A3)
-	t.Mul(&a.A3, &b.A2)
-	d[5].Add(&d[5], &t)
+	// d5 = a2*b3 + a3*b2
+	d5 := a2*b3 + a3*b2
+	r5 := uint64(montReduce(d5))
 
-	// degree 6
-	d[6].Mul(&a.A3, &b.A3)
-	// Reduce using v^4 = 3.
-	var t3 fr.Element
-	t3.Set(&d[4])
-	fr.MulBy3(&t3)
-	d[0].Add(&d[0], &t3)
+	// d6 = a3*b3
+	d6 := a3 * b3
+	r6 := uint64(montReduce(d6))
 
-	t3.Set(&d[5])
-	fr.MulBy3(&t3)
-	d[1].Add(&d[1], &t3)
+	// c0 = r0 + 3*r4
+	z.A0[0] = reduceSmall(r0 + 3*r4)
 
-	t3.Set(&d[6])
-	fr.MulBy3(&t3)
-	d[2].Add(&d[2], &t3)
+	// c1 = r1 + 3*r5
+	z.A1[0] = reduceSmall(r1 + 3*r5)
 
-	z.A0.Set(&d[0])
-	z.A1.Set(&d[1])
-	z.A2.Set(&d[2])
-	z.A3.Set(&d[3])
+	// c2 = r2 + 3*r6
+	z.A2[0] = reduceSmall(r2 + 3*r6)
+
+	// c3 = r3
+	z.A3[0] = reduceSmall(r3)
 
 	return z
+}
+
+func montReduce(v uint64) uint32 {
+	m := uint32(v) * qInvNeg
+	t := uint32((v + uint64(m)*uint64(q)) >> 32)
+	if t >= q {
+		t -= q
+	}
+	return t
+}
+
+func reduceSmall(z uint64) uint32 {
+	return uint32(z % uint64(q))
 }
 
 // Square sets z=x*x in E4D and returns z.

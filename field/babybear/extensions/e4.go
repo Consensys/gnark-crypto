@@ -12,6 +12,11 @@ import (
 	fr "github.com/consensys/gnark-crypto/field/babybear"
 )
 
+// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+// used for Montgomery reduction
+const qInvNeg = 2013265919
+const q = 2013265921
+
 // E4 is a degree two finite field extension of fr2
 type E4 struct {
 	B0, B1 E2
