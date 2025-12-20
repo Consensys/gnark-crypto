@@ -31,14 +31,17 @@ func generateExtensions(F *config.Field, outputDir string) error {
 		F31              bool
 		Q, QInvNeg       uint64
 		IsKoalaBear      bool
+		IsBabyBear       bool
 	}
 
 	isKoalaBear := F.Q[0] == 2130706433
+	isBabyBear := F.Q[0] == 2013265921
 	data := &extensionsTemplateData{
 		FF:               F.PackageName,
 		FieldPackagePath: fieldImportPath,
 		F31:              F.F31,
 		IsKoalaBear:      isKoalaBear,
+		IsBabyBear:       isBabyBear,
 		Q:                F.Q[0],
 		QInvNeg:          F.QInverse[0],
 	}

@@ -244,17 +244,55 @@ func (z *E4) Mul(x, y *E4) *E4 {
 
 // Square sets z=x*x in E4 and returns z
 func (z *E4) Square(x *E4) *E4 {
-	// same as mul, but we remove duplicate add and simplify multiplications with squaring
-	// note: this is more efficient than Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
-	var a, c, d E2
-	a.Add(&x.B0, &x.B1)
-	d.Square(&x.B0)
-	c.Square(&x.B1)
-	a.Square(&a)
-	var bc E2
-	bc.Add(&d, &c)
-	z.B1.Sub(&a, &bc)
-	z.B0.MulByNonResidue(&c).Add(&z.B0, &d)
+	// Unpack elements to uint64 for accumulation
+	a0 := uint64(x.B0.A0[0])
+	a1 := uint64(x.B1.A0[0])
+	a2 := uint64(x.B0.A1[0])
+	a3 := uint64(x.B1.A1[0])
+
+	// d0 = a0*a0
+	d0 := a0 * a0
+	r0 := uint64(montReduce(d0))
+
+	// d1 = 2*a0*a1
+	d1 := a0 * a1
+	d1 = d1 + d1
+	r1 := uint64(montReduce(d1))
+
+	// d2 = 2*a0*a2 + a1*a1
+	d2 := a0 * a2
+	d2 = d2 + d2
+	r2 := uint64(montReduce(d2)) + uint64(montReduce(a1*a1))
+
+	// d3 = 2(a0*a3 + a1*a2)
+	d3 := a0*a3 + a1*a2
+	r3 := uint64(montReduce(d3)) + uint64(montReduce(d3))
+
+	// d4 = 2*a1*a3 + a2*a2
+	d4 := a1 * a3
+	d4 = d4 + d4
+	r4 := uint64(montReduce(d4)) + uint64(montReduce(a2*a2))
+
+	// d5 = 2*a2*a3
+	d5 := a2 * a3
+	d5 = d5 + d5
+	r5 := uint64(montReduce(d5))
+
+	// d6 = a3*a3
+	d6 := a3 * a3
+	r6 := uint64(montReduce(d6))
+
+	// c0 = r0 + 3*r4
+	z.B0.A0[0] = reduceSmall(r0 + 3*r4)
+
+	// c1 = r1 + 3*r5
+	z.B1.A0[0] = reduceSmall(r1 + 3*r5)
+
+	// c2 = r2 + 3*r6
+	z.B0.A1[0] = reduceSmall(r2 + 3*r6)
+
+	// c3 = r3
+	z.B1.A1[0] = reduceSmall(r3)
 
 	return z
 }
