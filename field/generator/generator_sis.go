@@ -10,7 +10,7 @@ import (
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
 	"github.com/consensys/gnark-crypto/field/generator/config"
-	"github.com/consensys/gnark-crypto/field/generator/internal/templates"
+	"github.com/consensys/gnark-crypto/field/generator/template"
 )
 
 func generateSIS(F *config.Field, outputDir string) error {
@@ -83,9 +83,9 @@ func generateSIS(F *config.Field, outputDir string) error {
 		funcs["partialFFT"] = partialFFT
 	}
 
-	g := NewGenerator(templates.FS)
+	g := NewGenerator(template.FS)
 
-	if err := g.GenerateWithOptions(data, "sis", "sis", bavardOpts, entries...); err != nil {
+	if err := g.GenerateWithOptions(data, "sis", "", "sis", bavardOpts, entries...); err != nil {
 		return err
 	}
 

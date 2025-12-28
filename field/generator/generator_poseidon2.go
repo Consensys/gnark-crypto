@@ -7,7 +7,7 @@ import (
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
 	"github.com/consensys/gnark-crypto/field/generator/config"
-	"github.com/consensys/gnark-crypto/field/generator/internal/templates"
+	"github.com/consensys/gnark-crypto/field/generator/template"
 )
 
 func generatePoseidon2(F *config.Field, outputDir string) error {
@@ -130,9 +130,9 @@ func generatePoseidon2(F *config.Field, outputDir string) error {
 		asmFile.Close()
 	}
 
-	g := NewGenerator(templates.FS)
+	g := NewGenerator(template.FS)
 
-	if err := g.Generate(data, "poseidon2", "poseidon2", entries...); err != nil {
+	if err := g.Generate(data, "poseidon2", "", "poseidon2", entries...); err != nil {
 		return err
 	}
 

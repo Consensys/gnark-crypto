@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"os"
 	"os/exec"
@@ -9,8 +10,10 @@ import (
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator"
+	"github.com/consensys/gnark-crypto/field/generator/common"
 	fieldConfig "github.com/consensys/gnark-crypto/field/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
+	configTemplate "github.com/consensys/gnark-crypto/internal/generator/config/template"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/poseidon2"
 	"github.com/consensys/gnark-crypto/internal/generator/ecc"
@@ -18,7 +21,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/edwards"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/fflonk"
-	fri "github.com/consensys/gnark-crypto/internal/generator/fri/template"
+	"github.com/consensys/gnark-crypto/internal/generator/fri"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_curve"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_field"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
@@ -37,7 +40,7 @@ const (
 	copyrightYear   = 2020
 )
 
-var bgen = bavard.NewBatchGenerator(copyrightHolder, copyrightYear, "consensys/gnark-crypto")
+var gen = common.NewGenerator(embed.FS{}, copyrightHolder, copyrightYear, "consensys/gnark-crypto")
 
 //go:generate go run main.go
 func main() {
@@ -83,21 +86,21 @@ func main() {
 			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp"), generator.WithASM(asmConfig)))
 
 			// generate ecdsa
-			assertNoError(ecdsa.Generate(conf, curveDir, bgen))
+			assertNoError(ecdsa.Generate(conf, curveDir, gen))
 
 			if conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256R1) {
 				return // TODO @yelhousni
 			}
 
 			// generate G1, G2, multiExp, ...
-			assertNoError(ecc.Generate(conf, curveDir, bgen))
+			assertNoError(ecc.Generate(conf, curveDir, gen))
 
 			if conf.Equal(config.SECP256K1) {
 				return
 			}
 
 			// generate mimc on fr
-			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), bgen))
+			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), gen))
 
 			// generate polynomial on fr
 			frInfo := fieldConfig.FieldDependency{
@@ -105,10 +108,10 @@ func main() {
 				FieldPackageName: "fr",
 				ElementType:      "fr.Element",
 			}
-			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, bgen))
+			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, gen))
 
 			// generate poseidon2 on fr
-			assertNoError(poseidon2.Generate(conf, filepath.Join(curveDir, "fr", "poseidon2"), bgen))
+			assertNoError(poseidon2.Generate(conf, filepath.Join(curveDir, "fr", "poseidon2"), gen))
 
 			fpInfo := fieldConfig.FieldDependency{
 				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fp",
@@ -117,48 +120,45 @@ func main() {
 			}
 
 			// generate wrapped hash-to-field for both fr and fp
-			assertNoError(hash_to_field.Generate(frInfo, filepath.Join(curveDir, "fr", "hash_to_field"), bgen))
-			assertNoError(hash_to_field.Generate(fpInfo, filepath.Join(curveDir, "fp", "hash_to_field"), bgen))
+			assertNoError(hash_to_field.Generate(frInfo, filepath.Join(curveDir, "fr", "hash_to_field"), gen))
+			assertNoError(hash_to_field.Generate(fpInfo, filepath.Join(curveDir, "fp", "hash_to_field"), gen))
 
 			// generate hash to curve for both G1 and G2
-			assertNoError(hash_to_curve.Generate(conf, curveDir, bgen))
+			assertNoError(hash_to_curve.Generate(conf, curveDir, gen))
 
 			if conf.Equal(config.GRUMPKIN) {
 				return
 			}
 
 			// generate pedersen on fr
-			assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), bgen))
+			assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), gen))
 
 			// generate tower of extension
-			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), bgen))
+			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), gen))
 
 			// generate pairing tests
-			assertNoError(pairing.Generate(conf, curveDir, bgen))
+			assertNoError(pairing.Generate(conf, curveDir, gen))
 
 			// generate fri on fr
-			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
+			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), gen))
 
 			// generate mpc setup tools
-			assertNoError(mpcsetup.Generate(conf, filepath.Join(curveDir, "mpcsetup"), bgen))
+			assertNoError(mpcsetup.Generate(conf, filepath.Join(curveDir, "mpcsetup"), gen))
 
 			// generate kzg on fr
-			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), bgen))
+			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), gen))
 
 			// generate shplonk on fr
-			assertNoError(shplonk.Generate(conf, filepath.Join(curveDir, "shplonk"), bgen))
+			assertNoError(shplonk.Generate(conf, filepath.Join(curveDir, "shplonk"), gen))
 
 			// generate fflonk on fr
-			assertNoError(fflonk.Generate(conf, filepath.Join(curveDir, "fflonk"), bgen))
+			assertNoError(fflonk.Generate(conf, filepath.Join(curveDir, "fflonk"), gen))
 
 			// generate plookup on fr
-			assertNoError(plookup.Generate(conf, filepath.Join(curveDir, "fr", "plookup"), bgen))
+			assertNoError(plookup.Generate(conf, filepath.Join(curveDir, "fr", "plookup"), gen))
 
 			// generate permutation on fr
-			assertNoError(permutation.Generate(conf, filepath.Join(curveDir, "fr", "permutation"), bgen))
-
-			// generate eddsa on companion curves
-			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), bgen))
+			assertNoError(permutation.Generate(conf, filepath.Join(curveDir, "fr", "permutation"), gen))
 
 		}(conf)
 
@@ -172,10 +172,10 @@ func main() {
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name, conf.Package)
 			// generate twisted edwards companion curves
-			assertNoError(edwards.Generate(conf, curveDir, bgen))
+			assertNoError(edwards.Generate(conf, curveDir, gen))
 
 			// generate eddsa on companion curves
-			assertNoError(eddsa.Generate(conf, curveDir, bgen))
+			assertNoError(eddsa.Generate(conf, curveDir, gen))
 		}(conf)
 
 	}
@@ -187,8 +187,8 @@ func main() {
 		entries := []bavard.Entry{
 			{File: filepath.Join(baseDir, "ecc", "ecc_field.go"), Templates: []string{"ecc_field.go.tmpl"}},
 		}
-
-		assertNoError(bgen.Generate(config.Curves, "ecc", "./config/template", entries...))
+		eccFieldGen := common.NewGenerator(configTemplate.FS, copyrightHolder, copyrightYear, "consensys/gnark-crypto")
+		assertNoError(eccFieldGen.Generate(config.Curves, "ecc", "", "", entries...))
 	}
 
 	// format the whole directory

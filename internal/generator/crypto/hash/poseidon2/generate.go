@@ -4,10 +4,12 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/field/generator/common"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
+	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/poseidon2/template"
 )
 
-func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
+func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 	conf.Package = "poseidon2"
 	entries := []bavard.Entry{
 		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
@@ -16,6 +18,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "poseidon2_test.go"), Templates: []string{"poseidon2.test.go.tmpl"}},
 	}
 
-	return bgen.Generate(conf, conf.Package, "./crypto/hash/poseidon2/template", entries...)
+	poseidonGen := common.NewGenerator(template.FS, "Consensys Software Inc.", 2020, "consensys/gnark-crypto")
+	return poseidonGen.Generate(conf, conf.Package, "", "", entries...)
 
 }

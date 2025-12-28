@@ -1,17 +1,15 @@
 package generator
 
 import (
-	"os/exec"
 	"path/filepath"
-	"strings"
-	"text/template"
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
 	"github.com/consensys/gnark-crypto/field/generator/asm/arm64"
+	"github.com/consensys/gnark-crypto/field/generator/common"
 	"github.com/consensys/gnark-crypto/field/generator/config"
 	"github.com/consensys/gnark-crypto/field/generator/internal/addchain"
-	"github.com/consensys/gnark-crypto/field/generator/internal/templates"
+	"github.com/consensys/gnark-crypto/field/generator/template"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -39,23 +37,14 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 		"element/test.go.tmpl",
 		"element/inversetests.go.tmpl",
 	}
-	funcs := template.FuncMap{}
+	funcs := common.Funcs()
 	if F.UseAddChain {
 		for _, f := range addchain.Functions {
 			funcs[f.Name] = f.Func
 		}
 	}
 
-	funcs["shorten"] = func(input string) string {
-		if len(input) > 15 {
-			return input[:6] + "..." + input[len(input)-6:]
-		}
-		return input
-	}
-
-	funcs["ltu64"] = func(a, b uint64) bool {
-		return a < b
-	}
+	gen := NewGenerator(template.FS)
 
 	generate := func(suffix string, templateNames []string, opts ...fieldOption) func() error {
 		opt := fieldOptions(opts...)
@@ -64,20 +53,7 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 		}
 		return func() error {
 			bavardOpts := []func(*bavard.Bavard) error{
-				bavard.Apache2("Consensys Software Inc.", 2020),
-				bavard.GeneratedBy("consensys/gnark-crypto"),
 				bavard.Funcs(funcs),
-			}
-			if !strings.HasSuffix(suffix, ".s") {
-				bavardOpts = append(bavardOpts, bavard.Package(F.PackageName))
-			}
-			if opt.buildTag != "" {
-				bavardOpts = append(bavardOpts, bavard.BuildTag(opt.buildTag))
-			}
-			if suffix == ".go" {
-				suffix = filepath.Join(outputDir, suffix)
-			} else {
-				suffix = filepath.Join(outputDir, suffix)
 			}
 
 			tmplData := any(F)
@@ -85,24 +61,13 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 				tmplData = opt.tmplData
 			}
 
-			// read templates from embed.FS
-			var tmpls []string
-			for _, name := range templateNames {
-				b, err := templates.FS.ReadFile(name)
-				if err != nil {
-					return err
-				}
-				tmpls = append(tmpls, string(b)+"\n")
+			entry := bavard.Entry{
+				File:      suffix,
+				Templates: templateNames,
+				BuildTag:  opt.buildTag,
 			}
 
-			if err := bavard.GenerateFromString(suffix, tmpls, tmplData, bavardOpts...); err != nil {
-				return err
-			}
-			if strings.HasSuffix(suffix, ".go") {
-				// ignore error, goimports might not be installed
-				_ = exec.Command("goimports", "-w", suffix).Run()
-			}
-			return nil
+			return gen.GenerateWithOptions(tmplData, F.PackageName, outputDir, "", bavardOpts, entry)
 		}
 	}
 

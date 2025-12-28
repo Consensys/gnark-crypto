@@ -4,10 +4,12 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/field/generator/common"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
+	"github.com/consensys/gnark-crypto/internal/generator/fri/template/template"
 )
 
-func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
+func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 	// fri commitment scheme
 	conf.Package = "fri"
 	entries := []bavard.Entry{
@@ -15,6 +17,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "fri.go"), Templates: []string{"fri.go.tmpl"}},
 		{File: filepath.Join(baseDir, "fri_test.go"), Templates: []string{"fri.test.go.tmpl"}},
 	}
-	return bgen.Generate(conf, conf.Package, "./fri/template/", entries...)
+	friGen := common.NewGenerator(template.FS, "Consensys Software Inc.", 2020, "consensys/gnark-crypto")
+	return friGen.Generate(conf, conf.Package, "", "", entries...)
 
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
 	"github.com/consensys/gnark-crypto/field/generator/config"
-	"github.com/consensys/gnark-crypto/field/generator/internal/templates"
+	"github.com/consensys/gnark-crypto/field/generator/template"
 )
 
 func generateExtensions(F *config.Field, outputDir string) error {
@@ -44,9 +44,9 @@ func generateExtensions(F *config.Field, outputDir string) error {
 		QInvNeg:          F.QInverse[0],
 	}
 
-	g := NewGenerator(templates.FS)
+	g := NewGenerator(template.FS)
 
-	if err := g.Generate(data, "extensions", "extensions", entries_ext2...); err != nil {
+	if err := g.Generate(data, "extensions", "", "extensions", entries_ext2...); err != nil {
 		return err
 	}
 	if F.F31 {
@@ -61,7 +61,7 @@ func generateExtensions(F *config.Field, outputDir string) error {
 			entries_ext4 = append(entries_ext4, bavard.Entry{File: filepath.Join(outputDir, "e4_purego.go"), Templates: []string{"e4.purego.go.tmpl"}, BuildTag: "purego || (!amd64)"})
 		}
 
-		if err := g.Generate(data, "extensions", "extensions", entries_ext4...); err != nil {
+		if err := g.Generate(data, "extensions", "", "extensions", entries_ext4...); err != nil {
 			return err
 		}
 

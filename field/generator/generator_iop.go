@@ -5,7 +5,7 @@ import (
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator/config"
-	"github.com/consensys/gnark-crypto/field/generator/internal/templates"
+	"github.com/consensys/gnark-crypto/field/generator/template"
 )
 
 func generateIOP(F *config.Field, outputDir string) error {
@@ -30,7 +30,7 @@ func generateIOP(F *config.Field, outputDir string) error {
 		{File: filepath.Join(outputDir, "utils.go"), Templates: []string{"utils.go.tmpl"}},
 	}
 
-	g := NewGenerator(templates.FS)
+	g := NewGenerator(template.FS)
 
 	fieldInfo := config.FieldDependency{
 		FieldPackagePath: fieldImportPath,
@@ -38,7 +38,7 @@ func generateIOP(F *config.Field, outputDir string) error {
 		ElementType:      F.PackageName + ".Element",
 	}
 
-	if err := g.Generate(fieldInfo, "iop", "iop", entries...); err != nil {
+	if err := g.Generate(fieldInfo, "iop", "", "iop", entries...); err != nil {
 		return err
 	}
 

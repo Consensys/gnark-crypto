@@ -3,18 +3,22 @@ package hash_to_curve
 import (
 	"errors"
 	"fmt"
-	"html/template"
 	"os"
 	"path/filepath"
 	"strings"
+	txttmpl "text/template"
 
 	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/field/generator/common"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
+	"github.com/consensys/gnark-crypto/internal/generator/hash_to_curve/template"
 )
 
-func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
+func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 	packageName := strings.ReplaceAll(conf.Name, "-", "")
 	htcPackageName := "hash_to_curve"
+
+	htcGen := common.NewGenerator(template.FS, "Consensys Software Inc.", 2020, "consensys/gnark-crypto")
 
 	// hash To curve
 	genHashToCurve := func(point *config.Point, suite config.HashSuite) error {
@@ -42,13 +46,13 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 			)
 		}
 
-		funcs := make(template.FuncMap)
+		funcs := make(txttmpl.FuncMap)
 		funcs["asElement"] = hashConf.Field.Base.WriteElement
 		bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
 
 		return errors.Join(
-			bgen.GenerateWithOptions(hashConf, packageName, "./hash_to_curve/template", bavardOpts, entries...),
-			bgen.GenerateWithOptions(hashConf, htcPackageName, "./hash_to_curve/template", bavardOpts, htcEntries...),
+			htcGen.GenerateWithOptions(hashConf, packageName, "", "", bavardOpts, entries...),
+			htcGen.GenerateWithOptions(hashConf, htcPackageName, "", "", bavardOpts, htcEntries...),
 		)
 	}
 

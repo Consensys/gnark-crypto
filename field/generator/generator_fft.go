@@ -10,7 +10,7 @@ import (
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
 	"github.com/consensys/gnark-crypto/field/generator/config"
-	"github.com/consensys/gnark-crypto/field/generator/internal/templates"
+	"github.com/consensys/gnark-crypto/field/generator/template"
 	eccconfig "github.com/consensys/gnark-crypto/internal/generator/config"
 )
 
@@ -98,9 +98,9 @@ func generateFFT(F *config.Field, fft *config.FFT, outputDir string) error {
 
 	bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
 
-	g := NewGenerator(templates.FS)
+	g := NewGenerator(template.FS)
 
-	if err := g.GenerateWithOptions(data, "fft", "fft", bavardOpts, entries...); err != nil {
+	if err := g.GenerateWithOptions(data, "fft", "", "fft", bavardOpts, entries...); err != nil {
 		return err
 	}
 
@@ -111,7 +111,7 @@ func generateFFT(F *config.Field, fft *config.FFT, outputDir string) error {
 	}
 	fieldNameSplitted := strings.Split(data.FieldPackagePath, "/")
 	fieldName := fieldNameSplitted[len(fieldNameSplitted)-1]
-	if err := g.GenerateWithOptions(data, fieldName, "fft", bavardOpts, entries...); err != nil {
+	if err := g.GenerateWithOptions(data, fieldName, "", "fft", bavardOpts, entries...); err != nil {
 		return err
 	}
 
