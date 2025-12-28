@@ -1,7 +1,3 @@
-package element
-
-const Sqrt = `
-
 {{ if not .UseAddChain}}
 var (
 	_bLegendreExponent{{.ElementName}} *big.Int
@@ -360,6 +356,3 @@ func (z *{{.ElementName}}) Sqrt(x *{{.ElementName}}) *{{.ElementName}} {
 		panic("not implemented")
 	{{- end}}
 }
-
-
-`

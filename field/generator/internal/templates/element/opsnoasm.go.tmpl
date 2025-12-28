@@ -1,7 +1,3 @@
-package element
-
-const OpsNoAsm = `
-
 {{- if not .F31}}
 import "math/bits"
 {{- end}}
@@ -131,5 +127,3 @@ func (z *{{.ElementName}}) Square(x *{{.ElementName}}) *{{.ElementName}} {
 func Butterfly(a, b *{{.ElementName}}) {
 	_butterflyGeneric(a, b)
 }
-
-`

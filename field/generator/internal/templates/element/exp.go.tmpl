@@ -1,6 +1,3 @@
-package element
-
-const Exp = `
 // Exp z = xᵏ (mod q)
 func (z *{{.ElementName}}) Exp(x {{.ElementName}}, k *big.Int) *{{.ElementName}} {
 	{{- if .F31}}
@@ -65,5 +62,3 @@ func (z *{{.ElementName}}) ExpInt64(x {{.ElementName}}, k int64) *{{.ElementName
 	return z
 }
 {{- end}}
-
-`

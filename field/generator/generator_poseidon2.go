@@ -7,6 +7,7 @@ import (
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
 	"github.com/consensys/gnark-crypto/field/generator/config"
+	"github.com/consensys/gnark-crypto/field/generator/internal/templates"
 )
 
 func generatePoseidon2(F *config.Field, outputDir string) error {
@@ -129,15 +130,9 @@ func generatePoseidon2(F *config.Field, outputDir string) error {
 		asmFile.Close()
 	}
 
-	bgen := bavard.NewBatchGenerator("Consensys Software Inc.", 2020, "consensys/gnark-crypto")
+	g := NewGenerator(templates.FS)
 
-	poseidon2TemplatesRootDir, err := findTemplatesRootDir()
-	if err != nil {
-		return err
-	}
-	poseidon2TemplatesRootDir = filepath.Join(poseidon2TemplatesRootDir, "poseidon2")
-
-	if err := bgen.GenerateWithOptions(data, "poseidon2", poseidon2TemplatesRootDir, nil, entries...); err != nil {
+	if err := g.Generate(data, "poseidon2", "poseidon2", entries...); err != nil {
 		return err
 	}
 

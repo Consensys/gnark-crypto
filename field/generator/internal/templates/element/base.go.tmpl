@@ -1,7 +1,3 @@
-package element
-
-const Base = `
-
 import (
 	"math/big"
 	"math/bits"
@@ -716,7 +712,3 @@ func Hash(msg, dst []byte, count int) ([]{{.ElementName}}, error) {
 	{{- end}}
 	{{$.V}}[{{$lastIndex}}] >>= 1
 {{ end }}
-
-
-
-`

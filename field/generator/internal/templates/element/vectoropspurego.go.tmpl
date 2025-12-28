@@ -1,6 +1,3 @@
-package element
-
-const VectorOpsPureGo = `
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
@@ -37,5 +34,3 @@ func (vector *Vector) InnerProduct(other Vector) (res {{.ElementName}}) {
 func (vector *Vector) Mul(a, b Vector) {
 	mulVecGeneric(*vector, a, b)
 }
-
-`

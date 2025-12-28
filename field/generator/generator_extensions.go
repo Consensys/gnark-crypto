@@ -7,6 +7,7 @@ import (
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
 	"github.com/consensys/gnark-crypto/field/generator/config"
+	"github.com/consensys/gnark-crypto/field/generator/internal/templates"
 )
 
 func generateExtensions(F *config.Field, outputDir string) error {
@@ -43,15 +44,9 @@ func generateExtensions(F *config.Field, outputDir string) error {
 		QInvNeg:          F.QInverse[0],
 	}
 
-	bgen := bavard.NewBatchGenerator("Consensys Software Inc.", 2020, "consensys/gnark-crypto")
+	g := NewGenerator(templates.FS)
 
-	extensionsTemplatesRootDir, err := findTemplatesRootDir()
-	if err != nil {
-		return err
-	}
-	extensionsTemplatesRootDir = filepath.Join(extensionsTemplatesRootDir, "extensions")
-
-	if err := bgen.GenerateWithOptions(data, "extensions", extensionsTemplatesRootDir, nil, entries_ext2...); err != nil {
+	if err := g.Generate(data, "extensions", "extensions", entries_ext2...); err != nil {
 		return err
 	}
 	if F.F31 {
@@ -66,7 +61,7 @@ func generateExtensions(F *config.Field, outputDir string) error {
 			entries_ext4 = append(entries_ext4, bavard.Entry{File: filepath.Join(outputDir, "e4_purego.go"), Templates: []string{"e4.purego.go.tmpl"}, BuildTag: "purego || (!amd64)"})
 		}
 
-		if err := bgen.GenerateWithOptions(data, "extensions", extensionsTemplatesRootDir, nil, entries_ext4...); err != nil {
+		if err := g.Generate(data, "extensions", "extensions", entries_ext4...); err != nil {
 			return err
 		}
 

@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -10,7 +11,7 @@ import (
 	"github.com/consensys/gnark-crypto/field/generator/asm/arm64"
 	"github.com/consensys/gnark-crypto/field/generator/config"
 	"github.com/consensys/gnark-crypto/field/generator/internal/addchain"
-	"github.com/consensys/gnark-crypto/field/generator/internal/templates/element"
+	"github.com/consensys/gnark-crypto/field/generator/internal/templates"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -18,25 +19,25 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 
 	// source file templates
 	sourceFiles := []string{
-		element.Base,
-		element.Reduce,
-		element.Exp,
-		element.Conv,
-		element.MulDoc,
-		element.MulCIOS,
-		element.MulNoCarry,
-		element.Sqrt,
-		element.Inverse,
-		element.BigNum,
+		"element/base.go.tmpl",
+		"element/reduce.go.tmpl",
+		"element/exp.go.tmpl",
+		"element/conv.go.tmpl",
+		"element/muldoc.go.tmpl",
+		"element/mulcios.go.tmpl",
+		"element/mulnocarry.go.tmpl",
+		"element/sqrt.go.tmpl",
+		"element/inverse.go.tmpl",
+		"element/bignum.go.tmpl",
 	}
 
 	// test file templates
 	testFiles := []string{
-		element.MulCIOS,
-		element.MulNoCarry,
-		element.Reduce,
-		element.Test,
-		element.InverseTests,
+		"element/mulcios.go.tmpl",
+		"element/mulnocarry.go.tmpl",
+		"element/reduce.go.tmpl",
+		"element/test.go.tmpl",
+		"element/inversetests.go.tmpl",
 	}
 	funcs := template.FuncMap{}
 	if F.UseAddChain {
@@ -56,7 +57,7 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 		return a < b
 	}
 
-	generate := func(suffix string, templates []string, opts ...fieldOption) func() error {
+	generate := func(suffix string, templateNames []string, opts ...fieldOption) func() error {
 		opt := fieldOptions(opts...)
 		if opt.skip {
 			return func() error { return nil }
@@ -84,7 +85,24 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 				tmplData = opt.tmplData
 			}
 
-			return bavard.GenerateFromString(suffix, templates, tmplData, bavardOpts...)
+			// read templates from embed.FS
+			var tmpls []string
+			for _, name := range templateNames {
+				b, err := templates.FS.ReadFile(name)
+				if err != nil {
+					return err
+				}
+				tmpls = append(tmpls, string(b)+"\n")
+			}
+
+			if err := bavard.GenerateFromString(suffix, tmpls, tmplData, bavardOpts...); err != nil {
+				return err
+			}
+			if strings.HasSuffix(suffix, ".go") {
+				// ignore error, goimports might not be installed
+				_ = exec.Command("goimports", "-w", suffix).Run()
+			}
+			return nil
 		}
 	}
 
@@ -148,29 +166,29 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 	var g errgroup.Group
 
 	g.Go(generate("element.go", sourceFiles))
-	g.Go(generate("doc.go", []string{element.Doc}))
-	g.Go(generate("vector.go", []string{element.Vector}))
-	g.Go(generate("arith.go", []string{element.Arith}, only(!F.F31)))
+	g.Go(generate("doc.go", []string{"element/doc.go.tmpl"}))
+	g.Go(generate("vector.go", []string{"element/vector.go.tmpl"}))
+	g.Go(generate("arith.go", []string{"element/arith.go.tmpl"}, only(!F.F31)))
 	g.Go(generate("element_test.go", testFiles))
-	g.Go(generate("vector_test.go", []string{element.TestVector}))
+	g.Go(generate("vector_test.go", []string{"element/testvector.go.tmpl"}))
 
-	g.Go(generate("element_amd64.s", []string{element.IncludeASM}, only(F.GenerateOpsAMD64 && hashAMD64 != ""), withBuildTag("!purego"), withData(amd64d)))
-	g.Go(generate("element_arm64.s", []string{element.IncludeASM}, only(F.GenerateOpsARM64 && hashArm64 != ""), withBuildTag("!purego"), withData(arm64d)))
+	g.Go(generate("element_amd64.s", []string{"element/asm_include.s.tmpl"}, only(F.GenerateOpsAMD64 && hashAMD64 != ""), withBuildTag("!purego"), withData(amd64d)))
+	g.Go(generate("element_arm64.s", []string{"element/asm_include.s.tmpl"}, only(F.GenerateOpsARM64 && hashArm64 != ""), withBuildTag("!purego"), withData(arm64d)))
 
-	g.Go(generate("element_amd64.go", []string{element.OpsAMD64, element.MulDoc}, only(F.GenerateOpsAMD64 && !F.F31 && hashAMD64 != ""), withBuildTag("!purego")))
-	g.Go(generate("element_arm64.go", []string{element.OpsARM64, element.MulNoCarry, element.Reduce}, only(F.GenerateOpsARM64 && !F.F31 && hashArm64 != ""), withBuildTag("!purego")))
+	g.Go(generate("element_amd64.go", []string{"element/opsamd64.go.tmpl", "element/muldoc.go.tmpl"}, only(F.GenerateOpsAMD64 && !F.F31 && hashAMD64 != ""), withBuildTag("!purego")))
+	g.Go(generate("element_arm64.go", []string{"element/opsarm64.go.tmpl", "element/mulnocarry.go.tmpl", "element/reduce.go.tmpl"}, only(F.GenerateOpsARM64 && !F.F31 && hashArm64 != ""), withBuildTag("!purego")))
 
-	g.Go(generate("element_purego.go", []string{element.OpsNoAsm, element.MulCIOS, element.MulNoCarry, element.Reduce, element.MulDoc}, withBuildTag(pureGoBuildTag)))
+	g.Go(generate("element_purego.go", []string{"element/opsnoasm.go.tmpl", "element/mulcios.go.tmpl", "element/mulnocarry.go.tmpl", "element/reduce.go.tmpl", "element/muldoc.go.tmpl"}, withBuildTag(pureGoBuildTag)))
 
-	g.Go(generate("vector_amd64.go", []string{element.VectorOpsAmd64}, only(F.GenerateVectorOpsAMD64 && !F.F31 && hashAMD64 != ""), withBuildTag("!purego")))
-	g.Go(generate("vector_amd64.go", []string{element.VectorOpsAmd64F31}, only(F.GenerateVectorOpsAMD64 && F.F31 && hashAMD64 != ""), withBuildTag("!purego")))
-	g.Go(generate("vector_arm64.go", []string{element.VectorOpsArm64}, only(F.GenerateVectorOpsARM64 && !F.F31 && hashArm64 != ""), withBuildTag("!purego")))
-	g.Go(generate("vector_arm64.go", []string{element.VectorOpsArm64F31}, only(F.GenerateVectorOpsARM64 && F.F31 && hashArm64 != ""), withBuildTag("!purego")))
+	g.Go(generate("vector_amd64.go", []string{"element/vectoropsamd64.go.tmpl"}, only(F.GenerateVectorOpsAMD64 && !F.F31 && hashAMD64 != ""), withBuildTag("!purego")))
+	g.Go(generate("vector_amd64.go", []string{"element/vectoropsamd64f31.go.tmpl"}, only(F.GenerateVectorOpsAMD64 && F.F31 && hashAMD64 != ""), withBuildTag("!purego")))
+	g.Go(generate("vector_arm64.go", []string{"element/vectoropspurego.go.tmpl"}, only(F.GenerateVectorOpsARM64 && !F.F31 && hashArm64 != ""), withBuildTag("!purego")))
+	g.Go(generate("vector_arm64.go", []string{"element/vectoropsarm64f31.go.tmpl"}, only(F.GenerateVectorOpsARM64 && F.F31 && hashArm64 != ""), withBuildTag("!purego")))
 
-	g.Go(generate("vector_purego.go", []string{element.VectorOpsPureGo}, withBuildTag(pureGoVectorBuildTag)))
+	g.Go(generate("vector_purego.go", []string{"element/vectoropspurego.go.tmpl"}, withBuildTag(pureGoVectorBuildTag)))
 
 	if F.UseAddChain {
-		g.Go(generate("element_exp.go", []string{element.FixedExp}))
+		g.Go(generate("element_exp.go", []string{"element/fixedexp.go.tmpl"}))
 	}
 
 	return g.Wait()

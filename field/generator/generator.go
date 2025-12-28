@@ -1,14 +1,68 @@
 package generator
 
 import (
+	"embed"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator/config"
 )
+
+type Generator struct {
+	fs embed.FS
+}
+
+func NewGenerator(fs embed.FS) *Generator {
+	return &Generator{
+		fs: fs,
+	}
+}
+
+func (g *Generator) Generate(data interface{}, packageName string, rootDir string, entries ...bavard.Entry) error {
+	return g.GenerateWithOptions(data, packageName, rootDir, nil, entries...)
+}
+
+func (g *Generator) GenerateWithOptions(data interface{}, packageName string, rootDir string, opts []func(*bavard.Bavard) error, entries ...bavard.Entry) error {
+	for _, entry := range entries {
+		var tmpls []string
+		for _, t := range entry.Templates {
+			path := t
+			if rootDir != "" {
+				path = filepath.Join(rootDir, t)
+			}
+			b, err := g.fs.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			tmpls = append(tmpls, string(b)+"\n")
+		}
+
+		bavardOpts := []func(*bavard.Bavard) error{
+			bavard.Apache2("Consensys Software Inc.", 2020),
+			bavard.GeneratedBy("consensys/gnark-crypto"),
+		}
+		if !strings.HasSuffix(entry.File, ".s") {
+			bavardOpts = append(bavardOpts, bavard.Package(packageName))
+		}
+		bavardOpts = append(bavardOpts, opts...)
+		if entry.BuildTag != "" {
+			bavardOpts = append(bavardOpts, bavard.BuildTag(entry.BuildTag))
+		}
+
+		if err := bavard.GenerateFromString(entry.File, tmpls, data, bavardOpts...); err != nil {
+			return err
+		}
+		if strings.HasSuffix(entry.File, ".go") {
+			// ignore error, goimports might not be installed
+			_ = exec.Command("goimports", "-w", entry.File).Run()
+		}
+	}
+	return nil
+}
 
 func GenerateFF(F *config.Field, outputDir string, options ...Option) error {
 

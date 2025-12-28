@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"errors"
 	"fmt"
 	"math/bits"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
 	"github.com/consensys/gnark-crypto/field/generator/config"
+	"github.com/consensys/gnark-crypto/field/generator/internal/templates"
 	eccconfig "github.com/consensys/gnark-crypto/internal/generator/config"
 )
 
@@ -98,15 +98,9 @@ func generateFFT(F *config.Field, fft *config.FFT, outputDir string) error {
 
 	bavardOpts := []func(*bavard.Bavard) error{bavard.Funcs(funcs)}
 
-	bgen := bavard.NewBatchGenerator("Consensys Software Inc.", 2020, "consensys/gnark-crypto")
+	g := NewGenerator(templates.FS)
 
-	fftTemplatesRootDir, err := findTemplatesRootDir()
-	if err != nil {
-		return err
-	}
-	fftTemplatesRootDir = filepath.Join(fftTemplatesRootDir, "fft")
-
-	if err := bgen.GenerateWithOptions(data, "fft", fftTemplatesRootDir, bavardOpts, entries...); err != nil {
+	if err := g.GenerateWithOptions(data, "fft", "fft", bavardOpts, entries...); err != nil {
 		return err
 	}
 
@@ -117,7 +111,7 @@ func generateFFT(F *config.Field, fft *config.FFT, outputDir string) error {
 	}
 	fieldNameSplitted := strings.Split(data.FieldPackagePath, "/")
 	fieldName := fieldNameSplitted[len(fieldNameSplitted)-1]
-	if err := bgen.GenerateWithOptions(data, fieldName, fftTemplatesRootDir, bavardOpts, entries...); err != nil {
+	if err := g.GenerateWithOptions(data, fieldName, "fft", bavardOpts, entries...); err != nil {
 		return err
 	}
 
@@ -134,31 +128,6 @@ type fftTemplateData struct {
 	Package          string // package name
 	Q, QInvNeg       uint64
 	F31              bool
-}
-
-func findTemplatesRootDir() (string, error) {
-	// walks through the directory tree to find the templates root dir;
-	// we find the dir with go.mod file, then go up to field/generator/internal/templates
-	// this is a bit hacky, but it works
-
-	// find the dir with go.mod file
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			break
-		}
-		dir = filepath.Dir(dir)
-		if dir == "/" || dir == "." {
-			return "", errors.New("could not find templates root dir")
-		}
-	}
-
-	return filepath.Join(dir, "field/generator/internal/templates"), nil
-
 }
 
 func anyToUint64(x any) uint64 {

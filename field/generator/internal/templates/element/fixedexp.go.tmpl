@@ -1,7 +1,3 @@
-package element
-
-const FixedExp = `
-
 {{- if .SqrtQ3Mod4}}
 	{{expByAddChain "SqrtPp1o4" .SqrtQ3Mod4ExponentData .ElementName}}
 	{{expByAddChain "SqrtPm3o4" .SqrtQ3Mod4ExponentData2 .ElementName}}
@@ -73,9 +69,3 @@ func (z *{{.eName}}) ExpBy{{$.name}}(x {{.eName}}) *{{.eName}} {
 }
 
 {{end}}
-
-
-
-
-
-`

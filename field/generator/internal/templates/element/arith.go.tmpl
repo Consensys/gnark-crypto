@@ -1,6 +1,3 @@
-package element
-
-const Arith = `
 import (
 	"math/bits"
 )
@@ -44,6 +41,3 @@ func madd3(a, b, c, d, e uint64) (hi uint64, lo uint64) {
 	hi, _ = bits.Add64(hi, e, carry)
 	return
 }
-
-
-`
