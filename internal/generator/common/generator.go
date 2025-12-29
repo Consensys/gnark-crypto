@@ -105,5 +105,14 @@ func RunFormatters(outputDir string) error {
 			return fmt.Errorf("asmfmt failed: %v\n%s", err, out.String())
 		}
 	}
+	{
+		// run goimports on whole directory
+		cmd := exec.Command("goimports", "-w", outputDir)
+		cmd.Stdout = &out
+		cmd.Stderr = &out
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("goimports failed: %v\n%s", err, out.String())
+		}
+	}
 	return nil
 }
