@@ -105,7 +105,6 @@ func generateFFT(F *config.Field, fft *config.FFT, outputDir string) error {
 	}
 
 	// put the generator in the parent dir (fr)
-	// TODO this should be in goff
 	entries = []bavard.Entry{
 		{File: filepath.Join(outputDir, "../generator.go"), Templates: []string{"fr.generator.go.tmpl"}},
 	}

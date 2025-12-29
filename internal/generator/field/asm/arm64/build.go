@@ -45,7 +45,7 @@ type FFArm64 struct {
 	mDefines             map[string]defineFn
 }
 
-// GenerateCommonASM generates assembly code for the base field provided to goff
+// GenerateCommonASM generates assembly code for the base field provided to the generator
 // see internal/templates/ops*
 func GenerateCommonASM(w io.Writer, nbWords, nbBits int, hasVector bool) error {
 	f := NewFFArm64(w, nbWords)
