@@ -45,18 +45,39 @@ var gen = common.NewDefaultGenerator(embed.FS{})
 //go:generate go run main.go
 func main() {
 
-	baseDir := filepath.Join("..", "..")
+	baseDir, err := filepath.Abs(filepath.Join("..", ".."))
+	assertNoError(err)
 	// first we loop through the field arithmetic we must generate.
 	// then, we create the common files (only once) for the assembly code.
 	asmDirBuildPath := filepath.Join(baseDir, "field", "asm")
-	asmDirIncludePath := filepath.Join(baseDir, "..", "field", "asm")
 
-	asmConfig := &fieldConfig.Assembly{BuildDir: asmDirBuildPath, IncludeDir: asmDirIncludePath}
 	// this enable the generation of fft functions;
 	// the parameters are hard coded in a lookup table for now for the modulus we use.
 	fftConfig := &fieldConfig.FFT{}
 
 	var wg sync.WaitGroup
+
+	for _, conf := range config.Fields {
+		wg.Add(1)
+		go func(f config.Field) {
+			defer wg.Done()
+			fc, err := fieldConfig.NewFieldConfig(f.Name, "Element", f.Modulus, true)
+			assertNoError(err)
+			outputDir := filepath.Join(baseDir, "field", f.Name)
+			relAsmDir, err := filepath.Rel(outputDir, asmDirBuildPath)
+			assertNoError(err)
+			asmConfig := &fieldConfig.Assembly{BuildDir: asmDirBuildPath, IncludeDir: relAsmDir}
+			assertNoError(field.GenerateFF(fc, outputDir,
+				field.WithASM(asmConfig),
+				field.WithFFT(fftConfig),
+				field.WithSIS(),
+				field.WithPoseidon2(),
+				field.WithExtensions(),
+				field.WithIOP(),
+			))
+		}(conf)
+	}
+
 	for _, conf := range config.Curves {
 		wg.Add(1)
 		// for each curve, generate the needed files
@@ -75,15 +96,34 @@ func main() {
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
-			frOpts := []field.Option{field.WithASM(asmConfig)}
-			if !(conf.Equal(config.SECP256R1) || conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) { // nolint QF1001
-				frOpts = append(frOpts, field.WithFFT(fftConfig), field.WithIOP())
+			// fp
+			{
+				outputDir := filepath.Join(curveDir, "fp")
+				relAsmDir, err := filepath.Rel(outputDir, asmDirBuildPath)
+				assertNoError(err)
+				asmConfig := &fieldConfig.Assembly{BuildDir: asmDirBuildPath, IncludeDir: relAsmDir}
+				assertNoError(field.GenerateFF(conf.Fp, outputDir,
+					field.WithASM(asmConfig),
+				))
 			}
-			if conf.Equal(config.BLS12_377) {
-				frOpts = append(frOpts, field.WithSIS())
+
+			// fr
+			{
+				outputDir := filepath.Join(curveDir, "fr")
+				relAsmDir, err := filepath.Rel(outputDir, asmDirBuildPath)
+				assertNoError(err)
+				asmConfig := &fieldConfig.Assembly{BuildDir: asmDirBuildPath, IncludeDir: relAsmDir}
+
+				frOpts := []field.Option{field.WithASM(asmConfig)}
+				if !(conf.Equal(config.SECP256R1) || conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) { // nolint QF1001
+					frOpts = append(frOpts, field.WithFFT(fftConfig), field.WithIOP())
+				}
+				if conf.Equal(config.BLS12_377) {
+					frOpts = append(frOpts, field.WithSIS())
+				}
+
+				assertNoError(field.GenerateFF(conf.Fr, outputDir, frOpts...))
 			}
-			assertNoError(field.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr"), frOpts...))
-			assertNoError(field.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp"), field.WithASM(asmConfig)))
 
 			// generate ecdsa
 			assertNoError(ecdsa.Generate(conf, curveDir, gen))
