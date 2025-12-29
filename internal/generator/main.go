@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/internal/generator/common"
@@ -42,8 +43,15 @@ const (
 
 var gen = common.NewDefaultGenerator(embed.FS{})
 
+var (
+	stopOnce    sync.Once
+	stopSpinner = make(chan struct{})
+)
+
 //go:generate go run main.go
 func main() {
+	start := time.Now()
+	go spinner(stopSpinner)
 
 	baseDir, err := filepath.Abs(filepath.Join("..", ".."))
 	assertNoError(err)
@@ -247,11 +255,31 @@ func main() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())
+
+	stopOnce.Do(func() { close(stopSpinner) })
+	fmt.Fprintf(os.Stderr, "\r\033[Kgenerated %d files in %s\n", gen.FilesCount(), time.Since(start))
+}
+
+func spinner(stop chan struct{}) {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	chars := []rune{'|', '/', '-', '\\'}
+	i := 0
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			fmt.Fprintf(os.Stderr, "\r\033[Kgenerating files ... %c", chars[i%len(chars)])
+			i++
+		}
+	}
 }
 
 func assertNoError(err error) {
 	if err != nil {
-		fmt.Printf("\n%s\n", err.Error())
+		stopOnce.Do(func() { close(stopSpinner) })
+		fmt.Fprintf(os.Stderr, "\n%s\n", err.Error())
 		os.Exit(-1)
 	}
 }

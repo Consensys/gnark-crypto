@@ -44,7 +44,7 @@ func generateARM64(F *config.Field, asm *config.Assembly) (string, error) {
 	lockARM64.Lock()
 	defer lockARM64.Unlock()
 
-	fmt.Println("generating", pathSrc)
+	// fmt.Println("generating", pathSrc)
 	f, err := os.Create(pathSrc)
 	if err != nil {
 		return "", err
@@ -129,7 +129,7 @@ func generateAMD64(F *config.Field, asm *config.Assembly) (string, error) {
 	lockAMD64.Lock()
 	defer lockAMD64.Unlock()
 
-	fmt.Println("generating", pathSrc)
+	// fmt.Println("generating", pathSrc)
 	f, err := os.Create(pathSrc)
 	if err != nil {
 		return "", err

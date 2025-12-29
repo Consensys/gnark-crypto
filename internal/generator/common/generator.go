@@ -6,8 +6,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"github.com/consensys/bavard"
+)
+
+var (
+	filesCount uint64
 )
 
 // Generator is a wrapper around bavard.BatchGenerator that handles embed.FS and goimports/asmfmt
@@ -16,6 +21,10 @@ type Generator struct {
 	copyrightHolder string
 	copyrightYear   int
 	generatedBy     string
+}
+
+func (g *Generator) FilesCount() uint64 {
+	return atomic.LoadUint64(&filesCount)
 }
 
 // NewGenerator returns a new Generator
@@ -58,6 +67,9 @@ func (g *Generator) GenerateWithOptions(data interface{}, packageName string, ou
 			bavard.Apache2(g.copyrightHolder, g.copyrightYear),
 			bavard.GeneratedBy(g.generatedBy),
 			bavard.Funcs(Funcs()),
+			bavard.Verbose(false),
+			bavard.Import(false),
+			bavard.Format(false), // we run formatters on the whole directory at the end
 		}
 		if !strings.HasSuffix(entry.File, ".s") {
 			bavardOpts = append(bavardOpts, bavard.Package(packageName))
@@ -75,6 +87,7 @@ func (g *Generator) GenerateWithOptions(data interface{}, packageName string, ou
 		if err := bavard.GenerateFromString(outputFile, tmpls, data, bavardOpts...); err != nil {
 			return err
 		}
+		atomic.AddUint64(&filesCount, 1)
 		// we format the whole directory when done, no need to do it file by file
 		// if strings.HasSuffix(outputFile, ".go") {
 		// 	_ = exec.Command("goimports", "-w", outputFile).Run()
