@@ -75,11 +75,12 @@ func (g *Generator) GenerateWithOptions(data interface{}, packageName string, ou
 		if err := bavard.GenerateFromString(outputFile, tmpls, data, bavardOpts...); err != nil {
 			return err
 		}
-		if strings.HasSuffix(outputFile, ".go") {
-			_ = exec.Command("goimports", "-w", outputFile).Run()
-		} else if strings.HasSuffix(outputFile, ".s") {
-			_ = exec.Command("asmfmt", "-w", outputFile).Run()
-		}
+		// we format the whole directory when done, no need to do it file by file
+		// if strings.HasSuffix(outputFile, ".go") {
+		// 	_ = exec.Command("goimports", "-w", outputFile).Run()
+		// } else if strings.HasSuffix(outputFile, ".s") {
+		// 	_ = exec.Command("asmfmt", "-w", outputFile).Run()
+		// }
 	}
 	return nil
 }
