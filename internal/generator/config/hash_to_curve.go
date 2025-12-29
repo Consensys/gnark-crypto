@@ -3,7 +3,7 @@ package config
 import (
 	"math/big"
 
-	field "github.com/consensys/gnark-crypto/field/generator/config"
+	field "github.com/consensys/gnark-crypto/internal/generator/field/config"
 )
 
 type FieldElementToCurvePoint string

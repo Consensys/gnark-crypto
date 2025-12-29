@@ -9,9 +9,7 @@ import (
 	"sync"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/field/generator"
-	"github.com/consensys/gnark-crypto/field/generator/common"
-	fieldConfig "github.com/consensys/gnark-crypto/field/generator/config"
+	"github.com/consensys/gnark-crypto/internal/generator/common"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	configTemplate "github.com/consensys/gnark-crypto/internal/generator/config/template"
 	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc"
@@ -21,6 +19,8 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/edwards"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/eddsa"
 	"github.com/consensys/gnark-crypto/internal/generator/fflonk"
+	"github.com/consensys/gnark-crypto/internal/generator/field"
+	fieldConfig "github.com/consensys/gnark-crypto/internal/generator/field/config"
 	"github.com/consensys/gnark-crypto/internal/generator/fri"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_curve"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_field"
@@ -40,7 +40,7 @@ const (
 	copyrightYear   = 2020
 )
 
-var gen = common.NewGenerator(embed.FS{}, copyrightHolder, copyrightYear, "consensys/gnark-crypto")
+var gen = common.NewDefaultGenerator(embed.FS{})
 
 //go:generate go run main.go
 func main() {
@@ -75,15 +75,15 @@ func main() {
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
 
-			frOpts := []generator.Option{generator.WithASM(asmConfig)}
+			frOpts := []field.Option{field.WithASM(asmConfig)}
 			if !(conf.Equal(config.SECP256R1) || conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) { // nolint QF1001
-				frOpts = append(frOpts, generator.WithFFT(fftConfig), generator.WithIOP())
+				frOpts = append(frOpts, field.WithFFT(fftConfig), field.WithIOP())
 			}
 			if conf.Equal(config.BLS12_377) {
-				frOpts = append(frOpts, generator.WithSIS())
+				frOpts = append(frOpts, field.WithSIS())
 			}
-			assertNoError(generator.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr"), frOpts...))
-			assertNoError(generator.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp"), generator.WithASM(asmConfig)))
+			assertNoError(field.GenerateFF(conf.Fr, filepath.Join(curveDir, "fr"), frOpts...))
+			assertNoError(field.GenerateFF(conf.Fp, filepath.Join(curveDir, "fp"), field.WithASM(asmConfig)))
 
 			// generate ecdsa
 			assertNoError(ecdsa.Generate(conf, curveDir, gen))

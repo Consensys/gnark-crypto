@@ -1,0 +1,10 @@
+import (
+	"math/big"
+	"sync"
+)
+
+var bigIntPool = sync.Pool{
+	New: func() interface{} {
+		return new(big.Int)
+	},
+}

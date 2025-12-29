@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/field/generator/common"
+	"github.com/consensys/gnark-crypto/internal/generator/common"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/tower/asm/amd64"
 	"github.com/consensys/gnark-crypto/internal/generator/tower/template"
@@ -18,7 +18,7 @@ func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 		return nil
 	}
 
-	towerGen := common.NewGenerator(template.FS, "Consensys Software Inc.", 2020, "consensys/gnark-crypto")
+	towerGen := common.NewDefaultGenerator(template.FS)
 
 	entries := []bavard.Entry{
 		{File: filepath.Join(baseDir, "e2_amd64.go"), Templates: []string{"fq12over6over2/amd64.fq2.go.tmpl"}},

@@ -9,7 +9,7 @@ import (
 	txttmpl "text/template"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/field/generator/common"
+	"github.com/consensys/gnark-crypto/internal/generator/common"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_curve/template"
 )
@@ -18,7 +18,7 @@ func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 	packageName := strings.ReplaceAll(conf.Name, "-", "")
 	htcPackageName := "hash_to_curve"
 
-	htcGen := common.NewGenerator(template.FS, "Consensys Software Inc.", 2020, "consensys/gnark-crypto")
+	htcGen := common.NewDefaultGenerator(template.FS)
 
 	// hash To curve
 	genHashToCurve := func(point *config.Point, suite config.HashSuite) error {

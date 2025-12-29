@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/consensys/gnark-crypto/field/generator"
-	"github.com/consensys/gnark-crypto/field/generator/config"
+	generator "github.com/consensys/gnark-crypto/internal/generator/field"
+	"github.com/consensys/gnark-crypto/internal/generator/field/config"
 	"github.com/spf13/cobra"
 )
 

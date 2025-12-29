@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/field/generator/common"
+	"github.com/consensys/gnark-crypto/internal/generator/common"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg/template"
 )
@@ -20,7 +20,7 @@ func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 		{File: filepath.Join(baseDir, "utils.go"), Templates: []string{"utils.go.tmpl"}},
 		{File: filepath.Join(baseDir, "mpcsetup.go"), Templates: []string{"mpcsetup.go.tmpl"}},
 	}
-	kzgGen := common.NewGenerator(template.FS, "Consensys Software Inc.", 2020, "consensys/gnark-crypto")
+	kzgGen := common.NewDefaultGenerator(template.FS)
 	return kzgGen.Generate(conf, conf.Package, "", "", entries...)
 
 }

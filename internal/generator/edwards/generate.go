@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/field/generator/common"
+	"github.com/consensys/gnark-crypto/internal/generator/common"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/template"
 )
@@ -17,6 +17,6 @@ func Generate(conf config.TwistedEdwardsCurve, baseDir string, gen *common.Gener
 		{File: filepath.Join(baseDir, "curve.go"), Templates: []string{"curve.go.tmpl"}},
 	}
 
-	edwardsGen := common.NewGenerator(template.FS, "Consensys Software Inc.", 2020, "consensys/gnark-crypto")
+	edwardsGen := common.NewDefaultGenerator(template.FS)
 	return edwardsGen.Generate(conf, conf.Package, "", "", entries...)
 }
