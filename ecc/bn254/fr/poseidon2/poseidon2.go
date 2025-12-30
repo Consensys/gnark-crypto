@@ -47,6 +47,9 @@ type Parameters struct {
 
 	// derived round keys from the parameter seed and curve ID
 	RoundKeys [][]fr.Element
+
+	// diagonal of internal matrix (mu_i - 1) for t>=4
+	DiagM1 []fr.Element
 }
 
 // NewParameters returns a new set of parameters for the Poseidon2 permutation.
@@ -54,6 +57,9 @@ type Parameters struct {
 // from the seed which is a digest of the parameters and curve ID.
 func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
+	if p.applyPoseidon2Constants() {
+		return &p
+	}
 	seed := p.String()
 	p.initRC(seed)
 	return &p
@@ -64,6 +70,9 @@ func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 // from the given seed.
 func NewParametersWithSeed(width, nbFullRounds, nbPartialRounds int, seed string) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
+	if p.applyPoseidon2Constants() {
+		return &p
+	}
 	p.initRC(seed)
 	return &p
 }
@@ -114,6 +123,19 @@ func (p *Parameters) initRC(seed string) {
 	p.RoundKeys = roundKeys
 }
 
+func (p *Parameters) applyPoseidon2Constants() bool {
+	constants, ok := bn254Poseidon2Constants[p.Width]
+	if !ok {
+		return false
+	}
+	if constants.nbFullRounds != p.NbFullRounds || constants.nbPartialRounds != p.NbPartialRounds {
+		panic(fmt.Sprintf("poseidon2: bn254 t=%d expects rf=%d rp=%d", p.Width, constants.nbFullRounds, constants.nbPartialRounds))
+	}
+	p.RoundKeys = constants.roundKeys
+	p.DiagM1 = constants.diagM1
+	return true
+}
+
 // Permutation stores the buffer of the Poseidon2 permutation and provides
 // Poseidon2 permutation methods on the buffer
 type Permutation struct {
@@ -123,23 +145,37 @@ type Permutation struct {
 
 // NewPermutation returns a new Poseidon2 permutation instance.
 func NewPermutation(t, rf, rp int) *Permutation {
-	if t < 2 || t > 3 {
-		panic("only t=2,3 is supported")
+	if t == 2 || t == 3 {
+		params := NewParameters(t, rf, rp)
+		res := &Permutation{params: params}
+		return res
+	}
+	if _, ok := bn254Poseidon2Constants[t]; !ok {
+		panic("only t=2,3,4,8,12,16 are supported")
 	}
 	params := NewParameters(t, rf, rp)
-	res := &Permutation{params: params}
-	return res
+	if len(params.DiagM1) != t {
+		panic(fmt.Sprintf("poseidon2: missing internal matrix diagonal for t=%d", t))
+	}
+	return &Permutation{params: params}
 }
 
 // NewPermutationWithSeed returns a new Poseidon2 permutation instance with a
 // given seed.
 func NewPermutationWithSeed(t, rf, rp int, seed string) *Permutation {
-	if t < 2 || t > 3 {
-		panic("only t=2,3 is supported")
+	if t == 2 || t == 3 {
+		params := NewParametersWithSeed(t, rf, rp, seed)
+		res := &Permutation{params: params}
+		return res
+	}
+	if _, ok := bn254Poseidon2Constants[t]; !ok {
+		panic("only t=2,3,4,8,12,16 are supported")
 	}
 	params := NewParametersWithSeed(t, rf, rp, seed)
-	res := &Permutation{params: params}
-	return res
+	if len(params.DiagM1) != t {
+		panic(fmt.Sprintf("poseidon2: missing internal matrix diagonal for t=%d", t))
+	}
+	return &Permutation{params: params}
 }
 
 // NewDefaultPermutation returns a Poseidon2 permutation with the default
@@ -160,6 +196,36 @@ func (h *Permutation) sBox(index int, input []fr.Element) {
 
 }
 
+// matMulM4InPlace computes M4*s on chunks of 4 elements.
+// M4=
+// (5 7 1 3)
+// (4 6 1 1)
+// (1 3 5 7)
+// (1 1 4 6)
+func (h *Permutation) matMulM4InPlace(s []fr.Element) {
+	c := len(s) / 4
+	for i := 0; i < c; i++ {
+		var t0, t1, t2, t3, t4, t5, t6, t7 fr.Element
+
+		t0.Add(&s[4*i], &s[4*i+1])   // s0+s1
+		t1.Add(&s[4*i+2], &s[4*i+3]) // s2+s3
+
+		t2.Double(&s[4*i+1]).Add(&t2, &t1) // 2s1+t1
+		t3.Double(&s[4*i+3]).Add(&t3, &t0) // 2s3+t0
+
+		t4.Double(&t1).Double(&t4).Add(&t4, &t3) // 4t1+t3
+		t5.Double(&t0).Double(&t5).Add(&t5, &t2) // 4t0+t2
+
+		t6.Add(&t3, &t5) // t3+t5
+		t7.Add(&t2, &t4) // t2+t4
+
+		s[4*i].Set(&t6)
+		s[4*i+1].Set(&t5)
+		s[4*i+2].Set(&t7)
+		s[4*i+3].Set(&t4)
+	}
+}
+
 // when T=2,3 the buffer is multiplied by circ(2,1) and circ(2,1,1)
 // see https://eprint.iacr.org/2023/323.pdf page 15, case T=2,3
 func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
@@ -176,8 +242,26 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 		input[0].Add(&tmp, &input[0])
 		input[1].Add(&tmp, &input[1])
 		input[2].Add(&tmp, &input[2])
+	case 4:
+		h.matMulM4InPlace(input)
 	default:
-		panic("only Width=2,3 are supported")
+		if h.params.Width%4 != 0 {
+			panic("only Width=2,3 or 4k are supported")
+		}
+		h.matMulM4InPlace(input)
+		var sum [4]fr.Element
+		for i := 0; i < h.params.Width/4; i++ {
+			sum[0].Add(&sum[0], &input[4*i])
+			sum[1].Add(&sum[1], &input[4*i+1])
+			sum[2].Add(&sum[2], &input[4*i+2])
+			sum[3].Add(&sum[3], &input[4*i+3])
+		}
+		for i := 0; i < h.params.Width/4; i++ {
+			input[4*i].Add(&input[4*i], &sum[0])
+			input[4*i+1].Add(&input[4*i+1], &sum[1])
+			input[4*i+2].Add(&input[4*i+2], &sum[2])
+			input[4*i+3].Add(&input[4*i+3], &sum[3])
+		}
 	}
 }
 
@@ -197,7 +281,17 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 		input[1].Add(&input[1], &sum)
 		input[2].Double(&input[2]).Add(&input[2], &sum)
 	default:
-		panic("only T=2,3 is supported")
+		if len(h.params.DiagM1) != h.params.Width {
+			panic("missing internal matrix diagonal")
+		}
+		var sum fr.Element
+		sum.Set(&input[0])
+		for i := 1; i < h.params.Width; i++ {
+			sum.Add(&sum, &input[i])
+		}
+		for i := 0; i < h.params.Width; i++ {
+			input[i].Mul(&input[i], &h.params.DiagM1[i]).Add(&input[i], &sum)
+		}
 	}
 }
 

@@ -15,8 +15,6 @@ import (
 )
 
 func TestExternalMatrix(t *testing.T) {
-	t.Skip("skipping test - it is initialized for width=4 for which we don't have the diagonal matrix")
-
 	var expected [4][4]fr.Element
 	expected[0][0].SetUint64(5)
 	expected[0][1].SetUint64(4)
@@ -56,6 +54,18 @@ func TestExternalMatrix(t *testing.T) {
 		}
 	}
 
+}
+
+func TestRejectsInvalidParams(t *testing.T) {
+	require.Panics(t, func() {
+		NewPermutation(4, 8, 55)
+	})
+	require.Panics(t, func() {
+		NewPermutation(8, 8, 56)
+	})
+	require.Panics(t, func() {
+		NewPermutation(16, 10, 57)
+	})
 }
 
 func BenchmarkPoseidon2(b *testing.B) {
