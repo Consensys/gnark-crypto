@@ -70,9 +70,6 @@ func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 // from the given seed.
 func NewParametersWithSeed(width, nbFullRounds, nbPartialRounds int, seed string) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
-	if p.applyPoseidon2Constants() {
-		return &p
-	}
 	p.initRC(seed)
 	return &p
 }
@@ -161,21 +158,17 @@ func NewPermutation(t, rf, rp int) *Permutation {
 }
 
 // NewPermutationWithSeed returns a new Poseidon2 permutation instance with a
-// given seed.
+// given seed. For bn254, custom seeds are supported only for t=2,3.
 func NewPermutationWithSeed(t, rf, rp int, seed string) *Permutation {
 	if t == 2 || t == 3 {
 		params := NewParametersWithSeed(t, rf, rp, seed)
 		res := &Permutation{params: params}
 		return res
 	}
-	if _, ok := bn254Poseidon2Constants[t]; !ok {
-		panic("only t=2,3,4,8,12,16 are supported")
+	if _, ok := bn254Poseidon2Constants[t]; ok {
+		panic("poseidon2: custom seed only supported for bn254 t=2,3")
 	}
-	params := NewParametersWithSeed(t, rf, rp, seed)
-	if len(params.DiagM1) != t {
-		panic(fmt.Sprintf("poseidon2: missing internal matrix diagonal for t=%d", t))
-	}
-	return &Permutation{params: params}
+	panic("only t=2,3,4,8,12,16 are supported")
 }
 
 // NewDefaultPermutation returns a Poseidon2 permutation with the default

@@ -68,6 +68,27 @@ func TestRejectsInvalidParams(t *testing.T) {
 	})
 }
 
+func TestNewPermutationWithSeedRejectsSpecWidths(t *testing.T) {
+	require.NotPanics(t, func() {
+		_ = NewPermutationWithSeed(2, 6, 50, "seed")
+	})
+	require.NotPanics(t, func() {
+		_ = NewPermutationWithSeed(3, 8, 56, "seed")
+	})
+	require.Panics(t, func() {
+		_ = NewPermutationWithSeed(4, 8, 56, "seed")
+	})
+	require.Panics(t, func() {
+		_ = NewPermutationWithSeed(8, 8, 57, "seed")
+	})
+	require.Panics(t, func() {
+		_ = NewPermutationWithSeed(12, 8, 57, "seed")
+	})
+	require.Panics(t, func() {
+		_ = NewPermutationWithSeed(16, 8, 57, "seed")
+	})
+}
+
 func BenchmarkPoseidon2(b *testing.B) {
 	h := NewPermutation(3, 8, 56)
 	var tmp [3]fr.Element
