@@ -1,8 +1,6 @@
 package arm64
 
 import (
-	"fmt"
-
 	"github.com/consensys/bavard/arm64"
 )
 
@@ -45,12 +43,11 @@ func (f *FFArm64) generateAddVecF31() {
 
 	f.LABEL(loop)
 	f.CMP(4, n)
-	f.WriteLn(fmt.Sprintf("\tBLT %s", lastBlock))
+	f.BLT(lastBlock)
 
 	// Load 4 vectors (16 elements) from a and b
-	// Using VLD1.P with multiple registers - format: VLD1.P offset(Rn), [Vt.S4, Vt2.S4, ...]
-	f.WriteLn(fmt.Sprintf("\tVLD1.P 64(%s), [%s, %s, %s, %s]", aPtr, a0.S4(), a1.S4(), a2.S4(), a3.S4()))
-	f.WriteLn(fmt.Sprintf("\tVLD1.P 64(%s), [%s, %s, %s, %s]", bPtr, b0.S4(), b1.S4(), b2.S4(), b3.S4()))
+	f.VLD1_P_Multi(64, aPtr, a0, a1, a2, a3)
+	f.VLD1_P_Multi(64, bPtr, b0, b1, b2, b3)
 
 	// Add: b = a + b
 	f.VADD(a0.S4(), b0.S4(), b0.S4())
@@ -71,7 +68,7 @@ func (f *FFArm64) generateAddVecF31() {
 	f.VUMIN(a3.S4(), b3.S4(), b3.S4())
 
 	// Store 4 vectors
-	f.WriteLn(fmt.Sprintf("\tVST1.P [%s, %s, %s, %s], 64(%s)", b0.S4(), b1.S4(), b2.S4(), b3.S4(), resPtr))
+	f.VST1_P_Multi(64, resPtr, b0, b1, b2, b3)
 
 	// decrement n by 4
 	f.SUB(4, n, n)
@@ -126,15 +123,15 @@ func (f *FFArm64) generateMulVecF31() {
 	b := arm64.V1
 	cLow := arm64.V2
 	cHigh := arm64.V3
-	// q := arm64.V4
+	q := arm64.V4
 	mLow := arm64.V5
 	mHigh := arm64.V6
 	p := arm64.V7
 	mu := arm64.V8
 	zero := arm64.V9
-	// mask := arm64.V10
+	mask := arm64.V10
 	corr := arm64.V11
-	// temp := arm64.V12
+	temp := arm64.V12
 
 	// Load constants
 	// P
@@ -160,38 +157,29 @@ func (f *FFArm64) generateMulVecF31() {
 	f.VLD1_P(offset, bPtr, b.S4())
 
 	// C = a * b
-	// UMULL V0.2S, V1.2S, V2.2D
-	f.WriteLn("WORD $0x2ea1c002 // UMULL V2.2D, V0.2S, V1.2S")
-	// UMULL2 V0.4S, V1.4S, V3.2D
-	f.WriteLn("WORD $0x6ea1c003 // UMULL2 V3.2D, V0.4S, V1.4S")
+	f.VUMULL(a, b, cLow, "cLow = a * b (lower halves)")
+	f.VUMULL2(a, b, cHigh, "cHigh = a * b (upper halves)")
 
 	// Q = (a * b * MU) mod 2^32
-	// MUL a, b -> temp (V12)
-	f.WriteLn("WORD $0x4ea19c0c // MUL V12.4S, V0.4S, V1.4S")
-	// MUL temp, mu -> q (V4)
-	f.WriteLn("WORD $0x4ea89d84 // MUL V4.4S, V12.4S, V8.4S")
+	f.VMUL_S4(a, b, temp, "temp = a * b (low 32 bits)")
+	f.VMUL_S4(temp, mu, q, "q = temp * mu (low 32 bits)")
 
 	// M = Q * P
-	// UMULL q.2S, p.2S, mLow.2D
-	f.WriteLn("WORD $0x2ea7c085 // UMULL V5.2D, V4.2S, V7.2S")
-	// UMULL2 q.4S, p.4S, mHigh.2D
-	f.WriteLn("WORD $0x6ea7c086 // UMULL2 V6.2D, V4.4S, V7.4S")
+	f.VUMULL(q, p, mLow, "mLow = q * p (lower halves)")
+	f.VUMULL2(q, p, mHigh, "mHigh = q * p (upper halves)")
 
 	// X = C - M
-	f.VSUB(mLow.D2(), cLow.D2(), cLow.D2())    // X_low
-	f.VSUB(mHigh.D2(), cHigh.D2(), cHigh.D2()) // X_high
+	f.VSUB(mLow.D2(), cLow.D2(), cLow.D2(), "cLow = cLow - mLow")
+	f.VSUB(mHigh.D2(), cHigh.D2(), cHigh.D2(), "cHigh = cHigh - mHigh")
 
-	// D = X >> 32 (take high parts)
-	// UZP2 cLow.4S, cHigh.4S, a.4S (Dest is a)
-	f.WriteLn("WORD $0x4e835840 // UZP2 V0.4S, V2.4S, V3.4S")
+	// D = X >> 32 (take high parts using UZP2)
+	f.VUZP2(cLow, cHigh, a, "a = high 32 bits of [cLow, cHigh]")
 
-	// Correction
-	// if D < 0 (signed comparison with 0)
-	// CMGT zero, a, mask (mask = (0 > a))
-	f.WriteLn("WORD $0x4ea0352a // CMGT V10.4S, V9.4S, V0.4S")
+	// Correction: if D < 0 (signed comparison with 0)
+	f.VCMGT(zero, a, mask, "mask = (0 > a) ? all 1s : 0")
 
 	// corr = mask & P
-	f.WriteLn("WORD $0x4e2a1ceb // AND V11.16B, V7.16B, V10.16B")
+	f.VAND(p.B16(), mask.B16(), corr.B16(), "corr = mask & P")
 
 	// res = D + corr
 	f.VADD(a.S4(), corr.S4(), a.S4())
@@ -246,13 +234,13 @@ func (f *FFArm64) generateSubVecF31() {
 
 	f.LABEL(loop)
 	f.CMP(4, n)
-	f.WriteLn(fmt.Sprintf("\tBLT %s", lastBlock))
+	f.BLT(lastBlock)
 
 	const offset = 4 * 4 // we process 4 uint32 at a time
 
 	// Load 4 vectors (16 elements) from a and b
-	f.WriteLn(fmt.Sprintf("\tVLD1.P 64(%s), [%s, %s, %s, %s]", aPtr, a0.S4(), a1.S4(), a2.S4(), a3.S4()))
-	f.WriteLn(fmt.Sprintf("\tVLD1.P 64(%s), [%s, %s, %s, %s]", bPtr, b0.S4(), b1.S4(), b2.S4(), b3.S4()))
+	f.VLD1_P_Multi(64, aPtr, a0, a1, a2, a3)
+	f.VLD1_P_Multi(64, bPtr, b0, b1, b2, b3)
 
 	// b = a - b
 	f.VSUB(b0.S4(), a0.S4(), b0.S4())
@@ -273,7 +261,7 @@ func (f *FFArm64) generateSubVecF31() {
 	f.VUMIN(a3.S4(), b3.S4(), b3.S4())
 
 	// Store
-	f.WriteLn(fmt.Sprintf("\tVST1.P [%s, %s, %s, %s], 64(%s)", b0.S4(), b1.S4(), b2.S4(), b3.S4(), resPtr))
+	f.VST1_P_Multi(64, resPtr, b0, b1, b2, b3)
 
 	// decrement n
 	f.SUB(4, n, n)
@@ -345,16 +333,14 @@ func (f *FFArm64) generateSumVecF31() {
 
 	f.LABEL(loop)
 	f.CMP(4, n)
-	f.WriteLn(fmt.Sprintf("\tBLT %s", lastBlock))
+	f.BLT(lastBlock)
 
-	f.WriteLn(`
-	// blockSize is 16 uint32; we load 4 vectors of 4 uint32 at a time
-	// (4*4)*4 = 64 bytes ~= 1 cache line
-	// since our values are 31 bits, we can add 2 by 2 these vectors
-	// we are left with 2 vectors of 4x32 bits values
-	// that we accumulate in 4*2*64bits accumulators
-	// the caller will reduce mod q the accumulators.
-	`)
+	f.Comment("blockSize is 16 uint32; we load 4 vectors of 4 uint32 at a time")
+	f.Comment("(4*4)*4 = 64 bytes ~= 1 cache line")
+	f.Comment("since our values are 31 bits, we can add 2 by 2 these vectors")
+	f.Comment("we are left with 2 vectors of 4x32 bits values")
+	f.Comment("that we accumulate in 4*2*64bits accumulators")
+	f.Comment("the caller will reduce mod q the accumulators.")
 
 	const offset = 8 * 4
 
@@ -451,4 +437,231 @@ func (f *FFArm64) generateSumVecF31() {
 
 	f.RET()
 
+}
+
+func (f *FFArm64) generateScalarMulVecF31() {
+	f.Comment("scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b")
+	f.Comment("n is the number of blocks of 4 uint32 to process")
+	registers := f.FnHeader("scalarMulVec", 0, 32)
+	defer f.AssertCleanStack(0, 0)
+
+	// registers
+	resPtr := registers.Pop()
+	aPtr := registers.Pop()
+	bPtr := registers.Pop()
+	n := registers.Pop()
+
+	// labels
+	loop := f.NewLabel("loop")
+	done := f.NewLabel("done")
+
+	// load arguments
+	f.LDP("res+0(FP)", resPtr, aPtr)
+	f.LDP("b+16(FP)", bPtr, n)
+
+	// Explicit registers for Montgomery multiplication
+	a := arm64.V0
+	b := arm64.V1
+	cLow := arm64.V2
+	cHigh := arm64.V3
+	q := arm64.V4
+	mLow := arm64.V5
+	mHigh := arm64.V6
+	p := arm64.V7
+	mu := arm64.V8
+	zero := arm64.V9
+	mask := arm64.V10
+	corr := arm64.V11
+	temp := arm64.V12
+
+	// Load constants
+	// P
+	f.VMOVS("$const_q", p)
+	f.VDUP(p.SAt(0), p.S4(), "broadcast P")
+
+	// MU
+	tmp := registers.Pop()
+	f.MOVD("$const_mu", tmp)
+	f.VDUP(tmp, mu.S4(), "broadcast MU")
+
+	// Load scalar b and broadcast
+	f.MOVWU(bPtr.At2(0), tmp)
+	f.VDUP(tmp, b.S4(), "broadcast scalar b")
+	registers.Push(tmp)
+
+	// Zero
+	f.VMOVQ_cst(0, 0, zero)
+
+	f.LABEL(loop)
+
+	f.CBZ(n, done)
+
+	const offset = 4 * 4 // we process 4 uint32 at a time
+
+	f.VLD1_P(offset, aPtr, a.S4())
+
+	// C = a * b
+	f.VUMULL(a, b, cLow, "cLow = a * b (lower halves)")
+	f.VUMULL2(a, b, cHigh, "cHigh = a * b (upper halves)")
+
+	// Q = (a * b * MU) mod 2^32
+	f.VMUL_S4(a, b, temp, "temp = a * b (low 32 bits)")
+	f.VMUL_S4(temp, mu, q, "q = temp * mu (low 32 bits)")
+
+	// M = Q * P
+	f.VUMULL(q, p, mLow, "mLow = q * p (lower halves)")
+	f.VUMULL2(q, p, mHigh, "mHigh = q * p (upper halves)")
+
+	// X = C - M
+	f.VSUB(mLow.D2(), cLow.D2(), cLow.D2(), "cLow = cLow - mLow")
+	f.VSUB(mHigh.D2(), cHigh.D2(), cHigh.D2(), "cHigh = cHigh - mHigh")
+
+	// D = X >> 32 (take high parts using UZP2)
+	f.VUZP2(cLow, cHigh, a, "a = high 32 bits of [cLow, cHigh]")
+
+	// Correction: if D < 0 (signed comparison with 0)
+	f.VCMGT(zero, a, mask, "mask = (0 > a) ? all 1s : 0")
+
+	// corr = mask & P
+	f.VAND(p.B16(), mask.B16(), corr.B16(), "corr = mask & P")
+
+	// res = D + corr
+	f.VADD(a.S4(), corr.S4(), a.S4())
+
+	f.VST1_P(a.S4(), resPtr, offset, "res = a")
+
+	// decrement n
+	f.SUB(1, n, n)
+	f.JMP(loop)
+
+	f.LABEL(done)
+
+	registers.Push(resPtr, aPtr, bPtr, n)
+
+	f.RET()
+}
+
+func (f *FFArm64) generateInnerProdVecF31() {
+	f.Comment("innerProdVec(t *uint64, a, b *[]uint32, n uint64) res = sum(a[0...n] * b[0...n])")
+	f.Comment("n is the number of blocks of 4 uint32 to process")
+	f.Comment("We do most of the montgomery multiplication but accumulate the")
+	f.Comment("temporary result (without final reduction) and let the caller reduce.")
+	registers := f.FnHeader("innerProdVec", 0, 32)
+	defer f.AssertCleanStack(0, 0)
+
+	// registers
+	tPtr := registers.Pop()
+	aPtr := registers.Pop()
+	bPtr := registers.Pop()
+	n := registers.Pop()
+
+	// labels
+	loop := f.NewLabel("loop")
+	done := f.NewLabel("done")
+
+	// load arguments
+	f.LDP("t+0(FP)", tPtr, aPtr)
+	f.LDP("b+16(FP)", bPtr, n)
+
+	// Explicit registers for Montgomery multiplication
+	a := arm64.V0
+	b := arm64.V1
+	cLow := arm64.V2
+	cHigh := arm64.V3
+	q := arm64.V4
+	mLow := arm64.V5
+	mHigh := arm64.V6
+	p := arm64.V7
+	mu := arm64.V8
+	temp := arm64.V12
+
+	// Accumulators (64-bit)
+	acc0 := arm64.V9.D2()
+	acc1 := arm64.V10.D2()
+
+	// Load constants
+	// P
+	f.VMOVS("$const_q", p)
+	f.VDUP(p.SAt(0), p.S4(), "broadcast P")
+
+	// MU
+	tmp := registers.Pop()
+	f.MOVD("$const_mu", tmp)
+	f.VDUP(tmp, mu.S4(), "broadcast MU")
+	registers.Push(tmp)
+
+	// Zero accumulators
+	f.VMOVQ_cst(0, 0, arm64.V9)
+	f.VMOVQ_cst(0, 0, arm64.V10)
+
+	// Zero register for correction
+	zero := arm64.V11
+	f.VEOR(zero.B16(), zero.B16(), zero.B16(), "zero = 0")
+
+	f.LABEL(loop)
+
+	f.CBZ(n, done)
+
+	const offset = 4 * 4 // we process 4 uint32 at a time
+
+	f.VLD1_P(offset, aPtr, a.S4())
+	f.VLD1_P(offset, bPtr, b.S4())
+
+	// C = a * b (full 64-bit product)
+	f.VUMULL(a, b, cLow, "cLow = a * b (lower halves)")
+	f.VUMULL2(a, b, cHigh, "cHigh = a * b (upper halves)")
+
+	// Q = (a * b * MU) mod 2^32
+	f.VMUL_S4(a, b, temp, "temp = a * b (low 32 bits)")
+	f.VMUL_S4(temp, mu, q, "q = temp * mu (low 32 bits)")
+
+	// M = Q * P
+	f.VUMULL(q, p, mLow, "mLow = q * p (lower halves)")
+	f.VUMULL2(q, p, mHigh, "mHigh = q * p (upper halves)")
+
+	// X = C - M (Montgomery reduction step)
+	f.VSUB(mLow.D2(), cLow.D2(), cLow.D2(), "cLow = cLow - mLow")
+	f.VSUB(mHigh.D2(), cHigh.D2(), cHigh.D2(), "cHigh = cHigh - mHigh")
+
+	// Extract high 32 bits
+	// cLow = [L0, H0, L1, H1], cHigh = [L2, H2, L3, H3]
+	// VUZP2(cLow, cHigh) -> [H0, H1, H2, H3]
+	// We store it in cLow (reusing register)
+	f.VUZP2(cLow.S4(), cHigh.S4(), cLow.S4(), "cLow = high 32 bits of [cLow, cHigh]")
+
+	// Correction: if D < 0 (signed comparison with 0)
+	mask := arm64.V13
+	f.VCMGT(zero.S4(), cLow.S4(), mask.S4(), "mask = (0 > cLow) ? all 1s : 0")
+
+	// corr = mask & P
+	corr := arm64.V14
+	f.VAND(p.B16(), mask.B16(), corr.B16(), "corr = mask & P")
+
+	// res = D + corr
+	f.VADD(cLow.S4(), corr.S4(), cLow.S4(), "cLow = cLow + corr")
+
+	// Extend to 64 bits and accumulate
+	// We need two 64-bit registers. We can reuse mLow and mHigh as temps.
+	f.VUSHLL(0, cLow.S2(), mLow.D2(), "mLow = extend(cLow[0,1])")
+	f.VUSHLL2(0, cLow.S4(), mHigh.D2(), "mHigh = extend(cLow[2,3])")
+
+	// Accumulate
+	f.VADD(mLow.D2(), acc0, acc0, "acc0 += mLow")
+	f.VADD(mHigh.D2(), acc1, acc1, "acc1 += mHigh")
+
+	// decrement n
+	f.SUB(1, n, n)
+	f.JMP(loop)
+
+	f.LABEL(done)
+
+	// Combine accumulators
+	f.VADD(acc0, acc1, acc0, "acc0 += acc1")
+
+	// Store result
+	f.VST1_P(acc0, tPtr, 16, "store accumulator")
+
+	registers.Push(tPtr, aPtr, bPtr, n)
+
+	f.RET()
 }

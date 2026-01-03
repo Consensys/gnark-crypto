@@ -25,6 +25,12 @@ func mulVec(res, a, b *Element, n uint64)
 //go:noescape
 func sumVec(t *uint64, a *Element, n uint64)
 
+//go:noescape
+func scalarMulVec(res, a, b *Element, n uint64)
+
+//go:noescape
+func innerProdVec(t *uint64, a, b *Element, n uint64)
+
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
@@ -90,19 +96,49 @@ func (vector *Vector) Sum() (res Element) {
 	return
 }
 
-// note: unfortunately, as of Dec. 2024, Golang doesn't support enough NEON instructions
-// for these to be worth it in assembly. Will hopefully revisit in future versions.
-
 // ScalarMul multiplies a vector by a scalar element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) ScalarMul(a Vector, b *Element) {
-	scalarMulVecGeneric(*vector, a, b)
+	if len(a) != len(*vector) {
+		panic("vector.ScalarMul: vectors don't have the same length")
+	}
+	n := uint64(len(a))
+	if n == 0 {
+		return
+	}
+
+	const blockSize = 4
+	scalarMulVec(&(*vector)[0], &a[0], b, n/blockSize)
+	if n%blockSize != 0 {
+		start := n - n%blockSize
+		scalarMulVecGeneric((*vector)[start:], a[start:], b)
+	}
 }
 
 // InnerProduct computes the inner product of two vectors.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) InnerProduct(other Vector) (res Element) {
-	innerProductVecGeneric(&res, *vector, other)
+	if len(*vector) != len(other) {
+		panic("vector.InnerProduct: vectors don't have the same length")
+	}
+	n := uint64(len(*vector))
+	if n == 0 {
+		return
+	}
+
+	const blockSize = 4
+	var t [2]uint64 // stores the accumulators (not reduced mod q)
+	innerProdVec(&t[0], &(*vector)[0], &other[0], n/blockSize)
+	// we reduce the accumulators mod q and add to res
+	var v Element
+	for i := 0; i < 2; i++ {
+		v[0] = uint32(t[i] % q)
+		res.Add(&res, &v)
+	}
+	if n%blockSize != 0 {
+		start := n - n%blockSize
+		innerProductVecGeneric(&res, (*vector)[start:], other[start:])
+	}
 	return
 }
 
