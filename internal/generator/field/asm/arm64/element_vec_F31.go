@@ -6,7 +6,7 @@ import (
 
 func (f *FFArm64) generateAddVecF31() {
 	f.Comment("addVec(res, a, b *Element, n uint64)")
-	f.Comment("n is the number of blocks of 16 uint32 to process")
+	f.Comment("n is the number of blocks of 4 uint32 to process")
 	registers := f.FnHeader("addVec", 0, 32)
 	defer f.AssertCleanStack(0, 0)
 
@@ -16,23 +16,12 @@ func (f *FFArm64) generateAddVecF31() {
 	bPtr := registers.Pop()
 	n := registers.Pop()
 
-	// labels
-	loop := f.NewLabel("loop")
-	lastBlock := f.NewLabel("lastBlock")
-
 	// load arguments
 	f.LDP("res+0(FP)", resPtr, aPtr)
 	f.LDP("b+16(FP)", bPtr, n)
 
 	a0 := registers.PopV()
-	a1 := registers.PopV()
-	a2 := registers.PopV()
-	a3 := registers.PopV()
 	b0 := registers.PopV()
-	b1 := registers.PopV()
-	b2 := registers.PopV()
-	b3 := registers.PopV()
-
 	q := registers.PopV()
 
 	f.VMOVS("$const_q", q)
@@ -40,41 +29,6 @@ func (f *FFArm64) generateAddVecF31() {
 
 	const offset = 4 * 4 // 4 uint32 = 16 bytes per vector
 
-	f.LABEL(loop)
-	f.CMP(4, n)
-	f.BLT(lastBlock)
-
-	// Load 4 vectors (16 elements) from a and b
-	f.VLD1_P_Multi(64, aPtr, a0, a1, a2, a3)
-	f.VLD1_P_Multi(64, bPtr, b0, b1, b2, b3)
-
-	// Add: b = a + b
-	f.VADD(a0.S4(), b0.S4(), b0.S4())
-	f.VADD(a1.S4(), b1.S4(), b1.S4())
-	f.VADD(a2.S4(), b2.S4(), b2.S4())
-	f.VADD(a3.S4(), b3.S4(), b3.S4())
-
-	// Sub: a = b - q (reuse a registers as temp)
-	f.VSUB(q.S4(), b0.S4(), a0.S4())
-	f.VSUB(q.S4(), b1.S4(), a1.S4())
-	f.VSUB(q.S4(), b2.S4(), a2.S4())
-	f.VSUB(q.S4(), b3.S4(), a3.S4())
-
-	// Min: b = min(a, b) = min(b-q, b)
-	f.VUMIN(a0.S4(), b0.S4(), b0.S4())
-	f.VUMIN(a1.S4(), b1.S4(), b1.S4())
-	f.VUMIN(a2.S4(), b2.S4(), b2.S4())
-	f.VUMIN(a3.S4(), b3.S4(), b3.S4())
-
-	// Store 4 vectors
-	f.VST1_P_Multi(64, resPtr, b0, b1, b2, b3)
-
-	// decrement n by 4
-	f.SUB(4, n, n)
-	f.JMP(loop)
-
-	// Handle remaining 0-3 blocks
-	f.LABEL(lastBlock)
 	f.Loop(n, func() {
 		f.VLD1_P(offset, aPtr, a0.S4())
 		f.VLD1_P(offset, bPtr, b0.S4())
@@ -86,7 +40,7 @@ func (f *FFArm64) generateAddVecF31() {
 	})
 
 	registers.Push(resPtr, aPtr, bPtr, n)
-	registers.PushV(a0, a1, a2, a3, b0, b1, b2, b3, q)
+	registers.PushV(a0, b0, q)
 
 	f.RET()
 
@@ -194,63 +148,19 @@ func (f *FFArm64) generateSubVecF31() {
 	bPtr := registers.Pop()
 	n := registers.Pop()
 
-	// labels
-	loop := f.NewLabel("loop")
-	lastBlock := f.NewLabel("lastBlock")
-
 	// load arguments
 	f.LDP("res+0(FP)", resPtr, aPtr)
 	f.LDP("b+16(FP)", bPtr, n)
 
 	a0 := registers.PopV()
-	a1 := registers.PopV()
-	a2 := registers.PopV()
-	a3 := registers.PopV()
 	b0 := registers.PopV()
-	b1 := registers.PopV()
-	b2 := registers.PopV()
-	b3 := registers.PopV()
 	q := registers.PopV()
 
 	f.VMOVS("$const_q", q)
 	f.VDUP(q.SAt(0), q.S4(), "broadcast q into "+string(q))
 
-	f.LABEL(loop)
-	f.CMP(4, n)
-	f.BLT(lastBlock)
-
 	const offset = 4 * 4 // we process 4 uint32 at a time
 
-	// Load 4 vectors (16 elements) from a and b
-	f.VLD1_P_Multi(64, aPtr, a0, a1, a2, a3)
-	f.VLD1_P_Multi(64, bPtr, b0, b1, b2, b3)
-
-	// b = a - b
-	f.VSUB(b0.S4(), a0.S4(), b0.S4())
-	f.VSUB(b1.S4(), a1.S4(), b1.S4())
-	f.VSUB(b2.S4(), a2.S4(), b2.S4())
-	f.VSUB(b3.S4(), a3.S4(), b3.S4())
-
-	// t = b + q (store in a)
-	f.VADD(b0.S4(), q.S4(), a0.S4())
-	f.VADD(b1.S4(), q.S4(), a1.S4())
-	f.VADD(b2.S4(), q.S4(), a2.S4())
-	f.VADD(b3.S4(), q.S4(), a3.S4())
-
-	// b = min(t, b) = min(a, b)
-	f.VUMIN(a0.S4(), b0.S4(), b0.S4())
-	f.VUMIN(a1.S4(), b1.S4(), b1.S4())
-	f.VUMIN(a2.S4(), b2.S4(), b2.S4())
-	f.VUMIN(a3.S4(), b3.S4(), b3.S4())
-
-	// Store
-	f.VST1_P_Multi(64, resPtr, b0, b1, b2, b3)
-
-	// decrement n
-	f.SUB(4, n, n)
-	f.JMP(loop)
-
-	f.LABEL(lastBlock)
 	f.Loop(n, func() {
 		f.VLD1_P(offset, aPtr, a0.S4())
 		f.VLD1_P(offset, bPtr, b0.S4())
@@ -262,7 +172,7 @@ func (f *FFArm64) generateSubVecF31() {
 	})
 
 	registers.Push(resPtr, aPtr, bPtr, n)
-	registers.PushV(a0, a1, a2, a3, b0, b1, b2, b3, q)
+	registers.PushV(a0, b0, q)
 
 	f.RET()
 
@@ -283,105 +193,28 @@ func (f *FFArm64) generateSumVecF31() {
 	a2 := registers.PopV()
 	a3 := registers.PopV()
 	a4 := registers.PopV()
-	acc1 := registers.PopV()
-	acc2 := registers.PopV()
-	acc3 := registers.PopV()
-	acc4 := registers.PopV()
+	acc1V := registers.PopV()
+	acc2V := registers.PopV()
+	acc3V := registers.PopV()
+	acc4V := registers.PopV()
 
 	f.Comment("zeroing accumulators")
-	f.VMOVQ_cst(0, 0, acc1)
-	f.VMOVQ_cst(0, 0, acc2)
-	f.VMOVQ_cst(0, 0, acc3)
-	f.VMOVQ_cst(0, 0, acc4)
+	f.VMOVQ_cst(0, 0, acc1V)
+	f.VMOVQ_cst(0, 0, acc2V)
+	f.VMOVQ_cst(0, 0, acc3V)
+	f.VMOVQ_cst(0, 0, acc4V)
 
-	acc1 = arm64.V4.D2()
-	acc2 = arm64.V5.D2()
-	acc3 = arm64.V6.D2()
-	acc4 = arm64.V7.D2()
-
-	// labels
-	loop := f.NewLabel("loop")
-	lastBlock := f.NewLabel("lastBlock")
+	acc1 := acc1V.D2()
+	acc2 := acc2V.D2()
+	acc3 := acc3V.D2()
+	acc4 := acc4V.D2()
 
 	// load arguments
 	f.LDP("t+0(FP)", tPtr, aPtr)
 	f.MOVD("n+16(FP)", n)
 
-	f.LABEL(loop)
-	f.CMP(4, n)
-	f.BLT(lastBlock)
-
-	f.Comment("blockSize is 16 uint32; we load 4 vectors of 4 uint32 at a time")
-	f.Comment("(4*4)*4 = 64 bytes ~= 1 cache line")
-	f.Comment("since our values are 31 bits, we can add 2 by 2 these vectors")
-	f.Comment("we are left with 2 vectors of 4x32 bits values")
-	f.Comment("that we accumulate in 4*2*64bits accumulators")
-	f.Comment("the caller will reduce mod q the accumulators.")
-
 	const offset = 8 * 4
 
-	// Unrolled loop body (4x)
-	// Block 1
-	f.VLD2_P(offset, aPtr, a1.S4(), a2.S4())
-	f.VADD(a1.S4(), a2.S4(), a1.S4(), "a1 += a2")
-	f.VLD2_P(offset, aPtr, a3.S4(), a4.S4())
-	f.VADD(a3.S4(), a4.S4(), a3.S4(), "a3 += a4")
-	f.VUSHLL(0, a1.S2(), a2.D2(), "convert low words to 64 bits")
-	f.VADD(a2.D2(), acc2, acc2, "acc2 += a2")
-	f.VUSHLL2(0, a1.S4(), a1.D2(), "convert high words to 64 bits")
-	f.VADD(a1.D2(), acc1, acc1, "acc1 += a1")
-	f.VUSHLL(0, a3.S2(), a4.D2(), "convert low words to 64 bits")
-	f.VADD(a4.D2(), acc4, acc4, "acc4 += a4")
-	f.VUSHLL2(0, a3.S4(), a3.D2(), "convert high words to 64 bits")
-	f.VADD(a3.D2(), acc3, acc3, "acc3 += a3")
-
-	// Block 2
-	f.VLD2_P(offset, aPtr, a1.S4(), a2.S4())
-	f.VADD(a1.S4(), a2.S4(), a1.S4(), "a1 += a2")
-	f.VLD2_P(offset, aPtr, a3.S4(), a4.S4())
-	f.VADD(a3.S4(), a4.S4(), a3.S4(), "a3 += a4")
-	f.VUSHLL(0, a1.S2(), a2.D2(), "convert low words to 64 bits")
-	f.VADD(a2.D2(), acc2, acc2, "acc2 += a2")
-	f.VUSHLL2(0, a1.S4(), a1.D2(), "convert high words to 64 bits")
-	f.VADD(a1.D2(), acc1, acc1, "acc1 += a1")
-	f.VUSHLL(0, a3.S2(), a4.D2(), "convert low words to 64 bits")
-	f.VADD(a4.D2(), acc4, acc4, "acc4 += a4")
-	f.VUSHLL2(0, a3.S4(), a3.D2(), "convert high words to 64 bits")
-	f.VADD(a3.D2(), acc3, acc3, "acc3 += a3")
-
-	// Block 3
-	f.VLD2_P(offset, aPtr, a1.S4(), a2.S4())
-	f.VADD(a1.S4(), a2.S4(), a1.S4(), "a1 += a2")
-	f.VLD2_P(offset, aPtr, a3.S4(), a4.S4())
-	f.VADD(a3.S4(), a4.S4(), a3.S4(), "a3 += a4")
-	f.VUSHLL(0, a1.S2(), a2.D2(), "convert low words to 64 bits")
-	f.VADD(a2.D2(), acc2, acc2, "acc2 += a2")
-	f.VUSHLL2(0, a1.S4(), a1.D2(), "convert high words to 64 bits")
-	f.VADD(a1.D2(), acc1, acc1, "acc1 += a1")
-	f.VUSHLL(0, a3.S2(), a4.D2(), "convert low words to 64 bits")
-	f.VADD(a4.D2(), acc4, acc4, "acc4 += a4")
-	f.VUSHLL2(0, a3.S4(), a3.D2(), "convert high words to 64 bits")
-	f.VADD(a3.D2(), acc3, acc3, "acc3 += a3")
-
-	// Block 4
-	f.VLD2_P(offset, aPtr, a1.S4(), a2.S4())
-	f.VADD(a1.S4(), a2.S4(), a1.S4(), "a1 += a2")
-	f.VLD2_P(offset, aPtr, a3.S4(), a4.S4())
-	f.VADD(a3.S4(), a4.S4(), a3.S4(), "a3 += a4")
-	f.VUSHLL(0, a1.S2(), a2.D2(), "convert low words to 64 bits")
-	f.VADD(a2.D2(), acc2, acc2, "acc2 += a2")
-	f.VUSHLL2(0, a1.S4(), a1.D2(), "convert high words to 64 bits")
-	f.VADD(a1.D2(), acc1, acc1, "acc1 += a1")
-	f.VUSHLL(0, a3.S2(), a4.D2(), "convert low words to 64 bits")
-	f.VADD(a4.D2(), acc4, acc4, "acc4 += a4")
-	f.VUSHLL2(0, a3.S4(), a3.D2(), "convert high words to 64 bits")
-	f.VADD(a3.D2(), acc3, acc3, "acc3 += a3")
-
-	// decrement n
-	f.SUB(4, n, n)
-	f.JMP(loop)
-
-	f.LABEL(lastBlock)
 	f.Loop(n, func() {
 		f.VLD2_P(offset, aPtr, a1.S4(), a2.S4())
 		f.VADD(a1.S4(), a2.S4(), a1.S4(), "a1 += a2")
@@ -404,6 +237,9 @@ func (f *FFArm64) generateSumVecF31() {
 	f.VADD(acc2, acc4, acc2, "acc2 += acc4")
 
 	f.VST2_P(acc1, acc2, tPtr, 0, "store acc1 and acc2")
+
+	registers.Push(aPtr, tPtr, n)
+	registers.PushV(a1, a2, a3, a4, acc1V, acc2V, acc3V, acc4V)
 
 	f.RET()
 
