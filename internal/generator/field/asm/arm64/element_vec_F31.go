@@ -1,10 +1,14 @@
 package arm64
 
-import "github.com/consensys/bavard/arm64"
+import (
+	"fmt"
+
+	"github.com/consensys/bavard/arm64"
+)
 
 func (f *FFArm64) generateAddVecF31() {
 	f.Comment("addVec(res, a, b *Element, n uint64)")
-	f.Comment("n is the number of blocks of 4 uint32 to process")
+	f.Comment("n is the number of blocks of 16 uint32 to process")
 	registers := f.FnHeader("addVec", 0, 32)
 	defer f.AssertCleanStack(0, 0)
 
@@ -17,41 +21,81 @@ func (f *FFArm64) generateAddVecF31() {
 	// labels
 	loop := f.NewLabel("loop")
 	done := f.NewLabel("done")
+	lastBlock := f.NewLabel("lastBlock")
 
 	// load arguments
 	f.LDP("res+0(FP)", resPtr, aPtr)
 	f.LDP("b+16(FP)", bPtr, n)
 
-	a := registers.PopV()
-	b := registers.PopV()
-	t := registers.PopV()
+	a0 := registers.PopV()
+	a1 := registers.PopV()
+	a2 := registers.PopV()
+	a3 := registers.PopV()
+	b0 := registers.PopV()
+	b1 := registers.PopV()
+	b2 := registers.PopV()
+	b3 := registers.PopV()
+
 	q := registers.PopV()
 
 	f.VMOVS("$const_q", q)
 	f.VDUP(q.SAt(0), q.S4(), "broadcast q into "+string(q))
 
-	f.LABEL(loop)
+	const offset = 4 * 4 // 4 uint32 = 16 bytes per vector
 
+	f.LABEL(loop)
+	f.CMP(4, n)
+	f.WriteLn(fmt.Sprintf("\tBLT %s", lastBlock))
+
+	// Load 4 vectors (16 elements) from a and b
+	// Using VLD1.P with multiple registers - format: VLD1.P offset(Rn), [Vt.S4, Vt2.S4, ...]
+	f.WriteLn(fmt.Sprintf("\tVLD1.P 64(%s), [%s, %s, %s, %s]", aPtr, a0.S4(), a1.S4(), a2.S4(), a3.S4()))
+	f.WriteLn(fmt.Sprintf("\tVLD1.P 64(%s), [%s, %s, %s, %s]", bPtr, b0.S4(), b1.S4(), b2.S4(), b3.S4()))
+
+	// Add: b = a + b
+	f.VADD(a0.S4(), b0.S4(), b0.S4())
+	f.VADD(a1.S4(), b1.S4(), b1.S4())
+	f.VADD(a2.S4(), b2.S4(), b2.S4())
+	f.VADD(a3.S4(), b3.S4(), b3.S4())
+
+	// Sub: a = b - q (reuse a registers as temp)
+	f.VSUB(q.S4(), b0.S4(), a0.S4())
+	f.VSUB(q.S4(), b1.S4(), a1.S4())
+	f.VSUB(q.S4(), b2.S4(), a2.S4())
+	f.VSUB(q.S4(), b3.S4(), a3.S4())
+
+	// Min: b = min(a, b) = min(b-q, b)
+	f.VUMIN(a0.S4(), b0.S4(), b0.S4())
+	f.VUMIN(a1.S4(), b1.S4(), b1.S4())
+	f.VUMIN(a2.S4(), b2.S4(), b2.S4())
+	f.VUMIN(a3.S4(), b3.S4(), b3.S4())
+
+	// Store 4 vectors
+	f.WriteLn(fmt.Sprintf("\tVST1.P [%s, %s, %s, %s], 64(%s)", b0.S4(), b1.S4(), b2.S4(), b3.S4(), resPtr))
+
+	// decrement n by 4
+	f.SUB(4, n, n)
+	f.JMP(loop)
+
+	// Handle remaining 0-3 blocks
+	f.LABEL(lastBlock)
 	f.CBZ(n, done)
 
-	const offset = 4 * 4 // we process 4 uint32 at a time
+	f.VLD1_P(offset, aPtr, a0.S4())
+	f.VLD1_P(offset, bPtr, b0.S4())
 
-	f.VLD1_P(offset, aPtr, a.S4())
-	f.VLD1_P(offset, bPtr, b.S4())
+	f.VADD(a0.S4(), b0.S4(), b0.S4(), "b = a + b")
+	f.VSUB(q.S4(), b0.S4(), a0.S4(), "a = b - q")
+	f.VUMIN(a0.S4(), b0.S4(), b0.S4(), "b = min(a, b)")
+	f.VST1_P(b0.S4(), resPtr, offset, "res = b")
 
-	f.VADD(a.S4(), b.S4(), b.S4(), "b = a + b")
-	f.VSUB(q.S4(), b.S4(), t.S4(), "t = b - q")
-	f.VUMIN(t.S4(), b.S4(), b.S4(), "b = min(t, b)")
-	f.VST1_P(b.S4(), resPtr, offset, "res = b")
-
-	// decrement n
 	f.SUB(1, n, n)
-	f.JMP(loop)
+	f.JMP(lastBlock)
 
 	f.LABEL(done)
 
 	registers.Push(resPtr, aPtr, bPtr, n)
-	registers.PushV(a, b, t, q)
+	registers.PushV(a0, a1, a2, a3, b0, b1, b2, b3, q)
 
 	f.RET()
 
@@ -181,41 +225,79 @@ func (f *FFArm64) generateSubVecF31() {
 	// labels
 	loop := f.NewLabel("loop")
 	done := f.NewLabel("done")
+	lastBlock := f.NewLabel("lastBlock")
 
 	// load arguments
 	f.LDP("res+0(FP)", resPtr, aPtr)
 	f.LDP("b+16(FP)", bPtr, n)
 
-	a := registers.PopV()
-	b := registers.PopV()
-	t := registers.PopV()
+	a0 := registers.PopV()
+	a1 := registers.PopV()
+	a2 := registers.PopV()
+	a3 := registers.PopV()
+	b0 := registers.PopV()
+	b1 := registers.PopV()
+	b2 := registers.PopV()
+	b3 := registers.PopV()
 	q := registers.PopV()
 
 	f.VMOVS("$const_q", q)
 	f.VDUP(q.SAt(0), q.S4(), "broadcast q into "+string(q))
 
 	f.LABEL(loop)
-
-	f.CBZ(n, done)
+	f.CMP(4, n)
+	f.WriteLn(fmt.Sprintf("\tBLT %s", lastBlock))
 
 	const offset = 4 * 4 // we process 4 uint32 at a time
 
-	f.VLD1_P(offset, aPtr, a.S4())
-	f.VLD1_P(offset, bPtr, b.S4())
+	// Load 4 vectors (16 elements) from a and b
+	f.WriteLn(fmt.Sprintf("\tVLD1.P 64(%s), [%s, %s, %s, %s]", aPtr, a0.S4(), a1.S4(), a2.S4(), a3.S4()))
+	f.WriteLn(fmt.Sprintf("\tVLD1.P 64(%s), [%s, %s, %s, %s]", bPtr, b0.S4(), b1.S4(), b2.S4(), b3.S4()))
 
-	f.VSUB(b.S4(), a.S4(), b.S4(), "b = a - b")
-	f.VADD(b.S4(), q.S4(), t.S4(), "t = b + q")
-	f.VUMIN(t.S4(), b.S4(), b.S4(), "b = min(t, b)")
-	f.VST1_P(b.S4(), resPtr, offset, "res = b")
+	// b = a - b
+	f.VSUB(b0.S4(), a0.S4(), b0.S4())
+	f.VSUB(b1.S4(), a1.S4(), b1.S4())
+	f.VSUB(b2.S4(), a2.S4(), b2.S4())
+	f.VSUB(b3.S4(), a3.S4(), b3.S4())
+
+	// t = b + q (store in a)
+	f.VADD(b0.S4(), q.S4(), a0.S4())
+	f.VADD(b1.S4(), q.S4(), a1.S4())
+	f.VADD(b2.S4(), q.S4(), a2.S4())
+	f.VADD(b3.S4(), q.S4(), a3.S4())
+
+	// b = min(t, b) = min(a, b)
+	f.VUMIN(a0.S4(), b0.S4(), b0.S4())
+	f.VUMIN(a1.S4(), b1.S4(), b1.S4())
+	f.VUMIN(a2.S4(), b2.S4(), b2.S4())
+	f.VUMIN(a3.S4(), b3.S4(), b3.S4())
+
+	// Store
+	f.WriteLn(fmt.Sprintf("\tVST1.P [%s, %s, %s, %s], 64(%s)", b0.S4(), b1.S4(), b2.S4(), b3.S4(), resPtr))
+
+	// decrement n
+	f.SUB(4, n, n)
+	f.JMP(loop)
+
+	f.LABEL(lastBlock)
+	f.CBZ(n, done)
+
+	f.VLD1_P(offset, aPtr, a0.S4())
+	f.VLD1_P(offset, bPtr, b0.S4())
+
+	f.VSUB(b0.S4(), a0.S4(), b0.S4(), "b = a - b")
+	f.VADD(b0.S4(), q.S4(), a0.S4(), "t = b + q")
+	f.VUMIN(a0.S4(), b0.S4(), b0.S4(), "b = min(t, b)")
+	f.VST1_P(b0.S4(), resPtr, offset, "res = b")
 
 	// decrement n
 	f.SUB(1, n, n)
-	f.JMP(loop)
+	f.JMP(lastBlock)
 
 	f.LABEL(done)
 
 	registers.Push(resPtr, aPtr, bPtr, n)
-	registers.PushV(a, b, q, t)
+	registers.PushV(a0, a1, a2, a3, b0, b1, b2, b3, q)
 
 	f.RET()
 
@@ -255,13 +337,15 @@ func (f *FFArm64) generateSumVecF31() {
 	// labels
 	loop := f.NewLabel("loop")
 	done := f.NewLabel("done")
+	lastBlock := f.NewLabel("lastBlock")
 
 	// load arguments
 	f.LDP("t+0(FP)", tPtr, aPtr)
 	f.MOVD("n+16(FP)", n)
 
 	f.LABEL(loop)
-	f.CBZ(n, done)
+	f.CMP(4, n)
+	f.WriteLn(fmt.Sprintf("\tBLT %s", lastBlock))
 
 	f.WriteLn(`
 	// blockSize is 16 uint32; we load 4 vectors of 4 uint32 at a time
@@ -273,6 +357,71 @@ func (f *FFArm64) generateSumVecF31() {
 	`)
 
 	const offset = 8 * 4
+
+	// Unrolled loop body (4x)
+	// Block 1
+	f.VLD2_P(offset, aPtr, a1.S4(), a2.S4())
+	f.VADD(a1.S4(), a2.S4(), a1.S4(), "a1 += a2")
+	f.VLD2_P(offset, aPtr, a3.S4(), a4.S4())
+	f.VADD(a3.S4(), a4.S4(), a3.S4(), "a3 += a4")
+	f.VUSHLL(0, a1.S2(), a2.D2(), "convert low words to 64 bits")
+	f.VADD(a2.D2(), acc2, acc2, "acc2 += a2")
+	f.VUSHLL2(0, a1.S4(), a1.D2(), "convert high words to 64 bits")
+	f.VADD(a1.D2(), acc1, acc1, "acc1 += a1")
+	f.VUSHLL(0, a3.S2(), a4.D2(), "convert low words to 64 bits")
+	f.VADD(a4.D2(), acc4, acc4, "acc4 += a4")
+	f.VUSHLL2(0, a3.S4(), a3.D2(), "convert high words to 64 bits")
+	f.VADD(a3.D2(), acc3, acc3, "acc3 += a3")
+
+	// Block 2
+	f.VLD2_P(offset, aPtr, a1.S4(), a2.S4())
+	f.VADD(a1.S4(), a2.S4(), a1.S4(), "a1 += a2")
+	f.VLD2_P(offset, aPtr, a3.S4(), a4.S4())
+	f.VADD(a3.S4(), a4.S4(), a3.S4(), "a3 += a4")
+	f.VUSHLL(0, a1.S2(), a2.D2(), "convert low words to 64 bits")
+	f.VADD(a2.D2(), acc2, acc2, "acc2 += a2")
+	f.VUSHLL2(0, a1.S4(), a1.D2(), "convert high words to 64 bits")
+	f.VADD(a1.D2(), acc1, acc1, "acc1 += a1")
+	f.VUSHLL(0, a3.S2(), a4.D2(), "convert low words to 64 bits")
+	f.VADD(a4.D2(), acc4, acc4, "acc4 += a4")
+	f.VUSHLL2(0, a3.S4(), a3.D2(), "convert high words to 64 bits")
+	f.VADD(a3.D2(), acc3, acc3, "acc3 += a3")
+
+	// Block 3
+	f.VLD2_P(offset, aPtr, a1.S4(), a2.S4())
+	f.VADD(a1.S4(), a2.S4(), a1.S4(), "a1 += a2")
+	f.VLD2_P(offset, aPtr, a3.S4(), a4.S4())
+	f.VADD(a3.S4(), a4.S4(), a3.S4(), "a3 += a4")
+	f.VUSHLL(0, a1.S2(), a2.D2(), "convert low words to 64 bits")
+	f.VADD(a2.D2(), acc2, acc2, "acc2 += a2")
+	f.VUSHLL2(0, a1.S4(), a1.D2(), "convert high words to 64 bits")
+	f.VADD(a1.D2(), acc1, acc1, "acc1 += a1")
+	f.VUSHLL(0, a3.S2(), a4.D2(), "convert low words to 64 bits")
+	f.VADD(a4.D2(), acc4, acc4, "acc4 += a4")
+	f.VUSHLL2(0, a3.S4(), a3.D2(), "convert high words to 64 bits")
+	f.VADD(a3.D2(), acc3, acc3, "acc3 += a3")
+
+	// Block 4
+	f.VLD2_P(offset, aPtr, a1.S4(), a2.S4())
+	f.VADD(a1.S4(), a2.S4(), a1.S4(), "a1 += a2")
+	f.VLD2_P(offset, aPtr, a3.S4(), a4.S4())
+	f.VADD(a3.S4(), a4.S4(), a3.S4(), "a3 += a4")
+	f.VUSHLL(0, a1.S2(), a2.D2(), "convert low words to 64 bits")
+	f.VADD(a2.D2(), acc2, acc2, "acc2 += a2")
+	f.VUSHLL2(0, a1.S4(), a1.D2(), "convert high words to 64 bits")
+	f.VADD(a1.D2(), acc1, acc1, "acc1 += a1")
+	f.VUSHLL(0, a3.S2(), a4.D2(), "convert low words to 64 bits")
+	f.VADD(a4.D2(), acc4, acc4, "acc4 += a4")
+	f.VUSHLL2(0, a3.S4(), a3.D2(), "convert high words to 64 bits")
+	f.VADD(a3.D2(), acc3, acc3, "acc3 += a3")
+
+	// decrement n
+	f.SUB(4, n, n)
+	f.JMP(loop)
+
+	f.LABEL(lastBlock)
+	f.CBZ(n, done)
+
 	f.VLD2_P(offset, aPtr, a1.S4(), a2.S4())
 	f.VADD(a1.S4(), a2.S4(), a1.S4(), "a1 += a2")
 
@@ -291,7 +440,7 @@ func (f *FFArm64) generateSumVecF31() {
 
 	// decrement n
 	f.SUB(1, n, n)
-	f.JMP(loop)
+	f.JMP(lastBlock)
 
 	f.LABEL(done)
 

@@ -4,23 +4,44 @@
 #include "go_asm.h"
 
 // addVec(res, a, b *Element, n uint64)
-// n is the number of blocks of 4 uint32 to process
+// n is the number of blocks of 16 uint32 to process
 TEXT ·addVec(SB), NOFRAME|NOSPLIT, $0-32
 	LDP   res+0(FP), (R0, R1)
 	LDP   b+16(FP), (R2, R3)
-	VMOVS $const_q, V3
-	VDUP  V3.S[0], V3.S4      // broadcast q into V3
+	VMOVS $const_q, V8
+	VDUP  V8.S[0], V8.S4      // broadcast q into V8
 
 loop1:
+	CMP    $0x4, R3
+	BLT    lastBlock3
+	VLD1.P 64(R1), [V0.S4, V1.S4, V2.S4, V3.S4]
+	VLD1.P 64(R2), [V4.S4, V5.S4, V6.S4, V7.S4]
+	VADD   V0.S4, V4.S4, V4.S4
+	VADD   V1.S4, V5.S4, V5.S4
+	VADD   V2.S4, V6.S4, V6.S4
+	VADD   V3.S4, V7.S4, V7.S4
+	VSUB   V8.S4, V4.S4, V0.S4
+	VSUB   V8.S4, V5.S4, V1.S4
+	VSUB   V8.S4, V6.S4, V2.S4
+	VSUB   V8.S4, V7.S4, V3.S4
+	VUMIN  V0.S4, V4.S4, V4.S4
+	VUMIN  V1.S4, V5.S4, V5.S4
+	VUMIN  V2.S4, V6.S4, V6.S4
+	VUMIN  V3.S4, V7.S4, V7.S4
+	VST1.P [V4.S4, V5.S4, V6.S4, V7.S4], 64(R0)
+	SUB    $0x4, R3, R3
+	JMP    loop1
+
+lastBlock3:
 	CBZ    R3, done2
 	VLD1.P 16(R1), [V0.S4]
-	VLD1.P 16(R2), [V1.S4]
-	VADD   V0.S4, V1.S4, V1.S4 // b = a + b
-	VSUB   V3.S4, V1.S4, V2.S4 // t = b - q
-	VUMIN  V2.S4, V1.S4, V1.S4 // b = min(t, b)
-	VST1.P [V1.S4], 16(R0)     // res = b
+	VLD1.P 16(R2), [V4.S4]
+	VADD   V0.S4, V4.S4, V4.S4 // b = a + b
+	VSUB   V8.S4, V4.S4, V0.S4 // a = b - q
+	VUMIN  V0.S4, V4.S4, V4.S4 // b = min(a, b)
+	VST1.P [V4.S4], 16(R0)     // res = b
 	SUB    $1, R3, R3
-	JMP    loop1
+	JMP    lastBlock3
 
 done2:
 	RET
@@ -30,21 +51,42 @@ done2:
 TEXT ·subVec(SB), NOFRAME|NOSPLIT, $0-32
 	LDP   res+0(FP), (R0, R1)
 	LDP   b+16(FP), (R2, R3)
-	VMOVS $const_q, V3
-	VDUP  V3.S[0], V3.S4      // broadcast q into V3
+	VMOVS $const_q, V8
+	VDUP  V8.S[0], V8.S4      // broadcast q into V8
 
-loop3:
-	CBZ    R3, done4
+loop4:
+	CMP    $0x4, R3
+	BLT    lastBlock6
+	VLD1.P 64(R1), [V0.S4, V1.S4, V2.S4, V3.S4]
+	VLD1.P 64(R2), [V4.S4, V5.S4, V6.S4, V7.S4]
+	VSUB   V4.S4, V0.S4, V4.S4
+	VSUB   V5.S4, V1.S4, V5.S4
+	VSUB   V6.S4, V2.S4, V6.S4
+	VSUB   V7.S4, V3.S4, V7.S4
+	VADD   V4.S4, V8.S4, V0.S4
+	VADD   V5.S4, V8.S4, V1.S4
+	VADD   V6.S4, V8.S4, V2.S4
+	VADD   V7.S4, V8.S4, V3.S4
+	VUMIN  V0.S4, V4.S4, V4.S4
+	VUMIN  V1.S4, V5.S4, V5.S4
+	VUMIN  V2.S4, V6.S4, V6.S4
+	VUMIN  V3.S4, V7.S4, V7.S4
+	VST1.P [V4.S4, V5.S4, V6.S4, V7.S4], 64(R0)
+	SUB    $0x4, R3, R3
+	JMP    loop4
+
+lastBlock6:
+	CBZ    R3, done5
 	VLD1.P 16(R1), [V0.S4]
-	VLD1.P 16(R2), [V1.S4]
-	VSUB   V1.S4, V0.S4, V1.S4 // b = a - b
-	VADD   V1.S4, V3.S4, V2.S4 // t = b + q
-	VUMIN  V2.S4, V1.S4, V1.S4 // b = min(t, b)
-	VST1.P [V1.S4], 16(R0)     // res = b
+	VLD1.P 16(R2), [V4.S4]
+	VSUB   V4.S4, V0.S4, V4.S4 // b = a - b
+	VADD   V4.S4, V8.S4, V0.S4 // t = b + q
+	VUMIN  V0.S4, V4.S4, V4.S4 // b = min(t, b)
+	VST1.P [V4.S4], 16(R0)     // res = b
 	SUB    $1, R3, R3
-	JMP    loop3
+	JMP    lastBlock6
 
-done4:
+done5:
 	RET
 
 // mulVec(res, a, b *Element, n uint64)
@@ -58,8 +100,8 @@ TEXT ·mulVec(SB), NOFRAME|NOSPLIT, $0-32
 	VDUP  R4, V8.S4           // broadcast MU
 	VMOVQ $0, $0, V9
 
-loop5:
-	CBZ    R3, done6
+loop7:
+	CBZ    R3, done8
 	VLD1.P 16(R1), [V0.S4]
 	VLD1.P 16(R2), [V1.S4]
 	WORD   $0x2ea1c002          // UMULL V2.2D, V0.2S, V1.2S
@@ -76,9 +118,9 @@ loop5:
 	VADD   V0.S4, V11.S4, V0.S4
 	VST1.P [V0.S4], 16(R0)      // res = a
 	SUB    $1, R3, R3
-	JMP    loop5
+	JMP    loop7
 
-done6:
+done8:
 	RET
 
 // sumVec(t *uint64, a *[]uint32, n uint64) res = sum(a[0...n])
@@ -92,8 +134,9 @@ TEXT ·sumVec(SB), NOFRAME|NOSPLIT, $0-24
 	LDP   t+0(FP), (R1, R0)
 	MOVD  n+16(FP), R2
 
-loop7:
-	CBZ R2, done8
+loop9:
+	CMP $0x4, R2
+	BLT lastBlock11
 
 	// blockSize is 16 uint32; we load 4 vectors of 4 uint32 at a time
 	// (4*4)*4 = 64 bytes ~= 1 cache line
@@ -114,10 +157,63 @@ loop7:
 	VADD    V3.D2, V7.D2, V7.D2    // acc4 += a4
 	VUSHLL2 $0, V2.S4, V2.D2       // convert high words to 64 bits
 	VADD    V2.D2, V6.D2, V6.D2    // acc3 += a3
-	SUB     $1, R2, R2
-	JMP     loop7
+	VLD2.P  32(R0), [V0.S4, V1.S4]
+	VADD    V0.S4, V1.S4, V0.S4    // a1 += a2
+	VLD2.P  32(R0), [V2.S4, V3.S4]
+	VADD    V2.S4, V3.S4, V2.S4    // a3 += a4
+	VUSHLL  $0, V0.S2, V1.D2       // convert low words to 64 bits
+	VADD    V1.D2, V5.D2, V5.D2    // acc2 += a2
+	VUSHLL2 $0, V0.S4, V0.D2       // convert high words to 64 bits
+	VADD    V0.D2, V4.D2, V4.D2    // acc1 += a1
+	VUSHLL  $0, V2.S2, V3.D2       // convert low words to 64 bits
+	VADD    V3.D2, V7.D2, V7.D2    // acc4 += a4
+	VUSHLL2 $0, V2.S4, V2.D2       // convert high words to 64 bits
+	VADD    V2.D2, V6.D2, V6.D2    // acc3 += a3
+	VLD2.P  32(R0), [V0.S4, V1.S4]
+	VADD    V0.S4, V1.S4, V0.S4    // a1 += a2
+	VLD2.P  32(R0), [V2.S4, V3.S4]
+	VADD    V2.S4, V3.S4, V2.S4    // a3 += a4
+	VUSHLL  $0, V0.S2, V1.D2       // convert low words to 64 bits
+	VADD    V1.D2, V5.D2, V5.D2    // acc2 += a2
+	VUSHLL2 $0, V0.S4, V0.D2       // convert high words to 64 bits
+	VADD    V0.D2, V4.D2, V4.D2    // acc1 += a1
+	VUSHLL  $0, V2.S2, V3.D2       // convert low words to 64 bits
+	VADD    V3.D2, V7.D2, V7.D2    // acc4 += a4
+	VUSHLL2 $0, V2.S4, V2.D2       // convert high words to 64 bits
+	VADD    V2.D2, V6.D2, V6.D2    // acc3 += a3
+	VLD2.P  32(R0), [V0.S4, V1.S4]
+	VADD    V0.S4, V1.S4, V0.S4    // a1 += a2
+	VLD2.P  32(R0), [V2.S4, V3.S4]
+	VADD    V2.S4, V3.S4, V2.S4    // a3 += a4
+	VUSHLL  $0, V0.S2, V1.D2       // convert low words to 64 bits
+	VADD    V1.D2, V5.D2, V5.D2    // acc2 += a2
+	VUSHLL2 $0, V0.S4, V0.D2       // convert high words to 64 bits
+	VADD    V0.D2, V4.D2, V4.D2    // acc1 += a1
+	VUSHLL  $0, V2.S2, V3.D2       // convert low words to 64 bits
+	VADD    V3.D2, V7.D2, V7.D2    // acc4 += a4
+	VUSHLL2 $0, V2.S4, V2.D2       // convert high words to 64 bits
+	VADD    V2.D2, V6.D2, V6.D2    // acc3 += a3
+	SUB     $0x4, R2, R2
+	JMP     loop9
 
-done8:
+lastBlock11:
+	CBZ     R2, done10
+	VLD2.P  32(R0), [V0.S4, V1.S4]
+	VADD    V0.S4, V1.S4, V0.S4    // a1 += a2
+	VLD2.P  32(R0), [V2.S4, V3.S4]
+	VADD    V2.S4, V3.S4, V2.S4    // a3 += a4
+	VUSHLL  $0, V0.S2, V1.D2       // convert low words to 64 bits
+	VADD    V1.D2, V5.D2, V5.D2    // acc2 += a2
+	VUSHLL2 $0, V0.S4, V0.D2       // convert high words to 64 bits
+	VADD    V0.D2, V4.D2, V4.D2    // acc1 += a1
+	VUSHLL  $0, V2.S2, V3.D2       // convert low words to 64 bits
+	VADD    V3.D2, V7.D2, V7.D2    // acc4 += a4
+	VUSHLL2 $0, V2.S4, V2.D2       // convert high words to 64 bits
+	VADD    V2.D2, V6.D2, V6.D2    // acc3 += a3
+	SUB     $1, R2, R2
+	JMP     lastBlock11
+
+done10:
 	VADD   V4.D2, V6.D2, V4.D2   // acc1 += acc3
 	VADD   V5.D2, V7.D2, V5.D2   // acc2 += acc4
 	VST2.P [V4.D2, V5.D2], 0(R1) // store acc1 and acc2
