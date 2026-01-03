@@ -519,10 +519,6 @@ func (f *FFArm64) generateInnerProdVecF31() {
 	bPtr := registers.Pop()
 	n := registers.Pop()
 
-	// labels
-	// loop := f.NewLabel("loop")
-	// done := f.NewLabel("done")
-
 	// load arguments
 	f.LDP("t+0(FP)", tPtr, aPtr)
 	f.LDP("b+16(FP)", bPtr, n)
