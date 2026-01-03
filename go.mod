@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/bits-and-blooms/bitset v1.24.4
-	github.com/consensys/bavard v0.2.2-0.20260103212338-6d664d254a71
+	github.com/consensys/bavard v0.2.2-0.20260103234209-58258c9eb155
 	github.com/leanovate/gopter v0.2.11
 	github.com/mmcloughlin/addchain v0.4.0
 	github.com/stretchr/testify v1.11.1

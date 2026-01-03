@@ -49,31 +49,35 @@ done4:
 
 // mulVec(res, a, b *Element, n uint64)
 // n is the number of blocks of 4 uint32 to process
+//
+// Algorithm from plonky3 using SQDMULH for efficient Montgomery reduction:
+// For inputs a, b in [0, P), compute a*b*R^-1 mod P where R = 2^32
+//   1. c_hi = (2 * a * b) >> 32  using SQDMULH
+//   2. q = (a * b * mu) mod 2^32
+//   3. qp_hi = (2 * q * P) >> 32 using SQDMULH
+//   4. d = (c_hi - qp_hi) / 2 using SHSUB
+//   5. if d < 0: d += P
 TEXT ·mulVec(SB), NOFRAME|NOSPLIT, $0-32
 	LDP   res+0(FP), (R0, R1)
 	LDP   b+16(FP), (R2, R3)
-	VMOVS $const_q, V7
-	VDUP  V7.S[0], V7.S4      // broadcast P
+	VMOVS $const_q, V6
+	VDUP  V6.S[0], V6.S4      // broadcast P
 	MOVD  $const_mu, R4
-	VDUP  R4, V8.S4           // broadcast MU
-	VMOVQ $0, $0, V9
+	VDUP  R4, V7.S4           // broadcast MU
 
 loop5:
 	CBZ    R3, done6
 	SUB    $1, R3, R3
 	VLD1.P 16(R1), [V0.S4]
 	VLD1.P 16(R2), [V1.S4]
-	WORD   $0x2ea1c002              // UMULL V2.2D, V0.2S, V1.2S - cLow = a * b (lower halves)
-	WORD   $0x6ea1c003              // UMULL2 V3.2D, V0.4S, V1.4S - cHigh = a * b (upper halves)
-	WORD   $0x4ea19c0c              // MUL V12.4S, V0.4S, V1.4S - temp = a * b (low 32 bits)
-	WORD   $0x4ea89d84              // MUL V4.4S, V12.4S, V8.4S - q = temp * mu (low 32 bits)
-	WORD   $0x2ea7a082              // UMLSL V2.2D, V4.2S, V7.2S - cLow = cLow - q * p (lower halves)
-	WORD   $0x6ea7a083              // UMLSL2 V3.2D, V4.4S, V7.4S - cHigh = cHigh - q * p (upper halves)
-	WORD   $0x4e835840              // UZP2 V0.4S, V2.4S, V3.4S - a = high 32 bits of [cLow, cHigh]
-	WORD   $0x4ea0352a              // CMGT V10.4S, V9.4S, V0.4S - mask = (0 > a) ? all 1s : 0
-	VAND   V7.B16, V10.B16, V11.B16 // corr = mask & P
-	VADD   V0.S4, V11.S4, V0.S4
-	VST1.P [V0.S4], 16(R0)          // res = a
+	WORD   $0x4ea1b402     // SQDMULH V2.4S, V0.4S, V1.4S - c_hi = (2*a*b) >> 32
+	WORD   $0x4ea19c03     // MUL V3.4S, V0.4S, V1.4S - q = a * b (low 32 bits)
+	WORD   $0x4ea79c63     // MUL V3.4S, V3.4S, V7.4S - q = q * mu (low 32 bits)
+	WORD   $0x4ea6b464     // SQDMULH V4.4S, V3.4S, V6.4S - qp_hi = (2*q*P) >> 32
+	WORD   $0x4ea42445     // SHSUB V5.4S, V2.4S, V4.4S - d = (c_hi - qp_hi) / 2
+	WORD   $0x4ea23488     // CMGT V8.4S, V4.4S, V2.4S - underflow = (c_hi < qp_hi) ? all 1s : 0
+	WORD   $0x6ea69505     // MLS V5.4S, V8.4S, V6.4S - d = d - underflow * P (adds P when d < 0)
+	VST1.P [V5.S4], 16(R0) // res = d
 	JMP    loop5
 
 done6:
@@ -115,32 +119,30 @@ done8:
 
 // scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b
 // n is the number of blocks of 4 uint32 to process
+//
+// Algorithm from plonky3 using SQDMULH for efficient Montgomery reduction
 TEXT ·scalarMulVec(SB), NOFRAME|NOSPLIT, $0-32
 	LDP   res+0(FP), (R0, R1)
 	LDP   b+16(FP), (R2, R3)
-	VMOVS $const_q, V7
-	VDUP  V7.S[0], V7.S4      // broadcast P
+	VMOVS $const_q, V6
+	VDUP  V6.S[0], V6.S4      // broadcast P
 	MOVD  $const_mu, R4
-	VDUP  R4, V8.S4           // broadcast MU
+	VDUP  R4, V7.S4           // broadcast MU
 	MOVWU 0(R2), R4
 	VDUP  R4, V1.S4           // broadcast scalar b
-	VMOVQ $0, $0, V9
+	WORD  $0x4ea19ce9         // MUL V9.4S, V7.4S, V1.4S - muB = mu * b (precomputed)
 
 loop9:
 	CBZ    R3, done10
 	SUB    $1, R3, R3
 	VLD1.P 16(R1), [V0.S4]
-	WORD   $0x2ea1c002              // UMULL V2.2D, V0.2S, V1.2S - cLow = a * b (lower halves)
-	WORD   $0x6ea1c003              // UMULL2 V3.2D, V0.4S, V1.4S - cHigh = a * b (upper halves)
-	WORD   $0x4ea19c0c              // MUL V12.4S, V0.4S, V1.4S - temp = a * b (low 32 bits)
-	WORD   $0x4ea89d84              // MUL V4.4S, V12.4S, V8.4S - q = temp * mu (low 32 bits)
-	WORD   $0x2ea7a082              // UMLSL V2.2D, V4.2S, V7.2S - cLow = cLow - q * p (lower halves)
-	WORD   $0x6ea7a083              // UMLSL2 V3.2D, V4.4S, V7.4S - cHigh = cHigh - q * p (upper halves)
-	WORD   $0x4e835840              // UZP2 V0.4S, V2.4S, V3.4S - a = high 32 bits of [cLow, cHigh]
-	WORD   $0x4ea0352a              // CMGT V10.4S, V9.4S, V0.4S - mask = (0 > a) ? all 1s : 0
-	VAND   V7.B16, V10.B16, V11.B16 // corr = mask & P
-	VADD   V0.S4, V11.S4, V0.S4
-	VST1.P [V0.S4], 16(R0)          // res = a
+	WORD   $0x4ea1b402     // SQDMULH V2.4S, V0.4S, V1.4S - c_hi = (2*a*b) >> 32
+	WORD   $0x4ea99c03     // MUL V3.4S, V0.4S, V9.4S - q = a * muB (low 32 bits)
+	WORD   $0x4ea6b464     // SQDMULH V4.4S, V3.4S, V6.4S - qp_hi = (2*q*P) >> 32
+	WORD   $0x4ea42445     // SHSUB V5.4S, V2.4S, V4.4S - d = (c_hi - qp_hi) / 2
+	WORD   $0x4ea23488     // CMGT V8.4S, V4.4S, V2.4S - underflow = (c_hi < qp_hi) ? all 1s : 0
+	WORD   $0x6ea69505     // MLS V5.4S, V8.4S, V6.4S - d = d - underflow * P (adds P when d < 0)
+	VST1.P [V5.S4], 16(R0) // res = d
 	JMP    loop9
 
 done10:

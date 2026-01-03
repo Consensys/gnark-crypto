@@ -49,6 +49,14 @@ func (f *FFArm64) generateAddVecF31() {
 func (f *FFArm64) generateMulVecF31() {
 	f.Comment("mulVec(res, a, b *Element, n uint64)")
 	f.Comment("n is the number of blocks of 4 uint32 to process")
+	f.Comment("")
+	f.Comment("Algorithm from plonky3 using SQDMULH for efficient Montgomery reduction:")
+	f.Comment("For inputs a, b in [0, P), compute a*b*R^-1 mod P where R = 2^32")
+	f.Comment("  1. c_hi = (2 * a * b) >> 32  using SQDMULH")
+	f.Comment("  2. q = (a * b * mu) mod 2^32")
+	f.Comment("  3. qp_hi = (2 * q * P) >> 32 using SQDMULH")
+	f.Comment("  4. d = (c_hi - qp_hi) / 2 using SHSUB")
+	f.Comment("  5. if d < 0: d += P")
 	registers := f.FnHeader("mulVec", 0, 32)
 	defer f.AssertCleanStack(0, 0)
 
@@ -58,40 +66,31 @@ func (f *FFArm64) generateMulVecF31() {
 	bPtr := registers.Pop()
 	n := registers.Pop()
 
-	// labels
-
 	// load arguments
 	f.LDP("res+0(FP)", resPtr, aPtr)
 	f.LDP("b+16(FP)", bPtr, n)
 
-	// Explicit registers
+	// Explicit registers for Montgomery multiplication using SQDMULH
 	a := arm64.V0
 	b := arm64.V1
-	cLow := arm64.V2
-	cHigh := arm64.V3
-	q := arm64.V4
-	//	mLow := arm64.V5
-	//	mHigh := arm64.V6
-	p := arm64.V7
-	mu := arm64.V8
-	zero := arm64.V9
-	mask := arm64.V10
-	corr := arm64.V11
-	temp := arm64.V12
+	cHi := arm64.V2
+	q := arm64.V3
+	qpHi := arm64.V4
+	d := arm64.V5
+	p := arm64.V6
+	mu := arm64.V7
+	underflow := arm64.V8
 
 	// Load constants
-	// P
+	// P (as signed for SQDMULH - values < 2^31 are safe)
 	f.VMOVS("$const_q", p)
 	f.VDUP(p.SAt(0), p.S4(), "broadcast P")
 
-	// MU = 0x81000001
+	// MU
 	tmp := registers.Pop()
 	f.MOVD("$const_mu", tmp)
 	f.VDUP(tmp, mu.S4(), "broadcast MU")
 	registers.Push(tmp)
-
-	// Zero
-	f.VMOVQ_cst(0, 0, zero)
 
 	f.Loop(n, func() {
 		const offset = 4 * 4 // we process 4 uint32 at a time
@@ -99,31 +98,31 @@ func (f *FFArm64) generateMulVecF31() {
 		f.VLD1_P(offset, aPtr, a.S4())
 		f.VLD1_P(offset, bPtr, b.S4())
 
-		// C = a * b
-		f.VUMULL(a, b, cLow, "cLow = a * b (lower halves)")
-		f.VUMULL2(a, b, cHigh, "cHigh = a * b (upper halves)")
+		// Step 1: c_hi = (2 * a * b) >> 32 using SQDMULH
+		// SQDMULH computes (2*a*b) >> 32 with signed saturation
+		f.VSQDMULH(a, b, cHi, "c_hi = (2*a*b) >> 32")
 
-		// Q = (a * b * MU) mod 2^32
-		f.VMUL_S4(a, b, temp, "temp = a * b (low 32 bits)")
-		f.VMUL_S4(temp, mu, q, "q = temp * mu (low 32 bits)")
+		// Step 2: q = (a * b * mu) mod 2^32
+		// First compute temp = a * b (low 32 bits)
+		// Then q = temp * mu (low 32 bits)
+		f.VMUL_S4(a, b, q, "q = a * b (low 32 bits)")
+		f.VMUL_S4(q, mu, q, "q = q * mu (low 32 bits)")
 
-		// X = C - Q * P
-		f.VUMLSL(q, p, cLow, "cLow = cLow - q * p (lower halves)")
-		f.VUMLSL2(q, p, cHigh, "cHigh = cHigh - q * p (upper halves)")
+		// Step 3: qp_hi = (2 * q * P) >> 32 using SQDMULH
+		f.VSQDMULH(q, p, qpHi, "qp_hi = (2*q*P) >> 32")
 
-		// D = X >> 32 (take high parts using UZP2)
-		f.VUZP2(cLow, cHigh, a, "a = high 32 bits of [cLow, cHigh]")
+		// Step 4: d = (c_hi - qp_hi) / 2 using SHSUB
+		// This computes the halving subtraction which accounts for the 2x factor in SQDMULH
+		f.VSHSUB(cHi, qpHi, d, "d = (c_hi - qp_hi) / 2")
 
-		// Correction: if D < 0 (signed comparison with 0)
-		f.VCMGT(zero, a, mask, "mask = (0 > a) ? all 1s : 0")
+		// Step 5: Canonicalize - if d < 0 (negative), add P
+		// underflow mask: all 1s if qp_hi > c_hi (which means d is negative), else 0
+		f.VCMLT(cHi, qpHi, underflow, "underflow = (c_hi < qp_hi) ? all 1s : 0")
 
-		// corr = mask & P
-		f.VAND(p.B16(), mask.B16(), corr.B16(), "corr = mask & P")
+		// d = d - underflow * P = d + P if underflow (since underflow is -1 when true)
+		f.VMLS(underflow, p, d, "d = d - underflow * P (adds P when d < 0)")
 
-		// res = D + corr
-		f.VADD(a.S4(), corr.S4(), a.S4())
-
-		f.VST1_P(a.S4(), resPtr, offset, "res = a")
+		f.VST1_P(d.S4(), resPtr, offset, "res = d")
 	})
 
 	registers.Push(resPtr, aPtr, bPtr, n)
@@ -244,6 +243,8 @@ func (f *FFArm64) generateSumVecF31() {
 func (f *FFArm64) generateScalarMulVecF31() {
 	f.Comment("scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b")
 	f.Comment("n is the number of blocks of 4 uint32 to process")
+	f.Comment("")
+	f.Comment("Algorithm from plonky3 using SQDMULH for efficient Montgomery reduction")
 	registers := f.FnHeader("scalarMulVec", 0, 32)
 	defer f.AssertCleanStack(0, 0)
 
@@ -253,31 +254,24 @@ func (f *FFArm64) generateScalarMulVecF31() {
 	bPtr := registers.Pop()
 	n := registers.Pop()
 
-	// labels
-	// loop := f.NewLabel("loop")
-	// done := f.NewLabel("done")
-
 	// load arguments
 	f.LDP("res+0(FP)", resPtr, aPtr)
 	f.LDP("b+16(FP)", bPtr, n)
 
-	// Explicit registers for Montgomery multiplication
+	// Explicit registers for Montgomery multiplication using SQDMULH
 	a := arm64.V0
 	b := arm64.V1
-	cLow := arm64.V2
-	cHigh := arm64.V3
-	q := arm64.V4
-	//	mLow := arm64.V5
-	//	mHigh := arm64.V6
-	p := arm64.V7
-	mu := arm64.V8
-	zero := arm64.V9
-	mask := arm64.V10
-	corr := arm64.V11
-	temp := arm64.V12
+	cHi := arm64.V2
+	q := arm64.V3
+	qpHi := arm64.V4
+	d := arm64.V5
+	p := arm64.V6
+	mu := arm64.V7
+	underflow := arm64.V8
+	muB := arm64.V9 // precomputed mu * b
 
 	// Load constants
-	// P
+	// P (as signed for SQDMULH - values < 2^31 are safe)
 	f.VMOVS("$const_q", p)
 	f.VDUP(p.SAt(0), p.S4(), "broadcast P")
 
@@ -289,41 +283,36 @@ func (f *FFArm64) generateScalarMulVecF31() {
 	// Load scalar b and broadcast
 	f.MOVWU(bPtr.At2(0), tmp)
 	f.VDUP(tmp, b.S4(), "broadcast scalar b")
-	registers.Push(tmp)
 
-	// Zero
-	f.VMOVQ_cst(0, 0, zero)
+	// Precompute mu * b for reuse in the loop
+	f.VMUL_S4(mu, b, muB, "muB = mu * b (precomputed)")
+	registers.Push(tmp)
 
 	f.Loop(n, func() {
 		const offset = 4 * 4 // we process 4 uint32 at a time
 
 		f.VLD1_P(offset, aPtr, a.S4())
 
-		// C = a * b
-		f.VUMULL(a, b, cLow, "cLow = a * b (lower halves)")
-		f.VUMULL2(a, b, cHigh, "cHigh = a * b (upper halves)")
+		// Step 1: c_hi = (2 * a * b) >> 32 using SQDMULH
+		f.VSQDMULH(a, b, cHi, "c_hi = (2*a*b) >> 32")
 
-		// Q = (a * b * MU) mod 2^32
-		f.VMUL_S4(a, b, temp, "temp = a * b (low 32 bits)")
-		f.VMUL_S4(temp, mu, q, "q = temp * mu (low 32 bits)")
+		// Step 2: q = (a * b * mu) mod 2^32 = a * (mu * b) mod 2^32
+		// Using precomputed muB = mu * b
+		f.VMUL_S4(a, muB, q, "q = a * muB (low 32 bits)")
 
-		// X = C - Q * P
-		f.VUMLSL(q, p, cLow, "cLow = cLow - q * p (lower halves)")
-		f.VUMLSL2(q, p, cHigh, "cHigh = cHigh - q * p (upper halves)")
+		// Step 3: qp_hi = (2 * q * P) >> 32 using SQDMULH
+		f.VSQDMULH(q, p, qpHi, "qp_hi = (2*q*P) >> 32")
 
-		// D = X >> 32 (take high parts using UZP2)
-		f.VUZP2(cLow, cHigh, a, "a = high 32 bits of [cLow, cHigh]")
+		// Step 4: d = (c_hi - qp_hi) / 2 using SHSUB
+		f.VSHSUB(cHi, qpHi, d, "d = (c_hi - qp_hi) / 2")
 
-		// Correction: if D < 0 (signed comparison with 0)
-		f.VCMGT(zero, a, mask, "mask = (0 > a) ? all 1s : 0")
+		// Step 5: Canonicalize - if d < 0 (negative), add P
+		f.VCMLT(cHi, qpHi, underflow, "underflow = (c_hi < qp_hi) ? all 1s : 0")
 
-		// corr = mask & P
-		f.VAND(p.B16(), mask.B16(), corr.B16(), "corr = mask & P")
+		// d = d - underflow * P = d + P if underflow
+		f.VMLS(underflow, p, d, "d = d - underflow * P (adds P when d < 0)")
 
-		// res = D + corr
-		f.VADD(a.S4(), corr.S4(), a.S4())
-
-		f.VST1_P(a.S4(), resPtr, offset, "res = a")
+		f.VST1_P(d.S4(), resPtr, offset, "res = d")
 	})
 
 	registers.Push(resPtr, aPtr, bPtr, n)
