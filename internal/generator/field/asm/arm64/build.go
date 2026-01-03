@@ -232,6 +232,7 @@ func GenerateF31ASM(f *FFArm64, hasVector bool) error {
 
 	f.generateAddVecF31()
 	f.generateSubVecF31()
+	f.generateMulVecF31()
 	f.generateSumVecF31()
 
 	return nil

@@ -47,6 +47,40 @@ loop3:
 done4:
 	RET
 
+// mulVec(res, a, b *Element, n uint64)
+// n is the number of blocks of 4 uint32 to process
+TEXT ·mulVec(SB), NOFRAME|NOSPLIT, $0-32
+	LDP   res+0(FP), (R0, R1)
+	LDP   b+16(FP), (R2, R3)
+	VMOVS $const_q, V7
+	VDUP  V7.S[0], V7.S4      // broadcast P
+	MOVD  $0x81000001, R4
+	VDUP  R4, V8.S4           // broadcast MU
+	VMOVQ $0, $0, V9
+
+loop5:
+	CBZ    R3, done6
+	VLD1.P 16(R1), [V0.S4]
+	VLD1.P 16(R2), [V1.S4]
+	WORD   $0x2ea1c002          // UMULL V2.2D, V0.2S, V1.2S
+	WORD   $0x6ea1c003          // UMULL2 V3.2D, V0.4S, V1.4S
+	WORD   $0x4ea19c0c          // MUL V12.4S, V0.4S, V1.4S
+	WORD   $0x4ea89d84          // MUL V4.4S, V12.4S, V8.4S
+	WORD   $0x2ea7c085          // UMULL V5.2D, V4.2S, V7.2S
+	WORD   $0x6ea7c086          // UMULL2 V6.2D, V4.4S, V7.4S
+	VSUB   V5.D2, V2.D2, V2.D2
+	VSUB   V6.D2, V3.D2, V3.D2
+	WORD   $0x4e835840          // UZP2 V0.4S, V2.4S, V3.4S
+	WORD   $0x4ea0352a          // CMGT V10.4S, V9.4S, V0.4S
+	WORD   $0x4e2a1ceb          // AND V11.16B, V7.16B, V10.16B
+	VADD   V0.S4, V11.S4, V0.S4
+	VST1.P [V0.S4], 16(R0)      // res = a
+	SUB    $1, R3, R3
+	JMP    loop5
+
+done6:
+	RET
+
 // sumVec(t *uint64, a *[]uint32, n uint64) res = sum(a[0...n])
 // n is the number of blocks of 16 uint32 to process
 TEXT ·sumVec(SB), NOFRAME|NOSPLIT, $0-24
@@ -58,8 +92,8 @@ TEXT ·sumVec(SB), NOFRAME|NOSPLIT, $0-24
 	LDP   t+0(FP), (R1, R0)
 	MOVD  n+16(FP), R2
 
-loop5:
-	CBZ R2, done6
+loop7:
+	CBZ R2, done8
 
 	// blockSize is 16 uint32; we load 4 vectors of 4 uint32 at a time
 	// (4*4)*4 = 64 bytes ~= 1 cache line
@@ -81,9 +115,9 @@ loop5:
 	VUSHLL2 $0, V2.S4, V2.D2       // convert high words to 64 bits
 	VADD    V2.D2, V6.D2, V6.D2    // acc3 += a3
 	SUB     $1, R2, R2
-	JMP     loop5
+	JMP     loop7
 
-done6:
+done8:
 	VADD   V4.D2, V6.D2, V4.D2   // acc1 += acc3
 	VADD   V5.D2, V7.D2, V5.D2   // acc2 += acc4
 	VST2.P [V4.D2, V5.D2], 0(R1) // store acc1 and acc2
