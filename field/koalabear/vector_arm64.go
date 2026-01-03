@@ -11,6 +11,8 @@ import (
 	_ "github.com/consensys/gnark-crypto/field/asm/element_31b"
 )
 
+const mu = 18446744071578845185
+
 //go:noescape
 func addVec(res, a, b *Element, n uint64)
 

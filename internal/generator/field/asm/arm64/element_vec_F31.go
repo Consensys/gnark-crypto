@@ -143,7 +143,7 @@ func (f *FFArm64) generateMulVecF31() {
 
 	// MU = 0x81000001
 	tmp := registers.Pop()
-	f.MOVD("$0x81000001", tmp)
+	f.MOVD("$const_mu", tmp)
 	f.VDUP(tmp, mu.S4(), "broadcast MU")
 	registers.Push(tmp)
 

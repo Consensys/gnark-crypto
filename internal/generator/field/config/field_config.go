@@ -326,6 +326,9 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 		muSlice := toUint64Slice(_mu, F.NbWords)
 		F.Mu = muSlice[0]
 	}
+	if f31ASM {
+		F.Mu = -F.QInverse[0]
+	}
 
 	return F, nil
 }

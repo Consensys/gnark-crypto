@@ -2,6 +2,8 @@ import (
 	_ "{{.ASMPackagePath}}"
 )
 
+const mu = {{.Mu}}
+
 //go:noescape
 func addVec(res, a, b *{{.ElementName}}, n uint64)
 

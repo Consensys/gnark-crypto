@@ -96,7 +96,7 @@ TEXT ·mulVec(SB), NOFRAME|NOSPLIT, $0-32
 	LDP   b+16(FP), (R2, R3)
 	VMOVS $const_q, V7
 	VDUP  V7.S[0], V7.S4      // broadcast P
-	MOVD  $0x81000001, R4
+	MOVD  $const_mu, R4
 	VDUP  R4, V8.S4           // broadcast MU
 	VMOVQ $0, $0, V9
 
