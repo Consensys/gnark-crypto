@@ -13,7 +13,7 @@ TEXT ·addVec(SB), NOFRAME|NOSPLIT, $0-32
 
 loop1:
 	CMP    $0x4, R3
-	BLT    lastBlock3
+	BLT    lastBlock2
 	VLD1.P 64(R1), [V0.S4, V1.S4, V2.S4, V3.S4]
 	VLD1.P 64(R2), [V4.S4, V5.S4, V6.S4, V7.S4]
 	VADD   V0.S4, V4.S4, V4.S4
@@ -32,18 +32,19 @@ loop1:
 	SUB    $0x4, R3, R3
 	JMP    loop1
 
-lastBlock3:
-	CBZ    R3, done2
+lastBlock2:
+loop3:
+	CBZ    R3, done4
+	SUB    $1, R3, R3
 	VLD1.P 16(R1), [V0.S4]
 	VLD1.P 16(R2), [V4.S4]
 	VADD   V0.S4, V4.S4, V4.S4 // b = a + b
 	VSUB   V8.S4, V4.S4, V0.S4 // a = b - q
 	VUMIN  V0.S4, V4.S4, V4.S4 // b = min(a, b)
 	VST1.P [V4.S4], 16(R0)     // res = b
-	SUB    $1, R3, R3
-	JMP    lastBlock3
+	JMP    loop3
 
-done2:
+done4:
 	RET
 
 // subVec(res, a, b *Element, n uint64)
@@ -54,7 +55,7 @@ TEXT ·subVec(SB), NOFRAME|NOSPLIT, $0-32
 	VMOVS $const_q, V8
 	VDUP  V8.S[0], V8.S4      // broadcast q into V8
 
-loop4:
+loop5:
 	CMP    $0x4, R3
 	BLT    lastBlock6
 	VLD1.P 64(R1), [V0.S4, V1.S4, V2.S4, V3.S4]
@@ -73,20 +74,21 @@ loop4:
 	VUMIN  V3.S4, V7.S4, V7.S4
 	VST1.P [V4.S4, V5.S4, V6.S4, V7.S4], 64(R0)
 	SUB    $0x4, R3, R3
-	JMP    loop4
+	JMP    loop5
 
 lastBlock6:
-	CBZ    R3, done5
+loop7:
+	CBZ    R3, done8
+	SUB    $1, R3, R3
 	VLD1.P 16(R1), [V0.S4]
 	VLD1.P 16(R2), [V4.S4]
 	VSUB   V4.S4, V0.S4, V4.S4 // b = a - b
 	VADD   V4.S4, V8.S4, V0.S4 // t = b + q
 	VUMIN  V0.S4, V4.S4, V4.S4 // b = min(t, b)
 	VST1.P [V4.S4], 16(R0)     // res = b
-	SUB    $1, R3, R3
-	JMP    lastBlock6
+	JMP    loop7
 
-done5:
+done8:
 	RET
 
 // mulVec(res, a, b *Element, n uint64)
@@ -100,8 +102,9 @@ TEXT ·mulVec(SB), NOFRAME|NOSPLIT, $0-32
 	VDUP  R4, V8.S4           // broadcast MU
 	VMOVQ $0, $0, V9
 
-loop7:
-	CBZ    R3, done8
+loop9:
+	CBZ    R3, done10
+	SUB    $1, R3, R3
 	VLD1.P 16(R1), [V0.S4]
 	VLD1.P 16(R2), [V1.S4]
 	WORD   $0x2ea1c002              // UMULL V2.2D, V0.2S, V1.2S - cLow = a * b (lower halves)
@@ -117,10 +120,9 @@ loop7:
 	VAND   V7.B16, V10.B16, V11.B16 // corr = mask & P
 	VADD   V0.S4, V11.S4, V0.S4
 	VST1.P [V0.S4], 16(R0)          // res = a
-	SUB    $1, R3, R3
-	JMP    loop7
+	JMP    loop9
 
-done8:
+done10:
 	RET
 
 // sumVec(t *uint64, a *[]uint32, n uint64) res = sum(a[0...n])
@@ -134,9 +136,9 @@ TEXT ·sumVec(SB), NOFRAME|NOSPLIT, $0-24
 	LDP   t+0(FP), (R1, R0)
 	MOVD  n+16(FP), R2
 
-loop9:
+loop11:
 	CMP $0x4, R2
-	BLT lastBlock11
+	BLT lastBlock12
 
 	// blockSize is 16 uint32; we load 4 vectors of 4 uint32 at a time
 	// (4*4)*4 = 64 bytes ~= 1 cache line
@@ -193,10 +195,12 @@ loop9:
 	VUSHLL2 $0, V2.S4, V2.D2       // convert high words to 64 bits
 	VADD    V2.D2, V6.D2, V6.D2    // acc3 += a3
 	SUB     $0x4, R2, R2
-	JMP     loop9
+	JMP     loop11
 
-lastBlock11:
-	CBZ     R2, done10
+lastBlock12:
+loop13:
+	CBZ     R2, done14
+	SUB     $1, R2, R2
 	VLD2.P  32(R0), [V0.S4, V1.S4]
 	VADD    V0.S4, V1.S4, V0.S4    // a1 += a2
 	VLD2.P  32(R0), [V2.S4, V3.S4]
@@ -209,10 +213,9 @@ lastBlock11:
 	VADD    V3.D2, V7.D2, V7.D2    // acc4 += a4
 	VUSHLL2 $0, V2.S4, V2.D2       // convert high words to 64 bits
 	VADD    V2.D2, V6.D2, V6.D2    // acc3 += a3
-	SUB     $1, R2, R2
-	JMP     lastBlock11
+	JMP     loop13
 
-done10:
+done14:
 	VADD   V4.D2, V6.D2, V4.D2   // acc1 += acc3
 	VADD   V5.D2, V7.D2, V5.D2   // acc2 += acc4
 	VST2.P [V4.D2, V5.D2], 0(R1) // store acc1 and acc2
@@ -231,8 +234,9 @@ TEXT ·scalarMulVec(SB), NOFRAME|NOSPLIT, $0-32
 	VDUP  R4, V1.S4           // broadcast scalar b
 	VMOVQ $0, $0, V9
 
-loop12:
-	CBZ    R3, done13
+loop15:
+	CBZ    R3, done16
+	SUB    $1, R3, R3
 	VLD1.P 16(R1), [V0.S4]
 	WORD   $0x2ea1c002              // UMULL V2.2D, V0.2S, V1.2S - cLow = a * b (lower halves)
 	WORD   $0x6ea1c003              // UMULL2 V3.2D, V0.4S, V1.4S - cHigh = a * b (upper halves)
@@ -247,10 +251,9 @@ loop12:
 	VAND   V7.B16, V10.B16, V11.B16 // corr = mask & P
 	VADD   V0.S4, V11.S4, V0.S4
 	VST1.P [V0.S4], 16(R0)          // res = a
-	SUB    $1, R3, R3
-	JMP    loop12
+	JMP    loop15
 
-done13:
+done16:
 	RET
 
 // innerProdVec(t *uint64, a, b *[]uint32, n uint64) res = sum(a[0...n] * b[0...n])
@@ -268,8 +271,9 @@ TEXT ·innerProdVec(SB), NOFRAME|NOSPLIT, $0-32
 	VMOVQ $0, $0, V10
 	VEOR  V11.B16, V11.B16, V11.B16 // zero = 0
 
-loop14:
-	CBZ     R3, done15
+loop17:
+	CBZ     R3, done18
+	SUB     $1, R3, R3
 	VLD1.P  16(R1), [V0.S4]
 	VLD1.P  16(R2), [V1.S4]
 	WORD    $0x2ea1c002              // UMULL V2.2D, V0.2S, V1.2S - cLow = a * b (lower halves)
@@ -288,10 +292,9 @@ loop14:
 	VUSHLL2 $0, V2.S4, V6.D2         // mHigh = extend(cLow[2,3])
 	VADD    V5.D2, V9.D2, V9.D2      // acc0 += mLow
 	VADD    V6.D2, V10.D2, V10.D2    // acc1 += mHigh
-	SUB     $1, R3, R3
-	JMP     loop14
+	JMP     loop17
 
-done15:
+done18:
 	VADD   V9.D2, V10.D2, V9.D2 // acc0 += acc1
 	VST1.P [V9.D2], 16(R0)      // store accumulator
 	RET

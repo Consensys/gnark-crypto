@@ -18,7 +18,6 @@ func (f *FFArm64) generateAddVecF31() {
 
 	// labels
 	loop := f.NewLabel("loop")
-	done := f.NewLabel("done")
 	lastBlock := f.NewLabel("lastBlock")
 
 	// load arguments
@@ -76,20 +75,15 @@ func (f *FFArm64) generateAddVecF31() {
 
 	// Handle remaining 0-3 blocks
 	f.LABEL(lastBlock)
-	f.CBZ(n, done)
+	f.Loop(n, func() {
+		f.VLD1_P(offset, aPtr, a0.S4())
+		f.VLD1_P(offset, bPtr, b0.S4())
 
-	f.VLD1_P(offset, aPtr, a0.S4())
-	f.VLD1_P(offset, bPtr, b0.S4())
-
-	f.VADD(a0.S4(), b0.S4(), b0.S4(), "b = a + b")
-	f.VSUB(q.S4(), b0.S4(), a0.S4(), "a = b - q")
-	f.VUMIN(a0.S4(), b0.S4(), b0.S4(), "b = min(a, b)")
-	f.VST1_P(b0.S4(), resPtr, offset, "res = b")
-
-	f.SUB(1, n, n)
-	f.JMP(lastBlock)
-
-	f.LABEL(done)
+		f.VADD(a0.S4(), b0.S4(), b0.S4(), "b = a + b")
+		f.VSUB(q.S4(), b0.S4(), a0.S4(), "a = b - q")
+		f.VUMIN(a0.S4(), b0.S4(), b0.S4(), "b = min(a, b)")
+		f.VST1_P(b0.S4(), resPtr, offset, "res = b")
+	})
 
 	registers.Push(resPtr, aPtr, bPtr, n)
 	registers.PushV(a0, a1, a2, a3, b0, b1, b2, b3, q)
@@ -111,8 +105,8 @@ func (f *FFArm64) generateMulVecF31() {
 	n := registers.Pop()
 
 	// labels
-	loop := f.NewLabel("loop")
-	done := f.NewLabel("done")
+	// loop := f.NewLabel("loop")
+	// done := f.NewLabel("done")
 
 	// load arguments
 	f.LDP("res+0(FP)", resPtr, aPtr)
@@ -147,50 +141,42 @@ func (f *FFArm64) generateMulVecF31() {
 	// Zero
 	f.VMOVQ_cst(0, 0, zero)
 
-	f.LABEL(loop)
+	f.Loop(n, func() {
+		const offset = 4 * 4 // we process 4 uint32 at a time
 
-	f.CBZ(n, done)
+		f.VLD1_P(offset, aPtr, a.S4())
+		f.VLD1_P(offset, bPtr, b.S4())
 
-	const offset = 4 * 4 // we process 4 uint32 at a time
+		// C = a * b
+		f.VUMULL(a, b, cLow, "cLow = a * b (lower halves)")
+		f.VUMULL2(a, b, cHigh, "cHigh = a * b (upper halves)")
 
-	f.VLD1_P(offset, aPtr, a.S4())
-	f.VLD1_P(offset, bPtr, b.S4())
+		// Q = (a * b * MU) mod 2^32
+		f.VMUL_S4(a, b, temp, "temp = a * b (low 32 bits)")
+		f.VMUL_S4(temp, mu, q, "q = temp * mu (low 32 bits)")
 
-	// C = a * b
-	f.VUMULL(a, b, cLow, "cLow = a * b (lower halves)")
-	f.VUMULL2(a, b, cHigh, "cHigh = a * b (upper halves)")
+		// M = Q * P
+		f.VUMULL(q, p, mLow, "mLow = q * p (lower halves)")
+		f.VUMULL2(q, p, mHigh, "mHigh = q * p (upper halves)")
 
-	// Q = (a * b * MU) mod 2^32
-	f.VMUL_S4(a, b, temp, "temp = a * b (low 32 bits)")
-	f.VMUL_S4(temp, mu, q, "q = temp * mu (low 32 bits)")
+		// X = C - M
+		f.VSUB(mLow.D2(), cLow.D2(), cLow.D2(), "cLow = cLow - mLow")
+		f.VSUB(mHigh.D2(), cHigh.D2(), cHigh.D2(), "cHigh = cHigh - mHigh")
 
-	// M = Q * P
-	f.VUMULL(q, p, mLow, "mLow = q * p (lower halves)")
-	f.VUMULL2(q, p, mHigh, "mHigh = q * p (upper halves)")
+		// D = X >> 32 (take high parts using UZP2)
+		f.VUZP2(cLow, cHigh, a, "a = high 32 bits of [cLow, cHigh]")
 
-	// X = C - M
-	f.VSUB(mLow.D2(), cLow.D2(), cLow.D2(), "cLow = cLow - mLow")
-	f.VSUB(mHigh.D2(), cHigh.D2(), cHigh.D2(), "cHigh = cHigh - mHigh")
+		// Correction: if D < 0 (signed comparison with 0)
+		f.VCMGT(zero, a, mask, "mask = (0 > a) ? all 1s : 0")
 
-	// D = X >> 32 (take high parts using UZP2)
-	f.VUZP2(cLow, cHigh, a, "a = high 32 bits of [cLow, cHigh]")
+		// corr = mask & P
+		f.VAND(p.B16(), mask.B16(), corr.B16(), "corr = mask & P")
 
-	// Correction: if D < 0 (signed comparison with 0)
-	f.VCMGT(zero, a, mask, "mask = (0 > a) ? all 1s : 0")
+		// res = D + corr
+		f.VADD(a.S4(), corr.S4(), a.S4())
 
-	// corr = mask & P
-	f.VAND(p.B16(), mask.B16(), corr.B16(), "corr = mask & P")
-
-	// res = D + corr
-	f.VADD(a.S4(), corr.S4(), a.S4())
-
-	f.VST1_P(a.S4(), resPtr, offset, "res = a")
-
-	// decrement n
-	f.SUB(1, n, n)
-	f.JMP(loop)
-
-	f.LABEL(done)
+		f.VST1_P(a.S4(), resPtr, offset, "res = a")
+	})
 
 	registers.Push(resPtr, aPtr, bPtr, n)
 
@@ -212,7 +198,6 @@ func (f *FFArm64) generateSubVecF31() {
 
 	// labels
 	loop := f.NewLabel("loop")
-	done := f.NewLabel("done")
 	lastBlock := f.NewLabel("lastBlock")
 
 	// load arguments
@@ -268,21 +253,15 @@ func (f *FFArm64) generateSubVecF31() {
 	f.JMP(loop)
 
 	f.LABEL(lastBlock)
-	f.CBZ(n, done)
+	f.Loop(n, func() {
+		f.VLD1_P(offset, aPtr, a0.S4())
+		f.VLD1_P(offset, bPtr, b0.S4())
 
-	f.VLD1_P(offset, aPtr, a0.S4())
-	f.VLD1_P(offset, bPtr, b0.S4())
-
-	f.VSUB(b0.S4(), a0.S4(), b0.S4(), "b = a - b")
-	f.VADD(b0.S4(), q.S4(), a0.S4(), "t = b + q")
-	f.VUMIN(a0.S4(), b0.S4(), b0.S4(), "b = min(t, b)")
-	f.VST1_P(b0.S4(), resPtr, offset, "res = b")
-
-	// decrement n
-	f.SUB(1, n, n)
-	f.JMP(lastBlock)
-
-	f.LABEL(done)
+		f.VSUB(b0.S4(), a0.S4(), b0.S4(), "b = a - b")
+		f.VADD(b0.S4(), q.S4(), a0.S4(), "t = b + q")
+		f.VUMIN(a0.S4(), b0.S4(), b0.S4(), "b = min(t, b)")
+		f.VST1_P(b0.S4(), resPtr, offset, "res = b")
+	})
 
 	registers.Push(resPtr, aPtr, bPtr, n)
 	registers.PushV(a0, a1, a2, a3, b0, b1, b2, b3, q)
@@ -324,7 +303,6 @@ func (f *FFArm64) generateSumVecF31() {
 
 	// labels
 	loop := f.NewLabel("loop")
-	done := f.NewLabel("done")
 	lastBlock := f.NewLabel("lastBlock")
 
 	// load arguments
@@ -406,29 +384,23 @@ func (f *FFArm64) generateSumVecF31() {
 	f.JMP(loop)
 
 	f.LABEL(lastBlock)
-	f.CBZ(n, done)
+	f.Loop(n, func() {
+		f.VLD2_P(offset, aPtr, a1.S4(), a2.S4())
+		f.VADD(a1.S4(), a2.S4(), a1.S4(), "a1 += a2")
 
-	f.VLD2_P(offset, aPtr, a1.S4(), a2.S4())
-	f.VADD(a1.S4(), a2.S4(), a1.S4(), "a1 += a2")
+		f.VLD2_P(offset, aPtr, a3.S4(), a4.S4())
+		f.VADD(a3.S4(), a4.S4(), a3.S4(), "a3 += a4")
 
-	f.VLD2_P(offset, aPtr, a3.S4(), a4.S4())
-	f.VADD(a3.S4(), a4.S4(), a3.S4(), "a3 += a4")
+		f.VUSHLL(0, a1.S2(), a2.D2(), "convert low words to 64 bits")
+		f.VADD(a2.D2(), acc2, acc2, "acc2 += a2")
+		f.VUSHLL2(0, a1.S4(), a1.D2(), "convert high words to 64 bits")
+		f.VADD(a1.D2(), acc1, acc1, "acc1 += a1")
 
-	f.VUSHLL(0, a1.S2(), a2.D2(), "convert low words to 64 bits")
-	f.VADD(a2.D2(), acc2, acc2, "acc2 += a2")
-	f.VUSHLL2(0, a1.S4(), a1.D2(), "convert high words to 64 bits")
-	f.VADD(a1.D2(), acc1, acc1, "acc1 += a1")
-
-	f.VUSHLL(0, a3.S2(), a4.D2(), "convert low words to 64 bits")
-	f.VADD(a4.D2(), acc4, acc4, "acc4 += a4")
-	f.VUSHLL2(0, a3.S4(), a3.D2(), "convert high words to 64 bits")
-	f.VADD(a3.D2(), acc3, acc3, "acc3 += a3")
-
-	// decrement n
-	f.SUB(1, n, n)
-	f.JMP(lastBlock)
-
-	f.LABEL(done)
+		f.VUSHLL(0, a3.S2(), a4.D2(), "convert low words to 64 bits")
+		f.VADD(a4.D2(), acc4, acc4, "acc4 += a4")
+		f.VUSHLL2(0, a3.S4(), a3.D2(), "convert high words to 64 bits")
+		f.VADD(a3.D2(), acc3, acc3, "acc3 += a3")
+	})
 
 	f.VADD(acc1, acc3, acc1, "acc1 += acc3")
 	f.VADD(acc2, acc4, acc2, "acc2 += acc4")
@@ -452,8 +424,8 @@ func (f *FFArm64) generateScalarMulVecF31() {
 	n := registers.Pop()
 
 	// labels
-	loop := f.NewLabel("loop")
-	done := f.NewLabel("done")
+	// loop := f.NewLabel("loop")
+	// done := f.NewLabel("done")
 
 	// load arguments
 	f.LDP("res+0(FP)", resPtr, aPtr)
@@ -492,49 +464,41 @@ func (f *FFArm64) generateScalarMulVecF31() {
 	// Zero
 	f.VMOVQ_cst(0, 0, zero)
 
-	f.LABEL(loop)
+	f.Loop(n, func() {
+		const offset = 4 * 4 // we process 4 uint32 at a time
 
-	f.CBZ(n, done)
+		f.VLD1_P(offset, aPtr, a.S4())
 
-	const offset = 4 * 4 // we process 4 uint32 at a time
+		// C = a * b
+		f.VUMULL(a, b, cLow, "cLow = a * b (lower halves)")
+		f.VUMULL2(a, b, cHigh, "cHigh = a * b (upper halves)")
 
-	f.VLD1_P(offset, aPtr, a.S4())
+		// Q = (a * b * MU) mod 2^32
+		f.VMUL_S4(a, b, temp, "temp = a * b (low 32 bits)")
+		f.VMUL_S4(temp, mu, q, "q = temp * mu (low 32 bits)")
 
-	// C = a * b
-	f.VUMULL(a, b, cLow, "cLow = a * b (lower halves)")
-	f.VUMULL2(a, b, cHigh, "cHigh = a * b (upper halves)")
+		// M = Q * P
+		f.VUMULL(q, p, mLow, "mLow = q * p (lower halves)")
+		f.VUMULL2(q, p, mHigh, "mHigh = q * p (upper halves)")
 
-	// Q = (a * b * MU) mod 2^32
-	f.VMUL_S4(a, b, temp, "temp = a * b (low 32 bits)")
-	f.VMUL_S4(temp, mu, q, "q = temp * mu (low 32 bits)")
+		// X = C - M
+		f.VSUB(mLow.D2(), cLow.D2(), cLow.D2(), "cLow = cLow - mLow")
+		f.VSUB(mHigh.D2(), cHigh.D2(), cHigh.D2(), "cHigh = cHigh - mHigh")
 
-	// M = Q * P
-	f.VUMULL(q, p, mLow, "mLow = q * p (lower halves)")
-	f.VUMULL2(q, p, mHigh, "mHigh = q * p (upper halves)")
+		// D = X >> 32 (take high parts using UZP2)
+		f.VUZP2(cLow, cHigh, a, "a = high 32 bits of [cLow, cHigh]")
 
-	// X = C - M
-	f.VSUB(mLow.D2(), cLow.D2(), cLow.D2(), "cLow = cLow - mLow")
-	f.VSUB(mHigh.D2(), cHigh.D2(), cHigh.D2(), "cHigh = cHigh - mHigh")
+		// Correction: if D < 0 (signed comparison with 0)
+		f.VCMGT(zero, a, mask, "mask = (0 > a) ? all 1s : 0")
 
-	// D = X >> 32 (take high parts using UZP2)
-	f.VUZP2(cLow, cHigh, a, "a = high 32 bits of [cLow, cHigh]")
+		// corr = mask & P
+		f.VAND(p.B16(), mask.B16(), corr.B16(), "corr = mask & P")
 
-	// Correction: if D < 0 (signed comparison with 0)
-	f.VCMGT(zero, a, mask, "mask = (0 > a) ? all 1s : 0")
+		// res = D + corr
+		f.VADD(a.S4(), corr.S4(), a.S4())
 
-	// corr = mask & P
-	f.VAND(p.B16(), mask.B16(), corr.B16(), "corr = mask & P")
-
-	// res = D + corr
-	f.VADD(a.S4(), corr.S4(), a.S4())
-
-	f.VST1_P(a.S4(), resPtr, offset, "res = a")
-
-	// decrement n
-	f.SUB(1, n, n)
-	f.JMP(loop)
-
-	f.LABEL(done)
+		f.VST1_P(a.S4(), resPtr, offset, "res = a")
+	})
 
 	registers.Push(resPtr, aPtr, bPtr, n)
 
@@ -556,8 +520,8 @@ func (f *FFArm64) generateInnerProdVecF31() {
 	n := registers.Pop()
 
 	// labels
-	loop := f.NewLabel("loop")
-	done := f.NewLabel("done")
+	// loop := f.NewLabel("loop")
+	// done := f.NewLabel("done")
 
 	// load arguments
 	f.LDP("t+0(FP)", tPtr, aPtr)
@@ -598,62 +562,54 @@ func (f *FFArm64) generateInnerProdVecF31() {
 	zero := arm64.V11
 	f.VEOR(zero.B16(), zero.B16(), zero.B16(), "zero = 0")
 
-	f.LABEL(loop)
+	f.Loop(n, func() {
+		const offset = 4 * 4 // we process 4 uint32 at a time
 
-	f.CBZ(n, done)
+		f.VLD1_P(offset, aPtr, a.S4())
+		f.VLD1_P(offset, bPtr, b.S4())
 
-	const offset = 4 * 4 // we process 4 uint32 at a time
+		// C = a * b (full 64-bit product)
+		f.VUMULL(a, b, cLow, "cLow = a * b (lower halves)")
+		f.VUMULL2(a, b, cHigh, "cHigh = a * b (upper halves)")
 
-	f.VLD1_P(offset, aPtr, a.S4())
-	f.VLD1_P(offset, bPtr, b.S4())
+		// Q = (a * b * MU) mod 2^32
+		f.VMUL_S4(a, b, temp, "temp = a * b (low 32 bits)")
+		f.VMUL_S4(temp, mu, q, "q = temp * mu (low 32 bits)")
 
-	// C = a * b (full 64-bit product)
-	f.VUMULL(a, b, cLow, "cLow = a * b (lower halves)")
-	f.VUMULL2(a, b, cHigh, "cHigh = a * b (upper halves)")
+		// M = Q * P
+		f.VUMULL(q, p, mLow, "mLow = q * p (lower halves)")
+		f.VUMULL2(q, p, mHigh, "mHigh = q * p (upper halves)")
 
-	// Q = (a * b * MU) mod 2^32
-	f.VMUL_S4(a, b, temp, "temp = a * b (low 32 bits)")
-	f.VMUL_S4(temp, mu, q, "q = temp * mu (low 32 bits)")
+		// X = C - M (Montgomery reduction step)
+		f.VSUB(mLow.D2(), cLow.D2(), cLow.D2(), "cLow = cLow - mLow")
+		f.VSUB(mHigh.D2(), cHigh.D2(), cHigh.D2(), "cHigh = cHigh - mHigh")
 
-	// M = Q * P
-	f.VUMULL(q, p, mLow, "mLow = q * p (lower halves)")
-	f.VUMULL2(q, p, mHigh, "mHigh = q * p (upper halves)")
+		// Extract high 32 bits
+		// cLow = [L0, H0, L1, H1], cHigh = [L2, H2, L3, H3]
+		// VUZP2(cLow, cHigh) -> [H0, H1, H2, H3]
+		// We store it in cLow (reusing register)
+		f.VUZP2(cLow.S4(), cHigh.S4(), cLow.S4(), "cLow = high 32 bits of [cLow, cHigh]")
 
-	// X = C - M (Montgomery reduction step)
-	f.VSUB(mLow.D2(), cLow.D2(), cLow.D2(), "cLow = cLow - mLow")
-	f.VSUB(mHigh.D2(), cHigh.D2(), cHigh.D2(), "cHigh = cHigh - mHigh")
+		// Correction: if D < 0 (signed comparison with 0)
+		mask := arm64.V13
+		f.VCMGT(zero.S4(), cLow.S4(), mask.S4(), "mask = (0 > cLow) ? all 1s : 0")
 
-	// Extract high 32 bits
-	// cLow = [L0, H0, L1, H1], cHigh = [L2, H2, L3, H3]
-	// VUZP2(cLow, cHigh) -> [H0, H1, H2, H3]
-	// We store it in cLow (reusing register)
-	f.VUZP2(cLow.S4(), cHigh.S4(), cLow.S4(), "cLow = high 32 bits of [cLow, cHigh]")
+		// corr = mask & P
+		corr := arm64.V14
+		f.VAND(p.B16(), mask.B16(), corr.B16(), "corr = mask & P")
 
-	// Correction: if D < 0 (signed comparison with 0)
-	mask := arm64.V13
-	f.VCMGT(zero.S4(), cLow.S4(), mask.S4(), "mask = (0 > cLow) ? all 1s : 0")
+		// res = D + corr
+		f.VADD(cLow.S4(), corr.S4(), cLow.S4(), "cLow = cLow + corr")
 
-	// corr = mask & P
-	corr := arm64.V14
-	f.VAND(p.B16(), mask.B16(), corr.B16(), "corr = mask & P")
+		// Extend to 64 bits and accumulate
+		// We need two 64-bit registers. We can reuse mLow and mHigh as temps.
+		f.VUSHLL(0, cLow.S2(), mLow.D2(), "mLow = extend(cLow[0,1])")
+		f.VUSHLL2(0, cLow.S4(), mHigh.D2(), "mHigh = extend(cLow[2,3])")
 
-	// res = D + corr
-	f.VADD(cLow.S4(), corr.S4(), cLow.S4(), "cLow = cLow + corr")
-
-	// Extend to 64 bits and accumulate
-	// We need two 64-bit registers. We can reuse mLow and mHigh as temps.
-	f.VUSHLL(0, cLow.S2(), mLow.D2(), "mLow = extend(cLow[0,1])")
-	f.VUSHLL2(0, cLow.S4(), mHigh.D2(), "mHigh = extend(cLow[2,3])")
-
-	// Accumulate
-	f.VADD(mLow.D2(), acc0, acc0, "acc0 += mLow")
-	f.VADD(mHigh.D2(), acc1, acc1, "acc1 += mHigh")
-
-	// decrement n
-	f.SUB(1, n, n)
-	f.JMP(loop)
-
-	f.LABEL(done)
+		// Accumulate
+		f.VADD(mLow.D2(), acc0, acc0, "acc0 += mLow")
+		f.VADD(mHigh.D2(), acc1, acc1, "acc1 += mHigh")
+	})
 
 	// Combine accumulators
 	f.VADD(acc0, acc1, acc0, "acc0 += acc1")
