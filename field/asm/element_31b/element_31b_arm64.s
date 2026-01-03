@@ -150,40 +150,35 @@ done10:
 
 // innerProdVec(t *uint64, a, b *[]uint32, n uint64) res = sum(a[0...n] * b[0...n])
 // n is the number of blocks of 4 uint32 to process
-// We do most of the montgomery multiplication but accumulate the
-// temporary result (without final reduction) and let the caller reduce.
+// We do montgomery multiplication and accumulate the reduced results.
+//
+// Algorithm from plonky3 using SQDMULH for efficient Montgomery reduction
 TEXT ·innerProdVec(SB), NOFRAME|NOSPLIT, $0-32
 	LDP   t+0(FP), (R0, R1)
 	LDP   b+16(FP), (R2, R3)
-	VMOVS $const_q, V7
-	VDUP  V7.S[0], V7.S4            // broadcast P
+	VMOVS $const_q, V6
+	VDUP  V6.S[0], V6.S4     // broadcast P
 	MOVD  $const_mu, R4
-	VDUP  R4, V8.S4                 // broadcast MU
+	VDUP  R4, V7.S4          // broadcast MU
 	VMOVQ $0, $0, V9
 	VMOVQ $0, $0, V10
-	VEOR  V11.B16, V11.B16, V11.B16 // zero = 0
 
 loop11:
 	CBZ     R3, done12
 	SUB     $1, R3, R3
 	VLD1.P  16(R1), [V0.S4]
 	VLD1.P  16(R2), [V1.S4]
-	WORD    $0x2ea1c002              // UMULL V2.2D, V0.2S, V1.2S - cLow = a * b (lower halves)
-	WORD    $0x6ea1c003              // UMULL2 V3.2D, V0.4S, V1.4S - cHigh = a * b (upper halves)
-	WORD    $0x4ea19c0c              // MUL V12.4S, V0.4S, V1.4S - temp = a * b (low 32 bits)
-	WORD    $0x4ea89d84              // MUL V4.4S, V12.4S, V8.4S - q = temp * mu (low 32 bits)
-	WORD    $0x2ea7c085              // UMULL V5.2D, V4.2S, V7.2S - mLow = q * p (lower halves)
-	WORD    $0x6ea7c086              // UMULL2 V6.2D, V4.4S, V7.4S - mHigh = q * p (upper halves)
-	VSUB    V5.D2, V2.D2, V2.D2      // cLow = cLow - mLow
-	VSUB    V6.D2, V3.D2, V3.D2      // cHigh = cHigh - mHigh
-	WORD    $0x4e835842              // UZP2 V2.4S, V2.4S, V3.4S - cLow = high 32 bits of [cLow, cHigh]
-	WORD    $0x4ea2356d              // CMGT V13.4S, V11.4S, V2.4S - mask = (0 > cLow) ? all 1s : 0
-	VAND    V7.B16, V13.B16, V14.B16 // corr = mask & P
-	VADD    V2.S4, V14.S4, V2.S4     // cLow = cLow + corr
-	VUSHLL  $0, V2.S2, V5.D2         // mLow = extend(cLow[0,1])
-	VUSHLL2 $0, V2.S4, V6.D2         // mHigh = extend(cLow[2,3])
-	VADD    V5.D2, V9.D2, V9.D2      // acc0 += mLow
-	VADD    V6.D2, V10.D2, V10.D2    // acc1 += mHigh
+	WORD    $0x4ea1b402            // SQDMULH V2.4S, V0.4S, V1.4S - c_hi = (2*a*b) >> 32
+	WORD    $0x4ea19c03            // MUL V3.4S, V0.4S, V1.4S - q = a * b (low 32 bits)
+	WORD    $0x4ea79c63            // MUL V3.4S, V3.4S, V7.4S - q = q * mu (low 32 bits)
+	WORD    $0x4ea6b464            // SQDMULH V4.4S, V3.4S, V6.4S - qp_hi = (2*q*P) >> 32
+	WORD    $0x4ea42445            // SHSUB V5.4S, V2.4S, V4.4S - d = (c_hi - qp_hi) / 2
+	WORD    $0x4ea23488            // CMGT V8.4S, V4.4S, V2.4S - underflow = (c_hi < qp_hi) ? all 1s : 0
+	WORD    $0x6ea69505            // MLS V5.4S, V8.4S, V6.4S - d = d - underflow * P (adds P when d < 0)
+	VUSHLL  $0, V5.S2, V11.D2      // tmp0 = extend(d[0,1])
+	VUSHLL2 $0, V5.S4, V12.D2      // tmp1 = extend(d[2,3])
+	VADD    V11.D2, V9.D2, V9.D2   // acc0 += tmp0
+	VADD    V12.D2, V10.D2, V10.D2 // acc1 += tmp1
 	JMP     loop11
 
 done12:

@@ -323,8 +323,9 @@ func (f *FFArm64) generateScalarMulVecF31() {
 func (f *FFArm64) generateInnerProdVecF31() {
 	f.Comment("innerProdVec(t *uint64, a, b *[]uint32, n uint64) res = sum(a[0...n] * b[0...n])")
 	f.Comment("n is the number of blocks of 4 uint32 to process")
-	f.Comment("We do most of the montgomery multiplication but accumulate the")
-	f.Comment("temporary result (without final reduction) and let the caller reduce.")
+	f.Comment("We do montgomery multiplication and accumulate the reduced results.")
+	f.Comment("")
+	f.Comment("Algorithm from plonky3 using SQDMULH for efficient Montgomery reduction")
 	registers := f.FnHeader("innerProdVec", 0, 32)
 	defer f.AssertCleanStack(0, 0)
 
@@ -338,24 +339,27 @@ func (f *FFArm64) generateInnerProdVecF31() {
 	f.LDP("t+0(FP)", tPtr, aPtr)
 	f.LDP("b+16(FP)", bPtr, n)
 
-	// Explicit registers for Montgomery multiplication
+	// Explicit registers for Montgomery multiplication using SQDMULH
 	a := arm64.V0
 	b := arm64.V1
-	cLow := arm64.V2
-	cHigh := arm64.V3
-	q := arm64.V4
-	mLow := arm64.V5
-	mHigh := arm64.V6
-	p := arm64.V7
-	mu := arm64.V8
-	temp := arm64.V12
+	cHi := arm64.V2
+	q := arm64.V3
+	qpHi := arm64.V4
+	d := arm64.V5
+	p := arm64.V6
+	mu := arm64.V7
+	underflow := arm64.V8
 
 	// Accumulators (64-bit)
 	acc0 := arm64.V9.D2()
 	acc1 := arm64.V10.D2()
 
+	// Temp registers for widening
+	tmp0 := arm64.V11
+	tmp1 := arm64.V12
+
 	// Load constants
-	// P
+	// P (as signed for SQDMULH - values < 2^31 are safe)
 	f.VMOVS("$const_q", p)
 	f.VDUP(p.SAt(0), p.S4(), "broadcast P")
 
@@ -369,57 +373,38 @@ func (f *FFArm64) generateInnerProdVecF31() {
 	f.VMOVQ_cst(0, 0, arm64.V9)
 	f.VMOVQ_cst(0, 0, arm64.V10)
 
-	// Zero register for correction
-	zero := arm64.V11
-	f.VEOR(zero.B16(), zero.B16(), zero.B16(), "zero = 0")
-
 	f.Loop(n, func() {
 		const offset = 4 * 4 // we process 4 uint32 at a time
 
 		f.VLD1_P(offset, aPtr, a.S4())
 		f.VLD1_P(offset, bPtr, b.S4())
 
-		// C = a * b (full 64-bit product)
-		f.VUMULL(a, b, cLow, "cLow = a * b (lower halves)")
-		f.VUMULL2(a, b, cHigh, "cHigh = a * b (upper halves)")
+		// Step 1: c_hi = (2 * a * b) >> 32 using SQDMULH
+		f.VSQDMULH(a, b, cHi, "c_hi = (2*a*b) >> 32")
 
-		// Q = (a * b * MU) mod 2^32
-		f.VMUL_S4(a, b, temp, "temp = a * b (low 32 bits)")
-		f.VMUL_S4(temp, mu, q, "q = temp * mu (low 32 bits)")
+		// Step 2: q = (a * b * mu) mod 2^32
+		f.VMUL_S4(a, b, q, "q = a * b (low 32 bits)")
+		f.VMUL_S4(q, mu, q, "q = q * mu (low 32 bits)")
 
-		// M = Q * P
-		f.VUMULL(q, p, mLow, "mLow = q * p (lower halves)")
-		f.VUMULL2(q, p, mHigh, "mHigh = q * p (upper halves)")
+		// Step 3: qp_hi = (2 * q * P) >> 32 using SQDMULH
+		f.VSQDMULH(q, p, qpHi, "qp_hi = (2*q*P) >> 32")
 
-		// X = C - M (Montgomery reduction step)
-		f.VSUB(mLow.D2(), cLow.D2(), cLow.D2(), "cLow = cLow - mLow")
-		f.VSUB(mHigh.D2(), cHigh.D2(), cHigh.D2(), "cHigh = cHigh - mHigh")
+		// Step 4: d = (c_hi - qp_hi) / 2 using SHSUB
+		f.VSHSUB(cHi, qpHi, d, "d = (c_hi - qp_hi) / 2")
 
-		// Extract high 32 bits
-		// cLow = [L0, H0, L1, H1], cHigh = [L2, H2, L3, H3]
-		// VUZP2(cLow, cHigh) -> [H0, H1, H2, H3]
-		// We store it in cLow (reusing register)
-		f.VUZP2(cLow.S4(), cHigh.S4(), cLow.S4(), "cLow = high 32 bits of [cLow, cHigh]")
+		// Step 5: Canonicalize - if d < 0 (negative), add P
+		f.VCMLT(cHi, qpHi, underflow, "underflow = (c_hi < qp_hi) ? all 1s : 0")
 
-		// Correction: if D < 0 (signed comparison with 0)
-		mask := arm64.V13
-		f.VCMGT(zero.S4(), cLow.S4(), mask.S4(), "mask = (0 > cLow) ? all 1s : 0")
-
-		// corr = mask & P
-		corr := arm64.V14
-		f.VAND(p.B16(), mask.B16(), corr.B16(), "corr = mask & P")
-
-		// res = D + corr
-		f.VADD(cLow.S4(), corr.S4(), cLow.S4(), "cLow = cLow + corr")
+		// d = d - underflow * P = d + P if underflow
+		f.VMLS(underflow, p, d, "d = d - underflow * P (adds P when d < 0)")
 
 		// Extend to 64 bits and accumulate
-		// We need two 64-bit registers. We can reuse mLow and mHigh as temps.
-		f.VUSHLL(0, cLow.S2(), mLow.D2(), "mLow = extend(cLow[0,1])")
-		f.VUSHLL2(0, cLow.S4(), mHigh.D2(), "mHigh = extend(cLow[2,3])")
+		f.VUSHLL(0, d.S2(), tmp0.D2(), "tmp0 = extend(d[0,1])")
+		f.VUSHLL2(0, d.S4(), tmp1.D2(), "tmp1 = extend(d[2,3])")
 
 		// Accumulate
-		f.VADD(mLow.D2(), acc0, acc0, "acc0 += mLow")
-		f.VADD(mHigh.D2(), acc1, acc1, "acc1 += mHigh")
+		f.VADD(tmp0.D2(), acc0, acc0, "acc0 += tmp0")
+		f.VADD(tmp1.D2(), acc1, acc1, "acc1 += tmp1")
 	})
 
 	// Combine accumulators
