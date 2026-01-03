@@ -105,8 +105,6 @@ func (f *FFArm64) generateMulVecF31() {
 	n := registers.Pop()
 
 	// labels
-	// loop := f.NewLabel("loop")
-	// done := f.NewLabel("done")
 
 	// load arguments
 	f.LDP("res+0(FP)", resPtr, aPtr)
