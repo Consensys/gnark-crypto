@@ -70,8 +70,8 @@ func (f *FFArm64) generateMulVecF31() {
 	cLow := arm64.V2
 	cHigh := arm64.V3
 	q := arm64.V4
-	mLow := arm64.V5
-	mHigh := arm64.V6
+	//	mLow := arm64.V5
+	//	mHigh := arm64.V6
 	p := arm64.V7
 	mu := arm64.V8
 	zero := arm64.V9
@@ -107,13 +107,9 @@ func (f *FFArm64) generateMulVecF31() {
 		f.VMUL_S4(a, b, temp, "temp = a * b (low 32 bits)")
 		f.VMUL_S4(temp, mu, q, "q = temp * mu (low 32 bits)")
 
-		// M = Q * P
-		f.VUMULL(q, p, mLow, "mLow = q * p (lower halves)")
-		f.VUMULL2(q, p, mHigh, "mHigh = q * p (upper halves)")
-
-		// X = C - M
-		f.VSUB(mLow.D2(), cLow.D2(), cLow.D2(), "cLow = cLow - mLow")
-		f.VSUB(mHigh.D2(), cHigh.D2(), cHigh.D2(), "cHigh = cHigh - mHigh")
+		// X = C - Q * P
+		f.VUMLSL(q, p, cLow, "cLow = cLow - q * p (lower halves)")
+		f.VUMLSL2(q, p, cHigh, "cHigh = cHigh - q * p (upper halves)")
 
 		// D = X >> 32 (take high parts using UZP2)
 		f.VUZP2(cLow, cHigh, a, "a = high 32 bits of [cLow, cHigh]")
@@ -271,8 +267,8 @@ func (f *FFArm64) generateScalarMulVecF31() {
 	cLow := arm64.V2
 	cHigh := arm64.V3
 	q := arm64.V4
-	mLow := arm64.V5
-	mHigh := arm64.V6
+	//	mLow := arm64.V5
+	//	mHigh := arm64.V6
 	p := arm64.V7
 	mu := arm64.V8
 	zero := arm64.V9
@@ -311,13 +307,9 @@ func (f *FFArm64) generateScalarMulVecF31() {
 		f.VMUL_S4(a, b, temp, "temp = a * b (low 32 bits)")
 		f.VMUL_S4(temp, mu, q, "q = temp * mu (low 32 bits)")
 
-		// M = Q * P
-		f.VUMULL(q, p, mLow, "mLow = q * p (lower halves)")
-		f.VUMULL2(q, p, mHigh, "mHigh = q * p (upper halves)")
-
-		// X = C - M
-		f.VSUB(mLow.D2(), cLow.D2(), cLow.D2(), "cLow = cLow - mLow")
-		f.VSUB(mHigh.D2(), cHigh.D2(), cHigh.D2(), "cHigh = cHigh - mHigh")
+		// X = C - Q * P
+		f.VUMLSL(q, p, cLow, "cLow = cLow - q * p (lower halves)")
+		f.VUMLSL2(q, p, cHigh, "cHigh = cHigh - q * p (upper halves)")
 
 		// D = X >> 32 (take high parts using UZP2)
 		f.VUZP2(cLow, cHigh, a, "a = high 32 bits of [cLow, cHigh]")

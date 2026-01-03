@@ -67,10 +67,8 @@ loop5:
 	WORD   $0x6ea1c003              // UMULL2 V3.2D, V0.4S, V1.4S - cHigh = a * b (upper halves)
 	WORD   $0x4ea19c0c              // MUL V12.4S, V0.4S, V1.4S - temp = a * b (low 32 bits)
 	WORD   $0x4ea89d84              // MUL V4.4S, V12.4S, V8.4S - q = temp * mu (low 32 bits)
-	WORD   $0x2ea7c085              // UMULL V5.2D, V4.2S, V7.2S - mLow = q * p (lower halves)
-	WORD   $0x6ea7c086              // UMULL2 V6.2D, V4.4S, V7.4S - mHigh = q * p (upper halves)
-	VSUB   V5.D2, V2.D2, V2.D2      // cLow = cLow - mLow
-	VSUB   V6.D2, V3.D2, V3.D2      // cHigh = cHigh - mHigh
+	WORD   $0x2ea7a082              // UMLSL V2.2D, V4.2S, V7.2S - cLow = cLow - q * p (lower halves)
+	WORD   $0x6ea7a083              // UMLSL2 V3.2D, V4.4S, V7.4S - cHigh = cHigh - q * p (upper halves)
 	WORD   $0x4e835840              // UZP2 V0.4S, V2.4S, V3.4S - a = high 32 bits of [cLow, cHigh]
 	WORD   $0x4ea0352a              // CMGT V10.4S, V9.4S, V0.4S - mask = (0 > a) ? all 1s : 0
 	VAND   V7.B16, V10.B16, V11.B16 // corr = mask & P
@@ -136,10 +134,8 @@ loop9:
 	WORD   $0x6ea1c003              // UMULL2 V3.2D, V0.4S, V1.4S - cHigh = a * b (upper halves)
 	WORD   $0x4ea19c0c              // MUL V12.4S, V0.4S, V1.4S - temp = a * b (low 32 bits)
 	WORD   $0x4ea89d84              // MUL V4.4S, V12.4S, V8.4S - q = temp * mu (low 32 bits)
-	WORD   $0x2ea7c085              // UMULL V5.2D, V4.2S, V7.2S - mLow = q * p (lower halves)
-	WORD   $0x6ea7c086              // UMULL2 V6.2D, V4.4S, V7.4S - mHigh = q * p (upper halves)
-	VSUB   V5.D2, V2.D2, V2.D2      // cLow = cLow - mLow
-	VSUB   V6.D2, V3.D2, V3.D2      // cHigh = cHigh - mHigh
+	WORD   $0x2ea7a082              // UMLSL V2.2D, V4.2S, V7.2S - cLow = cLow - q * p (lower halves)
+	WORD   $0x6ea7a083              // UMLSL2 V3.2D, V4.4S, V7.4S - cHigh = cHigh - q * p (upper halves)
 	WORD   $0x4e835840              // UZP2 V0.4S, V2.4S, V3.4S - a = high 32 bits of [cLow, cHigh]
 	WORD   $0x4ea0352a              // CMGT V10.4S, V9.4S, V0.4S - mask = (0 > a) ? all 1s : 0
 	VAND   V7.B16, V10.B16, V11.B16 // corr = mask & P
