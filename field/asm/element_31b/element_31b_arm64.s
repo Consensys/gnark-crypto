@@ -4,7 +4,7 @@
 #include "go_asm.h"
 
 // addVec(res, a, b *Element, n uint64)
-// n is the number of blocks of 16 uint32 to process
+// n is the number of blocks of 4 uint32 to process
 TEXT ·addVec(SB), NOFRAME|NOSPLIT, $0-32
 	LDP   res+0(FP), (R0, R1)
 	LDP   b+16(FP), (R2, R3)
