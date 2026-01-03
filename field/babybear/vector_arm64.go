@@ -9,6 +9,7 @@ package babybear
 
 import (
 	_ "github.com/consensys/gnark-crypto/field/asm/element_31b"
+	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
 const mu = 18446744071696285697
@@ -41,6 +42,10 @@ func (vector *Vector) Add(a, b Vector) {
 	if n == 0 {
 		return
 	}
+	if !cpu.SupportNEON {
+		addVecGeneric(*vector, a, b)
+		return
+	}
 
 	const blockSize = 4
 	addVec(&(*vector)[0], &a[0], &b[0], n/blockSize)
@@ -61,6 +66,10 @@ func (vector *Vector) Sub(a, b Vector) {
 	if n == 0 {
 		return
 	}
+	if !cpu.SupportNEON {
+		subVecGeneric(*vector, a, b)
+		return
+	}
 
 	const blockSize = 4
 	subVec(&(*vector)[0], &a[0], &b[0], n/blockSize)
@@ -73,6 +82,10 @@ func (vector *Vector) Sub(a, b Vector) {
 
 // Sum computes the sum of all elements in the vector.
 func (vector *Vector) Sum() (res Element) {
+	if !cpu.SupportNEON {
+		sumVecGeneric(&res, *vector)
+		return
+	}
 	n := uint64(len(*vector))
 	if n == 0 {
 		return
@@ -106,6 +119,10 @@ func (vector *Vector) ScalarMul(a Vector, b *Element) {
 	if n == 0 {
 		return
 	}
+	if !cpu.SupportNEON {
+		scalarMulVecGeneric(*vector, a, b)
+		return
+	}
 
 	const blockSize = 4
 	scalarMulVec(&(*vector)[0], &a[0], b, n/blockSize)
@@ -123,6 +140,10 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 	}
 	n := uint64(len(*vector))
 	if n == 0 {
+		return
+	}
+	if !cpu.SupportNEON {
+		innerProductVecGeneric(&res, *vector, other)
 		return
 	}
 
@@ -150,6 +171,10 @@ func (vector *Vector) Mul(a, b Vector) {
 	}
 	n := uint64(len(a))
 	if n == 0 {
+		return
+	}
+	if !cpu.SupportNEON {
+		mulVecGeneric(*vector, a, b)
 		return
 	}
 
