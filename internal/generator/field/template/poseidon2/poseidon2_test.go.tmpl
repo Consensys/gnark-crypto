@@ -510,3 +510,68 @@ func BenchmarkPoseidon2Width{{- $w1}}(b *testing.B) {
 	}
 }
 
+
+{{- if eq .FF "koalabear"}}
+func TestCompressx16(t *testing.T) {
+	assert := require.New(t)
+	
+	const colSize = 512
+	const nbRows = 16
+	
+	// create random input
+	matrix := make([]fr.Element, nbRows*colSize)
+	for i := range matrix {
+		matrix[i].MustSetRandom()
+	}
+	
+	// expected result using pure go implementation (which is triggered when AVX512 is disabled)
+	var expected [16][8]fr.Element
+	{
+		h := NewPermutation({{- $w0}}, {{- .ParamsCompression.FullRounds}}, {{- .ParamsCompression.PartialRounds}})
+		var x [16][16]fr.Element
+		nbSteps := colSize / 8
+		for step := 0; step < nbSteps; step++ {
+			// load chunk
+			for i := 0; i < 16; i++ {
+				// init state
+				copy(x[i][8:], matrix[i*colSize+step*8:i*colSize+step*8+8])
+				h.Permutation(x[i][:])
+				for j := 0; j < 8; j++ {
+					x[i][j].Add(&x[i][8+j], &matrix[i*colSize+step*8+j]) // feed-forward
+				}
+			}
+		}
+		// store result
+		for i := 0; i < 16; i++ {
+			copy(expected[i][:], x[i][:8])
+		}
+	}
+
+	// actual result
+	var result [16][8]fr.Element
+	h := NewPermutation({{- $w0}}, {{- .ParamsCompression.FullRounds}}, {{- .ParamsCompression.PartialRounds}})
+	h.Compressx16(matrix, colSize, result[:])
+
+	for i := 0; i < 16; i++ {
+		for j := 0; j < 8; j++ {
+			assert.True(expected[i][j].Equal(&result[i][j]), "mismatch at row %d col %d", i, j)
+		}
+	}
+}
+
+func BenchmarkCompressx16(b *testing.B) {
+	const colSize = 512
+	const nbRows = 16
+	matrix := make([]fr.Element, nbRows*colSize)
+	for i := range matrix {
+		matrix[i].MustSetRandom()
+	}
+	var result [16][8]fr.Element
+	h := NewPermutation({{- $w0}}, {{- .ParamsCompression.FullRounds}}, {{- .ParamsCompression.PartialRounds}})
+	
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		h.Compressx16(matrix, colSize, result[:])
+	}
+}
+{{- end}}
