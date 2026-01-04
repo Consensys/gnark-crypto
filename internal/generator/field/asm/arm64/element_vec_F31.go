@@ -176,6 +176,9 @@ func (f *FFArm64) generateSubVecF31() {
 func (f *FFArm64) generateSumVecF31() {
 	f.Comment("sumVec(t *uint64, a *[]uint32, n uint64) res = sum(a[0...n])")
 	f.Comment("n is the number of blocks of 16 uint32 to process")
+	f.Comment("")
+	f.Comment("Uses UADALP (Unsigned Add and Accumulate Long Pairwise) to efficiently")
+	f.Comment("sum 32-bit elements into 64-bit accumulators in a single instruction.")
 	registers := f.FnHeader("sumVec", 0, 3*8)
 	defer f.AssertCleanStack(0, 0)
 
@@ -184,57 +187,48 @@ func (f *FFArm64) generateSumVecF31() {
 	tPtr := registers.Pop()
 	n := registers.Pop()
 
+	// We load 4 vectors of 4 x uint32 = 16 elements per iteration
+	a0 := registers.PopV()
 	a1 := registers.PopV()
 	a2 := registers.PopV()
 	a3 := registers.PopV()
-	a4 := registers.PopV()
+	acc0V := registers.PopV()
 	acc1V := registers.PopV()
-	acc2V := registers.PopV()
-	acc3V := registers.PopV()
-	acc4V := registers.PopV()
 
 	f.Comment("zeroing accumulators")
+	f.VMOVQ_cst(0, 0, acc0V)
 	f.VMOVQ_cst(0, 0, acc1V)
-	f.VMOVQ_cst(0, 0, acc2V)
-	f.VMOVQ_cst(0, 0, acc3V)
-	f.VMOVQ_cst(0, 0, acc4V)
 
+	acc0 := acc0V.D2()
 	acc1 := acc1V.D2()
-	acc2 := acc2V.D2()
-	acc3 := acc3V.D2()
-	acc4 := acc4V.D2()
 
 	// load arguments
 	f.LDP("t+0(FP)", tPtr, aPtr)
 	f.MOVD("n+16(FP)", n)
 
-	const offset = 8 * 4
+	const offset = 16 * 4 // 16 uint32 = 64 bytes per iteration
 
 	f.Loop(n, func() {
-		f.VLD2_P(offset, aPtr, a1.S4(), a2.S4())
-		f.VADD(a1.S4(), a2.S4(), a1.S4(), "a1 += a2")
+		// Load 16 elements (4 vectors of 4 uint32)
+		f.VLD1_P_Multi(offset, aPtr, a0, a1, a2, a3)
 
-		f.VLD2_P(offset, aPtr, a3.S4(), a4.S4())
-		f.VADD(a3.S4(), a4.S4(), a3.S4(), "a3 += a4")
+		// Add vectors pairwise: a0 += a1, a2 += a3
+		f.VADD(a0.S4(), a1.S4(), a0.S4(), "a0 += a1")
+		f.VADD(a2.S4(), a3.S4(), a2.S4(), "a2 += a3")
 
-		f.VUSHLL(0, a1.S2(), a2.D2(), "convert low words to 64 bits")
-		f.VADD(a2.D2(), acc2, acc2, "acc2 += a2")
-		f.VUSHLL2(0, a1.S4(), a1.D2(), "convert high words to 64 bits")
-		f.VADD(a1.D2(), acc1, acc1, "acc1 += a1")
-
-		f.VUSHLL(0, a3.S2(), a4.D2(), "convert low words to 64 bits")
-		f.VADD(a4.D2(), acc4, acc4, "acc4 += a4")
-		f.VUSHLL2(0, a3.S4(), a3.D2(), "convert high words to 64 bits")
-		f.VADD(a3.D2(), acc3, acc3, "acc3 += a3")
+		// UADALP: pairwise add adjacent 32-bit elements, widen to 64-bit, and accumulate
+		// This replaces VUSHLL + VADD with a single instruction
+		f.VUADALP(a0, acc0V, "acc0 += pairwise_widen(a0)")
+		f.VUADALP(a2, acc1V, "acc1 += pairwise_widen(a2)")
 	})
 
-	f.VADD(acc1, acc3, acc1, "acc1 += acc3")
-	f.VADD(acc2, acc4, acc2, "acc2 += acc4")
+	// Final reduction: combine the two accumulators
+	f.VADD(acc0, acc1, acc0, "acc0 += acc1")
 
-	f.VST2_P(acc1, acc2, tPtr, 0, "store acc1 and acc2")
+	f.VST1_P(acc0, tPtr, 0, "store accumulator")
 
 	registers.Push(aPtr, tPtr, n)
-	registers.PushV(a1, a2, a3, a4, acc1V, acc2V, acc3V, acc4V)
+	registers.PushV(a0, a1, a2, a3, acc0V, acc1V)
 
 	f.RET()
 

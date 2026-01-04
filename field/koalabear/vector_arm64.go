@@ -92,11 +92,11 @@ func (vector *Vector) Sum() (res Element) {
 	}
 
 	const blockSize = 16
-	var t [4]uint64 // stores the accumulators (not reduced mod q)
+	var t [2]uint64 // stores the accumulators (not reduced mod q)
 	sumVec(&t[0], &(*vector)[0], n/blockSize)
 	// we reduce the accumulators mod q and add to res
 	var v Element
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 2; i++ {
 		v[0] = uint32(t[i] % q)
 		res.Add(&res, &v)
 	}

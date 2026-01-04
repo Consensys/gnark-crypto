@@ -85,36 +85,29 @@ done6:
 
 // sumVec(t *uint64, a *[]uint32, n uint64) res = sum(a[0...n])
 // n is the number of blocks of 16 uint32 to process
+//
+// Uses UADALP (Unsigned Add and Accumulate Long Pairwise) to efficiently
+// sum 32-bit elements into 64-bit accumulators in a single instruction.
 TEXT ·sumVec(SB), NOFRAME|NOSPLIT, $0-24
 	// zeroing accumulators
 	VMOVQ $0, $0, V4
 	VMOVQ $0, $0, V5
-	VMOVQ $0, $0, V6
-	VMOVQ $0, $0, V7
 	LDP   t+0(FP), (R1, R0)
 	MOVD  n+16(FP), R2
 
 loop7:
-	CBZ     R2, done8
-	SUB     $1, R2, R2
-	VLD2.P  32(R0), [V0.S4, V1.S4]
-	VADD    V0.S4, V1.S4, V0.S4    // a1 += a2
-	VLD2.P  32(R0), [V2.S4, V3.S4]
-	VADD    V2.S4, V3.S4, V2.S4    // a3 += a4
-	VUSHLL  $0, V0.S2, V1.D2       // convert low words to 64 bits
-	VADD    V1.D2, V5.D2, V5.D2    // acc2 += a2
-	VUSHLL2 $0, V0.S4, V0.D2       // convert high words to 64 bits
-	VADD    V0.D2, V4.D2, V4.D2    // acc1 += a1
-	VUSHLL  $0, V2.S2, V3.D2       // convert low words to 64 bits
-	VADD    V3.D2, V7.D2, V7.D2    // acc4 += a4
-	VUSHLL2 $0, V2.S4, V2.D2       // convert high words to 64 bits
-	VADD    V2.D2, V6.D2, V6.D2    // acc3 += a3
-	JMP     loop7
+	CBZ    R2, done8
+	SUB    $1, R2, R2
+	VLD1.P 64(R0), [V0.S4, V1.S4, V2.S4, V3.S4]
+	VADD   V0.S4, V1.S4, V0.S4                  // a0 += a1
+	VADD   V2.S4, V3.S4, V2.S4                  // a2 += a3
+	WORD   $0x6ea06804                          // UADALP V4.2D, V0.4S - acc0 += pairwise_widen(a0)
+	WORD   $0x6ea06845                          // UADALP V5.2D, V2.4S - acc1 += pairwise_widen(a2)
+	JMP    loop7
 
 done8:
-	VADD   V4.D2, V6.D2, V4.D2   // acc1 += acc3
-	VADD   V5.D2, V7.D2, V5.D2   // acc2 += acc4
-	VST2.P [V4.D2, V5.D2], 0(R1) // store acc1 and acc2
+	VADD   V4.D2, V5.D2, V4.D2 // acc0 += acc1
+	VST1.P [V4.D2], 0(R1)      // store accumulator
 	RET
 
 // scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b
