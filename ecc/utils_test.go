@@ -96,6 +96,49 @@ func TestSplitting(t *testing.T) {
 	}
 }
 
+func TestSplittingFour(t *testing.T) {
+	t.Parallel()
+
+	var r, lambda1, lambda2, lambda12, s, zero big.Int
+	var l Lattice4
+
+	r.SetString("21888242871839275222246405745257275088548364400416034343698204186575808495617", 10)
+	lambda1.SetString("4407920970296243842393367215006156084916469457145843978461", 10)
+	lambda2.SetString("147946756881789318990833708069417712966", 10)
+	lambda12.Mul(&lambda1, &lambda2)
+
+	// Basis vectors (columns)
+	// v1 = (r, 0, 0, 0)
+	l.V[0][0].Set(&r)
+	// v2 = (-lambda1, 1, 0, 0)
+	l.V[1][0].Neg(&lambda1)
+	l.V[1][1].SetUint64(1)
+	// v3 = (-lambda2, 0, 1, 0)
+	l.V[2][0].Neg(&lambda2)
+	l.V[2][2].SetUint64(1)
+	// v4 = (lambda1*lambda2, -lambda2, -lambda1, 1)
+	l.V[3][0].Set(&lambda12)
+	l.V[3][1].Neg(&lambda2)
+	l.V[3][2].Neg(&lambda1)
+	l.V[3][3].SetUint64(1)
+
+	PrecomputeLattice4(&l)
+
+	s.SetString("183927522224640574525727508854836440041603434369820418657580", 10)
+	k := SplitScalarFour(&s, &l)
+
+	var acc, t1, t2, t3 big.Int
+	t1.Mul(&k[1], &lambda1)
+	t2.Mul(&k[2], &lambda2)
+	t3.Mul(&k[3], &lambda12)
+	acc.Add(&k[0], &t1).Add(&acc, &t2).Add(&acc, &t3)
+	acc.Sub(&acc, &s)
+	acc.Mod(&acc, &r)
+	if acc.Cmp(&zero) != 0 {
+		t.Fatal("Error split scalar (4D)")
+	}
+}
+
 func BenchmarkSplitting256(b *testing.B) {
 	var lambda, r, s big.Int
 	var l Lattice

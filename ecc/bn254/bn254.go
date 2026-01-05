@@ -75,10 +75,12 @@ var LoopCounter [66]int8
 var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
+var lambdaGLS big.Int
 
 // glvBasis stores R-linearly independent vectors (a,b), (c,d)
 // in ker((u,v) → u+vλ[r]), and their determinant
 var glvBasis ecc.Lattice
+var glsBasis ecc.Lattice4
 
 // g1ScalarMulChoose and g2ScalarmulChoose indicate the bitlength of the scalar
 // in scalar multiplication from which it is more efficient to use the GLV
@@ -137,10 +139,12 @@ func init() {
 	thirdRootOneG1.SetString("2203960485148121921418603742825762020974279258880205651966")
 	thirdRootOneG2.Square(&thirdRootOneG1)
 	lambdaGLV.SetString("4407920970296243842393367215006156084916469457145843978461", 10) // (36x₀³+18x₀²+6x₀+1)
+	lambdaGLS.SetString("147946756881789318990833708069417712966", 10)
 	_r := fr.Modulus()
 	ecc.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
 	g1ScalarMulChoose = fr.Bits/16 + max(glvBasis.V1[0].BitLen(), glvBasis.V1[1].BitLen(), glvBasis.V2[0].BitLen(), glvBasis.V2[1].BitLen())
 	g2ScalarMulChoose = fr.Bits/32 + max(glvBasis.V1[0].BitLen(), glvBasis.V1[1].BitLen(), glvBasis.V2[0].BitLen(), glvBasis.V2[1].BitLen())
+	initGLSBasis(_r)
 
 	endo.u.A0.SetString("21575463638280843010398324269430826099269044274347216827212613867836435027261")
 	endo.u.A1.SetString("10307601595873709700152284273816112264069230130616436755625194854815875713954")
@@ -153,6 +157,28 @@ func init() {
 
 	xGen.SetString("4965661367192848881", 10)
 
+}
+
+func initGLSBasis(r *big.Int) {
+	var lambda12 big.Int
+	lambda12.Mul(&lambdaGLV, &lambdaGLS).Mod(&lambda12, r)
+
+	// Basis vectors (columns):
+	// v1 = (r, 0, 0, 0)
+	glsBasis.V[0][0].Set(r)
+	// v2 = (-lambdaGLV, 1, 0, 0)
+	glsBasis.V[1][0].Neg(&lambdaGLV)
+	glsBasis.V[1][1].SetUint64(1)
+	// v3 = (-lambdaGLS, 0, 1, 0)
+	glsBasis.V[2][0].Neg(&lambdaGLS)
+	glsBasis.V[2][2].SetUint64(1)
+	// v4 = (lambdaGLV*lambdaGLS, -lambdaGLS, -lambdaGLV, 1)
+	glsBasis.V[3][0].Set(&lambda12)
+	glsBasis.V[3][1].Neg(&lambdaGLS)
+	glsBasis.V[3][2].Neg(&lambdaGLV)
+	glsBasis.V[3][3].SetUint64(1)
+
+	ecc.PrecomputeLattice4(&glsBasis)
 }
 
 // Generators return the generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
