@@ -317,103 +317,102 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 	// halve computes a/2 mod q using conditional add of q for odd values
 	// Algorithm: if a is odd, result = (a + q) >> 1, else result = a >> 1
 	// Uses UHADD which computes (a + b) / 2 without overflow
+	// Optimized approach from plonky3: uses VSHL + SSHR to create mask, then UHADD
 	halve := func(a, into arm64.VectorRegister) {
-		// Extract LSB (oddness check) using AND with vOneVec
-		// Note: VAND only supports .B16 arrangement in Go assembler (bitwise ops are arrangement-agnostic)
-		f.VAND(a.B16(), vOneVec.B16(), scratch0.B16())
-		// Shift bit to MSB position
-		f.VSHL("$31", scratch0.S4(), scratch0.S4())
-		// Arithmetic shift right to create mask (-1 if odd, 0 if even)
-		// SSHR Vd.4S, Vn.4S, #31 - encoding: 0 1 0 01111 00100001 000001 Rn Rd
-		n := vRegNum(scratch0)
-		d := vRegNum(scratch0)
-		encoding := uint32(0x4f210400) | (n << 5) | d
-		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // SSHR %s.4S, %s.4S, #31", encoding, baseReg(scratch0), baseReg(scratch0)))
-		// masked_q = q if odd, 0 if even
-		f.VAND(vQ.B16(), scratch0.B16(), scratch1.B16())
-		// UHADD Vd.4S, Vn.4S, Vm.4S computes (a + masked_q) / 2 without overflow
-		// Encoding: 0 1 1 01110 10 1 Rm 0000 01 Rn Rd = 0x6ea00400
-		an := vRegNum(a)
-		bn := vRegNum(scratch1)
-		dn := vRegNum(into)
-		uhaddEncoding := uint32(0x6ea00400) | (bn << 16) | (an << 5) | dn
-		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // UHADD %s.4S, %s.4S, %s.4S", uhaddEncoding, baseReg(into), baseReg(a), baseReg(scratch1)))
-	}
-
-	// mul2ExpNegN computes a * 2^(-n) mod q
-	// Since the Montgomery constant is 2^32, the Montgomery form of 1/2^n is 2^{32-n}.
-	// Algorithm: v = a << (32 - n), then Montgomery reduce v.
-	// Montgomery reduction: m = (v_lo * mu) mod 2^32, result = (v + m * q) >> 32
-	mul2ExpNegN := func(a, into arm64.VectorRegister, n int) {
-		// v = a << (32 - n) - this creates a 64-bit value
-		shift := 32 - n
-
-		// USHLL Vd.2D, Vn.2S, #shift - widening shift left (low 2 lanes)
-		// USHLL2 Vd.2D, Vn.4S, #shift - widening shift left (high 2 lanes)
-		// These produce 64-bit results in 2D arrangement
-
-		// Process low 2 lanes: USHLL scratch0.2D, a.2S, #shift
-		// Encoding: 0 Q U 011110 0 immh immb 101001 Rn Rd
-		// For 32-bit elements: immh:immb = shift + 32
 		an := vRegNum(a)
 		s0n := vRegNum(scratch0)
 		s1n := vRegNum(scratch1)
-		encLo := uint32(0x2f00a400) | (uint32(32+shift) << 16) | (an << 5) | s0n
-		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // USHLL %s.2D, %s.2S, #%d", encLo, baseReg(scratch0), baseReg(a), shift))
+		dn := vRegNum(into)
 
-		// Process high 2 lanes: USHLL2 scratch1.2D, a.4S, #shift
-		// Encoding: same as USHLL but with Q=1
-		encHi := uint32(0x6f00a400) | (uint32(32+shift) << 16) | (an << 5) | s1n
-		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // USHLL2 %s.2D, %s.4S, #%d", encHi, baseReg(scratch1), baseReg(a), shift))
+		// mask = (a & 1) << 31
+		f.VAND(a.B16(), vOneVec.B16(), scratch0.B16())
+		f.VSHL("$31", scratch0.S4(), scratch0.S4())
 
-		// Now scratch0.2D has lanes 0,1 as 64-bit, scratch1.2D has lanes 2,3 as 64-bit
-		// Extract low 32 bits of each 64-bit value using UZP1
-		// UZP1 Vd.4S, Vn.4S, Vm.4S - takes even elements
-		// This gives us v_lo in 4 x 32-bit lanes
-		f.VUZP1(scratch0.S4(), scratch1.S4(), mulTmp.S4()) // mulTmp = v_lo (low 32 bits of each lane)
+		// mask = mask >> 31 (arithmetic shift, creates all 1s or all 0s)
+		// SSHR Vd.4S, Vn.4S, #31 - encoding: 0 1 0 01111 00100001 000001 Rn Rd
+		encoding := uint32(0x4f210400) | (s0n << 5) | s0n
+		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // SSHR V%d.4S, V%d.4S, #31", encoding, s0n, s0n))
 
-		// Montgomery reduction: m = (v_lo * mu) mod 2^32
-		f.VMUL_S4(mulTmp.S4(), vMu.S4(), mulTmp.S4()) // mulTmp = m
+		// masked_q = mask & q (q if odd, 0 if even)
+		f.VAND(vQ.B16(), scratch0.B16(), scratch1.B16())
 
-		// Compute m * q as 64-bit using widening multiply
-		// UMULL scratch0.2D, mulTmp.2S, vQ.2S
+		// result = UHADD(a, masked_q) = (a + masked_q) / 2
+		// UHADD Vd.4S, Vn.4S, Vm.4S - Encoding: 0 1 1 01110 10 1 Rm 0000 01 Rn Rd = 0x6ea00400
+		uhaddEncoding := uint32(0x6ea00400) | (s1n << 16) | (an << 5) | dn
+		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // UHADD V%d.4S, V%d.4S, V%d.4S", uhaddEncoding, dn, an, s1n))
+	}
+
+	// halveInPlace is a variant that operates in-place on the input register
+	halveInPlace := func(a arm64.VectorRegister) {
+		halve(a, a)
+	}
+	_ = halveInPlace
+
+	// mul2ExpNegN computes a * 2^(-n) mod q
+	// For small n (n <= 4), use repeated halving (simpler, fewer dependencies)
+	// For large n (n > 4), use Montgomery reduction (fewer total operations)
+	//
+	// Montgomery reduction approach:
+	// a * 2^{-n} = (a * 2^{32-n}) * 2^{-32} mod q
+	// where 2^{-32} mod q is computed via Montgomery reduction
+	mul2ExpNegN := func(a, into arm64.VectorRegister, n int) {
+		if n <= 4 {
+			// For small n, repeated halving is efficient
+			halve(a, into)
+			for i := 1; i < n; i++ {
+				halve(into, into)
+			}
+			return
+		}
+
+		// For larger n, use Montgomery reduction
+		// v = a << (32 - n) gives us a 64-bit value
+		// Then Montgomery reduce: result = (v + (v_lo * mu mod 2^32) * q) >> 32
+		shift := 32 - n
+
+		an := vRegNum(a)
+		s0n := vRegNum(scratch0)
+		s1n := vRegNum(scratch1)
 		mn := vRegNum(mulTmp)
 		qn := vRegNum(vQ)
-		umullLoEnc := uint32(0x2ea0c000) | (qn << 16) | (mn << 5) | s0n
-		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // UMULL %s.2D, %s.2S, %s.2S", umullLoEnc, baseReg(scratch0), baseReg(mulTmp), baseReg(vQ)))
+		_ = vRegNum(into) // used below via direct register access
 
-		// UMULL2 scratch1.2D, mulTmp.4S, vQ.4S
-		umullHiEnc := uint32(0x6ea0c000) | (qn << 16) | (mn << 5) | s1n
-		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // UMULL2 %s.2D, %s.4S, %s.4S", umullHiEnc, baseReg(scratch1), baseReg(mulTmp), baseReg(vQ)))
+		// Step 1: Widen and shift left: v = a << shift (64-bit result)
+		// USHLL scratch0.2D, a.2S, #shift (low 2 lanes)
+		encLo := uint32(0x2f00a400) | (uint32(32+shift) << 16) | (an << 5) | s0n
+		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // USHLL V%d.2D, V%d.2S, #%d", encLo, s0n, an, shift))
 
-		// Now we need to compute (v + m*q) >> 32
-		// Re-compute v = a << shift (we overwrote scratch0/scratch1 with m*q)
-		// Then do 64-bit add: v + m*q, then extract high 32 bits
-		t8 := t[8]
-		t9 := t[9]
+		// USHLL2 scratch1.2D, a.4S, #shift (high 2 lanes)
+		encHi := uint32(0x6f00a400) | (uint32(32+shift) << 16) | (an << 5) | s1n
+		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // USHLL2 V%d.2D, V%d.4S, #%d", encHi, s1n, an, shift))
 
-		// v = a << shift again into t8/t9
-		t8n := vRegNum(t8)
-		t9n := vRegNum(t9)
-		encVLo := uint32(0x2f00a400) | (uint32(32+shift) << 16) | (an << 5) | t8n
-		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // USHLL %s.2D, %s.2S, #%d", encVLo, baseReg(t8), baseReg(a), shift))
+		// Step 2: Extract v_lo (low 32 bits of each 64-bit lane)
+		f.VUZP1(scratch0.S4(), scratch1.S4(), mulTmp.S4())
 
-		encVHi := uint32(0x6f00a400) | (uint32(32+shift) << 16) | (an << 5) | t9n
-		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // USHLL2 %s.2D, %s.4S, #%d", encVHi, baseReg(t9), baseReg(a), shift))
+		// Step 3: m = v_lo * mu (mod 2^32)
+		f.VMUL_S4(mulTmp.S4(), vMu.S4(), mulTmp.S4())
 
-		// 64-bit add: v + m*q
-		// scratch0.D2 = scratch0.D2 + t8.D2 (lanes 0,1)
-		// scratch1.D2 = scratch1.D2 + t9.D2 (lanes 2,3)
-		f.VADD(scratch0.D2(), t8.D2(), scratch0.D2())
-		f.VADD(scratch1.D2(), t9.D2(), scratch1.D2())
+		// Step 4: Compute m * q (64-bit widening multiply)
+		t8n := vRegNum(t[8])
+		t9n := vRegNum(t[9])
+		// UMULL t8.2D, mulTmp.2S, vQ.2S
+		umullLoEnc := uint32(0x2ea0c000) | (qn << 16) | (mn << 5) | t8n
+		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // UMULL V%d.2D, V%d.2S, V%d.2S", umullLoEnc, t8n, mn, qn))
 
-		// Extract high 32 bits (>> 32) using UZP2
+		// UMULL2 t9.2D, mulTmp.4S, vQ.4S
+		umullHiEnc := uint32(0x6ea0c000) | (qn << 16) | (mn << 5) | t9n
+		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // UMULL2 V%d.2D, V%d.4S, V%d.4S", umullHiEnc, t9n, mn, qn))
+
+		// Step 5: Add v + m*q (64-bit)
+		f.VADD(scratch0.D2(), t[8].D2(), scratch0.D2())
+		f.VADD(scratch1.D2(), t[9].D2(), scratch1.D2())
+
+		// Step 6: Extract high 32 bits (>> 32) using UZP2
 		f.VUZP2(scratch0.S4(), scratch1.S4(), into.S4())
 
-		// Final reduction: if result >= q, subtract q
-		// VSUB(a, b, dst) computes dst = b - a
-		f.VSUB(vQ.S4(), into.S4(), mulTmp.S4())    // mulTmp = into - q
-		f.VUMIN(into.S4(), mulTmp.S4(), into.S4()) // into = min(into, into-q)
+		// Step 7: Final reduction: if result >= q, subtract q
+		f.VSUB(vQ.S4(), into.S4(), mulTmp.S4())
+		f.VUMIN(into.S4(), mulTmp.S4(), into.S4())
 	}
 
 	// triple computes 3*a mod q = 2*a + a

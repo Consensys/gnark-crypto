@@ -68,7 +68,7 @@ type G1Affine struct { X, Y fp.Element }
 
 ### Two Types of Generated Assembly
 
-1. **Template-based assembly** (`.tmpl` files): Generated via bavard templates
+1. **Template-based assembly** (`.tmpl` files): Generated via bavard templates will contain the code generation to define the function in a .go file that pairs with the .s file and other useful constants
 2. **Programmatic assembly** (Go code that emits `.s` files): Located in `internal/generator/field/asm/`
 
 ### F31 Fields (koalabear, babybear)
