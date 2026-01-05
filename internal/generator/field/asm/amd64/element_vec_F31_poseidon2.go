@@ -476,7 +476,7 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 	f.RET()
 }
 
-func (_f *FFAmd64) generatePoseidon2_F31_16x16xN(params Poseidon2Parameters) {
+func (_f *FFAmd64) generatePoseidon2_F31_16x16x512(params Poseidon2Parameters) {
 	f := &fieldHelper{FFAmd64: _f}
 	width := params.Width
 	fullRounds := params.FullRounds
@@ -489,7 +489,7 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16xN(params Poseidon2Parameters) {
 	if width != 16 {
 		panic("only width 16 is supported")
 	}
-	const fnName = "permutation16x16xN_avx512"
+	const fnName = "permutation16x16x512_avx512"
 	// func permutation16x16xN_avx512(matrix *fr.Element, roundKeys [][]fr.Element, result *fr.Element)
 	const argSize = 5 * 8
 	stackSize := f.StackSize(f.NbWords*2+4, 2, 0)

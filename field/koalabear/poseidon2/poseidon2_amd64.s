@@ -1070,7 +1070,7 @@ done_10:
 	VMOVDQU32 Z2, 0(R14)
 	RET
 
-TEXT ·permutation16x16xN_avx512(SB), NOSPLIT, $0-40
+TEXT ·permutation16x16x512_avx512(SB), NOSPLIT, $0-40
 	MOVD         $const_q, AX
 	VPBROADCASTD AX, Z16
 	MOVD         $const_qInvNeg, AX

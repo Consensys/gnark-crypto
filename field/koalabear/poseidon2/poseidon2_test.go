@@ -346,23 +346,8 @@ func TestCompressx16(t *testing.T) {
 	var expected [16][8]fr.Element
 	{
 		h := NewPermutation(16, 6, 21)
-		var x [16][16]fr.Element
-		nbSteps := colSize / 8
-		for step := 0; step < nbSteps; step++ {
-			// load chunk
-			for i := 0; i < 16; i++ {
-				// init state
-				copy(x[i][8:], matrix[i*colSize+step*8:i*colSize+step*8+8])
-				h.Permutation(x[i][:])
-				for j := 0; j < 8; j++ {
-					x[i][j].Add(&x[i][8+j], &matrix[i*colSize+step*8+j]) // feed-forward
-				}
-			}
-		}
-		// store result
-		for i := 0; i < 16; i++ {
-			copy(expected[i][:], x[i][:8])
-		}
+		h.disableAVX512()
+		h.Compressx16(matrix, colSize, expected[:])
 	}
 
 	// actual result

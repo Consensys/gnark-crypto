@@ -6,6 +6,7 @@ import (
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/internal/generator/field/asm/amd64"
+	"github.com/consensys/gnark-crypto/internal/generator/field/asm/arm64"
 	"github.com/consensys/gnark-crypto/internal/generator/field/config"
 	"github.com/consensys/gnark-crypto/internal/generator/field/template"
 )
@@ -113,7 +114,8 @@ func generatePoseidon2(F *config.Field, outputDir string) error {
 		data.Q = F.Q[0]
 		data.QInvNeg = F.QInverse[0]
 		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "poseidon2_amd64.go"), Templates: []string{"poseidon2.amd64.go.tmpl"}, BuildTag: "!purego"})
-		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "poseidon2_purego.go"), Templates: []string{"poseidon2.purego.go.tmpl"}, BuildTag: "purego || (!amd64)"})
+		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "poseidon2_arm64.go"), Templates: []string{"poseidon2.arm64.go.tmpl"}, BuildTag: "!purego"})
+		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "poseidon2_purego.go"), Templates: []string{"poseidon2.purego.go.tmpl"}, BuildTag: "purego || (!amd64 && !arm64)"})
 
 		// generate the assembly file;
 		asmFile, err := os.Create(filepath.Join(outputDir, "poseidon2_amd64.s"))
@@ -128,6 +130,36 @@ func generatePoseidon2(F *config.Field, outputDir string) error {
 			return err
 		}
 		asmFile.Close()
+
+		// generate the assembly file for arm64
+		asmFileArm64, err := os.Create(filepath.Join(outputDir, "poseidon2_arm64.s"))
+		if err != nil {
+			return err
+		}
+
+		asmFileArm64.WriteString("//go:build !purego\n")
+		asmFileArm64.WriteString("#include \"textflag.h\"\n")
+
+		if err := arm64.GenerateF31Poseidon2(asmFileArm64, F.NbBits, data.Q, data.QInvNeg, data.Params); err != nil {
+			asmFileArm64.Close()
+			return err
+		}
+		asmFileArm64.Close()
+
+		// // generate the test utilities assembly file for arm64
+		// asmFileArm64Test, err := os.Create(filepath.Join(outputDir, "poseidon2_test_arm64.s"))
+		// if err != nil {
+		// 	return err
+		// }
+
+		// asmFileArm64Test.WriteString("//go:build !purego\n")
+		// asmFileArm64Test.WriteString("#include \"textflag.h\"\n")
+
+		// if err := arm64.GenerateF31Poseidon2TestUtils(asmFileArm64Test, F.NbBits, data.Q, data.QInvNeg, data.Params); err != nil {
+		// 	asmFileArm64Test.Close()
+		// 	return err
+		// }
+		// asmFileArm64Test.Close()
 	}
 
 	g := NewGenerator(template.FS)

@@ -1,4 +1,4 @@
-//go:build purego || (!amd64 && !arm64)
+//go:build !purego
 
 // Copyright 2020-2026 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
@@ -8,8 +8,13 @@
 package poseidon2
 
 import (
-	fr "github.com/consensys/gnark-crypto/field/koalabear"
+	fr "github.com/consensys/gnark-crypto/field/babybear"
 )
+
+// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+// used for Montgomery reduction
+const qInvNeg = 2013265919
+const q = 2013265921
 
 func permutation24_avx512(input []fr.Element, roundKeys [][]fr.Element) {
 	panic("permutation24_avx512 is not implemented")
@@ -21,11 +26,4 @@ func permutation16_avx512(input []fr.Element, roundKeys [][]fr.Element) {
 
 func permutation16x24_avx512(input *[24][16]fr.Element, roundKeys [][]fr.Element) {
 	panic("permutation16x24_avx512 is not implemented")
-}
-func permutation16x16x512_avx512(matrix *fr.Element, roundKeys [][]fr.Element, result *fr.Element) {
-	panic("permutation16x16x512_avx512 is not implemented")
-}
-
-func permutation16x16x512_arm64(matrix *fr.Element, roundKeys [][]fr.Element, result *fr.Element) {
-	panic("permutation16x16x512_arm64 is not implemented")
 }

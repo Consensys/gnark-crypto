@@ -2,6 +2,12 @@ import (
 	fr "{{ .FieldPackagePath }}"
 )
 
+// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+// used for Montgomery reduction
+const qInvNeg = {{.QInvNeg}}
+const q = {{.Q}}
+
+
 func permutation24_avx512(input []fr.Element, roundKeys [][]fr.Element) {
 	panic("permutation24_avx512 is not implemented")
 }
@@ -14,12 +20,12 @@ func permutation16x24_avx512(input *[24][16]fr.Element, roundKeys [][]fr.Element
 	panic("permutation16x24_avx512 is not implemented")
 }
 
+
 {{- if eq .FF "koalabear"}}
 func permutation16x16x512_avx512(matrix *fr.Element, roundKeys [][]fr.Element, result *fr.Element) {
 	panic("permutation16x16x512_avx512 is not implemented")
 }
 
-func permutation16x16x512_arm64(matrix *fr.Element, roundKeys [][]fr.Element, result *fr.Element) {
-	panic("permutation16x16x512_arm64 is not implemented")
-}
+//go:noescape
+func permutation16x16x512_arm64(matrix *fr.Element, roundKeys [][]fr.Element, result *fr.Element)
 {{- end }}
