@@ -817,11 +817,10 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 // mulGLS computes the scalar multiplication using a 4-dimensional GLV-GLS method
 // leveraging the endomorphisms ϕ and ψ.
 func (p *G2Jac) mulGLS(q *G2Jac, s *big.Int) *G2Jac {
-	var table [255]G2Jac
+	var table [15]G2Jac
 	var res G2Jac
 	var k0, k1, k2, k3 fr.Element
 	var bases [4]G2Jac
-	var mult [4][4]G2Jac
 
 	res.Set(&g2Infinity)
 
@@ -849,39 +848,21 @@ func (p *G2Jac) mulGLS(q *G2Jac, s *big.Int) *G2Jac {
 		bases[3].Neg(&bases[3])
 	}
 
-	// precompute 2-bit multiples for each base
-	for i := 0; i < 4; i++ {
-		mult[i][0].Set(&g2Infinity)
-		mult[i][1].Set(&bases[i])
-		mult[i][2].Double(&bases[i])
-		mult[i][3].Triple(&bases[i])
-	}
-
-	// table index: b0 + 4*b1 + 16*b2 + 64*b3 (b0,b1,b2,b3 in [0..3])
-	for b0 := 0; b0 < 4; b0++ {
-		for b1 := 0; b1 < 4; b1++ {
-			for b2 := 0; b2 < 4; b2++ {
-				for b3 := 0; b3 < 4; b3++ {
-					idx := b0 | (b1 << 2) | (b2 << 4) | (b3 << 6)
-					if idx == 0 {
-						continue
-					}
-					acc := &table[idx-1]
-					acc.Set(&g2Infinity)
-					if b0 != 0 {
-						acc.AddAssign(&mult[0][b0])
-					}
-					if b1 != 0 {
-						acc.AddAssign(&mult[1][b1])
-					}
-					if b2 != 0 {
-						acc.AddAssign(&mult[2][b2])
-					}
-					if b3 != 0 {
-						acc.AddAssign(&mult[3][b3])
-					}
-				}
-			}
+	// precompute 1-bit table for subsets of bases (idx in [1..15])
+	for idx := 1; idx < 16; idx++ {
+		acc := &table[idx-1]
+		acc.Set(&g2Infinity)
+		if idx&1 != 0 {
+			acc.AddAssign(&bases[0])
+		}
+		if idx&2 != 0 {
+			acc.AddAssign(&bases[1])
+		}
+		if idx&4 != 0 {
+			acc.AddAssign(&bases[2])
+		}
+		if idx&8 != 0 {
+			acc.AddAssign(&bases[3])
 		}
 	}
 
@@ -905,18 +886,19 @@ func (p *G2Jac) mulGLS(q *G2Jac, s *big.Int) *G2Jac {
 	hiWordIndex := (maxBit - 1) / 64
 
 	for i := hiWordIndex; i >= 0; i-- {
-		mask := uint64(3) << 62
-		for j := 0; j < 32; j++ {
-			res.Double(&res).Double(&res)
-			b0 := (k0[i] & mask) >> (62 - 2*j)
-			b1 := (k1[i] & mask) >> (62 - 2*j)
-			b2 := (k2[i] & mask) >> (62 - 2*j)
-			b3 := (k3[i] & mask) >> (62 - 2*j)
+		mask := uint64(1) << 63
+		for j := 0; j < 64; j++ {
+			shift := uint(63 - j)
+			res.Double(&res)
+			b0 := (k0[i] & mask) >> shift
+			b1 := (k1[i] & mask) >> shift
+			b2 := (k2[i] & mask) >> shift
+			b3 := (k3[i] & mask) >> shift
 			if b0|b1|b2|b3 != 0 {
-				idx := (b0 | (b1 << 2) | (b2 << 4) | (b3 << 6))
+				idx := int(b0 | (b1 << 1) | (b2 << 2) | (b3 << 3))
 				res.AddAssign(&table[idx-1])
 			}
-			mask = mask >> 2
+			mask = mask >> 1
 		}
 	}
 
