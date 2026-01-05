@@ -159,24 +159,37 @@ func init() {
 
 }
 
-func initGLSBasis(r *big.Int) {
-	var lambda12 big.Int
-	lambda12.Mul(&lambdaGLV, &lambdaGLS).Mod(&lambda12, r)
+func initGLSBasis(_ *big.Int) {
+	// LLL-reduced basis (rows) from Sage for bn254.
+	setBasis := func(dst *big.Int, s string) {
+		if _, ok := dst.SetString(s, 10); !ok {
+			panic("invalid GLS basis constant")
+		}
+	}
 
-	// Basis vectors (columns):
-	// v1 = (r, 0, 0, 0)
-	glsBasis.V[0][0].Set(r)
-	// v2 = (-lambdaGLV, 1, 0, 0)
-	glsBasis.V[1][0].Neg(&lambdaGLV)
-	glsBasis.V[1][1].SetUint64(1)
-	// v3 = (-lambdaGLS, 0, 1, 0)
-	glsBasis.V[2][0].Neg(&lambdaGLS)
-	glsBasis.V[2][2].SetUint64(1)
-	// v4 = (lambdaGLV*lambdaGLS, -lambdaGLS, -lambdaGLV, 1)
-	glsBasis.V[3][0].Set(&lambda12)
-	glsBasis.V[3][1].Neg(&lambdaGLS)
-	glsBasis.V[3][2].Neg(&lambdaGLV)
-	glsBasis.V[3][3].SetUint64(1)
+	// Column 0 = row 0
+	setBasis(&glsBasis.V[0][0], "9931322734385697762")
+	setBasis(&glsBasis.V[0][1], "4965661367192848881")
+	setBasis(&glsBasis.V[0][2], "4965661367192848882")
+	setBasis(&glsBasis.V[0][3], "-4965661367192848881")
+
+	// Column 1 = row 1
+	setBasis(&glsBasis.V[1][0], "-4965661367192848881")
+	setBasis(&glsBasis.V[1][1], "4965661367192848881")
+	setBasis(&glsBasis.V[1][2], "4965661367192848881")
+	setBasis(&glsBasis.V[1][3], "9931322734385697763")
+
+	// Column 2 = row 2
+	setBasis(&glsBasis.V[2][0], "-4965661367192848882")
+	setBasis(&glsBasis.V[2][1], "4965661367192848881")
+	setBasis(&glsBasis.V[2][2], "-4965661367192848881")
+	setBasis(&glsBasis.V[2][3], "-9931322734385697762")
+
+	// Column 3 = row 3
+	setBasis(&glsBasis.V[3][0], "9931322734385697763")
+	setBasis(&glsBasis.V[3][1], "4965661367192848882")
+	setBasis(&glsBasis.V[3][2], "-4965661367192848881")
+	setBasis(&glsBasis.V[3][3], "4965661367192848881")
 
 	ecc.PrecomputeLattice4(&glsBasis)
 }
