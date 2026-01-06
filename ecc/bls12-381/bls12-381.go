@@ -133,13 +133,13 @@ func init() {
 
 	thirdRootOneG1.SetString("4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939436")
 	thirdRootOneG2.Square(&thirdRootOneG1)
-	lambdaGLV.SetString("228988810152649578064853576960394133503", 10) //(x₀²-1)
-	lambdaGLS.SetString("3465144826073652318776269530687742778255120092542420320256", 10)
+	lambdaGLV.SetString("228988810152649578064853576960394133503", 10)                    //(x₀²-1)
+	lambdaGLS.SetString("3465144826073652318776269530687742778255120092542420320256", 10) // √(-lambdaGLV) mod r
 	_r := fr.Modulus()
 	ecc.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
 	g1ScalarMulChoose = fr.Bits/16 + max(glvBasis.V1[0].BitLen(), glvBasis.V1[1].BitLen(), glvBasis.V2[0].BitLen(), glvBasis.V2[1].BitLen())
 	g2ScalarMulChoose = fr.Bits/32 + max(glvBasis.V1[0].BitLen(), glvBasis.V1[1].BitLen(), glvBasis.V2[0].BitLen(), glvBasis.V2[1].BitLen())
-	initGLSBasis(_r)
+	initGLSBasis()
 
 	endo.u.A0.SetString("0")
 	endo.u.A1.SetString("4002409555221667392624310435006688643935503118305586438271171395842971157480381377015405980053539358417135540939437")
@@ -154,24 +154,32 @@ func init() {
 
 }
 
-func initGLSBasis(r *big.Int) {
-	var lambda12 big.Int
-	lambda12.Mul(&lambdaGLV, &lambdaGLS).Mod(&lambda12, r)
+func initGLSBasis() {
+	// LLL-reduced basis (rows) from:
+	//
+	// 	 v1 = [r,                   0,          0,          0]
+	// 	 v2 = [-lambdaGLV,   	    1,          0,          0]
+	// 	 v3 = [-lambdaGLS,   	    0,          1,          0]
+	// 	 v4 = [lambdaGLV*lambdaGLS, -lambdaGLS, -lambdaGLV, 1]
+	//
+	// to:
+	//   v1 = [0,  -x₀, 0,  0]
+	//   v2 = [1,  0,   x₀, 0]
+	//   v3 = [x₀, 0,   1,  1]
+	//   v4 = [0,  1,   0,  x₀]
 
-	// Basis vectors (columns):
-	// v1 = (r, 0, 0, 0)
-	glsBasis.V[0][0].Set(r)
-	// v2 = (-lambdaGLV, 1, 0, 0)
-	glsBasis.V[1][0].Neg(&lambdaGLV)
-	glsBasis.V[1][1].SetUint64(1)
-	// v3 = (-lambdaGLS, 0, 1, 0)
-	glsBasis.V[2][0].Neg(&lambdaGLS)
+	// v1 = (0, -x₀, 0, 0)
+	glsBasis.V[0][1].Neg(&xGen)
+	// v2 = (1, 0, x₀, 0)
+	glsBasis.V[1][0].SetUint64(1)
+	glsBasis.V[1][2].Set(&xGen)
+	// v3 = (x₀, 0, 1, 1)
+	glsBasis.V[2][0].Set(&xGen)
 	glsBasis.V[2][2].SetUint64(1)
-	// v4 = (lambdaGLV*lambdaGLS, -lambdaGLS, -lambdaGLV, 1)
-	glsBasis.V[3][0].Set(&lambda12)
-	glsBasis.V[3][1].Neg(&lambdaGLS)
-	glsBasis.V[3][2].Neg(&lambdaGLV)
-	glsBasis.V[3][3].SetUint64(1)
+	glsBasis.V[2][3].SetUint64(1)
+	// v4 = (0, 1, 0, x₀)
+	glsBasis.V[3][1].SetUint64(1)
+	glsBasis.V[3][3].Set(&xGen)
 
 	ecc.PrecomputeLattice4(&glsBasis)
 }
