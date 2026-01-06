@@ -811,34 +811,22 @@ func (p *G1Jac) mulGLV(q *G1Jac, s *big.Int) *G1Jac {
 	for i := maxLen - 1; i >= 0; i-- {
 		res.DoubleAssign()
 		if i < nafLen1 {
-			switch naf1[i] {
-			case 1:
-				res.AddAssign(&q1Table[0])
-			case -1:
-				res.AddAssign(&q1NegTable[0])
-			default:
-				if naf1[i] > 1 {
-					idx := (naf1[i] - 1) / 2
-					res.AddAssign(&q1Table[idx])
-				} else if naf1[i] < -1 {
-					idx := (-naf1[i] - 1) / 2
-					res.AddAssign(&q1NegTable[idx])
+			d := naf1[i]
+			if d != 0 {
+				if d > 0 {
+					res.AddAssign(&q1Table[(d-1)/2])
+				} else {
+					res.AddAssign(&q1NegTable[(-d-1)/2])
 				}
 			}
 		}
 		if i < nafLen2 {
-			switch naf2[i] {
-			case 1:
-				res.AddAssign(&q2Table[0])
-			case -1:
-				res.AddAssign(&q2NegTable[0])
-			default:
-				if naf2[i] > 1 {
-					idx := (naf2[i] - 1) / 2
-					res.AddAssign(&q2Table[idx])
-				} else if naf2[i] < -1 {
-					idx := (-naf2[i] - 1) / 2
-					res.AddAssign(&q2NegTable[idx])
+			d := naf2[i]
+			if d != 0 {
+				if d > 0 {
+					res.AddAssign(&q2Table[(d-1)/2])
+				} else {
+					res.AddAssign(&q2NegTable[(-d-1)/2])
 				}
 			}
 		}

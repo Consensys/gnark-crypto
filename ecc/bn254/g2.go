@@ -838,6 +838,7 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 	}
 
 	const wnafWindow = 5
+
 	naf1 := make([]int8, k[0].BitLen()+1)
 	naf2 := make([]int8, k[1].BitLen()+1)
 	nafLen1 := ecc.WnafDecomposition(&k[0], wnafWindow, naf1)
@@ -870,34 +871,22 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 	for i := maxLen - 1; i >= 0; i-- {
 		res.DoubleAssign()
 		if i < nafLen1 {
-			switch naf1[i] {
-			case 1:
-				res.AddAssign(&q1Table[0])
-			case -1:
-				res.AddAssign(&q1NegTable[0])
-			default:
-				if naf1[i] > 1 {
-					idx := (naf1[i] - 1) / 2
-					res.AddAssign(&q1Table[idx])
-				} else if naf1[i] < -1 {
-					idx := (-naf1[i] - 1) / 2
-					res.AddAssign(&q1NegTable[idx])
+			d := naf1[i]
+			if d != 0 {
+				if d > 0 {
+					res.AddAssign(&q1Table[(d-1)/2])
+				} else {
+					res.AddAssign(&q1NegTable[(-d-1)/2])
 				}
 			}
 		}
 		if i < nafLen2 {
-			switch naf2[i] {
-			case 1:
-				res.AddAssign(&q2Table[0])
-			case -1:
-				res.AddAssign(&q2NegTable[0])
-			default:
-				if naf2[i] > 1 {
-					idx := (naf2[i] - 1) / 2
-					res.AddAssign(&q2Table[idx])
-				} else if naf2[i] < -1 {
-					idx := (-naf2[i] - 1) / 2
-					res.AddAssign(&q2NegTable[idx])
+			d := naf2[i]
+			if d != 0 {
+				if d > 0 {
+					res.AddAssign(&q2Table[(d-1)/2])
+				} else {
+					res.AddAssign(&q2NegTable[(-d-1)/2])
 				}
 			}
 		}
