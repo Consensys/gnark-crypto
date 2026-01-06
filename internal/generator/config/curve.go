@@ -3,7 +3,7 @@ package config
 import (
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/field/generator/config"
+	"github.com/consensys/gnark-crypto/internal/generator/field/config"
 )
 
 // Curve describes parameters of the curve useful for the template
@@ -19,7 +19,7 @@ type Curve struct {
 	Fr           *config.Field
 	FpUnusedBits int
 
-	FpInfo, FrInfo Field
+	FpInfo, FrInfo FieldInfo
 	G1             Point
 	G2             Point
 
@@ -40,7 +40,7 @@ type TwistedEdwardsCurve struct {
 	Lambda          string
 }
 
-type Field struct {
+type FieldInfo struct {
 	Bits    int
 	Bytes   int
 	Modulus func() *big.Int
@@ -82,8 +82,8 @@ func addTwistedEdwardCurve(c *TwistedEdwardsCurve) {
 	TwistedEdwardsCurves = append(TwistedEdwardsCurves, *c)
 }
 
-func newFieldInfo(modulus string) Field {
-	var F Field
+func newFieldInfo(modulus string) FieldInfo {
+	var F FieldInfo
 	var bModulus big.Int
 	if _, ok := bModulus.SetString(modulus, 10); !ok {
 		panic("invalid modulus " + modulus)

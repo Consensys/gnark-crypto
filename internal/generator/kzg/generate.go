@@ -4,10 +4,12 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/internal/generator/common"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
+	"github.com/consensys/gnark-crypto/internal/generator/kzg/template"
 )
 
-func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
+func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 	// kzg commitment scheme
 	conf.Package = "kzg"
 	entries := []bavard.Entry{
@@ -18,6 +20,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "utils.go"), Templates: []string{"utils.go.tmpl"}},
 		{File: filepath.Join(baseDir, "mpcsetup.go"), Templates: []string{"mpcsetup.go.tmpl"}},
 	}
-	return bgen.Generate(conf, conf.Package, "./kzg/template/", entries...)
+	kzgGen := common.NewDefaultGenerator(template.FS)
+	return kzgGen.Generate(conf, conf.Package, "", "", entries...)
 
 }
