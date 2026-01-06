@@ -660,33 +660,40 @@ func (p *G2Jac) IsInSubGroup() bool {
 	return r.Z.IsZero()
 }
 
-// mulWindowed computes the 2-bits windowed double-and-add scalar
-// multiplication p=[s]q in Jacobian coordinates.
+// mulWindowed computes a double-and-add scalar multiplication p=[s]q in
+// Jacobian coordinates.
 func (p *G2Jac) mulWindowed(q *G2Jac, s *big.Int) *G2Jac {
 
-	var res G2Jac
-	var ops [3]G2Jac
-
-	ops[0].Set(q)
-	if s.Sign() == -1 {
-		ops[0].Neg(&ops[0])
+	if s.Sign() == 0 {
+		p.Set(&g2Infinity)
+		return p
 	}
+	var scalar big.Int
+	scalar.Set(s)
+	if scalar.Sign() < 0 {
+		scalar.Neg(&scalar)
+	}
+	naf := make([]int8, scalar.BitLen()+1)
+	nafLen := ecc.NafDecomposition(&scalar, naf)
+	if nafLen == 0 {
+		p.Set(&g2Infinity)
+		return p
+	}
+	var res G2Jac
+	var qAff, qNegAff G2Affine
+	qAff.FromJacobian(q)
+	qNegAff.Neg(&qAff)
 	res.Set(&g2Infinity)
-	ops[1].Double(&ops[0])
-	ops[2].Triple(&ops[0])
-
-	b := s.Bytes()
-	for i := range b {
-		w := b[i]
-		mask := byte(0xc0)
-		for j := 0; j < 4; j++ {
-			res.DoubleAssign().DoubleAssign()
-			c := (w & mask) >> (6 - 2*j)
-			if c != 0 {
-				res.AddAssign(&ops[c-1])
-			}
-			mask = mask >> 2
+	for i := nafLen - 1; i >= 0; i-- {
+		res.DoubleAssign()
+		if naf[i] == 1 {
+			res.AddMixed(&qAff)
+		} else if naf[i] == -1 {
+			res.AddMixed(&qNegAff)
 		}
+	}
+	if s.Sign() < 0 {
+		res.Neg(&res)
 	}
 	p.Set(&res)
 
