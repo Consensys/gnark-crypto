@@ -75,7 +75,6 @@ var LoopCounter [66]int8
 var thirdRootOneG1 fp.Element
 var thirdRootOneG2 fp.Element
 var lambdaGLV big.Int
-var lambdaGLS big.Int
 
 // glvBasis stores R-linearly independent vectors (a,b), (c,d)
 // in ker((u,v) → u+vλ[r]), and their determinant
@@ -139,13 +138,10 @@ func init() {
 	thirdRootOneG1.SetString("2203960485148121921418603742825762020974279258880205651966")
 	thirdRootOneG2.Square(&thirdRootOneG1)
 	lambdaGLV.SetString("4407920970296243842393367215006156084916469457145843978461", 10) // (36x₀³+18x₀²+6x₀+1)
-	lambdaGLS.SetString("147946756881789318990833708069417712966", 10)                    // √(-lambdaGLV) mod r
 	_r := fr.Modulus()
 	ecc.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)
 	g1ScalarMulChoose = fr.Bits/16 + max(glvBasis.V1[0].BitLen(), glvBasis.V1[1].BitLen(), glvBasis.V2[0].BitLen(), glvBasis.V2[1].BitLen())
 	g2ScalarMulChoose = fr.Bits/32 + max(glvBasis.V1[0].BitLen(), glvBasis.V1[1].BitLen(), glvBasis.V2[0].BitLen(), glvBasis.V2[1].BitLen())
-
-	initGLSBasis()
 
 	endo.u.A0.SetString("21575463638280843010398324269430826099269044274347216827212613867836435027261")
 	endo.u.A1.SetString("10307601595873709700152284273816112264069230130616436755625194854815875713954")
@@ -158,6 +154,7 @@ func init() {
 
 	xGen.SetString("4965661367192848881", 10)
 
+	initGLSBasis()
 }
 
 func initGLSBasis() {
@@ -169,10 +166,10 @@ func initGLSBasis() {
 	// 	 v4 = [lambdaGLV*lambdaGLS, -lambdaGLS, -lambdaGLV, 1]
 	//
 	// to:
-	//   v1 = [2x₀,    x₀,     x₀+1,   -x₀]
-	//   v2 = [-x₀,    x₀,     x₀,     x₀+1]
-	//   v3 = [-x₀-1,  x₀,     -x₀,    -2x₀]
-	//   v4 = [2x₀+1,  x₀+1,   -x₀,    x₀]
+	//   v1 = [2x₀,    x₀,     x₀+1,   -x₀  ]
+	//   v2 = [-x₀,    x₀,     x₀,     2x₀+1]
+	//   v3 = [-x₀-1,  x₀,     -x₀,    -2x₀ ]
+	//   v4 = [2x₀+1,  x₀+1,   -x₀,    x₀   ]
 	setBasis := func(dst *big.Int, s string) {
 		if _, ok := dst.SetString(s, 10); !ok {
 			panic("invalid GLS basis constant")
@@ -185,7 +182,7 @@ func initGLSBasis() {
 	setBasis(&glsBasis.V[0][2], "4965661367192848882")
 	setBasis(&glsBasis.V[0][3], "-4965661367192848881")
 
-	// v2 = (-x₀, x₀, x₀, x₀+1)
+	// v2 = (-x₀, x₀, x₀, 2x₀+1)
 	setBasis(&glsBasis.V[1][0], "-4965661367192848881")
 	setBasis(&glsBasis.V[1][1], "4965661367192848881")
 	setBasis(&glsBasis.V[1][2], "4965661367192848881")
