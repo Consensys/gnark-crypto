@@ -757,7 +757,7 @@ func (p *G1Jac) phi(q *G1Jac) *G1Jac {
 func (p *G1Jac) mulGLV(q *G1Jac, s *big.Int) *G1Jac {
 
 	var res G1Jac
-	var q1, q2, q1Neg, q2Neg G1Jac
+	var q1, q2 G1Jac
 
 	res.Set(&g1Infinity)
 
@@ -777,13 +777,39 @@ func (p *G1Jac) mulGLV(q *G1Jac, s *big.Int) *G1Jac {
 		q2.Neg(&q2)
 	}
 
-	q1Neg.Neg(&q1)
-	q2Neg.Neg(&q2)
+	const wnafWindow = 5
 
-	naf1 := make([]int8, k[0].BitLen()+1)
-	naf2 := make([]int8, k[1].BitLen()+1)
-	nafLen1 := ecc.NafDecomposition(&k[0], naf1)
-	nafLen2 := ecc.NafDecomposition(&k[1], naf2)
+	wnafDecomposition := func(k *big.Int, window uint) ([]int8, int) {
+		var kk, mask, mod, tmp big.Int
+		kk.Set(k)
+		mask.SetInt64((1 << window) - 1)
+		digits := make([]int8, kk.BitLen()+1)
+		i := 0
+		for kk.Sign() != 0 {
+			var u int64
+			if kk.Bit(0) == 1 {
+				mod.And(&kk, &mask)
+				u = mod.Int64()
+				if u > (1 << (window - 1)) {
+					u -= (1 << window)
+				}
+				digits[i] = int8(u)
+				if u > 0 {
+					tmp.SetInt64(u)
+					kk.Sub(&kk, &tmp)
+				} else {
+					tmp.SetInt64(-u)
+					kk.Add(&kk, &tmp)
+				}
+			}
+			kk.Rsh(&kk, 1)
+			i++
+		}
+		return digits, i
+	}
+
+	naf1, nafLen1 := wnafDecomposition(&k[0], wnafWindow)
+	naf2, nafLen2 := wnafDecomposition(&k[1], wnafWindow)
 	maxLen := nafLen1
 	if nafLen2 > maxLen {
 		maxLen = nafLen2
@@ -793,22 +819,54 @@ func (p *G1Jac) mulGLV(q *G1Jac, s *big.Int) *G1Jac {
 		return p
 	}
 
+	var q1Table, q2Table [8]G1Jac
+	var q1NegTable, q2NegTable [8]G1Jac
+	q1Table[0].Set(&q1)
+	q2Table[0].Set(&q2)
+	var q1Two, q2Two G1Jac
+	q1Two.Double(&q1)
+	q2Two.Double(&q2)
+	for i := 1; i < len(q1Table); i++ {
+		q1Table[i].Set(&q1Table[i-1]).AddAssign(&q1Two)
+		q2Table[i].Set(&q2Table[i-1]).AddAssign(&q2Two)
+	}
+	for i := 0; i < len(q1Table); i++ {
+		q1NegTable[i].Neg(&q1Table[i])
+		q2NegTable[i].Neg(&q2Table[i])
+	}
+
 	for i := maxLen - 1; i >= 0; i-- {
 		res.DoubleAssign()
 		if i < nafLen1 {
 			switch naf1[i] {
 			case 1:
-				res.AddAssign(&q1)
+				res.AddAssign(&q1Table[0])
 			case -1:
-				res.AddAssign(&q1Neg)
+				res.AddAssign(&q1NegTable[0])
+			default:
+				if naf1[i] > 1 {
+					idx := (naf1[i] - 1) / 2
+					res.AddAssign(&q1Table[idx])
+				} else if naf1[i] < -1 {
+					idx := (-naf1[i] - 1) / 2
+					res.AddAssign(&q1NegTable[idx])
+				}
 			}
 		}
 		if i < nafLen2 {
 			switch naf2[i] {
 			case 1:
-				res.AddAssign(&q2)
+				res.AddAssign(&q2Table[0])
 			case -1:
-				res.AddAssign(&q2Neg)
+				res.AddAssign(&q2NegTable[0])
+			default:
+				if naf2[i] > 1 {
+					idx := (naf2[i] - 1) / 2
+					res.AddAssign(&q2Table[idx])
+				} else if naf2[i] < -1 {
+					idx := (-naf2[i] - 1) / 2
+					res.AddAssign(&q2NegTable[idx])
+				}
 			}
 		}
 	}
