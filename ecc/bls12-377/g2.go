@@ -746,68 +746,107 @@ func (p *G2Jac) phi(q *G2Jac) *G2Jac {
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
 func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 
-	var table [15]G2Jac
 	var res G2Jac
-	var k1, k2 fr.Element
+	var q1, q2, q1Neg, q2Neg G2Jac
 
 	res.Set(&g2Infinity)
 
-	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(q) + b1b0*q
-	table[0].Set(q)
-	table[3].phi(q)
+	// q1 = q, q2 = ϕ(q)
+	q1.Set(q)
+	q2.phi(q)
 
 	// split the scalar, modifies ±q, ϕ(q) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
 
 	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])
-		table[0].Neg(&table[0])
+		q1.Neg(&q1)
 	}
 	if k[1].Sign() == -1 {
 		k[1].Neg(&k[1])
-		table[3].Neg(&table[3])
+		q2.Neg(&q2)
 	}
 
-	// precompute table (2 bits sliding window)
-	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(q) + b1b0 ⋅ q if b3b2b1b0 != 0
-	table[1].Double(&table[0])
-	table[2].Triple(&table[0])
-	table[4].Set(&table[3]).AddAssign(&table[0])
-	table[5].Set(&table[3]).AddAssign(&table[1])
-	table[6].Set(&table[3]).AddAssign(&table[2])
-	table[7].Double(&table[3])
-	table[8].Set(&table[7]).AddAssign(&table[0])
-	table[9].Double(&table[4])
-	table[10].Set(&table[7]).AddAssign(&table[2])
-	table[11].Triple(&table[3])
-	table[12].Set(&table[11]).AddAssign(&table[0])
-	table[13].Set(&table[11]).AddAssign(&table[1])
-	table[14].Triple(&table[4])
+	q1Neg.Neg(&q1)
+	q2Neg.Neg(&q2)
 
-	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 or len(r)/2+1 bits long max
-	// this is because we use a probabilistic scalar decomposition that replaces a division by a right-shift
-	k1 = k1.SetBigInt(&k[0]).Bits()
-	k2 = k2.SetBigInt(&k[1]).Bits()
-
-	// we don't target constant-timeness so we check first if we increase the bounds or not
-	maxBit := k1.BitLen()
-	if k2.BitLen() > maxBit {
-		maxBit = k2.BitLen()
-	}
-	hiWordIndex := (maxBit - 1) / 64
-
-	// loop starts from len(k1)/2 or len(k1)/2+1 due to the bounds
-	for i := hiWordIndex; i >= 0; i-- {
-		mask := uint64(3) << 62
-		for j := 0; j < 32; j++ {
-			res.Double(&res).Double(&res)
-			b1 := (k1[i] & mask) >> (62 - 2*j)
-			b2 := (k2[i] & mask) >> (62 - 2*j)
-			if b1|b2 != 0 {
-				s := (b2<<2 | b1)
-				res.AddAssign(&table[s-1])
+	jsfDecomposition := func(k1, k2 *big.Int, jsf1, jsf2 []int8) int {
+		var a, b big.Int
+		var one big.Int
+		a.Set(k1)
+		b.Set(k2)
+		one.SetInt64(1)
+		i := 0
+		for a.Sign() != 0 || b.Sign() != 0 {
+			var u1, u2 int8
+			if a.Bit(0) == 1 {
+				mod4 := int(a.Bit(0)) + (int(a.Bit(1)) << 1)
+				if mod4 == 1 {
+					u1 = 1
+				} else {
+					u1 = -1
+				}
 			}
-			mask = mask >> 2
+			if b.Bit(0) == 1 {
+				mod4 := int(b.Bit(0)) + (int(b.Bit(1)) << 1)
+				if mod4 == 1 {
+					u2 = 1
+				} else {
+					u2 = -1
+				}
+			}
+			if u1 == 1 && u2 == 1 {
+				mod8a := int(a.Bit(0)) + (int(a.Bit(1)) << 1) + (int(a.Bit(2)) << 2)
+				mod8b := int(b.Bit(0)) + (int(b.Bit(1)) << 1) + (int(b.Bit(2)) << 2)
+				if mod8a == 3 && mod8b == 3 {
+					u1 = -1
+					u2 = -1
+				}
+			}
+			jsf1[i] = u1
+			jsf2[i] = u2
+			if u1 == 1 {
+				a.Sub(&a, &one)
+			} else if u1 == -1 {
+				a.Add(&a, &one)
+			}
+			if u2 == 1 {
+				b.Sub(&b, &one)
+			} else if u2 == -1 {
+				b.Add(&b, &one)
+			}
+			a.Rsh(&a, 1)
+			b.Rsh(&b, 1)
+			i++
+		}
+		return i
+	}
+
+	maxBit := k[0].BitLen()
+	if k[1].BitLen() > maxBit {
+		maxBit = k[1].BitLen()
+	}
+	if maxBit == 0 {
+		p.Set(&g2Infinity)
+		return p
+	}
+	jsf1 := make([]int8, maxBit+1)
+	jsf2 := make([]int8, maxBit+1)
+	jsfLen := jsfDecomposition(&k[0], &k[1], jsf1, jsf2)
+
+	for i := jsfLen - 1; i >= 0; i-- {
+		res.DoubleAssign()
+		switch jsf1[i] {
+		case 1:
+			res.AddAssign(&q1)
+		case -1:
+			res.AddAssign(&q1Neg)
+		}
+		switch jsf2[i] {
+		case 1:
+			res.AddAssign(&q2)
+		case -1:
+			res.AddAssign(&q2Neg)
 		}
 	}
 
