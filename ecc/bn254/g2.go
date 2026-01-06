@@ -816,68 +816,60 @@ func (p *G2Jac) phi(q *G2Jac) *G2Jac {
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
 func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 
-	var table [15]G2Jac
 	var res G2Jac
-	var k1, k2 fr.Element
+	var q1, q2, q1Neg, q2Neg G2Jac
 
 	res.Set(&g2Infinity)
 
-	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(q) + b1b0*q
-	table[0].Set(q)
-	table[3].phi(q)
+	// q1 = q, q2 = ϕ(q)
+	q1.Set(q)
+	q2.phi(q)
 
 	// split the scalar, modifies ±q, ϕ(q) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
 
 	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])
-		table[0].Neg(&table[0])
+		q1.Neg(&q1)
 	}
 	if k[1].Sign() == -1 {
 		k[1].Neg(&k[1])
-		table[3].Neg(&table[3])
+		q2.Neg(&q2)
 	}
 
-	// precompute table (2 bits sliding window)
-	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(q) + b1b0 ⋅ q if b3b2b1b0 != 0
-	table[1].Double(&table[0])
-	table[2].Triple(&table[0])
-	table[4].Set(&table[3]).AddAssign(&table[0])
-	table[5].Set(&table[3]).AddAssign(&table[1])
-	table[6].Set(&table[3]).AddAssign(&table[2])
-	table[7].Double(&table[3])
-	table[8].Set(&table[7]).AddAssign(&table[0])
-	table[9].Double(&table[4])
-	table[10].Set(&table[7]).AddAssign(&table[2])
-	table[11].Triple(&table[3])
-	table[12].Set(&table[11]).AddAssign(&table[0])
-	table[13].Set(&table[11]).AddAssign(&table[1])
-	table[14].Triple(&table[4])
+	q1Neg.Neg(&q1)
+	q2Neg.Neg(&q2)
 
-	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 or len(r)/2+1 bits long max
-	// this is because we use a probabilistic scalar decomposition that replaces a division by a right-shift
-	k1 = k1.SetBigInt(&k[0]).Bits()
-	k2 = k2.SetBigInt(&k[1]).Bits()
-
-	// we don't target constant-timeness so we check first if we increase the bounds or not
-	maxBit := k1.BitLen()
-	if k2.BitLen() > maxBit {
-		maxBit = k2.BitLen()
+	naf1 := make([]int8, k[0].BitLen()+1)
+	naf2 := make([]int8, k[1].BitLen()+1)
+	nafLen1 := ecc.NafDecomposition(&k[0], naf1)
+	nafLen2 := ecc.NafDecomposition(&k[1], naf2)
+	maxLen := nafLen1
+	if nafLen2 > maxLen {
+		maxLen = nafLen2
 	}
-	hiWordIndex := (maxBit - 1) / 64
+	if maxLen == 0 {
+		p.Set(&g2Infinity)
+		return p
+	}
 
-	// loop starts from len(k1)/2 or len(k1)/2+1 due to the bounds
-	for i := hiWordIndex; i >= 0; i-- {
-		mask := uint64(3) << 62
-		for j := 0; j < 32; j++ {
-			res.Double(&res).Double(&res)
-			b1 := (k1[i] & mask) >> (62 - 2*j)
-			b2 := (k2[i] & mask) >> (62 - 2*j)
-			if b1|b2 != 0 {
-				s := (b2<<2 | b1)
-				res.AddAssign(&table[s-1])
+	for i := maxLen - 1; i >= 0; i-- {
+		res.DoubleAssign()
+		if i < nafLen1 {
+			switch naf1[i] {
+			case 1:
+				res.AddAssign(&q1)
+			case -1:
+				res.AddAssign(&q1Neg)
 			}
-			mask = mask >> 2
+		}
+		if i < nafLen2 {
+			switch naf2[i] {
+			case 1:
+				res.AddAssign(&q2)
+			case -1:
+				res.AddAssign(&q2Neg)
+			}
 		}
 	}
 
