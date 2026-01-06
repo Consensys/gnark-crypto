@@ -154,170 +154,91 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 	tmpCalc := registers.Pop() // temporary for address calculations
 
 	// =========================================================================
-	// Modular Arithmetic Macros
+	// Modular Arithmetic Macros (using Define)
 	// =========================================================================
 
-	// add computes (a + b) mod q using conditional subtraction
-	// Result is in [0, q) assuming inputs are in [0, q)
-	// Note: VSUB(a, b, dst) computes dst = b - a
-	add := func(a, b, into arm64.VectorRegister) {
-		f.VADD(a.S4(), b.S4(), scratch0.S4())            // scratch0 = a + b
-		f.VSUB(vQ.S4(), scratch0.S4(), scratch1.S4())    // scratch1 = scratch0 - vQ = (a + b) - q
-		f.VUMIN(scratch0.S4(), scratch1.S4(), into.S4()) // into = min(a+b, a+b-q)
-	}
+	// Add: computes (a + b) mod q using conditional subtraction
+	// Inputs: a, b, into (all vector registers)
+	// Uses scratch registers V30, V31
+	add := f.Define("ADD_MOD", 3, func(args ...arm64.Register) {
+		a := arm64.VectorRegister(args[0])
+		b := arm64.VectorRegister(args[1])
+		into := arm64.VectorRegister(args[2])
+		f.VADD(a.S4(), b.S4(), scratch0.S4())
+		f.VSUB(vQ.S4(), scratch0.S4(), scratch1.S4())
+		f.VUMIN(scratch0.S4(), scratch1.S4(), into.S4())
+	})
 
-	// sub computes (a - b) mod q using conditional addition
-	// Result is in [0, q) assuming inputs are in [0, q)
-	// Note: VSUB(a, b, dst) computes dst = b - a
-	sub := func(a, b, into arm64.VectorRegister) {
-		f.VSUB(b.S4(), a.S4(), scratch0.S4())            // scratch0 = a - b (may underflow)
-		f.VADD(vQ.S4(), scratch0.S4(), scratch1.S4())    // scratch1 = (a - b) + q
-		f.VUMIN(scratch0.S4(), scratch1.S4(), into.S4()) // into = min(a-b, a-b+q)
-	}
-	_ = sub // reserved for future optimization of matMulInternal
+	// Sub: computes (a - b) mod q using conditional addition
+	// Inputs: a, b, into (all vector registers)
+	sub := f.Define("SUB_MOD", 3, func(args ...arm64.Register) {
+		a := arm64.VectorRegister(args[0])
+		b := arm64.VectorRegister(args[1])
+		into := arm64.VectorRegister(args[2])
+		f.VSUB(b.S4(), a.S4(), scratch0.S4())
+		f.VADD(vQ.S4(), scratch0.S4(), scratch1.S4())
+		f.VUMIN(scratch0.S4(), scratch1.S4(), into.S4())
+	})
 
-	// mul computes Montgomery multiplication: (a * b * R^-1) mod q
-	// where R = 2^32. Uses widening unsigned multiplication.
-	// Algorithm (standard Montgomery):
-	//   1. ab = a * b (64-bit)
-	//   2. m = (ab_lo * qInvNeg) mod 2^32
-	//   3. result = (ab + m * q) >> 32
-	//   4. if result >= q: result -= q
-	//
-	// We process 4 lanes in parallel. Since NEON widening multiplies produce
-	// 2 x 64-bit results, we need separate UMULL/UMULL2 for low and high lane pairs.
+	// Double: computes 2*a mod q
+	// Inputs: a, into
+	double := f.Define("DOUBLE_MOD", 2, func(args ...arm64.Register) {
+		a := arm64.VectorRegister(args[0])
+		into := arm64.VectorRegister(args[1])
+		f.VSHL("$1", a.S4(), scratch0.S4())
+		f.VSUB(vQ.S4(), scratch0.S4(), scratch1.S4())
+		f.VUMIN(scratch0.S4(), scratch1.S4(), into.S4())
+	})
+
+	// Mul: Montgomery multiplication (a * b * R^-1) mod q
+	// Inputs: a, b, into
+	// Uses V29 as private temp, V30-V31 as scratch, and t[8], t[9] as temps
+	// Cannot use Define because it needs register number extraction
 	mulTmp := arm64.V29
 	mul := func(a, b, into arm64.VectorRegister) {
 		an := vRegNum(a)
 		bn := vRegNum(b)
 		qn := vRegNum(vQ)
-		_ = vRegNum(vMu) // qInvNeg used via vMu directly
 		s0n := vRegNum(scratch0)
 		s1n := vRegNum(scratch1)
 		mn := vRegNum(mulTmp)
-		_ = vRegNum(into) // used via method calls
 
 		// Step 1: ab = a * b (64-bit widening multiply)
-		// UMULL scratch0.2D, a.2S, b.2S (lanes 0,1)
 		encUmullLo := uint32(0x2ea0c000) | (bn << 16) | (an << 5) | s0n
 		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // UMULL %s.2D, %s.2S, %s.2S", encUmullLo, baseReg(scratch0), baseReg(a), baseReg(b)))
 
-		// UMULL2 scratch1.2D, a.4S, b.4S (lanes 2,3)
 		encUmullHi := uint32(0x6ea0c000) | (bn << 16) | (an << 5) | s1n
 		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // UMULL2 %s.2D, %s.4S, %s.4S", encUmullHi, baseReg(scratch1), baseReg(a), baseReg(b)))
 
-		// Step 2: Extract ab_lo (low 32 bits of each 64-bit product)
-		// UZP1 gives us the even (low) 32-bit elements
-		f.VUZP1(scratch0.S4(), scratch1.S4(), mulTmp.S4()) // mulTmp = ab_lo
+		// Step 2: Extract ab_lo
+		f.VUZP1(scratch0.S4(), scratch1.S4(), mulTmp.S4())
 
 		// Step 3: m = (ab_lo * qInvNeg) mod 2^32
-		// Note: We use qInvNeg here (stored in vMu), not mu
-		f.VMUL_S4(mulTmp.S4(), vMu.S4(), mulTmp.S4()) // mulTmp = m = ab_lo * qInvNeg
+		f.VMUL_S4(mulTmp.S4(), vMu.S4(), mulTmp.S4())
 
-		// Step 4: Compute m * q (64-bit)
-		// UMULL t8.2D, mulTmp.2S, vQ.2S
+		// Step 4: Compute m * q
 		t8n := vRegNum(t[8])
 		t9n := vRegNum(t[9])
 		encMqLo := uint32(0x2ea0c000) | (qn << 16) | (mn << 5) | t8n
 		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // UMULL %s.2D, %s.2S, %s.2S", encMqLo, baseReg(t[8]), baseReg(mulTmp), baseReg(vQ)))
 
-		// UMULL2 t9.2D, mulTmp.4S, vQ.4S
 		encMqHi := uint32(0x6ea0c000) | (qn << 16) | (mn << 5) | t9n
 		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // UMULL2 %s.2D, %s.4S, %s.4S", encMqHi, baseReg(t[9]), baseReg(mulTmp), baseReg(vQ)))
 
-		// Step 5: Add ab + m*q (64-bit addition)
-		// ADD scratch0.2D, scratch0.2D, t8.2D
+		// Step 5: Add ab + m*q
 		f.VADD(scratch0.D2(), t[8].D2(), scratch0.D2())
-		// ADD scratch1.2D, scratch1.2D, t9.2D
 		f.VADD(scratch1.D2(), t[9].D2(), scratch1.D2())
 
-		// Step 6: Extract high 32 bits (>> 32) using UZP2
-		f.VUZP2(scratch0.S4(), scratch1.S4(), into.S4()) // into = (ab + m*q) >> 32
+		// Step 6: Extract high 32 bits
+		f.VUZP2(scratch0.S4(), scratch1.S4(), into.S4())
 
 		// Step 7: Reduce if result >= q
-		// Note: VSUB(a, b, dst) computes dst = b - a
-		f.VSUB(vQ.S4(), into.S4(), mulTmp.S4())    // mulTmp = into - vQ = result - q
-		f.VUMIN(into.S4(), mulTmp.S4(), into.S4()) // into = min(result, result - q)
+		f.VSUB(vQ.S4(), into.S4(), mulTmp.S4())
+		f.VUMIN(into.S4(), mulTmp.S4(), into.S4())
 	}
 
-	// double computes 2*a mod q
-	// Note: VSUB(a, b, dst) computes dst = b - a
-	double := func(a, into arm64.VectorRegister) {
-		f.VSHL("$1", a.S4(), scratch0.S4())
-		f.VSUB(vQ.S4(), scratch0.S4(), scratch1.S4())    // scratch1 = scratch0 - vQ = 2a - q
-		f.VUMIN(scratch0.S4(), scratch1.S4(), into.S4()) // into = min(2a, 2a-q)
-	}
-
-	// sbox applies x^3 (cubic S-box for Koalabear)
-	sbox := func(state arm64.VectorRegister) {
-		mul(state, state, t[0]) // t[0] = state^2
-		mul(state, t[0], state) // state = state^3
-	}
-
-	// =========================================================================
-	// Matrix Multiplication
-	// =========================================================================
-
-	// matMul4 computes 4x4 circulant matrix multiplication with matrix:
-	//   (2 3 1 1)
-	//   (1 2 3 1)
-	//   (1 1 2 3)
-	//   (3 1 1 2)
-	// This is the efficient Plonky3 MDS matrix.
-	matMul4 := func(s []arm64.VectorRegister) {
-		// Algorithm from Plonky3 external.rs
-		add(s[0], s[1], t[0]) // t0 = s0 + s1
-		add(s[2], s[3], t[1]) // t1 = s2 + s3
-		add(t[0], t[1], t[2]) // t2 = s0 + s1 + s2 + s3 (sum)
-		add(t[2], s[1], t[3]) // t3 = sum + s1
-		add(t[2], s[3], t[4]) // t4 = sum + s3
-		double(s[0], s[3])    // new s3 = 2*s0
-		add(s[3], t[4], s[3]) // s3 = 2*s0 + sum + s3 = 2*s0 + (s0+s1+s2+2*s3)
-		double(s[2], s[1])    // new s1 = 2*s2
-		add(s[1], t[3], s[1]) // s1 = 2*s2 + sum + s1 = (s0+2*s1+s2+s3) + s2
-		add(t[0], t[3], s[0]) // s0 = (s0+s1) + (sum+s1) = 2*s0 + 3*s1 + s2 + s3
-		add(t[1], t[4], s[2]) // s2 = (s2+s3) + (sum+s3) = s0 + s1 + 2*s2 + 3*s3
-	}
-
-	// matMulExternal computes the external (full) matrix multiplication
-	// The 16x16 matrix is circ(2*M4, M4, M4, M4) applied in blocks
-	matMulExternal := func() {
-		// Apply 4x4 block to each group of 4 state elements
-		for i := 0; i < 4; i++ {
-			matMul4(v[i*4 : i*4+4])
-		}
-
-		// Sum corresponding elements across 4 blocks
-		add(v[0], v[4], t[0])
-		add(t[0], v[8], t[0])
-		add(t[0], v[12], t[0])
-
-		add(v[1], v[5], t[1])
-		add(t[1], v[9], t[1])
-		add(t[1], v[13], t[1])
-
-		add(v[2], v[6], t[2])
-		add(t[2], v[10], t[2])
-		add(t[2], v[14], t[2])
-
-		add(v[3], v[7], t[3])
-		add(t[3], v[11], t[3])
-		add(t[3], v[15], t[3])
-
-		// Add cross-block sum to each element
-		for i := 0; i < 16; i++ {
-			add(v[i], t[i%4], v[i])
-		}
-	}
-
-	// =========================================================================
-	// Internal Matrix (Partial Round)
-	// =========================================================================
-
-	// halve computes a/2 mod q using conditional add of q for odd values
-	// Algorithm: if a is odd, result = (a + q) >> 1, else result = a >> 1
-	// Uses UHADD which computes (a + b) / 2 without overflow
-	// Optimized approach from plonky3: uses VSHL + SSHR to create mask, then UHADD
+	// Halve: computes a/2 mod q
+	// Cannot use Define because it needs register number extraction
 	halve := func(a, into arm64.VectorRegister) {
 		an := vRegNum(a)
 		s0n := vRegNum(scratch0)
@@ -329,35 +250,47 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 		f.VSHL("$31", scratch0.S4(), scratch0.S4())
 
 		// mask = mask >> 31 (arithmetic shift, creates all 1s or all 0s)
-		// SSHR Vd.4S, Vn.4S, #31 - encoding: 0 1 0 01111 00100001 000001 Rn Rd
 		encoding := uint32(0x4f210400) | (s0n << 5) | s0n
 		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // SSHR V%d.4S, V%d.4S, #31", encoding, s0n, s0n))
 
-		// masked_q = mask & q (q if odd, 0 if even)
+		// masked_q = mask & q
 		f.VAND(vQ.B16(), scratch0.B16(), scratch1.B16())
 
 		// result = UHADD(a, masked_q) = (a + masked_q) / 2
-		// UHADD Vd.4S, Vn.4S, Vm.4S - Encoding: 0 1 1 01110 10 1 Rm 0000 01 Rn Rd = 0x6ea00400
 		uhaddEncoding := uint32(0x6ea00400) | (s1n << 16) | (an << 5) | dn
 		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // UHADD V%d.4S, V%d.4S, V%d.4S", uhaddEncoding, dn, an, s1n))
 	}
 
-	// halveInPlace is a variant that operates in-place on the input register
-	halveInPlace := func(a arm64.VectorRegister) {
-		halve(a, a)
+	// Triple: computes 3*a mod q = 2*a + a
+	// Inputs: a, into
+	triple := f.Define("TRIPLE_MOD", 2, func(args ...arm64.Register) {
+		a := arm64.VectorRegister(args[0])
+		into := arm64.VectorRegister(args[1])
+		double(arm64.Register(a), arm64.Register(scratch0))
+		add(arm64.Register(scratch0), arm64.Register(a), arm64.Register(into))
+	})
+
+	// Quadruple: computes 4*a mod q = 2*(2*a)
+	// Inputs: a, into
+	quadruple := f.Define("QUAD_MOD", 2, func(args ...arm64.Register) {
+		a := arm64.VectorRegister(args[0])
+		into := arm64.VectorRegister(args[1])
+		double(arm64.Register(a), arm64.Register(scratch0))
+		double(arm64.Register(scratch0), arm64.Register(into))
+	})
+
+	// S-box: applies x^3 (cubic S-box)
+	// Cannot use Define because it calls mul which needs register extraction
+	sbox := func(state arm64.VectorRegister) {
+		mul(state, state, t[0]) // t[0] = state^2
+		mul(state, t[0], state) // state = state^3
 	}
-	_ = halveInPlace
 
 	// mul2ExpNegN computes a * 2^(-n) mod q
-	// For small n (n <= 4), use repeated halving (simpler, fewer dependencies)
-	// For large n (n > 4), use Montgomery reduction (fewer total operations)
-	//
-	// Montgomery reduction approach:
-	// a * 2^{-n} = (a * 2^{32-n}) * 2^{-32} mod q
-	// where 2^{-32} mod q is computed via Montgomery reduction
+	// For small n (n <= 4), use repeated halving
+	// For large n (n > 4), use Montgomery reduction
 	mul2ExpNegN := func(a, into arm64.VectorRegister, n int) {
 		if n <= 4 {
-			// For small n, repeated halving is efficient
 			halve(a, into)
 			for i := 1; i < n; i++ {
 				halve(into, into)
@@ -366,8 +299,6 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 		}
 
 		// For larger n, use Montgomery reduction
-		// v = a << (32 - n) gives us a 64-bit value
-		// Then Montgomery reduce: result = (v + (v_lo * mu mod 2^32) * q) >> 32
 		shift := 32 - n
 
 		an := vRegNum(a)
@@ -375,186 +306,197 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 		s1n := vRegNum(scratch1)
 		mn := vRegNum(mulTmp)
 		qn := vRegNum(vQ)
-		_ = vRegNum(into) // used below via direct register access
+		_ = vRegNum(into)
 
 		// Step 1: Widen and shift left: v = a << shift (64-bit result)
-		// USHLL scratch0.2D, a.2S, #shift (low 2 lanes)
 		encLo := uint32(0x2f00a400) | (uint32(32+shift) << 16) | (an << 5) | s0n
 		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // USHLL V%d.2D, V%d.2S, #%d", encLo, s0n, an, shift))
 
-		// USHLL2 scratch1.2D, a.4S, #shift (high 2 lanes)
 		encHi := uint32(0x6f00a400) | (uint32(32+shift) << 16) | (an << 5) | s1n
 		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // USHLL2 V%d.2D, V%d.4S, #%d", encHi, s1n, an, shift))
 
-		// Step 2: Extract v_lo (low 32 bits of each 64-bit lane)
+		// Step 2: Extract v_lo
 		f.VUZP1(scratch0.S4(), scratch1.S4(), mulTmp.S4())
 
-		// Step 3: m = v_lo * mu (mod 2^32)
+		// Step 3: m = v_lo * mu
 		f.VMUL_S4(mulTmp.S4(), vMu.S4(), mulTmp.S4())
 
-		// Step 4: Compute m * q (64-bit widening multiply)
+		// Step 4: Compute m * q
 		t8n := vRegNum(t[8])
 		t9n := vRegNum(t[9])
-		// UMULL t8.2D, mulTmp.2S, vQ.2S
 		umullLoEnc := uint32(0x2ea0c000) | (qn << 16) | (mn << 5) | t8n
 		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // UMULL V%d.2D, V%d.2S, V%d.2S", umullLoEnc, t8n, mn, qn))
 
-		// UMULL2 t9.2D, mulTmp.4S, vQ.4S
 		umullHiEnc := uint32(0x6ea0c000) | (qn << 16) | (mn << 5) | t9n
 		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // UMULL2 V%d.2D, V%d.4S, V%d.4S", umullHiEnc, t9n, mn, qn))
 
-		// Step 5: Add v + m*q (64-bit)
+		// Step 5: Add v + m*q
 		f.VADD(scratch0.D2(), t[8].D2(), scratch0.D2())
 		f.VADD(scratch1.D2(), t[9].D2(), scratch1.D2())
 
-		// Step 6: Extract high 32 bits (>> 32) using UZP2
+		// Step 6: Extract high 32 bits
 		f.VUZP2(scratch0.S4(), scratch1.S4(), into.S4())
 
-		// Step 7: Final reduction: if result >= q, subtract q
+		// Step 7: Final reduction
 		f.VSUB(vQ.S4(), into.S4(), mulTmp.S4())
 		f.VUMIN(into.S4(), mulTmp.S4(), into.S4())
 	}
 
-	// triple computes 3*a mod q = 2*a + a
-	triple := func(a, into arm64.VectorRegister) {
-		double(a, scratch0)    // scratch0 = 2*a
-		add(scratch0, a, into) // into = 2*a + a = 3*a
-	}
+	// =========================================================================
+	// Matrix Multiplication Macros (using Define)
+	// =========================================================================
 
-	// quadruple computes 4*a mod q = 2*(2*a)
-	quadruple := func(a, into arm64.VectorRegister) {
-		double(a, scratch0)    // scratch0 = 2*a
-		double(scratch0, into) // into = 4*a
-	}
+	// matMul4: computes 4x4 circulant matrix multiplication
+	// Matrix: (2 3 1 1)
+	//         (1 2 3 1)
+	//         (1 1 2 3)
+	//         (3 1 1 2)
+	// Uses only add and double Defines, so can be a Define
+	matMul4 := f.Define("MAT_MUL_4", 4, func(args ...arm64.Register) {
+		s0 := arm64.VectorRegister(args[0])
+		s1 := arm64.VectorRegister(args[1])
+		s2 := arm64.VectorRegister(args[2])
+		s3 := arm64.VectorRegister(args[3])
 
-	// matMulInternal computes the internal matrix multiplication for partial rounds
-	// The matrix is M = I + Diag(V) where I is the all-ones matrix
-	// Diagonal V = [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/8, 1/2^24, -1/2^8, -1/8, -1/16, -1/2^24]
-	//
-	// Algorithm (from Plonky3):
-	// 1. Compute sum = sum of all state elements
-	// 2. For each element: new_v[i] = sum + v[i] * diag[i]
-	// 3. Special case for v[0]: new_v[0] = sum - 2*v[0] = sum_tail - v[0] (since sum_tail = sum - v[0])
-	//
-	// For negative diagonal coefficients, we compute the positive multiplication and subtract from sum
+		add(arm64.Register(s0), arm64.Register(s1), arm64.Register(t[0]))
+		add(arm64.Register(s2), arm64.Register(s3), arm64.Register(t[1]))
+		add(arm64.Register(t[0]), arm64.Register(t[1]), arm64.Register(t[2]))
+		add(arm64.Register(t[2]), arm64.Register(s1), arm64.Register(t[3]))
+		add(arm64.Register(t[2]), arm64.Register(s3), arm64.Register(t[4]))
+		double(arm64.Register(s0), arm64.Register(s3))
+		add(arm64.Register(s3), arm64.Register(t[4]), arm64.Register(s3))
+		double(arm64.Register(s2), arm64.Register(s1))
+		add(arm64.Register(s1), arm64.Register(t[3]), arm64.Register(s1))
+		add(arm64.Register(t[0]), arm64.Register(t[3]), arm64.Register(s0))
+		add(arm64.Register(t[1]), arm64.Register(t[4]), arm64.Register(s2))
+	})
+
+	// matMulExternal: computes external matrix for full rounds
+	// Uses only matMul4 and add Defines, so can be a Define
+	matMulExternal := f.Define("MAT_MUL_EXT", 16, func(args ...arm64.Register) {
+		// Apply M4 to each block
+		for i := 0; i < 4; i++ {
+			matMul4(args[i*4], args[i*4+1], args[i*4+2], args[i*4+3])
+		}
+
+		// Compute cross-block sums
+		vv := make([]arm64.VectorRegister, 16)
+		for i := 0; i < 16; i++ {
+			vv[i] = arm64.VectorRegister(args[i])
+		}
+
+		add(arm64.Register(vv[0]), arm64.Register(vv[4]), arm64.Register(t[0]))
+		add(arm64.Register(t[0]), arm64.Register(vv[8]), arm64.Register(t[0]))
+		add(arm64.Register(t[0]), arm64.Register(vv[12]), arm64.Register(t[0]))
+
+		add(arm64.Register(vv[1]), arm64.Register(vv[5]), arm64.Register(t[1]))
+		add(arm64.Register(t[1]), arm64.Register(vv[9]), arm64.Register(t[1]))
+		add(arm64.Register(t[1]), arm64.Register(vv[13]), arm64.Register(t[1]))
+
+		add(arm64.Register(vv[2]), arm64.Register(vv[6]), arm64.Register(t[2]))
+		add(arm64.Register(t[2]), arm64.Register(vv[10]), arm64.Register(t[2]))
+		add(arm64.Register(t[2]), arm64.Register(vv[14]), arm64.Register(t[2]))
+
+		add(arm64.Register(vv[3]), arm64.Register(vv[7]), arm64.Register(t[3]))
+		add(arm64.Register(t[3]), arm64.Register(vv[11]), arm64.Register(t[3]))
+		add(arm64.Register(t[3]), arm64.Register(vv[15]), arm64.Register(t[3]))
+
+		// Add cross-block sums to each element
+		for i := 0; i < 16; i++ {
+			add(arm64.Register(vv[i]), arm64.Register(t[i%4]), arm64.Register(vv[i]))
+		}
+	})
+
+	// matMulInternal: computes internal matrix for partial rounds
+	// Cannot use Define because it calls halve and mul2ExpNegN which need register extraction
 	matMulInternal := func() {
-		// Step 1: Compute sum of all state elements
-		// We do this in a tree-reduction pattern for efficiency
-		add(v[0], v[1], t[0])
-		add(v[2], v[3], t[1])
-		add(v[4], v[5], t[2])
-		add(v[6], v[7], t[3])
-		add(t[0], t[1], t[0])
-		add(t[2], t[3], t[2])
-		add(t[0], t[2], t[0]) // t[0] = sum of v[0..7]
+		// Compute sum of all elements (tree reduction)
+		add(arm64.Register(v[0]), arm64.Register(v[1]), arm64.Register(t[0]))
+		add(arm64.Register(v[2]), arm64.Register(v[3]), arm64.Register(t[1]))
+		add(arm64.Register(v[4]), arm64.Register(v[5]), arm64.Register(t[2]))
+		add(arm64.Register(v[6]), arm64.Register(v[7]), arm64.Register(t[3]))
+		add(arm64.Register(t[0]), arm64.Register(t[1]), arm64.Register(t[0]))
+		add(arm64.Register(t[2]), arm64.Register(t[3]), arm64.Register(t[2]))
+		add(arm64.Register(t[0]), arm64.Register(t[2]), arm64.Register(t[0]))
 
-		add(v[8], v[9], t[4])
-		add(v[10], v[11], t[5])
-		add(v[12], v[13], t[6])
-		add(v[14], v[15], t[7])
-		add(t[4], t[5], t[4])
-		add(t[6], t[7], t[6])
-		add(t[4], t[6], t[4]) // t[4] = sum of v[8..15]
+		add(arm64.Register(v[8]), arm64.Register(v[9]), arm64.Register(t[4]))
+		add(arm64.Register(v[10]), arm64.Register(v[11]), arm64.Register(t[5]))
+		add(arm64.Register(v[12]), arm64.Register(v[13]), arm64.Register(t[6]))
+		add(arm64.Register(v[14]), arm64.Register(v[15]), arm64.Register(t[7]))
+		add(arm64.Register(t[4]), arm64.Register(t[5]), arm64.Register(t[4]))
+		add(arm64.Register(t[6]), arm64.Register(t[7]), arm64.Register(t[6]))
+		add(arm64.Register(t[4]), arm64.Register(t[6]), arm64.Register(t[4]))
 
-		add(t[0], t[4], t[0]) // t[0] = sum of all 16 elements
+		add(arm64.Register(t[0]), arm64.Register(t[4]), arm64.Register(t[0]))
 
-		// Step 2: Apply diagonal multiplication and add/sub sum
-		// Diagonal: [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/8, 1/2^24, -1/2^8, -1/8, -1/16, -1/2^24]
+		// Apply diagonal multiplication
+		double(arm64.Register(v[0]), arm64.Register(v[0]))
+		sub(arm64.Register(t[0]), arm64.Register(v[0]), arm64.Register(v[0]))
 
-		// v[0]: diag=-2, formula: sum - 2*v[0]
-		double(v[0], v[0])
-		sub(t[0], v[0], v[0])
+		add(arm64.Register(t[0]), arm64.Register(v[1]), arm64.Register(v[1]))
 
-		// v[1]: diag=1, formula: sum + v[1]
-		add(t[0], v[1], v[1])
+		double(arm64.Register(v[2]), arm64.Register(v[2]))
+		add(arm64.Register(t[0]), arm64.Register(v[2]), arm64.Register(v[2]))
 
-		// v[2]: diag=2, formula: sum + 2*v[2]
-		double(v[2], v[2])
-		add(t[0], v[2], v[2])
-
-		// v[3]: diag=1/2, formula: sum + v[3]/2
 		halve(v[3], v[3])
-		add(t[0], v[3], v[3])
+		add(arm64.Register(t[0]), arm64.Register(v[3]), arm64.Register(v[3]))
 
-		// v[4]: diag=3, formula: sum + 3*v[4]
-		triple(v[4], v[4])
-		add(t[0], v[4], v[4])
+		triple(arm64.Register(v[4]), arm64.Register(v[4]))
+		add(arm64.Register(t[0]), arm64.Register(v[4]), arm64.Register(v[4]))
 
-		// v[5]: diag=4, formula: sum + 4*v[5]
-		quadruple(v[5], v[5])
-		add(t[0], v[5], v[5])
+		quadruple(arm64.Register(v[5]), arm64.Register(v[5]))
+		add(arm64.Register(t[0]), arm64.Register(v[5]), arm64.Register(v[5]))
 
-		// v[6]: diag=-1/2, formula: sum - v[6]/2
 		halve(v[6], v[6])
-		sub(t[0], v[6], v[6])
+		sub(arm64.Register(t[0]), arm64.Register(v[6]), arm64.Register(v[6]))
 
-		// v[7]: diag=-3, formula: sum - 3*v[7]
-		triple(v[7], v[7])
-		sub(t[0], v[7], v[7])
+		triple(arm64.Register(v[7]), arm64.Register(v[7]))
+		sub(arm64.Register(t[0]), arm64.Register(v[7]), arm64.Register(v[7]))
 
-		// v[8]: diag=-4, formula: sum - 4*v[8]
-		quadruple(v[8], v[8])
-		sub(t[0], v[8], v[8])
+		quadruple(arm64.Register(v[8]), arm64.Register(v[8]))
+		sub(arm64.Register(t[0]), arm64.Register(v[8]), arm64.Register(v[8]))
 
-		// v[9]: diag=1/2^8, formula: sum + v[9]/256
 		mul2ExpNegN(v[9], v[9], 8)
-		add(t[0], v[9], v[9])
+		add(arm64.Register(t[0]), arm64.Register(v[9]), arm64.Register(v[9]))
 
-		// v[10]: diag=1/8, formula: sum + v[10]/8
 		mul2ExpNegN(v[10], v[10], 3)
-		add(t[0], v[10], v[10])
+		add(arm64.Register(t[0]), arm64.Register(v[10]), arm64.Register(v[10]))
 
-		// v[11]: diag=1/2^24, formula: sum + v[11]/2^24
 		mul2ExpNegN(v[11], v[11], 24)
-		add(t[0], v[11], v[11])
+		add(arm64.Register(t[0]), arm64.Register(v[11]), arm64.Register(v[11]))
 
-		// v[12]: diag=-1/2^8, formula: sum - v[12]/256
 		mul2ExpNegN(v[12], v[12], 8)
-		sub(t[0], v[12], v[12])
+		sub(arm64.Register(t[0]), arm64.Register(v[12]), arm64.Register(v[12]))
 
-		// v[13]: diag=-1/8, formula: sum - v[13]/8
 		mul2ExpNegN(v[13], v[13], 3)
-		sub(t[0], v[13], v[13])
+		sub(arm64.Register(t[0]), arm64.Register(v[13]), arm64.Register(v[13]))
 
-		// v[14]: diag=-1/16, formula: sum - v[14]/16
 		mul2ExpNegN(v[14], v[14], 4)
-		sub(t[0], v[14], v[14])
+		sub(arm64.Register(t[0]), arm64.Register(v[14]), arm64.Register(v[14]))
 
-		// v[15]: diag=-1/2^24, formula: sum - v[15]/2^24
 		mul2ExpNegN(v[15], v[15], 24)
-		sub(t[0], v[15], v[15])
+		sub(arm64.Register(t[0]), arm64.Register(v[15]), arm64.Register(v[15]))
 	}
 
 	// =========================================================================
 	// Round Functions
 	// =========================================================================
 
-	// Round key access:
-	// roundKeys is [][]fr.Element - an array of slice headers
-	// Each slice header is 24 bytes: [ptr, len, cap]
-	// For round r, the data pointer is at addrRoundKeys + r*24
-	// Full rounds (r < 3 or r >= 24): 16 keys, accessed as *(dataPtr + j*4)
-	// Partial rounds (3 <= r < 24): 1 key, accessed as *(dataPtr)
-
-	roundIdx := 0 // track which round we're on
+	roundIdx := 0
 
 	// addRoundKeyFull loads round key j for current full round and adds to state
 	addRoundKeyFull := func(j int) {
-		// Load data pointer for this round from slice header
 		f.MOVD(fmt.Sprintf("%d(%s)", roundIdx*24, addrRoundKeys), rKeyPtr)
-		// Load key[j] and broadcast
 		f.ADD(uint64(j*4), rKeyPtr, tmpCalc)
 		f.WriteLn(fmt.Sprintf("    VLD1R (%s), [%s]", tmpCalc, scratch0.S4()))
-		add(v[j], scratch0, v[j])
+		add(arm64.Register(v[j]), arm64.Register(scratch0), arm64.Register(v[j]))
 	}
 
 	// addRoundKeyPartial loads the single round key for current partial round
 	addRoundKeyPartial := func() {
-		// Load data pointer for this round from slice header
 		f.MOVD(fmt.Sprintf("%d(%s)", roundIdx*24, addrRoundKeys), rKeyPtr)
-		// Load key[0] and broadcast
 		f.WriteLn(fmt.Sprintf("    VLD1R (%s), [%s]", rKeyPtr, scratch0.S4()))
-		add(v[0], scratch0, v[0])
+		add(arm64.Register(v[0]), arm64.Register(scratch0), arm64.Register(v[0]))
 	}
 
 	// fullRound applies round key, S-box to all elements, then external matrix
@@ -563,7 +505,10 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 			addRoundKeyFull(j)
 			sbox(v[j])
 		}
-		matMulExternal()
+		matMulExternal(arm64.Register(v[0]), arm64.Register(v[1]), arm64.Register(v[2]), arm64.Register(v[3]),
+			arm64.Register(v[4]), arm64.Register(v[5]), arm64.Register(v[6]), arm64.Register(v[7]),
+			arm64.Register(v[8]), arm64.Register(v[9]), arm64.Register(v[10]), arm64.Register(v[11]),
+			arm64.Register(v[12]), arm64.Register(v[13]), arm64.Register(v[14]), arm64.Register(v[15]))
 		roundIdx++
 	}
 
@@ -578,8 +523,6 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 	// =========================================================================
 	// Main Loop Structure
 	// =========================================================================
-	// Process 4 batches, each containing N=64 steps
-	// Each step processes 8 input elements and accumulates into state
 
 	f.MOVD(0, batchIdx)
 	f.LABEL("batch_loop")
@@ -589,26 +532,20 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 		f.VEOR(v[i].B16(), v[i].B16(), v[i].B16())
 	}
 
-	// Initialize pointers for 4 parallel inputs (one per NEON lane)
+	// Initialize pointers for 4 parallel inputs
 	const N = 512 / 8 // 64 steps per batch
 	f.MOVD(0, stepIdx)
 
-	// Calculate base addresses for 4 lanes
-	// Each row has 512 elements × 4 bytes = 2048 bytes
-	// Batch b processes rows 4*b, 4*b+1, 4*b+2, 4*b+3
-	// Base offset = b * 4 * 2048 = b * 8192 = b << 13
 	f.WriteLn(fmt.Sprintf("    LSL $13, %s, %s", batchIdx, tmpCalc))
 	f.ADD(addrMatrix, tmpCalc, ptr0)
-	f.ADD(2048, ptr0, ptr1) // next row
-	f.ADD(2048, ptr1, ptr2) // next row
-	f.ADD(2048, ptr2, ptr3) // next row
+	f.ADD(2048, ptr0, ptr1)
+	f.ADD(2048, ptr1, ptr2)
+	f.ADD(2048, ptr2, ptr3)
 
 	f.LABEL("step_loop")
 
-	// Load 8 elements from each of 4 lanes into t[0..7]
-	// This forms a 4x8 matrix in transposed form
+	// Load 8 elements from each of 4 lanes
 	for j := 0; j < 8; j++ {
-		// Load one 32-bit element from each of 4 lanes
 		f.MOVWU(fmt.Sprintf("(%s)", ptr0), tmpCalc)
 		f.WriteLn(fmt.Sprintf("    VMOV %s, %s", tmpCalc, t[j].SAt(0)))
 		f.MOVWU(fmt.Sprintf("(%s)", ptr1), tmpCalc)
@@ -623,36 +560,37 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 		f.ADD(4, ptr3, ptr3)
 	}
 
-	// Copy input into state[8..15] (replacing, not accumulating)
+	// Copy input into state[8..15]
 	for j := 0; j < 8; j++ {
 		f.VMOV(t[j].B16(), v[8+j].B16())
 	}
 
-	// Store t[0..7] on stack for feed-forward at the end
-	// Use the frame's stack space at offsets 0-127 (8 vectors × 16 bytes = 128 bytes)
+	// Store t[0..7] on stack for feed-forward
 	f.MOVD("RSP", tmpCalc)
 	for j := 0; j < 8; j++ {
 		f.VST1_P(t[j].S4(), tmpCalc, 16)
 	}
 
-	// Reset round index for this permutation
+	// Reset round index
 	roundIdx = 0
 
-	// Initial external matrix multiplication (before any rounds)
-	// This mixes the state v[0..7] with the new inputs v[8..15]
-	matMulExternal()
+	// Initial external matrix
+	matMulExternal(arm64.Register(v[0]), arm64.Register(v[1]), arm64.Register(v[2]), arm64.Register(v[3]),
+		arm64.Register(v[4]), arm64.Register(v[5]), arm64.Register(v[6]), arm64.Register(v[7]),
+		arm64.Register(v[8]), arm64.Register(v[9]), arm64.Register(v[10]), arm64.Register(v[11]),
+		arm64.Register(v[12]), arm64.Register(v[13]), arm64.Register(v[14]), arm64.Register(v[15]))
 
-	// Apply rf full rounds (rounds 0, 1, 2)
+	// Apply rf full rounds
 	for i := 0; i < rf; i++ {
 		fullRound()
 	}
 
-	// Apply partial rounds (rounds 3 to 23)
+	// Apply partial rounds
 	for i := 0; i < partialRounds; i++ {
 		partialRound()
 	}
 
-	// Apply rf more full rounds (rounds 24, 25, 26)
+	// Apply rf more full rounds
 	for i := 0; i < rf; i++ {
 		fullRound()
 	}
@@ -664,9 +602,8 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 	}
 
 	// Feed-forward: state[j] = state[8+j] + original_input[j]
-	// Note: this overwrites v[0:8] with the feed-forward result
 	for j := 0; j < 8; j++ {
-		add(v[8+j], t[j], v[j])
+		add(arm64.Register(v[8+j]), arm64.Register(t[j]), arm64.Register(v[j]))
 	}
 
 	// Loop control
@@ -675,8 +612,6 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 	f.WriteLn("    BNE step_loop")
 
 	// Store results for this batch
-	// Output is 4 x 8 elements (32 elements total per batch)
-	// tmpCalc = batchIdx * 128 = batchIdx << 7
 	f.WriteLn(fmt.Sprintf("    LSL $7, %s, %s", batchIdx, tmpCalc))
 	f.ADD(addrResult, tmpCalc, ptr0)
 	f.ADD(32, ptr0, ptr1)
