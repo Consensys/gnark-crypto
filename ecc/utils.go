@@ -46,6 +46,42 @@ func NafDecomposition(a *big.Int, result []int8) int {
 	return length
 }
 
+// WnafDecomposition gets the wNAF decomposition of a big number.
+// window is the wNAF window size and must be >= 2.
+func WnafDecomposition(a *big.Int, window uint, result []int8) int {
+	if a.Sign() == 0 {
+		return 0
+	}
+
+	var aCopy, mask, mod, tmp big.Int
+	aCopy.Set(a)
+	mask.SetUint64((1 << window) - 1)
+
+	length := 0
+	for aCopy.Sign() != 0 {
+		if aCopy.Bit(0) == 1 {
+			mod.And(&aCopy, &mask)
+			u := mod.Int64()
+			if u > (1 << (window - 1)) {
+				u -= (1 << window)
+			}
+			result[length] = int8(u)
+			if u > 0 {
+				tmp.SetInt64(u)
+				aCopy.Sub(&aCopy, &tmp)
+			} else {
+				tmp.SetInt64(-u)
+				aCopy.Add(&aCopy, &tmp)
+			}
+		} else {
+			result[length] = 0
+		}
+		aCopy.Rsh(&aCopy, 1)
+		length++
+	}
+	return length
+}
+
 //-------------------------------------------------------
 // GLV utils
 

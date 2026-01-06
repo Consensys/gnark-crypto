@@ -838,38 +838,10 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 	}
 
 	const wnafWindow = 5
-
-	wnafDecomposition := func(k *big.Int, window uint) ([]int8, int) {
-		var kk, mask, mod, tmp big.Int
-		kk.Set(k)
-		mask.SetInt64((1 << window) - 1)
-		digits := make([]int8, kk.BitLen()+1)
-		i := 0
-		for kk.Sign() != 0 {
-			var u int64
-			if kk.Bit(0) == 1 {
-				mod.And(&kk, &mask)
-				u = mod.Int64()
-				if u > (1 << (window - 1)) {
-					u -= (1 << window)
-				}
-				digits[i] = int8(u)
-				if u > 0 {
-					tmp.SetInt64(u)
-					kk.Sub(&kk, &tmp)
-				} else {
-					tmp.SetInt64(-u)
-					kk.Add(&kk, &tmp)
-				}
-			}
-			kk.Rsh(&kk, 1)
-			i++
-		}
-		return digits, i
-	}
-
-	naf1, nafLen1 := wnafDecomposition(&k[0], wnafWindow)
-	naf2, nafLen2 := wnafDecomposition(&k[1], wnafWindow)
+	naf1 := make([]int8, k[0].BitLen()+1)
+	naf2 := make([]int8, k[1].BitLen()+1)
+	nafLen1 := ecc.WnafDecomposition(&k[0], wnafWindow, naf1)
+	nafLen2 := ecc.WnafDecomposition(&k[1], wnafWindow, naf2)
 	maxLen := nafLen1
 	if nafLen2 > maxLen {
 		maxLen = nafLen2
