@@ -9,9 +9,9 @@ import (
 
 	"github.com/consensys/bavard"
 	ramd64 "github.com/consensys/bavard/amd64"
-	"github.com/consensys/gnark-crypto/field/generator/asm/amd64"
-	field "github.com/consensys/gnark-crypto/field/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
+	"github.com/consensys/gnark-crypto/internal/generator/field/asm/amd64"
+	field "github.com/consensys/gnark-crypto/internal/generator/field/config"
 )
 
 // Fq2Amd64 ...

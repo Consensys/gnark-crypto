@@ -1,0 +1,589 @@
+import (
+	"testing"
+	"sort"
+	"bytes"
+	"os"
+	"fmt"
+	"encoding/binary"
+	
+	"github.com/stretchr/testify/require"
+	"github.com/leanovate/gopter"
+	"github.com/leanovate/gopter/prop"
+)
+
+func TestVectorSort(t *testing.T) {
+	assert := require.New(t)
+
+	v := make(Vector, 3)
+	v[0].SetUint64(2)
+	v[1].SetUint64(3)
+	v[2].SetUint64(1)
+
+	sort.Sort(v)
+
+	assert.Equal("[1,2,3]", v.String())
+}
+
+func TestVectorRoundTrip(t *testing.T) {
+	assert := require.New(t)
+
+	v1 := make(Vector, 3)
+	v1[0].SetUint64(2)
+	v1[1].SetUint64(3)
+	v1[2].SetUint64(1)
+
+	b, err := v1.MarshalBinary()
+	assert.NoError(err)
+
+	var v2,v3 Vector
+
+	err = v2.UnmarshalBinary(b)
+	assert.NoError(err)
+
+	err = v3.unmarshalBinaryAsync(b)
+	assert.NoError(err)
+
+	assert.True(v1.Equal(v2), "vectors should be equal")
+	assert.True(v3.Equal(v2), "vectors should be equal")
+}
+
+func TestVectorEmptyRoundTrip(t *testing.T) {
+	assert := require.New(t)
+
+	v1 := make(Vector, 0)
+
+	b, err := v1.MarshalBinary()
+	assert.NoError(err)
+
+	var v2, v3 Vector
+
+	err = v2.UnmarshalBinary(b)
+	assert.NoError(err)
+
+	err = v3.unmarshalBinaryAsync(b)
+	assert.NoError(err)
+
+	assert.True(v1.Equal(v2), "vectors should be equal")
+	assert.True(v3.Equal(v2), "vectors should be equal")
+}
+
+func TestVectorEmptyOps(t *testing.T) {
+	assert := require.New(t)
+	
+	var sum, inner, scalar {{.ElementName}}
+	scalar.SetUint64(42)
+	empty := make(Vector, 0)
+	result := make(Vector, 0)
+
+	assert.NotPanics(func() { result.Add(empty, empty) })
+	assert.NotPanics(func() { result.Sub(empty, empty) })
+	assert.NotPanics(func() { result.ScalarMul(empty, &scalar) })
+	assert.NotPanics(func() { result.Mul(empty, empty) })
+	assert.NotPanics(func() { sum = empty.Sum() })
+	assert.NotPanics(func() { inner = empty.InnerProduct(empty) })
+
+	assert.True(sum.IsZero())
+	assert.True(inner.IsZero())
+}
+
+func (vector *Vector) unmarshalBinaryAsync(data []byte) error {
+	r := bytes.NewReader(data)
+	_, err, chErr := vector.AsyncReadFrom(r)
+	if err != nil {
+		return err
+	}
+	return <-chErr
+}
+
+
+
+func TestVectorOps(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = 2
+	} else {
+		parameters.MinSuccessfulTests = 10
+	}
+	properties := gopter.NewProperties(parameters)
+
+	addVector := func(a, b Vector) bool {
+		c := make(Vector, len(a))
+		c.Add(a, b)
+		
+		for i := 0; i < len(a); i++ {
+			var tmp {{.ElementName}}
+			tmp.Add(&a[i], &b[i])
+			if !tmp.Equal(&c[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
+	subVector := func(a, b Vector) bool {
+		c := make(Vector, len(a))
+		c.Sub(a, b)
+		
+		for i := 0; i < len(a); i++ {
+			var tmp {{.ElementName}}
+			tmp.Sub(&a[i], &b[i])
+			if !tmp.Equal(&c[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
+	scalarMulVector := func(a Vector, b {{.ElementName}}) bool {
+		c := make(Vector, len(a))
+		c.ScalarMul(a, &b)
+		
+		for i := 0; i < len(a); i++ {
+			var tmp {{.ElementName}}
+			tmp.Mul(&a[i], &b)
+			if !tmp.Equal(&c[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
+	sumVector := func(a Vector) bool {
+		var sum {{.ElementName}}
+		computed := a.Sum()
+		for i := 0; i < len(a); i++ {
+			sum.Add(&sum, &a[i])
+		}
+
+		return sum.Equal(&computed)
+	}
+
+	innerProductVector := func(a, b Vector) bool {
+		computed := a.InnerProduct(b)
+		var innerProduct {{.ElementName}}
+		for i := 0; i < len(a); i++ {
+			var tmp {{.ElementName}}
+			tmp.Mul(&a[i], &b[i])
+			innerProduct.Add(&innerProduct, &tmp)
+		}
+
+		return innerProduct.Equal(&computed)
+	}
+
+	mulVector := func(a, b Vector) bool {
+		c := make(Vector, len(a))
+		a[0].SetUint64(0x24)
+		b[0].SetUint64(0x42)
+		c.Mul(a, b)
+		
+		for i := 0; i < len(a); i++ {
+			var tmp {{.ElementName}}
+			tmp.Mul(&a[i], &b[i])
+			if !tmp.Equal(&c[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
+	sizes := []int{1, 2, 3, 4,8,9,15,16, {{- if .F31}}24,{{- end}} 509, 510, 511, 512, 513, 514}
+	type genPair struct {
+		g1, g2 gopter.Gen
+		label string
+	}
+	
+	for _, size := range sizes {
+		generators := []genPair{
+			{genZeroVector(size), genZeroVector(size), "zero vectors"},
+			{genMaxVector(size), genMaxVector(size), "max vectors"},
+			{genVector(size), genVector(size), "random vectors"},
+			{genVector(size), genZeroVector(size), "random and zero vectors"},
+		}	
+		for _, gp := range generators {
+			properties.Property(fmt.Sprintf("vector addition %d - %s", size, gp.label), prop.ForAll(
+				addVector,
+				gp.g1,
+				gp.g2,
+			))
+
+			properties.Property(fmt.Sprintf("vector subtraction %d - %s", size, gp.label), prop.ForAll(
+				subVector,
+				gp.g1,
+				gp.g2,
+			))
+
+			properties.Property(fmt.Sprintf("vector scalar multiplication %d - %s", size, gp.label), prop.ForAll(
+				scalarMulVector,
+				gp.g1,
+				gen{{.ElementName}}(),
+			))
+
+			properties.Property(fmt.Sprintf("vector sum %d - %s", size, gp.label), prop.ForAll(
+				sumVector,
+				gp.g1,
+			))
+
+			properties.Property(fmt.Sprintf("vector inner product %d - %s", size, gp.label), prop.ForAll(
+				innerProductVector,
+				gp.g1,
+				gp.g2,
+			))
+
+			properties.Property(fmt.Sprintf("vector multiplication %d - %s", size, gp.label), prop.ForAll(
+				mulVector,
+				gp.g1,
+				gp.g2,
+			))
+		}
+	}
+
+	properties.TestingRun(t, gopter.NewFormatedReporter(false, 260, os.Stdout))
+}
+
+
+func BenchmarkVectorOps(b *testing.B) {
+	// note; to benchmark against "no asm" version, use the following
+	// build tag: -tags purego
+	const N = 1<<24
+	a1 := make(Vector, N)
+	b1 := make(Vector, N)
+	c1 := make(Vector, N)
+	var mixer {{.ElementName}}
+	mixer.MustSetRandom()
+	for i := 1; i < N; i++ {
+		a1[i-1].SetUint64(uint64(i)).
+			Mul(&a1[i-1], &mixer)
+		b1[i-1].SetUint64(^uint64(i)).
+			Mul(&b1[i-1], &mixer)
+	}
+
+	for n:= 1<<4; n <= N; n <<= 1 {
+		b.Run(fmt.Sprintf("add %d", n), func(b *testing.B) {
+			_a := a1[:n]
+			_b := b1[:n]
+			_c := c1[:n]
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_c.Add(_a, _b)
+			}
+		})
+
+		b.Run(fmt.Sprintf("sub %d", n), func(b *testing.B) {
+			_a := a1[:n]
+			_b := b1[:n]
+			_c := c1[:n]
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_c.Sub(_a, _b)
+			}
+		})
+
+		b.Run(fmt.Sprintf("scalarMul %d", n), func(b *testing.B) {
+			_a := a1[:n]
+			_c := c1[:n]
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_c.ScalarMul(_a, &mixer)
+			}
+		})
+
+		b.Run(fmt.Sprintf("sum %d", n), func(b *testing.B) {
+			_a := a1[:n]
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = _a.Sum()
+			}
+		})
+
+		b.Run(fmt.Sprintf("innerProduct %d", n), func(b *testing.B) {
+			_a := a1[:n]
+			_b := b1[:n]
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = _a.InnerProduct(_b)
+			}
+		})
+
+		b.Run(fmt.Sprintf("mul %d", n), func(b *testing.B) {
+			_a := a1[:n]
+			_b := b1[:n]
+			_c := c1[:n]
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_c.Mul(_a, _b)
+			}
+		})
+	}
+}
+
+func genZeroVector(size int) gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		g := make(Vector, size)
+		genResult := gopter.NewGenResult(g, gopter.NoShrinker)
+		return genResult
+	}
+}
+
+func genMaxVector(size int) gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		g := make(Vector, size)
+
+		qMinusOne := qElement
+		qMinusOne[0]--
+
+		for i := 0; i < size; i++ {
+			g[i] = qMinusOne
+		}
+		genResult := gopter.NewGenResult(g, gopter.NoShrinker)
+		return genResult
+	}
+}
+
+{{- $gen64 := "genParams.NextUint64()"}}
+{{- if eq .Word.BitSize 32}}
+{{- $gen64 = "uint32(genParams.NextUint64())"}}
+{{- end}}
+
+func genVector(size int) gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		g := make(Vector, size)
+		mixer := {{.ElementName}}{
+			{{- range $i := .NbWordsIndexesFull}}
+			{{$gen64}},{{end}}
+		}
+		if qElement[{{.NbWordsLastIndex}}] != ^{{$.Word.TypeLower}}(0) {
+			mixer[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
+		}
+		
+
+		for !mixer.smallerThanModulus() {
+			mixer = {{.ElementName}}{
+				{{- range $i := .NbWordsIndexesFull}}
+				{{$gen64}},{{end}}
+			}
+			if qElement[{{.NbWordsLastIndex}}] != ^{{$.Word.TypeLower}}(0) {
+				mixer[{{.NbWordsLastIndex}}] %= (qElement[{{.NbWordsLastIndex}}] +1 )
+			}
+		}
+
+		for i := 1; i <= size; i++ {
+			g[i-1].SetUint64(uint64(i)).
+				Mul(&g[i-1], &mixer)
+		}
+
+		genResult := gopter.NewGenResult(g, gopter.NoShrinker)
+		return genResult
+	}
+}
+
+func TestReadMismatchLength(t *testing.T) {
+	// ensure that the reader returns an error if the length encoded is larger than the actual
+	// input.
+	assert := require.New(t)
+
+	v1 := make(Vector, 4)
+	v1.MustSetRandom()
+
+	buf := new(bytes.Buffer)
+	_, err := v1.WriteTo(buf)
+	assert.NoError(err, "writing to buffer should not error out")
+
+	// tamper with the length: set it to 10
+	binary.BigEndian.PutUint32(buf.Bytes()[0:4], 10)
+
+	var v2 Vector
+	_, err = v2.ReadFrom(buf)
+	assert.Error(err, "should error out as the length encoded is larger than the input")
+	var v3 Vector
+	err = v3.unmarshalBinaryAsync(buf.Bytes())
+	assert.Error(err, "should error out as the length encoded is larger than the input")
+	var v4 Vector
+	err = v4.UnmarshalBinary(buf.Bytes())
+	assert.Error(err, "should error out as the length encoded is larger than the input")
+}
+
+func TestReadLargeHeader(t *testing.T) {
+	// skip the test. Running it on its own requires only up to 4GB of RAM, but
+	// we run tests in parallel in test suite. In that case the RAM usage blows
+	// up quickly and the test OOMs.
+	t.Skip("skipping test that requires large memory allocation")
+
+	// if header is very large (128GB) we don't allocate it directly
+	// at once but rather in smaller chunks and then read it
+	assert := require.New(t)
+
+	v1 := make(Vector, 4)
+	v1.MustSetRandom()
+
+	buf := new(bytes.Buffer)
+	_, err := v1.WriteTo(buf)
+	assert.NoError(err, "writing to buffer should not error out")
+	bufBytes := buf.Bytes()
+
+	// tamper with the length: set it to 2^32-1
+	binary.BigEndian.PutUint32(bufBytes[0:4], ^uint32(0))
+	var v2 Vector
+	_, err = v2.ReadFrom(bytes.NewBuffer(bufBytes))
+	assert.Error(err, "should error out as the length encoded is very large")
+	var v3 Vector
+	_, err, errCh := v3.AsyncReadFrom(bytes.NewBuffer(bufBytes))
+	assert.Error(err, "should error out as the length encoded is very large")
+	assert.NoError(<-errCh)
+	var v4 Vector
+	err = v4.UnmarshalBinary(bufBytes)
+	assert.Error(err, "should error out as the length encoded is very large")
+}
+
+func TestReuseSliceDeserialization(t *testing.T) {
+	// test that when we deserialize into a preallocated slice, if the slice is
+	// large enough, we reuse it (and don't allocate a new one)
+	const (
+		size     = 1 << 16
+		capacity = 1 << 20
+	)
+	assert := require.New(t)
+
+	v1 := make(Vector, size)
+	v1.MustSetRandom()
+
+	buf := new(bytes.Buffer)
+	_, err := v1.WriteTo(buf)
+	assert.NoError(err, "writing to buffer should not error out")
+
+	bufBytes := buf.Bytes()
+
+	v2 := make(Vector, capacity)
+	_, err = v2.ReadFrom(bytes.NewReader(bufBytes))
+	assert.NoError(err, "should read without error")
+	assert.Equal(size, len(v2), "length of the slice should equal to the original one")
+	assert.Equal(capacity, cap(v2), "capacity of the slice should remain unchanged")
+	assert.True(v1.Equal(v2), "vectors should be equal")
+	v3 := make(Vector, capacity)
+	_, err, errCh := v3.AsyncReadFrom(bytes.NewReader(bufBytes))
+	assert.NoError(err, "should read without error")
+	assert.NoError(<-errCh, "should validate without error")
+	assert.Equal(size, len(v3), "length of the slice should equal to the original one")
+	assert.Equal(capacity, cap(v3), "capacity of the slice should remain unchanged")
+	assert.True(v1.Equal(v3), "vectors should be equal")
+}
+
+func TestVectorEqualityLarge(t *testing.T) {
+	// this test requires very large memory allocation which is slow and not possible in
+	// small machines. We skip the test even with no-short flag. I have run it locally and
+	// it passes (@ivokub)
+	t.Skip("skipping test that requires large memory allocation")
+	// tests that the vectors equality works for large vectors (with multiple allocations)
+	const size = 1 << 28
+	assert := require.New(t)
+
+	v1 := make(Vector, size)
+	v1.MustSetRandom()
+
+	buf := new(bytes.Buffer)
+	_, err := v1.WriteTo(buf)
+	assert.NoError(err, "writing to buffer should not error out")
+
+	bufBytes := buf.Bytes()
+
+	var v2 Vector
+	_, err = v2.ReadFrom(bytes.NewReader(bufBytes))
+	assert.NoError(err, "should read without error")
+	assert.True(v1.Equal(v2), "vectors should be equal")
+
+	var v3 Vector
+	_, err, errCh := v3.AsyncReadFrom(bytes.NewReader(bufBytes))
+	assert.NoError(err, "should read without error")
+	assert.NoError(<-errCh, "should validate without error")
+	assert.True(v1.Equal(v3), "vectors should be equal")
+
+	v4 := make(Vector, size)
+	_, err = v4.ReadFrom(bytes.NewReader(bufBytes))
+	assert.NoError(err, "should read without error")
+	assert.True(v1.Equal(v4), "vectors should be equal")
+
+	v5 := make(Vector, size)
+	_, err, errCh = v5.AsyncReadFrom(bytes.NewReader(bufBytes))
+	assert.NoError(err, "should read without error")
+	assert.NoError(<-errCh, "should validate without error")
+	assert.True(v1.Equal(v5), "vectors should be equal")
+}
+
+func BenchmarkVectorReadFrom(b *testing.B) {
+	for _, size := range []int{5, 10, 15, 20, 24, 28} {
+		b.Run(fmt.Sprintf("size=%d", size), func(b *testing.B) {
+			v1 := make(Vector, 1<<size)
+			v1.MustSetRandom()
+
+			buf := new(bytes.Buffer)
+			_, err := v1.WriteTo(buf)
+			if err != nil {
+				b.Fatal("writing to buffer should not error out")
+			}
+
+			data := buf.Bytes()
+
+			b.Run("prealloc", func(b *testing.B) {
+				v2 := make(Vector, 1<<size)
+				for b.Loop() {
+					_, err = v2.ReadFrom(bytes.NewReader(data))
+					if err != nil {
+						b.Fatal("should read without error")
+					}
+				}
+			})
+
+			b.Run("empty", func(b *testing.B) {
+				var v2 Vector
+				for b.Loop() {
+					_, err = v2.ReadFrom(bytes.NewReader(data))
+					if err != nil {
+						b.Fatal("should read without error")
+					}
+				}
+			})
+		})
+	}
+}
+
+func BenchmarkVectorAsyncReadFrom(b *testing.B) {
+	for _, size := range []int{5, 10, 15, 20, 24, 28} {
+		b.Run(fmt.Sprintf("size=%d", size), func(b *testing.B) {
+			v1 := make(Vector, 1<<size)
+			v1.MustSetRandom()
+
+			buf := new(bytes.Buffer)
+			_, err := v1.WriteTo(buf)
+			if err != nil {
+				b.Fatal("writing to buffer should not error out")
+			}
+
+			data := buf.Bytes()
+
+			b.Run("prealloc", func(b *testing.B) {
+				v2 := make(Vector, 1<<size)
+				for b.Loop() {
+					_, err, errCh := v2.AsyncReadFrom(bytes.NewReader(data))
+					if err != nil {
+						b.Fatal("should read without error")
+					}
+					if err = <-errCh; err != nil {
+						b.Fatal("should validate without error")
+					}
+				}
+			})
+
+			b.Run("empty", func(b *testing.B) {
+				var v2 Vector
+				for b.Loop() {
+					_, err, errCh := v2.AsyncReadFrom(bytes.NewReader(data))
+					if err != nil {
+						b.Fatal("should read without error")
+					}
+					if err = <-errCh; err != nil {
+						b.Fatal("should validate without error")
+					}
+				}
+			})
+		})
+	}
+}

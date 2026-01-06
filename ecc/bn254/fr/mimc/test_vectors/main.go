@@ -21,7 +21,6 @@ func assertNoError(err error) {
 	}
 }
 
-//go:generate go run main.go
 func main() {
 	fmt.Println("generating test vectors for MiMC...")
 	var tests []numericalMiMCTestCase

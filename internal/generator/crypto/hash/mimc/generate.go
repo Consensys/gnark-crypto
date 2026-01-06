@@ -5,10 +5,12 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/internal/generator/common"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
+	"github.com/consensys/gnark-crypto/internal/generator/crypto/hash/mimc/template"
 )
 
-func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
+func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 	conf.Package = "mimc"
 	entries := []bavard.Entry{
 		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
@@ -19,10 +21,11 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "mimc_test.go"), Templates: []string{"tests/mimc_test.go.tmpl"}},
 	}
 
-	if err := bgen.Generate(conf, conf.Package, "./crypto/hash/mimc/template", entries...); err != nil {
+	mimcGen := common.NewDefaultGenerator(template.FS)
+	if err := mimcGen.Generate(conf, conf.Package, "", "", entries...); err != nil {
 		return fmt.Errorf("generate package: %w", err)
 	}
-	if err := bgen.Generate(conf, "mimc_test", "./crypto/hash/mimc/template", entriesTest...); err != nil {
+	if err := mimcGen.Generate(conf, "mimc_test", "", "", entriesTest...); err != nil {
 		return fmt.Errorf("generate tests: %w", err)
 	}
 	return nil

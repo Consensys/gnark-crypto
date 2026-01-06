@@ -4,10 +4,12 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/internal/generator/common"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
+	"github.com/consensys/gnark-crypto/internal/generator/pedersen/template"
 )
 
-func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) error {
+func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 	// pedersen commitment scheme
 	conf.Package = "pedersen"
 	entries := []bavard.Entry{
@@ -16,6 +18,7 @@ func Generate(conf config.Curve, baseDir string, bgen *bavard.BatchGenerator) er
 		{File: filepath.Join(baseDir, "pedersen_test.go"), Templates: []string{"pedersen.test.go.tmpl"}},
 		{File: filepath.Join(baseDir, "example_test.go"), Templates: []string{"example_test.go.tmpl"}},
 	}
-	return bgen.Generate(conf, conf.Package, "./pedersen/template/", entries...)
+	pedersenGen := common.NewDefaultGenerator(template.FS)
+	return pedersenGen.Generate(conf, conf.Package, "", "", entries...)
 
 }

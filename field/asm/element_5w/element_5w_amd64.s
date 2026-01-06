@@ -250,7 +250,7 @@ TEXT ·mul(SB), $24-24
 
 	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS"
 	// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
-	// See github.com/Consensys/gnark-crypto/field/generator for more comments.
+	// See github.com/consensys/gnark-crypto/internal/generator/field for more comments.
 
 	NO_LOCAL_POINTERS
 	CMPB ·supportAdx(SB), $1
