@@ -595,7 +595,7 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 
 				r := fr.Modulus()
 				var g {{ $TJacobian }}
-				g.mulGLV(&{{.PointName}}Gen, r)
+				g.ScalarMultiplication(&{{.PointName}}Gen, r)
 
 				var scalar, blindedScalar, rminusone big.Int
 				var op1, op2, op3, gneg {{ $TJacobian }}
@@ -620,7 +620,7 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
                 var op1, op2 {{ $TJacobian }}
                 s.BigInt(&r)
                 op1.mulWindowed(&{{.PointName}}Gen, &r)
-                op2.mulGLV(&{{.PointName}}Gen, &r)
+                op2.ScalarMultiplication(&{{.PointName}}Gen, &r)
                 return op1.Equal(&op2) && !op1.Equal(&{{.PointName}}Infinity)
 
             },
@@ -926,7 +926,7 @@ func Benchmark{{ $TJacobian }}ScalarMultiplication(b *testing.B) {
 		b.Run(fmt.Sprintf("method=GLV/scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				glv.mulGLV(&{{ .PointName }}Gen, scalar)
+				glv.ScalarMultiplication(&{{ .PointName }}Gen, scalar)
 			}
 		})
 		{{ end }}

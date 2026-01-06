@@ -393,7 +393,7 @@ func TestG2AffineOps(t *testing.T) {
 
 			var res = true
 
-			// mulGLS
+			// mulGLV
 			{
 				var op1, op2 G2Affine
 				op1.ScalarMultiplication(&g, &bs).Neg(&op1)
@@ -532,12 +532,12 @@ func TestG2AffineOps(t *testing.T) {
 		},
 	))
 
-	properties.Property("[BN254] scalar multiplication (GLS) should depend only on the scalar mod r", prop.ForAll(
+	properties.Property("[BN254] scalar multiplication (GLV) should depend only on the scalar mod r", prop.ForAll(
 		func(s fr.Element) bool {
 
 			r := fr.Modulus()
 			var g G2Jac
-			g.mulGLS(&g2Gen, r)
+			g.ScalarMultiplication(&g2Gen, r)
 
 			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg G2Jac
@@ -555,16 +555,15 @@ func TestG2AffineOps(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property("[BN254] GLS, GLV and Double and Add should output the same result", prop.ForAll(
+	properties.Property("[BN254] GLV and Double and Add should output the same result", prop.ForAll(
 		func(s fr.Element) bool {
 
 			var r big.Int
-			var op1, op2, op3 G2Jac
+			var op1, op2 G2Jac
 			s.BigInt(&r)
 			op1.mulWindowed(&g2Gen, &r)
-			op2.mulGLV(&g2Gen, &r)
-			op3.mulGLS(&g2Gen, &r)
-			return op1.Equal(&op2) && op2.Equal(&op3) && !op1.Equal(&g2Infinity)
+			op2.ScalarMultiplication(&g2Gen, &r)
+			return op1.Equal(&op2) && !op1.Equal(&g2Infinity)
 
 		},
 		genScalar,
@@ -823,15 +822,7 @@ func BenchmarkG2JacScalarMultiplication(b *testing.B) {
 		b.Run(fmt.Sprintf("method=GLV/scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				glv.mulGLV(&g2Gen, scalar)
-			}
-		})
-
-		var gls G2Jac
-		b.Run(fmt.Sprintf("method=GLS/scalarwidth=%d", i), func(b *testing.B) {
-			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
-				gls.mulGLS(&g2Gen, scalar)
+				glv.ScalarMultiplication(&g2Gen, scalar)
 			}
 		})
 
