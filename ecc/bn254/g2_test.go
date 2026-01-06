@@ -826,6 +826,17 @@ func BenchmarkG2JacScalarMultiplication(b *testing.B) {
 			}
 		})
 
+		for _, window := range []uint{4, 5, 6} {
+			window := window
+			var glvWnaf G2Jac
+			b.Run(fmt.Sprintf("method=GLV-wNAF/w=%d/scalarwidth=%d", window, i), func(b *testing.B) {
+				b.ResetTimer()
+				for j := 0; j < b.N; j++ {
+					glvWnaf.mulGLVWNAF(&g2Gen, scalar, window)
+				}
+			})
+		}
+
 	}
 }
 

@@ -816,6 +816,13 @@ func (p *G2Jac) phi(q *G2Jac) *G2Jac {
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
 func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 
+	const wnafWindow = 5
+	return p.mulGLVWNAF(q, s, wnafWindow)
+}
+
+// mulGLVWNAF computes the GLV scalar multiplication using interleaved wNAF digits.
+// window is the wNAF window size, typically in [4..6].
+func (p *G2Jac) mulGLVWNAF(q *G2Jac, s *big.Int, window uint) *G2Jac {
 	var res G2Jac
 	var q1, q2 G2Jac
 
@@ -837,12 +844,10 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 		q2.Neg(&q2)
 	}
 
-	const wnafWindow = 5
-
-	wnafDecomposition := func(k *big.Int, window uint) ([]int8, int) {
+	wnafDecomposition := func(k *big.Int, w uint) ([]int8, int) {
 		var kk, mask, mod, tmp big.Int
 		kk.Set(k)
-		mask.SetInt64((1 << window) - 1)
+		mask.SetInt64((1 << w) - 1)
 		digits := make([]int8, kk.BitLen()+1)
 		i := 0
 		for kk.Sign() != 0 {
@@ -850,8 +855,8 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 			if kk.Bit(0) == 1 {
 				mod.And(&kk, &mask)
 				u = mod.Int64()
-				if u > (1 << (window - 1)) {
-					u -= (1 << window)
+				if u > (1 << (w - 1)) {
+					u -= (1 << w)
 				}
 				digits[i] = int8(u)
 				if u > 0 {
@@ -868,8 +873,8 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 		return digits, i
 	}
 
-	naf1, nafLen1 := wnafDecomposition(&k[0], wnafWindow)
-	naf2, nafLen2 := wnafDecomposition(&k[1], wnafWindow)
+	naf1, nafLen1 := wnafDecomposition(&k[0], window)
+	naf2, nafLen2 := wnafDecomposition(&k[1], window)
 	maxLen := nafLen1
 	if nafLen2 > maxLen {
 		maxLen = nafLen2
@@ -879,18 +884,21 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 		return p
 	}
 
-	var q1Table, q2Table [8]G2Jac
-	var q1NegTable, q2NegTable [8]G2Jac
+	tableSize := 1 << (window - 2)
+	q1Table := make([]G2Jac, tableSize)
+	q2Table := make([]G2Jac, tableSize)
+	q1NegTable := make([]G2Jac, tableSize)
+	q2NegTable := make([]G2Jac, tableSize)
 	q1Table[0].Set(&q1)
 	q2Table[0].Set(&q2)
 	var q1Two, q2Two G2Jac
 	q1Two.Double(&q1)
 	q2Two.Double(&q2)
-	for i := 1; i < len(q1Table); i++ {
+	for i := 1; i < tableSize; i++ {
 		q1Table[i].Set(&q1Table[i-1]).AddAssign(&q1Two)
 		q2Table[i].Set(&q2Table[i-1]).AddAssign(&q2Two)
 	}
-	for i := 0; i < len(q1Table); i++ {
+	for i := 0; i < tableSize; i++ {
 		q1NegTable[i].Neg(&q1Table[i])
 		q2NegTable[i].Neg(&q2Table[i])
 	}
@@ -898,34 +906,22 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 	for i := maxLen - 1; i >= 0; i-- {
 		res.DoubleAssign()
 		if i < nafLen1 {
-			switch naf1[i] {
-			case 1:
-				res.AddAssign(&q1Table[0])
-			case -1:
-				res.AddAssign(&q1NegTable[0])
-			default:
-				if naf1[i] > 1 {
-					idx := (naf1[i] - 1) / 2
-					res.AddAssign(&q1Table[idx])
-				} else if naf1[i] < -1 {
-					idx := (-naf1[i] - 1) / 2
-					res.AddAssign(&q1NegTable[idx])
+			d := naf1[i]
+			if d != 0 {
+				if d > 0 {
+					res.AddAssign(&q1Table[(d-1)/2])
+				} else {
+					res.AddAssign(&q1NegTable[(-d-1)/2])
 				}
 			}
 		}
 		if i < nafLen2 {
-			switch naf2[i] {
-			case 1:
-				res.AddAssign(&q2Table[0])
-			case -1:
-				res.AddAssign(&q2NegTable[0])
-			default:
-				if naf2[i] > 1 {
-					idx := (naf2[i] - 1) / 2
-					res.AddAssign(&q2Table[idx])
-				} else if naf2[i] < -1 {
-					idx := (-naf2[i] - 1) / 2
-					res.AddAssign(&q2NegTable[idx])
+			d := naf2[i]
+			if d != 0 {
+				if d > 0 {
+					res.AddAssign(&q2Table[(d-1)/2])
+				} else {
+					res.AddAssign(&q2NegTable[(-d-1)/2])
 				}
 			}
 		}
