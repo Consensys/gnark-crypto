@@ -55,8 +55,6 @@ github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDk
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/cncf/udpa/go v0.0.0-20200629203442-efcf912fb354/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
 github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
-github.com/consensys/bavard v0.2.2-0.20260104214933-9047b4abfcc5 h1:3gyy5r9sWVsBvt+xwQfwR/oVcE5xJUaVTqY21+rISAs=
-github.com/consensys/bavard v0.2.2-0.20260104214933-9047b4abfcc5/go.mod h1:k/zVjHHC4B+PQy1Pg7fgvG3ALicQw540Crag8qx+dZs=
 github.com/consensys/bavard v0.2.2-0.20260105201452-c69d26cc6346 h1:KaN+W79qr3H/qNEcv3QyPUoZzuL3SLn4Wz1+6fFWtBU=
 github.com/consensys/bavard v0.2.2-0.20260105201452-c69d26cc6346/go.mod h1:k/zVjHHC4B+PQy1Pg7fgvG3ALicQw540Crag8qx+dZs=
 github.com/coreos/go-semver v0.3.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=

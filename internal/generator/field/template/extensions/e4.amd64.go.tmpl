@@ -2,7 +2,6 @@ import (
 	fr "{{ .FieldPackagePath }}"
 )
 
-
 // indices used for gather (transpose) operation
 var indexGather4 []uint32
 var maskPermD []uint32
@@ -20,15 +19,9 @@ func init() {
 }
 
 // index table used in avx512 shuffling
-var vInterleaveIndices = []uint64 {
+var vInterleaveIndices = []uint64{
 	2, 3, 8, 9, 6, 7, 12, 13,
 }
-
-
-// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
-// used for Montgomery reduction
-const qInvNeg = {{.QInvNeg}}
-const q = {{.Q}}
 
 //go:noescape
 func mulAccByElement_avx512(alpha *E4, scale *fr.Element, res *E4, N uint64)

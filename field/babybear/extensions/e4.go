@@ -12,6 +12,11 @@ import (
 	fr "github.com/consensys/gnark-crypto/field/babybear"
 )
 
+// q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
+// used for Montgomery reduction
+const qInvNeg = 2013265919
+const q = 2013265921
+
 // E4 is a degree two finite field extension of fr2
 type E4 struct {
 	B0, B1 E2
@@ -165,34 +170,129 @@ func (z *E4) MulByNonResidue(x *E4) *E4 {
 	return z
 }
 
+func montReduce(v uint64) uint32 {
+	m := uint32(v) * qInvNeg
+	t := uint32((v + uint64(m)*uint64(q)) >> 32)
+	if t >= q {
+		t -= q
+	}
+	return t
+}
+
+func reduceSmall(z uint64) uint32 {
+	return uint32(z % uint64(q))
+}
+
 // Mul sets z=x*y in E4 and returns z
 func (z *E4) Mul(x, y *E4) *E4 {
-	var a, b, c, d E2
-	a.Add(&x.B0, &x.B1)
-	b.Add(&y.B0, &y.B1)
-	d.Mul(&x.B0, &y.B0)
-	c.Mul(&x.B1, &y.B1)
-	a.Mul(&a, &b)
-	var bc E2
-	bc.Add(&d, &c)
-	z.B1.Sub(&a, &bc)
-	z.B0.MulByNonResidue(&c).Add(&z.B0, &d)
+	// Unpack elements to uint64 for accumulation
+	a0 := uint64(x.B0.A0[0])
+	a1 := uint64(x.B1.A0[0])
+	a2 := uint64(x.B0.A1[0])
+	a3 := uint64(x.B1.A1[0])
+
+	b0 := uint64(y.B0.A0[0])
+	b1 := uint64(y.B1.A0[0])
+	b2 := uint64(y.B0.A1[0])
+	b3 := uint64(y.B1.A1[0])
+
+	// d0 = a0*b0
+	d0 := a0 * b0
+	r0 := uint64(montReduce(d0))
+
+	// d1 = a0*b1 + a1*b0
+	d1 := a0*b1 + a1*b0
+	r1 := uint64(montReduce(d1))
+
+	// d2 = a0*b2 + a1*b1 + a2*b0
+	d2_a := a0*b2 + a1*b1
+	d2_b := a2 * b0
+	r2 := uint64(montReduce(d2_a)) + uint64(montReduce(d2_b))
+
+	// d3 = a0*b3 + a1*b2 + a2*b1 + a3*b0
+	d3_a := a0*b3 + a1*b2
+	d3_b := a2*b1 + a3*b0
+	r3 := uint64(montReduce(d3_a)) + uint64(montReduce(d3_b))
+
+	// d4 = a1*b3 + a2*b2 + a3*b1
+	d4_a := a1*b3 + a2*b2
+	d4_b := a3 * b1
+	r4 := uint64(montReduce(d4_a)) + uint64(montReduce(d4_b))
+
+	// d5 = a2*b3 + a3*b2
+	d5 := a2*b3 + a3*b2
+	r5 := uint64(montReduce(d5))
+
+	// d6 = a3*b3
+	d6 := a3 * b3
+	r6 := uint64(montReduce(d6))
+
+	// c0 = r0 + 3*r4
+	z.B0.A0[0] = reduceSmall(r0 + 11*r4)
+
+	// c1 = r1 + 3*r5
+	z.B1.A0[0] = reduceSmall(r1 + 11*r5)
+
+	// c2 = r2 + 3*r6
+	z.B0.A1[0] = reduceSmall(r2 + 11*r6)
+
+	// c3 = r3
+	z.B1.A1[0] = reduceSmall(r3)
+
 	return z
 }
 
 // Square sets z=x*x in E4 and returns z
 func (z *E4) Square(x *E4) *E4 {
-	// same as mul, but we remove duplicate add and simplify multiplications with squaring
-	// note: this is more efficient than Algorithm 22 from https://eprint.iacr.org/2010/354.pdf
-	var a, c, d E2
-	a.Add(&x.B0, &x.B1)
-	d.Square(&x.B0)
-	c.Square(&x.B1)
-	a.Square(&a)
-	var bc E2
-	bc.Add(&d, &c)
-	z.B1.Sub(&a, &bc)
-	z.B0.MulByNonResidue(&c).Add(&z.B0, &d)
+	// Unpack elements to uint64 for accumulation
+	a0 := uint64(x.B0.A0[0])
+	a1 := uint64(x.B1.A0[0])
+	a2 := uint64(x.B0.A1[0])
+	a3 := uint64(x.B1.A1[0])
+
+	// d0 = a0*a0
+	d0 := a0 * a0
+	r0 := uint64(montReduce(d0))
+
+	// d1 = 2*a0*a1
+	d1 := a0 * a1
+	d1 = d1 + d1
+	r1 := uint64(montReduce(d1))
+
+	// d2 = 2*a0*a2 + a1*a1
+	d2 := a0 * a2
+	d2 = d2 + d2
+	r2 := uint64(montReduce(d2)) + uint64(montReduce(a1*a1))
+
+	// d3 = 2(a0*a3 + a1*a2)
+	d3 := a0*a3 + a1*a2
+	r3 := uint64(montReduce(d3)) + uint64(montReduce(d3))
+
+	// d4 = 2*a1*a3 + a2*a2
+	d4 := a1 * a3
+	d4 = d4 + d4
+	r4 := uint64(montReduce(d4)) + uint64(montReduce(a2*a2))
+
+	// d5 = 2*a2*a3
+	d5 := a2 * a3
+	d5 = d5 + d5
+	r5 := uint64(montReduce(d5))
+
+	// d6 = a3*a3
+	d6 := a3 * a3
+	r6 := uint64(montReduce(d6))
+
+	// c0 = r0 + 3*r4
+	z.B0.A0[0] = reduceSmall(r0 + 11*r4)
+
+	// c1 = r1 + 3*r5
+	z.B1.A0[0] = reduceSmall(r1 + 11*r5)
+
+	// c2 = r2 + 3*r6
+	z.B0.A1[0] = reduceSmall(r2 + 11*r6)
+
+	// c3 = r3
+	z.B1.A1[0] = reduceSmall(r3)
 
 	return z
 }
