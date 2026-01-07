@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Consensys Software Inc.
+// Copyright 2020-2026 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
 // Package secp256r1 efficient elliptic curve implementation for the NIST SECP56R1 (or P-256) curve (https://std.neuromancer.sk/secg/secp256r1).
