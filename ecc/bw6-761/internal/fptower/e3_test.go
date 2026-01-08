@@ -17,7 +17,7 @@ import (
 // tests
 
 func TestE3ReceiverIsOperand(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 
@@ -27,7 +27,7 @@ func TestE3ReceiverIsOperand(t *testing.T) {
 	genB := GenE3()
 	genfp := GenFp()
 
-	properties.Property("[BW761] Having the receiver as operand (addition) should output the same result", prop.ForAll(
+	properties.Property("[BW6-761] Having the receiver as operand (addition) should output the same result", prop.ForAll(
 		func(a, b *E3) bool {
 			var c, d E3
 			d.Set(a)
@@ -40,7 +40,7 @@ func TestE3ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[BW761] Having the receiver as operand (sub) should output the same result", prop.ForAll(
+	properties.Property("[BW6-761] Having the receiver as operand (sub) should output the same result", prop.ForAll(
 		func(a, b *E3) bool {
 			var c, d E3
 			d.Set(a)
@@ -53,7 +53,7 @@ func TestE3ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[BW761] Having the receiver as operand (mul) should output the same result", prop.ForAll(
+	properties.Property("[BW6-761] Having the receiver as operand (mul) should output the same result", prop.ForAll(
 		func(a, b *E3) bool {
 			var c, d E3
 			d.Set(a)
@@ -66,7 +66,7 @@ func TestE3ReceiverIsOperand(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[BW761] Having the receiver as operand (square) should output the same result", prop.ForAll(
+	properties.Property("[BW6-761] Having the receiver as operand (square) should output the same result", prop.ForAll(
 		func(a *E3) bool {
 			var b E3
 			b.Square(a)
@@ -76,7 +76,7 @@ func TestE3ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BW761] Having the receiver as operand (neg) should output the same result", prop.ForAll(
+	properties.Property("[BW6-761] Having the receiver as operand (neg) should output the same result", prop.ForAll(
 		func(a *E3) bool {
 			var b E3
 			b.Neg(a)
@@ -86,7 +86,7 @@ func TestE3ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BW761] Having the receiver as operand (double) should output the same result", prop.ForAll(
+	properties.Property("[BW6-761] Having the receiver as operand (double) should output the same result", prop.ForAll(
 		func(a *E3) bool {
 			var b E3
 			b.Double(a)
@@ -96,7 +96,7 @@ func TestE3ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BW761] Having the receiver as operand (mul by non residue) should output the same result", prop.ForAll(
+	properties.Property("[BW6-761] Having the receiver as operand (mul by non residue) should output the same result", prop.ForAll(
 		func(a *E3) bool {
 			var b E3
 			b.MulByNonResidue(a)
@@ -106,7 +106,7 @@ func TestE3ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BW761] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
+	properties.Property("[BW6-761] Having the receiver as operand (Inverse) should output the same result", prop.ForAll(
 		func(a *E3) bool {
 			var b E3
 			b.Inverse(a)
@@ -116,7 +116,7 @@ func TestE3ReceiverIsOperand(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BW761] Having the receiver as operand (mul by element) should output the same result", prop.ForAll(
+	properties.Property("[BW6-761] Having the receiver as operand (mul by element) should output the same result", prop.ForAll(
 		func(a *E3, b fp.Element) bool {
 			var c E3
 			c.MulByElement(a, &b)
@@ -131,7 +131,7 @@ func TestE3ReceiverIsOperand(t *testing.T) {
 }
 
 func TestE3Ops(t *testing.T) {
-
+	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	parameters.MinSuccessfulTests = 100
 
@@ -141,7 +141,7 @@ func TestE3Ops(t *testing.T) {
 	genB := GenE3()
 	genfp := GenFp()
 
-	properties.Property("[BW761] sub & add should leave an element invariant", prop.ForAll(
+	properties.Property("[BW6-761] sub & add should leave an element invariant", prop.ForAll(
 		func(a, b *E3) bool {
 			var c E3
 			c.Set(a)
@@ -152,7 +152,7 @@ func TestE3Ops(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[BW761] mul & inverse should leave an element invariant", prop.ForAll(
+	properties.Property("[BW6-761] mul & inverse should leave an element invariant", prop.ForAll(
 		func(a, b *E3) bool {
 			var c, d E3
 			d.Inverse(b)
@@ -164,7 +164,7 @@ func TestE3Ops(t *testing.T) {
 		genB,
 	))
 
-	properties.Property("[BW761] inverse twice should leave an element invariant", prop.ForAll(
+	properties.Property("[BW6-761] inverse twice should leave an element invariant", prop.ForAll(
 		func(a *E3) bool {
 			var b E3
 			b.Inverse(a).Inverse(&b)
@@ -173,7 +173,7 @@ func TestE3Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BW761] BatchInvertE3 should output the same result as Inverse", prop.ForAll(
+	properties.Property("[BW6-761] BatchInvertE3 should output the same result as Inverse", prop.ForAll(
 		func(a, b, c *E3) bool {
 
 			batch := BatchInvertE3([]E3{*a, *b, *c})
@@ -187,7 +187,7 @@ func TestE3Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BW761] neg twice should leave an element invariant", prop.ForAll(
+	properties.Property("[BW6-761] neg twice should leave an element invariant", prop.ForAll(
 		func(a *E3) bool {
 			var b E3
 			b.Neg(a).Neg(&b)
@@ -196,7 +196,7 @@ func TestE3Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BW761] square and mul should output the same result", prop.ForAll(
+	properties.Property("[BW6-761] square and mul should output the same result", prop.ForAll(
 		func(a *E3) bool {
 			var b, c E3
 			b.Mul(a, a)
@@ -206,7 +206,7 @@ func TestE3Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BW761] MulByElement MulByElement inverse should leave an element invariant", prop.ForAll(
+	properties.Property("[BW6-761] MulByElement MulByElement inverse should leave an element invariant", prop.ForAll(
 		func(a *E3, b fp.Element) bool {
 			var c E3
 			var d fp.Element
@@ -218,7 +218,7 @@ func TestE3Ops(t *testing.T) {
 		genfp,
 	))
 
-	properties.Property("[BW761] Double and mul by 2 should output the same result", prop.ForAll(
+	properties.Property("[BW6-761] Double and mul by 2 should output the same result", prop.ForAll(
 		func(a *E3) bool {
 			var b E3
 			var c fp.Element
@@ -230,7 +230,7 @@ func TestE3Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BW761] Mulbynonres should be the same as multiplying by (0,1)", prop.ForAll(
+	properties.Property("[BW6-761] Mulbynonres should be the same as multiplying by (0,1)", prop.ForAll(
 		func(a *E3) bool {
 			var b, c, d E3
 			b.A1.SetOne()

@@ -116,13 +116,6 @@ func generateBW6Tower(conf config.Curve, baseDir string) error {
 		{File: filepath.Join(baseDir, "e6_test.go"), Templates: []string{path.Join("fq6over3", "e6_test.go.tmpl")}},
 	}
 
-	if conf.Equal(config.BW6_761) {
-		entries = append(entries,
-			bavard.Entry{File: filepath.Join(baseDir, "e6_direct.go"), Templates: []string{path.Join("fq6over3", "e6_direct.go.tmpl")}},
-			bavard.Entry{File: filepath.Join(baseDir, "e6_direct_test.go"), Templates: []string{path.Join("fq6over3", "e6_direct_test.go.tmpl")}},
-		)
-	}
-
 	return towerGen.Generate(conf, "fptower", "", "", entries...)
 }
 

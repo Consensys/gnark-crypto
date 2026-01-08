@@ -9,18 +9,18 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
 )
 
-// E3 is a degree-three finite field extension of fp2
+// E3 is a degree-three finite field extension of fp
 type E3 struct {
 	A0, A1, A2 fp.Element
 }
 
 // Equal returns true if z equals x, false otherwise
-// TODO can this be deleted?  Should be able to use == operator instead
+// note this is more efficient than calling "z == x"
 func (z *E3) Equal(x *E3) bool {
 	return z.A0.Equal(&x.A0) && z.A1.Equal(&x.A1) && z.A2.Equal(&x.A2)
 }
 
-// SetString sets a E3 elmt from stringf
+// SetString sets a E3 elmt from string
 func (z *E3) SetString(s1, s2, s3 string) *E3 {
 	z.A0.SetString(s1)
 	z.A1.SetString(s2)
@@ -30,9 +30,7 @@ func (z *E3) SetString(s1, s2, s3 string) *E3 {
 
 // SetZero sets an E3 elmt to zero
 func (z *E3) SetZero() *E3 {
-	z.A0.SetZero()
-	z.A1.SetZero()
-	z.A2.SetZero()
+	*z = E3{}
 	return z
 }
 
@@ -47,9 +45,7 @@ func (z *E3) Clone() *E3 {
 
 // Set Sets a E3 elmt form another E3 elmt
 func (z *E3) Set(x *E3) *E3 {
-	z.A0 = x.A0
-	z.A1 = x.A1
-	z.A2 = x.A2
+	*z = *x
 	return z
 }
 
@@ -61,7 +57,7 @@ func (z *E3) SetOne() *E3 {
 	return z
 }
 
-// SetRandom sets z to a uniform random value
+// SetRandom sets z to a random value
 func (z *E3) SetRandom() (*E3, error) {
 	if _, err := z.A0.SetRandom(); err != nil {
 		return nil, err
@@ -75,8 +71,8 @@ func (z *E3) SetRandom() (*E3, error) {
 	return z, nil
 }
 
-// MustSetRandom sets z to a uniform random value.
-// Panics if reading from crypto/rand fails.
+// MustSetRandom sets z to a random value.
+// It panics if reading from crypto/rand fails.
 func (z *E3) MustSetRandom() *E3 {
 	if _, err := z.SetRandom(); err != nil {
 		panic(err)
@@ -133,40 +129,39 @@ func (z *E3) String() string {
 
 // MulByElement multiplies an element in E3 by an element in fp
 func (z *E3) MulByElement(x *E3, y *fp.Element) *E3 {
-	var yCopy fp.Element
-	yCopy.Set(y)
-	z.A0.Mul(&x.A0, &yCopy)
-	z.A1.Mul(&x.A1, &yCopy)
-	z.A2.Mul(&x.A2, &yCopy)
+	_y := *y
+	z.A0.Mul(&x.A0, &_y)
+	z.A1.Mul(&x.A1, &_y)
+	z.A2.Mul(&x.A2, &_y)
 	return z
 }
 
 // MulBy12 multiplication by sparse element (0,b1,b2)
-func (z *E3) MulBy12(b1, b2 *fp.Element) *E3 {
+func (x *E3) MulBy12(b1, b2 *fp.Element) *E3 {
 	var t1, t2, c0, tmp, c1, c2 fp.Element
-	t1.Mul(&z.A1, b1)
-	t2.Mul(&z.A2, b2)
-	c0.Add(&z.A1, &z.A2)
+	t1.Mul(&x.A1, b1)
+	t2.Mul(&x.A2, b2)
+	c0.Add(&x.A1, &x.A2)
 	tmp.Add(b1, b2)
 	c0.Mul(&c0, &tmp)
 	c0.Sub(&c0, &t1)
 	c0.Sub(&c0, &t2)
 	c0.MulByNonResidue(&c0)
-	c1.Add(&z.A0, &z.A1)
+	c1.Add(&x.A0, &x.A1)
 	c1.Mul(&c1, b1)
 	c1.Sub(&c1, &t1)
 	tmp.MulByNonResidue(&t2)
 	c1.Add(&c1, &tmp)
-	tmp.Add(&z.A0, &z.A2)
+	tmp.Add(&x.A0, &x.A2)
 	c2.Mul(b2, &tmp)
 	c2.Sub(&c2, &t2)
 	c2.Add(&c2, &t1)
 
-	z.A0 = c0
-	z.A1 = c1
-	z.A2 = c2
+	x.A0 = c0
+	x.A1 = c1
+	x.A2 = c2
 
-	return z
+	return x
 }
 
 // MulBy01 multiplication by sparse element (c0,c1,0)
@@ -254,8 +249,7 @@ func (z *E3) Mul(x, y *E3) *E3 {
 
 // MulAssign sets z to the E3-product of z,y, returns z
 func (z *E3) MulAssign(x *E3) *E3 {
-	z.Mul(z, x)
-	return z
+	return z.Mul(z, x)
 }
 
 // Square sets z to the E3-product of x,x, returns z
