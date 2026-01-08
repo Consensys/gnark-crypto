@@ -74,12 +74,11 @@ func (f *FFAmd64) generateFromMont(_ bool) {
 	//     t[i] = a[i]
 	f.Mov(amd64.DX, t)
 
-	for i := 0; i < f.NbWords; i++ {
-
+	// Define a macro for the Montgomery reduction step that is repeated NbWords times
+	fromMontStep := f.Define("FROMMONT_STEP", 0, func(_ ...any) {
 		f.XORQ(amd64.DX, amd64.DX)
 
 		// m := t[0]*q'[0] mod W
-		f.Comment("m := t[0]*q'[0] mod W")
 		m := amd64.DX
 		f.MOVQ(f.qInv0(), m)
 		f.IMULQ(t[0], m)
@@ -88,8 +87,6 @@ func (f *FFAmd64) generateFromMont(_ bool) {
 		f.XORQ(amd64.AX, amd64.AX)
 
 		// C,_ := t[0] + m*q[0]
-		f.Comment("C,_ := t[0] + m*q[0]")
-
 		f.MULXQ(f.qAt(0), amd64.AX, amd64.BP)
 		f.ADCXQ(t[0], amd64.AX)
 		f.MOVQ(amd64.BP, t[0])
@@ -97,7 +94,6 @@ func (f *FFAmd64) generateFromMont(_ bool) {
 		// for j=1 to N-1
 		//    (C,t[j-1]) := t[j] + m*q[j] + C
 		for j := 1; j < f.NbWords; j++ {
-			f.Comment(fmt.Sprintf("(C,t[%[1]d]) := t[%[2]d] + m*q[%[2]d] + C", j-1, j))
 			f.ADCXQ(t[j], t[j-1])
 			f.MULXQ(f.qAt(j), amd64.AX, t[j])
 			f.ADOXQ(amd64.AX, t[j-1])
@@ -105,7 +101,10 @@ func (f *FFAmd64) generateFromMont(_ bool) {
 		f.MOVQ(0, amd64.AX)
 		f.ADCXQ(amd64.AX, t[f.NbWordsLastIndex])
 		f.ADOXQ(amd64.AX, t[f.NbWordsLastIndex])
+	}, true)
 
+	for i := 0; i < f.NbWords; i++ {
+		fromMontStep()
 	}
 
 	// ---------------------------------------------------------------------------------------------

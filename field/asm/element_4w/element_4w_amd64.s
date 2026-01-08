@@ -326,122 +326,32 @@ TEXT ·fromMont(SB), $8-8
 	MOVQ 8(DX), R14
 	MOVQ 16(DX), CX
 	MOVQ 24(DX), BX
-	XORQ DX, DX
 
-	// m := t[0]*q'[0] mod W
-	MOVQ  $const_qInvNeg, DX
-	IMULQ R13, DX
-	XORQ  AX, AX
+#define FROMMONT_STEP() \
+	XORQ  DX, DX                   \
+	MOVQ  $const_qInvNeg, DX       \
+	IMULQ R13, DX                  \
+	XORQ  AX, AX                   \
+	MULXQ ·qElement+0(SB), AX, BP  \
+	ADCXQ R13, AX                  \
+	MOVQ  BP, R13                  \
+	ADCXQ R14, R13                 \
+	MULXQ ·qElement+8(SB), AX, R14 \
+	ADOXQ AX, R13                  \
+	ADCXQ CX, R14                  \
+	MULXQ ·qElement+16(SB), AX, CX \
+	ADOXQ AX, R14                  \
+	ADCXQ BX, CX                   \
+	MULXQ ·qElement+24(SB), AX, BX \
+	ADOXQ AX, CX                   \
+	MOVQ  $0, AX                   \
+	ADCXQ AX, BX                   \
+	ADOXQ AX, BX                   \
 
-	// C,_ := t[0] + m*q[0]
-	MULXQ ·qElement+0(SB), AX, BP
-	ADCXQ R13, AX
-	MOVQ  BP, R13
-
-	// (C,t[0]) := t[1] + m*q[1] + C
-	ADCXQ R14, R13
-	MULXQ ·qElement+8(SB), AX, R14
-	ADOXQ AX, R13
-
-	// (C,t[1]) := t[2] + m*q[2] + C
-	ADCXQ CX, R14
-	MULXQ ·qElement+16(SB), AX, CX
-	ADOXQ AX, R14
-
-	// (C,t[2]) := t[3] + m*q[3] + C
-	ADCXQ BX, CX
-	MULXQ ·qElement+24(SB), AX, BX
-	ADOXQ AX, CX
-	MOVQ  $0, AX
-	ADCXQ AX, BX
-	ADOXQ AX, BX
-	XORQ  DX, DX
-
-	// m := t[0]*q'[0] mod W
-	MOVQ  $const_qInvNeg, DX
-	IMULQ R13, DX
-	XORQ  AX, AX
-
-	// C,_ := t[0] + m*q[0]
-	MULXQ ·qElement+0(SB), AX, BP
-	ADCXQ R13, AX
-	MOVQ  BP, R13
-
-	// (C,t[0]) := t[1] + m*q[1] + C
-	ADCXQ R14, R13
-	MULXQ ·qElement+8(SB), AX, R14
-	ADOXQ AX, R13
-
-	// (C,t[1]) := t[2] + m*q[2] + C
-	ADCXQ CX, R14
-	MULXQ ·qElement+16(SB), AX, CX
-	ADOXQ AX, R14
-
-	// (C,t[2]) := t[3] + m*q[3] + C
-	ADCXQ BX, CX
-	MULXQ ·qElement+24(SB), AX, BX
-	ADOXQ AX, CX
-	MOVQ  $0, AX
-	ADCXQ AX, BX
-	ADOXQ AX, BX
-	XORQ  DX, DX
-
-	// m := t[0]*q'[0] mod W
-	MOVQ  $const_qInvNeg, DX
-	IMULQ R13, DX
-	XORQ  AX, AX
-
-	// C,_ := t[0] + m*q[0]
-	MULXQ ·qElement+0(SB), AX, BP
-	ADCXQ R13, AX
-	MOVQ  BP, R13
-
-	// (C,t[0]) := t[1] + m*q[1] + C
-	ADCXQ R14, R13
-	MULXQ ·qElement+8(SB), AX, R14
-	ADOXQ AX, R13
-
-	// (C,t[1]) := t[2] + m*q[2] + C
-	ADCXQ CX, R14
-	MULXQ ·qElement+16(SB), AX, CX
-	ADOXQ AX, R14
-
-	// (C,t[2]) := t[3] + m*q[3] + C
-	ADCXQ BX, CX
-	MULXQ ·qElement+24(SB), AX, BX
-	ADOXQ AX, CX
-	MOVQ  $0, AX
-	ADCXQ AX, BX
-	ADOXQ AX, BX
-	XORQ  DX, DX
-
-	// m := t[0]*q'[0] mod W
-	MOVQ  $const_qInvNeg, DX
-	IMULQ R13, DX
-	XORQ  AX, AX
-
-	// C,_ := t[0] + m*q[0]
-	MULXQ ·qElement+0(SB), AX, BP
-	ADCXQ R13, AX
-	MOVQ  BP, R13
-
-	// (C,t[0]) := t[1] + m*q[1] + C
-	ADCXQ R14, R13
-	MULXQ ·qElement+8(SB), AX, R14
-	ADOXQ AX, R13
-
-	// (C,t[1]) := t[2] + m*q[2] + C
-	ADCXQ CX, R14
-	MULXQ ·qElement+16(SB), AX, CX
-	ADOXQ AX, R14
-
-	// (C,t[2]) := t[3] + m*q[3] + C
-	ADCXQ BX, CX
-	MULXQ ·qElement+24(SB), AX, BX
-	ADOXQ AX, CX
-	MOVQ  $0, AX
-	ADCXQ AX, BX
-	ADOXQ AX, BX
+	FROMMONT_STEP()
+	FROMMONT_STEP()
+	FROMMONT_STEP()
+	FROMMONT_STEP()
 
 	// reduce element(R13,R14,CX,BX) using temp registers (SI,DI,R8,R9)
 	REDUCE(R13,R14,CX,BX,SI,DI,R8,R9,·qElement+0(SB),·qElement+8(SB),·qElement+16(SB),·qElement+24(SB))
