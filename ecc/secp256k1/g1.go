@@ -655,12 +655,11 @@ func (p *G1Jac) mulWindowed(q *G1Jac, s *big.Int) *G1Jac {
 	if scalar.Sign() < 0 {
 		scalar.Neg(&scalar)
 	}
-	naf := make([]int8, scalar.BitLen()+1)
-	nafLen := ecc.NafDecomposition(&scalar, naf)
-	if nafLen == 0 {
-		p.Set(&g1Infinity)
-		return p
+	if scalar.BitLen() > fr.Bits {
+		scalar.Mod(&scalar, fr.Modulus())
 	}
+	var naf [fr.Bits + 1]int8
+	nafLen := ecc.NafDecomposition(&scalar, naf[:])
 	var res G1Jac
 	var qAff, qNegAff G1Affine
 	qAff.FromJacobian(q)

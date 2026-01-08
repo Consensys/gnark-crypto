@@ -1033,12 +1033,11 @@ func (p *{{ $TJacobian }}) mulWindowed(q *{{ $TJacobian }}, s *big.Int) *{{ $TJa
 	if scalar.Sign() < 0 {
 		scalar.Neg(&scalar)
 	}
-	naf := make([]int8, scalar.BitLen()+1)
-	nafLen := ecc.NafDecomposition(&scalar, naf)
-	if nafLen == 0 {
-		p.Set(&{{ toLower .PointName}}Infinity)
-		return p
+	if scalar.BitLen() > fr.Bits {
+		scalar.Mod(&scalar, fr.Modulus())
 	}
+	var naf [fr.Bits + 1]int8
+	nafLen := ecc.NafDecomposition(&scalar, naf[:])
 	var res {{ $TJacobian }}
 	var qAff, qNegAff {{ $TAffine }}
 	qAff.FromJacobian(q)
