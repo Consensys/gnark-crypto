@@ -53,14 +53,14 @@ func (p *G1Affine) SetInfinity() *G1Affine {
 // where p and a are affine points.
 func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
 	var _p G1Jac
-	_p.FromAffine(a)
 	if s.BitLen() >= g1ScalarMulChoose {
+		_p.FromAffine(a)
 		_p.mulGLV(&_p, s)
+		p.FromJacobian(&_p)
+		return p
 	} else {
-		_p.mulWindowed(&_p, s)
+		return p.mulWindowed(a, s)
 	}
-	p.FromJacobian(&_p)
-	return p
 }
 
 // ScalarMultiplicationBase computes and returns p = [s]g
@@ -69,11 +69,11 @@ func (p *G1Affine) ScalarMultiplicationBase(s *big.Int) *G1Affine {
 	var _p G1Jac
 	if s.BitLen() >= g1ScalarMulChoose {
 		_p.mulGLV(&g1Gen, s)
+		p.FromJacobian(&_p)
+		return p
 	} else {
-		_p.mulWindowed(&g1Gen, s)
+		return p.mulWindowed(&g1GenAff, s)
 	}
-	p.FromJacobian(&_p)
-	return p
 }
 
 // Add adds two points in affine coordinates.
@@ -656,7 +656,7 @@ func (p *G1Jac) IsInSubGroup() bool {
 }
 
 // mulWindowed computes a double-and-add scalar multiplication p=[s]q in
-// Jacobian coordinates.
+// Jacobian coordinates and using NAF encoding.
 func (p *G1Jac) mulWindowed(q *G1Jac, s *big.Int) *G1Jac {
 
 	if s.Sign() == 0 {
@@ -693,6 +693,52 @@ func (p *G1Jac) mulWindowed(q *G1Jac, s *big.Int) *G1Jac {
 		res.Neg(&res)
 	}
 	p.Set(&res)
+
+	return p
+
+}
+
+// mulWindowed computes a double-and-add scalar multiplication p=[s]q in
+// affine coordinates and using NAF encoding.
+func (p *G1Affine) mulWindowed(q *G1Affine, s *big.Int) *G1Affine {
+
+	if s.Sign() == 0 {
+		p.SetInfinity()
+		return p
+	}
+	var scalar big.Int
+	scalar.Set(s)
+	if scalar.Sign() < 0 {
+		scalar.Neg(&scalar)
+	}
+	if scalar.BitLen() > fr.Bits {
+		scalar.Mod(&scalar, fr.Modulus())
+	}
+	var naf [fr.Bits + 1]int8
+	nafLen := ecc.NafDecomposition(&scalar, naf[:])
+	if nafLen == 0 {
+		p.SetInfinity()
+		return p
+	}
+	var res G1Jac
+	var qNegAff G1Affine
+	qNegAff.Neg(q)
+	res.Set(&g1Infinity)
+	for i := nafLen - 1; i >= 0; i-- {
+		res.DoubleAssign()
+		switch naf[i] {
+		case 0:
+			continue
+		case 1:
+			res.AddMixed(q)
+		case -1:
+			res.AddMixed(&qNegAff)
+		}
+	}
+	if s.Sign() < 0 {
+		res.Neg(&res)
+	}
+	p.FromJacobian(&res)
 
 	return p
 

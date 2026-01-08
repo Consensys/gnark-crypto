@@ -73,18 +73,18 @@ func (p *{{ $TAffine }}) SetInfinity() *{{ $TAffine }} {
 // where p and a are affine points.
 func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{ $TAffine }} {
 	var _p {{ $TJacobian }}
-	_p.FromAffine(a)
 	{{- if .GLV}}
 		if s.BitLen() >= {{ .PointName }}ScalarMulChoose {
+			_p.FromAffine(a)
 			_p.mulGLV(&_p, s)
+			p.FromJacobian(&_p)
+			return p
 		} else {
-			_p.mulWindowed(&_p, s)
+			return p.mulWindowed(a, s)
 		}
 	{{- else }}
-        _p.mulWindowed(&_p, s)
+        return p.mulWindowed(a, s)
 	{{- end }}
-	p.FromJacobian(&_p)
-	return p
 }
 
 // ScalarMultiplicationBase computes and returns p = [s]g
@@ -94,14 +94,14 @@ func (p *{{ $TAffine }}) ScalarMultiplicationBase(s *big.Int) *{{ $TAffine }} {
 	{{- if .GLV}}
 		if s.BitLen() >= {{ .PointName }}ScalarMulChoose {
 			_p.mulGLV(&{{ toLower .PointName}}Gen, s)
+			p.FromJacobian(&_p)
+			return p
 		} else {
-			_p.mulWindowed(&{{ toLower .PointName}}Gen, s)
+			return p.mulWindowed(&{{ toLower .PointName}}GenAff, s)
 		}
 	{{- else }}
-        _p.mulWindowed(&{{ toLower .PointName}}Gen, s)
+        return p.mulWindowed(&{{ toLower .PointName}}GenAff, s)
 	{{- end }}
-	p.FromJacobian(&_p)
-	return p
 }
 
 
@@ -1021,7 +1021,7 @@ func GeneratePointNotIn{{ toUpper .PointName}}(f E2) {{ $TJacobian }} {
 {{- end}}
 
 // mulWindowed computes a double-and-add scalar multiplication p=[s]q in
-// Jacobian coordinates.
+// Jacobian coordinates and using NAF encoding.
 func (p *{{ $TJacobian }}) mulWindowed(q *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
 
 	if s.Sign() == 0 {
@@ -1058,6 +1058,52 @@ func (p *{{ $TJacobian }}) mulWindowed(q *{{ $TJacobian }}, s *big.Int) *{{ $TJa
 		res.Neg(&res)
 	}
 	p.Set(&res)
+
+	return p
+
+}
+
+// mulWindowed computes a double-and-add scalar multiplication p=[s]q in
+// affine coordinates and using NAF encoding.
+func (p *{{ $TAffine }}) mulWindowed(q *{{ $TAffine }}, s *big.Int) *{{ $TAffine }} {
+
+	if s.Sign() == 0 {
+		p.SetInfinity()
+		return p
+	}
+	var scalar big.Int
+	scalar.Set(s)
+	if scalar.Sign() < 0 {
+		scalar.Neg(&scalar)
+	}
+	if scalar.BitLen() > fr.Bits {
+		scalar.Mod(&scalar, fr.Modulus())
+	}
+	var naf [fr.Bits + 1]int8
+	nafLen := ecc.NafDecomposition(&scalar, naf[:])
+	if nafLen == 0 {
+		p.SetInfinity()
+		return p
+	}
+	var res {{ $TJacobian }}
+	var qNegAff {{ $TAffine }}
+	qNegAff.Neg(q)
+	res.Set(&{{ toLower .PointName}}Infinity)
+	for i := nafLen - 1; i >= 0; i-- {
+		res.DoubleAssign()
+		switch naf[i] {
+		case 0:
+			continue
+		case 1:
+			res.AddMixed(q)
+		case -1:
+			res.AddMixed(&qNegAff)
+		}
+	}
+	if s.Sign() < 0 {
+		res.Neg(&res)
+	}
+	p.FromJacobian(&res)
 
 	return p
 
