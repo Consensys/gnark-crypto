@@ -1,0 +1,40 @@
+import (
+	"{{ .FieldPackagePath }}"
+)
+
+// mu = 2^64 / q used in Montgomery reduction on ARM64
+const mu = {{.Mu}}
+const q = {{.Q}}
+
+//go:noescape
+func innerDIFWithTwiddles_neon(a, twiddles *{{ .FF }}.Element, start, end, m int)
+
+//go:noescape
+func innerDITWithTwiddles_neon(a, twiddles *{{ .FF }}.Element, start, end, m int)
+
+func innerDIFWithTwiddles(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
+	if m < 4 {
+		innerDIFWithTwiddlesGeneric(a, twiddles, start, end, m)
+		return
+	}
+	innerDIFWithTwiddles_neon(&a[0], &twiddles[0], start, end, m)
+}
+
+func innerDITWithTwiddles(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
+	if m < 4 {
+		innerDITWithTwiddlesGeneric(a, twiddles, start, end, m)
+		return
+	}
+	innerDITWithTwiddles_neon(&a[0], &twiddles[0], start, end, m)
+}
+
+{{range $ki, $klog2 := $.Kernels}}
+	{{- $ksize := shl 1 $klog2}}
+func kerDIFNP_{{$ksize}}(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int) {
+	kerDIFNP_{{$ksize}}generic(a, twiddles, stage)
+}
+
+func kerDITNP_{{$ksize}}(a []{{ $.FF }}.Element, twiddles [][]{{ $.FF }}.Element, stage int) {
+	kerDITNP_{{$ksize}}generic(a, twiddles, stage)
+}
+{{end}}

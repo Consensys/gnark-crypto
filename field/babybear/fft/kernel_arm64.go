@@ -1,4 +1,4 @@
-//go:build purego || (!amd64 && !arm64)
+//go:build !purego
 
 // Copyright 2020-2026 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
@@ -11,17 +11,36 @@ import (
 	"github.com/consensys/gnark-crypto/field/babybear"
 )
 
+// mu = 2^64 / q used in Montgomery reduction on ARM64
+const mu = 18446744071696285697
+const q = 2013265921
+
+//go:noescape
+func innerDIFWithTwiddles_neon(a, twiddles *babybear.Element, start, end, m int)
+
+//go:noescape
+func innerDITWithTwiddles_neon(a, twiddles *babybear.Element, start, end, m int)
+
 func innerDIFWithTwiddles(a []babybear.Element, twiddles []babybear.Element, start, end, m int) {
-	innerDIFWithTwiddlesGeneric(a, twiddles, start, end, m)
+	if m < 4 {
+		innerDIFWithTwiddlesGeneric(a, twiddles, start, end, m)
+		return
+	}
+	innerDIFWithTwiddles_neon(&a[0], &twiddles[0], start, end, m)
 }
 
 func innerDITWithTwiddles(a []babybear.Element, twiddles []babybear.Element, start, end, m int) {
-	innerDITWithTwiddlesGeneric(a, twiddles, start, end, m)
+	if m < 4 {
+		innerDITWithTwiddlesGeneric(a, twiddles, start, end, m)
+		return
+	}
+	innerDITWithTwiddles_neon(&a[0], &twiddles[0], start, end, m)
 }
 
 func kerDIFNP_256(a []babybear.Element, twiddles [][]babybear.Element, stage int) {
 	kerDIFNP_256generic(a, twiddles, stage)
 }
+
 func kerDITNP_256(a []babybear.Element, twiddles [][]babybear.Element, stage int) {
 	kerDITNP_256generic(a, twiddles, stage)
 }
