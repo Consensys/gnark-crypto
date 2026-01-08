@@ -770,10 +770,10 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 
 	const wnafWindow = 5
 
-	naf1 := make([]int8, k[0].BitLen()+1)
-	naf2 := make([]int8, k[1].BitLen()+1)
-	nafLen1 := ecc.WnafDecomposition(&k[0], wnafWindow, naf1)
-	nafLen2 := ecc.WnafDecomposition(&k[1], wnafWindow, naf2)
+	var naf1 [fr.Bits + 1]int8
+	var naf2 [fr.Bits + 1]int8
+	nafLen1 := ecc.WnafDecomposition(&k[0], wnafWindow, naf1[:])
+	nafLen2 := ecc.WnafDecomposition(&k[1], wnafWindow, naf2[:])
 	maxLen := nafLen1
 	if nafLen2 > maxLen {
 		maxLen = nafLen2
@@ -790,6 +790,7 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 	var q1Two, q2Two G2Jac
 	q1Two.Double(&q1)
 	q2Two.Double(&q2)
+	// q1Table[i] = (2*i+1)*q1 and q2Table[i] = (2*i+1)*q2 (odd multiples for wNAF).
 	for i := 1; i < len(q1Table); i++ {
 		q1Table[i].Set(&q1Table[i-1]).AddAssign(&q1Two)
 		q2Table[i].Set(&q2Table[i-1]).AddAssign(&q2Two)

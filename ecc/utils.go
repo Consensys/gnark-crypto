@@ -47,8 +47,11 @@ func NafDecomposition(a *big.Int, result []int8) int {
 }
 
 // WnafDecomposition gets the wNAF decomposition of a big number.
-// window is the wNAF window size and must be >= 2.
+// 2 <= window <= 8 is the wNAF window size.
 func WnafDecomposition(a *big.Int, window uint, result []int8) int {
+	if window < 2 || window > 8 {
+		return 0
+	}
 	if a.Sign() == 0 {
 		return 0
 	}
