@@ -685,9 +685,12 @@ func (p *G2Jac) mulWindowed(q *G2Jac, s *big.Int) *G2Jac {
 	res.Set(&g2Infinity)
 	for i := nafLen - 1; i >= 0; i-- {
 		res.DoubleAssign()
-		if naf[i] == 1 {
+		switch naf[i] {
+		case 0:
+			continue
+		case 1:
 			res.AddMixed(&qAff)
-		} else if naf[i] == -1 {
+		case -1:
 			res.AddMixed(&qNegAff)
 		}
 	}
