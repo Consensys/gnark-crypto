@@ -304,6 +304,7 @@ func BatchDecompressKarabina(x []E6) []E6 {
 	t0 := make([]fp.Element, n)
 	t1 := make([]fp.Element, n)
 	t2 := make([]fp.Element, n)
+	zeroes := make([]bool, n)
 
 	var one fp.Element
 	one.SetOne()
@@ -316,8 +317,12 @@ func BatchDecompressKarabina(x []E6) []E6 {
 			// t1 = g2
 			t1[i].Set(&x[i].B0.A2)
 
-			// g3 != 0
-		} else {
+			if t1[i].IsZero() /* g3 == g2 == 0 */ {
+				x[i].SetOne()
+				zeroes[i] = true
+				continue
+			}
+		} else /* g3 != 0 */ {
 			// t0 = g1²
 			t0[i].Square(&x[i].B0.A1)
 			// t1 = 3 * g1² - 2 * g2
@@ -337,6 +342,10 @@ func BatchDecompressKarabina(x []E6) []E6 {
 	t1 = fp.BatchInvert(t1) // costs 1 inverse
 
 	for i := 0; i < n; i++ {
+		if zeroes[i] {
+			continue
+		}
+
 		// z4 = g4
 		x[i].B1.A1.Mul(&t0[i], &t1[i])
 
