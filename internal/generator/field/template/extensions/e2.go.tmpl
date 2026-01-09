@@ -78,7 +78,7 @@ func (z *E2) SetRandom() (*E2, error) {
 // MustSetRandom sets a0 and a1 to random values.
 // It panics if reading from crypto/rand fails.
 func (z *E2) MustSetRandom() *E2 {
-	if _, err := z.A0.SetRandom(); err != nil {
+	if _, err := z.SetRandom(); err != nil {
 		panic(err)
 	}
 	return z
