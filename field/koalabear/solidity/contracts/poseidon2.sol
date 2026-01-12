@@ -14,19 +14,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.30;
 
-contract Poseidon2 {
+/**
+ * @title Library to perform Poseidon2 hashing.
+ * @author ConsenSys Software Inc.
+ * @custom:security-contact security-report@linea.build
+ */
+library Poseidon2 {
+  /**
+   * Thrown when the data is not purely in 32 byte chunks.
+   */
+  error DataIsNotMod32();
 
-  uint32 private constant R_MOD = 2130706433;
-  uint256 private constant WORD_MOD = 4294967296; // 2**32
+  // KoalaBear prime field modulus.
+  uint32 private constant R_MOD = 2130706433; // 0x7f000001
 
-  // precompile
-  uint8 private constant MOD_EXP = 0x5;
+  uint256 private constant DATA_IS_NOT_MOD32_SELECTOR =
+    0xc2cab26c00000000000000000000000000000000000000000000000000000000; // bytes4(keccak256("DataIsNotMod32()"))
 
-  uint256 private constant ERROR_STRING_ID = 0x08c379a000000000000000000000000000000000000000000000000000000000; // selector for function Error(string)
-
-  // round keys
+  /// @dev Keys for each round.
   uint256 private constant RK_0_0 = 52691802021506155758914962750280372212207119203515444126415105344946620971042;
   uint256 private constant RK_0_1 = 32207471970256316655474490955553459742787419335289228299095903266455798739660;
   uint256 private constant RK_1_0 = 22163791677048831312463448776400028385347383911100916908889018061663075177430;
@@ -61,429 +68,536 @@ contract Poseidon2 {
   uint256 private constant RK_26_0 = 37373517675827041221658956101645979913006475784844873469590649853964048342988;
   uint256 private constant RK_26_1 = 46010512812451809471058691124553676654818408969360806522307687423952321374687;
 
-  /// Hash
-  // function Hash(bytes calldata _msg) external returns (bytes32 poseidon2Hash)  {
-  function Hash(bytes calldata _msg) external pure returns (bytes32 poseidon2Hash) {
-
-    // params vortex t=16, rf=6, rp=21
+  /**
+   * @notice Computes the hash of a message using a Merkle Damgard scheme, with Poseidon2 for compression.
+   *
+   * Tier-C gas golf (stack-safe) highlights:
+   * - Keep the chaining value as 8 limbs in scratch memory across blocks; only pack once at the end.
+   * - Inline S-box (x^3) everywhere it is hot (full rounds + partial rounds).
+   * - Inline partial-round wrapper (ARK+S-box on state[0]) while keeping intMDS as a function to avoid stack-too-deep.
+   * - Fuse extMDS: compute M4 and accumulate column sums without a second “read pass” for sums.
+   *
+   * @param _msg The bytes message or data to hash. Must be multiple of 32 bytes.
+   * @return poseidon2Hash The Poseidon2 hash.
+   */
+  function hash(bytes calldata _msg) external pure returns (bytes32 poseidon2Hash) {
     assembly {
-
-      if gt(mod(_msg.length, 0x20), 0) {
-        error_size_data()
+      // Require length % 32 == 0 (cheaper than mod)
+      if and(_msg.length, 0x1f) {
+        mstore(0x00, DATA_IS_NOT_MOD32_SELECTOR)
+        revert(0x00, 0x04)
       }
 
-      let q := div(_msg.length, 0x20)
-      let ptrMsg := _msg.offset
-      let curBlock
-      for {let i:=0} lt(i, q) {i:=add(i,1)}
-      {
-        curBlock := calldataload(ptrMsg)
-        poseidon2Hash := Compress(poseidon2Hash, curBlock)
-        ptrMsg := add(ptrMsg, 0x20)
-      }
+      // Scratch state: 16 limbs as 16 words (32 bytes each) = 0x200 bytes.
+      // Layout:
+      //   st + 0x00 .. 0xE0   : state[0..7]   (first half, chaining)
+      //   st + 0x100 .. 0x1E0 : state[8..15]  (second half, message / working)
+      let st := mload(0x40)
+      mstore(0x40, add(st, 0x200))
 
+      // Initialize chaining value to 0 (8 limbs)
+      for { let p := st } lt(p, add(st, 0x100)) { p := add(p, 0x20) } { mstore(p, 0) }
 
-      /// Compress(a, b): 
-      ///   _, rb := permutation(a, b)
-      ///   return rb + b
-      function Compress(a, b)->rb {
-        let tmp := b
-        a, b := permutation(a, b)
-        rb := addRoundKeyUint256(tmp, b)
-      }
+      let ptr := _msg.offset
+      let end := add(ptr, _msg.length)
 
-      function permutation(a, b)->ra, rb {
+      for { } lt(ptr, end) { ptr := add(ptr, 0x20) } {
+        // NOTE: do NOT name this variable `msg` to avoid shadowing Solidity's `msg` object.
+        let blk := calldataload(ptr)
 
-        ra, rb := matMulExternalInPlace(a, b)
-        
-        // first 3 rounds are full
-        ra := addRoundKeyUint256(ra, RK_0_0)
-        rb := addRoundKeyUint256(rb, RK_0_1)
-        ra := sboxUint256(ra)
-        rb := sboxUint256(rb)
-        ra, rb := matMulExternalInPlace(ra, rb)
-
-        ra := addRoundKeyUint256(ra, RK_1_0)
-        rb := addRoundKeyUint256(rb, RK_1_1)
-        ra := sboxUint256(ra)
-        rb := sboxUint256(rb)
-        ra, rb := matMulExternalInPlace(ra, rb)
-
-        ra := addRoundKeyUint256(ra, RK_2_0)
-        rb := addRoundKeyUint256(rb, RK_2_1)
-        ra := sboxUint256(ra)
-        rb := sboxUint256(rb)
-        ra, rb := matMulExternalInPlace(ra, rb)
-
-        // middle 21 rounds are partial
-        ra := addRoundKeyFirstEntry(ra, RK_3)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        ra := addRoundKeyFirstEntry(ra, RK_4)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-        
-        ra := addRoundKeyFirstEntry(ra, RK_5)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-        
-        ra := addRoundKeyFirstEntry(ra, RK_6)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        ra := addRoundKeyFirstEntry(ra, RK_7)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        ra := addRoundKeyFirstEntry(ra, RK_8)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-        
-        ra := addRoundKeyFirstEntry(ra, RK_9)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        ra := addRoundKeyFirstEntry(ra, RK_10)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-        
-        ra := addRoundKeyFirstEntry(ra, RK_11)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-        
-        ra := addRoundKeyFirstEntry(ra, RK_12)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        ra := addRoundKeyFirstEntry(ra, RK_13)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        ra := addRoundKeyFirstEntry(ra, RK_14)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        ra := addRoundKeyFirstEntry(ra, RK_15)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        ra := addRoundKeyFirstEntry(ra, RK_16)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        ra := addRoundKeyFirstEntry(ra, RK_17)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        ra := addRoundKeyFirstEntry(ra, RK_18)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        ra := addRoundKeyFirstEntry(ra, RK_19)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        ra := addRoundKeyFirstEntry(ra, RK_20)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        ra := addRoundKeyFirstEntry(ra, RK_21)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        ra := addRoundKeyFirstEntry(ra, RK_22)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        ra := addRoundKeyFirstEntry(ra, RK_23)
-        ra := sboxFirstEntry(ra)
-        ra, rb := matMulInternalInPlace(ra, rb)
-
-        // last 3 rounds are full
-        ra := addRoundKeyUint256(ra, RK_24_0)
-        rb := addRoundKeyUint256(rb, RK_24_1)
-        ra := sboxUint256(ra)
-        rb := sboxUint256(rb)
-        ra, rb := matMulExternalInPlace(ra, rb)
-
-        ra := addRoundKeyUint256(ra, RK_25_0)
-        rb := addRoundKeyUint256(rb, RK_25_1)
-        ra := sboxUint256(ra)
-        rb := sboxUint256(rb)
-        ra, rb := matMulExternalInPlace(ra, rb)
-
-        ra := addRoundKeyUint256(ra, RK_26_0)
-        rb := addRoundKeyUint256(rb, RK_26_1)
-        ra := sboxUint256(ra)
-        rb := sboxUint256(rb)
-        ra, rb := matMulExternalInPlace(ra, rb)
-      }
-
-      /// interpret ptr as a sequence of 16 uint32 elmts and sums them
-      function computeSum(a, b)->s {
-        for {let i} lt(i, 8) {i:=add(i,1)} 
+        // Store blk (packed) into second half as 8 uint32 limbs (words).
         {
-          s := addmod(s, ithChunk(a, i), R_MOD)
-          s := addmod(s, ithChunk(b, i), R_MOD)
+          let p2 := add(st, 0x100)
+          let shift := 224
+          for { let i := 0 } lt(i, 8) { i := add(i, 1) } {
+            mstore(p2, and(shr(shift, blk), 0xffffffff))
+            p2 := add(p2, 0x20)
+            shift := sub(shift, 32)
+          }
+        }
+
+        // Permute in place on 16 limbs in scratch (chaining||blk)
+        permuteInPlace(st)
+
+        // Feed-forward (second half += blk limbs mod p) AND move output into first half for next block.
+        // We do NOT write back to second half (it will be overwritten next iteration).
+        {
+          let pFirst := st
+          let pSecond := add(st, 0x100)
+          let shift := 224
+          for { let i := 0 } lt(i, 8) { i := add(i, 1) } {
+            let mi := and(shr(shift, blk), 0xffffffff)
+            let bi := addmod(mload(pSecond), mi, R_MOD)
+            mstore(pFirst, bi)
+
+            pFirst := add(pFirst, 0x20)
+            pSecond := add(pSecond, 0x20)
+            shift := sub(shift, 32)
+          }
         }
       }
 
-      function matMulInternalInPlace(a, b)->ra,rb {
-        let s := computeSum(a, b)
-        ra := matMulInternalInPlaceFirstHalf(a, s)
-        rb := matMulInternalInPlaceSecondHalf(b, s)
+      // Pack final chaining value (first half) into bytes32 output (8x uint32, MSW-first).
+      poseidon2Hash := packFirstHalf(st)
+
+      // ----------------- Utilities / permutation -----------------
+
+      // Pack state[0..7] from scratch into uint256 (8x uint32 MSW-first).
+      function packFirstHalf(st_) -> out {
+        out := or(shl(224, mload(add(st_, 0x00))), shl(192, mload(add(st_, 0x20))))
+        out := or(out, shl(160, mload(add(st_, 0x40))))
+        out := or(out, shl(128, mload(add(st_, 0x60))))
+        out := or(out, shl(96, mload(add(st_, 0x80))))
+        out := or(out, shl(64, mload(add(st_, 0xa0))))
+        out := or(out, shl(32, mload(add(st_, 0xc0))))
+        out := or(out, mload(add(st_, 0xe0)))
       }
 
-      function matMulInternalInPlaceFirstHalf(a, sum)->ma {
-        
-        let t0, t1, t2, t3, t4, t5, t6, t7
+      // M4 multiplication on 4 limbs mod p:
+      // (2 3 1 1)
+      // (1 2 3 1)
+      // (1 1 2 3)
+      // (3 1 1 2)
+      function matMulM4(a, b, c, d) -> u, v, w, x {
+        let t01 := addmod(a, b, R_MOD)
+        let t23 := addmod(c, d, R_MOD)
+        let t0123 := addmod(t01, t23, R_MOD)
+        let t01123 := addmod(t0123, b, R_MOD)
+        let t01233 := addmod(t0123, d, R_MOD)
 
-        t0 := addmod(sum, sub(R_MOD, mulmod(ithChunk(a, 0), 2, R_MOD)), R_MOD)
-        t1 := addmod(sum, ithChunk(a, 1), R_MOD)
-        t2 := ithChunk(a, 2)
-        t2 := addmod(sum, addmod(t2, t2, R_MOD), R_MOD)
-        t3 := addmod(sum, mulmod(ithChunk(a, 3), 1065353217, R_MOD), R_MOD) // 1065353217 -> 1/2
-        t4 := addmod(sum, mulmod(ithChunk(a, 4), 3, R_MOD), R_MOD)
-        t5 := addmod(sum, mulmod(ithChunk(a, 5), 4, R_MOD), R_MOD)
-        t6 := addmod(sum, mulmod(ithChunk(a, 6), 1065353216, R_MOD), R_MOD) // 1065353216 -> -1/2
-        t7 := addmod(sum, sub(R_MOD, mulmod(ithChunk(a, 7), 3, R_MOD)), R_MOD)
-        ma := packToUint256(t0, t1, t2, t3, t4, t5, t6, t7)
-
-      } 
-
-       function matMulInternalInPlaceSecondHalf(b, sum)->mb {
-        
-        let t0, t1, t2, t3, t4, t5, t6, t7
-
-        t0 := addmod(sum, sub(R_MOD, mulmod(ithChunk(b, 0), 4, R_MOD)), R_MOD)
-        t1 := addmod(sum, mulmod(ithChunk(b, 1), 2122383361, R_MOD), R_MOD) // 2122383361 -> 1/2^8
-        t2 := addmod(sum, mulmod(ithChunk(b, 2),1864368129, R_MOD), R_MOD) // 1864368129 -> 1/8
-        t3 := addmod(sum, mulmod(ithChunk(b, 3),2130706306, R_MOD), R_MOD) // 2130706306 -> 1/2^24
-        t4 := addmod(sum, mulmod(ithChunk(b, 4),8323072, R_MOD), R_MOD) // 8323072 ->  -1/2^8
-        t5 := addmod(sum, mulmod(ithChunk(b, 5),266338304, R_MOD), R_MOD) // 266338304 -> -1/8
-        t6 := addmod(sum, mulmod(ithChunk(b, 6),133169152, R_MOD), R_MOD) // 133169152 -> -1/16
-        t7 := addmod(sum, mulmod(ithChunk(b, 7),127, R_MOD), R_MOD) // 127 -> -1/2^24
-        mb :=  packToUint256(t0, t1, t2, t3, t4, t5, t6, t7)
-      } 
-
-      /// @param ptr pointer to 2 uint256 elements, We interpret them as 4 packs of 4 uint32 elmts ->
-      /// [[a0,a1,a2,a3],..,[a12,a13,a14,a15]]:=[v0,v1,v2,v3]
-      /// and we multiply [v0,v1,v2,v3] by circ(2M4,M4,..,M4)
-      function matMulExternalInPlace(a, b)->ra, rb {
-        
-        a := matMulM4uint256(a)
-        b := matMulM4uint256(b)
-        
-        let t0, t1, t2, t3 := sumColumns(a, b)
-
-       ra := matMulExternalInPlaceFirstHalf(a, t0, t1, t2, t3)
-       rb := matMulExternalInPlaceFirstHalf(b, t0, t1, t2, t3)
+        x := addmod(addmod(a, a, R_MOD), t01233, R_MOD)
+        v := addmod(addmod(c, c, R_MOD), t01123, R_MOD)
+        u := addmod(t01, t01123, R_MOD)
+        w := addmod(t23, t01233, R_MOD)
       }
 
-      function matMulExternalInPlaceFirstHalf(a, t0, t1, t2, t3)->ra {
-        let a0, a1, a2, a3, a4, a5, a6, a7
-        a0 := addmod(t0, ithChunk(a, 0), R_MOD)
-        a1 := addmod(t1, ithChunk(a, 1), R_MOD)
-        a2 := addmod(t2, ithChunk(a, 2), R_MOD)
-        a3 := addmod(t3, ithChunk(a, 3), R_MOD)
-        a4 := addmod(t0, ithChunk(a, 4), R_MOD)
-        a5 := addmod(t1, ithChunk(a, 5), R_MOD)
-        a6 := addmod(t2, ithChunk(a, 6), R_MOD)
-        a7 := addmod(t3, ithChunk(a, 7), R_MOD)
-        ra := packToUint256(a0, a1, a2, a3, a4, a5, a6, a7)
+      // External linear layer (matMulExternalInPlace), in place on the 16-limb state.
+      // Fused: we accumulate t0..t3 while producing M4 outputs, saving a full read pass.
+      function extMDSInPlace(st_) {
+        let t0 := 0
+        let t1 := 0
+        let t2 := 0
+        let t3 := 0
+
+        // Block 0: indices 0..3 at base st_ + 0x00
+        {
+          let p := st_
+          let a := mload(add(p, 0x00))
+          let b := mload(add(p, 0x20))
+          let c := mload(add(p, 0x40))
+          let d := mload(add(p, 0x60))
+          let u, v, w, x := matMulM4(a, b, c, d)
+          mstore(add(p, 0x00), u)
+          mstore(add(p, 0x20), v)
+          mstore(add(p, 0x40), w)
+          mstore(add(p, 0x60), x)
+          t0 := add(t0, u)
+          t1 := add(t1, v)
+          t2 := add(t2, w)
+          t3 := add(t3, x)
+        }
+
+        // Block 1: indices 4..7 at base st_ + 0x80
+        {
+          let p := add(st_, 0x80)
+          let a := mload(add(p, 0x00))
+          let b := mload(add(p, 0x20))
+          let c := mload(add(p, 0x40))
+          let d := mload(add(p, 0x60))
+          let u, v, w, x := matMulM4(a, b, c, d)
+          mstore(add(p, 0x00), u)
+          mstore(add(p, 0x20), v)
+          mstore(add(p, 0x40), w)
+          mstore(add(p, 0x60), x)
+          t0 := add(t0, u)
+          t1 := add(t1, v)
+          t2 := add(t2, w)
+          t3 := add(t3, x)
+        }
+
+        // Block 2: indices 8..11 at base st_ + 0x100
+        {
+          let p := add(st_, 0x100)
+          let a := mload(add(p, 0x00))
+          let b := mload(add(p, 0x20))
+          let c := mload(add(p, 0x40))
+          let d := mload(add(p, 0x60))
+          let u, v, w, x := matMulM4(a, b, c, d)
+          mstore(add(p, 0x00), u)
+          mstore(add(p, 0x20), v)
+          mstore(add(p, 0x40), w)
+          mstore(add(p, 0x60), x)
+          t0 := add(t0, u)
+          t1 := add(t1, v)
+          t2 := add(t2, w)
+          t3 := add(t3, x)
+        }
+
+        // Block 3: indices 12..15 at base st_ + 0x180
+        {
+          let p := add(st_, 0x180)
+          let a := mload(add(p, 0x00))
+          let b := mload(add(p, 0x20))
+          let c := mload(add(p, 0x40))
+          let d := mload(add(p, 0x60))
+          let u, v, w, x := matMulM4(a, b, c, d)
+          mstore(add(p, 0x00), u)
+          mstore(add(p, 0x20), v)
+          mstore(add(p, 0x40), w)
+          mstore(add(p, 0x60), x)
+          t0 := add(t0, u)
+          t1 := add(t1, v)
+          t2 := add(t2, w)
+          t3 := add(t3, x)
+        }
+
+        // Reduce column sums once.
+        t0 := mod(t0, R_MOD)
+        t1 := mod(t1, R_MOD)
+        t2 := mod(t2, R_MOD)
+        t3 := mod(t3, R_MOD)
+
+        // Add column sums back to each block element (4 blocks).
+        for { let base := st_ } lt(base, add(st_, 0x200)) { base := add(base, 0x80) } {
+          mstore(add(base, 0x00), addmod(mload(add(base, 0x00)), t0, R_MOD))
+          mstore(add(base, 0x20), addmod(mload(add(base, 0x20)), t1, R_MOD))
+          mstore(add(base, 0x40), addmod(mload(add(base, 0x40)), t2, R_MOD))
+          mstore(add(base, 0x60), addmod(mload(add(base, 0x60)), t3, R_MOD))
+        }
       }
 
-      function matMulExternalInPlaceSecondHalf(b, t0, t1, t2, t3)->rb {
-        let a0, a1, a2, a3, a4, a5, a6, a7
-        a0 := addmod(t0, ithChunk(b, 0), R_MOD)
-        a1 := addmod(t1, ithChunk(b, 1), R_MOD)
-        a2 := addmod(t2, ithChunk(b, 2), R_MOD)
-        a3 := addmod(t3, ithChunk(b, 3), R_MOD)
-        a4 := addmod(t0, ithChunk(b, 4), R_MOD)
-        a5 := addmod(t1, ithChunk(b, 5), R_MOD)
-        a6 := addmod(t2, ithChunk(b, 6), R_MOD)
-        a7 := addmod(t3, ithChunk(b, 7), R_MOD)
-        rb := packToUint256(a0, a1, a2, a3, a4, a5, a6, a7)
+      // Internal linear layer (matMulInternalInPlace) on the 16-limb state in scratch.
+      function intMDSInPlace(st_) {
+        // Sum 16 limbs; reduce once.
+        let s := 0
+        s := add(s, mload(add(st_, 0x00)))
+        s := add(s, mload(add(st_, 0x20)))
+        s := add(s, mload(add(st_, 0x40)))
+        s := add(s, mload(add(st_, 0x60)))
+        s := add(s, mload(add(st_, 0x80)))
+        s := add(s, mload(add(st_, 0xa0)))
+        s := add(s, mload(add(st_, 0xc0)))
+        s := add(s, mload(add(st_, 0xe0)))
+        s := add(s, mload(add(st_, 0x100)))
+        s := add(s, mload(add(st_, 0x120)))
+        s := add(s, mload(add(st_, 0x140)))
+        s := add(s, mload(add(st_, 0x160)))
+        s := add(s, mload(add(st_, 0x180)))
+        s := add(s, mload(add(st_, 0x1a0)))
+        s := add(s, mload(add(st_, 0x1c0)))
+        s := add(s, mload(add(st_, 0x1e0)))
+        s := mod(s, R_MOD)
+
+        // Update first half (0..7): each output depends only on s and its own original limb, so in-place is safe.
+        let x := mload(add(st_, 0x00))
+        mstore(add(st_, 0x00), addmod(s, sub(R_MOD, mulmod(x, 2, R_MOD)), R_MOD))
+
+        x := mload(add(st_, 0x20))
+        mstore(add(st_, 0x20), addmod(s, x, R_MOD))
+
+        x := mload(add(st_, 0x40))
+        mstore(add(st_, 0x40), addmod(s, mulmod(x, 2, R_MOD), R_MOD))
+
+        x := mload(add(st_, 0x60))
+        mstore(add(st_, 0x60), addmod(s, mulmod(x, 1065353217, R_MOD), R_MOD))
+
+        x := mload(add(st_, 0x80))
+        mstore(add(st_, 0x80), addmod(s, mulmod(x, 3, R_MOD), R_MOD))
+
+        x := mload(add(st_, 0xa0))
+        mstore(add(st_, 0xa0), addmod(s, mulmod(x, 4, R_MOD), R_MOD))
+
+        x := mload(add(st_, 0xc0))
+        mstore(add(st_, 0xc0), addmod(s, mulmod(x, 1065353216, R_MOD), R_MOD))
+
+        x := mload(add(st_, 0xe0))
+        mstore(add(st_, 0xe0), addmod(s, sub(R_MOD, mulmod(x, 3, R_MOD)), R_MOD))
+
+        // Update second half (8..15)
+        x := mload(add(st_, 0x100))
+        mstore(add(st_, 0x100), addmod(s, sub(R_MOD, mulmod(x, 4, R_MOD)), R_MOD))
+
+        x := mload(add(st_, 0x120))
+        mstore(add(st_, 0x120), addmod(s, mulmod(x, 2122383361, R_MOD), R_MOD))
+
+        x := mload(add(st_, 0x140))
+        mstore(add(st_, 0x140), addmod(s, mulmod(x, 1864368129, R_MOD), R_MOD))
+
+        x := mload(add(st_, 0x160))
+        mstore(add(st_, 0x160), addmod(s, mulmod(x, 2130706306, R_MOD), R_MOD))
+
+        x := mload(add(st_, 0x180))
+        mstore(add(st_, 0x180), addmod(s, mulmod(x, 8323072, R_MOD), R_MOD))
+
+        x := mload(add(st_, 0x1a0))
+        mstore(add(st_, 0x1a0), addmod(s, mulmod(x, 266338304, R_MOD), R_MOD))
+
+        x := mload(add(st_, 0x1c0))
+        mstore(add(st_, 0x1c0), addmod(s, mulmod(x, 133169152, R_MOD), R_MOD))
+
+        x := mload(add(st_, 0x1e0))
+        mstore(add(st_, 0x1e0), addmod(s, mulmod(x, 127, R_MOD), R_MOD))
       }
 
-      /// @param ptr pointer to 2 uint256 elements. We interpret them as 4 packs of 4 uint32 elmts ->
-      /// [[a0,a1,a2,a3],..,[a12,a13,a14,a15]] and we sum them:
-      /// [[a0+a4+a8+a12, .., a3+a7+a11+a15]]
-      function sumColumns(a, b)->t0, t1, t2, t3 {
-        
-        t0 := addmod(t0, ithChunk(a, 0), R_MOD)
-        t1 := addmod(t1, ithChunk(a, 1), R_MOD)
-        t2 := addmod(t2, ithChunk(a, 2), R_MOD)
-        t3 := addmod(t3, ithChunk(a, 3), R_MOD)
+      // Full round: add round keys (packed 8xuint32 per half) + sbox on all 16 elements.
+      // NOTE: S-box is inlined (x^3) here for gas.
+      function fullRoundInPlace(st_, rkA, rkB) {
+        // First half [0..7]
+        {
+          let p := st_
+          let shift := 224
+          for { let i := 0 } lt(i, 8) { i := add(i, 1) } {
+            let k := and(shr(shift, rkA), 0xffffffff)
+            let x := addmod(mload(p), k, R_MOD)
+            let x2 := mulmod(x, x, R_MOD)
+            x := mulmod(x2, x, R_MOD)
+            mstore(p, x)
 
-        t0 := addmod(t0, ithChunk(a, 4), R_MOD)
-        t1 := addmod(t1, ithChunk(a, 5), R_MOD)
-        t2 := addmod(t2, ithChunk(a, 6), R_MOD)
-        t3 := addmod(t3, ithChunk(a, 7), R_MOD)
+            p := add(p, 0x20)
+            shift := sub(shift, 32)
+          }
+        }
 
-        t0 := addmod(t0, ithChunk(b, 0), R_MOD)
-        t1 := addmod(t1, ithChunk(b, 1), R_MOD)
-        t2 := addmod(t2, ithChunk(b, 2), R_MOD)
-        t3 := addmod(t3, ithChunk(b, 3), R_MOD)
+        // Second half [8..15]
+        {
+          let p := add(st_, 0x100)
+          let shift := 224
+          for { let i := 0 } lt(i, 8) { i := add(i, 1) } {
+            let k := and(shr(shift, rkB), 0xffffffff)
+            let x := addmod(mload(p), k, R_MOD)
+            let x2 := mulmod(x, x, R_MOD)
+            x := mulmod(x2, x, R_MOD)
+            mstore(p, x)
 
-        t0 := addmod(t0, ithChunk(b, 4), R_MOD)
-        t1 := addmod(t1, ithChunk(b, 5), R_MOD)
-        t2 := addmod(t2, ithChunk(b, 6), R_MOD)
-        t3 := addmod(t3, ithChunk(b, 7), R_MOD)
+            p := add(p, 0x20)
+            shift := sub(shift, 32)
+          }
+        }
       }
 
-      /// matMulM4 computes
-      /// s <- diag_4(M4)*s
-      /// where M4=
-      /// (2 3 1 1)
-      /// (1 2 3 1)
-      /// (1 1 2 3)
-      /// (3 1 1 2)
-      /// on chunks of 4 elemts on each part of the buffer
-      /// for the addition chain, see:
-      /// https://github.com/Plonky3/Plonky3/blob/f91c76545cf5c4ae9182897bcc557715817bcbdc/poseidon2/src/external.rs#L43
-      /// this MDS matrix is more efficient than
-      /// https://eprint.iacr.org/2023/323.pdf appendix Bb
-      /// @param ptr pointer to 2 uint256 elements, interpreted as 4 blocks of 4 uint32 elements
-      /// that we multiply by M4. The resut is 4 blocks of 4 uint32 elements, aligned in ptr
-      function mathMulM4InPlace(ptr) {
-        
-        let a := mload(ptr)
-        a := matMulM4uint256(a)
-        mstore(ptr, a)
-        
-        a := mload(add(ptr, 0x20))
-        a := matMulM4uint256(a)
-        mstore(add(ptr, 0x20), a)
+      // Poseidon2 permutation:
+      // - initial ext MDS
+      // - 3 full rounds (each followed by ext MDS)
+      // - 21 partial rounds (ARK+S on state[0], followed by internal MDS)
+      // - 3 full rounds (each followed by ext MDS)
+      function permuteInPlace(st_) {
+        // Initial external layer
+        extMDSInPlace(st_)
+
+        // First 3 full rounds
+        fullRoundInPlace(st_, RK_0_0, RK_0_1)
+        extMDSInPlace(st_)
+
+        fullRoundInPlace(st_, RK_1_0, RK_1_1)
+        extMDSInPlace(st_)
+
+        fullRoundInPlace(st_, RK_2_0, RK_2_1)
+        extMDSInPlace(st_)
+
+        // 21 partial rounds: inline ARK+S-box on state[0] + internal MDS
+        {
+          let x := addmod(mload(st_), RK_3, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_4, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_5, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_6, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_7, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_8, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_9, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_10, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_11, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_12, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_13, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_14, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_15, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_16, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_17, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_18, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_19, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_20, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_21, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_22, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+        {
+          let x := addmod(mload(st_), RK_23, R_MOD)
+          let x2 := mulmod(x, x, R_MOD)
+          x := mulmod(x2, x, R_MOD)
+          mstore(st_, x)
+          intMDSInPlace(st_)
+        }
+
+        // Last 3 full rounds
+        fullRoundInPlace(st_, RK_24_0, RK_24_1)
+        extMDSInPlace(st_)
+
+        fullRoundInPlace(st_, RK_25_0, RK_25_1)
+        extMDSInPlace(st_)
+
+        fullRoundInPlace(st_, RK_26_0, RK_26_1)
+        extMDSInPlace(st_)
       }
-
-      /// matMulM4uint256 splits a:= (c1<<128) || c2 in two chunks c1 c2 of 4 32bits elmts
-      /// and computes d1=M4*c1, d2=M4*c2, and returns (d1<<128) || d2
-      function matMulM4uint256(a)->b {
-        let s0 := ithChunk(a, 0)
-        let s1 := ithChunk(a, 1)
-        let s2 := ithChunk(a, 2)
-        let s3 := ithChunk(a, 3)
-        s0, s1, s2, s3 := matMulM4(s0, s1, s2, s3)
-        let s4 := ithChunk(a, 4)
-        let s5 := ithChunk(a, 5)
-        let s6 := ithChunk(a, 6)
-        let s7 := ithChunk(a, 7)
-        s4, s5, s6, s7 := matMulM4(s4, s5, s6, s7)
-        b := packToUint256(s0, s1, s2, s3, s4, s5, s6, s7)
-      }
-
-      /// computes M4*[a, b , c, d]
-      /// where M4=
-      /// (2 3 1 1)
-      /// (1 2 3 1)
-      /// (1 1 2 3)
-      /// (3 1 1 2)
-      /// a, b, c, d are uint32 elmts
-      function matMulM4(a, b, c, d)->u,v,w,x {
-        
-        let t01, t23, t0123, t01123, t01233
-        
-        t01 := addmod(a, b, R_MOD)
-        t23 := addmod(c, d, R_MOD)
-        t0123 := addmod(t01, t23, R_MOD)
-        t01123 := addmod(t0123, b, R_MOD)
-        t01233 := addmod(t0123, d, R_MOD)
-
-        d := addmod(a, a, R_MOD)
-        d := addmod(d, t01233, R_MOD)
-        b := addmod(c, c, R_MOD)
-        b := addmod(b, t01123, R_MOD)
-        a := addmod(t01, t01123, R_MOD)
-        c := addmod(t23, t01233, R_MOD)
-
-        u := a
-        v := b
-        w := c
-        x := d
-      }
-
-      /// @return u = a << 224 || b << 192 || .. || h
-      function packToUint256(a, b, c, d, e, f, g, h) -> u {
-        u := shl(224, a)
-        u := add(u, shl(192, b))
-        u := add(u, shl(160, c))
-        u := add(u, shl(128, d))
-        u := add(u, shl(96, e))
-        u := add(u, shl(64, f))
-        u := add(u, shl(32, g))
-        u := add(u, h)
-      }
-
-      // query i-th 32bits chunk of a uint256 number N.
-      // The 8-th chunk corresponds to the LSB of N,
-      // the 0-th chunk corresponds to the MSB of N.
-      function ithChunk(n, i)->m {
-        m := mod(shr(mul(sub(7,i), 32), n), WORD_MOD)
-      }
-
-      // sbox
-      function sboxSingleEntry(x)->rx {
-        rx := mulmod(x, mulmod(x, x, R_MOD), R_MOD)
-      }
-
-      // addroundkey on the first entry
-      function addRoundKeyFirstEntry(x, k)->rx {
-        let tmp := ithChunk(x, 0)
-        let t0 := tmp
-        t0 := addmod(k, t0, R_MOD)
-        tmp := shl(224, tmp)
-        rx := sub(x, tmp)
-        rx := add(rx, shl(224, t0))
-      }
-
-      function addRoundKeyUint256(x, k)->rx {
-        let t0, t1, t2, t3, t4, t5, t6, t7
-        t0 := addmod(ithChunk(x, 0), ithChunk(k, 0), R_MOD)
-        t1 := addmod(ithChunk(x, 1), ithChunk(k, 1), R_MOD)
-        t2 := addmod(ithChunk(x, 2), ithChunk(k, 2), R_MOD)
-        t3 := addmod(ithChunk(x, 3), ithChunk(k, 3), R_MOD)
-        t4 := addmod(ithChunk(x, 4), ithChunk(k, 4), R_MOD)
-        t5 := addmod(ithChunk(x, 5), ithChunk(k, 5), R_MOD)
-        t6 := addmod(ithChunk(x, 6), ithChunk(k, 6), R_MOD)
-        t7 := addmod(ithChunk(x, 7), ithChunk(k, 7), R_MOD)
-        rx := packToUint256(t0, t1, t2, t3, t4, t5, t6, t7)
-      }
-
-      // sbox
-      function sboxUint256(x)->rx {
-        let t0, t1, t2, t3, t4, t5, t6, t7
-        t0 := sboxSingleEntry(ithChunk(x, 0))
-        t1 := sboxSingleEntry(ithChunk(x, 1))
-        t2 := sboxSingleEntry(ithChunk(x, 2))
-        t3 := sboxSingleEntry(ithChunk(x, 3))
-        t4 := sboxSingleEntry(ithChunk(x, 4))
-        t5 := sboxSingleEntry(ithChunk(x, 5))
-        t6 := sboxSingleEntry(ithChunk(x, 6))
-        t7 := sboxSingleEntry(ithChunk(x, 7))
-        rx := packToUint256(t0, t1, t2, t3, t4, t5, t6, t7)
-      }
-
-      function sboxFirstEntry(x)->rx {
-        let tmp := ithChunk(x, 0)
-        let t0 := tmp
-        tmp := shl(224, tmp)
-        rx := sub(x, tmp)
-        t0 := sboxSingleEntry(t0)
-        rx := add(rx, shl(224, t0))
-      }
-
-      function error_size_data() {
-        let ptError := mload(0x40)
-        mstore(ptError, ERROR_STRING_ID) // selector for function Error(string)
-        mstore(add(ptError, 0x4), 0x20)
-        mstore(add(ptError, 0x24), 0x1b)
-        mstore(add(ptError, 0x44), "error _msg.length%0x20 != 0")
-        revert(ptError, 0x64)
-      }
-
     }
+  }
 
+  /**
+   * @notice Pads a bytes32 input into a bytes array by splitting it into two 32-byte segments.
+   * @dev Every two bytes are prepended with 2 zero bytes. E.g. 0xAAAABBBB -> 0x0000AAAA0000BBBB.
+   * @param input The bytes32 input to be padded.
+   * @return out A bytes array containing the two 32-byte segments.
+   */
+  function padBytes32(bytes32 input) external pure returns (bytes memory out) {
+    assembly {
+      out := mload(0x40)
+      mstore(out, 0x40)
+
+      let data := add(out, 0x20)
+
+      // First 8 halfwords -> first 32 bytes
+      {
+        let w := 0
+        let shIn := 240
+        let shOut := 224
+        for { let i := 0 } lt(i, 8) { i := add(i, 1) } {
+          let v := and(shr(shIn, input), 0xFFFF)
+          w := or(w, shl(shOut, v))
+          shIn := sub(shIn, 16)
+          shOut := sub(shOut, 32)
+        }
+        mstore(data, w)
+      }
+
+      // Last 8 halfwords -> second 32 bytes
+      {
+        let w := 0
+        let shIn := 112
+        let shOut := 224
+        for { let i := 0 } lt(i, 8) { i := add(i, 1) } {
+          let v := and(shr(shIn, input), 0xFFFF)
+          w := or(w, shl(shOut, v))
+          shIn := sub(shIn, 16)
+          shOut := sub(shOut, 32)
+        }
+        mstore(add(data, 0x20), w)
+      }
+
+      mstore(0x40, add(data, 0x40))
+    }
   }
 }
