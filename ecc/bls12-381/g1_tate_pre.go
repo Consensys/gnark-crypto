@@ -19,10 +19,6 @@ var (
 	g1TatePreTableOnce sync.Once
 	g1TatePreTable     G1TatePreTable
 
-	tateNafOnce   sync.Once
-	tateNafDigits [tateNafMaxLen]int8
-	tateNafLen    int
-
 	tateExp1Once     sync.Once
 	tateExp1Exponent big.Int
 )
@@ -33,7 +29,12 @@ type G1TatePreTable struct {
 	Tab []fp.Element
 }
 
-const tateNafMaxLen = 65
+var tateNAF = [65]int8{
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, -1, 0, 1,
+}
 
 // IsInSubGroupTatePre checks whether p is in the correct subgroup using the Tate test with precomputation.
 func (p *G1Affine) IsInSubGroupTatePre(tab G1TatePreTable) bool {
@@ -79,11 +80,10 @@ func testTatePre(p, q *G1Affine, tab []fp.Element) bool {
 }
 
 func tateMillerPre(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Affine) {
-	s := tateNAFDigits()
-	i := len(s) - 2
+	i := 63
 	j := 0
 	k := 0
-	if s[0] < 0 {
+	if tateNAF[0] < 0 {
 		j = 1
 	}
 
@@ -96,7 +96,7 @@ func tateMillerPre(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Aff
 	u3.Sub(&p2.X, &q.X)
 
 	for i >= j {
-		if s[i] == 0 && i > j {
+		if tateNAF[i] == 0 && i > j {
 			u0.Sub(&p.Y, &tab[k+2])
 			f1.Sub(&p.X, &tab[k+1])
 			f2.Sub(&p2.X, &tab[k+1])
@@ -126,7 +126,7 @@ func tateMillerPre(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Aff
 			k += 4
 			i--
 
-			if s[i] > 0 {
+			if tateNAF[i] > 0 {
 				f1.Mul(&tab[k], &u2)
 				f1.Sub(&u1, &f1)
 				f2.Mul(&tab[k], &u3)
@@ -141,7 +141,7 @@ func tateMillerPre(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Aff
 				k += 2
 			}
 
-			if s[i] < 0 {
+			if tateNAF[i] < 0 {
 				f1.Sub(&p.X, &tab[k+1])
 				f2.Sub(&p2.X, &tab[k+1])
 				g1.Mul(&tab[k], &u2)
@@ -159,7 +159,7 @@ func tateMillerPre(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Aff
 			continue
 		}
 
-		if s[i] == 1 || s[i] == -1 {
+		if tateNAF[i] == 1 || tateNAF[i] == -1 {
 			u0.Sub(&p.X, &tab[k])
 			g1.Sub(&p2.X, &tab[k])
 			g2.Add(&p.X, &tab[k+2])
@@ -182,7 +182,7 @@ func tateMillerPre(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Aff
 			n2.Mul(n2, &f2)
 			d2.Mul(d2, &g1)
 			d2.Square(d2)
-			if s[i] < 0 {
+			if tateNAF[i] < 0 {
 				d1.Mul(d1, &u2)
 				d2.Mul(d2, &u3)
 			}
@@ -213,7 +213,7 @@ func tateMillerPre(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Aff
 		i--
 	}
 
-	if s[0] < 0 {
+	if tateNAF[0] < 0 {
 		g1.Sub(&p.X, &tab[k])
 		g2.Sub(&p2.X, &tab[k])
 		n1.Square(n1)
@@ -249,14 +249,13 @@ func G1TatePreTableDefault() G1TatePreTable {
 
 // G1MillerTab precomputes the lookup table used by the Tate-based G1 membership test.
 func G1MillerTab(q *G1Affine) G1TatePreTable {
-	s := tateNAFDigits()
-	i := len(s) - 2
+	i := 63
 	j := 0
-	if s[0] < 0 {
+	if tateNAF[0] < 0 {
 		j = 1
 	}
 
-	tab := make([]fp.Element, 0, len(s)*4)
+	tab := make([]fp.Element, 0, len(tateNAF)*4)
 	var t0, t1, qNeg G1Affine
 	t0.Set(q)
 	qNeg.Neg(q)
@@ -264,7 +263,7 @@ func G1MillerTab(q *G1Affine) G1TatePreTable {
 	var u0, u1 fp.Element
 
 	for i >= j {
-		if s[i] == 0 && i > j {
+		if tateNAF[i] == 0 && i > j {
 			u0.Square(&t0.X)
 			u1.Double(&u0)
 			u0.Add(&u0, &u1)
@@ -287,7 +286,7 @@ func G1MillerTab(q *G1Affine) G1TatePreTable {
 			t0.Double(&t0)
 			i--
 
-			if s[i] > 0 {
+			if tateNAF[i] > 0 {
 				u0.Sub(&t0.Y, &q.Y)
 				u1.Sub(&t0.X, &q.X)
 				u1.Inverse(&u1)
@@ -295,7 +294,7 @@ func G1MillerTab(q *G1Affine) G1TatePreTable {
 				tab = append(tab, u0, t0.X)
 				t0.Add(&t0, q)
 			}
-			if s[i] < 0 {
+			if tateNAF[i] < 0 {
 				u0.Add(&t0.Y, &q.Y)
 				u1.Sub(&q.X, &t0.X)
 				u1.Inverse(&u1)
@@ -307,7 +306,7 @@ func G1MillerTab(q *G1Affine) G1TatePreTable {
 			continue
 		}
 
-		if s[i] == 1 {
+		if tateNAF[i] == 1 {
 			tab = append(tab, t0.X, t0.Y)
 
 			var lambda1, lambda2 fp.Element
@@ -333,7 +332,7 @@ func G1MillerTab(q *G1Affine) G1TatePreTable {
 			continue
 		}
 
-		if s[i] == -1 {
+		if tateNAF[i] == -1 {
 			tab = append(tab, t0.X, t0.Y)
 
 			var lambda1, lambda2 fp.Element
@@ -373,7 +372,7 @@ func G1MillerTab(q *G1Affine) G1TatePreTable {
 		i--
 	}
 
-	if s[0] < 0 {
+	if tateNAF[0] < 0 {
 		tab = append(tab, t0.X)
 	}
 
@@ -834,43 +833,4 @@ func fpExpZ(z, x *fp.Element) {
 	}
 
 	z.Set(&u0)
-}
-
-func tateNAFDigits() []int8 {
-	tateNafOnce.Do(func() {
-		tateNafLen = nafDigitsFixed(&tateNafDigits, &xGen)
-	})
-	return tateNafDigits[:tateNafLen]
-}
-
-func nafDigitsFixed(out *[tateNafMaxLen]int8, n *big.Int) int {
-	k := new(big.Int).Set(n)
-	one := big.NewInt(1)
-	three := big.NewInt(3)
-
-	i := 0
-	for k.Sign() > 0 {
-		if k.Bit(0) == 1 {
-			mod4 := new(big.Int).And(k, three).Int64()
-			z := int8(1)
-			if mod4 == 3 {
-				z = -1
-			}
-			out[i] = z
-			if z > 0 {
-				k.Sub(k, one)
-			} else {
-				k.Add(k, one)
-			}
-		} else {
-			out[i] = 0
-		}
-		i++
-		k.Rsh(k, 1)
-	}
-	if i == 0 {
-		out[0] = 0
-		i = 1
-	}
-	return i
 }
