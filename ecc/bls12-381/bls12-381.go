@@ -53,9 +53,11 @@ var bTwistCurveCoeff fptower.E2
 // generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)
 var g1Gen G1Jac
 var g2Gen G2Jac
-
 var g1GenAff G1Affine
 var g2GenAff G2Affine
+
+// e2-torsion point for Tate-based G1 membership test
+var torsionPoint G1Affine
 
 // point at infinity
 var g1Infinity G1Jac
@@ -122,6 +124,9 @@ func init() {
 
 	g1GenAff.FromJacobian(&g1Gen)
 	g2GenAff.FromJacobian(&g2Gen)
+
+	torsionPoint.X.SetString("0xD82B23C3EE86C6B55930A7755FEB499A697AAE08D97E677F61EBF6894E57EC7434DA198FE1FBF0EF1C7004640A74203")
+	torsionPoint.Y.SetString("0x75868854578CF684F73F747280EF3F0A86CD94B3FB5954BC8B6FA4888BE7B2FB766E6DAF6F4F0AB9FE3E757B4BE8404")
 
 	// (X,Y,Z) = (1,1,0)
 	g1Infinity.X.SetOne()

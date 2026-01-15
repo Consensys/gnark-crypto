@@ -10,7 +10,7 @@ import (
 
 func TestG1SubGroupMembershipTate(t *testing.T) {
 	t.Parallel()
-	tab := G1TatePreTableDefault()
+	tab := precomputeTableDefault()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
 		parameters.MinSuccessfulTests = nbFuzzShort
@@ -20,20 +20,20 @@ func TestG1SubGroupMembershipTate(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[BLS12-381] IsInSubGroupTatePre should output true for points on G1", prop.ForAll(
+	properties.Property("[BLS12-381] IsInSubGroupTate should output true for points on G1", prop.ForAll(
 		func(a fp.Element) bool {
 			p := MapToG1(a)
-			return p.IsInSubGroupTatePre(tab)
+			return p.IsInSubGroupTate(tab)
 		},
 		GenFp(),
 	))
 
-	properties.Property("[BLS12-381] IsInSubGroupTatePre should output false for points not on G1", prop.ForAll(
+	properties.Property("[BLS12-381] IsInSubGroupTate should output false for points not on G1", prop.ForAll(
 		func(a fp.Element) bool {
 			p := fuzzCofactorOfG1(a)
 			var paff G1Affine
 			paff.FromJacobian(&p)
-			return !paff.IsInSubGroupTatePre(tab)
+			return !paff.IsInSubGroupTate(tab)
 		},
 		GenFp(),
 	))
@@ -41,14 +41,14 @@ func TestG1SubGroupMembershipTate(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func BenchmarkG1IsInSubGroupTatePre(b *testing.B) {
+// bench
+func BenchmarkG1IsInSubGroupTate(b *testing.B) {
 	var p G1Affine
 	p.Set(&g1GenAff)
-	q := G1TateGen()
-	tab := G1MillerTab(&q)
+	tab := generateTable(&torsionPoint)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		p.IsInSubGroupTatePre(tab)
+		p.IsInSubGroupTate(tab)
 	}
 }

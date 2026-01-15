@@ -1,59 +1,28 @@
 package bls12381
 
-import (
-	"math/big"
-	"sync"
+import "github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
-)
-
-const (
-	g1TateGenX = "0xD82B23C3EE86C6B55930A7755FEB499A697AAE08D97E677F61EBF6894E57EC7434DA198FE1FBF0EF1C7004640A74203"
-	g1TateGenY = "0x75868854578CF684F73F747280EF3F0A86CD94B3FB5954BC8B6FA4888BE7B2FB766E6DAF6F4F0AB9FE3E757B4BE8404"
-)
-
-var (
-	g1TateGenOnce sync.Once
-	g1TateGenAff  G1Affine
-
-	g1TatePreTableOnce sync.Once
-	g1TatePreTable     G1TatePreTable
-
-	tateExp1Once     sync.Once
-	tateExp1Exponent big.Int
-)
-
-// G1TatePreTable holds the precomputation table and its associated auxiliary point.
-type G1TatePreTable struct {
-	Q   G1Affine
-	Tab []fp.Element
-}
-
-var tateNAF = [65]int8{
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, -1, 0, 1,
-}
-
-// IsInSubGroupTatePre checks whether p is in the correct subgroup using the Tate test with precomputation.
-func (p *G1Affine) IsInSubGroupTatePre(tab G1TatePreTable) bool {
-	return G1IsValidTatePre(p, &tab.Q, tab.Tab)
-}
-
-// G1IsValidTatePre checks whether a is in the correct subgroup using the Tate test with precomputation.
-func G1IsValidTatePre(a, q *G1Affine, tab []fp.Element) bool {
-	if a.IsInfinity() {
+// IsInSubGroupTate checks whether p is in the correct subgroup using the
+// Tate-based test with precomputation.
+//
+// It follows "Revisiting subgroup membership testing on pairing-friendly
+// curves via the Tate pairing" by Y.  Dai et al.
+// https://eprint.iacr.org/2024/1790.pdf (Alg.4 and 5).
+func (p *G1Affine) IsInSubGroupTate(tab loopkupTable) bool {
+	if p.IsInfinity() {
 		return false
 	}
-	if !a.IsOnCurve() {
+	if !p.IsOnCurve() {
 		return false
 	}
-	return testTatePre(a, q, tab)
+	return membershipTest(p, &tab.q, tab.tab)
 }
 
-func testTatePre(p, q *G1Affine, tab []fp.Element) bool {
-	var p2 G1Affine
+// membershipTest performs Algorithm 5.
+func membershipTest(p, q *G1Affine, tab []fp.Element) bool {
+
+	// Step 1: Algorithm 4.
+	var p2 /* phi(p) */ G1Affine
 	p2.X.Mul(&p.X, &thirdRootOneG1)
 	p2.Y.Set(&p.Y)
 
@@ -62,28 +31,29 @@ func testTatePre(p, q *G1Affine, tab []fp.Element) bool {
 	n2.Sub(&p2.X, &q.X)
 	d1.SetOne()
 	d2.SetOne()
-	tateMillerPre(tab, &n1, &d1, &n2, &d2, q, p, &p2)
+	// shared Miller loop with precomputation
+	sharedMillerloop(tab, &n1, &d1, &n2, &d2, q, p, &p2)
 
 	if n1.IsZero() || d1.IsZero() || n2.IsZero() || d2.IsZero() {
 		return false
 	}
 
+	// steps 5-8: simultaneous inversion and final exponentiations.
 	n1.Mul(&n1, &d2)
 	n2.Mul(&n2, &d1)
 	d1.Mul(&d1, &d2)
 	d1.Inverse(&d1)
 	n1.Mul(&n1, &d1)
 	n2.Mul(&n2, &d1)
-	tateExp1(&n1)
-	tateExp2(&n2, &d2, &n2)
-	return n2.Equal(&d2) && n1.IsOne()
+
+	return f1IsOne(&n1) && f2IsOne(&n2)
 }
 
-func tateMillerPre(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Affine) {
+func sharedMillerloop(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Affine) {
 	i := 63
 	j := 0
 	k := 0
-	if tateNAF[0] < 0 {
+	if naf[0] < 0 {
 		j = 1
 	}
 
@@ -96,7 +66,7 @@ func tateMillerPre(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Aff
 	u3.Sub(&p2.X, &q.X)
 
 	for i >= j {
-		if tateNAF[i] == 0 && i > j {
+		if naf[i] == 0 && i > j {
 			u0.Sub(&p.Y, &tab[k+2])
 			f1.Sub(&p.X, &tab[k+1])
 			f2.Sub(&p2.X, &tab[k+1])
@@ -126,7 +96,7 @@ func tateMillerPre(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Aff
 			k += 4
 			i--
 
-			if tateNAF[i] > 0 {
+			if naf[i] > 0 {
 				f1.Mul(&tab[k], &u2)
 				f1.Sub(&u1, &f1)
 				f2.Mul(&tab[k], &u3)
@@ -141,7 +111,7 @@ func tateMillerPre(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Aff
 				k += 2
 			}
 
-			if tateNAF[i] < 0 {
+			if naf[i] < 0 {
 				f1.Sub(&p.X, &tab[k+1])
 				f2.Sub(&p2.X, &tab[k+1])
 				g1.Mul(&tab[k], &u2)
@@ -159,7 +129,7 @@ func tateMillerPre(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Aff
 			continue
 		}
 
-		if tateNAF[i] == 1 || tateNAF[i] == -1 {
+		if naf[i] == 1 || naf[i] == -1 {
 			u0.Sub(&p.X, &tab[k])
 			g1.Sub(&p2.X, &tab[k])
 			g2.Add(&p.X, &tab[k+2])
@@ -182,7 +152,7 @@ func tateMillerPre(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Aff
 			n2.Mul(n2, &f2)
 			d2.Mul(d2, &g1)
 			d2.Square(d2)
-			if tateNAF[i] < 0 {
+			if naf[i] < 0 {
 				d1.Mul(d1, &u2)
 				d2.Mul(d2, &u3)
 			}
@@ -213,7 +183,7 @@ func tateMillerPre(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Aff
 		i--
 	}
 
-	if tateNAF[0] < 0 {
+	if naf[0] < 0 {
 		g1.Sub(&p.X, &tab[k])
 		g2.Sub(&p2.X, &tab[k])
 		n1.Square(n1)
@@ -225,167 +195,58 @@ func tateMillerPre(tab []fp.Element, n1, d1, n2, d2 *fp.Element, q, p, p2 *G1Aff
 	}
 }
 
-// G1TateGen returns the auxiliary point used by the Tate-based G1 membership test.
-func G1TateGen() G1Affine {
-	g1TateGenOnce.Do(func() {
-		if _, err := g1TateGenAff.X.SetString(g1TateGenX); err != nil {
-			panic(err)
-		}
-		if _, err := g1TateGenAff.Y.SetString(g1TateGenY); err != nil {
-			panic(err)
-		}
-	})
-	return g1TateGenAff
+// f2IsOne raises x to exp2 = |z^5-z^4-z^3+z^2+z+2| and checks if the result is 1
+func f2IsOne(x *fp.Element) bool {
+	var u0, u1, u2, u3 fp.Element
+
+	// Section 4.3: exp2 final exponentiation for the Tate test.
+	u0.Square(x)
+	expBySeed(&u1, x)
+	expBySeed(&u2, &u1)
+	expBySeed(&u3, &u2)
+	u0.Mul(&u0, &u2)
+	u0.Mul(&u0, &u3)
+	expBySeed(&u3, &u3)
+	u1.Mul(&u1, &u3)
+	expBySeed(&u3, &u3)
+	u1.Mul(&u1, &u3)
+
+	return u0.Equal(&u1)
 }
 
-// G1TatePreTableDefault returns a cached precomputation table for G1TateGen.
-func G1TatePreTableDefault() G1TatePreTable {
-	g1TatePreTableOnce.Do(func() {
-		q := G1TateGen()
-		g1TatePreTable = G1MillerTab(&q)
-	})
-	return g1TatePreTable
+// expBySeed computes z = x^z where z = -0x396c8c005555e1568c00aaab0000aaab
+func expBySeed(z, x *fp.Element) {
+	var u0 fp.Element
+	u0.Square(x)
+	u0.Mul(&u0, x)
+	u0.Square(&u0)
+	u0.Square(&u0)
+	u0.Mul(&u0, x)
+	u0.Square(&u0)
+	u0.Square(&u0)
+	u0.Square(&u0)
+	u0.Mul(&u0, x)
+	for i := 0; i < 9; i++ {
+		u0.Square(&u0)
+	}
+	u0.Mul(&u0, x)
+	for i := 0; i < 32; i++ {
+		u0.Square(&u0)
+	}
+	u0.Mul(&u0, x)
+	for i := 0; i < 16; i++ {
+		u0.Square(&u0)
+	}
+
+	z.Set(&u0)
 }
 
-// G1MillerTab precomputes the lookup table used by the Tate-based G1 membership test.
-func G1MillerTab(q *G1Affine) G1TatePreTable {
-	i := 63
-	j := 0
-	if tateNAF[0] < 0 {
-		j = 1
-	}
-
-	tab := make([]fp.Element, 0, len(tateNAF)*4)
-	var t0, t1, qNeg G1Affine
-	t0.Set(q)
-	qNeg.Neg(q)
-
-	var u0, u1 fp.Element
-
-	for i >= j {
-		if tateNAF[i] == 0 && i > j {
-			u0.Square(&t0.X)
-			u1.Double(&u0)
-			u0.Add(&u0, &u1)
-			u1.Double(&t0.Y)
-			u1.Inverse(&u1)
-			u1.Neg(&u1)
-			u0.Mul(&u0, &u1)
-			tab = append(tab, u0)
-
-			t0.Double(&t0)
-			u0.Square(&t0.X)
-			u1.Double(&u0)
-			u0.Add(&u0, &u1)
-			u1.Double(&t0.Y)
-			u1.Inverse(&u1)
-			tab = append(tab, t0.X, t0.Y)
-			u0.Mul(&u0, &u1)
-			tab = append(tab, u0)
-
-			t0.Double(&t0)
-			i--
-
-			if tateNAF[i] > 0 {
-				u0.Sub(&t0.Y, &q.Y)
-				u1.Sub(&t0.X, &q.X)
-				u1.Inverse(&u1)
-				u0.Mul(&u0, &u1)
-				tab = append(tab, u0, t0.X)
-				t0.Add(&t0, q)
-			}
-			if tateNAF[i] < 0 {
-				u0.Add(&t0.Y, &q.Y)
-				u1.Sub(&q.X, &t0.X)
-				u1.Inverse(&u1)
-				u0.Mul(&u0, &u1)
-				t0.Add(&t0, &qNeg)
-				tab = append(tab, u0, t0.X)
-			}
-			i--
-			continue
-		}
-
-		if tateNAF[i] == 1 {
-			tab = append(tab, t0.X, t0.Y)
-
-			var lambda1, lambda2 fp.Element
-			lambda1.Sub(&t0.Y, &q.Y)
-			lambda2.Sub(&t0.X, &q.X)
-			lambda2.Inverse(&lambda2)
-			lambda1.Mul(&lambda1, &lambda2)
-
-			t1.Add(&t0, q)
-			lambda2.Sub(&t1.Y, &t0.Y)
-			u0.Sub(&t1.X, &t0.X)
-			u0.Inverse(&u0)
-			lambda2.Mul(&lambda2, &u0)
-
-			u0.Mul(&lambda1, &lambda2)
-			lambda2.Add(&lambda1, &lambda2)
-			u0.Add(&u0, &t0.X)
-			u0.Add(&u0, &t1.X)
-			tab = append(tab, u0, lambda2)
-
-			t0.Add(&t1, &t0)
-			i--
-			continue
-		}
-
-		if tateNAF[i] == -1 {
-			tab = append(tab, t0.X, t0.Y)
-
-			var lambda1, lambda2 fp.Element
-			lambda1.Add(&t0.Y, &q.Y)
-			lambda2.Sub(&t0.X, &q.X)
-			lambda2.Inverse(&lambda2)
-			lambda1.Mul(&lambda1, &lambda2)
-
-			t1.Sub(&t0, q)
-			lambda2.Sub(&t1.Y, &t0.Y)
-			u0.Sub(&t1.X, &t0.X)
-			u0.Inverse(&u0)
-			lambda2.Mul(&lambda2, &u0)
-
-			u0.Mul(&lambda1, &lambda2)
-			lambda2.Add(&lambda1, &lambda2)
-			u0.Add(&u0, &t0.X)
-			u0.Add(&u0, &t1.X)
-			tab = append(tab, u0, lambda2)
-
-			t0.Add(&t1, &t0)
-			i--
-			continue
-		}
-
-		u0.Square(&t0.X)
-		u1.Double(&u0)
-		u0.Add(&u0, &u1)
-		u1.Double(&t0.Y)
-		u1.Inverse(&u1)
-		u1.Neg(&u1)
-		u0.Mul(&u0, &u1)
-		tab = append(tab, u0)
-
-		t0.Double(&t0)
-		tab = append(tab, t0.X, t0.Y)
-		i--
-	}
-
-	if tateNAF[0] < 0 {
-		tab = append(tab, t0.X)
-	}
-
-	return G1TatePreTable{
-		Q:   *q,
-		Tab: tab,
-	}
-}
-
-func tateExp1(x *fp.Element) {
+// f1IsOne raises x to exp1 = (p-1)/e2 and checks if the result is 1
+func f1IsOne(x *fp.Element) bool {
 	// Operations: 311 squares 70 multiplies
 	//
 	// Generated by github.com/mmcloughlin/addchain v0.4.0.
+	// Section 4.3: exp1 final exponentiation for the Tate test.
 
 	// Allocate Temporaries.
 	var z, t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26 fp.Element
@@ -788,49 +649,5 @@ func tateExp1(x *fp.Element) {
 	// Step 381: z = x^0x1fb322654a7cef70462f7d205cf17f1d6b52eca5fe8d9bbd809536aad8a973fff0aaaaaa5555aaaa
 	z.Square(&z)
 
-	x.Set(&z)
-}
-
-func tateExp2(a, c, b *fp.Element) {
-	var u0, u1, u2, u3 fp.Element
-
-	u0.Square(b)
-	fpExpZ(&u1, b)
-	fpExpZ(&u2, &u1)
-	fpExpZ(&u3, &u2)
-	u0.Mul(&u0, &u2)
-	u0.Mul(&u0, &u3)
-	fpExpZ(&u3, &u3)
-	u1.Mul(&u1, &u3)
-	fpExpZ(&u3, &u3)
-	u1.Mul(&u1, &u3)
-
-	a.Set(&u0)
-	c.Set(&u1)
-}
-
-func fpExpZ(z, x *fp.Element) {
-	var u0 fp.Element
-	u0.Square(x)
-	u0.Mul(&u0, x)
-	u0.Square(&u0)
-	u0.Square(&u0)
-	u0.Mul(&u0, x)
-	u0.Square(&u0)
-	u0.Square(&u0)
-	u0.Square(&u0)
-	u0.Mul(&u0, x)
-	for i := 0; i < 9; i++ {
-		u0.Square(&u0)
-	}
-	u0.Mul(&u0, x)
-	for i := 0; i < 32; i++ {
-		u0.Square(&u0)
-	}
-	u0.Mul(&u0, x)
-	for i := 0; i < 16; i++ {
-		u0.Square(&u0)
-	}
-
-	z.Set(&u0)
+	return z.IsOne()
 }
