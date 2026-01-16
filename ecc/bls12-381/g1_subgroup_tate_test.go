@@ -45,7 +45,7 @@ func TestG1SubGroupMembershipTate(t *testing.T) {
 func BenchmarkG1IsInSubGroupTate(b *testing.B) {
 	var p G1Affine
 	p.Set(&g1GenAff)
-	tab := generateTable(&torsionPoint)
+	tab := precomputeTableDefault()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
