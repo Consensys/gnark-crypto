@@ -660,3 +660,125 @@ func (f *FFAmd64) transposeFromIFMA(in0, in1, in2, in3, out0, out1, out2, out3 s
 	f.VSHUFI64X2("$0xD8", out2, out2, out2)
 	f.VSHUFI64X2("$0xD8", out3, out3, out3)
 }
+
+// generateInnerProdVecIFMA generates AVX-512 IFMA based inner product.
+// This multiplies pairs of elements using IFMA and accumulates into 8 qword accumulators
+// like sumVec does, returning raw accumulators for Go to reduce.
+//
+// Strategy:
+// 1. Process 8 element pairs using IFMA Montgomery multiplication
+// 2. Convert products from radix-52 to radix-64 (SoA format: Z14-Z17)
+// 3. Horizontally sum each limb across the 8 products -> 4 qwords per iteration
+// 4. Split each qword into low/high 32 bits and add to running accumulators
+// 5. Return 8 qwords in same format as sumVec for Go to reduce
+func (f *FFAmd64) generateInnerProdVecIFMA() {
+	f.Comment("innerProdVecIFMA(t *[8]uint64, a, b *Element, n uint64)")
+	f.Comment("Computes inner product using IFMA multiplication and lazy accumulation")
+	f.Comment("Processes 8 element pairs in parallel, accumulates into 8 qword accumulators")
+
+	const argSize = 4 * 8
+	stackSize := 0 // accumulators stored directly to output buffer
+	registers := f.FnHeader("innerProdVecIFMA", stackSize, argSize, amd64.AX, amd64.DX)
+	defer f.AssertCleanStack(stackSize, 0)
+
+	addrT := f.Pop(&registers)
+	addrA := f.Pop(&registers)
+	addrB := f.Pop(&registers)
+	n := f.Pop(&registers)
+
+	loop := f.NewLabel("loop")
+	done := f.NewLabel("done")
+
+	f.MOVQ("t+0(FP)", addrT)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("n+24(FP)", n)
+
+	f.Comment("Initialize 8 qword accumulators in output buffer to zero")
+	f.Comment("acc[0]=a0_low, acc[1]=a0_high, acc[2]=a1_low, ..., acc[7]=a3_high")
+	f.VPXORQ(amd64.Z0, amd64.Z0, amd64.Z0)
+	f.VMOVDQU64(amd64.Z0, fmt.Sprintf("0(%s)", addrT))
+
+	f.Comment("Load constants for radix-52 conversion and reduction")
+	h := f.newIfmaHelper()
+	h.initIFMAConstants()
+
+	f.LABEL(loop)
+	f.TESTQ(n, n)
+	f.JEQ(done, "n == 0, we are done")
+
+	f.Comment("Process 8 element pairs in parallel")
+
+	f.Comment("Load and convert 8 elements from a[] to radix-52")
+	h.loadAndConvertToRadix52(addrA, "Z0", "Z1", "Z2", "Z3", "Z4")
+
+	f.Comment("Load and convert 8 elements from b[] to radix-52")
+	h.loadAndConvertToRadix52(addrB, "Z5", "Z6", "Z7", "Z8", "Z9")
+
+	f.Comment("Montgomery multiplication using IFMA (CIOS variant)")
+	h.montgomeryMulIFMAWithDefines()
+
+	f.Comment("Barrett reduction from [0, 32q) to [0, q)")
+	h.barrettReductionWithDefines()
+
+	f.Comment("Convert result from radix-52 back to radix-64 (SoA format)")
+	f.Comment("Z14=all a0, Z15=all a1, Z16=all a2, Z17=all a3")
+	h.convertFromRadix52("Z0", "Z1", "Z2", "Z3", "Z4", "Z14", "Z15", "Z16", "Z17")
+
+	f.Comment("Split dwords and horizontal sum each accumulator position")
+	f.Comment("Split before horizontal sum to avoid overflow (8 * 2^32 < 2^64)")
+
+	// Create mask for low 32 bits
+	f.MOVQ("$0xFFFFFFFF", amd64.AX)
+	f.VPBROADCASTQ(amd64.AX, amd64.Z20, "mask for low 32 bits")
+
+	// Process each limb: split into low/high, then horizontal sum each
+	// Z14 = [p0.a0, p1.a0, ..., p7.a0]
+	// -> extract low 32 bits: [p0.a0_lo, p1.a0_lo, ..., p7.a0_lo]
+	// -> horizontal sum -> add to acc[0]
+	// -> extract high 32 bits: [p0.a0_hi, p1.a0_hi, ..., p7.a0_hi]
+	// -> horizontal sum -> add to acc[1]
+	for i, limb := range []string{"Z14", "Z15", "Z16", "Z17"} {
+		accLowIdx := i * 2
+		accHighIdx := i*2 + 1
+
+		// Extract low 32 bits and horizontal sum
+		f.Comment(fmt.Sprintf("Limb %d low 32 bits -> acc[%d]", i, accLowIdx))
+		f.VPANDQ(amd64.Z20, limb, amd64.Z18)
+		// Horizontal sum: 8 qwords -> 1 qword
+		f.VEXTRACTI64X4("$1", amd64.Z18, "Y19")
+		f.VPADDQ("Y19", "Y18", "Y18")
+		f.VEXTRACTI64X2("$1", "Y18", "X19")
+		f.VPADDQ("X19", "X18", "X18")
+		f.VPSHUFD("$0xEE", "X18", "X19")
+		f.VPADDQ("X19", "X18", "X18")
+		f.VMOVQ("X18", amd64.R8)
+		f.ADDQ(amd64.R8, fmt.Sprintf("%d(%s)", accLowIdx*8, addrT))
+
+		// Extract high 32 bits and horizontal sum
+		f.Comment(fmt.Sprintf("Limb %d high 32 bits -> acc[%d]", i, accHighIdx))
+		f.VPSRLQ("$32", limb, amd64.Z18)
+		// Horizontal sum: 8 qwords -> 1 qword
+		f.VEXTRACTI64X4("$1", amd64.Z18, "Y19")
+		f.VPADDQ("Y19", "Y18", "Y18")
+		f.VEXTRACTI64X2("$1", "Y18", "X19")
+		f.VPADDQ("X19", "X18", "X18")
+		f.VPSHUFD("$0xEE", "X18", "X19")
+		f.VPADDQ("X19", "X18", "X18")
+		f.VMOVQ("X18", amd64.R8)
+		f.ADDQ(amd64.R8, fmt.Sprintf("%d(%s)", accHighIdx*8, addrT))
+	}
+
+	f.Comment("Advance pointers")
+	f.ADDQ("$256", addrA)
+	f.ADDQ("$256", addrB)
+	f.DECQ(n, "processed 1 group of 8 elements")
+
+	f.JMP(loop)
+
+	f.LABEL(done)
+
+	f.RET()
+
+	f.Push(&registers, addrT, addrA, addrB, n)
+}

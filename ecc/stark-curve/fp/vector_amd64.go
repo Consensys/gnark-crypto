@@ -138,6 +138,51 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 		return
 	}
 	const maxN = (1 << 32) - 1
+	const minN = 1 << 62 // DISABLED: IFMA not faster, use original path
+	// IFMA path with lazy reduction (available on Ice Lake+, Zen4+)
+	// Uses AVX-512 IFMA instructions for fast vectorized multiplication,
+	// then accumulates into 8 qword accumulators like sumVec
+	if cpu.SupportAVX512IFMA && n >= minN && n < maxN {
+		const blockSize = 8
+		numBlocks := n / blockSize
+
+		// Accumulate products into 8 qwords (same format as sumVec)
+		var t [8]uint64
+		innerProdVecIFMA(&t, &(*vector)[0], &other[0], numBlocks)
+
+		// Handle remaining elements
+		start := numBlocks * blockSize
+		for i := start; i < n; i++ {
+			var tmp Element
+			tmp.Mul(&(*vector)[i], &other[i])
+			// Add to accumulators in radix-2^32 format
+			t[0] += uint64(uint32(tmp[0]))
+			t[1] += tmp[0] >> 32
+			t[2] += uint64(uint32(tmp[1]))
+			t[3] += tmp[1] >> 32
+			t[4] += uint64(uint32(tmp[2]))
+			t[5] += tmp[2] >> 32
+			t[6] += uint64(uint32(tmp[3]))
+			t[7] += tmp[3] >> 32
+		}
+
+		// Reduce using big.Int (same as Sum)
+		sum := sumPool.Get().(*big.Int)
+		defer sumPool.Put(sum)
+
+		sum.SetUint64(t[7])
+		for i := 6; i >= 0; i-- {
+			sum.Lsh(sum, 32)
+			sum.Add(sum, new(big.Int).SetUint64(t[i]))
+		}
+		sum.Mod(sum, &_modulus)
+
+		words := sum.Bits()
+		for i := 0; i < len(words) && i < 4; i++ {
+			res[i] = uint64(words[i])
+		}
+		return
+	}
 	if !cpu.SupportAVX512 || n >= maxN {
 		// call innerProductVecGeneric
 		// note; we could split the vector into smaller chunks and call innerProductVec
@@ -148,6 +193,9 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 
 	return
 }
+
+//go:noescape
+func innerProdVecIFMA(t *[8]uint64, a, b *Element, n uint64)
 
 //go:noescape
 func innerProdVec(res *uint64, a, b *Element, n uint64)

@@ -345,13 +345,14 @@ func GenerateCommonASM(w io.Writer, nbWords, nbBits int, hasVector bool) error {
 		f.generateSumVecW4()
 		f.generateInnerProductW4()
 
-		// IFMA-based vector multiplication (requires Ice Lake+ or Zen4+)
+		// IFMA-based vector operations (requires Ice Lake+ or Zen4+)
 		if nbWords == 4 {
 			f.WriteLn("")
-			f.Comment("AVX-512 IFMA vector multiplication (requires Ice Lake+ or Zen4+)")
+			f.Comment("AVX-512 IFMA vector operations (requires Ice Lake+ or Zen4+)")
 			f.WriteLn("")
 			f.generateMulVecIFMA()
 			f.generateScalarMulVecIFMA()
+			f.generateInnerProdVecIFMA()
 		}
 	}
 
