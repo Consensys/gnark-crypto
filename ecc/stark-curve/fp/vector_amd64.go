@@ -60,6 +60,19 @@ func (vector *Vector) ScalarMul(a Vector, b *Element) {
 	if n == 0 {
 		return
 	}
+
+	// IFMA path (available on Ice Lake+, Zen4+)
+	// Uses AVX-512 IFMA instructions for ~2x speedup over generic
+	if cpu.SupportAVX512IFMA && n >= 8 {
+		const blockSizeIFMA = 8
+		scalarMulVecIFMA(&(*vector)[0], &a[0], b, n/blockSizeIFMA)
+		if n%blockSizeIFMA != 0 {
+			start := n - n%blockSizeIFMA
+			scalarMulVecGeneric((*vector)[start:], a[start:], b)
+		}
+		return
+	}
+
 	// the code for scalarMul is identical to mulVec; and it expects at least
 	// 2 elements in the vector to fill the Z registers
 	var bb [2]Element
@@ -177,3 +190,9 @@ func mulVec(res, a, b *Element, n uint64, qInvNeg uint64, patterns *uint64)
 //
 //go:noescape
 func mulVecIFMA(res, a, b *Element, n uint64)
+
+// scalarMulVecIFMA uses AVX-512 IFMA instructions for faster scalar multiplication
+// Only available on CPUs with AVX-512 IFMA (Ice Lake+, Zen4+)
+//
+//go:noescape
+func scalarMulVecIFMA(res, a, b *Element, n uint64)

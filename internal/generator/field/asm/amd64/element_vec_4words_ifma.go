@@ -9,6 +9,82 @@ import (
 	"github.com/consensys/bavard/amd64"
 )
 
+// ifmaHelper wraps FFAmd64 and caches Define macros for IFMA operations
+type ifmaHelper struct {
+	*FFAmd64
+
+	// Cached define functions for reuse
+	carryProp       defineFn // carry propagation (extract carry, mask, add to next)
+	borrowProp      defineFn // borrow propagation (extract sign, add to next, mask)
+	ifmaMulAccLH    defineFn // IFMA multiply-accumulate low+high
+	toRadix52Limb   defineFn // convert one limb to radix-52
+	fromRadix52Limb defineFn // convert one limb from radix-52
+	condSelect      defineFn // conditional select using VPTERNLOGQ
+	zeroReg         defineFn // zero a ZMM register
+}
+
+// newIfmaHelper creates a new IFMA helper with cached defines
+func (f *FFAmd64) newIfmaHelper() *ifmaHelper {
+	h := &ifmaHelper{FFAmd64: f}
+	h.initDefines()
+	return h
+}
+
+// initDefines initializes all the reusable Define macros
+func (h *ifmaHelper) initDefines() {
+	// CARRY_PROP: Extract carry from limb, mask it, add carry to next limb
+	// args: src, dst_mask, dst_next, mask52, tmp
+	h.carryProp = h.Define("CARRY_PROP", 5, func(args ...any) {
+		src := args[0]
+		dstMask := args[1]
+		dstNext := args[2]
+		mask52 := args[3]
+		tmp := args[4]
+		h.VPSRLQ("$52", src, tmp)
+		h.VPANDQ(mask52, src, dstMask)
+		h.VPADDQ(tmp, dstNext, dstNext)
+	}, true)
+
+	// BORROW_PROP: Extract borrow (sign bit), add to next, mask current
+	// args: src, dst_next, mask52, tmp
+	h.borrowProp = h.Define("BORROW_PROP", 4, func(args ...any) {
+		src := args[0]
+		dstNext := args[1]
+		mask52 := args[2]
+		tmp := args[3]
+		h.VPSRAQ("$63", src, tmp)
+		h.VPANDQ(mask52, src, src)
+		h.VPADDQ(tmp, dstNext, dstNext)
+	}, true)
+
+	// IFMA_MUL_ACC_LH: IFMA multiply-accumulate both low and high parts
+	// args: multiplier, multiplicand, acc_low, acc_high
+	h.ifmaMulAccLH = h.Define("IFMA_MUL_ACC_LH", 4, func(args ...any) {
+		multiplier := args[0]
+		multiplicand := args[1]
+		accLow := args[2]
+		accHigh := args[3]
+		h.VPMADD52LUQ(multiplier, multiplicand, accLow)
+		h.VPMADD52HUQ(multiplier, multiplicand, accHigh)
+	}, true)
+
+	// COND_SELECT: Conditional select using VPTERNLOGQ
+	// if mask == all 1s, keep dst; else use src
+	// args: src, mask, dst
+	h.condSelect = h.Define("COND_SELECT", 3, func(args ...any) {
+		src := args[0]
+		mask := args[1]
+		dst := args[2]
+		h.VPTERNLOGQ("$0xE2", src, mask, dst)
+	}, true)
+
+	// ZERO_REG: Zero a ZMM register
+	h.zeroReg = h.Define("ZERO_REG", 1, func(args ...any) {
+		reg := args[0]
+		h.VPXORQ(reg, reg, reg)
+	}, true)
+}
+
 // emitIFMAConstants emits the precomputed constants needed for IFMA operations
 func (f *FFAmd64) emitIFMAConstants() {
 	f.Comment("Permutation index for IFMA transpose: [0, 2, 1, 3, 4, 6, 5, 7]")
@@ -23,9 +99,6 @@ func (f *FFAmd64) emitIFMAConstants() {
 	f.DATA("·permuteIdxIFMA<>", 56, 8, "$7")
 	f.GLOBL("·permuteIdxIFMA<>", "RODATA|NOPTR", 64)
 	f.WriteLn("")
-
-	// Note: Previously had 2q, 4q, 8q, 16q constants for binary reduction.
-	// Now using Barrett reduction, so these are no longer needed.
 }
 
 // generateMulVecIFMA generates AVX-512 IFMA based vector multiplication.
@@ -56,121 +129,162 @@ func (f *FFAmd64) emitIFMAConstants() {
 // 5. Repeat for each limb
 // 6. Final conditional subtraction
 func (f *FFAmd64) generateMulVecIFMA() {
-	// Emit DATA constants before the TEXT block
 	f.emitIFMAConstants()
+	h := f.newIfmaHelper()
+	h.generateMulVecIFMABody("mulVecIFMA", false)
+}
 
-	f.Comment("mulVecIFMA(res, a, b *Element, n uint64)")
-	f.Comment("Performs n multiplications using AVX-512 IFMA instructions")
-	f.Comment("Processes 8 elements in parallel using radix-52 representation")
+// generateScalarMulVecIFMA generates IFMA-based scalar multiplication
+// This is similar to mulVecIFMA but broadcasts the scalar to all lanes
+func (f *FFAmd64) generateScalarMulVecIFMA() {
+	h := f.newIfmaHelper()
+	h.generateMulVecIFMABody("scalarMulVecIFMA", true)
+}
+
+// generateMulVecIFMABody is the common implementation for mul and scalarMul
+func (h *ifmaHelper) generateMulVecIFMABody(funcName string, scalarMul bool) {
+	if scalarMul {
+		h.Comment(fmt.Sprintf("%s(res, a, b *Element, n uint64)", funcName))
+		h.Comment("Performs n scalar multiplications using AVX-512 IFMA instructions")
+	} else {
+		h.Comment(fmt.Sprintf("%s(res, a, b *Element, n uint64)", funcName))
+		h.Comment("Performs n multiplications using AVX-512 IFMA instructions")
+	}
+	h.Comment("Processes 8 elements in parallel using radix-52 representation")
 
 	const argSize = 4 * 8
-	// We only need 4 GP registers (res, a, b, n) and use ZMM registers for SIMD
-	// No stack allocation needed as we have plenty of registers
 	stackSize := 0
-	registers := f.FnHeader("mulVecIFMA", stackSize, argSize, amd64.AX, amd64.DX)
-	defer f.AssertCleanStack(stackSize, 0)
+	registers := h.FnHeader(funcName, stackSize, argSize, amd64.AX, amd64.DX)
+	defer h.AssertCleanStack(stackSize, 0)
 
-	// Register allocation (4 registers for pointers/counters)
-	addrRes := f.Pop(&registers)
-	addrA := f.Pop(&registers)
-	addrB := f.Pop(&registers)
-	n := f.Pop(&registers)
+	addrRes := h.Pop(&registers)
+	addrA := h.Pop(&registers)
+	addrB := h.Pop(&registers)
+	n := h.Pop(&registers)
 
-	// Labels
-	loop := f.NewLabel("loop")
-	done := f.NewLabel("done")
+	loop := h.NewLabel("loop")
+	done := h.NewLabel("done")
 
-	// Load arguments
-	f.MOVQ("res+0(FP)", addrRes)
-	f.MOVQ("a+8(FP)", addrA)
-	f.MOVQ("b+16(FP)", addrB)
-	f.MOVQ("n+24(FP)", n)
+	h.MOVQ("res+0(FP)", addrRes)
+	h.MOVQ("a+8(FP)", addrA)
+	h.MOVQ("b+16(FP)", addrB)
+	h.MOVQ("n+24(FP)", n)
 
-	// Constants for radix-52
-	f.Comment("Load constants for radix-52 conversion and reduction")
+	// Initialize constants
+	h.Comment("Load constants for radix-52 conversion and reduction")
+	h.initIFMAConstants()
 
-	// Mask for 52-bit extraction - use R15 as dedicated mask register
-	f.MOVQ("$0xFFFFFFFFFFFFF", amd64.R15, "52-bit mask in R15")
-	f.VPBROADCASTQ(amd64.R15, amd64.Z31, "Z31 = mask52 for SIMD ops")
+	h.LABEL(loop)
+	h.TESTQ(n, n)
+	h.JEQ(done, "n == 0, we are done")
 
-	// Load qInvNeg for Montgomery reduction (52-bit version)
-	// qInvNeg52 = qInvNeg mod 2^52
-	f.MOVQ("$const_qInvNeg", amd64.AX)
-	f.ANDQ(amd64.R15, amd64.AX, "keep low 52 bits using mask in R15")
-	f.VPBROADCASTQ(amd64.AX, amd64.Z30, "Z30 = qInvNeg52")
+	h.Comment("Process 8 elements in parallel")
 
-	// For IFMA, we need the modulus in radix-52 form
-	// q = q0 + q1*2^64 + q2*2^128 + q3*2^192
-	// In radix-52: ql0, ql1, ql2, ql3, ql4
-	f.Comment("Load modulus in radix-52 form")
-	f.loadModulusRadix52()
+	h.Comment("Load and convert 8 elements from a[] to radix-52")
+	h.loadAndConvertToRadix52(addrA, "Z0", "Z1", "Z2", "Z3", "Z4")
 
-	f.LABEL(loop)
-	f.TESTQ(n, n)
-	f.JEQ(done, "n == 0, we are done")
+	if scalarMul {
+		// Reload scalar each iteration since Barrett reduction clobbers Z5-Z9
+		h.Comment("Load scalar and convert to radix-52 (broadcast)")
+		h.loadScalarToRadix52(addrB)
+	} else {
+		h.Comment("Load and convert 8 elements from b[] to radix-52")
+		h.loadAndConvertToRadix52(addrB, "Z5", "Z6", "Z7", "Z8", "Z9")
+	}
 
-	f.Comment("Process 8 elements in parallel")
+	h.Comment("Montgomery multiplication using IFMA (CIOS variant)")
+	h.montgomeryMulIFMAWithDefines()
 
-	// Load 8 elements from a into radix-52 format
-	f.Comment("Load and convert 8 elements from a[] to radix-52")
-	f.loadAndConvertToRadix52(addrA, "Z0", "Z1", "Z2", "Z3", "Z4") // a[0..7] in Z0-Z4
+	h.Comment("Barrett reduction from [0, 32q) to [0, q)")
+	h.barrettReductionWithDefines()
 
-	// Load 8 elements from b into radix-52 format
-	f.Comment("Load and convert 8 elements from b[] to radix-52")
-	f.loadAndConvertToRadix52(addrB, "Z5", "Z6", "Z7", "Z8", "Z9") // b[0..7] in Z5-Z9
+	h.Comment("Convert result from radix-52 back to radix-64")
+	h.convertFromRadix52("Z0", "Z1", "Z2", "Z3", "Z4", "Z14", "Z15", "Z16", "Z17")
 
-	// Perform Montgomery multiplication using IFMA
-	f.Comment("Montgomery multiplication using IFMA (BPS method)")
-	f.montgomeryMulIFMA()
+	h.Comment("Transpose back to AoS format and store")
+	h.transposeAndStore(addrRes)
 
-	// Result is in Z0-Z4 (radix-52, SoA format)
-	// x16 correction is already fused into montgomeryMulIFMA
-	// Result is in [0, 32q), need Barrett reduction to get to [0, q)
-	f.Comment("Barrett reduction from [0, 32q) to [0, q)")
-	f.barrettReduction()
+	h.Comment("Advance pointers")
+	h.ADDQ("$256", addrA)
+	if !scalarMul {
+		h.ADDQ("$256", addrB)
+	}
+	h.ADDQ("$256", addrRes)
+	h.DECQ(n, "processed 1 group of 8 elements")
 
-	// Convert result back to radix-64
-	f.Comment("Convert result from radix-52 back to radix-64")
-	f.convertFromRadix52("Z0", "Z1", "Z2", "Z3", "Z4", "Z14", "Z15", "Z16", "Z17")
+	h.JMP(loop)
 
-	// Transpose back and store
-	f.Comment("Transpose back to AoS format and store")
-	f.transposeAndStore(addrRes)
+	h.LABEL(done)
+	h.RET()
 
-	f.Comment("Advance pointers")
-	f.ADDQ("$256", addrA) // 8 elements * 32 bytes
-	f.ADDQ("$256", addrB) // 8 elements * 32 bytes
-	f.ADDQ("$256", addrRes)
-	f.DECQ(n, "processed 1 group of 8 elements")
+	h.Push(&registers, addrRes, addrA, addrB, n)
+}
 
-	f.JMP(loop)
+// initIFMAConstants initializes the constants needed for IFMA operations
+func (h *ifmaHelper) initIFMAConstants() {
+	h.MOVQ("$0xFFFFFFFFFFFFF", amd64.R15, "52-bit mask in R15")
+	h.VPBROADCASTQ(amd64.R15, amd64.Z31, "Z31 = mask52")
 
-	f.LABEL(done)
-	f.RET()
+	h.MOVQ("$const_qInvNeg", amd64.AX)
+	h.ANDQ(amd64.R15, amd64.AX, "keep low 52 bits")
+	h.VPBROADCASTQ(amd64.AX, amd64.Z30, "Z30 = qInvNeg52")
 
-	f.Push(&registers, addrRes, addrA, addrB, n)
+	h.Comment("Load modulus in radix-52 form")
+	h.loadModulusRadix52()
+}
+
+// loadScalarToRadix52 loads a scalar and broadcasts it to all lanes in radix-52
+func (h *ifmaHelper) loadScalarToRadix52(addr amd64.Register) {
+	// Load the 4 words of the scalar
+	h.MOVQ(fmt.Sprintf("0(%s)", addr), amd64.R9)
+	h.MOVQ(fmt.Sprintf("8(%s)", addr), amd64.R10)
+	h.MOVQ(fmt.Sprintf("16(%s)", addr), amd64.R11)
+	h.MOVQ(fmt.Sprintf("24(%s)", addr), amd64.R12)
+
+	// Convert to radix-52 and broadcast
+	// l0 = a0 & mask52
+	h.MOVQ(amd64.R9, amd64.R8)
+	h.ANDQ(amd64.R15, amd64.R8)
+	h.VPBROADCASTQ(amd64.R8, amd64.Z5)
+
+	// l1 = (a0 >> 52) | (a1 << 12) & mask52
+	h.SHRQ("$52", amd64.R9)
+	h.MOVQ(amd64.R10, amd64.R8)
+	h.SHLQ("$12", amd64.R8)
+	h.ORQ(amd64.R9, amd64.R8)
+	h.ANDQ(amd64.R15, amd64.R8)
+	h.VPBROADCASTQ(amd64.R8, amd64.Z6)
+
+	// l2 = (a1 >> 40) | (a2 << 24) & mask52
+	h.SHRQ("$40", amd64.R10)
+	h.MOVQ(amd64.R11, amd64.R8)
+	h.SHLQ("$24", amd64.R8)
+	h.ORQ(amd64.R10, amd64.R8)
+	h.ANDQ(amd64.R15, amd64.R8)
+	h.VPBROADCASTQ(amd64.R8, amd64.Z7)
+
+	// l3 = (a2 >> 28) | (a3 << 36) & mask52
+	h.SHRQ("$28", amd64.R11)
+	h.MOVQ(amd64.R12, amd64.R8)
+	h.SHLQ("$36", amd64.R8)
+	h.ORQ(amd64.R11, amd64.R8)
+	h.ANDQ(amd64.R15, amd64.R8)
+	h.VPBROADCASTQ(amd64.R8, amd64.Z8)
+
+	// l4 = a3 >> 16
+	h.SHRQ("$16", amd64.R12)
+	h.VPBROADCASTQ(amd64.R12, amd64.Z9)
 }
 
 func (f *FFAmd64) loadModulusRadix52() {
-	// Load q0..q3 and convert to radix-52
-	// This is done at function entry and stays in registers
 	f.Comment("q in radix-52: Z25=ql0, Z26=ql1, Z27=ql2, Z28=ql3, Z29=ql4")
-
-	// For BLS12-377 fr: q = [q0, q1, q2, q3] in radix-64
-	// q[base16] = 0x12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000001
-	// We compute the radix-52 limbs
-
-	// Note: In a full implementation, these would be precomputed constants
-	// For prototype, we compute them at runtime (slower but demonstrates the concept)
-	// Using R9-R12 to avoid clobbering addrB (CX) and n (BX)
-
 	f.Comment("Load q0-q3 and convert to radix-52")
 	f.MOVQ("$const_q0", amd64.R9)
 	f.MOVQ("$const_q1", amd64.R10)
 	f.MOVQ("$const_q2", amd64.R11)
 	f.MOVQ("$const_q3", amd64.R12)
 
-	// ql0 = q0 & mask52  (R15 contains the 52-bit mask)
+	// ql0 = q0 & mask52
 	f.MOVQ(amd64.R9, amd64.R8)
 	f.ANDQ(amd64.R15, amd64.R8)
 	f.VPBROADCASTQ(amd64.R8, amd64.Z25)
@@ -202,6 +316,165 @@ func (f *FFAmd64) loadModulusRadix52() {
 	// ql4 = q3 >> 16
 	f.SHRQ("$16", amd64.R12)
 	f.VPBROADCASTQ(amd64.R12, amd64.Z29)
+}
+
+// montgomeryMulIFMAWithDefines performs Montgomery multiplication using defines for compact output
+func (h *ifmaHelper) montgomeryMulIFMAWithDefines() {
+	h.Comment("A = [Z0-Z4], B = [Z5-Z9], result in [Z0-Z4]")
+
+	// Initialize accumulators
+	for i := 10; i <= 15; i++ {
+		h.zeroReg(fmt.Sprintf("Z%d", i))
+	}
+
+	// Process each limb of B (CIOS rounds)
+	for i := 0; i < 5; i++ {
+		h.Comment(fmt.Sprintf("CIOS Round %d", i))
+		h.ciosRound(i)
+	}
+
+	// Fused x16 shift + normalization
+	h.Comment("Fused x16 shift + normalization")
+	for i := 0; i < 5; i++ {
+		h.VPSLLQ("$4", fmt.Sprintf("Z%d", i+10), fmt.Sprintf("Z%d", i))
+	}
+
+	// Extract carries in parallel
+	for i := 0; i < 4; i++ {
+		h.VPSRLQ("$52", fmt.Sprintf("Z%d", i), fmt.Sprintf("Z%d", i+20))
+	}
+
+	// Mask limbs
+	for i := 0; i < 4; i++ {
+		h.VPANDQ(amd64.Z31, fmt.Sprintf("Z%d", i), fmt.Sprintf("Z%d", i))
+	}
+
+	// Add carries
+	for i := 0; i < 4; i++ {
+		h.VPADDQ(fmt.Sprintf("Z%d", i+20), fmt.Sprintf("Z%d", i+1), fmt.Sprintf("Z%d", i+1))
+	}
+}
+
+// ciosRound generates one round of the CIOS Montgomery multiplication
+func (h *ifmaHelper) ciosRound(i int) {
+	bi := fmt.Sprintf("Z%d", i+5)
+
+	// T += A * B[i]
+	for j := 0; j < 5; j++ {
+		aj := fmt.Sprintf("Z%d", j)
+		tLow := fmt.Sprintf("Z%d", j+10)
+		tHigh := fmt.Sprintf("Z%d", j+11)
+		h.VPMADD52LUQ(bi, aj, tLow)
+		h.VPMADD52HUQ(bi, aj, tHigh)
+	}
+
+	// Normalize T[0]
+	h.VPSRLQ("$52", amd64.Z10, amd64.Z20)
+	h.VPANDQ(amd64.Z31, amd64.Z10, amd64.Z10)
+	h.VPADDQ(amd64.Z20, amd64.Z11, amd64.Z11)
+
+	// m = T[0] * qInvNeg52 mod 2^52
+	h.VPXORQ(amd64.Z20, amd64.Z20, amd64.Z20)
+	h.VPMADD52LUQ(amd64.Z30, amd64.Z10, amd64.Z20)
+	h.VPANDQ(amd64.Z31, amd64.Z20, amd64.Z20)
+
+	// T += m * q
+	for j := 0; j < 5; j++ {
+		qj := fmt.Sprintf("Z%d", j+25)
+		tLow := fmt.Sprintf("Z%d", j+10)
+		tHigh := fmt.Sprintf("Z%d", j+11)
+		h.VPMADD52LUQ(qj, amd64.Z20, tLow)
+		h.VPMADD52HUQ(qj, amd64.Z20, tHigh)
+	}
+
+	// Shift: T[j] = T[j+1]
+	h.VPSRLQ("$52", amd64.Z10, amd64.Z20)
+	h.VPADDQ(amd64.Z20, amd64.Z11, amd64.Z10)
+	h.VMOVDQA64(amd64.Z12, amd64.Z11)
+	h.VMOVDQA64(amd64.Z13, amd64.Z12)
+	h.VMOVDQA64(amd64.Z14, amd64.Z13)
+	h.VMOVDQA64(amd64.Z15, amd64.Z14)
+	h.VPXORQ(amd64.Z15, amd64.Z15, amd64.Z15)
+}
+
+// barrettReductionWithDefines performs Barrett reduction using defines
+func (h *ifmaHelper) barrettReductionWithDefines() {
+	h.Comment("k = (l4 * mu) >> 58, subtract k*q, then conditional subtract q")
+
+	// Load Barrett constant and compute k
+	h.MOVQ("$const_muBarrett52", amd64.AX)
+	h.VPBROADCASTQ(amd64.AX, amd64.Z5)
+	h.VPSRLQ("$20", amd64.Z4, amd64.Z6)
+	h.VPMULUDQ(amd64.Z5, amd64.Z6, amd64.Z5)
+	h.VPSRLQ("$38", amd64.Z5, amd64.Z5)
+
+	// Compute k*q using VPMADD52
+	h.Comment("k*q using VPMADD52")
+	for i := 6; i <= 10; i++ {
+		h.zeroReg(fmt.Sprintf("Z%d", i))
+	}
+	for i := 15; i <= 19; i++ {
+		h.zeroReg(fmt.Sprintf("Z%d", i))
+	}
+
+	// Low parts
+	for i := 0; i < 5; i++ {
+		h.VPMADD52LUQ(fmt.Sprintf("Z%d", i+25), amd64.Z5, fmt.Sprintf("Z%d", i+6))
+	}
+
+	// High parts
+	for i := 0; i < 5; i++ {
+		h.VPMADD52HUQ(fmt.Sprintf("Z%d", i+25), amd64.Z5, fmt.Sprintf("Z%d", i+15))
+	}
+
+	// Subtract k*q from result
+	h.Comment("Subtract k*q")
+	for i := 0; i < 5; i++ {
+		h.VPSUBQ(fmt.Sprintf("Z%d", i+6), fmt.Sprintf("Z%d", i), fmt.Sprintf("Z%d", i))
+	}
+
+	// Subtract carries
+	for i := 0; i < 4; i++ {
+		h.VPSUBQ(fmt.Sprintf("Z%d", i+15), fmt.Sprintf("Z%d", i+1), fmt.Sprintf("Z%d", i+1))
+	}
+
+	// Propagate borrows
+	h.Comment("Propagate borrows")
+	for i := 0; i < 4; i++ {
+		h.borrowProp(fmt.Sprintf("Z%d", i), fmt.Sprintf("Z%d", i+1), amd64.Z31, amd64.Z15)
+	}
+	h.VPANDQ(amd64.Z31, amd64.Z4, amd64.Z4)
+
+	// Final conditional subtraction
+	h.Comment("Final conditional subtraction of q")
+	h.conditionalSubtractQWithDefines()
+}
+
+// conditionalSubtractQWithDefines performs conditional subtraction using defines
+func (h *ifmaHelper) conditionalSubtractQWithDefines() {
+	// Compute result - q
+	for i := 0; i < 5; i++ {
+		h.VPSUBQ(fmt.Sprintf("Z%d", i+25), fmt.Sprintf("Z%d", i), fmt.Sprintf("Z%d", i+10))
+	}
+
+	// Propagate borrows
+	for i := 0; i < 4; i++ {
+		h.VPSRAQ("$63", fmt.Sprintf("Z%d", i+10), amd64.Z20)
+		h.VPADDQ(amd64.Z20, fmt.Sprintf("Z%d", i+11), fmt.Sprintf("Z%d", i+11))
+	}
+
+	// Get final borrow mask
+	h.VPSRAQ("$63", amd64.Z14, amd64.Z20)
+
+	// Mask subtracted limbs
+	for i := 0; i < 5; i++ {
+		h.VPANDQ(amd64.Z31, fmt.Sprintf("Z%d", i+10), fmt.Sprintf("Z%d", i+10))
+	}
+
+	// Conditional select
+	for i := 0; i < 5; i++ {
+		h.condSelect(fmt.Sprintf("Z%d", i+10), amd64.Z20, fmt.Sprintf("Z%d", i))
+	}
 }
 
 func (f *FFAmd64) loadAndConvertToRadix52(addr amd64.Register, z0, z1, z2, z3, z4 string) {
@@ -300,294 +573,6 @@ func (f *FFAmd64) transposeForIFMA(in0, in1, in2, in3, out0, out1, out2, out3 st
 	f.VPERMQ(out1, amd64.Z22, out1)
 	f.VPERMQ(out2, amd64.Z22, out2)
 	f.VPERMQ(out3, amd64.Z22, out3)
-}
-
-func (f *FFAmd64) montgomeryMulIFMA() {
-	// Montgomery multiplication for 5-limb radix-52 numbers
-	// A in Z0-Z4, B in Z5-Z9
-	// Result in Z0-Z4
-	//
-	// Algorithm: CIOS (Coarsely Integrated Operand Scanning) variant
-	// This interleaves multiplication with Montgomery reduction for better efficiency.
-	//
-	// For each limb i of B:
-	//   1. Multiply A by B[i] and add to T
-	//   2. Compute Montgomery quotient m and add m*q to T
-	//   3. "Shift" by discarding the lowest limb
-
-	f.Comment("Montgomery multiplication using CIOS variant")
-	f.Comment("A = [Z0, Z1, Z2, Z3, Z4], B = [Z5, Z6, Z7, Z8, Z9]")
-
-	// Initialize accumulators (6 limbs: T0-T5)
-	// We only need 6 limbs because we process one B limb at a time
-	f.VPXORQ(amd64.Z10, amd64.Z10, amd64.Z10, "T0")
-	f.VPXORQ(amd64.Z11, amd64.Z11, amd64.Z11, "T1")
-	f.VPXORQ(amd64.Z12, amd64.Z12, amd64.Z12, "T2")
-	f.VPXORQ(amd64.Z13, amd64.Z13, amd64.Z13, "T3")
-	f.VPXORQ(amd64.Z14, amd64.Z14, amd64.Z14, "T4")
-	f.VPXORQ(amd64.Z15, amd64.Z15, amd64.Z15, "T5 (overflow)")
-
-	// Process each limb of B
-	for i := 0; i < 5; i++ {
-		bi := fmt.Sprintf("Z%d", i+5) // B[i] is in Z5+i
-
-		f.Comment(fmt.Sprintf("Round %d: process B[%d]", i, i))
-
-		// Step 1: T += A * B[i]
-		f.Comment("T += A * B[i]")
-		for j := 0; j < 5; j++ {
-			aj := fmt.Sprintf("Z%d", j) // A[j] is in Zj
-			tLow := fmt.Sprintf("Z%d", j+10)
-			tHigh := fmt.Sprintf("Z%d", j+11)
-			f.VPMADD52LUQ(bi, aj, tLow)
-			f.VPMADD52HUQ(bi, aj, tHigh)
-		}
-
-		// Step 2: Normalize T[0] before computing m
-		// Propagate any overflow from T[0] to T[1]
-		f.Comment("Normalize T[0]")
-		f.VPSRLQ("$52", amd64.Z10, amd64.Z20, "carry = T[0] >> 52")
-		f.VPANDQ(amd64.Z31, amd64.Z10, amd64.Z10, "T[0] &= mask52")
-		f.VPADDQ(amd64.Z20, amd64.Z11, amd64.Z11, "T[1] += carry")
-
-		// Step 3: Compute m = T[0] * qInvNeg52 mod 2^52
-		// Since T[0] is now < 2^52, we can use VPMADD52LUQ
-		f.Comment("m = T[0] * qInvNeg52 mod 2^52")
-		f.VPXORQ(amd64.Z20, amd64.Z20, amd64.Z20, "clear Z20")
-		f.VPMADD52LUQ(amd64.Z30, amd64.Z10, amd64.Z20, "Z20 = low52(T[0] * qInvNeg52)")
-		f.VPANDQ(amd64.Z31, amd64.Z20, amd64.Z20, "mask to 52 bits (m in Z20)")
-
-		// Step 4: T += m * q
-		f.Comment("T += m * q")
-		for j := 0; j < 5; j++ {
-			qj := fmt.Sprintf("Z%d", j+25) // q[j] is in Z25+j
-			tLow := fmt.Sprintf("Z%d", j+10)
-			tHigh := fmt.Sprintf("Z%d", j+11)
-			f.VPMADD52LUQ(qj, amd64.Z20, tLow)
-			f.VPMADD52HUQ(qj, amd64.Z20, tHigh)
-		}
-
-		// Step 5: Shift right - T[0] is now 0 (mod 2^52), discard it
-		// T[j] = T[j+1] for j = 0..4
-		f.Comment("Shift: T[j] = T[j+1]")
-		f.VPSRLQ("$52", amd64.Z10, amd64.Z20, "carry from T[0] (should be the only content)")
-		f.VPADDQ(amd64.Z20, amd64.Z11, amd64.Z10, "T[0] = T[1] + carry")
-		f.VMOVDQA64(amd64.Z12, amd64.Z11, "T[1] = T[2]")
-		f.VMOVDQA64(amd64.Z13, amd64.Z12, "T[2] = T[3]")
-		f.VMOVDQA64(amd64.Z14, amd64.Z13, "T[3] = T[4]")
-		f.VMOVDQA64(amd64.Z15, amd64.Z14, "T[4] = T[5]")
-		f.VPXORQ(amd64.Z15, amd64.Z15, amd64.Z15, "T[5] = 0")
-	}
-
-	// Result is in T[0..4] (Z10-Z14), copy to Z0-Z4
-	// FUSED: Copy + normalization + x16 in one pass
-	// Instead of: copy Z10-Z14 -> Z0-Z4, normalize, then x16
-	// We do: shift Z10-Z14 by 4 directly, then normalize (handles both Montgomery and x16 carries)
-	// This saves 5 VMOVDQA64 + some redundant operations
-	f.Comment("Fused: x16 shift + normalization in one pass")
-
-	// Step 1: Shift by 4 (x16) directly from Z10-Z14 to Z0-Z4
-	f.VPSLLQ("$4", amd64.Z10, amd64.Z0, "Z0 = T[0] << 4")
-	f.VPSLLQ("$4", amd64.Z11, amd64.Z1, "Z1 = T[1] << 4")
-	f.VPSLLQ("$4", amd64.Z12, amd64.Z2, "Z2 = T[2] << 4")
-	f.VPSLLQ("$4", amd64.Z13, amd64.Z3, "Z3 = T[3] << 4")
-	f.VPSLLQ("$4", amd64.Z14, amd64.Z4, "Z4 = T[4] << 4")
-
-	// Step 2: Extract all carries in parallel (up to 12 bits each: 8 from Mont + 4 from x16)
-	f.VPSRLQ("$52", amd64.Z0, amd64.Z20, "carry0")
-	f.VPSRLQ("$52", amd64.Z1, amd64.Z21, "carry1")
-	f.VPSRLQ("$52", amd64.Z2, amd64.Z22, "carry2")
-	f.VPSRLQ("$52", amd64.Z3, amd64.Z23, "carry3")
-
-	// Step 3: Mask all limbs in parallel
-	f.VPANDQ(amd64.Z31, amd64.Z0, amd64.Z0)
-	f.VPANDQ(amd64.Z31, amd64.Z1, amd64.Z1)
-	f.VPANDQ(amd64.Z31, amd64.Z2, amd64.Z2)
-	f.VPANDQ(amd64.Z31, amd64.Z3, amd64.Z3)
-	// Z4 doesn't need masking (has headroom for up to 52+12=64 bits)
-
-	// Step 4: Add all carries to next limbs in parallel
-	f.VPADDQ(amd64.Z20, amd64.Z1, amd64.Z1)
-	f.VPADDQ(amd64.Z21, amd64.Z2, amd64.Z2)
-	f.VPADDQ(amd64.Z22, amd64.Z3, amd64.Z3)
-	f.VPADDQ(amd64.Z23, amd64.Z4, amd64.Z4)
-
-	// AMM: Result is in [0, 32q), skip conditional subtraction - Barrett handles it
-	f.Comment("AMM: result in [0, 32q) after x16, Barrett reduction follows")
-}
-
-func (f *FFAmd64) conditionalSubtractQ() {
-	// Compare result with q and subtract if >= q
-	// Result in Z0-Z4 (radix-52), q in Z25-Z29 (radix-52)
-	// Z31 contains the 52-bit mask
-	//
-	// Algorithm:
-	// 1. Compute limb-wise subtraction result - q
-	// 2. Propagate borrows through the limbs
-	// 3. If final borrow occurred (result < q), keep original; else use subtracted
-	//
-	// Key insight: In radix-52 with 64-bit registers, when we do VPSUBQ:
-	// - If limb[i] >= q[i], result is correct (non-negative, fits in 52 bits)
-	// - If limb[i] < q[i], result wraps to 2^64 + limb[i] - q[i]
-	//   The low 52 bits are (limb[i] - q[i] + 2^52) mod 2^52 which is correct
-	//   after accounting for the borrow from the next limb
-	// So we MUST mask to 52 bits before using the result.
-
-	// Compute result - q into Z10-Z14
-	f.VPSUBQ(amd64.Z25, amd64.Z0, amd64.Z10)
-	f.VPSUBQ(amd64.Z26, amd64.Z1, amd64.Z11)
-	f.VPSUBQ(amd64.Z27, amd64.Z2, amd64.Z12)
-	f.VPSUBQ(amd64.Z28, amd64.Z3, amd64.Z13)
-	f.VPSUBQ(amd64.Z29, amd64.Z4, amd64.Z14)
-
-	// Propagate borrows through limbs
-	// If Z10 is negative (borrow from limb 0), subtract 1 from Z11
-	f.VPSRAQ("$63", amd64.Z10, amd64.Z20, "Z20 = -1 if borrow, 0 otherwise")
-	f.VPADDQ(amd64.Z20, amd64.Z11, amd64.Z11, "Z11 -= borrow")
-
-	f.VPSRAQ("$63", amd64.Z11, amd64.Z20)
-	f.VPADDQ(amd64.Z20, amd64.Z12, amd64.Z12)
-
-	f.VPSRAQ("$63", amd64.Z12, amd64.Z20)
-	f.VPADDQ(amd64.Z20, amd64.Z13, amd64.Z13)
-
-	f.VPSRAQ("$63", amd64.Z13, amd64.Z20)
-	f.VPADDQ(amd64.Z20, amd64.Z14, amd64.Z14)
-
-	// Z14's sign bit tells us if result < q (borrow occurred)
-	f.VPSRAQ("$63", amd64.Z14, amd64.Z20, "Z20 = all 1s if borrow (result < q), all 0s if no borrow")
-
-	// Mask the subtracted limbs to 52 bits before selection
-	// This is necessary because underflowed limbs have garbage in bits 52-63
-	f.VPANDQ(amd64.Z31, amd64.Z10, amd64.Z10)
-	f.VPANDQ(amd64.Z31, amd64.Z11, amd64.Z11)
-	f.VPANDQ(amd64.Z31, amd64.Z12, amd64.Z12)
-	f.VPANDQ(amd64.Z31, amd64.Z13, amd64.Z13)
-	f.VPANDQ(amd64.Z31, amd64.Z14, amd64.Z14)
-
-	// Select: if borrow (Z20 = all 1s), keep original; else use subtracted
-	// Using VPTERNLOGQ: dst = f(dst, src1, src2) where imm8 is truth table
-	// For VPTERNLOGQ $imm, Z10, Z20, Z0:
-	//   dst=Z0 (original), src1=Z20 (mask), src2=Z10 (subtracted)
-	// We want: if mask then original else subtracted
-	// Truth table index = dst*4 + src1*2 + src2
-	// imm8 = 0xE2 = 0b11100010: selects dst when src1=1, src2 when src1=0
-	f.Comment("Conditional select using VPTERNLOGQ (saves 10 instructions)")
-	f.VPTERNLOGQ("$0xE2", amd64.Z10, amd64.Z20, amd64.Z0)
-	f.VPTERNLOGQ("$0xE2", amd64.Z11, amd64.Z20, amd64.Z1)
-	f.VPTERNLOGQ("$0xE2", amd64.Z12, amd64.Z20, amd64.Z2)
-	f.VPTERNLOGQ("$0xE2", amd64.Z13, amd64.Z20, amd64.Z3)
-	f.VPTERNLOGQ("$0xE2", amd64.Z14, amd64.Z20, amd64.Z4)
-}
-
-func (f *FFAmd64) barrettReduction() {
-	// Barrett reduction from [0, 32q) to [0, q) using single quotient estimation:
-	// 1. k = (l4 * mu) >> 58, where mu = 0x36d9 (precomputed for this field)
-	// 2. Subtract k*q from result (k is at most 31)
-	// 3. One final conditional subtraction to handle rounding error
-	//
-	// This replaces 5 conditional subtractions (~175 instructions) with
-	// 1 multiply + 5 multiplies (for k*q) + 1 conditional subtract (~30 instructions)
-
-	f.Comment("Barrett reduction: k = (l4 * mu) >> 58, subtract k*q, then conditional subtract q")
-
-	// Load Barrett constant mu (field-specific, defined in element.go as muBarrett52)
-	// CRITICAL: VPMULUDQ only uses the low 32 bits of each operand, but l4 can be up to 50 bits
-	// after x16. We must pre-shift l4 to fit in 32 bits.
-	//
-	// Original formula: k = (l4 * mu) >> 58
-	// Since l4 can be up to 50 bits, we compute: k = ((l4 >> 20) * mu) >> 38
-	// This ensures (l4 >> 20) fits in 30 bits, making VPMULUDQ valid.
-	f.MOVQ("$const_muBarrett52", amd64.AX, "Barrett mu constant (field-specific)")
-	f.VPBROADCASTQ(amd64.AX, amd64.Z5, "Z5 = mu broadcast")
-
-	// Pre-shift l4 to fit in 32 bits for VPMULUDQ
-	f.VPSRLQ("$20", amd64.Z4, amd64.Z6, "Z6 = l4 >> 20 (fits in 30 bits)")
-
-	// Compute k = ((l4 >> 20) * mu) >> 38
-	f.VPMULUDQ(amd64.Z5, amd64.Z6, amd64.Z5, "Z5 = (l4 >> 20) * mu")
-	f.VPSRLQ("$38", amd64.Z5, amd64.Z5, "Z5 = k = ((l4 >> 20) * mu) >> 38")
-
-	// Compute k*q and subtract from result
-	// k*q needs 5 limb multiplications: k * q[i] for i=0..4
-	// CRITICAL: VPMULUDQ only uses low 32 bits, but q[i] is 52 bits!
-	// Use VPMADD52LUQ/HUQ which properly handle 52-bit operands.
-	// k is at most 31 (5 bits), q[i] is at most 52 bits, so k*q[i] < 2^57.
-	f.Comment("Compute k*q using VPMADD52 (handles 52-bit operands correctly)")
-
-	// Use VPMADD52LUQ with zero accumulator to get k * q[i]
-	// VPMADD52LUQ computes: dst += low52(src1 * src2)
-	f.VPXORQ(amd64.Z6, amd64.Z6, amd64.Z6, "Z6 = 0")
-	f.VPXORQ(amd64.Z7, amd64.Z7, amd64.Z7, "Z7 = 0")
-	f.VPXORQ(amd64.Z8, amd64.Z8, amd64.Z8, "Z8 = 0")
-	f.VPXORQ(amd64.Z9, amd64.Z9, amd64.Z9, "Z9 = 0")
-	f.VPXORQ(amd64.Z10, amd64.Z10, amd64.Z10, "Z10 = 0")
-	f.VPXORQ(amd64.Z15, amd64.Z15, amd64.Z15, "Z15 = 0 (for high parts)")
-
-	// Compute k*q[i] low 52 bits
-	f.VPMADD52LUQ(amd64.Z25, amd64.Z5, amd64.Z6, "Z6 = low52(k * q[0])")
-	f.VPMADD52LUQ(amd64.Z26, amd64.Z5, amd64.Z7, "Z7 = low52(k * q[1])")
-	f.VPMADD52LUQ(amd64.Z27, amd64.Z5, amd64.Z8, "Z8 = low52(k * q[2])")
-	f.VPMADD52LUQ(amd64.Z28, amd64.Z5, amd64.Z9, "Z9 = low52(k * q[3])")
-	f.VPMADD52LUQ(amd64.Z29, amd64.Z5, amd64.Z10, "Z10 = low52(k * q[4])")
-
-	// Compute k*q[i] high 52 bits (actually just the carry, ~5 bits max)
-	// Use Z15, Z16, Z17, Z18, Z19 for high parts
-	f.VPXORQ(amd64.Z16, amd64.Z16, amd64.Z16)
-	f.VPXORQ(amd64.Z17, amd64.Z17, amd64.Z17)
-	f.VPXORQ(amd64.Z18, amd64.Z18, amd64.Z18)
-	f.VPXORQ(amd64.Z19, amd64.Z19, amd64.Z19)
-
-	f.VPMADD52HUQ(amd64.Z25, amd64.Z5, amd64.Z15, "Z15 = high52(k * q[0])")
-	f.VPMADD52HUQ(amd64.Z26, amd64.Z5, amd64.Z16, "Z16 = high52(k * q[1])")
-	f.VPMADD52HUQ(amd64.Z27, amd64.Z5, amd64.Z17, "Z17 = high52(k * q[2])")
-	f.VPMADD52HUQ(amd64.Z28, amd64.Z5, amd64.Z18, "Z18 = high52(k * q[3])")
-	f.VPMADD52HUQ(amd64.Z29, amd64.Z5, amd64.Z19, "Z19 = high52(k * q[4])")
-
-	// Subtract k*q from result with carry propagation
-	// k*q[i] = Z[6+i] + Z[15+i] * 2^52
-	// We need to do: result[i] -= k*q[i]_low, then propagate high part as carry
-	f.Comment("Subtract k*q with carry propagation")
-
-	// Subtract low parts
-	f.VPSUBQ(amd64.Z6, amd64.Z0, amd64.Z0, "Z0 -= k*q[0]_low")
-	f.VPSUBQ(amd64.Z7, amd64.Z1, amd64.Z1, "Z1 -= k*q[1]_low")
-	f.VPSUBQ(amd64.Z8, amd64.Z2, amd64.Z2, "Z2 -= k*q[2]_low")
-	f.VPSUBQ(amd64.Z9, amd64.Z3, amd64.Z3, "Z3 -= k*q[3]_low")
-	f.VPSUBQ(amd64.Z10, amd64.Z4, amd64.Z4, "Z4 -= k*q[4]_low")
-
-	// Subtract high parts (carries) from next limbs
-	f.VPSUBQ(amd64.Z15, amd64.Z1, amd64.Z1, "Z1 -= carry from k*q[0]")
-	f.VPSUBQ(amd64.Z16, amd64.Z2, amd64.Z2, "Z2 -= carry from k*q[1]")
-	f.VPSUBQ(amd64.Z17, amd64.Z3, amd64.Z3, "Z3 -= carry from k*q[2]")
-	f.VPSUBQ(amd64.Z18, amd64.Z4, amd64.Z4, "Z4 -= carry from k*q[3]")
-	// Note: Z19 (carry from k*q[4]) should be 0 since k*q[4] < 2^52 for valid inputs
-
-	// Now propagate borrows through the result limbs
-	// If result[i] underflowed (negative), we need to borrow from result[i+1]
-	f.Comment("Propagate borrows through result")
-	f.VPSRAQ("$63", amd64.Z0, amd64.Z15, "Z15 = -1 if Z0 underflowed, 0 otherwise")
-	f.VPANDQ(amd64.Z31, amd64.Z0, amd64.Z0, "Z0 &= mask52")
-	f.VPADDQ(amd64.Z15, amd64.Z1, amd64.Z1, "Z1 += borrow (borrow is -1 or 0)")
-
-	f.VPSRAQ("$63", amd64.Z1, amd64.Z15)
-	f.VPANDQ(amd64.Z31, amd64.Z1, amd64.Z1)
-	f.VPADDQ(amd64.Z15, amd64.Z2, amd64.Z2)
-
-	f.VPSRAQ("$63", amd64.Z2, amd64.Z15)
-	f.VPANDQ(amd64.Z31, amd64.Z2, amd64.Z2)
-	f.VPADDQ(amd64.Z15, amd64.Z3, amd64.Z3)
-
-	f.VPSRAQ("$63", amd64.Z3, amd64.Z15)
-	f.VPANDQ(amd64.Z31, amd64.Z3, amd64.Z3)
-	f.VPADDQ(amd64.Z15, amd64.Z4, amd64.Z4)
-
-	f.VPANDQ(amd64.Z31, amd64.Z4, amd64.Z4, "Z4 &= mask52")
-
-	// Result is now in [0, 2q) due to Barrett rounding error
-	// One final conditional subtraction of q to get result in [0, q)
-	f.Comment("Final conditional subtraction of q")
-	f.conditionalSubtractQ()
 }
 
 func (f *FFAmd64) convertFromRadix52(l0, l1, l2, l3, l4, a0, a1, a2, a3 string) {

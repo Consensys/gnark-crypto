@@ -347,12 +347,13 @@ func GenerateCommonASM(w io.Writer, nbWords, nbBits int, hasVector bool) error {
 		f.generateMulVecW4("scalarMulVec")
 		f.generateMulVecW4("mulVec")
 
-		// IFMA-based vector multiplication (for CPUs with AVX-512 IFMA)
+		// IFMA-based vector operations (for CPUs with AVX-512 IFMA)
 		if nbWords == 4 {
 			f.WriteLn("")
-			f.Comment("AVX-512 IFMA vector multiplication (requires Ice Lake+ or Zen4+)")
+			f.Comment("AVX-512 IFMA vector operations (requires Ice Lake+ or Zen4+)")
 			f.WriteLn("")
 			f.generateMulVecIFMA()
+			f.generateScalarMulVecIFMA()
 		}
 	}
 
