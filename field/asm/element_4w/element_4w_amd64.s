@@ -2412,35 +2412,35 @@ DATA ·permuteIdxIFMA<>+56(SB)/8, $7
 GLOBL ·permuteIdxIFMA<>(SB), RODATA|NOPTR, $64
 
 // 2q in radix-52: used for binary reduction after x16 correction
-DATA ·q2Radix52<>+0(SB)/8, $0x3000000000002
-DATA ·q2Radix52<>+8(SB)/8, $0xfda0000002142
-DATA ·q2Radix52<>+16(SB)/8, $0x86f6002b354ed
-DATA ·q2Radix52<>+24(SB)/8, $0x4aacc1689a3cb
-DATA ·q2Radix52<>+32(SB)/8, $0x02556cabd3459
+DATA ·q2Radix52<>+0(SB)/8, $0x3000000000002 // 2q[0]
+DATA ·q2Radix52<>+8(SB)/8, $0xfda0000002142 // 2q[1]
+DATA ·q2Radix52<>+16(SB)/8, $0x86f6002b354ed // 2q[2]
+DATA ·q2Radix52<>+24(SB)/8, $0x4aacc1689a3cb // 2q[3]
+DATA ·q2Radix52<>+32(SB)/8, $0x02556cabd3459 // 2q[4]
 GLOBL ·q2Radix52<>(SB), RODATA|NOPTR, $40
 
 // 4q in radix-52
-DATA ·q4Radix52<>+0(SB)/8, $0x6000000000004
-DATA ·q4Radix52<>+8(SB)/8, $0xfb40000004284
-DATA ·q4Radix52<>+16(SB)/8, $0x0dec00566a9db
-DATA ·q4Radix52<>+24(SB)/8, $0x955982d134797
-DATA ·q4Radix52<>+32(SB)/8, $0x04aad957a68b2
+DATA ·q4Radix52<>+0(SB)/8, $0x6000000000004 // 4q[0]
+DATA ·q4Radix52<>+8(SB)/8, $0xfb40000004284 // 4q[1]
+DATA ·q4Radix52<>+16(SB)/8, $0x0dec00566a9db // 4q[2]
+DATA ·q4Radix52<>+24(SB)/8, $0x955982d134797 // 4q[3]
+DATA ·q4Radix52<>+32(SB)/8, $0x04aad957a68b2 // 4q[4]
 GLOBL ·q4Radix52<>(SB), RODATA|NOPTR, $40
 
 // 8q in radix-52
-DATA ·q8Radix52<>+0(SB)/8, $0xc000000000008
-DATA ·q8Radix52<>+8(SB)/8, $0xf680000008508
-DATA ·q8Radix52<>+16(SB)/8, $0x1bd800acd53b7
-DATA ·q8Radix52<>+24(SB)/8, $0x2ab305a268f2e
-DATA ·q8Radix52<>+32(SB)/8, $0x0955b2af4d165
+DATA ·q8Radix52<>+0(SB)/8, $0xc000000000008 // 8q[0]
+DATA ·q8Radix52<>+8(SB)/8, $0xf680000008508 // 8q[1]
+DATA ·q8Radix52<>+16(SB)/8, $0x1bd800acd53b7 // 8q[2]
+DATA ·q8Radix52<>+24(SB)/8, $0x2ab305a268f2e // 8q[3]
+DATA ·q8Radix52<>+32(SB)/8, $0x0955b2af4d165 // 8q[4]
 GLOBL ·q8Radix52<>(SB), RODATA|NOPTR, $40
 
 // 16q in radix-52
-DATA ·q16Radix52<>+0(SB)/8, $0x8000000000010
-DATA ·q16Radix52<>+8(SB)/8, $0xed00000010a11
-DATA ·q16Radix52<>+16(SB)/8, $0x37b00159aa76f
-DATA ·q16Radix52<>+24(SB)/8, $0x55660b44d1e5c
-DATA ·q16Radix52<>+32(SB)/8, $0x12ab655e9a2ca
+DATA ·q16Radix52<>+0(SB)/8, $0x8000000000010 // 16q[0]
+DATA ·q16Radix52<>+8(SB)/8, $0xed00000010a11 // 16q[1]
+DATA ·q16Radix52<>+16(SB)/8, $0x37b00159aa76f // 16q[2]
+DATA ·q16Radix52<>+24(SB)/8, $0x55660b44d1e5c // 16q[3]
+DATA ·q16Radix52<>+32(SB)/8, $0x12ab655e9a2ca // 16q[4]
 GLOBL ·q16Radix52<>(SB), RODATA|NOPTR, $40
 
 // mulVecIFMA(res, a, b *Element, n uint64)
@@ -2453,11 +2453,11 @@ TEXT ·mulVecIFMA(SB), NOSPLIT, $0-32
 	MOVQ n+24(FP), BX
 
 	// Load constants for radix-52 conversion and reduction
-	MOVQ         $0xFFFFFFFFFFFFF, R15
-	VPBROADCASTQ R15, Z31
+	MOVQ         $0xFFFFFFFFFFFFF, R15 // 52-bit mask in R15
+	VPBROADCASTQ R15, Z31              // Z31 = mask52 for SIMD ops
 	MOVQ         $const_qInvNeg, AX
-	ANDQ         R15, AX
-	VPBROADCASTQ AX, Z30
+	ANDQ         R15, AX               // keep low 52 bits using mask in R15
+	VPBROADCASTQ AX, Z30               // Z30 = qInvNeg52
 
 	// Load modulus in radix-52 form
 	// q in radix-52: Z25=ql0, Z26=ql1, Z27=ql2, Z28=ql3, Z29=ql4
@@ -2505,14 +2505,14 @@ loop_19:
 
 	// Transpose 8 elements for vertical SIMD processing
 	// 8x4 transpose using AVX-512 shuffles
-	VPUNPCKLQDQ Z11, Z10, Z18
-	VPUNPCKHQDQ Z11, Z10, Z19
-	VPUNPCKLQDQ Z13, Z12, Z20
-	VPUNPCKHQDQ Z13, Z12, Z21
-	VSHUFI64X2  $0x88, Z20, Z18, Z14
-	VSHUFI64X2  $0xDD, Z20, Z18, Z16
-	VSHUFI64X2  $0x88, Z21, Z19, Z15
-	VSHUFI64X2  $0xDD, Z21, Z19, Z17
+	VPUNPCKLQDQ Z11, Z10, Z18              // [e0.a0, e2.a0, e0.a2, e2.a2, e1.a0, e3.a0, e1.a2, e3.a2]
+	VPUNPCKHQDQ Z11, Z10, Z19              // [e0.a1, e2.a1, e0.a3, e2.a3, e1.a1, e3.a1, e1.a3, e3.a3]
+	VPUNPCKLQDQ Z13, Z12, Z20              // [e4.a0, e6.a0, e4.a2, e6.a2, e5.a0, e7.a0, e5.a2, e7.a2]
+	VPUNPCKHQDQ Z13, Z12, Z21              // [e4.a1, e6.a1, e4.a3, e6.a3, e5.a1, e7.a1, e5.a3, e7.a3]
+	VSHUFI64X2  $0x88, Z20, Z18, Z14       // a0: lanes 0,2 from Z18 and Z20
+	VSHUFI64X2  $0xDD, Z20, Z18, Z16       // a2: lanes 1,3 from Z18 and Z20
+	VSHUFI64X2  $0x88, Z21, Z19, Z15       // a1: lanes 0,2 from Z19 and Z21
+	VSHUFI64X2  $0xDD, Z21, Z19, Z17       // a3: lanes 1,3 from Z19 and Z21
 	VMOVDQU64   ·permuteIdxIFMA<>(SB), Z22
 	VPERMQ      Z14, Z22, Z14
 	VPERMQ      Z15, Z22, Z15
@@ -2545,14 +2545,14 @@ loop_19:
 
 	// Transpose 8 elements for vertical SIMD processing
 	// 8x4 transpose using AVX-512 shuffles
-	VPUNPCKLQDQ Z11, Z10, Z18
-	VPUNPCKHQDQ Z11, Z10, Z19
-	VPUNPCKLQDQ Z13, Z12, Z20
-	VPUNPCKHQDQ Z13, Z12, Z21
-	VSHUFI64X2  $0x88, Z20, Z18, Z14
-	VSHUFI64X2  $0xDD, Z20, Z18, Z16
-	VSHUFI64X2  $0x88, Z21, Z19, Z15
-	VSHUFI64X2  $0xDD, Z21, Z19, Z17
+	VPUNPCKLQDQ Z11, Z10, Z18              // [e0.a0, e2.a0, e0.a2, e2.a2, e1.a0, e3.a0, e1.a2, e3.a2]
+	VPUNPCKHQDQ Z11, Z10, Z19              // [e0.a1, e2.a1, e0.a3, e2.a3, e1.a1, e3.a1, e1.a3, e3.a3]
+	VPUNPCKLQDQ Z13, Z12, Z20              // [e4.a0, e6.a0, e4.a2, e6.a2, e5.a0, e7.a0, e5.a2, e7.a2]
+	VPUNPCKHQDQ Z13, Z12, Z21              // [e4.a1, e6.a1, e4.a3, e6.a3, e5.a1, e7.a1, e5.a3, e7.a3]
+	VSHUFI64X2  $0x88, Z20, Z18, Z14       // a0: lanes 0,2 from Z18 and Z20
+	VSHUFI64X2  $0xDD, Z20, Z18, Z16       // a2: lanes 1,3 from Z18 and Z20
+	VSHUFI64X2  $0x88, Z21, Z19, Z15       // a1: lanes 0,2 from Z19 and Z21
+	VSHUFI64X2  $0xDD, Z21, Z19, Z17       // a3: lanes 1,3 from Z19 and Z21
 	VMOVDQU64   ·permuteIdxIFMA<>(SB), Z22
 	VPERMQ      Z14, Z22, Z14
 	VPERMQ      Z15, Z22, Z15
@@ -2578,12 +2578,12 @@ loop_19:
 	// Montgomery multiplication using IFMA (BPS method)
 	// Montgomery multiplication using CIOS variant
 	// A = [Z0, Z1, Z2, Z3, Z4], B = [Z5, Z6, Z7, Z8, Z9]
-	VPXORQ Z10, Z10, Z10
-	VPXORQ Z11, Z11, Z11
-	VPXORQ Z12, Z12, Z12
-	VPXORQ Z13, Z13, Z13
-	VPXORQ Z14, Z14, Z14
-	VPXORQ Z15, Z15, Z15
+	VPXORQ Z10, Z10, Z10 // T0
+	VPXORQ Z11, Z11, Z11 // T1
+	VPXORQ Z12, Z12, Z12 // T2
+	VPXORQ Z13, Z13, Z13 // T3
+	VPXORQ Z14, Z14, Z14 // T4
+	VPXORQ Z15, Z15, Z15 // T5 (overflow)
 
 	// Round 0: process B[0]
 	// T += A * B[i]
@@ -2599,14 +2599,14 @@ loop_19:
 	VPMADD52HUQ Z5, Z4, Z15
 
 	// Normalize T[0]
-	VPSRLQ $52, Z10, Z20
-	VPANDQ Z31, Z10, Z10
-	VPADDQ Z20, Z11, Z11
+	VPSRLQ $52, Z10, Z20 // carry = T[0] >> 52
+	VPANDQ Z31, Z10, Z10 // T[0] &= mask52
+	VPADDQ Z20, Z11, Z11 // T[1] += carry
 
 	// m = T[0] * qInvNeg52 mod 2^52
-	VPXORQ      Z20, Z20, Z20
-	VPMADD52LUQ Z30, Z10, Z20
-	VPANDQ      Z31, Z20, Z20
+	VPXORQ      Z20, Z20, Z20 // clear Z20
+	VPMADD52LUQ Z30, Z10, Z20 // Z20 = low52(T[0] * qInvNeg52)
+	VPANDQ      Z31, Z20, Z20 // mask to 52 bits (m in Z20)
 
 	// T += m * q
 	VPMADD52LUQ Z25, Z20, Z10
@@ -2621,13 +2621,13 @@ loop_19:
 	VPMADD52HUQ Z29, Z20, Z15
 
 	// Shift: T[j] = T[j+1]
-	VPSRLQ    $52, Z10, Z20
-	VPADDQ    Z20, Z11, Z10
-	VMOVDQA64 Z12, Z11
-	VMOVDQA64 Z13, Z12
-	VMOVDQA64 Z14, Z13
-	VMOVDQA64 Z15, Z14
-	VPXORQ    Z15, Z15, Z15
+	VPSRLQ    $52, Z10, Z20 // carry from T[0] (should be the only content)
+	VPADDQ    Z20, Z11, Z10 // T[0] = T[1] + carry
+	VMOVDQA64 Z12, Z11      // T[1] = T[2]
+	VMOVDQA64 Z13, Z12      // T[2] = T[3]
+	VMOVDQA64 Z14, Z13      // T[3] = T[4]
+	VMOVDQA64 Z15, Z14      // T[4] = T[5]
+	VPXORQ    Z15, Z15, Z15 // T[5] = 0
 
 	// Round 1: process B[1]
 	// T += A * B[i]
@@ -2643,14 +2643,14 @@ loop_19:
 	VPMADD52HUQ Z6, Z4, Z15
 
 	// Normalize T[0]
-	VPSRLQ $52, Z10, Z20
-	VPANDQ Z31, Z10, Z10
-	VPADDQ Z20, Z11, Z11
+	VPSRLQ $52, Z10, Z20 // carry = T[0] >> 52
+	VPANDQ Z31, Z10, Z10 // T[0] &= mask52
+	VPADDQ Z20, Z11, Z11 // T[1] += carry
 
 	// m = T[0] * qInvNeg52 mod 2^52
-	VPXORQ      Z20, Z20, Z20
-	VPMADD52LUQ Z30, Z10, Z20
-	VPANDQ      Z31, Z20, Z20
+	VPXORQ      Z20, Z20, Z20 // clear Z20
+	VPMADD52LUQ Z30, Z10, Z20 // Z20 = low52(T[0] * qInvNeg52)
+	VPANDQ      Z31, Z20, Z20 // mask to 52 bits (m in Z20)
 
 	// T += m * q
 	VPMADD52LUQ Z25, Z20, Z10
@@ -2665,13 +2665,13 @@ loop_19:
 	VPMADD52HUQ Z29, Z20, Z15
 
 	// Shift: T[j] = T[j+1]
-	VPSRLQ    $52, Z10, Z20
-	VPADDQ    Z20, Z11, Z10
-	VMOVDQA64 Z12, Z11
-	VMOVDQA64 Z13, Z12
-	VMOVDQA64 Z14, Z13
-	VMOVDQA64 Z15, Z14
-	VPXORQ    Z15, Z15, Z15
+	VPSRLQ    $52, Z10, Z20 // carry from T[0] (should be the only content)
+	VPADDQ    Z20, Z11, Z10 // T[0] = T[1] + carry
+	VMOVDQA64 Z12, Z11      // T[1] = T[2]
+	VMOVDQA64 Z13, Z12      // T[2] = T[3]
+	VMOVDQA64 Z14, Z13      // T[3] = T[4]
+	VMOVDQA64 Z15, Z14      // T[4] = T[5]
+	VPXORQ    Z15, Z15, Z15 // T[5] = 0
 
 	// Round 2: process B[2]
 	// T += A * B[i]
@@ -2687,14 +2687,14 @@ loop_19:
 	VPMADD52HUQ Z7, Z4, Z15
 
 	// Normalize T[0]
-	VPSRLQ $52, Z10, Z20
-	VPANDQ Z31, Z10, Z10
-	VPADDQ Z20, Z11, Z11
+	VPSRLQ $52, Z10, Z20 // carry = T[0] >> 52
+	VPANDQ Z31, Z10, Z10 // T[0] &= mask52
+	VPADDQ Z20, Z11, Z11 // T[1] += carry
 
 	// m = T[0] * qInvNeg52 mod 2^52
-	VPXORQ      Z20, Z20, Z20
-	VPMADD52LUQ Z30, Z10, Z20
-	VPANDQ      Z31, Z20, Z20
+	VPXORQ      Z20, Z20, Z20 // clear Z20
+	VPMADD52LUQ Z30, Z10, Z20 // Z20 = low52(T[0] * qInvNeg52)
+	VPANDQ      Z31, Z20, Z20 // mask to 52 bits (m in Z20)
 
 	// T += m * q
 	VPMADD52LUQ Z25, Z20, Z10
@@ -2709,13 +2709,13 @@ loop_19:
 	VPMADD52HUQ Z29, Z20, Z15
 
 	// Shift: T[j] = T[j+1]
-	VPSRLQ    $52, Z10, Z20
-	VPADDQ    Z20, Z11, Z10
-	VMOVDQA64 Z12, Z11
-	VMOVDQA64 Z13, Z12
-	VMOVDQA64 Z14, Z13
-	VMOVDQA64 Z15, Z14
-	VPXORQ    Z15, Z15, Z15
+	VPSRLQ    $52, Z10, Z20 // carry from T[0] (should be the only content)
+	VPADDQ    Z20, Z11, Z10 // T[0] = T[1] + carry
+	VMOVDQA64 Z12, Z11      // T[1] = T[2]
+	VMOVDQA64 Z13, Z12      // T[2] = T[3]
+	VMOVDQA64 Z14, Z13      // T[3] = T[4]
+	VMOVDQA64 Z15, Z14      // T[4] = T[5]
+	VPXORQ    Z15, Z15, Z15 // T[5] = 0
 
 	// Round 3: process B[3]
 	// T += A * B[i]
@@ -2731,14 +2731,14 @@ loop_19:
 	VPMADD52HUQ Z8, Z4, Z15
 
 	// Normalize T[0]
-	VPSRLQ $52, Z10, Z20
-	VPANDQ Z31, Z10, Z10
-	VPADDQ Z20, Z11, Z11
+	VPSRLQ $52, Z10, Z20 // carry = T[0] >> 52
+	VPANDQ Z31, Z10, Z10 // T[0] &= mask52
+	VPADDQ Z20, Z11, Z11 // T[1] += carry
 
 	// m = T[0] * qInvNeg52 mod 2^52
-	VPXORQ      Z20, Z20, Z20
-	VPMADD52LUQ Z30, Z10, Z20
-	VPANDQ      Z31, Z20, Z20
+	VPXORQ      Z20, Z20, Z20 // clear Z20
+	VPMADD52LUQ Z30, Z10, Z20 // Z20 = low52(T[0] * qInvNeg52)
+	VPANDQ      Z31, Z20, Z20 // mask to 52 bits (m in Z20)
 
 	// T += m * q
 	VPMADD52LUQ Z25, Z20, Z10
@@ -2753,13 +2753,13 @@ loop_19:
 	VPMADD52HUQ Z29, Z20, Z15
 
 	// Shift: T[j] = T[j+1]
-	VPSRLQ    $52, Z10, Z20
-	VPADDQ    Z20, Z11, Z10
-	VMOVDQA64 Z12, Z11
-	VMOVDQA64 Z13, Z12
-	VMOVDQA64 Z14, Z13
-	VMOVDQA64 Z15, Z14
-	VPXORQ    Z15, Z15, Z15
+	VPSRLQ    $52, Z10, Z20 // carry from T[0] (should be the only content)
+	VPADDQ    Z20, Z11, Z10 // T[0] = T[1] + carry
+	VMOVDQA64 Z12, Z11      // T[1] = T[2]
+	VMOVDQA64 Z13, Z12      // T[2] = T[3]
+	VMOVDQA64 Z14, Z13      // T[3] = T[4]
+	VMOVDQA64 Z15, Z14      // T[4] = T[5]
+	VPXORQ    Z15, Z15, Z15 // T[5] = 0
 
 	// Round 4: process B[4]
 	// T += A * B[i]
@@ -2775,14 +2775,14 @@ loop_19:
 	VPMADD52HUQ Z9, Z4, Z15
 
 	// Normalize T[0]
-	VPSRLQ $52, Z10, Z20
-	VPANDQ Z31, Z10, Z10
-	VPADDQ Z20, Z11, Z11
+	VPSRLQ $52, Z10, Z20 // carry = T[0] >> 52
+	VPANDQ Z31, Z10, Z10 // T[0] &= mask52
+	VPADDQ Z20, Z11, Z11 // T[1] += carry
 
 	// m = T[0] * qInvNeg52 mod 2^52
-	VPXORQ      Z20, Z20, Z20
-	VPMADD52LUQ Z30, Z10, Z20
-	VPANDQ      Z31, Z20, Z20
+	VPXORQ      Z20, Z20, Z20 // clear Z20
+	VPMADD52LUQ Z30, Z10, Z20 // Z20 = low52(T[0] * qInvNeg52)
+	VPANDQ      Z31, Z20, Z20 // mask to 52 bits (m in Z20)
 
 	// T += m * q
 	VPMADD52LUQ Z25, Z20, Z10
@@ -2797,13 +2797,13 @@ loop_19:
 	VPMADD52HUQ Z29, Z20, Z15
 
 	// Shift: T[j] = T[j+1]
-	VPSRLQ    $52, Z10, Z20
-	VPADDQ    Z20, Z11, Z10
-	VMOVDQA64 Z12, Z11
-	VMOVDQA64 Z13, Z12
-	VMOVDQA64 Z14, Z13
-	VMOVDQA64 Z15, Z14
-	VPXORQ    Z15, Z15, Z15
+	VPSRLQ    $52, Z10, Z20 // carry from T[0] (should be the only content)
+	VPADDQ    Z20, Z11, Z10 // T[0] = T[1] + carry
+	VMOVDQA64 Z12, Z11      // T[1] = T[2]
+	VMOVDQA64 Z13, Z12      // T[2] = T[3]
+	VMOVDQA64 Z14, Z13      // T[3] = T[4]
+	VMOVDQA64 Z15, Z14      // T[4] = T[5]
+	VPXORQ    Z15, Z15, Z15 // T[5] = 0
 
 	// Copy result to Z0-Z4
 	VMOVDQA64 Z10, Z0
@@ -2832,22 +2832,22 @@ loop_19:
 	VPSUBQ  Z27, Z2, Z12
 	VPSUBQ  Z28, Z3, Z13
 	VPSUBQ  Z29, Z4, Z14
-	VPSRAQ  $63, Z10, Z20
-	VPADDQ  Z20, Z11, Z11
+	VPSRAQ  $63, Z10, Z20 // Z20 = -1 if borrow, 0 otherwise
+	VPADDQ  Z20, Z11, Z11 // Z11 -= borrow
 	VPSRAQ  $63, Z11, Z20
 	VPADDQ  Z20, Z12, Z12
 	VPSRAQ  $63, Z12, Z20
 	VPADDQ  Z20, Z13, Z13
 	VPSRAQ  $63, Z13, Z20
 	VPADDQ  Z20, Z14, Z14
-	VPSRAQ  $63, Z14, Z20
+	VPSRAQ  $63, Z14, Z20 // Z20 = all 1s if borrow (result < q), all 0s if no borrow
 	VPANDQ  Z31, Z10, Z10
 	VPANDQ  Z31, Z11, Z11
 	VPANDQ  Z31, Z12, Z12
 	VPANDQ  Z31, Z13, Z13
 	VPANDQ  Z31, Z14, Z14
-	VPANDQ  Z20, Z0, Z0
-	VPANDNQ Z10, Z20, Z10
+	VPANDQ  Z20, Z0, Z0   // keep original if borrow
+	VPANDNQ Z10, Z20, Z10 // keep subtracted if no borrow
 	VPORQ   Z10, Z0, Z0
 	VPANDQ  Z20, Z1, Z1
 	VPANDNQ Z11, Z20, Z11
@@ -2864,13 +2864,13 @@ loop_19:
 
 	// Multiply by 16 in radix-52 to correct for radix-260 vs radix-256
 	// Multiply by 16 = 2^4 (left shift with carry) in radix-52
-	VPSLLQ $4, Z0, Z10
-	VPANDQ Z31, Z10, Z0
-	VPSRLQ $52, Z10, Z15
-	VPSLLQ $4, Z1, Z10
-	VPORQ  Z15, Z10, Z10
-	VPANDQ Z31, Z10, Z1
-	VPSRLQ $52, Z10, Z15
+	VPSLLQ $4, Z0, Z10   // Z10 = l0 << 4
+	VPANDQ Z31, Z10, Z0  // Z0 = (l0 << 4) & mask52
+	VPSRLQ $52, Z10, Z15 // Z15 = carry = (l0 << 4) >> 52
+	VPSLLQ $4, Z1, Z10   // Z10 = l1 << 4
+	VPORQ  Z15, Z10, Z10 // Z10 = (l1 << 4) | carry (no overlap)
+	VPANDQ Z31, Z10, Z1  // Z1 = result & mask52
+	VPSRLQ $52, Z10, Z15 // Z15 = new carry
 	VPSLLQ $4, Z2, Z10
 	VPORQ  Z15, Z10, Z10
 	VPANDQ Z31, Z10, Z2
@@ -2880,7 +2880,7 @@ loop_19:
 	VPANDQ Z31, Z10, Z3
 	VPSRLQ $52, Z10, Z15
 	VPSLLQ $4, Z4, Z10
-	VPORQ  Z15, Z10, Z4
+	VPORQ  Z15, Z10, Z4  // Z4 = (l4 << 4) | carry
 
 	// Binary reduction: conditionally subtract 16q, 8q, 4q, 2q, q
 	VPBROADCASTQ ·q16Radix52<>+0(SB), Z5
@@ -3044,22 +3044,22 @@ loop_19:
 	VPSUBQ       Z27, Z2, Z12
 	VPSUBQ       Z28, Z3, Z13
 	VPSUBQ       Z29, Z4, Z14
-	VPSRAQ       $63, Z10, Z20
-	VPADDQ       Z20, Z11, Z11
+	VPSRAQ       $63, Z10, Z20            // Z20 = -1 if borrow, 0 otherwise
+	VPADDQ       Z20, Z11, Z11            // Z11 -= borrow
 	VPSRAQ       $63, Z11, Z20
 	VPADDQ       Z20, Z12, Z12
 	VPSRAQ       $63, Z12, Z20
 	VPADDQ       Z20, Z13, Z13
 	VPSRAQ       $63, Z13, Z20
 	VPADDQ       Z20, Z14, Z14
-	VPSRAQ       $63, Z14, Z20
+	VPSRAQ       $63, Z14, Z20            // Z20 = all 1s if borrow (result < q), all 0s if no borrow
 	VPANDQ       Z31, Z10, Z10
 	VPANDQ       Z31, Z11, Z11
 	VPANDQ       Z31, Z12, Z12
 	VPANDQ       Z31, Z13, Z13
 	VPANDQ       Z31, Z14, Z14
-	VPANDQ       Z20, Z0, Z0
-	VPANDNQ      Z10, Z20, Z10
+	VPANDQ       Z20, Z0, Z0              // keep original if borrow
+	VPANDNQ      Z10, Z20, Z10            // keep subtracted if no borrow
 	VPORQ        Z10, Z0, Z0
 	VPANDQ       Z20, Z1, Z1
 	VPANDNQ      Z11, Z20, Z11
@@ -3095,10 +3095,10 @@ loop_19:
 	VPERMQ      Z15, Z22, Z15
 	VPERMQ      Z16, Z22, Z16
 	VPERMQ      Z17, Z22, Z17
-	VPUNPCKLQDQ Z15, Z14, Z18
-	VPUNPCKHQDQ Z15, Z14, Z19
-	VPUNPCKLQDQ Z17, Z16, Z20
-	VPUNPCKHQDQ Z17, Z16, Z21
+	VPUNPCKLQDQ Z15, Z14, Z18              // pairs (a0,a1) for elements 0,1,4,5
+	VPUNPCKHQDQ Z15, Z14, Z19              // pairs (a0,a1) for elements 2,3,6,7
+	VPUNPCKLQDQ Z17, Z16, Z20              // pairs (a2,a3) for elements 0,1,4,5
+	VPUNPCKHQDQ Z17, Z16, Z21              // pairs (a2,a3) for elements 2,3,6,7
 	VSHUFI64X2  $0x44, Z20, Z18, Z10
 	VSHUFI64X2  $0x44, Z21, Z19, Z11
 	VSHUFI64X2  $0xEE, Z20, Z18, Z12

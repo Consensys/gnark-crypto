@@ -47,8 +47,8 @@ func (f *FFAmd64) generateAddVecW4() {
 	f.LabelRegisters("a", a...)
 	f.Mov(addrA, a)
 	f.Add(addrB, a)
-	f.WriteLn(fmt.Sprintf("PREFETCHT0 2048(%[1]s)", addrA))
-	f.WriteLn(fmt.Sprintf("PREFETCHT0 2048(%[1]s)", addrB))
+	f.PREFETCHT0(fmt.Sprintf("2048(%s)", addrA))
+	f.PREFETCHT0(fmt.Sprintf("2048(%s)", addrB))
 
 	// reduce a
 	f.ReduceElement(a, t, false)
@@ -112,8 +112,8 @@ func (f *FFAmd64) generateSubVecW4() {
 	f.LabelRegisters("a", a...)
 	f.Mov(addrA, a)
 	f.Sub(addrB, a)
-	f.WriteLn(fmt.Sprintf("PREFETCHT0 2048(%[1]s)", addrA))
-	f.WriteLn(fmt.Sprintf("PREFETCHT0 2048(%[1]s)", addrB))
+	f.PREFETCHT0(fmt.Sprintf("2048(%s)", addrA))
+	f.PREFETCHT0(fmt.Sprintf("2048(%s)", addrB))
 
 	// reduce a
 	f.Comment("reduce (a-b) mod q")
@@ -254,7 +254,7 @@ func (f *FFAmd64) generateSumVecW4() {
 		f.VPMOVZXDQ(fmt.Sprintf("%d*32("+string(addrA)+")", i), r)
 	}
 
-	f.WriteLn(fmt.Sprintf("PREFETCHT0 4096(%[1]s)", addrA))
+	f.PREFETCHT0(fmt.Sprintf("4096(%s)", addrA))
 	for i := 0; i < 8; i++ {
 		r := fmt.Sprintf("Z%d", i)
 		f.VPADDQ(fmt.Sprintf("Z%d", i+8), r, r)
@@ -577,7 +577,7 @@ func (f *FFAmd64) generateInnerProductW4() {
 	f.VPADDQ(PPL, ACC, ACC)
 
 	// Word 1 of z is ready
-	f.VALIGND("$15", ACC, ACC, "K2", "Z0")
+	f.VALIGNDk("$15", ACC, ACC, "K2", "Z0")
 	f.KSHIFTLW("$1", "K2", "K2")
 
 	f.Comment("macro to add partial products and store the result in Z0")
@@ -598,7 +598,7 @@ func (f *FFAmd64) generateInnerProductW4() {
 		f.VPADDQ(PPL, ACC, ACC)
 		f.VPANDQ(LSW, AzL, PPL)
 		f.VPADDQ(PPL, ACC, ACC)
-		f.VALIGND("$16-"+I.(amd64.Register), ACC, ACC, "K2", "Z0")
+		f.VALIGNDk("$16-"+I.(amd64.Register), ACC, ACC, "K2", "Z0")
 		f.KADDW("K2", "K2", "K2")
 	}, true)
 
@@ -617,7 +617,7 @@ func (f *FFAmd64) generateInnerProductW4() {
 	f.VPADDQ(A7L, ACC, ACC)
 	f.VPANDQ(LSW, A7H, PPL)
 	f.VPADDQ(PPL, ACC, ACC)
-	f.VALIGND("$16-8", ACC, ACC, "K2", "Z0")
+	f.VALIGNDk("$16-8", ACC, ACC, "K2", "Z0")
 	f.KSHIFTLW("$1", "K2", "K2")
 
 	f.VPSRLQ("$32", ACC, PPL)
@@ -625,14 +625,14 @@ func (f *FFAmd64) generateInnerProductW4() {
 	f.VPADDQ(PPL, ACC, ACC)
 	f.VPSRLQ("$32", A7H, A7H)
 	f.VPADDQ(A7H, ACC, ACC)
-	f.VALIGND("$16-9", ACC, ACC, "K2", "Z0")
+	f.VALIGNDk("$16-9", ACC, ACC, "K2", "Z0")
 	f.KSHIFTLW("$1", "K2", "K2")
 
 	addPP2 := f.Define("ADDPP2", 1, func(args ...any) {
 		f.VPSRLQ("$32", ACC, PPL)
 		f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
 		f.VPADDQ(PPL, ACC, ACC)
-		f.VALIGND("$16-"+args[0].(amd64.Register), ACC, ACC, "K2", "Z0")
+		f.VALIGNDk("$16-"+args[0].(amd64.Register), ACC, ACC, "K2", "Z0")
 		f.KSHIFTLW("$1", "K2", "K2")
 	}, true)
 
@@ -1123,7 +1123,7 @@ func (f *FFAmd64) generateMulVecW4(funcName string) {
 	f.VSHUFI64X2("$0x44", "Z31", "Z30", "Z28")
 	f.VSHUFI64X2("$0xee", "Z31", "Z30", "Z30")
 
-	f.WriteLn("PREFETCHT0 1024(" + string(PX) + ")")
+	f.PREFETCHT0("1024(" + string(PX) + ")")
 
 	// Step 5
 
@@ -1150,7 +1150,7 @@ func (f *FFAmd64) generateMulVecW4(funcName string) {
 		f.VPMULUDQ("Z16", zi(24+i), zi(i))
 		if i == 4 {
 			if !scalarMul {
-				f.WriteLn("PREFETCHT0 1024(" + string(PY) + ")")
+				f.PREFETCHT0("1024(" + string(PY) + ")")
 			}
 		}
 	}
@@ -1492,13 +1492,13 @@ func (f *FFAmd64) generateMulVecW4(funcName string) {
 	ax := amd64.AX
 	f.MOVQ("patterns+40(FP)", ax)
 	f.VMOVDQU64(ax.At(0), amd64.Z15)
-	f.WriteLn("VALIGND $0, Z15, Z11, Z11")
+	f.VALIGND("$0", "Z15", "Z11", "Z11")
 	f.VMOVDQU64(ax.At(8), amd64.Z15)
-	f.WriteLn("VALIGND $0, Z15, Z12, Z12")
+	f.VALIGND("$0", "Z15", "Z12", "Z12")
 	f.VMOVDQU64(ax.At(16), amd64.Z15)
-	f.WriteLn("VALIGND $0, Z15, Z13, Z13")
+	f.VALIGND("$0", "Z15", "Z13", "Z13")
 	f.VMOVDQU64(ax.At(24), amd64.Z15)
-	f.WriteLn("VALIGND $0, Z15, Z14, Z14")
+	f.VALIGND("$0", "Z15", "Z14", "Z14")
 
 	for i := 0; i < 4; i++ {
 		f.VPSLLQ("$32", zi(2*i+1), zi(2*i+1))
