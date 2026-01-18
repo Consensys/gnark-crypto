@@ -131,14 +131,14 @@ func (f *FFAmd64) emitIFMAConstants() {
 func (f *FFAmd64) generateMulVecIFMA() {
 	f.emitIFMAConstants()
 	h := f.newIfmaHelper()
-	h.generateMulVecIFMABody("mulVecIFMA", false)
+	h.generateMulVecIFMABody("mulVec", false)
 }
 
 // generateScalarMulVecIFMA generates IFMA-based scalar multiplication
 // This is similar to mulVecIFMA but broadcasts the scalar to all lanes
 func (f *FFAmd64) generateScalarMulVecIFMA() {
 	h := f.newIfmaHelper()
-	h.generateMulVecIFMABody("scalarMulVecIFMA", true)
+	h.generateMulVecIFMABody("scalarMulVec", true)
 }
 
 // generateMulVecIFMABody is the common implementation for mul and scalarMul

@@ -118,8 +118,8 @@ func BenchmarkMulVecGenericVsAVX512(b *testing.B) {
 	}
 }
 
-// BenchmarkIFMAvsVPMULUDQ directly compares IFMA vs VPMULUDQ implementations
-func BenchmarkIFMAvsVPMULUDQ(b *testing.B) {
+// BenchmarkIFMAvsGeneric directly compares IFMA vs generic implementations
+func BenchmarkIFMAvsGeneric(b *testing.B) {
 	if !cpu.SupportAVX512IFMA {
 		b.Skip("IFMA not supported on this CPU")
 	}
@@ -130,7 +130,7 @@ func BenchmarkIFMAvsVPMULUDQ(b *testing.B) {
 	a := make(Vector, N)
 	bvec := make(Vector, N)
 	cIFMA := make(Vector, N)
-	cVPMULUDQ := make(Vector, N)
+	cGeneric := make(Vector, N)
 
 	// Initialize with random values
 	var mixer Element
@@ -155,25 +155,22 @@ func BenchmarkIFMAvsVPMULUDQ(b *testing.B) {
 			nGroups := uint64(n / 8)
 			b.ResetTimer()
 			for range b.N {
-				mulVecIFMA(&_c[0], &_a[0], &_b[0], nGroups)
+				mulVec(&_c[0], &_a[0], &_b[0], nGroups)
 			}
 			b.ReportMetric(float64(n)/float64(b.Elapsed().Nanoseconds())*1e9, "elem/s")
 		})
 
-		// Benchmark VPMULUDQ implementation directly (requires at least 16 elements)
-		if n >= 16 {
-			b.Run(fmt.Sprintf("vpmuludq_%d", n), func(b *testing.B) {
-				_a := a[:n]
-				_b := bvec[:n]
-				_c := cVPMULUDQ[:n]
-				nBlocks := uint64(n / 16)
-				b.ResetTimer()
-				for range b.N {
-					mulVec(&_c[0], &_a[0], &_b[0], nBlocks, qInvNeg, &patterns[0])
-				}
-				b.ReportMetric(float64(n)/float64(b.Elapsed().Nanoseconds())*1e9, "elem/s")
-			})
-		}
+		// Benchmark generic implementation for comparison
+		b.Run(fmt.Sprintf("generic_%d", n), func(b *testing.B) {
+			_a := a[:n]
+			_b := bvec[:n]
+			_c := cGeneric[:n]
+			b.ResetTimer()
+			for range b.N {
+				mulVecGeneric(_c, _a, _b)
+			}
+			b.ReportMetric(float64(n)/float64(b.Elapsed().Nanoseconds())*1e9, "elem/s")
+		})
 	}
 }
 

@@ -80,7 +80,7 @@ func TestDebugMulVecIFMA(t *testing.T) {
 	t.Logf("Element bytes: [%016x, %016x, %016x, %016x]", one[0][0], one[0][1], one[0][2], one[0][3])
 
 	// Now run IFMA
-	mulVecIFMA(&result[0], &one[0], &one[0], 1)
+	mulVec(&result[0], &one[0], &one[0], 1)
 
 	t.Logf("Expected (1*1=1): %v", expected[0])
 	t.Logf("IFMA result:      %v", result[0])
@@ -121,7 +121,7 @@ func TestIFMASimpleIdentity(t *testing.T) {
 	mulVecGeneric(resultGeneric, a, b)
 
 	// IFMA
-	mulVecIFMA(&resultIFMA[0], &a[0], &b[0], 1)
+	mulVec(&resultIFMA[0], &a[0], &b[0], 1)
 
 	t.Logf("Input a: %v", a)
 	t.Logf("Input b (all 1s): %v", b)
@@ -160,7 +160,7 @@ func TestMulVecIFMACorrectness(t *testing.T) {
 	mulVecGeneric(resultGeneric, a, b)
 
 	// Compute using IFMA
-	mulVecIFMA(&resultIFMA[0], &a[0], &b[0], 1) // 1 group of 8 elements
+	mulVec(&resultIFMA[0], &a[0], &b[0], 1) // 1 group of 8 elements
 
 	// Compare results - check both Equal and raw bytes
 	mismatchCount := 0
@@ -474,7 +474,7 @@ func TestMulVecIFMAWithMontgomery(t *testing.T) {
 	mulVecGeneric(resultGeneric, a, b)
 
 	// Compute using IFMA
-	mulVecIFMA(&resultIFMA[0], &a[0], &b[0], 1)
+	mulVec(&resultIFMA[0], &a[0], &b[0], 1)
 
 	// Compare results
 	mismatches := 0
@@ -515,7 +515,7 @@ func BenchmarkMulVecIFMA(b *testing.B) {
 		b.Run(fmt.Sprintf("IFMA/%d", size), func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				mulVecIFMA(&result[0], &a[0], &bVec[0], uint64(size/8))
+				mulVec(&result[0], &a[0], &bVec[0], uint64(size/8))
 			}
 		})
 
@@ -549,7 +549,7 @@ func BenchmarkMulVecComparison(b *testing.B) {
 		b.SetBytes(int64(size * 32 * 3)) // 3 vectors * 32 bytes each
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			mulVecIFMA(&result[0], &a[0], &bVec[0], uint64(size/8))
+			mulVec(&result[0], &a[0], &bVec[0], uint64(size/8))
 		}
 	})
 
@@ -585,7 +585,7 @@ func TestMulVecIFMAStress(t *testing.T) {
 
 		// Compute using both methods
 		mulVecGeneric(resultGeneric, a, bVec)
-		mulVecIFMA(&resultIFMA[0], &a[0], &bVec[0], uint64(size/8))
+		mulVec(&resultIFMA[0], &a[0], &bVec[0], uint64(size/8))
 
 		// Compare results
 		for i := range size {
@@ -618,7 +618,7 @@ func TestMulVecIFMAEdgeCases(t *testing.T) {
 			bVec[i].SetOne()
 		}
 		mulVecGeneric(resultGeneric, a, bVec)
-		mulVecIFMA(&resultIFMA[0], &a[0], &bVec[0], 1)
+		mulVec(&resultIFMA[0], &a[0], &bVec[0], 1)
 		for i := range n {
 			if !resultIFMA[i].Equal(&resultGeneric[i]) {
 				t.Errorf("Index %d: expected %v, got %v", i, resultGeneric[i], resultIFMA[i])
@@ -635,7 +635,7 @@ func TestMulVecIFMAEdgeCases(t *testing.T) {
 			bVec[i].SetUint64(2) // multiply by 2
 		}
 		mulVecGeneric(resultGeneric, a, bVec)
-		mulVecIFMA(&resultIFMA[0], &a[0], &bVec[0], 1)
+		mulVec(&resultIFMA[0], &a[0], &bVec[0], 1)
 		for i := range n {
 			if !resultIFMA[i].Equal(&resultGeneric[i]) {
 				t.Errorf("Index %d: expected %v, got %v", i, resultGeneric[i].String(), resultIFMA[i].String())
@@ -650,7 +650,7 @@ func TestMulVecIFMAEdgeCases(t *testing.T) {
 			bVec[i] = a[i]
 		}
 		mulVecGeneric(resultGeneric, a, bVec)
-		mulVecIFMA(&resultIFMA[0], &a[0], &bVec[0], 1)
+		mulVec(&resultIFMA[0], &a[0], &bVec[0], 1)
 		for i := range n {
 			if !resultIFMA[i].Equal(&resultGeneric[i]) {
 				t.Errorf("Index %d: expected %v, got %v", i, resultGeneric[i].String(), resultIFMA[i].String())
@@ -665,7 +665,7 @@ func TestMulVecIFMAEdgeCases(t *testing.T) {
 			bVec[i].SetUint64(1 << uint(7-i))
 		}
 		mulVecGeneric(resultGeneric, a, bVec)
-		mulVecIFMA(&resultIFMA[0], &a[0], &bVec[0], 1)
+		mulVec(&resultIFMA[0], &a[0], &bVec[0], 1)
 		for i := range n {
 			if !resultIFMA[i].Equal(&resultGeneric[i]) {
 				t.Errorf("Index %d: expected %v, got %v", i, resultGeneric[i].String(), resultIFMA[i].String())
