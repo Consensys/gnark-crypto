@@ -8,9 +8,18 @@
 package fp
 
 import (
+	"math/big"
+	"sync"
+
 	_ "github.com/consensys/gnark-crypto/field/asm/element_4w"
 	"github.com/consensys/gnark-crypto/utils/cpu"
 )
+
+var sumPool = sync.Pool{
+	New: func() any {
+		return new(big.Int)
+	},
+}
 
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
@@ -85,12 +94,38 @@ func (vector *Vector) Sum() (res Element) {
 		sumVecGeneric(&res, *vector)
 		return
 	}
-	sumVec(&res, &(*vector)[0], uint64(len(*vector)))
+
+	// The assembly accumulates into 8 qwords in radix-2^32:
+	// t[0]=w0l, t[1]=w0h, t[2]=w1l, t[3]=w1h, t[4]=w2l, t[5]=w2h, t[6]=w3l, t[7]=w3h
+	// sum = w0l + w0h*2^32 + w1l*2^64 + w1h*2^96 + w2l*2^128 + w2h*2^160 + w3l*2^192 + w3h*2^224
+	var t [8]uint64
+	sumVec(&t, &(*vector)[0], n)
+
+	// Build the sum using big.Int from pool (reduces allocations)
+	// Use Horner-like evaluation: start from high limbs and shift down
+	sum := sumPool.Get().(*big.Int)
+	defer sumPool.Put(sum)
+
+	sum.SetUint64(t[7])
+	for i := 6; i >= 0; i-- {
+		sum.Lsh(sum, 32)
+		sum.Add(sum, new(big.Int).SetUint64(t[i]))
+	}
+
+	// Reduce mod q using the package-private modulus (avoids allocation)
+	sum.Mod(sum, &_modulus)
+
+	// The accumulators are sums of Montgomery-form elements, so after mod q
+	// the result is already in Montgomery form. Copy limbs directly.
+	words := sum.Bits()
+	for i := 0; i < len(words) && i < 4; i++ {
+		res[i] = uint64(words[i])
+	}
 	return
 }
 
 //go:noescape
-func sumVec(res *Element, a *Element, n uint64)
+func sumVec(t *[8]uint64, a *Element, n uint64)
 
 // InnerProduct computes the inner product of two vectors.
 // It panics if the vectors don't have the same length.
