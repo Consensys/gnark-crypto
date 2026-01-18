@@ -893,10 +893,6 @@ GLOBL ·permuteIdxIFMA<>(SB), RODATA|NOPTR, $64
 	VPANDQ in2, in0, in0 \
 	VPADDQ in3, in1, in1 \
 
-#define IFMA_MUL_ACC_LH(in0, in1, in2, in3) \
-	VPMADD52LUQ in0, in1, in2 \
-	VPMADD52HUQ in0, in1, in3 \
-
 #define COND_SELECT(in0, in1, in2) \
 	VPTERNLOGQ $0xE2, in0, in1, in2 \
 
@@ -915,44 +911,26 @@ TEXT ·mulVec(SB), NOSPLIT, $0-32
 	// Load constants for radix-52 conversion and reduction
 	MOVQ         $0xFFFFFFFFFFFFF, R15 // 52-bit mask in R15
 	VPBROADCASTQ R15, Z31              // Z31 = mask52
-	MOVQ         $const_qInvNeg, AX
-	ANDQ         R15, AX               // keep low 52 bits
+	MOVQ         $const_qInvNeg52, AX
 	VPBROADCASTQ AX, Z30               // Z30 = qInvNeg52
 
-	// Load modulus in radix-52 form
+	// Load modulus in radix-52 form (precomputed)
 	// q in radix-52: Z25=ql0, Z26=ql1, Z27=ql2, Z28=ql3, Z29=ql4
-	// Load q0-q3 and convert to radix-52
-	MOVQ         $const_q0, R9
-	MOVQ         $const_q1, R10
-	MOVQ         $const_q2, R11
-	MOVQ         $const_q3, R12
-	MOVQ         R9, R8
-	ANDQ         R15, R8
-	VPBROADCASTQ R8, Z25
-	SHRQ         $52, R9
-	MOVQ         R10, R8
-	SHLQ         $12, R8
-	ORQ          R9, R8
-	ANDQ         R15, R8
-	VPBROADCASTQ R8, Z26
-	SHRQ         $40, R10
-	MOVQ         R11, R8
-	SHLQ         $24, R8
-	ORQ          R10, R8
-	ANDQ         R15, R8
-	VPBROADCASTQ R8, Z27
-	SHRQ         $28, R11
-	MOVQ         R12, R8
-	SHLQ         $36, R8
-	ORQ          R11, R8
-	ANDQ         R15, R8
-	VPBROADCASTQ R8, Z28
-	SHRQ         $16, R12
-	VPBROADCASTQ R12, Z29
+	MOVQ         $const_qRadix52_0, AX
+	VPBROADCASTQ AX, Z25
+	MOVQ         $const_qRadix52_1, AX
+	VPBROADCASTQ AX, Z26
+	MOVQ         $const_qRadix52_2, AX
+	VPBROADCASTQ AX, Z27
+	MOVQ         $const_qRadix52_3, AX
+	VPBROADCASTQ AX, Z28
+	MOVQ         $const_qRadix52_4, AX
+	VPBROADCASTQ AX, Z29
 
 loop_15:
 	TESTQ BX, BX
-	JEQ   done_16 // n == 0, we are done
+	JEQ   done_16
+	DECQ  BX
 
 	// Process 8 elements in parallel
 	// Load and convert 8 elements from a[] to radix-52
@@ -1258,14 +1236,14 @@ loop_15:
 	ZERO_REG(Z18)
 	ZERO_REG(Z19)
 	VPMADD52LUQ Z25, Z5, Z6
-	VPMADD52LUQ Z26, Z5, Z7
-	VPMADD52LUQ Z27, Z5, Z8
-	VPMADD52LUQ Z28, Z5, Z9
-	VPMADD52LUQ Z29, Z5, Z10
 	VPMADD52HUQ Z25, Z5, Z15
+	VPMADD52LUQ Z26, Z5, Z7
 	VPMADD52HUQ Z26, Z5, Z16
+	VPMADD52LUQ Z27, Z5, Z8
 	VPMADD52HUQ Z27, Z5, Z17
+	VPMADD52LUQ Z28, Z5, Z9
 	VPMADD52HUQ Z28, Z5, Z18
+	VPMADD52LUQ Z29, Z5, Z10
 	VPMADD52HUQ Z29, Z5, Z19
 
 	// Subtract k*q
@@ -1354,7 +1332,6 @@ loop_15:
 	ADDQ $256, R13
 	ADDQ $256, CX
 	ADDQ $256, R14
-	DECQ BX        // processed 1 group of 8 elements
 	JMP  loop_15
 
 done_16:
@@ -1372,44 +1349,26 @@ TEXT ·scalarMulVec(SB), NOSPLIT, $0-32
 	// Load constants for radix-52 conversion and reduction
 	MOVQ         $0xFFFFFFFFFFFFF, R15 // 52-bit mask in R15
 	VPBROADCASTQ R15, Z31              // Z31 = mask52
-	MOVQ         $const_qInvNeg, AX
-	ANDQ         R15, AX               // keep low 52 bits
+	MOVQ         $const_qInvNeg52, AX
 	VPBROADCASTQ AX, Z30               // Z30 = qInvNeg52
 
-	// Load modulus in radix-52 form
+	// Load modulus in radix-52 form (precomputed)
 	// q in radix-52: Z25=ql0, Z26=ql1, Z27=ql2, Z28=ql3, Z29=ql4
-	// Load q0-q3 and convert to radix-52
-	MOVQ         $const_q0, R9
-	MOVQ         $const_q1, R10
-	MOVQ         $const_q2, R11
-	MOVQ         $const_q3, R12
-	MOVQ         R9, R8
-	ANDQ         R15, R8
-	VPBROADCASTQ R8, Z25
-	SHRQ         $52, R9
-	MOVQ         R10, R8
-	SHLQ         $12, R8
-	ORQ          R9, R8
-	ANDQ         R15, R8
-	VPBROADCASTQ R8, Z26
-	SHRQ         $40, R10
-	MOVQ         R11, R8
-	SHLQ         $24, R8
-	ORQ          R10, R8
-	ANDQ         R15, R8
-	VPBROADCASTQ R8, Z27
-	SHRQ         $28, R11
-	MOVQ         R12, R8
-	SHLQ         $36, R8
-	ORQ          R11, R8
-	ANDQ         R15, R8
-	VPBROADCASTQ R8, Z28
-	SHRQ         $16, R12
-	VPBROADCASTQ R12, Z29
+	MOVQ         $const_qRadix52_0, AX
+	VPBROADCASTQ AX, Z25
+	MOVQ         $const_qRadix52_1, AX
+	VPBROADCASTQ AX, Z26
+	MOVQ         $const_qRadix52_2, AX
+	VPBROADCASTQ AX, Z27
+	MOVQ         $const_qRadix52_3, AX
+	VPBROADCASTQ AX, Z28
+	MOVQ         $const_qRadix52_4, AX
+	VPBROADCASTQ AX, Z29
 
 loop_17:
 	TESTQ BX, BX
-	JEQ   done_18 // n == 0, we are done
+	JEQ   done_18
+	DECQ  BX
 
 	// Process 8 elements in parallel
 	// Load and convert 8 elements from a[] to radix-52
@@ -1704,14 +1663,14 @@ loop_17:
 	ZERO_REG(Z18)
 	ZERO_REG(Z19)
 	VPMADD52LUQ Z25, Z5, Z6
-	VPMADD52LUQ Z26, Z5, Z7
-	VPMADD52LUQ Z27, Z5, Z8
-	VPMADD52LUQ Z28, Z5, Z9
-	VPMADD52LUQ Z29, Z5, Z10
 	VPMADD52HUQ Z25, Z5, Z15
+	VPMADD52LUQ Z26, Z5, Z7
 	VPMADD52HUQ Z26, Z5, Z16
+	VPMADD52LUQ Z27, Z5, Z8
 	VPMADD52HUQ Z27, Z5, Z17
+	VPMADD52LUQ Z28, Z5, Z9
 	VPMADD52HUQ Z28, Z5, Z18
+	VPMADD52LUQ Z29, Z5, Z10
 	VPMADD52HUQ Z29, Z5, Z19
 
 	// Subtract k*q
@@ -1799,7 +1758,6 @@ loop_17:
 	// Advance pointers
 	ADDQ $256, R13
 	ADDQ $256, R14
-	DECQ BX        // processed 1 group of 8 elements
 	JMP  loop_17
 
 done_18:
@@ -1822,44 +1780,26 @@ TEXT ·innerProdVecIFMA(SB), NOSPLIT, $0-32
 	// Load constants for radix-52 conversion and reduction
 	MOVQ         $0xFFFFFFFFFFFFF, R15 // 52-bit mask in R15
 	VPBROADCASTQ R15, Z31              // Z31 = mask52
-	MOVQ         $const_qInvNeg, AX
-	ANDQ         R15, AX               // keep low 52 bits
+	MOVQ         $const_qInvNeg52, AX
 	VPBROADCASTQ AX, Z30               // Z30 = qInvNeg52
 
-	// Load modulus in radix-52 form
+	// Load modulus in radix-52 form (precomputed)
 	// q in radix-52: Z25=ql0, Z26=ql1, Z27=ql2, Z28=ql3, Z29=ql4
-	// Load q0-q3 and convert to radix-52
-	MOVQ         $const_q0, R9
-	MOVQ         $const_q1, R10
-	MOVQ         $const_q2, R11
-	MOVQ         $const_q3, R12
-	MOVQ         R9, R8
-	ANDQ         R15, R8
-	VPBROADCASTQ R8, Z25
-	SHRQ         $52, R9
-	MOVQ         R10, R8
-	SHLQ         $12, R8
-	ORQ          R9, R8
-	ANDQ         R15, R8
-	VPBROADCASTQ R8, Z26
-	SHRQ         $40, R10
-	MOVQ         R11, R8
-	SHLQ         $24, R8
-	ORQ          R10, R8
-	ANDQ         R15, R8
-	VPBROADCASTQ R8, Z27
-	SHRQ         $28, R11
-	MOVQ         R12, R8
-	SHLQ         $36, R8
-	ORQ          R11, R8
-	ANDQ         R15, R8
-	VPBROADCASTQ R8, Z28
-	SHRQ         $16, R12
-	VPBROADCASTQ R12, Z29
+	MOVQ         $const_qRadix52_0, AX
+	VPBROADCASTQ AX, Z25
+	MOVQ         $const_qRadix52_1, AX
+	VPBROADCASTQ AX, Z26
+	MOVQ         $const_qRadix52_2, AX
+	VPBROADCASTQ AX, Z27
+	MOVQ         $const_qRadix52_3, AX
+	VPBROADCASTQ AX, Z28
+	MOVQ         $const_qRadix52_4, AX
+	VPBROADCASTQ AX, Z29
 
 loop_19:
 	TESTQ BX, BX
-	JEQ   done_20 // n == 0, we are done
+	JEQ   done_20
+	DECQ  BX
 
 	// Process 8 element pairs in parallel
 	// Load and convert 8 elements from a[] to radix-52
@@ -2165,14 +2105,14 @@ loop_19:
 	ZERO_REG(Z18)
 	ZERO_REG(Z19)
 	VPMADD52LUQ Z25, Z5, Z6
-	VPMADD52LUQ Z26, Z5, Z7
-	VPMADD52LUQ Z27, Z5, Z8
-	VPMADD52LUQ Z28, Z5, Z9
-	VPMADD52LUQ Z29, Z5, Z10
 	VPMADD52HUQ Z25, Z5, Z15
+	VPMADD52LUQ Z26, Z5, Z7
 	VPMADD52HUQ Z26, Z5, Z16
+	VPMADD52LUQ Z27, Z5, Z8
 	VPMADD52HUQ Z27, Z5, Z17
+	VPMADD52LUQ Z28, Z5, Z9
 	VPMADD52HUQ Z28, Z5, Z18
+	VPMADD52LUQ Z29, Z5, Z10
 	VPMADD52HUQ Z29, Z5, Z19
 
 	// Subtract k*q
@@ -2330,7 +2270,6 @@ loop_19:
 	// Advance pointers
 	ADDQ $256, R13
 	ADDQ $256, CX
-	DECQ BX        // processed 1 group of 8 elements
 	JMP  loop_19
 
 done_20:

@@ -11,3 +11,11 @@ const q0 = 0
 const q1 = 0
 const q2 = 0
 const q3 = 0
+
+// IFMA-specific constants (precomputed radix-52 form)
+const qInvNeg52 = 0
+const qRadix52_0 = 0
+const qRadix52_1 = 0
+const qRadix52_2 = 0
+const qRadix52_3 = 0
+const qRadix52_4 = 0

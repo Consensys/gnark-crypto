@@ -79,6 +79,7 @@ type Field struct {
 	// IFMA (AVX-512) specific constants for 4-word fields
 	// These are used for radix-52 Montgomery multiplication
 	QRadix52       []uint64 // q in radix-52 form (5 limbs for 4-word fields)
+	QInvNeg52      uint64   // low 52 bits of qInvNeg (for IFMA Montgomery)
 	MuBarrett52    uint64   // Barrett constant for reducing from [0, 32q) to [0, q)
 	BarrettShift52 int      // Shift amount for Barrett reduction (typically 58)
 }
@@ -342,6 +343,9 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 			F.QRadix52[i] = qCopy.Uint64() & mask52
 			qCopy.Rsh(qCopy, 52)
 		}
+
+		// qInvNeg52 = qInvNeg & mask52 (low 52 bits of qInvNeg for IFMA)
+		F.QInvNeg52 = F.QInverse[0] & mask52
 
 		// Barrett constant for reducing from [0, 32q) to [0, q)
 		// After IFMA Montgomery (R=2^260), we multiply by 16 to correct to R=2^256
