@@ -2411,38 +2411,6 @@ DATA ·permuteIdxIFMA<>+48(SB)/8, $5
 DATA ·permuteIdxIFMA<>+56(SB)/8, $7
 GLOBL ·permuteIdxIFMA<>(SB), RODATA|NOPTR, $64
 
-// 2q in radix-52: used for binary reduction after x16 correction
-DATA ·q2Radix52<>+0(SB)/8, $0x3000000000002 // 2q[0]
-DATA ·q2Radix52<>+8(SB)/8, $0xfda0000002142 // 2q[1]
-DATA ·q2Radix52<>+16(SB)/8, $0x86f6002b354ed // 2q[2]
-DATA ·q2Radix52<>+24(SB)/8, $0x4aacc1689a3cb // 2q[3]
-DATA ·q2Radix52<>+32(SB)/8, $0x02556cabd3459 // 2q[4]
-GLOBL ·q2Radix52<>(SB), RODATA|NOPTR, $40
-
-// 4q in radix-52
-DATA ·q4Radix52<>+0(SB)/8, $0x6000000000004 // 4q[0]
-DATA ·q4Radix52<>+8(SB)/8, $0xfb40000004284 // 4q[1]
-DATA ·q4Radix52<>+16(SB)/8, $0x0dec00566a9db // 4q[2]
-DATA ·q4Radix52<>+24(SB)/8, $0x955982d134797 // 4q[3]
-DATA ·q4Radix52<>+32(SB)/8, $0x04aad957a68b2 // 4q[4]
-GLOBL ·q4Radix52<>(SB), RODATA|NOPTR, $40
-
-// 8q in radix-52
-DATA ·q8Radix52<>+0(SB)/8, $0xc000000000008 // 8q[0]
-DATA ·q8Radix52<>+8(SB)/8, $0xf680000008508 // 8q[1]
-DATA ·q8Radix52<>+16(SB)/8, $0x1bd800acd53b7 // 8q[2]
-DATA ·q8Radix52<>+24(SB)/8, $0x2ab305a268f2e // 8q[3]
-DATA ·q8Radix52<>+32(SB)/8, $0x0955b2af4d165 // 8q[4]
-GLOBL ·q8Radix52<>(SB), RODATA|NOPTR, $40
-
-// 16q in radix-52
-DATA ·q16Radix52<>+0(SB)/8, $0x8000000000010 // 16q[0]
-DATA ·q16Radix52<>+8(SB)/8, $0xed00000010a11 // 16q[1]
-DATA ·q16Radix52<>+16(SB)/8, $0x37b00159aa76f // 16q[2]
-DATA ·q16Radix52<>+24(SB)/8, $0x55660b44d1e5c // 16q[3]
-DATA ·q16Radix52<>+32(SB)/8, $0x12ab655e9a2ca // 16q[4]
-GLOBL ·q16Radix52<>(SB), RODATA|NOPTR, $40
-
 // mulVecIFMA(res, a, b *Element, n uint64)
 // Performs n multiplications using AVX-512 IFMA instructions
 // Processes 8 elements in parallel using radix-52 representation
@@ -2805,274 +2773,109 @@ loop_19:
 	VMOVDQA64 Z15, Z14      // T[4] = T[5]
 	VPXORQ    Z15, Z15, Z15 // T[5] = 0
 
-	// Copy result to Z0-Z4
-	VMOVDQA64 Z10, Z0
-	VMOVDQA64 Z11, Z1
-	VMOVDQA64 Z12, Z2
-	VMOVDQA64 Z13, Z3
-	VMOVDQA64 Z14, Z4
-
-	// Final normalization
-	VPSRLQ $52, Z0, Z20
+	// Fused: x16 shift + normalization in one pass
+	VPSLLQ $4, Z10, Z0  // Z0 = T[0] << 4
+	VPSLLQ $4, Z11, Z1  // Z1 = T[1] << 4
+	VPSLLQ $4, Z12, Z2  // Z2 = T[2] << 4
+	VPSLLQ $4, Z13, Z3  // Z3 = T[3] << 4
+	VPSLLQ $4, Z14, Z4  // Z4 = T[4] << 4
+	VPSRLQ $52, Z0, Z20 // carry0
+	VPSRLQ $52, Z1, Z21 // carry1
+	VPSRLQ $52, Z2, Z22 // carry2
+	VPSRLQ $52, Z3, Z23 // carry3
 	VPANDQ Z31, Z0, Z0
-	VPADDQ Z20, Z1, Z1
-	VPSRLQ $52, Z1, Z20
 	VPANDQ Z31, Z1, Z1
-	VPADDQ Z20, Z2, Z2
-	VPSRLQ $52, Z2, Z20
 	VPANDQ Z31, Z2, Z2
-	VPADDQ Z20, Z3, Z3
-	VPSRLQ $52, Z3, Z20
 	VPANDQ Z31, Z3, Z3
-	VPADDQ Z20, Z4, Z4
+	VPADDQ Z20, Z1, Z1
+	VPADDQ Z21, Z2, Z2
+	VPADDQ Z22, Z3, Z3
+	VPADDQ Z23, Z4, Z4
 
-	// Conditional subtraction if >= q
-	VPSUBQ  Z25, Z0, Z10
-	VPSUBQ  Z26, Z1, Z11
-	VPSUBQ  Z27, Z2, Z12
-	VPSUBQ  Z28, Z3, Z13
-	VPSUBQ  Z29, Z4, Z14
-	VPSRAQ  $63, Z10, Z20 // Z20 = -1 if borrow, 0 otherwise
-	VPADDQ  Z20, Z11, Z11 // Z11 -= borrow
-	VPSRAQ  $63, Z11, Z20
-	VPADDQ  Z20, Z12, Z12
-	VPSRAQ  $63, Z12, Z20
-	VPADDQ  Z20, Z13, Z13
-	VPSRAQ  $63, Z13, Z20
-	VPADDQ  Z20, Z14, Z14
-	VPSRAQ  $63, Z14, Z20 // Z20 = all 1s if borrow (result < q), all 0s if no borrow
-	VPANDQ  Z31, Z10, Z10
-	VPANDQ  Z31, Z11, Z11
-	VPANDQ  Z31, Z12, Z12
-	VPANDQ  Z31, Z13, Z13
-	VPANDQ  Z31, Z14, Z14
-	VPANDQ  Z20, Z0, Z0   // keep original if borrow
-	VPANDNQ Z10, Z20, Z10 // keep subtracted if no borrow
-	VPORQ   Z10, Z0, Z0
-	VPANDQ  Z20, Z1, Z1
-	VPANDNQ Z11, Z20, Z11
-	VPORQ   Z11, Z1, Z1
-	VPANDQ  Z20, Z2, Z2
-	VPANDNQ Z12, Z20, Z12
-	VPORQ   Z12, Z2, Z2
-	VPANDQ  Z20, Z3, Z3
-	VPANDNQ Z13, Z20, Z13
-	VPORQ   Z13, Z3, Z3
-	VPANDQ  Z20, Z4, Z4
-	VPANDNQ Z14, Z20, Z14
-	VPORQ   Z14, Z4, Z4
+	// AMM: result in [0, 32q) after x16, Barrett reduction follows
+	// Barrett reduction from [0, 32q) to [0, q)
+	// Barrett reduction: k = (l4 * mu) >> 58, subtract k*q, then conditional subtract q
+	MOVQ         $const_muBarrett52, AX // Barrett mu constant (field-specific)
+	VPBROADCASTQ AX, Z5                 // Z5 = mu broadcast
+	VPSRLQ       $20, Z4, Z6            // Z6 = l4 >> 20 (fits in 30 bits)
+	VPMULUDQ     Z5, Z6, Z5             // Z5 = (l4 >> 20) * mu
+	VPSRLQ       $38, Z5, Z5            // Z5 = k = ((l4 >> 20) * mu) >> 38
 
-	// Multiply by 16 in radix-52 to correct for radix-260 vs radix-256
-	// Multiply by 16 = 2^4 (left shift with carry) in radix-52
-	VPSLLQ $4, Z0, Z10   // Z10 = l0 << 4
-	VPANDQ Z31, Z10, Z0  // Z0 = (l0 << 4) & mask52
-	VPSRLQ $52, Z10, Z15 // Z15 = carry = (l0 << 4) >> 52
-	VPSLLQ $4, Z1, Z10   // Z10 = l1 << 4
-	VPORQ  Z15, Z10, Z10 // Z10 = (l1 << 4) | carry (no overlap)
-	VPANDQ Z31, Z10, Z1  // Z1 = result & mask52
-	VPSRLQ $52, Z10, Z15 // Z15 = new carry
-	VPSLLQ $4, Z2, Z10
-	VPORQ  Z15, Z10, Z10
-	VPANDQ Z31, Z10, Z2
-	VPSRLQ $52, Z10, Z15
-	VPSLLQ $4, Z3, Z10
-	VPORQ  Z15, Z10, Z10
-	VPANDQ Z31, Z10, Z3
-	VPSRLQ $52, Z10, Z15
-	VPSLLQ $4, Z4, Z10
-	VPORQ  Z15, Z10, Z4  // Z4 = (l4 << 4) | carry
+	// Compute k*q using VPMADD52 (handles 52-bit operands correctly)
+	VPXORQ      Z6, Z6, Z6    // Z6 = 0
+	VPXORQ      Z7, Z7, Z7    // Z7 = 0
+	VPXORQ      Z8, Z8, Z8    // Z8 = 0
+	VPXORQ      Z9, Z9, Z9    // Z9 = 0
+	VPXORQ      Z10, Z10, Z10 // Z10 = 0
+	VPXORQ      Z15, Z15, Z15 // Z15 = 0 (for high parts)
+	VPMADD52LUQ Z25, Z5, Z6   // Z6 = low52(k * q[0])
+	VPMADD52LUQ Z26, Z5, Z7   // Z7 = low52(k * q[1])
+	VPMADD52LUQ Z27, Z5, Z8   // Z8 = low52(k * q[2])
+	VPMADD52LUQ Z28, Z5, Z9   // Z9 = low52(k * q[3])
+	VPMADD52LUQ Z29, Z5, Z10  // Z10 = low52(k * q[4])
+	VPXORQ      Z16, Z16, Z16
+	VPXORQ      Z17, Z17, Z17
+	VPXORQ      Z18, Z18, Z18
+	VPXORQ      Z19, Z19, Z19
+	VPMADD52HUQ Z25, Z5, Z15  // Z15 = high52(k * q[0])
+	VPMADD52HUQ Z26, Z5, Z16  // Z16 = high52(k * q[1])
+	VPMADD52HUQ Z27, Z5, Z17  // Z17 = high52(k * q[2])
+	VPMADD52HUQ Z28, Z5, Z18  // Z18 = high52(k * q[3])
+	VPMADD52HUQ Z29, Z5, Z19  // Z19 = high52(k * q[4])
 
-	// Binary reduction: conditionally subtract 16q, 8q, 4q, 2q, q
-	VPBROADCASTQ ·q16Radix52<>+0(SB), Z5
-	VPBROADCASTQ ·q16Radix52<>+8(SB), Z6
-	VPBROADCASTQ ·q16Radix52<>+16(SB), Z7
-	VPBROADCASTQ ·q16Radix52<>+24(SB), Z8
-	VPBROADCASTQ ·q16Radix52<>+32(SB), Z9
-	VPSUBQ       Z5, Z0, Z10
-	VPSUBQ       Z6, Z1, Z11
-	VPSUBQ       Z7, Z2, Z12
-	VPSUBQ       Z8, Z3, Z13
-	VPSUBQ       Z9, Z4, Z14
-	VPSRAQ       $63, Z10, Z20
-	VPADDQ       Z20, Z11, Z11
-	VPSRAQ       $63, Z11, Z20
-	VPADDQ       Z20, Z12, Z12
-	VPSRAQ       $63, Z12, Z20
-	VPADDQ       Z20, Z13, Z13
-	VPSRAQ       $63, Z13, Z20
-	VPADDQ       Z20, Z14, Z14
-	VPSRAQ       $63, Z14, Z20
-	VPANDQ       Z31, Z10, Z10
-	VPANDQ       Z31, Z11, Z11
-	VPANDQ       Z31, Z12, Z12
-	VPANDQ       Z31, Z13, Z13
-	VPANDQ       Z31, Z14, Z14
-	VPANDQ       Z20, Z0, Z0
-	VPANDNQ      Z10, Z20, Z10
-	VPORQ        Z10, Z0, Z0
-	VPANDQ       Z20, Z1, Z1
-	VPANDNQ      Z11, Z20, Z11
-	VPORQ        Z11, Z1, Z1
-	VPANDQ       Z20, Z2, Z2
-	VPANDNQ      Z12, Z20, Z12
-	VPORQ        Z12, Z2, Z2
-	VPANDQ       Z20, Z3, Z3
-	VPANDNQ      Z13, Z20, Z13
-	VPORQ        Z13, Z3, Z3
-	VPANDQ       Z20, Z4, Z4
-	VPANDNQ      Z14, Z20, Z14
-	VPORQ        Z14, Z4, Z4
-	VPBROADCASTQ ·q8Radix52<>+0(SB), Z5
-	VPBROADCASTQ ·q8Radix52<>+8(SB), Z6
-	VPBROADCASTQ ·q8Radix52<>+16(SB), Z7
-	VPBROADCASTQ ·q8Radix52<>+24(SB), Z8
-	VPBROADCASTQ ·q8Radix52<>+32(SB), Z9
-	VPSUBQ       Z5, Z0, Z10
-	VPSUBQ       Z6, Z1, Z11
-	VPSUBQ       Z7, Z2, Z12
-	VPSUBQ       Z8, Z3, Z13
-	VPSUBQ       Z9, Z4, Z14
-	VPSRAQ       $63, Z10, Z20
-	VPADDQ       Z20, Z11, Z11
-	VPSRAQ       $63, Z11, Z20
-	VPADDQ       Z20, Z12, Z12
-	VPSRAQ       $63, Z12, Z20
-	VPADDQ       Z20, Z13, Z13
-	VPSRAQ       $63, Z13, Z20
-	VPADDQ       Z20, Z14, Z14
-	VPSRAQ       $63, Z14, Z20
-	VPANDQ       Z31, Z10, Z10
-	VPANDQ       Z31, Z11, Z11
-	VPANDQ       Z31, Z12, Z12
-	VPANDQ       Z31, Z13, Z13
-	VPANDQ       Z31, Z14, Z14
-	VPANDQ       Z20, Z0, Z0
-	VPANDNQ      Z10, Z20, Z10
-	VPORQ        Z10, Z0, Z0
-	VPANDQ       Z20, Z1, Z1
-	VPANDNQ      Z11, Z20, Z11
-	VPORQ        Z11, Z1, Z1
-	VPANDQ       Z20, Z2, Z2
-	VPANDNQ      Z12, Z20, Z12
-	VPORQ        Z12, Z2, Z2
-	VPANDQ       Z20, Z3, Z3
-	VPANDNQ      Z13, Z20, Z13
-	VPORQ        Z13, Z3, Z3
-	VPANDQ       Z20, Z4, Z4
-	VPANDNQ      Z14, Z20, Z14
-	VPORQ        Z14, Z4, Z4
-	VPBROADCASTQ ·q4Radix52<>+0(SB), Z5
-	VPBROADCASTQ ·q4Radix52<>+8(SB), Z6
-	VPBROADCASTQ ·q4Radix52<>+16(SB), Z7
-	VPBROADCASTQ ·q4Radix52<>+24(SB), Z8
-	VPBROADCASTQ ·q4Radix52<>+32(SB), Z9
-	VPSUBQ       Z5, Z0, Z10
-	VPSUBQ       Z6, Z1, Z11
-	VPSUBQ       Z7, Z2, Z12
-	VPSUBQ       Z8, Z3, Z13
-	VPSUBQ       Z9, Z4, Z14
-	VPSRAQ       $63, Z10, Z20
-	VPADDQ       Z20, Z11, Z11
-	VPSRAQ       $63, Z11, Z20
-	VPADDQ       Z20, Z12, Z12
-	VPSRAQ       $63, Z12, Z20
-	VPADDQ       Z20, Z13, Z13
-	VPSRAQ       $63, Z13, Z20
-	VPADDQ       Z20, Z14, Z14
-	VPSRAQ       $63, Z14, Z20
-	VPANDQ       Z31, Z10, Z10
-	VPANDQ       Z31, Z11, Z11
-	VPANDQ       Z31, Z12, Z12
-	VPANDQ       Z31, Z13, Z13
-	VPANDQ       Z31, Z14, Z14
-	VPANDQ       Z20, Z0, Z0
-	VPANDNQ      Z10, Z20, Z10
-	VPORQ        Z10, Z0, Z0
-	VPANDQ       Z20, Z1, Z1
-	VPANDNQ      Z11, Z20, Z11
-	VPORQ        Z11, Z1, Z1
-	VPANDQ       Z20, Z2, Z2
-	VPANDNQ      Z12, Z20, Z12
-	VPORQ        Z12, Z2, Z2
-	VPANDQ       Z20, Z3, Z3
-	VPANDNQ      Z13, Z20, Z13
-	VPORQ        Z13, Z3, Z3
-	VPANDQ       Z20, Z4, Z4
-	VPANDNQ      Z14, Z20, Z14
-	VPORQ        Z14, Z4, Z4
-	VPBROADCASTQ ·q2Radix52<>+0(SB), Z5
-	VPBROADCASTQ ·q2Radix52<>+8(SB), Z6
-	VPBROADCASTQ ·q2Radix52<>+16(SB), Z7
-	VPBROADCASTQ ·q2Radix52<>+24(SB), Z8
-	VPBROADCASTQ ·q2Radix52<>+32(SB), Z9
-	VPSUBQ       Z5, Z0, Z10
-	VPSUBQ       Z6, Z1, Z11
-	VPSUBQ       Z7, Z2, Z12
-	VPSUBQ       Z8, Z3, Z13
-	VPSUBQ       Z9, Z4, Z14
-	VPSRAQ       $63, Z10, Z20
-	VPADDQ       Z20, Z11, Z11
-	VPSRAQ       $63, Z11, Z20
-	VPADDQ       Z20, Z12, Z12
-	VPSRAQ       $63, Z12, Z20
-	VPADDQ       Z20, Z13, Z13
-	VPSRAQ       $63, Z13, Z20
-	VPADDQ       Z20, Z14, Z14
-	VPSRAQ       $63, Z14, Z20
-	VPANDQ       Z31, Z10, Z10
-	VPANDQ       Z31, Z11, Z11
-	VPANDQ       Z31, Z12, Z12
-	VPANDQ       Z31, Z13, Z13
-	VPANDQ       Z31, Z14, Z14
-	VPANDQ       Z20, Z0, Z0
-	VPANDNQ      Z10, Z20, Z10
-	VPORQ        Z10, Z0, Z0
-	VPANDQ       Z20, Z1, Z1
-	VPANDNQ      Z11, Z20, Z11
-	VPORQ        Z11, Z1, Z1
-	VPANDQ       Z20, Z2, Z2
-	VPANDNQ      Z12, Z20, Z12
-	VPORQ        Z12, Z2, Z2
-	VPANDQ       Z20, Z3, Z3
-	VPANDNQ      Z13, Z20, Z13
-	VPORQ        Z13, Z3, Z3
-	VPANDQ       Z20, Z4, Z4
-	VPANDNQ      Z14, Z20, Z14
-	VPORQ        Z14, Z4, Z4
-	VPSUBQ       Z25, Z0, Z10
-	VPSUBQ       Z26, Z1, Z11
-	VPSUBQ       Z27, Z2, Z12
-	VPSUBQ       Z28, Z3, Z13
-	VPSUBQ       Z29, Z4, Z14
-	VPSRAQ       $63, Z10, Z20            // Z20 = -1 if borrow, 0 otherwise
-	VPADDQ       Z20, Z11, Z11            // Z11 -= borrow
-	VPSRAQ       $63, Z11, Z20
-	VPADDQ       Z20, Z12, Z12
-	VPSRAQ       $63, Z12, Z20
-	VPADDQ       Z20, Z13, Z13
-	VPSRAQ       $63, Z13, Z20
-	VPADDQ       Z20, Z14, Z14
-	VPSRAQ       $63, Z14, Z20            // Z20 = all 1s if borrow (result < q), all 0s if no borrow
-	VPANDQ       Z31, Z10, Z10
-	VPANDQ       Z31, Z11, Z11
-	VPANDQ       Z31, Z12, Z12
-	VPANDQ       Z31, Z13, Z13
-	VPANDQ       Z31, Z14, Z14
-	VPANDQ       Z20, Z0, Z0              // keep original if borrow
-	VPANDNQ      Z10, Z20, Z10            // keep subtracted if no borrow
-	VPORQ        Z10, Z0, Z0
-	VPANDQ       Z20, Z1, Z1
-	VPANDNQ      Z11, Z20, Z11
-	VPORQ        Z11, Z1, Z1
-	VPANDQ       Z20, Z2, Z2
-	VPANDNQ      Z12, Z20, Z12
-	VPORQ        Z12, Z2, Z2
-	VPANDQ       Z20, Z3, Z3
-	VPANDNQ      Z13, Z20, Z13
-	VPORQ        Z13, Z3, Z3
-	VPANDQ       Z20, Z4, Z4
-	VPANDNQ      Z14, Z20, Z14
-	VPORQ        Z14, Z4, Z4
+	// Subtract k*q with carry propagation
+	VPSUBQ Z6, Z0, Z0  // Z0 -= k*q[0]_low
+	VPSUBQ Z7, Z1, Z1  // Z1 -= k*q[1]_low
+	VPSUBQ Z8, Z2, Z2  // Z2 -= k*q[2]_low
+	VPSUBQ Z9, Z3, Z3  // Z3 -= k*q[3]_low
+	VPSUBQ Z10, Z4, Z4 // Z4 -= k*q[4]_low
+	VPSUBQ Z15, Z1, Z1 // Z1 -= carry from k*q[0]
+	VPSUBQ Z16, Z2, Z2 // Z2 -= carry from k*q[1]
+	VPSUBQ Z17, Z3, Z3 // Z3 -= carry from k*q[2]
+	VPSUBQ Z18, Z4, Z4 // Z4 -= carry from k*q[3]
+
+	// Propagate borrows through result
+	VPSRAQ $63, Z0, Z15 // Z15 = -1 if Z0 underflowed, 0 otherwise
+	VPANDQ Z31, Z0, Z0  // Z0 &= mask52
+	VPADDQ Z15, Z1, Z1  // Z1 += borrow (borrow is -1 or 0)
+	VPSRAQ $63, Z1, Z15
+	VPANDQ Z31, Z1, Z1
+	VPADDQ Z15, Z2, Z2
+	VPSRAQ $63, Z2, Z15
+	VPANDQ Z31, Z2, Z2
+	VPADDQ Z15, Z3, Z3
+	VPSRAQ $63, Z3, Z15
+	VPANDQ Z31, Z3, Z3
+	VPADDQ Z15, Z4, Z4
+	VPANDQ Z31, Z4, Z4  // Z4 &= mask52
+
+	// Final conditional subtraction of q
+	VPSUBQ Z25, Z0, Z10
+	VPSUBQ Z26, Z1, Z11
+	VPSUBQ Z27, Z2, Z12
+	VPSUBQ Z28, Z3, Z13
+	VPSUBQ Z29, Z4, Z14
+	VPSRAQ $63, Z10, Z20 // Z20 = -1 if borrow, 0 otherwise
+	VPADDQ Z20, Z11, Z11 // Z11 -= borrow
+	VPSRAQ $63, Z11, Z20
+	VPADDQ Z20, Z12, Z12
+	VPSRAQ $63, Z12, Z20
+	VPADDQ Z20, Z13, Z13
+	VPSRAQ $63, Z13, Z20
+	VPADDQ Z20, Z14, Z14
+	VPSRAQ $63, Z14, Z20 // Z20 = all 1s if borrow (result < q), all 0s if no borrow
+	VPANDQ Z31, Z10, Z10
+	VPANDQ Z31, Z11, Z11
+	VPANDQ Z31, Z12, Z12
+	VPANDQ Z31, Z13, Z13
+	VPANDQ Z31, Z14, Z14
+
+	// Conditional select using VPTERNLOGQ (saves 10 instructions)
+	VPTERNLOGQ $0xE2, Z10, Z20, Z0
+	VPTERNLOGQ $0xE2, Z11, Z20, Z1
+	VPTERNLOGQ $0xE2, Z12, Z20, Z2
+	VPTERNLOGQ $0xE2, Z13, Z20, Z3
+	VPTERNLOGQ $0xE2, Z14, Z20, Z4
 
 	// Convert result from radix-52 back to radix-64
 	// Convert from radix-52 to radix-64

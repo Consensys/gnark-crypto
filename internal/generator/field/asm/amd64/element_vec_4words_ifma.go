@@ -24,45 +24,8 @@ func (f *FFAmd64) emitIFMAConstants() {
 	f.GLOBL("·permuteIdxIFMA<>", "RODATA|NOPTR", 64)
 	f.WriteLn("")
 
-	// Precomputed multiples of q in radix-52 for binary reduction
-	// These are computed as: to_radix52(N * q) for N = 2, 4, 8, 16
-	// q = 8444461749428370424248824938781546531375899335154063827935233455917409239041
-
-	f.Comment("2q in radix-52: used for binary reduction after x16 correction")
-	f.DATA("·q2Radix52<>", 0, 8, "$0x3000000000002", "2q[0]")
-	f.DATA("·q2Radix52<>", 8, 8, "$0xfda0000002142", "2q[1]")
-	f.DATA("·q2Radix52<>", 16, 8, "$0x86f6002b354ed", "2q[2]")
-	f.DATA("·q2Radix52<>", 24, 8, "$0x4aacc1689a3cb", "2q[3]")
-	f.DATA("·q2Radix52<>", 32, 8, "$0x02556cabd3459", "2q[4]")
-	f.GLOBL("·q2Radix52<>", "RODATA|NOPTR", 40)
-	f.WriteLn("")
-
-	f.Comment("4q in radix-52")
-	f.DATA("·q4Radix52<>", 0, 8, "$0x6000000000004", "4q[0]")
-	f.DATA("·q4Radix52<>", 8, 8, "$0xfb40000004284", "4q[1]")
-	f.DATA("·q4Radix52<>", 16, 8, "$0x0dec00566a9db", "4q[2]")
-	f.DATA("·q4Radix52<>", 24, 8, "$0x955982d134797", "4q[3]")
-	f.DATA("·q4Radix52<>", 32, 8, "$0x04aad957a68b2", "4q[4]")
-	f.GLOBL("·q4Radix52<>", "RODATA|NOPTR", 40)
-	f.WriteLn("")
-
-	f.Comment("8q in radix-52")
-	f.DATA("·q8Radix52<>", 0, 8, "$0xc000000000008", "8q[0]")
-	f.DATA("·q8Radix52<>", 8, 8, "$0xf680000008508", "8q[1]")
-	f.DATA("·q8Radix52<>", 16, 8, "$0x1bd800acd53b7", "8q[2]")
-	f.DATA("·q8Radix52<>", 24, 8, "$0x2ab305a268f2e", "8q[3]")
-	f.DATA("·q8Radix52<>", 32, 8, "$0x0955b2af4d165", "8q[4]")
-	f.GLOBL("·q8Radix52<>", "RODATA|NOPTR", 40)
-	f.WriteLn("")
-
-	f.Comment("16q in radix-52")
-	f.DATA("·q16Radix52<>", 0, 8, "$0x8000000000010", "16q[0]")
-	f.DATA("·q16Radix52<>", 8, 8, "$0xed00000010a11", "16q[1]")
-	f.DATA("·q16Radix52<>", 16, 8, "$0x37b00159aa76f", "16q[2]")
-	f.DATA("·q16Radix52<>", 24, 8, "$0x55660b44d1e5c", "16q[3]")
-	f.DATA("·q16Radix52<>", 32, 8, "$0x12ab655e9a2ca", "16q[4]")
-	f.GLOBL("·q16Radix52<>", "RODATA|NOPTR", 40)
-	f.WriteLn("")
+	// Note: Previously had 2q, 4q, 8q, 16q constants for binary reduction.
+	// Now using Barrett reduction, so these are no longer needed.
 }
 
 // generateMulVecIFMA generates AVX-512 IFMA based vector multiplication.
@@ -161,12 +124,10 @@ func (f *FFAmd64) generateMulVecIFMA() {
 	f.montgomeryMulIFMA()
 
 	// Result is in Z0-Z4 (radix-52, SoA format)
-	// Correction: multiply by 16 to account for radix difference
-	// IFMA uses R=2^260 (5 rounds * 52 bits), but input is in R=2^256 form
-	// So result is A*B*2^{-260}, we need A*B*2^{-256}, difference = 2^4 = 16
-	// We do this in radix-52 format where l4 has headroom (max ~2^48 after mult)
-	f.Comment("Multiply by 16 in radix-52 to correct for radix-260 vs radix-256")
-	f.multiplyByConstant16Radix52()
+	// x16 correction is already fused into montgomeryMulIFMA
+	// Result is in [0, 32q), need Barrett reduction to get to [0, q)
+	f.Comment("Barrett reduction from [0, 32q) to [0, q)")
+	f.barrettReduction()
 
 	// Convert result back to radix-64
 	f.Comment("Convert result from radix-52 back to radix-64")
@@ -419,26 +380,40 @@ func (f *FFAmd64) montgomeryMulIFMA() {
 	}
 
 	// Result is in T[0..4] (Z10-Z14), copy to Z0-Z4
-	f.Comment("Copy result to Z0-Z4")
-	f.VMOVDQA64(amd64.Z10, amd64.Z0)
-	f.VMOVDQA64(amd64.Z11, amd64.Z1)
-	f.VMOVDQA64(amd64.Z12, amd64.Z2)
-	f.VMOVDQA64(amd64.Z13, amd64.Z3)
-	f.VMOVDQA64(amd64.Z14, amd64.Z4)
+	// FUSED: Copy + normalization + x16 in one pass
+	// Instead of: copy Z10-Z14 -> Z0-Z4, normalize, then x16
+	// We do: shift Z10-Z14 by 4 directly, then normalize (handles both Montgomery and x16 carries)
+	// This saves 5 VMOVDQA64 + some redundant operations
+	f.Comment("Fused: x16 shift + normalization in one pass")
 
-	// Final normalization (ensure all limbs < 2^52)
-	f.Comment("Final normalization")
-	for i := 0; i < 4; i++ {
-		zi := fmt.Sprintf("Z%d", i)
-		ziNext := fmt.Sprintf("Z%d", i+1)
-		f.VPSRLQ("$52", zi, amd64.Z20)
-		f.VPANDQ(amd64.Z31, zi, zi)
-		f.VPADDQ(amd64.Z20, ziNext, ziNext)
-	}
+	// Step 1: Shift by 4 (x16) directly from Z10-Z14 to Z0-Z4
+	f.VPSLLQ("$4", amd64.Z10, amd64.Z0, "Z0 = T[0] << 4")
+	f.VPSLLQ("$4", amd64.Z11, amd64.Z1, "Z1 = T[1] << 4")
+	f.VPSLLQ("$4", amd64.Z12, amd64.Z2, "Z2 = T[2] << 4")
+	f.VPSLLQ("$4", amd64.Z13, amd64.Z3, "Z3 = T[3] << 4")
+	f.VPSLLQ("$4", amd64.Z14, amd64.Z4, "Z4 = T[4] << 4")
 
-	// Conditional subtraction of q if result >= q
-	f.Comment("Conditional subtraction if >= q")
-	f.conditionalSubtractQ()
+	// Step 2: Extract all carries in parallel (up to 12 bits each: 8 from Mont + 4 from x16)
+	f.VPSRLQ("$52", amd64.Z0, amd64.Z20, "carry0")
+	f.VPSRLQ("$52", amd64.Z1, amd64.Z21, "carry1")
+	f.VPSRLQ("$52", amd64.Z2, amd64.Z22, "carry2")
+	f.VPSRLQ("$52", amd64.Z3, amd64.Z23, "carry3")
+
+	// Step 3: Mask all limbs in parallel
+	f.VPANDQ(amd64.Z31, amd64.Z0, amd64.Z0)
+	f.VPANDQ(amd64.Z31, amd64.Z1, amd64.Z1)
+	f.VPANDQ(amd64.Z31, amd64.Z2, amd64.Z2)
+	f.VPANDQ(amd64.Z31, amd64.Z3, amd64.Z3)
+	// Z4 doesn't need masking (has headroom for up to 52+12=64 bits)
+
+	// Step 4: Add all carries to next limbs in parallel
+	f.VPADDQ(amd64.Z20, amd64.Z1, amd64.Z1)
+	f.VPADDQ(amd64.Z21, amd64.Z2, amd64.Z2)
+	f.VPADDQ(amd64.Z22, amd64.Z3, amd64.Z3)
+	f.VPADDQ(amd64.Z23, amd64.Z4, amd64.Z4)
+
+	// AMM: Result is in [0, 32q), skip conditional subtraction - Barrett handles it
+	f.Comment("AMM: result in [0, 32q) after x16, Barrett reduction follows")
 }
 
 func (f *FFAmd64) conditionalSubtractQ() {
@@ -491,216 +466,128 @@ func (f *FFAmd64) conditionalSubtractQ() {
 	f.VPANDQ(amd64.Z31, amd64.Z14, amd64.Z14)
 
 	// Select: if borrow (Z20 = all 1s), keep original; else use subtracted
-	// For each limb: result = (original & mask) | (subtracted & ~mask)
-	f.VPANDQ(amd64.Z20, amd64.Z0, amd64.Z0, "keep original if borrow")
-	f.VPANDNQ(amd64.Z10, amd64.Z20, amd64.Z10, "keep subtracted if no borrow")
-	f.VPORQ(amd64.Z10, amd64.Z0, amd64.Z0)
-
-	f.VPANDQ(amd64.Z20, amd64.Z1, amd64.Z1)
-	f.VPANDNQ(amd64.Z11, amd64.Z20, amd64.Z11)
-	f.VPORQ(amd64.Z11, amd64.Z1, amd64.Z1)
-
-	f.VPANDQ(amd64.Z20, amd64.Z2, amd64.Z2)
-	f.VPANDNQ(amd64.Z12, amd64.Z20, amd64.Z12)
-	f.VPORQ(amd64.Z12, amd64.Z2, amd64.Z2)
-
-	f.VPANDQ(amd64.Z20, amd64.Z3, amd64.Z3)
-	f.VPANDNQ(amd64.Z13, amd64.Z20, amd64.Z13)
-	f.VPORQ(amd64.Z13, amd64.Z3, amd64.Z3)
-
-	f.VPANDQ(amd64.Z20, amd64.Z4, amd64.Z4)
-	f.VPANDNQ(amd64.Z14, amd64.Z20, amd64.Z14)
-	f.VPORQ(amd64.Z14, amd64.Z4, amd64.Z4)
+	// Using VPTERNLOGQ: dst = f(dst, src1, src2) where imm8 is truth table
+	// For VPTERNLOGQ $imm, Z10, Z20, Z0:
+	//   dst=Z0 (original), src1=Z20 (mask), src2=Z10 (subtracted)
+	// We want: if mask then original else subtracted
+	// Truth table index = dst*4 + src1*2 + src2
+	// imm8 = 0xE2 = 0b11100010: selects dst when src1=1, src2 when src1=0
+	f.Comment("Conditional select using VPTERNLOGQ (saves 10 instructions)")
+	f.VPTERNLOGQ("$0xE2", amd64.Z10, amd64.Z20, amd64.Z0)
+	f.VPTERNLOGQ("$0xE2", amd64.Z11, amd64.Z20, amd64.Z1)
+	f.VPTERNLOGQ("$0xE2", amd64.Z12, amd64.Z20, amd64.Z2)
+	f.VPTERNLOGQ("$0xE2", amd64.Z13, amd64.Z20, amd64.Z3)
+	f.VPTERNLOGQ("$0xE2", amd64.Z14, amd64.Z20, amd64.Z4)
 }
 
-func (f *FFAmd64) multiplyByConstant16Radix52() {
-	// Multiply radix-52 result (Z0-Z4) by 16 with carry propagation
-	// This corrects for the 2^260 vs 2^256 Montgomery radix difference
+func (f *FFAmd64) barrettReduction() {
+	// Barrett reduction from [0, 32q) to [0, q) using single quotient estimation:
+	// 1. k = (l4 * mu) >> 58, where mu = 0x36d9 (precomputed for this field)
+	// 2. Subtract k*q from result (k is at most 31)
+	// 3. One final conditional subtraction to handle rounding error
 	//
-	// For each limb: new_li = (li << 4) + carry_from_lower
-	// Since 16 = 2^4, this is a left shift by 4 with carry propagation
+	// This replaces 5 conditional subtractions (~175 instructions) with
+	// 1 multiply + 5 multiplies (for k*q) + 1 conditional subtract (~30 instructions)
+
+	f.Comment("Barrett reduction: k = (l4 * mu) >> 58, subtract k*q, then conditional subtract q")
+
+	// Load Barrett constant mu (field-specific, defined in element.go as muBarrett52)
+	// CRITICAL: VPMULUDQ only uses the low 32 bits of each operand, but l4 can be up to 50 bits
+	// after x16. We must pre-shift l4 to fit in 32 bits.
 	//
-	// For 253-bit field, l4 is at most ~2^44, so l4*16 = 2^48 < 2^52 (fits!)
-	//
-	// Algorithm:
-	// tmp0 = l0 << 4;  l0' = tmp0 & mask52;  carry = tmp0 >> 52
-	// tmp1 = (l1 << 4) + carry;  l1' = tmp1 & mask52;  carry = tmp1 >> 52
-	// etc.
-	//
-	// Note: we use OR instead of ADD for (li << 4) + carry because
-	// (li << 4) has bits 4+ set and carry has only bits 0-3 set (no overlap)
+	// Original formula: k = (l4 * mu) >> 58
+	// Since l4 can be up to 50 bits, we compute: k = ((l4 >> 20) * mu) >> 38
+	// This ensures (l4 >> 20) fits in 30 bits, making VPMULUDQ valid.
+	f.MOVQ("$const_muBarrett52", amd64.AX, "Barrett mu constant (field-specific)")
+	f.VPBROADCASTQ(amd64.AX, amd64.Z5, "Z5 = mu broadcast")
 
-	f.Comment("Multiply by 16 = 2^4 (left shift with carry) in radix-52")
+	// Pre-shift l4 to fit in 32 bits for VPMULUDQ
+	f.VPSRLQ("$20", amd64.Z4, amd64.Z6, "Z6 = l4 >> 20 (fits in 30 bits)")
 
-	// Process l0: shift left by 4, extract low 52 bits and carry
-	f.VPSLLQ("$4", amd64.Z0, amd64.Z10, "Z10 = l0 << 4")
-	f.VPANDQ(amd64.Z31, amd64.Z10, amd64.Z0, "Z0 = (l0 << 4) & mask52")
-	f.VPSRLQ("$52", amd64.Z10, amd64.Z15, "Z15 = carry = (l0 << 4) >> 52")
+	// Compute k = ((l4 >> 20) * mu) >> 38
+	f.VPMULUDQ(amd64.Z5, amd64.Z6, amd64.Z5, "Z5 = (l4 >> 20) * mu")
+	f.VPSRLQ("$38", amd64.Z5, amd64.Z5, "Z5 = k = ((l4 >> 20) * mu) >> 38")
 
-	// Process l1: shift, add carry from l0, extract low 52 bits and new carry
-	f.VPSLLQ("$4", amd64.Z1, amd64.Z10, "Z10 = l1 << 4")
-	f.VPORQ(amd64.Z15, amd64.Z10, amd64.Z10, "Z10 = (l1 << 4) | carry (no overlap)")
-	f.VPANDQ(amd64.Z31, amd64.Z10, amd64.Z1, "Z1 = result & mask52")
-	f.VPSRLQ("$52", amd64.Z10, amd64.Z15, "Z15 = new carry")
+	// Compute k*q and subtract from result
+	// k*q needs 5 limb multiplications: k * q[i] for i=0..4
+	// CRITICAL: VPMULUDQ only uses low 32 bits, but q[i] is 52 bits!
+	// Use VPMADD52LUQ/HUQ which properly handle 52-bit operands.
+	// k is at most 31 (5 bits), q[i] is at most 52 bits, so k*q[i] < 2^57.
+	f.Comment("Compute k*q using VPMADD52 (handles 52-bit operands correctly)")
 
-	// Process l2
-	f.VPSLLQ("$4", amd64.Z2, amd64.Z10)
-	f.VPORQ(amd64.Z15, amd64.Z10, amd64.Z10)
-	f.VPANDQ(amd64.Z31, amd64.Z10, amd64.Z2)
-	f.VPSRLQ("$52", amd64.Z10, amd64.Z15)
+	// Use VPMADD52LUQ with zero accumulator to get k * q[i]
+	// VPMADD52LUQ computes: dst += low52(src1 * src2)
+	f.VPXORQ(amd64.Z6, amd64.Z6, amd64.Z6, "Z6 = 0")
+	f.VPXORQ(amd64.Z7, amd64.Z7, amd64.Z7, "Z7 = 0")
+	f.VPXORQ(amd64.Z8, amd64.Z8, amd64.Z8, "Z8 = 0")
+	f.VPXORQ(amd64.Z9, amd64.Z9, amd64.Z9, "Z9 = 0")
+	f.VPXORQ(amd64.Z10, amd64.Z10, amd64.Z10, "Z10 = 0")
+	f.VPXORQ(amd64.Z15, amd64.Z15, amd64.Z15, "Z15 = 0 (for high parts)")
 
-	// Process l3
-	f.VPSLLQ("$4", amd64.Z3, amd64.Z10)
-	f.VPORQ(amd64.Z15, amd64.Z10, amd64.Z10)
-	f.VPANDQ(amd64.Z31, amd64.Z10, amd64.Z3)
-	f.VPSRLQ("$52", amd64.Z10, amd64.Z15)
+	// Compute k*q[i] low 52 bits
+	f.VPMADD52LUQ(amd64.Z25, amd64.Z5, amd64.Z6, "Z6 = low52(k * q[0])")
+	f.VPMADD52LUQ(amd64.Z26, amd64.Z5, amd64.Z7, "Z7 = low52(k * q[1])")
+	f.VPMADD52LUQ(amd64.Z27, amd64.Z5, amd64.Z8, "Z8 = low52(k * q[2])")
+	f.VPMADD52LUQ(amd64.Z28, amd64.Z5, amd64.Z9, "Z9 = low52(k * q[3])")
+	f.VPMADD52LUQ(amd64.Z29, amd64.Z5, amd64.Z10, "Z10 = low52(k * q[4])")
 
-	// Process l4 (no mask needed, l4 has headroom for the result)
-	f.VPSLLQ("$4", amd64.Z4, amd64.Z10)
-	f.VPORQ(amd64.Z15, amd64.Z10, amd64.Z4, "Z4 = (l4 << 4) | carry")
+	// Compute k*q[i] high 52 bits (actually just the carry, ~5 bits max)
+	// Use Z15, Z16, Z17, Z18, Z19 for high parts
+	f.VPXORQ(amd64.Z16, amd64.Z16, amd64.Z16)
+	f.VPXORQ(amd64.Z17, amd64.Z17, amd64.Z17)
+	f.VPXORQ(amd64.Z18, amd64.Z18, amd64.Z18)
+	f.VPXORQ(amd64.Z19, amd64.Z19, amd64.Z19)
 
-	// Now result in Z0-Z4 is 16 * original
-	// After Montgomery multiply, result is in [0, 2q), so 16*result can be in [0, 32q)
-	//
-	// Binary reduction from [0, 32q) to [0, q) using precomputed multiples:
-	// 1. If result >= 16q, subtract 16q → [0, 16q)
-	// 2. If result >= 8q, subtract 8q → [0, 8q)
-	// 3. If result >= 4q, subtract 4q → [0, 4q)
-	// 4. If result >= 2q, subtract 2q → [0, 2q)
-	// 5. If result >= q, subtract q → [0, q)
-	//
-	// This is 5 conditional subtractions instead of up to 32 sequential ones.
-	// The constants 16q, 8q, 4q, 2q are precomputed in DATA sections.
+	f.VPMADD52HUQ(amd64.Z25, amd64.Z5, amd64.Z15, "Z15 = high52(k * q[0])")
+	f.VPMADD52HUQ(amd64.Z26, amd64.Z5, amd64.Z16, "Z16 = high52(k * q[1])")
+	f.VPMADD52HUQ(amd64.Z27, amd64.Z5, amd64.Z17, "Z17 = high52(k * q[2])")
+	f.VPMADD52HUQ(amd64.Z28, amd64.Z5, amd64.Z18, "Z18 = high52(k * q[3])")
+	f.VPMADD52HUQ(amd64.Z29, amd64.Z5, amd64.Z19, "Z19 = high52(k * q[4])")
 
-	f.Comment("Binary reduction: conditionally subtract 16q, 8q, 4q, 2q, q")
+	// Subtract k*q from result with carry propagation
+	// k*q[i] = Z[6+i] + Z[15+i] * 2^52
+	// We need to do: result[i] -= k*q[i]_low, then propagate high part as carry
+	f.Comment("Subtract k*q with carry propagation")
 
-	// Load 16q into Z5-Z9 and subtract
-	f.VPBROADCASTQ("·q16Radix52<>+0(SB)", amd64.Z5)
-	f.VPBROADCASTQ("·q16Radix52<>+8(SB)", amd64.Z6)
-	f.VPBROADCASTQ("·q16Radix52<>+16(SB)", amd64.Z7)
-	f.VPBROADCASTQ("·q16Radix52<>+24(SB)", amd64.Z8)
-	f.VPBROADCASTQ("·q16Radix52<>+32(SB)", amd64.Z9)
-	f.conditionalSubtractNQ("Z5", "Z6", "Z7", "Z8", "Z9")
+	// Subtract low parts
+	f.VPSUBQ(amd64.Z6, amd64.Z0, amd64.Z0, "Z0 -= k*q[0]_low")
+	f.VPSUBQ(amd64.Z7, amd64.Z1, amd64.Z1, "Z1 -= k*q[1]_low")
+	f.VPSUBQ(amd64.Z8, amd64.Z2, amd64.Z2, "Z2 -= k*q[2]_low")
+	f.VPSUBQ(amd64.Z9, amd64.Z3, amd64.Z3, "Z3 -= k*q[3]_low")
+	f.VPSUBQ(amd64.Z10, amd64.Z4, amd64.Z4, "Z4 -= k*q[4]_low")
 
-	// Load 8q and subtract
-	f.VPBROADCASTQ("·q8Radix52<>+0(SB)", amd64.Z5)
-	f.VPBROADCASTQ("·q8Radix52<>+8(SB)", amd64.Z6)
-	f.VPBROADCASTQ("·q8Radix52<>+16(SB)", amd64.Z7)
-	f.VPBROADCASTQ("·q8Radix52<>+24(SB)", amd64.Z8)
-	f.VPBROADCASTQ("·q8Radix52<>+32(SB)", amd64.Z9)
-	f.conditionalSubtractNQ("Z5", "Z6", "Z7", "Z8", "Z9")
+	// Subtract high parts (carries) from next limbs
+	f.VPSUBQ(amd64.Z15, amd64.Z1, amd64.Z1, "Z1 -= carry from k*q[0]")
+	f.VPSUBQ(amd64.Z16, amd64.Z2, amd64.Z2, "Z2 -= carry from k*q[1]")
+	f.VPSUBQ(amd64.Z17, amd64.Z3, amd64.Z3, "Z3 -= carry from k*q[2]")
+	f.VPSUBQ(amd64.Z18, amd64.Z4, amd64.Z4, "Z4 -= carry from k*q[3]")
+	// Note: Z19 (carry from k*q[4]) should be 0 since k*q[4] < 2^52 for valid inputs
 
-	// Load 4q and subtract
-	f.VPBROADCASTQ("·q4Radix52<>+0(SB)", amd64.Z5)
-	f.VPBROADCASTQ("·q4Radix52<>+8(SB)", amd64.Z6)
-	f.VPBROADCASTQ("·q4Radix52<>+16(SB)", amd64.Z7)
-	f.VPBROADCASTQ("·q4Radix52<>+24(SB)", amd64.Z8)
-	f.VPBROADCASTQ("·q4Radix52<>+32(SB)", amd64.Z9)
-	f.conditionalSubtractNQ("Z5", "Z6", "Z7", "Z8", "Z9")
+	// Now propagate borrows through the result limbs
+	// If result[i] underflowed (negative), we need to borrow from result[i+1]
+	f.Comment("Propagate borrows through result")
+	f.VPSRAQ("$63", amd64.Z0, amd64.Z15, "Z15 = -1 if Z0 underflowed, 0 otherwise")
+	f.VPANDQ(amd64.Z31, amd64.Z0, amd64.Z0, "Z0 &= mask52")
+	f.VPADDQ(amd64.Z15, amd64.Z1, amd64.Z1, "Z1 += borrow (borrow is -1 or 0)")
 
-	// Load 2q and subtract
-	f.VPBROADCASTQ("·q2Radix52<>+0(SB)", amd64.Z5)
-	f.VPBROADCASTQ("·q2Radix52<>+8(SB)", amd64.Z6)
-	f.VPBROADCASTQ("·q2Radix52<>+16(SB)", amd64.Z7)
-	f.VPBROADCASTQ("·q2Radix52<>+24(SB)", amd64.Z8)
-	f.VPBROADCASTQ("·q2Radix52<>+32(SB)", amd64.Z9)
-	f.conditionalSubtractNQ("Z5", "Z6", "Z7", "Z8", "Z9")
+	f.VPSRAQ("$63", amd64.Z1, amd64.Z15)
+	f.VPANDQ(amd64.Z31, amd64.Z1, amd64.Z1)
+	f.VPADDQ(amd64.Z15, amd64.Z2, amd64.Z2)
 
-	// Final subtraction of q (using Z25-Z29 which already have q loaded)
+	f.VPSRAQ("$63", amd64.Z2, amd64.Z15)
+	f.VPANDQ(amd64.Z31, amd64.Z2, amd64.Z2)
+	f.VPADDQ(amd64.Z15, amd64.Z3, amd64.Z3)
+
+	f.VPSRAQ("$63", amd64.Z3, amd64.Z15)
+	f.VPANDQ(amd64.Z31, amd64.Z3, amd64.Z3)
+	f.VPADDQ(amd64.Z15, amd64.Z4, amd64.Z4)
+
+	f.VPANDQ(amd64.Z31, amd64.Z4, amd64.Z4, "Z4 &= mask52")
+
+	// Result is now in [0, 2q) due to Barrett rounding error
+	// One final conditional subtraction of q to get result in [0, q)
+	f.Comment("Final conditional subtraction of q")
 	f.conditionalSubtractQ()
-}
-
-func (f *FFAmd64) conditionalSubtractNQ(nq0, nq1, nq2, nq3, nq4 string) {
-	// Compare result with N*q and subtract if >= N*q
-	// Result in Z0-Z4 (radix-52), N*q in specified registers
-	// Z31 contains the 52-bit mask
-	//
-	// This is the same algorithm as conditionalSubtractQ but uses arbitrary N*q registers
-
-	// Compute result - N*q into Z10-Z14
-	f.VPSUBQ(nq0, "Z0", "Z10")
-	f.VPSUBQ(nq1, "Z1", "Z11")
-	f.VPSUBQ(nq2, "Z2", "Z12")
-	f.VPSUBQ(nq3, "Z3", "Z13")
-	f.VPSUBQ(nq4, "Z4", "Z14")
-
-	// Propagate borrows through limbs
-	f.VPSRAQ("$63", "Z10", "Z20")
-	f.VPADDQ("Z20", "Z11", "Z11")
-
-	f.VPSRAQ("$63", "Z11", "Z20")
-	f.VPADDQ("Z20", "Z12", "Z12")
-
-	f.VPSRAQ("$63", "Z12", "Z20")
-	f.VPADDQ("Z20", "Z13", "Z13")
-
-	f.VPSRAQ("$63", "Z13", "Z20")
-	f.VPADDQ("Z20", "Z14", "Z14")
-
-	// Z14's sign bit tells us if result < N*q (borrow occurred)
-	f.VPSRAQ("$63", "Z14", "Z20")
-
-	// Mask the subtracted limbs to 52 bits before selection
-	f.VPANDQ("Z31", "Z10", "Z10")
-	f.VPANDQ("Z31", "Z11", "Z11")
-	f.VPANDQ("Z31", "Z12", "Z12")
-	f.VPANDQ("Z31", "Z13", "Z13")
-	f.VPANDQ("Z31", "Z14", "Z14")
-
-	// Select: if borrow (Z20 = all 1s), keep original; else use subtracted
-	f.VPANDQ("Z20", "Z0", "Z0")
-	f.VPANDNQ("Z10", "Z20", "Z10")
-	f.VPORQ("Z10", "Z0", "Z0")
-
-	f.VPANDQ("Z20", "Z1", "Z1")
-	f.VPANDNQ("Z11", "Z20", "Z11")
-	f.VPORQ("Z11", "Z1", "Z1")
-
-	f.VPANDQ("Z20", "Z2", "Z2")
-	f.VPANDNQ("Z12", "Z20", "Z12")
-	f.VPORQ("Z12", "Z2", "Z2")
-
-	f.VPANDQ("Z20", "Z3", "Z3")
-	f.VPANDNQ("Z13", "Z20", "Z13")
-	f.VPORQ("Z13", "Z3", "Z3")
-
-	f.VPANDQ("Z20", "Z4", "Z4")
-	f.VPANDNQ("Z14", "Z20", "Z14")
-	f.VPORQ("Z14", "Z4", "Z4")
-}
-
-func (f *FFAmd64) convertAndStoreRadix64(addr amd64.Register, z0, z1, z2, z3, z4 string) {
-	// Convert from radix-52 (Z0-Z4) back to radix-64 and store
-
-	f.Comment("Convert from radix-52 to radix-64")
-
-	// a0 = l0 | (l1 << 52)
-	f.VPSLLQ("$52", z1, "Z18")
-	f.VPORQ("Z18", z0, "Z14", "Z14 = a0")
-
-	// a1 = (l1 >> 12) | (l2 << 40)
-	f.VPSRLQ("$12", z1, "Z18")
-	f.VPSLLQ("$40", z2, "Z19")
-	f.VPORQ("Z19", "Z18", "Z15", "Z15 = a1")
-
-	// a2 = (l2 >> 24) | (l3 << 28)
-	f.VPSRLQ("$24", z2, "Z18")
-	f.VPSLLQ("$28", z3, "Z19")
-	f.VPORQ("Z19", "Z18", "Z16", "Z16 = a2")
-
-	// a3 = (l3 >> 36) | (l4 << 16)
-	f.VPSRLQ("$36", z3, "Z18")
-	f.VPSLLQ("$16", z4, "Z19")
-	f.VPORQ("Z19", "Z18", "Z17", "Z17 = a3")
-
-	// Transpose back from SoA to AoS and store
-	f.Comment("Transpose back to AoS format and store")
-	f.transposeFromIFMA("Z14", "Z15", "Z16", "Z17", "Z10", "Z11", "Z12", "Z13")
-
-	f.VMOVDQU64("Z10", fmt.Sprintf("0(%s)", addr))
-	f.VMOVDQU64("Z11", fmt.Sprintf("64(%s)", addr))
-	f.VMOVDQU64("Z12", fmt.Sprintf("128(%s)", addr))
-	f.VMOVDQU64("Z13", fmt.Sprintf("192(%s)", addr))
 }
 
 func (f *FFAmd64) convertFromRadix52(l0, l1, l2, l3, l4, a0, a1, a2, a3 string) {

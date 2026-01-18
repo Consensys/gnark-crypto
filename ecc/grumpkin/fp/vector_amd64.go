@@ -139,18 +139,17 @@ func (vector *Vector) Mul(a, b Vector) {
 		return
 	}
 
-	// IFMA path (available on Ice Lake+, Zen4+) - currently disabled pending Montgomery algorithm fixes
-	// TODO: Debug and enable IFMA implementation
-	// if cpu.SupportAVX512IFMA && n >= 8 {
-	// 	const blockSizeIFMA = 8
-	// 	mulVecIFMA(&(*vector)[0], &a[0], &b[0], n/blockSizeIFMA)
-	// 	if n % blockSizeIFMA != 0 {
-	// 		start := n - n % blockSizeIFMA
-	// 		mulVecGeneric((*vector)[start:], a[start:], b[start:])
-	// 	}
-	// 	return
-	// }
-	_ = cpu.SupportAVX512IFMA // silence unused import
+	// IFMA path (available on Ice Lake+, Zen4+)
+	// Uses AVX-512 IFMA instructions for ~2x speedup over generic
+	if cpu.SupportAVX512IFMA && n >= 8 {
+		const blockSizeIFMA = 8
+		mulVecIFMA(&(*vector)[0], &a[0], &b[0], n/blockSizeIFMA)
+		if n%blockSizeIFMA != 0 {
+			start := n - n%blockSizeIFMA
+			mulVecGeneric((*vector)[start:], a[start:], b[start:])
+		}
+		return
+	}
 
 	const blockSize = 16
 	mulVec(&(*vector)[0], &a[0], &b[0], n/blockSize, qInvNeg, &patterns[0])

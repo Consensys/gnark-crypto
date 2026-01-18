@@ -75,6 +75,12 @@ type Field struct {
 	GenerateVectorOpsARM64 bool
 
 	ASMPackagePath string
+
+	// IFMA (AVX-512) specific constants for 4-word fields
+	// These are used for radix-52 Montgomery multiplication
+	QRadix52       []uint64 // q in radix-52 form (5 limbs for 4-word fields)
+	MuBarrett52    uint64   // Barrett constant for reducing from [0, 32q) to [0, q)
+	BarrettShift52 int      // Shift amount for Barrett reduction (typically 58)
 }
 
 type Word struct {
@@ -325,6 +331,28 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 		_mu.Div(_mu, &bModulus)
 		muSlice := toUint64Slice(_mu, F.NbWords)
 		F.Mu = muSlice[0]
+
+		// IFMA constants for AVX-512 radix-52 Montgomery multiplication
+		// q in radix-52 form (5 limbs)
+		// l0 = q & mask52, l1 = (q >> 52) & mask52, etc.
+		const mask52 = (1 << 52) - 1
+		F.QRadix52 = make([]uint64, 5)
+		qCopy := new(big.Int).Set(&bModulus)
+		for i := 0; i < 5; i++ {
+			F.QRadix52[i] = qCopy.Uint64() & mask52
+			qCopy.Rsh(qCopy, 52)
+		}
+
+		// Barrett constant for reducing from [0, 32q) to [0, q)
+		// After IFMA Montgomery (R=2^260), we multiply by 16 to correct to R=2^256
+		// This gives result in [0, 32q), which we reduce using Barrett reduction
+		// mu = floor(2^58 / (q >> 208)), shift = 58
+		// This allows: k = (l4 * mu) >> 58, then subtract k*q
+		F.BarrettShift52 = 58
+		qHigh := new(big.Int).Rsh(&bModulus, 208)
+		muBig := new(big.Int).Lsh(big.NewInt(1), uint(F.BarrettShift52))
+		muBig.Div(muBig, qHigh)
+		F.MuBarrett52 = muBig.Uint64()
 	}
 	if f31ASM {
 		F.Mu = -F.QInverse[0]

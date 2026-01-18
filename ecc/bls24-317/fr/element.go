@@ -73,6 +73,10 @@ const qInvNeg = 17293822569102704639
 // mu = 2^288 / q needed for partial Barrett reduction
 const mu uint64 = 16110458503
 
+// muBarrett52 = floor(2^58 / (q >> 208)) for AVX-512 IFMA Barrett reduction
+// Used to reduce from [0, 32q) to [0, q) in radix-52 Montgomery multiplication
+const muBarrett52 uint64 = 3841
+
 func init() {
 	_modulus.SetString("443f917ea68dafc2d0b097f28d83cd491cd1e79196bf0e7af000000000000001", 16)
 }
