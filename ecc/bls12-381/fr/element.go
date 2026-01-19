@@ -70,24 +70,6 @@ func Modulus() *big.Int {
 // used for Montgomery reduction
 const qInvNeg = 18446744069414584319
 
-// mu = 2^288 / q needed for partial Barrett reduction
-const mu uint64 = 9484408045
-
-// AVX-512 IFMA constants for radix-52 Montgomery multiplication
-// qInvNeg52 = qInvNeg & ((1<<52)-1) - low 52 bits of qInvNeg
-const qInvNeg52 uint64 = 4503595332403199
-
-// muBarrett52 = floor(2^58 / (q >> 208)) for Barrett reduction
-// Used to reduce from [0, 32q) to [0, q) in radix-52 Montgomery multiplication
-const muBarrett52 uint64 = 2261
-
-// q in radix-52 form (5 limbs), used by IFMA Montgomery multiplication
-const qRadix52_0 uint64 = 4503595332403201
-const qRadix52_1 uint64 = 52776117727231
-const qRadix52_2 uint64 = 2711223964777892
-const qRadix52_3 uint64 = 2203984808738944
-const qRadix52_4 uint64 = 127464551688605
-
 func init() {
 	_modulus.SetString("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001", 16)
 }

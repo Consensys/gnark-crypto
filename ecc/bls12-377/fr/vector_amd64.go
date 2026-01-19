@@ -12,6 +12,24 @@ import (
 	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
+// mu = 2^288 / q needed for partial Barrett reduction
+const mu uint64 = 58893420465
+
+// AVX-512 IFMA constants for radix-52 Montgomery multiplication
+// qInvNeg52 = qInvNeg & ((1<<52)-1) - low 52 bits of qInvNeg
+const qInvNeg52 uint64 = 422212465065983
+
+// muBarrett52 = floor(2^58 / (q >> 208)) for Barrett reduction
+// Used to reduce from [0, 32q) to [0, q) in radix-52 Montgomery multiplication
+const muBarrett52 uint64 = 14041
+
+// q in radix-52 form (5 limbs), used by IFMA Montgomery multiplication
+const qRadix52_0 uint64 = 422212465065985
+const qRadix52_1 uint64 = 4482708906447009
+const qRadix52_2 uint64 = 3438928796953206
+const qRadix52_3 uint64 = 2908646531191269
+const qRadix52_4 uint64 = 20527349406252
+
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
