@@ -103,6 +103,17 @@ func generateDummyGoPackage(F *config.Field, asm *config.Assembly) error {
 		}
 	}
 
+	// IFMA-specific constants (for 4-word fields)
+	if F.NbWords == 4 {
+		f.WriteString("\n\n// IFMA-specific constants (precomputed radix-52 form)")
+		f.WriteString("\nconst qInvNeg52 = 0")
+		for i := 0; i < 5; i++ {
+			if _, err = fmt.Fprintf(f, "\nconst qRadix52_%d = 0", i); err != nil {
+				return errors.Join(err, f.Close())
+			}
+		}
+	}
+
 	f.WriteString("\n")
 	return f.Close()
 }

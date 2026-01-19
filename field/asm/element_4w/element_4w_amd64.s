@@ -476,18 +476,20 @@ loop_5:
 done_6:
 	RET
 
-// sumVec(t *[8]uint64, a *Element, n uint64) t = raw accumulators
-// Accumulates elements into 8 qword accumulators for reduction in Go
+// sumVec(res *Element, a *Element, n uint64) res = sum(a[0...n])
+//
+// Algorithm: Accumulate elements into 8 qword accumulators (radix-2^32),
+// then normalize to radix-2^64 and reduce mod q.
 //
 // When we move an element into a Z register using VPMOVZXDQ,
 // each 32-bit dword is zero-extended to a 64-bit qword.
 // We can safely add up to 2^32 elements without overflow.
-TEXT ·sumVec(SB), NOSPLIT, $0-24
-	MOVQ t+0(FP), R14
+TEXT ·sumVec(SB), $64-24
+	MOVQ res+0(FP), R14
 	MOVQ a+8(FP), R13
 	MOVQ n+16(FP), CX
 
-	// initialize accumulators
+	// initialize accumulators to zero
 	VXORPS    Z0, Z0, Z0
 	VMOVDQA64 Z0, Z1
 	VMOVDQA64 Z0, Z2
@@ -503,19 +505,19 @@ TEXT ·sumVec(SB), NOSPLIT, $0-24
 	ANDQ $7, BX
 	SHRQ $3, CX
 
-loop_7:
+loop_8:
 	TESTQ     BX, BX
-	JEQ       done_8
+	JEQ       done_9
 	DECQ      BX
 	VPMOVZXDQ 0(R13), Z8
 	VPADDQ    Z8, Z0, Z0
 	ADDQ      $32, R13
-	JMP       loop_7
+	JMP       loop_8
 
-done_8:
-loop_9:
+done_9:
+loop_10:
 	TESTQ      CX, CX
-	JEQ        done_10
+	JEQ        done_11
 	DECQ       CX
 	VPMOVZXDQ  0(R13), Z8
 	VPMOVZXDQ  32(R13), Z9
@@ -535,10 +537,10 @@ loop_9:
 	VPADDQ     Z14, Z6, Z6
 	VPADDQ     Z15, Z7, Z7
 	ADDQ       $256, R13     // increment pointer by 8 elements
-	JMP        loop_9
+	JMP        loop_10
 
-done_10:
-	// accumulate the 8 Z registers into Z0
+done_11:
+	// accumulate the 8 Z registers into acc[0]
 	VPADDQ Z7, Z6, Z6
 	VPADDQ Z6, Z5, Z5
 	VPADDQ Z5, Z4, Z4
@@ -547,8 +549,123 @@ done_10:
 	VPADDQ Z2, Z1, Z1
 	VPADDQ Z1, Z0, Z0
 
-	// store the 8 qwords to the output buffer
-	VMOVDQU64 Z0, 0(R14)
+	// Now acc[0] contains 8 qwords in radix-2^32:
+	//   sum = t0 + t1*2^32 + t2*2^64 + t3*2^96 + t4*2^128 + t5*2^160 + t6*2^192 + t7*2^224
+	// Each ti can be up to 64 bits. We need to normalize and reduce mod q.
+	// Extract the 8 qwords from acc[0] to stack for processing
+	VMOVDQU64 Z0, 0(SP)
+
+	// Normalize radix-2^32 to radix-2^64
+	// sum = t0 + t1*2^32 + t2*2^64 + t3*2^96 + t4*2^128 + t5*2^160 + t6*2^192 + t7*2^224
+	// Word i = t_{2i} + (t_{2i+1} << 32), with carries propagated
+	// T[0] -> SI
+	// T[1] -> DI
+	// T[2] -> R8
+	// T[3] -> R9
+	// T[4] -> R10
+	// Word 0: t0 + (t1 << 32)
+	MOVQ 0(SP), SI
+	MOVQ 8(SP), DI
+	MOVQ DI, R11
+	SHLQ $32, R11
+	SHRQ $32, DI
+	ADDQ R11, SI
+	ADCQ $0, DI
+
+	// Word 1: t2 + (t3 << 32) + carry
+	MOVQ 16(SP), R8
+	MOVQ 24(SP), R9
+	MOVQ R9, R11
+	SHLQ $32, R11
+	SHRQ $32, R9
+	ADDQ R11, R8
+	ADCQ $0, R9
+	ADDQ DI, R8
+	ADCQ $0, R9
+	MOVQ R8, DI
+	MOVQ R9, R8
+
+	// Word 2: t4 + (t5 << 32) + carry
+	MOVQ 32(SP), R9
+	MOVQ 40(SP), R10
+	MOVQ R10, R11
+	SHLQ $32, R11
+	SHRQ $32, R10
+	ADDQ R11, R9
+	ADCQ $0, R10
+	ADDQ R8, R9
+	ADCQ $0, R10
+	MOVQ R9, R8
+	MOVQ R10, R9
+
+	// Word 3: t6 + (t7 << 32) + carry
+	MOVQ 48(SP), R10
+	MOVQ 56(SP), R11
+	MOVQ R11, R13
+	SHLQ $32, R13
+	SHRQ $32, R11
+	ADDQ R13, R10
+	ADCQ $0, R11
+	ADDQ R9, R10
+	ADCQ $0, R11
+	MOVQ R10, R9
+	MOVQ R11, R10
+
+	// Now T[0..4] contains the normalized sum (up to 288 bits)
+	// T[0] = word 0, T[1] = word 1, T[2] = word 2, T[3] = word 3, T[4] = overflow
+	// Barrett reduction to get result < 2q
+	// k = floor(T / 2^224) * mu >> 64, where mu = floor(2^288 / q)
+	// Then result = T - k*q
+	MOVQ  R9, AX
+	SHRQ  $32, R10, AX
+	MOVQ  $const_mu, DX
+	MULXQ AX, AX, CX
+	MOVQ  CX, DX
+
+	// Subtract k*q from T
+	MULXQ ·qElement+0(SB), AX, CX
+	SUBQ  AX, SI
+	SBBQ  CX, DI
+	MULXQ ·qElement+16(SB), AX, CX
+	SBBQ  AX, R8
+	SBBQ  CX, R9
+	SBBQ  $0, R10
+	MULXQ ·qElement+8(SB), AX, CX
+	SUBQ  AX, DI
+	SBBQ  CX, R8
+	MULXQ ·qElement+24(SB), AX, CX
+	SBBQ  AX, R9
+	SBBQ  CX, R10
+
+	// Store result (may still be >= q, need conditional subtraction)
+	MOVQ SI, 0(R14)
+	MOVQ DI, 8(R14)
+	MOVQ R8, 16(R14)
+	MOVQ R9, 24(R14)
+
+	// Conditional subtraction: if T >= q, subtract q
+	SUBQ ·qElement+0(SB), SI
+	SBBQ ·qElement+8(SB), DI
+	SBBQ ·qElement+16(SB), R8
+	SBBQ ·qElement+24(SB), R9
+	SBBQ $0, R10
+	JCS  done_7
+	MOVQ SI, 0(R14)
+	MOVQ DI, 8(R14)
+	MOVQ R8, 16(R14)
+	MOVQ R9, 24(R14)
+	SUBQ ·qElement+0(SB), SI
+	SBBQ ·qElement+8(SB), DI
+	SBBQ ·qElement+16(SB), R8
+	SBBQ ·qElement+24(SB), R9
+	SBBQ $0, R10
+	JCS  done_7
+	MOVQ SI, 0(R14)
+	MOVQ DI, 8(R14)
+	MOVQ R8, 16(R14)
+	MOVQ R9, 24(R14)
+
+done_7:
 	RET
 
 // innerProdVec(res, a, b *Element, n uint64) res = sum(a[0...n] * b[0...n])
@@ -601,9 +718,9 @@ TEXT ·innerProdVec(SB), NOSPLIT, $0-32
 	VPADDQ        Z2, in1, in1 \
 	VPADDQ        Z3, in2, in2 \
 
-loop_13:
+loop_14:
 	TESTQ CX, CX
-	JEQ   done_14
+	JEQ   done_15
 	DECQ  CX
 
 	// Load b[i]: 8 dwords -> 8 qwords via zero-extension
@@ -620,10 +737,10 @@ loop_13:
 	MAC(28(R13), Z23, Z31)
 	ADDQ $32, R13
 	ADDQ $32, R14
-	JMP  loop_13
+	JMP  loop_14
 
-done_14:
-accumulate_12:
+done_15:
+accumulate_13:
 	// Combine 16 partial product accumulators into 544-bit result in Z1:Z0
 	// Each accumulator has 8 qwords; we reduce across qwords using VALIGND
 	MOVQ  $0x0000000000001555, AX
@@ -850,7 +967,7 @@ accumulate_12:
 	SBBQ ·qElement+16(SB), DI
 	SBBQ ·qElement+24(SB), R8
 	SBBQ $0, R9
-	JCS  done_11
+	JCS  done_12
 	MOVQ BX, 0(R11)
 	MOVQ SI, 8(R11)
 	MOVQ DI, 16(R11)
@@ -860,13 +977,13 @@ accumulate_12:
 	SBBQ ·qElement+16(SB), DI
 	SBBQ ·qElement+24(SB), R8
 	SBBQ $0, R9
-	JCS  done_11
+	JCS  done_12
 	MOVQ BX, 0(R11)
 	MOVQ SI, 8(R11)
 	MOVQ DI, 16(R11)
 	MOVQ R8, 24(R11)
 
-done_11:
+done_12:
 	RET
 
 // AVX-512 IFMA vector operations (requires Ice Lake+ or Zen4+)
@@ -927,9 +1044,9 @@ TEXT ·mulVec(SB), NOSPLIT, $0-32
 	MOVQ         $const_qRadix52_4, AX
 	VPBROADCASTQ AX, Z29
 
-loop_15:
+loop_16:
 	TESTQ BX, BX
-	JEQ   done_16
+	JEQ   done_17
 	DECQ  BX
 
 	// Process 8 elements in parallel
@@ -1332,9 +1449,9 @@ loop_15:
 	ADDQ $256, R13
 	ADDQ $256, CX
 	ADDQ $256, R14
-	JMP  loop_15
+	JMP  loop_16
 
-done_16:
+done_17:
 	RET
 
 // scalarMulVec(res, a, b *Element, n uint64)
@@ -1365,9 +1482,9 @@ TEXT ·scalarMulVec(SB), NOSPLIT, $0-32
 	MOVQ         $const_qRadix52_4, AX
 	VPBROADCASTQ AX, Z29
 
-loop_17:
+loop_18:
 	TESTQ BX, BX
-	JEQ   done_18
+	JEQ   done_19
 	DECQ  BX
 
 	// Process 8 elements in parallel
@@ -1758,9 +1875,9 @@ loop_17:
 	// Advance pointers
 	ADDQ $256, R13
 	ADDQ $256, R14
-	JMP  loop_17
+	JMP  loop_18
 
-done_18:
+done_19:
 	RET
 
 // innerProdVecIFMA(t *[8]uint64, a, b *Element, n uint64)
@@ -1796,9 +1913,9 @@ TEXT ·innerProdVecIFMA(SB), NOSPLIT, $0-32
 	MOVQ         $const_qRadix52_4, AX
 	VPBROADCASTQ AX, Z29
 
-loop_19:
+loop_20:
 	TESTQ BX, BX
-	JEQ   done_20
+	JEQ   done_21
 	DECQ  BX
 
 	// Process 8 element pairs in parallel
@@ -2270,7 +2387,7 @@ loop_19:
 	// Advance pointers
 	ADDQ $256, R13
 	ADDQ $256, CX
-	JMP  loop_19
+	JMP  loop_20
 
-done_20:
+done_21:
 	RET

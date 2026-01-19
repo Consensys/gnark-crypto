@@ -8,18 +8,9 @@
 package fp
 
 import (
-	"math/big"
-	"sync"
-
 	_ "github.com/consensys/gnark-crypto/field/asm/element_4w"
 	"github.com/consensys/gnark-crypto/utils/cpu"
 )
-
-var sumPool = sync.Pool{
-	New: func() any {
-		return new(big.Int)
-	},
-}
 
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
@@ -94,38 +85,12 @@ func (vector *Vector) Sum() (res Element) {
 		sumVecGeneric(&res, *vector)
 		return
 	}
-
-	// The assembly accumulates into 8 qwords in radix-2^32:
-	// t[0]=w0l, t[1]=w0h, t[2]=w1l, t[3]=w1h, t[4]=w2l, t[5]=w2h, t[6]=w3l, t[7]=w3h
-	// sum = w0l + w0h*2^32 + w1l*2^64 + w1h*2^96 + w2l*2^128 + w2h*2^160 + w3l*2^192 + w3h*2^224
-	var t [8]uint64
-	sumVec(&t, &(*vector)[0], n)
-
-	// Build the sum using big.Int from pool (reduces allocations)
-	// Use Horner-like evaluation: start from high limbs and shift down
-	sum := sumPool.Get().(*big.Int)
-	defer sumPool.Put(sum)
-
-	sum.SetUint64(t[7])
-	for i := 6; i >= 0; i-- {
-		sum.Lsh(sum, 32)
-		sum.Add(sum, new(big.Int).SetUint64(t[i]))
-	}
-
-	// Reduce mod q using the package-private modulus (avoids allocation)
-	sum.Mod(sum, &_modulus)
-
-	// The accumulators are sums of Montgomery-form elements, so after mod q
-	// the result is already in Montgomery form. Copy limbs directly.
-	words := sum.Bits()
-	for i := 0; i < len(words) && i < 4; i++ {
-		res[i] = uint64(words[i])
-	}
+	sumVec(&res, &(*vector)[0], n)
 	return
 }
 
 //go:noescape
-func sumVec(t *[8]uint64, a *Element, n uint64)
+func sumVec(res, a *Element, n uint64)
 
 // InnerProduct computes the inner product of two vectors.
 // It panics if the vectors don't have the same length.
@@ -138,51 +103,6 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 		return
 	}
 	const maxN = (1 << 32) - 1
-	const minN = 1 << 62 // DISABLED: IFMA not faster, use original path
-	// IFMA path with lazy reduction (available on Ice Lake+, Zen4+)
-	// Uses AVX-512 IFMA instructions for fast vectorized multiplication,
-	// then accumulates into 8 qword accumulators like sumVec
-	if cpu.SupportAVX512IFMA && n >= minN && n < maxN {
-		const blockSize = 8
-		numBlocks := n / blockSize
-
-		// Accumulate products into 8 qwords (same format as sumVec)
-		var t [8]uint64
-		innerProdVecIFMA(&t, &(*vector)[0], &other[0], numBlocks)
-
-		// Handle remaining elements
-		start := numBlocks * blockSize
-		for i := start; i < n; i++ {
-			var tmp Element
-			tmp.Mul(&(*vector)[i], &other[i])
-			// Add to accumulators in radix-2^32 format
-			t[0] += uint64(uint32(tmp[0]))
-			t[1] += tmp[0] >> 32
-			t[2] += uint64(uint32(tmp[1]))
-			t[3] += tmp[1] >> 32
-			t[4] += uint64(uint32(tmp[2]))
-			t[5] += tmp[2] >> 32
-			t[6] += uint64(uint32(tmp[3]))
-			t[7] += tmp[3] >> 32
-		}
-
-		// Reduce using big.Int (same as Sum)
-		sum := sumPool.Get().(*big.Int)
-		defer sumPool.Put(sum)
-
-		sum.SetUint64(t[7])
-		for i := 6; i >= 0; i-- {
-			sum.Lsh(sum, 32)
-			sum.Add(sum, new(big.Int).SetUint64(t[i]))
-		}
-		sum.Mod(sum, &_modulus)
-
-		words := sum.Bits()
-		for i := 0; i < len(words) && i < 4; i++ {
-			res[i] = uint64(words[i])
-		}
-		return
-	}
 	if !cpu.SupportAVX512 || n >= maxN {
 		// call innerProductVecGeneric
 		// note; we could split the vector into smaller chunks and call innerProductVec
@@ -193,9 +113,6 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 
 	return
 }
-
-//go:noescape
-func innerProdVecIFMA(t *[8]uint64, a, b *Element, n uint64)
 
 //go:noescape
 func innerProdVec(res *uint64, a, b *Element, n uint64)
