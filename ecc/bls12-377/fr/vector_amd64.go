@@ -85,12 +85,12 @@ func (vector *Vector) Sum() (res Element) {
 		sumVecGeneric(&res, *vector)
 		return
 	}
-	sumVec(&res, &(*vector)[0], n)
+	sumVec(&res, &(*vector)[0], uint64(len(*vector)))
 	return
 }
 
 //go:noescape
-func sumVec(res, a *Element, n uint64)
+func sumVec(res *Element, a *Element, n uint64)
 
 // InnerProduct computes the inner product of two vectors.
 // It panics if the vectors don't have the same length.

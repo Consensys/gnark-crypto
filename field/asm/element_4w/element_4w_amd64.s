@@ -476,20 +476,39 @@ loop_5:
 done_6:
 	RET
 
-// sumVec(res *Element, a *Element, n uint64) res = sum(a[0...n])
-//
-// Algorithm: Accumulate elements into 8 qword accumulators (radix-2^32),
-// then normalize to radix-2^64 and reduce mod q.
-//
-// When we move an element into a Z register using VPMOVZXDQ,
-// each 32-bit dword is zero-extended to a 64-bit qword.
-// We can safely add up to 2^32 elements without overflow.
-TEXT ·sumVec(SB), $64-24
-	MOVQ res+0(FP), R14
-	MOVQ a+8(FP), R13
-	MOVQ n+16(FP), CX
+// sumVec(res, a *Element, n uint64) res = sum(a[0...n])
+TEXT ·sumVec(SB), $8-24
 
-	// initialize accumulators to zero
+	// Derived from https://github.com/a16z/vectorized-fields
+	// The idea is to use Z registers to accumulate the sum of elements, 8 by 8
+	// first, we handle the case where n % 8 != 0
+	// then, we loop over the elements 8 by 8 and accumulate the sum in the Z registers
+	// finally, we reduce the sum and store it in res
+	//
+	// when we move an element of a into a Z register, we use VPMOVZXDQ
+	// let's note w0...w3 the 4 64bits words of ai: w0 = ai[0], w1 = ai[1], w2 = ai[2], w3 = ai[3]
+	// VPMOVZXDQ(ai, Z0) will result in
+	// Z0= [hi(w3), lo(w3), hi(w2), lo(w2), hi(w1), lo(w1), hi(w0), lo(w0)]
+	// with hi(wi) the high 32 bits of wi and lo(wi) the low 32 bits of wi
+	// we can safely add 2^32+1 times Z registers constructed this way without overflow
+	// since each of this lo/hi bits are moved into a "64bits" slot
+	// N = 2^64-1 / 2^32-1 = 2^32+1
+	//
+	// we then propagate the carry using ADOXQ and ADCXQ
+	// r0 = w0l + lo(woh)
+	// r1 = carry + hi(woh) + w1l + lo(w1h)
+	// r2 = carry + hi(w1h) + w2l + lo(w2h)
+	// r3 = carry + hi(w2h) + w3l + lo(w3h)
+	// r4 = carry + hi(w3h)
+	// we then reduce the sum using a single-word Barrett reduction
+	// we pick mu = 2^288 / q; which correspond to 4.5 words max.
+	// meaning we must guarantee that r4 fits in 32bits.
+	// To do so, we reduce N to 2^32-1 (since r4 receives 2 carries max)
+
+	MOVQ a+8(FP), R13
+	MOVQ n+16(FP), R14
+
+	// initialize accumulators Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7
 	VXORPS    Z0, Z0, Z0
 	VMOVDQA64 Z0, Z1
 	VMOVDQA64 Z0, Z2
@@ -499,34 +518,32 @@ TEXT ·sumVec(SB), $64-24
 	VMOVDQA64 Z0, Z6
 	VMOVDQA64 Z0, Z7
 
-	// n % 8 -> BX
-	// n / 8 -> CX
-	MOVQ CX, BX
-	ANDQ $7, BX
-	SHRQ $3, CX
+	// n % 8 -> CX
+	// n / 8 -> R14
+	MOVQ R14, CX
+	ANDQ $7, CX
+	SHRQ $3, R14
 
-loop_8:
-	TESTQ     BX, BX
-	JEQ       done_9
-	DECQ      BX
+loop_single_9:
+	TESTQ     CX, CX
+	JEQ       loop8by8_7    // n % 8 == 0, we are going to loop over 8 by 8
 	VPMOVZXDQ 0(R13), Z8
 	VPADDQ    Z8, Z0, Z0
 	ADDQ      $32, R13
-	JMP       loop_8
+	DECQ      CX            // decrement nMod8
+	JMP       loop_single_9
 
-done_9:
-loop_10:
-	TESTQ      CX, CX
-	JEQ        done_11
-	DECQ       CX
-	VPMOVZXDQ  0(R13), Z8
-	VPMOVZXDQ  32(R13), Z9
-	VPMOVZXDQ  64(R13), Z10
-	VPMOVZXDQ  96(R13), Z11
-	VPMOVZXDQ  128(R13), Z12
-	VPMOVZXDQ  160(R13), Z13
-	VPMOVZXDQ  192(R13), Z14
-	VPMOVZXDQ  224(R13), Z15
+loop8by8_7:
+	TESTQ      R14, R14
+	JEQ        accumulate_10  // n == 0, we are going to accumulate
+	VPMOVZXDQ  0*32(R13), Z8
+	VPMOVZXDQ  1*32(R13), Z9
+	VPMOVZXDQ  2*32(R13), Z10
+	VPMOVZXDQ  3*32(R13), Z11
+	VPMOVZXDQ  4*32(R13), Z12
+	VPMOVZXDQ  5*32(R13), Z13
+	VPMOVZXDQ  6*32(R13), Z14
+	VPMOVZXDQ  7*32(R13), Z15
 	PREFETCHT0 4096(R13)
 	VPADDQ     Z8, Z0, Z0
 	VPADDQ     Z9, Z1, Z1
@@ -536,11 +553,14 @@ loop_10:
 	VPADDQ     Z13, Z5, Z5
 	VPADDQ     Z14, Z6, Z6
 	VPADDQ     Z15, Z7, Z7
-	ADDQ       $256, R13     // increment pointer by 8 elements
-	JMP        loop_10
 
-done_11:
-	// accumulate the 8 Z registers into acc[0]
+	// increment pointers to visit next 8 elements
+	ADDQ $256, R13
+	DECQ R14        // decrement n
+	JMP  loop8by8_7
+
+accumulate_10:
+	// accumulate the 8 Z registers into Z0
 	VPADDQ Z7, Z6, Z6
 	VPADDQ Z6, Z5, Z5
 	VPADDQ Z5, Z4, Z4
@@ -549,123 +569,121 @@ done_11:
 	VPADDQ Z2, Z1, Z1
 	VPADDQ Z1, Z0, Z0
 
-	// Now acc[0] contains 8 qwords in radix-2^32:
-	//   sum = t0 + t1*2^32 + t2*2^64 + t3*2^96 + t4*2^128 + t5*2^160 + t6*2^192 + t7*2^224
-	// Each ti can be up to 64 bits. We need to normalize and reduce mod q.
-	// Extract the 8 qwords from acc[0] to stack for processing
-	VMOVDQU64 Z0, 0(SP)
+	// carry propagation
+	// lo(w0) -> BX
+	// hi(w0) -> SI
+	// lo(w1) -> DI
+	// hi(w1) -> R8
+	// lo(w2) -> R9
+	// hi(w2) -> R10
+	// lo(w3) -> R11
+	// hi(w3) -> R12
+	VMOVQ   X0, BX
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, SI
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, DI
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, R8
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, R9
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, R10
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, R11
+	VALIGNQ $1, Z0, Z0, Z0
+	VMOVQ   X0, R12
 
-	// Normalize radix-2^32 to radix-2^64
-	// sum = t0 + t1*2^32 + t2*2^64 + t3*2^96 + t4*2^128 + t5*2^160 + t6*2^192 + t7*2^224
-	// Word i = t_{2i} + (t_{2i+1} << 32), with carries propagated
-	// T[0] -> SI
-	// T[1] -> DI
-	// T[2] -> R8
-	// T[3] -> R9
-	// T[4] -> R10
-	// Word 0: t0 + (t1 << 32)
-	MOVQ 0(SP), SI
-	MOVQ 8(SP), DI
-	MOVQ DI, R11
-	SHLQ $32, R11
-	SHRQ $32, DI
-	ADDQ R11, SI
-	ADCQ $0, DI
+	// lo(hi(wo)) -> CX
+	// lo(hi(w1)) -> R14
+	// lo(hi(w2)) -> R13
+	// lo(hi(w3)) -> s0-8(SP)
+#define SPLIT_LO_HI(in0, in1) \
+	MOVQ in1, in0         \
+	ANDQ $0xffffffff, in0 \
+	SHLQ $32, in0         \
+	SHRQ $32, in1         \
 
-	// Word 1: t2 + (t3 << 32) + carry
-	MOVQ 16(SP), R8
-	MOVQ 24(SP), R9
-	MOVQ R9, R11
-	SHLQ $32, R11
-	SHRQ $32, R9
-	ADDQ R11, R8
-	ADCQ $0, R9
-	ADDQ DI, R8
-	ADCQ $0, R9
-	MOVQ R8, DI
-	MOVQ R9, R8
+	SPLIT_LO_HI(CX, SI)
+	SPLIT_LO_HI(R14, R8)
+	SPLIT_LO_HI(R13, R10)
+	SPLIT_LO_HI(s0-8(SP), R12)
 
-	// Word 2: t4 + (t5 << 32) + carry
-	MOVQ 32(SP), R9
-	MOVQ 40(SP), R10
-	MOVQ R10, R11
-	SHLQ $32, R11
-	SHRQ $32, R10
-	ADDQ R11, R9
-	ADCQ $0, R10
-	ADDQ R8, R9
-	ADCQ $0, R10
-	MOVQ R9, R8
-	MOVQ R10, R9
+	// r0 = w0l + lo(woh)
+	// r1 = carry + hi(woh) + w1l + lo(w1h)
+	// r2 = carry + hi(w1h) + w2l + lo(w2h)
+	// r3 = carry + hi(w2h) + w3l + lo(w3h)
+	// r4 = carry + hi(w3h)
 
-	// Word 3: t6 + (t7 << 32) + carry
-	MOVQ 48(SP), R10
-	MOVQ 56(SP), R11
-	MOVQ R11, R13
-	SHLQ $32, R13
-	SHRQ $32, R11
-	ADDQ R13, R10
-	ADCQ $0, R11
-	ADDQ R9, R10
-	ADCQ $0, R11
-	MOVQ R10, R9
-	MOVQ R11, R10
+	XORQ  AX, AX        // clear the flags
+	ADOXQ CX, BX
+	ADOXQ R14, DI
+	ADCXQ SI, DI
+	ADOXQ R13, R9
+	ADCXQ R8, R9
+	ADOXQ s0-8(SP), R11
+	ADCXQ R10, R11
+	ADOXQ AX, R12
+	ADCXQ AX, R12
 
-	// Now T[0..4] contains the normalized sum (up to 288 bits)
-	// T[0] = word 0, T[1] = word 1, T[2] = word 2, T[3] = word 3, T[4] = overflow
-	// Barrett reduction to get result < 2q
-	// k = floor(T / 2^224) * mu >> 64, where mu = floor(2^288 / q)
-	// Then result = T - k*q
-	MOVQ  R9, AX
-	SHRQ  $32, R10, AX
-	MOVQ  $const_mu, DX
-	MULXQ AX, AX, CX
-	MOVQ  CX, DX
-
-	// Subtract k*q from T
-	MULXQ ·qElement+0(SB), AX, CX
-	SUBQ  AX, SI
-	SBBQ  CX, DI
-	MULXQ ·qElement+16(SB), AX, CX
-	SBBQ  AX, R8
-	SBBQ  CX, R9
-	SBBQ  $0, R10
-	MULXQ ·qElement+8(SB), AX, CX
-	SUBQ  AX, DI
-	SBBQ  CX, R8
-	MULXQ ·qElement+24(SB), AX, CX
+	// r[0] -> BX
+	// r[1] -> DI
+	// r[2] -> R9
+	// r[3] -> R11
+	// r[4] -> R12
+	// reduce using single-word Barrett
+	// see see Handbook of Applied Cryptography, Algorithm 14.42.
+	// mu=2^288 / q -> SI
+	MOVQ  $const_mu, SI
+	MOVQ  R11, AX
+	SHRQ  $32, R12, AX
+	MULQ  SI                       // high bits of res stored in DX
+	MULXQ ·qElement+0(SB), AX, SI
+	SUBQ  AX, BX
+	SBBQ  SI, DI
+	MULXQ ·qElement+16(SB), AX, SI
 	SBBQ  AX, R9
-	SBBQ  CX, R10
+	SBBQ  SI, R11
+	SBBQ  $0, R12
+	MULXQ ·qElement+8(SB), AX, SI
+	SUBQ  AX, DI
+	SBBQ  SI, R9
+	MULXQ ·qElement+24(SB), AX, SI
+	SBBQ  AX, R11
+	SBBQ  SI, R12
+	MOVQ  BX, R8
+	MOVQ  DI, R10
+	MOVQ  R9, CX
+	MOVQ  R11, R14
+	SUBQ  ·qElement+0(SB), BX
+	SBBQ  ·qElement+8(SB), DI
+	SBBQ  ·qElement+16(SB), R9
+	SBBQ  ·qElement+24(SB), R11
+	SBBQ  $0, R12
+	JCS   modReduced_11
+	MOVQ  BX, R8
+	MOVQ  DI, R10
+	MOVQ  R9, CX
+	MOVQ  R11, R14
+	SUBQ  ·qElement+0(SB), BX
+	SBBQ  ·qElement+8(SB), DI
+	SBBQ  ·qElement+16(SB), R9
+	SBBQ  ·qElement+24(SB), R11
+	SBBQ  $0, R12
+	JCS   modReduced_11
+	MOVQ  BX, R8
+	MOVQ  DI, R10
+	MOVQ  R9, CX
+	MOVQ  R11, R14
 
-	// Store result (may still be >= q, need conditional subtraction)
-	MOVQ SI, 0(R14)
-	MOVQ DI, 8(R14)
-	MOVQ R8, 16(R14)
-	MOVQ R9, 24(R14)
+modReduced_11:
+	MOVQ res+0(FP), SI
+	MOVQ R8, 0(SI)
+	MOVQ R10, 8(SI)
+	MOVQ CX, 16(SI)
+	MOVQ R14, 24(SI)
 
-	// Conditional subtraction: if T >= q, subtract q
-	SUBQ ·qElement+0(SB), SI
-	SBBQ ·qElement+8(SB), DI
-	SBBQ ·qElement+16(SB), R8
-	SBBQ ·qElement+24(SB), R9
-	SBBQ $0, R10
-	JCS  done_7
-	MOVQ SI, 0(R14)
-	MOVQ DI, 8(R14)
-	MOVQ R8, 16(R14)
-	MOVQ R9, 24(R14)
-	SUBQ ·qElement+0(SB), SI
-	SBBQ ·qElement+8(SB), DI
-	SBBQ ·qElement+16(SB), R8
-	SBBQ ·qElement+24(SB), R9
-	SBBQ $0, R10
-	JCS  done_7
-	MOVQ SI, 0(R14)
-	MOVQ DI, 8(R14)
-	MOVQ R8, 16(R14)
-	MOVQ R9, 24(R14)
-
-done_7:
+done_8:
 	RET
 
 // innerProdVec(res, a, b *Element, n uint64) res = sum(a[0...n] * b[0...n])

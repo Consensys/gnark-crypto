@@ -149,43 +149,81 @@ func (f *FFAmd64) generateSubVecW4() {
 
 // sumVec res = sum(a[0...n])
 func (f *FFAmd64) generateSumVecW4() {
-	f.Comment("sumVec(res *Element, a *Element, n uint64) res = sum(a[0...n])")
-	f.Comment("")
-	f.Comment("Algorithm: Accumulate elements into 8 qword accumulators (radix-2^32),")
-	f.Comment("then normalize to radix-2^64 and reduce mod q.")
-	f.Comment("")
-	f.Comment("When we move an element into a Z register using VPMOVZXDQ,")
-	f.Comment("each 32-bit dword is zero-extended to a 64-bit qword.")
-	f.Comment("We can safely add up to 2^32 elements without overflow.")
+	f.Comment("sumVec(res, a *Element, n uint64) res = sum(a[0...n])")
 
 	const argSize = 3 * 8
-	// Need 64 bytes of stack for temporary storage (8 qwords)
-	stackSize := f.StackSize(10, 2, 64)
+	stackSize := f.StackSize(12, 2, 0)
 	registers := f.FnHeader("sumVec", stackSize, argSize, amd64.DX, amd64.AX)
-	defer f.AssertCleanStack(stackSize, 64) // We use 64 bytes directly for temp storage
+	defer f.AssertCleanStack(stackSize, 0)
+
+	f.WriteLn(`
+	// Derived from https://github.com/a16z/vectorized-fields
+	// The idea is to use Z registers to accumulate the sum of elements, 8 by 8
+	// first, we handle the case where n % 8 != 0
+	// then, we loop over the elements 8 by 8 and accumulate the sum in the Z registers
+	// finally, we reduce the sum and store it in res
+	// 
+	// when we move an element of a into a Z register, we use VPMOVZXDQ
+	// let's note w0...w3 the 4 64bits words of ai: w0 = ai[0], w1 = ai[1], w2 = ai[2], w3 = ai[3]
+	// VPMOVZXDQ(ai, Z0) will result in 
+	// Z0= [hi(w3), lo(w3), hi(w2), lo(w2), hi(w1), lo(w1), hi(w0), lo(w0)]
+	// with hi(wi) the high 32 bits of wi and lo(wi) the low 32 bits of wi
+	// we can safely add 2^32+1 times Z registers constructed this way without overflow
+	// since each of this lo/hi bits are moved into a "64bits" slot
+	// N = 2^64-1 / 2^32-1 = 2^32+1
+	//
+	// we then propagate the carry using ADOXQ and ADCXQ
+	// r0 = w0l + lo(woh)
+	// r1 = carry + hi(woh) + w1l + lo(w1h)
+	// r2 = carry + hi(w1h) + w2l + lo(w2h)
+	// r3 = carry + hi(w2h) + w3l + lo(w3h)
+	// r4 = carry + hi(w3h)
+	// we then reduce the sum using a single-word Barrett reduction
+	// we pick mu = 2^288 / q; which correspond to 4.5 words max.
+	// meaning we must guarantee that r4 fits in 32bits.
+	// To do so, we reduce N to 2^32-1 (since r4 receives 2 carries max)
+	`)
 
 	// registers & labels we need
 	addrA := f.Pop(&registers)
-	addrRes := f.Pop(&registers)
 	n := f.Pop(&registers)
 	nMod8 := f.Pop(&registers)
 
+	loop := f.NewLabel("loop8by8")
 	done := f.NewLabel("done")
+	loopSingle := f.NewLabel("loop_single")
+	accumulate := f.NewLabel("accumulate")
 
 	// AVX512 registers
-	acc := registers.PopVN(8)
-	zvec := registers.PopVN(8)
+	Z0 := amd64.Register("Z0")
+	Z1 := amd64.Register("Z1")
+	Z2 := amd64.Register("Z2")
+	Z3 := amd64.Register("Z3")
+	Z4 := amd64.Register("Z4")
+	Z5 := amd64.Register("Z5")
+	Z6 := amd64.Register("Z6")
+	Z7 := amd64.Register("Z7")
+	Z8 := amd64.Register("Z8")
+
+	X0 := amd64.Register("X0")
 
 	// load arguments
-	f.MOVQ("res+0(FP)", addrRes)
 	f.MOVQ("a+8(FP)", addrA)
 	f.MOVQ("n+16(FP)", n)
 
-	f.Comment("initialize accumulators to zero")
-	f.VXORPS(acc[0], acc[0], acc[0])
-	for i := 1; i < 8; i++ {
-		f.VMOVDQA64(acc[0], acc[i])
-	}
+	f.Comment("initialize accumulators Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7")
+	f.VXORPS(Z0, Z0, Z0)
+	f.VMOVDQA64(Z0, Z1)
+	f.VMOVDQA64(Z0, Z2)
+	f.VMOVDQA64(Z0, Z3)
+	f.VMOVDQA64(Z0, Z4)
+	f.VMOVDQA64(Z0, Z5)
+	f.VMOVDQA64(Z0, Z6)
+	f.VMOVDQA64(Z0, Z7)
+
+	// note: we don't need to handle the case n==0; handled by caller already.
+	// f.TESTQ(n, n)
+	// f.JEQ(done, "n == 0, we are done")
 
 	f.LabelRegisters("n % 8", nMod8)
 	f.LabelRegisters("n / 8", n)
@@ -193,162 +231,213 @@ func (f *FFAmd64) generateSumVecW4() {
 	f.ANDQ("$7", nMod8) // nMod8 = n % 8
 	f.SHRQ("$3", n)     // len = n / 8
 
-	// handle n % 8 first
-	f.Loop(nMod8, func() {
-		f.VPMOVZXDQ("0("+addrA+")", zvec[0])
-		f.VPADDQ(zvec[0], acc[0], acc[0])
-		f.ADDQ("$32", addrA)
-	})
+	f.LABEL(loopSingle)
+	f.TESTQ(nMod8, nMod8)
+	f.JEQ(loop, "n % 8 == 0, we are going to loop over 8 by 8")
 
-	f.Loop(n, func() {
-		for i := 0; i < 8; i++ {
-			f.VPMOVZXDQ(addrA.At(4*i), zvec[i])
-		}
+	f.VPMOVZXDQ("0("+addrA+")", Z8)
+	f.VPADDQ(Z8, Z0, Z0)
+	f.ADDQ("$32", addrA)
 
-		f.WriteLn(fmt.Sprintf("PREFETCHT0 4096(%[1]s)", addrA))
-		for i := 0; i < 8; i++ {
-			f.VPADDQ(zvec[i], acc[i], acc[i])
-		}
+	f.DECQ(nMod8, "decrement nMod8")
+	f.JMP(loopSingle)
 
-		f.ADDQ("$256", addrA, "increment pointer by 8 elements")
-	})
+	f.Push(&registers, nMod8) // we don't need tmp0
 
-	f.Comment("accumulate the 8 Z registers into acc[0]")
-	for i := 7; i > 0; i-- {
-		f.VPADDQ(acc[i], acc[i-1], acc[i-1])
+	f.LABEL(loop)
+	f.TESTQ(n, n)
+	f.JEQ(accumulate, "n == 0, we are going to accumulate")
+
+	for i := 0; i < 8; i++ {
+		r := fmt.Sprintf("Z%d", i+8)
+		f.VPMOVZXDQ(fmt.Sprintf("%d*32("+string(addrA)+")", i), r)
 	}
 
-	f.Comment("Now acc[0] contains 8 qwords in radix-2^32:")
-	f.Comment("  sum = t0 + t1*2^32 + t2*2^64 + t3*2^96 + t4*2^128 + t5*2^160 + t6*2^192 + t7*2^224")
-	f.Comment("Each ti can be up to 64 bits. We need to normalize and reduce mod q.")
-
-	f.Comment("Extract the 8 qwords from acc[0] to stack for processing")
-	// Use 64 bytes of stack space for the 8 qwords
-	f.VMOVDQU64(acc[0], "0(SP)")
-
-	// Now we have t[0..7] at SP+0, SP+8, ..., SP+56
-	// We need to normalize to radix-2^64 and reduce mod q
-
-	f.Comment("Normalize radix-2^32 to radix-2^64")
-	f.Comment("sum = t0 + t1*2^32 + t2*2^64 + t3*2^96 + t4*2^128 + t5*2^160 + t6*2^192 + t7*2^224")
-	f.Comment("Word i = t_{2i} + (t_{2i+1} << 32), with carries propagated")
-
-	// Result registers: T[0..4] for the 5-limb normalized value (up to 288 bits)
-	T := make([]amd64.Register, 5)
-	for i := 0; i < 5; i++ {
-		T[i] = f.Pop(&registers)
+	f.WriteLn(fmt.Sprintf("PREFETCHT0 4096(%[1]s)", addrA))
+	for i := 0; i < 8; i++ {
+		r := fmt.Sprintf("Z%d", i)
+		f.VPADDQ(fmt.Sprintf("Z%d", i+8), r, r)
 	}
-	f.LabelRegisters("T", T...)
 
-	tmp := f.Pop(&registers)
+	f.Comment("increment pointers to visit next 8 elements")
+	f.ADDQ("$256", addrA)
+	f.DECQ(n, "decrement n")
+	f.JMP(loop)
 
-	// Word 0: t0 + (t1_lo << 32), carry = t1_hi + CF
-	f.Comment("Word 0: t0 + (t1 << 32)")
-	f.MOVQ("0(SP)", T[0]) // T[0] = t0
-	f.MOVQ("8(SP)", T[1]) // T[1] = t1
-	f.MOVQ(T[1], tmp)     // tmp = t1
-	f.SHLQ("$32", tmp)    // tmp = t1_lo << 32
-	f.SHRQ("$32", T[1])   // T[1] = t1_hi
-	f.ADDQ(tmp, T[0])     // T[0] = t0 + (t1_lo << 32)
-	f.ADCQ("$0", T[1])    // T[1] = t1_hi + CF (carry for word 1)
+	f.Push(&registers, n, addrA)
 
-	// Word 1: t2 + (t3_lo << 32) + carry
-	f.Comment("Word 1: t2 + (t3 << 32) + carry")
-	f.MOVQ("16(SP)", T[2]) // T[2] = t2
-	f.MOVQ("24(SP)", T[3]) // T[3] = t3
-	f.MOVQ(T[3], tmp)      // tmp = t3
-	f.SHLQ("$32", tmp)     // tmp = t3_lo << 32
-	f.SHRQ("$32", T[3])    // T[3] = t3_hi
-	f.ADDQ(tmp, T[2])      // T[2] = t2 + (t3_lo << 32)
-	f.ADCQ("$0", T[3])     // T[3] = t3_hi + CF
-	f.ADDQ(T[1], T[2])     // T[2] += carry from word 0
-	f.ADCQ("$0", T[3])     // T[3] += CF
-	f.MOVQ(T[2], T[1])     // T[1] = word 1
-	f.MOVQ(T[3], T[2])     // T[2] = carry for word 2
+	f.LABEL(accumulate)
 
-	// Word 2: t4 + (t5_lo << 32) + carry
-	f.Comment("Word 2: t4 + (t5 << 32) + carry")
-	f.MOVQ("32(SP)", T[3]) // T[3] = t4
-	f.MOVQ("40(SP)", T[4]) // T[4] = t5
-	f.MOVQ(T[4], tmp)      // tmp = t5
-	f.SHLQ("$32", tmp)     // tmp = t5_lo << 32
-	f.SHRQ("$32", T[4])    // T[4] = t5_hi
-	f.ADDQ(tmp, T[3])      // T[3] = t4 + (t5_lo << 32)
-	f.ADCQ("$0", T[4])     // T[4] = t5_hi + CF
-	f.ADDQ(T[2], T[3])     // T[3] += carry from word 1
-	f.ADCQ("$0", T[4])     // T[4] += CF
-	f.MOVQ(T[3], T[2])     // T[2] = word 2
-	f.MOVQ(T[4], T[3])     // T[3] = carry for word 3
+	f.Comment("accumulate the 8 Z registers into Z0")
+	f.VPADDQ(Z7, Z6, Z6)
+	f.VPADDQ(Z6, Z5, Z5)
+	f.VPADDQ(Z5, Z4, Z4)
+	f.VPADDQ(Z4, Z3, Z3)
+	f.VPADDQ(Z3, Z2, Z2)
+	f.VPADDQ(Z2, Z1, Z1)
+	f.VPADDQ(Z1, Z0, Z0)
 
-	// Word 3: t6 + (t7_lo << 32) + carry
-	f.Comment("Word 3: t6 + (t7 << 32) + carry")
-	f.MOVQ("48(SP)", T[4]) // T[4] = t6
-	f.MOVQ("56(SP)", tmp)  // tmp = t7
-	f.MOVQ(tmp, addrA)     // addrA = t7
-	f.SHLQ("$32", addrA)   // addrA = t7_lo << 32
-	f.SHRQ("$32", tmp)     // tmp = t7_hi
-	f.ADDQ(addrA, T[4])    // T[4] = t6 + (t7_lo << 32)
-	f.ADCQ("$0", tmp)      // tmp = t7_hi + CF
-	f.ADDQ(T[3], T[4])     // T[4] += carry from word 2
-	f.ADCQ("$0", tmp)      // tmp += CF
-	f.MOVQ(T[4], T[3])     // T[3] = word 3
-	f.MOVQ(tmp, T[4])      // T[4] = word 4 (overflow)
+	w0l := f.Pop(&registers)
+	w0h := f.Pop(&registers)
+	w1l := f.Pop(&registers)
+	w1h := f.Pop(&registers)
+	w2l := f.Pop(&registers)
+	w2h := f.Pop(&registers)
+	w3l := f.Pop(&registers)
+	w3h := f.Pop(&registers)
+	low0h := f.Pop(&registers)
+	low1h := f.Pop(&registers)
+	low2h := f.Pop(&registers)
+	low3h := f.Pop(&registers)
 
-	f.Comment("Now T[0..4] contains the normalized sum (up to 288 bits)")
-	f.Comment("T[0] = word 0, T[1] = word 1, T[2] = word 2, T[3] = word 3, T[4] = overflow")
+	// Propagate carries
+	f.Comment("carry propagation")
 
-	f.Comment("Barrett reduction to get result < 2q")
-	f.Comment("k = floor(T / 2^224) * mu >> 64, where mu = floor(2^288 / q)")
-	f.Comment("Then result = T - k*q")
+	f.LabelRegisters("lo(w0)", w0l)
+	f.LabelRegisters("hi(w0)", w0h)
+	f.LabelRegisters("lo(w1)", w1l)
+	f.LabelRegisters("hi(w1)", w1h)
+	f.LabelRegisters("lo(w2)", w2l)
+	f.LabelRegisters("hi(w2)", w2h)
+	f.LabelRegisters("lo(w3)", w3l)
+	f.LabelRegisters("hi(w3)", w3h)
 
-	// For Barrett reduction, we need: k ≈ (T >> 224) * mu / 2^64
-	// T >> 224 = T[3] >> 32 | T[4] << 32
-	// But T[4] can be up to ~33 bits, so T >> 224 is up to ~65 bits
+	f.VMOVQ(X0, w0l)
+	f.VALIGNQ("$1", Z0, Z0, Z0)
+	f.VMOVQ(X0, w0h)
+	f.VALIGNQ("$1", Z0, Z0, Z0)
+	f.VMOVQ(X0, w1l)
+	f.VALIGNQ("$1", Z0, Z0, Z0)
+	f.VMOVQ(X0, w1h)
+	f.VALIGNQ("$1", Z0, Z0, Z0)
+	f.VMOVQ(X0, w2l)
+	f.VALIGNQ("$1", Z0, Z0, Z0)
+	f.VMOVQ(X0, w2h)
+	f.VALIGNQ("$1", Z0, Z0, Z0)
+	f.VMOVQ(X0, w3l)
+	f.VALIGNQ("$1", Z0, Z0, Z0)
+	f.VMOVQ(X0, w3h)
 
-	PL := amd64.AX
-	PH := n // reuse n register
-	f.MOVQ(T[3], PL)
-	f.SHRQw("$32", T[4], PL) // PL = (T[4] << 32) | (T[3] >> 32) = T >> 224 (low 64 bits)
-	f.MOVQ(f.mu(), amd64.DX)
-	f.MULXQ(PL, PL, PH) // PH:PL = (T >> 224) * mu
-	// k = PH (we want the high 64 bits of the product)
-	f.MOVQ(PH, amd64.DX) // DX = k
+	f.LabelRegisters("lo(hi(wo))", low0h)
+	f.LabelRegisters("lo(hi(w1))", low1h)
+	f.LabelRegisters("lo(hi(w2))", low2h)
+	f.LabelRegisters("lo(hi(w3))", low3h)
 
-	f.Comment("Subtract k*q from T")
-	// We need to compute T - k*q
-	// k*q is at most ~2^64 * 2^256 = 2^320, but since k ≈ T/q, k*q ≈ T, so the difference is small
-
-	f.MULXQ(f.qAt(0), PL, PH)
-	f.SUBQ(PL, T[0])
-	f.SBBQ(PH, T[1])
-	f.MULXQ(f.qAt(2), PL, PH)
-	f.SBBQ(PL, T[2])
-	f.SBBQ(PH, T[3])
-	f.SBBQ("$0", T[4])
-	f.MULXQ(f.qAt(1), PL, PH)
-	f.SUBQ(PL, T[1])
-	f.SBBQ(PH, T[2])
-	f.MULXQ(f.qAt(3), PL, PH)
-	f.SBBQ(PL, T[3])
-	f.SBBQ(PH, T[4])
-
-	f.Comment("Store result (may still be >= q, need conditional subtraction)")
-	result := T[:4]
-	f.Mov(result, addrRes)
-
-	f.Comment("Conditional subtraction: if T >= q, subtract q")
-	for i := 0; i < 2; i++ {
-		f.SUBQ(f.qAt(0), T[0])
-		f.SBBQ(f.qAt(1), T[1])
-		f.SBBQ(f.qAt(2), T[2])
-		f.SBBQ(f.qAt(3), T[3])
-		f.SBBQ("$0", T[4])
-		f.JCS(done)
-		f.Mov(result, addrRes)
+	type hilo struct {
+		hi, lo amd64.Register
 	}
+
+	splitLoHi := f.Define("SPLIT_LO_HI", 2, func(args ...any) {
+		lo := args[0]
+		hi := args[1]
+		f.MOVQ(hi, lo)
+		f.ANDQ("$0xffffffff", lo)
+		f.SHLQ("$32", lo)
+		f.SHRQ("$32", hi)
+	}, true)
+
+	for _, v := range []hilo{{w0h, low0h}, {w1h, low1h}, {w2h, low2h}, {w3h, low3h}} {
+		splitLoHi(v.lo, v.hi)
+	}
+
+	f.WriteLn(`
+	// r0 = w0l + lo(woh)
+	// r1 = carry + hi(woh) + w1l + lo(w1h)
+	// r2 = carry + hi(w1h) + w2l + lo(w2h)
+	// r3 = carry + hi(w2h) + w3l + lo(w3h)
+	// r4 = carry + hi(w3h)
+	`)
+	f.XORQ(amd64.AX, amd64.AX, "clear the flags")
+	f.ADOXQ(low0h, w0l)
+
+	f.ADOXQ(low1h, w1l)
+	f.ADCXQ(w0h, w1l)
+
+	f.ADOXQ(low2h, w2l)
+	f.ADCXQ(w1h, w2l)
+
+	f.ADOXQ(low3h, w3l)
+	f.ADCXQ(w2h, w3l)
+
+	f.ADOXQ(amd64.AX, w3h)
+	f.ADCXQ(amd64.AX, w3h)
+
+	r0 := w0l
+	r1 := w1l
+	r2 := w2l
+	r3 := w3l
+	r4 := w3h
+
+	r := []amd64.Register{r0, r1, r2, r3, r4}
+	f.LabelRegisters("r", r...)
+	// we don't need w0h, w1h, w2h anymore
+	f.Push(&registers, w0h, w1h, w2h)
+	// we don't need the low bits anymore
+	f.Push(&registers, low0h, low1h, low2h, low3h)
+
+	// Reduce using single-word Barrett
+	mu := f.Pop(&registers)
+
+	f.Comment("reduce using single-word Barrett")
+	f.Comment("see see Handbook of Applied Cryptography, Algorithm 14.42.")
+	f.LabelRegisters("mu=2^288 / q", mu)
+	f.MOVQ(f.mu(), mu)
+	f.MOVQ(r3, amd64.AX)
+	f.SHRQw("$32", r4, amd64.AX)
+	f.MULQ(mu, "high bits of res stored in DX")
+
+	f.MULXQ(f.qAt(0), amd64.AX, mu)
+	f.SUBQ(amd64.AX, r0)
+	f.SBBQ(mu, r1)
+
+	f.MULXQ(f.qAt(2), amd64.AX, mu)
+	f.SBBQ(amd64.AX, r2)
+	f.SBBQ(mu, r3)
+	f.SBBQ("$0", r4)
+
+	f.MULXQ(f.qAt(1), amd64.AX, mu)
+	f.SUBQ(amd64.AX, r1)
+	f.SBBQ(mu, r2)
+
+	f.MULXQ(f.qAt(3), amd64.AX, mu)
+	f.SBBQ(amd64.AX, r3)
+	f.SBBQ(mu, r4)
+
+	// we need up to 2 conditional substractions to be < q
+	modReduced := f.NewLabel("modReduced")
+	t := f.PopN(&registers)
+	f.Mov(r[:4], t) // backup r0 to r3 (our result)
+
+	// sub modulus
+	f.SUBQ(f.qAt(0), r0)
+	f.SBBQ(f.qAt(1), r1)
+	f.SBBQ(f.qAt(2), r2)
+	f.SBBQ(f.qAt(3), r3)
+	f.SBBQ("$0", r4)
+
+	// if borrow, we go to mod reduced
+	f.JCS(modReduced)
+	f.Mov(r, t)
+	f.SUBQ(f.qAt(0), r0)
+	f.SBBQ(f.qAt(1), r1)
+	f.SBBQ(f.qAt(2), r2)
+	f.SBBQ(f.qAt(3), r3)
+	f.SBBQ("$0", r4)
+
+	// if borrow, we skip to the end
+	f.JCS(modReduced)
+	f.Mov(r, t)
+
+	f.LABEL(modReduced)
+	addrRes := mu
+	f.MOVQ("res+0(FP)", addrRes)
+	f.Mov(t, addrRes)
 
 	f.LABEL(done)
+
 	f.RET()
+	f.Push(&registers, mu)
+	f.Push(&registers, w0l, w1l, w2l, w3l, w3h)
 }
 
 func (f *FFAmd64) generateInnerProductW4() {

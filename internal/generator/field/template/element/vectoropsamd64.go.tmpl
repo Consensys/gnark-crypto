@@ -81,12 +81,12 @@ func (vector *Vector) Sum() (res {{.ElementName}}) {
 		sumVecGeneric(&res, *vector)
 		return
 	}
-	sumVec(&res, &(*vector)[0], n)
+	sumVec(&res, &(*vector)[0], uint64(len(*vector)))
 	return
 }
 
 //go:noescape
-func sumVec(res, a *{{.ElementName}}, n uint64)
+func sumVec(res *{{.ElementName}}, a *{{.ElementName}}, n uint64)
 
 
 
