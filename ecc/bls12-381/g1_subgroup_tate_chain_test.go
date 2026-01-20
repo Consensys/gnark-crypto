@@ -108,10 +108,94 @@ func BenchmarkG1IsInSubGroupTateChainVsOriginal(b *testing.B) {
 		}
 	})
 
+	b.Run("Fast", func(b *testing.B) {
+		tab := precomputeChainTableDefault()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			p.IsInSubGroupTateFast(tab)
+		}
+	})
+
+	b.Run("Combined", func(b *testing.B) {
+		tab := precomputeChainTableDefault()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			p.IsInSubGroupTateCombined(tab)
+		}
+	})
+
+	b.Run("Probabilistic", func(b *testing.B) {
+		tab := precomputeChainTableDefault()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			p.IsInSubGroupTateProbabilistic(tab)
+		}
+	})
+
 	b.Run("Scott", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			p.IsInSubGroup()
 		}
 	})
+}
+
+func TestG1SubGroupTateFastConsistency(t *testing.T) {
+	t.Parallel()
+	tab := precomputeChainTableDefault()
+
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	properties.Property("[BLS12-381] IsInSubGroupTateFast should match IsInSubGroupTateChain for G1 points", prop.ForAll(
+		func(a fp.Element) bool {
+			p := MapToG1(a)
+			return p.IsInSubGroupTateChain(tab) == p.IsInSubGroupTateFast(tab)
+		},
+		GenFp(),
+	))
+
+	properties.Property("[BLS12-381] IsInSubGroupTateFast should match IsInSubGroupTateChain for non-G1 points", prop.ForAll(
+		func(a fp.Element) bool {
+			p := fuzzCofactorOfG1(a)
+			var paff G1Affine
+			paff.FromJacobian(&p)
+			return paff.IsInSubGroupTateChain(tab) == paff.IsInSubGroupTateFast(tab)
+		},
+		GenFp(),
+	))
+
+	properties.Property("[BLS12-381] IsInSubGroupTateCombined should match IsInSubGroupTateChain for G1 points", prop.ForAll(
+		func(a fp.Element) bool {
+			p := MapToG1(a)
+			return p.IsInSubGroupTateChain(tab) == p.IsInSubGroupTateCombined(tab)
+		},
+		GenFp(),
+	))
+
+	properties.Property("[BLS12-381] IsInSubGroupTateCombined should match IsInSubGroupTateChain for non-G1 points", prop.ForAll(
+		func(a fp.Element) bool {
+			p := fuzzCofactorOfG1(a)
+			var paff G1Affine
+			paff.FromJacobian(&p)
+			return paff.IsInSubGroupTateChain(tab) == paff.IsInSubGroupTateCombined(tab)
+		},
+		GenFp(),
+	))
+
+	properties.Property("[BLS12-381] IsInSubGroupTateProbabilistic should output true for G1 points", prop.ForAll(
+		func(a fp.Element) bool {
+			p := MapToG1(a)
+			return p.IsInSubGroupTateProbabilistic(tab)
+		},
+		GenFp(),
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
