@@ -14,12 +14,15 @@ var exp1Big *big.Int
 // This is the effective exponent used in f2IsOne/exp2Compute
 var exp2Big *big.Int
 
-// Joint Sparse Form (JSF) representation of (exp1, exp2)
-// Each entry is a pair (d1, d2) where d1, d2 ∈ {-1, 0, 1}
-// Stored as two slices: jsf1[i] and jsf2[i] give the i-th digits
-var jsf1 []int8
-var jsf2 []int8
-var jsfLen int
+// Precomputed bit arrays for fast access (stored as uint64 words, LSB first)
+var exp1Words []uint64
+var exp2Words []uint64
+
+// exp1Len and exp2Len store the bit lengths
+var exp1Len, exp2Len int
+
+// maxExpLen is the maximum bit length between exp1 and exp2
+var maxExpLen int
 
 func init() {
 	// exp1 = (p-1)/e2
@@ -36,8 +39,22 @@ func init() {
 	z4 := new(big.Int).Mul(z3, z)
 	z5 := new(big.Int).Mul(z4, z)
 
-	// exp2 = 2 + z² + z³ - z - z⁴ - z⁵
+	// exp2 = 2 - z + z² + z³ - z⁴ - z⁵
+	// But we need to be careful: the actual exponent in f2IsOne is computed as:
+	// u0 = x^(2 + z² + z³), u1 = x^(z + z⁴ + z⁵)
+	// Then checks u0 == u1, which means x^(2 + z² + z³ - z - z⁴ - z⁵) == 1
+	//
+	// With z = |x₀| (positive), the BLS12-381 seed x₀ is NEGATIVE.
+	// So expBySeed computes x^(-x₀) = x^z (since x₀ < 0, -x₀ = z > 0)
+	// Actually looking at expBySeed more carefully, it computes x^|z|
+	//
+	// The sequential exponentiations in f2IsOne:
+	// u1 = x^z, u2 = u1^z = x^(z²), u3 = u2^z = x^(z³)
+	// etc.
+	//
+	// So exp2 = 2 + z² + z³ - z - z⁴ - z⁵
 	// where z = |x₀| = 15132376222941642752
+
 	exp2Big = new(big.Int)
 	exp2Big.SetInt64(2)
 	exp2Big.Sub(exp2Big, z)  // 2 - z
@@ -51,142 +68,74 @@ func init() {
 		exp2Big.Neg(exp2Big)
 	}
 
-	// Compute Joint Sparse Form
-	jsf1, jsf2 = computeJSF(exp1Big, exp2Big)
-	jsfLen = len(jsf1)
+	exp1Len = exp1Big.BitLen()
+	exp2Len = exp2Big.BitLen()
+
+	maxExpLen = exp1Len
+	if exp2Len > maxExpLen {
+		maxExpLen = exp2Len
+	}
+
+	// Convert to uint64 word arrays for fast bit access
+	// big.Int.Bits() returns little-endian words
+	exp1Words = bigIntToWords(exp1Big)
+	exp2Words = bigIntToWords(exp2Big)
 }
 
-// computeJSF computes the Joint Sparse Form of two integers.
-// JSF minimizes the total number of non-zero digits across both representations.
-// Reference: "Improved Algorithms for Arithmetic on Anomalous Binary Curves" by Solinas
-func computeJSF(k1, k2 *big.Int) ([]int8, []int8) {
-	// Work with copies
-	d1 := new(big.Int).Set(k1)
-	d2 := new(big.Int).Set(k2)
-
-	// Estimate max length (bit length + 1 for potential carry)
-	maxLen := d1.BitLen()
-	if d2.BitLen() > maxLen {
-		maxLen = d2.BitLen()
+// bigIntToWords converts a big.Int to a slice of uint64 words (little-endian)
+func bigIntToWords(n *big.Int) []uint64 {
+	bits := n.Bits()
+	words := make([]uint64, len(bits))
+	for i, w := range bits {
+		words[i] = uint64(w)
 	}
-	maxLen += 1
-
-	jsf1 := make([]int8, 0, maxLen)
-	jsf2 := make([]int8, 0, maxLen)
-
-	zero := big.NewInt(0)
-	one := big.NewInt(1)
-	two := big.NewInt(2)
-	four := big.NewInt(4)
-	eight := big.NewInt(8)
-
-	for d1.Cmp(zero) > 0 || d2.Cmp(zero) > 0 {
-		// Get low 3 bits of each
-		m1 := int(new(big.Int).And(d1, big.NewInt(7)).Int64())
-		m2 := int(new(big.Int).And(d2, big.NewInt(7)).Int64())
-
-		var u1, u2 int8
-
-		// Determine u1
-		if m1&1 == 1 { // d1 is odd
-			u1 = 2 - int8(m1&3)
-			if (m1 == 3 || m1 == 5) && (m2&3) == 2 {
-				u1 = -u1
-			}
-		}
-
-		// Determine u2
-		if m2&1 == 1 { // d2 is odd
-			u2 = 2 - int8(m2&3)
-			if (m2 == 3 || m2 == 5) && (m1&3) == 2 {
-				u2 = -u2
-			}
-		}
-
-		jsf1 = append(jsf1, u1)
-		jsf2 = append(jsf2, u2)
-
-		// d1 = (d1 - u1) / 2
-		if u1 == 1 {
-			d1.Sub(d1, one)
-		} else if u1 == -1 {
-			d1.Add(d1, one)
-		}
-		d1.Rsh(d1, 1)
-
-		// d2 = (d2 - u2) / 2
-		if u2 == 1 {
-			d2.Sub(d2, one)
-		} else if u2 == -1 {
-			d2.Add(d2, one)
-		}
-		d2.Rsh(d2, 1)
-
-		// Suppress unused variable warnings
-		_ = two
-		_ = four
-		_ = eight
-	}
-
-	return jsf1, jsf2
+	return words
 }
 
 // jointExpIsOne computes f1^exp1 * f2^exp2 and checks if the result is 1.
-// This uses Joint Sparse Form (JSF) to minimize the number of multiplications.
+// This uses Shamir's trick to share squarings between the two exponentiations.
 //
-// JSF guarantees that the joint Hamming weight is at most n/2 + 1 on average,
-// compared to ~n for standard binary representation.
-//
-// To avoid expensive inversions, we track numerator and denominator separately:
-// result = num/den, and we check if num == den at the end.
+// Cost: max(bitlen(exp1), bitlen(exp2)) squarings + (HW(exp1) + HW(exp2) - joint_bits) multiplications
+// where HW is the Hamming weight and joint_bits counts positions where both bits are 1.
 func jointExpIsOne(f1, f2 *fp.Element) bool {
-	// Precompute products for positive digits
+	// Precompute f1*f2 for when both bits are 1
 	var f12 fp.Element
 	f12.Mul(f1, f2)
 
-	// Track numerator and denominator separately
-	// result = num / den
-	// Positive JSF digits multiply num, negative digits multiply den
-	var num, den fp.Element
-	num.SetOne()
-	den.SetOne()
+	var acc fp.Element
+	acc.SetOne()
 
-	// Process from MSB to LSB
-	for i := jsfLen - 1; i >= 0; i-- {
-		// Square both
-		num.Square(&num)
-		den.Square(&den)
+	// Process from MSB to LSB using precomputed word arrays
+	for i := maxExpLen - 1; i >= 0; i-- {
+		// Square
+		acc.Square(&acc)
 
-		d1 := jsf1[i]
-		d2 := jsf2[i]
+		// Get bits at position i using fast word access
+		bit1 := getBitFromWords(exp1Words, i)
+		bit2 := getBitFromWords(exp2Words, i)
 
-		// Handle each JSF digit pair
-		// Positive digits multiply numerator, negative multiply denominator
-		switch {
-		case d1 == 1 && d2 == 1:
-			num.Mul(&num, &f12)
-		case d1 == 1 && d2 == 0:
-			num.Mul(&num, f1)
-		case d1 == 1 && d2 == -1:
-			num.Mul(&num, f1)
-			den.Mul(&den, f2)
-		case d1 == 0 && d2 == 1:
-			num.Mul(&num, f2)
-		case d1 == 0 && d2 == -1:
-			den.Mul(&den, f2)
-		case d1 == -1 && d2 == 1:
-			den.Mul(&den, f1)
-			num.Mul(&num, f2)
-		case d1 == -1 && d2 == 0:
-			den.Mul(&den, f1)
-		case d1 == -1 && d2 == -1:
-			den.Mul(&den, &f12)
-			// case d1 == 0 && d2 == 0: do nothing
+		// Multiply based on bits
+		if bit1 && bit2 {
+			acc.Mul(&acc, &f12)
+		} else if bit1 {
+			acc.Mul(&acc, f1)
+		} else if bit2 {
+			acc.Mul(&acc, f2)
 		}
 	}
 
-	// Check if num == den (i.e., num/den == 1)
-	return num.Equal(&den)
+	return acc.IsOne()
+}
+
+// getBitFromWords returns true if the bit at position i (0-indexed from LSB) is 1
+// words is a little-endian slice of uint64
+func getBitFromWords(words []uint64, i int) bool {
+	wordIdx := i / 64
+	if wordIdx >= len(words) {
+		return false
+	}
+	bitIdx := uint(i % 64)
+	return (words[wordIdx] & (1 << bitIdx)) != 0
 }
 
 // membershipTestShamir performs the Tate-based membership test using Shamir's trick
