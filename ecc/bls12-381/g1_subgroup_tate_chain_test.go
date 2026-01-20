@@ -124,6 +124,14 @@ func BenchmarkG1IsInSubGroupTateChainVsOriginal(b *testing.B) {
 		}
 	})
 
+	b.Run("Shamir", func(b *testing.B) {
+		tab := precomputeChainTableDefault()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			p.IsInSubGroupTateShamir(tab)
+		}
+	})
+
 	b.Run("Probabilistic", func(b *testing.B) {
 		tab := precomputeChainTableDefault()
 		b.ResetTimer()
@@ -193,6 +201,24 @@ func TestG1SubGroupTateFastConsistency(t *testing.T) {
 		func(a fp.Element) bool {
 			p := MapToG1(a)
 			return p.IsInSubGroupTateProbabilistic(tab)
+		},
+		GenFp(),
+	))
+
+	properties.Property("[BLS12-381] IsInSubGroupTateShamir should match IsInSubGroupTateChain for G1 points", prop.ForAll(
+		func(a fp.Element) bool {
+			p := MapToG1(a)
+			return p.IsInSubGroupTateChain(tab) == p.IsInSubGroupTateShamir(tab)
+		},
+		GenFp(),
+	))
+
+	properties.Property("[BLS12-381] IsInSubGroupTateShamir should match IsInSubGroupTateChain for non-G1 points", prop.ForAll(
+		func(a fp.Element) bool {
+			p := fuzzCofactorOfG1(a)
+			var paff G1Affine
+			paff.FromJacobian(&p)
+			return paff.IsInSubGroupTateChain(tab) == paff.IsInSubGroupTateShamir(tab)
 		},
 		GenFp(),
 	))
