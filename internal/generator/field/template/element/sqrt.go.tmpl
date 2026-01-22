@@ -463,8 +463,7 @@ func (z *{{.ElementName}}) SqrtSarkar(x *{{.ElementName}}) *{{.ElementName}} {
 	xM.Mul(&xM, x)
 
 	// compute Legendre symbol: xM^(2^(sarkarN-1)) should be 1 for squares
-	var t {{.ElementName}}
-	t = xM
+	t := xM
 	for i := 0; i < sarkarN-1; i++ {
 		t.Square(&t)
 	}

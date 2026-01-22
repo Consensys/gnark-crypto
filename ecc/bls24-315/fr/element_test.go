@@ -186,13 +186,13 @@ func BenchmarkElementSqrt(b *testing.B) {
 	var a Element
 	a.SetUint64(4)
 	a.Neg(&a)
-	b.Run(fmt.Sprintf("Sarkar"), func(b *testing.B) {
+	b.Run("Sarkar", func(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
 			benchResElement.SqrtSarkar(&a)
 		}
 	})
-	b.Run(fmt.Sprintf("Tonelli-Shanks"), func(b *testing.B) {
+	b.Run("Tonelli-Shanks", func(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
 			benchResElement.SqrtTonelliShanks(&a)

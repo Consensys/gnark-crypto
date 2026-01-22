@@ -185,13 +185,13 @@ func Benchmark{{toTitle .ElementName}}Sqrt(b *testing.B) {
 	a.SetUint64(4)
 	a.Neg(&a)
 	{{- if .SqrtSarkar}}
-	b.Run(fmt.Sprintf("Sarkar"), func(b *testing.B) {
+	b.Run("Sarkar", func(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
 			benchRes{{.ElementName}}.SqrtSarkar(&a)
 		}
 	})
-	b.Run(fmt.Sprintf("Tonelli-Shanks"), func(b *testing.B) {
+	b.Run("Tonelli-Shanks", func(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
 			benchRes{{.ElementName}}.SqrtTonelliShanks(&a)
