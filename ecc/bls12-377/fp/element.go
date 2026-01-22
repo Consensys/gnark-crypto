@@ -77,6 +77,7 @@ const qInvNeg = 9586122913090633727
 func init() {
 	_modulus.SetString("1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000001", 16)
 	initSarkar()
+	initHamburg()
 }
 
 // NewElement returns a new Element from a uint64 value
@@ -1499,6 +1500,16 @@ func initSarkar() {
 	sarkarMinusOne.Neg(&sarkarMinusOne)
 }
 
+var hamburgQBits [Bits]uint8
+
+func initHamburg() {
+	for i := 0; i < Bits; i++ {
+		if _modulus.Bit(i) != 0 {
+			hamburgQBits[i] = 1
+		}
+	}
+}
+
 // sarkarPowG sets z to g^exp, where g has order 2^sarkarN and exp < 2^sarkarN.
 func sarkarPowG(z *Element, exp uint64) *Element {
 	if exp == 0 {
@@ -1608,6 +1619,83 @@ func (z *Element) SqrtSarkar(x *Element) *Element {
 	z.Mul(x, &v)
 	z.Mul(z, &gamma)
 	return z
+}
+
+// SqrtHamburg z = √x (mod q) using Hamburg's simplified KKK (Plucky) algorithm.
+// if the square root doesn't exist (x is not a square mod q)
+// SqrtHamburg leaves z unchanged and returns nil
+func (z *Element) SqrtHamburg(x *Element) *Element {
+	if x.IsZero() {
+		return z.SetZero()
+	}
+
+	var two, minusTwo Element
+	two.SetUint64(2)
+	minusTwo.Neg(&two)
+
+	for {
+		var a Element
+		a.MustSetRandom()
+		if a.IsZero() {
+			continue
+		}
+
+		var a2, sum Element
+		a2.Square(&a)
+		sum.Add(&a2, x) // a^2 + x
+		if sum.IsZero() {
+			continue
+		}
+
+		var invSum, inv4a Element
+		invSum.Inverse(&sum)
+
+		var fourA Element
+		fourA.Double(&a)
+		fourA.Double(&fourA)
+		inv4a.Inverse(&fourA)
+
+		var num, P Element
+		num.Sub(&a2, x)
+		P.Mul(&num, &invSum)
+		P.Double(&P)
+
+		var V, W Element
+		V.Set(&two)
+		W.Set(&P)
+
+		for i := Bits - 1; i >= 2; i-- {
+			if hamburgQBits[i] == 0 {
+				var v2, vw Element
+				v2.Square(&V)
+				v2.Sub(&v2, &two)
+				vw.Mul(&V, &W)
+				vw.Sub(&vw, &P)
+				V = v2
+				W = vw
+			} else {
+				var vw, w2 Element
+				vw.Mul(&V, &W)
+				vw.Sub(&vw, &P)
+				w2.Square(&W)
+				w2.Sub(&w2, &two)
+				V = vw
+				W = w2
+			}
+
+			if V.IsZero() {
+				var y Element
+				y.Mul(&W, &sum)
+				y.Mul(&y, &inv4a)
+				return z.Set(&y)
+			}
+		}
+
+		if V.Equal(&two) || V.Equal(&minusTwo) {
+			continue
+		}
+		return nil
+	}
 }
 
 // SqrtTonelliShanks z = √x (mod q) using Tonelli-Shanks.

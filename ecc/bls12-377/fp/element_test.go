@@ -192,6 +192,43 @@ func BenchmarkElementSqrt(b *testing.B) {
 	}
 }
 
+func BenchmarkSqrtMethods(b *testing.B) {
+	const samples = 256
+	var squares [samples]Element
+	for i := 0; i < samples; i++ {
+		var a Element
+		a.MustSetRandom()
+		squares[i].Square(&a)
+	}
+
+	b.Run("Sarkar", func(b *testing.B) {
+		var out Element
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			out.SqrtSarkar(&squares[i%samples])
+		}
+		benchResElement = out
+	})
+
+	b.Run("TonelliShanks", func(b *testing.B) {
+		var out Element
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			out.SqrtTonelliShanks(&squares[i%samples])
+		}
+		benchResElement = out
+	})
+
+	b.Run("Hamburg", func(b *testing.B) {
+		var out Element
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			out.SqrtHamburg(&squares[i%samples])
+		}
+		benchResElement = out
+	})
+}
+
 func BenchmarkElementMul(b *testing.B) {
 	x := Element{
 		13224372171368877346,
@@ -1516,7 +1553,7 @@ func TestElementSqrt(t *testing.T) {
 
 }
 
-func TestSqrtSarkarMatchesTonelliShanks(t *testing.T) {
+func TestSqrtCrossChecks(t *testing.T) {
 	t.Parallel()
 	trials := 200
 	if testing.Short() {
@@ -1528,18 +1565,24 @@ func TestSqrtSarkarMatchesTonelliShanks(t *testing.T) {
 		a.MustSetRandom()
 		sq.Square(&a)
 
-		var sarkar, ts Element
+		var sarkar, ts, hamburg Element
 		if sarkar.SqrtSarkar(&sq) == nil {
 			t.Fatal("SqrtSarkar failed on square input")
 		}
 		if ts.SqrtTonelliShanks(&sq) == nil {
 			t.Fatal("SqrtTonelliShanks failed on square input")
 		}
+		if hamburg.SqrtHamburg(&sq) == nil {
+			t.Fatal("SqrtHamburg failed on square input")
+		}
 
 		var neg Element
 		neg.Neg(&ts)
 		if !sarkar.Equal(&ts) && !sarkar.Equal(&neg) {
 			t.Fatal("SqrtSarkar and SqrtTonelliShanks disagree")
+		}
+		if !hamburg.Equal(&ts) && !hamburg.Equal(&neg) {
+			t.Fatal("SqrtHamburg and SqrtTonelliShanks disagree")
 		}
 	}
 }
