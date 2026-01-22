@@ -304,7 +304,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 				F.SqrtSMinusOneOver2Data = addchain.GetAddChain(&s)
 			}
 
-			if e >= 10 {
+			if e >= 10 && !F.F31 && F.PackageName != "goldilocks" {
 				F.SqrtSarkar = true
 				F.SqrtSarkarK, F.SqrtSarkarL = chooseSarkarParams(int(e))
 			}
