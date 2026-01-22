@@ -76,6 +76,7 @@ const qInvNeg = 9586122913090633727
 
 func init() {
 	_modulus.SetString("1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000001", 16)
+	initSarkar()
 }
 
 // NewElement returns a new Element from a uint64 value
@@ -1468,74 +1469,145 @@ func approximateForLegendre(x *Element, nBits int) uint64 {
 	return lo | mid | hi
 }
 
+// Sarkar sqrt parameters for BLS12-377 Fp (p-1 = 2^46 * m).
+const (
+	sarkarN = 46
+	sarkarK = 7
+)
+
+var sarkarL = [sarkarK]uint64{6, 6, 6, 6, 7, 7, 7}
+
+// g = z^m where z is a quadratic non-residue in Fp (g has order 2^sarkarN).
+var sarkarG = Element{
+	7563926049028936178,
+	2688164645460651601,
+	12112688591437172399,
+	3177973240564633687,
+	14764383749841851163,
+	52487407124055189,
+}
+
+var sarkarGPow [sarkarN]Element
+var sarkarMinusOne Element
+
+func initSarkar() {
+	sarkarGPow[0] = sarkarG
+	for i := 1; i < sarkarN; i++ {
+		sarkarGPow[i].Square(&sarkarGPow[i-1])
+	}
+	sarkarMinusOne.SetOne()
+	sarkarMinusOne.Neg(&sarkarMinusOne)
+}
+
+// sarkarPowG sets z to g^exp, where g has order 2^sarkarN and exp < 2^sarkarN.
+func sarkarPowG(z *Element, exp uint64) *Element {
+	if exp == 0 {
+		return z.SetOne()
+	}
+	var acc Element
+	acc.SetOne()
+	i := 0
+	for exp > 0 {
+		if exp&1 == 1 {
+			acc.Mul(&acc, &sarkarGPow[i])
+		}
+		exp >>= 1
+		i++
+	}
+	return z.Set(&acc)
+}
+
+// sarkarFind returns the smallest i >= 0 such that delta^(2^i) = -1.
+func sarkarFind(delta *Element) uint64 {
+	var mu Element
+	mu.Set(delta)
+	var i uint64
+	for !mu.Equal(&sarkarMinusOne) {
+		mu.Square(&mu)
+		i++
+	}
+	return i
+}
+
+// sarkarEval returns s such that alpha * g^s = 1, where alpha^(2^l) = 1 for some l.
+func sarkarEval(alpha *Element) uint64 {
+	var delta Element
+	delta.Set(alpha)
+	var s uint64
+	for !delta.IsOne() {
+		i := sarkarFind(&delta)
+		s += uint64(1) << uint(sarkarN-1-int(i))
+		if i > 0 {
+			delta.Mul(&delta, &sarkarGPow[sarkarN-1-int(i)])
+		} else {
+			delta.Neg(&delta)
+		}
+	}
+	return s
+}
+
 // Sqrt z = √x (mod q)
 // if the square root doesn't exist (x is not a square mod q)
 // Sqrt leaves z unchanged and returns nil
 func (z *Element) Sqrt(x *Element) *Element {
-	// q ≡ 1 (mod 4)
-	// see modSqrtTonelliShanks in math/big/int.go
-	// using https://www.maa.org/sites/default/files/pdf/upload_library/22/Polya/07468342.di020786.02p0470a.pdf
-
-	var y, b, t, w Element
-	// w = x^((s-1)/2))
-	w.ExpBySqrtExp(*x)
-
-	// y = x^((s+1)/2)) = w * x
-	y.Mul(x, &w)
-
-	// b = xˢ = w * w * x = y * x
-	b.Mul(&w, &y)
-
-	// g = nonResidue ^ s
-	var g = Element{
-		7563926049028936178,
-		2688164645460651601,
-		12112688591437172399,
-		3177973240564633687,
-		14764383749841851163,
-		52487407124055189,
+	if x.IsZero() {
+		return z.SetZero()
 	}
-	r := uint64(46)
 
-	// compute legendre symbol
-	// t = x^((q-1)/2) = r-1 squaring of xˢ
-	t = b
-	for i := uint64(0); i < r-1; i++ {
+	// v = x^((m-1)/2)
+	var v Element
+	v.ExpBySqrtExp(*x)
+
+	// xM = x^m = x * v^2
+	var xM Element
+	xM.Square(&v)
+	xM.Mul(&xM, x)
+
+	// compute Legendre symbol: xM^(2^(sarkarN-1)) should be 1 for squares
+	var t Element
+	t = xM
+	for i := 0; i < sarkarN-1; i++ {
 		t.Square(&t)
 	}
 	if t.IsZero() {
 		return z.SetZero()
 	}
 	if !t.IsOne() {
-		// t != 1, we don't have a square root
 		return nil
 	}
-	for {
-		var m uint64
-		t = b
 
-		// for t != 1
-		for !t.IsOne() {
-			t.Square(&t)
-			m++
-		}
-
-		if m == 0 {
-			return z.Set(&y)
-		}
-		// t = g^(2^(r-m-1)) (mod q)
-		ge := int(r - m - 1)
-		t = g
-		for ge > 0 {
-			t.Square(&t)
-			ge--
-		}
-
-		g.Square(&t)
-		y.Mul(&y, &t)
-		b.Mul(&b, &g)
-		r = m
+	// precompute xM^(2^i)
+	var xPow [sarkarN]Element
+	xPow[0] = xM
+	for i := 1; i < sarkarN; i++ {
+		xPow[i].Square(&xPow[i-1])
 	}
+
+	// compute xi = xM^(2^(sarkarN-1-(l0+...+li)))
+	var xis [sarkarK]Element
+	var sumL uint64
+	for i := 0; i < sarkarK; i++ {
+		sumL += sarkarL[i]
+		idx := sarkarN - 1 - int(sumL)
+		xis[i] = xPow[idx]
+	}
+
+	var s, tt uint64
+	for i := 0; i < sarkarK; i++ {
+		tt = (s + tt) >> sarkarL[i]
+		var gamma Element
+		sarkarPowG(&gamma, tt)
+		var alpha Element
+		alpha.Mul(&xis[i], &gamma)
+		s = sarkarEval(&alpha)
+	}
+
+	tt = s + tt
+	var gamma Element
+	sarkarPowG(&gamma, tt>>1)
+	z.Mul(x, &v)
+	z.Mul(z, &gamma)
+	return z
 }
 
 const (
