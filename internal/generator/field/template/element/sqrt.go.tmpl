@@ -274,6 +274,22 @@ func initSarkar() {
 	sarkarMinusOne.Neg(&sarkarMinusOne)
 }
 
+{{- if gt .SqrtE 63}}
+// sarkarPowGBig sets z to g^exp, where g has order 2^sarkarN and exp < 2^sarkarN.
+func sarkarPowGBig(z *{{.ElementName}}, exp *big.Int) *{{.ElementName}} {
+	if exp.Sign() == 0 {
+		return z.SetOne()
+	}
+	var acc {{.ElementName}}
+	acc.SetOne()
+	for i := 0; i < exp.BitLen(); i++ {
+		if exp.Bit(i) == 1 {
+			acc.Mul(&acc, &sarkarGPow[i])
+		}
+	}
+	return z.Set(&acc)
+}
+{{- else}}
 // sarkarPowG sets z to g^exp, where g has order 2^sarkarN and exp < 2^sarkarN.
 func sarkarPowG(z *{{.ElementName}}, exp uint64) *{{.ElementName}} {
 	if exp == 0 {
@@ -291,6 +307,7 @@ func sarkarPowG(z *{{.ElementName}}, exp uint64) *{{.ElementName}} {
 	}
 	return z.Set(&acc)
 }
+{{- end}}
 
 // sarkarFind returns the smallest i >= 0 such that delta^(2^i) = -1.
 func sarkarFind(delta *{{.ElementName}}) uint64 {
@@ -304,6 +321,26 @@ func sarkarFind(delta *{{.ElementName}}) uint64 {
 	return i
 }
 
+{{- if gt .SqrtE 63}}
+// sarkarEvalBig sets s such that alpha * g^s = 1, where alpha^(2^l) = 1 for some l.
+func sarkarEvalBig(alpha *{{.ElementName}}, s *big.Int) {
+	var delta {{.ElementName}}
+	delta.Set(alpha)
+	s.SetUint64(0)
+	var tmp big.Int
+	for !delta.IsOne() {
+		i := sarkarFind(&delta)
+		tmp.SetUint64(1)
+		tmp.Lsh(&tmp, uint(sarkarN-1-int(i)))
+		s.Add(s, &tmp)
+		if i > 0 {
+			delta.Mul(&delta, &sarkarGPow[sarkarN-1-int(i)])
+		} else {
+			delta.Neg(&delta)
+		}
+	}
+}
+{{- else}}
 // sarkarEval returns s such that alpha * g^s = 1, where alpha^(2^l) = 1 for some l.
 func sarkarEval(alpha *{{.ElementName}}) uint64 {
 	var delta {{.ElementName}}
@@ -320,6 +357,7 @@ func sarkarEval(alpha *{{.ElementName}}) uint64 {
 	}
 	return s
 }
+{{- end}}
 {{- end}}
 
 
@@ -491,6 +529,26 @@ func (z *{{.ElementName}}) SqrtSarkar(x *{{.ElementName}}) *{{.ElementName}} {
 		xis[i] = xPow[idx]
 	}
 
+	{{- if gt .SqrtE 63}}
+	var s, tt, tmp big.Int
+	for i := 0; i < sarkarK; i++ {
+		tmp.Add(&s, &tt)
+		tt.Rsh(&tmp, uint(sarkarL[i]))
+		var gamma {{.ElementName}}
+		sarkarPowGBig(&gamma, &tt)
+		var alpha {{.ElementName}}
+		alpha.Mul(&xis[i], &gamma)
+		sarkarEvalBig(&alpha, &s)
+	}
+
+	tmp.Add(&s, &tt)
+	tt.Rsh(&tmp, 1)
+	var gamma {{.ElementName}}
+	sarkarPowGBig(&gamma, &tt)
+	z.Mul(x, &v)
+	z.Mul(z, &gamma)
+	return z
+	{{- else}}
 	var s, tt uint64
 	for i := 0; i < sarkarK; i++ {
 		tt = (s + tt) >> sarkarL[i]
@@ -507,6 +565,7 @@ func (z *{{.ElementName}}) SqrtSarkar(x *{{.ElementName}}) *{{.ElementName}} {
 	z.Mul(x, &v)
 	z.Mul(z, &gamma)
 	return z
+	{{- end}}
 }
 
 // SqrtTonelliShanks z = √x (mod q) using Tonelli-Shanks.

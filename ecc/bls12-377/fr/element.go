@@ -1431,7 +1431,6 @@ func (z *Element) SqrtSarkar(x *Element) *Element {
 		idx := sarkarN - 1 - int(sumL)
 		xis[i] = xPow[idx]
 	}
-
 	var s, tt uint64
 	for i := 0; i < sarkarK; i++ {
 		tt = (s + tt) >> sarkarL[i]

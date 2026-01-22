@@ -1339,20 +1339,17 @@ func initSarkar() {
 	sarkarMinusOne.Neg(&sarkarMinusOne)
 }
 
-// sarkarPowG sets z to g^exp, where g has order 2^sarkarN and exp < 2^sarkarN.
-func sarkarPowG(z *Element, exp uint64) *Element {
-	if exp == 0 {
+// sarkarPowGBig sets z to g^exp, where g has order 2^sarkarN and exp < 2^sarkarN.
+func sarkarPowGBig(z *Element, exp *big.Int) *Element {
+	if exp.Sign() == 0 {
 		return z.SetOne()
 	}
 	var acc Element
 	acc.SetOne()
-	i := 0
-	for exp > 0 {
-		if exp&1 == 1 {
+	for i := 0; i < exp.BitLen(); i++ {
+		if exp.Bit(i) == 1 {
 			acc.Mul(&acc, &sarkarGPow[i])
 		}
-		exp >>= 1
-		i++
 	}
 	return z.Set(&acc)
 }
@@ -1369,21 +1366,23 @@ func sarkarFind(delta *Element) uint64 {
 	return i
 }
 
-// sarkarEval returns s such that alpha * g^s = 1, where alpha^(2^l) = 1 for some l.
-func sarkarEval(alpha *Element) uint64 {
+// sarkarEvalBig sets s such that alpha * g^s = 1, where alpha^(2^l) = 1 for some l.
+func sarkarEvalBig(alpha *Element, s *big.Int) {
 	var delta Element
 	delta.Set(alpha)
-	var s uint64
+	s.SetUint64(0)
+	var tmp big.Int
 	for !delta.IsOne() {
 		i := sarkarFind(&delta)
-		s += uint64(1) << uint(sarkarN-1-int(i))
+		tmp.SetUint64(1)
+		tmp.Lsh(&tmp, uint(sarkarN-1-int(i)))
+		s.Add(s, &tmp)
 		if i > 0 {
 			delta.Mul(&delta, &sarkarGPow[sarkarN-1-int(i)])
 		} else {
 			delta.Neg(&delta)
 		}
 	}
-	return s
 }
 
 // Sqrt z = √x (mod q)
@@ -1438,20 +1437,21 @@ func (z *Element) SqrtSarkar(x *Element) *Element {
 		idx := sarkarN - 1 - int(sumL)
 		xis[i] = xPow[idx]
 	}
-
-	var s, tt uint64
+	var s, tt, tmp big.Int
 	for i := 0; i < sarkarK; i++ {
-		tt = (s + tt) >> sarkarL[i]
+		tmp.Add(&s, &tt)
+		tt.Rsh(&tmp, uint(sarkarL[i]))
 		var gamma Element
-		sarkarPowG(&gamma, tt)
+		sarkarPowGBig(&gamma, &tt)
 		var alpha Element
 		alpha.Mul(&xis[i], &gamma)
-		s = sarkarEval(&alpha)
+		sarkarEvalBig(&alpha, &s)
 	}
 
-	tt = s + tt
+	tmp.Add(&s, &tt)
+	tt.Rsh(&tmp, 1)
 	var gamma Element
-	sarkarPowG(&gamma, tt>>1)
+	sarkarPowGBig(&gamma, &tt)
 	z.Mul(x, &v)
 	z.Mul(z, &gamma)
 	return z
