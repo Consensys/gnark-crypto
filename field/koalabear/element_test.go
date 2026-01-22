@@ -184,10 +184,18 @@ func BenchmarkElementSqrt(b *testing.B) {
 	var a Element
 	a.SetUint64(4)
 	a.Neg(&a)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		benchResElement.Sqrt(&a)
-	}
+	b.Run(fmt.Sprintf("Sarkar"), func(b *testing.B) {
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			benchResElement.SqrtSarkar(&a)
+		}
+	})
+	b.Run(fmt.Sprintf("Tonelli-Shanks"), func(b *testing.B) {
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			benchResElement.SqrtTonelliShanks(&a)
+		}
+	})
 }
 
 func BenchmarkElementMul(b *testing.B) {
@@ -1401,6 +1409,14 @@ func TestElementSqrt(t *testing.T) {
 			var c Element
 			c.Sqrt(&a.element)
 			return c.smallerThanModulus()
+		},
+		genA,
+	))
+	properties.Property("Sqrt: Tonelli-Shanks' and Sarkar's algorithms must match", prop.ForAll(
+		func(a testPairElement) bool {
+			var c, ts, sarkar Element
+			c.Square(&a.element)
+			return ts.SqrtTonelliShanks(&c).Equal(sarkar.SqrtSarkar(&c))
 		},
 		genA,
 	))

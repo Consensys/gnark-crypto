@@ -50,8 +50,11 @@ type Field struct {
 	SqrtQ3Mod4                 bool
 	SqrtAtkin                  bool
 	SqrtTonelliShanks          bool
+	SqrtSarkar                 bool
 	SqrtE                      uint64
 	SqrtS                      []uint64
+	SqrtSarkarK                int
+	SqrtSarkarL                []uint64
 	SqrtAtkinExponent          string   // big.Int to base16 string
 	SqrtSMinusOneOver2         string   // big.Int to base16 string
 	SqrtQ3Mod4Exponent         string   // big.Int to base16 string
@@ -262,7 +265,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 				F.SqrtAtkinExponentData = addchain.GetAddChain(e)
 			}
 		} else {
-			// use Tonelli-Shanks
+			// use Tonelli-Shanks (and optionally Sarkar for high 2-adicity)
 			F.SqrtTonelliShanks = true
 
 			// Write q-1 =2ᵉ * s , s odd
@@ -300,6 +303,11 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 			if F.UseAddChain {
 				F.SqrtSMinusOneOver2Data = addchain.GetAddChain(&s)
 			}
+
+			if e >= 3 {
+				F.SqrtSarkar = true
+				F.SqrtSarkarK, F.SqrtSarkarL = chooseSarkarParams(int(e))
+			}
 		}
 	}
 
@@ -331,6 +339,46 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	}
 
 	return F, nil
+}
+
+func chooseSarkarParams(n int) (int, []uint64) {
+	bestCost := -1
+	bestK := 1
+	var bestL []uint64
+
+	for k := 1; k < n; k++ {
+		l := int(math.Ceil(float64(n-1) / float64(k)))
+		k2 := (n - 1) - (l-1)*k
+		if k2 < 1 || k2 > k {
+			continue
+		}
+		k1 := k - k2
+		lvals := make([]uint64, 0, k)
+		for i := 0; i < k1; i++ {
+			lvals = append(lvals, uint64(l-1))
+		}
+		for i := 0; i < k2; i++ {
+			lvals = append(lvals, uint64(l))
+		}
+
+		sq := (n - int(lvals[0]))
+		for _, li := range lvals {
+			sq += int(li*(li-1)) / 2
+		}
+		mul := n + k + 1 + (k*(k-1))/2
+		for i := 0; i < k; i++ {
+			mul += (k - i) * (int(lvals[i]) - 1)
+		}
+
+		cost := sq + mul
+		if bestCost == -1 || cost < bestCost {
+			bestCost = cost
+			bestK = k
+			bestL = lvals
+		}
+	}
+
+	return bestK, bestL
 }
 
 func toUint64Slice(b *big.Int, nbWords ...int) (s []uint64) {

@@ -1296,15 +1296,23 @@ func approximateForLegendre(x *Element, nBits int) uint64 {
 	return lo | mid | hi
 }
 
-// Sarkar sqrt parameters for BLS12-377 Fr (p-1 = 2^47 * m).
+// Sarkar sqrt parameters for high 2-adicity fields (p-1 = 2^e * m).
 const (
 	sarkarN = 47
 	sarkarK = 7
 )
 
-var sarkarL = [sarkarK]uint64{6, 6, 6, 7, 7, 7, 7}
+var sarkarL = [sarkarK]uint64{
+	6,
+	6,
+	6,
+	7,
+	7,
+	7,
+	7,
+}
 
-// g = z^m where z is a quadratic non-residue in Fr (g has order 2^sarkarN).
+// g = nonResidue ^ s
 var sarkarG = Element{
 	4340692304772210610,
 	11102725085307959083,
@@ -1369,6 +1377,13 @@ func sarkarEval(alpha *Element) uint64 {
 		}
 	}
 	return s
+}
+
+// Sqrt z = √x (mod q)
+// if the square root doesn't exist (x is not a square mod q)
+// Sqrt leaves z unchanged and returns nil
+func (z *Element) Sqrt(x *Element) *Element {
+	return z.SqrtSarkar(x)
 }
 
 // SqrtSarkar z = √x (mod q) using Sarkar's algorithm.
@@ -1502,13 +1517,6 @@ func (z *Element) SqrtTonelliShanks(x *Element) *Element {
 		b.Mul(&b, &g)
 		r = m
 	}
-}
-
-// Sqrt z = √x (mod q) using Sarkar's algorithm.
-// if the square root doesn't exist (x is not a square mod q)
-// Sqrt leaves z unchanged and returns nil
-func (z *Element) Sqrt(x *Element) *Element {
-	return z.SqrtSarkar(x)
 }
 
 const (

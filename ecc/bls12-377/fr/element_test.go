@@ -186,7 +186,6 @@ func BenchmarkElementSqrt(b *testing.B) {
 	var a Element
 	a.SetUint64(4)
 	a.Neg(&a)
-
 	b.Run(fmt.Sprintf("Sarkar"), func(b *testing.B) {
 		b.ResetTimer()
 		for j := 0; j < b.N; j++ {
@@ -1494,7 +1493,6 @@ func TestElementSqrt(t *testing.T) {
 		},
 		genA,
 	))
-
 	properties.Property("Sqrt: Tonelli-Shanks' and Sarkar's algorithms must match", prop.ForAll(
 		func(a testPairElement) bool {
 			var c, ts, sarkar Element
