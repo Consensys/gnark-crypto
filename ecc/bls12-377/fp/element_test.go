@@ -1516,6 +1516,34 @@ func TestElementSqrt(t *testing.T) {
 
 }
 
+func TestSqrtSarkarMatchesTonelliShanks(t *testing.T) {
+	t.Parallel()
+	trials := 200
+	if testing.Short() {
+		trials = 50
+	}
+
+	for i := 0; i < trials; i++ {
+		var a, sq Element
+		a.MustSetRandom()
+		sq.Square(&a)
+
+		var sarkar, ts Element
+		if sarkar.SqrtSarkar(&sq) == nil {
+			t.Fatal("SqrtSarkar failed on square input")
+		}
+		if ts.SqrtTonelliShanks(&sq) == nil {
+			t.Fatal("SqrtTonelliShanks failed on square input")
+		}
+
+		var neg Element
+		neg.Neg(&ts)
+		if !sarkar.Equal(&ts) && !sarkar.Equal(&neg) {
+			t.Fatal("SqrtSarkar and SqrtTonelliShanks disagree")
+		}
+	}
+}
+
 func TestElementDouble(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()

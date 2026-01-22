@@ -1546,10 +1546,10 @@ func sarkarEval(alpha *Element) uint64 {
 	return s
 }
 
-// Sqrt z = √x (mod q)
+// SqrtSarkar z = √x (mod q) using Sarkar's algorithm.
 // if the square root doesn't exist (x is not a square mod q)
-// Sqrt leaves z unchanged and returns nil
-func (z *Element) Sqrt(x *Element) *Element {
+// SqrtSarkar leaves z unchanged and returns nil
+func (z *Element) SqrtSarkar(x *Element) *Element {
 	if x.IsZero() {
 		return z.SetZero()
 	}
@@ -1608,6 +1608,83 @@ func (z *Element) Sqrt(x *Element) *Element {
 	z.Mul(x, &v)
 	z.Mul(z, &gamma)
 	return z
+}
+
+// SqrtTonelliShanks z = √x (mod q) using Tonelli-Shanks.
+// if the square root doesn't exist (x is not a square mod q)
+// SqrtTonelliShanks leaves z unchanged and returns nil
+func (z *Element) SqrtTonelliShanks(x *Element) *Element {
+	// q ≡ 1 (mod 4)
+	// see modSqrtTonelliShanks in math/big/int.go
+	// using https://www.maa.org/sites/default/files/pdf/upload_library/22/Polya/07468342.di020786.02p0470a.pdf
+
+	var y, b, t, w Element
+	// w = x^((s-1)/2))
+	w.ExpBySqrtExp(*x)
+
+	// y = x^((s+1)/2)) = w * x
+	y.Mul(x, &w)
+
+	// b = xˢ = w * w * x = y * x
+	b.Mul(&w, &y)
+
+	// g = nonResidue ^ s
+	var g = Element{
+		7563926049028936178,
+		2688164645460651601,
+		12112688591437172399,
+		3177973240564633687,
+		14764383749841851163,
+		52487407124055189,
+	}
+	r := uint64(46)
+
+	// compute legendre symbol
+	// t = x^((q-1)/2) = r-1 squaring of xˢ
+	t = b
+	for i := uint64(0); i < r-1; i++ {
+		t.Square(&t)
+	}
+	if t.IsZero() {
+		return z.SetZero()
+	}
+	if !t.IsOne() {
+		// t != 1, we don't have a square root
+		return nil
+	}
+	for {
+		var m uint64
+		t = b
+
+		// for t != 1
+		for !t.IsOne() {
+			t.Square(&t)
+			m++
+		}
+
+		if m == 0 {
+			return z.Set(&y)
+		}
+		// t = g^(2^(r-m-1)) (mod q)
+		ge := int(r - m - 1)
+		t = g
+		for ge > 0 {
+			t.Square(&t)
+			ge--
+		}
+
+		g.Square(&t)
+		y.Mul(&y, &t)
+		b.Mul(&b, &g)
+		r = m
+	}
+}
+
+// Sqrt z = √x (mod q) using Sarkar's algorithm.
+// if the square root doesn't exist (x is not a square mod q)
+// Sqrt leaves z unchanged and returns nil
+func (z *Element) Sqrt(x *Element) *Element {
+	return z.SqrtSarkar(x)
 }
 
 const (
