@@ -783,7 +783,6 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 	}
 
 	var q1Table, q2Table [8]G2Jac
-	var q1NegTable, q2NegTable [8]G2Jac
 	q1Table[0].Set(&q1)
 	q2Table[0].Set(&q2)
 	var q1Two, q2Two G2Jac
@@ -794,10 +793,6 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 		q1Table[i].Set(&q1Table[i-1]).AddAssign(&q1Two)
 		q2Table[i].Set(&q2Table[i-1]).AddAssign(&q2Two)
 	}
-	for i := 0; i < len(q1Table); i++ {
-		q1NegTable[i].Neg(&q1Table[i])
-		q2NegTable[i].Neg(&q2Table[i])
-	}
 
 	for i := maxLen - 1; i >= 0; i-- {
 		res.DoubleAssign()
@@ -807,7 +802,7 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 				if d > 0 {
 					res.AddAssign(&q1Table[(d-1)/2])
 				} else {
-					res.AddAssign(&q1NegTable[(-d-1)/2])
+					res.SubAssign(&q1Table[(-d-1)/2])
 				}
 			}
 		}
@@ -817,7 +812,7 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 				if d > 0 {
 					res.AddAssign(&q2Table[(d-1)/2])
 				} else {
-					res.AddAssign(&q2NegTable[(-d-1)/2])
+					res.SubAssign(&q2Table[(-d-1)/2])
 				}
 			}
 		}
