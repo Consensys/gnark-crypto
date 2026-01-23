@@ -268,6 +268,26 @@ func cDIFFE12_SparseP(pX, pZ *fptower.E2, qX, qZ, iXPminusQ *fptower.E12, fourB 
 	result.Z.Square(&t7)
 }
 
+// addPointsE2 computes P + Q on E'(Fp²) in affine coordinates
+// Returns (x3, y3) where (x3, y3) = P + Q
+// P = (x1, y1), Q = (x2, y2), both in affine form
+func addPointsE2(x1, y1, x2, y2 *fptower.E2) (x3, y3 fptower.E2) {
+	var xDiff, yDiff, lambda fptower.E2
+	xDiff.Sub(x2, x1)
+	yDiff.Sub(y2, y1)
+	lambda.Inverse(&xDiff)
+	lambda.Mul(&lambda, &yDiff)
+
+	x3.Square(&lambda)
+	x3.Sub(&x3, x1)
+	x3.Sub(&x3, x2)
+
+	y3.Sub(x1, &x3)
+	y3.Mul(&y3, &lambda)
+	y3.Sub(&y3, y1)
+	return
+}
+
 // embedE2toE12 embeds an E2 element into E12
 // E12 = E6[w]/(w²-v) where E6 = E2[v]/(v³-(1+u))
 // An E2 element a is embedded as a + 0·v + 0·v² + 0·w + ...
@@ -512,6 +532,12 @@ type G2CubicalPrecompute struct {
 
 	// Precomputed 4*b' for cDIFF operations (avoids recomputation)
 	FourBTwist fptower.E2
+
+	// Windowed precomputation: small multiples of Q' in affine form (Z=1)
+	// QMultiplesX[i] = X coordinate of [i+2]Q' for i=0,1,... (i.e., [2]Q', [3]Q', ...)
+	// [1]Q' = Q' itself, stored separately
+	QMultiplesX []fptower.E2
+	QMultiplesY []fptower.E2
 }
 
 // PrecomputeG2Cubical precomputes values for a fixed G2 point Q
@@ -597,6 +623,70 @@ func PrecomputeG2Cubical(Q *G2Affine) *G2CubicalPrecompute {
 		}
 	}
 
+	// Precompute small multiples of Q' for windowed scalar multiplication
+	// [2]Q', [3]Q', [4]Q' in affine form (for window size up to 3)
+	const numMultiples = 3 // [2]Q', [3]Q', [4]Q'
+	pre.QMultiplesX = make([]fptower.E2, numMultiples)
+	pre.QMultiplesY = make([]fptower.E2, numMultiples)
+
+	// Compute [2]Q' using doubling formula for E': y² = x³ + b'
+	// λ = 3x²/(2y), x' = λ² - 2x, y' = λ(x - x') - y
+	var lambda, xSq, twoY, twoX, x2, y2 fptower.E2
+	xSq.Square(&Q.X)
+	lambda.Double(&xSq)
+	lambda.Add(&lambda, &xSq) // 3x²
+	twoY.Double(&Q.Y)
+	twoY.Inverse(&twoY) // 1/(2y)
+	lambda.Mul(&lambda, &twoY)
+
+	twoX.Double(&Q.X)
+	x2.Square(&lambda)
+	x2.Sub(&x2, &twoX) // λ² - 2x
+
+	y2.Sub(&Q.X, &x2)    // x - x'
+	y2.Mul(&y2, &lambda) // λ(x - x')
+	y2.Sub(&y2, &Q.Y)    // λ(x - x') - y
+
+	pre.QMultiplesX[0].Set(&x2) // [2]Q'.X
+	pre.QMultiplesY[0].Set(&y2) // [2]Q'.Y
+
+	// Compute [3]Q' = [2]Q' + Q' using addition formula
+	// λ = (y2 - y1)/(x2 - x1), x3 = λ² - x1 - x2, y3 = λ(x1 - x3) - y1
+	var xDiff, yDiff, x3, y3 fptower.E2
+	xDiff.Sub(&x2, &Q.X)
+	yDiff.Sub(&y2, &Q.Y)
+	lambda.Inverse(&xDiff)
+	lambda.Mul(&lambda, &yDiff)
+
+	x3.Square(&lambda)
+	x3.Sub(&x3, &x2)
+	x3.Sub(&x3, &Q.X)
+
+	y3.Sub(&x2, &x3)
+	y3.Mul(&y3, &lambda)
+	y3.Sub(&y3, &y2)
+
+	pre.QMultiplesX[1].Set(&x3) // [3]Q'.X
+	pre.QMultiplesY[1].Set(&y3) // [3]Q'.Y
+
+	// Compute [4]Q' = [3]Q' + Q'
+	xDiff.Sub(&x3, &Q.X)
+	yDiff.Sub(&y3, &Q.Y)
+	lambda.Inverse(&xDiff)
+	lambda.Mul(&lambda, &yDiff)
+
+	var x4, y4 fptower.E2
+	x4.Square(&lambda)
+	x4.Sub(&x4, &x3)
+	x4.Sub(&x4, &Q.X)
+
+	y4.Sub(&x3, &x4)
+	y4.Mul(&y4, &lambda)
+	y4.Sub(&y4, &y3)
+
+	pre.QMultiplesX[2].Set(&x4) // [4]Q'.X
+	pre.QMultiplesY[2].Set(&y4) // [4]Q'.Y
+
 	return pre
 }
 
@@ -656,26 +746,101 @@ func MillerLoopCubicalFixedQ(P *G1Affine, pre *G2CubicalPrecompute) (GT, error) 
 
 	// Run the ladder using optimized sparse×dense multiplication
 	// Precomputed values are in E2 (sparse), T values are dense in E12
-	for idx := 0; idx < len(LoopCounter)-1; idx++ {
-		i := len(LoopCounter) - 2 - idx
-
-		if LoopCounter[i] == 0 {
-			// cDIFF(T, precomputed, iXPprime) where precomputed is sparse
-			var newT cubicalPointE12
-			cDIFFE12_SparseQ(&TX, &TZ, &pre.LadderX[idx], &pre.LadderZ[idx], &iXPprime, &pre.FourBTwist, &newT)
-			TX.Set(&newT.X)
-			TZ.Set(&newT.Z)
-		} else {
-			// cDIFF(precomputed, T, iXQminusP) where precomputed is sparse
-			var newT cubicalPointE12
-			cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], &TX, &TZ, &iXQminusP, &pre.FourBTwist, &newT)
-			TX.Set(&newT.X)
-			TZ.Set(&newT.Z)
-		}
-	}
+	// Use windowed processing for runs of consecutive same-valued bits
+	millerLoopCubicalWindowed(&TX, &TZ, pre, &iXPprime, &iXQminusP)
 
 	result.Set(&TZ)
 	return result, nil
+}
+
+// millerLoopCubicalWindowed processes the Miller loop with awareness of
+// consecutive bit runs to potentially optimize. Currently uses the bit pattern
+// of z = 0xd201000000010000 for BLS12-381.
+//
+// LoopCounter bit pattern (from MSB index 62 to LSB index 0):
+// idx 0: bit=1 (i=62)
+// idx 1: bit=0 (i=61)  - 1 zero
+// idx 2: bit=1 (i=60)
+// idx 3-4: bit=0 (i=59,58) - 2 zeros
+// idx 5: bit=1 (i=57)
+// idx 6-13: bit=0 (i=56-49) - 8 zeros
+// idx 14: bit=1 (i=48)
+// idx 15-45: bit=0 (i=47-17) - 31 zeros
+// idx 46: bit=1 (i=16)
+// idx 47-62: bit=0 (i=15-0) - 16 zeros
+func millerLoopCubicalWindowed(TX, TZ *fptower.E12, pre *G2CubicalPrecompute, iXPprime, iXQminusP *fptower.E12) {
+	var newT cubicalPointE12
+
+	// Process bit pattern in order (idx=0 to 62, corresponding to i=62 down to 0)
+	idx := 0
+
+	// idx=0: bit=1 (i=62)
+	cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], TX, TZ, iXQminusP, &pre.FourBTwist, &newT)
+	TX.Set(&newT.X)
+	TZ.Set(&newT.Z)
+	idx++
+
+	// idx=1: bit=0 (i=61) - single zero
+	cDIFFE12_SparseQ(TX, TZ, &pre.LadderX[idx], &pre.LadderZ[idx], iXPprime, &pre.FourBTwist, &newT)
+	TX.Set(&newT.X)
+	TZ.Set(&newT.Z)
+	idx++
+
+	// idx=2: bit=1 (i=60)
+	cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], TX, TZ, iXQminusP, &pre.FourBTwist, &newT)
+	TX.Set(&newT.X)
+	TZ.Set(&newT.Z)
+	idx++
+
+	// idx=3,4: bit=0 (i=59,58) - 2 consecutive zeros
+	for j := 0; j < 2; j++ {
+		cDIFFE12_SparseQ(TX, TZ, &pre.LadderX[idx], &pre.LadderZ[idx], iXPprime, &pre.FourBTwist, &newT)
+		TX.Set(&newT.X)
+		TZ.Set(&newT.Z)
+		idx++
+	}
+
+	// idx=5: bit=1 (i=57)
+	cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], TX, TZ, iXQminusP, &pre.FourBTwist, &newT)
+	TX.Set(&newT.X)
+	TZ.Set(&newT.Z)
+	idx++
+
+	// idx=6-13: bit=0 (i=56-49) - 8 consecutive zeros
+	for j := 0; j < 8; j++ {
+		cDIFFE12_SparseQ(TX, TZ, &pre.LadderX[idx], &pre.LadderZ[idx], iXPprime, &pre.FourBTwist, &newT)
+		TX.Set(&newT.X)
+		TZ.Set(&newT.Z)
+		idx++
+	}
+
+	// idx=14: bit=1 (i=48)
+	cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], TX, TZ, iXQminusP, &pre.FourBTwist, &newT)
+	TX.Set(&newT.X)
+	TZ.Set(&newT.Z)
+	idx++
+
+	// idx=15-45: bit=0 (i=47-17) - 31 consecutive zeros
+	for j := 0; j < 31; j++ {
+		cDIFFE12_SparseQ(TX, TZ, &pre.LadderX[idx], &pre.LadderZ[idx], iXPprime, &pre.FourBTwist, &newT)
+		TX.Set(&newT.X)
+		TZ.Set(&newT.Z)
+		idx++
+	}
+
+	// idx=46: bit=1 (i=16)
+	cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], TX, TZ, iXQminusP, &pre.FourBTwist, &newT)
+	TX.Set(&newT.X)
+	TZ.Set(&newT.Z)
+	idx++
+
+	// idx=47-62: bit=0 (i=15-0) - 16 consecutive zeros
+	for j := 0; j < 16; j++ {
+		cDIFFE12_SparseQ(TX, TZ, &pre.LadderX[idx], &pre.LadderZ[idx], iXPprime, &pre.FourBTwist, &newT)
+		TX.Set(&newT.X)
+		TZ.Set(&newT.Z)
+		idx++
+	}
 }
 
 // PairCubicalFixedQ computes the cubical pairing e(P, Q)² using precomputed Q values.
