@@ -626,12 +626,12 @@ func MillerLoopCubicalFixedQ(P *G1Affine, pre *G2CubicalPrecompute) (GT, error) 
 	yQ12 := &pre.QprimeY12
 
 	// Compute T = Q' + P'
-	var lambda, xSum, xDiff, yDiff, TX, TZ fptower.E12
+	var lambda, xSum, xDiff, yDiff, TX, TZ, invXDiff fptower.E12
 
 	yDiff.Sub(&yPprime, yQ12)
 	xDiff.Sub(&xPprime, qX12)
-	lambda.Inverse(&xDiff)
-	lambda.Mul(&lambda, &yDiff)
+	invXDiff.Inverse(&xDiff) // Compute inverse once and reuse
+	lambda.Mul(&invXDiff, &yDiff)
 
 	xSum.Add(qX12, &xPprime)
 	TX.Square(&lambda)
@@ -643,8 +643,7 @@ func MillerLoopCubicalFixedQ(P *G1Affine, pre *G2CubicalPrecompute) (GT, error) 
 	ySum.Add(&yPprime, yQ12)
 	ySum.C0.Neg(&ySum.C0)
 	ySum.C1.Neg(&ySum.C1)
-	lambdaPrime.Inverse(&xDiff)
-	lambdaPrime.Mul(&lambdaPrime, &ySum)
+	lambdaPrime.Mul(&invXDiff, &ySum) // Reuse invXDiff
 	xQminusP.Square(&lambdaPrime)
 	xQminusP.Sub(&xQminusP, &xSum)
 
