@@ -179,14 +179,10 @@ func mulE12BySparseE2(dense *fptower.E12, sparse *fptower.E2, result *fptower.E1
 // cDIFFE12_SparseQ performs cDIFF where qX, qZ are sparse (embedded from E2)
 // This exploits the sparse structure for significant speedup
 // p coordinates are dense (from T), q coordinates are sparse (from precomputation)
-func cDIFFE12_SparseQ(pX, pZ *fptower.E12, qX, qZ *fptower.E2, iXPminusQ *fptower.E12, b *fptower.E2, result *cubicalPointE12) {
+// fourB should be precomputed as 4*b
+func cDIFFE12_SparseQ(pX, pZ *fptower.E12, qX, qZ *fptower.E2, iXPminusQ *fptower.E12, fourB *fptower.E2, result *cubicalPointE12) {
 	var t1, t2, t4, t5, t6, t7, tmp fptower.E12
 	var t3, qSum fptower.E2
-
-	// 4b (sparse)
-	var fourB fptower.E2
-	fourB.Double(b)
-	fourB.Double(&fourB)
 
 	// t1 = X_P + Z_P (dense)
 	t1.Add(pX, pZ)
@@ -214,8 +210,8 @@ func cDIFFE12_SparseQ(pX, pZ *fptower.E12, qX, qZ *fptower.E2, iXPminusQ *fptowe
 
 	// X_{P+Q} = (-4b · t5 · t6 + t4²) · iX_{P-Q}
 	// 4b is sparse, t5 is dense
-	mulE12BySparseE2(&t5, &fourB, &tmp) // sparse × dense
-	tmp.Mul(&tmp, &t6)                  // dense × dense
+	mulE12BySparseE2(&t5, fourB, &tmp) // sparse × dense
+	tmp.Mul(&tmp, &t6)                 // dense × dense
 	// Negate
 	tmp.C0.Neg(&tmp.C0)
 	tmp.C1.Neg(&tmp.C1)
@@ -229,14 +225,10 @@ func cDIFFE12_SparseQ(pX, pZ *fptower.E12, qX, qZ *fptower.E2, iXPminusQ *fptowe
 
 // cDIFFE12_SparseP performs cDIFF where pX, pZ are sparse (embedded from E2)
 // p coordinates are sparse (from precomputation), q coordinates are dense (from T)
-func cDIFFE12_SparseP(pX, pZ *fptower.E2, qX, qZ, iXPminusQ *fptower.E12, b *fptower.E2, result *cubicalPointE12) {
+// fourB should be precomputed as 4*b
+func cDIFFE12_SparseP(pX, pZ *fptower.E2, qX, qZ, iXPminusQ *fptower.E12, fourB *fptower.E2, result *cubicalPointE12) {
 	var t3, t4, t5, t6, t7, tmp fptower.E12
 	var t1, t2, pSum, pDiff fptower.E2
-
-	// 4b (sparse)
-	var fourB fptower.E2
-	fourB.Double(b)
-	fourB.Double(&fourB)
 
 	// t1 = X_P + Z_P (sparse, stays in E2)
 	t1.Add(pX, pZ)
@@ -263,8 +255,8 @@ func cDIFFE12_SparseP(pX, pZ *fptower.E2, qX, qZ, iXPminusQ *fptower.E12, b *fpt
 	t7.Add(&t7, &t5)
 
 	// X_{P+Q} = (-4b · t5 · t6 + t4²) · iX_{P-Q}
-	mulE12BySparseE2(&t5, &fourB, &tmp) // sparse × dense
-	tmp.Mul(&tmp, &t6)                  // dense × dense
+	mulE12BySparseE2(&t5, fourB, &tmp) // sparse × dense
+	tmp.Mul(&tmp, &t6)                 // dense × dense
 	// Negate
 	tmp.C0.Neg(&tmp.C0)
 	tmp.C1.Neg(&tmp.C1)
@@ -517,6 +509,9 @@ type G2CubicalPrecompute struct {
 
 	// The twist coefficient b' = 4(1+u)
 	BTwist fptower.E2
+
+	// Precomputed 4*b' for cDIFF operations (avoids recomputation)
+	FourBTwist fptower.E2
 }
 
 // PrecomputeG2Cubical precomputes values for a fixed G2 point Q
@@ -536,8 +531,10 @@ func PrecomputeG2Cubical(Q *G2Affine) *G2CubicalPrecompute {
 	embedE2toE12(&Q.X, &pre.QprimeX12)
 	embedE2toE12(&Q.Y, &pre.QprimeY12)
 
-	// Store twist coefficient
+	// Store twist coefficient and precompute 4*b'
 	pre.BTwist.Set(&bTwistCurveCoeff)
+	pre.FourBTwist.Double(&pre.BTwist)
+	pre.FourBTwist.Double(&pre.FourBTwist)
 
 	// Compute 1/X_Q' for E2 ladder
 	var invXQprime fptower.E2
@@ -660,13 +657,13 @@ func MillerLoopCubicalFixedQ(P *G1Affine, pre *G2CubicalPrecompute) (GT, error) 
 		if LoopCounter[i] == 0 {
 			// cDIFF(T, precomputed, iXPprime) where precomputed is sparse
 			var newT cubicalPointE12
-			cDIFFE12_SparseQ(&TX, &TZ, &pre.LadderX[idx], &pre.LadderZ[idx], &iXPprime, &pre.BTwist, &newT)
+			cDIFFE12_SparseQ(&TX, &TZ, &pre.LadderX[idx], &pre.LadderZ[idx], &iXPprime, &pre.FourBTwist, &newT)
 			TX.Set(&newT.X)
 			TZ.Set(&newT.Z)
 		} else {
 			// cDIFF(precomputed, T, iXQminusP) where precomputed is sparse
 			var newT cubicalPointE12
-			cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], &TX, &TZ, &iXQminusP, &pre.BTwist, &newT)
+			cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], &TX, &TZ, &iXQminusP, &pre.FourBTwist, &newT)
 			TX.Set(&newT.X)
 			TZ.Set(&newT.Z)
 		}
