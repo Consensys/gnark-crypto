@@ -663,14 +663,31 @@ func (p *G2Jac) IsInSubGroup() bool {
 // mulWindowed computes a double-and-add scalar multiplication p=[s]q in
 // Jacobian coordinates and using NAF encoding.
 func (p *G2Jac) mulWindowed(q *G2Jac, s *big.Int) *G2Jac {
+	var qAff G2Affine
+	qAff.FromJacobian(q)
+	return p.mulWindowedMixed(&qAff, s)
+}
 
+// mulWindowed computes a double-and-add scalar multiplication p=[s]q in
+// affine coordinates and using NAF encoding.
+func (p *G2Affine) mulWindowed(q *G2Affine, s *big.Int) *G2Affine {
+	var res G2Jac
+	res.mulWindowedMixed(q, s)
+	p.FromJacobian(&res)
+	return p
+}
+
+// mulWindowedMixed computes a double-and-add scalar multiplication p=[s]q
+// where q is in affine coordinates, using NAF encoding.
+func (p *G2Jac) mulWindowedMixed(q *G2Affine, s *big.Int) *G2Jac {
 	if s.Sign() == 0 {
 		p.Set(&g2Infinity)
 		return p
 	}
 	var scalar big.Int
 	scalar.Set(s)
-	if scalar.Sign() < 0 {
+	negScalar := scalar.Sign() < 0
+	if negScalar {
 		scalar.Neg(&scalar)
 	}
 	if scalar.BitLen() > fr.Bits {
@@ -678,75 +695,24 @@ func (p *G2Jac) mulWindowed(q *G2Jac, s *big.Int) *G2Jac {
 	}
 	var naf [fr.Bits + 1]int8
 	nafLen := ecc.NafDecomposition(&scalar, naf[:])
-	var res G2Jac
-	var qAff, qNegAff G2Affine
-	qAff.FromJacobian(q)
-	qNegAff.Neg(&qAff)
-	res.Set(&g2Infinity)
+	var qNeg G2Affine
+	qNeg.Neg(q)
+	p.Set(&g2Infinity)
 	for i := nafLen - 1; i >= 0; i-- {
-		res.DoubleAssign()
+		p.DoubleAssign()
 		switch naf[i] {
 		case 0:
 			continue
 		case 1:
-			res.AddMixed(&qAff)
+			p.AddMixed(q)
 		case -1:
-			res.AddMixed(&qNegAff)
+			p.AddMixed(&qNeg)
 		}
 	}
-	if s.Sign() < 0 {
-		res.Neg(&res)
+	if negScalar {
+		p.Neg(p)
 	}
-	p.Set(&res)
-
 	return p
-
-}
-
-// mulWindowed computes a double-and-add scalar multiplication p=[s]q in
-// affine coordinates and using NAF encoding.
-func (p *G2Affine) mulWindowed(q *G2Affine, s *big.Int) *G2Affine {
-
-	if s.Sign() == 0 {
-		p.SetInfinity()
-		return p
-	}
-	var scalar big.Int
-	scalar.Set(s)
-	if scalar.Sign() < 0 {
-		scalar.Neg(&scalar)
-	}
-	if scalar.BitLen() > fr.Bits {
-		scalar.Mod(&scalar, fr.Modulus())
-	}
-	var naf [fr.Bits + 1]int8
-	nafLen := ecc.NafDecomposition(&scalar, naf[:])
-	if nafLen == 0 {
-		p.SetInfinity()
-		return p
-	}
-	var res G2Jac
-	var qNegAff G2Affine
-	qNegAff.Neg(q)
-	res.Set(&g2Infinity)
-	for i := nafLen - 1; i >= 0; i-- {
-		res.DoubleAssign()
-		switch naf[i] {
-		case 0:
-			continue
-		case 1:
-			res.AddMixed(q)
-		case -1:
-			res.AddMixed(&qNegAff)
-		}
-	}
-	if s.Sign() < 0 {
-		res.Neg(&res)
-	}
-	p.FromJacobian(&res)
-
-	return p
-
 }
 
 // mulBySeed multiplies the point q by the seed xGen in Jacobian coordinates

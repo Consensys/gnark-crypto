@@ -1023,14 +1023,31 @@ func GeneratePointNotIn{{ toUpper .PointName}}(f E2) {{ $TJacobian }} {
 // mulWindowed computes a double-and-add scalar multiplication p=[s]q in
 // Jacobian coordinates and using NAF encoding.
 func (p *{{ $TJacobian }}) mulWindowed(q *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
+	var qAff {{ $TAffine }}
+	qAff.FromJacobian(q)
+	return p.mulWindowedMixed(&qAff, s)
+}
 
+// mulWindowed computes a double-and-add scalar multiplication p=[s]q in
+// affine coordinates and using NAF encoding.
+func (p *{{ $TAffine }}) mulWindowed(q *{{ $TAffine }}, s *big.Int) *{{ $TAffine }} {
+	var res {{ $TJacobian }}
+	res.mulWindowedMixed(q, s)
+	p.FromJacobian(&res)
+	return p
+}
+
+// mulWindowedMixed computes a double-and-add scalar multiplication p=[s]q
+// where q is in affine coordinates, using NAF encoding.
+func (p *{{ $TJacobian }}) mulWindowedMixed(q *{{ $TAffine }}, s *big.Int) *{{ $TJacobian }} {
 	if s.Sign() == 0 {
 		p.Set(&{{ toLower .PointName}}Infinity)
 		return p
 	}
 	var scalar big.Int
 	scalar.Set(s)
-	if scalar.Sign() < 0 {
+	negScalar := scalar.Sign() < 0
+	if negScalar {
 		scalar.Neg(&scalar)
 	}
 	if scalar.BitLen() > fr.Bits {
@@ -1038,75 +1055,24 @@ func (p *{{ $TJacobian }}) mulWindowed(q *{{ $TJacobian }}, s *big.Int) *{{ $TJa
 	}
 	var naf [fr.Bits + 1]int8
 	nafLen := ecc.NafDecomposition(&scalar, naf[:])
-	var res {{ $TJacobian }}
-	var qAff, qNegAff {{ $TAffine }}
-	qAff.FromJacobian(q)
-	qNegAff.Neg(&qAff)
-	res.Set(&{{ toLower .PointName}}Infinity)
+	var qNeg {{ $TAffine }}
+	qNeg.Neg(q)
+	p.Set(&{{ toLower .PointName}}Infinity)
 	for i := nafLen - 1; i >= 0; i-- {
-		res.DoubleAssign()
+		p.DoubleAssign()
 		switch naf[i] {
 		case 0:
 			continue
 		case 1:
-			res.AddMixed(&qAff)
+			p.AddMixed(q)
 		case -1:
-			res.AddMixed(&qNegAff)
+			p.AddMixed(&qNeg)
 		}
 	}
-	if s.Sign() < 0 {
-		res.Neg(&res)
+	if negScalar {
+		p.Neg(p)
 	}
-	p.Set(&res)
-
 	return p
-
-}
-
-// mulWindowed computes a double-and-add scalar multiplication p=[s]q in
-// affine coordinates and using NAF encoding.
-func (p *{{ $TAffine }}) mulWindowed(q *{{ $TAffine }}, s *big.Int) *{{ $TAffine }} {
-
-	if s.Sign() == 0 {
-		p.SetInfinity()
-		return p
-	}
-	var scalar big.Int
-	scalar.Set(s)
-	if scalar.Sign() < 0 {
-		scalar.Neg(&scalar)
-	}
-	if scalar.BitLen() > fr.Bits {
-		scalar.Mod(&scalar, fr.Modulus())
-	}
-	var naf [fr.Bits + 1]int8
-	nafLen := ecc.NafDecomposition(&scalar, naf[:])
-	if nafLen == 0 {
-		p.SetInfinity()
-		return p
-	}
-	var res {{ $TJacobian }}
-	var qNegAff {{ $TAffine }}
-	qNegAff.Neg(q)
-	res.Set(&{{ toLower .PointName}}Infinity)
-	for i := nafLen - 1; i >= 0; i-- {
-		res.DoubleAssign()
-		switch naf[i] {
-		case 0:
-			continue
-		case 1:
-			res.AddMixed(q)
-		case -1:
-			res.AddMixed(&qNegAff)
-		}
-	}
-	if s.Sign() < 0 {
-		res.Neg(&res)
-	}
-	p.FromJacobian(&res)
-
-	return p
-
 }
 
 {{- if not (eq .Name "secp256k1")}}
