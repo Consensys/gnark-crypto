@@ -197,7 +197,183 @@ func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordT
 
 {{ end }}
 
-{{ if eq (mod .FieldSizeMod256 8) 1 }}// https://www.rfc-editor.org/rfc/rfc9380.html#name-sqrt_ratio-for-any-field
+{{ if eq (mod .FieldSizeMod256 8) 1 }}
+{{ if .SarkarEnabled }}
+// Sarkar's algorithm for SqrtRatio - optimized for high 2-adicity fields (e = {{.SarkarN}})
+// Computes sqrt(u/v) as sqrt(u*v) / v to avoid explicit division
+// Reference: "On the computation of square roots in finite fields" by Palash Sarkar
+
+	// Initialize Sarkar precomputed tables (thread-safe, runs once)
+	{{$CurveName}}InitSarkarOnce.Do({{$CurveName}}InitSarkar)
+
+	// x = u * v
+	var x {{$CoordType}}
+	x.Mul(u, v)
+
+	// w = x^((m-1)/2) = (u*v)^((m-1)/2)
+	var w {{$CoordType}}
+	w.ExpBySqrtExp(x)
+
+	// xM = x^m = x * w^2 = (u*v)^m
+	var xM {{$CoordType}}
+	xM.Square(&w)
+	xM.Mul(&xM, &x)
+
+	// Check if u/v is QR by checking if (u*v)^m has order dividing 2^(e-1)
+	// Note: (u/v | p) = (u*v | p) since (v^(-1) | p) = (v | p) for Legendre symbols
+	t := xM
+	for i := 0; i < {{.SarkarN}} - 1; i++ {
+		t.Square(&t)
+	}
+	isQNr := !t.IsOne() // t should be ±1; if -1 then u/v is not QR
+	isQNrInt := uint64(0)
+	if isQNr {
+		isQNrInt = 1
+	}
+
+	// If not QR, we compute sqrt(Z*u/v) = sqrt(Z*u*v) / v instead
+	// y = Z * x = Z*u*v, and we work with y instead of x
+	if isQNr {
+		x.Mul(&{{$CurveName}}SarkarG, &x) // x = g * (u*v) where g = Z^m... wait, we need Z*u*v
+		// Actually we need to recompute: y = Z*u*v
+		x.Mul(u, v)
+		{{$CurveTitle}}MulByZ(&x, &x)     // x = Z*u*v
+		w.ExpBySqrtExp(x)                  // w = (Z*u*v)^((m-1)/2)
+		xM.Square(&w)
+		xM.Mul(&xM, &x)                    // xM = (Z*u*v)^m
+	}
+
+	// Precompute xM^(2^i) for i = 0..e-1
+	var xPow [{{.SarkarN}}]{{$CoordType}}
+	xPow[0] = xM
+	for i := 1; i < {{.SarkarN}}; i++ {
+		xPow[i].Square(&xPow[i-1])
+	}
+
+	// Compute xis[i] = xM^(2^(e-1-sumL[i])) where sumL[i] = L[0]+...+L[i]
+	var xis [{{.SarkarK}}]{{$CoordType}}
+	{{- range $i, $xi := .SarkarXis }}
+	xis[{{$i}}] = xPow[{{$xi}}]
+	{{- end}}
+
+	// Main Sarkar loop
+	var s, tt uint64
+	{{- range $i, $L := .SarkarL }}
+	{
+		tt = (s + tt) >> {{$L}}
+		var gamma {{$CoordType}}
+		{{$CurveName}}SarkarPowG(&gamma, tt)
+		var alpha {{$CoordType}}
+		alpha.Mul(&xis[{{$i}}], &gamma)
+		s = {{$CurveName}}SarkarEval(&alpha)
+	}
+	{{- end }}
+
+	tt = s + tt
+	var gamma {{$CoordType}}
+	{{$CurveName}}SarkarPowG(&gamma, tt>>1)
+
+	// Compute the square root
+	// sqrt(x) = x * x^((m-1)/2) * gamma = x * w * gamma
+	// sqrt(u/v) = sqrt(u*v) / v = (u*v) * w * gamma / v = u * w * gamma
+	// For non-QR: sqrt(Z*u/v) = sqrt(Z*u*v) / v = Z*u * w * gamma
+	z.Mul(u, &w)
+	z.Mul(z, &gamma)
+	if isQNr {
+		{{$CurveTitle}}MulByZ(z, z)
+	}
+
+	return isQNrInt
+}
+
+// Sarkar constants for {{$CurveTitle}}
+const (
+	{{$CurveName}}SarkarN = {{.SarkarN}}
+	{{$CurveName}}SarkarK = {{.SarkarK}}
+)
+
+var {{$CurveName}}SarkarL = [{{$CurveName}}SarkarK]uint64{
+	{{- range $i, $L := .SarkarL }}
+	{{$L}},
+	{{- end}}
+}
+
+// g = Z^m, primitive 2^e-th root of unity
+var {{$CurveName}}SarkarG = {{$CoordType}} {{asElement .SarkarG}}
+
+var {{$CurveName}}SarkarGPow [{{$CurveName}}SarkarN]{{$CoordType}}
+var {{$CurveName}}SarkarMinusOne {{$CoordType}}
+var {{$CurveName}}InitSarkarOnce sync.Once
+
+func {{$CurveName}}InitSarkar() {
+	{{$CurveName}}SarkarGPow[0] = {{$CurveName}}SarkarG
+	for i := 1; i < {{$CurveName}}SarkarN; i++ {
+		{{$CurveName}}SarkarGPow[i].Square(&{{$CurveName}}SarkarGPow[i-1])
+	}
+	{{$CurveName}}SarkarMinusOne.SetOne()
+	{{$CurveName}}SarkarMinusOne.Neg(&{{$CurveName}}SarkarMinusOne)
+}
+
+// {{$CurveName}}SarkarPowG sets z to g^exp, where g has order 2^e and exp < 2^e.
+func {{$CurveName}}SarkarPowG(z *{{$CoordType}}, exp uint64) *{{$CoordType}} {
+	if exp == 0 {
+		return z.SetOne()
+	}
+	var acc {{$CoordType}}
+	acc.SetOne()
+	i := 0
+	for exp > 0 {
+		if exp&1 == 1 {
+			acc.Mul(&acc, &{{$CurveName}}SarkarGPow[i])
+		}
+		exp >>= 1
+		i++
+	}
+	return z.Set(&acc)
+}
+
+// {{$CurveName}}SarkarFind returns the smallest i >= 0 such that delta^(2^i) = -1.
+func {{$CurveName}}SarkarFind(delta *{{$CoordType}}) uint64 {
+	var mu {{$CoordType}}
+	mu.Set(delta)
+	var i uint64
+	for !mu.Equal(&{{$CurveName}}SarkarMinusOne) {
+		mu.Square(&mu)
+		i++
+	}
+	return i
+}
+
+// {{$CurveName}}SarkarEval returns s such that alpha * g^s = 1, where alpha^(2^l) = 1 for some l.
+func {{$CurveName}}SarkarEval(alpha *{{$CoordType}}) uint64 {
+	var delta {{$CoordType}}
+	delta.Set(alpha)
+	var s uint64
+	for !delta.IsOne() {
+		i := {{$CurveName}}SarkarFind(&delta)
+		s += uint64(1) << uint({{$CurveName}}SarkarN-1-int(i))
+		if i > 0 {
+			delta.Mul(&delta, &{{$CurveName}}SarkarGPow[{{$CurveName}}SarkarN-1-int(i)])
+		} else {
+			delta.Neg(&delta)
+		}
+	}
+	return s
+}
+
+func {{$CurveName}}NotOne(x *{{$CoordType}}) uint64 {
+    {{if eq $TowerDegree 1 }}
+	    var one {{$CoordType}}
+		return one.SetOne().NotEqual(x)
+    {{else}}
+        //Assuming hash is implemented for G1 and that the curve is over Fp
+	    var one fp.Element
+        return one.SetOne().NotEqual(&x.{{.FieldCoordName}}0) {{range $i := interval 1 $TowerDegree}} | G1NotZero(&x.{{$.FieldCoordName}}{{$i}}) {{end}}
+    {{end}}
+}
+
+{{ else }}
+// https://www.rfc-editor.org/rfc/rfc9380.html#name-sqrt_ratio-for-any-field
 
 {{ $c2Int := index $cInts 1}}
 {{ $c2IntBytes := printList (bytes $c2Int ) }}
@@ -273,6 +449,7 @@ func {{$CurveName}}NotOne(x *{{$CoordType}}) uint64 {
         return one.SetOne().NotEqual(&x.{{.FieldCoordName}}0) {{range $i := interval 1 $TowerDegree}} | G1NotZero(&x.{{$.FieldCoordName}}{{$i}}) {{end}}
     {{end}}
 }
+{{ end }}
 {{ end }}
 
 // {{$CurveTitle}}MulByZ multiplies x by [{{printList .Z}}] and stores the result in z

@@ -6,7 +6,7 @@
 package hash_to_curve
 
 import (
-	"math/big"
+	"sync"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
 )
@@ -109,58 +109,180 @@ func G1Isogeny(pX, pY *fp.Element) {
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func G1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 
-	// https://www.rfc-editor.org/rfc/rfc9380.html#name-sqrt_ratio-for-any-field
+	// Sarkar's algorithm for SqrtRatio - optimized for high 2-adicity fields (e = 20)
+	// Computes sqrt(u/v) as sqrt(u*v) / v to avoid explicit division
+	// Reference: "On the computation of square roots in finite fields" by Palash Sarkar
 
-	tv1 := fp.Element{11195128742969911322, 1359304652430195240, 15267589139354181340, 10518360976114966361, 300769513466036652} //tv1 = c6
+	// Initialize Sarkar precomputed tables (thread-safe, runs once)
+	g1InitSarkarOnce.Do(g1InitSarkar)
 
-	var tv2, tv3, tv4, tv5 fp.Element
-	var exp big.Int
-	// c4 = 1048575 = 2²⁰ - 1
-	// q is odd so c1 is at least 1.
-	exp.SetBytes([]byte{15, 255, 255})
+	// x = u * v
+	var x fp.Element
+	x.Mul(u, v)
 
-	tv2.Exp(*v, &exp) // 2. tv2 = vᶜ⁴
-	tv3.Square(&tv2)  // 3. tv3 = tv2²
-	tv3.Mul(&tv3, v)  // 4. tv3 = tv3 * v
-	tv5.Mul(u, &tv3)  // 5. tv5 = u * tv3
+	// w = x^((m-1)/2) = (u*v)^((m-1)/2)
+	var w fp.Element
+	w.ExpBySqrtExp(x)
 
-	// c3 = 18932887415653914611351818986134037849871398170907377879650252106493894621432467626129921
-	exp.SetBytes([]byte{38, 17, 208, 21, 172, 54, 178, 134, 159, 186, 76, 95, 75, 226, 245, 126, 246, 14, 128, 213, 19, 208, 215, 2, 16, 247, 46, 210, 149, 239, 40, 19, 127, 64, 23, 250, 1})
+	// xM = x^m = x * w^2 = (u*v)^m
+	var xM fp.Element
+	xM.Square(&w)
+	xM.Mul(&xM, &x)
 
-	tv5.Exp(tv5, &exp)  // 6. tv5 = tv5ᶜ³
-	tv5.Mul(&tv5, &tv2) // 7. tv5 = tv5 * tv2
-	tv2.Mul(&tv5, v)    // 8. tv2 = tv5 * v
-	tv3.Mul(&tv5, u)    // 9. tv3 = tv5 * u
-	tv4.Mul(&tv3, &tv2) // 10. tv4 = tv3 * tv2
-
-	// c5 = 524288
-	exp.SetBytes([]byte{8, 0, 0})
-	tv5.Exp(tv4, &exp)      // 11. tv5 = tv4ᶜ⁵
-	isQNr := g1NotOne(&tv5) // 12. isQR = tv5 == 1
-	c7 := fp.Element{1141794007209116247, 256324699145650176, 2958838397954514392, 9976887947641032208, 153331829745922234}
-	tv2.Mul(&tv3, &c7)                 // 13. tv2 = tv3 * c7
-	tv5.Mul(&tv4, &tv1)                // 14. tv5 = tv4 * tv1
-	tv3.Select(int(isQNr), &tv3, &tv2) // 15. tv3 = CMOV(tv2, tv3, isQR)
-	tv4.Select(int(isQNr), &tv4, &tv5) // 16. tv4 = CMOV(tv5, tv4, isQR)
-	exp.Lsh(big.NewInt(1), 20-2)       // 18, 19: tv5 = 2ⁱ⁻² for i = c1
-
-	for i := 20; i >= 2; i-- { // 17. for i in (c1, c1 - 1, ..., 2):
-
-		tv5.Exp(tv4, &exp)               // 20.    tv5 = tv4ᵗᵛ⁵
-		nE1 := g1NotOne(&tv5)            // 21.    e1 = tv5 == 1
-		tv2.Mul(&tv3, &tv1)              // 22.    tv2 = tv3 * tv1
-		tv1.Mul(&tv1, &tv1)              // 23.    tv1 = tv1 * tv1    Why not write square?
-		tv5.Mul(&tv4, &tv1)              // 24.    tv5 = tv4 * tv1
-		tv3.Select(int(nE1), &tv3, &tv2) // 25.    tv3 = CMOV(tv2, tv3, e1)
-		tv4.Select(int(nE1), &tv4, &tv5) // 26.    tv4 = CMOV(tv5, tv4, e1)
-
-		if i > 2 {
-			exp.Rsh(&exp, 1) // 18, 19. tv5 = 2ⁱ⁻²
-		}
+	// Check if u/v is QR by checking if (u*v)^m has order dividing 2^(e-1)
+	// Note: (u/v | p) = (u*v | p) since (v^(-1) | p) = (v | p) for Legendre symbols
+	t := xM
+	for i := 0; i < 20-1; i++ {
+		t.Square(&t)
+	}
+	isQNr := !t.IsOne() // t should be ±1; if -1 then u/v is not QR
+	isQNrInt := uint64(0)
+	if isQNr {
+		isQNrInt = 1
 	}
 
-	*z = tv3
-	return isQNr
+	// If not QR, we compute sqrt(Z*u/v) = sqrt(Z*u*v) / v instead
+	// y = Z * x = Z*u*v, and we work with y instead of x
+	if isQNr {
+		x.Mul(&g1SarkarG, &x) // x = g * (u*v) where g = Z^m... wait, we need Z*u*v
+		// Actually we need to recompute: y = Z*u*v
+		x.Mul(u, v)
+		G1MulByZ(&x, &x)  // x = Z*u*v
+		w.ExpBySqrtExp(x) // w = (Z*u*v)^((m-1)/2)
+		xM.Square(&w)
+		xM.Mul(&xM, &x) // xM = (Z*u*v)^m
+	}
+
+	// Precompute xM^(2^i) for i = 0..e-1
+	var xPow [20]fp.Element
+	xPow[0] = xM
+	for i := 1; i < 20; i++ {
+		xPow[i].Square(&xPow[i-1])
+	}
+
+	// Compute xis[i] = xM^(2^(e-1-sumL[i])) where sumL[i] = L[0]+...+L[i]
+	var xis [3]fp.Element
+	xis[0] = xPow[13]
+	xis[1] = xPow[7]
+	xis[2] = xPow[0]
+
+	// Main Sarkar loop
+	var s, tt uint64
+	{
+		tt = (s + tt) >> 6
+		var gamma fp.Element
+		g1SarkarPowG(&gamma, tt)
+		var alpha fp.Element
+		alpha.Mul(&xis[0], &gamma)
+		s = g1SarkarEval(&alpha)
+	}
+	{
+		tt = (s + tt) >> 6
+		var gamma fp.Element
+		g1SarkarPowG(&gamma, tt)
+		var alpha fp.Element
+		alpha.Mul(&xis[1], &gamma)
+		s = g1SarkarEval(&alpha)
+	}
+	{
+		tt = (s + tt) >> 7
+		var gamma fp.Element
+		g1SarkarPowG(&gamma, tt)
+		var alpha fp.Element
+		alpha.Mul(&xis[2], &gamma)
+		s = g1SarkarEval(&alpha)
+	}
+
+	tt = s + tt
+	var gamma fp.Element
+	g1SarkarPowG(&gamma, tt>>1)
+
+	// Compute the square root
+	// sqrt(x) = x * x^((m-1)/2) * gamma = x * w * gamma
+	// sqrt(u/v) = sqrt(u*v) / v = (u*v) * w * gamma / v = u * w * gamma
+	// For non-QR: sqrt(Z*u/v) = sqrt(Z*u*v) / v = Z*u * w * gamma
+	z.Mul(u, &w)
+	z.Mul(z, &gamma)
+	if isQNr {
+		G1MulByZ(z, z)
+	}
+
+	return isQNrInt
+}
+
+// Sarkar constants for G1
+const (
+	g1SarkarN = 20
+	g1SarkarK = 3
+)
+
+var g1SarkarL = [g1SarkarK]uint64{
+	6,
+	6,
+	7,
+}
+
+// g = Z^m, primitive 2^e-th root of unity
+var g1SarkarG = fp.Element{11195128742969911322, 1359304652430195240, 15267589139354181340, 10518360976114966361, 300769513466036652}
+
+var g1SarkarGPow [g1SarkarN]fp.Element
+var g1SarkarMinusOne fp.Element
+var g1InitSarkarOnce sync.Once
+
+func g1InitSarkar() {
+	g1SarkarGPow[0] = g1SarkarG
+	for i := 1; i < g1SarkarN; i++ {
+		g1SarkarGPow[i].Square(&g1SarkarGPow[i-1])
+	}
+	g1SarkarMinusOne.SetOne()
+	g1SarkarMinusOne.Neg(&g1SarkarMinusOne)
+}
+
+// g1SarkarPowG sets z to g^exp, where g has order 2^e and exp < 2^e.
+func g1SarkarPowG(z *fp.Element, exp uint64) *fp.Element {
+	if exp == 0 {
+		return z.SetOne()
+	}
+	var acc fp.Element
+	acc.SetOne()
+	i := 0
+	for exp > 0 {
+		if exp&1 == 1 {
+			acc.Mul(&acc, &g1SarkarGPow[i])
+		}
+		exp >>= 1
+		i++
+	}
+	return z.Set(&acc)
+}
+
+// g1SarkarFind returns the smallest i >= 0 such that delta^(2^i) = -1.
+func g1SarkarFind(delta *fp.Element) uint64 {
+	var mu fp.Element
+	mu.Set(delta)
+	var i uint64
+	for !mu.Equal(&g1SarkarMinusOne) {
+		mu.Square(&mu)
+		i++
+	}
+	return i
+}
+
+// g1SarkarEval returns s such that alpha * g^s = 1, where alpha^(2^l) = 1 for some l.
+func g1SarkarEval(alpha *fp.Element) uint64 {
+	var delta fp.Element
+	delta.Set(alpha)
+	var s uint64
+	for !delta.IsOne() {
+		i := g1SarkarFind(&delta)
+		s += uint64(1) << uint(g1SarkarN-1-int(i))
+		if i > 0 {
+			delta.Mul(&delta, &g1SarkarGPow[g1SarkarN-1-int(i)])
+		} else {
+			delta.Neg(&delta)
+		}
+	}
+	return s
 }
 
 func g1NotOne(x *fp.Element) uint64 {
