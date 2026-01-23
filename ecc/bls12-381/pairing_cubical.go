@@ -268,6 +268,105 @@ func cDIFFE12_SparseP(pX, pZ *fptower.E2, qX, qZ, iXPminusQ *fptower.E12, fourB 
 	result.Z.Square(&t7)
 }
 
+// TwoBitCoeffs holds precomputed sparse coefficients for 2-bit windowed cDIFF
+// These are computed from consecutive ladder points (a0, a1) for the (0,0) bit case
+type TwoBitCoeffs struct {
+	A0      fptower.E2 // a0 (X coordinate of R at first bit)
+	A1      fptower.E2 // a1 (X coordinate of R at second bit)
+	A0sq    fptower.E2 // a0²
+	A0A1    fptower.E2 // a0 * a1
+	A0plus1 fptower.E2 // a0 + 1 (since Z=1 for ladder points)
+	A1plus1 fptower.E2 // a1 + 1
+}
+
+// cDIFF2_SparseQQ performs two consecutive cDIFF operations for (0,0) bits
+// This computes T₂ = cDIFF(cDIFF(T₀, R₀, d), R₁, d) more efficiently
+// by computing X·Z and Z² only once and using precomputed sparse coefficients
+//
+// Inputs:
+//   - pX, pZ: T₀ coordinates (dense E12)
+//   - coeffs: precomputed 2-bit coefficients (sparse)
+//   - iXPminusQ: 1/X_{P'} (the differential inverse, sparse in E12)
+//   - fourB: 4*b' precomputed
+//
+// The key optimization is that for bit=0 case with R=(a,1):
+//
+//	t5·t6 = Z·(X + Z·a) = X·Z + Z²·a
+//
+// By computing X·Z and Z² once, subsequent operations use sparse×dense
+func cDIFF2_SparseQQ(pX, pZ *fptower.E12, coeffs *TwoBitCoeffs, iXPminusQ *fptower.E12, fourB *fptower.E2, result *cubicalPointE12) {
+	var XZ, Zsq fptower.E12
+	var t4_0, t5t6_0, t7_0, X1num, Z1 fptower.E12
+	var t4_1, t5t6_1, t7_1 fptower.E12
+	var tmp fptower.E12
+
+	// Phase 1: Compute base products from T₀ (computed ONCE)
+	XZ.Mul(pX, pZ) // X·Z (dense × dense) - computed only once!
+	Zsq.Square(pZ) // Z² (dense square)
+
+	// === First cDIFF (T₀ + R₀) ===
+	// R₀ = (a0, 1), so X_Q = a0, Z_Q = 1
+	//
+	// From cDIFF formula:
+	// t4 = X · X_Q = X · a0
+	// t5 = Z · Z_Q = Z · 1 = Z
+	// t6 = X·Z_Q + Z·X_Q = X + Z·a0
+	// t7 = X·Z_Q - Z·X_Q = X - Z·a0
+	//
+	// t5·t6 = Z·(X + Z·a0) = XZ + Z²·a0
+
+	// t4_0 = X · a0 (sparse × dense)
+	mulE12BySparseE2(pX, &coeffs.A0, &t4_0)
+
+	// t5·t6 = Z·(X + Z·a0) = XZ + Z²·a0
+	mulE12BySparseE2(&Zsq, &coeffs.A0, &tmp)
+	t5t6_0.Add(&XZ, &tmp)
+
+	// t7_0 = X - Z·a0
+	mulE12BySparseE2(pZ, &coeffs.A0, &tmp) // Z·a0
+	t7_0.Sub(pX, &tmp)                     // X - Z·a0
+
+	// Z1 = t7_0²
+	Z1.Square(&t7_0)
+
+	// X1_num = t4_0² - 4b·t5·t6_0
+	mulE12BySparseE2(&t5t6_0, fourB, &tmp)
+	X1num.Square(&t4_0)
+	X1num.Sub(&X1num, &tmp)
+
+	// X1 = X1_num · d
+	var X1 fptower.E12
+	X1.Mul(&X1num, iXPminusQ)
+
+	// === Second cDIFF (T₁ + R₁) ===
+	// T₁ = (X1, Z1), R₁ = (a1, 1)
+
+	// For the second step, we need new XZ and Zsq from T₁
+	var XZ1, Z1sq fptower.E12
+	XZ1.Mul(&X1, &Z1) // X1·Z1 (dense × dense)
+	Z1sq.Square(&Z1)  // Z1² (dense square)
+
+	// t4_1 = X1 · a1
+	mulE12BySparseE2(&X1, &coeffs.A1, &t4_1)
+
+	// t5t6_1 = Z1·(X1 + Z1·a1) = X1·Z1 + Z1²·a1
+	mulE12BySparseE2(&Z1sq, &coeffs.A1, &tmp)
+	t5t6_1.Add(&XZ1, &tmp)
+
+	// t7_1 = X1 - Z1·a1
+	mulE12BySparseE2(&Z1, &coeffs.A1, &tmp)
+	t7_1.Sub(&X1, &tmp)
+
+	// Z2 = t7_1²
+	result.Z.Square(&t7_1)
+
+	// X2 = (t4_1² - 4b·t5t6_1) · d
+	mulE12BySparseE2(&t5t6_1, fourB, &tmp)
+	result.X.Square(&t4_1)
+	result.X.Sub(&result.X, &tmp)
+	result.X.Mul(&result.X, iXPminusQ)
+}
+
 // embedE2toE12 embeds an E2 element into E12
 // E12 = E6[w]/(w²-v) where E6 = E2[v]/(v³-(1+u))
 // An E2 element a is embedded as a + 0·v + 0·v² + 0·w + ...
@@ -512,6 +611,14 @@ type G2CubicalPrecompute struct {
 
 	// Precomputed 4*b' for cDIFF operations (avoids recomputation)
 	FourBTwist fptower.E2
+
+	// Precomputed 2-bit coefficients for consecutive (0,0) bits
+	// TwoBitCoeffs[i] contains coefficients for processing bits i and i+1 together
+	// Only populated for indices where both bits are 0
+	TwoBitCoeffs []TwoBitCoeffs
+
+	// TwoBitValid[i] is true if TwoBitCoeffs[i] is valid (both bits are 0)
+	TwoBitValid []bool
 }
 
 // PrecomputeG2Cubical precomputes values for a fixed G2 point Q
@@ -597,6 +704,72 @@ func PrecomputeG2Cubical(Q *G2Affine) *G2CubicalPrecompute {
 		}
 	}
 
+	// Normalize all ladder points to affine (Z=1) using batch inversion
+	// This enables the simplified 2-bit windowed cDIFF formulas
+	// Montgomery's trick: compute all 1/Z_i using only 1 inversion + O(n) multiplications
+	if numIterations > 0 {
+		// Build products: prod[i] = Z_0 * Z_1 * ... * Z_i
+		products := make([]fptower.E2, numIterations)
+		products[0].Set(&pre.LadderZ[0])
+		for i := 1; i < numIterations; i++ {
+			products[i].Mul(&products[i-1], &pre.LadderZ[i])
+		}
+
+		// Compute single inversion of the total product
+		var invTotal fptower.E2
+		invTotal.Inverse(&products[numIterations-1])
+
+		// Compute individual inverses and normalize X coordinates
+		// Working backwards: inv[i] = invTotal * (Z_{i+1} * ... * Z_{n-1})
+		for i := numIterations - 1; i >= 0; i-- {
+			var invZ fptower.E2
+			if i == 0 {
+				invZ.Set(&invTotal)
+			} else {
+				invZ.Mul(&invTotal, &products[i-1])
+				// Update invTotal for next iteration: invTotal *= Z_i
+				invTotal.Mul(&invTotal, &pre.LadderZ[i])
+			}
+			// Normalize: X = X/Z (now in affine form)
+			pre.LadderX[i].Mul(&pre.LadderX[i], &invZ)
+			// Set Z = 1 (affine form)
+			pre.LadderZ[i].SetOne()
+		}
+	}
+
+	// Precompute 2-bit coefficients for consecutive (0,0) bits
+	// This enables the optimized 2-bit windowed cDIFF
+	// Now all ladder points have Z=1 (affine form)
+	pre.TwoBitCoeffs = make([]TwoBitCoeffs, numIterations)
+	pre.TwoBitValid = make([]bool, numIterations)
+
+	for idx := 0; idx < numIterations-1; idx++ {
+		i := len(LoopCounter) - 2 - idx
+		iNext := i - 1
+
+		// Check if both this bit and next bit are 0 (the (0,0) case)
+		if iNext >= 0 && LoopCounter[i] == 0 && LoopCounter[iNext] == 0 {
+			// Both bits are 0, so we can use 2-bit windowed processing
+			// a0 = LadderX[idx] (X coordinate of R at first bit, Z=1)
+			// a1 = LadderX[idx+1] (X coordinate of R at second bit, Z=1)
+			pre.TwoBitValid[idx] = true
+
+			a0 := &pre.LadderX[idx]
+			a1 := &pre.LadderX[idx+1]
+
+			pre.TwoBitCoeffs[idx].A0.Set(a0)
+			pre.TwoBitCoeffs[idx].A1.Set(a1)
+			pre.TwoBitCoeffs[idx].A0sq.Square(a0)
+			pre.TwoBitCoeffs[idx].A0A1.Mul(a0, a1)
+
+			// a0 + 1 and a1 + 1 (Z=1 for all normalized ladder points)
+			var one fptower.E2
+			one.SetOne()
+			pre.TwoBitCoeffs[idx].A0plus1.Add(a0, &one)
+			pre.TwoBitCoeffs[idx].A1plus1.Add(a1, &one)
+		}
+	}
+
 	return pre
 }
 
@@ -656,21 +829,32 @@ func MillerLoopCubicalFixedQ(P *G1Affine, pre *G2CubicalPrecompute) (GT, error) 
 
 	// Run the ladder using optimized sparse×dense multiplication
 	// Precomputed values are in E2 (sparse), T values are dense in E12
-	for idx := 0; idx < len(LoopCounter)-1; idx++ {
+	// Use 2-bit windowed processing for consecutive (0,0) bits
+	for idx := 0; idx < len(LoopCounter)-1; {
 		i := len(LoopCounter) - 2 - idx
 
-		if LoopCounter[i] == 0 {
-			// cDIFF(T, precomputed, iXPprime) where precomputed is sparse
+		// Check if we can use 2-bit windowed processing
+		if pre.TwoBitValid != nil && idx < len(pre.TwoBitValid) && pre.TwoBitValid[idx] {
+			// Both this bit and next bit are 0, use optimized 2-bit cDIFF
+			var newT cubicalPointE12
+			cDIFF2_SparseQQ(&TX, &TZ, &pre.TwoBitCoeffs[idx], &iXPprime, &pre.FourBTwist, &newT)
+			TX.Set(&newT.X)
+			TZ.Set(&newT.Z)
+			idx += 2 // Skip two bits
+		} else if LoopCounter[i] == 0 {
+			// Single bit=0: cDIFF(T, precomputed, iXPprime) where precomputed is sparse
 			var newT cubicalPointE12
 			cDIFFE12_SparseQ(&TX, &TZ, &pre.LadderX[idx], &pre.LadderZ[idx], &iXPprime, &pre.FourBTwist, &newT)
 			TX.Set(&newT.X)
 			TZ.Set(&newT.Z)
+			idx++
 		} else {
-			// cDIFF(precomputed, T, iXQminusP) where precomputed is sparse
+			// bit=1: cDIFF(precomputed, T, iXQminusP) where precomputed is sparse
 			var newT cubicalPointE12
 			cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], &TX, &TZ, &iXQminusP, &pre.FourBTwist, &newT)
 			TX.Set(&newT.X)
 			TZ.Set(&newT.Z)
+			idx++
 		}
 	}
 
