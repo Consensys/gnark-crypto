@@ -108,6 +108,11 @@ func cubicalPairingSingle(p *G1Affine, q *G2Affine) (GT, error) {
 
 	nP, nPQ := cubicalLadder(&xP, &xQ, &xPQ, &ixP, &ixQ, &ixPQ, fr.Modulus())
 
+	// The Tate pairing from the cubical ladder is computed from the projective
+	// coordinates of [r]P and [r]P + Q.
+	// According to the paper, the pairing value is:
+	//   T_r(P, Q) = Z([r]P + Q) / X([r]P)
+	// which gives the square of the Tate pairing for odd r.
 	var pairing GT
 	pairing.Div(&nPQ.Z, &nP.X)
 	return pairing, nil
@@ -201,6 +206,17 @@ func weierstrassPointFromG2(q *G2Affine) e12Point {
 	if q.IsInfinity() {
 		return e12Point{Inf: true}
 	}
+	// For BLS12-377 with D-type twist: E': y² = x³ + 1/u over Fp²
+	// The untwist isogeny φ: E'(Fp²) → E(Fp¹²) is:
+	//   (x', y') → (ψ²·x', ψ³·y')
+	// where ψ⁶ = u (the twist factor).
+	//
+	// In the tower Fp¹² = Fp⁶[w] where w² = v and Fp⁶ = Fp²[v] where v³ = u:
+	//   ψ = w, so ψ² = v and ψ³ = v·w
+	//
+	// Therefore:
+	//   x = v · x'
+	//   y = v·w · y'
 	var xE6, yE6 fptower.E6
 	xE6.B0 = q.X
 	yE6.B0 = q.Y
