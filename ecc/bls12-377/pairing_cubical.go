@@ -678,10 +678,13 @@ func PairCubicalFixedQ(P *G1Affine, pre *G2CubicalPrecompute) (GT, error) {
 	xQminusP.Square(&lambdaPrime)
 	xQminusP.Sub(&xQminusP, &xSum)
 
-	// Compute inverses needed for the ladder
-	var iXPprime, iXQminusP fptower.E12
-	iXPprime.Inverse(&xPprime)
-	iXQminusP.Inverse(&xQminusP)
+	// Compute inverses for the ladder using Montgomery's batch inversion
+	// Instead of 2 inversions, we use 1 inversion + 3 multiplications
+	var iXPprime, iXQminusP, prod, invProd fptower.E12
+	prod.Mul(&xPprime, &xQminusP)     // ab
+	invProd.Inverse(&prod)            // 1/(ab)
+	iXPprime.Mul(&xQminusP, &invProd) // 1/a = b·(1/(ab))
+	iXQminusP.Mul(&xPprime, &invProd) // 1/b = a·(1/(ab))
 
 	// Run the ladder using optimized sparse×dense multiplication
 	// Precomputed values are in E2 (sparse), T values are dense in E12
@@ -768,10 +771,13 @@ func MillerLoopCubicalFixedQ(P *G1Affine, pre *G2CubicalPrecompute) (GT, error) 
 	xQminusP.Square(&lambdaPrime)
 	xQminusP.Sub(&xQminusP, &xSum)
 
-	// Compute inverses for the ladder
-	var iXPprime, iXQminusP fptower.E12
-	iXPprime.Inverse(&xPprime)
-	iXQminusP.Inverse(&xQminusP)
+	// Compute inverses for the ladder using Montgomery's batch inversion
+	// Instead of 2 inversions, we use 1 inversion + 3 multiplications
+	var iXPprime, iXQminusP, prod, invProd fptower.E12
+	prod.Mul(&xPprime, &xQminusP)     // ab
+	invProd.Inverse(&prod)            // 1/(ab)
+	iXPprime.Mul(&xQminusP, &invProd) // 1/a = b·(1/(ab))
+	iXQminusP.Mul(&xPprime, &invProd) // 1/b = a·(1/(ab))
 
 	// Run the ladder using optimized sparse×dense multiplication
 	for idx := 0; idx < len(LoopCounter)-1; idx++ {
