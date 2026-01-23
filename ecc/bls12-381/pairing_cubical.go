@@ -155,6 +155,127 @@ func cDIFFE12(pX, pZ, qX, qZ, iXPminusQ *fptower.E12, b *fptower.E2, result *cub
 	result.Z.Square(&t7)
 }
 
+// mulE12BySparseE2 multiplies a dense E12 by a sparse E12 where only C0.B0 is non-zero
+// This is much faster than full E12 multiplication: 6 E2 muls vs ~54 for full mul
+// sparse = (a, 0, 0, 0, 0, 0) where a ∈ E2
+// result = dense * sparse
+func mulE12BySparseE2(dense *fptower.E12, sparse *fptower.E2, result *fptower.E12) {
+	// E12 = E6[w]/(w²-v), E6 = E2[v]/(v³-(1+u))
+	// sparse embedded: C0 = (sparse, 0, 0), C1 = (0, 0, 0)
+	// dense: C0 = (b0, b1, b2), C1 = (b3, b4, b5)
+	//
+	// result.C0 = sparse.C0 * dense.C0 = (sparse,0,0) * (b0,b1,b2)
+	//           = (sparse*b0, sparse*b1, sparse*b2)
+	// result.C1 = sparse.C0 * dense.C1 = (sparse,0,0) * (b3,b4,b5)
+	//           = (sparse*b3, sparse*b4, sparse*b5)
+	result.C0.B0.Mul(sparse, &dense.C0.B0)
+	result.C0.B1.Mul(sparse, &dense.C0.B1)
+	result.C0.B2.Mul(sparse, &dense.C0.B2)
+	result.C1.B0.Mul(sparse, &dense.C1.B0)
+	result.C1.B1.Mul(sparse, &dense.C1.B1)
+	result.C1.B2.Mul(sparse, &dense.C1.B2)
+}
+
+// cDIFFE12_SparseQ performs cDIFF where qX, qZ are sparse (embedded from E2)
+// This exploits the sparse structure for significant speedup
+// p coordinates are dense (from T), q coordinates are sparse (from precomputation)
+func cDIFFE12_SparseQ(pX, pZ *fptower.E12, qX, qZ *fptower.E2, iXPminusQ *fptower.E12, b *fptower.E2, result *cubicalPointE12) {
+	var t1, t2, t4, t5, t6, t7, tmp fptower.E12
+	var t3, qSum fptower.E2
+
+	// 4b (sparse)
+	var fourB fptower.E2
+	fourB.Double(b)
+	fourB.Double(&fourB)
+
+	// t1 = X_P + Z_P (dense)
+	t1.Add(pX, pZ)
+	// t2 = X_P - Z_P (dense)
+	t2.Sub(pX, pZ)
+	// t3 = X_Q + Z_Q (sparse, stays in E2)
+	t3.Add(qX, qZ)
+	// qSum for later use
+	qSum.Set(&t3)
+
+	// t4 = X_P · X_Q (sparse × dense = 6 E2 muls)
+	mulE12BySparseE2(pX, qX, &t4)
+	// t5 = Z_P · Z_Q (sparse × dense = 6 E2 muls)
+	mulE12BySparseE2(pZ, qZ, &t5)
+
+	// t6 = t1 · t3 - t4 - t5 (sparse × dense - dense - dense)
+	mulE12BySparseE2(&t1, &qSum, &t6)
+	t6.Sub(&t6, &t4)
+	t6.Sub(&t6, &t5)
+
+	// t7 = t2 · t3 - t4 + t5 (sparse × dense - dense + dense)
+	mulE12BySparseE2(&t2, &qSum, &t7)
+	t7.Sub(&t7, &t4)
+	t7.Add(&t7, &t5)
+
+	// X_{P+Q} = (-4b · t5 · t6 + t4²) · iX_{P-Q}
+	// 4b is sparse, t5 is dense
+	mulE12BySparseE2(&t5, &fourB, &tmp) // sparse × dense
+	tmp.Mul(&tmp, &t6)                  // dense × dense
+	// Negate
+	tmp.C0.Neg(&tmp.C0)
+	tmp.C1.Neg(&tmp.C1)
+	result.X.Square(&t4)
+	result.X.Add(&result.X, &tmp)
+	result.X.Mul(&result.X, iXPminusQ)
+
+	// Z_{P+Q} = t7²
+	result.Z.Square(&t7)
+}
+
+// cDIFFE12_SparseP performs cDIFF where pX, pZ are sparse (embedded from E2)
+// p coordinates are sparse (from precomputation), q coordinates are dense (from T)
+func cDIFFE12_SparseP(pX, pZ *fptower.E2, qX, qZ, iXPminusQ *fptower.E12, b *fptower.E2, result *cubicalPointE12) {
+	var t3, t4, t5, t6, t7, tmp fptower.E12
+	var t1, t2, pSum, pDiff fptower.E2
+
+	// 4b (sparse)
+	var fourB fptower.E2
+	fourB.Double(b)
+	fourB.Double(&fourB)
+
+	// t1 = X_P + Z_P (sparse, stays in E2)
+	t1.Add(pX, pZ)
+	pSum.Set(&t1)
+	// t2 = X_P - Z_P (sparse, stays in E2)
+	t2.Sub(pX, pZ)
+	pDiff.Set(&t2)
+	// t3 = X_Q + Z_Q (dense)
+	t3.Add(qX, qZ)
+
+	// t4 = X_P · X_Q (sparse × dense = 6 E2 muls)
+	mulE12BySparseE2(qX, pX, &t4)
+	// t5 = Z_P · Z_Q (sparse × dense = 6 E2 muls)
+	mulE12BySparseE2(qZ, pZ, &t5)
+
+	// t6 = t1 · t3 - t4 - t5 (sparse × dense - dense - dense)
+	mulE12BySparseE2(&t3, &pSum, &t6)
+	t6.Sub(&t6, &t4)
+	t6.Sub(&t6, &t5)
+
+	// t7 = t2 · t3 - t4 + t5 (sparse × dense - dense + dense)
+	mulE12BySparseE2(&t3, &pDiff, &t7)
+	t7.Sub(&t7, &t4)
+	t7.Add(&t7, &t5)
+
+	// X_{P+Q} = (-4b · t5 · t6 + t4²) · iX_{P-Q}
+	mulE12BySparseE2(&t5, &fourB, &tmp) // sparse × dense
+	tmp.Mul(&tmp, &t6)                  // dense × dense
+	// Negate
+	tmp.C0.Neg(&tmp.C0)
+	tmp.C1.Neg(&tmp.C1)
+	result.X.Square(&t4)
+	result.X.Add(&result.X, &tmp)
+	result.X.Mul(&result.X, iXPminusQ)
+
+	// Z_{P+Q} = t7²
+	result.Z.Square(&t7)
+}
+
 // embedE2toE12 embeds an E2 element into E12
 // E12 = E6[w]/(w²-v) where E6 = E2[v]/(v³-(1+u))
 // An E2 element a is embedded as a + 0·v + 0·v² + 0·w + ...
@@ -369,4 +490,232 @@ func PairCubicalCheck(P []G1Affine, Q []G2Affine) (bool, error) {
 	var one GT
 	one.SetOne()
 	return f.Equal(&one), nil
+}
+
+// ============================================================================
+// Fixed-argument cubical pairing (Q precomputed)
+// ============================================================================
+
+// G2CubicalPrecompute contains precomputed values for a fixed G2 point Q
+// used to accelerate cubical pairing computation when Q is reused.
+type G2CubicalPrecompute struct {
+	// Q' coordinates on the twist curve E'(Fp²)
+	QprimeX fptower.E2
+	QprimeY fptower.E2
+
+	// Q' coordinates embedded in E12 (avoids repeated embedding)
+	QprimeX12 fptower.E12
+	QprimeY12 fptower.E12
+
+	// Precomputed ladder states in E2 (sparse - for optimized multiplication)
+	LadderX []fptower.E2
+	LadderZ []fptower.E2
+
+	// Which point (R or S) is stored at each index
+	// true = R (for bit 0), false = S (for bit 1)
+	LadderIsR []bool
+
+	// The twist coefficient b' = 4(1+u)
+	BTwist fptower.E2
+}
+
+// PrecomputeG2Cubical precomputes values for a fixed G2 point Q
+// to accelerate subsequent cubical pairing computations with varying P.
+func PrecomputeG2Cubical(Q *G2Affine) *G2CubicalPrecompute {
+	if Q.IsInfinity() {
+		return nil
+	}
+
+	pre := &G2CubicalPrecompute{}
+
+	// Store Q' = Q (already on twist curve)
+	pre.QprimeX.Set(&Q.X)
+	pre.QprimeY.Set(&Q.Y)
+
+	// Embed Q' into E12
+	embedE2toE12(&Q.X, &pre.QprimeX12)
+	embedE2toE12(&Q.Y, &pre.QprimeY12)
+
+	// Store twist coefficient
+	pre.BTwist.Set(&bTwistCurveCoeff)
+
+	// Compute 1/X_Q' for E2 ladder
+	var invXQprime fptower.E2
+	invXQprime.Inverse(&Q.X)
+
+	// Run the Q-only ladder to precompute all R and S states
+	// Store E2 values directly for sparse multiplication optimization
+	numIterations := len(LoopCounter) - 1
+	pre.LadderX = make([]fptower.E2, numIterations)
+	pre.LadderZ = make([]fptower.E2, numIterations)
+	pre.LadderIsR = make([]bool, numIterations)
+
+	// Initialize: R = Q', S = [2]Q'
+	var R, S, U cubicalPointE2
+	R.X.Set(&Q.X)
+	R.Z.SetOne()
+	cDBLE2(&R, &pre.BTwist, &S)
+
+	// Store initial state (in E2 for sparse multiplication)
+	i0 := len(LoopCounter) - 2
+	if LoopCounter[i0] == 0 {
+		pre.LadderX[0].Set(&R.X)
+		pre.LadderZ[0].Set(&R.Z)
+		pre.LadderIsR[0] = true
+	} else {
+		pre.LadderX[0].Set(&S.X)
+		pre.LadderZ[0].Set(&S.Z)
+		pre.LadderIsR[0] = false
+	}
+
+	// Run the ladder storing the needed point at each iteration
+	for idx := 1; idx < numIterations; idx++ {
+		i := len(LoopCounter) - 2 - (idx - 1)
+
+		// U = cDIFF(S, R, 1/X_Q')
+		cDIFFE2(&S, &R, &invXQprime, &pre.BTwist, &U)
+
+		if LoopCounter[i] == 0 {
+			// R = cDBL(R), S = U
+			cDBLE2(&R, &pre.BTwist, &R)
+			S.X.Set(&U.X)
+			S.Z.Set(&U.Z)
+		} else {
+			// S = cDBL(S), R = U
+			cDBLE2(&S, &pre.BTwist, &S)
+			R.X.Set(&U.X)
+			R.Z.Set(&U.Z)
+		}
+
+		// Store the point needed for next iteration (in E2 for sparse multiplication)
+		iNext := len(LoopCounter) - 2 - idx
+		if iNext >= 0 && LoopCounter[iNext] == 0 {
+			pre.LadderX[idx].Set(&R.X)
+			pre.LadderZ[idx].Set(&R.Z)
+			pre.LadderIsR[idx] = true
+		} else {
+			pre.LadderX[idx].Set(&S.X)
+			pre.LadderZ[idx].Set(&S.Z)
+			pre.LadderIsR[idx] = false
+		}
+	}
+
+	return pre
+}
+
+// MillerLoopCubicalFixedQ computes the Miller loop part of the cubical pairing without final exponentiation.
+func MillerLoopCubicalFixedQ(P *G1Affine, pre *G2CubicalPrecompute) (GT, error) {
+	var result GT
+
+	if P.IsInfinity() || pre == nil {
+		result.SetOne()
+		return result, nil
+	}
+
+	// Compute P' = φ⁻¹(P) for M-type twist
+	// x_P' = x_P · v (v coefficient is C0.B1)
+	var xPprime fptower.E12
+	xPprime.C0.B1.A0.Set(&P.X)
+
+	// y_P' = y_P · vw (vw coefficient is C1.B1)
+	var yPprime fptower.E12
+	yPprime.C1.B1.A0.Set(&P.Y)
+
+	// Use precomputed Q' embeddings
+	qX12 := &pre.QprimeX12
+	yQ12 := &pre.QprimeY12
+
+	// Compute T = Q' + P'
+	var lambda, xSum, xDiff, yDiff, TX, TZ fptower.E12
+
+	yDiff.Sub(&yPprime, yQ12)
+	xDiff.Sub(&xPprime, qX12)
+	lambda.Inverse(&xDiff)
+	lambda.Mul(&lambda, &yDiff)
+
+	xSum.Add(qX12, &xPprime)
+	TX.Square(&lambda)
+	TX.Sub(&TX, &xSum)
+	TZ.SetOne()
+
+	// Compute x_{Q'-P'}
+	var lambdaPrime, ySum, xQminusP fptower.E12
+	ySum.Add(&yPprime, yQ12)
+	ySum.C0.Neg(&ySum.C0)
+	ySum.C1.Neg(&ySum.C1)
+	lambdaPrime.Inverse(&xDiff)
+	lambdaPrime.Mul(&lambdaPrime, &ySum)
+	xQminusP.Square(&lambdaPrime)
+	xQminusP.Sub(&xQminusP, &xSum)
+
+	// Compute inverses for the ladder
+	var iXPprime, iXQminusP fptower.E12
+	iXPprime.Inverse(&xPprime)
+	iXQminusP.Inverse(&xQminusP)
+
+	// Run the ladder using optimized sparse×dense multiplication
+	// Precomputed values are in E2 (sparse), T values are dense in E12
+	for idx := 0; idx < len(LoopCounter)-1; idx++ {
+		i := len(LoopCounter) - 2 - idx
+
+		if LoopCounter[i] == 0 {
+			// cDIFF(T, precomputed, iXPprime) where precomputed is sparse
+			var newT cubicalPointE12
+			cDIFFE12_SparseQ(&TX, &TZ, &pre.LadderX[idx], &pre.LadderZ[idx], &iXPprime, &pre.BTwist, &newT)
+			TX.Set(&newT.X)
+			TZ.Set(&newT.Z)
+		} else {
+			// cDIFF(precomputed, T, iXQminusP) where precomputed is sparse
+			var newT cubicalPointE12
+			cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], &TX, &TZ, &iXQminusP, &pre.BTwist, &newT)
+			TX.Set(&newT.X)
+			TZ.Set(&newT.Z)
+		}
+	}
+
+	result.Set(&TZ)
+	return result, nil
+}
+
+// PairCubicalFixedQ computes the cubical pairing e(P, Q)² using precomputed Q values.
+func PairCubicalFixedQ(P *G1Affine, pre *G2CubicalPrecompute) (GT, error) {
+	result, err := MillerLoopCubicalFixedQ(P, pre)
+	if err != nil {
+		return result, err
+	}
+
+	// Conjugate since x₀ is negative for BLS12-381
+	result.Conjugate(&result)
+
+	return FinalExponentiation(&result), nil
+}
+
+// PairCubicalFixedQMulti computes ∏ᵢ e(Pᵢ, Q)² for multiple P values with a fixed Q.
+func PairCubicalFixedQMulti(P []G1Affine, pre *G2CubicalPrecompute) (GT, error) {
+	var result GT
+	result.SetOne()
+
+	if pre == nil || len(P) == 0 {
+		return result, nil
+	}
+
+	// Batch all Miller loops
+	for k := 0; k < len(P); k++ {
+		if P[k].IsInfinity() {
+			continue
+		}
+
+		ml, err := MillerLoopCubicalFixedQ(&P[k], pre)
+		if err != nil {
+			return GT{}, err
+		}
+
+		result.Mul(&result, &ml)
+	}
+
+	// Conjugate since x₀ is negative for BLS12-381
+	result.Conjugate(&result)
+
+	// Single final exponentiation
+	return FinalExponentiation(&result), nil
 }
