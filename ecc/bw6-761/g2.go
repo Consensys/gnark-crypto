@@ -778,7 +778,8 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 	q2.phi(q)
 
 	// split the scalar, modifies ±q, ϕ(q) accordingly
-	k := ecc.SplitScalar(s, &glvBasis)
+	var k [2]big.Int
+	ecc.SplitScalar(&k, s, &glvBasis)
 
 	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])
