@@ -510,7 +510,7 @@ func TestG2AffineOps(t *testing.T) {
 			var op1, op2 G2Jac
 			s.BigInt(&r)
 			op1.mulWindowed(&g2Gen, &r)
-			op2.ScalarMultiplication(&g2Gen, &r)
+			op2.mulGLV(&g2Gen, &r)
 			return op1.Equal(&op2) && !op1.Equal(&g2Infinity)
 
 		},
@@ -773,7 +773,7 @@ func BenchmarkG2JacScalarMultiplication(b *testing.B) {
 		b.Run(fmt.Sprintf("method=GLV/scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
-				glv.ScalarMultiplication(&g2Gen, scalar)
+				glv.mulGLV(&g2Gen, scalar)
 			}
 		})
 
