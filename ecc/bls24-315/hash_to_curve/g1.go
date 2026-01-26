@@ -144,7 +144,6 @@ func G1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	// If not QR, we compute sqrt(Z*u/v) = sqrt(Z*u*v) / v instead
 	// y = Z * x = Z*u*v, and we work with y instead of x
 	if isQNr {
-		x.Mul(&g1SarkarG, &x) // x = g * (u*v) where g = Z^m... wait, we need Z*u*v
 		// Actually we need to recompute: y = Z*u*v
 		x.Mul(u, v)
 		G1MulByZ(&x, &x)  // x = Z*u*v
