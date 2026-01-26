@@ -52,27 +52,27 @@ func (p *G1Affine) SetInfinity() *G1Affine {
 // ScalarMultiplication computes and returns p = [s]a
 // where p and a are affine points.
 func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
-	var _p G1Jac
-	_p.FromAffine(a)
 	if s.BitLen() >= g1ScalarMulChoose {
+		var _p G1Jac
+		_p.FromAffine(a)
 		_p.mulGLV(&_p, s)
+		p.FromJacobian(&_p)
 	} else {
-		_p.mulWindowed(&_p, s)
+		p.mulWindowed(a, s)
 	}
-	p.FromJacobian(&_p)
 	return p
 }
 
 // ScalarMultiplicationBase computes and returns p = [s]g
 // where g is the affine point generating the prime subgroup.
 func (p *G1Affine) ScalarMultiplicationBase(s *big.Int) *G1Affine {
-	var _p G1Jac
 	if s.BitLen() >= g1ScalarMulChoose {
+		var _p G1Jac
 		_p.mulGLV(&g1Gen, s)
+		p.FromJacobian(&_p)
 	} else {
-		_p.mulWindowed(&g1Gen, s)
+		p.mulWindowed(&g1GenAff, s)
 	}
-	p.FromJacobian(&_p)
 	return p
 }
 
@@ -642,38 +642,59 @@ func (p *G1Jac) IsInSubGroup() bool {
 
 }
 
-// mulWindowed computes the 2-bits windowed double-and-add scalar
-// multiplication p=[s]q in Jacobian coordinates.
+// mulWindowed computes a double-and-add scalar multiplication p=[s]q in
+// Jacobian coordinates and using NAF encoding.
 func (p *G1Jac) mulWindowed(q *G1Jac, s *big.Int) *G1Jac {
+	var qAff G1Affine
+	qAff.FromJacobian(q)
+	return p.mulWindowedMixed(&qAff, s)
+}
 
+// mulWindowed computes a double-and-add scalar multiplication p=[s]q in
+// affine coordinates and using NAF encoding.
+func (p *G1Affine) mulWindowed(q *G1Affine, s *big.Int) *G1Affine {
 	var res G1Jac
-	var ops [3]G1Jac
+	res.mulWindowedMixed(q, s)
+	p.FromJacobian(&res)
+	return p
+}
 
-	ops[0].Set(q)
-	if s.Sign() == -1 {
-		ops[0].Neg(&ops[0])
+// mulWindowedMixed computes a double-and-add scalar multiplication p=[s]q
+// where q is in affine coordinates, using NAF encoding.
+func (p *G1Jac) mulWindowedMixed(q *G1Affine, s *big.Int) *G1Jac {
+	if s.Sign() == 0 {
+		p.Set(&g1Infinity)
+		return p
 	}
-	res.Set(&g1Infinity)
-	ops[1].Double(&ops[0])
-	ops[2].Triple(&ops[0])
-
-	b := s.Bytes()
-	for i := range b {
-		w := b[i]
-		mask := byte(0xc0)
-		for j := 0; j < 4; j++ {
-			res.DoubleAssign().DoubleAssign()
-			c := (w & mask) >> (6 - 2*j)
-			if c != 0 {
-				res.AddAssign(&ops[c-1])
-			}
-			mask = mask >> 2
+	var scalar big.Int
+	scalar.Set(s)
+	negScalar := scalar.Sign() < 0
+	if negScalar {
+		scalar.Neg(&scalar)
+	}
+	if scalar.BitLen() > fr.Bits {
+		scalar.Mod(&scalar, fr.Modulus())
+	}
+	var naf [fr.Bits + 1]int8
+	nafLen := ecc.NafDecomposition(&scalar, naf[:])
+	var qNeg G1Affine
+	qNeg.Neg(q)
+	p.Set(&g1Infinity)
+	for i := nafLen - 1; i >= 0; i-- {
+		p.DoubleAssign()
+		switch naf[i] {
+		case 0:
+			continue
+		case 1:
+			p.AddMixed(q)
+		case -1:
+			p.AddMixed(&qNeg)
 		}
 	}
-	p.Set(&res)
-
+	if negScalar {
+		p.Neg(p)
+	}
 	return p
-
 }
 
 // phi sets p to ϕ(a) where ϕ: (x,y) → (w x,y),
@@ -689,68 +710,75 @@ func (p *G1Jac) phi(q *G1Jac) *G1Jac {
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
 func (p *G1Jac) mulGLV(q *G1Jac, s *big.Int) *G1Jac {
 
-	var table [15]G1Jac
 	var res G1Jac
-	var k1, k2 fr.Element
+	var q1, q2 G1Jac
 
 	res.Set(&g1Infinity)
 
-	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(q) + b1b0*q
-	table[0].Set(q)
-	table[3].phi(q)
+	// q1 = q, q2 = ϕ(q)
+	q1.Set(q)
+	q2.phi(q)
 
 	// split the scalar, modifies ±q, ϕ(q) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
 
 	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])
-		table[0].Neg(&table[0])
+		q1.Neg(&q1)
 	}
 	if k[1].Sign() == -1 {
 		k[1].Neg(&k[1])
-		table[3].Neg(&table[3])
+		q2.Neg(&q2)
 	}
 
-	// precompute table (2 bits sliding window)
-	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(q) + b1b0 ⋅ q if b3b2b1b0 != 0
-	table[1].Double(&table[0])
-	table[2].Triple(&table[0])
-	table[4].Set(&table[3]).AddAssign(&table[0])
-	table[5].Set(&table[3]).AddAssign(&table[1])
-	table[6].Set(&table[3]).AddAssign(&table[2])
-	table[7].Double(&table[3])
-	table[8].Set(&table[7]).AddAssign(&table[0])
-	table[9].Double(&table[4])
-	table[10].Set(&table[7]).AddAssign(&table[2])
-	table[11].Triple(&table[3])
-	table[12].Set(&table[11]).AddAssign(&table[0])
-	table[13].Set(&table[11]).AddAssign(&table[1])
-	table[14].Triple(&table[4])
+	const wnafWindow = 5
 
-	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 or len(r)/2+1 bits long max
-	// this is because we use a probabilistic scalar decomposition that replaces a division by a right-shift
-	k1 = k1.SetBigInt(&k[0]).Bits()
-	k2 = k2.SetBigInt(&k[1]).Bits()
-
-	// we don't target constant-timeness so we check first if we increase the bounds or not
-	maxBit := k1.BitLen()
-	if k2.BitLen() > maxBit {
-		maxBit = k2.BitLen()
+	var naf1 [fr.Bits + 1]int8
+	var naf2 [fr.Bits + 1]int8
+	nafLen1 := ecc.WnafDecomposition(&k[0], wnafWindow, naf1[:])
+	nafLen2 := ecc.WnafDecomposition(&k[1], wnafWindow, naf2[:])
+	maxLen := nafLen1
+	if nafLen2 > maxLen {
+		maxLen = nafLen2
 	}
-	hiWordIndex := (maxBit - 1) / 64
+	if maxLen == 0 {
+		p.Set(&g1Infinity)
+		return p
+	}
 
-	// loop starts from len(k1)/2 or len(k1)/2+1 due to the bounds
-	for i := hiWordIndex; i >= 0; i-- {
-		mask := uint64(3) << 62
-		for j := 0; j < 32; j++ {
-			res.Double(&res).Double(&res)
-			b1 := (k1[i] & mask) >> (62 - 2*j)
-			b2 := (k2[i] & mask) >> (62 - 2*j)
-			if b1|b2 != 0 {
-				s := (b2<<2 | b1)
-				res.AddAssign(&table[s-1])
+	var q1Table, q2Table [8]G1Jac
+	q1Table[0].Set(&q1)
+	q2Table[0].Set(&q2)
+	var q1Two, q2Two G1Jac
+	q1Two.Double(&q1)
+	q2Two.Double(&q2)
+	// q1Table[i] = (2*i+1)*q1 and q2Table[i] = (2*i+1)*q2 (odd multiples for wNAF).
+	for i := 1; i < len(q1Table); i++ {
+		q1Table[i].Set(&q1Table[i-1]).AddAssign(&q1Two)
+		q2Table[i].Set(&q2Table[i-1]).AddAssign(&q2Two)
+	}
+
+	for i := maxLen - 1; i >= 0; i-- {
+		res.DoubleAssign()
+		if i < nafLen1 {
+			d := naf1[i]
+			if d != 0 {
+				if d > 0 {
+					res.AddAssign(&q1Table[(d-1)/2])
+				} else {
+					res.SubAssign(&q1Table[(-d-1)/2])
+				}
 			}
-			mask = mask >> 2
+		}
+		if i < nafLen2 {
+			d := naf2[i]
+			if d != 0 {
+				if d > 0 {
+					res.AddAssign(&q2Table[(d-1)/2])
+				} else {
+					res.SubAssign(&q2Table[(-d-1)/2])
+				}
+			}
 		}
 	}
 

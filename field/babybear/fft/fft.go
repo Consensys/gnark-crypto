@@ -211,6 +211,12 @@ func difFFT(a []babybear.Element, w babybear.Element, twiddles [][]babybear.Elem
 		if n == 1<<8 { // nolint QF1003
 			kerDIFNP_256(a, twiddles, stage-twiddlesStartStage)
 			return
+		} else if n == 512 {
+			kerDIFNP_512(a, twiddles, stage-twiddlesStartStage)
+			return
+		} else if n == 1024 {
+			kerDIFNP_1024(a, twiddles, stage-twiddlesStartStage)
+			return
 		}
 	}
 	m := n >> 1
@@ -290,6 +296,12 @@ func ditFFT(a []babybear.Element, w babybear.Element, twiddles [][]babybear.Elem
 	} else if stage >= twiddlesStartStage {
 		if n == 1<<8 { // nolint QF1003
 			kerDITNP_256(a, twiddles, stage-twiddlesStartStage)
+			return
+		} else if n == 512 {
+			kerDITNP_512(a, twiddles, stage-twiddlesStartStage)
+			return
+		} else if n == 1024 {
+			kerDITNP_1024(a, twiddles, stage-twiddlesStartStage)
 			return
 		}
 	}
@@ -412,4 +424,51 @@ func kerDITNP_256generic(a []babybear.Element, twiddles [][]babybear.Element, st
 		innerDITWithTwiddlesGeneric(a[offset:offset+128], twiddles[stage+1], 0, 64, 64)
 	}
 	innerDITWithTwiddlesGeneric(a[:256], twiddles[stage+0], 0, 128, 128)
+}
+
+// kerDIFNP_512 is an optimized 512-element DIF kernel that avoids recursion overhead
+// by directly processing the outer butterfly layer and then calling the 256-element kernel.
+func kerDIFNP_512(a []babybear.Element, twiddles [][]babybear.Element, stage int) {
+	// Stage 0: butterfly with m=256
+	innerDIFWithTwiddles(a, twiddles[stage], 0, 256, 256)
+	// Process two halves with the 256-element kernel
+	kerDIFNP_256(a[:256], twiddles, stage+1)
+	kerDIFNP_256(a[256:], twiddles, stage+1)
+}
+
+// kerDITNP_512 is an optimized 512-element DIT kernel that avoids recursion overhead.
+func kerDITNP_512(a []babybear.Element, twiddles [][]babybear.Element, stage int) {
+	// Process two halves with the 256-element kernel first (DIT order)
+	kerDITNP_256(a[:256], twiddles, stage+1)
+	kerDITNP_256(a[256:], twiddles, stage+1)
+	// Final stage: butterfly with m=256
+	innerDITWithTwiddles(a, twiddles[stage], 0, 256, 256)
+}
+
+// kerDIFNP_1024 is an optimized 1024-element DIF kernel that avoids recursion overhead.
+func kerDIFNP_1024(a []babybear.Element, twiddles [][]babybear.Element, stage int) {
+	// Stage 0: butterfly with m=512
+	innerDIFWithTwiddles(a, twiddles[stage], 0, 512, 512)
+	// Stage 1: butterfly with m=256 on both halves
+	innerDIFWithTwiddles(a[:512], twiddles[stage+1], 0, 256, 256)
+	innerDIFWithTwiddles(a[512:], twiddles[stage+1], 0, 256, 256)
+	// Process four quarters with the 256-element kernel
+	kerDIFNP_256(a[:256], twiddles, stage+2)
+	kerDIFNP_256(a[256:512], twiddles, stage+2)
+	kerDIFNP_256(a[512:768], twiddles, stage+2)
+	kerDIFNP_256(a[768:], twiddles, stage+2)
+}
+
+// kerDITNP_1024 is an optimized 1024-element DIT kernel that avoids recursion overhead.
+func kerDITNP_1024(a []babybear.Element, twiddles [][]babybear.Element, stage int) {
+	// Process four quarters with the 256-element kernel first (DIT order)
+	kerDITNP_256(a[:256], twiddles, stage+2)
+	kerDITNP_256(a[256:512], twiddles, stage+2)
+	kerDITNP_256(a[512:768], twiddles, stage+2)
+	kerDITNP_256(a[768:], twiddles, stage+2)
+	// Stage 1: butterfly with m=256 on both halves
+	innerDITWithTwiddles(a[:512], twiddles[stage+1], 0, 256, 256)
+	innerDITWithTwiddles(a[512:], twiddles[stage+1], 0, 256, 256)
+	// Final stage: butterfly with m=512
+	innerDITWithTwiddles(a, twiddles[stage], 0, 512, 512)
 }

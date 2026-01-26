@@ -3,6 +3,7 @@ package tower
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 
 	"github.com/consensys/bavard"
@@ -14,7 +15,10 @@ import (
 
 // Generate generates a tower 2->6->12 over fp
 func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
-	if conf.Equal(config.BW6_761) || conf.Equal(config.BW6_633) || conf.Equal(config.BLS24_315) || conf.Equal(config.BLS24_317) {
+	if conf.Equal(config.BW6_761) || conf.Equal(config.BW6_633) {
+		return generateBW6Tower(conf, baseDir)
+	}
+	if conf.Equal(config.BLS24_315) || conf.Equal(config.BLS24_317) {
 		return nil
 	}
 
@@ -100,6 +104,19 @@ func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 
 	return nil
 
+}
+
+func generateBW6Tower(conf config.Curve, baseDir string) error {
+	towerGen := common.NewDefaultGenerator(template.FS)
+
+	entries := []bavard.Entry{
+		{File: filepath.Join(baseDir, "e3.go"), Templates: []string{path.Join("fq6over3", "e3.go.tmpl")}},
+		{File: filepath.Join(baseDir, "e3_test.go"), Templates: []string{path.Join("fq6over3", "e3_test.go.tmpl")}},
+		{File: filepath.Join(baseDir, "e6.go"), Templates: []string{path.Join("fq6over3", "e6.go.tmpl")}},
+		{File: filepath.Join(baseDir, "e6_test.go"), Templates: []string{path.Join("fq6over3", "e6_test.go.tmpl")}},
+	}
+
+	return towerGen.Generate(conf, "fptower", "", "", entries...)
 }
 
 type towerConf struct {
