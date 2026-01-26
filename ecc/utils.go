@@ -257,10 +257,11 @@ func SplitScalar(s *big.Int, l *Lattice) [2]big.Int {
 	return v
 }
 
-// SplitScalarFour outputs k0,k1,k2,k3 such that
+// SplitScalarFour computes k0,k1,k2,k3 such that
 // k0+k1*lambda1+k2*lambda2+k3*lambda1*lambda2 = s [r].
 // It uses a closest vector approximation in a 4-dimensional lattice.
-func SplitScalarFour(s *big.Int, l *Lattice4) [4]big.Int {
+// The result is written to res.
+func SplitScalarFour(res *[4]big.Int, s *big.Int, l *Lattice4) {
 	var k1, k2, k3, k4 big.Int
 	k1.Mul(s, &l.b1)
 	k2.Mul(s, &l.b2)
@@ -273,12 +274,11 @@ func SplitScalarFour(s *big.Int, l *Lattice4) [4]big.Int {
 	k3.Rsh(&k3, n)
 	k4.Rsh(&k4, n)
 
-	v := getVector4(l, &k1, &k2, &k3, &k4)
-	v[0].Sub(s, &v[0])
-	v[1].Neg(&v[1])
-	v[2].Neg(&v[2])
-	v[3].Neg(&v[3])
-	return v
+	getVector4(res, l, &k1, &k2, &k3, &k4)
+	res[0].Sub(s, &res[0])
+	res[1].Neg(&res[1])
+	res[2].Neg(&res[2])
+	res[3].Neg(&res[3])
 }
 
 // sets res to the closest integer from n/d
@@ -316,19 +316,17 @@ func getVector(l *Lattice, a, b *big.Int) [2]big.Int {
 	return res
 }
 
-// getVector4 returns aV1 + bV2 + cV3 + dV4.
-func getVector4(l *Lattice4, a, b, c, d *big.Int) [4]big.Int {
-	var res [4]big.Int
+// getVector4 computes res = aV1 + bV2 + cV3 + dV4.
+func getVector4(res *[4]big.Int, l *Lattice4, a, b, c, d *big.Int) {
 	coeffs := [4]*big.Int{a, b, c, d}
+	var tmp big.Int
 	for row := 0; row < 4; row++ {
 		res[row].SetUint64(0)
 		for col := 0; col < 4; col++ {
-			var tmp big.Int
 			tmp.Mul(coeffs[col], &l.V[col][row])
 			res[row].Add(&res[row], &tmp)
 		}
 	}
-	return res
 }
 
 func det3(a00, a01, a02, a10, a11, a12, a20, a21, a22 *big.Int) big.Int {
