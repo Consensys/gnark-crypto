@@ -874,8 +874,7 @@ func (p *G2Jac) mulGLS(q *G2Jac, s *big.Int) *G2Jac {
 	bases[3].psi(&bases[1])
 
 	// split the scalar, modifies ±q, ϕ(q), ψ(q), ϕ(ψ(q)) accordingly
-	var k [4]big.Int
-	ecc.SplitScalarFour(&k, s, &glsBasis)
+	k := ecc.SplitScalarFour(s, &glsBasis)
 	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])
 		bases[0].Neg(&bases[0])

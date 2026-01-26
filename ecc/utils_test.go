@@ -125,8 +125,7 @@ func TestSplittingFour(t *testing.T) {
 	PrecomputeLattice4(&l)
 
 	s.SetString("183927522224640574525727508854836440041603434369820418657580", 10)
-	var k [4]big.Int
-	SplitScalarFour(&k, &s, &l)
+	k := SplitScalarFour(&s, &l)
 
 	var acc, t1, t2, t3 big.Int
 	t1.Mul(&k[1], &lambda1)
@@ -149,8 +148,7 @@ func BenchmarkSplitting256(b *testing.B) {
 	PrecomputeLattice(&r, &lambda, &l)
 	s.SetString("183927522224640574525727508854836440041603434369820418657580", 10)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		SplitScalar(&s, &l)
 	}
 }
@@ -183,9 +181,7 @@ func BenchmarkSplittingFour256(b *testing.B) {
 
 	s.SetString("183927522224640574525727508854836440041603434369820418657580", 10)
 
-	var k [4]big.Int
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		SplitScalarFour(&k, &s, &l)
+	for b.Loop() {
+		SplitScalarFour(&s, &l)
 	}
 }
