@@ -58,14 +58,14 @@ func (p *G2Affine) SetInfinity() *G2Affine {
 // where p and a are affine points.
 func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
 	var _p G2Jac
-	_p.FromAffine(a)
 	if s.BitLen() >= g2ScalarMulChoose {
+		_p.FromAffine(a)
 		_p.mulGLV(&_p, s)
+		p.FromJacobian(&_p)
+		return p
 	} else {
-		_p.mulWindowed(&_p, s)
+		return p.mulWindowed(a, s)
 	}
-	p.FromJacobian(&_p)
-	return p
 }
 
 // ScalarMultiplicationBase computes and returns p = [s]g
@@ -74,11 +74,11 @@ func (p *G2Affine) ScalarMultiplicationBase(s *big.Int) *G2Affine {
 	var _p G2Jac
 	if s.BitLen() >= g2ScalarMulChoose {
 		_p.mulGLV(&g2Gen, s)
+		p.FromJacobian(&_p)
+		return p
 	} else {
-		_p.mulWindowed(&g2Gen, s)
+		return p.mulWindowed(&g2GenAff, s)
 	}
-	p.FromJacobian(&_p)
-	return p
 }
 
 // Add adds two points in affine coordinates.
@@ -657,38 +657,59 @@ func (p *G2Jac) IsInSubGroup() bool {
 
 }
 
-// mulWindowed computes the 2-bits windowed double-and-add scalar
-// multiplication p=[s]q in Jacobian coordinates.
+// mulWindowed computes a double-and-add scalar multiplication p=[s]q in
+// Jacobian coordinates and using NAF encoding.
 func (p *G2Jac) mulWindowed(q *G2Jac, s *big.Int) *G2Jac {
+	var qAff G2Affine
+	qAff.FromJacobian(q)
+	return p.mulWindowedMixed(&qAff, s)
+}
 
+// mulWindowed computes a double-and-add scalar multiplication p=[s]q in
+// affine coordinates and using NAF encoding.
+func (p *G2Affine) mulWindowed(q *G2Affine, s *big.Int) *G2Affine {
 	var res G2Jac
-	var ops [3]G2Jac
+	res.mulWindowedMixed(q, s)
+	p.FromJacobian(&res)
+	return p
+}
 
-	ops[0].Set(q)
-	if s.Sign() == -1 {
-		ops[0].Neg(&ops[0])
+// mulWindowedMixed computes a double-and-add scalar multiplication p=[s]q
+// where q is in affine coordinates, using NAF encoding.
+func (p *G2Jac) mulWindowedMixed(q *G2Affine, s *big.Int) *G2Jac {
+	if s.Sign() == 0 {
+		p.Set(&g2Infinity)
+		return p
 	}
-	res.Set(&g2Infinity)
-	ops[1].Double(&ops[0])
-	ops[2].Triple(&ops[0])
-
-	b := s.Bytes()
-	for i := range b {
-		w := b[i]
-		mask := byte(0xc0)
-		for j := 0; j < 4; j++ {
-			res.DoubleAssign().DoubleAssign()
-			c := (w & mask) >> (6 - 2*j)
-			if c != 0 {
-				res.AddAssign(&ops[c-1])
-			}
-			mask = mask >> 2
+	var scalar big.Int
+	scalar.Set(s)
+	negScalar := scalar.Sign() < 0
+	if negScalar {
+		scalar.Neg(&scalar)
+	}
+	if scalar.BitLen() > fr.Bits {
+		scalar.Mod(&scalar, fr.Modulus())
+	}
+	var naf [fr.Bits + 1]int8
+	nafLen := ecc.NafDecomposition(&scalar, naf[:])
+	var qNeg G2Affine
+	qNeg.Neg(q)
+	p.Set(&g2Infinity)
+	for i := nafLen - 1; i >= 0; i-- {
+		p.DoubleAssign()
+		switch naf[i] {
+		case 0:
+			continue
+		case 1:
+			p.AddMixed(q)
+		case -1:
+			p.AddMixed(&qNeg)
 		}
 	}
-	p.Set(&res)
-
+	if negScalar {
+		p.Neg(p)
+	}
 	return p
-
 }
 
 // mulBySeed multiplies the point q by the seed xGen in Jacobian coordinates
