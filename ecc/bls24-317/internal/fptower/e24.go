@@ -489,8 +489,7 @@ func (z *E24) ExpGLV(x E24, k *big.Int) *E24 {
 	table[3].Frobenius(&x)
 
 	// split the scalar, modifies ±x, Frob(x) accordingly
-	var s [2]big.Int
-	ecc.SplitScalar(&s, e, &glvBasis)
+	s := ecc.SplitScalar(e, &glvBasis)
 
 	if s[0].Sign() == -1 {
 		s[0].Neg(&s[0])

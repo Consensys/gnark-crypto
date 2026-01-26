@@ -46,8 +46,7 @@ func (p *PointProj) scalarMulGLV(p1 *PointProj, scalar *big.Int) *PointProj {
 	table[3].phi(p1)
 
 	// split the scalar, modifies +-p1, phi(p1) accordingly
-	var k [2]big.Int
-	ecc.SplitScalar(&k, scalar, &curveParams.glvBasis)
+	k := ecc.SplitScalar(scalar, &curveParams.glvBasis)
 
 	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])
@@ -94,8 +93,8 @@ func (p *PointProj) scalarMulGLV(p1 *PointProj, scalar *big.Int) *PointProj {
 			b1 := (k1[i] & mask) >> (62 - 2*j)
 			b2 := (k2[i] & mask) >> (62 - 2*j)
 			if b1|b2 != 0 {
-				s := (b2<<2 | b1)
-				res.Add(&res, &table[s-1])
+				scalar := (b2<<2 | b1)
+				res.Add(&res, &table[scalar-1])
 			}
 			mask = mask >> 2
 		}
@@ -144,8 +143,7 @@ func (p *PointExtended) scalarMulGLV(p1 *PointExtended, scalar *big.Int) *PointE
 	table[3].phi(p1)
 
 	// split the scalar, modifies +-p1, phi(p1) accordingly
-	var k [2]big.Int
-	ecc.SplitScalar(&k, scalar, &curveParams.glvBasis)
+	k := ecc.SplitScalar(scalar, &curveParams.glvBasis)
 
 	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])

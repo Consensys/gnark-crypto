@@ -88,8 +88,7 @@ func TestSplitting(t *testing.T) {
 
 	s.SetString("183927522224640574525727508854836440041603434369820418657580", 10)
 
-	var v [2]big.Int
-	SplitScalar(&v, &s, &l)
+	v := SplitScalar(&s, &l)
 	_s.Mul(&v[1], &lambda).Add(&_s, &v[0]).Sub(&_s, &s)
 	_s.Mod(&_s, &r)
 	if _s.Cmp(&zero) != 0 {
@@ -150,10 +149,9 @@ func BenchmarkSplitting256(b *testing.B) {
 	PrecomputeLattice(&r, &lambda, &l)
 	s.SetString("183927522224640574525727508854836440041603434369820418657580", 10)
 
-	var v [2]big.Int
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		SplitScalar(&v, &s, &l)
+		SplitScalar(&s, &l)
 	}
 }
 

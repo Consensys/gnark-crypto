@@ -234,14 +234,14 @@ func PrecomputeLattice4(res *Lattice4) {
 	roundingSigned(&tmp, &res.Det, &res.b4)
 }
 
-// SplitScalar computes u,v such that u+vlambda=s[r].
+// SplitScalar outputs u,v such that u+vlambda=s[r].
 // The method is to view s as (s,0) in ZxZ, and find a close
 // vector w of (s,0) in <l>, where l is a sub Z-module of
 // ker((a,b) → a+b.λ[r]): then (u,v)=w-(s,0), and
 // u+v.λ=s[r].
-// The result is written to res.
 // cf https://www.iacr.org/archive/crypto2001/21390189.pdf
-func SplitScalar(res *[2]big.Int, s *big.Int, l *Lattice) {
+func SplitScalar(s *big.Int, l *Lattice) [2]big.Int {
+
 	var k1, k2 big.Int
 	k1.Mul(s, &l.b1)
 	k2.Mul(s, &l.b2).Neg(&k2)
@@ -251,9 +251,10 @@ func SplitScalar(res *[2]big.Int, s *big.Int, l *Lattice) {
 	n := 2 * uint(((l.Det.BitLen()+32)>>6)<<6)
 	k1.Rsh(&k1, n)
 	k2.Rsh(&k2, n)
-	getVector(res, l, &k1, &k2)
-	res[0].Sub(s, &res[0])
-	res[1].Neg(&res[1])
+	v := getVector(l, &k1, &k2)
+	v[0].Sub(s, &v[0])
+	v[1].Neg(&v[1])
+	return v
 }
 
 // SplitScalarFour computes k0,k1,k2,k3 such that
@@ -304,13 +305,15 @@ func roundingSigned(n, d, res *big.Int) {
 	res.Neg(res)
 }
 
-// getVector computes res = aV1 + bV2.
-func getVector(res *[2]big.Int, l *Lattice, a, b *big.Int) {
+// getVector returns aV1 + bV2
+func getVector(l *Lattice, a, b *big.Int) [2]big.Int {
+	var res [2]big.Int
 	var tmp big.Int
 	tmp.Mul(b, &l.V2[0])
 	res[0].Mul(a, &l.V1[0]).Add(&res[0], &tmp)
 	tmp.Mul(b, &l.V2[1])
 	res[1].Mul(a, &l.V1[1]).Add(&res[1], &tmp)
+	return res
 }
 
 // getVector4 computes res = aV1 + bV2 + cV3 + dV4.
