@@ -227,6 +227,32 @@ func (z *E2) Sqrt(x *E2) *E2 {
 	return z
 }
 
+// Cbrt sets z to the cube root of x and returns z
+// The function does not test whether the cube root
+// exists or not, it's up to the caller to verify.
+func (z *E2) Cbrt(x *E2) *E2 {
+	// If x is in Fp (i.e., x.A1 == 0), use Fp cube root directly
+	if x.A1.IsZero() {
+		z.A0.Cbrt(&x.A0)
+		z.A1.SetZero()
+		return z
+	}
+
+	// General case for Fp²
+	// The multiplicative group of Fp² has order p² - 1
+	// For a cube root to be computed via exponentiation, we need (2(p²) - 1) / 3
+	// This works because: if x = y³, then y = x^((2(p²)-1)/3)
+	// since y^(p²-1) = 1 and 3 * ((2(p²)-1)/3) ≡ 1 (mod p²-1)
+	var exp big.Int
+	exp.Mul(fp.Modulus(), fp.Modulus()) // p²
+	exp.Mul(&exp, big.NewInt(2))        // 2p²
+	exp.Sub(&exp, big.NewInt(1))        // 2p² - 1
+	exp.Div(&exp, big.NewInt(3))        // (2p² - 1) / 3
+	z.Exp(*x, &exp)
+
+	return z
+}
+
 // BatchInvertE2 returns a new slice with every element in a inverted.
 // It uses Montgomery batch inversion trick.
 //

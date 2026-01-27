@@ -976,3 +976,966 @@ func (z *Element) ExpBySqrtPm5o8(x Element) *Element {
 
 	return z
 }
+
+// ExpByCbrt2QPlus1Div9 is equivalent to z.Exp(x, 416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a5428f06408467de9bd2048e19bbe103dfb2be00003).
+// It raises x to the (2q+1)/9 power using a shorter addition chain.
+// This is used when q ≡ 4 (mod 9) for efficient cube root computation.
+//
+// uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
+func (z *Element) ExpByCbrt2QPlus1Div9(x Element) *Element {
+	// addition chain:
+	//
+	//	_10      = 2*1
+	//	_11      = 1 + _10
+	//	_101     = _10 + _11
+	//	_111     = _10 + _101
+	//	_1001    = _10 + _111
+	//	_1011    = _10 + _1001
+	//	_1101    = _10 + _1011
+	//	_1111    = _10 + _1101
+	//	_10001   = _10 + _1111
+	//	_10011   = _10 + _10001
+	//	_10101   = _10 + _10011
+	//	_10111   = _10 + _10101
+	//	_11001   = _10 + _10111
+	//	_11011   = _10 + _11001
+	//	_11101   = _10 + _11011
+	//	_11111   = _10 + _11101
+	//	_111110  = 2*_11111
+	//	_111111  = 1 + _111110
+	//	_1111110 = 2*_111111
+	//	_1111111 = 1 + _1111110
+	//	i22      = _1111111 << 2
+	//	x9       = _11 + i22
+	//	i34      = ((_1111 + i22) << 5 + _1011) << 3 + _11
+	//	i54      = ((i34 << 7 + _1011) << 6 + _10101) << 5
+	//	i69      = ((_10001 + i54) << 6 + _11011) << 6 + _10101
+	//	i93      = ((i69 << 13 + x9) << 2 + _11) << 7
+	//	i113     = ((_10001 + i93) << 8 + _11111) << 9 + _10001
+	//	i126     = ((i113 << 5 + _10001) << 4 + _1101) << 2
+	//	i143     = ((1 + i126) << 9 + _11001) << 5 + _1111
+	//	i162     = ((i143 << 6 + _11011) << 5 + _1001) << 6
+	//	i174     = ((_11101 + i162) << 4 + _101) << 5 + _101
+	//	i196     = ((i174 << 9 + _11111) << 7 + _11011) << 4
+	//	i215     = ((_101 + i196) << 9 + _11011) << 7 + _1001
+	//	i235     = ((i215 << 7 + _11001) << 5 + _1001) << 6
+	//	i244     = ((_11011 + i235) << 4 + _1011) << 2 + 1
+	//	i264     = ((i244 << 7 + _111111) << 5 + _1111) << 6
+	//	i278     = ((_10011 + i264) << 8 + _1011) << 3 + _11
+	//	i297     = ((i278 << 8 + _1111111) << 5 + _1111) << 4
+	//	i313     = ((_11 + i297) << 5 + _11) << 8 + _11101
+	//	i331     = ((i313 << 5 + _10011) << 5 + _11011) << 6
+	//	i346     = ((_1101 + i331) << 8 + _11101) << 4 + _101
+	//	i367     = ((i346 << 6 + _11) << 8 + _10111) << 5
+	//	i379     = ((_10011 + i367) << 5 + _11001) << 4 + _1101
+	//	i402     = ((i379 << 7 + _1011) << 9 + _10111) << 5
+	//	i416     = ((_10101 + i402) << 2 + 1) << 9 + _11011
+	//	i441     = ((i416 << 12 + x9) << 5 + _1101) << 6
+	//	i454     = ((_10011 + i441) << 5 + _10101) << 5 + _11011
+	//	i473     = ((i454 << 5 + _10001) << 5 + _1011) << 7
+	//	i493     = ((_1001 + i473) << 8 + 1) << 9 + _111111
+	//	i517     = ((i493 << 7 + _111111) << 6 + _101) << 9
+	//	i531     = ((_111 + i517) << 7 + _10101) << 4 + _11
+	//	i550     = ((i531 << 5 + _11) << 7 + _101) << 5
+	//	i567     = ((_101 + i550) << 7 + _10101) << 7 + _101
+	//	i593     = ((i567 << 7 + _1111) << 10 + _11001) << 7
+	//	i610     = ((1 + i593) << 9 + _10001) << 5 + _10011
+	//	i629     = ((i610 << 5 + _11101) << 5 + _11101) << 7
+	//	i639     = ((_11011 + i629) << 4 + _1101) << 3 + 1
+	//	i666     = ((i639 << 10 + _1001) << 6 + _111) << 9
+	//	i680     = ((_11001 + i666) << 5 + _10111) << 6 + _11111
+	//	i704     = ((i680 << 5 + 1) << 10 + _1111) << 7
+	//	i719     = ((_111111 + i704) << 6 + _11001) << 6 + _10111
+	//	return     (i719 << 2 + _11) << 21 + _11
+	//
+	// Operations: 626 squares 118 multiplies
+
+	// Allocate Temporaries.
+	var (
+		t0  = new(Element)
+		t1  = new(Element)
+		t2  = new(Element)
+		t3  = new(Element)
+		t4  = new(Element)
+		t5  = new(Element)
+		t6  = new(Element)
+		t7  = new(Element)
+		t8  = new(Element)
+		t9  = new(Element)
+		t10 = new(Element)
+		t11 = new(Element)
+		t12 = new(Element)
+		t13 = new(Element)
+		t14 = new(Element)
+		t15 = new(Element)
+		t16 = new(Element)
+		t17 = new(Element)
+	)
+
+	// var t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15,t16,t17 Element
+	// Step 1: t2 = x^0x2
+	t2.Square(&x)
+
+	// Step 2: z = x^0x3
+	z.Mul(&x, t2)
+
+	// Step 3: t12 = x^0x5
+	t12.Mul(t2, z)
+
+	// Step 4: t5 = x^0x7
+	t5.Mul(t2, t12)
+
+	// Step 5: t6 = x^0x9
+	t6.Mul(t2, t5)
+
+	// Step 6: t14 = x^0xb
+	t14.Mul(t2, t6)
+
+	// Step 7: t7 = x^0xd
+	t7.Mul(t2, t14)
+
+	// Step 8: t3 = x^0xf
+	t3.Mul(t2, t7)
+
+	// Step 9: t11 = x^0x11
+	t11.Mul(t2, t3)
+
+	// Step 10: t10 = x^0x13
+	t10.Mul(t2, t11)
+
+	// Step 11: t13 = x^0x15
+	t13.Mul(t2, t10)
+
+	// Step 12: t0 = x^0x17
+	t0.Mul(t2, t13)
+
+	// Step 13: t1 = x^0x19
+	t1.Mul(t2, t0)
+
+	// Step 14: t8 = x^0x1b
+	t8.Mul(t2, t1)
+
+	// Step 15: t9 = x^0x1d
+	t9.Mul(t2, t8)
+
+	// Step 16: t4 = x^0x1f
+	t4.Mul(t2, t9)
+
+	// Step 17: t2 = x^0x3e
+	t2.Square(t4)
+
+	// Step 18: t2 = x^0x3f
+	t2.Mul(&x, t2)
+
+	// Step 19: t15 = x^0x7e
+	t15.Square(t2)
+
+	// Step 20: t16 = x^0x7f
+	t16.Mul(&x, t15)
+
+	// Step 22: t17 = x^0x1fc
+	t17.Square(t16)
+	for s := 1; s < 2; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 23: t15 = x^0x1ff
+	t15.Mul(z, t17)
+
+	// Step 24: t17 = x^0x20b
+	t17.Mul(t3, t17)
+
+	// Step 29: t17 = x^0x4160
+	for s := 0; s < 5; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 30: t17 = x^0x416b
+	t17.Mul(t14, t17)
+
+	// Step 33: t17 = x^0x20b58
+	for s := 0; s < 3; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 34: t17 = x^0x20b5b
+	t17.Mul(z, t17)
+
+	// Step 41: t17 = x^0x105ad80
+	for s := 0; s < 7; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 42: t17 = x^0x105ad8b
+	t17.Mul(t14, t17)
+
+	// Step 48: t17 = x^0x416b62c0
+	for s := 0; s < 6; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 49: t17 = x^0x416b62d5
+	t17.Mul(t13, t17)
+
+	// Step 54: t17 = x^0x82d6c5aa0
+	for s := 0; s < 5; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 55: t17 = x^0x82d6c5ab1
+	t17.Mul(t11, t17)
+
+	// Step 61: t17 = x^0x20b5b16ac40
+	for s := 0; s < 6; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 62: t17 = x^0x20b5b16ac5b
+	t17.Mul(t8, t17)
+
+	// Step 68: t17 = x^0x82d6c5ab16c0
+	for s := 0; s < 6; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 69: t17 = x^0x82d6c5ab16d5
+	t17.Mul(t13, t17)
+
+	// Step 82: t17 = x^0x105ad8b562daa000
+	for s := 0; s < 13; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 83: t17 = x^0x105ad8b562daa1ff
+	t17.Mul(t15, t17)
+
+	// Step 85: t17 = x^0x416b62d58b6a87fc
+	for s := 0; s < 2; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 86: t17 = x^0x416b62d58b6a87ff
+	t17.Mul(z, t17)
+
+	// Step 93: t17 = x^0x20b5b16ac5b543ff80
+	for s := 0; s < 7; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 94: t17 = x^0x20b5b16ac5b543ff91
+	t17.Mul(t11, t17)
+
+	// Step 102: t17 = x^0x20b5b16ac5b543ff9100
+	for s := 0; s < 8; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 103: t17 = x^0x20b5b16ac5b543ff911f
+	t17.Mul(t4, t17)
+
+	// Step 112: t17 = x^0x416b62d58b6a87ff223e00
+	for s := 0; s < 9; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 113: t17 = x^0x416b62d58b6a87ff223e11
+	t17.Mul(t11, t17)
+
+	// Step 118: t17 = x^0x82d6c5ab16d50ffe447c220
+	for s := 0; s < 5; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 119: t17 = x^0x82d6c5ab16d50ffe447c231
+	t17.Mul(t11, t17)
+
+	// Step 123: t17 = x^0x82d6c5ab16d50ffe447c2310
+	for s := 0; s < 4; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 124: t17 = x^0x82d6c5ab16d50ffe447c231d
+	t17.Mul(t7, t17)
+
+	// Step 126: t17 = x^0x20b5b16ac5b543ff911f08c74
+	for s := 0; s < 2; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 127: t17 = x^0x20b5b16ac5b543ff911f08c75
+	t17.Mul(&x, t17)
+
+	// Step 136: t17 = x^0x416b62d58b6a87ff223e118ea00
+	for s := 0; s < 9; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 137: t17 = x^0x416b62d58b6a87ff223e118ea19
+	t17.Mul(t1, t17)
+
+	// Step 142: t17 = x^0x82d6c5ab16d50ffe447c231d4320
+	for s := 0; s < 5; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 143: t17 = x^0x82d6c5ab16d50ffe447c231d432f
+	t17.Mul(t3, t17)
+
+	// Step 149: t17 = x^0x20b5b16ac5b543ff911f08c750cbc0
+	for s := 0; s < 6; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 150: t17 = x^0x20b5b16ac5b543ff911f08c750cbdb
+	t17.Mul(t8, t17)
+
+	// Step 155: t17 = x^0x416b62d58b6a87ff223e118ea197b60
+	for s := 0; s < 5; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 156: t17 = x^0x416b62d58b6a87ff223e118ea197b69
+	t17.Mul(t6, t17)
+
+	// Step 162: t17 = x^0x105ad8b562daa1ffc88f8463a865eda40
+	for s := 0; s < 6; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 163: t17 = x^0x105ad8b562daa1ffc88f8463a865eda5d
+	t17.Mul(t9, t17)
+
+	// Step 167: t17 = x^0x105ad8b562daa1ffc88f8463a865eda5d0
+	for s := 0; s < 4; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 168: t17 = x^0x105ad8b562daa1ffc88f8463a865eda5d5
+	t17.Mul(t12, t17)
+
+	// Step 173: t17 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa0
+	for s := 0; s < 5; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 174: t17 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa5
+	t17.Mul(t12, t17)
+
+	// Step 183: t17 = x^0x416b62d58b6a87ff223e118ea197b69754a00
+	for s := 0; s < 9; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 184: t17 = x^0x416b62d58b6a87ff223e118ea197b69754a1f
+	t17.Mul(t4, t17)
+
+	// Step 191: t17 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f80
+	for s := 0; s < 7; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 192: t17 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b
+	t17.Mul(t8, t17)
+
+	// Step 196: t17 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b0
+	for s := 0; s < 4; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 197: t17 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b5
+	t17.Mul(t12, t17)
+
+	// Step 206: t17 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a00
+	for s := 0; s < 9; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 207: t17 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b
+	t17.Mul(t8, t17)
+
+	// Step 214: t17 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d80
+	for s := 0; s < 7; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 215: t17 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d89
+	t17.Mul(t6, t17)
+
+	// Step 222: t17 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c480
+	for s := 0; s < 7; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 223: t17 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c499
+	t17.Mul(t1, t17)
+
+	// Step 228: t17 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d89320
+	for s := 0; s < 5; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 229: t17 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d89329
+	t17.Mul(t6, t17)
+
+	// Step 235: t17 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca40
+	for s := 0; s < 6; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 236: t17 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5b
+	t17.Mul(t8, t17)
+
+	// Step 240: t17 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5b0
+	for s := 0; s < 4; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 241: t17 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb
+	t17.Mul(t14, t17)
+
+	// Step 243: t17 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ec
+	for s := 0; s < 2; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 244: t17 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed
+	t17.Mul(&x, t17)
+
+	// Step 251: t17 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b7680
+	for s := 0; s < 7; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 252: t17 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf
+	t17.Mul(t2, t17)
+
+	// Step 257: t17 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7e0
+	for s := 0; s < 5; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 258: t17 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef
+	t17.Mul(t3, t17)
+
+	// Step 264: t17 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbc0
+	for s := 0; s < 6; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 265: t17 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd3
+	t17.Mul(t10, t17)
+
+	// Step 273: t17 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd300
+	for s := 0; s < 8; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 274: t17 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b
+	t17.Mul(t14, t17)
+
+	// Step 277: t17 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde9858
+	for s := 0; s < 3; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 278: t17 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b
+	t17.Mul(z, t17)
+
+	// Step 286: t17 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b00
+	for s := 0; s < 8; s++ {
+		t17.Square(t17)
+	}
+
+	// Step 287: t16 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f
+	t16.Mul(t16, t17)
+
+	// Step 292: t16 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fe0
+	for s := 0; s < 5; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 293: t16 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef
+	t16.Mul(t3, t16)
+
+	// Step 297: t16 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef0
+	for s := 0; s < 4; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 298: t16 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef3
+	t16.Mul(z, t16)
+
+	// Step 303: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde60
+	for s := 0; s < 5; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 304: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde63
+	t16.Mul(z, t16)
+
+	// Step 312: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde6300
+	for s := 0; s < 8; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 313: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d
+	t16.Mul(t9, t16)
+
+	// Step 318: t16 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63a0
+	for s := 0; s < 5; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 319: t16 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3
+	t16.Mul(t10, t16)
+
+	// Step 324: t16 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c7660
+	for s := 0; s < 5; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 325: t16 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b
+	t16.Mul(t8, t16)
+
+	// Step 331: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ec0
+	for s := 0; s < 6; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 332: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd
+	t16.Mul(t7, t16)
+
+	// Step 340: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd00
+	for s := 0; s < 8; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 341: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d
+	t16.Mul(t9, t16)
+
+	// Step 345: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d0
+	for s := 0; s < 4; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 346: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d5
+	t16.Mul(t12, t16)
+
+	// Step 352: t16 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347540
+	for s := 0; s < 6; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 353: t16 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543
+	t16.Mul(z, t16)
+
+	// Step 361: t16 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b34754300
+	for s := 0; s < 8; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 362: t16 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b34754317
+	t16.Mul(t0, t16)
+
+	// Step 367: t16 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862e0
+	for s := 0; s < 5; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 368: t16 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3
+	t16.Mul(t10, t16)
+
+	// Step 373: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e60
+	for s := 0; s < 5; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 374: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79
+	t16.Mul(t1, t16)
+
+	// Step 378: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e790
+	for s := 0; s < 4; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 379: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d
+	t16.Mul(t7, t16)
+
+	// Step 386: t16 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce80
+	for s := 0; s < 7; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 387: t16 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b
+	t16.Mul(t14, t16)
+
+	// Step 396: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1600
+	for s := 0; s < 9; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 397: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617
+	t16.Mul(t0, t16)
+
+	// Step 402: t16 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2e0
+	for s := 0; s < 5; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 403: t16 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f5
+	t16.Mul(t13, t16)
+
+	// Step 405: t16 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd4
+	for s := 0; s < 2; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 406: t16 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd5
+	t16.Mul(&x, t16)
+
+	// Step 415: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa00
+	for s := 0; s < 9; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 416: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b
+	t16.Mul(t8, t16)
+
+	// Step 428: t16 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b000
+	for s := 0; s < 12; s++ {
+		t16.Square(t16)
+	}
+
+	// Step 429: t15 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff
+	t15.Mul(t15, t16)
+
+	// Step 434: t15 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fe0
+	for s := 0; s < 5; s++ {
+		t15.Square(t15)
+	}
+
+	// Step 435: t15 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed
+	t15.Mul(t7, t15)
+
+	// Step 441: t15 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb40
+	for s := 0; s < 6; s++ {
+		t15.Square(t15)
+	}
+
+	// Step 442: t15 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53
+	t15.Mul(t10, t15)
+
+	// Step 447: t15 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a60
+	for s := 0; s < 5; s++ {
+		t15.Square(t15)
+	}
+
+	// Step 448: t15 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75
+	t15.Mul(t13, t15)
+
+	// Step 453: t15 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ea0
+	for s := 0; s < 5; s++ {
+		t15.Square(t15)
+	}
+
+	// Step 454: t15 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb
+	t15.Mul(t8, t15)
+
+	// Step 459: t15 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d760
+	for s := 0; s < 5; s++ {
+		t15.Square(t15)
+	}
+
+	// Step 460: t15 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771
+	t15.Mul(t11, t15)
+
+	// Step 465: t15 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee20
+	for s := 0; s < 5; s++ {
+		t15.Square(t15)
+	}
+
+	// Step 466: t14 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b
+	t14.Mul(t14, t15)
+
+	// Step 473: t14 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771580
+	for s := 0; s < 7; s++ {
+		t14.Square(t14)
+	}
+
+	// Step 474: t14 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589
+	t14.Mul(t6, t14)
+
+	// Step 482: t14 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d77158900
+	for s := 0; s < 8; s++ {
+		t14.Square(t14)
+	}
+
+	// Step 483: t14 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d77158901
+	t14.Mul(&x, t14)
+
+	// Step 492: t14 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b120200
+	for s := 0; s < 9; s++ {
+		t14.Square(t14)
+	}
+
+	// Step 493: t14 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b12023f
+	t14.Mul(t2, t14)
+
+	// Step 500: t14 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011f80
+	for s := 0; s < 7; s++ {
+		t14.Square(t14)
+	}
+
+	// Step 501: t14 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf
+	t14.Mul(t2, t14)
+
+	// Step 507: t14 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc0
+	for s := 0; s < 6; s++ {
+		t14.Square(t14)
+	}
+
+	// Step 508: t14 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc5
+	t14.Mul(t12, t14)
+
+	// Step 517: t14 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a00
+	for s := 0; s < 9; s++ {
+		t14.Square(t14)
+	}
+
+	// Step 518: t14 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a07
+	t14.Mul(t5, t14)
+
+	// Step 525: t14 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc50380
+	for s := 0; s < 7; s++ {
+		t14.Square(t14)
+	}
+
+	// Step 526: t14 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc50395
+	t14.Mul(t13, t14)
+
+	// Step 530: t14 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc503950
+	for s := 0; s < 4; s++ {
+		t14.Square(t14)
+	}
+
+	// Step 531: t14 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc503953
+	t14.Mul(z, t14)
+
+	// Step 536: t14 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a60
+	for s := 0; s < 5; s++ {
+		t14.Square(t14)
+	}
+
+	// Step 537: t14 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a63
+	t14.Mul(z, t14)
+
+	// Step 544: t14 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc503953180
+	for s := 0; s < 7; s++ {
+		t14.Square(t14)
+	}
+
+	// Step 545: t14 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc503953185
+	t14.Mul(t12, t14)
+
+	// Step 550: t14 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a630a0
+	for s := 0; s < 5; s++ {
+		t14.Square(t14)
+	}
+
+	// Step 551: t14 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a630a5
+	t14.Mul(t12, t14)
+
+	// Step 558: t14 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc503953185280
+	for s := 0; s < 7; s++ {
+		t14.Square(t14)
+	}
+
+	// Step 559: t13 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc503953185295
+	t13.Mul(t13, t14)
+
+	// Step 566: t13 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b12023f7e281ca98c294a80
+	for s := 0; s < 7; s++ {
+		t13.Square(t13)
+	}
+
+	// Step 567: t12 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b12023f7e281ca98c294a85
+	t12.Mul(t12, t13)
+
+	// Step 574: t12 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a54280
+	for s := 0; s < 7; s++ {
+		t12.Square(t12)
+	}
+
+	// Step 575: t12 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a5428f
+	t12.Mul(t3, t12)
+
+	// Step 585: t12 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc5039531852950a3c00
+	for s := 0; s < 10; s++ {
+		t12.Square(t12)
+	}
+
+	// Step 586: t12 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc5039531852950a3c19
+	t12.Mul(t1, t12)
+
+	// Step 593: t12 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b12023f7e281ca98c294a851e0c80
+	for s := 0; s < 7; s++ {
+		t12.Square(t12)
+	}
+
+	// Step 594: t12 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b12023f7e281ca98c294a851e0c81
+	t12.Mul(&x, t12)
+
+	// Step 603: t12 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc5039531852950a3c190200
+	for s := 0; s < 9; s++ {
+		t12.Square(t12)
+	}
+
+	// Step 604: t11 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc5039531852950a3c190211
+	t11.Mul(t11, t12)
+
+	// Step 609: t11 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a630a52a14783204220
+	for s := 0; s < 5; s++ {
+		t11.Square(t11)
+	}
+
+	// Step 610: t10 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a630a52a14783204233
+	t10.Mul(t10, t11)
+
+	// Step 615: t10 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a5428f064084660
+	for s := 0; s < 5; s++ {
+		t10.Square(t10)
+	}
+
+	// Step 616: t10 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a5428f06408467d
+	t10.Mul(t9, t10)
+
+	// Step 621: t10 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b12023f7e281ca98c294a851e0c8108cfa0
+	for s := 0; s < 5; s++ {
+		t10.Square(t10)
+	}
+
+	// Step 622: t9 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b12023f7e281ca98c294a851e0c8108cfbd
+	t9.Mul(t9, t10)
+
+	// Step 629: t9 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a5428f06408467de80
+	for s := 0; s < 7; s++ {
+		t9.Square(t9)
+	}
+
+	// Step 630: t8 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a5428f06408467de9b
+	t8.Mul(t8, t9)
+
+	// Step 634: t8 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a5428f06408467de9b0
+	for s := 0; s < 4; s++ {
+		t8.Square(t8)
+	}
+
+	// Step 635: t7 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a5428f06408467de9bd
+	t7.Mul(t7, t8)
+
+	// Step 638: t7 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a630a52a14783204233ef4de8
+	for s := 0; s < 3; s++ {
+		t7.Square(t7)
+	}
+
+	// Step 639: t7 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a630a52a14783204233ef4de9
+	t7.Mul(&x, t7)
+
+	// Step 649: t7 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b12023f7e281ca98c294a851e0c8108cfbd37a400
+	for s := 0; s < 10; s++ {
+		t7.Square(t7)
+	}
+
+	// Step 650: t6 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b12023f7e281ca98c294a851e0c8108cfbd37a409
+	t6.Mul(t6, t7)
+
+	// Step 656: t6 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a630a52a14783204233ef4de90240
+	for s := 0; s < 6; s++ {
+		t6.Square(t6)
+	}
+
+	// Step 657: t5 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a630a52a14783204233ef4de90247
+	t5.Mul(t5, t6)
+
+	// Step 666: t5 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a5428f06408467de9bd2048e00
+	for s := 0; s < 9; s++ {
+		t5.Square(t5)
+	}
+
+	// Step 667: t5 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a5428f06408467de9bd2048e19
+	t5.Mul(t1, t5)
+
+	// Step 672: t5 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b12023f7e281ca98c294a851e0c8108cfbd37a4091c320
+	for s := 0; s < 5; s++ {
+		t5.Square(t5)
+	}
+
+	// Step 673: t5 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b12023f7e281ca98c294a851e0c8108cfbd37a4091c337
+	t5.Mul(t0, t5)
+
+	// Step 679: t5 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a630a52a14783204233ef4de902470cdc0
+	for s := 0; s < 6; s++ {
+		t5.Square(t5)
+	}
+
+	// Step 680: t4 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a630a52a14783204233ef4de902470cddf
+	t4.Mul(t4, t5)
+
+	// Step 685: t4 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a5428f06408467de9bd2048e19bbe0
+	for s := 0; s < 5; s++ {
+		t4.Square(t4)
+	}
+
+	// Step 686: t4 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a5428f06408467de9bd2048e19bbe1
+	t4.Mul(&x, t4)
+
+	// Step 696: t4 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc5039531852950a3c1902119f7a6f48123866ef8400
+	for s := 0; s < 10; s++ {
+		t4.Square(t4)
+	}
+
+	// Step 697: t3 = x^0x105ad8b562daa1ffc88f8463a865eda5d5287cda86c4994b76bf7a616dfde631d9ecd1d50c5e79d1617aa1b1ff6a75dc5624047efc5039531852950a3c1902119f7a6f48123866ef840f
+	t3.Mul(t3, t4)
+
+	// Step 704: t3 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b12023f7e281ca98c294a851e0c8108cfbd37a4091c3377c20780
+	for s := 0; s < 7; s++ {
+		t3.Square(t3)
+	}
+
+	// Step 705: t2 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b12023f7e281ca98c294a851e0c8108cfbd37a4091c3377c207bf
+	t2.Mul(t2, t3)
+
+	// Step 711: t2 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a630a52a14783204233ef4de902470cddf081efc0
+	for s := 0; s < 6; s++ {
+		t2.Square(t2)
+	}
+
+	// Step 712: t1 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a630a52a14783204233ef4de902470cddf081efd9
+	t1.Mul(t1, t2)
+
+	// Step 718: t1 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b12023f7e281ca98c294a851e0c8108cfbd37a4091c3377c207bf640
+	for s := 0; s < 6; s++ {
+		t1.Square(t1)
+	}
+
+	// Step 719: t0 = x^0x82d6c5ab16d50ffe447c231d432f6d2ea943e6d43624ca5bb5fbd30b6fef318ecf668ea862f3ce8b0bd50d8ffb53aee2b12023f7e281ca98c294a851e0c8108cfbd37a4091c3377c207bf657
+	t0.Mul(t0, t1)
+
+	// Step 721: t0 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a630a52a14783204233ef4de902470cddf081efd95c
+	for s := 0; s < 2; s++ {
+		t0.Square(t0)
+	}
+
+	// Step 722: t0 = x^0x20b5b16ac5b543ff911f08c750cbdb4baa50f9b50d893296ed7ef4c2dbfbcc63b3d9a3aa18bcf3a2c2f54363fed4ebb8ac4808fdf8a072a630a52a14783204233ef4de902470cddf081efd95f
+	t0.Mul(z, t0)
+
+	// Step 743: t0 = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a5428f06408467de9bd2048e19bbe103dfb2be00000
+	for s := 0; s < 21; s++ {
+		t0.Square(t0)
+	}
+
+	// Step 744: z = x^0x416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a5428f06408467de9bd2048e19bbe103dfb2be00003
+	z.Mul(z, t0)
+
+	return z
+}

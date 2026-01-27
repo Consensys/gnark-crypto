@@ -37,3 +37,162 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 
 	return z
 }
+
+// ExpByCbrt2q1o3 is equivalent to z.Exp(x, 555555555555560aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab).
+// It raises x to the (2q-1)/3 power using a shorter addition chain.
+//
+// uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
+func (z *Element) ExpByCbrt2q1o3(x Element) *Element {
+	// addition chain:
+	//
+	//	_100      = 1 << 2
+	//	_101      = 1 + _100
+	//	_1010     = 2*_101
+	//	_10100000 = _1010 << 4
+	//	_10101010 = _1010 + _10100000
+	//	_10101011 = 1 + _10101010
+	//	_10110101 = _1010 + _10101011
+	//	i21       = (_10100000 + _10110101) << 9
+	//	i22       = _10101010 + i21
+	//	i32       = i21 << 10
+	//	i33       = i22 + i32
+	//	i43       = i32 << 10
+	//	i44       = i33 + i43
+	//	i54       = i43 << 10
+	//	i55       = i44 + i54
+	//	i66       = i54 << 10 + i55
+	//	i67       = 1 + i66
+	//	i73       = (i66 + i67) << 4 + _101
+	//	i141      = (2*(_10110101 + i73) + 1) << 64 + i73
+	//	return      (i141 << 64 + i73) << 59 + i67
+	//
+	// Operations: 248 squares 18 multiplies
+
+	// Allocate Temporaries.
+	var (
+		t0 = new(Element)
+		t1 = new(Element)
+		t2 = new(Element)
+		t3 = new(Element)
+	)
+
+	// var t0,t1,t2,t3 Element
+	// Step 2: z = x^0x4
+	z.Square(&x)
+	for s := 1; s < 2; s++ {
+		z.Square(z)
+	}
+
+	// Step 3: t0 = x^0x5
+	t0.Mul(&x, z)
+
+	// Step 4: t1 = x^0xa
+	t1.Square(t0)
+
+	// Step 8: t2 = x^0xa0
+	t2.Square(t1)
+	for s := 1; s < 4; s++ {
+		t2.Square(t2)
+	}
+
+	// Step 9: z = x^0xaa
+	z.Mul(t1, t2)
+
+	// Step 10: t3 = x^0xab
+	t3.Mul(&x, z)
+
+	// Step 11: t1 = x^0xb5
+	t1.Mul(t1, t3)
+
+	// Step 12: t2 = x^0x155
+	t2.Mul(t2, t1)
+
+	// Step 21: t2 = x^0x2aa00
+	for s := 0; s < 9; s++ {
+		t2.Square(t2)
+	}
+
+	// Step 22: z = x^0x2aaaa
+	z.Mul(z, t2)
+
+	// Step 32: t2 = x^0xaa80000
+	for s := 0; s < 10; s++ {
+		t2.Square(t2)
+	}
+
+	// Step 33: z = x^0xaaaaaaa
+	z.Mul(z, t2)
+
+	// Step 43: t2 = x^0x2aa0000000
+	for s := 0; s < 10; s++ {
+		t2.Square(t2)
+	}
+
+	// Step 44: z = x^0x2aaaaaaaaa
+	z.Mul(z, t2)
+
+	// Step 54: t2 = x^0xaa8000000000
+	for s := 0; s < 10; s++ {
+		t2.Square(t2)
+	}
+
+	// Step 55: z = x^0xaaaaaaaaaaaa
+	z.Mul(z, t2)
+
+	// Step 65: t2 = x^0x2aa000000000000
+	for s := 0; s < 10; s++ {
+		t2.Square(t2)
+	}
+
+	// Step 66: t2 = x^0x2aaaaaaaaaaaaaa
+	t2.Mul(z, t2)
+
+	// Step 67: z = x^0x2aaaaaaaaaaaaab
+	z.Mul(&x, t2)
+
+	// Step 68: t2 = x^0x555555555555555
+	t2.Mul(t2, z)
+
+	// Step 72: t2 = x^0x5555555555555550
+	for s := 0; s < 4; s++ {
+		t2.Square(t2)
+	}
+
+	// Step 73: t0 = x^0x5555555555555555
+	t0.Mul(t0, t2)
+
+	// Step 74: t1 = x^0x555555555555560a
+	t1.Mul(t1, t0)
+
+	// Step 75: t1 = x^0xaaaaaaaaaaaaac14
+	t1.Square(t1)
+
+	// Step 76: t1 = x^0xaaaaaaaaaaaaac15
+	t1.Mul(&x, t1)
+
+	// Step 140: t1 = x^0xaaaaaaaaaaaaac150000000000000000
+	for s := 0; s < 64; s++ {
+		t1.Square(t1)
+	}
+
+	// Step 141: t1 = x^0xaaaaaaaaaaaaac155555555555555555
+	t1.Mul(t0, t1)
+
+	// Step 205: t1 = x^0xaaaaaaaaaaaaac1555555555555555550000000000000000
+	for s := 0; s < 64; s++ {
+		t1.Square(t1)
+	}
+
+	// Step 206: t0 = x^0xaaaaaaaaaaaaac1555555555555555555555555555555555
+	t0.Mul(t0, t1)
+
+	// Step 265: t0 = x^0x555555555555560aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa800000000000000
+	for s := 0; s < 59; s++ {
+		t0.Square(t0)
+	}
+
+	// Step 266: z = x^0x555555555555560aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab
+	z.Mul(z, t0)
+
+	return z
+}
