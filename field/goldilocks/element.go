@@ -981,7 +981,7 @@ func (z *Element) Cbrt(x *Element) *Element {
 
 	// Verify y³ = x (checks both that x is a cubic residue and y is correct)
 	var check Element
-	check.Square(&y).Mul(&check, &y)
+	check.Cube(&y)
 	if check.IsZero() {
 		return z.SetZero()
 	}

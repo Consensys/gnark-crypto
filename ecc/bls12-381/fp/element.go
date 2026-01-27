@@ -1505,7 +1505,7 @@ func (z *Element) Cbrt(x *Element) *Element {
 
 	// c = y³
 	var c Element
-	c.Square(&y).Mul(&c, &y)
+	c.Cube(&y)
 	if c.IsZero() {
 		return z.SetZero()
 	}
@@ -1515,7 +1515,11 @@ func (z *Element) Cbrt(x *Element) *Element {
 		return z.Set(&y)
 	}
 
-	// ζ = g^s is a primitive 9th root of unity (e = 2)
+	// Precomputed constants:
+	// ζ = primitive 9th root of unity
+	// ζ² for adjustment
+	// ω = ζ³ = primitive 3rd root of unity
+	// ω² = ζ⁶
 	var zeta = Element{
 		13616190144799058984,
 		9227582506135211912,
@@ -1524,31 +1528,46 @@ func (z *Element) Cbrt(x *Element) *Element {
 		10794825842164118204,
 		335101026345095675,
 	}
-
-	// ω = ζ³ is a primitive 3rd root of unity
-	var omega Element
-	omega.Square(&zeta).Mul(&omega, &zeta) // ω = ζ³
-
-	// ω² = ζ⁶
-	var omega2 Element
-	omega2.Square(&omega)
+	var zeta2 = Element{
+		3828863564860874189,
+		5918733612565202776,
+		16843310164143221096,
+		16127847466718491017,
+		17435063908385505950,
+		407112797415018074,
+	}
+	var omega = Element{
+		14772873186050699377,
+		6749526151121446354,
+		6372666795664677781,
+		10283423008382700446,
+		286397964926079186,
+		1796971870900422465,
+	}
+	var omega2 = Element{
+		3526659474838938856,
+		17562030475567847978,
+		1632777218702014455,
+		14009062335050482331,
+		3906511377122991214,
+		368068849512964448,
+	}
 
 	// Check if c/x = ω (i.e., c * ω² = x)
+	// With our convention: omega = ζ⁶, omega2 = ζ³
+	// If c * ζ³ = x, then c = x*ζ⁶, and (y*ζ)³ = y³*ζ³ = c*ζ³ = x ✓
 	var cw2 Element
 	cw2.Mul(&c, &omega2)
 	if cw2.Equal(x) {
-		// c = x * ω, so cbrt(x) = y * ζ²
-		var zeta2 Element
-		zeta2.Square(&zeta)
-		return z.Mul(&y, &zeta2)
+		return z.Mul(&y, &zeta)
 	}
 
 	// Check if c/x = ω² (i.e., c * ω = x)
+	// If c * ζ⁶ = x, then c = x*ζ³, and (y*ζ²)³ = y³*ζ⁶ = c*ζ⁶ = x ✓
 	var cw Element
 	cw.Mul(&c, &omega)
 	if cw.Equal(x) {
-		// c = x * ω², so cbrt(x) = y * ζ
-		return z.Mul(&y, &zeta)
+		return z.Mul(&y, &zeta2)
 	}
 
 	// x is not a cubic residue
