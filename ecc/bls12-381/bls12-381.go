@@ -76,6 +76,7 @@ var lambdaGLV big.Int
 // glvBasis stores R-linearly independent vectors (a,b), (c,d)
 // in ker((u,v) → u+vλ[r]), and their determinant
 var glvBasis ecc.Lattice
+var glsBasis ecc.Lattice4
 
 // g1ScalarMulChoose and g2ScalarmulChoose indicate the bitlength of the scalar
 // in scalar multiplication from which it is more efficient to use the GLV
@@ -148,6 +149,38 @@ func init() {
 	// -x₀
 	xGen.SetString("15132376222941642752", 10)
 
+	initGLSBasis()
+}
+
+func initGLSBasis() {
+	// LLL-reduced basis (rows) from:
+	//
+	// 	 v1 = [r,                   0,          0,          0]
+	// 	 v2 = [-lambdaGLV,   	    1,          0,          0]
+	// 	 v3 = [-lambdaGLS,   	    0,          1,          0]
+	// 	 v4 = [lambdaGLV*lambdaGLS, -lambdaGLS, -lambdaGLV, 1]
+	//
+	// to (LLL basis for eigenvalues lambdaGLV and x₀):
+	//   v1 = [-x₀, 0,  1,  0]
+	//   v2 = [1,   1, -x₀, 0]
+	//   v3 = [0,  -x₀, 0,  1]
+	//   v4 = [1,   0,  0,  x₀]
+
+	// v1 = (-x₀, 0, 1, 0)
+	glsBasis.V[0][0].Set(&xGen)
+	glsBasis.V[0][2].SetUint64(1)
+	// v2 = (1, 1, -x₀, 0)
+	glsBasis.V[1][0].SetUint64(1)
+	glsBasis.V[1][1].SetUint64(1)
+	glsBasis.V[1][2].Set(&xGen)
+	// v3 = (0, -x₀, 0, 1)
+	glsBasis.V[2][1].Set(&xGen)
+	glsBasis.V[2][3].SetUint64(1)
+	// v4 = (1, 0, 0, x₀)
+	glsBasis.V[3][0].SetUint64(1)
+	glsBasis.V[3][3].Neg(&xGen)
+
+	ecc.PrecomputeLattice4(&glsBasis)
 }
 
 // Generators return the generators of the r-torsion group, resp. in ker(pi-id), ker(Tr)

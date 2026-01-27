@@ -59,28 +59,28 @@ func (p *G2Affine) SetInfinity() *G2Affine {
 // ScalarMultiplication computes and returns p = [s]a
 // where p and a are affine points.
 func (p *G2Affine) ScalarMultiplication(a *G2Affine, s *big.Int) *G2Affine {
-	var _p G2Jac
 	if s.BitLen() >= g2ScalarMulChoose {
+		var _p G2Jac
 		_p.FromAffine(a)
-		_p.mulGLV(&_p, s)
+		_p.mulGLS(&_p, s)
 		p.FromJacobian(&_p)
-		return p
 	} else {
-		return p.mulWindowed(a, s)
+		p.mulWindowed(a, s)
 	}
+	return p
 }
 
 // ScalarMultiplicationBase computes and returns p = [s]g
 // where g is the affine point generating the prime subgroup.
 func (p *G2Affine) ScalarMultiplicationBase(s *big.Int) *G2Affine {
-	var _p G2Jac
 	if s.BitLen() >= g2ScalarMulChoose {
-		_p.mulGLV(&g2Gen, s)
+		var _p G2Jac
+		_p.mulGLS(&g2Gen, s)
 		p.FromJacobian(&_p)
-		return p
 	} else {
-		return p.mulWindowed(&g2GenAff, s)
+		p.mulWindowed(&g2GenAff, s)
 	}
+	return p
 }
 
 // Add adds two points in affine coordinates.
@@ -594,11 +594,10 @@ func (p *G2Jac) Triple(q *G2Jac) *G2Jac {
 
 // ScalarMultiplication computes and returns p = [s]a
 // where p and a are Jacobian points.
-// using the GLV technique.
-// see https://www.iacr.org/archive/crypto2001/21390189.pdf
+// using a GLV-GLS method.
 func (p *G2Jac) ScalarMultiplication(q *G2Jac, s *big.Int) *G2Jac {
 	if s.BitLen() >= g2ScalarMulChoose {
-		return p.mulGLV(q, s)
+		return p.mulGLS(q, s)
 	} else {
 		return p.mulWindowed(q, s)
 	}
@@ -608,7 +607,7 @@ func (p *G2Jac) ScalarMultiplication(q *G2Jac, s *big.Int) *G2Jac {
 // where g is the prime subgroup generator.
 func (p *G2Jac) ScalarMultiplicationBase(s *big.Int) *G2Jac {
 	if s.BitLen() >= g2ScalarMulChoose {
-		return p.mulGLV(&g2Gen, s)
+		return p.mulGLS(&g2Gen, s)
 	} else {
 		return p.mulWindowed(&g2Gen, s)
 	}
@@ -852,6 +851,98 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 					res.SubAssign(&q2Table[(-d-1)/2])
 				}
 			}
+		}
+	}
+
+	p.Set(&res)
+	return p
+}
+
+// mulGLS computes the scalar multiplication using a 4-dimensional GLV-GLS method
+// leveraging the endomorphisms ϕ and ψ.
+func (p *G2Jac) mulGLS(q *G2Jac, s *big.Int) *G2Jac {
+	var table [15]G2Jac
+	var res G2Jac
+	var k0, k1, k2, k3 fr.Element
+	var bases [4]G2Jac
+
+	res.Set(&g2Infinity)
+
+	bases[0].Set(q)
+	bases[1].phi(q)
+	bases[2].psi(q)
+	bases[3].psi(&bases[1])
+
+	// split the scalar, modifies ±q, ϕ(q), ψ(q), ϕ(ψ(q)) accordingly
+	k := ecc.SplitScalarFour(s, &glsBasis)
+	if k[0].Sign() == -1 {
+		k[0].Neg(&k[0])
+		bases[0].Neg(&bases[0])
+	}
+	if k[1].Sign() == -1 {
+		k[1].Neg(&k[1])
+		bases[1].Neg(&bases[1])
+	}
+	if k[2].Sign() == -1 {
+		k[2].Neg(&k[2])
+		bases[2].Neg(&bases[2])
+	}
+	if k[3].Sign() == -1 {
+		k[3].Neg(&k[3])
+		bases[3].Neg(&bases[3])
+	}
+
+	// precompute 1-bit table for subsets of bases (idx in [1..15])
+	for idx := 1; idx < 16; idx++ {
+		acc := &table[idx-1]
+		acc.Set(&g2Infinity)
+		if idx&1 != 0 {
+			acc.AddAssign(&bases[0])
+		}
+		if idx&2 != 0 {
+			acc.AddAssign(&bases[1])
+		}
+		if idx&4 != 0 {
+			acc.AddAssign(&bases[2])
+		}
+		if idx&8 != 0 {
+			acc.AddAssign(&bases[3])
+		}
+	}
+
+	// bounds on the lattice base vectors guarantee that k0..k3 are len(r)/4 or len(r)/4+1 bits long max
+	// this is because we use a probabilistic scalar decomposition that replaces a division by a right-shift
+	k0 = k0.SetBigInt(&k[0]).Bits()
+	k1 = k1.SetBigInt(&k[1]).Bits()
+	k2 = k2.SetBigInt(&k[2]).Bits()
+	k3 = k3.SetBigInt(&k[3]).Bits()
+
+	maxBit := k0.BitLen()
+	if k1.BitLen() > maxBit {
+		maxBit = k1.BitLen()
+	}
+	if k2.BitLen() > maxBit {
+		maxBit = k2.BitLen()
+	}
+	if k3.BitLen() > maxBit {
+		maxBit = k3.BitLen()
+	}
+	hiWordIndex := (maxBit - 1) / 64
+
+	for i := hiWordIndex; i >= 0; i-- {
+		mask := uint64(1) << 63
+		for j := 0; j < 64; j++ {
+			shift := uint(63 - j)
+			res.Double(&res)
+			b0 := (k0[i] & mask) >> shift
+			b1 := (k1[i] & mask) >> shift
+			b2 := (k2[i] & mask) >> shift
+			b3 := (k3[i] & mask) >> shift
+			if b0|b1|b2|b3 != 0 {
+				idx := int(b0 | (b1 << 1) | (b2 << 2) | (b3 << 3))
+				res.AddAssign(&table[idx-1])
+			}
+			mask = mask >> 1
 		}
 	}
 

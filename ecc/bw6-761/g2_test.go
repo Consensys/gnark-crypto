@@ -485,7 +485,7 @@ func TestG2AffineOps(t *testing.T) {
 
 			r := fr.Modulus()
 			var g G2Jac
-			g.mulGLV(&g2Gen, r)
+			g.ScalarMultiplication(&g2Gen, r)
 
 			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg G2Jac
