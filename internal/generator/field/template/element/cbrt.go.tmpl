@@ -39,19 +39,10 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		return z
 	{{- else if .CbrtQ1Mod3}}
 		// q ≡ 1 (mod 3)
-		// Reference: "Cube root extraction in finite fields" by Sze
-		// https://eprint.iacr.org/2011/103.pdf
-		//
-		// We write q-1 = 3^e * s where gcd(s,3) = 1
-		// Let g be a non-cubic residue, and γ = g^s (a primitive 3^e-th root of unity)
+		// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
 
 		{{- if .CbrtQ7Mod9}}
-		// ============================================================
 		// q ≡ 7 (mod 9): cbrt(x) = x^((q+2)/9)
-		// Single exponentiation, no adjustment needed.
-		// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
-		// ============================================================
-
 		var y {{.ElementName}}
 		{{- if .UseAddChain}}
 		y.ExpByCbrtQPlus2Div9(*x)
@@ -62,21 +53,13 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		// Verify y³ = x (checks both that x is a cubic residue and y is correct)
 		var check {{.ElementName}}
 		check.Cube(&y)
-		if check.IsZero() {
-			return z.SetZero()
-		}
 		if !check.Equal(x) {
 			return nil
 		}
 		return z.Set(&y)
 
 		{{- else if .CbrtQ4Mod9}}
-		// ============================================================
 		// q ≡ 4 (mod 9): cbrt(x) = x^((2q+1)/9)
-		// Single exponentiation, no adjustment needed.
-		// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
-		// ============================================================
-
 		var y {{.ElementName}}
 		{{- if .UseAddChain}}
 		y.ExpByCbrt2QPlus1Div9(*x)
@@ -87,21 +70,13 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		// Verify y³ = x (checks both that x is a cubic residue and y is correct)
 		var check {{.ElementName}}
 		check.Cube(&y)
-		if check.IsZero() {
-			return z.SetZero()
-		}
 		if !check.Equal(x) {
 			return nil
 		}
 		return z.Set(&y)
 
 		{{- else if .CbrtQ10Mod27}}
-		// ============================================================
 		// q ≡ 10 (mod 27): cbrt(x) = x^((2q+7)/27) * ζ^k
-		// Single exponentiation + single adjustment.
-		// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
-		// ============================================================
-
 		var y {{.ElementName}}
 		{{- if .UseAddChain}}
 		y.ExpByCbrt2QPlus7Div27(*x)
@@ -112,9 +87,6 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		// c = y³
 		var c {{.ElementName}}
 		c.Cube(&y)
-		if c.IsZero() {
-			return z.SetZero()
-		}
 
 		// Check if y is already the cube root
 		if c.Equal(x) {
@@ -164,12 +136,7 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		return nil
 
 		{{- else if .CbrtQ19Mod27}}
-		// ============================================================
 		// q ≡ 19 (mod 27): cbrt(x) = x^((q+8)/27) * ζ^k
-		// Single exponentiation + single adjustment.
-		// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
-		// ============================================================
-
 		var y {{.ElementName}}
 		{{- if .UseAddChain}}
 		y.ExpByCbrtQPlus8Div27(*x)
@@ -180,9 +147,6 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		// c = y³
 		var c {{.ElementName}}
 		c.Cube(&y)
-		if c.IsZero() {
-			return z.SetZero()
-		}
 
 		// Check if y is already the cube root
 		if c.Equal(x) {
@@ -232,12 +196,7 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		return nil
 
 		{{- else if eq .CbrtE 2}}
-		// ============================================================
-		// Optimized path for e = 2 (i.e., 9 || (q-1), meaning 27 ∤ (q-1))
-		// The adjustment loop runs at most once.
-		// Reference: https://eprint.iacr.org/2021/1446.pdf
-		// ============================================================
-
+		// e = 2: 9 | (q-1) but 27 ∤ (q-1)
 		var y, t, c {{.ElementName}}
 
 		{{- if ne .CbrtSPlus1Div3 ""}}
@@ -290,9 +249,6 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		// For e=2, check if x is a cubic residue: t^3 should equal 1
 		var check {{.ElementName}}
 		check.Cube(&t)
-		if check.IsZero() {
-			return z.SetZero()
-		}
 		if !check.IsOne() {
 			return nil
 		}
@@ -316,10 +272,7 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		return z.Mul(&y, &zeta)
 
 		{{- else}}
-		// ============================================================
-		// General Tonelli-Shanks variant for e ≥ 3
-		// ============================================================
-
+		// e ≥ 3: Tonelli-Shanks variant
 		var y, t, w, c {{.ElementName}}
 
 		{{- if ne .CbrtSPlus1Div3 ""}}
@@ -371,9 +324,6 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		check = t
 		for i := uint64(0); i < r-1; i++ {
 			check.Cube(&check)
-		}
-		if check.IsZero() {
-			return z.SetZero()
 		}
 		if !check.IsOne() {
 			// x is not a cubic residue
