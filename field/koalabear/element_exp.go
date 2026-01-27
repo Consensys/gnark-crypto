@@ -53,3 +53,90 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 
 	return z
 }
+
+// ExpByCbrt2q1o3 is equivalent to z.Exp(x, 54aaaaab).
+// It raises x to the (2q-1)/3 power using a shorter addition chain.
+//
+// uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
+func (z *Element) ExpByCbrt2q1o3(x Element) *Element {
+	// addition chain:
+	//
+	//	_10       = 2*1
+	//	_1000     = _10 << 2
+	//	_1001     = 1 + _1000
+	//	_100000   = _1000 << 2
+	//	_101001   = _1001 + _100000
+	//	_101011   = _10 + _101001
+	//	_1010100  = _101001 + _101011
+	//	_1010101  = 1 + _1010100
+	//	_10101001 = _1010100 + _1010101
+	//	i36       = ((_10101001 << 8 + _1010101) << 8 + _1010101) << 7
+	//	return      _101011 + i36
+	//
+	// Operations: 28 squares 9 multiplies
+
+	// Allocate Temporaries.
+	var (
+		t0 = new(Element)
+		t1 = new(Element)
+	)
+
+	// var t0,t1 Element
+	// Step 1: z = x^0x2
+	z.Square(&x)
+
+	// Step 3: t1 = x^0x8
+	t1.Square(z)
+	for s := 1; s < 2; s++ {
+		t1.Square(t1)
+	}
+
+	// Step 4: t0 = x^0x9
+	t0.Mul(&x, t1)
+
+	// Step 6: t1 = x^0x20
+	for s := 0; s < 2; s++ {
+		t1.Square(t1)
+	}
+
+	// Step 7: t0 = x^0x29
+	t0.Mul(t0, t1)
+
+	// Step 8: z = x^0x2b
+	z.Mul(z, t0)
+
+	// Step 9: t1 = x^0x54
+	t1.Mul(t0, z)
+
+	// Step 10: t0 = x^0x55
+	t0.Mul(&x, t1)
+
+	// Step 11: t1 = x^0xa9
+	t1.Mul(t1, t0)
+
+	// Step 19: t1 = x^0xa900
+	for s := 0; s < 8; s++ {
+		t1.Square(t1)
+	}
+
+	// Step 20: t1 = x^0xa955
+	t1.Mul(t0, t1)
+
+	// Step 28: t1 = x^0xa95500
+	for s := 0; s < 8; s++ {
+		t1.Square(t1)
+	}
+
+	// Step 29: t0 = x^0xa95555
+	t0.Mul(t0, t1)
+
+	// Step 36: t0 = x^0x54aaaa80
+	for s := 0; s < 7; s++ {
+		t0.Square(t0)
+	}
+
+	// Step 37: z = x^0x54aaaaab
+	z.Mul(z, t0)
+
+	return z
+}

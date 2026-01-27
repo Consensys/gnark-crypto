@@ -190,6 +190,15 @@ func Benchmark{{toTitle .ElementName}}Sqrt(b *testing.B) {
 	}
 }
 
+func Benchmark{{toTitle .ElementName}}Cbrt(b *testing.B) {
+	var a {{.ElementName}}
+	a.SetUint64(8)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchRes{{.ElementName}}.Cbrt(&a)
+	}
+}
+
 func Benchmark{{toTitle .ElementName}}Mul(b *testing.B) {
 	x := {{.ElementName}}{
 		{{- range $i := .RSquare}}
@@ -749,6 +758,7 @@ func Test{{toTitle .ElementName}}LexicographicallyLargest(t *testing.T) {
 {{template "testUnaryOp" dict "all" . "Op" "Square" }}
 {{template "testUnaryOp" dict "all" . "Op" "Inverse"}}
 {{template "testUnaryOp" dict "all" . "Op" "Sqrt"}}
+{{template "testUnaryOp" dict "all" . "Op" "Cbrt"}}
 {{template "testUnaryOp" dict "all" . "Op" "Double"}}
 {{template "testUnaryOp" dict "all" . "Op" "Neg" }}
 
@@ -959,7 +969,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 
 	properties.Property("{{.Op}}: having the receiver as operand should output the same result", prop.ForAll(
 		func(a testPair{{.all.ElementName}}) bool {
-			{{if eq .Op "Sqrt"}}
+			{{if or (eq .Op "Sqrt") (eq .Op "Cbrt")}}
 			b := a.element
 			{{else}}
 			var b {{.all.ElementName}}
@@ -973,9 +983,22 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 
 	properties.Property("{{.Op}}: operation result must match big.Int result", prop.ForAll(
 		func(a testPair{{.all.ElementName}}) bool {
+			{{- if eq .Op "Cbrt"}}
+			// verify that c^3 == a (since there's no big.Int.ModCbrt)
+			// Cbrt returns nil if the element is not a cubic residue
+			var c {{.all.ElementName}}
+			result := c.{{.Op}}(&a.element)
+			if result == nil {
+				// a is not a cubic residue, this is valid
+				return true
+			}
+			var cube, e big.Int
+			c.BigInt(&e)
+			cube.Exp(&e, big.NewInt(3), Modulus())
+			return cube.Cmp(&a.bigint) == 0
+			{{- else}}
 			var c {{.all.ElementName}}
 			c.{{.Op}}(&a.element)
-
 			var d, e big.Int
 			{{- if eq .Op "Square"}}
 				d.Mul(&a.bigint, &a.bigint).Mod(&d, Modulus())
@@ -988,9 +1011,8 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 			{{- else if eq .Op "Neg"}}
 				d.Neg(&a.bigint).Mod(&d, Modulus())
 			{{- end }}
-
-
 			return c.BigInt(&e).Cmp(&d) == 0
+			{{- end }}
 		},
 		genA,
 	))
@@ -1028,8 +1050,22 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 			var aBig big.Int
 			a.BigInt(&aBig)
 			var c {{.all.ElementName}}
+			{{- if eq .Op "Cbrt"}}
+			// verify that c^3 == a (since there's no big.Int.ModCbrt)
+			// Cbrt returns nil if the element is not a cubic residue
+			result := c.{{.Op}}(&a)
+			if result == nil {
+				// a is not a cubic residue, this is valid, continue
+				continue
+			}
+			var cube, e big.Int
+			c.BigInt(&e)
+			cube.Exp(&e, big.NewInt(3), Modulus())
+			if cube.Cmp(&aBig) != 0 {
+				t.Fatal("Cbrt failed for special value")
+			}
+			{{- else}}
 			c.{{.Op}}(&a)
-
 			var  d, e big.Int
 			{{- if eq .Op "Square"}}
 				d.Mul(&aBig, &aBig).Mod(&d, Modulus())
@@ -1056,6 +1092,7 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 			if c.BigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("{{.Op}} failed special test values")
 			}
+			{{- end}}
 		}
 	}
 
@@ -1123,6 +1160,103 @@ func Test{{toTitle .ElementName}}FixedExp(t *testing.T) {
 		},
 		genA,
 	))
+{{- end}}
+
+{{- if .CbrtQ2Mod3}}
+	var _bCbrtExponent{{.ElementName}} *big.Int
+	_bCbrtExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.CbrtQ2Mod3Exponent}}", 16)
+
+	properties.Property("ExpByCbrt2q1o3 must match Exp({{.CbrtQ2Mod3Exponent}})", prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			c := a.element
+			d := a.element
+			c.ExpByCbrt2q1o3(c)
+			d.Exp(d, _bCbrtExponent{{.ElementName}})
+			return c.Equal(&d)
+		},
+		genA,
+	))
+{{- else if .CbrtQ1Mod3}}
+	var _bCbrtExponent{{.ElementName}} *big.Int
+	{{- if .CbrtQ7Mod9}}
+	_bCbrtExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.CbrtQPlus2Div9}}", 16)
+
+	properties.Property("ExpByCbrtQPlus2Div9 must match Exp", prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			c := a.element
+			d := a.element
+			c.ExpByCbrtQPlus2Div9(c)
+			d.Exp(d, _bCbrtExponent{{.ElementName}})
+			return c.Equal(&d)
+		},
+		genA,
+	))
+	{{- else if .CbrtQ4Mod9}}
+	_bCbrtExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.Cbrt2QPlus1Div9}}", 16)
+
+	properties.Property("ExpByCbrt2QPlus1Div9 must match Exp", prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			c := a.element
+			d := a.element
+			c.ExpByCbrt2QPlus1Div9(c)
+			d.Exp(d, _bCbrtExponent{{.ElementName}})
+			return c.Equal(&d)
+		},
+		genA,
+	))
+	{{- else if .CbrtQ10Mod27}}
+	_bCbrtExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.Cbrt2QPlus7Div27}}", 16)
+
+	properties.Property("ExpByCbrt2QPlus7Div27 must match Exp", prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			c := a.element
+			d := a.element
+			c.ExpByCbrt2QPlus7Div27(c)
+			d.Exp(d, _bCbrtExponent{{.ElementName}})
+			return c.Equal(&d)
+		},
+		genA,
+	))
+	{{- else if .CbrtQ19Mod27}}
+	_bCbrtExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.CbrtQPlus8Div27}}", 16)
+
+	properties.Property("ExpByCbrtQPlus8Div27 must match Exp", prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			c := a.element
+			d := a.element
+			c.ExpByCbrtQPlus8Div27(c)
+			d.Exp(d, _bCbrtExponent{{.ElementName}})
+			return c.Equal(&d)
+		},
+		genA,
+	))
+	{{- else if ne .CbrtSPlus1Div3 ""}}
+	_bCbrtExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.CbrtSPlus1Div3}}", 16)
+
+	properties.Property("ExpByCbrts1o3 must match Exp", prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			c := a.element
+			d := a.element
+			c.ExpByCbrts1o3(c)
+			d.Exp(d, _bCbrtExponent{{.ElementName}})
+			return c.Equal(&d)
+		},
+		genA,
+	))
+	{{- else}}
+	_bCbrtExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.CbrtSMinus1Div3}}", 16)
+
+	properties.Property("ExpByCbrts1o3 must match Exp", prop.ForAll(
+		func(a testPair{{.ElementName}}) bool {
+			c := a.element
+			d := a.element
+			c.ExpByCbrts1o3(c)
+			d.Exp(d, _bCbrtExponent{{.ElementName}})
+			return c.Equal(&d)
+		},
+		genA,
+	))
+	{{- end}}
 {{- end}}
 
 

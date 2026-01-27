@@ -88,3 +88,127 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 
 	return z
 }
+
+// ExpByCbrt2QPlus1Div9 is equivalent to z.Exp(x, 38e38e38aaaaaaab).
+// It raises x to the (2q+1)/9 power using a shorter addition chain.
+// This is used when q ≡ 4 (mod 9) for efficient cube root computation.
+//
+// uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
+func (z *Element) ExpByCbrt2QPlus1Div9(x Element) *Element {
+	// addition chain:
+	//
+	//	_10    = 2*1
+	//	_100   = 2*_10
+	//	_101   = 1 + _100
+	//	_1001  = _100 + _101
+	//	_1110  = _101 + _1001
+	//	i11    = _1110 << 5 + 1
+	//	i12    = _1001 + i11
+	//	i13    = i11 + i12
+	//	i16    = 2*(i12 + i13) + 1
+	//	i17    = i13 + i16
+	//	i18    = _100 + i17
+	//	i19    = i17 + i18
+	//	i22    = 2*(i18 + i19) + 1
+	//	i23    = i19 + i22
+	//	i60    = ((_10 + i23) << 18 + i23) << 16 + i22
+	//	return   i60 << 13 + i16
+	//
+	// Operations: 56 squares 18 multiplies
+
+	// Allocate Temporaries.
+	var (
+		t0 = new(Element)
+		t1 = new(Element)
+		t2 = new(Element)
+	)
+
+	// var t0,t1,t2 Element
+	// Step 1: t2 = x^0x2
+	t2.Square(&x)
+
+	// Step 2: t0 = x^0x4
+	t0.Square(t2)
+
+	// Step 3: t1 = x^0x5
+	t1.Mul(&x, t0)
+
+	// Step 4: z = x^0x9
+	z.Mul(t0, t1)
+
+	// Step 5: t1 = x^0xe
+	t1.Mul(t1, z)
+
+	// Step 10: t1 = x^0x1c0
+	for s := 0; s < 5; s++ {
+		t1.Square(t1)
+	}
+
+	// Step 11: t1 = x^0x1c1
+	t1.Mul(&x, t1)
+
+	// Step 12: z = x^0x1ca
+	z.Mul(z, t1)
+
+	// Step 13: t1 = x^0x38b
+	t1.Mul(t1, z)
+
+	// Step 14: z = x^0x555
+	z.Mul(z, t1)
+
+	// Step 15: z = x^0xaaa
+	z.Square(z)
+
+	// Step 16: z = x^0xaab
+	z.Mul(&x, z)
+
+	// Step 17: t1 = x^0xe36
+	t1.Mul(t1, z)
+
+	// Step 18: t0 = x^0xe3a
+	t0.Mul(t0, t1)
+
+	// Step 19: t1 = x^0x1c70
+	t1.Mul(t1, t0)
+
+	// Step 20: t0 = x^0x2aaa
+	t0.Mul(t0, t1)
+
+	// Step 21: t0 = x^0x5554
+	t0.Square(t0)
+
+	// Step 22: t0 = x^0x5555
+	t0.Mul(&x, t0)
+
+	// Step 23: t1 = x^0x71c5
+	t1.Mul(t1, t0)
+
+	// Step 24: t2 = x^0x71c7
+	t2.Mul(t2, t1)
+
+	// Step 42: t2 = x^0x1c71c0000
+	for s := 0; s < 18; s++ {
+		t2.Square(t2)
+	}
+
+	// Step 43: t1 = x^0x1c71c71c5
+	t1.Mul(t1, t2)
+
+	// Step 59: t1 = x^0x1c71c71c50000
+	for s := 0; s < 16; s++ {
+		t1.Square(t1)
+	}
+
+	// Step 60: t0 = x^0x1c71c71c55555
+	t0.Mul(t0, t1)
+
+	// Step 73: t0 = x^0x38e38e38aaaaa000
+	for s := 0; s < 13; s++ {
+		t0.Square(t0)
+	}
+
+	// Step 74: z = x^0x38e38e38aaaaaaab
+	z.Mul(z, t0)
+
+	return z
+}

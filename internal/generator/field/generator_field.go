@@ -25,6 +25,7 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 		"element/mulcios.go.tmpl",
 		"element/mulnocarry.go.tmpl",
 		"element/sqrt.go.tmpl",
+		"element/cbrt.go.tmpl",
 		"element/inverse.go.tmpl",
 		"element/bignum.go.tmpl",
 	}

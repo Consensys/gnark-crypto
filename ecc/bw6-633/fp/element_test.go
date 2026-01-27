@@ -192,6 +192,15 @@ func BenchmarkElementSqrt(b *testing.B) {
 	}
 }
 
+func BenchmarkElementCbrt(b *testing.B) {
+	var a Element
+	a.SetUint64(8)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchResElement.Cbrt(&a)
+	}
+}
+
 func BenchmarkElementMul(b *testing.B) {
 	x := Element{
 		7358459907925294924,
@@ -1334,10 +1343,8 @@ func TestElementSquare(t *testing.T) {
 		func(a testPairElement) bool {
 			var c Element
 			c.Square(&a.element)
-
 			var d, e big.Int
 			d.Mul(&a.bigint, &a.bigint).Mod(&d, Modulus())
-
 			return c.BigInt(&e).Cmp(&d) == 0
 		},
 		genA,
@@ -1363,7 +1370,6 @@ func TestElementSquare(t *testing.T) {
 			a.BigInt(&aBig)
 			var c Element
 			c.Square(&a)
-
 			var d, e big.Int
 			d.Mul(&aBig, &aBig).Mod(&d, Modulus())
 
@@ -1407,10 +1413,8 @@ func TestElementInverse(t *testing.T) {
 		func(a testPairElement) bool {
 			var c Element
 			c.Inverse(&a.element)
-
 			var d, e big.Int
 			d.ModInverse(&a.bigint, Modulus())
-
 			return c.BigInt(&e).Cmp(&d) == 0
 		},
 		genA,
@@ -1436,7 +1440,6 @@ func TestElementInverse(t *testing.T) {
 			a.BigInt(&aBig)
 			var c Element
 			c.Inverse(&a)
-
 			var d, e big.Int
 			d.ModInverse(&aBig, Modulus())
 
@@ -1480,10 +1483,8 @@ func TestElementSqrt(t *testing.T) {
 		func(a testPairElement) bool {
 			var c Element
 			c.Sqrt(&a.element)
-
 			var d, e big.Int
 			d.ModSqrt(&a.bigint, Modulus())
-
 			return c.BigInt(&e).Cmp(&d) == 0
 		},
 		genA,
@@ -1509,12 +1510,94 @@ func TestElementSqrt(t *testing.T) {
 			a.BigInt(&aBig)
 			var c Element
 			c.Sqrt(&a)
-
 			var d, e big.Int
 			d.ModSqrt(&aBig, Modulus())
 
 			if c.BigInt(&e).Cmp(&d) != 0 {
 				t.Fatal("Sqrt failed special test values")
+			}
+		}
+	}
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	specialValueTest()
+
+}
+
+func TestElementCbrt(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("Cbrt: having the receiver as operand should output the same result", prop.ForAll(
+		func(a testPairElement) bool {
+
+			b := a.element
+
+			b.Cbrt(&a.element)
+			a.element.Cbrt(&a.element)
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("Cbrt: operation result must match big.Int result", prop.ForAll(
+		func(a testPairElement) bool {
+			// verify that c^3 == a (since there's no big.Int.ModCbrt)
+			// Cbrt returns nil if the element is not a cubic residue
+			var c Element
+			result := c.Cbrt(&a.element)
+			if result == nil {
+				// a is not a cubic residue, this is valid
+				return true
+			}
+			var cube, e big.Int
+			c.BigInt(&e)
+			cube.Exp(&e, big.NewInt(3), Modulus())
+			return cube.Cmp(&a.bigint) == 0
+		},
+		genA,
+	))
+
+	properties.Property("Cbrt: operation result must be smaller than modulus", prop.ForAll(
+		func(a testPairElement) bool {
+			var c Element
+			c.Cbrt(&a.element)
+			return c.smallerThanModulus()
+		},
+		genA,
+	))
+
+	specialValueTest := func() {
+		// test special values
+		testValues := make([]Element, len(staticTestValues))
+		copy(testValues, staticTestValues)
+
+		for i := range testValues {
+			a := testValues[i]
+			var aBig big.Int
+			a.BigInt(&aBig)
+			var c Element
+			// verify that c^3 == a (since there's no big.Int.ModCbrt)
+			// Cbrt returns nil if the element is not a cubic residue
+			result := c.Cbrt(&a)
+			if result == nil {
+				// a is not a cubic residue, this is valid, continue
+				continue
+			}
+			var cube, e big.Int
+			c.BigInt(&e)
+			cube.Exp(&e, big.NewInt(3), Modulus())
+			if cube.Cmp(&aBig) != 0 {
+				t.Fatal("Cbrt failed for special value")
 			}
 		}
 	}
@@ -1553,10 +1636,8 @@ func TestElementDouble(t *testing.T) {
 		func(a testPairElement) bool {
 			var c Element
 			c.Double(&a.element)
-
 			var d, e big.Int
 			d.Lsh(&a.bigint, 1).Mod(&d, Modulus())
-
 			return c.BigInt(&e).Cmp(&d) == 0
 		},
 		genA,
@@ -1582,7 +1663,6 @@ func TestElementDouble(t *testing.T) {
 			a.BigInt(&aBig)
 			var c Element
 			c.Double(&a)
-
 			var d, e big.Int
 			d.Lsh(&aBig, 1).Mod(&d, Modulus())
 
@@ -1626,10 +1706,8 @@ func TestElementNeg(t *testing.T) {
 		func(a testPairElement) bool {
 			var c Element
 			c.Neg(&a.element)
-
 			var d, e big.Int
 			d.Neg(&a.bigint).Mod(&d, Modulus())
-
 			return c.BigInt(&e).Cmp(&d) == 0
 		},
 		genA,
@@ -1655,7 +1733,6 @@ func TestElementNeg(t *testing.T) {
 			a.BigInt(&aBig)
 			var c Element
 			c.Neg(&a)
-
 			var d, e big.Int
 			d.Neg(&aBig).Mod(&d, Modulus())
 
@@ -1694,6 +1771,19 @@ func TestElementFixedExp(t *testing.T) {
 			d := a.element
 			c.ExpBySqrtPm5o8(c)
 			d.Exp(d, _bSqrtExponentElement)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+	var _bCbrtExponentElement *big.Int
+	_bCbrtExponentElement, _ = new(big.Int).SetString("416b62d58b6a87ff223e118ea197b69754a1f36a1b12652ddafde985b7f798c767b347543179e74585ea86c7fda9d771589011fbf140e54c614a5428f06408467de9bd2048e19bbe103dfb2be00003", 16)
+
+	properties.Property("ExpByCbrt2QPlus1Div9 must match Exp", prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.ExpByCbrt2QPlus1Div9(c)
+			d.Exp(d, _bCbrtExponentElement)
 			return c.Equal(&d)
 		},
 		genA,

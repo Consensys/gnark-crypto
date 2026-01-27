@@ -1363,6 +1363,83 @@ func (z *Element) Sqrt(x *Element) *Element {
 	}
 }
 
+// Cbrt z = ∛x (mod q)
+// if the cube root doesn't exist (x is not a cube mod q)
+// Cbrt leaves z unchanged and returns nil
+func (z *Element) Cbrt(x *Element) *Element {
+	// q ≡ 1 (mod 3)
+	// Reference: "Cube root extraction in finite fields" by Sze
+	// https://eprint.iacr.org/2011/103.pdf
+	//
+	// We write q-1 = 3^e * s where gcd(s,3) = 1
+	// Let g be a non-cubic residue, and γ = g^s (a primitive 3^e-th root of unity)
+	// ============================================================
+	// q ≡ 10 (mod 27): cbrt(x) = x^((2q+7)/27) * ζ^k
+	// Single exponentiation + single adjustment.
+	// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
+	// ============================================================
+
+	var y Element
+	y.ExpByCbrt2QPlus7Div27(*x)
+
+	// c = y³
+	var c Element
+	c.Square(&y).Mul(&c, &y)
+	if c.IsZero() {
+		return z.SetZero()
+	}
+
+	// Check if y is already the cube root
+	if c.Equal(x) {
+		return z.Set(&y)
+	}
+
+	// ζ = g^s is a primitive 9th root of unity (e = 2)
+	var zeta = Element{
+		4543660686880046760,
+		17661341981679117359,
+		11219684306205860554,
+		279801939222793999,
+	}
+
+	// ω = ζ³ is a primitive 3rd root of unity
+	var omega Element
+	omega.Square(&zeta).Mul(&omega, &zeta) // ω = ζ³
+
+	// ω² = ζ⁶
+	var omega2 Element
+	omega2.Square(&omega)
+
+	// Check if c/x = ω (i.e., c * ω² = x)
+	var cw2 Element
+	cw2.Mul(&c, &omega2)
+	if cw2.Equal(x) {
+		// c = x * ω, so cbrt(x) = y * ζ²
+		var zeta2 Element
+		zeta2.Square(&zeta)
+		return z.Mul(&y, &zeta2)
+	}
+
+	// Check if c/x = ω² (i.e., c * ω = x)
+	var cw Element
+	cw.Mul(&c, &omega)
+	if cw.Equal(x) {
+		// c = x * ω², so cbrt(x) = y * ζ
+		return z.Mul(&y, &zeta)
+	}
+
+	// x is not a cubic residue
+	return nil
+}
+
+// Cube sets z to x^3 and returns z
+func (z *Element) Cube(x *Element) *Element {
+	var t Element
+	t.Square(x).Mul(&t, x)
+	z.Set(&t)
+	return z
+}
+
 const (
 	k               = 32 // word size / 2
 	signBitSelector = uint64(1) << 63

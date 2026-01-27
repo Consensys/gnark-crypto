@@ -1363,6 +1363,45 @@ func (z *Element) Sqrt(x *Element) *Element {
 	}
 }
 
+// Cbrt z = ∛x (mod q)
+// if the cube root doesn't exist (x is not a cube mod q)
+// Cbrt leaves z unchanged and returns nil
+func (z *Element) Cbrt(x *Element) *Element {
+	// q ≡ 1 (mod 3)
+	// Reference: "Cube root extraction in finite fields" by Sze
+	// https://eprint.iacr.org/2011/103.pdf
+	//
+	// We write q-1 = 3^e * s where gcd(s,3) = 1
+	// Let g be a non-cubic residue, and γ = g^s (a primitive 3^e-th root of unity)
+	// ============================================================
+	// q ≡ 7 (mod 9): cbrt(x) = x^((q+2)/9)
+	// Single exponentiation, no adjustment needed.
+	// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
+	// ============================================================
+
+	var y Element
+	y.ExpByCbrtQPlus2Div9(*x)
+
+	// Verify y³ = x (checks both that x is a cubic residue and y is correct)
+	var check Element
+	check.Square(&y).Mul(&check, &y)
+	if check.IsZero() {
+		return z.SetZero()
+	}
+	if !check.Equal(x) {
+		return nil
+	}
+	return z.Set(&y)
+}
+
+// Cube sets z to x^3 and returns z
+func (z *Element) Cube(x *Element) *Element {
+	var t Element
+	t.Square(x).Mul(&t, x)
+	z.Set(&t)
+	return z
+}
+
 const (
 	k               = 32 // word size / 2
 	signBitSelector = uint64(1) << 63

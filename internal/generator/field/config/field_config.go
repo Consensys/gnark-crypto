@@ -65,6 +65,32 @@ type Field struct {
 	SqrtQ3Mod4ExponentData2    *addchain.AddChainData
 	UseAddChain                bool
 
+	// Cbrt pre computes
+	CbrtQ2Mod3             bool     // q ≡ 2 (mod 3)
+	CbrtQ1Mod3             bool     // q ≡ 1 (mod 3), need special handling
+	CbrtQ7Mod9             bool     // q ≡ 7 (mod 9), use (q+2)/9 exponent
+	CbrtQ4Mod9             bool     // q ≡ 4 (mod 9), use (2q+1)/9 exponent
+	CbrtQ10Mod27           bool     // q ≡ 10 (mod 27), use (2q+7)/27 exponent + adjustment
+	CbrtQ19Mod27           bool     // q ≡ 19 (mod 27), use (q+8)/27 exponent + adjustment
+	CbrtE                  uint64   // such that q-1 = 3^CbrtE * CbrtS, with CbrtS not divisible by 3
+	CbrtS                  []uint64 // CbrtS
+	CbrtQ2Mod3Exponent     string   // (2q-1)/3 for q ≡ 2 (mod 3)
+	CbrtQPlus2Div9         string   // (q+2)/9 for q ≡ 7 (mod 9)
+	Cbrt2QPlus1Div9        string   // (2q+1)/9 for q ≡ 4 (mod 9)
+	Cbrt2QPlus7Div27       string   // (2q+7)/27 for q ≡ 10 (mod 27)
+	CbrtQPlus8Div27        string   // (q+8)/27 for q ≡ 19 (mod 27)
+	CbrtSPlus1Div3         string   // (CbrtS+1)/3 for q ≡ 1 (mod 3) with CbrtS ≡ 2 (mod 3)
+	CbrtSMinus1Div3        string   // (CbrtS-1)/3 for q ≡ 1 (mod 3) with CbrtS ≡ 1 (mod 3)
+	CbrtG                  []uint64 // NonCubicResidue ^ CbrtS (montgomery form) -- primitive 3^CbrtE root of unity
+	NonCubicResidue        big.Int  // (montgomery form)
+	CbrtQ2Mod3ExponentData *addchain.AddChainData
+	CbrtQPlus2Div9Data     *addchain.AddChainData
+	Cbrt2QPlus1Div9Data    *addchain.AddChainData
+	Cbrt2QPlus7Div27Data   *addchain.AddChainData
+	CbrtQPlus8Div27Data    *addchain.AddChainData
+	CbrtSPlus1Div3Data     *addchain.AddChainData
+	CbrtSMinus1Div3Data    *addchain.AddChainData
+
 	Word Word // 32 iff Q < 2^32, else 64
 	F31  bool // 31 bits field
 
@@ -299,6 +325,153 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 
 			if F.UseAddChain {
 				F.SqrtSMinusOneOver2Data = addchain.GetAddChain(&s)
+			}
+		}
+	}
+
+	// Cbrt pre computes
+	// Check if q ≡ 1 (mod 3) or q ≡ 2 (mod 3)
+	var qMod3 big.Int
+	qMod3.SetUint64(3)
+	qMod3.Mod(&bModulus, &qMod3)
+
+	if qMod3.Cmp(new(big.Int).SetUint64(2)) == 0 {
+		// q ≡ 2 (mod 3)
+		// using z = x^((2q-1)/3) (mod q)
+		F.CbrtQ2Mod3 = true
+		var cbrtExponent big.Int
+		cbrtExponent.Mul(&bModulus, big.NewInt(2))
+		cbrtExponent.Sub(&cbrtExponent, big.NewInt(1))
+		cbrtExponent.Div(&cbrtExponent, big.NewInt(3))
+		F.CbrtQ2Mod3Exponent = cbrtExponent.Text(16)
+		if F.UseAddChain {
+			F.CbrtQ2Mod3ExponentData = addchain.GetAddChain(&cbrtExponent)
+		}
+	} else {
+		// q ≡ 1 (mod 3)
+		// use Tonelli-Shanks variant for cube roots
+		F.CbrtQ1Mod3 = true
+
+		// Write q-1 = 3^e * s, where s is not divisible by 3
+		var s big.Int
+		one.SetUint64(1)
+		s.Sub(&bModulus, &one)
+
+		// Count the power of 3 in q-1
+		three := big.NewInt(3)
+		nine := big.NewInt(9)
+		e := uint64(0)
+		var remainder big.Int
+		for {
+			remainder.Mod(&s, three)
+			if remainder.Sign() != 0 {
+				break
+			}
+			s.Div(&s, three)
+			e++
+		}
+		F.CbrtE = e
+		F.CbrtS = toUint64Slice(&s)
+
+		// Check q mod 9 and q mod 27 for optimized exponentiation
+		// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
+		var qMod9, qMod27 big.Int
+		qMod9.Mod(&bModulus, nine)
+		twentySeven := big.NewInt(27)
+		qMod27.Mod(&bModulus, twentySeven)
+
+		if e == 1 && qMod9.Cmp(big.NewInt(7)) == 0 {
+			// q ≡ 7 (mod 9): use cbrt(x) = x^((q+2)/9)
+			F.CbrtQ7Mod9 = true
+			var exp big.Int
+			exp.Add(&bModulus, big.NewInt(2))
+			exp.Div(&exp, nine)
+			F.CbrtQPlus2Div9 = exp.Text(16)
+			if F.UseAddChain {
+				F.CbrtQPlus2Div9Data = addchain.GetAddChain(&exp)
+			}
+		} else if e == 1 && qMod9.Cmp(big.NewInt(4)) == 0 {
+			// q ≡ 4 (mod 9): use cbrt(x) = x^((2q+1)/9)
+			F.CbrtQ4Mod9 = true
+			var exp big.Int
+			exp.Mul(&bModulus, big.NewInt(2))
+			exp.Add(&exp, big.NewInt(1))
+			exp.Div(&exp, nine)
+			F.Cbrt2QPlus1Div9 = exp.Text(16)
+			if F.UseAddChain {
+				F.Cbrt2QPlus1Div9Data = addchain.GetAddChain(&exp)
+			}
+		} else if e == 2 && qMod27.Cmp(big.NewInt(10)) == 0 {
+			// q ≡ 10 (mod 27): use cbrt(x) = x^((2q+7)/27) * ζ^k
+			// where ζ is a primitive 9th root of unity and k ∈ {0, 1, 2}
+			F.CbrtQ10Mod27 = true
+			var exp big.Int
+			exp.Mul(&bModulus, big.NewInt(2))
+			exp.Add(&exp, big.NewInt(7))
+			exp.Div(&exp, twentySeven)
+			F.Cbrt2QPlus7Div27 = exp.Text(16)
+			if F.UseAddChain {
+				F.Cbrt2QPlus7Div27Data = addchain.GetAddChain(&exp)
+			}
+		} else if e == 2 && qMod27.Cmp(big.NewInt(19)) == 0 {
+			// q ≡ 19 (mod 27): use cbrt(x) = x^((q+8)/27) * ζ^k
+			// where ζ is a primitive 9th root of unity and k ∈ {0, 1, 2}
+			F.CbrtQ19Mod27 = true
+			var exp big.Int
+			exp.Add(&bModulus, big.NewInt(8))
+			exp.Div(&exp, twentySeven)
+			F.CbrtQPlus8Div27 = exp.Text(16)
+			if F.UseAddChain {
+				F.CbrtQPlus8Div27Data = addchain.GetAddChain(&exp)
+			}
+		}
+
+		// find non-cubic residue (element g such that g^((q-1)/3) ≠ 1)
+		// Only needed for e >= 2 (Tonelli-Shanks adjustment)
+		var nonCubicResidue, qMinus1Over3, test big.Int
+		qMinus1Over3.Sub(&bModulus, big.NewInt(1))
+		qMinus1Over3.Div(&qMinus1Over3, three)
+		nonCubicResidue.SetInt64(2)
+		for {
+			test.Exp(&nonCubicResidue, &qMinus1Over3, &bModulus)
+			if test.Cmp(big.NewInt(1)) != 0 {
+				break
+			}
+			nonCubicResidue.Add(&nonCubicResidue, big.NewInt(1))
+		}
+
+		// g = nonCubicResidue ^ s (primitive 3^e root of unity)
+		var g big.Int
+		g.Exp(&nonCubicResidue, &s, &bModulus)
+		// store g in montgomery form
+		g.Lsh(&g, uint(F.NbWords)*radix).Mod(&g, &bModulus)
+		F.CbrtG = toUint64Slice(&g, F.NbWords)
+
+		// store non-cubic residue in montgomery form
+		F.NonCubicResidue = F.ToMont(nonCubicResidue)
+
+		// Compute exponent based on s mod 3 (for e >= 2 cases)
+		// If s ≡ 1 (mod 3): use (s-1)/3
+		// If s ≡ 2 (mod 3): use (s+1)/3
+		var sMod3 big.Int
+		sMod3.Mod(&s, three)
+		if sMod3.Cmp(big.NewInt(1)) == 0 {
+			// s ≡ 1 (mod 3)
+			var exp big.Int
+			exp.Sub(&s, big.NewInt(1))
+			exp.Div(&exp, three)
+			F.CbrtSMinus1Div3 = exp.Text(16)
+			if F.UseAddChain {
+				F.CbrtSMinus1Div3Data = addchain.GetAddChain(&exp)
+			}
+		} else {
+			// s ≡ 2 (mod 3)
+			var exp big.Int
+			exp.Add(&s, big.NewInt(1))
+			exp.Div(&exp, three)
+			F.CbrtSPlus1Div3 = exp.Text(16)
+			if F.UseAddChain {
+				F.CbrtSPlus1Div3Data = addchain.GetAddChain(&exp)
 			}
 		}
 	}

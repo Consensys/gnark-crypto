@@ -1363,6 +1363,25 @@ func (z *Element) Sqrt(x *Element) *Element {
 	}
 }
 
+// Cbrt z = ∛x (mod q)
+// if the cube root doesn't exist (x is not a cube mod q)
+// Cbrt leaves z unchanged and returns nil
+func (z *Element) Cbrt(x *Element) *Element {
+	// q ≡ 2 (mod 3)
+	// using z = x^((2q-1)/3) (mod q)
+	z.ExpByCbrt2q1o3(*x)
+	// as we use x^((2q-1)/3), there is no check to do: every element has a unique cube root
+	return z
+}
+
+// Cube sets z to x^3 and returns z
+func (z *Element) Cube(x *Element) *Element {
+	var t Element
+	t.Square(x).Mul(&t, x)
+	z.Set(&t)
+	return z
+}
+
 const (
 	k               = 32 // word size / 2
 	signBitSelector = uint64(1) << 63
