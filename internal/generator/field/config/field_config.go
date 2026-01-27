@@ -81,7 +81,10 @@ type Field struct {
 	CbrtQPlus8Div27        string   // (q+8)/27 for q ≡ 19 (mod 27)
 	CbrtSPlus1Div3         string   // (CbrtS+1)/3 for q ≡ 1 (mod 3) with CbrtS ≡ 2 (mod 3)
 	CbrtSMinus1Div3        string   // (CbrtS-1)/3 for q ≡ 1 (mod 3) with CbrtS ≡ 1 (mod 3)
-	CbrtG                  []uint64 // NonCubicResidue ^ CbrtS (montgomery form) -- primitive 3^CbrtE root of unity
+	CbrtG                  []uint64 // NonCubicResidue ^ CbrtS (montgomery form) -- primitive 3^CbrtE root of unity (ζ)
+	CbrtG2                 []uint64 // CbrtG squared (montgomery form) -- ζ² for adjustment
+	ThirdRootOne           []uint64 // CbrtG cubed (montgomery form) -- primitive 3rd root of unity (ω = ζ³)
+	ThirdRootOneSquare     []uint64 // ThirdRootOne squared (montgomery form) -- ω² = ζ⁶
 	NonCubicResidue        big.Int  // (montgomery form)
 	CbrtQ2Mod3ExponentData *addchain.AddChainData
 	CbrtQPlus2Div9Data     *addchain.AddChainData
@@ -440,12 +443,41 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 			nonCubicResidue.Add(&nonCubicResidue, big.NewInt(1))
 		}
 
-		// g = nonCubicResidue ^ s (primitive 3^e root of unity)
+		// g = nonCubicResidue ^ s (primitive 3^e root of unity, ζ)
 		var g big.Int
 		g.Exp(&nonCubicResidue, &s, &bModulus)
-		// store g in montgomery form
+
+		// Precompute related constants (compute in standard form first, then convert to montgomery):
+		// ζ² = g² (for adjustment y * ζ²)
+		var g2 big.Int
+		g2.Mul(&g, &g).Mod(&g2, &bModulus)
+
+		// ζ³ = g³
+		var g3 big.Int
+		g3.Mul(&g2, &g).Mod(&g3, &bModulus)
+
+		// ζ⁶ = (ζ³)²
+		var g6 big.Int
+		g6.Mul(&g3, &g3).Mod(&g6, &bModulus)
+
+		// ω = ζ⁶ = primitive 3rd root of unity (matches thirdRootOneG1 convention)
+		// ω² = ζ³ (matches thirdRootOneG2 = thirdRootOneG1²)
+		// Note: ζ⁶ and ζ³ are the two primitive 3rd roots of unity (since ζ⁹ = 1)
+
+		// Convert all to montgomery form and store
 		g.Lsh(&g, uint(F.NbWords)*radix).Mod(&g, &bModulus)
 		F.CbrtG = toUint64Slice(&g, F.NbWords)
+
+		g2.Lsh(&g2, uint(F.NbWords)*radix).Mod(&g2, &bModulus)
+		F.CbrtG2 = toUint64Slice(&g2, F.NbWords)
+
+		// ThirdRootOne = ζ⁶ (matches thirdRootOneG1)
+		g6.Lsh(&g6, uint(F.NbWords)*radix).Mod(&g6, &bModulus)
+		F.ThirdRootOne = toUint64Slice(&g6, F.NbWords)
+
+		// ThirdRootOneSquare = ζ³ (matches thirdRootOneG2 = thirdRootOneG1²)
+		g3.Lsh(&g3, uint(F.NbWords)*radix).Mod(&g3, &bModulus)
+		F.ThirdRootOneSquare = toUint64Slice(&g3, F.NbWords)
 
 		// store non-cubic residue in montgomery form
 		F.NonCubicResidue = F.ToMont(nonCubicResidue)

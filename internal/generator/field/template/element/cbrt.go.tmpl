@@ -61,7 +61,7 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 
 		// Verify y³ = x (checks both that x is a cubic residue and y is correct)
 		var check {{.ElementName}}
-		check.Square(&y).Mul(&check, &y)
+		check.Cube(&y)
 		if check.IsZero() {
 			return z.SetZero()
 		}
@@ -86,7 +86,7 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 
 		// Verify y³ = x (checks both that x is a cubic residue and y is correct)
 		var check {{.ElementName}}
-		check.Square(&y).Mul(&check, &y)
+		check.Cube(&y)
 		if check.IsZero() {
 			return z.SetZero()
 		}
@@ -111,7 +111,7 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 
 		// c = y³
 		var c {{.ElementName}}
-		c.Square(&y).Mul(&c, &y)
+		c.Cube(&y)
 		if c.IsZero() {
 			return z.SetZero()
 		}
@@ -121,36 +121,43 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 			return z.Set(&y)
 		}
 
-		// ζ = g^s is a primitive 9th root of unity (e = 2)
+		// Precomputed constants:
+		// ζ = primitive 9th root of unity
+		// ζ² for adjustment
+		// ω = ζ³ = primitive 3rd root of unity
+		// ω² = ζ⁶
 		var zeta = {{.ElementName}}{
 			{{- range $i := .CbrtG}}
 			{{$i}},{{end}}
 		}
-
-		// ω = ζ³ is a primitive 3rd root of unity
-		var omega {{.ElementName}}
-		omega.Square(&zeta).Mul(&omega, &zeta) // ω = ζ³
-
-		// ω² = ζ⁶
-		var omega2 {{.ElementName}}
-		omega2.Square(&omega)
+		var zeta2 = {{.ElementName}}{
+			{{- range $i := .CbrtG2}}
+			{{$i}},{{end}}
+		}
+		var omega = {{.ElementName}}{
+			{{- range $i := .ThirdRootOne}}
+			{{$i}},{{end}}
+		}
+		var omega2 = {{.ElementName}}{
+			{{- range $i := .ThirdRootOneSquare}}
+			{{$i}},{{end}}
+		}
 
 		// Check if c/x = ω (i.e., c * ω² = x)
+		// With our convention: omega = ζ⁶, omega2 = ζ³
+		// If c * ζ³ = x, then c = x*ζ⁶, and (y*ζ)³ = y³*ζ³ = c*ζ³ = x ✓
 		var cw2 {{.ElementName}}
 		cw2.Mul(&c, &omega2)
 		if cw2.Equal(x) {
-			// c = x * ω, so cbrt(x) = y * ζ²
-			var zeta2 {{.ElementName}}
-			zeta2.Square(&zeta)
-			return z.Mul(&y, &zeta2)
+			return z.Mul(&y, &zeta)
 		}
 
 		// Check if c/x = ω² (i.e., c * ω = x)
+		// If c * ζ⁶ = x, then c = x*ζ³, and (y*ζ²)³ = y³*ζ⁶ = c*ζ⁶ = x ✓
 		var cw {{.ElementName}}
 		cw.Mul(&c, &omega)
 		if cw.Equal(x) {
-			// c = x * ω², so cbrt(x) = y * ζ
-			return z.Mul(&y, &zeta)
+			return z.Mul(&y, &zeta2)
 		}
 
 		// x is not a cubic residue
@@ -172,7 +179,7 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 
 		// c = y³
 		var c {{.ElementName}}
-		c.Square(&y).Mul(&c, &y)
+		c.Cube(&y)
 		if c.IsZero() {
 			return z.SetZero()
 		}
@@ -182,36 +189,43 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 			return z.Set(&y)
 		}
 
-		// ζ = g^s is a primitive 9th root of unity (e = 2)
+		// Precomputed constants:
+		// ζ = primitive 9th root of unity
+		// ζ² for adjustment
+		// ω = ζ³ = primitive 3rd root of unity
+		// ω² = ζ⁶
 		var zeta = {{.ElementName}}{
 			{{- range $i := .CbrtG}}
 			{{$i}},{{end}}
 		}
-
-		// ω = ζ³ is a primitive 3rd root of unity
-		var omega {{.ElementName}}
-		omega.Square(&zeta).Mul(&omega, &zeta) // ω = ζ³
-
-		// ω² = ζ⁶
-		var omega2 {{.ElementName}}
-		omega2.Square(&omega)
+		var zeta2 = {{.ElementName}}{
+			{{- range $i := .CbrtG2}}
+			{{$i}},{{end}}
+		}
+		var omega = {{.ElementName}}{
+			{{- range $i := .ThirdRootOne}}
+			{{$i}},{{end}}
+		}
+		var omega2 = {{.ElementName}}{
+			{{- range $i := .ThirdRootOneSquare}}
+			{{$i}},{{end}}
+		}
 
 		// Check if c/x = ω (i.e., c * ω² = x)
+		// With our convention: omega = ζ⁶, omega2 = ζ³
+		// If c * ζ³ = x, then c = x*ζ⁶, and (y*ζ)³ = y³*ζ³ = c*ζ³ = x ✓
 		var cw2 {{.ElementName}}
 		cw2.Mul(&c, &omega2)
 		if cw2.Equal(x) {
-			// c = x * ω, so cbrt(x) = y * ζ²
-			var zeta2 {{.ElementName}}
-			zeta2.Square(&zeta)
-			return z.Mul(&y, &zeta2)
+			return z.Mul(&y, &zeta)
 		}
 
 		// Check if c/x = ω² (i.e., c * ω = x)
+		// If c * ζ⁶ = x, then c = x*ζ³, and (y*ζ²)³ = y³*ζ⁶ = c*ζ⁶ = x ✓
 		var cw {{.ElementName}}
 		cw.Mul(&c, &omega)
 		if cw.Equal(x) {
-			// c = x * ω², so cbrt(x) = y * ζ
-			return z.Mul(&y, &zeta)
+			return z.Mul(&y, &zeta2)
 		}
 
 		// x is not a cubic residue
@@ -235,7 +249,7 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		{{- end }}
 
 		// t = x^s
-		c.Square(&y).Mul(&c, &y)   // c = y^3 = x^{s+1}
+		c.Cube(&y)   // c = y^3 = x^{s+1}
 		t.Inverse(x).Mul(&t, &c)   // t = x^s
 
 		{{- else}}
@@ -256,9 +270,20 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		t.Square(&xs)               // t = x^{2s}
 		{{- end}}
 
-		// γ = nonCubicResidue ^ s (a primitive 9th root of unity)
-		var g = {{.ElementName}}{
+		// Precomputed constants:
+		// ζ = primitive 9th root of unity
+		// ζ² for adjustment
+		// ω = ζ³ = primitive 3rd root of unity
+		var zeta = {{.ElementName}}{
 			{{- range $i := .CbrtG}}
+			{{$i}},{{end}}
+		}
+		var zeta2 = {{.ElementName}}{
+			{{- range $i := .CbrtG2}}
+			{{$i}},{{end}}
+		}
+		var omega = {{.ElementName}}{
+			{{- range $i := .ThirdRootOne}}
 			{{$i}},{{end}}
 		}
 
@@ -277,21 +302,18 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 			return z.Set(&y)
 		}
 
-		// t ≠ 1 but t^3 = 1, so t is a primitive 3rd root of unity (t = g^3 or t = g^6)
-		// We need to adjust y by multiplying with an appropriate power of g
-		// δ = g^3 is a primitive 3rd root of unity, c = g is its cube root
-		var delta {{.ElementName}}
-		delta.Cube(&g)  // δ = g^3
-
-		// Check if t * δ = 1 (i.e., t = δ^2 = g^6)
-		var tDelta {{.ElementName}}
-		tDelta.Mul(&t, &delta)
-		if tDelta.IsOne() {
-			// t = g^6, so we multiply y by g (cube root of δ)
-			return z.Mul(&y, &g)
+		// t ≠ 1 but t^3 = 1, so t is a primitive 3rd root of unity (t = ω or t = ω²)
+		// We need to adjust y by multiplying with an appropriate power of ζ
+		// With our convention: omega = ζ⁶, so:
+		// Check if t * ω = 1 (i.e., t = ω⁻¹ = ζ⁻⁶ = ζ³)
+		var tOmega {{.ElementName}}
+		tOmega.Mul(&t, &omega)
+		if tOmega.IsOne() {
+			// t = ζ³, so we multiply y by ζ² (since (ζ²)³ = ζ⁶ cancels with t³ = ζ⁹ = 1)
+			return z.Mul(&y, &zeta2)
 		}
-		// Otherwise t = δ = g^3, so we multiply y by g^2
-		return z.Mul(&y, &g).Mul(z, &g)
+		// Otherwise t = ζ⁶ = ω, so we multiply y by ζ
+		return z.Mul(&y, &zeta)
 
 		{{- else}}
 		// ============================================================
@@ -310,7 +332,7 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		{{- end }}
 
 		// t = y^3 * x^{-1} = x^{s+1} * x^{-1} = x^s
-		c.Square(&y).Mul(&c, &y) // c = y^3 = x^{s+1}
+		c.Cube(&y) // c = y^3 = x^{s+1}
 		t.Inverse(x).Mul(&t, &c) // t = x^s
 
 		{{- else}}
