@@ -228,27 +228,892 @@ func (z *E2) Sqrt(x *E2) *E2 {
 }
 
 // Cbrt sets z to the cube root of x and returns z
-// The function does not test whether the cube root
-// exists or not, it's up to the caller to verify.
+// if the cube root doesn't exist, Cbrt returns nil
+//
+// p² ≡ 4 (mod 9), single exponentiation, no adjustment needed.
+// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
 func (z *E2) Cbrt(x *E2) *E2 {
 	// If x is in Fp (i.e., x.A1 == 0), use Fp cube root directly
 	if x.A1.IsZero() {
-		z.A0.Cbrt(&x.A0)
+		if z.A0.Cbrt(&x.A0) == nil {
+			return nil
+		}
 		z.A1.SetZero()
 		return z
 	}
 
-	// General case for Fp²
-	// The multiplicative group of Fp² has order p² - 1
-	// For a cube root to be computed via exponentiation, we need (2(p²) - 1) / 3
-	// This works because: if x = y³, then y = x^((2(p²)-1)/3)
-	// since y^(p²-1) = 1 and 3 * ((2(p²)-1)/3) ≡ 1 (mod p²-1)
-	var exp big.Int
-	exp.Mul(fp.Modulus(), fp.Modulus()) // p²
-	exp.Mul(&exp, big.NewInt(2))        // 2p²
-	exp.Sub(&exp, big.NewInt(1))        // 2p² - 1
-	exp.Div(&exp, big.NewInt(3))        // (2p² - 1) / 3
-	z.Exp(*x, &exp)
+	var y, c E2
+	y.expByE2Cbrt(*x)
+
+	// Verify y³ = x
+	c.Square(&y).Mul(&c, &y)
+	if !c.Equal(x) {
+		return nil
+	}
+	return z.Set(&y)
+}
+
+// expByE2Cbrt is equivalent to z.Exp(x, a0ac6746271b5cf6caf0d2875dd4829ad3aa2498a59c3fdc192af14cf4bf1ea0057c62016ad86392de0411d082fb9dc97b4257efc987277279f04c87e65bdf10e2a07dc3f1e965f796ca7c063000199ad968355555559075aaaaaaaaaaab).
+// It uses an addition chain for efficient exponentiation in E2.
+//
+// uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
+func (z *E2) expByE2Cbrt(x E2) *E2 {
+	// addition chain:
+	//
+	//	_10      = 2*1
+	//	_11      = 1 + _10
+	//	_101     = _10 + _11
+	//	_111     = _10 + _101
+	//	_1001    = _10 + _111
+	//	_1011    = _10 + _1001
+	//	_1101    = _10 + _1011
+	//	_1111    = _10 + _1101
+	//	_10001   = _10 + _1111
+	//	_10011   = _10 + _10001
+	//	_10101   = _10 + _10011
+	//	_10111   = _10 + _10101
+	//	_11001   = _10 + _10111
+	//	_11011   = _10 + _11001
+	//	_11101   = _10 + _11011
+	//	_11111   = _10 + _11101
+	//	_111110  = 2*_11111
+	//	_111111  = 1 + _111110
+	//	_1010000 = _10001 + _111111
+	//	i37      = ((_1010000 << 6 + _10101) << 5 + _10001) << 5
+	//	i48      = ((_10011 + i37) << 3 + _101) << 5 + _11
+	//	i67      = ((i48 << 8 + _10011) << 5 + _10001) << 4
+	//	i82      = ((_1011 + i67) << 6 + _10111) << 6 + _1111
+	//	i100     = ((i82 << 6 + _11011) << 7 + _10101) << 3
+	//	i116     = ((_111 + i100) << 8 + _1101) << 5 + _101
+	//	i137     = ((i116 << 9 + _11101) << 6 + _11101) << 4
+	//	i153     = ((_1101 + i137) << 5 + _1001) << 8 + _101
+	//	i173     = ((i153 << 6 + _1101) << 5 + _1101) << 7
+	//	i187     = ((_11101 + i173) << 4 + _101) << 7 + _1001
+	//	i208     = ((i187 << 7 + _10011) << 6 + _101) << 6
+	//	i226     = ((_1011 + i208) << 5 + _111) << 10 + _111111
+	//	i244     = ((i226 << 2 + _11) << 4 + _111) << 10
+	//	i259     = ((_11001 + i244) << 7 + _10101) << 5 + _1111
+	//	i279     = ((i259 << 6 + _101) << 7 + _11001) << 5
+	//	i292     = ((_11101 + i279) << 3 + 1) << 7 + _111111
+	//	i320     = ((i292 << 7 + _1111) << 4 + _101) << 15
+	//	i332     = ((_10101 + i320) << 4 + _1111) << 5 + _11
+	//	i356     = ((i332 << 4 + 1) << 12 + _1011) << 6
+	//	i369     = ((_10101 + i356) << 4 + _1011) << 6 + _11
+	//	i389     = ((i369 << 6 + _111) << 6 + _1001) << 6
+	//	i401     = ((_11011 + i389) << 2 + _11) << 7 + 1
+	//	i422     = ((i401 << 10 + _10001) << 4 + _1101) << 5
+	//	i440     = ((1 + i422) << 10 + _10111) << 5 + _11011
+	//	i458     = ((i440 << 5 + _10011) << 5 + _10111) << 6
+	//	i471     = ((_1001 + i458) << 5 + _1111) << 5 + _1101
+	//	i490     = ((i471 << 8 + _1001) << 2 + 1) << 7
+	//	i507     = ((_111111 + i490) << 7 + _111111) << 7 + _10011
+	//	i528     = ((i507 << 7 + _111) << 7 + _10011) << 5
+	//	i543     = ((_10111 + i528) << 7 + _10011) << 5 + _11001
+	//	i562     = ((i543 << 4 + _1111) << 10 + _10011) << 3
+	//	i582     = ((1 + i562) << 10 + _111111) << 7 + _11001
+	//	i598     = ((i582 << 6 + _11011) << 5 + _11011) << 3
+	//	i612     = ((_111 + i598) << 4 + 1) << 7 + _111
+	//	i637     = ((i612 << 8 + _10101) << 11 + _11111) << 4
+	//	i657     = ((_111 + i637) << 10 + _111111) << 7 + _1111
+	//	i676     = ((i657 << 5 + _1001) << 6 + _11001) << 6
+	//	i690     = ((_11111 + i676) << 5 + _1111) << 6 + _1011
+	//	i707     = ((i690 << 6 + _11001) << 6 + _10011) << 3
+	//	i724     = ((_111 + i707) << 9 + _11) << 5 + _11
+	//	i756     = ((i724 << 20 + _11001) << 5 + _10011) << 5
+	//	i770     = ((_1011 + i756) << 6 + _11001) << 5 + _1101
+	//	i793     = ((i770 << 9 + _1101) << 6 + _10101) << 6
+	//	i808     = ((_10101 + i793) << 6 + _10101) << 6 + _10101
+	//	i831     = ((i808 << 6 + _11001) << 10 + _11101) << 5
+	//	i846     = ((_1101 + i831) << 6 + _10101) << 6 + _10101
+	//	i866     = ((i846 << 6 + _10101) << 6 + _10101) << 6
+	//	i881     = ((_10101 + i866) << 6 + _10101) << 6 + _10101
+	//	return     i881 << 3 + _11
+	//
+	// Operations: 747 squares 138 multiplies
+
+	// Allocate Temporaries.
+	var (
+		t0  = new(E2)
+		t1  = new(E2)
+		t2  = new(E2)
+		t3  = new(E2)
+		t4  = new(E2)
+		t5  = new(E2)
+		t6  = new(E2)
+		t7  = new(E2)
+		t8  = new(E2)
+		t9  = new(E2)
+		t10 = new(E2)
+		t11 = new(E2)
+		t12 = new(E2)
+		t13 = new(E2)
+		t14 = new(E2)
+		t15 = new(E2)
+	)
+
+	t8.Square(&x)
+
+	z.Mul(&x, t8)
+
+	t14.Mul(t8, z)
+
+	t6.Mul(t8, t14)
+
+	t9.Mul(t8, t6)
+
+	t4.Mul(t8, t9)
+
+	t1.Mul(t8, t4)
+
+	t7.Mul(t8, t1)
+
+	t13.Mul(t8, t7)
+
+	t5.Mul(t8, t13)
+
+	t0.Mul(t8, t5)
+
+	t12.Mul(t8, t0)
+
+	t3.Mul(t8, t12)
+
+	t11.Mul(t8, t3)
+
+	t2.Mul(t8, t11)
+
+	t8.Mul(t8, t2)
+
+	t10.Square(t8)
+
+	t10.Mul(&x, t10)
+
+	t15.Mul(t13, t10)
+
+	for s := 0; s < 6; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t0, t15)
+
+	for s := 0; s < 5; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t13, t15)
+
+	for s := 0; s < 5; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t5, t15)
+
+	for s := 0; s < 3; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t14, t15)
+
+	for s := 0; s < 5; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(z, t15)
+
+	for s := 0; s < 8; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t5, t15)
+
+	for s := 0; s < 5; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t13, t15)
+
+	for s := 0; s < 4; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t4, t15)
+
+	for s := 0; s < 6; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t12, t15)
+
+	for s := 0; s < 6; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t7, t15)
+
+	for s := 0; s < 6; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t11, t15)
+
+	for s := 0; s < 7; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t0, t15)
+
+	for s := 0; s < 3; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t6, t15)
+
+	for s := 0; s < 8; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t1, t15)
+
+	for s := 0; s < 5; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t14, t15)
+
+	for s := 0; s < 9; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t2, t15)
+
+	for s := 0; s < 6; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t2, t15)
+
+	for s := 0; s < 4; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t1, t15)
+
+	for s := 0; s < 5; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t9, t15)
+
+	for s := 0; s < 8; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t14, t15)
+
+	for s := 0; s < 6; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t1, t15)
+
+	for s := 0; s < 5; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t1, t15)
+
+	for s := 0; s < 7; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t2, t15)
+
+	for s := 0; s < 4; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t14, t15)
+
+	for s := 0; s < 7; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t9, t15)
+
+	for s := 0; s < 7; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t5, t15)
+
+	for s := 0; s < 6; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t14, t15)
+
+	for s := 0; s < 6; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t4, t15)
+
+	for s := 0; s < 5; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t6, t15)
+
+	for s := 0; s < 10; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t10, t15)
+
+	for s := 0; s < 2; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(z, t15)
+
+	for s := 0; s < 4; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t6, t15)
+
+	for s := 0; s < 10; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t3, t15)
+
+	for s := 0; s < 7; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t0, t15)
+
+	for s := 0; s < 5; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t7, t15)
+
+	for s := 0; s < 6; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t14, t15)
+
+	for s := 0; s < 7; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t3, t15)
+
+	for s := 0; s < 5; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t2, t15)
+
+	for s := 0; s < 3; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(&x, t15)
+
+	for s := 0; s < 7; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t10, t15)
+
+	for s := 0; s < 7; s++ {
+		t15.Square(t15)
+	}
+
+	t15.Mul(t7, t15)
+
+	for s := 0; s < 4; s++ {
+		t15.Square(t15)
+	}
+
+	t14.Mul(t14, t15)
+
+	for s := 0; s < 15; s++ {
+		t14.Square(t14)
+	}
+
+	t14.Mul(t0, t14)
+
+	for s := 0; s < 4; s++ {
+		t14.Square(t14)
+	}
+
+	t14.Mul(t7, t14)
+
+	for s := 0; s < 5; s++ {
+		t14.Square(t14)
+	}
+
+	t14.Mul(z, t14)
+
+	for s := 0; s < 4; s++ {
+		t14.Square(t14)
+	}
+
+	t14.Mul(&x, t14)
+
+	for s := 0; s < 12; s++ {
+		t14.Square(t14)
+	}
+
+	t14.Mul(t4, t14)
+
+	for s := 0; s < 6; s++ {
+		t14.Square(t14)
+	}
+
+	t14.Mul(t0, t14)
+
+	for s := 0; s < 4; s++ {
+		t14.Square(t14)
+	}
+
+	t14.Mul(t4, t14)
+
+	for s := 0; s < 6; s++ {
+		t14.Square(t14)
+	}
+
+	t14.Mul(z, t14)
+
+	for s := 0; s < 6; s++ {
+		t14.Square(t14)
+	}
+
+	t14.Mul(t6, t14)
+
+	for s := 0; s < 6; s++ {
+		t14.Square(t14)
+	}
+
+	t14.Mul(t9, t14)
+
+	for s := 0; s < 6; s++ {
+		t14.Square(t14)
+	}
+
+	t14.Mul(t11, t14)
+
+	for s := 0; s < 2; s++ {
+		t14.Square(t14)
+	}
+
+	t14.Mul(z, t14)
+
+	for s := 0; s < 7; s++ {
+		t14.Square(t14)
+	}
+
+	t14.Mul(&x, t14)
+
+	for s := 0; s < 10; s++ {
+		t14.Square(t14)
+	}
+
+	t13.Mul(t13, t14)
+
+	for s := 0; s < 4; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(t1, t13)
+
+	for s := 0; s < 5; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(&x, t13)
+
+	for s := 0; s < 10; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(t12, t13)
+
+	for s := 0; s < 5; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(t11, t13)
+
+	for s := 0; s < 5; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(t5, t13)
+
+	for s := 0; s < 5; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(t12, t13)
+
+	for s := 0; s < 6; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(t9, t13)
+
+	for s := 0; s < 5; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(t7, t13)
+
+	for s := 0; s < 5; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(t1, t13)
+
+	for s := 0; s < 8; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(t9, t13)
+
+	for s := 0; s < 2; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(&x, t13)
+
+	for s := 0; s < 7; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(t10, t13)
+
+	for s := 0; s < 7; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(t10, t13)
+
+	for s := 0; s < 7; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(t5, t13)
+
+	for s := 0; s < 7; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(t6, t13)
+
+	for s := 0; s < 7; s++ {
+		t13.Square(t13)
+	}
+
+	t13.Mul(t5, t13)
+
+	for s := 0; s < 5; s++ {
+		t13.Square(t13)
+	}
+
+	t12.Mul(t12, t13)
+
+	for s := 0; s < 7; s++ {
+		t12.Square(t12)
+	}
+
+	t12.Mul(t5, t12)
+
+	for s := 0; s < 5; s++ {
+		t12.Square(t12)
+	}
+
+	t12.Mul(t3, t12)
+
+	for s := 0; s < 4; s++ {
+		t12.Square(t12)
+	}
+
+	t12.Mul(t7, t12)
+
+	for s := 0; s < 10; s++ {
+		t12.Square(t12)
+	}
+
+	t12.Mul(t5, t12)
+
+	for s := 0; s < 3; s++ {
+		t12.Square(t12)
+	}
+
+	t12.Mul(&x, t12)
+
+	for s := 0; s < 10; s++ {
+		t12.Square(t12)
+	}
+
+	t12.Mul(t10, t12)
+
+	for s := 0; s < 7; s++ {
+		t12.Square(t12)
+	}
+
+	t12.Mul(t3, t12)
+
+	for s := 0; s < 6; s++ {
+		t12.Square(t12)
+	}
+
+	t12.Mul(t11, t12)
+
+	for s := 0; s < 5; s++ {
+		t12.Square(t12)
+	}
+
+	t11.Mul(t11, t12)
+
+	for s := 0; s < 3; s++ {
+		t11.Square(t11)
+	}
+
+	t11.Mul(t6, t11)
+
+	for s := 0; s < 4; s++ {
+		t11.Square(t11)
+	}
+
+	t11.Mul(&x, t11)
+
+	for s := 0; s < 7; s++ {
+		t11.Square(t11)
+	}
+
+	t11.Mul(t6, t11)
+
+	for s := 0; s < 8; s++ {
+		t11.Square(t11)
+	}
+
+	t11.Mul(t0, t11)
+
+	for s := 0; s < 11; s++ {
+		t11.Square(t11)
+	}
+
+	t11.Mul(t8, t11)
+
+	for s := 0; s < 4; s++ {
+		t11.Square(t11)
+	}
+
+	t11.Mul(t6, t11)
+
+	for s := 0; s < 10; s++ {
+		t11.Square(t11)
+	}
+
+	t10.Mul(t10, t11)
+
+	for s := 0; s < 7; s++ {
+		t10.Square(t10)
+	}
+
+	t10.Mul(t7, t10)
+
+	for s := 0; s < 5; s++ {
+		t10.Square(t10)
+	}
+
+	t9.Mul(t9, t10)
+
+	for s := 0; s < 6; s++ {
+		t9.Square(t9)
+	}
+
+	t9.Mul(t3, t9)
+
+	for s := 0; s < 6; s++ {
+		t9.Square(t9)
+	}
+
+	t8.Mul(t8, t9)
+
+	for s := 0; s < 5; s++ {
+		t8.Square(t8)
+	}
+
+	t7.Mul(t7, t8)
+
+	for s := 0; s < 6; s++ {
+		t7.Square(t7)
+	}
+
+	t7.Mul(t4, t7)
+
+	for s := 0; s < 6; s++ {
+		t7.Square(t7)
+	}
+
+	t7.Mul(t3, t7)
+
+	for s := 0; s < 6; s++ {
+		t7.Square(t7)
+	}
+
+	t7.Mul(t5, t7)
+
+	for s := 0; s < 3; s++ {
+		t7.Square(t7)
+	}
+
+	t6.Mul(t6, t7)
+
+	for s := 0; s < 9; s++ {
+		t6.Square(t6)
+	}
+
+	t6.Mul(z, t6)
+
+	for s := 0; s < 5; s++ {
+		t6.Square(t6)
+	}
+
+	t6.Mul(z, t6)
+
+	for s := 0; s < 20; s++ {
+		t6.Square(t6)
+	}
+
+	t6.Mul(t3, t6)
+
+	for s := 0; s < 5; s++ {
+		t6.Square(t6)
+	}
+
+	t5.Mul(t5, t6)
+
+	for s := 0; s < 5; s++ {
+		t5.Square(t5)
+	}
+
+	t4.Mul(t4, t5)
+
+	for s := 0; s < 6; s++ {
+		t4.Square(t4)
+	}
+
+	t4.Mul(t3, t4)
+
+	for s := 0; s < 5; s++ {
+		t4.Square(t4)
+	}
+
+	t4.Mul(t1, t4)
+
+	for s := 0; s < 9; s++ {
+		t4.Square(t4)
+	}
+
+	t4.Mul(t1, t4)
+
+	for s := 0; s < 6; s++ {
+		t4.Square(t4)
+	}
+
+	t4.Mul(t0, t4)
+
+	for s := 0; s < 6; s++ {
+		t4.Square(t4)
+	}
+
+	t4.Mul(t0, t4)
+
+	for s := 0; s < 6; s++ {
+		t4.Square(t4)
+	}
+
+	t4.Mul(t0, t4)
+
+	for s := 0; s < 6; s++ {
+		t4.Square(t4)
+	}
+
+	t4.Mul(t0, t4)
+
+	for s := 0; s < 6; s++ {
+		t4.Square(t4)
+	}
+
+	t3.Mul(t3, t4)
+
+	for s := 0; s < 10; s++ {
+		t3.Square(t3)
+	}
+
+	t2.Mul(t2, t3)
+
+	for s := 0; s < 5; s++ {
+		t2.Square(t2)
+	}
+
+	t1.Mul(t1, t2)
+
+	for s := 0; s < 6; s++ {
+		t1.Square(t1)
+	}
+
+	t1.Mul(t0, t1)
+
+	for s := 0; s < 6; s++ {
+		t1.Square(t1)
+	}
+
+	t1.Mul(t0, t1)
+
+	for s := 0; s < 6; s++ {
+		t1.Square(t1)
+	}
+
+	t1.Mul(t0, t1)
+
+	for s := 0; s < 6; s++ {
+		t1.Square(t1)
+	}
+
+	t1.Mul(t0, t1)
+
+	for s := 0; s < 6; s++ {
+		t1.Square(t1)
+	}
+
+	t1.Mul(t0, t1)
+
+	for s := 0; s < 6; s++ {
+		t1.Square(t1)
+	}
+
+	t1.Mul(t0, t1)
+
+	for s := 0; s < 6; s++ {
+		t1.Square(t1)
+	}
+
+	t0.Mul(t0, t1)
+
+	for s := 0; s < 3; s++ {
+		t0.Square(t0)
+	}
+
+	z.Mul(z, t0)
 
 	return z
 }

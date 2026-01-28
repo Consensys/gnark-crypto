@@ -368,6 +368,20 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS12-381] cube(cbrt) should leave an element invariant", prop.ForAll(
+		func(a *E2) bool {
+			var b, c, d E2
+			b.Square(a).Mul(&b, a) // b = a³
+			result := c.Cbrt(&b)
+			if result == nil {
+				return false
+			}
+			d.Square(&c).Mul(&d, &c) // d = c³
+			return d.Equal(&b)
+		},
+		genA,
+	))
+
 	properties.Property("[BLS12-381] neg(E2) == neg(E2.A0, E2.A1)", prop.ForAll(
 		func(a *E2) bool {
 			var b, c E2
@@ -460,6 +474,16 @@ func BenchmarkE2Sqrt(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		c.Sqrt(&a)
+	}
+}
+
+func BenchmarkE2Cbrt(b *testing.B) {
+	var a, t, c E2
+	t.MustSetRandom()
+	a.Square(&t).Mul(&a, &t) // a = t³
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c.Cbrt(&a)
 	}
 }
 

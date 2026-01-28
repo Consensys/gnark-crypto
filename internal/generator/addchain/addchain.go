@@ -34,7 +34,9 @@ package addchain
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"encoding/gob"
+	"encoding/hex"
 	"log"
 	"math/big"
 	"os"
@@ -60,7 +62,26 @@ var (
 	once        sync.Once
 	addChainDir string
 	mAddchains  map[string]*AddChainData // key is big.Int.Text(16)
+	mLock       sync.Mutex
 )
+
+// keyToFilename converts a key (hex representation of big.Int) to a filename.
+// If the key is too long for the filesystem, it uses a SHA256 hash instead.
+func keyToFilename(key string) string {
+	// Most filesystems have a max filename length of 255 bytes
+	if len(key) <= 200 {
+		return key
+	}
+	// Use SHA256 hash for long keys
+	hash := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(hash[:])
+}
+
+// cacheEntry is used for serializing addchain data to disk
+type cacheEntry struct {
+	Key     string           // original hex key
+	Program addchain.Program // the computed addition chain program
+}
 
 // GetAddChain returns template data of a short addition chain for given big.Int
 func GetAddChain(n *big.Int) *AddChainData {
@@ -68,9 +89,13 @@ func GetAddChain(n *big.Int) *AddChainData {
 	once.Do(initCache)
 
 	key := n.Text(16)
+
+	mLock.Lock()
 	if r, ok := mAddchains[key]; ok {
+		mLock.Unlock()
 		return r
 	}
+	mLock.Unlock()
 
 	// Default ensemble of algorithms.
 	algorithms := ensemble.Ensemble()
@@ -92,9 +117,13 @@ func GetAddChain(n *big.Int) *AddChainData {
 	r := results[best]
 	data := processSearchResult(r.Program, key)
 
+	mLock.Lock()
 	mAddchains[key] = data
+	mLock.Unlock()
+
 	// gob encode
-	file := filepath.Join(addChainDir, key)
+	filename := keyToFilename(key)
+	file := filepath.Join(addChainDir, filename)
 	log.Println("saving addchain", file)
 	f, err := os.Create(file)
 	if err != nil {
@@ -102,7 +131,8 @@ func GetAddChain(n *big.Int) *AddChainData {
 	}
 	enc := gob.NewEncoder(f)
 
-	if err := enc.Encode(r.Program); err != nil {
+	entry := cacheEntry{Key: key, Program: r.Program}
+	if err := enc.Encode(entry); err != nil {
 		_ = f.Close()
 		log.Fatal(err)
 	}
@@ -297,39 +327,46 @@ func initCache() {
 		log.Fatal(err)
 	}
 
-	// preload pre-computed add chains
-	var wg sync.WaitGroup
-	var lock sync.Mutex
-	for _, entry := range files {
-		if entry.IsDir() {
+	// preload pre-computed add chains sequentially to avoid gob race conditions
+	for _, fileEntry := range files {
+		if fileEntry.IsDir() {
 			continue
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			f, err := os.Open(filepath.Join(addChainDir, entry.Name()))
+		// skip Go source files
+		if strings.HasSuffix(fileEntry.Name(), ".go") {
+			continue
+		}
+		f, err := os.Open(filepath.Join(addChainDir, fileEntry.Name()))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Try to decode as new cacheEntry format first
+		dec := gob.NewDecoder(f)
+		var entry cacheEntry
+		err = dec.Decode(&entry)
+		_ = f.Close()
+
+		if err != nil {
+			// Fall back to old format (just Program, filename is key)
+			f, err = os.Open(filepath.Join(addChainDir, fileEntry.Name()))
 			if err != nil {
 				log.Fatal(err)
 			}
-
-			// decode the addchain.Program
-			dec := gob.NewDecoder(f)
+			dec = gob.NewDecoder(f)
 			var p addchain.Program
 			err = dec.Decode(&p)
 			_ = f.Close()
 			if err != nil {
 				log.Fatal(err)
 			}
-			data := processSearchResult(p, filepath.Base(f.Name()))
-
-			// save the data
-			lock.Lock()
-			mAddchains[filepath.Base(f.Name())] = data
-			lock.Unlock()
-		}()
-
+			key := filepath.Base(fileEntry.Name())
+			data := processSearchResult(p, key)
+			mAddchains[key] = data
+		} else {
+			// New format: use entry.Key
+			data := processSearchResult(entry.Program, entry.Key)
+			mAddchains[entry.Key] = data
+		}
 	}
-
-	wg.Wait()
-
 }

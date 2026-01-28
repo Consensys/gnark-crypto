@@ -272,29 +272,161 @@ func (z *E2) Sqrt(x *E2) *E2 {
 }
 {{end}}
 
+{{- if or (eq .Curve.E2CbrtP2Mod9 7) (eq .Curve.E2CbrtP2Mod9 4) }}
 // Cbrt sets z to the cube root of x and returns z
-// The function does not test whether the cube root
-// exists or not, it's up to the caller to verify.
+// if the cube root doesn't exist, Cbrt returns nil
+//
+// p² ≡ {{.Curve.E2CbrtP2Mod9}} (mod 9), single exponentiation, no adjustment needed.
+// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
 func (z *E2) Cbrt(x *E2) *E2 {
 	// If x is in Fp (i.e., x.A1 == 0), use Fp cube root directly
 	if x.A1.IsZero() {
-		z.A0.Cbrt(&x.A0)
+		if z.A0.Cbrt(&x.A0) == nil {
+			return nil
+		}
 		z.A1.SetZero()
 		return z
 	}
 
-	// General case for Fp²
-	// The multiplicative group of Fp² has order p² - 1
-	// For a cube root to be computed via exponentiation, we need (2(p²) - 1) / 3
-	// This works because: if x = y³, then y = x^((2(p²)-1)/3)
-	// since y^(p²-1) = 1 and 3 * ((2(p²)-1)/3) ≡ 1 (mod p²-1)
-	var exp big.Int
-	exp.Mul(fp.Modulus(), fp.Modulus()) // p²
-	exp.Mul(&exp, big.NewInt(2))         // 2p²
-	exp.Sub(&exp, big.NewInt(1))         // 2p² - 1
-	exp.Div(&exp, big.NewInt(3))         // (2p² - 1) / 3
-	z.Exp(*x, &exp)
+	var y, c E2
+	y.expByE2Cbrt(*x)
 
+	// Verify y³ = x
+	c.Square(&y).Mul(&c, &y)
+	if !c.Equal(x) {
+		return nil
+	}
+	return z.Set(&y)
+}
+{{- else if or (eq .Curve.E2CbrtP2Mod27 10) (eq .Curve.E2CbrtP2Mod27 19) }}
+// Cbrt sets z to the cube root of x and returns z
+// if the cube root doesn't exist, Cbrt returns nil
+//
+// p² ≡ {{.Curve.E2CbrtP2Mod27}} (mod 27), single exponentiation + adjustment.
+// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
+func (z *E2) Cbrt(x *E2) *E2 {
+	// If x is in Fp (i.e., x.A1 == 0), use Fp cube root directly
+	if x.A1.IsZero() {
+		if z.A0.Cbrt(&x.A0) == nil {
+			return nil
+		}
+		z.A1.SetZero()
+		return z
+	}
+
+	var y, c E2
+	y.expByE2Cbrt(*x)
+
+	// c = y³
+	c.Square(&y).Mul(&c, &y)
+	if c.Equal(x) {
+		return z.Set(&y)
+	}
+
+	// Primitive cube roots of unity ω, ω² (in Fp, embedded as (ω, 0))
+	var omega, omega2 E2
+	omega.A0 = fp.Element{
+		{{- range $i := .Curve.Fp.ThirdRootOne}}
+		{{$i}},{{end}}
+	}
+	omega2.A0 = fp.Element{
+		{{- range $i := .Curve.Fp.ThirdRootOneSquare}}
+		{{$i}},{{end}}
+	}
+
+	// Primitive 9th roots of unity ζ, ζ² (in Fp)
+	var zeta, zeta2 E2
+	zeta.A0 = fp.Element{
+		{{- range $i := .Curve.Fp.CbrtG}}
+		{{$i}},{{end}}
+	}
+	zeta2.A0 = fp.Element{
+		{{- range $i := .Curve.Fp.CbrtG2}}
+		{{$i}},{{end}}
+	}
+
+	// Check if c * ω² = x, then y * ζ is the cube root
+	var cw2 E2
+	cw2.Mul(&c, &omega2)
+	if cw2.Equal(x) {
+		return z.Mul(&y, &zeta)
+	}
+
+	// Check if c * ω = x, then y * ζ² is the cube root
+	var cw E2
+	cw.Mul(&c, &omega)
+	if cw.Equal(x) {
+		return z.Mul(&y, &zeta2)
+	}
+
+	// x is not a cubic residue
+	return nil
+}
+{{- else }}
+// Cbrt sets z to the cube root of x and returns z
+// if the cube root doesn't exist, Cbrt returns nil
+func (z *E2) Cbrt(x *E2) *E2 {
+	// If x is in Fp (i.e., x.A1 == 0), use Fp cube root directly
+	if x.A1.IsZero() {
+		if z.A0.Cbrt(&x.A0) == nil {
+			return nil
+		}
+		z.A1.SetZero()
+		return z
+	}
+
+	var y, c E2
+	y.expByE2Cbrt(*x)
+
+	// Verify y³ = x
+	c.Square(&y).Mul(&c, &y)
+	if !c.Equal(x) {
+		return nil
+	}
+	return z.Set(&y)
+}
+{{- end }}
+
+// expByE2Cbrt is equivalent to z.Exp(x, {{ .Curve.E2CbrtExponentHex }}).
+// It uses an addition chain for efficient exponentiation in E2.
+//
+// uses {{ .Curve.E2CbrtExponentData.Meta.Module }} {{ .Curve.E2CbrtExponentData.Meta.ReleaseTag }} to generate a shorter addition chain
+func (z *E2) expByE2Cbrt(x E2) *E2 {
+	// addition chain:
+	//
+	{{- range lines_ (format_ .Curve.E2CbrtExponentData.Script) }}
+	//	{{ . }}
+	{{- end }}
+	//
+	// Operations: {{ .Curve.E2CbrtExponentData.Ops.Doubles }} squares {{ .Curve.E2CbrtExponentData.Ops.Adds }} multiplies
+
+	// Allocate Temporaries.
+	var (
+		{{- range .Curve.E2CbrtExponentData.Program.Temporaries }}
+		{{ . }} = new(E2)
+		{{- end -}}
+	)
+
+	{{ range $i := .Curve.E2CbrtExponentData.Program.Instructions }}
+	{{- with add_ $i.Op }}
+	{{ $i.Output }}.Mul({{ ptr_ .X }}{{ .X }}, {{ ptr_ .Y }}{{ .Y }})
+	{{ end -}}
+
+	{{- with double_ $i.Op }}
+	{{ $i.Output }}.Square({{ ptr_ .X }}{{ .X }})
+	{{ end -}}
+
+	{{- with shift_ $i.Op -}}
+	{{- $first := 0 -}}
+	{{- if ne $i.Output.Identifier .X.Identifier }}
+	{{ $i.Output }}.Square({{ ptr_ .X }}{{ .X }})
+	{{- $first = 1 -}}
+	{{- end }}
+	for s := {{ $first }}; s < {{ .S }}; s++ {
+		{{ $i.Output }}.Square({{ $i.Output }})
+	}
+	{{ end -}}
+	{{- end }}
 	return z
 }
 

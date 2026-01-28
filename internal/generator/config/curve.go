@@ -3,6 +3,7 @@ package config
 import (
 	"math/big"
 
+	"github.com/consensys/gnark-crypto/internal/generator/addchain"
 	"github.com/consensys/gnark-crypto/internal/generator/field/config"
 )
 
@@ -25,6 +26,12 @@ type Curve struct {
 
 	HashE1 HashSuite
 	HashE2 HashSuite
+
+	// E2 Cbrt precomputes (for Fp² cube root)
+	E2CbrtP2Mod9       uint64                 // p² mod 9
+	E2CbrtP2Mod27      uint64                 // p² mod 27
+	E2CbrtExponentHex  string                 // precomputed exponent as hex string
+	E2CbrtExponentData *addchain.AddChainData // addition chain data for E2 Cbrt exponentiation
 }
 
 type TwistedEdwardsCurve struct {
@@ -75,6 +82,48 @@ func addCurve(c *Curve) {
 	// init FpInfo and FrInfo
 	c.FpInfo = newFieldInfo(c.FpModulus)
 	c.FrInfo = newFieldInfo(c.FrModulus)
+
+	// Compute E2 Cbrt precomputes
+	p := c.FpInfo.Modulus()
+	p2 := new(big.Int).Mul(p, p)
+	c.E2CbrtP2Mod9 = new(big.Int).Mod(p2, big.NewInt(9)).Uint64()
+	c.E2CbrtP2Mod27 = new(big.Int).Mod(p2, big.NewInt(27)).Uint64()
+
+	// Compute the E2 Cbrt exponent based on p² mod 9/27
+	var exp big.Int
+	switch c.E2CbrtP2Mod9 {
+	case 7:
+		// p² ≡ 7 (mod 9): exponent = (p²+2)/9
+		exp.Add(p2, big.NewInt(2))
+		exp.Div(&exp, big.NewInt(9))
+	case 4:
+		// p² ≡ 4 (mod 9): exponent = (2p²+1)/9
+		exp.Lsh(p2, 1)
+		exp.Add(&exp, big.NewInt(1))
+		exp.Div(&exp, big.NewInt(9))
+	default:
+		// p² ≡ 1 (mod 9): need p² mod 27
+		switch c.E2CbrtP2Mod27 {
+		case 10:
+			// p² ≡ 10 (mod 27): exponent = (2p²+7)/27
+			exp.Lsh(p2, 1)
+			exp.Add(&exp, big.NewInt(7))
+			exp.Div(&exp, big.NewInt(27))
+		case 19:
+			// p² ≡ 19 (mod 27): exponent = (p²+8)/27
+			exp.Add(p2, big.NewInt(8))
+			exp.Div(&exp, big.NewInt(27))
+		default:
+			// Generic fallback: exponent = (2(p²-1)+1)/3
+			exp.Sub(p2, big.NewInt(1))
+			exp.Lsh(&exp, 1)
+			exp.Add(&exp, big.NewInt(1))
+			exp.Div(&exp, big.NewInt(3))
+		}
+	}
+	c.E2CbrtExponentHex = exp.Text(16)
+	c.E2CbrtExponentData = addchain.GetAddChain(&exp)
+
 	Curves = append(Curves, *c)
 }
 
