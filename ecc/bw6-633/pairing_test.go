@@ -405,6 +405,17 @@ func BenchmarkFinalExponentiation(b *testing.B) {
 
 }
 
+func BenchmarkPrecomputeLines(b *testing.B) {
+
+	var g2GenAff G2Affine
+	g2GenAff.FromJacobian(&g2Gen)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		PrecomputeLines(g2GenAff)
+	}
+}
+
 func BenchmarkMultiMiller(b *testing.B) {
 
 	var g1GenAff G1Affine
