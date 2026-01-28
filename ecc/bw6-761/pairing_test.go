@@ -218,6 +218,67 @@ func TestPairing(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestDoubleAndAddStepEquivalence(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genR1 := GenFr()
+	genR2 := GenFr()
+
+	properties.Property("[BW6-761] doubleAndAddStep: optimized (Eisenträger-Lauter-Montgomery) matches reference implementation", prop.ForAll(
+		func(s1, s2 fr.Element) bool {
+			var p1, p2, p1Ref G2Affine
+
+			// Get generator
+			_, _, _, g2Gen := Generators()
+
+			// Scale by random values
+			var s1Int, s2Int big.Int
+			s1.BigInt(&s1Int)
+			s2.BigInt(&s2Int)
+			p1.ScalarMultiplication(&g2Gen, &s1Int)
+			p2.ScalarMultiplication(&g2Gen, &s2Int)
+
+			// Fail if points are the same - this indicates a problem with random generation
+			if p1.X.Equal(&p2.X) {
+				return false
+			}
+
+			p1Ref.Set(&p1)
+
+			// Compute using optimized implementation
+			var eval1Opt, eval2Opt LineEvaluationAff
+			p1.doubleAndAddStep(&eval1Opt, &eval2Opt, &p2)
+
+			// Compute using reference implementation
+			var eval1Ref, eval2Ref LineEvaluationAff
+			doubleAndAddStepRef(&p1Ref, &eval1Ref, &eval2Ref, &p2)
+
+			// Compare results: resulting point coordinates
+			pointsEqual := p1.X.Equal(&p1Ref.X) && p1.Y.Equal(&p1Ref.Y)
+
+			// Compare results: line evaluation 1 (from first addition)
+			eval1Equal := eval1Opt.R0.Equal(&eval1Ref.R0) && eval1Opt.R1.Equal(&eval1Ref.R1)
+
+			// Compare results: line evaluation 2 (from doubling step)
+			eval2Equal := eval2Opt.R0.Equal(&eval2Ref.R0) && eval2Opt.R1.Equal(&eval2Ref.R1)
+
+			return pointsEqual && eval1Equal && eval2Equal
+		},
+		genR1,
+		genR2,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
 func TestMillerLoop(t *testing.T) {
 
 	t.Parallel()
