@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/consensys/bavard"
-	"github.com/consensys/gnark-crypto/internal/generator/field/internal/addchain"
+	"github.com/consensys/gnark-crypto/internal/generator/addchain"
 )
 
 var (

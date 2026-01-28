@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/internal/generator/addchain"
 	"github.com/consensys/gnark-crypto/internal/generator/common"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/tower/asm/amd64"
@@ -72,7 +73,17 @@ func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 			},
 		}
 
-		if err := towerGen.Generate(towerConf, "fptower", "", "", entries...); err != nil {
+		// For E2, add addchain functions for E2Cbrt exponentiation
+		var opts []func(*bavard.Bavard) error
+		if towerConf.TotalDegree == 2 {
+			funcs := make(map[string]interface{})
+			for _, f := range addchain.Functions {
+				funcs[f.Name] = f.Func
+			}
+			opts = append(opts, bavard.Funcs(funcs))
+		}
+
+		if err := towerGen.GenerateWithOptions(towerConf, "fptower", "", "", opts, entries...); err != nil {
 			return err
 		}
 	}
