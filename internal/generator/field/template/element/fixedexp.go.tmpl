@@ -29,6 +29,10 @@
 	{{- end}}
 {{- end}}
 
+{{- if .SxrtExponentData}}
+	{{expByAddChain "SxrtExp" .SxrtExponentData .ElementName}}
+{{- end}}
+
 {{define "expByAddChain name data eName"}}
 
 // ExpBy{{.name}} is equivalent to z.Exp(x, {{ .data.N }}).
@@ -58,6 +62,9 @@
 {{- else if eq .name "CbrtQPlus8Div27"}}
 // It raises x to the (q+8)/27 power using a shorter addition chain.
 // This is used when q ≡ 19 (mod 27) for efficient cube root computation.
+{{- else if eq .name "SxrtExp"}}
+// It raises x to the appropriate power for sextic root computation.
+// Reference: Lemma 5 of https://eprint.iacr.org/2021/1446.pdf
 {{- end }}
 //
 // uses {{ .data.Meta.Module }} {{ .data.Meta.ReleaseTag }} to generate a shorter addition chain

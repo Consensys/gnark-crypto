@@ -1,0 +1,121 @@
+{{ if not .UseAddChain}}
+{{- if .SxrtExponent }}
+var _bSxrtExponent{{.ElementName}} *big.Int
+
+func init() {
+	_bSxrtExponent{{.ElementName}}, _ = new(big.Int).SetString("{{.SxrtExponent}}", 16)
+}
+{{- end }}
+{{- end }}
+
+// Sxrt z = ⁶√x (mod q)
+// if the sixth root doesn't exist (x is not a sextic residue mod q)
+// Sxrt leaves z unchanged and returns nil
+// Reference: Lemma 5 of https://eprint.iacr.org/2021/1446.pdf
+func (z *{{.ElementName}}) Sxrt(x *{{.ElementName}}) *{{.ElementName}} {
+	{{- if .SxrtQ5Mod6}}
+	// q ≡ 5 (mod 6): gcd(6, q-1) = 2
+	// Every element has a unique cube root, sextic residues = quadratic residues
+
+	{{- if .SxrtQ11Mod12}}
+	// q ≡ 11 (mod 12): direct formula using (2q²+q-1)/12
+	// sxrt(x) = x^((2q²+q-1)/12)
+	var y {{.ElementName}}
+	{{- if .UseAddChain}}
+	y.ExpBySxrtExp(*x)
+	{{- else}}
+	y.Exp(*x, _bSxrtExponent{{.ElementName}})
+	{{- end }}
+
+	// Verify y⁶ = x
+	var check {{.ElementName}}
+	check.Square(&y).Mul(&check, &y) // y³
+	check.Square(&check)              // y⁶
+	if check.Equal(x) {
+		return z.Set(&y)
+	}
+	return nil
+
+	{{- else}}
+	// q ≡ 5 (mod 12): sqrt requires Tonelli-Shanks/Atkin
+	// Use composition: sxrt(x) = sqrt(cbrt(x))
+	var c {{.ElementName}}
+	if c.Cbrt(x) == nil {
+		return nil // x is not a cubic residue (shouldn't happen since all elements are cubes)
+	}
+	if z.Sqrt(&c) == nil {
+		return nil // cbrt(x) is not a quadratic residue, so x is not a sextic residue
+	}
+	return z
+	{{- end}}
+
+	{{- else if .SxrtQ1Mod6}}
+	// q ≡ 1 (mod 6): gcd(6, q-1) = 6
+	// Need adjustment by 6th roots of unity
+
+	{{- if .SxrtQ7Mod36}}
+	// q ≡ 7 (mod 36): direct formula using (5q+1)/36
+	var y {{.ElementName}}
+	{{- if .UseAddChain}}
+	y.ExpBySxrtExp(*x)
+	{{- else}}
+	y.Exp(*x, _bSxrtExponent{{.ElementName}})
+	{{- end }}
+
+	// Verify y⁶ = x
+	var check {{.ElementName}}
+	check.Square(&y).Mul(&check, &y) // y³
+	check.Square(&check)              // y⁶
+	if check.Equal(x) {
+		return z.Set(&y)
+	}
+	return nil
+
+	{{- else if .SxrtQ31Mod36}}
+	// q ≡ 31 (mod 36): direct formula using (q+5)/36
+	var y {{.ElementName}}
+	{{- if .UseAddChain}}
+	y.ExpBySxrtExp(*x)
+	{{- else}}
+	y.Exp(*x, _bSxrtExponent{{.ElementName}})
+	{{- end }}
+
+	// Verify y⁶ = x
+	var check {{.ElementName}}
+	check.Square(&y).Mul(&check, &y) // y³
+	check.Square(&check)              // y⁶
+	if check.Equal(x) {
+		return z.Set(&y)
+	}
+	return nil
+
+	{{- else}}
+	// Other q ≡ 1 (mod 6) cases: use composition method sxrt(x) = sqrt(cbrt(x))
+	return z.sxrtComposition(x)
+	{{- end}}
+
+	{{- else}}
+	// Fallback: use composition sxrt(x) = sqrt(cbrt(x))
+	return z.sxrtComposition(x)
+	{{- end}}
+}
+
+// sxrtComposition computes the sixth root using composition: sxrt(x) = sqrt(cbrt(x))
+func (z *{{.ElementName}}) sxrtComposition(x *{{.ElementName}}) *{{.ElementName}} {
+	var c {{.ElementName}}
+	if c.Cbrt(x) == nil {
+		return nil // x is not a cubic residue
+	}
+	if z.Sqrt(&c) == nil {
+		return nil // cbrt(x) is not a quadratic residue
+	}
+	return z
+}
+
+// Sixth sets z to x^6 and returns z
+func (z *{{.ElementName}}) Sixth(x *{{.ElementName}}) *{{.ElementName}} {
+	var t {{.ElementName}}
+	t.Square(x).Mul(&t, x) // t = x³
+	z.Square(&t)            // z = x⁶
+	return z
+}

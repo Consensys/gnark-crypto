@@ -199,6 +199,15 @@ func BenchmarkElementCbrt(b *testing.B) {
 	}
 }
 
+func BenchmarkElementSxrt(b *testing.B) {
+	var a Element
+	a.SetUint64(64) // 64 = 2^6, a perfect sixth power
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		benchResElement.Sxrt(&a)
+	}
+}
+
 func BenchmarkElementMul(b *testing.B) {
 	x := Element{
 		8392367050913,
@@ -1593,6 +1602,89 @@ func TestElementCbrt(t *testing.T) {
 
 }
 
+func TestElementSxrt(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := gen()
+
+	properties.Property("Sxrt: having the receiver as operand should output the same result", prop.ForAll(
+		func(a testPairElement) bool {
+
+			b := a.element
+
+			b.Sxrt(&a.element)
+			a.element.Sxrt(&a.element)
+			return a.element.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("Sxrt: operation result must match big.Int result", prop.ForAll(
+		func(a testPairElement) bool {
+			// verify that c^6 == a (since there's no big.Int.ModSxrt)
+			// Sxrt returns nil if the element is not a sextic residue
+			var c Element
+			result := c.Sxrt(&a.element)
+			if result == nil {
+				// a is not a sextic residue, this is valid
+				return true
+			}
+			var sixth, e big.Int
+			c.BigInt(&e)
+			sixth.Exp(&e, big.NewInt(6), Modulus())
+			return sixth.Cmp(&a.bigint) == 0
+		},
+		genA,
+	))
+
+	properties.Property("Sxrt: operation result must be smaller than modulus", prop.ForAll(
+		func(a testPairElement) bool {
+			var c Element
+			c.Sxrt(&a.element)
+			return c.smallerThanModulus()
+		},
+		genA,
+	))
+
+	specialValueTest := func() {
+		// test special values
+		testValues := make([]Element, len(staticTestValues))
+		copy(testValues, staticTestValues)
+
+		for i := range testValues {
+			a := testValues[i]
+			var aBig big.Int
+			a.BigInt(&aBig)
+			var c Element
+			// verify that c^6 == a (since there's no big.Int.ModSxrt)
+			// Sxrt returns nil if the element is not a sextic residue
+			result := c.Sxrt(&a)
+			if result == nil {
+				// a is not a sextic residue, this is valid, continue
+				continue
+			}
+			var sixth, e big.Int
+			c.BigInt(&e)
+			sixth.Exp(&e, big.NewInt(6), Modulus())
+			if sixth.Cmp(&aBig) != 0 {
+				t.Fatal("Sxrt failed for special value")
+			}
+		}
+	}
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+	specialValueTest()
+
+}
+
 func TestElementDouble(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
@@ -1783,6 +1875,19 @@ func TestElementFixedExp(t *testing.T) {
 			d := a.element
 			c.ExpByCbrtQPlus2Div9(c)
 			d.Exp(d, _bCbrtExponentElement)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+	var _bSxrtExponentElement *big.Int
+	_bSxrtExponentElement, _ = new(big.Int).SetString("238e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e36aaaaa23", 16)
+
+	properties.Property("ExpBySxrtExp must match Exp", prop.ForAll(
+		func(a testPairElement) bool {
+			c := a.element
+			d := a.element
+			c.ExpBySxrtExp(c)
+			d.Exp(d, _bSxrtExponentElement)
 			return c.Equal(&d)
 		},
 		genA,

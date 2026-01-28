@@ -972,6 +972,45 @@ func (z *Element) Cube(x *Element) *Element {
 	return z
 }
 
+// Sxrt z = ⁶√x (mod q)
+// if the sixth root doesn't exist (x is not a sextic residue mod q)
+// Sxrt leaves z unchanged and returns nil
+// Reference: Lemma 5 of https://eprint.iacr.org/2021/1446.pdf
+func (z *Element) Sxrt(x *Element) *Element {
+	// q ≡ 5 (mod 6): gcd(6, q-1) = 2
+	// Every element has a unique cube root, sextic residues = quadratic residues
+	// q ≡ 5 (mod 12): sqrt requires Tonelli-Shanks/Atkin
+	// Use composition: sxrt(x) = sqrt(cbrt(x))
+	var c Element
+	if c.Cbrt(x) == nil {
+		return nil // x is not a cubic residue (shouldn't happen since all elements are cubes)
+	}
+	if z.Sqrt(&c) == nil {
+		return nil // cbrt(x) is not a quadratic residue, so x is not a sextic residue
+	}
+	return z
+}
+
+// sxrtComposition computes the sixth root using composition: sxrt(x) = sqrt(cbrt(x))
+func (z *Element) sxrtComposition(x *Element) *Element {
+	var c Element
+	if c.Cbrt(x) == nil {
+		return nil // x is not a cubic residue
+	}
+	if z.Sqrt(&c) == nil {
+		return nil // cbrt(x) is not a quadratic residue
+	}
+	return z
+}
+
+// Sixth sets z to x^6 and returns z
+func (z *Element) Sixth(x *Element) *Element {
+	var t Element
+	t.Square(x).Mul(&t, x) // t = x³
+	z.Square(&t)           // z = x⁶
+	return z
+}
+
 // Inverse z = x⁻¹ (mod q)
 //
 // if x == 0, sets and returns z = x

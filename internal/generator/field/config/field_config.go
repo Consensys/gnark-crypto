@@ -94,6 +94,17 @@ type Field struct {
 	CbrtSPlus1Div3Data     *addchain.AddChainData
 	CbrtSMinus1Div3Data    *addchain.AddChainData
 
+	// Sxrt (sextic/6th root) pre computes
+	// Reference: Lemma 5 of https://eprint.iacr.org/2021/1446.pdf
+	SxrtQ5Mod6   bool // q ≡ 5 (mod 6): gcd(6,q-1)=2, every element is a cube
+	SxrtQ1Mod6   bool // q ≡ 1 (mod 6): gcd(6,q-1)=6, use composition
+	SxrtQ11Mod12 bool // q ≡ 11 (mod 12): use (2q²+q-1)/12 exponent (direct)
+	SxrtQ7Mod36  bool // q ≡ 7 (mod 36): use (5q+1)/36 exponent (direct)
+	SxrtQ31Mod36 bool // q ≡ 31 (mod 36): use (q+5)/36 exponent (direct)
+	// For other q ≡ 1 (mod 6) cases: use composition method sxrt(x) = sqrt(cbrt(x))
+	SxrtExponent     string // precomputed exponent for direct cases
+	SxrtExponentData *addchain.AddChainData
+
 	Word Word // 32 iff Q < 2^32, else 64
 	F31  bool // 31 bits field
 
@@ -505,6 +516,78 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 			if F.UseAddChain {
 				F.CbrtSPlus1Div3Data = addchain.GetAddChain(&exp)
 			}
+		}
+	}
+
+	// Sxrt (sextic/6th root) pre computes
+	// Reference: Lemma 5 of https://eprint.iacr.org/2021/1446.pdf
+	// For 6th roots, we need to consider both q mod 4 (for sqrt) and q mod 3 (for cbrt)
+	// The combined condition is q mod 36 (lcm(4,9) = 36 for the most specific cases)
+	var qMod6 big.Int
+	six := big.NewInt(6)
+	qMod6.Mod(&bModulus, six)
+
+	if qMod6.Cmp(big.NewInt(5)) == 0 {
+		// q ≡ 5 (mod 6): gcd(6, q-1) = 2
+		// Every element has a unique cube root, sextic residues = quadratic residues
+		F.SxrtQ5Mod6 = true
+
+		// Check if q ≡ 3 (mod 4) for simple sqrt formula
+		var qMod4 big.Int
+		qMod4.Mod(&bModulus, big.NewInt(4))
+		if qMod4.Cmp(big.NewInt(3)) == 0 {
+			// q ≡ 11 (mod 12): can use direct formula
+			// sxrt(x) = x^((2q²+q-1)/12) where the exponent combines sqrt and cbrt
+			// Actually: sxrt(x) = cbrt(sqrt(x)) = (x^((q+1)/4))^((2q-1)/3)
+			// Combined: x^((q+1)(2q-1)/12) = x^((2q²+q-1)/12)
+			F.SxrtQ11Mod12 = true
+			var exp big.Int
+			// exp = (2q² + q - 1) / 12
+			qSquared := new(big.Int).Mul(&bModulus, &bModulus)
+			exp.Mul(qSquared, big.NewInt(2))
+			exp.Add(&exp, &bModulus)
+			exp.Sub(&exp, big.NewInt(1))
+			exp.Div(&exp, big.NewInt(12))
+			F.SxrtExponent = exp.Text(16)
+			if F.UseAddChain {
+				F.SxrtExponentData = addchain.GetAddChain(&exp)
+			}
+		}
+		// For q ≡ 5 (mod 12), sqrt requires Tonelli-Shanks/Atkin, so we don't support direct sxrt
+	} else {
+		// q ≡ 1 (mod 6): gcd(6, q-1) = 6
+		// Need adjustment by 6th roots of unity
+		F.SxrtQ1Mod6 = true
+
+		// Check more specific cases based on q mod 36
+		var qMod36 big.Int
+		thirtySix := big.NewInt(36)
+		qMod36.Mod(&bModulus, thirtySix)
+
+		switch qMod36.Int64() {
+		case 7:
+			// q ≡ 7 (mod 36): direct formula, exp = (5q+1)/36
+			F.SxrtQ7Mod36 = true
+			var exp big.Int
+			exp.Mul(&bModulus, big.NewInt(5))
+			exp.Add(&exp, big.NewInt(1))
+			exp.Div(&exp, thirtySix)
+			F.SxrtExponent = exp.Text(16)
+			if F.UseAddChain {
+				F.SxrtExponentData = addchain.GetAddChain(&exp)
+			}
+		case 31:
+			// q ≡ 31 (mod 36): direct formula, exp = (q+5)/36
+			F.SxrtQ31Mod36 = true
+			var exp big.Int
+			exp.Add(&bModulus, big.NewInt(5))
+			exp.Div(&exp, thirtySix)
+			F.SxrtExponent = exp.Text(16)
+			if F.UseAddChain {
+				F.SxrtExponentData = addchain.GetAddChain(&exp)
+			}
+			// case 13, 19, 25, 1: use composition method sxrt(x) = sqrt(cbrt(x))
+			// No exponent data needed for these cases
 		}
 	}
 

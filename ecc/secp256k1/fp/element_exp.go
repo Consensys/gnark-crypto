@@ -683,3 +683,229 @@ func (z *Element) ExpByCbrtQPlus2Div9(x Element) *Element {
 
 	return z
 }
+
+// ExpBySxrtExp is equivalent to z.Exp(x, 238e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e36aaaaa23).
+// It raises x to the appropriate power for sextic root computation.
+// Reference: Lemma 5 of https://eprint.iacr.org/2021/1446.pdf
+//
+// uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
+func (z *Element) ExpBySxrtExp(x Element) *Element {
+	// addition chain:
+	//
+	//	_10       = 2*1
+	//	_11       = 1 + _10
+	//	_101      = _10 + _11
+	//	_110      = 1 + _101
+	//	_1100     = 2*_110
+	//	_1101     = 1 + _1100
+	//	_1111     = _10 + _1101
+	//	_10010    = _11 + _1111
+	//	_10111    = _101 + _10010
+	//	_11100    = _101 + _10111
+	//	_110011   = _10111 + _11100
+	//	_1000010  = _1111 + _110011
+	//	_1011110  = _11100 + _1000010
+	//	_10111100 = 2*_1011110
+	//	_11111110 = _1000010 + _10111100
+	//	i16       = _1101 + _11111110
+	//	i30       = (_10111100 + i16) << 12 + _11111110
+	//	i33       = 2*(i16 + i30) + 1
+	//	i36       = 2*(i30 + i33) + 1
+	//	i42       = (i33 + i36) << 4 + _1100
+	//	i43       = _110011 + i42
+	//	i44       = i42 + i43
+	//	i45       = i43 + i44
+	//	i46       = i44 + i45
+	//	i47       = _10010 + i46
+	//	i48       = i45 + i47
+	//	i49       = 2*i47
+	//	i51       = 2*i48 + 1
+	//	i153      = ((i49 << 34 + i51) << 31 + i47) << 35
+	//	i222      = ((i51 + i153) << 31 + i47) << 35 + i51
+	//	return      (i222 << 31 + i46) << 25 + i36
+	//
+	// Operations: 245 squares 35 multiplies
+
+	// Allocate Temporaries.
+	var (
+		t0 = new(Element)
+		t1 = new(Element)
+		t2 = new(Element)
+		t3 = new(Element)
+		t4 = new(Element)
+	)
+
+	// var t0,t1,t2,t3,t4 Element
+	// Step 1: z = x^0x2
+	z.Square(&x)
+
+	// Step 2: t1 = x^0x3
+	t1.Mul(&x, z)
+
+	// Step 3: t4 = x^0x5
+	t4.Mul(z, t1)
+
+	// Step 4: t0 = x^0x6
+	t0.Mul(&x, t4)
+
+	// Step 5: t0 = x^0xc
+	t0.Square(t0)
+
+	// Step 6: t3 = x^0xd
+	t3.Mul(&x, t0)
+
+	// Step 7: z = x^0xf
+	z.Mul(z, t3)
+
+	// Step 8: t2 = x^0x12
+	t2.Mul(t1, z)
+
+	// Step 9: t1 = x^0x17
+	t1.Mul(t4, t2)
+
+	// Step 10: t4 = x^0x1c
+	t4.Mul(t4, t1)
+
+	// Step 11: t1 = x^0x33
+	t1.Mul(t1, t4)
+
+	// Step 12: z = x^0x42
+	z.Mul(z, t1)
+
+	// Step 13: t4 = x^0x5e
+	t4.Mul(t4, z)
+
+	// Step 14: t4 = x^0xbc
+	t4.Square(t4)
+
+	// Step 15: z = x^0xfe
+	z.Mul(z, t4)
+
+	// Step 16: t3 = x^0x10b
+	t3.Mul(t3, z)
+
+	// Step 17: t4 = x^0x1c7
+	t4.Mul(t4, t3)
+
+	// Step 29: t4 = x^0x1c7000
+	for s := 0; s < 12; s++ {
+		t4.Square(t4)
+	}
+
+	// Step 30: z = x^0x1c70fe
+	z.Mul(z, t4)
+
+	// Step 31: t3 = x^0x1c7209
+	t3.Mul(t3, z)
+
+	// Step 32: t3 = x^0x38e412
+	t3.Square(t3)
+
+	// Step 33: t3 = x^0x38e413
+	t3.Mul(&x, t3)
+
+	// Step 34: z = x^0x555511
+	z.Mul(z, t3)
+
+	// Step 35: z = x^0xaaaa22
+	z.Square(z)
+
+	// Step 36: z = x^0xaaaa23
+	z.Mul(&x, z)
+
+	// Step 37: t3 = x^0xe38e36
+	t3.Mul(t3, z)
+
+	// Step 41: t3 = x^0xe38e360
+	for s := 0; s < 4; s++ {
+		t3.Square(t3)
+	}
+
+	// Step 42: t0 = x^0xe38e36c
+	t0.Mul(t0, t3)
+
+	// Step 43: t1 = x^0xe38e39f
+	t1.Mul(t1, t0)
+
+	// Step 44: t0 = x^0x1c71c70b
+	t0.Mul(t0, t1)
+
+	// Step 45: t1 = x^0x2aaaaaaa
+	t1.Mul(t1, t0)
+
+	// Step 46: t0 = x^0x471c71b5
+	t0.Mul(t0, t1)
+
+	// Step 47: t2 = x^0x471c71c7
+	t2.Mul(t2, t0)
+
+	// Step 48: t1 = x^0x71c71c71
+	t1.Mul(t1, t2)
+
+	// Step 49: t3 = x^0x8e38e38e
+	t3.Square(t2)
+
+	// Step 50: t1 = x^0xe38e38e2
+	t1.Square(t1)
+
+	// Step 51: t1 = x^0xe38e38e3
+	t1.Mul(&x, t1)
+
+	// Step 85: t3 = x^0x238e38e3800000000
+	for s := 0; s < 34; s++ {
+		t3.Square(t3)
+	}
+
+	// Step 86: t3 = x^0x238e38e38e38e38e3
+	t3.Mul(t1, t3)
+
+	// Step 117: t3 = x^0x11c71c71c71c71c7180000000
+	for s := 0; s < 31; s++ {
+		t3.Square(t3)
+	}
+
+	// Step 118: t3 = x^0x11c71c71c71c71c71c71c71c7
+	t3.Mul(t2, t3)
+
+	// Step 153: t3 = x^0x8e38e38e38e38e38e38e38e3800000000
+	for s := 0; s < 35; s++ {
+		t3.Square(t3)
+	}
+
+	// Step 154: t3 = x^0x8e38e38e38e38e38e38e38e38e38e38e3
+	t3.Mul(t1, t3)
+
+	// Step 185: t3 = x^0x471c71c71c71c71c71c71c71c71c71c7180000000
+	for s := 0; s < 31; s++ {
+		t3.Square(t3)
+	}
+
+	// Step 186: t2 = x^0x471c71c71c71c71c71c71c71c71c71c71c71c71c7
+	t2.Mul(t2, t3)
+
+	// Step 221: t2 = x^0x238e38e38e38e38e38e38e38e38e38e38e38e38e3800000000
+	for s := 0; s < 35; s++ {
+		t2.Square(t2)
+	}
+
+	// Step 222: t1 = x^0x238e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e3
+	t1.Mul(t1, t2)
+
+	// Step 253: t1 = x^0x11c71c71c71c71c71c71c71c71c71c71c71c71c71c71c71c7180000000
+	for s := 0; s < 31; s++ {
+		t1.Square(t1)
+	}
+
+	// Step 254: t0 = x^0x11c71c71c71c71c71c71c71c71c71c71c71c71c71c71c71c71c71c71b5
+	t0.Mul(t0, t1)
+
+	// Step 279: t0 = x^0x238e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e36a000000
+	for s := 0; s < 25; s++ {
+		t0.Square(t0)
+	}
+
+	// Step 280: z = x^0x238e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e36aaaaa23
+	z.Mul(z, t0)
+
+	return z
+}
