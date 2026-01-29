@@ -31,81 +31,10 @@ func TestPairing(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	genA := GenE24()
-
 	genR1 := GenFr()
 	genR2 := GenFr()
 
-	properties.Property("[BLS24-315] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
-		func(a GT) bool {
-			b := FinalExponentiation(&a)
-			a = FinalExponentiation(&a)
-			return a.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
-		func(a GT) bool {
-			b := FinalExponentiation(&a)
-			return !a.IsInSubGroup() && b.IsInSubGroup()
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] Exp, CyclotomicExp and ExpGLV results must be the same in GT (small and big exponents)", prop.ForAll(
-		func(a GT, e fr.Element) bool {
-
-			var res bool
-
-			// exponent > r
-			{
-				a = FinalExponentiation(&a)
-				var _e big.Int
-				_e.SetString("169893631828481842931290008859743243489098146141979830311893424751855271950692001433356165550548410610101138388623573573742608490725625288296502860183437011025036209791574001140592327223981416956942076610555083128655330944007957223952510233203018053264066056080064687038560794652180979019775788172491868553073169893631828481842931290008859743243489098146141979830311893424751855271950692001433356165550548410610101138388623573573742608490725625288296502860183437011025036209791574001140592327223981416956942076610555083128655330944007957223952510233203018053264066056080064687038560794652180979019775788172491868553073", 10)
-				var b, c, d GT
-				b.Exp(a, &_e)
-				c.ExpGLV(a, &_e)
-				d.CyclotomicExp(a, &_e)
-				res = b.Equal(&c) && c.Equal(&d)
-			}
-
-			// exponent < r
-			{
-				a = FinalExponentiation(&a)
-				var _e big.Int
-				e.BigInt(&_e)
-				var b, c, d GT
-				b.Exp(a, &_e)
-				c.ExpGLV(a, &_e)
-				d.CyclotomicExp(a, &_e)
-				res = res && b.Equal(&c) && c.Equal(&d)
-			}
-
-			return res
-		},
-		genA,
-		genR1,
-	))
-
-	properties.Property("[BLS24-315] Expt(Expt) and Exp(t^2) should output the same result in the cyclotomic subgroup", prop.ForAll(
-		func(a GT) bool {
-			var b, c, d GT
-			b.Conjugate(&a)
-			a.Inverse(&a)
-			b.Mul(&b, &a)
-
-			a.FrobeniusQuad(&b).
-				Mul(&a, &b)
-
-			c.Expt(&a).Expt(&c)
-			d.Exp(a, &xGen).Exp(d, &xGen)
-			return c.Equal(&d)
-		},
-		genA,
-	))
-
-	properties.Property("[BLS24-315] bilinearity", prop.ForAll(
+	properties.Property("[BLS24-315] Bilinearity: e(P,Q)^ab == e([a]P,Q)^b == e(P,[b]Q)^a", prop.ForAll(
 		func(a, b fr.Element) bool {
 
 			var res, resa, resb, resab, zero GT
@@ -137,7 +66,19 @@ func TestPairing(t *testing.T) {
 		genR2,
 	))
 
-	properties.Property("[BLS24-315] PairingCheck", prop.ForAll(
+	properties.Property("[BLS24-315] Non-degenerancy: e(P,Q) != 1", prop.ForAll(
+		func() bool {
+
+			res, _ := Pair([]G1Affine{g1GenAff}, []G2Affine{g2GenAff})
+			var one GT
+			one.SetOne()
+
+			return !res.Equal(&one)
+
+		},
+	))
+
+	properties.Property("[BLS24-315] PairingCheck: e(P,Q) * e(-P,Q) == 1", prop.ForAll(
 		func(a, b fr.Element) bool {
 
 			var g1GenAffNeg G1Affine
@@ -152,6 +93,23 @@ func TestPairing(t *testing.T) {
 		genR1,
 		genR2,
 	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestFixedPairing(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genR1 := GenFr()
+	genR2 := GenFr()
 
 	properties.Property("[BLS24-315] Pair should output the same result with MillerLoop or MillerLoopFixedQ", prop.ForAll(
 		func(a, b fr.Element) bool {
@@ -170,18 +128,47 @@ func TestPairing(t *testing.T) {
 			P := []G1Affine{g1GenAff, ag1}
 			Q := []G2Affine{g2GenAff, bg2}
 
-			ml1, _ := MillerLoop(P, Q)
-			ml2, _ := MillerLoopFixedQ(
-				P,
-				[][2][len(LoopCounter) - 1]LineEvaluationAff{
-					PrecomputeLines(Q[0]),
-					PrecomputeLines(Q[1]),
-				})
+			// precompute lines
+			linesQ := [][2][len(LoopCounter) - 1]LineEvaluationAff{
+				PrecomputeLines(g2GenAff),
+				PrecomputeLines(bg2),
+			}
 
-			res1 := FinalExponentiation(&ml1)
-			res2 := FinalExponentiation(&ml2)
+			res1, _ := Pair(P, Q)
+			res2, _ := PairFixedQ(P, linesQ)
 
 			return res1.Equal(&res2)
+		},
+		genR1,
+		genR2,
+	))
+
+	properties.Property("[BLS24-315] PrecomputeLines and precomputeLinesRef should produce the same pairing result", prop.ForAll(
+		func(a, b fr.Element) bool {
+			var ag1 G1Affine
+			var bg2 G2Affine
+
+			var abigint, bbigint big.Int
+			a.BigInt(&abigint)
+			b.BigInt(&bbigint)
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
+
+			P := []G1Affine{ag1}
+
+			// Compute pairing using optimized PrecomputeLines
+			linesOpt := [][2][len(LoopCounter) - 1]LineEvaluationAff{
+				PrecomputeLines(bg2),
+			}
+			resOpt, _ := PairFixedQ(P, linesOpt)
+
+			// Compute pairing using reference precomputeLinesRef
+			linesRef := [][2][len(LoopCounter) - 1]LineEvaluationAff{
+				precomputeLinesRef(bg2),
+			}
+			resRef, _ := PairFixedQ(P, linesRef)
+
+			return resOpt.Equal(&resRef)
 		},
 		genR1,
 		genR2,
@@ -332,6 +319,103 @@ func TestMillerLoop(t *testing.T) {
 		genR1,
 		genR2,
 	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestExponentiation(t *testing.T) {
+
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := GenE24()
+
+	genR1 := GenFr()
+
+	properties.Property("[BLS24-315] Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
+		func(a GT) bool {
+			b := FinalExponentiation(&a)
+			return !a.IsInSubGroup() && b.IsInSubGroup()
+		},
+		genA,
+	))
+
+	properties.Property("[BLS24-315] Exp, CyclotomicExp and ExpGLV results must be the same in GT (small and big exponents)", prop.ForAll(
+		func(a GT, e fr.Element) bool {
+
+			var res bool
+
+			// exponent > r
+			{
+				a = FinalExponentiation(&a)
+				var _e big.Int
+				_e.SetString("169893631828481842931290008859743243489098146141979830311893424751855271950692001433356165550548410610101138388623573573742608490725625288296502860183437011025036209791574001140592327223981416956942076610555083128655330944007957223952510233203018053264066056080064687038560794652180979019775788172491868553073169893631828481842931290008859743243489098146141979830311893424751855271950692001433356165550548410610101138388623573573742608490725625288296502860183437011025036209791574001140592327223981416956942076610555083128655330944007957223952510233203018053264066056080064687038560794652180979019775788172491868553073", 10)
+				var b, c, d GT
+				b.Exp(a, &_e)
+				c.ExpGLV(a, &_e)
+				d.CyclotomicExp(a, &_e)
+				res = b.Equal(&c) && c.Equal(&d)
+			}
+
+			// exponent < r
+			{
+				a = FinalExponentiation(&a)
+				var _e big.Int
+				e.BigInt(&_e)
+				var b, c, d GT
+				b.Exp(a, &_e)
+				c.ExpGLV(a, &_e)
+				d.CyclotomicExp(a, &_e)
+				res = res && b.Equal(&c) && c.Equal(&d)
+			}
+
+			return res
+		},
+		genA,
+		genR1,
+	))
+
+	properties.Property("[BLS24-315] Expt(Expt) and Exp(t^2) should output the same result in the cyclotomic subgroup", prop.ForAll(
+		func(a GT) bool {
+			var b, c, d GT
+			b.Conjugate(&a)
+			a.Inverse(&a)
+			b.Mul(&b, &a)
+
+			a.FrobeniusQuad(&b).
+				Mul(&a, &b)
+
+			c.Expt(&a).Expt(&c)
+			d.Exp(a, &xGen).Exp(d, &xGen)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestTorusCompression(t *testing.T) {
+
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genR1 := GenFr()
+	genR2 := GenFr()
 
 	properties.Property("[BLS24-315] compressed pairing", prop.ForAll(
 		func(a, b fr.Element) bool {
@@ -503,4 +587,27 @@ func BenchmarkExpGT(b *testing.B) {
 			a.ExpGLV(a, &_e)
 		}
 	})
+}
+
+// ------------------------------------------------------------
+// reference implementations for testing
+
+// precomputeLinesRef precomputes the lines for the fixed-argument Miller loop
+// using the reference (loop-based) implementation without manyDoubleSteps.
+func precomputeLinesRef(Q G2Affine) (PrecomputedLines [2][len(LoopCounter) - 1]LineEvaluationAff) {
+	var accQ, negQ G2Affine
+	accQ.Set(&Q)
+	negQ.Neg(&Q)
+
+	for i := len(LoopCounter) - 2; i >= 0; i-- {
+		accQ.doubleStep(&PrecomputedLines[0][i])
+
+		if LoopCounter[i] == 1 {
+			accQ.addStep(&PrecomputedLines[1][i], &Q)
+		} else if LoopCounter[i] == -1 {
+			accQ.addStep(&PrecomputedLines[1][i], &negQ)
+		}
+	}
+
+	return PrecomputedLines
 }

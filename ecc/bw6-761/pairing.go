@@ -418,24 +418,171 @@ func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter) - 1]Line
 	imQneg.X.Set(&imQ.X)
 	imQneg.Y.Set(&Q.Y)
 
-	for i := len(LoopCounter) - 2; i > 0; i-- {
+	// The loop processes i from 188 down to 1, with i=0 handled specially.
+	// j = LoopCounter1[i]*3 + LoopCounter[i]
+	// j values: 0 at i=188,187; 3 at i=186; 0 at i=185-181; -3 at i=180; etc.
 
-		switch LoopCounter1[i]*3 + LoopCounter[i] {
-		// cases -4, -2, 2, 4 do not occur, given the static LoopCounters
-		case -3:
-			accQ.doubleAndAddStep(&PrecomputedLines[0][i], &PrecomputedLines[1][i], &imQneg)
-		case -1:
-			accQ.doubleAndAddStep(&PrecomputedLines[0][i], &PrecomputedLines[1][i], &negQ)
-		case 0:
-			accQ.doubleStep(&PrecomputedLines[0][i])
-		case 1:
-			accQ.doubleAndAddStep(&PrecomputedLines[0][i], &PrecomputedLines[1][i], &Q)
-		case 3:
-			accQ.doubleAndAddStep(&PrecomputedLines[0][i], &PrecomputedLines[1][i], &imQ)
-		default:
-			return [2][len(LoopCounter) - 1]LineEvaluationAff{}
-		}
-	}
+	// i = 188: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][188])
+	// i = 187: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][187])
+	// i = 186: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][186], &PrecomputedLines[1][186], &imQ)
+	// i = 185 -> 181: 5 consecutive zeros
+	accQ.manyDoubleSteps(5, PrecomputedLines[0][181:186])
+	// i = 180: j = -3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][180], &PrecomputedLines[1][180], &imQneg)
+	// i = 179: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][179])
+	// i = 178: j = -3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][178], &PrecomputedLines[1][178], &imQneg)
+	// i = 177: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][177])
+	// i = 176: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][176], &PrecomputedLines[1][176], &imQ)
+	// i = 175 -> 173: 3 consecutive zeros
+	accQ.manyDoubleSteps(3, PrecomputedLines[0][173:176])
+	// i = 172: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][172], &PrecomputedLines[1][172], &imQ)
+	// i = 171: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][171])
+	// i = 170: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][170], &PrecomputedLines[1][170], &imQ)
+	// i = 169: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][169])
+	// i = 168: j = -3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][168], &PrecomputedLines[1][168], &imQneg)
+	// i = 167: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][167])
+	// i = 166: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][166], &PrecomputedLines[1][166], &imQ)
+	// i = 165: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][165])
+	// i = 164: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][164])
+	// i = 163: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][163], &PrecomputedLines[1][163], &imQ)
+	// i = 162 -> 160: 3 consecutive zeros
+	accQ.manyDoubleSteps(3, PrecomputedLines[0][160:163])
+	// i = 159: j = -3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][159], &PrecomputedLines[1][159], &imQneg)
+	// i = 158: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][158])
+	// i = 157: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][157], &PrecomputedLines[1][157], &imQ)
+	// i = 156: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][156])
+	// i = 155: j = -3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][155], &PrecomputedLines[1][155], &imQneg)
+	// i = 154: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][154])
+	// i = 153: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][153])
+	// i = 152: j = -3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][152], &PrecomputedLines[1][152], &imQneg)
+	// i = 151 -> 149: 3 consecutive zeros
+	accQ.manyDoubleSteps(3, PrecomputedLines[0][149:152])
+	// i = 148: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][148], &PrecomputedLines[1][148], &imQ)
+	// i = 147: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][147])
+	// i = 146: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][146])
+	// i = 145: j = -3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][145], &PrecomputedLines[1][145], &imQneg)
+	// i = 144 -> 141: 4 consecutive zeros
+	accQ.manyDoubleSteps(4, PrecomputedLines[0][141:145])
+	// i = 140: j = -3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][140], &PrecomputedLines[1][140], &imQneg)
+	// i = 139: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][139])
+	// i = 138: j = -3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][138], &PrecomputedLines[1][138], &imQneg)
+	// i = 137 -> 128: 10 consecutive zeros
+	accQ.manyDoubleSteps(10, PrecomputedLines[0][128:138])
+	// i = 127: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][127], &PrecomputedLines[1][127], &imQ)
+	// i = 126 -> 124: 3 consecutive zeros
+	accQ.manyDoubleSteps(3, PrecomputedLines[0][124:127])
+	// i = 123: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][123], &PrecomputedLines[1][123], &imQ)
+	// i = 122: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][122])
+	// i = 121: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][121], &PrecomputedLines[1][121], &imQ)
+	// i = 120: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][120])
+	// i = 119: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][119])
+	// i = 118: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][118], &PrecomputedLines[1][118], &imQ)
+	// i = 117 -> 115: 3 consecutive zeros
+	accQ.manyDoubleSteps(3, PrecomputedLines[0][115:118])
+	// i = 114: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][114], &PrecomputedLines[1][114], &imQ)
+	// i = 113 -> 111: 3 consecutive zeros
+	accQ.manyDoubleSteps(3, PrecomputedLines[0][111:114])
+	// i = 110: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][110], &PrecomputedLines[1][110], &imQ)
+	// i = 109: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][109])
+	// i = 108: j = -3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][108], &PrecomputedLines[1][108], &imQneg)
+	// i = 107 -> 104: 4 consecutive zeros
+	accQ.manyDoubleSteps(4, PrecomputedLines[0][104:108])
+	// i = 103: j = -3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][103], &PrecomputedLines[1][103], &imQneg)
+	// i = 102: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][102])
+	// i = 101: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][101], &PrecomputedLines[1][101], &imQ)
+	// i = 100: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][100])
+	// i = 99: j = -3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][99], &PrecomputedLines[1][99], &imQneg)
+	// i = 98: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][98])
+	// i = 97: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][97])
+	// i = 96: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][96], &PrecomputedLines[1][96], &imQ)
+	// i = 95: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][95])
+	// i = 94: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][94])
+	// i = 93: j = 3
+	accQ.doubleAndAddStep(&PrecomputedLines[0][93], &PrecomputedLines[1][93], &imQ)
+	// i = 92 -> 64: 29 consecutive zeros
+	accQ.manyDoubleSteps(29, PrecomputedLines[0][64:93])
+	// i = 63: j = 1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][63], &PrecomputedLines[1][63], &Q)
+	// i = 62 -> 59: 4 consecutive zeros
+	accQ.manyDoubleSteps(4, PrecomputedLines[0][59:63])
+	// i = 58: j = 1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][58], &PrecomputedLines[1][58], &Q)
+	// i = 57: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][57])
+	// i = 56: j = 1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][56], &PrecomputedLines[1][56], &Q)
+	// i = 55 -> 52: 4 consecutive zeros
+	accQ.manyDoubleSteps(4, PrecomputedLines[0][52:56])
+	// i = 51: j = 1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][51], &PrecomputedLines[1][51], &Q)
+	// i = 50: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][50])
+	// i = 49: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][49])
+	// i = 48: j = 1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][48], &PrecomputedLines[1][48], &Q)
+	// i = 47: j = 0
+	accQ.doubleStep(&PrecomputedLines[0][47])
+	// i = 46: j = -1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][46], &PrecomputedLines[1][46], &negQ)
+	// i = 45 -> 2: 44 consecutive zeros
+	accQ.manyDoubleSteps(44, PrecomputedLines[0][2:46])
+	// i = 1: j = 1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][1], &PrecomputedLines[1][1], &Q)
+	// i = 0: j = -3, use tangentCompute (not doubleStep)
 	accQ.tangentCompute(&PrecomputedLines[0][0])
 
 	return PrecomputedLines
@@ -654,6 +801,114 @@ func (p *G2Affine) doubleAndAddStep(evaluations1, evaluations2 *LineEvaluationAf
 
 	p.X.Set(&x4)
 	p.Y.Set(&y4)
+}
+
+func batchInvertFp(in []fp.Element) []fp.Element {
+	n := len(in)
+	if n == 0 {
+		return nil
+	}
+	result := make([]fp.Element, n)
+	partials := make([]fp.Element, n)
+	partials[0].Set(&in[0])
+	for i := 1; i < n; i++ {
+		partials[i].Mul(&partials[i-1], &in[i])
+	}
+	var inv fp.Element
+	inv.Inverse(&partials[n-1])
+	for i := n - 1; i > 0; i-- {
+		result[i].Mul(&inv, &partials[i-1])
+		inv.Mul(&inv, &in[i])
+	}
+	result[0].Set(&inv)
+	return result
+}
+
+func (p *G2Affine) manyDoubleSteps(k int, evaluations []LineEvaluationAff) {
+	if k == 0 {
+		return
+	}
+
+	// Step 1: Compute A[i], B[i], C[i] using the recurrence
+	A := make([]fp.Element, k+1)
+	B := make([]fp.Element, k+1)
+	C := make([]fp.Element, k+1)
+
+	var tmp fp.Element
+	A[0].Set(&p.X)
+	C[0].Neg(&p.Y)
+	tmp.Square(&p.X)
+	B[0].Double(&tmp).Add(&B[0], &tmp) // B[0] = 3x²
+
+	for i := 1; i <= k; i++ {
+		var Csq, ACs, eightACs fp.Element
+		Csq.Square(&C[i-1])
+		ACs.Mul(&A[i-1], &Csq)
+		eightACs.Double(&ACs).Double(&eightACs).Double(&eightACs)
+		A[i].Square(&B[i-1]).Sub(&A[i], &eightACs)
+
+		tmp.Square(&A[i])
+		B[i].Double(&tmp).Add(&B[i], &tmp)
+
+		var C4, fourACs, diff fp.Element
+		C4.Square(&Csq)
+		fourACs.Double(&ACs).Double(&fourACs)
+		diff.Sub(&A[i], &fourACs)
+		C[i].Double(&C4).Double(&C[i]).Double(&C[i]) // 8*C[i-1]⁴
+		tmp.Mul(&B[i-1], &diff)
+		C[i].Add(&C[i], &tmp) // C[i] = 8*C[i-1]⁴ + B[i-1]*(A[i] - 4*A[i-1]*C[i-1]²)
+	}
+
+	// Step 2: Compute D[i] = -2*C[i] = 2*y[i] for i = 0..k-1
+	D := make([]fp.Element, k)
+	for i := 0; i < k; i++ {
+		D[i].Double(&C[i]).Neg(&D[i])
+	}
+
+	// Step 3: Compute T[i] = D[0]*D[1]*...*D[i] for i = 0..k-1
+	T := make([]fp.Element, k)
+	T[0].Set(&D[0])
+	for i := 1; i < k; i++ {
+		T[i].Mul(&T[i-1], &D[i])
+	}
+
+	// Step 4: Batch invert T
+	invT := batchInvertFp(T)
+
+	// Step 5: Compute line evaluations
+	// Fill in REVERSE order: evaluations[k-1] = first doubling, evaluations[0] = k-th doubling
+	// This matches the PrecomputeLines loop which goes from high index to low.
+	// For i = 0: x[0] = A[0], y[0] = -C[0]
+	// For i > 0: x[i] = A[i] / T[i-1]², y[i] = -C[i] / T[i-1]³
+
+	// Step 0: special case since scaling is 1 (goes to evaluations[k-1])
+	evaluations[k-1].R0.Mul(&B[0], &invT[0])
+	evaluations[k-1].R1.Mul(&B[0], &A[0]).Mul(&evaluations[k-1].R1, &invT[0]).Add(&evaluations[k-1].R1, &C[0])
+
+	// Steps 1 to k-1 (fill in reverse: step i goes to evaluations[k-1-i])
+	var invT2, invT3 fp.Element
+	for i := 1; i < k; i++ {
+		idx := k - 1 - i
+		// R0 = B[i] / T[i]
+		evaluations[idx].R0.Mul(&B[i], &invT[i])
+
+		// R1 = B[i]*A[i]/(T[i]*T[i-1]²) + C[i]/T[i-1]³
+		invT2.Square(&invT[i-1])
+		invT3.Mul(&invT2, &invT[i-1])
+
+		var term1, term2 fp.Element
+		term1.Mul(&B[i], &A[i]).Mul(&term1, &invT[i]).Mul(&term1, &invT2)
+		term2.Mul(&C[i], &invT3)
+		evaluations[idx].R1.Add(&term1, &term2)
+	}
+
+	// Step 6: Final point coordinates
+	// x[k] = A[k] / T[k-1]²
+	// y[k] = -C[k] / T[k-1]³
+	invT2.Square(&invT[k-1])
+	invT3.Mul(&invT2, &invT[k-1])
+	p.X.Mul(&A[k], &invT2)
+	p.Y.Mul(&C[k], &invT3).Neg(&p.Y)
 }
 
 func (p *G2Affine) tangentCompute(evaluations *LineEvaluationAff) {

@@ -371,21 +371,157 @@ func PairingCheckFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvalu
 	return f.Equal(&one), nil
 }
 
+// manyDoubleSteps performs k consecutive doublings on p and returns the line evaluations.
+// It uses a recurrence to compute 2^k*P with a single batch inversion.
+func (p *G2Affine) manyDoubleSteps(k int, evaluations []LineEvaluationAff) {
+	if k == 0 {
+		return
+	}
+
+	// Step 1: Compute A[i], B[i], C[i] using the recurrence
+	A := make([]fptower.E2, k+1)
+	B := make([]fptower.E2, k+1)
+	C := make([]fptower.E2, k+1)
+
+	var tmp fptower.E2
+	A[0].Set(&p.X)
+	C[0].Neg(&p.Y)
+	tmp.Square(&p.X)
+	B[0].Double(&tmp).Add(&B[0], &tmp) // B[0] = 3x²
+
+	for i := 1; i <= k; i++ {
+		var Csq, ACs, eightACs fptower.E2
+		Csq.Square(&C[i-1])
+		ACs.Mul(&A[i-1], &Csq)
+		eightACs.Double(&ACs).Double(&eightACs).Double(&eightACs)
+		A[i].Square(&B[i-1]).Sub(&A[i], &eightACs)
+
+		tmp.Square(&A[i])
+		B[i].Double(&tmp).Add(&B[i], &tmp)
+
+		var C4, fourACs, diff fptower.E2
+		C4.Square(&Csq)
+		fourACs.Double(&ACs).Double(&fourACs)
+		diff.Sub(&A[i], &fourACs)
+		C[i].Double(&C4).Double(&C[i]).Double(&C[i]) // 8*C[i-1]⁴
+		tmp.Mul(&B[i-1], &diff)
+		C[i].Add(&C[i], &tmp) // C[i] = 8*C[i-1]⁴ + B[i-1]*(A[i] - 4*A[i-1]*C[i-1]²)
+	}
+
+	// Step 2: Compute D[i] = -2*C[i] = 2*y[i] for i = 0..k-1
+	D := make([]fptower.E2, k)
+	for i := 0; i < k; i++ {
+		D[i].Double(&C[i]).Neg(&D[i])
+	}
+
+	// Step 3: Compute T[i] = D[0]*D[1]*...*D[i] for i = 0..k-1
+	T := make([]fptower.E2, k)
+	T[0].Set(&D[0])
+	for i := 1; i < k; i++ {
+		T[i].Mul(&T[i-1], &D[i])
+	}
+
+	// Step 4: Batch invert T
+	invT := fptower.BatchInvertE2(T)
+
+	// Step 5: Compute line evaluations
+	// For i = 0: x[0] = A[0], y[0] = -C[0]
+	// For i > 0: x[i] = A[i] / T[i-1]², y[i] = -C[i] / T[i-1]³
+
+	// Step 0: special case since scaling is 1
+	evaluations[0].R0.Mul(&B[0], &invT[0])
+	evaluations[0].R1.Mul(&B[0], &A[0]).Mul(&evaluations[0].R1, &invT[0]).Add(&evaluations[0].R1, &C[0])
+
+	// Steps 1 to k-1
+	var invT2, invT3 fptower.E2
+	for i := 1; i < k; i++ {
+		// R0 = B[i] / T[i]
+		evaluations[i].R0.Mul(&B[i], &invT[i])
+
+		// R1 = B[i]*A[i]/(T[i]*T[i-1]²) + C[i]/T[i-1]³
+		invT2.Square(&invT[i-1])
+		invT3.Mul(&invT2, &invT[i-1])
+
+		var term1, term2 fptower.E2
+		term1.Mul(&B[i], &A[i]).Mul(&term1, &invT[i]).Mul(&term1, &invT2)
+		term2.Mul(&C[i], &invT3)
+		evaluations[i].R1.Add(&term1, &term2)
+	}
+
+	// Step 6: Final point coordinates
+	// x[k] = A[k] / T[k-1]²
+	// y[k] = -C[k] / T[k-1]³
+	invT2.Square(&invT[k-1])
+	invT3.Mul(&invT2, &invT[k-1])
+	p.X.Mul(&A[k], &invT2)
+	p.Y.Mul(&C[k], &invT3).Neg(&p.Y)
+}
+
 // PrecomputeLines precomputes the lines for the fixed-argument Miller loop
 func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter) - 1]LineEvaluationAff) {
 	var accQ G2Affine
 	accQ.Set(&Q)
-	n := len(LoopCounter)
-	// i = n - 2
-	accQ.doubleStep(&PrecomputedLines[0][n-2])
-	accQ.addStep(&PrecomputedLines[1][n-2], &Q)
-	for i := n - 3; i >= 0; i-- {
-		if LoopCounter[i] == 0 {
-			accQ.doubleStep(&PrecomputedLines[0][i])
-		} else {
-			accQ.doubleAndAddStep(&PrecomputedLines[0][i], &PrecomputedLines[1][i], &Q)
+
+	// LoopCounter non-zero values: 16(1), 48(1), 57(1), 60(1), 62(1), 63(1)
+	// Runs of ≥3 consecutive zeros: 56→49(8), 47→17(31), 15→0(16)
+
+	// i=62: LoopCounter[62]=1, double+add
+	accQ.doubleStep(&PrecomputedLines[0][62])
+	accQ.addStep(&PrecomputedLines[1][62], &Q)
+
+	// i=61: LoopCounter[61]=0
+	accQ.doubleStep(&PrecomputedLines[0][61])
+
+	// i=60: LoopCounter[60]=1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][60], &PrecomputedLines[1][60], &Q)
+
+	// i=59: LoopCounter[59]=0
+	accQ.doubleStep(&PrecomputedLines[0][59])
+
+	// i=58: LoopCounter[58]=0
+	accQ.doubleStep(&PrecomputedLines[0][58])
+
+	// i=57: LoopCounter[57]=1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][57], &PrecomputedLines[1][57], &Q)
+
+	// i=56→49: 8 consecutive zeros
+	{
+		var evals [8]LineEvaluationAff
+		accQ.manyDoubleSteps(8, evals[:])
+		PrecomputedLines[0][56] = evals[0]
+		PrecomputedLines[0][55] = evals[1]
+		PrecomputedLines[0][54] = evals[2]
+		PrecomputedLines[0][53] = evals[3]
+		PrecomputedLines[0][52] = evals[4]
+		PrecomputedLines[0][51] = evals[5]
+		PrecomputedLines[0][50] = evals[6]
+		PrecomputedLines[0][49] = evals[7]
+	}
+
+	// i=48: LoopCounter[48]=1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][48], &PrecomputedLines[1][48], &Q)
+
+	// i=47→17: 31 consecutive zeros
+	{
+		var evals [31]LineEvaluationAff
+		accQ.manyDoubleSteps(31, evals[:])
+		for j := 0; j < 31; j++ {
+			PrecomputedLines[0][47-j] = evals[j]
 		}
 	}
+
+	// i=16: LoopCounter[16]=1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][16], &PrecomputedLines[1][16], &Q)
+
+	// i=15→0: 16 consecutive zeros
+	{
+		var evals [16]LineEvaluationAff
+		accQ.manyDoubleSteps(16, evals[:])
+		for j := 0; j < 16; j++ {
+			PrecomputedLines[0][15-j] = evals[j]
+		}
+	}
+
 	return PrecomputedLines
 }
 

@@ -395,18 +395,60 @@ func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter) - 1]Line
 	accQ.Set(&Q)
 	negQ.Neg(&Q)
 
-	n := len(LoopCounter)
-	for i := n - 2; i >= 0; i-- {
-		accQ.doubleStep(&PrecomputedLines[0][i])
-		switch LoopCounter[i] {
-		case 1:
-			accQ.addStep(&PrecomputedLines[1][i], &Q)
-		case -1:
-			accQ.addStep(&PrecomputedLines[1][i], &negQ)
-		default:
-			continue
+	// i=31: LoopCounter[31]=0
+	accQ.doubleStep(&PrecomputedLines[0][31])
+
+	// i=30: LoopCounter[30]=0
+	accQ.doubleStep(&PrecomputedLines[0][30])
+
+	// i=29: LoopCounter[29]=-1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][29], &PrecomputedLines[1][29], &negQ)
+
+	// i=28: LoopCounter[28]=0
+	accQ.doubleStep(&PrecomputedLines[0][28])
+
+	// i=27: LoopCounter[27]=-1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][27], &PrecomputedLines[1][27], &negQ)
+
+	// i=26: LoopCounter[26]=0
+	accQ.doubleStep(&PrecomputedLines[0][26])
+
+	// i=25: LoopCounter[25]=0
+	accQ.doubleStep(&PrecomputedLines[0][25])
+
+	// i=24: LoopCounter[24]=1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][24], &PrecomputedLines[1][24], &Q)
+
+	// i=23→18: 6 consecutive zeros
+	{
+		var evals [6]LineEvaluationAff
+		accQ.manyDoubleSteps(6, evals[:])
+		PrecomputedLines[0][23] = evals[0]
+		PrecomputedLines[0][22] = evals[1]
+		PrecomputedLines[0][21] = evals[2]
+		PrecomputedLines[0][20] = evals[3]
+		PrecomputedLines[0][19] = evals[4]
+		PrecomputedLines[0][18] = evals[5]
+	}
+
+	// i=17: LoopCounter[17]=1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][17], &PrecomputedLines[1][17], &Q)
+
+	// i=16: LoopCounter[16]=0
+	accQ.doubleStep(&PrecomputedLines[0][16])
+
+	// i=15: LoopCounter[15]=-1
+	accQ.doubleAndAddStep(&PrecomputedLines[0][15], &PrecomputedLines[1][15], &negQ)
+
+	// i=14→0: 15 consecutive zeros
+	{
+		var evals [15]LineEvaluationAff
+		accQ.manyDoubleSteps(15, evals[:])
+		for j := 0; j < 15; j++ {
+			PrecomputedLines[0][14-j] = evals[j]
 		}
 	}
+
 	return PrecomputedLines
 }
 
@@ -548,4 +590,164 @@ func (p *G2Affine) addStep(evaluations *LineEvaluationAff, a *G2Affine) {
 
 	p.X.Set(&xr)
 	p.Y.Set(&yr)
+}
+
+func (p *G2Affine) manyDoubleSteps(k int, evaluations []LineEvaluationAff) {
+	if k == 0 {
+		return
+	}
+
+	// Step 1: Compute A[i], B[i], C[i] using the recurrence
+	A := make([]fptower.E4, k+1)
+	B := make([]fptower.E4, k+1)
+	C := make([]fptower.E4, k+1)
+
+	var tmp fptower.E4
+	A[0].Set(&p.X)
+	C[0].Neg(&p.Y)
+	tmp.Square(&p.X)
+	B[0].Double(&tmp).Add(&B[0], &tmp) // B[0] = 3x²
+
+	for i := 1; i <= k; i++ {
+		var Csq, ACs, eightACs fptower.E4
+		Csq.Square(&C[i-1])
+		ACs.Mul(&A[i-1], &Csq)
+		eightACs.Double(&ACs).Double(&eightACs).Double(&eightACs)
+		A[i].Square(&B[i-1]).Sub(&A[i], &eightACs)
+
+		tmp.Square(&A[i])
+		B[i].Double(&tmp).Add(&B[i], &tmp)
+
+		var C4, fourACs, diff fptower.E4
+		C4.Square(&Csq)
+		fourACs.Double(&ACs).Double(&fourACs)
+		diff.Sub(&A[i], &fourACs)
+		C[i].Double(&C4).Double(&C[i]).Double(&C[i]) // 8*C[i-1]⁴
+		tmp.Mul(&B[i-1], &diff)
+		C[i].Add(&C[i], &tmp) // C[i] = 8*C[i-1]⁴ + B[i-1]*(A[i] - 4*A[i-1]*C[i-1]²)
+	}
+
+	// Step 2: Compute D[i] = -2*C[i] = 2*y[i] for i = 0..k-1
+	D := make([]fptower.E4, k)
+	for i := 0; i < k; i++ {
+		D[i].Double(&C[i]).Neg(&D[i])
+	}
+
+	// Step 3: Compute T[i] = D[0]*D[1]*...*D[i] for i = 0..k-1
+	T := make([]fptower.E4, k)
+	T[0].Set(&D[0])
+	for i := 1; i < k; i++ {
+		T[i].Mul(&T[i-1], &D[i])
+	}
+
+	// Step 4: Batch invert T
+	invT := fptower.BatchInvertE4(T)
+
+	// Step 5: Compute line evaluations
+	// For i = 0: x[0] = A[0], y[0] = -C[0]
+	// For i > 0: x[i] = A[i] / T[i-1]², y[i] = -C[i] / T[i-1]³
+
+	// Step 0: special case since scaling is 1
+	evaluations[0].R0.Mul(&B[0], &invT[0])
+	evaluations[0].R1.Mul(&B[0], &A[0]).Mul(&evaluations[0].R1, &invT[0]).Add(&evaluations[0].R1, &C[0])
+
+	// Steps 1 to k-1
+	var invT2, invT3 fptower.E4
+	for i := 1; i < k; i++ {
+		// R0 = B[i] / T[i]
+		evaluations[i].R0.Mul(&B[i], &invT[i])
+
+		// R1 = B[i]*A[i]/(T[i]*T[i-1]²) + C[i]/T[i-1]³
+		invT2.Square(&invT[i-1])
+		invT3.Mul(&invT2, &invT[i-1])
+
+		var term1, term2 fptower.E4
+		term1.Mul(&B[i], &A[i]).Mul(&term1, &invT[i]).Mul(&term1, &invT2)
+		term2.Mul(&C[i], &invT3)
+		evaluations[i].R1.Add(&term1, &term2)
+	}
+
+	// Step 6: Final point coordinates
+	// x[k] = A[k] / T[k-1]²
+	// y[k] = -C[k] / T[k-1]³
+	invT2.Square(&invT[k-1])
+	invT3.Mul(&invT2, &invT[k-1])
+	p.X.Mul(&A[k], &invT2)
+	p.Y.Mul(&C[k], &invT3).Neg(&p.Y)
+}
+
+func (p *G2Affine) doubleAndAddStep(evaluations1, evaluations2 *LineEvaluationAff, a *G2Affine) {
+	var A, B, A2, B2, X2A2, t, U, AU, invAU, invA, invU, l1, x3, l2, x4, y4 fptower.E4
+
+	// The Eisenträger-Lauter-Montgomery formula for 2P+Q (https://eprint.iacr.org/2003/257)
+	// computes both slopes λ1 and λ2 using a single field inversion via batch inversion.
+	//
+	// Given P = (x1, y1) and Q = (x2, y2), let:
+	//   A = x1 - x2
+	//   B = y1 - y2
+	//   U = B² - (2x1 + x2)·A²
+	//
+	// Then:
+	//   λ1 = B/A                    (slope for P + Q)
+	//   λ2 = -λ1 - 2y1·A²/U         (slope for P + (P+Q))
+	//
+	// We compute 1/A and 1/U using Montgomery's batch inversion:
+	//   1/A = U/(A·U) and 1/U = A/(A·U) with a single inversion of A·U.
+
+	// Compute A = x1 - x2 and B = y1 - y2
+	A.Sub(&p.X, &a.X)
+	B.Sub(&p.Y, &a.Y)
+
+	// Compute A² and B²
+	A2.Square(&A)
+	B2.Square(&B)
+
+	// Compute U = B² - (2x1 + x2)·A²
+	t.Double(&p.X).Add(&t, &a.X)
+	X2A2.Mul(&t, &A2)
+	U.Sub(&B2, &X2A2)
+
+	// Batch inversion: compute 1/A and 1/U with a single inversion
+	AU.Mul(&A, &U)
+	invAU.Inverse(&AU)
+	invA.Mul(&U, &invAU)
+	invU.Mul(&A, &invAU)
+
+	// λ1 = B/A = B·(1/A)
+	l1.Mul(&B, &invA)
+
+	// x3 = λ1² - x1 - x2
+	x3.Square(&l1)
+	x3.Sub(&x3, &p.X)
+	x3.Sub(&x3, &a.X)
+
+	// line1 evaluation
+	evaluations1.R0.Set(&l1)
+	evaluations1.R1.Mul(&l1, &p.X)
+	evaluations1.R1.Sub(&evaluations1.R1, &p.Y)
+
+	// λ2 = -λ1 - 2y1·A²/U = -λ1 - 2y1·A²·(1/U)
+	l2.Double(&p.Y)
+	l2.Mul(&l2, &A2)
+	l2.Mul(&l2, &invU)
+	l2.Add(&l2, &l1)
+	l2.Neg(&l2)
+
+	// x4 = λ2² - x1 - x3
+	x4.Square(&l2)
+	x4.Sub(&x4, &p.X)
+	x4.Sub(&x4, &x3)
+
+	// y4 = λ2·(x1 - x4) - y1
+	y4.Sub(&p.X, &x4)
+	y4.Mul(&l2, &y4)
+	y4.Sub(&y4, &p.Y)
+
+	// line2 evaluation
+	evaluations2.R0.Set(&l2)
+	evaluations2.R1.Mul(&l2, &p.X)
+	evaluations2.R1.Sub(&evaluations2.R1, &p.Y)
+
+	p.X.Set(&x4)
+	p.Y.Set(&y4)
 }
