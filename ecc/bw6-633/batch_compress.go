@@ -1,14 +1,13 @@
 // Copyright 2020-2026 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
-package bls12381
+package bw6633
 
 import (
 	"errors"
 	"sync/atomic"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
@@ -357,7 +356,8 @@ func BatchDecompress2G1(z0, z1 fp.Element, flags byte) (p0, p1 G1Affine, err err
 // BatchCompress2G2 compresses two G2Affine points into (z0, z1, flags) using
 // the birational map χ₂,₃ from https://eprint.iacr.org/2021/1446.pdf (Section 3).
 // Decompression requires only ONE cube root extraction instead of two square roots.
-func BatchCompress2G2(p0, p1 *G2Affine) (z0, z1 fptower.E2, flags byte, err error) {
+// Note: For BW6-633, G2 is also defined over Fp (not Fp2), so this uses fp.Element.
+func BatchCompress2G2(p0, p1 *G2Affine) (z0, z1 fp.Element, flags byte, err error) {
 	p0Inf := p0.IsInfinity()
 	p1Inf := p1.IsInfinity()
 
@@ -399,7 +399,7 @@ func BatchCompress2G2(p0, p1 *G2Affine) (z0, z1 fptower.E2, flags byte, err erro
 	}
 
 	// Degenerate case: y0² == y1² means P1 = [-ω]^k(P0) for some k ∈ {0,...,5}
-	var y0Sq, y1Sq fptower.E2
+	var y0Sq, y1Sq fp.Element
 	y0Sq.Square(&p0.Y)
 	y1Sq.Square(&p1.Y)
 	if y0Sq.Equal(&y1Sq) {
@@ -407,26 +407,23 @@ func BatchCompress2G2(p0, p1 *G2Affine) (z0, z1 fptower.E2, flags byte, err erro
 		z1 = p0.Y
 		flags = 0b0110 << 4
 		// Find k: [-ω]^k(x,y) = (ω^k·x, (-1)^k·y)
-		// ω = thirdRootOneG2, ω² = thirdRootOneG1 (embedded in Fp2)
-		var omega, omega2 fptower.E2
-		omega.A0 = thirdRootOneG2
-		omega2.A0 = thirdRootOneG1
-		var negY fptower.E2
+		// For G2: ω = thirdRootOneG2, ω² = thirdRootOneG1
+		var negY fp.Element
 		negY.Neg(&p0.Y)
 		// Check k=0: (x0, y0)
 		if p0.X.Equal(&p1.X) && p0.Y.Equal(&p1.Y) {
 			return
 		}
 		// Check k=1: (ω·x0, -y0)
-		var omegaX fptower.E2
-		omegaX.Mul(&p0.X, &omega)
+		var omegaX fp.Element
+		omegaX.Mul(&p0.X, &thirdRootOneG2)
 		if omegaX.Equal(&p1.X) && negY.Equal(&p1.Y) {
 			flags |= 1
 			return
 		}
 		// Check k=2: (ω²·x0, y0)
-		var omega2X fptower.E2
-		omega2X.Mul(&p0.X, &omega2)
+		var omega2X fp.Element
+		omega2X.Mul(&p0.X, &thirdRootOneG1)
 		if omega2X.Equal(&p1.X) && p0.Y.Equal(&p1.Y) {
 			flags |= 2
 			return
@@ -448,22 +445,22 @@ func BatchCompress2G2(p0, p1 *G2Affine) (z0, z1 fptower.E2, flags byte, err erro
 	// Generic case: compute χ₂,₃(P0, P1) = (z0, z1)
 	x0, y0, x1, y1 := p0.X, p0.Y, p1.X, p1.Y
 
-	var x0Sq, x1Sq, x0Cubed, x1Cubed fptower.E2
+	var x0Sq, x1Sq, x0Cubed, x1Cubed fp.Element
 	x0Sq.Square(&x0)
 	x1Sq.Square(&x1)
 	x0Cubed.Mul(&x0Sq, &x0)
 	x1Cubed.Mul(&x1Sq, &x1)
 
-	var denInv fptower.E2
+	var denInv fp.Element
 	denInv.Sub(&y0Sq, &y1Sq)
 	denInv.Inverse(&denInv)
 
 	// z0 numerator
-	var term1, term2, term3, numZ0 fptower.E2
+	var term1, term2, term3, numZ0 fp.Element
 	term1.Mul(&x0Sq, &y1)
 	term1.Double(&term1) // 2x0²y1
 
-	var y0MinusY1 fptower.E2
+	var y0MinusY1 fp.Element
 	y0MinusY1.Sub(&y0, &y1)
 	term2.Mul(&x0, &x1)
 	term2.Mul(&term2, &y0MinusY1) // x0x1(y0 - y1)
@@ -477,7 +474,7 @@ func BatchCompress2G2(p0, p1 *G2Affine) (z0, z1 fptower.E2, flags byte, err erro
 	z0.Mul(&numZ0, &denInv)
 
 	// z1 numerator
-	var numZ1, innerTerm, temp fptower.E2
+	var numZ1, innerTerm, temp fp.Element
 	numZ1.Mul(&x0Cubed, &y1) // x0³y1
 
 	innerTerm.Mul(&x0, &y1)
@@ -493,9 +490,9 @@ func BatchCompress2G2(p0, p1 *G2Affine) (z0, z1 fptower.E2, flags byte, err erro
 	z1.Mul(&numZ1, &denInv)
 
 	// Determine cube root index n: x1 = ω^n · cbrt(y1² - b)
-	var omega fptower.E2
-	omega.A0 = thirdRootOneG2
-	var g1, cbrtG1 fptower.E2
+	// For G2: uses bTwistCurveCoeff and thirdRootOneG2
+	omega := thirdRootOneG2
+	var g1, cbrtG1 fp.Element
 	g1.Sub(&y1Sq, &bTwistCurveCoeff)
 	if cbrtG1.Cbrt(&g1) == nil {
 		err = errors.New("g1 is not a cubic residue")
@@ -506,7 +503,7 @@ func BatchCompress2G2(p0, p1 *G2Affine) (z0, z1 fptower.E2, flags byte, err erro
 	if cbrtG1.Equal(&x1) {
 		n = 0
 	} else {
-		var cbrtG1Omega fptower.E2
+		var cbrtG1Omega fp.Element
 		cbrtG1Omega.Mul(&cbrtG1, &omega)
 		if cbrtG1Omega.Equal(&x1) {
 			n = 1
@@ -521,7 +518,8 @@ func BatchCompress2G2(p0, p1 *G2Affine) (z0, z1 fptower.E2, flags byte, err erro
 
 // BatchDecompress2G2 decompresses two G2Affine points using only ONE cube root
 // extraction (instead of two square roots). Based on https://eprint.iacr.org/2021/1446.pdf
-func BatchDecompress2G2(z0, z1 fptower.E2, flags byte) (p0, p1 G2Affine, err error) {
+// Note: For BW6-633, G2 is also defined over Fp (not Fp2).
+func BatchDecompress2G2(z0, z1 fp.Element, flags byte) (p0, p1 G2Affine, err error) {
 	caseIndicator := (flags >> 4) & 0x0F
 
 	switch caseIndicator {
@@ -533,13 +531,12 @@ func BatchDecompress2G2(z0, z1 fptower.E2, flags byte) (p0, p1 G2Affine, err err
 	case 0b10: // P0 infinity
 		p0.SetInfinity()
 		p1.X = z0
-		var ySq fptower.E2
+		var ySq fp.Element
 		ySq.Square(&p1.X).Mul(&ySq, &p1.X).Add(&ySq, &bTwistCurveCoeff)
-		if ySq.Legendre() == -1 {
+		if p1.Y.Sqrt(&ySq) == nil {
 			err = errors.New("invalid point: not on curve")
 			return
 		}
-		p1.Y.Sqrt(&ySq)
 		if p1.Y.LexicographicallyLargest() != ((flags & 0b01) != 0) {
 			p1.Y.Neg(&p1.Y)
 		}
@@ -548,13 +545,12 @@ func BatchDecompress2G2(z0, z1 fptower.E2, flags byte) (p0, p1 G2Affine, err err
 	case 0b01: // P1 infinity
 		p1.SetInfinity()
 		p0.X = z0
-		var ySq fptower.E2
+		var ySq fp.Element
 		ySq.Square(&p0.X).Mul(&ySq, &p0.X).Add(&ySq, &bTwistCurveCoeff)
-		if ySq.Legendre() == -1 {
+		if p0.Y.Sqrt(&ySq) == nil {
 			err = errors.New("invalid point: not on curve")
 			return
 		}
-		p0.Y.Sqrt(&ySq)
 		if p0.Y.LexicographicallyLargest() != ((flags & 0b10) != 0) {
 			p0.Y.Neg(&p0.Y)
 		}
@@ -562,13 +558,12 @@ func BatchDecompress2G2(z0, z1 fptower.E2, flags byte) (p0, p1 G2Affine, err err
 
 	case 0b0100: // P0 == P1
 		p0.X = z0
-		var ySq fptower.E2
+		var ySq fp.Element
 		ySq.Square(&p0.X).Mul(&ySq, &p0.X).Add(&ySq, &bTwistCurveCoeff)
-		if ySq.Legendre() == -1 {
+		if p0.Y.Sqrt(&ySq) == nil {
 			err = errors.New("invalid point: not on curve")
 			return
 		}
-		p0.Y.Sqrt(&ySq)
 		if p0.Y.LexicographicallyLargest() != ((flags & 0b10) != 0) {
 			p0.Y.Neg(&p0.Y)
 		}
@@ -577,13 +572,12 @@ func BatchDecompress2G2(z0, z1 fptower.E2, flags byte) (p0, p1 G2Affine, err err
 
 	case 0b0101: // P0 == -P1
 		p0.X = z0
-		var ySq fptower.E2
+		var ySq fp.Element
 		ySq.Square(&p0.X).Mul(&ySq, &p0.X).Add(&ySq, &bTwistCurveCoeff)
-		if ySq.Legendre() == -1 {
+		if p0.Y.Sqrt(&ySq) == nil {
 			err = errors.New("invalid point: not on curve")
 			return
 		}
-		p0.Y.Sqrt(&ySq)
 		if p0.Y.LexicographicallyLargest() != ((flags & 0b10) != 0) {
 			p0.Y.Neg(&p0.Y)
 		}
@@ -595,17 +589,14 @@ func BatchDecompress2G2(z0, z1 fptower.E2, flags byte) (p0, p1 G2Affine, err err
 		k := flags & 0x07
 		p0.X, p0.Y = z0, z1
 		// Apply ω^(k%3) to x and (-1)^k to y
-		// ω = thirdRootOneG2, ω² = thirdRootOneG1
-		var omega, omega2 fptower.E2
-		omega.A0 = thirdRootOneG2
-		omega2.A0 = thirdRootOneG1
+		// For G2: ω = thirdRootOneG2, ω² = thirdRootOneG1
 		switch k % 3 {
 		case 0:
 			p1.X = p0.X
 		case 1:
-			p1.X.Mul(&p0.X, &omega)
+			p1.X.Mul(&p0.X, &thirdRootOneG2)
 		case 2:
-			p1.X.Mul(&p0.X, &omega2)
+			p1.X.Mul(&p0.X, &thirdRootOneG1)
 		}
 		if k%2 == 0 {
 			p1.Y = p0.Y
@@ -617,35 +608,35 @@ func BatchDecompress2G2(z0, z1 fptower.E2, flags byte) (p0, p1 G2Affine, err err
 	case 0b00: // Generic case: apply ψ⁻¹₂,₃ then cube root
 		n := (flags >> 2) & 0x3
 
-		var z0Sq, z0Cubed, z1Sq fptower.E2
+		var z0Sq, z0Cubed, z1Sq fp.Element
 		z0Sq.Square(&z0)
 		z0Cubed.Mul(&z0Sq, &z0)
 		z1Sq.Square(&z1)
 
-		var g1 fptower.E2
+		var g1 fp.Element
 		g1.Sub(&z1Sq, &bTwistCurveCoeff)
 
 		// Batch inversion: compute 1/z0², 1/z0³, 1/g1 with ONE inversion
-		var z0Fifth, z0FifthG1, invAll fptower.E2
-		z0Fifth.Mul(&z0Sq, &z0Cubed)
-		z0FifthG1.Mul(&z0Fifth, &g1)
-		invAll.Inverse(&z0FifthG1)
+		var z0Fifth, z0FifthG1, invAll fp.Element
+		z0Fifth.Mul(&z0Sq, &z0Cubed) // z0⁵
+		z0FifthG1.Mul(&z0Fifth, &g1) // z0⁵·g1
+		invAll.Inverse(&z0FifthG1)   // 1/(z0⁵·g1)
 
-		var g1Inv, invZ0Fifth, z0CubedInv, z0SqInv fptower.E2
-		g1Inv.Mul(&invAll, &z0Fifth)
-		invZ0Fifth.Mul(&invAll, &g1)
-		z0CubedInv.Mul(&invZ0Fifth, &z0Sq)
-		z0SqInv.Mul(&invZ0Fifth, &z0Cubed)
+		var g1Inv, invZ0Fifth, z0CubedInv, z0SqInv fp.Element
+		g1Inv.Mul(&invAll, &z0Fifth)       // 1/g1
+		invZ0Fifth.Mul(&invAll, &g1)       // 1/z0⁵
+		z0CubedInv.Mul(&invZ0Fifth, &z0Sq) // 1/z0³
+		z0SqInv.Mul(&invZ0Fifth, &z0Cubed) // 1/z0²
 
 		// t = g1 / z0²
-		var t fptower.E2
+		var t fp.Element
 		t.Mul(&g1, &z0SqInv)
 
 		// y0 = (z0³·z1 - 2·z0·(z0 - z1)·g1 - g1²) / z0³
-		var term1, term2, g1Sq, y0 fptower.E2
+		var term1, term2, g1Sq, y0 fp.Element
 		term1.Mul(&z0Cubed, &z1)
 
-		var z0MinusZ1 fptower.E2
+		var z0MinusZ1 fp.Element
 		z0MinusZ1.Sub(&z0, &z1)
 		term2.Double(&z0)
 		term2.Mul(&term2, &z0MinusZ1)
@@ -658,13 +649,13 @@ func BatchDecompress2G2(z0, z1 fptower.E2, flags byte) (p0, p1 G2Affine, err err
 		y0.Mul(&y0, &z0CubedInv)
 
 		// y1 = -(z0²·(z0 - 2·z1) + (2·z0 - z1)·g1) / g1
-		var twoZ1, z0Minus2z1, twoZ0, twoZ0MinusZ1 fptower.E2
+		var twoZ1, z0Minus2z1, twoZ0, twoZ0MinusZ1 fp.Element
 		twoZ1.Double(&z1)
 		z0Minus2z1.Sub(&z0, &twoZ1)
 		twoZ0.Double(&z0)
 		twoZ0MinusZ1.Sub(&twoZ0, &z1)
 
-		var part1, part2, y1 fptower.E2
+		var part1, part2, y1 fp.Element
 		part1.Mul(&z0Sq, &z0Minus2z1)
 		part2.Mul(&twoZ0MinusZ1, &g1)
 		y1.Add(&part1, &part2)
@@ -672,29 +663,25 @@ func BatchDecompress2G2(z0, z1 fptower.E2, flags byte) (p0, p1 G2Affine, err err
 		y1.Neg(&y1)
 
 		// x1 = ω^n · ∛(y1² - b)
-		var y1Sq, g1Prime, x1 fptower.E2
+		var y1Sq, g1Prime, x1 fp.Element
 		y1Sq.Square(&y1)
 		g1Prime.Sub(&y1Sq, &bTwistCurveCoeff)
 
-		if x1.CbrtFrobenius(&g1Prime) == nil {
+		if x1.Cbrt(&g1Prime) == nil {
 			err = errors.New("invalid data: not a cubic residue")
 			return
 		}
 
-		// ω = thirdRootOneG2 (in Fp, embedded as (ω,0) in Fp2)
-		// ω² = thirdRootOneG1 (since thirdRootOneG2 = thirdRootOneG1²)
-		var omega, omega2 fptower.E2
-		omega.A0 = thirdRootOneG2
-		omega2.A0 = thirdRootOneG1
+		// For G2: ω = thirdRootOneG2, ω² = thirdRootOneG1
 		switch n {
 		case 1:
-			x1.Mul(&x1, &omega)
+			x1.Mul(&x1, &thirdRootOneG2)
 		case 2:
-			x1.Mul(&x1, &omega2)
+			x1.Mul(&x1, &thirdRootOneG1)
 		}
 
 		// x0 = t·x1
-		var x0 fptower.E2
+		var x0 fp.Element
 		x0.Mul(&t, &x1)
 
 		p0.X, p0.Y = x0, y0
@@ -710,16 +697,16 @@ func BatchDecompress2G2(z0, z1 fptower.E2, flags byte) (p0, p1 G2Affine, err err
 // Batch compression sizes for slices
 const (
 	// SizeOfBatchCompressedG1Pair is the size of two G1 points batch-compressed.
-	// Generic case: 96 bytes (z0 + z1, n encoded in z0's high bits)
-	// Degenerate case: 97 bytes (z0 + z1 + flags byte)
-	SizeOfBatchCompressedG1Pair           = fp.Bytes + fp.Bytes     // 96 bytes (generic)
-	SizeOfBatchCompressedG1PairDegenerate = fp.Bytes + fp.Bytes + 1 // 97 bytes (degenerate)
+	// Generic case: 160 bytes (z0 + z1, n encoded in z0's high bits)
+	// Degenerate case: 161 bytes (z0 + z1 + flags byte)
+	SizeOfBatchCompressedG1Pair           = fp.Bytes + fp.Bytes     // 160 bytes (generic)
+	SizeOfBatchCompressedG1PairDegenerate = fp.Bytes + fp.Bytes + 1 // 161 bytes (degenerate)
 
 	// SizeOfBatchCompressedG2Pair is the size of two G2 points batch-compressed.
-	// Generic case: 192 bytes (z0 + z1, n encoded in z0's high bits)
-	// Degenerate case: 193 bytes (z0 + z1 + flags byte)
-	SizeOfBatchCompressedG2Pair           = 2*fp.Bytes + 2*fp.Bytes     // 192 bytes (generic)
-	SizeOfBatchCompressedG2PairDegenerate = 2*fp.Bytes + 2*fp.Bytes + 1 // 193 bytes (degenerate)
+	// Generic case: 160 bytes (z0 + z1, n encoded in z0's high bits)
+	// Degenerate case: 161 bytes (z0 + z1 + flags byte)
+	SizeOfBatchCompressedG2Pair           = fp.Bytes + fp.Bytes     // 160 bytes (generic)
+	SizeOfBatchCompressedG2PairDegenerate = fp.Bytes + fp.Bytes + 1 // 161 bytes (degenerate)
 )
 
 // BatchCompressG1Slice compresses a slice of G1Affine points using 2-by-2 batch compression.
@@ -728,9 +715,9 @@ const (
 // Compression is parallelized across pairs (2 points per thread).
 //
 // Returns the compressed bytes. The format is:
-//   - For generic pairs: z0 (48 bytes, n encoded in bits 7-6) + z1 (48 bytes) = 96 bytes
-//   - For degenerate pairs: z0 (48 bytes, bits 7-6 = 11) + z1 (48 bytes) + flags (1 byte) = 97 bytes
-//   - If odd length: last point in standard compressed form (48 bytes)
+//   - For generic pairs: z0 (80 bytes, n encoded in bits 7-6) + z1 (80 bytes) = 160 bytes
+//   - For degenerate pairs: z0 (80 bytes, bits 7-6 = 11) + z1 (80 bytes) + flags (1 byte) = 161 bytes
+//   - If odd length: last point in standard compressed form (80 bytes)
 func BatchCompressG1Slice(points []G1Affine) ([]byte, error) {
 	n := len(points)
 	if n == 0 {
@@ -764,9 +751,9 @@ func BatchCompressG1Slice(points []G1Affine) ([]byte, error) {
 			isGeneric := caseIndicator == 0
 
 			if isGeneric {
-				pairSizes[i] = SizeOfBatchCompressedG1Pair // 96 bytes
+				pairSizes[i] = SizeOfBatchCompressedG1Pair // 160 bytes
 			} else {
-				pairSizes[i] = SizeOfBatchCompressedG1PairDegenerate // 97 bytes
+				pairSizes[i] = SizeOfBatchCompressedG1PairDegenerate // 161 bytes
 			}
 
 			// Calculate offset based on worst-case positions
@@ -862,10 +849,10 @@ func BatchDecompressG1Slice(data []byte, n int) ([]G1Affine, error) {
 		// Check bits 7-6 of z0's first byte
 		highBits := (data[offset] >> 6) & 0x3
 		if highBits == 0x3 {
-			// Degenerate case: 97 bytes
+			// Degenerate case: 161 bytes
 			offset += SizeOfBatchCompressedG1PairDegenerate
 		} else {
-			// Generic case: 96 bytes
+			// Generic case: 160 bytes
 			offset += SizeOfBatchCompressedG1Pair
 		}
 	}
@@ -951,10 +938,9 @@ func BatchDecompressG1Slice(data []byte, n int) ([]G1Affine, error) {
 // Compression is parallelized across pairs (2 points per thread).
 //
 // Returns the compressed bytes. The format is:
-//   - For each pair of points: z0 (96 bytes) + z1 (96 bytes) + flags (1 byte)
-//   - For generic pairs: z0 (96 bytes, n encoded in bits 7-6) + z1 (96 bytes) = 192 bytes
-//   - For degenerate pairs: z0 (96 bytes, bits 7-6 = 11) + z1 (96 bytes) + flags (1 byte) = 193 bytes
-//   - If odd length: last point in standard compressed form (96 bytes)
+//   - For generic pairs: z0 (80 bytes, n encoded in bits 7-6) + z1 (80 bytes) = 160 bytes
+//   - For degenerate pairs: z0 (80 bytes, bits 7-6 = 11) + z1 (80 bytes) + flags (1 byte) = 161 bytes
+//   - If odd length: last point in standard compressed form (80 bytes)
 func BatchCompressG2Slice(points []G2Affine) ([]byte, error) {
 	n := len(points)
 	if n == 0 {
@@ -988,36 +974,30 @@ func BatchCompressG2Slice(points []G2Affine) ([]byte, error) {
 			isGeneric := caseIndicator == 0
 
 			if isGeneric {
-				pairSizes[i] = SizeOfBatchCompressedG2Pair // 192 bytes
+				pairSizes[i] = SizeOfBatchCompressedG2Pair // 160 bytes
 			} else {
-				pairSizes[i] = SizeOfBatchCompressedG2PairDegenerate // 193 bytes
+				pairSizes[i] = SizeOfBatchCompressedG2PairDegenerate // 161 bytes
 			}
 
 			// Calculate offset based on worst-case positions
 			offset := i * SizeOfBatchCompressedG2PairDegenerate
 
-			// Write z0 (A1 | A0)
-			z0A1Bytes := z0.A1.Bytes()
+			// Write z0
+			z0Bytes := z0.Bytes()
 			if isGeneric {
-				// Encode n in bits 7-6 of z0.A1's first byte
+				// Encode n in bits 7-6 of z0's first byte
 				cubeRootIdx := (flags >> 2) & 0x3
-				z0A1Bytes[0] |= (cubeRootIdx << 6)
+				z0Bytes[0] |= (cubeRootIdx << 6)
 			} else {
 				// Set bits 7-6 to 0b11 as degenerate marker
-				z0A1Bytes[0] |= 0xC0
+				z0Bytes[0] |= 0xC0
 			}
-			copy(result[offset:offset+fp.Bytes], z0A1Bytes[:])
-			offset += fp.Bytes
-			z0A0Bytes := z0.A0.Bytes()
-			copy(result[offset:offset+fp.Bytes], z0A0Bytes[:])
+			copy(result[offset:offset+fp.Bytes], z0Bytes[:])
 			offset += fp.Bytes
 
-			// Write z1 (A1 | A0)
-			z1A1Bytes := z1.A1.Bytes()
-			copy(result[offset:offset+fp.Bytes], z1A1Bytes[:])
-			offset += fp.Bytes
-			z1A0Bytes := z1.A0.Bytes()
-			copy(result[offset:offset+fp.Bytes], z1A0Bytes[:])
+			// Write z1
+			z1Bytes := z1.Bytes()
+			copy(result[offset:offset+fp.Bytes], z1Bytes[:])
 			offset += fp.Bytes
 
 			// Write flags only for degenerate cases
@@ -1088,13 +1068,13 @@ func BatchDecompressG2Slice(data []byte, n int) ([]G2Affine, error) {
 	offset := 0
 	for i := 0; i < nPairs; i++ {
 		offsets[i] = offset
-		// Check bits 7-6 of z0.A1's first byte
+		// Check bits 7-6 of z0's first byte
 		highBits := (data[offset] >> 6) & 0x3
 		if highBits == 0x3 {
-			// Degenerate case: 193 bytes
+			// Degenerate case: 161 bytes
 			offset += SizeOfBatchCompressedG2PairDegenerate
 		} else {
-			// Generic case: 192 bytes
+			// Generic case: 160 bytes
 			offset += SizeOfBatchCompressedG2Pair
 		}
 	}
@@ -1115,34 +1095,24 @@ func BatchDecompressG2Slice(data []byte, n int) ([]G2Affine, error) {
 		for i := start; i < end; i++ {
 			pairOffset := offsets[i]
 
-			// Read z0.A1's first byte to determine format
-			z0A1FirstByte := data[pairOffset]
-			highBits := (z0A1FirstByte >> 6) & 0x3
+			// Read z0's first byte to determine format
+			z0FirstByte := data[pairOffset]
+			highBits := (z0FirstByte >> 6) & 0x3
 			isDegenerate := highBits == 0x3
 
-			// Make a copy of z0.A1 bytes and clear the high bits
-			var z0A1Bytes [fp.Bytes]byte
-			copy(z0A1Bytes[:], data[pairOffset:pairOffset+fp.Bytes])
-			z0A1Bytes[0] &= 0x3F // Clear bits 7-6
+			// Make a copy of z0 bytes and clear the high bits
+			var z0Bytes [fp.Bytes]byte
+			copy(z0Bytes[:], data[pairOffset:pairOffset+fp.Bytes])
+			z0Bytes[0] &= 0x3F // Clear bits 7-6
 
-			var z0, z1 fptower.E2
-			if err := z0.A1.SetBytesCanonical(z0A1Bytes[:]); err != nil {
-				atomic.AddUint64(&nbErrs, 1)
-				continue
-			}
-			z0A0Offset := pairOffset + fp.Bytes
-			if err := z0.A0.SetBytesCanonical(data[z0A0Offset : z0A0Offset+fp.Bytes]); err != nil {
+			var z0, z1 fp.Element
+			if err := z0.SetBytesCanonical(z0Bytes[:]); err != nil {
 				atomic.AddUint64(&nbErrs, 1)
 				continue
 			}
 
-			z1A1Offset := z0A0Offset + fp.Bytes
-			if err := z1.A1.SetBytesCanonical(data[z1A1Offset : z1A1Offset+fp.Bytes]); err != nil {
-				atomic.AddUint64(&nbErrs, 1)
-				continue
-			}
-			z1A0Offset := z1A1Offset + fp.Bytes
-			if err := z1.A0.SetBytesCanonical(data[z1A0Offset : z1A0Offset+fp.Bytes]); err != nil {
+			z1Offset := pairOffset + fp.Bytes
+			if err := z1.SetBytesCanonical(data[z1Offset : z1Offset+fp.Bytes]); err != nil {
 				atomic.AddUint64(&nbErrs, 1)
 				continue
 			}
@@ -1150,7 +1120,7 @@ func BatchDecompressG2Slice(data []byte, n int) ([]G2Affine, error) {
 			var flags byte
 			if isDegenerate {
 				// Read flags byte
-				flagsOffset := z1A0Offset + fp.Bytes
+				flagsOffset := z1Offset + fp.Bytes
 				flags = data[flagsOffset]
 			} else {
 				// Generic case: reconstruct flags from high bits

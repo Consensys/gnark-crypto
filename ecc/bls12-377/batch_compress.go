@@ -1,14 +1,14 @@
 // Copyright 2020-2026 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
-package bls12381
+package bls12377
 
 import (
 	"errors"
 	"sync/atomic"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/fp"
-	"github.com/consensys/gnark-crypto/ecc/bls12-381/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fp"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/internal/fptower"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 )
 
@@ -676,7 +676,7 @@ func BatchDecompress2G2(z0, z1 fptower.E2, flags byte) (p0, p1 G2Affine, err err
 		y1Sq.Square(&y1)
 		g1Prime.Sub(&y1Sq, &bTwistCurveCoeff)
 
-		if x1.CbrtFrobenius(&g1Prime) == nil {
+		if x1.Cbrt(&g1Prime) == nil {
 			err = errors.New("invalid data: not a cubic residue")
 			return
 		}

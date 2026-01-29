@@ -709,11 +709,17 @@ func BatchDecompress2G2(z0, z1 fptower.E2, flags byte) (p0, p1 G2Affine, err err
 
 // Batch compression sizes for slices
 const (
-	// SizeOfBatchCompressedG1Pair is the size of two G1 points batch-compressed: z0 + z1 + flags
-	SizeOfBatchCompressedG1Pair = fp.Bytes + fp.Bytes + 1 // 65 bytes
+	// SizeOfBatchCompressedG1Pair is the size of two G1 points batch-compressed.
+	// Generic case: 64 bytes (z0 + z1, n encoded in z0's high bits)
+	// Degenerate case: 65 bytes (z0 + z1 + flags byte)
+	SizeOfBatchCompressedG1Pair           = fp.Bytes + fp.Bytes     // 64 bytes (generic)
+	SizeOfBatchCompressedG1PairDegenerate = fp.Bytes + fp.Bytes + 1 // 65 bytes (degenerate)
 
-	// SizeOfBatchCompressedG2Pair is the size of two G2 points batch-compressed: z0 + z1 + flags
-	SizeOfBatchCompressedG2Pair = 2*fp.Bytes + 2*fp.Bytes + 1 // 129 bytes
+	// SizeOfBatchCompressedG2Pair is the size of two G2 points batch-compressed.
+	// Generic case: 128 bytes (z0 + z1, n encoded in z0's high bits)
+	// Degenerate case: 129 bytes (z0 + z1 + flags byte)
+	SizeOfBatchCompressedG2Pair           = 2*fp.Bytes + 2*fp.Bytes     // 128 bytes (generic)
+	SizeOfBatchCompressedG2PairDegenerate = 2*fp.Bytes + 2*fp.Bytes + 1 // 129 bytes (degenerate)
 )
 
 // BatchCompressG1Slice compresses a slice of G1Affine points using 2-by-2 batch compression.
@@ -722,7 +728,8 @@ const (
 // Compression is parallelized across pairs (2 points per thread).
 //
 // Returns the compressed bytes. The format is:
-//   - For each pair of points: z0 (32 bytes) + z1 (32 bytes) + flags (1 byte)
+//   - For generic pairs: z0 (32 bytes, n encoded in bits 7-6) + z1 (32 bytes) = 64 bytes
+//   - For degenerate pairs: z0 (32 bytes, bits 7-6 = 11) + z1 (32 bytes) + flags (1 byte) = 65 bytes
 //   - If odd length: last point in standard compressed form (32 bytes)
 func BatchCompressG1Slice(points []G1Affine) ([]byte, error) {
 	n := len(points)
@@ -733,15 +740,20 @@ func BatchCompressG1Slice(points []G1Affine) ([]byte, error) {
 	nPairs := n / 2
 	hasOdd := n%2 == 1
 
-	// Calculate total size
-	totalSize := nPairs * SizeOfBatchCompressedG1Pair
+	// Pre-allocate for worst case (all degenerate pairs)
+	maxSize := nPairs * SizeOfBatchCompressedG1PairDegenerate
 	if hasOdd {
-		totalSize += SizeOfG1AffineCompressed
+		maxSize += SizeOfG1AffineCompressed
 	}
 
-	result := make([]byte, totalSize)
+	result := make([]byte, maxSize)
 
-	// Compress pairs in parallel (2 points per thread)
+	// Use atomic counter for total bytes written by all threads
+	// Each pair writes sequentially within its allocated space
+	// We need to track actual sizes per pair for final trimming
+
+	// First pass: compress all pairs and count degenerate ones
+	pairSizes := make([]int, nPairs)
 	var nbErrs uint64
 	parallel.Execute(nPairs, func(start, end int) {
 		for i := start; i < end; i++ {
@@ -751,11 +763,29 @@ func BatchCompressG1Slice(points []G1Affine) ([]byte, error) {
 				continue
 			}
 
-			// Each pair writes to its own offset (no race)
-			offset := i * SizeOfBatchCompressedG1Pair
+			// Determine if generic (case 0) or degenerate
+			caseIndicator := (flags >> 4) & 0x0F
+			isGeneric := caseIndicator == 0
+
+			if isGeneric {
+				pairSizes[i] = SizeOfBatchCompressedG1Pair // 64 bytes
+			} else {
+				pairSizes[i] = SizeOfBatchCompressedG1PairDegenerate // 65 bytes
+			}
+
+			// Calculate offset based on worst-case positions (will be adjusted later)
+			offset := i * SizeOfBatchCompressedG1PairDegenerate
 
 			// Write z0
 			z0Bytes := z0.Bytes()
+			if isGeneric {
+				// Encode n in bits 7-6 of z0's first byte
+				n := (flags >> 2) & 0x3
+				z0Bytes[0] |= (n << 6)
+			} else {
+				// Set bits 7-6 to 0b11 as degenerate marker
+				z0Bytes[0] |= 0xC0
+			}
 			copy(result[offset:offset+fp.Bytes], z0Bytes[:])
 			offset += fp.Bytes
 
@@ -764,8 +794,10 @@ func BatchCompressG1Slice(points []G1Affine) ([]byte, error) {
 			copy(result[offset:offset+fp.Bytes], z1Bytes[:])
 			offset += fp.Bytes
 
-			// Write flags
-			result[offset] = flags
+			// Write flags only for degenerate cases
+			if !isGeneric {
+				result[offset] = flags
+			}
 		}
 	})
 
@@ -773,13 +805,33 @@ func BatchCompressG1Slice(points []G1Affine) ([]byte, error) {
 		return nil, errors.New("batch compression failed")
 	}
 
+	// Second pass: compact the result by removing gaps
+	// (since we wrote at worst-case offsets but generic pairs are smaller)
+	actualSize := 0
+	for i := 0; i < nPairs; i++ {
+		actualSize += pairSizes[i]
+	}
+	if hasOdd {
+		actualSize += SizeOfG1AffineCompressed
+	}
+
+	compacted := make([]byte, actualSize)
+	readOffset := 0
+	writeOffset := 0
+	for i := 0; i < nPairs; i++ {
+		srcOffset := i * SizeOfBatchCompressedG1PairDegenerate
+		copy(compacted[writeOffset:writeOffset+pairSizes[i]], result[srcOffset:srcOffset+pairSizes[i]])
+		writeOffset += pairSizes[i]
+		readOffset += SizeOfBatchCompressedG1PairDegenerate
+	}
+
 	// Handle odd point with standard compression
 	if hasOdd {
 		lastBytes := points[n-1].Bytes()
-		copy(result[nPairs*SizeOfBatchCompressedG1Pair:], lastBytes[:])
+		copy(compacted[writeOffset:], lastBytes[:])
 	}
 
-	return result, nil
+	return compacted, nil
 }
 
 // BatchDecompressG1Slice decompresses a slice of G1Affine points from batch-compressed form.
@@ -797,8 +849,36 @@ func BatchDecompressG1Slice(data []byte, n int) ([]G1Affine, error) {
 	nPairs := n / 2
 	hasOdd := n%2 == 1
 
-	// Verify data size
-	expectedSize := nPairs * SizeOfBatchCompressedG1Pair
+	// Minimum size check (all generic pairs)
+	minSize := nPairs * SizeOfBatchCompressedG1Pair
+	if hasOdd {
+		minSize += SizeOfG1AffineCompressed
+	}
+	if len(data) < minSize {
+		return nil, errors.New("insufficient data for batch decompression")
+	}
+
+	points := make([]G1Affine, n)
+
+	// First pass: scan data to find pair offsets (since pairs can be 64 or 65 bytes)
+	offsets := make([]int, nPairs+1) // +1 for the end offset
+	offset := 0
+	for i := 0; i < nPairs; i++ {
+		offsets[i] = offset
+		// Check bits 7-6 of z0's first byte
+		highBits := (data[offset] >> 6) & 0x3
+		if highBits == 0x3 {
+			// Degenerate case: 65 bytes
+			offset += SizeOfBatchCompressedG1PairDegenerate
+		} else {
+			// Generic case: 64 bytes
+			offset += SizeOfBatchCompressedG1Pair
+		}
+	}
+	offsets[nPairs] = offset // End of pairs data
+
+	// Verify we have enough data
+	expectedSize := offset
 	if hasOdd {
 		expectedSize += SizeOfG1AffineCompressed
 	}
@@ -806,31 +886,47 @@ func BatchDecompressG1Slice(data []byte, n int) ([]G1Affine, error) {
 		return nil, errors.New("insufficient data for batch decompression")
 	}
 
-	points := make([]G1Affine, n)
-
-	// Decompress pairs in parallel (2 points per thread, each thread does its own inversion)
+	// Decompress pairs in parallel
 	var nbErrs uint64
 	parallel.Execute(nPairs, func(start, end int) {
 		for i := start; i < end; i++ {
-			offset := i * SizeOfBatchCompressedG1Pair
+			pairOffset := offsets[i]
 
-			// Parse z0, z1, flags for this pair
+			// Read z0's first byte to determine format
+			z0FirstByte := data[pairOffset]
+			highBits := (z0FirstByte >> 6) & 0x3
+			isDegenerate := highBits == 0x3
+
+			// Make a copy of z0 bytes and clear the high bits
+			var z0Bytes [fp.Bytes]byte
+			copy(z0Bytes[:], data[pairOffset:pairOffset+fp.Bytes])
+			z0Bytes[0] &= 0x3F // Clear bits 7-6
+
 			var z0, z1 fp.Element
-			if err := z0.SetBytesCanonical(data[offset : offset+fp.Bytes]); err != nil {
+			if err := z0.SetBytesCanonical(z0Bytes[:]); err != nil {
 				atomic.AddUint64(&nbErrs, 1)
 				continue
 			}
-			offset += fp.Bytes
 
-			if err := z1.SetBytesCanonical(data[offset : offset+fp.Bytes]); err != nil {
+			z1Offset := pairOffset + fp.Bytes
+			if err := z1.SetBytesCanonical(data[z1Offset : z1Offset+fp.Bytes]); err != nil {
 				atomic.AddUint64(&nbErrs, 1)
 				continue
 			}
-			offset += fp.Bytes
 
-			flags := data[offset]
+			var flags byte
+			if isDegenerate {
+				// Read flags byte
+				flagsOffset := z1Offset + fp.Bytes
+				flags = data[flagsOffset]
+			} else {
+				// Generic case: reconstruct flags from high bits
+				// flags = (n & 0x3) << 2, where n was stored in bits 7-6
+				n := highBits
+				flags = (n & 0x3) << 2
+			}
 
-			// Decompress (each thread does its own inversion)
+			// Decompress
 			p0, p1, err := BatchDecompress2G1(z0, z1, flags)
 			if err != nil {
 				atomic.AddUint64(&nbErrs, 1)
@@ -847,8 +943,8 @@ func BatchDecompressG1Slice(data []byte, n int) ([]G1Affine, error) {
 
 	// Handle odd point with standard decompression
 	if hasOdd {
-		offset := nPairs * SizeOfBatchCompressedG1Pair
-		if _, err := points[n-1].SetBytes(data[offset : offset+SizeOfG1AffineCompressed]); err != nil {
+		oddOffset := offsets[nPairs]
+		if _, err := points[n-1].SetBytes(data[oddOffset : oddOffset+SizeOfG1AffineCompressed]); err != nil {
 			return nil, err
 		}
 	}
@@ -862,7 +958,8 @@ func BatchDecompressG1Slice(data []byte, n int) ([]G1Affine, error) {
 // Compression is parallelized across pairs (2 points per thread).
 //
 // Returns the compressed bytes. The format is:
-//   - For each pair of points: z0 (64 bytes) + z1 (64 bytes) + flags (1 byte)
+//   - For generic pairs: z0 (64 bytes, n encoded in bits 7-6) + z1 (64 bytes) = 128 bytes
+//   - For degenerate pairs: z0 (64 bytes, bits 7-6 = 11) + z1 (64 bytes) + flags (1 byte) = 129 bytes
 //   - If odd length: last point in standard compressed form (64 bytes)
 func BatchCompressG2Slice(points []G2Affine) ([]byte, error) {
 	n := len(points)
@@ -873,15 +970,16 @@ func BatchCompressG2Slice(points []G2Affine) ([]byte, error) {
 	nPairs := n / 2
 	hasOdd := n%2 == 1
 
-	// Calculate total size
-	totalSize := nPairs * SizeOfBatchCompressedG2Pair
+	// Pre-allocate for worst case (all degenerate pairs)
+	maxSize := nPairs * SizeOfBatchCompressedG2PairDegenerate
 	if hasOdd {
-		totalSize += SizeOfG2AffineCompressed
+		maxSize += SizeOfG2AffineCompressed
 	}
 
-	result := make([]byte, totalSize)
+	result := make([]byte, maxSize)
 
-	// Compress pairs in parallel (2 points per thread)
+	// Track actual sizes per pair
+	pairSizes := make([]int, nPairs)
 	var nbErrs uint64
 	parallel.Execute(nPairs, func(start, end int) {
 		for i := start; i < end; i++ {
@@ -891,11 +989,29 @@ func BatchCompressG2Slice(points []G2Affine) ([]byte, error) {
 				continue
 			}
 
-			// Each pair writes to its own offset (no race)
-			offset := i * SizeOfBatchCompressedG2Pair
+			// Determine if generic (case 0) or degenerate
+			caseIndicator := (flags >> 4) & 0x0F
+			isGeneric := caseIndicator == 0
+
+			if isGeneric {
+				pairSizes[i] = SizeOfBatchCompressedG2Pair // 128 bytes
+			} else {
+				pairSizes[i] = SizeOfBatchCompressedG2PairDegenerate // 129 bytes
+			}
+
+			// Calculate offset based on worst-case positions
+			offset := i * SizeOfBatchCompressedG2PairDegenerate
 
 			// Write z0 (A1 | A0)
 			z0A1Bytes := z0.A1.Bytes()
+			if isGeneric {
+				// Encode n in bits 7-6 of z0.A1's first byte
+				cubeRootIdx := (flags >> 2) & 0x3
+				z0A1Bytes[0] |= (cubeRootIdx << 6)
+			} else {
+				// Set bits 7-6 to 0b11 as degenerate marker
+				z0A1Bytes[0] |= 0xC0
+			}
 			copy(result[offset:offset+fp.Bytes], z0A1Bytes[:])
 			offset += fp.Bytes
 			z0A0Bytes := z0.A0.Bytes()
@@ -910,8 +1026,10 @@ func BatchCompressG2Slice(points []G2Affine) ([]byte, error) {
 			copy(result[offset:offset+fp.Bytes], z1A0Bytes[:])
 			offset += fp.Bytes
 
-			// Write flags
-			result[offset] = flags
+			// Write flags only for degenerate cases
+			if !isGeneric {
+				result[offset] = flags
+			}
 		}
 	})
 
@@ -919,13 +1037,30 @@ func BatchCompressG2Slice(points []G2Affine) ([]byte, error) {
 		return nil, errors.New("batch compression failed")
 	}
 
+	// Compact the result
+	actualSize := 0
+	for i := 0; i < nPairs; i++ {
+		actualSize += pairSizes[i]
+	}
+	if hasOdd {
+		actualSize += SizeOfG2AffineCompressed
+	}
+
+	compacted := make([]byte, actualSize)
+	writeOffset := 0
+	for i := 0; i < nPairs; i++ {
+		srcOffset := i * SizeOfBatchCompressedG2PairDegenerate
+		copy(compacted[writeOffset:writeOffset+pairSizes[i]], result[srcOffset:srcOffset+pairSizes[i]])
+		writeOffset += pairSizes[i]
+	}
+
 	// Handle odd point with standard compression
 	if hasOdd {
 		lastBytes := points[n-1].Bytes()
-		copy(result[nPairs*SizeOfBatchCompressedG2Pair:], lastBytes[:])
+		copy(compacted[writeOffset:], lastBytes[:])
 	}
 
-	return result, nil
+	return compacted, nil
 }
 
 // BatchDecompressG2Slice decompresses a slice of G2Affine points from batch-compressed form.
@@ -943,8 +1078,36 @@ func BatchDecompressG2Slice(data []byte, n int) ([]G2Affine, error) {
 	nPairs := n / 2
 	hasOdd := n%2 == 1
 
-	// Verify data size
-	expectedSize := nPairs * SizeOfBatchCompressedG2Pair
+	// Minimum size check (all generic pairs)
+	minSize := nPairs * SizeOfBatchCompressedG2Pair
+	if hasOdd {
+		minSize += SizeOfG2AffineCompressed
+	}
+	if len(data) < minSize {
+		return nil, errors.New("insufficient data for batch decompression")
+	}
+
+	points := make([]G2Affine, n)
+
+	// First pass: scan data to find pair offsets
+	offsets := make([]int, nPairs+1)
+	offset := 0
+	for i := 0; i < nPairs; i++ {
+		offsets[i] = offset
+		// Check bits 7-6 of z0.A1's first byte
+		highBits := (data[offset] >> 6) & 0x3
+		if highBits == 0x3 {
+			// Degenerate case: 129 bytes
+			offset += SizeOfBatchCompressedG2PairDegenerate
+		} else {
+			// Generic case: 128 bytes
+			offset += SizeOfBatchCompressedG2Pair
+		}
+	}
+	offsets[nPairs] = offset
+
+	// Verify we have enough data
+	expectedSize := offset
 	if hasOdd {
 		expectedSize += SizeOfG2AffineCompressed
 	}
@@ -952,42 +1115,56 @@ func BatchDecompressG2Slice(data []byte, n int) ([]G2Affine, error) {
 		return nil, errors.New("insufficient data for batch decompression")
 	}
 
-	points := make([]G2Affine, n)
-
-	// Decompress pairs in parallel (2 points per thread, each thread does its own inversion)
+	// Decompress pairs in parallel
 	var nbErrs uint64
 	parallel.Execute(nPairs, func(start, end int) {
 		for i := start; i < end; i++ {
-			offset := i * SizeOfBatchCompressedG2Pair
+			pairOffset := offsets[i]
 
-			// Parse z0 (A1 | A0)
+			// Read z0.A1's first byte to determine format
+			z0A1FirstByte := data[pairOffset]
+			highBits := (z0A1FirstByte >> 6) & 0x3
+			isDegenerate := highBits == 0x3
+
+			// Make a copy of z0.A1 bytes and clear the high bits
+			var z0A1Bytes [fp.Bytes]byte
+			copy(z0A1Bytes[:], data[pairOffset:pairOffset+fp.Bytes])
+			z0A1Bytes[0] &= 0x3F // Clear bits 7-6
+
 			var z0, z1 fptower.E2
-			if err := z0.A1.SetBytesCanonical(data[offset : offset+fp.Bytes]); err != nil {
+			if err := z0.A1.SetBytesCanonical(z0A1Bytes[:]); err != nil {
 				atomic.AddUint64(&nbErrs, 1)
 				continue
 			}
-			offset += fp.Bytes
-			if err := z0.A0.SetBytesCanonical(data[offset : offset+fp.Bytes]); err != nil {
+			z0A0Offset := pairOffset + fp.Bytes
+			if err := z0.A0.SetBytesCanonical(data[z0A0Offset : z0A0Offset+fp.Bytes]); err != nil {
 				atomic.AddUint64(&nbErrs, 1)
 				continue
 			}
-			offset += fp.Bytes
 
-			// Parse z1 (A1 | A0)
-			if err := z1.A1.SetBytesCanonical(data[offset : offset+fp.Bytes]); err != nil {
+			z1A1Offset := z0A0Offset + fp.Bytes
+			if err := z1.A1.SetBytesCanonical(data[z1A1Offset : z1A1Offset+fp.Bytes]); err != nil {
 				atomic.AddUint64(&nbErrs, 1)
 				continue
 			}
-			offset += fp.Bytes
-			if err := z1.A0.SetBytesCanonical(data[offset : offset+fp.Bytes]); err != nil {
+			z1A0Offset := z1A1Offset + fp.Bytes
+			if err := z1.A0.SetBytesCanonical(data[z1A0Offset : z1A0Offset+fp.Bytes]); err != nil {
 				atomic.AddUint64(&nbErrs, 1)
 				continue
 			}
-			offset += fp.Bytes
 
-			flags := data[offset]
+			var flags byte
+			if isDegenerate {
+				// Read flags byte
+				flagsOffset := z1A0Offset + fp.Bytes
+				flags = data[flagsOffset]
+			} else {
+				// Generic case: reconstruct flags from high bits
+				cubeRootIdx := highBits
+				flags = (cubeRootIdx & 0x3) << 2
+			}
 
-			// Decompress (each thread does its own inversion)
+			// Decompress
 			p0, p1, err := BatchDecompress2G2(z0, z1, flags)
 			if err != nil {
 				atomic.AddUint64(&nbErrs, 1)
@@ -1004,8 +1181,8 @@ func BatchDecompressG2Slice(data []byte, n int) ([]G2Affine, error) {
 
 	// Handle odd point with standard decompression
 	if hasOdd {
-		offset := nPairs * SizeOfBatchCompressedG2Pair
-		if _, err := points[n-1].SetBytes(data[offset : offset+SizeOfG2AffineCompressed]); err != nil {
+		oddOffset := offsets[nPairs]
+		if _, err := points[n-1].SetBytes(data[oddOffset : oddOffset+SizeOfG2AffineCompressed]); err != nil {
 			return nil, err
 		}
 	}

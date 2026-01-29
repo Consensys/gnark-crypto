@@ -28,6 +28,7 @@ const (
 	mCompressedSmallest byte = 0b10 << 6
 	mCompressedLargest  byte = 0b11 << 6
 	mCompressedInfinity byte = 0b01 << 6
+	mBatchCompressed    byte = 0x3F // batch compression marker (unused in standard encoding since X < p and p's top byte is 0x30)
 )
 
 // SizeOfGT represents the size in bytes that a GT element need in binary form
@@ -222,118 +223,178 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 		if err != nil {
 			return
 		}
-		if len(*t) != int(sliceLen) || *t == nil {
-			*t = make([]G1Affine, sliceLen)
+		if sliceLen == 0 {
+			*t = make([]G1Affine, 0)
+			return nil
 		}
-		compressed := make([]bool, sliceLen)
-		for i := 0; i < len(*t); i++ {
 
-			// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
-			read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineCompressed])
+		// read first byte to check format
+		var marker [1]byte
+		read, err = io.ReadFull(dec.r, marker[:])
+		dec.n += int64(read)
+		if err != nil {
+			return
+		}
+
+		if marker[0] == mBatchCompressed {
+			// batch compressed format - read the compressed data size
+			var compressedSize uint32
+			compressedSize, err = dec.readUint32()
+			if err != nil {
+				return
+			}
+
+			data := make([]byte, compressedSize)
+			read, err = io.ReadFull(dec.r, data)
 			dec.n += int64(read)
 			if err != nil {
 				return
 			}
-			nbBytes := SizeOfG1AffineCompressed
 
-			// most significant byte contains metadata
-			if !isCompressed(buf[0]) {
+			*t, err = BatchDecompressG1Slice(data, int(sliceLen))
+			if err != nil {
+				return
+			}
+		} else {
+			// old format: first byte is part of first point
+			// determine if compressed or uncompressed based on metadata
+			nbBytes := SizeOfG1AffineCompressed
+			if !isCompressed(marker[0]) {
 				nbBytes = SizeOfG1AffineUncompressed
-				// we read more.
-				read, err = io.ReadFull(dec.r, buf[SizeOfG1AffineCompressed:SizeOfG1AffineUncompressed])
+			}
+
+			*t = make([]G1Affine, sliceLen)
+
+			// read the rest of the first point
+			read, err = io.ReadFull(dec.r, buf[:nbBytes-1])
+			dec.n += int64(read)
+			if err != nil {
+				return
+			}
+
+			// reconstruct the first point's bytes
+			copy(buf[1:nbBytes], buf[:nbBytes-1])
+			buf[0] = marker[0]
+			if _, err = (*t)[0].setBytes(buf[:nbBytes], false); err != nil {
+				return
+			}
+
+			// read the remaining points
+			for i := 1; i < int(sliceLen); i++ {
+				read, err = io.ReadFull(dec.r, buf[:nbBytes])
 				dec.n += int64(read)
 				if err != nil {
 					return
 				}
-				_, err = (*t)[i].setBytes(buf[:nbBytes], false)
-				if err != nil {
+				if _, err = (*t)[i].setBytes(buf[:nbBytes], false); err != nil {
 					return
 				}
-			} else {
-				var r bool
-				if r, err = (*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]); err != nil {
-					return
-				}
-				compressed[i] = !r
 			}
 		}
-		var nbErrs uint64
-		parallel.Execute(len(compressed), func(start, end int) {
-			for i := start; i < end; i++ {
-				if compressed[i] {
-					if err := (*t)[i].unsafeComputeY(dec.subGroupCheck); err != nil {
-						atomic.AddUint64(&nbErrs, 1)
-					}
-				} else if dec.subGroupCheck {
+
+		// subgroup check if needed
+		if dec.subGroupCheck {
+			var nbErrs uint64
+			parallel.Execute(len(*t), func(start, end int) {
+				for i := start; i < end; i++ {
 					if !(*t)[i].IsInSubGroup() {
 						atomic.AddUint64(&nbErrs, 1)
 					}
 				}
+			})
+			if nbErrs != 0 {
+				return errors.New("point not in subgroup")
 			}
-		})
-		if nbErrs != 0 {
-			return errors.New("point decompression failed")
 		}
-
 		return nil
 	case *[]G2Affine:
 		sliceLen, err = dec.readUint32()
 		if err != nil {
 			return
 		}
-		if len(*t) != int(sliceLen) {
-			*t = make([]G2Affine, sliceLen)
+		if sliceLen == 0 {
+			*t = make([]G2Affine, 0)
+			return nil
 		}
-		compressed := make([]bool, sliceLen)
-		for i := 0; i < len(*t); i++ {
 
-			// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
-			read, err = io.ReadFull(dec.r, buf[:SizeOfG2AffineCompressed])
+		// read first byte to check format
+		var marker [1]byte
+		read, err = io.ReadFull(dec.r, marker[:])
+		dec.n += int64(read)
+		if err != nil {
+			return
+		}
+
+		if marker[0] == mBatchCompressed {
+			// batch compressed format - read the compressed data size
+			var compressedSize uint32
+			compressedSize, err = dec.readUint32()
+			if err != nil {
+				return
+			}
+
+			data := make([]byte, compressedSize)
+			read, err = io.ReadFull(dec.r, data)
 			dec.n += int64(read)
 			if err != nil {
 				return
 			}
-			nbBytes := SizeOfG2AffineCompressed
 
-			// most significant byte contains metadata
-			if !isCompressed(buf[0]) {
+			*t, err = BatchDecompressG2Slice(data, int(sliceLen))
+			if err != nil {
+				return
+			}
+		} else {
+			// old format: first byte is part of first point
+			// determine if compressed or uncompressed based on metadata
+			nbBytes := SizeOfG2AffineCompressed
+			if !isCompressed(marker[0]) {
 				nbBytes = SizeOfG2AffineUncompressed
-				// we read more.
-				read, err = io.ReadFull(dec.r, buf[SizeOfG2AffineCompressed:SizeOfG2AffineUncompressed])
+			}
+
+			*t = make([]G2Affine, sliceLen)
+
+			// read the rest of the first point
+			read, err = io.ReadFull(dec.r, buf[:nbBytes-1])
+			dec.n += int64(read)
+			if err != nil {
+				return
+			}
+
+			// reconstruct the first point's bytes
+			copy(buf[1:nbBytes], buf[:nbBytes-1])
+			buf[0] = marker[0]
+			if _, err = (*t)[0].setBytes(buf[:nbBytes], false); err != nil {
+				return
+			}
+
+			// read the remaining points
+			for i := 1; i < int(sliceLen); i++ {
+				read, err = io.ReadFull(dec.r, buf[:nbBytes])
 				dec.n += int64(read)
 				if err != nil {
 					return
 				}
-				_, err = (*t)[i].setBytes(buf[:nbBytes], false)
-				if err != nil {
+				if _, err = (*t)[i].setBytes(buf[:nbBytes], false); err != nil {
 					return
 				}
-			} else {
-				var r bool
-				if r, err = (*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]); err != nil {
-					return
-				}
-				compressed[i] = !r
 			}
 		}
-		var nbErrs uint64
-		parallel.Execute(len(compressed), func(start, end int) {
-			for i := start; i < end; i++ {
-				if compressed[i] {
-					if err := (*t)[i].unsafeComputeY(dec.subGroupCheck); err != nil {
-						atomic.AddUint64(&nbErrs, 1)
-					}
-				} else if dec.subGroupCheck {
+
+		// subgroup check if needed
+		if dec.subGroupCheck {
+			var nbErrs uint64
+			parallel.Execute(len(*t), func(start, end int) {
+				for i := start; i < end; i++ {
 					if !(*t)[i].IsInSubGroup() {
 						atomic.AddUint64(&nbErrs, 1)
 					}
 				}
+			})
+			if nbErrs != 0 {
+				return errors.New("point not in subgroup")
 			}
-		})
-		if nbErrs != 0 {
-			return errors.New("point decompression failed")
 		}
-
 		return nil
 	default:
 		n := binary.Size(t)
@@ -540,17 +601,34 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		}
 		enc.n += 4
 
-		var buf [SizeOfG1AffineCompressed]byte
-
-		for i := 0; i < len(t); i++ {
-			buf = t[i].Bytes()
-			written, err = enc.w.Write(buf[:])
-			enc.n += int64(written)
-			if err != nil {
-				return
-			}
+		if len(t) == 0 {
+			return nil
 		}
-		return nil
+
+		// write batch compression marker
+		written, err = enc.w.Write([]byte{mBatchCompressed})
+		enc.n += int64(written)
+		if err != nil {
+			return
+		}
+
+		// use batch compression
+		var compressed []byte
+		compressed, err = BatchCompressG1Slice(t)
+		if err != nil {
+			return
+		}
+
+		// write compressed data size (needed since pairs can be 64 or 65 bytes)
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(compressed)))
+		if err != nil {
+			return
+		}
+		enc.n += 4
+
+		written, err = enc.w.Write(compressed)
+		enc.n += int64(written)
+		return
 	case *[]G2Affine:
 		return enc.encode(*t)
 	case []G2Affine:
@@ -561,17 +639,34 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 		}
 		enc.n += 4
 
-		var buf [SizeOfG2AffineCompressed]byte
-
-		for i := 0; i < len(t); i++ {
-			buf = t[i].Bytes()
-			written, err = enc.w.Write(buf[:])
-			enc.n += int64(written)
-			if err != nil {
-				return
-			}
+		if len(t) == 0 {
+			return nil
 		}
-		return nil
+
+		// write batch compression marker
+		written, err = enc.w.Write([]byte{mBatchCompressed})
+		enc.n += int64(written)
+		if err != nil {
+			return
+		}
+
+		// use batch compression
+		var compressed []byte
+		compressed, err = BatchCompressG2Slice(t)
+		if err != nil {
+			return
+		}
+
+		// write compressed data size (needed since pairs can be 128 or 129 bytes)
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(compressed)))
+		if err != nil {
+			return
+		}
+		enc.n += 4
+
+		written, err = enc.w.Write(compressed)
+		enc.n += int64(written)
+		return
 	default:
 		n := binary.Size(t)
 		if n == -1 {
@@ -681,17 +776,34 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		}
 		enc.n += 4
 
-		var buf [SizeOfG1AffineUncompressed]byte
-
-		for i := 0; i < len(t); i++ {
-			buf = t[i].RawBytes()
-			written, err = enc.w.Write(buf[:])
-			enc.n += int64(written)
-			if err != nil {
-				return
-			}
+		if len(t) == 0 {
+			return nil
 		}
-		return nil
+
+		// write batch compression marker
+		written, err = enc.w.Write([]byte{mBatchCompressed})
+		enc.n += int64(written)
+		if err != nil {
+			return
+		}
+
+		// use batch compression
+		var compressed []byte
+		compressed, err = BatchCompressG1Slice(t)
+		if err != nil {
+			return
+		}
+
+		// write compressed data size (needed since pairs can be 64 or 65 bytes)
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(compressed)))
+		if err != nil {
+			return
+		}
+		enc.n += 4
+
+		written, err = enc.w.Write(compressed)
+		enc.n += int64(written)
+		return
 	case *[]G2Affine:
 		return enc.encodeRaw(*t)
 	case []G2Affine:
@@ -702,17 +814,34 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 		}
 		enc.n += 4
 
-		var buf [SizeOfG2AffineUncompressed]byte
-
-		for i := 0; i < len(t); i++ {
-			buf = t[i].RawBytes()
-			written, err = enc.w.Write(buf[:])
-			enc.n += int64(written)
-			if err != nil {
-				return
-			}
+		if len(t) == 0 {
+			return nil
 		}
-		return nil
+
+		// write batch compression marker
+		written, err = enc.w.Write([]byte{mBatchCompressed})
+		enc.n += int64(written)
+		if err != nil {
+			return
+		}
+
+		// use batch compression
+		var compressed []byte
+		compressed, err = BatchCompressG2Slice(t)
+		if err != nil {
+			return
+		}
+
+		// write compressed data size (needed since pairs can be 128 or 129 bytes)
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(compressed)))
+		if err != nil {
+			return
+		}
+		enc.n += 4
+
+		written, err = enc.w.Write(compressed)
+		enc.n += int64(written)
+		return
 	default:
 		n := binary.Size(t)
 		if n == -1 {
