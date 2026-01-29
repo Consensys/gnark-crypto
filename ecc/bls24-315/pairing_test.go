@@ -602,9 +602,10 @@ func precomputeLinesRef(Q G2Affine) (PrecomputedLines [2][len(LoopCounter) - 1]L
 	for i := len(LoopCounter) - 2; i >= 0; i-- {
 		accQ.doubleStep(&PrecomputedLines[0][i])
 
-		if LoopCounter[i] == 1 {
+		switch LoopCounter[i] {
+		case 1:
 			accQ.addStep(&PrecomputedLines[1][i], &Q)
-		} else if LoopCounter[i] == -1 {
+		case -1:
 			accQ.addStep(&PrecomputedLines[1][i], &negQ)
 		}
 	}
