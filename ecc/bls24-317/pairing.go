@@ -395,60 +395,16 @@ func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter) - 1]Line
 	accQ.Set(&Q)
 	negQ.Neg(&Q)
 
-	// i=31: LoopCounter[31]=0
-	accQ.doubleStep(&PrecomputedLines[0][31])
-
-	// i=30: LoopCounter[30]=0
-	accQ.doubleStep(&PrecomputedLines[0][30])
-
-	// i=29: LoopCounter[29]=-1
-	accQ.doubleAndAddStep(&PrecomputedLines[0][29], &PrecomputedLines[1][29], &negQ)
-
-	// i=28: LoopCounter[28]=0
-	accQ.doubleStep(&PrecomputedLines[0][28])
-
-	// i=27: LoopCounter[27]=-1
-	accQ.doubleAndAddStep(&PrecomputedLines[0][27], &PrecomputedLines[1][27], &negQ)
-
-	// i=26: LoopCounter[26]=0
-	accQ.doubleStep(&PrecomputedLines[0][26])
-
-	// i=25: LoopCounter[25]=0
-	accQ.doubleStep(&PrecomputedLines[0][25])
-
-	// i=24: LoopCounter[24]=1
-	accQ.doubleAndAddStep(&PrecomputedLines[0][24], &PrecomputedLines[1][24], &Q)
-
-	// i=23→18: 6 consecutive zeros
-	{
-		var evals [6]LineEvaluationAff
-		accQ.manyDoubleSteps(6, evals[:])
-		PrecomputedLines[0][23] = evals[0]
-		PrecomputedLines[0][22] = evals[1]
-		PrecomputedLines[0][21] = evals[2]
-		PrecomputedLines[0][20] = evals[3]
-		PrecomputedLines[0][19] = evals[4]
-		PrecomputedLines[0][18] = evals[5]
-	}
-
-	// i=17: LoopCounter[17]=1
-	accQ.doubleAndAddStep(&PrecomputedLines[0][17], &PrecomputedLines[1][17], &Q)
-
-	// i=16: LoopCounter[16]=0
-	accQ.doubleStep(&PrecomputedLines[0][16])
-
-	// i=15: LoopCounter[15]=-1
-	accQ.doubleAndAddStep(&PrecomputedLines[0][15], &PrecomputedLines[1][15], &negQ)
-
-	// i=14→0: 15 consecutive zeros
-	{
-		var evals [15]LineEvaluationAff
-		accQ.manyDoubleSteps(15, evals[:])
-		for j := 0; j < 15; j++ {
-			PrecomputedLines[0][14-j] = evals[j]
+	for i := len(LoopCounter) - 2; i >= 0; i-- {
+		switch LoopCounter[i] {
+		case 0:
+			accQ.doubleStep(&PrecomputedLines[0][i])
+		case 1:
+			accQ.doubleAndAddStep(&PrecomputedLines[0][i], &PrecomputedLines[1][i], &Q)
+		case -1:
+			accQ.doubleAndAddStep(&PrecomputedLines[0][i], &PrecomputedLines[1][i], &negQ)
 		}
 	}
-
 	return PrecomputedLines
 }
 
