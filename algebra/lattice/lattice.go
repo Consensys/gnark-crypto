@@ -76,7 +76,7 @@ func RationalReconstruct(k, r *big.Int) [2]*big.Int {
 // k1 = x1/z mod r and k2 = x2/z mod r.
 //
 // This uses LLL lattice reduction on a 4×3 lattice.
-// The expected bounds on the output are approximately 2*r^(2/3).
+// The expected bounds on the output are approximately 1.22*r^(2/3).
 //
 // Parameters:
 //   - k1, k2: the scalars to decompose

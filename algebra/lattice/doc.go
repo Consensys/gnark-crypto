@@ -23,7 +23,7 @@
 //	k1 ≡ x1/z (mod r) k2 ≡ x2/z (mod r)
 //
 // with a shared denominator z. The outputs satisfy bounds of approximately
-// 2·r^(2/3). This uses a 4×3 lattice.
+// 1.22·r^(2/3). This uses a 4×3 lattice.
 //
 // # Rational Reconstruction (Quadratic Extension)
 //
