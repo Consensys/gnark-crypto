@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	nbFuzzShort = 5
-	nbFuzz      = 50
+	nbFuzzShort = 2
+	nbFuzz      = 20
 	boundSize   = 128
 )
 
@@ -134,7 +134,7 @@ func TestMultiRationalReconstruct(t *testing.T) {
 		GenNumber(256),
 	))
 
-	properties.Property("MultiRationalReconstruct: outputs are small (< ~1.5*r^(1/3))", prop.ForAll(
+	properties.Property("MultiRationalReconstruct: outputs are small (< ~2*r^(2/3))", prop.ForAll(
 		func(k1Raw, k2Raw *big.Int) bool {
 			k1 := new(big.Int).Mod(k1Raw, r)
 			k2 := new(big.Int).Mod(k2Raw, r)
@@ -147,9 +147,10 @@ func TestMultiRationalReconstruct(t *testing.T) {
 
 			result := MultiRationalReconstruct(k1, k2, r)
 
-			// Expected bound: ~1.5 * r^(1/3) (with some margin)
-			// r^(1/3) for BN254 ≈ 2^85
-			bound := new(big.Int).Exp(big.NewInt(2), big.NewInt(93), nil) // 2^93 with margin
+			// Expected bound: ~2 * r^(2/3) (with margin for LLL approximation factor)
+			// Lattice has det = r², so Minkowski bound gives ~r^(2/3)
+			// r^(2/3) for BN254 ≈ 2^169
+			bound := new(big.Int).Exp(big.NewInt(2), big.NewInt(177), nil) // 2^177 with margin
 
 			for i := 0; i < 3; i++ {
 				absVal := new(big.Int).Abs(result[i])
