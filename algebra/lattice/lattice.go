@@ -76,7 +76,7 @@ func RationalReconstruct(k, r *big.Int) [2]*big.Int {
 // k1 = x1/z mod r and k2 = x2/z mod r.
 //
 // This uses LLL lattice reduction on a 4×3 lattice.
-// The expected bounds on the output are approximately 1.22*r^(1/3).
+// The expected bounds on the output are approximately 2*r^(2/3).
 //
 // Parameters:
 //   - k1, k2: the scalars to decompose
@@ -355,9 +355,12 @@ func lllReduce(basis [][]big.Int, m int) {
 		ortho[i] = make([]big.Rat, n)
 	}
 
-	// Compute Gram-Schmidt orthogonalization
-	gramSchmidt := func() {
-		for i := 0; i < m; i++ {
+	// updateGramSchmidtFrom recomputes Gram-Schmidt orthogonalization starting from index 'from'.
+	// Vectors ortho[0..from-1] are assumed to be already correct.
+	// This is an optimization: when basis[k] changes, only ortho[k..m-1] need updating.
+	updateGramSchmidtFrom := func(from int) {
+		var term big.Rat
+		for i := from; i < m; i++ {
 			// Start with ortho[i] = basis[i]
 			for j := 0; j < n; j++ {
 				ortho[i][j].SetInt(&basis[i][j])
@@ -372,7 +375,6 @@ func lllReduce(basis [][]big.Int, m int) {
 				projCoeff := projectionCoeffN(basis[i], ortho[k], n)
 				// ortho[i] -= proj_coeff * ortho[k]
 				for j := 0; j < n; j++ {
-					var term big.Rat
 					term.Mul(projCoeff, &ortho[k][j])
 					ortho[i][j].Sub(&ortho[i][j], &term)
 				}
@@ -385,13 +387,16 @@ func lllReduce(basis [][]big.Int, m int) {
 		return projectionCoeffN(basis[i], ortho[j], n)
 	}
 
-	gramSchmidt()
+	// Initial full Gram-Schmidt
+	updateGramSchmidtFrom(0)
 
 	k := 1
+	half := big.NewRat(1, 2)
+	var muSquared, threshold, rhs big.Rat
+
 	for k < m {
 		// Size reduction: repeat until all |mu[k][j]| <= 1/2
 		// This is important because reducing with one j may affect mu values for other j
-		half := big.NewRat(1, 2)
 		for {
 			reduced := false
 			for j := k - 1; j >= 0; j-- {
@@ -407,14 +412,14 @@ func lllReduce(basis [][]big.Int, m int) {
 					q := roundRat(mu_kj)
 
 					// basis[k] -= q * basis[j]
+					var tmp big.Int
 					for l := 0; l < n; l++ {
-						var tmp big.Int
 						tmp.Mul(q, &basis[j][l])
 						basis[k][l].Sub(&basis[k][l], &tmp)
 					}
 
-					// Recompute Gram-Schmidt
-					gramSchmidt()
+					// Only recompute Gram-Schmidt from k onwards
+					updateGramSchmidtFrom(k)
 					reduced = true
 				}
 			}
@@ -436,11 +441,8 @@ func lllReduce(basis [][]big.Int, m int) {
 
 		// lhs = ||ortho[k]||^2
 		// rhs = (delta - mu[k][k-1]^2) * ||ortho[k-1]||^2
-		var muSquared big.Rat
 		muSquared.Mul(mu_kkm1, mu_kkm1)
-		var threshold big.Rat
 		threshold.Sub(delta, &muSquared)
-		var rhs big.Rat
 		rhs.Mul(&threshold, orthoNormKm1)
 
 		if orthoNormK.Cmp(&rhs) >= 0 {
@@ -448,7 +450,8 @@ func lllReduce(basis [][]big.Int, m int) {
 		} else {
 			// Swap basis[k] and basis[k-1]
 			basis[k], basis[k-1] = basis[k-1], basis[k]
-			gramSchmidt()
+			// Only recompute Gram-Schmidt from k-1 onwards
+			updateGramSchmidtFrom(k - 1)
 			if k > 1 {
 				k--
 			}
