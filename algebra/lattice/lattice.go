@@ -349,42 +349,61 @@ func lllReduce(basis [][]big.Int, m int) {
 	delta := big.NewRat(99, 100)
 
 	// ortho stores the Gram-Schmidt orthogonalized vectors as rationals
-	// These are n-dimensional vectors (one per row)
 	ortho := make([][]big.Rat, m)
 	for i := range ortho {
 		ortho[i] = make([]big.Rat, n)
 	}
 
+	// muCache[i][j] stores the Gram-Schmidt coefficient μ[i][j] = <basis[i], ortho[j]> / <ortho[j], ortho[j]>
+	// Only valid for j < i. Updated incrementally with Gram-Schmidt.
+	muCache := make([][]big.Rat, m)
+	for i := range muCache {
+		muCache[i] = make([]big.Rat, m)
+	}
+
+	// B[i] stores ||ortho[i]||² (squared norm of i-th orthogonalized vector)
+	B := make([]big.Rat, m)
+
+	// Temporary variables for Gram-Schmidt computation
+	var term, vi big.Rat
+
 	// updateGramSchmidtFrom recomputes Gram-Schmidt orthogonalization starting from index 'from'.
-	// Vectors ortho[0..from-1] are assumed to be already correct.
-	// This is an optimization: when basis[k] changes, only ortho[k..m-1] need updating.
+	// Also updates muCache[i][j] for i >= from and B[i] for i >= from.
 	updateGramSchmidtFrom := func(from int) {
-		var term big.Rat
 		for i := from; i < m; i++ {
 			// Start with ortho[i] = basis[i]
 			for j := 0; j < n; j++ {
 				ortho[i][j].SetInt(&basis[i][j])
 			}
 			// Subtract projections onto previous orthogonalized vectors
-			for k := 0; k < i; k++ {
-				// Skip zero vectors
-				if isZeroVecN(ortho[k], n) {
+			for j := 0; j < i; j++ {
+				// Skip zero vectors (B[j] == 0)
+				if B[j].Sign() == 0 {
+					muCache[i][j].SetInt64(0)
 					continue
 				}
-				// proj_coeff = dot(basis[i], ortho[k]) / dot(ortho[k], ortho[k])
-				projCoeff := projectionCoeffN(basis[i], ortho[k], n)
-				// ortho[i] -= proj_coeff * ortho[k]
-				for j := 0; j < n; j++ {
-					term.Mul(projCoeff, &ortho[k][j])
-					ortho[i][j].Sub(&ortho[i][j], &term)
+				// Compute μ[i][j] = <basis[i], ortho[j]> / B[j]
+				muCache[i][j].SetInt64(0)
+				for l := 0; l < n; l++ {
+					vi.SetInt(&basis[i][l])
+					term.Mul(&vi, &ortho[j][l])
+					muCache[i][j].Add(&muCache[i][j], &term)
+				}
+				muCache[i][j].Quo(&muCache[i][j], &B[j])
+
+				// ortho[i] -= μ[i][j] * ortho[j]
+				for l := 0; l < n; l++ {
+					term.Mul(&muCache[i][j], &ortho[j][l])
+					ortho[i][l].Sub(&ortho[i][l], &term)
 				}
 			}
+			// Compute B[i] = ||ortho[i]||²
+			B[i].SetInt64(0)
+			for l := 0; l < n; l++ {
+				term.Mul(&ortho[i][l], &ortho[i][l])
+				B[i].Add(&B[i], &term)
+			}
 		}
-	}
-
-	// mu computes the Gram-Schmidt coefficient mu[i][j] = <basis[i], ortho[j]> / <ortho[j], ortho[j]>
-	mu := func(i, j int) *big.Rat {
-		return projectionCoeffN(basis[i], ortho[j], n)
 	}
 
 	// Initial full Gram-Schmidt
@@ -392,24 +411,22 @@ func lllReduce(basis [][]big.Int, m int) {
 
 	k := 1
 	half := big.NewRat(1, 2)
-	var muSquared, threshold, rhs big.Rat
+	var muSquared, threshold, rhs, absMu big.Rat
 
 	for k < m {
-		// Size reduction: repeat until all |mu[k][j]| <= 1/2
-		// This is important because reducing with one j may affect mu values for other j
+		// Size reduction: repeat until all |μ[k][j]| <= 1/2
 		for {
 			reduced := false
 			for j := k - 1; j >= 0; j-- {
-				if isZeroVecN(ortho[j], n) {
+				if B[j].Sign() == 0 {
 					continue
 				}
-				mu_kj := mu(k, j)
 
-				// Check if |mu[k][j]| > 1/2
-				absMu := new(big.Rat).Abs(mu_kj)
+				// Check if |μ[k][j]| > 1/2 using cached value
+				absMu.Abs(&muCache[k][j])
 				if absMu.Cmp(half) > 0 {
-					// q = round(mu[k][j])
-					q := roundRat(mu_kj)
+					// q = round(μ[k][j])
+					q := roundRat(&muCache[k][j])
 
 					// basis[k] -= q * basis[j]
 					var tmp big.Int
@@ -429,23 +446,17 @@ func lllReduce(basis [][]big.Int, m int) {
 		}
 
 		// Check for zero vector at k-1
-		if k > 0 && isZeroVecN(ortho[k-1], n) {
+		if k > 0 && B[k-1].Sign() == 0 {
 			k++
 			continue
 		}
 
-		// Lovász condition: ||ortho[k]||^2 >= (delta - mu[k][k-1]^2) * ||ortho[k-1]||^2
-		orthoNormK := dotProductRatN(ortho[k], ortho[k], n)
-		orthoNormKm1 := dotProductRatN(ortho[k-1], ortho[k-1], n)
-		mu_kkm1 := mu(k, k-1)
-
-		// lhs = ||ortho[k]||^2
-		// rhs = (delta - mu[k][k-1]^2) * ||ortho[k-1]||^2
-		muSquared.Mul(mu_kkm1, mu_kkm1)
+		// Lovász condition: B[k] >= (δ - μ[k][k-1]²) * B[k-1]
+		muSquared.Mul(&muCache[k][k-1], &muCache[k][k-1])
 		threshold.Sub(delta, &muSquared)
-		rhs.Mul(&threshold, orthoNormKm1)
+		rhs.Mul(&threshold, &B[k-1])
 
-		if orthoNormK.Cmp(&rhs) >= 0 {
+		if B[k].Cmp(&rhs) >= 0 {
 			k++
 		} else {
 			// Swap basis[k] and basis[k-1]
@@ -457,52 +468,6 @@ func lllReduce(basis [][]big.Int, m int) {
 			}
 		}
 	}
-}
-
-// projectionCoeffN computes <v, u> / <u, u> where v is []big.Int and u is []big.Rat
-// n is the dimension to use
-func projectionCoeffN(v []big.Int, u []big.Rat, n int) *big.Rat {
-	// Compute <v, u>
-	num := new(big.Rat)
-	for i := 0; i < n; i++ {
-		var vi big.Rat
-		vi.SetInt(&v[i])
-		var term big.Rat
-		term.Mul(&vi, &u[i])
-		num.Add(num, &term)
-	}
-
-	// Compute <u, u>
-	den := dotProductRatN(u, u, n)
-
-	// Return num / den
-	if den.Sign() == 0 {
-		return new(big.Rat)
-	}
-	result := new(big.Rat)
-	result.Quo(num, den)
-	return result
-}
-
-// dotProductRatN computes the dot product of two rational vectors up to dimension n
-func dotProductRatN(a, b []big.Rat, n int) *big.Rat {
-	result := new(big.Rat)
-	for i := 0; i < n; i++ {
-		var term big.Rat
-		term.Mul(&a[i], &b[i])
-		result.Add(result, &term)
-	}
-	return result
-}
-
-// isZeroVecN checks if a rational vector is all zeros (first n elements)
-func isZeroVecN(v []big.Rat, n int) bool {
-	for i := 0; i < n; i++ {
-		if v[i].Sign() != 0 {
-			return false
-		}
-	}
-	return true
 }
 
 // roundRat rounds a rational to the nearest integer
