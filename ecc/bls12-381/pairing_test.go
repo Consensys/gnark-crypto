@@ -674,6 +674,43 @@ func BenchmarkExpGT(b *testing.B) {
 	})
 }
 
+func BenchmarkPairVsFixedPair(b *testing.B) {
+
+	var g1GenAff G1Affine
+	var g2GenAff G2Affine
+
+	g1GenAff.FromJacobian(&g1Gen)
+	g2GenAff.FromJacobian(&g2Gen)
+
+	for n := 1; n <= 4; n++ {
+		P := make([]G1Affine, n)
+		Q := make([]G2Affine, n)
+		for j := 0; j < n; j++ {
+			P[j].Set(&g1GenAff)
+			Q[j].Set(&g2GenAff)
+		}
+
+		b.Run(fmt.Sprintf("%d_points/Pair", n), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				Pair(P[:n], Q[:n])
+			}
+		})
+
+		b.Run(fmt.Sprintf("%d_points/PairFixedQ", n), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				// precompute lines
+				linesQ := make([][2][len(LoopCounter) - 1]LineEvaluationAff, n)
+				for j := 0; j < n; j++ {
+					linesQ[j] = PrecomputeLines(Q[j])
+				}
+				PairFixedQ(P[:n], linesQ)
+			}
+		})
+	}
+}
+
 // ------------------------------------------------------------
 // reference implementations for testing
 
