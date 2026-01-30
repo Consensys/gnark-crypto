@@ -1,0 +1,527 @@
+package lattice
+
+import (
+	"math/big"
+)
+
+// RationalReconstruct finds small (x, z) such that k = x/z mod r.
+// This uses LLL lattice reduction on a 3×2 lattice.
+//
+// The expected bounds on the output are approximately 1.16*r^(1/2).
+//
+// Parameters:
+//   - k: the scalar to decompose
+//   - r: the modulus (curve order)
+//
+// Returns [x, z] as big.Int pointers.
+func RationalReconstruct(k, r *big.Int) [2]*big.Int {
+	// Build a 3x2 basis for the lattice.
+	// The lattice consists of vectors (x, z) ∈ Z^2 such that x ≡ k*z (mod r).
+	//
+	// The 3x2 basis is:
+	//   B1 = [r, 0]    (mod r in x)
+	//   B2 = [0, r]    (mod r in z)
+	//   B3 = [k, 1]    (x ≡ k*z)
+
+	const nRows = 3
+	const nCols = 2
+
+	basis := make([][]big.Int, nRows)
+	for i := range basis {
+		basis[i] = make([]big.Int, nCols)
+	}
+
+	// B1 = [r, 0]
+	basis[0][0].Set(r)
+	// B2 = [0, r]
+	basis[1][1].Set(r)
+	// B3 = [k, 1]
+	basis[2][0].Set(k)
+	basis[2][1].SetInt64(1)
+
+	// Run LLL reduction
+	lllReduce(basis, nRows)
+
+	// Find the shortest row with non-zero z component
+	bestIdx := -1
+	var bestNorm big.Int
+	for i := 0; i < nRows; i++ {
+		if basis[i][1].Sign() != 0 {
+			var norm big.Int
+			for j := 0; j < nCols; j++ {
+				var absVal big.Int
+				absVal.Abs(&basis[i][j])
+				if absVal.Cmp(&norm) > 0 {
+					norm.Set(&absVal)
+				}
+			}
+			if bestIdx == -1 || norm.Cmp(&bestNorm) < 0 {
+				bestIdx = i
+				bestNorm.Set(&norm)
+			}
+		}
+	}
+
+	if bestIdx == -1 {
+		bestIdx = 0
+	}
+
+	return [2]*big.Int{
+		new(big.Int).Set(&basis[bestIdx][0]),
+		new(big.Int).Set(&basis[bestIdx][1]),
+	}
+}
+
+// MultiRationalReconstruct finds small (x1, x2, z) such that
+// k1 = x1/z mod r and k2 = x2/z mod r.
+//
+// This uses LLL lattice reduction on a 4×3 lattice.
+// The expected bounds on the output are approximately 1.22*r^(1/3).
+//
+// Parameters:
+//   - k1, k2: the scalars to decompose
+//   - r: the modulus (curve order)
+//
+// Returns [x1, x2, z] as big.Int pointers.
+func MultiRationalReconstruct(k1, k2, r *big.Int) [3]*big.Int {
+	// Build a 4x3 basis for the lattice.
+	// The lattice consists of vectors (x1, x2, z) ∈ Z^3 such that
+	// x1 ≡ k1*z (mod r) and x2 ≡ k2*z (mod r).
+	//
+	// The 4x3 basis is:
+	//   B1 = [r, 0, 0]     (mod r in x1)
+	//   B2 = [0, r, 0]     (mod r in x2)
+	//   B3 = [0, 0, r]     (mod r in z)
+	//   B4 = [k1, k2, 1]   (x1 ≡ k1*z, x2 ≡ k2*z)
+
+	const nRows = 4
+	const nCols = 3
+
+	basis := make([][]big.Int, nRows)
+	for i := range basis {
+		basis[i] = make([]big.Int, nCols)
+	}
+
+	// B1 = [r, 0, 0]
+	basis[0][0].Set(r)
+	// B2 = [0, r, 0]
+	basis[1][1].Set(r)
+	// B3 = [0, 0, r]
+	basis[2][2].Set(r)
+	// B4 = [k1, k2, 1]
+	basis[3][0].Set(k1)
+	basis[3][1].Set(k2)
+	basis[3][2].SetInt64(1)
+
+	// Run LLL reduction
+	lllReduce(basis, nRows)
+
+	// Find the shortest row with non-zero z component
+	bestIdx := -1
+	var bestNorm big.Int
+	for i := 0; i < nRows; i++ {
+		if basis[i][2].Sign() != 0 {
+			var norm big.Int
+			for j := 0; j < nCols; j++ {
+				var absVal big.Int
+				absVal.Abs(&basis[i][j])
+				if absVal.Cmp(&norm) > 0 {
+					norm.Set(&absVal)
+				}
+			}
+			if bestIdx == -1 || norm.Cmp(&bestNorm) < 0 {
+				bestIdx = i
+				bestNorm.Set(&norm)
+			}
+		}
+	}
+
+	if bestIdx == -1 {
+		bestIdx = 0
+	}
+
+	return [3]*big.Int{
+		new(big.Int).Set(&basis[bestIdx][0]),
+		new(big.Int).Set(&basis[bestIdx][1]),
+		new(big.Int).Set(&basis[bestIdx][2]),
+	}
+}
+
+// RationalReconstructExt finds small (x, y, z, t) such that k = (x + λy)/(z + λt) mod r.
+// This uses LLL lattice reduction on a 7×4 lattice (7 generators, 4 coordinates).
+//
+// The expected bounds on the output are approximately 1.25*r^(1/4).
+//
+// Parameters:
+//   - k: the scalar to decompose
+//   - r: the modulus (curve order)
+//   - lambda: a quadratic extension generator (e.g., primitive cube root of unity mod r)
+//
+// Returns [x, y, z, t] as big.Int pointers.
+func RationalReconstructExt(k, r, lambda *big.Int) [4]*big.Int {
+	// Build a 7x4 basis for the lattice.
+	// The lattice consists of vectors (x, y, z, t) ∈ Z^4 such that
+	// x + λy ≡ k(z + λt) (mod r).
+	//
+	// The 7x4 basis is (as per Sage reference):
+	//   B1 = [r, 0, 0, 0]       (mod r in x)
+	//   B2 = [0, r, 0, 0]       (mod r in y)
+	//   B3 = [0, 0, r, 0]       (mod r in z)
+	//   B4 = [0, 0, 0, r]       (mod r in t)
+	//   B5 = [-λ, 1, 0, 0]      (x + λy relation)
+	//   B6 = [k, 0, 1, 0]       (x ≡ k*z)
+	//   B7 = [0, 0, -λ, 1]      (z + λt relation in denominator)
+
+	const nRows = 7
+	const nCols = 4
+
+	basis := make([][]big.Int, nRows)
+	for i := range basis {
+		basis[i] = make([]big.Int, nCols)
+	}
+
+	// B1 = [r, 0, 0, 0]
+	basis[0][0].Set(r)
+	// B2 = [0, r, 0, 0]
+	basis[1][1].Set(r)
+	// B3 = [0, 0, r, 0]
+	basis[2][2].Set(r)
+	// B4 = [0, 0, 0, r]
+	basis[3][3].Set(r)
+	// B5 = [-λ, 1, 0, 0]
+	basis[4][0].Neg(lambda)
+	basis[4][1].SetInt64(1)
+	// B6 = [k, 0, 1, 0]
+	basis[5][0].Set(k)
+	basis[5][2].SetInt64(1)
+	// B7 = [0, 0, -λ, 1]
+	basis[6][2].Neg(lambda)
+	basis[6][3].SetInt64(1)
+
+	// Run LLL reduction on the 7x4 matrix
+	lllReduce(basis, nRows)
+
+	// Find the shortest row with non-zero (z, t) component
+	bestIdx := -1
+	var bestNorm big.Int
+	for i := 0; i < nRows; i++ {
+		// Check if z or t is non-zero (columns 2 and 3)
+		if basis[i][2].Sign() != 0 || basis[i][3].Sign() != 0 {
+			// Compute infinity norm: max(|x|, |y|, |z|, |t|)
+			var norm big.Int
+			for j := 0; j < nCols; j++ {
+				var absVal big.Int
+				absVal.Abs(&basis[i][j])
+				if absVal.Cmp(&norm) > 0 {
+					norm.Set(&absVal)
+				}
+			}
+			if bestIdx == -1 || norm.Cmp(&bestNorm) < 0 {
+				bestIdx = i
+				bestNorm.Set(&norm)
+			}
+		}
+	}
+
+	if bestIdx == -1 {
+		bestIdx = 0
+	}
+
+	return [4]*big.Int{
+		new(big.Int).Set(&basis[bestIdx][0]),
+		new(big.Int).Set(&basis[bestIdx][1]),
+		new(big.Int).Set(&basis[bestIdx][2]),
+		new(big.Int).Set(&basis[bestIdx][3]),
+	}
+}
+
+// MultiRationalReconstructExt finds small (x1, y1, x2, y2, z, t) such that
+// k1 = (x1 + λy1)/(z + λt) mod r and k2 = (x2 + λy2)/(z + λt) mod r.
+//
+// This uses lattice reduction on a 10×6 lattice (10 generators, 6 coordinates).
+// The expected bounds on the output are approximately 1.28*r^(1/3).
+//
+// Parameters:
+//   - k1, k2: the scalars to decompose
+//   - r: the modulus (curve order)
+//   - lambda: a quadratic extension generator
+//
+// Returns [x1, y1, x2, y2, z, t] as big.Int pointers.
+func MultiRationalReconstructExt(k1, k2, r, lambda *big.Int) [6]*big.Int {
+	// Build a 10x6 basis for the lattice.
+	// The lattice consists of vectors (x1, y1, x2, y2, z, t) ∈ Z^6 such that
+	// x1 + λy1 ≡ k1(z + λt) (mod r) and x2 + λy2 ≡ k2(z + λt) (mod r).
+	//
+	// The 10x6 basis is (as per Sage reference):
+	//   B1  = [r, 0, 0, 0, 0, 0]       (mod r in x1)
+	//   B2  = [0, r, 0, 0, 0, 0]       (mod r in y1)
+	//   B3  = [0, 0, r, 0, 0, 0]       (mod r in x2)
+	//   B4  = [0, 0, 0, r, 0, 0]       (mod r in y2)
+	//   B5  = [0, 0, 0, 0, r, 0]       (mod r in z)
+	//   B6  = [0, 0, 0, 0, 0, r]       (mod r in t)
+	//   B7  = [-λ, 1, 0, 0, 0, 0]      (x1 + λy1 relation)
+	//   B8  = [0, 0, -λ, 1, 0, 0]      (x2 + λy2 relation)
+	//   B9  = [k1, 0, k2, 0, 1, 0]     (x1 ≡ k1*z, x2 ≡ k2*z)
+	//   B10 = [0, 0, 0, 0, -λ, 1]      (z + λt relation in denominator)
+
+	const nRows = 10
+	const nCols = 6
+
+	basis := make([][]big.Int, nRows)
+	for i := range basis {
+		basis[i] = make([]big.Int, nCols)
+	}
+
+	// B1-B6 = identity * r (mod r constraints for each coordinate)
+	basis[0][0].Set(r)
+	basis[1][1].Set(r)
+	basis[2][2].Set(r)
+	basis[3][3].Set(r)
+	basis[4][4].Set(r)
+	basis[5][5].Set(r)
+
+	// B7 = [-λ, 1, 0, 0, 0, 0]
+	basis[6][0].Neg(lambda)
+	basis[6][1].SetInt64(1)
+
+	// B8 = [0, 0, -λ, 1, 0, 0]
+	basis[7][2].Neg(lambda)
+	basis[7][3].SetInt64(1)
+
+	// B9 = [k1, 0, k2, 0, 1, 0]
+	basis[8][0].Set(k1)
+	basis[8][2].Set(k2)
+	basis[8][4].SetInt64(1)
+
+	// B10 = [0, 0, 0, 0, -λ, 1]
+	basis[9][4].Neg(lambda)
+	basis[9][5].SetInt64(1)
+
+	// Run LLL reduction on the 10x6 matrix
+	lllReduce(basis, nRows)
+
+	// Find the shortest row with non-zero (z, t) component
+	bestIdx := -1
+	var bestNorm big.Int
+	for i := 0; i < nRows; i++ {
+		if basis[i][4].Sign() != 0 || basis[i][5].Sign() != 0 {
+			var norm big.Int
+			for j := 0; j < nCols; j++ {
+				var absVal big.Int
+				absVal.Abs(&basis[i][j])
+				if absVal.Cmp(&norm) > 0 {
+					norm.Set(&absVal)
+				}
+			}
+			if bestIdx == -1 || norm.Cmp(&bestNorm) < 0 {
+				bestIdx = i
+				bestNorm.Set(&norm)
+			}
+		}
+	}
+
+	if bestIdx == -1 {
+		bestIdx = 0
+	}
+
+	return [6]*big.Int{
+		new(big.Int).Set(&basis[bestIdx][0]),
+		new(big.Int).Set(&basis[bestIdx][1]),
+		new(big.Int).Set(&basis[bestIdx][2]),
+		new(big.Int).Set(&basis[bestIdx][3]),
+		new(big.Int).Set(&basis[bestIdx][4]),
+		new(big.Int).Set(&basis[bestIdx][5]),
+	}
+}
+
+// lllReduce performs in-place LLL reduction on an m×n basis matrix (m rows, n columns).
+// Uses rational arithmetic with big.Rat for correctness.
+// Delta is fixed at 99/100 = 0.99 for stronger reduction.
+// For non-square matrices (m > n), this finds a reduced basis for the lattice
+// generated by the row vectors in R^n.
+func lllReduce(basis [][]big.Int, m int) {
+	if m == 0 {
+		return
+	}
+	n := len(basis[0]) // number of columns
+
+	// delta = 99/100
+	delta := big.NewRat(99, 100)
+
+	// ortho stores the Gram-Schmidt orthogonalized vectors as rationals
+	// These are n-dimensional vectors (one per row)
+	ortho := make([][]big.Rat, m)
+	for i := range ortho {
+		ortho[i] = make([]big.Rat, n)
+	}
+
+	// Compute Gram-Schmidt orthogonalization
+	gramSchmidt := func() {
+		for i := 0; i < m; i++ {
+			// Start with ortho[i] = basis[i]
+			for j := 0; j < n; j++ {
+				ortho[i][j].SetInt(&basis[i][j])
+			}
+			// Subtract projections onto previous orthogonalized vectors
+			for k := 0; k < i; k++ {
+				// Skip zero vectors
+				if isZeroVecN(ortho[k], n) {
+					continue
+				}
+				// proj_coeff = dot(basis[i], ortho[k]) / dot(ortho[k], ortho[k])
+				projCoeff := projectionCoeffN(basis[i], ortho[k], n)
+				// ortho[i] -= proj_coeff * ortho[k]
+				for j := 0; j < n; j++ {
+					var term big.Rat
+					term.Mul(projCoeff, &ortho[k][j])
+					ortho[i][j].Sub(&ortho[i][j], &term)
+				}
+			}
+		}
+	}
+
+	// mu computes the Gram-Schmidt coefficient mu[i][j] = <basis[i], ortho[j]> / <ortho[j], ortho[j]>
+	mu := func(i, j int) *big.Rat {
+		return projectionCoeffN(basis[i], ortho[j], n)
+	}
+
+	gramSchmidt()
+
+	k := 1
+	for k < m {
+		// Size reduction: repeat until all |mu[k][j]| <= 1/2
+		// This is important because reducing with one j may affect mu values for other j
+		half := big.NewRat(1, 2)
+		for {
+			reduced := false
+			for j := k - 1; j >= 0; j-- {
+				if isZeroVecN(ortho[j], n) {
+					continue
+				}
+				mu_kj := mu(k, j)
+
+				// Check if |mu[k][j]| > 1/2
+				absMu := new(big.Rat).Abs(mu_kj)
+				if absMu.Cmp(half) > 0 {
+					// q = round(mu[k][j])
+					q := roundRat(mu_kj)
+
+					// basis[k] -= q * basis[j]
+					for l := 0; l < n; l++ {
+						var tmp big.Int
+						tmp.Mul(q, &basis[j][l])
+						basis[k][l].Sub(&basis[k][l], &tmp)
+					}
+
+					// Recompute Gram-Schmidt
+					gramSchmidt()
+					reduced = true
+				}
+			}
+			if !reduced {
+				break
+			}
+		}
+
+		// Check for zero vector at k-1
+		if k > 0 && isZeroVecN(ortho[k-1], n) {
+			k++
+			continue
+		}
+
+		// Lovász condition: ||ortho[k]||^2 >= (delta - mu[k][k-1]^2) * ||ortho[k-1]||^2
+		orthoNormK := dotProductRatN(ortho[k], ortho[k], n)
+		orthoNormKm1 := dotProductRatN(ortho[k-1], ortho[k-1], n)
+		mu_kkm1 := mu(k, k-1)
+
+		// lhs = ||ortho[k]||^2
+		// rhs = (delta - mu[k][k-1]^2) * ||ortho[k-1]||^2
+		var muSquared big.Rat
+		muSquared.Mul(mu_kkm1, mu_kkm1)
+		var threshold big.Rat
+		threshold.Sub(delta, &muSquared)
+		var rhs big.Rat
+		rhs.Mul(&threshold, orthoNormKm1)
+
+		if orthoNormK.Cmp(&rhs) >= 0 {
+			k++
+		} else {
+			// Swap basis[k] and basis[k-1]
+			basis[k], basis[k-1] = basis[k-1], basis[k]
+			gramSchmidt()
+			if k > 1 {
+				k--
+			}
+		}
+	}
+}
+
+// projectionCoeffN computes <v, u> / <u, u> where v is []big.Int and u is []big.Rat
+// n is the dimension to use
+func projectionCoeffN(v []big.Int, u []big.Rat, n int) *big.Rat {
+	// Compute <v, u>
+	num := new(big.Rat)
+	for i := 0; i < n; i++ {
+		var vi big.Rat
+		vi.SetInt(&v[i])
+		var term big.Rat
+		term.Mul(&vi, &u[i])
+		num.Add(num, &term)
+	}
+
+	// Compute <u, u>
+	den := dotProductRatN(u, u, n)
+
+	// Return num / den
+	if den.Sign() == 0 {
+		return new(big.Rat)
+	}
+	result := new(big.Rat)
+	result.Quo(num, den)
+	return result
+}
+
+// dotProductRatN computes the dot product of two rational vectors up to dimension n
+func dotProductRatN(a, b []big.Rat, n int) *big.Rat {
+	result := new(big.Rat)
+	for i := 0; i < n; i++ {
+		var term big.Rat
+		term.Mul(&a[i], &b[i])
+		result.Add(result, &term)
+	}
+	return result
+}
+
+// isZeroVecN checks if a rational vector is all zeros (first n elements)
+func isZeroVecN(v []big.Rat, n int) bool {
+	for i := 0; i < n; i++ {
+		if v[i].Sign() != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// roundRat rounds a rational to the nearest integer
+func roundRat(r *big.Rat) *big.Int {
+	// Get numerator and denominator
+	num := r.Num()
+	den := r.Denom()
+
+	// Compute quotient and remainder
+	q := new(big.Int)
+	rem := new(big.Int)
+	q.DivMod(num, den, rem)
+
+	// Round to nearest: if |rem| * 2 >= |den|, adjust
+	rem2 := new(big.Int).Mul(rem, big.NewInt(2))
+	if rem2.CmpAbs(den) >= 0 {
+		if num.Sign() >= 0 {
+			q.Add(q, big.NewInt(1))
+		} else {
+			q.Sub(q, big.NewInt(1))
+		}
+	}
+
+	return q
+}
