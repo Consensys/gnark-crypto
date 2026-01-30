@@ -523,6 +523,155 @@ func (p *G2Affine) manyDoubleSteps(k int, evaluations []LineEvaluationAff) {
 	p.Y.Mul(&C[k], &invT3).Neg(&p.Y)
 }
 
+// manyDoublesAndAdd performs k consecutive doublings followed by a doubleAndAdd operation,
+// using a single batch inversion for all k+2 line evaluations.
+// This combines manyDoubleSteps(k) + doubleAndAddStep into one batch inversion (2 inv → 1 inv).
+func (p *G2Affine) manyDoublesAndAdd(k int, doubEvals []LineEvaluationAff, addEval1, addEval2 *LineEvaluationAff, a *G2Affine) {
+	if k == 0 {
+		p.doubleAndAddStep(addEval1, addEval2, a)
+		return
+	}
+
+	// Step 1: Compute A[i], B[i], C[i] using the recurrence (same as manyDoubleSteps)
+	A := make([]fptower.E2, k+1)
+	B := make([]fptower.E2, k+1)
+	C := make([]fptower.E2, k+1)
+
+	var tmp fptower.E2
+	A[0].Set(&p.X)
+	C[0].Neg(&p.Y)
+	tmp.Square(&p.X)
+	B[0].Double(&tmp).Add(&B[0], &tmp) // B[0] = 3x²
+
+	for i := 1; i <= k; i++ {
+		var Csq, ACs, eightACs fptower.E2
+		Csq.Square(&C[i-1])
+		ACs.Mul(&A[i-1], &Csq)
+		eightACs.Double(&ACs).Double(&eightACs).Double(&eightACs)
+		A[i].Square(&B[i-1]).Sub(&A[i], &eightACs)
+
+		tmp.Square(&A[i])
+		B[i].Double(&tmp).Add(&B[i], &tmp)
+
+		var C4, fourACs, diff fptower.E2
+		C4.Square(&Csq)
+		fourACs.Double(&ACs).Double(&fourACs)
+		diff.Sub(&A[i], &fourACs)
+		C[i].Double(&C4).Double(&C[i]).Double(&C[i])
+		tmp.Mul(&B[i-1], &diff)
+		C[i].Add(&C[i], &tmp)
+	}
+
+	// Step 2: Compute D[i] = -2*C[i] for i = 0..k-1
+	D := make([]fptower.E2, k)
+	for i := 0; i < k; i++ {
+		D[i].Double(&C[i]).Neg(&D[i])
+	}
+
+	// Step 3: Compute partial products T[i] = D[0]*D[1]*...*D[i]
+	T := make([]fptower.E2, k+1)
+	T[0].Set(&D[0])
+	for i := 1; i < k; i++ {
+		T[i].Mul(&T[i-1], &D[i])
+	}
+
+	// Step 4: Compute ELM formula numerators using scaled coordinates
+	var S2, S3, A_num, B_num, U_num fptower.E2
+	S := &T[k-1]
+	S2.Square(S)
+	S3.Mul(&S2, S)
+
+	A_num.Mul(&a.X, &S2)
+	A_num.Sub(&A[k], &A_num)
+
+	B_num.Neg(&C[k])
+	tmp.Mul(&a.Y, &S3)
+	B_num.Sub(&B_num, &tmp)
+
+	var A_num2, B_num2, coeff fptower.E2
+	A_num2.Square(&A_num)
+	B_num2.Square(&B_num)
+	coeff.Double(&A[k])
+	tmp.Mul(&a.X, &S2)
+	coeff.Add(&coeff, &tmp)
+	U_num.Mul(&coeff, &A_num2)
+	U_num.Sub(&B_num2, &U_num)
+
+	// Step 5: Extend T for ELM batch inversion
+	T[k].Mul(S, &A_num)
+	T[k].Mul(&T[k], &U_num)
+
+	// Step 6: Batch invert T[0..k]
+	invT := fptower.BatchInvertE2(T)
+
+	// Step 7: Compute doubling line evaluations
+	doubEvals[0].R0.Mul(&B[0], &invT[0])
+	doubEvals[0].R1.Mul(&B[0], &A[0]).Mul(&doubEvals[0].R1, &invT[0]).Add(&doubEvals[0].R1, &C[0])
+
+	var invT2, invT3 fptower.E2
+	for i := 1; i < k; i++ {
+		doubEvals[i].R0.Mul(&B[i], &invT[i])
+
+		invT2.Square(&invT[i-1])
+		invT3.Mul(&invT2, &invT[i-1])
+
+		var term1, term2 fptower.E2
+		term1.Mul(&B[i], &A[i]).Mul(&term1, &invT[i]).Mul(&term1, &invT2)
+		term2.Mul(&C[i], &invT3)
+		doubEvals[i].R1.Add(&term1, &term2)
+	}
+
+	// Step 8: Compute point coordinates after k doublings
+	invT2.Square(&invT[k-1])
+	invT3.Mul(&invT2, &invT[k-1])
+	var x_P, y_P fptower.E2
+	x_P.Mul(&A[k], &invT2)
+	y_P.Mul(&C[k], &invT3).Neg(&y_P)
+
+	// Step 9: Compute ELM slopes
+	var invSA, invSU fptower.E2
+	invSA.Mul(&U_num, &invT[k])
+	invSU.Mul(&A_num, &invT[k])
+
+	var l1 fptower.E2
+	l1.Mul(&B_num, &invSA)
+
+	var l2 fptower.E2
+	l2.Double(&C[k])
+	l2.Neg(&l2)
+	l2.Mul(&l2, &A_num2)
+	l2.Mul(&l2, &invSU)
+	l2.Add(&l2, &l1)
+	l2.Neg(&l2)
+
+	// Step 10: Compute ELM line evaluations
+	addEval1.R0.Set(&l1)
+	addEval1.R1.Mul(&l1, &x_P)
+	addEval1.R1.Sub(&addEval1.R1, &y_P)
+
+	addEval2.R0.Set(&l2)
+	addEval2.R1.Mul(&l2, &x_P)
+	addEval2.R1.Sub(&addEval2.R1, &y_P)
+
+	// Step 11: Compute final point 2P + Q
+	var xPQ fptower.E2
+	xPQ.Square(&l1)
+	xPQ.Sub(&xPQ, &x_P)
+	xPQ.Sub(&xPQ, &a.X)
+
+	var x4, y4 fptower.E2
+	x4.Square(&l2)
+	x4.Sub(&x4, &x_P)
+	x4.Sub(&x4, &xPQ)
+
+	y4.Sub(&x_P, &x4)
+	y4.Mul(&l2, &y4)
+	y4.Sub(&y4, &y_P)
+
+	p.X.Set(&x4)
+	p.Y.Set(&y4)
+}
+
 // PrecomputeLines precomputes the lines for the fixed-argument Miller loop
 func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter)]LineEvaluationAff) {
 	var accQ, negQ G2Affine
@@ -546,17 +695,15 @@ func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter)]LineEval
 	// i=61: LoopCounter[61]=1
 	accQ.doubleAndAddStep(&PrecomputedLines[0][61], &PrecomputedLines[1][61], &Q)
 
-	// i=60→58: 3 consecutive zeros
+	// i=60→57: 3 consecutive zeros followed by add at i=57 (-1)
+	// Uses manyDoublesAndAdd to combine into 1 inversion
 	{
-		var evals [3]LineEvaluationAff
-		accQ.manyDoubleSteps(3, evals[:])
-		PrecomputedLines[0][60] = evals[0]
-		PrecomputedLines[0][59] = evals[1]
-		PrecomputedLines[0][58] = evals[2]
+		var doubEvals [3]LineEvaluationAff
+		accQ.manyDoublesAndAdd(3, doubEvals[:], &PrecomputedLines[0][57], &PrecomputedLines[1][57], &negQ)
+		PrecomputedLines[0][60] = doubEvals[0]
+		PrecomputedLines[0][59] = doubEvals[1]
+		PrecomputedLines[0][58] = doubEvals[2]
 	}
-
-	// i=57: LoopCounter[57]=-1
-	accQ.doubleAndAddStep(&PrecomputedLines[0][57], &PrecomputedLines[1][57], &negQ)
 
 	// i=56: LoopCounter[56]=0
 	accQ.doubleStep(&PrecomputedLines[0][56])
@@ -564,17 +711,14 @@ func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter)]LineEval
 	// i=55: LoopCounter[55]=-1
 	accQ.doubleAndAddStep(&PrecomputedLines[0][55], &PrecomputedLines[1][55], &negQ)
 
-	// i=54→52: 3 consecutive zeros
+	// i=54→51: 3 consecutive zeros followed by add at i=51 (-1)
 	{
-		var evals [3]LineEvaluationAff
-		accQ.manyDoubleSteps(3, evals[:])
-		PrecomputedLines[0][54] = evals[0]
-		PrecomputedLines[0][53] = evals[1]
-		PrecomputedLines[0][52] = evals[2]
+		var doubEvals [3]LineEvaluationAff
+		accQ.manyDoublesAndAdd(3, doubEvals[:], &PrecomputedLines[0][51], &PrecomputedLines[1][51], &negQ)
+		PrecomputedLines[0][54] = doubEvals[0]
+		PrecomputedLines[0][53] = doubEvals[1]
+		PrecomputedLines[0][52] = doubEvals[2]
 	}
-
-	// i=51: LoopCounter[51]=-1
-	accQ.doubleAndAddStep(&PrecomputedLines[0][51], &PrecomputedLines[1][51], &negQ)
 
 	// i=50: LoopCounter[50]=0
 	accQ.doubleStep(&PrecomputedLines[0][50])
@@ -597,19 +741,16 @@ func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter)]LineEval
 	// i=44: LoopCounter[44]=-1
 	accQ.doubleAndAddStep(&PrecomputedLines[0][44], &PrecomputedLines[1][44], &negQ)
 
-	// i=43→39: 5 consecutive zeros
+	// i=43→38: 5 consecutive zeros followed by add at i=38 (1)
 	{
-		var evals [5]LineEvaluationAff
-		accQ.manyDoubleSteps(5, evals[:])
-		PrecomputedLines[0][43] = evals[0]
-		PrecomputedLines[0][42] = evals[1]
-		PrecomputedLines[0][41] = evals[2]
-		PrecomputedLines[0][40] = evals[3]
-		PrecomputedLines[0][39] = evals[4]
+		var doubEvals [5]LineEvaluationAff
+		accQ.manyDoublesAndAdd(5, doubEvals[:], &PrecomputedLines[0][38], &PrecomputedLines[1][38], &Q)
+		PrecomputedLines[0][43] = doubEvals[0]
+		PrecomputedLines[0][42] = doubEvals[1]
+		PrecomputedLines[0][41] = doubEvals[2]
+		PrecomputedLines[0][40] = doubEvals[3]
+		PrecomputedLines[0][39] = doubEvals[4]
 	}
-
-	// i=38: LoopCounter[38]=1
-	accQ.doubleAndAddStep(&PrecomputedLines[0][38], &PrecomputedLines[1][38], &Q)
 
 	// i=37: LoopCounter[37]=0
 	accQ.doubleStep(&PrecomputedLines[0][37])
@@ -635,18 +776,15 @@ func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter)]LineEval
 	// i=30: LoopCounter[30]=-1
 	accQ.doubleAndAddStep(&PrecomputedLines[0][30], &PrecomputedLines[1][30], &negQ)
 
-	// i=29→26: 4 consecutive zeros
+	// i=29→25: 4 consecutive zeros followed by add at i=25 (-1)
 	{
-		var evals [4]LineEvaluationAff
-		accQ.manyDoubleSteps(4, evals[:])
-		PrecomputedLines[0][29] = evals[0]
-		PrecomputedLines[0][28] = evals[1]
-		PrecomputedLines[0][27] = evals[2]
-		PrecomputedLines[0][26] = evals[3]
+		var doubEvals [4]LineEvaluationAff
+		accQ.manyDoublesAndAdd(4, doubEvals[:], &PrecomputedLines[0][25], &PrecomputedLines[1][25], &negQ)
+		PrecomputedLines[0][29] = doubEvals[0]
+		PrecomputedLines[0][28] = doubEvals[1]
+		PrecomputedLines[0][27] = doubEvals[2]
+		PrecomputedLines[0][26] = doubEvals[3]
 	}
-
-	// i=25: LoopCounter[25]=-1
-	accQ.doubleAndAddStep(&PrecomputedLines[0][25], &PrecomputedLines[1][25], &negQ)
 
 	// i=24: LoopCounter[24]=0
 	accQ.doubleStep(&PrecomputedLines[0][24])
@@ -654,17 +792,14 @@ func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter)]LineEval
 	// i=23: LoopCounter[23]=1
 	accQ.doubleAndAddStep(&PrecomputedLines[0][23], &PrecomputedLines[1][23], &Q)
 
-	// i=22→20: 3 consecutive zeros
+	// i=22→19: 3 consecutive zeros followed by add at i=19 (-1)
 	{
-		var evals [3]LineEvaluationAff
-		accQ.manyDoubleSteps(3, evals[:])
-		PrecomputedLines[0][22] = evals[0]
-		PrecomputedLines[0][21] = evals[1]
-		PrecomputedLines[0][20] = evals[2]
+		var doubEvals [3]LineEvaluationAff
+		accQ.manyDoublesAndAdd(3, doubEvals[:], &PrecomputedLines[0][19], &PrecomputedLines[1][19], &negQ)
+		PrecomputedLines[0][22] = doubEvals[0]
+		PrecomputedLines[0][21] = doubEvals[1]
+		PrecomputedLines[0][20] = doubEvals[2]
 	}
-
-	// i=19: LoopCounter[19]=-1
-	accQ.doubleAndAddStep(&PrecomputedLines[0][19], &PrecomputedLines[1][19], &negQ)
 
 	// i=18: LoopCounter[18]=0
 	accQ.doubleStep(&PrecomputedLines[0][18])
@@ -681,17 +816,14 @@ func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter)]LineEval
 	// i=14: LoopCounter[14]=1
 	accQ.doubleAndAddStep(&PrecomputedLines[0][14], &PrecomputedLines[1][14], &Q)
 
-	// i=13→11: 3 consecutive zeros
+	// i=13→10: 3 consecutive zeros followed by add at i=10 (-1)
 	{
-		var evals [3]LineEvaluationAff
-		accQ.manyDoubleSteps(3, evals[:])
-		PrecomputedLines[0][13] = evals[0]
-		PrecomputedLines[0][12] = evals[1]
-		PrecomputedLines[0][11] = evals[2]
+		var doubEvals [3]LineEvaluationAff
+		accQ.manyDoublesAndAdd(3, doubEvals[:], &PrecomputedLines[0][10], &PrecomputedLines[1][10], &negQ)
+		PrecomputedLines[0][13] = doubEvals[0]
+		PrecomputedLines[0][12] = doubEvals[1]
+		PrecomputedLines[0][11] = doubEvals[2]
 	}
-
-	// i=10: LoopCounter[10]=-1
-	accQ.doubleAndAddStep(&PrecomputedLines[0][10], &PrecomputedLines[1][10], &negQ)
 
 	// i=9: LoopCounter[9]=0
 	accQ.doubleStep(&PrecomputedLines[0][9])
