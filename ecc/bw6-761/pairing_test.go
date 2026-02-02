@@ -31,81 +31,10 @@ func TestPairing(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	genA := GenE6()
-
 	genR1 := GenFr()
 	genR2 := GenFr()
 
-	properties.Property("[BW6-761] Having the receiver as operand (final expo) should output the same result", prop.ForAll(
-		func(a GT) bool {
-			b := FinalExponentiation(&a)
-			a = FinalExponentiation(&a)
-			return a.Equal(&b)
-		},
-		genA,
-	))
-
-	properties.Property("[BW6-761] Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
-		func(a GT) bool {
-			b := FinalExponentiation(&a)
-			return !a.IsInSubGroup() && b.IsInSubGroup()
-		},
-		genA,
-	))
-
-	properties.Property("[BW6-761] Exp, CyclotomicExp and ExpGLV results must be the same in GT (small and big exponents)", prop.ForAll(
-		func(a GT, e fr.Element) bool {
-
-			var res bool
-
-			// exponent > r
-			{
-				a = FinalExponentiation(&a)
-				var _e big.Int
-				_e.SetString("169893631828481842931290008859743243489098146141979830311893424751855271950692001433356165550548410610101138388623573573742608490725625288296502860183437011025036209791574001140592327223981416956942076610555083128655330944007957223952510233203018053264066056080064687038560794652180979019775788172491868553073169893631828481842931290008859743243489098146141979830311893424751855271950692001433356165550548410610101138388623573573742608490725625288296502860183437011025036209791574001140592327223981416956942076610555083128655330944007957223952510233203018053264066056080064687038560794652180979019775788172491868553073", 10)
-				var b, c, d GT
-				b.Exp(a, &_e)
-				c.ExpGLV(a, &_e)
-				d.CyclotomicExp(a, &_e)
-				res = b.Equal(&c) && c.Equal(&d)
-			}
-
-			// exponent < r
-			{
-				a = FinalExponentiation(&a)
-				var _e big.Int
-				e.BigInt(&_e)
-				var b, c, d GT
-				b.Exp(a, &_e)
-				c.ExpGLV(a, &_e)
-				d.CyclotomicExp(a, &_e)
-				res = res && b.Equal(&c) && c.Equal(&d)
-			}
-
-			return res
-		},
-		genA,
-		genR1,
-	))
-
-	properties.Property("[BW6-761] Expt(Expt) and Exp(t^2) should output the same result in the cyclotomic subgroup", prop.ForAll(
-		func(a GT) bool {
-			var b, c, d GT
-			b.Conjugate(&a)
-			a.Inverse(&a)
-			b.Mul(&b, &a)
-
-			a.Frobenius(&b).
-				Mul(&a, &b)
-
-			c.Expt(&a).Expt(&c)
-			d.Exp(a, &xGen).Exp(d, &xGen)
-			return c.Equal(&d)
-		},
-		genA,
-	))
-
-	properties.Property("[BW6-761] bilinearity", prop.ForAll(
+	properties.Property("[BW6-761] Bilinearity: e(P,Q)^ab == e([a]P,Q)^b == e(P,[b]Q)^a", prop.ForAll(
 		func(a, b fr.Element) bool {
 
 			var res, resa, resb, resab, zero GT
@@ -137,7 +66,19 @@ func TestPairing(t *testing.T) {
 		genR2,
 	))
 
-	properties.Property("[BW6-761] PairingCheck", prop.ForAll(
+	properties.Property("[BW6-761] Non-degenerancy: e(P,Q) != 1", prop.ForAll(
+		func() bool {
+
+			res, _ := Pair([]G1Affine{g1GenAff}, []G2Affine{g2GenAff})
+			var one GT
+			one.SetOne()
+
+			return !res.Equal(&one)
+
+		},
+	))
+
+	properties.Property("[BW6-761] PairingCheck: e(P,Q) * e(-P,Q) == 1", prop.ForAll(
 		func(a, b fr.Element) bool {
 
 			var g1GenAffNeg G1Affine
@@ -153,72 +94,10 @@ func TestPairing(t *testing.T) {
 		genR2,
 	))
 
-	properties.Property("[BW6-761] Pair should output the same result with MillerLoop or MillerLoopFixedQ", prop.ForAll(
-		func(a, b fr.Element) bool {
-
-			var ag1 G1Affine
-			var bg2 G2Affine
-
-			var abigint, bbigint big.Int
-
-			a.BigInt(&abigint)
-			b.BigInt(&bbigint)
-
-			ag1.ScalarMultiplication(&g1GenAff, &abigint)
-			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
-
-			P := []G1Affine{g1GenAff, ag1}
-			Q := []G2Affine{g2GenAff, bg2}
-
-			ml1, _ := MillerLoop(P, Q)
-			ml2, _ := MillerLoopFixedQ(
-				P,
-				[][2][len(LoopCounter) - 1]LineEvaluationAff{
-					PrecomputeLines(Q[0]),
-					PrecomputeLines(Q[1]),
-				})
-
-			res1 := FinalExponentiation(&ml1)
-			res2 := FinalExponentiation(&ml2)
-
-			return res1.Equal(&res2)
-		},
-		genR1,
-		genR2,
-	))
-	properties.Property("[BW6-761] Pair should output the same result with MillerLoop or MillerLoopDirect", prop.ForAll(
-		func(a, b fr.Element) bool {
-
-			var ag1 G1Affine
-			var bg2 G2Affine
-
-			var abigint, bbigint big.Int
-
-			a.BigInt(&abigint)
-			b.BigInt(&bbigint)
-
-			ag1.ScalarMultiplication(&g1GenAff, &abigint)
-			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
-
-			P := []G1Affine{g1GenAff, ag1}
-			Q := []G2Affine{g2GenAff, bg2}
-
-			ml1, _ := MillerLoop(P, Q)
-			ml2, _ := MillerLoopDirect(P, Q)
-			res1 := FinalExponentiation(&ml1)
-			res2 := FinalExponentiation(&ml2)
-
-			return res1.Equal(&res2)
-
-		},
-		genR1,
-		genR2,
-	))
-
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-func TestDoubleAndAddStepEquivalence(t *testing.T) {
+func TestFixedPairing(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
 	if testing.Short() {
@@ -276,6 +155,69 @@ func TestDoubleAndAddStepEquivalence(t *testing.T) {
 		genR2,
 	))
 
+	properties.Property("[BW6-761] Pair should output the same result with MillerLoop or MillerLoopFixedQ", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var ag1 G1Affine
+			var bg2 G2Affine
+
+			var abigint, bbigint big.Int
+
+			a.BigInt(&abigint)
+			b.BigInt(&bbigint)
+
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
+
+			P := []G1Affine{g1GenAff, ag1}
+			Q := []G2Affine{g2GenAff, bg2}
+
+			// precompute lines
+			linesQ := [][2][len(LoopCounter) - 1]LineEvaluationAff{
+				PrecomputeLines(g2GenAff),
+				PrecomputeLines(bg2),
+			}
+
+			res1, _ := Pair(P, Q)
+			res2, _ := PairFixedQ(P, linesQ)
+
+			return res1.Equal(&res2)
+		},
+		genR1,
+		genR2,
+	))
+
+	properties.Property("[BW6-761] PrecomputeLines and precomputeLinesRef should produce the same pairing result", prop.ForAll(
+		func(a, b fr.Element) bool {
+			var ag1 G1Affine
+			var bg2 G2Affine
+
+			var abigint, bbigint big.Int
+			a.BigInt(&abigint)
+			b.BigInt(&bbigint)
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
+
+			P := []G1Affine{ag1}
+
+			// Compute pairing using optimized PrecomputeLines
+			linesOpt := [][2][len(LoopCounter) - 1]LineEvaluationAff{
+				PrecomputeLines(bg2),
+			}
+			resOpt, _ := PairFixedQ(P, linesOpt)
+
+			// Compute pairing using reference precomputeLinesRef
+			linesRef := [][2][len(LoopCounter) - 1]LineEvaluationAff{
+				precomputeLinesRef(bg2),
+			}
+			resRef, _ := PairFixedQ(P, linesRef)
+
+			return resOpt.Equal(&resRef)
+		},
+		genR1,
+		genR2,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
@@ -293,6 +235,34 @@ func TestMillerLoop(t *testing.T) {
 
 	genR1 := GenFr()
 	genR2 := GenFr()
+	properties.Property("[BW6-761] Pair should output the same result with MillerLoop or MillerLoopDirect", prop.ForAll(
+		func(a, b fr.Element) bool {
+
+			var ag1 G1Affine
+			var bg2 G2Affine
+
+			var abigint, bbigint big.Int
+
+			a.BigInt(&abigint)
+			b.BigInt(&bbigint)
+
+			ag1.ScalarMultiplication(&g1GenAff, &abigint)
+			bg2.ScalarMultiplication(&g2GenAff, &bbigint)
+
+			P := []G1Affine{g1GenAff, ag1}
+			Q := []G2Affine{g2GenAff, bg2}
+
+			ml1, _ := MillerLoop(P, Q)
+			ml2, _ := MillerLoopDirect(P, Q)
+			res1 := FinalExponentiation(&ml1)
+			res2 := FinalExponentiation(&ml2)
+
+			return res1.Equal(&res2)
+
+		},
+		genR1,
+		genR2,
+	))
 
 	properties.Property("[BW6-761] MillerLoop of pairs should be equal to the product of MillerLoops", prop.ForAll(
 		func(a, b fr.Element) bool {
@@ -421,6 +391,103 @@ func TestMillerLoop(t *testing.T) {
 		genR1,
 		genR2,
 	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestExponentiation(t *testing.T) {
+
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genA := GenE6()
+
+	genR1 := GenFr()
+
+	properties.Property("[BW6-761] Exponentiating FinalExpo(a) to r should output 1", prop.ForAll(
+		func(a GT) bool {
+			b := FinalExponentiation(&a)
+			return !a.IsInSubGroup() && b.IsInSubGroup()
+		},
+		genA,
+	))
+
+	properties.Property("[BW6-761] Exp, CyclotomicExp and ExpGLV results must be the same in GT (small and big exponents)", prop.ForAll(
+		func(a GT, e fr.Element) bool {
+
+			var res bool
+
+			// exponent > r
+			{
+				a = FinalExponentiation(&a)
+				var _e big.Int
+				_e.SetString("169893631828481842931290008859743243489098146141979830311893424751855271950692001433356165550548410610101138388623573573742608490725625288296502860183437011025036209791574001140592327223981416956942076610555083128655330944007957223952510233203018053264066056080064687038560794652180979019775788172491868553073169893631828481842931290008859743243489098146141979830311893424751855271950692001433356165550548410610101138388623573573742608490725625288296502860183437011025036209791574001140592327223981416956942076610555083128655330944007957223952510233203018053264066056080064687038560794652180979019775788172491868553073", 10)
+				var b, c, d GT
+				b.Exp(a, &_e)
+				c.ExpGLV(a, &_e)
+				d.CyclotomicExp(a, &_e)
+				res = b.Equal(&c) && c.Equal(&d)
+			}
+
+			// exponent < r
+			{
+				a = FinalExponentiation(&a)
+				var _e big.Int
+				e.BigInt(&_e)
+				var b, c, d GT
+				b.Exp(a, &_e)
+				c.ExpGLV(a, &_e)
+				d.CyclotomicExp(a, &_e)
+				res = res && b.Equal(&c) && c.Equal(&d)
+			}
+
+			return res
+		},
+		genA,
+		genR1,
+	))
+
+	properties.Property("[BW6-761] Expt(Expt) and Exp(t^2) should output the same result in the cyclotomic subgroup", prop.ForAll(
+		func(a GT) bool {
+			var b, c, d GT
+			b.Conjugate(&a)
+			a.Inverse(&a)
+			b.Mul(&b, &a)
+
+			a.Frobenius(&b).
+				Mul(&a, &b)
+
+			c.Expt(&a).Expt(&c)
+			d.Exp(a, &xGen).Exp(d, &xGen)
+			return c.Equal(&d)
+		},
+		genA,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+func TestTorusCompression(t *testing.T) {
+
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+
+	genR1 := GenFr()
+	genR2 := GenFr()
 
 	properties.Property("[BW6-761] compressed pairing", prop.ForAll(
 		func(a, b fr.Element) bool {
@@ -592,4 +659,98 @@ func BenchmarkExpGT(b *testing.B) {
 			a.ExpGLV(a, &_e)
 		}
 	})
+}
+
+// ------------------------------------------------------------
+// reference implementations for testing
+
+// doubleAndAddStepRef is the reference (pre-optimization) implementation
+// of the doubleAndAddStep function. It computes 2P+Q using two field inversions.
+//
+// This version uses the standard chord-tangent method:
+//   - λ1 = (y2-y1)/(x2-x1) for P + Q
+//   - λ2 = -λ1 - 2y1/(x3-x1) for doubling and adding back
+//
+// The optimized version uses the Eisenträger-Lauter-Montgomery formula
+// (https://eprint.iacr.org/2003/257) which computes both slopes with a single
+// field inversion via Montgomery's batch inversion trick.
+func doubleAndAddStepRef(p *G2Affine, evaluations1, evaluations2 *LineEvaluationAff, a *G2Affine) {
+	var n, d, l1, x3, l2, x4, y4 fp.Element
+
+	// compute λ1 = (y2-y1)/(x2-x1)
+	n.Sub(&p.Y, &a.Y)
+	d.Sub(&p.X, &a.X)
+	l1.Div(&n, &d)
+
+	// compute x3 =λ1²-x1-x2
+	x3.Square(&l1)
+	x3.Sub(&x3, &p.X)
+	x3.Sub(&x3, &a.X)
+
+	// omit y3 computation
+
+	// compute line1
+	evaluations1.R0.Set(&l1)
+	evaluations1.R1.Mul(&l1, &p.X)
+	evaluations1.R1.Sub(&evaluations1.R1, &p.Y)
+
+	// compute λ2 = -λ1-2y1/(x3-x1)
+	n.Double(&p.Y)
+	d.Sub(&x3, &p.X)
+	l2.Div(&n, &d)
+	l2.Add(&l2, &l1)
+	l2.Neg(&l2)
+
+	// compute x4 = λ2²-x1-x3
+	x4.Square(&l2)
+	x4.Sub(&x4, &p.X)
+	x4.Sub(&x4, &x3)
+
+	// compute y4 = λ2(x1 - x4)-y1
+	y4.Sub(&p.X, &x4)
+	y4.Mul(&l2, &y4)
+	y4.Sub(&y4, &p.Y)
+
+	// compute line2
+	evaluations2.R0.Set(&l2)
+	evaluations2.R1.Mul(&l2, &p.X)
+	evaluations2.R1.Sub(&evaluations2.R1, &p.Y)
+
+	p.X.Set(&x4)
+	p.Y.Set(&y4)
+}
+
+// precomputeLinesRef precomputes the lines for the fixed-argument Miller loop
+// using the reference (loop-based) implementation without manyDoubleSteps.
+func precomputeLinesRef(Q G2Affine) (PrecomputedLines [2][len(LoopCounter) - 1]LineEvaluationAff) {
+	// precomputations
+	var accQ, imQ, imQneg, negQ G2Affine
+	imQ.Y.Neg(&Q.Y)
+	imQ.X.Mul(&Q.X, &thirdRootOneG1)
+	negQ.X.Set(&Q.X)
+	negQ.Y.Set(&imQ.Y)
+	accQ.Set(&imQ)
+	imQneg.X.Set(&imQ.X)
+	imQneg.Y.Set(&Q.Y)
+
+	for i := len(LoopCounter) - 2; i >= 1; i-- {
+		accQ.doubleStep(&PrecomputedLines[0][i])
+
+		j := LoopCounter1[i]*3 + LoopCounter[i]
+		switch j {
+		case -3:
+			accQ.addStep(&PrecomputedLines[1][i], &imQneg)
+		case -1:
+			accQ.addStep(&PrecomputedLines[1][i], &negQ)
+		case 1:
+			accQ.addStep(&PrecomputedLines[1][i], &Q)
+		case 3:
+			accQ.addStep(&PrecomputedLines[1][i], &imQ)
+		}
+	}
+
+	// i = 0: j = -3, use tangentCompute (not doubleStep)
+	accQ.tangentCompute(&PrecomputedLines[0][0])
+
+	return PrecomputedLines
 }
