@@ -352,7 +352,8 @@ func GenerateCommonASM(w io.Writer, nbWords, nbBits int, hasVector bool) error {
 			f.WriteLn("")
 			f.generateMulVecIFMA()
 			f.generateScalarMulVecIFMA()
-			f.generateInnerProdVecIFMA()
+			// Note: innerProdVecIFMA is not generated as benchmarks showed IFMA
+			// is not faster for inner product operations
 		}
 	}
 

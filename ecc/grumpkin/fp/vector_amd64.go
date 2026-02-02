@@ -75,8 +75,8 @@ func (vector *Vector) ScalarMul(a Vector, b *Element) {
 	const maxN = (1 << 32) - 1
 	// IFMA path (available on Ice Lake+, Zen4+)
 	// Uses AVX-512 IFMA instructions for fast vectorized multiplication
-	if cpu.SupportAVX512IFMA && n >= 8 && n < maxN {
-		const blockSize = 8
+	const blockSize = 8
+	if cpu.SupportAVX512IFMA && n >= blockSize && n < maxN {
 		scalarMulVec(&(*vector)[0], &a[0], b, n/blockSize)
 		if n%blockSize != 0 {
 			start := n - n%blockSize
@@ -148,8 +148,8 @@ func (vector *Vector) Mul(a, b Vector) {
 	const maxN = (1 << 32) - 1
 	// IFMA path (available on Ice Lake+, Zen4+)
 	// Uses AVX-512 IFMA instructions for fast vectorized multiplication
-	if cpu.SupportAVX512IFMA && n >= 8 && n < maxN {
-		const blockSize = 8
+	const blockSize = 8
+	if cpu.SupportAVX512IFMA && n >= blockSize && n < maxN {
 		mulVec(&(*vector)[0], &a[0], &b[0], n/blockSize)
 		if n%blockSize != 0 {
 			start := n - n%blockSize
