@@ -12,7 +12,6 @@ import (
 const (
 	nbFuzzShort = 2
 	nbFuzz      = 20
-	boundSize   = 128
 )
 
 // BN254 curve parameters for testing
@@ -290,6 +289,35 @@ func TestMultiRationalReconstructExt(t *testing.T) {
 			expected2.Mod(expected2, r)
 
 			return num1.Cmp(expected1) == 0 && num2.Cmp(expected2) == 0
+		},
+		GenNumber(256),
+		GenNumber(256),
+	))
+
+	properties.Property("MultiRationalReconstructExt: outputs are small (< ~1.28*r^(1/3))", prop.ForAll(
+		func(k1Raw, k2Raw *big.Int) bool {
+			k1 := new(big.Int).Mod(k1Raw, r)
+			k2 := new(big.Int).Mod(k2Raw, r)
+			if k1.Sign() == 0 {
+				k1.SetInt64(1)
+			}
+			if k2.Sign() == 0 {
+				k2.SetInt64(2)
+			}
+
+			result := MultiRationalReconstructExt(k1, k2, r, lambda)
+
+			// Expected bound: ~1.28 * r^(1/3) (per paper, with δ=0.99)
+			// r^(1/3) for BN254 ≈ 2^85, so 1.28*r^(1/3) ≈ 2^85
+			bound := new(big.Int).Exp(big.NewInt(2), big.NewInt(92), nil) // 2^92 with margin
+
+			for i := 0; i < 6; i++ {
+				absVal := new(big.Int).Abs(result[i])
+				if absVal.Cmp(bound) > 0 {
+					return false
+				}
+			}
+			return true
 		},
 		GenNumber(256),
 		GenNumber(256),

@@ -44,7 +44,8 @@
 // The [MultiRationalReconstruct] function finds small integers (x1, x2, z)
 // such that:
 //
-//	k1 ≡ x1/z (mod r) and k2 ≡ x2/z (mod r)
+//	k1 ≡ x1/z (mod r)
+//	k2 ≡ x2/z (mod r)
 //
 // with a shared denominator z. The outputs satisfy bounds of approximately
 // 1.22·r^(2/3). This uses LLL on a 4×3 lattice.
@@ -68,7 +69,8 @@
 // The [MultiRationalReconstructExt] function extends reconstruction to two
 // scalars simultaneously, finding (x1, y1, x2, y2, z, t) such that:
 //
-//	k1 ≡ (x1 + λy1)/(z + λt) (mod r) and k2 ≡ (x2 + λy2)/(z + λt) (mod r)
+//	k1 ≡ (x1 + λy1)/(z + λt) (mod r)
+//	k2 ≡ (x2 + λy2)/(z + λt) (mod r)
 //
 // with bounds of approximately 1.28·r^(1/3). This uses LLL on a 10×6 lattice.
 //
