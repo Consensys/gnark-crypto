@@ -5,9 +5,27 @@ import (
 )
 
 // RationalReconstruct finds small (x, z) such that k = x/z mod r.
-// This uses LLL lattice reduction on a 3×2 lattice.
 //
-// The expected bounds on the output are approximately 1.16*r^(1/2).
+// The bounds on the output are |x|, |z| < √r (more precisely, ≤ γ₂·√r ≈ 1.08·√r
+// where γ₂ = 2/√3 is the 2D Hermite constant).
+//
+// # Algorithm
+//
+// This problem can be solved equivalently by:
+//
+//  1. Half-GCD: Extended Euclidean algorithm stopped at remainder < √r (used here)
+//  2. LLL: Reduce the 2D lattice {(r,0), (k,1)} to find a short vector
+//  3. Pornin's Algorithm: Division-free Lagrange reduction using only shifts/adds
+//
+// We use half-GCD because in Go with math/big:
+//
+//   - big.Int.Div is highly optimized (assembly-level Karatsuba/Newton)
+//   - Half-GCD needs ~40 iterations vs ~98 for Pornin's algorithm
+//   - Benchmarks: half-GCD ~5μs vs Pornin ~6μs for 254-bit primes
+//
+// Pornin's algorithm (eprint 2020/454) is faster on embedded systems where
+// division is expensive, but the "no division" benefit is masked by big.Int
+// overhead in Go.
 //
 // Parameters:
 //   - k: the scalar to decompose
@@ -15,60 +33,51 @@ import (
 //
 // Returns [x, z] as big.Int pointers.
 func RationalReconstruct(k, r *big.Int) [2]*big.Int {
-	// Build a 3x2 basis for the lattice.
-	// The lattice consists of vectors (x, z) ∈ Z^2 such that x ≡ k*z (mod r).
+	// The extended Euclidean algorithm maintains the invariant:
+	//   r_i = s_i * r + t_i * k
+	// which means r_i ≡ t_i * k (mod r).
 	//
-	// The 3x2 basis is:
-	//   B1 = [r, 0]    (mod r in x)
-	//   B2 = [0, r]    (mod r in z)
-	//   B3 = [k, 1]    (x ≡ k*z)
+	// When we stop at r_i < √r, we have:
+	//   x = r_i (the remainder, small)
+	//   z = t_i (the coefficient, also small by continued fraction theory)
+	//
+	// This gives x ≡ z*k (mod r), i.e., k ≡ x/z (mod r).
 
-	const nRows = 3
-	const nCols = 2
+	var r0, r1, t0, t1, q, tmp big.Int
 
-	basis := make([][]big.Int, nRows)
-	for i := range basis {
-		basis[i] = make([]big.Int, nCols)
+	// Initialize: (r0, t0) = (r, 0), (r1, t1) = (k, 1)
+	r0.Set(r)
+	t0.SetInt64(0)
+	r1.Mod(k, r) // Ensure k is reduced mod r
+	t1.SetInt64(1)
+
+	// Compute √r as the stopping threshold
+	var sqrtR big.Int
+	sqrtR.Sqrt(r)
+
+	// Run extended Euclidean algorithm until r1 < √r
+	for r1.Cmp(&sqrtR) >= 0 {
+		// q = r0 / r1
+		q.Div(&r0, &r1)
+
+		// (r0, r1) = (r1, r0 - q*r1)
+		tmp.Mul(&q, &r1)
+		tmp.Sub(&r0, &tmp)
+		r0.Set(&r1)
+		r1.Set(&tmp)
+
+		// (t0, t1) = (t1, t0 - q*t1)
+		tmp.Mul(&q, &t1)
+		tmp.Sub(&t0, &tmp)
+		t0.Set(&t1)
+		t1.Set(&tmp)
 	}
 
-	// B1 = [r, 0]
-	basis[0][0].Set(r)
-	// B2 = [0, r]
-	basis[1][1].Set(r)
-	// B3 = [k, 1]
-	basis[2][0].Set(k)
-	basis[2][1].SetInt64(1)
-
-	// Run LLL reduction
-	lllReduce(basis, nRows)
-
-	// Find the shortest row with non-zero z component
-	bestIdx := -1
-	var bestNorm big.Int
-	for i := 0; i < nRows; i++ {
-		if basis[i][1].Sign() != 0 {
-			var norm big.Int
-			for j := 0; j < nCols; j++ {
-				var absVal big.Int
-				absVal.Abs(&basis[i][j])
-				if absVal.Cmp(&norm) > 0 {
-					norm.Set(&absVal)
-				}
-			}
-			if bestIdx == -1 || norm.Cmp(&bestNorm) < 0 {
-				bestIdx = i
-				bestNorm.Set(&norm)
-			}
-		}
-	}
-
-	if bestIdx == -1 {
-		bestIdx = 0
-	}
-
+	// x = r1, z = t1
+	// We have x ≡ z*k (mod r)
 	return [2]*big.Int{
-		new(big.Int).Set(&basis[bestIdx][0]),
-		new(big.Int).Set(&basis[bestIdx][1]),
+		new(big.Int).Set(&r1),
+		new(big.Int).Set(&t1),
 	}
 }
 
@@ -151,6 +160,10 @@ func MultiRationalReconstruct(k1, k2, r *big.Int) [3]*big.Int {
 // This uses LLL lattice reduction on a 7×4 lattice (7 generators, 4 coordinates).
 //
 // The expected bounds on the output are approximately 1.25*r^(1/4).
+//
+// Note: Unlike the 2D case where half-GCD in Z achieves the same bounds as
+// LLL, the 4D problem cannot be solved "as" efficiently (bounds wise) with
+// half-GCD in Eisenstein integers Z[ω].
 //
 // Parameters:
 //   - k: the scalar to decompose
