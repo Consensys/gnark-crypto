@@ -28,13 +28,13 @@ func (f *FFAmd64) generateFromMont(_ bool) {
 	defer f.AssertCleanStack(stackSize, minStackSize)
 
 	if stackSize > 0 {
-		f.WriteLn("NO_LOCAL_POINTERS")
+		f.NO_LOCAL_POINTERS()
 	}
 
 	f.WriteLn(`
-	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS" 
+	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS"
 	// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
-	// when y = 1 we have: 
+	// when y = 1 we have:
 	// for i=0 to N-1
 	// 		t[i] = x[i]
 	// for i=0 to N-1
@@ -120,7 +120,7 @@ func (f *FFAmd64) generateFromMont(_ bool) {
 		f.LABEL(noAdx)
 		f.MOVQ("res+0(FP)", amd64.AX)
 		f.MOVQ(amd64.AX, "(SP)")
-		f.WriteLn("CALL ·_fromMontGeneric(SB)")
+		f.CALL("·_fromMontGeneric(SB)")
 		f.RET()
 	}
 

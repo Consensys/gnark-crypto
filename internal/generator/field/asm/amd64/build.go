@@ -344,8 +344,17 @@ func GenerateCommonASM(w io.Writer, nbWords, nbBits int, hasVector bool) error {
 		f.generateSubVecW4()
 		f.generateSumVecW4()
 		f.generateInnerProductW4()
-		f.generateMulVecW4("scalarMulVec")
-		f.generateMulVecW4("mulVec")
+
+		// IFMA-based vector operations (requires Ice Lake+ or Zen4+)
+		if nbWords == 4 {
+			f.WriteLn("")
+			f.Comment("AVX-512 IFMA vector operations (requires Ice Lake+ or Zen4+)")
+			f.WriteLn("")
+			f.generateMulVecIFMA()
+			f.generateScalarMulVecIFMA()
+			// Note: innerProdVecIFMA is not generated as benchmarks showed IFMA
+			// is not faster for inner product operations
+		}
 	}
 
 	return nil
