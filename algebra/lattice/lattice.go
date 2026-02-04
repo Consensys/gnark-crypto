@@ -446,7 +446,15 @@ func (r *lazyRat) normalize() {
 	}
 }
 
-// roundToInt rounds r to the nearest integer
+// roundToInt rounds r to the nearest integer (round half up, toward +∞).
+//
+// Go's big.Int.DivMod uses Euclidean division where the remainder is always
+// non-negative (for positive divisor) and the quotient is the floor.
+// For example: -7 DivMod 2 = (-4, 1) because -7 = 2*(-4) + 1.
+//
+// To round to nearest, we check if the remainder represents >= 0.5:
+// if 2*rem >= den, we add 1 to move from floor toward ceiling.
+// This works for both positive and negative numbers.
 func (r *lazyRat) roundToInt() *big.Int {
 	// Make a copy with positive denominator
 	num := new(big.Int).Set(&r.num)
@@ -460,14 +468,11 @@ func (r *lazyRat) roundToInt() *big.Int {
 	rem := new(big.Int)
 	q.DivMod(num, den, rem)
 
-	// Round to nearest: if |rem| * 2 >= |den|, adjust
+	// Round to nearest: if 2*rem >= den, add 1 to round up.
+	// Since den > 0 and rem >= 0 (Euclidean division), we use Cmp not CmpAbs.
 	rem2 := new(big.Int).Mul(rem, big.NewInt(2))
-	if rem2.CmpAbs(den) >= 0 {
-		if num.Sign() >= 0 {
-			q.Add(q, bigOne)
-		} else {
-			q.Sub(q, bigOne)
-		}
+	if rem2.Cmp(den) >= 0 {
+		q.Add(q, bigOne)
 	}
 	return q
 }

@@ -20,6 +20,51 @@ var (
 	bn254Lambda, _ = new(big.Int).SetString("4407920970296243842393367215006156084916469457145843978461", 10)
 )
 
+func TestRoundToInt(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		num, den int64
+		expected int64
+	}{
+		// Positive cases
+		{7, 2, 4}, // 3.5 -> 4 (round half up)
+		{5, 2, 3}, // 2.5 -> 3
+		{7, 3, 2}, // 2.33 -> 2
+		{8, 3, 3}, // 2.67 -> 3
+		{1, 2, 1}, // 0.5 -> 1
+		{1, 3, 0}, // 0.33 -> 0
+		{2, 3, 1}, // 0.67 -> 1
+		{6, 2, 3}, // 3.0 -> 3 (exact)
+
+		// Negative cases - these were buggy before the fix
+		{-7, 2, -3}, // -3.5 -> -3 (round half up toward +∞)
+		{-5, 2, -2}, // -2.5 -> -2
+		{-7, 3, -2}, // -2.33 -> -2
+		{-8, 3, -3}, // -2.67 -> -3
+		{-1, 2, 0},  // -0.5 -> 0
+		{-1, 3, 0},  // -0.33 -> 0
+		{-2, 3, -1}, // -0.67 -> -1
+		{-6, 2, -3}, // -3.0 -> -3 (exact)
+		{-9, 2, -4}, // -4.5 -> -4 (round half up)
+
+		// Edge cases with negative denominator (should be normalized)
+		{7, -2, -3}, // 7/(-2) = -3.5 -> -3 (round half up)
+		{-7, -2, 4}, // (-7)/(-2) = 3.5 -> 4
+	}
+
+	for _, tc := range testCases {
+		var r lazyRat
+		r.num.SetInt64(tc.num)
+		r.den.SetInt64(tc.den)
+
+		got := r.roundToInt().Int64()
+		if got != tc.expected {
+			t.Errorf("roundToInt(%d/%d) = %d, want %d", tc.num, tc.den, got, tc.expected)
+		}
+	}
+}
+
 func TestRationalReconstruct(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
