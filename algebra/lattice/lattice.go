@@ -146,7 +146,7 @@ func MultiRationalReconstruct(k1, k2, r *big.Int) [3]*big.Int {
 	}
 
 	if bestIdx == -1 {
-		bestIdx = 0
+		panic("lattice: LLL reduction produced no vector with non-zero denominator")
 	}
 
 	return [3]*big.Int{
@@ -237,7 +237,7 @@ func RationalReconstructExt(k, r, lambda *big.Int) [4]*big.Int {
 	}
 
 	if bestIdx == -1 {
-		bestIdx = 0
+		panic("lattice: LLL reduction produced no vector with non-zero denominator")
 	}
 
 	return [4]*big.Int{
@@ -334,7 +334,7 @@ func MultiRationalReconstructExt(k1, k2, r, lambda *big.Int) [6]*big.Int {
 	}
 
 	if bestIdx == -1 {
-		bestIdx = 0
+		panic("lattice: LLL reduction produced no vector with non-zero denominator")
 	}
 
 	return [6]*big.Int{
@@ -395,7 +395,11 @@ func (r *lazyRat) mul(a, b *lazyRat) {
 }
 
 // quo sets r = a / b = (a.num*b.den) / (a.den*b.num)
+// Panics if b is zero.
 func (r *lazyRat) quo(a, b *lazyRat) {
+	if b.num.Sign() == 0 {
+		panic("lattice: division by zero in lazyRat.quo")
+	}
 	var newNum, newDen big.Int
 	newNum.Mul(&a.num, &b.den)
 	newDen.Mul(&a.den, &b.num)
