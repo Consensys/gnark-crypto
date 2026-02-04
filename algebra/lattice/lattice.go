@@ -117,9 +117,9 @@ func MultiRationalReconstruct(k1, k2, r *big.Int) [3]*big.Int {
 	basis[1][1].Set(r)
 	// B3 = [0, 0, r]
 	basis[2][2].Set(r)
-	// B4 = [k1, k2, 1]
-	basis[3][0].Set(k1)
-	basis[3][1].Set(k2)
+	// B4 = [k1 mod r, k2 mod r, 1]
+	basis[3][0].Mod(k1, r)
+	basis[3][1].Mod(k2, r)
 	basis[3][2].SetInt64(1)
 
 	// Run LLL reduction
@@ -201,14 +201,16 @@ func RationalReconstructExt(k, r, lambda *big.Int) [4]*big.Int {
 	basis[2][2].Set(r)
 	// B4 = [0, 0, 0, r]
 	basis[3][3].Set(r)
-	// B5 = [-λ, 1, 0, 0]
-	basis[4][0].Neg(lambda)
+	// B5 = [-λ mod r, 1, 0, 0]
+	basis[4][0].Mod(lambda, r)
+	basis[4][0].Neg(&basis[4][0])
 	basis[4][1].SetInt64(1)
-	// B6 = [k, 0, 1, 0]
-	basis[5][0].Set(k)
+	// B6 = [k mod r, 0, 1, 0]
+	basis[5][0].Mod(k, r)
 	basis[5][2].SetInt64(1)
-	// B7 = [0, 0, -λ, 1]
-	basis[6][2].Neg(lambda)
+	// B7 = [0, 0, -λ mod r, 1]
+	basis[6][2].Mod(lambda, r)
+	basis[6][2].Neg(&basis[6][2])
 	basis[6][3].SetInt64(1)
 
 	// Run LLL reduction on the 7x4 matrix
@@ -293,21 +295,24 @@ func MultiRationalReconstructExt(k1, k2, r, lambda *big.Int) [6]*big.Int {
 	basis[4][4].Set(r)
 	basis[5][5].Set(r)
 
-	// B7 = [-λ, 1, 0, 0, 0, 0]
-	basis[6][0].Neg(lambda)
+	// B7 = [-λ mod r, 1, 0, 0, 0, 0]
+	basis[6][0].Mod(lambda, r)
+	basis[6][0].Neg(&basis[6][0])
 	basis[6][1].SetInt64(1)
 
-	// B8 = [0, 0, -λ, 1, 0, 0]
-	basis[7][2].Neg(lambda)
+	// B8 = [0, 0, -λ mod r, 1, 0, 0]
+	basis[7][2].Mod(lambda, r)
+	basis[7][2].Neg(&basis[7][2])
 	basis[7][3].SetInt64(1)
 
-	// B9 = [k1, 0, k2, 0, 1, 0]
-	basis[8][0].Set(k1)
-	basis[8][2].Set(k2)
+	// B9 = [k1 mod r, 0, k2 mod r, 0, 1, 0]
+	basis[8][0].Mod(k1, r)
+	basis[8][2].Mod(k2, r)
 	basis[8][4].SetInt64(1)
 
-	// B10 = [0, 0, 0, 0, -λ, 1]
-	basis[9][4].Neg(lambda)
+	// B10 = [0, 0, 0, 0, -λ mod r, 1]
+	basis[9][4].Mod(lambda, r)
+	basis[9][4].Neg(&basis[9][4])
 	basis[9][5].SetInt64(1)
 
 	// Run LLL reduction on the 10x6 matrix
