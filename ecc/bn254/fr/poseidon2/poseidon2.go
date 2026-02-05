@@ -160,15 +160,12 @@ func NewPermutation(t, rf, rp int) *Permutation {
 // NewPermutationWithSeed returns a new Poseidon2 permutation instance with a
 // given seed. For bn254, custom seeds are supported only for t=2,3.
 func NewPermutationWithSeed(t, rf, rp int, seed string) *Permutation {
-	if t == 2 || t == 3 {
-		params := NewParametersWithSeed(t, rf, rp, seed)
-		res := &Permutation{params: params}
-		return res
+	if t != 2 && t != 3 {
+		panic("poseidon2: custom seed only supported for t=2,3")
 	}
-	if _, ok := bn254Poseidon2Constants[t]; ok {
-		panic("poseidon2: custom seed only supported for bn254 t=2,3")
-	}
-	panic("only t=2,3,4,8,12,16 are supported")
+	params := NewParametersWithSeed(t, rf, rp, seed)
+	res := &Permutation{params: params}
+	return res
 }
 
 // NewDefaultPermutation returns a Poseidon2 permutation with the default
