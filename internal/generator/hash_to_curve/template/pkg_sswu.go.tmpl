@@ -203,10 +203,16 @@ func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordT
 // Computes sqrt(u/v) as sqrt(u*v) / v to avoid explicit division
 // Reference: "On the computation of square roots in finite fields" by Palash Sarkar
 
-	// Handle u = 0 case: sqrt(0/v) = 0, which is a quadratic residue
+	// Handle edge cases to avoid infinite loops in Sarkar's algorithm
+	// u = 0: sqrt(0/v) = 0, which is a quadratic residue
 	if u.IsZero() {
 		z.SetZero()
 		return 0
+	}
+	// v = 0: u/v is undefined; return 0 and flag as non-QR to avoid infinite loop
+	if v.IsZero() {
+		z.SetZero()
+		return 1
 	}
 
 	// Initialize Sarkar precomputed tables (thread-safe, runs once)
