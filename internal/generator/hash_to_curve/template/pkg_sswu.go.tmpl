@@ -199,7 +199,7 @@ func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordT
 
 {{ if eq (mod .FieldSizeMod256 8) 1 }}
 {{ if .SarkarEnabled }}
-// Sarkar's algorithm for SqrtRatio - optimized for high 2-adicity fields (e = {{.SarkarN}})
+// Sarkar's algorithm for SqrtRatio - optimized for high 2-adicity fields
 // Computes sqrt(u/v) as sqrt(u*v) / v to avoid explicit division
 // Reference: "On the computation of square roots in finite fields" by Palash Sarkar
 
@@ -222,7 +222,7 @@ func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordT
 	// Check if u/v is QR by checking if (u*v)^m has order dividing 2^(e-1)
 	// Note: (u/v | p) = (u*v | p) since (v^(-1) | p) = (v | p) for Legendre symbols
 	t := xM
-	for i := 0; i < {{.SarkarN}} - 1; i++ {
+	for i := 0; i < {{$CurveName}}SarkarN-1; i++ {
 		t.Square(&t)
 	}
 	isQNr := !t.IsOne() // t should be ±1; if -1 then u/v is not QR
@@ -238,30 +238,31 @@ func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordT
 	}
 
 	// Precompute xM^(2^i) for i = 0..e-1
-	var xPow [{{.SarkarN}}]{{$CoordType}}
+	var xPow [{{$CurveName}}SarkarN]{{$CoordType}}
 	xPow[0] = xM
-	for i := 1; i < {{.SarkarN}}; i++ {
+	for i := 1; i < {{$CurveName}}SarkarN; i++ {
 		xPow[i].Square(&xPow[i-1])
 	}
 
 	// Compute xis[i] = xM^(2^(e-1-sumL[i])) where sumL[i] = L[0]+...+L[i]
-	var xis [{{.SarkarK}}]{{$CoordType}}
-	{{- range $i, $xi := .SarkarXis }}
-	xis[{{$i}}] = xPow[{{$xi}}]
-	{{- end}}
+	var xis [{{$CurveName}}SarkarK]{{$CoordType}}
+	var sumL uint64
+	for i := 0; i < {{$CurveName}}SarkarK; i++ {
+		sumL += {{$CurveName}}SarkarL[i]
+		idx := {{$CurveName}}SarkarN - 1 - int(sumL)
+		xis[i] = xPow[idx]
+	}
 
 	// Main Sarkar loop
 	var s, tt uint64
-	{{- range $i, $L := .SarkarL }}
-	{
-		tt = (s + tt) >> {{$L}}
+	for i := 0; i < {{$CurveName}}SarkarK; i++ {
+		tt = (s + tt) >> {{$CurveName}}SarkarL[i]
 		var gamma {{$CoordType}}
 		{{$CurveName}}SarkarPowG(&gamma, tt)
 		var alpha {{$CoordType}}
-		alpha.Mul(&xis[{{$i}}], &gamma)
+		alpha.Mul(&xis[i], &gamma)
 		s = {{$CurveName}}SarkarEval(&alpha)
 	}
-	{{- end }}
 
 	tt = s + tt
 	var gamma {{$CoordType}}
@@ -280,10 +281,10 @@ func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordT
 	return isQNrInt
 }
 
-// Sarkar constants for {{$CurveTitle}}
+// Sarkar constants for {{$CurveTitle}} SqrtRatio
 const (
-	{{$CurveName}}SarkarN = {{.SarkarN}}
-	{{$CurveName}}SarkarK = {{.SarkarK}}
+	{{$CurveName}}SarkarN = {{.SarkarN}}   // 2-adicity
+	{{$CurveName}}SarkarK = {{.SarkarK}}   // number of blocks
 )
 
 var {{$CurveName}}SarkarL = [{{$CurveName}}SarkarK]uint64{

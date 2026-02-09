@@ -85,7 +85,7 @@ func (suite *HashSuiteSswu) GetInfo(baseField *field.Field, g *Point, name strin
 	// Sarkar parameters
 	var sarkarEnabled bool
 	var sarkarN, sarkarK int
-	var sarkarL, sarkarXis []int
+	var sarkarL []int
 	var sarkarG field.Element
 
 	if fieldSizeMod256%4 == 3 {
@@ -140,7 +140,7 @@ func (suite *HashSuiteSswu) GetInfo(baseField *field.Field, g *Point, name strin
 		if e >= 10 && g.CoordExtDegree == 1 {
 			sarkarEnabled = true
 			sarkarN = e
-			sarkarK, sarkarL, sarkarXis = computeSarkarBlockSizes(e)
+			sarkarK, sarkarL = computeSarkarBlockSizes(e)
 			// sarkarG = Z^m where m = (q-1)/2^e (odd part)
 			sarkarG = c[1] // c[1] = Z^m = c6
 		}
@@ -166,7 +166,6 @@ func (suite *HashSuiteSswu) GetInfo(baseField *field.Field, g *Point, name strin
 		SarkarN:           sarkarN,
 		SarkarK:           sarkarK,
 		SarkarL:           sarkarL,
-		SarkarXis:         sarkarXis,
 		SarkarG:           sarkarG,
 	}
 }
@@ -197,8 +196,8 @@ func newIsogenousCurveInfoOptional(isogenousCurve *Isogeny) *IsogenyInfo {
 
 // computeSarkarBlockSizes computes optimal block sizes for Sarkar's algorithm.
 // Given 2-adicity e, we split e-1 into k blocks of sizes L[i], targeting block size ~7.
-// Returns k (number of blocks), L (block sizes), and xis (precomputed indices).
-func computeSarkarBlockSizes(e int) (int, []int, []int) {
+// Returns k (number of blocks) and L (block sizes).
+func computeSarkarBlockSizes(e int) (int, []int) {
 	total := e - 1
 	k := (total + 6) / 7 // ceiling division, target block size ~7
 	if k < 2 {
@@ -214,14 +213,7 @@ func computeSarkarBlockSizes(e int) (int, []int, []int) {
 	for i := k - extra; i < k; i++ {
 		L[i] = base + 1
 	}
-	// Compute xis[i] = e - 1 - sum(L[0:i+1])
-	xis := make([]int, k)
-	sumL := 0
-	for i := 0; i < k; i++ {
-		sumL += L[i]
-		xis[i] = e - 1 - sumL
-	}
-	return k, L, xis
+	return k, L
 }
 
 type IsogenyInfo struct {
@@ -257,6 +249,5 @@ type HashSuiteInfo struct {
 	SarkarN       int           // 2-adicity (e)
 	SarkarK       int           // number of blocks
 	SarkarL       []int         // block sizes, sum(L) = SarkarN - 1
-	SarkarXis     []int         // precomputed indices: xis[i] = e - 1 - sum(L[0:i+1])
 	SarkarG       field.Element // g = Z^m, primitive 2^e-th root of unity
 }

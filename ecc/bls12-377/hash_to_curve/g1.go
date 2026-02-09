@@ -109,7 +109,7 @@ func G1Isogeny(pX, pY *fp.Element) {
 // The main idea is that since the computation of the square root involves taking large powers of u/v, the inversion of v can be avoided
 func G1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 
-	// Sarkar's algorithm for SqrtRatio - optimized for high 2-adicity fields (e = 46)
+	// Sarkar's algorithm for SqrtRatio - optimized for high 2-adicity fields
 	// Computes sqrt(u/v) as sqrt(u*v) / v to avoid explicit division
 	// Reference: "On the computation of square roots in finite fields" by Palash Sarkar
 
@@ -132,7 +132,7 @@ func G1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	// Check if u/v is QR by checking if (u*v)^m has order dividing 2^(e-1)
 	// Note: (u/v | p) = (u*v | p) since (v^(-1) | p) = (v | p) for Legendre symbols
 	t := xM
-	for i := 0; i < 46-1; i++ {
+	for i := 0; i < g1SarkarN-1; i++ {
 		t.Square(&t)
 	}
 	isQNr := !t.IsOne() // t should be ±1; if -1 then u/v is not QR
@@ -148,78 +148,29 @@ func G1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	}
 
 	// Precompute xM^(2^i) for i = 0..e-1
-	var xPow [46]fp.Element
+	var xPow [g1SarkarN]fp.Element
 	xPow[0] = xM
-	for i := 1; i < 46; i++ {
+	for i := 1; i < g1SarkarN; i++ {
 		xPow[i].Square(&xPow[i-1])
 	}
 
 	// Compute xis[i] = xM^(2^(e-1-sumL[i])) where sumL[i] = L[0]+...+L[i]
-	var xis [7]fp.Element
-	xis[0] = xPow[39]
-	xis[1] = xPow[33]
-	xis[2] = xPow[27]
-	xis[3] = xPow[21]
-	xis[4] = xPow[14]
-	xis[5] = xPow[7]
-	xis[6] = xPow[0]
+	var xis [g1SarkarK]fp.Element
+	var sumL uint64
+	for i := 0; i < g1SarkarK; i++ {
+		sumL += g1SarkarL[i]
+		idx := g1SarkarN - 1 - int(sumL)
+		xis[i] = xPow[idx]
+	}
 
 	// Main Sarkar loop
 	var s, tt uint64
-	{
-		tt = (s + tt) >> 6
+	for i := 0; i < g1SarkarK; i++ {
+		tt = (s + tt) >> g1SarkarL[i]
 		var gamma fp.Element
 		g1SarkarPowG(&gamma, tt)
 		var alpha fp.Element
-		alpha.Mul(&xis[0], &gamma)
-		s = g1SarkarEval(&alpha)
-	}
-	{
-		tt = (s + tt) >> 6
-		var gamma fp.Element
-		g1SarkarPowG(&gamma, tt)
-		var alpha fp.Element
-		alpha.Mul(&xis[1], &gamma)
-		s = g1SarkarEval(&alpha)
-	}
-	{
-		tt = (s + tt) >> 6
-		var gamma fp.Element
-		g1SarkarPowG(&gamma, tt)
-		var alpha fp.Element
-		alpha.Mul(&xis[2], &gamma)
-		s = g1SarkarEval(&alpha)
-	}
-	{
-		tt = (s + tt) >> 6
-		var gamma fp.Element
-		g1SarkarPowG(&gamma, tt)
-		var alpha fp.Element
-		alpha.Mul(&xis[3], &gamma)
-		s = g1SarkarEval(&alpha)
-	}
-	{
-		tt = (s + tt) >> 7
-		var gamma fp.Element
-		g1SarkarPowG(&gamma, tt)
-		var alpha fp.Element
-		alpha.Mul(&xis[4], &gamma)
-		s = g1SarkarEval(&alpha)
-	}
-	{
-		tt = (s + tt) >> 7
-		var gamma fp.Element
-		g1SarkarPowG(&gamma, tt)
-		var alpha fp.Element
-		alpha.Mul(&xis[5], &gamma)
-		s = g1SarkarEval(&alpha)
-	}
-	{
-		tt = (s + tt) >> 7
-		var gamma fp.Element
-		g1SarkarPowG(&gamma, tt)
-		var alpha fp.Element
-		alpha.Mul(&xis[6], &gamma)
+		alpha.Mul(&xis[i], &gamma)
 		s = g1SarkarEval(&alpha)
 	}
 
@@ -240,10 +191,10 @@ func G1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	return isQNrInt
 }
 
-// Sarkar constants for G1
+// Sarkar constants for G1 SqrtRatio
 const (
-	g1SarkarN = 46
-	g1SarkarK = 7
+	g1SarkarN = 46 // 2-adicity
+	g1SarkarK = 7  // number of blocks
 )
 
 var g1SarkarL = [g1SarkarK]uint64{
