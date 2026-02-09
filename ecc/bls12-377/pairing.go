@@ -563,43 +563,73 @@ func (p *G2Affine) addStep(evaluations *LineEvaluationAff, a *G2Affine) {
 }
 
 func (p *G2Affine) doubleAndAddStep(evaluations1, evaluations2 *LineEvaluationAff, a *G2Affine) {
-	var n, d, l1, x3, l2, x4, y4 fptower.E2
+	var A, B, A2, B2, X2A2, t, U, AU, invAU, invA, invU, l1, x3, l2, x4, y4 fptower.E2
 
-	// compute λ1 = (y2-y1)/(x2-x1)
-	n.Sub(&p.Y, &a.Y)
-	d.Sub(&p.X, &a.X)
-	l1.Div(&n, &d)
+	// The Eisenträger-Lauter-Montgomery formula for 2P+Q (https://eprint.iacr.org/2003/257)
+	// computes both slopes λ1 and λ2 using a single field inversion via batch inversion.
+	//
+	// Given P = (x1, y1) and Q = (x2, y2), let:
+	//   A = x1 - x2
+	//   B = y1 - y2
+	//   U = B² - (2x1 + x2)·A²
+	//
+	// Then:
+	//   λ1 = B/A                    (slope for P + Q)
+	//   λ2 = -λ1 - 2y1·A²/U         (slope for P + (P+Q))
+	//
+	// We compute 1/A and 1/U using Montgomery's batch inversion:
+	//   1/A = U/(A·U) and 1/U = A/(A·U) with a single inversion of A·U.
 
-	// compute x3 =λ1²-x1-x2
+	// Compute A = x1 - x2 and B = y1 - y2
+	A.Sub(&p.X, &a.X)
+	B.Sub(&p.Y, &a.Y)
+
+	// Compute A² and B²
+	A2.Square(&A)
+	B2.Square(&B)
+
+	// Compute U = B² - (2x1 + x2)·A²
+	t.Double(&p.X).Add(&t, &a.X)
+	X2A2.Mul(&t, &A2)
+	U.Sub(&B2, &X2A2)
+
+	// Batch inversion: compute 1/A and 1/U with a single inversion
+	AU.Mul(&A, &U)
+	invAU.Inverse(&AU)
+	invA.Mul(&U, &invAU)
+	invU.Mul(&A, &invAU)
+
+	// λ1 = B/A = B·(1/A)
+	l1.Mul(&B, &invA)
+
+	// x3 = λ1² - x1 - x2
 	x3.Square(&l1)
 	x3.Sub(&x3, &p.X)
 	x3.Sub(&x3, &a.X)
 
-	// omit y3 computation
-
-	// compute line1
+	// line1 evaluation
 	evaluations1.R0.Set(&l1)
 	evaluations1.R1.Mul(&l1, &p.X)
 	evaluations1.R1.Sub(&evaluations1.R1, &p.Y)
 
-	// compute λ2 = -λ1-2y1/(x3-x1)
-	n.Double(&p.Y)
-	d.Sub(&x3, &p.X)
-	l2.Div(&n, &d)
+	// λ2 = -λ1 - 2y1·A²/U = -λ1 - 2y1·A²·(1/U)
+	l2.Double(&p.Y)
+	l2.Mul(&l2, &A2)
+	l2.Mul(&l2, &invU)
 	l2.Add(&l2, &l1)
 	l2.Neg(&l2)
 
-	// compute x4 = λ2²-x1-x3
+	// x4 = λ2² - x1 - x3
 	x4.Square(&l2)
 	x4.Sub(&x4, &p.X)
 	x4.Sub(&x4, &x3)
 
-	// compute y4 = λ2(x1 - x4)-y1
+	// y4 = λ2·(x1 - x4) - y1
 	y4.Sub(&p.X, &x4)
 	y4.Mul(&l2, &y4)
 	y4.Sub(&y4, &p.Y)
 
-	// compute line2
+	// line2 evaluation
 	evaluations2.R0.Set(&l2)
 	evaluations2.R1.Mul(&l2, &p.X)
 	evaluations2.R1.Sub(&evaluations2.R1, &p.Y)

@@ -530,7 +530,7 @@ func TestG1AffineOps(t *testing.T) {
 
 			r := fr.Modulus()
 			var g G1Jac
-			g.mulGLV(&g1Gen, r)
+			g.ScalarMultiplication(&g1Gen, r)
 
 			var scalar, blindedScalar, rminusone big.Int
 			var op1, op2, op3, gneg G1Jac

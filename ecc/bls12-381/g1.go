@@ -53,28 +53,28 @@ func (p *G1Affine) SetInfinity() *G1Affine {
 // ScalarMultiplication computes and returns p = [s]a
 // where p and a are affine points.
 func (p *G1Affine) ScalarMultiplication(a *G1Affine, s *big.Int) *G1Affine {
-	var _p G1Jac
 	if s.BitLen() >= g1ScalarMulChoose {
+		var _p G1Jac
 		_p.FromAffine(a)
 		_p.mulGLV(&_p, s)
 		p.FromJacobian(&_p)
-		return p
 	} else {
-		return p.mulWindowed(a, s)
+		p.mulWindowed(a, s)
 	}
+	return p
 }
 
 // ScalarMultiplicationBase computes and returns p = [s]g
 // where g is the affine point generating the prime subgroup.
 func (p *G1Affine) ScalarMultiplicationBase(s *big.Int) *G1Affine {
-	var _p G1Jac
 	if s.BitLen() >= g1ScalarMulChoose {
+		var _p G1Jac
 		_p.mulGLV(&g1Gen, s)
 		p.FromJacobian(&_p)
-		return p
 	} else {
-		return p.mulWindowed(&g1GenAff, s)
+		p.mulWindowed(&g1GenAff, s)
 	}
+	return p
 }
 
 // Add adds two points in affine coordinates.

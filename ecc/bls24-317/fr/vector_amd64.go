@@ -12,6 +12,24 @@ import (
 	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
+// mu = 2^288 / q needed for partial Barrett reduction
+const mu uint64 = 16110458503
+
+// AVX-512 IFMA constants for radix-52 Montgomery multiplication
+// qInvNeg52 = qInvNeg & ((1<<52)-1) - low 52 bits of qInvNeg
+const qInvNeg52 uint64 = 4503599627370495
+
+// muBarrett52 = floor(2^58 / (q >> 208)) for Barrett reduction
+// Used to reduce from [0, 32q) to [0, q) in radix-52 Montgomery multiplication
+const muBarrett52 uint64 = 3841
+
+// q in radix-52 form (5 limbs), used by IFMA Montgomery multiplication
+const qRadix52_0 uint64 = 1
+const qRadix52_1 uint64 = 2561226184306432
+const qRadix52_2 uint64 = 3804092415398375
+const qRadix52_3 uint64 = 3092020156006184
+const qRadix52_4 uint64 = 75039814624909
+
 // Add adds two vectors element-wise and stores the result in self.
 // It panics if the vectors don't have the same length.
 func (vector *Vector) Add(a, b Vector) {
@@ -50,32 +68,27 @@ func (vector *Vector) ScalarMul(a Vector, b *Element) {
 	if len(a) != len(*vector) {
 		panic("vector.ScalarMul: vectors don't have the same length")
 	}
-	const maxN = (1 << 32) - 1
-	if !cpu.SupportAVX512 || uint64(len(a)) >= maxN {
-		// call scalarMulVecGeneric
-		scalarMulVecGeneric(*vector, a, b)
-		return
-	}
 	n := uint64(len(a))
 	if n == 0 {
 		return
 	}
-	// the code for scalarMul is identical to mulVec; and it expects at least
-	// 2 elements in the vector to fill the Z registers
-	var bb [2]Element
-	bb[0] = *b
-	bb[1] = *b
-	const blockSize = 16
-	scalarMulVec(&(*vector)[0], &a[0], &bb[0], n/blockSize, qInvNeg, &patterns[0])
-	if n%blockSize != 0 {
-		// call scalarMulVecGeneric on the rest
-		start := n - n%blockSize
-		scalarMulVecGeneric((*vector)[start:], a[start:], b)
+	const maxN = (1 << 32) - 1
+	// IFMA path (available on Ice Lake+, Zen4+)
+	// Uses AVX-512 IFMA instructions for fast vectorized multiplication
+	const blockSize = 8
+	if cpu.SupportAVX512IFMA && n >= blockSize && n < maxN {
+		scalarMulVec(&(*vector)[0], &a[0], b, n/blockSize)
+		if n%blockSize != 0 {
+			start := n - n%blockSize
+			scalarMulVecGeneric((*vector)[start:], a[start:], b)
+		}
+		return
 	}
+	scalarMulVecGeneric(*vector, a, b)
 }
 
 //go:noescape
-func scalarMulVec(res, a, b *Element, n uint64, qInvNeg uint64, patterns *uint64)
+func scalarMulVec(res, a, b *Element, n uint64)
 
 // Sum computes the sum of all elements in the vector.
 func (vector *Vector) Sum() (res Element) {
@@ -133,29 +146,19 @@ func (vector *Vector) Mul(a, b Vector) {
 		return
 	}
 	const maxN = (1 << 32) - 1
-	if !cpu.SupportAVX512 || n >= maxN {
-		// call mulVecGeneric
-		mulVecGeneric(*vector, a, b)
+	// IFMA path (available on Ice Lake+, Zen4+)
+	// Uses AVX-512 IFMA instructions for fast vectorized multiplication
+	const blockSize = 8
+	if cpu.SupportAVX512IFMA && n >= blockSize && n < maxN {
+		mulVec(&(*vector)[0], &a[0], &b[0], n/blockSize)
+		if n%blockSize != 0 {
+			start := n - n%blockSize
+			mulVecGeneric((*vector)[start:], a[start:], b[start:])
+		}
 		return
 	}
-
-	const blockSize = 16
-	mulVec(&(*vector)[0], &a[0], &b[0], n/blockSize, qInvNeg, &patterns[0])
-	if n%blockSize != 0 {
-		// call mulVecGeneric on the rest
-		start := n - n%blockSize
-		mulVecGeneric((*vector)[start:], a[start:], b[start:])
-	}
-
+	mulVecGeneric(*vector, a, b)
 }
 
-// Patterns use for transposing the vectors in mulVec
-var (
-	patterns = [8 * 4]uint64{0, 8, 1, 9, 2, 10, 3, 11,
-		12, 4, 13, 5, 14, 6, 15, 7,
-		0, 1, 8, 9, 2, 3, 10, 11,
-		12, 13, 4, 5, 14, 15, 6, 7}
-)
-
 //go:noescape
-func mulVec(res, a, b *Element, n uint64, qInvNeg uint64, patterns *uint64)
+func mulVec(res, a, b *Element, n uint64)

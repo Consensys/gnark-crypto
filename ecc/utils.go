@@ -95,6 +95,15 @@ type Lattice struct {
 	Det, b1, b2 big.Int
 }
 
+// Lattice4 represents a Z module spanned by V[0], V[1], V[2], V[3].
+// The vectors are stored as columns: V[col][row].
+// det is the associated determinant.
+type Lattice4 struct {
+	V              [4][4]big.Int
+	Det            big.Int
+	b1, b2, b3, b4 big.Int
+}
+
 // PrecomputeLattice res such that res.V1, res.V2
 // are short vectors satisfying v11+v12.λ=v21+v22.λ=0[r].
 // cf https://www.iacr.org/archive/crypto2001/21390189.pdf
@@ -171,6 +180,60 @@ func PrecomputeLattice(r, lambda *big.Int, res *Lattice) {
 	rounding(&res.b2, &res.Det, &res.b2)
 }
 
+// PrecomputeLattice4 sets res.Det and the rounding constants (b1..b4)
+// for a 4-dimensional lattice basis stored in res.V.
+// The constants correspond to the first column of adj(res.V)/det(res.V),
+// used for the closest vector approximation to (s,0,0,0).
+func PrecomputeLattice4(res *Lattice4) {
+	var cof [4]big.Int
+	// cofactors for row 0
+	cof[0] = det3(
+		&res.V[1][1], &res.V[2][1], &res.V[3][1],
+		&res.V[1][2], &res.V[2][2], &res.V[3][2],
+		&res.V[1][3], &res.V[2][3], &res.V[3][3],
+	)
+	cof[1] = det3(
+		&res.V[0][1], &res.V[2][1], &res.V[3][1],
+		&res.V[0][2], &res.V[2][2], &res.V[3][2],
+		&res.V[0][3], &res.V[2][3], &res.V[3][3],
+	)
+	cof[1].Neg(&cof[1])
+	cof[2] = det3(
+		&res.V[0][1], &res.V[1][1], &res.V[3][1],
+		&res.V[0][2], &res.V[1][2], &res.V[3][2],
+		&res.V[0][3], &res.V[1][3], &res.V[3][3],
+	)
+	cof[3] = det3(
+		&res.V[0][1], &res.V[1][1], &res.V[2][1],
+		&res.V[0][2], &res.V[1][2], &res.V[2][2],
+		&res.V[0][3], &res.V[1][3], &res.V[2][3],
+	)
+	cof[3].Neg(&cof[3])
+
+	var tmp big.Int
+	res.Det.SetUint64(0)
+	for col := 0; col < 4; col++ {
+		tmp.Mul(&res.V[col][0], &cof[col])
+		res.Det.Add(&res.Det, &tmp)
+	}
+	if res.Det.Sign() < 0 {
+		res.Det.Neg(&res.Det)
+		for i := 0; i < 4; i++ {
+			cof[i].Neg(&cof[i])
+		}
+	}
+
+	n := 2 * uint(((res.Det.BitLen()+32)>>6)<<6)
+	tmp.Lsh(&cof[0], n)
+	roundingSigned(&tmp, &res.Det, &res.b1)
+	tmp.Lsh(&cof[1], n)
+	roundingSigned(&tmp, &res.Det, &res.b2)
+	tmp.Lsh(&cof[2], n)
+	roundingSigned(&tmp, &res.Det, &res.b3)
+	tmp.Lsh(&cof[3], n)
+	roundingSigned(&tmp, &res.Det, &res.b4)
+}
+
 // SplitScalar outputs u,v such that u+vlambda=s[r].
 // The method is to view s as (s,0) in ZxZ, and find a close
 // vector w of (s,0) in <l>, where l is a sub Z-module of
@@ -194,6 +257,30 @@ func SplitScalar(s *big.Int, l *Lattice) [2]big.Int {
 	return v
 }
 
+// SplitScalarFour computes k0,k1,k2,k3 such that
+// k0+k1*lambda1+k2*lambda2+k3*lambda1*lambda2 = s [r].
+// It uses a closest vector approximation in a 4-dimensional lattice.
+func SplitScalarFour(s *big.Int, l *Lattice4) [4]big.Int {
+	var k1, k2, k3, k4 big.Int
+	k1.Mul(s, &l.b1)
+	k2.Mul(s, &l.b2)
+	k3.Mul(s, &l.b3)
+	k4.Mul(s, &l.b4)
+
+	n := 2 * uint(((l.Det.BitLen()+32)>>6)<<6)
+	k1.Rsh(&k1, n)
+	k2.Rsh(&k2, n)
+	k3.Rsh(&k3, n)
+	k4.Rsh(&k4, n)
+
+	res := getVector4(l, &k1, &k2, &k3, &k4)
+	res[0].Sub(s, &res[0])
+	res[1].Neg(&res[1])
+	res[2].Neg(&res[2])
+	res[3].Neg(&res[3])
+	return res
+}
+
 // sets res to the closest integer from n/d
 func rounding(n, d, res *big.Int) {
 	var dshift, r, one big.Int
@@ -206,6 +293,18 @@ func rounding(n, d, res *big.Int) {
 	}
 }
 
+// roundingSigned rounds n/d to the closest integer and preserves sign.
+func roundingSigned(n, d, res *big.Int) {
+	if n.Sign() >= 0 {
+		rounding(n, d, res)
+		return
+	}
+	var nn big.Int
+	nn.Neg(n)
+	rounding(&nn, d, res)
+	res.Neg(res)
+}
+
 // getVector returns aV1 + bV2
 func getVector(l *Lattice, a, b *big.Int) [2]big.Int {
 	var res [2]big.Int
@@ -215,6 +314,42 @@ func getVector(l *Lattice, a, b *big.Int) [2]big.Int {
 	tmp.Mul(b, &l.V2[1])
 	res[1].Mul(a, &l.V1[1]).Add(&res[1], &tmp)
 	return res
+}
+
+// getVector4 returns aV1 + bV2 + cV3 + dV4.
+func getVector4(l *Lattice4, a, b, c, d *big.Int) [4]big.Int {
+	var res [4]big.Int
+	coeffs := [4]*big.Int{a, b, c, d}
+	var tmp big.Int
+	for row := 0; row < 4; row++ {
+		for col := 0; col < 4; col++ {
+			tmp.Mul(coeffs[col], &l.V[col][row])
+			res[row].Add(&res[row], &tmp)
+		}
+	}
+	return res
+}
+
+func det3(a00, a01, a02, a10, a11, a12, a20, a21, a22 *big.Int) big.Int {
+	var t0, t1, t2, t3, t4 big.Int
+	t0.Mul(a11, a22)
+	t1.Mul(a12, a21)
+	t0.Sub(&t0, &t1)
+
+	t1.Mul(a10, a22)
+	t2.Mul(a12, a20)
+	t1.Sub(&t1, &t2)
+
+	t2.Mul(a10, a21)
+	t3.Mul(a11, a20)
+	t2.Sub(&t2, &t3)
+
+	t3.Mul(a00, &t0)
+	t4.Mul(a01, &t1)
+	t3.Sub(&t3, &t4)
+	t4.Mul(a02, &t2)
+	t3.Add(&t3, &t4)
+	return t3
 }
 
 // NextPowerOfTwo(n) = 2^⌈log₂(n)⌉

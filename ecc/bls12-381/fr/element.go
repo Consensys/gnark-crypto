@@ -71,9 +71,6 @@ func Modulus() *big.Int {
 // used for Montgomery reduction
 const qInvNeg = 18446744069414584319
 
-// mu = 2^288 / q needed for partial Barrett reduction
-const mu uint64 = 9484408045
-
 func init() {
 	_modulus.SetString("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001", 16)
 }
