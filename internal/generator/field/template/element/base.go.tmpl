@@ -72,9 +72,6 @@ const mu uint64 = {{.Mu}}
 
 func init() {
 	_modulus.SetString("{{.ModulusHex}}", 16)
-	{{- if .SqrtSarkar}}
-	initSarkar()
-	{{- end}}
 }
 
 // New{{.ElementName}} returns a new {{.ElementName}} from a uint64 value

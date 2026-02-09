@@ -264,6 +264,7 @@ var sarkarG = {{.ElementName}}{
 
 var sarkarGPow [sarkarN]{{.ElementName}}
 var minusOne {{.ElementName}}
+var initSarkarOnce sync.Once
 
 func initSarkar() {
 	sarkarGPow[0] = sarkarG
@@ -486,6 +487,9 @@ func (z *{{.ElementName}}) SqrtSarkar(x *{{.ElementName}}) *{{.ElementName}} {
 	if x.IsZero() {
 		return z.SetZero()
 	}
+
+	// Initialize Sarkar precomputed tables (thread-safe, runs once)
+	initSarkarOnce.Do(initSarkar)
 
 	// v = x^((m-1)/2)
 	var v {{.ElementName}}

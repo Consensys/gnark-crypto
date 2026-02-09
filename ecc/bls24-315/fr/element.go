@@ -15,6 +15,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/consensys/gnark-crypto/field/hash"
@@ -75,7 +76,6 @@ const mu uint64 = 43237874697
 
 func init() {
 	_modulus.SetString("196deac24a9da12b25fc7ec9cf927a98c8c480ece644e36419d0c5fd00c00001", 16)
-	initSarkar()
 }
 
 // NewElement returns a new Element from a uint64 value
@@ -1319,6 +1319,7 @@ var sarkarG = Element{
 
 var sarkarGPow [sarkarN]Element
 var minusOne Element
+var initSarkarOnce sync.Once
 
 func initSarkar() {
 	sarkarGPow[0] = sarkarG
@@ -1390,6 +1391,9 @@ func (z *Element) SqrtSarkar(x *Element) *Element {
 	if x.IsZero() {
 		return z.SetZero()
 	}
+
+	// Initialize Sarkar precomputed tables (thread-safe, runs once)
+	initSarkarOnce.Do(initSarkar)
 
 	// v = x^((m-1)/2)
 	var v Element
