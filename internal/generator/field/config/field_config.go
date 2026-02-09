@@ -75,6 +75,13 @@ type Field struct {
 	GenerateVectorOpsARM64 bool
 
 	ASMPackagePath string
+
+	// IFMA (AVX-512) specific constants for 4-word fields
+	// These are used for radix-52 Montgomery multiplication
+	QRadix52       []uint64 // q in radix-52 form (5 limbs for 4-word fields)
+	QInvNeg52      uint64   // low 52 bits of qInvNeg (for IFMA Montgomery)
+	MuBarrett52    uint64   // Barrett constant for reducing from [0, 32q) to [0, q)
+	BarrettShift52 int      // Shift amount for Barrett reduction (typically 58)
 }
 
 type Word struct {
@@ -308,23 +315,48 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	// asm code generation for moduli with more than 6 words can be optimized further
 	f31ASM := F.F31 && F.NbBits == 31
 	F.GenerateOpsAMD64 = f31ASM || (F.NoCarry && F.NbWords <= 12 && F.NbWords > 1)
-	if F.NbWords == 4 && F.GenerateOpsAMD64 && F.NbBits <= 225 {
-		// 4 words field with 225 bits or less have no vector ops
+	if F.NbWords == 4 && F.GenerateOpsAMD64 && F.NbBits <= 226 {
+		// 4 words field with 226 bits or less have no vector ops
 		// for now since we generate both in same file we disable
 		// TODO @gbotrel
 		F.GenerateOpsAMD64 = false
 	}
-	F.GenerateVectorOpsAMD64 = f31ASM || (F.GenerateOpsAMD64 && F.NbWords == 4 && F.NbBits > 225)
+	F.GenerateVectorOpsAMD64 = f31ASM || (F.GenerateOpsAMD64 && F.NbWords == 4 && F.NbBits > 226)
 	F.GenerateOpsARM64 = f31ASM || (F.GenerateOpsAMD64 && (F.NbWords%2 == 0))
 	F.GenerateVectorOpsARM64 = f31ASM
 
 	// setting Mu 2^288 / q
-	if F.NbWords == 4 {
+	if F.GenerateVectorOpsAMD64 && F.NbWords == 4 {
 		_mu := big.NewInt(1)
 		_mu.Lsh(_mu, 288)
 		_mu.Div(_mu, &bModulus)
 		muSlice := toUint64Slice(_mu, F.NbWords)
 		F.Mu = muSlice[0]
+
+		// IFMA constants for AVX-512 radix-52 Montgomery multiplication
+		// q in radix-52 form (5 limbs)
+		// l0 = q & mask52, l1 = (q >> 52) & mask52, etc.
+		const mask52 = (1 << 52) - 1
+		F.QRadix52 = make([]uint64, 5)
+		qCopy := new(big.Int).Set(&bModulus)
+		for i := 0; i < 5; i++ {
+			F.QRadix52[i] = qCopy.Uint64() & mask52
+			qCopy.Rsh(qCopy, 52)
+		}
+
+		// qInvNeg52 = qInvNeg & mask52 (low 52 bits of qInvNeg for IFMA)
+		F.QInvNeg52 = F.QInverse[0] & mask52
+
+		// Barrett constant for reducing from [0, 32q) to [0, q)
+		// After IFMA Montgomery (R=2^260), we multiply by 16 to correct to R=2^256
+		// This gives result in [0, 32q), which we reduce using Barrett reduction
+		// mu = floor(2^58 / (q >> 208)), shift = 58
+		// This allows: k = (l4 * mu) >> 58, then subtract k*q
+		F.BarrettShift52 = 58
+		qHigh := new(big.Int).Rsh(&bModulus, 208)
+		muBig := new(big.Int).Lsh(big.NewInt(1), uint(F.BarrettShift52))
+		muBig.Div(muBig, qHigh)
+		F.MuBarrett52 = muBig.Uint64()
 	}
 	if f31ASM {
 		F.Mu = -F.QInverse[0]
