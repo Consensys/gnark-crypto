@@ -1496,15 +1496,15 @@ var sarkarG = Element{
 }
 
 var sarkarGPow [sarkarN]Element
-var sarkarMinusOne Element
+var minusOne Element
 
 func initSarkar() {
 	sarkarGPow[0] = sarkarG
 	for i := 1; i < sarkarN; i++ {
 		sarkarGPow[i].Square(&sarkarGPow[i-1])
 	}
-	sarkarMinusOne.SetOne()
-	sarkarMinusOne.Neg(&sarkarMinusOne)
+	minusOne.SetOne()
+	minusOne.Neg(&minusOne)
 }
 
 // sarkarPowG sets z to g^exp, where g has order 2^sarkarN and exp < 2^sarkarN.
@@ -1530,7 +1530,7 @@ func sarkarFind(delta *Element) uint64 {
 	var mu Element
 	mu.Set(delta)
 	var i uint64
-	for !mu.Equal(&sarkarMinusOne) {
+	for !mu.Equal(&minusOne) {
 		mu.Square(&mu)
 		i++
 	}

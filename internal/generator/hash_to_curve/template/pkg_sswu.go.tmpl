@@ -229,13 +229,8 @@ func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordT
 	isQNrInt := uint64(0)
 	if isQNr {
 		isQNrInt = 1
-	}
-
-	// If not QR, we compute sqrt(Z*u/v) = sqrt(Z*u*v) / v instead
-	// y = Z * x = Z*u*v, and we work with y instead of x
-	if isQNr {
-		// Actually we need to recompute: y = Z*u*v
-		x.Mul(u, v)
+		// If not QR, we compute sqrt(Z*u/v) = sqrt(Z*u*v) / v instead
+		// x already holds u*v, so we just multiply by Z
 		{{$CurveTitle}}MulByZ(&x, &x)     // x = Z*u*v
 		w.ExpBySqrtExp(x)                  // w = (Z*u*v)^((m-1)/2)
 		xM.Square(&w)
@@ -301,7 +296,7 @@ var {{$CurveName}}SarkarL = [{{$CurveName}}SarkarK]uint64{
 var {{$CurveName}}SarkarG = {{$CoordType}} {{asElement .SarkarG}}
 
 var {{$CurveName}}SarkarGPow [{{$CurveName}}SarkarN]{{$CoordType}}
-var {{$CurveName}}SarkarMinusOne {{$CoordType}}
+var {{$CurveName}}MinusOne {{$CoordType}}
 var {{$CurveName}}InitSarkarOnce sync.Once
 
 func {{$CurveName}}InitSarkar() {
@@ -309,8 +304,8 @@ func {{$CurveName}}InitSarkar() {
 	for i := 1; i < {{$CurveName}}SarkarN; i++ {
 		{{$CurveName}}SarkarGPow[i].Square(&{{$CurveName}}SarkarGPow[i-1])
 	}
-	{{$CurveName}}SarkarMinusOne.SetOne()
-	{{$CurveName}}SarkarMinusOne.Neg(&{{$CurveName}}SarkarMinusOne)
+	{{$CurveName}}MinusOne.SetOne()
+	{{$CurveName}}MinusOne.Neg(&{{$CurveName}}MinusOne)
 }
 
 // {{$CurveName}}SarkarPowG sets z to g^exp, where g has order 2^e and exp < 2^e.
@@ -336,7 +331,7 @@ func {{$CurveName}}SarkarFind(delta *{{$CoordType}}) uint64 {
 	var mu {{$CoordType}}
 	mu.Set(delta)
 	var i uint64
-	for !mu.Equal(&{{$CurveName}}SarkarMinusOne) {
+	for !mu.Equal(&{{$CurveName}}MinusOne) {
 		mu.Square(&mu)
 		i++
 	}

@@ -304,7 +304,10 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 				F.SqrtSMinusOneOver2Data = addchain.GetAddChain(&s)
 			}
 
-			if e >= 10 && !F.F31 && F.PackageName != "goldilocks" {
+			// We use Sarkar when:
+			// - the field has high 2-adicity. Otherwise, due to smaller constants Tonelli-Shanks is more efficient
+			// - the field is not a small field (i.e. not F31 nor goldilocks-like 64-bit fields)
+			if e >= 10 && !F.F31 && F.NbBits > 64 {
 				F.SqrtSarkar = true
 				F.SqrtSarkarK, F.SqrtSarkarL = chooseSarkarParams(int(e))
 			}

@@ -263,15 +263,15 @@ var sarkarG = {{.ElementName}}{
 }
 
 var sarkarGPow [sarkarN]{{.ElementName}}
-var sarkarMinusOne {{.ElementName}}
+var minusOne {{.ElementName}}
 
 func initSarkar() {
 	sarkarGPow[0] = sarkarG
 	for i := 1; i < sarkarN; i++ {
 		sarkarGPow[i].Square(&sarkarGPow[i-1])
 	}
-	sarkarMinusOne.SetOne()
-	sarkarMinusOne.Neg(&sarkarMinusOne)
+	minusOne.SetOne()
+	minusOne.Neg(&minusOne)
 }
 
 {{- if gt .SqrtE 63}}
@@ -314,7 +314,7 @@ func sarkarFind(delta *{{.ElementName}}) uint64 {
 	var mu {{.ElementName}}
 	mu.Set(delta)
 	var i uint64
-	for !mu.Equal(&sarkarMinusOne) {
+	for !mu.Equal(&minusOne) {
 		mu.Square(&mu)
 		i++
 	}

@@ -139,13 +139,8 @@ func G1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	isQNrInt := uint64(0)
 	if isQNr {
 		isQNrInt = 1
-	}
-
-	// If not QR, we compute sqrt(Z*u/v) = sqrt(Z*u*v) / v instead
-	// y = Z * x = Z*u*v, and we work with y instead of x
-	if isQNr {
-		// Actually we need to recompute: y = Z*u*v
-		x.Mul(u, v)
+		// If not QR, we compute sqrt(Z*u/v) = sqrt(Z*u*v) / v instead
+		// x already holds u*v, so we just multiply by Z
 		G1MulByZ(&x, &x)  // x = Z*u*v
 		w.ExpBySqrtExp(x) // w = (Z*u*v)^((m-1)/2)
 		xM.Square(&w)
@@ -265,7 +260,7 @@ var g1SarkarL = [g1SarkarK]uint64{
 var g1SarkarG = fp.Element{7563926049028936178, 2688164645460651601, 12112688591437172399, 3177973240564633687, 14764383749841851163, 52487407124055189}
 
 var g1SarkarGPow [g1SarkarN]fp.Element
-var g1SarkarMinusOne fp.Element
+var g1MinusOne fp.Element
 var g1InitSarkarOnce sync.Once
 
 func g1InitSarkar() {
@@ -273,8 +268,8 @@ func g1InitSarkar() {
 	for i := 1; i < g1SarkarN; i++ {
 		g1SarkarGPow[i].Square(&g1SarkarGPow[i-1])
 	}
-	g1SarkarMinusOne.SetOne()
-	g1SarkarMinusOne.Neg(&g1SarkarMinusOne)
+	g1MinusOne.SetOne()
+	g1MinusOne.Neg(&g1MinusOne)
 }
 
 // g1SarkarPowG sets z to g^exp, where g has order 2^e and exp < 2^e.
@@ -300,7 +295,7 @@ func g1SarkarFind(delta *fp.Element) uint64 {
 	var mu fp.Element
 	mu.Set(delta)
 	var i uint64
-	for !mu.Equal(&g1SarkarMinusOne) {
+	for !mu.Equal(&g1MinusOne) {
 		mu.Square(&mu)
 		i++
 	}
