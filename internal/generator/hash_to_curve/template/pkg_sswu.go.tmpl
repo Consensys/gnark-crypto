@@ -203,6 +203,12 @@ func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordT
 // Computes sqrt(u/v) as sqrt(u*v) / v to avoid explicit division
 // Reference: "On the computation of square roots in finite fields" by Palash Sarkar
 
+	// Handle u = 0 case: sqrt(0/v) = 0, which is a quadratic residue
+	if u.IsZero() {
+		z.SetZero()
+		return 0
+	}
+
 	// Initialize Sarkar precomputed tables (thread-safe, runs once)
 	{{$CurveName}}InitSarkarOnce.Do({{$CurveName}}InitSarkar)
 
@@ -354,17 +360,6 @@ func {{$CurveName}}SarkarEval(alpha *{{$CoordType}}) uint64 {
 		}
 	}
 	return s
-}
-
-func {{$CurveName}}NotOne(x *{{$CoordType}}) uint64 {
-    {{if eq $TowerDegree 1 }}
-	    var one {{$CoordType}}
-		return one.SetOne().NotEqual(x)
-    {{else}}
-        //Assuming hash is implemented for G1 and that the curve is over Fp
-	    var one fp.Element
-        return one.SetOne().NotEqual(&x.{{.FieldCoordName}}0) {{range $i := interval 1 $TowerDegree}} | G1NotZero(&x.{{$.FieldCoordName}}{{$i}}) {{end}}
-    {{end}}
 }
 
 {{ else }}

@@ -113,6 +113,12 @@ func G1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	// Computes sqrt(u/v) as sqrt(u*v) / v to avoid explicit division
 	// Reference: "On the computation of square roots in finite fields" by Palash Sarkar
 
+	// Handle u = 0 case: sqrt(0/v) = 0, which is a quadratic residue
+	if u.IsZero() {
+		z.SetZero()
+		return 0
+	}
+
 	// Initialize Sarkar precomputed tables (thread-safe, runs once)
 	g1InitSarkarOnce.Do(g1InitSarkar)
 
@@ -268,13 +274,6 @@ func g1SarkarEval(alpha *fp.Element) uint64 {
 		}
 	}
 	return s
-}
-
-func g1NotOne(x *fp.Element) uint64 {
-
-	var one fp.Element
-	return one.SetOne().NotEqual(x)
-
 }
 
 // G1MulByZ multiplies x by [5] and stores the result in z

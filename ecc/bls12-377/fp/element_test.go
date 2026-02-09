@@ -1501,7 +1501,13 @@ func TestElementSqrt(t *testing.T) {
 		func(a testPairElement) bool {
 			var c, ts, sarkar Element
 			c.Square(&a.element)
-			return ts.SqrtTonelliShanks(&c).Equal(sarkar.SqrtSarkar(&c))
+			tsResult := ts.SqrtTonelliShanks(&c)
+			sarkarResult := sarkar.SqrtSarkar(&c)
+			// Check for nil (non-quadratic residue) - both should agree
+			if tsResult == nil || sarkarResult == nil {
+				return tsResult == nil && sarkarResult == nil
+			}
+			return tsResult.Equal(sarkarResult)
 		},
 		genA,
 	))
