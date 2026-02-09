@@ -53,12 +53,13 @@ func TestRoundToInt(t *testing.T) {
 		{-7, -2, 4}, // (-7)/(-2) = 3.5 -> 4
 	}
 
+	var dst big.Int
 	for _, tc := range testCases {
 		var r lazyRat
 		r.num.SetInt64(tc.num)
 		r.den.SetInt64(tc.den)
 
-		got := r.roundToInt().Int64()
+		got := r.roundToInt(&dst).Int64()
 		if got != tc.expected {
 			t.Errorf("roundToInt(%d/%d) = %d, want %d", tc.num, tc.den, got, tc.expected)
 		}

@@ -843,6 +843,7 @@ func (r *lazyRat) normalize() {
 }
 
 // roundToInt rounds r to the nearest integer (round half up, toward +∞).
+// The result is stored in dst, which is also returned for convenience.
 //
 // Go's big.Int.DivMod uses Euclidean division where the remainder is always
 // non-negative (for positive divisor) and the quotient is the floor.
@@ -851,29 +852,32 @@ func (r *lazyRat) normalize() {
 // To round to nearest, we check if the remainder represents >= 0.5:
 // if 2*rem >= den, we add 1 to move from floor toward ceiling.
 // This works for both positive and negative numbers.
-func (r *lazyRat) roundToInt() *big.Int {
-	// Make a copy with positive denominator
-	num := new(big.Int).Set(&r.num)
-	den := new(big.Int).Set(&r.den)
+func (r *lazyRat) roundToInt(dst *big.Int) *big.Int {
+	// Use stack-allocated temporaries to reduce heap allocations
+	var num, den, rem, rem2 big.Int
+
+	num.Set(&r.num)
+	den.Set(&r.den)
 	if den.Sign() < 0 {
-		num.Neg(num)
-		den.Neg(den)
+		num.Neg(&num)
+		den.Neg(&den)
 	}
 
-	q := new(big.Int)
-	rem := new(big.Int)
-	q.DivMod(num, den, rem)
+	dst.DivMod(&num, &den, &rem)
 
 	// Round to nearest: if 2*rem >= den, add 1 to round up.
 	// Since den > 0 and rem >= 0 (Euclidean division), we use Cmp not CmpAbs.
-	rem2 := new(big.Int).Mul(rem, big.NewInt(2))
-	if rem2.Cmp(den) >= 0 {
-		q.Add(q, bigOne)
+	rem2.Mul(&rem, bigTwo)
+	if rem2.Cmp(&den) >= 0 {
+		dst.Add(dst, bigOne)
 	}
-	return q
+	return dst
 }
 
-var bigOne = big.NewInt(1)
+var (
+	bigOne = big.NewInt(1)
+	bigTwo = big.NewInt(2)
+)
 
 // lllReduceWithBound performs LLL reduction with optional early termination.
 // If bound is non-nil, it stops early when it finds a row where:
@@ -984,6 +988,9 @@ func lllReduceWithBound(basis [][]big.Int, m int, bound *big.Int, denCols []int)
 	half.den.SetInt64(2)
 	var muSquared, threshold, rhs, absMu lazyRat
 
+	// Scratch variables for the inner loop to reduce allocations
+	var qScratch, tmp big.Int
+
 	for k < m {
 		for {
 			reduced := false
@@ -994,9 +1001,7 @@ func lllReduceWithBound(basis [][]big.Int, m int, bound *big.Int, denCols []int)
 
 				absMu.abs(&muCache[k][j])
 				if absMu.cmp(&half) > 0 {
-					q := muCache[k][j].roundToInt()
-
-					var tmp big.Int
+					q := muCache[k][j].roundToInt(&qScratch)
 					for l := 0; l < n; l++ {
 						tmp.Mul(q, &basis[j][l])
 						basis[k][l].Sub(&basis[k][l], &tmp)

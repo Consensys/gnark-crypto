@@ -61,7 +61,7 @@
 // unity mod r). The outputs satisfy bounds of approximately 1.25·r^(1/4).
 // This uses LLL on a 7×4 lattice.
 //
-// Note: The Eisenstein half-GCD (in Z[ω]) cannot cannot achieve the same
+// Note: The Eisenstein half-GCD (in Z[ω]) cannot achieve the same
 // LLL bounds as explained in ePrint 2025/933.
 //
 // # Multi Rational Reconstruction (Quadratic Extension)
