@@ -1,6 +1,5 @@
 version: "2"
 run:
-  go: "1.25"
   issues-exit-code: 1
 linters:
   default: none
