@@ -100,7 +100,7 @@ func runASMFormatter(file string) error {
 	var out strings.Builder
 	{
 		// run asmfmt on whole directory
-		cmd := exec.Command("asmfmt", "-w", file)
+		cmd := exec.Command("go", "tool", "asmfmt", "-w", file)
 		cmd.Stdout = &out
 		cmd.Stderr = &out
 		if err := cmd.Run(); err != nil {

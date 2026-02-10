@@ -246,12 +246,12 @@ func main() {
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())
 
-	cmd = exec.Command("asmfmt", "-w", baseDir)
+	cmd = exec.Command("go", "tool", "asmfmt", "-w", baseDir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())
 
-	cmd = exec.Command("goimports", "-w", baseDir)
+	cmd = exec.Command("go", "tool", "goimports", "-w", baseDir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	assertNoError(cmd.Run())
