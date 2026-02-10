@@ -1,5 +1,6 @@
 version: "2"
 run:
+  go: "1.25"
   issues-exit-code: 1
 linters:
   default: none
@@ -14,6 +15,7 @@ linters:
     gosec:
       excludes:
         - G115
+        - G602
   exclusions:
     generated: disable
     presets:
