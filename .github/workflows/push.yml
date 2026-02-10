@@ -78,3 +78,16 @@ jobs:
           GOARCH=386 go test -json -short -v -timeout=30m ./field/goldilocks 2>&1 | gotestfmt -hide=all | tee -a /tmp/gotest.log
           GOARCH=386 go test -json -short -v -timeout=30m ./field/koalabear 2>&1 | gotestfmt -hide=all | tee -a /tmp/gotest.log
           GOARCH=386 go test -json -short -v -timeout=30m ./field/babybear 2>&1 | gotestfmt -hide=all | tee -a /tmp/gotest.log
+
+  slack-notification:
+    needs: [staticcheck, test]
+    if: always()
+    uses: ./.github/workflows/slack-notifications.yml
+    with:
+      status: ${{ (needs.staticcheck.result == 'success' && needs.test.result == 'success') && 'success' || 'failure' }}
+      actor: ${{ github.actor }}
+      repository: ${{ github.repository }}
+      branch: ${{ github.ref_name }}
+      run_id: ${{ github.run_id }}
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
