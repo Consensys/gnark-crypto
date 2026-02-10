@@ -112,7 +112,7 @@ func RunFormatters(outputDir string) error {
 	}
 	{
 		// run asmfmt on whole directory
-		cmd := exec.Command("asmfmt", "-w", outputDir)
+		cmd := exec.Command("go", "tool", "asmfmt", "-w", outputDir)
 		cmd.Stdout = &out
 		cmd.Stderr = &out
 		if err := cmd.Run(); err != nil {
@@ -121,7 +121,7 @@ func RunFormatters(outputDir string) error {
 	}
 	{
 		// run goimports on whole directory
-		cmd := exec.Command("goimports", "-w", outputDir)
+		cmd := exec.Command("go", "tool", "goimports", "-w", outputDir)
 		cmd.Stdout = &out
 		cmd.Stderr = &out
 		if err := cmd.Run(); err != nil {
