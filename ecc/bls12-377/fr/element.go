@@ -15,6 +15,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/consensys/gnark-crypto/field/hash"
@@ -1292,10 +1293,167 @@ func approximateForLegendre(x *Element, nBits int) uint64 {
 	return lo | mid | hi
 }
 
+// Sarkar sqrt parameters for high 2-adicity fields (p-1 = 2^e * m).
+const (
+	sarkarN = 47
+	sarkarK = 7
+)
+
+var sarkarL = [sarkarK]uint64{
+	6,
+	6,
+	6,
+	7,
+	7,
+	7,
+	7,
+}
+
+// g = nonResidue ^ s
+var sarkarG = Element{
+	4340692304772210610,
+	11102725085307959083,
+	15540458298643990566,
+	944526744080888988,
+}
+
+var sarkarGPow [sarkarN]Element
+var minusOne Element
+var initSarkarOnce sync.Once
+
+func initSarkar() {
+	sarkarGPow[0] = sarkarG
+	for i := 1; i < sarkarN; i++ {
+		sarkarGPow[i].Square(&sarkarGPow[i-1])
+	}
+	minusOne.SetOne()
+	minusOne.Neg(&minusOne)
+}
+
+// sarkarPowG sets z to g^exp, where g has order 2^sarkarN and exp < 2^sarkarN.
+func sarkarPowG(z *Element, exp uint64) *Element {
+	if exp == 0 {
+		return z.SetOne()
+	}
+	var acc Element
+	acc.SetOne()
+	i := 0
+	for exp > 0 {
+		if exp&1 == 1 {
+			acc.Mul(&acc, &sarkarGPow[i])
+		}
+		exp >>= 1
+		i++
+	}
+	return z.Set(&acc)
+}
+
+// sarkarFind returns the smallest i >= 0 such that delta^(2^i) = -1.
+func sarkarFind(delta *Element) uint64 {
+	var mu Element
+	mu.Set(delta)
+	var i uint64
+	for !mu.Equal(&minusOne) {
+		mu.Square(&mu)
+		i++
+	}
+	return i
+}
+
+// sarkarEval returns s such that alpha * g^s = 1, where alpha^(2^l) = 1 for some l.
+func sarkarEval(alpha *Element) uint64 {
+	var delta Element
+	delta.Set(alpha)
+	var s uint64
+	for !delta.IsOne() {
+		i := sarkarFind(&delta)
+		s += uint64(1) << uint(sarkarN-1-int(i))
+		if i > 0 {
+			delta.Mul(&delta, &sarkarGPow[sarkarN-1-int(i)])
+		} else {
+			delta.Neg(&delta)
+		}
+	}
+	return s
+}
+
 // Sqrt z = √x (mod q)
 // if the square root doesn't exist (x is not a square mod q)
 // Sqrt leaves z unchanged and returns nil
 func (z *Element) Sqrt(x *Element) *Element {
+	return z.SqrtSarkar(x)
+}
+
+// SqrtSarkar z = √x (mod q) using Sarkar's algorithm.
+// if the square root doesn't exist (x is not a square mod q)
+// SqrtSarkar leaves z unchanged and returns nil
+func (z *Element) SqrtSarkar(x *Element) *Element {
+	if x.IsZero() {
+		return z.SetZero()
+	}
+
+	// Initialize Sarkar precomputed tables (thread-safe, runs once)
+	initSarkarOnce.Do(initSarkar)
+
+	// v = x^((m-1)/2)
+	var v Element
+	v.ExpBySqrtExp(*x)
+
+	// xM = x^m = x * v^2
+	var xM Element
+	xM.Square(&v)
+	xM.Mul(&xM, x)
+
+	// compute Legendre symbol: xM^(2^(sarkarN-1)) should be 1 for squares
+	t := xM
+	for i := 0; i < sarkarN-1; i++ {
+		t.Square(&t)
+	}
+	if t.IsZero() {
+		return z.SetZero()
+	}
+	if !t.IsOne() {
+		// t != 1, we don't have a square root
+		return nil
+	}
+
+	// precompute xM^(2^i)
+	var xPow [sarkarN]Element
+	xPow[0] = xM
+	for i := 1; i < sarkarN; i++ {
+		xPow[i].Square(&xPow[i-1])
+	}
+
+	// compute xi = xM^(2^(sarkarN-1-(l0+...+li)))
+	var xis [sarkarK]Element
+	var sumL uint64
+	for i := 0; i < sarkarK; i++ {
+		sumL += sarkarL[i]
+		idx := sarkarN - 1 - int(sumL)
+		xis[i] = xPow[idx]
+	}
+	var s, tt uint64
+	for i := 0; i < sarkarK; i++ {
+		tt = (s + tt) >> sarkarL[i]
+		var gamma Element
+		sarkarPowG(&gamma, tt)
+		var alpha Element
+		alpha.Mul(&xis[i], &gamma)
+		s = sarkarEval(&alpha)
+	}
+
+	tt = s + tt
+	var gamma Element
+	sarkarPowG(&gamma, tt>>1)
+	z.Mul(x, &v)
+	z.Mul(z, &gamma)
+	return z
+}
+
+// SqrtTonelliShanks z = √x (mod q) using Tonelli-Shanks.
+// if the square root doesn't exist (x is not a square mod q)
+// SqrtTonelliShanks leaves z unchanged and returns nil
+func (z *Element) SqrtTonelliShanks(x *Element) *Element {
 	// q ≡ 1 (mod 4)
 	// see modSqrtTonelliShanks in math/big/int.go
 	// using https://www.maa.org/sites/default/files/pdf/upload_library/22/Polya/07468342.di020786.02p0470a.pdf
