@@ -82,6 +82,7 @@ func main() {
 				field.WithPoseidon2(),
 				field.WithExtensions(),
 				field.WithIOP(),
+				field.WithPolynomial(),
 			))
 		}(conf)
 	}

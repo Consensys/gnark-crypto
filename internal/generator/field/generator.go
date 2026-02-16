@@ -89,6 +89,13 @@ func GenerateFF(F *config.Field, outputDir string, options ...Option) error {
 		}
 	}
 
+	// generate polynomial
+	if cfg.HasPolynomial() {
+		if err := generatePolynomial(F, outputDir); err != nil {
+			return err
+		}
+	}
+
 	return runFormatters(outputDir)
 }
 

@@ -13,6 +13,7 @@ type generatorConfig struct {
 	withPoseidon2  bool
 	withExtensions bool
 	withIOP        bool
+	withPolynomial bool
 }
 
 func (cfg *generatorConfig) HasExtensions() bool {
@@ -31,6 +32,10 @@ func (cfg *generatorConfig) HasIOP() bool {
 	return cfg.withIOP
 }
 
+func (cfg *generatorConfig) HasPolynomial() bool {
+	return cfg.withPolynomial
+}
+
 func (cfg *generatorConfig) HasFFT() bool {
 	return cfg.fftConfig != nil
 }
@@ -46,6 +51,12 @@ func (cfg *generatorConfig) HasAMD64() bool {
 func WithIOP() Option {
 	return func(opt *generatorConfig) {
 		opt.withIOP = true
+	}
+}
+
+func WithPolynomial() Option {
+	return func(opt *generatorConfig) {
+		opt.withPolynomial = true
 	}
 }
 
