@@ -165,12 +165,12 @@ func (f *FFAmd64) generateMul(_ bool) {
 	}
 
 	f.WriteLn(`
-	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS" 
+	// Algorithm 2 of "Faster Montgomery Multiplication and Multi-Scalar-Multiplication for SNARKS"
 	// by Y. El Housni and G. Botrel https://doi.org/10.46586/tches.v2023.i3.504-521
 	// See github.com/consensys/gnark-crypto/internal/generator/field for more comments.
 	`)
 	if stackSize > 0 {
-		f.WriteLn("NO_LOCAL_POINTERS")
+		f.NO_LOCAL_POINTERS()
 	}
 
 	noAdx := f.NewLabel("noAdx")
@@ -336,7 +336,7 @@ func (f *FFAmd64) generateMul(_ bool) {
 		f.MOVQ(amd64.AX, "8(SP)")
 		f.MOVQ("y+16(FP)", amd64.AX)
 		f.MOVQ(amd64.AX, "16(SP)")
-		f.WriteLn("CALL ·_mulGeneric(SB)")
+		f.CALL("·_mulGeneric(SB)")
 		f.RET()
 
 	}
