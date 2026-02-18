@@ -92,14 +92,21 @@ func (z *E2) MulBybTwistCurveCoeff(x *E2) *E2 {
 	return z
 }
 
-// e3InvPPlus1 is 3⁻¹ mod (p+1), used by the Lucas V-chain in cbrtHybrid.
-// p+1 = 21888242871839275222246405745257275088696311157297823662689037894645226208584
-// 3⁻¹ mod (p+1) = 7296080957279758407415468581752425029565437052432607887563012631548408736195
-var e3InvPPlus1 = [4]uint64{
-	7593120314996402627,
-	15936870763965662084,
-	16724893366231265993,
-	1162332755600990221,
+// lucasExponent is the bit decomposition of e = 3⁻¹ mod (p+1),
+// excluding the leading 1-bit and the trailing bit (which is 1).
+// e = 7296080957279758407415468581752425029565437052432607887563012631548408736195
+// 253 bits total; stored MSB-first, 251 inner bits.
+var lucasExponent = [251]uint8{
+	0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1,
+	1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0,
+	0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+	0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1,
+	0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 1, 1,
+	0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0,
+	1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1,
+	0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0,
+	1, 1, 1, 0, 0, 0, 0, 1,
 }
 
 // cbrtHybrid computes the cube root of x in E2 using the algebraic torus T₂(Fp).
@@ -151,7 +158,7 @@ func (z *E2) cbrtHybrid(x *E2) *E2 {
 	alphaT.Mul(&alphaT, &normInv)
 
 	// s₁ = V_e(α_t, 1) where e = 3⁻¹ mod (p+1), Q = 1
-	sp := lucasV(e3InvPPlus1, &alphaT)
+	sp := lucasV(&alphaT)
 
 	// Recovery: z₀ = x₀/(m·(s₁ - 1)), z₁ = x₁/(m·(s₁ + 1))
 	// Use a single inversion via Montgomery's trick: 1/(a·b) then multiply out.
@@ -254,7 +261,9 @@ func lucasVChainQ(e [4]uint64, alpha, Q *fp.Element) fp.Element {
 	return v0
 }
 
-// lucasV computes V_e(alpha, 1) — the Lucas V-sequence with Q=1.
+// lucasV computes V_e(alpha, 1) where e = 3⁻¹ mod (p+1), using the
+// Lucas V-sequence with Q=1 and a Montgomery ladder on precomputed bits.
+//
 // Since Q=1, Q^k=1 for all k, so we don't need to track it.
 // Recurrence: V_{n+1} = alpha·V_n - V_{n-1}, V_0 = 2, V_1 = alpha.
 //
@@ -263,20 +272,7 @@ func lucasVChainQ(e [4]uint64, alpha, Q *fp.Element) fp.Element {
 //	prod    = V_k·V_{k+1} - alpha
 //	bit=0: V_{2k}   = V_k² - 2,      V_{2k+1} = prod
 //	bit=1: V_{2k+1} = prod,           V_{2k+2} = V_{k+1}² - 2
-func lucasV(e [4]uint64, alpha *fp.Element) fp.Element {
-	totalBits := 0
-	for i := 3; i >= 0; i-- {
-		if e[i] != 0 {
-			totalBits = i*64 + 64 - bits.LeadingZeros64(e[i])
-			break
-		}
-	}
-	if totalBits == 0 {
-		var two fp.Element
-		two.SetUint64(2)
-		return two
-	}
-
+func lucasV(alpha *fp.Element) fp.Element {
 	// Initialize for MSB=1: V_1 = alpha, V_2 = alpha² - 2
 	var v0, v1, two fp.Element
 	two.SetUint64(2)
@@ -285,13 +281,12 @@ func lucasV(e [4]uint64, alpha *fp.Element) fp.Element {
 
 	var prod fp.Element
 
-	for i := totalBits - 2; i >= 0; i-- {
-		bit := (e[i/64] >> uint(i%64)) & 1
-
+	// Process 251 precomputed bits (MSB-first, excluding leading 1 and trailing bit)
+	for i := 0; i < 251; i++ {
 		// prod = V_k · V_{k+1} - alpha
 		prod.Mul(&v0, &v1).Sub(&prod, alpha)
 
-		if bit == 0 {
+		if lucasExponent[i] == 0 {
 			v1.Set(&prod)
 			v0.Square(&v0).Sub(&v0, &two)
 		} else {
@@ -299,6 +294,9 @@ func lucasV(e [4]uint64, alpha *fp.Element) fp.Element {
 			v1.Square(&v1).Sub(&v1, &two)
 		}
 	}
+
+	// Last bit of exponent is 1: only compute v0 = v0·v1 - alpha
+	v0.Mul(&v0, &v1).Sub(&v0, alpha)
 
 	return v0
 }
