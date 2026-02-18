@@ -250,25 +250,19 @@ func (z *E2) Sqrt(a *E2) *E2 {
 // Cbrt sets z to the cube root of x and returns z
 // if the cube root doesn't exist, Cbrt returns nil
 //
-// p² ≡ 10 (mod 27), single exponentiation + adjustment.
 // Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
 func (z *E2) Cbrt(x *E2) *E2 {
-	// If x is in Fp (i.e., x.A1 == 0), use Fp cube root directly
-	if x.A1.IsZero() {
-		if z.A0.Cbrt(&x.A0) == nil {
-			return nil
-		}
-		z.A1.SetZero()
-		return z
-	}
+	return z.cbrtFrobenius(x)
+}
 
-	var y, c E2
-	y.expByE2Cbrt(*x)
-
+// cbrtVerifyAndAdjust verifies y³ = x, adjusting by primitive 9th roots of unity if needed.
+// Returns nil if x is not a cubic residue.
+func (z *E2) cbrtVerifyAndAdjust(x *E2, y *E2) *E2 {
 	// c = y³
-	c.Square(&y).Mul(&c, &y)
+	var c E2
+	c.Square(y).Mul(&c, y)
 	if c.Equal(x) {
-		return z.Set(&y)
+		return z.Set(y)
 	}
 
 	// Primitive cube roots of unity ω, ω² (in Fp, embedded as (ω, 0))
@@ -305,25 +299,57 @@ func (z *E2) Cbrt(x *E2) *E2 {
 	var cw2 E2
 	cw2.Mul(&c, &omega2)
 	if cw2.Equal(x) {
-		return z.Mul(&y, &zeta)
+		return z.Mul(y, &zeta)
 	}
 
 	// Check if c * ω = x, then y * ζ² is the cube root
 	var cw E2
 	cw.Mul(&c, &omega)
 	if cw.Equal(x) {
-		return z.Mul(&y, &zeta2)
+		return z.Mul(y, &zeta2)
 	}
 
 	// x is not a cubic residue
 	return nil
 }
 
-// expByE2Cbrt is equivalent to z.Exp(x, ad76de41a5af60ea315d97688a2286dda209e0149bcd7bb708258216df4faba1830243f61450cc77484dacc5bf5165ad7b68d3edc5898e503f230287a81acb).
+// cbrtOriginal computes the cube root using a single addition chain over E2.
+func (z *E2) cbrtOriginal(x *E2) *E2 {
+	if x.A1.IsZero() {
+		if z.A0.Cbrt(&x.A0) == nil {
+			return nil
+		}
+		z.A1.SetZero()
+		return z
+	}
+
+	var y E2
+	y.expByE2CbrtOriginal(*x)
+	return z.cbrtVerifyAndAdjust(x, &y)
+}
+
+// cbrtFrobenius computes the cube root using Frobenius decomposition and
+// 2-bit windowed Strauss-Shamir multi-exponentiation.
+// Decomposes e = e₀ + e₁·p, exploiting that Frob(x) = Conjugate(x) is free.
+func (z *E2) cbrtFrobenius(x *E2) *E2 {
+	if x.A1.IsZero() {
+		if z.A0.Cbrt(&x.A0) == nil {
+			return nil
+		}
+		z.A1.SetZero()
+		return z
+	}
+
+	var y E2
+	y.expByE2CbrtFrobenius(*x)
+	return z.cbrtVerifyAndAdjust(x, &y)
+}
+
+// expByE2CbrtOriginal is equivalent to z.Exp(x, ad76de41a5af60ea315d97688a2286dda209e0149bcd7bb708258216df4faba1830243f61450cc77484dacc5bf5165ad7b68d3edc5898e503f230287a81acb).
 // It uses an addition chain for efficient exponentiation in E2.
 //
 // uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *E2) expByE2Cbrt(x E2) *E2 {
+func (z *E2) expByE2CbrtOriginal(x E2) *E2 {
 	// addition chain:
 	//
 	//	_10       = 2*1
@@ -862,6 +888,93 @@ func (z *E2) expByE2Cbrt(x E2) *E2 {
 	}
 
 	z.Mul(z, t0)
+
+	return z
+}
+
+// expByE2CbrtFrobenius computes z = x^e where e is the E2 cube root exponent,
+// using Frobenius decomposition and 2-bit windowed Strauss-Shamir.
+// Decomposes e = e₀ + e₁·p, then computes x^e₀ · Frob(x)^e₁.
+func (z *E2) expByE2CbrtFrobenius(x E2) *E2 {
+	var e0, e1 [4]uint64
+	e0 = [4]uint64{
+		11330118615407775612,
+		13329482909165958675,
+		6094068723619673846,
+		1420628923512321382,
+	}
+	e1 = [4]uint64{
+		3736998300411372985,
+		15839356218909848207,
+		7815919431097959468,
+		258296167911331160,
+	}
+
+	var xFrob E2
+	xFrob.Conjugate(&x) // x^p (free: just negate A1)
+
+	// Precompute table[idx-1] = x^a · xFrob^b where idx = 4*a + b
+	var table [15]E2
+	var xFrob2, xFrob3, x2, x3 E2
+	x2.Square(&x)
+	x3.Mul(&x2, &x)
+	xFrob2.Square(&xFrob)
+	xFrob3.Mul(&xFrob2, &xFrob)
+
+	table[0].Set(&xFrob)
+	table[1].Set(&xFrob2)
+	table[2].Set(&xFrob3)
+	table[3].Set(&x)
+	table[4].Mul(&x, &xFrob)
+	table[5].Mul(&x, &xFrob2)
+	table[6].Mul(&x, &xFrob3)
+	table[7].Set(&x2)
+	table[8].Mul(&x2, &xFrob)
+	table[9].Mul(&x2, &xFrob2)
+	table[10].Mul(&x2, &xFrob3)
+	table[11].Set(&x3)
+	table[12].Mul(&x3, &xFrob)
+	table[13].Mul(&x3, &xFrob2)
+	table[14].Mul(&x3, &xFrob3)
+
+	// 2-bit windowed Strauss-Shamir
+	z.SetOne()
+
+	// 253 bits is odd: process top bit as a single-bit window to align
+	{
+		b0 := (e0[3] >> 60) & 1
+		b1 := (e1[3] >> 60) & 1
+		idx := b0<<2 | b1
+		if idx != 0 {
+			z.Set(&table[idx-1])
+		}
+	}
+
+	for i := 250; i >= 0; i -= 2 {
+		z.Square(z)
+		z.Square(z)
+
+		limb := i / 64
+		bit := uint(i % 64)
+
+		var w0, w1 uint64
+		if bit < 63 {
+			w0 = (e0[limb] >> bit) & 3
+			w1 = (e1[limb] >> bit) & 3
+		} else {
+			w0 = (e0[limb] >> 63) & 1
+			w1 = (e1[limb] >> 63) & 1
+			if limb+1 < 4 {
+				w0 |= (e0[limb+1] & 1) << 1
+				w1 |= (e1[limb+1] & 1) << 1
+			}
+		}
+
+		idx := w0<<2 | w1
+		if idx != 0 {
+			z.Mul(z, &table[idx-1])
+		}
+	}
 
 	return z
 }

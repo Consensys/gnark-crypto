@@ -467,13 +467,24 @@ func BenchmarkE2Sqrt(b *testing.B) {
 }
 
 func BenchmarkE2Cbrt(b *testing.B) {
-	var a, t, c E2
+	var a, t E2
 	t.MustSetRandom()
 	a.Square(&t).Mul(&a, &t) // a = t³
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		c.Cbrt(&a)
-	}
+
+	b.Run("Original", func(b *testing.B) {
+		var c E2
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c.cbrtOriginal(&a)
+		}
+	})
+	b.Run("Frobenius", func(b *testing.B) {
+		var c E2
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c.cbrtFrobenius(&a)
+		}
+	})
 }
 
 func BenchmarkE2Exp(b *testing.B) {

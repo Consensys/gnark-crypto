@@ -32,6 +32,16 @@ type Curve struct {
 	E2CbrtP2Mod27      uint64                 // p² mod 27
 	E2CbrtExponentHex  string                 // precomputed exponent as hex string
 	E2CbrtExponentData *addchain.AddChainData // addition chain data for E2 Cbrt exponentiation
+
+	// E2 Cbrt Frobenius decomposition: e = e₀ + e₁·p
+	E2CbrtFrobeniusE0      []uint64 // e₀ limbs (little-endian)
+	E2CbrtFrobeniusE1      []uint64 // e₁ limbs (little-endian)
+	E2CbrtFrobeniusNLimbs  int      // number of limbs
+	E2CbrtFrobeniusMaxBit  int      // bit length of max(e₀, e₁)
+	E2CbrtFrobeniusEven    bool     // whether MaxBit is even (determines loop alignment)
+	E2CbrtFrobeniusTopLimb int      // limb index of the MSB: (MaxBit-1)/64
+	E2CbrtFrobeniusTopBit  int      // bit position within the top limb: (MaxBit-1)%64
+	E2CbrtFrobeniusStart   int      // starting bit for the 2-bit windowed loop
 }
 
 type TwistedEdwardsCurve struct {
@@ -124,11 +134,45 @@ func addCurve(c *Curve) {
 	c.E2CbrtExponentHex = exp.Text(16)
 	c.E2CbrtExponentData = addchain.GetAddChain(&exp)
 
+	// Frobenius decomposition: e = e₀ + e₁·p
+	e1 := new(big.Int).Div(&exp, p)
+	e0 := new(big.Int).Mod(&exp, p)
+	maxBits := e0.BitLen()
+	if e1.BitLen() > maxBits {
+		maxBits = e1.BitLen()
+	}
+	// Number of uint64 limbs needed
+	nLimbs := (maxBits + 63) / 64
+	c.E2CbrtFrobeniusE0 = bigIntToLimbs(e0, nLimbs)
+	c.E2CbrtFrobeniusE1 = bigIntToLimbs(e1, nLimbs)
+	c.E2CbrtFrobeniusNLimbs = nLimbs
+	c.E2CbrtFrobeniusMaxBit = maxBits
+	c.E2CbrtFrobeniusEven = maxBits%2 == 0
+	c.E2CbrtFrobeniusTopLimb = (maxBits - 1) / 64
+	c.E2CbrtFrobeniusTopBit = (maxBits - 1) % 64
+	if maxBits%2 == 0 {
+		c.E2CbrtFrobeniusStart = maxBits - 2
+	} else {
+		c.E2CbrtFrobeniusStart = maxBits - 3
+	}
+
 	Curves = append(Curves, *c)
 }
 
 func addTwistedEdwardCurve(c *TwistedEdwardsCurve) {
 	TwistedEdwardsCurves = append(TwistedEdwardsCurves, *c)
+}
+
+// bigIntToLimbs converts a big.Int to a little-endian slice of uint64 limbs.
+func bigIntToLimbs(n *big.Int, nLimbs int) []uint64 {
+	limbs := make([]uint64, nLimbs)
+	mask := new(big.Int).SetUint64(^uint64(0))
+	tmp := new(big.Int).Set(n)
+	for i := 0; i < nLimbs; i++ {
+		limbs[i] = new(big.Int).And(tmp, mask).Uint64()
+		tmp.Rsh(tmp, 64)
+	}
+	return limbs
 }
 
 func newFieldInfo(modulus string) FieldInfo {
