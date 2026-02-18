@@ -71,6 +71,39 @@ func TestCbrtHybridEdgeCases(t *testing.T) {
 	})
 }
 
+func TestCbrtAndNormInverse(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		var x E2
+		x.MustSetRandom()
+
+		// norm = x0² + x1²
+		var norm, x0sq, x1sq fp.Element
+		x0sq.Square(&x.A0)
+		x1sq.Square(&x.A1)
+		norm.Add(&x0sq, &x1sq)
+
+		m, normInv, ok := cbrtAndNormInverse(&norm)
+		if !ok {
+			// norm might not be a cubic residue; skip
+			continue
+		}
+
+		// Check m³ = norm
+		var c fp.Element
+		c.Cube(&m)
+		if !c.Equal(&norm) {
+			t.Fatalf("m³ != norm at iteration %d", i)
+		}
+
+		// Check normInv * norm = 1
+		var one fp.Element
+		one.Mul(&normInv, &norm)
+		if !one.IsOne() {
+			t.Fatalf("normInv * norm != 1 at iteration %d", i)
+		}
+	}
+}
+
 func BenchmarkE2CbrtHybrid(b *testing.B) {
 	var a, t0 E2
 	t0.MustSetRandom()

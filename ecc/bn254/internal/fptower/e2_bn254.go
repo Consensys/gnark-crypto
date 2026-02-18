@@ -100,6 +100,89 @@ var lucasExponent = [4]uint64{
 	1162332755600990221,
 }
 
+// cbrtAndNormInverse computes m = cbrt(norm) and normInv = 1/norm from a
+// single shared exponentiation, avoiding a separate Fp inversion.
+//
+// Let t = norm^((q-19)/27). Then:
+//   - m = norm · t  = norm^((q+8)/27)          (cube root candidate)
+//   - normInv = t^27 · norm^17 = norm^(q-2)    (Fermat inverse)
+//
+// The ζ-adjustment for the cube root is identical to fp.Cbrt.
+func cbrtAndNormInverse(norm *fp.Element) (m, normInv fp.Element, ok bool) {
+	// t = norm^((q-19)/27)
+	var t fp.Element
+	t.ExpByCbrtHelperQMinus19Div27(*norm)
+
+	// m = norm · t = norm^((q+8)/27)
+	m.Mul(norm, &t)
+
+	// Verify m³ = norm, adjust by ζ if needed (same logic as fp.Cbrt)
+	var c fp.Element
+	c.Cube(&m)
+	if !c.Equal(norm) {
+		// Precomputed constants (same as in fp.Cbrt)
+		var zeta = fp.Element{
+			9092840637269024442,
+			11284133545212953584,
+			7919372827184455520,
+			1596114425137527684,
+		}
+		var zeta2 = fp.Element{
+			1735008219140503419,
+			10465829585049341007,
+			6017168831245289042,
+			1570250484855163800,
+		}
+		var omega = fp.Element{
+			8183898218631979349,
+			12014359695528440611,
+			12263358156045030468,
+			3187210487005268291,
+		}
+		var omega2 = fp.Element{
+			3697675806616062876,
+			9065277094688085689,
+			6918009208039626314,
+			2775033306905974752,
+		}
+
+		var cw2 fp.Element
+		cw2.Mul(&c, &omega2)
+		if cw2.Equal(norm) {
+			m.Mul(&m, &zeta)
+		} else {
+			var cw fp.Element
+			cw.Mul(&c, &omega)
+			if cw.Equal(norm) {
+				m.Mul(&m, &zeta2)
+			} else {
+				return m, normInv, false
+			}
+		}
+	}
+
+	// normInv = t^27 · norm^17 = norm^(q-2)
+	// t^27: t² → t³ → (t³)² = t⁶ → t⁶·t³ = t⁹ → (t⁹)² = t¹⁸ → t¹⁸·t⁹ = t²⁷
+	var t2, t3, t9 fp.Element
+	t2.Square(&t)
+	t3.Mul(&t2, &t)
+	t9.Square(&t3)   // t⁶
+	t9.Mul(&t9, &t3) // t⁹
+	t2.Square(&t9)   // t¹⁸
+	t2.Mul(&t2, &t9) // t²⁷
+
+	// norm^17: norm² → norm⁴ → norm⁸ → norm¹⁶ → norm¹⁶·norm = norm¹⁷
+	var n2, n4, n8, n16 fp.Element
+	n2.Square(norm)
+	n4.Square(&n2)
+	n8.Square(&n4)
+	n16.Square(&n8)
+	normInv.Mul(&n16, norm)    // norm^17
+	normInv.Mul(&normInv, &t2) // t^27 · norm^17 = norm^(q-2)
+
+	return m, normInv, true
+}
+
 // cbrtHybrid computes the cube root of x in E2 using the algebraic torus T₂(Fp).
 //
 // Let r = z^{p-1} where z³ = x. Then r³ = x^{p-1} lies on T₂(Fp) (norm 1).
@@ -137,17 +220,16 @@ func (z *E2) cbrtHybrid(x *E2) *E2 {
 	var norm fp.Element
 	norm.Add(&x0sq, &x1sq)
 
-	// m = cbrt(N) in Fp
-	var m fp.Element
-	if m.Cbrt(&norm) == nil {
+	// m = cbrt(N) and normInv = 1/N from shared exponentiation
+	m, normInv, ok := cbrtAndNormInverse(&norm)
+	if !ok {
 		return nil
 	}
 
 	// α_t = 2·(x₀² - x₁²)/N = trace of x^{p-1} on T₂
-	var alphaT, normInv fp.Element
+	var alphaT fp.Element
 	alphaT.Sub(&x0sq, &x1sq)
 	alphaT.Double(&alphaT)
-	normInv.Inverse(&norm)
 	alphaT.Mul(&alphaT, &normInv)
 
 	// s₁ = V_e(α_t, 1) where e = 3⁻¹ mod (p+1), Q = 1
