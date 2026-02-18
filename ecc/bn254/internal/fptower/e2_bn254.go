@@ -4,8 +4,6 @@
 package fptower
 
 import (
-	"math/bits"
-
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
 )
 
@@ -92,21 +90,14 @@ func (z *E2) MulBybTwistCurveCoeff(x *E2) *E2 {
 	return z
 }
 
-// lucasExponent is the bit decomposition of e = 3⁻¹ mod (p+1),
-// excluding the leading 1-bit and the trailing bit (which is 1).
+// lucasExponent is e = 3⁻¹ mod (p+1) as little-endian uint64 limbs,
+// used by the Lucas V-chain in cbrtHybrid.
 // e = 7296080957279758407415468581752425029565437052432607887563012631548408736195
-// 253 bits total; stored MSB-first, 251 inner bits.
-var lucasExponent = [251]uint8{
-	0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1,
-	1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0,
-	0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-	0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1,
-	0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 1, 1,
-	0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0,
-	1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1,
-	0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0,
-	1, 1, 1, 0, 0, 0, 0, 1,
+var lucasExponent = [4]uint64{
+	7593120314996402627,
+	15936870763965662084,
+	16724893366231265993,
+	1162332755600990221,
 }
 
 // cbrtHybrid computes the cube root of x in E2 using the algebraic torus T₂(Fp).
@@ -137,9 +128,14 @@ func (z *E2) cbrtHybrid(x *E2) *E2 {
 		return z.cbrtVerifyAndAdjust(x, &y)
 	}
 
+	// x₀², x₁² — reused for both norm and α_t
+	var x0sq, x1sq fp.Element
+	x0sq.Square(&x.A0)
+	x1sq.Square(&x.A1)
+
 	// N = x₀² + x₁² (norm of x)
 	var norm fp.Element
-	x.norm(&norm)
+	norm.Add(&x0sq, &x1sq)
 
 	// m = cbrt(N) in Fp
 	var m fp.Element
@@ -148,23 +144,18 @@ func (z *E2) cbrtHybrid(x *E2) *E2 {
 	}
 
 	// α_t = 2·(x₀² - x₁²)/N = trace of x^{p-1} on T₂
-	var x0sq, x1sq, alphaT fp.Element
-	x0sq.Square(&x.A0)
-	x1sq.Square(&x.A1)
+	var alphaT, normInv fp.Element
 	alphaT.Sub(&x0sq, &x1sq)
 	alphaT.Double(&alphaT)
-	var normInv fp.Element
 	normInv.Inverse(&norm)
 	alphaT.Mul(&alphaT, &normInv)
 
 	// s₁ = V_e(α_t, 1) where e = 3⁻¹ mod (p+1), Q = 1
 	sp := lucasV(&alphaT)
 
-	// Recovery: z₀ = x₀/(m·(s₁ - 1)), z₁ = x₁/(m·(s₁ + 1))
+	// Recovery: z₀ = x₀/(m·(s₁-1)), z₁ = x₁/(m·(s₁+1))
 	// Use a single inversion via Montgomery's trick: 1/(a·b) then multiply out.
-	var z0, z1 fp.Element
 	var one, s1m1, s1p1, d0, d1, d0d1, d0d1Inv fp.Element
-
 	one.SetOne()
 	s1m1.Sub(&sp, &one)
 	s1p1.Add(&sp, &one)
@@ -176,89 +167,11 @@ func (z *E2) cbrtHybrid(x *E2) *E2 {
 	d0d1Inv.Inverse(&d0d1)
 
 	// 1/d0 = d1 · 1/(d0·d1), 1/d1 = d0 · 1/(d0·d1)
-	z0.Mul(&d1, &d0d1Inv)
-	z0.Mul(&z0, &x.A0) // x₀/d0
-	z1.Mul(&d0, &d0d1Inv)
-	z1.Mul(&z1, &x.A1) // x₁/d1
-
 	var y E2
-	y.A0.Set(&z0)
-	y.A1.Set(&z1)
+	y.A0.Mul(&d1, &d0d1Inv).Mul(&y.A0, &x.A0) // x₀/d0
+	y.A1.Mul(&d0, &d0d1Inv).Mul(&y.A1, &x.A1) // x₁/d1
 
 	return z.cbrtVerifyAndAdjust(x, &y)
-}
-
-// lucasVChainQ computes V_e(alpha) with product parameter Q using a
-// Montgomery ladder for generalized Lucas V-sequences.
-// The recurrence is V_{n+1} = alpha·V_n - Q·V_{n-1}, V_0 = 2, V_1 = alpha.
-// e is given as little-endian uint64 limbs.
-//
-// We maintain (V_k, V_{k+1}, Q^k). For each bit of e from MSB-1 down to 0:
-//
-//	bit=0: (V_{2k}, V_{2k+1}, Q^{2k})
-//	  V_{2k}   = V_k² - 2·Q^k
-//	  V_{2k+1} = V_k·V_{k+1} - alpha·Q^k
-//	  Q^{2k}   = (Q^k)²
-//
-//	bit=1: (V_{2k+1}, V_{2k+2}, Q^{2k+1})
-//	  V_{2k+1} = V_k·V_{k+1} - alpha·Q^k
-//	  V_{2k+2} = V_{k+1}² - 2·Q^{k+1}
-//	  Q^{2k+1} = (Q^k)²·Q
-func lucasVChainQ(e [4]uint64, alpha, Q *fp.Element) fp.Element {
-	// Find MSB
-	totalBits := 0
-	for i := 3; i >= 0; i-- {
-		if e[i] != 0 {
-			totalBits = i*64 + 64 - bits.LeadingZeros64(e[i])
-			break
-		}
-	}
-	if totalBits == 0 {
-		var two fp.Element
-		two.SetUint64(2)
-		return two
-	}
-
-	// Initialize for MSB=1: (V_1, V_2, Q^1)
-	var v0, v1, qk fp.Element
-	v0.Set(alpha) // V_1 = alpha
-	v1.Square(alpha)
-	var twoQ fp.Element
-	twoQ.Double(Q)
-	v1.Sub(&v1, &twoQ) // V_2 = alpha² - 2Q
-	qk.Set(Q)          // Q^1
-
-	var prod, aqk, qk1 fp.Element
-
-	for i := totalBits - 2; i >= 0; i-- {
-		bit := (e[i/64] >> uint(i%64)) & 1
-
-		// common: prod = V_k · V_{k+1} - alpha · Q^k
-		prod.Mul(&v0, &v1)
-		aqk.Mul(alpha, &qk)
-		prod.Sub(&prod, &aqk)
-
-		if bit == 0 {
-			v1.Set(&prod)
-			// v0 = V_k² - 2·Q^k
-			aqk.Double(&qk) // reuse aqk as tmp
-			v0.Square(&v0)
-			v0.Sub(&v0, &aqk)
-			qk.Square(&qk)
-		} else {
-			v0.Set(&prod)
-			// v1 = V_{k+1}² - 2·Q^{k+1}
-			qk1.Mul(&qk, Q)  // Q^{k+1}
-			aqk.Double(&qk1) // 2·Q^{k+1}
-			v1.Square(&v1)
-			v1.Sub(&v1, &aqk)
-			// Q^{2k+1} = (Q^k)² · Q
-			qk.Square(&qk)
-			qk.Mul(&qk, Q)
-		}
-	}
-
-	return v0
 }
 
 // lucasV computes V_e(alpha, 1) where e = 3⁻¹ mod (p+1), using the
@@ -281,12 +194,14 @@ func lucasV(alpha *fp.Element) fp.Element {
 
 	var prod fp.Element
 
-	// Process 251 precomputed bits (MSB-first, excluding leading 1 and trailing bit)
-	for i := 0; i < 251; i++ {
+	// Process bits 251 down to 1 (bit 252 is the leading 1, bit 0 handled separately)
+	for i := 251; i >= 1; i-- {
+		bit := (lucasExponent[i/64] >> uint(i%64)) & 1
+
 		// prod = V_k · V_{k+1} - alpha
 		prod.Mul(&v0, &v1).Sub(&prod, alpha)
 
-		if lucasExponent[i] == 0 {
+		if bit == 0 {
 			v1.Set(&prod)
 			v0.Square(&v0).Sub(&v0, &two)
 		} else {
@@ -295,7 +210,7 @@ func lucasV(alpha *fp.Element) fp.Element {
 		}
 	}
 
-	// Last bit of exponent is 1: only compute v0 = v0·v1 - alpha
+	// Last bit (bit 0) is 1: only compute v0, skip unused v1
 	v0.Mul(&v0, &v1).Sub(&v0, alpha)
 
 	return v0

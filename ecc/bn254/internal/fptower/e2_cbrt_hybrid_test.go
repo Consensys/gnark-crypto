@@ -6,37 +6,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
 )
 
-func TestLucasVChainQ(t *testing.T) {
-	var alpha, one fp.Element
-	alpha.SetUint64(5)
-	one.SetOne()
-
-	// V_3(5, 1) = 5³ - 3·5 = 110
-	e3 := [4]uint64{3, 0, 0, 0}
-	result := lucasVChainQ(e3, &alpha, &one)
-	var expected fp.Element
-	expected.SetUint64(110)
-	if !result.Equal(&expected) {
-		t.Fatalf("V_3(5, 1) = %v, expected 110", result.String())
-	}
-
-	// V_1(5, 1) = 5
-	e1 := [4]uint64{1, 0, 0, 0}
-	result = lucasVChainQ(e1, &alpha, &one)
-	if !result.Equal(&alpha) {
-		t.Fatalf("V_1(5, 1) = %v, expected 5", result.String())
-	}
-
-	// V_6(5, 1) = V_2(V_3(5,1), 1) = V_2(110, 1) = 110² - 2 = 12098
-	e6 := [4]uint64{6, 0, 0, 0}
-	result = lucasVChainQ(e6, &alpha, &one)
-	var exp6 fp.Element
-	exp6.SetUint64(12098)
-	if !result.Equal(&exp6) {
-		t.Fatalf("V_6(5, 1) = %v, expected 12098", result.String())
-	}
-}
-
 func TestCbrtHybridMatchesOriginal(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		var t0, a E2
