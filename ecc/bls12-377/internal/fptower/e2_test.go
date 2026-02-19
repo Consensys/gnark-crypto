@@ -371,6 +371,43 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS12-377] cbrt methods should be consistent", prop.ForAll(
+		func(a *E2) bool {
+			var b E2
+			b.Square(a).Mul(&b, a) // b = a³
+
+			var cOriginal, cFrobenius E2
+			rOriginal := cOriginal.cbrtOriginal(&b)
+			rFrobenius := cFrobenius.cbrtFrobenius(&b)
+			if rOriginal == nil || rFrobenius == nil {
+				return false
+			}
+
+			// verify both produce valid cube roots
+			var check E2
+			check.Square(&cOriginal).Mul(&check, &cOriginal)
+			if !check.Equal(&b) {
+				return false
+			}
+			check.Square(&cFrobenius).Mul(&check, &cFrobenius)
+			if !check.Equal(&b) {
+				return false
+			}
+			var cTorus E2
+			rTorus := cTorus.cbrtTorus(&b)
+			if rTorus == nil {
+				return false
+			}
+			check.Square(&cTorus).Mul(&check, &cTorus)
+			if !check.Equal(&b) {
+				return false
+			}
+
+			return true
+		},
+		genA,
+	))
+
 	properties.Property("[BLS12-377] neg(E2) == neg(E2.A0, E2.A1)", prop.ForAll(
 		func(a *E2) bool {
 			var b, c E2
@@ -483,6 +520,13 @@ func BenchmarkE2Cbrt(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			c.cbrtFrobenius(&a)
+		}
+	})
+	b.Run("Torus", func(b *testing.B) {
+		var c E2
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c.cbrtTorus(&a)
 		}
 	})
 }
