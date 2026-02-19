@@ -91,7 +91,7 @@ func (z *E2) MulBybTwistCurveCoeff(x *E2) *E2 {
 }
 
 // lucasExponent is e = 3⁻¹ mod (p+1) as little-endian uint64 limbs,
-// used by the Lucas V-chain in cbrtHybrid.
+// used by the Lucas V-chain in cbrtTorus.
 // e = 7296080957279758407415468581752425029565437052432607887563012631548408736195
 var lucasExponent = [4]uint64{
 	7593120314996402627,
@@ -183,7 +183,7 @@ func cbrtAndNormInverse(norm *fp.Element) (m, normInv fp.Element, ok bool) {
 	return m, normInv, true
 }
 
-// cbrtHybrid computes the cube root of x in E2 using the algebraic torus T₂(Fp).
+// cbrtTorus computes the cube root of x in E2 using the algebraic torus T₂(Fp).
 //
 // Let r = z^{p-1} where z³ = x. Then r³ = x^{p-1} lies on T₂(Fp) (norm 1).
 // The trace of r on T₂ is s₁ = V_e(α_t, 1) where:
@@ -191,7 +191,7 @@ func cbrtAndNormInverse(norm *fp.Element) (m, normInv fp.Element, ok bool) {
 //   - e = 3⁻¹ mod (p+1)
 //
 // Recovery: z₀ = x₀/(m·(s₁-1)), z₁ = x₁/(m·(s₁+1)), where m = cbrt(N(x)).
-func (z *E2) cbrtHybrid(x *E2) *E2 {
+func (z *E2) cbrtTorus(x *E2) *E2 {
 	if x.A1.IsZero() {
 		if z.A0.Cbrt(&x.A0) == nil {
 			return nil

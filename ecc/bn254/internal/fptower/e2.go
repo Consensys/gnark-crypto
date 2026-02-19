@@ -252,7 +252,7 @@ func (z *E2) Sqrt(a *E2) *E2 {
 //
 // Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
 func (z *E2) Cbrt(x *E2) *E2 {
-	return z.cbrtFrobenius(x)
+	return z.cbrtTorus(x)
 }
 
 // cbrtVerifyAndAdjust verifies y³ = x, adjusting by primitive 9th roots of unity if needed.
