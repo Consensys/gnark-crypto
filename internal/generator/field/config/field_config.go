@@ -97,6 +97,10 @@ type Field struct {
 	CbrtSPlus1Div3Data     *addchain.AddChainData
 	CbrtSMinus1Div3Data    *addchain.AddChainData
 
+	// Torus cbrt helper (for E2 cbrt via algebraic torus)
+	CbrtTorusHelperData *addchain.AddChainData
+	CbrtTorusHelperName string // e.g. "CbrtHelperQMinus19Div27"
+
 	Word Word // 32 iff Q < 2^32, else 64
 	F31  bool // 31 bits field
 
@@ -522,6 +526,33 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 			F.CbrtSPlus1Div3 = exp.Text(16)
 			if F.UseAddChain {
 				F.CbrtSPlus1Div3Data = addchain.GetAddChain(&exp)
+			}
+		}
+
+		// Torus cbrt helper exponent: norm^((q-r)/d) for shared cbrt + inverse
+		if useAddChain {
+			qMod9Val := qMod9.Uint64()
+			qMod27Val := qMod27.Uint64()
+			var helperExp big.Int
+			switch qMod9Val {
+			case 7:
+				helperExp.Sub(&bModulus, big.NewInt(7)).Div(&helperExp, big.NewInt(9))
+				F.CbrtTorusHelperName = "CbrtHelperQMinus7Div9"
+			case 4:
+				helperExp.Sub(&bModulus, big.NewInt(4)).Div(&helperExp, big.NewInt(9))
+				F.CbrtTorusHelperName = "CbrtHelperQMinus4Div9"
+			default:
+				switch qMod27Val {
+				case 10:
+					helperExp.Sub(&bModulus, big.NewInt(10)).Div(&helperExp, big.NewInt(27))
+					F.CbrtTorusHelperName = "CbrtHelperQMinus10Div27"
+				case 19:
+					helperExp.Sub(&bModulus, big.NewInt(19)).Div(&helperExp, big.NewInt(27))
+					F.CbrtTorusHelperName = "CbrtHelperQMinus19Div27"
+				}
+			}
+			if F.CbrtTorusHelperName != "" {
+				F.CbrtTorusHelperData = addchain.GetAddChain(&helperExp)
 			}
 		}
 	}

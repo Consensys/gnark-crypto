@@ -1247,7 +1247,7 @@ func (z *Element) ExpByCbrtHelperQMinus19Div27(x Element) *Element {
 	//	i278      = ((_11111 + i255) << 11 + _1001111) << 9 + _1111001
 	//	return      ((i278 << 12 + _10001001) << 7 + _110111) << 2
 	//
-	// Operations: 242 squares + 59 multiplies
+	// Operations: 243 squares 58 multiplies
 
 	// Allocate Temporaries.
 	var (
@@ -1294,11 +1294,11 @@ func (z *Element) ExpByCbrtHelperQMinus19Div27(x Element) *Element {
 	// Step 5: t8 = x^0xc
 	t8.Mul(t12, t4)
 
-	// Step 6: z = x^0xe
-	z.Mul(t12, t8)
+	// Step 6: t17 = x^0xe
+	t17.Mul(t12, t8)
 
 	// Step 7: t16 = x^0x12
-	t16.Mul(t0, z)
+	t16.Mul(t0, t17)
 
 	// Step 8: t6 = x^0x1a
 	t6.Mul(t22, t16)
@@ -1324,8 +1324,8 @@ func (z *Element) ExpByCbrtHelperQMinus19Div27(x Element) *Element {
 	// Step 15: t5 = x^0x33
 	t5.Mul(t0, t7)
 
-	// Step 16: t24 = x^0x37
-	t24.Mul(t0, t5)
+	// Step 16: z = x^0x37
+	z.Mul(t0, t5)
 
 	// Step 17: t2 = x^0x4f
 	t2.Mul(t1, t7)
@@ -1355,7 +1355,7 @@ func (z *Element) ExpByCbrtHelperQMinus19Div27(x Element) *Element {
 	t6.Mul(t6, t0)
 
 	// Step 26: t13 = x^0xb1
-	t13.Mul(z, t6)
+	t13.Mul(t17, t6)
 
 	// Step 27: t12 = x^0xb3
 	t12.Mul(t12, t13)
@@ -1367,7 +1367,7 @@ func (z *Element) ExpByCbrtHelperQMinus19Div27(x Element) *Element {
 	t20.Mul(t16, t12)
 
 	// Step 30: t23 = x^0xd3
-	t23.Mul(z, t20)
+	t23.Mul(t17, t20)
 
 	// Step 31: t16 = x^0xe5
 	t16.Mul(t16, t23)
@@ -1378,19 +1378,16 @@ func (z *Element) ExpByCbrtHelperQMinus19Div27(x Element) *Element {
 	// Step 33: t4 = x^0xf7
 	t4.Mul(t22, t17)
 
-	// Step 34: t24 is x^0x37, preserved for tail; use z as accumulator
-	// i53 computation begins:
-	// t24_acc = t23 * t4 = x^(0xd3 + 0xf7) = x^0x1ca
-	// We reuse z as the running accumulator (z = _1110 = 0xe, no longer needed for precomp)
-	z.Mul(t23, t4)
+	// Step 34: t24 = x^0x1ca
+	t24.Mul(t23, t4)
 
-	// Step 42: z = x^0x1ca00
+	// Step 42: t24 = x^0x1ca00
 	for s := 0; s < 8; s++ {
-		z.Square(z)
+		t24.Square(t24)
 	}
 
 	// Step 43: t23 = x^0x1cad3
-	t23.Mul(t23, z)
+	t23.Mul(t23, t24)
 
 	// Step 52: t23 = x^0x395a600
 	for s := 0; s < 9; s++ {
@@ -1593,11 +1590,12 @@ func (z *Element) ExpByCbrtHelperQMinus19Div27(x Element) *Element {
 	}
 
 	// Step 299: z = x^0x72b4dfe0e662ab0d8ef729fc7558859b7a1651f05fde51e67b8f84f3c844b7
-	z.Mul(t24, t0)
+	z.Mul(z, t0)
 
 	// Step 301: z = x^0x1cad37f83998aac363bdca7f1d562166de85947c17f794799ee3e13cf2112dc
-	z.Square(z)
-	z.Square(z)
+	for s := 0; s < 2; s++ {
+		z.Square(z)
+	}
 
 	return z
 }

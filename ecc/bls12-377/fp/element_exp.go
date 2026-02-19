@@ -1065,8 +1065,25 @@ func (z *Element) ExpByCbrtHelperQMinus7Div9(x Element) *Element {
 	//	_11011111 = _110 + _11011001
 	//	_11100101 = _110 + _11011111
 	//	_11110101 = _11100 + _11011001
+	//	i66       = ((_10111111 << 10 + _11011001) << 3 + _11) << 15
+	//	i90       = ((_10101001 + i66) << 12 + _1111001) << 9 + _10010111
+	//	i115      = ((i90 << 6 + _110011) << 9 + _1010011) << 8
+	//	i147      = ((_11111 + i115) << 18 + _11000001) << 11 + _11110101
+	//	i173      = ((i147 << 5 + _11011) << 11 + _10011101) << 8
+	//	i193      = ((_11100101 + i173) << 9 + _110 + _11110101) << 8
+	//	i212      = ((_11000101 + i193) << 7 + _1010101) << 9 + _11000101
+	//	i238      = ((i212 << 8 + _11100101) << 7 + _1011101) << 9
+	//	i258      = ((_10010001 + i238) << 8 + _10101001) << 9 + _10000111
+	//	i288      = ((i258 << 5 + _10011) << 9 + _110101) << 14
+	//	i324      = ((_100001 + i288) << 25 + _10100011) << 8 + _11011111
+	//	i356      = ((i324 << 8 + _1001) << 14 + _1010101) << 8
+	//	i374      = ((_1010101 + i356) << 8 + _1010101) << 7 + _101011
+	//	i402      = ((i374 << 10 + _10000011) << 8 + _10101101) << 8
+	//	i421      = ((_1010101 + i402) << 8 + _1010101) << 8 + _1010101
+	//	i441      = ((i421 << 8 + _1010101) << 8 + _1010101) << 2
+	//	return      2*(1 + i441)
 	//
-	// Operations: 375 squares 68 multiplies
+	// Operations: 368 squares 75 multiplies
 
 	// Allocate Temporaries.
 	var (
@@ -1100,203 +1117,439 @@ func (z *Element) ExpByCbrtHelperQMinus7Div9(x Element) *Element {
 		t27 = new(Element)
 	)
 
+	// var t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15,t16,t17,t18,t19,t20,t21,t22,t23,t24,t25,t26,t27 Element
+	// Step 1: t14 = x^0x2
 	t14.Square(&x)
+
+	// Step 2: t25 = x^0x3
 	t25.Mul(&x, t14)
+
+	// Step 3: t13 = x^0x4
 	t13.Mul(&x, t25)
+
+	// Step 4: t16 = x^0x6
 	t16.Mul(t14, t13)
+
+	// Step 5: t3 = x^0x9
 	t3.Mul(t25, t16)
+
+	// Step 6: t0 = x^0xa
 	t0.Mul(&x, t3)
+
+	// Step 7: t19 = x^0x12
 	t19.Square(t3)
+
+	// Step 8: t8 = x^0x13
 	t8.Mul(&x, t19)
+
+	// Step 9: t4 = x^0x14
 	t4.Mul(&x, t8)
+
+	// Step 10: t18 = x^0x1b
 	t18.Mul(t3, t19)
+
+	// Step 11: t15 = x^0x1c
 	t15.Mul(&x, t18)
+
+	// Step 12: z = x^0x1e
 	z.Mul(t14, t15)
+
+	// Step 13: t20 = x^0x1f
 	t20.Mul(&x, z)
+
+	// Step 14: t6 = x^0x21
 	t6.Mul(t14, t20)
+
+	// Step 15: t2 = x^0x2b
 	t2.Mul(t0, t6)
+
+	// Step 16: t22 = x^0x33
 	t22.Mul(t19, t6)
+
+	// Step 17: t7 = x^0x35
 	t7.Mul(t14, t22)
+
+	// Step 18: t21 = x^0x53
 	t21.Mul(z, t7)
+
+	// Step 19: z = x^0x55
 	z.Mul(t14, t21)
+
+	// Step 20: t12 = x^0x5d
 	t12.Mul(t0, t21)
+
+	// Step 21: t24 = x^0x79
 	t24.Mul(t15, t12)
+
+	// Step 22: t1 = x^0x83
 	t1.Mul(t0, t24)
+
+	// Step 23: t9 = x^0x87
 	t9.Mul(t13, t1)
+
+	// Step 24: t11 = x^0x91
 	t11.Mul(t0, t9)
+
+	// Step 25: t23 = x^0x97
 	t23.Mul(t16, t11)
+
+	// Step 26: t17 = x^0x9d
 	t17.Mul(t16, t23)
+
+	// Step 27: t5 = x^0xa3
 	t5.Mul(t16, t17)
+
+	// Step 28: t10 = x^0xa9
 	t10.Mul(t16, t5)
+
+	// Step 29: t0 = x^0xad
 	t0.Mul(t13, t10)
+
+	// Step 30: t27 = x^0xbf
 	t27.Mul(t19, t0)
+
+	// Step 31: t19 = x^0xc1
 	t19.Mul(t14, t27)
+
+	// Step 32: t14 = x^0xc5
 	t14.Mul(t13, t19)
+
+	// Step 33: t26 = x^0xd9
 	t26.Mul(t4, t14)
+
+	// Step 34: t4 = x^0xdf
 	t4.Mul(t16, t26)
+
+	// Step 35: t13 = x^0xe5
 	t13.Mul(t16, t4)
+
+	// Step 36: t15 = x^0xf5
 	t15.Mul(t15, t26)
+
+	// Step 46: t27 = x^0x2fc00
 	for s := 0; s < 10; s++ {
 		t27.Square(t27)
 	}
+
+	// Step 47: t26 = x^0x2fcd9
 	t26.Mul(t26, t27)
+
+	// Step 50: t26 = x^0x17e6c8
 	for s := 0; s < 3; s++ {
 		t26.Square(t26)
 	}
+
+	// Step 51: t25 = x^0x17e6cb
 	t25.Mul(t25, t26)
+
+	// Step 66: t25 = x^0xbf3658000
 	for s := 0; s < 15; s++ {
 		t25.Square(t25)
 	}
+
+	// Step 67: t25 = x^0xbf36580a9
 	t25.Mul(t10, t25)
+
+	// Step 79: t25 = x^0xbf36580a9000
 	for s := 0; s < 12; s++ {
 		t25.Square(t25)
 	}
+
+	// Step 80: t24 = x^0xbf36580a9079
 	t24.Mul(t24, t25)
+
+	// Step 89: t24 = x^0x17e6cb01520f200
 	for s := 0; s < 9; s++ {
 		t24.Square(t24)
 	}
+
+	// Step 90: t23 = x^0x17e6cb01520f297
 	t23.Mul(t23, t24)
+
+	// Step 96: t23 = x^0x5f9b2c05483ca5c0
 	for s := 0; s < 6; s++ {
 		t23.Square(t23)
 	}
+
+	// Step 97: t22 = x^0x5f9b2c05483ca5f3
 	t22.Mul(t22, t23)
+
+	// Step 106: t22 = x^0xbf36580a90794be600
 	for s := 0; s < 9; s++ {
 		t22.Square(t22)
 	}
+
+	// Step 107: t21 = x^0xbf36580a90794be653
 	t21.Mul(t21, t22)
+
+	// Step 115: t21 = x^0xbf36580a90794be65300
 	for s := 0; s < 8; s++ {
 		t21.Square(t21)
 	}
+
+	// Step 116: t20 = x^0xbf36580a90794be6531f
 	t20.Mul(t20, t21)
+
+	// Step 134: t20 = x^0x2fcd9602a41e52f994c7c0000
 	for s := 0; s < 18; s++ {
 		t20.Square(t20)
 	}
+
+	// Step 135: t19 = x^0x2fcd9602a41e52f994c7c00c1
 	t19.Mul(t19, t20)
+
+	// Step 146: t19 = x^0x17e6cb01520f297cca63e0060800
 	for s := 0; s < 11; s++ {
 		t19.Square(t19)
 	}
+
+	// Step 147: t19 = x^0x17e6cb01520f297cca63e00608f5
 	t19.Mul(t15, t19)
+
+	// Step 152: t19 = x^0x2fcd9602a41e52f994c7c00c11ea0
 	for s := 0; s < 5; s++ {
 		t19.Square(t19)
 	}
+
+	// Step 153: t18 = x^0x2fcd9602a41e52f994c7c00c11ebb
 	t18.Mul(t18, t19)
+
+	// Step 164: t18 = x^0x17e6cb01520f297cca63e00608f5d800
 	for s := 0; s < 11; s++ {
 		t18.Square(t18)
 	}
+
+	// Step 165: t17 = x^0x17e6cb01520f297cca63e00608f5d89d
 	t17.Mul(t17, t18)
+
+	// Step 173: t17 = x^0x17e6cb01520f297cca63e00608f5d89d00
 	for s := 0; s < 8; s++ {
 		t17.Square(t17)
 	}
+
+	// Step 174: t17 = x^0x17e6cb01520f297cca63e00608f5d89de5
 	t17.Mul(t13, t17)
+
+	// Step 183: t17 = x^0x2fcd9602a41e52f994c7c00c11ebb13bca00
 	for s := 0; s < 9; s++ {
 		t17.Square(t17)
 	}
+
+	// Step 184: t16 = x^0x2fcd9602a41e52f994c7c00c11ebb13bca06
 	t16.Mul(t16, t17)
+
+	// Step 185: t15 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafb
 	t15.Mul(t15, t16)
+
+	// Step 193: t15 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafb00
 	for s := 0; s < 8; s++ {
 		t15.Square(t15)
 	}
+
+	// Step 194: t15 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5
 	t15.Mul(t14, t15)
+
+	// Step 201: t15 = x^0x17e6cb01520f297cca63e00608f5d89de57de280
 	for s := 0; s < 7; s++ {
 		t15.Square(t15)
 	}
+
+	// Step 202: t15 = x^0x17e6cb01520f297cca63e00608f5d89de57de2d5
 	t15.Mul(z, t15)
+
+	// Step 211: t15 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5aa00
 	for s := 0; s < 9; s++ {
 		t15.Square(t15)
 	}
+
+	// Step 212: t14 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5aac5
 	t14.Mul(t14, t15)
+
+	// Step 220: t14 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5aac500
 	for s := 0; s < 8; s++ {
 		t14.Square(t14)
 	}
+
+	// Step 221: t13 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5aac5e5
 	t13.Mul(t13, t14)
+
+	// Step 228: t13 = x^0x17e6cb01520f297cca63e00608f5d89de57de2d562f280
 	for s := 0; s < 7; s++ {
 		t13.Square(t13)
 	}
+
+	// Step 229: t12 = x^0x17e6cb01520f297cca63e00608f5d89de57de2d562f2dd
 	t12.Mul(t12, t13)
+
+	// Step 238: t12 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5aac5e5ba00
 	for s := 0; s < 9; s++ {
 		t12.Square(t12)
 	}
+
+	// Step 239: t11 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5aac5e5ba91
 	t11.Mul(t11, t12)
+
+	// Step 247: t11 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5aac5e5ba9100
 	for s := 0; s < 8; s++ {
 		t11.Square(t11)
 	}
+
+	// Step 248: t10 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5aac5e5ba91a9
 	t10.Mul(t10, t11)
+
+	// Step 257: t10 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb75235200
 	for s := 0; s < 9; s++ {
 		t10.Square(t10)
 	}
+
+	// Step 258: t9 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb75235287
 	t9.Mul(t9, t10)
+
+	// Step 263: t9 = x^0xbf36580a90794be6531f003047aec4ef2bef16ab1796ea46a50e0
 	for s := 0; s < 5; s++ {
 		t9.Square(t9)
 	}
+
+	// Step 264: t8 = x^0xbf36580a90794be6531f003047aec4ef2bef16ab1796ea46a50f3
 	t8.Mul(t8, t9)
+
+	// Step 273: t8 = x^0x17e6cb01520f297cca63e00608f5d89de57de2d562f2dd48d4a1e600
 	for s := 0; s < 9; s++ {
 		t8.Square(t8)
 	}
+
+	// Step 274: t7 = x^0x17e6cb01520f297cca63e00608f5d89de57de2d562f2dd48d4a1e635
 	t7.Mul(t7, t8)
+
+	// Step 288: t7 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4000
 	for s := 0; s < 14; s++ {
 		t7.Square(t7)
 	}
+
+	// Step 289: t6 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4021
 	t6.Mul(t6, t7)
+
+	// Step 314: t6 = x^0xbf36580a90794be6531f003047aec4ef2bef16ab1796ea46a50f31a8042000000
 	for s := 0; s < 25; s++ {
 		t6.Square(t6)
 	}
+
+	// Step 315: t5 = x^0xbf36580a90794be6531f003047aec4ef2bef16ab1796ea46a50f31a80420000a3
 	t5.Mul(t5, t6)
+
+	// Step 323: t5 = x^0xbf36580a90794be6531f003047aec4ef2bef16ab1796ea46a50f31a80420000a300
 	for s := 0; s < 8; s++ {
 		t5.Square(t5)
 	}
+
+	// Step 324: t4 = x^0xbf36580a90794be6531f003047aec4ef2bef16ab1796ea46a50f31a80420000a3df
 	t4.Mul(t4, t5)
+
+	// Step 332: t4 = x^0xbf36580a90794be6531f003047aec4ef2bef16ab1796ea46a50f31a80420000a3df00
 	for s := 0; s < 8; s++ {
 		t4.Square(t4)
 	}
+
+	// Step 333: t3 = x^0xbf36580a90794be6531f003047aec4ef2bef16ab1796ea46a50f31a80420000a3df09
 	t3.Mul(t3, t4)
+
+	// Step 347: t3 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5aac5e5ba91a943cc6a010800028f7c24000
 	for s := 0; s < 14; s++ {
 		t3.Square(t3)
 	}
+
+	// Step 348: t3 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5aac5e5ba91a943cc6a010800028f7c24055
 	t3.Mul(z, t3)
+
+	// Step 356: t3 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5aac5e5ba91a943cc6a010800028f7c2405500
 	for s := 0; s < 8; s++ {
 		t3.Square(t3)
 	}
+
+	// Step 357: t3 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5aac5e5ba91a943cc6a010800028f7c2405555
 	t3.Mul(z, t3)
+
+	// Step 365: t3 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5aac5e5ba91a943cc6a010800028f7c240555500
 	for s := 0; s < 8; s++ {
 		t3.Square(t3)
 	}
+
+	// Step 366: t3 = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5aac5e5ba91a943cc6a010800028f7c240555555
 	t3.Mul(z, t3)
+
+	// Step 373: t3 = x^0x17e6cb01520f297cca63e00608f5d89de57de2d562f2dd48d4a1e6350084000147be1202aaaaa80
 	for s := 0; s < 7; s++ {
 		t3.Square(t3)
 	}
+
+	// Step 374: t2 = x^0x17e6cb01520f297cca63e00608f5d89de57de2d562f2dd48d4a1e6350084000147be1202aaaaaab
 	t2.Mul(t2, t3)
+
+	// Step 384: t2 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4021000051ef8480aaaaaaac00
 	for s := 0; s < 10; s++ {
 		t2.Square(t2)
 	}
+
+	// Step 385: t1 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4021000051ef8480aaaaaaac83
 	t1.Mul(t1, t2)
+
+	// Step 393: t1 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4021000051ef8480aaaaaaac8300
 	for s := 0; s < 8; s++ {
 		t1.Square(t1)
 	}
+
+	// Step 394: t0 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4021000051ef8480aaaaaaac83ad
 	t0.Mul(t0, t1)
+
+	// Step 402: t0 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4021000051ef8480aaaaaaac83ad00
 	for s := 0; s < 8; s++ {
 		t0.Square(t0)
 	}
+
+	// Step 403: t0 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4021000051ef8480aaaaaaac83ad55
 	t0.Mul(z, t0)
+
+	// Step 411: t0 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4021000051ef8480aaaaaaac83ad5500
 	for s := 0; s < 8; s++ {
 		t0.Square(t0)
 	}
+
+	// Step 412: t0 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4021000051ef8480aaaaaaac83ad5555
 	t0.Mul(z, t0)
+
+	// Step 420: t0 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4021000051ef8480aaaaaaac83ad555500
 	for s := 0; s < 8; s++ {
 		t0.Square(t0)
 	}
+
+	// Step 421: t0 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4021000051ef8480aaaaaaac83ad555555
 	t0.Mul(z, t0)
+
+	// Step 429: t0 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4021000051ef8480aaaaaaac83ad55555500
 	for s := 0; s < 8; s++ {
 		t0.Square(t0)
 	}
+
+	// Step 430: t0 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4021000051ef8480aaaaaaac83ad55555555
 	t0.Mul(z, t0)
+
+	// Step 438: t0 = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4021000051ef8480aaaaaaac83ad5555555500
 	for s := 0; s < 8; s++ {
 		t0.Square(t0)
 	}
+
+	// Step 439: z = x^0x5f9b2c05483ca5f3298f801823d7627795f78b558bcb7523528798d4021000051ef8480aaaaaaac83ad5555555555
 	z.Mul(z, t0)
+
+	// Step 441: z = x^0x17e6cb01520f297cca63e00608f5d89de57de2d562f2dd48d4a1e6350084000147be1202aaaaaab20eb55555555554
 	for s := 0; s < 2; s++ {
 		z.Square(z)
 	}
+
+	// Step 442: z = x^0x17e6cb01520f297cca63e00608f5d89de57de2d562f2dd48d4a1e6350084000147be1202aaaaaab20eb55555555555
 	z.Mul(&x, z)
+
+	// Step 443: z = x^0x2fcd9602a41e52f994c7c00c11ebb13bcafbc5aac5e5ba91a943cc6a010800028f7c2405555555641d6aaaaaaaaaaa
 	z.Square(z)
 
 	return z
