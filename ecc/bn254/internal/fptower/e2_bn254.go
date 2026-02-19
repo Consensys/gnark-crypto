@@ -135,8 +135,9 @@ func cbrtAndNormInverse(norm *fp.Element) (m, normInv fp.Element, ok bool) {
 	normInv.Mul(&normInv, &t2) // t¹⁰ · m¹⁷ = norm^(q-2)
 
 	// Verify m³ = norm, adjust by ζ if needed (same logic as fp.Cbrt)
+	// Reuse m2 (= m²) from above to avoid recomputing the squaring in Cube.
 	var c fp.Element
-	c.Cube(&m)
+	c.Mul(&m2, &m)
 	if !c.Equal(norm) {
 		// Precomputed constants (same as in fp.Cbrt)
 		var zeta = fp.Element{
