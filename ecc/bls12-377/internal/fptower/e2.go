@@ -232,7 +232,7 @@ func (z *E2) Sqrt(x *E2) *E2 {
 //
 // Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
 func (z *E2) Cbrt(x *E2) *E2 {
-	return z.cbrtFrobenius(x)
+	return z.cbrtTorus(x)
 }
 
 // cbrtVerifyAndAdjust verifies y³ = x. Returns nil if x is not a cubic residue.

@@ -252,11 +252,13 @@ func (z *E2) Sqrt(a *E2) *E2 {
 //
 // Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
 func (z *E2) Cbrt(x *E2) *E2 {
-	return z.cbrtFrobenius(x)
+	return z.cbrtTorus(x)
 }
 
 // cbrtVerifyAndAdjust verifies y³ = x, adjusting by primitive 9th roots of unity if needed.
 // Returns nil if x is not a cubic residue.
+// Since ω, ω², ζ, ζ² are all in Fp (embedded as (val, 0)), all E2 multiplications
+// reduce to Fp-only multiplications: (a+bu)·(c+0u) = ac + bcu.
 func (z *E2) cbrtVerifyAndAdjust(x *E2, y *E2) *E2 {
 	// c = y³
 	var c E2
@@ -265,9 +267,8 @@ func (z *E2) cbrtVerifyAndAdjust(x *E2, y *E2) *E2 {
 		return z.Set(y)
 	}
 
-	// Primitive cube roots of unity ω, ω² (in Fp, embedded as (ω, 0))
-	var omega, omega2 E2
-	omega.A0 = fp.Element{
+	// Primitive cube roots of unity ω, ω² (in Fp)
+	var omega = fp.Element{
 		14772873186050699377,
 		6749526151121446354,
 		6372666795664677781,
@@ -275,7 +276,7 @@ func (z *E2) cbrtVerifyAndAdjust(x *E2, y *E2) *E2 {
 		286397964926079186,
 		1796971870900422465,
 	}
-	omega2.A0 = fp.Element{
+	var omega2 = fp.Element{
 		3526659474838938856,
 		17562030475567847978,
 		1632777218702014455,
@@ -285,8 +286,7 @@ func (z *E2) cbrtVerifyAndAdjust(x *E2, y *E2) *E2 {
 	}
 
 	// Primitive 9th roots of unity ζ, ζ² (in Fp)
-	var zeta, zeta2 E2
-	zeta.A0 = fp.Element{
+	var zeta = fp.Element{
 		13616190144799058984,
 		9227582506135211912,
 		4426607408274926740,
@@ -294,7 +294,7 @@ func (z *E2) cbrtVerifyAndAdjust(x *E2, y *E2) *E2 {
 		10794825842164118204,
 		335101026345095675,
 	}
-	zeta2.A0 = fp.Element{
+	var zeta2 = fp.Element{
 		3828863564860874189,
 		5918733612565202776,
 		16843310164143221096,
@@ -303,18 +303,26 @@ func (z *E2) cbrtVerifyAndAdjust(x *E2, y *E2) *E2 {
 		407112797415018074,
 	}
 
-	// Check if c * ω² = x, then y * ζ is the cube root
+	// Check if c * ω² = x (Fp-only mul: (c₀ω², c₁ω²))
 	var cw2 E2
-	cw2.Mul(&c, &omega2)
+	cw2.A0.Mul(&c.A0, &omega2)
+	cw2.A1.Mul(&c.A1, &omega2)
 	if cw2.Equal(x) {
-		return z.Mul(y, &zeta)
+		// y * ζ (Fp-only mul)
+		z.A0.Mul(&y.A0, &zeta)
+		z.A1.Mul(&y.A1, &zeta)
+		return z
 	}
 
-	// Check if c * ω = x, then y * ζ² is the cube root
+	// Check if c * ω = x
 	var cw E2
-	cw.Mul(&c, &omega)
+	cw.A0.Mul(&c.A0, &omega)
+	cw.A1.Mul(&c.A1, &omega)
 	if cw.Equal(x) {
-		return z.Mul(y, &zeta2)
+		// y * ζ²
+		z.A0.Mul(&y.A0, &zeta2)
+		z.A1.Mul(&y.A1, &zeta2)
+		return z
 	}
 
 	// x is not a cubic residue

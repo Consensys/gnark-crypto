@@ -1019,3 +1019,285 @@ func (z *Element) ExpByCbrtQPlus2Div9(x Element) *Element {
 
 	return z
 }
+
+// ExpByCbrtHelperQMinus7Div9 is equivalent to z.Exp(x, 2fcd9602a41e52f994c7c00c11ebb13bcafbc5aac5e5ba91a943cc6a010800028f7c2405555555641d6aaaaaaaaaaa).
+// It raises x to the (q-7)/9 power using an addition chain.
+// This helper is used by cbrtAndNormInverse to share exponentiation between
+// cube root and norm inverse computations.
+//
+// uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
+func (z *Element) ExpByCbrtHelperQMinus7Div9(x Element) *Element {
+	// addition chain:
+	//
+	//	_10       = 2*1
+	//	_11       = 1 + _10
+	//	_100      = 1 + _11
+	//	_110      = _10 + _100
+	//	_1001     = _11 + _110
+	//	_1010     = 1 + _1001
+	//	_10010    = 2*_1001
+	//	_10011    = 1 + _10010
+	//	_10100    = 1 + _10011
+	//	_11011    = _1001 + _10010
+	//	_11100    = 1 + _11011
+	//	_11110    = _10 + _11100
+	//	_11111    = 1 + _11110
+	//	_100001   = _10 + _11111
+	//	_101011   = _1010 + _100001
+	//	_110011   = _10010 + _100001
+	//	_110101   = _10 + _110011
+	//	_1010011  = _11110 + _110101
+	//	_1010101  = _10 + _1010011
+	//	_1011101  = _1010 + _1010011
+	//	_1111001  = _11100 + _1011101
+	//	_10000011 = _1010 + _1111001
+	//	_10000111 = _100 + _10000011
+	//	_10010001 = _1010 + _10000111
+	//	_10010111 = _110 + _10010001
+	//	_10011101 = _110 + _10010111
+	//	_10100011 = _110 + _10011101
+	//	_10101001 = _110 + _10100011
+	//	_10101101 = _100 + _10101001
+	//	_10111111 = _10010 + _10101101
+	//	_11000001 = _10 + _10111111
+	//	_11000101 = _100 + _11000001
+	//	_11011001 = _10100 + _11000101
+	//	_11011111 = _110 + _11011001
+	//	_11100101 = _110 + _11011111
+	//	_11110101 = _11100 + _11011001
+	//
+	// Operations: 375 squares 68 multiplies
+
+	// Allocate Temporaries.
+	var (
+		t0  = new(Element)
+		t1  = new(Element)
+		t2  = new(Element)
+		t3  = new(Element)
+		t4  = new(Element)
+		t5  = new(Element)
+		t6  = new(Element)
+		t7  = new(Element)
+		t8  = new(Element)
+		t9  = new(Element)
+		t10 = new(Element)
+		t11 = new(Element)
+		t12 = new(Element)
+		t13 = new(Element)
+		t14 = new(Element)
+		t15 = new(Element)
+		t16 = new(Element)
+		t17 = new(Element)
+		t18 = new(Element)
+		t19 = new(Element)
+		t20 = new(Element)
+		t21 = new(Element)
+		t22 = new(Element)
+		t23 = new(Element)
+		t24 = new(Element)
+		t25 = new(Element)
+		t26 = new(Element)
+		t27 = new(Element)
+	)
+
+	t14.Square(&x)
+	t25.Mul(&x, t14)
+	t13.Mul(&x, t25)
+	t16.Mul(t14, t13)
+	t3.Mul(t25, t16)
+	t0.Mul(&x, t3)
+	t19.Square(t3)
+	t8.Mul(&x, t19)
+	t4.Mul(&x, t8)
+	t18.Mul(t3, t19)
+	t15.Mul(&x, t18)
+	z.Mul(t14, t15)
+	t20.Mul(&x, z)
+	t6.Mul(t14, t20)
+	t2.Mul(t0, t6)
+	t22.Mul(t19, t6)
+	t7.Mul(t14, t22)
+	t21.Mul(z, t7)
+	z.Mul(t14, t21)
+	t12.Mul(t0, t21)
+	t24.Mul(t15, t12)
+	t1.Mul(t0, t24)
+	t9.Mul(t13, t1)
+	t11.Mul(t0, t9)
+	t23.Mul(t16, t11)
+	t17.Mul(t16, t23)
+	t5.Mul(t16, t17)
+	t10.Mul(t16, t5)
+	t0.Mul(t13, t10)
+	t27.Mul(t19, t0)
+	t19.Mul(t14, t27)
+	t14.Mul(t13, t19)
+	t26.Mul(t4, t14)
+	t4.Mul(t16, t26)
+	t13.Mul(t16, t4)
+	t15.Mul(t15, t26)
+	for s := 0; s < 10; s++ {
+		t27.Square(t27)
+	}
+	t26.Mul(t26, t27)
+	for s := 0; s < 3; s++ {
+		t26.Square(t26)
+	}
+	t25.Mul(t25, t26)
+	for s := 0; s < 15; s++ {
+		t25.Square(t25)
+	}
+	t25.Mul(t10, t25)
+	for s := 0; s < 12; s++ {
+		t25.Square(t25)
+	}
+	t24.Mul(t24, t25)
+	for s := 0; s < 9; s++ {
+		t24.Square(t24)
+	}
+	t23.Mul(t23, t24)
+	for s := 0; s < 6; s++ {
+		t23.Square(t23)
+	}
+	t22.Mul(t22, t23)
+	for s := 0; s < 9; s++ {
+		t22.Square(t22)
+	}
+	t21.Mul(t21, t22)
+	for s := 0; s < 8; s++ {
+		t21.Square(t21)
+	}
+	t20.Mul(t20, t21)
+	for s := 0; s < 18; s++ {
+		t20.Square(t20)
+	}
+	t19.Mul(t19, t20)
+	for s := 0; s < 11; s++ {
+		t19.Square(t19)
+	}
+	t19.Mul(t15, t19)
+	for s := 0; s < 5; s++ {
+		t19.Square(t19)
+	}
+	t18.Mul(t18, t19)
+	for s := 0; s < 11; s++ {
+		t18.Square(t18)
+	}
+	t17.Mul(t17, t18)
+	for s := 0; s < 8; s++ {
+		t17.Square(t17)
+	}
+	t17.Mul(t13, t17)
+	for s := 0; s < 9; s++ {
+		t17.Square(t17)
+	}
+	t16.Mul(t16, t17)
+	t15.Mul(t15, t16)
+	for s := 0; s < 8; s++ {
+		t15.Square(t15)
+	}
+	t15.Mul(t14, t15)
+	for s := 0; s < 7; s++ {
+		t15.Square(t15)
+	}
+	t15.Mul(z, t15)
+	for s := 0; s < 9; s++ {
+		t15.Square(t15)
+	}
+	t14.Mul(t14, t15)
+	for s := 0; s < 8; s++ {
+		t14.Square(t14)
+	}
+	t13.Mul(t13, t14)
+	for s := 0; s < 7; s++ {
+		t13.Square(t13)
+	}
+	t12.Mul(t12, t13)
+	for s := 0; s < 9; s++ {
+		t12.Square(t12)
+	}
+	t11.Mul(t11, t12)
+	for s := 0; s < 8; s++ {
+		t11.Square(t11)
+	}
+	t10.Mul(t10, t11)
+	for s := 0; s < 9; s++ {
+		t10.Square(t10)
+	}
+	t9.Mul(t9, t10)
+	for s := 0; s < 5; s++ {
+		t9.Square(t9)
+	}
+	t8.Mul(t8, t9)
+	for s := 0; s < 9; s++ {
+		t8.Square(t8)
+	}
+	t7.Mul(t7, t8)
+	for s := 0; s < 14; s++ {
+		t7.Square(t7)
+	}
+	t6.Mul(t6, t7)
+	for s := 0; s < 25; s++ {
+		t6.Square(t6)
+	}
+	t5.Mul(t5, t6)
+	for s := 0; s < 8; s++ {
+		t5.Square(t5)
+	}
+	t4.Mul(t4, t5)
+	for s := 0; s < 8; s++ {
+		t4.Square(t4)
+	}
+	t3.Mul(t3, t4)
+	for s := 0; s < 14; s++ {
+		t3.Square(t3)
+	}
+	t3.Mul(z, t3)
+	for s := 0; s < 8; s++ {
+		t3.Square(t3)
+	}
+	t3.Mul(z, t3)
+	for s := 0; s < 8; s++ {
+		t3.Square(t3)
+	}
+	t3.Mul(z, t3)
+	for s := 0; s < 7; s++ {
+		t3.Square(t3)
+	}
+	t2.Mul(t2, t3)
+	for s := 0; s < 10; s++ {
+		t2.Square(t2)
+	}
+	t1.Mul(t1, t2)
+	for s := 0; s < 8; s++ {
+		t1.Square(t1)
+	}
+	t0.Mul(t0, t1)
+	for s := 0; s < 8; s++ {
+		t0.Square(t0)
+	}
+	t0.Mul(z, t0)
+	for s := 0; s < 8; s++ {
+		t0.Square(t0)
+	}
+	t0.Mul(z, t0)
+	for s := 0; s < 8; s++ {
+		t0.Square(t0)
+	}
+	t0.Mul(z, t0)
+	for s := 0; s < 8; s++ {
+		t0.Square(t0)
+	}
+	t0.Mul(z, t0)
+	for s := 0; s < 8; s++ {
+		t0.Square(t0)
+	}
+	z.Mul(z, t0)
+	for s := 0; s < 2; s++ {
+		z.Square(z)
+	}
+	z.Mul(&x, z)
+	z.Square(z)
+
+	return z
+}
