@@ -265,15 +265,16 @@ func (z *E2) cbrtVerifyAndAdjust(x *E2, y *E2) *E2 {
 		return z.Set(y)
 	}
 
-	// Primitive cube roots of unity ω, ω² (in Fp, embedded as (ω, 0))
-	var omega, omega2 E2
-	omega.A0 = fp.Element{
+	// Primitive cube roots of unity ω, ω² (in Fp)
+	// These are pure-real in E2, so multiplication is just Fp scaling.
+	var omega, omega2 fp.Element
+	omega = fp.Element{
 		8183898218631979349,
 		12014359695528440611,
 		12263358156045030468,
 		3187210487005268291,
 	}
-	omega2.A0 = fp.Element{
+	omega2 = fp.Element{
 		3697675806616062876,
 		9065277094688085689,
 		6918009208039626314,
@@ -281,14 +282,14 @@ func (z *E2) cbrtVerifyAndAdjust(x *E2, y *E2) *E2 {
 	}
 
 	// Primitive 9th roots of unity ζ, ζ² (in Fp)
-	var zeta, zeta2 E2
-	zeta.A0 = fp.Element{
+	var zeta, zeta2 fp.Element
+	zeta = fp.Element{
 		9092840637269024442,
 		11284133545212953584,
 		7919372827184455520,
 		1596114425137527684,
 	}
-	zeta2.A0 = fp.Element{
+	zeta2 = fp.Element{
 		1735008219140503419,
 		10465829585049341007,
 		6017168831245289042,
@@ -297,16 +298,22 @@ func (z *E2) cbrtVerifyAndAdjust(x *E2, y *E2) *E2 {
 
 	// Check if c * ω² = x, then y * ζ is the cube root
 	var cw2 E2
-	cw2.Mul(&c, &omega2)
+	cw2.A0.Mul(&c.A0, &omega2)
+	cw2.A1.Mul(&c.A1, &omega2)
 	if cw2.Equal(x) {
-		return z.Mul(y, &zeta)
+		z.A0.Mul(&y.A0, &zeta)
+		z.A1.Mul(&y.A1, &zeta)
+		return z
 	}
 
 	// Check if c * ω = x, then y * ζ² is the cube root
 	var cw E2
-	cw.Mul(&c, &omega)
+	cw.A0.Mul(&c.A0, &omega)
+	cw.A1.Mul(&c.A1, &omega)
 	if cw.Equal(x) {
-		return z.Mul(y, &zeta2)
+		z.A0.Mul(&y.A0, &zeta2)
+		z.A1.Mul(&y.A1, &zeta2)
+		return z
 	}
 
 	// x is not a cubic residue
