@@ -103,9 +103,9 @@ var lucasExponent = [4]uint64{
 // cbrtAndNormInverse computes m = cbrt(norm) and normInv = 1/norm from a
 // single shared exponentiation, avoiding a separate Fp inversion.
 //
-// Let t = norm^((q-19)/27). Then:
-//   - m = norm · t  = norm^((q+8)/27)          (cube root candidate)
-//   - normInv = t^27 · norm^17 = norm^(q-2)    (Fermat inverse)
+// Let t = norm^((q-19)/27) and m₀ = norm · t = norm^((q+8)/27). Then:
+//   - m = m₀ (possibly adjusted by ζ)           (cube root)
+//   - normInv = t^10 · m₀^17 = norm^(q-2)      (Fermat inverse)
 //
 // The ζ-adjustment for the cube root is identical to fp.Cbrt.
 func cbrtAndNormInverse(norm *fp.Element) (m, normInv fp.Element, ok bool) {
@@ -115,6 +115,24 @@ func cbrtAndNormInverse(norm *fp.Element) (m, normInv fp.Element, ok bool) {
 
 	// m = norm · t = norm^((q+8)/27)
 	m.Mul(norm, &t)
+
+	// normInv = t^27 · norm^17 = t^10 · (norm·t)^17 = t^10 · m^17
+	// Compute BEFORE ζ-adjustment since it uses the unadjusted m.
+	// t^10: t² → t⁴ → t⁸ → t⁸·t² = t¹⁰
+	var t2, t4, t8 fp.Element
+	t2.Square(&t)
+	t4.Square(&t2)
+	t8.Square(&t4)
+	normInv.Mul(&t8, &t2) // t¹⁰
+
+	// m^17: m² → m⁴ → m⁸ → m¹⁶ → m¹⁶·m = m¹⁷
+	var m2, m4, m8, m16 fp.Element
+	m2.Square(&m)
+	m4.Square(&m2)
+	m8.Square(&m4)
+	m16.Square(&m8)
+	t2.Mul(&m16, &m)           // m¹⁷ (reuse t2)
+	normInv.Mul(&normInv, &t2) // t¹⁰ · m¹⁷ = norm^(q-2)
 
 	// Verify m³ = norm, adjust by ζ if needed (same logic as fp.Cbrt)
 	var c fp.Element
@@ -160,25 +178,6 @@ func cbrtAndNormInverse(norm *fp.Element) (m, normInv fp.Element, ok bool) {
 			}
 		}
 	}
-
-	// normInv = t^27 · norm^17 = norm^(q-2)
-	// t^27: t² → t³ → (t³)² = t⁶ → t⁶·t³ = t⁹ → (t⁹)² = t¹⁸ → t¹⁸·t⁹ = t²⁷
-	var t2, t3, t9 fp.Element
-	t2.Square(&t)
-	t3.Mul(&t2, &t)
-	t9.Square(&t3)   // t⁶
-	t9.Mul(&t9, &t3) // t⁹
-	t2.Square(&t9)   // t¹⁸
-	t2.Mul(&t2, &t9) // t²⁷
-
-	// norm^17: norm² → norm⁴ → norm⁸ → norm¹⁶ → norm¹⁶·norm = norm¹⁷
-	var n2, n4, n8, n16 fp.Element
-	n2.Square(norm)
-	n4.Square(&n2)
-	n8.Square(&n4)
-	n16.Square(&n8)
-	normInv.Mul(&n16, norm)    // norm^17
-	normInv.Mul(&normInv, &t2) // t^27 · norm^17 = norm^(q-2)
 
 	return m, normInv, true
 }
