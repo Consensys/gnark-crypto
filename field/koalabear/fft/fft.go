@@ -44,21 +44,29 @@ func (domain *Domain) FFT(a []koalabear.Element, decimation Decimation, opts ...
 	// if coset != 0, scale by coset table
 	if opt.coset {
 		if decimation == DIT {
-			// scale by coset table (in bit reversed order)
-			cosetTable := domain.cosetTable
-			if !domain.withPrecompute {
-				// we need to build the full table or do a bit reverse dance.
-				cosetTable = make([]koalabear.Element, len(a))
-				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
-			}
-			parallel.Execute(len(a), func(start, end int) {
-				n := uint64(len(a))
-				nn := uint64(64 - bits.TrailingZeros64(n))
-				for i := start; i < end; i++ {
-					irev := int(bits.Reverse64(uint64(i)) >> nn)
-					a[i].Mul(&a[i], &cosetTable[irev])
+			if domain.cosetTableBitReversed != nil {
+				parallel.Execute(len(a), func(start, end int) {
+					v1 := koalabear.Vector(a[start:end])
+					v2 := koalabear.Vector(domain.cosetTableBitReversed[start:end])
+					v1.Mul(v1, v2)
+				}, opt.nbTasks)
+			} else {
+				// scale by coset table (in bit reversed order)
+				cosetTable := domain.cosetTable
+				if !domain.withPrecompute {
+					// we need to build the full table or do a bit reverse dance.
+					cosetTable = make([]koalabear.Element, len(a))
+					BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 				}
-			}, opt.nbTasks)
+				parallel.Execute(len(a), func(start, end int) {
+					n := uint64(len(a))
+					nn := uint64(64 - bits.TrailingZeros64(n))
+					for i := start; i < end; i++ {
+						irev := int(bits.Reverse64(uint64(i)) >> nn)
+						a[i].Mul(&a[i], &cosetTable[irev])
+					}
+				}, opt.nbTasks)
+			}
 		} else {
 			if domain.withPrecompute {
 				parallel.Execute(len(a), func(start, end int) {
