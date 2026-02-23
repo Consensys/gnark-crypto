@@ -278,9 +278,14 @@ func (privKey *PrivateKey) SignField(msg fr.Element, hFunc FieldHasher) ([]byte,
 	var blindingFactorBigInt big.Int
 
 	msgBytes := msg.Bytes()
-	randSrc := make([]byte, 32+sizeFr)
+	// Domain-separated nonce: prepend 0x01 to prevent nonce reuse with Sign().
+	// Sign() uses Blake2b(randSrc || msg_bytes) without a domain tag (implicitly 0x00).
+	// Without this, Sign(msg.Bytes(), h1) and SignField(msg, h2) would share the
+	// same nonce R but produce different S values, enabling private key recovery.
+	randSrc := make([]byte, 32+1+sizeFr)
 	copy(randSrc, privKey.randSrc[:])
-	copy(randSrc[32:], msgBytes[:])
+	randSrc[32] = 0x01 // domain separation tag for SignField
+	copy(randSrc[33:], msgBytes[:])
 
 	// randBytes = H(randSrc)
 	blindingFactorBytes := blake2b.Sum512(randSrc[:]) // deterministic nonce
