@@ -11,6 +11,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/utils"
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
 )
@@ -52,19 +53,19 @@ func (domain *Domain) FFT(a []koalabear.Element, decimation Decimation, opts ...
 				}, opt.nbTasks)
 			} else {
 				// scale by coset table (in bit reversed order)
-				cosetTable := domain.cosetTable
-				if !domain.withPrecompute {
-					// we need to build the full table or do a bit reverse dance.
-					cosetTable = make([]koalabear.Element, len(a))
-					BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
+				var cosetTableBR []koalabear.Element
+				if domain.withPrecompute {
+					cosetTableBR = make([]koalabear.Element, len(a))
+					copy(cosetTableBR, domain.cosetTable)
+				} else {
+					cosetTableBR = make([]koalabear.Element, len(a))
+					BuildExpTable(domain.FrMultiplicativeGen, cosetTableBR)
 				}
+				utils.BitReverse(cosetTableBR)
 				parallel.Execute(len(a), func(start, end int) {
-					n := uint64(len(a))
-					nn := uint64(64 - bits.TrailingZeros64(n))
-					for i := start; i < end; i++ {
-						irev := int(bits.Reverse64(uint64(i)) >> nn)
-						a[i].Mul(&a[i], &cosetTable[irev])
-					}
+					v1 := koalabear.Vector(a[start:end])
+					v2 := koalabear.Vector(cosetTableBR[start:end])
+					v1.Mul(v1, v2)
 				}, opt.nbTasks)
 			}
 		} else {
@@ -75,14 +76,12 @@ func (domain *Domain) FFT(a []koalabear.Element, decimation Decimation, opts ...
 					v1.Mul(v1, v2)
 				}, opt.nbTasks)
 			} else {
-				c := domain.FrMultiplicativeGen
+				cosetTable := make([]koalabear.Element, len(a))
+				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 				parallel.Execute(len(a), func(start, end int) {
-					var at koalabear.Element
-					at.Exp(c, big.NewInt(int64(start)))
-					for i := start; i < end; i++ {
-						a[i].Mul(&a[i], &at)
-						at.Mul(&at, &c)
-					}
+					v1 := koalabear.Vector(a[start:end])
+					v2 := koalabear.Vector(cosetTable[start:end])
+					v1.Mul(v1, v2)
 				}, opt.nbTasks)
 			}
 
@@ -151,10 +150,10 @@ func (domain *Domain) FFTInverse(a []koalabear.Element, decimation Decimation, o
 
 	// scale by CardinalityInv
 	if !opt.coset {
+		// Use vectorized scalar multiply instead of element-by-element loop
 		parallel.Execute(len(a), func(start, end int) {
-			for i := start; i < end; i++ {
-				a[i].Mul(&a[i], &domain.CardinalityInv)
-			}
+			v := koalabear.Vector(a[start:end])
+			v.ScalarMul(v, &domain.CardinalityInv)
 		}, opt.nbTasks)
 		return
 	}
@@ -167,43 +166,46 @@ func (domain *Domain) FFTInverse(a []koalabear.Element, decimation Decimation, o
 				va.ScalarMul(va, &domain.CardinalityInv)
 			} else {
 				parallel.Execute(len(a), func(start, end int) {
-					for i := start; i < end; i++ {
-						a[i].Mul(&a[i], &domain.cosetTableInv[i]).
-							Mul(&a[i], &domain.CardinalityInv)
-					}
+					v := koalabear.Vector(a[start:end])
+					v.Mul(v, koalabear.Vector(domain.cosetTableInv[start:end]))
+					v.ScalarMul(v, &domain.CardinalityInv)
 				}, opt.nbTasks)
 			}
 		} else {
-			c := domain.FrMultiplicativeGenInv
+			cosetTableInv := make([]koalabear.Element, len(a))
+			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
 			parallel.Execute(len(a), func(start, end int) {
-				var at koalabear.Element
-				at.Exp(c, big.NewInt(int64(start)))
-				at.Mul(&at, &domain.CardinalityInv)
-				for i := start; i < end; i++ {
-					a[i].Mul(&a[i], &at)
-					at.Mul(&at, &c)
-				}
+				v := koalabear.Vector(a[start:end])
+				v.Mul(v, koalabear.Vector(cosetTableInv[start:end]))
+				v.ScalarMul(v, &domain.CardinalityInv)
 			}, opt.nbTasks)
 		}
 		return
 	}
 
 	// decimation == DIF, need to access coset table in bit reversed order.
-	cosetTableInv := domain.cosetTableInv
-	if !domain.withPrecompute {
-		// we need to build the full table or do a bit reverse dance.
-		cosetTableInv = make([]koalabear.Element, len(a))
-		BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
-	}
-	parallel.Execute(len(a), func(start, end int) {
-		n := uint64(len(a))
-		nn := uint64(64 - bits.TrailingZeros64(n))
-		for i := start; i < end; i++ {
-			irev := int(bits.Reverse64(uint64(i)) >> nn)
-			a[i].Mul(&a[i], &cosetTableInv[irev]).
-				Mul(&a[i], &domain.CardinalityInv)
+	if domain.cosetTableInvBitReversed != nil {
+		parallel.Execute(len(a), func(start, end int) {
+			v := koalabear.Vector(a[start:end])
+			v.Mul(v, koalabear.Vector(domain.cosetTableInvBitReversed[start:end]))
+			v.ScalarMul(v, &domain.CardinalityInv)
+		}, opt.nbTasks)
+	} else {
+		var cosetTableInvBR []koalabear.Element
+		if domain.withPrecompute {
+			cosetTableInvBR = make([]koalabear.Element, len(a))
+			copy(cosetTableInvBR, domain.cosetTableInv)
+		} else {
+			cosetTableInvBR = make([]koalabear.Element, len(a))
+			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInvBR)
 		}
-	}, opt.nbTasks)
+		utils.BitReverse(cosetTableInvBR)
+		parallel.Execute(len(a), func(start, end int) {
+			v := koalabear.Vector(a[start:end])
+			v.Mul(v, koalabear.Vector(cosetTableInvBR[start:end]))
+			v.ScalarMul(v, &domain.CardinalityInv)
+		}, opt.nbTasks)
+	}
 
 }
 
@@ -287,11 +289,21 @@ func innerDIFWithoutTwiddles(a []koalabear.Element, at, w koalabear.Element, sta
 		koalabear.Butterfly(&a[0], &a[m])
 		start++
 	}
+	if start >= end {
+		return
+	}
+	// precompute twiddles for this chunk
+	tw := make([]koalabear.Element, end-start)
+	tw[0].Set(&at)
+	for i := 1; i < len(tw); i++ {
+		tw[i].Mul(&tw[i-1], &w)
+	}
 	for i := start; i < end; i++ {
 		koalabear.Butterfly(&a[i], &a[i+m])
-		a[i+m].Mul(&a[i+m], &at)
-		at.Mul(&at, &w)
 	}
+	v1 := koalabear.Vector(a[start+m : end+m])
+	v2 := koalabear.Vector(tw)
+	v1.Mul(v1, v2)
 }
 
 func ditFFT(a []koalabear.Element, w koalabear.Element, twiddles [][]koalabear.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
@@ -373,10 +385,20 @@ func innerDITWithoutTwiddles(a []koalabear.Element, at, w koalabear.Element, sta
 		koalabear.Butterfly(&a[0], &a[m])
 		start++
 	}
+	if start >= end {
+		return
+	}
+	// precompute twiddles for this chunk
+	tw := make([]koalabear.Element, end-start)
+	tw[0].Set(&at)
+	for i := 1; i < len(tw); i++ {
+		tw[i].Mul(&tw[i-1], &w)
+	}
+	v1 := koalabear.Vector(a[start+m : end+m])
+	v2 := koalabear.Vector(tw)
+	v1.Mul(v1, v2)
 	for i := start; i < end; i++ {
-		a[i+m].Mul(&a[i+m], &at)
 		koalabear.Butterfly(&a[i], &a[i+m])
-		at.Mul(&at, &w)
 	}
 }
 

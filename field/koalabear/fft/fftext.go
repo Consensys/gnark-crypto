@@ -11,6 +11,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/utils"
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
@@ -41,19 +42,18 @@ func (domain *Domain) FFTExt(a []fext.E4, decimation Decimation, opts ...Option)
 				}, opt.nbTasks)
 			} else {
 				// scale by coset table (in bit reversed order)
-				cosetTable := domain.cosetTable
-				if !domain.withPrecompute {
-					// we need to build the full table or do a bit reverse dance.
-					cosetTable = make([]koalabear.Element, len(a))
-					BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
+				var cosetTableBR []koalabear.Element
+				if domain.withPrecompute {
+					cosetTableBR = make([]koalabear.Element, len(a))
+					copy(cosetTableBR, domain.cosetTable)
+				} else {
+					cosetTableBR = make([]koalabear.Element, len(a))
+					BuildExpTable(domain.FrMultiplicativeGen, cosetTableBR)
 				}
+				utils.BitReverse(cosetTableBR)
 				parallel.Execute(len(a), func(start, end int) {
-					n := uint64(len(a))
-					nn := uint64(64 - bits.TrailingZeros64(n))
-					for i := start; i < end; i++ {
-						irev := int(bits.Reverse64(uint64(i)) >> nn)
-						a[i].MulByElement(&a[i], &cosetTable[irev])
-					}
+					va := fext.Vector(a[start:end])
+					va.MulByElement(va, cosetTableBR[start:end])
 				}, opt.nbTasks)
 			}
 		} else {
@@ -64,14 +64,11 @@ func (domain *Domain) FFTExt(a []fext.E4, decimation Decimation, opts ...Option)
 					va.MulByElement(va, domain.cosetTable[start:end])
 				}, opt.nbTasks)
 			} else {
-				c := domain.FrMultiplicativeGen
+				cosetTable := make([]koalabear.Element, len(a))
+				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 				parallel.Execute(len(a), func(start, end int) {
-					var at koalabear.Element
-					at.Exp(c, big.NewInt(int64(start)))
-					for i := start; i < end; i++ {
-						a[i].MulByElement(&a[i], &at)
-						at.Mul(&at, &c)
-					}
+					va := fext.Vector(a[start:end])
+					va.MulByElement(va, cosetTable[start:end])
 				}, opt.nbTasks)
 			}
 
@@ -162,38 +159,40 @@ func (domain *Domain) FFTInverseExt(a []fext.E4, decimation Decimation, opts ...
 				}, opt.nbTasks)
 			}
 		} else {
-			c := domain.FrMultiplicativeGenInv
+			cosetTableInv := make([]koalabear.Element, len(a))
+			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
 			parallel.Execute(len(a), func(start, end int) {
-				var at koalabear.Element
-				at.Exp(c, big.NewInt(int64(start)))
-				at.Mul(&at, &domain.CardinalityInv)
-				for i := start; i < end; i++ {
-					a[i].MulByElement(&a[i], &at)
-					at.Mul(&at, &c)
-				}
+				va := fext.Vector(a[start:end])
+				va.MulByElement(va, cosetTableInv[start:end])
+				va.ScalarMulByElement(va, &domain.CardinalityInv)
 			}, opt.nbTasks)
 		}
 		return
 	}
 
 	// decimation == DIF, need to access coset table in bit reversed order.
-	cosetTableInv := domain.cosetTableInv
-	if !domain.withPrecompute {
-		// we need to build the full table or do a bit reverse dance.
-		cosetTableInv = make([]koalabear.Element, len(a))
-		BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
-	}
-	parallel.Execute(len(a), func(start, end int) {
-		n := uint64(len(a))
-		nn := uint64(64 - bits.TrailingZeros64(n))
-		for i := start; i < end; i++ {
-			irev := int(bits.Reverse64(uint64(i)) >> nn)
-			a[i].MulByElement(&a[i], &cosetTableInv[irev])
+	if domain.cosetTableInvBitReversed != nil {
+		parallel.Execute(len(a), func(start, end int) {
+			va := fext.Vector(a[start:end])
+			va.MulByElement(va, domain.cosetTableInvBitReversed[start:end])
+			va.ScalarMulByElement(va, &domain.CardinalityInv)
+		}, opt.nbTasks)
+	} else {
+		var cosetTableInvBR []koalabear.Element
+		if domain.withPrecompute {
+			cosetTableInvBR = make([]koalabear.Element, len(a))
+			copy(cosetTableInvBR, domain.cosetTableInv)
+		} else {
+			cosetTableInvBR = make([]koalabear.Element, len(a))
+			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInvBR)
 		}
-
-		va := fext.Vector(a[start:end])
-		va.ScalarMulByElement(va, &domain.CardinalityInv)
-	}, opt.nbTasks)
+		utils.BitReverse(cosetTableInvBR)
+		parallel.Execute(len(a), func(start, end int) {
+			va := fext.Vector(a[start:end])
+			va.MulByElement(va, cosetTableInvBR[start:end])
+			va.ScalarMulByElement(va, &domain.CardinalityInv)
+		}, opt.nbTasks)
+	}
 
 }
 
@@ -271,11 +270,19 @@ func innerDIFWithoutTwiddlesExt(a []fext.E4, at, w koalabear.Element, start, end
 		fext.Butterfly(&a[0], &a[m])
 		start++
 	}
-	for i := start; i < end; i++ {
-		fext.Butterfly(&a[i], &a[i+m])
-		a[i+m].MulByElement(&a[i+m], &at)
-		at.Mul(&at, &w)
+	if start >= end {
+		return
 	}
+	// precompute twiddles for this chunk
+	tw := make([]koalabear.Element, end-start)
+	tw[0].Set(&at)
+	for i := 1; i < len(tw); i++ {
+		tw[i].Mul(&tw[i-1], &w)
+	}
+	va0 := fext.Vector(a[start:end])
+	va1 := fext.Vector(a[start+m : end+m])
+	va0.Butterfly(va1)
+	va1.MulByElement(va1, tw)
 }
 
 func ditFFTExt(a []fext.E4, w koalabear.Element, twiddles [][]koalabear.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
@@ -359,11 +366,19 @@ func innerDITWithoutTwiddlesExt(a []fext.E4, at, w koalabear.Element, start, end
 		fext.Butterfly(&a[0], &a[m])
 		start++
 	}
-	for i := start; i < end; i++ {
-		a[i+m].MulByElement(&a[i+m], &at)
-		fext.Butterfly(&a[i], &a[i+m])
-		at.Mul(&at, &w)
+	if start >= end {
+		return
 	}
+	// precompute twiddles for this chunk
+	tw := make([]koalabear.Element, end-start)
+	tw[0].Set(&at)
+	for i := 1; i < len(tw); i++ {
+		tw[i].Mul(&tw[i-1], &w)
+	}
+	va0 := fext.Vector(a[start:end])
+	va1 := fext.Vector(a[start+m : end+m])
+	va1.MulByElement(va1, tw)
+	va0.Butterfly(va1)
 }
 
 func kerDIFNP_512Ext(a []fext.E4, twiddles [][]koalabear.Element, stage int) {
