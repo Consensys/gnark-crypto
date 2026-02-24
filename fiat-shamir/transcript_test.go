@@ -41,21 +41,30 @@ func initTranscriptWithNewChallenge() *Transcript {
 	fs := NewTranscript(sha256.New())
 
 	values := [][]byte{[]byte("v1"), []byte("v2"), []byte("v3"), []byte("v4"), []byte("v5"), []byte("v6")}
-	fs.NewChallenge("alpha")
+	err := fs.NewChallenge("alpha")
+	if err != nil {
+		panic(err)
+	}
 	if err := fs.Bind("alpha", values[0]); err != nil {
 		panic(err)
 	}
 	if err := fs.Bind("alpha", values[1]); err != nil {
 		panic(err)
 	}
-	fs.NewChallenge("beta")
+	err = fs.NewChallenge("beta")
+	if err != nil {
+		panic(err)
+	}
 	if err := fs.Bind("beta", values[2]); err != nil {
 		panic(err)
 	}
 	if err := fs.Bind("beta", values[3]); err != nil {
 		panic(err)
 	}
-	fs.NewChallenge("gamma")
+	err = fs.NewChallenge("gamma")
+	if err != nil {
+		panic(err)
+	}
 	if err := fs.Bind("gamma", values[4]); err != nil {
 		panic(err)
 	}
@@ -151,10 +160,10 @@ func TestNewChallenge(t *testing.T) {
 		t.Fatal("New(<challenge>) api not consistent with NewTranscript(<challenge...>)")
 	}
 	if !bytes.Equal(beta, betaBis) {
-		t.Fatal("computing the same challenge twice should return the same value")
+		t.Fatal("New(<challenge>) api not consistent with NewTranscript(<challenge...>)")
 	}
 	if !bytes.Equal(gamma, gammaBis) {
-		t.Fatal("computing the same challenge twice should return the same value")
+		t.Fatal("New(<challenge>) api not consistent with NewTranscript(<challenge...>)")
 	}
 
 }
