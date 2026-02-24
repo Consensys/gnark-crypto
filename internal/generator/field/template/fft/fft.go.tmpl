@@ -3,7 +3,10 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/internal/parallel"
 	"math/big"
-	
+	{{- if .F31}}
+	"github.com/consensys/gnark-crypto/utils"
+	{{- end}}
+
 	"{{ .FieldPackagePath }}"
 )
 
@@ -36,6 +39,31 @@ func (domain *Domain) FFT(a []{{ .FF }}.Element, decimation Decimation, opts ...
 	// if coset != 0, scale by coset table
 	if opt.coset {
 		if decimation == DIT {
+			{{- if .F31}}
+			if domain.cosetTableBitReversed != nil {
+				parallel.Execute(len(a), func(start, end int) {
+					v1 := {{ .FF }}.Vector(a[start:end])
+					v2 := {{ .FF }}.Vector(domain.cosetTableBitReversed[start:end])
+					v1.Mul(v1, v2)
+				}, opt.nbTasks)
+			} else {
+				// scale by coset table (in bit reversed order)
+				var cosetTableBR []{{ .FF }}.Element
+				if domain.withPrecompute {
+					cosetTableBR = make([]{{ .FF }}.Element, len(a))
+					copy(cosetTableBR, domain.cosetTable)
+				} else {
+					cosetTableBR = make([]{{ .FF }}.Element, len(a))
+					BuildExpTable(domain.FrMultiplicativeGen, cosetTableBR)
+				}
+				utils.BitReverse(cosetTableBR)
+				parallel.Execute(len(a), func(start, end int) {
+					v1 := {{ .FF }}.Vector(a[start:end])
+					v2 := {{ .FF }}.Vector(cosetTableBR[start:end])
+					v1.Mul(v1, v2)
+				}, opt.nbTasks)
+			}
+			{{- else}}
 			// scale by coset table (in bit reversed order)
 			cosetTable := domain.cosetTable
 			if !domain.withPrecompute {
@@ -51,6 +79,7 @@ func (domain *Domain) FFT(a []{{ .FF }}.Element, decimation Decimation, opts ...
 					a[i].Mul(&a[i], &cosetTable[irev])
 				}
 			}, opt.nbTasks)
+			{{- end}}
 		} else {
 			if domain.withPrecompute {
 				parallel.Execute(len(a), func(start, end int) {
@@ -59,6 +88,15 @@ func (domain *Domain) FFT(a []{{ .FF }}.Element, decimation Decimation, opts ...
 					v1.Mul(v1, v2)
 				}, opt.nbTasks)
 			} else {
+				{{- if .F31}}
+				cosetTable := make([]{{ .FF }}.Element, len(a))
+				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
+				parallel.Execute(len(a), func(start, end int) {
+					v1 := {{ .FF }}.Vector(a[start:end])
+					v2 := {{ .FF }}.Vector(cosetTable[start:end])
+					v1.Mul(v1, v2)
+				}, opt.nbTasks)
+				{{- else}}
 				c := domain.FrMultiplicativeGen
 				parallel.Execute(len(a), func(start, end int) {
 					var at {{ .FF }}.Element
@@ -68,8 +106,9 @@ func (domain *Domain) FFT(a []{{ .FF }}.Element, decimation Decimation, opts ...
 						at.Mul(&at, &c)
 					}
 				}, opt.nbTasks)
+				{{- end}}
 			}
-	
+
 		}
 	}
 
@@ -137,11 +176,19 @@ func (domain *Domain) FFTInverse(a []{{ .FF }}.Element, decimation Decimation, o
 
 	// scale by CardinalityInv
 	if !opt.coset {
+		{{- if .F31}}
+		// Use vectorized scalar multiply instead of element-by-element loop
+		parallel.Execute(len(a), func(start, end int) {
+			v := {{ .FF }}.Vector(a[start:end])
+			v.ScalarMul(v, &domain.CardinalityInv)
+		}, opt.nbTasks)
+		{{- else}}
 		parallel.Execute(len(a), func(start, end int) {
 			for i := start; i < end; i++ {
 				a[i].Mul(&a[i], &domain.CardinalityInv)
 			}
 		}, opt.nbTasks)
+		{{- end}}
 		return
 	}
 
@@ -155,10 +202,9 @@ func (domain *Domain) FFTInverse(a []{{ .FF }}.Element, decimation Decimation, o
 				va.ScalarMul(va, &domain.CardinalityInv)
 			} else {
 				parallel.Execute(len(a), func(start, end int) {
-					for i := start; i < end; i++ {
-						a[i].Mul(&a[i], &domain.cosetTableInv[i]).
-							Mul(&a[i], &domain.CardinalityInv)
-					}
+					v := {{ .FF }}.Vector(a[start:end])
+					v.Mul(v, {{ .FF }}.Vector(domain.cosetTableInv[start:end]))
+					v.ScalarMul(v, &domain.CardinalityInv)
 				}, opt.nbTasks)
 			}
 			{{- else}}
@@ -170,6 +216,15 @@ func (domain *Domain) FFTInverse(a []{{ .FF }}.Element, decimation Decimation, o
 			}, opt.nbTasks)
 			{{- end}}
 		} else {
+			{{- if .F31}}
+			cosetTableInv := make([]{{ .FF }}.Element, len(a))
+			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
+			parallel.Execute(len(a), func(start, end int) {
+				v := {{ .FF }}.Vector(a[start:end])
+				v.Mul(v, {{ .FF }}.Vector(cosetTableInv[start:end]))
+				v.ScalarMul(v, &domain.CardinalityInv)
+			}, opt.nbTasks)
+			{{- else}}
 			c := domain.FrMultiplicativeGenInv
 			parallel.Execute(len(a), func(start, end int) {
 				var at {{ .FF }}.Element
@@ -180,11 +235,36 @@ func (domain *Domain) FFTInverse(a []{{ .FF }}.Element, decimation Decimation, o
 					at.Mul(&at, &c)
 				}
 			}, opt.nbTasks)
+			{{- end}}
 		}
 		return
 	}
 
 	// decimation == DIF, need to access coset table in bit reversed order.
+	{{- if .F31}}
+	if domain.cosetTableInvBitReversed != nil {
+		parallel.Execute(len(a), func(start, end int) {
+			v := {{ .FF }}.Vector(a[start:end])
+			v.Mul(v, {{ .FF }}.Vector(domain.cosetTableInvBitReversed[start:end]))
+			v.ScalarMul(v, &domain.CardinalityInv)
+		}, opt.nbTasks)
+	} else {
+		var cosetTableInvBR []{{ .FF }}.Element
+		if domain.withPrecompute {
+			cosetTableInvBR = make([]{{ .FF }}.Element, len(a))
+			copy(cosetTableInvBR, domain.cosetTableInv)
+		} else {
+			cosetTableInvBR = make([]{{ .FF }}.Element, len(a))
+			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInvBR)
+		}
+		utils.BitReverse(cosetTableInvBR)
+		parallel.Execute(len(a), func(start, end int) {
+			v := {{ .FF }}.Vector(a[start:end])
+			v.Mul(v, {{ .FF }}.Vector(cosetTableInvBR[start:end]))
+			v.ScalarMul(v, &domain.CardinalityInv)
+		}, opt.nbTasks)
+	}
+	{{- else}}
 	cosetTableInv := domain.cosetTableInv
 	if !domain.withPrecompute {
 		// we need to build the full table or do a bit reverse dance.
@@ -200,6 +280,7 @@ func (domain *Domain) FFTInverse(a []{{ .FF }}.Element, decimation Decimation, o
 				Mul(&a[i], &domain.CardinalityInv)
 		}
 	}, opt.nbTasks)
+	{{- end}}
 
 }
 
@@ -296,11 +377,29 @@ func innerDIFWithoutTwiddles(a []{{ .FF }}.Element, at, w {{ .FF }}.Element, sta
 		{{ .FF }}.Butterfly(&a[0], &a[m])
 		start++
 	}
+	{{- if .F31}}
+	if start >= end {
+		return
+	}
+	// precompute twiddles for this chunk
+	tw := make([]{{ .FF }}.Element, end-start)
+	tw[0].Set(&at)
+	for i := 1; i < len(tw); i++ {
+		tw[i].Mul(&tw[i-1], &w)
+	}
+	for i := start; i < end; i++ {
+		{{ .FF }}.Butterfly(&a[i], &a[i+m])
+	}
+	v1 := {{ .FF }}.Vector(a[start+m : end+m])
+	v2 := {{ .FF }}.Vector(tw)
+	v1.Mul(v1, v2)
+	{{- else}}
 	for i := start; i < end; i++ {
 		{{ .FF }}.Butterfly(&a[i], &a[i+m])
 		a[i+m].Mul(&a[i+m], &at)
 		at.Mul(&at, &w)
 	}
+	{{- end}}
 }
 
 
@@ -397,11 +496,29 @@ func innerDITWithoutTwiddles(a []{{ .FF }}.Element, at, w {{ .FF }}.Element, sta
 		{{ .FF }}.Butterfly(&a[0], &a[m])
 		start++
 	}
+	{{- if .F31}}
+	if start >= end {
+		return
+	}
+	// precompute twiddles for this chunk
+	tw := make([]{{ .FF }}.Element, end-start)
+	tw[0].Set(&at)
+	for i := 1; i < len(tw); i++ {
+		tw[i].Mul(&tw[i-1], &w)
+	}
+	v1 := {{ .FF }}.Vector(a[start+m : end+m])
+	v2 := {{ .FF }}.Vector(tw)
+	v1.Mul(v1, v2)
+	for i := start; i < end; i++ {
+		{{ .FF }}.Butterfly(&a[i], &a[i+m])
+	}
+	{{- else}}
 	for i := start; i < end; i++ {
 		a[i+m].Mul(&a[i+m], &at)
 		{{ .FF }}.Butterfly(&a[i], &a[i+m])
 		at.Mul(&at, &w)
 	}
+	{{- end}}
 }
 
 {{range $ki, $klog2 := $.Kernels}}

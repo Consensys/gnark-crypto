@@ -11,6 +11,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/utils"
 
 	"github.com/consensys/gnark-crypto/field/babybear"
 )
@@ -44,21 +45,29 @@ func (domain *Domain) FFT(a []babybear.Element, decimation Decimation, opts ...O
 	// if coset != 0, scale by coset table
 	if opt.coset {
 		if decimation == DIT {
-			// scale by coset table (in bit reversed order)
-			cosetTable := domain.cosetTable
-			if !domain.withPrecompute {
-				// we need to build the full table or do a bit reverse dance.
-				cosetTable = make([]babybear.Element, len(a))
-				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
-			}
-			parallel.Execute(len(a), func(start, end int) {
-				n := uint64(len(a))
-				nn := uint64(64 - bits.TrailingZeros64(n))
-				for i := start; i < end; i++ {
-					irev := int(bits.Reverse64(uint64(i)) >> nn)
-					a[i].Mul(&a[i], &cosetTable[irev])
+			if domain.cosetTableBitReversed != nil {
+				parallel.Execute(len(a), func(start, end int) {
+					v1 := babybear.Vector(a[start:end])
+					v2 := babybear.Vector(domain.cosetTableBitReversed[start:end])
+					v1.Mul(v1, v2)
+				}, opt.nbTasks)
+			} else {
+				// scale by coset table (in bit reversed order)
+				var cosetTableBR []babybear.Element
+				if domain.withPrecompute {
+					cosetTableBR = make([]babybear.Element, len(a))
+					copy(cosetTableBR, domain.cosetTable)
+				} else {
+					cosetTableBR = make([]babybear.Element, len(a))
+					BuildExpTable(domain.FrMultiplicativeGen, cosetTableBR)
 				}
-			}, opt.nbTasks)
+				utils.BitReverse(cosetTableBR)
+				parallel.Execute(len(a), func(start, end int) {
+					v1 := babybear.Vector(a[start:end])
+					v2 := babybear.Vector(cosetTableBR[start:end])
+					v1.Mul(v1, v2)
+				}, opt.nbTasks)
+			}
 		} else {
 			if domain.withPrecompute {
 				parallel.Execute(len(a), func(start, end int) {
@@ -67,14 +76,12 @@ func (domain *Domain) FFT(a []babybear.Element, decimation Decimation, opts ...O
 					v1.Mul(v1, v2)
 				}, opt.nbTasks)
 			} else {
-				c := domain.FrMultiplicativeGen
+				cosetTable := make([]babybear.Element, len(a))
+				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 				parallel.Execute(len(a), func(start, end int) {
-					var at babybear.Element
-					at.Exp(c, big.NewInt(int64(start)))
-					for i := start; i < end; i++ {
-						a[i].Mul(&a[i], &at)
-						at.Mul(&at, &c)
-					}
+					v1 := babybear.Vector(a[start:end])
+					v2 := babybear.Vector(cosetTable[start:end])
+					v1.Mul(v1, v2)
 				}, opt.nbTasks)
 			}
 
@@ -143,10 +150,10 @@ func (domain *Domain) FFTInverse(a []babybear.Element, decimation Decimation, op
 
 	// scale by CardinalityInv
 	if !opt.coset {
+		// Use vectorized scalar multiply instead of element-by-element loop
 		parallel.Execute(len(a), func(start, end int) {
-			for i := start; i < end; i++ {
-				a[i].Mul(&a[i], &domain.CardinalityInv)
-			}
+			v := babybear.Vector(a[start:end])
+			v.ScalarMul(v, &domain.CardinalityInv)
 		}, opt.nbTasks)
 		return
 	}
@@ -159,43 +166,46 @@ func (domain *Domain) FFTInverse(a []babybear.Element, decimation Decimation, op
 				va.ScalarMul(va, &domain.CardinalityInv)
 			} else {
 				parallel.Execute(len(a), func(start, end int) {
-					for i := start; i < end; i++ {
-						a[i].Mul(&a[i], &domain.cosetTableInv[i]).
-							Mul(&a[i], &domain.CardinalityInv)
-					}
+					v := babybear.Vector(a[start:end])
+					v.Mul(v, babybear.Vector(domain.cosetTableInv[start:end]))
+					v.ScalarMul(v, &domain.CardinalityInv)
 				}, opt.nbTasks)
 			}
 		} else {
-			c := domain.FrMultiplicativeGenInv
+			cosetTableInv := make([]babybear.Element, len(a))
+			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
 			parallel.Execute(len(a), func(start, end int) {
-				var at babybear.Element
-				at.Exp(c, big.NewInt(int64(start)))
-				at.Mul(&at, &domain.CardinalityInv)
-				for i := start; i < end; i++ {
-					a[i].Mul(&a[i], &at)
-					at.Mul(&at, &c)
-				}
+				v := babybear.Vector(a[start:end])
+				v.Mul(v, babybear.Vector(cosetTableInv[start:end]))
+				v.ScalarMul(v, &domain.CardinalityInv)
 			}, opt.nbTasks)
 		}
 		return
 	}
 
 	// decimation == DIF, need to access coset table in bit reversed order.
-	cosetTableInv := domain.cosetTableInv
-	if !domain.withPrecompute {
-		// we need to build the full table or do a bit reverse dance.
-		cosetTableInv = make([]babybear.Element, len(a))
-		BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
-	}
-	parallel.Execute(len(a), func(start, end int) {
-		n := uint64(len(a))
-		nn := uint64(64 - bits.TrailingZeros64(n))
-		for i := start; i < end; i++ {
-			irev := int(bits.Reverse64(uint64(i)) >> nn)
-			a[i].Mul(&a[i], &cosetTableInv[irev]).
-				Mul(&a[i], &domain.CardinalityInv)
+	if domain.cosetTableInvBitReversed != nil {
+		parallel.Execute(len(a), func(start, end int) {
+			v := babybear.Vector(a[start:end])
+			v.Mul(v, babybear.Vector(domain.cosetTableInvBitReversed[start:end]))
+			v.ScalarMul(v, &domain.CardinalityInv)
+		}, opt.nbTasks)
+	} else {
+		var cosetTableInvBR []babybear.Element
+		if domain.withPrecompute {
+			cosetTableInvBR = make([]babybear.Element, len(a))
+			copy(cosetTableInvBR, domain.cosetTableInv)
+		} else {
+			cosetTableInvBR = make([]babybear.Element, len(a))
+			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInvBR)
 		}
-	}, opt.nbTasks)
+		utils.BitReverse(cosetTableInvBR)
+		parallel.Execute(len(a), func(start, end int) {
+			v := babybear.Vector(a[start:end])
+			v.Mul(v, babybear.Vector(cosetTableInvBR[start:end]))
+			v.ScalarMul(v, &domain.CardinalityInv)
+		}, opt.nbTasks)
+	}
 
 }
 
@@ -279,11 +289,21 @@ func innerDIFWithoutTwiddles(a []babybear.Element, at, w babybear.Element, start
 		babybear.Butterfly(&a[0], &a[m])
 		start++
 	}
+	if start >= end {
+		return
+	}
+	// precompute twiddles for this chunk
+	tw := make([]babybear.Element, end-start)
+	tw[0].Set(&at)
+	for i := 1; i < len(tw); i++ {
+		tw[i].Mul(&tw[i-1], &w)
+	}
 	for i := start; i < end; i++ {
 		babybear.Butterfly(&a[i], &a[i+m])
-		a[i+m].Mul(&a[i+m], &at)
-		at.Mul(&at, &w)
 	}
+	v1 := babybear.Vector(a[start+m : end+m])
+	v2 := babybear.Vector(tw)
+	v1.Mul(v1, v2)
 }
 
 func ditFFT(a []babybear.Element, w babybear.Element, twiddles [][]babybear.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
@@ -365,10 +385,20 @@ func innerDITWithoutTwiddles(a []babybear.Element, at, w babybear.Element, start
 		babybear.Butterfly(&a[0], &a[m])
 		start++
 	}
+	if start >= end {
+		return
+	}
+	// precompute twiddles for this chunk
+	tw := make([]babybear.Element, end-start)
+	tw[0].Set(&at)
+	for i := 1; i < len(tw); i++ {
+		tw[i].Mul(&tw[i-1], &w)
+	}
+	v1 := babybear.Vector(a[start+m : end+m])
+	v2 := babybear.Vector(tw)
+	v1.Mul(v1, v2)
 	for i := start; i < end; i++ {
-		a[i+m].Mul(&a[i+m], &at)
 		babybear.Butterfly(&a[i], &a[i+m])
-		at.Mul(&at, &w)
 	}
 }
 

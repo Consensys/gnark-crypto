@@ -44,12 +44,16 @@ type Domain struct {
 	cosetTable []{{ .FF }}.Element
 
 	{{- if .F31}}
-	// cosetTableBitReversed is filled only for "small" domains (up to 2^18)
+	// cosetTableBitReversed stores the coset table in bit-reversed order
 	cosetTableBitReversed         []{{ .FF }}.Element
 	{{- end}}
 
 	// cosetTableInv same as cosetTable but with u⁻¹
 	cosetTableInv         []{{ .FF }}.Element
+	{{- if .F31}}
+	// cosetTableInvBitReversed stores the inverse coset table in bit-reversed order
+	cosetTableInvBitReversed []{{ .FF }}.Element
+	{{- end}}
 }
 
 // GeneratorFullMultiplicativeGroup returns a generator of 𝔽ᵣˣ
@@ -272,16 +276,19 @@ func (d *Domain) preComputeTwiddles() {
 	go expTable(d.FrMultiplicativeGenInv, d.cosetTableInv)
 
 	wg.Wait()
-
-	{{- if .F31}}
-	if d.Cardinality <= 1<<18 {
-		// we fill the bit-reversed version of the coset table for small domains only (up to 2^18)
+{{- if .F31}}
+	if d.Cardinality <= 1<<22 {
 		d.cosetTableBitReversed = make([]{{ .FF }}.Element, d.Cardinality)
 		copy(d.cosetTableBitReversed, d.cosetTable)
 		utils.BitReverse(d.cosetTableBitReversed)
-	}
-	{{- end}}
 
+		d.cosetTableInvBitReversed = make([]{{ .FF }}.Element, d.Cardinality)
+		copy(d.cosetTableInvBitReversed, d.cosetTableInv)
+		utils.BitReverse(d.cosetTableInvBitReversed)
+	}
+{{ else}}
+
+{{ end -}}
 }
 
 func buildTwiddles(t [][]{{ .FF }}.Element, omega {{ .FF }}.Element,nbStages uint64) {
