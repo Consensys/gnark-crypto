@@ -54,7 +54,13 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 	}
 
 	// transcript
-	fs := fiatshamir.NewTranscript(hf, "gamma", "z")
+	fs := fiatshamir.NewTranscript(hf)
+	if err := fs.NewChallenge("gamma"); err != nil {
+		return res, err
+	}
+	if err := fs.NewChallenge("z"); err != nil {
+		return res, err
+	}
 
 	// derive γ
 	gamma, err := deriveChallenge("gamma", points, digests, fs, dataTranscript...)
@@ -186,7 +192,13 @@ func BatchVerify(proof OpeningProof, digests []kzg.Digest, points [][]fr.Element
 	}
 
 	// transcript
-	fs := fiatshamir.NewTranscript(hf, "gamma", "z")
+	fs := fiatshamir.NewTranscript(hf)
+	if err := fs.NewChallenge("gamma"); err != nil {
+		return err
+	}
+	if err := fs.NewChallenge("z"); err != nil {
+		return err
+	}
 
 	// derive γ
 	gamma, err := deriveChallenge("gamma", points, digests, fs, dataTranscript...)

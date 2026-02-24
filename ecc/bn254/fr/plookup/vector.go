@@ -353,7 +353,19 @@ func ProveLookupVector(pk kzg.ProvingKey, f, t fr.Vector) (ProofLookupVector, er
 	hFunc := sha256.New()
 
 	// transcript to derive the challenge
-	fs := fiatshamir.NewTranscript(hFunc, "beta", "gamma", "alpha", "nu")
+	fs := fiatshamir.NewTranscript(hFunc)
+	if err = fs.NewChallenge("beta"); err != nil {
+		return proof, err
+	}
+	if err = fs.NewChallenge("gamma"); err != nil {
+		return proof, err
+	}
+	if err = fs.NewChallenge("alpha"); err != nil {
+		return proof, err
+	}
+	if err = fs.NewChallenge("nu"); err != nil {
+		return proof, err
+	}
 
 	// create domains
 	var domainSmall *fft.Domain
@@ -557,7 +569,19 @@ func VerifyLookupVector(vk kzg.VerifyingKey, proof ProofLookupVector) error {
 	hFunc := sha256.New()
 
 	// transcript to derive the challenge
-	fs := fiatshamir.NewTranscript(hFunc, "beta", "gamma", "alpha", "nu")
+	fs := fiatshamir.NewTranscript(hFunc)
+	if err := fs.NewChallenge("beta"); err != nil {
+		return err
+	}
+	if err := fs.NewChallenge("gamma"); err != nil {
+		return err
+	}
+	if err := fs.NewChallenge("alpha"); err != nil {
+		return err
+	}
+	if err := fs.NewChallenge("nu"); err != nil {
+		return err
+	}
 
 	// derive the various challenges
 	beta, err := deriveRandomness(fs, "beta", &proof.t, &proof.f, &proof.h1, &proof.h2)

@@ -33,18 +33,11 @@ type challenge struct {
 }
 
 // NewTranscript returns a new transcript.
-// h is the hash function that is used to compute the challenges.
-// challenges are the name of the challenges. The order of the challenges IDs matters.
-func NewTranscript(h hash.Hash, challengesID ...string) *Transcript {
-	challenges := make([]challenge, len(challengesID))
-	nameToChallenge := make(map[string]int)
-	for i, c := range challengesID {
-		challenges[i] = challenge{name: c}
-		nameToChallenge[c] = i
-	}
+// Call NewChallenge to attach a challenge to the transcript.
+func NewTranscript(h hash.Hash) *Transcript {
 	t := &Transcript{
-		challenges:         challenges,
-		nameToChallengePos: nameToChallenge,
+		challenges:         make([]challenge, 0),
+		nameToChallengePos: make(map[string]int),
 		h:                  h,
 	}
 	return t

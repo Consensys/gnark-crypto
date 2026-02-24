@@ -146,7 +146,16 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 	hFunc := sha256.New()
 
 	// transcript to derive the challenge
-	fs := fiatshamir.NewTranscript(hFunc, "epsilon", "omega", "eta")
+	fs := fiatshamir.NewTranscript(hFunc)
+	if err = fs.NewChallenge("epsilon"); err != nil {
+		return proof, err
+	}
+	if err = fs.NewChallenge("omega"); err != nil {
+		return proof, err
+	}
+	if err = fs.NewChallenge("eta"); err != nil {
+		return proof, err
+	}
 
 	// commit t1, t2
 	ct1 := make([]fr.Element, s)
@@ -269,7 +278,16 @@ func Verify(vk kzg.VerifyingKey, proof Proof) error {
 	hFunc := sha256.New()
 
 	// transcript to derive the challenge
-	fs := fiatshamir.NewTranscript(hFunc, "epsilon", "omega", "eta")
+	fs := fiatshamir.NewTranscript(hFunc)
+	if err := fs.NewChallenge("epsilon"); err != nil {
+		return err
+	}
+	if err := fs.NewChallenge("omega"); err != nil {
+		return err
+	}
+	if err := fs.NewChallenge("eta"); err != nil {
+		return err
+	}
 
 	// derive the challenges
 	epsilon, err := deriveRandomness(fs, "epsilon", &proof.t1, &proof.t2)
