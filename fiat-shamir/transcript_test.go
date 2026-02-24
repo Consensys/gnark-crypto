@@ -36,6 +36,36 @@ func initTranscript() *Transcript {
 	return fs
 }
 
+func initTranscriptWithNewChallenge() *Transcript {
+
+	fs := NewTranscript(sha256.New())
+
+	values := [][]byte{[]byte("v1"), []byte("v2"), []byte("v3"), []byte("v4"), []byte("v5"), []byte("v6")}
+	fs.NewChallenge("alpha")
+	if err := fs.Bind("alpha", values[0]); err != nil {
+		panic(err)
+	}
+	if err := fs.Bind("alpha", values[1]); err != nil {
+		panic(err)
+	}
+	fs.NewChallenge("beta")
+	if err := fs.Bind("beta", values[2]); err != nil {
+		panic(err)
+	}
+	if err := fs.Bind("beta", values[3]); err != nil {
+		panic(err)
+	}
+	fs.NewChallenge("gamma")
+	if err := fs.Bind("gamma", values[4]); err != nil {
+		panic(err)
+	}
+	if err := fs.Bind("gamma", values[5]); err != nil {
+		panic(err)
+	}
+
+	return fs
+}
+
 func TestTranscript(t *testing.T) {
 	t.Parallel()
 
@@ -75,6 +105,50 @@ func TestTranscript(t *testing.T) {
 
 	if !bytes.Equal(alpha, alphaBis) {
 		t.Fatal("computing the same challenge twice should return the same value")
+	}
+	if !bytes.Equal(beta, betaBis) {
+		t.Fatal("computing the same challenge twice should return the same value")
+	}
+	if !bytes.Equal(gamma, gammaBis) {
+		t.Fatal("computing the same challenge twice should return the same value")
+	}
+
+}
+
+func TestNewChallenge(t *testing.T) {
+
+	fs := initTranscript()
+
+	// test when everything is fine
+	alpha, err := fs.ComputeChallenge("alpha")
+	if err != nil {
+		t.Fatal(err)
+	}
+	beta, err := fs.ComputeChallenge("beta")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gamma, err := fs.ComputeChallenge("gamma")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fsBis := initTranscriptWithNewChallenge()
+	alphaBis, err := fsBis.ComputeChallenge("alpha")
+	if err != nil {
+		t.Fatal(err)
+	}
+	betaBis, err := fsBis.ComputeChallenge("beta")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gammaBis, err := fsBis.ComputeChallenge("gamma")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(alpha, alphaBis) {
+		t.Fatal("New(<challenge>) api not consistent with NewTranscript(<challenge...>)")
 	}
 	if !bytes.Equal(beta, betaBis) {
 		t.Fatal("computing the same challenge twice should return the same value")

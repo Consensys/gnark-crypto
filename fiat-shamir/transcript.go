@@ -14,21 +14,21 @@ var (
 	errChallengeNotFound            = errors.New("challenge not recorded in the transcript")
 	errChallengeAlreadyComputed     = errors.New("challenge already computed, cannot be binded to other values")
 	errPreviousChallengeNotComputed = errors.New("the previous challenge is needed and has not been computed")
+	errChallengeAlreadyExists       = errors.New("this challenge name is already used and recorded")
 )
 
-// Transcript handles the creation of challenges for Fiat Shamir.
 type Transcript struct {
 	// hash function that is used.
 	h hash.Hash
 
-	challenges map[string]challenge
-	previous   *challenge
+	challenges         []challenge // the order matters
+	nameToChallengePos map[string]int
 }
 
 type challenge struct {
-	position   int      // position of the challenge in the Transcript. order matters.
 	bindings   [][]byte // bindings stores the variables a challenge is binded to.
-	value      []byte   // value stores the computed challenge
+	name       string
+	value      []byte // value stores the computed challenge
 	isComputed bool
 }
 
@@ -36,13 +36,16 @@ type challenge struct {
 // h is the hash function that is used to compute the challenges.
 // challenges are the name of the challenges. The order of the challenges IDs matters.
 func NewTranscript(h hash.Hash, challengesID ...string) *Transcript {
-	challenges := make(map[string]challenge)
-	for i := range challengesID {
-		challenges[challengesID[i]] = challenge{position: i}
+	challenges := make([]challenge, len(challengesID))
+	nameToChallenge := make(map[string]int)
+	for i, c := range challengesID {
+		challenges[i] = challenge{name: c}
+		nameToChallenge[c] = i
 	}
 	t := &Transcript{
-		challenges: challenges,
-		h:          h,
+		challenges:         challenges,
+		nameToChallengePos: nameToChallenge,
+		h:                  h,
 	}
 	return t
 }
@@ -53,11 +56,12 @@ func NewTranscript(h hash.Hash, challengesID ...string) *Transcript {
 // binded to other values.
 func (t *Transcript) Bind(challengeID string, bValue []byte) error {
 
-	currentChallenge, ok := t.challenges[challengeID]
+	pos, ok := t.nameToChallengePos[challengeID]
 	if !ok {
 		return errChallengeNotFound
 	}
 
+	currentChallenge := t.challenges[pos]
 	if currentChallenge.isComputed {
 		return errChallengeAlreadyComputed
 	}
@@ -65,10 +69,25 @@ func (t *Transcript) Bind(challengeID string, bValue []byte) error {
 	bCopy := make([]byte, len(bValue))
 	copy(bCopy, bValue)
 	currentChallenge.bindings = append(currentChallenge.bindings, bCopy)
-	t.challenges[challengeID] = currentChallenge
+	t.challenges[pos] = currentChallenge
 
 	return nil
+}
 
+// NewChallenge appends a new challenge to the list of challenges to be computed.
+// The newly added challenge is the last on the list
+func (t *Transcript) NewChallenge(challengeID string) error {
+	if _, ok := t.nameToChallengePos[challengeID]; ok {
+		return errChallengeAlreadyExists
+	}
+	nbChallenges := len(t.challenges)
+	challenge := challenge{
+		name:       challengeID,
+		isComputed: false,
+	}
+	t.challenges = append(t.challenges, challenge)
+	t.nameToChallengePos[challengeID] = nbChallenges
+	return nil
 }
 
 // ComputeChallenge computes the challenge corresponding to the given name.
@@ -77,12 +96,13 @@ func (t *Transcript) Bind(challengeID string, bValue []byte) error {
 // * H(name || binded_values... ) if it is the first challenge
 func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 
-	challenge, ok := t.challenges[challengeID]
+	pos, ok := t.nameToChallengePos[challengeID]
 	if !ok {
 		return nil, errChallengeNotFound
 	}
 
 	// if the challenge was already computed we return it
+	challenge := t.challenges[pos]
 	if challenge.isComputed {
 		return challenge.value, nil
 	}
@@ -96,11 +116,11 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 	}
 
 	// write the previous challenge if it's not the first challenge
-	if challenge.position != 0 {
-		if t.previous == nil || (t.previous.position != challenge.position-1) {
+	if pos != 0 {
+		if !t.challenges[pos-1].isComputed {
 			return nil, errPreviousChallengeNotComputed
 		}
-		if _, err := t.h.Write(t.previous.value[:]); err != nil {
+		if _, err := t.h.Write(t.challenges[pos-1].value[:]); err != nil {
 			return nil, err
 		}
 	}
@@ -119,8 +139,7 @@ func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 	copy(challenge.value, res)
 	challenge.isComputed = true
 
-	t.challenges[challengeID] = challenge
-	t.previous = &challenge
+	t.challenges[pos] = challenge
 
 	return res, nil
 
