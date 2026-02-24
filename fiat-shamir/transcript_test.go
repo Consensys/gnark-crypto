@@ -75,6 +75,36 @@ func initTranscriptWithNewChallenge() *Transcript {
 	return fs
 }
 
+func TestDuplicateNamesInit(t *testing.T) {
+
+	// no error is raised here
+	fs := NewTranscript(sha256.New(), "a", "b", "a")
+
+	values := [][]byte{[]byte("v1"), []byte("v2"), []byte("v3"), []byte("v4"), []byte("v5"), []byte("v6")}
+	fs.Bind("a", values[0])
+	fs.Bind("a", values[1])
+	fs.Bind("b", values[2])
+	fs.Bind("b", values[3])
+	fs.Bind("a", values[4])
+	fs.Bind("a", values[5])
+
+	_, err := fs.ComputeChallenge("a")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = fs.ComputeChallenge("b")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = fs.ComputeChallenge("a")
+	if err == nil {
+		t.Fatal(err)
+	}
+
+}
+
 func TestTranscript(t *testing.T) {
 	t.Parallel()
 
