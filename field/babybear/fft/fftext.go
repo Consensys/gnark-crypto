@@ -250,19 +250,11 @@ func innerDIFWithoutTwiddlesExt(a []fext.E4, at, w babybear.Element, start, end,
 		fext.Butterfly(&a[0], &a[m])
 		start++
 	}
-	if start >= end {
-		return
+	for i := start; i < end; i++ {
+		fext.Butterfly(&a[i], &a[i+m])
+		a[i+m].MulByElement(&a[i+m], &at)
+		at.Mul(&at, &w)
 	}
-	// precompute twiddles for this chunk
-	tw := make([]babybear.Element, end-start)
-	tw[0].Set(&at)
-	for i := 1; i < len(tw); i++ {
-		tw[i].Mul(&tw[i-1], &w)
-	}
-	va0 := fext.Vector(a[start:end])
-	va1 := fext.Vector(a[start+m : end+m])
-	va0.Butterfly(va1)
-	va1.MulByElement(va1, tw)
 }
 
 func ditFFTExt(a []fext.E4, w babybear.Element, twiddles [][]babybear.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
@@ -346,19 +338,11 @@ func innerDITWithoutTwiddlesExt(a []fext.E4, at, w babybear.Element, start, end,
 		fext.Butterfly(&a[0], &a[m])
 		start++
 	}
-	if start >= end {
-		return
+	for i := start; i < end; i++ {
+		a[i+m].MulByElement(&a[i+m], &at)
+		fext.Butterfly(&a[i], &a[i+m])
+		at.Mul(&at, &w)
 	}
-	// precompute twiddles for this chunk
-	tw := make([]babybear.Element, end-start)
-	tw[0].Set(&at)
-	for i := 1; i < len(tw); i++ {
-		tw[i].Mul(&tw[i-1], &w)
-	}
-	va0 := fext.Vector(a[start:end])
-	va1 := fext.Vector(a[start+m : end+m])
-	va1.MulByElement(va1, tw)
-	va0.Butterfly(va1)
 }
 
 func kerDIFNP_512Ext(a []fext.E4, twiddles [][]babybear.Element, stage int) {

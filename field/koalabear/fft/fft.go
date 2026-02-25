@@ -269,21 +269,11 @@ func innerDIFWithoutTwiddles(a []koalabear.Element, at, w koalabear.Element, sta
 		koalabear.Butterfly(&a[0], &a[m])
 		start++
 	}
-	if start >= end {
-		return
-	}
-	// precompute twiddles for this chunk
-	tw := make([]koalabear.Element, end-start)
-	tw[0].Set(&at)
-	for i := 1; i < len(tw); i++ {
-		tw[i].Mul(&tw[i-1], &w)
-	}
 	for i := start; i < end; i++ {
 		koalabear.Butterfly(&a[i], &a[i+m])
+		a[i+m].Mul(&a[i+m], &at)
+		at.Mul(&at, &w)
 	}
-	v1 := koalabear.Vector(a[start+m : end+m])
-	v2 := koalabear.Vector(tw)
-	v1.Mul(v1, v2)
 }
 
 func ditFFT(a []koalabear.Element, w koalabear.Element, twiddles [][]koalabear.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
@@ -365,20 +355,10 @@ func innerDITWithoutTwiddles(a []koalabear.Element, at, w koalabear.Element, sta
 		koalabear.Butterfly(&a[0], &a[m])
 		start++
 	}
-	if start >= end {
-		return
-	}
-	// precompute twiddles for this chunk
-	tw := make([]koalabear.Element, end-start)
-	tw[0].Set(&at)
-	for i := 1; i < len(tw); i++ {
-		tw[i].Mul(&tw[i-1], &w)
-	}
-	v1 := koalabear.Vector(a[start+m : end+m])
-	v2 := koalabear.Vector(tw)
-	v1.Mul(v1, v2)
 	for i := start; i < end; i++ {
+		a[i+m].Mul(&a[i+m], &at)
 		koalabear.Butterfly(&a[i], &a[i+m])
+		at.Mul(&at, &w)
 	}
 }
 

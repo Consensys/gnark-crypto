@@ -365,29 +365,11 @@ func innerDIFWithoutTwiddles(a []{{ .FF }}.Element, at, w {{ .FF }}.Element, sta
 		{{ .FF }}.Butterfly(&a[0], &a[m])
 		start++
 	}
-	{{- if .F31}}
-	if start >= end {
-		return
-	}
-	// precompute twiddles for this chunk
-	tw := make([]{{ .FF }}.Element, end-start)
-	tw[0].Set(&at)
-	for i := 1; i < len(tw); i++ {
-		tw[i].Mul(&tw[i-1], &w)
-	}
-	for i := start; i < end; i++ {
-		{{ .FF }}.Butterfly(&a[i], &a[i+m])
-	}
-	v1 := {{ .FF }}.Vector(a[start+m : end+m])
-	v2 := {{ .FF }}.Vector(tw)
-	v1.Mul(v1, v2)
-	{{- else}}
 	for i := start; i < end; i++ {
 		{{ .FF }}.Butterfly(&a[i], &a[i+m])
 		a[i+m].Mul(&a[i+m], &at)
 		at.Mul(&at, &w)
 	}
-	{{- end}}
 }
 
 
@@ -484,29 +466,11 @@ func innerDITWithoutTwiddles(a []{{ .FF }}.Element, at, w {{ .FF }}.Element, sta
 		{{ .FF }}.Butterfly(&a[0], &a[m])
 		start++
 	}
-	{{- if .F31}}
-	if start >= end {
-		return
-	}
-	// precompute twiddles for this chunk
-	tw := make([]{{ .FF }}.Element, end-start)
-	tw[0].Set(&at)
-	for i := 1; i < len(tw); i++ {
-		tw[i].Mul(&tw[i-1], &w)
-	}
-	v1 := {{ .FF }}.Vector(a[start+m : end+m])
-	v2 := {{ .FF }}.Vector(tw)
-	v1.Mul(v1, v2)
-	for i := start; i < end; i++ {
-		{{ .FF }}.Butterfly(&a[i], &a[i+m])
-	}
-	{{- else}}
 	for i := start; i < end; i++ {
 		a[i+m].Mul(&a[i+m], &at)
 		{{ .FF }}.Butterfly(&a[i], &a[i+m])
 		at.Mul(&at, &w)
 	}
-	{{- end}}
 }
 
 {{range $ki, $klog2 := $.Kernels}}
