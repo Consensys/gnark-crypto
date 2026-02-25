@@ -47,6 +47,33 @@ loop3:
 done4:
 	RET
 
+// butterflyVec(a, b *Element, n uint64)
+// a[0...n] = a[0...n] + b[0...n], b[0...n] = a[0...n] - b[0...n]
+// n is the number of blocks of 4 uint32 to process
+TEXT ·butterflyVec(SB), NOFRAME|NOSPLIT, $0-24
+	LDP   a+0(FP), (R0, R1)
+	MOVD  n+16(FP), R2
+	VMOVS $const_q, V5
+	VDUP  V5.S[0], V5.S4    // broadcast q into V5
+
+loop5:
+	CBZ    R2, done6
+	SUB    $1, R2, R2
+	VLD1   0(R0), [V0.S4]
+	VLD1   0(R1), [V1.S4]
+	VADD   V0.S4, V1.S4, V2.S4 // add = a + b
+	VSUB   V5.S4, V2.S4, V4.S4 // t = add - q
+	VUMIN  V2.S4, V4.S4, V2.S4 // add = min(add, t)
+	VSUB   V1.S4, V0.S4, V3.S4 // sub = a - b
+	VADD   V3.S4, V5.S4, V4.S4 // t = sub + q
+	VUMIN  V3.S4, V4.S4, V3.S4 // sub = min(sub, t)
+	VST1.P [V2.S4], 16(R0)     // a = add
+	VST1.P [V3.S4], 16(R1)     // b = sub
+	JMP    loop5
+
+done6:
+	RET
+
 // mulVec(res, a, b *Element, n uint64)
 // n is the number of blocks of 4 uint32 to process
 //
@@ -65,8 +92,8 @@ TEXT ·mulVec(SB), NOFRAME|NOSPLIT, $0-32
 	MOVD  $const_mu, R4
 	VDUP  R4, V7.S4           // broadcast MU
 
-loop5:
-	CBZ    R3, done6
+loop7:
+	CBZ    R3, done8
 	SUB    $1, R3, R3
 	VLD1.P 16(R1), [V0.S4]
 	VLD1.P 16(R2), [V1.S4]
@@ -78,9 +105,9 @@ loop5:
 	WORD   $0x4ea23488     // CMGT V8.4S, V4.4S, V2.4S - underflow = (c_hi < qp_hi) ? all 1s : 0
 	WORD   $0x6ea69505     // MLS V5.4S, V8.4S, V6.4S - d = d - underflow * P (adds P when d < 0)
 	VST1.P [V5.S4], 16(R0) // res = d
-	JMP    loop5
+	JMP    loop7
 
-done6:
+done8:
 	RET
 
 // sumVec(t *uint64, a *[]uint32, n uint64) res = sum(a[0...n])
@@ -95,17 +122,17 @@ TEXT ·sumVec(SB), NOFRAME|NOSPLIT, $0-24
 	LDP   t+0(FP), (R1, R0)
 	MOVD  n+16(FP), R2
 
-loop7:
-	CBZ    R2, done8
+loop9:
+	CBZ    R2, done10
 	SUB    $1, R2, R2
 	VLD1.P 64(R0), [V0.S4, V1.S4, V2.S4, V3.S4]
 	VADD   V0.S4, V1.S4, V0.S4                  // a0 += a1
 	VADD   V2.S4, V3.S4, V2.S4                  // a2 += a3
 	WORD   $0x6ea06804                          // UADALP V4.2D, V0.4S - acc0 += pairwise_widen(a0)
 	WORD   $0x6ea06845                          // UADALP V5.2D, V2.4S - acc1 += pairwise_widen(a2)
-	JMP    loop7
+	JMP    loop9
 
-done8:
+done10:
 	VADD   V4.D2, V5.D2, V4.D2 // acc0 += acc1
 	VST1.P [V4.D2], 0(R1)      // store accumulator
 	RET
@@ -125,8 +152,8 @@ TEXT ·scalarMulVec(SB), NOFRAME|NOSPLIT, $0-32
 	VDUP  R4, V1.S4           // broadcast scalar b
 	WORD  $0x4ea19ce9         // MUL V9.4S, V7.4S, V1.4S - muB = mu * b (precomputed)
 
-loop9:
-	CBZ    R3, done10
+loop11:
+	CBZ    R3, done12
 	SUB    $1, R3, R3
 	VLD1.P 16(R1), [V0.S4]
 	WORD   $0x4ea1b402     // SQDMULH V2.4S, V0.4S, V1.4S - c_hi = (2*a*b) >> 32
@@ -136,9 +163,9 @@ loop9:
 	WORD   $0x4ea23488     // CMGT V8.4S, V4.4S, V2.4S - underflow = (c_hi < qp_hi) ? all 1s : 0
 	WORD   $0x6ea69505     // MLS V5.4S, V8.4S, V6.4S - d = d - underflow * P (adds P when d < 0)
 	VST1.P [V5.S4], 16(R0) // res = d
-	JMP    loop9
+	JMP    loop11
 
-done10:
+done12:
 	RET
 
 // innerProdVec(t *uint64, a, b *[]uint32, n uint64) res = sum(a[0...n] * b[0...n])
@@ -156,8 +183,8 @@ TEXT ·innerProdVec(SB), NOFRAME|NOSPLIT, $0-32
 	VMOVQ $0, $0, V9
 	VMOVQ $0, $0, V10
 
-loop11:
-	CBZ     R3, done12
+loop13:
+	CBZ     R3, done14
 	SUB     $1, R3, R3
 	VLD1.P  16(R1), [V0.S4]
 	VLD1.P  16(R2), [V1.S4]
@@ -172,9 +199,9 @@ loop11:
 	VUSHLL2 $0, V5.S4, V12.D2      // tmp1 = extend(d[2,3])
 	VADD    V11.D2, V9.D2, V9.D2   // acc0 += tmp0
 	VADD    V12.D2, V10.D2, V10.D2 // acc1 += tmp1
-	JMP     loop11
+	JMP     loop13
 
-done12:
+done14:
 	VADD   V9.D2, V10.D2, V9.D2 // acc0 += acc1
 	VST1.P [V9.D2], 16(R0)      // store accumulator
 	RET

@@ -41,3 +41,13 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 func (vector *Vector) Mul(a, b Vector) {
 	mulVecGeneric(*vector, a, b)
 }
+
+// Butterfly computes the in-place butterfly operation on two vectors:
+//
+//	vector[i], other[i] = vector[i]+other[i], vector[i]-other[i]
+//
+// It panics if the vectors don't have the same length.
+// If other overlaps with vector, result is undefined.
+func (vector Vector) Butterfly(other Vector) {
+	butterflyVecGeneric(vector, other)
+}

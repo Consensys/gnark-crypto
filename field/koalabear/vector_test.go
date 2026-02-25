@@ -191,6 +191,25 @@ func TestVectorOps(t *testing.T) {
 		return true
 	}
 
+	butterflyVector := func(a, b Vector) bool {
+		aCopy := make(Vector, len(a))
+		bCopy := make(Vector, len(b))
+		copy(aCopy, a)
+		copy(bCopy, b)
+
+		Vector(aCopy).Butterfly(bCopy)
+
+		for i := 0; i < len(a); i++ {
+			var expectedA, expectedB Element
+			expectedA.Add(&a[i], &b[i])
+			expectedB.Sub(&a[i], &b[i])
+			if !expectedA.Equal(&aCopy[i]) || !expectedB.Equal(&bCopy[i]) {
+				return false
+			}
+		}
+		return true
+	}
+
 	sizes := []int{1, 2, 3, 4, 8, 9, 15, 16, 24, 509, 510, 511, 512, 513, 514}
 	type genPair struct {
 		g1, g2 gopter.Gen
@@ -236,6 +255,12 @@ func TestVectorOps(t *testing.T) {
 
 			properties.Property(fmt.Sprintf("vector multiplication %d - %s", size, gp.label), prop.ForAll(
 				mulVector,
+				gp.g1,
+				gp.g2,
+			))
+
+			properties.Property(fmt.Sprintf("vector butterfly %d - %s", size, gp.label), prop.ForAll(
+				butterflyVector,
 				gp.g1,
 				gp.g2,
 			))
@@ -315,6 +340,17 @@ func BenchmarkVectorOps(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_c.Mul(_a, _b)
+			}
+		})
+
+		b.Run(fmt.Sprintf("butterfly %d", n), func(b *testing.B) {
+			_a := Vector(make([]Element, n))
+			_b := Vector(make([]Element, n))
+			copy(_a, a1[:n])
+			copy(_b, b1[:n])
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_a.Butterfly(_b)
 			}
 		})
 	}

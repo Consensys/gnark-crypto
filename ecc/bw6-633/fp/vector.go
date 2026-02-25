@@ -399,6 +399,15 @@ func mulVecGeneric(res, a, b Vector) {
 	}
 }
 
+func butterflyVecGeneric(a, b Vector) {
+	if len(a) != len(b) {
+		panic("vector.Butterfly: vectors don't have the same length")
+	}
+	for i := 0; i < len(a); i++ {
+		Butterfly(&a[i], &b[i])
+	}
+}
+
 // TODO @gbotrel make a public package out of that.
 // execute executes the work function in parallel.
 // this is copy paste from internal/parallel/parallel.go

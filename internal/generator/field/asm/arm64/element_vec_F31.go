@@ -173,6 +173,63 @@ func (f *FFArm64) generateSubVecF31() {
 
 }
 
+func (f *FFArm64) generateButterflyVecF31() {
+	f.Comment("butterflyVec(a, b *Element, n uint64)")
+	f.Comment("a[0...n] = a[0...n] + b[0...n], b[0...n] = a[0...n] - b[0...n]")
+	f.Comment("n is the number of blocks of 4 uint32 to process")
+	registers := f.FnHeader("butterflyVec", 0, 3*8)
+	defer f.AssertCleanStack(0, 0)
+
+	// registers
+	aPtr := registers.Pop()
+	bPtr := registers.Pop()
+	n := registers.Pop()
+
+	// load arguments
+	f.LDP("a+0(FP)", aPtr, bPtr)
+	f.MOVD("n+16(FP)", n)
+
+	a0 := registers.PopV()
+	b0 := registers.PopV()
+	add := registers.PopV()
+	sub := registers.PopV()
+	t := registers.PopV()
+	q := registers.PopV()
+
+	f.VMOVS("$const_q", q)
+	f.VDUP(q.SAt(0), q.S4(), "broadcast q into "+string(q))
+
+	const offset = 4 * 4 // 4 uint32 = 16 bytes per vector
+
+	f.Loop(n, func() {
+		f.VLD1(0, aPtr, a0.S4())
+		f.VLD1(0, bPtr, b0.S4())
+
+		// add = a + b
+		f.VADD(a0.S4(), b0.S4(), add.S4(), "add = a + b")
+		// t = add - q
+		f.VSUB(q.S4(), add.S4(), t.S4(), "t = add - q")
+		// add = min(add, t)
+		f.VUMIN(add.S4(), t.S4(), add.S4(), "add = min(add, t)")
+
+		// sub = a - b
+		f.VSUB(b0.S4(), a0.S4(), sub.S4(), "sub = a - b")
+		// t = sub + q
+		f.VADD(sub.S4(), q.S4(), t.S4(), "t = sub + q")
+		// sub = min(sub, t)
+		f.VUMIN(sub.S4(), t.S4(), sub.S4(), "sub = min(sub, t)")
+
+		f.VST1_P(add.S4(), aPtr, offset, "a = add")
+		f.VST1_P(sub.S4(), bPtr, offset, "b = sub")
+	})
+
+	registers.Push(aPtr, bPtr, n)
+	registers.PushV(a0, b0, add, sub, t, q)
+
+	f.RET()
+
+}
+
 func (f *FFArm64) generateSumVecF31() {
 	f.Comment("sumVec(t *uint64, a *[]uint32, n uint64) res = sum(a[0...n])")
 	f.Comment("n is the number of blocks of 16 uint32 to process")

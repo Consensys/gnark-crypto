@@ -137,6 +137,71 @@ func (f *FFAmd64) generateSubVecF31() {
 
 }
 
+func (f *FFAmd64) generateButterflyVecF31() {
+	f.Comment("butterflyVec(a, b *Element, n uint64) a[0...n] = a[0...n] + b[0...n], b[0...n] = a[0...n] - b[0...n]")
+	f.Comment("n is the number of blocks of 16 elements to process")
+
+	const argSize = 3 * 8
+	stackSize := f.StackSize(f.NbWords*2+4, 0, 0)
+	registers := f.FnHeader("butterflyVec", stackSize, argSize, amd64.AX)
+	defer f.AssertCleanStack(stackSize, 0)
+
+	// registers & labels we need
+	addrA := registers.Pop()
+	addrB := registers.Pop()
+	len := registers.Pop()
+
+	// AVX512 registers
+	a := registers.PopV()
+	b := registers.PopV()
+	add := registers.PopV()
+	sub := registers.PopV()
+	t := registers.PopV()
+	q := registers.PopV()
+
+	// load q
+	f.MOVD("$const_q", amd64.AX)
+	f.VPBROADCASTD(amd64.AX, q)
+
+	// load arguments
+	f.MOVQ("a+0(FP)", addrA)
+	f.MOVQ("b+8(FP)", addrB)
+	f.MOVQ("n+16(FP)", len)
+
+	f.Loop(len, func() {
+		// load a and b
+		f.VMOVDQU32(addrA.At(0), a)
+		f.VMOVDQU32(addrB.At(0), b)
+
+		// add = a + b
+		f.VPADDD(a, b, add, "add = a + b")
+		// t = add - q
+		f.VPSUBD(q, add, t, "t = add - q")
+		// add = min(add, t) -- modular reduction
+		f.VPMINUD(add, t, add, "add = min(add, t)")
+
+		// sub = a - b
+		f.VPSUBD(b, a, sub, "sub = a - b")
+		// t = sub + q
+		f.VPADDD(q, sub, t, "t = sub + q")
+		// sub = min(sub, t) -- modular reduction
+		f.VPMINUD(sub, t, sub, "sub = min(sub, t)")
+
+		// store results
+		f.VMOVDQU32(add, addrA.At(0), "a = add")
+		f.VMOVDQU32(sub, addrB.At(0), "b = sub")
+
+		f.Comment("increment pointers to visit next element")
+		f.ADDQ("$64", addrA)
+		f.ADDQ("$64", addrB)
+	})
+
+	f.RET()
+
+	f.Push(&registers, addrA, addrB, len)
+
+}
+
 // sumVec res = sum(a[0...n])
 func (f *FFAmd64) generateSumVecF31() {
 	f.Comment("sumVec(res *uint64, a *[]uint32, n uint64) res = sum(a[0...n])")

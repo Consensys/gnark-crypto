@@ -486,6 +486,7 @@ func GenerateF31ASM(f *FFAmd64, hasVector bool) error {
 
 	f.generateAddVecF31()
 	f.generateSubVecF31()
+	f.generateButterflyVecF31()
 	f.generateSumVecF31()
 	f.generateSumVecSmallF31(16)
 	f.generateSumVecSmallF31(24)

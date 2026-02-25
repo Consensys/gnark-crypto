@@ -315,12 +315,8 @@ func difFFT(a []{{ .FF }}.Element, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.E
 		if parallelButterfly {
 			w := w
 			parallel.Execute(m, func(start, end int) {
-				if start == 0 {
-					{{ .FF }}.Butterfly(&a[0], &a[m])
-					start++
-				}
 				var at {{ .FF }}.Element
-				at.Exp(w, big.NewInt(int64(start)))
+				at.Exp(w, big.NewInt(int64(max(start, 1))))
 				innerDIFWithoutTwiddles(a, at,w, start, end, m)
 			}, nbTasks / (1 << (stage))) // 1 << stage == estimated used CPUs
 		} else {
@@ -360,12 +356,9 @@ func difFFT(a []{{ .FF }}.Element, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.E
 }
 
 func innerDIFWithTwiddlesGeneric(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
+	{{ .FF }}.Vector(a[start:end]).Butterfly({{ .FF }}.Vector(a[start+m:end+m]))
 	if start == 0 {
-		{{ .FF }}.Butterfly(&a[0], &a[m])
 		start++
-	}
-	for i := start; i < end; i++ {
-		{{ .FF }}.Butterfly(&a[i], &a[i+m])
 	}
 	v1 := {{ .FF }}.Vector(a[start+m:end+m])
 	v2 := {{ .FF }}.Vector(twiddles[start:end])
@@ -373,11 +366,10 @@ func innerDIFWithTwiddlesGeneric(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Ele
 }
 
 func innerDIFWithoutTwiddles(a []{{ .FF }}.Element, at, w {{ .FF }}.Element, start, end, m int) {
+	{{ .FF }}.Vector(a[start:end]).Butterfly({{ .FF }}.Vector(a[start+m:end+m]))
 	if start == 0 {
-		{{ .FF }}.Butterfly(&a[0], &a[m])
 		start++
 	}
-	{{- if .F31}}
 	if start >= end {
 		return
 	}
@@ -387,19 +379,9 @@ func innerDIFWithoutTwiddles(a []{{ .FF }}.Element, at, w {{ .FF }}.Element, sta
 	for i := 1; i < len(tw); i++ {
 		tw[i].Mul(&tw[i-1], &w)
 	}
-	for i := start; i < end; i++ {
-		{{ .FF }}.Butterfly(&a[i], &a[i+m])
-	}
 	v1 := {{ .FF }}.Vector(a[start+m : end+m])
 	v2 := {{ .FF }}.Vector(tw)
 	v1.Mul(v1, v2)
-	{{- else}}
-	for i := start; i < end; i++ {
-		{{ .FF }}.Butterfly(&a[i], &a[i+m])
-		a[i+m].Mul(&a[i+m], &at)
-		at.Mul(&at, &w)
-	}
-	{{- end}}
 }
 
 
@@ -450,12 +432,8 @@ func ditFFT(a []{{ .FF }}.Element, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.E
 		if  parallelButterfly {
 			w := w
 			parallel.Execute(m, func(start, end int) {
-				if start == 0 {
-					{{ .FF }}.Butterfly(&a[0], &a[m])
-					start++
-				}
 				var at {{ .FF }}.Element
-				at.Exp(w, big.NewInt(int64(start)))
+				at.Exp(w, big.NewInt(int64(max(start, 1))))
 				innerDITWithoutTwiddles(a, at,w, start, end, m)
 			}, nbTasks / (1 << (stage))) // 1 << stage == estimated used CPUs
 
@@ -479,46 +457,35 @@ func ditFFT(a []{{ .FF }}.Element, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.E
 
 
 func innerDITWithTwiddlesGeneric(a []{{ .FF }}.Element, twiddles []{{ .FF }}.Element, start, end, m int) {
-	if start == 0 {
-		{{ .FF }}.Butterfly(&a[0], &a[m])
-		start++
+	twStart := start
+	if twStart == 0 {
+		twStart = 1
 	}
-	v1 := {{ .FF }}.Vector(a[start+m:end+m])
-	v2 := {{ .FF }}.Vector(twiddles[start:end])
-	v1.Mul(v1, v2)
-	for i := start; i < end; i++ {
-		{{ .FF }}.Butterfly(&a[i], &a[i+m])
+	if twStart < end {
+		v1 := {{ .FF }}.Vector(a[twStart+m:end+m])
+		v2 := {{ .FF }}.Vector(twiddles[twStart:end])
+		v1.Mul(v1, v2)
 	}
+	{{ .FF }}.Vector(a[start:end]).Butterfly({{ .FF }}.Vector(a[start+m:end+m]))
 }
 
 func innerDITWithoutTwiddles(a []{{ .FF }}.Element, at, w {{ .FF }}.Element, start, end, m int) {
-	if start == 0 {
-		{{ .FF }}.Butterfly(&a[0], &a[m])
-		start++
+	twStart := start
+	if twStart == 0 {
+		twStart = 1
 	}
-	{{- if .F31}}
-	if start >= end {
-		return
+	if twStart < end {
+		// precompute twiddles for this chunk
+		tw := make([]{{ .FF }}.Element, end-twStart)
+		tw[0].Set(&at)
+		for i := 1; i < len(tw); i++ {
+			tw[i].Mul(&tw[i-1], &w)
+		}
+		v1 := {{ .FF }}.Vector(a[twStart+m : end+m])
+		v2 := {{ .FF }}.Vector(tw)
+		v1.Mul(v1, v2)
 	}
-	// precompute twiddles for this chunk
-	tw := make([]{{ .FF }}.Element, end-start)
-	tw[0].Set(&at)
-	for i := 1; i < len(tw); i++ {
-		tw[i].Mul(&tw[i-1], &w)
-	}
-	v1 := {{ .FF }}.Vector(a[start+m : end+m])
-	v2 := {{ .FF }}.Vector(tw)
-	v1.Mul(v1, v2)
-	for i := start; i < end; i++ {
-		{{ .FF }}.Butterfly(&a[i], &a[i+m])
-	}
-	{{- else}}
-	for i := start; i < end; i++ {
-		a[i+m].Mul(&a[i+m], &at)
-		{{ .FF }}.Butterfly(&a[i], &a[i+m])
-		at.Mul(&at, &w)
-	}
-	{{- end}}
+	{{ .FF }}.Vector(a[start:end]).Butterfly({{ .FF }}.Vector(a[start+m:end+m]))
 }
 
 {{range $ki, $klog2 := $.Kernels}}
@@ -591,11 +558,7 @@ func kerDIFNP_{{.sizeKernel}}generic(a []{{ .FF }}.Element, twiddles [][]{{ .FF 
 			innerDIFWithTwiddlesGeneric(a[:{{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
 		{{- else}}
 			for offset := 0; offset < {{$bound}}; offset += {{$n}} {
-				{{- if eq $m 1}}
-					{{ $.FF }}.Butterfly(&a[offset], &a[offset+1])
-				{{- else}}
-					innerDIFWithTwiddlesGeneric(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
-				{{- end}}
+				innerDIFWithTwiddlesGeneric(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
 			}
 		{{- end}}
 
@@ -610,7 +573,7 @@ func kerDITNP_{{.sizeKernel}}generic(a []{{ .FF }}.Element, twiddles [][]{{ .FF 
 	{{ $n := 2}}
 	{{ $m := div $n 2}}
 	{{ $split := div (shl 1 .sizeKernelLog2) 2}}
-	{{- range $step := reverse (iterate 0 .sizeKernelLog2)}} 
+	{{- range $step := reverse (iterate 0 .sizeKernelLog2)}}
 		{{- $offset := 0}}
 
 		{{- $bound := mul $split $n}}
@@ -618,11 +581,7 @@ func kerDITNP_{{.sizeKernel}}generic(a []{{ .FF }}.Element, twiddles [][]{{ .FF 
 			innerDITWithTwiddlesGeneric(a[:{{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
 		{{- else}}
 			for offset := 0; offset < {{$bound}}; offset += {{$n}} {
-				{{- if eq $m 1}}
-					{{ $.FF }}.Butterfly(&a[offset], &a[offset+1])
-				{{- else}}
-					innerDITWithTwiddlesGeneric(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
-				{{- end}}
+				innerDITWithTwiddlesGeneric(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
 			}
 		{{- end}}
 

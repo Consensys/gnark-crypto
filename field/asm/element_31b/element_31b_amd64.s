@@ -63,6 +63,38 @@ loop_3:
 done_4:
 	RET
 
+// butterflyVec(a, b *Element, n uint64) a[0...n] = a[0...n] + b[0...n], b[0...n] = a[0...n] - b[0...n]
+// n is the number of blocks of 16 elements to process
+TEXT ·butterflyVec(SB), NOSPLIT, $0-24
+	MOVD         $const_q, AX
+	VPBROADCASTD AX, Z5
+	MOVQ         a+0(FP), R14
+	MOVQ         b+8(FP), DX
+	MOVQ         n+16(FP), CX
+
+loop_5:
+	TESTQ     CX, CX
+	JEQ       done_6
+	DECQ      CX
+	VMOVDQU32 0(R14), Z0
+	VMOVDQU32 0(DX), Z1
+	VPADDD    Z0, Z1, Z2 // add = a + b
+	VPSUBD    Z5, Z2, Z4 // t = add - q
+	VPMINUD   Z2, Z4, Z2 // add = min(add, t)
+	VPSUBD    Z1, Z0, Z3 // sub = a - b
+	VPADDD    Z5, Z3, Z4 // t = sub + q
+	VPMINUD   Z3, Z4, Z3 // sub = min(sub, t)
+	VMOVDQU32 Z2, 0(R14) // a = add
+	VMOVDQU32 Z3, 0(DX)  // b = sub
+
+	// increment pointers to visit next element
+	ADDQ $64, R14
+	ADDQ $64, DX
+	JMP  loop_5
+
+done_6:
+	RET
+
 // sumVec(res *uint64, a *[]uint32, n uint64) res = sum(a[0...n])
 // n is the number of blocks of 16 elements to process
 TEXT ·sumVec(SB), NOSPLIT, $0-24
@@ -78,9 +110,9 @@ TEXT ·sumVec(SB), NOSPLIT, $0-24
 	VXORPS    Z2, Z2, Z2   // acc1 = 0
 	VMOVDQA64 Z2, Z3       // acc2 = 0
 
-loop_5:
+loop_7:
 	TESTQ     CX, CX
-	JEQ       done_6
+	JEQ       done_8
 	DECQ      CX
 	VPMOVZXDQ 0(R13), Z0  // load 8 31bits values in a1
 	VPMOVZXDQ 32(R13), Z1 // load 8 31bits values in a2
@@ -89,9 +121,9 @@ loop_5:
 
 	// increment pointers to visit next element
 	ADDQ $64, R13
-	JMP  loop_5
+	JMP  loop_7
 
-done_6:
+done_8:
 	VPADDQ    Z2, Z3, Z2 // acc1 += acc2
 	VMOVDQU64 Z2, 0(R14) // res = acc1
 	RET
@@ -145,9 +177,9 @@ TEXT ·mulVec(SB), NOSPLIT, $0-32
 	MOVQ         $0x0000000000005555, AX
 	KMOVD        AX, K3
 
-loop_7:
+loop_9:
 	TESTQ     BX, BX
-	JEQ       done_8
+	JEQ       done_10
 	DECQ      BX
 	VMOVDQU32 0(R14), Z2
 	VMOVDQU32 0(DX), Z3
@@ -170,9 +202,9 @@ loop_7:
 	ADDQ $64, R14
 	ADDQ $64, DX
 	ADDQ $64, CX
-	JMP  loop_7
+	JMP  loop_9
 
-done_8:
+done_10:
 	RET
 
 // scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b
@@ -190,9 +222,9 @@ TEXT ·scalarMulVec(SB), NOSPLIT, $0-32
 	MOVQ         n+24(FP), BX
 	VPBROADCASTD 0(DX), Z1
 
-loop_9:
+loop_11:
 	TESTQ     BX, BX
-	JEQ       done_10
+	JEQ       done_12
 	DECQ      BX
 	VMOVDQU32 0(R14), Z0
 	VPSRLQ    $32, Z0, Z3
@@ -212,9 +244,9 @@ loop_9:
 	// increment pointers to visit next element
 	ADDQ $64, R14
 	ADDQ $64, CX
-	JMP  loop_9
+	JMP  loop_11
 
-done_10:
+done_12:
 	RET
 
 // innerProdVec(t *uint64, a,b *[]uint32, n uint64) res = sum(a[0...n] * b[0...n])
@@ -238,9 +270,9 @@ TEXT ·innerProdVec(SB), NOSPLIT, $0-32
 	VXORPS       Z10, Z10, Z10           // acc0 = 0
 	VMOVDQA64    Z10, Z11                // acc1 = 0
 
-loop_11:
+loop_13:
 	TESTQ     BX, BX
-	JEQ       done_12
+	JEQ       done_14
 	DECQ      BX
 	VMOVDQU32 0(R13), Z2
 	VMOVDQU32 0(R14), Z3
@@ -262,9 +294,9 @@ loop_11:
 	// increment pointers to visit next element
 	ADDQ $64, R13
 	ADDQ $64, R14
-	JMP  loop_11
+	JMP  loop_13
 
-done_12:
+done_14:
 	VPADDQ    Z11, Z10, Z11 // acc1 += acc0
 	VMOVDQU64 Z11, 0(CX)    // res = acc1
 	RET
