@@ -55,6 +55,50 @@ func Execute(nbIterations int, work func(int, int), maxCpus ...int) {
 	wg.Wait()
 }
 
+// ExecuteAligned is like Execute but ensures that chunk boundaries are aligned to
+// the given alignment value (except possibly the last chunk).
+// This is useful when work functions use SIMD operations that process elements
+// in fixed-size blocks (e.g., 16 for AVX512), to avoid per-chunk tail handling.
+func ExecuteAligned(nbIterations, alignment int, work func(int, int), maxCpus ...int) {
+	nbTasks := runtime.NumCPU()
+	if len(maxCpus) == 1 {
+		nbTasks = maxCpus[0]
+		if nbTasks < 1 {
+			nbTasks = 1
+		} else if nbTasks > 512 {
+			nbTasks = 512
+		}
+	}
+
+	if nbTasks == 1 || nbIterations <= alignment {
+		work(0, nbIterations)
+		return
+	}
+
+	// round chunk size down to alignment boundary
+	chunkSize := nbIterations / nbTasks
+	chunkSize = max(chunkSize-(chunkSize%alignment), alignment)
+
+	// recompute actual number of tasks
+	nbTasks = max(nbIterations/chunkSize, 1)
+
+	var wg sync.WaitGroup
+	for i := 0; i < nbTasks; i++ {
+		wg.Add(1)
+		start := i * chunkSize
+		end := start + chunkSize
+		if i == nbTasks-1 {
+			// last chunk gets all remaining elements
+			end = nbIterations
+		}
+		go func() {
+			work(start, end)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
+
 // Chunks returns a slice of [2]int where each element is a (start, end) range to be processed by a worker,
 // exactly as Execute does.
 func Chunks(nbIterations int, maxCpus ...int) [][2]int {

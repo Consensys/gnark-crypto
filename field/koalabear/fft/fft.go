@@ -45,45 +45,38 @@ func (domain *Domain) FFT(a []koalabear.Element, decimation Decimation, opts ...
 	// if coset != 0, scale by coset table
 	if opt.coset {
 		if decimation == DIT {
+			// DIT needs bit-reversed coset table
+			var cosetTableBR []koalabear.Element
 			if domain.cosetTableBitReversed != nil {
-				parallel.Execute(len(a), func(start, end int) {
-					v1 := koalabear.Vector(a[start:end])
-					v2 := koalabear.Vector(domain.cosetTableBitReversed[start:end])
-					v1.Mul(v1, v2)
-				}, opt.nbTasks)
+				cosetTableBR = domain.cosetTableBitReversed
 			} else {
-				// scale by coset table (in bit reversed order)
-				var cosetTableBR []koalabear.Element
-				if domain.withPrecompute {
-					cosetTableBR = make([]koalabear.Element, len(a))
+				cosetTableBR = make([]koalabear.Element, len(a))
+				if domain.cosetTable != nil {
 					copy(cosetTableBR, domain.cosetTable)
 				} else {
-					cosetTableBR = make([]koalabear.Element, len(a))
 					BuildExpTable(domain.FrMultiplicativeGen, cosetTableBR)
 				}
 				utils.BitReverse(cosetTableBR)
-				parallel.Execute(len(a), func(start, end int) {
-					v1 := koalabear.Vector(a[start:end])
-					v2 := koalabear.Vector(cosetTableBR[start:end])
-					v1.Mul(v1, v2)
-				}, opt.nbTasks)
 			}
+			parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+				v1 := koalabear.Vector(a[start:end])
+				v2 := koalabear.Vector(cosetTableBR[start:end])
+				v1.Mul(v1, v2)
+			}, opt.nbTasks)
 		} else {
-			if domain.withPrecompute {
-				parallel.Execute(len(a), func(start, end int) {
-					v1 := koalabear.Vector(a[start:end])
-					v2 := koalabear.Vector(domain.cosetTable[start:end])
-					v1.Mul(v1, v2)
-				}, opt.nbTasks)
+			// DIF needs natural-order coset table
+			var cosetTable []koalabear.Element
+			if domain.cosetTable != nil {
+				cosetTable = domain.cosetTable
 			} else {
-				cosetTable := make([]koalabear.Element, len(a))
+				cosetTable = make([]koalabear.Element, len(a))
 				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
-				parallel.Execute(len(a), func(start, end int) {
-					v1 := koalabear.Vector(a[start:end])
-					v2 := koalabear.Vector(cosetTable[start:end])
-					v1.Mul(v1, v2)
-				}, opt.nbTasks)
 			}
+			parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+				v1 := koalabear.Vector(a[start:end])
+				v2 := koalabear.Vector(cosetTable[start:end])
+				v1.Mul(v1, v2)
+			}, opt.nbTasks)
 
 		}
 	}
@@ -151,7 +144,7 @@ func (domain *Domain) FFTInverse(a []koalabear.Element, decimation Decimation, o
 	// scale by CardinalityInv
 	if !opt.coset {
 		// Use vectorized scalar multiply instead of element-by-element loop
-		parallel.Execute(len(a), func(start, end int) {
+		parallel.ExecuteAligned(len(a), 16, func(start, end int) {
 			v := koalabear.Vector(a[start:end])
 			v.ScalarMul(v, &domain.CardinalityInv)
 		}, opt.nbTasks)
@@ -159,53 +152,40 @@ func (domain *Domain) FFTInverse(a []koalabear.Element, decimation Decimation, o
 	}
 
 	if decimation == DIT {
-		if domain.withPrecompute {
-			if opt.nbTasks == 1 {
-				va := koalabear.Vector(a)
-				va.Mul(va, koalabear.Vector(domain.cosetTableInv))
-				va.ScalarMul(va, &domain.CardinalityInv)
-			} else {
-				parallel.Execute(len(a), func(start, end int) {
-					v := koalabear.Vector(a[start:end])
-					v.Mul(v, koalabear.Vector(domain.cosetTableInv[start:end]))
-					v.ScalarMul(v, &domain.CardinalityInv)
-				}, opt.nbTasks)
-			}
+		// DIT inverse needs natural-order inverse coset table
+		var cosetTableInv []koalabear.Element
+		if domain.cosetTableInv != nil {
+			cosetTableInv = domain.cosetTableInv
 		} else {
-			cosetTableInv := make([]koalabear.Element, len(a))
+			cosetTableInv = make([]koalabear.Element, len(a))
 			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
-			parallel.Execute(len(a), func(start, end int) {
-				v := koalabear.Vector(a[start:end])
-				v.Mul(v, koalabear.Vector(cosetTableInv[start:end]))
-				v.ScalarMul(v, &domain.CardinalityInv)
-			}, opt.nbTasks)
 		}
+		parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+			v := koalabear.Vector(a[start:end])
+			v.Mul(v, koalabear.Vector(cosetTableInv[start:end]))
+			v.ScalarMul(v, &domain.CardinalityInv)
+		}, opt.nbTasks)
 		return
 	}
 
 	// decimation == DIF, need to access coset table in bit reversed order.
+	var cosetTableInvBR []koalabear.Element
 	if domain.cosetTableInvBitReversed != nil {
-		parallel.Execute(len(a), func(start, end int) {
-			v := koalabear.Vector(a[start:end])
-			v.Mul(v, koalabear.Vector(domain.cosetTableInvBitReversed[start:end]))
-			v.ScalarMul(v, &domain.CardinalityInv)
-		}, opt.nbTasks)
+		cosetTableInvBR = domain.cosetTableInvBitReversed
 	} else {
-		var cosetTableInvBR []koalabear.Element
-		if domain.withPrecompute {
-			cosetTableInvBR = make([]koalabear.Element, len(a))
+		cosetTableInvBR = make([]koalabear.Element, len(a))
+		if domain.cosetTableInv != nil {
 			copy(cosetTableInvBR, domain.cosetTableInv)
 		} else {
-			cosetTableInvBR = make([]koalabear.Element, len(a))
 			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInvBR)
 		}
 		utils.BitReverse(cosetTableInvBR)
-		parallel.Execute(len(a), func(start, end int) {
-			v := koalabear.Vector(a[start:end])
-			v.Mul(v, koalabear.Vector(cosetTableInvBR[start:end]))
-			v.ScalarMul(v, &domain.CardinalityInv)
-		}, opt.nbTasks)
 	}
+	parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+		v := koalabear.Vector(a[start:end])
+		v.Mul(v, koalabear.Vector(cosetTableInvBR[start:end]))
+		v.ScalarMul(v, &domain.CardinalityInv)
+	}, opt.nbTasks)
 
 }
 
