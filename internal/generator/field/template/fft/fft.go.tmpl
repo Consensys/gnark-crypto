@@ -38,27 +38,37 @@ func (domain *Domain) FFT(a []{{ .FF }}.Element, decimation Decimation, opts ...
 
 	// if coset != 0, scale by coset table
 	if opt.coset {
+		{{- if .F31}}
+		var cosetTable []{{ .FF }}.Element
 		if decimation == DIT {
-			{{- if .F31}}
 			// DIT needs bit-reversed coset table
-			var cosetTableBR []{{ .FF }}.Element
 			if domain.cosetTableBitReversed != nil {
-				cosetTableBR = domain.cosetTableBitReversed
+				cosetTable = domain.cosetTableBitReversed
 			} else {
-				cosetTableBR = make([]{{ .FF }}.Element, len(a))
+				cosetTable = make([]{{ .FF }}.Element, len(a))
 				if domain.cosetTable != nil {
-					copy(cosetTableBR, domain.cosetTable)
+					copy(cosetTable, domain.cosetTable)
 				} else {
-					BuildExpTable(domain.FrMultiplicativeGen, cosetTableBR)
+					BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 				}
-				utils.BitReverse(cosetTableBR)
+				utils.BitReverse(cosetTable)
 			}
-			parallel.ExecuteAligned(len(a), 16, func(start, end int) {
-				v1 := {{ .FF }}.Vector(a[start:end])
-				v2 := {{ .FF }}.Vector(cosetTableBR[start:end])
-				v1.Mul(v1, v2)
-			}, opt.nbTasks)
-			{{- else}}
+		} else {
+			// DIF needs natural-order coset table
+			if domain.cosetTable != nil {
+				cosetTable = domain.cosetTable
+			} else {
+				cosetTable = make([]{{ .FF }}.Element, len(a))
+				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
+			}
+		}
+		parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+			v1 := {{ .FF }}.Vector(a[start:end])
+			v2 := {{ .FF }}.Vector(cosetTable[start:end])
+			v1.Mul(v1, v2)
+		}, opt.nbTasks)
+		{{- else}}
+		if decimation == DIT {
 			// scale by coset table (in bit reversed order)
 			cosetTable := domain.cosetTable
 			if !domain.withPrecompute {
@@ -74,23 +84,7 @@ func (domain *Domain) FFT(a []{{ .FF }}.Element, decimation Decimation, opts ...
 					a[i].Mul(&a[i], &cosetTable[irev])
 				}
 			}, opt.nbTasks)
-			{{- end}}
 		} else {
-			{{- if .F31}}
-			// DIF needs natural-order coset table
-			var cosetTable []{{ .FF }}.Element
-			if domain.cosetTable != nil {
-				cosetTable = domain.cosetTable
-			} else {
-				cosetTable = make([]{{ .FF }}.Element, len(a))
-				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
-			}
-			parallel.ExecuteAligned(len(a), 16, func(start, end int) {
-				v1 := {{ .FF }}.Vector(a[start:end])
-				v2 := {{ .FF }}.Vector(cosetTable[start:end])
-				v1.Mul(v1, v2)
-			}, opt.nbTasks)
-			{{- else}}
 			if domain.withPrecompute {
 				parallel.Execute(len(a), func(start, end int) {
 					v1 := {{.FF}}.Vector(a[start:end])
@@ -108,9 +102,9 @@ func (domain *Domain) FFT(a []{{ .FF }}.Element, decimation Decimation, opts ...
 					}
 				}, opt.nbTasks)
 			}
-			{{- end}}
 
 		}
+		{{- end}}
 	}
 
 	twiddles := domain.twiddles
@@ -193,23 +187,38 @@ func (domain *Domain) FFTInverse(a []{{ .FF }}.Element, decimation Decimation, o
 		return
 	}
 
-
+	{{- if .F31}}
+	var cosetTableInv []{{ .FF }}.Element
 	if decimation == DIT {
-		{{- if .F31}}
 		// DIT inverse needs natural-order inverse coset table
-		var cosetTableInv []{{ .FF }}.Element
 		if domain.cosetTableInv != nil {
 			cosetTableInv = domain.cosetTableInv
 		} else {
 			cosetTableInv = make([]{{ .FF }}.Element, len(a))
 			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
 		}
-		parallel.ExecuteAligned(len(a), 16, func(start, end int) {
-			v := {{ .FF }}.Vector(a[start:end])
-			v.Mul(v, {{ .FF }}.Vector(cosetTableInv[start:end]))
-			v.ScalarMul(v, &domain.CardinalityInv)
-		}, opt.nbTasks)
-		{{- else}}
+	} else {
+		// DIF inverse needs bit-reversed inverse coset table
+		if domain.cosetTableInvBitReversed != nil {
+			cosetTableInv = domain.cosetTableInvBitReversed
+		} else {
+			cosetTableInv = make([]{{ .FF }}.Element, len(a))
+			if domain.cosetTableInv != nil {
+				copy(cosetTableInv, domain.cosetTableInv)
+			} else {
+				BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
+			}
+			utils.BitReverse(cosetTableInv)
+		}
+	}
+	parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+		v := {{ .FF }}.Vector(a[start:end])
+		v.Mul(v, {{ .FF }}.Vector(cosetTableInv[start:end]))
+		v.ScalarMul(v, &domain.CardinalityInv)
+	}, opt.nbTasks)
+	{{- else}}
+
+	if decimation == DIT {
 		if domain.withPrecompute {
 			parallel.Execute(len(a), func(start, end int) {
 				for i := start; i < end; i++ {
@@ -229,30 +238,10 @@ func (domain *Domain) FFTInverse(a []{{ .FF }}.Element, decimation Decimation, o
 				}
 			}, opt.nbTasks)
 		}
-		{{- end}}
 		return
 	}
 
 	// decimation == DIF, need to access coset table in bit reversed order.
-	{{- if .F31}}
-	var cosetTableInvBR []{{ .FF }}.Element
-	if domain.cosetTableInvBitReversed != nil {
-		cosetTableInvBR = domain.cosetTableInvBitReversed
-	} else {
-		cosetTableInvBR = make([]{{ .FF }}.Element, len(a))
-		if domain.cosetTableInv != nil {
-			copy(cosetTableInvBR, domain.cosetTableInv)
-		} else {
-			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInvBR)
-		}
-		utils.BitReverse(cosetTableInvBR)
-	}
-	parallel.ExecuteAligned(len(a), 16, func(start, end int) {
-		v := {{ .FF }}.Vector(a[start:end])
-		v.Mul(v, {{ .FF }}.Vector(cosetTableInvBR[start:end]))
-		v.ScalarMul(v, &domain.CardinalityInv)
-	}, opt.nbTasks)
-	{{- else}}
 	cosetTableInv := domain.cosetTableInv
 	if !domain.withPrecompute {
 		// we need to build the full table or do a bit reverse dance.

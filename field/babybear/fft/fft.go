@@ -44,41 +44,34 @@ func (domain *Domain) FFT(a []babybear.Element, decimation Decimation, opts ...O
 
 	// if coset != 0, scale by coset table
 	if opt.coset {
+		var cosetTable []babybear.Element
 		if decimation == DIT {
 			// DIT needs bit-reversed coset table
-			var cosetTableBR []babybear.Element
 			if domain.cosetTableBitReversed != nil {
-				cosetTableBR = domain.cosetTableBitReversed
+				cosetTable = domain.cosetTableBitReversed
 			} else {
-				cosetTableBR = make([]babybear.Element, len(a))
+				cosetTable = make([]babybear.Element, len(a))
 				if domain.cosetTable != nil {
-					copy(cosetTableBR, domain.cosetTable)
+					copy(cosetTable, domain.cosetTable)
 				} else {
-					BuildExpTable(domain.FrMultiplicativeGen, cosetTableBR)
+					BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 				}
-				utils.BitReverse(cosetTableBR)
+				utils.BitReverse(cosetTable)
 			}
-			parallel.ExecuteAligned(len(a), 16, func(start, end int) {
-				v1 := babybear.Vector(a[start:end])
-				v2 := babybear.Vector(cosetTableBR[start:end])
-				v1.Mul(v1, v2)
-			}, opt.nbTasks)
 		} else {
 			// DIF needs natural-order coset table
-			var cosetTable []babybear.Element
 			if domain.cosetTable != nil {
 				cosetTable = domain.cosetTable
 			} else {
 				cosetTable = make([]babybear.Element, len(a))
 				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 			}
-			parallel.ExecuteAligned(len(a), 16, func(start, end int) {
-				v1 := babybear.Vector(a[start:end])
-				v2 := babybear.Vector(cosetTable[start:end])
-				v1.Mul(v1, v2)
-			}, opt.nbTasks)
-
 		}
+		parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+			v1 := babybear.Vector(a[start:end])
+			v2 := babybear.Vector(cosetTable[start:end])
+			v1.Mul(v1, v2)
+		}, opt.nbTasks)
 	}
 
 	twiddles := domain.twiddles
@@ -150,40 +143,32 @@ func (domain *Domain) FFTInverse(a []babybear.Element, decimation Decimation, op
 		}, opt.nbTasks)
 		return
 	}
-
+	var cosetTableInv []babybear.Element
 	if decimation == DIT {
 		// DIT inverse needs natural-order inverse coset table
-		var cosetTableInv []babybear.Element
 		if domain.cosetTableInv != nil {
 			cosetTableInv = domain.cosetTableInv
 		} else {
 			cosetTableInv = make([]babybear.Element, len(a))
 			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
 		}
-		parallel.ExecuteAligned(len(a), 16, func(start, end int) {
-			v := babybear.Vector(a[start:end])
-			v.Mul(v, babybear.Vector(cosetTableInv[start:end]))
-			v.ScalarMul(v, &domain.CardinalityInv)
-		}, opt.nbTasks)
-		return
-	}
-
-	// decimation == DIF, need to access coset table in bit reversed order.
-	var cosetTableInvBR []babybear.Element
-	if domain.cosetTableInvBitReversed != nil {
-		cosetTableInvBR = domain.cosetTableInvBitReversed
 	} else {
-		cosetTableInvBR = make([]babybear.Element, len(a))
-		if domain.cosetTableInv != nil {
-			copy(cosetTableInvBR, domain.cosetTableInv)
+		// DIF inverse needs bit-reversed inverse coset table
+		if domain.cosetTableInvBitReversed != nil {
+			cosetTableInv = domain.cosetTableInvBitReversed
 		} else {
-			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInvBR)
+			cosetTableInv = make([]babybear.Element, len(a))
+			if domain.cosetTableInv != nil {
+				copy(cosetTableInv, domain.cosetTableInv)
+			} else {
+				BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
+			}
+			utils.BitReverse(cosetTableInv)
 		}
-		utils.BitReverse(cosetTableInvBR)
 	}
 	parallel.ExecuteAligned(len(a), 16, func(start, end int) {
 		v := babybear.Vector(a[start:end])
-		v.Mul(v, babybear.Vector(cosetTableInvBR[start:end]))
+		v.Mul(v, babybear.Vector(cosetTableInv[start:end]))
 		v.ScalarMul(v, &domain.CardinalityInv)
 	}, opt.nbTasks)
 
