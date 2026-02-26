@@ -57,6 +57,10 @@ func Execute(nbIterations int, work func(int, int), maxCpus ...int) {
 // the given alignment value (except possibly the last chunk).
 // This is useful when work functions use SIMD operations that process elements
 // in fixed-size blocks (e.g., 16 for AVX512), to avoid per-chunk tail handling.
+//
+// Work is distributed evenly: tasks receive either k or k+alignment elements,
+// where k is the largest multiple of alignment that fits. Any unaligned tail
+// (nbIterations % alignment) is absorbed by the last task.
 func ExecuteAligned(nbIterations, alignment int, work func(int, int), maxCpus ...int) {
 	nbTasks := runtime.NumCPU()
 	if len(maxCpus) == 1 {
@@ -73,23 +77,36 @@ func ExecuteAligned(nbIterations, alignment int, work func(int, int), maxCpus ..
 		return
 	}
 
-	// round chunk size down to alignment boundary
-	chunkSize := nbIterations / nbTasks
-	chunkSize = max(chunkSize-(chunkSize%alignment), alignment)
+	// Distribute aligned units across tasks evenly.
+	totalUnits := nbIterations / alignment
+	leftover := nbIterations % alignment // unaligned tail (usually 0 for FFT)
 
-	// recompute actual number of tasks
-	nbTasks = max(nbIterations/chunkSize, 1)
+	// Don't spawn more tasks than aligned units.
+	if nbTasks > totalUnits {
+		nbTasks = totalUnits
+	}
+	if nbTasks <= 1 {
+		work(0, nbIterations)
+		return
+	}
+	unitsPerTask := totalUnits / nbTasks
+	extraUnits := totalUnits % nbTasks
 
 	var wg sync.WaitGroup
+	start := 0
 	for i := 0; i < nbTasks; i++ {
-		start := i * chunkSize
-		end := start + chunkSize
-		if i == nbTasks-1 {
-			// last chunk gets all remaining elements
-			end = nbIterations
+		units := unitsPerTask
+		if i < extraUnits {
+			units++
 		}
+		end := start + units*alignment
+		if i == nbTasks-1 {
+			end += leftover
+		}
+		_start, _end := start, end
+		start = end
 		wg.Go(func() {
-			work(start, end)
+			work(_start, _end)
 		})
 	}
 	wg.Wait()
