@@ -38,7 +38,6 @@ func Execute(nbIterations int, work func(int, int), maxCpus ...int) {
 	extraTasksOffset := 0
 
 	for i := 0; i < nbTasks; i++ {
-		wg.Add(1)
 		_start := i*nbIterationsPerCpus + extraTasksOffset
 		_end := _start + nbIterationsPerCpus
 		if extraTasks > 0 {
@@ -46,10 +45,9 @@ func Execute(nbIterations int, work func(int, int), maxCpus ...int) {
 			extraTasks--
 			extraTasksOffset++
 		}
-		go func() {
+		wg.Go(func() {
 			work(_start, _end)
-			wg.Done()
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -84,17 +82,15 @@ func ExecuteAligned(nbIterations, alignment int, work func(int, int), maxCpus ..
 
 	var wg sync.WaitGroup
 	for i := 0; i < nbTasks; i++ {
-		wg.Add(1)
 		start := i * chunkSize
 		end := start + chunkSize
 		if i == nbTasks-1 {
 			// last chunk gets all remaining elements
 			end = nbIterations
 		}
-		go func() {
+		wg.Go(func() {
 			work(start, end)
-			wg.Done()
-		}()
+		})
 	}
 	wg.Wait()
 }
