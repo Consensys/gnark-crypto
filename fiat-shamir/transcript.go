@@ -1,6 +1,16 @@
 // Copyright 2020-2025 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
+// Package fiatshamir implements a Fiat-Shamir transcript for non-interactive
+// proof systems.
+//
+// A [Transcript] derives verifier challenges deterministically from prover
+// messages using a hash function, turning an interactive protocol into a
+// non-interactive one.
+//
+// Challenges are registered by name (at construction or via [Transcript.NewChallenge]),
+// bound to values with [Transcript.Bind], and computed sequentially with
+// [Transcript.ComputeChallenge].
 package fiatshamir
 
 import (
@@ -17,6 +27,9 @@ var (
 	errChallengeAlreadyExists       = errors.New("this challenge name is already used and recorded")
 )
 
+// Transcript implements a Fiat-Shamir transcript for transforming
+// an interactive protocol into a non-interactive one.
+// Challenges must be computed in the order they were registered.
 type Transcript struct {
 	// hash function that is used.
 	h hash.Hash
@@ -32,8 +45,12 @@ type challenge struct {
 	isComputed bool
 }
 
-// NewTranscript returns a new transcript.
-// Call NewChallenge to attach a challenge to the transcript.
+// NewTranscript creates a new Fiat-Shamir transcript using the given hash function.
+// challengesID are the names of the challenges that will be computed; the order
+// matters, as each challenge depends on the previous one.
+// Additional challenges can be appended later with [Transcript.NewChallenge].
+//
+// It panics if duplicate challenge names are provided.
 func NewTranscript(h hash.Hash, challengesID ...string) *Transcript {
 	t := &Transcript{
 		challenges:         make([]challenge, 0, len(challengesID)),
@@ -50,10 +67,10 @@ func NewTranscript(h hash.Hash, challengesID ...string) *Transcript {
 	return t
 }
 
-// Bind binds the challenge to value. A challenge can be binded to an
-// arbitrary number of values, but the order in which the binded values
-// are added is important. Once a challenge is computed, it cannot be
-// binded to other values.
+// Bind binds a value to the given challenge. A challenge can be bound to an
+// arbitrary number of values, but the order in which the values are added
+// matters. It returns an error if the challenge does not exist or has already
+// been computed.
 func (t *Transcript) Bind(challengeID string, bValue []byte) error {
 
 	pos, ok := t.nameToChallengePos[challengeID]
@@ -74,8 +91,9 @@ func (t *Transcript) Bind(challengeID string, bValue []byte) error {
 	return nil
 }
 
-// NewChallenge appends a new challenge to the list of challenges to be computed.
-// The newly added challenge is the last on the list
+// NewChallenge appends a new challenge to the transcript. The newly added
+// challenge becomes the last in the computation order. It returns an error if a
+// challenge with the same name already exists.
 func (t *Transcript) NewChallenge(challengeID string) error {
 	if _, ok := t.nameToChallengePos[challengeID]; ok {
 		return errChallengeAlreadyExists
@@ -90,10 +108,15 @@ func (t *Transcript) NewChallenge(challengeID string) error {
 	return nil
 }
 
-// ComputeChallenge computes the challenge corresponding to the given name.
-// The challenge is:
-// * H(name || previous_challenge || binded_values...) if the challenge is not the first one
-// * H(name || binded_values... ) if it is the first challenge
+// ComputeChallenge computes and returns the challenge corresponding to the
+// given name. Challenges must be computed sequentially in the order they were
+// registered. The result is:
+//   - H(name || bound_values...) for the first challenge
+//   - H(name || previous_challenge || bound_values...) for subsequent challenges
+//
+// If the challenge has already been computed, the cached value is returned.
+// It returns an error if the challenge does not exist or if the previous
+// challenge has not been computed yet.
 func (t *Transcript) ComputeChallenge(challengeID string) ([]byte, error) {
 
 	pos, ok := t.nameToChallengePos[challengeID]
