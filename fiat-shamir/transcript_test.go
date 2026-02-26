@@ -7,35 +7,25 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func initTranscript() *Transcript {
 
-	fs := NewTranscript(sha256.New())
+	fs := NewTranscript(sha256.New(), "alpha", "beta", "gamma")
 
 	values := [][]byte{[]byte("v1"), []byte("v2"), []byte("v3"), []byte("v4"), []byte("v5"), []byte("v6")}
-	err := fs.NewChallenge("alpha")
-	if err != nil {
-		panic(err)
-	}
 	if err := fs.Bind("alpha", values[0]); err != nil {
 		panic(err)
 	}
 	if err := fs.Bind("alpha", values[1]); err != nil {
 		panic(err)
 	}
-	err = fs.NewChallenge("beta")
-	if err != nil {
-		panic(err)
-	}
 	if err := fs.Bind("beta", values[2]); err != nil {
 		panic(err)
 	}
 	if err := fs.Bind("beta", values[3]); err != nil {
-		panic(err)
-	}
-	err = fs.NewChallenge("gamma")
-	if err != nil {
 		panic(err)
 	}
 	if err := fs.Bind("gamma", values[4]); err != nil {

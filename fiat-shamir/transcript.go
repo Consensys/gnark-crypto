@@ -34,11 +34,18 @@ type challenge struct {
 
 // NewTranscript returns a new transcript.
 // Call NewChallenge to attach a challenge to the transcript.
-func NewTranscript(h hash.Hash) *Transcript {
+func NewTranscript(h hash.Hash, challengesID ...string) *Transcript {
 	t := &Transcript{
-		challenges:         make([]challenge, 0),
-		nameToChallengePos: make(map[string]int),
+		challenges:         make([]challenge, 0, len(challengesID)),
+		nameToChallengePos: make(map[string]int, len(challengesID)),
 		h:                  h,
+	}
+	for _, id := range challengesID {
+		if _, ok := t.nameToChallengePos[id]; ok {
+			panic("duplicate challenge name: " + id)
+		}
+		t.nameToChallengePos[id] = len(t.challenges)
+		t.challenges = append(t.challenges, challenge{name: id})
 	}
 	return t
 }

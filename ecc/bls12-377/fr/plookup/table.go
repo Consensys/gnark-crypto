@@ -61,10 +61,7 @@ func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, 
 	hFunc := sha256.New()
 
 	// transcript to derive the challenge
-	fs := fiatshamir.NewTranscript(hFunc)
-	if err = fs.NewChallenge("lambda"); err != nil {
-		return proof, err
-	}
+	fs := fiatshamir.NewTranscript(hFunc, "lambda")
 
 	// check the sizes
 	if len(f) != len(t) {
@@ -177,10 +174,7 @@ func VerifyLookupTables(vk kzg.VerifyingKey, proof ProofLookupTables) error {
 	hFunc := sha256.New()
 
 	// transcript to derive the challenge
-	fs := fiatshamir.NewTranscript(hFunc)
-	if err := fs.NewChallenge("lambda"); err != nil {
-		return err
-	}
+	fs := fiatshamir.NewTranscript(hFunc, "lambda")
 
 	// check that the number of digests is the same
 	if len(proof.fs) != len(proof.ts) {

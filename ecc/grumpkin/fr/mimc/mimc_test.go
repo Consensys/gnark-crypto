@@ -18,10 +18,7 @@ import (
 )
 
 func TestMiMCFiatShamir(t *testing.T) {
-	fs := fiatshamir.NewTranscript(mimc.NewMiMC())
-	if err := fs.NewChallenge("c0"); err != nil {
-		t.Fatal(err)
-	}
+	fs := fiatshamir.NewTranscript(mimc.NewMiMC(), "c0")
 	zero := make([]byte, mimc.BlockSize)
 	err := fs.Bind("c0", zero)
 	assert.NoError(t, err)
