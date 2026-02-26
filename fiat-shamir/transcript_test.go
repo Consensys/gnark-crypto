@@ -130,3 +130,69 @@ func TestBindToComputedChallenge(t *testing.T) {
 	}
 
 }
+
+func TestNewTranscriptDuplicateChallenge(t *testing.T) {
+	t.Parallel()
+
+	require.Panics(t, func() {
+		NewTranscript(sha256.New(), "alpha", "beta", "alpha")
+	}, "NewTranscript should panic on duplicate challenge names")
+}
+
+func TestNewChallenge(t *testing.T) {
+	t.Parallel()
+
+	fs := NewTranscript(sha256.New(), "alpha")
+
+	// adding a new challenge after construction should work
+	require.NoError(t, fs.NewChallenge("beta"))
+
+	// adding a duplicate should return an error
+	require.Error(t, fs.NewChallenge("alpha"))
+
+	// the transcript should work normally
+	require.NoError(t, fs.Bind("alpha", []byte("v1")))
+	_, err := fs.ComputeChallenge("alpha")
+	require.NoError(t, err)
+	_, err = fs.ComputeChallenge("beta")
+	require.NoError(t, err)
+}
+
+// TestNewTranscriptVsNewChallenge verifies that challenges computed from a
+// transcript created with NewTranscript(h, ids...) are identical to those
+// from a transcript built with NewTranscript(h) + NewChallenge(id) calls.
+func TestNewTranscriptVsNewChallenge(t *testing.T) {
+	t.Parallel()
+
+	names := []string{"alpha", "beta", "gamma"}
+	values := [][]byte{[]byte("v1"), []byte("v2"), []byte("v3"), []byte("v4"), []byte("v5"), []byte("v6")}
+
+	// transcript 1: challenges defined at construction
+	fs1 := NewTranscript(sha256.New(), names...)
+	require.NoError(t, fs1.Bind("alpha", values[0]))
+	require.NoError(t, fs1.Bind("alpha", values[1]))
+	require.NoError(t, fs1.Bind("beta", values[2]))
+	require.NoError(t, fs1.Bind("beta", values[3]))
+	require.NoError(t, fs1.Bind("gamma", values[4]))
+	require.NoError(t, fs1.Bind("gamma", values[5]))
+
+	// transcript 2: challenges added via NewChallenge
+	fs2 := NewTranscript(sha256.New())
+	for _, name := range names {
+		require.NoError(t, fs2.NewChallenge(name))
+	}
+	require.NoError(t, fs2.Bind("alpha", values[0]))
+	require.NoError(t, fs2.Bind("alpha", values[1]))
+	require.NoError(t, fs2.Bind("beta", values[2]))
+	require.NoError(t, fs2.Bind("beta", values[3]))
+	require.NoError(t, fs2.Bind("gamma", values[4]))
+	require.NoError(t, fs2.Bind("gamma", values[5]))
+
+	for _, name := range names {
+		c1, err := fs1.ComputeChallenge(name)
+		require.NoError(t, err)
+		c2, err := fs2.ComputeChallenge(name)
+		require.NoError(t, err)
+		require.Equal(t, c1, c2, "challenge %s should be identical regardless of registration method", name)
+	}
+}
