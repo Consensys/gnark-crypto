@@ -11,6 +11,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/utils"
 
 	"github.com/consensys/gnark-crypto/field/babybear"
 	fext "github.com/consensys/gnark-crypto/field/babybear/extensions"
@@ -32,50 +33,33 @@ func (domain *Domain) FFTExt(a []fext.E4, decimation Decimation, opts ...Option)
 
 	// if coset != 0, scale by coset table
 	if opt.coset {
-
+		var cosetTable []babybear.Element
 		if decimation == DIT {
+			// DIT needs bit-reversed coset table
 			if domain.cosetTableBitReversed != nil {
-				parallel.Execute(len(a), func(start, end int) {
-					va := fext.Vector(a[start:end])
-					va.MulByElement(va, domain.cosetTableBitReversed[start:end])
-				}, opt.nbTasks)
+				cosetTable = domain.cosetTableBitReversed
 			} else {
-				// scale by coset table (in bit reversed order)
-				cosetTable := domain.cosetTable
-				if !domain.withPrecompute {
-					// we need to build the full table or do a bit reverse dance.
-					cosetTable = make([]babybear.Element, len(a))
+				cosetTable = make([]babybear.Element, len(a))
+				if domain.cosetTable != nil {
+					copy(cosetTable, domain.cosetTable)
+				} else {
 					BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 				}
-				parallel.Execute(len(a), func(start, end int) {
-					n := uint64(len(a))
-					nn := uint64(64 - bits.TrailingZeros64(n))
-					for i := start; i < end; i++ {
-						irev := int(bits.Reverse64(uint64(i)) >> nn)
-						a[i].MulByElement(&a[i], &cosetTable[irev])
-					}
-				}, opt.nbTasks)
+				utils.BitReverse(cosetTable)
 			}
 		} else {
-
-			if domain.withPrecompute {
-				parallel.Execute(len(a), func(start, end int) {
-					va := fext.Vector(a[start:end])
-					va.MulByElement(va, domain.cosetTable[start:end])
-				}, opt.nbTasks)
+			// DIF needs natural-order coset table
+			if domain.cosetTable != nil {
+				cosetTable = domain.cosetTable
 			} else {
-				c := domain.FrMultiplicativeGen
-				parallel.Execute(len(a), func(start, end int) {
-					var at babybear.Element
-					at.Exp(c, big.NewInt(int64(start)))
-					for i := start; i < end; i++ {
-						a[i].MulByElement(&a[i], &at)
-						at.Mul(&at, &c)
-					}
-				}, opt.nbTasks)
+				cosetTable = make([]babybear.Element, len(a))
+				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 			}
-
 		}
+		parallel.ExecuteAligned(len(a), 4, func(start, end int) {
+			va := fext.Vector(a[start:end])
+			va.MulByElement(va, cosetTable[start:end])
+		}, opt.nbTasks)
 	}
 
 	twiddles := domain.twiddles
@@ -141,57 +125,39 @@ func (domain *Domain) FFTInverseExt(a []fext.E4, decimation Decimation, opts ...
 
 	// scale by CardinalityInv
 	if !opt.coset {
-		parallel.Execute(len(a), func(start, end int) {
+		parallel.ExecuteAligned(len(a), 4, func(start, end int) {
 			va := fext.Vector(a[start:end])
 			va.ScalarMulByElement(va, &domain.CardinalityInv)
 		}, opt.nbTasks)
 		return
 	}
 
+	var cosetTableInv []babybear.Element
 	if decimation == DIT {
-		if domain.withPrecompute {
-			if opt.nbTasks == 1 {
-				va := fext.Vector(a)
-				va.MulByElement(va, domain.cosetTableInv)
-				va.ScalarMulByElement(va, &domain.CardinalityInv)
-			} else {
-				parallel.Execute(len(a), func(start, end int) {
-					va := fext.Vector(a[start:end])
-					va.MulByElement(va, domain.cosetTableInv[start:end])
-					va.ScalarMulByElement(va, &domain.CardinalityInv)
-				}, opt.nbTasks)
-			}
+		// DIT inverse needs natural-order inverse coset table
+		if domain.cosetTableInv != nil {
+			cosetTableInv = domain.cosetTableInv
 		} else {
-			c := domain.FrMultiplicativeGenInv
-			parallel.Execute(len(a), func(start, end int) {
-				var at babybear.Element
-				at.Exp(c, big.NewInt(int64(start)))
-				at.Mul(&at, &domain.CardinalityInv)
-				for i := start; i < end; i++ {
-					a[i].MulByElement(&a[i], &at)
-					at.Mul(&at, &c)
-				}
-			}, opt.nbTasks)
+			cosetTableInv = make([]babybear.Element, len(a))
+			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
 		}
-		return
-	}
-
-	// decimation == DIF, need to access coset table in bit reversed order.
-	cosetTableInv := domain.cosetTableInv
-	if !domain.withPrecompute {
-		// we need to build the full table or do a bit reverse dance.
-		cosetTableInv = make([]babybear.Element, len(a))
-		BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
-	}
-	parallel.Execute(len(a), func(start, end int) {
-		n := uint64(len(a))
-		nn := uint64(64 - bits.TrailingZeros64(n))
-		for i := start; i < end; i++ {
-			irev := int(bits.Reverse64(uint64(i)) >> nn)
-			a[i].MulByElement(&a[i], &cosetTableInv[irev])
+	} else {
+		// DIF inverse needs bit-reversed inverse coset table
+		if domain.cosetTableInvBitReversed != nil {
+			cosetTableInv = domain.cosetTableInvBitReversed
+		} else {
+			cosetTableInv = make([]babybear.Element, len(a))
+			if domain.cosetTableInv != nil {
+				copy(cosetTableInv, domain.cosetTableInv)
+			} else {
+				BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
+			}
+			utils.BitReverse(cosetTableInv)
 		}
-
+	}
+	parallel.ExecuteAligned(len(a), 4, func(start, end int) {
 		va := fext.Vector(a[start:end])
+		va.MulByElement(va, cosetTableInv[start:end])
 		va.ScalarMulByElement(va, &domain.CardinalityInv)
 	}, opt.nbTasks)
 
