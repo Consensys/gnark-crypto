@@ -28,9 +28,9 @@ jobs:
           if [[ -n $(git status --porcelain) ]]; then echo "git repo is dirty after running go generate -- please don't modify generated files"; echo $(git diff);echo $(git status --porcelain); exit 1; fi
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9.2.0
+        uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 #v9.2.0 pinned
         with:
-          version: v2.8.0
+          version: v2.10.1
           args: -v --timeout=5m
 
   test:
@@ -58,7 +58,7 @@ jobs:
 
       # Install gotestfmt on the VM running the action.
       - name: Set up gotestfmt
-        uses: gotesttools/gotestfmt-action@v2.2.0
+        uses: gotesttools/gotestfmt-action@8b4478c7019be847373babde9300210e7de34bfb #v2.2.0 pinned
         with:
           # Optional: pass GITHUB_TOKEN to avoid rate limiting.
           token: ${{ secrets.GITHUB_TOKEN }}
