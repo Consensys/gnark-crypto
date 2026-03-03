@@ -1,5 +1,17 @@
 on: pull_request
 name: pull_request
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: 1.25.x # NB! when updating also update matrix, we cannot refer to env variables in the matrix
+  GOLANGCI_LINT_VERSION: v2.10.1
+
 jobs:
   staticcheck:
     runs-on: ubuntu-latest
@@ -11,7 +23,7 @@ jobs:
       - name: install Go
         uses: actions/setup-go@v6.2.0 # nonpinned - official GH action
         with:
-          go-version: 1.25.x
+          go-version: ${{ env.GO_VERSION }}
 
       - name: gofmt
         run: if [[ -n $(gofmt -l .) ]]; then echo "please run gofmt"; exit 1; fi
@@ -27,7 +39,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 #v9.2.0 pinned
         with:
-          version: v2.10.1
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
           args: -v --timeout=5m
 
   test:
@@ -41,7 +53,7 @@ jobs:
       - name: install Go
         uses: actions/setup-go@v6.2.0
         with:
-          go-version: 1.25.x
+          go-version: ${{ env.GO_VERSION }}
 
       - name: install deps
         run: |
