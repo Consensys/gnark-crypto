@@ -3,6 +3,18 @@ on:
     branches:
       - "master"
 name: push_master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: 1.25.x # NB! when updating also update matrix, we cannot refer to env variables in the matrix
+  GOLANGCI_LINT_VERSION: v2.10.1
+
 jobs:
   staticcheck:
     runs-on: ubuntu-latest
@@ -14,7 +26,7 @@ jobs:
       - name: install Go
         uses: actions/setup-go@v6.2.0
         with:
-          go-version: 1.25.x
+          go-version: ${{ env.GO_VERSION }}
 
       - name: gofmt
         run: if [[ -n $(gofmt -l .) ]]; then echo "please run gofmt"; exit 1; fi
@@ -28,9 +40,9 @@ jobs:
           if [[ -n $(git status --porcelain) ]]; then echo "git repo is dirty after running go generate -- please don't modify generated files"; echo $(git diff);echo $(git status --porcelain); exit 1; fi
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9.2.0
+        uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 #v9.2.0 pinned
         with:
-          version: v2.8.0
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
           args: -v --timeout=5m
 
   test:
@@ -50,15 +62,15 @@ jobs:
       failures: ${{ steps.generate-job-summary.outputs.failures }}
     steps:
       - name: checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6.0.2 # nonpinned - official GH action
       - name: install Go
-        uses: actions/setup-go@v6.2.0
+        uses: actions/setup-go@v6.2.0 # nonpinned - official GH action
         with:
           go-version: ${{ matrix.go-version }}
 
       # Install gotestfmt on the VM running the action.
       - name: Set up gotestfmt
-        uses: gotesttools/gotestfmt-action@v2.2.0
+        uses: gotesttools/gotestfmt-action@8b4478c7019be847373babde9300210e7de34bfb #v2.2.0 pinned
         with:
           # Optional: pass GITHUB_TOKEN to avoid rate limiting.
           token: ${{ secrets.GITHUB_TOKEN }}
