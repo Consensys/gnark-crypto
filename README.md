@@ -41,7 +41,7 @@ See [list of audits for `gnark` and `gnark-crypto`](https://github.com/Consensys
 
 ### Go version
 
-`gnark-crypto` is tested with the last 2 major releases of Go (currently 1.19 and 1.20).
+`gnark-crypto` is tested with the last 2 major releases of Go (currently 1.25 and 1.26).
 
 ### Install `gnark-crypto`
 
