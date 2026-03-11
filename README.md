@@ -78,18 +78,19 @@ If you use `gnark-crypto` in your research a citation would be appreciated.
 Please use the following BibTeX to cite the most recent release.
 
 ```bib
-@software{gnark-crypto-v0.15,
+@software{gnark-crypto-v0.20,
   author       = {Gautam Botrel and
                   Thomas Piellard and
                   Youssef El Housni and
                   Arya Tabaie and
                   Gus Gutoski and
-                  Ivo Kubjas},
-  title        = {Consensys/gnark-crypto: v0.15.0},
-  month        = jan,
-  year         = 2025,
+                  Ivo Kubjas and
+                  Yao J. Galteland},
+  title        = {Consensys/gnark-crypto: v0.20.0},
+  month        = mar,
+  year         = 2026,
   publisher    = {Zenodo},
-  version      = {v0.15.0},
+  version      = {v0.20.0},
   doi          = {10.5281/zenodo.5815453},
   url          = {https://doi.org/10.5281/zenodo.5815453}
 }
