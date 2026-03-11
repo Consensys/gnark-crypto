@@ -1,5 +1,97 @@
+<a name="v0.20.0"></a>
+## [v0.20.0] - 2026-03-11
+### Build
+- **deps:** bump golang.org/x/crypto from 0.41.0 to 0.45.0 in the go_modules group across 1 directory ([#770](https://github.com/Consensys/gnark-crypto/issues/770))
+
+### CI
+- Standardize imports ([#760](https://github.com/Consensys/gnark-crypto/issues/760))
+
+### Chore
+- rename sage files ([#806](https://github.com/Consensys/gnark-crypto/issues/806))
+- add dependabot configuration for GitHub Actions updates ([#804](https://github.com/Consensys/gnark-crypto/issues/804))
+- reintroduce slack notif ([#802](https://github.com/Consensys/gnark-crypto/issues/802))
+- update ci workflows to go 1.25 ([#801](https://github.com/Consensys/gnark-crypto/issues/801))
+- use self hosted runners ([#763](https://github.com/Consensys/gnark-crypto/issues/763))
+- merge v0.19 hotfix branch ([#766](https://github.com/Consensys/gnark-crypto/issues/766))
+- clarify PublicKey.SetBytes uses compressed public key ([#732](https://github.com/Consensys/gnark-crypto/issues/732))
+
+### Ci
+- enable security code scanner ([#771](https://github.com/Consensys/gnark-crypto/issues/771))
+
+### Doc
+- update Go tested versions
+- update citation
+
+### Feat
+- add bn254 poseidon2 constants and support t=4/8/12/16 ([#783](https://github.com/Consensys/gnark-crypto/issues/783))
+- lattice-based rational reconstructions for gnark scalar decompositions ([#799](https://github.com/Consensys/gnark-crypto/issues/799))
+- Expose `NewDefaultPermutation` in Poseidon2 packages ([#761](https://github.com/Consensys/gnark-crypto/issues/761))
+- batch subgroup membership testing ([#710](https://github.com/Consensys/gnark-crypto/issues/710))
+- add typed field hasher interface in MiMC package ([#752](https://github.com/Consensys/gnark-crypto/issues/752))
+- add parallel prefix product for vector e4 ([#750](https://github.com/Consensys/gnark-crypto/issues/750))
+- expose vortex.ComputeLagrangeBasisAtX
+- vector e4 utils ops ([#749](https://github.com/Consensys/gnark-crypto/issues/749))
+- add vector.Exp method
+- adds e4 vector Exp method ([#739](https://github.com/Consensys/gnark-crypto/issues/739))
+- make bitReverse generic ([#736](https://github.com/Consensys/gnark-crypto/issues/736))
+- handle len(p)=0 in kzg ([#730](https://github.com/Consensys/gnark-crypto/issues/730))
+
+### Feat
+- Add P-256 (secp256r1) elliptic curve + ECDSA ([#767](https://github.com/Consensys/gnark-crypto/issues/767))
+- add column linear combination check ([#731](https://github.com/Consensys/gnark-crypto/issues/731))
+- Jacobian Triple for `j=0` curves ([#715](https://github.com/Consensys/gnark-crypto/issues/715))
+
+### FiatShamir
+- creation of new challenges with New() ([#811](https://github.com/Consensys/gnark-crypto/issues/811))
+
+### Fix
+- Affine twisted Edwards scalar multiplication edge case ([#774](https://github.com/Consensys/gnark-crypto/issues/774))
+
+### Fix
+- fix cursor bot comments ([#803](https://github.com/Consensys/gnark-crypto/issues/803))
+- E2 MustSetRandom all elements ([#793](https://github.com/Consensys/gnark-crypto/issues/793))
+- remove duplicate import ([#762](https://github.com/Consensys/gnark-crypto/issues/762))
+- use G2Affine in UpdateMonomialsG2 template ([#735](https://github.com/Consensys/gnark-crypto/issues/735))
+- make [#740](https://github.com/Consensys/gnark-crypto/issues/740) retro compatible BitReverse generic impl
+- reintroduce BitReverse in fft package as deprecated for backward… ([#740](https://github.com/Consensys/gnark-crypto/issues/740))
+- [#727](https://github.com/Consensys/gnark-crypto/issues/727) with go generate and cosmetics ([#734](https://github.com/Consensys/gnark-crypto/issues/734))
+
+### Perf
+- direct quartic extension for koala and baby bears ([#779](https://github.com/Consensys/gnark-crypto/issues/779))
+- optimize (purego) extension for koalabear ([#729](https://github.com/Consensys/gnark-crypto/issues/729))
+- optimize pre-computation in fixed-argument pairings by batching double steps ([#798](https://github.com/Consensys/gnark-crypto/issues/798))
+- optimize precomputation in fixed-argument pairings ([#797](https://github.com/Consensys/gnark-crypto/issues/797))
+- GLV-GLS scalar multiplication in G2 ([#786](https://github.com/Consensys/gnark-crypto/issues/786))
+- implement wNAF width=5 GLV scalar mul on G1/2 ([#788](https://github.com/Consensys/gnark-crypto/issues/788))
+- use NAF decomposition in `mulWindow` ([#787](https://github.com/Consensys/gnark-crypto/issues/787))
+- improve small size fft ([#791](https://github.com/Consensys/gnark-crypto/issues/791))
+- use ifma for some 4w vector operations ([#795](https://github.com/Consensys/gnark-crypto/issues/795))
+- optimize `Sqrt` in highly 2-adic fields  ([#796](https://github.com/Consensys/gnark-crypto/issues/796))
+- adds some more neon implementations for poseidon2 ([#785](https://github.com/Consensys/gnark-crypto/issues/785))
+- adds poseidon2 "simd" fashion compress function (avx512) ([#777](https://github.com/Consensys/gnark-crypto/issues/777))
+- limit memory allocation during Vector deserialization ([#759](https://github.com/Consensys/gnark-crypto/issues/759))
+- twisted Edwards affine arithmetic ([#743](https://github.com/Consensys/gnark-crypto/issues/743))
+- use vector ops on FFT E4 ([#746](https://github.com/Consensys/gnark-crypto/issues/746))
+- tEd affine scalar mul
+- add for small fields int64 for exp ([#738](https://github.com/Consensys/gnark-crypto/issues/738))
+- adds E4 vector ops (avx512) ([#733](https://github.com/Consensys/gnark-crypto/issues/733))
+- **bw6:** faster direct Fp6 mul ([#776](https://github.com/Consensys/gnark-crypto/issues/776))
+
+### Perf
+- Optimize `Sqrt` in `Fp2` for all fields ([#757](https://github.com/Consensys/gnark-crypto/issues/757))
+
+### Refactor
+- use more defines in assembly fine to make files less verbose ([#789](https://github.com/Consensys/gnark-crypto/issues/789))
+
+### Refactor
+- code-generate Fp6 tower for BW6 curves ([#792](https://github.com/Consensys/gnark-crypto/issues/792))
+
+
 <a name="v0.19.2"></a>
 ## [v0.19.2] - 2025-10-28
+### Docs
+- add CHANGELOG to v0.19.2
+
 ### Fix
 - avoid b.Loop in Go 1.23
 
@@ -39,6 +131,15 @@
 
 ### Refector
 - Add feed-forward step to CompressPoseidon2 function ([#721](https://github.com/Consensys/gnark-crypto/issues/721))
+
+
+<a name="v0.18.2"></a>
+## [v0.18.2] - 2025-10-28
+### Docs
+- add CHANGELOG to v0.18.2
+
+### Fix
+- avoid b.Loop in Go 1.23
 
 
 <a name="v0.18.1"></a>
@@ -2447,9 +2548,11 @@
 <a name="v0.0.1"></a>
 ## v0.0.1 - 2020-03-23
 
+[v0.20.0]: https://github.com/Consensys/gnark-crypto/compare/v0.19.2...v0.20.0
 [v0.19.2]: https://github.com/Consensys/gnark-crypto/compare/v0.19.1...v0.19.2
 [v0.19.1]: https://github.com/Consensys/gnark-crypto/compare/v0.19.0...v0.19.1
-[v0.19.0]: https://github.com/Consensys/gnark-crypto/compare/v0.18.1...v0.19.0
+[v0.19.0]: https://github.com/Consensys/gnark-crypto/compare/v0.18.2...v0.19.0
+[v0.18.2]: https://github.com/Consensys/gnark-crypto/compare/v0.18.1...v0.18.2
 [v0.18.1]: https://github.com/Consensys/gnark-crypto/compare/v0.18.0...v0.18.1
 [v0.18.0]: https://github.com/Consensys/gnark-crypto/compare/v0.17.0...v0.18.0
 [v0.17.0]: https://github.com/Consensys/gnark-crypto/compare/v0.16.0...v0.17.0
