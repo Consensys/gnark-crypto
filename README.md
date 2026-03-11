@@ -51,7 +51,7 @@ See [list of audits for `gnark` and `gnark-crypto`](https://github.com/Consensys
 ### Install `gnark-crypto`
 
 ```bash
-go get github.com/Consensys/gnark-crypto
+go get github.com/consensys/gnark-crypto
 ```
 
 Note that if you use go modules, in `go.mod` the module path is case sensitive (use `consensys` and not `ConsenSys`).
