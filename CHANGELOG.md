@@ -1,11 +1,11 @@
+
 <a name="v0.20.0"></a>
 ## [v0.20.0] - 2026-03-11
 ### Build
 - **deps:** bump golang.org/x/crypto from 0.41.0 to 0.45.0 in the go_modules group across 1 directory ([#770](https://github.com/Consensys/gnark-crypto/issues/770))
-
 ### CI
+- enable security code scanner ([#771](https://github.com/Consensys/gnark-crypto/issues/771))
 - Standardize imports ([#760](https://github.com/Consensys/gnark-crypto/issues/760))
-
 ### Chore
 - rename sage files ([#806](https://github.com/Consensys/gnark-crypto/issues/806))
 - add dependabot configuration for GitHub Actions updates ([#804](https://github.com/Consensys/gnark-crypto/issues/804))
@@ -14,14 +14,11 @@
 - use self hosted runners ([#763](https://github.com/Consensys/gnark-crypto/issues/763))
 - merge v0.19 hotfix branch ([#766](https://github.com/Consensys/gnark-crypto/issues/766))
 - clarify PublicKey.SetBytes uses compressed public key ([#732](https://github.com/Consensys/gnark-crypto/issues/732))
-
-### Ci
-- enable security code scanner ([#771](https://github.com/Consensys/gnark-crypto/issues/771))
-
-### Doc
+### Docs
+- update CITATION.bib
+- update changelog
 - update Go tested versions
 - update citation
-
 ### Feat
 - add bn254 poseidon2 constants and support t=4/8/12/16 ([#783](https://github.com/Consensys/gnark-crypto/issues/783))
 - lattice-based rational reconstructions for gnark scalar decompositions ([#799](https://github.com/Consensys/gnark-crypto/issues/799))
@@ -35,19 +32,13 @@
 - adds e4 vector Exp method ([#739](https://github.com/Consensys/gnark-crypto/issues/739))
 - make bitReverse generic ([#736](https://github.com/Consensys/gnark-crypto/issues/736))
 - handle len(p)=0 in kzg ([#730](https://github.com/Consensys/gnark-crypto/issues/730))
-
-### Feat
 - Add P-256 (secp256r1) elliptic curve + ECDSA ([#767](https://github.com/Consensys/gnark-crypto/issues/767))
 - add column linear combination check ([#731](https://github.com/Consensys/gnark-crypto/issues/731))
 - Jacobian Triple for `j=0` curves ([#715](https://github.com/Consensys/gnark-crypto/issues/715))
-
 ### FiatShamir
 - creation of new challenges with New() ([#811](https://github.com/Consensys/gnark-crypto/issues/811))
-
 ### Fix
 - Affine twisted Edwards scalar multiplication edge case ([#774](https://github.com/Consensys/gnark-crypto/issues/774))
-
-### Fix
 - fix cursor bot comments ([#803](https://github.com/Consensys/gnark-crypto/issues/803))
 - E2 MustSetRandom all elements ([#793](https://github.com/Consensys/gnark-crypto/issues/793))
 - remove duplicate import ([#762](https://github.com/Consensys/gnark-crypto/issues/762))
@@ -55,7 +46,6 @@
 - make [#740](https://github.com/Consensys/gnark-crypto/issues/740) retro compatible BitReverse generic impl
 - reintroduce BitReverse in fft package as deprecated for backward… ([#740](https://github.com/Consensys/gnark-crypto/issues/740))
 - [#727](https://github.com/Consensys/gnark-crypto/issues/727) with go generate and cosmetics ([#734](https://github.com/Consensys/gnark-crypto/issues/734))
-
 ### Perf
 - direct quartic extension for koala and baby bears ([#779](https://github.com/Consensys/gnark-crypto/issues/779))
 - optimize (purego) extension for koalabear ([#729](https://github.com/Consensys/gnark-crypto/issues/729))
@@ -76,159 +66,110 @@
 - add for small fields int64 for exp ([#738](https://github.com/Consensys/gnark-crypto/issues/738))
 - adds E4 vector ops (avx512) ([#733](https://github.com/Consensys/gnark-crypto/issues/733))
 - **bw6:** faster direct Fp6 mul ([#776](https://github.com/Consensys/gnark-crypto/issues/776))
-
-### Perf
 - Optimize `Sqrt` in `Fp2` for all fields ([#757](https://github.com/Consensys/gnark-crypto/issues/757))
-
 ### Refactor
 - use more defines in assembly fine to make files less verbose ([#789](https://github.com/Consensys/gnark-crypto/issues/789))
-
-### Refactor
 - code-generate Fp6 tower for BW6 curves ([#792](https://github.com/Consensys/gnark-crypto/issues/792))
-
-
 <a name="v0.19.2"></a>
 ## [v0.19.2] - 2025-10-28
 ### Docs
 - add CHANGELOG to v0.19.2
-
 ### Fix
 - avoid b.Loop in Go 1.23
-
-
 <a name="v0.19.1"></a>
 ## [v0.19.1] - 2025-10-28
 ### Docs
 - update CHANGELOG to v0.19.1
-
 ### Perf
 - limit memory allocation during Vector deserialization ([#759](https://github.com/Consensys/gnark-crypto/issues/759))
-
-
 <a name="v0.19.0"></a>
 ## [v0.19.0] - 2025-08-22
 ### CI
 - update linter for the "push to master" flow ([#728](https://github.com/Consensys/gnark-crypto/issues/728))
 - Upgrade linter ([#726](https://github.com/Consensys/gnark-crypto/issues/726))
-
 ### Feat
 - Subgroup membership testing on Bandersnatch ([#708](https://github.com/Consensys/gnark-crypto/issues/708))
-
-### Feat
 - set default size for state ([#700](https://github.com/Consensys/gnark-crypto/issues/700))
-
 ### Fix
 - refactor asm code generation to avoid use of R15 with global memory accesses ([#712](https://github.com/Consensys/gnark-crypto/issues/712))
 - MerkleDamgardHasher.Sum ([#699](https://github.com/Consensys/gnark-crypto/issues/699))
 - MerkleDamgardHasher IV ([#701](https://github.com/Consensys/gnark-crypto/issues/701))
 - fixes [#697](https://github.com/Consensys/gnark-crypto/issues/697) ([#698](https://github.com/Consensys/gnark-crypto/issues/698))
-
 ### Perf
 - Doubling and mixed doubling in Jacobians and ext. Jacobians ([#716](https://github.com/Consensys/gnark-crypto/issues/716))
 - optimize Eisenstein arithmetic ([#706](https://github.com/Consensys/gnark-crypto/issues/706))
 - small scalarmul ([#703](https://github.com/Consensys/gnark-crypto/issues/703))
 - Legendre symbol calculation using Pornin20 ([#704](https://github.com/Consensys/gnark-crypto/issues/704))
-
 ### Refector
 - Add feed-forward step to CompressPoseidon2 function ([#721](https://github.com/Consensys/gnark-crypto/issues/721))
-
-
 <a name="v0.18.2"></a>
 ## [v0.18.2] - 2025-10-28
 ### Docs
 - add CHANGELOG to v0.18.2
-
 ### Fix
 - avoid b.Loop in Go 1.23
-
-
 <a name="v0.18.1"></a>
 ## [v0.18.1] - 2025-10-28
 ### Docs
 - add CHANGELOG for 0.18.1
-
 ### Perf
 - limit memory allocation during Vector deserialization ([#759](https://github.com/Consensys/gnark-crypto/issues/759))
-
-
 <a name="v0.18.0"></a>
 ## [v0.18.0] - 2025-06-09
 ### Build
 - **deps:** bump golang.org/x/crypto from 0.33.0 to 0.35.0 ([#677](https://github.com/Consensys/gnark-crypto/issues/677))
-
 ### Chore
 - remove unused benchmark script ([#675](https://github.com/Consensys/gnark-crypto/issues/675))
-
 ### Docs
 - replace outdated link to article ([#690](https://github.com/Consensys/gnark-crypto/issues/690))
-
 ### Experiment
 - vortex on koalabear ([#645](https://github.com/Consensys/gnark-crypto/issues/645))
-
 ### Feat
 - remove dependency on internal package in ecc.go ([#693](https://github.com/Consensys/gnark-crypto/issues/693))
 - make <31 bit field generated using uint32 ([#676](https://github.com/Consensys/gnark-crypto/issues/676))
-
 ### Fix
 - remove unimplemented path from fft ext
 - Eisenstein Half-GCD convergence ([#680](https://github.com/Consensys/gnark-crypto/issues/680))
-
 ### Perf
 - adds avx512 poseidon2 for small fields ([#665](https://github.com/Consensys/gnark-crypto/issues/665))
 - remove useless copies in e4 mul by elem ([#667](https://github.com/Consensys/gnark-crypto/issues/667))
 - disable cobra bit reverse for small fields ([#662](https://github.com/Consensys/gnark-crypto/issues/662))
-
 ### Refactor
 - hash to curve ([#674](https://github.com/Consensys/gnark-crypto/issues/674))
-
-
 <a name="v0.17.0"></a>
 ## [v0.17.0] - 2025-03-11
 ### Chore
 - remove useless github workflow
 - generify poseidon2 parameters for other curves/fr ([#636](https://github.com/Consensys/gnark-crypto/issues/636))
 - add auto close PR workflow ([#638](https://github.com/Consensys/gnark-crypto/issues/638))
-
 ### Feat
 - baby-bear and koala-bear extensions of degree 4 ([#643](https://github.com/Consensys/gnark-crypto/issues/643))
 - poseidon2 for koala-bear, baby-bear and goldilocks ([#629](https://github.com/Consensys/gnark-crypto/issues/629))
 - add sis avx512 and fft avx512 for koalabear ([#622](https://github.com/Consensys/gnark-crypto/issues/622))
 - add Grumpkin elliptic curve (2-cycle with BN254) ([#625](https://github.com/Consensys/gnark-crypto/issues/625))
 - Poseidon2 Hash Instantiation for BLS12-377 ([#623](https://github.com/Consensys/gnark-crypto/issues/623))
-
 ### Fix
 - poseidon2 templates ([#648](https://github.com/Consensys/gnark-crypto/issues/648))
 - ensure fast path is taken only with fixed bound and degree ([#651](https://github.com/Consensys/gnark-crypto/issues/651))
 - missing Poseidon2 round keys ([#621](https://github.com/Consensys/gnark-crypto/issues/621))
-
 ### Perf
 - subgroup membership ([#635](https://github.com/Consensys/gnark-crypto/issues/635))
-
-### Perf
 - Poseidon2 GKR circuit ([#628](https://github.com/Consensys/gnark-crypto/issues/628))
-
 ### Refactor
 - generify small fields extensions ([#647](https://github.com/Consensys/gnark-crypto/issues/647))
 - generate code for poseidon2_test ([#660](https://github.com/Consensys/gnark-crypto/issues/660))
-
 ### Style
 - better github bot formatting, maybe.
 - better github bot formatting, maybe.
 - better github bot formatting, maybe.
-
 ### Test
 - improve NAF decomposition test coverage ([#617](https://github.com/Consensys/gnark-crypto/issues/617))
-
-
 <a name="v0.16.0"></a>
 ## [v0.16.0] - 2025-01-31
 ### Fix
 - fixes [#619](https://github.com/Consensys/gnark-crypto/issues/619) help go mod vendor to include files ([#620](https://github.com/Consensys/gnark-crypto/issues/620))
-
 ### Perf
 - Parallelize subgroup checks in KZG MPC setup ([#615](https://github.com/Consensys/gnark-crypto/issues/615))
-
-
 <a name="v0.15.0"></a>
 ## [v0.15.0] - 2025-01-21
 ### Build
@@ -236,14 +177,12 @@
 - generify
 - update ci for slack bot ([#538](https://github.com/Consensys/gnark-crypto/issues/538))
 - **deps:** bump golang.org/x/crypto from 0.26.0 to 0.31.0 ([#579](https://github.com/Consensys/gnark-crypto/issues/579))
-
 ### Chore
 - use errors.New to replace fmt.Errorf with no parameters ([#575](https://github.com/Consensys/gnark-crypto/issues/575))
 - fix some function names in comment ([#569](https://github.com/Consensys/gnark-crypto/issues/569))
 - fix some function names in comment ([#559](https://github.com/Consensys/gnark-crypto/issues/559))
 - ignore gosec false positive
 - use golint option to include generated files ([#549](https://github.com/Consensys/gnark-crypto/issues/549))
-
 ### Docs
 - Change copyright year to 2025 (not autogenerated)
 - update element package doc ([#572](https://github.com/Consensys/gnark-crypto/issues/572))
@@ -252,7 +191,6 @@
 - document batchAddAfine func ([#555](https://github.com/Consensys/gnark-crypto/issues/555))
 - GSigma -> GSigmaNeg bn254
 - update README ([#533](https://github.com/Consensys/gnark-crypto/issues/533))
-
 ### Feat
 - cleaned iop ([#587](https://github.com/Consensys/gnark-crypto/issues/587))
 - restored sis ([#583](https://github.com/Consensys/gnark-crypto/issues/583))
@@ -314,7 +252,6 @@
 - division ok
 - mul by linear factor ok
 - **bw6-761:** Miller loop using direct sextic extension ([#608](https://github.com/Consensys/gnark-crypto/issues/608))
-
 ### Fix
 - fixed comments and variable naming ([#603](https://github.com/Consensys/gnark-crypto/issues/603))
 - re-ran go generate for field/
@@ -335,7 +272,6 @@
 - used upper bound of the total size in buf
 - fixed test TestMultiplyLinearFactor
 - fixed vanishing poly
-
 ### Perf
 - make SetBytes not allocate errors in non-fast path ([#599](https://github.com/Consensys/gnark-crypto/issues/599))
 - adds (some) arm NEON assembly for koalabear and babybear ([#588](https://github.com/Consensys/gnark-crypto/issues/588))
@@ -344,7 +280,6 @@
 - subgroup check ([#557](https://github.com/Consensys/gnark-crypto/issues/557))
 - adds AVX512 implementations of vector.Sum, vector.InnerProduct + assembly refactor ([#547](https://github.com/Consensys/gnark-crypto/issues/547))
 - add Vector::Add, Sub and ScalarMul assembly (and purego) implementations ([#536](https://github.com/Consensys/gnark-crypto/issues/536))
-
 ### Refactor
 - clean up SIS, placeholder ([#596](https://github.com/Consensys/gnark-crypto/issues/596))
 - remove dependency on ecc Encoder in fft domain marshal ([#565](https://github.com/Consensys/gnark-crypto/issues/565))
@@ -352,20 +287,16 @@
 - move eisenstein under field/
 - up doc
 - kill bls12-378 and bw6-756 curves
-
 ### Release
 - v0.15.0 ([#611](https://github.com/Consensys/gnark-crypto/issues/611))
-
 ### Style
 - clean comments
 - nbInstances -> nbPolynomials
 - remaing -> remaining
-
 ### Test
 - fix windows build
 - fix windows build
 - half-GCD test with bigger integers
-
 ### Typos
 - squashed typo fixes ([#610](https://github.com/Consensys/gnark-crypto/issues/610))
 
@@ -374,8 +305,6 @@
 - Merge pull request [#498](https://github.com/Consensys/gnark-crypto/issues/498) from Consensys/feat/fflonk
 - Merge pull request [#543](https://github.com/Consensys/gnark-crypto/issues/543) from Consensys/feat/eisenstein
 - Merge pull request [#534](https://github.com/Consensys/gnark-crypto/issues/534) from Consensys/refactor/kill-some-curves
-
-
 <a name="v0.14.0"></a>
 ## [v0.14.0] - 2024-09-03
 ### Build
@@ -383,17 +312,13 @@
 - generify g2.go changes
 - generify pedersen_test.go changes
 - generify pedersen.go changes
-
 ### Chore
 - fix some function names ([#526](https://github.com/Consensys/gnark-crypto/issues/526))
 - go generate
 - go generate
 - go generate
-
-### Doc
-- describe the prover can provide folded proof
-
 ### Docs
+- describe the prover can provide folded proof
 - add documentation examples
 - more explanations
 - add package documentation
@@ -402,26 +327,21 @@
 - correct BW6 tower comment
 - up E3 mul comment
 - **ecc:** refactor comments in g*.go
-
 ### Feat
 - use curve fold
 - define fold method for curve
 - use foldable Pedersen commitment verification
 - pedersen batch verify bn254
-
 ### Fix
 - fixes [#522](https://github.com/Consensys/gnark-crypto/issues/522) with bound check before computing twiddles when domain has no precompute set ([#523](https://github.com/Consensys/gnark-crypto/issues/523))
 - resolve conflict around kzg
-
 ### Perf
 - remove uneeded bucket init in affine coordinates fixes [#529](https://github.com/Consensys/gnark-crypto/issues/529) ([#530](https://github.com/Consensys/gnark-crypto/issues/530))
-
 ### Refactor
 - variable name
 - option outputs option
 - typos in comments
 - correct IsZero comments
-
 ### Test
 - add test for prefolded pok
 - fix example test
@@ -431,33 +351,26 @@
 - Merge pull request [#527](https://github.com/Consensys/gnark-crypto/issues/527) from Consensys/feat/pedersen-batchmultivk
 - Merge pull request [#517](https://github.com/Consensys/gnark-crypto/issues/517) from Consensys/feat/pedersen-batch-verify
 - Merge pull request [#511](https://github.com/Consensys/gnark-crypto/issues/511) from Consensys/docs/up-comments
-
-
 <a name="v0.13.0"></a>
 ## [v0.13.0] - 2024-07-19
+### CI
+- new attempt to fix push to master workflow
+- grmpppf
+- add missing message field
+- use runner.os
+- update ci workflows ([#460](https://github.com/Consensys/gnark-crypto/issues/460))
 ### Chore
 - generate
 - go generate
 - make recoverP internal
 - go generate
 - **deps:** bump golang.org/x/crypto from 0.10.0 to 0.17.0 ([#473](https://github.com/Consensys/gnark-crypto/issues/473))
-
-### Ci
-- new attempt to fix push to master workflow
-- grmpppf
-- add missing message field
-- use runner.os
-- update ci workflows ([#460](https://github.com/Consensys/gnark-crypto/issues/460))
-
-### Doc
-- update hash to curve rfc ref and impl comment ([#478](https://github.com/Consensys/gnark-crypto/issues/478))
-
 ### Docs
 - describe length extension attack for MiMC hash function. ([#520](https://github.com/Consensys/gnark-crypto/issues/520))
 - fix misspelled comment
 - skipping inf points in PairFixedQ is implicit
 - **ecc:** add comment in IsOnCurve()
-
+- update hash to curve rfc ref and impl comment ([#478](https://github.com/Consensys/gnark-crypto/issues/478))
 ### Feat
 - return constant error for quadratic non residues
 - mathfmt doc
@@ -472,7 +385,6 @@
 - quick SRS is now balanced
 - code gen for quick srs
 - avoid batch scalar mul when alpha=1 bn254
-
 ### Fix
 - m range from 1 in test
 - sis limb-decomposition works with log-two_bound > 8
@@ -485,7 +397,6 @@
 - remove duplicate gkr template generation
 - **bandersnatch:** GLV bounds + test ([#516](https://github.com/Consensys/gnark-crypto/issues/516))
 - **kzg:** bw6-633 vk marshal
-
 ### Perf
 - batchInvert 1/P.Y in fixed-arg pairing
 - unsafe.WriteSlice ([#501](https://github.com/Consensys/gnark-crypto/issues/501)) ([#503](https://github.com/Consensys/gnark-crypto/issues/503))
@@ -522,7 +433,6 @@
 - **ecc:** scpecialize mul by B in IsOnCurve
 - **ecc:** save 1 mul in IsOnCurve
 - **kzg:** replace 2 scalarMuls with a JointScalarMul
-
 ### Refactor
 - remove G1 from KZG verifiying key
 - move test util package into isolated one ([#500](https://github.com/Consensys/gnark-crypto/issues/500))
@@ -540,7 +450,6 @@
 - **bw6-756:** use revisited Ate pairing instead of Tate
 - **bw6-761:** clean and optimize new pairing
 - **bw6-761:** use revisited Ate pairing instead of Tate
-
 ### Test
 - update the tests
 - **ecc:** affine Add involving (0,0)
@@ -564,43 +473,36 @@
 - Merge pull request [#465](https://github.com/Consensys/gnark-crypto/issues/465) from Consensys/refactor/bw6761-pairing
 - Merge pull request [#459](https://github.com/Consensys/gnark-crypto/issues/459) from Consensys/perf/bw6-finalExp
 - Merge pull request [#458](https://github.com/Consensys/gnark-crypto/issues/458) from Consensys/feat/kzg_dummy_srs
-
-
 <a name="v0.12.1"></a>
 ## [v0.12.1] - 2023-10-05
 ### Clean
 - remove useless snippet in mulWindowed ([#453](https://github.com/Consensys/gnark-crypto/issues/453))
-
 ### Ecc
 - fix neutral elements cases
 - add bench for Jac equality check
 - avoid inverses in Jac equality check
-
 ### Edwards
 - add bench for Projective equality check
 - avoid inverses in Projective equality check
-
 ### Feat
 - discared useless files
 - added test for [-s]G=-[s]G
-
 ### Fix
 - add GT ExpGLV fix to BLS24 + BW6
 - merge and fix tests for expGLV
 - use max(size(s1), size(s2)) for ExpGLV
 - fixed mulWindowed for negative exponents
 - fixed ExpGLV in GT
-
 ### Perf
 - **fft:** introduce cache efficient bit reverse shuffling ([#446](https://github.com/Consensys/gnark-crypto/issues/446))
 
 ### Pull Requests
 - Merge pull request [#451](https://github.com/Consensys/gnark-crypto/issues/451) from Consensys/fix/glv
 - Merge pull request [#450](https://github.com/Consensys/gnark-crypto/issues/450) from jsign/jsign-eq-improv
-
-
 <a name="v0.12.0"></a>
 ## [v0.12.0] - 2023-09-27
+### CI
+- update ci workflows ([#447](https://github.com/Consensys/gnark-crypto/issues/447))
 ### Chore
 - generate
 - generate
@@ -611,19 +513,13 @@
 - generate tests
 - remove extra method description
 - remove extra file
-
-### Ci
-- update ci workflows ([#447](https://github.com/Consensys/gnark-crypto/issues/447))
-
 ### Edwards
 - improve the performance of Add, MixedAdd and IsOnCurve ([#441](https://github.com/Consensys/gnark-crypto/issues/441))
-
 ### Feat
 - delete playground
 - added tests for non malleability of ecdsa
 - added tests for non malleability (eddsa)
 - ErrShortBuffer -> ErrWrongSizeBuffer
-
 ### Fix
 - remove test that signature value R.X == 0
 - check EdDSA signature values not zero
@@ -632,13 +528,10 @@
 - remove swifft files, removed const error
 - fixed malleability issue ecdsa/eddsa
 - fixed ambiguous unmarshalling eddsa
-
 ### Multiexp
 - avoid direct coordinate access to check for zero points ([#414](https://github.com/Consensys/gnark-crypto/issues/414))
-
 ### Refactor
 - make marshal errors private
-
 ### Test
 - ensure the test path is taken
 - add tests for zero values
@@ -647,8 +540,6 @@
 ### Pull Requests
 - Merge pull request [#449](https://github.com/Consensys/gnark-crypto/issues/449) from Consensys/fix/malleability_sig
 - Merge pull request [#442](https://github.com/Consensys/gnark-crypto/issues/442) from jsign/jsign-edwards-extended
-
-
 <a name="v0.11.2"></a>
 ## [v0.11.2] - 2023-08-18
 ### Build
@@ -659,14 +550,11 @@
 - generify marshal changes
 - generify
 - generify bn254 changes
-
 ### Docs
 - ConsenSys -> Consensys ([#406](https://github.com/Consensys/gnark-crypto/issues/406))
 - explain FoldCommitments
-
 ### Edwards
 - optimize point negation ([#413](https://github.com/Consensys/gnark-crypto/issues/413))
-
 ### Feat
 - added size accessor on poly
 - added polynomial.SetSize
@@ -682,7 +570,6 @@
 - fold 0 proofs edge case
 - pedersen folding proofs
 - Marshal [][]fr.Element ([#400](https://github.com/Consensys/gnark-crypto/issues/400))
-
 ### Fix
 - add explicit operator priority
 - ECDSA HashToInt bytes-bits mismatch ([#428](https://github.com/Consensys/gnark-crypto/issues/428))
@@ -694,18 +581,14 @@
 - pedersen folding bug
 - more innef assign
 - innef assignment in test
-
 ### Msm
 - semaphore to limit CPUs + better split strategy (up to 25% perf boost on 96cores) ([#403](https://github.com/Consensys/gnark-crypto/issues/403))
-
 ### Perf
 - dont waste too much memory in fft domain ([#437](https://github.com/Consensys/gnark-crypto/issues/437))
 - small memory alloc optimization ([#435](https://github.com/Consensys/gnark-crypto/issues/435))
 - fast path for SIS with logTwoBound: 8, logTwoDegree: 6 ([#416](https://github.com/Consensys/gnark-crypto/issues/416))
-
 ### Style
 - move aux func down
-
 ### Test
 - check error
 
@@ -714,20 +597,15 @@
 - Merge pull request [#419](https://github.com/Consensys/gnark-crypto/issues/419) from Consensys/feat/gkr-custom-gates
 - Merge pull request [#410](https://github.com/Consensys/gnark-crypto/issues/410) from ConsenSys/fix/decode-empty-slice
 - Merge pull request [#407](https://github.com/Consensys/gnark-crypto/issues/407) from ConsenSys/feat/fold-pedersen
-
-
 <a name="v0.11.1"></a>
 ## [v0.11.1] - 2023-07-11
 ### Chore
 - update CHANGELOG
-
 ### Fix
 - ECDSA HashToInt bytes-bits mismatch ([#428](https://github.com/Consensys/gnark-crypto/issues/428))
 
 ### Pull Requests
 - Merge pull request [#429](https://github.com/Consensys/gnark-crypto/issues/429) from Consensys/release/v0.11.1
-
-
 <a name="v0.11.0"></a>
 ## [v0.11.0] - 2023-05-02
 ### Build
@@ -738,15 +616,12 @@
 - generify bn254 kzg changes
 - bump go1.20
 - update ci github action dependencies
-
 ### Chore
 - PR feedback
-
 ### Docs
 - make comments more godoc friendly
 - remove comment
 - remove DO NOT EDIT from non-autogenerated files
-
 ### Feat
 - fix v computation in ECDSA signature ([#385](https://github.com/Consensys/gnark-crypto/issues/385))
 - make `mapToCurve` public to allow for custom cofactor clearing ([#372](https://github.com/Consensys/gnark-crypto/issues/372))
@@ -754,7 +629,6 @@
 - kzg.Vk.WriteRawTo
 - bn254 encoder to support uint64 slices
 - **pairing:** return 1 after easy part if result is 1
-
 ### Fix
 - handle all bitmask in point deserialization
 - littleEndian -> bigEndian
@@ -765,10 +639,8 @@
 - bn254 incorporate evals into kzg batch challenge
 - **kzg:** nb of digests in BatchVerifyMultiPoints should be nonzeo
 - **linter:** ineffassign in Fpk marshal
-
 ### Perf
 - **kzg:** remove G2 scalar mul in single verification
-
 ### Refactor
 - break pedersen key into proving (committing) and verifying
 - move roundtrip func to utils
@@ -781,14 +653,12 @@
 - export endomorphisms
 - **BatchDecompressKarabina:** handle g2=g3=0 case "explicitly"
 - **DecompressKarabina:** handle g2=g3=0 case "explicitly"
-
 ### Revert
 - do not export endomorphisms
 - NewSRS to return a pointer again
 - revive whole SRS serialization
 - reflect kzg.srs revival in other packages
 - limited revival of kzg.Srs
-
 ### Style
 - no loop when serializing one object only
 
@@ -806,27 +676,20 @@
 - Merge pull request [#377](https://github.com/Consensys/gnark-crypto/issues/377) from ConsenSys/fix/fold-kzg-fs
 - Merge pull request [#371](https://github.com/Consensys/gnark-crypto/issues/371) from omerfirmak/elim-pedersen-alloc
 - Merge pull request [#369](https://github.com/Consensys/gnark-crypto/issues/369) from ConsenSys/build/updateci
-
-
 <a name="v0.10.1"></a>
 ## [v0.10.1] - 2023-07-11
 ### Chore
 - update CHANGELOG
-
 ### Fix
 - ECDSA HashToInt bytes-bits mismatch ([#428](https://github.com/Consensys/gnark-crypto/issues/428))
-
-
 <a name="v0.10.0"></a>
 ## [v0.10.0] - 2023-03-29
 ### Build
 - ran go generate
-
 ### Docs
 - added Generator docs
 - add TODO with small domain warning
 - **pairing:** add comments
-
 ### Feat
 - add ECDSA public key recover from message, signature and recovery info ([#347](https://github.com/Consensys/gnark-crypto/issues/347))
 - added comment for bitAt function
@@ -840,14 +703,12 @@
 - experiment parallel sis
 - restored latest fft
 - restored fp, fr, etc
-
 ### Fix
 - code generation fp6
 - mods smaller than 5; overestimating nbword
 - invalid infinity point encoding
 - SIS on 64bit only
 - **MillerLoop:** return 1 when size(pairs)=0 after infinity filter
-
 ### Perf
 - faster init + simplify bit processing loop
 - fix todo with small domain path
@@ -866,7 +727,6 @@
 - **pairings:** isolate first iteration to avoid a MulByLine
 - **pairings:** isolate last iteration to avoid a double/add
 - **stark-curve:** no subgroup check on prime-order curve
-
 ### Refactor
 - expose fft.Generator() method
 - export bls12-381 tower
@@ -875,14 +735,12 @@
 - fft.WithCoset() -> fft.OnCoset()
 - sis.py -> sis.sage
 - **pairings:** make DoubleStep and AddMixedStep private
-
 ### Style
 - remove dead comments
 - code cleaning
 - more code cleaning
 - code cleaning
 - cosmetic edits
-
 ### Test
 - minor fixes and skip 32bit
 - update test_cases.json
@@ -907,17 +765,12 @@
 - Merge pull request [#345](https://github.com/Consensys/gnark-crypto/issues/345) from ConsenSys/feat/fftopt
 - Merge pull request [#263](https://github.com/Consensys/gnark-crypto/issues/263) from AlexandreBelling/perf/tensor-commitment
 - Merge pull request [#260](https://github.com/Consensys/gnark-crypto/issues/260) from AlexandreBelling/experimental/tensor-commitment
-
-
 <a name="v0.9.2"></a>
 ## [v0.9.2] - 2023-07-11
 ### Chore
 - update CHANGELOG
-
 ### Fix
 - ECDSA HashToInt bytes-bits mismatch ([#428](https://github.com/Consensys/gnark-crypto/issues/428))
-
-
 <a name="v0.9.1"></a>
 ## [v0.9.1] - 2023-02-14
 ### Build
@@ -930,7 +783,6 @@
 - generify parallel computeGJ
 - generify bn254 mimc changes
 - remove G2Exist flag from curves config
-
 ### Chore
 - remove safeStack
 - simpler dst for hash.WriteString
@@ -941,12 +793,10 @@
 - delete temp files
 - setNbOutputs covered by topSort now
 - remove two other topological sorts
-
 ### Docs
 - fix incorrect statement
 - innerWork
 - update DOI in README.md
-
 ### Feat
 - SliceToElementSlice to be generic
 - some gkr; claim/subclaim in sumcheck seems untenable
@@ -1021,7 +871,6 @@
 - MORE ABSTRACTION 🥲 Evaluating the final claim may be hard
 - **ecdsa:** use aes-ctr in signing randomness
 - **templates:** ecdsa package for all curves
-
 ### Fix
 - static checks
 - no repeated claims in FinalEvalProof
@@ -1122,7 +971,6 @@
 - **stark-curve:** point encoder (a!=0)
 - **stark-curve:** svdw hash-to-curve (coeff A!=0)
 - **template:** entries var re-declared
-
 ### Perf
 - parallelize computeGJ more effectively
 - parallel Fold
@@ -1140,7 +988,6 @@
 - some rudimentary parallelism
 - **ecdsa:** avoid 2 inverses in verify (affine scalarMul)
 - **ecdsa:** no bigInt allocation
-
 ### Refactor
 - include secp256k1 in code generation
 - move some routines from gkrVectors
@@ -1170,7 +1017,6 @@
 - **ecdsa:** remove Params struct
 - **ecdsa:** marshal + follow interface
 - **ecdsa:** make hashToInt accessible for gnark
-
 ### Revert
 - deleted mimc.Write documentation
 - Remove EdDSA SignNum and VerifyNum
@@ -1178,7 +1024,6 @@
 - mimc to take in multiple elements
 - don't doubly hash finalEvalProof when an input wire is skipped
 - roll back cgo in memory management
-
 ### Style
 - some simplification, remove some dead code
 - remove unnecessary variable
@@ -1187,7 +1032,6 @@
 - rename rational_cases to test_vectors
 - don't name unused variables
 - improved comments
-
 ### Test
 - more debug output
 - printfs in mimc
@@ -1230,40 +1074,30 @@
 - Merge pull request [#299](https://github.com/Consensys/gnark-crypto/issues/299) from ConsenSys/feat/stark-curve
 - Merge pull request [#285](https://github.com/Consensys/gnark-crypto/issues/285) from ConsenSys/refac/gkr-fiatshamir
 - Merge pull request [#259](https://github.com/Consensys/gnark-crypto/issues/259) from ConsenSys/bench/gkr
-
-
 <a name="v0.9.0"></a>
 ## [v0.9.0] - 2023-01-05
 ### Build
 - re-ran gofmt with go1.19, updated ci to that
-
 ### Docs
 - added audit.pdf and updated link in README
-
 ### Feat
 - field.Hash ([#271](https://github.com/Consensys/gnark-crypto/issues/271))
 - add secp256k1 curve
-
 ### Fix
 - make BigInt a pointer receiver
 - remove generated fr/pedersen package from secp256k1
 - rebase on develop
 - no compressed marshall because no spare bit
 - **secp256k1:** no partitionScalars because there is no spare bit
-
-### Fix
 - typos ([#262](https://github.com/Consensys/gnark-crypto/issues/262))
-
 ### Perf
 - **MSM:** save 4 mul in ext-Jac add
 - **bn254:** faster subgroup membership
-
 ### Refactor
 - rebase on develop (field api)
 - mark ToBigIntRegular as deprecated, introduce BigInt method ([#290](https://github.com/Consensys/gnark-crypto/issues/290))
 - clean code generation for endo-based computations ([#281](https://github.com/Consensys/gnark-crypto/issues/281))
 - **bn254:** remove unused variable (fixedCoeff)
-
 ### Style
 - typo
 
@@ -1274,8 +1108,6 @@
 - Merge pull request [#250](https://github.com/Consensys/gnark-crypto/issues/250) from ConsenSys/docs/audit
 - Merge pull request [#245](https://github.com/Consensys/gnark-crypto/issues/245) from ConsenSys/perf/extJac-add
 - Merge pull request [#240](https://github.com/Consensys/gnark-crypto/issues/240) from ConsenSys/go1.19
-
-
 <a name="v0.8.0"></a>
 ## [v0.8.0] - 2022-08-04
 ### Build
@@ -1286,22 +1118,18 @@
 - faster ci path ([#185](https://github.com/Consensys/gnark-crypto/issues/185))
 - increase CI timeout
 - fix BatchInvert renaming in SSWU templates
-
+### CI
+- fix slack integration + adds golanglint-ci ([#184](https://github.com/Consensys/gnark-crypto/issues/184))
+- revert most of last commit
+- use self hosted runners
 ### Chore
 - bls12-381 vectors: u
 - fix some merge issues
 - merge develop
 - resolve conflicts with non-mont-params
-
-### Ci
-- fix slack integration + adds golanglint-ci ([#184](https://github.com/Consensys/gnark-crypto/issues/184))
-- revert most of last commit
-- use self hosted runners
-
 ### Clean
 - replace modulus generated by constants, add zero-alloc SetRandom ([#194](https://github.com/Consensys/gnark-crypto/issues/194))
 - remove uneeded x86 asm and files ([#192](https://github.com/Consensys/gnark-crypto/issues/192))
-
 ### Docs
 - updated changelog for v0.8.0
 - polish readme.md with updated godoc subpackage links ([#235](https://github.com/Consensys/gnark-crypto/issues/235))
@@ -1312,7 +1140,6 @@
 - prepare v0.8.0 release notes
 - added twitter handle and security policy links
 - updated doi
-
 ### Feat
 - simplified low degree check
 - lagrange polys, a couple of poly funcs
@@ -1357,11 +1184,8 @@
 - **fri:** modified challenge generation so it fits in a snark variable
 - **fri:** evaluation field is exported
 - **fri:** removed unsused variable
-
 ### Fix
 - Handle edge case in Karabina decompression ([#219](https://github.com/Consensys/gnark-crypto/issues/219))
-
-### Fix
 - check nbTasks config when running msm, test all possible c-bit windows in when testing.Short not set) ([#226](https://github.com/Consensys/gnark-crypto/issues/226))
 - race condition with supportAdx relique in internal/fptower
 - element.SetString(_) returns error if invalid input instead of panic
@@ -1393,11 +1217,9 @@
 - TestDeriveQueriesPositions passes
 - fixed failing tests (polynomial.go, bls12-381)
 - dusted off polynomial.go (bls377, no code gen yet)
-
 ### Perf
 - remove unecessary inverse in KZG-verify
 - faster GLV scalar decompostion
-
 ### Refactor
 - fft is done in the main loop
 - kzg uses DivideByXminusA from polynomial module
@@ -1419,7 +1241,6 @@
 - clean comments in curves ([#193](https://github.com/Consensys/gnark-crypto/issues/193))
 - DivideByXMinusA returns a pointer
 - **polynomial:** Copy() --> GetCopy()
-
 ### Style
 - remove dead code ([#230](https://github.com/Consensys/gnark-crypto/issues/230))
 - inneficient -> inefficient
@@ -1428,7 +1249,6 @@
 - removed dead code
 - fixed comment
 - cleaned comments, removed dead code
-
 ### Test
 - cleanup
 - fix [#205](https://github.com/Consensys/gnark-crypto/issues/205) - msm bench with different bases ([#206](https://github.com/Consensys/gnark-crypto/issues/206))
@@ -1461,8 +1281,6 @@
 - Merge pull request [#202](https://github.com/Consensys/gnark-crypto/issues/202) from ConsenSys/gbotrel/issue199
 - Merge pull request [#200](https://github.com/Consensys/gnark-crypto/issues/200) from tyGavinZJU/develop
 - Merge pull request [#85](https://github.com/Consensys/gnark-crypto/issues/85) from ConsenSys/feat/fri
-
-
 <a name="v0.7.0"></a>
 ## [v0.7.0] - 2022-03-25
 ### Build
@@ -1476,8 +1294,7 @@
 - templates for bw6-756
 - templates for bw6-756
 - add bls12-378 to kzg and hash
-
-### Ci
+### CI
 - update workflows
 - update ci workflows
 - update github action workflows
@@ -1486,12 +1303,10 @@
 - remove circleCI
 - updated circleci to latest golang img
 - updated github workflow to go 1.18
-
 ### Docs
 - prepare changelog.md for v0.7.0
 - updated hyperelliptic links for twisted ed Add and MixedAdd
 - updated DOI
-
 ### Feat
 - sweet parameters for BLS12-377 G1 SSWU
 - add bw6-756 (2-chain w/ bls12-378 GT-strong)
@@ -1513,7 +1328,6 @@
 - **bls12-378:** add companion twisted edwards to GT-strong BLS12-378
 - **bw6-756:** add companion twisted Edwards
 - **bw6-756:** add companion twisted Edwards
-
 ### Fix
 - IsUint64 coherence with other methods, convert from montgomery beforehands
 - twisted curve formulae for GT-strong embedded curve (a != -1)
@@ -1531,7 +1345,6 @@
 - **bls12-378:** set root of unity for FFT
 - **bw6-633:** typo FrMultiplicativeGen=13
 - **sswu:** specify CoordExtRoot for BLS12-377
-
 ### Refactor
 - move signature/ constructors to signature/eddsa
 - eddsa generated for all twisted ed curve, including bandersnatch
@@ -1541,14 +1354,11 @@
 - make twistededwards all template generated
 - **sswu template:** NotOne is not always used
 - **sswu template:** NotOne is not always used
-
 ### Style
 - correct comment in config file
 - cleaned comments related to cosets
-
 ### Test
 - add few edge cases to test twistededwards
-
 ### Tests
 - mark test as Parallel. Check testing.Short() in most tests
 
@@ -1564,13 +1374,10 @@
 - Merge pull request [#156](https://github.com/Consensys/gnark-crypto/issues/156) from ConsenSys/sswu-all
 - Merge pull request [#154](https://github.com/Consensys/gnark-crypto/issues/154) from ConsenSys/fix/fft-mulGen
 - Merge pull request [#153](https://github.com/Consensys/gnark-crypto/issues/153) from zhiqiangxu/opt_NewDomain
-
-
 <a name="v0.6.1"></a>
 ## [v0.6.1] - 2022-02-15
 ### Build
 - **templates:** fix G2 point template
-
 ### Chore
 - genericize c-time sswu
 - removed the last sswu if
@@ -1579,13 +1386,11 @@
 - removed redundant function SetHex
 - addressed all "small" feedback points
 - remove unnecessary benchmarks, remove og equals, rename diff
-
 ### Docs
 - updated changelog.md for v0.6.1
 - updated bibtex citation key
 - updated bibtex citation
 - added DOI and bibtex citation in readme.md
-
 ### Feat
 - code gen
 - adapted permutation argument to nrw kzg api
@@ -1612,7 +1417,6 @@
 - x64 assembly
 - generic selection using bitwise operations
 - **twistededwards:** Extended coordinates (a=-1) (faster, not complete)
-
 ### Fix
 - code generation "oops" with `testPairElement` class name
 - fixed fuzz fft
@@ -1650,22 +1454,18 @@
 - mimc is compliant with ethereum
 - twisted edwards templates
 - **tEdwards:** cofactor ToMont() not FromMont()
-
 ### Perf
 - init constants in sync.Once in MiMC
 - **bandersnatch:** extended coordinates
 - **bls24-315:** faster G2 membership test
-
 ### Refactor
 - property based testing for SqrtRatio, move sgn0 to ecc package
 - property based testing of IntToMont
 - Move field related funcs to field.Field
 - CurveInfo
-
 ### Revert
 - Inverse0 to have own PR
 - no assemly
-
 ### Style
 - remove excessive logs
 - rename `TempForHash` to `HashUtils`
@@ -1675,7 +1475,6 @@
 - removed addchain folders
 - match function hierarchy: Select -> select_ -> _selectGeneric
 - remove redundant check
-
 ### Test
 - possible fix
 - obnoxious verbosity
@@ -1698,8 +1497,6 @@
 - Merge pull request [#140](https://github.com/Consensys/gnark-crypto/issues/140) from ConsenSys/inv(0)=0
 - Merge pull request [#110](https://github.com/Consensys/gnark-crypto/issues/110) from ConsenSys/feat/tEd-extended
 - Merge pull request [#123](https://github.com/Consensys/gnark-crypto/issues/123) from ConsenSys/perf/BLS24-G2-IsInSubGroup
-
-
 <a name="v0.6.0"></a>
 ## [v0.6.0] - 2022-01-03
 ### Build
@@ -1711,7 +1508,6 @@
 - gitignore generated addition chains
 - run go mod tidy
 - fix marshal template for bls24
-
 ### Chore
 - generify 32bit fix
 - staticcheck, correct commented formula for outer loop iterations
@@ -1721,12 +1517,10 @@
 - mathfmt, change correctionFac from var to consts, cite Pornin
 - Autogen all tests. TODO: bls12-377 fr loops
 - signed/unsigned versions of SOS mont for comparison
-
 ### Docs
 - v0.6.0 draft release notes
 - zkteam -> gnark
 - update field IsUIint64 doc
-
 ### Feat
 - addition of test with a tampered proof
 - addition of permutation proof in lookup proof (table version)
@@ -1759,7 +1553,6 @@
 - **plookup:** adding missing files in templates
 - **plookup:** generated plookup for all curves
 - **plookup:** addition of benchmark
-
 ### Fix
 - Optimization 3 works, but with many watches
 - started adding the missing parts of the quotietn
@@ -1801,7 +1594,6 @@
 - **plookup:** fixed wrong bound for completion of t and f
 - **plookup:** computation of h is correct
 - **plookup:** computation of Z ok
-
 ### Perf
 - Branch-free signed non-mont word multiplication
 - Field element - Word multiplication implemented
@@ -1823,14 +1615,11 @@
 - **bls24:** compute frobenius coefficients
 - **bn254:** better short addition chain for Expt()
 - **bn254:** addchain with max squares (weighting mul x2.6 cyclosq)
-
 ### Refactor
 - SOS Montgomery Reduction
 - **bn254:** G2 memebership test uses psi directly
-
 ### Revert
 - remove mathfmt (for now)
-
 ### Style
 - comments and proofs
 - removed debug printing
@@ -1851,7 +1640,6 @@
 - Some more commentary
 - **plookup:** changed naming for rows and columns
 - **plookup:** removed all the printing
-
 ### Test
 - BenchInverse to call InverseOld
 - Autogen correction factor checking test
@@ -1871,38 +1659,29 @@
 - Merge pull request [#102](https://github.com/Consensys/gnark-crypto/issues/102) from ConsenSys/feat/plookup
 - Merge pull request [#97](https://github.com/Consensys/gnark-crypto/issues/97) from ConsenSys/feat-addchain
 - Merge pull request [#99](https://github.com/Consensys/gnark-crypto/issues/99) from ConsenSys/feat-addchain-expt
-
-
 <a name="v0.5.3"></a>
 ## [v0.5.3] - 2021-11-03
 ### Docs
 - updated CHANGELOG.md for v0.5.3
-
 ### Feat
 - subgroup check optional in decoder, parallel checks on slices
 - added element.NewElement(v uint64)
-
 ### Fix
 - **fp12:** compressed cyclotomic square (receiver == argument)
-
 ### Perf
 - **bn:** faster G2 membership test
-
 ### Style
 - cmp(zero) == -1 -> sign() == -1
 
 ### Pull Requests
 - Merge pull request [#96](https://github.com/Consensys/gnark-crypto/issues/96) from ConsenSys/perf-decode-raw-points
 - Merge pull request [#95](https://github.com/Consensys/gnark-crypto/issues/95) from ConsenSys/perf/bn-g2-membership
-
-
 <a name="v0.5.2"></a>
 ## [v0.5.2] - 2021-10-26
 ### Build
 - updated CHANGELOG.md for v0.5.2
 - updated code generation with Projective parameter in Point
 - **templates:** homogenous projective coordinates for G1 (bw6)
-
 ### Feat
 - add bandersnatch curve (twistedEdwards on bls12-381 with GLV)
 - linked info returned by ecc.Info with internal curve config package
@@ -1911,22 +1690,18 @@
 - moved element.Halve into templates
 - **bw6:** optimal Tate Miller loop with shared computations
 - **bw6-761:** opt. ate with shared squares and shared doublings (alg.2)
-
 ### Fix
 - halve with full-bits moduli
 - **all twistedEdwards:** fix Add() in projective coordinates (issue 89)
 - **all twistedEdwards:** remove A as we assume A=-1 (issue 87)
 - **fiat-shamir:** added test to ensure len(challenge) > 0
-
 ### Perf
 - Halve() directly on fp.Element
 - **all curves:** Halve() directly on fp.Element
 - **bn:** multiply ML external lines 2 by 2 (+multi-ML bench)
 - **wip:** Montgomery Rsh instead of mul by 1/2
-
 ### Refactor
 - **templates:** unify twistedEdwards package across curves
-
 ### Style
 - correct comments
 - factorize field info
@@ -1942,8 +1717,6 @@
 - Merge pull request [#88](https://github.com/Consensys/gnark-crypto/issues/88) from ConsenSys/issue-87/twistedEdwards
 - Merge pull request [#81](https://github.com/Consensys/gnark-crypto/issues/81) from ConsenSys/ML/DoubleStep-Halve
 - Merge pull request [#77](https://github.com/Consensys/gnark-crypto/issues/77) from ConsenSys/BW6
-
-
 <a name="v0.5.1"></a>
 ## [v0.5.1] - 2021-09-21
 ### Build
@@ -1951,11 +1724,9 @@
 - replace go get by go install in CI workflow
 - make staticcheck happier
 - updated circleCI golang image
-
 ### Docs
 - updated CHANGELOG.md with v0.5.1 release
 - highlight breaking change in twisted edwards and eddsa
-
 ### Feat
 - reverted to non-asm field inverse
 - element.String() special path for uint64 and -uint64 values
@@ -1968,10 +1739,8 @@
 - **e12:** implements batch decompression for karabina cyclo square
 - **e24:** implements batch decompression for karabina cyclo square
 - **experimental:** msm splits first chunk processing if scalar is on one word
-
 ### Fix
 - use low c bits only for small values in msm
-
 ### Perf
 - **bls12:** faster G2 membership (eprint 2021/1130 sec.4)
 - **bls12-377:** use asm MubBy5 as MulByNonResidue
@@ -1981,8 +1750,6 @@
 ### Pull Requests
 - Merge pull request [#76](https://github.com/Consensys/gnark-crypto/issues/76) from ConsenSys/msm-ones
 - Merge pull request [#75](https://github.com/Consensys/gnark-crypto/issues/75) from ConsenSys/feat/karabina
-
-
 <a name="v0.5.0"></a>
 ## [v0.5.0] - 2021-08-23
 ### Build
@@ -2006,16 +1773,10 @@
 - re-ran go:generate
 - make staticcheck happier
 - **bw6-633:** remove twistededwards until script finds coeff
-
 ### Clean
 - **kzg:** NewSRS returns error if size < 2
-
 ### Cleanup
 - kzg.Scheme fft.Domain moved into methods that needs it only
-
-### Doc
-- fix eddsa Bytes doc to indicate returned bytes slice is in compressed form
-
 ### Docs
 - fix go report card link
 - updated readme with go1.17
@@ -2028,7 +1789,7 @@
 - most package now have a package level doc
 - added fft package level doc
 - formated and expanded package godoc for field elements
-
+- fix eddsa Bytes doc to indicate returned bytes slice is in compressed form
 ### Feat
 - added Reference benchamrk for continuous benchmarking. fixes [#54](https://github.com/Consensys/gnark-crypto/issues/54)
 - added curve level go-fuzz fuzz function
@@ -2086,7 +1847,6 @@
 - **kzg:** hash function is passed as parameter
 - **kzg:** added optional nbTasks to pass through multiExp api
 - **twisted Edwards:** tests use gopter, no more hardcoded values
-
 ### Fix
 - CommitmentScheme interface matches kzg and mockCommitment
 - fixed staticchek
@@ -2134,7 +1894,6 @@
 - **template:** Expt test to include negative seed
 - **templates:** no psi for bw6 endomorphism test
 - **twisted Edwards:** fixed Neg(), and fixes [#57](https://github.com/Consensys/gnark-crypto/issues/57)
-
 ### Perf
 - minor perf improvments in bw6 tower
 - minor serialization chaanges in kzg
@@ -2161,7 +1920,6 @@
 - **kzg:** parallelize s = 1 / (x-a)
 - **kzg:** remove useless fft in dividebyxminusa
 - **kzg:** simplified dividePolyByXminusA, no need to shift
-
 ### Refactor
 - removed deprecated MulAssign, AddAssign and SubAssign apis
 - moved crypto/* under /
@@ -2179,7 +1937,6 @@
 - **bw6:** Pairing according to ABLR 2013/722 with Fp6/Fp3
 - **kzg:** Proof -> OpeningProof. BatchProofsSinglePoint -> BatchOpeningProof
 - **kzg:** removed Scheme, package level methods with SRS and domain as parameter
-
 ### Style
 - replaced conditionals with template variable to return fuzzed element
 - gopter generators are code generated and return values. siimplifies non-sense in templates
@@ -2193,14 +1950,12 @@
 - **fft:** use close(chan)
 - **kzg:** cosmetics
 - **kzg:** cosmetics
-
 ### Test
 - added mulGeneric vs mul assembly on E2 in bn254 and bls12-381
 - bls24-315 added mulGeneric vs mulAsm E2 test
 - **all curves:** test endomorphisms phi and psi
 - **curves:** use IsInSubGroup instead IsOnCurve MapToCurveG1Svdw test
 - **template:** include bw6 in pairing_test.go
-
 ### Tests
 - added e2.Neg test in code generation
 
@@ -2221,8 +1976,6 @@
 - Merge pull request [#44](https://github.com/Consensys/gnark-crypto/issues/44) from ConsenSys/feat/mul_by_13
 - Merge pull request [#42](https://github.com/Consensys/gnark-crypto/issues/42) from ConsenSys/feat/fiat_shamir
 - Merge pull request [#41](https://github.com/Consensys/gnark-crypto/issues/41) from ConsenSys/docs/godoc
-
-
 <a name="v0.4.0"></a>
 ## [v0.4.0] - 2021-03-31
 ### Build
@@ -2237,19 +1990,16 @@
 - faster path for testing.Short. remove some dead code
 - make staticcheck happy, remove dead code
 - added github action workflow, wip
-
-### Ci
+### CI
 - install asmfmt before test step, now that goff field generation tests are included
 - move dep install up
 - ignore G204 rule in gosec (process lauched with var)
 - testing pr on develop with go 1.15 and go 1.16
-
 ### Docs
 - added changelog for v0.4.0
 - add ecc/ecc.md and field/field.md
 - updated README.md
 - updated package doc
-
 ### Feat
 - msm in full extJac
 - use add extJac to sum buckets
@@ -2258,18 +2008,15 @@
 - bls381 e2 asm mul by non residue clean up
 - first step in clobbered bp refactor. e2 asm: bn256 stable, bls381 wip
 - use add extJac to sum buckets
-
 ### Fix
 - handle case where numCPU < 4 in precomputeExpTable
 - incorrect comment and size returned in twistededwards SetBytes fixes [#34](https://github.com/Consensys/gnark-crypto/issues/34)
 - add/dbl exJac
 - add/dbl exJac
 - point.SetBytes can now be called concurently with same byte slice input
-
 ### Perf
 - delay coordinates conversion
 - delay coordinates conversion
-
 ### Refactor
 - moved interop tests under github.com/consensys/gnark-tests
 - cosmetics
@@ -2289,7 +2036,6 @@
 - migrated gnark/backend/fft into fft/
 - migrated goff packages into /field/...
 - moved curves into /curve/...
-
 ### Style
 - consistent copyright holder and year
 - remove some empty lines
@@ -2301,27 +2047,22 @@
 - Merge pull request [#35](https://github.com/Consensys/gnark-crypto/issues/35) from ConsenSys/refactor/monorepo
 - Merge pull request [#33](https://github.com/Consensys/gnark-crypto/issues/33) from ConsenSys/msm/full-extJac
 - Merge pull request [#32](https://github.com/Consensys/gnark-crypto/issues/32) from ConsenSys/fix/clobbered_bp
-
-
 <a name="v0.3.8"></a>
 ## [v0.3.8] - 2021-02-01
 ### Bls377
 - final exp hard part eprint 2020/875
 - ML entirely on the twist (ABLR)
 - ML entirely on the twist (ABLR)
-
 ### Bls381
 - final exp hard part eprint 2020/875
 - no precompute and go routines in pairing, wip
 - ML entirely on the twist (ABLR)
 - ML entirely on the twist (ABLR)
 - change G1 and G2 generators for interop
-
 ### Bn256
 - inline lineEval() in MilleLoop
 - ML entirely on the twist (ABLR)
 - change G1 and G2 generators for interop
-
 ### Bw6
 - add E6 tests
 - correct comments in FinalExp
@@ -2330,24 +2071,19 @@
 - fix bw6 pairing API to take slices of points and mutualize squares
 - go fmt
 - fix bw6 pairing API to take slices of points and mutualize squares
-
 ### Bw761
 - change G1 and G2 generators for interop
 - PairingCheck API + ML bench
 - PairingCheck API + ML bench
-
 ### Curves
 - get rid of goroutines in ML
 - g1/g2 template add proj to jac conversion
 - get rid of goroutines in ML
 - g1/g2 template add proj to jac conversion
-
 ### Fp12
 - improved cyclotomicSquare
-
 ### Fp6
 - cyclotomic square in Expt()
-
 ### TwistedEdwards
 - addition of Marshal/Unmarshal+tests, addition of templates, modified GetEdwardsCurve to not expose order (in big.Int)
 
@@ -2357,16 +2093,12 @@
 - Merge pull request [#26](https://github.com/Consensys/gnark-crypto/issues/26) from ConsenSys/youssef/ML-ABLR
 - Merge pull request [#25](https://github.com/Consensys/gnark-crypto/issues/25) from ConsenSys/csquare
 - Merge pull request [#23](https://github.com/Consensys/gnark-crypto/issues/23) from ConsenSys/youssef/bw6-API-pairing
-
-
 <a name="v0.3.7"></a>
 ## [v0.3.7] - 2021-01-04
-
 <a name="v0.3.6"></a>
 ## [v0.3.6] - 2020-12-22
 ### Bls377
 - multiple MillerLoops
-
 ### Bls381
 - PairingCheck func for eth precompile
 - 1 MillerLoop func + error handling
@@ -2384,101 +2116,74 @@
 - added failing interop test
 - added scalar mul interop tests
 - more interop test on GT serialization
-
 ### Bls831
 - multiple MillerLoops error handling
-
 ### Bn256
 - multiple miller loops
-
 ### Bw761
 - added e6 Bytes() and SetBytes()
-
 ### Circleci
 - ignoring .s files when checking generate output
-
 ### Feat
 - **bls381:** generalize tripleML to xML
 - **bls381:** factorize sq in 3 ML products
-
 ### Fix
 - substitute == by Equal in e12
 - substitute == by Equal in e12
-
 ### Marshal
 - len slice of points encoded on uint32 instead of uint64.
 - remove unecessary buffer allocatiosn in loop, added benchmark for e2.Sqrt
 - added BytesRead and BytesWritten to Decoder and Encoder objects
-
 ### MultiExp
 - the function must be called from an affine point and return an affine poitn
-
 ### Template
 - pairing test
-
 ### Templates
 - Set func in g1/2
 - fix PairingCheck test
 - pairing tests
 - correct EFD URL in comments (g*p -> g1p)
-
 ### Unmarshal
 - now perfoms subgroup check when deserializing points
-
 ### Wip
 - added Bytes() and SetBytes() method on point with binary encoding and optional point compression
 
 ### Pull Requests
 - Merge pull request [#21](https://github.com/Consensys/gnark-crypto/issues/21) from ConsenSys/youssef/MillerLoops
 - Merge pull request [#19](https://github.com/Consensys/gnark-crypto/issues/19) from ConsenSys/cleanup
-
-
 <a name="v0.3.5"></a>
 ## [v0.3.5] - 2020-10-19
 ### Bls377
 - re-exposing GT.MulByXXX methods needed by gnark standard library
-
-
 <a name="v0.3.4"></a>
 ## [v0.3.4] - 2020-10-19
 ### Curves
 - curve coeff b is package private
-
 ### Multiexp
 - renamed MultiExpOpt to CPUSemaphore, and remove data race on the window size attribute. Made staticcheck and linter happy.
-
-
 <a name="v0.3.3"></a>
 ## [v0.3.3] - 2020-09-23
-
 <a name="v0.3.0"></a>
 ## [v0.3.0] - 2020-09-22
-
 <a name="v0.3.0-alpha"></a>
 ## [v0.3.0-alpha] - 2020-09-15
 ### BatchJacobianToAffine
 - don't allocate new slice to store product, use affine storage space instead
-
 ### Bn256
 - added test to  ensure e2 mul and square assembly impl matches generic ones
 - enabled inlined call to wrappers E2.Mul and E2.Square making G2 point addition 10% faster
-
 ### Circleci
 - test only main point ops on 32 bit path
 - added -short option to tests to skip long or memory greedy tests
-
 ### Curve
 - added BatchJacobianToAffine using montgomery batch inversion for G1 elements. Skipping G2 on this one
-
 ### Curves
 - Generators() now return generators of the r-torsion group in Jacobian coordinates
 - added Generators() getter on all curves. Added BatchScalarMultiplication method with test
 - cleanup unused parameters for old scalar multiplication
-
 ### MultiExpOptions
 - takes a semaphore (channel) of cpu instead of number of cpus
 - fix previous commit.
-
 ### Multiexp
 - PartitionScalars is now private. CPU semaphore has a lock that's release when all go routines are scheduled in the multiexp
 - PartitionScalars now takes MultiExpOptions as optional argument too
@@ -2496,36 +2201,27 @@
 - remove test of c18 that seems to timeout
 - cosmetics and documentation
 - clean up bucket method, with 30percent gain on bn256 G1. WIP
-
 ### Pairing
 - sender closes channel, not receiver
-
 ### Points
 - made p.Neg() inlinable
-
 ### ScalarsToDigits
 - reused method in BatchScalarMultiplication
-
 ### UnsafeFromJacExtended
 - cosmetic, doc update
-
-
 <a name="v0.2.0"></a>
 ## [v0.2.0] - 2020-08-04
 ### Bls381
 - removed multi exp garbage, cleaned the tests using gopter
 - tests for the pairing use gopter, fixed String() on g1, g2 (thanks the templates again), implemented simple double and add for g1 and g2 using big.Int
 - got rid of the curve structure
-
 ### Circleci
 - ensures that generated files are not hand modified
 - ensures that generated files are not hand modified.
 - new workflow with more insight on unit tests
-
 ### Develop
 - skip Expt tests for now because the testpoint is not in the cyclotomic subgroup
 - merge refactor-api; resolve merge conflicts, TestE12Expt failing for some reason
-
 ### WIP
 - optimized Miller loop
 
@@ -2534,20 +2230,15 @@
 - Merge pull request [#10](https://github.com/Consensys/gnark-crypto/issues/10) from ConsenSys/refactor-constants
 - Merge pull request [#5](https://github.com/Consensys/gnark-crypto/issues/5) from ConsenSys/experimental-pairing-gen
 - Merge pull request [#4](https://github.com/Consensys/gnark-crypto/issues/4) from ConsenSys/endomul-remove
-
-
 <a name="v0.1.1"></a>
 ## [v0.1.1] - 2020-04-08
-
 <a name="v0.1.0"></a>
 ## [v0.1.0] - 2020-04-07
+
 ### Pull Requests
 - Merge pull request [#2](https://github.com/Consensys/gnark-crypto/issues/2) from ConsenSys/develop
-
-
 <a name="v0.0.1"></a>
 ## v0.0.1 - 2020-03-23
-
 [v0.20.0]: https://github.com/Consensys/gnark-crypto/compare/v0.19.2...v0.20.0
 [v0.19.2]: https://github.com/Consensys/gnark-crypto/compare/v0.19.1...v0.19.2
 [v0.19.1]: https://github.com/Consensys/gnark-crypto/compare/v0.19.0...v0.19.1
