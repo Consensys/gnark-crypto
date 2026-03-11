@@ -423,7 +423,7 @@ func TestG1CrossImplementations(t *testing.T) {
 			Gx, Gy := curve.Params().Gx, curve.Params().Gy
 			var S big.Int
 			s.BigInt(&S)
-			Qx, Qy := curve.ScalarMult(Gx, Gy, S.Bytes())
+			Qx, Qy := curve.ScalarMult(Gx, Gy, S.Bytes()) //nolint:staticcheck // compatibility test only
 			var Q G1Affine
 			Q.ScalarMultiplication(&g1GenAff, &S)
 			var qx, qy fp.Element
