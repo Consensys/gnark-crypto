@@ -283,27 +283,20 @@ func (h *ifmaHelper) montgomeryMulIFMA(a, b [5]amd64.VectorRegister) {
 		h.ciosRound(i, a, b, acc, tmp)
 	}
 
-	// Fused x16 shift + normalization
+	// Fused x16 shift + normalization.
+	// This carry chain must be propagated sequentially: each carry changes the
+	// next limb before that limb's carry is known.
 	h.Comment("Fused x16 shift + normalization")
 	for i := 0; i < 5; i++ {
 		h.VPSLLQ("$4", acc[i], a[i])
 	}
 
-	// Extract carries in parallel using tmp registers Z20-Z23
-	carries := [4]amd64.VectorRegister{amd64.Z20, amd64.Z21, amd64.Z22, amd64.Z23}
+	// Propagate carries sequentially after the x16 shift.
+	tmp = amd64.Z20
 	for i := 0; i < 4; i++ {
-		h.VPSRLQ("$52", a[i], carries[i])
+		h.carryProp(a[i], a[i], a[i+1], h.mask52, tmp)
 	}
-
-	// Mask limbs
-	for i := 0; i < 4; i++ {
-		h.VPANDQ(h.mask52, a[i], a[i])
-	}
-
-	// Add carries
-	for i := 0; i < 4; i++ {
-		h.VPADDQ(carries[i], a[i+1], a[i+1])
-	}
+	h.VPANDQ(h.mask52, a[4], a[4])
 }
 
 // ciosRound generates one round of the CIOS Montgomery multiplication

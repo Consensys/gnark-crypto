@@ -1338,18 +1338,11 @@ loop_16:
 	VPSLLQ $4, Z12, Z2
 	VPSLLQ $4, Z13, Z3
 	VPSLLQ $4, Z14, Z4
-	VPSRLQ $52, Z0, Z20
-	VPSRLQ $52, Z1, Z21
-	VPSRLQ $52, Z2, Z22
-	VPSRLQ $52, Z3, Z23
-	VPANDQ Z31, Z0, Z0
-	VPANDQ Z31, Z1, Z1
-	VPANDQ Z31, Z2, Z2
-	VPANDQ Z31, Z3, Z3
-	VPADDQ Z20, Z1, Z1
-	VPADDQ Z21, Z2, Z2
-	VPADDQ Z22, Z3, Z3
-	VPADDQ Z23, Z4, Z4
+	CARRY_PROP(Z0, Z0, Z1, Z31, Z20)
+	CARRY_PROP(Z1, Z1, Z2, Z31, Z20)
+	CARRY_PROP(Z2, Z2, Z3, Z31, Z20)
+	CARRY_PROP(Z3, Z3, Z4, Z31, Z20)
+	VPANDQ Z31, Z4, Z4
 
 	// Barrett reduction from [0, 32q) to [0, q)
 	// k = (l4 * mu) >> 58, subtract k*q, then conditional subtract q
@@ -1765,18 +1758,11 @@ loop_18:
 	VPSLLQ $4, Z12, Z2
 	VPSLLQ $4, Z13, Z3
 	VPSLLQ $4, Z14, Z4
-	VPSRLQ $52, Z0, Z20
-	VPSRLQ $52, Z1, Z21
-	VPSRLQ $52, Z2, Z22
-	VPSRLQ $52, Z3, Z23
-	VPANDQ Z31, Z0, Z0
-	VPANDQ Z31, Z1, Z1
-	VPANDQ Z31, Z2, Z2
-	VPANDQ Z31, Z3, Z3
-	VPADDQ Z20, Z1, Z1
-	VPADDQ Z21, Z2, Z2
-	VPADDQ Z22, Z3, Z3
-	VPADDQ Z23, Z4, Z4
+	CARRY_PROP(Z0, Z0, Z1, Z31, Z20)
+	CARRY_PROP(Z1, Z1, Z2, Z31, Z20)
+	CARRY_PROP(Z2, Z2, Z3, Z31, Z20)
+	CARRY_PROP(Z3, Z3, Z4, Z31, Z20)
+	VPANDQ Z31, Z4, Z4
 
 	// Barrett reduction from [0, 32q) to [0, q)
 	// k = (l4 * mu) >> 58, subtract k*q, then conditional subtract q
