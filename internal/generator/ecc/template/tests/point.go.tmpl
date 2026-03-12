@@ -595,7 +595,7 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 
 				r := fr.Modulus()
 				var g {{ $TJacobian }}
-				g.mulGLV(&{{.PointName}}Gen, r)
+				g.ScalarMultiplication(&{{.PointName}}Gen, r)
 
 				var scalar, blindedScalar, rminusone big.Int
 				var op1, op2, op3, gneg {{ $TJacobian }}
@@ -620,7 +620,11 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
                 var op1, op2 {{ $TJacobian }}
                 s.BigInt(&r)
                 op1.mulWindowed(&{{.PointName}}Gen, &r)
+                {{- if and (eq .PointName "g2") (or (eq .Name "bn254") (eq .Name "bls12-381") (eq .Name "bls12-377")) }}
+                op2.mulGLS(&{{.PointName}}Gen, &r)
+                {{- else }}
                 op2.mulGLV(&{{.PointName}}Gen, &r)
+                {{- end }}
                 return op1.Equal(&op2) && !op1.Equal(&{{.PointName}}Infinity)
 
             },
@@ -923,10 +927,14 @@ func Benchmark{{ $TJacobian }}ScalarMultiplication(b *testing.B) {
 		})
 		{{ if .GLV }}
 		var glv {{ $TJacobian }}
-		b.Run(fmt.Sprintf("method=GLV/scalarwidth=%d", i), func(b *testing.B) {
+		b.Run(fmt.Sprintf("method={{- if and (eq .PointName "g2") (or (eq .Name "bn254") (eq .Name "bls12-381") (eq .Name "bls12-377")) }}GLS{{- else }}GLV{{- end }}/scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
 			for j := 0; j < b.N; j++ {
+				{{- if and (eq .PointName "g2") (or (eq .Name "bn254") (eq .Name "bls12-381") (eq .Name "bls12-377")) }}
+				glv.mulGLS(&{{ .PointName }}Gen, scalar)
+				{{- else }}
 				glv.mulGLV(&{{ .PointName }}Gen, scalar)
+				{{- end }}
 			}
 		})
 		{{ end }}

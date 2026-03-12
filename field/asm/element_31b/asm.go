@@ -5,5 +5,6 @@ package asm
 const DUMMY = 0
 const qInvNeg = 0
 const mu = 0
+const muBarrett52 = 0
 const q = 0
 const q0 = 0

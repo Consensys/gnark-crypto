@@ -15,47 +15,131 @@ import (
 )
 
 func TestExternalMatrix(t *testing.T) {
-	t.Skip("skipping test - it is initialized for width=4 for which we don't have the diagonal matrix")
+	// M4 matrix (transposed for column-major access)
+	// M4 = [[5,7,1,3], [4,6,1,1], [1,3,5,7], [1,1,4,6]]
+	var m4 [4][4]fr.Element
+	m4[0][0].SetUint64(5)
+	m4[0][1].SetUint64(4)
+	m4[0][2].SetUint64(1)
+	m4[0][3].SetUint64(1)
 
-	var expected [4][4]fr.Element
-	expected[0][0].SetUint64(5)
-	expected[0][1].SetUint64(4)
-	expected[0][2].SetUint64(1)
-	expected[0][3].SetUint64(1)
+	m4[1][0].SetUint64(7)
+	m4[1][1].SetUint64(6)
+	m4[1][2].SetUint64(3)
+	m4[1][3].SetUint64(1)
 
-	expected[1][0].SetUint64(7)
-	expected[1][1].SetUint64(6)
-	expected[1][2].SetUint64(3)
-	expected[1][3].SetUint64(1)
+	m4[2][0].SetUint64(1)
+	m4[2][1].SetUint64(1)
+	m4[2][2].SetUint64(5)
+	m4[2][3].SetUint64(4)
 
-	expected[2][0].SetUint64(1)
-	expected[2][1].SetUint64(1)
-	expected[2][2].SetUint64(5)
-	expected[2][3].SetUint64(4)
+	m4[3][0].SetUint64(3)
+	m4[3][1].SetUint64(1)
+	m4[3][2].SetUint64(7)
+	m4[3][3].SetUint64(6)
 
-	expected[3][0].SetUint64(3)
-	expected[3][1].SetUint64(1)
-	expected[3][2].SetUint64(7)
-	expected[3][3].SetUint64(6)
-
-	h := NewPermutation(4, 8, 56)
-	var tmp [4]fr.Element
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 4; j++ {
-			tmp[j].SetUint64(0)
-			if i == j {
-				tmp[j].SetOne()
+	t.Run("t=4", func(t *testing.T) {
+		h := NewPermutation(4, 8, 56)
+		var tmp [4]fr.Element
+		for i := 0; i < 4; i++ {
+			for j := 0; j < 4; j++ {
+				tmp[j].SetUint64(0)
+				if i == j {
+					tmp[j].SetOne()
+				}
+			}
+			h.matMulExternalInPlace(tmp[:])
+			for j := 0; j < 4; j++ {
+				if !tmp[j].Equal(&m4[i][j]) {
+					t.Fatalf("t=4: mismatch at column %d, row %d", i, j)
+				}
 			}
 		}
-		// h.Write(tmp[:])
-		h.matMulExternalInPlace(tmp[:])
-		for j := 0; j < 4; j++ {
-			if !tmp[j].Equal(&expected[i][j]) {
-				t.Fatal("error matMul4")
+	})
+
+	// For t=4k (k>=2), M_E = circ(2*M4, M4, ..., M4)
+	// This means: result = M4 * input_block + sum(M4 * all_blocks)
+	// For the diagonal block: 2*M4, for off-diagonal blocks: M4
+	testBlockCirculant := func(t *testing.T, width int, rf, rp int) {
+		h := NewPermutation(width, rf, rp)
+
+		// Test by applying to unit vectors and checking the result
+		for col := 0; col < width; col++ {
+			input := make([]fr.Element, width)
+			input[col].SetOne()
+
+			h.matMulExternalInPlace(input)
+
+			blockIdx := col / 4
+			colInBlock := col % 4
+
+			// Expected: for each output row, sum contributions from all blocks
+			// The block containing the unit vector contributes 2*M4, others contribute M4
+			for row := 0; row < width; row++ {
+				rowBlockIdx := row / 4
+				rowInBlock := row % 4
+
+				var expected fr.Element
+				if rowBlockIdx == blockIdx {
+					// Same block: coefficient is 2 (from circ structure: 2*M4 on diagonal)
+					expected.Double(&m4[colInBlock][rowInBlock])
+				} else {
+					// Different block: coefficient is 1 (from circ structure: M4 on off-diagonal)
+					expected.Set(&m4[colInBlock][rowInBlock])
+				}
+
+				if !input[row].Equal(&expected) {
+					t.Fatalf("width=%d: mismatch at col %d, row %d: got %s, expected %s",
+						width, col, row, input[row].String(), expected.String())
+				}
 			}
 		}
 	}
 
+	t.Run("t=8", func(t *testing.T) {
+		testBlockCirculant(t, 8, 8, 57)
+	})
+
+	t.Run("t=12", func(t *testing.T) {
+		testBlockCirculant(t, 12, 8, 57)
+	})
+
+	t.Run("t=16", func(t *testing.T) {
+		testBlockCirculant(t, 16, 8, 57)
+	})
+}
+
+func TestRejectsInvalidParams(t *testing.T) {
+	require.Panics(t, func() {
+		NewPermutation(4, 8, 55)
+	})
+	require.Panics(t, func() {
+		NewPermutation(8, 8, 56)
+	})
+	require.Panics(t, func() {
+		NewPermutation(16, 10, 57)
+	})
+}
+
+func TestNewPermutationWithSeedRejectsSpecWidths(t *testing.T) {
+	require.NotPanics(t, func() {
+		_ = NewPermutationWithSeed(2, 6, 50, "seed")
+	})
+	require.NotPanics(t, func() {
+		_ = NewPermutationWithSeed(3, 8, 56, "seed")
+	})
+	require.Panics(t, func() {
+		_ = NewPermutationWithSeed(4, 8, 56, "seed")
+	})
+	require.Panics(t, func() {
+		_ = NewPermutationWithSeed(8, 8, 57, "seed")
+	})
+	require.Panics(t, func() {
+		_ = NewPermutationWithSeed(12, 8, 57, "seed")
+	})
+	require.Panics(t, func() {
+		_ = NewPermutationWithSeed(16, 8, 57, "seed")
+	})
 }
 
 func BenchmarkPoseidon2(b *testing.B) {

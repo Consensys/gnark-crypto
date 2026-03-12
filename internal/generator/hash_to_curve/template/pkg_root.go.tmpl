@@ -11,6 +11,9 @@ import (
     {{ if eq $.MappingAlgorithm "SSWU"}}
     "math/big"
     {{- end }}
+    {{ if .SarkarEnabled }}
+    "sync"
+    {{- end }}
 
     {{ if or (eq $.MappingAlgorithm "SSWU") (eq $CurveIndex "1") }}
     "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"

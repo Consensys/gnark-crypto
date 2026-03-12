@@ -182,12 +182,27 @@ func Benchmark{{toTitle .ElementName}}Square(b *testing.B) {
 
 func Benchmark{{toTitle .ElementName}}Sqrt(b *testing.B) {
 	var a {{.ElementName}}
-	a.SetUint64(4)
-	a.Neg(&a)
+	a.MustSetRandom()
+    a.Square(&a)
+	{{- if .SqrtSarkar}}
+	b.Run("Sarkar", func(b *testing.B) {
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			benchRes{{.ElementName}}.SqrtSarkar(&a)
+		}
+	})
+	b.Run("Tonelli-Shanks", func(b *testing.B) {
+		b.ResetTimer()
+		for j := 0; j < b.N; j++ {
+			benchRes{{.ElementName}}.SqrtTonelliShanks(&a)
+		}
+	})
+	{{- else}}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		benchRes{{.ElementName}}.Sqrt(&a)
 	}
+	{{- end}}
 }
 
 func Benchmark{{toTitle .ElementName}}Mul(b *testing.B) {
@@ -1003,6 +1018,23 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 		},
 		genA,
 	))
+
+	{{- if and (eq .Op "Sqrt") .all.SqrtSarkar}}
+	properties.Property("Sqrt: Tonelli-Shanks' and Sarkar's algorithms must match", prop.ForAll(
+		func(a testPair{{.all.ElementName}}) bool {
+			var c, ts, sarkar {{.all.ElementName}}
+			c.Square(&a.element)
+			tsResult := ts.SqrtTonelliShanks(&c)
+			sarkarResult := sarkar.SqrtSarkar(&c)
+			// Check for nil (non-quadratic residue) - both should agree
+			if tsResult == nil || sarkarResult == nil {
+				return tsResult == nil && sarkarResult == nil
+			}
+			return tsResult.Equal(sarkarResult)
+		},
+		genA,
+	))
+	{{- end}}
 
 	{{if .GenericOp}}
 	properties.Property("{{.Op}}: assembly implementation must be consistent with generic one", prop.ForAll(

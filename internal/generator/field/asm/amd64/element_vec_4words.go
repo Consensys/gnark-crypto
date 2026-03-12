@@ -5,7 +5,6 @@ package amd64
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/consensys/bavard/amd64"
 )
@@ -47,8 +46,8 @@ func (f *FFAmd64) generateAddVecW4() {
 	f.LabelRegisters("a", a...)
 	f.Mov(addrA, a)
 	f.Add(addrB, a)
-	f.WriteLn(fmt.Sprintf("PREFETCHT0 2048(%[1]s)", addrA))
-	f.WriteLn(fmt.Sprintf("PREFETCHT0 2048(%[1]s)", addrB))
+	f.PREFETCHT0(fmt.Sprintf("2048(%s)", addrA))
+	f.PREFETCHT0(fmt.Sprintf("2048(%s)", addrB))
 
 	// reduce a
 	f.ReduceElement(a, t, false)
@@ -112,8 +111,8 @@ func (f *FFAmd64) generateSubVecW4() {
 	f.LabelRegisters("a", a...)
 	f.Mov(addrA, a)
 	f.Sub(addrB, a)
-	f.WriteLn(fmt.Sprintf("PREFETCHT0 2048(%[1]s)", addrA))
-	f.WriteLn(fmt.Sprintf("PREFETCHT0 2048(%[1]s)", addrB))
+	f.PREFETCHT0(fmt.Sprintf("2048(%s)", addrA))
+	f.PREFETCHT0(fmt.Sprintf("2048(%s)", addrB))
 
 	// reduce a
 	f.Comment("reduce (a-b) mod q")
@@ -442,1109 +441,285 @@ func (f *FFAmd64) generateSumVecW4() {
 }
 
 func (f *FFAmd64) generateInnerProductW4() {
-	f.Comment("innerProdVec(res, a,b *Element, n uint64) res = sum(a[0...n] * b[0...n])")
+	f.Comment("innerProdVec(res, a, b *Element, n uint64) res = sum(a[0...n] * b[0...n])")
+	f.Comment("")
+	f.Comment("Algorithm: Accumulate 32-bit x 32-bit partial products into 16 Z registers")
+	f.Comment("(8 low halves + 8 high halves), then combine into 544-bit result and reduce.")
+	f.Comment("")
+	f.Comment("Register allocation:")
+	f.Comment("  Z0, Z1 = output result (544-bit in Z1:Z0)")
+	f.Comment("  Z2 = PPL (partial product low), Z3 = PPH (partial product high)")
+	f.Comment("  Z4 = Y (loaded b element), Z5 = LSW (low 32-bit mask)")
+	f.Comment("  Z16-Z23 = accL[0-7], Z24-Z31 = accH[0-7]")
 
 	const argSize = 4 * 8
 	stackSize := f.StackSize(7, 2, 0)
 	registers := f.FnHeader("innerProdVec", stackSize, argSize, amd64.DX, amd64.AX)
 	defer f.AssertCleanStack(stackSize, 0)
 
-	// registers & labels we need
-	PX := f.Pop(&registers)
-	PY := f.Pop(&registers)
-	LEN := f.Pop(&registers)
+	// Scalar registers
+	addrA := f.Pop(&registers)
+	addrB := f.Pop(&registers)
+	n := f.Pop(&registers)
 
-	loop := f.NewLabel("loop")
 	done := f.NewLabel("done")
-	AddPP := f.NewLabel("accumulate")
+	accumulate := f.NewLabel("accumulate")
 
-	// AVX512 registers
+	// Explicit AVX512 register assignments to avoid conflicts
+	// Z0, Z1 are reserved for output (544-bit result)
 	PPL := amd64.Register("Z2")
 	PPH := amd64.Register("Z3")
 	Y := amd64.Register("Z4")
 	LSW := amd64.Register("Z5")
 
-	ACC := amd64.Register("Z16")
-	A0L := amd64.Register("Z16")
-	A1L := amd64.Register("Z17")
-	A2L := amd64.Register("Z18")
-	A3L := amd64.Register("Z19")
-	A4L := amd64.Register("Z20")
-	A5L := amd64.Register("Z21")
-	A6L := amd64.Register("Z22")
-	A7L := amd64.Register("Z23")
-	A0H := amd64.Register("Z24")
-	A1H := amd64.Register("Z25")
-	A2H := amd64.Register("Z26")
-	A3H := amd64.Register("Z27")
-	A4H := amd64.Register("Z28")
-	A5H := amd64.Register("Z29")
-	A6H := amd64.Register("Z30")
-	A7H := amd64.Register("Z31")
+	// 16 accumulators: use Z16-Z23 for low halves, Z24-Z31 for high halves
+	// This keeps them separate from the output and temp registers
+	ACC := amd64.Register("Z16") // ACC aliases accL[0]
+	accL := []amd64.Register{"Z16", "Z17", "Z18", "Z19", "Z20", "Z21", "Z22", "Z23"}
+	accH := []amd64.Register{"Z24", "Z25", "Z26", "Z27", "Z28", "Z29", "Z30", "Z31"}
 
-	// load arguments
-	f.MOVQ("a+8(FP)", PX)
-	f.MOVQ("b+16(FP)", PY)
-	f.MOVQ("n+24(FP)", LEN)
+	f.Comment("Load arguments")
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("n+24(FP)", n)
 
-	f.Comment("Create mask for low dword in each qword")
+	f.Comment("Create mask for low dword in each qword: 0x00000000FFFFFFFF")
 	f.VPCMPEQB("Y0", "Y0", "Y0")
 	f.VPMOVZXDQ("Y0", LSW)
 
-	// Clear accumulator registers
-	f.VPXORQ(A0L, A0L, A0L)
-	f.VMOVDQA64(A0L, A1L)
-	f.VMOVDQA64(A0L, A2L)
-	f.VMOVDQA64(A0L, A3L)
-	f.VMOVDQA64(A0L, A4L)
-	f.VMOVDQA64(A0L, A5L)
-	f.VMOVDQA64(A0L, A6L)
-	f.VMOVDQA64(A0L, A7L)
-	f.VMOVDQA64(A0L, A0H)
-	f.VMOVDQA64(A0L, A1H)
-	f.VMOVDQA64(A0L, A2H)
-	f.VMOVDQA64(A0L, A3H)
-	f.VMOVDQA64(A0L, A4H)
-	f.VMOVDQA64(A0L, A5H)
-	f.VMOVDQA64(A0L, A6H)
-	f.VMOVDQA64(A0L, A7H)
+	f.Comment("Initialize all 16 accumulators to zero")
+	f.VPXORQ(accL[0], accL[0], accL[0])
+	for i := 1; i < 8; i++ {
+		f.VMOVDQA64(accL[0], accL[i])
+	}
+	for i := 0; i < 8; i++ {
+		f.VMOVDQA64(accL[0], accH[i])
+	}
 
-	// note: we don't need to handle the case n==0; handled by caller already.
-	f.TESTQ(LEN, LEN)
-	f.JEQ(done, "n == 0, we are done")
+	f.Comment("Main loop: multiply and accumulate partial products")
+	f.Comment("For each element pair (a[i], b[i]):")
+	f.Comment("  - Load b[i] as 8 dwords zero-extended to qwords")
+	f.Comment("  - Multiply each dword of a[i] by all dwords of b[i]")
+	f.Comment("  - Split results into low/high 32 bits and accumulate")
 
-	f.LABEL(loop)
-	f.TESTQ(LEN, LEN)
-	f.JEQ(AddPP, "n == 0 we can accumulate")
-
-	f.VPMOVZXDQ("("+PY+")", Y)
-
-	f.ADDQ("$32", PY)
-
-	f.Comment("we multiply and accumulate partial products of 4 bytes * 32 bytes")
-
+	// Define MAC (multiply-accumulate) macro
 	mac := f.Define("MAC", 3, func(inputs ...any) {
-		opLeft := inputs[0]
-		lo := inputs[1]
-		hi := inputs[2]
+		opLeft := inputs[0] // memory operand for dword of a
+		lo := inputs[1]     // accumulator for low 32 bits
+		hi := inputs[2]     // accumulator for high 32 bits
 
-		f.VPMULUDQ_BCST(opLeft, Y, PPL)
-		f.VPSRLQ("$32", PPL, PPH)
-		f.VPANDQ(LSW, PPL, PPL)
-		f.VPADDQ(PPL, lo, lo)
-		f.VPADDQ(PPH, hi, hi)
+		f.VPMULUDQ_BCST(opLeft, Y, PPL) // PPL = a_dword * b_dwords (64-bit results)
+		f.VPSRLQ("$32", PPL, PPH)       // PPH = high 32 bits
+		f.VPANDQ(LSW, PPL, PPL)         // PPL = low 32 bits
+		f.VPADDQ(PPL, lo, lo)           // accumulate low
+		f.VPADDQ(PPH, hi, hi)           // accumulate high
 	}, true)
 
-	mac("0*4("+PX+")", A0L, A0H)
-	mac("1*4("+PX+")", A1L, A1H)
-	mac("2*4("+PX+")", A2L, A2H)
-	mac("3*4("+PX+")", A3L, A3H)
-	mac("4*4("+PX+")", A4L, A4H)
-	mac("5*4("+PX+")", A5L, A5H)
-	mac("6*4("+PX+")", A6L, A6H)
-	mac("7*4("+PX+")", A7L, A7H)
+	f.Loop(n, func() {
+		f.Comment("Load b[i]: 8 dwords -> 8 qwords via zero-extension")
+		f.VPMOVZXDQ("0("+addrB+")", Y)
 
-	f.ADDQ("$32", PX)
+		f.Comment("Multiply each dword of a[i] (8 dwords) by b[i] and accumulate")
+		for i := 0; i < 8; i++ {
+			mac(fmt.Sprintf("%d(%s)", i*4, addrA), accL[i], accH[i])
+		}
 
-	f.DECQ(LEN, "decrement n")
-	f.JMP(loop)
+		f.ADDQ("$32", addrA)
+		f.ADDQ("$32", addrB)
+	})
 
-	f.Push(&registers, LEN, PX, PY)
+	f.LABEL(accumulate)
+	f.Comment("Combine 16 partial product accumulators into 544-bit result in Z1:Z0")
+	f.Comment("Each accumulator has 8 qwords; we reduce across qwords using VALIGND")
 
-	f.LABEL(AddPP)
-	f.Comment("we accumulate the partial products into 544bits in Z1:Z0")
-
+	// Setup masks for VALIGND operations
 	f.MOVQ(uint64(0x1555), amd64.AX)
 	f.KMOVD(amd64.AX, "K1")
-
 	f.MOVQ(uint64(1), amd64.AX)
 	f.KMOVD(amd64.AX, "K2")
 
-	// ACC starts with the value of A0L
-
-	f.Comment("store the least significant 32 bits of ACC (starts with A0L) in Z0")
+	f.Comment("Word 0: lowest 32 bits from accL[0]")
 	f.VALIGND_Z("$16", ACC, ACC, "K2", "Z0")
 	f.KSHIFTLW("$1", "K2", "K2")
 
+	f.Comment("Propagate carries and add contributions for word 1")
 	f.VPSRLQ("$32", ACC, PPL)
 	f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
 	f.VPADDQ(PPL, ACC, ACC)
-
-	f.VPANDQ(LSW, A0H, PPL)
+	f.VPANDQ(LSW, accH[0], PPL)
 	f.VPADDQ(PPL, ACC, ACC)
-
-	f.VPANDQ(LSW, A1L, PPL)
+	f.VPANDQ(LSW, accL[1], PPL)
 	f.VPADDQ(PPL, ACC, ACC)
-
-	// Word 1 of z is ready
-	f.VALIGND("$15", ACC, ACC, "K2", "Z0")
+	f.VALIGNDk("$15", ACC, ACC, "K2", "Z0")
 	f.KSHIFTLW("$1", "K2", "K2")
 
-	f.Comment("macro to add partial products and store the result in Z0")
+	f.Comment("Words 2-7: combine partial products with carry propagation")
 	addPP := f.Define("ADDPP", 5, func(inputs ...any) {
-		AxH := inputs[0]
-		AyL := inputs[1]
-		AyH := inputs[2]
-		AzL := inputs[3]
-		I := inputs[4]
+		axH := inputs[0] // accH[x]
+		ayL := inputs[1] // accL[y]
+		ayH := inputs[2] // accH[y]
+		azL := inputs[3] // accL[z]
+		idx := inputs[4] // word index
+
 		f.VPSRLQ("$32", ACC, PPL)
 		f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
 		f.VPADDQ(PPL, ACC, ACC)
-		f.VPSRLQ("$32", AxH, AxH)
-		f.VPADDQ(AxH, ACC, ACC)
-		f.VPSRLQ("$32", AyL, AyL)
-		f.VPADDQ(AyL, ACC, ACC)
-		f.VPANDQ(LSW, AyH, PPL)
+		f.VPSRLQ("$32", axH, axH)
+		f.VPADDQ(axH, ACC, ACC)
+		f.VPSRLQ("$32", ayL, ayL)
+		f.VPADDQ(ayL, ACC, ACC)
+		f.VPANDQ(LSW, ayH, PPL)
 		f.VPADDQ(PPL, ACC, ACC)
-		f.VPANDQ(LSW, AzL, PPL)
+		f.VPANDQ(LSW, azL, PPL)
 		f.VPADDQ(PPL, ACC, ACC)
-		f.VALIGND("$16-"+I.(amd64.Register), ACC, ACC, "K2", "Z0")
+		f.VALIGNDk("$16-"+idx.(amd64.Register), ACC, ACC, "K2", "Z0")
 		f.KADDW("K2", "K2", "K2")
 	}, true)
 
-	addPP(A0H, A1L, A1H, A2L, "2")
-	addPP(A1H, A2L, A2H, A3L, "3")
-	addPP(A2H, A3L, A3H, A4L, "4")
-	addPP(A3H, A4L, A4H, A5L, "5")
-	addPP(A4H, A5L, A5H, A6L, "6")
-	addPP(A5H, A6L, A6H, A7L, "7")
+	addPP(accH[0], accL[1], accH[1], accL[2], "2")
+	addPP(accH[1], accL[2], accH[2], accL[3], "3")
+	addPP(accH[2], accL[3], accH[3], accL[4], "4")
+	addPP(accH[3], accL[4], accH[4], accL[5], "5")
+	addPP(accH[4], accL[5], accH[5], accL[6], "6")
+	addPP(accH[5], accL[6], accH[6], accL[7], "7")
+
+	f.Comment("Word 8: final contributions from accH[6], accL[7], accH[7]")
 	f.VPSRLQ("$32", ACC, PPL)
 	f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
 	f.VPADDQ(PPL, ACC, ACC)
-	f.VPSRLQ("$32", A6H, A6H)
-	f.VPADDQ(A6H, ACC, ACC)
-	f.VPSRLQ("$32", A7L, A7L)
-	f.VPADDQ(A7L, ACC, ACC)
-	f.VPANDQ(LSW, A7H, PPL)
+	f.VPSRLQ("$32", accH[6], accH[6])
+	f.VPADDQ(accH[6], ACC, ACC)
+	f.VPSRLQ("$32", accL[7], accL[7])
+	f.VPADDQ(accL[7], ACC, ACC)
+	f.VPANDQ(LSW, accH[7], PPL)
 	f.VPADDQ(PPL, ACC, ACC)
-	f.VALIGND("$16-8", ACC, ACC, "K2", "Z0")
+	f.VALIGNDk("$16-8", ACC, ACC, "K2", "Z0")
 	f.KSHIFTLW("$1", "K2", "K2")
 
+	f.Comment("Word 9: remaining from accH[7]")
 	f.VPSRLQ("$32", ACC, PPL)
 	f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
 	f.VPADDQ(PPL, ACC, ACC)
-	f.VPSRLQ("$32", A7H, A7H)
-	f.VPADDQ(A7H, ACC, ACC)
-	f.VALIGND("$16-9", ACC, ACC, "K2", "Z0")
+	f.VPSRLQ("$32", accH[7], accH[7])
+	f.VPADDQ(accH[7], ACC, ACC)
+	f.VALIGNDk("$16-9", ACC, ACC, "K2", "Z0")
 	f.KSHIFTLW("$1", "K2", "K2")
 
+	f.Comment("Words 10-15: propagate remaining carries")
 	addPP2 := f.Define("ADDPP2", 1, func(args ...any) {
+		idx := args[0]
 		f.VPSRLQ("$32", ACC, PPL)
 		f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
 		f.VPADDQ(PPL, ACC, ACC)
-		f.VALIGND("$16-"+args[0].(amd64.Register), ACC, ACC, "K2", "Z0")
+		f.VALIGNDk("$16-"+idx.(amd64.Register), ACC, ACC, "K2", "Z0")
 		f.KSHIFTLW("$1", "K2", "K2")
 	}, true)
 
-	addPP2("10")
-	addPP2("11")
-	addPP2("12")
-	addPP2("13")
-	addPP2("14")
-	addPP2("15")
+	for i := 10; i <= 15; i++ {
+		addPP2(fmt.Sprintf("%d", i))
+	}
 
+	f.Comment("Final carry into Z1")
 	f.VPSRLQ("$32", ACC, PPL)
 	f.VALIGND_Z("$2", ACC, ACC, "K1", ACC)
 	f.VPADDQ(PPL, ACC, ACC)
 	f.VMOVDQA64_Z(ACC, "K1", "Z1")
 
-	T0 := f.Pop(&registers)
-	T1 := f.Pop(&registers)
-	T2 := f.Pop(&registers)
-	T3 := f.Pop(&registers)
-	T4 := f.Pop(&registers)
+	f.Comment("Montgomery reduction of the 544-bit result")
+	f.Comment("Extract low 4 qwords from Z0 into scalar registers")
+	T := make([]amd64.Register, 5)
+	for i := 0; i < 5; i++ {
+		T[i] = f.Pop(&registers)
+	}
+	f.LabelRegisters("T", T...)
 
-	f.Comment("Extract the 4 least significant qwords of Z0")
-	f.VMOVQ("X0", T1)
+	f.VMOVQ("X0", T[1])
 	f.VALIGNQ("$1", "Z0", "Z1", "Z0")
-	f.VMOVQ("X0", T2)
+	f.VMOVQ("X0", T[2])
 	f.VALIGNQ("$1", "Z0", "Z0", "Z0")
-	f.VMOVQ("X0", T3)
+	f.VMOVQ("X0", T[3])
 	f.VALIGNQ("$1", "Z0", "Z0", "Z0")
-	f.VMOVQ("X0", T4)
+	f.VMOVQ("X0", T[4])
 	f.VALIGNQ("$1", "Z0", "Z0", "Z0")
-	f.XORQ(T0, T0)
+	f.XORQ(T[0], T[0])
 
+	f.Comment("4 rounds of Montgomery reduction")
 	PH := f.Pop(&registers)
 	PL := amd64.AX
-	f.MOVQ(f.qInv0(), amd64.DX)
-	f.MULXQ(T1, amd64.DX, PH)
-	f.MULXQ(f.qAt(0), PL, PH)
-	f.ADDQ(PL, T1)
-	f.ADCQ(PH, T2)
-	f.MULXQ(f.qAt(2), PL, PH)
-	f.ADCQ(PL, T3)
-	f.ADCQ(PH, T4)
-	f.ADCQ("$0", T0)
-	f.MULXQ(f.qAt(1), PL, PH)
-	f.ADDQ(PL, T2)
-	f.ADCQ(PH, T3)
-	f.MULXQ(f.qAt(3), PL, PH)
-	f.ADCQ(PL, T4)
-	f.ADCQ(PH, T0)
-	f.ADCQ("$0", T1)
 
-	f.MOVQ(f.qInv0(), amd64.DX)
-	f.MULXQ(T2, amd64.DX, PH)
+	for round := 0; round < 4; round++ {
+		f.Comment(fmt.Sprintf("Montgomery reduction round %d", round+1))
+		src := T[1+round%4]
+		f.MOVQ(f.qInv0(), amd64.DX)
+		f.MULXQ(src, amd64.DX, PH)
 
-	f.MULXQ(f.qAt(0), PL, PH)
-	f.ADDQ(PL, T2)
-	f.ADCQ(PH, T3)
-	f.MULXQ(f.qAt(2), PL, PH)
-	f.ADCQ(PL, T4)
-	f.ADCQ(PH, T0)
-	f.ADCQ("$0", T1)
-	f.MULXQ(f.qAt(1), PL, PH)
-	f.ADDQ(PL, T3)
-	f.ADCQ(PH, T4)
-	f.MULXQ(f.qAt(3), PL, PH)
-	f.ADCQ(PL, T0)
-	f.ADCQ(PH, T1)
-	f.ADCQ("$0", T2)
+		// Add q * m to T (4-word addition with carry)
+		f.MULXQ(f.qAt(0), PL, PH)
+		f.ADDQ(PL, T[(1+round)%5])
+		f.ADCQ(PH, T[(2+round)%5])
+		f.MULXQ(f.qAt(2), PL, PH)
+		f.ADCQ(PL, T[(3+round)%5])
+		f.ADCQ(PH, T[(4+round)%5])
+		f.ADCQ("$0", T[(0+round)%5])
+		f.MULXQ(f.qAt(1), PL, PH)
+		f.ADDQ(PL, T[(2+round)%5])
+		f.ADCQ(PH, T[(3+round)%5])
+		f.MULXQ(f.qAt(3), PL, PH)
+		f.ADCQ(PL, T[(4+round)%5])
+		f.ADCQ(PH, T[(0+round)%5])
+		f.ADCQ("$0", T[(1+round)%5])
+	}
 
-	f.MOVQ(f.qInv0(), amd64.DX)
-
-	f.MULXQ(T3, amd64.DX, PH)
-
-	f.MULXQ(f.qAt(0), PL, PH)
-	f.ADDQ(PL, T3)
-	f.ADCQ(PH, T4)
-	f.MULXQ(f.qAt(2), PL, PH)
-	f.ADCQ(PL, T0)
-	f.ADCQ(PH, T1)
-	f.ADCQ("$0", T2)
-	f.MULXQ(f.qAt(1), PL, PH)
-	f.ADDQ(PL, T4)
-	f.ADCQ(PH, T0)
-	f.MULXQ(f.qAt(3), PL, PH)
-	f.ADCQ(PL, T1)
-	f.ADCQ(PH, T2)
-	f.ADCQ("$0", T3)
-
-	f.MOVQ(f.qInv0(), amd64.DX)
-
-	f.MULXQ(T4, amd64.DX, PH)
-
-	f.MULXQ(f.qAt(0), PL, PH)
-	f.ADDQ(PL, T4)
-	f.ADCQ(PH, T0)
-	f.MULXQ(f.qAt(2), PL, PH)
-	f.ADCQ(PL, T1)
-	f.ADCQ(PH, T2)
-	f.ADCQ("$0", T3)
-	f.MULXQ(f.qAt(1), PL, PH)
-	f.ADDQ(PL, T0)
-	f.ADCQ(PH, T1)
-	f.MULXQ(f.qAt(3), PL, PH)
-	f.ADCQ(PL, T2)
-	f.ADCQ(PH, T3)
-	f.ADCQ("$0", T4)
-
-	// Add the remaining 5 qwords (9 dwords) from zmm0
-
-	f.VMOVQ("X0", PL)
-	f.ADDQ(PL, T0)
-	f.VALIGNQ("$1", "Z0", "Z0", "Z0")
-	f.VMOVQ("X0", PL)
-	f.ADCQ(PL, T1)
-	f.VALIGNQ("$1", "Z0", "Z0", "Z0")
-	f.VMOVQ("X0", PL)
-	f.ADCQ(PL, T2)
-	f.VALIGNQ("$1", "Z0", "Z0", "Z0")
-	f.VMOVQ("X0", PL)
-	f.ADCQ(PL, T3)
-	f.VALIGNQ("$1", "Z0", "Z0", "Z0")
-	f.VMOVQ("X0", PL)
-	f.ADCQ(PL, T4)
+	f.Comment("Add remaining 5 qwords from Z0")
+	for i := 0; i < 5; i++ {
+		f.VMOVQ("X0", PL)
+		if i == 0 {
+			f.ADDQ(PL, T[0])
+		} else {
+			f.ADCQ(PL, T[i])
+		}
+		if i < 4 {
+			f.VALIGNQ("$1", "Z0", "Z0", "Z0")
+		}
+	}
 
 	f.Comment("Barrett reduction; see Handbook of Applied Cryptography, Algorithm 14.42.")
-	f.MOVQ(T3, amd64.AX)
-	f.SHRQw("$32", T4, amd64.AX)
+	f.MOVQ(T[3], amd64.AX)
+	f.SHRQw("$32", T[4], amd64.AX)
 	f.MOVQ(f.mu(), amd64.DX)
 	f.MULQ(amd64.DX)
 
+	f.Comment("Subtract k*q from T")
 	f.MULXQ(f.qAt(0), PL, PH)
-	f.SUBQ(PL, T0)
-	f.SBBQ(PH, T1)
+	f.SUBQ(PL, T[0])
+	f.SBBQ(PH, T[1])
 	f.MULXQ(f.qAt(2), PL, PH)
-	f.SBBQ(PL, T2)
-	f.SBBQ(PH, T3)
-	f.SBBQ("$0", T4)
+	f.SBBQ(PL, T[2])
+	f.SBBQ(PH, T[3])
+	f.SBBQ("$0", T[4])
 	f.MULXQ(f.qAt(1), PL, PH)
-	f.SUBQ(PL, T1)
-	f.SBBQ(PH, T2)
+	f.SUBQ(PL, T[1])
+	f.SBBQ(PH, T[2])
 	f.MULXQ(f.qAt(3), PL, PH)
-	f.SBBQ(PL, T3)
-	f.SBBQ(PH, T4)
+	f.SBBQ(PL, T[3])
+	f.SBBQ(PH, T[4])
 
-	f.Comment("we need up to 2 conditional substractions to be < q")
+	f.Comment("Conditional subtraction: up to 2 subtractions needed to get result < q")
+	addrRes := f.Pop(&registers)
+	f.MOVQ("res+0(FP)", addrRes)
+	result := T[:4]
+	f.Mov(result, addrRes)
 
-	PZ := f.Pop(&registers)
-	f.MOVQ("res+0(FP)", PZ)
-	t := []amd64.Register{T0, T1, T2, T3}
-	f.Mov(t, PZ)
-
-	// sub q
-	f.SUBQ(f.qAt(0), T0)
-	f.SBBQ(f.qAt(1), T1)
-	f.SBBQ(f.qAt(2), T2)
-	f.SBBQ(f.qAt(3), T3)
-	f.SBBQ("$0", T4)
-
-	// if borrow, we go to done
-	f.JCS(done)
-
-	f.Mov(t, PZ)
-
-	f.SUBQ(f.qAt(0), T0)
-	f.SBBQ(f.qAt(1), T1)
-	f.SBBQ(f.qAt(2), T2)
-	f.SBBQ(f.qAt(3), T3)
-	f.SBBQ("$0", T4)
-
-	f.JCS(done)
-
-	f.Mov(t, PZ)
+	for i := 0; i < 2; i++ {
+		f.SUBQ(f.qAt(0), T[0])
+		f.SBBQ(f.qAt(1), T[1])
+		f.SBBQ(f.qAt(2), T[2])
+		f.SBBQ(f.qAt(3), T[3])
+		f.SBBQ("$0", T[4])
+		f.JCS(done)
+		f.Mov(result, addrRes)
+	}
 
 	f.LABEL(done)
-
 	f.RET()
-}
-
-func (f *FFAmd64) generateMulVecW4(funcName string) {
-	scalarMul := funcName != "mulVec"
-
-	const argSize = 6 * 8
-	const minStackSize = 1*8 + 4*8
-	stackSize := f.StackSize(4-1+4 /* this is incorrect but minStackSize > anyway */, 2, minStackSize)
-	registers := f.FnHeader(funcName, stackSize, argSize, amd64.AX, amd64.DX)
-	registers.UnsafePush(amd64.R15)
-	defer f.AssertCleanStack(stackSize, minStackSize)
-
-	// to simplify the generated assembly, we only handle n/16 (and do blocks of 16 muls).
-	// that is if n%16 != 0, we let the caller (Go) handle the remaining elements.
-	LEN := f.Pop(&registers, true)
-	PZ := f.Pop(&registers)
-	PX := f.Pop(&registers)
-	PY := f.Pop(&registers)
-
-	// we put q words on the stack, so that we don't need to clobber R15 with global memory access.
-	_q := f.PopN(&registers, true)
-	for i := 0; i < f.NbWords; i++ {
-		f.MOVQ(fmt.Sprintf("$const_q%d", i), amd64.AX)
-		f.MOVQ(amd64.AX, _q[i])
-	}
-	f.SetQStack(_q)
-	defer func() {
-		f.Push(&registers, _q...)
-		f.UnsetQStack()
-	}()
-
-	zi := func(i int) amd64.Register {
-		return amd64.Register("Z" + strconv.Itoa(i))
-	}
-
-	// AVX_MUL_Q_LO:
-	AVX_MUL_Q_LO, err := f.DefineFn("AVX_MUL_Q_LO")
-	if err != nil {
-		AVX_MUL_Q_LO = f.Define("AVX_MUL_Q_LO", 0, func(args ...any) {
-			for i := 0; i < 4; i++ {
-				f.VPMULUDQ_BCST(f.qAt_u32(i), "Z9", zi(10+i))
-				f.VPADDQ(zi(10+i), zi(i), zi(i))
-			}
-		}, true)
-	}
-
-	// AVX_MUL_Q_HI:
-	AVX_MUL_Q_HI := f.Define("AVX_MUL_Q_HI", 0, func(args ...any) {
-		for i := 0; i < 4; i++ {
-			f.VPMULUDQ_BCST(f.qAt_u32(i+4), "Z9", zi(14+i))
-			f.VPADDQ(zi(14+i), zi(i+4), zi(i+4))
-		}
-	}, true)
-
-	SHIFT_ADD_AND := f.Define("SHIFT_ADD_AND", 4, func(args ...any) {
-		in0 := args[0]
-		in1 := args[1]
-		in2 := args[2]
-		in3 := args[3]
-		f.VPSRLQ("$32", in0, in1)
-		f.VPADDQ(in1, in2, in2)
-		f.VPANDQ(in3, in2, in0)
-	}, true)
-
-	// CARRY1:
-	CARRY1 := f.Define("CARRY1", 0, func(args ...any) {
-		for i := 0; i < 4; i++ {
-			SHIFT_ADD_AND(zi(i), zi(10+i), zi(i+1), "Z8")
-		}
-	}, true)
-
-	CARRY2 := f.Define("CARRY2", 0, func(args ...any) {
-		for i := 0; i < 3; i++ {
-			SHIFT_ADD_AND(zi(i+4), zi(14+i), zi(i+5), "Z8")
-		}
-		f.VPSRLQ("$32", "Z7", "Z7")
-	}, true)
-
-	// CARRY3:
-	CARRY3 := f.Define("CARRY3", 0, func(args ...any) {
-		for i := 0; i < 4; i++ {
-			f.VPSRLQ("$32", zi(i), zi(10+i))
-			f.VPANDQ("Z8", zi(i), zi(i))
-			f.VPADDQ(zi(10+i), zi(i+1), zi(i+1))
-		}
-	}, true)
-
-	// CARRY4:
-	CARRY4 := f.Define("CARRY4", 0, func(args ...any) {
-		for i := 0; i < 3; i++ {
-			f.VPSRLQ("$32", zi(i+4), zi(14+i))
-			f.VPANDQ("Z8", zi(i+4), zi(i+4))
-			f.VPADDQ(zi(14+i), zi(i+5), zi(i+5))
-		}
-	}, true)
-
-	// we use the same registers as defined in the mul.
-	t := f.PopN(&registers)
-	y := f.PopN(&registers)
-	tr := f.Pop(&registers)
-	A := amd64.BP // note, BP is used in the mul defines.
-
-	var mulWord0, mulWordN defineFn
-	{
-		x := func(i int) amd64.Register {
-			return y[i]
-		}
-		// This part is identical to the element_mul function
-		// but we need to redefine to avoid hardcoding the registers values for q, t and x.
-		mac, err := f.DefineFn("MACC")
-		if err != nil {
-			panic(err)
-		}
-		divShift := f.Define("DIV_SHIFT_VEC", 0, func(_ ...any) {
-			// m := t[0]*q'[0] mod W
-			m := amd64.DX
-			f.MOVQ(f.qInv0(), m)
-			f.IMULQ(t[0], m)
-
-			// clear the carry flags
-			f.XORQ(amd64.AX, amd64.AX)
-
-			// C,_ := t[0] + m*q[0]
-			f.MULXQ(f.qAt(0), amd64.AX, tr)
-			f.ADCXQ(t[0], amd64.AX)
-			f.MOVQ(tr, t[0])
-
-			// for j=1 to N-1
-			//
-			//	(C,t[j-1]) := t[j] + m*q[j] + C
-			for j := 1; j < f.NbWords; j++ {
-				mac(t[j], t[j-1], amd64.Register(f.qAt(j)))
-			}
-
-			f.MOVQ(0, amd64.AX)
-			f.ADCXQ(amd64.AX, t[f.NbWordsLastIndex])
-			f.ADOXQ(A, t[f.NbWordsLastIndex])
-
-		}, true)
-
-		mulWord0 = f.Define("MUL_WORD_0_VEC", 0, func(_ ...any) {
-			f.XORQ(amd64.AX, amd64.AX)
-			// for j=0 to N-1
-			//    (A,t[j])  := t[j] + x[j]*y[i] + A
-			for j := 0; j < f.NbWords; j++ {
-				if j == 0 && f.NbWords == 1 {
-					f.MULXQ(x(j), t[j], A)
-				} else if j == 0 {
-					f.MULXQ(x(j), t[j], t[j+1])
-				} else {
-					highBits := A
-					if j != f.NbWordsLastIndex {
-						highBits = t[j+1]
-					}
-					f.MULXQ(x(j), amd64.AX, highBits)
-					f.ADOXQ(amd64.AX, t[j])
-				}
-			}
-			f.MOVQ(0, amd64.AX)
-			f.ADOXQ(amd64.AX, A)
-			divShift()
-		}, true)
-
-		mulWordN = f.Define("MUL_WORD_N_VEC", 0, func(args ...any) {
-			f.XORQ(amd64.AX, amd64.AX)
-			// for j=0 to N-1
-			//    (A,t[j])  := t[j] + x[j]*y[i] + A
-			f.MULXQ(x(0), amd64.AX, A)
-			f.ADOXQ(amd64.AX, t[0])
-			for j := 1; j < f.NbWords; j++ {
-				mac(A, t[j], amd64.Register(x(j)))
-			}
-			f.MOVQ(0, amd64.AX)
-			f.ADCXQ(amd64.AX, A)
-			f.ADOXQ(amd64.AX, A)
-			divShift()
-		}, true)
-	}
-
-	zIndex := 0
-
-	loadInput := func() {
-		if scalarMul {
-			return
-		}
-		f.Comment(fmt.Sprintf("load input y[%d]", zIndex))
-		f.Mov(PY, y, zIndex*4)
-	}
-
-	mulXi := func(wordIndex int) {
-		f.Comment(fmt.Sprintf("z[%d] -> y * x[%d]", zIndex, wordIndex))
-		if wordIndex == 0 {
-			mulWord0()
-		} else {
-			f.MOVQ(amd64.Register(PX.At(wordIndex)), amd64.DX)
-			mulWordN()
-		}
-	}
-
-	storeOutput := func() {
-		scratch := []amd64.Register{A, tr, amd64.AX, amd64.DX}
-		f.ReduceElement(t, scratch, false)
-
-		f.Comment(fmt.Sprintf("store output z[%d]", zIndex))
-		f.Mov(t, PZ, 0, zIndex*4)
-		if zIndex == 7 {
-			f.ADDQ("$288", PX)
-		} else {
-			f.ADDQ("$32", PX)
-			f.MOVQ(amd64.Register(PX.At(0)), amd64.DX)
-		}
-		zIndex++
-	}
-
-	done := f.NewLabel("done")
-	loop := f.NewLabel("loop")
-
-	f.MOVQ("res+0(FP)", PZ)
-	f.MOVQ("a+8(FP)", PX)
-	f.MOVQ("b+16(FP)", PY)
-	f.MOVQ("n+24(FP)", tr)
-
-	if scalarMul {
-		// for scalar mul we move the scalar only once in registers.
-		f.Mov(PY, y)
-	}
-
-	// we process 16 elements at a time, Go caller divided len by 16.
-	f.MOVQ(tr, LEN)
-
-	f.Comment("Create mask for low dword in each qword")
-
-	f.VPCMPEQB("Y8", "Y8", "Y8")
-	f.VPMOVZXDQ("Y8", "Z8")
-	f.MOVQ("$0x5555", amd64.DX)
-	f.KMOVD(amd64.DX, "K1")
-
-	f.LABEL(loop)
-	// f.MOVQ(LEN, tr)
-	f.TESTQ(tr, tr)
-	f.JEQ(done, "n == 0, we are done")
-
-	f.MOVQ(amd64.Register(PX.At(0)), amd64.DX)
-	f.VMOVDQU64("256+0*64("+PX+")", "Z16")
-	f.VMOVDQU64("256+1*64("+PX+")", "Z17")
-	f.VMOVDQU64("256+2*64("+PX+")", "Z18")
-	f.VMOVDQU64("256+3*64("+PX+")", "Z19")
-
-	loadInput()
-	if scalarMul {
-		f.VMOVDQU64("0("+PY+")", "Z24")
-		f.VMOVDQU64("0("+PY+")", "Z25")
-		f.VMOVDQU64("0("+PY+")", "Z26")
-		f.VMOVDQU64("0("+PY+")", "Z27")
-	} else {
-		f.VMOVDQU64("256+0*64("+PY+")", "Z24")
-		f.VMOVDQU64("256+1*64("+PY+")", "Z25")
-		f.VMOVDQU64("256+2*64("+PY+")", "Z26")
-		f.VMOVDQU64("256+3*64("+PY+")", "Z27")
-	}
-
-	f.Comment("Transpose and expand x and y")
-
-	// Step 1
-
-	f.VSHUFI64X2("$0x88", "Z17", "Z16", "Z20")
-	f.VSHUFI64X2("$0xdd", "Z17", "Z16", "Z22")
-	f.VSHUFI64X2("$0x88", "Z19", "Z18", "Z21")
-	f.VSHUFI64X2("$0xdd", "Z19", "Z18", "Z23")
-
-	f.VSHUFI64X2("$0x88", "Z25", "Z24", "Z28")
-	f.VSHUFI64X2("$0xdd", "Z25", "Z24", "Z30")
-	f.VSHUFI64X2("$0x88", "Z27", "Z26", "Z29")
-	f.VSHUFI64X2("$0xdd", "Z27", "Z26", "Z31")
-
-	// Step 2
-
-	f.VPERMQ("$0xd8", "Z20", "Z20")
-	f.VPERMQ("$0xd8", "Z21", "Z21")
-	f.VPERMQ("$0xd8", "Z22", "Z22")
-	f.VPERMQ("$0xd8", "Z23", "Z23")
-
-	mulXi(0)
-
-	f.VPERMQ("$0xd8", "Z28", "Z28")
-	f.VPERMQ("$0xd8", "Z29", "Z29")
-	f.VPERMQ("$0xd8", "Z30", "Z30")
-	f.VPERMQ("$0xd8", "Z31", "Z31")
-
-	// Step 3
-
-	for i := 20; i <= 23; i++ {
-		f.VSHUFI64X2("$0xd8", zi(i), zi(i), zi(i))
-	}
-
-	mulXi(1)
-
-	for i := 28; i <= 31; i++ {
-		f.VSHUFI64X2("$0xd8", zi(i), zi(i), zi(i))
-	}
-
-	// Step 4
-
-	f.VSHUFI64X2("$0x44", "Z21", "Z20", "Z16")
-	f.VSHUFI64X2("$0xee", "Z21", "Z20", "Z18")
-	f.VSHUFI64X2("$0x44", "Z23", "Z22", "Z20")
-	f.VSHUFI64X2("$0xee", "Z23", "Z22", "Z22")
-
-	mulXi(2)
-	f.VSHUFI64X2("$0x44", "Z29", "Z28", "Z24")
-	f.VSHUFI64X2("$0xee", "Z29", "Z28", "Z26")
-	f.VSHUFI64X2("$0x44", "Z31", "Z30", "Z28")
-	f.VSHUFI64X2("$0xee", "Z31", "Z30", "Z30")
-
-	f.WriteLn("PREFETCHT0 1024(" + string(PX) + ")")
-
-	// Step 5
-
-	f.VPSRLQ("$32", "Z16", "Z17")
-	f.VPSRLQ("$32", "Z18", "Z19")
-	f.VPSRLQ("$32", "Z20", "Z21")
-	f.VPSRLQ("$32", "Z22", "Z23")
-
-	for i := 24; i <= 30; i += 2 {
-		f.VPSRLQ("$32", zi(i), zi(i+1))
-	}
-	mulXi(3)
-
-	for i := 16; i <= 30; i += 2 {
-		f.VPANDQ("Z8", zi(i), zi(i))
-	}
-
-	storeOutput()
-
-	f.Comment("For each 256-bit input value, each zmm register now represents a 32-bit input word zero-extended to 64 bits.")
-	f.Comment("Multiply y by doubleword 0 of x")
-
-	for i := 0; i < 8; i++ {
-		f.VPMULUDQ("Z16", zi(24+i), zi(i))
-		if i == 4 {
-			if !scalarMul {
-				f.WriteLn("PREFETCHT0 1024(" + string(PY) + ")")
-			}
-		}
-	}
-
-	loadInput()
-
-	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
-
-	for i := 0; i < 4; i++ {
-		f.VPSRLQ("$32", zi(i), zi(10+i))
-		f.VPANDQ("Z8", zi(i), zi(i))
-		f.VPADDQ(zi(10+i), zi(i+1), zi(i+1))
-
-	}
-
-	mulXi(0)
-
-	for i := 0; i < 3; i++ {
-		f.VPSRLQ("$32", zi(4+i), zi(14+i))
-		f.VPANDQ("Z8", zi(4+i), zi(4+i))
-		f.VPADDQ(zi(14+i), zi(5+i), zi(5+i))
-
-	}
-
-	for i := 0; i < 4; i++ {
-		f.VPMULUDQ_BCST(f.qAt_u32(i), "Z9", zi(10+i))
-		f.VPADDQ(zi(10+i), zi(i), zi(i))
-	}
-
-	mulXi(1)
-
-	f.VPMULUDQ_BCST(f.qAt_u32(4), "Z9", "Z14")
-	f.VPADDQ("Z14", "Z4", "Z4")
-
-	f.VPMULUDQ_BCST(f.qAt_u32(5), "Z9", "Z15")
-	f.VPADDQ("Z15", "Z5", "Z5")
-
-	f.VPMULUDQ_BCST(f.qAt_u32(6), "Z9", "Z16")
-	f.VPADDQ("Z16", "Z6", "Z6")
-
-	f.VPMULUDQ_BCST(f.qAt_u32(7), "Z9", "Z10")
-	f.VPADDQ("Z10", "Z7", "Z7")
-
-	CARRY1()
-
-	mulXi(2)
-
-	for i := 0; i < 3; i++ {
-		SHIFT_ADD_AND(zi(4+i), zi(14+i), zi(5+i), "Z8")
-	}
-	f.VPSRLQ("$32", "Z7", "Z7")
-
-	f.Comment("Process doubleword 1 of x")
-
-	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z17", zi(24+i), zi(10+i))
-		f.VPADDQ(zi(10+i), zi(i), zi(i))
-
-	}
-
-	mulXi(3)
-
-	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z17", zi(28+i), zi(14+i))
-		f.VPADDQ(zi(14+i), zi(4+i), zi(4+i))
-
-	}
-
-	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
-
-	storeOutput()
-
-	f.Comment("Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)")
-
-	for i := 0; i < 3; i++ {
-		f.VPSRLQ("$32", zi(i), zi(10+i))
-		f.VPANDQ("Z8", zi(i), zi(i))
-		f.VPADDQ(zi(10+i), zi(i+1), zi(i+1))
-	}
-	loadInput()
-
-	f.VPSRLQ("$32", "Z3", "Z13")
-	f.VPANDQ("Z8", "Z3", "Z3")
-	f.VPADDQ("Z13", "Z4", "Z4")
-
-	CARRY4()
-	mulXi(0)
-
-	AVX_MUL_Q_LO()
-
-	AVX_MUL_Q_HI()
-	mulXi(1)
-
-	CARRY1()
-
-	CARRY2()
-	mulXi(2)
-
-	f.Comment("Process doubleword 2 of x")
-
-	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z18", zi(24+i), zi(10+i))
-		f.VPADDQ(zi(10+i), zi(i), zi(i))
-	}
-
-	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z18", zi(28+i), zi(14+i))
-		f.VPADDQ(zi(14+i), zi(4+i), zi(4+i))
-
-	}
-
-	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
-
-	mulXi(3)
-
-	f.Comment("Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)")
-	CARRY3()
-
-	storeOutput()
-	loadInput()
-
-	CARRY4()
-
-	AVX_MUL_Q_LO()
-
-	mulXi(0)
-	AVX_MUL_Q_HI()
-
-	CARRY1()
-	CARRY2()
-
-	f.Comment("Process doubleword 3 of x")
-
-	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z19", zi(24+i), zi(10+i))
-		f.VPADDQ(zi(10+i), zi(i), zi(i))
-
-	}
-
-	mulXi(1)
-
-	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z19", zi(28+i), zi(14+i))
-		f.VPADDQ(zi(14+i), zi(4+i), zi(4+i))
-
-	}
-	mulXi(2)
-	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
-
-	// Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)
-	CARRY3()
-	CARRY4()
-	mulXi(3)
-
-	AVX_MUL_Q_LO()
-
-	AVX_MUL_Q_HI()
-
-	storeOutput()
-
-	f.Comment("Propagate carries and shift down by one dword")
-	CARRY1()
-
-	CARRY2()
-
-	loadInput()
-
-	f.Comment("Process doubleword 4 of x")
-
-	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z20", zi(24+i), zi(10+i))
-		f.VPADDQ(zi(10+i), zi(i), zi(i))
-
-	}
-	mulXi(0)
-	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z20", zi(28+i), zi(14+i))
-		f.VPADDQ(zi(14+i), zi(4+i), zi(4+i))
-
-	}
-
-	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
-	mulXi(1)
-
-	f.Comment("Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)")
-
-	CARRY3()
-
-	CARRY4()
-	mulXi(2)
-
-	f.Comment("zmm7 keeps all 64 bits")
-
-	AVX_MUL_Q_LO()
-
-	AVX_MUL_Q_HI()
-
-	mulXi(3)
-
-	f.Comment("Propagate carries and shift down by one dword")
-
-	CARRY1()
-
-	CARRY2()
-
-	storeOutput()
-
-	f.Comment("Process doubleword 5 of x")
-
-	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z21", zi(24+i), zi(10+i))
-		f.VPADDQ(zi(10+i), zi(i), zi(i))
-
-	}
-	loadInput()
-	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z21", zi(28+i), zi(14+i))
-		f.VPADDQ(zi(14+i), zi(4+i), zi(4+i))
-
-	}
-
-	mulXi(0)
-
-	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
-
-	f.Comment("Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)")
-	CARRY3()
-
-	CARRY4()
-
-	mulXi(1)
-
-	AVX_MUL_Q_LO()
-
-	AVX_MUL_Q_HI()
-
-	mulXi(2)
-
-	CARRY1()
-
-	CARRY2()
-
-	mulXi(3)
-
-	f.Comment("Process doubleword 6 of x")
-
-	for i := 0; i < 8; i++ {
-		f.VPMULUDQ("Z22", zi(24+i), zi(10+i))
-		f.VPADDQ(zi(10+i), zi(i), zi(i))
-	}
-
-	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
-
-	storeOutput()
-
-	f.Comment("Move high dwords to zmm10-16, add each to the corresponding low dword (propagate 32-bit carries)")
-	CARRY3()
-	loadInput()
-	CARRY4()
-
-	mulXi(0)
-
-	AVX_MUL_Q_LO()
-
-	AVX_MUL_Q_HI()
-
-	mulXi(1)
-
-	CARRY1()
-
-	CARRY2()
-
-	mulXi(2)
-
-	f.Comment("Process doubleword 7 of x")
-	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z23", zi(24+i), zi(10+i))
-		f.VPADDQ(zi(10+i), zi(i), zi(i))
-
-	}
-
-	for i := 0; i < 4; i++ {
-		f.VPMULUDQ("Z23", zi(28+i), zi(14+i))
-		f.VPADDQ(zi(14+i), zi(4+i), zi(4+i))
-
-	}
-	f.VPMULUDQ_BCST("qInvNeg+32(FP)", "Z0", "Z9")
-
-	mulXi(3)
-
-	CARRY3()
-	storeOutput()
-	CARRY4()
-
-	loadInput()
-
-	AVX_MUL_Q_LO()
-
-	AVX_MUL_Q_HI()
-
-	mulXi(0)
-
-	CARRY1()
-
-	CARRY2()
-
-	mulXi(1)
-
-	f.Comment("Conditional subtraction of the modulus")
-
-	for i := 0; i < 8; i++ {
-		f.VPERMD_BCST_Z(f.qAt_u32(i), "Z8", "K1", zi(10+i))
-	}
-
-	for i := 0; i < 8; i++ {
-		f.VPSUBQ(zi(10+i), zi(i), zi(10+i))
-		if i > 0 {
-			f.VPSUBQ(zi(20+i-1), zi(10+i), zi(10+i))
-		}
-		if i != 7 {
-			f.VPSRLQ("$63", zi(10+i), zi(20+i))
-			f.VPANDQ("Z8", zi(10+i), zi(10+i))
-		}
-
-	}
-
-	f.VPMOVQ2M("Z17", "K2")
-	f.KNOTB("K2", "K2")
-
-	for i := 0; i < 8; i++ {
-		f.VMOVDQU64k(zi(10+i), "K2", zi(i))
-		if i == 4 {
-			mulXi(2)
-		}
-	}
-
-	f.Comment("Transpose results back")
-	// patterns+40(FP) contains pointer to the patterns array;
-	ax := amd64.AX
-	f.MOVQ("patterns+40(FP)", ax)
-	f.VMOVDQU64(ax.At(0), amd64.Z15)
-	f.WriteLn("VALIGND $0, Z15, Z11, Z11")
-	f.VMOVDQU64(ax.At(8), amd64.Z15)
-	f.WriteLn("VALIGND $0, Z15, Z12, Z12")
-	f.VMOVDQU64(ax.At(16), amd64.Z15)
-	f.WriteLn("VALIGND $0, Z15, Z13, Z13")
-	f.VMOVDQU64(ax.At(24), amd64.Z15)
-	f.WriteLn("VALIGND $0, Z15, Z14, Z14")
-
-	for i := 0; i < 4; i++ {
-		f.VPSLLQ("$32", zi(2*i+1), zi(2*i+1))
-		f.VPORQ(zi(2*i+1), zi(2*i), zi(i))
-	}
-
-	f.VMOVDQU64("Z0", "Z4")
-	f.VMOVDQU64("Z2", "Z6")
-
-	mulXi(3)
-	f.VPERMT2Q("Z1", "Z11", "Z0")
-	f.VPERMT2Q("Z4", "Z12", "Z1")
-	f.VPERMT2Q("Z3", "Z11", "Z2")
-	f.VPERMT2Q("Z6", "Z12", "Z3")
-
-	// Step 3
-	storeOutput()
-
-	f.VMOVDQU64("Z0", "Z4")
-	f.VMOVDQU64("Z1", "Z5")
-	f.VPERMT2Q("Z2", "Z13", "Z0")
-	f.VPERMT2Q("Z4", "Z14", "Z2")
-	f.VPERMT2Q("Z3", "Z13", "Z1")
-	f.VPERMT2Q("Z5", "Z14", "Z3")
-
-	f.Comment("Save AVX-512 results")
-
-	f.VMOVDQU64("Z0", "256+0*64("+PZ+")")
-	f.VMOVDQU64("Z2", "256+1*64("+PZ+")")
-	f.VMOVDQU64("Z1", "256+2*64("+PZ+")")
-	f.VMOVDQU64("Z3", "256+3*64("+PZ+")")
-	f.ADDQ("$512", PZ)
-
-	if !scalarMul {
-		f.ADDQ("$512", PY)
-	}
-
-	f.MOVQ(LEN, tr)
-	f.DECQ(tr, "decrement n")
-	f.MOVQ(tr, LEN)
-	f.JMP(loop)
-
-	f.LABEL(done)
-
-	f.RET()
-
-	f.UnsafePush(&registers, LEN, PZ)
-
 }

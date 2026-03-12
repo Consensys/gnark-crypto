@@ -49,11 +49,13 @@ type Domain struct {
 
 	// cosetTable <1, u, u², ..., uⁿ⁻¹> where u is the shifting element
 	cosetTable []koalabear.Element
-	// cosetTableBitReversed is filled only for "small" domains (up to 2^18)
+	// cosetTableBitReversed stores the coset table in bit-reversed order
 	cosetTableBitReversed []koalabear.Element
 
 	// cosetTableInv same as cosetTable but with u⁻¹
 	cosetTableInv []koalabear.Element
+	// cosetTableInvBitReversed stores the inverse coset table in bit-reversed order
+	cosetTableInvBitReversed []koalabear.Element
 }
 
 // GeneratorFullMultiplicativeGroup returns a generator of 𝔽ᵣˣ
@@ -273,13 +275,15 @@ func (d *Domain) preComputeTwiddles() {
 	go expTable(d.FrMultiplicativeGenInv, d.cosetTableInv)
 
 	wg.Wait()
-	if d.Cardinality <= 1<<18 {
-		// we fill the bit-reversed version of the coset table for small domains only (up to 2^18)
+	if d.Cardinality <= 1<<22 {
 		d.cosetTableBitReversed = make([]koalabear.Element, d.Cardinality)
 		copy(d.cosetTableBitReversed, d.cosetTable)
 		utils.BitReverse(d.cosetTableBitReversed)
-	}
 
+		d.cosetTableInvBitReversed = make([]koalabear.Element, d.Cardinality)
+		copy(d.cosetTableInvBitReversed, d.cosetTableInv)
+		utils.BitReverse(d.cosetTableInvBitReversed)
+	}
 }
 
 func buildTwiddles(t [][]koalabear.Element, omega koalabear.Element, nbStages uint64) {
