@@ -180,7 +180,8 @@ func mulE12BySparseE2(dense *fptower.E12, sparse *fptower.E2, result *fptower.E1
 // This exploits the sparse structure for significant speedup
 // p coordinates are dense (from T), q coordinates are sparse (from precomputation)
 // fourB should be precomputed as 4*b
-func cDIFFE12_SparseQ(pX, pZ *fptower.E12, qX, qZ *fptower.E2, iXPminusQ *fptower.E12, fourB *fptower.E2, result *cubicalPointE12) {
+// Returns unnormalized result: caller must multiply result.X by 1/X_{P-Q}
+func cDIFFE12_SparseQ(pX, pZ *fptower.E12, qX, qZ *fptower.E2, fourB *fptower.E2, result *cubicalPointE12) {
 	var t1, t2, t4, t5, t6, t7, tmp fptower.E12
 	var t3, qSum fptower.E2
 
@@ -208,7 +209,7 @@ func cDIFFE12_SparseQ(pX, pZ *fptower.E12, qX, qZ *fptower.E2, iXPminusQ *fptowe
 	t7.Sub(&t7, &t4)
 	t7.Add(&t7, &t5)
 
-	// X_{P+Q} = (-4b · t5 · t6 + t4²) · iX_{P-Q}
+	// X_{P+Q} = -4b · t5 · t6 + t4² (unnormalized, caller divides by X_{P-Q})
 	// 4b is sparse, t5 is dense
 	mulE12BySparseE2(&t5, fourB, &tmp) // sparse × dense
 	tmp.Mul(&tmp, &t6)                 // dense × dense
@@ -217,7 +218,6 @@ func cDIFFE12_SparseQ(pX, pZ *fptower.E12, qX, qZ *fptower.E2, iXPminusQ *fptowe
 	tmp.C1.Neg(&tmp.C1)
 	result.X.Square(&t4)
 	result.X.Add(&result.X, &tmp)
-	result.X.Mul(&result.X, iXPminusQ)
 
 	// Z_{P+Q} = t7²
 	result.Z.Square(&t7)
@@ -226,7 +226,8 @@ func cDIFFE12_SparseQ(pX, pZ *fptower.E12, qX, qZ *fptower.E2, iXPminusQ *fptowe
 // cDIFFE12_SparseP performs cDIFF where pX, pZ are sparse (embedded from E2)
 // p coordinates are sparse (from precomputation), q coordinates are dense (from T)
 // fourB should be precomputed as 4*b
-func cDIFFE12_SparseP(pX, pZ *fptower.E2, qX, qZ, iXPminusQ *fptower.E12, fourB *fptower.E2, result *cubicalPointE12) {
+// Returns unnormalized result: caller must multiply result.X by 1/X_{P-Q}
+func cDIFFE12_SparseP(pX, pZ *fptower.E2, qX, qZ *fptower.E12, fourB *fptower.E2, result *cubicalPointE12) {
 	var t3, t4, t5, t6, t7, tmp fptower.E12
 	var t1, t2, pSum, pDiff fptower.E2
 
@@ -254,7 +255,7 @@ func cDIFFE12_SparseP(pX, pZ *fptower.E2, qX, qZ, iXPminusQ *fptower.E12, fourB 
 	t7.Sub(&t7, &t4)
 	t7.Add(&t7, &t5)
 
-	// X_{P+Q} = (-4b · t5 · t6 + t4²) · iX_{P-Q}
+	// X_{P+Q} = -4b · t5 · t6 + t4² (unnormalized, caller divides by X_{P-Q})
 	mulE12BySparseE2(&t5, fourB, &tmp) // sparse × dense
 	tmp.Mul(&tmp, &t6)                 // dense × dense
 	// Negate
@@ -262,10 +263,53 @@ func cDIFFE12_SparseP(pX, pZ *fptower.E2, qX, qZ, iXPminusQ *fptower.E12, fourB 
 	tmp.C1.Neg(&tmp.C1)
 	result.X.Square(&t4)
 	result.X.Add(&result.X, &tmp)
-	result.X.Mul(&result.X, iXPminusQ)
 
 	// Z_{P+Q} = t7²
 	result.Z.Square(&t7)
+}
+
+// mulE12BySparse_B1 multiplies a dense E12 by a sparse E12 where only C0.B1 is non-zero
+// sparse = (0, a, 0, 0, 0, 0) = a·v where a ∈ E2
+// Uses tower: E6 = E2[v]/(v³-(1+u)), E12 = E6[w]/(w²-v)
+// Cost: 6 E2 muls + 2 MulByNonResidue (cheap)
+func mulE12BySparse_B1(dense *fptower.E12, sparse *fptower.E2, result *fptower.E12) {
+	// a·v · (b0 + b1·v + b2·v² + b3·w + b4·vw + b5·v²w)
+	// = a·b2·β + a·b0·v + a·b1·v² + a·b5·β·w + a·b3·vw + a·b4·v²w  (β = 1+u)
+	var r0, r1, r2, r3, r4, r5 fptower.E2
+	r0.Mul(sparse, &dense.C0.B2).MulByNonResidue(&r0)
+	r1.Mul(sparse, &dense.C0.B0)
+	r2.Mul(sparse, &dense.C0.B1)
+	r3.Mul(sparse, &dense.C1.B2).MulByNonResidue(&r3)
+	r4.Mul(sparse, &dense.C1.B0)
+	r5.Mul(sparse, &dense.C1.B1)
+	result.C0.B0.Set(&r0)
+	result.C0.B1.Set(&r1)
+	result.C0.B2.Set(&r2)
+	result.C1.B0.Set(&r3)
+	result.C1.B1.Set(&r4)
+	result.C1.B2.Set(&r5)
+}
+
+// mulE12BySparse_B2 multiplies a dense E12 by a sparse E12 where only C0.B2 is non-zero
+// sparse = (0, 0, a, 0, 0, 0) = a·v² where a ∈ E2
+// Uses tower: E6 = E2[v]/(v³-(1+u)), E12 = E6[w]/(w²-v)
+// Cost: 6 E2 muls + 4 MulByNonResidue (cheap)
+func mulE12BySparse_B2(dense *fptower.E12, sparse *fptower.E2, result *fptower.E12) {
+	// a·v² · (b0 + b1·v + b2·v² + b3·w + b4·vw + b5·v²w)
+	// = a·b1·β + a·b2·β·v + a·b0·v² + a·b4·β·w + a·b5·β·vw + a·b3·v²w  (β = 1+u)
+	var r0, r1, r2, r3, r4, r5 fptower.E2
+	r0.Mul(sparse, &dense.C0.B1).MulByNonResidue(&r0)
+	r1.Mul(sparse, &dense.C0.B2).MulByNonResidue(&r1)
+	r2.Mul(sparse, &dense.C0.B0)
+	r3.Mul(sparse, &dense.C1.B1).MulByNonResidue(&r3)
+	r4.Mul(sparse, &dense.C1.B2).MulByNonResidue(&r4)
+	r5.Mul(sparse, &dense.C1.B0)
+	result.C0.B0.Set(&r0)
+	result.C0.B1.Set(&r1)
+	result.C0.B2.Set(&r2)
+	result.C1.B0.Set(&r3)
+	result.C1.B1.Set(&r4)
+	result.C1.B2.Set(&r5)
 }
 
 // addPointsE2 computes P + Q on E'(Fp²) in affine coordinates
@@ -734,20 +778,23 @@ func MillerLoopCubicalFixedQ(P *G1Affine, pre *G2CubicalPrecompute) (GT, error) 
 	xQminusP.Square(&lambdaPrime)
 	xQminusP.Sub(&xQminusP, &xSum)
 
-	// Compute inverses for the ladder using Montgomery's batch inversion
-	// Instead of 2 inversions, we use 1 inversion + 3 multiplications
-	// Montgomery's trick: to compute 1/a and 1/b, compute ab, then 1/(ab),
-	// then 1/a = b·(1/(ab)) and 1/b = a·(1/(ab))
-	var iXPprime, iXQminusP, prod, invProd fptower.E12
-	prod.Mul(&xPprime, &xQminusP)     // ab
-	invProd.Inverse(&prod)            // 1/(ab)
-	iXPprime.Mul(&xQminusP, &invProd) // 1/a = b·(1/(ab))
-	iXQminusP.Mul(&xPprime, &invProd) // 1/b = a·(1/(ab))
+	// Compute 1/X_{P'} analytically as a SPARSE element in E12.
+	// X_{P'} = x_P · v, so 1/X_{P'} = v²/(x_P · (1+u)) since v³ = (1+u).
+	// This lives in C0.B2 with E2 coefficient 1/(x_P·(1+u)).
+	// Using sparse multiplication saves 36 Fp muls per bit=0 step vs dense mul.
+	var iXPprimeCoeff fptower.E2
+	iXPprimeCoeff.A0.Set(&P.X)                    // x_P embedded in E2
+	iXPprimeCoeff.MulByNonResidue(&iXPprimeCoeff) // x_P · (1+u)
+	iXPprimeCoeff.Inverse(&iXPprimeCoeff)         // 1/(x_P · (1+u))
+
+	// Compute 1/X_{Q'-P'} as a standard E12 inverse (dense, no sparsity to exploit)
+	var iXQminusP fptower.E12
+	iXQminusP.Inverse(&xQminusP)
 
 	// Run the ladder using optimized sparse×dense multiplication
-	// Precomputed values are in E2 (sparse), T values are dense in E12
-	// Use windowed processing for runs of consecutive same-valued bits
-	millerLoopCubicalWindowed(&TX, &TZ, pre, &iXPprime, &iXQminusP)
+	// For bit=0 steps: multiply by iXPprime using sparse B2 mul (6 E2 muls)
+	// For bit=1 steps: multiply by iXQminusP using dense mul (full E12 mul)
+	millerLoopCubicalWindowed(&TX, &TZ, pre, &iXPprimeCoeff, &iXQminusP)
 
 	result.Set(&TZ)
 	return result, nil
@@ -768,75 +815,88 @@ func MillerLoopCubicalFixedQ(P *G1Affine, pre *G2CubicalPrecompute) (GT, error) 
 // idx 15-45: bit=0 (i=47-17) - 31 zeros
 // idx 46: bit=1 (i=16)
 // idx 47-62: bit=0 (i=15-0) - 16 zeros
-func millerLoopCubicalWindowed(TX, TZ *fptower.E12, pre *G2CubicalPrecompute, iXPprime, iXQminusP *fptower.E12) {
+//
+// iXPprimeCoeff is the E2 coefficient of 1/X_{P'} in the B2 position (sparse).
+// iXQminusP is the dense E12 inverse of X_{Q'-P'}.
+func millerLoopCubicalWindowed(TX, TZ *fptower.E12, pre *G2CubicalPrecompute, iXPprimeCoeff *fptower.E2, iXQminusP *fptower.E12) {
 	var newT cubicalPointE12
 
 	// Process bit pattern in order (idx=0 to 62, corresponding to i=62 down to 0)
 	idx := 0
 
 	// idx=0: bit=1 (i=62)
-	cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], TX, TZ, iXQminusP, &pre.FourBTwist, &newT)
+	cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], TX, TZ, &pre.FourBTwist, &newT)
+	newT.X.Mul(&newT.X, iXQminusP) // dense × dense
 	TX.Set(&newT.X)
 	TZ.Set(&newT.Z)
 	idx++
 
 	// idx=1: bit=0 (i=61) - single zero
-	cDIFFE12_SparseQ(TX, TZ, &pre.LadderX[idx], &pre.LadderZ[idx], iXPprime, &pre.FourBTwist, &newT)
+	cDIFFE12_SparseQ(TX, TZ, &pre.LadderX[idx], &pre.LadderZ[idx], &pre.FourBTwist, &newT)
+	mulE12BySparse_B2(&newT.X, iXPprimeCoeff, &newT.X) // sparse × dense (6 E2 muls)
 	TX.Set(&newT.X)
 	TZ.Set(&newT.Z)
 	idx++
 
 	// idx=2: bit=1 (i=60)
-	cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], TX, TZ, iXQminusP, &pre.FourBTwist, &newT)
+	cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], TX, TZ, &pre.FourBTwist, &newT)
+	newT.X.Mul(&newT.X, iXQminusP)
 	TX.Set(&newT.X)
 	TZ.Set(&newT.Z)
 	idx++
 
 	// idx=3,4: bit=0 (i=59,58) - 2 consecutive zeros
 	for j := 0; j < 2; j++ {
-		cDIFFE12_SparseQ(TX, TZ, &pre.LadderX[idx], &pre.LadderZ[idx], iXPprime, &pre.FourBTwist, &newT)
+		cDIFFE12_SparseQ(TX, TZ, &pre.LadderX[idx], &pre.LadderZ[idx], &pre.FourBTwist, &newT)
+		mulE12BySparse_B2(&newT.X, iXPprimeCoeff, &newT.X)
 		TX.Set(&newT.X)
 		TZ.Set(&newT.Z)
 		idx++
 	}
 
 	// idx=5: bit=1 (i=57)
-	cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], TX, TZ, iXQminusP, &pre.FourBTwist, &newT)
+	cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], TX, TZ, &pre.FourBTwist, &newT)
+	newT.X.Mul(&newT.X, iXQminusP)
 	TX.Set(&newT.X)
 	TZ.Set(&newT.Z)
 	idx++
 
 	// idx=6-13: bit=0 (i=56-49) - 8 consecutive zeros
 	for j := 0; j < 8; j++ {
-		cDIFFE12_SparseQ(TX, TZ, &pre.LadderX[idx], &pre.LadderZ[idx], iXPprime, &pre.FourBTwist, &newT)
+		cDIFFE12_SparseQ(TX, TZ, &pre.LadderX[idx], &pre.LadderZ[idx], &pre.FourBTwist, &newT)
+		mulE12BySparse_B2(&newT.X, iXPprimeCoeff, &newT.X)
 		TX.Set(&newT.X)
 		TZ.Set(&newT.Z)
 		idx++
 	}
 
 	// idx=14: bit=1 (i=48)
-	cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], TX, TZ, iXQminusP, &pre.FourBTwist, &newT)
+	cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], TX, TZ, &pre.FourBTwist, &newT)
+	newT.X.Mul(&newT.X, iXQminusP)
 	TX.Set(&newT.X)
 	TZ.Set(&newT.Z)
 	idx++
 
 	// idx=15-45: bit=0 (i=47-17) - 31 consecutive zeros
 	for j := 0; j < 31; j++ {
-		cDIFFE12_SparseQ(TX, TZ, &pre.LadderX[idx], &pre.LadderZ[idx], iXPprime, &pre.FourBTwist, &newT)
+		cDIFFE12_SparseQ(TX, TZ, &pre.LadderX[idx], &pre.LadderZ[idx], &pre.FourBTwist, &newT)
+		mulE12BySparse_B2(&newT.X, iXPprimeCoeff, &newT.X)
 		TX.Set(&newT.X)
 		TZ.Set(&newT.Z)
 		idx++
 	}
 
 	// idx=46: bit=1 (i=16)
-	cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], TX, TZ, iXQminusP, &pre.FourBTwist, &newT)
+	cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], TX, TZ, &pre.FourBTwist, &newT)
+	newT.X.Mul(&newT.X, iXQminusP)
 	TX.Set(&newT.X)
 	TZ.Set(&newT.Z)
 	idx++
 
 	// idx=47-62: bit=0 (i=15-0) - 16 consecutive zeros
 	for j := 0; j < 16; j++ {
-		cDIFFE12_SparseQ(TX, TZ, &pre.LadderX[idx], &pre.LadderZ[idx], iXPprime, &pre.FourBTwist, &newT)
+		cDIFFE12_SparseQ(TX, TZ, &pre.LadderX[idx], &pre.LadderZ[idx], &pre.FourBTwist, &newT)
+		mulE12BySparse_B2(&newT.X, iXPprimeCoeff, &newT.X)
 		TX.Set(&newT.X)
 		TZ.Set(&newT.Z)
 		idx++

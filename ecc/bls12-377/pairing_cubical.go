@@ -183,7 +183,8 @@ func mulE12BySparseE2(dense *fptower.E12, sparse *fptower.E2, result *fptower.E1
 // This exploits the sparse structure for significant speedup
 // p coordinates are dense (from T), q coordinates are sparse (from precomputation)
 // fourB should be precomputed as 4*b
-func cDIFFE12_SparseQ(pX, pZ *fptower.E12, qX, qZ *fptower.E2, iXPminusQ *fptower.E12, fourB *fptower.E2, result *cubicalPointE12) {
+// Returns unnormalized result: caller must multiply result.X by 1/X_{P-Q}
+func cDIFFE12_SparseQ(pX, pZ *fptower.E12, qX, qZ *fptower.E2, fourB *fptower.E2, result *cubicalPointE12) {
 	var t1, t2, t4, t5, t6, t7, tmp fptower.E12
 	var t3, qSum fptower.E2
 
@@ -211,7 +212,7 @@ func cDIFFE12_SparseQ(pX, pZ *fptower.E12, qX, qZ *fptower.E2, iXPminusQ *fptowe
 	t7.Sub(&t7, &t4)
 	t7.Add(&t7, &t5)
 
-	// X_{P+Q} = (-4b · t5 · t6 + t4²) · iX_{P-Q}
+	// X_{P+Q} = -4b · t5 · t6 + t4² (unnormalized, caller divides by X_{P-Q})
 	// 4b is sparse, t5 is dense
 	mulE12BySparseE2(&t5, fourB, &tmp) // sparse × dense
 	tmp.Mul(&tmp, &t6)                 // dense × dense
@@ -220,7 +221,6 @@ func cDIFFE12_SparseQ(pX, pZ *fptower.E12, qX, qZ *fptower.E2, iXPminusQ *fptowe
 	tmp.C1.Neg(&tmp.C1)
 	result.X.Square(&t4)
 	result.X.Add(&result.X, &tmp)
-	result.X.Mul(&result.X, iXPminusQ)
 
 	// Z_{P+Q} = t7²
 	result.Z.Square(&t7)
@@ -229,7 +229,8 @@ func cDIFFE12_SparseQ(pX, pZ *fptower.E12, qX, qZ *fptower.E2, iXPminusQ *fptowe
 // cDIFFE12_SparseP performs cDIFF where pX, pZ are sparse (embedded from E2)
 // p coordinates are sparse (from precomputation), q coordinates are dense (from T)
 // fourB should be precomputed as 4*b
-func cDIFFE12_SparseP(pX, pZ *fptower.E2, qX, qZ, iXPminusQ *fptower.E12, fourB *fptower.E2, result *cubicalPointE12) {
+// Returns unnormalized result: caller must multiply result.X by 1/X_{P-Q}
+func cDIFFE12_SparseP(pX, pZ *fptower.E2, qX, qZ *fptower.E12, fourB *fptower.E2, result *cubicalPointE12) {
 	var t3, t4, t5, t6, t7, tmp fptower.E12
 	var t1, t2, pSum, pDiff fptower.E2
 
@@ -257,7 +258,7 @@ func cDIFFE12_SparseP(pX, pZ *fptower.E2, qX, qZ, iXPminusQ *fptower.E12, fourB 
 	t7.Sub(&t7, &t4)
 	t7.Add(&t7, &t5)
 
-	// X_{P+Q} = (-4b · t5 · t6 + t4²) · iX_{P-Q}
+	// X_{P+Q} = -4b · t5 · t6 + t4² (unnormalized, caller divides by X_{P-Q})
 	mulE12BySparseE2(&t5, fourB, &tmp) // sparse × dense
 	tmp.Mul(&tmp, &t6)                 // dense × dense
 	// Negate
@@ -265,10 +266,31 @@ func cDIFFE12_SparseP(pX, pZ *fptower.E2, qX, qZ, iXPminusQ *fptower.E12, fourB 
 	tmp.C1.Neg(&tmp.C1)
 	result.X.Square(&t4)
 	result.X.Add(&result.X, &tmp)
-	result.X.Mul(&result.X, iXPminusQ)
 
 	// Z_{P+Q} = t7²
 	result.Z.Square(&t7)
+}
+
+// mulE12BySparse_B1 multiplies a dense E12 by a sparse E12 where only C0.B1 is non-zero
+// sparse = (0, a, 0, 0, 0, 0) = a·v where a ∈ E2
+// Uses tower: E6 = E2[v]/(v³-u), E12 = E6[w]/(w²-v)
+// Cost: 6 E2 muls + 2 MulByNonResidue (cheap)
+func mulE12BySparse_B1(dense *fptower.E12, sparse *fptower.E2, result *fptower.E12) {
+	// a·v · (b0 + b1·v + b2·v² + b3·w + b4·vw + b5·v²w)
+	// = a·b2·β + a·b0·v + a·b1·v² + a·b5·β·w + a·b3·vw + a·b4·v²w  (β = u for D-twist)
+	var r0, r1, r2, r3, r4, r5 fptower.E2
+	r0.Mul(sparse, &dense.C0.B2).MulByNonResidue(&r0)
+	r1.Mul(sparse, &dense.C0.B0)
+	r2.Mul(sparse, &dense.C0.B1)
+	r3.Mul(sparse, &dense.C1.B2).MulByNonResidue(&r3)
+	r4.Mul(sparse, &dense.C1.B0)
+	r5.Mul(sparse, &dense.C1.B1)
+	result.C0.B0.Set(&r0)
+	result.C0.B1.Set(&r1)
+	result.C0.B2.Set(&r2)
+	result.C1.B0.Set(&r3)
+	result.C1.B1.Set(&r4)
+	result.C1.B2.Set(&r5)
 }
 
 // embedE2toE12 embeds an E2 element into E12
@@ -678,29 +700,34 @@ func PairCubicalFixedQ(P *G1Affine, pre *G2CubicalPrecompute) (GT, error) {
 	xQminusP.Square(&lambdaPrime)
 	xQminusP.Sub(&xQminusP, &xSum)
 
-	// Compute inverses for the ladder using Montgomery's batch inversion
-	// Instead of 2 inversions, we use 1 inversion + 3 multiplications
-	var iXPprime, iXQminusP, prod, invProd fptower.E12
-	prod.Mul(&xPprime, &xQminusP)     // ab
-	invProd.Inverse(&prod)            // 1/(ab)
-	iXPprime.Mul(&xQminusP, &invProd) // 1/a = b·(1/(ab))
-	iXQminusP.Mul(&xPprime, &invProd) // 1/b = a·(1/(ab))
+	// Compute 1/X_{P'} analytically as a SPARSE element in E12.
+	// X_{P'} = (x_P/u)·v², so 1/X_{P'} = u/(x_P·v²) = v/x_P since v³ = u.
+	// This lives in C0.B1 with E2 coefficient 1/x_P (purely in A0).
+	// Using sparse multiplication saves ~36 Fp muls per bit=0 step vs dense mul.
+	var iXPprimeCoeff fptower.E2
+	iXPprimeCoeff.A0.Set(&P.X)
+	iXPprimeCoeff.Inverse(&iXPprimeCoeff) // 1/x_P (x_P is in Fp, so this is cheap)
+
+	// Compute 1/X_{Q'-P'} as a standard E12 inverse (dense, no sparsity to exploit)
+	var iXQminusP fptower.E12
+	iXQminusP.Inverse(&xQminusP)
 
 	// Run the ladder using optimized sparse×dense multiplication
-	// Precomputed values are in E2 (sparse), T values are dense in E12
+	// For bit=0 steps: multiply by iXPprime using sparse B1 mul (6 E2 muls)
+	// For bit=1 steps: multiply by iXQminusP using dense mul (full E12 mul)
 	for idx := 0; idx < len(LoopCounter)-1; idx++ {
 		i := len(LoopCounter) - 2 - idx
 
 		if LoopCounter[i] == 0 {
-			// cDIFF(T, precomputed, iXPprime) where precomputed is sparse
 			var newT cubicalPointE12
-			cDIFFE12_SparseQ(&TX, &TZ, &pre.LadderX[idx], &pre.LadderZ[idx], &iXPprime, &pre.FourBTwist, &newT)
+			cDIFFE12_SparseQ(&TX, &TZ, &pre.LadderX[idx], &pre.LadderZ[idx], &pre.FourBTwist, &newT)
+			mulE12BySparse_B1(&newT.X, &iXPprimeCoeff, &newT.X)
 			TX.Set(&newT.X)
 			TZ.Set(&newT.Z)
 		} else {
-			// cDIFF(precomputed, T, iXQminusP) where precomputed is sparse
 			var newT cubicalPointE12
-			cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], &TX, &TZ, &iXQminusP, &pre.FourBTwist, &newT)
+			cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], &TX, &TZ, &pre.FourBTwist, &newT)
+			newT.X.Mul(&newT.X, &iXQminusP)
 			TX.Set(&newT.X)
 			TZ.Set(&newT.Z)
 		}
@@ -771,26 +798,29 @@ func MillerLoopCubicalFixedQ(P *G1Affine, pre *G2CubicalPrecompute) (GT, error) 
 	xQminusP.Square(&lambdaPrime)
 	xQminusP.Sub(&xQminusP, &xSum)
 
-	// Compute inverses for the ladder using Montgomery's batch inversion
-	// Instead of 2 inversions, we use 1 inversion + 3 multiplications
-	var iXPprime, iXQminusP, prod, invProd fptower.E12
-	prod.Mul(&xPprime, &xQminusP)     // ab
-	invProd.Inverse(&prod)            // 1/(ab)
-	iXPprime.Mul(&xQminusP, &invProd) // 1/a = b·(1/(ab))
-	iXQminusP.Mul(&xPprime, &invProd) // 1/b = a·(1/(ab))
+	// Compute 1/X_{P'} analytically as sparse at C0.B1: v/x_P
+	var iXPprimeCoeff fptower.E2
+	iXPprimeCoeff.A0.Set(&P.X)
+	iXPprimeCoeff.Inverse(&iXPprimeCoeff)
 
-	// Run the ladder using optimized sparse×dense multiplication
+	// Compute 1/X_{Q'-P'} as dense E12 inverse
+	var iXQminusP fptower.E12
+	iXQminusP.Inverse(&xQminusP)
+
+	// Run the ladder
 	for idx := 0; idx < len(LoopCounter)-1; idx++ {
 		i := len(LoopCounter) - 2 - idx
 
 		if LoopCounter[i] == 0 {
 			var newT cubicalPointE12
-			cDIFFE12_SparseQ(&TX, &TZ, &pre.LadderX[idx], &pre.LadderZ[idx], &iXPprime, &pre.FourBTwist, &newT)
+			cDIFFE12_SparseQ(&TX, &TZ, &pre.LadderX[idx], &pre.LadderZ[idx], &pre.FourBTwist, &newT)
+			mulE12BySparse_B1(&newT.X, &iXPprimeCoeff, &newT.X)
 			TX.Set(&newT.X)
 			TZ.Set(&newT.Z)
 		} else {
 			var newT cubicalPointE12
-			cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], &TX, &TZ, &iXQminusP, &pre.FourBTwist, &newT)
+			cDIFFE12_SparseP(&pre.LadderX[idx], &pre.LadderZ[idx], &TX, &TZ, &pre.FourBTwist, &newT)
+			newT.X.Mul(&newT.X, &iXQminusP)
 			TX.Set(&newT.X)
 			TZ.Set(&newT.Z)
 		}
