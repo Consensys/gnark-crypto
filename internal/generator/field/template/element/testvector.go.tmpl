@@ -148,7 +148,7 @@ func fuzzVector(size int, seed uint64, mode byte) Vector {
 			}
 		}
 	case 3:
-		var zero, one Element
+		var zero, one {{.ElementName}}
 		one.SetOne()
 		for i := range v {
 			switch i % 4 {
@@ -173,7 +173,7 @@ func scalarVectorMulReference(a, b Vector) Vector {
 	return res
 }
 
-func scalarVectorSumReference(a Vector) (res Element) {
+func scalarVectorSumReference(a Vector) (res {{.ElementName}}) {
 	for i := range a {
 		res.Add(&res, &a[i])
 	}
@@ -184,9 +184,9 @@ func edgeValueIndex(seed, stride, offset uint64, i, size int) int {
 	return int((seed + uint64(i)*stride + offset) % uint64(size))
 }
 
-func scalarInnerProductReference(a, b Vector) (res Element) {
+func scalarInnerProductReference(a, b Vector) (res {{.ElementName}}) {
 	for i := range a {
-		var tmp Element
+		var tmp {{.ElementName}}
 		tmp.Mul(&a[i], &b[i])
 		res.Add(&res, &tmp)
 	}
@@ -194,18 +194,18 @@ func scalarInnerProductReference(a, b Vector) (res Element) {
 }
 
 var (
-	cachedIFMAEdgeElements     []Element
+	cachedIFMAEdgeElements     []{{.ElementName}}
 	cachedIFMAEdgeElementsOnce sync.Once
 )
 
-func ifmaEdgeElements() []Element {
+func ifmaEdgeElements() []{{.ElementName}} {
 	cachedIFMAEdgeElementsOnce.Do(func() {
 		cachedIFMAEdgeElements = initIFMAEdgeElements()
 	})
 	return cachedIFMAEdgeElements
 }
 
-func initIFMAEdgeElements() []Element {
+func initIFMAEdgeElements() []{{.ElementName}} {
 	mod := Modulus()
 	values := []*big.Int{
 		big.NewInt(0),
@@ -222,7 +222,7 @@ func initIFMAEdgeElements() []Element {
 			values = append(values, new(big.Int).Sub(mod, x))
 		}
 	}
-	res := make([]Element, len(values))
+	res := make([]{{.ElementName}}, len(values))
 	for i := range values {
 		res[i].SetBigInt(values[i])
 	}
@@ -262,9 +262,9 @@ func TestVectorIFMAEdgeCases(t *testing.T) {
 			gotScalar.ScalarMul(a, &b[0])
 			assert.True(gotScalar.Equal(wantScalar), "ScalarMul should match scalar element multiplication")
 
-			var wantInner Element
+			var wantInner {{.ElementName}}
 			for i := range a {
-				var tmp Element
+				var tmp {{.ElementName}}
 				tmp.Mul(&a[i], &b[i])
 				wantInner.Add(&wantInner, &tmp)
 			}
@@ -303,7 +303,7 @@ func FuzzVectorOps(f *testing.F) {
 		a := fuzzVector(size, seedA, modeA)
 		b := fuzzVector(size, seedB, modeB)
 		scalarVec := fuzzVector(1, seedS, modeA^modeB^0x3)
-		var scalar Element
+		var scalar {{.ElementName}}
 		if len(scalarVec) == 0 {
 			scalar.SetOne()
 		} else {
@@ -313,7 +313,7 @@ func FuzzVectorOps(f *testing.F) {
 		gotMul := make(Vector, size)
 		gotMul.Mul(a, b)
 		for i := range a {
-			var want Element
+			var want {{.ElementName}}
 			want.Mul(&a[i], &b[i])
 			if !gotMul[i].Equal(&want) {
 				t.Fatalf("Mul mismatch for size=%d index=%d modeA=%d modeB=%d seedA=%d seedB=%d", size, i, modeA, modeB, seedA, seedB)
@@ -324,7 +324,7 @@ func FuzzVectorOps(f *testing.F) {
 			gotMulAliasA := append(Vector(nil), a...)
 			gotMulAliasA.Mul(gotMulAliasA, b)
 			for i := range a {
-				var want Element
+				var want {{.ElementName}}
 				want.Mul(&a[i], &b[i])
 				if !gotMulAliasA[i].Equal(&want) {
 					t.Fatalf("Mul alias res==a mismatch for size=%d index=%d", size, i)
@@ -334,7 +334,7 @@ func FuzzVectorOps(f *testing.F) {
 			gotMulAliasB := append(Vector(nil), b...)
 			gotMulAliasB.Mul(a, gotMulAliasB)
 			for i := range a {
-				var want Element
+				var want {{.ElementName}}
 				want.Mul(&a[i], &b[i])
 				if !gotMulAliasB[i].Equal(&want) {
 					t.Fatalf("Mul alias res==b mismatch for size=%d index=%d", size, i)
@@ -345,7 +345,7 @@ func FuzzVectorOps(f *testing.F) {
 		gotScalar := make(Vector, size)
 		gotScalar.ScalarMul(a, &scalar)
 		for i := range a {
-			var want Element
+			var want {{.ElementName}}
 			want.Mul(&a[i], &scalar)
 			if !gotScalar[i].Equal(&want) {
 				t.Fatalf("ScalarMul mismatch for size=%d index=%d", size, i)
@@ -356,7 +356,7 @@ func FuzzVectorOps(f *testing.F) {
 			gotScalarAlias := append(Vector(nil), a...)
 			gotScalarAlias.ScalarMul(gotScalarAlias, &scalar)
 			for i := range a {
-				var want Element
+				var want {{.ElementName}}
 				want.Mul(&a[i], &scalar)
 				if !gotScalarAlias[i].Equal(&want) {
 					t.Fatalf("ScalarMul alias mismatch for size=%d index=%d", size, i)
