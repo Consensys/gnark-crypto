@@ -207,6 +207,8 @@ func (h *ifmaHelper) initIFMAConstants() {
 
 	h.Comment("Load modulus in radix-52 form (precomputed)")
 	h.loadModulusRadix52()
+	h.Comment("Load permutation index for IFMA transposes")
+	h.VMOVDQU64("·permuteIdxIFMA<>(SB)", h.permIdx)
 }
 
 // loadModulusRadix52 loads the precomputed radix-52 form of q
@@ -484,7 +486,6 @@ func (h *ifmaHelper) transposeForIFMA(in, out [4]amd64.VectorRegister) {
 	h.VSHUFI64X2("$0xDD", h.scratch[3], h.scratch[1], out[3], "a3: lanes 1,3 from Z19 and Z21")
 
 	// Step 3: Fix element ordering using VPERMQ
-	h.VMOVDQU64("·permuteIdxIFMA<>(SB)", h.permIdx)
 	for i := range out {
 		h.VPERMQ(out[i], h.permIdx, out[i])
 	}
@@ -532,7 +533,6 @@ func (h *ifmaHelper) transposeFromIFMA(in, out [4]amd64.VectorRegister) {
 	h.WriteLn("// 4x8 reverse transpose (SoA to AoS)")
 
 	// Step 1: Pre-permute inputs
-	h.VMOVDQU64("·permuteIdxIFMA<>(SB)", h.permIdx)
 	for i := range in {
 		h.VPERMQ(in[i], h.permIdx, in[i])
 	}
