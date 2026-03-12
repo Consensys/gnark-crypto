@@ -372,8 +372,7 @@ func FuzzVectorOps(f *testing.F) {
 			t.Fatalf("Add/Sub round-trip mismatch for size=%d", size)
 		}
 
-		var expectedSumAdd Element
-		expectedSumAdd = scalarVectorSumReference(a)
+		expectedSumAdd := scalarVectorSumReference(a)
 		expectedSumB := scalarVectorSumReference(b)
 		expectedSumAdd.Add(&expectedSumAdd, &expectedSumB)
 		if !gotSumAdd.Equal(&expectedSumAdd) {
