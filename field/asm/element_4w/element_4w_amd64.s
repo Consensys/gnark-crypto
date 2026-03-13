@@ -1006,18 +1006,6 @@ done_12:
 
 // AVX-512 IFMA vector operations (requires Ice Lake+ or Zen4+)
 
-// Permutation index for IFMA transpose: [0, 2, 1, 3, 4, 6, 5, 7]
-// This swaps positions 1<->2 and 5<->6 to fix even/odd interleaving
-DATA ·permuteIdxIFMA<>+0(SB)/8, $0
-DATA ·permuteIdxIFMA<>+8(SB)/8, $2
-DATA ·permuteIdxIFMA<>+16(SB)/8, $1
-DATA ·permuteIdxIFMA<>+24(SB)/8, $3
-DATA ·permuteIdxIFMA<>+32(SB)/8, $4
-DATA ·permuteIdxIFMA<>+40(SB)/8, $6
-DATA ·permuteIdxIFMA<>+48(SB)/8, $5
-DATA ·permuteIdxIFMA<>+56(SB)/8, $7
-GLOBL ·permuteIdxIFMA<>(SB), RODATA|NOPTR, $64
-
 #define CARRY_PROP(in0, in1, in2, in3, in4) \
 	VPSRLQ $52, in0, in4 \
 	VPANDQ in3, in0, in1 \
@@ -1062,9 +1050,6 @@ TEXT ·mulVec(SB), NOSPLIT, $0-32
 	MOVQ         $const_qRadix52_4, AX
 	VPBROADCASTQ AX, Z29
 
-	// Load permutation index for IFMA transposes
-	VMOVDQU64 ·permuteIdxIFMA<>(SB), Z22
-
 loop_16:
 	TESTQ BX, BX
 	JEQ   done_17
@@ -1081,6 +1066,8 @@ loop_16:
 
 	// Transpose 8 elements for vertical SIMD processing
 	// 8x4 transpose using AVX-512 shuffles
+	// Keep lanes in the native [e0,e2,e1,e3,e4,e6,e5,e7] order
+	// throughout the IFMA pipeline to avoid full-lane permutations
 	VPUNPCKLQDQ Z11, Z10, Z18        // [e0.a0, e2.a0, e0.a2, e2.a2, e1.a0, e3.a0, e1.a2, e3.a2]
 	VPUNPCKHQDQ Z11, Z10, Z19        // [e0.a1, e2.a1, e0.a3, e2.a3, e1.a1, e3.a1, e1.a3, e3.a3]
 	VPUNPCKLQDQ Z13, Z12, Z20        // [e4.a0, e6.a0, e4.a2, e6.a2, e5.a0, e7.a0, e5.a2, e7.a2]
@@ -1089,10 +1076,6 @@ loop_16:
 	VSHUFI64X2  $0xDD, Z20, Z18, Z16 // a2: lanes 1,3 from Z18 and Z20
 	VSHUFI64X2  $0x88, Z21, Z19, Z15 // a1: lanes 0,2 from Z19 and Z21
 	VSHUFI64X2  $0xDD, Z21, Z19, Z17 // a3: lanes 1,3 from Z19 and Z21
-	VPERMQ      Z14, Z22, Z14
-	VPERMQ      Z15, Z22, Z15
-	VPERMQ      Z16, Z22, Z16
-	VPERMQ      Z17, Z22, Z17
 
 	// Convert to radix-52
 	VPANDQ Z31, Z14, Z0
@@ -1120,6 +1103,8 @@ loop_16:
 
 	// Transpose 8 elements for vertical SIMD processing
 	// 8x4 transpose using AVX-512 shuffles
+	// Keep lanes in the native [e0,e2,e1,e3,e4,e6,e5,e7] order
+	// throughout the IFMA pipeline to avoid full-lane permutations
 	VPUNPCKLQDQ Z11, Z10, Z18        // [e0.a0, e2.a0, e0.a2, e2.a2, e1.a0, e3.a0, e1.a2, e3.a2]
 	VPUNPCKHQDQ Z11, Z10, Z19        // [e0.a1, e2.a1, e0.a3, e2.a3, e1.a1, e3.a1, e1.a3, e3.a3]
 	VPUNPCKLQDQ Z13, Z12, Z20        // [e4.a0, e6.a0, e4.a2, e6.a2, e5.a0, e7.a0, e5.a2, e7.a2]
@@ -1128,10 +1113,6 @@ loop_16:
 	VSHUFI64X2  $0xDD, Z20, Z18, Z16 // a2: lanes 1,3 from Z18 and Z20
 	VSHUFI64X2  $0x88, Z21, Z19, Z15 // a1: lanes 0,2 from Z19 and Z21
 	VSHUFI64X2  $0xDD, Z21, Z19, Z17 // a3: lanes 1,3 from Z19 and Z21
-	VPERMQ      Z14, Z22, Z14
-	VPERMQ      Z15, Z22, Z15
-	VPERMQ      Z16, Z22, Z16
-	VPERMQ      Z17, Z22, Z17
 
 	// Convert to radix-52
 	VPANDQ Z31, Z14, Z5
@@ -1435,10 +1416,6 @@ loop_16:
 
 	// Transpose back to AoS format and store
 	// 4x8 reverse transpose (SoA to AoS)
-	VPERMQ      Z14, Z22, Z14
-	VPERMQ      Z15, Z22, Z15
-	VPERMQ      Z16, Z22, Z16
-	VPERMQ      Z17, Z22, Z17
 	VPUNPCKLQDQ Z15, Z14, Z18        // pairs (a0,a1) for elements 0,1,4,5
 	VPUNPCKHQDQ Z15, Z14, Z19        // pairs (a0,a1) for elements 2,3,6,7
 	VPUNPCKLQDQ Z17, Z16, Z20        // pairs (a2,a3) for elements 0,1,4,5
@@ -1493,9 +1470,6 @@ TEXT ·scalarMulVec(SB), NOSPLIT, $0-32
 	MOVQ         $const_qRadix52_4, AX
 	VPBROADCASTQ AX, Z29
 
-	// Load permutation index for IFMA transposes
-	VMOVDQU64 ·permuteIdxIFMA<>(SB), Z22
-
 loop_18:
 	TESTQ BX, BX
 	JEQ   done_19
@@ -1512,6 +1486,8 @@ loop_18:
 
 	// Transpose 8 elements for vertical SIMD processing
 	// 8x4 transpose using AVX-512 shuffles
+	// Keep lanes in the native [e0,e2,e1,e3,e4,e6,e5,e7] order
+	// throughout the IFMA pipeline to avoid full-lane permutations
 	VPUNPCKLQDQ Z11, Z10, Z18        // [e0.a0, e2.a0, e0.a2, e2.a2, e1.a0, e3.a0, e1.a2, e3.a2]
 	VPUNPCKHQDQ Z11, Z10, Z19        // [e0.a1, e2.a1, e0.a3, e2.a3, e1.a1, e3.a1, e1.a3, e3.a3]
 	VPUNPCKLQDQ Z13, Z12, Z20        // [e4.a0, e6.a0, e4.a2, e6.a2, e5.a0, e7.a0, e5.a2, e7.a2]
@@ -1520,10 +1496,6 @@ loop_18:
 	VSHUFI64X2  $0xDD, Z20, Z18, Z16 // a2: lanes 1,3 from Z18 and Z20
 	VSHUFI64X2  $0x88, Z21, Z19, Z15 // a1: lanes 0,2 from Z19 and Z21
 	VSHUFI64X2  $0xDD, Z21, Z19, Z17 // a3: lanes 1,3 from Z19 and Z21
-	VPERMQ      Z14, Z22, Z14
-	VPERMQ      Z15, Z22, Z15
-	VPERMQ      Z16, Z22, Z16
-	VPERMQ      Z17, Z22, Z17
 
 	// Convert to radix-52
 	VPANDQ Z31, Z14, Z0
@@ -1856,10 +1828,6 @@ loop_18:
 
 	// Transpose back to AoS format and store
 	// 4x8 reverse transpose (SoA to AoS)
-	VPERMQ      Z14, Z22, Z14
-	VPERMQ      Z15, Z22, Z15
-	VPERMQ      Z16, Z22, Z16
-	VPERMQ      Z17, Z22, Z17
 	VPUNPCKLQDQ Z15, Z14, Z18        // pairs (a0,a1) for elements 0,1,4,5
 	VPUNPCKHQDQ Z15, Z14, Z19        // pairs (a0,a1) for elements 2,3,6,7
 	VPUNPCKLQDQ Z17, Z16, Z20        // pairs (a2,a3) for elements 0,1,4,5
