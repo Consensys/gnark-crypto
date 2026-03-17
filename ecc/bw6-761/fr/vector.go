@@ -12,12 +12,12 @@ import (
 	"fmt"
 	"io"
 	"math/bits"
-	"runtime"
 	"slices"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/consensys/gnark-crypto/parallel"
 )
 
 // Vector represents a slice of Element.
@@ -147,7 +147,7 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) { //
 	go func() {
 		var cptErrors uint64
 		// process the elements in parallel
-		execute(int(headerSliceLen), func(start, end int) {
+		parallel.Execute(int(headerSliceLen), func(start, end int) {
 
 			var z Element
 			for i := start; i < end; i++ {
@@ -393,57 +393,4 @@ func mulVecGeneric(res, a, b Vector) {
 	for i := 0; i < len(a); i++ {
 		res[i].Mul(&a[i], &b[i])
 	}
-}
-
-// TODO @gbotrel make a public package out of that.
-// execute executes the work function in parallel.
-// this is copy paste from internal/parallel/parallel.go
-// as we don't want to generate code importing internal/
-func execute(nbIterations int, work func(int, int), maxCpus ...int) {
-
-	nbTasks := runtime.NumCPU()
-	if len(maxCpus) == 1 {
-		nbTasks = maxCpus[0]
-		if nbTasks < 1 {
-			nbTasks = 1
-		} else if nbTasks > 512 {
-			nbTasks = 512
-		}
-	}
-
-	if nbTasks == 1 {
-		// no go routines
-		work(0, nbIterations)
-		return
-	}
-
-	nbIterationsPerCpus := nbIterations / nbTasks
-
-	// more CPUs than tasks: a CPU will work on exactly one iteration
-	if nbIterationsPerCpus < 1 {
-		nbIterationsPerCpus = 1
-		nbTasks = nbIterations
-	}
-
-	var wg sync.WaitGroup
-
-	extraTasks := nbIterations - (nbTasks * nbIterationsPerCpus)
-	extraTasksOffset := 0
-
-	for i := 0; i < nbTasks; i++ {
-		wg.Add(1)
-		_start := i*nbIterationsPerCpus + extraTasksOffset
-		_end := _start + nbIterationsPerCpus
-		if extraTasks > 0 {
-			_end++
-			extraTasks--
-			extraTasksOffset++
-		}
-		go func() {
-			work(_start, _end)
-			wg.Done()
-		}()
-	}
-
-	wg.Wait()
 }

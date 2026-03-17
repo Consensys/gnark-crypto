@@ -10,7 +10,7 @@ import (
 	"math/bits"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 )
 
 // Expression represents a multivariate polynomial.
