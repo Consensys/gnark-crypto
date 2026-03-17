@@ -106,6 +106,7 @@ func ExecuteAligned(nbIterations, alignment int, work func(int, int), maxCpus ..
 	}
 	wg.Wait()
 }
+
 // Chunks returns a slice of [2]int where each element is a (start, end) range to be processed by a worker,
 // exactly as Execute does.
 func Chunks(nbIterations int, maxCpus ...int) [][2]int {
