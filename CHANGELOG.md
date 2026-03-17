@@ -1,4 +1,8 @@
 
+<a name="v0.20.1"></a>
+## [v0.20.1] - 2026-03-16
+### Fix
+- correct IFMA vector mul carry propagation ([#816](https://github.com/Consensys/gnark-crypto/issues/816))
 <a name="v0.20.0"></a>
 ## [v0.20.0] - 2026-03-11
 ### Build
@@ -7,6 +11,7 @@
 - enable security code scanner ([#771](https://github.com/Consensys/gnark-crypto/issues/771))
 - Standardize imports ([#760](https://github.com/Consensys/gnark-crypto/issues/760))
 ### Chore
+- golangci-lint update ([#813](https://github.com/Consensys/gnark-crypto/issues/813))
 - rename sage files ([#806](https://github.com/Consensys/gnark-crypto/issues/806))
 - add dependabot configuration for GitHub Actions updates ([#804](https://github.com/Consensys/gnark-crypto/issues/804))
 - reintroduce slack notif ([#802](https://github.com/Consensys/gnark-crypto/issues/802))
@@ -14,11 +19,6 @@
 - use self hosted runners ([#763](https://github.com/Consensys/gnark-crypto/issues/763))
 - merge v0.19 hotfix branch ([#766](https://github.com/Consensys/gnark-crypto/issues/766))
 - clarify PublicKey.SetBytes uses compressed public key ([#732](https://github.com/Consensys/gnark-crypto/issues/732))
-### Docs
-- update CITATION.bib
-- update changelog
-- update Go tested versions
-- update citation
 ### Feat
 - add bn254 poseidon2 constants and support t=4/8/12/16 ([#783](https://github.com/Consensys/gnark-crypto/issues/783))
 - lattice-based rational reconstructions for gnark scalar decompositions ([#799](https://github.com/Consensys/gnark-crypto/issues/799))
@@ -70,6 +70,8 @@
 ### Refactor
 - use more defines in assembly fine to make files less verbose ([#789](https://github.com/Consensys/gnark-crypto/issues/789))
 - code-generate Fp6 tower for BW6 curves ([#792](https://github.com/Consensys/gnark-crypto/issues/792))
+### Release
+- v0.20.0 ([#815](https://github.com/Consensys/gnark-crypto/issues/815))
 <a name="v0.19.2"></a>
 ## [v0.19.2] - 2025-10-28
 ### Docs
@@ -2239,6 +2241,7 @@
 - Merge pull request [#2](https://github.com/Consensys/gnark-crypto/issues/2) from ConsenSys/develop
 <a name="v0.0.1"></a>
 ## v0.0.1 - 2020-03-23
+[v0.20.1]: https://github.com/Consensys/gnark-crypto/compare/v0.20.0...v0.20.1
 [v0.20.0]: https://github.com/Consensys/gnark-crypto/compare/v0.19.2...v0.20.0
 [v0.19.2]: https://github.com/Consensys/gnark-crypto/compare/v0.19.1...v0.19.2
 [v0.19.1]: https://github.com/Consensys/gnark-crypto/compare/v0.19.0...v0.19.1
