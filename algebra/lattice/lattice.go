@@ -176,10 +176,10 @@ func (rc *Reconstructor) MultiRationalReconstruct(k1, k2 *big.Int) [3]*big.Int {
 	// Full reduction completed, find best row
 	bestIdx := -1
 	var bestNorm big.Int
-	for i := 0; i < nRows; i++ {
+	for i := range nRows {
 		if basis[i][2].Sign() != 0 {
 			var norm big.Int
-			for j := 0; j < nCols; j++ {
+			for j := range nCols {
 				var absVal big.Int
 				absVal.Abs(&basis[i][j])
 				if absVal.Cmp(&norm) > 0 {
@@ -262,10 +262,10 @@ func (rc *Reconstructor) RationalReconstructExt(k *big.Int) [4]*big.Int {
 	// Full reduction completed, find best row
 	bestIdx := -1
 	var bestNorm big.Int
-	for i := 0; i < nRows; i++ {
+	for i := range nRows {
 		if basis[i][2].Sign() != 0 || basis[i][3].Sign() != 0 {
 			var norm big.Int
-			for j := 0; j < nCols; j++ {
+			for j := range nCols {
 				var absVal big.Int
 				absVal.Abs(&basis[i][j])
 				if absVal.Cmp(&norm) > 0 {
@@ -360,10 +360,10 @@ func (rc *Reconstructor) MultiRationalReconstructExt(k1, k2 *big.Int) [6]*big.In
 	// Full reduction completed, find best row
 	bestIdx := -1
 	var bestNorm big.Int
-	for i := 0; i < nRows; i++ {
+	for i := range nRows {
 		if basis[i][4].Sign() != 0 || basis[i][5].Sign() != 0 {
 			var norm big.Int
-			for j := 0; j < nCols; j++ {
+			for j := range nCols {
 				var absVal big.Int
 				absVal.Abs(&basis[i][j])
 				if absVal.Cmp(&norm) > 0 {
@@ -515,10 +515,10 @@ func MultiRationalReconstruct(k1, k2, r *big.Int) [3]*big.Int {
 	// Find the shortest row with non-zero z component
 	bestIdx := -1
 	var bestNorm big.Int
-	for i := 0; i < nRows; i++ {
+	for i := range nRows {
 		if basis[i][2].Sign() != 0 {
 			var norm big.Int
-			for j := 0; j < nCols; j++ {
+			for j := range nCols {
 				var absVal big.Int
 				absVal.Abs(&basis[i][j])
 				if absVal.Cmp(&norm) > 0 {
@@ -606,12 +606,12 @@ func RationalReconstructExt(k, r, lambda *big.Int) [4]*big.Int {
 	// Find the shortest row with non-zero (z, t) component
 	bestIdx := -1
 	var bestNorm big.Int
-	for i := 0; i < nRows; i++ {
+	for i := range nRows {
 		// Check if z or t is non-zero (columns 2 and 3)
 		if basis[i][2].Sign() != 0 || basis[i][3].Sign() != 0 {
 			// Compute infinity norm: max(|x|, |y|, |z|, |t|)
 			var norm big.Int
-			for j := 0; j < nCols; j++ {
+			for j := range nCols {
 				var absVal big.Int
 				absVal.Abs(&basis[i][j])
 				if absVal.Cmp(&norm) > 0 {
@@ -708,10 +708,10 @@ func MultiRationalReconstructExt(k1, k2, r, lambda *big.Int) [6]*big.Int {
 	// Find the shortest row with non-zero (z, t) component
 	bestIdx := -1
 	var bestNorm big.Int
-	for i := 0; i < nRows; i++ {
+	for i := range nRows {
 		if basis[i][4].Sign() != 0 || basis[i][5].Sign() != 0 {
 			var norm big.Int
-			for j := 0; j < nCols; j++ {
+			for j := range nCols {
 				var absVal big.Int
 				absVal.Abs(&basis[i][j])
 				if absVal.Cmp(&norm) > 0 {
@@ -907,7 +907,7 @@ func lllReduceWithBound(basis [][]big.Int, m int, bound *big.Int, denCols []int)
 			return false
 		}
 		// Check if all components are within bound
-		for j := 0; j < n; j++ {
+		for j := range n {
 			var absVal big.Int
 			absVal.Abs(&basis[row][j])
 			if absVal.Cmp(bound) > 0 {
@@ -919,7 +919,7 @@ func lllReduceWithBound(basis [][]big.Int, m int, bound *big.Int, denCols []int)
 
 	// Check initial rows before starting LLL (only when bound is set)
 	if bound != nil {
-		for i := 0; i < m; i++ {
+		for i := range m {
 			if checkRow(i) {
 				return i
 			}
@@ -946,7 +946,7 @@ func lllReduceWithBound(basis [][]big.Int, m int, bound *big.Int, denCols []int)
 
 	updateGramSchmidtFrom := func(from int) {
 		for i := from; i < m; i++ {
-			for j := 0; j < n; j++ {
+			for j := range n {
 				ortho[i][j].setInt(&basis[i][j])
 			}
 			for j := 0; j < i; j++ {
@@ -955,7 +955,7 @@ func lllReduceWithBound(basis [][]big.Int, m int, bound *big.Int, denCols []int)
 					continue
 				}
 				muCache[i][j].setInt64(0)
-				for l := 0; l < n; l++ {
+				for l := range n {
 					vi.setInt(&basis[i][l])
 					term.mul(&vi, &ortho[j][l])
 					muCache[i][j].add(&muCache[i][j], &term)
@@ -963,18 +963,18 @@ func lllReduceWithBound(basis [][]big.Int, m int, bound *big.Int, denCols []int)
 				muCache[i][j].quo(&muCache[i][j], &B[j])
 				muCache[i][j].normalize()
 
-				for l := 0; l < n; l++ {
+				for l := range n {
 					term.mul(&muCache[i][j], &ortho[j][l])
 					ortho[i][l].sub(&ortho[i][l], &term)
 				}
 			}
 			B[i].setInt64(0)
-			for l := 0; l < n; l++ {
+			for l := range n {
 				term.mul(&ortho[i][l], &ortho[i][l])
 				B[i].add(&B[i], &term)
 			}
 			B[i].normalize()
-			for l := 0; l < n; l++ {
+			for l := range n {
 				ortho[i][l].normalize()
 			}
 		}
@@ -1002,7 +1002,7 @@ func lllReduceWithBound(basis [][]big.Int, m int, bound *big.Int, denCols []int)
 				absMu.abs(&muCache[k][j])
 				if absMu.cmp(&half) > 0 {
 					q := muCache[k][j].roundToInt(&qScratch)
-					for l := 0; l < n; l++ {
+					for l := range n {
 						tmp.Mul(q, &basis[j][l])
 						basis[k][l].Sub(&basis[k][l], &tmp)
 					}

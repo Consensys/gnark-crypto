@@ -397,7 +397,7 @@ func (p *G1Jac) mulWindowed(a *G1Jac, s *big.Int) *G1Jac {
 	for i := range b {
 		w := b[i]
 		mask := byte(0xc0)
-		for j := 0; j < 4; j++ {
+		for j := range 4 {
 			res.DoubleAssign().DoubleAssign()
 			c := (w & mask) >> (6 - 2*j)
 			if c != 0 {
@@ -458,15 +458,12 @@ func (p *G1Jac) JointScalarMultiplicationBase(a *G1Affine, s1, s2 *big.Int) *G1J
 	s[0] = s[0].SetBigInt(&k1).Bits()
 	s[1] = s[1].SetBigInt(&k2).Bits()
 
-	maxBit := k1.BitLen()
-	if k2.BitLen() > maxBit {
-		maxBit = k2.BitLen()
-	}
+	maxBit := max(k2.BitLen(), k1.BitLen())
 	hiWordIndex := (maxBit - 1) / 64
 
 	for i := hiWordIndex; i >= 0; i-- {
 		mask := uint64(3) << 62
-		for j := 0; j < 32; j++ {
+		for j := range 32 {
 			res.Double(&res).Double(&res)
 			b1 := (s[0][i] & mask) >> (62 - 2*j)
 			b2 := (s[1][i] & mask) >> (62 - 2*j)
@@ -527,15 +524,12 @@ func (p *G1Jac) JointScalarMultiplication(p1, p2 *G1Jac, s1, s2 *big.Int) *G1Jac
 	s[0] = s[0].SetBigInt(&k1).Bits()
 	s[1] = s[1].SetBigInt(&k2).Bits()
 
-	maxBit := k1.BitLen()
-	if k2.BitLen() > maxBit {
-		maxBit = k2.BitLen()
-	}
+	maxBit := max(k2.BitLen(), k1.BitLen())
 	hiWordIndex := (maxBit - 1) / 64
 
 	for i := hiWordIndex; i >= 0; i-- {
 		mask := uint64(3) << 62
-		for j := 0; j < 32; j++ {
+		for j := range 32 {
 			res.Double(&res).Double(&res)
 			b1 := (s[0][i] & mask) >> (62 - 2*j)
 			b2 := (s[1][i] & mask) >> (62 - 2*j)
@@ -854,7 +848,7 @@ func BatchJacobianToAffineG1(points []G1Jac) []G1Affine {
 
 	// batch invert all points[].Z coordinates with Montgomery batch inversion trick
 	// (stores points[].Z^-1 in result[i].X to avoid allocating a slice of fr.Elements)
-	for i := 0; i < len(points); i++ {
+	for i := range points {
 		if points[i].Z.IsZero() {
 			zeroes[i] = true
 			continue

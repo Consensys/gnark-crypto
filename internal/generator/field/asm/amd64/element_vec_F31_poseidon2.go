@@ -443,7 +443,7 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 
 	matMulExternalInPlace()
 
-	for i := 0; i < rf; i++ {
+	for i := range rf {
 		f.MOVQ(addrRoundKeys.At(i*3), rKey)
 		fullRound()
 	}
@@ -526,7 +526,7 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16x512(params Poseidon2Parameters) {
 	const nbBlocks = 16 / blockSize
 
 	// Zeroize state
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		f.VXORPS(v[i], v[i], v[i])
 	}
 
@@ -692,7 +692,7 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16x512(params Poseidon2Parameters) {
 		vTmpInputs := registers.PopVN(8)
 		vIndexGather = registers.PopV()
 		f.VMOVDQU32(addrIndexGather512.At(0), vIndexGather)
-		for i := 0; i < 8; i++ {
+		for i := range 8 {
 			// TODO @gbotrel use 2 gather at a time?
 			f.KMOVD(maskFFFF, amd64.K1)
 			f.VPGATHERDD(i*4, addrMatrix, vIndexGather, 4, amd64.K1, v[i+8])
@@ -714,7 +714,7 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16x512(params Poseidon2Parameters) {
 		loop(rf, fullRound)
 
 		// feed forward
-		for i := 0; i < 8; i++ {
+		for i := range 8 {
 			// reload the inputs into v[0:7]
 			// f.KMOVD(maskFFFF, amd64.K1)
 			// f.VPGATHERDD(i*4, addrMatrix, vIndexGather, 4, amd64.K1, v[i])
@@ -739,7 +739,7 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16x512(params Poseidon2Parameters) {
 	f.MOVQ("·indexScatter8+0(SB)", addrScatter8)
 	f.VMOVDQU32(addrScatter8.At(0), vIndexScatter)
 
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		f.KMOVD(maskFFFF, amd64.K1)
 		f.VPSCATTERDD(i*4, addrResult, vIndexScatter, 4, amd64.K1, v[i])
 	}
@@ -1249,7 +1249,7 @@ func (f *fieldHelper) matMul4(v []amd64.VectorRegister, nbBlocks int) {
 	t01233 := f.registers.PopV()
 
 	// for each block in v
-	for i := 0; i < nbBlocks; i++ {
+	for i := range nbBlocks {
 		// t01.Add(&s[4*i], &s[4*i+1])
 		f.add(v[4*i], v[4*i+1], t01)
 		// t23.Add(&s[4*i+2], &s[4*i+3])
@@ -1299,7 +1299,7 @@ func (f *fieldHelper) matMulExternal(v []amd64.VectorRegister, nbBlocks int) {
 		f.add(tmp3, v[4*i+3], tmp3)
 	}
 
-	for i := 0; i < nbBlocks; i++ {
+	for i := range nbBlocks {
 		f.add(v[4*i], tmp0, v[4*i])
 		f.add(v[4*i+1], tmp1, v[4*i+1])
 		f.add(v[4*i+2], tmp2, v[4*i+2])

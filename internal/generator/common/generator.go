@@ -43,12 +43,12 @@ func NewDefaultGenerator(fs embed.FS) *Generator {
 }
 
 // Generate generates files using the provided data and entries
-func (g *Generator) Generate(data interface{}, packageName string, outputDir string, templateDir string, entries ...bavard.Entry) error {
+func (g *Generator) Generate(data any, packageName string, outputDir string, templateDir string, entries ...bavard.Entry) error {
 	return g.GenerateWithOptions(data, packageName, outputDir, templateDir, nil, entries...)
 }
 
 // GenerateWithOptions generates files using the provided data, entries and options
-func (g *Generator) GenerateWithOptions(data interface{}, packageName string, outputDir string, templateDir string, opts []func(*bavard.Bavard) error, entries ...bavard.Entry) error {
+func (g *Generator) GenerateWithOptions(data any, packageName string, outputDir string, templateDir string, opts []func(*bavard.Bavard) error, entries ...bavard.Entry) error {
 	for _, entry := range entries {
 		var tmpls []string
 		for _, t := range entry.Templates {

@@ -49,28 +49,28 @@ func (p *Polynomial) Set(p1 Polynomial) {
 		return
 	}
 
-	for i := 0; i < len(p1); i++ {
+	for i := range len(p1) {
 		(*p)[i].Set(&p1[i])
 	}
 }
 
 // AddConstantInPlace adds a constant to the polynomial, modifying p
 func (p *Polynomial) AddConstantInPlace(c *fr.Element) {
-	for i := 0; i < len(*p); i++ {
+	for i := range len(*p) {
 		(*p)[i].Add(&(*p)[i], c)
 	}
 }
 
 // SubConstantInPlace subs a constant to the polynomial, modifying p
 func (p *Polynomial) SubConstantInPlace(c *fr.Element) {
-	for i := 0; i < len(*p); i++ {
+	for i := range len(*p) {
 		(*p)[i].Sub(&(*p)[i], c)
 	}
 }
 
 // ScaleInPlace multiplies p by v, modifying p
 func (p *Polynomial) ScaleInPlace(c *fr.Element) {
-	for i := 0; i < len(*p); i++ {
+	for i := range len(*p) {
 		(*p)[i].Mul(&(*p)[i], c)
 	}
 }
@@ -80,7 +80,7 @@ func (p *Polynomial) Scale(c *fr.Element, p0 Polynomial) {
 	if len(*p) != len(p0) {
 		*p = make(Polynomial, len(p0))
 	}
-	for i := 0; i < len(p0); i++ {
+	for i := range len(p0) {
 		(*p)[i].Mul(c, &p0[i])
 	}
 }
@@ -96,14 +96,14 @@ func (p *Polynomial) Add(p1, p2 Polynomial) *Polynomial {
 	}
 
 	if len(*p) == len(bigger) && (&(*p)[0] == &bigger[0]) {
-		for i := 0; i < len(smaller); i++ {
+		for i := range len(smaller) {
 			(*p)[i].Add(&(*p)[i], &smaller[i])
 		}
 		return p
 	}
 
 	if len(*p) == len(smaller) && (&(*p)[0] == &smaller[0]) {
-		for i := 0; i < len(smaller); i++ {
+		for i := range len(smaller) {
 			(*p)[i].Add(&(*p)[i], &bigger[i])
 		}
 		*p = append(*p, bigger[len(smaller):]...)
@@ -112,7 +112,7 @@ func (p *Polynomial) Add(p1, p2 Polynomial) *Polynomial {
 
 	res := make(Polynomial, len(bigger))
 	copy(res, bigger)
-	for i := 0; i < len(smaller); i++ {
+	for i := range len(smaller) {
 		res[i].Add(&res[i], &smaller[i])
 	}
 	*p = res
@@ -125,7 +125,7 @@ func (p *Polynomial) Sub(p1, p2 Polynomial) *Polynomial {
 	if len(p1) != len(p2) || len(p2) != len(*p) {
 		return nil
 	}
-	for i := 0; i < len(*p); i++ {
+	for i := range len(*p) {
 		(*p)[i].Sub(&p1[i], &p2[i])
 	}
 	return p
@@ -151,7 +151,7 @@ func (p *Polynomial) Equal(p1 Polynomial) bool {
 }
 
 func (p Polynomial) SetZero() {
-	for i := 0; i < len(p); i++ {
+	for i := range len(p) {
 		p[i].SetZero()
 	}
 }
@@ -260,7 +260,7 @@ func getLagrangeBasis(domainSize uint8) []Polynomial {
 func computeLagrangeBasis(domainSize uint8) []Polynomial {
 
 	constTerms := make([]fr.Element, domainSize)
-	for i := uint8(0); i < domainSize; i++ {
+	for i := range domainSize {
 		constTerms[i].SetInt64(-int64(i))
 	}
 
@@ -268,11 +268,11 @@ func computeLagrangeBasis(domainSize uint8) []Polynomial {
 	multScratch := make(Polynomial, domainSize-1)
 
 	// compute pₗ
-	for l := uint8(0); l < domainSize; l++ {
+	for l := range domainSize {
 
 		// TODO @Tabaie Optimize this with some trees? O(log(domainSize)) polynomial mults instead of O(domainSize)? Then again it would be fewer big poly mults vs many small poly mults
 		d := uint8(0) //d is the current degree of res
-		for i := uint8(0); i < domainSize; i++ {
+		for i := range domainSize {
 			if i == l {
 				continue
 			}
@@ -297,12 +297,12 @@ func computeLagrangeBasis(domainSize uint8) []Polynomial {
 
 	// We have pₗ(i≠l)=0. Now scale so that pₗ(l)=1
 	// Replace the constTerms with norms
-	for l := uint8(0); l < domainSize; l++ {
+	for l := range domainSize {
 		constTerms[l].Neg(&constTerms[l])
 		constTerms[l] = res[l].Eval(&constTerms[l])
 	}
 	constTerms = fr.BatchInvert(constTerms)
-	for l := uint8(0); l < domainSize; l++ {
+	for l := range domainSize {
 		res[l].ScaleInPlace(&constTerms[l])
 	}
 

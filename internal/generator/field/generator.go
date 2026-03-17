@@ -160,10 +160,10 @@ func getModulePath(modDir string) (string, error) {
 		return "", fmt.Errorf("error reading go.mod: %w", err)
 	}
 
-	for _, line := range strings.Split(string(content), "\n") {
+	for line := range strings.SplitSeq(string(content), "\n") {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "module ") {
-			return strings.TrimPrefix(line, "module "), nil
+		if after, ok := strings.CutPrefix(line, "module "); ok {
+			return after, nil
 		}
 	}
 	return "", fmt.Errorf("module declaration not found in go.mod")

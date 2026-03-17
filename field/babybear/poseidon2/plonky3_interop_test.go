@@ -47,7 +47,7 @@ func TestPlonky3Interop(t *testing.T) {
 			assert.Equal(len(record), w*2)
 			input := make([]fr.Element, w)
 			expected := make([]fr.Element, w)
-			for i := 0; i < w; i++ {
+			for i := range w {
 				v, err := strconv.Atoi(record[i])
 				assert.NoError(err)
 

@@ -359,7 +359,7 @@ func GenComplexNumber(boundSize int64) gopter.Gen {
 	return gopter.CombineGens(
 		GenNumber(boundSize),
 		GenNumber(boundSize),
-	).Map(func(values []interface{}) *ComplexNumber {
+	).Map(func(values []any) *ComplexNumber {
 		var r ComplexNumber
 		r.A0.Set(values[0].(*big.Int))
 		r.A1.Set(values[1].(*big.Int))

@@ -2,7 +2,7 @@
 
 func Test{{toTitle .ElementName}}InversionApproximation(t *testing.T) {
 	var x {{.ElementName}}
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		x.MustSetRandom()
 
 		// Normally small elements are unlikely. Here we give them a higher chance
@@ -44,7 +44,7 @@ func Test{{toTitle .ElementName}}LinearComb(t *testing.T) {
 	var x {{.ElementName}}
 	var y {{.ElementName}}
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		x.MustSetRandom()
 		y.MustSetRandom()
 		testLinearComb(t, &x, mrand.Int63(), &y, mrand.Int63()) //#nosec G404 weak rng is fine here
@@ -61,7 +61,7 @@ func Test{{toTitle .ElementName}}InversionCorrectionFactor(t *testing.T) {
 	one.SetOne()
 	oneInv.Inverse(&one)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		var x {{.ElementName}}
 		var xInv {{.ElementName}}
 		x.MustSetRandom()
@@ -102,7 +102,7 @@ func Test{{toTitle .ElementName}}BigNumNeg(t *testing.T) {
 func Test{{toTitle .ElementName}}BigNumWMul(t *testing.T) {
 	var x {{.ElementName}}
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		x.MustSetRandom()
 		w := mrand.Int63() //#nosec G404 weak rng is fine here
 		testBigNumWMul(t, &x, w)
@@ -224,7 +224,7 @@ func Test{{toTitle .ElementName}}0Inverse(t *testing.T) {
 
 //TODO: Tests like this (update factor related) are common to all fields. Move them to somewhere non-autogen
 func TestUpdateFactorSubtraction(t *testing.T) {
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 
 		f0, g0 := randomizeUpdateFactors()
 		f1, g1 := randomizeUpdateFactors()
@@ -250,7 +250,7 @@ func TestUpdateFactorSubtraction(t *testing.T) {
 }
 
 func TestUpdateFactorsDouble(t *testing.T) {
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		f, g := randomizeUpdateFactors()
 
 		if f > 1<<30 || f < (-1<<31+1)/2 {
@@ -280,7 +280,7 @@ func TestUpdateFactorsDouble(t *testing.T) {
 
 func TestUpdateFactorsNeg(t *testing.T) {
 	var fMistake bool
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		f, g := randomizeUpdateFactors()
 
 		if f == 0x80000000 || g == 0x80000000 {
@@ -320,7 +320,7 @@ func TestUpdateFactorsNeg0(t *testing.T) {
 func TestUpdateFactorDecomposition(t *testing.T) {
 	var negSeen bool
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 
 		f, g := randomizeUpdateFactors()
 
@@ -358,7 +358,7 @@ func TestUpdateFactorsRandomization(t *testing.T) {
 	var maxLen int
 
 	//t.Log("|f| + |g| is not to exceed", 1 << 31)
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		f, g := randomizeUpdateFactors()
 		lf, lg := abs64T32(f), abs64T32(g)
 		absSum := lf + lg

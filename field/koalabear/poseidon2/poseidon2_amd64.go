@@ -23,11 +23,11 @@ var indexScatter8 []uint32
 func init() {
 	const sisKeySize = 512
 	indexGather512 = make([]uint32, 16)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		indexGather512[i] = uint32(i * sisKeySize)
 	}
 	indexScatter8 = make([]uint32, 16)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		indexScatter8[i] = uint32(i * 8)
 	}
 }

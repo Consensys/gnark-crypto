@@ -234,7 +234,7 @@ func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordT
 	// Check if u/v is QR by checking if (u*v)^m has order dividing 2^(e-1)
 	// Note: (u/v | p) = (u*v | p) since (v^(-1) | p) = (v | p) for Legendre symbols
 	t := xM
-	for i := 0; i < {{$CurveName}}SarkarN-1; i++ {
+	for range {{$CurveName}}SarkarN-1 {
 		t.Square(&t)
 	}
 	isQNr := !t.IsOne() // t should be ±1; if -1 then u/v is not QR
@@ -259,7 +259,7 @@ func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordT
 	// Compute xis[i] = xM^(2^(e-1-sumL[i])) where sumL[i] = L[0]+...+L[i]
 	var xis [{{$CurveName}}SarkarK]{{$CoordType}}
 	var sumL uint64
-	for i := 0; i < {{$CurveName}}SarkarK; i++ {
+	for i := range {{$CurveName}}SarkarK {
 		sumL += {{$CurveName}}SarkarL[i]
 		idx := {{$CurveName}}SarkarN - 1 - int(sumL)
 		xis[i] = xPow[idx]
@@ -267,7 +267,7 @@ func {{$CurveTitle}}SqrtRatio(z *{{$CoordType}}, u *{{$CoordType}}, v *{{$CoordT
 
 	// Main Sarkar loop
 	var s, tt uint64
-	for i := 0; i < {{$CurveName}}SarkarK; i++ {
+	for i := range {{$CurveName}}SarkarK {
 		tt = (s + tt) >> {{$CurveName}}SarkarL[i]
 		var gamma {{$CoordType}}
 		{{$CurveName}}SarkarPowG(&gamma, tt)

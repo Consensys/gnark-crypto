@@ -77,7 +77,7 @@ func HashPoseidon2x16(sisHashes []koalabear.Element, merkleLeaves []Hash, sisKey
 	for i := 0; i < sisKeySize; i += p2blockSize {
 		// transpose state
 		for k := 8; k < stateSize; k++ {
-			for j := 0; j < width; j++ {
+			for j := range width {
 				state[k][j] = sisHashes[j*sisKeySize+(k-8)+i]
 			}
 		}
@@ -85,8 +85,8 @@ func HashPoseidon2x16(sisHashes []koalabear.Element, merkleLeaves []Hash, sisKey
 	}
 
 	// transpose back the first 8 into merkleLeaves
-	for k := 0; k < 8; k++ {
-		for j := 0; j < width; j++ {
+	for k := range 8 {
+		for j := range width {
 			merkleLeaves[j][k] = state[k][j]
 		}
 	}

@@ -198,7 +198,7 @@ func (vector Vector) String() string {
 	var sbb strings.Builder
 	sbb.Grow(len(vector) * 16)
 	sbb.WriteByte('[')
-	for i := 0; i < len(vector); i++ {
+	for i := range len(vector) {
 		sbb.WriteString(vector[i].String())
 		if i != len(vector)-1 {
 			sbb.WriteByte(',')
@@ -239,7 +239,7 @@ func (vector *Vector) WriteTo(w io.Writer) (int64, error) {
 	const e4Bytes = 4 * fr.Bytes
 	buf := make([]byte, len(*vector)*e4Bytes)
 
-	for i := 0; i < len(*vector); i++ {
+	for i := range len(*vector) {
 		offset := i * e4Bytes
 		fr.BigEndian.PutElement((*[fr.Bytes]byte)(buf[offset+0*fr.Bytes:offset+1*fr.Bytes]), (*vector)[i].B0.A0)
 		fr.BigEndian.PutElement((*[fr.Bytes]byte)(buf[offset+1*fr.Bytes:offset+2*fr.Bytes]), (*vector)[i].B0.A1)
@@ -302,7 +302,7 @@ func (vector *Vector) AsyncReadFrom(r io.Reader) (int64, error, chan error) { //
 		}
 
 		var ok bool
-		for i := 0; i < int(sliceLen); i++ {
+		for i := range int(sliceLen) {
 
 			bstart := i * e4Bytes
 			bend := bstart + e4Bytes
@@ -386,7 +386,7 @@ func (vector Vector) PrefixProduct(nbTasks ...int) {
 	multipliers[0].SetOne()
 	for i := 1; i < len(chunks); i++ {
 		multipliers[i].SetOne()
-		for j := 0; j < i; j++ {
+		for j := range i {
 			prevChunkEnd := chunks[j][1] - 1
 			multipliers[i].Mul(&multipliers[i], &vector[prevChunkEnd])
 		}
@@ -415,29 +415,29 @@ func (vector Vector) prefixProductGeneric() {
 }
 
 func vectorAddGeneric(res, a, b Vector) {
-	for i := 0; i < len(res); i++ {
+	for i := range len(res) {
 		res[i].Add(&a[i], &b[i])
 	}
 }
 func vectorSubGeneric(res, a, b Vector) {
-	for i := 0; i < len(res); i++ {
+	for i := range len(res) {
 		res[i].Sub(&a[i], &b[i])
 	}
 }
 func vectorMulGeneric(res, a, b Vector) {
-	for i := 0; i < len(res); i++ {
+	for i := range len(res) {
 		res[i].Mul(&a[i], &b[i])
 	}
 }
 func vectorScalarMulGeneric(res, a Vector, b *E4) {
-	for i := 0; i < len(res); i++ {
+	for i := range len(res) {
 		res[i].Mul(&a[i], b)
 	}
 }
 
 func vectorInnerProductGeneric(a, b Vector) E4 {
 	var res, tmp E4
-	for i := 0; i < len(a); i++ {
+	for i := range len(a) {
 		tmp.Mul(&a[i], &b[i])
 		res.Add(&res, &tmp)
 	}
@@ -446,7 +446,7 @@ func vectorInnerProductGeneric(a, b Vector) E4 {
 
 func vectorInnerProductByElementGeneric(a Vector, b fr.Vector) E4 {
 	var res, tmp E4
-	for i := 0; i < len(a); i++ {
+	for i := range len(a) {
 		tmp.MulByElement(&a[i], &b[i])
 		res.Add(&res, &tmp)
 	}
@@ -455,7 +455,7 @@ func vectorInnerProductByElementGeneric(a Vector, b fr.Vector) E4 {
 
 func vectorSumGeneric(v Vector) E4 {
 	var sum E4
-	for i := 0; i < len(v); i++ {
+	for i := range len(v) {
 		sum.Add(&sum, &v[i])
 	}
 	return sum
@@ -463,20 +463,20 @@ func vectorSumGeneric(v Vector) E4 {
 
 func vectorMulAccByElementGeneric(v Vector, scale []fr.Element, alpha *E4) {
 	var tmp E4
-	for i := 0; i < len(v); i++ {
+	for i := range len(v) {
 		tmp.MulByElement(alpha, &scale[i])
 		v[i].Add(&v[i], &tmp)
 	}
 }
 
 func vectorMulByElementGeneric(res, a Vector, b fr.Vector) {
-	for i := 0; i < len(res); i++ {
+	for i := range len(res) {
 		res[i].MulByElement(&a[i], &b[i])
 	}
 }
 
 func vectorButterflyGeneric(a, b Vector) {
-	for i := 0; i < len(a); i++ {
+	for i := range len(a) {
 		Butterfly(&a[i], &b[i])
 	}
 }

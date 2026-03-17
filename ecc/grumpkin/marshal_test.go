@@ -59,7 +59,7 @@ func TestEncoder(t *testing.T) {
 	inL = [][]fr.Element{inJ, inK}
 	inM = [][]uint64{{1, 2}, {4}, {}}
 	inN = make([][][]fr.Element, 4)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		inN[i] = make([][]fr.Element, i+2)
 		for j := 0; j < i+2; j++ {
 			inN[i][j] = make([]fr.Element, j+3)
@@ -71,7 +71,7 @@ func TestEncoder(t *testing.T) {
 	var buf, bufRaw bytes.Buffer
 	enc := NewEncoder(&buf)
 	encRaw := NewEncoder(&bufRaw, RawEncoding())
-	toEncode := []interface{}{inA, &inB, &inC, &inD, &inE, inG, inI, inJ, inK, inL, inM, inN}
+	toEncode := []any{inA, &inB, &inC, &inD, &inE, inG, inI, inJ, inK, inL, inM, inN}
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
 			t.Fatal(err)
@@ -98,7 +98,7 @@ func TestEncoder(t *testing.T) {
 		var outM [][]uint64
 		var outN [][][]fr.Element
 
-		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outG, &outI, &outJ, &outK, &outL, &outM, &outN}
+		toDecode := []any{&outA, &outB, &outC, &outD, &outE, &outG, &outI, &outJ, &outK, &outL, &outM, &outN}
 		for _, v := range toDecode {
 			if err := dec.Decode(v); err != nil {
 				t.Fatal(err)

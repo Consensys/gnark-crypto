@@ -121,7 +121,7 @@ func (z *Element) Set(x *Element) *Element {
 //	*big.Int
 //	big.Int
 //	[]byte
-func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
+func (z *Element) SetInterface(i1 any) (*Element, error) {
 	if i1 == nil {
 		return nil, errors.New("can't set babybear.Element with <nil>")
 	}
@@ -417,7 +417,7 @@ func BatchInvert(a []Element) []Element {
 	zeroes := bitset.New(uint(len(a)))
 	accumulator := One()
 
-	for i := 0; i < len(a); i++ {
+	for i := range len(a) {
 		if a[i].IsZero() {
 			zeroes.Set(uint(i))
 			continue
@@ -469,7 +469,7 @@ func Hash(msg, dst []byte, count int) ([]Element, error) {
 	vv := pool.BigInt.Get()
 
 	res := make([]Element, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		vv.SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
 		res[i].SetBigInt(vv)
 	}
@@ -709,7 +709,7 @@ func (z *Element) SetBigInt(v *big.Int) *Element {
 func (z *Element) setBigInt(v *big.Int) *Element {
 	vBits := v.Bits()
 	// we assume v < q, so even if big.Int words are on 64bits, we can safely cast them to 32bits
-	for i := 0; i < len(vBits); i++ {
+	for i := range len(vBits) {
 		z[i] = uint32(vBits[i])
 	}
 

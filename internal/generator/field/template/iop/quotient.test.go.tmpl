@@ -47,7 +47,7 @@ func TestDivideByXMinusOne(t *testing.T) {
 	entries[1] = buildPoly(sizeSystem, form)
 	entries[2] = buildPoly(sizeSystem, form)
 
-	for i := 0; i < sizeSystem; i++ {
+	for i := range sizeSystem {
 
 		entries[0].Coefficients()[i].MustSetRandom()
 		entries[1].Coefficients()[i].MustSetRandom()

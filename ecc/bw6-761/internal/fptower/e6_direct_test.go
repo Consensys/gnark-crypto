@@ -22,7 +22,7 @@ func GenE6D() gopter.Gen {
 		GenFp(),
 		GenFp(),
 		GenFp(),
-	).Map(func(values []interface{}) *E6D {
+	).Map(func(values []any) *E6D {
 		return &E6D{A0: values[0].(fp.Element), A1: values[1].(fp.Element), A2: values[2].(fp.Element), A3: values[3].(fp.Element), A4: values[4].(fp.Element), A5: values[5].(fp.Element)}
 	})
 }

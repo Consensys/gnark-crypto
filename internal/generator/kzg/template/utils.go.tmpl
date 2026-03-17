@@ -31,7 +31,7 @@ func ToLagrangeG1(coeffs []curve.G1Affine) ([]curve.G1Affine, error) {
 
 	// batch convert to Jacobian
 	jCoeffs := make([]curve.G1Jac, len(coeffs))
-	for i := 0; i < len(coeffs); i++ {
+	for i := range len(coeffs) {
 		jCoeffs[i].FromAffine(&coeffs[i])
 	}
 

@@ -17,12 +17,12 @@ var maskPermD []uint32
 
 func init() {
 	indexGather4 = make([]uint32, 16)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		indexGather4[i] = uint32(i * 4)
 	}
 	maskPermD = make([]uint32, 16)
 	// we want [0,0,0,0, 1,1,1,1, 2,2,2,2, 3,3,3,3]
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		maskPermD[i] = uint32(i / 4)
 	}
 }

@@ -252,7 +252,7 @@ func BenchmarkE3Add(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Add(&a, &c)
 	}
 }
@@ -262,7 +262,7 @@ func BenchmarkE3Sub(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Sub(&a, &c)
 	}
 }
@@ -272,7 +272,7 @@ func BenchmarkE3Mul(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Mul(&a, &c)
 	}
 }
@@ -283,7 +283,7 @@ func BenchmarkE3MulByElement(b *testing.B) {
 	c.MustSetRandom()
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.MulByElement(&a, &c)
 	}
 }
@@ -292,7 +292,7 @@ func BenchmarkE3Square(b *testing.B) {
 	var a E3
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Square(&a)
 	}
 }
@@ -301,7 +301,7 @@ func BenchmarkE3Inverse(b *testing.B) {
 	var a E3
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Inverse(&a)
 	}
 }
@@ -310,7 +310,7 @@ func BenchmarkE3MulNonRes(b *testing.B) {
 	var a E3
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.MulByNonResidue(&a)
 	}
 }

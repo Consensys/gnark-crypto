@@ -46,7 +46,7 @@ func TestEncoder(t *testing.T) {
 	var buf, bufRaw bytes.Buffer
 	enc := NewEncoder(&buf)
 	encRaw := NewEncoder(&bufRaw, RawEncoding())
-	toEncode := []interface{}{inA, &inB, &inC, &inD, &inE, inG, inI, inJ}
+	toEncode := []any{inA, &inB, &inC, &inD, &inE, inG, inI, inJ}
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
 			t.Fatal(err)
@@ -69,7 +69,7 @@ func TestEncoder(t *testing.T) {
 		var outI []fp.Element
 		var outJ []fr.Element
 
-		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outG, &outI, &outJ}
+		toDecode := []any{&outA, &outB, &outC, &outD, &outE, &outG, &outI, &outJ}
 		for _, v := range toDecode {
 			if err := dec.Decode(v); err != nil {
 				t.Fatal(err)

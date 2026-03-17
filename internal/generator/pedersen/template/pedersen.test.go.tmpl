@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func interfaceSliceToFrSlice(t *testing.T, values ...interface{}) []fr.Element {
+func interfaceSliceToFrSlice(t *testing.T, values ...any) []fr.Element {
 	res := make([]fr.Element, len(values))
 	for i, v := range values {
 		_, err := res[i].SetInterface(v)
@@ -18,8 +18,8 @@ func interfaceSliceToFrSlice(t *testing.T, values ...interface{}) []fr.Element {
 	return res
 }
 
-func randomFrSlice(size int) []interface{} {
-	res := make([]interface{}, size)
+func randomFrSlice(size int) []any {
+	res := make([]any, size)
 	for i := range res {
 		var v fr.Element
 		res[i] = v.MustSetRandom()
@@ -45,7 +45,7 @@ func randomG1Slice(t *testing.T, size int) []curve.G1Affine {
 	return res
 }
 
-func testCommit(t *testing.T, values ...interface{}) {
+func testCommit(t *testing.T, values ...any) {
 
 	basis := randomG1Slice(t, len(values))
 

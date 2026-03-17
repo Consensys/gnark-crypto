@@ -59,7 +59,7 @@ func Evaluate(f Expression, r []babybear.Element, form Form, x ...*Polynomial) (
 	parallel.Execute(n, func(start, end int) {
 		vx := make([]babybear.Element, m)
 		for i := start; i < end; i++ {
-			for j := 0; j < m; j++ {
+			for j := range m {
 				vx[j] = x[j].GetCoeff(i)
 			}
 			r[idx(i)] = f(i, vx...)

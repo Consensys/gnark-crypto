@@ -151,7 +151,7 @@ func (z *{{.ElementName}}) Inverse(x *{{.ElementName}}) *{{.ElementName}} {
 		// f₀, g₀, f₁, g₁ = 1, 0, 0, 1
  		c0, c1 = updateFactorIdentityMatrixRow0, updateFactorIdentityMatrixRow1
 
-		for j := 0; j < approxLowBitsN; j++ {
+		for range approxLowBitsN {
 
 			// -2ʲ < f₀, f₁ ≤ 2ʲ
 			// |f₀| + |f₁| < 2ʲ⁺¹

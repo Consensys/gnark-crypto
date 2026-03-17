@@ -62,7 +62,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	z.Mul(&x, t1)
 
 	// Step 15: t1 = x^0xfc0
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t1.Square(t1)
 	}
 
@@ -79,7 +79,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	t0.Mul(t0, t1)
 
 	// Step 36: t0 = x^0x7fffff80
-	for s := 0; s < 7; s++ {
+	for range 7 {
 		t0.Square(t0)
 	}
 

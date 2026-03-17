@@ -211,7 +211,7 @@ func (p *polynomial) evaluate(x fr.Element) fr.Element {
 		var accw fr.Element
 		accw.SetOne()
 		dens := make([]fr.Element, sizeP) // [x-1, x-ω, x-ω², ...]
-		for i := 0; i < sizeP; i++ {
+		for i := range sizeP {
 			dens[i].Sub(&x, &accw)
 			accw.Mul(&accw, &w)
 		}
@@ -223,7 +223,7 @@ func (p *polynomial) evaluate(x fr.Element) fr.Element {
 		var li fr.Element
 		li.SetUint64(uint64(sizeP)).Inverse(&li).Mul(&li, &tmp) // 1/n * (xⁿ-1)
 		if p.Layout == Regular {
-			for i := 0; i < sizeP; i++ {
+			for i := range sizeP {
 				li.Mul(&li, &invdens[i]) // li <- li*ω/(x-ωⁱ)
 				tmp.Mul(&li, &(*p.coefficients)[i])
 				r.Add(&r, &tmp)
@@ -231,7 +231,7 @@ func (p *polynomial) evaluate(x fr.Element) fr.Element {
 			}
 		} else {
 			nn := uint64(64 - bits.TrailingZeros(uint(p.coefficients.Len())))
-			for i := 0; i < sizeP; i++ {
+			for i := range sizeP {
 				iRev := bits.Reverse64(uint64(i)) >> nn
 				li.Mul(&li, &invdens[i]) // li <- li*ω/(x-ωⁱ)
 				tmp.Mul(&li, &(*p.coefficients)[iRev])

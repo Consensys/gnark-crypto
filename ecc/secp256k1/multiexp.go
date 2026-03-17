@@ -158,7 +158,7 @@ func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, scalars []fr.Element, co
 
 	// each go routine sends its result in chChunks[i] channel
 	chChunks := make([]chan g1JacExtended, nbChunks)
-	for i := 0; i < len(chChunks); i++ {
+	for i := range len(chChunks) {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
 
@@ -168,7 +168,7 @@ func _innerMsmG1(p *G1Jac, c uint64, points []G1Affine, scalars []fr.Element, co
 	if config.NbTasks < runtime.NumCPU() {
 		// we add nbChunks because if chunk is overweight we split it in two
 		sem = make(chan struct{}, config.NbTasks+int(nbChunks))
-		for i := 0; i < config.NbTasks; i++ {
+		for range config.NbTasks {
 			sem <- struct{}{}
 		}
 		defer func() {
@@ -296,7 +296,7 @@ func msmReduceChunkG1Affine(p *G1Jac, c int, chChunks []chan g1JacExtended) *G1J
 	totalj := <-chChunks[len(chChunks)-1]
 	_p.Set(&totalj)
 	for j := len(chChunks) - 2; j >= 0; j-- {
-		for l := 0; l < c; l++ {
+		for range c {
 			_p.double(&_p)
 		}
 		totalj := <-chChunks[j]
@@ -324,7 +324,7 @@ func (p *G1Affine) Fold(points []G1Affine, combinationCoeff fr.Element, config e
 func (p *G1Jac) Fold(points []G1Affine, combinationCoeff fr.Element, config ecc.MultiExpConfig) (*G1Jac, error) {
 	scalars := make([]fr.Element, len(points))
 	scalar := fr.NewElement(1)
-	for i := 0; i < len(points); i++ {
+	for i := range len(points) {
 		scalars[i].Set(&scalar)
 		scalar.Mul(&scalar, &combinationCoeff)
 	}
@@ -390,7 +390,7 @@ func partitionScalars(scalars []fr.Element, c uint64, nbTasks int) ([]uint16, []
 
 	// compute offset and word selector / shift to select the right bits of our windows
 	selectors := make([]selector, nbChunks)
-	for chunk := uint64(0); chunk < nbChunks; chunk++ {
+	for chunk := range nbChunks {
 		jc := uint64(chunk * c)
 		d := selector{}
 		d.index = jc / 64
@@ -514,7 +514,7 @@ func partitionScalars(scalars []fr.Element, c uint64, nbTasks int) ([]uint16, []
 	target := totalOps / float32(nbChunks)
 	if target != 0.0 {
 		// if target == 0, it means all the scalars are 0 everywhere, there is no work to be done.
-		for i := 0; i < len(chunkStats); i++ {
+		for i := range len(chunkStats) {
 			chunkStats[i].weight = (chunkStats[i].weight * 100.0) / target
 		}
 	}

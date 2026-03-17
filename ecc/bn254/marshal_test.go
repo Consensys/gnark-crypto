@@ -64,9 +64,9 @@ func TestEncoder(t *testing.T) {
 	inL = [][]fr.Element{inJ, inK}
 	inM = [][]uint64{{1, 2}, {4}, {}}
 	inN = make([][][]fr.Element, 4)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		inN[i] = make([][]fr.Element, i+2)
-		for j := 0; j < i+2; j++ {
+		for j := range i + 2 {
 			inNIJ := make(fr.Vector, j+3)
 			inNIJ.MustSetRandom()
 			inN[i][j] = inNIJ
@@ -77,7 +77,7 @@ func TestEncoder(t *testing.T) {
 	var buf, bufRaw bytes.Buffer
 	enc := NewEncoder(&buf)
 	encRaw := NewEncoder(&bufRaw, RawEncoding())
-	toEncode := []interface{}{inA, &inB, &inC, &inD, &inE, &inF, inG, inH, inI, inJ, inK, inL, inM, inN}
+	toEncode := []any{inA, &inB, &inC, &inD, &inE, &inF, inG, inH, inI, inJ, inK, inL, inM, inN}
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
 			t.Fatal(err)
@@ -106,7 +106,7 @@ func TestEncoder(t *testing.T) {
 		var outM [][]uint64
 		var outN [][][]fr.Element
 
-		toDecode := []interface{}{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ, &outK, &outL, &outM, &outN}
+		toDecode := []any{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ, &outK, &outL, &outM, &outN}
 		for _, v := range toDecode {
 			if err := dec.Decode(v); err != nil {
 				t.Fatal(err)
@@ -130,7 +130,7 @@ func TestEncoder(t *testing.T) {
 		if (len(inG) != len(outG)) || (len(inH) != len(outH)) {
 			t.Fatal("decode(encode(slice(points))) failed")
 		}
-		for i := 0; i < len(inG); i++ {
+		for i := range len(inG) {
 			if !inG[i].Equal(&outG[i]) {
 				t.Fatal("decode(encode(slice(points))) failed")
 			}
@@ -138,7 +138,7 @@ func TestEncoder(t *testing.T) {
 		if (len(inI) != len(outI)) || (len(inJ) != len(outJ)) {
 			t.Fatal("decode(encode(slice(elements))) failed")
 		}
-		for i := 0; i < len(inI); i++ {
+		for i := range len(inI) {
 			if !inI[i].Equal(&outI[i]) {
 				t.Fatal("decode(encode(slice(elements))) failed")
 			}
@@ -445,7 +445,7 @@ func GenE2() gopter.Gen {
 	return gopter.CombineGens(
 		GenFp(),
 		GenFp(),
-	).Map(func(values []interface{}) fptower.E2 {
+	).Map(func(values []any) fptower.E2 {
 		return fptower.E2{A0: values[0].(fp.Element), A1: values[1].(fp.Element)}
 	})
 }
@@ -456,7 +456,7 @@ func GenE6() gopter.Gen {
 		GenE2(),
 		GenE2(),
 		GenE2(),
-	).Map(func(values []interface{}) fptower.E6 {
+	).Map(func(values []any) fptower.E6 {
 		return fptower.E6{B0: values[0].(fptower.E2), B1: values[1].(fptower.E2), B2: values[2].(fptower.E2)}
 	})
 }
@@ -466,7 +466,7 @@ func GenE12() gopter.Gen {
 	return gopter.CombineGens(
 		GenE6(),
 		GenE6(),
-	).Map(func(values []interface{}) fptower.E12 {
+	).Map(func(values []any) fptower.E12 {
 		return fptower.E12{C0: values[0].(fptower.E6), C1: values[1].(fptower.E6)}
 	})
 }

@@ -291,7 +291,7 @@ func BatchInvertE6(a []E6) []E6 {
 	var accumulator E6
 	accumulator.SetOne()
 
-	for i := 0; i < len(a); i++ {
+	for i := range len(a) {
 		if a[i].IsZero() {
 			zeroes[i] = true
 			continue

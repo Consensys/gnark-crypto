@@ -283,7 +283,7 @@ func sarkarPowGBig(z *{{.ElementName}}, exp *big.Int) *{{.ElementName}} {
 	}
 	var acc {{.ElementName}}
 	acc.SetOne()
-	for i := 0; i < exp.BitLen(); i++ {
+	for i := range exp.BitLen() {
 		if exp.Bit(i) == 1 {
 			acc.Mul(&acc, &sarkarGPow[i])
 		}
@@ -506,7 +506,7 @@ func (z *{{.ElementName}}) SqrtSarkar(x *{{.ElementName}}) *{{.ElementName}} {
 
 	// compute Legendre symbol: xM^(2^(sarkarN-1)) should be 1 for squares
 	t := xM
-	for i := 0; i < sarkarN-1; i++ {
+	for range sarkarN-1 {
 		t.Square(&t)
 	}
 	if t.IsZero() {
@@ -527,7 +527,7 @@ func (z *{{.ElementName}}) SqrtSarkar(x *{{.ElementName}}) *{{.ElementName}} {
 	// compute xi = xM^(2^(sarkarN-1-(l0+...+li)))
 	var xis [sarkarK]{{.ElementName}}
 	var sumL uint64
-	for i := 0; i < sarkarK; i++ {
+	for i := range sarkarK {
 		sumL += sarkarL[i]
 		idx := sarkarN - 1 - int(sumL)
 		xis[i] = xPow[idx]
@@ -535,7 +535,7 @@ func (z *{{.ElementName}}) SqrtSarkar(x *{{.ElementName}}) *{{.ElementName}} {
 
 	{{- if gt .SqrtE 63}}
 	var s, tt, tmp big.Int
-	for i := 0; i < sarkarK; i++ {
+	for i := range sarkarK {
 		tmp.Add(&s, &tt)
 		tt.Rsh(&tmp, uint(sarkarL[i]))
 		var gamma {{.ElementName}}
@@ -554,7 +554,7 @@ func (z *{{.ElementName}}) SqrtSarkar(x *{{.ElementName}}) *{{.ElementName}} {
 	return z
 	{{- else}}
 	var s, tt uint64
-	for i := 0; i < sarkarK; i++ {
+	for i := range sarkarK {
 		tt = (s + tt) >> sarkarL[i]
 		var gamma {{.ElementName}}
 		sarkarPowG(&gamma, tt)

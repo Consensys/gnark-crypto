@@ -23,7 +23,7 @@ func TestFuzz(t *testing.T) {
 	r := rand.New(rand.NewSource(seed))
 
 	for i = 1; i < maxBytes; i++ {
-		for j := 0; j < testCount; j++ {
+		for j := range testCount {
 			if _, err := io.ReadFull(r, bytes[:i]); err != nil {
 				t.Fatal("couldn't read random bytes", err)
 			}

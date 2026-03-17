@@ -133,7 +133,7 @@ func (z *Element) Set(x *Element) *Element {
 //	*big.Int
 //	big.Int
 //	[]byte
-func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
+func (z *Element) SetInterface(i1 any) (*Element, error) {
 	if i1 == nil {
 		return nil, errors.New("can't set fp.Element with <nil>")
 	}
@@ -745,7 +745,7 @@ func BatchInvert(a []Element) []Element {
 	zeroes := bitset.New(uint(len(a)))
 	accumulator := One()
 
-	for i := 0; i < len(a); i++ {
+	for i := range len(a) {
 		if a[i].IsZero() {
 			zeroes.Set(uint(i))
 			continue
@@ -809,7 +809,7 @@ func Hash(msg, dst []byte, count int) ([]Element, error) {
 	vv := pool.BigInt.Get()
 
 	res := make([]Element, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		vv.SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
 		res[i].SetBigInt(vv)
 	}
@@ -1037,11 +1037,11 @@ func (z *Element) setBigInt(v *big.Int) *Element {
 	vBits := v.Bits()
 
 	if bits.UintSize == 64 {
-		for i := 0; i < len(vBits); i++ {
+		for i := range len(vBits) {
 			z[i] = uint64(vBits[i])
 		}
 	} else {
-		for i := 0; i < len(vBits); i++ {
+		for i := range len(vBits) {
 			if i%2 == 0 {
 				z[i/2] = uint64(vBits[i])
 			} else {
@@ -1489,7 +1489,7 @@ func (z *Element) SqrtSarkar(x *Element) *Element {
 
 	// compute Legendre symbol: xM^(2^(sarkarN-1)) should be 1 for squares
 	t := xM
-	for i := 0; i < sarkarN-1; i++ {
+	for range sarkarN - 1 {
 		t.Square(&t)
 	}
 	if t.IsZero() {
@@ -1510,13 +1510,13 @@ func (z *Element) SqrtSarkar(x *Element) *Element {
 	// compute xi = xM^(2^(sarkarN-1-(l0+...+li)))
 	var xis [sarkarK]Element
 	var sumL uint64
-	for i := 0; i < sarkarK; i++ {
+	for i := range sarkarK {
 		sumL += sarkarL[i]
 		idx := sarkarN - 1 - int(sumL)
 		xis[i] = xPow[idx]
 	}
 	var s, tt uint64
-	for i := 0; i < sarkarK; i++ {
+	for i := range sarkarK {
 		tt = (s + tt) >> sarkarL[i]
 		var gamma Element
 		sarkarPowG(&gamma, tt)
@@ -1657,7 +1657,7 @@ func (z *Element) Inverse(x *Element) *Element {
 		// f₀, g₀, f₁, g₁ = 1, 0, 0, 1
 		c0, c1 = updateFactorIdentityMatrixRow0, updateFactorIdentityMatrixRow1
 
-		for j := 0; j < approxLowBitsN; j++ {
+		for range approxLowBitsN {
 
 			// -2ʲ < f₀, f₁ ≤ 2ʲ
 			// |f₀| + |f₁| < 2ʲ⁺¹

@@ -43,9 +43,9 @@ func init() {
 	var multiplier big.Int
 	for pointIndex, point := range p {
 		var nibbleIndexed [nibbleCount][16]*starkcurve.G1Jac
-		for nibIndex := uint(0); nibIndex < nibbleCount; nibIndex++ {
+		for nibIndex := range uint(nibbleCount) {
 			var selectorIndexed [16]*starkcurve.G1Jac
-			for selector := 0; selector < 16; selector++ {
+			for selector := range 16 {
 				multiplier.SetUint64(uint64(selector))
 				multiplier.Lsh(&multiplier, nibIndex*4)
 

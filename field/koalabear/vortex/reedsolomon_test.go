@@ -55,7 +55,7 @@ func TestLagrangeSimple(t *testing.T) {
 		codewordShifted := make([]koalabear.Element, params.SizeCodeWord())
 		params.EncodeReedSolomon(vShifted, codewordShifted)
 
-		for i := 0; i < len(codeword); i++ {
+		for i := range codeword {
 
 			iShifted := i - 2
 			if iShifted < 0 {

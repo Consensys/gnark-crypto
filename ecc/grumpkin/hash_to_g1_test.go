@@ -140,7 +140,7 @@ func BenchmarkEncodeToG1(b *testing.B) {
 	dst := encodeToG1Vector.dst
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 
 		bytes[rand.Int()%size] = byte(rand.Int()) //#nosec G404 weak rng is fine here
 
@@ -156,7 +156,7 @@ func BenchmarkHashToG1(b *testing.B) {
 	dst := hashToG1Vector.dst
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 
 		bytes[rand.Int()%size] = byte(rand.Int()) //#nosec G404 weak rng is fine here
 

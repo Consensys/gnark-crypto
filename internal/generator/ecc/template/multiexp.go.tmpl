@@ -219,7 +219,7 @@ func partitionScalars(scalars []fr.Element, c uint64,  nbTasks int) ([]uint16, [
 	target := totalOps / float32(nbChunks)
 	if target != 0.0 {
 		// if target == 0, it means all the scalars are 0 everywhere, there is no work to be done.
-		for i := 0; i < len(chunkStats); i++ {
+		for i := range len(chunkStats) {
 			chunkStats[i].weight = (chunkStats[i].weight * 100.0) / target
 		}
 	}
@@ -376,7 +376,7 @@ func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.T
 
 	// each go routine sends its result in chChunks[i] channel
 	chChunks := make([]chan {{ $.TJacobianExtended }}, nbChunks)
-	for i:=0; i < len(chChunks);i++ {
+	for i := range len(chChunks) {
 		chChunks[i] = make(chan {{ $.TJacobianExtended }}, 1)
 	}
 
@@ -386,7 +386,7 @@ func _innerMsm{{ $.UPointName }}(p *{{ $.TJacobian }}, c uint64, points []{{ $.T
 	if config.NbTasks < runtime.NumCPU() {
 		// we add nbChunks because if chunk is overweight we split it in two
 		sem = make(chan struct{}, config.NbTasks + int(nbChunks))
-		for i:=0; i < config.NbTasks; i++ {
+		for range config.NbTasks {
 			sem <- struct{}{}
 		}
 		defer func() {
@@ -464,7 +464,7 @@ func msmReduceChunk{{ $.TAffine }}(p *{{ $.TJacobian }}, c int, chChunks []chan 
 	totalj := <-chChunks[len(chChunks)-1]
     _p.Set(&totalj)
 	for j := len(chChunks) - 2; j >= 0; j-- {
-		for l := 0; l < c; l++ {
+		for range c {
 			_p.double(&_p)
 		}
 		totalj := <-chChunks[j]
@@ -492,7 +492,7 @@ func (p *{{ $.TAffine }}) Fold(points []{{ $.TAffine }}, combinationCoeff fr.Ele
 func (p *{{$.TJacobian}}) Fold(points []{{ $.TAffine }}, combinationCoeff fr.Element, config ecc.MultiExpConfig) (*{{ $.TJacobian }}, error) {
 	scalars := make([]fr.Element, len(points))
 	scalar := fr.NewElement(1)
-	for i := 0; i < len(points); i++ {
+	for i := range len(points) {
 		scalars[i].Set(&scalar)
 		scalar.Mul(&scalar, &combinationCoeff)
 	}

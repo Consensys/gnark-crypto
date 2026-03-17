@@ -72,7 +72,7 @@ type digest struct {
 func GetConstants() []big.Int {
 	once.Do(initConstants) // init constants
 	res := make([]big.Int, mimcNbRounds)
-	for i := 0; i < mimcNbRounds; i++ {
+	for i := range mimcNbRounds {
 		mimcConstants[i].BigInt(&res[i])
 	}
 	return res
@@ -225,7 +225,7 @@ func (d *digest) encrypt(m fr.Element) fr.Element {
 	once.Do(initConstants) // init constants
 
 	var tmp fr.Element
-	for i := 0; i < mimcNbRounds; i++ {
+	for i := range mimcNbRounds {
 		// m = (m+k+c)^**17
 		tmp.Add(&m, &d.h).Add(&tmp, &mimcConstants[i])
 		m.Square(&tmp).
@@ -258,7 +258,7 @@ func initConstants() {
 	hash.Reset()
 	_, _ = hash.Write(rnd)
 
-	for i := 0; i < mimcNbRounds; i++ {
+	for i := range mimcNbRounds {
 		rnd = hash.Sum(nil)
 		mimcConstants[i].SetBytes(rnd)
 		hash.Reset()

@@ -1110,23 +1110,23 @@ func (p *{{ $TJacobian }}) mulBySeed(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 
     var res {{ $TJacobian }}
     res.Triple(q)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		res.Double(&res)
 	}
 	res.AddAssign(q)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		res.Double(&res)
 	}
 	res.AddAssign(q)
-	for i := 0; i < 9; i++ {
+	for range 9 {
 		res.Double(&res)
 	}
 	res.AddAssign(q)
-	for i := 0; i < 32; i++ {
+	for range 32 {
 		res.Double(&res)
 	}
 	res.AddAssign(q)
-	for i := 0; i < 16; i++ {
+	for range 16 {
 		res.Double(&res)
 	}
     p.Set(&res)
@@ -1148,15 +1148,15 @@ func (p *{{ $TJacobian }}) mulBySeed(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 	t0.Triple(z)
 	t0.AddAssign(t1)
 	t1.Double(t0)
-	for s := 0; s < 6; s++ {
+	for range 6 {
 		t1.Double(t1)
 	}
 	t0.AddAssign(t1)
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t0.Double(t0)
 	}
 	z.AddAssign(t0)
-	for s := 0; s < 46; s++ {
+	for range 46 {
 		z.Double(z)
 	}
 	z.AddAssign(q)
@@ -1188,37 +1188,37 @@ func (p *{{ $TJacobian }}) mulBySeed(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 	t6.Double(t2)
 	t1.AddAssign(t0)
 	t0.Set(t3).AddAssign(t1)
-	for s := 0; s < 6; s++ {
+	for range 6 {
 		t6.Double(t6)
 	}
 	t5.AddAssign(t6)
 	t5.AddAssign(t4)
-	for s := 0; s < 7; s++ {
+	for range 7 {
 		t5.Double(t5)
 	}
 	t4.AddAssign(t5)
-	for s := 0; s < 8; s++ {
+	for range 8 {
 		t4.Double(t4)
 	}
 	t4.AddAssign(t0)
 	t3.AddAssign(t4)
-	for s := 0; s < 6; s++ {
+	for range 6 {
 		t3.Double(t3)
 	}
 	t2.AddAssign(t3)
-	for s := 0; s < 8; s++ {
+	for range 8 {
 		t2.Double(t2)
 	}
 	t2.AddAssign(t0)
-	for s := 0; s < 6; s++ {
+	for range 6 {
 		t2.Double(t2)
 	}
 	t2.AddAssign(t0)
-	for s := 0; s < 10; s++ {
+	for range 10 {
 		t2.Double(t2)
 	}
 	t1.AddAssign(t2)
-	for s := 0; s < 6; s++ {
+	for range 6 {
 		t1.Double(t1)
 	}
 	t0.AddAssign(t1)
@@ -1406,21 +1406,12 @@ func (p *{{ $TJacobian }}) mulGLS(q *{{ $TJacobian }}, s *big.Int) *{{ $TJacobia
 	k2 = k2.SetBigInt(&k[2]).Bits()
 	k3 = k3.SetBigInt(&k[3]).Bits()
 
-	maxBit := k0.BitLen()
-	if k1.BitLen() > maxBit {
-		maxBit = k1.BitLen()
-	}
-	if k2.BitLen() > maxBit {
-		maxBit = k2.BitLen()
-	}
-	if k3.BitLen() > maxBit {
-		maxBit = k3.BitLen()
-	}
+	maxBit := max(k0.BitLen(), k1.BitLen(), k2.BitLen(), k3.BitLen())
 	hiWordIndex := (maxBit - 1) / 64
 
 	for i := hiWordIndex; i >= 0; i-- {
 		mask := uint64(1) << 63
-		for j := 0; j < 64; j++ {
+		for j := range 64 {
 			shift := uint(63 - j)
 			res.Double(&res)
 			b0 := (k0[i] & mask) >> shift
@@ -1806,15 +1797,12 @@ func (p *{{$TJacobian}}) JointScalarMultiplication(a1, a2 *G1Affine, s1, s2 *big
 	s[0] = s[0].SetBigInt(&k1).Bits()
 	s[1] = s[1].SetBigInt(&k2).Bits()
 
-	maxBit := k1.BitLen()
-	if k2.BitLen() > maxBit {
-		maxBit = k2.BitLen()
-	}
+	maxBit := max(k1.BitLen(), k2.BitLen())
 	hiWordIndex := (maxBit - 1) / 64
 
 	for i := hiWordIndex; i >= 0; i-- {
 		mask := uint64(3) << 62
-		for j := 0; j < 32; j++ {
+		for j := range 32 {
 			res.Double(&res).Double(&res)
 			b1 := (s[0][i] & mask) >> (62 - 2*j)
 			b2 := (s[1][i] & mask) >> (62 - 2*j)
@@ -2158,7 +2146,7 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}) []
 
 	// batch invert all points[].Z coordinates with Montgomery batch inversion trick
 	// (stores points[].Z^-1 in result[i].X to avoid allocating a slice of fr.Elements)
-	for i:=0; i < len(points); i++ {
+	for i := range len(points) {
 		if points[i].Z.IsZero() {
 			zeroes[i] = true
 			continue
@@ -2323,7 +2311,7 @@ func batchAdd{{ $TAffine }}[TP p{{ $TAffine }}, TPP pp{{ $TAffine }}, TC c{{ $TA
 	// first we compute the 1 / (X2 - X1) for all points using Montgomery batch inversion trick
 
 	// X2 - X1
-	for j := 0; j < batchSize; j++ {
+	for j := range batchSize {
 		lambdain[j].Sub(&(*P)[j].X, &(*R)[j].X)
 	}
 
@@ -2353,7 +2341,7 @@ func batchAdd{{ $TAffine }}[TP p{{ $TAffine }}, TPP pp{{ $TAffine }}, TC c{{ $TA
 	var t {{.CoordType}}
 	var Q {{ $TAffine }}
 
-	for j := 0; j < batchSize; j++ {
+	for j := range batchSize {
 		// λ  = (Y2 - Y1) / (X2 - X1)
 		t.Sub(&(*P)[j].Y, &(*R)[j].Y)
 		lambda[j].Mul(&lambda[j], &t)

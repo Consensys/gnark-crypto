@@ -27,7 +27,7 @@ func Fuzz(data []byte) int {
     paddedSize := ecc.NextPowerOfTwo(uint64(size))
     p1 := make([]{{ .FF }}.Element, paddedSize)
     p2 := make([]{{ .FF }}.Element, paddedSize)
-    for i := 0; i < len(p1); i++ {
+    for i := range len(p1) {
         p1[i].SetRawBytes(r)
     }
     copy(p2, p1)
@@ -43,7 +43,7 @@ func Fuzz(data []byte) int {
 	domainWOPrecompute.FFTInverse(p1, DIF, true)
 	utils.BitReverse(p1)
 
-    for i := 0; i < len(p1); i++ {
+    for i := range len(p1) {
         if !p1[i].Equal(&p2[i]) {
             panic(fmt.Sprintf("bitReverse(DIF FFT(DIT FFT (bitReverse)))) != id, size %d", size) )
         }

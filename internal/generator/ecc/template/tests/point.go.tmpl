@@ -744,7 +744,7 @@ func Test{{ toUpper .PointName }}BatchScalarMultiplication(t *testing.T) {
 				return false
 			}
 
-			for i := 0; i < len(result); i++ {
+			for i := range len(result) {
 				var expectedJac {{ $TJacobian }}
 				var expected {{ $TAffine }}
 				var b big.Int
@@ -793,7 +793,7 @@ func Benchmark{{ $TJacobian }}Triple(b *testing.B) {
 	var a {{ $TJacobian }}
 	a.Set(&{{.PointName}}Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Triple(&a)
 	}
 }
@@ -807,7 +807,7 @@ func Benchmark{{ $TJacobian }}IsInSubGroup(b *testing.B) {
 	var a {{ $TJacobian }}
 	a.Set(&{{.PointName}}Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.IsInSubGroup()
 	}
 
@@ -835,7 +835,7 @@ func Benchmark{{ $TJacobian }}Equal(b *testing.B) {
 		}
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			a.Equal(&aZScaled)
 		}
 	})
@@ -850,7 +850,7 @@ func Benchmark{{ $TJacobian }}Equal(b *testing.B) {
 		}
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			a.Equal(&aPlus1)
 		}
 	})
@@ -866,7 +866,7 @@ func BenchmarkBatchAdd{{ $TAffine }}(b *testing.B) {
 	fillBenchBases{{ toUpper $.PointName }}(P[:])
 	fillBenchBases{{ toUpper $.PointName }}(R[:])
 
-	for i:=0; i < len(ridx);i++ {
+	for i := range len(ridx) {
 		ridx[i] = i
 	}
 
@@ -878,7 +878,7 @@ func BenchmarkBatchAdd{{ $TAffine }}(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		batchAdd{{ $TAffine }}[p{{$TAffine}}C{{$c}}, pp{{$TAffine}}C{{$c}}, c{{$TAffine}}C{{$c}}](&RR, &P, len(P))
 	}
 }
@@ -903,7 +903,7 @@ func Benchmark{{ $TAffine }}BatchScalarMultiplication(b *testing.B) {
 
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				_ = BatchScalarMultiplication{{ toUpper .PointName }}(&{{.PointName}}GenAff, sampleScalars[:using])
 			}
 		})
@@ -921,7 +921,7 @@ func Benchmark{{ $TJacobian }}ScalarMultiplication(b *testing.B) {
 		var doubleAndAdd {{ $TJacobian }}
 		b.Run(fmt.Sprintf("method=window/scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				doubleAndAdd.mulWindowed(&{{ .PointName }}Gen, scalar)
 			}
 		})
@@ -929,7 +929,7 @@ func Benchmark{{ $TJacobian }}ScalarMultiplication(b *testing.B) {
 		var glv {{ $TJacobian }}
 		b.Run(fmt.Sprintf("method={{- if and (eq .PointName "g2") (or (eq .Name "bn254") (eq .Name "bls12-381") (eq .Name "bls12-377")) }}GLS{{- else }}GLV{{- end }}/scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				{{- if and (eq .PointName "g2") (or (eq .Name "bn254") (eq .Name "bls12-381") (eq .Name "bls12-377")) }}
 				glv.mulGLS(&{{ .PointName }}Gen, scalar)
 				{{- else }}
@@ -952,7 +952,7 @@ func Benchmark{{ $TJacobian }}ScalarMultiplicationMethod(b *testing.B) {
 		var res {{ $TJacobian }}
 		b.Run(fmt.Sprintf("scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				res.ScalarMultiplication(&{{ .PointName }}Gen, scalar)
 			}
 		})
@@ -963,7 +963,7 @@ func Benchmark{{ $TJacobian }}ScalarMultiplicationMethod(b *testing.B) {
 func Benchmark{{ $TAffine }}CofactorClearing(b *testing.B) {
 	var a {{ $TJacobian }}
 	a.Set(&{{ toLower .PointName }}Gen)
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.ClearCofactor(&a)
 	}
 }
@@ -973,7 +973,7 @@ func Benchmark{{ $TJacobian }}Add(b *testing.B) {
 	var a {{ $TJacobian }}
 	a.Double(&{{.PointName}}Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.AddAssign(&{{.PointName}}Gen)
 	}
 }
@@ -985,7 +985,7 @@ func Benchmark{{ $TJacobian }}AddMixed(b *testing.B) {
 	var c {{ $TAffine }}
 	c.FromJacobian(&{{.PointName}}Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.AddMixed(&c)
 	}
 
@@ -995,7 +995,7 @@ func Benchmark{{ $TJacobian }}Double(b *testing.B) {
 	var a {{ $TJacobian }}
 	a.Set(&{{.PointName}}Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.DoubleAssign()
 	}
 
@@ -1008,7 +1008,7 @@ func Benchmark{{ toUpper .PointName}}JacExtAddMixed(b *testing.B) {
 	var c {{ $TAffine }}
 	c.FromJacobian(&{{.PointName}}Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.addMixed(&c)
 	}
 }
@@ -1020,7 +1020,7 @@ func Benchmark{{ toUpper .PointName}}JacExtSubMixed(b *testing.B) {
 	var c {{ $TAffine }}
 	c.FromJacobian(&{{.PointName}}Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.subMixed(&c)
 	}
 }
@@ -1032,7 +1032,7 @@ func Benchmark{{ toUpper .PointName}}JacExtDoubleMixed(b *testing.B) {
 	var c {{ $TAffine }}
 	c.FromJacobian(&{{.PointName}}Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.doubleMixed(&c)
 	}
 }
@@ -1044,7 +1044,7 @@ func Benchmark{{ toUpper .PointName}}JacExtDoubleNegMixed(b *testing.B) {
 	var c {{ $TAffine }}
 	c.FromJacobian(&{{.PointName}}Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.doubleNegMixed(&c)
 	}
 }
@@ -1055,7 +1055,7 @@ func Benchmark{{ toUpper .PointName}}JacExtAdd(b *testing.B) {
     c.double(&a)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.add(&c)
 	}
 }
@@ -1065,7 +1065,7 @@ func Benchmark{{ toUpper .PointName}}JacExtDouble(b *testing.B) {
 	a.doubleMixed(&{{.PointName}}GenAff)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.double(&a)
 	}
 }
@@ -1074,7 +1074,7 @@ func Benchmark{{ toUpper .PointName}}AffineAdd(b *testing.B) {
 	var a {{ $TAffine }}
 	a.Double(&{{.PointName}}GenAff)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Add(&a, &{{.PointName}}GenAff)
 	}
 }
@@ -1083,7 +1083,7 @@ func Benchmark{{ toUpper .PointName}}AffineDouble(b *testing.B) {
 	var a {{ $TAffine }}
 	a.Double(&{{.PointName}}GenAff)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Double(&a)
 	}
 }

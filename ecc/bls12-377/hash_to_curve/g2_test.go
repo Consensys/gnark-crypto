@@ -19,7 +19,7 @@ func GenE2() gopter.Gen {
 	return gopter.CombineGens(
 		GenFp(),
 		GenFp(),
-	).Map(func(values []interface{}) fptower.E2 {
+	).Map(func(values []any) fptower.E2 {
 		return fptower.E2{A0: values[0].(fp.Element), A1: values[1].(fp.Element)}
 	})
 }

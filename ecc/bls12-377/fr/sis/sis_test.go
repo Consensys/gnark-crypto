@@ -101,22 +101,22 @@ func TestLimbDecomposeBytes(t *testing.T) {
 
 	nbElmts := 10
 	a := make([]fr.Element, nbElmts)
-	for i := 0; i < nbElmts; i++ {
+	for i := range nbElmts {
 		a[i].MustSetRandom()
 	}
 
 	logTwoBound := 8
 
-	for cc := 0; cc < 3; cc++ {
+	for range 3 {
 		vr := NewLimbIterator(&VectorIterator{v: a}, logTwoBound/8)
 		m := make(fr.Vector, nbElmts*fr.Bytes*8/logTwoBound)
 		var ok bool
-		for i := 0; i < len(m); i++ {
+		for i := range len(m) {
 			m[i][0], ok = vr.NextLimb()
 			assert.True(ok)
 		}
 
-		for i := 0; i < len(m); i++ {
+		for i := range len(m) {
 			m[i].Mul(&m[i], &montConstant)
 		}
 
@@ -124,7 +124,7 @@ func TestLimbDecomposeBytes(t *testing.T) {
 		x.SetUint64(1 << logTwoBound)
 
 		coeffsPerFieldsElmt := fr.Bytes * 8 / logTwoBound
-		for i := 0; i < nbElmts; i++ {
+		for i := range nbElmts {
 			r := eval(m[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
 			assert.True(r.Equal(&a[i]), "limbDecomposeBytes failed")
 		}
@@ -148,7 +148,7 @@ func makeKeyDeterministic(t *testing.T, sis *RSis, _seed int64) {
 
 	polyRand := func(seed fr.Element, deg int) []fr.Element {
 		res := make([]fr.Element, deg)
-		for i := 0; i < deg; i++ {
+		for i := range deg {
 			res[i].Square(&seed)
 			seed.Set(&res[i])
 		}
@@ -158,7 +158,7 @@ func makeKeyDeterministic(t *testing.T, sis *RSis, _seed int64) {
 	var seed, one fr.Element
 	one.SetOne()
 	seed.SetInt64(_seed)
-	for i := 0; i < len(sis.A); i++ {
+	for i := range len(sis.A) {
 		sis.A[i] = polyRand(seed, sis.Degree)
 		copy(sis.Ag[i], sis.A[i])
 		sis.Domain.FFT(sis.Ag[i], fft.DIF, fft.OnCoset())
@@ -176,7 +176,7 @@ func BenchmarkSIS(b *testing.B) {
 	// of field element directly because otherwise the conversion time is not
 	// accounted for in the benchmark.
 	inputs := make(fr.Vector, nbInputs)
-	for i := 0; i < len(inputs); i++ {
+	for i := range len(inputs) {
 		inputs[i].MustSetRandom()
 	}
 
@@ -212,7 +212,7 @@ func benchmarkSIS(b *testing.B, input []fr.Element, sparse bool, logTwoBound, lo
 		res := make([]fr.Element, 1<<logTwoDegree)
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			_ = instance.Hash(input, res)
 		}
 	})
@@ -226,7 +226,7 @@ func TestPartialFFT(t *testing.T) {
 		twiddles = precomputeTwiddlesCoset(domain.Generator, domain.FrMultiplicativeGen)
 	)
 
-	for mask := 0; mask < 16; mask++ {
+	for mask := range 16 {
 
 		var (
 			a = vec123456()
@@ -254,12 +254,12 @@ func vec123456() []fr.Element {
 }
 
 func zeroizeWithMask(v []fr.Element, mask int) {
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		if (mask>>i)&1 == 1 {
 			continue
 		}
 
-		for j := 0; j < 16; j++ {
+		for j := range 16 {
 			v[16*i+j].SetZero()
 		}
 	}

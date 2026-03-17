@@ -31,7 +31,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	z.Mul(&x, z)
 
 	// Step 59: z = x^0x400000000000008
-	for s := 0; s < 3; s++ {
+	for range 3 {
 		z.Square(z)
 	}
 

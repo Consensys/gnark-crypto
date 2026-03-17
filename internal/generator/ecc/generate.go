@@ -3,6 +3,7 @@ package ecc
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -87,12 +88,7 @@ func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 	}
 
 	funcs["contains"] = func(v int, s []int) bool {
-		for _, sv := range s {
-			if v == sv {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(s, v)
 	}
 	lastCG1 := make([]int, 0)
 	for {
@@ -165,10 +161,5 @@ type pconf struct {
 }
 
 func contains(slice []int, v int) bool {
-	for i := 0; i < len(slice); i++ {
-		if slice[i] == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, v)
 }

@@ -62,9 +62,9 @@ func NewDecoder(r io.Reader, options ...func(*Decoder)) *Decoder {
 
 // Decode reads the binary encoding of v from the stream
 // type must be *uint64, *fr.Element, *fp.Element, *G1Affine or *[]G1Affine
-func (dec *Decoder) Decode(v interface{}) (err error) {
+func (dec *Decoder) Decode(v any) (err error) {
 	rv := reflect.ValueOf(v)
-	if v == nil || rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
+	if v == nil || rv.Kind() != reflect.Pointer || rv.IsNil() || !rv.Elem().CanSet() {
 		return errors.New("bn254 decoder: unsupported type, need pointer")
 	}
 
@@ -317,7 +317,7 @@ func NewEncoder(w io.Writer, options ...func(*Encoder)) *Encoder {
 
 // Encode writes the binary encoding of v to the stream
 // type must be uint64, *fr.Element, *fp.Element, *G1Affine, []G1Affine or *[]G1Affine
-func (enc *Encoder) Encode(v interface{}) (err error) {
+func (enc *Encoder) Encode(v any) (err error) {
 	if enc.raw {
 		return enc.encodeRaw(v)
 	}
@@ -358,9 +358,9 @@ func isZeroed(firstByte byte, buf []byte) bool {
 	return true
 }
 
-func (enc *Encoder) encode(v interface{}) (err error) {
+func (enc *Encoder) encode(v any) (err error) {
 	rv := reflect.ValueOf(v)
-	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
+	if v == nil || (rv.Kind() == reflect.Pointer && rv.IsNil()) {
 		return errors.New("<no value> encoder: can't encode <nil>")
 	}
 
@@ -453,7 +453,7 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 
 		var buf [SizeOfG1AffineCompressed]byte
 
-		for i := 0; i < len(t); i++ {
+		for i := range t {
 			buf = t[i].Bytes()
 			written, err = enc.w.Write(buf[:])
 			enc.n += int64(written)
@@ -473,9 +473,9 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 	}
 }
 
-func (enc *Encoder) encodeRaw(v interface{}) (err error) {
+func (enc *Encoder) encodeRaw(v any) (err error) {
 	rv := reflect.ValueOf(v)
-	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
+	if v == nil || (rv.Kind() == reflect.Pointer && rv.IsNil()) {
 		return errors.New("<no value> encoder: can't encode <nil>")
 	}
 
@@ -568,7 +568,7 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 
 		var buf [SizeOfG1AffineUncompressed]byte
 
-		for i := 0; i < len(t); i++ {
+		for i := range t {
 			buf = t[i].RawBytes()
 			written, err = enc.w.Write(buf[:])
 			enc.n += int64(written)

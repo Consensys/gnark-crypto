@@ -212,13 +212,13 @@ func PrecomputeLattice4(res *Lattice4) {
 
 	var tmp big.Int
 	res.Det.SetUint64(0)
-	for col := 0; col < 4; col++ {
+	for col := range 4 {
 		tmp.Mul(&res.V[col][0], &cof[col])
 		res.Det.Add(&res.Det, &tmp)
 	}
 	if res.Det.Sign() < 0 {
 		res.Det.Neg(&res.Det)
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			cof[i].Neg(&cof[i])
 		}
 	}
@@ -321,8 +321,8 @@ func getVector4(l *Lattice4, a, b, c, d *big.Int) [4]big.Int {
 	var res [4]big.Int
 	coeffs := [4]*big.Int{a, b, c, d}
 	var tmp big.Int
-	for row := 0; row < 4; row++ {
-		for col := 0; col < 4; col++ {
+	for row := range 4 {
+		for col := range 4 {
 			tmp.Mul(coeffs[col], &l.V[col][row])
 			res[row].Add(&res[row], &tmp)
 		}

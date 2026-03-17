@@ -406,7 +406,7 @@ func (p *G2Affine) manyDoubleSteps(k int, evaluations []LineEvaluationAff) {
 
 	// Step 2: Compute D[i] = -2*C[i] = 2*y[i] for i = 0..k-1
 	D := make([]fptower.E2, k)
-	for i := 0; i < k; i++ {
+	for i := range k {
 		D[i].Double(&C[i]).Neg(&D[i])
 	}
 
@@ -494,7 +494,7 @@ func (p *G2Affine) manyDoublesAndAdd(k int, doubEvals []LineEvaluationAff, addEv
 
 	// Step 2: Compute D[i] = -2*C[i] for i = 0..k-1 (denominators for doubling lines)
 	D := make([]fptower.E2, k)
-	for i := 0; i < k; i++ {
+	for i := range k {
 		D[i].Double(&C[i]).Neg(&D[i])
 	}
 
@@ -683,7 +683,7 @@ func PrecomputeLines(Q G2Affine) (PrecomputedLines [2][len(LoopCounter) - 1]Line
 	{
 		var doubEvals [45]LineEvaluationAff
 		accQ.manyDoublesAndAdd(45, doubEvals[:], &PrecomputedLines[0][0], &PrecomputedLines[1][0], &Q)
-		for j := 0; j < 45; j++ {
+		for j := range 45 {
 			PrecomputedLines[0][45-j] = doubEvals[j]
 		}
 	}
@@ -713,11 +713,11 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluat
 	// precomputations
 	yInv := make([]fp.Element, n)
 	xNegOverY := make([]fp.Element, n)
-	for k := 0; k < n; k++ {
+	for k := range n {
 		yInv[k].Set(&P[k].Y)
 	}
 	yInv = fp.BatchInvert(yInv)
-	for k := 0; k < n; k++ {
+	for k := range n {
 		xNegOverY[k].Mul(&P[k].X, &yInv[k]).
 			Neg(&xNegOverY[k])
 	}
@@ -772,7 +772,7 @@ func MillerLoopFixedQ(P []G1Affine, lines [][2][len(LoopCounter) - 1]LineEvaluat
 		// (∏ᵢfᵢ)²
 		result.Square(&result)
 
-		for k := 0; k < n; k++ {
+		for k := range n {
 			// line evaluation at P[k]
 			lines[k][0][i].R0.
 				MulByElement(

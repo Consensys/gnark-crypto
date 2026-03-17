@@ -277,7 +277,7 @@ func BatchOpenSinglePoint(polynomials [][]fr.Element, digests []Digest, point fr
 	res.ClaimedValues = make([]fr.Element, len(polynomials))
 	var wg sync.WaitGroup
 	wg.Add(len(polynomials))
-	for i := 0; i < len(polynomials); i++ {
+	for i := range len(polynomials) {
 		go func(_i int) {
 			res.ClaimedValues[_i] = eval(polynomials[_i], point)
 			wg.Done()
@@ -393,7 +393,7 @@ func FoldProof(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.
 // * dataTranscript extra data that might be needed to derive the challenge used for the folding
 func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningProof, point fr.Element, hf hash.Hash, vk VerifyingKey, dataTranscript ...[]byte) error {
 
-	for i := 0; i < len(digests); i++ {
+	for i := range len(digests) {
 		if !digests[i].IsInSubGroup() {
 			return ErrCommitmentNotInSubgroup
 		}
@@ -422,12 +422,12 @@ func BatchVerifySinglePoint(digests []Digest, batchOpeningProof *BatchOpeningPro
 // * points the list of points at which the opening are done
 func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr.Element, vk VerifyingKey) error {
 
-	for i := 0; i < len(digests); i++ {
+	for i := range len(digests) {
 		if !digests[i].IsInSubGroup() {
 			return ErrCommitmentNotInSubgroup
 		}
 	}
-	for i := 0; i < len(proofs); i++ {
+	for i := range len(proofs) {
 		if !proofs[i].H.IsInSubGroup() {
 			return ErrQuotientNotNotInSubgroup
 		}
@@ -460,7 +460,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	// fold the committed quotients compute ∑ᵢλᵢ[Hᵢ(α)]G₁
 	var foldedQuotients bw6761.G1Affine
 	quotients := make([]bw6761.G1Affine, len(proofs))
-	for i := 0; i < len(randomNumbers); i++ {
+	for i := range len(randomNumbers) {
 		quotients[i].Set(&proofs[i].H)
 	}
 	config := ecc.MultiExpConfig{}
@@ -470,7 +470,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 
 	// fold digests and evals
 	evals := make([]fr.Element, len(digests))
-	for i := 0; i < len(randomNumbers); i++ {
+	for i := range len(randomNumbers) {
 		evals[i].Set(&proofs[i].ClaimedValue)
 	}
 
@@ -493,7 +493,7 @@ func BatchVerifyMultiPoints(digests []Digest, proofs []OpeningProof, points []fr
 	// combien the points and the quotients using γᵢ
 	// ∑ᵢλᵢ[p_i]([Hᵢ(α)]G₁)
 	var foldedPointsQuotients bw6761.G1Affine
-	for i := 0; i < len(randomNumbers); i++ {
+	for i := range len(randomNumbers) {
 		randomNumbers[i].Mul(&randomNumbers[i], &points[i])
 	}
 	_, err = foldedPointsQuotients.MultiExp(quotients, randomNumbers, config)
@@ -538,7 +538,7 @@ func fold(di []Digest, fai []fr.Element, ci []fr.Element) (Digest, fr.Element, e
 
 	// fold the claimed values ∑ᵢcᵢf(aᵢ)
 	var foldedEvaluations, tmp fr.Element
-	for i := 0; i < nbDigests; i++ {
+	for i := range nbDigests {
 		tmp.Mul(&fai[i], &ci[i])
 		foldedEvaluations.Add(&foldedEvaluations, &tmp)
 	}
@@ -574,7 +574,7 @@ func deriveGamma(point fr.Element, digests []Digest, claimedValues []fr.Element,
 		}
 	}
 
-	for i := 0; i < len(dataTranscript); i++ {
+	for i := range len(dataTranscript) {
 		if err := fs.Bind("gamma", dataTranscript[i]); err != nil {
 			return fr.Element{}, err
 		}
