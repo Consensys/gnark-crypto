@@ -9,7 +9,7 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 
 	"github.com/consensys/gnark-crypto/field/goldilocks"
 	"github.com/consensys/gnark-crypto/field/goldilocks/fft"

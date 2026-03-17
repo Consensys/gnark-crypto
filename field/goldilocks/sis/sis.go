@@ -13,7 +13,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/field/goldilocks"
 	"github.com/consensys/gnark-crypto/field/goldilocks/fft"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 	"golang.org/x/crypto/blake2b"
 )
 

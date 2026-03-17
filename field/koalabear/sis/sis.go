@@ -13,7 +13,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/fft"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 	"github.com/consensys/gnark-crypto/utils/cpu"
 	"golang.org/x/crypto/blake2b"
 )
