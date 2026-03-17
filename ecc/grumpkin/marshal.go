@@ -14,7 +14,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/grumpkin/fp"
 	"github.com/consensys/gnark-crypto/ecc/grumpkin/fr"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 )
 
 // To encode G1Affine points, we mask the most significant bits with these bits to specify without ambiguity

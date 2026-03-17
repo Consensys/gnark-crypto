@@ -10,7 +10,7 @@ import (
 	"math/bits"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 	"github.com/consensys/gnark-crypto/utils"
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
@@ -56,7 +56,7 @@ func (domain *Domain) FFTExt(a []fext.E4, decimation Decimation, opts ...Option)
 				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 			}
 		}
-		parallel.ExecuteAligned(len(a), 4, func(start, end int) {
+		parallel.Execute(len(a), func(start, end int) {
 			va := fext.Vector(a[start:end])
 			va.MulByElement(va, cosetTable[start:end])
 		}, opt.nbTasks)
@@ -125,7 +125,7 @@ func (domain *Domain) FFTInverseExt(a []fext.E4, decimation Decimation, opts ...
 
 	// scale by CardinalityInv
 	if !opt.coset {
-		parallel.ExecuteAligned(len(a), 4, func(start, end int) {
+		parallel.Execute(len(a), func(start, end int) {
 			va := fext.Vector(a[start:end])
 			va.ScalarMulByElement(va, &domain.CardinalityInv)
 		}, opt.nbTasks)
@@ -155,7 +155,7 @@ func (domain *Domain) FFTInverseExt(a []fext.E4, decimation Decimation, opts ...
 			utils.BitReverse(cosetTableInv)
 		}
 	}
-	parallel.ExecuteAligned(len(a), 4, func(start, end int) {
+	parallel.Execute(len(a), func(start, end int) {
 		va := fext.Vector(a[start:end])
 		va.MulByElement(va, cosetTableInv[start:end])
 		va.ScalarMulByElement(va, &domain.CardinalityInv)

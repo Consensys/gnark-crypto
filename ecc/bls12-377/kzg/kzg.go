@@ -16,7 +16,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 )
 
 var (

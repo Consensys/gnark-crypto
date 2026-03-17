@@ -10,7 +10,7 @@ import (
 	"math/bits"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 	"github.com/consensys/gnark-crypto/utils"
 
 	"github.com/consensys/gnark-crypto/field/babybear"
@@ -67,7 +67,7 @@ func (domain *Domain) FFT(a []babybear.Element, decimation Decimation, opts ...O
 				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 			}
 		}
-		parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+		parallel.Execute(len(a), func(start, end int) {
 			v1 := babybear.Vector(a[start:end])
 			v2 := babybear.Vector(cosetTable[start:end])
 			v1.Mul(v1, v2)
@@ -137,7 +137,7 @@ func (domain *Domain) FFTInverse(a []babybear.Element, decimation Decimation, op
 	// scale by CardinalityInv
 	if !opt.coset {
 		// Use vectorized scalar multiply instead of element-by-element loop
-		parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+		parallel.Execute(len(a), func(start, end int) {
 			v := babybear.Vector(a[start:end])
 			v.ScalarMul(v, &domain.CardinalityInv)
 		}, opt.nbTasks)
@@ -166,7 +166,7 @@ func (domain *Domain) FFTInverse(a []babybear.Element, decimation Decimation, op
 			utils.BitReverse(cosetTableInv)
 		}
 	}
-	parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+	parallel.Execute(len(a), func(start, end int) {
 		v := babybear.Vector(a[start:end])
 		v.Mul(v, babybear.Vector(cosetTableInv[start:end]))
 		v.ScalarMul(v, &domain.CardinalityInv)

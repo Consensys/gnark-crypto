@@ -3,7 +3,7 @@ package vortex
 import (
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/sis"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 )
 
 // transversalHash hashes the columns of codewords, using SIS by default, unless ots (="other than sis") is not nil.

@@ -17,7 +17,7 @@ import (
 	curve "github.com/consensys/gnark-crypto/ecc/bls12-381"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/mpcsetup"
-	"github.com/consensys/gnark-crypto/utils"
+	"github.com/consensys/gnark-crypto/parallel"
 )
 
 type MpcSetup struct {
@@ -128,7 +128,7 @@ func (s *MpcSetup) Verify(next *MpcSetup) error {
 
 	// TODO @Tabaie replace with batch subgroup check
 	n := len(next.srs.Pk.G1) - 1
-	wp := utils.NewWorkerPool()
+	wp := parallel.NewWorkerPool()
 	defer wp.Stop()
 	fail := make(chan error, wp.NbWorkers())
 
