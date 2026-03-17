@@ -1488,7 +1488,7 @@ func (z *Element) SqrtTonelliShanks(x *Element) *Element {
 	// compute legendre symbol
 	// t = x^((q-1)/2) = r-1 squaring of xˢ
 	t = b
-	for i := uint64(0); i < r-1; i++ {
+	for range r - 1 {
 		t.Square(&t)
 	}
 	if t.IsZero() {

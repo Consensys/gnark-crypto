@@ -273,7 +273,7 @@ func TestE4Exp(t *testing.T) {
 			k := int64(0b101101) // 45
 			res.Exp(a, big.NewInt(k))
 			mul.SetOne()
-			for i := int64(0); i < k; i++ {
+			for range k {
 				mul.Mul(&mul, &a)
 			}
 			return res.Equal(&mul)
@@ -575,7 +575,7 @@ func TestVectorExp(t *testing.T) {
 	for i := range v {
 		var mul E4
 		mul.SetOne()
-		for j := int64(0); j < k; j++ {
+		for range k {
 			mul.Mul(&mul, &v[i])
 		}
 		assert.True(expK[i].Equal(&mul), "Exp(x, k) should match repeated multiplication for all elements")

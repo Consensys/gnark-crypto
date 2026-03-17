@@ -73,7 +73,7 @@ func NewDecoder(r io.Reader, options ...func(*Decoder)) *Decoder {
 // type must be *uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, *[]G1Affine or *[]G2Affine
 func (dec *Decoder) Decode(v any) (err error) {
 	rv := reflect.ValueOf(v)
-	if v == nil || rv.Kind() != reflect.Pointer || rv.IsNil() || !rv.Elem().CanSet() {
+	if v == nil || rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
 		return errors.New("bls24-315 decoder: unsupported type, need pointer")
 	}
 
@@ -479,7 +479,7 @@ func isZeroed(firstByte byte, buf []byte) bool {
 
 func (enc *Encoder) encode(v any) (err error) {
 	rv := reflect.ValueOf(v)
-	if v == nil || (rv.Kind() == reflect.Pointer && rv.IsNil()) {
+	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
 		return errors.New("<no value> encoder: can't encode <nil>")
 	}
 
@@ -620,7 +620,7 @@ func (enc *Encoder) encode(v any) (err error) {
 
 func (enc *Encoder) encodeRaw(v any) (err error) {
 	rv := reflect.ValueOf(v)
-	if v == nil || (rv.Kind() == reflect.Pointer && rv.IsNil()) {
+	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
 		return errors.New("<no value> encoder: can't encode <nil>")
 	}
 

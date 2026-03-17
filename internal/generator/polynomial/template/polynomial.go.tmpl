@@ -252,7 +252,7 @@ func getLagrangeBasis(domainSize uint8) []Polynomial {
 func computeLagrangeBasis(domainSize uint8) []Polynomial {
 
 	constTerms := make([]{{.ElementType}}, domainSize)
-	for i := uint8(0); i < domainSize; i++ {
+	for i := range domainSize {
 		constTerms[i].SetInt64(-int64(i))
 	}
 
@@ -260,11 +260,11 @@ func computeLagrangeBasis(domainSize uint8) []Polynomial {
 	multScratch := make(Polynomial, domainSize-1)
 
 	// compute pₗ
-	for l := uint8(0); l < domainSize; l++ {
+	for l := range domainSize {
 
 		// TODO @Tabaie Optimize this with some trees? O(log(domainSize)) polynomial mults instead of O(domainSize)? Then again it would be fewer big poly mults vs many small poly mults
 		d := uint8(0) //d is the current degree of res
-		for i := uint8(0); i < domainSize; i++ {
+		for i := range domainSize {
 			if i == l {
 				continue
 			}
@@ -289,12 +289,12 @@ func computeLagrangeBasis(domainSize uint8) []Polynomial {
 
 	// We have pₗ(i≠l)=0. Now scale so that pₗ(l)=1
 	// Replace the constTerms with norms
-	for l := uint8(0); l < domainSize; l++ {
+	for l := range domainSize {
 		constTerms[l].Neg(&constTerms[l])
 		constTerms[l] = res[l].Eval(&constTerms[l])
 	}
 	constTerms = {{.FieldPackageName}}.BatchInvert(constTerms)
-	for l := uint8(0); l < domainSize; l++ {
+	for l := range domainSize {
 		res[l].ScaleInPlace(&constTerms[l])
 	}
 

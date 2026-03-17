@@ -77,10 +77,7 @@ func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, 
 	nbRows := len(t)
 	proof.fs = make([]kzg.Digest, nbRows)
 	proof.ts = make([]kzg.Digest, nbRows)
-	_nbColumns := len(f[0]) + 1
-	if _nbColumns < len(t[0]) {
-		_nbColumns = len(t[0])
-	}
+	_nbColumns := max(len(f[0])+1, len(t[0]))
 	d := fft.NewDomain(uint64(_nbColumns))
 	nbColumns := d.Cardinality
 	lfs := make([][]fr.Element, nbRows)

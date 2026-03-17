@@ -746,7 +746,7 @@ func partitionScalars(scalars []fr.Element, c uint64, nbTasks int) ([]uint16, []
 			var carry int
 
 			// for each chunk in the scalar, compute the current digit, and an eventual carry
-			for chunk := uint64(0); chunk < nbChunks-1; chunk++ {
+			for chunk := range nbChunks - 1 {
 				s := selectors[chunk]
 
 				// init with carry if any

@@ -216,7 +216,7 @@ func (vector *Vector) ReadFrom(r io.Reader) (int64, error) {
 		*vector = []{{ .ElementName }}{}
 	}
 
-	for i := uint64(0); i < headerSliceLen; i++ {
+	for i := range headerSliceLen {
 		read, err := io.ReadFull(r, buf[:])
 		totalRead += int64(read)
 		if errors.Is(err, io.ErrUnexpectedEOF) {

@@ -88,7 +88,7 @@ func partitionScalars(scalars []fr.Element, c uint64,  nbTasks int) ([]uint16, [
 
 	// compute offset and word selector / shift to select the right bits of our windows
 	selectors := make([]selector, nbChunks)
-	for chunk:=uint64(0); chunk < nbChunks; chunk++ {
+	for chunk := range nbChunks {
 		jc := uint64(chunk * c)
 		d := selector{}
 		d.index = jc / 64
@@ -115,7 +115,7 @@ func partitionScalars(scalars []fr.Element, c uint64,  nbTasks int) ([]uint16, [
 			var carry int
 
 			// for each chunk in the scalar, compute the current digit, and an eventual carry
-			for chunk := uint64(0); chunk < nbChunks - 1; chunk++ {
+			for chunk := range nbChunks - 1 {
 				s := selectors[chunk]
 
 				// init with carry if any

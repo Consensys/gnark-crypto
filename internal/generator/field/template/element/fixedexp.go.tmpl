@@ -60,7 +60,11 @@ func (z *{{.eName}}) ExpBy{{$.name}}(x {{.eName}}) *{{.eName}} {
 	{{ $i.Output }}.Square({{ ptr_ .X }}{{ .X }})
 	{{- $first = 1 -}}
 	{{- end }}
-	for s := {{ $first }}; s < {{ .S }}; s++ {
+	{{- if eq $first 0 }}
+	for range {{ .S }} {
+	{{- else }}
+	for s := 1; s < {{ .S }}; s++ {
+	{{- end }}
 		{{ $i.Output }}.Square({{ ptr_ $i.Output }}{{ $i.Output }})
 	}
 	{{ end -}}

@@ -207,8 +207,8 @@ func TestPrecomputeLagrange(t *testing.T) {
 	testForDomainSize := func(domainSize uint8) bool {
 		polys := computeLagrangeBasis(domainSize)
 
-		for l := uint8(0); l < domainSize; l++ {
-			for i := uint8(0); i < domainSize; i++ {
+		for l := range domainSize {
+			for i := range domainSize {
 				var I {{.ElementType}}
 				I.SetUint64(uint64(i))
 				y := polys[l].Eval(&I)

@@ -2679,7 +2679,7 @@ func TestUpdateFactorsDouble(t *testing.T) {
 
 func TestUpdateFactorsNeg(t *testing.T) {
 	var fMistake bool
-	for i := range 1000 {
+	for i := 0; i < 1000; i++ {
 		f, g := randomizeUpdateFactors()
 
 		if f == 0x80000000 || g == 0x80000000 {
