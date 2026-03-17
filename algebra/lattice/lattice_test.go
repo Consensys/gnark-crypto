@@ -594,7 +594,7 @@ func BenchmarkRationalReconstruct(b *testing.B) {
 	k, _ := new(big.Int).SetString("12345678901234567890123456789012345678901234567890", 10)
 	k.Mod(k, bn254r)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRationalReconstructRes = RationalReconstruct(k, bn254r)
 	}
 }
@@ -604,7 +604,7 @@ func BenchmarkReconstructorRationalReconstruct(b *testing.B) {
 	k.Mod(k, bn254r)
 	rc := NewReconstructor(bn254r)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRationalReconstructRes = rc.RationalReconstruct(k)
 	}
 }
@@ -617,7 +617,7 @@ func BenchmarkMultiRationalReconstruct(b *testing.B) {
 	k1.Mod(k1, bn254r)
 	k2.Mod(k2, bn254r)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchMultiRationalReconstructRes = MultiRationalReconstruct(k1, k2, bn254r)
 	}
 }
@@ -628,7 +628,7 @@ func BenchmarkRationalReconstructExt(b *testing.B) {
 	k, _ := new(big.Int).SetString("12345678901234567890123456789012345678901234567890", 10)
 	k.Mod(k, bn254r)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRationalReconstructExtRes = RationalReconstructExt(k, bn254r, bn254Lambda)
 	}
 }
@@ -641,7 +641,7 @@ func BenchmarkMultiRationalReconstructExt(b *testing.B) {
 	k1.Mod(k1, bn254r)
 	k2.Mod(k2, bn254r)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchMultiRationalReconstructExtRes = MultiRationalReconstructExt(k1, k2, bn254r, bn254Lambda)
 	}
 }
@@ -653,7 +653,7 @@ func BenchmarkReconstructorMultiRationalReconstruct(b *testing.B) {
 	k2.Mod(k2, bn254r)
 	rc := NewReconstructor(bn254r)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchMultiRationalReconstructRes = rc.MultiRationalReconstruct(k1, k2)
 	}
 }
@@ -663,7 +663,7 @@ func BenchmarkReconstructorRationalReconstructExt(b *testing.B) {
 	k.Mod(k, bn254r)
 	rc := NewReconstructor(bn254r).SetLambda(bn254Lambda)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRationalReconstructExtRes = rc.RationalReconstructExt(k)
 	}
 }
@@ -675,7 +675,7 @@ func BenchmarkReconstructorMultiRationalReconstructExt(b *testing.B) {
 	k2.Mod(k2, bn254r)
 	rc := NewReconstructor(bn254r).SetLambda(bn254Lambda)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchMultiRationalReconstructExtRes = rc.MultiRationalReconstructExt(k1, k2)
 	}
 }

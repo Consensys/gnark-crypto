@@ -403,7 +403,7 @@ func BenchmarkVortexReal(b *testing.B) {
 
 	b.Run("committing", func(b *testing.B) {
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			proverState, err = Commit(params, m)
 			if err != nil {
 				b.Fatal(err)
@@ -419,14 +419,14 @@ func BenchmarkVortexReal(b *testing.B) {
 			b.Fatal(err)
 		}
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			proverState.OpenLinComb(alpha)
 		}
 	})
 
 	b.Run("opening-columns", func(b *testing.B) {
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			_, err := proverState.OpenColumns(selectedColumns)
 			if err != nil {
 				b.Fatal(err)

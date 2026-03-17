@@ -187,7 +187,7 @@ func BenchmarkE12Add(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Add(&a, &c)
 	}
 }
@@ -197,7 +197,7 @@ func BenchmarkE12Sub(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Sub(&a, &c)
 	}
 }
@@ -207,7 +207,7 @@ func BenchmarkE12Mul(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Mul(&a, &c)
 	}
 }
@@ -216,7 +216,7 @@ func BenchmarkE12Square(b *testing.B) {
 	var a E12
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Square(&a)
 	}
 }
@@ -225,7 +225,7 @@ func BenchmarkE12Inverse(b *testing.B) {
 	var a E12
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Inverse(&a)
 	}
 }
@@ -236,7 +236,7 @@ func BenchmarkE12ExpBySeed(b *testing.B) {
 	seed.SetString("3218079743", 10)
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Exp(a, &seed).Conjugate(&a)
 	}
 }

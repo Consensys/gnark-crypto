@@ -263,7 +263,7 @@ func BenchmarkE4Add(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Add(&a, &c)
 	}
 }
@@ -273,7 +273,7 @@ func BenchmarkE4Sub(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Sub(&a, &c)
 	}
 }
@@ -283,7 +283,7 @@ func BenchmarkE4Mul(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Mul(&a, &c)
 	}
 }
@@ -292,7 +292,7 @@ func BenchmarkE4Square(b *testing.B) {
 	var a E4
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Square(&a)
 	}
 }
@@ -301,7 +301,7 @@ func BenchmarkE4Sqrt(b *testing.B) {
 	var a E4
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Sqrt(&a)
 	}
 }
@@ -310,7 +310,7 @@ func BenchmarkE4Inverse(b *testing.B) {
 	var a E4
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Inverse(&a)
 	}
 }
@@ -319,7 +319,7 @@ func BenchmarkE4MulNonRes(b *testing.B) {
 	var a E4
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.MulByNonResidue(&a)
 	}
 }
@@ -328,7 +328,7 @@ func BenchmarkE4MulNonResInv(b *testing.B) {
 	var a E4
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.MulByNonResidueInv(&a)
 	}
 }
@@ -336,7 +336,7 @@ func BenchmarkE4Conjugate(b *testing.B) {
 	var a E4
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Conjugate(&a)
 	}
 }

@@ -36,13 +36,13 @@ func BenchmarkComputeMTLeaves(b *testing.B) {
 	}
 
 	b.Run("computeMDLeaves old", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			_ = computeMTLeaves(sisHashes, nbCols, sisKeySize)
 		}
 	})
 
 	b.Run("computeMDLeaves new 2x16", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			_ = computeMTLeaves2x16(sisHashes, nbCols, sisKeySize)
 		}
 	})

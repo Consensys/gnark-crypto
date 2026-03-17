@@ -217,7 +217,7 @@ func BenchmarkE6DMulTower(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.mulTower(&a, &c)
 	}
 }
@@ -227,7 +227,7 @@ func BenchmarkE6DMulMontgomery6(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.mulMontgomery6(&a, &c)
 	}
 }
@@ -235,7 +235,7 @@ func BenchmarkE6DSquareTower(b *testing.B) {
 	var a E6D
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.squareTower(&a)
 	}
 }
@@ -244,7 +244,7 @@ func BenchmarkE6DSquareMontgomery6(b *testing.B) {
 	var a E6D
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.squareMontgomery6(&a)
 	}
 }
