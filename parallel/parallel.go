@@ -55,6 +55,58 @@ func Execute(nbIterations int, work func(int, int), maxCpus ...int) {
 	wg.Wait()
 }
 
+// ExecuteAligned is like Execute but keeps chunk boundaries aligned to the
+// provided alignment, except for a possible tail on the last chunk.
+func ExecuteAligned(nbIterations, alignment int, work func(int, int), maxCpus ...int) {
+	nbTasks := runtime.NumCPU()
+	if len(maxCpus) == 1 {
+		nbTasks = maxCpus[0]
+		if nbTasks < 1 {
+			nbTasks = 1
+		} else if nbTasks > 512 {
+			nbTasks = 512
+		}
+	}
+
+	if nbTasks == 1 || nbIterations <= alignment {
+		work(0, nbIterations)
+		return
+	}
+
+	totalUnits := nbIterations / alignment
+	leftover := nbIterations % alignment
+
+	if nbTasks > totalUnits {
+		nbTasks = totalUnits
+	}
+	if nbTasks <= 1 {
+		work(0, nbIterations)
+		return
+	}
+
+	unitsPerTask := totalUnits / nbTasks
+	extraUnits := totalUnits % nbTasks
+
+	var wg sync.WaitGroup
+	start := 0
+	for i := 0; i < nbTasks; i++ {
+		units := unitsPerTask
+		if i < extraUnits {
+			units++
+		}
+		end := start + units*alignment
+		if i == nbTasks-1 {
+			end += leftover
+		}
+		_start, _end := start, end
+		start = end
+		wg.Go(func() {
+			work(_start, _end)
+		})
+	}
+	wg.Wait()
+}
+
 // Chunks returns a slice of [2]int where each element is a (start, end) range to be processed by a worker,
 // exactly as Execute does.
 func Chunks(nbIterations int, maxCpus ...int) [][2]int {
