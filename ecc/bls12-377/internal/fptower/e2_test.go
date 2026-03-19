@@ -397,7 +397,7 @@ func BenchmarkE2Add(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Add(&a, &c)
 	}
 }
@@ -407,7 +407,7 @@ func BenchmarkE2Sub(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Sub(&a, &c)
 	}
 }
@@ -417,7 +417,7 @@ func BenchmarkE2Mul(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Mul(&a, &c)
 	}
 }
@@ -428,7 +428,7 @@ func BenchmarkE2MulByElement(b *testing.B) {
 	c.MustSetRandom()
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.MulByElement(&a, &c)
 	}
 }
@@ -437,7 +437,7 @@ func BenchmarkE2Square(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Square(&a)
 	}
 }
@@ -447,7 +447,7 @@ func BenchmarkE2Sqrt(b *testing.B) {
 	a.MustSetRandom()
 	a.Square(&a)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		c.Sqrt(&a)
 	}
 }
@@ -457,7 +457,7 @@ func BenchmarkE2Exp(b *testing.B) {
 	x.MustSetRandom()
 	b1, _ := rand.Int(rand.Reader, fp.Modulus())
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		x.Exp(x, b1)
 	}
 }
@@ -466,7 +466,7 @@ func BenchmarkE2Inverse(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Inverse(&a)
 	}
 }
@@ -475,7 +475,7 @@ func BenchmarkE2MulNonRes(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.MulByNonResidue(&a)
 	}
 }
@@ -484,7 +484,7 @@ func BenchmarkE2MulNonResInv(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.MulByNonResidueInv(&a)
 	}
 }
@@ -493,7 +493,7 @@ func BenchmarkE2Conjugate(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Conjugate(&a)
 	}
 }

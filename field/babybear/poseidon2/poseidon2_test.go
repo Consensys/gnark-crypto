@@ -29,7 +29,7 @@ func TestMulMulInternalInPlaceWidth16(t *testing.T) {
 	for i := 1; i < h.params.Width; i++ {
 		sum.Add(&sum, &input[i])
 	}
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		input[i].Mul(&input[i], &diag16[i]).
 			Add(&input[i], &sum)
 		if !input[i].Equal(&expected[i]) {
@@ -54,7 +54,7 @@ func TestMulMulInternalInPlaceWidth24(t *testing.T) {
 	for i := 1; i < h.params.Width; i++ {
 		sum.Add(&sum, &input[i])
 	}
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		input[i].Mul(&input[i], &diag24[i]).
 			Add(&input[i], &sum)
 		if !input[i].Equal(&expected[i]) {
@@ -85,7 +85,7 @@ func TestAVX512Width16(t *testing.T) {
 	assert.NoError(err)
 
 	// compare results
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		assert.True(input[i].Equal(&expected[i]), "avx512 result don't match purego")
 	}
 }
@@ -112,7 +112,7 @@ func TestAVX512Width24(t *testing.T) {
 	assert.NoError(err)
 
 	// compare results
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		assert.True(input[i].Equal(&expected[i]), "avx512 result don't match purego")
 	}
 }
@@ -159,7 +159,7 @@ func BenchmarkPermutation16x24(b *testing.B) {
 	h := NewPermutation(24, 8, 21)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.Permutation16x24((*[24][16]fr.Element)(input))
 	}
 }
@@ -208,7 +208,7 @@ func TestPoseidon2Width16(t *testing.T) {
 
 	h := NewPermutation(16, 6, 12)
 	h.Permutation(input[:])
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		if !input[i].Equal(&expected[i]) {
 			t.Fatal("mismatch error")
 		}
@@ -270,7 +270,7 @@ func TestPoseidon2Width24(t *testing.T) {
 
 	h := NewPermutation(24, 6, 19)
 	h.Permutation(input[:])
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		if !input[i].Equal(&expected[i]) {
 			t.Fatal("mismatch error")
 		}
@@ -285,7 +285,7 @@ func BenchmarkPoseidon2Width16(b *testing.B) {
 		tmp[i].MustSetRandom()
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.Permutation(tmp[:])
 	}
 }
@@ -298,7 +298,7 @@ func BenchmarkPoseidon2Width24(b *testing.B) {
 		tmp[i].MustSetRandom()
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.Permutation(tmp[:])
 	}
 }

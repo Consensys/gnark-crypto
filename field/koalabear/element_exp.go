@@ -44,7 +44,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	t0.Mul(z, t0)
 
 	// Step 7: t0 = x^0x3c
-	for s := 0; s < 2; s++ {
+	for range 2 {
 		t0.Square(t0)
 	}
 

@@ -35,7 +35,7 @@ func (f *FFAmd64) LabelRegisters(name string, r ...amd64.Register) {
 	case 1:
 		f.Comment(fmt.Sprintf("%s -> %s", name, string(r[0])))
 	default:
-		for i := 0; i < len(r); i++ {
+		for i := range r {
 			f.Comment(fmt.Sprintf("%s[%d] -> %s", name, i, string(r[i])))
 		}
 	}
@@ -142,7 +142,7 @@ func (f *FFAmd64) GenerateReduceDefine(avoidGlobal ...bool) {
 	f.WriteLn(buf.String())
 }
 
-func (f *FFAmd64) Mov(i1, i2 interface{}, offsets ...int) {
+func (f *FFAmd64) Mov(i1, i2 any, offsets ...int) {
 	var o1, o2 int
 	if len(offsets) >= 1 {
 		o1 = offsets[0]
@@ -193,7 +193,7 @@ func (f *FFAmd64) Mov(i1, i2 interface{}, offsets ...int) {
 
 }
 
-func (f *FFAmd64) Add(i1, i2 interface{}, offsets ...int) {
+func (f *FFAmd64) Add(i1, i2 any, offsets ...int) {
 	var o1, o2 int
 	if len(offsets) >= 1 {
 		o1 = offsets[0]
@@ -234,7 +234,7 @@ func (f *FFAmd64) Add(i1, i2 interface{}, offsets ...int) {
 	}
 }
 
-func (f *FFAmd64) Sub(i1, i2 interface{}, offsets ...int) {
+func (f *FFAmd64) Sub(i1, i2 any, offsets ...int) {
 	var o1, o2 int
 	if len(offsets) >= 1 {
 		o1 = offsets[0]

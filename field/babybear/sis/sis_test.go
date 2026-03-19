@@ -104,22 +104,22 @@ func TestLimbDecomposeBytes(t *testing.T) {
 
 	nbElmts := 10
 	a := make([]babybear.Element, nbElmts)
-	for i := 0; i < nbElmts; i++ {
+	for i := range nbElmts {
 		a[i].MustSetRandom()
 	}
 
 	logTwoBound := 8
 
-	for cc := 0; cc < 1; cc++ {
+	for range 1 {
 		vr := NewLimbIterator(&VectorIterator{v: a}, logTwoBound/8)
 		m := make(babybear.Vector, nbElmts*babybear.Bytes*8/logTwoBound)
 		var ok bool
-		for i := 0; i < len(m); i++ {
+		for i := range len(m) {
 			m[i][0], ok = vr.NextLimb()
 			assert.True(ok)
 		}
 
-		for i := 0; i < len(m); i++ {
+		for i := range len(m) {
 			m[i].Mul(&m[i], &montConstant)
 		}
 
@@ -127,7 +127,7 @@ func TestLimbDecomposeBytes(t *testing.T) {
 		x.SetUint64(1 << logTwoBound)
 
 		coeffsPerFieldsElmt := babybear.Bytes * 8 / logTwoBound
-		for i := 0; i < nbElmts; i++ {
+		for i := range nbElmts {
 			r := eval(m[i*coeffsPerFieldsElmt:(i+1)*coeffsPerFieldsElmt], x)
 			assert.True(r.Equal(&a[i]), "limbDecomposeBytes failed")
 		}
@@ -151,7 +151,7 @@ func makeKeyDeterministic(t *testing.T, sis *RSis, _seed int64) {
 
 	polyRand := func(seed babybear.Element, deg int) []babybear.Element {
 		res := make([]babybear.Element, deg)
-		for i := 0; i < deg; i++ {
+		for i := range deg {
 			res[i].Square(&seed)
 			seed.Set(&res[i])
 		}
@@ -161,7 +161,7 @@ func makeKeyDeterministic(t *testing.T, sis *RSis, _seed int64) {
 	var seed, one babybear.Element
 	one.SetOne()
 	seed.SetInt64(_seed)
-	for i := 0; i < len(sis.A); i++ {
+	for i := range len(sis.A) {
 		sis.A[i] = polyRand(seed, sis.Degree)
 		copy(sis.Ag[i], sis.A[i])
 		sis.Domain.FFT(sis.Ag[i], fft.DIF, fft.OnCoset())
@@ -187,7 +187,7 @@ func BenchmarkSIS(b *testing.B) {
 	// of field element directly because otherwise the conversion time is not
 	// accounted for in the benchmark.
 	inputs := make(babybear.Vector, nbInputs)
-	for i := 0; i < len(inputs); i++ {
+	for i := range len(inputs) {
 		inputs[i].MustSetRandom()
 	}
 
@@ -223,7 +223,7 @@ func benchmarkSIS(b *testing.B, input []babybear.Element, sparse bool, logTwoBou
 		res := make([]babybear.Element, 1<<logTwoDegree)
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			_ = instance.Hash(input, res)
 		}
 	})

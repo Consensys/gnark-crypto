@@ -375,13 +375,13 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 	// Uses only matMul4 and add Defines, so can be a Define
 	matMulExternal := f.Define("MAT_MUL_EXT", 16, func(args ...arm64.Register) {
 		// Apply M4 to each block
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			matMul4(args[i*4], args[i*4+1], args[i*4+2], args[i*4+3])
 		}
 
 		// Compute cross-block sums
 		vv := make([]arm64.VectorRegister, 16)
-		for i := 0; i < 16; i++ {
+		for i := range 16 {
 			vv[i] = arm64.VectorRegister(args[i])
 		}
 
@@ -402,7 +402,7 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 		add(arm64.Register(t[3]), arm64.Register(vv[15]), arm64.Register(t[3]))
 
 		// Add cross-block sums to each element
-		for i := 0; i < 16; i++ {
+		for i := range 16 {
 			add(arm64.Register(vv[i]), arm64.Register(t[i%4]), arm64.Register(vv[i]))
 		}
 	})
@@ -501,7 +501,7 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 
 	// fullRound applies round key, S-box to all elements, then external matrix
 	fullRound := func() {
-		for j := 0; j < 16; j++ {
+		for j := range 16 {
 			addRoundKeyFull(j)
 			sbox(v[j])
 		}
@@ -528,7 +528,7 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 	f.LABEL("batch_loop")
 
 	// Zero state vectors
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		f.VEOR(v[i].B16(), v[i].B16(), v[i].B16())
 	}
 
@@ -545,7 +545,7 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 	f.LABEL("step_loop")
 
 	// Load 8 elements from each of 4 lanes
-	for j := 0; j < 8; j++ {
+	for j := range 8 {
 		f.MOVWU(fmt.Sprintf("(%s)", ptr0), tmpCalc)
 		f.WriteLn(fmt.Sprintf("    VMOV %s, %s", tmpCalc, t[j].SAt(0)))
 		f.MOVWU(fmt.Sprintf("(%s)", ptr1), tmpCalc)
@@ -561,13 +561,13 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 	}
 
 	// Copy input into state[8..15]
-	for j := 0; j < 8; j++ {
+	for j := range 8 {
 		f.VMOV(t[j].B16(), v[8+j].B16())
 	}
 
 	// Store t[0..7] on stack for feed-forward
 	f.MOVD("RSP", tmpCalc)
-	for j := 0; j < 8; j++ {
+	for j := range 8 {
 		f.VST1_P(t[j].S4(), tmpCalc, 16)
 	}
 
@@ -581,28 +581,28 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 		arm64.Register(v[12]), arm64.Register(v[13]), arm64.Register(v[14]), arm64.Register(v[15]))
 
 	// Apply rf full rounds
-	for i := 0; i < rf; i++ {
+	for range rf {
 		fullRound()
 	}
 
 	// Apply partial rounds
-	for i := 0; i < partialRounds; i++ {
+	for range partialRounds {
 		partialRound()
 	}
 
 	// Apply rf more full rounds
-	for i := 0; i < rf; i++ {
+	for range rf {
 		fullRound()
 	}
 
 	// Restore t[0..7] from stack
 	f.MOVD("RSP", tmpCalc)
-	for j := 0; j < 8; j++ {
+	for j := range 8 {
 		f.VLD1_P(16, tmpCalc, t[j].S4())
 	}
 
 	// Feed-forward: state[j] = state[8+j] + original_input[j]
-	for j := 0; j < 8; j++ {
+	for j := range 8 {
 		add(arm64.Register(v[8+j]), arm64.Register(t[j]), arm64.Register(v[j]))
 	}
 
@@ -618,7 +618,7 @@ func (f *FFArm64) generatePoseidon2_F31_16x16x512(params amd64.Poseidon2Paramete
 	f.ADD(32, ptr1, ptr2)
 	f.ADD(32, ptr2, ptr3)
 
-	for j := 0; j < 8; j++ {
+	for j := range 8 {
 		f.WriteLn(fmt.Sprintf("    VMOV %s, %s", v[j].SAt(0), tmpCalc))
 		f.MOVWU(tmpCalc, fmt.Sprintf("(%s)", ptr0))
 		f.WriteLn(fmt.Sprintf("    VMOV %s, %s", v[j].SAt(1), tmpCalc))

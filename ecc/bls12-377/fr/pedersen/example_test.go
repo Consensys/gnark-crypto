@@ -29,7 +29,7 @@ func Example_singleProof() {
 			panic(err)
 		}
 		// we use hash-to-curve to avoid linear dependencies between basis elements
-		basis[i], err = curve.HashToG1(buf[:], []byte(fmt.Sprintf("basis %d", i)))
+		basis[i], err = curve.HashToG1(buf[:], fmt.Appendf(nil, "basis %d", i))
 		if err != nil {
 			panic(err)
 		}
@@ -79,7 +79,7 @@ func ExampleBatchProve() {
 				panic(err)
 			}
 			// we use hash-to-curve to avoid linear dependencies between basis elements
-			basis[i][j], err = curve.HashToG1(buf[:], []byte(fmt.Sprintf("basis %d", i)))
+			basis[i][j], err = curve.HashToG1(buf[:], fmt.Appendf(nil, "basis %d", i))
 			if err != nil {
 				panic(err)
 			}
@@ -143,7 +143,7 @@ func ExampleBatchVerifyMultiVk() {
 				panic(err)
 			}
 			// we use hash-to-curve to avoid linear dependencies between basis elements
-			basis[i][j], err = curve.HashToG1(buf[:], []byte(fmt.Sprintf("basis %d", i)))
+			basis[i][j], err = curve.HashToG1(buf[:], fmt.Appendf(nil, "basis %d", i))
 			if err != nil {
 				panic(err)
 			}

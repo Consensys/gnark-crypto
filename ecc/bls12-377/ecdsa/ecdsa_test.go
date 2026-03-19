@@ -138,7 +138,7 @@ func BenchmarkSignECDSA(b *testing.B) {
 
 	msg := []byte("benchmarking ECDSA sign()")
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		privKey.Sign(msg, nil)
 	}
 }
@@ -150,7 +150,7 @@ func BenchmarkVerifyECDSA(b *testing.B) {
 	sig, _ := privKey.Sign(msg, nil)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		privKey.PublicKey.Verify(sig, msg, nil)
 	}
 }

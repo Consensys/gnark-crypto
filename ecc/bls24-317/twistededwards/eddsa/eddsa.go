@@ -61,7 +61,7 @@ func GenerateKey(r io.Reader) (*PrivateKey, error) {
 		return nil, err
 	}
 	h := blake2b.Sum512(seed[:])
-	for i := 0; i < 32; i++ {
+	for i := range 32 {
 		priv.randSrc[i] = h[i+32]
 	}
 

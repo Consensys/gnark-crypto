@@ -31,14 +31,14 @@ func transveralHashGeneric(codewords []koalabear.Element, newHash HashConstructo
 	parallel.Execute(nbCols, func(start, end int) {
 		h := newHash()
 		for i := start; i < end; i++ {
-			for j := 0; j < nbRows; j++ {
+			for j := range nbRows {
 				curElmt := codewords[j*nbCols+i]
 				h.Write(curElmt.Marshal())
 			}
 			curHash := h.Sum(nil)
 			s := i * nbKoalbearElementsPerHash
 			byteSize := koalabear.Bytes
-			for j := 0; j < nbKoalbearElementsPerHash; j++ {
+			for j := range nbKoalbearElementsPerHash {
 				res[s+j].SetBytes(curHash[j*byteSize : (j+1)*byteSize])
 			}
 		}
@@ -73,7 +73,7 @@ func transversalHashSIS(codewords []koalabear.Element, s *sis.RSis, sizeCodeWord
 			transposed[i] = make([]koalabear.Element, nbRows)
 		}
 		for col := start; col < end; col += windowSize {
-			for i := 0; i < nbRows; i++ {
+			for i := range nbRows {
 				for j := range transposed {
 					transposed[j][i] = codewords[i*sizeCodeWord+col+j]
 				}

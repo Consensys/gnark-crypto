@@ -122,7 +122,7 @@ func NewRSis(seed int64, logTwoDegree, logTwoBound, maxNbElementsToHash int) (*R
 			rstart, rend := i*r.Degree, (i+1)*r.Degree
 			r.A[i] = a[rstart:rend:rend]
 			r.Ag[i] = ag[rstart:rend:rend]
-			for j := 0; j < r.Degree; j++ {
+			for j := range r.Degree {
 				r.A[i][j] = deriveRandomElementFromSeed(seed, int64(i), int64(j))
 			}
 
@@ -160,7 +160,7 @@ func (r *RSis) Hash(v, res []fr.Element) error {
 	// inner hash
 	k := make([]fr.Element, r.Degree)
 	it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
-	for i := 0; i < len(r.Ag); i++ {
+	for i := range len(r.Ag) {
 		r.InnerHash(it, res, k, r.kz, i, mask)
 	}
 
@@ -187,7 +187,7 @@ func (r *RSis) InnerHash(it *LimbIterator, res, k, kz fr.Vector, polId int, mask
 	// such that the FFT we select has less work to do (in some cases; i.e. we need a bunch
 	// of following limbs to be zero to make it worth it).
 
-	for j := 0; j < r.Degree; j++ {
+	for j := range r.Degree {
 		l, ok := it.NextLimb()
 		if !ok {
 			break

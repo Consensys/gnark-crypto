@@ -933,7 +933,7 @@ func (_f *FFAmd64) generateMulVecE4(op e4VecOp) {
 			// first we fetch 16 E4 values from a and from b, and then we transpose them
 			// into 2*4 vectors of 16 dwords
 			// such that z0 == [a[0].B0.A0, a[1].B0.A0, ...]
-			for i := 0; i < 4; i++ {
+			for i := range 4 {
 				// interleave ops for better throughput
 				f.KMOVD(maskFFFF, amd64.K1)
 				f.KMOVD(maskFFFF, amd64.K2)
@@ -942,7 +942,7 @@ func (_f *FFAmd64) generateMulVecE4(op e4VecOp) {
 			}
 		case e4VecScalarMul:
 			// for scalar mul, we don't need to fetch b.
-			for i := 0; i < 4; i++ {
+			for i := range 4 {
 				// interleave ops for better throughput
 				f.KMOVD(maskFFFF, amd64.K1)
 				f.VPGATHERDD(i*4, addrA, vIndexGather, 4, amd64.K1, z[i])
@@ -1080,7 +1080,7 @@ func (_f *FFAmd64) generateMulVecE4(op e4VecOp) {
 			// so the idea is we accumulate these coordinates in accInnerProd
 			// (in mul and scalar mul we transpose the result back, here we skip this step.)
 			// and let the caller reduce mod q.
-			for i := 0; i < 4; i++ {
+			for i := range 4 {
 				f.VEXTRACTI64X4(1, z[i], z[i+4].Y())
 				f.add(z[i], z[i+4], z[i+4], fY)
 				f.VEXTRACTI64X2(1, z[i+4].Y(), z[i].X())

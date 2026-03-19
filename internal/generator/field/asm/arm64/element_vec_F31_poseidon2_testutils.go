@@ -83,22 +83,22 @@ func (f *FFArm64) generateTestMul(constQ, constQInvNeg uint64) {
 	t9 := arm64.V27
 
 	// Load all input vectors
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrA, aVecs[i]))
 	}
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrB, bVecs[i]))
 	}
 
 	// Multiply each pair
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.mulMontgomery(aVecs[i], bVecs[i], resultVecs[i], vQ, vQInvNeg, scratch0, scratch1, mulTmp, t8, t9)
 	}
 
 	// Store results
 	// Reset result pointer by subtracting what we didn't advance
 	f.MOVD("result+16(FP)", addrResult)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", resultVecs[i], addrResult))
 	}
 
@@ -180,14 +180,14 @@ func (f *FFArm64) generateTestAdd(constQ uint64) {
 	scratch0 := arm64.V30
 	scratch1 := arm64.V31
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrA, aVecs[i]))
 	}
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrB, bVecs[i]))
 	}
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.VADD(aVecs[i].S4(), bVecs[i].S4(), scratch0.S4())
 		// VSUB(a, b, dst) computes dst = b - a
 		// We want scratch1 = scratch0 - vQ = (a+b) - q
@@ -196,7 +196,7 @@ func (f *FFArm64) generateTestAdd(constQ uint64) {
 	}
 
 	f.MOVD("result+16(FP)", addrResult)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", resultVecs[i], addrResult))
 	}
 
@@ -229,14 +229,14 @@ func (f *FFArm64) generateTestSub(constQ uint64) {
 	scratch0 := arm64.V30
 	scratch1 := arm64.V31
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrA, aVecs[i]))
 	}
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrB, bVecs[i]))
 	}
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		// VSUB(a, b, dst) computes dst = b - a
 		// We want scratch0 = a - b
 		f.VSUB(bVecs[i].S4(), aVecs[i].S4(), scratch0.S4())
@@ -245,7 +245,7 @@ func (f *FFArm64) generateTestSub(constQ uint64) {
 	}
 
 	f.MOVD("result+16(FP)", addrResult)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", resultVecs[i], addrResult))
 	}
 
@@ -275,11 +275,11 @@ func (f *FFArm64) generateTestDouble(constQ uint64) {
 	scratch0 := arm64.V30
 	scratch1 := arm64.V31
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrA, aVecs[i]))
 	}
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.VSHL("$1", aVecs[i].S4(), scratch0.S4())
 		// VSUB(a, b, dst) computes dst = b - a
 		// We want scratch1 = scratch0 - vQ = 2a - q
@@ -288,7 +288,7 @@ func (f *FFArm64) generateTestDouble(constQ uint64) {
 	}
 
 	f.MOVD("result+8(FP)", addrResult)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", resultVecs[i], addrResult))
 	}
 
@@ -327,12 +327,12 @@ func (f *FFArm64) generateTestSbox(constQ, constQInvNeg uint64) {
 	t9 := arm64.V27
 	tmp := arm64.V28
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrA, aVecs[i]))
 	}
 
 	// sbox: x^3 = x * x * x
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		// tmp = x^2
 		f.mulMontgomery(aVecs[i], aVecs[i], tmp, vQ, vQInvNeg, scratch0, scratch1, mulTmp, t8, t9)
 		// result = x * x^2 = x^3
@@ -340,7 +340,7 @@ func (f *FFArm64) generateTestSbox(constQ, constQInvNeg uint64) {
 	}
 
 	f.MOVD("result+8(FP)", addrResult)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", resultVecs[i], addrResult))
 	}
 
@@ -371,7 +371,7 @@ func (f *FFArm64) generateTestMatMul4(constQ, constQInvNeg uint64) {
 	scratch0 := arm64.V30
 	scratch1 := arm64.V31
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrA, v[i]))
 	}
 
@@ -415,7 +415,7 @@ func (f *FFArm64) generateTestMatMul4(constQ, constQInvNeg uint64) {
 
 	// Store results
 	f.MOVD("result+8(FP)", addrResult)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", v[i], addrResult))
 	}
 
@@ -443,7 +443,7 @@ func (f *FFArm64) generateTestMatMulExternal(constQ, constQInvNeg uint64) {
 
 	// State vectors v[0..15] = V2..V17
 	v := make([]arm64.VectorRegister, 16)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		v[i] = arm64.VectorRegister(fmt.Sprintf("V%d", i+2))
 	}
 
@@ -453,7 +453,7 @@ func (f *FFArm64) generateTestMatMulExternal(constQ, constQInvNeg uint64) {
 	scratch1 := arm64.V31
 
 	// Load all 16 vectors
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrA, v[i]))
 	}
 
@@ -487,7 +487,7 @@ func (f *FFArm64) generateTestMatMulExternal(constQ, constQInvNeg uint64) {
 	}
 
 	// Apply 4x4 block to each group of 4 state elements
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		matMul4(v[i*4 : i*4+4])
 	}
 
@@ -509,13 +509,13 @@ func (f *FFArm64) generateTestMatMulExternal(constQ, constQInvNeg uint64) {
 	add(t[3], v[15], t[3])
 
 	// Add cross-block sum to each element
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		add(v[i], t[i%4], v[i])
 	}
 
 	// Store results
 	f.MOVD("result+8(FP)", addrResult)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", v[i], addrResult))
 	}
 
@@ -551,7 +551,7 @@ func (f *FFArm64) generateTestHalve(constQ uint64) {
 	scratch0 := arm64.V30
 	scratch1 := arm64.V31
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrA, aVecs[i]))
 	}
 
@@ -577,12 +577,12 @@ func (f *FFArm64) generateTestHalve(constQ uint64) {
 		f.WriteLn(fmt.Sprintf("    WORD $0x%08x // UHADD %s.4S, %s.4S, %s.4S", uhaddEncoding, baseReg(into), baseReg(a), baseReg(scratch1)))
 	}
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		halve(aVecs[i], resultVecs[i])
 	}
 
 	f.MOVD("result+8(FP)", addrResult)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", resultVecs[i], addrResult))
 	}
 
@@ -613,7 +613,7 @@ func (f *FFArm64) generateTestTriple(constQ uint64) {
 	scratch1 := arm64.V31
 	tmp := arm64.V29
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrA, aVecs[i]))
 	}
 
@@ -635,12 +635,12 @@ func (f *FFArm64) generateTestTriple(constQ uint64) {
 		add(tmp, a, into)
 	}
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		triple(aVecs[i], resultVecs[i])
 	}
 
 	f.MOVD("result+8(FP)", addrResult)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", resultVecs[i], addrResult))
 	}
 
@@ -671,7 +671,7 @@ func (f *FFArm64) generateTestQuadruple(constQ uint64) {
 	scratch1 := arm64.V31
 	tmp := arm64.V29
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrA, aVecs[i]))
 	}
 
@@ -687,12 +687,12 @@ func (f *FFArm64) generateTestQuadruple(constQ uint64) {
 		double(tmp, into)
 	}
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		quadruple(aVecs[i], resultVecs[i])
 	}
 
 	f.MOVD("result+8(FP)", addrResult)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", resultVecs[i], addrResult))
 	}
 
@@ -728,12 +728,12 @@ func (f *FFArm64) generateTestAddRoundKey(constQ uint64) {
 
 	// State vectors
 	v := make([]arm64.VectorRegister, 16)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		v[i] = arm64.VectorRegister(fmt.Sprintf("V%d", i+2))
 	}
 
 	// Load state
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrState, v[i]))
 	}
 
@@ -744,13 +744,13 @@ func (f *FFArm64) generateTestAddRoundKey(constQ uint64) {
 		f.VUMIN(into.S4(), scratch1.S4(), into.S4())
 	}
 
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		add(v[i], scratch0, v[i])
 	}
 
 	// Store results
 	f.MOVD("result+16(FP)", addrResult)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", v[i], addrResult))
 	}
 
@@ -824,7 +824,7 @@ func (f *FFArm64) generateTestFullRoundKeyLoad(constQ uint64) {
 
 	// Result vectors
 	v := make([]arm64.VectorRegister, 16)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		v[i] = arm64.VectorRegister(fmt.Sprintf("V%d", i+2))
 	}
 
@@ -837,13 +837,13 @@ func (f *FFArm64) generateTestFullRoundKeyLoad(constQ uint64) {
 	f.WriteLn(fmt.Sprintf("    MOVD (%s), %s", tmpCalc, rKeyPtr))
 
 	// Load all 16 round keys using VLD1R (load and replicate)
-	for j := 0; j < 16; j++ {
+	for j := range 16 {
 		f.ADD(uint64(j*4), rKeyPtr, tmpCalc)
 		f.WriteLn(fmt.Sprintf("    VLD1R (%s), [%s]", tmpCalc, v[j].S4()))
 	}
 
 	// Store results
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", v[i], addrResult))
 	}
 
@@ -888,18 +888,18 @@ func (f *FFArm64) generateTestMul2ExpNegNSingle(constQ, constQInvNeg uint64, n i
 	t8 := arm64.V26
 	t9 := arm64.V27
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrA, aVecs[i]))
 	}
 
 	shift := 32 - n
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.mul2ExpNegNImpl(aVecs[i], resultVecs[i], shift, vQ, vQInvNeg, scratch0, scratch1, mulTmp, t8, t9)
 	}
 
 	f.MOVD("result+8(FP)", addrResult)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", resultVecs[i], addrResult))
 	}
 
@@ -1003,13 +1003,13 @@ func (f *FFArm64) generateTestMatMulInternal(constQ, constQInvNeg uint64) {
 
 	// State vectors v[0..15] = V2..V17
 	v := make([]arm64.VectorRegister, 16)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		v[i] = arm64.VectorRegister(fmt.Sprintf("V%d", i+2))
 	}
 
 	// Temporary vectors t[0..9] = V18..V27
 	t := make([]arm64.VectorRegister, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		t[i] = arm64.VectorRegister(fmt.Sprintf("V%d", i+18))
 	}
 
@@ -1018,7 +1018,7 @@ func (f *FFArm64) generateTestMatMulInternal(constQ, constQInvNeg uint64) {
 	mulTmp := arm64.V29
 
 	// Load all 16 vectors
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrA, v[i]))
 	}
 
@@ -1182,7 +1182,7 @@ func (f *FFArm64) generateTestMatMulInternal(constQ, constQInvNeg uint64) {
 
 	// Store results
 	f.MOVD("result+8(FP)", addrResult)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", v[i], addrResult))
 	}
 
@@ -1218,7 +1218,7 @@ func (f *FFArm64) generateTestFullRound(constQ, constQInvNeg uint64) {
 
 	// v[0..15] for state - uses V2-V17
 	v := make([]arm64.VectorRegister, 16)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		v[i] = allVectors[2+i] // V2 through V17
 	}
 
@@ -1233,7 +1233,7 @@ func (f *FFArm64) generateTestFullRound(constQ, constQInvNeg uint64) {
 	tmp := registers.Pop()
 
 	// Load state (16 vectors)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrState, v[i]))
 	}
 
@@ -1265,7 +1265,7 @@ func (f *FFArm64) generateTestFullRound(constQ, constQInvNeg uint64) {
 
 	// Step 1: Add round keys to all 16 elements
 	// Round keys are stored as 16 consecutive uint32 values
-	for j := 0; j < 16; j++ {
+	for j := range 16 {
 		// Load key[j] and broadcast (use scratch3 as it's not being used here)
 		f.ADD(uint64(j*4), addrRoundKeys, tmp)
 		f.WriteLn(fmt.Sprintf("    VLD1R (%s), [%s]", tmp, scratch3.S4()))
@@ -1273,7 +1273,7 @@ func (f *FFArm64) generateTestFullRound(constQ, constQInvNeg uint64) {
 	}
 
 	// Step 2: Apply sbox to all 16 elements
-	for j := 0; j < 16; j++ {
+	for j := range 16 {
 		sbox(v[j])
 	}
 
@@ -1349,7 +1349,7 @@ func (f *FFArm64) generateTestFullRound(constQ, constQInvNeg uint64) {
 
 	// Store results
 	f.MOVD("result+16(FP)", addrResult)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", v[i], addrResult))
 	}
 
@@ -1385,13 +1385,13 @@ func (f *FFArm64) generateTestPartialRound(constQ, constQInvNeg uint64) {
 
 	// v[0..15] for state - uses V2-V17
 	v := make([]arm64.VectorRegister, 16)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		v[i] = allVectors[2+i] // V2 through V17
 	}
 
 	// t[0..7] for temps - uses V18-V25 (only 8 temps needed for matMulInternal sum)
 	t := make([]arm64.VectorRegister, 8)
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		t[i] = allVectors[18+i] // V18 through V25
 	}
 
@@ -1404,7 +1404,7 @@ func (f *FFArm64) generateTestPartialRound(constQ, constQInvNeg uint64) {
 	sboxTmp := arm64.V31 // for sbox intermediate
 
 	// Load state (16 vectors)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		f.WriteLn(fmt.Sprintf("    VLD1.P 16(%s), [%s.S4]", addrState, v[i]))
 	}
 
@@ -1563,7 +1563,7 @@ func (f *FFArm64) generateTestPartialRound(constQ, constQInvNeg uint64) {
 
 	// Store results
 	f.MOVD("result+16(FP)", addrResult)
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		f.WriteLn(fmt.Sprintf("    VST1.P [%s.S4], 16(%s)", v[i], addrResult))
 	}
 

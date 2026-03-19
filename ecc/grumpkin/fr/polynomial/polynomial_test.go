@@ -20,7 +20,7 @@ func TestPolynomialEval(t *testing.T) {
 
 	// build polynomial
 	f := make(Polynomial, 20)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		f[i].SetOne()
 	}
 
@@ -51,7 +51,7 @@ func TestPolynomialAddConstantInPlace(t *testing.T) {
 
 	// build polynomial
 	f := make(Polynomial, 20)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		f[i].SetOne()
 	}
 
@@ -66,7 +66,7 @@ func TestPolynomialAddConstantInPlace(t *testing.T) {
 	var expectedCoeffs, one fr.Element
 	one.SetOne()
 	expectedCoeffs.Add(&one, &c)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		if !f[i].Equal(&expectedCoeffs) {
 			t.Fatal("AddConstantInPlace failed")
 		}
@@ -77,7 +77,7 @@ func TestPolynomialSubConstantInPlace(t *testing.T) {
 
 	// build polynomial
 	f := make(Polynomial, 20)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		f[i].SetOne()
 	}
 
@@ -92,7 +92,7 @@ func TestPolynomialSubConstantInPlace(t *testing.T) {
 	var expectedCoeffs, one fr.Element
 	one.SetOne()
 	expectedCoeffs.Sub(&one, &c)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		if !f[i].Equal(&expectedCoeffs) {
 			t.Fatal("SubConstantInPlace failed")
 		}
@@ -103,7 +103,7 @@ func TestPolynomialScaleInPlace(t *testing.T) {
 
 	// build polynomial
 	f := make(Polynomial, 20)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		f[i].SetOne()
 	}
 
@@ -115,7 +115,7 @@ func TestPolynomialScaleInPlace(t *testing.T) {
 	f.ScaleInPlace(&c)
 
 	// check
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		if !f[i].Equal(&c) {
 			t.Fatal("ScaleInPlace failed")
 		}
@@ -128,13 +128,13 @@ func TestPolynomialAdd(t *testing.T) {
 	// build unbalanced polynomials
 	f1 := make(Polynomial, 20)
 	f1Backup := make(Polynomial, 20)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		f1[i].SetOne()
 		f1Backup[i].SetOne()
 	}
 	f2 := make(Polynomial, 10)
 	f2Backup := make(Polynomial, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		f2[i].SetOne()
 		f2Backup[i].SetOne()
 	}
@@ -144,7 +144,7 @@ func TestPolynomialAdd(t *testing.T) {
 	one.SetOne()
 	two.Double(&one)
 	expectedSum := make(Polynomial, 20)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		expectedSum[i].Set(&two)
 	}
 	for i := 10; i < 20; i++ {
@@ -215,8 +215,8 @@ func TestPrecomputeLagrange(t *testing.T) {
 	testForDomainSize := func(domainSize uint8) bool {
 		polys := computeLagrangeBasis(domainSize)
 
-		for l := uint8(0); l < domainSize; l++ {
-			for i := uint8(0); i < domainSize; i++ {
+		for l := range domainSize {
+			for i := range domainSize {
 				var I fr.Element
 				I.SetUint64(uint64(i))
 				y := polys[l].Eval(&I)

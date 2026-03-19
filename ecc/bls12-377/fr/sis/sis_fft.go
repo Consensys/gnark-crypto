@@ -19,19 +19,19 @@ func precomputeTwiddlesCoset(generator, shifter fr.Element) []fr.Element {
 	e := new(big.Int)
 
 	s = shifter
-	for k := 0; k < 5; k++ {
+	for range 5 {
 		s.Square(&s)
 	}
 	toReturn[0] = s
 	s = shifter
-	for k := 0; k < 4; k++ {
+	for range 4 {
 		s.Square(&s)
 	}
 	toReturn[1] = s
 	r.Exp(generator, e.SetUint64(uint64(1<<4*1)))
 	toReturn[2].Mul(&r, &s)
 	s = shifter
-	for k := 0; k < 3; k++ {
+	for range 3 {
 		s.Square(&s)
 	}
 	toReturn[3] = s
@@ -42,7 +42,7 @@ func precomputeTwiddlesCoset(generator, shifter fr.Element) []fr.Element {
 	r.Exp(generator, e.SetUint64(uint64(1<<3*3)))
 	toReturn[6].Mul(&r, &s)
 	s = shifter
-	for k := 0; k < 2; k++ {
+	for range 2 {
 		s.Square(&s)
 	}
 	toReturn[7] = s
@@ -61,7 +61,7 @@ func precomputeTwiddlesCoset(generator, shifter fr.Element) []fr.Element {
 	r.Exp(generator, e.SetUint64(uint64(1<<2*7)))
 	toReturn[14].Mul(&r, &s)
 	s = shifter
-	for k := 0; k < 1; k++ {
+	for range 1 {
 		s.Square(&s)
 	}
 	toReturn[15] = s
@@ -96,7 +96,7 @@ func precomputeTwiddlesCoset(generator, shifter fr.Element) []fr.Element {
 	r.Exp(generator, e.SetUint64(uint64(1<<1*15)))
 	toReturn[30].Mul(&r, &s)
 	s = shifter
-	for k := 0; k < 0; k++ {
+	for range 0 {
 		s.Square(&s)
 	}
 	toReturn[31] = s

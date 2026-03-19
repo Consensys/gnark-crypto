@@ -50,7 +50,7 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 	// 1 in g1JacExtended used in case the queue of conflicting points
 	var buckets B // in G1Affine coordinates, infinity point is represented as (0,0), no need to init
 	var bucketsJE BJE
-	for i := 0; i < len(buckets); i++ {
+	for i := range len(buckets) {
 		bucketsJE[i].SetInfinity()
 	}
 
@@ -145,7 +145,7 @@ func processChunkG1BatchAffine[BJE ibg1JacExtended, B ibG1Affine, BS bitSet, TP 
 	}
 
 	flushQueue := func() {
-		for i := 0; i < qID; i++ {
+		for i := range qID {
 			bucketsJE[queue[i].bucketID].addMixed(&queue[i].point)
 		}
 		qID = 0

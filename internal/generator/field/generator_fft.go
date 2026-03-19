@@ -84,7 +84,7 @@ func generateFFT(F *config.Field, fft *config.FFT, outputDir string) error {
 		fftKernels.Close()
 	}
 
-	funcs := make(map[string]interface{})
+	funcs := make(map[string]any)
 	funcs["bitReverse"] = bitReverse
 	funcs["reverseBits"] = func(x, n any) uint64 {
 		return bits.Reverse64(anyToUint64(x)) >> anyToUint64(n)
@@ -223,10 +223,10 @@ func init() {
 func bitReverse(n, i int64) uint64 {
 	nn := uint64(64 - bits.TrailingZeros64(uint64(n)))
 	r := make([]uint64, n)
-	for i := 0; i < len(r); i++ {
+	for i := range r {
 		r[i] = uint64(i)
 	}
-	for i := 0; i < len(r); i++ {
+	for i := range r {
 		irev := bits.Reverse64(r[i]) >> nn
 		if irev > uint64(i) {
 			r[i], r[irev] = r[irev], r[i]

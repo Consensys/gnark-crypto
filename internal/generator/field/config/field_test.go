@@ -71,7 +71,7 @@ func TestBigIntMatchUint64Slice(t *testing.T) {
 			bytes := i.Bytes()
 			ints := make([]uint64, (len(bytes)-1)/8+1)
 
-			for j := 0; j < len(bytes); j++ {
+			for j := range bytes {
 				ints[j/8] ^= uint64(bytes[len(bytes)-1-j]) << (8 * (j % 8))
 			}
 
@@ -183,7 +183,7 @@ func uint8SliceSliceToBigIntSlice(f *Extension, in [][]uint8) []big.Int {
 	res := make([]big.Int, f.Degree)
 	bytes := make([]byte, f.Base.NbWords*8)
 
-	for i := 0; i < len(res); i++ {
+	for i := range res {
 
 		j := 0
 		for ; j < len(bytes) && j < len(in[i]); j++ {
@@ -202,11 +202,9 @@ func genField(t *testing.T) gopter.Gen {
 		genField := func() *Field {
 
 			nbWords := minNbWords + mrand.Intn(maxNbWords-minNbWords) //#nosec G404 -- This is a false positive
-			bitLen := nbWords*64 - mrand.Intn(64)                     //#nosec G404 -- This is a false positive
-
-			if bitLen < 2 {
-				bitLen = 2
-			}
+			bitLen := max(
+				// #nosec G404 -- This is a false positive
+				nbWords*64-mrand.Intn(64), 2)
 
 			modulus, err := rand.Prime(rand.Reader, bitLen)
 			if err != nil {

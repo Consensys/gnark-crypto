@@ -58,7 +58,7 @@ func NewPool(maxN ...int) (pool Pool) {
 		subPool := &pool.subPools[i]
 		subPool.maxN = maxN[i]
 		subPool.pool = sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				subPool.stats.Allocated++
 				return getDataPointer(make([]fr.Element, 0, subPool.maxN))
 			},

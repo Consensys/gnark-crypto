@@ -118,7 +118,7 @@ func TestGetCoeff(t *testing.T) {
 
 	size := 8
 	v := make([]koalabear.Element, size)
-	for i := 0; i < size; i++ {
+	for i := range size {
 		v[i].SetUint64(uint64(i))
 	}
 	wp := NewPolynomial(&v, Form{Layout: Regular, Basis: Canonical})
@@ -127,7 +127,7 @@ func TestGetCoeff(t *testing.T) {
 	var aa, bb koalabear.Element
 
 	// regular layout
-	for i := 0; i < size; i++ {
+	for i := range size {
 
 		a := wp.GetCoeff(i)
 		b := wsp.GetCoeff(i)
@@ -144,7 +144,7 @@ func TestGetCoeff(t *testing.T) {
 	// bit reverse + bitReverse and shifted
 	wp.ToBitReverse()
 	wsp.ToBitReverse()
-	for i := 0; i < size; i++ {
+	for i := range size {
 
 		a := wp.GetCoeff(i)
 		b := wsp.GetCoeff(i)
@@ -278,7 +278,7 @@ func cmpCoefficents(p, q *koalabear.Vector) bool {
 	if p.Len() != q.Len() {
 		return false
 	}
-	for i := 0; i < p.Len(); i++ {
+	for i := range p.Len() {
 		if !((*p)[i].Equal(&(*q)[i])) {
 			return false
 		}

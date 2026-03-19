@@ -450,7 +450,7 @@ func TestVectorOps(t *testing.T) {
 		c := make(Vector, len(a))
 		c.Add(a, b)
 
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			var tmp Element
 			tmp.Add(&a[i], &b[i])
 			if !tmp.Equal(&c[i]) {
@@ -464,7 +464,7 @@ func TestVectorOps(t *testing.T) {
 		c := make(Vector, len(a))
 		c.Sub(a, b)
 
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			var tmp Element
 			tmp.Sub(&a[i], &b[i])
 			if !tmp.Equal(&c[i]) {
@@ -478,7 +478,7 @@ func TestVectorOps(t *testing.T) {
 		c := make(Vector, len(a))
 		c.ScalarMul(a, &b)
 
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			var tmp Element
 			tmp.Mul(&a[i], &b)
 			if !tmp.Equal(&c[i]) {
@@ -491,7 +491,7 @@ func TestVectorOps(t *testing.T) {
 	sumVector := func(a Vector) bool {
 		var sum Element
 		computed := a.Sum()
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			sum.Add(&sum, &a[i])
 		}
 
@@ -501,7 +501,7 @@ func TestVectorOps(t *testing.T) {
 	innerProductVector := func(a, b Vector) bool {
 		computed := a.InnerProduct(b)
 		var innerProduct Element
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			var tmp Element
 			tmp.Mul(&a[i], &b[i])
 			innerProduct.Add(&innerProduct, &tmp)
@@ -516,7 +516,7 @@ func TestVectorOps(t *testing.T) {
 		b[0].SetUint64(0x42)
 		c.Mul(a, b)
 
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			var tmp Element
 			tmp.Mul(&a[i], &b[i])
 			if !tmp.Equal(&c[i]) {
@@ -602,7 +602,7 @@ func BenchmarkVectorOps(b *testing.B) {
 			_b := b1[:n]
 			_c := c1[:n]
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_c.Add(_a, _b)
 			}
 		})
@@ -612,7 +612,7 @@ func BenchmarkVectorOps(b *testing.B) {
 			_b := b1[:n]
 			_c := c1[:n]
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_c.Sub(_a, _b)
 			}
 		})
@@ -621,7 +621,7 @@ func BenchmarkVectorOps(b *testing.B) {
 			_a := a1[:n]
 			_c := c1[:n]
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_c.ScalarMul(_a, &mixer)
 			}
 		})
@@ -629,7 +629,7 @@ func BenchmarkVectorOps(b *testing.B) {
 		b.Run(fmt.Sprintf("sum %d", n), func(b *testing.B) {
 			_a := a1[:n]
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_ = _a.Sum()
 			}
 		})
@@ -638,7 +638,7 @@ func BenchmarkVectorOps(b *testing.B) {
 			_a := a1[:n]
 			_b := b1[:n]
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_ = _a.InnerProduct(_b)
 			}
 		})
@@ -648,7 +648,7 @@ func BenchmarkVectorOps(b *testing.B) {
 			_b := b1[:n]
 			_c := c1[:n]
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_c.Mul(_a, _b)
 			}
 		})
@@ -670,7 +670,7 @@ func genMaxVector(size int) gopter.Gen {
 		qMinusOne := qElement
 		qMinusOne[0]--
 
-		for i := 0; i < size; i++ {
+		for i := range size {
 			g[i] = qMinusOne
 		}
 		genResult := gopter.NewGenResult(g, gopter.NoShrinker)

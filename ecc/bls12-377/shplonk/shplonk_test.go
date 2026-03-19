@@ -44,7 +44,7 @@ func TestSerialization(t *testing.T) {
 	proof.WPrime.Set(&g)
 	nbClaimedValues := 10
 	proof.ClaimedValues = make([][]fr.Element, nbClaimedValues)
-	for i := 0; i < nbClaimedValues; i++ {
+	for i := range nbClaimedValues {
 		proof.ClaimedValues[i] = make([]fr.Element, i+2)
 		fr.Vector(proof.ClaimedValues[i]).MustSetRandom()
 	}
@@ -58,22 +58,22 @@ func TestOpening(t *testing.T) {
 
 	nbPolys := 2
 	sizePoly := make([]int, nbPolys)
-	for i := 0; i < nbPolys; i++ {
+	for i := range nbPolys {
 		sizePoly[i] = rand.Intn(10) + 2 //nolint: gosec // G404, no strong PRNG needed here
 	}
 	polys := make([][]fr.Element, nbPolys)
-	for i := 0; i < nbPolys; i++ {
+	for i := range nbPolys {
 		polys[i] = make([]fr.Element, sizePoly[i])
 		fr.Vector(polys[i]).MustSetRandom()
 	}
 
 	digests := make([]kzg.Digest, nbPolys)
-	for i := 0; i < nbPolys; i++ {
+	for i := range nbPolys {
 		digests[i], _ = kzg.Commit(polys[i], testSrs.Pk)
 	}
 
 	points := make([][]fr.Element, nbPolys)
-	for i := 0; i < nbPolys; i++ {
+	for i := range nbPolys {
 		points[i] = make([]fr.Element, i+2)
 		fr.Vector(points[i]).MustSetRandom()
 	}
@@ -99,20 +99,20 @@ func TestBuildZtMinusSi(t *testing.T) {
 	points := make([][]fr.Element, nbSi)
 	sizeSi := make([]int, nbSi)
 	nbPoints := 0
-	for i := 0; i < nbSi; i++ {
+	for i := range nbSi {
 		sizeSi[i] = 5 + i
 		nbPoints += sizeSi[i]
 		points[i] = make([]fr.Element, sizeSi[i])
 		fr.Vector(points[i]).MustSetRandom()
 	}
-	for i := 0; i < nbSi; i++ {
+	for i := range nbSi {
 		ztMinusSi := buildZtMinusSi(points, i)
 		if len(ztMinusSi) != nbPoints-sizeSi[i]+1 {
 			t.Fatal("deg(Z_{T-S_{i}}) should be nbPoints-size(S_{i})")
 		}
-		for j := 0; j < nbSi; j++ {
+		for j := range nbSi {
 			if j == i {
-				for k := 0; k < sizeSi[j]; k++ {
+				for k := range sizeSi[j] {
 					y := eval(ztMinusSi, points[j][k])
 					if y.IsZero() {
 						t.Fatal("Z_{T-S_{i}}(S_{i}) should not be zero")
@@ -120,7 +120,7 @@ func TestBuildZtMinusSi(t *testing.T) {
 				}
 				continue
 			}
-			for k := 0; k < sizeSi[j]; k++ {
+			for k := range sizeSi[j] {
 				y := eval(ztMinusSi, points[j][k])
 				if !y.IsZero() {
 					t.Fatal("Z_{T-S_{i}}(S_{j}) should be zero")
@@ -140,7 +140,7 @@ func TestInterpolate(t *testing.T) {
 	fr.Vector(y).MustSetRandom()
 
 	f := interpolate(x, y)
-	for i := 0; i < nbPoints; i++ {
+	for i := range nbPoints {
 		fx := eval(f, x[i])
 		if !fx.Equal(&y[i]) {
 			t.Fatal("f(x_{i})!=y_{i}")
@@ -156,12 +156,12 @@ func TestBuildLagrangeFromDomain(t *testing.T) {
 	fr.Vector(points).MustSetRandom()
 
 	var r fr.Element
-	for i := 0; i < nbPoints; i++ {
+	for i := range nbPoints {
 
 		l := buildLagrangeFromDomain(points, i)
 
 		// check that l(xᵢ)=1 and l(xⱼ)=0 for j!=i
-		for j := 0; j < nbPoints; j++ {
+		for j := range nbPoints {
 			y := eval(l, points[j])
 			if i == j {
 				if !y.IsOne() {
@@ -194,7 +194,7 @@ func TestBuildVanishingPoly(t *testing.T) {
 	}
 
 	// check that r(xᵢ)=0 for all i
-	for i := 0; i < len(x); i++ {
+	for i := range len(x) {
 		y := eval(r, x[i])
 		if !y.IsZero() {
 			t.Fatal("πᵢ(X-xᵢ) at xᵢ should be zero")
@@ -246,7 +246,7 @@ func TestNaiveMul(t *testing.T) {
 	g := mul(f, v, buf)
 
 	// check that g(xᵢ) = 0
-	for i := 0; i < nbPoints; i++ {
+	for i := range nbPoints {
 		y := eval(g, points[i])
 		if !y.IsZero() {
 			t.Fatal("f(X)(X-x_{1})..(X-x_{n}) at x_{i} should be zero")
@@ -276,12 +276,12 @@ func TestDiv(t *testing.T) {
 
 	// successive divisions of linear terms
 	x := make([]fr.Element, nbPoints)
-	for i := 0; i < nbPoints; i++ {
+	for i := range nbPoints {
 		x[i].MustSetRandom()
 		f = multiplyLinearFactor(f, x[i])
 	}
 	q := make([][2]fr.Element, nbPoints)
-	for i := 0; i < nbPoints; i++ {
+	for i := range nbPoints {
 		q[i][1].SetOne()
 		q[i][0].Neg(&x[i])
 		f = div(f, q[i][:])
@@ -291,14 +291,14 @@ func TestDiv(t *testing.T) {
 	if len(f) != len(g) {
 		t.Fatal("lengths don't match")
 	}
-	for i := 0; i < len(g); i++ {
+	for i := range len(g) {
 		if !f[i].Equal(&g[i]) {
 			t.Fatal("f(x)(x-a)/(x-a) should be equal to f(x)")
 		}
 	}
 
 	// division by a degree > 1 polynomial
-	for i := 0; i < nbPoints; i++ {
+	for i := range nbPoints {
 		x[i].MustSetRandom()
 		f = multiplyLinearFactor(f, x[i])
 	}
@@ -309,7 +309,7 @@ func TestDiv(t *testing.T) {
 	if len(f) != len(g) {
 		t.Fatal("lengths don't match")
 	}
-	for i := 0; i < len(g); i++ {
+	for i := range len(g) {
 		if !f[i].Equal(&g[i]) {
 			t.Fatal("f(x)(x-a)/(x-a) should be equal to f(x)")
 		}

@@ -67,7 +67,7 @@ func (domain *Domain) FFT(a []koalabear.Element, decimation Decimation, opts ...
 				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 			}
 		}
-		parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+		parallel.Execute(len(a), func(start, end int) {
 			v1 := koalabear.Vector(a[start:end])
 			v2 := koalabear.Vector(cosetTable[start:end])
 			v1.Mul(v1, v2)
@@ -137,7 +137,7 @@ func (domain *Domain) FFTInverse(a []koalabear.Element, decimation Decimation, o
 	// scale by CardinalityInv
 	if !opt.coset {
 		// Use vectorized scalar multiply instead of element-by-element loop
-		parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+		parallel.Execute(len(a), func(start, end int) {
 			v := koalabear.Vector(a[start:end])
 			v.ScalarMul(v, &domain.CardinalityInv)
 		}, opt.nbTasks)
@@ -166,7 +166,7 @@ func (domain *Domain) FFTInverse(a []koalabear.Element, decimation Decimation, o
 			utils.BitReverse(cosetTableInv)
 		}
 	}
-	parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+	parallel.Execute(len(a), func(start, end int) {
 		v := koalabear.Vector(a[start:end])
 		v.Mul(v, koalabear.Vector(cosetTableInv[start:end]))
 		v.ScalarMul(v, &domain.CardinalityInv)

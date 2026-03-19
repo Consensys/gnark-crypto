@@ -32,17 +32,10 @@ func (f *Extension) FromInt64(i ...int64) Element {
 
 func (f *Extension) Neg(x Element) Element {
 	z := make(Element, len(x))
-	for n := 0; n < len(x); n++ {
+	for n := range x {
 		z[n].Neg(&x[n])
 	}
 	return z
-}
-
-func max(x int, y int) int {
-	if x > y {
-		return x
-	}
-	return y
 }
 
 func (f *Extension) Add(x Element, y Element) Element {
@@ -86,14 +79,14 @@ func (f *Extension) Mul(x Element, y Element) Element {
 
 func (f *Extension) MulScalar(c *big.Int, x Element) Element {
 	z := make(Element, len(x))
-	for i := 0; i < len(x); i++ {
+	for i := range x {
 		f.Base.Mul(&z[i], c, &x[i])
 	}
 	return z
 }
 
 func (f *Extension) Halve(z Element) {
-	for i := 0; i < len(z); i++ {
+	for i := range z {
 		if z[i].Bit(0) != 0 {
 			z[i].Add(&z[i], f.Base.ModulusBig)
 		}
@@ -102,7 +95,7 @@ func (f *Extension) Halve(z Element) {
 }
 
 func (f *Extension) reduce(z Element) {
-	for i := 0; i < len(z); i++ {
+	for i := range z {
 		z[i].Mod(&z[i], f.Base.ModulusBig)
 	}
 }
@@ -150,7 +143,7 @@ func (f *Extension) Sqrt(x Element) Element {
 
 func (f *Extension) ToMont(x Element) Element {
 	z := make([]big.Int, len(x))
-	for i := 0; i < len(x); i++ {
+	for i := range x {
 		z[i] = f.Base.ToMont(x[i])
 	}
 	return z
@@ -160,7 +153,7 @@ func (f *Extension) Equal(x Element, y Element) bool {
 	if len(x) != len(y) {
 		return false
 	}
-	for i := 0; i < len(x); i++ {
+	for i := range x {
 		var diff big.Int
 		if diff.Sub(&x[i], &y[i]).Mod(&diff, f.Base.ModulusBig).BitLen() != 0 {
 			return false
@@ -227,7 +220,7 @@ func (f *Extension) Div(u, v Element) Element {
 }
 
 func (f *Extension) IsZero(u Element) bool {
-	for i := 0; i < len(u); i++ {
+	for i := range u {
 		if u[i].BitLen() != 0 {
 			return false
 		}

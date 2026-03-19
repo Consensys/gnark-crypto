@@ -41,15 +41,15 @@ func TestExternalMatrix(t *testing.T) {
 	t.Run("t=4", func(t *testing.T) {
 		h := NewPermutation(4, 8, 56)
 		var tmp [4]fr.Element
-		for i := 0; i < 4; i++ {
-			for j := 0; j < 4; j++ {
+		for i := range 4 {
+			for j := range 4 {
 				tmp[j].SetUint64(0)
 				if i == j {
 					tmp[j].SetOne()
 				}
 			}
 			h.matMulExternalInPlace(tmp[:])
-			for j := 0; j < 4; j++ {
+			for j := range 4 {
 				if !tmp[j].Equal(&m4[i][j]) {
 					t.Fatalf("t=4: mismatch at column %d, row %d", i, j)
 				}
@@ -64,7 +64,7 @@ func TestExternalMatrix(t *testing.T) {
 		h := NewPermutation(width, rf, rp)
 
 		// Test by applying to unit vectors and checking the result
-		for col := 0; col < width; col++ {
+		for col := range width {
 			input := make([]fr.Element, width)
 			input[col].SetOne()
 
@@ -75,7 +75,7 @@ func TestExternalMatrix(t *testing.T) {
 
 			// Expected: for each output row, sum contributions from all blocks
 			// The block containing the unit vector contributes 2*M4, others contribute M4
-			for row := 0; row < width; row++ {
+			for row := range width {
 				rowBlockIdx := row / 4
 				rowInBlock := row % 4
 
@@ -147,7 +147,7 @@ func BenchmarkPoseidon2(b *testing.B) {
 	var tmp [3]fr.Element
 	fr.Vector(tmp[:]).MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.Permutation(tmp[:])
 	}
 }

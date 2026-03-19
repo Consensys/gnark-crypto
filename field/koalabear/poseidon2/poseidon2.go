@@ -95,9 +95,9 @@ func (p *Parameters) initRC(seed string) {
 	_, _ = hash.Write(rnd)
 
 	roundKeys := make([][]fr.Element, p.NbFullRounds+p.NbPartialRounds)
-	for i := 0; i < p.NbFullRounds/2; i++ {
+	for i := range p.NbFullRounds / 2 {
 		roundKeys[i] = make([]fr.Element, p.Width)
-		for j := 0; j < p.Width; j++ {
+		for j := range p.Width {
 			rnd = hash.Sum(nil)
 			roundKeys[i][j].SetBytes(rnd)
 			hash.Reset()
@@ -113,7 +113,7 @@ func (p *Parameters) initRC(seed string) {
 	}
 	for i := p.NbPartialRounds + p.NbFullRounds/2; i < p.NbPartialRounds+p.NbFullRounds; i++ {
 		roundKeys[i] = make([]fr.Element, p.Width)
-		for j := 0; j < p.Width; j++ {
+		for j := range p.Width {
 			rnd = hash.Sum(nil)
 			roundKeys[i][j].SetBytes(rnd)
 			hash.Reset()
@@ -175,7 +175,7 @@ func (h *Permutation) sBox(index int, input []fr.Element) {
 // https://eprint.iacr.org/2023/323.pdf appendix Bb
 func (h *Permutation) matMulM4InPlace(s []fr.Element) {
 	c := len(s) / 4
-	for i := 0; i < c; i++ {
+	for i := range c {
 		var t01, t23, t0123, t01123, t01233 fr.Element
 		t01.Add(&s[4*i], &s[4*i+1])
 		t23.Add(&s[4*i+2], &s[4*i+3])
@@ -200,13 +200,13 @@ func (h *Permutation) matMulExternalInPlace(input []fr.Element) {
 	// the MDS matrix is circ(2M4,M4,..,M4)
 	h.matMulM4InPlace(input)
 	tmp := make([]fr.Element, 4)
-	for i := 0; i < h.params.Width/4; i++ {
+	for i := range h.params.Width / 4 {
 		tmp[0].Add(&tmp[0], &input[4*i])
 		tmp[1].Add(&tmp[1], &input[4*i+1])
 		tmp[2].Add(&tmp[2], &input[4*i+2])
 		tmp[3].Add(&tmp[3], &input[4*i+3])
 	}
-	for i := 0; i < h.params.Width/4; i++ {
+	for i := range h.params.Width / 4 {
 		input[4*i].Add(&input[4*i], &tmp[0])
 		input[4*i+1].Add(&input[4*i+1], &tmp[1])
 		input[4*i+2].Add(&input[4*i+2], &tmp[2])
@@ -286,7 +286,7 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 
 // addRoundKeyInPlace adds the round-th key to the buffer
 func (h *Permutation) addRoundKeyInPlace(round int, input []fr.Element) {
-	for i := 0; i < len(h.params.RoundKeys[round]); i++ {
+	for i := range len(h.params.RoundKeys[round]) {
 		input[i].Add(&input[i], &h.params.RoundKeys[round][i])
 	}
 }
@@ -315,10 +315,10 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 	h.matMulExternalInPlace(input)
 
 	rf := h.params.NbFullRounds / 2
-	for i := 0; i < rf; i++ {
+	for i := range rf {
 		// one round = matMulExternal(sBox_Full(addRoundKey))
 		h.addRoundKeyInPlace(i, input)
-		for j := 0; j < h.params.Width; j++ {
+		for j := range h.params.Width {
 			h.sBox(j, input)
 		}
 		h.matMulExternalInPlace(input)
@@ -333,7 +333,7 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 	for i := rf + h.params.NbPartialRounds; i < h.params.NbFullRounds+h.params.NbPartialRounds; i++ {
 		// one round = matMulExternal(sBox_Full(addRoundKey))
 		h.addRoundKeyInPlace(i, input)
-		for j := 0; j < h.params.Width; j++ {
+		for j := range h.params.Width {
 			h.sBox(j, input)
 		}
 		h.matMulExternalInPlace(input)
@@ -403,7 +403,7 @@ func (h *Permutation) Permutation16x24(input *[24][16]fr.Element) {
 		}
 	}
 
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		h.Permutation(transposed[i][:])
 	}
 
@@ -431,19 +431,19 @@ func (h *Permutation) Compressx16(matrix []fr.Element, colSize int, result [][8]
 	if !h.params.hasFast16_6_21 || colSize != sisKeySize {
 		var x [16][16]fr.Element
 		nbSteps := colSize / 8
-		for step := 0; step < nbSteps; step++ {
+		for step := range nbSteps {
 			// load chunk
-			for i := 0; i < 16; i++ {
+			for i := range 16 {
 				// init state
 				copy(x[i][8:], matrix[i*colSize+step*8:i*colSize+step*8+8])
 				h.Permutation(x[i][:])
-				for j := 0; j < 8; j++ {
+				for j := range 8 {
 					x[i][j].Add(&x[i][8+j], &matrix[i*colSize+step*8+j]) // feed-forward
 				}
 			}
 		}
 		// store result
-		for i := 0; i < 16; i++ {
+		for i := range 16 {
 			copy(result[i][:], x[i][:8])
 		}
 		return

@@ -16,7 +16,7 @@ func precomputeTwiddlesCoset(generator, shifter {{ .FF }}.Element) []{{ .FF }}.E
 	{{ $j := 0}}
 	{{- range $step := reverse (iterate 0 6)}} 
 		s = shifter
-		for k:=0; k <{{$step}};k++ {
+		for range {{$step}} {
 			s.Square(&s)
 		}
 		

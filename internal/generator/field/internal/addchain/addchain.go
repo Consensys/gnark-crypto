@@ -191,7 +191,7 @@ func prepareAddChainData(s *ast.Chain, n string) (*AddChainData, error) {
 type Function struct {
 	Name        string
 	Description string
-	Func        interface{}
+	Func        any
 }
 
 // Signature returns the function signature.
@@ -275,7 +275,7 @@ var Functions = []*Function{
 	},
 	{
 		Name: "last_",
-		Func: func(x int, a interface{}) bool {
+		Func: func(x int, a any) bool {
 			return x == reflect.ValueOf(a).Len()-1
 		},
 	},
@@ -304,9 +304,7 @@ func initCache() {
 		if entry.IsDir() {
 			continue
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			f, err := os.Open(filepath.Join(addChainDir, entry.Name()))
 			if err != nil {
 				log.Fatal(err)
@@ -326,7 +324,7 @@ func initCache() {
 			lock.Lock()
 			mAddchains[filepath.Base(f.Name())] = data
 			lock.Unlock()
-		}()
+		})
 
 	}
 

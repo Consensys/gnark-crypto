@@ -32,14 +32,14 @@ type MerkleProof []Hash
 func hashNodes(h hash.Hash, left, right [8]koalabear.Element) [8]koalabear.Element {
 	h.Reset()
 	var res [8]koalabear.Element
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		h.Write(left[i].Marshal())
 	}
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		h.Write(right[i].Marshal())
 	}
 	s := h.Sum(nil)
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		res[i].SetBytes(s[4*i : 4*i+4])
 	}
 	return res

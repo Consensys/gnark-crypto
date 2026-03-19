@@ -88,7 +88,7 @@ func (f *FFArm64) DefineFn(name string) (fn defineFn, err error) {
 func (f *FFArm64) Define(name string, nbInputs int, fn defineFn) defineFn {
 
 	inputs := make([]string, nbInputs)
-	for i := 0; i < nbInputs; i++ {
+	for i := range nbInputs {
 		inputs[i] = fmt.Sprintf("in%d", i)
 	}
 	name = strings.ToUpper(name)
@@ -112,7 +112,7 @@ startDefine:
 	f.StartDefine()
 	f.WriteLn("#define " + name + "(" + strings.Join(inputs, ", ") + ")")
 	inputsRegisters := make([]arm64.Register, nbInputs)
-	for i := 0; i < nbInputs; i++ {
+	for i := range nbInputs {
 		inputsRegisters[i] = arm64.Register(inputs[i])
 	}
 	fn(inputsRegisters...)
@@ -124,7 +124,7 @@ startDefine:
 			panic("invalid number of arguments")
 		}
 		inputsStr := make([]string, len(args))
-		for i := 0; i < len(args); i++ {
+		for i := range args {
 			inputsStr[i] = string(args[i])
 		}
 		f.WriteLn(name + "(" + strings.Join(inputsStr, ", ") + ")")

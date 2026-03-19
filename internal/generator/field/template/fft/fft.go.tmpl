@@ -62,7 +62,7 @@ func (domain *Domain) FFT(a []{{ .FF }}.Element, decimation Decimation, opts ...
 				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 			}
 		}
-		parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+		parallel.Execute(len(a), func(start, end int) {
 			v1 := {{ .FF }}.Vector(a[start:end])
 			v2 := {{ .FF }}.Vector(cosetTable[start:end])
 			v1.Mul(v1, v2)
@@ -173,7 +173,7 @@ func (domain *Domain) FFTInverse(a []{{ .FF }}.Element, decimation Decimation, o
 	if !opt.coset {
 		{{- if .F31}}
 		// Use vectorized scalar multiply instead of element-by-element loop
-		parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+		parallel.Execute(len(a), func(start, end int) {
 			v := {{ .FF }}.Vector(a[start:end])
 			v.ScalarMul(v, &domain.CardinalityInv)
 		}, opt.nbTasks)
@@ -211,7 +211,7 @@ func (domain *Domain) FFTInverse(a []{{ .FF }}.Element, decimation Decimation, o
 			utils.BitReverse(cosetTableInv)
 		}
 	}
-	parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+	parallel.Execute(len(a), func(start, end int) {
 		v := {{ .FF }}.Vector(a[start:end])
 		v.Mul(v, {{ .FF }}.Vector(cosetTableInv[start:end]))
 		v.ScalarMul(v, &domain.CardinalityInv)

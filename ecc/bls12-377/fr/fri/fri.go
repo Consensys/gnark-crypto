@@ -239,7 +239,7 @@ func (s radixTwoFri) deriveQueriesPositions(pos int, size int) []int {
 func sort(evaluations []fr.Element) []fr.Element {
 	q := make([]fr.Element, len(evaluations))
 	n := len(evaluations) / 2
-	for i := 0; i < n; i++ {
+	for i := range n {
 		q[2*i].Set(&evaluations[i])
 		q[2*i+1].Set(&evaluations[i+n])
 	}
@@ -272,7 +272,7 @@ func (s radixTwoFri) Open(p []fr.Element, position uint64) (OpeningProof, error)
 	if err != nil {
 		return OpeningProof{}, err
 	}
-	for i := 0; i < len(q); i++ {
+	for i := range len(q) {
 		tree.Push(q[i].Marshal())
 	}
 	var res OpeningProof
@@ -342,7 +342,7 @@ func foldPolynomialLagrangeBasis(pSorted []fr.Element, gInv, x fr.Element) []fr.
 	var p1, p2, acc fr.Element
 	acc.SetOne()
 
-	for i := 0; i < s/2; i++ {
+	for i := range s / 2 {
 
 		p1.Add(&pSorted[2*i], &pSorted[2*i+1])
 		p2.Sub(&pSorted[2*i], &pSorted[2*i+1]).Mul(&p2, &acc)
@@ -372,7 +372,7 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 	// P₀(Y)+X P₁(Y) where P₀, P₁ are of degree n/2, and he then folds the polynomial
 	// by replacing x by xᵢ.
 	xis := make([]string, s.nbSteps+1)
-	for i := 0; i < s.nbSteps; i++ {
+	for i := range s.nbSteps {
 		xis[i] = fmt.Sprintf("x%d", i)
 	}
 	xis[s.nbSteps] = "s0"
@@ -400,13 +400,13 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 	var gInv fr.Element
 	gInv.Set(&s.domain.GeneratorInv)
 
-	for i := 0; i < s.nbSteps; i++ {
+	for i := range s.nbSteps {
 
 		evalsAtRound[i] = sort(_p)
 
 		// compute the root hash, needed to derive xi
 		t := merkletree.New(s.h)
-		for k := 0; k < len(_p); k++ {
+		for k := range len(_p) {
 			t.Push(evalsAtRound[i][k].Marshal())
 		}
 		rh := t.Root()
@@ -453,7 +453,7 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 	bPos.Mod(&bPos, &bCardinality)
 	si := s.deriveQueriesPositions(int(bPos.Uint64()), int(s.domain.Cardinality))
 
-	for i := 0; i < s.nbSteps; i++ {
+	for i := range s.nbSteps {
 
 		// build proofs of queries at s[i]
 		t := merkletree.New(s.h)
@@ -461,7 +461,7 @@ func (s radixTwoFri) buildProofOfProximitySingleRound(salt fr.Element, p []fr.El
 		if err != nil {
 			return res, err
 		}
-		for k := 0; k < len(evalsAtRound[i]); k++ {
+		for k := range len(evalsAtRound[i]) {
 			t.Push(evalsAtRound[i][k].Marshal())
 		}
 		mr, ProofSet, _, numLeaves := t.Prove()
@@ -509,7 +509,7 @@ func (s radixTwoFri) BuildProofOfProximity(p []fr.Element) (ProofOfProximity, er
 	var err error
 	var salt, one fr.Element
 	one.SetOne()
-	for i := 0; i < nbRounds; i++ {
+	for i := range nbRounds {
 		proof.Rounds[i], err = s.buildProofOfProximitySingleRound(salt, _p)
 		if err != nil {
 			return proof, err
@@ -526,7 +526,7 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof Ro
 
 	// Fiat Shamir transcript to derive the challenges
 	xis := make([]string, s.nbSteps+1)
-	for i := 0; i < s.nbSteps; i++ {
+	for i := range s.nbSteps {
 		xis[i] = fmt.Sprintf("x%d", i)
 	}
 	xis[s.nbSteps] = "s0"
@@ -541,7 +541,7 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof Ro
 		return err
 	}
 
-	for i := 0; i < s.nbSteps; i++ {
+	for i := range s.nbSteps {
 		err := fs.Bind(xis[i], proof.Interactions[i][0].MerkleRoot)
 		if err != nil {
 			return err
@@ -554,7 +554,7 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof Ro
 	}
 
 	// derive the verifier queries
-	// for i := 0; i < len(proof.evaluation); i++ {
+	// for i := range len(proof.evaluation) {
 	// 	err := fs.Bind(xis[s.nbSteps], proof.evaluation[i].Marshal())
 	// 	if err != nil {
 	// 		return err
@@ -579,7 +579,7 @@ func (s radixTwoFri) verifyProofOfProximitySingleRound(salt fr.Element, proof Ro
 	// current size of the polynomial
 	var accGInv fr.Element
 	accGInv.Set(&s.domain.GeneratorInv)
-	for i := 0; i < s.nbSteps; i++ {
+	for i := range s.nbSteps {
 
 		// correctness of Merkle proof
 		// c is the entry containing the full Merkle proof.
@@ -676,7 +676,7 @@ func (s radixTwoFri) VerifyProofOfProximity(proof ProofOfProximity) error {
 
 	var salt, one fr.Element
 	one.SetOne()
-	for i := 0; i < nbRounds; i++ {
+	for i := range nbRounds {
 		err := s.verifyProofOfProximitySingleRound(salt, proof.Rounds[i])
 		if err != nil {
 			return err

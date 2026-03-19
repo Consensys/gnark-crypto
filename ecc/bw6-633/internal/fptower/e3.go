@@ -323,7 +323,7 @@ func BatchInvertE3(a []E3) []E3 {
 	var accumulator E3
 	accumulator.SetOne()
 
-	for i := 0; i < len(a); i++ {
+	for i := range len(a) {
 		if a[i].IsZero() {
 			zeroes[i] = true
 			continue

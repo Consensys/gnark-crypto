@@ -158,7 +158,7 @@ func TestFRI(t *testing.T) {
 			g.Set(&s.domain.Generator)
 			n := int(s.domain.Cardinality)
 
-			for i := 0; i < len(pos)-1; i++ {
+			for i := range len(pos) - 1 {
 
 				u, v := logFiber(pos[i], n)
 
@@ -207,7 +207,7 @@ func BenchmarkProximityVerification(b *testing.B) {
 
 	baseSize := 16
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 
 		size := baseSize << i
 		p := make(fr.Vector, size)
@@ -218,7 +218,7 @@ func BenchmarkProximityVerification(b *testing.B) {
 
 		b.Run(fmt.Sprintf("Polynomial size %d", size), func(b *testing.B) {
 			b.ResetTimer()
-			for l := 0; l < b.N; l++ {
+			for range b.N {
 				iop.VerifyProofOfProximity(proof)
 			}
 		})

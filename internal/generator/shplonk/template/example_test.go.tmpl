@@ -17,7 +17,7 @@ func Example_batchOpen() {
 	// is opened on the i-th set of points, there might be several points per set.
 	points := make([][]fr.Element, nbPolynomials)
 	polynomials := make([][]fr.Element, nbPolynomials)
-	for i := 0; i < nbPolynomials; i++ {
+	for i := range nbPolynomials {
 
 		polynomials[i] = make([]fr.Element, 20+2*i) // random size
 		fr.Vector(polynomials[i]).MustSetRandom()
@@ -29,7 +29,7 @@ func Example_batchOpen() {
 	// Create commitments for each polynomials
 	var err error
 	digests := make([]kzg.Digest, nbPolynomials)
-	for i := 0; i < nbPolynomials; i++ {
+	for i := range nbPolynomials {
 		digests[i], err = kzg.Commit(polynomials[i], testSrs.Pk)
 		if err != nil {
 			panic(err)

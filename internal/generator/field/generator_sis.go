@@ -68,7 +68,7 @@ func generateSIS(F *config.Field, outputDir string) error {
 		entries = append(entries, bavard.Entry{File: filepath.Join(outputDir, "sis_fft.go"), Templates: []string{"fft.go.tmpl"}})
 	}
 
-	funcs := make(map[string]interface{})
+	funcs := make(map[string]any)
 	funcs["bitReverse"] = bitReverse
 	funcs["pow"] = pow
 	funcs["shl"] = func(x, n any) uint64 {
@@ -107,7 +107,7 @@ func partialFFT(domainSize, numField int, mask int64) string {
 		splitSize = domainSize
 	)
 
-	for level := 0; level < numStages; level++ {
+	for range numStages {
 		for s := 0; s < numSplits; s++ {
 			for k := 0; k < splitSize/2; k++ {
 				gen.twiddleMulLine(s*splitSize+splitSize/2+k, numSplits-1+s)
@@ -211,7 +211,7 @@ func (p *PartialFFTCodeGen) indent() {
 }
 
 func writeIndent(w *strings.Builder, n int) {
-	for i := 0; i < n; i++ {
+	for range n {
 		w.WriteString("\t")
 	}
 }

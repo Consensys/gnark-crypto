@@ -22,7 +22,7 @@ func TestComputeMTLeaves(t *testing.T) {
 	leaves := computeMTLeaves(sisHashes, nbCols, sisKeySize)
 	leaves2 := computeMTLeaves2x16(copySisHashes, nbCols, sisKeySize)
 
-	for i := 0; i < nbCols; i++ {
+	for i := range nbCols {
 		if leaves[i] != leaves2[i] {
 			t.Fatalf("leaves do not match at index %d", i)
 		}
@@ -59,7 +59,7 @@ func computeMTLeaves(sisHashes []koalabear.Element, nbCols, sisKeySize int) []Ha
 
 	hasher := newMDHasher()
 
-	for colID := 0; colID < nbCols; colID++ {
+	for colID := range nbCols {
 		startChunk := colID * sisKeySize
 		hasher.Reset()
 		hasher.WriteElements(sisHashes[startChunk : startChunk+sisKeySize]...)
@@ -76,7 +76,7 @@ func computeMTLeaves2x16(sisHashes []koalabear.Element, nbCols, sisKeySize int) 
 	}
 	chunkCol := nbCols / 16
 
-	for chunkID := 0; chunkID < chunkCol; chunkID++ {
+	for chunkID := range chunkCol {
 		CompressPoseidon2x16(sisHashes[chunkID*16*sisKeySize:(chunkID+1)*16*sisKeySize], sisKeySize, leaves[chunkID*16:(chunkID+1)*16])
 	}
 

@@ -39,7 +39,7 @@ func Execute(nbIterations int, work func(int, int), maxCpus ...int) {
 	extraTasks := nbIterations - (nbTasks * nbIterationsPerCpus)
 	extraTasksOffset := 0
 
-	for i := 0; i < nbTasks; i++ {
+	for i := range nbTasks {
 		_start := i*nbIterationsPerCpus + extraTasksOffset
 		_end := _start + nbIterationsPerCpus
 		if extraTasks > 0 {
@@ -89,7 +89,7 @@ func ExecuteAligned(nbIterations, alignment int, work func(int, int), maxCpus ..
 
 	var wg sync.WaitGroup
 	start := 0
-	for i := 0; i < nbTasks; i++ {
+	for i := range nbTasks {
 		units := unitsPerTask
 		if i < extraUnits {
 			units++
@@ -140,7 +140,7 @@ func Chunks(nbIterations int, maxCpus ...int) [][2]int {
 	extraTasks := nbIterations - (nbTasks * nbIterationsPerCpus)
 	extraTasksOffset := 0
 
-	for i := 0; i < nbTasks; i++ {
+	for i := range nbTasks {
 		_start := i*nbIterationsPerCpus + extraTasksOffset
 		_end := _start + nbIterationsPerCpus
 		if extraTasks > 0 {
@@ -174,7 +174,7 @@ func NewWorkerPool() *WorkerPool {
 	p := &WorkerPool{}
 	p.nbWorkers = runtime.NumCPU() + 2
 	p.chJobs = make(chan job, 40*p.nbWorkers)
-	for i := 0; i < p.nbWorkers; i++ {
+	for range p.nbWorkers {
 		go func() {
 			for j := range p.chJobs {
 				j.task(j.start, j.end)

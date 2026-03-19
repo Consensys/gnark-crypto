@@ -23,10 +23,10 @@ func TestProof(t *testing.T) {
 	a := make([]fr.Element, 8)
 	b := make([]fr.Element, 8)
 
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		a[i].SetUint64(uint64(4*i + 1))
 	}
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		b[i].Set(&a[(5*i)%8])
 	}
 
@@ -68,15 +68,15 @@ func BenchmarkProver(b *testing.B) {
 	a := make([]fr.Element, polySize)
 	c := make([]fr.Element, polySize)
 
-	for i := 0; i < polySize; i++ {
+	for i := range polySize {
 		a[i].SetUint64(uint64(i))
 	}
-	for i := 0; i < polySize; i++ {
+	for i := range polySize {
 		c[i].Set(&a[(5*i)%(polySize)])
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		Prove(kzgSrs.Pk, a, c)
 	}
 

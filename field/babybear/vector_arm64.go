@@ -96,7 +96,7 @@ func (vector *Vector) Sum() (res Element) {
 	sumVec(&t[0], &(*vector)[0], n/blockSize)
 	// we reduce the accumulators mod q and add to res
 	var v Element
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		v[0] = uint32(t[i] % q)
 		res.Add(&res, &v)
 	}
@@ -152,7 +152,7 @@ func (vector *Vector) InnerProduct(other Vector) (res Element) {
 	innerProdVec(&t[0], &(*vector)[0], &other[0], n/blockSize)
 	// we reduce the accumulators mod q and add to res
 	var v Element
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		v[0] = uint32(t[i] % q)
 		res.Add(&res, &v)
 	}

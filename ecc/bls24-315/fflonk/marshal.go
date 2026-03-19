@@ -16,7 +16,7 @@ func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 
 	dec := bls24315.NewDecoder(r)
 
-	toDecode := []interface{}{
+	toDecode := []any{
 		&proof.SOpeningProof.W,
 		&proof.SOpeningProof.WPrime,
 		proof.SOpeningProof.ClaimedValues,
@@ -37,7 +37,7 @@ func (proof *OpeningProof) WriteTo(w io.Writer) (int64, error) {
 
 	enc := bls24315.NewEncoder(w)
 
-	toEncode := []interface{}{
+	toEncode := []any{
 		&proof.SOpeningProof.W,
 		&proof.SOpeningProof.WPrime,
 		proof.SOpeningProof.ClaimedValues,

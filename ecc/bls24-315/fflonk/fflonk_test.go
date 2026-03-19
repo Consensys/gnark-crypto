@@ -33,13 +33,13 @@ func TestFflonk(t *testing.T) {
 	// sample random polynomials of various sizes
 	nbSets := 5
 	p := make([][][]fr.Element, nbSets)
-	for i := 0; i < nbSets; i++ {
+	for i := range nbSets {
 		nbPolysInSet := 9
 		p[i] = make([][]fr.Element, nbPolysInSet)
-		for j := 0; j < nbPolysInSet; j++ {
+		for j := range nbPolysInSet {
 			curSizePoly := j + 10
 			p[i][j] = make([]fr.Element, curSizePoly)
-			for k := 0; k < curSizePoly; k++ {
+			for k := range curSizePoly {
 				p[i][j][k].MustSetRandom()
 			}
 		}
@@ -47,10 +47,10 @@ func TestFflonk(t *testing.T) {
 
 	// sample random sets Sᵢ
 	x := make([][]fr.Element, nbSets)
-	for i := 0; i < nbSets; i++ {
+	for i := range nbSets {
 		curSetSize := i + 4
 		x[i] = make([]fr.Element, curSetSize)
-		for j := 0; j < curSetSize; j++ {
+		for j := range curSetSize {
 			x[i][j].MustSetRandom()
 		}
 	}
@@ -58,7 +58,7 @@ func TestFflonk(t *testing.T) {
 	// commit to the folded polynomials
 	digests := make([]kzg.Digest, nbSets)
 	var err error
-	for i := 0; i < nbSets; i++ {
+	for i := range nbSets {
 		digests[i], err = FoldAndCommit(p[i], testSrs.Pk)
 		assert.NoError(err)
 	}
@@ -86,9 +86,9 @@ func TestCommit(t *testing.T) {
 	// sample polynomials
 	nbPolys := 2
 	p := make([][]fr.Element, nbPolys)
-	for i := 0; i < nbPolys; i++ {
+	for i := range nbPolys {
 		p[i] = make([]fr.Element, i+10)
-		for j := 0; j < i+10; j++ {
+		for j := range i + 10 {
 			p[i][j].MustSetRandom()
 		}
 	}
@@ -105,7 +105,7 @@ func TestCommit(t *testing.T) {
 	expo.SetUint64(uint64(nbPolys))
 	xt.Exp(x, &expo)
 	px := make([]fr.Element, nbPolys)
-	for i := 0; i < nbPolys; i++ {
+	for i := range nbPolys {
 		px[i] = eval(p[i], xt)
 	}
 	y := eval(px, x)

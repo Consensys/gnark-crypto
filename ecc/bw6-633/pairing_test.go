@@ -458,7 +458,7 @@ func BenchmarkPairing(b *testing.B) {
 	g2GenAff.FromJacobian(&g2Gen)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		Pair([]G1Affine{g1GenAff}, []G2Affine{g2GenAff})
 	}
 }
@@ -472,7 +472,7 @@ func BenchmarkMillerLoop(b *testing.B) {
 	g2GenAff.FromJacobian(&g2Gen)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		MillerLoop([]G1Affine{g1GenAff}, []G2Affine{g2GenAff})
 	}
 }
@@ -483,7 +483,7 @@ func BenchmarkFinalExponentiation(b *testing.B) {
 	a.MustSetRandom()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		FinalExponentiation(&a)
 	}
 
@@ -495,7 +495,7 @@ func BenchmarkPrecomputeLines(b *testing.B) {
 	g2GenAff.FromJacobian(&g2Gen)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		PrecomputeLines(g2GenAff)
 	}
 }
@@ -513,13 +513,13 @@ func BenchmarkMultiMiller(b *testing.B) {
 	Q := make([]G2Affine, n)
 
 	for i := 2; i <= n; i++ {
-		for j := 0; j < i; j++ {
+		for j := range i {
 			P[j].Set(&g1GenAff)
 			Q[j].Set(&g2GenAff)
 		}
 		b.Run(fmt.Sprintf("%d pairs", i), func(b *testing.B) {
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				MillerLoop(P, Q)
 			}
 		})
@@ -539,13 +539,13 @@ func BenchmarkMultiPair(b *testing.B) {
 	Q := make([]G2Affine, n)
 
 	for i := 2; i <= n; i++ {
-		for j := 0; j < i; j++ {
+		for j := range i {
 			P[j].Set(&g1GenAff)
 			Q[j].Set(&g2GenAff)
 		}
 		b.Run(fmt.Sprintf("%d pairs", i), func(b *testing.B) {
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				Pair(P, Q)
 			}
 		})
@@ -569,21 +569,21 @@ func BenchmarkExpGT(b *testing.B) {
 
 	b.Run("Naive windowed Exp", func(b *testing.B) {
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			a.Exp(a, &_e)
 		}
 	})
 
 	b.Run("2-NAF cyclotomic Exp", func(b *testing.B) {
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			a.CyclotomicExp(a, &_e)
 		}
 	})
 
 	b.Run("windowed 2-dim GLV Exp", func(b *testing.B) {
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			a.ExpGLV(a, &_e)
 		}
 	})

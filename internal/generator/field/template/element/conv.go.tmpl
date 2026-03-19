@@ -209,17 +209,17 @@ func (z *{{.ElementName}}) setBigInt(v *big.Int) *{{.ElementName}} {
 
 	{{- if .F31}}
 		// we assume v < q, so even if big.Int words are on 64bits, we can safely cast them to 32bits
-		for i := 0; i < len(vBits); i++ {
+		for i := range len(vBits) {
 			z[i] = uint32(vBits[i])
 		}
 	{{- else}}
 	
 		if bits.UintSize == 64 {
-			for i := 0; i < len(vBits); i++ {
+			for i := range len(vBits) {
 				z[i] = uint64(vBits[i])
 			}
 		} else {
-			for i := 0; i < len(vBits); i++ {
+			for i := range len(vBits) {
 				if i%2 == 0 {
 					z[i/2] = uint64(vBits[i])
 				} else {

@@ -737,10 +737,7 @@ func (p *G1Jac) mulGLV(q *G1Jac, s *big.Int) *G1Jac {
 	var naf2 [fr.Bits + 1]int8
 	nafLen1 := ecc.WnafDecomposition(&k[0], wnafWindow, naf1[:])
 	nafLen2 := ecc.WnafDecomposition(&k[1], wnafWindow, naf2[:])
-	maxLen := nafLen1
-	if nafLen2 > maxLen {
-		maxLen = nafLen2
-	}
+	maxLen := max(nafLen2, nafLen1)
 	if maxLen == 0 {
 		p.Set(&g1Infinity)
 		return p
@@ -832,15 +829,12 @@ func (p *G1Jac) JointScalarMultiplication(a1, a2 *G1Affine, s1, s2 *big.Int) *G1
 	s[0] = s[0].SetBigInt(&k1).Bits()
 	s[1] = s[1].SetBigInt(&k2).Bits()
 
-	maxBit := k1.BitLen()
-	if k2.BitLen() > maxBit {
-		maxBit = k2.BitLen()
-	}
+	maxBit := max(k1.BitLen(), k2.BitLen())
 	hiWordIndex := (maxBit - 1) / 64
 
 	for i := hiWordIndex; i >= 0; i-- {
 		mask := uint64(3) << 62
-		for j := 0; j < 32; j++ {
+		for j := range 32 {
 			res.Double(&res).Double(&res)
 			b1 := (s[0][i] & mask) >> (62 - 2*j)
 			b2 := (s[1][i] & mask) >> (62 - 2*j)
@@ -1189,7 +1183,7 @@ func BatchJacobianToAffineG1(points []G1Jac) []G1Affine {
 
 	// batch invert all points[].Z coordinates with Montgomery batch inversion trick
 	// (stores points[].Z^-1 in result[i].X to avoid allocating a slice of fr.Elements)
-	for i := 0; i < len(points); i++ {
+	for i := range len(points) {
 		if points[i].Z.IsZero() {
 			zeroes[i] = true
 			continue
@@ -1253,10 +1247,7 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 
 	// last window may be slightly larger than c; in which case we need to compute one
 	// extra element in the baseTable
-	maxC := lastC(c)
-	if c > maxC {
-		maxC = c
-	}
+	maxC := max(c, lastC(c))
 
 	// precompute all powers of base for our window
 	// note here that if performance is critical, we can implement as in the msmX methods
@@ -1281,7 +1272,7 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 			p.Set(&g1Infinity)
 			for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 				if chunk != nbChunks-1 {
-					for j := uint64(0); j < c; j++ {
+					for range c {
 						p.DoubleAssign()
 					}
 				}
@@ -1328,7 +1319,7 @@ func batchAddG1Affine[TP pG1Affine, TPP ppG1Affine, TC cG1Affine](R *TPP, P *TP,
 	// first we compute the 1 / (X2 - X1) for all points using Montgomery batch inversion trick
 
 	// X2 - X1
-	for j := 0; j < batchSize; j++ {
+	for j := range batchSize {
 		lambdain[j].Sub(&(*P)[j].X, &(*R)[j].X)
 	}
 
@@ -1358,7 +1349,7 @@ func batchAddG1Affine[TP pG1Affine, TPP ppG1Affine, TC cG1Affine](R *TPP, P *TP,
 	var t fp.Element
 	var Q G1Affine
 
-	for j := 0; j < batchSize; j++ {
+	for j := range batchSize {
 		// λ  = (Y2 - Y1) / (X2 - X1)
 		t.Sub(&(*P)[j].Y, &(*R)[j].Y)
 		lambda[j].Mul(&lambda[j], &t)

@@ -31,7 +31,7 @@ func TestByteOrder(t *testing.T) {
 
 	var buf [fr.Bytes]byte
 	// if the 31 first bytes are FF, it's a valid FF in little endian, but not in big endian
-	for i := 0; i < fr.Bytes-1; i++ {
+	for i := range fr.Bytes - 1 {
 		buf[i] = 0xFF
 	}
 	_, err := fr.BigEndian.Element(&buf)

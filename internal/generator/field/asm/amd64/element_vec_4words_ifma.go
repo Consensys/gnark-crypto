@@ -194,7 +194,7 @@ func (h *ifmaHelper) initIFMAConstants() {
 func (h *ifmaHelper) loadModulusRadix52() {
 	h.Comment("q in radix-52: Z25=ql0, Z26=ql1, Z27=ql2, Z28=ql3, Z29=ql4")
 	// Use precomputed qRadix52_i constants
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.MOVQ(fmt.Sprintf("$const_qRadix52_%d", i), amd64.AX)
 		h.VPBROADCASTQ(amd64.AX, h.qRadix52[i])
 	}
@@ -259,7 +259,7 @@ func (h *ifmaHelper) montgomeryMulIFMA(a, b [5]amd64.VectorRegister) {
 	tmp := amd64.Z20
 
 	// Process each limb of B (CIOS rounds)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.Comment(fmt.Sprintf("CIOS Round %d", i))
 		h.ciosRound(i, a, b, acc, tmp)
 	}
@@ -268,13 +268,13 @@ func (h *ifmaHelper) montgomeryMulIFMA(a, b [5]amd64.VectorRegister) {
 	// This carry chain must be propagated sequentially: each carry changes the
 	// next limb before that limb's carry is known.
 	h.Comment("Fused x16 shift + normalization")
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.VPSLLQ("$4", acc[i], a[i])
 	}
 
 	// Propagate carries sequentially after the x16 shift.
 	tmp = amd64.Z20
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		h.carryProp(a[i], a[i], a[i+1], h.mask52, tmp)
 	}
 	h.VPANDQ(h.mask52, a[4], a[4])
@@ -285,7 +285,7 @@ func (h *ifmaHelper) ciosRound(i int, a, b [5]amd64.VectorRegister, acc [6]amd64
 	bi := b[i]
 
 	// T += A * B[i]
-	for j := 0; j < 5; j++ {
+	for j := range 5 {
 		h.VPMADD52LUQ(bi, a[j], acc[j])
 		h.VPMADD52HUQ(bi, a[j], acc[j+1])
 	}
@@ -301,7 +301,7 @@ func (h *ifmaHelper) ciosRound(i int, a, b [5]amd64.VectorRegister, acc [6]amd64
 	h.VPANDQ(h.mask52, tmp, tmp)
 
 	// T += m * q
-	for j := 0; j < 5; j++ {
+	for j := range 5 {
 		h.VPMADD52LUQ(h.qRadix52[j], tmp, acc[j])
 		h.VPMADD52HUQ(h.qRadix52[j], tmp, acc[j+1])
 	}
@@ -344,26 +344,26 @@ func (h *ifmaHelper) barrettReduction(a [5]amd64.VectorRegister) {
 	}
 
 	// Low and high parts
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.VPMADD52LUQ(h.qRadix52[i], k, kqLow[i])
 		h.VPMADD52HUQ(h.qRadix52[i], k, kqHigh[i])
 	}
 
 	// Subtract k*q from result
 	h.Comment("Subtract k*q")
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.VPSUBQ(kqLow[i], a[i], a[i])
 	}
 
 	// Subtract high parts (carries)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		h.VPSUBQ(kqHigh[i], a[i+1], a[i+1])
 	}
 
 	// Propagate borrows
 	h.Comment("Propagate borrows")
 	tmp := amd64.Z15
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		h.borrowProp(a[i], a[i+1], h.mask52, tmp)
 	}
 	h.VPANDQ(h.mask52, a[4], a[4])
@@ -379,13 +379,13 @@ func (h *ifmaHelper) conditionalSubtractQ(a [5]amd64.VectorRegister) {
 	sub := [5]amd64.VectorRegister{amd64.Z10, amd64.Z11, amd64.Z12, amd64.Z13, amd64.Z14}
 
 	// Compute result - q
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.VPSUBQ(h.qRadix52[i], a[i], sub[i])
 	}
 
 	// Propagate borrows
 	tmp := amd64.Z20
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		h.VPSRAQ("$63", sub[i], tmp)
 		h.VPADDQ(tmp, sub[i+1], sub[i+1])
 	}
@@ -394,12 +394,12 @@ func (h *ifmaHelper) conditionalSubtractQ(a [5]amd64.VectorRegister) {
 	h.VPSRAQ("$63", sub[4], tmp)
 
 	// Mask subtracted limbs
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.VPANDQ(h.mask52, sub[i], sub[i])
 	}
 
 	// Conditional select: if borrow, keep a; else use sub
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.condSelect(sub[i], tmp, a[i])
 	}
 }

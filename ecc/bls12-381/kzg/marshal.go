@@ -46,12 +46,12 @@ func (vk *VerifyingKey) writeTo(w io.Writer, options ...func(*bls12381.Encoder))
 	// encode the VerifyingKey
 	enc := bls12381.NewEncoder(w, options...)
 	nLines := 63
-	toEncode := make([]interface{}, 0, 4*nLines+3)
+	toEncode := make([]any, 0, 4*nLines+3)
 	toEncode = append(toEncode, &vk.G2[0])
 	toEncode = append(toEncode, &vk.G2[1])
 	toEncode = append(toEncode, &vk.G1)
-	for k := 0; k < 2; k++ {
-		for j := 0; j < 2; j++ {
+	for k := range 2 {
+		for j := range 2 {
 			for i := nLines - 1; i >= 0; i-- {
 				toEncode = append(toEncode, &vk.Lines[k][j][i].R0)
 				toEncode = append(toEncode, &vk.Lines[k][j][i].R1)
@@ -163,12 +163,12 @@ func (vk *VerifyingKey) ReadFrom(r io.Reader) (int64, error) {
 	// decode the VerifyingKey
 	dec := bls12381.NewDecoder(r)
 	nLines := 63
-	toDecode := make([]interface{}, 0, 4*nLines+3)
+	toDecode := make([]any, 0, 4*nLines+3)
 	toDecode = append(toDecode, &vk.G2[0])
 	toDecode = append(toDecode, &vk.G2[1])
 	toDecode = append(toDecode, &vk.G1)
-	for k := 0; k < 2; k++ {
-		for j := 0; j < 2; j++ {
+	for k := range 2 {
+		for j := range 2 {
 			for i := nLines - 1; i >= 0; i-- {
 				toDecode = append(toDecode, &vk.Lines[k][j][i].R0)
 				toDecode = append(toDecode, &vk.Lines[k][j][i].R1)
@@ -213,7 +213,7 @@ func (srs *SRS) UnsafeReadFrom(r io.Reader) (int64, error) {
 func (proof *OpeningProof) WriteTo(w io.Writer) (int64, error) {
 	enc := bls12381.NewEncoder(w)
 
-	toEncode := []interface{}{
+	toEncode := []any{
 		&proof.H,
 		&proof.ClaimedValue,
 	}
@@ -231,7 +231,7 @@ func (proof *OpeningProof) WriteTo(w io.Writer) (int64, error) {
 func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 	dec := bls12381.NewDecoder(r)
 
-	toDecode := []interface{}{
+	toDecode := []any{
 		&proof.H,
 		&proof.ClaimedValue,
 	}
@@ -249,7 +249,7 @@ func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 func (proof *BatchOpeningProof) WriteTo(w io.Writer) (int64, error) {
 	enc := bls12381.NewEncoder(w)
 
-	toEncode := []interface{}{
+	toEncode := []any{
 		&proof.H,
 		proof.ClaimedValues,
 	}
@@ -266,7 +266,7 @@ func (proof *BatchOpeningProof) WriteTo(w io.Writer) (int64, error) {
 // ReadFrom decodes BatchOpeningProof data from reader.
 func (proof *BatchOpeningProof) ReadFrom(r io.Reader) (int64, error) {
 	dec := bls12381.NewDecoder(r)
-	toDecode := []interface{}{
+	toDecode := []any{
 		&proof.H,
 		&proof.ClaimedValues,
 	}

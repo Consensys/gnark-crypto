@@ -16,7 +16,7 @@ import (
 )
 
 var bigIntPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return new(big.Int)
 	},
 }
@@ -309,7 +309,7 @@ func BatchDecompressKarabina(x []E6) []E6 {
 	var one fp.Element
 	one.SetOne()
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		// g3 == 0
 		if x[i].B1.A0.IsZero() {
 			t0[i].Mul(&x[i].B0.A1, &x[i].B1.A2).
@@ -341,7 +341,7 @@ func BatchDecompressKarabina(x []E6) []E6 {
 
 	t1 = fp.BatchInvert(t1) // costs 1 inverse
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if zeroes[i] {
 			continue
 		}
@@ -438,7 +438,7 @@ func BatchInvertE6(a []E6) []E6 {
 	var accumulator E6
 	accumulator.SetOne()
 
-	for i := 0; i < len(a); i++ {
+	for i := range len(a) {
 		if a[i].IsZero() {
 			zeroes[i] = true
 			continue
@@ -492,7 +492,7 @@ func (z *E6) Exp(x E6, k *big.Int) *E6 {
 	for i := range b {
 		w := b[i]
 		mask := byte(0xc0)
-		for j := 0; j < 4; j++ {
+		for j := range 4 {
 			res.Square(&res).Square(&res)
 			c := (w & mask) >> (6 - 2*j)
 			if c != 0 {
@@ -610,16 +610,13 @@ func (z *E6) ExpGLV(x E6, k *big.Int) *E6 {
 	s1 = s1.SetBigInt(&s[0]).Bits()
 	s2 = s2.SetBigInt(&s[1]).Bits()
 
-	maxBit := s1.BitLen()
-	if s2.BitLen() > maxBit {
-		maxBit = s2.BitLen()
-	}
+	maxBit := max(s2.BitLen(), s1.BitLen())
 	hiWordIndex := (maxBit - 1) / 64
 
 	// loop starts from len(s1)/2 due to the bounds
 	for i := hiWordIndex; i >= 0; i-- {
 		mask := uint64(3) << 62
-		for j := 0; j < 32; j++ {
+		for j := range 32 {
 			res.CyclotomicSquare(&res).CyclotomicSquare(&res)
 			b1 := (s1[i] & mask) >> (62 - 2*j)
 			b2 := (s2[i] & mask) >> (62 - 2*j)
@@ -803,7 +800,7 @@ func BatchCompressTorus(x []E6) ([]E3, error) {
 	one.SetOne()
 	res := make([]E3, n)
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		res[i].Set(&x[i].B1)
 		//  throw an error if any of the x[i].C1 is 0
 		if res[i].IsZero() {
@@ -813,7 +810,7 @@ func BatchCompressTorus(x []E6) ([]E3, error) {
 
 	t := BatchInvertE3(res) // costs 1 inverse
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		res[i].Add(&x[i].B0, &one).
 			Mul(&res[i], &t[i])
 	}
@@ -850,7 +847,7 @@ func BatchDecompressTorus(x []E3) ([]E6, error) {
 	num := make([]E6, n)
 	denum := make([]E6, n)
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		num[i].B0.Set(&x[i])
 		num[i].B1.SetOne()
 		denum[i].B0.Set(&x[i])
@@ -859,7 +856,7 @@ func BatchDecompressTorus(x []E3) ([]E6, error) {
 
 	denum = BatchInvertE6(denum) // costs 1 inverse
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		res[i].Mul(&num[i], &denum[i])
 	}
 
@@ -867,13 +864,13 @@ func BatchDecompressTorus(x []E3) ([]E6, error) {
 }
 
 func (z *E6) nSquare(n int) {
-	for i := 0; i < n; i++ {
+	for range n {
 		z.CyclotomicSquare(z)
 	}
 }
 
 func (z *E6) nSquareCompressed(n int) {
-	for i := 0; i < n; i++ {
+	for range n {
 		z.CyclotomicSquareCompressed(z)
 	}
 }

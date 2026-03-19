@@ -40,7 +40,7 @@ type HashSuiteSswu struct {
 
 func toBigIntSlice(z []int) []big.Int {
 	res := make([]big.Int, len(z))
-	for i := 0; i < len(z); i++ {
+	for i := range z {
 		res[i].SetInt64(int64(z[i]))
 	}
 	return res
@@ -199,10 +199,9 @@ func newIsogenousCurveInfoOptional(isogenousCurve *Isogeny) *IsogenyInfo {
 // Returns k (number of blocks) and L (block sizes).
 func computeSarkarBlockSizes(e int) (int, []int) {
 	total := e - 1
-	k := (total + 6) / 7 // ceiling division, target block size ~7
-	if k < 2 {
-		k = 2
-	}
+	k := max(
+		// ceiling division, target block size ~7
+		(total+6)/7, 2)
 	base := total / k
 	extra := total % k
 	L := make([]int, k)

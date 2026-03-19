@@ -289,7 +289,7 @@ func buildTwiddles(t [][]goldilocks.Element, omega goldilocks.Element, nbStages 
 	for i := uint64(1); i < nbStages; i++ {
 		t[i] = make([]goldilocks.Element, 1+(1<<(nbStages-i-1)))
 		k := 0
-		for j := 0; j < len(t[i]); j++ {
+		for j := range len(t[i]) {
 			t[i][j] = t[0][k]
 			k += 1 << i
 		}
@@ -324,15 +324,10 @@ func BuildExpTable(w goldilocks.Element, table []goldilocks.Element) {
 	var wg sync.WaitGroup
 	for i := 1; i < n; i += interval {
 		start := i
-		end := i + interval
-		if end > n {
-			end = n
-		}
-		wg.Add(1)
-		go func() {
+		end := min(i+interval, n)
+		wg.Go(func() {
 			precomputeExpTableChunk(w, uint64(start), table[start:end])
-			wg.Done()
-		}()
+		})
 	}
 	wg.Wait()
 }
