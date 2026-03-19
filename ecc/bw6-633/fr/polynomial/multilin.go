@@ -9,7 +9,7 @@ import (
 	"math/bits"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
-	"github.com/consensys/gnark-crypto/parallel"
+	"github.com/consensys/gnark-crypto/utils"
 )
 
 // MultiLin tracks the values of a (dense i.e. not sparse) multilinear polynomial
@@ -40,7 +40,7 @@ func (m *MultiLin) Fold(r fr.Element) {
 	*m = (*m)[:mid]
 }
 
-func (m *MultiLin) FoldParallel(r fr.Element) parallel.Task {
+func (m *MultiLin) FoldParallel(r fr.Element) utils.Task {
 	mid := len(*m) / 2
 	bottom, top := (*m)[:mid], (*m)[mid:]
 
