@@ -747,6 +747,211 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16x512(params Poseidon2Parameters) {
 	f.RET()
 }
 
+// generatePoseidon2_F31_16x16xN generates the generalized version of
+// permutation16x16x512 that accepts variable colSize via parameters
+// (gatherIndices and nbSteps) instead of hardcoded 512-element stride.
+func (_f *FFAmd64) generatePoseidon2_F31_16x16xN(params Poseidon2Parameters) {
+	f := &fieldHelper{FFAmd64: _f}
+	width := params.Width
+	fullRounds := params.FullRounds
+	partialRounds := params.PartialRounds
+	rf := fullRounds / 2
+
+	_ = rf
+	_ = partialRounds
+
+	if width != 16 {
+		panic("only width 16 is supported")
+	}
+	const fnName = "permutation16x16xN_avx512"
+	// func permutation16x16xN_avx512(matrix *fr.Element, roundKeys [][]fr.Element, result *fr.Element, gatherIndices *uint32, nbSteps uint64)
+	const argSize = 7 * 8 // matrix(8) + roundKeys(24) + result(8) + gatherIndices(8) + nbSteps(8)
+	stackSize := f.StackSize(f.NbWords*2+4, 2, 0)
+	registers := f.FnHeader(fnName, stackSize, argSize, amd64.AX, amd64.DX)
+	defer f.AssertCleanStack(stackSize, 0)
+	f.registers = &registers
+
+	// input
+	v := registers.PopVN(16)
+
+	// constants
+	f.loadQ()
+	f.loadQInvNeg()
+
+	addrMatrix := registers.Pop()
+	addrResult := registers.Pop()
+	addrRoundKeys := registers.Pop()
+	rKey := registers.Pop()
+
+	// prepare the mask used for the merging mul results
+	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
+	f.MOVQ("matrix+0(FP)", addrMatrix)
+	f.MOVQ("roundKeys+8(FP)", addrRoundKeys)
+	f.MOVQ("result+32(FP)", addrResult)
+
+	const blockSize = 4
+	const nbBlocks = 16 / blockSize
+
+	// Zeroize state
+	for i := range 16 {
+		f.VXORPS(v[i], v[i], v[i])
+	}
+
+	// Load nbSteps from parameter (instead of hardcoded 64)
+	N := registers.Pop()
+	f.MOVQ("nbSteps+48(FP)", N)
+
+	// Load gather indices from parameter (instead of global indexGather512)
+	maskFFFF := registers.Pop()
+	addrIndexGather := registers.Pop()
+	vIndexGather := registers.PopV()
+	f.MOVQ("$0xffffffffffffffff", maskFFFF)
+	f.MOVQ("gatherIndices+40(FP)", addrIndexGather)
+	f.VMOVDQU32(addrIndexGather.At(0), vIndexGather)
+
+	addRoundKeySbox := func(index int) {
+		rc := registers.PopV()
+		f.VPBROADCASTD(rKey.AtD(index), rc)
+		f.add(v[index], rc, v[index])
+		registers.PushV(rc)
+		f.sbox(v[index], v[index], params.SBoxDegree)
+	}
+
+	fullRound := func() {
+		for j := range v {
+			addRoundKeySbox(j)
+		}
+		f.matMulExternal(v, nbBlocks)
+	}
+
+	partialRound := func() {
+		addRoundKeySbox(0)
+
+		sum := registers.PopV()
+		t1 := registers.PopV()
+		t2 := registers.PopV()
+		t3 := registers.PopV()
+		t4 := registers.PopV()
+
+		{
+			f.add(v[0], v[1], t2)
+			f.add(v[2], v[3], t3)
+			f.add(v[4], v[5], t4)
+			f.add(v[6], v[7], sum)
+			for i := 8; i < len(v); i += 4 {
+				f.add(v[i], t2, t2)
+				f.add(v[i+1], t3, t3)
+				f.add(v[i+2], t4, t4)
+				f.add(v[i+3], sum, sum)
+			}
+			f.add(t2, t3, t2)
+			f.add(t4, sum, t4)
+			f.add(t2, t4, sum)
+		}
+
+		f.double(v[0], v[0])
+		f.double(v[2], v[2])
+		f.halve(v[3], v[3])
+		f.double(v[4], t2)
+		f.add(v[4], t2, v[4])
+		f.double(v[5], v[5])
+		f.double(v[5], v[5])
+		f.halve(v[6], v[6])
+		f.double(v[7], t1)
+		f.add(v[7], t1, v[7])
+		f.double(v[8], v[8])
+		f.double(v[8], v[8])
+
+		registers.PushV(t1, t2, t3, t4)
+
+		ns := []int{8, 3, 24, 8, 3, 4, 24}
+		for i := 9; i < len(v); i++ {
+			f.mul2ExpNegN(v[i], ns[i-9], v[i])
+		}
+
+		f.sub(sum, v[0], v[0])
+		f.add(sum, v[1], v[1])
+		f.add(v[2], sum, v[2])
+		f.add(v[3], sum, v[3])
+		f.add(v[4], sum, v[4])
+		f.add(v[5], sum, v[5])
+		f.sub(sum, v[6], v[6])
+		f.sub(sum, v[7], v[7])
+		f.sub(sum, v[8], v[8])
+		for i := 9; i < len(v); i++ {
+			if i <= 11 {
+				f.add(v[i], sum, v[i])
+			} else {
+				f.sub(sum, v[i], v[i])
+			}
+		}
+
+		registers.PushV(sum)
+	}
+
+	loop := func(nbRounds int, fn func()) {
+		n := registers.Pop()
+		f.MOVQ(nbRounds, n)
+		f.Loop(n, func() {
+			f.MOVQ(addrRoundKeys.At(0), rKey)
+			fn()
+			f.ADDQ("$24", addrRoundKeys)
+		})
+		registers.Push(n)
+	}
+
+	// Main loop: same as 16x16x512 but with parameterized gather indices
+	registers.PushV(vIndexGather)
+	f.Loop(N, func() {
+		vTmpInputs := registers.PopVN(8)
+		vIndexGather = registers.PopV()
+		f.VMOVDQU32(addrIndexGather.At(0), vIndexGather)
+		for i := range 8 {
+			f.KMOVD(maskFFFF, amd64.K1)
+			f.VPGATHERDD(i*4, addrMatrix, vIndexGather, 4, amd64.K1, v[i+8])
+			f.VMOVDQA32(v[i+8], vTmpInputs[i])
+		}
+		registers.PushV(vIndexGather)
+
+		f.matMulExternal(v, nbBlocks)
+
+		f.Comment("loop over the first full rounds")
+		loop(rf, fullRound)
+
+		f.Comment("loop over the partial rounds")
+		loop(partialRounds, partialRound)
+
+		f.Comment("loop over the final full rounds")
+		loop(rf, fullRound)
+
+		// feed forward
+		for i := range 8 {
+			f.add(vTmpInputs[i], v[i+8], v[i])
+		}
+		registers.PushV(vTmpInputs...)
+
+		// advance addrMatrix by 8 * 4 bytes
+		f.ADDQ(8*4, addrMatrix)
+		// restore addrRoundKeys
+		f.MOVQ("roundKeys+8(FP)", addrRoundKeys)
+	})
+
+	// scatter results
+	addrScatter8 := addrIndexGather
+	vIndexScatter := vIndexGather
+	f.MOVQ("·indexScatter8+0(SB)", addrScatter8)
+	f.VMOVDQU32(addrScatter8.At(0), vIndexScatter)
+
+	for i := range 8 {
+		f.KMOVD(maskFFFF, amd64.K1)
+		f.VPSCATTERDD(i*4, addrResult, vIndexScatter, 4, amd64.K1, v[i])
+	}
+
+	f.RET()
+}
+
 func (_f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 	f := &fieldHelper{FFAmd64: _f}
 	width := params.Width

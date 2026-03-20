@@ -6,6 +6,7 @@
 package poseidon2
 
 import (
+	"fmt"
 	"testing"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
@@ -362,6 +363,45 @@ func TestCompressx16(t *testing.T) {
 	}
 }
 
+func TestAVX512Compressx16VariableSize(t *testing.T) {
+	assert := require.New(t)
+	if !cpu.SupportAVX512 {
+		t.Skip("AVX512 not supported")
+	}
+
+	// Test various colSizes that occur in the Vortex no-SIS path.
+	colSizes := []int{8, 16, 24, 40, 48, 80, 160, 256, 320, 392, 440, 512}
+
+	for _, colSize := range colSizes {
+		t.Run(fmt.Sprintf("colSize_%d", colSize), func(t *testing.T) {
+			const nbRows = 16
+			matrix := make([]fr.Element, nbRows*colSize)
+			for i := range matrix {
+				matrix[i].MustSetRandom()
+			}
+
+			// expected result using pure go implementation
+			var expected [16][8]fr.Element
+			{
+				h := NewPermutation(16, 6, 21)
+				h.disableAVX512()
+				h.Compressx16(matrix, colSize, expected[:])
+			}
+
+			// actual result with AVX512
+			var result [16][8]fr.Element
+			h := NewPermutation(16, 6, 21)
+			h.Compressx16(matrix, colSize, result[:])
+
+			for i := range 16 {
+				for j := range 8 {
+					assert.True(expected[i][j].Equal(&result[i][j]), "colSize=%d mismatch at row %d col %d", colSize, i, j)
+				}
+			}
+		})
+	}
+}
+
 func BenchmarkCompressx16(b *testing.B) {
 	const colSize = 512
 	const nbRows = 16
@@ -375,5 +415,26 @@ func BenchmarkCompressx16(b *testing.B) {
 	b.ResetTimer()
 	for range b.N {
 		h.Compressx16(matrix, colSize, result[:])
+	}
+}
+
+func BenchmarkCompressx16VariableSize(b *testing.B) {
+	colSizes := []int{16, 48, 80, 160, 256, 392, 512}
+	h := NewPermutation(16, 6, 21)
+
+	for _, colSize := range colSizes {
+		b.Run(fmt.Sprintf("colSize_%d", colSize), func(b *testing.B) {
+			const nbRows = 16
+			matrix := make([]fr.Element, nbRows*colSize)
+			for i := range matrix {
+				matrix[i].MustSetRandom()
+			}
+			var result [16][8]fr.Element
+
+			b.ResetTimer()
+			for range b.N {
+				h.Compressx16(matrix, colSize, result[:])
+			}
+		})
 	}
 }

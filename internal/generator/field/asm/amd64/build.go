@@ -473,6 +473,7 @@ func GenerateF31Poseidon2(w io.Writer, nbBits int, params []Poseidon2Parameters)
 		}
 		if p.Width == 16 {
 			f.generatePoseidon2_F31_16x16x512(p)
+			f.generatePoseidon2_F31_16x16xN(p)
 		}
 	}
 

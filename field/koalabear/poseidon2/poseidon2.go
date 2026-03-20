@@ -425,34 +425,45 @@ func (h *Permutation) Compressx16(matrix []fr.Element, colSize int, result [][8]
 	if len(matrix) != 16*colSize || len(result) != 16 || colSize%8 != 0 {
 		panic("invalid input: matrix must be 16*colSize, result must be 16, colSize must be multiple of 8")
 	}
-	// note: this is hard coded as we have an optimized avx512 implementation for this specific size
-	const sisKeySize = 512
 
-	if !h.params.hasFast16_6_21 || colSize != sisKeySize {
-		var x [16][16]fr.Element
-		nbSteps := colSize / 8
-		for step := range nbSteps {
-			// load chunk
-			for i := range 16 {
-				// init state
-				copy(x[i][8:], matrix[i*colSize+step*8:i*colSize+step*8+8])
-				h.Permutation(x[i][:])
-				for j := range 8 {
-					x[i][j].Add(&x[i][8+j], &matrix[i*colSize+step*8+j]) // feed-forward
-				}
-			}
-		}
-		// store result
-		for i := range 16 {
-			copy(result[i][:], x[i][:8])
-		}
+	if !h.params.hasFast16_6_21 {
+		h.compressx16Generic(matrix, colSize, result)
 		return
 	}
 
-	// optimized path
+	// ARM64: only the 512-specific kernel exists for now.
 	if runtime.GOARCH == "arm64" {
-		permutation16x16x512_arm64(&matrix[0], h.params.RoundKeys, &result[0][0])
-	} else {
-		permutation16x16x512_avx512(&matrix[0], h.params.RoundKeys, &result[0][0])
+		if colSize == 512 {
+			permutation16x16x512_arm64(&matrix[0], h.params.RoundKeys, &result[0][0])
+			return
+		}
+		h.compressx16Generic(matrix, colSize, result)
+		return
+	}
+
+	// AMD64 AVX-512: use generalized gather-based kernel for any colSize.
+	var gatherIndices [16]uint32
+	for i := range 16 {
+		gatherIndices[i] = uint32(i * colSize)
+	}
+	nbSteps := uint64(colSize / 8)
+	permutation16x16xN_avx512(&matrix[0], h.params.RoundKeys, &result[0][0], &gatherIndices[0], nbSteps)
+}
+
+// compressx16Generic is the pure-Go fallback for Compressx16.
+func (h *Permutation) compressx16Generic(matrix []fr.Element, colSize int, result [][8]fr.Element) {
+	var x [16][16]fr.Element
+	nbSteps := colSize / 8
+	for step := range nbSteps {
+		for i := range 16 {
+			copy(x[i][8:], matrix[i*colSize+step*8:i*colSize+step*8+8])
+			h.Permutation(x[i][:])
+			for j := range 8 {
+				x[i][j].Add(&x[i][8+j], &matrix[i*colSize+step*8+j])
+			}
+		}
+	}
+	for i := range 16 {
+		copy(result[i][:], x[i][:8])
 	}
 }
