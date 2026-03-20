@@ -1518,7 +1518,7 @@ func (f *fieldHelper) sbox(a, into amd64.VectorRegister, degree int) {
 	if degree == 7 {
 		t0 := f.registers.PopV()
 		t1 := f.registers.PopV()
-		f.mul(a, a, t0, false)   // a^2
+		f.mul(a, a, t0, true)    // a^2 (reduce to prevent overflow in a^6 = a^3 * a^3)
 		f.mul(t0, a, t0, false)  // a^3
 		f.mul(t0, t0, t1, false) // a^6
 		f.mul(t1, a, into, true) // a^7
