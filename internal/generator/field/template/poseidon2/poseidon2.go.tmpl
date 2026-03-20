@@ -85,7 +85,7 @@ func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 func NewParametersWithSeed(width, nbFullRounds, nbPartialRounds int, seed string) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
 	{{- if .F31}}
-	p.hasFast{{- $wc}}_{{- $fc}}_{{- $pc}} = width == {{- $wc}} && nbFullRounds == {{- $fc}} && nbPartialRounds == {{- $pc}} && (cpu.SupportAVX512 || runtime.GOARCH == "arm64")
+	p.hasFast{{- $wc}}_{{- $fc}}_{{- $pc}} = width == {{- $wc}} && nbFullRounds == {{- $fc}} && nbPartialRounds == {{- $pc}} && (cpu.SupportAVX512 || cpu.SupportNEON)
 	p.hasFast{{- $ws}}_{{- $fs}}_{{- $ps}} = width == {{- $ws}} && nbFullRounds == {{- $fs}} && nbPartialRounds == {{- $ps}} && cpu.SupportAVX512
 	{{- end}}
 	p.initRC(seed)

@@ -71,7 +71,7 @@ func NewParameters(width, nbFullRounds, nbPartialRounds int) *Parameters {
 // from the given seed.
 func NewParametersWithSeed(width, nbFullRounds, nbPartialRounds int, seed string) *Parameters {
 	p := Parameters{Width: width, NbFullRounds: nbFullRounds, NbPartialRounds: nbPartialRounds}
-	p.hasFast16_8_13 = width == 16 && nbFullRounds == 8 && nbPartialRounds == 13 && (cpu.SupportAVX512 || runtime.GOARCH == "arm64")
+	p.hasFast16_8_13 = width == 16 && nbFullRounds == 8 && nbPartialRounds == 13 && (cpu.SupportAVX512 || cpu.SupportNEON)
 	p.hasFast24_8_21 = width == 24 && nbFullRounds == 8 && nbPartialRounds == 21 && cpu.SupportAVX512
 	p.initRC(seed)
 	return &p

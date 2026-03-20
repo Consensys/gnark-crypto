@@ -26,6 +26,10 @@ func permutation16x16x512_avx512(matrix *fr.Element, roundKeys [][]fr.Element, r
 	panic("permutation16x16x512_avx512 is not implemented")
 }
 
+func permutation16x16xN_avx512(matrix *fr.Element, roundKeys [][]fr.Element, result *fr.Element, gatherIndices *uint32, nbSteps uint64) {
+	panic("permutation16x16xN_avx512 is not implemented")
+}
+
 func permutation16x16x512_arm64(matrix *fr.Element, roundKeys [][]fr.Element, result *fr.Element) {
 	panic("permutation16x16x512_arm64 is not implemented")
 }
