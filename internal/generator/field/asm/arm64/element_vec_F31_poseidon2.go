@@ -43,7 +43,7 @@ func baseReg(v arm64.VectorRegister) string {
 func GenerateF31Poseidon2(w io.Writer, nbBits int, q, qInvNeg uint64, params []amd64.Poseidon2Parameters) error {
 	f := NewFFArm64(w, (nbBits+63)/64)
 	for _, p := range params {
-		if p.Width == 16 {
+		if p.Width == 16 && p.HasCompressx16 {
 			f.generatePoseidon2_F31_16x16x512(p, q, qInvNeg)
 		}
 	}

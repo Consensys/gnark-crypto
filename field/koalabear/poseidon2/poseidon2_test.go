@@ -364,7 +364,6 @@ func TestCompressx16(t *testing.T) {
 }
 
 func TestAVX512Compressx16VariableSize(t *testing.T) {
-	assert := require.New(t)
 	if !cpu.SupportAVX512 {
 		t.Skip("AVX512 not supported")
 	}
@@ -374,6 +373,7 @@ func TestAVX512Compressx16VariableSize(t *testing.T) {
 
 	for _, colSize := range colSizes {
 		t.Run(fmt.Sprintf("colSize_%d", colSize), func(t *testing.T) {
+			assert := require.New(t)
 			const nbRows = 16
 			matrix := make([]fr.Element, nbRows*colSize)
 			for i := range matrix {
