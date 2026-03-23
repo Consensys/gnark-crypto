@@ -15,10 +15,6 @@ func permutation16x24_avx512(input *[24][16]fr.Element, roundKeys [][]fr.Element
 }
 
 {{- if eq .FF "koalabear"}}
-func permutation16x16x512_avx512(matrix *fr.Element, roundKeys [][]fr.Element, result *fr.Element) {
-	panic("permutation16x16x512_avx512 is not implemented")
-}
-
 func permutation16x16xN_avx512(matrix *fr.Element, roundKeys [][]fr.Element, result *fr.Element, gatherIndices *uint32, nbSteps uint64) {
 	panic("permutation16x16xN_avx512 is not implemented")
 }
