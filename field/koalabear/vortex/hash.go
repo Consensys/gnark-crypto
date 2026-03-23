@@ -36,6 +36,11 @@ func CompressPoseidon2(a, b Hash) Hash {
 
 // CompressPoseidon2x16 runs the Poseidon2 compression function on multiple
 // inputs in a SIMD fashion.
+// The input matrix is expected to be of size 16 * colSize, where each row corresponds to an input.
+// The result is stored in the result slice, which is expected to have a size of 16,
+// with each element containing 8 elements (the output size of the compression function).
+// This function applies a feed-forward mechanism: for each input, the first 8 elements of the input
+// are added to the corresponding output, and then it processes chunks of 8 elements from each row in the matrix.
 func CompressPoseidon2x16(matrix []koalabear.Element, colSize int, result []Hash) {
 	compressPerm.Compressx16(matrix, colSize, result)
 }

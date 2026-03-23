@@ -1070,7 +1070,7 @@ done_10:
 	VMOVDQU32 Z2, 0(R14)
 	RET
 
-TEXT ·permutation16x16x512_avx512(SB), NOSPLIT, $0-40
+TEXT ·permutation16x16xN_avx512(SB), NOSPLIT, $0-56
 	MOVD         $const_q, AX
 	VPBROADCASTD AX, Z16
 	MOVD         $const_qInvNeg, AX
@@ -1096,9 +1096,9 @@ TEXT ·permutation16x16x512_avx512(SB), NOSPLIT, $0-40
 	VXORPS       Z13, Z13, Z13
 	VXORPS       Z14, Z14, Z14
 	VXORPS       Z15, Z15, Z15
-	MOVQ         $0x0000000000000040, SI   // number of steps (sisKeySize / 8) --> 64
+	MOVQ         nbSteps+48(FP), SI
 	MOVQ         $0xffffffffffffffff, DI
-	MOVQ         ·indexGather512+0(SB), R8
+	MOVQ         gatherIndices+40(FP), R8
 	VMOVDQU32    0(R8), Z18
 
 loop_11:
