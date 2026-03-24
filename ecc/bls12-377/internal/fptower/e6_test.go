@@ -286,7 +286,7 @@ func BenchmarkE6Add(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Add(&a, &c)
 	}
 }
@@ -296,7 +296,7 @@ func BenchmarkE6Sub(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Sub(&a, &c)
 	}
 }
@@ -306,7 +306,7 @@ func BenchmarkE6Mul(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Mul(&a, &c)
 	}
 }
@@ -315,7 +315,7 @@ func BenchmarkE6Square(b *testing.B) {
 	var a E6
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Square(&a)
 	}
 }
@@ -324,7 +324,7 @@ func BenchmarkE6Inverse(b *testing.B) {
 	var a E6
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Inverse(&a)
 	}
 }

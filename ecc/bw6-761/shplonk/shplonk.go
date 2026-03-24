@@ -76,7 +76,7 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 	}
 	nbPoints := 0
 	sizeSi := make([]int, len(points))
-	for i := 0; i < nbPolynomials; i++ {
+	for i := range nbPolynomials {
 		nbPoints += len(points[i])
 		sizeSi[i] = len(points[i])
 	}
@@ -86,7 +86,7 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 	bufTotalSize := make([]fr.Element, totalSize)
 	f := make([]fr.Element, totalSize) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation
 	res.ClaimedValues = make([][]fr.Element, nbPolynomials)
-	for i := 0; i < nbPolynomials; i++ {
+	for i := range nbPolynomials {
 		res.ClaimedValues[i] = make([]fr.Element, len(points[i]))
 	}
 	var accGamma fr.Element
@@ -94,9 +94,9 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 
 	ztMinusSi := make([][]fr.Element, nbPolynomials)
 	ri := make([][]fr.Element, nbPolynomials)
-	for i := 0; i < nbPolynomials; i++ {
+	for i := range nbPolynomials {
 
-		for j := 0; j < len(points[i]); j++ {
+		for j := range len(points[i]) {
 			res.ClaimedValues[i][j] = eval(polynomials[i], points[i][j])
 		}
 
@@ -108,7 +108,7 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 
 		bufTotalSize = mul(bufMaxSizePolynomials, ztMinusSi[i], bufTotalSize)
 		bufTotalSize = mulByConstant(bufTotalSize, accGamma)
-		for j := 0; j < len(bufTotalSize); j++ {
+		for j := range len(bufTotalSize) {
 			f[j].Add(&f[j], &bufTotalSize[j])
 		}
 
@@ -133,7 +133,7 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 	accGamma.SetOne()
 	var gammaiZtMinusSiZ fr.Element
 	l := make([]fr.Element, totalSize) // cf https://eprint.iacr.org/2020/081.pdf page 11 for notation page 11 for notation
-	for i := 0; i < len(polynomials); i++ {
+	for i := range len(polynomials) {
 
 		ztMinusSiZ := eval(ztMinusSi[i], z)          // Z_{T\Sᵢ}(z)
 		gammaiZtMinusSiZ.Mul(&accGamma, &ztMinusSiZ) // γⁱZ_{T\Sᵢ}(z)
@@ -142,7 +142,7 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 		riz := eval(ri[i], z)
 		bufMaxSizePolynomials[0].Sub(&bufMaxSizePolynomials[0], &riz)                // (fᵢ-rᵢ(z))
 		mulByConstant(bufMaxSizePolynomials[:len(polynomials[i])], gammaiZtMinusSiZ) // γⁱZ_{T\Sᵢ}(z)(fᵢ-rᵢ(z))
-		for j := 0; j < len(bufMaxSizePolynomials); j++ {
+		for j := range len(bufMaxSizePolynomials) {
 			l[j].Add(&l[j], &bufMaxSizePolynomials[j])
 		}
 
@@ -153,10 +153,10 @@ func BatchOpen(polynomials [][]fr.Element, digests []kzg.Digest, points [][]fr.E
 	setZero(bufTotalSize)
 	copy(bufTotalSize, w)
 	mulByConstant(bufTotalSize, ztz) // Z_{T}(z)W
-	for i := 0; i < totalSize-maxSizePolys; i++ {
+	for i := range totalSize - maxSizePolys {
 		l[totalSize-1-i].Neg(&bufTotalSize[totalSize-1-i])
 	}
-	for i := 0; i < maxSizePolys; i++ {
+	for i := range maxSizePolys {
 		l[i].Sub(&l[i], &bufTotalSize[i])
 	} // L <- L-Z_{T}(z)W
 
@@ -208,7 +208,7 @@ func BatchVerify(proof OpeningProof, digests []kzg.Digest, points [][]fr.Element
 	gammaiZTminusSiz := make([]fr.Element, nbInstances)
 	accGamma.SetOne()
 	ri := make([][]fr.Element, nbInstances)
-	for i := 0; i < len(points); i++ {
+	for i := range len(points) {
 
 		ztMinusSi := buildZtMinusSi(points, i)                   // Z_{T-S_{i}}(X)
 		gammaiZTminusSiz[i] = eval(ztMinusSi, z)                 // Z_{T-S_{i}}(z)
@@ -291,7 +291,7 @@ func deriveChallenge(name string, points [][]fr.Element, digests []kzg.Digest, t
 		}
 	}
 
-	for i := 0; i < len(dataTranscript); i++ {
+	for i := range len(dataTranscript) {
 		if err := t.Bind(name, dataTranscript[i]); err != nil {
 			return fr.Element{}, err
 		}
@@ -312,11 +312,11 @@ func deriveChallenge(name string, points [][]fr.Element, digests []kzg.Digest, t
 
 func flatten(x [][]fr.Element) []fr.Element {
 	nbPoints := 0
-	for i := 0; i < len(x); i++ {
+	for i := range len(x) {
 		nbPoints += len(x[i])
 	}
 	res := make([]fr.Element, 0, nbPoints)
-	for i := 0; i < len(x); i++ {
+	for i := range len(x) {
 		res = append(res, x[i]...)
 	}
 	return res
@@ -324,7 +324,7 @@ func flatten(x [][]fr.Element) []fr.Element {
 
 // sets f to zero
 func setZero(f []fr.Element) {
-	for i := 0; i < len(f); i++ {
+	for i := range len(f) {
 		f[i].SetZero()
 	}
 }
@@ -339,7 +339,7 @@ func eval(f []fr.Element, x fr.Element) fr.Element {
 
 // returns γ*f, re-using f
 func mulByConstant(f []fr.Element, gamma fr.Element) []fr.Element {
-	for i := 0; i < len(f); i++ {
+	for i := range len(f) {
 		f[i].Mul(&f[i], &gamma)
 	}
 	return f
@@ -363,11 +363,11 @@ func multiplyLinearFactor(f []fr.Element, a fr.Element) []fr.Element {
 // returns S_{T\Sᵢ} where Sᵢ=x[i]
 func buildZtMinusSi(x [][]fr.Element, i int) []fr.Element {
 	nbPoints := 0
-	for i := 0; i < len(x); i++ {
+	for i := range len(x) {
 		nbPoints += len(x[i])
 	}
 	bufPoints := make([]fr.Element, 0, nbPoints-len(x[i]))
-	for j := 0; j < i; j++ {
+	for j := range i {
 		bufPoints = append(bufPoints, x[j]...)
 	}
 	for j := i + 1; j < len(x); j++ {
@@ -381,7 +381,7 @@ func buildZtMinusSi(x [][]fr.Element, i int) []fr.Element {
 func buildVanishingPoly(x []fr.Element) []fr.Element {
 	res := make([]fr.Element, 1, len(x)+1)
 	res[0].SetOne()
-	for i := 0; i < len(x); i++ {
+	for i := range len(x) {
 		res = multiplyLinearFactor(res, x[i])
 	}
 	return res
@@ -391,10 +391,10 @@ func buildVanishingPoly(x []fr.Element) []fr.Element {
 func interpolate(x, y []fr.Element) []fr.Element {
 
 	res := make([]fr.Element, len(x))
-	for i := 0; i < len(x); i++ {
+	for i := range len(x) {
 		li := buildLagrangeFromDomain(x, i)
 		li = mulByConstant(li, y[i])
-		for j := 0; j < len(x); j++ {
+		for j := range len(x) {
 			res[j].Add(&res[j], &li[j])
 		}
 	}
@@ -416,7 +416,7 @@ func buildLagrangeFromDomain(x []fr.Element, i int) []fr.Element {
 
 // returns f-g, the memory of f is re used, deg(g) << deg(f) here
 func sub(f, g []fr.Element) []fr.Element {
-	for i := 0; i < len(g); i++ {
+	for i := range len(g) {
 		f[i].Sub(&f[i], &g[i])
 	}
 	return f
@@ -436,8 +436,8 @@ func mul(f, g []fr.Element, res []fr.Element) []fr.Element {
 	setZero(res)
 
 	var tmp fr.Element
-	for i := 0; i < len(g); i++ {
-		for j := 0; j < len(f); j++ {
+	for i := range len(g) {
+		for j := range len(f) {
 			tmp.Mul(&f[j], &g[i])
 			res[j+i].Add(&res[j+i], &tmp)
 		}
@@ -455,7 +455,7 @@ func div(f, g []fr.Element) []fr.Element {
 	stop := sizeg - +1
 	var t fr.Element
 	for i := sizef - 2; i >= stop; i-- {
-		for j := 0; j < sizeg-1; j++ {
+		for j := range sizeg - 1 {
 			t.Mul(&f[i+1], &g[sizeg-2-j])
 			f[i-j].Sub(&f[i-j], &t)
 		}

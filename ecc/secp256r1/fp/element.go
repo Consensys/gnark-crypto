@@ -129,7 +129,7 @@ func (z *Element) Set(x *Element) *Element {
 //	*big.Int
 //	big.Int
 //	[]byte
-func (z *Element) SetInterface(i1 interface{}) (*Element, error) {
+func (z *Element) SetInterface(i1 any) (*Element, error) {
 	if i1 == nil {
 		return nil, errors.New("can't set fp.Element with <nil>")
 	}
@@ -699,7 +699,7 @@ func BatchInvert(a []Element) []Element {
 	zeroes := bitset.New(uint(len(a)))
 	accumulator := One()
 
-	for i := 0; i < len(a); i++ {
+	for i := range len(a) {
 		if a[i].IsZero() {
 			zeroes.Set(uint(i))
 			continue
@@ -760,7 +760,7 @@ func Hash(msg, dst []byte, count int) ([]Element, error) {
 	vv := pool.BigInt.Get()
 
 	res := make([]Element, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		vv.SetBytes(pseudoRandomBytes[i*L : (i+1)*L])
 		res[i].SetBigInt(vv)
 	}
@@ -986,11 +986,11 @@ func (z *Element) setBigInt(v *big.Int) *Element {
 	vBits := v.Bits()
 
 	if bits.UintSize == 64 {
-		for i := 0; i < len(vBits); i++ {
+		for i := range len(vBits) {
 			z[i] = uint64(vBits[i])
 		}
 	} else {
-		for i := 0; i < len(vBits); i++ {
+		for i := range len(vBits) {
 			if i%2 == 0 {
 				z[i/2] = uint64(vBits[i])
 			} else {

@@ -210,7 +210,7 @@ func (f *FFArm64) reduceAndStore(t, q []arm64.Register, zPtr arm64.Register) {
 	}
 }
 
-func (f *FFArm64) add0n(i int) func(op1, op2, dst interface{}, comment ...string) {
+func (f *FFArm64) add0n(i int) func(op1, op2, dst any, comment ...string) {
 	switch i {
 	case 0:
 		return f.ADDS
@@ -221,7 +221,7 @@ func (f *FFArm64) add0n(i int) func(op1, op2, dst interface{}, comment ...string
 	}
 }
 
-func (f *FFArm64) add0m(i int) func(op1, op2, dst interface{}, comment ...string) {
+func (f *FFArm64) add0m(i int) func(op1, op2, dst any, comment ...string) {
 	switch i {
 	case 0:
 		return f.ADDS
@@ -232,7 +232,7 @@ func (f *FFArm64) add0m(i int) func(op1, op2, dst interface{}, comment ...string
 	}
 }
 
-func (f *FFArm64) add1m(i int, dumb ...bool) func(op1, op2, dst interface{}, comment ...string) {
+func (f *FFArm64) add1m(i int, dumb ...bool) func(op1, op2, dst any, comment ...string) {
 	switch i {
 	case 1:
 		return f.ADDS

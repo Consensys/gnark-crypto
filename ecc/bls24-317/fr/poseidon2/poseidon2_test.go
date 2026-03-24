@@ -40,8 +40,8 @@ func TestExternalMatrix(t *testing.T) {
 
 	h := NewPermutation(4, 8, 56)
 	var tmp [4]fr.Element
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 4; j++ {
+	for i := range 4 {
+		for j := range 4 {
 			tmp[j].SetUint64(0)
 			if i == j {
 				tmp[j].SetOne()
@@ -49,7 +49,7 @@ func TestExternalMatrix(t *testing.T) {
 		}
 		// h.Write(tmp[:])
 		h.matMulExternalInPlace(tmp[:])
-		for j := 0; j < 4; j++ {
+		for j := range 4 {
 			if !tmp[j].Equal(&expected[i][j]) {
 				t.Fatal("error matMul4")
 			}
@@ -63,7 +63,7 @@ func BenchmarkPoseidon2(b *testing.B) {
 	var tmp [3]fr.Element
 	fr.Vector(tmp[:]).MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.Permutation(tmp[:])
 	}
 }

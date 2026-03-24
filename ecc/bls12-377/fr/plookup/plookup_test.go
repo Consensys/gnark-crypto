@@ -17,10 +17,10 @@ func TestLookupVector(t *testing.T) {
 
 	lookupVector := make(fr.Vector, 8)
 	fvector := make(fr.Vector, 7)
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		lookupVector[i].SetUint64(uint64(2 * i))
 	}
-	for i := 0; i < 7; i++ {
+	for i := range 7 {
 		fvector[i].Set(&lookupVector[(4*i+1)%8])
 	}
 
@@ -68,13 +68,13 @@ func TestLookupTable(t *testing.T) {
 
 	lookupTable := make([]fr.Vector, 3)
 	fTable := make([]fr.Vector, 3)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		lookupTable[i] = make(fr.Vector, 8)
 		fTable[i] = make(fr.Vector, 7)
-		for j := 0; j < 8; j++ {
+		for j := range 8 {
 			lookupTable[i][j].SetUint64(uint64(2*i + j))
 		}
-		for j := 0; j < 7; j++ {
+		for j := range 7 {
 			fTable[i][j].Set(&lookupTable[i][(4*j+1)%8])
 		}
 	}
@@ -117,13 +117,13 @@ func BenchmarkPlookup(b *testing.B) {
 	a := make(fr.Vector, polySize)
 	c := make(fr.Vector, polySize)
 
-	for i := 0; i < 1<<14; i++ {
+	for i := range 1 << 14 {
 		a[i].SetUint64(uint64(i))
 		c[i].SetUint64(uint64((8 * i) % polySize))
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		ProveLookupVector(kzgSrs.Pk, a, c)
 	}
 }

@@ -70,7 +70,7 @@ func GenerateKey(r io.Reader) (*PrivateKey, error) {
 
 	// used for the source of randomness when hashing the message
 	h2 := blake2b.Sum512(h1[:])
-	for i := 0; i < 32; i++ {
+	for i := range 32 {
 		priv.randSrc[i] = h2[i]
 	}
 

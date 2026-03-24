@@ -79,16 +79,13 @@ func (p *PointProj) scalarMulGLV(p1 *PointProj, scalar *big.Int) *PointProj {
 	k2 = k2.SetBigInt(&k[1]).Bits()
 
 	// we don't target constant-timeness so we check first if we increase the bounds or not
-	maxBit := k1.BitLen()
-	if k2.BitLen() > maxBit {
-		maxBit = k2.BitLen()
-	}
+	maxBit := max(k2.BitLen(), k1.BitLen())
 	hiWordIndex := (maxBit - 1) / 64
 
 	// loop starts from len(k1)/2 or len(k1)/2+1 due to the bounds
 	for i := hiWordIndex; i >= 0; i-- {
 		mask := uint64(3) << 62
-		for j := 0; j < 32; j++ {
+		for j := range 32 {
 			res.Double(&res).Double(&res)
 			b1 := (k1[i] & mask) >> (62 - 2*j)
 			b2 := (k2[i] & mask) >> (62 - 2*j)
@@ -176,16 +173,13 @@ func (p *PointExtended) scalarMulGLV(p1 *PointExtended, scalar *big.Int) *PointE
 	k2 = k2.SetBigInt(&k[1]).Bits()
 
 	// we don't target constant-timeness so we check first if we increase the bounds or not
-	maxBit := k1.BitLen()
-	if k2.BitLen() > maxBit {
-		maxBit = k2.BitLen()
-	}
+	maxBit := max(k2.BitLen(), k1.BitLen())
 	hiWordIndex := (maxBit - 1) / 64
 
 	// loop starts from len(k1)/2 or len(k1)/2+1 due to the bounds
 	for i := hiWordIndex; i >= 0; i-- {
 		mask := uint64(3) << 62
-		for j := 0; j < 32; j++ {
+		for j := range 32 {
 			res.Double(&res).Double(&res)
 			b1 := (k1[i] & mask) >> (62 - 2*j)
 			b2 := (k2[i] & mask) >> (62 - 2*j)

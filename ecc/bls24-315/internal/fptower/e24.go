@@ -13,7 +13,7 @@ import (
 )
 
 var bigIntPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return new(big.Int)
 	},
 }
@@ -304,7 +304,7 @@ func BatchDecompressKarabina(x []E24) []E24 {
 	var one E4
 	one.SetOne()
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		// g3 == 0
 		if x[i].D1.C0.IsZero() {
 			t0[i].Mul(&x[i].D0.C1, &x[i].D1.C2).
@@ -332,7 +332,7 @@ func BatchDecompressKarabina(x []E24) []E24 {
 
 	t1 = BatchInvertE4(t1) // costs 1 inverse
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		// z4 = g4
 		x[i].D1.C1.Mul(&t0[i], &t1[i])
 
@@ -426,7 +426,7 @@ func BatchInvertE24(a []E24) []E24 {
 	var accumulator E24
 	accumulator.SetOne()
 
-	for i := 0; i < len(a); i++ {
+	for i := range a {
 		if a[i].IsZero() {
 			zeroes[i] = true
 			continue
@@ -480,7 +480,7 @@ func (z *E24) Exp(x E24, k *big.Int) *E24 {
 	for i := range b {
 		w := b[i]
 		mask := byte(0xc0)
-		for j := 0; j < 4; j++ {
+		for j := range 4 {
 			res.Square(&res).Square(&res)
 			c := (w & mask) >> (6 - 2*j)
 			if c != 0 {
@@ -598,16 +598,13 @@ func (z *E24) ExpGLV(x E24, k *big.Int) *E24 {
 	s1 = s1.SetBigInt(&s[0]).Bits()
 	s2 = s2.SetBigInt(&s[1]).Bits()
 
-	maxBit := s1.BitLen()
-	if s2.BitLen() > maxBit {
-		maxBit = s2.BitLen()
-	}
+	maxBit := max(s2.BitLen(), s1.BitLen())
 	hiWordIndex := (maxBit - 1) / 64
 
 	// loop starts from len(s1)/2 due to the bounds
 	for i := hiWordIndex; i >= 0; i-- {
 		mask := uint64(3) << 62
-		for j := 0; j < 32; j++ {
+		for j := range 32 {
 			res.CyclotomicSquare(&res).CyclotomicSquare(&res)
 			b1 := (s1[i] & mask) >> (62 - 2*j)
 			b2 := (s2[i] & mask) >> (62 - 2*j)
@@ -864,7 +861,7 @@ func BatchCompressTorus(x []E24) ([]E12, error) {
 	one.SetOne()
 	res := make([]E12, n)
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		res[i].Set(&x[i].D1)
 		//  throw an error if any of the x[i].C1 is 0
 		if res[i].IsZero() {
@@ -874,7 +871,7 @@ func BatchCompressTorus(x []E24) ([]E12, error) {
 
 	t := BatchInvertE12(res) // costs 1 inverse
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		res[i].Add(&x[i].D0, &one).
 			Mul(&res[i], &t[i])
 	}
@@ -911,7 +908,7 @@ func BatchDecompressTorus(x []E12) ([]E24, error) {
 	num := make([]E24, n)
 	denum := make([]E24, n)
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		num[i].D0.Set(&x[i])
 		num[i].D1.SetOne()
 		denum[i].D0.Set(&x[i])
@@ -920,7 +917,7 @@ func BatchDecompressTorus(x []E12) ([]E24, error) {
 
 	denum = BatchInvertE24(denum) // costs 1 inverse
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		res[i].Mul(&num[i], &denum[i])
 	}
 

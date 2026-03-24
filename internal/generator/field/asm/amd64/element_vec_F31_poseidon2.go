@@ -443,7 +443,7 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 
 	matMulExternalInPlace()
 
-	for i := 0; i < rf; i++ {
+	for i := range rf {
 		f.MOVQ(addrRoundKeys.At(i*3), rKey)
 		fullRound()
 	}
@@ -476,7 +476,29 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 	f.RET()
 }
 
-func (_f *FFAmd64) generatePoseidon2_F31_16x16x512(params Poseidon2Parameters) {
+// generatePoseidon2_F31_16x16xN generates the generalized version of
+// permutation16x16x512 that accepts variable colSize via parameters
+// (gatherIndices and nbSteps) instead of hardcoded 512-element stride.
+//
+// This is the SIMD/transposed form of Compressx16. In pure Go, the logical flow is:
+//
+//	var state [16][16]fr.Element
+//	for step := 0; step < nbSteps; step++ {
+//	    for lane := 0; lane < 16; lane++ {
+//	        copy(state[lane][8:], matrix[lane*colSize+step*8:lane*colSize+step*8+8])
+//	        Permutation(state[lane][:])
+//	        for j := 0; j < 8; j++ {
+//	            state[lane][j] = state[lane][8+j] + matrix[lane*colSize+step*8+j]
+//	        }
+//	    }
+//	}
+//	for lane := 0; lane < 16; lane++ {
+//	    copy(result[lane][:], state[lane][:8])
+//	}
+//
+// Here the 16 independent states are transposed into AVX-512 vectors:
+// v[j][lane] == state[lane][j].
+func (_f *FFAmd64) generatePoseidon2_F31_16x16xN(params Poseidon2Parameters) {
 	f := &fieldHelper{FFAmd64: _f}
 	width := params.Width
 	fullRounds := params.FullRounds
@@ -489,15 +511,16 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16x512(params Poseidon2Parameters) {
 	if width != 16 {
 		panic("only width 16 is supported")
 	}
-	const fnName = "permutation16x16x512_avx512"
-	// func permutation16x16xN_avx512(matrix *fr.Element, roundKeys [][]fr.Element, result *fr.Element)
-	const argSize = 5 * 8
+	const fnName = "permutation16x16xN_avx512"
+	// func permutation16x16xN_avx512(matrix *fr.Element, roundKeys [][]fr.Element, result *fr.Element, gatherIndices *uint32, nbSteps uint64)
+	const argSize = 7 * 8 // matrix(8) + roundKeys(24) + result(8) + gatherIndices(8) + nbSteps(8)
 	stackSize := f.StackSize(f.NbWords*2+4, 2, 0)
 	registers := f.FnHeader(fnName, stackSize, argSize, amd64.AX, amd64.DX)
 	defer f.AssertCleanStack(stackSize, 0)
 	f.registers = &registers
 
-	// input
+	// v[0..15] is the transposed Poseidon2 state:
+	// v[j] holds coordinate j for 16 independent lanes.
 	v := registers.PopVN(16)
 
 	// constants
@@ -515,34 +538,33 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16x512(params Poseidon2Parameters) {
 
 	f.MOVQ("matrix+0(FP)", addrMatrix)
 	f.MOVQ("roundKeys+8(FP)", addrRoundKeys)
-	// round key is a slice so it takes 24bytes
 	f.MOVQ("result+32(FP)", addrResult)
 
-	// Define macros
-
-	// computes c = a * b mod q
-	// a and b can be in [0, 2q)
 	const blockSize = 4
 	const nbBlocks = 16 / blockSize
 
-	// Zeroize state
-	for i := 0; i < 16; i++ {
+	// Initialize the 16 transposed states to zero:
+	// for all lanes, state[lane] = 0.
+	for i := range 16 {
 		f.VXORPS(v[i], v[i], v[i])
 	}
 
-	const colSize = 512 // sis key size, hard coded for now
-	const _N = colSize / 8
+	// Load nbSteps from parameter (instead of hardcoded 64)
 	N := registers.Pop()
-	f.MOVQ(_N, N, "number of steps (sisKeySize / 8) --> "+strconv.Itoa(_N))
+	f.MOVQ("nbSteps+48(FP)", N)
 
-	// transpose stuff
+	// Load gather indices from parameter (instead of global indexGather512)
 	maskFFFF := registers.Pop()
-	addrIndexGather512 := registers.Pop()
+	addrIndexGather := registers.Pop()
 	vIndexGather := registers.PopV()
 	f.MOVQ("$0xffffffffffffffff", maskFFFF)
-	f.MOVQ("·indexGather512+0(SB)", addrIndexGather512)
-	f.VMOVDQU32(addrIndexGather512.At(0), vIndexGather)
+	f.MOVQ("gatherIndices+40(FP)", addrIndexGather)
+	f.VMOVDQU32(addrIndexGather.At(0), vIndexGather)
 
+	// addRoundKeySbox emits:
+	//   v[index] = S(v[index] + rc[index])
+	// where rc[index] is broadcast to all 16 SIMD lanes because all lanes are
+	// at the same Poseidon2 round, only on different inputs.
 	addRoundKeySbox := func(index int) {
 		rc := registers.PopV()
 		f.VPBROADCASTD(rKey.AtD(index), rc)
@@ -552,6 +574,9 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16x512(params Poseidon2Parameters) {
 	}
 
 	fullRound := func() {
+		// Full round:
+		//   for j := 0; j < 16; j++ { x[j] = S(x[j] + rc[j]) }
+		//   x = M_ext * x
 		for j := range v {
 			addRoundKeySbox(j)
 		}
@@ -559,10 +584,14 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16x512(params Poseidon2Parameters) {
 	}
 
 	partialRound := func() {
+		// Partial round:
+		//   x[0] = S(x[0] + rc[0])
+		//   x = M_int * x
+		//
+		// For width 16, the internal linear layer is:
+		//   M_int(x) = sum(x)*1 + diag16 o x
 		addRoundKeySbox(0)
 
-		// h.matMulInternalInPlace(input)
-		// let's do it for koalabear only for now.
 		sum := registers.PopV()
 		t1 := registers.PopV()
 		t2 := registers.PopV()
@@ -570,9 +599,8 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16x512(params Poseidon2Parameters) {
 		t4 := registers.PopV()
 
 		{
-			// compute the sum of all v[i]
-			// we do it that way rather than accumulate to break some
-			// dependencies chains
+			// sum = x[0] + ... + x[15], computed as a small addition tree to avoid
+			// a long dependency chain.
 			f.add(v[0], v[1], t2)
 			f.add(v[2], v[3], t3)
 			f.add(v[4], v[5], t4)
@@ -586,61 +614,45 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16x512(params Poseidon2Parameters) {
 			f.add(t2, t3, t2)
 			f.add(t4, sum, t4)
 			f.add(t2, t4, sum)
-
 		}
 
-		// mul by diag16:
-		// [-2, 1, 2, 1/2, 3, 4, -1/2, -3, -4, 1/2^8, 1/8, 1/2^24, -1/2^8, -1/8, -1/16, -1/2^24]
-		// var temp fr.Element
-		// input[0].Sub(&sum, temp.Double(&input[0]))
+		// Apply diag16 coordinate-wise.
+		//
+		// diag16 = [
+		//   -2, 1, 2, 1/2, 3, 4, -1/2, -3,
+		//   -4, 1/2^8, 1/2^3, 1/2^24, -1/2^8, -1/2^3, -1/2^4, -1/2^24,
+		// ]
+		//
+		// The code below encodes each diagonal coefficient with the cheapest field
+		// operation available: double, halve, repeated doubling, or mul2ExpNegN.
 		f.double(v[0], v[0])
-
-		// input[1].Add(&sum, &input[1])
-
-		// input[2].Add(&sum, temp.Double(&input[2]))
 		f.double(v[2], v[2])
-
-		// temp.Set(&input[3]).Halve()
-		// input[3].Add(&sum, &temp)
 		f.halve(v[3], v[3])
-
-		// input[4].Add(&sum, temp.Double(&input[4]).Add(&temp, &input[4]))
 		f.double(v[4], t2)
 		f.add(v[4], t2, v[4])
-
-		// input[5].Add(&sum, temp.Double(&input[5]).Double(&temp))
 		f.double(v[5], v[5])
 		f.double(v[5], v[5])
-
-		// temp.Set(&input[6]).Halve()
-		// input[6].Sub(&sum, &temp)
 		f.halve(v[6], v[6])
-
-		// input[7].Sub(&sum, temp.Double(&input[7]).Add(&temp, &input[7]))
 		f.double(v[7], t1)
 		f.add(v[7], t1, v[7])
-
-		// input[8].Sub(&sum, temp.Double(&input[8]).Double(&temp))
 		f.double(v[8], v[8])
 		f.double(v[8], v[8])
 
 		registers.PushV(t1, t2, t3, t4)
 
-		// input[9].Add(&sum, temp.Mul2ExpNegN(&input[9], 8))
-		// input[10].Add(&sum, temp.Mul2ExpNegN(&input[10], 3))
-		// input[11].Add(&sum, temp.Mul2ExpNegN(&input[11], 24))
-		// input[12].Sub(&sum, temp.Mul2ExpNegN(&input[12], 8))
-		// input[13].Sub(&sum, temp.Mul2ExpNegN(&input[13], 3))
-		// input[14].Sub(&sum, temp.Mul2ExpNegN(&input[14], 4))
-		// input[15].Sub(&sum, temp.Mul2ExpNegN(&input[15], 24))
-
 		ns := []int{8, 3, 24, 8, 3, 4, 24}
-
 		for i := 9; i < len(v); i++ {
 			f.mul2ExpNegN(v[i], ns[i-9], v[i])
 		}
 
-		// Sum part.
+		// Finish x = sum(x)*1 + diag16 o x.
+		// Each line below is one row of the internal matrix:
+		//   x0  = sum - 2*x0
+		//   x1  = sum + 1*x1
+		//   x2  = sum + 2*x2
+		//   x3  = sum + (1/2)*x3
+		//   ...
+		//   x15 = sum - (1/2^24)*x15
 		f.sub(sum, v[0], v[0])
 		f.add(sum, v[1], v[1])
 		f.add(v[2], sum, v[2])
@@ -661,47 +673,40 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16x512(params Poseidon2Parameters) {
 		registers.PushV(sum)
 	}
 
-	// private function to help write for loops with known bounds
-	// for the rounds
+	// loop emits a round loop over a contiguous range of round keys.
 	loop := func(nbRounds int, fn func()) {
-
 		n := registers.Pop()
 		f.MOVQ(nbRounds, n)
-
 		f.Loop(n, func() {
-			// move the current round key address into rKey
 			f.MOVQ(addrRoundKeys.At(0), rKey)
-
 			fn()
-
-			// move to the next round key
 			f.ADDQ("$24", addrRoundKeys)
 		})
-
 		registers.Push(n)
 	}
 
-	// Loop:
-	// we can see the the matrix of 16 columns of colSize
-	// and we advance by 8 elements each iteration
-	// so first we gather the 8 * 16 elements into v[0..15]
-	// then we do the 16 permutations
-	// then the feed forward
+	// Main absorb/permutation loop over 8-column chunks.
+	//
+	// Each iteration does the SIMD/transposed equivalent of:
+	//   copy(state[lane][8:], nextChunk)
+	//   state[lane] = Permutation(state[lane])
+	//   state[lane][0:8] = state[lane][8:16] + nextChunk
 	registers.PushV(vIndexGather)
 	f.Loop(N, func() {
 		vTmpInputs := registers.PopVN(8)
 		vIndexGather = registers.PopV()
-		f.VMOVDQU32(addrIndexGather512.At(0), vIndexGather)
-		for i := 0; i < 8; i++ {
-			// TODO @gbotrel use 2 gather at a time?
+		f.VMOVDQU32(addrIndexGather.At(0), vIndexGather)
+		// Gather matrix[*][step*8:(step+1)*8] into the rate coordinates v[8:16].
+		// vTmpInputs keeps a copy for the feed-forward added after the permutation.
+		for i := range 8 {
 			f.KMOVD(maskFFFF, amd64.K1)
 			f.VPGATHERDD(i*4, addrMatrix, vIndexGather, 4, amd64.K1, v[i+8])
 			f.VMOVDQA32(v[i+8], vTmpInputs[i])
 		}
 		registers.PushV(vIndexGather)
-		// here v[8..15] have the gathered values
-		// and v[0..7] is the state (zero at first iteration)
 
+		// Poseidon2 begins with the external matrix:
+		//   x = M_ext * x
 		f.matMulExternal(v, nbBlocks)
 
 		f.Comment("loop over the first full rounds")
@@ -713,33 +718,27 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16x512(params Poseidon2Parameters) {
 		f.Comment("loop over the final full rounds")
 		loop(rf, fullRound)
 
-		// feed forward
-		for i := 0; i < 8; i++ {
-			// reload the inputs into v[0:7]
-			// f.KMOVD(maskFFFF, amd64.K1)
-			// f.VPGATHERDD(i*4, addrMatrix, vIndexGather, 4, amd64.K1, v[i])
-			// add to the state
+		// Feed-forward for the compression mode:
+		//   state'[0:8] = state'[8:16] + absorbedChunk
+		for i := range 8 {
 			f.add(vTmpInputs[i], v[i+8], v[i])
 		}
-		// push vTmpInputs back
 		registers.PushV(vTmpInputs...)
 
-		// advance addrMatrix by 8 * 4 bytes
+		// Move from chunk k to chunk k+1 inside each matrix row.
 		f.ADDQ(8*4, addrMatrix)
-		// restore addrRoundKeys
+		// Each chunk runs a fresh Poseidon2 permutation, so restart round keys at round 0.
 		f.MOVQ("roundKeys+8(FP)", addrRoundKeys)
 	})
 
-	// store the result
-	// result is 16 * 8 elements
-	// we only need v[0..7]
-	// we scatter the result
-	addrScatter8 := addrIndexGather512
+	// Scatter the first 8 coordinates of the 16 transposed states back to the
+	// row-major result buffer.
+	addrScatter8 := addrIndexGather
 	vIndexScatter := vIndexGather
 	f.MOVQ("·indexScatter8+0(SB)", addrScatter8)
 	f.VMOVDQU32(addrScatter8.At(0), vIndexScatter)
 
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		f.KMOVD(maskFFFF, amd64.K1)
 		f.VPSCATTERDD(i*4, addrResult, vIndexScatter, 4, amd64.K1, v[i])
 	}
@@ -1249,7 +1248,7 @@ func (f *fieldHelper) matMul4(v []amd64.VectorRegister, nbBlocks int) {
 	t01233 := f.registers.PopV()
 
 	// for each block in v
-	for i := 0; i < nbBlocks; i++ {
+	for i := range nbBlocks {
 		// t01.Add(&s[4*i], &s[4*i+1])
 		f.add(v[4*i], v[4*i+1], t01)
 		// t23.Add(&s[4*i+2], &s[4*i+3])
@@ -1299,7 +1298,7 @@ func (f *fieldHelper) matMulExternal(v []amd64.VectorRegister, nbBlocks int) {
 		f.add(tmp3, v[4*i+3], tmp3)
 	}
 
-	for i := 0; i < nbBlocks; i++ {
+	for i := range nbBlocks {
 		f.add(v[4*i], tmp0, v[4*i])
 		f.add(v[4*i+1], tmp1, v[4*i+1])
 		f.add(v[4*i+2], tmp2, v[4*i+2])
@@ -1313,7 +1312,7 @@ func (f *fieldHelper) sbox(a, into amd64.VectorRegister, degree int) {
 	if degree == 7 {
 		t0 := f.registers.PopV()
 		t1 := f.registers.PopV()
-		f.mul(a, a, t0, false)   // a^2
+		f.mul(a, a, t0, true)    // a^2 (reduce to prevent overflow in a^6 = a^3 * a^3)
 		f.mul(t0, a, t0, false)  // a^3
 		f.mul(t0, t0, t1, false) // a^6
 		f.mul(t1, a, into, true) // a^7

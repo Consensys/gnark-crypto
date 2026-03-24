@@ -6,6 +6,7 @@
 package poseidon2
 
 import (
+	"fmt"
 	"testing"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
@@ -29,7 +30,7 @@ func TestMulMulInternalInPlaceWidth16(t *testing.T) {
 	for i := 1; i < h.params.Width; i++ {
 		sum.Add(&sum, &input[i])
 	}
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		input[i].Mul(&input[i], &diag16[i]).
 			Add(&input[i], &sum)
 		if !input[i].Equal(&expected[i]) {
@@ -54,7 +55,7 @@ func TestMulMulInternalInPlaceWidth24(t *testing.T) {
 	for i := 1; i < h.params.Width; i++ {
 		sum.Add(&sum, &input[i])
 	}
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		input[i].Mul(&input[i], &diag24[i]).
 			Add(&input[i], &sum)
 		if !input[i].Equal(&expected[i]) {
@@ -85,7 +86,7 @@ func TestAVX512Width16(t *testing.T) {
 	assert.NoError(err)
 
 	// compare results
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		assert.True(input[i].Equal(&expected[i]), "avx512 result don't match purego")
 	}
 }
@@ -112,7 +113,7 @@ func TestAVX512Width24(t *testing.T) {
 	assert.NoError(err)
 
 	// compare results
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		assert.True(input[i].Equal(&expected[i]), "avx512 result don't match purego")
 	}
 }
@@ -170,8 +171,8 @@ func TestAVX512Compressx16(t *testing.T) {
 	h.Compressx16(matrixCopy, colSize, resultPureGo)
 
 	// compare results
-	for i := 0; i < 16; i++ {
-		for j := 0; j < 8; j++ {
+	for i := range 16 {
+		for j := range 8 {
 			assert.True(resultAVX512[i][j].Equal(&resultPureGo[i][j]), "avx512 result don't match purego")
 		}
 	}
@@ -187,7 +188,7 @@ func BenchmarkPermutation16x24(b *testing.B) {
 	h := NewPermutation(24, 6, 21)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.Permutation16x24((*[24][16]fr.Element)(input))
 	}
 }
@@ -236,7 +237,7 @@ func TestPoseidon2Width16(t *testing.T) {
 
 	h := NewPermutation(16, 6, 21)
 	h.Permutation(input[:])
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		if !input[i].Equal(&expected[i]) {
 			t.Fatal("mismatch error")
 		}
@@ -298,7 +299,7 @@ func TestPoseidon2Width24(t *testing.T) {
 
 	h := NewPermutation(24, 6, 21)
 	h.Permutation(input[:])
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		if !input[i].Equal(&expected[i]) {
 			t.Fatal("mismatch error")
 		}
@@ -313,7 +314,7 @@ func BenchmarkPoseidon2Width16(b *testing.B) {
 		tmp[i].MustSetRandom()
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.Permutation(tmp[:])
 	}
 }
@@ -326,7 +327,7 @@ func BenchmarkPoseidon2Width24(b *testing.B) {
 		tmp[i].MustSetRandom()
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.Permutation(tmp[:])
 	}
 }
@@ -355,10 +356,49 @@ func TestCompressx16(t *testing.T) {
 	h := NewPermutation(16, 6, 21)
 	h.Compressx16(matrix, colSize, result[:])
 
-	for i := 0; i < 16; i++ {
-		for j := 0; j < 8; j++ {
+	for i := range 16 {
+		for j := range 8 {
 			assert.True(expected[i][j].Equal(&result[i][j]), "mismatch at row %d col %d", i, j)
 		}
+	}
+}
+
+func TestAVX512Compressx16VariableSize(t *testing.T) {
+	if !cpu.SupportAVX512 {
+		t.Skip("AVX512 not supported")
+	}
+
+	// Test various colSizes that occur in the Vortex no-SIS path.
+	colSizes := []int{8, 16, 24, 40, 48, 80, 160, 256, 320, 392, 440, 512}
+
+	for _, colSize := range colSizes {
+		t.Run(fmt.Sprintf("colSize_%d", colSize), func(t *testing.T) {
+			assert := require.New(t)
+			const nbRows = 16
+			matrix := make([]fr.Element, nbRows*colSize)
+			for i := range matrix {
+				matrix[i].MustSetRandom()
+			}
+
+			// expected result using pure go implementation
+			var expected [16][8]fr.Element
+			{
+				h := NewPermutation(16, 6, 21)
+				h.disableAVX512()
+				h.Compressx16(matrix, colSize, expected[:])
+			}
+
+			// actual result with AVX512
+			var result [16][8]fr.Element
+			h := NewPermutation(16, 6, 21)
+			h.Compressx16(matrix, colSize, result[:])
+
+			for i := range 16 {
+				for j := range 8 {
+					assert.True(expected[i][j].Equal(&result[i][j]), "colSize=%d mismatch at row %d col %d", colSize, i, j)
+				}
+			}
+		})
 	}
 }
 
@@ -373,7 +413,28 @@ func BenchmarkCompressx16(b *testing.B) {
 	h := NewPermutation(16, 6, 21)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.Compressx16(matrix, colSize, result[:])
+	}
+}
+
+func BenchmarkCompressx16VariableSize(b *testing.B) {
+	colSizes := []int{16, 48, 80, 160, 256, 392, 512}
+	h := NewPermutation(16, 6, 21)
+
+	for _, colSize := range colSizes {
+		b.Run(fmt.Sprintf("colSize_%d", colSize), func(b *testing.B) {
+			const nbRows = 16
+			matrix := make([]fr.Element, nbRows*colSize)
+			for i := range matrix {
+				matrix[i].MustSetRandom()
+			}
+			var result [16][8]fr.Element
+
+			b.ResetTimer()
+			for range b.N {
+				h.Compressx16(matrix, colSize, result[:])
+			}
+		})
 	}
 }

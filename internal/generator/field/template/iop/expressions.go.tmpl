@@ -1,7 +1,7 @@
 import (
 	"math/bits"
 	"errors"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 	"{{ .FieldPackagePath }}"
 )
 
@@ -51,7 +51,7 @@ func Evaluate(f Expression, r []{{.ElementType}}, form Form, x ...*Polynomial) (
 	parallel.Execute(n, func(start, end int) {
 		vx := make([]{{.ElementType}}, m)
 		for i := start; i < end; i++ {
-			for j := 0; j < m; j++ {
+			for j := range m {
 				vx[j] = x[j].GetCoeff(i)
 			}
 			r[idx(i)] = f(i, vx...)

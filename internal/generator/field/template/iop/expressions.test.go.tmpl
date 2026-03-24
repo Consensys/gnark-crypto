@@ -16,13 +16,13 @@ func TestEvaluate(t *testing.T) {
 	u := make([]{{.ElementType}}, size)
 	v := make([]{{.ElementType}}, size)
 	w := make([]{{.ElementType}}, size)
-	for i := 0; i < size; i++ {
+	for i := range size {
 		u[i].SetUint64(uint64(i))
 		v[i].SetUint64(uint64(i + 1))
 		w[i].SetUint64(uint64(i + 2))
 	}
 	r := make([]{{.ElementType}}, size)
-	for i := 0; i < size; i++ {
+	for i := range size {
 		r[i].SetUint64(uint64(3 * (i + 1)))
 	}
 	form := Form{Layout: Regular, Basis: Canonical}
@@ -49,7 +49,7 @@ func TestEvaluate(t *testing.T) {
 	}
 
 	// compare with the expected result
-	for i := 0; i < size; i++ {
+	for i := range size {
 		if !rr.Coefficients()[i].Equal(&r[i]) {
 			t.Fatal("error evaluation")
 		}

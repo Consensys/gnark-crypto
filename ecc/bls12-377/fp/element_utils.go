@@ -146,7 +146,7 @@ func (z *Element) expByC1(x *Element) *Element {
 		t1.Square(t1)
 	}
 	t0.Mul(t0, t1)
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t0.Square(t0)
 	}
 	z.Mul(z, t0)

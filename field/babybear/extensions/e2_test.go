@@ -392,7 +392,7 @@ func BenchmarkE2Add(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes.Add(&a, &benchRes)
 	}
 }
@@ -401,7 +401,7 @@ func BenchmarkE2Sub(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes.Sub(&a, &benchRes)
 	}
 }
@@ -410,7 +410,7 @@ func BenchmarkE2Mul(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes.Mul(&a, &benchRes)
 	}
 }
@@ -420,7 +420,7 @@ func BenchmarkE2MulByElement(b *testing.B) {
 	c.MustSetRandom()
 	benchRes.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes.MulByElement(&benchRes, &c)
 	}
 }
@@ -429,7 +429,7 @@ func BenchmarkE2Square(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Square(&a)
 	}
 }
@@ -439,7 +439,7 @@ func BenchmarkE2Sqrt(b *testing.B) {
 	a.MustSetRandom()
 	a.Square(&a)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		c.Sqrt(&a)
 	}
 }
@@ -449,7 +449,7 @@ func BenchmarkE2Exp(b *testing.B) {
 	x.MustSetRandom()
 	b1, _ := rand.Int(rand.Reader, fr.Modulus())
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		x.Exp(x, b1)
 	}
 }
@@ -458,7 +458,7 @@ func BenchmarkE2Inverse(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Inverse(&a)
 	}
 }
@@ -467,7 +467,7 @@ func BenchmarkE2MulNonRes(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.MulByNonResidue(&a)
 	}
 }
@@ -476,7 +476,7 @@ func BenchmarkE2MulNonResInv(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.MulByNonResidueInv(&a)
 	}
 }
@@ -485,7 +485,7 @@ func BenchmarkE2Conjugate(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Conjugate(&a)
 	}
 }
@@ -540,7 +540,7 @@ func genE2() gopter.Gen {
 	return gopter.CombineGens(
 		genFr(),
 		genFr(),
-	).Map(func(values []interface{}) E2 {
+	).Map(func(values []any) E2 {
 		return E2{A0: values[0].(fr.Element), A1: values[1].(fr.Element)}
 	})
 }

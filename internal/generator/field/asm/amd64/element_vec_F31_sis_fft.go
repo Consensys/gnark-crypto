@@ -454,12 +454,12 @@ func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, add
 		}
 		am := m / 16
 		for i := 0; i < len(a); i += n / 16 {
-			for j := 0; j < am; j++ {
+			for j := range am {
 				f.butterflyD2Q(a[i+j], a[i+j+am], qd, PL1, b1)
 			}
 		}
 		for i := 0; i < len(a); i += n / 16 {
-			for j := 0; j < am; j++ {
+			for j := range am {
 				f.mulD(a[i+j+am], t[j], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
 			}
 		}
@@ -506,7 +506,7 @@ func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, add
 	f.VPBROADCASTD(addrTwiddles.AtD(1), t[3])
 	f.VPBLENDMD(t[2], t[3], t[2], amd64.K3)
 
-	for j := 0; j < 3; j++ {
+	for j := range 3 {
 		for i := 0; i < len(a); i += 2 {
 			switch j {
 			case 0:
@@ -550,7 +550,7 @@ func (f *fftHelper) generateCoreDIFKernel(n int, registers *amd64.Registers, add
 		}
 	}
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		registers.PushV(t[i])
 	}
 	registers.PushV(b0, b1, aOdd, bOdd, PL0, PL1)
@@ -649,7 +649,7 @@ func (f *fftHelper) generateCoreDITKernel(n int, registers *amd64.Registers, add
 		for offset := 0; offset < kk; offset += _n {
 			// for offset := 0; offset < 128; offset += n {
 			aa := a[offset/16:]
-			for i := 0; i < am; i++ {
+			for i := range am {
 				f.mulD(aa[i+am], t[i], aOdd, bOdd, b0, b1, PL0, PL1, qd, qInvNeg)
 				f.butterflyD1Q(aa[i], aa[i+am], qd, b0, b1)
 			}

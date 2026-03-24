@@ -60,7 +60,7 @@ func evaluateAccumulationPolynomial(lf, lt, lh1, lh2 []fr.Element, beta, gamma f
 	c.SetOne().
 		Add(&c, &beta).
 		Mul(&c, &gamma)
-	for i := 0; i < n-1; i++ {
+	for i := range n - 1 {
 
 		d[i].Mul(&beta, &lh1[i+1]).
 			Add(&d[i], &lh1[i]).
@@ -77,7 +77,7 @@ func evaluateAccumulationPolynomial(lf, lt, lh1, lh2 []fr.Element, beta, gamma f
 	z[0].SetOne()
 	var a, b, e fr.Element
 	e.SetOne().Add(&e, &beta)
-	for i := 0; i < n-1; i++ {
+	for i := range n - 1 {
 
 		a.Add(&gamma, &lf[i])
 
@@ -128,7 +128,7 @@ func evaluateNumBitReversed(_lz, _lh1, _lh2, _lt, _lf []fr.Element, beta, gamma 
 
 	nn := uint64(64 - bits.TrailingZeros64(domainBig.Cardinality))
 
-	for i := 0; i < s; i++ {
+	for i := range s {
 
 		_i := int(bits.Reverse64(uint64(i)) >> nn)
 		_is := int(bits.Reverse64(uint64((i+2)%s)) >> nn)
@@ -195,7 +195,7 @@ func evaluateL0DomainBig(domainBig *fft.Domain) ([2]fr.Element, []fr.Element) {
 	var acc fr.Element
 	denL0 := make([]fr.Element, domainBig.Cardinality)
 	acc.Set(&domainBig.FrMultiplicativeGen)
-	for i := 0; i < int(domainBig.Cardinality); i++ {
+	for i := range int(domainBig.Cardinality) {
 		denL0[i].Sub(&acc, &one)
 		acc.Mul(&acc, &domainBig.Generator)
 	}
@@ -221,7 +221,7 @@ func evaluationLnDomainBig(domainBig *fft.Domain) ([2]fr.Element, []fr.Element) 
 	gg.Square(&domainBig.Generator).Exp(gg, big.NewInt(int64(sizeDomainSmall-1)))
 	denLn := make([]fr.Element, domainBig.Cardinality)
 	acc.Set(&domainBig.FrMultiplicativeGen)
-	for i := 0; i < int(domainBig.Cardinality); i++ {
+	for i := range int(domainBig.Cardinality) {
 		denLn[i].Sub(&acc, &gg)
 		acc.Mul(&acc, &domainBig.Generator)
 	}
@@ -243,7 +243,7 @@ func evaluateZStartsByOneBitReversed(lsZBitReversed []fr.Element, domainBig *fft
 
 	xnMinusOne, denL0 := evaluateL0DomainBig(domainBig)
 
-	for i := 0; i < len(lsZBitReversed); i++ {
+	for i := range len(lsZBitReversed) {
 		_i := int(bits.Reverse64(uint64(i)) >> nn)
 		res[_i].Sub(&lsZBitReversed[_i], &one).
 			Mul(&res[_i], &xnMinusOne[i%2]).
@@ -264,7 +264,7 @@ func evaluateZEndsByOneBitReversed(lsZBitReversed []fr.Element, domainBig *fft.D
 	res := make([]fr.Element, len(lsZBitReversed))
 	nn := uint64(64 - bits.TrailingZeros64(domainBig.Cardinality))
 
-	for i := 0; i < len(lsZBitReversed); i++ {
+	for i := range len(lsZBitReversed) {
 		_i := int(bits.Reverse64(uint64(i)) >> nn)
 		res[_i].Sub(&lsZBitReversed[_i], &one).
 			Mul(&res[_i], &numLn[i%2]).
@@ -286,7 +286,7 @@ func evaluateOverlapH1h2BitReversed(_lh1, _lh2 []fr.Element, domainBig *fft.Doma
 	nn := uint64(64 - bits.TrailingZeros64(domainBig.Cardinality))
 
 	s := len(_lh1)
-	for i := 0; i < s; i++ {
+	for i := range s {
 
 		_i := int(bits.Reverse64(uint64(i)) >> nn)
 		_is := int(bits.Reverse64(uint64((i+2)%s)) >> nn)
@@ -317,7 +317,7 @@ func computeQuotientCanonical(alpha fr.Element, lh, lh0, lhn, lh1h2 []fr.Element
 	numLn[1].Inverse(&numLn[1])
 	nn := uint64(64 - bits.TrailingZeros64(domainBig.Cardinality))
 
-	for i := 0; i < sizeDomainBig; i++ {
+	for i := range sizeDomainBig {
 
 		_i := int(bits.Reverse64(uint64(i)) >> nn)
 

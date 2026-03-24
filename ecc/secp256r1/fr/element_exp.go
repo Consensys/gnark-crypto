@@ -210,7 +210,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	t8.Mul(t7, t8)
 
 	// Step 106: t8 = x^0xffffffff000000000000
-	for s := 0; s < 48; s++ {
+	for range 48 {
 		t8.Square(t8)
 	}
 
@@ -218,7 +218,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	t8.Mul(t7, t8)
 
 	// Step 123: t8 = x^0xffffffff00000000ffff0000
-	for s := 0; s < 16; s++ {
+	for range 16 {
 		t8.Square(t8)
 	}
 
@@ -226,7 +226,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	t8.Mul(t7, t8)
 
 	// Step 140: t8 = x^0xffffffff00000000ffffffff0000
-	for s := 0; s < 16; s++ {
+	for range 16 {
 		t8.Square(t8)
 	}
 
@@ -234,7 +234,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	t8.Mul(t7, t8)
 
 	// Step 157: t8 = x^0xffffffff00000000ffffffffffff0000
-	for s := 0; s < 16; s++ {
+	for range 16 {
 		t8.Square(t8)
 	}
 
@@ -242,7 +242,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	t7.Mul(t7, t8)
 
 	// Step 173: t7 = x^0x7fffffff800000007fffffffffffffff8000
-	for s := 0; s < 15; s++ {
+	for range 15 {
 		t7.Square(t7)
 	}
 
@@ -250,7 +250,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	t6.Mul(t6, t7)
 
 	// Step 191: t6 = x^0xffffffff00000000ffffffffffffffffbce60000
-	for s := 0; s < 17; s++ {
+	for range 17 {
 		t6.Square(t6)
 	}
 
@@ -258,7 +258,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	t5.Mul(t5, t6)
 
 	// Step 208: t5 = x^0xffffffff00000000ffffffffffffffffbce6faad0000
-	for s := 0; s < 16; s++ {
+	for range 16 {
 		t5.Square(t5)
 	}
 
@@ -266,7 +266,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	t4.Mul(t4, t5)
 
 	// Step 223: t4 = x^0x3fffffffc00000003fffffffffffffffef39beab69c5c000
-	for s := 0; s < 14; s++ {
+	for range 14 {
 		t4.Square(t4)
 	}
 
@@ -274,7 +274,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	t3.Mul(t3, t4)
 
 	// Step 242: t3 = x^0xffffffff00000000ffffffffffffffffbce6faada7179e840000
-	for s := 0; s < 18; s++ {
+	for range 18 {
 		t3.Square(t3)
 	}
 
@@ -282,7 +282,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	t2.Mul(t2, t3)
 
 	// Step 258: t2 = x^0x7fffffff800000007fffffffffffffffde737d56d38bcf4279dc8000
-	for s := 0; s < 15; s++ {
+	for range 15 {
 		t2.Square(t2)
 	}
 
@@ -290,7 +290,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	t1.Mul(t1, t2)
 
 	// Step 276: t1 = x^0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac20000
-	for s := 0; s < 17; s++ {
+	for range 17 {
 		t1.Square(t1)
 	}
 
@@ -298,7 +298,7 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	t0.Mul(t0, t1)
 
 	// Step 287: t0 = x^0x3fffffffc00000003fffffffffffffffef39beab69c5e7a13cee72b0bf18c00
-	for s := 0; s < 10; s++ {
+	for range 10 {
 		t0.Square(t0)
 	}
 
@@ -415,7 +415,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t6.Mul(t6, t7)
 
 	// Step 38: t6 = x^0xffffc000
-	for s := 0; s < 13; s++ {
+	for range 13 {
 		t6.Square(t6)
 	}
 
@@ -438,7 +438,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t6.Mul(t5, t6)
 
 	// Step 138: t6 = x^0x1fffffffe00000001fffffffe00000000
-	for s := 0; s < 32; s++ {
+	for range 32 {
 		t6.Square(t6)
 	}
 
@@ -449,7 +449,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t5.Mul(&x, t5)
 
 	// Step 145: t5 = x^0x3fffffffc00000003fffffffffffffffe0
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t5.Square(t5)
 	}
 
@@ -457,7 +457,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t5.Mul(t3, t5)
 
 	// Step 151: t5 = x^0x7fffffff800000007fffffffffffffffde0
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t5.Square(t5)
 	}
 
@@ -465,7 +465,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t5.Mul(t2, t5)
 
 	// Step 156: t5 = x^0x7fffffff800000007fffffffffffffffde70
-	for s := 0; s < 4; s++ {
+	for range 4 {
 		t5.Square(t5)
 	}
 
@@ -473,7 +473,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t5.Mul(t0, t5)
 
 	// Step 163: t5 = x^0x1fffffffe00000001ffffffffffffffff79cc0
-	for s := 0; s < 6; s++ {
+	for range 6 {
 		t5.Square(t5)
 	}
 
@@ -481,7 +481,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t4.Mul(t4, t5)
 
 	// Step 168: t4 = x^0x1fffffffe00000001ffffffffffffffff79cdf0
-	for s := 0; s < 4; s++ {
+	for range 4 {
 		t4.Square(t4)
 	}
 
@@ -489,7 +489,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t4.Mul(z, t4)
 
 	// Step 173: t4 = x^0x1fffffffe00000001ffffffffffffffff79cdf50
-	for s := 0; s < 4; s++ {
+	for range 4 {
 		t4.Square(t4)
 	}
 
@@ -497,7 +497,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t4.Mul(z, t4)
 
 	// Step 177: t4 = x^0xffffffff00000000ffffffffffffffffbce6faa8
-	for s := 0; s < 3; s++ {
+	for range 3 {
 		t4.Square(t4)
 	}
 
@@ -505,7 +505,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t4.Mul(z, t4)
 
 	// Step 181: t4 = x^0x7fffffff800000007fffffffffffffffde737d568
-	for s := 0; s < 3; s++ {
+	for range 3 {
 		t4.Square(t4)
 	}
 
@@ -513,7 +513,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t4.Mul(z, t4)
 
 	// Step 187: t4 = x^0xffffffff00000000ffffffffffffffffbce6faada0
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t4.Square(t4)
 	}
 
@@ -521,7 +521,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t4.Mul(t2, t4)
 
 	// Step 192: t4 = x^0xffffffff00000000ffffffffffffffffbce6faada70
-	for s := 0; s < 4; s++ {
+	for range 4 {
 		t4.Square(t4)
 	}
 
@@ -529,7 +529,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t4.Mul(&x, t4)
 
 	// Step 198: t4 = x^0x1fffffffe00000001ffffffffffffffff79cdf55b4e20
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t4.Square(t4)
 	}
 
@@ -537,7 +537,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t4.Mul(t3, t4)
 
 	// Step 205: t4 = x^0x7fffffff800000007fffffffffffffffde737d56d38bc0
-	for s := 0; s < 6; s++ {
+	for range 6 {
 		t4.Square(t4)
 	}
 
@@ -545,7 +545,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t4.Mul(t3, t4)
 
 	// Step 208: t4 = x^0x1fffffffe00000001ffffffffffffffff79cdf55b4e2f3c
-	for s := 0; s < 2; s++ {
+	for range 2 {
 		t4.Square(t4)
 	}
 
@@ -553,7 +553,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t4.Mul(&x, t4)
 
 	// Step 214: t4 = x^0x3fffffffc00000003fffffffffffffffef39beab69c5e7a0
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t4.Square(t4)
 	}
 
@@ -561,7 +561,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t4.Mul(&x, t4)
 
 	// Step 221: t4 = x^0xffffffff00000000ffffffffffffffffbce6faada7179e840
-	for s := 0; s < 6; s++ {
+	for range 6 {
 		t4.Square(t4)
 	}
 
@@ -569,7 +569,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t3.Mul(t3, t4)
 
 	// Step 227: t3 = x^0x1fffffffe00000001ffffffffffffffff79cdf55b4e2f3d09e0
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t3.Square(t3)
 	}
 
@@ -577,7 +577,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t3.Mul(t2, t3)
 
 	// Step 232: t3 = x^0x1fffffffe00000001ffffffffffffffff79cdf55b4e2f3d09e70
-	for s := 0; s < 4; s++ {
+	for range 4 {
 		t3.Square(t3)
 	}
 
@@ -585,7 +585,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t3.Mul(t2, t3)
 
 	// Step 238: t3 = x^0x3fffffffc00000003fffffffffffffffef39beab69c5e7a13cee0
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t3.Square(t3)
 	}
 
@@ -593,7 +593,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t2.Mul(t2, t3)
 
 	// Step 244: t2 = x^0x7fffffff800000007fffffffffffffffde737d56d38bcf4279dce0
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t2.Square(t2)
 	}
 
@@ -601,7 +601,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t2.Mul(z, t2)
 
 	// Step 248: t2 = x^0x3fffffffc00000003fffffffffffffffef39beab69c5e7a13cee728
-	for s := 0; s < 3; s++ {
+	for range 3 {
 		t2.Square(t2)
 	}
 
@@ -609,7 +609,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t2.Mul(t0, t2)
 
 	// Step 254: t2 = x^0x7fffffff800000007fffffffffffffffde737d56d38bcf4279dce560
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t2.Square(t2)
 	}
 
@@ -617,7 +617,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t2.Mul(&x, t2)
 
 	// Step 262: t2 = x^0x3fffffffc00000003fffffffffffffffef39beab69c5e7a13cee72b080
-	for s := 0; s < 7; s++ {
+	for range 7 {
 		t2.Square(t2)
 	}
 
@@ -625,7 +625,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t1.Mul(t1, t2)
 
 	// Step 268: t1 = x^0x7fffffff800000007fffffffffffffffde737d56d38bcf4279dce5617e0
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t1.Square(t1)
 	}
 
@@ -633,7 +633,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t1.Mul(t0, t1)
 
 	// Step 274: t1 = x^0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc60
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t1.Square(t1)
 	}
 
@@ -641,7 +641,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t0.Mul(t0, t1)
 
 	// Step 278: t0 = x^0x7fffffff800000007fffffffffffffffde737d56d38bcf4279dce5617e318
-	for s := 0; s < 3; s++ {
+	for range 3 {
 		t0.Square(t0)
 	}
 
@@ -649,7 +649,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t0.Mul(&x, t0)
 
 	// Step 284: t0 = x^0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc6320
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t0.Square(t0)
 	}
 
@@ -657,7 +657,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	t0.Mul(z, t0)
 
 	// Step 289: t0 = x^0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc63250
-	for s := 0; s < 4; s++ {
+	for range 4 {
 		t0.Square(t0)
 	}
 
@@ -665,7 +665,7 @@ func (z *Element) ExpByLegendreExp(x Element) *Element {
 	z.Mul(z, t0)
 
 	// Step 293: z = x^0x7fffffff800000007fffffffffffffffde737d56d38bcf4279dce5617e3192a8
-	for s := 0; s < 3; s++ {
+	for range 3 {
 		z.Square(z)
 	}
 

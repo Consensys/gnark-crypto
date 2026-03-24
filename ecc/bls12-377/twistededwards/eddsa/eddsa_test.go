@@ -67,7 +67,7 @@ func TestNonMalleability(t *testing.T) {
 		r := big.NewInt(1)
 		r.Add(frMod, r)
 		buf := r.Bytes()
-		for i := 0; i < sizeFr; i++ {
+		for i := range sizeFr {
 			bsig[sizeFr-1-i] = buf[i]
 		}
 
@@ -151,7 +151,7 @@ func TestSerialization(t *testing.T) {
 	if len(pubKeyBin1) != len(pubKeyBin2) {
 		t.Fatal("Inconsistent size")
 	}
-	for i := 0; i < len(pubKeyBin1); i++ {
+	for i := range len(pubKeyBin1) {
 		if pubKeyBin1[i] != pubKeyBin2[i] {
 			t.Fatal("Error serialize(deserialize(.))")
 		}
@@ -163,7 +163,7 @@ func TestSerialization(t *testing.T) {
 	if len(privKeyBin1) != len(privKeyBin2) {
 		t.Fatal("Inconsistent size")
 	}
-	for i := 0; i < len(privKeyBin1); i++ {
+	for i := range len(privKeyBin1) {
 		if privKeyBin1[i] != privKeyBin2[i] {
 			t.Fatal("Error serialize(deserialize(.))")
 		}
@@ -275,7 +275,7 @@ func BenchmarkVerify(b *testing.B) {
 	signature, _ := privKey.Sign(msgBin[:], hFunc)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		pubKey.Verify(signature, msgBin[:], hFunc)
 	}
 }

@@ -26,16 +26,16 @@ func Fuzz(data []byte) int {
 
 	// create polynomials
 	f := make([]polynomial.Polynomial, size /2 )
-	for i := 0; i < len(f); i++ {
+	for i := range len(f) {
         f[i] = make(polynomial.Polynomial, size)
-        for j:=0;j<len(f[i]);j++ {
+        for j := range len(f[i]) {
             f[i][j].SetRawBytes(r)
         }
 	}
 
     // commit the polynomials
 	digests := make([]Digest, size /2)
-	for i := 0; i < len(digests); i++ {
+	for i := range len(digests) {
 		digests[i], _ = s.Commit(f[i])
 
 	}
@@ -46,7 +46,7 @@ func Fuzz(data []byte) int {
 	}
 
     // verify the claimed values
-	for i := 0; i < len(f); i++ {
+	for i := range len(f) {
 		expectedClaim := f[i].Eval(&point)
 		if !expectedClaim.Equal(&proof.ClaimedValues[i]) {
             panic("inconsistent claimed values")

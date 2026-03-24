@@ -36,7 +36,7 @@ func BenchmarkElementSelect(b *testing.B) {
 	y.MustSetRandom()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		benchResElement.Select(i%3, &x, &y)
 	}
 }
@@ -46,7 +46,7 @@ func BenchmarkElementSetRandom(b *testing.B) {
 	x.MustSetRandom()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		x.MustSetRandom()
 	}
 }
@@ -57,7 +57,7 @@ func BenchmarkElementSetBytes(b *testing.B) {
 	bb := x.Bytes()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchResElement.SetBytes(bb[:])
 	}
 
@@ -67,21 +67,21 @@ func BenchmarkElementMulByConstants(b *testing.B) {
 	b.Run("mulBy3", func(b *testing.B) {
 		benchResElement.MustSetRandom()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			MulBy3(&benchResElement)
 		}
 	})
 	b.Run("mulBy5", func(b *testing.B) {
 		benchResElement.MustSetRandom()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			MulBy5(&benchResElement)
 		}
 	})
 	b.Run("mulBy13", func(b *testing.B) {
 		benchResElement.MustSetRandom()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			MulBy13(&benchResElement)
 		}
 	})
@@ -93,7 +93,7 @@ func BenchmarkElementInverse(b *testing.B) {
 	benchResElement.MustSetRandom()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchResElement.Inverse(&x)
 	}
 
@@ -104,7 +104,7 @@ func BenchmarkElementButterfly(b *testing.B) {
 	x.MustSetRandom()
 	benchResElement.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		Butterfly(&x, &benchResElement)
 	}
 }
@@ -115,7 +115,7 @@ func BenchmarkElementExp(b *testing.B) {
 	benchResElement.MustSetRandom()
 	b1, _ := rand.Int(rand.Reader, Modulus())
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchResElement.Exp(x, b1)
 	}
 }
@@ -123,7 +123,7 @@ func BenchmarkElementExp(b *testing.B) {
 func BenchmarkElementDouble(b *testing.B) {
 	benchResElement.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchResElement.Double(&benchResElement)
 	}
 }
@@ -133,7 +133,7 @@ func BenchmarkElementAdd(b *testing.B) {
 	x.MustSetRandom()
 	benchResElement.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchResElement.Add(&x, &benchResElement)
 	}
 }
@@ -143,7 +143,7 @@ func BenchmarkElementSub(b *testing.B) {
 	x.MustSetRandom()
 	benchResElement.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchResElement.Sub(&x, &benchResElement)
 	}
 }
@@ -151,7 +151,7 @@ func BenchmarkElementSub(b *testing.B) {
 func BenchmarkElementNeg(b *testing.B) {
 	benchResElement.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchResElement.Neg(&benchResElement)
 	}
 }
@@ -161,7 +161,7 @@ func BenchmarkElementDiv(b *testing.B) {
 	x.MustSetRandom()
 	benchResElement.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchResElement.Div(&x, &benchResElement)
 	}
 }
@@ -169,7 +169,7 @@ func BenchmarkElementDiv(b *testing.B) {
 func BenchmarkElementFromMont(b *testing.B) {
 	benchResElement.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchResElement.fromMont()
 	}
 }
@@ -177,7 +177,7 @@ func BenchmarkElementFromMont(b *testing.B) {
 func BenchmarkElementSquare(b *testing.B) {
 	benchResElement.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchResElement.Square(&benchResElement)
 	}
 }
@@ -187,7 +187,7 @@ func BenchmarkElementSqrt(b *testing.B) {
 	a.MustSetRandom()
 	a.Square(&a)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchResElement.Sqrt(&a)
 	}
 }
@@ -210,7 +210,7 @@ func BenchmarkElementMul(b *testing.B) {
 	}
 	benchResElement.SetOne()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchResElement.Mul(&benchResElement, &x)
 	}
 }
@@ -225,7 +225,7 @@ func BenchmarkElementCmp(b *testing.B) {
 	benchResElement = x
 	benchResElement[0] = 0
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchResElement.Cmp(&x)
 	}
 }
@@ -261,7 +261,7 @@ func TestElementCmp(t *testing.T) {
 	}
 }
 func TestElementIsRandom(t *testing.T) {
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		var x, y Element
 		x.MustSetRandom()
 		y.MustSetRandom()
@@ -2115,7 +2115,7 @@ func TestElementBatchInvert(t *testing.T) {
 
 	for _, t := range tData {
 		a := make([]Element, len(t))
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			a[i].SetInt64(t[i])
 		}
 
@@ -2123,7 +2123,7 @@ func TestElementBatchInvert(t *testing.T) {
 
 		assert.True(len(aInv) == len(a))
 
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			if a[i].IsZero() {
 				assert.True(aInv[i].IsZero(), "0⁻¹ != 0")
 			} else {
@@ -2160,7 +2160,7 @@ func TestElementBatchInvert(t *testing.T) {
 
 			assert.True(len(aInv) == len(a))
 
-			for i := 0; i < len(a); i++ {
+			for i := range len(a) {
 				if a[i].IsZero() {
 					if !aInv[i].IsZero() {
 						return false
@@ -2384,7 +2384,7 @@ func bigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
 
 	const steps = 64 / bits.UintSize
 	const filter uint64 = 0xFFFFFFFFFFFFFFFF >> (64 - bits.UintSize)
-	for i := 0; i < len(a)*steps; i++ {
+	for i := range len(a) * steps {
 
 		var wI big.Word
 
@@ -2405,7 +2405,7 @@ func bigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
 
 func TestElementInversionApproximation(t *testing.T) {
 	var x Element
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		x.MustSetRandom()
 
 		// Normally small elements are unlikely. Here we give them a higher chance
@@ -2448,7 +2448,7 @@ func TestElementLinearComb(t *testing.T) {
 	var x Element
 	var y Element
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		x.MustSetRandom()
 		y.MustSetRandom()
 		testLinearComb(t, &x, mrand.Int63(), &y, mrand.Int63()) //#nosec G404 weak rng is fine here
@@ -2465,7 +2465,7 @@ func TestElementInversionCorrectionFactor(t *testing.T) {
 	one.SetOne()
 	oneInv.Inverse(&one)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		var x Element
 		var xInv Element
 		x.MustSetRandom()
@@ -2507,7 +2507,7 @@ func TestElementBigNumNeg(t *testing.T) {
 func TestElementBigNumWMul(t *testing.T) {
 	var x Element
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		x.MustSetRandom()
 		w := mrand.Int63() //#nosec G404 weak rng is fine here
 		testBigNumWMul(t, &x, w)
@@ -2626,7 +2626,7 @@ func TestElement0Inverse(t *testing.T) {
 
 // TODO: Tests like this (update factor related) are common to all fields. Move them to somewhere non-autogen
 func TestUpdateFactorSubtraction(t *testing.T) {
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 
 		f0, g0 := randomizeUpdateFactors()
 		f1, g1 := randomizeUpdateFactors()
@@ -2652,7 +2652,7 @@ func TestUpdateFactorSubtraction(t *testing.T) {
 }
 
 func TestUpdateFactorsDouble(t *testing.T) {
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		f, g := randomizeUpdateFactors()
 
 		if f > 1<<30 || f < (-1<<31+1)/2 {
@@ -2722,7 +2722,7 @@ func TestUpdateFactorsNeg0(t *testing.T) {
 func TestUpdateFactorDecomposition(t *testing.T) {
 	var negSeen bool
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 
 		f, g := randomizeUpdateFactors()
 
@@ -2760,7 +2760,7 @@ func TestUpdateFactorsRandomization(t *testing.T) {
 	var maxLen int
 
 	//t.Log("|f| + |g| is not to exceed", 1 << 31)
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		f, g := randomizeUpdateFactors()
 		lf, lg := abs64T32(f), abs64T32(g)
 		absSum := lf + lg

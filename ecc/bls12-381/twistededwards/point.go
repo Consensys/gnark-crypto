@@ -279,7 +279,7 @@ func (p *PointAffine) scalarMulWindowed(p1 *PointAffine, scalar *big.Int) *Point
 
 	for i := len(sWords) - 1; i >= 0; i-- {
 		ithWord := sWords[i]
-		for k := 0; k < wordSize; k++ {
+		for k := range wordSize {
 			resExtended.Double(&resExtended)
 			kthBit := (ithWord >> (wordSize - 1 - k)) & 1
 			if kthBit == 1 {
@@ -466,7 +466,7 @@ func (p *PointProj) scalarMulWindowed(p1 *PointProj, scalar *big.Int) *PointProj
 
 	for i := len(sWords) - 1; i >= 0; i-- {
 		ithWord := sWords[i]
-		for k := 0; k < wordSize; k++ {
+		for k := range wordSize {
 			resProj.Double(&resProj)
 			kthBit := (ithWord >> (wordSize - 1 - k)) & 1
 			if kthBit == 1 {
@@ -647,7 +647,7 @@ func (p *PointExtended) scalarMulWindowed(p1 *PointExtended, scalar *big.Int) *P
 
 	for i := len(sWords) - 1; i >= 0; i-- {
 		ithWord := sWords[i]
-		for k := 0; k < wordSize; k++ {
+		for k := range wordSize {
 			resExtended.Double(&resExtended)
 			kthBit := (ithWord >> (wordSize - 1 - k)) & 1
 			if kthBit == 1 {

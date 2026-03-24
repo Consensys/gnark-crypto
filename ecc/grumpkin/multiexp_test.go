@@ -63,7 +63,7 @@ func TestMultiExpG1(t *testing.T) {
 	properties.Property("[G1] Multi exponentiation (cmax) should be consistent with splitted multiexp", prop.ForAll(
 		func(mixer fr.Element) bool {
 			var samplePointsLarge [nbSamples * 13]G1Affine
-			for i := 0; i < 13; i++ {
+			for i := range 13 {
 				copy(samplePointsLarge[i*nbSamples:], samplePoints[:])
 			}
 
@@ -150,7 +150,7 @@ func TestMultiExpG1(t *testing.T) {
 			for i, c := range cRange {
 				_innerMsmG1(&results[i], c, samplePointsZero[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()})
 			}
-			for i := 0; i < len(results); i++ {
+			for i := range len(results) {
 				if !results[i].Z.IsZero() {
 					t.Logf("result for c=%d is not infinity", cRange[i])
 					return false
@@ -170,7 +170,7 @@ func TestMultiExpG1(t *testing.T) {
 			for i, c := range cRange {
 				_innerMsmG1(&results[i], c, samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{NbTasks: runtime.NumCPU()})
 			}
-			for i := 0; i < len(results); i++ {
+			for i := range len(results) {
 				if !results[i].Z.IsZero() {
 					t.Logf("result for c=%d is not infinity", cRange[i])
 					return false
@@ -262,7 +262,7 @@ func TestCrossMultiExpG1(t *testing.T) {
 	var expected, got G1Affine
 	expected.FromJacobian(&r)
 
-	for i := 0; i < len(results); i++ {
+	for i := range len(results) {
 		got.FromJacobian(&results[i])
 		if !expected.Equal(&got) {
 			t.Fatalf("cross msm failed with c=%d", cRange[i])
@@ -284,7 +284,7 @@ func _innerMsmG1Reference(p *G1Jac, points []G1Affine, scalars []fr.Element, con
 
 	// each go routine sends its result in chChunks[i] channel
 	chChunks := make([]chan g1JacExtended, nbChunks)
-	for i := 0; i < len(chChunks); i++ {
+	for i := range len(chChunks) {
 		chChunks[i] = make(chan g1JacExtended, 1)
 	}
 
@@ -317,7 +317,7 @@ func BenchmarkMultiExpG1(b *testing.B) {
 	copy(sampleScalarsRedundant[:], sampleScalars[:])
 
 	// this means first chunk is going to have more work to do and should be split into several go routines
-	for i := 0; i < len(sampleScalarsSmallValues); i++ {
+	for i := range len(sampleScalarsSmallValues) {
 		if i%5 == 0 {
 			sampleScalarsSmallValues[i].SetZero()
 			sampleScalarsSmallValues[i][0] = 1
@@ -342,21 +342,21 @@ func BenchmarkMultiExpG1(b *testing.B) {
 
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				testPoint.MultiExp(samplePoints[:using], sampleScalars[:using], ecc.MultiExpConfig{})
 			}
 		})
 
 		b.Run(fmt.Sprintf("%d points-smallvalues", using), func(b *testing.B) {
 			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				testPoint.MultiExp(samplePoints[:using], sampleScalarsSmallValues[:using], ecc.MultiExpConfig{})
 			}
 		})
 
 		b.Run(fmt.Sprintf("%d points-redundancy", using), func(b *testing.B) {
 			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				testPoint.MultiExp(samplePoints[:using], sampleScalarsRedundant[:using], ecc.MultiExpConfig{})
 			}
 		})
@@ -377,7 +377,7 @@ func BenchmarkMultiExpG1Reference(b *testing.B) {
 	var testPoint G1Affine
 
 	b.ResetTimer()
-	for j := 0; j < b.N; j++ {
+	for range b.N {
 		testPoint.MultiExp(samplePoints[:], sampleScalars[:], ecc.MultiExpConfig{})
 	}
 }
@@ -395,7 +395,7 @@ func BenchmarkManyMultiExpG1Reference(b *testing.B) {
 
 	var t1, t2, t3 G1Affine
 	b.ResetTimer()
-	for j := 0; j < b.N; j++ {
+	for range b.N {
 		var wg sync.WaitGroup
 		wg.Add(3)
 		go func() {
@@ -436,7 +436,7 @@ func fillBenchBasesG1(samplePoints []G1Affine) {
 
 func fillBenchScalars(sampleScalars []fr.Element) {
 	// ensure every words of the scalars are filled
-	for i := 0; i < len(sampleScalars); i++ {
+	for i := range len(sampleScalars) {
 		sampleScalars[i].MustSetRandom()
 	}
 }

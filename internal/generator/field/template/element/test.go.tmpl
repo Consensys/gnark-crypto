@@ -30,7 +30,7 @@ func Benchmark{{toTitle .ElementName}}Select(b *testing.B) {
 	y.MustSetRandom()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		benchRes{{.ElementName}}.Select(i%3, &x, &y)
 	}
 }
@@ -40,7 +40,7 @@ func Benchmark{{toTitle .ElementName}}SetRandom(b *testing.B) {
 	x.MustSetRandom()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		x.MustSetRandom()
 	}
 }
@@ -51,7 +51,7 @@ func Benchmark{{toTitle .ElementName}}SetBytes(b *testing.B) {
 	bb := x.Bytes()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes{{.ElementName}}.SetBytes(bb[:])
 	}
 
@@ -61,21 +61,21 @@ func Benchmark{{toTitle .ElementName}}MulByConstants(b *testing.B) {
 	b.Run("mulBy3", func(b *testing.B){
 		benchRes{{.ElementName}}.MustSetRandom()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			MulBy3(&benchRes{{.ElementName}})
 		}
 	})
 	b.Run("mulBy5", func(b *testing.B){
 		benchRes{{.ElementName}}.MustSetRandom()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			MulBy5(&benchRes{{.ElementName}})
 		}
 	})
 	b.Run("mulBy13", func(b *testing.B){
 		benchRes{{.ElementName}}.MustSetRandom()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			MulBy13(&benchRes{{.ElementName}})
 		}
 	})
@@ -87,7 +87,7 @@ func Benchmark{{toTitle .ElementName}}Inverse(b *testing.B) {
 	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes{{.ElementName}}.Inverse(&x)
 	}
 
@@ -98,7 +98,7 @@ func Benchmark{{toTitle .ElementName}}Butterfly(b *testing.B) {
 	x.MustSetRandom()
 	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		Butterfly(&x, &benchRes{{.ElementName}})
 	}
 }
@@ -110,7 +110,7 @@ func Benchmark{{toTitle .ElementName}}Exp(b *testing.B) {
 	benchRes{{.ElementName}}.MustSetRandom()
 	b1, _ := rand.Int(rand.Reader, Modulus())
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes{{.ElementName}}.Exp(x, b1)
 	}
 }
@@ -119,7 +119,7 @@ func Benchmark{{toTitle .ElementName}}Exp(b *testing.B) {
 func Benchmark{{toTitle .ElementName}}Double(b *testing.B) {
 	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes{{.ElementName}}.Double(&benchRes{{.ElementName}})
 	}
 }
@@ -130,7 +130,7 @@ func Benchmark{{toTitle .ElementName}}Add(b *testing.B) {
 	x.MustSetRandom()
 	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes{{.ElementName}}.Add(&x, &benchRes{{.ElementName}})
 	}
 }
@@ -140,7 +140,7 @@ func Benchmark{{toTitle .ElementName}}Sub(b *testing.B) {
 	x.MustSetRandom()
 	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes{{.ElementName}}.Sub(&x, &benchRes{{.ElementName}})
 	}
 }
@@ -148,7 +148,7 @@ func Benchmark{{toTitle .ElementName}}Sub(b *testing.B) {
 func Benchmark{{toTitle .ElementName}}Neg(b *testing.B) {
 	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes{{.ElementName}}.Neg(&benchRes{{.ElementName}})
 	}
 }
@@ -158,7 +158,7 @@ func Benchmark{{toTitle .ElementName}}Div(b *testing.B) {
 	x.MustSetRandom()
 	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes{{.ElementName}}.Div(&x, &benchRes{{.ElementName}})
 	}
 }
@@ -167,7 +167,7 @@ func Benchmark{{toTitle .ElementName}}Div(b *testing.B) {
 func Benchmark{{toTitle .ElementName}}FromMont(b *testing.B) {
 	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes{{.ElementName}}.fromMont()
 	}
 }
@@ -175,7 +175,7 @@ func Benchmark{{toTitle .ElementName}}FromMont(b *testing.B) {
 func Benchmark{{toTitle .ElementName}}Square(b *testing.B) {
 	benchRes{{.ElementName}}.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes{{.ElementName}}.Square(&benchRes{{.ElementName}})
 	}
 }
@@ -187,19 +187,19 @@ func Benchmark{{toTitle .ElementName}}Sqrt(b *testing.B) {
 	{{- if .SqrtSarkar}}
 	b.Run("Sarkar", func(b *testing.B) {
 		b.ResetTimer()
-		for j := 0; j < b.N; j++ {
+		for range b.N {
 			benchRes{{.ElementName}}.SqrtSarkar(&a)
 		}
 	})
 	b.Run("Tonelli-Shanks", func(b *testing.B) {
 		b.ResetTimer()
-		for j := 0; j < b.N; j++ {
+		for range b.N {
 			benchRes{{.ElementName}}.SqrtTonelliShanks(&a)
 		}
 	})
 	{{- else}}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes{{.ElementName}}.Sqrt(&a)
 	}
 	{{- end}}
@@ -221,7 +221,7 @@ func Benchmark{{toTitle .ElementName}}Mul(b *testing.B) {
 	}
 	benchRes{{.ElementName}}.SetOne()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes{{.ElementName}}.Mul(&benchRes{{.ElementName}}, &x)
 	}
 }
@@ -235,7 +235,7 @@ func Benchmark{{toTitle .ElementName}}Cmp(b *testing.B) {
 	benchRes{{.ElementName}} = x
 	benchRes{{.ElementName}}[0] = 0
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes{{.ElementName}}.Cmp(&x)
 	}
 }
@@ -273,7 +273,7 @@ func Test{{toTitle .ElementName}}Cmp(t *testing.T) {
 
 {{- if gt .NbWords 1}}
 func Test{{toTitle .ElementName}}IsRandom(t *testing.T) {
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		var x, y {{.ElementName}}
 		x.MustSetRandom()
 		y.MustSetRandom()
@@ -1587,7 +1587,7 @@ func Test{{toTitle .ElementName}}BatchInvert(t *testing.T) {
 
 	for _, t := range tData {
 		a := make([]{{.ElementName}}, len(t))
-		for i:=0; i <len(a);i++ {
+		for i := range len(a) {
 			a[i].SetInt64(t[i])
 		}
 
@@ -1595,7 +1595,7 @@ func Test{{toTitle .ElementName}}BatchInvert(t *testing.T) {
 
 		assert.True(len(aInv) == len(a))
 
-		for i:=0; i <len(a);i++ {
+		for i := range len(a) {
 			if a[i].IsZero() {
 				assert.True(aInv[i].IsZero(), "0⁻¹ != 0")
 			} else {
@@ -1633,7 +1633,7 @@ func Test{{toTitle .ElementName}}BatchInvert(t *testing.T) {
 
 			assert.True(len(aInv) == len(a))
 
-			for i:=0; i <len(a);i++ {
+			for i := range len(a) {
 				if a[i].IsZero() {
 					if !aInv[i].IsZero() {
 						return false
@@ -1769,7 +1769,7 @@ func Test{{toTitle .ElementName}}Mul2ExpNegN(t *testing.T) {
 			var b, e, two {{.ElementName}}
 			var c [33]{{.ElementName}}
 			two.SetUint64(2)
-			for n := 0; n < 33; n++ {
+			for n := range 33 {
 				e.Exp(two, big.NewInt(int64(n))).Inverse(&e)
 				b.Mul(&a.element, &e)
 				c[n].Mul2ExpNegN(&a.element, uint32(n))
@@ -1906,7 +1906,7 @@ func bigIntMatchUint64Slice(aInt *big.Int, a []uint64) error {
 
 	const steps = 64 / bits.UintSize
 	const filter uint64 = 0xFFFFFFFFFFFFFFFF >> (64 - bits.UintSize)
-	for i := 0; i < len(a)*steps; i++ {
+	for i := range len(a)*steps {
 
 		var wI big.Word
 

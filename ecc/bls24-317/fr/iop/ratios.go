@@ -14,7 +14,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/utils"
 
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/fft"
@@ -70,7 +70,7 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 	// only their entries. If the polynomials are unlocked, the
 	// entries of the slices numerator and denominator will be
 	// modified.
-	for i := 0; i < nbPolynomials; i++ {
+	for i := range nbPolynomials {
 		numerator[i].ToLagrange(domain)
 		denominator[i].ToLagrange(domain)
 	}
@@ -84,14 +84,14 @@ func BuildRatioShuffledVectors(numerator, denominator []*Polynomial, beta fr.Ele
 	var a, b, c, d fr.Element
 
 	nn := uint64(64 - bits.TrailingZeros(uint(n)))
-	for i := 0; i < n-1; i++ {
+	for i := range n - 1 {
 
 		b.SetOne()
 		d.SetOne()
 
 		iRev := bits.Reverse64(uint64(i)) >> nn
 
-		for j := 0; j < nbPolynomials; j++ {
+		for j := range nbPolynomials {
 
 			if numerator[j].Layout == BitReverse {
 				a.Sub(&beta, &numerator[j].Coefficients()[iRev])
@@ -159,7 +159,7 @@ func BuildRatioCopyConstraint(
 
 	// put every polynomials in Lagrange form. Also make sure
 	// that we don't modify the slice entries
-	for i := 0; i < nbPolynomials; i++ {
+	for i := range nbPolynomials {
 		entries[i].ToLagrange(domain)
 	}
 
@@ -281,8 +281,8 @@ func checkSize(pols ...[]*Polynomial) error {
 	// check sizes between one another
 	m := len(pols)
 	n := pols[0][0].coefficients.Len()
-	for i := 0; i < m; i++ {
-		for j := 0; j < len(pols); j++ {
+	for i := range m {
+		for j := range len(pols) {
 			if pols[i][j].coefficients.Len() != n {
 				return ErrInconsistentSize
 			}

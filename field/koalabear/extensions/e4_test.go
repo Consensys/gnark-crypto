@@ -281,7 +281,7 @@ func TestE4Exp(t *testing.T) {
 			k := int64(0b101101) // 45
 			res.Exp(a, big.NewInt(k))
 			mul.SetOne()
-			for i := int64(0); i < k; i++ {
+			for range k {
 				mul.Mul(&mul, &a)
 			}
 			return res.Equal(&mul)
@@ -305,7 +305,7 @@ func TestVectorOps(t *testing.T) {
 		c := make(Vector, len(a))
 		c.Add(a, b)
 
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			var tmp E4
 			tmp.Add(&a[i], &b[i])
 			if !tmp.Equal(&c[i]) {
@@ -319,7 +319,7 @@ func TestVectorOps(t *testing.T) {
 		c := make(Vector, len(a))
 		c.Sub(a, b)
 
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			var tmp E4
 			tmp.Sub(&a[i], &b[i])
 			if !tmp.Equal(&c[i]) {
@@ -333,7 +333,7 @@ func TestVectorOps(t *testing.T) {
 		c := make(Vector, len(a))
 		c.ScalarMul(a, &b)
 
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			var tmp E4
 			tmp.Mul(&a[i], &b)
 			if !tmp.Equal(&c[i]) {
@@ -346,7 +346,7 @@ func TestVectorOps(t *testing.T) {
 	sumVector := func(a Vector) bool {
 		var sum E4
 		computed := a.Sum()
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			sum.Add(&sum, &a[i])
 		}
 
@@ -356,7 +356,7 @@ func TestVectorOps(t *testing.T) {
 	innerProductVector := func(a, b Vector) bool {
 		computed := a.InnerProduct(b)
 		var innerProduct E4
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			var tmp E4
 			tmp.Mul(&a[i], &b[i])
 			innerProduct.Add(&innerProduct, &tmp)
@@ -371,7 +371,7 @@ func TestVectorOps(t *testing.T) {
 		b[0].B0.A0.SetUint64(0x42)
 		c.Mul(a, b)
 
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			var tmp E4
 			tmp.Mul(&a[i], &b[i])
 			if !tmp.Equal(&c[i]) {
@@ -434,7 +434,7 @@ func TestVectorOps(t *testing.T) {
 				func(a Vector, b fr.Element) bool {
 					c := make(Vector, len(a))
 					c.ScalarMulByElement(a, &b)
-					for i := 0; i < len(a); i++ {
+					for i := range len(a) {
 						var tmp E4
 						tmp.MulByElement(&a[i], &b)
 						if !tmp.Equal(&c[i]) {
@@ -451,7 +451,7 @@ func TestVectorOps(t *testing.T) {
 				func(a Vector, b fr.Vector) bool {
 					c := make(Vector, len(a))
 					c.MulByElement(a, b)
-					for i := 0; i < len(a); i++ {
+					for i := range len(a) {
 						var tmp E4
 						tmp.MulByElement(&a[i], &b[i])
 						if !tmp.Equal(&c[i]) {
@@ -518,7 +518,7 @@ func TestVectorOps(t *testing.T) {
 				func(a Vector, b fr.Vector) bool {
 					computed := a.InnerProductByElement(b)
 					var innerProduct E4
-					for i := 0; i < len(a); i++ {
+					for i := range len(a) {
 						var tmp E4
 						tmp.MulByElement(&a[i], &b[i])
 						innerProduct.Add(&innerProduct, &tmp)
@@ -583,7 +583,7 @@ func TestVectorExp(t *testing.T) {
 	for i := range v {
 		var mul E4
 		mul.SetOne()
-		for j := int64(0); j < k; j++ {
+		for range k {
 			mul.Mul(&mul, &v[i])
 		}
 		assert.True(expK[i].Equal(&mul), "Exp(x, k) should match repeated multiplication for all elements")
@@ -750,7 +750,7 @@ func BenchmarkE4Add(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Add(&a, &c)
 	}
 }
@@ -760,7 +760,7 @@ func BenchmarkE4Sub(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Sub(&a, &c)
 	}
 }
@@ -770,7 +770,7 @@ func BenchmarkE4Mul(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Mul(&a, &c)
 	}
 }
@@ -781,7 +781,7 @@ func BenchmarkE4MulByElement(b *testing.B) {
 	_, _ = a.SetRandom()
 	_, _ = c.SetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.MulByElement(&a, &c)
 	}
 }
@@ -790,7 +790,7 @@ func BenchmarkE4Square(b *testing.B) {
 	var a E4
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Square(&a)
 	}
 }
@@ -800,7 +800,7 @@ func BenchmarkE4Sqrt(b *testing.B) {
 	a.MustSetRandom()
 	a.Square(&a)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		c.Sqrt(&a)
 	}
 }
@@ -809,7 +809,7 @@ func BenchmarkE4Inverse(b *testing.B) {
 	var a E4
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Inverse(&a)
 	}
 }
@@ -818,7 +818,7 @@ func BenchmarkE4MulNonRes(b *testing.B) {
 	var a E4
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.MulByNonResidue(&a)
 	}
 }
@@ -827,7 +827,7 @@ func BenchmarkE4Conjugate(b *testing.B) {
 	var a E4
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Conjugate(&a)
 	}
 }
@@ -854,63 +854,63 @@ func BenchmarkVectorOps(b *testing.B) {
 
 		b.Run(fmt.Sprintf("add %d", n), func(b *testing.B) {
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_c.Add(_a, _b)
 			}
 		})
 
 		b.Run(fmt.Sprintf("sub %d", n), func(b *testing.B) {
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_c.Sub(_a, _b)
 			}
 		})
 
 		b.Run(fmt.Sprintf("scalarMul %d", n), func(b *testing.B) {
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_c.ScalarMul(_a, &b1[0])
 			}
 		})
 
 		b.Run(fmt.Sprintf("sum %d", n), func(b *testing.B) {
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_ = _a.Sum()
 			}
 		})
 
 		b.Run(fmt.Sprintf("innerProduct %d", n), func(b *testing.B) {
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_ = _a.InnerProduct(_b)
 			}
 		})
 
 		b.Run(fmt.Sprintf("innerProductByElement %d", n), func(b *testing.B) {
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_ = _a.InnerProductByElement(_b2)
 			}
 		})
 
 		b.Run(fmt.Sprintf("mul %d", n), func(b *testing.B) {
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_c.Mul(_a, _b)
 			}
 		})
 
 		b.Run(fmt.Sprintf("exp %d", n), func(b *testing.B) {
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_c.Exp(_a, int64(2130706433>>2))
 			}
 		})
 
 		b.Run(fmt.Sprintf("exp neg %d", n), func(b *testing.B) {
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_c.Exp(_a, -int64(2130706433>>2))
 			}
 		})
@@ -920,20 +920,20 @@ func BenchmarkVectorOps(b *testing.B) {
 func BenchmarkPrefixProduct(b *testing.B) {
 	const N = 1 << 19
 	a1 := make(Vector, N)
-	for i := 0; i < N; i++ {
+	for i := range N {
 		a1[i].MustSetRandom()
 	}
 
 	b.Run("generic", func(b *testing.B) {
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			prefixProductGeneric(a1)
 		}
 	})
 
 	b.Run("PrefixProduct", func(b *testing.B) {
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			a1.PrefixProduct()
 		}
 	})
@@ -948,7 +948,7 @@ func BenchmarkVectorSerialization(b *testing.B) {
 	}
 	b.Run("MarshalBinary", func(b *testing.B) {
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			_, err := a1.MarshalBinary()
 			if err != nil {
 				b.Fatal(err)
@@ -964,7 +964,7 @@ func BenchmarkVectorSerialization(b *testing.B) {
 	b.Run("UnmarshalBinary", func(b *testing.B) {
 		var a2 Vector
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			err := a2.UnmarshalBinary(data)
 			if err != nil {
 				b.Fatal(err)
@@ -975,7 +975,7 @@ func BenchmarkVectorSerialization(b *testing.B) {
 	b.Run("unmarshalBinaryAsync", func(b *testing.B) {
 		var a2 Vector
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			err := a2.unmarshalBinaryAsync(data)
 			if err != nil {
 				b.Fatal(err)
@@ -1025,7 +1025,7 @@ func genE4() gopter.Gen {
 	return gopter.CombineGens(
 		genE2(),
 		genE2(),
-	).Map(func(values []interface{}) E4 {
+	).Map(func(values []any) E4 {
 		return E4{B0: values[0].(E2), B1: values[1].(E2)}
 	})
 }

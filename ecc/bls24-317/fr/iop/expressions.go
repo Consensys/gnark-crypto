@@ -10,7 +10,7 @@ import (
 	"math/bits"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 )
 
 // Expression represents a multivariate polynomial.
@@ -59,7 +59,7 @@ func Evaluate(f Expression, r []fr.Element, form Form, x ...*Polynomial) (*Polyn
 	parallel.Execute(n, func(start, end int) {
 		vx := make([]fr.Element, m)
 		for i := start; i < end; i++ {
-			for j := 0; j < m; j++ {
+			for j := range m {
 				vx[j] = x[j].GetCoeff(i)
 			}
 			r[idx(i)] = f(i, vx...)

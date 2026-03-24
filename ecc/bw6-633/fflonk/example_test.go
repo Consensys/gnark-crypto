@@ -26,9 +26,9 @@ func Example_batchOpen() {
 	nbPointsPerPack := []int{4, 5, 6, 7, 8}
 	points := make([][]fr.Element, nbPacks)
 	polynomials := make([][][]fr.Element, nbPacks)
-	for i := 0; i < nbPacks; i++ {
+	for i := range nbPacks {
 		polynomials[i] = make([][]fr.Element, nbPolynomialsPerPack[i])
-		for j := 0; j < nbPointsPerPack[i]; j++ {
+		for j := range nbPointsPerPack[i] {
 
 			// random size for the polynomials
 			polynomials[i][j] = make([]fr.Element, j+10)
@@ -44,7 +44,7 @@ func Example_batchOpen() {
 	// r-1 bounding above the number of polynomials, which is 3 here.
 	var err error
 	digests := make([]kzg.Digest, nbPacks)
-	for i := 0; i < nbPacks; i++ {
+	for i := range nbPacks {
 		digests[i], err = FoldAndCommit(polynomials[i], testSrs.Pk)
 		if err != nil {
 			panic(err)

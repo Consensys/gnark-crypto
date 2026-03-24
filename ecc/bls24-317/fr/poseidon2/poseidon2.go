@@ -86,9 +86,9 @@ func (p *Parameters) initRC(seed string) {
 	_, _ = hash.Write(rnd)
 
 	roundKeys := make([][]fr.Element, p.NbFullRounds+p.NbPartialRounds)
-	for i := 0; i < p.NbFullRounds/2; i++ {
+	for i := range p.NbFullRounds / 2 {
 		roundKeys[i] = make([]fr.Element, p.Width)
-		for j := 0; j < p.Width; j++ {
+		for j := range p.Width {
 			rnd = hash.Sum(nil)
 			roundKeys[i][j].SetBytes(rnd)
 			hash.Reset()
@@ -104,7 +104,7 @@ func (p *Parameters) initRC(seed string) {
 	}
 	for i := p.NbPartialRounds + p.NbFullRounds/2; i < p.NbPartialRounds+p.NbFullRounds; i++ {
 		roundKeys[i] = make([]fr.Element, p.Width)
-		for j := 0; j < p.Width; j++ {
+		for j := range p.Width {
 			rnd = hash.Sum(nil)
 			roundKeys[i][j].SetBytes(rnd)
 			hash.Reset()
@@ -204,7 +204,7 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 
 // addRoundKeyInPlace adds the round-th key to the buffer
 func (h *Permutation) addRoundKeyInPlace(round int, input []fr.Element) {
-	for i := 0; i < len(h.params.RoundKeys[round]); i++ {
+	for i := range len(h.params.RoundKeys[round]) {
 		input[i].Add(&input[i], &h.params.RoundKeys[round][i])
 	}
 }
@@ -223,10 +223,10 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 	h.matMulExternalInPlace(input)
 
 	rf := h.params.NbFullRounds / 2
-	for i := 0; i < rf; i++ {
+	for i := range rf {
 		// one round = matMulExternal(sBox_Full(addRoundKey))
 		h.addRoundKeyInPlace(i, input)
-		for j := 0; j < h.params.Width; j++ {
+		for j := range h.params.Width {
 			h.sBox(j, input)
 		}
 		h.matMulExternalInPlace(input)
@@ -241,7 +241,7 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 	for i := rf + h.params.NbPartialRounds; i < h.params.NbFullRounds+h.params.NbPartialRounds; i++ {
 		// one round = matMulExternal(sBox_Full(addRoundKey))
 		h.addRoundKeyInPlace(i, input)
-		for j := 0; j < h.params.Width; j++ {
+		for j := range h.params.Width {
 			h.sBox(j, input)
 		}
 		h.matMulExternalInPlace(input)

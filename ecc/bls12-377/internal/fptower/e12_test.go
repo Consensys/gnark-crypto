@@ -447,7 +447,7 @@ func BenchmarkE12Add(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Add(&a, &c)
 	}
 }
@@ -457,7 +457,7 @@ func BenchmarkE12Sub(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Sub(&a, &c)
 	}
 }
@@ -467,7 +467,7 @@ func BenchmarkE12Mul(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Mul(&a, &c)
 	}
 }
@@ -476,7 +476,7 @@ func BenchmarkE12Cyclosquare(b *testing.B) {
 	var a E12
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.CyclotomicSquare(&a)
 	}
 }
@@ -485,7 +485,7 @@ func BenchmarkE12Square(b *testing.B) {
 	var a E12
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Square(&a)
 	}
 }
@@ -494,7 +494,7 @@ func BenchmarkE12Inverse(b *testing.B) {
 	var a E12
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Inverse(&a)
 	}
 }
@@ -503,7 +503,7 @@ func BenchmarkE12Conjugate(b *testing.B) {
 	var a E12
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Conjugate(&a)
 	}
 }
@@ -512,7 +512,7 @@ func BenchmarkE12Frobenius(b *testing.B) {
 	var a E12
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Frobenius(&a)
 	}
 }
@@ -521,7 +521,7 @@ func BenchmarkE12FrobeniusSquare(b *testing.B) {
 	var a E12
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.FrobeniusSquare(&a)
 	}
 }
@@ -530,7 +530,7 @@ func BenchmarkE12Expt(b *testing.B) {
 	var a E12
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Expt(&a)
 	}
 }

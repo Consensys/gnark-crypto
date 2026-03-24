@@ -14,7 +14,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fp"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 )
 
 // G2Affine is a point in affine coordinates (x,y)
@@ -762,10 +762,7 @@ func (p *G2Jac) mulGLV(q *G2Jac, s *big.Int) *G2Jac {
 	var naf2 [fr.Bits + 1]int8
 	nafLen1 := ecc.WnafDecomposition(&k[0], wnafWindow, naf1[:])
 	nafLen2 := ecc.WnafDecomposition(&k[1], wnafWindow, naf2[:])
-	maxLen := nafLen1
-	if nafLen2 > maxLen {
-		maxLen = nafLen2
-	}
+	maxLen := max(nafLen2, nafLen1)
 	if maxLen == 0 {
 		p.Set(&g2Infinity)
 		return p
@@ -1226,10 +1223,7 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 
 	// last window may be slightly larger than c; in which case we need to compute one
 	// extra element in the baseTable
-	maxC := lastC(c)
-	if c > maxC {
-		maxC = c
-	}
+	maxC := max(c, lastC(c))
 
 	// precompute all powers of base for our window
 	// note here that if performance is critical, we can implement as in the msmX methods
@@ -1252,7 +1246,7 @@ func BatchScalarMultiplicationG2(base *G2Affine, scalars []fr.Element) []G2Affin
 			p.Set(&g2Infinity)
 			for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 				if chunk != nbChunks-1 {
-					for j := uint64(0); j < c; j++ {
+					for range c {
 						p.DoubleAssign()
 					}
 				}
@@ -1298,7 +1292,7 @@ func batchAddG2Affine[TP pG2Affine, TPP ppG2Affine, TC cG2Affine](R *TPP, P *TP,
 	// first we compute the 1 / (X2 - X1) for all points using Montgomery batch inversion trick
 
 	// X2 - X1
-	for j := 0; j < batchSize; j++ {
+	for j := range batchSize {
 		lambdain[j].Sub(&(*P)[j].X, &(*R)[j].X)
 	}
 
@@ -1328,7 +1322,7 @@ func batchAddG2Affine[TP pG2Affine, TPP ppG2Affine, TC cG2Affine](R *TPP, P *TP,
 	var t fp.Element
 	var Q G2Affine
 
-	for j := 0; j < batchSize; j++ {
+	for j := range batchSize {
 		// λ  = (Y2 - Y1) / (X2 - X1)
 		t.Sub(&(*P)[j].Y, &(*R)[j].Y)
 		lambda[j].Mul(&lambda[j], &t)

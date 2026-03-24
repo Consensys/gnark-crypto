@@ -30,7 +30,7 @@ func (m *MultiLin) Fold(r fr.Element) {
 	// knowing that the polynomial f ∈ (k[X₂, ..., Xₙ])[X₁] is linear, we would get f(r) = f(0) + r(f(1) - f(0))
 	// the following loop computes the evaluations of f(r) accordingly:
 	//		f(r, b₂, ..., bₙ) = f(0, b₂, ..., bₙ) + r(f(1, b₂, ..., bₙ) - f(0, b₂, ..., bₙ))
-	for i := 0; i < mid; i++ {
+	for i := range mid {
 		// table[i] ← table[i] + r (table[i + mid] - table[i])
 		t.Sub(&top[i], &bottom[i])
 		t.Mul(&t, &r)
@@ -115,7 +115,7 @@ func (m *MultiLin) Add(left, right MultiLin) {
 	}
 
 	// Add elementwise
-	for i := 0; i < size; i++ {
+	for i := range size {
 		(*m)[i].Add(&left[i], &right[i])
 	}
 }
@@ -138,7 +138,7 @@ func (m *MultiLin) Add(left, right MultiLin) {
 func EvalEq(q, h []fr.Element) fr.Element {
 	var res, nxt, one, sum fr.Element
 	one.SetOne()
-	for i := 0; i < len(q); i++ {
+	for i := range len(q) {
 		nxt.Mul(&q[i], &h[i]) // nxt <- qᵢ * hᵢ
 		nxt.Double(&nxt)      // nxt <- 2 * qᵢ * hᵢ
 		nxt.Add(&nxt, &one)   // nxt <- 1 + 2 * qᵢ * hᵢ
@@ -165,7 +165,7 @@ func (m *MultiLin) Eq(q []fr.Element) {
 	//At the end of each iteration, m(h₁, ..., hₙ) = Eq(q₁, ..., qᵢ₊₁, h₁, ..., hᵢ₊₁)
 	for i := range q { // In the comments we use a 1-based index so q[i] = qᵢ₊₁
 		// go through all assignments of (b₁, ..., bᵢ) ∈ {0,1}ⁱ
-		for j := 0; j < (1 << i); j++ {
+		for j := range 1 << i {
 			j0 := j << (n - i)                 // bᵢ₊₁ = 0
 			j1 := j0 + 1<<(n-1-i)              // bᵢ₊₁ = 1
 			(*m)[j1].Mul(&q[i], &(*m)[j0])     // Eq(q₁, ..., qᵢ₊₁, b₁, ..., bᵢ, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) Eq(qᵢ₊₁, 1) = Eq(q₁, ..., qᵢ, b₁, ..., bᵢ) qᵢ₊₁

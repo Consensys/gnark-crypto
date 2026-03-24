@@ -653,7 +653,7 @@ func TestG1BatchScalarMultiplication(t *testing.T) {
 				return false
 			}
 
-			for i := 0; i < len(result); i++ {
+			for i := range len(result) {
 				var expectedJac G1Jac
 				var expected G1Affine
 				var b big.Int
@@ -700,7 +700,7 @@ func BenchmarkG1JacTriple(b *testing.B) {
 	var a G1Jac
 	a.Set(&g1Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Triple(&a)
 	}
 }
@@ -712,7 +712,7 @@ func BenchmarkG1JacIsInSubGroup(b *testing.B) {
 	var a G1Jac
 	a.Set(&g1Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.IsInSubGroup()
 	}
 
@@ -740,7 +740,7 @@ func BenchmarkG1JacEqual(b *testing.B) {
 		}
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			a.Equal(&aZScaled)
 		}
 	})
@@ -755,7 +755,7 @@ func BenchmarkG1JacEqual(b *testing.B) {
 		}
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			a.Equal(&aPlus1)
 		}
 	})
@@ -771,7 +771,7 @@ func BenchmarkBatchAddG1Affine(b *testing.B) {
 	fillBenchBasesG1(P[:])
 	fillBenchBasesG1(R[:])
 
-	for i := 0; i < len(ridx); i++ {
+	for i := range len(ridx) {
 		ridx[i] = i
 	}
 
@@ -783,7 +783,7 @@ func BenchmarkBatchAddG1Affine(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		batchAddG1Affine[pG1AffineC16, ppG1AffineC16, cG1AffineC16](&RR, &P, len(P))
 	}
 }
@@ -808,7 +808,7 @@ func BenchmarkG1AffineBatchScalarMultiplication(b *testing.B) {
 
 		b.Run(fmt.Sprintf("%d points", using), func(b *testing.B) {
 			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				_ = BatchScalarMultiplicationG1(&g1GenAff, sampleScalars[:using])
 			}
 		})
@@ -826,7 +826,7 @@ func BenchmarkG1JacScalarMultiplication(b *testing.B) {
 		var doubleAndAdd G1Jac
 		b.Run(fmt.Sprintf("method=window/scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				doubleAndAdd.mulWindowed(&g1Gen, scalar)
 			}
 		})
@@ -834,7 +834,7 @@ func BenchmarkG1JacScalarMultiplication(b *testing.B) {
 		var glv G1Jac
 		b.Run(fmt.Sprintf("method=GLV/scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				glv.mulGLV(&g1Gen, scalar)
 			}
 		})
@@ -853,7 +853,7 @@ func BenchmarkG1JacScalarMultiplicationMethod(b *testing.B) {
 		var res G1Jac
 		b.Run(fmt.Sprintf("scalarwidth=%d", i), func(b *testing.B) {
 			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				res.ScalarMultiplication(&g1Gen, scalar)
 			}
 		})
@@ -863,7 +863,7 @@ func BenchmarkG1JacScalarMultiplicationMethod(b *testing.B) {
 func BenchmarkG1AffineCofactorClearing(b *testing.B) {
 	var a G1Jac
 	a.Set(&g1Gen)
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.ClearCofactor(&a)
 	}
 }
@@ -872,7 +872,7 @@ func BenchmarkG1JacAdd(b *testing.B) {
 	var a G1Jac
 	a.Double(&g1Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.AddAssign(&g1Gen)
 	}
 }
@@ -884,7 +884,7 @@ func BenchmarkG1JacAddMixed(b *testing.B) {
 	var c G1Affine
 	c.FromJacobian(&g1Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.AddMixed(&c)
 	}
 
@@ -894,7 +894,7 @@ func BenchmarkG1JacDouble(b *testing.B) {
 	var a G1Jac
 	a.Set(&g1Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.DoubleAssign()
 	}
 
@@ -907,7 +907,7 @@ func BenchmarkG1JacExtAddMixed(b *testing.B) {
 	var c G1Affine
 	c.FromJacobian(&g1Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.addMixed(&c)
 	}
 }
@@ -919,7 +919,7 @@ func BenchmarkG1JacExtSubMixed(b *testing.B) {
 	var c G1Affine
 	c.FromJacobian(&g1Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.subMixed(&c)
 	}
 }
@@ -931,7 +931,7 @@ func BenchmarkG1JacExtDoubleMixed(b *testing.B) {
 	var c G1Affine
 	c.FromJacobian(&g1Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.doubleMixed(&c)
 	}
 }
@@ -943,7 +943,7 @@ func BenchmarkG1JacExtDoubleNegMixed(b *testing.B) {
 	var c G1Affine
 	c.FromJacobian(&g1Gen)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.doubleNegMixed(&c)
 	}
 }
@@ -954,7 +954,7 @@ func BenchmarkG1JacExtAdd(b *testing.B) {
 	c.double(&a)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.add(&c)
 	}
 }
@@ -964,7 +964,7 @@ func BenchmarkG1JacExtDouble(b *testing.B) {
 	a.doubleMixed(&g1GenAff)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.double(&a)
 	}
 }
@@ -973,7 +973,7 @@ func BenchmarkG1AffineAdd(b *testing.B) {
 	var a G1Affine
 	a.Double(&g1GenAff)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Add(&a, &g1GenAff)
 	}
 }
@@ -982,7 +982,7 @@ func BenchmarkG1AffineDouble(b *testing.B) {
 	var a G1Affine
 	a.Double(&g1GenAff)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Double(&a)
 	}
 }

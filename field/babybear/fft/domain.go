@@ -49,11 +49,13 @@ type Domain struct {
 
 	// cosetTable <1, u, u², ..., uⁿ⁻¹> where u is the shifting element
 	cosetTable []babybear.Element
-	// cosetTableBitReversed is filled only for "small" domains (up to 2^18)
+	// cosetTableBitReversed stores the coset table in bit-reversed order
 	cosetTableBitReversed []babybear.Element
 
 	// cosetTableInv same as cosetTable but with u⁻¹
 	cosetTableInv []babybear.Element
+	// cosetTableInvBitReversed stores the inverse coset table in bit-reversed order
+	cosetTableInvBitReversed []babybear.Element
 }
 
 // GeneratorFullMultiplicativeGroup returns a generator of 𝔽ᵣˣ
@@ -273,13 +275,15 @@ func (d *Domain) preComputeTwiddles() {
 	go expTable(d.FrMultiplicativeGenInv, d.cosetTableInv)
 
 	wg.Wait()
-	if d.Cardinality <= 1<<18 {
-		// we fill the bit-reversed version of the coset table for small domains only (up to 2^18)
+	if d.Cardinality <= 1<<22 {
 		d.cosetTableBitReversed = make([]babybear.Element, d.Cardinality)
 		copy(d.cosetTableBitReversed, d.cosetTable)
 		utils.BitReverse(d.cosetTableBitReversed)
-	}
 
+		d.cosetTableInvBitReversed = make([]babybear.Element, d.Cardinality)
+		copy(d.cosetTableInvBitReversed, d.cosetTableInv)
+		utils.BitReverse(d.cosetTableInvBitReversed)
+	}
 }
 
 func buildTwiddles(t [][]babybear.Element, omega babybear.Element, nbStages uint64) {
@@ -297,7 +301,7 @@ func buildTwiddles(t [][]babybear.Element, omega babybear.Element, nbStages uint
 	for i := uint64(1); i < nbStages; i++ {
 		t[i] = make([]babybear.Element, 1+(1<<(nbStages-i-1)))
 		k := 0
-		for j := 0; j < len(t[i]); j++ {
+		for j := range len(t[i]) {
 			t[i][j] = t[0][k]
 			k += 1 << i
 		}
@@ -332,15 +336,10 @@ func BuildExpTable(w babybear.Element, table []babybear.Element) {
 	var wg sync.WaitGroup
 	for i := 1; i < n; i += interval {
 		start := i
-		end := i + interval
-		if end > n {
-			end = n
-		}
-		wg.Add(1)
-		go func() {
+		end := min(i+interval, n)
+		wg.Go(func() {
 			precomputeExpTableChunk(w, uint64(start), table[start:end])
-			wg.Done()
-		}()
+		})
 	}
 	wg.Wait()
 }

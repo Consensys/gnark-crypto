@@ -18,7 +18,7 @@ func processChunkG1Jacobian[B ibg1JacExtended](chunk uint64,
 	}
 
 	var buckets B
-	for i := 0; i < len(buckets); i++ {
+	for i := range len(buckets) {
 		buckets[i].SetInfinity()
 	}
 

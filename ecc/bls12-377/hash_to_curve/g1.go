@@ -144,7 +144,7 @@ func G1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	// Check if u/v is QR by checking if (u*v)^m has order dividing 2^(e-1)
 	// Note: (u/v | p) = (u*v | p) since (v^(-1) | p) = (v | p) for Legendre symbols
 	t := xM
-	for i := 0; i < g1SarkarN-1; i++ {
+	for range g1SarkarN - 1 {
 		t.Square(&t)
 	}
 	isQNr := !t.IsOne() // t should be ±1; if -1 then u/v is not QR
@@ -169,7 +169,7 @@ func G1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 	// Compute xis[i] = xM^(2^(e-1-sumL[i])) where sumL[i] = L[0]+...+L[i]
 	var xis [g1SarkarK]fp.Element
 	var sumL uint64
-	for i := 0; i < g1SarkarK; i++ {
+	for i := range g1SarkarK {
 		sumL += g1SarkarL[i]
 		idx := g1SarkarN - 1 - int(sumL)
 		xis[i] = xPow[idx]
@@ -177,7 +177,7 @@ func G1SqrtRatio(z *fp.Element, u *fp.Element, v *fp.Element) uint64 {
 
 	// Main Sarkar loop
 	var s, tt uint64
-	for i := 0; i < g1SarkarK; i++ {
+	for i := range g1SarkarK {
 		tt = (s + tt) >> g1SarkarL[i]
 		var gamma fp.Element
 		g1SarkarPowG(&gamma, tt)

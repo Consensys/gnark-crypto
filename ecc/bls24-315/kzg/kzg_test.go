@@ -212,7 +212,7 @@ func TestCommit(t *testing.T) {
 
 	// create a polynomial
 	f := make([]fr.Element, 60)
-	for i := 0; i < 60; i++ {
+	for i := range 60 {
 		f[i].MustSetRandom()
 	}
 
@@ -315,7 +315,7 @@ func TestVerifySinglePointQuickSRS(t *testing.T) {
 
 	// random polynomial
 	p := make([]fr.Element, size)
-	for i := 0; i < size; i++ {
+	for i := range size {
 		p[i].MustSetRandom()
 	}
 
@@ -431,7 +431,7 @@ func TestBatchVerifyMultiPoints(t *testing.T) {
 
 	// create polynomials
 	f := make([][]fr.Element, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		f[i] = randomPolynomial(40)
 	}
 
@@ -439,7 +439,7 @@ func TestBatchVerifyMultiPoints(t *testing.T) {
 		return func(t *testing.T) {
 			// commit the polynomials
 			digests := make([]Digest, 10)
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				digests[i], _ = Commit(f[i], srs.Pk)
 			}
 
@@ -545,13 +545,13 @@ func BenchmarkSRSGen(b *testing.B) {
 
 	b.Run("real SRS", func(b *testing.B) {
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			NewSRS(ecc.NextPowerOfTwo(benchSize), new(big.Int).SetInt64(42))
 		}
 	})
 	b.Run("quick SRS", func(b *testing.B) {
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			NewSRS(ecc.NextPowerOfTwo(benchSize), big.NewInt(-1))
 		}
 	})
@@ -566,7 +566,7 @@ func BenchmarkKZGCommit(b *testing.B) {
 		p := randomPolynomial(benchSize / 2)
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			_, _ = Commit(p, srs.Pk)
 		}
 	})
@@ -577,7 +577,7 @@ func BenchmarkKZGCommit(b *testing.B) {
 		p := randomPolynomial(benchSize / 2)
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			_, _ = Commit(p, srs.Pk)
 		}
 	})
@@ -597,7 +597,7 @@ func BenchmarkDivideByXMinusA(b *testing.B) {
 	fa.MustSetRandom()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		dividePolyByXminusA(pol, fa, a)
 		pol = pol[:pSize]
 		pol[pSize-1] = pol[0]
@@ -614,7 +614,7 @@ func BenchmarkKZGOpen(b *testing.B) {
 	r.MustSetRandom()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_, _ = Open(p, r, srs.Pk)
 	}
 }
@@ -637,7 +637,7 @@ func BenchmarkKZGVerify(b *testing.B) {
 	assert.NoError(b, err)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		Verify(&comm, &openingProof, r, srs.Vk)
 	}
 }
@@ -648,13 +648,13 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 
 	// 10 random polynomials
 	var ps [10][]fr.Element
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		ps[i] = randomPolynomial(benchSize / 2)
 	}
 
 	// commitments
 	var commitments [10]Digest
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		commitments[i], _ = Commit(ps[i], srs.Pk)
 	}
 
@@ -665,7 +665,7 @@ func BenchmarkKZGBatchOpen10(b *testing.B) {
 	r.MustSetRandom()
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		BatchOpenSinglePoint(ps[:], commitments[:], r, hf, srs.Pk)
 	}
 }
@@ -678,13 +678,13 @@ func BenchmarkKZGBatchVerify10(b *testing.B) {
 
 	// 10 random polynomials
 	var ps [10][]fr.Element
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		ps[i] = randomPolynomial(benchSize / 2)
 	}
 
 	// commitments
 	var commitments [10]Digest
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		commitments[i], _ = Commit(ps[i], srs.Pk)
 	}
 
@@ -700,14 +700,14 @@ func BenchmarkKZGBatchVerify10(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		BatchVerifySinglePoint(commitments[:], &proof, r, hf, srs.Vk)
 	}
 }
 
 func randomPolynomial(size int) []fr.Element {
 	f := make([]fr.Element, size)
-	for i := 0; i < size; i++ {
+	for i := range size {
 		f[i].MustSetRandom()
 	}
 	return f
@@ -720,7 +720,7 @@ func BenchmarkToLagrangeG1(b *testing.B) {
 	fillBenchBasesG1(samplePoints[:])
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		if _, err := ToLagrangeG1(samplePoints[:]); err != nil {
 			b.Fatal(err)
 		}
@@ -738,7 +738,7 @@ func BenchmarkSerializeSRS(b *testing.B) {
 	b.Run("WriteTo", func(b *testing.B) {
 		b.ResetTimer()
 		var buf bytes.Buffer
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			buf.Reset()
 			_, err := srs.WriteTo(&buf)
 			if err != nil {
@@ -750,7 +750,7 @@ func BenchmarkSerializeSRS(b *testing.B) {
 	b.Run("WriteRawTo", func(b *testing.B) {
 		b.ResetTimer()
 		var buf bytes.Buffer
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			buf.Reset()
 			_, err := srs.WriteRawTo(&buf)
 			if err != nil {
@@ -762,7 +762,7 @@ func BenchmarkSerializeSRS(b *testing.B) {
 	b.Run("WriteDump", func(b *testing.B) {
 		b.ResetTimer()
 		var buf bytes.Buffer
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			buf.Reset()
 			if err := srs.WriteDump(&buf); err != nil {
 				b.Fatal(err)
@@ -785,7 +785,7 @@ func BenchmarkDeserializeSRS(b *testing.B) {
 			b.Fatal(err)
 		}
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			var newSRS SRS
 			_, err := newSRS.UnsafeReadFrom(bytes.NewReader(buf.Bytes()))
 			if err != nil {
@@ -802,7 +802,7 @@ func BenchmarkDeserializeSRS(b *testing.B) {
 		}
 		data := buf.Bytes()
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			var newSRS SRS
 			if err := newSRS.ReadDump(bytes.NewReader(data)); err != nil {
 				b.Fatal(err)

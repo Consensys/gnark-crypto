@@ -586,7 +586,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 		const mask52 = (1 << 52) - 1
 		F.QRadix52 = make([]uint64, 5)
 		qCopy := new(big.Int).Set(&bModulus)
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			F.QRadix52[i] = qCopy.Uint64() & mask52
 			qCopy.Rsh(qCopy, 52)
 		}
@@ -625,10 +625,10 @@ func chooseSarkarParams(n int) (int, []uint64) {
 		}
 		k1 := k - k2
 		lvals := make([]uint64, 0, k)
-		for i := 0; i < k1; i++ {
+		for range k1 {
 			lvals = append(lvals, uint64(l-1))
 		}
-		for i := 0; i < k2; i++ {
+		for range k2 {
 			lvals = append(lvals, uint64(l))
 		}
 
@@ -774,7 +774,7 @@ func (f *Field) Add(z *big.Int, x *big.Int, y *big.Int) *Field {
 
 func (f *Field) ToMontSlice(x []big.Int) []big.Int {
 	z := make(Element, len(x))
-	for i := 0; i < len(x); i++ {
+	for i := range x {
 		z[i] = f.ToMont(x[i])
 	}
 	return z

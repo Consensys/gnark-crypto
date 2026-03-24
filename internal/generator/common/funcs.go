@@ -18,26 +18,26 @@ func Funcs() template.FuncMap {
 		"ltu64": func(a, b uint64) bool {
 			return a < b
 		},
-		"last": func(x int, a interface{}) bool {
+		"last": func(x int, a any) bool {
 			return x == reflect.ValueOf(a).Len()-1
 		},
-		"add": func(a, b interface{}) int {
+		"add": func(a, b any) int {
 			return anyToInt(a) + anyToInt(b)
 		},
-		"sub": func(a, b interface{}) int {
+		"sub": func(a, b any) int {
 			return anyToInt(a) - anyToInt(b)
 		},
-		"mul": func(a, b interface{}) int {
+		"mul": func(a, b any) int {
 			return anyToInt(a) * anyToInt(b)
 		},
-		"div": func(a, b interface{}) int {
+		"div": func(a, b any) int {
 			return anyToInt(a) / anyToInt(b)
 		},
-		"dict": func(values ...interface{}) (map[string]interface{}, error) {
+		"dict": func(values ...any) (map[string]any, error) {
 			if len(values)%2 != 0 {
 				return nil, fmt.Errorf("invalid dict call")
 			}
-			dict := make(map[string]interface{}, len(values)/2)
+			dict := make(map[string]any, len(values)/2)
 			for i := 0; i < len(values); i += 2 {
 				key, ok := values[i].(string)
 				if !ok {
@@ -47,7 +47,7 @@ func Funcs() template.FuncMap {
 			}
 			return dict, nil
 		},
-		"iterate": func(start, end interface{}) []int {
+		"iterate": func(start, end any) []int {
 			s := anyToInt(start)
 			e := anyToInt(end)
 			if e <= s {
@@ -59,14 +59,14 @@ func Funcs() template.FuncMap {
 			}
 			return res
 		},
-		"reverse": func(input interface{}) interface{} {
+		"reverse": func(input any) any {
 			rv := reflect.ValueOf(input)
 			if rv.Kind() != reflect.Slice {
 				return input
 			}
 			l := rv.Len()
 			res := reflect.MakeSlice(rv.Type(), l, l)
-			for i := 0; i < l; i++ {
+			for i := range l {
 				res.Index(l - 1 - i).Set(rv.Index(i))
 			}
 			return res.Interface()
@@ -74,7 +74,7 @@ func Funcs() template.FuncMap {
 	}
 }
 
-func anyToInt(i interface{}) int {
+func anyToInt(i any) int {
 	switch v := i.(type) {
 	case int:
 		return v

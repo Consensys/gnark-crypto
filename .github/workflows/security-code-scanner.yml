@@ -34,6 +34,10 @@ jobs:
           {
             "language": "go",
             "build_mode": "none"
+          },
+          {
+            "language": "python",
+            "ignore": true
           }
         ]
     secrets:

@@ -15,7 +15,7 @@ import (
 // TODO: Property based tests?
 func TestFoldBilinear(t *testing.T) {
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 
 		// f = c₀ + c₁ X₁ + c₂ X₂ + c₃ X₁ X₂
 		var coefficients [4]fr.Element
@@ -69,16 +69,16 @@ func TestFoldedEqTable(t *testing.T) {
 	var one fr.Element
 	one.SetOne()
 
-	for p0 := 0; p0 < 2; p0++ {
+	for p0 := range 2 {
 		p[1].SetZero()
-		for p1 := 0; p1 < 2; p1++ {
+		for p1 := range 2 {
 			eq[p0*2+p1] = EvalEq(q, p)
 			p[1].Add(&p[1], &one)
 		}
 		p[0].Add(&p[0], &one)
 	}
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		assert.Equal(t, eq[i], m[i], "folded table disagrees with EqEval", i)
 	}
 

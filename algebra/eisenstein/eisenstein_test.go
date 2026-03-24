@@ -359,7 +359,7 @@ func GenComplexNumber(boundSize int64) gopter.Gen {
 	return gopter.CombineGens(
 		GenNumber(boundSize),
 		GenNumber(boundSize),
-	).Map(func(values []interface{}) *ComplexNumber {
+	).Map(func(values []any) *ComplexNumber {
 		var r ComplexNumber
 		r.A0.Set(values[0].(*big.Int))
 		r.A1.Set(values[1].(*big.Int))
@@ -378,7 +378,7 @@ func BenchmarkHalfGCD(b *testing.B) {
 	a := ComplexNumber{A0: *a0, A1: *a1}
 	c := ComplexNumber{A0: *c0, A1: *c1}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes = HalfGCD(&a, &c)
 	}
 }
@@ -391,7 +391,7 @@ func BenchmarkMul(b *testing.B) {
 	a := ComplexNumber{A0: *a0, A1: *a1}
 	c := ComplexNumber{A0: *c0, A1: *c1}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes[0].Mul(&a, &c)
 	}
 }
@@ -401,7 +401,7 @@ func BenchmarkNorm(b *testing.B) {
 	a1, _ := new(big.Int).SetString("249054933928109647438301795139995905723", 10)
 	a := ComplexNumber{A0: *a0, A1: *a1}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Norm(&benchRes[0].A0)
 	}
 }
@@ -414,7 +414,7 @@ func BenchmarkQuoRem(b *testing.B) {
 	a := ComplexNumber{A0: *a0, A1: *a1}
 	c := ComplexNumber{A0: *c0, A1: *c1}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		benchRes[0].QuoRem(&a, &c, benchRes[1])
 	}
 }

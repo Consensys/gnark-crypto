@@ -45,11 +45,12 @@ func generatePoseidon2(F *config.Field, outputDir string) error {
 	switch data.FF {
 	case "koalabear":
 		data.ParamsCompression = amd64.Poseidon2Parameters{
-			Width:         16,
-			FullRounds:    6,
-			PartialRounds: 21,
-			SBoxDegree:    3,
-			DiagInternal:  []uint64{2130706431, 1, 2, 1065353217, 3, 4, 1065353216, 2130706430, 2130706429, 2122383361, 1864368129, 2130706306, 8323072, 266338304, 133169152, 127},
+			Width:          16,
+			FullRounds:     6,
+			PartialRounds:  21,
+			SBoxDegree:     3,
+			DiagInternal:   []uint64{2130706431, 1, 2, 1065353217, 3, 4, 1065353216, 2130706430, 2130706429, 2122383361, 1864368129, 2130706306, 8323072, 266338304, 133169152, 127},
+			HasCompressx16: true,
 		}
 
 		data.ParamsSponge = amd64.Poseidon2Parameters{

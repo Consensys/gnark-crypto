@@ -27,7 +27,6 @@ type ifmaHelper struct {
 
 	// Scratch registers for transpose operations
 	scratch [4]amd64.VectorRegister // Z18-Z21
-	permIdx amd64.VectorRegister    // Z22 - permutation index
 }
 
 // newIfmaHelper creates a new IFMA helper with cached defines
@@ -38,7 +37,6 @@ func (f *FFAmd64) newIfmaHelper() *ifmaHelper {
 		qInvNeg52: amd64.Z30,
 		qRadix52:  [5]amd64.VectorRegister{amd64.Z25, amd64.Z26, amd64.Z27, amd64.Z28, amd64.Z29},
 		scratch:   [4]amd64.VectorRegister{amd64.Z18, amd64.Z19, amd64.Z20, amd64.Z21},
-		permIdx:   amd64.Z22,
 	}
 	h.initDefines()
 	return h
@@ -88,25 +86,8 @@ func (h *ifmaHelper) initDefines() {
 	}, true)
 }
 
-// emitIFMAConstants emits the precomputed constants needed for IFMA operations
-func (f *FFAmd64) emitIFMAConstants() {
-	f.Comment("Permutation index for IFMA transpose: [0, 2, 1, 3, 4, 6, 5, 7]")
-	f.Comment("This swaps positions 1<->2 and 5<->6 to fix even/odd interleaving")
-	f.DATA("·permuteIdxIFMA<>", 0, 8, "$0")
-	f.DATA("·permuteIdxIFMA<>", 8, 8, "$2")
-	f.DATA("·permuteIdxIFMA<>", 16, 8, "$1")
-	f.DATA("·permuteIdxIFMA<>", 24, 8, "$3")
-	f.DATA("·permuteIdxIFMA<>", 32, 8, "$4")
-	f.DATA("·permuteIdxIFMA<>", 40, 8, "$6")
-	f.DATA("·permuteIdxIFMA<>", 48, 8, "$5")
-	f.DATA("·permuteIdxIFMA<>", 56, 8, "$7")
-	f.GLOBL("·permuteIdxIFMA<>", "RODATA|NOPTR", 64)
-	f.WriteLn("")
-}
-
 // generateMulVecIFMA generates AVX-512 IFMA based vector multiplication.
 func (f *FFAmd64) generateMulVecIFMA() {
-	f.emitIFMAConstants()
 	h := f.newIfmaHelper()
 	h.generateMulVecIFMABody("mulVec", false)
 }
@@ -213,7 +194,7 @@ func (h *ifmaHelper) initIFMAConstants() {
 func (h *ifmaHelper) loadModulusRadix52() {
 	h.Comment("q in radix-52: Z25=ql0, Z26=ql1, Z27=ql2, Z28=ql3, Z29=ql4")
 	// Use precomputed qRadix52_i constants
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.MOVQ(fmt.Sprintf("$const_qRadix52_%d", i), amd64.AX)
 		h.VPBROADCASTQ(amd64.AX, h.qRadix52[i])
 	}
@@ -278,32 +259,25 @@ func (h *ifmaHelper) montgomeryMulIFMA(a, b [5]amd64.VectorRegister) {
 	tmp := amd64.Z20
 
 	// Process each limb of B (CIOS rounds)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.Comment(fmt.Sprintf("CIOS Round %d", i))
 		h.ciosRound(i, a, b, acc, tmp)
 	}
 
-	// Fused x16 shift + normalization
+	// Fused x16 shift + normalization.
+	// This carry chain must be propagated sequentially: each carry changes the
+	// next limb before that limb's carry is known.
 	h.Comment("Fused x16 shift + normalization")
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.VPSLLQ("$4", acc[i], a[i])
 	}
 
-	// Extract carries in parallel using tmp registers Z20-Z23
-	carries := [4]amd64.VectorRegister{amd64.Z20, amd64.Z21, amd64.Z22, amd64.Z23}
-	for i := 0; i < 4; i++ {
-		h.VPSRLQ("$52", a[i], carries[i])
+	// Propagate carries sequentially after the x16 shift.
+	tmp = amd64.Z20
+	for i := range 4 {
+		h.carryProp(a[i], a[i], a[i+1], h.mask52, tmp)
 	}
-
-	// Mask limbs
-	for i := 0; i < 4; i++ {
-		h.VPANDQ(h.mask52, a[i], a[i])
-	}
-
-	// Add carries
-	for i := 0; i < 4; i++ {
-		h.VPADDQ(carries[i], a[i+1], a[i+1])
-	}
+	h.VPANDQ(h.mask52, a[4], a[4])
 }
 
 // ciosRound generates one round of the CIOS Montgomery multiplication
@@ -311,7 +285,7 @@ func (h *ifmaHelper) ciosRound(i int, a, b [5]amd64.VectorRegister, acc [6]amd64
 	bi := b[i]
 
 	// T += A * B[i]
-	for j := 0; j < 5; j++ {
+	for j := range 5 {
 		h.VPMADD52LUQ(bi, a[j], acc[j])
 		h.VPMADD52HUQ(bi, a[j], acc[j+1])
 	}
@@ -327,7 +301,7 @@ func (h *ifmaHelper) ciosRound(i int, a, b [5]amd64.VectorRegister, acc [6]amd64
 	h.VPANDQ(h.mask52, tmp, tmp)
 
 	// T += m * q
-	for j := 0; j < 5; j++ {
+	for j := range 5 {
 		h.VPMADD52LUQ(h.qRadix52[j], tmp, acc[j])
 		h.VPMADD52HUQ(h.qRadix52[j], tmp, acc[j+1])
 	}
@@ -370,26 +344,26 @@ func (h *ifmaHelper) barrettReduction(a [5]amd64.VectorRegister) {
 	}
 
 	// Low and high parts
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.VPMADD52LUQ(h.qRadix52[i], k, kqLow[i])
 		h.VPMADD52HUQ(h.qRadix52[i], k, kqHigh[i])
 	}
 
 	// Subtract k*q from result
 	h.Comment("Subtract k*q")
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.VPSUBQ(kqLow[i], a[i], a[i])
 	}
 
 	// Subtract high parts (carries)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		h.VPSUBQ(kqHigh[i], a[i+1], a[i+1])
 	}
 
 	// Propagate borrows
 	h.Comment("Propagate borrows")
 	tmp := amd64.Z15
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		h.borrowProp(a[i], a[i+1], h.mask52, tmp)
 	}
 	h.VPANDQ(h.mask52, a[4], a[4])
@@ -405,13 +379,13 @@ func (h *ifmaHelper) conditionalSubtractQ(a [5]amd64.VectorRegister) {
 	sub := [5]amd64.VectorRegister{amd64.Z10, amd64.Z11, amd64.Z12, amd64.Z13, amd64.Z14}
 
 	// Compute result - q
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.VPSUBQ(h.qRadix52[i], a[i], sub[i])
 	}
 
 	// Propagate borrows
 	tmp := amd64.Z20
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		h.VPSRAQ("$63", sub[i], tmp)
 		h.VPADDQ(tmp, sub[i+1], sub[i+1])
 	}
@@ -420,12 +394,12 @@ func (h *ifmaHelper) conditionalSubtractQ(a [5]amd64.VectorRegister) {
 	h.VPSRAQ("$63", sub[4], tmp)
 
 	// Mask subtracted limbs
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.VPANDQ(h.mask52, sub[i], sub[i])
 	}
 
 	// Conditional select: if borrow, keep a; else use sub
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		h.condSelect(sub[i], tmp, a[i])
 	}
 }
@@ -477,6 +451,8 @@ func (h *ifmaHelper) loadAndConvertToRadix52(addr amd64.Register, out [5]amd64.V
 // transposeForIFMA transposes 8 elements from AoS to SoA format
 func (h *ifmaHelper) transposeForIFMA(in, out [4]amd64.VectorRegister) {
 	h.Comment("8x4 transpose using AVX-512 shuffles")
+	h.Comment("Keep lanes in the native [e0,e2,e1,e3,e4,e6,e5,e7] order")
+	h.Comment("throughout the IFMA pipeline to avoid full-lane permutations")
 
 	// Step 1: Interleave low/high qwords between pairs
 	h.VPUNPCKLQDQ(in[1], in[0], h.scratch[0], "[e0.a0, e2.a0, e0.a2, e2.a2, e1.a0, e3.a0, e1.a2, e3.a2]")
@@ -489,12 +465,6 @@ func (h *ifmaHelper) transposeForIFMA(in, out [4]amd64.VectorRegister) {
 	h.VSHUFI64X2("$0xDD", h.scratch[2], h.scratch[0], out[2], "a2: lanes 1,3 from Z18 and Z20")
 	h.VSHUFI64X2("$0x88", h.scratch[3], h.scratch[1], out[1], "a1: lanes 0,2 from Z19 and Z21")
 	h.VSHUFI64X2("$0xDD", h.scratch[3], h.scratch[1], out[3], "a3: lanes 1,3 from Z19 and Z21")
-
-	// Step 3: Fix element ordering using VPERMQ
-	h.VMOVDQU64("·permuteIdxIFMA<>(SB)", h.permIdx)
-	for i := range out {
-		h.VPERMQ(out[i], h.permIdx, out[i])
-	}
 }
 
 // convertFromRadix52 converts from radix-52 to radix-64
@@ -538,25 +508,20 @@ func (h *ifmaHelper) transposeAndStore(addr amd64.Register, in [4]amd64.VectorRe
 func (h *ifmaHelper) transposeFromIFMA(in, out [4]amd64.VectorRegister) {
 	h.WriteLn("// 4x8 reverse transpose (SoA to AoS)")
 
-	// Step 1: Pre-permute inputs
-	h.VMOVDQU64("·permuteIdxIFMA<>(SB)", h.permIdx)
-	for i := range in {
-		h.VPERMQ(in[i], h.permIdx, in[i])
-	}
-
-	// Step 2: Pair a0 with a1 and a2 with a3
+	// The input already uses the native [e0,e2,e1,e3,e4,e6,e5,e7] lane order.
+	// Pair a0 with a1 and a2 with a3 directly.
 	h.VPUNPCKLQDQ(in[1], in[0], h.scratch[0], "pairs (a0,a1) for elements 0,1,4,5")
 	h.VPUNPCKHQDQ(in[1], in[0], h.scratch[1], "pairs (a0,a1) for elements 2,3,6,7")
 	h.VPUNPCKLQDQ(in[3], in[2], h.scratch[2], "pairs (a2,a3) for elements 0,1,4,5")
 	h.VPUNPCKHQDQ(in[3], in[2], h.scratch[3], "pairs (a2,a3) for elements 2,3,6,7")
 
-	// Step 3: Combine (a0,a1) with (a2,a3)
+	// Step 2: Combine (a0,a1) with (a2,a3)
 	h.VSHUFI64X2("$0x44", h.scratch[2], h.scratch[0], out[0])
 	h.VSHUFI64X2("$0x44", h.scratch[3], h.scratch[1], out[1])
 	h.VSHUFI64X2("$0xEE", h.scratch[2], h.scratch[0], out[2])
 	h.VSHUFI64X2("$0xEE", h.scratch[3], h.scratch[1], out[3])
 
-	// Step 4: Fix lane ordering
+	// Step 3: Fix lane ordering inside each 256-bit half
 	for i := range out {
 		h.VSHUFI64X2("$0xD8", out[i], out[i], out[i])
 	}

@@ -899,7 +899,7 @@ func TestMarshal(t *testing.T) {
 
 	var point, unmarshalPoint PointAffine
 	point.Set(&curveParams.Base)
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		b := point.Marshal()
 		unmarshalPoint.Unmarshal(b)
 		if !point.Equal(&unmarshalPoint) {
@@ -951,7 +951,7 @@ func BenchmarkProjEqual(b *testing.B) {
 		}
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			a.Equal(&aZScaled)
 		}
 	})
@@ -966,7 +966,7 @@ func BenchmarkProjEqual(b *testing.B) {
 		}
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			a.Equal(&aPlus1)
 		}
 	})
@@ -983,7 +983,7 @@ func BenchmarkScalarMulExtended(b *testing.B) {
 	var doubleAndAdd PointExtended
 
 	b.ResetTimer()
-	for j := 0; j < b.N; j++ {
+	for range b.N {
 		doubleAndAdd.ScalarMultiplication(&a, &s)
 	}
 }
@@ -999,7 +999,7 @@ func BenchmarkScalarMulProjective(b *testing.B) {
 	var doubleAndAdd PointProj
 
 	b.ResetTimer()
-	for j := 0; j < b.N; j++ {
+	for range b.N {
 		doubleAndAdd.ScalarMultiplication(&a, &s)
 	}
 }
@@ -1014,7 +1014,7 @@ func BenchmarkNeg(b *testing.B) {
 		point.ScalarMultiplication(&params.Base, &s)
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			point.Neg(&point)
 		}
 	})
@@ -1025,7 +1025,7 @@ func BenchmarkNeg(b *testing.B) {
 		point.ScalarMultiplication(&baseProj, &s)
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			point.Neg(&point)
 		}
 	})
@@ -1036,7 +1036,7 @@ func BenchmarkNeg(b *testing.B) {
 		point.ScalarMultiplication(&baseProj, &s)
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			point.Neg(&point)
 		}
 	})
@@ -1054,7 +1054,7 @@ func BenchmarkMixedAdd(b *testing.B) {
 		accum.setInfinity()
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			accum.MixedAdd(&accum, &point)
 		}
 	})
@@ -1063,7 +1063,7 @@ func BenchmarkMixedAdd(b *testing.B) {
 		accum.setInfinity()
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			accum.MixedAdd(&accum, &point)
 		}
 	})
@@ -1081,7 +1081,7 @@ func BenchmarkAdd(b *testing.B) {
 		accum.setInfinity()
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			accum.Add(&accum, &point)
 		}
 	})
@@ -1093,7 +1093,7 @@ func BenchmarkAdd(b *testing.B) {
 		accum.setInfinity()
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			accum.Add(&accum, &point)
 		}
 	})
@@ -1105,7 +1105,7 @@ func BenchmarkAdd(b *testing.B) {
 		accum.setInfinity()
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			accum.Add(&accum, &point)
 		}
 	})
@@ -1125,7 +1125,7 @@ func BenchmarkIsOnCurve(b *testing.B) {
 		}
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			_ = point.IsOnCurve()
 		}
 	})
@@ -1140,7 +1140,7 @@ func BenchmarkIsOnCurve(b *testing.B) {
 		}
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			_ = point.IsOnCurve()
 		}
 	})
@@ -1154,7 +1154,7 @@ func BenchmarkIsInSubGroup(b *testing.B) {
 	point.ScalarMultiplication(&params.Base, &s)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_ = point.IsInSubGroup()
 	}
 }

@@ -27,7 +27,7 @@ func TestMulMulInternalInPlaceWidth8(t *testing.T) {
 	for i := 1; i < h.params.Width; i++ {
 		sum.Add(&sum, &input[i])
 	}
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		input[i].Mul(&input[i], &diag8[i]).
 			Add(&input[i], &sum)
 		if !input[i].Equal(&expected[i]) {
@@ -52,7 +52,7 @@ func TestMulMulInternalInPlaceWidth12(t *testing.T) {
 	for i := 1; i < h.params.Width; i++ {
 		sum.Add(&sum, &input[i])
 	}
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		input[i].Mul(&input[i], &diag12[i]).
 			Add(&input[i], &sum)
 		if !input[i].Equal(&expected[i]) {
@@ -83,7 +83,7 @@ func TestPoseidon2Width8(t *testing.T) {
 
 	h := NewPermutation(8, 6, 17)
 	h.Permutation(input[:])
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		if !input[i].Equal(&expected[i]) {
 			t.Fatal("mismatch error")
 		}
@@ -121,7 +121,7 @@ func TestPoseidon2Width12(t *testing.T) {
 
 	h := NewPermutation(12, 6, 17)
 	h.Permutation(input[:])
-	for i := 0; i < h.params.Width; i++ {
+	for i := range h.params.Width {
 		if !input[i].Equal(&expected[i]) {
 			t.Fatal("mismatch error")
 		}
@@ -136,7 +136,7 @@ func BenchmarkPoseidon2Width8(b *testing.B) {
 		tmp[i].MustSetRandom()
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.Permutation(tmp[:])
 	}
 }
@@ -149,7 +149,7 @@ func BenchmarkPoseidon2Width12(b *testing.B) {
 		tmp[i].MustSetRandom()
 	}
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.Permutation(tmp[:])
 	}
 }

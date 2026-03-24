@@ -175,9 +175,9 @@ func (z *E2) Exp(x E2, k *big.Int) *E2 {
 
 	z.SetOne()
 	b := e.Bytes()
-	for i := 0; i < len(b); i++ {
+	for i := range len(b) {
 		w := b[i]
-		for j := 0; j < 8; j++ {
+		for j := range 8 {
 			z.Square(z)
 			if (w & (0b10000000 >> j)) != 0 {
 				z.Mul(z, &x)
@@ -250,7 +250,7 @@ func BatchInvertE2(a []E2) []E2 {
 	var accumulator E2
 	accumulator.SetOne()
 
-	for i := 0; i < len(a); i++ {
+	for i := range len(a) {
 		if a[i].IsZero() {
 			zeroes[i] = true
 			continue

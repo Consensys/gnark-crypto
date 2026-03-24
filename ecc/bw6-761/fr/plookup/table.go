@@ -84,10 +84,7 @@ func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, 
 	nbRows := len(t)
 	proof.fs = make([]kzg.Digest, nbRows)
 	proof.ts = make([]kzg.Digest, nbRows)
-	_nbColumns := len(f[0]) + 1
-	if _nbColumns < len(t[0]) {
-		_nbColumns = len(t[0])
-	}
+	_nbColumns := max(len(f[0])+1, len(t[0]))
 	d := fft.NewDomain(uint64(_nbColumns))
 	nbColumns := d.Cardinality
 	lfs := make([][]fr.Element, nbRows)
@@ -95,7 +92,7 @@ func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, 
 	lts := make([][]fr.Element, nbRows)
 	cts := make([][]fr.Element, nbRows)
 
-	for i := 0; i < nbRows; i++ {
+	for i := range nbRows {
 
 		cfs[i] = make([]fr.Element, nbColumns)
 		lfs[i] = make([]fr.Element, nbColumns)
@@ -130,7 +127,7 @@ func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, 
 
 	// fold f and t
 	comms := make([]*kzg.Digest, 2*nbRows)
-	for i := 0; i < nbRows; i++ {
+	for i := range nbRows {
 		comms[i] = new(kzg.Digest)
 		comms[i].Set(&proof.fs[i])
 		comms[nbRows+i] = new(kzg.Digest)
@@ -142,7 +139,7 @@ func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, 
 	}
 	foldedf := make(fr.Vector, nbColumns)
 	foldedt := make(fr.Vector, nbColumns)
-	for i := 0; i < int(nbColumns); i++ {
+	for i := range int(nbColumns) {
 		for j := nbRows - 1; j >= 0; j-- {
 			foldedf[i].Mul(&foldedf[i], &lambda).
 				Add(&foldedf[i], &lfs[j][i])
@@ -184,7 +181,7 @@ func VerifyLookupTables(vk kzg.VerifyingKey, proof ProofLookupTables) error {
 	// fold the commitments fs and ts
 	nbRows := len(proof.fs)
 	comms := make([]*kzg.Digest, 2*nbRows)
-	for i := 0; i < nbRows; i++ {
+	for i := range nbRows {
 		comms[i] = &proof.fs[i]
 		comms[i+nbRows] = &proof.ts[i]
 	}

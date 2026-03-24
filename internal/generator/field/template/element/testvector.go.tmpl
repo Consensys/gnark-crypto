@@ -5,10 +5,17 @@ import (
 	"os"
 	"fmt"
 	"encoding/binary"
-	
+{{- if eq .NbWords 4}}
+	"math/big"
+	"sync"
+{{- end}}
+
 	"github.com/stretchr/testify/require"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
+{{- if eq .NbWords 4}}
+	"github.com/consensys/gnark-crypto/utils/cpu"
+{{- end}}
 )
 
 func TestVectorSort(t *testing.T) {
@@ -95,6 +102,341 @@ func (vector *Vector) unmarshalBinaryAsync(data []byte) error {
 	return <-chErr
 }
 
+func deterministicVector(size int, seed uint64) Vector {
+	v := make(Vector, size)
+	var mixer, tweak {{.ElementName}}
+	mixer.SetUint64(seed)
+	if mixer.IsZero() {
+		mixer.SetOne()
+	}
+	tweak.SetUint64(seed*17 + 3)
+	for i := range v {
+		v[i].SetUint64(uint64(i + 1))
+		v[i].Mul(&v[i], &mixer)
+		v[i].Add(&v[i], &tweak)
+		mixer.Mul(&mixer, &tweak)
+		mixer.Add(&mixer, &v[i])
+		tweak.Add(&tweak, &v[i])
+	}
+	return v
+}
+
+{{- if eq .NbWords 4}}
+func fuzzVectorSize(token uint16) int {
+	sizes := [...]int{0, 1, 2, 7, 8, 9, 15, 16, 31, 32, 63, 64, 65, 127, 128, 255, 256, 511, 512, 513}
+	return sizes[int(token)%len(sizes)]
+}
+
+func fuzzVector(size int, seed uint64, mode byte) Vector {
+	v := deterministicVector(size, seed*2+1)
+	if size == 0 {
+		return v
+	}
+
+	edges := ifmaEdgeElements()
+	switch mode & 0x3 {
+	case 0:
+		return v
+	case 1:
+		for i := range v {
+			v[i].Set(&edges[edgeValueIndex(seed, 1, 0, i, len(edges))])
+		}
+	case 2:
+		for i := range v {
+			if i%3 == 0 {
+				v[i].Set(&edges[edgeValueIndex(seed, 5, 3, i, len(edges))])
+			}
+		}
+	case 3:
+		var zero, one {{.ElementName}}
+		one.SetOne()
+		for i := range v {
+			switch i % 4 {
+			case 0:
+				v[i].Set(&zero)
+			case 1:
+				v[i].Set(&one)
+			case 2:
+				v[i].Set(&edges[edgeValueIndex(seed, 7, 1, i, len(edges))])
+			}
+		}
+	}
+
+	return v
+}
+
+func scalarVectorMulReference(a, b Vector) Vector {
+	res := make(Vector, len(a))
+	for i := range a {
+		res[i].Mul(&a[i], &b[i])
+	}
+	return res
+}
+
+func scalarVectorSumReference(a Vector) (res {{.ElementName}}) {
+	for i := range a {
+		res.Add(&res, &a[i])
+	}
+	return
+}
+
+func edgeValueIndex(seed, stride, offset uint64, i, size int) int {
+	return int((seed + uint64(i)*stride + offset) % uint64(size))
+}
+
+func scalarInnerProductReference(a, b Vector) (res {{.ElementName}}) {
+	for i := range a {
+		var tmp {{.ElementName}}
+		tmp.Mul(&a[i], &b[i])
+		res.Add(&res, &tmp)
+	}
+	return
+}
+
+var (
+	cachedIFMAEdgeElements     []{{.ElementName}}
+	cachedIFMAEdgeElementsOnce sync.Once
+)
+
+func ifmaEdgeElements() []{{.ElementName}} {
+	cachedIFMAEdgeElementsOnce.Do(func() {
+		cachedIFMAEdgeElements = initIFMAEdgeElements()
+	})
+	return cachedIFMAEdgeElements
+}
+
+func initIFMAEdgeElements() []{{.ElementName}} {
+	mod := Modulus()
+	values := []*big.Int{
+		big.NewInt(0),
+		big.NewInt(1),
+		big.NewInt(2),
+		new(big.Int).Sub(mod, big.NewInt(1)),
+		new(big.Int).Sub(mod, big.NewInt(2)),
+		new(big.Int).Sub(mod, big.NewInt(3)),
+	}
+	for shift := 0; shift < Bits; shift += 17 {
+		x := new(big.Int).Lsh(big.NewInt(1), uint(shift))
+		values = append(values, new(big.Int).Mod(x, mod))
+		if x.Cmp(mod) < 0 {
+			values = append(values, new(big.Int).Sub(mod, x))
+		}
+	}
+	res := make([]{{.ElementName}}, len(values))
+	for i := range values {
+		res[i].SetBigInt(values[i])
+	}
+	return res
+}
+
+func TestVectorIFMAEdgeCases(t *testing.T) {
+	if !cpu.SupportAVX512IFMA {
+		t.Skip("AVX-512 IFMA not available")
+	}
+
+	assert := require.New(t)
+	edges := ifmaEdgeElements()
+
+	for _, size := range []int{8, 64, 512} {
+		t.Run(fmt.Sprintf("size-%d", size), func(t *testing.T) {
+			a := make(Vector, size)
+			b := make(Vector, size)
+			for i := range a {
+				a[i].Set(&edges[i%len(edges)])
+				b[i].Set(&edges[(i*7+3)%len(edges)])
+			}
+
+			wantMul := make(Vector, size)
+			gotMul := make(Vector, size)
+			for i := range a {
+				wantMul[i].Mul(&a[i], &b[i])
+			}
+			gotMul.Mul(a, b)
+			assert.True(gotMul.Equal(wantMul), "Mul should match scalar element multiplication")
+
+			wantScalar := make(Vector, size)
+			gotScalar := make(Vector, size)
+			for i := range a {
+				wantScalar[i].Mul(&a[i], &b[0])
+			}
+			gotScalar.ScalarMul(a, &b[0])
+			assert.True(gotScalar.Equal(wantScalar), "ScalarMul should match scalar element multiplication")
+
+			var wantInner {{.ElementName}}
+			for i := range a {
+				var tmp {{.ElementName}}
+				tmp.Mul(&a[i], &b[i])
+				wantInner.Add(&wantInner, &tmp)
+			}
+			gotInner := a.InnerProduct(b)
+			assert.True(gotInner.Equal(&wantInner), "InnerProduct should match scalar accumulation")
+		})
+	}
+}
+
+func FuzzVectorOps(f *testing.F) {
+	seeds := []struct {
+		sizeToken uint16
+		modeA     byte
+		modeB     byte
+		seedA     uint64
+		seedB     uint64
+		seedS     uint64
+	}{
+		{0, 0, 0, 1, 2, 3},
+		{1, 1, 2, 5, 7, 11},
+		{3, 2, 1, 13, 17, 19},
+		{4, 1, 3, 23, 29, 31},
+		{5, 3, 1, 37, 41, 43},
+		{11, 2, 2, 47, 53, 59},
+		{12, 1, 0, 61, 67, 71},
+		{17, 3, 2, 73, 79, 83},
+		{18, 1, 1, 89, 97, 101},
+		{19, 2, 3, 103, 107, 109},
+	}
+	for _, seed := range seeds {
+		f.Add(seed.sizeToken, seed.modeA, seed.modeB, seed.seedA, seed.seedB, seed.seedS)
+	}
+
+	f.Fuzz(func(t *testing.T, sizeToken uint16, modeA, modeB byte, seedA, seedB, seedS uint64) {
+		size := fuzzVectorSize(sizeToken)
+		a := fuzzVector(size, seedA, modeA)
+		b := fuzzVector(size, seedB, modeB)
+		scalarVec := fuzzVector(1, seedS, modeA^modeB^0x3)
+		var scalar {{.ElementName}}
+		if len(scalarVec) == 0 {
+			scalar.SetOne()
+		} else {
+			scalar.Set(&scalarVec[0])
+		}
+
+		gotMul := make(Vector, size)
+		gotMul.Mul(a, b)
+		for i := range a {
+			var want {{.ElementName}}
+			want.Mul(&a[i], &b[i])
+			if !gotMul[i].Equal(&want) {
+				t.Fatalf("Mul mismatch for size=%d index=%d modeA=%d modeB=%d seedA=%d seedB=%d", size, i, modeA, modeB, seedA, seedB)
+			}
+		}
+
+		if size <= 128 {
+			gotMulAliasA := append(Vector(nil), a...)
+			gotMulAliasA.Mul(gotMulAliasA, b)
+			for i := range a {
+				var want {{.ElementName}}
+				want.Mul(&a[i], &b[i])
+				if !gotMulAliasA[i].Equal(&want) {
+					t.Fatalf("Mul alias res==a mismatch for size=%d index=%d", size, i)
+				}
+			}
+
+			gotMulAliasB := append(Vector(nil), b...)
+			gotMulAliasB.Mul(a, gotMulAliasB)
+			for i := range a {
+				var want {{.ElementName}}
+				want.Mul(&a[i], &b[i])
+				if !gotMulAliasB[i].Equal(&want) {
+					t.Fatalf("Mul alias res==b mismatch for size=%d index=%d", size, i)
+				}
+			}
+		}
+
+		gotScalar := make(Vector, size)
+		gotScalar.ScalarMul(a, &scalar)
+		for i := range a {
+			var want {{.ElementName}}
+			want.Mul(&a[i], &scalar)
+			if !gotScalar[i].Equal(&want) {
+				t.Fatalf("ScalarMul mismatch for size=%d index=%d", size, i)
+			}
+		}
+
+		if size <= 128 {
+			gotScalarAlias := append(Vector(nil), a...)
+			gotScalarAlias.ScalarMul(gotScalarAlias, &scalar)
+			for i := range a {
+				var want {{.ElementName}}
+				want.Mul(&a[i], &scalar)
+				if !gotScalarAlias[i].Equal(&want) {
+					t.Fatalf("ScalarMul alias mismatch for size=%d index=%d", size, i)
+				}
+			}
+		}
+
+		gotAdd := make(Vector, size)
+		gotAdd.Add(a, b)
+		gotSumAdd := gotAdd.Sum()
+		gotAdd.Sub(gotAdd, b)
+		if !gotAdd.Equal(a) {
+			t.Fatalf("Add/Sub round-trip mismatch for size=%d", size)
+		}
+
+		expectedSumAdd := scalarVectorSumReference(a)
+		expectedSumB := scalarVectorSumReference(b)
+		expectedSumAdd.Add(&expectedSumAdd, &expectedSumB)
+		if !gotSumAdd.Equal(&expectedSumAdd) {
+			t.Fatalf("Sum linearity mismatch for size=%d", size)
+		}
+
+		wantInner := scalarInnerProductReference(a, b)
+		gotInner := a.InnerProduct(b)
+		if !gotInner.Equal(&wantInner) {
+			t.Fatalf("InnerProduct mismatch for size=%d", size)
+		}
+	})
+}
+{{- end}}
+
+func TestVectorAliasing(t *testing.T) {
+	assert := require.New(t)
+	sizes := []int{1, 8, 9, 64, 65}
+
+	for _, size := range sizes {
+		t.Run(fmt.Sprintf("size-%d", size), func(t *testing.T) {
+			a := deterministicVector(size, 11)
+			b := deterministicVector(size, 29)
+			var scalar {{.ElementName}}
+			scalar.SetUint64(37)
+
+			want := make(Vector, size)
+			got := make(Vector, size)
+
+			want.Add(a, b)
+			copy(got, a)
+			got.Add(got, b)
+			assert.True(got.Equal(want), "Add should support res == a")
+
+			copy(got, b)
+			got.Add(a, got)
+			assert.True(got.Equal(want), "Add should support res == b")
+
+			want.Sub(a, b)
+			copy(got, a)
+			got.Sub(got, b)
+			assert.True(got.Equal(want), "Sub should support res == a")
+
+			copy(got, b)
+			got.Sub(a, got)
+			assert.True(got.Equal(want), "Sub should support res == b")
+
+			want.ScalarMul(a, &scalar)
+			copy(got, a)
+			got.ScalarMul(got, &scalar)
+			assert.True(got.Equal(want), "ScalarMul should support res == a")
+
+			want.Mul(a, b)
+			copy(got, a)
+			got.Mul(got, b)
+			assert.True(got.Equal(want), "Mul should support res == a")
+
+			copy(got, b)
+			got.Mul(a, got)
+			assert.True(got.Equal(want), "Mul should support res == b")
+		})
+	}
+}
+
 
 
 func TestVectorOps(t *testing.T) {
@@ -110,7 +452,7 @@ func TestVectorOps(t *testing.T) {
 		c := make(Vector, len(a))
 		c.Add(a, b)
 		
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			var tmp {{.ElementName}}
 			tmp.Add(&a[i], &b[i])
 			if !tmp.Equal(&c[i]) {
@@ -124,7 +466,7 @@ func TestVectorOps(t *testing.T) {
 		c := make(Vector, len(a))
 		c.Sub(a, b)
 		
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			var tmp {{.ElementName}}
 			tmp.Sub(&a[i], &b[i])
 			if !tmp.Equal(&c[i]) {
@@ -138,7 +480,7 @@ func TestVectorOps(t *testing.T) {
 		c := make(Vector, len(a))
 		c.ScalarMul(a, &b)
 		
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			var tmp {{.ElementName}}
 			tmp.Mul(&a[i], &b)
 			if !tmp.Equal(&c[i]) {
@@ -151,7 +493,7 @@ func TestVectorOps(t *testing.T) {
 	sumVector := func(a Vector) bool {
 		var sum {{.ElementName}}
 		computed := a.Sum()
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			sum.Add(&sum, &a[i])
 		}
 
@@ -161,7 +503,7 @@ func TestVectorOps(t *testing.T) {
 	innerProductVector := func(a, b Vector) bool {
 		computed := a.InnerProduct(b)
 		var innerProduct {{.ElementName}}
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			var tmp {{.ElementName}}
 			tmp.Mul(&a[i], &b[i])
 			innerProduct.Add(&innerProduct, &tmp)
@@ -176,7 +518,7 @@ func TestVectorOps(t *testing.T) {
 		b[0].SetUint64(0x42)
 		c.Mul(a, b)
 		
-		for i := 0; i < len(a); i++ {
+		for i := range len(a) {
 			var tmp {{.ElementName}}
 			tmp.Mul(&a[i], &b[i])
 			if !tmp.Equal(&c[i]) {
@@ -263,7 +605,7 @@ func BenchmarkVectorOps(b *testing.B) {
 			_b := b1[:n]
 			_c := c1[:n]
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_c.Add(_a, _b)
 			}
 		})
@@ -273,7 +615,7 @@ func BenchmarkVectorOps(b *testing.B) {
 			_b := b1[:n]
 			_c := c1[:n]
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_c.Sub(_a, _b)
 			}
 		})
@@ -282,7 +624,7 @@ func BenchmarkVectorOps(b *testing.B) {
 			_a := a1[:n]
 			_c := c1[:n]
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_c.ScalarMul(_a, &mixer)
 			}
 		})
@@ -290,7 +632,7 @@ func BenchmarkVectorOps(b *testing.B) {
 		b.Run(fmt.Sprintf("sum %d", n), func(b *testing.B) {
 			_a := a1[:n]
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_ = _a.Sum()
 			}
 		})
@@ -299,7 +641,7 @@ func BenchmarkVectorOps(b *testing.B) {
 			_a := a1[:n]
 			_b := b1[:n]
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_ = _a.InnerProduct(_b)
 			}
 		})
@@ -309,7 +651,7 @@ func BenchmarkVectorOps(b *testing.B) {
 			_b := b1[:n]
 			_c := c1[:n]
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_c.Mul(_a, _b)
 			}
 		})
@@ -331,7 +673,7 @@ func genMaxVector(size int) gopter.Gen {
 		qMinusOne := qElement
 		qMinusOne[0]--
 
-		for i := 0; i < size; i++ {
+		for i := range size {
 			g[i] = qMinusOne
 		}
 		genResult := gopter.NewGenResult(g, gopter.NoShrinker)

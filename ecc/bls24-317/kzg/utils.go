@@ -14,7 +14,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	curve "github.com/consensys/gnark-crypto/ecc/bls24-317"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 )
 
 // ToLagrangeG1 in place transform of coeffs canonical form into Lagrange form.
@@ -38,7 +38,7 @@ func ToLagrangeG1(coeffs []curve.G1Affine) ([]curve.G1Affine, error) {
 
 	// batch convert to Jacobian
 	jCoeffs := make([]curve.G1Jac, len(coeffs))
-	for i := 0; i < len(coeffs); i++ {
+	for i := range len(coeffs) {
 		jCoeffs[i].FromAffine(&coeffs[i])
 	}
 
@@ -97,7 +97,7 @@ func bitReverse[T any](a []T) {
 	n := uint64(len(a))
 	nn := uint64(64 - bits.TrailingZeros64(n))
 
-	for i := uint64(0); i < n; i++ {
+	for i := range n {
 		irev := bits.Reverse64(i) >> nn
 		if irev > i {
 			a[i], a[irev] = a[irev], a[i]

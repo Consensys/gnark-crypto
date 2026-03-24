@@ -15,7 +15,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fp"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/internal/fptower"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 )
 
 // To encode G1Affine and G2Affine points, we mask the most significant bits with these bits to specify without ambiguity
@@ -71,7 +71,7 @@ func NewDecoder(r io.Reader, options ...func(*Decoder)) *Decoder {
 
 // Decode reads the binary encoding of v from the stream
 // type must be *uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, *[]G1Affine or *[]G2Affine
-func (dec *Decoder) Decode(v interface{}) (err error) {
+func (dec *Decoder) Decode(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
 		return errors.New("bls24-315 decoder: unsupported type, need pointer")
@@ -243,7 +243,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			*t = make([]G1Affine, sliceLen)
 		}
 		compressed := make([]bool, sliceLen)
-		for i := 0; i < len(*t); i++ {
+		for i := range len(*t) {
 
 			// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
 			read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineCompressed])
@@ -308,7 +308,7 @@ func (dec *Decoder) Decode(v interface{}) (err error) {
 			*t = make([]G2Affine, sliceLen)
 		}
 		compressed := make([]bool, sliceLen)
-		for i := 0; i < len(*t); i++ {
+		for i := range len(*t) {
 
 			// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
 			read, err = io.ReadFull(dec.r, buf[:SizeOfG2AffineCompressed])
@@ -436,7 +436,7 @@ func NewEncoder(w io.Writer, options ...func(*Encoder)) *Encoder {
 
 // Encode writes the binary encoding of v to the stream
 // type must be uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, []G1Affine, []G2Affine, *[]G1Affine or *[]G2Affine
-func (enc *Encoder) Encode(v interface{}) (err error) {
+func (enc *Encoder) Encode(v any) (err error) {
 	if enc.raw {
 		return enc.encodeRaw(v)
 	}
@@ -477,7 +477,7 @@ func isZeroed(firstByte byte, buf []byte) bool {
 	return true
 }
 
-func (enc *Encoder) encode(v interface{}) (err error) {
+func (enc *Encoder) encode(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
 		return errors.New("<no value> encoder: can't encode <nil>")
@@ -577,7 +577,7 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 
 		var buf [SizeOfG1AffineCompressed]byte
 
-		for i := 0; i < len(t); i++ {
+		for i := range len(t) {
 			buf = t[i].Bytes()
 			written, err = enc.w.Write(buf[:])
 			enc.n += int64(written)
@@ -598,7 +598,7 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 
 		var buf [SizeOfG2AffineCompressed]byte
 
-		for i := 0; i < len(t); i++ {
+		for i := range len(t) {
 			buf = t[i].Bytes()
 			written, err = enc.w.Write(buf[:])
 			enc.n += int64(written)
@@ -618,7 +618,7 @@ func (enc *Encoder) encode(v interface{}) (err error) {
 	}
 }
 
-func (enc *Encoder) encodeRaw(v interface{}) (err error) {
+func (enc *Encoder) encodeRaw(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
 		return errors.New("<no value> encoder: can't encode <nil>")
@@ -718,7 +718,7 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 
 		var buf [SizeOfG1AffineUncompressed]byte
 
-		for i := 0; i < len(t); i++ {
+		for i := range len(t) {
 			buf = t[i].RawBytes()
 			written, err = enc.w.Write(buf[:])
 			enc.n += int64(written)
@@ -739,7 +739,7 @@ func (enc *Encoder) encodeRaw(v interface{}) (err error) {
 
 		var buf [SizeOfG2AffineUncompressed]byte
 
-		for i := 0; i < len(t); i++ {
+		for i := range len(t) {
 			buf = t[i].RawBytes()
 			written, err = enc.w.Write(buf[:])
 			enc.n += int64(written)

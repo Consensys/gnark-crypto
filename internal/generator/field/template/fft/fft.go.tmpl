@@ -1,9 +1,12 @@
 import (
 	"math/bits"
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 	"math/big"
-	
+	{{- if .F31}}
+	"github.com/consensys/gnark-crypto/utils"
+	{{- end}}
+
 	"{{ .FieldPackagePath }}"
 )
 
@@ -35,6 +38,36 @@ func (domain *Domain) FFT(a []{{ .FF }}.Element, decimation Decimation, opts ...
 
 	// if coset != 0, scale by coset table
 	if opt.coset {
+		{{- if .F31}}
+		var cosetTable []{{ .FF }}.Element
+		if decimation == DIT {
+			// DIT needs bit-reversed coset table
+			if domain.cosetTableBitReversed != nil {
+				cosetTable = domain.cosetTableBitReversed
+			} else {
+				cosetTable = make([]{{ .FF }}.Element, len(a))
+				if domain.cosetTable != nil {
+					copy(cosetTable, domain.cosetTable)
+				} else {
+					BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
+				}
+				utils.BitReverse(cosetTable)
+			}
+		} else {
+			// DIF needs natural-order coset table
+			if domain.cosetTable != nil {
+				cosetTable = domain.cosetTable
+			} else {
+				cosetTable = make([]{{ .FF }}.Element, len(a))
+				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
+			}
+		}
+		parallel.Execute(len(a), func(start, end int) {
+			v1 := {{ .FF }}.Vector(a[start:end])
+			v2 := {{ .FF }}.Vector(cosetTable[start:end])
+			v1.Mul(v1, v2)
+		}, opt.nbTasks)
+		{{- else}}
 		if decimation == DIT {
 			// scale by coset table (in bit reversed order)
 			cosetTable := domain.cosetTable
@@ -69,8 +102,9 @@ func (domain *Domain) FFT(a []{{ .FF }}.Element, decimation Decimation, opts ...
 					}
 				}, opt.nbTasks)
 			}
-	
+
 		}
+		{{- end}}
 	}
 
 	twiddles := domain.twiddles
@@ -137,38 +171,61 @@ func (domain *Domain) FFTInverse(a []{{ .FF }}.Element, decimation Decimation, o
 
 	// scale by CardinalityInv
 	if !opt.coset {
+		{{- if .F31}}
+		// Use vectorized scalar multiply instead of element-by-element loop
+		parallel.Execute(len(a), func(start, end int) {
+			v := {{ .FF }}.Vector(a[start:end])
+			v.ScalarMul(v, &domain.CardinalityInv)
+		}, opt.nbTasks)
+		{{- else}}
 		parallel.Execute(len(a), func(start, end int) {
 			for i := start; i < end; i++ {
 				a[i].Mul(&a[i], &domain.CardinalityInv)
 			}
 		}, opt.nbTasks)
+		{{- end}}
 		return
 	}
 
+	{{- if .F31}}
+	var cosetTableInv []{{ .FF }}.Element
+	if decimation == DIT {
+		// DIT inverse needs natural-order inverse coset table
+		if domain.cosetTableInv != nil {
+			cosetTableInv = domain.cosetTableInv
+		} else {
+			cosetTableInv = make([]{{ .FF }}.Element, len(a))
+			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
+		}
+	} else {
+		// DIF inverse needs bit-reversed inverse coset table
+		if domain.cosetTableInvBitReversed != nil {
+			cosetTableInv = domain.cosetTableInvBitReversed
+		} else {
+			cosetTableInv = make([]{{ .FF }}.Element, len(a))
+			if domain.cosetTableInv != nil {
+				copy(cosetTableInv, domain.cosetTableInv)
+			} else {
+				BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
+			}
+			utils.BitReverse(cosetTableInv)
+		}
+	}
+	parallel.Execute(len(a), func(start, end int) {
+		v := {{ .FF }}.Vector(a[start:end])
+		v.Mul(v, {{ .FF }}.Vector(cosetTableInv[start:end]))
+		v.ScalarMul(v, &domain.CardinalityInv)
+	}, opt.nbTasks)
+	{{- else}}
 
 	if decimation == DIT {
 		if domain.withPrecompute {
-			{{- if .HasASMKernel}}
-			if opt.nbTasks == 1 {
-				va := {{.FF}}.Vector(a)
-				va.Mul(va, {{.FF}}.Vector(domain.cosetTableInv))
-				va.ScalarMul(va, &domain.CardinalityInv)
-			} else {
-				parallel.Execute(len(a), func(start, end int) {
-					for i := start; i < end; i++ {
-						a[i].Mul(&a[i], &domain.cosetTableInv[i]).
-							Mul(&a[i], &domain.CardinalityInv)
-					}
-				}, opt.nbTasks)
-			}
-			{{- else}}
 			parallel.Execute(len(a), func(start, end int) {
 				for i := start; i < end; i++ {
 					a[i].Mul(&a[i], &domain.cosetTableInv[i]).
 						Mul(&a[i], &domain.CardinalityInv)
 				}
 			}, opt.nbTasks)
-			{{- end}}
 		} else {
 			c := domain.FrMultiplicativeGenInv
 			parallel.Execute(len(a), func(start, end int) {
@@ -200,6 +257,7 @@ func (domain *Domain) FFTInverse(a []{{ .FF }}.Element, decimation Decimation, o
 				Mul(&a[i], &domain.CardinalityInv)
 		}
 	}, opt.nbTasks)
+	{{- end}}
 
 }
 
@@ -516,6 +574,5 @@ func kerDITNP_{{.sizeKernel}}generic(a []{{ .FF }}.Element, twiddles [][]{{ .FF 
 }
 
 {{end}}
-
 
 

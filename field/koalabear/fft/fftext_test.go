@@ -39,8 +39,6 @@ func TestFFTExt(t *testing.T) {
 			"with precompute":    domainWithPrecompute,
 			"without precompute": domainWithoutPrecompute,
 		} {
-			domainName := domainName
-			domain := domain
 			t.Logf("domain: %s", domainName)
 			properties.Property("DIF FFT should be consistent with dual basis", prop.ForAll(
 
@@ -50,7 +48,7 @@ func TestFFTExt(t *testing.T) {
 					pol := make([]fext.E4, maxSize)
 					backupPol := make([]fext.E4, maxSize)
 
-					for i := 0; i < maxSize; i++ {
+					for i := range maxSize {
 						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
@@ -77,7 +75,7 @@ func TestFFTExt(t *testing.T) {
 					pol := make([]fext.E4, maxSize)
 					backupPol := make([]fext.E4, maxSize)
 
-					for i := 0; i < maxSize; i++ {
+					for i := range maxSize {
 						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
@@ -105,7 +103,7 @@ func TestFFTExt(t *testing.T) {
 					pol := make([]fext.E4, maxSize)
 					backupPol := make([]fext.E4, maxSize)
 
-					for i := 0; i < maxSize; i++ {
+					for i := range maxSize {
 						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
@@ -131,7 +129,7 @@ func TestFFTExt(t *testing.T) {
 					pol := make([]fext.E4, maxSize)
 					backupPol := make([]fext.E4, maxSize)
 
-					for i := 0; i < maxSize; i++ {
+					for i := range maxSize {
 						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
@@ -142,7 +140,7 @@ func TestFFTExt(t *testing.T) {
 					utils.BitReverse(pol)
 
 					check := true
-					for i := 0; i < len(pol); i++ {
+					for i := range len(pol) {
 						check = check && pol[i].Equal(&backupPol[i])
 					}
 					return check
@@ -157,7 +155,7 @@ func TestFFTExt(t *testing.T) {
 						pol := make([]fext.E4, maxSize)
 						backupPol := make([]fext.E4, maxSize)
 
-						for i := 0; i < maxSize; i++ {
+						for i := range maxSize {
 							pol[i].MustSetRandom()
 						}
 						copy(backupPol, pol)
@@ -171,7 +169,7 @@ func TestFFTExt(t *testing.T) {
 							domain.FFTInverseExt(pol, DIF, OnCoset())
 							utils.BitReverse(pol)
 
-							for i := 0; i < len(pol); i++ {
+							for i := range len(pol) {
 								check = check && pol[i].Equal(&backupPol[i])
 							}
 						}
@@ -188,7 +186,7 @@ func TestFFTExt(t *testing.T) {
 					pol := make([]fext.E4, maxSize)
 					backupPol := make([]fext.E4, maxSize)
 
-					for i := 0; i < maxSize; i++ {
+					for i := range maxSize {
 						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
@@ -197,7 +195,7 @@ func TestFFTExt(t *testing.T) {
 					domain.FFTExt(pol, DIT)
 
 					check := true
-					for i := 0; i < len(pol); i++ {
+					for i := range len(pol) {
 						check = check && (pol[i] == backupPol[i])
 					}
 					return check
@@ -211,7 +209,7 @@ func TestFFTExt(t *testing.T) {
 					pol := make([]fext.E4, maxSize)
 					backupPol := make([]fext.E4, maxSize)
 
-					for i := 0; i < maxSize; i++ {
+					for i := range maxSize {
 						pol[i].MustSetRandom()
 					}
 					copy(backupPol, pol)
@@ -219,7 +217,7 @@ func TestFFTExt(t *testing.T) {
 					domain.FFTInverseExt(pol, DIF, OnCoset())
 					domain.FFTExt(pol, DIT, OnCoset())
 
-					for i := 0; i < len(pol); i++ {
+					for i := range len(pol) {
 						if !(pol[i].Equal(&backupPol[i])) {
 							return false
 						}
@@ -229,7 +227,7 @@ func TestFFTExt(t *testing.T) {
 					domain.FFTInverseExt(pol, DIF, OnCoset(), WithNbTasks(1))
 					domain.FFTExt(pol, DIT, OnCoset(), WithNbTasks(1))
 
-					for i := 0; i < len(pol); i++ {
+					for i := range len(pol) {
 						if !(pol[i].Equal(&backupPol[i])) {
 							return false
 						}
@@ -273,7 +271,7 @@ func FuzzFFTExt(f *testing.F) {
 
 		// we just check that FFT-1(FFT(pol)) == pol
 		a, b := make([]fext.E4, cardinality), make([]fext.E4, cardinality)
-		for i := 0; i < int(cardinality); i++ {
+		for i := range int(cardinality) {
 			a[i] = randElementExt(rng)
 		}
 		copy(b, a)
@@ -282,7 +280,7 @@ func FuzzFFTExt(f *testing.F) {
 		domain.FFTExt(a, DIT)
 
 		assert := require.New(t)
-		for i := 0; i < int(cardinality); i++ {
+		for i := range int(cardinality) {
 			assert.True(a[i].Equal(&b[i]), "FFT-1(FFT(pol)) != pol at index %d", i)
 		}
 	})
@@ -306,14 +304,14 @@ func BenchmarkFFTExt(b *testing.B) {
 		b.Run("fft 2**"+strconv.Itoa(i)+"bits", func(b *testing.B) {
 			domain := NewDomain(uint64(sizeDomain))
 			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				domain.FFTExt(pol[:sizeDomain], DIT)
 			}
 		})
 		b.Run("fft 2**"+strconv.Itoa(i)+"bits (coset)", func(b *testing.B) {
 			domain := NewDomain(uint64(sizeDomain))
 			b.ResetTimer()
-			for j := 0; j < b.N; j++ {
+			for range b.N {
 				domain.FFTExt(pol[:sizeDomain], DIT, OnCoset())
 			}
 		})
@@ -333,7 +331,7 @@ func BenchmarkFFTDITCosetReferenceExt(b *testing.B) {
 	domain := NewDomain(maxSize)
 
 	b.ResetTimer()
-	for j := 0; j < b.N; j++ {
+	for range b.N {
 		domain.FFTExt(pol, DIT, OnCoset())
 	}
 }
@@ -350,7 +348,7 @@ func BenchmarkFFTDITReferenceSmallExt(b *testing.B) {
 	domain := NewDomain(maxSize)
 
 	b.ResetTimer()
-	for j := 0; j < 1; j++ {
+	for range 1 {
 		domain.FFTExt(pol, DIT)
 	}
 }
@@ -367,7 +365,7 @@ func BenchmarkFFTDIFReferenceExt(b *testing.B) {
 	domain := NewDomain(maxSize)
 
 	b.ResetTimer()
-	for j := 0; j < b.N; j++ {
+	for range b.N {
 		domain.FFTExt(pol, DIF)
 	}
 }
@@ -383,7 +381,7 @@ func BenchmarkFFTDIFReferenceSmallExt(b *testing.B) {
 	domain := NewDomain(maxSize)
 
 	b.ResetTimer()
-	for j := 0; j < b.N; j++ {
+	for range b.N {
 		domain.FFTExt(pol, DIF)
 	}
 }

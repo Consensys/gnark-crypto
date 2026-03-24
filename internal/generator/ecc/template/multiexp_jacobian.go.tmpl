@@ -30,7 +30,7 @@ func processChunk{{ $.UPointName }}Jacobian[B ib{{ $.TJacobianExtended }}](chunk
 	}
 
    var buckets B
-   for i := 0 ; i < len(buckets); i++ {
+   for i := range len(buckets) {
 	   buckets[i].SetInfinity()
    }
 

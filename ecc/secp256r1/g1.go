@@ -11,7 +11,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/secp256r1/fp"
 	"github.com/consensys/gnark-crypto/ecc/secp256r1/fr"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 )
 
 // G1Affine is a point in affine coordinates (x,y)
@@ -587,7 +587,7 @@ func (p *G1Jac) mulWindowed(q *G1Jac, s *big.Int) *G1Jac {
 	for i := range b {
 		w := b[i]
 		mask := byte(0xc0)
-		for j := 0; j < 4; j++ {
+		for j := range 4 {
 			res.DoubleAssign().DoubleAssign()
 			c := (w & mask) >> (6 - 2*j)
 			if c != 0 {
@@ -648,15 +648,12 @@ func (p *G1Jac) JointScalarMultiplication(a1, a2 *G1Affine, s1, s2 *big.Int) *G1
 	s[0] = s[0].SetBigInt(&k1).Bits()
 	s[1] = s[1].SetBigInt(&k2).Bits()
 
-	maxBit := k1.BitLen()
-	if k2.BitLen() > maxBit {
-		maxBit = k2.BitLen()
-	}
+	maxBit := max(k2.BitLen(), k1.BitLen())
 	hiWordIndex := (maxBit - 1) / 64
 
 	for i := hiWordIndex; i >= 0; i-- {
 		mask := uint64(3) << 62
-		for j := 0; j < 32; j++ {
+		for j := range 32 {
 			res.Double(&res).Double(&res)
 			b1 := (s[0][i] & mask) >> (62 - 2*j)
 			b2 := (s[1][i] & mask) >> (62 - 2*j)
@@ -1009,7 +1006,7 @@ func BatchJacobianToAffineG1(points []G1Jac) []G1Affine {
 
 	// batch invert all points[].Z coordinates with Montgomery batch inversion trick
 	// (stores points[].Z^-1 in result[i].X to avoid allocating a slice of fr.Elements)
-	for i := 0; i < len(points); i++ {
+	for i := range points {
 		if points[i].Z.IsZero() {
 			zeroes[i] = true
 			continue
@@ -1073,10 +1070,7 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 
 	// last window may be slightly larger than c; in which case we need to compute one
 	// extra element in the baseTable
-	maxC := lastC(c)
-	if c > maxC {
-		maxC = c
-	}
+	maxC := max(c, lastC(c))
 
 	// precompute all powers of base for our window
 	// note here that if performance is critical, we can implement as in the msmX methods
@@ -1101,7 +1095,7 @@ func BatchScalarMultiplicationG1(base *G1Affine, scalars []fr.Element) []G1Affin
 			p.Set(&g1Infinity)
 			for chunk := nbChunks - 1; chunk >= 0; chunk-- {
 				if chunk != nbChunks-1 {
-					for j := uint64(0); j < c; j++ {
+					for range c {
 						p.DoubleAssign()
 					}
 				}
@@ -1148,7 +1142,7 @@ func batchAddG1Affine[TP pG1Affine, TPP ppG1Affine, TC cG1Affine](R *TPP, P *TP,
 	// first we compute the 1 / (X2 - X1) for all points using Montgomery batch inversion trick
 
 	// X2 - X1
-	for j := 0; j < batchSize; j++ {
+	for j := range batchSize {
 		lambdain[j].Sub(&(*P)[j].X, &(*R)[j].X)
 	}
 
@@ -1178,7 +1172,7 @@ func batchAddG1Affine[TP pG1Affine, TPP ppG1Affine, TC cG1Affine](R *TPP, P *TP,
 	var t fp.Element
 	var Q G1Affine
 
-	for j := 0; j < batchSize; j++ {
+	for j := range batchSize {
 		// λ  = (Y2 - Y1) / (X2 - X1)
 		t.Sub(&(*P)[j].Y, &(*R)[j].Y)
 		lambda[j].Mul(&lambda[j], &t)

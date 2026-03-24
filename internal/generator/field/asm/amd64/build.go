@@ -94,7 +94,7 @@ func (f *FFAmd64) CallDefine(name string, args ...any) {
 func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn, reuse bool) defineFn {
 
 	inputs := make([]string, nbInputs)
-	for i := 0; i < nbInputs; i++ {
+	for i := range nbInputs {
 		inputs[i] = fmt.Sprintf("in%d", i)
 	}
 	name = strings.ToUpper(name)
@@ -124,7 +124,7 @@ func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn, reuse bool) def
 	f.StartDefine()
 	f.WriteLn("#define " + name + "(" + strings.Join(inputs, ", ") + ")")
 	inputsRegisters := make([]any, nbInputs)
-	for i := 0; i < nbInputs; i++ {
+	for i := range nbInputs {
 		inputsRegisters[i] = amd64.Register(inputs[i])
 	}
 	fn(inputsRegisters...)
@@ -136,7 +136,7 @@ func (f *FFAmd64) Define(name string, nbInputs int, fn defineFn, reuse bool) def
 			panic("invalid number of arguments")
 		}
 		inputsStr := make([]string, len(args))
-		for i := 0; i < len(args); i++ {
+		for i := range args {
 			switch t := args[i].(type) {
 			case amd64.Register:
 				inputsStr[i] = string(t)
@@ -448,6 +448,7 @@ func GenerateF31SIS(w io.Writer, nbBits int) error {
 type Poseidon2Parameters struct {
 	Width, FullRounds, PartialRounds, SBoxDegree int
 	DiagInternal                                 []uint64
+	HasCompressx16                               bool
 }
 
 func GenerateF31Poseidon2(w io.Writer, nbBits int, params []Poseidon2Parameters) error {
@@ -471,8 +472,8 @@ func GenerateF31Poseidon2(w io.Writer, nbBits int, params []Poseidon2Parameters)
 		if p.Width == 24 {
 			f.generatePoseidon2_F31_16x24(p)
 		}
-		if p.Width == 16 {
-			f.generatePoseidon2_F31_16x16x512(p)
+		if p.Width == 16 && p.HasCompressx16 {
+			f.generatePoseidon2_F31_16x16xN(p)
 		}
 	}
 

@@ -286,7 +286,7 @@ func (f *FFAmd64) generateMul(_ bool) {
 				// and use the rest for x0...xn
 				_x := registers.PopN(nbRegisters)
 				f.LabelRegisters("x", _x...)
-				for i := 0; i < len(_x); i++ {
+				for i := range _x {
 					f.MOVQ(x.At(i), _x[i])
 				}
 				xat = func(i int) string {

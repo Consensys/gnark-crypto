@@ -248,13 +248,13 @@ func (f *FFAmd64) generateSumVecW4() {
 	f.TESTQ(n, n)
 	f.JEQ(accumulate, "n == 0, we are going to accumulate")
 
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		r := fmt.Sprintf("Z%d", i+8)
 		f.VPMOVZXDQ(fmt.Sprintf("%d*32("+string(addrA)+")", i), r)
 	}
 
 	f.WriteLn(fmt.Sprintf("PREFETCHT0 4096(%[1]s)", addrA))
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		r := fmt.Sprintf("Z%d", i)
 		f.VPADDQ(fmt.Sprintf("Z%d", i+8), r, r)
 	}
@@ -492,7 +492,7 @@ func (f *FFAmd64) generateInnerProductW4() {
 	for i := 1; i < 8; i++ {
 		f.VMOVDQA64(accL[0], accL[i])
 	}
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		f.VMOVDQA64(accL[0], accH[i])
 	}
 
@@ -520,7 +520,7 @@ func (f *FFAmd64) generateInnerProductW4() {
 		f.VPMOVZXDQ("0("+addrB+")", Y)
 
 		f.Comment("Multiply each dword of a[i] (8 dwords) by b[i] and accumulate")
-		for i := 0; i < 8; i++ {
+		for i := range 8 {
 			mac(fmt.Sprintf("%d(%s)", i*4, addrA), accL[i], accH[i])
 		}
 
@@ -628,7 +628,7 @@ func (f *FFAmd64) generateInnerProductW4() {
 	f.Comment("Montgomery reduction of the 544-bit result")
 	f.Comment("Extract low 4 qwords from Z0 into scalar registers")
 	T := make([]amd64.Register, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		T[i] = f.Pop(&registers)
 	}
 	f.LabelRegisters("T", T...)
@@ -647,7 +647,7 @@ func (f *FFAmd64) generateInnerProductW4() {
 	PH := f.Pop(&registers)
 	PL := amd64.AX
 
-	for round := 0; round < 4; round++ {
+	for round := range 4 {
 		f.Comment(fmt.Sprintf("Montgomery reduction round %d", round+1))
 		src := T[1+round%4]
 		f.MOVQ(f.qInv0(), amd64.DX)
@@ -671,7 +671,7 @@ func (f *FFAmd64) generateInnerProductW4() {
 	}
 
 	f.Comment("Add remaining 5 qwords from Z0")
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		f.VMOVQ("X0", PL)
 		if i == 0 {
 			f.ADDQ(PL, T[0])
@@ -710,7 +710,7 @@ func (f *FFAmd64) generateInnerProductW4() {
 	result := T[:4]
 	f.Mov(result, addrRes)
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		f.SUBQ(f.qAt(0), T[0])
 		f.SBBQ(f.qAt(1), T[1])
 		f.SBBQ(f.qAt(2), T[2])

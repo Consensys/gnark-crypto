@@ -1,3 +1,5 @@
+// Package parallel provides shared parallel execution primitives used
+// throughout gnark-crypto, including generated code.
 package parallel
 
 import (
@@ -37,8 +39,7 @@ func Execute(nbIterations int, work func(int, int), maxCpus ...int) {
 	extraTasks := nbIterations - (nbTasks * nbIterationsPerCpus)
 	extraTasksOffset := 0
 
-	for i := 0; i < nbTasks; i++ {
-		wg.Add(1)
+	for i := range nbTasks {
 		_start := i*nbIterationsPerCpus + extraTasksOffset
 		_end := _start + nbIterationsPerCpus
 		if extraTasks > 0 {
@@ -46,12 +47,63 @@ func Execute(nbIterations int, work func(int, int), maxCpus ...int) {
 			extraTasks--
 			extraTasksOffset++
 		}
-		go func() {
+		wg.Go(func() {
 			work(_start, _end)
-			wg.Done()
-		}()
+		})
 	}
 
+	wg.Wait()
+}
+
+// ExecuteAligned is like Execute but keeps chunk boundaries aligned to the
+// provided alignment, except for a possible tail on the last chunk.
+func ExecuteAligned(nbIterations, alignment int, work func(int, int), maxCpus ...int) {
+	nbTasks := runtime.NumCPU()
+	if len(maxCpus) == 1 {
+		nbTasks = maxCpus[0]
+		if nbTasks < 1 {
+			nbTasks = 1
+		} else if nbTasks > 512 {
+			nbTasks = 512
+		}
+	}
+
+	if nbTasks == 1 || nbIterations <= alignment {
+		work(0, nbIterations)
+		return
+	}
+
+	totalUnits := nbIterations / alignment
+	leftover := nbIterations % alignment
+
+	if nbTasks > totalUnits {
+		nbTasks = totalUnits
+	}
+	if nbTasks <= 1 {
+		work(0, nbIterations)
+		return
+	}
+
+	unitsPerTask := totalUnits / nbTasks
+	extraUnits := totalUnits % nbTasks
+
+	var wg sync.WaitGroup
+	start := 0
+	for i := range nbTasks {
+		units := unitsPerTask
+		if i < extraUnits {
+			units++
+		}
+		end := start + units*alignment
+		if i == nbTasks-1 {
+			end += leftover
+		}
+		_start, _end := start, end
+		start = end
+		wg.Go(func() {
+			work(_start, _end)
+		})
+	}
 	wg.Wait()
 }
 
@@ -88,7 +140,7 @@ func Chunks(nbIterations int, maxCpus ...int) [][2]int {
 	extraTasks := nbIterations - (nbTasks * nbIterationsPerCpus)
 	extraTasksOffset := 0
 
-	for i := 0; i < nbTasks; i++ {
+	for i := range nbTasks {
 		_start := i*nbIterationsPerCpus + extraTasksOffset
 		_end := _start + nbIterationsPerCpus
 		if extraTasks > 0 {
