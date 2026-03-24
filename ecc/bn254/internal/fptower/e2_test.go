@@ -380,39 +380,18 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
-	properties.Property("[BN254] cbrt methods should be consistent", prop.ForAll(
+	properties.Property("[BN254] cbrt torus should produce a valid cube root", prop.ForAll(
 		func(a *E2) bool {
 			var b E2
 			b.Square(a).Mul(&b, a) // b = a³
 
-			var cOriginal, cFrobenius E2
-			rOriginal := cOriginal.cbrtOriginal(&b)
-			rFrobenius := cFrobenius.cbrtFrobenius(&b)
-			if rOriginal == nil || rFrobenius == nil {
+			var c E2
+			if c.cbrtTorus(&b) == nil {
 				return false
 			}
-
-			// verify both produce valid cube roots
 			var check E2
-			check.Square(&cOriginal).Mul(&check, &cOriginal)
-			if !check.Equal(&b) {
-				return false
-			}
-			check.Square(&cFrobenius).Mul(&check, &cFrobenius)
-			if !check.Equal(&b) {
-				return false
-			}
-			var cTorus E2
-			rTorus := cTorus.cbrtTorus(&b)
-			if rTorus == nil {
-				return false
-			}
-			check.Square(&cTorus).Mul(&check, &cTorus)
-			if !check.Equal(&b) {
-				return false
-			}
-
-			return true
+			check.Square(&c).Mul(&check, &c)
+			return check.Equal(&b)
 		},
 		genA,
 	))
@@ -517,20 +496,6 @@ func BenchmarkE2Cbrt(b *testing.B) {
 	t.MustSetRandom()
 	a.Square(&t).Mul(&a, &t) // a = t³
 
-	b.Run("Original", func(b *testing.B) {
-		var c E2
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			c.cbrtOriginal(&a)
-		}
-	})
-	b.Run("Frobenius", func(b *testing.B) {
-		var c E2
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			c.cbrtFrobenius(&a)
-		}
-	})
 	b.Run("Torus", func(b *testing.B) {
 		var c E2
 		b.ResetTimer()

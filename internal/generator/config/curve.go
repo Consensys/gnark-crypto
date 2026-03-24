@@ -3,7 +3,6 @@ package config
 import (
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/internal/generator/addchain"
 	"github.com/consensys/gnark-crypto/internal/generator/field/config"
 )
 
@@ -28,21 +27,8 @@ type Curve struct {
 	HashE2 HashSuite
 
 	// E2 Cbrt precomputes (for Fp² cube root)
-	E2CbrtP2Mod9       uint64                 // p² mod 9
-	E2CbrtP2Mod27      uint64                 // p² mod 27
-	E2CbrtExponentHex  string                 // precomputed exponent as hex string
-	E2CbrtExponentData *addchain.AddChainData // addition chain data for E2 Cbrt exponentiation
-
-	// E2 Cbrt Frobenius decomposition: e = e₀ + e₁·p
-	E2CbrtFrobeniusE0      []uint64 // e₀ limbs (little-endian)
-	E2CbrtFrobeniusE1      []uint64 // e₁ limbs (little-endian)
-	E2CbrtFrobeniusNLimbs  int      // number of limbs
-	E2CbrtFrobeniusMaxBit  int      // bit length of max(e₀, e₁)
-	E2CbrtFrobeniusEven    bool     // whether MaxBit is even (determines loop alignment)
-	E2CbrtFrobeniusTopLimb int      // limb index of the MSB: (MaxBit-1)/64
-	E2CbrtFrobeniusTopBit  int      // bit position within the top limb: (MaxBit-1)%64
-	E2CbrtFrobeniusStart   int      // starting bit for the 2-bit windowed loop
-
+	E2CbrtP2Mod9  uint64 // p² mod 9
+	E2CbrtP2Mod27 uint64 // p² mod 27
 	// Torus-based E2 Cbrt
 	E2CbrtTorusEnabled       bool     // whether torus cbrt is available
 	E2CbrtTorusBeta          int64    // beta from Fp2=Fp[u]/(u²-beta), e.g. -1 or -5
@@ -111,63 +97,6 @@ func addCurve(c *Curve) {
 	p2 := new(big.Int).Mul(p, p)
 	c.E2CbrtP2Mod9 = new(big.Int).Mod(p2, big.NewInt(9)).Uint64()
 	c.E2CbrtP2Mod27 = new(big.Int).Mod(p2, big.NewInt(27)).Uint64()
-
-	// Compute the E2 Cbrt exponent based on p² mod 9/27
-	var exp big.Int
-	switch c.E2CbrtP2Mod9 {
-	case 7:
-		// p² ≡ 7 (mod 9): exponent = (p²+2)/9
-		exp.Add(p2, big.NewInt(2))
-		exp.Div(&exp, big.NewInt(9))
-	case 4:
-		// p² ≡ 4 (mod 9): exponent = (2p²+1)/9
-		exp.Lsh(p2, 1)
-		exp.Add(&exp, big.NewInt(1))
-		exp.Div(&exp, big.NewInt(9))
-	default:
-		// p² ≡ 1 (mod 9): need p² mod 27
-		switch c.E2CbrtP2Mod27 {
-		case 10:
-			// p² ≡ 10 (mod 27): exponent = (2p²+7)/27
-			exp.Lsh(p2, 1)
-			exp.Add(&exp, big.NewInt(7))
-			exp.Div(&exp, big.NewInt(27))
-		case 19:
-			// p² ≡ 19 (mod 27): exponent = (p²+8)/27
-			exp.Add(p2, big.NewInt(8))
-			exp.Div(&exp, big.NewInt(27))
-		default:
-			// Generic fallback: exponent = (2(p²-1)+1)/3
-			exp.Sub(p2, big.NewInt(1))
-			exp.Lsh(&exp, 1)
-			exp.Add(&exp, big.NewInt(1))
-			exp.Div(&exp, big.NewInt(3))
-		}
-	}
-	c.E2CbrtExponentHex = exp.Text(16)
-	c.E2CbrtExponentData = addchain.GetAddChain(&exp)
-
-	// Frobenius decomposition: e = e₀ + e₁·p
-	e1 := new(big.Int).Div(&exp, p)
-	e0 := new(big.Int).Mod(&exp, p)
-	maxBits := e0.BitLen()
-	if e1.BitLen() > maxBits {
-		maxBits = e1.BitLen()
-	}
-	// Number of uint64 limbs needed
-	nLimbs := (maxBits + 63) / 64
-	c.E2CbrtFrobeniusE0 = bigIntToLimbs(e0, nLimbs)
-	c.E2CbrtFrobeniusE1 = bigIntToLimbs(e1, nLimbs)
-	c.E2CbrtFrobeniusNLimbs = nLimbs
-	c.E2CbrtFrobeniusMaxBit = maxBits
-	c.E2CbrtFrobeniusEven = maxBits%2 == 0
-	c.E2CbrtFrobeniusTopLimb = (maxBits - 1) / 64
-	c.E2CbrtFrobeniusTopBit = (maxBits - 1) % 64
-	if maxBits%2 == 0 {
-		c.E2CbrtFrobeniusStart = maxBits - 2
-	} else {
-		c.E2CbrtFrobeniusStart = maxBits - 3
-	}
 
 	// Torus-based E2 Cbrt parameters
 	// Check q mod 3 == 1 (needed for torus cbrt helper)
