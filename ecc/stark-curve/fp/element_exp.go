@@ -108,7 +108,7 @@ func (z *Element) ExpByCbrt2q1o3(x Element) *Element {
 	t2.Mul(t2, t1)
 
 	// Step 21: t2 = x^0x2aa00
-	for s := 0; s < 9; s++ {
+	for range 9 {
 		t2.Square(t2)
 	}
 
@@ -116,7 +116,7 @@ func (z *Element) ExpByCbrt2q1o3(x Element) *Element {
 	z.Mul(z, t2)
 
 	// Step 32: t2 = x^0xaa80000
-	for s := 0; s < 10; s++ {
+	for range 10 {
 		t2.Square(t2)
 	}
 
@@ -124,7 +124,7 @@ func (z *Element) ExpByCbrt2q1o3(x Element) *Element {
 	z.Mul(z, t2)
 
 	// Step 43: t2 = x^0x2aa0000000
-	for s := 0; s < 10; s++ {
+	for range 10 {
 		t2.Square(t2)
 	}
 
@@ -132,7 +132,7 @@ func (z *Element) ExpByCbrt2q1o3(x Element) *Element {
 	z.Mul(z, t2)
 
 	// Step 54: t2 = x^0xaa8000000000
-	for s := 0; s < 10; s++ {
+	for range 10 {
 		t2.Square(t2)
 	}
 
@@ -140,7 +140,7 @@ func (z *Element) ExpByCbrt2q1o3(x Element) *Element {
 	z.Mul(z, t2)
 
 	// Step 65: t2 = x^0x2aa000000000000
-	for s := 0; s < 10; s++ {
+	for range 10 {
 		t2.Square(t2)
 	}
 
@@ -154,7 +154,7 @@ func (z *Element) ExpByCbrt2q1o3(x Element) *Element {
 	t2.Mul(t2, z)
 
 	// Step 72: t2 = x^0x5555555555555550
-	for s := 0; s < 4; s++ {
+	for range 4 {
 		t2.Square(t2)
 	}
 
@@ -171,7 +171,7 @@ func (z *Element) ExpByCbrt2q1o3(x Element) *Element {
 	t1.Mul(&x, t1)
 
 	// Step 140: t1 = x^0xaaaaaaaaaaaaac150000000000000000
-	for s := 0; s < 64; s++ {
+	for range 64 {
 		t1.Square(t1)
 	}
 
@@ -179,7 +179,7 @@ func (z *Element) ExpByCbrt2q1o3(x Element) *Element {
 	t1.Mul(t0, t1)
 
 	// Step 205: t1 = x^0xaaaaaaaaaaaaac1555555555555555550000000000000000
-	for s := 0; s < 64; s++ {
+	for range 64 {
 		t1.Square(t1)
 	}
 
@@ -187,7 +187,7 @@ func (z *Element) ExpByCbrt2q1o3(x Element) *Element {
 	t0.Mul(t0, t1)
 
 	// Step 265: t0 = x^0x555555555555560aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa800000000000000
-	for s := 0; s < 59; s++ {
+	for range 59 {
 		t0.Square(t0)
 	}
 

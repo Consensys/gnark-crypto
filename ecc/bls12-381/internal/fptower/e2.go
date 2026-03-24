@@ -369,37 +369,93 @@ var lucasExponent = [6]uint64{
 	624599539215846622,
 }
 
-// cbrtAndNormInverse computes m = cbrt(norm) and normInv = 1/norm from a
-// single shared exponentiation, avoiding a separate Fp inversion.
-func cbrtAndNormInverse(norm *fp.Element) (m, normInv fp.Element, ok bool) {
-	// t = norm^((q-r)/d)
-	var t fp.Element
-	t.ExpByCbrtHelperQMinus10Div27(*norm)
-	// m = norm · t²
-	var t2 fp.Element
-	t2.Square(&t)
-	m.Mul(norm, &t2)
+// cbrtTorus computes the cube root of x in E2 using the algebraic torus
+// T₂(Fp). It follows https://eprint.iacr.org/2026/392 by Y. El Housni.
+//
+// Additionally it implements an Okeya–Sakurai-style recovery with Hamburg's
+// trick: a single exponentiation of w = U³·N(x), where U =
+// -16·|β|·N(x)·(x₀x₁)², yields cbrt(N(x)), 1/N(x), and 1/U without any
+// standalone Fp inversion. This idea was suggested by B. Smith in a private
+// communication.
+func (z *E2) cbrtTorus(x *E2) *E2 {
+	if x.A1.IsZero() {
+		if z.A0.Cbrt(&x.A0) == nil {
+			return nil
+		}
+		z.A1.SetZero()
+		return z
+	}
 
-	// normInv = m^8 · t^11
+	if x.A0.IsZero() {
+		var negA1 fp.Element
+		negA1.Neg(&x.A1)
+		var y E2
+		if y.A1.Cbrt(&negA1) == nil {
+			return nil
+		}
+		y.A0.SetZero()
+		return z.cbrtVerifyAndAdjust(x, &y)
+	}
+
+	var x0sq, x1sq fp.Element
+	x0sq.Square(&x.A0)
+	x1sq.Square(&x.A1)
+	// N = x₀² + x₁² (norm of x, since beta = -1)
+	var norm fp.Element
+	norm.Add(&x0sq, &x1sq)
+
+	var x0x1 fp.Element
+	x0x1.Mul(&x.A0, &x.A1)
+
+	// U = -16·|β|·N·(x₀x₁)²
+	var U fp.Element
+	U.Square(&x0x1)
+	U.Mul(&U, &norm)
+	U.Double(&U)
+	U.Double(&U)
+	U.Double(&U)
+	U.Double(&U)
+	U.Neg(&U)
+
+	// w = U³·N; single exponentiation yields cbrt(w), 1/N, 1/U
+	var U2, U3, w fp.Element
+	U2.Square(&U)
+	U3.Mul(&U2, &U)
+	w.Mul(&U3, &norm)
+
+	// t = w^((q-r)/d); cbrtW = w·t (or w·t² when HelperSquared)
+	var t fp.Element
+	t.ExpByCbrtHelperQMinus10Div27(w)
+
+	var cbrtW, wInv fp.Element
+	// cbrtW = w·t²; wInv = cbrtW^8 · t^11
+	var tw2 fp.Element
+	tw2.Square(&t)
+	cbrtW.Mul(&w, &tw2)
+
+	var cw2, cw4, cw8 fp.Element
+	cw2.Square(&cbrtW)
+	cw4.Square(&cw2)
+	cw8.Square(&cw4)
+	var tw4, tw8 fp.Element
+	tw4.Square(&tw2)
+	tw8.Square(&tw4)
+	wInv.Mul(&tw8, &tw2)
+	wInv.Mul(&wInv, &t)
+	wInv.Mul(&wInv, &cw8)
+
+	// Recover: UInv = U²·N·wInv, m = cbrtW·UInv = cbrt(N), normInv = U³·wInv = 1/N
+	var UInv, normInv, m fp.Element
+	UInv.Mul(&U2, &norm)
+	UInv.Mul(&UInv, &wInv)
+	m.Mul(&cbrtW, &UInv)
+	normInv.Mul(&U3, &wInv)
+	// Verify m³ = N, adjust by primitive 9th root of unity ζ if needed
 	var m2 fp.Element
 	m2.Square(&m)
-	// m^8: m⁴ → m⁸
-	var m4, m8 fp.Element
-	m4.Square(&m2)
-	m8.Square(&m4)
-
-	// t¹¹ = t⁸ · t² · t
-	var t4, t8 fp.Element
-	t4.Square(&t2)
-	t8.Square(&t4)
-	normInv.Mul(&t8, &t2)
-	normInv.Mul(&normInv, &t)
-	normInv.Mul(&normInv, &m8)
-
-	// Verify m³ = norm, adjust by ζ if needed
 	var c fp.Element
 	c.Mul(&m2, &m)
-	if !c.Equal(norm) {
+	if !c.Equal(&norm) {
 		var zeta = fp.Element{
 			13616190144799058984,
 			9227582506135211912,
@@ -435,96 +491,80 @@ func cbrtAndNormInverse(norm *fp.Element) (m, normInv fp.Element, ok bool) {
 
 		var cw2 fp.Element
 		cw2.Mul(&c, &omega2)
-		if cw2.Equal(norm) {
+		if cw2.Equal(&norm) {
 			m.Mul(&m, &zeta)
 		} else {
 			var cw fp.Element
 			cw.Mul(&c, &omega)
-			if cw.Equal(norm) {
+			if cw.Equal(&norm) {
 				m.Mul(&m, &zeta2)
 			} else {
-				return m, normInv, false
+				return nil
 			}
 		}
 	}
 
-	return m, normInv, true
-}
+	// DeltaInv = N³·UInv
+	var n2, n3, deltaInv fp.Element
+	n2.Square(&norm)
+	n3.Mul(&n2, &norm)
+	deltaInv.Mul(&n3, &UInv)
 
-// cbrtTorus computes the cube root of x in E2 using the algebraic torus T₂(Fp).
-//
-// Let r = z^{p-1} where z³ = x. Then r³ = x^{p-1} lies on T₂(Fp) (norm 1).
-// The trace of r on T₂ is s₁ = V_e(α_t, 1) where:
-//   - α_t = 2·(x₀² - β·x₁²)/N(x) is the trace of x^{p-1} on T₂
-//   - e = 3⁻¹ mod (p+1)
-//
-// Recovery: z₀ = x₀/(m·(s₁-1)), z₁ = x₁/(m·(s₁+1)), where m = cbrt(N(x)).
-func (z *E2) cbrtTorus(x *E2) *E2 {
-	if x.A1.IsZero() {
-		if z.A0.Cbrt(&x.A0) == nil {
-			return nil
-		}
-		z.A1.SetZero()
-		return z
-	}
+	// tau = 2·(x₀² - |β|·x₁²)/N = trace of x^{p-1} on T₂
+	var halfTau, tau fp.Element
+	halfTau.Sub(&x0sq, &x1sq)
+	halfTau.Mul(&halfTau, &normInv)
+	tau.Double(&halfTau)
 
-	if x.A0.IsZero() {
-		var negA1 fp.Element
-		negA1.Neg(&x.A1)
-		var y E2
-		if y.A1.Cbrt(&negA1) == nil {
-			return nil
-		}
-		y.A0.SetZero()
-		return z.cbrtVerifyAndAdjust(x, &y)
-	}
+	// Te = V_e(tau), Te1 = V_{e+1}(tau) from the Lucas V-ladder
+	Te, Te1 := lucasV(&tau)
 
-	// x₀², x₁² — reused for both norm and α_t
-	var x0sq, x1sq fp.Element
-	x0sq.Square(&x.A0)
-	x1sq.Square(&x.A1)
-	// N = x₀² + x₁² (norm of x, since beta = -1)
-	var norm fp.Element
-	norm.Add(&x0sq, &x1sq)
+	// imY = 2·x₀x₁/N (imaginary part of x^{p-1} on T₂)
+	var imY fp.Element
+	imY.Double(&x0x1)
+	imY.Mul(&imY, &normInv)
 
-	// m = cbrt(N) and normInv = 1/N from shared exponentiation
-	m, normInv, ok := cbrtAndNormInverse(&norm)
-	if !ok {
-		return nil
-	}
+	// WA0 = Te1 - halfTau·Te, WA1 = imY·Te
+	var WA0, WA1 fp.Element
+	WA0.Mul(&halfTau, &Te)
+	WA0.Sub(&Te1, &WA0)
+	WA1.Mul(&imY, &Te)
 
-	// α_t = 2·(x₀² - β·x₁²)/N = trace of x^{p-1} on T₂
-	var alphaT fp.Element
-	alphaT.Sub(&x0sq, &x1sq)
-	alphaT.Double(&alphaT)
-	alphaT.Mul(&alphaT, &normInv)
+	// k = 2·imY·DeltaInv
+	var sIm, k fp.Element
+	sIm.Double(&imY)
+	k.Mul(&sIm, &deltaInv)
 
-	// s₁ = V_e(α_t, 1) where e = 3⁻¹ mod (p+1), Q = 1
-	sp := lucasV(&alphaT)
+	// gamma = (-|β|·WA1·k, WA0·k)  [conjugate of torus element scaled by k]
+	var gamma E2
+	gamma.A0.Mul(&WA1, &k)
+	gamma.A0.Neg(&gamma.A0)
+	gamma.A1.Mul(&WA0, &k)
 
-	// Recovery: z₀ = x₀/(m·(s₁-1)), z₁ = x₁/(m·(s₁+1))
-	// Use a single inversion via Montgomery's trick: 1/(a·b) then multiply out.
-	var one, s1m1, s1p1, d0, d1, d0d1, d0d1Inv fp.Element
-	one.SetOne()
-	s1m1.Sub(&sp, &one)
-	s1p1.Add(&sp, &one)
-	d0.Mul(&m, &s1m1) // m·(s₁-1)
-	d1.Mul(&m, &s1p1) // m·(s₁+1)
+	// mInv = m²·normInv = 1/m
+	var mInv fp.Element
+	mInv.Square(&m)
+	mInv.Mul(&mInv, &normInv)
 
-	// single inversion: 1/(d0·d1)
-	d0d1.Mul(&d0, &d1)
-	d0d1Inv.Inverse(&d0d1)
-
-	// 1/d0 = d1 · 1/(d0·d1), 1/d1 = d0 · 1/(d0·d1)
+	// y = x · conj(gamma) · mInv
+	// y.A0 = (x₀·γ₀ + |β|·x₁·γ₁) · mInv
+	// y.A1 = (x₁·γ₀ - x₀·γ₁) · mInv
 	var y E2
-	y.A0.Mul(&d1, &d0d1Inv).Mul(&y.A0, &x.A0) // x₀/d0
-	y.A1.Mul(&d0, &d0d1Inv).Mul(&y.A1, &x.A1) // x₁/d1
+	var r1, r2 fp.Element
+	r1.Mul(&x.A0, &gamma.A0)
+	r2.Mul(&x.A1, &gamma.A1)
+	y.A0.Add(&r1, &r2)
+	y.A0.Mul(&y.A0, &mInv)
+	r1.Mul(&x.A1, &gamma.A0)
+	r2.Mul(&x.A0, &gamma.A1)
+	y.A1.Sub(&r1, &r2)
+	y.A1.Mul(&y.A1, &mInv)
 
 	return z.cbrtVerifyAndAdjust(x, &y)
 }
 
-// lucasV computes V_e(alpha, 1) where e = 3⁻¹ mod (p+1), using the
-// Lucas V-sequence with Q=1 and a Montgomery ladder on precomputed bits.
+// lucasV returns (V_e(alpha, 1), V_{e+1}(alpha, 1)) where e = 3⁻¹ mod (p+1),
+// using the Lucas V-sequence with Q=1 and a Montgomery ladder on precomputed bits.
 //
 // Since Q=1, Q^k=1 for all k, so we don't need to track it.
 // Recurrence: V_{n+1} = alpha·V_n - V_{n-1}, V_0 = 2, V_1 = alpha.
@@ -534,7 +574,7 @@ func (z *E2) cbrtTorus(x *E2) *E2 {
 //	prod    = V_k·V_{k+1} - alpha
 //	bit=0: V_{2k}   = V_k² - 2,      V_{2k+1} = prod
 //	bit=1: V_{2k+1} = prod,           V_{2k+2} = V_{k+1}² - 2
-func lucasV(alpha *fp.Element) fp.Element {
+func lucasV(alpha *fp.Element) (fp.Element, fp.Element) {
 	// Initialize for MSB=1: V_1 = alpha, V_2 = alpha² - 2
 	var v0, v1, two fp.Element
 	two.SetUint64(2)
@@ -559,10 +599,11 @@ func lucasV(alpha *fp.Element) fp.Element {
 		}
 	}
 
-	// Last bit (bit 0) is 1: only compute v0, skip unused v1
-	v0.Mul(&v0, &v1).Sub(&v0, alpha)
-
-	return v0
+	// Last bit (bit 0 = 1): return both V_e = v0·v1 - alpha and V_{e+1} = v1² - 2
+	var Te, Te1 fp.Element
+	Te.Mul(&v0, &v1).Sub(&Te, alpha)
+	Te1.Square(&v1).Sub(&Te1, &two)
+	return Te, Te1
 }
 
 // expByE2CbrtOriginal is equivalent to z.Exp(x, 190b8ad76f8849c0701770fc867ca9d8feb0087bcb44fd3337e96b01f2e8bbdd0fa2d9f75d8c3cff998773ab047aa139fa626e17edf07656dbcc0fb8513ed34fa847c66a9bea57d169eef1e7300bbd895e206963317cfcdb818e38e49be8d3).

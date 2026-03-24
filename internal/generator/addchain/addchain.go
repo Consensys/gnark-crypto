@@ -93,20 +93,21 @@ func GetAddChain(n *big.Int) *AddChainData {
 	data := processSearchResult(r.Program, key)
 
 	mAddchains[key] = data
-	// gob encode
-	file := filepath.Join(addChainDir, key)
-	log.Println("saving addchain", file)
-	f, err := os.Create(file)
-	if err != nil {
-		log.Fatal(err)
-	}
-	enc := gob.NewEncoder(f)
-
-	if err := enc.Encode(r.Program); err != nil {
+	// gob encode; skip if the key is too long to be a valid filename
+	if len(key) <= 255 {
+		file := filepath.Join(addChainDir, key)
+		log.Println("saving addchain", file)
+		f, err := os.Create(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+		enc := gob.NewEncoder(f)
+		if err := enc.Encode(r.Program); err != nil {
+			_ = f.Close()
+			log.Fatal(err)
+		}
 		_ = f.Close()
-		log.Fatal(err)
 	}
-	_ = f.Close()
 
 	return data
 }
@@ -302,6 +303,9 @@ func initCache() {
 	var lock sync.Mutex
 	for _, entry := range files {
 		if entry.IsDir() {
+			continue
+		}
+		if filepath.Ext(entry.Name()) != "" {
 			continue
 		}
 		wg.Go(func() {

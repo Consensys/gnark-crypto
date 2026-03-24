@@ -140,7 +140,7 @@ func (z *Element) ExpByCbrt2QPlus1Div9(x Element) *Element {
 	t1.Mul(t1, z)
 
 	// Step 10: t1 = x^0x1c0
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t1.Square(t1)
 	}
 
@@ -187,7 +187,7 @@ func (z *Element) ExpByCbrt2QPlus1Div9(x Element) *Element {
 	t2.Mul(t2, t1)
 
 	// Step 42: t2 = x^0x1c71c0000
-	for s := 0; s < 18; s++ {
+	for range 18 {
 		t2.Square(t2)
 	}
 
@@ -195,7 +195,7 @@ func (z *Element) ExpByCbrt2QPlus1Div9(x Element) *Element {
 	t1.Mul(t1, t2)
 
 	// Step 59: t1 = x^0x1c71c71c50000
-	for s := 0; s < 16; s++ {
+	for range 16 {
 		t1.Square(t1)
 	}
 
@@ -203,7 +203,7 @@ func (z *Element) ExpByCbrt2QPlus1Div9(x Element) *Element {
 	t0.Mul(t0, t1)
 
 	// Step 73: t0 = x^0x38e38e38aaaaa000
-	for s := 0; s < 13; s++ {
+	for range 13 {
 		t0.Square(t0)
 	}
 
@@ -274,7 +274,7 @@ func (z *Element) ExpByCbrtHelperQMinus4Div9(x Element) *Element {
 	t1.Mul(t1, t3)
 
 	// Step 11: t1 = x^0x1b8
-	for s := 0; s < 3; s++ {
+	for range 3 {
 		t1.Square(t1)
 	}
 
@@ -315,7 +315,7 @@ func (z *Element) ExpByCbrtHelperQMinus4Div9(x Element) *Element {
 	t2.Mul(t2, t1)
 
 	// Step 41: t2 = x^0x1c71c0000
-	for s := 0; s < 18; s++ {
+	for range 18 {
 		t2.Square(t2)
 	}
 
@@ -323,7 +323,7 @@ func (z *Element) ExpByCbrtHelperQMinus4Div9(x Element) *Element {
 	t1.Mul(t1, t2)
 
 	// Step 58: t1 = x^0x1c71c71c50000
-	for s := 0; s < 16; s++ {
+	for range 16 {
 		t1.Square(t1)
 	}
 
@@ -331,7 +331,7 @@ func (z *Element) ExpByCbrtHelperQMinus4Div9(x Element) *Element {
 	t0.Mul(t0, t1)
 
 	// Step 71: t0 = x^0x1c71c71c55555000
-	for s := 0; s < 12; s++ {
+	for range 12 {
 		t0.Square(t0)
 	}
 

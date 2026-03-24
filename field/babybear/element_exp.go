@@ -86,7 +86,7 @@ func (z *Element) ExpByCbrt2QPlus1Div9(x Element) *Element {
 	t0.Mul(z, t0)
 
 	// Step 8: t0 = x^0x54
-	for s := 0; s < 2; s++ {
+	for range 2 {
 		t0.Square(t0)
 	}
 
@@ -112,7 +112,7 @@ func (z *Element) ExpByCbrt2QPlus1Div9(x Element) *Element {
 	t0.Mul(t0, t1)
 
 	// Step 33: t0 = x^0x1aaa8000
-	for s := 0; s < 14; s++ {
+	for range 14 {
 		t0.Square(t0)
 	}
 
@@ -160,7 +160,7 @@ func (z *Element) ExpByCbrtHelperQMinus4Div9(x Element) *Element {
 	t0.Mul(&x, t0)
 
 	// Step 6: t0 = x^0x28
-	for s := 0; s < 3; s++ {
+	for range 3 {
 		t0.Square(t0)
 	}
 
@@ -189,7 +189,7 @@ func (z *Element) ExpByCbrtHelperQMinus4Div9(x Element) *Element {
 	t0.Mul(t0, t1)
 
 	// Step 32: t0 = x^0xd554000
-	for s := 0; s < 14; s++ {
+	for range 14 {
 		t0.Square(t0)
 	}
 
