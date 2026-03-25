@@ -90,14 +90,9 @@ func (z *{{.eName}}) ExpBy{{$.name}}(x {{.eName}}) *{{.eName}} {
 	//
 	// Operations: {{ .data.Ops.Doubles }} squares {{ .data.Ops.Adds }} multiplies
 
-	// Allocate Temporaries.
-	var (
-		{{- range .data.Program.Temporaries }}
-		{{ . }} = new({{$.eName}})
-		{{- end -}}
-	)
-
-	// var {{range $i, $e := .data.Program.Temporaries }}{{ $e }} {{- if last_ $i $.data.Program.Temporaries}} {{$.eName}} {{- else }}, {{- end}}{{- end -}}
+{{- if .data.Program.Temporaries}}
+	var {{range $i, $e := .data.Program.Temporaries }}{{ $e }} {{- if last_ $i $.data.Program.Temporaries}} {{$.eName}} {{- else }}, {{- end}}{{- end -}}
+{{- end}}
 
 	{{ range $i := .data.Program.Instructions }}
 	// {{ printf "Step %d: %s = x^%#x" $i.Output.Index $i.Output (index $.data.Chain $i.Output.Index) }}

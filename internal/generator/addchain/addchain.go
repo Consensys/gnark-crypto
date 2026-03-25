@@ -266,12 +266,12 @@ var Functions = []*Function{
 	},
 	{
 		Name:        "ptr_",
-		Description: "adds & if it's a value",
+		Description: "adds & for all operands except z (the output pointer receiver)",
 		Func: func(s *ir.Operand) string {
-			if s.String() == "x" {
-				return "&"
+			if s.String() == "z" {
+				return ""
 			}
-			return ""
+			return "&"
 		},
 	},
 	{

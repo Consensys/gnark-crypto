@@ -100,6 +100,10 @@ func main() {
 
 			conf.Fr, err = fieldConfig.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
 			assertNoError(err)
+			// The torus cbrt helper (ExpByCbrtHelper*) is only used by E2.cbrtTorus via Fp.
+			// Clear it from Fr to avoid emitting dead code in scalar field packages.
+			conf.Fr.CbrtTorusHelperData = nil
+			conf.Fr.CbrtTorusHelperName = ""
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 

@@ -1335,7 +1335,6 @@ func TestElementSquare(t *testing.T) {
 		},
 		genA,
 	))
-
 	properties.Property("Square: operation result must be smaller than modulus", prop.ForAll(
 		func(a testPairElement) bool {
 			var c Element
@@ -1405,7 +1404,6 @@ func TestElementInverse(t *testing.T) {
 		},
 		genA,
 	))
-
 	properties.Property("Inverse: operation result must be smaller than modulus", prop.ForAll(
 		func(a testPairElement) bool {
 			var c Element
@@ -1475,7 +1473,6 @@ func TestElementSqrt(t *testing.T) {
 		},
 		genA,
 	))
-
 	properties.Property("Sqrt: operation result must be smaller than modulus", prop.ForAll(
 		func(a testPairElement) bool {
 			var c Element
@@ -1549,6 +1546,20 @@ func TestElementCbrt(t *testing.T) {
 			c.BigInt(&e)
 			cube.Exp(&e, big.NewInt(3), Modulus())
 			return cube.Cmp(&a.bigint) == 0
+		},
+		genA,
+	))
+	properties.Property("Cbrt: cubic residues must always have a cube root", prop.ForAll(
+		func(a testPairElement) bool {
+			// b = a³ is guaranteed to be a cubic residue
+			var b, c Element
+			b.Square(&a.element).Mul(&b, &a.element)
+			if c.Cbrt(&b) == nil {
+				return false
+			}
+			var check Element
+			check.Square(&c).Mul(&check, &c)
+			return check.Equal(&b)
 		},
 		genA,
 	))
@@ -1628,7 +1639,6 @@ func TestElementDouble(t *testing.T) {
 		},
 		genA,
 	))
-
 	properties.Property("Double: operation result must be smaller than modulus", prop.ForAll(
 		func(a testPairElement) bool {
 			var c Element
@@ -1698,7 +1708,6 @@ func TestElementNeg(t *testing.T) {
 		},
 		genA,
 	))
-
 	properties.Property("Neg: operation result must be smaller than modulus", prop.ForAll(
 		func(a testPairElement) bool {
 			var c Element

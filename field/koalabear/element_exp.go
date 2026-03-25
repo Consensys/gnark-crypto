@@ -21,13 +21,8 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	//	return    _11 + _111100
 	//
 	// Operations: 5 squares 3 multiplies
+	var t0 Element
 
-	// Allocate Temporaries.
-	var (
-		t0 = new(Element)
-	)
-
-	// var t0 Element
 	// Step 1: z = x^0x2
 	z.Square(&x)
 
@@ -37,19 +32,19 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	// Step 4: t0 = x^0xc
 	t0.Square(z)
 	for s := 1; s < 2; s++ {
-		t0.Square(t0)
+		t0.Square(&t0)
 	}
 
 	// Step 5: t0 = x^0xf
-	t0.Mul(z, t0)
+	t0.Mul(z, &t0)
 
 	// Step 7: t0 = x^0x3c
 	for range 2 {
-		t0.Square(t0)
+		t0.Square(&t0)
 	}
 
 	// Step 8: z = x^0x3f
-	z.Mul(z, t0)
+	z.Mul(z, &t0)
 
 	return z
 }
@@ -74,69 +69,63 @@ func (z *Element) ExpByCbrt2q1o3(x Element) *Element {
 	//	return      _101011 + i36
 	//
 	// Operations: 28 squares 9 multiplies
+	var t0, t1 Element
 
-	// Allocate Temporaries.
-	var (
-		t0 = new(Element)
-		t1 = new(Element)
-	)
-
-	// var t0,t1 Element
 	// Step 1: z = x^0x2
 	z.Square(&x)
 
 	// Step 3: t1 = x^0x8
 	t1.Square(z)
 	for s := 1; s < 2; s++ {
-		t1.Square(t1)
+		t1.Square(&t1)
 	}
 
 	// Step 4: t0 = x^0x9
-	t0.Mul(&x, t1)
+	t0.Mul(&x, &t1)
 
 	// Step 6: t1 = x^0x20
 	for range 2 {
-		t1.Square(t1)
+		t1.Square(&t1)
 	}
 
 	// Step 7: t0 = x^0x29
-	t0.Mul(t0, t1)
+	t0.Mul(&t0, &t1)
 
 	// Step 8: z = x^0x2b
-	z.Mul(z, t0)
+	z.Mul(z, &t0)
 
 	// Step 9: t1 = x^0x54
-	t1.Mul(t0, z)
+	t1.Mul(&t0, z)
 
 	// Step 10: t0 = x^0x55
-	t0.Mul(&x, t1)
+	t0.Mul(&x, &t1)
 
 	// Step 11: t1 = x^0xa9
-	t1.Mul(t1, t0)
+	t1.Mul(&t1, &t0)
 
 	// Step 19: t1 = x^0xa900
 	for range 8 {
-		t1.Square(t1)
+		t1.Square(&t1)
 	}
 
 	// Step 20: t1 = x^0xa955
-	t1.Mul(t0, t1)
+	t1.Mul(&t0, &t1)
 
 	// Step 28: t1 = x^0xa95500
 	for range 8 {
-		t1.Square(t1)
+		t1.Square(&t1)
 	}
 
 	// Step 29: t0 = x^0xa95555
-	t0.Mul(t0, t1)
+	t0.Mul(&t0, &t1)
 
 	// Step 36: t0 = x^0x54aaaa80
 	for range 7 {
-		t0.Square(t0)
+		t0.Square(&t0)
 	}
 
 	// Step 37: z = x^0x54aaaaab
-	z.Mul(z, t0)
+	z.Mul(z, &t0)
 
 	return z
 }

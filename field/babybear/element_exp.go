@@ -20,10 +20,6 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	//
 	// Operations: 2 squares 2 multiplies
 
-	// Allocate Temporaries.
-	var ()
-
-	// var
 	// Step 1: z = x^0x2
 	z.Square(&x)
 
@@ -59,14 +55,8 @@ func (z *Element) ExpByCbrt2QPlus1Div9(x Element) *Element {
 	//	return     (2*i17 + i15) << 14 + i17
 	//
 	// Operations: 27 squares 7 multiplies
+	var t0, t1 Element
 
-	// Allocate Temporaries.
-	var (
-		t0 = new(Element)
-		t1 = new(Element)
-	)
-
-	// var t0,t1 Element
 	// Step 1: z = x^0x2
 	z.Square(&x)
 
@@ -77,47 +67,47 @@ func (z *Element) ExpByCbrt2QPlus1Div9(x Element) *Element {
 	t0.Square(z)
 
 	// Step 4: t0 = x^0x9
-	t0.Mul(z, t0)
+	t0.Mul(z, &t0)
 
 	// Step 5: t0 = x^0x12
-	t0.Square(t0)
+	t0.Square(&t0)
 
 	// Step 6: t0 = x^0x15
-	t0.Mul(z, t0)
+	t0.Mul(z, &t0)
 
 	// Step 8: t0 = x^0x54
 	for range 2 {
-		t0.Square(t0)
+		t0.Square(&t0)
 	}
 
 	// Step 14: t1 = x^0x1500
-	t1.Square(t0)
+	t1.Square(&t0)
 	for s := 1; s < 6; s++ {
-		t1.Square(t1)
+		t1.Square(&t1)
 	}
 
 	// Step 15: t0 = x^0x1554
-	t0.Mul(t0, t1)
+	t0.Mul(&t0, &t1)
 
 	// Step 16: t1 = x^0x2aa8
-	t1.Square(t0)
+	t1.Square(&t0)
 
 	// Step 17: z = x^0x2aab
-	z.Mul(z, t1)
+	z.Mul(z, &t1)
 
 	// Step 18: t1 = x^0x5556
 	t1.Square(z)
 
 	// Step 19: t0 = x^0x6aaa
-	t0.Mul(t0, t1)
+	t0.Mul(&t0, &t1)
 
 	// Step 33: t0 = x^0x1aaa8000
 	for range 14 {
-		t0.Square(t0)
+		t0.Square(&t0)
 	}
 
 	// Step 34: z = x^0x1aaaaaab
-	z.Mul(z, t0)
+	z.Mul(z, &t0)
 
 	return z
 }
@@ -142,14 +132,8 @@ func (z *Element) ExpByCbrtHelperQMinus4Div9(x Element) *Element {
 	//	return    (2*i16 + i15) << 14 + i16
 	//
 	// Operations: 26 squares 7 multiplies
+	var t0, t1 Element
 
-	// Allocate Temporaries.
-	var (
-		t0 = new(Element)
-		t1 = new(Element)
-	)
-
-	// var t0,t1 Element
 	// Step 1: z = x^0x2
 	z.Square(&x)
 
@@ -157,44 +141,44 @@ func (z *Element) ExpByCbrtHelperQMinus4Div9(x Element) *Element {
 	t0.Square(z)
 
 	// Step 3: t0 = x^0x5
-	t0.Mul(&x, t0)
+	t0.Mul(&x, &t0)
 
 	// Step 6: t0 = x^0x28
 	for range 3 {
-		t0.Square(t0)
+		t0.Square(&t0)
 	}
 
 	// Step 7: z = x^0x2a
-	z.Mul(z, t0)
+	z.Mul(z, &t0)
 
 	// Step 13: t0 = x^0xa80
 	t0.Square(z)
 	for s := 1; s < 6; s++ {
-		t0.Square(t0)
+		t0.Square(&t0)
 	}
 
 	// Step 14: z = x^0xaaa
-	z.Mul(z, t0)
+	z.Mul(z, &t0)
 
 	// Step 15: t0 = x^0xaab
 	t0.Mul(&x, z)
 
 	// Step 16: z = x^0x1555
-	z.Mul(z, t0)
+	z.Mul(z, &t0)
 
 	// Step 17: t1 = x^0x2aaa
 	t1.Square(z)
 
 	// Step 18: t0 = x^0x3555
-	t0.Mul(t0, t1)
+	t0.Mul(&t0, &t1)
 
 	// Step 32: t0 = x^0xd554000
 	for range 14 {
-		t0.Square(t0)
+		t0.Square(&t0)
 	}
 
 	// Step 33: z = x^0xd555555
-	z.Mul(z, t0)
+	z.Mul(z, &t0)
 
 	return z
 }

@@ -1032,6 +1032,22 @@ func Test{{toTitle .all.ElementName}}{{.Op}}(t *testing.T) {
 		genA,
 	))
 
+{{- if eq .Op "Cbrt"}}
+	properties.Property("Cbrt: cubic residues must always have a cube root", prop.ForAll(
+		func(a testPair{{.all.ElementName}}) bool {
+			// b = a³ is guaranteed to be a cubic residue
+			var b, c {{.all.ElementName}}
+			b.Square(&a.element).Mul(&b, &a.element)
+			if c.Cbrt(&b) == nil {
+				return false
+			}
+			var check {{.all.ElementName}}
+			check.Square(&c).Mul(&check, &c)
+			return check.Equal(&b)
+		},
+		genA,
+	))
+{{end}}
 	properties.Property("{{.Op}}: operation result must be smaller than modulus", prop.ForAll(
 		func(a testPair{{.all.ElementName}}) bool {
 			var c {{.all.ElementName}}
