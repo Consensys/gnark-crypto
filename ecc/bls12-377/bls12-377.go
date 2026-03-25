@@ -107,6 +107,8 @@ type E12 = fptower.E12
 func init() {
 	aCurveCoeff.SetUint64(0)
 	bCurveCoeff.SetUint64(1)
+	thirdRootOneG1.SetString("80949648264912719408558363140637477264845294720710499478137287262712535938301461879813459410945")
+	thirdRootOneG2.Square(&thirdRootOneG1)
 	// D-twist
 	twist.A1.SetUint64(1)
 	bTwistCurveCoeff.Inverse(&twist)
@@ -131,8 +133,6 @@ func init() {
 	g2Infinity.X.SetOne()
 	g2Infinity.Y.SetOne()
 
-	thirdRootOneG1.SetString("80949648264912719408558363140637477264845294720710499478137287262712535938301461879813459410945")
-	thirdRootOneG2.Square(&thirdRootOneG1)
 	lambdaGLV.SetString("91893752504881257701523279626832445440", 10) // (x₀²-1)
 	_r := fr.Modulus()
 	ecc.PrecomputeLattice(_r, &lambdaGLV, &glvBasis)

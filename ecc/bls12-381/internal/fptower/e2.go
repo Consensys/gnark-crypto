@@ -265,41 +265,7 @@ func (z *E2) cbrtVerifyAndAdjust(x *E2, y *E2) *E2 {
 		return z.Set(y)
 	}
 
-	// Primitive cube roots of unity ω, ω² (purely in Fp)
-	var omega = fp.Element{
-		14772873186050699377,
-		6749526151121446354,
-		6372666795664677781,
-		10283423008382700446,
-		286397964926079186,
-		1796971870900422465,
-	}
-	var omega2 = fp.Element{
-		3526659474838938856,
-		17562030475567847978,
-		1632777218702014455,
-		14009062335050482331,
-		3906511377122991214,
-		368068849512964448,
-	}
-
-	// Primitive 9th roots of unity ζ, ζ² (purely in Fp)
-	var zeta = fp.Element{
-		13616190144799058984,
-		9227582506135211912,
-		4426607408274926740,
-		7455198167498346307,
-		10794825842164118204,
-		335101026345095675,
-	}
-	var zeta2 = fp.Element{
-		3828863564860874189,
-		5918733612565202776,
-		16843310164143221096,
-		16127847466718491017,
-		17435063908385505950,
-		407112797415018074,
-	}
+	omega, omega2, zeta, zeta2 := thirdRootOne, thirdRootOneSquare, ninthRootOne, ninthRootOneSquare
 
 	// Check if c * ω² = x, then y * ζ is the cube root
 	// ω² is in Fp, so use 2 Fp muls instead of full E2 mul
@@ -324,6 +290,44 @@ func (z *E2) cbrtVerifyAndAdjust(x *E2, y *E2) *E2 {
 
 	// x is not a cubic residue
 	return nil
+}
+
+// thirdRootOne and thirdRootOneSquare are the primitive cube roots of unity in Fp
+// (i.e. thirdRootOneG1/G2 of the curve). Used by cbrtVerifyAndAdjust and cbrtTorus.
+var thirdRootOne = fp.Element{
+	14772873186050699377,
+	6749526151121446354,
+	6372666795664677781,
+	10283423008382700446,
+	286397964926079186,
+	1796971870900422465,
+}
+var thirdRootOneSquare = fp.Element{
+	3526659474838938856,
+	17562030475567847978,
+	1632777218702014455,
+	14009062335050482331,
+	3906511377122991214,
+	368068849512964448,
+}
+
+// ninthRootOne and ninthRootOneSquare are primitive 9th roots of unity in Fp.
+// ninthRootOne³ = thirdRootOneSquare, ninthRootOneSquare = ninthRootOne².
+var ninthRootOne = fp.Element{
+	13616190144799058984,
+	9227582506135211912,
+	4426607408274926740,
+	7455198167498346307,
+	10794825842164118204,
+	335101026345095675,
+}
+var ninthRootOneSquare = fp.Element{
+	3828863564860874189,
+	5918733612565202776,
+	16843310164143221096,
+	16127847466718491017,
+	17435063908385505950,
+	407112797415018074,
 }
 
 // lucasExponent is e = 3⁻¹ mod (p+1) as little-endian uint64 limbs,
@@ -424,38 +428,7 @@ func (z *E2) cbrtTorus(x *E2) *E2 {
 	var c fp.Element
 	c.Mul(&m2, &m)
 	if !c.Equal(&norm) {
-		var zeta = fp.Element{
-			13616190144799058984,
-			9227582506135211912,
-			4426607408274926740,
-			7455198167498346307,
-			10794825842164118204,
-			335101026345095675,
-		}
-		var zeta2 = fp.Element{
-			3828863564860874189,
-			5918733612565202776,
-			16843310164143221096,
-			16127847466718491017,
-			17435063908385505950,
-			407112797415018074,
-		}
-		var omega = fp.Element{
-			14772873186050699377,
-			6749526151121446354,
-			6372666795664677781,
-			10283423008382700446,
-			286397964926079186,
-			1796971870900422465,
-		}
-		var omega2 = fp.Element{
-			3526659474838938856,
-			17562030475567847978,
-			1632777218702014455,
-			14009062335050482331,
-			3906511377122991214,
-			368068849512964448,
-		}
+		omega, omega2, zeta, zeta2 := thirdRootOne, thirdRootOneSquare, ninthRootOne, ninthRootOneSquare
 
 		var cw2 fp.Element
 		cw2.Mul(&c, &omega2)

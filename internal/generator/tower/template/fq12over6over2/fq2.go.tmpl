@@ -301,25 +301,7 @@ func (z *E2) cbrtVerifyAndAdjust(x *E2, y *E2) *E2 {
 		return z.Set(y)
 	}
 
-	// Primitive cube roots of unity ω, ω² (purely in Fp)
-	var omega = fp.Element{
-		{{- range $i := .Curve.Fp.ThirdRootOne}}
-		{{$i}},{{end}}
-	}
-	var omega2 = fp.Element{
-		{{- range $i := .Curve.Fp.ThirdRootOneSquare}}
-		{{$i}},{{end}}
-	}
-
-	// Primitive 9th roots of unity ζ, ζ² (purely in Fp)
-	var zeta = fp.Element{
-		{{- range $i := .Curve.Fp.CbrtG}}
-		{{$i}},{{end}}
-	}
-	var zeta2 = fp.Element{
-		{{- range $i := .Curve.Fp.CbrtG2}}
-		{{$i}},{{end}}
-	}
+	omega, omega2, zeta, zeta2 := thirdRootOne, thirdRootOneSquare, ninthRootOne, ninthRootOneSquare
 
 	// Check if c * ω² = x, then y * ζ is the cube root
 	// ω² is in Fp, so use 2 Fp muls instead of full E2 mul
@@ -359,6 +341,30 @@ func (z *E2) cbrtVerifyAndAdjust(x *E2, y *E2) *E2 {
 
 
 {{- if .Curve.E2CbrtTorusEnabled }}
+{{- if not .Curve.E2CbrtTorusUniqueRoot }}
+// thirdRootOne and thirdRootOneSquare are the primitive cube roots of unity in Fp
+// (i.e. thirdRootOneG1/G2 of the curve). Used by cbrtVerifyAndAdjust and cbrtTorus.
+var thirdRootOne = fp.Element{
+	{{- range $i := .Curve.Fp.ThirdRootOne}}
+	{{$i}},{{end}}
+}
+var thirdRootOneSquare = fp.Element{
+	{{- range $i := .Curve.Fp.ThirdRootOneSquare}}
+	{{$i}},{{end}}
+}
+
+// ninthRootOne and ninthRootOneSquare are primitive 9th roots of unity in Fp.
+// ninthRootOne³ = thirdRootOneSquare, ninthRootOneSquare = ninthRootOne².
+var ninthRootOne = fp.Element{
+	{{- range $i := .Curve.Fp.CbrtG}}
+	{{$i}},{{end}}
+}
+var ninthRootOneSquare = fp.Element{
+	{{- range $i := .Curve.Fp.CbrtG2}}
+	{{$i}},{{end}}
+}
+{{- end }}
+
 // lucasExponent is e = 3⁻¹ mod (p+1) as little-endian uint64 limbs,
 // used by the Lucas V-chain in cbrtTorus.
 var lucasExponent = [{{.Curve.E2CbrtTorusLucasNLimbs}}]uint64{
@@ -515,22 +521,7 @@ func (z *E2) cbrtTorus(x *E2) *E2 {
 	var c fp.Element
 	c.Mul(&m2, &m)
 	if !c.Equal(&norm) {
-		var zeta = fp.Element{
-			{{- range .Curve.Fp.CbrtG}}
-			{{.}},{{end}}
-		}
-		var zeta2 = fp.Element{
-			{{- range .Curve.Fp.CbrtG2}}
-			{{.}},{{end}}
-		}
-		var omega = fp.Element{
-			{{- range .Curve.Fp.ThirdRootOne}}
-			{{.}},{{end}}
-		}
-		var omega2 = fp.Element{
-			{{- range .Curve.Fp.ThirdRootOneSquare}}
-			{{.}},{{end}}
-		}
+		omega, omega2, zeta, zeta2 := thirdRootOne, thirdRootOneSquare, ninthRootOne, ninthRootOneSquare
 
 		var cw2 fp.Element
 		cw2.Mul(&c, &omega2)
