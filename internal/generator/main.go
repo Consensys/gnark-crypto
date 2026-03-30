@@ -111,7 +111,7 @@ func main() {
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 
-			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
+			conf.FpUnusedBits = (64 - (conf.Fp.NbBits % 64)) % 64
 
 			// fp
 			{
