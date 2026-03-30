@@ -30,6 +30,10 @@ type Curve struct {
 	// in internal/generator/main.go: MiMC, polynomial, Poseidon2, and hash_to_field.
 	// Curves generate that suite by default unless it is explicitly disabled here.
 	NoFieldSuite bool
+
+	// NoECC disables the ECC package generation (G1, G2, multiexp, marshal).
+	// Used for curves that only need field arithmetic and ECDSA (e.g., stark-curve, secp256r1).
+	NoECC bool
 }
 
 type TwistedEdwardsCurve struct {
@@ -73,6 +77,18 @@ func (c Curve) SupportsPointCompression() bool {
 
 func (c Curve) GenerateMarshal() bool {
 	return c.HasG1()
+}
+
+func (c Curve) GenerateECC() bool {
+	return c.HasG1() && !c.NoECC
+}
+
+func (c Curve) GenerateFieldSuite() bool {
+	return !c.NoFieldSuite
+}
+
+func (c Curve) GenerateFFT() bool {
+	return c.GenerateFieldSuite() && c.GeneratePairingPackages()
 }
 
 func (c Curve) GenerateHashToCurve1() bool {

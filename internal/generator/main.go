@@ -123,7 +123,7 @@ func main() {
 				asmConfig := &fieldConfig.Assembly{BuildDir: asmDirBuildPath, IncludeDir: relAsmDir}
 
 				frOpts := []field.Option{field.WithASM(asmConfig)}
-				if !(conf.Equal(config.SECP256R1) || conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) { // nolint QF1001
+				if conf.GenerateFFT() {
 					frOpts = append(frOpts, field.WithFFT(fftConfig), field.WithIOP())
 				}
 				if conf.Equal(config.BLS12_377) {
@@ -136,77 +136,50 @@ func main() {
 			// generate ecdsa
 			assertNoError(ecdsa.Generate(conf, curveDir, gen))
 
-			if conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256R1) {
-				return // TODO @yelhousni
+			// generate G1, G2, multiExp, marshal, ...
+			if conf.GenerateECC() {
+				assertNoError(ecc.Generate(conf, curveDir, gen))
 			}
 
-			// generate G1, G2, multiExp, ...
-			assertNoError(ecc.Generate(conf, curveDir, gen))
+			// field suite: mimc, polynomial, poseidon2, hash_to_field
+			if conf.GenerateFieldSuite() {
+				frInfo := fieldConfig.FieldDependency{
+					FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
+					FieldPackageName: "fr",
+					ElementType:      "fr.Element",
+				}
 
-			if conf.Equal(config.SECP256K1) {
-				return
+				fpInfo := fieldConfig.FieldDependency{
+					FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fp",
+					FieldPackageName: "fp",
+					ElementType:      "fp.Element",
+				}
+
+				assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), gen))
+				assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, gen))
+				assertNoError(poseidon2.Generate(conf, filepath.Join(curveDir, "fr", "poseidon2"), gen))
+				assertNoError(hash_to_field.Generate(frInfo, filepath.Join(curveDir, "fr", "hash_to_field"), gen))
+				assertNoError(hash_to_field.Generate(fpInfo, filepath.Join(curveDir, "fp", "hash_to_field"), gen))
 			}
 
-			// generate mimc on fr
-			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), gen))
-
-			// generate polynomial on fr
-			frInfo := fieldConfig.FieldDependency{
-				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
-				FieldPackageName: "fr",
-				ElementType:      "fr.Element",
-			}
-			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, gen))
-
-			// generate poseidon2 on fr
-			assertNoError(poseidon2.Generate(conf, filepath.Join(curveDir, "fr", "poseidon2"), gen))
-
-			fpInfo := fieldConfig.FieldDependency{
-				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fp",
-				FieldPackageName: "fp",
-				ElementType:      "fp.Element",
+			// hash to curve (only if hash suite is configured and ECC is generated)
+			if conf.GenerateHashToCurve() && conf.GenerateECC() {
+				assertNoError(hash_to_curve.Generate(conf, curveDir, gen))
 			}
 
-			// generate wrapped hash-to-field for both fr and fp
-			assertNoError(hash_to_field.Generate(frInfo, filepath.Join(curveDir, "fr", "hash_to_field"), gen))
-			assertNoError(hash_to_field.Generate(fpInfo, filepath.Join(curveDir, "fp", "hash_to_field"), gen))
-
-			// generate hash to curve for both G1 and G2
-			assertNoError(hash_to_curve.Generate(conf, curveDir, gen))
-
-			if conf.Equal(config.GRUMPKIN) {
-				return
+			// pairing-dependent packages
+			if conf.GeneratePairingPackages() {
+				assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), gen))
+				assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), gen))
+				assertNoError(pairing.Generate(conf, curveDir, gen))
+				assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), gen))
+				assertNoError(mpcsetup.Generate(conf, filepath.Join(curveDir, "mpcsetup"), gen))
+				assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), gen))
+				assertNoError(shplonk.Generate(conf, filepath.Join(curveDir, "shplonk"), gen))
+				assertNoError(fflonk.Generate(conf, filepath.Join(curveDir, "fflonk"), gen))
+				assertNoError(plookup.Generate(conf, filepath.Join(curveDir, "fr", "plookup"), gen))
+				assertNoError(permutation.Generate(conf, filepath.Join(curveDir, "fr", "permutation"), gen))
 			}
-
-			// generate pedersen on fr
-			assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), gen))
-
-			// generate tower of extension
-			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), gen))
-
-			// generate pairing tests
-			assertNoError(pairing.Generate(conf, curveDir, gen))
-
-			// generate fri on fr
-			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), gen))
-
-			// generate mpc setup tools
-			assertNoError(mpcsetup.Generate(conf, filepath.Join(curveDir, "mpcsetup"), gen))
-
-			// generate kzg on fr
-			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), gen))
-
-			// generate shplonk on fr
-			assertNoError(shplonk.Generate(conf, filepath.Join(curveDir, "shplonk"), gen))
-
-			// generate fflonk on fr
-			assertNoError(fflonk.Generate(conf, filepath.Join(curveDir, "fflonk"), gen))
-
-			// generate plookup on fr
-			assertNoError(plookup.Generate(conf, filepath.Join(curveDir, "fr", "plookup"), gen))
-
-			// generate permutation on fr
-			assertNoError(permutation.Generate(conf, filepath.Join(curveDir, "fr", "permutation"), gen))
 
 		}(conf)
 
