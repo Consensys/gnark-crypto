@@ -89,7 +89,6 @@ func (dec *Decoder) Decode(v any) (err error) {
 		dec.n += read64
 		return
 	}
-
 	var buf [SizeOfG2AffineUncompressed]byte
 	var read int
 	var sliceLen uint32
@@ -480,7 +479,7 @@ func isZeroed(firstByte byte, buf []byte) bool {
 func (enc *Encoder) encode(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
-		return errors.New("<no value> encoder: can't encode <nil>")
+		return errors.New("bls24-315 encoder: can't encode <nil>")
 	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
@@ -610,7 +609,7 @@ func (enc *Encoder) encode(v any) (err error) {
 	default:
 		n := binary.Size(t)
 		if n == -1 {
-			return errors.New("<no value> encoder: unsupported type")
+			return errors.New("bls24-315 encoder: unsupported type")
 		}
 		err = binary.Write(enc.w, binary.BigEndian, t)
 		enc.n += int64(n)
@@ -621,7 +620,7 @@ func (enc *Encoder) encode(v any) (err error) {
 func (enc *Encoder) encodeRaw(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
-		return errors.New("<no value> encoder: can't encode <nil>")
+		return errors.New("bls24-315 encoder: can't encode <nil>")
 	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
@@ -751,7 +750,7 @@ func (enc *Encoder) encodeRaw(v any) (err error) {
 	default:
 		n := binary.Size(t)
 		if n == -1 {
-			return errors.New("<no value> encoder: unsupported type")
+			return errors.New("bls24-315 encoder: unsupported type")
 		}
 		err = binary.Write(enc.w, binary.BigEndian, t)
 		enc.n += int64(n)
@@ -860,9 +859,7 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
-
 		res[0] = mUncompressedInfinity
-
 		return
 	}
 
@@ -872,7 +869,6 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
 
 	// we store X  and mask the most significant word with our metadata mask
 	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[0:0+fp.Bytes]), p.X)
-
 	res[0] |= mUncompressed
 
 	return
@@ -891,7 +887,6 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
 func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 	return p.setBytes(buf, true)
 }
-
 func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	if len(buf) < SizeOfG1AffineCompressed {
 		return 0, io.ErrShortBuffer
@@ -1125,9 +1120,7 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
-
 		res[0] = mUncompressedInfinity
-
 		return
 	}
 
@@ -1145,7 +1138,6 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[40:40+fp.Bytes]), p.X.B1.A0)
 	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[80:80+fp.Bytes]), p.X.B0.A1)
 	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[120:120+fp.Bytes]), p.X.B0.A0)
-
 	res[0] |= mUncompressed
 
 	return
@@ -1164,7 +1156,6 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 func (p *G2Affine) SetBytes(buf []byte) (int, error) {
 	return p.setBytes(buf, true)
 }
-
 func (p *G2Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	if len(buf) < SizeOfG2AffineCompressed {
 		return 0, io.ErrShortBuffer

@@ -165,7 +165,6 @@ func TestEncoder(t *testing.T) {
 	testDecode(t, &bufRaw, encRaw.BytesWritten())
 
 }
-
 func TestIsCompressed(t *testing.T) {
 	t.Parallel()
 	var g1Inf, g1 G1Affine
@@ -201,7 +200,6 @@ func TestIsCompressed(t *testing.T) {
 			t.Fatal("g1.RawBytes() should be uncompressed")
 		}
 	}
-
 	{
 		b := g2Inf.Bytes()
 		if !isCompressed(b[0]) {
