@@ -1,7 +1,6 @@
 package ecc
 
 import (
-	"os"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -25,11 +24,6 @@ func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 	entries = []bavard.Entry{
 		{File: filepath.Join(baseDir, "g1.go"), Templates: []string{"point.go.tmpl"}},
 		{File: filepath.Join(baseDir, "g1_test.go"), Templates: []string{"tests/point.go.tmpl"}},
-	}
-	// if not secp256k1, generate the lagrange transform
-	if conf.Name != config.SECP256K1.Name || conf.Name != config.GRUMPKIN.Name || conf.Name != config.SECP256R1.Name {
-		os.Remove(filepath.Join(baseDir, "g1_lagrange.go"))
-		os.Remove(filepath.Join(baseDir, "g1_lagrange_test.go"))
 	}
 
 	g1 := pconf{conf, conf.G1}
