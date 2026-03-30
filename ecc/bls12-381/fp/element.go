@@ -1484,6 +1484,92 @@ func (z *Element) Sqrt(x *Element) *Element {
 	return nil
 }
 
+// Cbrt z = ∛x (mod q)
+// if the cube root doesn't exist (x is not a cube mod q)
+// Cbrt leaves z unchanged and returns nil
+func (z *Element) Cbrt(x *Element) *Element {
+	// q ≡ 1 (mod 3)
+	// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
+	// q ≡ 10 (mod 27): cbrt(x) = x^((2q+7)/27) * ζ^k
+	var y Element
+	y.ExpByCbrt2QPlus7Div27(*x)
+
+	// c = y³
+	var c Element
+	c.Cube(&y)
+
+	// Check if y is already the cube root
+	if c.Equal(x) {
+		return z.Set(&y)
+	}
+
+	// Precomputed constants:
+	// ζ = primitive 9th root of unity
+	// ζ² for adjustment
+	// ω = ζ³ = primitive 3rd root of unity
+	// ω² = ζ⁶
+	var zeta = Element{
+		13616190144799058984,
+		9227582506135211912,
+		4426607408274926740,
+		7455198167498346307,
+		10794825842164118204,
+		335101026345095675,
+	}
+	var zeta2 = Element{
+		3828863564860874189,
+		5918733612565202776,
+		16843310164143221096,
+		16127847466718491017,
+		17435063908385505950,
+		407112797415018074,
+	}
+	var omega = Element{
+		14772873186050699377,
+		6749526151121446354,
+		6372666795664677781,
+		10283423008382700446,
+		286397964926079186,
+		1796971870900422465,
+	}
+	var omega2 = Element{
+		3526659474838938856,
+		17562030475567847978,
+		1632777218702014455,
+		14009062335050482331,
+		3906511377122991214,
+		368068849512964448,
+	}
+
+	// Check if c/x = ω (i.e., c * ω² = x)
+	// With our convention: omega = ζ⁶, omega2 = ζ³
+	// If c * ζ³ = x, then c = x*ζ⁶, and (y*ζ)³ = y³*ζ³ = c*ζ³ = x ✓
+	var cw2 Element
+	cw2.Mul(&c, &omega2)
+	if cw2.Equal(x) {
+		return z.Mul(&y, &zeta)
+	}
+
+	// Check if c/x = ω² (i.e., c * ω = x)
+	// If c * ζ⁶ = x, then c = x*ζ³, and (y*ζ²)³ = y³*ζ⁶ = c*ζ⁶ = x ✓
+	var cw Element
+	cw.Mul(&c, &omega)
+	if cw.Equal(x) {
+		return z.Mul(&y, &zeta2)
+	}
+
+	// x is not a cubic residue
+	return nil
+}
+
+// Cube sets z to x^3 and returns z
+func (z *Element) Cube(x *Element) *Element {
+	var t Element
+	t.Square(x).Mul(&t, x)
+	z.Set(&t)
+	return z
+}
+
 const (
 	k               = 32 // word size / 2
 	signBitSelector = uint64(1) << 63

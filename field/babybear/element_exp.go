@@ -20,10 +20,6 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 	//
 	// Operations: 2 squares 2 multiplies
 
-	// Allocate Temporaries.
-	var ()
-
-	// var
 	// Step 1: z = x^0x2
 	z.Square(&x)
 
@@ -35,6 +31,154 @@ func (z *Element) ExpBySqrtExp(x Element) *Element {
 
 	// Step 4: z = x^0x7
 	z.Mul(&x, z)
+
+	return z
+}
+
+// ExpByCbrt2QPlus1Div9 is equivalent to z.Exp(x, 1aaaaaab).
+// It raises x to the (2q+1)/9 power using a shorter addition chain.
+// This is used when q ≡ 4 (mod 9) for efficient cube root computation.
+//
+// uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
+func (z *Element) ExpByCbrt2QPlus1Div9(x Element) *Element {
+	// addition chain:
+	//
+	//	_10      = 2*1
+	//	_11      = 1 + _10
+	//	_110     = 2*_11
+	//	_1001    = _11 + _110
+	//	_10010   = 2*_1001
+	//	_10101   = _11 + _10010
+	//	_1010100 = _10101 << 2
+	//	i15      = _1010100 << 6 + _1010100
+	//	i17      = 2*i15 + _11
+	//	return     (2*i17 + i15) << 14 + i17
+	//
+	// Operations: 27 squares 7 multiplies
+	var t0, t1 Element
+
+	// Step 1: z = x^0x2
+	z.Square(&x)
+
+	// Step 2: z = x^0x3
+	z.Mul(&x, z)
+
+	// Step 3: t0 = x^0x6
+	t0.Square(z)
+
+	// Step 4: t0 = x^0x9
+	t0.Mul(z, &t0)
+
+	// Step 5: t0 = x^0x12
+	t0.Square(&t0)
+
+	// Step 6: t0 = x^0x15
+	t0.Mul(z, &t0)
+
+	// Step 8: t0 = x^0x54
+	for range 2 {
+		t0.Square(&t0)
+	}
+
+	// Step 14: t1 = x^0x1500
+	t1.Square(&t0)
+	for s := 1; s < 6; s++ {
+		t1.Square(&t1)
+	}
+
+	// Step 15: t0 = x^0x1554
+	t0.Mul(&t0, &t1)
+
+	// Step 16: t1 = x^0x2aa8
+	t1.Square(&t0)
+
+	// Step 17: z = x^0x2aab
+	z.Mul(z, &t1)
+
+	// Step 18: t1 = x^0x5556
+	t1.Square(z)
+
+	// Step 19: t0 = x^0x6aaa
+	t0.Mul(&t0, &t1)
+
+	// Step 33: t0 = x^0x1aaa8000
+	for range 14 {
+		t0.Square(&t0)
+	}
+
+	// Step 34: z = x^0x1aaaaaab
+	z.Mul(z, &t0)
+
+	return z
+}
+
+// ExpByCbrtHelperQMinus4Div9 is equivalent to z.Exp(x, d555555).
+// It raises x to the (q-4)/9 power using an addition chain.
+// This helper is used by cbrtAndNormInverse to share exponentiation between
+// cube root and norm inverse computations.
+//
+// uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
+func (z *Element) ExpByCbrtHelperQMinus4Div9(x Element) *Element {
+	// addition chain:
+	//
+	//	_10     = 2*1
+	//	_100    = 2*_10
+	//	_101    = 1 + _100
+	//	_101000 = _101 << 3
+	//	_101010 = _10 + _101000
+	//	i14     = _101010 << 6 + _101010
+	//	i15     = 1 + i14
+	//	i16     = i14 + i15
+	//	return    (2*i16 + i15) << 14 + i16
+	//
+	// Operations: 26 squares 7 multiplies
+	var t0, t1 Element
+
+	// Step 1: z = x^0x2
+	z.Square(&x)
+
+	// Step 2: t0 = x^0x4
+	t0.Square(z)
+
+	// Step 3: t0 = x^0x5
+	t0.Mul(&x, &t0)
+
+	// Step 6: t0 = x^0x28
+	for range 3 {
+		t0.Square(&t0)
+	}
+
+	// Step 7: z = x^0x2a
+	z.Mul(z, &t0)
+
+	// Step 13: t0 = x^0xa80
+	t0.Square(z)
+	for s := 1; s < 6; s++ {
+		t0.Square(&t0)
+	}
+
+	// Step 14: z = x^0xaaa
+	z.Mul(z, &t0)
+
+	// Step 15: t0 = x^0xaab
+	t0.Mul(&x, z)
+
+	// Step 16: z = x^0x1555
+	z.Mul(z, &t0)
+
+	// Step 17: t1 = x^0x2aaa
+	t1.Square(z)
+
+	// Step 18: t0 = x^0x3555
+	t0.Mul(&t0, &t1)
+
+	// Step 32: t0 = x^0xd554000
+	for range 14 {
+		t0.Square(&t0)
+	}
+
+	// Step 33: z = x^0xd555555
+	z.Mul(z, &t0)
 
 	return z
 }

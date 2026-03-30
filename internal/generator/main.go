@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"fmt"
+	"math/big"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -99,10 +100,30 @@ func main() {
 
 			conf.Fr, err = fieldConfig.NewFieldConfig("fr", "Element", conf.FrModulus, !conf.Equal(config.STARK_CURVE))
 			assertNoError(err)
+			// The torus cbrt helper (ExpByCbrtHelper*) is only used by E2.cbrtTorus via Fp.
+			// Clear it from Fr to avoid emitting dead code in scalar field packages.
+			conf.Fr.CbrtTorusHelperData = nil
+			conf.Fr.CbrtTorusHelperName = ""
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 
 			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
+
+			// Torus cbrt: compute betaInvNeg now that Fp config is available
+			if conf.E2CbrtTorusEnabled && conf.E2CbrtTorusBeta != -1 {
+				p := conf.FpInfo.Modulus()
+				betaAbs := new(big.Int).SetInt64(conf.E2CbrtTorusBetaAbs)
+				betaInv := new(big.Int).ModInverse(betaAbs, p)
+				betaInvMont := new(big.Int).Lsh(betaInv, uint(conf.Fp.NbWords)*uint(conf.Fp.Word.BitSize))
+				betaInvMont.Mod(betaInvMont, p)
+				conf.E2CbrtTorusBetaInvNeg = make([]uint64, conf.Fp.NbWords)
+				mask := new(big.Int).SetUint64(^uint64(0))
+				tmp := new(big.Int).Set(betaInvMont)
+				for i := 0; i < conf.Fp.NbWords; i++ {
+					conf.E2CbrtTorusBetaInvNeg[i] = new(big.Int).And(tmp, mask).Uint64()
+					tmp.Rsh(tmp, 64)
+				}
+			}
 
 			// fp
 			{

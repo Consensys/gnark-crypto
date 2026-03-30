@@ -357,6 +357,36 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[BLS12-377] cube(cbrt) should leave an element invariant", prop.ForAll(
+		func(a *E2) bool {
+			var b, c, d E2
+			b.Square(a).Mul(&b, a) // b = a³
+			result := c.Cbrt(&b)
+			if result == nil {
+				return false
+			}
+			d.Square(&c).Mul(&d, &c) // d = c³
+			return d.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[BLS12-377] cbrt torus should produce a valid cube root", prop.ForAll(
+		func(a *E2) bool {
+			var b E2
+			b.Square(a).Mul(&b, a) // b = a³
+
+			var c E2
+			if c.cbrtTorus(&b) == nil {
+				return false
+			}
+			var check E2
+			check.Square(&c).Mul(&check, &c)
+			return check.Equal(&b)
+		},
+		genA,
+	))
+
 	properties.Property("[BLS12-377] neg(E2) == neg(E2.A0, E2.A1)", prop.ForAll(
 		func(a *E2) bool {
 			var b, c E2
@@ -450,6 +480,20 @@ func BenchmarkE2Sqrt(b *testing.B) {
 	for range b.N {
 		c.Sqrt(&a)
 	}
+}
+
+func BenchmarkE2Cbrt(b *testing.B) {
+	var a, t E2
+	t.MustSetRandom()
+	a.Square(&t).Mul(&a, &t) // a = t³
+
+	b.Run("Torus", func(b *testing.B) {
+		var c E2
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c.cbrtTorus(&a)
+		}
+	})
 }
 
 func BenchmarkE2Exp(b *testing.B) {

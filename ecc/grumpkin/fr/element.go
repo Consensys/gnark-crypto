@@ -1308,6 +1308,84 @@ func (z *Element) Sqrt(x *Element) *Element {
 	return nil
 }
 
+// Cbrt z = ∛x (mod q)
+// if the cube root doesn't exist (x is not a cube mod q)
+// Cbrt leaves z unchanged and returns nil
+func (z *Element) Cbrt(x *Element) *Element {
+	// q ≡ 1 (mod 3)
+	// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
+	// q ≡ 19 (mod 27): cbrt(x) = x^((q+8)/27) * ζ^k
+	var y Element
+	y.ExpByCbrtQPlus8Div27(*x)
+
+	// c = y³
+	var c Element
+	c.Cube(&y)
+
+	// Check if y is already the cube root
+	if c.Equal(x) {
+		return z.Set(&y)
+	}
+
+	// Precomputed constants:
+	// ζ = primitive 9th root of unity
+	// ζ² for adjustment
+	// ω = ζ³ = primitive 3rd root of unity
+	// ω² = ζ⁶
+	var zeta = Element{
+		9092840637269024442,
+		11284133545212953584,
+		7919372827184455520,
+		1596114425137527684,
+	}
+	var zeta2 = Element{
+		1735008219140503419,
+		10465829585049341007,
+		6017168831245289042,
+		1570250484855163800,
+	}
+	var omega = Element{
+		8183898218631979349,
+		12014359695528440611,
+		12263358156045030468,
+		3187210487005268291,
+	}
+	var omega2 = Element{
+		3697675806616062876,
+		9065277094688085689,
+		6918009208039626314,
+		2775033306905974752,
+	}
+
+	// Check if c/x = ω (i.e., c * ω² = x)
+	// With our convention: omega = ζ⁶, omega2 = ζ³
+	// If c * ζ³ = x, then c = x*ζ⁶, and (y*ζ)³ = y³*ζ³ = c*ζ³ = x ✓
+	var cw2 Element
+	cw2.Mul(&c, &omega2)
+	if cw2.Equal(x) {
+		return z.Mul(&y, &zeta)
+	}
+
+	// Check if c/x = ω² (i.e., c * ω = x)
+	// If c * ζ⁶ = x, then c = x*ζ³, and (y*ζ²)³ = y³*ζ⁶ = c*ζ⁶ = x ✓
+	var cw Element
+	cw.Mul(&c, &omega)
+	if cw.Equal(x) {
+		return z.Mul(&y, &zeta2)
+	}
+
+	// x is not a cubic residue
+	return nil
+}
+
+// Cube sets z to x^3 and returns z
+func (z *Element) Cube(x *Element) *Element {
+	var t Element
+	t.Square(x).Mul(&t, x)
+	z.Set(&t)
+	return z
+}
+
 const (
 	k               = 32 // word size / 2
 	signBitSelector = uint64(1) << 63

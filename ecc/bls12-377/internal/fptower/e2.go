@@ -227,6 +227,231 @@ func (z *E2) Sqrt(x *E2) *E2 {
 	return z
 }
 
+// Cbrt sets z to the cube root of x and returns z
+// if the cube root doesn't exist, Cbrt returns nil
+//
+// Reference: https://eprint.iacr.org/2026/392 by Y. El Housni
+func (z *E2) Cbrt(x *E2) *E2 {
+	return z.cbrtTorus(x)
+}
+
+// cbrtVerifyAndAdjust verifies y³ = x. Returns nil if x is not a cubic residue.
+func (z *E2) cbrtVerifyAndAdjust(x *E2, y *E2) *E2 {
+	var c E2
+	c.Square(y).Mul(&c, y)
+	if !c.Equal(x) {
+		return nil
+	}
+	return z.Set(y)
+}
+
+// lucasExponent is e = 3⁻¹ mod (p+1) as little-endian uint64 limbs,
+// used by the Lucas V-chain in cbrtTorus.
+var lucasExponent = [6]uint64{
+	3195374304363544577,
+	553507811686875136,
+	13041240781673928704,
+	12925598459776577839,
+	17059168371523044115,
+	40366104235498232,
+}
+
+// cbrtTorus computes the cube root of x in E2 using the algebraic torus
+// T₂(Fp). It follows https://eprint.iacr.org/2026/392 by Y. El Housni.
+//
+// Additionally it implements an Okeya–Sakurai-style recovery with Hamburg's
+// trick: a single exponentiation of w = U³·N(x), where U =
+// -16·|β|·N(x)·(x₀x₁)², yields cbrt(N(x)), 1/N(x), and 1/U without any
+// standalone Fp inversion. This idea was suggested by B. Smith in a private
+// communication.
+func (z *E2) cbrtTorus(x *E2) *E2 {
+	if x.A1.IsZero() {
+		if z.A0.Cbrt(&x.A0) == nil {
+			return nil
+		}
+		z.A1.SetZero()
+		return z
+	}
+
+	if x.A0.IsZero() {
+		// Fp2 = Fp[u]/(u² - (-5)), so u³ = -5·u
+		// x = x₁·u → y = a·u → y³ = a³·(-5)·u → a³ = x₁/(-5)
+		var negA1OverBeta fp.Element
+		betaInvNeg := fp.Element{
+			330620507644336508,
+			9878087358076053079,
+			11461392860540703536,
+			6973035786057818995,
+			8846909097162646007,
+			104838758629667239,
+		}
+		negA1OverBeta.Neg(&x.A1)
+		negA1OverBeta.Mul(&negA1OverBeta, &betaInvNeg)
+		var y E2
+		if y.A1.Cbrt(&negA1OverBeta) == nil {
+			return nil
+		}
+		y.A0.SetZero()
+		return z.cbrtVerifyAndAdjust(x, &y)
+	}
+
+	var x0sq, x1sq fp.Element
+	x0sq.Square(&x.A0)
+	x1sq.Square(&x.A1)
+	// N = x₀² + 5·x₁² (norm of x, since beta = -5)
+	var norm, betaX1sq fp.Element
+	betaX1sq.Set(&x1sq)
+	fp.MulBy5(&betaX1sq)
+	norm.Add(&x0sq, &betaX1sq)
+
+	var x0x1 fp.Element
+	x0x1.Mul(&x.A0, &x.A1)
+
+	// U = -16·|β|·N·(x₀x₁)²
+	var U fp.Element
+	U.Square(&x0x1)
+	U.Mul(&U, &norm)
+	U.Double(&U)
+	U.Double(&U)
+	U.Double(&U)
+	U.Double(&U)
+	fp.MulBy5(&U)
+	U.Neg(&U)
+
+	// w = U³·N; single exponentiation yields cbrt(w), 1/N, 1/U
+	var U2, U3, w fp.Element
+	U2.Square(&U)
+	U3.Mul(&U2, &U)
+	w.Mul(&U3, &norm)
+
+	// t = w^((q-r)/d); cbrtW = w·t (or w·t² when HelperSquared)
+	var t fp.Element
+	t.ExpByCbrtHelperQMinus7Div9(w)
+
+	var cbrtW, wInv fp.Element
+	// cbrtW = w·t; wInv = cbrtW^5 · t^4
+	cbrtW.Mul(&w, &t)
+
+	var cw2, cw4, cw5 fp.Element
+	cw2.Square(&cbrtW)
+	cw4.Square(&cw2)
+	cw5.Mul(&cw4, &cbrtW)
+	var tw2, tw4 fp.Element
+	tw2.Square(&t)
+	tw4.Square(&tw2)
+	wInv.Mul(&cw5, &tw4)
+
+	// Recover: UInv = U²·N·wInv, m = cbrtW·UInv = cbrt(N), normInv = U³·wInv = 1/N
+	var UInv, normInv, m fp.Element
+	UInv.Mul(&U2, &norm)
+	UInv.Mul(&UInv, &wInv)
+	m.Mul(&cbrtW, &UInv)
+	normInv.Mul(&U3, &wInv)
+
+	// DeltaInv = N³·UInv
+	var n2, n3, deltaInv fp.Element
+	n2.Square(&norm)
+	n3.Mul(&n2, &norm)
+	deltaInv.Mul(&n3, &UInv)
+
+	// tau = 2·(x₀² - |β|·x₁²)/N = trace of x^{p-1} on T₂
+	var halfTau, tau fp.Element
+	halfTau.Sub(&x0sq, &betaX1sq)
+	halfTau.Mul(&halfTau, &normInv)
+	tau.Double(&halfTau)
+
+	// Te = V_e(tau), Te1 = V_{e+1}(tau) from the Lucas V-ladder
+	Te, Te1 := lucasV(&tau)
+
+	// imY = 2·x₀x₁/N (imaginary part of x^{p-1} on T₂)
+	var imY fp.Element
+	imY.Double(&x0x1)
+	imY.Mul(&imY, &normInv)
+
+	// WA0 = Te1 - halfTau·Te, WA1 = imY·Te
+	var WA0, WA1 fp.Element
+	WA0.Mul(&halfTau, &Te)
+	WA0.Sub(&Te1, &WA0)
+	WA1.Mul(&imY, &Te)
+
+	// k = 2·imY·DeltaInv
+	var sIm, k fp.Element
+	sIm.Double(&imY)
+	k.Mul(&sIm, &deltaInv)
+
+	// gamma = (-|β|·WA1·k, WA0·k)  [conjugate of torus element scaled by k]
+	var gamma E2
+	gamma.A0.Mul(&WA1, &k)
+	fp.MulBy5(&gamma.A0)
+	gamma.A0.Neg(&gamma.A0)
+	gamma.A1.Mul(&WA0, &k)
+
+	// mInv = m²·normInv = 1/m
+	var mInv fp.Element
+	mInv.Square(&m)
+	mInv.Mul(&mInv, &normInv)
+
+	// y = x · conj(gamma) · mInv
+	// y.A0 = (x₀·γ₀ + |β|·x₁·γ₁) · mInv
+	// y.A1 = (x₁·γ₀ - x₀·γ₁) · mInv
+	var y E2
+	var r1, r2 fp.Element
+	r1.Mul(&x.A0, &gamma.A0)
+	r2.Mul(&x.A1, &gamma.A1)
+	fp.MulBy5(&r2)
+	y.A0.Add(&r1, &r2)
+	y.A0.Mul(&y.A0, &mInv)
+	r1.Mul(&x.A1, &gamma.A0)
+	r2.Mul(&x.A0, &gamma.A1)
+	y.A1.Sub(&r1, &r2)
+	y.A1.Mul(&y.A1, &mInv)
+
+	return z.cbrtVerifyAndAdjust(x, &y)
+}
+
+// lucasV returns (V_e(alpha, 1), V_{e+1}(alpha, 1)) where e = 3⁻¹ mod (p+1),
+// using the Lucas V-sequence with Q=1 and a Montgomery ladder on precomputed bits.
+//
+// Since Q=1, Q^k=1 for all k, so we don't need to track it.
+// Recurrence: V_{n+1} = alpha·V_n - V_{n-1}, V_0 = 2, V_1 = alpha.
+//
+// Per-bit step (maintaining V_k, V_{k+1}):
+//
+//	prod    = V_k·V_{k+1} - alpha
+//	bit=0: V_{2k}   = V_k² - 2,      V_{2k+1} = prod
+//	bit=1: V_{2k+1} = prod,           V_{2k+2} = V_{k+1}² - 2
+func lucasV(alpha *fp.Element) (fp.Element, fp.Element) {
+	// Initialize for MSB=1: V_1 = alpha, V_2 = alpha² - 2
+	var v0, v1, two fp.Element
+	two.SetUint64(2)
+	v0.Set(alpha)
+	v1.Square(alpha).Sub(&v1, &two)
+
+	var prod fp.Element
+
+	// Process bits down to 1
+	for i := 375 - 1; i >= 1; i-- {
+		bit := (lucasExponent[i/64] >> uint(i%64)) & 1
+
+		// prod = V_k · V_{k+1} - alpha
+		prod.Mul(&v0, &v1).Sub(&prod, alpha)
+
+		if bit == 0 {
+			v1.Set(&prod)
+			v0.Square(&v0).Sub(&v0, &two)
+		} else {
+			v0.Set(&prod)
+			v1.Square(&v1).Sub(&v1, &two)
+		}
+	}
+
+	// Last bit (bit 0 = 1): return both V_e = v0·v1 - alpha and V_{e+1} = v1² - 2
+	var Te, Te1 fp.Element
+	Te.Mul(&v0, &v1).Sub(&Te, alpha)
+	Te1.Square(&v1).Sub(&Te1, &two)
+	return Te, Te1
+}
+
 // BatchInvertE2 returns a new slice with every element in a inverted.
 // It uses Montgomery batch inversion trick.
 //

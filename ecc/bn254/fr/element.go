@@ -1516,6 +1516,84 @@ func (z *Element) SqrtTonelliShanks(x *Element) *Element {
 	}
 }
 
+// Cbrt z = ∛x (mod q)
+// if the cube root doesn't exist (x is not a cube mod q)
+// Cbrt leaves z unchanged and returns nil
+func (z *Element) Cbrt(x *Element) *Element {
+	// q ≡ 1 (mod 3)
+	// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
+	// q ≡ 19 (mod 27): cbrt(x) = x^((q+8)/27) * ζ^k
+	var y Element
+	y.ExpByCbrtQPlus8Div27(*x)
+
+	// c = y³
+	var c Element
+	c.Cube(&y)
+
+	// Check if y is already the cube root
+	if c.Equal(x) {
+		return z.Set(&y)
+	}
+
+	// Precomputed constants:
+	// ζ = primitive 9th root of unity
+	// ζ² for adjustment
+	// ω = ζ³ = primitive 3rd root of unity
+	// ω² = ζ⁶
+	var zeta = Element{
+		2334652412973263150,
+		11279232346535882055,
+		7276793036509390088,
+		1261278247373954491,
+	}
+	var zeta2 = Element{
+		2646941981390288010,
+		16500995867564677708,
+		15734335149907747659,
+		3321150998790373310,
+	}
+	var omega = Element{
+		244305545194690131,
+		8351807910065594880,
+		14266533074055306532,
+		404339206190769364,
+	}
+	var omega2 = Element{
+		10657714497315350963,
+		9029678389775483239,
+		10080386412464207114,
+		2070906320917503013,
+	}
+
+	// Check if c/x = ω (i.e., c * ω² = x)
+	// With our convention: omega = ζ⁶, omega2 = ζ³
+	// If c * ζ³ = x, then c = x*ζ⁶, and (y*ζ)³ = y³*ζ³ = c*ζ³ = x ✓
+	var cw2 Element
+	cw2.Mul(&c, &omega2)
+	if cw2.Equal(x) {
+		return z.Mul(&y, &zeta)
+	}
+
+	// Check if c/x = ω² (i.e., c * ω = x)
+	// If c * ζ⁶ = x, then c = x*ζ³, and (y*ζ²)³ = y³*ζ⁶ = c*ζ⁶ = x ✓
+	var cw Element
+	cw.Mul(&c, &omega)
+	if cw.Equal(x) {
+		return z.Mul(&y, &zeta2)
+	}
+
+	// x is not a cubic residue
+	return nil
+}
+
+// Cube sets z to x^3 and returns z
+func (z *Element) Cube(x *Element) *Element {
+	var t Element
+	t.Square(x).Mul(&t, x)
+	z.Set(&t)
+	return z
+}
+
 const (
 	k               = 32 // word size / 2
 	signBitSelector = uint64(1) << 63
