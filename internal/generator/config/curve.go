@@ -110,6 +110,13 @@ func (c Curve) GeneratePairingPackages() bool {
 	return c.HasG2()
 }
 
+func (p Point) CMax() int {
+	if len(p.CRange) == 0 {
+		return 0
+	}
+	return p.CRange[len(p.CRange)-1]
+}
+
 type Point struct {
 	CoordType        string
 	CoordExtDegree   uint8 // value n, such that q = pⁿ

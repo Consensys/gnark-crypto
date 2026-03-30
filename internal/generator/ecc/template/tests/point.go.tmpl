@@ -10,10 +10,7 @@
 	{{$fuzzer = "GenE4()"}}
 {{- end}}
 
-{{$c := 16}}
-{{if eq .Name "secp256k1"}}
-    {{$c = 15}}
-{{end}}
+{{$c := .CMax}}
 
 import (
 	"fmt"
