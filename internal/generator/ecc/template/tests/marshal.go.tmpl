@@ -428,7 +428,7 @@ func GenFp() gopter.Gen {
 
 {{if not .HasG2}}
 {{/* no extension field generators needed for curves without G2 */}}
-{{else if or (eq .Name "bw6-633") (eq .Name "bw6-761")}}
+{{else if eq .G2.CoordType "fp.Element"}}
 	// GenE3 generates an E3 elmt
 	func GenE3() gopter.Gen {
 		return gopter.CombineGens(
@@ -460,7 +460,7 @@ func GenFp() gopter.Gen {
 		})
 	}
 
-    {{if or (eq .Name "bls24-315") (eq .Name "bls24-317")}}
+    {{if eq .G2.CoordType "fptower.E4"}}
 		// GenE4 generates an fptower.E4 elmt
 		func GenE4() gopter.Gen {
 			return gopter.CombineGens(
