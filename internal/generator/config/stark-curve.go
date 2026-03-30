@@ -1,13 +1,14 @@
 package config
 
 var STARK_CURVE = Curve{
-	Name:         "stark-curve",
-	CurvePackage: "starkcurve",
-	EnumID:       "STARK_CURVE",
-	FrModulus:    "3618502788666131213697322783095070105526743751716087489154079457884512865583",
-	FpModulus:    "3618502788666131213697322783095070105623107215331596699973092056135872020481",
-	NoFieldSuite: true,
-	NoECC:        true,
+	Name:             "stark-curve",
+	CurvePackage:     "starkcurve",
+	EnumID:           "STARK_CURVE",
+	FrModulus:        "3618502788666131213697322783095070105526743751716087489154079457884512865583",
+	FpModulus:        "3618502788666131213697322783095070105623107215331596699973092056135872020481",
+	NoFieldSuite:     true,
+	NoECC:            true,
+	ECDSAKeyRecovery: true,
 	G1: Point{
 		CoordType:        "fp.Element",
 		CoordExtDegree:   1,

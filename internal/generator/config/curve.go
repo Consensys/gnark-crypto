@@ -34,6 +34,9 @@ type Curve struct {
 	// NoECC disables the ECC package generation (G1, G2, multiexp, marshal).
 	// Used for curves that only need field arithmetic and ECDSA (e.g., stark-curve, secp256r1).
 	NoECC bool
+
+	// ECDSAKeyRecovery enables ECDSA public key recovery (SignForRecover, RecoverPublicKey).
+	ECDSAKeyRecovery bool
 }
 
 type TwistedEdwardsCurve struct {
