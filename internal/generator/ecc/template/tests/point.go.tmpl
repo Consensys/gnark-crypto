@@ -1152,7 +1152,7 @@ func fuzz{{ $TJacobianExtended }}(p *{{ $TJacobianExtended }}, f {{ .CoordType}}
 	return res
 }
 
-{{- if eq .Name "secp256k1"}}
+{{- if not .GenerateMarshal}}
 const (
        nbFuzzShort = 10
        nbFuzz      = 100

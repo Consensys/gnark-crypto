@@ -12,18 +12,24 @@ import (
 	"reflect"
 	"errors"
 	"encoding/binary"
+	{{- if ge .FpUnusedBits 2}}
 	"sync/atomic"
+	{{- end}}
 
+	{{- if .HasG2}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
+	{{- end}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+	{{- if ge .FpUnusedBits 2}}
 	"github.com/consensys/gnark-crypto/parallel"
+	{{- end}}
 )
 
 
-// To encode G1Affine and G2Affine points, we mask the most significant bits with these bits to specify without ambiguity
-// metadata needed for point (de)compression
 {{- if ge .FpUnusedBits 3}}
+// To encode G1Affine {{- if .HasG2}} and G2Affine {{- end}} points, we mask the most significant bits with these bits to specify without ambiguity
+// metadata needed for point (de)compression
 // we follow the BLS12-381 style encoding as specified in ZCash and now IETF
 // see https://datatracker.ietf.org/doc/draft-irtf-cfrg-pairing-friendly-curves/11/
 // Appendix C.  ZCash serialization format for BLS12_381
@@ -38,7 +44,9 @@ const (
 	mCompressedInfinity    byte = 0b110 << 5
 	_ byte 						= 0b111 << 5 // invalid
 )
-{{- else}}
+{{- else if ge .FpUnusedBits 2}}
+// To encode G1Affine {{- if .HasG2}} and G2Affine {{- end}} points, we mask the most significant bits with these bits to specify without ambiguity
+// metadata needed for point (de)compression
 // we have less than 3 bits available on the msw, so we can't follow BLS12-381 style encoding.
 // the difference is the case where a point is infinity and uncompressed is not flagged
 const (
@@ -49,14 +57,19 @@ const (
 	mCompressedInfinity byte = 0b01 << 6
 )
 {{- end}}
+{{- /* when FpUnusedBits < 2, no point compression is available; only uncompressed serialization is generated */}}
 
+{{- if .HasG2}}
 // SizeOfGT represents the size in bytes that a GT element need in binary form
 const SizeOfGT = fptower.SizeOfGT
+{{- end}}
 
+{{- if ge .FpUnusedBits 2}}
 var (
 	ErrInvalidInfinityEncoding = errors.New("invalid infinity point encoding")
 	ErrInvalidEncoding = errors.New("invalid point encoding")
 )
+{{- end}}
 
 // Encoder writes {{.Name}} object values to an output stream
 type Encoder struct {
@@ -86,7 +99,7 @@ func NewDecoder(r io.Reader, options ...func(*Decoder)) *Decoder {
 
 
 // Decode reads the binary encoding of v from the stream
-// type must be *uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, *[]G1Affine or *[]G2Affine
+// type must be *uint64, *fr.Element, *fp.Element, *G1Affine, {{- if .HasG2}} *G2Affine, {{- end}} *[]G1Affine {{- if .HasG2}} or *[]G2Affine {{- end}}
 func (dec *Decoder) Decode(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
@@ -106,7 +119,11 @@ func (dec *Decoder) Decode(v any) (err error) {
 		return
 	}
 
+	{{- if .HasG2}}
 	var buf [SizeOfG2AffineUncompressed]byte
+	{{- else}}
+	var buf [SizeOfG1AffineUncompressed]byte
+	{{- end}}
 	var read int
 	var sliceLen uint32
 
@@ -197,6 +214,7 @@ func (dec *Decoder) Decode(v any) (err error) {
 		}
 		return
 	case *G1Affine:
+		{{- if ge .FpUnusedBits 2}}
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
 		read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineCompressed])
 		dec.n += int64(read)
@@ -213,10 +231,10 @@ func (dec *Decoder) Decode(v any) (err error) {
 		}
 		{{- end}}
 
-		// most significant byte contains metadata 
+		// most significant byte contains metadata
 		if !isCompressed(buf[0]) {
 			nbBytes = SizeOfG1AffineUncompressed
-			// we read more. 
+			// we read more.
 			read, err = io.ReadFull(dec.r, buf[SizeOfG1AffineCompressed:SizeOfG1AffineUncompressed])
 			dec.n += int64(read)
 			if err != nil {
@@ -224,7 +242,17 @@ func (dec *Decoder) Decode(v any) (err error) {
 			}
 		}
 		_, err = t.setBytes(buf[:nbBytes], dec.subGroupCheck)
-		return 
+		{{- else}}
+		// no point compression
+		read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineUncompressed])
+		dec.n += int64(read)
+		if err != nil {
+			return
+		}
+		_, err = t.setBytes(buf[:SizeOfG1AffineUncompressed], dec.subGroupCheck)
+		{{- end}}
+		return
+	{{- if .HasG2}}
 	case *G2Affine:
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
 		read, err = io.ReadFull(dec.r, buf[:SizeOfG2AffineCompressed])
@@ -242,10 +270,10 @@ func (dec *Decoder) Decode(v any) (err error) {
 		}
 		{{- end}}
 
-		// most significant byte contains metadata 
+		// most significant byte contains metadata
 		if !isCompressed(buf[0]) {
 			nbBytes = SizeOfG2AffineUncompressed
-			// we read more. 
+			// we read more.
 			read, err = io.ReadFull(dec.r, buf[SizeOfG2AffineCompressed:SizeOfG2AffineUncompressed])
 			dec.n += int64(read)
 			if err != nil {
@@ -253,7 +281,8 @@ func (dec *Decoder) Decode(v any) (err error) {
 			}
 		}
 		_, err = t.setBytes(buf[:nbBytes], dec.subGroupCheck)
-		return 
+		return
+	{{- end}}
 	case *[]G1Affine:
 		sliceLen, err = dec.readUint32()
 		if err != nil {
@@ -262,6 +291,7 @@ func (dec *Decoder) Decode(v any) (err error) {
 		if len(*t) != int(sliceLen) || *t == nil {
 			*t = make([]G1Affine, sliceLen)
 		}
+		{{- if ge .FpUnusedBits 2}}
 		compressed := make([]bool, sliceLen)
 		for i := range len(*t) {
 
@@ -281,10 +311,10 @@ func (dec *Decoder) Decode(v any) (err error) {
 			}
 			{{- end}}
 
-			// most significant byte contains metadata 
+			// most significant byte contains metadata
 			if !isCompressed(buf[0]) {
 				nbBytes = SizeOfG1AffineUncompressed
-				// we read more. 
+				// we read more.
 				read, err = io.ReadFull(dec.r, buf[SizeOfG1AffineCompressed:SizeOfG1AffineUncompressed])
 				dec.n += int64(read)
 				if err != nil {
@@ -295,9 +325,9 @@ func (dec *Decoder) Decode(v any) (err error) {
 					return
 				}
 			} else {
-				var r bool 
+				var r bool
 				if r, err = (*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]); err != nil {
-					return 
+					return
 				}
 				compressed[i] = !r
 			}
@@ -319,8 +349,21 @@ func (dec *Decoder) Decode(v any) (err error) {
 		if nbErrs != 0 {
 			return errors.New("point decompression failed")
 		}
-		
+		{{- else}}
+		for i := range len(*t) {
+			read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineUncompressed])
+			dec.n += int64(read)
+			if err != nil {
+				return
+			}
+			if _, err = (*t)[i].setBytes(buf[:SizeOfG1AffineUncompressed], dec.subGroupCheck); err != nil {
+				return
+			}
+		}
+		{{- end}}
+
 		return nil
+	{{- if .HasG2}}
 	case *[]G2Affine:
 		sliceLen, err = dec.readUint32()
 		if err != nil {
@@ -349,10 +392,10 @@ func (dec *Decoder) Decode(v any) (err error) {
 			}
 			{{- end}}
 
-			// most significant byte contains metadata 
+			// most significant byte contains metadata
 			if !isCompressed(buf[0]) {
 				nbBytes = SizeOfG2AffineUncompressed
-				// we read more. 
+				// we read more.
 				read, err = io.ReadFull(dec.r, buf[SizeOfG2AffineCompressed:SizeOfG2AffineUncompressed])
 				dec.n += int64(read)
 				if err != nil {
@@ -387,8 +430,9 @@ func (dec *Decoder) Decode(v any) (err error) {
 		if nbErrs != 0 {
 			return errors.New("point decompression failed")
 		}
-		
+
 		return nil
+	{{- end}}
 	default:
 		n := binary.Size(t)
 		if n == -1 {
@@ -431,6 +475,8 @@ func (dec *Decoder) readUint64() (r uint64, err error) {
 	return
 }
 
+{{- if ge .FpUnusedBits 2}}
+
 {{ if ge .FpUnusedBits 3}}
 // isMaskInvalid returns true if the mask is invalid
 func isMaskInvalid(msb byte) bool {
@@ -443,6 +489,8 @@ func isCompressed(msb byte) bool {
 	mData := msb & mMask
 	return mData != mUncompressed{{- if ge .FpUnusedBits 3}}&& mData != mUncompressedInfinity {{- end}}
 }
+
+{{- end}}
 
 
 // NewEncoder returns a binary encoder supporting curve {{.Name}} objects
@@ -464,7 +512,7 @@ func NewEncoder(w io.Writer, options ...func(*Encoder)) *Encoder {
 
 
 // Encode writes the binary encoding of v to the stream
-// type must be uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, []G1Affine, []G2Affine, *[]G1Affine or *[]G2Affine
+// type must be uint64, *fr.Element, *fp.Element, *G1Affine, {{- if .HasG2}} *G2Affine, {{- end}} []G1Affine, {{- if .HasG2}} []G2Affine, {{- end}} *[]G1Affine {{- if .HasG2}} or *[]G2Affine {{- end}}
 func (enc *Encoder) Encode(v any) (err error) {
 	if enc.raw {
 		return enc.encodeRaw(v)
@@ -494,6 +542,7 @@ func NoSubgroupChecks() func(*Decoder)  {
 	}
 }
 
+{{- if ge .FpUnusedBits 2}}
 // isZeroed checks that the provided bytes are at 0
 func isZeroed(firstByte byte, buf []byte) bool {
 	if firstByte != 0 {
@@ -506,9 +555,10 @@ func isZeroed(firstByte byte, buf []byte) bool {
 	}
 	return true
 }
+{{- end}}
 
-{{template "encode" dict "Raw" ""}}
-{{template "encode" dict "Raw" "Raw"}}
+{{template "encode" dict "Raw" "" "HasG2" .HasG2 "SupportsPointCompression" .SupportsPointCompression "Name" .Name}}
+{{template "encode" dict "Raw" "Raw" "HasG2" .HasG2 "SupportsPointCompression" .SupportsPointCompression "Name" .Name}}
 
 func (enc *Encoder) writeUint64Slice(t []uint64) (err error) {
 	if err = enc.writeUint32(uint32(len(t))); err != nil {
@@ -594,11 +644,13 @@ func (enc *Encoder) encode{{- $.Raw}}(v any) (err error) {
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return  
+	{{- if .HasG2}}
 	case *G2Affine:
 		buf := t.{{- $.Raw}}Bytes()
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return
+	{{- end}}
 	case fr.Vector:
 		written64, err = t.WriteTo(enc.w)
 		enc.n += written64
@@ -655,7 +707,7 @@ func (enc *Encoder) encode{{- $.Raw}}(v any) (err error) {
 		}
 		enc.n += 4
 
-		var buf [SizeOfG1Affine{{- if $.Raw}}Uncompressed{{- else}}Compressed{{- end}}]byte
+		var buf [SizeOfG1Affine{{- if or $.Raw (not $.SupportsPointCompression)}}Uncompressed{{- else}}Compressed{{- end}}]byte
 
 		for i := range len(t) {
 			buf = t[i].{{- $.Raw}}Bytes()
@@ -666,6 +718,7 @@ func (enc *Encoder) encode{{- $.Raw}}(v any) (err error) {
 			}
 		}
 		return nil
+	{{- if .HasG2}}
 	case *[]G2Affine:
 		return enc.encode{{- $.Raw}}(*t)
 	case []G2Affine:
@@ -687,6 +740,7 @@ func (enc *Encoder) encode{{- $.Raw}}(v any) (err error) {
 			}
 		}
 		return nil
+	{{- end}}
 	default:
 		n := binary.Size(t)
 		if n == -1 {
@@ -703,7 +757,9 @@ func (enc *Encoder) encode{{- $.Raw}}(v any) (err error) {
 {{- $sizeOfFp := mul .Fp.NbWords 8}}
 
 {{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp "CoordType" .G1.CoordType "PointName" .G1.PointName "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange}}
+{{- if .HasG2}}
 {{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp  "CoordType" .G2.CoordType "PointName" .G2.PointName "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange}}
+{{- end}}
 
 
 
@@ -713,11 +769,17 @@ func (enc *Encoder) encode{{- $.Raw}}(v any) (err error) {
 
 
 
+{{- if ge .all.FpUnusedBits 2}}
 // SizeOf{{ $.TAffine }}Compressed represents the size in bytes that a {{ $.TAffine }} need in binary form, compressed
 const SizeOf{{ $.TAffine }}Compressed = {{ $.sizeOfFp }} {{- if eq $.CoordType "fptower.E2"}} * 2 {{- end}} {{- if eq $.CoordType "fptower.E4"}} * 4 {{- end}}
+{{- end}}
 
 // SizeOf{{ $.TAffine }}Uncompressed represents the size in bytes that a {{ $.TAffine }} need in binary form, uncompressed
+{{- if ge .all.FpUnusedBits 2}}
 const SizeOf{{ $.TAffine }}Uncompressed = SizeOf{{ $.TAffine }}Compressed * 2
+{{- else}}
+const SizeOf{{ $.TAffine }}Uncompressed = {{ $.sizeOfFp }} {{- if eq $.CoordType "fptower.E2"}} * 2 {{- end}} {{- if eq $.CoordType "fptower.E4"}} * 4 {{- end}} * 2
+{{- end}}
 
 
 
@@ -736,6 +798,7 @@ func (p *{{ $.TAffine }}) Unmarshal(buf []byte) error {
 
 
 
+{{- if ge .all.FpUnusedBits 2}}
 // Bytes returns binary representation of p
 // will store X coordinate in regular form and a parity bit
 {{- if ge .all.FpUnusedBits 3}}
@@ -768,8 +831,8 @@ func (p *{{ $.TAffine }}) Bytes() (res [SizeOf{{ $.TAffine }}Compressed]byte) {
 
 	msbMask := mCompressedSmallest
 	// compressed, we need to know if Y is lexicographically bigger than -Y
-	// if p.Y ">" -p.Y 
-	if p.Y.LexicographicallyLargest() { 
+	// if p.Y ">" -p.Y
+	if p.Y.LexicographicallyLargest() {
 		msbMask = mCompressedLargest
 	}
 
@@ -779,7 +842,7 @@ func (p *{{ $.TAffine }}) Bytes() (res [SizeOf{{ $.TAffine }}Compressed]byte) {
 		{{- $offset := $.sizeOfFp}}
 		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.A0"}}
 		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X.A1"}}
-	{{- else if eq $.CoordType "fptower.E4"}}	
+	{{- else if eq $.CoordType "fptower.E4"}}
 		// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
 		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X.B1.A1"}}
 		{{- $offset := mul $.sizeOfFp 1}}
@@ -796,6 +859,13 @@ func (p *{{ $.TAffine }}) Bytes() (res [SizeOf{{ $.TAffine }}Compressed]byte) {
 
 	return
 }
+{{- else}}
+// Bytes returns binary representation of p (stores X and Y coordinate)
+// point compression is not available for this curve
+func (p *{{ $.TAffine }}) Bytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byte) {
+	return p.RawBytes()
+}
+{{- end}}
 
 
 // RawBytes returns binary representation of p (stores X and Y coordinate)
@@ -804,11 +874,11 @@ func (p *{{ $.TAffine }}) RawBytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byt
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
-		{{if ge .all.FpUnusedBits 3}}
-			res[0] = mUncompressedInfinity
-		{{else}}
-			res[0] = mUncompressed 
-		{{end}}
+		{{- if ge .all.FpUnusedBits 3}}
+		res[0] = mUncompressedInfinity
+		{{- else if ge .all.FpUnusedBits 2}}
+		res[0] = mUncompressed
+		{{- end}}
 		return
 	}
 
@@ -855,9 +925,11 @@ func (p *{{ $.TAffine }}) RawBytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byt
 		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X"}}
 	{{- end}}
 
+	{{- if ge .all.FpUnusedBits 2}}
 	res[0] |= mUncompressed
+	{{- end}}
 
-	return 
+	return
 }
 
 
@@ -876,6 +948,7 @@ func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error)  {
 }
 
 
+{{- if ge .all.FpUnusedBits 2}}
 func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error)  {
 	if len(buf) < SizeOf{{ $.TAffine }}Compressed {
 		return 0, io.ErrShortBuffer
@@ -890,14 +963,14 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 		return 0, ErrInvalidEncoding
 	}
 	{{- end}}
-	
+
 
 	// check buffer size
 	if (mData == mUncompressed) {{- if ge .all.FpUnusedBits 3}} || (mData == mUncompressedInfinity) {{- end}}  {
 		if len(buf) < SizeOf{{ $.TAffine }}Uncompressed {
 			return 0, io.ErrShortBuffer
 		}
-	} 
+	}
 
 	// infinity encoded, we still check that the buffer is full of zeroes.
 	if (mData == mCompressedInfinity) {
@@ -909,7 +982,7 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 		return SizeOf{{ $.TAffine }}Compressed, nil
 	}
 
-	{{- if ge .all.FpUnusedBits 3}} 
+	{{- if ge .all.FpUnusedBits 3}}
 	if (mData == mUncompressedInfinity) {
 		if !isZeroed(buf[0] & ^mMask, buf[1:SizeOf{{ $.TAffine }}Uncompressed]) {
 			return 0, ErrInvalidInfinityEncoding
@@ -918,7 +991,7 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 		p.Y.SetZero()
 		return SizeOf{{ $.TAffine }}Uncompressed, nil
 	}
-	{{- end}} 
+	{{- end}}
 
 	// uncompressed point
 	if mData == mUncompressed {
@@ -938,7 +1011,7 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 			if err := p.Y.A0.SetBytesCanonical(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
 				return 0, err
 			}
-		{{- else if eq $.CoordType "fptower.E4"}}	
+		{{- else if eq $.CoordType "fptower.E4"}}
 			// p.X.B1.A1 | p.X.B1.A0 | p.X.B0.A1 | p.X.B0.A0
 			if err := p.X.B1.A1.SetBytesCanonical(buf[fp.Bytes*0:fp.Bytes*1]); err != nil {
 				return 0, err
@@ -974,7 +1047,7 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 			}
 		{{- end}}
 
-		// subgroup check 
+		// subgroup check
 		if subGroupCheck && !p.IsInSubGroup() {
 			return 0, errors.New("invalid point: subgroup check failed")
 		}
@@ -1180,6 +1253,69 @@ func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool,
 	return isInfinity, nil
 }
 
+{{- else}}
+// no point compression - setBytes only handles uncompressed format
+func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) {
+	if len(buf) < SizeOf{{ $.TAffine }}Uncompressed {
+		return 0, io.ErrShortBuffer
+	}
+
+	// read X and Y coordinates
+	{{- if eq $.CoordType "fptower.E2"}}
+		if err := p.X.A1.SetBytesCanonical(buf[:fp.Bytes]); err != nil {
+			return 0, err
+		}
+		if err := p.X.A0.SetBytesCanonical(buf[fp.Bytes:fp.Bytes*2]); err != nil {
+			return 0, err
+		}
+		if err := p.Y.A1.SetBytesCanonical(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
+			return 0, err
+		}
+		if err := p.Y.A0.SetBytesCanonical(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
+			return 0, err
+		}
+	{{- else if eq $.CoordType "fptower.E4"}}
+		if err := p.X.B1.A1.SetBytesCanonical(buf[fp.Bytes*0:fp.Bytes*1]); err != nil {
+			return 0, err
+		}
+		if err := p.X.B1.A0.SetBytesCanonical(buf[fp.Bytes*1:fp.Bytes*2]); err != nil {
+			return 0, err
+		}
+		if err := p.X.B0.A1.SetBytesCanonical(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
+			return 0, err
+		}
+		if err := p.X.B0.A0.SetBytesCanonical(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
+			return 0, err
+		}
+		if err := p.Y.B1.A1.SetBytesCanonical(buf[fp.Bytes*4:fp.Bytes*5]); err != nil {
+			return 0, err
+		}
+		if err := p.Y.B1.A0.SetBytesCanonical(buf[fp.Bytes*5:fp.Bytes*6]); err != nil {
+			return 0, err
+		}
+		if err := p.Y.B0.A1.SetBytesCanonical(buf[fp.Bytes*6:fp.Bytes*7]); err != nil {
+			return 0, err
+		}
+		if err := p.Y.B0.A0.SetBytesCanonical(buf[fp.Bytes*7:fp.Bytes*8]); err != nil {
+			return 0, err
+		}
+	{{- else}}
+		if err := p.X.SetBytesCanonical(buf[:fp.Bytes]); err != nil {
+			return 0, err
+		}
+		if err := p.Y.SetBytesCanonical(buf[fp.Bytes:fp.Bytes*2]); err != nil {
+			return 0, err
+		}
+	{{- end}}
+
+	// subgroup check
+	if subGroupCheck && !p.IsInSubGroup() {
+		return 0, errors.New("invalid point: subgroup check failed")
+	}
+
+	return SizeOf{{ $.TAffine }}Uncompressed, nil
+}
+{{- end}}
 
 
 {{end}}
