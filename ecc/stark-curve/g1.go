@@ -515,8 +515,10 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 
 // Triple sets p to [3]q in Jacobian coordinates.
 func (p *G1Jac) Triple(q *G1Jac) *G1Jac {
-	// general case: double and add
-	p.Double(q).AddAssign(q)
+	// general case: double and add (use temp to handle p == q aliasing)
+	var tmp G1Jac
+	tmp.Double(q).AddAssign(q)
+	p.Set(&tmp)
 	return p
 }
 

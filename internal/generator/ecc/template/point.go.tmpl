@@ -638,8 +638,10 @@ func (p *{{ $TJacobian }}) DoubleAssign() *{{ $TJacobian }} {
 {{- end}}
 func (p *{{ $TJacobian }}) Triple(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 {{- if not .IsZeroA}}
-	// general case: double and add
-	p.Double(q).AddAssign(q)
+	// general case: double and add (use temp to handle p == q aliasing)
+	var tmp {{ $TJacobian }}
+	tmp.Double(q).AddAssign(q)
+	p.Set(&tmp)
 	return p
 }
 {{- else}}
