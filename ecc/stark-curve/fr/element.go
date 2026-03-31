@@ -1320,6 +1320,39 @@ func (z *Element) Sqrt(x *Element) *Element {
 	return nil
 }
 
+var _bCbrtExponentElement *big.Int
+
+func init() {
+	_bCbrtExponentElement, _ = new(big.Int).SetString("1c71c71c71c71cae38e38e38e38e38e28c7596dbb4feeb5cdddeb2b0a2c1127", 16)
+}
+
+// Cbrt z = ∛x (mod q)
+// if the cube root doesn't exist (x is not a cube mod q)
+// Cbrt leaves z unchanged and returns nil
+func (z *Element) Cbrt(x *Element) *Element {
+	// q ≡ 1 (mod 3)
+	// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
+	// q ≡ 4 (mod 9): cbrt(x) = x^((2q+1)/9)
+	var y Element
+	y.Exp(*x, _bCbrtExponentElement)
+
+	// Verify y³ = x (checks both that x is a cubic residue and y is correct)
+	var check Element
+	check.Cube(&y)
+	if !check.Equal(x) {
+		return nil
+	}
+	return z.Set(&y)
+}
+
+// Cube sets z to x^3 and returns z
+func (z *Element) Cube(x *Element) *Element {
+	var t Element
+	t.Square(x).Mul(&t, x)
+	z.Set(&t)
+	return z
+}
+
 const (
 	k               = 32 // word size / 2
 	signBitSelector = uint64(1) << 63

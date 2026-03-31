@@ -37,6 +37,22 @@ type Curve struct {
 
 	// ECDSAKeyRecovery enables ECDSA public key recovery (SignForRecover, RecoverPublicKey).
 	ECDSAKeyRecovery bool
+
+	// E2 Cbrt precomputes (for Fp² cube root)
+	E2CbrtP2Mod9  uint64 // p² mod 9
+	E2CbrtP2Mod27 uint64 // p² mod 27
+	// Torus-based E2 Cbrt
+	E2CbrtTorusEnabled       bool     // whether torus cbrt is available
+	E2CbrtTorusBeta          int64    // beta from Fp2=Fp[u]/(u²-beta), e.g. -1 or -5
+	E2CbrtTorusBetaAbs       int64    // |beta|
+	E2CbrtTorusBetaInvNeg    []uint64 // 1/|beta| in Montgomery form (when beta != -1)
+	E2CbrtTorusHelperSquared bool     // m = norm·t² (true) or norm·t (false)
+	E2CbrtTorusUniqueRoot    bool     // q ≡ 7 mod 9: no ζ-adjustment needed
+	E2CbrtTorusNormInvM      int      // power of m in normInv = m^a · t^b
+	E2CbrtTorusNormInvT      int      // power of t in normInv = m^a · t^b
+	E2CbrtTorusLucasExponent []uint64 // 3⁻¹ mod (p+1) little-endian
+	E2CbrtTorusLucasNLimbs   int
+	E2CbrtTorusLucasTopBit   int // bit length - 1
 }
 
 type TwistedEdwardsCurve struct {
@@ -146,11 +162,86 @@ func addCurve(c *Curve) {
 	// init FpInfo and FrInfo
 	c.FpInfo = newFieldInfo(c.FpModulus)
 	c.FrInfo = newFieldInfo(c.FrModulus)
+
+	// Compute E2 Cbrt precomputes
+	p := c.FpInfo.Modulus()
+	p2 := new(big.Int).Mul(p, p)
+	c.E2CbrtP2Mod9 = new(big.Int).Mod(p2, big.NewInt(9)).Uint64()
+	c.E2CbrtP2Mod27 = new(big.Int).Mod(p2, big.NewInt(27)).Uint64()
+
+	// Torus-based E2 Cbrt parameters
+	// Check q mod 3 == 1 (needed for torus cbrt helper)
+	pMod3 := new(big.Int).Mod(p, big.NewInt(3)).Uint64()
+	if pMod3 == 1 {
+		qMod9Torus := new(big.Int).Mod(p, big.NewInt(9)).Uint64()
+		qMod27Torus := new(big.Int).Mod(p, big.NewInt(27)).Uint64()
+
+		// Check if one of the supported cases
+		var hasTorus bool
+		switch {
+		case qMod9Torus == 7, qMod9Torus == 4:
+			hasTorus = true
+		case qMod27Torus == 10, qMod27Torus == 19:
+			hasTorus = true
+		}
+
+		if hasTorus {
+			c.E2CbrtTorusEnabled = true
+
+			// beta from Fp2 = Fp[u]/(u² - beta)
+			c.E2CbrtTorusBeta = c.G2.CoordExtRoot
+			if c.E2CbrtTorusBeta == 0 {
+				c.E2CbrtTorusBeta = -1 // BN254 default
+			}
+			c.E2CbrtTorusBetaAbs = -c.E2CbrtTorusBeta
+
+			c.E2CbrtTorusHelperSquared = (qMod27Torus == 10)
+			c.E2CbrtTorusUniqueRoot = (qMod9Torus == 7)
+
+			// normInv = m^a · t^b where a = r-2, b = d - (r-2)*s
+			var d, r uint64
+			var s int
+			switch {
+			case qMod9Torus == 7:
+				d, r, s = 9, 7, 1
+			case qMod9Torus == 4:
+				d, r, s = 9, 4, 1
+			case qMod27Torus == 10:
+				d, r, s = 27, 10, 2
+			case qMod27Torus == 19:
+				d, r, s = 27, 19, 1
+			}
+			c.E2CbrtTorusNormInvM = int(r - 2)
+			c.E2CbrtTorusNormInvT = int(d) - c.E2CbrtTorusNormInvM*s
+
+			// Lucas exponent: 3⁻¹ mod (p+1)
+			pPlus1 := new(big.Int).Add(p, big.NewInt(1))
+			three := big.NewInt(3)
+			lucasExp := new(big.Int).ModInverse(three, pPlus1)
+			nLucasLimbs := (lucasExp.BitLen() + 63) / 64
+			c.E2CbrtTorusLucasExponent = bigIntToLimbs(lucasExp, nLucasLimbs)
+			c.E2CbrtTorusLucasNLimbs = nLucasLimbs
+			c.E2CbrtTorusLucasTopBit = lucasExp.BitLen() - 1
+		}
+	}
+
 	Curves = append(Curves, *c)
 }
 
 func addTwistedEdwardCurve(c *TwistedEdwardsCurve) {
 	TwistedEdwardsCurves = append(TwistedEdwardsCurves, *c)
+}
+
+// bigIntToLimbs converts a big.Int to a little-endian slice of uint64 limbs.
+func bigIntToLimbs(n *big.Int, nLimbs int) []uint64 {
+	limbs := make([]uint64, nLimbs)
+	mask := new(big.Int).SetUint64(^uint64(0))
+	tmp := new(big.Int).Set(n)
+	for i := 0; i < nLimbs; i++ {
+		limbs[i] = new(big.Int).And(tmp, mask).Uint64()
+		tmp.Rsh(tmp, 64)
+	}
+	return limbs
 }
 
 func newFieldInfo(modulus string) FieldInfo {

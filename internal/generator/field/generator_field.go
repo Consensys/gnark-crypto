@@ -4,11 +4,11 @@ import (
 	"path/filepath"
 
 	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/internal/generator/addchain"
 	"github.com/consensys/gnark-crypto/internal/generator/common"
 	"github.com/consensys/gnark-crypto/internal/generator/field/asm/amd64"
 	"github.com/consensys/gnark-crypto/internal/generator/field/asm/arm64"
 	"github.com/consensys/gnark-crypto/internal/generator/field/config"
-	"github.com/consensys/gnark-crypto/internal/generator/field/internal/addchain"
 	"github.com/consensys/gnark-crypto/internal/generator/field/template"
 	"golang.org/x/sync/errgroup"
 )
@@ -25,6 +25,7 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 		"element/mulcios.go.tmpl",
 		"element/mulnocarry.go.tmpl",
 		"element/sqrt.go.tmpl",
+		"element/cbrt.go.tmpl",
 		"element/inverse.go.tmpl",
 		"element/bignum.go.tmpl",
 	}
