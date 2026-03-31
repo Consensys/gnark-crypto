@@ -206,9 +206,7 @@ func (p *G1Affine) IsOnCurve() bool {
 
 // IsInSubGroup returns true if the affine point p is in the correct subgroup, false otherwise.
 func (p *G1Affine) IsInSubGroup() bool {
-	var _p G1Jac
-	_p.FromAffine(p)
-	return _p.IsInSubGroup()
+	return p.IsOnCurve()
 }
 
 // IsInSubGroupBatchG1 checks if a batch of points P_i are in G1.
@@ -637,9 +635,7 @@ func (p *G1Jac) IsOnCurve() bool {
 // the curve is of prime order i.e. E(𝔽p) is the full group
 // so we just check that the point is on the curve.
 func (p *G1Jac) IsInSubGroup() bool {
-
 	return p.IsOnCurve()
-
 }
 
 // mulWindowed computes a double-and-add scalar multiplication p=[s]q in

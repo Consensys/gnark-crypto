@@ -260,10 +260,9 @@ func (p *{{ $TAffine }}) IsOnCurve() bool {
 
 // IsInSubGroup returns true if the affine point p is in the correct subgroup, false otherwise.
 func (p *{{ $TAffine }}) IsInSubGroup() bool {
-{{- if eq .Name "bn254"}}
-    {{- if eq .PointName "g1"}}
+{{- if and (not .CofactorCleaning) (eq .PointName "g1")}}
     return p.IsOnCurve()
-    {{- else if eq .PointName "g2"}}
+{{- else if and (eq .Name "bn254") (eq .PointName "g2")}}
     if !p.IsOnCurve() {
         return false
     }
@@ -280,7 +279,6 @@ func (p *{{ $TAffine }}) IsInSubGroup() bool {
         Double(&res)
 
     return res.Equal(&c)
-    {{- end}}
 {{- else if eq .Name "bls12-381"}}
     {{- if eq .PointName "g1"}}
     if !p.IsOnCurve() {
@@ -869,17 +867,14 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
 
 
-{{- if or (eq .Name "bn254") (eq .Name "secp256k1") (eq .Name "grumpkin")}}
-	{{- if eq .PointName "g1"}}
-		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-        // the curve is of prime order i.e. E(𝔽p) is the full group
-        // so we just check that the point is on the curve.
-		func (p *{{ $TJacobian }}) IsInSubGroup() bool {
-
-			return p.IsOnCurve()
-
-		}
-	{{else if eq .PointName "g2"}}
+{{- if and (not .CofactorCleaning) (eq .PointName "g1")}}
+	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+	// the curve is of prime order i.e. E(𝔽p) is the full group
+	// so we just check that the point is on the curve.
+	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+		return p.IsOnCurve()
+	}
+{{- else if and (eq .Name "bn254") (eq .PointName "g2")}}
 		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
         // https://eprint.iacr.org/2022/348.pdf, sec. 3 and 5.1
         // [r]P == 0 <==> [x₀+1]P + ψ([x₀]P) + ψ²([x₀]P) = ψ³([2x₀]P)
@@ -900,7 +895,6 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
             return res.Equal(&c)
 		}
-	{{- end}}
 {{else if eq .Name "bw6-761"}}
 	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
     {{ if .GLV}}
