@@ -439,6 +439,7 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 		func(s fr.Element) bool {
 			g := {{ toLower .PointName }}GenAff
 			var gj {{ toUpper .PointName }}Jac
+			gj.FromAffine(&g)
 			var nbs, bs big.Int
 			s.BigInt(&bs)
 			nbs.Neg(&bs)
