@@ -407,7 +407,7 @@ func (p *G1Jac) DoubleMixed(a *G1Affine) *G1Jac {
 		Sub(&S, &YYYY).
 		Double(&S)
 	M.Double(&XX).
-		Add(&M, &XX) // -> + A, but A=0 here
+		Add(&M, &XX) // M = 3*XX
 	T.Square(&M).
 		Sub(&T, &S).
 		Sub(&T, &S)
@@ -499,7 +499,7 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 		Sub(&D, &C).
 		Double(&D)
 	E.Double(&A).
-		Add(&E, &A)
+		Add(&E, &A) // E = 3*A = 3*X²
 	F.Square(&E)
 	t.Double(&D)
 	p.Z.Mul(&p.Y, &p.Z).
@@ -515,9 +515,9 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 	return p
 }
 
-// Triple sets p to [3]q in Jacobian coordinates for j=0 curves.
+// Triple sets p to [3]q in Jacobian coordinates.
 //
-// https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1
+// https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1 (optimized for j=0 curves)
 func (p *G1Jac) Triple(q *G1Jac) *G1Jac {
 	// Helper functions for multiplication by 3 and 4.
 	mulBy3 := func(v *fp.Element) {
@@ -1050,7 +1050,7 @@ func (p *g1JacExtended) double(q *g1JacExtended) *g1JacExtended {
 	S.Mul(&q.X, &V)
 	XX.Square(&q.X)
 	M.Double(&XX).
-		Add(&M, &XX) // -> + A, but A=0 here
+		Add(&M, &XX) // M = 3*XX
 	U.Mul(&W, &q.Y)
 
 	p.X.Square(&M).
@@ -1195,7 +1195,7 @@ func (p *g1JacExtended) doubleNegMixed(a *G1Affine) *g1JacExtended {
 	S.Mul(&a.X, &V)
 	t.Square(&a.X)
 	M.Double(&t).
-		Add(&M, &t) // -> + A, but A=0 here
+		Add(&M, &t) // M = 3*X²
 	p.X.Square(&M)
 	t.Double(&S)
 	p.X.Sub(&p.X, &t)
@@ -1223,7 +1223,7 @@ func (p *g1JacExtended) doubleMixed(a *G1Affine) *g1JacExtended {
 	S.Mul(&a.X, &V)
 	t.Square(&a.X)
 	M.Double(&t).
-		Add(&M, &t) // -> + A, but A=0 here
+		Add(&M, &t) // M = 3*X²
 	p.X.Square(&M)
 	t.Double(&S)
 	p.X.Sub(&p.X, &t)
