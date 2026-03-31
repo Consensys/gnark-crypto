@@ -1007,20 +1007,22 @@ func (p *g2JacExtended) add(q *g2JacExtended) *g2JacExtended {
 // double sets p to [2]q in Jacobian extended coordinates.
 //
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-// ~Cost: 6M + 3S
 //
 // N.B.: since we consider any point on Z=0 as the point at infinity
 // this doubling formula works for infinity points as well.
 func (p *g2JacExtended) double(q *g2JacExtended) *g2JacExtended {
-	var U, V, W, S, XX, M fp.Element
+	var U, V, W, S, M fp.Element
 
 	U.Double(&q.Y)
 	V.Square(&U)
 	W.Mul(&U, &V)
 	S.Mul(&q.X, &V)
-	XX.Square(&q.X)
-	M.Double(&XX).
-		Add(&M, &XX) // M = 3*XX
+	{
+		var XX fp.Element
+		XX.Square(&q.X)
+		M.Double(&XX).
+			Add(&M, &XX) // M = 3*XX
+	}
 	U.Mul(&W, &q.Y)
 
 	p.X.Square(&M).

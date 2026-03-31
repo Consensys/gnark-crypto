@@ -477,38 +477,32 @@ func (p *G1Jac) Double(q *G1Jac) *G1Jac {
 
 // DoubleAssign doubles p in Jacobian coordinates.
 //
-// https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
-// ~Cost: 2M + 5S
+// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2001-b
+// ~Cost: 3M + 5S (using alpha = 3*(X-Z²)(X+Z²) when a=-3)
 func (p *G1Jac) DoubleAssign() *G1Jac {
-	var A, B, C, D, E, F, t fp.Element
-	A.Square(&p.X)
-	B.Square(&p.Y)
-	C.Square(&B)
-	D.Add(&p.X, &B).
-		Square(&D).
-		Sub(&D, &A).
-		Sub(&D, &C).
-		Double(&D)
-	E.Double(&A).
-		Add(&E, &A) // E = 3*A = 3*X²
-	{
-		var aZ4 fp.Element
-		aZ4.Square(&p.Z)
-		aZ4.Square(&aZ4).
-			Mul(&aZ4, &aCurveCoeff)
-		E.Add(&E, &aZ4) // E = 3*X² + a*Z⁴
-	}
-	F.Square(&E)
-	t.Double(&D)
-	p.Z.Mul(&p.Y, &p.Z).
-		Double(&p.Z)
-	p.X.Sub(&F, &t)
-	p.Y.Sub(&D, &p.X).
-		Mul(&p.Y, &E)
-	t.Double(&C).
-		Double(&t).
-		Double(&t)
-	p.Y.Sub(&p.Y, &t)
+	var delta, gamma, beta, alpha, tmp fp.Element
+	delta.Square(&p.Z)
+	gamma.Square(&p.Y)
+	beta.Mul(&p.X, &gamma)
+	// alpha = 3*(X+Z²)(X-Z²) = 3*X² - 3*Z⁴ = 3*X² + a*Z⁴ (since a=-3)
+	alpha.Add(&p.X, &delta)
+	tmp.Sub(&p.X, &delta)
+	fp.MulBy3(&tmp)
+	alpha.Mul(&alpha, &tmp)
+	p.X.Square(&alpha)
+	tmp.Double(&beta).Double(&tmp).Double(&tmp)
+	p.X.Sub(&p.X, &tmp)
+	p.Z.Add(&p.Y, &p.Z).
+		Square(&p.Z).
+		Sub(&p.Z, &gamma).
+		Sub(&p.Z, &delta)
+	p.Y.Double(&beta).
+		Double(&p.Y).
+		Sub(&p.Y, &p.X).
+		Mul(&p.Y, &alpha)
+	tmp.Square(&gamma).
+		Double(&tmp).Double(&tmp).Double(&tmp)
+	p.Y.Sub(&p.Y, &tmp)
 
 	return p
 }
@@ -841,25 +835,24 @@ func (p *g1JacExtended) add(q *g1JacExtended) *g1JacExtended {
 // double sets p to [2]q in Jacobian extended coordinates.
 //
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-// ~Cost: 6M + 3S
 //
 // N.B.: since we consider any point on Z=0 as the point at infinity
 // this doubling formula works for infinity points as well.
 func (p *g1JacExtended) double(q *g1JacExtended) *g1JacExtended {
-	var U, V, W, S, XX, M fp.Element
+	var U, V, W, S, M fp.Element
 
 	U.Double(&q.Y)
 	V.Square(&U)
 	W.Mul(&U, &V)
 	S.Mul(&q.X, &V)
-	XX.Square(&q.X)
-	M.Double(&XX).
-		Add(&M, &XX) // M = 3*XX
+	// M = 3*X² + a*ZZ² = 3*(X-ZZ)(X+ZZ) when a=-3
 	{
-		var aZZ2 fp.Element
-		aZZ2.Square(&q.ZZ).
-			Mul(&aZZ2, &aCurveCoeff)
-		M.Add(&M, &aZZ2) // M = 3*XX + a*ZZ²
+		var XZ fp.Element
+		M.Sub(&q.X, &q.ZZ)
+		XZ.Add(&q.X, &q.ZZ).
+			Mul(&XZ, &M)
+		M.Double(&XZ).
+			Add(&M, &XZ)
 	}
 	U.Mul(&W, &q.Y)
 
