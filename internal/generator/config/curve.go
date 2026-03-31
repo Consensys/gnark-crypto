@@ -150,6 +150,10 @@ func (p Point) IsZeroA() bool {
 	return p.A == "" || p.A == "0"
 }
 
+func (p Point) IsNeg3A() bool {
+	return p.A == "-3"
+}
+
 var Curves []Curve
 var TwistedEdwardsCurves []TwistedEdwardsCurve
 
