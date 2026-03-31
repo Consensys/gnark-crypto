@@ -243,6 +243,13 @@ func (p *{{ $TAffine }}) IsOnCurve() bool {
 	var left, right  {{.CoordType}}
 	left.Square(&p.Y)
 	right.Square(&p.X).Mul(&right, &p.X)
+	{{- if not .IsZeroA}}
+	{
+		var aX {{.CoordType}}
+		aX.Mul(&p.X, &aCurveCoeff)
+		right.Add(&right, &aX)
+	}
+	{{- end}}
 	{{- if eq .PointName "g1"}}
     right.Add(&right, &bCurveCoeff)
     {{- else}}
@@ -505,7 +512,10 @@ func (p *{{ $TJacobian }}) DoubleMixed(a *{{ $TAffine }}) *{{ $TJacobian }} {
 		Sub(&S, &YYYY).
 		Double(&S)
 	M.Double(&XX).
-		Add(&M, &XX) // -> + A, but A=0 here
+		Add(&M, &XX) // M = 3*XX
+	{{- if not .IsZeroA}}
+	M.Add(&M, &aCurveCoeff) // M = 3*XX + a (Z=1 for mixed doubling, so a*Z⁴ = a)
+	{{- end}}
 	T.Square(&M).
 		Sub(&T, &S).
 		Sub(&T, &S)
@@ -597,7 +607,16 @@ func (p *{{ $TJacobian }}) DoubleAssign() *{{ $TJacobian }} {
 		Sub(&D, &C).
 		Double(&D)
 	E.Double(&A).
-		Add(&E, &A)
+		Add(&E, &A) // E = 3*A = 3*X²
+	{{- if not .IsZeroA}}
+	{
+		var aZ4 {{.CoordType}}
+		aZ4.Square(&p.Z)
+		aZ4.Square(&aZ4).
+			Mul(&aZ4, &aCurveCoeff)
+		E.Add(&E, &aZ4) // E = 3*X² + a*Z⁴
+	}
+	{{- end}}
 	F.Square(&E)
 	t.Double(&D)
 	p.Z.Mul(&p.Y, &p.Z).
@@ -612,10 +631,18 @@ func (p *{{ $TJacobian }}) DoubleAssign() *{{ $TJacobian }} {
 
  	return p
 }
-// Triple sets p to [3]q in Jacobian coordinates for j=0 curves.
+// Triple sets p to [3]q in Jacobian coordinates.
+{{- if .IsZeroA}}
 //
-// https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1
+// https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1 (optimized for j=0 curves)
+{{- end}}
 func (p *{{ $TJacobian }}) Triple(q *{{ $TJacobian }}) *{{ $TJacobian }} {
+{{- if not .IsZeroA}}
+	// general case: double and add
+	p.Double(q).AddAssign(q)
+	return p
+}
+{{- else}}
 	// Helper functions for multiplication by 3 and 4.
 	mulBy3 := func(v *{{.CoordType}}) {
 		{{- if eq .CoordType "fp.Element"}}
@@ -679,6 +706,7 @@ func (p *{{ $TJacobian }}) Triple(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 
 	return p
 }
+{{- end}}
 
 // ScalarMultiplication computes and returns p = [s]a
 // where p and a are Jacobian points.
@@ -754,6 +782,16 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 	left.Square(&p.Y)
 	right.Square(&p.X).Mul(&right, &p.X)
 	ZZ.Square(&p.Z)
+	{{- if not .IsZeroA}}
+	{
+		// add a*X*Z⁴ term
+		var aXZ4 {{.CoordType}}
+		aXZ4.Mul(&ZZ, &ZZ).
+			Mul(&aXZ4, &p.X).
+			Mul(&aXZ4, &aCurveCoeff)
+		right.Add(&right, &aXZ4)
+	}
+	{{- end}}
     tmp.Square(&ZZ).Mul(&tmp, &ZZ)
 		{{- if eq .PointName "g1"}}
             {{- if or (eq .Name "bls12-381") (eq .Name "bls24-317") (eq .Name "bw6-633")}}
@@ -1956,7 +1994,15 @@ func (p *{{ $TJacobianExtended }}) double(q *{{ $TJacobianExtended }}) *{{ $TJac
 	S.Mul(&q.X, &V)
 	XX.Square(&q.X)
 	M.Double(&XX).
-		Add(&M, &XX) // -> + A, but A=0 here
+		Add(&M, &XX) // M = 3*XX
+	{{- if not .IsZeroA}}
+	{
+		var aZZ2 {{.CoordType}}
+		aZZ2.Square(&q.ZZ).
+			Mul(&aZZ2, &aCurveCoeff)
+		M.Add(&M, &aZZ2) // M = 3*XX + a*ZZ²
+	}
+	{{- end}}
 	U.Mul(&W, &q.Y)
 
 	p.X.Square(&M).
@@ -2015,7 +2061,10 @@ func (p *{{ $TJacobianExtended }}) doubleMixed(a *{{ $TAffine }}) *{{ $TJacobian
     S.Mul(&a.X, &V)
 	t.Square(&a.X)
 	M.Double(&t).
-		Add(&M, &t) // -> + A, but A=0 here
+		Add(&M, &t) // M = 3*X²
+	{{- if not .all.IsZeroA}}
+	M.Add(&M, &aCurveCoeff) // M = 3*X² + a (ZZ=1 for mixed doubling)
+	{{- end}}
 	p.X.Square(&M)
 	t.Double(&S)
 	p.X.Sub(&p.X, &t)

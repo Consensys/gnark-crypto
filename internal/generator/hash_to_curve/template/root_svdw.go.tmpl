@@ -47,7 +47,9 @@ func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
     x1.Sub(&c2, &tv4)   //    10.  x1 = c2 - tv4
 
     gx1.Square(&x1) //    11. gx1 = x1²
-    //12. gx1 = gx1 + A     All curves in gnark-crypto have A=0 (j-invariant=0). It is crucial to include this step if the curve has nonzero A coefficient.
+    {{- if not .Point.IsZeroA}}
+    gx1.Add(&gx1, &aCurveCoeff)        //    12. gx1 = gx1 + A
+    {{- end}}
     gx1.Mul(&gx1, &x1)                 //    13. gx1 = gx1 * x1
     gx1.Add(&gx1, &{{$B}})   //    14. gx1 = gx1 + B
     gx1NotSquare = gx1.Legendre() >> 1 //    15.  e1 = is_square(gx1)
@@ -55,7 +57,9 @@ func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
 
     x2.Add(&c2, &tv4) //    16.  x2 = c2 + tv4
     gx2.Square(&x2)   //    17. gx2 = x2²
-    //    18. gx2 = gx2 + A     See line 12
+    {{- if not .Point.IsZeroA}}
+    gx2.Add(&gx2, &aCurveCoeff)      //    18. gx2 = gx2 + A
+    {{- end}}
     gx2.Mul(&gx2, &x2)               //    19. gx2 = gx2 * x2
     gx2.Add(&gx2, &{{$B}}) //    20. gx2 = gx2 + B
 
@@ -75,7 +79,9 @@ func MapToCurve{{$CurveIndex}}(u *{{$CoordType}}) {{$AffineType}} {
     x.Select(gx1SquareOrGx2Not, &x2, &x) //    28.   x = CMOV(x, x2, e2)    # x = x2 if gx2 is square and gx1 is not
     // Select x2 iff gx2 is square and gx1 is not, iff gx1SquareOrGx2Not = 0
     gx.Square(&x) //    29.  gx = x²
-    //    30.  gx = gx + A
+    {{- if not .Point.IsZeroA}}
+    gx.Add(&gx, &aCurveCoeff)      //    30.  gx = gx + A
+    {{- end}}
 
     gx.Mul(&gx, &x)                //    31.  gx = gx * x
     gx.Add(&gx, &{{$B}}) //    32.  gx = gx + B

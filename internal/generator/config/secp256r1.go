@@ -16,6 +16,7 @@ var SECP256R1 = Curve{
 		GLV:              false,
 		CofactorCleaning: false,
 		CRange:           []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+		A:                "-3",
 	},
 	HashE1: &HashSuiteSvdw{
 		z:  []string{"115792089210356248762697446949407573530086143415290314195533631308867097853948"},

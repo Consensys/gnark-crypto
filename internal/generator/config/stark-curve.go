@@ -16,6 +16,7 @@ var STARK_CURVE = Curve{
 		GLV:              false,
 		CofactorCleaning: false,
 		CRange:           defaultCRange(),
+		A:                "1",
 	},
 	HashE1: &HashSuiteSvdw{
 		z:  []string{"1"},

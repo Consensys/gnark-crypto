@@ -676,14 +676,25 @@ func Test{{ toUpper .PointName }}CofactorClearing(t *testing.T) {
 				{{if eq .PointName "g2" }}
 					x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 				{{else}}
-					x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
+					x.Square(&a).Mul(&x, &a)
+					{{- if not .IsZeroA}}
+					var aX fp.Element
+					aX.Mul(&a, &aCurveCoeff)
+					x.Add(&x, &aX)
+					{{- end}}
+					x.Add(&x, &bCurveCoeff)
 				{{end}}
 				for x.Legendre() != 1 {
 					a.MustSetRandom()
 					{{if eq .PointName "g2" }}
 						x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 					{{else}}
-						x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
+						x.Square(&a).Mul(&x, &a)
+						{{- if not .IsZeroA}}
+						aX.Mul(&a, &aCurveCoeff)
+						x.Add(&x, &aX)
+						{{- end}}
+						x.Add(&x, &bCurveCoeff)
 					{{end}}
 				}
 			{{else}}

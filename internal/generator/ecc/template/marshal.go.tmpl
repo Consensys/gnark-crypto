@@ -1097,6 +1097,13 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 	var YSquared, Y {{$.CoordType}}
 
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	{{- if and (eq .PointName "g1") (not .all.G1.IsZeroA)}}
+	{
+		var aX {{$.CoordType}}
+		aX.Mul(&aCurveCoeff, &p.X)
+		YSquared.Add(&YSquared, &aX)
+	}
+	{{- end}}
 	YSquared.Add(&YSquared, &{{- if eq .PointName "g2"}}bTwistCurveCoeff{{- else}}bCurveCoeff{{- end}})
 
 	{{- if or (eq $.CoordType "fptower.E2") (eq $.CoordType "fptower.E4")}}
@@ -1152,6 +1159,13 @@ func (p *{{ $.TAffine }}) unsafeComputeY(subGroupCheck bool) error  {
 	var YSquared, Y {{$.CoordType}}
 
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	{{- if and (eq .PointName "g1") (not .all.G1.IsZeroA)}}
+	{
+		var aX {{$.CoordType}}
+		aX.Mul(&aCurveCoeff, &p.X)
+		YSquared.Add(&YSquared, &aX)
+	}
+	{{- end}}
 	YSquared.Add(&YSquared, &{{- if eq .PointName "g2"}}bTwistCurveCoeff{{- else}}bCurveCoeff{{- end}})
 
 	{{- if or (eq $.CoordType "fptower.E2") (eq $.CoordType "fptower.E4")}}
