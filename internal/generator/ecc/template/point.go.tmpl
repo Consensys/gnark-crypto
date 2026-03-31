@@ -1138,7 +1138,7 @@ func (p *{{ $TJacobian }}) mulWindowedMixed(q *{{ $TAffine }}, s *big.Int) *{{ $
 	return p
 }
 
-{{- if not (eq .Name "secp256k1")}}
+{{- if .HasG2}}
 // mulBySeed multiplies the point q by the seed xGen in Jacobian coordinates
 // using an optimized addition chain.
 func (p *{{ $TJacobian }}) mulBySeed(q *{{ $TJacobian }}) *{{ $TJacobian }} {
