@@ -1391,9 +1391,10 @@ func (f *fieldHelper) matMulExternal(v []amd64.VectorRegister, nbBlocks int) {
 }
 
 func (f *fieldHelper) sbox(a, into amd64.VectorRegister, degree int) {
-	if degree == 3 {
+	switch degree {
+	case 3:
 		f.sbox3(a, into)
-	} else if degree == 7 {
+	case 7:
 		t0 := f.registers.PopV()
 		t1 := f.registers.PopV()
 		f.mul(a, a, t0, true)    // a^2 (reduce to prevent overflow in a^6 = a^3 * a^3)
@@ -1401,7 +1402,7 @@ func (f *fieldHelper) sbox(a, into amd64.VectorRegister, degree int) {
 		f.mul(t0, t0, t1, false) // a^6
 		f.mul(t1, a, into, true) // a^7
 		f.registers.PushV(t0, t1)
-	} else {
+	default:
 		t5 := f.registers.PopV()
 		f.mul(a, a, t5, false)
 		f.mul(a, t5, into, true)
