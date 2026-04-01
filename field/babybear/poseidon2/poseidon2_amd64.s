@@ -56,8 +56,8 @@ TEXT ·permutation24_avx512(SB), NOSPLIT, $0-48
 	ADD(Z2, Z16, Z0, Z11, Z2)           \
 
 #define MULD(in0, in1, in2, in3, in4, in5, in6, in7, in8, in9, in10) \
-	VPSRLQ    $32, in0, in2  \
-	VPSRLQ    $32, in1, in3  \
+	VMOVSHDUP in0, in2       \
+	VMOVSHDUP in1, in3       \
 	VPMULUDQ  in0, in1, in4  \
 	VPMULUDQ  in2, in3, in5  \
 	VPMULUDQ  in4, in9, in6  \
@@ -344,8 +344,8 @@ loop_3:
 	ADD(Z0, Z29, Z24, Z30, Z0)
 
 #define MUL_4W(in0, in1, in2, in3, in4, in5, in6, in7, in8) \
-	VPSRLQ    $32, in0, in2 \
-	VPSRLQ    $32, in1, in3 \
+	VMOVSHDUP in0, in2      \
+	VMOVSHDUP in1, in3      \
 	VPMULUDQ  in0, in1, in4 \
 	VPMULUDQ  in2, in3, in5 \
 	VPMULUDQ  in4, in8, in2 \

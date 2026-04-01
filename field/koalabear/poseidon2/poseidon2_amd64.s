@@ -56,8 +56,8 @@ TEXT ·permutation24_avx512(SB), NOSPLIT, $0-48
 	ADD(Z2, Z16, Z0, Z11, Z2)           \
 
 #define MULD(in0, in1, in2, in3, in4, in5, in6, in7, in8, in9, in10) \
-	VPSRLQ    $32, in0, in2  \
-	VPSRLQ    $32, in1, in3  \
+	VMOVSHDUP in0, in2       \
+	VMOVSHDUP in1, in3       \
 	VPMULUDQ  in0, in1, in4  \
 	VPMULUDQ  in2, in3, in5  \
 	VPMULUDQ  in4, in9, in6  \
@@ -2014,9 +2014,27 @@ TEXT ·permutation16_avx512(SB), NOSPLIT, $0-48
 	ADD(Z2, Z16, Z0, Z11, Z2)           \
 
 #define SBOX_FULL_16() \
-	MULD(Z2, Z2, Z12, Z13, Z6, Z7, Z14, Z15, Z0, Z1, Z8) \
-	MULD(Z2, Z8, Z12, Z13, Z6, Z7, Z14, Z15, Z0, Z1, Z2) \
-	REDUCE1Q(Z0, Z2, Z15)                                \
+	VMOVSHDUP Z2, Z12      \
+	VPMULUDQ  Z2, Z2, Z6   \
+	VPMULUDQ  Z12, Z12, Z7 \
+	VPMULUDQ  Z6, Z1, Z14  \
+	VPMULUDQ  Z7, Z1, Z15  \
+	VPMULUDQ  Z14, Z0, Z14 \
+	VPADDQ    Z6, Z14, Z6  \
+	VPMULUDQ  Z15, Z0, Z15 \
+	VPADDQ    Z7, Z15, Z8  \
+	VMOVSHDUP Z6, K3, Z8   \
+	VMOVSHDUP Z8, Z13      \
+	VPMULUDQ  Z2, Z8, Z6   \
+	VPMULUDQ  Z12, Z13, Z7 \
+	VPMULUDQ  Z6, Z1, Z14  \
+	VPMULUDQ  Z7, Z1, Z15  \
+	VPMULUDQ  Z14, Z0, Z14 \
+	VPADDQ    Z6, Z14, Z6  \
+	VPMULUDQ  Z15, Z0, Z15 \
+	VPADDQ    Z7, Z15, Z2  \
+	VMOVSHDUP Z6, K3, Z2   \
+	REDUCE1Q(Z0, Z2, Z15)  \
 
 #define SUM_STATE_16() \
 	VEXTRACTI64X4 $1, Z2, Y16                   \
@@ -2049,31 +2067,61 @@ TEXT ·permutation16_avx512(SB), NOSPLIT, $0-48
 	ADDQ $0x0000000000000048, DI
 
 loop_9:
-	TESTQ     SI, SI
-	JEQ       done_10
-	DECQ      SI
-	MOVQ      0(DI), BX
-	VMOVD     0(BX), X4
-	VMOVDQA32 Z2, Z10
-	ADD(X10, X4, X0, X14, X5)
-	SBOX_PARTIAL()
-	VPBLENDMD Z5, Z10, K2, Z10
-	VPSRLQ    $32, Z2, Z12
-	VPMULUDQ  Z12, Z19, Z8
-	VPMULUDQ  Z8, Z1, Z15
-	VPMULUDQ  Z15, Z0, Z15
-	VPADDQ    Z8, Z15, Z8
-	SUM_STATE_16()
-	VPMULUDQ  Z10, Z18, Z6
-	VPMULUDQ  Z6, Z1, Z14
-	VPMULUDQ  Z14, Z0, Z14
-	VPADDQ    Z6, Z14, Z6
-	VMOVSHDUP Z6, K3, Z8
-	VPSUBD    Z0, Z8, Z11
-	VPMINUD   Z8, Z11, Z2
-	ADD(Z2, Z16, Z0, Z11, Z2)
-	ADDQ      $24, DI
-	JMP       loop_9
+	TESTQ SI, SI
+	JEQ   done_10
+	DECQ  SI
+	MOVQ  0(DI), BX
+
+	// optimized partial round (ILP)
+	VMOVD         0(BX), X4
+	VMOVDQA32     X2, X3
+	ADD(X2, X4, X0, X14, X5)
+	VPMULUDQ      X5, X5, X6
+	VPMULUDQ      X6, X1, X14
+	VPMULUDQ      X14, X0, X14
+	VPADDQ        X6, X14, X6
+	VPSRLQ        $32, X6, X9
+	VPMULUDQ      X5, X9, X6
+	VPMULUDQ      X6, X1, X14
+	VPMULUDQ      X14, X0, X14
+	VPADDQ        X6, X14, X6
+	VPSRLQ        $32, X6, X5
+	VPSUBD        X0, X5, X14
+	VPMINUD       X5, X14, X5
+	VEXTRACTI64X4 $1, Z2, Y16
+	ADD(Y16, Y2, Y0, Y11, Y16)
+	VSHUFF64X2    $1, Y16, Y16, Y17
+	ADD(Y16, Y17, Y0, Y11, Y16)
+	VPSHUFD       $0x000000000000004e, Y16, Y17
+	ADD(Y16, Y17, Y0, Y11, Y16)
+	VPSHUFD       $0x00000000000000b1, Y16, Y17
+	ADD(Y16, Y17, Y0, Y11, Y16)
+	VMOVSHDUP     Z2, Z12
+	VPMULUDQ      Z12, Z19, Z8
+	VPMULUDQ      Z8, Z1, Z15
+	VPMULUDQ      Z15, Z0, Z15
+	VPADDQ        Z8, Z15, Z8
+	VPMULUDQ      Z2, Z18, Z20
+	VPMULUDQ      Z20, Z1, Z21
+	VPMULUDQ      Z21, Z0, Z21
+	VPADDQ        Z20, Z21, Z20
+	VMOVSHDUP     Z20, K3, Z8
+	VPSUBD        Z0, Z8, Z11
+	VPMINUD       Z8, Z11, Z2
+	VPSUBD        X3, X16, X10
+	VPADDD        X0, X10, X14
+	VPMINUD       X10, X14, X10
+	VPADDD        X5, X10, X9
+	VPSUBD        X0, X9, X14
+	VPMINUD       X9, X14, X9
+	VPSUBD        X5, X10, X4
+	VPADDD        X0, X4, X14
+	VPMINUD       X4, X14, X4
+	VPBROADCASTD  X9, Z10
+	ADD(Z2, Z10, Z0, Z11, Z2)
+	VPBLENDMD     Z4, Z2, K2, Z2
+	ADDQ          $24, DI
+	JMP           loop_9
 
 done_10:
 	MOVQ      576(R13), BX

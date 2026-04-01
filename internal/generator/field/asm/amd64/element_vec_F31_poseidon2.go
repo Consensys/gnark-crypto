@@ -202,8 +202,8 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 		qInvNeg := args[9]
 		c := args[10]
 
-		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
-		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
+		f.VMOVSHDUP(a, aOdd) // keep high 32 bits (port 5 instead of port 0/1)
+		f.VMOVSHDUP(b, bOdd) // keep high 32 bits (port 5 instead of port 0/1)
 
 		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
 		f.VPMULUDQ(a, b, b0)
@@ -264,8 +264,34 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 		}, true)
 		if !width24 {
 			sbox = f.Define("sbox_full_16", 0, func(args ...any) {
-				mul(b0, b0, t2, false)
-				mul(b0, t2, b0, true)
+				// Fused sbox3: b0^3 with odd lanes cached via VMOVSHDUP (port 5),
+				// reused across both multiplications (saves 3 extractions → 1).
+				f.VMOVSHDUP(b0, aOdd)
+
+				// sq = b0 * b0 (no reduce)
+				f.VPMULUDQ(b0, b0, t0)
+				f.VPMULUDQ(aOdd, aOdd, t1)
+				f.VPMULUDQ(t0, qInvNeg, PL0)
+				f.VPMULUDQ(t1, qInvNeg, PL1)
+				f.VPMULUDQ(PL0, qd, PL0)
+				f.VPADDQ(t0, PL0, t0)
+				f.VPMULUDQ(PL1, qd, PL1)
+				f.VPADDQ(t1, PL1, t2)
+				f.VMOVSHDUPk(t0, amd64.K3, t2)
+
+				// b0 = b0 * sq (with reduce)
+				f.VMOVSHDUP(t2, bOdd)
+				f.VPMULUDQ(b0, t2, t0)
+				f.VPMULUDQ(aOdd, bOdd, t1)
+				f.VPMULUDQ(t0, qInvNeg, PL0)
+				f.VPMULUDQ(t1, qInvNeg, PL1)
+				f.VPMULUDQ(PL0, qd, PL0)
+				f.VPADDQ(t0, PL0, t0)
+				f.VPMULUDQ(PL1, qd, PL1)
+				f.VPADDQ(t1, PL1, b0)
+				f.VMOVSHDUPk(t0, amd64.K3, b0)
+
+				reduce1Q(qd, b0, PL1)
 			}, true)
 		}
 
@@ -438,6 +464,98 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 		add(b0, acc.Z(), qd, t5, b0)
 		if width24 {
 			add(t3.Y(), acc.Y(), qd.Y(), v1.Y(), b1.Y())
+		}
+	}
+
+	if !width24 && params.SBoxDegree == 3 {
+		// Optimized partial round for width=16, degree=3.
+		//
+		// Three independent chains run concurrently via OOO execution:
+		//   A) sbox(s[0] + rc) — scalar X-register chain (~30 cycle latency)
+		//   B) horizontal sum of all 16 elements — Y-register shuffles
+		//   C) full diagonal multiply of all 16 elements — Z-register muls
+		//
+		// After all three complete, combine:
+		//   sum_tail = sum_all_old - s0_old
+		//   sum = sum_tail + s0_new
+		//   result[i] = diag[i]*s[i] + sum  (for i > 0)
+		//   result[0] = sum_tail - s0_new    (since diag[0] = -2)
+		//
+		// This hides the sum and diagonal multiply behind the sbox latency,
+		// whereas the old code serialized: sbox → blend → sum → even-diag.
+
+		// We reuse b1 (unused for width=16) to save s0_old,
+		// and d1/d1odd (unused for width=16) as temps for even-lane diagonal.
+		s0Old := b1    // Z3
+		evnT0 := d1    // Z20
+		evnT1 := d1odd // Z21
+
+		partialRound = func() {
+			f.Comment("optimized partial round (ILP)")
+
+			f.VMOVD(rKey.At(0), v0.X())
+			f.VMOVDQA32(b0.X(), s0Old.X()) // save s0_old
+			add(b0.X(), v0.X(), qd.X(), PL0.X(), v1.X())
+
+			// Chain A: sbox on v1.X() (uses t3.X() instead of t2.X() to avoid Chain C conflict)
+			f.VPMULUDQ(v1.X(), v1.X(), t0.X())
+			f.VPMULUDQ(t0.X(), qInvNeg.X(), PL0.X())
+			f.VPMULUDQ(PL0.X(), qd.X(), PL0.X())
+			f.VPADDQ(t0.X(), PL0.X(), t0.X())
+			f.VPSRLQ("$32", t0.X(), t3.X())
+
+			f.VPMULUDQ(v1.X(), t3.X(), t0.X())
+			f.VPMULUDQ(t0.X(), qInvNeg.X(), PL0.X())
+			f.VPMULUDQ(PL0.X(), qd.X(), PL0.X())
+			f.VPADDQ(t0.X(), PL0.X(), t0.X())
+			f.VPSRLQ("$32", t0.X(), v1.X())
+			f.VPSUBD(qd.X(), v1.X(), PL0.X())
+			f.VPMINUD(v1.X(), PL0.X(), v1.X())
+
+			// Chain B: horizontal sum of original b0 (independent of Chain A)
+			f.VEXTRACTI64X4(1, b0, acc)
+			add(acc, b0.Y(), qd.Y(), t5.Y(), acc)
+			f.VSHUFF64X2(0b1, acc, acc, accShuffled)
+			add(acc, accShuffled, qd.Y(), t5.Y(), acc)
+			f.VPSHUFD(uint64(0x4e), acc, accShuffled)
+			add(acc, accShuffled, qd.Y(), t5.Y(), acc)
+			f.VPSHUFD(uint64(0xb1), acc, accShuffled)
+			add(acc, accShuffled, qd.Y(), t5.Y(), acc)
+
+			// Chain C: full diagonal multiply on original b0
+			f.VMOVSHDUP(b0, aOdd)
+
+			f.VPMULUDQ(aOdd, d0odd, t2)
+			f.VPMULUDQ(t2, qInvNeg, PL1)
+			f.VPMULUDQ(PL1, qd, PL1)
+			f.VPADDQ(t2, PL1, t2)
+
+			f.VPMULUDQ(b0, d0, evnT0)
+			f.VPMULUDQ(evnT0, qInvNeg, evnT1)
+			f.VPMULUDQ(evnT1, qd, evnT1)
+			f.VPADDQ(evnT0, evnT1, evnT0)
+
+			f.VMOVSHDUPk(evnT0, amd64.K3, t2)
+			f.VPSUBD(qd, t2, t5)
+			f.VPMINUD(t2, t5, b0)
+
+			// Combine: sum_tail = sum_all - s0_old, sum = sum_tail + s0_new
+			f.VPSUBD(s0Old.X(), acc.X(), t4.X())
+			f.VPADDD(qd.X(), t4.X(), PL0.X())
+			f.VPMINUD(t4.X(), PL0.X(), t4.X())
+
+			f.VPADDD(v1.X(), t4.X(), t3.X())
+			f.VPSUBD(qd.X(), t3.X(), PL0.X())
+			f.VPMINUD(t3.X(), PL0.X(), t3.X())
+
+			// v0_new = sum_tail - s0_new (diag[0] = -2 identity)
+			f.VPSUBD(v1.X(), t4.X(), v0.X())
+			f.VPADDD(qd.X(), v0.X(), PL0.X())
+			f.VPMINUD(v0.X(), PL0.X(), v0.X())
+
+			f.VPBROADCASTD(t3.X(), t4)
+			add(b0, t4, qd, t5, b0)
+			f.VPBLENDMD(v0, b0, b0, amd64.K2)
 		}
 	}
 
@@ -1149,8 +1267,8 @@ func (f *fieldHelper) mul_4(a, b, into amd64.VectorRegister, reduce bool) {
 		PL0 := aOdd
 		PL1 := bOdd
 
-		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
-		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
+		f.VMOVSHDUP(a, aOdd) // keep high 32 bits (port 5 instead of port 0/1)
+		f.VMOVSHDUP(b, bOdd) // keep high 32 bits (port 5 instead of port 0/1)
 
 		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
 		f.VPMULUDQ(a, b, t0)
@@ -1189,8 +1307,8 @@ func (f *fieldHelper) mul_5(a, b, into amd64.VectorRegister, reduce bool) {
 		qd := args[8]
 		qInvNeg := args[9]
 
-		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
-		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
+		f.VMOVSHDUP(a, aOdd) // keep high 32 bits (port 5 instead of port 0/1)
+		f.VMOVSHDUP(b, bOdd) // keep high 32 bits (port 5 instead of port 0/1)
 
 		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
 		f.VPMULUDQ(a, b, t0)
