@@ -1361,37 +1361,51 @@ func (f *fieldHelper) mul2ExpNegN(a amd64.VectorRegister, N int, into amd64.Vect
 
 	n := "$" + strconv.Itoa(N)
 	compN := "$" + strconv.Itoa(32-N)
-
-	// hi = x >> N
-	f.VPSRLD(n, a, hi)
-
-	// lo = x & ((1<<N)-1)  via double-shift (avoids loading a mask constant)
-	f.VPSLLD(compN, a, lo)
-	f.VPSRLD(compN, lo, lo)
-
 	if N == j {
-		// Special case: j−N = 0, so the 2^{j−N} term is just lo.
-		// result = hi + lo − (lo << k) = hi − r·lo
-		f.VPADDD(hi, lo, into)                // into = hi + lo
-		f.VPSLLD("$"+strconv.Itoa(k), lo, lo) // lo = lo << k
-		f.VPSUBD(lo, into, into)              // into = hi + lo − (lo<<k)
+		f.Define("mul_2_exp_neg_j", 8, func(args ...any) {
+			a := args[0]
+			into := args[1]
+			hi := args[2]
+			lo := args[3]
+			qd := args[4]
+			n := args[5]
+			compN := args[6]
+			k := args[7]
+
+			f.VPSRLD(n, a, hi)
+			f.VPSLLD(compN, a, lo)
+			f.VPSRLD(compN, lo, lo)
+			f.VPADDD(hi, lo, into)
+			f.VPSLLD(k, lo, lo)
+			f.VPSUBD(lo, into, into)
+			f.VPADDD(qd, into, hi)
+			f.VPMINUD(into, hi, into)
+		}, true)(a, into, hi, lo, f.qd, n, compN, "$"+strconv.Itoa(k))
 	} else {
-		// result = hi + (lo << (j−N)) − (lo << (31−N))
 		s1 := "$" + strconv.Itoa(31-N) // shift for the subtracted term (k+j−N)
 		s2 := "$" + strconv.Itoa(j-N)  // shift for the added term (j−N)
-		f.VPSLLD(s2, lo, into)         // into = lo << (j−N)
-		f.VPADDD(hi, into, into)       // into = hi + lo<<(j−N)
-		f.VPSLLD(s1, lo, lo)           // lo = lo << (31−N) (reuse register)
-		f.VPSUBD(lo, into, into)       // into = hi + lo<<(j−N) − lo<<(31−N)
-	}
+		f.Define("mul_2_exp_neg_n", 9, func(args ...any) {
+			a := args[0]
+			into := args[1]
+			hi := args[2]
+			lo := args[3]
+			qd := args[4]
+			n := args[5]
+			compN := args[6]
+			s1 := args[7]
+			s2 := args[8]
 
-	// Correction: the unsigned result may represent a negative value (wrapped
-	// around 2^32).  Adding q and taking the unsigned minimum recovers the
-	// canonical representative in [0, q).  The positive branch is always < q
-	// (provable from the bounds on x_lo and x_hi) so a single correction
-	// suffices.
-	f.VPADDD(f.qd, into, hi) // hi = into + q  (reuse hi as temp)
-	f.VPMINUD(into, hi, into)
+			f.VPSRLD(n, a, hi)
+			f.VPSLLD(compN, a, lo)
+			f.VPSRLD(compN, lo, lo)
+			f.VPSLLD(s2, lo, into)
+			f.VPADDD(hi, into, into)
+			f.VPSLLD(s1, lo, lo)
+			f.VPSUBD(lo, into, into)
+			f.VPADDD(qd, into, hi)
+			f.VPMINUD(into, hi, into)
+		}, true)(a, into, hi, lo, f.qd, n, compN, s1, s2)
+	}
 
 	f.registers.PushV(t...)
 }
@@ -1406,26 +1420,23 @@ func (f *fieldHelper) mul2ExpNegN(a amd64.VectorRegister, N int, into amd64.Vect
 func (f *fieldHelper) mul2ExpNeg8(a, rConst, into amd64.VectorRegister) {
 	j := f.twoAdicity
 	hi := f.registers.PopV()
+	f.Define("mul_2_exp_neg_8", 6, func(args ...any) {
+		a := args[0]
+		rConst := args[1]
+		into := args[2]
+		hi := args[3]
+		qd := args[4]
+		jMinus8 := args[5]
 
-	// hi = x >> 8
-	f.VPSRLD("$8", a, hi)
-
-	// VPMADDUBSW treats a as unsigned bytes and rConst as signed bytes.
-	// With rConst = broadcast32(r) = [r, 0, 0, 0, r, 0, 0, 0, ...]:
-	//   result_16[2k]   = a_byte[4k] * r + a_byte[4k+1] * 0 = lo * r
-	//   result_16[2k+1] = a_byte[4k+2] * 0 + a_byte[4k+3] * 0 = 0
-	// Giving lo*r clean in each 32-bit lane.
-	f.WriteLn(fmt.Sprintf("\tVPMADDUBSW %s, %s, %s", rConst, a, into))
-
-	// Shift to position: lo*r*2^{j-8}
-	f.VPSLLD("$"+strconv.Itoa(j-8), into, into)
-
-	// result = hi − lo*r*2^{j-8}
-	f.VPSUBD(into, hi, into)
-
-	// Correction for negative results.
-	f.VPADDD(f.qd, into, hi)
-	f.VPMINUD(into, hi, into)
+		f.VPSRLD("$8", a, hi)
+		// In Go's x86 assembler syntax, `VPMADDUBSW rConst, a, into` uses `a` as
+		// the unsigned-byte input and `rConst` as the signed-byte input.
+		f.WriteLn(fmt.Sprintf("\tVPMADDUBSW %s, %s, %s", rConst, a, into))
+		f.VPSLLD(jMinus8, into, into)
+		f.VPSUBD(into, hi, into)
+		f.VPADDD(qd, into, hi)
+		f.VPMINUD(into, hi, into)
+	}, true)(a, rConst, into, hi, f.qd, "$"+strconv.Itoa(j-8))
 
 	f.registers.PushV(hi)
 }
@@ -1537,46 +1548,40 @@ func (f *fieldHelper) sbox(a, into amd64.VectorRegister, degree int) {
 //     extraction, improving execution port balance.
 func (f *fieldHelper) sbox3(a, into amd64.VectorRegister) {
 	t := f.registers.PopVN(5)
-	aOdd := t[0]
-	t0 := t[1]
-	t1 := t[2]
-	PL0 := t[3]
-	PL1 := t[4]
+	f.Define("sbox3", 9, func(args ...any) {
+		a := args[0]
+		into := args[1]
+		aOdd := args[2]
+		t0 := args[3]
+		t1 := args[4]
+		PL0 := args[5]
+		PL1 := args[6]
+		qd := args[7]
+		qInvNeg := args[8]
 
-	// Cache odd lanes of a for reuse across both multiplications.
-	f.VMOVSHDUP(a, aOdd)
-
-	// ---- First mul: sq = a * a (no reduce, output in [0, 2q)) ----
-	// Since a == b, we skip the redundant extraction of b's odd lanes.
-	f.VPMULUDQ(a, a, t0)           // prod_even = a_even^2
-	f.VPMULUDQ(aOdd, aOdd, t1)     // prod_odd = a_odd^2
-	f.VPMULUDQ(t0, f.qInvNeg, PL0) // m_even
-	f.VPMULUDQ(t1, f.qInvNeg, PL1) // m_odd
-	f.VPMULUDQ(PL0, f.qd, PL0)     // m_even * q
-	f.VPADDQ(t0, PL0, t0)          // prod + m*q (even)
-	f.VPMULUDQ(PL1, f.qd, PL1)     // m_odd * q
-	f.VPADDQ(t1, PL1, t1)          // prod + m*q (odd)
-	// sq is in high 32 bits of t0 (even) and t1 (odd).
-	// Merge into a single register with result in all DWORD positions.
-	f.VMOVSHDUPk(t0, amd64.K3, t1) // t1 = merged sq result
-
-	// ---- Second mul: a * sq (with reduce, output in [0, q)) ----
-	// Reuse cached aOdd; extract sq's odd lanes via VMOVSHDUP.
-	f.VMOVSHDUP(t1, PL1)       // PL1 = sqOdd
-	f.VPMULUDQ(a, t1, t0)      // prod_even = a_even * sq_even
-	f.VPMULUDQ(aOdd, PL1, PL0) // prod_odd = a_odd * sq_odd (reuse aOdd!)
-	// Reuse PL1 for m_even since sqOdd is consumed
-	f.VPMULUDQ(t0, f.qInvNeg, PL1)   // m_even
-	f.VPMULUDQ(PL0, f.qInvNeg, t1)   // m_odd (reuse t1 since sq is consumed)
-	f.VPMULUDQ(PL1, f.qd, PL1)       // m_even * q
-	f.VPADDQ(t0, PL1, t0)            // prod + m*q (even)
-	f.VPMULUDQ(t1, f.qd, t1)         // m_odd * q
-	f.VPADDQ(PL0, t1, into)          // prod + m*q (odd)
-	f.VMOVSHDUPk(t0, amd64.K3, into) // into = merged a^3 result
-
-	// Reduce to [0, q)
-	f.VPSUBD(f.qd, into, PL0)
-	f.VPMINUD(into, PL0, into)
+		f.VMOVSHDUP(a, aOdd)
+		f.VPMULUDQ(a, a, t0)
+		f.VPMULUDQ(aOdd, aOdd, t1)
+		f.VPMULUDQ(t0, qInvNeg, PL0)
+		f.VPMULUDQ(t1, qInvNeg, PL1)
+		f.VPMULUDQ(PL0, qd, PL0)
+		f.VPADDQ(t0, PL0, t0)
+		f.VPMULUDQ(PL1, qd, PL1)
+		f.VPADDQ(t1, PL1, t1)
+		f.VMOVSHDUPk(t0, amd64.K3, t1)
+		f.VMOVSHDUP(t1, PL1)
+		f.VPMULUDQ(a, t1, t0)
+		f.VPMULUDQ(aOdd, PL1, PL0)
+		f.VPMULUDQ(t0, qInvNeg, PL1)
+		f.VPMULUDQ(PL0, qInvNeg, t1)
+		f.VPMULUDQ(PL1, qd, PL1)
+		f.VPADDQ(t0, PL1, t0)
+		f.VPMULUDQ(t1, qd, t1)
+		f.VPADDQ(PL0, t1, into)
+		f.VMOVSHDUPk(t0, amd64.K3, into)
+		f.VPSUBD(qd, into, PL0)
+		f.VPMINUD(into, PL0, into)
+	}, true)(a, into, t[0], t[1], t[2], t[3], t[4], f.qd, f.qInvNeg)
 
 	f.registers.PushV(t...)
 }

@@ -721,133 +721,53 @@ loop_5:
 	DOUBLE(Z8, Z24, Z29, Z8)
 	MOVD         $15, AX
 	VPBROADCASTD AX, Z29
-	VPSRLD       $8, Z9, Z26
-	VPMADDUBSW   Z29, Z9, Z9
-	VPSLLD       $19, Z9, Z9
-	VPSUBD       Z9, Z26, Z9
-	VPADDD       Z24, Z9, Z26
-	VPMINUD      Z9, Z26, Z9
-	VPSRLD       $2, Z10, Z30
-	VPSLLD       $30, Z10, Z31
-	VPSRLD       $30, Z31, Z31
-	VPSLLD       $25, Z31, Z10
-	VPADDD       Z30, Z10, Z10
-	VPSLLD       $29, Z31, Z31
-	VPSUBD       Z31, Z10, Z10
-	VPADDD       Z24, Z10, Z30
-	VPMINUD      Z10, Z30, Z10
-	VPSRLD       $3, Z11, Z28
-	VPSLLD       $29, Z11, Z26
-	VPSRLD       $29, Z26, Z26
-	VPSLLD       $24, Z26, Z11
-	VPADDD       Z28, Z11, Z11
-	VPSLLD       $28, Z26, Z26
-	VPSUBD       Z26, Z11, Z11
-	VPADDD       Z24, Z11, Z28
-	VPMINUD      Z11, Z28, Z11
-	VPSRLD       $4, Z12, Z30
-	VPSLLD       $28, Z12, Z31
-	VPSRLD       $28, Z31, Z31
-	VPSLLD       $23, Z31, Z12
-	VPADDD       Z30, Z12, Z12
-	VPSLLD       $27, Z31, Z31
-	VPSUBD       Z31, Z12, Z12
-	VPADDD       Z24, Z12, Z30
-	VPMINUD      Z12, Z30, Z12
-	VPSRLD       $7, Z13, Z28
-	VPSLLD       $25, Z13, Z26
-	VPSRLD       $25, Z26, Z26
-	VPSLLD       $20, Z26, Z13
-	VPADDD       Z28, Z13, Z13
-	VPSLLD       $24, Z26, Z26
-	VPSUBD       Z26, Z13, Z13
-	VPADDD       Z24, Z13, Z28
-	VPMINUD      Z13, Z28, Z13
-	VPSRLD       $9, Z14, Z30
-	VPSLLD       $23, Z14, Z31
-	VPSRLD       $23, Z31, Z31
-	VPSLLD       $18, Z31, Z14
-	VPADDD       Z30, Z14, Z14
-	VPSLLD       $22, Z31, Z31
-	VPSUBD       Z31, Z14, Z14
-	VPADDD       Z24, Z14, Z30
-	VPMINUD      Z14, Z30, Z14
-	VPSRLD       $27, Z15, Z28
-	VPSLLD       $5, Z15, Z26
-	VPSRLD       $5, Z26, Z26
-	VPADDD       Z28, Z26, Z15
-	VPSLLD       $4, Z26, Z26
-	VPSUBD       Z26, Z15, Z15
-	VPADDD       Z24, Z15, Z28
-	VPMINUD      Z15, Z28, Z15
-	VPSRLD       $8, Z16, Z30
-	VPMADDUBSW   Z29, Z16, Z16
-	VPSLLD       $19, Z16, Z16
-	VPSUBD       Z16, Z30, Z16
-	VPADDD       Z24, Z16, Z30
-	VPMINUD      Z16, Z30, Z16
-	VPSRLD       $2, Z17, Z31
-	VPSLLD       $30, Z17, Z28
-	VPSRLD       $30, Z28, Z28
-	VPSLLD       $25, Z28, Z17
-	VPADDD       Z31, Z17, Z17
-	VPSLLD       $29, Z28, Z28
-	VPSUBD       Z28, Z17, Z17
-	VPADDD       Z24, Z17, Z31
-	VPMINUD      Z17, Z31, Z17
-	VPSRLD       $3, Z18, Z26
-	VPSLLD       $29, Z18, Z30
-	VPSRLD       $29, Z30, Z30
-	VPSLLD       $24, Z30, Z18
-	VPADDD       Z26, Z18, Z18
-	VPSLLD       $28, Z30, Z30
-	VPSUBD       Z30, Z18, Z18
-	VPADDD       Z24, Z18, Z26
-	VPMINUD      Z18, Z26, Z18
-	VPSRLD       $4, Z19, Z31
-	VPSLLD       $28, Z19, Z28
-	VPSRLD       $28, Z28, Z28
-	VPSLLD       $23, Z28, Z19
-	VPADDD       Z31, Z19, Z19
-	VPSLLD       $27, Z28, Z28
-	VPSUBD       Z28, Z19, Z19
-	VPADDD       Z24, Z19, Z31
-	VPMINUD      Z19, Z31, Z19
-	VPSRLD       $5, Z20, Z26
-	VPSLLD       $27, Z20, Z30
-	VPSRLD       $27, Z30, Z30
-	VPSLLD       $22, Z30, Z20
-	VPADDD       Z26, Z20, Z20
-	VPSLLD       $26, Z30, Z30
-	VPSUBD       Z30, Z20, Z20
-	VPADDD       Z24, Z20, Z26
-	VPMINUD      Z20, Z26, Z20
-	VPSRLD       $6, Z21, Z31
-	VPSLLD       $26, Z21, Z28
-	VPSRLD       $26, Z28, Z28
-	VPSLLD       $21, Z28, Z21
-	VPADDD       Z31, Z21, Z21
-	VPSLLD       $25, Z28, Z28
-	VPSUBD       Z28, Z21, Z21
-	VPADDD       Z24, Z21, Z31
-	VPMINUD      Z21, Z31, Z21
-	VPSRLD       $7, Z22, Z26
-	VPSLLD       $25, Z22, Z30
-	VPSRLD       $25, Z30, Z30
-	VPSLLD       $20, Z30, Z22
-	VPADDD       Z26, Z22, Z22
-	VPSLLD       $24, Z30, Z30
-	VPSUBD       Z30, Z22, Z22
-	VPADDD       Z24, Z22, Z26
-	VPMINUD      Z22, Z26, Z22
-	VPSRLD       $27, Z23, Z31
-	VPSLLD       $5, Z23, Z28
-	VPSRLD       $5, Z28, Z28
-	VPADDD       Z31, Z28, Z23
-	VPSLLD       $4, Z28, Z28
-	VPSUBD       Z28, Z23, Z23
-	VPADDD       Z24, Z23, Z31
-	VPMINUD      Z23, Z31, Z23
+
+#define MUL_2_EXP_NEG_8(in0, in1, in2, in3, in4, in5) \
+	VPSRLD     $8, in0, in3  \
+	VPMADDUBSW in1, in0, in2 \
+	VPSLLD     in5, in2, in2 \
+	VPSUBD     in2, in3, in2 \
+	VPADDD     in4, in2, in3 \
+	VPMINUD    in2, in3, in2 \
+
+	MUL_2_EXP_NEG_8(Z9, Z29, Z9, Z26, Z24, $19)
+
+#define MUL_2_EXP_NEG_N(in0, in1, in2, in3, in4, in5, in6, in7, in8) \
+	VPSRLD  in5, in0, in2 \
+	VPSLLD  in6, in0, in3 \
+	VPSRLD  in6, in3, in3 \
+	VPSLLD  in8, in3, in1 \
+	VPADDD  in2, in1, in1 \
+	VPSLLD  in7, in3, in3 \
+	VPSUBD  in3, in1, in1 \
+	VPADDD  in4, in1, in2 \
+	VPMINUD in1, in2, in1 \
+
+	MUL_2_EXP_NEG_N(Z10, Z10, Z30, Z31, Z24, $2, $30, $29, $25)
+	MUL_2_EXP_NEG_N(Z11, Z11, Z28, Z26, Z24, $3, $29, $28, $24)
+	MUL_2_EXP_NEG_N(Z12, Z12, Z30, Z31, Z24, $4, $28, $27, $23)
+	MUL_2_EXP_NEG_N(Z13, Z13, Z28, Z26, Z24, $7, $25, $24, $20)
+	MUL_2_EXP_NEG_N(Z14, Z14, Z30, Z31, Z24, $9, $23, $22, $18)
+
+#define MUL_2_EXP_NEG_J(in0, in1, in2, in3, in4, in5, in6, in7) \
+	VPSRLD  in5, in0, in2 \
+	VPSLLD  in6, in0, in3 \
+	VPSRLD  in6, in3, in3 \
+	VPADDD  in2, in3, in1 \
+	VPSLLD  in7, in3, in3 \
+	VPSUBD  in3, in1, in1 \
+	VPADDD  in4, in1, in2 \
+	VPMINUD in1, in2, in1 \
+
+	MUL_2_EXP_NEG_J(Z15, Z15, Z28, Z26, Z24, $27, $5, $4)
+	MUL_2_EXP_NEG_8(Z16, Z29, Z16, Z30, Z24, $19)
+	MUL_2_EXP_NEG_N(Z17, Z17, Z31, Z28, Z24, $2, $30, $29, $25)
+	MUL_2_EXP_NEG_N(Z18, Z18, Z26, Z30, Z24, $3, $29, $28, $24)
+	MUL_2_EXP_NEG_N(Z19, Z19, Z31, Z28, Z24, $4, $28, $27, $23)
+	MUL_2_EXP_NEG_N(Z20, Z20, Z26, Z30, Z24, $5, $27, $26, $22)
+	MUL_2_EXP_NEG_N(Z21, Z21, Z31, Z28, Z24, $6, $26, $25, $21)
+	MUL_2_EXP_NEG_N(Z22, Z22, Z26, Z30, Z24, $7, $25, $24, $20)
+	MUL_2_EXP_NEG_J(Z23, Z23, Z31, Z28, Z24, $27, $5, $4)
 
 #define SUB(in0, in1, in2, in3, in4) \
 	VPSUBD  in1, in0, in4 \
