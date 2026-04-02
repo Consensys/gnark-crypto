@@ -1111,10 +1111,14 @@ type fieldHelper struct {
 // twoAdicityFromParams returns j for the field's prime q = (2^k-1)·2^j + 1.
 // Determined from SBoxDegree: degree 3 → koalabear (j=24), degree 7 → babybear (j=27).
 func twoAdicityFromParams(p Poseidon2Parameters) int {
-	if p.SBoxDegree == 3 {
+	switch p.SBoxDegree {
+	case 3:
 		return 24 // koalabear
+	case 7:
+		return 27 // babybear
+	default:
+		panic(fmt.Sprintf("unsupported SBoxDegree %d: expected 3 or 7", p.SBoxDegree))
 	}
-	return 27 // babybear
 }
 
 func (f *fieldHelper) loadQ() {
@@ -1521,10 +1525,7 @@ func (f *fieldHelper) sbox(a, into amd64.VectorRegister, degree int) {
 		f.mul(t1, a, into, true) // a^7
 		f.registers.PushV(t0, t1)
 	default:
-		t5 := f.registers.PopV()
-		f.mul(a, a, t5, false)
-		f.mul(a, t5, into, true)
-		f.registers.PushV(t5)
+		panic(fmt.Sprintf("unsupported sbox degree %d: expected 3 or 7", degree))
 	}
 }
 
