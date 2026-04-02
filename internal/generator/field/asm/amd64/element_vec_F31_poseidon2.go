@@ -202,8 +202,8 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 		qInvNeg := args[9]
 		c := args[10]
 
-		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
-		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
+		f.VMOVSHDUP(a, aOdd) // keep high 32 bits (port 5 instead of port 0/1)
+		f.VMOVSHDUP(b, bOdd) // keep high 32 bits (port 5 instead of port 0/1)
 
 		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
 		f.VPMULUDQ(a, b, b0)
@@ -264,8 +264,34 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 		}, true)
 		if !width24 {
 			sbox = f.Define("sbox_full_16", 0, func(args ...any) {
-				mul(b0, b0, t2, false)
-				mul(b0, t2, b0, true)
+				// Fused sbox3: b0^3 with odd lanes cached via VMOVSHDUP (port 5),
+				// reused across both multiplications (saves 3 extractions → 1).
+				f.VMOVSHDUP(b0, aOdd)
+
+				// sq = b0 * b0 (no reduce)
+				f.VPMULUDQ(b0, b0, t0)
+				f.VPMULUDQ(aOdd, aOdd, t1)
+				f.VPMULUDQ(t0, qInvNeg, PL0)
+				f.VPMULUDQ(t1, qInvNeg, PL1)
+				f.VPMULUDQ(PL0, qd, PL0)
+				f.VPADDQ(t0, PL0, t0)
+				f.VPMULUDQ(PL1, qd, PL1)
+				f.VPADDQ(t1, PL1, t2)
+				f.VMOVSHDUPk(t0, amd64.K3, t2)
+
+				// b0 = b0 * sq (with reduce)
+				f.VMOVSHDUP(t2, bOdd)
+				f.VPMULUDQ(b0, t2, t0)
+				f.VPMULUDQ(aOdd, bOdd, t1)
+				f.VPMULUDQ(t0, qInvNeg, PL0)
+				f.VPMULUDQ(t1, qInvNeg, PL1)
+				f.VPMULUDQ(PL0, qd, PL0)
+				f.VPADDQ(t0, PL0, t0)
+				f.VPMULUDQ(PL1, qd, PL1)
+				f.VPADDQ(t1, PL1, b0)
+				f.VMOVSHDUPk(t0, amd64.K3, b0)
+
+				reduce1Q(qd, b0, PL1)
 			}, true)
 		}
 
@@ -441,6 +467,98 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 		}
 	}
 
+	if !width24 && params.SBoxDegree == 3 {
+		// Optimized partial round for width=16, degree=3.
+		//
+		// Three independent chains run concurrently via OOO execution:
+		//   A) sbox(s[0] + rc) — scalar X-register chain (~30 cycle latency)
+		//   B) horizontal sum of all 16 elements — Y-register shuffles
+		//   C) full diagonal multiply of all 16 elements — Z-register muls
+		//
+		// After all three complete, combine:
+		//   sum_tail = sum_all_old - s0_old
+		//   sum = sum_tail + s0_new
+		//   result[i] = diag[i]*s[i] + sum  (for i > 0)
+		//   result[0] = sum_tail - s0_new    (since diag[0] = -2)
+		//
+		// This hides the sum and diagonal multiply behind the sbox latency,
+		// whereas the old code serialized: sbox → blend → sum → even-diag.
+
+		// We reuse b1 (unused for width=16) to save s0_old,
+		// and d1/d1odd (unused for width=16) as temps for even-lane diagonal.
+		s0Old := b1    // Z3
+		evnT0 := d1    // Z20
+		evnT1 := d1odd // Z21
+
+		partialRound = func() {
+			f.Comment("optimized partial round (ILP)")
+
+			f.VMOVD(rKey.At(0), v0.X())
+			f.VMOVDQA32(b0.X(), s0Old.X()) // save s0_old
+			add(b0.X(), v0.X(), qd.X(), PL0.X(), v1.X())
+
+			// Chain A: sbox on v1.X() (uses t3.X() instead of t2.X() to avoid Chain C conflict)
+			f.VPMULUDQ(v1.X(), v1.X(), t0.X())
+			f.VPMULUDQ(t0.X(), qInvNeg.X(), PL0.X())
+			f.VPMULUDQ(PL0.X(), qd.X(), PL0.X())
+			f.VPADDQ(t0.X(), PL0.X(), t0.X())
+			f.VPSRLQ("$32", t0.X(), t3.X())
+
+			f.VPMULUDQ(v1.X(), t3.X(), t0.X())
+			f.VPMULUDQ(t0.X(), qInvNeg.X(), PL0.X())
+			f.VPMULUDQ(PL0.X(), qd.X(), PL0.X())
+			f.VPADDQ(t0.X(), PL0.X(), t0.X())
+			f.VPSRLQ("$32", t0.X(), v1.X())
+			f.VPSUBD(qd.X(), v1.X(), PL0.X())
+			f.VPMINUD(v1.X(), PL0.X(), v1.X())
+
+			// Chain B: horizontal sum of original b0 (independent of Chain A)
+			f.VEXTRACTI64X4(1, b0, acc)
+			add(acc, b0.Y(), qd.Y(), t5.Y(), acc)
+			f.VSHUFF64X2(0b1, acc, acc, accShuffled)
+			add(acc, accShuffled, qd.Y(), t5.Y(), acc)
+			f.VPSHUFD(uint64(0x4e), acc, accShuffled)
+			add(acc, accShuffled, qd.Y(), t5.Y(), acc)
+			f.VPSHUFD(uint64(0xb1), acc, accShuffled)
+			add(acc, accShuffled, qd.Y(), t5.Y(), acc)
+
+			// Chain C: full diagonal multiply on original b0
+			f.VMOVSHDUP(b0, aOdd)
+
+			f.VPMULUDQ(aOdd, d0odd, t2)
+			f.VPMULUDQ(t2, qInvNeg, PL1)
+			f.VPMULUDQ(PL1, qd, PL1)
+			f.VPADDQ(t2, PL1, t2)
+
+			f.VPMULUDQ(b0, d0, evnT0)
+			f.VPMULUDQ(evnT0, qInvNeg, evnT1)
+			f.VPMULUDQ(evnT1, qd, evnT1)
+			f.VPADDQ(evnT0, evnT1, evnT0)
+
+			f.VMOVSHDUPk(evnT0, amd64.K3, t2)
+			f.VPSUBD(qd, t2, t5)
+			f.VPMINUD(t2, t5, b0)
+
+			// Combine: sum_tail = sum_all - s0_old, sum = sum_tail + s0_new
+			f.VPSUBD(s0Old.X(), acc.X(), t4.X())
+			f.VPADDD(qd.X(), t4.X(), PL0.X())
+			f.VPMINUD(t4.X(), PL0.X(), t4.X())
+
+			f.VPADDD(v1.X(), t4.X(), t3.X())
+			f.VPSUBD(qd.X(), t3.X(), PL0.X())
+			f.VPMINUD(t3.X(), PL0.X(), t3.X())
+
+			// v0_new = sum_tail - s0_new (diag[0] = -2 identity)
+			f.VPSUBD(v1.X(), t4.X(), v0.X())
+			f.VPADDD(qd.X(), v0.X(), PL0.X())
+			f.VPMINUD(v0.X(), PL0.X(), v0.X())
+
+			f.VPBROADCASTD(t3.X(), t4)
+			add(b0, t4, qd, t5, b0)
+			f.VPBLENDMD(v0, b0, b0, amd64.K2)
+		}
+	}
+
 	matMulExternalInPlace()
 
 	for i := range rf {
@@ -499,7 +617,7 @@ func (f *FFAmd64) generatePoseidon2_F31(params Poseidon2Parameters) {
 // Here the 16 independent states are transposed into AVX-512 vectors:
 // v[j][lane] == state[lane][j].
 func (_f *FFAmd64) generatePoseidon2_F31_16x16xN(params Poseidon2Parameters) {
-	f := &fieldHelper{FFAmd64: _f}
+	f := &fieldHelper{FFAmd64: _f, twoAdicity: twoAdicityFromParams(params)}
 	width := params.Width
 	fullRounds := params.FullRounds
 	partialRounds := params.PartialRounds
@@ -588,8 +706,16 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16xN(params Poseidon2Parameters) {
 		//   x[0] = S(x[0] + rc[0])
 		//   x = M_int * x
 		//
-		// For width 16, the internal linear layer is:
-		//   M_int(x) = sum(x)*1 + diag16 o x
+		// The internal linear layer is M_int(x) = sum(x)*1 + diag o x, where
+		// diag[0] = -2 and the full sum = v[0] + v[1] + ... + v[15].
+		//
+		// We use the Plonky3 trick of computing sum_tail = v[1]+...+v[15] first
+		// (independent of v[0]'s sbox result) and then deriving:
+		//   sum = sum_tail + v[0]
+		//   v[0] = sum - 2*v[0] = sum_tail - v[0]
+		// This eliminates the double(v[0]) operation and enables better ILP:
+		// sum_tail computation + diagonal multiply on v[1..15] can run concurrently
+		// with the sbox dependency chain on v[0].
 		addRoundKeySbox(0)
 
 		sum := registers.PopV()
@@ -599,33 +725,30 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16xN(params Poseidon2Parameters) {
 		t4 := registers.PopV()
 
 		{
-			// sum = x[0] + ... + x[15], computed as a small addition tree to avoid
-			// a long dependency chain.
-			f.add(v[0], v[1], t2)
-			f.add(v[2], v[3], t3)
-			f.add(v[4], v[5], t4)
-			f.add(v[6], v[7], sum)
-			for i := 8; i < len(v); i += 4 {
-				f.add(v[i], t2, t2)
-				f.add(v[i+1], t3, t3)
-				f.add(v[i+2], t4, t4)
-				f.add(v[i+3], sum, sum)
-			}
+			// sum_tail = v[1] + ... + v[15], computed as a tree (14 adds).
+			// This is INDEPENDENT of v[0]'s sbox result.
+			f.add(v[1], v[2], t2)
+			f.add(v[3], v[4], t3)
+			f.add(v[5], v[6], t4)
+			f.add(v[7], v[8], sum)
+			f.add(v[9], t2, t2)
+			f.add(v[10], t3, t3)
+			f.add(v[11], t4, t4)
+			f.add(v[12], sum, sum)
+			f.add(v[13], t2, t2)
+			f.add(v[14], t3, t3)
+			f.add(v[15], t4, t4)
 			f.add(t2, t3, t2)
 			f.add(t4, sum, t4)
-			f.add(t2, t4, sum)
+			f.add(t2, t4, sum) // sum = sum_tail
 		}
 
-		// Apply diag16 coordinate-wise.
+		// Apply diag16 coordinate-wise to v[1..15] (v[0] handled below via sum_tail trick).
 		//
 		// diag16 = [
 		//   -2, 1, 2, 1/2, 3, 4, -1/2, -3,
 		//   -4, 1/2^8, 1/2^3, 1/2^24, -1/2^8, -1/2^3, -1/2^4, -1/2^24,
 		// ]
-		//
-		// The code below encodes each diagonal coefficient with the cheapest field
-		// operation available: double, halve, repeated doubling, or mul2ExpNegN.
-		f.double(v[0], v[0])
 		f.double(v[2], v[2])
 		f.halve(v[3], v[3])
 		f.double(v[4], t2)
@@ -640,36 +763,49 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16xN(params Poseidon2Parameters) {
 
 		registers.PushV(t1, t2, t3, t4)
 
+		// Pre-load the odd factor r for the VPMADDUBSW-based N=8 specialisation.
+		rConst := registers.PopV()
+		oddFactor := (1 << (31 - f.twoAdicity)) - 1
+		f.MOVD("$"+strconv.Itoa(oddFactor), amd64.AX)
+		f.VPBROADCASTD(amd64.AX, rConst)
+
 		ns := []int{8, 3, 24, 8, 3, 4, 24}
 		for i := 9; i < len(v); i++ {
-			f.mul2ExpNegN(v[i], ns[i-9], v[i])
-		}
-
-		// Finish x = sum(x)*1 + diag16 o x.
-		// Each line below is one row of the internal matrix:
-		//   x0  = sum - 2*x0
-		//   x1  = sum + 1*x1
-		//   x2  = sum + 2*x2
-		//   x3  = sum + (1/2)*x3
-		//   ...
-		//   x15 = sum - (1/2^24)*x15
-		f.sub(sum, v[0], v[0])
-		f.add(sum, v[1], v[1])
-		f.add(v[2], sum, v[2])
-		f.add(v[3], sum, v[3])
-		f.add(v[4], sum, v[4])
-		f.add(v[5], sum, v[5])
-		f.sub(sum, v[6], v[6])
-		f.sub(sum, v[7], v[7])
-		f.sub(sum, v[8], v[8])
-		for i := 9; i < len(v); i++ {
-			if i <= 11 {
-				f.add(v[i], sum, v[i])
+			if ns[i-9] == 8 {
+				f.mul2ExpNeg8(v[i], rConst, v[i])
 			} else {
-				f.sub(sum, v[i], v[i])
+				f.mul2ExpNegN(v[i], ns[i-9], v[i])
 			}
 		}
 
+		registers.PushV(rConst)
+
+		// Derive the full sum and apply it.
+		// sum currently holds sum_tail = v[1]+...+v[15].
+		// We need: full_sum = sum_tail + v[0] AND v[0]_new = sum_tail - v[0].
+		// Compute full_sum FIRST (into t1), then overwrite v[0].
+		t1 = registers.PopV()
+		f.add(sum, v[0], t1)   // t1 = sum_tail + v[0] = full sum
+		f.sub(sum, v[0], v[0]) // v[0] = sum_tail - v[0] = sum - 2*v[0]
+
+		// Now t1 = full sum. Use it for elements 1..15.
+		f.add(t1, v[1], v[1])
+		f.add(v[2], t1, v[2])
+		f.add(v[3], t1, v[3])
+		f.add(v[4], t1, v[4])
+		f.add(v[5], t1, v[5])
+		f.sub(t1, v[6], v[6])
+		f.sub(t1, v[7], v[7])
+		f.sub(t1, v[8], v[8])
+		for i := 9; i < len(v); i++ {
+			if i <= 11 {
+				f.add(v[i], t1, v[i])
+			} else {
+				f.sub(t1, v[i], v[i])
+			}
+		}
+
+		registers.PushV(t1)
 		registers.PushV(sum)
 	}
 
@@ -747,7 +883,7 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x16xN(params Poseidon2Parameters) {
 }
 
 func (_f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
-	f := &fieldHelper{FFAmd64: _f}
+	f := &fieldHelper{FFAmd64: _f, twoAdicity: twoAdicityFromParams(params)}
 	width := params.Width
 	fullRounds := params.FullRounds
 	partialRounds := params.PartialRounds
@@ -878,6 +1014,12 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 
 		registers.PushV(t1, t2, t3, t4)
 
+		// Pre-load the odd factor r for the VPMADDUBSW-based N=8 specialisation.
+		rConst := registers.PopV()
+		oddFactor := (1 << (31 - f.twoAdicity)) - 1
+		f.MOVD("$"+strconv.Itoa(oddFactor), amd64.AX)
+		f.VPBROADCASTD(amd64.AX, rConst)
+
 		var ns []int
 		if params.SBoxDegree == 3 {
 			// koalabear
@@ -888,8 +1030,14 @@ func (_f *FFAmd64) generatePoseidon2_F31_16x24(params Poseidon2Parameters) {
 		}
 
 		for i := 9; i < len(v); i++ {
-			f.mul2ExpNegN(v[i], ns[i-9], v[i])
+			if ns[i-9] == 8 {
+				f.mul2ExpNeg8(v[i], rConst, v[i])
+			} else {
+				f.mul2ExpNegN(v[i], ns[i-9], v[i])
+			}
 		}
+
+		registers.PushV(rConst)
 
 		// Sum part.
 		f.sub(sum, v[0], v[0])
@@ -955,6 +1103,22 @@ type fieldHelper struct {
 	*FFAmd64
 	registers   *amd64.Registers
 	qd, qInvNeg amd64.VectorRegister
+	// twoAdicity is j where q = (2^k − 1)·2^j + 1 with k = 31−j.
+	// koalabear: j = 24, babybear: j = 27.
+	twoAdicity int
+}
+
+// twoAdicityFromParams returns j for the field's prime q = (2^k-1)·2^j + 1.
+// Determined from SBoxDegree: degree 3 → koalabear (j=24), degree 7 → babybear (j=27).
+func twoAdicityFromParams(p Poseidon2Parameters) int {
+	switch p.SBoxDegree {
+	case 3:
+		return 24 // koalabear
+	case 7:
+		return 27 // babybear
+	default:
+		panic(fmt.Sprintf("unsupported SBoxDegree %d: expected 3 or 7", p.SBoxDegree))
+	}
 }
 
 func (f *fieldHelper) loadQ() {
@@ -1107,8 +1271,8 @@ func (f *fieldHelper) mul_4(a, b, into amd64.VectorRegister, reduce bool) {
 		PL0 := aOdd
 		PL1 := bOdd
 
-		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
-		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
+		f.VMOVSHDUP(a, aOdd) // keep high 32 bits (port 5 instead of port 0/1)
+		f.VMOVSHDUP(b, bOdd) // keep high 32 bits (port 5 instead of port 0/1)
 
 		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
 		f.VPMULUDQ(a, b, t0)
@@ -1147,8 +1311,8 @@ func (f *fieldHelper) mul_5(a, b, into amd64.VectorRegister, reduce bool) {
 		qd := args[8]
 		qInvNeg := args[9]
 
-		f.VPSRLQ("$32", a, aOdd) // keep high 32 bits
-		f.VPSRLQ("$32", b, bOdd) // keep high 32 bits
+		f.VMOVSHDUP(a, aOdd) // keep high 32 bits (port 5 instead of port 0/1)
+		f.VMOVSHDUP(b, bOdd) // keep high 32 bits (port 5 instead of port 0/1)
 
 		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
 		f.VPMULUDQ(a, b, t0)
@@ -1172,58 +1336,109 @@ func (f *fieldHelper) mul_5(a, b, into amd64.VectorRegister, reduce bool) {
 	}
 }
 
-// mul2ExpNegN multiplies a by -1/2^n (and reduces mod q)
-// uses 5 temporary registers
+// mul2ExpNegN multiplies a by 2^{-N} (i.e. divides by 2^N) modulo q.
+// The "NegN" refers to the negative exponent, not a negation of the result.
+//
+// Uses a shift-based approach inspired by Plonky3 that avoids all VPMULUDQ
+// multiplications.  For a prime of the form q = r·2^j + 1 with r = 2^k − 1
+// (koalabear: r = 127, j = 24, k = 7; babybear: r = 15, j = 27, k = 4)
+// the identity
+//
+//	x·2^{−N} ≡ x_hi − r·2^{j−N}·x_lo  (mod q)
+//	         = x_hi + x_lo·2^{j−N} − x_lo·2^{k+j−N}
+//
+// where x_lo = x & ((1<<N)−1), x_hi = x >> N, and k+j = 31 for all
+// supported F31 primes, lets us compute the result entirely with shifts,
+// an addition, a subtraction, and a final sign correction, using only
+// 2 temporary vector registers (down from 5) and 0 multiplications (down from 4).
 func (f *fieldHelper) mul2ExpNegN(a amd64.VectorRegister, N int, into amd64.VectorRegister) {
-	t := f.registers.PopVN(5)
+	j := f.twoAdicity // e.g. 24 for koalabear, 27 for babybear
+	k := 31 - j       // e.g. 7 for koalabear, 4 for babybear
 
-	// Since the Montgomery constant is 2^32, the Montgomery form of 1/2^n is
-	// 2^{32-n}. Montgomery reduction works provided the input is < 2^32 so this
-	// works for 0 <= n <= 32.
-	//
-	// N.B. n must be < 33.
-	// perf: see Plonky3 impl for specific N values
-	// gains are minimal so keeping this generic version for simplicity of the code.
+	t := f.registers.PopVN(2)
+	hi := t[0]
+	lo := t[1]
 
-	f.Define("mul_2_exp_neg_n", 11, func(args ...any) {
-		a := args[0]
-		c := args[1]
-		n := args[2]
-		m := args[3]
-		t0 := args[4]
-		t1 := args[5]
-		t2 := args[6]
-		t3 := args[7]
-		t4 := args[8]
-		qd := args[9]
-		qInvNeg := args[10]
+	n := "$" + strconv.Itoa(N)
+	compN := "$" + strconv.Itoa(32-N)
+	if N == j {
+		f.Define("mul_2_exp_neg_j", 8, func(args ...any) {
+			a := args[0]
+			into := args[1]
+			hi := args[2]
+			lo := args[3]
+			qd := args[4]
+			n := args[5]
+			compN := args[6]
+			k := args[7]
 
-		f.VPSRLQ("$32", a, t2) // keep high 32 bits
+			f.VPSRLD(n, a, hi)
+			f.VPSLLD(compN, a, lo)
+			f.VPSRLD(compN, lo, lo)
+			f.VPADDD(hi, lo, into)
+			f.VPSLLD(k, lo, lo)
+			f.VPSUBD(lo, into, into)
+			f.VPADDD(qd, into, hi)
+			f.VPMINUD(into, hi, into)
+		}, true)(a, into, hi, lo, f.qd, n, compN, "$"+strconv.Itoa(k))
+	} else {
+		s1 := "$" + strconv.Itoa(31-N) // shift for the subtracted term (k+j−N)
+		s2 := "$" + strconv.Itoa(j-N)  // shift for the added term (j−N)
+		f.Define("mul_2_exp_neg_n", 9, func(args ...any) {
+			a := args[0]
+			into := args[1]
+			hi := args[2]
+			lo := args[3]
+			qd := args[4]
+			n := args[5]
+			compN := args[6]
+			s1 := args[7]
+			s2 := args[8]
 
-		// VPMULUDQ conveniently ignores the high 32 bits of each QWORD lane
-		// but now we must "zero out the high bits"
-		// so we shift left;
-		// then instead of shifting right by 32 and left by (32 - n)
-		// we just shift right by n
-		f.VPSLLQ("$32", a, a)
-		f.VPSRLQ(n, a, t0)
-		f.VPSLLQ(m, t2, t1)
+			f.VPSRLD(n, a, hi)
+			f.VPSLLD(compN, a, lo)
+			f.VPSRLD(compN, lo, lo)
+			f.VPSLLD(s2, lo, into)
+			f.VPADDD(hi, into, into)
+			f.VPSLLD(s1, lo, lo)
+			f.VPSUBD(lo, into, into)
+			f.VPADDD(qd, into, hi)
+			f.VPMINUD(into, hi, into)
+		}, true)(a, into, hi, lo, f.qd, n, compN, s1, s2)
+	}
 
-		f.VPMULUDQ(t0, qInvNeg, t3)
-		f.VPMULUDQ(t1, qInvNeg, t4)
-
-		f.VPMULUDQ(t3, qd, t3)
-		f.VPADDQ(t0, t3, t0)
-
-		f.VPMULUDQ(t4, qd, t4)
-		f.VPADDQ(t1, t4, c)
-
-		f.VMOVSHDUPk(t0, amd64.K3, c)
-		f.VPSUBD(qd, c, t4)
-		f.VPMINUD(c, t4, c)
-	}, true)(a, into, "$"+strconv.Itoa(N), "$"+strconv.Itoa(32-N), t[0], t[1], t[2], t[3], t[4], f.qd, f.qInvNeg)
 	f.registers.PushV(t...)
+}
 
+// mul2ExpNeg8 is a specialised version of mul2ExpNegN for N = 8.
+// It uses VPMADDUBSW to combine the byte extraction and multiplication by the
+// odd factor r in a single instruction, saving 3 instructions over the generic
+// shift-based path (6 instructions + 1 temp vs 9 instructions + 2 temps).
+//
+// rConst must be a pre-loaded vector of VPBROADCASTD(r) where r is the odd
+// factor of q − 1 (127 for koalabear, 15 for babybear).
+func (f *fieldHelper) mul2ExpNeg8(a, rConst, into amd64.VectorRegister) {
+	j := f.twoAdicity
+	hi := f.registers.PopV()
+	f.Define("mul_2_exp_neg_8", 6, func(args ...any) {
+		a := args[0]
+		rConst := args[1]
+		into := args[2]
+		hi := args[3]
+		qd := args[4]
+		jMinus8 := args[5]
+
+		f.VPSRLD("$8", a, hi)
+		// In Go's x86 assembler syntax, `VPMADDUBSW rConst, a, into` uses `a` as
+		// the unsigned-byte input and `rConst` as the signed-byte input.
+		f.WriteLn(fmt.Sprintf("\tVPMADDUBSW %s, %s, %s", rConst, a, into))
+		f.VPSLLD(jMinus8, into, into)
+		f.VPSUBD(into, hi, into)
+		f.VPADDD(qd, into, hi)
+		f.VPMINUD(into, hi, into)
+	}, true)(a, rConst, into, hi, f.qd, "$"+strconv.Itoa(j-8))
+
+	f.registers.PushV(hi)
 }
 
 // reduce1Q reduces a by q and stores the result in into
@@ -1309,7 +1524,10 @@ func (f *fieldHelper) matMulExternal(v []amd64.VectorRegister, nbBlocks int) {
 }
 
 func (f *fieldHelper) sbox(a, into amd64.VectorRegister, degree int) {
-	if degree == 7 {
+	switch degree {
+	case 3:
+		f.sbox3(a, into)
+	case 7:
 		t0 := f.registers.PopV()
 		t1 := f.registers.PopV()
 		f.mul(a, a, t0, true)    // a^2 (reduce to prevent overflow in a^6 = a^3 * a^3)
@@ -1317,10 +1535,53 @@ func (f *fieldHelper) sbox(a, into amd64.VectorRegister, degree int) {
 		f.mul(t0, t0, t1, false) // a^6
 		f.mul(t1, a, into, true) // a^7
 		f.registers.PushV(t0, t1)
-	} else {
-		t5 := f.registers.PopV()
-		f.mul(a, a, t5, false)
-		f.mul(a, t5, into, true)
-		f.registers.PushV(t5)
+	default:
+		panic(fmt.Sprintf("unsupported sbox degree %d: expected 3 or 7", degree))
 	}
+}
+
+// sbox3 computes a^3 using a fused two-multiplication sequence that saves
+// 2 instructions compared to two independent mul calls:
+//  1. Caches aOdd (= VMOVSHDUP(a)) across both multiplies, eliminating
+//     the redundant extraction in the square and reusing it in the cube.
+//  2. Uses VMOVSHDUP (port 5) instead of VPSRLQ (port 0/1) for odd-lane
+//     extraction, improving execution port balance.
+func (f *fieldHelper) sbox3(a, into amd64.VectorRegister) {
+	t := f.registers.PopVN(5)
+	f.Define("sbox3", 9, func(args ...any) {
+		a := args[0]
+		into := args[1]
+		aOdd := args[2]
+		t0 := args[3]
+		t1 := args[4]
+		PL0 := args[5]
+		PL1 := args[6]
+		qd := args[7]
+		qInvNeg := args[8]
+
+		f.VMOVSHDUP(a, aOdd)
+		f.VPMULUDQ(a, a, t0)
+		f.VPMULUDQ(aOdd, aOdd, t1)
+		f.VPMULUDQ(t0, qInvNeg, PL0)
+		f.VPMULUDQ(t1, qInvNeg, PL1)
+		f.VPMULUDQ(PL0, qd, PL0)
+		f.VPADDQ(t0, PL0, t0)
+		f.VPMULUDQ(PL1, qd, PL1)
+		f.VPADDQ(t1, PL1, t1)
+		f.VMOVSHDUPk(t0, amd64.K3, t1)
+		f.VMOVSHDUP(t1, PL1)
+		f.VPMULUDQ(a, t1, t0)
+		f.VPMULUDQ(aOdd, PL1, PL0)
+		f.VPMULUDQ(t0, qInvNeg, PL1)
+		f.VPMULUDQ(PL0, qInvNeg, t1)
+		f.VPMULUDQ(PL1, qd, PL1)
+		f.VPADDQ(t0, PL1, t0)
+		f.VPMULUDQ(t1, qd, t1)
+		f.VPADDQ(PL0, t1, into)
+		f.VMOVSHDUPk(t0, amd64.K3, into)
+		f.VPSUBD(qd, into, PL0)
+		f.VPMINUD(into, PL0, into)
+	}, true)(a, into, t[0], t[1], t[2], t[3], t[4], f.qd, f.qInvNeg)
+
+	f.registers.PushV(t...)
 }
