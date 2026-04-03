@@ -1,4 +1,4 @@
-package fp2
+package fptower
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/secp256r1/fp"

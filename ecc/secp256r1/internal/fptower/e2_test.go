@@ -1,4 +1,4 @@
-package fp2
+package fptower
 
 import (
 	"testing"

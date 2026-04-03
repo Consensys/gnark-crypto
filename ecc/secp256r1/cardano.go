@@ -91,7 +91,9 @@ func CardanoRoots(c fp.Element) []fp.Element {
 		}
 
 		var u fp2.E2
-		u.Cbrt(&w)
+		if u.Cbrt(&w) == nil {
+			return []fp.Element{}
+		}
 
 		for _, zeta := range zetas {
 			var cand fp2.E2

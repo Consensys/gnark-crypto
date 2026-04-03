@@ -1,6 +1,6 @@
-// Package fp2 implements Fp2 = Fp[u]/(u²+1) arithmetic for the P-256 (secp256r1) base field.
+// Package fptower implements Fp2 = Fp[u]/(u²+1) arithmetic for the P-256 (secp256r1) base field.
 // The non-residue is β = −1, valid since q ≡ 3 mod 4.
-package fp2
+package fptower
 
 import (
 	"fmt"
@@ -267,22 +267,23 @@ func (z *E2) expBySqrtHelper(x *E2) *E2 {
 // unique cube root. Returns z, or nil if x is not a cubic residue in Fp2.
 func (z *E2) Cbrt(x *E2) *E2 {
 	if x.A1.IsZero() {
-		if x.A0.Cbrt(&x.A0) == nil {
+		var tmp fp.Element
+		if tmp.Cbrt(&x.A0) == nil {
 			return nil
 		}
-		z.A0.Set(&x.A0)
+		z.A0.Set(&tmp)
 		z.A1.SetZero()
 		return z
 	}
 
 	if x.A0.IsZero() {
-		var negA1 fp.Element
+		var negA1, tmp fp.Element
 		negA1.Neg(&x.A1)
-		if negA1.Cbrt(&negA1) == nil {
+		if tmp.Cbrt(&negA1) == nil {
 			return nil
 		}
 		z.A0.SetZero()
-		z.A1.Set(&negA1)
+		z.A1.Set(&tmp)
 		return z.cbrtVerify(x)
 	}
 
