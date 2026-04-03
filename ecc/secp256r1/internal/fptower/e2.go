@@ -266,86 +266,149 @@ func (z *E2) expBySqrtHelper(x *E2) *E2 {
 // For q ≡ 4 mod 9 and β = −1: v₃(q+1) = 0 ensures every element of T₂ has a
 // unique cube root. Returns z, or nil if x is not a cubic residue in Fp2.
 func (z *E2) Cbrt(x *E2) *E2 {
+	// Use a local variable to avoid aliasing issues when z == x.
+	var y E2
+
 	if x.A1.IsZero() {
-		if z.A0.Cbrt(&x.A0) == nil {
+		if y.A0.Cbrt(&x.A0) == nil {
 			return nil
 		}
-		z.A1.SetZero()
+		y.A1.SetZero()
+		z.Set(&y)
 		return z
 	}
 
 	if x.A0.IsZero() {
 		var negA1 fp.Element
 		negA1.Neg(&x.A1)
-		if z.A1.Cbrt(&negA1) == nil {
+		if y.A1.Cbrt(&negA1) == nil {
 			return nil
 		}
-		z.A0.SetZero()
-		return z.cbrtVerify(x)
+		y.A0.SetZero()
+		return z.cbrtVerify(x, &y)
 	}
 
-	var x0sq, x1sq, norm fp.Element
+	var x0sq, x1sq fp.Element
 	x0sq.Square(&x.A0)
 	x1sq.Square(&x.A1)
+	// N = x₀² + x₁² (norm of x, since β = -1)
+	var norm fp.Element
 	norm.Add(&x0sq, &x1sq)
 
-	m, normInv, ok := cbrtAndNormInverse(&norm)
-	if !ok {
-		return nil
-	}
+	var x0x1 fp.Element
+	x0x1.Mul(&x.A0, &x.A1)
 
-	// τ = 2·(A0² − A1²)/N
-	var tau fp.Element
-	tau.Sub(&x0sq, &x1sq)
-	tau.Double(&tau)
-	tau.Mul(&tau, &normInv)
+	// U = -16·|β|·N·(x₀x₁)²  (|β| = 1 for secp256r1)
+	var U fp.Element
+	U.Square(&x0x1)
+	U.Mul(&U, &norm)
+	U.Double(&U)
+	U.Double(&U)
+	U.Double(&U)
+	U.Double(&U)
+	U.Neg(&U)
 
-	sigma := lucasV(&tau)
+	// w = U³·N; single exponentiation yields cbrt(w), 1/N, 1/U
+	var U2, U3, w fp.Element
+	U2.Square(&U)
+	U3.Mul(&U2, &U)
+	w.Mul(&U3, &norm)
 
-	// z₀ = A0/(m·(σ−1)), z₁ = A1/(m·(σ+1))
-	var one, d0, d1, d0d1, d0d1Inv fp.Element
-	one.SetOne()
-	d0.Sub(&sigma, &one)
-	d0.Mul(&m, &d0)
-	d1.Add(&sigma, &one)
-	d1.Mul(&m, &d1)
+	// t = w^{(q-4)/9}
+	var t fp.Element
+	t.ExpByCbrtHelperQMinus4Div9(w)
 
-	d0d1.Mul(&d0, &d1)
-	d0d1Inv.Inverse(&d0d1)
-
-	z.A0.Mul(&d1, &d0d1Inv).Mul(&z.A0, &x.A0)
-	z.A1.Mul(&d0, &d0d1Inv).Mul(&z.A1, &x.A1)
-
-	return z.cbrtVerify(x)
-}
-
-func (z *E2) cbrtVerify(x *E2) *E2 {
-	var c E2
-	c.Square(z).Mul(&c, z)
-	if !c.Equal(x) {
-		return nil
-	}
-	return z
-}
-
-func cbrtAndNormInverse(norm *fp.Element) (m, normInv fp.Element, ok bool) {
-	var t, t2, t4, t8, t9, n2, n3 fp.Element
-	t.ExpByCbrtHelperQMinus4Div9(*norm)
+	// cbrtW = t⁸·w³ = w^{(8q-5)/9}; wInv = t⁹·w² = w^{q-2} = 1/w
+	var t2, t4, t8, t9, w2, w3 fp.Element
 	t2.Square(&t)
 	t4.Square(&t2)
 	t8.Square(&t4)
 	t9.Mul(&t8, &t)
-	n2.Square(norm)
-	n3.Mul(&n2, norm)
-	m.Mul(&t8, &n3)
-	normInv.Mul(&t9, &n2)
+	w2.Square(&w)
+	w3.Mul(&w2, &w)
+	var cbrtW, wInv fp.Element
+	cbrtW.Mul(&t8, &w3)
+	wInv.Mul(&t9, &w2)
 
+	// Recover: UInv = U²·N·wInv, m = cbrtW·UInv = cbrt(N), normInv = U³·wInv = 1/N
+	var UInv, normInv, m fp.Element
+	UInv.Mul(&U2, &norm)
+	UInv.Mul(&UInv, &wInv)
+	m.Mul(&cbrtW, &UInv)
+	normInv.Mul(&U3, &wInv)
+
+	// Verify m³ = N (for q ≡ 4 mod 9, no ζ-adjustment needed)
 	var c fp.Element
 	c.Square(&m).Mul(&c, &m)
-	if !c.Equal(norm) {
-		return m, normInv, false
+	if !c.Equal(&norm) {
+		return nil
 	}
-	return m, normInv, true
+
+	// DeltaInv = N³·UInv
+	var n2, n3, deltaInv fp.Element
+	n2.Square(&norm)
+	n3.Mul(&n2, &norm)
+	deltaInv.Mul(&n3, &UInv)
+
+	// τ = 2·(x₀² - x₁²)/N  (trace of x^{q-1} on T₂; |β|=1)
+	var halfTau, tau fp.Element
+	halfTau.Sub(&x0sq, &x1sq)
+	halfTau.Mul(&halfTau, &normInv)
+	tau.Double(&halfTau)
+
+	// Te = V_e(τ), Te1 = V_{e+1}(τ) from the Lucas V-ladder
+	Te, Te1 := lucasV(&tau)
+
+	// imY = 2·x₀x₁/N (imaginary part of x^{q-1} on T₂)
+	var imY fp.Element
+	imY.Double(&x0x1)
+	imY.Mul(&imY, &normInv)
+
+	// WA0 = Te1 - halfTau·Te, WA1 = imY·Te
+	var WA0, WA1 fp.Element
+	WA0.Mul(&halfTau, &Te)
+	WA0.Sub(&Te1, &WA0)
+	WA1.Mul(&imY, &Te)
+
+	// k = 2·imY·DeltaInv
+	var sIm, k fp.Element
+	sIm.Double(&imY)
+	k.Mul(&sIm, &deltaInv)
+
+	// gamma = (-WA1·k, WA0·k)  (conjugate of torus element scaled by k; |β|=1)
+	var gamma E2
+	gamma.A0.Mul(&WA1, &k)
+	gamma.A0.Neg(&gamma.A0)
+	gamma.A1.Mul(&WA0, &k)
+
+	// mInv = m²·normInv = 1/m
+	var mInv fp.Element
+	mInv.Square(&m)
+	mInv.Mul(&mInv, &normInv)
+
+	// y = x · conj(gamma) · mInv
+	// y.A0 = (x₀·γ₀ + x₁·γ₁) · mInv  (|β|=1)
+	// y.A1 = (x₁·γ₀ - x₀·γ₁) · mInv
+	var r1, r2 fp.Element
+	r1.Mul(&x.A0, &gamma.A0)
+	r2.Mul(&x.A1, &gamma.A1)
+	y.A0.Add(&r1, &r2)
+	y.A0.Mul(&y.A0, &mInv)
+	r1.Mul(&x.A1, &gamma.A0)
+	r2.Mul(&x.A0, &gamma.A1)
+	y.A1.Sub(&r1, &r2)
+	y.A1.Mul(&y.A1, &mInv)
+
+	return z.cbrtVerify(x, &y)
+}
+
+func (z *E2) cbrtVerify(x *E2, y *E2) *E2 {
+	var c E2
+	c.Square(y).Mul(&c, y)
+	if !c.Equal(x) {
+		return nil
+	}
+	return z.Set(y)
 }
 
 // lucasExponent is e = 3⁻¹ mod (q+1) as little-endian uint64 limbs.
@@ -356,7 +419,9 @@ var lucasExponent = [4]uint64{
 	6148914689804861440,
 }
 
-func lucasV(alpha *fp.Element) fp.Element {
+// lucasV returns (V_e(alpha, 1), V_{e+1}(alpha, 1)) where e = 3⁻¹ mod (q+1),
+// using the Lucas V-sequence with Q=1 and a Montgomery ladder.
+func lucasV(alpha *fp.Element) (fp.Element, fp.Element) {
 	var v0, v1, two, prod fp.Element
 	two.SetUint64(2)
 	v0.Set(alpha)
@@ -373,6 +438,8 @@ func lucasV(alpha *fp.Element) fp.Element {
 			v1.Square(&v1).Sub(&v1, &two)
 		}
 	}
-	v0.Mul(&v0, &v1).Sub(&v0, alpha)
-	return v0
+	// bit 0 is always 1
+	prod.Mul(&v0, &v1).Sub(&prod, alpha)
+	v1.Square(&v1).Sub(&v1, &two)
+	return prod, v1
 }
