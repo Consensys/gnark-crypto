@@ -267,23 +267,20 @@ func (z *E2) expBySqrtHelper(x *E2) *E2 {
 // unique cube root. Returns z, or nil if x is not a cubic residue in Fp2.
 func (z *E2) Cbrt(x *E2) *E2 {
 	if x.A1.IsZero() {
-		var tmp fp.Element
-		if tmp.Cbrt(&x.A0) == nil {
+		if z.A0.Cbrt(&x.A0) == nil {
 			return nil
 		}
-		z.A0.Set(&tmp)
 		z.A1.SetZero()
 		return z
 	}
 
 	if x.A0.IsZero() {
-		var negA1, tmp fp.Element
+		var negA1 fp.Element
 		negA1.Neg(&x.A1)
-		if tmp.Cbrt(&negA1) == nil {
+		if z.A1.Cbrt(&negA1) == nil {
 			return nil
 		}
 		z.A0.SetZero()
-		z.A1.Set(&tmp)
 		return z.cbrtVerify(x)
 	}
 
