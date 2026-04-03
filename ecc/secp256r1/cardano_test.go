@@ -1,9 +1,11 @@
 package secp256r1
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/secp256r1/fp"
+	"github.com/consensys/gnark-crypto/ecc/secp256r1/fr"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -39,36 +41,38 @@ func TestCardanoRoots(t *testing.T) {
 		GenFp(),
 	))
 
-	properties.Property("[SECP256R1] CardanoRoots from curve points should find at least one root", prop.ForAll(
-		func(a fp.Element) bool {
-			// construct c = b − y² so that x³ − 3x + c = 0 has at least one solution
-			// (any y that gives a valid curve point y² = x³ − 3x + b)
+	properties.Property("[SECP256R1] CardanoRoots from curve points should find at least one root matching x", prop.ForAll(
+		func(s fr.Element) bool {
+			// generate a real curve point by scalar multiplication
+			var sBig big.Int
+			s.BigInt(&sBig)
+			var p G1Jac
+			p.ScalarMultiplication(&g1Gen, &sBig)
+			var pAff G1Affine
+			pAff.FromJacobian(&p)
+
+			// c = b − y² so x³ − 3x + c = 0 must have pAff.X as a root
 			var b fp.Element
 			b.SetString("41058363725152142129326129780047268409114441015993725554835256314039467401291")
 			var y2, c fp.Element
-			y2.Square(&a)
+			y2.Square(&pAff.Y)
 			c.Sub(&b, &y2)
 
 			roots := CardanoRoots(c)
 			if len(roots) == 0 {
-				// not all c values yield roots; this is expected
-				return true
+				return false // must find at least one root
 			}
-			// verify returned roots
-			var three fp.Element
-			three.SetInt64(3)
+			// verify at least one root matches the known x
+			found := false
 			for _, r := range roots {
-				var r3, threex, lhs fp.Element
-				r3.Square(&r).Mul(&r3, &r)
-				threex.Mul(&three, &r)
-				lhs.Sub(&r3, &threex).Add(&lhs, &c)
-				if !lhs.IsZero() {
-					return false
+				if r.Equal(&pAff.X) {
+					found = true
+					break
 				}
 			}
-			return true
+			return found
 		},
-		GenFp(),
+		GenFr(),
 	))
 
 	properties.Property("[SECP256R1] CardanoRoots with c=0 should return roots of x³ − 3x = 0", prop.ForAll(
