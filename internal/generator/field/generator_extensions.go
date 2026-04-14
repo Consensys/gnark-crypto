@@ -69,6 +69,17 @@ func generateExtensions(F *config.Field, outputDir string) error {
 		}
 
 		if isKoalaBear {
+			entriesExt8 := []bavard.Entry{
+				{File: filepath.Join(outputDir, "e8.go"), Templates: []string{"e8.go.tmpl"}},
+				{File: filepath.Join(outputDir, "e8_test.go"), Templates: []string{"e8_test.go.tmpl"}},
+			}
+
+			if err := g.Generate(data, "extensions", "", "extensions", entriesExt8...); err != nil {
+				return err
+			}
+		}
+
+		if isKoalaBear {
 			// generate the assembly file;
 			asmFile, err := os.Create(filepath.Join(outputDir, "e4_amd64.s"))
 			if err != nil {

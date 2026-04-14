@@ -126,7 +126,7 @@ func main() {
 			}
 
 			// fp
-			{
+			if conf.Name != "kb8" {
 				outputDir := filepath.Join(curveDir, "fp")
 				relAsmDir, err := filepath.Rel(outputDir, asmDirBuildPath)
 				assertNoError(err)
@@ -144,7 +144,7 @@ func main() {
 				asmConfig := &fieldConfig.Assembly{BuildDir: asmDirBuildPath, IncludeDir: relAsmDir}
 
 				frOpts := []field.Option{field.WithASM(asmConfig)}
-				if !(conf.Equal(config.SECP256R1) || conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) { // nolint QF1001
+				if !(conf.Equal(config.SECP256R1) || conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN) || conf.Name == "kb8") { // nolint QF1001
 					frOpts = append(frOpts, field.WithFFT(fftConfig), field.WithIOP())
 				}
 				if conf.Equal(config.BLS12_377) {
@@ -155,7 +155,9 @@ func main() {
 			}
 
 			// generate ecdsa
-			assertNoError(ecdsa.Generate(conf, curveDir, gen))
+			if conf.G1.CoordExtDegree == 1 {
+				assertNoError(ecdsa.Generate(conf, curveDir, gen))
+			}
 
 			if conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256R1) {
 				return // TODO @yelhousni
@@ -163,6 +165,10 @@ func main() {
 
 			// generate G1, G2, multiExp, ...
 			assertNoError(ecc.Generate(conf, curveDir, gen))
+
+			if conf.Name == "kb8" {
+				return
+			}
 
 			if conf.Equal(config.SECP256K1) {
 				return

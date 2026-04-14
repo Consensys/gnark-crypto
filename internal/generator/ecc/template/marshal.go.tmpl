@@ -14,7 +14,9 @@ import (
 	"encoding/binary"
 	"sync/atomic"
 
+	{{- if .HasG2 }}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
+	{{- end }}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 	"github.com/consensys/gnark-crypto/parallel"
@@ -23,7 +25,16 @@ import (
 
 // To encode G1Affine and G2Affine points, we mask the most significant bits with these bits to specify without ambiguity
 // metadata needed for point (de)compression
-{{- if ge .FpUnusedBits 3}}
+{{- if eq .Name "kb8"}}
+const (
+	mMask                 byte = 0xff
+	mUncompressed         byte = 0x00
+	mUncompressedInfinity byte = 0x01
+	mCompressedSmallest   byte = 0x02
+	mCompressedLargest    byte = 0x03
+	mCompressedInfinity   byte = 0x04
+)
+{{- else if ge .FpUnusedBits 3}}
 // we follow the BLS12-381 style encoding as specified in ZCash and now IETF
 // see https://datatracker.ietf.org/doc/draft-irtf-cfrg-pairing-friendly-curves/11/
 // Appendix C.  ZCash serialization format for BLS12_381
@@ -50,8 +61,10 @@ const (
 )
 {{- end}}
 
+{{- if .HasG2 }}
 // SizeOfGT represents the size in bytes that a GT element need in binary form
 const SizeOfGT = fptower.SizeOfGT
+{{- end }}
 
 var (
 	ErrInvalidInfinityEncoding = errors.New("invalid infinity point encoding")
@@ -106,7 +119,11 @@ func (dec *Decoder) Decode(v any) (err error) {
 		return
 	}
 
+	{{- if .HasG2 }}
 	var buf [SizeOfG2AffineUncompressed]byte
+	{{- else }}
+	var buf [SizeOfG1AffineUncompressed]byte
+	{{- end }}
 	var read int
 	var sliceLen uint32
 
@@ -225,6 +242,7 @@ func (dec *Decoder) Decode(v any) (err error) {
 		}
 		_, err = t.setBytes(buf[:nbBytes], dec.subGroupCheck)
 		return 
+	{{- if .HasG2 }}
 	case *G2Affine:
 		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
 		read, err = io.ReadFull(dec.r, buf[:SizeOfG2AffineCompressed])
@@ -254,6 +272,7 @@ func (dec *Decoder) Decode(v any) (err error) {
 		}
 		_, err = t.setBytes(buf[:nbBytes], dec.subGroupCheck)
 		return 
+	{{- end }}
 	case *[]G1Affine:
 		sliceLen, err = dec.readUint32()
 		if err != nil {
@@ -321,6 +340,7 @@ func (dec *Decoder) Decode(v any) (err error) {
 		}
 		
 		return nil
+	{{- if .HasG2 }}
 	case *[]G2Affine:
 		sliceLen, err = dec.readUint32()
 		if err != nil {
@@ -389,6 +409,7 @@ func (dec *Decoder) Decode(v any) (err error) {
 		}
 		
 		return nil
+	{{- end }}
 	default:
 		n := binary.Size(t)
 		if n == -1 {
@@ -594,11 +615,13 @@ func (enc *Encoder) encode{{- $.Raw}}(v any) (err error) {
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return  
+	{{- if .HasG2 }}
 	case *G2Affine:
 		buf := t.{{- $.Raw}}Bytes()
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return
+	{{- end }}
 	case fr.Vector:
 		written64, err = t.WriteTo(enc.w)
 		enc.n += written64
@@ -666,6 +689,7 @@ func (enc *Encoder) encode{{- $.Raw}}(v any) (err error) {
 			}
 		}
 		return nil
+	{{- if .HasG2 }}
 	case *[]G2Affine:
 		return enc.encode{{- $.Raw}}(*t)
 	case []G2Affine:
@@ -687,6 +711,7 @@ func (enc *Encoder) encode{{- $.Raw}}(v any) (err error) {
 			}
 		}
 		return nil
+	{{- end }}
 	default:
 		n := binary.Size(t)
 		if n == -1 {
@@ -700,21 +725,190 @@ func (enc *Encoder) encode{{- $.Raw}}(v any) (err error) {
 {{end}}
 
 
-{{- $sizeOfFp := mul .Fp.NbWords 8}}
+{{- $sizeOfFp := .Fp.NbBytes}}
 
 {{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp "CoordType" .G1.CoordType "PointName" .G1.PointName "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange}}
+{{- if .HasG2 }}
 {{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp  "CoordType" .G2.CoordType "PointName" .G2.PointName "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange}}
+{{- end }}
 
 
 
 {{define "marshalpoint"}}
+{{- if and (eq $.all.Name "kb8") (eq $.PointName "g1") }}
+
+// SizeOf{{ $.TAffine }}Compressed represents the size in bytes that a {{ $.TAffine }} need in binary form, compressed
+const SizeOf{{ $.TAffine }}Compressed = 1 + {{ $.sizeOfFp }}*8
+
+// SizeOf{{ $.TAffine }}Uncompressed represents the size in bytes that a {{ $.TAffine }} need in binary form, uncompressed
+const SizeOf{{ $.TAffine }}Uncompressed = 1 + 2*({{ $.sizeOfFp }}*8)
+
+func (p *{{ $.TAffine }}) Marshal() ([]byte) {
+	b := p.RawBytes()
+	return b[:]
+}
+
+func (p *{{ $.TAffine }}) Unmarshal(buf []byte) error {
+	_, err := p.SetBytes(buf)
+	return err
+}
+
+func (p *{{ $.TAffine }}) Bytes() (res [SizeOf{{ $.TAffine }}Compressed]byte) {
+	if p.X.IsZero() && p.Y.IsZero() {
+		res[0] = mCompressedInfinity
+		return
+	}
+	res[0] = mCompressedSmallest
+	if p.Y.LexicographicallyLargest() {
+		res[0] = mCompressedLargest
+	}
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[1:1+fp.Bytes]), p.X.C1.B1.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[5:5+fp.Bytes]), p.X.C1.B1.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[9:9+fp.Bytes]), p.X.C1.B0.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[13:13+fp.Bytes]), p.X.C1.B0.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[17:17+fp.Bytes]), p.X.C0.B1.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[21:21+fp.Bytes]), p.X.C0.B1.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[25:25+fp.Bytes]), p.X.C0.B0.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[29:29+fp.Bytes]), p.X.C0.B0.A0)
+	return
+}
+
+func (p *{{ $.TAffine }}) RawBytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byte) {
+	if p.X.IsZero() && p.Y.IsZero() {
+		res[0] = mUncompressedInfinity
+		return
+	}
+	res[0] = mUncompressed
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[33:33+fp.Bytes]), p.Y.C1.B1.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[37:37+fp.Bytes]), p.Y.C1.B1.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[41:41+fp.Bytes]), p.Y.C1.B0.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[45:45+fp.Bytes]), p.Y.C1.B0.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[49:49+fp.Bytes]), p.Y.C0.B1.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[53:53+fp.Bytes]), p.Y.C0.B1.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[57:57+fp.Bytes]), p.Y.C0.B0.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[61:61+fp.Bytes]), p.Y.C0.B0.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[1:1+fp.Bytes]), p.X.C1.B1.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[5:5+fp.Bytes]), p.X.C1.B1.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[9:9+fp.Bytes]), p.X.C1.B0.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[13:13+fp.Bytes]), p.X.C1.B0.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[17:17+fp.Bytes]), p.X.C0.B1.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[21:21+fp.Bytes]), p.X.C0.B1.A0)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[25:25+fp.Bytes]), p.X.C0.B0.A1)
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[29:29+fp.Bytes]), p.X.C0.B0.A0)
+	return
+}
+
+func (p *{{ $.TAffine }}) SetBytes(buf []byte) (int, error) {
+	return p.setBytes(buf, true)
+}
+
+func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) {
+	if len(buf) < SizeOf{{ $.TAffine }}Compressed {
+		return 0, io.ErrShortBuffer
+	}
+	mData := buf[0]
+	if isMaskInvalid(mData) {
+		return 0, ErrInvalidEncoding
+	}
+	if mData == mUncompressed || mData == mUncompressedInfinity {
+		if len(buf) < SizeOf{{ $.TAffine }}Uncompressed {
+			return 0, io.ErrShortBuffer
+		}
+	}
+	if mData == mCompressedInfinity {
+		if !isZeroed(0, buf[1:SizeOf{{ $.TAffine }}Compressed]) {
+			return 0, ErrInvalidInfinityEncoding
+		}
+		p.X.SetZero()
+		p.Y.SetZero()
+		return SizeOf{{ $.TAffine }}Compressed, nil
+	}
+	if mData == mUncompressedInfinity {
+		if !isZeroed(0, buf[1:SizeOf{{ $.TAffine }}Uncompressed]) {
+			return 0, ErrInvalidInfinityEncoding
+		}
+		p.X.SetZero()
+		p.Y.SetZero()
+		return SizeOf{{ $.TAffine }}Uncompressed, nil
+	}
+	if err := p.X.C1.B1.A1.SetBytesCanonical(buf[1+fp.Bytes*0 : 1+fp.Bytes*1]); err != nil { return 0, err }
+	if err := p.X.C1.B1.A0.SetBytesCanonical(buf[1+fp.Bytes*1 : 1+fp.Bytes*2]); err != nil { return 0, err }
+	if err := p.X.C1.B0.A1.SetBytesCanonical(buf[1+fp.Bytes*2 : 1+fp.Bytes*3]); err != nil { return 0, err }
+	if err := p.X.C1.B0.A0.SetBytesCanonical(buf[1+fp.Bytes*3 : 1+fp.Bytes*4]); err != nil { return 0, err }
+	if err := p.X.C0.B1.A1.SetBytesCanonical(buf[1+fp.Bytes*4 : 1+fp.Bytes*5]); err != nil { return 0, err }
+	if err := p.X.C0.B1.A0.SetBytesCanonical(buf[1+fp.Bytes*5 : 1+fp.Bytes*6]); err != nil { return 0, err }
+	if err := p.X.C0.B0.A1.SetBytesCanonical(buf[1+fp.Bytes*6 : 1+fp.Bytes*7]); err != nil { return 0, err }
+	if err := p.X.C0.B0.A0.SetBytesCanonical(buf[1+fp.Bytes*7 : 1+fp.Bytes*8]); err != nil { return 0, err }
+	if mData == mUncompressed {
+		if err := p.Y.C1.B1.A1.SetBytesCanonical(buf[1+fp.Bytes*8 : 1+fp.Bytes*9]); err != nil { return 0, err }
+		if err := p.Y.C1.B1.A0.SetBytesCanonical(buf[1+fp.Bytes*9 : 1+fp.Bytes*10]); err != nil { return 0, err }
+		if err := p.Y.C1.B0.A1.SetBytesCanonical(buf[1+fp.Bytes*10 : 1+fp.Bytes*11]); err != nil { return 0, err }
+		if err := p.Y.C1.B0.A0.SetBytesCanonical(buf[1+fp.Bytes*11 : 1+fp.Bytes*12]); err != nil { return 0, err }
+		if err := p.Y.C0.B1.A1.SetBytesCanonical(buf[1+fp.Bytes*12 : 1+fp.Bytes*13]); err != nil { return 0, err }
+		if err := p.Y.C0.B1.A0.SetBytesCanonical(buf[1+fp.Bytes*13 : 1+fp.Bytes*14]); err != nil { return 0, err }
+		if err := p.Y.C0.B0.A1.SetBytesCanonical(buf[1+fp.Bytes*14 : 1+fp.Bytes*15]); err != nil { return 0, err }
+		if err := p.Y.C0.B0.A0.SetBytesCanonical(buf[1+fp.Bytes*15 : 1+fp.Bytes*16]); err != nil { return 0, err }
+		if subGroupCheck && !p.IsInSubGroup() { return 0, errors.New("invalid point: subgroup check failed") }
+		return SizeOf{{ $.TAffine }}Uncompressed, nil
+	}
+	p.Y.C0.B0.A0[0] = uint32(mData)
+	if err := p.unsafeComputeY(subGroupCheck); err != nil { return 0, err }
+	return SizeOf{{ $.TAffine }}Compressed, nil
+}
+
+func (p *{{ $.TAffine }}) unsafeComputeY(subGroupCheck bool) error {
+	mData := byte(p.Y.C0.B0.A0[0])
+	var YSquared, Y, tmp {{$.CoordType}}
+	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	tmp.Mul(&p.X, &aCurveCoeff)
+	YSquared.Add(&YSquared, &tmp).Add(&YSquared, &bCurveCoeff)
+	if YSquared.Legendre() == -1 {
+		return errors.New("invalid compressed coordinate: square root doesn't exist")
+	}
+	Y.Sqrt(&YSquared)
+	if Y.LexicographicallyLargest() {
+		if mData == mCompressedSmallest {
+			Y.Neg(&Y)
+		}
+	} else if mData == mCompressedLargest {
+		Y.Neg(&Y)
+	}
+	p.Y = Y
+	if subGroupCheck && !p.IsInSubGroup() { return errors.New("invalid point: subgroup check failed") }
+	return nil
+}
+
+func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool, err error) {
+	mData := buf[0]
+	if mData == mCompressedInfinity {
+		isInfinity = true
+		if !isZeroed(0, buf[1:SizeOf{{ $.TAffine }}Compressed]) {
+			return isInfinity, ErrInvalidInfinityEncoding
+		}
+		p.X.SetZero()
+		p.Y.SetZero()
+		return isInfinity, nil
+	}
+	if err := p.X.C1.B1.A1.SetBytesCanonical(buf[1+fp.Bytes*0 : 1+fp.Bytes*1]); err != nil { return false, err }
+	if err := p.X.C1.B1.A0.SetBytesCanonical(buf[1+fp.Bytes*1 : 1+fp.Bytes*2]); err != nil { return false, err }
+	if err := p.X.C1.B0.A1.SetBytesCanonical(buf[1+fp.Bytes*2 : 1+fp.Bytes*3]); err != nil { return false, err }
+	if err := p.X.C1.B0.A0.SetBytesCanonical(buf[1+fp.Bytes*3 : 1+fp.Bytes*4]); err != nil { return false, err }
+	if err := p.X.C0.B1.A1.SetBytesCanonical(buf[1+fp.Bytes*4 : 1+fp.Bytes*5]); err != nil { return false, err }
+	if err := p.X.C0.B1.A0.SetBytesCanonical(buf[1+fp.Bytes*5 : 1+fp.Bytes*6]); err != nil { return false, err }
+	if err := p.X.C0.B0.A1.SetBytesCanonical(buf[1+fp.Bytes*6 : 1+fp.Bytes*7]); err != nil { return false, err }
+	if err := p.X.C0.B0.A0.SetBytesCanonical(buf[1+fp.Bytes*7 : 1+fp.Bytes*8]); err != nil { return false, err }
+	p.Y.C0.B0.A0[0] = uint32(mData)
+	return isInfinity, nil
+}
+
+{{- else }}
 
 
 
 
 
 // SizeOf{{ $.TAffine }}Compressed represents the size in bytes that a {{ $.TAffine }} need in binary form, compressed
-const SizeOf{{ $.TAffine }}Compressed = {{ $.sizeOfFp }} {{- if eq $.CoordType "fptower.E2"}} * 2 {{- end}} {{- if eq $.CoordType "fptower.E4"}} * 4 {{- end}}
+const SizeOf{{ $.TAffine }}Compressed = {{ $.sizeOfFp }} {{- if eq $.CoordType "fptower.E2"}} * 2 {{- end}} {{- if eq $.CoordType "fptower.E4"}} * 4 {{- end}} {{- if eq $.CoordType "fptower.E8"}} * 8 {{- end}}
 
 // SizeOf{{ $.TAffine }}Uncompressed represents the size in bytes that a {{ $.TAffine }} need in binary form, uncompressed
 const SizeOf{{ $.TAffine }}Uncompressed = SizeOf{{ $.TAffine }}Compressed * 2
@@ -788,6 +982,23 @@ func (p *{{ $.TAffine }}) Bytes() (res [SizeOf{{ $.TAffine }}Compressed]byte) {
 		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.B0.A1"}}
 		{{- $offset := mul $.sizeOfFp 3}}
 		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.B0.A0"}}
+	{{- else if eq $.CoordType "fptower.E8"}}
+		// p.X.C1.B1.A1 | p.X.C1.B1.A0 | p.X.C1.B0.A1 | p.X.C1.B0.A0 | p.X.C0.B1.A1 | p.X.C0.B1.A0 | p.X.C0.B0.A1 | p.X.C0.B0.A0
+		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X.C1.B1.A1"}}
+		{{- $offset := mul $.sizeOfFp 1}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.C1.B1.A0"}}
+		{{- $offset := mul $.sizeOfFp 2}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.C1.B0.A1"}}
+		{{- $offset := mul $.sizeOfFp 3}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.C1.B0.A0"}}
+		{{- $offset := mul $.sizeOfFp 4}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.C0.B1.A1"}}
+		{{- $offset := mul $.sizeOfFp 5}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.C0.B1.A0"}}
+		{{- $offset := mul $.sizeOfFp 6}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.C0.B0.A1"}}
+		{{- $offset := mul $.sizeOfFp 7}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.C0.B0.A0"}}
 	{{- else}}
 		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X"}}
 	{{- end}}
@@ -832,6 +1043,24 @@ func (p *{{ $.TAffine }}) RawBytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byt
 		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.B0.A1"}}
 		{{- $offset := mul $.sizeOfFp 7}}
 		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.B0.A0"}}
+	{{- else if eq $.CoordType "fptower.E8"}}
+		// p.Y.C1.B1.A1 | p.Y.C1.B1.A0 | p.Y.C1.B0.A1 | p.Y.C1.B0.A0 | p.Y.C0.B1.A1 | p.Y.C0.B1.A0 | p.Y.C0.B0.A1 | p.Y.C0.B0.A0
+		{{- $offset := mul $.sizeOfFp 8}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.C1.B1.A1"}}
+		{{- $offset := mul $.sizeOfFp 9}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.C1.B1.A0"}}
+		{{- $offset := mul $.sizeOfFp 10}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.C1.B0.A1"}}
+		{{- $offset := mul $.sizeOfFp 11}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.C1.B0.A0"}}
+		{{- $offset := mul $.sizeOfFp 12}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.C0.B1.A1"}}
+		{{- $offset := mul $.sizeOfFp 13}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.C0.B1.A0"}}
+		{{- $offset := mul $.sizeOfFp 14}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.C0.B0.A1"}}
+		{{- $offset := mul $.sizeOfFp 15}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.Y.C0.B0.A0"}}
 	{{- else}}
 		{{- template "putFp" dict "all" .all "OffSet" $.sizeOfFp "From" "p.Y"}}
 	{{- end}}
@@ -851,6 +1080,23 @@ func (p *{{ $.TAffine }}) RawBytes() (res [SizeOf{{ $.TAffine }}Uncompressed]byt
 		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.B0.A1"}}
 		{{- $offset := mul $.sizeOfFp 3}}
 		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.B0.A0"}}
+	{{- else if eq $.CoordType "fptower.E8"}}
+		// p.X.C1.B1.A1 | p.X.C1.B1.A0 | p.X.C1.B0.A1 | p.X.C1.B0.A0 | p.X.C0.B1.A1 | p.X.C0.B1.A0 | p.X.C0.B0.A1 | p.X.C0.B0.A0
+		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X.C1.B1.A1"}}
+		{{- $offset := mul $.sizeOfFp 1}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.C1.B1.A0"}}
+		{{- $offset := mul $.sizeOfFp 2}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.C1.B0.A1"}}
+		{{- $offset := mul $.sizeOfFp 3}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.C1.B0.A0"}}
+		{{- $offset := mul $.sizeOfFp 4}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.C0.B1.A1"}}
+		{{- $offset := mul $.sizeOfFp 5}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.C0.B1.A0"}}
+		{{- $offset := mul $.sizeOfFp 6}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.C0.B0.A1"}}
+		{{- $offset := mul $.sizeOfFp 7}}
+		{{- template "putFp" dict "all" .all "OffSet" $offset "From" "p.X.C0.B0.A0"}}
 	{{- else}}
 		{{- template "putFp" dict "all" .all "OffSet" 0 "From" "p.X"}}
 	{{- end}}
@@ -965,6 +1211,55 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 			if err := p.Y.B0.A0.SetBytesCanonical(buf[fp.Bytes*7:fp.Bytes*8]); err != nil {
 				return 0, err
 			}
+		{{- else if eq $.CoordType "fptower.E8"}}
+			if err := p.X.C1.B1.A1.SetBytesCanonical(buf[fp.Bytes*0:fp.Bytes*1]); err != nil {
+				return 0, err
+			}
+			if err := p.X.C1.B1.A0.SetBytesCanonical(buf[fp.Bytes*1:fp.Bytes*2]); err != nil {
+				return 0, err
+			}
+			if err := p.X.C1.B0.A1.SetBytesCanonical(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
+				return 0, err
+			}
+			if err := p.X.C1.B0.A0.SetBytesCanonical(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
+				return 0, err
+			}
+			if err := p.X.C0.B1.A1.SetBytesCanonical(buf[fp.Bytes*4:fp.Bytes*5]); err != nil {
+				return 0, err
+			}
+			if err := p.X.C0.B1.A0.SetBytesCanonical(buf[fp.Bytes*5:fp.Bytes*6]); err != nil {
+				return 0, err
+			}
+			if err := p.X.C0.B0.A1.SetBytesCanonical(buf[fp.Bytes*6:fp.Bytes*7]); err != nil {
+				return 0, err
+			}
+			if err := p.X.C0.B0.A0.SetBytesCanonical(buf[fp.Bytes*7:fp.Bytes*8]); err != nil {
+				return 0, err
+			}
+			if err := p.Y.C1.B1.A1.SetBytesCanonical(buf[fp.Bytes*8:fp.Bytes*9]); err != nil {
+				return 0, err
+			}
+			if err := p.Y.C1.B1.A0.SetBytesCanonical(buf[fp.Bytes*9:fp.Bytes*10]); err != nil {
+				return 0, err
+			}
+			if err := p.Y.C1.B0.A1.SetBytesCanonical(buf[fp.Bytes*10:fp.Bytes*11]); err != nil {
+				return 0, err
+			}
+			if err := p.Y.C1.B0.A0.SetBytesCanonical(buf[fp.Bytes*11:fp.Bytes*12]); err != nil {
+				return 0, err
+			}
+			if err := p.Y.C0.B1.A1.SetBytesCanonical(buf[fp.Bytes*12:fp.Bytes*13]); err != nil {
+				return 0, err
+			}
+			if err := p.Y.C0.B1.A0.SetBytesCanonical(buf[fp.Bytes*13:fp.Bytes*14]); err != nil {
+				return 0, err
+			}
+			if err := p.Y.C0.B0.A1.SetBytesCanonical(buf[fp.Bytes*14:fp.Bytes*15]); err != nil {
+				return 0, err
+			}
+			if err := p.Y.C0.B0.A0.SetBytesCanonical(buf[fp.Bytes*15:fp.Bytes*16]); err != nil {
+				return 0, err
+			}
 		{{- else}}
 			if err := p.X.SetBytesCanonical(buf[:fp.Bytes]); err != nil {
 				return 0, err
@@ -1014,6 +1309,31 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 		if err := p.X.B0.A0.SetBytesCanonical(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
 			return 0, err
 		}
+	{{- else if eq $.CoordType "fptower.E8"}}
+		if err := p.X.C1.B1.A1.SetBytesCanonical(bufX[fp.Bytes*0:fp.Bytes*1]); err != nil {
+			return 0, err
+		}
+		if err := p.X.C1.B1.A0.SetBytesCanonical(buf[fp.Bytes*1:fp.Bytes*2]); err != nil {
+			return 0, err
+		}
+		if err := p.X.C1.B0.A1.SetBytesCanonical(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
+			return 0, err
+		}
+		if err := p.X.C1.B0.A0.SetBytesCanonical(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
+			return 0, err
+		}
+		if err := p.X.C0.B1.A1.SetBytesCanonical(buf[fp.Bytes*4:fp.Bytes*5]); err != nil {
+			return 0, err
+		}
+		if err := p.X.C0.B1.A0.SetBytesCanonical(buf[fp.Bytes*5:fp.Bytes*6]); err != nil {
+			return 0, err
+		}
+		if err := p.X.C0.B0.A1.SetBytesCanonical(buf[fp.Bytes*6:fp.Bytes*7]); err != nil {
+			return 0, err
+		}
+		if err := p.X.C0.B0.A0.SetBytesCanonical(buf[fp.Bytes*7:fp.Bytes*8]); err != nil {
+			return 0, err
+		}
 	{{- else}}
 		if err := p.X.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
 			return 0, err
@@ -1026,7 +1346,7 @@ func (p *{{ $.TAffine }}) setBytes(buf []byte, subGroupCheck bool) (int, error) 
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
 	YSquared.Add(&YSquared, &{{- if eq .PointName "g2"}}bTwistCurveCoeff{{- else}}bCurveCoeff{{- end}})
 
-	{{- if or (eq $.CoordType "fptower.E2") (eq $.CoordType "fptower.E4")}}
+	{{- if or (eq $.CoordType "fptower.E2") (eq $.CoordType "fptower.E4") (eq $.CoordType "fptower.E8")}}
 		if YSquared.Legendre() == -1 {
 			return 0, errors.New("invalid compressed coordinate: square root doesn't exist")
 		}
@@ -1070,6 +1390,8 @@ func (p *{{ $.TAffine }}) unsafeComputeY(subGroupCheck bool) error  {
 	mData := byte(p.Y.A0[0])
 	{{ else if eq $.CoordType "fptower.E4"}}
 	mData := byte(p.Y.B0.A0[0])
+	{{ else if eq $.CoordType "fptower.E8"}}
+	mData := byte(p.Y.C0.B0.A0[0])
 	{{ else}}
 	mData := byte(p.Y[0])
 	{{ end}}
@@ -1077,11 +1399,18 @@ func (p *{{ $.TAffine }}) unsafeComputeY(subGroupCheck bool) error  {
 
 	// we have a compressed coordinate, we need to solve the curve equation to compute Y
 	var YSquared, Y {{$.CoordType}}
+	{{- if and (eq .Name "kb8") (eq .PointName "g1") }}
+	var tmp {{$.CoordType}}
+	{{- end }}
 
 	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
+	{{- if and (eq .Name "kb8") (eq .PointName "g1") }}
+	tmp.Mul(&p.X, &aCurveCoeff)
+	YSquared.Add(&YSquared, &tmp)
+	{{- end }}
 	YSquared.Add(&YSquared, &{{- if eq .PointName "g2"}}bTwistCurveCoeff{{- else}}bCurveCoeff{{- end}})
 
-	{{- if or (eq $.CoordType "fptower.E2") (eq $.CoordType "fptower.E4")}}
+	{{- if or (eq $.CoordType "fptower.E2") (eq $.CoordType "fptower.E4") (eq $.CoordType "fptower.E8")}}
 		if YSquared.Legendre() == -1 {
 			return errors.New("invalid compressed coordinate: square root doesn't exist")
 		}
@@ -1168,6 +1497,32 @@ func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool,
 		
 		// store mData in p.Y.B0.A0[0]
 		p.Y.B0.A0[0] = uint64(mData)
+	{{- else if eq $.CoordType "fptower.E8"}}
+		if err := p.X.C1.B1.A1.SetBytesCanonical(bufX[fp.Bytes*0:fp.Bytes*1]); err != nil {
+			return false, err
+		}
+		if err := p.X.C1.B1.A0.SetBytesCanonical(buf[fp.Bytes*1:fp.Bytes*2]); err != nil {
+			return false, err
+		}
+		if err := p.X.C1.B0.A1.SetBytesCanonical(buf[fp.Bytes*2:fp.Bytes*3]); err != nil {
+			return false, err
+		}
+		if err := p.X.C1.B0.A0.SetBytesCanonical(buf[fp.Bytes*3:fp.Bytes*4]); err != nil {
+			return false, err
+		}
+		if err := p.X.C0.B1.A1.SetBytesCanonical(buf[fp.Bytes*4:fp.Bytes*5]); err != nil {
+			return false, err
+		}
+		if err := p.X.C0.B1.A0.SetBytesCanonical(buf[fp.Bytes*5:fp.Bytes*6]); err != nil {
+			return false, err
+		}
+		if err := p.X.C0.B0.A1.SetBytesCanonical(buf[fp.Bytes*6:fp.Bytes*7]); err != nil {
+			return false, err
+		}
+		if err := p.X.C0.B0.A0.SetBytesCanonical(buf[fp.Bytes*7:fp.Bytes*8]); err != nil {
+			return false, err
+		}
+		p.Y.C0.B0.A0[0] = {{- if eq $.all.Fp.NbBytes 4 }} uint32(mData) {{- else }} uint64(mData) {{- end }}
 	{{- else}}
 		if err := p.X.SetBytesCanonical(bufX[:fp.Bytes]); err != nil {
 			return false, err
@@ -1179,6 +1534,8 @@ func (p *{{ $.TAffine }}) unsafeSetCompressedBytes(buf []byte) (isInfinity bool,
 	// recomputing Y will be done asynchronously
 	return isInfinity, nil
 }
+
+{{- end }}
 
 
 

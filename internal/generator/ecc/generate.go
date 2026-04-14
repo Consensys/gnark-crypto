@@ -127,11 +127,6 @@ func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 		return err
 	}
 
-	// No G2 for secp256k1 and grumpkin
-	if conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN) || conf.Equal(config.SECP256R1) {
-		return nil
-	}
-
 	// marshal
 	entries = []bavard.Entry{
 		{File: filepath.Join(baseDir, "marshal.go"), Templates: []string{"marshal.go.tmpl"}},
@@ -140,6 +135,11 @@ func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 
 	if err := eccGen.GenerateWithOptions(conf, packageName, "", "", bavardOpts, entries...); err != nil {
 		return err
+	}
+
+	// No G2 for single-group curves.
+	if !conf.HasG2() {
+		return nil
 	}
 
 	// G2

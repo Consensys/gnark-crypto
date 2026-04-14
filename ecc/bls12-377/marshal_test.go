@@ -105,7 +105,6 @@ func TestEncoder(t *testing.T) {
 		var outL [][]fr.Element
 		var outM [][]uint64
 		var outN [][][]fr.Element
-
 		toDecode := []any{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ, &outK, &outL, &outM, &outN}
 		for _, v := range toDecode {
 			if err := dec.Decode(v); err != nil {
@@ -201,7 +200,6 @@ func TestIsCompressed(t *testing.T) {
 			t.Fatal("g1.RawBytes() should be uncompressed")
 		}
 	}
-
 	{
 		b := g2Inf.Bytes()
 		if !isCompressed(b[0]) {
@@ -487,6 +485,16 @@ func GenE2() gopter.Gen {
 		GenFp(),
 	).Map(func(values []any) fptower.E2 {
 		return fptower.E2{A0: values[0].(fp.Element), A1: values[1].(fp.Element)}
+	})
+}
+
+// GenE4 generates an fptower.E4 elmt
+func GenE4() gopter.Gen {
+	return gopter.CombineGens(
+		GenE2(),
+		GenE2(),
+	).Map(func(values []any) fptower.E4 {
+		return fptower.E4{B0: values[0].(fptower.E2), B1: values[1].(fptower.E2)}
 	})
 }
 

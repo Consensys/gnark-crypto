@@ -202,7 +202,7 @@ func (p *G2Affine) IsOnCurve() bool {
 	if p.IsInfinity() {
 		return true
 	}
-	var left, right fptower.E4
+	var left, right, tmp fptower.E4
 	left.Square(&p.Y)
 	right.Square(&p.X).Mul(&right, &p.X)
 	right.Add(&right, &bTwistCurveCoeff)

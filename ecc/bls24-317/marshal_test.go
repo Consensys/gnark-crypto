@@ -105,7 +105,6 @@ func TestEncoder(t *testing.T) {
 		var outL [][]fr.Element
 		var outM [][]uint64
 		var outN [][][]fr.Element
-
 		toDecode := []any{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ, &outK, &outL, &outM, &outN}
 		for _, v := range toDecode {
 			if err := dec.Decode(v); err != nil {
@@ -201,7 +200,6 @@ func TestIsCompressed(t *testing.T) {
 			t.Fatal("g1.RawBytes() should be uncompressed")
 		}
 	}
-
 	{
 		b := g2Inf.Bytes()
 		if !isCompressed(b[0]) {

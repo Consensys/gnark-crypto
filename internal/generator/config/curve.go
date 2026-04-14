@@ -43,6 +43,10 @@ type Curve struct {
 	E2CbrtTorusLucasTopBit   int // bit length - 1
 }
 
+func (c Curve) HasG2() bool {
+	return c.G2.PointName != ""
+}
+
 type TwistedEdwardsCurve struct {
 	Name    string
 	Package string

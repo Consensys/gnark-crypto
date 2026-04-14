@@ -8,6 +8,8 @@
 	{{$fuzzer = "GenE2()"}}
 {{- else if eq .CoordType "fptower.E4" }}
 	{{$fuzzer = "GenE4()"}}
+{{- else if eq .CoordType "fptower.E8" }}
+	{{$fuzzer = "GenE8()"}}
 {{- end}}
 
 {{$c := 16}}
@@ -22,7 +24,7 @@ import (
 	"math/rand/v2"
 	crand "crypto/rand"
 
-	{{if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4")}}
+	{{if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4") (eq .CoordType "fptower.E8")}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
 	{{else}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
@@ -356,8 +358,8 @@ func Test{{ toUpper .PointName }}Conversions(t *testing.T) {
 			baseTableAff := BatchJacobianToAffineG1([]G1Jac{g1, g2})
 			return op1.Equal(&baseTableAff[0]) && op2.Equal(&baseTableAff[1])
 		},
-		GenFp(),
-		GenFp(),
+		{{$fuzzer}},
+		{{$fuzzer}},
 	))
     {{- end }}
 
@@ -579,7 +581,7 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 		genScalar,
 	))
 
-	{{ if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4")}}
+	{{ if and (eq .PointName "g2") (or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4") (eq .CoordType "fptower.E8"))}}
 		properties.Property("[{{ toUpper .Name }}] psi should map points from E' to itself", prop.ForAll(
 			func() bool {
 				var a {{ $TJacobian }}

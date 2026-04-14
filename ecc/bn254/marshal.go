@@ -84,7 +84,6 @@ func (dec *Decoder) Decode(v any) (err error) {
 		dec.n += read64
 		return
 	}
-
 	var buf [SizeOfG2AffineUncompressed]byte
 	var read int
 	var sliceLen uint32
@@ -479,11 +478,6 @@ func (enc *Encoder) encode(v any) (err error) {
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return
-	case *G2Affine:
-		buf := t.Bytes()
-		written, err = enc.w.Write(buf[:])
-		enc.n += int64(written)
-		return
 	case fr.Vector:
 		written64, err = t.WriteTo(enc.w)
 		enc.n += written64
@@ -551,27 +545,6 @@ func (enc *Encoder) encode(v any) (err error) {
 			}
 		}
 		return nil
-	case *[]G2Affine:
-		return enc.encode(*t)
-	case []G2Affine:
-		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
-		if err != nil {
-			return
-		}
-		enc.n += 4
-
-		var buf [SizeOfG2AffineCompressed]byte
-
-		for i := range len(t) {
-			buf = t[i].Bytes()
-			written, err = enc.w.Write(buf[:])
-			enc.n += int64(written)
-			if err != nil {
-				return
-			}
-		}
-		return nil
 	default:
 		n := binary.Size(t)
 		if n == -1 {
@@ -616,11 +589,6 @@ func (enc *Encoder) encodeRaw(v any) (err error) {
 		enc.n += int64(written)
 		return
 	case *G1Affine:
-		buf := t.RawBytes()
-		written, err = enc.w.Write(buf[:])
-		enc.n += int64(written)
-		return
-	case *G2Affine:
 		buf := t.RawBytes()
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
@@ -682,27 +650,6 @@ func (enc *Encoder) encodeRaw(v any) (err error) {
 		enc.n += 4
 
 		var buf [SizeOfG1AffineUncompressed]byte
-
-		for i := range len(t) {
-			buf = t[i].RawBytes()
-			written, err = enc.w.Write(buf[:])
-			enc.n += int64(written)
-			if err != nil {
-				return
-			}
-		}
-		return nil
-	case *[]G2Affine:
-		return enc.encodeRaw(*t)
-	case []G2Affine:
-		// write slice length
-		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
-		if err != nil {
-			return
-		}
-		enc.n += 4
-
-		var buf [SizeOfG2AffineUncompressed]byte
 
 		for i := range len(t) {
 			buf = t[i].RawBytes()
