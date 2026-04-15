@@ -271,17 +271,52 @@ func (z *E2) Cbrt(x *E2) *E2 {
 	betaX1sq.Mul(&x1sq, &cbrtFpThree)
 	norm.Sub(&x0sq, &betaX1sq)
 
-	var m, normInv fr.Element
-	m.Cbrt(&norm)
-	normInv.Inverse(&norm)
+	m, normInv, deltaInv, ok := cbrtAndNormInverseE2(&norm, &x0sq, &x1sq)
+	if !ok {
+		return nil
+	}
 
-	var tau fr.Element
-	tau.Add(&x0sq, &betaX1sq)
-	tau.Double(&tau)
-	tau.Mul(&tau, &normInv)
+	var halfTau, tau fr.Element
+	halfTau.Add(&x0sq, &betaX1sq)
+	halfTau.Mul(&halfTau, &normInv)
+	tau.Double(&halfTau)
 
-	sigma := lucasVFp(&tau)
+	Te, Te1 := lucasV2Fp(&tau)
 
+	var x0x1, imY fr.Element
+	x0x1.Mul(&x.A0, &x.A1)
+	imY.Double(&x0x1).Neg(&imY)
+	imY.Mul(&imY, &normInv)
+
+	var WA0, WA1 fr.Element
+	WA0.Mul(&halfTau, &Te)
+	WA0.Sub(&Te1, &WA0)
+	WA1.Mul(&imY, &Te)
+
+	var sIm, k fr.Element
+	sIm.Double(&imY)
+	k.Mul(&sIm, &deltaInv)
+
+	var gamma0, gamma1 fr.Element
+	gamma0.Mul(&WA1, &k).Mul(&gamma0, &cbrtFpThree)
+	gamma1.Mul(&WA0, &k)
+
+	var mInv fr.Element
+	mInv.Square(&m).Mul(&mInv, &normInv)
+
+	var t1, t2 fr.Element
+	t1.Mul(&x.A0, &gamma0)
+	t2.Mul(&x.A1, &gamma1).Mul(&t2, &cbrtFpThree)
+	z.A0.Sub(&t1, &t2).Mul(&z.A0, &mInv)
+	t1.Mul(&x.A1, &gamma0)
+	t2.Mul(&x.A0, &gamma1)
+	z.A1.Sub(&t1, &t2).Mul(&z.A1, &mInv)
+	if out := cbrtVerifyE2(z, x); out != nil {
+		return out
+	}
+
+	var sigma fr.Element
+	sigma.Set(&Te)
 	var d0, d1, d0d1, d0d1Inv fr.Element
 	d0.Sub(&sigma, &cbrtFpOne)
 	d0.Mul(&m, &d0)
@@ -298,6 +333,47 @@ func (z *E2) Cbrt(x *E2) *E2 {
 	return cbrtVerifyE2(z, x)
 }
 
+func cbrtAndNormInverseE2(norm, x0sq, x1sq *fr.Element) (m, normInv, deltaInv fr.Element, ok bool) {
+	// Hamburg trick for KoalaBear (p ≡ 2 mod 9):
+	// with w = U^3 * norm and t = w^((p-2)/9), we have
+	// w^(-1) = t^9 and cbrt(w) = w * t^6.
+	var U, x0x1, U2, U3, w fr.Element
+	x0x1.Mul(x0sq, x1sq)
+	U.Mul(&x0x1, norm)
+	U.Double(&U).Double(&U)
+	U.Double(&U)
+	U.Mul(&U, &cbrtFpThree)
+	U2.Square(&U)
+	U3.Mul(&U2, &U)
+	w.Mul(&U3, norm)
+
+	var t, t2, t4, t6, t8, t9 fr.Element
+	t.ExpByCbrtHelperQMinus2Div9(w)
+	t2.Square(&t)
+	t4.Square(&t2)
+	t6.Mul(&t4, &t2)
+	t8.Square(&t4)
+	t9.Mul(&t8, &t)
+
+	var cbrtW, UInv fr.Element
+	cbrtW.Mul(&w, &t6)
+	UInv.Mul(&U2, norm).Mul(&UInv, &t9)
+	m.Mul(&cbrtW, &UInv)
+	normInv.Mul(&U3, &t9)
+
+	var check fr.Element
+	check.Square(&m).Mul(&check, &m)
+	if !check.Equal(norm) {
+		return m, normInv, deltaInv, false
+	}
+
+	var norm2, norm3 fr.Element
+	norm2.Square(norm)
+	norm3.Mul(&norm2, norm)
+	deltaInv.Mul(&norm3, &UInv)
+	return m, normInv, deltaInv, true
+}
+
 func cbrtVerifyE2(z, x *E2) *E2 {
 	var check E2
 	check.Square(z).Mul(&check, z)
@@ -307,7 +383,7 @@ func cbrtVerifyE2(z, x *E2) *E2 {
 	return z
 }
 
-func lucasVFp(alpha *fr.Element) fr.Element {
+func lucasV2Fp(alpha *fr.Element) (fr.Element, fr.Element) {
 	var v0, v1, prod fr.Element
 	v0.Set(alpha)
 	v1.Square(alpha).Sub(&v1, &cbrtFpTwo)
@@ -322,9 +398,10 @@ func lucasVFp(alpha *fr.Element) fr.Element {
 			v1.Square(&v1).Sub(&v1, &cbrtFpTwo)
 		}
 	}
-	var out fr.Element
-	out.Mul(&v0, &v1).Sub(&out, alpha)
-	return out
+	var te, te1 fr.Element
+	te.Mul(&v0, &v1).Sub(&te, alpha)
+	te1.Square(&v1).Sub(&te1, &cbrtFpTwo)
+	return te, te1
 }
 
 // BatchInvertE2 returns a new slice with every element in a inverted.

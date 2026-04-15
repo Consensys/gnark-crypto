@@ -196,3 +196,16 @@ func TestE8CbrtRejectsNonResidues(t *testing.T) {
 	}
 	t.Fatal("failed to find an E8 non-cube in 256 samples")
 }
+
+func BenchmarkE8Cbrt(b *testing.B) {
+	var a, x E8
+	a.MustSetRandom()
+	x.Square(&a).Mul(&x, &a)
+	var z E8
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if z.Cbrt(&x) == nil {
+			b.Fatal("expected cubic residue to have a cube root")
+		}
+	}
+}
