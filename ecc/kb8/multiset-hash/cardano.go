@@ -16,6 +16,7 @@ import (
 var (
 	e8Omega       extensions.E8
 	e8Beta        extensions.E8
+	e8BetaInv     extensions.E8
 	e8One         extensions.E8
 	e8Two         extensions.E8
 	e8Three       extensions.E8
@@ -23,6 +24,13 @@ var (
 	e8TwentySeven extensions.E8
 	e8NegThree    extensions.E8
 )
+
+var e16LucasExponent = [4]uint64{
+	10958008504694079489,
+	259792827419799556,
+	15418438666690820192,
+	45116822996742594,
+}
 
 func init() {
 	e8One.SetOne()
@@ -33,6 +41,7 @@ func init() {
 	e8NegThree.Set(&e8Three).Neg(&e8NegThree)
 
 	e8Beta = findNonSquare()
+	e8BetaInv.Inverse(&e8Beta)
 	e8Omega = findPrimitiveCubeRoot()
 }
 
@@ -186,14 +195,31 @@ func isDepressedCubicRoot(x, negCHalf *extensions.E8) bool {
 }
 
 func cbrtE8(z, x *extensions.E8) *extensions.E8 {
-	var y extensions.E8
-	expByKBE8Cbrt(&y, x)
-	var check extensions.E8
-	check.Square(&y).Mul(&check, &y)
-	if !check.Equal(x) {
-		return nil
+	expByKBE8Cbrt(z, x)
+	return cbrtVerifyAndAdjustE8(z, x)
+}
+
+func cbrtVerifyAndAdjustE8(z, x *extensions.E8) *extensions.E8 {
+	var check, omega2, y extensions.E8
+	check.Square(z).Mul(&check, z)
+	if check.Equal(x) {
+		return z
 	}
-	return z.Set(&y)
+
+	y.Mul(z, &e8Omega)
+	check.Square(&y).Mul(&check, &y)
+	if check.Equal(x) {
+		return z.Set(&y)
+	}
+
+	omega2.Square(&e8Omega)
+	y.Mul(z, &omega2)
+	check.Square(&y).Mul(&check, &y)
+	if check.Equal(x) {
+		return z.Set(&y)
+	}
+
+	return nil
 }
 
 func expByKBE8Cbrt(z, x *extensions.E8) *extensions.E8 {
@@ -420,6 +446,31 @@ func expByKBE8Cbrt(z, x *extensions.E8) *extensions.E8 {
 	return z
 }
 
+func lucasV2E8(alpha *extensions.E8) (extensions.E8, extensions.E8) {
+	var v0, v1, two extensions.E8
+	two.C0.B0.A0.SetUint64(2)
+	v0.Set(alpha)
+	v1.Square(alpha).Sub(&v1, &two)
+
+	var prod extensions.E8
+	for i := 246; i >= 1; i-- {
+		bit := (e16LucasExponent[i/64] >> uint(i%64)) & 1
+		prod.Mul(&v0, &v1).Sub(&prod, alpha)
+		if bit == 0 {
+			v1.Set(&prod)
+			v0.Square(&v0).Sub(&v0, &two)
+		} else {
+			v0.Set(&prod)
+			v1.Square(&v1).Sub(&v1, &two)
+		}
+	}
+
+	var te, te1 extensions.E8
+	te.Mul(&v0, &v1).Sub(&te, alpha)
+	te1.Square(&v1).Sub(&te1, &two)
+	return te, te1
+}
+
 func findPrimitiveCubeRoot() extensions.E8 {
 	var exp big.Int
 	exp.Exp(koalabear.Modulus(), big.NewInt(8), nil)
@@ -491,6 +542,32 @@ func setE8Coeff(x *extensions.E8, idx int, v uint64) {
 
 type e16 struct {
 	A0, A1 extensions.E8
+}
+
+func cbrtVerifyAndAdjustE16(z, x *e16) *e16 {
+	var check, y e16
+	check.Square(z).Mul(&check, z)
+	if check.A0.Equal(&x.A0) && check.A1.Equal(&x.A1) {
+		return z
+	}
+
+	y.A0.Mul(&z.A0, &e8Omega)
+	y.A1.Mul(&z.A1, &e8Omega)
+	check.Square(&y).Mul(&check, &y)
+	if check.A0.Equal(&x.A0) && check.A1.Equal(&x.A1) {
+		return z.Set(&y)
+	}
+
+	var omega2 extensions.E8
+	omega2.Square(&e8Omega)
+	y.A0.Mul(&z.A0, &omega2)
+	y.A1.Mul(&z.A1, &omega2)
+	check.Square(&y).Mul(&check, &y)
+	if check.A0.Equal(&x.A0) && check.A1.Equal(&x.A1) {
+		return z.Set(&y)
+	}
+
+	return nil
 }
 
 func (z *e16) Set(x *e16) *e16 {
@@ -957,12 +1034,58 @@ func (z *e16) expByKBCbrt(x *e16) *e16 {
 }
 
 func (z *e16) Cbrt(x *e16) *e16 {
-	var y e16
-	y.expByKBCbrt(x)
-	var check e16
-	check.Square(&y).Mul(&check, &y)
-	if !check.A0.Equal(&x.A0) || !check.A1.Equal(&x.A1) {
+	if x.A1.IsZero() {
+		if cbrtE8(&z.A0, &x.A0) == nil {
+			return nil
+		}
+		z.A1.SetZero()
+		return z
+	}
+
+	if x.A0.IsZero() {
+		var y e16
+		var a1OverBeta extensions.E8
+		a1OverBeta.Mul(&x.A1, &e8BetaInv)
+		if cbrtE8(&y.A1, &a1OverBeta) == nil {
+			return nil
+		}
+		y.A0.SetZero()
+		return cbrtVerifyAndAdjustE16(z.Set(&y), x)
+	}
+
+	var x0sq, x1sq, betaX1sq, norm extensions.E8
+	x0sq.Square(&x.A0)
+	x1sq.Square(&x.A1)
+	betaX1sq.Mul(&x1sq, &e8Beta)
+	norm.Sub(&x0sq, &betaX1sq)
+
+	var m, normInv extensions.E8
+	if cbrtE8(&m, &norm) == nil {
 		return nil
 	}
-	return z.Set(&y)
+	normInv.Inverse(&norm)
+
+	var halfTau, tau extensions.E8
+	halfTau.Add(&x0sq, &betaX1sq)
+	halfTau.Mul(&halfTau, &normInv)
+	tau.Double(&halfTau)
+
+	sigma, _ := lucasV2E8(&tau)
+
+	var sigmaM1, sigmaP1, d0, d1, d0d1, d0d1Inv extensions.E8
+	sigmaM1.Sub(&sigma, &e8One)
+	sigmaP1.Add(&sigma, &e8One)
+	d0.Mul(&m, &sigmaM1)
+	d1.Mul(&m, &sigmaP1)
+	d0d1.Mul(&d0, &d1)
+	if d0d1.IsZero() {
+		return nil
+	}
+	d0d1Inv.Inverse(&d0d1)
+
+	var y e16
+	y.A0.Mul(&d1, &d0d1Inv).Mul(&y.A0, &x.A0)
+	y.A1.Mul(&d0, &d0d1Inv).Mul(&y.A1, &x.A1)
+
+	return cbrtVerifyAndAdjustE16(z.Set(&y), x)
 }

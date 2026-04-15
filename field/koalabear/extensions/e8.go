@@ -12,6 +12,23 @@ import (
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 )
 
+var (
+	cbrtE8Exponent big.Int
+	cbrtE8Omega    E8
+	cbrtE8Omega2   E8
+)
+
+func init() {
+	cbrtE8Exponent.Exp(fr.Modulus(), big.NewInt(8), nil)
+	cbrtE8Exponent.Sub(&cbrtE8Exponent, big.NewInt(1))
+	cbrtE8Exponent.Div(&cbrtE8Exponent, big.NewInt(3))
+	three := new(big.Int).SetUint64(3)
+	cbrtE8Exponent.ModInverse(three, &cbrtE8Exponent)
+
+	cbrtE8Omega.C0.B0 = cbrtE2Omega
+	cbrtE8Omega2.Square(&cbrtE8Omega)
+}
+
 // E8 is a degree two finite field extension of E4.
 type E8 struct {
 	C0, C1 E4
@@ -268,6 +285,35 @@ func (z *E8) Sqrt(x *E8) *E8 {
 	x1.Double(&x1)
 	z.C1.Div(&x.C1, &x1)
 	return z
+}
+
+// Cbrt sets z to the cube root of x and returns z.
+// It returns nil if x is not a cubic residue.
+func (z *E8) Cbrt(x *E8) *E8 {
+	z.Exp(*x, &cbrtE8Exponent)
+	return cbrtVerifyAndAdjustE8(z, x)
+}
+
+func cbrtVerifyAndAdjustE8(z, x *E8) *E8 {
+	var check, y E8
+	check.Square(z).Mul(&check, z)
+	if check.Equal(x) {
+		return z
+	}
+
+	y.Mul(z, &cbrtE8Omega)
+	check.Square(&y).Mul(&check, &y)
+	if check.Equal(x) {
+		return z.Set(&y)
+	}
+
+	y.Mul(z, &cbrtE8Omega2)
+	check.Square(&y).Mul(&check, &y)
+	if check.Equal(x) {
+		return z.Set(&y)
+	}
+
+	return nil
 }
 
 // BatchInvertE8 returns a new slice with every element in a inverted.

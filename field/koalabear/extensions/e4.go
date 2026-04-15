@@ -12,6 +12,16 @@ import (
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 )
 
+var cbrtE4Exponent big.Int
+
+func init() {
+	cbrtE4Exponent.Exp(fr.Modulus(), big.NewInt(4), nil)
+	cbrtE4Exponent.Sub(&cbrtE4Exponent, big.NewInt(1))
+	cbrtE4Exponent.Div(&cbrtE4Exponent, big.NewInt(3))
+	three := new(big.Int).SetUint64(3)
+	cbrtE4Exponent.ModInverse(three, &cbrtE4Exponent)
+}
+
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
 // used for Montgomery reduction
 const qInvNeg = 2130706431
@@ -425,6 +435,38 @@ func (z *E4) Sqrt(x *E4) *E4 {
 	z.B1.Div(&x.B1, &x1)
 
 	return z
+}
+
+// Cbrt sets z to the cube root of x and returns z.
+// It returns nil if x is not a cubic residue.
+func (z *E4) Cbrt(x *E4) *E4 {
+	z.Exp(*x, &cbrtE4Exponent)
+	return cbrtVerifyAndAdjustE4(z, x)
+}
+
+func cbrtVerifyAndAdjustE4(z, x *E4) *E4 {
+	var check E4
+	check.Square(z).Mul(&check, z)
+	if check.Equal(x) {
+		return z
+	}
+
+	var y E4
+	y.B0.Mul(&z.B0, &cbrtE2Omega)
+	y.B1.Mul(&z.B1, &cbrtE2Omega)
+	check.Square(&y).Mul(&check, &y)
+	if check.Equal(x) {
+		return z.Set(&y)
+	}
+
+	y.B0.Mul(&z.B0, &cbrtE2Omega2)
+	y.B1.Mul(&z.B1, &cbrtE2Omega2)
+	check.Square(&y).Mul(&check, &y)
+	if check.Equal(x) {
+		return z.Set(&y)
+	}
+
+	return nil
 }
 
 // BatchInvertE4 returns a new slice with every element in a inverted.

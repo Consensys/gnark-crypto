@@ -11,6 +11,34 @@ import (
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 )
 
+var (
+	cbrtFpOne      fr.Element
+	cbrtFpTwo      fr.Element
+	cbrtFpThree    fr.Element
+	cbrtFpThreeInv fr.Element
+	cbrtE2One      E2
+	cbrtE2Omega    E2
+	cbrtE2Omega2   E2
+)
+
+var cbrtE2MuLucasExponent uint64 = 473490319
+
+func init() {
+	cbrtFpOne.SetOne()
+	cbrtFpTwo.SetUint64(2)
+	cbrtFpThree.SetUint64(3)
+	cbrtFpThreeInv.Inverse(&cbrtFpThree)
+
+	cbrtE2One.SetOne()
+	var sqrtMinusThree E2
+	sqrtMinusThree.A0.Neg(&cbrtFpThree)
+	sqrtMinusThree.Sqrt(&sqrtMinusThree)
+	cbrtE2Omega.Sub(&sqrtMinusThree, &cbrtE2One)
+	cbrtE2Omega.A0.Halve()
+	cbrtE2Omega.A1.Halve()
+	cbrtE2Omega2.Square(&cbrtE2Omega)
+}
+
 // E2 is a degree two finite field extension of fr.Element
 type E2 struct {
 	A0, A1 fr.Element
@@ -219,28 +247,82 @@ func (z *E2) Sqrt(x *E2) *E2 {
 	return z
 }
 
-// Cbrt sets z to the cube root of x and returns z
-// The function does not test whether the cube root
-// exists or not, it's up to the caller to verify.
+// Cbrt sets z to the cube root of x and returns z.
+// It returns nil if x is not a cubic residue.
 func (z *E2) Cbrt(x *E2) *E2 {
-	// If x is in the base field (i.e., x.A1 == 0), use base field cube root directly
 	if x.A1.IsZero() {
 		z.A0.Cbrt(&x.A0)
 		z.A1.SetZero()
 		return z
 	}
 
-	// General case for extension field
-	// The multiplicative group has order p² - 1
-	// For a cube root, compute x^((2p² - 1) / 3)
-	var exp big.Int
-	exp.Mul(fr.Modulus(), fr.Modulus()) // p²
-	exp.Mul(&exp, big.NewInt(2))        // 2p²
-	exp.Sub(&exp, big.NewInt(1))        // 2p² - 1
-	exp.Div(&exp, big.NewInt(3))        // (2p² - 1) / 3
-	z.Exp(*x, &exp)
+	if x.A0.IsZero() {
+		z.A0.SetZero()
+		z.A1.Mul(&x.A1, &cbrtFpThreeInv)
+		z.A1.Cbrt(&z.A1)
+		return cbrtVerifyE2(z, x)
+	}
 
+	var x0sq, x1sq, betaX1sq, norm fr.Element
+	x0sq.Square(&x.A0)
+	x1sq.Square(&x.A1)
+	betaX1sq.Mul(&x1sq, &cbrtFpThree)
+	norm.Sub(&x0sq, &betaX1sq)
+
+	var m, normInv fr.Element
+	m.Cbrt(&norm)
+	normInv.Inverse(&norm)
+
+	var tau fr.Element
+	tau.Add(&x0sq, &betaX1sq)
+	tau.Double(&tau)
+	tau.Mul(&tau, &normInv)
+
+	sigma := lucasVFp(&tau)
+
+	var d0, d1, d0d1, d0d1Inv fr.Element
+	d0.Sub(&sigma, &cbrtFpOne)
+	d0.Mul(&m, &d0)
+	d1.Add(&sigma, &cbrtFpOne)
+	d1.Mul(&m, &d1)
+	d0d1.Mul(&d0, &d1)
+	if d0d1.IsZero() {
+		return nil
+	}
+	d0d1Inv.Inverse(&d0d1)
+
+	z.A0.Mul(&d1, &d0d1Inv).Mul(&z.A0, &x.A0)
+	z.A1.Mul(&d0, &d0d1Inv).Mul(&z.A1, &x.A1)
+	return cbrtVerifyE2(z, x)
+}
+
+func cbrtVerifyE2(z, x *E2) *E2 {
+	var check E2
+	check.Square(z).Mul(&check, z)
+	if !check.Equal(x) {
+		return nil
+	}
 	return z
+}
+
+func lucasVFp(alpha *fr.Element) fr.Element {
+	var v0, v1, prod fr.Element
+	v0.Set(alpha)
+	v1.Square(alpha).Sub(&v1, &cbrtFpTwo)
+	for i := 27; i >= 1; i-- {
+		bit := (cbrtE2MuLucasExponent >> uint(i)) & 1
+		prod.Mul(&v0, &v1).Sub(&prod, alpha)
+		if bit == 0 {
+			v1.Set(&prod)
+			v0.Square(&v0).Sub(&v0, &cbrtFpTwo)
+		} else {
+			v0.Set(&prod)
+			v1.Square(&v1).Sub(&v1, &cbrtFpTwo)
+		}
+	}
+	var out fr.Element
+	out.Mul(&v0, &v1).Sub(&out, alpha)
+	return out
 }
 
 // BatchInvertE2 returns a new slice with every element in a inverted.

@@ -1044,3 +1044,25 @@ func genFrVector(size int) gopter.Gen {
 		return gopter.NewGenResult(v, gopter.NoShrinker)
 	}
 }
+
+func TestE4CbrtOnCubicResidues(t *testing.T) {
+	for i := 0; i < 128; i++ {
+		var a, x, got, check E4
+		a.MustSetRandom()
+		x.Square(&a).Mul(&x, &a)
+		require.NotNil(t, got.Cbrt(&x))
+		check.Square(&got).Mul(&check, &got)
+		require.True(t, check.Equal(&x))
+	}
+}
+
+func TestE4CbrtRejectsNonResidues(t *testing.T) {
+	var x, got E4
+	for i := 0; i < 256; i++ {
+		x.MustSetRandom()
+		if got.Cbrt(&x) == nil {
+			return
+		}
+	}
+	t.Fatal("failed to find an E4 non-cube in 256 samples")
+}
