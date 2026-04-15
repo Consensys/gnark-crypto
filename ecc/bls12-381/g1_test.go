@@ -388,6 +388,7 @@ func TestG1AffineOps(t *testing.T) {
 		func(s fr.Element) bool {
 			g := g1GenAff
 			var gj G1Jac
+			gj.FromAffine(&g)
 			var nbs, bs big.Int
 			s.BigInt(&bs)
 			nbs.Neg(&bs)
@@ -598,12 +599,14 @@ func TestG1CofactorClearing(t *testing.T) {
 			var a, x, b fp.Element
 			a.MustSetRandom()
 
-			x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
+			x.Square(&a).Mul(&x, &a)
+			x.Add(&x, &bCurveCoeff)
 
 			for x.Legendre() != 1 {
 				a.MustSetRandom()
 
-				x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
+				x.Square(&a).Mul(&x, &a)
+				x.Add(&x, &bCurveCoeff)
 
 			}
 

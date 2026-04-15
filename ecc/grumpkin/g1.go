@@ -206,9 +206,7 @@ func (p *G1Affine) IsOnCurve() bool {
 
 // IsInSubGroup returns true if the affine point p is in the correct subgroup, false otherwise.
 func (p *G1Affine) IsInSubGroup() bool {
-	var _p G1Jac
-	_p.FromAffine(p)
-	return _p.IsInSubGroup()
+	return p.IsOnCurve()
 }
 
 // IsInSubGroupBatchG1 checks if a batch of points P_i are in G1.
@@ -407,7 +405,7 @@ func (p *G1Jac) DoubleMixed(a *G1Affine) *G1Jac {
 		Sub(&S, &YYYY).
 		Double(&S)
 	M.Double(&XX).
-		Add(&M, &XX) // -> + A, but A=0 here
+		Add(&M, &XX) // M = 3*XX
 	T.Square(&M).
 		Sub(&T, &S).
 		Sub(&T, &S)
@@ -499,7 +497,7 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 		Sub(&D, &C).
 		Double(&D)
 	E.Double(&A).
-		Add(&E, &A)
+		Add(&E, &A) // E = 3*A = 3*X²
 	F.Square(&E)
 	t.Double(&D)
 	p.Z.Mul(&p.Y, &p.Z).
@@ -515,9 +513,9 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 	return p
 }
 
-// Triple sets p to [3]q in Jacobian coordinates for j=0 curves.
+// Triple sets p to [3]q in Jacobian coordinates.
 //
-// https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1
+// https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1 (optimized for j=0 curves)
 func (p *G1Jac) Triple(q *G1Jac) *G1Jac {
 	// Helper functions for multiplication by 3 and 4.
 	mulBy3 := func(v *fp.Element) {
@@ -637,9 +635,7 @@ func (p *G1Jac) IsOnCurve() bool {
 // the curve is of prime order i.e. E(𝔽p) is the full group
 // so we just check that the point is on the curve.
 func (p *G1Jac) IsInSubGroup() bool {
-
 	return p.IsOnCurve()
-
 }
 
 // mulWindowed computes a double-and-add scalar multiplication p=[s]q in
@@ -694,13 +690,6 @@ func (p *G1Jac) mulWindowedMixed(q *G1Affine, s *big.Int) *G1Jac {
 	if negScalar {
 		p.Neg(p)
 	}
-	return p
-}
-
-// mulBySeed multiplies the point q by the seed xGen in Jacobian coordinates
-// using an optimized addition chain.
-func (p *G1Jac) mulBySeed(q *G1Jac) *G1Jac {
-	p.mulWindowed(q, &xGen)
 	return p
 }
 
@@ -981,20 +970,22 @@ func (p *g1JacExtended) add(q *g1JacExtended) *g1JacExtended {
 // double sets p to [2]q in Jacobian extended coordinates.
 //
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-// ~Cost: 6M + 3S
 //
 // N.B.: since we consider any point on Z=0 as the point at infinity
 // this doubling formula works for infinity points as well.
 func (p *g1JacExtended) double(q *g1JacExtended) *g1JacExtended {
-	var U, V, W, S, XX, M fp.Element
+	var U, V, W, S, M fp.Element
 
 	U.Double(&q.Y)
 	V.Square(&U)
 	W.Mul(&U, &V)
 	S.Mul(&q.X, &V)
-	XX.Square(&q.X)
-	M.Double(&XX).
-		Add(&M, &XX) // -> + A, but A=0 here
+	{
+		var XX fp.Element
+		XX.Square(&q.X)
+		M.Double(&XX).
+			Add(&M, &XX) // M = 3*XX
+	}
 	U.Mul(&W, &q.Y)
 
 	p.X.Square(&M).
@@ -1139,7 +1130,7 @@ func (p *g1JacExtended) doubleNegMixed(a *G1Affine) *g1JacExtended {
 	S.Mul(&a.X, &V)
 	t.Square(&a.X)
 	M.Double(&t).
-		Add(&M, &t) // -> + A, but A=0 here
+		Add(&M, &t) // M = 3*X²
 	p.X.Square(&M)
 	t.Double(&S)
 	p.X.Sub(&p.X, &t)
@@ -1167,7 +1158,7 @@ func (p *g1JacExtended) doubleMixed(a *G1Affine) *g1JacExtended {
 	S.Mul(&a.X, &V)
 	t.Square(&a.X)
 	M.Double(&t).
-		Add(&M, &t) // -> + A, but A=0 here
+		Add(&M, &t) // M = 3*X²
 	p.X.Square(&M)
 	t.Double(&S)
 	p.X.Sub(&p.X, &t)

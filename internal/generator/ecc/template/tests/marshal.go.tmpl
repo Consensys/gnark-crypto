@@ -20,7 +20,9 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
+	{{- if .HasG2}}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
+	{{- end}}
 )
 
 const (
@@ -37,9 +39,13 @@ func TestEncoder(t *testing.T) {
 	var inC fp.Element
 	var inD G1Affine
 	var inE G1Affine
+	{{- if .HasG2}}
 	var inF G2Affine
+	{{- end}}
 	var inG []G1Affine
+	{{- if .HasG2}}
 	var inH []G2Affine
+	{{- end}}
 	var inI []fp.Element
 	var inJ []fr.Element
 	var inK fr.Vector
@@ -53,9 +59,13 @@ func TestEncoder(t *testing.T) {
 	inC.MustSetRandom()
 	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
 	// inE --> infinity
+	{{- if .HasG2}}
 	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
+	{{- end}}
 	inG = make([]G1Affine, 2)
+	{{- if .HasG2}}
 	inH = make([]G2Affine, 0)
+	{{- end}}
 	inG[1] = inD
 	inI = make([]fp.Element, 3)
 	inI[2] = inD.X
@@ -78,7 +88,7 @@ func TestEncoder(t *testing.T) {
 	var buf, bufRaw bytes.Buffer
 	enc := NewEncoder(&buf)
 	encRaw := NewEncoder(&bufRaw, RawEncoding())
-	toEncode := []any{inA, &inB, &inC, &inD, &inE, &inF, inG, inH, inI, inJ, inK, inL, inM, inN}
+	toEncode := []any{inA, &inB, &inC, &inD, &inE, {{- if .HasG2}} &inF, {{- end}} inG, {{- if .HasG2}} inH, {{- end}} inI, inJ, inK, inL, inM, inN}
 	for _, v := range toEncode {
 		if err := enc.Encode(v); err != nil {
 			t.Fatal(err)
@@ -98,9 +108,13 @@ func TestEncoder(t *testing.T) {
 		var outE G1Affine
 		outE.X.SetOne()
 		outE.Y.SetUint64(42)
+		{{- if .HasG2}}
 		var outF G2Affine
+		{{- end}}
 		var outG []G1Affine
+		{{- if .HasG2}}
 		var outH []G2Affine
+		{{- end}}
 		var outI []fp.Element
 		var outJ []fr.Element
 		var outK fr.Vector
@@ -108,7 +122,7 @@ func TestEncoder(t *testing.T) {
 		var outM [][]uint64
 		var outN [][][]fr.Element
 
-		toDecode := []any{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ, &outK, &outL, &outM, &outN}
+		toDecode := []any{&outA, &outB, &outC, &outD, &outE, {{- if .HasG2}} &outF, {{- end}} &outG, {{- if .HasG2}} &outH, {{- end}} &outI, &outJ, &outK, &outL, &outM, &outN}
 		for _, v := range toDecode {
 			if err := dec.Decode(v); err != nil {
 				t.Fatal(err)
@@ -126,10 +140,12 @@ func TestEncoder(t *testing.T) {
 		if !inD.Equal(&outD) || !inE.Equal(&outE) {
 			t.Fatal("decode(encode(G1Affine) failed")
 		}
+		{{- if .HasG2}}
 		if !inF.Equal(&outF) {
 			t.Fatal("decode(encode(G2Affine) failed")
 		}
-		if (len(inG) != len(outG)) || (len(inH) != len(outH)) {
+		{{- end}}
+		if (len(inG) != len(outG)) {{- if .HasG2}} || (len(inH) != len(outH)) {{- end}} {
 			t.Fatal("decode(encode(slice(points))) failed")
 		}
 		for i := range len(inG) {
@@ -171,13 +187,18 @@ func TestEncoder(t *testing.T) {
 
 
 
+{{- if ge .FpUnusedBits 2}}
 func TestIsCompressed(t *testing.T) {
 	t.Parallel()
 	var g1Inf, g1 G1Affine
+	{{- if .HasG2}}
 	var g2Inf, g2 G2Affine
+	{{- end}}
 
 	g1 = g1GenAff
+	{{- if .HasG2}}
 	g2 = g2GenAff
+	{{- end}}
 
 	{
 		b := g1Inf.Bytes()
@@ -209,6 +230,7 @@ func TestIsCompressed(t *testing.T) {
 
 
 
+	{{- if .HasG2}}
 	{
 		b := g2Inf.Bytes()
 		if !isCompressed(b[0]) {
@@ -236,14 +258,18 @@ func TestIsCompressed(t *testing.T) {
 			t.Fatal("g2.RawBytes() should be uncompressed")
 		}
 	}
+	{{- end}}
 
 }
+{{- end}}
 
 {{- $sizeOfFp := mul .Fp.NbWords 8}}
 {{- $FpUnusedBits := .FpUnusedBits}}
 
 {{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp "CoordType" .G1.CoordType "PointName" .G1.PointName "TAffine" $G1TAffine "TJacobian" $G1TJacobian "TJacobianExtended" $G1TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G1.CRange "FpUnusedBits" $FpUnusedBits}}
+{{- if .HasG2}}
 {{template "marshalpoint" dict "all" . "sizeOfFp" $sizeOfFp  "CoordType" .G2.CoordType "PointName" .G2.PointName "TAffine" $G2TAffine "TJacobian" $G2TJacobian "TJacobianExtended" $G2TJacobianExtended "FrNbWords" .Fr.NbWords "CRange" .G2.CRange "FpUnusedBits" $FpUnusedBits}}
+{{- end}}
 
 
 {{define "marshalpoint"}}
@@ -277,6 +303,7 @@ func Test{{ $.TAffine }}Serialization(t *testing.T) {
 	t.Parallel()
 	// test round trip serialization of infinity
 	{
+		{{- if ge $.FpUnusedBits 2}}
 		// compressed
 		{
 			var p1, p2 {{ $.TAffine }}
@@ -294,6 +321,7 @@ func Test{{ $.TAffine }}Serialization(t *testing.T) {
 				t.Fatal("deserialization of uncompressed infinity point is not infinity")
 			}
 		}
+		{{- end}}
 
 		// uncompressed
 		{
@@ -358,7 +386,7 @@ func Test{{ $.TAffine }}Serialization(t *testing.T) {
 				if err != nil {
 					return false
 				}
-				if n != SizeOf{{ $.TAffine }}Compressed {
+				if n != SizeOf{{ $.TAffine }}{{- if ge $.FpUnusedBits 2}}Compressed{{- else}}Uncompressed{{- end}} {
 					return false
 				}
 				return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
@@ -398,7 +426,9 @@ func GenFp() gopter.Gen {
 // e2 e4 e12 e24 for bls24
 // e2 e6 e12 else */}}
 
-{{if or (eq .Name "bw6-633") (eq .Name "bw6-761")}}
+{{if not .HasG2}}
+{{/* no extension field generators needed for curves without G2 */}}
+{{else if eq .G2.CoordType "fp.Element"}}
 	// GenE3 generates an E3 elmt
 	func GenE3() gopter.Gen {
 		return gopter.CombineGens(
@@ -430,7 +460,7 @@ func GenFp() gopter.Gen {
 		})
 	}
 
-    {{if or (eq .Name "bls24-315") (eq .Name "bls24-317")}}
+    {{if eq .G2.CoordType "fptower.E4"}}
 		// GenE4 generates an fptower.E4 elmt
 		func GenE4() gopter.Gen {
 			return gopter.CombineGens(

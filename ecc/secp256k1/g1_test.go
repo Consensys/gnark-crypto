@@ -356,6 +356,7 @@ func TestG1AffineOps(t *testing.T) {
 		func(s fr.Element) bool {
 			g := g1GenAff
 			var gj G1Jac
+			gj.FromAffine(&g)
 			var nbs, bs big.Int
 			s.BigInt(&bs)
 			nbs.Neg(&bs)
@@ -926,46 +927,4 @@ func fuzzg1JacExtended(p *g1JacExtended, f fp.Element) g1JacExtended {
 	res.ZZ.Mul(&p.ZZ, &ff)
 	res.ZZZ.Mul(&p.ZZZ, &fff)
 	return res
-}
-
-const (
-	nbFuzzShort = 10
-	nbFuzz      = 100
-)
-
-// define Gopters generators
-
-// GenFr generates an Fr element
-func GenFr() gopter.Gen {
-	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		var elmt fr.Element
-		elmt.MustSetRandom()
-
-		return gopter.NewGenResult(elmt, gopter.NoShrinker)
-	}
-}
-
-// GenFp generates an Fp element
-func GenFp() gopter.Gen {
-	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		var elmt fp.Element
-		elmt.MustSetRandom()
-
-		return gopter.NewGenResult(elmt, gopter.NoShrinker)
-	}
-}
-
-// GenBigInt generates a big.Int
-func GenBigInt() gopter.Gen {
-	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		var s big.Int
-		var b [fp.Bytes]byte
-		_, err := crand.Read(b[:]) //#nosec G404 weak rng is fine here
-		if err != nil {
-			panic(err)
-		}
-		s.SetBytes(b[:])
-		genResult := gopter.NewGenResult(s, gopter.NoShrinker)
-		return genResult
-	}
 }

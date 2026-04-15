@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -87,6 +88,14 @@ func main() {
 		}(conf)
 	}
 
+	// clean up previously generated files before regenerating.
+	// files with the "DO NOT EDIT" header are removed; hand-written files
+	// (without this header) are preserved.
+	for _, conf := range config.Curves {
+		curveDir := filepath.Join(baseDir, "ecc", conf.Name)
+		cleanGeneratedFiles(curveDir)
+	}
+
 	for _, conf := range config.Curves {
 		wg.Add(1)
 		// for each curve, generate the needed files
@@ -107,7 +116,7 @@ func main() {
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 
-			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
+			conf.FpUnusedBits = (64 - (conf.Fp.NbBits % 64)) % 64
 
 			// Torus cbrt: compute betaInvNeg now that Fp config is available
 			if conf.E2CbrtTorusEnabled && conf.E2CbrtTorusBeta != -1 {
@@ -144,7 +153,7 @@ func main() {
 				asmConfig := &fieldConfig.Assembly{BuildDir: asmDirBuildPath, IncludeDir: relAsmDir}
 
 				frOpts := []field.Option{field.WithASM(asmConfig)}
-				if !(conf.Equal(config.SECP256R1) || conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256K1) || conf.Equal(config.GRUMPKIN)) { // nolint QF1001
+				if conf.GenerateFFT() {
 					frOpts = append(frOpts, field.WithFFT(fftConfig), field.WithIOP())
 				}
 				if conf.Equal(config.BLS12_377) {
@@ -157,77 +166,50 @@ func main() {
 			// generate ecdsa
 			assertNoError(ecdsa.Generate(conf, curveDir, gen))
 
-			if conf.Equal(config.STARK_CURVE) || conf.Equal(config.SECP256R1) {
-				return // TODO @yelhousni
+			// generate G1, G2, multiExp, marshal, ...
+			if conf.GenerateECC() {
+				assertNoError(ecc.Generate(conf, curveDir, gen))
 			}
 
-			// generate G1, G2, multiExp, ...
-			assertNoError(ecc.Generate(conf, curveDir, gen))
+			// field suite: mimc, polynomial, poseidon2, hash_to_field
+			if conf.GenerateFieldSuite() {
+				frInfo := fieldConfig.FieldDependency{
+					FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
+					FieldPackageName: "fr",
+					ElementType:      "fr.Element",
+				}
 
-			if conf.Equal(config.SECP256K1) {
-				return
+				fpInfo := fieldConfig.FieldDependency{
+					FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fp",
+					FieldPackageName: "fp",
+					ElementType:      "fp.Element",
+				}
+
+				assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), gen))
+				assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, gen))
+				assertNoError(poseidon2.Generate(conf, filepath.Join(curveDir, "fr", "poseidon2"), gen))
+				assertNoError(hash_to_field.Generate(frInfo, filepath.Join(curveDir, "fr", "hash_to_field"), gen))
+				assertNoError(hash_to_field.Generate(fpInfo, filepath.Join(curveDir, "fp", "hash_to_field"), gen))
 			}
 
-			// generate mimc on fr
-			assertNoError(mimc.Generate(conf, filepath.Join(curveDir, "fr", "mimc"), gen))
-
-			// generate polynomial on fr
-			frInfo := fieldConfig.FieldDependency{
-				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fr",
-				FieldPackageName: "fr",
-				ElementType:      "fr.Element",
-			}
-			assertNoError(polynomial.Generate(frInfo, filepath.Join(curveDir, "fr", "polynomial"), true, gen))
-
-			// generate poseidon2 on fr
-			assertNoError(poseidon2.Generate(conf, filepath.Join(curveDir, "fr", "poseidon2"), gen))
-
-			fpInfo := fieldConfig.FieldDependency{
-				FieldPackagePath: "github.com/consensys/gnark-crypto/ecc/" + conf.Name + "/fp",
-				FieldPackageName: "fp",
-				ElementType:      "fp.Element",
+			// hash to curve (only if hash suite is configured and ECC is generated)
+			if conf.GenerateHashToCurve() && conf.GenerateECC() {
+				assertNoError(hash_to_curve.Generate(conf, curveDir, gen))
 			}
 
-			// generate wrapped hash-to-field for both fr and fp
-			assertNoError(hash_to_field.Generate(frInfo, filepath.Join(curveDir, "fr", "hash_to_field"), gen))
-			assertNoError(hash_to_field.Generate(fpInfo, filepath.Join(curveDir, "fp", "hash_to_field"), gen))
-
-			// generate hash to curve for both G1 and G2
-			assertNoError(hash_to_curve.Generate(conf, curveDir, gen))
-
-			if conf.Equal(config.GRUMPKIN) {
-				return
+			// pairing-dependent packages
+			if conf.GeneratePairingPackages() {
+				assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), gen))
+				assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), gen))
+				assertNoError(pairing.Generate(conf, curveDir, gen))
+				assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), gen))
+				assertNoError(mpcsetup.Generate(conf, filepath.Join(curveDir, "mpcsetup"), gen))
+				assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), gen))
+				assertNoError(shplonk.Generate(conf, filepath.Join(curveDir, "shplonk"), gen))
+				assertNoError(fflonk.Generate(conf, filepath.Join(curveDir, "fflonk"), gen))
+				assertNoError(plookup.Generate(conf, filepath.Join(curveDir, "fr", "plookup"), gen))
+				assertNoError(permutation.Generate(conf, filepath.Join(curveDir, "fr", "permutation"), gen))
 			}
-
-			// generate pedersen on fr
-			assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), gen))
-
-			// generate tower of extension
-			assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), gen))
-
-			// generate pairing tests
-			assertNoError(pairing.Generate(conf, curveDir, gen))
-
-			// generate fri on fr
-			assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), gen))
-
-			// generate mpc setup tools
-			assertNoError(mpcsetup.Generate(conf, filepath.Join(curveDir, "mpcsetup"), gen))
-
-			// generate kzg on fr
-			assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), gen))
-
-			// generate shplonk on fr
-			assertNoError(shplonk.Generate(conf, filepath.Join(curveDir, "shplonk"), gen))
-
-			// generate fflonk on fr
-			assertNoError(fflonk.Generate(conf, filepath.Join(curveDir, "fflonk"), gen))
-
-			// generate plookup on fr
-			assertNoError(plookup.Generate(conf, filepath.Join(curveDir, "fr", "plookup"), gen))
-
-			// generate permutation on fr
-			assertNoError(permutation.Generate(conf, filepath.Join(curveDir, "fr", "permutation"), gen))
 
 		}(conf)
 
@@ -303,4 +285,36 @@ func assertNoError(err error) {
 		fmt.Fprintf(os.Stderr, "\n%s\n", err.Error())
 		os.Exit(-1)
 	}
+}
+
+// cleanGeneratedFiles removes all previously generated files (those with the
+// "Code generated by consensys/gnark-crypto DO NOT EDIT" header) from dir and
+// its subdirectories. This prevents stale generated files from persisting when
+// the generation logic changes.
+func cleanGeneratedFiles(dir string) {
+	const generatedHeader = "Code generated by consensys/gnark-crypto DO NOT EDIT"
+	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		if isGeneratedFile(path, generatedHeader) {
+			os.Remove(path)
+		}
+		return nil
+	})
+}
+
+func isGeneratedFile(path string, header string) bool {
+	ext := filepath.Ext(path)
+	if ext != ".go" && ext != ".s" {
+		return false
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	buf := make([]byte, 4096)
+	n, _ := f.Read(buf)
+	f.Close()
+	return n > 0 && strings.Contains(string(buf[:n]), header)
 }
