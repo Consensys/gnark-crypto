@@ -12,9 +12,20 @@ import (
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 )
 
-var cbrtE4Exponent big.Int
+var (
+	cbrtE4One      E4
+	cbrtE4NRInv    E4
+	cbrtE4Exponent big.Int
+)
+
+var cbrtE4LucasExponent = [1]uint64{
+	1513303301209194497,
+}
 
 func init() {
+	cbrtE4One.SetOne()
+	cbrtE4NRInv.B1.SetOne()
+	cbrtE4NRInv.Inverse(&cbrtE4NRInv)
 	cbrtE4Exponent.Exp(fr.Modulus(), big.NewInt(4), nil)
 	cbrtE4Exponent.Sub(&cbrtE4Exponent, big.NewInt(1))
 	cbrtE4Exponent.Div(&cbrtE4Exponent, big.NewInt(3))
@@ -440,6 +451,65 @@ func (z *E4) Sqrt(x *E4) *E4 {
 // Cbrt sets z to the cube root of x and returns z.
 // It returns nil if x is not a cubic residue.
 func (z *E4) Cbrt(x *E4) *E4 {
+	if x.B1.IsZero() {
+		if z.B0.Cbrt(&x.B0) == nil {
+			return nil
+		}
+		z.B1.SetZero()
+		return z
+	}
+
+	if x.B0.IsZero() {
+		var y E4
+		var x1OverNR E2
+		x1OverNR.Mul(&x.B1, &cbrtE2NRInv)
+		if y.B1.Cbrt(&x1OverNR) == nil {
+			return nil
+		}
+		y.B0.SetZero()
+		if out := cbrtVerifyAndAdjustE4(z.Set(&y), x); out != nil {
+			return out
+		}
+		z.Exp(*x, &cbrtE4Exponent)
+		return cbrtVerifyAndAdjustE4(z, x)
+	}
+
+	var x0sq, x1sq, betaX1sq, norm E2
+	x0sq.Square(&x.B0)
+	x1sq.Square(&x.B1)
+	betaX1sq.MulByNonResidue(&x1sq)
+	norm.Sub(&x0sq, &betaX1sq)
+
+	var m, normInv E2
+	if m.Cbrt(&norm) == nil {
+		return nil
+	}
+	normInv.Inverse(&norm)
+
+	var halfTau, tau E2
+	halfTau.Add(&x0sq, &betaX1sq)
+	halfTau.Mul(&halfTau, &normInv)
+	tau.Double(&halfTau)
+
+	sigma, _ := lucasV2E2Cbrt(&tau)
+
+	var sigmaM1, sigmaP1, d0, d1, d0d1, d0d1Inv E2
+	sigmaM1.Sub(&sigma, &cbrtE2One)
+	sigmaP1.Add(&sigma, &cbrtE2One)
+	d0.Mul(&m, &sigmaM1)
+	d1.Mul(&m, &sigmaP1)
+	d0d1.Mul(&d0, &d1)
+	if d0d1.IsZero() {
+		return nil
+	}
+	d0d1Inv.Inverse(&d0d1)
+
+	var y E4
+	y.B0.Mul(&d1, &d0d1Inv).Mul(&y.B0, &x.B0)
+	y.B1.Mul(&d0, &d0d1Inv).Mul(&y.B1, &x.B1)
+	if out := cbrtVerifyAndAdjustE4(z.Set(&y), x); out != nil {
+		return out
+	}
 	z.Exp(*x, &cbrtE4Exponent)
 	return cbrtVerifyAndAdjustE4(z, x)
 }
@@ -467,6 +537,34 @@ func cbrtVerifyAndAdjustE4(z, x *E4) *E4 {
 	}
 
 	return nil
+}
+
+func lucasV2E2Cbrt(alpha *E2) (E2, E2) {
+	var t0, t1, tmp E2
+	t0.Set(&cbrtE2One)
+	t1.Set(alpha)
+
+	for i := 59; i >= 1; i-- {
+		bit := (cbrtE4LucasExponent[0] >> uint(i)) & 1
+		if bit == 0 {
+			tmp.Mul(&t0, &t1).Sub(&tmp, alpha)
+			t0.Square(&t0).Sub(&t0, &cbrtE2One).Sub(&t0, &cbrtE2One)
+			t1.Set(&tmp)
+		} else {
+			tmp.Mul(&t0, &t1).Sub(&tmp, alpha)
+			t1.Square(&t1).Sub(&t1, &cbrtE2One).Sub(&t1, &cbrtE2One)
+			t0.Set(&tmp)
+		}
+	}
+
+	tmp.Mul(&t0, &t1).Sub(&tmp, alpha)
+	t0.Square(&t0).Sub(&t0, &cbrtE2One).Sub(&t0, &cbrtE2One)
+	t1.Set(&tmp)
+	tmp.Mul(alpha, &t1).Sub(&tmp, &t0)
+	t0.Set(&t1)
+	t1.Set(&tmp)
+
+	return t0, t1
 }
 
 // BatchInvertE4 returns a new slice with every element in a inverted.

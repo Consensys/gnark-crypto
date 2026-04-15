@@ -19,6 +19,7 @@ var (
 	cbrtE2One      E2
 	cbrtE2Omega    E2
 	cbrtE2Omega2   E2
+	cbrtE2NRInv    E2
 )
 
 var cbrtE2MuLucasExponent uint64 = 473490319
@@ -30,6 +31,7 @@ func init() {
 	cbrtFpThreeInv.Inverse(&cbrtFpThree)
 
 	cbrtE2One.SetOne()
+	cbrtE2NRInv.MulByNonResidueInv(&cbrtE2One)
 	var sqrtMinusThree E2
 	sqrtMinusThree.A0.Neg(&cbrtFpThree)
 	sqrtMinusThree.Sqrt(&sqrtMinusThree)

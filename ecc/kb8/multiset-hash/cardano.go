@@ -195,8 +195,7 @@ func isDepressedCubicRoot(x, negCHalf *extensions.E8) bool {
 }
 
 func cbrtE8(z, x *extensions.E8) *extensions.E8 {
-	expByKBE8Cbrt(z, x)
-	return cbrtVerifyAndAdjustE8(z, x)
+	return z.Cbrt(x)
 }
 
 func cbrtVerifyAndAdjustE8(z, x *extensions.E8) *extensions.E8 {
