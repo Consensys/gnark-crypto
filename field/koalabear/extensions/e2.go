@@ -225,6 +225,118 @@ func (z *E2) Exp(x E2, k *big.Int) *E2 {
 	return z
 }
 
+// ExpByCbrtHelperQ2Minus4Div9 is equivalent to z.Exp(x, 7001c71e3555555).
+// It raises x to the (q²-4)/9 power over E2 using a shorter addition chain.
+//
+// uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
+func (z *E2) ExpByCbrtHelperQ2Minus4Div9(x E2) *E2 {
+	// addition chain:
+	//
+	//	_10      = 2*1
+	//	_11      = 1 + _10
+	//	_110     = 2*_11
+	//	_111     = 1 + _110
+	//	_1110    = 2*_111
+	//	_11100   = 2*_1110
+	//	_111000  = 2*_11100
+	//	_1010100 = _11100 + _111000
+	//	_1010101 = 1 + _1010100
+	//	_1100011 = _1110 + _1010101
+	//	_1110000 = _11100 + _1010100
+	//	i35      = (_1110000 << 14 + _1100011 + _1110) << 7 + _1100011
+	//	i60      = ((i35 << 7 + _1100011) << 8 + _1010101) << 8
+	//	return     (_1010101 + i60) << 8 + _1010101
+	//
+	// Operations: 64 squares 10 multiplies
+	var t0, t1, t2, t3 E2
+
+	// Step 1: z = x^0x2
+	z.Square(&x)
+
+	// Step 2: z = x^0x3
+	z.Mul(&x, z)
+
+	// Step 3: z = x^0x6
+	z.Square(z)
+
+	// Step 4: z = x^0x7
+	z.Mul(&x, z)
+
+	// Step 5: t1 = x^0xe
+	t1.Square(z)
+
+	// Step 6: t2 = x^0x1c
+	t2.Square(&t1)
+
+	// Step 7: z = x^0x38
+	z.Square(&t2)
+
+	// Step 8: t3 = x^0x54
+	t3.Mul(&t2, z)
+
+	// Step 9: z = x^0x55
+	z.Mul(&x, &t3)
+
+	// Step 10: t0 = x^0x63
+	t0.Mul(&t1, z)
+
+	// Step 11: t2 = x^0x70
+	t2.Mul(&t2, &t3)
+
+	// Step 25: t2 = x^0x1c00000
+	for range 14 {
+		t2.Square(&t2)
+	}
+
+	// Step 26: t2 = x^0x1c00063
+	t2.Mul(&t0, &t2)
+
+	// Step 27: t1 = x^0x1c00071
+	t1.Mul(&t1, &t2)
+
+	// Step 34: t1 = x^0xe0003880
+	for range 7 {
+		t1.Square(&t1)
+	}
+
+	// Step 35: t1 = x^0xe00038e3
+	t1.Mul(&t0, &t1)
+
+	// Step 42: t1 = x^0x70001c7180
+	for range 7 {
+		t1.Square(&t1)
+	}
+
+	// Step 43: t0 = x^0x70001c71e3
+	t0.Mul(&t0, &t1)
+
+	// Step 51: t0 = x^0x70001c71e300
+	for range 8 {
+		t0.Square(&t0)
+	}
+
+	// Step 52: t0 = x^0x70001c71e355
+	t0.Mul(z, &t0)
+
+	// Step 60: t0 = x^0x70001c71e35500
+	for range 8 {
+		t0.Square(&t0)
+	}
+
+	// Step 61: t0 = x^0x70001c71e35555
+	t0.Mul(z, &t0)
+
+	// Step 69: t0 = x^0x70001c71e3555500
+	for range 8 {
+		t0.Square(&t0)
+	}
+
+	// Step 70: z = x^0x7001c71e3555555
+	z.Mul(z, &t0)
+
+	return z
+}
+
 // Sqrt sets z to the square root of and returns z
 // The function does not test whether the square root
 // exists or not, it's up to the caller to call

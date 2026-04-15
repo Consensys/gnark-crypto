@@ -23,6 +23,7 @@ var (
 	e8Four        extensions.E8
 	e8TwentySeven extensions.E8
 	e8NegThree    extensions.E8
+	e16HelperExp  big.Int
 )
 
 var e16LucasExponent = [4]uint64{
@@ -43,6 +44,9 @@ func init() {
 	e8Beta = findNonSquare()
 	e8BetaInv.Inverse(&e8Beta)
 	e8Omega = findPrimitiveCubeRoot()
+	e16HelperExp.Exp(koalabear.Modulus(), big.NewInt(8), nil)
+	e16HelperExp.Sub(&e16HelperExp, big.NewInt(4))
+	e16HelperExp.Div(&e16HelperExp, big.NewInt(9))
 }
 
 func depressedCubicRoot(c extensions.E8) (extensions.E8, bool) {
@@ -1069,22 +1073,89 @@ func (z *e16) Cbrt(x *e16) *e16 {
 	halfTau.Mul(&halfTau, &normInv)
 	tau.Double(&halfTau)
 
-	sigma, _ := lucasV2E8(&tau)
+	te, te1 := lucasV2E8(&tau)
 
-	var sigmaM1, sigmaP1, d0, d1, d0d1, d0d1Inv extensions.E8
-	sigmaM1.Sub(&sigma, &e8One)
-	sigmaP1.Add(&sigma, &e8One)
-	d0.Mul(&m, &sigmaM1)
-	d1.Mul(&m, &sigmaP1)
-	d0d1.Mul(&d0, &d1)
-	if d0d1.IsZero() {
+	var x0x1, imY extensions.E8
+	x0x1.Mul(&x.A0, &x.A1)
+	imY.Double(&x0x1)
+	imY.Mul(&imY, &normInv)
+
+	var wa0, wa1 extensions.E8
+	wa0.Mul(&halfTau, &te)
+	wa0.Sub(&te1, &wa0)
+	wa1.Mul(&imY, &te)
+
+	var delta, deltaInv, sIm, k extensions.E8
+	delta.Square(&tau).Sub(&delta, &e8One).Sub(&delta, &e8One).Sub(&delta, &e8One).Sub(&delta, &e8One)
+	if delta.IsZero() {
 		return nil
 	}
-	d0d1Inv.Inverse(&d0d1)
+	deltaInv.Inverse(&delta)
+	sIm.Double(&imY)
+	k.Mul(&sIm, &deltaInv)
+
+	var gamma0, gamma1, mInv extensions.E8
+	gamma0.Mul(&wa1, &k).Mul(&gamma0, &e8Beta)
+	gamma1.Mul(&wa0, &k)
+	mInv.Square(&m).Mul(&mInv, &normInv)
 
 	var y e16
-	y.A0.Mul(&d1, &d0d1Inv).Mul(&y.A0, &x.A0)
-	y.A1.Mul(&d0, &d0d1Inv).Mul(&y.A1, &x.A1)
-
+	var t1, t2 extensions.E8
+	t1.Mul(&x.A0, &gamma0)
+	t2.Mul(&x.A1, &gamma1).Mul(&t2, &e8Beta)
+	y.A0.Add(&t1, &t2).Mul(&y.A0, &mInv)
+	t1.Mul(&x.A1, &gamma0)
+	t2.Mul(&x.A0, &gamma1)
+	y.A1.Add(&t1, &t2).Mul(&y.A1, &mInv)
 	return cbrtVerifyAndAdjustE16(z.Set(&y), x)
+}
+
+func cbrtAndNormInverseE16(norm, x0sq, x1sq *extensions.E8) (m, normInv, deltaInv extensions.E8, ok bool) {
+	var x0x1, betaX0x1, U, U2, U3, w extensions.E8
+	x0x1.Mul(x0sq, x1sq)
+	betaX0x1.Mul(&x0x1, &e8Beta)
+	U.Mul(&betaX0x1, norm)
+	U.Double(&U).Double(&U)
+	U.Double(&U).Double(&U)
+	U2.Square(&U)
+	U3.Mul(&U2, &U)
+	w.Mul(&U3, norm)
+
+	var t, t2, t4, t5, cbrtW, cw2, wInv extensions.E8
+	t.Exp(w, &e16HelperExp)
+	t2.Square(&t)
+	t4.Square(&t2)
+	t5.Mul(&t4, &t)
+	cbrtW.Mul(&w, &t2)
+	cw2.Square(&cbrtW)
+	wInv.Mul(&t5, &cw2)
+
+	var UInv, check extensions.E8
+	UInv.Mul(&U2, norm).Mul(&UInv, &wInv)
+	m.Mul(&cbrtW, &UInv)
+	normInv.Mul(&U3, &wInv)
+	check.Square(&m).Mul(&check, &m)
+	if !check.Equal(norm) {
+		var alt extensions.E8
+		alt.Mul(&m, &e8Omega)
+		check.Square(&alt).Mul(&check, &alt)
+		if check.Equal(norm) {
+			m.Set(&alt)
+		} else {
+			var omega2 extensions.E8
+			omega2.Square(&e8Omega)
+			alt.Mul(&m, &omega2)
+			check.Square(&alt).Mul(&check, &alt)
+			if !check.Equal(norm) {
+				return m, normInv, deltaInv, false
+			}
+			m.Set(&alt)
+		}
+	}
+
+	var norm2, norm3 extensions.E8
+	norm2.Square(norm)
+	norm3.Mul(&norm2, norm)
+	deltaInv.Mul(&norm3, &UInv)
+	return m, normInv, deltaInv, true
 }

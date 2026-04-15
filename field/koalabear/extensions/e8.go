@@ -13,11 +13,12 @@ import (
 )
 
 var (
-	cbrtE8One      E8
-	cbrtE8NRInv    E8
-	cbrtE8Omega    E8
-	cbrtE8Omega2   E8
-	cbrtE8Exponent big.Int
+	cbrtE8One            E8
+	cbrtE8NRInv          E8
+	cbrtE8Omega          E8
+	cbrtE8Omega2         E8
+	cbrtE8Exponent       big.Int
+	cbrtE8HelperExponent big.Int
 )
 
 var cbrtE8LucasExponent = [2]uint64{
@@ -36,6 +37,9 @@ func init() {
 	cbrtE8Exponent.Div(&cbrtE8Exponent, big.NewInt(3))
 	three := new(big.Int).SetUint64(3)
 	cbrtE8Exponent.ModInverse(three, &cbrtE8Exponent)
+	cbrtE8HelperExponent.Exp(fr.Modulus(), big.NewInt(4), nil)
+	cbrtE8HelperExponent.Sub(&cbrtE8HelperExponent, big.NewInt(16))
+	cbrtE8HelperExponent.Div(&cbrtE8HelperExponent, big.NewInt(27))
 }
 
 // E8 is a degree two finite field extension of E4.
@@ -315,11 +319,7 @@ func (z *E8) Cbrt(x *E8) *E8 {
 			return nil
 		}
 		y.C0.SetZero()
-		if out := cbrtVerifyAndAdjustE8(z.Set(&y), x); out != nil {
-			return out
-		}
-		z.Exp(*x, &cbrtE8Exponent)
-		return cbrtVerifyAndAdjustE8(z, x)
+		return cbrtVerifyAndAdjustE8(z.Set(&y), x)
 	}
 
 	var x0sq, x1sq, betaX1sq, norm E4
@@ -339,27 +339,96 @@ func (z *E8) Cbrt(x *E8) *E8 {
 	halfTau.Mul(&halfTau, &normInv)
 	tau.Double(&halfTau)
 
-	sigma, _ := lucasV2E4Cbrt(&tau)
+	te, te1 := lucasV2E4Cbrt(&tau)
 
-	var sigmaM1, sigmaP1, d0, d1, d0d1, d0d1Inv E4
-	sigmaM1.Sub(&sigma, &cbrtE4One)
-	sigmaP1.Add(&sigma, &cbrtE4One)
-	d0.Mul(&m, &sigmaM1)
-	d1.Mul(&m, &sigmaP1)
-	d0d1.Mul(&d0, &d1)
-	if d0d1.IsZero() {
+	var x0x1, imY E4
+	x0x1.Mul(&x.C0, &x.C1)
+	imY.Double(&x0x1)
+	imY.Mul(&imY, &normInv)
+
+	var wa0, wa1 E4
+	wa0.Mul(&halfTau, &te)
+	wa0.Sub(&te1, &wa0)
+	wa1.Mul(&imY, &te)
+
+	var delta, deltaInv, sIm, k E4
+	delta.Square(&tau).Sub(&delta, &cbrtE4One).Sub(&delta, &cbrtE4One).Sub(&delta, &cbrtE4One).Sub(&delta, &cbrtE4One)
+	if delta.IsZero() {
 		return nil
 	}
-	d0d1Inv.Inverse(&d0d1)
+	deltaInv.Inverse(&delta)
+	sIm.Double(&imY)
+	k.Mul(&sIm, &deltaInv)
+
+	var gamma0, gamma1 E4
+	gamma0.Mul(&wa1, &k)
+	gamma0.MulByNonResidue(&gamma0)
+	gamma1.Mul(&wa0, &k)
+
+	var mInv E4
+	mInv.Square(&m).Mul(&mInv, &normInv)
 
 	var y E8
-	y.C0.Mul(&d1, &d0d1Inv).Mul(&y.C0, &x.C0)
-	y.C1.Mul(&d0, &d0d1Inv).Mul(&y.C1, &x.C1)
-	if out := cbrtVerifyAndAdjustE8(z.Set(&y), x); out != nil {
-		return out
+	var t1, t2 E4
+	t1.Mul(&x.C0, &gamma0)
+	t2.Mul(&x.C1, &gamma1)
+	t2.MulByNonResidue(&t2)
+	y.C0.Sub(&t1, &t2).Mul(&y.C0, &mInv)
+	t1.Mul(&x.C1, &gamma0)
+	t2.Mul(&x.C0, &gamma1)
+	y.C1.Sub(&t1, &t2).Mul(&y.C1, &mInv)
+	return cbrtVerifyAndAdjustE8(z.Set(&y), x)
+}
+
+func cbrtAndNormInverseE8(norm, x0sq, x1sq *E4) (m, normInv, deltaInv E4, ok bool) {
+	var x0x1, betaX0x1, U, U2, U3, w E4
+	x0x1.Mul(x0sq, x1sq)
+	betaX0x1.MulByNonResidue(&x0x1)
+	U.Mul(&betaX0x1, norm)
+	U.Double(&U).Double(&U)
+	U.Double(&U).Double(&U)
+	U2.Square(&U)
+	U3.Mul(&U2, &U)
+	w.Mul(&U3, norm)
+
+	var t, t2, t3, t6, w2, cbrtW, c2, c4, c7, wInv E4
+	t.Exp(w, &cbrtE8HelperExponent)
+	t2.Square(&t)
+	t3.Mul(&t2, &t)
+	t6.Square(&t3)
+	w2.Square(&w)
+	cbrtW.Mul(&w2, &t3)
+	c2.Square(&cbrtW)
+	c4.Square(&c2)
+	c7.Mul(&c4, &c2).Mul(&c7, &cbrtW)
+	wInv.Mul(&t6, &c7)
+
+	var UInv, check E4
+	UInv.Mul(&U2, norm).Mul(&UInv, &wInv)
+	m.Mul(&cbrtW, &UInv)
+	normInv.Mul(&U3, &wInv)
+	check.Square(&m).Mul(&check, &m)
+	if !check.Equal(norm) {
+		var alt E4
+		alt.Mul(&m, &cbrtE4Omega)
+		check.Square(&alt).Mul(&check, &alt)
+		if check.Equal(norm) {
+			m.Set(&alt)
+		} else {
+			alt.Mul(&m, &cbrtE4Omega2)
+			check.Square(&alt).Mul(&check, &alt)
+			if !check.Equal(norm) {
+				return m, normInv, deltaInv, false
+			}
+			m.Set(&alt)
+		}
 	}
-	z.Exp(*x, &cbrtE8Exponent)
-	return cbrtVerifyAndAdjustE8(z, x)
+
+	var norm2, norm3 E4
+	norm2.Square(norm)
+	norm3.Mul(&norm2, norm)
+	deltaInv.Mul(&norm3, &UInv)
+	return m, normInv, deltaInv, true
 }
 
 func cbrtVerifyAndAdjustE8(z, x *E8) *E8 {
@@ -385,31 +454,28 @@ func cbrtVerifyAndAdjustE8(z, x *E8) *E8 {
 }
 
 func lucasV2E4Cbrt(alpha *E4) (E4, E4) {
-	var t0, t1, tmp E4
-	t0.Set(&cbrtE4One)
-	t1.Set(alpha)
-
+	var v0, v1, prod E4
+	var two E4
+	two.B0.A0.SetUint64(2)
+	v0.Set(alpha)
+	v1.Square(alpha).Sub(&v1, &two)
 	for i := 121; i >= 1; i-- {
 		bit := (cbrtE8LucasExponent[i/64] >> uint(i%64)) & 1
 		if bit == 0 {
-			tmp.Mul(&t0, &t1).Sub(&tmp, alpha)
-			t0.Square(&t0).Sub(&t0, &cbrtE4One).Sub(&t0, &cbrtE4One)
-			t1.Set(&tmp)
+			prod.Mul(&v0, &v1).Sub(&prod, alpha)
+			v1.Set(&prod)
+			v0.Square(&v0).Sub(&v0, &two)
 		} else {
-			tmp.Mul(&t0, &t1).Sub(&tmp, alpha)
-			t1.Square(&t1).Sub(&t1, &cbrtE4One).Sub(&t1, &cbrtE4One)
-			t0.Set(&tmp)
+			prod.Mul(&v0, &v1).Sub(&prod, alpha)
+			v0.Set(&prod)
+			v1.Square(&v1).Sub(&v1, &two)
 		}
 	}
 
-	tmp.Mul(&t0, &t1).Sub(&tmp, alpha)
-	t0.Square(&t0).Sub(&t0, &cbrtE4One).Sub(&t0, &cbrtE4One)
-	t1.Set(&tmp)
-	tmp.Mul(alpha, &t1).Sub(&tmp, &t0)
-	t0.Set(&t1)
-	t1.Set(&tmp)
-
-	return t0, t1
+	var te, te1 E4
+	te.Mul(&v0, &v1).Sub(&te, alpha)
+	te1.Square(&v1).Sub(&te1, &two)
+	return te, te1
 }
 
 // BatchInvertE8 returns a new slice with every element in a inverted.
