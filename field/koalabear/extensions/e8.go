@@ -13,12 +13,11 @@ import (
 )
 
 var (
-	cbrtE8One            E8
-	cbrtE8NRInv          E8
-	cbrtE8Omega          E8
-	cbrtE8Omega2         E8
-	cbrtE8Exponent       big.Int
-	cbrtE8HelperExponent big.Int
+	cbrtE8One      E8
+	cbrtE8NRInv    E8
+	cbrtE8Omega    E8
+	cbrtE8Omega2   E8
+	cbrtE8Exponent big.Int
 )
 
 var cbrtE8LucasExponent = [2]uint64{
@@ -37,9 +36,6 @@ func init() {
 	cbrtE8Exponent.Div(&cbrtE8Exponent, big.NewInt(3))
 	three := new(big.Int).SetUint64(3)
 	cbrtE8Exponent.ModInverse(three, &cbrtE8Exponent)
-	cbrtE8HelperExponent.Exp(fr.Modulus(), big.NewInt(4), nil)
-	cbrtE8HelperExponent.Sub(&cbrtE8HelperExponent, big.NewInt(16))
-	cbrtE8HelperExponent.Div(&cbrtE8HelperExponent, big.NewInt(27))
 }
 
 // E8 is a degree two finite field extension of E4.
@@ -392,7 +388,7 @@ func cbrtAndNormInverseE8(norm, x0sq, x1sq *E4) (m, normInv, deltaInv E4, ok boo
 	w.Mul(&U3, norm)
 
 	var t, t2, t3, t6, w2, cbrtW, c2, c4, c7, wInv E4
-	t.Exp(w, &cbrtE8HelperExponent)
+	t.ExpByCbrtHelperQ4Minus16Div27(w)
 	t2.Square(&t)
 	t3.Mul(&t2, &t)
 	t6.Square(&t3)

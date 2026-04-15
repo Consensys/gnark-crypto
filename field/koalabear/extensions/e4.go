@@ -399,6 +399,85 @@ func (z *E4) ExpInt64(x E4, k int64) *E4 {
 	return z
 }
 
+// ExpByCbrtHelperQ4Minus16Div27 is equivalent to z.Exp(x, 9304aab8c7552f764c12f6978e38e3).
+// It raises x to the (q^4-16)/27 power over E4 using a shorter addition chain.
+//
+// uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
+func (z *E4) ExpByCbrtHelperQ4Minus16Div27(x E4) *E4 {
+	var t0, t1, t2, t3, t4, t5, t6, t7, t8, t9 E4
+
+	t1.Square(&x)
+	t3.Square(&t1)
+	t6.Mul(&t1, &t3)
+	z.Mul(&t3, &t6)
+	t0.Mul(&x, z)
+	t5.Mul(&t3, z)
+	t4.Mul(&t3, &t5)
+	t2.Mul(&t6, &t4)
+	t7.Mul(&t6, &t2)
+	t8.Square(&t7)
+	t0.Mul(&t0, &t8)
+	t5.Mul(&t5, &t0)
+	t7.Mul(&t1, &t5)
+	t9.Mul(&t8, &t7)
+	t8.Mul(&t1, &t9)
+	t1.Mul(&t4, &t9)
+	t2.Mul(&t2, &t1)
+	t3.Mul(&t3, &t2)
+	t6.Mul(&t6, &t3)
+	t4.Mul(&t4, &t6)
+	z.Mul(z, &t4)
+	for range 13 {
+		t9.Square(&t9)
+	}
+	t8.Mul(&t8, &t9)
+	for range 8 {
+		t8.Square(&t8)
+	}
+	t7.Mul(&t7, &t8)
+	for range 11 {
+		t7.Square(&t7)
+	}
+	t6.Mul(&t6, &t7)
+	for range 8 {
+		t6.Square(&t6)
+	}
+	t5.Mul(&t5, &t6)
+	for range 10 {
+		t5.Square(&t5)
+	}
+	t5.Mul(&t2, &t5)
+	for range 8 {
+		t5.Square(&t5)
+	}
+	t4.Mul(&t4, &t5)
+	for range 10 {
+		t4.Square(&t4)
+	}
+	t3.Mul(&t3, &t4)
+	for range 10 {
+		t3.Square(&t3)
+	}
+	t2.Mul(&t2, &t3)
+	for range 8 {
+		t2.Square(&t2)
+	}
+	t1.Mul(&t1, &t2)
+	for range 8 {
+		t1.Square(&t1)
+	}
+	t1.Mul(z, &t1)
+	for range 7 {
+		t1.Square(&t1)
+	}
+	t0.Mul(&t0, &t1)
+	for range 11 {
+		t0.Square(&t0)
+	}
+	z.Mul(z, &t0)
+	return z
+}
+
 // Conjugate sets z to x conjugated and returns z
 func (z *E4) Conjugate(x *E4) *E4 {
 	z.B0 = x.B0

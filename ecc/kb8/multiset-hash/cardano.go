@@ -23,7 +23,6 @@ var (
 	e8Four        extensions.E8
 	e8TwentySeven extensions.E8
 	e8NegThree    extensions.E8
-	e16HelperExp  big.Int
 )
 
 var e16LucasExponent = [4]uint64{
@@ -44,9 +43,6 @@ func init() {
 	e8Beta = findNonSquare()
 	e8BetaInv.Inverse(&e8Beta)
 	e8Omega = findPrimitiveCubeRoot()
-	e16HelperExp.Exp(koalabear.Modulus(), big.NewInt(8), nil)
-	e16HelperExp.Sub(&e16HelperExp, big.NewInt(4))
-	e16HelperExp.Div(&e16HelperExp, big.NewInt(9))
 }
 
 func depressedCubicRoot(c extensions.E8) (extensions.E8, bool) {
@@ -446,6 +442,177 @@ func expByKBE8Cbrt(z, x *extensions.E8) *extensions.E8 {
 	}
 	z.Mul(&t5, &t14)
 
+	return z
+}
+
+func expByKBE8Helper(z, x *extensions.E8) *extensions.E8 {
+	var (
+		t0  extensions.E8
+		t1  extensions.E8
+		t2  extensions.E8
+		t3  extensions.E8
+		t4  extensions.E8
+		t5  extensions.E8
+		t6  extensions.E8
+		t7  extensions.E8
+		t8  extensions.E8
+		t9  extensions.E8
+		t10 extensions.E8
+		t11 extensions.E8
+		t12 extensions.E8
+		t13 extensions.E8
+		t14 extensions.E8
+		t15 extensions.E8
+		t16 extensions.E8
+		t17 extensions.E8
+		t18 extensions.E8
+		t19 extensions.E8
+		t20 extensions.E8
+		t21 extensions.E8
+		t22 extensions.E8
+	)
+
+	t1.Square(x)
+	t9.Square(&t1)
+	z.Mul(x, &t9)
+	t3.Mul(x, z)
+	t4.Mul(&t1, &t3)
+	t7.Mul(&t1, &t4)
+	t6.Mul(&t1, &t7)
+	t2.Mul(&t7, &t6)
+	t0.Mul(&t3, &t2)
+	t8.Mul(&t1, &t0)
+	t13.Mul(x, &t8)
+	t5.Mul(&t6, &t13)
+	t17.Mul(&t0, &t5)
+	t18.Mul(&t9, &t17)
+	t16.Mul(&t4, &t18)
+	t0.Mul(&t1, &t16)
+	t20.Mul(&t9, &t0)
+	t8.Mul(&t8, &t20)
+	t10.Mul(&t1, &t8)
+	t2.Mul(&t2, &t10)
+	t9.Mul(&t3, &t2)
+	t19.Mul(&t4, &t9)
+	t12.Mul(&t4, &t19)
+	t11.Mul(&t7, &t12)
+	t21.Mul(&t4, &t11)
+	t6.Mul(&t6, &t21)
+	t15.Mul(&t4, &t6)
+	t7.Mul(&t1, &t15)
+	t14.Mul(&t1, &t7)
+	t1.Mul(&t3, &t14)
+	t4.Mul(&t4, &t1)
+	t22.Mul(&t7, &t4)
+	for range 7 {
+		t22.Square(&t22)
+	}
+	t21.Mul(&t21, &t22)
+	for range 8 {
+		t21.Square(&t21)
+	}
+	t20.Mul(&t20, &t21)
+	for range 2 {
+		t20.Square(&t20)
+	}
+	t20.Mul(x, &t20)
+	for range 16 {
+		t20.Square(&t20)
+	}
+	t19.Mul(&t19, &t20)
+	for range 11 {
+		t19.Square(&t19)
+	}
+	t18.Mul(&t18, &t19)
+	for range 9 {
+		t18.Square(&t18)
+	}
+	t17.Mul(&t17, &t18)
+	for range 8 {
+		t17.Square(&t17)
+	}
+	t16.Mul(&t16, &t17)
+	for range 11 {
+		t16.Square(&t16)
+	}
+	t15.Mul(&t15, &t16)
+	for range 9 {
+		t15.Square(&t15)
+	}
+	t14.Mul(&t14, &t15)
+	for range 6 {
+		t14.Square(&t14)
+	}
+	t13.Mul(&t13, &t14)
+	for range 15 {
+		t13.Square(&t13)
+	}
+	t12.Mul(&t12, &t13)
+	for range 8 {
+		t12.Square(&t12)
+	}
+	t12.Mul(&t9, &t12)
+	for range 9 {
+		t12.Square(&t12)
+	}
+	t11.Mul(&t11, &t12)
+	for range 8 {
+		t11.Square(&t11)
+	}
+	t10.Mul(&t10, &t11)
+	for range 9 {
+		t10.Square(&t10)
+	}
+	t9.Mul(&t9, &t10)
+	for range 8 {
+		t9.Square(&t9)
+	}
+	t9.Mul(&t4, &t9)
+	for range 7 {
+		t9.Square(&t9)
+	}
+	t8.Mul(&t8, &t9)
+	for range 9 {
+		t8.Square(&t8)
+	}
+	t7.Mul(&t7, &t8)
+	for range 8 {
+		t7.Square(&t7)
+	}
+	t7.Mul(&t1, &t7)
+	for range 9 {
+		t7.Square(&t7)
+	}
+	t6.Mul(&t6, &t7)
+	for range 8 {
+		t6.Square(&t6)
+	}
+	t5.Mul(&t5, &t6)
+	for range 12 {
+		t5.Square(&t5)
+	}
+	t4.Mul(&t4, &t5)
+	t3.Mul(&t3, &t4)
+	for range 8 {
+		t3.Square(&t3)
+	}
+	t2.Mul(&t2, &t3)
+	for range 11 {
+		t2.Square(&t2)
+	}
+	t1.Mul(&t1, &t2)
+	for range 8 {
+		t1.Square(&t1)
+	}
+	t1.Mul(&t0, &t1)
+	for range 8 {
+		t1.Square(&t1)
+	}
+	t0.Mul(&t0, &t1)
+	for range 4 {
+		t0.Square(&t0)
+	}
+	z.Mul(z, &t0)
 	return z
 }
 
@@ -1122,7 +1289,7 @@ func cbrtAndNormInverseE16(norm, x0sq, x1sq *extensions.E8) (m, normInv, deltaIn
 	w.Mul(&U3, norm)
 
 	var t, t2, t4, t5, cbrtW, cw2, wInv extensions.E8
-	t.Exp(w, &e16HelperExp)
+	expByKBE8Helper(&t, &w)
 	t2.Square(&t)
 	t4.Square(&t2)
 	t5.Mul(&t4, &t)
