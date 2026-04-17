@@ -197,6 +197,27 @@ func TestE8CbrtRejectsNonResidues(t *testing.T) {
 	t.Fatal("failed to find an E8 non-cube in 256 samples")
 }
 
+func TestE8GLVTraceMatchesBinaryLucas(t *testing.T) {
+	for i := 0; i < 64; i++ {
+		var x, xInv, alpha E8
+		x.MustSetRandom()
+		if x.IsZero() {
+			i--
+			continue
+		}
+		xInv.Inverse(&x)
+		alpha.Conjugate(&x).Mul(&alpha, &xInv)
+
+		var tau E4
+		tau.Double(&alpha.C0)
+
+		gotTe, gotTe1 := glvTraceE8(&alpha)
+		refTe, refTe1 := lucasV2E4Cbrt(&tau)
+		require.True(t, gotTe.Equal(&refTe))
+		require.True(t, gotTe1.Equal(&refTe1))
+	}
+}
+
 func BenchmarkE8Cbrt(b *testing.B) {
 	var a, x E8
 	a.MustSetRandom()

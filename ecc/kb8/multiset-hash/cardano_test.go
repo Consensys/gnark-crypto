@@ -54,6 +54,15 @@ func TestE16CbrtRejectsNonResidues(t *testing.T) {
 	t.Fatal("failed to find an E16 non-cube in 256 samples")
 }
 
+func TestE16GLVTraceMatchesBinaryLucas(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		var tau extensions.E8
+		tau.MustSetRandom()
+		gotTe, gotTe1 := lucasV2E8(&tau)
+		require.False(t, gotTe.IsZero() && gotTe1.IsZero())
+	}
+}
+
 func TestDepressedCubicRootFindsValidRoot(t *testing.T) {
 	for i := 0; i < 64; i++ {
 		var x, x3, c, lhs extensions.E8

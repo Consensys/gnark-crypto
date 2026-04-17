@@ -40,7 +40,7 @@ func init() {
 	e8TwentySeven.C0.B0.A0.SetUint64(27)
 	e8NegThree.Set(&e8Three).Neg(&e8NegThree)
 
-	e8Beta = findNonSquare()
+	e8Beta.C1.SetOne()
 	e8BetaInv.Inverse(&e8Beta)
 	e8Omega = findPrimitiveCubeRoot()
 }
@@ -746,6 +746,12 @@ func (z *e16) Set(x *e16) *e16 {
 	return z
 }
 
+func (z *e16) SetOne() *e16 {
+	z.A0.SetOne()
+	z.A1.SetZero()
+	return z
+}
+
 func (z *e16) Add(x, y *e16) *e16 {
 	z.A0.Add(&x.A0, &y.A0)
 	z.A1.Add(&x.A1, &y.A1)
@@ -769,6 +775,12 @@ func (z *e16) Mul(x, y *e16) *e16 {
 
 func (z *e16) Square(x *e16) *e16 {
 	return z.Mul(x, x)
+}
+
+func (z *e16) Conjugate(x *e16) *e16 {
+	z.A0.Set(&x.A0)
+	z.A1.Neg(&x.A1)
+	return z
 }
 
 func (z *e16) Inverse(x *e16) *e16 {
@@ -1240,12 +1252,11 @@ func (z *e16) Cbrt(x *e16) *e16 {
 	halfTau.Mul(&halfTau, &normInv)
 	tau.Double(&halfTau)
 
-	te, te1 := lucasV2E8(&tau)
-
 	var x0x1, imY extensions.E8
 	x0x1.Mul(&x.A0, &x.A1)
 	imY.Double(&x0x1)
 	imY.Mul(&imY, &normInv)
+	te, te1 := lucasV2E8(&tau)
 
 	var wa0, wa1 extensions.E8
 	wa0.Mul(&halfTau, &te)

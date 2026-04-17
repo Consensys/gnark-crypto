@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"math/bits"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 )
 
@@ -18,6 +19,9 @@ var (
 	cbrtE8Omega    E8
 	cbrtE8Omega2   E8
 	cbrtE8Exponent big.Int
+	cbrtE8PhiCoeff E4
+	cbrtE8GLVBasis ecc.Lattice
+	cbrtE8GLVSplit [2]big.Int
 )
 
 var cbrtE8LucasExponent = [2]uint64{
@@ -36,6 +40,21 @@ func init() {
 	cbrtE8Exponent.Div(&cbrtE8Exponent, big.NewInt(3))
 	three := new(big.Int).SetUint64(3)
 	cbrtE8Exponent.ModInverse(three, &cbrtE8Exponent)
+
+	var minusOne E4
+	minusOne.B0.A0.SetOne()
+	minusOne.B0.A0.Neg(&minusOne.B0.A0)
+	if cbrtE8PhiCoeff.Sqrt(&minusOne) == nil {
+		panic("koalabear/e8: failed to find Frobenius coefficient")
+	}
+
+	var modulus, lambda, exponent big.Int
+	modulus.Exp(fr.Modulus(), big.NewInt(4), nil)
+	modulus.Add(&modulus, big.NewInt(1))
+	lambda.Exp(fr.Modulus(), big.NewInt(2), nil)
+	exponent.ModInverse(three, &modulus)
+	ecc.PrecomputeLattice(&modulus, &lambda, &cbrtE8GLVBasis)
+	cbrtE8GLVSplit = ecc.SplitScalar(&exponent, &cbrtE8GLVBasis)
 }
 
 // E8 is a degree two finite field extension of E4.
@@ -335,12 +354,15 @@ func (z *E8) Cbrt(x *E8) *E8 {
 	halfTau.Mul(&halfTau, &normInv)
 	tau.Double(&halfTau)
 
-	te, te1 := lucasV2E4Cbrt(&tau)
-
 	var x0x1, imY E4
 	x0x1.Mul(&x.C0, &x.C1)
 	imY.Double(&x0x1)
 	imY.Mul(&imY, &normInv)
+
+	var alpha E8
+	alpha.C0.Set(&halfTau)
+	alpha.C1.Neg(&imY)
+	te, te1 := glvTraceE8(&alpha)
 
 	var wa0, wa1 E4
 	wa0.Mul(&halfTau, &te)
@@ -471,6 +493,93 @@ func lucasV2E4Cbrt(alpha *E4) (E4, E4) {
 	var te, te1 E4
 	te.Mul(&v0, &v1).Sub(&te, alpha)
 	te1.Square(&v1).Sub(&te1, &two)
+	return te, te1
+}
+
+func (z *E8) phiCbrt(x *E8) *E8 {
+	z.C0.Conjugate(&x.C0)
+	z.C1.Conjugate(&x.C1).Mul(&z.C1, &cbrtE8PhiCoeff)
+	return z
+}
+
+func expTorusGLVE8(z, x *E8) *E8 {
+	var res, q1, q2 E8
+	q1.Set(x)
+	q2.phiCbrt(x)
+	res.SetOne()
+
+	var k0, k1 big.Int
+	k0.Set(&cbrtE8GLVSplit[0])
+	k1.Set(&cbrtE8GLVSplit[1])
+	if k0.Sign() < 0 {
+		k0.Neg(&k0)
+		q1.Conjugate(&q1)
+	}
+	if k1.Sign() < 0 {
+		k1.Neg(&k1)
+		q2.Conjugate(&q2)
+	}
+
+	const wnafWindow = 5
+	naf0 := make([]int8, k0.BitLen()+wnafWindow+1)
+	naf1 := make([]int8, k1.BitLen()+wnafWindow+1)
+	len0 := ecc.WnafDecomposition(&k0, wnafWindow, naf0)
+	len1 := ecc.WnafDecomposition(&k1, wnafWindow, naf1)
+	maxLen := max(len0, len1)
+	if maxLen == 0 {
+		return z.SetOne()
+	}
+
+	var table0, table1 [8]E8
+	var q0Two, q1Two E8
+	table0[0].Set(&q1)
+	table1[0].Set(&q2)
+	q0Two.Square(&q1)
+	q1Two.Square(&q2)
+	for i := 1; i < len(table0); i++ {
+		table0[i].Mul(&table0[i-1], &q0Two)
+		table1[i].Mul(&table1[i-1], &q1Two)
+	}
+
+	for i := maxLen - 1; i >= 0; i-- {
+		res.Square(&res)
+		if i < len0 {
+			d := naf0[i]
+			if d != 0 {
+				if d > 0 {
+					res.Mul(&res, &table0[(d-1)/2])
+				} else {
+					var inv E8
+					inv.Conjugate(&table0[(-d-1)/2])
+					res.Mul(&res, &inv)
+				}
+			}
+		}
+		if i < len1 {
+			d := naf1[i]
+			if d != 0 {
+				if d > 0 {
+					res.Mul(&res, &table1[(d-1)/2])
+				} else {
+					var inv E8
+					inv.Conjugate(&table1[(-d-1)/2])
+					res.Mul(&res, &inv)
+				}
+			}
+		}
+	}
+
+	return z.Set(&res)
+}
+
+func glvTraceE8(alpha *E8) (E4, E4) {
+	var sigma, sigmaAlpha E8
+	expTorusGLVE8(&sigma, alpha)
+	sigmaAlpha.Mul(&sigma, alpha)
+
+	var te, te1 E4
+	te.Double(&sigma.C0)
+	te1.Double(&sigmaAlpha.C0)
 	return te, te1
 }
 
