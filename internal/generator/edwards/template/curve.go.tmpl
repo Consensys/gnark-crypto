@@ -79,6 +79,9 @@ func GetEdwardsCurve() CurveParams {
 var (
 	initOnce sync.Once
 	curveParams CurveParams
+	{{- if and (not .Split2Torsion) (or (eq .Cofactor "4") (eq .Cofactor "8"))}}
+	subgroupInitOnce sync.Once
+	{{- end}}
 )
 
 
@@ -94,9 +97,6 @@ func initCurveParams() {
 	curveParams.t0.SetString("44968234042453258989421494579017642355260750649112422763795205757285533011434")
 	curveParams.t1.SetString("7467641132672931490026245929168323482429801851415215058808452942653048173085")
 	curveParams.b.SetString("25465760566081946422412445027709227188579564747101592991722834452325077642517")
-	{{- end}}
-	{{- if and (not .Split2Torsion) (or (eq .Cofactor "4") (eq .Cofactor "8"))}}
-	initCofactorSubgroupParams()
 	{{- end}}
 
 	{{- if .HasEndomorphism}}

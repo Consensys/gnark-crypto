@@ -52,8 +52,9 @@ func GetEdwardsCurve() CurveParams {
 }
 
 var (
-	initOnce    sync.Once
-	curveParams CurveParams
+	initOnce         sync.Once
+	curveParams      CurveParams
+	subgroupInitOnce sync.Once
 )
 
 func initCurveParams() {
@@ -64,7 +65,6 @@ func initCurveParams() {
 
 	curveParams.Base.X.SetString("9671717474070082183213120605117400219616337014328744928644933853176787189663")
 	curveParams.Base.Y.SetString("16950150798460657717958625567821834550301663161624707787222815936182638968203")
-	initCofactorSubgroupParams()
 }
 
 // mulByA multiplies fr.Element by curveParams.A
