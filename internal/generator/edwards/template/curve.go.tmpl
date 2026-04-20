@@ -16,9 +16,27 @@ type CurveParams struct {
 	Cofactor fr.Element
 	Order    big.Int
 	Base     PointAffine
-	{{- if eq .Cofactor "4"}}
-	{{- if eq .Name "bls12-381"}}
+	{{- if and (eq .Cofactor "4") .Split2Torsion}}
 	t0, t1, b fr.Element
+	{{- end}}
+	{{- if and (not .Split2Torsion) (or (eq .Cofactor "4") (eq .Cofactor "8"))}}
+	// edwardsAMinusD is the Edwards-model coefficient a-d used by the birational map.
+	edwardsAMinusD fr.Element
+	// weierstrassXShift is the x-translation A_M/3 from Montgomery to Weierstrass form.
+	weierstrassXShift fr.Element
+	// weierstrassA is the a-coefficient of the working short Weierstrass model.
+	weierstrassA fr.Element
+	// torsionPoint2 is the rational 2-torsion point used by the subgroup test.
+	torsionPoint2 weierstrassPointAffine
+	// torsionPoint4 is the rational 4-torsion generator used by the subgroup test.
+	torsionPoint4 weierstrassPointAffine
+	// tangentSlopeAtT4 is the tangent slope at torsionPoint4 on the working Weierstrass model.
+	tangentSlopeAtT4 fr.Element
+	{{- if eq .Cofactor "8"}}
+	// torsionPoint8 is the rational 8-torsion generator used by the subgroup test.
+	torsionPoint8 weierstrassPointAffine
+	// tangentSlopeAtT8 is the tangent slope at torsionPoint8 on the working Weierstrass model.
+	tangentSlopeAtT8 fr.Element
 	{{- end}}
 	{{- end}}
 
@@ -41,12 +59,10 @@ func GetEdwardsCurve() CurveParams {
 	res.Cofactor.Set(&curveParams.Cofactor)
 	res.Order.Set(&curveParams.Order)
 	res.Base.Set(&curveParams.Base)
-	{{- if eq .Cofactor "4"}}
-	{{- if eq .Name "bls12-381"}}
+	{{- if and (eq .Cofactor "4") .Split2Torsion}}
 	res.t0.Set(&curveParams.t0)
 	res.t1.Set(&curveParams.t1)
 	res.b.Set(&curveParams.b)
-	{{- end}}
 	{{- end}}
 
 	{{- if .HasEndomorphism}}
@@ -74,12 +90,13 @@ func initCurveParams() {
 
 	curveParams.Base.X.SetString("{{.BaseX}}")
 	curveParams.Base.Y.SetString("{{.BaseY}}")
-	{{- if eq .Cofactor "4"}}
-	{{- if eq .Name "bls12-381"}}
+	{{- if and (eq .Cofactor "4") .Split2Torsion}}
 	curveParams.t0.SetString("44968234042453258989421494579017642355260750649112422763795205757285533011434")
 	curveParams.t1.SetString("7467641132672931490026245929168323482429801851415215058808452942653048173085")
 	curveParams.b.SetString("25465760566081946422412445027709227188579564747101592991722834452325077642517")
 	{{- end}}
+	{{- if and (not .Split2Torsion) (or (eq .Cofactor "4") (eq .Cofactor "8"))}}
+	initCofactorSubgroupParams()
 	{{- end}}
 
 	{{- if .HasEndomorphism}}

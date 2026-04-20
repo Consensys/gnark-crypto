@@ -18,6 +18,18 @@ type CurveParams struct {
 	Cofactor fr.Element
 	Order    big.Int
 	Base     PointAffine
+	// edwardsAMinusD is the Edwards-model coefficient a-d used by the birational map.
+	edwardsAMinusD fr.Element
+	// weierstrassXShift is the x-translation A_M/3 from Montgomery to Weierstrass form.
+	weierstrassXShift fr.Element
+	// weierstrassA is the a-coefficient of the working short Weierstrass model.
+	weierstrassA fr.Element
+	// torsionPoint2 is the rational 2-torsion point used by the subgroup test.
+	torsionPoint2 weierstrassPointAffine
+	// torsionPoint4 is the rational 4-torsion generator used by the subgroup test.
+	torsionPoint4 weierstrassPointAffine
+	// tangentSlopeAtT4 is the tangent slope at torsionPoint4 on the working Weierstrass model.
+	tangentSlopeAtT4 fr.Element
 }
 
 // GetEdwardsCurve returns the twisted Edwards curve on bls12-377/Fr
@@ -48,6 +60,7 @@ func initCurveParams() {
 
 	curveParams.Base.X.SetString("717051916204163000937139483451426116831771857428389560441264442629694842243")
 	curveParams.Base.Y.SetString("882565546457454111605105352482086902132191855952243170543452705048019814192")
+	initCofactorSubgroupParams()
 }
 
 // mulByA multiplies fr.Element by curveParams.A
