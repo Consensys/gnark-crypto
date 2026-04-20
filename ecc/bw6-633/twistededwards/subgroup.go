@@ -11,19 +11,40 @@ type weierstrassPointAffine struct {
 	X, Y fr.Element
 }
 
+type subgroupParams struct {
+	// edwardsAMinusD is the Edwards-model coefficient a-d used by the birational map.
+	edwardsAMinusD fr.Element
+	// weierstrassXShift is the x-translation A_M/3 from Montgomery to Weierstrass form.
+	weierstrassXShift fr.Element
+	// weierstrassA is the a-coefficient of the working short Weierstrass model.
+	weierstrassA fr.Element
+	// torsionPoint2 is the rational 2-torsion point used by the subgroup test.
+	torsionPoint2 weierstrassPointAffine
+	// torsionPoint4 is the rational 4-torsion generator used by the subgroup test.
+	torsionPoint4 weierstrassPointAffine
+	// tangentSlopeAtT4 is the tangent slope at torsionPoint4 on the working Weierstrass model.
+	tangentSlopeAtT4 fr.Element
+	// torsionPoint8 is the rational 8-torsion generator used by the subgroup test.
+	torsionPoint8 weierstrassPointAffine
+	// tangentSlopeAtT8 is the tangent slope at torsionPoint8 on the working Weierstrass model.
+	tangentSlopeAtT8 fr.Element
+}
+
+var subgroupData subgroupParams
+
 func initCofactorSubgroupParams() {
 	var three, inv3 fr.Element
 	three.SetUint64(3)
 	inv3.Inverse(&three)
 
 	var montA, montB fr.Element
-	curveParams.edwardsAMinusD.Sub(&curveParams.A, &curveParams.D)
+	subgroupData.edwardsAMinusD.Sub(&curveParams.A, &curveParams.D)
 	montA.Add(&curveParams.A, &curveParams.D).Double(&montA)
-	montB.Square(&curveParams.edwardsAMinusD)
+	montB.Square(&subgroupData.edwardsAMinusD)
 
-	curveParams.weierstrassXShift.Mul(&montA, &inv3)
-	curveParams.weierstrassA.Square(&montA).Mul(&curveParams.weierstrassA, &inv3).Neg(&curveParams.weierstrassA)
-	curveParams.weierstrassA.Add(&curveParams.weierstrassA, &montB)
+	subgroupData.weierstrassXShift.Mul(&montA, &inv3)
+	subgroupData.weierstrassA.Square(&montA).Mul(&subgroupData.weierstrassA, &inv3).Neg(&subgroupData.weierstrassA)
+	subgroupData.weierstrassA.Add(&subgroupData.weierstrassA, &montB)
 
 	var sqrtA fr.Element
 	var t4 PointAffine
@@ -33,9 +54,9 @@ func initCofactorSubgroupParams() {
 	}
 	t4.Y.SetZero()
 	t4.X.Inverse(&sqrtA)
-	mapEdwardsToWeierstrass(&t4, &curveParams.torsionPoint4)
-	weierstrassTangentSlope(&curveParams.tangentSlopeAtT4, &curveParams.torsionPoint4)
-	weierstrassDouble(&curveParams.torsionPoint2, &curveParams.torsionPoint4)
+	mapEdwardsToWeierstrass(&t4, &subgroupData.torsionPoint4)
+	weierstrassTangentSlope(&subgroupData.tangentSlopeAtT4, &subgroupData.torsionPoint4)
+	weierstrassDouble(&subgroupData.torsionPoint2, &subgroupData.torsionPoint4)
 	initCofactorEightTorsion(&t4)
 }
 func initCofactorEightTorsion(t4 *PointAffine) {
@@ -73,8 +94,8 @@ func initCofactorEightTorsion(t4 *PointAffine) {
 		if !dbl.Equal(t4) {
 			return false
 		}
-		mapEdwardsToWeierstrass(&q, &curveParams.torsionPoint8)
-		weierstrassTangentSlope(&curveParams.tangentSlopeAtT8, &curveParams.torsionPoint8)
+		mapEdwardsToWeierstrass(&q, &subgroupData.torsionPoint8)
+		weierstrassTangentSlope(&subgroupData.tangentSlopeAtT8, &subgroupData.torsionPoint8)
 		return true
 	}
 
@@ -103,12 +124,12 @@ func mapEdwardsToWeierstrass(p *PointAffine, out *weierstrassPointAffine) {
 		Mul(&den, &p.X)
 	denInv.Inverse(&den)
 
-	out.Y.Set(&curveParams.edwardsAMinusD).
+	out.Y.Set(&subgroupData.edwardsAMinusD).
 		Mul(&out.Y, &num).
 		Mul(&out.Y, &two).
 		Mul(&out.Y, &denInv)
 	u.Mul(&out.Y, &p.X).Mul(&u, &inv2)
-	out.X.Add(&u, &curveParams.weierstrassXShift)
+	out.X.Add(&u, &subgroupData.weierstrassXShift)
 }
 
 func weierstrassDouble(out, p *weierstrassPointAffine) {
@@ -123,7 +144,7 @@ func weierstrassTangentSlope(lambda *fr.Element, p *weierstrassPointAffine) {
 	var num, den fr.Element
 	num.Square(&p.X)
 	fr.MulBy3(&num)
-	num.Add(&num, &curveParams.weierstrassA)
+	num.Add(&num, &subgroupData.weierstrassA)
 	den.Double(&p.Y).Inverse(&den)
 	lambda.Mul(&num, &den)
 }
@@ -506,10 +527,10 @@ func (p *PointAffine) IsInSubGroup() bool {
 		return false
 	}
 	var l1, l2, v1, v2, z, check, tmp fr.Element
-	evaluateTangentLine(&l1, &r.X, &r.Y, &curveParams.torsionPoint8, &curveParams.tangentSlopeAtT8)
-	evaluateTangentLine(&l2, &r.X, &r.Y, &curveParams.torsionPoint4, &curveParams.tangentSlopeAtT4)
-	v1.Sub(&r.X, &curveParams.torsionPoint4.X)
-	v2.Sub(&r.X, &curveParams.torsionPoint2.X)
+	evaluateTangentLine(&l1, &r.X, &r.Y, &subgroupData.torsionPoint8, &subgroupData.tangentSlopeAtT8)
+	evaluateTangentLine(&l2, &r.X, &r.Y, &subgroupData.torsionPoint4, &subgroupData.tangentSlopeAtT4)
+	v1.Sub(&r.X, &subgroupData.torsionPoint4.X)
+	v2.Sub(&r.X, &subgroupData.torsionPoint2.X)
 	z.Square(&l1).Square(&z)
 	tmp.Square(&v1).Square(&tmp)
 	z.Mul(&z, &tmp)
