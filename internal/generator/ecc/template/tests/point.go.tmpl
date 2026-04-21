@@ -12,10 +12,7 @@
 	{{$fuzzer = "GenE8()"}}
 {{- end}}
 
-{{$c := 16}}
-{{if eq .Name "secp256k1"}}
-    {{$c = 15}}
-{{end}}
+{{$c := .CMax}}
 
 import (
 	"fmt"
@@ -444,6 +441,7 @@ func Test{{ $TAffine }}Ops(t *testing.T) {
 		func(s fr.Element) bool {
 			g := {{ toLower .PointName }}GenAff
 			var gj {{ toUpper .PointName }}Jac
+			gj.FromAffine(&g)
 			var nbs, bs big.Int
 			s.BigInt(&bs)
 			nbs.Neg(&bs)
@@ -681,14 +679,25 @@ func Test{{ toUpper .PointName }}CofactorClearing(t *testing.T) {
 				{{if eq .PointName "g2" }}
 					x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 				{{else}}
-					x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
+					x.Square(&a).Mul(&x, &a)
+					{{- if not .IsZeroA}}
+					var aX fp.Element
+					aX.Mul(&a, &aCurveCoeff)
+					x.Add(&x, &aX)
+					{{- end}}
+					x.Add(&x, &bCurveCoeff)
 				{{end}}
 				for x.Legendre() != 1 {
 					a.MustSetRandom()
 					{{if eq .PointName "g2" }}
 						x.Square(&a).Mul(&x, &a).Add(&x, &bTwistCurveCoeff)
 					{{else}}
-						x.Square(&a).Mul(&x, &a).Add(&x, &bCurveCoeff)
+						x.Square(&a).Mul(&x, &a)
+						{{- if not .IsZeroA}}
+						aX.Mul(&a, &aCurveCoeff)
+						x.Add(&x, &aX)
+						{{- end}}
+						x.Add(&x, &bCurveCoeff)
 					{{end}}
 				}
 			{{else}}
@@ -1154,7 +1163,7 @@ func fuzz{{ $TJacobianExtended }}(p *{{ $TJacobianExtended }}, f {{ .CoordType}}
 	return res
 }
 
-{{- if eq .Name "secp256k1"}}
+{{- if or (not .GenerateMarshal) (eq .Name "secp256r1") (eq .Name "stark-curve")}}
 const (
        nbFuzzShort = 10
        nbFuzz      = 100

@@ -5,6 +5,7 @@ package starkcurve
 
 import (
 	"bytes"
+	crand "crypto/rand"
 	"io"
 	"math/big"
 	"math/rand"
@@ -15,6 +16,11 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fr"
+)
+
+const (
+	nbFuzzShort = 10
+	nbFuzz      = 100
 )
 
 func TestEncoder(t *testing.T) {
@@ -238,4 +244,36 @@ func TestG1AffineSerialization(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+// GenFr generates an Fr element.
+func GenFr() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fr.Element
+		elmt.MustSetRandom()
+		return gopter.NewGenResult(elmt, gopter.NoShrinker)
+	}
+}
+
+// GenFp generates an Fp element.
+func GenFp() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fp.Element
+		elmt.MustSetRandom()
+		return gopter.NewGenResult(elmt, gopter.NoShrinker)
+	}
+}
+
+// GenBigInt generates a big.Int.
+func GenBigInt() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var s big.Int
+		var b [fp.Bytes]byte
+		_, err := crand.Read(b[:])
+		if err != nil {
+			panic(err)
+		}
+		s.SetBytes(b[:])
+		return gopter.NewGenResult(s, gopter.NoShrinker)
+	}
 }

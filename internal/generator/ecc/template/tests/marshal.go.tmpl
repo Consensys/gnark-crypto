@@ -25,12 +25,10 @@ import (
 	{{- end }}
 )
 
-{{ if not (or (eq .Name "secp256k1") (eq .Name "secp256r1") (eq .Name "stark-curve")) }}
 const (
 	nbFuzzShort = 10
 	nbFuzz = 100
 )
-{{ end }}
 
 func TestEncoder(t *testing.T) {
 	t.Parallel()
@@ -420,7 +418,6 @@ func Test{{ $.TAffine }}Serialization(t *testing.T) {
 
 
 // define Gopters generators
-{{ if not (or (eq .Name "secp256k1") (eq .Name "secp256r1") (eq .Name "stark-curve")) }}
 
 // GenFr generates an Fr element
 func GenFr() gopter.Gen {
@@ -546,8 +543,6 @@ func GenFp() gopter.Gen {
 		}
 	{{ end }}
 {{ end }}
-{{ end }}
-
 
 
 // GenBigInt generates a big.Int

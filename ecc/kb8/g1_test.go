@@ -300,6 +300,7 @@ func TestG1AffineOps(t *testing.T) {
 		func(s fr.Element) bool {
 			g := g1GenAff
 			var gj G1Jac
+			gj.FromAffine(&g)
 			var nbs, bs big.Int
 			s.BigInt(&bs)
 			nbs.Neg(&bs)

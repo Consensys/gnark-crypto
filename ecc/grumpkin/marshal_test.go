@@ -7,7 +7,6 @@ package grumpkin
 
 import (
 	"bytes"
-	crand "crypto/rand"
 	"io"
 	"math/big"
 	"math/rand/v2"
@@ -302,20 +301,5 @@ func GenFp() gopter.Gen {
 		elmt.MustSetRandom()
 
 		return gopter.NewGenResult(elmt, gopter.NoShrinker)
-	}
-}
-
-// GenBigInt generates a big.Int
-func GenBigInt() gopter.Gen {
-	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		var s big.Int
-		var b [fp.Bytes]byte
-		_, err := crand.Read(b[:])
-		if err != nil {
-			panic(err)
-		}
-		s.SetBytes(b[:])
-		genResult := gopter.NewGenResult(s, gopter.NoShrinker)
-		return genResult
 	}
 }

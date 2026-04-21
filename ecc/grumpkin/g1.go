@@ -697,13 +697,6 @@ func (p *G1Jac) mulWindowedMixed(q *G1Affine, s *big.Int) *G1Jac {
 	return p
 }
 
-// mulBySeed multiplies the point q by the seed xGen in Jacobian coordinates
-// using an optimized addition chain.
-func (p *G1Jac) mulBySeed(q *G1Jac) *G1Jac {
-	p.mulWindowed(q, &xGen)
-	return p
-}
-
 // phi sets p to ϕ(a) where ϕ: (x,y) → (w x,y),
 // where w is a third root of unity.
 func (p *G1Jac) phi(q *G1Jac) *G1Jac {

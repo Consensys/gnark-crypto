@@ -1,11 +1,13 @@
 package config
 
 var SECP256R1 = Curve{
-	Name:         "secp256r1",
-	CurvePackage: "secp256r1",
-	EnumID:       "SECP256r1",
-	FrModulus:    "115792089210356248762697446949407573529996955224135760342422259061068512044369",
-	FpModulus:    "115792089210356248762697446949407573530086143415290314195533631308867097853951",
+	Name:             "secp256r1",
+	CurvePackage:     "secp256r1",
+	EnumID:           "SECP256r1",
+	FrModulus:        "115792089210356248762697446949407573529996955224135760342422259061068512044369",
+	FpModulus:        "115792089210356248762697446949407573530086143415290314195533631308867097853951",
+	NoFieldSuite:     true,
+	ECDSAKeyRecovery: true,
 	G1: Point{
 		CoordType:        "fp.Element",
 		CoordExtDegree:   1,
@@ -13,6 +15,7 @@ var SECP256R1 = Curve{
 		GLV:              false,
 		CofactorCleaning: false,
 		CRange:           []int{4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+		A:                "-3",
 	},
 	HashE1: &HashSuiteSvdw{
 		z:  []string{"115792089210356248762697446949407573530086143415290314195533631308867097853948"},

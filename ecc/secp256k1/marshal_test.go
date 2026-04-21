@@ -20,6 +20,11 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
 )
 
+const (
+	nbFuzzShort = 10
+	nbFuzz      = 100
+)
+
 func TestEncoder(t *testing.T) {
 	t.Parallel()
 	// TODO need proper fuzz testing here
@@ -278,3 +283,23 @@ func TestG1AffineSerialization(t *testing.T) {
 }
 
 // define Gopters generators
+
+// GenFr generates an Fr element
+func GenFr() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fr.Element
+		elmt.MustSetRandom()
+
+		return gopter.NewGenResult(elmt, gopter.NoShrinker)
+	}
+}
+
+// GenFp generates an Fp element
+func GenFp() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var elmt fp.Element
+		elmt.MustSetRandom()
+
+		return gopter.NewGenResult(elmt, gopter.NoShrinker)
+	}
+}
