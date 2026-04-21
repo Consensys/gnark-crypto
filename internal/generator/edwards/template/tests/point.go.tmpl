@@ -860,8 +860,7 @@ func TestOps(t *testing.T) {
 
 }
 
-{{- if eq .Cofactor "4"}}
-{{- if eq .Name "bls12-381"}}
+{{- if or (eq .Cofactor "4") (eq .Cofactor "8")}}
 func TestIsInSubGroup(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
@@ -884,6 +883,14 @@ func TestIsInSubGroup(t *testing.T) {
 		},
 	))
 
+	properties.Property("The 2-torsion point (0,-1) should not be in subgroup", prop.ForAll(
+		func() bool {
+			var p PointAffine
+			p.Y.SetOne().Neg(&p.Y)
+			return !p.IsInSubGroup()
+		},
+	))
+
 	properties.Property("Test IsInSubGroup", prop.ForAll(
 		func(s big.Int) bool {
 
@@ -899,7 +906,6 @@ func TestIsInSubGroup(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
-{{- end}}
 {{- end}}
 
 func TestMarshal(t *testing.T) {
@@ -1155,20 +1161,35 @@ func BenchmarkIsOnCurve(b *testing.B) {
 	})
 }
 
-{{- if eq .Cofactor "4"}}
-{{- if eq .Name "bls12-381"}}
+{{- if or (eq .Cofactor "4") (eq .Cofactor "8")}}
 func BenchmarkIsInSubGroup(b *testing.B) {
-       params := GetEdwardsCurve()
-       var s big.Int
-       s.SetString("52435875175126190479447705081859658376581184513", 10)
+	params := GetEdwardsCurve()
+	var s big.Int
+	s.SetString("52435875175126190479447705081859658376581184513", 10)
 
-       var point PointAffine
-       point.ScalarMultiplication(&params.Base, &s)
+	var point PointAffine
+	point.ScalarMultiplication(&params.Base, &s)
 
-       b.ResetTimer()
-       for range b.N {
-               _ = point.IsInSubGroup()
-       }
+	if !point.IsInSubGroup() {
+		b.Fatal("point should be in subgroup")
+	}
+
+	b.Run("is_in_subgroup", func(b *testing.B) {
+		b.ResetTimer()
+		for range b.N {
+			_ = point.IsInSubGroup()
+		}
+	})
+
+	b.Run("mul_by_order", func(b *testing.B) {
+		var check PointAffine
+		b.ResetTimer()
+		for range b.N {
+			check.ScalarMultiplication(&point, &params.Order)
+			if !check.IsZero() {
+				b.Fatal("point should have prime order")
+			}
+		}
+	})
 }
-{{- end}}
 {{- end}}

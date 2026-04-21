@@ -3,6 +3,7 @@ package config
 import (
 	"math/big"
 
+	"github.com/consensys/gnark-crypto/internal/generator/addchain"
 	"github.com/consensys/gnark-crypto/internal/generator/field/config"
 )
 
@@ -61,6 +62,11 @@ type TwistedEdwardsCurve struct {
 	EnumID  string
 
 	A, D, Cofactor, Order, BaseX, BaseY string
+
+	// subgroup-test generation metadata
+	Split2Torsion       bool
+	QuarticExponentData *addchain.AddChainData
+	OcticExponentData   *addchain.AddChainData
 
 	// set if endomorphism
 	HasEndomorphism bool
@@ -233,7 +239,67 @@ func addCurve(c *Curve) {
 }
 
 func addTwistedEdwardCurve(c *TwistedEdwardsCurve) {
+	var parent *Curve
+	for i := range Curves {
+		if Curves[i].Name == c.Name {
+			parent = &Curves[i]
+			break
+		}
+	}
+	if parent == nil {
+		panic("missing parent curve for twisted Edwards curve " + c.Name)
+	}
+
+	var modulus, a, d, cofactor big.Int
+	if _, ok := modulus.SetString(parent.FrModulus, 10); !ok {
+		panic("invalid fr modulus for twisted Edwards curve " + c.Name)
+	}
+	if _, ok := a.SetString(c.A, 10); !ok {
+		panic("invalid A parameter for twisted Edwards curve " + c.Name)
+	}
+	if _, ok := d.SetString(c.D, 10); !ok {
+		panic("invalid D parameter for twisted Edwards curve " + c.Name)
+	}
+	if _, ok := cofactor.SetString(c.Cofactor, 10); !ok {
+		panic("invalid cofactor for twisted Edwards curve " + c.Name)
+	}
+
+	a.Mod(&a, &modulus)
+	d.Mod(&d, &modulus)
+	var ad big.Int
+	ad.Mul(&a, &d).Mod(&ad, &modulus)
+	c.Split2Torsion = legendreSymbol(&ad, &modulus) == 1
+
+	var exp big.Int
+	exp.Sub(&modulus, big.NewInt(1))
+	switch c.Cofactor {
+	case "4":
+		if !c.Split2Torsion {
+			exp.Rsh(&exp, 2)
+			c.QuarticExponentData = addchain.GetAddChain(&exp)
+		}
+	case "8":
+		exp.Rsh(&exp, 3)
+		c.OcticExponentData = addchain.GetAddChain(&exp)
+	}
+
 	TwistedEdwardsCurves = append(TwistedEdwardsCurves, *c)
+}
+
+func legendreSymbol(x, p *big.Int) int {
+	if x.Sign() == 0 {
+		return 0
+	}
+	var e, z big.Int
+	e.Sub(p, big.NewInt(1)).Rsh(&e, 1)
+	z.Exp(x, &e, p)
+	if z.Sign() == 0 {
+		return 0
+	}
+	if z.Cmp(big.NewInt(1)) == 0 {
+		return 1
+	}
+	return -1
 }
 
 // bigIntToLimbs converts a big.Int to a little-endian slice of uint64 limbs.

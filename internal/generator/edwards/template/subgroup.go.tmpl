@@ -1,0 +1,293 @@
+{{- if and (not .Split2Torsion) (or (eq .Cofactor "4") (eq .Cofactor "8"))}}
+
+import "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
+
+type weierstrassPointAffine struct {
+	X, Y fr.Element
+}
+
+type subgroupParams struct {
+	// edwardsAMinusD is the Edwards-model coefficient a-d used by the birational map.
+	edwardsAMinusD fr.Element
+	// weierstrassXShift is the x-translation A_M/3 from Montgomery to Weierstrass form.
+	weierstrassXShift fr.Element
+	// weierstrassA is the a-coefficient of the working short Weierstrass model.
+	weierstrassA fr.Element
+	// torsionPoint2 is the rational 2-torsion point used by the subgroup test.
+	torsionPoint2 weierstrassPointAffine
+	// torsionPoint4 is the rational 4-torsion generator used by the subgroup test.
+	torsionPoint4 weierstrassPointAffine
+	// tangentSlopeAtT4 is the tangent slope at torsionPoint4 on the working Weierstrass model.
+	tangentSlopeAtT4 fr.Element
+	{{- if eq .Cofactor "8"}}
+	// torsionPoint8 is the rational 8-torsion generator used by the subgroup test.
+	torsionPoint8 weierstrassPointAffine
+	// tangentSlopeAtT8 is the tangent slope at torsionPoint8 on the working Weierstrass model.
+	tangentSlopeAtT8 fr.Element
+	{{- end}}
+}
+
+var subgroupData subgroupParams
+
+func initCofactorSubgroupParams() {
+	var three, inv3 fr.Element
+	three.SetUint64(3)
+	inv3.Inverse(&three)
+
+	var montA, montB fr.Element
+	subgroupData.edwardsAMinusD.Sub(&curveParams.A, &curveParams.D)
+	montA.Add(&curveParams.A, &curveParams.D).Double(&montA)
+	montB.Square(&subgroupData.edwardsAMinusD)
+
+	subgroupData.weierstrassXShift.Mul(&montA, &inv3)
+	subgroupData.weierstrassA.Square(&montA).Mul(&subgroupData.weierstrassA, &inv3).Neg(&subgroupData.weierstrassA)
+	subgroupData.weierstrassA.Add(&subgroupData.weierstrassA, &montB)
+
+	var sqrtA fr.Element
+	var t4 PointAffine
+	sqrtA.Set(&curveParams.A)
+	if sqrtA.Sqrt(&sqrtA) == nil {
+		panic("twisted Edwards subgroup SMT expects a square a-parameter")
+	}
+	t4.Y.SetZero()
+	t4.X.Inverse(&sqrtA)
+	mapEdwardsToWeierstrass(&t4, &subgroupData.torsionPoint4)
+	weierstrassTangentSlope(&subgroupData.tangentSlopeAtT4, &subgroupData.torsionPoint4)
+	weierstrassDouble(&subgroupData.torsionPoint2, &subgroupData.torsionPoint4)
+
+	{{- if eq .Cofactor "8"}}
+	initCofactorEightTorsion(&t4)
+	{{- end}}
+}
+
+{{- if eq .Cofactor "8"}}
+func initCofactorEightTorsion(t4 *PointAffine) {
+	var one, two, aInv, discr, discrSqrt, x2, y2, t fr.Element
+	one.SetOne()
+	two.SetUint64(2)
+	aInv.Inverse(&curveParams.A)
+	discr.Set(&curveParams.D).Neg(&discr).Mul(&discr, &aInv).Add(&discr, &one)
+	if discrSqrt.Sqrt(&discr) == nil {
+		panic("failed to initialize 8-torsion point")
+	}
+
+	var dInv fr.Element
+	dInv.Inverse(&curveParams.D)
+	tryT8 := func(root, ySign, xSign *fr.Element) bool {
+		var q, dbl PointAffine
+		t.Add(&one, root).
+			Mul(&t, &curveParams.A).
+			Mul(&t, &dInv)
+		if y2.Sqrt(&t) == nil {
+			return false
+		}
+		if !ySign.IsOne() {
+			y2.Neg(&y2)
+		}
+		x2.Mul(&t, &aInv)
+		if q.X.Sqrt(&x2) == nil {
+			return false
+		}
+		if !xSign.IsOne() {
+			q.X.Neg(&q.X)
+		}
+		q.Y.Set(&y2)
+		dbl.Double(&q)
+		if !dbl.Equal(t4) {
+			return false
+		}
+		mapEdwardsToWeierstrass(&q, &subgroupData.torsionPoint8)
+		weierstrassTangentSlope(&subgroupData.tangentSlopeAtT8, &subgroupData.torsionPoint8)
+		return true
+	}
+
+	var pos, neg fr.Element
+	pos.SetOne()
+	neg.SetOne().Neg(&neg)
+	if tryT8(&discrSqrt, &pos, &pos) || tryT8(&discrSqrt, &pos, &neg) || tryT8(&discrSqrt, &neg, &pos) || tryT8(&discrSqrt, &neg, &neg) {
+		return
+	}
+	discrSqrt.Neg(&discrSqrt)
+	if tryT8(&discrSqrt, &pos, &pos) || tryT8(&discrSqrt, &pos, &neg) || tryT8(&discrSqrt, &neg, &pos) || tryT8(&discrSqrt, &neg, &neg) {
+		return
+	}
+
+	panic("failed to find rational 8-torsion generator")
+}
+{{- end}}
+
+func mapEdwardsToWeierstrass(p *PointAffine, out *weierstrassPointAffine) {
+	var one, two, inv2, num, den, denInv, u fr.Element
+	one.SetOne()
+	two.SetUint64(2)
+	inv2.Inverse(&two)
+
+	num.Add(&one, &p.Y)
+	den.Sub(&one, &p.Y).
+		Mul(&den, &p.X)
+	denInv.Inverse(&den)
+
+	out.Y.Set(&subgroupData.edwardsAMinusD).
+		Mul(&out.Y, &num).
+		Mul(&out.Y, &two).
+		Mul(&out.Y, &denInv)
+	u.Mul(&out.Y, &p.X).Mul(&u, &inv2)
+	out.X.Add(&u, &subgroupData.weierstrassXShift)
+}
+
+func weierstrassDouble(out, p *weierstrassPointAffine) {
+	var lambda, tmp fr.Element
+	weierstrassTangentSlope(&lambda, p)
+	tmp.Square(&lambda).Sub(&tmp, &p.X).Sub(&tmp, &p.X)
+	out.X.Set(&tmp)
+	out.Y.Sub(&p.X, &out.X).Mul(&out.Y, &lambda).Sub(&out.Y, &p.Y)
+}
+
+func weierstrassTangentSlope(lambda *fr.Element, p *weierstrassPointAffine) {
+	var num, den fr.Element
+	num.Square(&p.X)
+	fr.MulBy3(&num)
+	num.Add(&num, &subgroupData.weierstrassA)
+	den.Double(&p.Y).Inverse(&den)
+	lambda.Mul(&num, &den)
+}
+
+func evaluateTangentLine(line, xR, yR *fr.Element, t *weierstrassPointAffine, lambda *fr.Element) {
+	line.Sub(yR, &t.Y)
+	var tmp fr.Element
+	tmp.Sub(xR, &t.X).Mul(&tmp, lambda)
+	line.Sub(line, &tmp)
+}
+
+func mapPointToWeierstrass(p *PointAffine, out *weierstrassPointAffine) bool {
+	if p.X.IsZero() {
+		return false
+	}
+	mapEdwardsToWeierstrass(p, out)
+	return true
+}
+
+{{- if .QuarticExponentData}}
+func expByQuarticExp(z *fr.Element, x fr.Element) *fr.Element {
+	// addition chain:
+	//
+	{{- range lines_ (format_ .QuarticExponentData.Script) }}
+	//	{{ . }}
+	{{- end }}
+	//
+	// Operations: {{ .QuarticExponentData.Ops.Doubles }} squares {{ .QuarticExponentData.Ops.Adds }} multiplies
+	{{- if .QuarticExponentData.Program.Temporaries}}
+	var {{range $i, $e := .QuarticExponentData.Program.Temporaries }}{{ $e }} {{- if last_ $i $.QuarticExponentData.Program.Temporaries}} fr.Element {{- else }}, {{- end}}{{- end -}}
+	{{- end}}
+	{{ range $i := .QuarticExponentData.Program.Instructions }}
+	{{- with add_ $i.Op }}
+	{{ $i.Output }}.Mul({{ ptr_ .X }}{{ .X }}, {{ ptr_ .Y }}{{ .Y }})
+	{{ end -}}
+	{{- with double_ $i.Op }}
+	{{ $i.Output }}.Square({{ ptr_ .X }}{{ .X }})
+	{{ end -}}
+	{{- with shift_ $i.Op -}}
+	{{- $first := 0 -}}
+	{{- if ne $i.Output.Identifier .X.Identifier }}
+	{{ $i.Output }}.Square({{ ptr_ .X }}{{ .X }})
+	{{- $first = 1 -}}
+	{{- end }}
+	{{- if eq $first 0 }}
+	for range {{ .S }} {
+	{{- else }}
+	for s := 1; s < {{ .S }}; s++ {
+	{{- end }}
+		{{ $i.Output }}.Square({{ ptr_ $i.Output }}{{ $i.Output }})
+	}
+	{{ end -}}
+	{{- end }}
+	return z
+}
+{{- end}}
+
+{{- if .OcticExponentData}}
+func expByOcticExp(z *fr.Element, x fr.Element) *fr.Element {
+	// addition chain:
+	//
+	{{- range lines_ (format_ .OcticExponentData.Script) }}
+	//	{{ . }}
+	{{- end }}
+	//
+	// Operations: {{ .OcticExponentData.Ops.Doubles }} squares {{ .OcticExponentData.Ops.Adds }} multiplies
+	{{- if .OcticExponentData.Program.Temporaries}}
+	var {{range $i, $e := .OcticExponentData.Program.Temporaries }}{{ $e }} {{- if last_ $i $.OcticExponentData.Program.Temporaries}} fr.Element {{- else }}, {{- end}}{{- end -}}
+	{{- end}}
+	{{ range $i := .OcticExponentData.Program.Instructions }}
+	{{- with add_ $i.Op }}
+	{{ $i.Output }}.Mul({{ ptr_ .X }}{{ .X }}, {{ ptr_ .Y }}{{ .Y }})
+	{{ end -}}
+	{{- with double_ $i.Op }}
+	{{ $i.Output }}.Square({{ ptr_ .X }}{{ .X }})
+	{{ end -}}
+	{{- with shift_ $i.Op -}}
+	{{- $first := 0 -}}
+	{{- if ne $i.Output.Identifier .X.Identifier }}
+	{{ $i.Output }}.Square({{ ptr_ .X }}{{ .X }})
+	{{- $first = 1 -}}
+	{{- end }}
+	{{- if eq $first 0 }}
+	for range {{ .S }} {
+	{{- else }}
+	for s := 1; s < {{ .S }}; s++ {
+	{{- end }}
+		{{ $i.Output }}.Square({{ ptr_ $i.Output }}{{ $i.Output }})
+	}
+	{{ end -}}
+	{{- end }}
+	return z
+}
+{{- end}}
+
+// IsInSubGroup checks if a point is in the prime subgroup.
+func (p *PointAffine) IsInSubGroup() bool {
+	if !p.IsOnCurve() {
+		return false
+	}
+	if p.IsZero() {
+		return true
+	}
+
+	initOnce.Do(initCurveParams)
+	subgroupInitOnce.Do(initCofactorSubgroupParams)
+
+	var r weierstrassPointAffine
+	if !mapPointToWeierstrass(p, &r) {
+		return false
+	}
+
+	{{- if eq .Cofactor "4"}}
+	var l1, v1, z, check, tmp fr.Element
+	evaluateTangentLine(&l1, &r.X, &r.Y, &subgroupData.torsionPoint4, &subgroupData.tangentSlopeAtT4)
+	v1.Sub(&r.X, &subgroupData.torsionPoint2.X)
+	z.Square(&l1)
+	tmp.Square(&v1).Mul(&tmp, &v1)
+	z.Mul(&z, &tmp)
+	expByQuarticExp(&check, z)
+	return check.IsOne()
+	{{- else if eq .Cofactor "8"}}
+	var l1, l2, v1, v2, z, check, tmp fr.Element
+	evaluateTangentLine(&l1, &r.X, &r.Y, &subgroupData.torsionPoint8, &subgroupData.tangentSlopeAtT8)
+	evaluateTangentLine(&l2, &r.X, &r.Y, &subgroupData.torsionPoint4, &subgroupData.tangentSlopeAtT4)
+	v1.Sub(&r.X, &subgroupData.torsionPoint4.X)
+	v2.Sub(&r.X, &subgroupData.torsionPoint2.X)
+	z.Square(&l1).Square(&z)
+	tmp.Square(&v1).Square(&tmp)
+	z.Mul(&z, &tmp)
+	tmp.Square(&l2)
+	z.Mul(&z, &tmp)
+	tmp.Square(&v2)
+	var v2Pow7 fr.Element
+	v2Pow7.Square(&tmp).Mul(&v2Pow7, &tmp).Mul(&v2Pow7, &v2)
+	tmp.Set(&v2Pow7)
+	z.Mul(&z, &tmp)
+	expByOcticExp(&check, z)
+	return check.IsOne()
+	{{- end}}
+}
+
+{{- end}}

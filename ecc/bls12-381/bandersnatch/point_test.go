@@ -877,6 +877,14 @@ func TestIsInSubGroup(t *testing.T) {
 		},
 	))
 
+	properties.Property("The 2-torsion point (0,-1) should not be in subgroup", prop.ForAll(
+		func() bool {
+			var p PointAffine
+			p.Y.SetOne().Neg(&p.Y)
+			return !p.IsInSubGroup()
+		},
+	))
+
 	properties.Property("Test IsInSubGroup", prop.ForAll(
 		func(s big.Int) bool {
 
@@ -1153,8 +1161,25 @@ func BenchmarkIsInSubGroup(b *testing.B) {
 	var point PointAffine
 	point.ScalarMultiplication(&params.Base, &s)
 
-	b.ResetTimer()
-	for range b.N {
-		_ = point.IsInSubGroup()
+	if !point.IsInSubGroup() {
+		b.Fatal("point should be in subgroup")
 	}
+
+	b.Run("is_in_subgroup", func(b *testing.B) {
+		b.ResetTimer()
+		for range b.N {
+			_ = point.IsInSubGroup()
+		}
+	})
+
+	b.Run("mul_by_order", func(b *testing.B) {
+		var check PointAffine
+		b.ResetTimer()
+		for range b.N {
+			check.ScalarMultiplication(&point, &params.Order)
+			if !check.IsZero() {
+				b.Fatal("point should have prime order")
+			}
+		}
+	})
 }
