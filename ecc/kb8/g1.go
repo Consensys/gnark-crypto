@@ -401,30 +401,6 @@ func (p *G1Jac) DoubleMixed(a *G1Affine) *G1Jac {
 	p.Y.Set(&y)
 	p.Z.SetOne()
 	return p
-	var XX, YY, YYYY, S, M, T fptower.E8
-	XX.Square(&a.X)
-	YY.Square(&a.Y)
-	YYYY.Square(&YY)
-	S.Add(&a.X, &YY).
-		Square(&S).
-		Sub(&S, &XX).
-		Sub(&S, &YYYY).
-		Double(&S)
-	M.Double(&XX).
-		Add(&M, &XX) // -> + A, but A=0 here
-	T.Square(&M).
-		Sub(&T, &S).
-		Sub(&T, &S)
-	p.X.Set(&T)
-	p.Y.Sub(&S, &T).
-		Mul(&p.Y, &M)
-	YYYY.Double(&YYYY).
-		Double(&YYYY).
-		Double(&YYYY)
-	p.Y.Sub(&p.Y, &YYYY)
-	p.Z.Double(&a.Y)
-
-	return p
 }
 
 // AddMixed sets p to p+a in Jacobian coordinates, where a.Z = 1.
@@ -499,30 +475,6 @@ func (p *G1Jac) DoubleAssign() *G1Jac {
 	var a G1Affine
 	a.FromJacobian(p)
 	return p.DoubleMixed(&a)
-	var A, B, C, D, E, F, t fptower.E8
-	A.Square(&p.X)
-	B.Square(&p.Y)
-	C.Square(&B)
-	D.Add(&p.X, &B).
-		Square(&D).
-		Sub(&D, &A).
-		Sub(&D, &C).
-		Double(&D)
-	E.Double(&A).
-		Add(&E, &A)
-	F.Square(&E)
-	t.Double(&D)
-	p.Z.Mul(&p.Y, &p.Z).
-		Double(&p.Z)
-	p.X.Sub(&F, &t)
-	p.Y.Sub(&D, &p.X).
-		Mul(&p.Y, &E)
-	t.Double(&C).
-		Double(&t).
-		Double(&t)
-	p.Y.Sub(&p.Y, &t)
-
-	return p
 }
 
 // Triple sets p to [3]q in Jacobian coordinates for j=0 curves.
@@ -532,64 +484,6 @@ func (p *G1Jac) Triple(q *G1Jac) *G1Jac {
 	var dbl G1Jac
 	dbl.Double(q)
 	p.Set(&dbl).AddAssign(q)
-	return p
-	// Helper functions for multiplication by 3 and 4.
-	mulBy3 := func(v *fptower.E8) {
-		tmp := *v
-		v.Double(v)
-		v.Add(v, &tmp)
-	}
-	mulBy4 := func(v *fptower.E8) {
-		v.Double(v).Double(v)
-	}
-
-	// --- Step 1: Compute initial terms from input q ---
-	var X3, Y2, XZ fptower.E8
-	X3.Square(&q.X)    // X3 = q.X^2
-	Y2.Square(&q.Y)    // Y2 = q.Y^2
-	X3.Mul(&X3, &q.X)  // X3 = q.X^3
-	XZ.Mul(&q.X, &q.Z) // XZ = q.X * q.Z
-
-	// --- Step 2: Compute the X-coordinate of an intermediate point τ ---
-	// Calculates Xτ = 4*q.Y^2 - 3*q.X^3.
-	// The variable p.Z is used for temporary storage and finalized in Step 6.
-	mulBy3(&X3) // X3 = 3*q.X^3
-	mulBy4(&Y2) // Y2 = 4*q.Y^2
-	var Xτ fptower.E8
-	Xτ.Sub(&Y2, &X3)
-	p.Z.Mul(&Xτ, &XZ) // p.Z = Xτ * (q.X * q.Z)
-
-	// --- Step 3: Compute the Y-coordinate of the intermediate point τ ---
-	// Calculates Yτ = q.Y * (9*q.X^3 - 8*q.Y^2).
-	// Reuses X3 and Y2 from previous steps.
-	mulBy3(&X3) // X3 = 9*q.X^3
-	var Yτ fptower.E8
-	Yτ.Double(&Y2) // Yτ = 8*q.Y^2
-	Yτ.Sub(&X3, &Yτ).Mul(&Yτ, &q.Y)
-
-	// --- Step 4: Compute powers of the intermediate point's coordinates ---
-	var Xτ2, Xτ3, Yτ2 fptower.E8
-	Xτ2.Square(&Xτ)    // Xτ2 = Xτ^2
-	Xτ3.Mul(&Xτ2, &Xτ) // Xτ3 = Xτ^3
-	Yτ2.Square(&Yτ)    // Yτ2 = Yτ^2
-
-	// --- Step 5: Compute the final X and Y coordinates of the result [3]q ---
-	// This step re-applies the same transformation using (Xτ, Yτ) as input.
-	// p.X = 4*Yτ^2 - 3*Xτ^3
-	mulBy3(&Xτ3) // Xτ3 = 3*Xτ^3
-	mulBy4(&Yτ2) // Yτ2 = 4*Yτ^2
-	p.X.Sub(&Yτ2, &Xτ3)
-
-	// p.Y = Yτ * (9*Xτ^3 - 8*Yτ^2)
-	// Reuses Xτ3 and Yτ2 from the previous calculation.
-	mulBy3(&Xτ3)     // Xτ3 = 9*Xτ^3
-	Yτ2.Double(&Yτ2) // Yτ2 = 8*Yτ^2
-	p.Y.Sub(&Xτ3, &Yτ2).Mul(&p.Y, &Yτ)
-
-	// --- Step 6: Finalize the Z-coordinate ---
-	// p.Z = 3 * p.Z = 3 * Xτ * (q.X * q.Z)
-	mulBy3(&p.Z)
-
 	return p
 }
 
@@ -922,27 +816,6 @@ func (p *g1JacExtended) double(q *g1JacExtended) *g1JacExtended {
 	p.ZZ.Square(&res.Z)
 	p.ZZZ.Mul(&p.ZZ, &res.Z)
 	return p
-	var U, V, W, S, XX, M fptower.E8
-
-	U.Double(&q.Y)
-	V.Square(&U)
-	W.Mul(&U, &V)
-	S.Mul(&q.X, &V)
-	XX.Square(&q.X)
-	M.Double(&XX).
-		Add(&M, &XX) // -> + A, but A=0 here
-	U.Mul(&W, &q.Y)
-
-	p.X.Square(&M).
-		Sub(&p.X, &S).
-		Sub(&p.X, &S)
-	p.Y.Sub(&S, &p.X).
-		Mul(&p.Y, &M).
-		Sub(&p.Y, &U)
-	p.ZZ.Mul(&V, &q.ZZ)
-	p.ZZZ.Mul(&W, &q.ZZZ)
-
-	return p
 }
 
 // addMixed sets p to p+q in extended Jacobian coordinates, where a.ZZ=1.
@@ -1079,27 +952,6 @@ func (p *g1JacExtended) doubleNegMixed(a *G1Affine) *g1JacExtended {
 	p.ZZ.Square(&res.Z)
 	p.ZZZ.Mul(&p.ZZ, &res.Z)
 	return p
-	var U, V, W, S, M, t fptower.E8
-
-	U.Double(&a.Y)
-	U.Neg(&U)
-	V.Square(&U)
-	W.Mul(&U, &V)
-	S.Mul(&a.X, &V)
-	t.Square(&a.X)
-	M.Double(&t).
-		Add(&M, &t) // -> + A, but A=0 here
-	p.X.Square(&M)
-	t.Double(&S)
-	p.X.Sub(&p.X, &t)
-	t.Mul(&W, &a.Y)
-	p.Y.Sub(&S, &p.X).
-		Mul(&p.Y, &M).
-		Add(&p.Y, &t)
-	p.ZZ.Set(&V)
-	p.ZZZ.Set(&W)
-
-	return p
 }
 
 // doubleMixed sets p to [2]a in Jacobian extended coordinates, where a.ZZ=1.
@@ -1119,26 +971,6 @@ func (p *g1JacExtended) doubleMixed(a *G1Affine) *g1JacExtended {
 	p.Y.Set(&res.Y)
 	p.ZZ.Square(&res.Z)
 	p.ZZZ.Mul(&p.ZZ, &res.Z)
-	return p
-	var U, V, W, S, M, t fptower.E8
-
-	U.Double(&a.Y)
-	V.Square(&U)
-	W.Mul(&U, &V)
-	S.Mul(&a.X, &V)
-	t.Square(&a.X)
-	M.Double(&t).
-		Add(&M, &t) // -> + A, but A=0 here
-	p.X.Square(&M)
-	t.Double(&S)
-	p.X.Sub(&p.X, &t)
-	t.Mul(&W, &a.Y)
-	p.Y.Sub(&S, &p.X).
-		Mul(&p.Y, &M).
-		Sub(&p.Y, &t)
-	p.ZZ.Set(&V)
-	p.ZZZ.Set(&W)
-
 	return p
 }
 
