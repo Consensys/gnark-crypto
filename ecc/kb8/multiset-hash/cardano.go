@@ -657,15 +657,6 @@ func findPrimitiveCubeRoot() extensions.E8 {
 	panic("kb8 multiset hash: failed to find primitive cube root in Fp^8")
 }
 
-func findNonSquare() extensions.E8 {
-	for _, candidate := range e8SearchCandidates() {
-		if !candidate.IsZero() && candidate.Legendre() == -1 {
-			return candidate
-		}
-	}
-	panic("kb8 multiset hash: failed to find quadratic non-residue in Fp^8")
-}
-
 func e8SearchCandidates() []extensions.E8 {
 	const searchSpace = 6560 // 3^8 - 1
 	res := make([]extensions.E8, 0, searchSpace)

@@ -528,8 +528,8 @@ func isZeroed(firstByte byte, buf []byte) bool {
 	return true
 }
 
-{{template "encode" dict "Raw" ""}}
-{{template "encode" dict "Raw" "Raw"}}
+{{template "encode" dict "Raw" "" "all" .}}
+{{template "encode" dict "Raw" "Raw" "all" .}}
 
 func (enc *Encoder) writeUint64Slice(t []uint64) (err error) {
 	if err = enc.writeUint32(uint32(len(t))); err != nil {
@@ -581,7 +581,7 @@ func (enc *Encoder) writeUint32(a uint32) error {
 func (enc *Encoder) encode{{- $.Raw}}(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
-		return errors.New("{{.Name}} encoder: can't encode <nil>")
+		return errors.New("{{.all.Name}} encoder: can't encode <nil>")
 	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
@@ -615,7 +615,7 @@ func (enc *Encoder) encode{{- $.Raw}}(v any) (err error) {
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
 		return  
-	{{- if .HasG2 }}
+	{{- if .all.HasG2 }}
 	case *G2Affine:
 		buf := t.{{- $.Raw}}Bytes()
 		written, err = enc.w.Write(buf[:])
@@ -689,7 +689,7 @@ func (enc *Encoder) encode{{- $.Raw}}(v any) (err error) {
 			}
 		}
 		return nil
-	{{- if .HasG2 }}
+	{{- if .all.HasG2 }}
 	case *[]G2Affine:
 		return enc.encode{{- $.Raw}}(*t)
 	case []G2Affine:
@@ -715,7 +715,7 @@ func (enc *Encoder) encode{{- $.Raw}}(v any) (err error) {
 	default:
 		n := binary.Size(t)
 		if n == -1 {
-			return errors.New("{{.Name}} encoder: unsupported type")
+			return errors.New("{{.all.Name}} encoder: unsupported type")
 		}
 		err = binary.Write(enc.w, binary.BigEndian, t)
 		enc.n += int64(n)

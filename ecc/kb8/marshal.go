@@ -378,7 +378,7 @@ func isZeroed(firstByte byte, buf []byte) bool {
 func (enc *Encoder) encode(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
-		return errors.New("<no value> encoder: can't encode <nil>")
+		return errors.New("kb8 encoder: can't encode <nil>")
 	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
@@ -482,7 +482,7 @@ func (enc *Encoder) encode(v any) (err error) {
 	default:
 		n := binary.Size(t)
 		if n == -1 {
-			return errors.New("<no value> encoder: unsupported type")
+			return errors.New("kb8 encoder: unsupported type")
 		}
 		err = binary.Write(enc.w, binary.BigEndian, t)
 		enc.n += int64(n)
@@ -493,7 +493,7 @@ func (enc *Encoder) encode(v any) (err error) {
 func (enc *Encoder) encodeRaw(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
-		return errors.New("<no value> encoder: can't encode <nil>")
+		return errors.New("kb8 encoder: can't encode <nil>")
 	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
@@ -597,7 +597,7 @@ func (enc *Encoder) encodeRaw(v any) (err error) {
 	default:
 		n := binary.Size(t)
 		if n == -1 {
-			return errors.New("<no value> encoder: unsupported type")
+			return errors.New("kb8 encoder: unsupported type")
 		}
 		err = binary.Write(enc.w, binary.BigEndian, t)
 		enc.n += int64(n)

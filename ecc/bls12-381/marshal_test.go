@@ -488,16 +488,6 @@ func GenE2() gopter.Gen {
 	})
 }
 
-// GenE4 generates an fptower.E4 elmt
-func GenE4() gopter.Gen {
-	return gopter.CombineGens(
-		GenE2(),
-		GenE2(),
-	).Map(func(values []any) fptower.E4 {
-		return fptower.E4{B0: values[0].(fptower.E2), B1: values[1].(fptower.E2)}
-	})
-}
-
 // GenE6 generates an fptower.E6 elmt
 func GenE6() gopter.Gen {
 	return gopter.CombineGens(

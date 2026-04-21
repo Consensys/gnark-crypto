@@ -197,7 +197,7 @@ func (p *G1Affine) IsOnCurve() bool {
 	if p.IsInfinity() {
 		return true
 	}
-	var left, right, tmp fp.Element
+	var left, right fp.Element
 	left.Square(&p.Y)
 	right.Square(&p.X).Mul(&right, &p.X)
 	right.Add(&right, &bCurveCoeff)

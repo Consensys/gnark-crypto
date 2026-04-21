@@ -479,7 +479,7 @@ func isZeroed(firstByte byte, buf []byte) bool {
 func (enc *Encoder) encode(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
-		return errors.New("<no value> encoder: can't encode <nil>")
+		return errors.New("bls12-381 encoder: can't encode <nil>")
 	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
@@ -509,6 +509,11 @@ func (enc *Encoder) encode(v any) (err error) {
 		enc.n += int64(written)
 		return
 	case *G1Affine:
+		buf := t.Bytes()
+		written, err = enc.w.Write(buf[:])
+		enc.n += int64(written)
+		return
+	case *G2Affine:
 		buf := t.Bytes()
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
@@ -580,10 +585,31 @@ func (enc *Encoder) encode(v any) (err error) {
 			}
 		}
 		return nil
+	case *[]G2Affine:
+		return enc.encode(*t)
+	case []G2Affine:
+		// write slice length
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+		if err != nil {
+			return
+		}
+		enc.n += 4
+
+		var buf [SizeOfG2AffineCompressed]byte
+
+		for i := range len(t) {
+			buf = t[i].Bytes()
+			written, err = enc.w.Write(buf[:])
+			enc.n += int64(written)
+			if err != nil {
+				return
+			}
+		}
+		return nil
 	default:
 		n := binary.Size(t)
 		if n == -1 {
-			return errors.New("<no value> encoder: unsupported type")
+			return errors.New("bls12-381 encoder: unsupported type")
 		}
 		err = binary.Write(enc.w, binary.BigEndian, t)
 		enc.n += int64(n)
@@ -594,7 +620,7 @@ func (enc *Encoder) encode(v any) (err error) {
 func (enc *Encoder) encodeRaw(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
-		return errors.New("<no value> encoder: can't encode <nil>")
+		return errors.New("bls12-381 encoder: can't encode <nil>")
 	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
@@ -624,6 +650,11 @@ func (enc *Encoder) encodeRaw(v any) (err error) {
 		enc.n += int64(written)
 		return
 	case *G1Affine:
+		buf := t.RawBytes()
+		written, err = enc.w.Write(buf[:])
+		enc.n += int64(written)
+		return
+	case *G2Affine:
 		buf := t.RawBytes()
 		written, err = enc.w.Write(buf[:])
 		enc.n += int64(written)
@@ -695,10 +726,31 @@ func (enc *Encoder) encodeRaw(v any) (err error) {
 			}
 		}
 		return nil
+	case *[]G2Affine:
+		return enc.encodeRaw(*t)
+	case []G2Affine:
+		// write slice length
+		err = binary.Write(enc.w, binary.BigEndian, uint32(len(t)))
+		if err != nil {
+			return
+		}
+		enc.n += 4
+
+		var buf [SizeOfG2AffineUncompressed]byte
+
+		for i := range len(t) {
+			buf = t[i].RawBytes()
+			written, err = enc.w.Write(buf[:])
+			enc.n += int64(written)
+			if err != nil {
+				return
+			}
+		}
+		return nil
 	default:
 		n := binary.Size(t)
 		if n == -1 {
-			return errors.New("<no value> encoder: unsupported type")
+			return errors.New("bls12-381 encoder: unsupported type")
 		}
 		err = binary.Write(enc.w, binary.BigEndian, t)
 		enc.n += int64(n)

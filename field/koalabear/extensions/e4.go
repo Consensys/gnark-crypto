@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/consensys/gnark-crypto/ecc"
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 )
 
@@ -19,9 +18,6 @@ var (
 	cbrtE4Omega    E4
 	cbrtE4Omega2   E4
 	cbrtE4Exponent big.Int
-	cbrtE4PhiCoeff E2
-	cbrtE4GLVBasis ecc.Lattice
-	cbrtE4GLVSplit [2]big.Int
 )
 
 var cbrtE4LucasExponent = [1]uint64{
@@ -39,21 +35,6 @@ func init() {
 	cbrtE4Exponent.Div(&cbrtE4Exponent, big.NewInt(3))
 	three := new(big.Int).SetUint64(3)
 	cbrtE4Exponent.ModInverse(three, &cbrtE4Exponent)
-
-	var minusOne E2
-	minusOne.A0.SetOne()
-	minusOne.A0.Neg(&minusOne.A0)
-	if cbrtE4PhiCoeff.Sqrt(&minusOne) == nil {
-		panic("koalabear/e4: failed to find Frobenius coefficient")
-	}
-
-	var modulus, lambda, exponent big.Int
-	modulus.Exp(fr.Modulus(), big.NewInt(2), nil)
-	modulus.Add(&modulus, big.NewInt(1))
-	lambda.Set(fr.Modulus())
-	exponent.ModInverse(three, &modulus)
-	ecc.PrecomputeLattice(&modulus, &lambda, &cbrtE4GLVBasis)
-	cbrtE4GLVSplit = ecc.SplitScalar(&exponent, &cbrtE4GLVBasis)
 }
 
 // q + r'.r = 1, i.e., qInvNeg = - q⁻¹ mod r
@@ -418,85 +399,6 @@ func (z *E4) ExpInt64(x E4, k int64) *E4 {
 	return z
 }
 
-// ExpByCbrtHelperQ4Minus16Div27 is equivalent to z.Exp(x, 9304aab8c7552f764c12f6978e38e3).
-// It raises x to the (q^4-16)/27 power over E4 using a shorter addition chain.
-//
-// uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
-func (z *E4) ExpByCbrtHelperQ4Minus16Div27(x E4) *E4 {
-	var t0, t1, t2, t3, t4, t5, t6, t7, t8, t9 E4
-
-	t1.Square(&x)
-	t3.Square(&t1)
-	t6.Mul(&t1, &t3)
-	z.Mul(&t3, &t6)
-	t0.Mul(&x, z)
-	t5.Mul(&t3, z)
-	t4.Mul(&t3, &t5)
-	t2.Mul(&t6, &t4)
-	t7.Mul(&t6, &t2)
-	t8.Square(&t7)
-	t0.Mul(&t0, &t8)
-	t5.Mul(&t5, &t0)
-	t7.Mul(&t1, &t5)
-	t9.Mul(&t8, &t7)
-	t8.Mul(&t1, &t9)
-	t1.Mul(&t4, &t9)
-	t2.Mul(&t2, &t1)
-	t3.Mul(&t3, &t2)
-	t6.Mul(&t6, &t3)
-	t4.Mul(&t4, &t6)
-	z.Mul(z, &t4)
-	for range 13 {
-		t9.Square(&t9)
-	}
-	t8.Mul(&t8, &t9)
-	for range 8 {
-		t8.Square(&t8)
-	}
-	t7.Mul(&t7, &t8)
-	for range 11 {
-		t7.Square(&t7)
-	}
-	t6.Mul(&t6, &t7)
-	for range 8 {
-		t6.Square(&t6)
-	}
-	t5.Mul(&t5, &t6)
-	for range 10 {
-		t5.Square(&t5)
-	}
-	t5.Mul(&t2, &t5)
-	for range 8 {
-		t5.Square(&t5)
-	}
-	t4.Mul(&t4, &t5)
-	for range 10 {
-		t4.Square(&t4)
-	}
-	t3.Mul(&t3, &t4)
-	for range 10 {
-		t3.Square(&t3)
-	}
-	t2.Mul(&t2, &t3)
-	for range 8 {
-		t2.Square(&t2)
-	}
-	t1.Mul(&t1, &t2)
-	for range 8 {
-		t1.Square(&t1)
-	}
-	t1.Mul(z, &t1)
-	for range 7 {
-		t1.Square(&t1)
-	}
-	t0.Mul(&t0, &t1)
-	for range 11 {
-		t0.Square(&t0)
-	}
-	z.Mul(z, &t0)
-	return z
-}
-
 // Conjugate sets z to x conjugated and returns z
 func (z *E4) Conjugate(x *E4) *E4 {
 	z.B0 = x.B0
@@ -594,10 +496,7 @@ func (z *E4) Cbrt(x *E4) *E4 {
 	imY.Double(&x0x1)
 	imY.Mul(&imY, &normInv)
 
-	var alpha E4
-	alpha.B0.Set(&halfTau)
-	alpha.B1.Neg(&imY)
-	te, te1 := glvTraceE4(&alpha)
+	te, te1 := lucasV2E2Cbrt(&tau)
 
 	var wa0, wa1 E2
 	wa0.Mul(&halfTau, &te)
@@ -631,45 +530,6 @@ func (z *E4) Cbrt(x *E4) *E4 {
 	t2.Mul(&x.B0, &gamma1)
 	y.B1.Sub(&t1, &t2).Mul(&y.B1, &mInv)
 	return cbrtVerifyAndAdjustE4(z.Set(&y), x)
-}
-
-func cbrtAndNormInverseE4(norm, x0sq, x1sq *E2) (m, normInv, deltaInv E2, ok bool) {
-	// Hamburg trick for E4 over E2, where |E2| ≡ 4 mod 9:
-	// with w = U^3 * norm and t = w^((q-4)/9), we have
-	// cbrt(w) = w * t^2 and w^(-1) = t^5 * cbrt(w)^2.
-	var x0x1, betaX0x1, U, U2, U3, w E2
-	x0x1.Mul(x0sq, x1sq)
-	betaX0x1.MulByNonResidue(&x0x1)
-	U.Mul(&betaX0x1, norm)
-	U.Double(&U).Double(&U)
-	U.Double(&U).Double(&U)
-	U2.Square(&U)
-	U3.Mul(&U2, &U)
-	w.Mul(&U3, norm)
-
-	var t, t2, t4, t5, cbrtW, cw2, wInv E2
-	t.ExpByCbrtHelperQ2Minus4Div9(w)
-	t2.Square(&t)
-	cbrtW.Mul(&w, &t2)
-	cw2.Square(&cbrtW)
-	t4.Square(&t2)
-	t5.Mul(&t4, &t)
-	wInv.Mul(&t5, &cw2)
-
-	var check, UInv E2
-	UInv.Mul(&U2, norm).Mul(&UInv, &wInv)
-	m.Mul(&cbrtW, &UInv)
-	normInv.Mul(&U3, &wInv)
-	check.Square(&m).Mul(&check, &m)
-	if !check.Equal(norm) {
-		return m, normInv, deltaInv, false
-	}
-
-	var norm2, norm3 E2
-	norm2.Square(norm)
-	norm3.Mul(&norm2, norm)
-	deltaInv.Mul(&norm3, &UInv)
-	return m, normInv, deltaInv, true
 }
 
 func cbrtVerifyAndAdjustE4(z, x *E4) *E4 {
@@ -719,93 +579,6 @@ func lucasV2E2Cbrt(alpha *E2) (E2, E2) {
 	var te, te1 E2
 	te.Mul(&v0, &v1).Sub(&te, alpha)
 	te1.Square(&v1).Sub(&te1, &two)
-	return te, te1
-}
-
-func (z *E4) phiCbrt(x *E4) *E4 {
-	z.B0.Conjugate(&x.B0)
-	z.B1.Conjugate(&x.B1).Mul(&z.B1, &cbrtE4PhiCoeff)
-	return z
-}
-
-func expTorusGLVE4(z, x *E4) *E4 {
-	var res, q1, q2 E4
-	q1.Set(x)
-	q2.phiCbrt(x)
-	res.SetOne()
-
-	var k0, k1 big.Int
-	k0.Set(&cbrtE4GLVSplit[0])
-	k1.Set(&cbrtE4GLVSplit[1])
-	if k0.Sign() < 0 {
-		k0.Neg(&k0)
-		q1.Conjugate(&q1)
-	}
-	if k1.Sign() < 0 {
-		k1.Neg(&k1)
-		q2.Conjugate(&q2)
-	}
-
-	const wnafWindow = 5
-	naf0 := make([]int8, k0.BitLen()+wnafWindow+1)
-	naf1 := make([]int8, k1.BitLen()+wnafWindow+1)
-	len0 := ecc.WnafDecomposition(&k0, wnafWindow, naf0)
-	len1 := ecc.WnafDecomposition(&k1, wnafWindow, naf1)
-	maxLen := max(len0, len1)
-	if maxLen == 0 {
-		return z.SetOne()
-	}
-
-	var table0, table1 [8]E4
-	var q0Two, q1Two E4
-	table0[0].Set(&q1)
-	table1[0].Set(&q2)
-	q0Two.Square(&q1)
-	q1Two.Square(&q2)
-	for i := 1; i < len(table0); i++ {
-		table0[i].Mul(&table0[i-1], &q0Two)
-		table1[i].Mul(&table1[i-1], &q1Two)
-	}
-
-	for i := maxLen - 1; i >= 0; i-- {
-		res.Square(&res)
-		if i < len0 {
-			d := naf0[i]
-			if d != 0 {
-				if d > 0 {
-					res.Mul(&res, &table0[(d-1)/2])
-				} else {
-					var inv E4
-					inv.Conjugate(&table0[(-d-1)/2])
-					res.Mul(&res, &inv)
-				}
-			}
-		}
-		if i < len1 {
-			d := naf1[i]
-			if d != 0 {
-				if d > 0 {
-					res.Mul(&res, &table1[(d-1)/2])
-				} else {
-					var inv E4
-					inv.Conjugate(&table1[(-d-1)/2])
-					res.Mul(&res, &inv)
-				}
-			}
-		}
-	}
-
-	return z.Set(&res)
-}
-
-func glvTraceE4(alpha *E4) (E2, E2) {
-	var sigma, sigmaAlpha E4
-	expTorusGLVE4(&sigma, alpha)
-	sigmaAlpha.Mul(&sigma, alpha)
-
-	var te, te1 E2
-	te.Double(&sigma.B0)
-	te1.Double(&sigmaAlpha.B0)
 	return te, te1
 }
 

@@ -240,7 +240,11 @@ func (p *{{ $TAffine }}) IsOnCurve() bool {
     if p.IsInfinity() {
 		return true
 	}
+	{{- if and (eq .Name "kb8") (eq .PointName "g1") }}
 	var left, right, tmp {{.CoordType}}
+	{{- else }}
+	var left, right {{.CoordType}}
+	{{- end }}
 	left.Square(&p.Y)
 	right.Square(&p.X).Mul(&right, &p.X)
 	{{- if and (eq .Name "kb8") (eq .PointName "g1") }}

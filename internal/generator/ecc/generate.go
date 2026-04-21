@@ -129,8 +129,12 @@ func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 
 	// marshal
 	entries = []bavard.Entry{
-		{File: filepath.Join(baseDir, "marshal.go"), Templates: []string{"marshal.go.tmpl"}},
 		{File: filepath.Join(baseDir, "marshal_test.go"), Templates: []string{"tests/marshal.go.tmpl"}},
+	}
+	// secp256k1 uses a hand-maintained SEC1-style prefix-byte marshal format:
+	// its base field has no spare top bits, so the generic bit-stealing template does not apply.
+	if conf.Name != config.SECP256K1.Name {
+		entries = append(entries, bavard.Entry{File: filepath.Join(baseDir, "marshal.go"), Templates: []string{"marshal.go.tmpl"}})
 	}
 
 	if err := eccGen.GenerateWithOptions(conf, packageName, "", "", bavardOpts, entries...); err != nil {

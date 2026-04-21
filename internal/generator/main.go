@@ -107,7 +107,7 @@ func main() {
 
 			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 
-			conf.FpUnusedBits = 64 - (conf.Fp.NbBits % 64)
+			conf.FpUnusedBits = (64 - (conf.Fp.NbBits % 64)) % 64
 
 			// Torus cbrt: compute betaInvNeg now that Fp config is available
 			if conf.E2CbrtTorusEnabled && conf.E2CbrtTorusBeta != -1 {

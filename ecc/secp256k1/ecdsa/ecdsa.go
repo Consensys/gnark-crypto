@@ -26,7 +26,7 @@ const (
 	sizeFr         = fr.Bytes
 	sizeFrBits     = fr.Bits
 	sizeFp         = fp.Bytes
-	sizePublicKey  = 2 * sizeFp
+	sizePublicKey  = secp256k1.SizeOfG1AffineUncompressed
 	sizePrivateKey = sizeFr + sizePublicKey
 	sizeSignature  = 2 * sizeFr
 )
