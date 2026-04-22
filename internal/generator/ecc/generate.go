@@ -1,7 +1,6 @@
 package ecc
 
 import (
-	"os"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -25,11 +24,6 @@ func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 	entries = []bavard.Entry{
 		{File: filepath.Join(baseDir, "g1.go"), Templates: []string{"point.go.tmpl"}},
 		{File: filepath.Join(baseDir, "g1_test.go"), Templates: []string{"tests/point.go.tmpl"}},
-	}
-	// if not secp256k1, generate the lagrange transform
-	if conf.Name != config.SECP256K1.Name || conf.Name != config.GRUMPKIN.Name || conf.Name != config.SECP256R1.Name {
-		os.Remove(filepath.Join(baseDir, "g1_lagrange.go"))
-		os.Remove(filepath.Join(baseDir, "g1_lagrange_test.go"))
 	}
 
 	g1 := pconf{conf, conf.G1}
@@ -128,32 +122,27 @@ func Generate(conf config.Curve, baseDir string, gen *common.Generator) error {
 	}
 
 	// marshal
-	entries = []bavard.Entry{
-		{File: filepath.Join(baseDir, "marshal_test.go"), Templates: []string{"tests/marshal.go.tmpl"}},
-	}
-	// secp256k1 uses a hand-maintained SEC1-style prefix-byte marshal format:
-	// its base field has no spare top bits, so the generic bit-stealing template does not apply.
-	if conf.Name != config.SECP256K1.Name {
-		entries = append(entries, bavard.Entry{File: filepath.Join(baseDir, "marshal.go"), Templates: []string{"marshal.go.tmpl"}})
-	}
+	if conf.GenerateMarshal() {
+		entries = []bavard.Entry{
+			{File: filepath.Join(baseDir, "marshal.go"), Templates: []string{"marshal.go.tmpl"}},
+			{File: filepath.Join(baseDir, "marshal_test.go"), Templates: []string{"tests/marshal.go.tmpl"}},
+		}
 
-	if err := eccGen.GenerateWithOptions(conf, packageName, "", "", bavardOpts, entries...); err != nil {
-		return err
-	}
-
-	// No G2 for single-group curves.
-	if !conf.HasG2() {
-		return nil
+		if err := eccGen.GenerateWithOptions(conf, packageName, "", "", bavardOpts, entries...); err != nil {
+			return err
+		}
 	}
 
 	// G2
-	entries = []bavard.Entry{
-		{File: filepath.Join(baseDir, "g2.go"), Templates: []string{"point.go.tmpl"}},
-		{File: filepath.Join(baseDir, "g2_test.go"), Templates: []string{"tests/point.go.tmpl"}},
-	}
-	g2 := pconf{conf, conf.G2}
-	if err := eccGen.Generate(g2, packageName, "", "", entries...); err != nil {
-		return err
+	if conf.HasG2() {
+		entries = []bavard.Entry{
+			{File: filepath.Join(baseDir, "g2.go"), Templates: []string{"point.go.tmpl"}},
+			{File: filepath.Join(baseDir, "g2_test.go"), Templates: []string{"tests/point.go.tmpl"}},
+		}
+		g2 := pconf{conf, conf.G2}
+		if err := eccGen.Generate(g2, packageName, "", "", entries...); err != nil {
+			return err
+		}
 	}
 
 	return nil
