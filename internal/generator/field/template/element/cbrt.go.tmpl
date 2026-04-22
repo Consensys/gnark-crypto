@@ -249,6 +249,9 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		// For e=2, check if x is a cubic residue: t^3 should equal 1
 		var check {{.ElementName}}
 		check.Cube(&t)
+		if check.IsZero() {
+			return z.SetZero()
+		}
 		if !check.IsOne() {
 			return nil
 		}
@@ -324,6 +327,9 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		check = t
 		for i := uint64(0); i < r-1; i++ {
 			check.Cube(&check)
+		}
+		if check.IsZero() {
+			return z.SetZero()
 		}
 		if !check.IsOne() {
 			// x is not a cubic residue

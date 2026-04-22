@@ -1392,6 +1392,9 @@ func (z *Element) Cbrt(x *Element) *Element {
 	for i := uint64(0); i < r-1; i++ {
 		check.Cube(&check)
 	}
+	if check.IsZero() {
+		return z.SetZero()
+	}
 	if !check.IsOne() {
 		// x is not a cubic residue
 		return nil
