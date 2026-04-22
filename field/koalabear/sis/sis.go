@@ -282,12 +282,10 @@ func (vi *VectorIterator) Next() (koalabear.Element, bool) {
 
 // LimbIterator iterates over a stream of field elements, limb by limb.
 type LimbIterator struct {
-	it  ElementIterator
-	buf [koalabear.Bytes]byte
-
-	j int // position in buf
-
-	next func(buf []byte, pos *int) uint32
+	it       ElementIterator
+	buf      [koalabear.Bytes]byte
+	j        int // position in buf
+	limbSize int // 1 or 2 bytes per limb
 }
 
 // NewLimbIterator creates a new LimbIterator
@@ -295,26 +293,21 @@ type LimbIterator struct {
 // The elements are interpreted in little endian.
 // The limb is also in little endian.
 func NewLimbIterator(it ElementIterator, limbSize int) *LimbIterator {
-	var next func(buf []byte, pos *int) uint32
-	switch limbSize {
-	case 1:
-		next = nextUint8
-	case 2:
-		next = nextUint16
-
-	default:
+	if limbSize != 1 && limbSize != 2 {
 		panic("unsupported limb size")
 	}
 	return &LimbIterator{
-		it:   it,
-		j:    koalabear.Bytes,
-		next: next,
+		it:       it,
+		j:        koalabear.Bytes,
+		limbSize: limbSize,
 	}
 }
 
 // NextLimb returns the next limb of the vector.
+// Uses a branch on limbSize instead of an indirect function pointer call
+// to avoid the ~3-5 cycle overhead per indirect call.
 func (vr *LimbIterator) NextLimb() (uint32, bool) {
-	if vr.j == koalabear.Bytes {
+	if vr.j >= koalabear.Bytes {
 		next, ok := vr.it.Next()
 		if !ok {
 			return 0, false
@@ -322,7 +315,14 @@ func (vr *LimbIterator) NextLimb() (uint32, bool) {
 		vr.j = 0
 		koalabear.LittleEndian.PutElement(&vr.buf, next)
 	}
-	return vr.next(vr.buf[:], &vr.j), true
+	if vr.limbSize == 2 {
+		r := uint32(binary.LittleEndian.Uint16(vr.buf[vr.j:]))
+		vr.j += 2
+		return r, true
+	}
+	r := uint32(vr.buf[vr.j])
+	vr.j++
+	return r, true
 }
 
 // Reset resets the iterator with a new ElementIterator.
