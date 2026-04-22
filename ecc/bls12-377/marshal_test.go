@@ -105,6 +105,7 @@ func TestEncoder(t *testing.T) {
 		var outL [][]fr.Element
 		var outM [][]uint64
 		var outN [][][]fr.Element
+
 		toDecode := []any{&outA, &outB, &outC, &outD, &outE, &outF, &outG, &outH, &outI, &outJ, &outK, &outL, &outM, &outN}
 		for _, v := range toDecode {
 			if err := dec.Decode(v); err != nil {
@@ -164,7 +165,6 @@ func TestEncoder(t *testing.T) {
 	testDecode(t, &bufRaw, encRaw.BytesWritten())
 
 }
-
 func TestIsCompressed(t *testing.T) {
 	t.Parallel()
 	var g1Inf, g1 G1Affine

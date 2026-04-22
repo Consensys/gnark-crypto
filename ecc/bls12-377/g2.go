@@ -412,7 +412,7 @@ func (p *G2Jac) DoubleMixed(a *G2Affine) *G2Jac {
 		Sub(&S, &YYYY).
 		Double(&S)
 	M.Double(&XX).
-		Add(&M, &XX) // -> + A, but A=0 here
+		Add(&M, &XX) // M = 3*XX
 	T.Square(&M).
 		Sub(&T, &S).
 		Sub(&T, &S)
@@ -504,7 +504,7 @@ func (p *G2Jac) DoubleAssign() *G2Jac {
 		Sub(&D, &C).
 		Double(&D)
 	E.Double(&A).
-		Add(&E, &A)
+		Add(&E, &A) // E = 3*A = 3*X²
 	F.Square(&E)
 	t.Double(&D)
 	p.Z.Mul(&p.Y, &p.Z).
@@ -520,9 +520,9 @@ func (p *G2Jac) DoubleAssign() *G2Jac {
 	return p
 }
 
-// Triple sets p to [3]q in Jacobian coordinates for j=0 curves.
+// Triple sets p to [3]q in Jacobian coordinates.
 //
-// https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1
+// https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1 (optimized for j=0 curves)
 func (p *G2Jac) Triple(q *G2Jac) *G2Jac {
 	// Helper functions for multiplication by 3 and 4.
 	mulBy3 := func(v *fptower.E2) {
@@ -1075,20 +1075,22 @@ func (p *g2JacExtended) add(q *g2JacExtended) *g2JacExtended {
 // double sets p to [2]q in Jacobian extended coordinates.
 //
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-// ~Cost: 6M + 3S
 //
 // N.B.: since we consider any point on Z=0 as the point at infinity
 // this doubling formula works for infinity points as well.
 func (p *g2JacExtended) double(q *g2JacExtended) *g2JacExtended {
-	var U, V, W, S, XX, M fptower.E2
+	var U, V, W, S, M fptower.E2
 
 	U.Double(&q.Y)
 	V.Square(&U)
 	W.Mul(&U, &V)
 	S.Mul(&q.X, &V)
-	XX.Square(&q.X)
-	M.Double(&XX).
-		Add(&M, &XX) // -> + A, but A=0 here
+	{
+		var XX fptower.E2
+		XX.Square(&q.X)
+		M.Double(&XX).
+			Add(&M, &XX) // M = 3*XX
+	}
 	U.Mul(&W, &q.Y)
 
 	p.X.Square(&M).
@@ -1233,7 +1235,7 @@ func (p *g2JacExtended) doubleNegMixed(a *G2Affine) *g2JacExtended {
 	S.Mul(&a.X, &V)
 	t.Square(&a.X)
 	M.Double(&t).
-		Add(&M, &t) // -> + A, but A=0 here
+		Add(&M, &t) // M = 3*X²
 	p.X.Square(&M)
 	t.Double(&S)
 	p.X.Sub(&p.X, &t)
@@ -1261,7 +1263,7 @@ func (p *g2JacExtended) doubleMixed(a *G2Affine) *g2JacExtended {
 	S.Mul(&a.X, &V)
 	t.Square(&a.X)
 	M.Double(&t).
-		Add(&M, &t) // -> + A, but A=0 here
+		Add(&M, &t) // M = 3*X²
 	p.X.Square(&M)
 	t.Double(&S)
 	p.X.Sub(&p.X, &t)

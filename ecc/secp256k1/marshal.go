@@ -10,25 +10,9 @@ import (
 	"errors"
 	"io"
 	"reflect"
-	"sync/atomic"
 
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fp"
 	"github.com/consensys/gnark-crypto/ecc/secp256k1/fr"
-	"github.com/consensys/gnark-crypto/parallel"
-)
-
-// SEC1-style point prefix bytes for exact-byte field elements.
-const (
-	mMask               byte = 0xff
-	mCompressedInfinity byte = 0x00
-	mCompressedSmallest byte = 0x02
-	mCompressedLargest  byte = 0x03
-	mUncompressed       byte = 0x04
-)
-
-var (
-	ErrInvalidInfinityEncoding = errors.New("invalid infinity point encoding")
-	ErrInvalidEncoding         = errors.New("invalid point encoding")
 )
 
 // Encoder writes secp256k1 object values to an output stream
@@ -58,7 +42,7 @@ func NewDecoder(r io.Reader, options ...func(*Decoder)) *Decoder {
 }
 
 // Decode reads the binary encoding of v from the stream
-// type must be *uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, *[]G1Affine or *[]G2Affine
+// type must be *uint64, *fr.Element, *fp.Element, *G1Affine, *[]G1Affine
 func (dec *Decoder) Decode(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
@@ -168,25 +152,13 @@ func (dec *Decoder) Decode(v any) (err error) {
 		}
 		return
 	case *G1Affine:
-		// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
-		read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineCompressed])
+		// no point compression
+		read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineUncompressed])
 		dec.n += int64(read)
 		if err != nil {
 			return
 		}
-		nbBytes := SizeOfG1AffineCompressed
-
-		// most significant byte contains metadata
-		if !isCompressed(buf[0]) {
-			nbBytes = SizeOfG1AffineUncompressed
-			// we read more.
-			read, err = io.ReadFull(dec.r, buf[SizeOfG1AffineCompressed:SizeOfG1AffineUncompressed])
-			dec.n += int64(read)
-			if err != nil {
-				return
-			}
-		}
-		_, err = t.setBytes(buf[:nbBytes], dec.subGroupCheck)
+		_, err = t.setBytes(buf[:SizeOfG1AffineUncompressed], dec.subGroupCheck)
 		return
 	case *[]G1Affine:
 		sliceLen, err = dec.readUint32()
@@ -196,54 +168,15 @@ func (dec *Decoder) Decode(v any) (err error) {
 		if len(*t) != int(sliceLen) || *t == nil {
 			*t = make([]G1Affine, sliceLen)
 		}
-		compressed := make([]bool, sliceLen)
 		for i := range len(*t) {
-
-			// we start by reading compressed point size, if metadata tells us it is uncompressed, we read more.
-			read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineCompressed])
+			read, err = io.ReadFull(dec.r, buf[:SizeOfG1AffineUncompressed])
 			dec.n += int64(read)
 			if err != nil {
 				return
 			}
-			nbBytes := SizeOfG1AffineCompressed
-
-			// most significant byte contains metadata
-			if !isCompressed(buf[0]) {
-				nbBytes = SizeOfG1AffineUncompressed
-				// we read more.
-				read, err = io.ReadFull(dec.r, buf[SizeOfG1AffineCompressed:SizeOfG1AffineUncompressed])
-				dec.n += int64(read)
-				if err != nil {
-					return
-				}
-				_, err = (*t)[i].setBytes(buf[:nbBytes], false)
-				if err != nil {
-					return
-				}
-			} else {
-				var r bool
-				if r, err = (*t)[i].unsafeSetCompressedBytes(buf[:nbBytes]); err != nil {
-					return
-				}
-				compressed[i] = !r
+			if _, err = (*t)[i].setBytes(buf[:SizeOfG1AffineUncompressed], dec.subGroupCheck); err != nil {
+				return
 			}
-		}
-		var nbErrs uint64
-		parallel.Execute(len(compressed), func(start, end int) {
-			for i := start; i < end; i++ {
-				if compressed[i] {
-					if err := (*t)[i].unsafeComputeY(dec.subGroupCheck); err != nil {
-						atomic.AddUint64(&nbErrs, 1)
-					}
-				} else if dec.subGroupCheck {
-					if !(*t)[i].IsInSubGroup() {
-						atomic.AddUint64(&nbErrs, 1)
-					}
-				}
-			}
-		})
-		if nbErrs != 0 {
-			return errors.New("point decompression failed")
 		}
 
 		return nil
@@ -289,10 +222,6 @@ func (dec *Decoder) readUint64() (r uint64, err error) {
 	return
 }
 
-func isCompressed(msb byte) bool {
-	return msb != mUncompressed
-}
-
 // NewEncoder returns a binary encoder supporting curve secp256k1 objects
 func NewEncoder(w io.Writer, options ...func(*Encoder)) *Encoder {
 	// default settings
@@ -311,7 +240,7 @@ func NewEncoder(w io.Writer, options ...func(*Encoder)) *Encoder {
 }
 
 // Encode writes the binary encoding of v to the stream
-// type must be uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, []G1Affine, []G2Affine, *[]G1Affine or *[]G2Affine
+// type must be uint64, *fr.Element, *fp.Element, *G1Affine, []G1Affine, *[]G1Affine
 func (enc *Encoder) Encode(v any) (err error) {
 	if enc.raw {
 		return enc.encodeRaw(v)
@@ -338,19 +267,6 @@ func NoSubgroupChecks() func(*Decoder) {
 	return func(dec *Decoder) {
 		dec.subGroupCheck = false
 	}
-}
-
-// isZeroed checks that the provided bytes are at 0
-func isZeroed(firstByte byte, buf []byte) bool {
-	if firstByte != 0 {
-		return false
-	}
-	for _, b := range buf {
-		if b != 0 {
-			return false
-		}
-	}
-	return true
 }
 
 func (enc *Encoder) encode(v any) (err error) {
@@ -446,7 +362,7 @@ func (enc *Encoder) encode(v any) (err error) {
 		}
 		enc.n += 4
 
-		var buf [SizeOfG1AffineCompressed]byte
+		var buf [SizeOfG1AffineUncompressed]byte
 
 		for i := range len(t) {
 			buf = t[i].Bytes()
@@ -628,11 +544,8 @@ func (enc *Encoder) writeUint32(a uint32) error {
 	return err
 }
 
-// SizeOfG1AffineCompressed represents the size in bytes that a G1Affine need in binary form, compressed
-const SizeOfG1AffineCompressed = 1 + fp.Bytes
-
 // SizeOfG1AffineUncompressed represents the size in bytes that a G1Affine need in binary form, uncompressed
-const SizeOfG1AffineUncompressed = 1 + 2*fp.Bytes
+const SizeOfG1AffineUncompressed = 32 * 2
 
 // Marshal converts p to a byte slice (without point compression)
 func (p *G1Affine) Marshal() []byte {
@@ -646,26 +559,10 @@ func (p *G1Affine) Unmarshal(buf []byte) error {
 	return err
 }
 
-// Bytes returns SEC1-style compressed binary representation of p.
-func (p *G1Affine) Bytes() (res [SizeOfG1AffineCompressed]byte) {
-
-	// check if p is infinity point
-	if p.X.IsZero() && p.Y.IsZero() {
-		res[0] = mCompressedInfinity
-		return
-	}
-
-	msbMask := mCompressedSmallest
-	// compressed, we need to know if Y is lexicographically bigger than -Y
-	// if p.Y ">" -p.Y
-	if p.Y.LexicographicallyLargest() {
-		msbMask = mCompressedLargest
-	}
-
-	res[0] = msbMask
-	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[1:1+fp.Bytes]), p.X)
-
-	return
+// Bytes returns binary representation of p (stores X and Y coordinate)
+// point compression is not available for this curve
+func (p *G1Affine) Bytes() (res [SizeOfG1AffineUncompressed]byte) {
+	return p.RawBytes()
 }
 
 // RawBytes returns binary representation of p (stores X and Y coordinate)
@@ -674,15 +571,15 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
-
-		res[0] = mUncompressed
-
 		return
 	}
 
-	res[0] = mUncompressed
-	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[1:1+fp.Bytes]), p.X)
-	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[1+fp.Bytes:1+2*fp.Bytes]), p.Y)
+	// not compressed
+	// we store the Y coordinate
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[32:32+fp.Bytes]), p.Y)
+
+	// we store X  and mask the most significant word with our metadata mask
+	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[0:0+fp.Bytes]), p.X)
 
 	return
 }
@@ -701,154 +598,24 @@ func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 	return p.setBytes(buf, true)
 }
 
+// no point compression - setBytes only handles uncompressed format
 func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
-	if len(buf) < SizeOfG1AffineCompressed {
+	if len(buf) < SizeOfG1AffineUncompressed {
 		return 0, io.ErrShortBuffer
 	}
 
-	mData := buf[0]
-
-	// check buffer size
-	if mData == mUncompressed {
-		if len(buf) < SizeOfG1AffineUncompressed {
-			return 0, io.ErrShortBuffer
-		}
-	}
-
-	// infinity encoded, we still check that the buffer is full of zeroes.
-	if mData == mCompressedInfinity {
-		if !isZeroed(0, buf[1:SizeOfG1AffineCompressed]) {
-			return 0, ErrInvalidInfinityEncoding
-		}
-		p.X.SetZero()
-		p.Y.SetZero()
-		return SizeOfG1AffineCompressed, nil
-	}
-
-	// uncompressed point
-	if mData == mUncompressed {
-		// read X and Y coordinates
-		if err := p.X.SetBytesCanonical(buf[1 : 1+fp.Bytes]); err != nil {
-			return 0, err
-		}
-		if err := p.Y.SetBytesCanonical(buf[1+fp.Bytes : 1+2*fp.Bytes]); err != nil {
-			return 0, err
-		}
-
-		// subgroup check
-		if subGroupCheck && !p.IsInSubGroup() {
-			return 0, errors.New("invalid point: subgroup check failed")
-		}
-
-		return SizeOfG1AffineUncompressed, nil
-	}
-
-	// we have a compressed coordinate
-	if mData != mCompressedSmallest && mData != mCompressedLargest {
-		return 0, ErrInvalidEncoding
-	}
-
-	// read X coordinate
-	if err := p.X.SetBytesCanonical(buf[1 : 1+fp.Bytes]); err != nil {
+	// read X and Y coordinates
+	if err := p.X.SetBytesCanonical(buf[:fp.Bytes]); err != nil {
 		return 0, err
 	}
-
-	var YSquared, Y fp.Element
-
-	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
-	YSquared.Add(&YSquared, &bCurveCoeff)
-	if Y.Sqrt(&YSquared) == nil {
-		return 0, errors.New("invalid compressed coordinate: square root doesn't exist")
+	if err := p.Y.SetBytesCanonical(buf[fp.Bytes : fp.Bytes*2]); err != nil {
+		return 0, err
 	}
-
-	if Y.LexicographicallyLargest() {
-		// Y ">" -Y
-		if mData == mCompressedSmallest {
-			Y.Neg(&Y)
-		}
-	} else {
-		// Y "<=" -Y
-		if mData == mCompressedLargest {
-			Y.Neg(&Y)
-		}
-	}
-
-	p.Y = Y
 
 	// subgroup check
 	if subGroupCheck && !p.IsInSubGroup() {
 		return 0, errors.New("invalid point: subgroup check failed")
 	}
 
-	return SizeOfG1AffineCompressed, nil
-}
-
-// unsafeComputeY called by Decoder when processing slices of compressed point in parallel (step 2)
-// it computes the Y coordinate from the already set X coordinate and is compute intensive
-func (p *G1Affine) unsafeComputeY(subGroupCheck bool) error {
-	// stored in unsafeSetCompressedBytes
-
-	mData := byte(p.Y[0])
-
-	// we have a compressed coordinate, we need to solve the curve equation to compute Y
-	var YSquared, Y fp.Element
-
-	YSquared.Square(&p.X).Mul(&YSquared, &p.X)
-	YSquared.Add(&YSquared, &bCurveCoeff)
-	if Y.Sqrt(&YSquared) == nil {
-		return errors.New("invalid compressed coordinate: square root doesn't exist")
-	}
-
-	if Y.LexicographicallyLargest() {
-		// Y ">" -Y
-		if mData == mCompressedSmallest {
-			Y.Neg(&Y)
-		}
-	} else {
-		// Y "<=" -Y
-		if mData == mCompressedLargest {
-			Y.Neg(&Y)
-		}
-	}
-
-	p.Y = Y
-
-	// subgroup check
-	if subGroupCheck && !p.IsInSubGroup() {
-		return errors.New("invalid point: subgroup check failed")
-	}
-
-	return nil
-}
-
-// unsafeSetCompressedBytes is called by Decoder when processing slices of compressed point in parallel (step 1)
-// assumes buf[:8] mask is set to compressed
-// returns true if point is infinity and need no further processing
-// it sets X coordinate and uses Y for scratch space to store decompression metadata
-func (p *G1Affine) unsafeSetCompressedBytes(buf []byte) (isInfinity bool, err error) {
-
-	mData := buf[0]
-
-	if mData == mCompressedInfinity {
-		isInfinity = true
-		if !isZeroed(0, buf[1:SizeOfG1AffineCompressed]) {
-			return isInfinity, ErrInvalidInfinityEncoding
-		}
-		p.X.SetZero()
-		p.Y.SetZero()
-		return isInfinity, nil
-	}
-	if mData != mCompressedSmallest && mData != mCompressedLargest {
-		return false, ErrInvalidEncoding
-	}
-
-	// read X coordinate
-	if err := p.X.SetBytesCanonical(buf[1 : 1+fp.Bytes]); err != nil {
-		return false, err
-	}
-	// store mData in p.Y[0]
-	p.Y[0] = uint64(mData)
-
-	// recomputing Y will be done asynchronously
-	return isInfinity, nil
+	return SizeOfG1AffineUncompressed, nil
 }

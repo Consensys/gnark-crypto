@@ -859,9 +859,7 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
-
 		res[0] = mUncompressedInfinity
-
 		return
 	}
 
@@ -871,7 +869,6 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
 
 	// we store X  and mask the most significant word with our metadata mask
 	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[0:0+fp.Bytes]), p.X)
-
 	res[0] |= mUncompressed
 
 	return
@@ -890,7 +887,6 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
 func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 	return p.setBytes(buf, true)
 }
-
 func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	if len(buf) < SizeOfG1AffineCompressed {
 		return 0, io.ErrShortBuffer
@@ -1120,9 +1116,7 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
-
 		res[0] = mUncompressedInfinity
-
 		return
 	}
 
@@ -1132,7 +1126,6 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 
 	// we store X  and mask the most significant word with our metadata mask
 	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[0:0+fp.Bytes]), p.X)
-
 	res[0] |= mUncompressed
 
 	return
@@ -1151,7 +1144,6 @@ func (p *G2Affine) RawBytes() (res [SizeOfG2AffineUncompressed]byte) {
 func (p *G2Affine) SetBytes(buf []byte) (int, error) {
 	return p.setBytes(buf, true)
 }
-
 func (p *G2Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	if len(buf) < SizeOfG2AffineCompressed {
 		return 0, io.ErrShortBuffer

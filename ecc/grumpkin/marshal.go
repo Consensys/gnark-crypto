@@ -17,7 +17,7 @@ import (
 	"github.com/consensys/gnark-crypto/parallel"
 )
 
-// To encode G1Affine and G2Affine points, we mask the most significant bits with these bits to specify without ambiguity
+// To encode G1Affine points, we mask the most significant bits with these bits to specify without ambiguity
 // metadata needed for point (de)compression
 // we have less than 3 bits available on the msw, so we can't follow BLS12-381 style encoding.
 // the difference is the case where a point is infinity and uncompressed is not flagged
@@ -61,7 +61,7 @@ func NewDecoder(r io.Reader, options ...func(*Decoder)) *Decoder {
 }
 
 // Decode reads the binary encoding of v from the stream
-// type must be *uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, *[]G1Affine or *[]G2Affine
+// type must be *uint64, *fr.Element, *fp.Element, *G1Affine, *[]G1Affine
 func (dec *Decoder) Decode(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
@@ -315,7 +315,7 @@ func NewEncoder(w io.Writer, options ...func(*Encoder)) *Encoder {
 }
 
 // Encode writes the binary encoding of v to the stream
-// type must be uint64, *fr.Element, *fp.Element, *G1Affine, *G2Affine, []G1Affine, []G2Affine, *[]G1Affine or *[]G2Affine
+// type must be uint64, *fr.Element, *fp.Element, *G1Affine, []G1Affine, *[]G1Affine
 func (enc *Encoder) Encode(v any) (err error) {
 	if enc.raw {
 		return enc.encodeRaw(v)
@@ -690,9 +690,7 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
 
 	// check if p is infinity point
 	if p.X.IsZero() && p.Y.IsZero() {
-
 		res[0] = mUncompressed
-
 		return
 	}
 
@@ -702,7 +700,6 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
 
 	// we store X  and mask the most significant word with our metadata mask
 	fp.BigEndian.PutElement((*[fp.Bytes]byte)(res[0:0+fp.Bytes]), p.X)
-
 	res[0] |= mUncompressed
 
 	return
@@ -721,7 +718,6 @@ func (p *G1Affine) RawBytes() (res [SizeOfG1AffineUncompressed]byte) {
 func (p *G1Affine) SetBytes(buf []byte) (int, error) {
 	return p.setBytes(buf, true)
 }
-
 func (p *G1Affine) setBytes(buf []byte, subGroupCheck bool) (int, error) {
 	if len(buf) < SizeOfG1AffineCompressed {
 		return 0, io.ErrShortBuffer

@@ -7,6 +7,7 @@ package secp256k1
 
 import (
 	"bytes"
+	crand "crypto/rand"
 	"io"
 	"math/big"
 	"math/rand/v2"
@@ -97,6 +98,7 @@ func TestEncoder(t *testing.T) {
 		var outL [][]fr.Element
 		var outM [][]uint64
 		var outN [][][]fr.Element
+
 		toDecode := []any{&outA, &outB, &outC, &outD, &outE, &outG, &outI, &outJ, &outK, &outL, &outM, &outN}
 		for _, v := range toDecode {
 			if err := dec.Decode(v); err != nil {
@@ -154,62 +156,10 @@ func TestEncoder(t *testing.T) {
 
 }
 
-func TestIsCompressed(t *testing.T) {
-	t.Parallel()
-	var g1Inf, g1 G1Affine
-	g1 = g1GenAff
-
-	{
-		b := g1Inf.Bytes()
-		if !isCompressed(b[0]) {
-			t.Fatal("g1Inf.Bytes() should be compressed")
-		}
-	}
-
-	{
-		b := g1Inf.RawBytes()
-		if isCompressed(b[0]) {
-			t.Fatal("g1Inf.RawBytes() should be uncompressed")
-		}
-	}
-
-	{
-		b := g1.Bytes()
-		if !isCompressed(b[0]) {
-			t.Fatal("g1.Bytes() should be compressed")
-		}
-	}
-
-	{
-		b := g1.RawBytes()
-		if isCompressed(b[0]) {
-			t.Fatal("g1.RawBytes() should be uncompressed")
-		}
-	}
-
-}
-
 func TestG1AffineSerialization(t *testing.T) {
 	t.Parallel()
 	// test round trip serialization of infinity
 	{
-		// compressed
-		{
-			var p1, p2 G1Affine
-			p2.X.MustSetRandom()
-			p2.Y.MustSetRandom()
-			buf := p1.Bytes()
-			n, err := p2.SetBytes(buf[:])
-			if err != nil {
-				t.Fatal(err)
-			}
-			if n != SizeOfG1AffineCompressed {
-				t.Fatal("invalid number of bytes consumed in buffer")
-			}
-			if !(p2.X.IsZero() && p2.Y.IsZero()) { // nolint QF1001
-				t.Fatal("deserialization of uncompressed infinity point is not infinity")
-			}
-		}
 
 		// uncompressed
 		{
@@ -271,7 +221,7 @@ func TestG1AffineSerialization(t *testing.T) {
 			if err != nil {
 				return false
 			}
-			if n != SizeOfG1AffineCompressed {
+			if n != SizeOfG1AffineUncompressed {
 				return false
 			}
 			return start.X.Equal(&end.X) && start.Y.Equal(&end.Y)
@@ -301,5 +251,20 @@ func GenFp() gopter.Gen {
 		elmt.MustSetRandom()
 
 		return gopter.NewGenResult(elmt, gopter.NoShrinker)
+	}
+}
+
+// GenBigInt generates a big.Int
+func GenBigInt() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var s big.Int
+		var b [fp.Bytes]byte
+		_, err := crand.Read(b[:])
+		if err != nil {
+			panic(err)
+		}
+		s.SetBytes(b[:])
+		genResult := gopter.NewGenResult(s, gopter.NoShrinker)
+		return genResult
 	}
 }

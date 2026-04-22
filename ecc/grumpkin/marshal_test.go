@@ -7,6 +7,7 @@ package grumpkin
 
 import (
 	"bytes"
+	crand "crypto/rand"
 	"io"
 	"math/big"
 	"math/rand/v2"
@@ -97,6 +98,7 @@ func TestEncoder(t *testing.T) {
 		var outL [][]fr.Element
 		var outM [][]uint64
 		var outN [][][]fr.Element
+
 		toDecode := []any{&outA, &outB, &outC, &outD, &outE, &outG, &outI, &outJ, &outK, &outL, &outM, &outN}
 		for _, v := range toDecode {
 			if err := dec.Decode(v); err != nil {
@@ -153,10 +155,10 @@ func TestEncoder(t *testing.T) {
 	testDecode(t, &bufRaw, encRaw.BytesWritten())
 
 }
-
 func TestIsCompressed(t *testing.T) {
 	t.Parallel()
 	var g1Inf, g1 G1Affine
+
 	g1 = g1GenAff
 
 	{
@@ -301,5 +303,20 @@ func GenFp() gopter.Gen {
 		elmt.MustSetRandom()
 
 		return gopter.NewGenResult(elmt, gopter.NoShrinker)
+	}
+}
+
+// GenBigInt generates a big.Int
+func GenBigInt() gopter.Gen {
+	return func(genParams *gopter.GenParameters) *gopter.GenResult {
+		var s big.Int
+		var b [fp.Bytes]byte
+		_, err := crand.Read(b[:])
+		if err != nil {
+			panic(err)
+		}
+		s.SetBytes(b[:])
+		genResult := gopter.NewGenResult(s, gopter.NoShrinker)
+		return genResult
 	}
 }

@@ -271,12 +271,12 @@ func TestCrossMultiExpG1(t *testing.T) {
 
 }
 
-// _innerMsmG1Reference always do ext jacobian with c == 15
+// _innerMsmG1Reference always do ext jacobian with c == 16
 func _innerMsmG1Reference(p *G1Jac, points []G1Affine, scalars []fr.Element, config ecc.MultiExpConfig) *G1Jac {
 	// partition the scalars
-	digits, _ := partitionScalars(scalars, 15, config.NbTasks)
+	digits, _ := partitionScalars(scalars, 16, config.NbTasks)
 
-	nbChunks := computeNbChunks(15)
+	nbChunks := computeNbChunks(16)
 
 	// for each chunk, spawn one go routine that'll loop through all the scalars in the
 	// corresponding bit-window
@@ -291,11 +291,11 @@ func _innerMsmG1Reference(p *G1Jac, points []G1Affine, scalars []fr.Element, con
 	// the last chunk may be processed with a different method than the rest, as it could be smaller.
 	n := len(points)
 	for j := int(nbChunks - 1); j >= 0; j-- {
-		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC15]
-		go processChunk(uint64(j), chChunks[j], 15, points, digits[j*n:(j+1)*n], nil)
+		processChunk := processChunkG1Jacobian[bucketg1JacExtendedC16]
+		go processChunk(uint64(j), chChunks[j], 16, points, digits[j*n:(j+1)*n], nil)
 	}
 
-	return msmReduceChunkG1Affine(p, int(15), chChunks[:])
+	return msmReduceChunkG1Affine(p, int(16), chChunks[:])
 }
 
 func BenchmarkMultiExpG1(b *testing.B) {
