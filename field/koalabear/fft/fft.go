@@ -183,7 +183,13 @@ func difFFT(a []koalabear.Element, w koalabear.Element, twiddles [][]koalabear.E
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
-		if n == 1<<8 { // nolint QF1003
+		if n == 64 {
+			kerDIFNP_64(a, twiddles, stage-twiddlesStartStage)
+			return
+		} else if n == 128 {
+			kerDIFNP_128(a, twiddles, stage-twiddlesStartStage)
+			return
+		} else if n == 1<<8 { // nolint QF1003
 			kerDIFNP_256(a, twiddles, stage-twiddlesStartStage)
 			return
 		} else if n == 512 {
@@ -269,7 +275,13 @@ func ditFFT(a []koalabear.Element, w koalabear.Element, twiddles [][]koalabear.E
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
-		if n == 1<<8 { // nolint QF1003
+		if n == 64 {
+			kerDITNP_64(a, twiddles, stage-twiddlesStartStage)
+			return
+		} else if n == 128 {
+			kerDITNP_128(a, twiddles, stage-twiddlesStartStage)
+			return
+		} else if n == 1<<8 { // nolint QF1003
 			kerDITNP_256(a, twiddles, stage-twiddlesStartStage)
 			return
 		} else if n == 512 {
@@ -446,4 +458,76 @@ func kerDITNP_1024(a []koalabear.Element, twiddles [][]koalabear.Element, stage 
 	innerDITWithTwiddles(a[512:], twiddles[stage+1], 0, 256, 256)
 	// Final stage: butterfly with m=512
 	innerDITWithTwiddles(a, twiddles[stage], 0, 512, 512)
+}
+
+// kerDIFNP_64 is an unrolled 64-element DIF kernel that eliminates recursion
+// overhead (~63 function calls per FFT). For SIS with logTwoDegree=6, this
+// kernel is called 32768 times per benchmark iteration.
+func kerDIFNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
+	// Stage 0: m=32 (AVX-512 eligible)
+	innerDIFWithTwiddles(a[:64], twiddles[stage+0], 0, 32, 32)
+	// Stage 1: m=16 (AVX-512 eligible)
+	for offset := 0; offset < 64; offset += 32 {
+		innerDIFWithTwiddles(a[offset:offset+32], twiddles[stage+1], 0, 16, 16)
+	}
+	// Stage 2: m=8 (generic)
+	for offset := 0; offset < 64; offset += 16 {
+		innerDIFWithTwiddlesGeneric(a[offset:offset+16], twiddles[stage+2], 0, 8, 8)
+	}
+	// Stage 3: m=4 (generic)
+	for offset := 0; offset < 64; offset += 8 {
+		innerDIFWithTwiddlesGeneric(a[offset:offset+8], twiddles[stage+3], 0, 4, 4)
+	}
+	// Stage 4: m=2 (generic)
+	for offset := 0; offset < 64; offset += 4 {
+		innerDIFWithTwiddlesGeneric(a[offset:offset+4], twiddles[stage+4], 0, 2, 2)
+	}
+	// Stage 5: m=1 (butterfly only)
+	for offset := 0; offset < 64; offset += 2 {
+		koalabear.Butterfly(&a[offset], &a[offset+1])
+	}
+}
+
+// kerDITNP_64 is the DIT counterpart of kerDIFNP_64 (stages in reverse order).
+func kerDITNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
+	// Stage 5: m=1 (butterfly only)
+	for offset := 0; offset < 64; offset += 2 {
+		koalabear.Butterfly(&a[offset], &a[offset+1])
+	}
+	// Stage 4: m=2 (generic)
+	for offset := 0; offset < 64; offset += 4 {
+		innerDITWithTwiddlesGeneric(a[offset:offset+4], twiddles[stage+4], 0, 2, 2)
+	}
+	// Stage 3: m=4 (generic)
+	for offset := 0; offset < 64; offset += 8 {
+		innerDITWithTwiddlesGeneric(a[offset:offset+8], twiddles[stage+3], 0, 4, 4)
+	}
+	// Stage 2: m=8 (generic)
+	for offset := 0; offset < 64; offset += 16 {
+		innerDITWithTwiddlesGeneric(a[offset:offset+16], twiddles[stage+2], 0, 8, 8)
+	}
+	// Stage 1: m=16 (AVX-512 eligible)
+	for offset := 0; offset < 64; offset += 32 {
+		innerDITWithTwiddles(a[offset:offset+32], twiddles[stage+1], 0, 16, 16)
+	}
+	// Stage 0: m=32 (AVX-512 eligible)
+	innerDITWithTwiddles(a[:64], twiddles[stage+0], 0, 32, 32)
+}
+
+// kerDIFNP_128 is an unrolled 128-element DIF kernel.
+func kerDIFNP_128(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
+	// Stage 0: m=64 (AVX-512)
+	innerDIFWithTwiddles(a[:128], twiddles[stage+0], 0, 64, 64)
+	// Stage 1: two halves via 64-element kernel
+	kerDIFNP_64(a[:64], twiddles, stage+1)
+	kerDIFNP_64(a[64:], twiddles, stage+1)
+}
+
+// kerDITNP_128 is the DIT counterpart of kerDIFNP_128.
+func kerDITNP_128(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
+	// Two halves via 64-element kernel first (DIT order)
+	kerDITNP_64(a[:64], twiddles, stage+1)
+	kerDITNP_64(a[64:], twiddles, stage+1)
+	// Final stage: m=64 (AVX-512)
+	innerDITWithTwiddles(a[:128], twiddles[stage+0], 0, 64, 64)
 }
