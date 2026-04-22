@@ -470,17 +470,42 @@ func kerDIFNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage in
 	for offset := 0; offset < 64; offset += 32 {
 		innerDIFWithTwiddles(a[offset:offset+32], twiddles[stage+1], 0, 16, 16)
 	}
-	// Stage 2: m=8 (generic)
-	for offset := 0; offset < 64; offset += 16 {
-		innerDIFWithTwiddlesGeneric(a[offset:offset+16], twiddles[stage+2], 0, 8, 8)
+	// Stages 2-4 inlined: avoids innerDIFWithTwiddlesGeneric function call overhead,
+	// Vector type conversion, and Vector.Mul dispatch (AVX-512 check on <16 elements).
+	{
+		// Stage 2: m=8
+		tw := twiddles[stage+2]
+		for offset := 0; offset < 64; offset += 16 {
+			koalabear.Butterfly(&a[offset], &a[offset+8])
+			for i := 1; i < 8; i++ {
+				koalabear.Butterfly(&a[offset+i], &a[offset+i+8])
+			}
+			for i := 1; i < 8; i++ {
+				a[offset+i+8].Mul(&a[offset+i+8], &tw[i])
+			}
+		}
 	}
-	// Stage 3: m=4 (generic)
-	for offset := 0; offset < 64; offset += 8 {
-		innerDIFWithTwiddlesGeneric(a[offset:offset+8], twiddles[stage+3], 0, 4, 4)
+	{
+		// Stage 3: m=4
+		tw := twiddles[stage+3]
+		for offset := 0; offset < 64; offset += 8 {
+			koalabear.Butterfly(&a[offset], &a[offset+4])
+			for i := 1; i < 4; i++ {
+				koalabear.Butterfly(&a[offset+i], &a[offset+i+4])
+			}
+			for i := 1; i < 4; i++ {
+				a[offset+i+4].Mul(&a[offset+i+4], &tw[i])
+			}
+		}
 	}
-	// Stage 4: m=2 (generic)
-	for offset := 0; offset < 64; offset += 4 {
-		innerDIFWithTwiddlesGeneric(a[offset:offset+4], twiddles[stage+4], 0, 2, 2)
+	{
+		// Stage 4: m=2 (DIF: all butterflies first, then multiply)
+		tw := twiddles[stage+4]
+		for offset := 0; offset < 64; offset += 4 {
+			koalabear.Butterfly(&a[offset], &a[offset+2])
+			koalabear.Butterfly(&a[offset+1], &a[offset+3])
+			a[offset+3].Mul(&a[offset+3], &tw[1])
+		}
 	}
 	// Stage 5: m=1 (butterfly only)
 	for offset := 0; offset < 64; offset += 2 {
@@ -494,17 +519,41 @@ func kerDITNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage in
 	for offset := 0; offset < 64; offset += 2 {
 		koalabear.Butterfly(&a[offset], &a[offset+1])
 	}
-	// Stage 4: m=2 (generic)
-	for offset := 0; offset < 64; offset += 4 {
-		innerDITWithTwiddlesGeneric(a[offset:offset+4], twiddles[stage+4], 0, 2, 2)
+	// Stages 4-2 inlined (DIT: multiply first, then butterfly)
+	{
+		// Stage 4: m=2 (DIT: multiply first, then all butterflies)
+		tw := twiddles[stage+4]
+		for offset := 0; offset < 64; offset += 4 {
+			a[offset+3].Mul(&a[offset+3], &tw[1])
+			koalabear.Butterfly(&a[offset], &a[offset+2])
+			koalabear.Butterfly(&a[offset+1], &a[offset+3])
+		}
 	}
-	// Stage 3: m=4 (generic)
-	for offset := 0; offset < 64; offset += 8 {
-		innerDITWithTwiddlesGeneric(a[offset:offset+8], twiddles[stage+3], 0, 4, 4)
+	{
+		// Stage 3: m=4
+		tw := twiddles[stage+3]
+		for offset := 0; offset < 64; offset += 8 {
+			for i := 1; i < 4; i++ {
+				a[offset+i+4].Mul(&a[offset+i+4], &tw[i])
+			}
+			koalabear.Butterfly(&a[offset], &a[offset+4])
+			for i := 1; i < 4; i++ {
+				koalabear.Butterfly(&a[offset+i], &a[offset+i+4])
+			}
+		}
 	}
-	// Stage 2: m=8 (generic)
-	for offset := 0; offset < 64; offset += 16 {
-		innerDITWithTwiddlesGeneric(a[offset:offset+16], twiddles[stage+2], 0, 8, 8)
+	{
+		// Stage 2: m=8
+		tw := twiddles[stage+2]
+		for offset := 0; offset < 64; offset += 16 {
+			for i := 1; i < 8; i++ {
+				a[offset+i+8].Mul(&a[offset+i+8], &tw[i])
+			}
+			koalabear.Butterfly(&a[offset], &a[offset+8])
+			for i := 1; i < 8; i++ {
+				koalabear.Butterfly(&a[offset+i], &a[offset+i+8])
+			}
+		}
 	}
 	// Stage 1: m=16 (AVX-512 eligible)
 	for offset := 0; offset < 64; offset += 32 {
