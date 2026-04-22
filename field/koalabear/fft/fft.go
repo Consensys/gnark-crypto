@@ -67,11 +67,17 @@ func (domain *Domain) FFT(a []koalabear.Element, decimation Decimation, opts ...
 				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 			}
 		}
-		parallel.Execute(len(a), func(start, end int) {
-			v1 := koalabear.Vector(a[start:end])
-			v2 := koalabear.Vector(cosetTable[start:end])
-			v1.Mul(v1, v2)
-		}, opt.nbTasks)
+		// Avoid parallel.Execute closure overhead for single-threaded case.
+		if opt.nbTasks <= 1 {
+			v := koalabear.Vector(a)
+			v.Mul(v, koalabear.Vector(cosetTable[:len(a)]))
+		} else {
+			parallel.Execute(len(a), func(start, end int) {
+				v1 := koalabear.Vector(a[start:end])
+				v2 := koalabear.Vector(cosetTable[start:end])
+				v1.Mul(v1, v2)
+			}, opt.nbTasks)
+		}
 	}
 
 	twiddles := domain.twiddles
@@ -136,11 +142,15 @@ func (domain *Domain) FFTInverse(a []koalabear.Element, decimation Decimation, o
 
 	// scale by CardinalityInv
 	if !opt.coset {
-		// Use vectorized scalar multiply instead of element-by-element loop
-		parallel.Execute(len(a), func(start, end int) {
-			v := koalabear.Vector(a[start:end])
+		if opt.nbTasks <= 1 {
+			v := koalabear.Vector(a)
 			v.ScalarMul(v, &domain.CardinalityInv)
-		}, opt.nbTasks)
+		} else {
+			parallel.Execute(len(a), func(start, end int) {
+				v := koalabear.Vector(a[start:end])
+				v.ScalarMul(v, &domain.CardinalityInv)
+			}, opt.nbTasks)
+		}
 		return
 	}
 	var cosetTableInv []koalabear.Element
@@ -166,11 +176,17 @@ func (domain *Domain) FFTInverse(a []koalabear.Element, decimation Decimation, o
 			utils.BitReverse(cosetTableInv)
 		}
 	}
-	parallel.Execute(len(a), func(start, end int) {
-		v := koalabear.Vector(a[start:end])
-		v.Mul(v, koalabear.Vector(cosetTableInv[start:end]))
+	if opt.nbTasks <= 1 {
+		v := koalabear.Vector(a)
+		v.Mul(v, koalabear.Vector(cosetTableInv[:len(a)]))
 		v.ScalarMul(v, &domain.CardinalityInv)
-	}, opt.nbTasks)
+	} else {
+		parallel.Execute(len(a), func(start, end int) {
+			v := koalabear.Vector(a[start:end])
+			v.Mul(v, koalabear.Vector(cosetTableInv[start:end]))
+			v.ScalarMul(v, &domain.CardinalityInv)
+		}, opt.nbTasks)
+	}
 
 }
 
