@@ -1,7 +1,7 @@
 // Copyright 2020-2025 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
-// Package ecc provides bls12-381, bls12-377, bn254, bw6-761, bls24-315, bls24-317, bw6-633, secp256k1, secp256r1, grumpkin and stark-curve elliptic curves implementations.
+// Package ecc provides bls12-381, bls12-377, bn254, bw6-761, bls24-315, bls24-317, bw6-633, secp256k1, secp256r1, grumpkin, stark-curve and kb8 elliptic curves implementations.
 //
 // Also
 //
@@ -32,6 +32,7 @@ const (
 	SECP256K1
 	GRUMPKIN
 	SECP256R1
+	KB8
 )
 
 // MultiExpConfig enables to set optional configuration attribute to a call to MultiExp

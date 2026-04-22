@@ -153,7 +153,9 @@ func generateField(F *config.Field, outputDir, asmDirIncludePath, hashArm64, has
 
 	g.Go(generate("vector_purego.go", []string{"element/vectoropspurego.go.tmpl"}, withBuildTag(pureGoVectorBuildTag)))
 
-	if F.UseAddChain {
+	// koalabear keeps custom fixed-exponent helpers alongside its recursive extension cube-root stack.
+	// The generic field template doesn't model those helpers yet, so generation must leave element_exp.go intact.
+	if F.UseAddChain && F.PackageName != "koalabear" {
 		g.Go(generate("element_exp.go", []string{"element/fixedexp.go.tmpl"}))
 	}
 

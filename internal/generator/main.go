@@ -92,6 +92,9 @@ func main() {
 	// files with the "DO NOT EDIT" header are removed; hand-written files
 	// (without this header) are preserved.
 	for _, conf := range config.Curves {
+		if conf.Equal(config.KB8) {
+			continue
+		}
 		curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 		cleanGeneratedFiles(curveDir)
 	}
@@ -135,7 +138,7 @@ func main() {
 			}
 
 			// fp
-			{
+			if !conf.Equal(config.KB8) {
 				outputDir := filepath.Join(curveDir, "fp")
 				relAsmDir, err := filepath.Rel(outputDir, asmDirBuildPath)
 				assertNoError(err)
@@ -161,6 +164,13 @@ func main() {
 				}
 
 				assertNoError(field.GenerateFF(conf.Fr, outputDir, frOpts...))
+			}
+
+			// preserve the checked-in kb8 ECC package; the shared ECC generator remains
+			// master-neutral for existing curves, while kb8 keeps its hand-maintained
+			// field-wrapper, point, marshal, and multiexp files.
+			if conf.Equal(config.KB8) {
+				return
 			}
 
 			// generate ecdsa

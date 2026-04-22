@@ -19,11 +19,21 @@ func generateExtensions(F *config.Field, outputDir string) error {
 
 	outputDir = filepath.Join(outputDir, "extensions")
 
+	isKoalaBear := F.Q[0] == 2130706433
+	isBabyBear := F.Q[0] == 2013265921
+
 	entries_ext2 := []bavard.Entry{
 		{File: filepath.Join(outputDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
 		{File: filepath.Join(outputDir, "utils.go"), Templates: []string{"utils.go.tmpl"}},
-		{File: filepath.Join(outputDir, "e2.go"), Templates: []string{"e2.go.tmpl"}},
-		{File: filepath.Join(outputDir, "e2_test.go"), Templates: []string{"e2_test.go.tmpl"}},
+	}
+	// koalabear has a hand-maintained recursive cube-root stack in its extension files.
+	// The generic extension templates don't reproduce it yet, so generation only refreshes
+	// the shared support files and leaves e2/e4/e8 implementation files untouched.
+	if !isKoalaBear {
+		entries_ext2 = append(entries_ext2,
+			bavard.Entry{File: filepath.Join(outputDir, "e2.go"), Templates: []string{"e2.go.tmpl"}},
+			bavard.Entry{File: filepath.Join(outputDir, "e2_test.go"), Templates: []string{"e2_test.go.tmpl"}},
+		)
 	}
 
 	type extensionsTemplateData struct {
@@ -35,8 +45,6 @@ func generateExtensions(F *config.Field, outputDir string) error {
 		IsBabyBear       bool
 	}
 
-	isKoalaBear := F.Q[0] == 2130706433
-	isBabyBear := F.Q[0] == 2013265921
 	data := &extensionsTemplateData{
 		FF:               F.PackageName,
 		FieldPackagePath: fieldImportPath,
@@ -54,9 +62,13 @@ func generateExtensions(F *config.Field, outputDir string) error {
 	}
 	if F.F31 {
 		entries_ext4 := []bavard.Entry{
-			{File: filepath.Join(outputDir, "e4.go"), Templates: []string{"e4.go.tmpl"}},
 			{File: filepath.Join(outputDir, "vector.go"), Templates: []string{"vector.go.tmpl"}},
-			{File: filepath.Join(outputDir, "e4_test.go"), Templates: []string{"e4_test.go.tmpl"}},
+		}
+		if !isKoalaBear {
+			entries_ext4 = append(entries_ext4,
+				bavard.Entry{File: filepath.Join(outputDir, "e4.go"), Templates: []string{"e4.go.tmpl"}},
+				bavard.Entry{File: filepath.Join(outputDir, "e4_test.go"), Templates: []string{"e4_test.go.tmpl"}},
+			)
 		}
 
 		if isKoalaBear {
