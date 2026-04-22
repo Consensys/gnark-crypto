@@ -187,7 +187,7 @@ func (r *RSis) Hash(v, res []koalabear.Element) error {
 		k := make([]koalabear.Element, r.Degree)
 		it := NewLimbIterator(&VectorIterator{v: v}, r.LogTwoBound/8)
 		for i := range len(r.Ag) {
-			r.InnerHash(it, res, k, r.kz, i, mask)
+			r.InnerHash(&it, res, k, r.kz, i, mask)
 		}
 	}
 
@@ -281,39 +281,44 @@ func (vi *VectorIterator) Next() (koalabear.Element, bool) {
 }
 
 // LimbIterator iterates over a stream of field elements, limb by limb.
+// Embeds a direct vector reference instead of an ElementIterator interface
+// to avoid heap-escaping the VectorIterator through the interface.
 type LimbIterator struct {
-	it       ElementIterator
+	v        koalabear.Vector        // direct slice — no interface dispatch, no heap escape
+	vi       int                     // position in v
 	buf      [koalabear.Bytes]byte
 	j        int // position in buf
 	limbSize int // 1 or 2 bytes per limb
 }
 
-// NewLimbIterator creates a new LimbIterator
-// it is an iterator over a stream of field elements
-// The elements are interpreted in little endian.
-// The limb is also in little endian.
-func NewLimbIterator(it ElementIterator, limbSize int) *LimbIterator {
+// NewLimbIterator creates a new LimbIterator from a vector and limb size.
+// Returns by value to avoid heap allocation.
+func NewLimbIterator(it ElementIterator, limbSize int) LimbIterator {
 	if limbSize != 1 && limbSize != 2 {
 		panic("unsupported limb size")
 	}
-	return &LimbIterator{
-		it:       it,
+	// Extract the vector from the interface to embed directly.
+	vi, ok := it.(*VectorIterator)
+	if !ok {
+		panic("LimbIterator requires *VectorIterator")
+	}
+	return LimbIterator{
+		v:        vi.v,
+		vi:       vi.i,
 		j:        koalabear.Bytes,
 		limbSize: limbSize,
 	}
 }
 
 // NextLimb returns the next limb of the vector.
-// Uses a branch on limbSize instead of an indirect function pointer call
-// to avoid the ~3-5 cycle overhead per indirect call.
 func (vr *LimbIterator) NextLimb() (uint32, bool) {
 	if vr.j >= koalabear.Bytes {
-		next, ok := vr.it.Next()
-		if !ok {
+		if vr.vi >= len(vr.v) {
 			return 0, false
 		}
 		vr.j = 0
-		koalabear.LittleEndian.PutElement(&vr.buf, next)
+		koalabear.LittleEndian.PutElement(&vr.buf, vr.v[vr.vi])
+		vr.vi++
 	}
 	if vr.limbSize == 2 {
 		r := uint32(binary.LittleEndian.Uint16(vr.buf[vr.j:]))
@@ -325,9 +330,11 @@ func (vr *LimbIterator) NextLimb() (uint32, bool) {
 	return r, true
 }
 
-// Reset resets the iterator with a new ElementIterator.
+// Reset resets the iterator with a new vector.
 func (vr *LimbIterator) Reset(it ElementIterator) {
-	vr.it = it
+	vi := it.(*VectorIterator)
+	vr.v = vi.v
+	vr.vi = vi.i
 	vr.j = koalabear.Bytes
 }
 
