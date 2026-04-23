@@ -67,11 +67,17 @@ func (domain *Domain) FFT(a []koalabear.Element, decimation Decimation, opts ...
 				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 			}
 		}
-		parallel.Execute(len(a), func(start, end int) {
-			v1 := koalabear.Vector(a[start:end])
-			v2 := koalabear.Vector(cosetTable[start:end])
-			v1.Mul(v1, v2)
-		}, opt.nbTasks)
+		// Avoid parallel.Execute closure overhead for single-threaded case.
+		if opt.nbTasks <= 1 {
+			v := koalabear.Vector(a)
+			v.Mul(v, koalabear.Vector(cosetTable[:len(a)]))
+		} else {
+			parallel.Execute(len(a), func(start, end int) {
+				v1 := koalabear.Vector(a[start:end])
+				v2 := koalabear.Vector(cosetTable[start:end])
+				v1.Mul(v1, v2)
+			}, opt.nbTasks)
+		}
 	}
 
 	twiddles := domain.twiddles
@@ -136,11 +142,15 @@ func (domain *Domain) FFTInverse(a []koalabear.Element, decimation Decimation, o
 
 	// scale by CardinalityInv
 	if !opt.coset {
-		// Use vectorized scalar multiply instead of element-by-element loop
-		parallel.Execute(len(a), func(start, end int) {
-			v := koalabear.Vector(a[start:end])
+		if opt.nbTasks <= 1 {
+			v := koalabear.Vector(a)
 			v.ScalarMul(v, &domain.CardinalityInv)
-		}, opt.nbTasks)
+		} else {
+			parallel.Execute(len(a), func(start, end int) {
+				v := koalabear.Vector(a[start:end])
+				v.ScalarMul(v, &domain.CardinalityInv)
+			}, opt.nbTasks)
+		}
 		return
 	}
 	var cosetTableInv []koalabear.Element
@@ -166,11 +176,17 @@ func (domain *Domain) FFTInverse(a []koalabear.Element, decimation Decimation, o
 			utils.BitReverse(cosetTableInv)
 		}
 	}
-	parallel.Execute(len(a), func(start, end int) {
-		v := koalabear.Vector(a[start:end])
-		v.Mul(v, koalabear.Vector(cosetTableInv[start:end]))
+	if opt.nbTasks <= 1 {
+		v := koalabear.Vector(a)
+		v.Mul(v, koalabear.Vector(cosetTableInv[:len(a)]))
 		v.ScalarMul(v, &domain.CardinalityInv)
-	}, opt.nbTasks)
+	} else {
+		parallel.Execute(len(a), func(start, end int) {
+			v := koalabear.Vector(a[start:end])
+			v.Mul(v, koalabear.Vector(cosetTableInv[start:end]))
+			v.ScalarMul(v, &domain.CardinalityInv)
+		}, opt.nbTasks)
+	}
 
 }
 
@@ -183,7 +199,13 @@ func difFFT(a []koalabear.Element, w koalabear.Element, twiddles [][]koalabear.E
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
-		if n == 1<<8 { // nolint QF1003
+		if n == 64 {
+			kerDIFNP_64(a, twiddles, stage-twiddlesStartStage)
+			return
+		} else if n == 128 {
+			kerDIFNP_128(a, twiddles, stage-twiddlesStartStage)
+			return
+		} else if n == 1<<8 { // nolint QF1003
 			kerDIFNP_256(a, twiddles, stage-twiddlesStartStage)
 			return
 		} else if n == 512 {
@@ -269,7 +291,13 @@ func ditFFT(a []koalabear.Element, w koalabear.Element, twiddles [][]koalabear.E
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
-		if n == 1<<8 { // nolint QF1003
+		if n == 64 {
+			kerDITNP_64(a, twiddles, stage-twiddlesStartStage)
+			return
+		} else if n == 128 {
+			kerDITNP_128(a, twiddles, stage-twiddlesStartStage)
+			return
+		} else if n == 1<<8 { // nolint QF1003
 			kerDITNP_256(a, twiddles, stage-twiddlesStartStage)
 			return
 		} else if n == 512 {
@@ -446,4 +474,144 @@ func kerDITNP_1024(a []koalabear.Element, twiddles [][]koalabear.Element, stage 
 	innerDITWithTwiddles(a[512:], twiddles[stage+1], 0, 256, 256)
 	// Final stage: butterfly with m=512
 	innerDITWithTwiddles(a, twiddles[stage], 0, 512, 512)
+}
+
+// kerDIFNP_64 is an unrolled 64-element DIF kernel that eliminates recursion
+// overhead (~63 function calls per FFT). For SIS with logTwoDegree=6, this
+// kernel is called 32768 times per benchmark iteration.
+func kerDIFNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
+	// Stage 0: m=32 (AVX-512 eligible)
+	innerDIFWithTwiddles(a[:64], twiddles[stage+0], 0, 32, 32)
+	// Stage 1: m=16 (AVX-512 eligible)
+	for offset := 0; offset < 64; offset += 32 {
+		innerDIFWithTwiddles(a[offset:offset+32], twiddles[stage+1], 0, 16, 16)
+	}
+	// Stages 2-4 inlined: avoids innerDIFWithTwiddlesGeneric function call overhead,
+	// Vector type conversion, and Vector.Mul dispatch (AVX-512 check on <16 elements).
+	{
+		// Stage 2: m=8, 2x unrolled for ILP across Montgomery multiply chains.
+		tw := twiddles[stage+2]
+		// Process 2 blocks at a time (0,16 and 16,32 then 32,48 and 48,64)
+		for offset := 0; offset < 64; offset += 32 {
+			o1, o2 := offset, offset+16
+			// All butterflies first (both blocks)
+			koalabear.Butterfly(&a[o1], &a[o1+8])
+			koalabear.Butterfly(&a[o2], &a[o2+8])
+			for i := 1; i < 8; i++ {
+				koalabear.Butterfly(&a[o1+i], &a[o1+i+8])
+				koalabear.Butterfly(&a[o2+i], &a[o2+i+8])
+			}
+			// Interleaved twiddle multiplies — two independent chains for ILP
+			for i := 1; i < 8; i++ {
+				a[o1+i+8].Mul(&a[o1+i+8], &tw[i])
+				a[o2+i+8].Mul(&a[o2+i+8], &tw[i])
+			}
+		}
+	}
+	{
+		// Stage 3: m=4, 2x unrolled
+		tw := twiddles[stage+3]
+		for offset := 0; offset < 64; offset += 16 {
+			o1, o2 := offset, offset+8
+			koalabear.Butterfly(&a[o1], &a[o1+4])
+			koalabear.Butterfly(&a[o2], &a[o2+4])
+			for i := 1; i < 4; i++ {
+				koalabear.Butterfly(&a[o1+i], &a[o1+i+4])
+				koalabear.Butterfly(&a[o2+i], &a[o2+i+4])
+			}
+			for i := 1; i < 4; i++ {
+				a[o1+i+4].Mul(&a[o1+i+4], &tw[i])
+				a[o2+i+4].Mul(&a[o2+i+4], &tw[i])
+			}
+		}
+	}
+	{
+		// Stage 4: m=2 (DIF: all butterflies first, then multiply)
+		tw := twiddles[stage+4]
+		for offset := 0; offset < 64; offset += 4 {
+			koalabear.Butterfly(&a[offset], &a[offset+2])
+			koalabear.Butterfly(&a[offset+1], &a[offset+3])
+			a[offset+3].Mul(&a[offset+3], &tw[1])
+		}
+	}
+	// Stage 5: m=1 (butterfly only)
+	for offset := 0; offset < 64; offset += 2 {
+		koalabear.Butterfly(&a[offset], &a[offset+1])
+	}
+}
+
+// kerDITNP_64 is the DIT counterpart of kerDIFNP_64 (stages in reverse order).
+func kerDITNP_64(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
+	// Stage 5: m=1 (butterfly only)
+	for offset := 0; offset < 64; offset += 2 {
+		koalabear.Butterfly(&a[offset], &a[offset+1])
+	}
+	// Stages 4-2 inlined (DIT: multiply first, then butterfly)
+	{
+		// Stage 4: m=2 (DIT: multiply first, then all butterflies)
+		tw := twiddles[stage+4]
+		for offset := 0; offset < 64; offset += 4 {
+			a[offset+3].Mul(&a[offset+3], &tw[1])
+			koalabear.Butterfly(&a[offset], &a[offset+2])
+			koalabear.Butterfly(&a[offset+1], &a[offset+3])
+		}
+	}
+	{
+		// Stage 3: m=4, 2x unrolled (DIT: multiply first, then butterfly)
+		tw := twiddles[stage+3]
+		for offset := 0; offset < 64; offset += 16 {
+			o1, o2 := offset, offset+8
+			for i := 1; i < 4; i++ {
+				a[o1+i+4].Mul(&a[o1+i+4], &tw[i])
+				a[o2+i+4].Mul(&a[o2+i+4], &tw[i])
+			}
+			koalabear.Butterfly(&a[o1], &a[o1+4])
+			koalabear.Butterfly(&a[o2], &a[o2+4])
+			for i := 1; i < 4; i++ {
+				koalabear.Butterfly(&a[o1+i], &a[o1+i+4])
+				koalabear.Butterfly(&a[o2+i], &a[o2+i+4])
+			}
+		}
+	}
+	{
+		// Stage 2: m=8, 2x unrolled (DIT: multiply first, then butterfly)
+		tw := twiddles[stage+2]
+		for offset := 0; offset < 64; offset += 32 {
+			o1, o2 := offset, offset+16
+			for i := 1; i < 8; i++ {
+				a[o1+i+8].Mul(&a[o1+i+8], &tw[i])
+				a[o2+i+8].Mul(&a[o2+i+8], &tw[i])
+			}
+			koalabear.Butterfly(&a[o1], &a[o1+8])
+			koalabear.Butterfly(&a[o2], &a[o2+8])
+			for i := 1; i < 8; i++ {
+				koalabear.Butterfly(&a[o1+i], &a[o1+i+8])
+				koalabear.Butterfly(&a[o2+i], &a[o2+i+8])
+			}
+		}
+	}
+	// Stage 1: m=16 (AVX-512 eligible)
+	for offset := 0; offset < 64; offset += 32 {
+		innerDITWithTwiddles(a[offset:offset+32], twiddles[stage+1], 0, 16, 16)
+	}
+	// Stage 0: m=32 (AVX-512 eligible)
+	innerDITWithTwiddles(a[:64], twiddles[stage+0], 0, 32, 32)
+}
+
+// kerDIFNP_128 is an unrolled 128-element DIF kernel.
+func kerDIFNP_128(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
+	// Stage 0: m=64 (AVX-512)
+	innerDIFWithTwiddles(a[:128], twiddles[stage+0], 0, 64, 64)
+	// Stage 1: two halves via 64-element kernel
+	kerDIFNP_64(a[:64], twiddles, stage+1)
+	kerDIFNP_64(a[64:], twiddles, stage+1)
+}
+
+// kerDITNP_128 is the DIT counterpart of kerDIFNP_128.
+func kerDITNP_128(a []koalabear.Element, twiddles [][]koalabear.Element, stage int) {
+	// Two halves via 64-element kernel first (DIT order)
+	kerDITNP_64(a[:64], twiddles, stage+1)
+	kerDITNP_64(a[64:], twiddles, stage+1)
+	// Final stage: m=64 (AVX-512)
+	innerDITWithTwiddles(a[:128], twiddles[stage+0], 0, 64, 64)
 }
