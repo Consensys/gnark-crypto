@@ -337,15 +337,3 @@ func (vr *LimbIterator) Reset(it ElementIterator) {
 	vr.vi = vi.i
 	vr.j = koalabear.Bytes
 }
-
-func nextUint8(buf []byte, pos *int) uint32 {
-	r := uint32(buf[*pos])
-	*pos++
-	return r
-}
-
-func nextUint16(buf []byte, pos *int) uint32 {
-	r := uint32(binary.LittleEndian.Uint16(buf[*pos:]))
-	*pos += 2
-	return r
-}
