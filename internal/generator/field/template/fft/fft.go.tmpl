@@ -287,26 +287,27 @@ func difFFT(a []{{ .FF }}.Element, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.E
 	if n == 1 {
 		return
 	} else if  stage >= twiddlesStartStage {
-		if n == 64 {
+		switch n {
+		case 64:
 			kerDIFNP_64(a, twiddles, stage-twiddlesStartStage)
 			return
-		} else if n == 128 {
+		case 128:
 			kerDIFNP_128(a, twiddles, stage-twiddlesStartStage)
 			return
-		} else
 		{{- range $ki, $klog2 :=  $.Kernels}}
-			{{- if ne $ki 0}} else {{- end}} if n == 1 << {{$klog2}} {	// nolint QF1003
-				{{- $ksize := shl 1 $klog2}}
-				kerDIFNP_{{$ksize}}(a, twiddles, stage-twiddlesStartStage)
-				return
-			}
-		{{- end }}{{- if .HasASMKernel}} else if n == 512 {
+		case 1 << {{$klog2}}:
+			{{- $ksize := shl 1 $klog2}}
+			kerDIFNP_{{$ksize}}(a, twiddles, stage-twiddlesStartStage)
+			return
+		{{- end }}{{- if .HasASMKernel}}
+		case 512:
 			kerDIFNP_512(a, twiddles, stage-twiddlesStartStage)
 			return
-		} else if n == 1024 {
+		case 1024:
 			kerDIFNP_1024(a, twiddles, stage-twiddlesStartStage)
 			return
-		}{{- end}}
+		{{- end}}
+		}
 	}
 	m := n >> 1
 
@@ -394,26 +395,27 @@ func ditFFT(a []{{ .FF }}.Element, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.E
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
-		if n == 64 {
+		switch n {
+		case 64:
 			kerDITNP_64(a, twiddles, stage-twiddlesStartStage)
 			return
-		} else if n == 128 {
+		case 128:
 			kerDITNP_128(a, twiddles, stage-twiddlesStartStage)
 			return
-		} else
 		{{- range $ki, $klog2 :=  $.Kernels}}
-			{{- if ne $ki 0}} else {{- end}} if n == 1 << {{$klog2}} { // nolint QF1003
-				{{- $ksize := shl 1 $klog2}}
-				kerDITNP_{{$ksize}}(a, twiddles, stage-twiddlesStartStage)
-				return
-			}
-		{{- end }}{{- if .HasASMKernel}} else if n == 512 {
+		case 1 << {{$klog2}}:
+			{{- $ksize := shl 1 $klog2}}
+			kerDITNP_{{$ksize}}(a, twiddles, stage-twiddlesStartStage)
+			return
+		{{- end }}{{- if .HasASMKernel}}
+		case 512:
 			kerDITNP_512(a, twiddles, stage-twiddlesStartStage)
 			return
-		} else if n == 1024 {
+		case 1024:
 			kerDITNP_1024(a, twiddles, stage-twiddlesStartStage)
 			return
-		}{{- end}}
+		{{- end}}
+		}
 	}
 	
 	m := n >> 1
