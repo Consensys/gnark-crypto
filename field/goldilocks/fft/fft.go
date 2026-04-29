@@ -202,10 +202,17 @@ func difFFT(a []goldilocks.Element, w goldilocks.Element, twiddles [][]goldilock
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
-		if n == 1<<5 { // nolint QF1003
+		switch n {
+		case 64:
+			kerDIFNP_64(a, twiddles, stage-twiddlesStartStage)
+			return
+		case 128:
+			kerDIFNP_128(a, twiddles, stage-twiddlesStartStage)
+			return
+		case 1 << 5:
 			kerDIFNP_32(a, twiddles, stage-twiddlesStartStage)
 			return
-		} else if n == 1<<8 { // nolint QF1003
+		case 1 << 8:
 			kerDIFNP_256(a, twiddles, stage-twiddlesStartStage)
 			return
 		}
@@ -291,10 +298,17 @@ func ditFFT(a []goldilocks.Element, w goldilocks.Element, twiddles [][]goldilock
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
-		if n == 1<<5 { // nolint QF1003
+		switch n {
+		case 64:
+			kerDITNP_64(a, twiddles, stage-twiddlesStartStage)
+			return
+		case 128:
+			kerDITNP_128(a, twiddles, stage-twiddlesStartStage)
+			return
+		case 1 << 5:
 			kerDITNP_32(a, twiddles, stage-twiddlesStartStage)
 			return
-		} else if n == 1<<8 { // nolint QF1003
+		case 1 << 8:
 			kerDITNP_256(a, twiddles, stage-twiddlesStartStage)
 			return
 		}
@@ -460,4 +474,137 @@ func kerDITNP_256generic(a []goldilocks.Element, twiddles [][]goldilocks.Element
 		innerDITWithTwiddlesGeneric(a[offset:offset+128], twiddles[stage+1], 0, 64, 64)
 	}
 	innerDITWithTwiddlesGeneric(a[:256], twiddles[stage+0], 0, 128, 128)
+}
+
+// kerDIFNP_64 is an unrolled 64-element DIF kernel that avoids recursion overhead
+// for workloads dominated by small FFTs.
+func kerDIFNP_64(a []goldilocks.Element, twiddles [][]goldilocks.Element, stage int) {
+	// Stage 0: m=32
+	innerDIFWithTwiddles(a[:64], twiddles[stage+0], 0, 32, 32)
+	// Stage 1: m=16
+	for offset := 0; offset < 64; offset += 32 {
+		innerDIFWithTwiddles(a[offset:offset+32], twiddles[stage+1], 0, 16, 16)
+	}
+	// Stages 2-4 are inlined to avoid function call and Vector dispatch overhead.
+	{
+		// Stage 2: m=8, 2x unrolled for ILP across Montgomery multiply chains.
+		tw := twiddles[stage+2]
+		for offset := 0; offset < 64; offset += 32 {
+			o1, o2 := offset, offset+16
+			goldilocks.Butterfly(&a[o1], &a[o1+8])
+			goldilocks.Butterfly(&a[o2], &a[o2+8])
+			for i := 1; i < 8; i++ {
+				goldilocks.Butterfly(&a[o1+i], &a[o1+i+8])
+				goldilocks.Butterfly(&a[o2+i], &a[o2+i+8])
+			}
+			for i := 1; i < 8; i++ {
+				a[o1+i+8].Mul(&a[o1+i+8], &tw[i])
+				a[o2+i+8].Mul(&a[o2+i+8], &tw[i])
+			}
+		}
+	}
+	{
+		// Stage 3: m=4, 2x unrolled.
+		tw := twiddles[stage+3]
+		for offset := 0; offset < 64; offset += 16 {
+			o1, o2 := offset, offset+8
+			goldilocks.Butterfly(&a[o1], &a[o1+4])
+			goldilocks.Butterfly(&a[o2], &a[o2+4])
+			for i := 1; i < 4; i++ {
+				goldilocks.Butterfly(&a[o1+i], &a[o1+i+4])
+				goldilocks.Butterfly(&a[o2+i], &a[o2+i+4])
+			}
+			for i := 1; i < 4; i++ {
+				a[o1+i+4].Mul(&a[o1+i+4], &tw[i])
+				a[o2+i+4].Mul(&a[o2+i+4], &tw[i])
+			}
+		}
+	}
+	{
+		// Stage 4: m=2 (DIF: all butterflies first, then multiply).
+		tw := twiddles[stage+4]
+		for offset := 0; offset < 64; offset += 4 {
+			goldilocks.Butterfly(&a[offset], &a[offset+2])
+			goldilocks.Butterfly(&a[offset+1], &a[offset+3])
+			a[offset+3].Mul(&a[offset+3], &tw[1])
+		}
+	}
+	// Stage 5: m=1 (butterfly only).
+	for offset := 0; offset < 64; offset += 2 {
+		goldilocks.Butterfly(&a[offset], &a[offset+1])
+	}
+}
+
+// kerDITNP_64 is the DIT counterpart of kerDIFNP_64.
+func kerDITNP_64(a []goldilocks.Element, twiddles [][]goldilocks.Element, stage int) {
+	// Stage 5: m=1 (butterfly only).
+	for offset := 0; offset < 64; offset += 2 {
+		goldilocks.Butterfly(&a[offset], &a[offset+1])
+	}
+	// Stages 4-2 are inlined (DIT: multiply first, then butterfly).
+	{
+		// Stage 4: m=2.
+		tw := twiddles[stage+4]
+		for offset := 0; offset < 64; offset += 4 {
+			a[offset+3].Mul(&a[offset+3], &tw[1])
+			goldilocks.Butterfly(&a[offset], &a[offset+2])
+			goldilocks.Butterfly(&a[offset+1], &a[offset+3])
+		}
+	}
+	{
+		// Stage 3: m=4, 2x unrolled.
+		tw := twiddles[stage+3]
+		for offset := 0; offset < 64; offset += 16 {
+			o1, o2 := offset, offset+8
+			for i := 1; i < 4; i++ {
+				a[o1+i+4].Mul(&a[o1+i+4], &tw[i])
+				a[o2+i+4].Mul(&a[o2+i+4], &tw[i])
+			}
+			goldilocks.Butterfly(&a[o1], &a[o1+4])
+			goldilocks.Butterfly(&a[o2], &a[o2+4])
+			for i := 1; i < 4; i++ {
+				goldilocks.Butterfly(&a[o1+i], &a[o1+i+4])
+				goldilocks.Butterfly(&a[o2+i], &a[o2+i+4])
+			}
+		}
+	}
+	{
+		// Stage 2: m=8, 2x unrolled.
+		tw := twiddles[stage+2]
+		for offset := 0; offset < 64; offset += 32 {
+			o1, o2 := offset, offset+16
+			for i := 1; i < 8; i++ {
+				a[o1+i+8].Mul(&a[o1+i+8], &tw[i])
+				a[o2+i+8].Mul(&a[o2+i+8], &tw[i])
+			}
+			goldilocks.Butterfly(&a[o1], &a[o1+8])
+			goldilocks.Butterfly(&a[o2], &a[o2+8])
+			for i := 1; i < 8; i++ {
+				goldilocks.Butterfly(&a[o1+i], &a[o1+i+8])
+				goldilocks.Butterfly(&a[o2+i], &a[o2+i+8])
+			}
+		}
+	}
+	// Stage 1: m=16.
+	for offset := 0; offset < 64; offset += 32 {
+		innerDITWithTwiddles(a[offset:offset+32], twiddles[stage+1], 0, 16, 16)
+	}
+	// Stage 0: m=32.
+	innerDITWithTwiddles(a[:64], twiddles[stage+0], 0, 32, 32)
+}
+
+// kerDIFNP_128 is an unrolled 128-element DIF kernel.
+func kerDIFNP_128(a []goldilocks.Element, twiddles [][]goldilocks.Element, stage int) {
+	// Stage 0: m=64.
+	innerDIFWithTwiddles(a[:128], twiddles[stage+0], 0, 64, 64)
+	kerDIFNP_64(a[:64], twiddles, stage+1)
+	kerDIFNP_64(a[64:], twiddles, stage+1)
+}
+
+// kerDITNP_128 is the DIT counterpart of kerDIFNP_128.
+func kerDITNP_128(a []goldilocks.Element, twiddles [][]goldilocks.Element, stage int) {
+	kerDITNP_64(a[:64], twiddles, stage+1)
+	kerDITNP_64(a[64:], twiddles, stage+1)
+	// Final stage: m=64.
+	innerDITWithTwiddles(a[:128], twiddles[stage+0], 0, 64, 64)
 }
