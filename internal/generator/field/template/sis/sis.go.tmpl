@@ -359,6 +359,8 @@ func NewLimbIterator(it ElementIterator, limbSize int) LimbIterator {
 		panic("unsupported limb size")
 	}
 
+	// Keep the hot iterator state concrete and return by value: storing the
+	// ElementIterator interface here makes VectorIterator escape to the heap.
 	vi, ok := it.(*VectorIterator)
 	if !ok {
 		panic("unsupported element iterator")
