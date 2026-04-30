@@ -932,7 +932,7 @@ func TestIsInSubGroup(t *testing.T) {
 
 			var t2 PointAffine
 			t2.Y.SetOne().Neg(&t2.Y)
-			if !testRejectTorsionCoset(&p, &t2) {
+			if !testRejectTorsionCoset(&p, &t2) { //nolint: staticcheck, we code generate and in some paths we don't return early
 				return false
 			}
 
