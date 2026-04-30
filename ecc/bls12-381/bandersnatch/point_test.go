@@ -855,6 +855,19 @@ func TestOps(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }
+func testSubgroupByOrder(p *PointAffine) bool {
+	params := GetEdwardsCurve()
+	var check PointAffine
+	check.ScalarMultiplication(p, &params.Order)
+	return check.IsZero()
+}
+
+func testRejectTorsionCoset(p, torsion *PointAffine) bool {
+	var q PointAffine
+	q.Add(p, torsion)
+	return !q.IsInSubGroup() && !testSubgroupByOrder(&q)
+}
+
 func TestIsInSubGroup(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
@@ -894,6 +907,36 @@ func TestIsInSubGroup(t *testing.T) {
 			p.ScalarMultiplication(&params.Base, &s)
 
 			return p.IsInSubGroup()
+		},
+		genS,
+	))
+
+	properties.Property("IsInSubGroup should agree with multiplication by subgroup order on subgroup points", prop.ForAll(
+		func(s big.Int) bool {
+			params := GetEdwardsCurve()
+
+			var p PointAffine
+			p.ScalarMultiplication(&params.Base, &s)
+
+			return p.IsInSubGroup() == testSubgroupByOrder(&p)
+		},
+		genS,
+	))
+
+	properties.Property("Torsion cosets should not be in subgroup", prop.ForAll(
+		func(s big.Int) bool {
+			params := GetEdwardsCurve()
+
+			var p PointAffine
+			p.ScalarMultiplication(&params.Base, &s)
+
+			var t2 PointAffine
+			t2.Y.SetOne().Neg(&t2.Y)
+			if !testRejectTorsionCoset(&p, &t2) {
+				return false
+			}
+
+			return true
 		},
 		genS,
 	))
