@@ -3,10 +3,10 @@ func (z *{{.ElementName}}) Exp(x {{.ElementName}}, k *big.Int) *{{.ElementName}}
 	{{- if .F31}}
 		if k.IsInt64() {
 			return z.ExpInt64(x, k.Int64())
-		}	
+		}
 	{{- else}}
-		if k.IsUint64() && k.Uint64() == 0 {
-			return z.SetOne()
+		if k.IsUint64() {
+			return z.expUint64(x, k.Uint64())
 		}
 	{{- end}}
 
@@ -23,6 +23,7 @@ func (z *{{.ElementName}}) Exp(x {{.ElementName}}, k *big.Int) *{{.ElementName}}
 		e.Neg(k)
 	}
 
+	{{- if .F31}}
 	z.Set(&x)
 
 	for i := e.BitLen() - 2; i >= 0; i-- {
@@ -33,7 +34,153 @@ func (z *{{.ElementName}}) Exp(x {{.ElementName}}, k *big.Int) *{{.ElementName}}
 	}
 
 	return z
+	{{- else}}
+	return z.expWindowed(x, e)
+	{{- end}}
 }
+
+{{- if not .F31}}
+
+// getBitUint extracts bit at position pos from a little-endian word slice.
+func getBitUint(words []big.Word, pos int) uint {
+	return uint(words[pos/bits.UintSize] >> (uint(pos) % bits.UintSize)) & 1
+}
+
+// getWindowUint extracts a window of windowSize bits starting at position pos (MSB)
+// down to pos-windowSize+1 (LSB) from a little-endian word slice.
+// windowSize must be between 1 and bits.UintSize.
+func getWindowUint(words []big.Word, pos, windowSize int) uint {
+	low := pos - windowSize + 1
+	wIdx := low / bits.UintSize
+	bIdx := uint(low) % bits.UintSize
+
+	// extract from one word
+	win := uint(words[wIdx] >> bIdx)
+
+	// if the window spans two words, include bits from the next word
+	if bIdx + uint(windowSize) > uint(bits.UintSize) {
+		win |= uint(words[wIdx+1]) << (uint(bits.UintSize) - bIdx)
+	}
+
+	return win & ((1 << windowSize) - 1)
+}
+
+// expWindowed computes z = xᵏ (mod q) using a 4-bit sliding window method.
+// It accesses the exponent via big.Int.Bits() for direct word-level access.
+func (z *{{.ElementName}}) expWindowed(x {{.ElementName}}, k *big.Int) *{{.ElementName}} {
+	el := k.BitLen()
+	if el == 0 {
+		return z.SetOne()
+	}
+	if el == 1 {
+		z.Set(&x)
+		return z
+	}
+
+	// precompute table: table[i] = x^(2i+1) for i = 0..7
+	// i.e., odd powers x^1, x^3, x^5, ..., x^15
+	const w = 4 // window size
+	var table [1 << (w - 1)]{{.ElementName}}
+	var x2 {{.ElementName}}
+	table[0].Set(&x)
+	x2.Square(&x)
+	for i := 1; i < len(table); i++ {
+		table[i].Mul(&table[i-1], &x2)
+	}
+
+	words := k.Bits()
+	z.SetOne()
+
+	for i := el - 1; i >= 0; {
+		if getBitUint(words, i) == 0 {
+			z.Square(z)
+			i--
+			continue
+		}
+		// collect up to w bits starting from position i (MSB), ending at a 1-bit
+		windowSize := w
+		if i+1 < windowSize {
+			windowSize = i + 1
+		}
+		winVal := getWindowUint(words, i, windowSize)
+
+		// trim trailing zeros to get an odd lookup value
+		trailingZeros := bits.TrailingZeros(winVal)
+		winVal >>= trailingZeros
+		effectiveSize := windowSize - trailingZeros
+
+		for j := 0; j < effectiveSize; j++ {
+			z.Square(z)
+		}
+		z.Mul(z, &table[(winVal-1)>>1])
+		for j := 0; j < trailingZeros; j++ {
+			z.Square(z)
+		}
+		i -= windowSize
+	}
+
+	return z
+}
+
+// expUint64 computes z = xᵏ (mod q) for a uint64 exponent.
+// Uses binary method for small exponents and 4-bit windowed method for larger ones.
+func (z *{{.ElementName}}) expUint64(x {{.ElementName}}, k uint64) *{{.ElementName}} {
+	if k == 0 {
+		return z.SetOne()
+	}
+	el := bits.Len64(k)
+	if el <= 8 {
+		// small exponent: binary method avoids precompute overhead
+		z.Set(&x)
+		for i := el - 2; i >= 0; i-- {
+			z.Square(z)
+			if (k>>i)&1 == 1 {
+				z.Mul(z, &x)
+			}
+		}
+		return z
+	}
+
+	const w = 4
+	var table [1 << (w - 1)]{{.ElementName}}
+	var x2 {{.ElementName}}
+	table[0].Set(&x)
+	x2.Square(&x)
+	for i := 1; i < len(table); i++ {
+		table[i].Mul(&table[i-1], &x2)
+	}
+
+	z.SetOne()
+
+	for i := el - 1; i >= 0; {
+		if (k>>i)&1 == 0 {
+			z.Square(z)
+			i--
+			continue
+		}
+		windowSize := w
+		if i+1 < windowSize {
+			windowSize = i + 1
+		}
+		winVal := uint((k >> (i - windowSize + 1)) & ((1 << windowSize) - 1))
+
+		trailingZeros := bits.TrailingZeros(winVal)
+		winVal >>= trailingZeros
+		effectiveSize := windowSize - trailingZeros
+
+		for j := 0; j < effectiveSize; j++ {
+			z.Square(z)
+		}
+		z.Mul(z, &table[(winVal-1)>>1])
+		for j := 0; j < trailingZeros; j++ {
+			z.Square(z)
+		}
+		i -= windowSize
+	}
+
+	return z
+}
+{{- end}}
 
 {{- if .F31}}
 // ExpInt64 z = xᵏ (mod q)
