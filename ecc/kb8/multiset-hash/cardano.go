@@ -23,6 +23,14 @@ var (
 	e8Four        extensions.E8
 	e8TwentySeven extensions.E8
 	e8NegThree    extensions.E8
+
+	// Precomputed constants used by cardanoRoots. Computed once at init.
+	e8Inv2    extensions.E8 // 1/2
+	e8Inv4    extensions.E8 // 1/4
+	e8A3      extensions.E8 // (-3)^3 = -27
+	e8Neg4A3  extensions.E8 // -4·(-3)^3 = 108
+	e8NegHalf extensions.E8 // -1/2
+	e8NegOne  extensions.E8 // -1, equals (-3)^3 / 27 = a3/27
 )
 
 var e16LucasExponent = [4]uint64{
@@ -43,6 +51,13 @@ func init() {
 	e8Beta.C1.SetOne()
 	e8BetaInv.Inverse(&e8Beta)
 	e8Omega = findPrimitiveCubeRoot()
+
+	e8Inv2.Inverse(&e8Two)
+	e8Inv4.Inverse(&e8Four)
+	e8A3.Square(&e8NegThree).Mul(&e8A3, &e8NegThree) // -27
+	e8Neg4A3.Mul(&e8A3, &e8Four).Neg(&e8Neg4A3)      // 108
+	e8NegHalf.Set(&e8Inv2).Neg(&e8NegHalf)           // -1/2
+	e8NegOne.Set(&e8One).Neg(&e8NegOne)              // -1 = a3/27
 }
 
 func depressedCubicRoot(c extensions.E8) (extensions.E8, bool) {
@@ -57,24 +72,19 @@ func depressedCubicRoot(c extensions.E8) (extensions.E8, bool) {
 }
 
 func cardanoRoots(c extensions.E8) []extensions.E8 {
-	var a3, neg4a3, k27c2, delta extensions.E8
-	a3.Square(&e8NegThree).Mul(&a3, &e8NegThree)
-	neg4a3.Mul(&a3, &e8Four).Neg(&neg4a3)
+	// delta = -4·a³ - 27·c² where a = -3, so -4·a³ = 108.
+	var k27c2, delta extensions.E8
 	k27c2.Square(&c).Mul(&k27c2, &e8TwentySeven)
-	delta.Sub(&neg4a3, &k27c2)
+	delta.Sub(&e8Neg4A3, &k27c2)
 
-	var inv2, inv4, inv27 extensions.E8
-	inv2.Inverse(&e8Two)
-	inv4.Inverse(&e8Four)
-	inv27.Inverse(&e8TwentySeven)
+	// discD = c²/4 + a³/27 = c²/4 - 1
+	var discD extensions.E8
+	discD.Square(&c).Mul(&discD, &e8Inv4)
+	discD.Sub(&discD, &e8One)
 
-	var discD, a3Over27 extensions.E8
-	discD.Square(&c).Mul(&discD, &inv4)
-	a3Over27.Mul(&a3, &inv27)
-	discD.Add(&discD, &a3Over27)
-
+	// negCHalf = -c/2 = c · (-1/2)
 	var negCHalf extensions.E8
-	negCHalf.Mul(&c, &inv2).Neg(&negCHalf)
+	negCHalf.Mul(&c, &e8NegHalf)
 
 	if delta.IsZero() {
 		return repeatedRoots(c)
@@ -109,12 +119,20 @@ func cardanoRootsBaseField(negCHalf, discD extensions.E8) []extensions.E8 {
 		return nil
 	}
 
-	var omega2 extensions.E8
-	omega2.Square(&e8Omega)
-
-	var invU, r0, r1, r2, t1, t2 extensions.E8
+	// cbrtE8 already adjusts u via cbrtVerifyAndAdjustE8 to the principal cube
+	// root, so r0 = u + 1/u is the depressed-cubic root in the typical case.
+	// Compute and check r0 first; fall back to the ω-rotated forms only if r0
+	// fails the verification.
+	var invU, r0 extensions.E8
 	invU.Inverse(&u)
 	r0.Add(&u, &invU)
+	if isDepressedCubicRoot(&r0, &negCHalf) {
+		return []extensions.E8{r0}
+	}
+
+	var omega2 extensions.E8
+	omega2.Square(&e8Omega)
+	var r1, r2, t1, t2 extensions.E8
 	t1.Mul(&e8Omega, &u)
 	t2.Mul(&omega2, &invU)
 	r1.Add(&t1, &t2)
@@ -122,12 +140,12 @@ func cardanoRootsBaseField(negCHalf, discD extensions.E8) []extensions.E8 {
 	t2.Mul(&e8Omega, &invU)
 	r2.Add(&t1, &t2)
 
-	return filterValidRoots(negCHalf, []extensions.E8{r0, r1, r2})
+	return filterValidRoots(negCHalf, []extensions.E8{r1, r2})
 }
 
 func cardanoRootsViaQuadraticExtension(negCHalf, discD extensions.E8) []extensions.E8 {
 	var discOverBeta, sqrtDiscOverBeta extensions.E8
-	discOverBeta.Div(&discD, &e8Beta)
+	discOverBeta.Mul(&discD, &e8BetaInv)
 	if discOverBeta.Legendre() != 1 {
 		return nil
 	}
@@ -143,11 +161,20 @@ func cardanoRootsViaQuadraticExtension(negCHalf, discD extensions.E8) []extensio
 		return nil
 	}
 
+	// Try zeta = 1 first (cube root canonicalized inside Cbrt usually picks
+	// this branch). Fall through to the rotated cases as backstops.
+	{
+		var inv, sum e16
+		inv.Inverse(&u)
+		sum.Add(&u, &inv)
+		if sum.A1.IsZero() && isDepressedCubicRoot(&sum.A0, &negCHalf) {
+			return []extensions.E8{sum.A0}
+		}
+	}
+
 	var omega2 extensions.E8
 	omega2.Square(&e8Omega)
-	zetas := [3]extensions.E8{e8One, e8Omega, omega2}
-
-	for _, zeta := range zetas {
+	for _, zeta := range [2]extensions.E8{e8Omega, omega2} {
 		var cand, inv, sum e16
 		cand.MulByE8(&u, &zeta)
 		inv.Inverse(&cand)
