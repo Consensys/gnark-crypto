@@ -23,14 +23,7 @@ var (
 	e8Four        extensions.E8
 	e8TwentySeven extensions.E8
 	e8NegThree    extensions.E8
-
-	// Precomputed constants used by cardanoRoots. Computed once at init.
-	e8Inv2    extensions.E8 // 1/2
-	e8Inv4    extensions.E8 // 1/4
-	e8A3      extensions.E8 // (-3)^3 = -27
-	e8Neg4A3  extensions.E8 // -4·(-3)^3 = 108
-	e8NegHalf extensions.E8 // -1/2
-	e8NegOne  extensions.E8 // -1, equals (-3)^3 / 27 = a3/27
+	e8Neg4A3      extensions.E8 // 108 = -4·(-3)^3
 )
 
 var e16LucasExponent = [4]uint64{
@@ -52,12 +45,9 @@ func init() {
 	e8BetaInv.Inverse(&e8Beta)
 	e8Omega = findPrimitiveCubeRoot()
 
-	e8Inv2.Inverse(&e8Two)
-	e8Inv4.Inverse(&e8Four)
-	e8A3.Square(&e8NegThree).Mul(&e8A3, &e8NegThree) // -27
-	e8Neg4A3.Mul(&e8A3, &e8Four).Neg(&e8Neg4A3)      // 108
-	e8NegHalf.Set(&e8Inv2).Neg(&e8NegHalf)           // -1/2
-	e8NegOne.Set(&e8One).Neg(&e8NegOne)              // -1 = a3/27
+	var a3 extensions.E8
+	a3.Square(&e8NegThree).Mul(&a3, &e8NegThree) // (-3)^3 = -27
+	e8Neg4A3.Mul(&a3, &e8Four).Neg(&e8Neg4A3)
 }
 
 func depressedCubicRoot(c extensions.E8) (extensions.E8, bool) {
@@ -72,19 +62,27 @@ func depressedCubicRoot(c extensions.E8) (extensions.E8, bool) {
 }
 
 func cardanoRoots(c extensions.E8) []extensions.E8 {
-	// delta = -4·a³ - 27·c² where a = -3, so -4·a³ = 108.
-	var k27c2, delta extensions.E8
-	k27c2.Square(&c).Mul(&k27c2, &e8TwentySeven)
-	delta.Sub(&e8Neg4A3, &k27c2)
+	// For x³ - 3x + c = 0:
+	//   delta  = -4a³ - 27c² = 108 - 27c²
+	//   discD  = c²/4 + a³/27 = c²/4 - 1
+	//   negCHalf = -c/2
+	var c2 extensions.E8
+	c2.Square(&c)
 
-	// discD = c²/4 + a³/27 = c²/4 - 1
+	var delta extensions.E8
+	delta.Mul(&c2, &e8TwentySeven)
+	delta.Sub(&e8Neg4A3, &delta)
+
 	var discD extensions.E8
-	discD.Square(&c).Mul(&discD, &e8Inv4)
+	discD.Set(&c2)
+	discD.Halve()
+	discD.Halve()
 	discD.Sub(&discD, &e8One)
 
-	// negCHalf = -c/2 = c · (-1/2)
 	var negCHalf extensions.E8
-	negCHalf.Mul(&c, &e8NegHalf)
+	negCHalf.Set(&c)
+	negCHalf.Halve()
+	negCHalf.Neg(&negCHalf)
 
 	if delta.IsZero() {
 		return repeatedRoots(c)
@@ -119,10 +117,9 @@ func cardanoRootsBaseField(negCHalf, discD extensions.E8) []extensions.E8 {
 		return nil
 	}
 
-	// cbrtE8 already adjusts u via cbrtVerifyAndAdjustE8 to the principal cube
-	// root, so r0 = u + 1/u is the depressed-cubic root in the typical case.
-	// Compute and check r0 first; fall back to the ω-rotated forms only if r0
-	// fails the verification.
+	// extensions.E8.Cbrt returns the principal cube root, so r0 = u + 1/u is
+	// the depressed-cubic root in the typical case. Fall back to the ω-rotated
+	// forms only if r0 fails the verification.
 	var invU, r0 extensions.E8
 	invU.Inverse(&u)
 	r0.Add(&u, &invU)
@@ -161,8 +158,8 @@ func cardanoRootsViaQuadraticExtension(negCHalf, discD extensions.E8) []extensio
 		return nil
 	}
 
-	// Try zeta = 1 first (cube root canonicalized inside Cbrt usually picks
-	// this branch). Fall through to the rotated cases as backstops.
+	// e16.Cbrt canonicalizes its result, so zeta = 1 (i.e. cand = u) is the
+	// typical match. Try it first.
 	{
 		var inv, sum e16
 		inv.Inverse(&u)
@@ -223,424 +220,6 @@ func isDepressedCubicRoot(x, negCHalf *extensions.E8) bool {
 
 func cbrtE8(z, x *extensions.E8) *extensions.E8 {
 	return z.Cbrt(x)
-}
-
-func cbrtVerifyAndAdjustE8(z, x *extensions.E8) *extensions.E8 {
-	var check, omega2, y extensions.E8
-	check.Square(z).Mul(&check, z)
-	if check.Equal(x) {
-		return z
-	}
-
-	y.Mul(z, &e8Omega)
-	check.Square(&y).Mul(&check, &y)
-	if check.Equal(x) {
-		return z.Set(&y)
-	}
-
-	omega2.Square(&e8Omega)
-	y.Mul(z, &omega2)
-	check.Square(&y).Mul(&check, &y)
-	if check.Equal(x) {
-		return z.Set(&y)
-	}
-
-	return nil
-}
-
-func expByKBE8Cbrt(z, x *extensions.E8) *extensions.E8 {
-	// expByKBCbrt computation is derived from the addition chain:
-	//
-	//	_10       = 2*1
-	//	_100      = 2*_10
-	//	_110      = _10 + _100
-	//	_1000     = _10 + _110
-	//	_1010     = _10 + _1000
-	//	_1011     = 1 + _1010
-	//	_1100     = 1 + _1011
-	//	_10110    = _1010 + _1100
-	//	_11100    = _110 + _10110
-	//	_11110    = _10 + _11100
-	//	_11111    = 1 + _11110
-	//	_101011   = _1100 + _11111
-	//	_1000111  = _11100 + _101011
-	//	_1001011  = _100 + _1000111
-	//	_1010011  = _1000 + _1001011
-	//	_1010101  = _10 + _1010011
-	//	_1011001  = _100 + _1010101
-	//	_1110111  = _11110 + _1011001
-	//	_1111001  = _10 + _1110111
-	//	_10001111 = _10110 + _1111001
-	//	_10010101 = _110 + _10001111
-	//	_10011101 = _1000 + _10010101
-	//	_10100101 = _1000 + _10011101
-	//	_10101111 = _1010 + _10100101
-	//	_10110111 = _1000 + _10101111
-	//	_11000011 = _1100 + _10110111
-	//	_11001011 = _1000 + _11000011
-	//	_11001101 = _10 + _11001011
-	//	_11001111 = _10 + _11001101
-	//	_11010101 = _110 + _11001111
-	//	_11011101 = _1000 + _11010101
-	//	i49       = ((_11001101 + _11011101) << 7 + _10110111) << 8 + _1011001
-	//	i80       = ((i49 << 2 + 1) << 16 + _10011101) << 11
-	//	i100      = ((_1001011 + i80) << 9 + _1000111) << 8 + _1010011
-	//	i128      = ((i100 << 11 + _11001011) << 9 + _11001111) << 6
-	//	i154      = ((_11111 + i128) << 15 + _10100101) << 8 + _10010101
-	//	i182      = ((i154 << 9 + _10101111) << 8 + _1111001) << 9
-	//	i200      = ((_10010101 + i182) << 8 + _11011101) << 7 + _1110111
-	//	i228      = ((i200 << 9 + _11001101) << 8 + _11010101) << 9
-	//	i251      = ((_11000011 + i228) << 8 + _101011) << 12 + _11011101
-	//	i273      = ((_110 + i251) << 8 + _10001111) << 11 + _11010101
-	//	i296      = ((i273 << 8 + _1010101) << 8 + _1010101) << 5
-	//	return      _1011 + i296
-	//
-	// Operations: 239 squares 58 multiplies
-	//
-	// Generated by github.com/mmcloughlin/addchain v0.4.0.
-
-	var (
-		t0  extensions.E8
-		t1  extensions.E8
-		t2  extensions.E8
-		t3  extensions.E8
-		t4  extensions.E8
-		t5  extensions.E8
-		t6  extensions.E8
-		t7  extensions.E8
-		t8  extensions.E8
-		t9  extensions.E8
-		t10 extensions.E8
-		t11 extensions.E8
-		t12 extensions.E8
-		t13 extensions.E8
-		t14 extensions.E8
-		t15 extensions.E8
-		t16 extensions.E8
-		t17 extensions.E8
-		t18 extensions.E8
-		t19 extensions.E8
-		t20 extensions.E8
-		t21 extensions.E8
-		t22 extensions.E8
-		t23 extensions.E8
-		t24 extensions.E8
-	)
-
-	t0.Square(x)
-	t1.Square(&t0)
-	t2.Mul(&t0, &t1)
-	t3.Mul(&t0, &t2)
-	t4.Mul(&t0, &t3)
-	t5.Mul(x, &t4)
-	t6.Mul(x, &t5)
-	t7.Mul(&t4, &t6)
-	t8.Mul(&t2, &t7)
-	t9.Mul(&t0, &t8)
-	t10.Mul(x, &t9)
-	t11.Mul(&t6, &t10)
-	t8.Mul(&t8, &t11)
-	t12.Mul(&t1, &t8)
-	t13.Mul(&t3, &t12)
-	t14.Mul(&t0, &t13)
-	t1.Mul(&t1, &t14)
-	t9.Mul(&t9, &t1)
-	t15.Mul(&t0, &t9)
-	t7.Mul(&t7, &t15)
-	t16.Mul(&t2, &t7)
-	t17.Mul(&t3, &t16)
-	t18.Mul(&t3, &t17)
-	t4.Mul(&t4, &t18)
-	t19.Mul(&t3, &t4)
-	t6.Mul(&t6, &t19)
-	t20.Mul(&t3, &t6)
-	t21.Mul(&t0, &t20)
-	t0.Mul(&t0, &t21)
-	t22.Mul(&t2, &t0)
-	t3.Mul(&t3, &t22)
-	t23.Mul(&t21, &t3)
-	for s := 0; s < 7; s++ {
-		t23.Square(&t23)
-	}
-	t19.Mul(&t19, &t23)
-	for s := 0; s < 8; s++ {
-		t19.Square(&t19)
-	}
-	t1.Mul(&t1, &t19)
-	for s := 0; s < 2; s++ {
-		t1.Square(&t1)
-	}
-	t24.Mul(x, &t1)
-	for s := 0; s < 16; s++ {
-		t24.Square(&t24)
-	}
-	t17.Mul(&t17, &t24)
-	for s := 0; s < 11; s++ {
-		t17.Square(&t17)
-	}
-	t12.Mul(&t12, &t17)
-	for s := 0; s < 9; s++ {
-		t12.Square(&t12)
-	}
-	t8.Mul(&t8, &t12)
-	for s := 0; s < 8; s++ {
-		t8.Square(&t8)
-	}
-	t13.Mul(&t13, &t8)
-	for s := 0; s < 11; s++ {
-		t13.Square(&t13)
-	}
-	t20.Mul(&t20, &t13)
-	for s := 0; s < 9; s++ {
-		t20.Square(&t20)
-	}
-	t0.Mul(&t0, &t20)
-	for s := 0; s < 6; s++ {
-		t0.Square(&t0)
-	}
-	t10.Mul(&t10, &t0)
-	for s := 0; s < 15; s++ {
-		t10.Square(&t10)
-	}
-	t18.Mul(&t18, &t10)
-	for s := 0; s < 8; s++ {
-		t18.Square(&t18)
-	}
-	t18.Mul(&t16, &t18)
-	for s := 0; s < 9; s++ {
-		t18.Square(&t18)
-	}
-	t4.Mul(&t4, &t18)
-	for s := 0; s < 8; s++ {
-		t4.Square(&t4)
-	}
-	t15.Mul(&t15, &t4)
-	for s := 0; s < 9; s++ {
-		t15.Square(&t15)
-	}
-	t16.Mul(&t16, &t15)
-	for s := 0; s < 8; s++ {
-		t16.Square(&t16)
-	}
-	t16.Mul(&t3, &t16)
-	for s := 0; s < 7; s++ {
-		t16.Square(&t16)
-	}
-	t9.Mul(&t9, &t16)
-	for s := 0; s < 9; s++ {
-		t9.Square(&t9)
-	}
-	t21.Mul(&t21, &t9)
-	for s := 0; s < 8; s++ {
-		t21.Square(&t21)
-	}
-	t21.Mul(&t22, &t21)
-	for s := 0; s < 9; s++ {
-		t21.Square(&t21)
-	}
-	t6.Mul(&t6, &t21)
-	for s := 0; s < 8; s++ {
-		t6.Square(&t6)
-	}
-	t11.Mul(&t11, &t6)
-	for s := 0; s < 12; s++ {
-		t11.Square(&t11)
-	}
-	t3.Mul(&t3, &t11)
-	t2.Mul(&t2, &t3)
-	for s := 0; s < 8; s++ {
-		t2.Square(&t2)
-	}
-	t7.Mul(&t7, &t2)
-	for s := 0; s < 11; s++ {
-		t7.Square(&t7)
-	}
-	t22.Mul(&t22, &t7)
-	for s := 0; s < 8; s++ {
-		t22.Square(&t22)
-	}
-	t22.Mul(&t14, &t22)
-	for s := 0; s < 8; s++ {
-		t22.Square(&t22)
-	}
-	t14.Mul(&t14, &t22)
-	for s := 0; s < 5; s++ {
-		t14.Square(&t14)
-	}
-	z.Mul(&t5, &t14)
-
-	return z
-}
-
-func expByKBE8Helper(z, x *extensions.E8) *extensions.E8 {
-	var (
-		t0  extensions.E8
-		t1  extensions.E8
-		t2  extensions.E8
-		t3  extensions.E8
-		t4  extensions.E8
-		t5  extensions.E8
-		t6  extensions.E8
-		t7  extensions.E8
-		t8  extensions.E8
-		t9  extensions.E8
-		t10 extensions.E8
-		t11 extensions.E8
-		t12 extensions.E8
-		t13 extensions.E8
-		t14 extensions.E8
-		t15 extensions.E8
-		t16 extensions.E8
-		t17 extensions.E8
-		t18 extensions.E8
-		t19 extensions.E8
-		t20 extensions.E8
-		t21 extensions.E8
-		t22 extensions.E8
-	)
-
-	t1.Square(x)
-	t9.Square(&t1)
-	z.Mul(x, &t9)
-	t3.Mul(x, z)
-	t4.Mul(&t1, &t3)
-	t7.Mul(&t1, &t4)
-	t6.Mul(&t1, &t7)
-	t2.Mul(&t7, &t6)
-	t0.Mul(&t3, &t2)
-	t8.Mul(&t1, &t0)
-	t13.Mul(x, &t8)
-	t5.Mul(&t6, &t13)
-	t17.Mul(&t0, &t5)
-	t18.Mul(&t9, &t17)
-	t16.Mul(&t4, &t18)
-	t0.Mul(&t1, &t16)
-	t20.Mul(&t9, &t0)
-	t8.Mul(&t8, &t20)
-	t10.Mul(&t1, &t8)
-	t2.Mul(&t2, &t10)
-	t9.Mul(&t3, &t2)
-	t19.Mul(&t4, &t9)
-	t12.Mul(&t4, &t19)
-	t11.Mul(&t7, &t12)
-	t21.Mul(&t4, &t11)
-	t6.Mul(&t6, &t21)
-	t15.Mul(&t4, &t6)
-	t7.Mul(&t1, &t15)
-	t14.Mul(&t1, &t7)
-	t1.Mul(&t3, &t14)
-	t4.Mul(&t4, &t1)
-	t22.Mul(&t7, &t4)
-	for range 7 {
-		t22.Square(&t22)
-	}
-	t21.Mul(&t21, &t22)
-	for range 8 {
-		t21.Square(&t21)
-	}
-	t20.Mul(&t20, &t21)
-	for range 2 {
-		t20.Square(&t20)
-	}
-	t20.Mul(x, &t20)
-	for range 16 {
-		t20.Square(&t20)
-	}
-	t19.Mul(&t19, &t20)
-	for range 11 {
-		t19.Square(&t19)
-	}
-	t18.Mul(&t18, &t19)
-	for range 9 {
-		t18.Square(&t18)
-	}
-	t17.Mul(&t17, &t18)
-	for range 8 {
-		t17.Square(&t17)
-	}
-	t16.Mul(&t16, &t17)
-	for range 11 {
-		t16.Square(&t16)
-	}
-	t15.Mul(&t15, &t16)
-	for range 9 {
-		t15.Square(&t15)
-	}
-	t14.Mul(&t14, &t15)
-	for range 6 {
-		t14.Square(&t14)
-	}
-	t13.Mul(&t13, &t14)
-	for range 15 {
-		t13.Square(&t13)
-	}
-	t12.Mul(&t12, &t13)
-	for range 8 {
-		t12.Square(&t12)
-	}
-	t12.Mul(&t9, &t12)
-	for range 9 {
-		t12.Square(&t12)
-	}
-	t11.Mul(&t11, &t12)
-	for range 8 {
-		t11.Square(&t11)
-	}
-	t10.Mul(&t10, &t11)
-	for range 9 {
-		t10.Square(&t10)
-	}
-	t9.Mul(&t9, &t10)
-	for range 8 {
-		t9.Square(&t9)
-	}
-	t9.Mul(&t4, &t9)
-	for range 7 {
-		t9.Square(&t9)
-	}
-	t8.Mul(&t8, &t9)
-	for range 9 {
-		t8.Square(&t8)
-	}
-	t7.Mul(&t7, &t8)
-	for range 8 {
-		t7.Square(&t7)
-	}
-	t7.Mul(&t1, &t7)
-	for range 9 {
-		t7.Square(&t7)
-	}
-	t6.Mul(&t6, &t7)
-	for range 8 {
-		t6.Square(&t6)
-	}
-	t5.Mul(&t5, &t6)
-	for range 12 {
-		t5.Square(&t5)
-	}
-	t4.Mul(&t4, &t5)
-	t3.Mul(&t3, &t4)
-	for range 8 {
-		t3.Square(&t3)
-	}
-	t2.Mul(&t2, &t3)
-	for range 11 {
-		t2.Square(&t2)
-	}
-	t1.Mul(&t1, &t2)
-	for range 8 {
-		t1.Square(&t1)
-	}
-	t1.Mul(&t0, &t1)
-	for range 8 {
-		t1.Square(&t1)
-	}
-	t0.Mul(&t0, &t1)
-	for range 4 {
-		t0.Square(&t0)
-	}
-	z.Mul(z, &t0)
-	return z
 }
 
 func lucasV2E8(alpha *extensions.E8) (extensions.E8, extensions.E8) {
@@ -1304,54 +883,4 @@ func (z *e16) Cbrt(x *e16) *e16 {
 	t2.Mul(&x.A0, &gamma1)
 	y.A1.Add(&t1, &t2).Mul(&y.A1, &mInv)
 	return cbrtVerifyAndAdjustE16(z.Set(&y), x)
-}
-
-func cbrtAndNormInverseE16(norm, x0sq, x1sq *extensions.E8) (m, normInv, deltaInv extensions.E8, ok bool) {
-	var x0x1, betaX0x1, U, U2, U3, w extensions.E8
-	x0x1.Mul(x0sq, x1sq)
-	betaX0x1.Mul(&x0x1, &e8Beta)
-	U.Mul(&betaX0x1, norm)
-	U.Double(&U).Double(&U)
-	U.Double(&U).Double(&U)
-	U2.Square(&U)
-	U3.Mul(&U2, &U)
-	w.Mul(&U3, norm)
-
-	var t, t2, t4, t5, cbrtW, cw2, wInv extensions.E8
-	expByKBE8Helper(&t, &w)
-	t2.Square(&t)
-	t4.Square(&t2)
-	t5.Mul(&t4, &t)
-	cbrtW.Mul(&w, &t2)
-	cw2.Square(&cbrtW)
-	wInv.Mul(&t5, &cw2)
-
-	var UInv, check extensions.E8
-	UInv.Mul(&U2, norm).Mul(&UInv, &wInv)
-	m.Mul(&cbrtW, &UInv)
-	normInv.Mul(&U3, &wInv)
-	check.Square(&m).Mul(&check, &m)
-	if !check.Equal(norm) {
-		var alt extensions.E8
-		alt.Mul(&m, &e8Omega)
-		check.Square(&alt).Mul(&check, &alt)
-		if check.Equal(norm) {
-			m.Set(&alt)
-		} else {
-			var omega2 extensions.E8
-			omega2.Square(&e8Omega)
-			alt.Mul(&m, &omega2)
-			check.Square(&alt).Mul(&check, &alt)
-			if !check.Equal(norm) {
-				return m, normInv, deltaInv, false
-			}
-			m.Set(&alt)
-		}
-	}
-
-	var norm2, norm3 extensions.E8
-	norm2.Square(norm)
-	norm3.Mul(&norm2, norm)
-	deltaInv.Mul(&norm3, &UInv)
-	return m, normInv, deltaInv, true
 }
