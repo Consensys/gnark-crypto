@@ -71,9 +71,8 @@ func initCofactorSubgroupParams() {
 	initCofactorEightTorsion(&t4)
 }
 func initCofactorEightTorsion(t4 *PointAffine) {
-	var one, two, aInv, discr, discrSqrt, x2, y2, t fr.Element
+	var one, aInv, discr, discrSqrt, x2, y2, t fr.Element
 	one.SetOne()
-	two.SetUint64(2)
 	aInv.Inverse(&curveParams.A)
 	discr.Set(&curveParams.D).Neg(&discr).Mul(&discr, &aInv).Add(&discr, &one)
 	if discrSqrt.Sqrt(&discr) == nil {
