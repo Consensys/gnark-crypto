@@ -295,17 +295,24 @@ func addTwistedEdwardCurve(c *TwistedEdwardsCurve) {
 	ad.Mul(&a, &d).Mod(&ad, &modulus)
 	c.Split2Torsion = legendreSymbol(&ad, &modulus) == 1
 
-	var exp big.Int
-	exp.Sub(&modulus, big.NewInt(1))
 	switch c.Cofactor {
-	case "4":
-		if !c.Split2Torsion {
+	case "4", "8":
+		if !c.HasSubgroupCheck() {
+			panic("unsupported twisted Edwards subgroup check configuration for " + c.Name + "/" + c.Package)
+		}
+	}
+
+	if c.HasNonSplitSubgroupCheck() {
+		var exp big.Int
+		exp.Sub(&modulus, big.NewInt(1))
+		switch c.Cofactor {
+		case "4":
 			exp.Rsh(&exp, 2)
 			c.QuarticExponentData = addchain.GetAddChain(&exp)
+		case "8":
+			exp.Rsh(&exp, 3)
+			c.OcticExponentData = addchain.GetAddChain(&exp)
 		}
-	case "8":
-		exp.Rsh(&exp, 3)
-		c.OcticExponentData = addchain.GetAddChain(&exp)
 	}
 
 	TwistedEdwardsCurves = append(TwistedEdwardsCurves, *c)

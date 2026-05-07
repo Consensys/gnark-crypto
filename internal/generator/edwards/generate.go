@@ -14,10 +14,12 @@ import (
 func Generate(conf config.TwistedEdwardsCurve, baseDir string, gen *common.Generator) error {
 	entries := []bavard.Entry{
 		{File: filepath.Join(baseDir, "point.go"), Templates: []string{"point.go.tmpl"}},
-		{File: filepath.Join(baseDir, "subgroup.go"), Templates: []string{"subgroup.go.tmpl"}},
 		{File: filepath.Join(baseDir, "point_test.go"), Templates: []string{"tests/point.go.tmpl"}},
 		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
 		{File: filepath.Join(baseDir, "curve.go"), Templates: []string{"curve.go.tmpl"}},
+	}
+	if conf.HasNonSplitSubgroupCheck() {
+		entries = append(entries, bavard.Entry{File: filepath.Join(baseDir, "subgroup.go"), Templates: []string{"subgroup.go.tmpl"}})
 	}
 
 	edwardsGen := common.NewDefaultGenerator(template.FS)
