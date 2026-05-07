@@ -62,11 +62,17 @@ func (domain *Domain) FFT(a []{{ .FF }}.Element, decimation Decimation, opts ...
 				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
 			}
 		}
-		parallel.Execute(len(a), func(start, end int) {
-			v1 := {{ .FF }}.Vector(a[start:end])
-			v2 := {{ .FF }}.Vector(cosetTable[start:end])
+		if opt.nbTasks <= 1 {
+			v1 := {{ .FF }}.Vector(a)
+			v2 := {{ .FF }}.Vector(cosetTable[:len(a)])
 			v1.Mul(v1, v2)
-		}, opt.nbTasks)
+		} else {
+			parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+				v1 := {{ .FF }}.Vector(a[start:end])
+				v2 := {{ .FF }}.Vector(cosetTable[start:end])
+				v1.Mul(v1, v2)
+			}, opt.nbTasks)
+		}
 		{{- else}}
 		if decimation == DIT {
 			// scale by coset table (in bit reversed order)
@@ -172,11 +178,16 @@ func (domain *Domain) FFTInverse(a []{{ .FF }}.Element, decimation Decimation, o
 	// scale by CardinalityInv
 	if !opt.coset {
 		{{- if .F31}}
-		// Use vectorized scalar multiply instead of element-by-element loop
-		parallel.Execute(len(a), func(start, end int) {
-			v := {{ .FF }}.Vector(a[start:end])
+		// Use vectorized scalar multiply instead of element-by-element loop.
+		if opt.nbTasks <= 1 {
+			v := {{ .FF }}.Vector(a)
 			v.ScalarMul(v, &domain.CardinalityInv)
-		}, opt.nbTasks)
+		} else {
+			parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+				v := {{ .FF }}.Vector(a[start:end])
+				v.ScalarMul(v, &domain.CardinalityInv)
+			}, opt.nbTasks)
+		}
 		{{- else}}
 		parallel.Execute(len(a), func(start, end int) {
 			for i := start; i < end; i++ {
@@ -211,11 +222,17 @@ func (domain *Domain) FFTInverse(a []{{ .FF }}.Element, decimation Decimation, o
 			utils.BitReverse(cosetTableInv)
 		}
 	}
-	parallel.Execute(len(a), func(start, end int) {
-		v := {{ .FF }}.Vector(a[start:end])
-		v.Mul(v, {{ .FF }}.Vector(cosetTableInv[start:end]))
+	if opt.nbTasks <= 1 {
+		v := {{ .FF }}.Vector(a)
+		v.Mul(v, {{ .FF }}.Vector(cosetTableInv[:len(a)]))
 		v.ScalarMul(v, &domain.CardinalityInv)
-	}, opt.nbTasks)
+	} else {
+		parallel.ExecuteAligned(len(a), 16, func(start, end int) {
+			v := {{ .FF }}.Vector(a[start:end])
+			v.Mul(v, {{ .FF }}.Vector(cosetTableInv[start:end]))
+			v.ScalarMul(v, &domain.CardinalityInv)
+		}, opt.nbTasks)
+	}
 	{{- else}}
 
 	if decimation == DIT {
@@ -270,19 +287,27 @@ func difFFT(a []{{ .FF }}.Element, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.E
 	if n == 1 {
 		return
 	} else if  stage >= twiddlesStartStage {
+		switch n {
+		case 64:
+			kerDIFNP_64(a, twiddles, stage-twiddlesStartStage)
+			return
+		case 128:
+			kerDIFNP_128(a, twiddles, stage-twiddlesStartStage)
+			return
 		{{- range $ki, $klog2 :=  $.Kernels}}
-			{{- if ne $ki 0}} else {{- end}} if n == 1 << {{$klog2}} {	// nolint QF1003
-				{{- $ksize := shl 1 $klog2}}
-				kerDIFNP_{{$ksize}}(a, twiddles, stage-twiddlesStartStage)
-				return
-			}
-		{{- end }}{{- if .HasASMKernel}} else if n == 512 {
+		case 1 << {{$klog2}}:
+			{{- $ksize := shl 1 $klog2}}
+			kerDIFNP_{{$ksize}}(a, twiddles, stage-twiddlesStartStage)
+			return
+		{{- end }}{{- if .HasASMKernel}}
+		case 512:
 			kerDIFNP_512(a, twiddles, stage-twiddlesStartStage)
 			return
-		} else if n == 1024 {
+		case 1024:
 			kerDIFNP_1024(a, twiddles, stage-twiddlesStartStage)
 			return
-		}{{- end}}
+		{{- end}}
+		}
 	}
 	m := n >> 1
 
@@ -370,19 +395,27 @@ func ditFFT(a []{{ .FF }}.Element, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.E
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
+		switch n {
+		case 64:
+			kerDITNP_64(a, twiddles, stage-twiddlesStartStage)
+			return
+		case 128:
+			kerDITNP_128(a, twiddles, stage-twiddlesStartStage)
+			return
 		{{- range $ki, $klog2 :=  $.Kernels}}
-			{{- if ne $ki 0}} else {{- end}} if n == 1 << {{$klog2}} { // nolint QF1003
-				{{- $ksize := shl 1 $klog2}}
-				kerDITNP_{{$ksize}}(a, twiddles, stage-twiddlesStartStage)
-				return
-			}
-		{{- end }}{{- if .HasASMKernel}} else if n == 512 {
+		case 1 << {{$klog2}}:
+			{{- $ksize := shl 1 $klog2}}
+			kerDITNP_{{$ksize}}(a, twiddles, stage-twiddlesStartStage)
+			return
+		{{- end }}{{- if .HasASMKernel}}
+		case 512:
 			kerDITNP_512(a, twiddles, stage-twiddlesStartStage)
 			return
-		} else if n == 1024 {
+		case 1024:
 			kerDITNP_1024(a, twiddles, stage-twiddlesStartStage)
 			return
-		}{{- end}}
+		{{- end}}
+		}
 	}
 	
 	m := n >> 1
@@ -466,6 +499,139 @@ func innerDITWithoutTwiddles(a []{{ .FF }}.Element, at, w {{ .FF }}.Element, sta
 	{{$ksize := shl 1 $klog2}}
 	{{genKernel $.FF $ksize $klog2}}
 {{end}}
+
+// kerDIFNP_64 is an unrolled 64-element DIF kernel that avoids recursion overhead
+// for workloads dominated by small FFTs.
+func kerDIFNP_64(a []{{ .FF }}.Element, twiddles [][]{{ .FF }}.Element, stage int) {
+	// Stage 0: m=32
+	innerDIFWithTwiddles(a[:64], twiddles[stage+0], 0, 32, 32)
+	// Stage 1: m=16
+	for offset := 0; offset < 64; offset += 32 {
+		innerDIFWithTwiddles(a[offset:offset+32], twiddles[stage+1], 0, 16, 16)
+	}
+	// Stages 2-4 are inlined to avoid function call and Vector dispatch overhead.
+	{
+		// Stage 2: m=8, 2x unrolled for ILP across Montgomery multiply chains.
+		tw := twiddles[stage+2]
+		for offset := 0; offset < 64; offset += 32 {
+			o1, o2 := offset, offset+16
+			{{ .FF }}.Butterfly(&a[o1], &a[o1+8])
+			{{ .FF }}.Butterfly(&a[o2], &a[o2+8])
+			for i := 1; i < 8; i++ {
+				{{ .FF }}.Butterfly(&a[o1+i], &a[o1+i+8])
+				{{ .FF }}.Butterfly(&a[o2+i], &a[o2+i+8])
+			}
+			for i := 1; i < 8; i++ {
+				a[o1+i+8].Mul(&a[o1+i+8], &tw[i])
+				a[o2+i+8].Mul(&a[o2+i+8], &tw[i])
+			}
+		}
+	}
+	{
+		// Stage 3: m=4, 2x unrolled.
+		tw := twiddles[stage+3]
+		for offset := 0; offset < 64; offset += 16 {
+			o1, o2 := offset, offset+8
+			{{ .FF }}.Butterfly(&a[o1], &a[o1+4])
+			{{ .FF }}.Butterfly(&a[o2], &a[o2+4])
+			for i := 1; i < 4; i++ {
+				{{ .FF }}.Butterfly(&a[o1+i], &a[o1+i+4])
+				{{ .FF }}.Butterfly(&a[o2+i], &a[o2+i+4])
+			}
+			for i := 1; i < 4; i++ {
+				a[o1+i+4].Mul(&a[o1+i+4], &tw[i])
+				a[o2+i+4].Mul(&a[o2+i+4], &tw[i])
+			}
+		}
+	}
+	{
+		// Stage 4: m=2 (DIF: all butterflies first, then multiply).
+		tw := twiddles[stage+4]
+		for offset := 0; offset < 64; offset += 4 {
+			{{ .FF }}.Butterfly(&a[offset], &a[offset+2])
+			{{ .FF }}.Butterfly(&a[offset+1], &a[offset+3])
+			a[offset+3].Mul(&a[offset+3], &tw[1])
+		}
+	}
+	// Stage 5: m=1 (butterfly only).
+	for offset := 0; offset < 64; offset += 2 {
+		{{ .FF }}.Butterfly(&a[offset], &a[offset+1])
+	}
+}
+
+// kerDITNP_64 is the DIT counterpart of kerDIFNP_64.
+func kerDITNP_64(a []{{ .FF }}.Element, twiddles [][]{{ .FF }}.Element, stage int) {
+	// Stage 5: m=1 (butterfly only).
+	for offset := 0; offset < 64; offset += 2 {
+		{{ .FF }}.Butterfly(&a[offset], &a[offset+1])
+	}
+	// Stages 4-2 are inlined (DIT: multiply first, then butterfly).
+	{
+		// Stage 4: m=2.
+		tw := twiddles[stage+4]
+		for offset := 0; offset < 64; offset += 4 {
+			a[offset+3].Mul(&a[offset+3], &tw[1])
+			{{ .FF }}.Butterfly(&a[offset], &a[offset+2])
+			{{ .FF }}.Butterfly(&a[offset+1], &a[offset+3])
+		}
+	}
+	{
+		// Stage 3: m=4, 2x unrolled.
+		tw := twiddles[stage+3]
+		for offset := 0; offset < 64; offset += 16 {
+			o1, o2 := offset, offset+8
+			for i := 1; i < 4; i++ {
+				a[o1+i+4].Mul(&a[o1+i+4], &tw[i])
+				a[o2+i+4].Mul(&a[o2+i+4], &tw[i])
+			}
+			{{ .FF }}.Butterfly(&a[o1], &a[o1+4])
+			{{ .FF }}.Butterfly(&a[o2], &a[o2+4])
+			for i := 1; i < 4; i++ {
+				{{ .FF }}.Butterfly(&a[o1+i], &a[o1+i+4])
+				{{ .FF }}.Butterfly(&a[o2+i], &a[o2+i+4])
+			}
+		}
+	}
+	{
+		// Stage 2: m=8, 2x unrolled.
+		tw := twiddles[stage+2]
+		for offset := 0; offset < 64; offset += 32 {
+			o1, o2 := offset, offset+16
+			for i := 1; i < 8; i++ {
+				a[o1+i+8].Mul(&a[o1+i+8], &tw[i])
+				a[o2+i+8].Mul(&a[o2+i+8], &tw[i])
+			}
+			{{ .FF }}.Butterfly(&a[o1], &a[o1+8])
+			{{ .FF }}.Butterfly(&a[o2], &a[o2+8])
+			for i := 1; i < 8; i++ {
+				{{ .FF }}.Butterfly(&a[o1+i], &a[o1+i+8])
+				{{ .FF }}.Butterfly(&a[o2+i], &a[o2+i+8])
+			}
+		}
+	}
+	// Stage 1: m=16.
+	for offset := 0; offset < 64; offset += 32 {
+		innerDITWithTwiddles(a[offset:offset+32], twiddles[stage+1], 0, 16, 16)
+	}
+	// Stage 0: m=32.
+	innerDITWithTwiddles(a[:64], twiddles[stage+0], 0, 32, 32)
+}
+
+// kerDIFNP_128 is an unrolled 128-element DIF kernel.
+func kerDIFNP_128(a []{{ .FF }}.Element, twiddles [][]{{ .FF }}.Element, stage int) {
+	// Stage 0: m=64.
+	innerDIFWithTwiddles(a[:128], twiddles[stage+0], 0, 64, 64)
+	kerDIFNP_64(a[:64], twiddles, stage+1)
+	kerDIFNP_64(a[64:], twiddles, stage+1)
+}
+
+// kerDITNP_128 is the DIT counterpart of kerDIFNP_128.
+func kerDITNP_128(a []{{ .FF }}.Element, twiddles [][]{{ .FF }}.Element, stage int) {
+	kerDITNP_64(a[:64], twiddles, stage+1)
+	kerDITNP_64(a[64:], twiddles, stage+1)
+	// Final stage: m=64.
+	innerDITWithTwiddles(a[:128], twiddles[stage+0], 0, 64, 64)
+}
 
 {{- if .HasASMKernel}}
 // kerDIFNP_512 is an optimized 512-element DIF kernel that avoids recursion overhead
@@ -574,5 +740,3 @@ func kerDITNP_{{.sizeKernel}}generic(a []{{ .FF }}.Element, twiddles [][]{{ .FF 
 }
 
 {{end}}
-
-
