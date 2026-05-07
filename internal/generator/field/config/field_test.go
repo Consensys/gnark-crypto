@@ -55,6 +55,14 @@ func TestIntToMont(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestNewFieldConfigRejectsUnsupportedModulus(t *testing.T) {
+	t.Parallel()
+
+	if _, err := NewFieldConfig("dummy", "DummyElement", "0x2", false); err == nil {
+		t.Fatal("expected even modulus to be rejected")
+	}
+}
+
 func TestBigIntMatchUint64Slice(t *testing.T) {
 	t.Parallel()
 
@@ -204,7 +212,7 @@ func genField(t *testing.T) gopter.Gen {
 			nbWords := minNbWords + mrand.Intn(maxNbWords-minNbWords) //#nosec G404 -- This is a false positive
 			bitLen := max(
 				// #nosec G404 -- This is a false positive
-				nbWords*64-mrand.Intn(64), 2)
+				nbWords*64-mrand.Intn(64), 3)
 
 			modulus, err := rand.Prime(rand.Reader, bitLen)
 			if err != nil {

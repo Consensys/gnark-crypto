@@ -32,6 +32,8 @@ internal/tests/integration/
 field/internal/dev.go 
 field/internal/dev/**
 field/generator/addchain/**
+internal/generator/field/addchain/
+/addchain/
 
 .vscode
 

@@ -68,6 +68,12 @@ type TwistedEdwardsCurve struct {
 	QuarticExponentData *addchain.AddChainData
 	OcticExponentData   *addchain.AddChainData
 
+	// Split-2-torsion subgroup-check constants. These are curve-specific
+	// constants used by the existing Koshelev-style cofactor-4 check.
+	Split2TorsionT0 string
+	Split2TorsionT1 string
+	Split2TorsionB  string
+
 	// set if endomorphism
 	HasEndomorphism bool
 	Endo0, Endo1    string
@@ -162,6 +168,25 @@ func (p Point) IsNeg3A() bool {
 
 var Curves []Curve
 var TwistedEdwardsCurves []TwistedEdwardsCurve
+
+func (c TwistedEdwardsCurve) HasSplit2TorsionSubgroupCheck() bool {
+	return c.Cofactor == "4" && c.Split2Torsion &&
+		c.Split2TorsionT0 != "" &&
+		c.Split2TorsionT1 != "" &&
+		c.Split2TorsionB != ""
+}
+
+func (c TwistedEdwardsCurve) HasNonSplitSubgroupCheck() bool {
+	return !c.Split2Torsion && (c.Cofactor == "4" || c.Cofactor == "8")
+}
+
+func (c TwistedEdwardsCurve) HasOcticSubgroupCheck() bool {
+	return c.HasNonSplitSubgroupCheck() && c.Cofactor == "8"
+}
+
+func (c TwistedEdwardsCurve) HasSubgroupCheck() bool {
+	return c.HasSplit2TorsionSubgroupCheck() || c.HasNonSplitSubgroupCheck()
+}
 
 func defaultCRange() []int {
 	// default range for C values in the multiExp

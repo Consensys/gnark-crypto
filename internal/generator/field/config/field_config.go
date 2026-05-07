@@ -17,7 +17,8 @@ import (
 )
 
 var (
-	errParseModulus = errors.New("can't parse modulus")
+	errParseModulus   = errors.New("can't parse modulus")
+	errInvalidModulus = errors.New("modulus must be an odd integer greater than 2")
 )
 
 // Field precomputed values used in template for code generation of field element APIs
@@ -138,6 +139,9 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	var bModulus big.Int
 	if _, ok := bModulus.SetString(modulus, 0); !ok {
 		return nil, errParseModulus
+	}
+	if bModulus.Cmp(big.NewInt(3)) < 0 || bModulus.Bit(0) == 0 {
+		return nil, errInvalidModulus
 	}
 
 	// field info

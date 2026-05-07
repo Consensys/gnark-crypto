@@ -7,6 +7,9 @@ package twistededwards
 
 import "github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 
+// weierstrassPointAffine stores coordinates on the short-Weierstrass model
+// birationally equivalent to this Edwards curve. It is deliberately distinct
+// from PointAffine so Edwards formulas cannot be called on Weierstrass points.
 type weierstrassPointAffine struct {
 	X, Y fr.Element
 }
@@ -28,6 +31,14 @@ type subgroupParams struct {
 
 var subgroupData subgroupParams
 
+// initCofactorSubgroupParams precomputes torsion points and tangent lines for
+// the divide-and-pair subgroup test described in:
+//
+//   - https://eprint.iacr.org/2026/749
+//   - https://hackmd.io/@yelhousni/divide-and-pair
+//
+// The Edwards curve is mapped to a short-Weierstrass model where the relevant
+// torsion basis and Miller functions have simple line/vertical-line formulas.
 func initCofactorSubgroupParams() {
 	var three, inv3 fr.Element
 	three.SetUint64(3)

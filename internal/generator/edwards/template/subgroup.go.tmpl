@@ -1,7 +1,10 @@
-{{- if and (not .Split2Torsion) (or (eq .Cofactor "4") (eq .Cofactor "8"))}}
+{{- if .HasNonSplitSubgroupCheck}}
 
 import "github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 
+// weierstrassPointAffine stores coordinates on the short-Weierstrass model
+// birationally equivalent to this Edwards curve. It is deliberately distinct
+// from PointAffine so Edwards formulas cannot be called on Weierstrass points.
 type weierstrassPointAffine struct {
 	X, Y fr.Element
 }
@@ -19,7 +22,7 @@ type subgroupParams struct {
 	torsionPoint4 weierstrassPointAffine
 	// tangentSlopeAtT4 is the tangent slope at torsionPoint4 on the working Weierstrass model.
 	tangentSlopeAtT4 fr.Element
-	{{- if eq .Cofactor "8"}}
+	{{- if .HasOcticSubgroupCheck}}
 	// torsionPoint8 is the rational 8-torsion generator used by the subgroup test.
 	torsionPoint8 weierstrassPointAffine
 	// tangentSlopeAtT8 is the tangent slope at torsionPoint8 on the working Weierstrass model.
@@ -29,6 +32,14 @@ type subgroupParams struct {
 
 var subgroupData subgroupParams
 
+// initCofactorSubgroupParams precomputes torsion points and tangent lines for
+// the divide-and-pair subgroup test described in:
+//
+//   - https://eprint.iacr.org/2026/749
+//   - https://hackmd.io/@yelhousni/divide-and-pair
+//
+// The Edwards curve is mapped to a short-Weierstrass model where the relevant
+// torsion basis and Miller functions have simple line/vertical-line formulas.
 func initCofactorSubgroupParams() {
 	var three, inv3 fr.Element
 	three.SetUint64(3)
@@ -55,12 +66,12 @@ func initCofactorSubgroupParams() {
 	weierstrassTangentSlope(&subgroupData.tangentSlopeAtT4, &subgroupData.torsionPoint4)
 	weierstrassDouble(&subgroupData.torsionPoint2, &subgroupData.torsionPoint4)
 
-	{{- if eq .Cofactor "8"}}
+	{{- if .HasOcticSubgroupCheck}}
 	initCofactorEightTorsion(&t4)
 	{{- end}}
 }
 
-{{- if eq .Cofactor "8"}}
+{{- if .HasOcticSubgroupCheck}}
 func initCofactorEightTorsion(t4 *PointAffine) {
 	var one, two, aInv, discr, discrSqrt, x2, y2, t fr.Element
 	one.SetOne()

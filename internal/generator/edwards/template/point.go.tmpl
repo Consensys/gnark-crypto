@@ -161,7 +161,7 @@ func (p *PointAffine) IsOnCurve() bool {
 	return lhs.Equal(&rhs)
 }
 
-{{- if and (eq .Cofactor "4") .Split2Torsion}}
+{{- if .HasSplit2TorsionSubgroupCheck}}
 // IsInSubGroup checks if a point is in the prime subgroup (and on the curve)
 // based on https://eprint.iacr.org/2022/037.pdf by D. Koshelev.
 func (p *PointAffine) IsInSubGroup() bool {

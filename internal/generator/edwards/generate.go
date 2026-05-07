@@ -2,6 +2,7 @@ package edwards
 
 import (
 	"path/filepath"
+	stdtemplate "text/template"
 
 	"github.com/consensys/bavard"
 	"github.com/consensys/gnark-crypto/internal/generator/addchain"
@@ -20,7 +21,7 @@ func Generate(conf config.TwistedEdwardsCurve, baseDir string, gen *common.Gener
 	}
 
 	edwardsGen := common.NewDefaultGenerator(template.FS)
-	funcs := common.Funcs()
+	funcs := make(stdtemplate.FuncMap)
 	for _, f := range addchain.Functions {
 		funcs[f.Name] = f.Func
 	}

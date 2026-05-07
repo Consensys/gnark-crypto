@@ -860,7 +860,7 @@ func TestOps(t *testing.T) {
 
 }
 
-{{- if or (eq .Cofactor "4") (eq .Cofactor "8")}}
+{{- if .HasSubgroupCheck}}
 func testSubgroupByOrder(p *PointAffine) bool {
 	params := GetEdwardsCurve()
 	var check PointAffine
@@ -874,7 +874,7 @@ func testRejectTorsionCoset(p, torsion *PointAffine) bool {
 	return !q.IsInSubGroup() && !testSubgroupByOrder(&q)
 }
 
-{{- if and (not .Split2Torsion) (eq .Cofactor "8")}}
+{{- if .HasOcticSubgroupCheck}}
 func testTorsion8Point(t4 *PointAffine) (PointAffine, bool) {
 	initOnce.Do(initCurveParams)
 	var one, aInv, discr, discrSqrt, x2, y2, t fr.Element
@@ -996,7 +996,7 @@ func TestIsInSubGroup(t *testing.T) {
 				return false
 			}
 
-			{{- if not .Split2Torsion}}
+			{{- if .HasNonSplitSubgroupCheck}}
 			initOnce.Do(initCurveParams)
 			var sqrtA fr.Element
 			sqrtA.Set(&curveParams.A)
@@ -1010,7 +1010,7 @@ func TestIsInSubGroup(t *testing.T) {
 				return false
 			}
 
-			{{- if eq .Cofactor "8"}}
+			{{- if .HasOcticSubgroupCheck}}
 			t8, ok := testTorsion8Point(&t4)
 			if !ok || !testRejectTorsionCoset(&p, &t8) {
 				return false
@@ -1280,7 +1280,7 @@ func BenchmarkIsOnCurve(b *testing.B) {
 	})
 }
 
-{{- if or (eq .Cofactor "4") (eq .Cofactor "8")}}
+{{- if .HasSubgroupCheck}}
 func BenchmarkIsInSubGroup(b *testing.B) {
 	params := GetEdwardsCurve()
 	var s big.Int
