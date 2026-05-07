@@ -29,6 +29,12 @@ func TestCbrtE8RejectsNonResidues(t *testing.T) {
 	t.Fatal("failed to find an E8 non-cube in 256 samples")
 }
 
+func TestCbrtE8Zero(t *testing.T) {
+	var zero, got extensions.E8
+	require.NotNil(t, cbrtE8(&got, &zero))
+	require.True(t, got.IsZero())
+}
+
 func TestE16CbrtOnCubicResidues(t *testing.T) {
 	for i := 0; i < 128; i++ {
 		var a, x, got, check e16
@@ -52,6 +58,13 @@ func TestE16CbrtRejectsNonResidues(t *testing.T) {
 		}
 	}
 	t.Fatal("failed to find an E16 non-cube in 256 samples")
+}
+
+func TestE16CbrtZero(t *testing.T) {
+	var zero, got e16
+	require.NotNil(t, got.Cbrt(&zero))
+	require.True(t, got.A0.IsZero())
+	require.True(t, got.A1.IsZero())
 }
 
 func TestDepressedCubicRootFindsValidRoot(t *testing.T) {

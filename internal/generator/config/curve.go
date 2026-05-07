@@ -14,6 +14,7 @@ type Curve struct {
 	EnumID       string
 	FpModulus    string
 	FrModulus    string
+	ExistingFp   ExistingFieldPackage
 
 	Fp           *config.Field
 	Fr           *config.Field
@@ -35,6 +36,9 @@ type Curve struct {
 	// Used for curves that only need field arithmetic and ECDSA (e.g., stark-curve, secp256r1).
 	NoECC bool
 
+	// NoECDSA disables ECDSA package generation.
+	NoECDSA bool
+
 	// ECDSAKeyRecovery enables ECDSA public key recovery (SignForRecover, RecoverPublicKey).
 	ECDSAKeyRecovery bool
 
@@ -53,6 +57,11 @@ type Curve struct {
 	E2CbrtTorusLucasExponent []uint64 // 3⁻¹ mod (p+1) little-endian
 	E2CbrtTorusLucasNLimbs   int
 	E2CbrtTorusLucasTopBit   int // bit length - 1
+}
+
+type ExistingFieldPackage struct {
+	PackagePath string
+	PackageName string
 }
 
 type TwistedEdwardsCurve struct {
@@ -100,6 +109,18 @@ func (c Curve) GenerateMarshal() bool {
 
 func (c Curve) GenerateECC() bool {
 	return c.HasG1() && !c.NoECC
+}
+
+func (c Curve) GenerateECDSA() bool {
+	return !c.NoECDSA
+}
+
+func (c Curve) GenerateFp() bool {
+	return c.ExistingFp.PackagePath == ""
+}
+
+func (c Curve) GenerateFpWrapper() bool {
+	return c.ExistingFp.PackagePath != ""
 }
 
 func (c Curve) GenerateFieldSuite() bool {

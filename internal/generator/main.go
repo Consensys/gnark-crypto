@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/fflonk"
 	"github.com/consensys/gnark-crypto/internal/generator/field"
 	fieldConfig "github.com/consensys/gnark-crypto/internal/generator/field/config"
+	"github.com/consensys/gnark-crypto/internal/generator/fieldwrapper"
 	"github.com/consensys/gnark-crypto/internal/generator/fri"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_curve"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_field"
@@ -93,6 +94,9 @@ func main() {
 	// (without this header) are preserved.
 	for _, conf := range config.Curves {
 		if conf.Equal(config.KB8) {
+			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
+			cleanGeneratedFiles(filepath.Join(curveDir, "fp"))
+			cleanGeneratedFiles(filepath.Join(curveDir, "fr"))
 			continue
 		}
 		curveDir := filepath.Join(baseDir, "ecc", conf.Name)
@@ -138,7 +142,9 @@ func main() {
 			}
 
 			// fp
-			if !conf.Equal(config.KB8) {
+			if conf.GenerateFpWrapper() {
+				assertNoError(fieldwrapper.Generate(conf, filepath.Join(curveDir, "fp")))
+			} else if conf.GenerateFp() {
 				outputDir := filepath.Join(curveDir, "fp")
 				relAsmDir, err := filepath.Rel(outputDir, asmDirBuildPath)
 				assertNoError(err)
@@ -166,15 +172,10 @@ func main() {
 				assertNoError(field.GenerateFF(conf.Fr, outputDir, frOpts...))
 			}
 
-			// preserve the checked-in kb8 ECC package; the shared ECC generator remains
-			// master-neutral for existing curves, while kb8 keeps its hand-maintained
-			// field-wrapper, point, marshal, and multiexp files.
-			if conf.Equal(config.KB8) {
-				return
-			}
-
 			// generate ecdsa
-			assertNoError(ecdsa.Generate(conf, curveDir, gen))
+			if conf.GenerateECDSA() {
+				assertNoError(ecdsa.Generate(conf, curveDir, gen))
+			}
 
 			// generate G1, G2, multiExp, marshal, ...
 			if conf.GenerateECC() {

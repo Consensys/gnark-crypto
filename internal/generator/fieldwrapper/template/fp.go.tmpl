@@ -1,0 +1,40 @@
+import (
+	"math/big"
+
+	{{ .ExistingFp.PackageName }} "{{ .ExistingFp.PackagePath }}"
+)
+
+type Element = {{ .ExistingFp.PackageName }}.Element
+type Vector = {{ .ExistingFp.PackageName }}.Vector
+
+const (
+	Bits  = {{ .ExistingFp.PackageName }}.Bits
+	Bytes = {{ .ExistingFp.PackageName }}.Bytes
+	Limbs = {{ .ExistingFp.PackageName }}.Limbs
+)
+
+var BigEndian = {{ .ExistingFp.PackageName }}.BigEndian
+
+func Modulus() *big.Int {
+	return {{ .ExistingFp.PackageName }}.Modulus()
+}
+
+func One() Element {
+	return {{ .ExistingFp.PackageName }}.One()
+}
+
+func BatchInvert(a []Element) []Element {
+	return {{ .ExistingFp.PackageName }}.BatchInvert(a)
+}
+
+func Generator(m uint64) (Element, error) {
+	return {{ .ExistingFp.PackageName }}.Generator(m)
+}
+
+func Butterfly(a, b *Element) {
+	{{ .ExistingFp.PackageName }}.Butterfly(a, b)
+}
+
+func MulBy3(x *Element) {
+	{{ .ExistingFp.PackageName }}.MulBy3(x)
+}

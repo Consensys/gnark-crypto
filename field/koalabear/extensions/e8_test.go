@@ -175,6 +175,12 @@ func genE8() gopter.Gen {
 	})
 }
 
+func TestE8CbrtZero(t *testing.T) {
+	var zero, got E8
+	require.NotNil(t, got.Cbrt(&zero))
+	require.True(t, got.IsZero())
+}
+
 func TestE8CbrtOnCubicResidues(t *testing.T) {
 	for i := 0; i < 128; i++ {
 		var a, x, got, check E8
