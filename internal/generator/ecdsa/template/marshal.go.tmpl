@@ -4,7 +4,7 @@ import (
 	"errors"
 	"math/big"
 
-	{{ if or (eq .Name "secp256k1") (eq .Name "bn254") (eq .Name "stark-curve") (eq .Name "secp256r1") }}
+	{{ if .ECDSAKeyRecovery }}
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}"
 	{{- end }}
 	"github.com/consensys/gnark-crypto/ecc/{{ .Name }}/fr"
@@ -15,7 +15,7 @@ var errRBiggerThanRMod = errors.New("r >= r_mod")
 var errSBiggerThanHalfRMod = errors.New("s > r_mod/2")
 var errZero = errors.New("zero value")
 
-{{- if  or (eq .Name "secp256k1") (eq .Name "secp256r1")}}
+{{- if not .SupportsPointCompression}}
 // Bytes returns the binary representation of the public key as concatenation
 // of the X and Y coordinates.
 {{- else }}
@@ -30,7 +30,7 @@ var errZero = errors.New("zero value")
 {{- end }}
 func (pk *PublicKey) Bytes() []byte {
 	var res [sizePublicKey]byte
-{{- if  or (eq .Name "secp256k1") (eq .Name "secp256r1")}}
+{{- if not .SupportsPointCompression}}
 	pkBin := pk.A.RawBytes()
 {{- else}}
 	pkBin := pk.A.Bytes()
@@ -61,7 +61,7 @@ func (pk *PublicKey) SetBytes(buf []byte) (int, error) {
 	return n, nil
 }
 
-{{- if or (eq .Name "secp256k1") (eq .Name "bn254") (eq .Name "stark-curve") (eq .Name "secp256r1") }}
+{{- if .ECDSAKeyRecovery }}
 // RecoverFrom recovers the public key from the message msg, recovery
 // information v and decomposes signature {r,s}. If recovery succeeded, the
 // methods sets the current public key to the recovered value. Otherwise returns
@@ -98,7 +98,7 @@ func (pk *PublicKey) RecoverFrom(msg []byte, v uint, r, s *big.Int) error {
 // See also [PublicKey.Bytes].
 func (privKey *PrivateKey) Bytes() []byte {
 	var res [sizePrivateKey]byte
-{{- if  or (eq .Name "secp256k1") (eq .Name "secp256r1")}}
+{{- if not .SupportsPointCompression}}
 	pubkBin := privKey.PublicKey.A.RawBytes()
 {{- else}}
 	pubkBin := privKey.PublicKey.A.Bytes()

@@ -87,7 +87,7 @@ func BenchmarkBitReverse(b *testing.B) {
 			}
 			b.Run(fmt.Sprintf("size=%d", size), func(b *testing.B) {
 				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				for range b.N {
 					BitReverse(a)
 				}
 			})
@@ -102,7 +102,7 @@ func BenchmarkBitReverse(b *testing.B) {
 			}
 			b.Run(fmt.Sprintf("size=%d", size), func(b *testing.B) {
 				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				for range b.N {
 					BitReverse(a)
 				}
 			})

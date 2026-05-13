@@ -8,7 +8,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 )
 
 // Proof is an opening proof
@@ -86,7 +86,7 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 		} else {
 			// unusual path; it means we have < 16 columns (tiny code words)
 			// so we do the hashes one by one.
-			for i := 0; i < sizeCodeWord; i++ {
+			for i := range sizeCodeWord {
 				sStart := i * sisKeySize
 				sEnd := sStart + sisKeySize
 				merkleLeaves[i] = HashPoseidon2(hashedColumns[sStart:sEnd])
@@ -106,7 +106,7 @@ func Commit(p *Params, input [][]koalabear.Element) (*ProverState, error) {
 					h.Write(hashedColumns[j].Marshal())
 				}
 				curHash := h.Sum(nil)
-				for j := 0; j < 8; j++ {
+				for j := range 8 {
 					merkleLeaves[i][j].SetBytes(curHash[nbBytes*j : nbBytes*j+nbBytes])
 				}
 			}

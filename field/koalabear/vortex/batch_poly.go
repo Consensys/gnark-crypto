@@ -7,7 +7,7 @@ import (
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	fext "github.com/consensys/gnark-crypto/field/koalabear/extensions"
 	"github.com/consensys/gnark-crypto/field/koalabear/fft"
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 )
 
 // BatchEvalFextPolyLagrange evaluates extension field polynomials in Lagrange basis at the same point x

@@ -38,7 +38,7 @@ func EvalBasePolyLagrange(poly []koalabear.Element, x fext.E4) (fext.E4, error) 
 		denominators[i].MulByElement(&denominators[i-1], generatorInv)
 	}
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		// This subtracts a field extension by a base field element.
 		denominators[i].B0.A0.Sub(&denominators[i].B0.A0, &one)
 		if denominators[i].IsZero() {
@@ -94,7 +94,7 @@ func EvalFextPolyLagrange(poly []fext.E4, x fext.E4) (fext.E4, error) {
 		denominators[i].MulByElement(&denominators[i-1], generatorInv)
 	}
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		// This subtracts a field extension by a base field element.
 		denominators[i].B0.A0.Sub(&denominators[i].B0.A0, &one)
 		if denominators[i].IsZero() {

@@ -172,9 +172,9 @@ func (z *E2) Exp(x E2, k *big.Int) *E2 {
 
 	z.SetOne()
 	b := e.Bytes()
-	for i := 0; i < len(b); i++ {
+	for i := range b {
 		w := b[i]
-		for j := 0; j < 8; j++ {
+		for j := range 8 {
 			z.Square(z)
 			if (w & (0b10000000 >> j)) != 0 {
 				z.Mul(z, &x)

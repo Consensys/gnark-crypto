@@ -8,18 +8,18 @@
 TEXT ·addVec(SB), NOFRAME|NOSPLIT, $0-32
 	LDP   res+0(FP), (R0, R1)
 	LDP   b+16(FP), (R2, R3)
-	VMOVS $const_q, V3
-	VDUP  V3.S[0], V3.S4      // broadcast q into V3
+	VMOVS $const_q, V2
+	VDUP  V2.S[0], V2.S4      // broadcast q into V2
 
 loop1:
 	CBZ    R3, done2
+	SUB    $1, R3, R3
 	VLD1.P 16(R1), [V0.S4]
 	VLD1.P 16(R2), [V1.S4]
 	VADD   V0.S4, V1.S4, V1.S4 // b = a + b
-	VSUB   V3.S4, V1.S4, V2.S4 // t = b - q
-	VUMIN  V2.S4, V1.S4, V1.S4 // b = min(t, b)
+	VSUB   V2.S4, V1.S4, V0.S4 // a = b - q
+	VUMIN  V0.S4, V1.S4, V1.S4 // b = min(a, b)
 	VST1.P [V1.S4], 16(R0)     // res = b
-	SUB    $1, R3, R3
 	JMP    loop1
 
 done2:
@@ -30,61 +30,151 @@ done2:
 TEXT ·subVec(SB), NOFRAME|NOSPLIT, $0-32
 	LDP   res+0(FP), (R0, R1)
 	LDP   b+16(FP), (R2, R3)
-	VMOVS $const_q, V3
-	VDUP  V3.S[0], V3.S4      // broadcast q into V3
+	VMOVS $const_q, V2
+	VDUP  V2.S[0], V2.S4      // broadcast q into V2
 
 loop3:
 	CBZ    R3, done4
+	SUB    $1, R3, R3
 	VLD1.P 16(R1), [V0.S4]
 	VLD1.P 16(R2), [V1.S4]
 	VSUB   V1.S4, V0.S4, V1.S4 // b = a - b
-	VADD   V1.S4, V3.S4, V2.S4 // t = b + q
-	VUMIN  V2.S4, V1.S4, V1.S4 // b = min(t, b)
+	VADD   V1.S4, V2.S4, V0.S4 // t = b + q
+	VUMIN  V0.S4, V1.S4, V1.S4 // b = min(t, b)
 	VST1.P [V1.S4], 16(R0)     // res = b
-	SUB    $1, R3, R3
 	JMP    loop3
 
 done4:
 	RET
 
+// mulVec(res, a, b *Element, n uint64)
+// n is the number of blocks of 4 uint32 to process
+//
+// Algorithm from plonky3 using SQDMULH for efficient Montgomery reduction:
+// For inputs a, b in [0, P), compute a*b*R^-1 mod P where R = 2^32
+//   1. c_hi = (2 * a * b) >> 32  using SQDMULH
+//   2. q = (a * b * mu) mod 2^32
+//   3. qp_hi = (2 * q * P) >> 32 using SQDMULH
+//   4. d = (c_hi - qp_hi) / 2 using SHSUB
+//   5. if d < 0: d += P
+TEXT ·mulVec(SB), NOFRAME|NOSPLIT, $0-32
+	LDP   res+0(FP), (R0, R1)
+	LDP   b+16(FP), (R2, R3)
+	VMOVS $const_q, V6
+	VDUP  V6.S[0], V6.S4      // broadcast P
+	MOVD  $const_mu, R4
+	VDUP  R4, V7.S4           // broadcast MU
+
+loop5:
+	CBZ    R3, done6
+	SUB    $1, R3, R3
+	VLD1.P 16(R1), [V0.S4]
+	VLD1.P 16(R2), [V1.S4]
+	WORD   $0x4ea1b402     // SQDMULH V2.4S, V0.4S, V1.4S - c_hi = (2*a*b) >> 32
+	WORD   $0x4ea19c03     // MUL V3.4S, V0.4S, V1.4S - q = a * b (low 32 bits)
+	WORD   $0x4ea79c63     // MUL V3.4S, V3.4S, V7.4S - q = q * mu (low 32 bits)
+	WORD   $0x4ea6b464     // SQDMULH V4.4S, V3.4S, V6.4S - qp_hi = (2*q*P) >> 32
+	WORD   $0x4ea42445     // SHSUB V5.4S, V2.4S, V4.4S - d = (c_hi - qp_hi) / 2
+	WORD   $0x4ea23488     // CMGT V8.4S, V4.4S, V2.4S - underflow = (c_hi < qp_hi) ? all 1s : 0
+	WORD   $0x6ea69505     // MLS V5.4S, V8.4S, V6.4S - d = d - underflow * P (adds P when d < 0)
+	VST1.P [V5.S4], 16(R0) // res = d
+	JMP    loop5
+
+done6:
+	RET
+
 // sumVec(t *uint64, a *[]uint32, n uint64) res = sum(a[0...n])
 // n is the number of blocks of 16 uint32 to process
+//
+// Uses UADALP (Unsigned Add and Accumulate Long Pairwise) to efficiently
+// sum 32-bit elements into 64-bit accumulators in a single instruction.
 TEXT ·sumVec(SB), NOFRAME|NOSPLIT, $0-24
 	// zeroing accumulators
 	VMOVQ $0, $0, V4
 	VMOVQ $0, $0, V5
-	VMOVQ $0, $0, V6
-	VMOVQ $0, $0, V7
 	LDP   t+0(FP), (R1, R0)
 	MOVD  n+16(FP), R2
 
-loop5:
-	CBZ R2, done6
+loop7:
+	CBZ    R2, done8
+	SUB    $1, R2, R2
+	VLD1.P 64(R0), [V0.S4, V1.S4, V2.S4, V3.S4]
+	VADD   V0.S4, V1.S4, V0.S4                  // a0 += a1
+	VADD   V2.S4, V3.S4, V2.S4                  // a2 += a3
+	WORD   $0x6ea06804                          // UADALP V4.2D, V0.4S - acc0 += pairwise_widen(a0)
+	WORD   $0x6ea06845                          // UADALP V5.2D, V2.4S - acc1 += pairwise_widen(a2)
+	JMP    loop7
 
-	// blockSize is 16 uint32; we load 4 vectors of 4 uint32 at a time
-	// (4*4)*4 = 64 bytes ~= 1 cache line
-	// since our values are 31 bits, we can add 2 by 2 these vectors
-	// we are left with 2 vectors of 4x32 bits values
-	// that we accumulate in 4*2*64bits accumulators
-	// the caller will reduce mod q the accumulators.
+done8:
+	VADD   V4.D2, V5.D2, V4.D2 // acc0 += acc1
+	VST1.P [V4.D2], 0(R1)      // store accumulator
+	RET
 
-	VLD2.P  32(R0), [V0.S4, V1.S4]
-	VADD    V0.S4, V1.S4, V0.S4    // a1 += a2
-	VLD2.P  32(R0), [V2.S4, V3.S4]
-	VADD    V2.S4, V3.S4, V2.S4    // a3 += a4
-	VUSHLL  $0, V0.S2, V1.D2       // convert low words to 64 bits
-	VADD    V1.D2, V5.D2, V5.D2    // acc2 += a2
-	VUSHLL2 $0, V0.S4, V0.D2       // convert high words to 64 bits
-	VADD    V0.D2, V4.D2, V4.D2    // acc1 += a1
-	VUSHLL  $0, V2.S2, V3.D2       // convert low words to 64 bits
-	VADD    V3.D2, V7.D2, V7.D2    // acc4 += a4
-	VUSHLL2 $0, V2.S4, V2.D2       // convert high words to 64 bits
-	VADD    V2.D2, V6.D2, V6.D2    // acc3 += a3
-	SUB     $1, R2, R2
-	JMP     loop5
+// scalarMulVec(res, a, b *Element, n uint64) res[0...n] = a[0...n] * b
+// n is the number of blocks of 4 uint32 to process
+//
+// Algorithm from plonky3 using SQDMULH for efficient Montgomery reduction
+TEXT ·scalarMulVec(SB), NOFRAME|NOSPLIT, $0-32
+	LDP   res+0(FP), (R0, R1)
+	LDP   b+16(FP), (R2, R3)
+	VMOVS $const_q, V6
+	VDUP  V6.S[0], V6.S4      // broadcast P
+	MOVD  $const_mu, R4
+	VDUP  R4, V7.S4           // broadcast MU
+	MOVWU 0(R2), R4
+	VDUP  R4, V1.S4           // broadcast scalar b
+	WORD  $0x4ea19ce9         // MUL V9.4S, V7.4S, V1.4S - muB = mu * b (precomputed)
 
-done6:
-	VADD   V4.D2, V6.D2, V4.D2   // acc1 += acc3
-	VADD   V5.D2, V7.D2, V5.D2   // acc2 += acc4
-	VST2.P [V4.D2, V5.D2], 0(R1) // store acc1 and acc2
+loop9:
+	CBZ    R3, done10
+	SUB    $1, R3, R3
+	VLD1.P 16(R1), [V0.S4]
+	WORD   $0x4ea1b402     // SQDMULH V2.4S, V0.4S, V1.4S - c_hi = (2*a*b) >> 32
+	WORD   $0x4ea99c03     // MUL V3.4S, V0.4S, V9.4S - q = a * muB (low 32 bits)
+	WORD   $0x4ea6b464     // SQDMULH V4.4S, V3.4S, V6.4S - qp_hi = (2*q*P) >> 32
+	WORD   $0x4ea42445     // SHSUB V5.4S, V2.4S, V4.4S - d = (c_hi - qp_hi) / 2
+	WORD   $0x4ea23488     // CMGT V8.4S, V4.4S, V2.4S - underflow = (c_hi < qp_hi) ? all 1s : 0
+	WORD   $0x6ea69505     // MLS V5.4S, V8.4S, V6.4S - d = d - underflow * P (adds P when d < 0)
+	VST1.P [V5.S4], 16(R0) // res = d
+	JMP    loop9
+
+done10:
+	RET
+
+// innerProdVec(t *uint64, a, b *[]uint32, n uint64) res = sum(a[0...n] * b[0...n])
+// n is the number of blocks of 4 uint32 to process
+// We do montgomery multiplication and accumulate the reduced results.
+//
+// Algorithm from plonky3 using SQDMULH for efficient Montgomery reduction
+TEXT ·innerProdVec(SB), NOFRAME|NOSPLIT, $0-32
+	LDP   t+0(FP), (R0, R1)
+	LDP   b+16(FP), (R2, R3)
+	VMOVS $const_q, V6
+	VDUP  V6.S[0], V6.S4     // broadcast P
+	MOVD  $const_mu, R4
+	VDUP  R4, V7.S4          // broadcast MU
+	VMOVQ $0, $0, V9
+	VMOVQ $0, $0, V10
+
+loop11:
+	CBZ     R3, done12
+	SUB     $1, R3, R3
+	VLD1.P  16(R1), [V0.S4]
+	VLD1.P  16(R2), [V1.S4]
+	WORD    $0x4ea1b402            // SQDMULH V2.4S, V0.4S, V1.4S - c_hi = (2*a*b) >> 32
+	WORD    $0x4ea19c03            // MUL V3.4S, V0.4S, V1.4S - q = a * b (low 32 bits)
+	WORD    $0x4ea79c63            // MUL V3.4S, V3.4S, V7.4S - q = q * mu (low 32 bits)
+	WORD    $0x4ea6b464            // SQDMULH V4.4S, V3.4S, V6.4S - qp_hi = (2*q*P) >> 32
+	WORD    $0x4ea42445            // SHSUB V5.4S, V2.4S, V4.4S - d = (c_hi - qp_hi) / 2
+	WORD    $0x4ea23488            // CMGT V8.4S, V4.4S, V2.4S - underflow = (c_hi < qp_hi) ? all 1s : 0
+	WORD    $0x6ea69505            // MLS V5.4S, V8.4S, V6.4S - d = d - underflow * P (adds P when d < 0)
+	VUSHLL  $0, V5.S2, V11.D2      // tmp0 = extend(d[0,1])
+	VUSHLL2 $0, V5.S4, V12.D2      // tmp1 = extend(d[2,3])
+	VADD    V11.D2, V9.D2, V9.D2   // acc0 += tmp0
+	VADD    V12.D2, V10.D2, V10.D2 // acc1 += tmp1
+	JMP     loop11
+
+done12:
+	VADD   V9.D2, V10.D2, V9.D2 // acc0 += acc1
+	VST1.P [V9.D2], 16(R0)      // store accumulator
 	RET

@@ -24,7 +24,7 @@ func GenE3() gopter.Gen {
 		GenFp(),
 		GenFp(),
 		GenFp(),
-	).Map(func(values []interface{}) *E3 {
+	).Map(func(values []any) *E3 {
 		return &E3{A0: values[0].(fp.Element), A1: values[1].(fp.Element), A2: values[2].(fp.Element)}
 	})
 }
@@ -34,7 +34,7 @@ func GenE6() gopter.Gen {
 	return gopter.CombineGens(
 		GenE3(),
 		GenE3(),
-	).Map(func(values []interface{}) *E6 {
+	).Map(func(values []any) *E6 {
 		return &E6{B0: *values[0].(*E3), B1: *values[1].(*E3)}
 	})
 }
