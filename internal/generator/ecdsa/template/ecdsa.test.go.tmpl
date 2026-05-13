@@ -47,7 +47,7 @@ func TestECDSA(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
-{{- if or (eq .Name "secp256k1") (eq .Name "bn254") (eq .Name "stark-curve") (eq .Name "secp256r1") }}
+{{- if .ECDSAKeyRecovery }}
 func TestRecoverPublicKey(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
@@ -158,7 +158,7 @@ func BenchmarkSignECDSA(b *testing.B) {
 
 	msg := []byte("benchmarking ECDSA sign()")
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		privKey.Sign(msg, nil)
 	}
 }
@@ -170,12 +170,12 @@ func BenchmarkVerifyECDSA(b *testing.B) {
 	sig, _ := privKey.Sign(msg, nil)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		privKey.PublicKey.Verify(sig, msg, nil)
 	}
 }
 
-{{- if or (eq .Name "secp256k1") (eq .Name "bn254") (eq .Name "stark-curve") (eq .Name "secp256r1") }}
+{{- if .ECDSAKeyRecovery }}
 func BenchmarkRecoverPublicKey(b *testing.B) {
 	sk, err := GenerateKey(rand.Reader)
 	if err != nil {
@@ -186,7 +186,7 @@ func BenchmarkRecoverPublicKey(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		var recovered PublicKey
 		if err = recovered.RecoverFrom(msg, v, r, s); err != nil {
 			b.Fatal(err)

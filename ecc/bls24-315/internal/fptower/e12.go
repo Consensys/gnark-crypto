@@ -209,7 +209,7 @@ func BatchInvertE12(a []E12) []E12 {
 	var accumulator E12
 	accumulator.SetOne()
 
-	for i := 0; i < len(a); i++ {
+	for i := range a {
 		if a[i].IsZero() {
 			zeroes[i] = true
 			continue
@@ -263,7 +263,7 @@ func (z *E12) Exp(x E12, k *big.Int) *E12 {
 	for i := range b {
 		w := b[i]
 		mask := byte(0xc0)
-		for j := 0; j < 4; j++ {
+		for j := range 4 {
 			res.Square(&res).Square(&res)
 			c := (w & mask) >> (6 - 2*j)
 			if c != 0 {

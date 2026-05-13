@@ -27,10 +27,10 @@ func TestComputeLagrangeBasisAtX(t *testing.T) {
 	gi.SetOne()
 
 	expected := make([]fext.E4, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		expected[i].SetOne()
 		cc, _ := ComputeLagrangeBasisAtX(n, gi)
-		for j := 0; j < n; j++ {
+		for j := range n {
 
 			if !cc[j].Equal(&expected[j]) {
 				t.Fatal("error computeLagrangeBasisAtX")

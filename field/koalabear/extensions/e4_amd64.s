@@ -38,8 +38,8 @@ loop_1:
 	VINSERTI64X4 $1, Y7, Z5, Z5
 
 #define MUL_5W(in0, in1, in2, in3, in4, in5, in6, in7, in8, in9) \
-	VPSRLQ    $32, in0, in2 \
-	VPSRLQ    $32, in1, in3 \
+	VMOVSHDUP in0, in2      \
+	VMOVSHDUP in1, in3      \
 	VPMULUDQ  in0, in1, in4 \
 	VPMULUDQ  in2, in3, in5 \
 	VPMULUDQ  in4, in9, in6 \
@@ -403,8 +403,8 @@ loop_11:
 	VPADDD     Z20, Z19, Z18
 
 #define MUL_4W(in0, in1, in2, in3, in4, in5, in6, in7, in8) \
-	VPSRLQ    $32, in0, in2 \
-	VPSRLQ    $32, in1, in3 \
+	VMOVSHDUP in0, in2      \
+	VMOVSHDUP in1, in3      \
 	VPMULUDQ  in0, in1, in4 \
 	VPMULUDQ  in2, in3, in5 \
 	VPMULUDQ  in4, in8, in2 \

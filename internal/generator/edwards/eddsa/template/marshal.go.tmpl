@@ -121,7 +121,7 @@ func (sig *Signature) SetBytes(buf []byte) (int, error) {
 	zero := big.NewInt(0)
 	bufBigInt := new(big.Int)
 	bufCopy := make([]byte, fr.Bytes)
-	for i := 0; i < sizeFr; i++ {
+	for i := range sizeFr {
 		bufCopy[sizeFr-1-i] = buf[i]
 	}
 	bufCopy[0] &= mUnmask
