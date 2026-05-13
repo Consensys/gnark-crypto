@@ -80,9 +80,11 @@ func (z *E6) Lift(v *fr.Element) *E6 {
 
 // MulByElement multiplies an element in E6 by an element in fr
 func (z *E6) MulByElement(x *E6, y *fr.Element) *E6 {
-	z.B0.MulByElement(&x.B0, y)
-	z.B1.MulByElement(&x.B1, y)
-	z.B2.MulByElement(&x.B2, y)
+	var yCopy fr.Element
+	yCopy.Set(y)
+	z.B0.MulByElement(&x.B0, &yCopy)
+	z.B1.MulByElement(&x.B1, &yCopy)
+	z.B2.MulByElement(&x.B2, &yCopy)
 	return z
 }
 
@@ -240,7 +242,7 @@ func (z *E6) Inverse(x *E6) *E6 {
 	return z
 }
 
-// Exp sets z=xᵏ (mod q⁴) and returns it
+// Exp sets z=xᵏ (mod q⁶) and returns it
 func (z *E6) Exp(x E6, k *big.Int) *E6 {
 	if k.IsInt64() {
 		return z.ExpInt64(x, k.Int64())
@@ -249,7 +251,7 @@ func (z *E6) Exp(x E6, k *big.Int) *E6 {
 	e := k
 	if k.Sign() == -1 {
 		// negative k, we invert
-		// if k < 0: xᵏ (mod q⁴) == (x⁻¹)ᵏ (mod q⁴)
+		// if k < 0: xᵏ (mod q⁶) == (x⁻¹)ᵏ (mod q⁶)
 		x.Inverse(&x)
 
 		// we negate k in a temp big.Int since
@@ -259,9 +261,22 @@ func (z *E6) Exp(x E6, k *big.Int) *E6 {
 		e.Neg(k)
 	}
 
-	z.SetOne()
+	// Iterate over the bytes of |k|, starting from the most-significant byte.
+	// Skip leading zero bits of the first non-zero byte so we don't waste
+	// squarings on bits above the most-significant 1.
 	b := e.Bytes()
-	for i := 0; i < len(b); i++ {
+	if len(b) == 0 {
+		return z.SetOne()
+	}
+	z.Set(&x)
+	first := b[0]
+	for j := bits.LeadingZeros8(first) + 1; j < 8; j++ {
+		z.Square(z)
+		if (first & (0b10000000 >> j)) != 0 {
+			z.Mul(z, &x)
+		}
+	}
+	for i := 1; i < len(b); i++ {
 		w := b[i]
 		for j := 0; j < 8; j++ {
 			z.Square(z)
@@ -274,7 +289,7 @@ func (z *E6) Exp(x E6, k *big.Int) *E6 {
 	return z
 }
 
-// ExpInt64 sets z=xᵏ (mod q⁴) and returns it, where k is an int64
+// ExpInt64 sets z=xᵏ (mod q⁶) and returns it, where k is an int64
 func (z *E6) ExpInt64(x E6, k int64) *E6 {
 	if k == 0 {
 		return z.SetOne()
@@ -299,8 +314,8 @@ func (z *E6) ExpInt64(x E6, k int64) *E6 {
 	return z
 }
 
+// Halve divides z in-place by 2.
 func (z *E6) Halve() {
-
 	z.B0.A0.Halve()
 	z.B0.A1.Halve()
 	z.B1.A0.Halve()

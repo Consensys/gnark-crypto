@@ -210,3 +210,13 @@ func BenchmarkE6DMul(b *testing.B) {
 		a.mulMontgomery6(&a, &c)
 	}
 }
+
+func BenchmarkE6DMulNaive(b *testing.B) {
+	var a, c E6D
+	a.MustSetRandom()
+	c.MustSetRandom()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.mulNaive(&a, &c)
+	}
+}

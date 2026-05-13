@@ -371,7 +371,7 @@ func (z *E6D) reconstruct(v *[17]fr.Element) *E6D {
 	// Ref.: Peter L. Montgomery. Five, six, and seven-term Karatsuba-like formulae. IEEE
 	// Transactions on Computers, 54(3):362–369, 2005.
 	//
-	// We then we re-arrange the terms in function of the degree of X and use
+	// We then re-arrange the terms as a function of the degree of X and use
 	// the fact that X^6=2(X^3+1), because we construct 𝔽r⁶[w] as 𝔽r/w⁶-2w³-2. The
 	// resulting coefficients c0,c1,c3,c4 and c5 are:
 	//
@@ -638,40 +638,51 @@ func (z *E6D) Square(a *E6D) *E6D {
 //
 // if x == 0, sets and returns z = x
 func (z *E6D) Inverse(x *E6D) *E6D {
-	_x := ToTower(x)
-	_x.Inverse(_x)
-	_z := FromTower(_x)
-	return z.Set(_z)
+	var tower E6
+	x.toTowerInto(&tower)
+	tower.Inverse(&tower)
+	z.setFromTower(&tower)
+	return z
 }
 
-// FromTower
+// FromTower converts x from the tower representation E6 = E2[v]/(v³-(u+1)) to the
+// direct representation E6D = Fr[w]/(w⁶-2w³-c). With v=w and u=w³-1, this maps:
+//
+//	A_i     = B_i.A0 − B_i.A1   (i = 0,1,2)
+//	A_{i+3} = B_i.A1            (i = 0,1,2)
 func FromTower(x *E6) *E6D {
-	// The 2-3 tower and direct extensions are isomorphic and the coefficients
-	// are permuted as follows:
-	// 		a00-a01 a10-a11 a20-a21 a01 a11 a21
-	// 		A0      A1      A2      A3  A4  A5
 	var z E6D
-	z.A0.Sub(&x.B0.A0, &x.B0.A1)
-	z.A1.Sub(&x.B1.A0, &x.B1.A1)
-	z.A2.Sub(&x.B2.A0, &x.B2.A1)
-	z.A3.Set(&x.B0.A1)
-	z.A4.Set(&x.B1.A1)
-	z.A5.Set(&x.B2.A1)
+	z.setFromTower(x)
 	return &z
 }
 
-// ToTower
+// ToTower converts x from the direct representation E6D = Fr[w]/(w⁶-2w³-c) to the
+// tower representation E6 = E2[v]/(v³-(u+1)). With v=w and u=w³-1, this maps:
+//
+//	B_i.A0 = A_i + A_{i+3}      (i = 0,1,2)
+//	B_i.A1 = A_{i+3}            (i = 0,1,2)
 func ToTower(x *E6D) *E6 {
-	// The 2-3 tower and direct extensions are isomorphic and the coefficients
-	// are permuted as follows:
-	// 		a00    a01 a10    a11 a20    a21
-	// 		A0+A3  A3  A1+A4  A4  A2+A5  A5
 	var z E6
+	x.toTowerInto(&z)
+	return &z
+}
+
+// toTowerInto writes the tower representation of x into z.
+func (x *E6D) toTowerInto(z *E6) {
 	z.B0.A0.Add(&x.A0, &x.A3)
 	z.B0.A1.Set(&x.A3)
 	z.B1.A0.Add(&x.A1, &x.A4)
 	z.B1.A1.Set(&x.A4)
 	z.B2.A0.Add(&x.A2, &x.A5)
 	z.B2.A1.Set(&x.A5)
-	return &z
+}
+
+// setFromTower sets z to the direct representation of the tower element x.
+func (z *E6D) setFromTower(x *E6) {
+	z.A0.Sub(&x.B0.A0, &x.B0.A1)
+	z.A1.Sub(&x.B1.A0, &x.B1.A1)
+	z.A2.Sub(&x.B2.A0, &x.B2.A1)
+	z.A3.Set(&x.B0.A1)
+	z.A4.Set(&x.B1.A1)
+	z.A5.Set(&x.B2.A1)
 }

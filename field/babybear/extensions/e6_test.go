@@ -237,6 +237,40 @@ func TestE6Exp(t *testing.T) {
 		genA,
 	))
 
+	properties.Property("[babybear] Exp(x, -k) should equal Exp(x⁻¹, k)", prop.ForAll(
+		func(a E6) bool {
+			var res, expected, inv E6
+			k := int64(0b1011010110110101) // arbitrary positive
+			kNeg := new(big.Int).Neg(big.NewInt(k))
+			res.Exp(a, kNeg)
+			inv.Inverse(&a)
+			expected.Exp(inv, big.NewInt(k))
+			return res.Equal(&expected)
+		},
+		genA,
+	))
+
+	properties.Property("[babybear] Exp(x, k) for k > int64 should split as Exp(x, k_hi)*Exp(x, k_lo)", prop.ForAll(
+		func(a E6) bool {
+			// k = 2^65 + 1 = (2^65) + 1, exercises the non-IsInt64 path.
+			k := new(big.Int).Lsh(big.NewInt(1), 65)
+			k.Add(k, big.NewInt(1))
+
+			var res E6
+			res.Exp(a, k)
+
+			// expected = x^(2^65) * x = ((x²)^64)^... — compute via 65 squarings
+			var expected E6
+			expected.Set(&a)
+			for i := 0; i < 65; i++ {
+				expected.Square(&expected)
+			}
+			expected.Mul(&expected, &a)
+			return res.Equal(&expected)
+		},
+		genA,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
