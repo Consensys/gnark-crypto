@@ -8,6 +8,7 @@ package extensions
 import (
 	"math/big"
 	"math/bits"
+	"unsafe"
 
 	fr "github.com/consensys/gnark-crypto/field/babybear"
 )
@@ -377,4 +378,61 @@ func ButterflyE6(a, b *E6) {
 
 	fr.Butterfly(&a.B2.A0, &b.B2.A0)
 	fr.Butterfly(&a.B2.A1, &b.B2.A1)
+}
+
+// VectorE6 represents a vector of E6 elements
+type VectorE6 []E6
+
+// Butterfly computes the in-place butterfly operation on two vectors of E6 elements.
+// If other overlaps with vector, the result is undefined; the caller should use a temp vector.
+func (vector VectorE6) Butterfly(other VectorE6) {
+	N := len(other)
+	if N != len(vector) {
+		panic("vectorE6.Butterfly: vectors don't have the same length")
+	}
+	for i := range len(vector) {
+		ButterflyE6(&vector[i], &other[i])
+	}
+}
+
+// ButterflyPair computes the in-place butterfly operation of each pair in the vector,
+// i.e. vector[0], vector[1]; vector[2], vector[3]; ...
+func (vector VectorE6) ButterflyPair() {
+	N := len(vector)
+	if N%2 != 0 {
+		panic("vectorE6.ButterflyPair: vector length must be even")
+	}
+	for i := 0; i < N; i += 2 {
+		ButterflyE6(&vector[i], &vector[i+1])
+	}
+}
+
+// MulByElement multiplies each element of a by the corresponding scalar in b and
+// stores the result in vector.
+func (vector VectorE6) MulByElement(a VectorE6, b fr.Vector) {
+	N := len(vector)
+	if len(a) != N || len(b) != N {
+		panic("vectorE6.MulByElement: vectors don't have the same length")
+	}
+	for i := range len(vector) {
+		vector[i].MulByElement(&a[i], &b[i])
+	}
+}
+
+// ScalarMulByElement multiplies each element of a by the same fr element b and
+// stores the result in vector.
+func (vector VectorE6) ScalarMulByElement(a VectorE6, b *fr.Element) {
+	if len(a) != len(vector) {
+		panic("vectorE6.ScalarMulByElement: vectors don't have the same length")
+	}
+	if len(vector) == 0 {
+		return
+	}
+
+	// E6 is laid out as 6 contiguous fr.Element; cast and reuse the optimized
+	// fr.Vector.ScalarMul.
+	M := len(a) * 6
+	vBase := fr.Vector(unsafe.Slice((*fr.Element)(unsafe.Pointer(&a[0])), M))
+	vRes := fr.Vector(unsafe.Slice((*fr.Element)(unsafe.Pointer(&vector[0])), M))
+	vRes.ScalarMul(vBase, b)
 }
