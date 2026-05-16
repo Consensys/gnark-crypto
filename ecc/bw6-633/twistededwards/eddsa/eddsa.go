@@ -50,8 +50,6 @@ type Signature struct {
 
 // GenerateKey generates a public and private key pair.
 func GenerateKey(r io.Reader) (*PrivateKey, error) {
-	c := twistededwards.GetEdwardsCurve()
-
 	var pub PublicKey
 	var priv PrivateKey
 	// The source of randomness and the secret scalar must come
@@ -86,9 +84,7 @@ func GenerateKey(r io.Reader) (*PrivateKey, error) {
 		priv.scalar[i] = h1[j]
 	}
 
-	var bScalar big.Int
-	bScalar.SetBytes(priv.scalar[:])
-	pub.A.ScalarMultiplication(&c.Base, &bScalar)
+	pub.A.ScalarMultiplicationBase(&priv.scalar)
 
 	priv.PublicKey = pub
 
@@ -132,6 +128,7 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 	// blindingFactorBigInt must be the same size as the private key,
 	// blindingFactorBigInt = h(randomness_source||message)[:sizeFr]
 	var blindingFactorBigInt big.Int
+	var blindingFactorScalar [sizeFr]byte
 
 	// randSrc = privKey.randSrc || msg (-> message = MSB message .. LSB message)
 	randSrc := make([]byte, 32+len(message))
@@ -140,10 +137,11 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 
 	// randBytes = H(randSrc)
 	blindingFactorBytes := blake2b.Sum512(randSrc[:]) // TODO ensures that the hash used to build the key and the one used here is the same
-	blindingFactorBigInt.SetBytes(blindingFactorBytes[:sizeFr])
+	copy(blindingFactorScalar[:], blindingFactorBytes[:sizeFr])
+	blindingFactorBigInt.SetBytes(blindingFactorScalar[:])
 
 	// compute R = randScalar*Base
-	res.R.ScalarMultiplication(&curveParams.Base, &blindingFactorBigInt)
+	res.R.ScalarMultiplicationBase(&blindingFactorScalar)
 	if !res.R.IsOnCurve() {
 		return nil, errNotOnCurve
 	}
@@ -230,7 +228,7 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	var bCofactor, bs big.Int
 	curveParams.Cofactor.BigInt(&bCofactor)
 	bs.SetBytes(sig.S[:])
-	lhs.ScalarMultiplication(&curveParams.Base, &bs).
+	lhs.ScalarMultiplicationBase(&sig.S).
 		ScalarMultiplication(&lhs, &bCofactor)
 
 	if !lhs.IsOnCurve() {

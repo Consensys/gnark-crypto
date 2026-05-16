@@ -6,19 +6,23 @@
 package eddsa
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"io"
 	"math/big"
 	"math/rand"
 	"testing"
 
 	crand "crypto/rand"
+	stdhash "hash"
 
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr/mimc"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/twistededwards"
-	"github.com/consensys/gnark-crypto/hash"
+	ghash "github.com/consensys/gnark-crypto/hash"
+	"golang.org/x/crypto/blake2b"
 )
 
 func Example() {
@@ -46,6 +50,184 @@ func Example() {
 	}
 
 	// Output: 1. valid signature
+}
+
+func generateKeyReference(r io.Reader) (*PrivateKey, error) {
+	c := twistededwards.GetEdwardsCurve()
+
+	var pub PublicKey
+	var priv PrivateKey
+	seed := make([]byte, 32)
+	_, err := r.Read(seed)
+	if err != nil {
+		return nil, err
+	}
+	h := blake2b.Sum512(seed[:])
+	for i := range 32 {
+		priv.randSrc[i] = h[i+32]
+	}
+
+	h[0] &= 0xF8
+	h[31] &= 0x7F
+	h[31] |= 0x40
+	for i, j := 0, sizeFr-1; i < sizeFr; i, j = i+1, j-1 {
+		priv.scalar[i] = h[j]
+	}
+
+	var bScalar big.Int
+	bScalar.SetBytes(priv.scalar[:])
+	pub.A.ScalarMultiplication(&c.Base, &bScalar)
+
+	priv.PublicKey = pub
+
+	return &priv, nil
+}
+
+func signReference(privKey *PrivateKey, message []byte, hFunc stdhash.Hash) ([]byte, error) {
+	if hFunc == nil {
+		return nil, errHashNeeded
+	}
+
+	curveParams := twistededwards.GetEdwardsCurve()
+
+	var res Signature
+	var blindingFactorBigInt big.Int
+
+	randSrc := make([]byte, 32+len(message))
+	copy(randSrc, privKey.randSrc[:])
+	copy(randSrc[32:], message)
+
+	blindingFactorBytes := blake2b.Sum512(randSrc[:])
+	blindingFactorBigInt.SetBytes(blindingFactorBytes[:sizeFr])
+
+	res.R.ScalarMultiplication(&curveParams.Base, &blindingFactorBigInt)
+	if !res.R.IsOnCurve() {
+		return nil, errNotOnCurve
+	}
+
+	hFunc.Reset()
+
+	resRX := res.R.X.Bytes()
+	resRY := res.R.Y.Bytes()
+	resAX := privKey.PublicKey.A.X.Bytes()
+	resAY := privKey.PublicKey.A.Y.Bytes()
+	toWrite := [][]byte{resRX[:], resRY[:], resAX[:], resAY[:], message}
+	for _, chunk := range toWrite {
+		if _, err := hFunc.Write(chunk); err != nil {
+			return nil, err
+		}
+	}
+
+	var hramInt big.Int
+	hramBin := hFunc.Sum(nil)
+	hramInt.SetBytes(hramBin)
+
+	var bscalar, bs big.Int
+	bscalar.SetBytes(privKey.scalar[:])
+	bs.Mul(&hramInt, &bscalar).
+		Add(&bs, &blindingFactorBigInt).
+		Mod(&bs, &curveParams.Order)
+	sb := bs.Bytes()
+	if len(sb) < sizeFr {
+		offset := make([]byte, sizeFr-len(sb))
+		sb = append(offset, sb...)
+	}
+	copy(res.S[:], sb[:])
+
+	return res.Bytes(), nil
+}
+
+func TestGenerateKeyMatchesGenericReference(t *testing.T) {
+	got, err := GenerateKey(rand.New(rand.NewSource(0))) //#nosec G404 deterministic test seed
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want, err := generateKeyReference(rand.New(rand.NewSource(0))) //#nosec G404 deterministic test seed
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got.scalar != want.scalar {
+		t.Fatal("scalar mismatch against generic reference")
+	}
+	if got.randSrc != want.randSrc {
+		t.Fatal("randSrc mismatch against generic reference")
+	}
+	if !got.PublicKey.A.Equal(&want.PublicKey.A) {
+		t.Fatal("public key mismatch against generic reference")
+	}
+}
+
+func TestSignMatchesGenericReference(t *testing.T) {
+	privKey, err := GenerateKey(rand.New(rand.NewSource(0))) //#nosec G404 deterministic test seed
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	message := []byte("message")
+	got, err := privKey.Sign(message, sha256.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want, err := signReference(privKey, message, sha256.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(got, want) {
+		t.Fatal("signature mismatch against generic reference")
+	}
+}
+
+func TestVerifyFixedBaseMatchesGenericReference(t *testing.T) {
+	privKey, err := GenerateKey(rand.New(rand.NewSource(0))) //#nosec G404 deterministic test seed
+	if err != nil {
+		t.Fatal(err)
+	}
+	pubKey := privKey.PublicKey
+
+	message := []byte("message")
+	signature, err := privKey.Sign(message, sha256.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var sig Signature
+	if _, err := sig.SetBytes(signature); err != nil {
+		t.Fatal(err)
+	}
+
+	curveParams := twistededwards.GetEdwardsCurve()
+	var cofactor, scalar big.Int
+	curveParams.Cofactor.BigInt(&cofactor)
+	scalar.SetBytes(sig.S[:])
+
+	var lhsFixed, lhsGeneric twistededwards.PointAffine
+	lhsFixed.ScalarMultiplicationBase(&sig.S).
+		ScalarMultiplication(&lhsFixed, &cofactor)
+	lhsGeneric.ScalarMultiplication(&curveParams.Base, &scalar).
+		ScalarMultiplication(&lhsGeneric, &cofactor)
+	if !lhsFixed.Equal(&lhsGeneric) {
+		t.Fatal("[S]Base mismatch against generic reference")
+	}
+
+	ok, err := pubKey.Verify(signature, message, sha256.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("Verify correct signature should return true")
+	}
+
+	ok, err = pubKey.Verify(signature, []byte("wrong_message"), sha256.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok {
+		t.Fatal("Verify wrong signature should be false")
+	}
 }
 
 func TestNonMalleability(t *testing.T) {
@@ -181,7 +363,7 @@ func TestEddsaMIMC(t *testing.T) {
 		t.Fatal(nil)
 	}
 	pubKey := privKey.PublicKey
-	hFunc := hash.MIMC_BLS24_317.New()
+	hFunc := ghash.MIMC_BLS24_317.New()
 
 	var frMsg fr.Element
 	frMsg.SetString("44717650746155748460101257525078853138837311576962212923649547644148297035978")
@@ -221,8 +403,6 @@ func TestEddsaSHA256(t *testing.T) {
 	hFunc := sha256.New()
 
 	// create eddsa obj and sign a message
-	// create eddsa obj and sign a message
-
 	privKey, err := GenerateKey(r)
 	pubKey := privKey.PublicKey
 	if err != nil {
@@ -256,12 +436,45 @@ func TestEddsaSHA256(t *testing.T) {
 
 // benchmarks
 
+func BenchmarkGenerateKey(b *testing.B) {
+
+	r := rand.New(rand.NewSource(0)) //#nosec G404 deterministic benchmark seed
+
+	b.ResetTimer()
+	for range b.N {
+		if _, err := GenerateKey(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSign(b *testing.B) {
+
+	r := rand.New(rand.NewSource(0)) //#nosec G404 deterministic benchmark seed
+	privKey, err := GenerateKey(r)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	var frMsg fr.Element
+	frMsg.SetString("44717650746155748460101257525078853138837311576962212923649547644148297035978")
+	msgBin := frMsg.Bytes()
+	hFunc := ghash.MIMC_BLS24_317.New()
+
+	b.ResetTimer()
+	for range b.N {
+		if _, err := privKey.Sign(msgBin[:], hFunc); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkVerify(b *testing.B) {
 
 	src := rand.NewSource(0)
 	r := rand.New(src) //#nosec G404 weak rng is fine here
 
-	hFunc := hash.MIMC_BLS24_317.New()
+	hFunc := ghash.MIMC_BLS24_317.New()
 
 	// create eddsa obj and sign a message
 	privKey, err := GenerateKey(r)

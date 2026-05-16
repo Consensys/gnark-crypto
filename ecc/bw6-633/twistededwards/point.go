@@ -10,6 +10,7 @@ import (
 	"io"
 	"math/big"
 	"math/bits"
+	"sync"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
 )
@@ -39,6 +40,15 @@ const (
 
 	// size in byte of a compressed point (point.Y --> fr.Element)
 	sizePointCompressed = fr.Bytes
+
+	fixedBaseWindowSize    = 4
+	fixedBaseWindowEntries = 1 << fixedBaseWindowSize
+	fixedBaseWindowCount   = fr.Bytes * 2
+)
+
+var (
+	fixedBaseTableOnce sync.Once
+	fixedBaseTable     [fixedBaseWindowCount][fixedBaseWindowEntries]PointAffine
 )
 
 // Bytes returns the compressed point as a byte array
@@ -128,6 +138,14 @@ func (p *PointAffine) Unmarshal(b []byte) error {
 func (p *PointAffine) Set(p1 *PointAffine) *PointAffine {
 	p.X.Set(&p1.X)
 	p.Y.Set(&p1.Y)
+	return p
+}
+
+// selectPoint is a constant-time conditional move.
+// If c=0, p = p0. Else p = p1.
+func (p *PointAffine) selectPoint(c int, p0, p1 *PointAffine) *PointAffine {
+	p.X.Select(c, &p0.X, &p1.X)
+	p.Y.Select(c, &p0.Y, &p1.Y)
 	return p
 }
 
@@ -261,6 +279,31 @@ func (p *PointAffine) ScalarMultiplication(p1 *PointAffine, scalar *big.Int) *Po
 	return p.scalarMulWindowed(p1, scalar)
 }
 
+// ScalarMultiplicationBase computes [scalar]Base in affine coordinates.
+// scalar is interpreted as a fixed-length big-endian unsigned integer.
+func (p *PointAffine) ScalarMultiplicationBase(scalar *[fr.Bytes]byte) *PointAffine {
+	fixedBaseTableOnce.Do(initFixedBaseTable)
+
+	var resExtended PointExtended
+	resExtended.setInfinity()
+
+	for i := range fixedBaseWindowCount {
+		digit := fixedBaseNibble(scalar, i)
+
+		var selected PointAffine
+		selected.setInfinity()
+		for j := range fixedBaseWindowEntries {
+			match := subtle.ConstantTimeByteEq(digit, byte(j))
+			selected.selectPoint(match, &selected, &fixedBaseTable[i][j])
+		}
+
+		resExtended.MixedAdd(&resExtended, &selected)
+	}
+
+	p.FromExtended(&resExtended)
+	return p
+}
+
 // scalarMulWindowed scalar multiplication of a point
 // p1 in affine coordinates with a scalar in big.Int
 // using the windowed double-and-add method.
@@ -290,6 +333,32 @@ func (p *PointAffine) scalarMulWindowed(p1 *PointAffine, scalar *big.Int) *Point
 
 	p.FromExtended(&resExtended)
 	return p
+}
+
+func fixedBaseNibble(scalar *[fr.Bytes]byte, i int) byte {
+	b := scalar[fr.Bytes-1-(i>>1)]
+	if i&1 == 0 {
+		return b & (fixedBaseWindowEntries - 1)
+	}
+	return b >> fixedBaseWindowSize
+}
+
+func initFixedBaseTable() {
+	initOnce.Do(initCurveParams)
+
+	var base PointAffine
+	base.Set(&curveParams.Base)
+
+	for i := range fixedBaseWindowCount {
+		fixedBaseTable[i][0].setInfinity()
+		fixedBaseTable[i][1].Set(&base)
+		for j := 2; j < fixedBaseWindowEntries; j++ {
+			fixedBaseTable[i][j].Add(&fixedBaseTable[i][j-1], &base)
+		}
+		for range fixedBaseWindowSize {
+			base.Double(&base)
+		}
+	}
 }
 
 // setInfinity sets p to O (0:1)

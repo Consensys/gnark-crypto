@@ -925,6 +925,68 @@ func GenBigInt() gopter.Gen {
 	}
 }
 
+func scalarBytesFromBigInt(s *big.Int) [fr.Bytes]byte {
+	var res [fr.Bytes]byte
+	s.FillBytes(res[:])
+	return res
+}
+
+func TestScalarMultiplicationBase(t *testing.T) {
+	t.Parallel()
+
+	params := GetEdwardsCurve()
+
+	cases := make([][fr.Bytes]byte, 0, 8+nbFuzz)
+	cases = append(cases, scalarBytesFromBigInt(big.NewInt(0)))
+	cases = append(cases, scalarBytesFromBigInt(big.NewInt(1)))
+	cases = append(cases, scalarBytesFromBigInt(big.NewInt(2)))
+	cases = append(cases, scalarBytesFromBigInt(big.NewInt(15)))
+	cases = append(cases, scalarBytesFromBigInt(big.NewInt(16)))
+
+	var orderMinusOne big.Int
+	orderMinusOne.Sub(&params.Order, big.NewInt(1))
+	cases = append(cases, scalarBytesFromBigInt(&orderMinusOne))
+
+	var allFF [fr.Bytes]byte
+	for i := range allFF {
+		allFF[i] = 0xff
+	}
+	cases = append(cases, allFF)
+
+	var highestNibble [fr.Bytes]byte
+	highestNibble[0] = 0xf0
+	cases = append(cases, highestNibble)
+
+	var lowestNibble [fr.Bytes]byte
+	lowestNibble[fr.Bytes-1] = 0x0f
+	cases = append(cases, lowestNibble)
+
+	loops := nbFuzz
+	if testing.Short() {
+		loops = nbFuzzShort
+	}
+	for range loops {
+		var scalarBytes [fr.Bytes]byte
+		if _, err := rand.Read(scalarBytes[:]); err != nil {
+			t.Fatal(err)
+		}
+		cases = append(cases, scalarBytes)
+	}
+
+	for _, scalarBytes := range cases {
+		var scalar big.Int
+		scalar.SetBytes(scalarBytes[:])
+
+		var fixed, generic PointAffine
+		fixed.ScalarMultiplicationBase(&scalarBytes)
+		generic.ScalarMultiplication(&params.Base, &scalar)
+
+		if !fixed.Equal(&generic) {
+			t.Fatalf("fixed-base mismatch for scalar %x", scalarBytes)
+		}
+	}
+}
+
 // ------------------------------------------------------------
 // benches
 
@@ -1002,6 +1064,33 @@ func BenchmarkScalarMulProjective(b *testing.B) {
 	for range b.N {
 		doubleAndAdd.ScalarMultiplication(&a, &s)
 	}
+}
+
+func BenchmarkScalarMulAffineBase(b *testing.B) {
+	params := GetEdwardsCurve()
+
+	var scalar big.Int
+	scalar.SetString("52435875175126190479447705081859658376581184513", 10)
+	scalar.Add(&scalar, &params.Order)
+	scalarBytes := scalarBytesFromBigInt(&scalar)
+
+	b.Run("generic", func(b *testing.B) {
+		var point PointAffine
+
+		b.ResetTimer()
+		for range b.N {
+			point.ScalarMultiplication(&params.Base, &scalar)
+		}
+	})
+
+	b.Run("fixed", func(b *testing.B) {
+		var point PointAffine
+
+		b.ResetTimer()
+		for range b.N {
+			point.ScalarMultiplicationBase(&scalarBytes)
+		}
+	})
 }
 
 func BenchmarkNeg(b *testing.B) {
