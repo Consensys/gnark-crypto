@@ -431,7 +431,7 @@ func TestLinearAndPoseidon2DigestsDiffer(t *testing.T) {
 
 	var anyDiff bool
 	for i := range linDigest {
-		var l, p kb8.G1Affine = linDigest[i], pqDigest[i]
+		l, p := linDigest[i], pqDigest[i]
 		if !l.Equal(&p) {
 			anyDiff = true
 			break
