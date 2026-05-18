@@ -1,0 +1,404 @@
+import (
+	"math/big"
+	"math/bits"
+
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark-crypto/parallel"
+	"github.com/consensys/gnark-crypto/utils"
+
+	"{{ .FieldPackagePath }}"
+	fext "{{ .FieldPackagePath }}/extensions"
+)
+
+{{- $kLog2Ext6 := 9}}
+{{- $kSizeExt6 := shl 1 $kLog2Ext6}}
+
+
+// FFTExt6 computes the discrete Fourier transform of a slice of degree-6 extension field
+// elements. Coefficients and evaluations are extension field elements.
+// The root of unity domain is the same as FFT.
+// Twiddles and coset shifts remain in the base field.
+func (domain *Domain) FFTExt6(a []fext.E6, decimation Decimation, opts ...Option) {
+
+	opt := fftOptions(opts)
+
+	// find the stage where we should stop spawning go routines in our recursive calls
+	// (ie when we have as many go routines running as we have available CPUs)
+	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(uint64(opt.nbTasks)))
+	if opt.nbTasks == 1 {
+		maxSplits = -1
+	}
+
+	// if coset != 0, scale by coset table
+	if opt.coset {
+		var cosetTable []{{ .FF }}.Element
+		if decimation == DIT {
+			// DIT needs bit-reversed coset table
+			if domain.cosetTableBitReversed != nil {
+				cosetTable = domain.cosetTableBitReversed
+			} else {
+				cosetTable = make([]{{ .FF }}.Element, len(a))
+				if domain.cosetTable != nil {
+					copy(cosetTable, domain.cosetTable)
+				} else {
+					BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
+				}
+				utils.BitReverse(cosetTable)
+			}
+		} else {
+			// DIF needs natural-order coset table
+			if domain.cosetTable != nil {
+				cosetTable = domain.cosetTable
+			} else {
+				cosetTable = make([]{{ .FF }}.Element, len(a))
+				BuildExpTable(domain.FrMultiplicativeGen, cosetTable)
+			}
+		}
+		parallel.ExecuteAligned(len(a), 4, func(start, end int) {
+			va := fext.VectorE6(a[start:end])
+			va.MulByElement(va, cosetTable[start:end])
+		}, opt.nbTasks)
+	}
+
+	twiddles := domain.twiddles
+	twiddlesStartStage := 0
+	if !domain.withPrecompute {
+		twiddlesStartStage = 3
+		nbStages := int(bits.TrailingZeros64(domain.Cardinality))
+		if nbStages-twiddlesStartStage > 0 {
+			twiddles = make([][]{{ .FF }}.Element, nbStages-twiddlesStartStage)
+			w := domain.Generator
+			w.Exp(w, big.NewInt(int64(1<<twiddlesStartStage)))
+			buildTwiddles(twiddles, w, uint64(nbStages-twiddlesStartStage))
+		} // else, we don't need twiddles
+	}
+
+	switch decimation {
+	case DIF:
+		difFFTExt6(a, domain.Generator, twiddles, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
+	case DIT:
+
+		ditFFTExt6(a, domain.Generator, twiddles, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
+	default:
+		panic("not implemented")
+	}
+}
+
+
+// FFTInverseExt6 computes (recursively) the inverse discrete Fourier transform of a and
+// stores the result in a.
+// If decimation == DIT (decimation in time), the input must be in bit-reversed order.
+// If decimation == DIF (decimation in frequency), the output will be in bit-reversed order.
+// coset sets the shift of the fft (0 = no shift, standard fft).
+// len(a) must be a power of 2.
+func (domain *Domain) FFTInverseExt6(a []fext.E6, decimation Decimation, opts ...Option) {
+	opt := fftOptions(opts)
+
+	// find the stage where we should stop spawning go routines in our recursive calls
+	// (ie when we have as many go routines running as we have available CPUs)
+	maxSplits := bits.TrailingZeros64(ecc.NextPowerOfTwo(uint64(opt.nbTasks)))
+	if opt.nbTasks == 1 {
+		maxSplits = -1
+	}
+
+	twiddlesInv := domain.twiddlesInv
+	twiddlesStartStage := 0
+	if !domain.withPrecompute {
+		twiddlesStartStage = 3
+		nbStages := int(bits.TrailingZeros64(domain.Cardinality))
+		if nbStages-twiddlesStartStage > 0 {
+			twiddlesInv = make([][]{{ .FF }}.Element, nbStages-twiddlesStartStage)
+			w := domain.GeneratorInv
+			w.Exp(w, big.NewInt(int64(1<<twiddlesStartStage)))
+			buildTwiddles(twiddlesInv, w, uint64(nbStages-twiddlesStartStage))
+		} // else, we don't need twiddles
+	}
+
+	switch decimation {
+	case DIF:
+		difFFTExt6(a, domain.GeneratorInv, twiddlesInv, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
+	case DIT:
+		ditFFTExt6(a, domain.GeneratorInv, twiddlesInv, twiddlesStartStage, 0, maxSplits, nil, opt.nbTasks)
+	default:
+		panic("not implemented")
+	}
+
+	// scale by CardinalityInv
+	if !opt.coset {
+		parallel.ExecuteAligned(len(a), 4, func(start, end int) {
+			va := fext.VectorE6(a[start:end])
+			va.ScalarMulByElement(va, &domain.CardinalityInv)
+		}, opt.nbTasks)
+		return
+	}
+
+	var cosetTableInv []{{ .FF }}.Element
+	if decimation == DIT {
+		// DIT inverse needs natural-order inverse coset table
+		if domain.cosetTableInv != nil {
+			cosetTableInv = domain.cosetTableInv
+		} else {
+			cosetTableInv = make([]{{ .FF }}.Element, len(a))
+			BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
+		}
+	} else {
+		// DIF inverse needs bit-reversed inverse coset table
+		if domain.cosetTableInvBitReversed != nil {
+			cosetTableInv = domain.cosetTableInvBitReversed
+		} else {
+			cosetTableInv = make([]{{ .FF }}.Element, len(a))
+			if domain.cosetTableInv != nil {
+				copy(cosetTableInv, domain.cosetTableInv)
+			} else {
+				BuildExpTable(domain.FrMultiplicativeGenInv, cosetTableInv)
+			}
+			utils.BitReverse(cosetTableInv)
+		}
+	}
+	parallel.ExecuteAligned(len(a), 4, func(start, end int) {
+		va := fext.VectorE6(a[start:end])
+		va.MulByElement(va, cosetTableInv[start:end])
+		va.ScalarMulByElement(va, &domain.CardinalityInv)
+	}, opt.nbTasks)
+
+}
+
+
+func difFFTExt6(a []fext.E6, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
+	if chDone != nil {
+		defer close(chDone)
+	}
+
+	n := len(a)
+	if n == 1 {
+		return
+	} else if stage >= twiddlesStartStage {
+		if n == 1 << {{$kLog2Ext6}} {
+			kerDIFNP_{{$kSizeExt6}}Ext6(a, twiddles, stage-twiddlesStartStage)
+			return
+		}
+	}
+	m := n >> 1
+
+	parallelButterfly := (m > butterflyThreshold) && (stage < maxSplits)
+
+	if stage < twiddlesStartStage {
+		if parallelButterfly {
+			w := w
+			parallel.Execute(m, func(start, end int) {
+				if start == 0 {
+					fext.ButterflyE6(&a[0], &a[m])
+					start++
+				}
+				var at {{ .FF }}.Element
+				at.Exp(w, big.NewInt(int64(start)))
+				innerDIFWithoutTwiddlesExt6(a, at, w, start, end, m)
+			}, nbTasks/(1<<(stage))) // 1 << stage == estimated used CPUs
+		} else {
+			innerDIFWithoutTwiddlesExt6(a, w, w, 0, m, m)
+		}
+		// compute next twiddle
+		w.Square(&w)
+	} else {
+		if parallelButterfly {
+			parallel.Execute(m, func(start, end int) {
+				innerDIFWithTwiddlesExt6(a, twiddles[stage-twiddlesStartStage], start, end, m)
+			}, nbTasks / (1 << (stage)))
+		} else {
+			innerDIFWithTwiddlesExt6(a, twiddles[stage-twiddlesStartStage], 0, m, m)
+		}
+	}
+
+	if m == 1 {
+		return
+	}
+
+	nextStage := stage + 1
+	if stage < maxSplits {
+		chDone := make(chan struct{}, 1)
+		go difFFTExt6(a[m:n], w, twiddles, twiddlesStartStage, nextStage, maxSplits, chDone, nbTasks)
+		difFFTExt6(a[0:m], w, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
+		<-chDone
+	} else {
+		difFFTExt6(a[0:m], w, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
+		difFFTExt6(a[m:n], w, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
+	}
+
+}
+
+func innerDIFWithTwiddlesExt6(a []fext.E6, twiddles []{{ .FF }}.Element, start, end, m int) {
+	va0 := fext.VectorE6(a[start:end])
+	va1 := fext.VectorE6(a[start+m : end+m])
+	va0.Butterfly(va1)
+	va1.MulByElement(va1, twiddles[start:end])
+}
+
+func innerDIFWithoutTwiddlesExt6(a []fext.E6, at, w {{ .FF }}.Element, start, end, m int) {
+	if start == 0 {
+		fext.ButterflyE6(&a[0], &a[m])
+		start++
+	}
+	for i := start; i < end; i++ {
+		fext.ButterflyE6(&a[i], &a[i+m])
+		a[i+m].MulByElement(&a[i+m], &at)
+		at.Mul(&at, &w)
+	}
+}
+
+func ditFFTExt6(a []fext.E6, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.Element, twiddlesStartStage, stage, maxSplits int, chDone chan struct{}, nbTasks int) {
+	if chDone != nil {
+		defer close(chDone)
+	}
+	n := len(a)
+	if n == 1 {
+		return
+	} else if stage >= twiddlesStartStage {
+		if n == 1 << {{$kLog2Ext6}} {
+			kerDITNP_{{$kSizeExt6}}Ext6(a, twiddles, stage-twiddlesStartStage)
+			return
+		}
+	}
+
+	m := n >> 1
+
+	nextStage := stage + 1
+	nextW := w
+	nextW.Square(&nextW)
+
+	if stage < maxSplits {
+		// that's the only time we fire go routines
+		chDone := make(chan struct{}, 1)
+
+		go ditFFTExt6(a[m:], nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, chDone, nbTasks)
+		ditFFTExt6(a[0:m], nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
+		<-chDone
+	} else {
+
+		ditFFTExt6(a[0:m], nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
+		ditFFTExt6(a[m:n], nextW, twiddles, twiddlesStartStage, nextStage, maxSplits, nil, nbTasks)
+	}
+
+	parallelButterfly := (m > butterflyThreshold) && (stage < maxSplits)
+
+	if stage < twiddlesStartStage {
+		// we need to compute the twiddles for this stage on the fly.
+		if parallelButterfly {
+			w := w
+			parallel.Execute(m, func(start, end int) {
+				if start == 0 {
+					fext.ButterflyE6(&a[0], &a[m])
+					start++
+				}
+				var at {{ .FF }}.Element
+				at.Exp(w, big.NewInt(int64(start)))
+				innerDITWithoutTwiddlesExt6(a, at, w, start, end, m)
+			}, nbTasks/(1<<(stage))) // 1 << stage == estimated used CPUs
+
+		} else {
+			innerDITWithoutTwiddlesExt6(a, w, w, 0, m, m)
+		}
+		return
+	}
+	if parallelButterfly {
+		parallel.Execute(m, func(start, end int) {
+			innerDITWithTwiddlesExt6(a, twiddles[stage-twiddlesStartStage], start, end, m)
+		}, nbTasks / (1 << (stage)))
+	} else {
+		innerDITWithTwiddlesExt6(a, twiddles[stage-twiddlesStartStage], 0, m, m)
+	}
+}
+
+
+func innerDITWithTwiddlesExt6(a []fext.E6, twiddles []{{ .FF }}.Element, start, end, m int) {
+	va0 := fext.VectorE6(a[start:end])
+	va1 := fext.VectorE6(a[start+m : end+m])
+	va1.MulByElement(va1, twiddles[start:end])
+	va0.Butterfly(va1)
+}
+
+func innerDITWithTwiddlesExt6M2(a []fext.E6, twiddles []{{ .FF }}.Element) {
+	fext.ButterflyE6(&a[0], &a[2])
+	a[3].MulByElement(&a[3], &twiddles[1])
+	fext.ButterflyE6(&a[1], &a[3])
+}
+
+
+func innerDITWithoutTwiddlesExt6(a []fext.E6, at, w {{ .FF }}.Element, start, end, m int) {
+	if start == 0 {
+		fext.ButterflyE6(&a[0], &a[m])
+		start++
+	}
+	for i := start; i < end; i++ {
+		a[i+m].MulByElement(&a[i+m], &at)
+		fext.ButterflyE6(&a[i], &a[i+m])
+		at.Mul(&at, &w)
+	}
+}
+
+
+{{genKernelE6 $.FF $kSizeExt6 $kLog2Ext6}}
+
+{{define "genKernelE6 FF sizeKernel sizeKernelLog2"}}
+
+func kerDIFNP_{{.sizeKernel}}Ext6(a []fext.E6, twiddles [][]{{ .FF }}.Element, stage int) {
+	// code unrolled & generated by internal/generator/field/template/fft/fftext6.go.tmpl
+
+	{{ $n := shl 1 .sizeKernelLog2}}
+	{{ $m := div $n 2}}
+	{{ $split := 1}}
+	{{- range $step := iterate 0 .sizeKernelLog2}}
+		{{- $offset := 0}}
+
+		{{- $bound := mul $split $n}}
+		{{- if eq $bound $n}}
+			innerDIFWithTwiddlesExt6(a[:{{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
+		{{- else}}
+			{{- if eq $m 1}}
+				va := fext.VectorE6(a[:{{$bound}}])
+				va.ButterflyPair()
+			{{- else}}
+				for offset := 0; offset < {{$bound}}; offset += {{$n}} {
+					innerDIFWithTwiddlesExt6(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
+				}
+			{{- end}}
+		{{- end}}
+
+		{{- $n = div $n 2}}
+		{{- $m = div $n 2}}
+		{{- $split = mul $split 2}}
+	{{- end}}
+}
+
+func kerDITNP_{{.sizeKernel}}Ext6(a []fext.E6, twiddles [][]{{ .FF }}.Element, stage int) {
+	// code unrolled & generated by internal/generator/field/template/fft/fftext6.go.tmpl
+	{{ $n := 2}}
+	{{ $m := div $n 2}}
+	{{ $split := div (shl 1 .sizeKernelLog2) 2}}
+	{{- range $step := reverse (iterate 0 .sizeKernelLog2)}}
+		{{- $offset := 0}}
+
+		{{- $bound := mul $split $n}}
+		{{- if eq $bound $n}}
+			innerDITWithTwiddlesExt6(a[:{{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
+		{{- else}}
+			{{- if eq $m 1}}
+				va := fext.VectorE6(a[:{{$bound}}])
+				va.ButterflyPair()
+			{{- else if eq $m 2}}
+				for offset := 0; offset < {{$bound}}; offset += {{$n}} {
+					innerDITWithTwiddlesExt6M2(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}])
+				}
+			{{- else}}
+				for offset := 0; offset < {{$bound}}; offset += {{$n}} {
+					innerDITWithTwiddlesExt6(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
+				}
+			{{- end}}
+		{{- end}}
+
+		{{- $n = mul $n 2}}
+		{{- $m = div $n 2}}
+		{{- $split = div $split 2}}
+	{{- end}}
+}
+
+{{end}}
