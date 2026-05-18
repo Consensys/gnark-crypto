@@ -134,7 +134,7 @@ func (z *E6D) IsOne() bool {
 
 // Mul sets z=x*y in E6D and returns z
 func (z *E6D) Mul(x, y *E6D) *E6D {
-	return z.mulMontgomery6(x, y)
+	return z.mulNaive(x, y)
 }
 
 // mulNaive is the schoolbook multiplication followed by reduction.
@@ -586,52 +586,7 @@ func (z *E6D) reconstruct(v *[17]fr.Element) *E6D {
 
 // Square sets z=x*x in E6D and returns z
 func (z *E6D) Square(a *E6D) *E6D {
-	var v [17]fr.Element
-	var t fr.Element
-
-	// -------------------------------------------------------------------------
-	// Phase 1: Evaluation of a
-	// -------------------------------------------------------------------------
-	v[11].Add(&a.A0, &a.A1)
-	v[12].Add(&a.A4, &a.A5)
-	v[9].Add(&a.A1, &a.A2)
-	v[10].Add(&a.A3, &a.A4)
-	v[7].Add(&a.A2, &a.A3)
-	v[8].Sub(&a.A1, &a.A4)
-
-	v[5].Add(&v[11], &a.A2)
-	v[6].Add(&v[10], &a.A5)
-	v[1].Add(&v[11], &v[10])
-	v[0].Add(&v[5], &v[6])
-
-	t.Sub(&a.A0, &a.A5)
-	v[3].Sub(&t, &a.A2)
-	v[4].Add(&v[3], &v[7])
-	t.Add(&a.A0, &a.A5)
-	v[2].Sub(&t, &v[7])
-
-	// -------------------------------------------------------------------------
-	// Phase 3: Pointwise Multiplication
-	// -------------------------------------------------------------------------
-	v[0].Square(&v[0])
-	v[1].Square(&v[1])
-	v[2].Square(&v[2])
-	v[3].Square(&v[3])
-	v[4].Square(&v[4])
-	v[5].Square(&v[5])
-	v[6].Square(&v[6])
-	v[7].Square(&v[7])
-	v[8].Square(&v[8])
-	v[9].Square(&v[9])
-	v[10].Square(&v[10])
-	v[11].Square(&v[11])
-	v[12].Square(&v[12])
-	v[13].Square(&a.A0)
-	v[14].Square(&a.A1)
-	v[15].Square(&a.A4)
-	v[16].Square(&a.A5)
-
-	return z.reconstruct(&v)
+	return z.mulNaive(a, a)
 }
 
 // Inverse sets z to the inverse of x in E6D and returns z
