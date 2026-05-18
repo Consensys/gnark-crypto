@@ -477,7 +477,7 @@ func (z *E4) Cbrt(x *E4) *E4 {
 	var x0sq, x1sq, betaX1sq, norm E2
 	x0sq.Square(&x.B0)
 	x1sq.Square(&x.B1)
-	betaX1sq.MulByNonResidue(&x1sq)
+	betaX1sq.MulByQuadraticNonResidue(&x1sq)
 	norm.Sub(&x0sq, &betaX1sq)
 
 	var m, normInv E2
@@ -514,7 +514,7 @@ func (z *E4) Cbrt(x *E4) *E4 {
 
 	var gamma0, gamma1 E2
 	gamma0.Mul(&wa1, &k)
-	gamma0.MulByNonResidue(&gamma0)
+	gamma0.MulByQuadraticNonResidue(&gamma0)
 	gamma1.Mul(&wa0, &k)
 
 	var mInv E2
@@ -524,7 +524,7 @@ func (z *E4) Cbrt(x *E4) *E4 {
 	var t1, t2 E2
 	t1.Mul(&x.B0, &gamma0)
 	t2.Mul(&x.B1, &gamma1)
-	t2.MulByNonResidue(&t2)
+	t2.MulByQuadraticNonResidue(&t2)
 	y.B0.Sub(&t1, &t2).Mul(&y.B0, &mInv)
 	t1.Mul(&x.B1, &gamma0)
 	t2.Mul(&x.B0, &gamma1)

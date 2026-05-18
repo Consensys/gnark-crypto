@@ -180,7 +180,7 @@ func (z *E8) Mul(x, y *E8) *E8 {
 		Sub(&c, &a).
 		Sub(&c, &b)
 	z.C1.Set(&c)
-	b.MulByNonResidue(&b)
+	b.MulByQuadraticNonResidue(&b)
 	z.C0.Add(&a, &b)
 	return z
 }
@@ -194,7 +194,7 @@ func (z *E8) Square(x *E8) *E8 {
 func (z *E8) Inverse(x *E8) *E8 {
 	var t0, t1 E4
 	t0.Square(&x.C0)
-	t1.Square(&x.C1).MulByNonResidue(&t1)
+	t1.Square(&x.C1).MulByQuadraticNonResidue(&t1)
 	t0.Sub(&t0, &t1).Inverse(&t0)
 	z.C0.Mul(&x.C0, &t0)
 	z.C1.Mul(&x.C1, &t0).Neg(&z.C1)
@@ -269,7 +269,7 @@ func (z *E8) Halve() {
 // norm sets x to the norm of z.
 func (z *E8) norm(x *E4) {
 	var tmp E4
-	tmp.Square(&z.C1).MulByNonResidue(&tmp)
+	tmp.Square(&z.C1).MulByQuadraticNonResidue(&tmp)
 	x.Square(&z.C0).Sub(x, &tmp)
 }
 
@@ -321,7 +321,7 @@ func (z *E8) Cbrt(x *E8) *E8 {
 	var x0sq, x1sq, betaX1sq, norm E4
 	x0sq.Square(&x.C0)
 	x1sq.Square(&x.C1)
-	betaX1sq.MulByNonResidue(&x1sq)
+	betaX1sq.MulByQuadraticNonResidue(&x1sq)
 	norm.Sub(&x0sq, &betaX1sq)
 
 	var m, normInv E4
@@ -358,7 +358,7 @@ func (z *E8) Cbrt(x *E8) *E8 {
 
 	var gamma0, gamma1 E4
 	gamma0.Mul(&wa1, &k)
-	gamma0.MulByNonResidue(&gamma0)
+	gamma0.MulByQuadraticNonResidue(&gamma0)
 	gamma1.Mul(&wa0, &k)
 
 	var mInv E4
@@ -368,7 +368,7 @@ func (z *E8) Cbrt(x *E8) *E8 {
 	var t1, t2 E4
 	t1.Mul(&x.C0, &gamma0)
 	t2.Mul(&x.C1, &gamma1)
-	t2.MulByNonResidue(&t2)
+	t2.MulByQuadraticNonResidue(&t2)
 	y.C0.Sub(&t1, &t2).Mul(&y.C0, &mInv)
 	t1.Mul(&x.C1, &gamma0)
 	t2.Mul(&x.C0, &gamma1)

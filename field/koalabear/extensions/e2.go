@@ -31,7 +31,12 @@ func init() {
 	cbrtFpThreeInv.Inverse(&cbrtFpThree)
 
 	cbrtE2One.SetOne()
-	cbrtE2NRInv.MulByNonResidueInv(&cbrtE2One)
+	// cbrtE2NRInv = cbrtE2One * u^{-1} = (0, 1/3) since u² = 3 in the koalabear
+	// quadratic non-residue convention. Inlined to avoid depending on the removed
+	// E2.MulByNonResidueInv method (master renamed it; the cbrt stack still needs
+	// this exact value).
+	cbrtE2NRInv.A0.SetZero()
+	cbrtE2NRInv.A1.Set(&cbrtFpThreeInv)
 	var sqrtMinusThree E2
 	sqrtMinusThree.A0.Neg(&cbrtFpThree)
 	sqrtMinusThree.Sqrt(&sqrtMinusThree)

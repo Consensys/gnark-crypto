@@ -150,6 +150,32 @@ func MapPoseidon2(msg uint64) ([pqN]kb8.G1Affine, [pqN]uint8, error) {
 	return pts, offsets, nil
 }
 
+// MapAtSlot is a public helper used by the gnark in-circuit Poseidon2 vector
+// ECMSH gadget. Given a slot s = u mod ⌊p/(2T)⌋ (already range-reduced by the
+// caller — typically the in-circuit code after a Poseidon2 squeeze), it scans
+// k in [0, pqT) and returns the first kb8 curve point whose ordinate is
+// y = pqT*s + k in the base subfield. The slot must satisfy
+// pqT*s + (pqT-1) < p/2 to preserve inverse-freeness; this is automatic when
+// s < ⌊p/(2T)⌋.
+func MapAtSlot(slot uint64) (kb8.G1Affine, uint8, error) {
+	_, b := kb8.CurveCoefficients()
+	return mapAtBase(slot*pqT, pqT, &b)
+}
+
+// PqReducerBound returns ⌊p/(2T)⌋, the upper bound on the slot s produced by
+// the Poseidon2 sponge range-reduction. Exported for the gnark in-circuit
+// range-reduction constraint.
+func PqReducerBound() *big.Int {
+	return new(big.Int).Set(pqReducerBound)
+}
+
+// PqDomainTag returns the 8-byte ASCII domain separator absorbed before the
+// message by MapPoseidon2 (paper §4.3, "ECMSH_PQ"). Exported so the in-circuit
+// sponge can absorb the same bytes.
+func PqDomainTag() [8]byte {
+	return pqDomainTag
+}
+
 // squeezePoseidon2 absorbs the domain tag and msg into a width-16 sponge with
 // rate 8 and returns the first pqPermutations * pqSqueezeRate squeezed
 // koalabear elements.
