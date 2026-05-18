@@ -379,11 +379,11 @@ type VectorE6 []E6
 // Butterfly computes the in-place butterfly operation on two vectors of E6 elements.
 // If other overlaps with vector, the result is undefined; the caller should use a temp vector.
 func (vector VectorE6) Butterfly(other VectorE6) {
-	N := len(other)
-	if N != len(vector) {
+	N := len(vector)
+	if len(other) != N {
 		panic("vectorE6.Butterfly: vectors don't have the same length")
 	}
-	for i := range len(vector) {
+	for i := range N {
 		ButterflyE6(&vector[i], &other[i])
 	}
 }
@@ -407,7 +407,7 @@ func (vector VectorE6) MulByElement(a VectorE6, b fr.Vector) {
 	if len(a) != N || len(b) != N {
 		panic("vectorE6.MulByElement: vectors don't have the same length")
 	}
-	for i := range len(vector) {
+	for i := range N {
 		vector[i].MulByElement(&a[i], &b[i])
 	}
 }

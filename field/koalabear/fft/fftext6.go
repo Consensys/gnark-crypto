@@ -20,6 +20,7 @@ import (
 // FFTExt6 computes the discrete Fourier transform of a slice of degree-6 extension field
 // elements. Coefficients and evaluations are extension field elements.
 // The root of unity domain is the same as FFT.
+// Twiddles and coset shifts remain in the base field.
 func (domain *Domain) FFTExt6(a []fext.E6, decimation Decimation, opts ...Option) {
 
 	opt := fftOptions(opts)
