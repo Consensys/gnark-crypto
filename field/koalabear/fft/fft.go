@@ -72,7 +72,7 @@ func (domain *Domain) FFT(a []koalabear.Element, decimation Decimation, opts ...
 			v2 := koalabear.Vector(cosetTable[:len(a)])
 			v1.Mul(v1, v2)
 		} else {
-			parallel.Execute(len(a), func(start, end int) {
+			parallel.ExecuteAligned(len(a), 16, func(start, end int) {
 				v1 := koalabear.Vector(a[start:end])
 				v2 := koalabear.Vector(cosetTable[start:end])
 				v1.Mul(v1, v2)
@@ -147,7 +147,7 @@ func (domain *Domain) FFTInverse(a []koalabear.Element, decimation Decimation, o
 			v := koalabear.Vector(a)
 			v.ScalarMul(v, &domain.CardinalityInv)
 		} else {
-			parallel.Execute(len(a), func(start, end int) {
+			parallel.ExecuteAligned(len(a), 16, func(start, end int) {
 				v := koalabear.Vector(a[start:end])
 				v.ScalarMul(v, &domain.CardinalityInv)
 			}, opt.nbTasks)
@@ -182,7 +182,7 @@ func (domain *Domain) FFTInverse(a []koalabear.Element, decimation Decimation, o
 		v.Mul(v, koalabear.Vector(cosetTableInv[:len(a)]))
 		v.ScalarMul(v, &domain.CardinalityInv)
 	} else {
-		parallel.Execute(len(a), func(start, end int) {
+		parallel.ExecuteAligned(len(a), 16, func(start, end int) {
 			v := koalabear.Vector(a[start:end])
 			v.Mul(v, koalabear.Vector(cosetTableInv[start:end]))
 			v.ScalarMul(v, &domain.CardinalityInv)

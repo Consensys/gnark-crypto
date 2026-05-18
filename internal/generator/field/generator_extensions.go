@@ -63,7 +63,13 @@ func generateExtensions(F *config.Field, outputDir string) error {
 	if F.F31 {
 		entries_ext4 := []bavard.Entry{
 			{File: filepath.Join(outputDir, "vector.go"), Templates: []string{"vector.go.tmpl"}},
+			{File: filepath.Join(outputDir, "e6.go"), Templates: []string{"e6.go.tmpl"}},
+			{File: filepath.Join(outputDir, "e6_test.go"), Templates: []string{"e6_test.go.tmpl"}},
+			{File: filepath.Join(outputDir, "e6_direct.go"), Templates: []string{"e6_direct.go.tmpl"}},
+			{File: filepath.Join(outputDir, "e6_direct_test.go"), Templates: []string{"e6_direct_test.go.tmpl"}},
 		}
+		// koalabear has a hand-maintained recursive cube-root stack in e2/e4/e8;
+		// skip generating e4 there so the template doesn't clobber the hand-maintained code.
 		if !isKoalaBear {
 			entries_ext4 = append(entries_ext4,
 				bavard.Entry{File: filepath.Join(outputDir, "e4.go"), Templates: []string{"e4.go.tmpl"}},

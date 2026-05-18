@@ -188,10 +188,10 @@ func (z *E4) IsOne() bool {
 	return z.B0.IsOne() && z.B1.IsZero()
 }
 
-// MulByNonResidue mul x by (0,1)
-func (z *E4) MulByNonResidue(x *E4) *E4 {
+// MulByQuadraticNonResidue mul x by (0,1)
+func (z *E4) MulByQuadraticNonResidue(x *E4) *E4 {
 	z.B1, z.B0 = x.B0, x.B1
-	z.B0.MulByNonResidue(&z.B0)
+	z.B0.MulByQuadraticNonResidue(&z.B0)
 	return z
 }
 
@@ -331,7 +331,7 @@ func (z *E4) Inverse(x *E4) *E4 {
 	var t0, t1, tmp E2
 	t0.Square(&x.B0)
 	t1.Square(&x.B1)
-	tmp.MulByNonResidue(&t1)
+	tmp.MulByQuadraticNonResidue(&t1)
 	t0.Sub(&t0, &tmp)
 	t1.Inverse(&t0)
 	z.B0.Mul(&x.B0, &t1)
@@ -417,7 +417,7 @@ func (z *E4) Halve() {
 // norm sets x to the norm of z
 func (z *E4) norm(x *E2) {
 	var tmp E2
-	tmp.Square(&z.B1).MulByNonResidue(&tmp)
+	tmp.Square(&z.B1).MulByQuadraticNonResidue(&tmp)
 	x.Square(&z.B0).Sub(x, &tmp)
 }
 

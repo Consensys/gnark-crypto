@@ -6,5 +6,6 @@
 // Package extensions implements the fields arithmetic of the 𝔽r²
 // extensions of the goldilocks field.
 //
-//	𝔽r²[u] = 𝔽r/u²-7
+//   - For extension 2:
+//     𝔽r²[u] = 𝔽r/u²-7
 package extensions

@@ -72,7 +72,7 @@ func (domain *Domain) FFT(a []babybear.Element, decimation Decimation, opts ...O
 			v2 := babybear.Vector(cosetTable[:len(a)])
 			v1.Mul(v1, v2)
 		} else {
-			parallel.Execute(len(a), func(start, end int) {
+			parallel.ExecuteAligned(len(a), 16, func(start, end int) {
 				v1 := babybear.Vector(a[start:end])
 				v2 := babybear.Vector(cosetTable[start:end])
 				v1.Mul(v1, v2)
@@ -147,7 +147,7 @@ func (domain *Domain) FFTInverse(a []babybear.Element, decimation Decimation, op
 			v := babybear.Vector(a)
 			v.ScalarMul(v, &domain.CardinalityInv)
 		} else {
-			parallel.Execute(len(a), func(start, end int) {
+			parallel.ExecuteAligned(len(a), 16, func(start, end int) {
 				v := babybear.Vector(a[start:end])
 				v.ScalarMul(v, &domain.CardinalityInv)
 			}, opt.nbTasks)
@@ -182,7 +182,7 @@ func (domain *Domain) FFTInverse(a []babybear.Element, decimation Decimation, op
 		v.Mul(v, babybear.Vector(cosetTableInv[:len(a)]))
 		v.ScalarMul(v, &domain.CardinalityInv)
 	} else {
-		parallel.Execute(len(a), func(start, end int) {
+		parallel.ExecuteAligned(len(a), 16, func(start, end int) {
 			v := babybear.Vector(a[start:end])
 			v.Mul(v, babybear.Vector(cosetTableInv[start:end]))
 			v.ScalarMul(v, &domain.CardinalityInv)

@@ -2,12 +2,25 @@
 // extensions of the {{ .FF }} field.
 //
 {{- if eq .FF "babybear"}}
-//	𝔽r²[u] = 𝔽r/u²-11
-//	𝔽r⁴[v] = 𝔽r²/v²-u
+// - For extension 4:
+//		𝔽r²[u] = 𝔽r/u²-11
+//		𝔽r⁴[v] = 𝔽r²/v²-u
+//
+// - For extension 6:
+//		𝔽r⁶[w] = 𝔽r²/w³-u-1
+// or equivalently:
+//		𝔽r⁶[w] = 𝔽r/w⁶-2w³-10
 {{- else if eq .FF "koalabear"}}
-//	𝔽r²[u] = 𝔽r/u²-3
-//	𝔽r⁴[v] = 𝔽r²/v²-u
+// - For extension 4:
+//		𝔽r²[u] = 𝔽r/u²-3
+//		𝔽r⁴[v] = 𝔽r²/v²-u
+//
+// - For extension 6:
+//		𝔽r⁶[w] = 𝔽r²/w³-u-1
+// or equivalently:
+//		𝔽r⁶[w] = 𝔽r/w⁶-2w³-2
 {{- else if eq .FF "goldilocks"}}
+// - For extension 2:
 //	𝔽r²[u] = 𝔽r/u²-7
 {{- end}}
 package extensions
