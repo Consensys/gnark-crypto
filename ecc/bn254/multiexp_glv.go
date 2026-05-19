@@ -5,6 +5,7 @@ package bn254
 
 import (
 	"errors"
+	"math"
 	"math/bits"
 	"runtime"
 
@@ -130,7 +131,7 @@ func (p *G1Jac) MultiExpGLVWide(points []G1Affine, scalars []fr.Element, config 
 	if nbPoints != len(scalars) {
 		return nil, errors.New("len(points) != len(scalars)")
 	}
-	if nbPoints > 1<<32-1 {
+	if uint64(nbPoints) > math.MaxUint32 {
 		return nil, errors.New("invalid input: len(points) > math.MaxUint32")
 	}
 	if config.NbTasks <= 0 {
