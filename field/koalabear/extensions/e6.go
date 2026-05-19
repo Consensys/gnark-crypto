@@ -169,10 +169,13 @@ func (z *E6) IsOne() bool {
 //
 // Inlined for 31-bit primes: every fr.Element is a single uint32, so an
 // element-by-element 6×6 schoolbook over the tower E6 = E2[v]/(v³-(u+1))
-// with E2 = Fr[u]/(u²-α) can be implemented with raw uint32×uint32 → uint64
+// with E2 = Fr[u]/(u²-α) is implemented with raw uint32×uint32 → uint64
 // products, deferred Montgomery reductions, and a final small-modulus reduce.
-// Each Montgomery-reduce input is bounded by 2·(q-1)² (= 2 partial products),
-// which fits in uint64 below the q·2³² safe range.
+// Each montReduce input is bounded by 2·(q-1)², which fits in uint64 below
+// the q·2³² safe range.
+//
+// Coefficient layout: (a0..a5) ↔ (B0.A0, B0.A1, B1.A0, B1.A1, B2.A0, B2.A1);
+// (a0,a1)+(a2,a3)·v+(a4,a5)·v² with v³ = u+1, u² = α.
 func (z *E6) Mul(x, y *E6) *E6 {
 	a0 := uint64(x.B0.A0[0])
 	a1 := uint64(x.B0.A1[0])
@@ -239,7 +242,7 @@ func (z *E6) Square(x *E6) *E6 {
 	a4 := uint64(x.B2.A0[0])
 	a5 := uint64(x.B2.A1[0])
 
-	// Precompute the 15 distinct cross products.
+	// 15 distinct cross-products a_i·a_j (i<j); each gets accumulated twice.
 	p01 := a0 * a1
 	p02 := a0 * a2
 	p03 := a0 * a3
@@ -285,7 +288,7 @@ func (z *E6) Square(x *E6) *E6 {
 	rA = uint64(montReduce(p15+p15)) + uint64(montReduce(a3*a3))
 	z.B2.A0[0] = reduceSmall(r + 3*rA)
 
-	// c2.im = (2·a0·a5 + 2·a1·a4 + 2·a2·a3)
+	// c2.im = 2·a0·a5 + 2·a1·a4 + 2·a2·a3
 	r = uint64(montReduce(p05+p05)) + uint64(montReduce(p14+p14))
 	r += uint64(montReduce(p23 + p23))
 	z.B2.A1[0] = reduceSmall(r)
