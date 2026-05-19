@@ -493,12 +493,40 @@ func (vector VectorE6) ButterflyPair() {
 	// inliner's budget, so the call wasn't being inlined into the hot loop.
 	for i := 0; i < N; i += 2 {
 		a, b := &vector[i], &vector[i+1]
+
 		fr.Butterfly(&a.B0.A0, &b.B0.A0)
 		fr.Butterfly(&a.B0.A1, &b.B0.A1)
 		fr.Butterfly(&a.B1.A0, &b.B1.A0)
 		fr.Butterfly(&a.B1.A1, &b.B1.A1)
 		fr.Butterfly(&a.B2.A0, &b.B2.A0)
 		fr.Butterfly(&a.B2.A1, &b.B2.A1)
+
+	}
+}
+
+// MulByElementThenButterfly multiplies each element of other by the corresponding
+// scalar in twiddles, then applies the in-place butterfly between vector and other.
+func (vector VectorE6) MulByElementThenButterfly(other VectorE6, twiddles fr.Vector) {
+	N := len(vector)
+	if len(other) != N || len(twiddles) != N {
+		panic("vectorE6.MulByElementThenButterfly: vectors don't have the same length")
+	}
+	for i := range N {
+		other[i].MulByElement(&other[i], &twiddles[i])
+		ButterflyE6(&vector[i], &other[i])
+	}
+}
+
+// ButterflyThenMulByElement applies the in-place butterfly between vector and
+// other, then multiplies each element of other by the corresponding scalar in twiddles.
+func (vector VectorE6) ButterflyThenMulByElement(other VectorE6, twiddles fr.Vector) {
+	N := len(vector)
+	if len(other) != N || len(twiddles) != N {
+		panic("vectorE6.ButterflyThenMulByElement: vectors don't have the same length")
+	}
+	for i := range N {
+		ButterflyE6(&vector[i], &other[i])
+		other[i].MulByElement(&other[i], &twiddles[i])
 	}
 }
 

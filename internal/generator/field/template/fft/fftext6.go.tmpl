@@ -12,6 +12,8 @@ import (
 
 {{- $kLog2Ext6 := 9}}
 {{- $kSizeExt6 := shl 1 $kLog2Ext6}}
+{{- $kLog2Ext6Large := 10}}
+{{- $kSizeExt6Large := shl 1 $kLog2Ext6Large}}
 
 
 // FFTExt6 computes the discrete Fourier transform of a slice of degree-6 extension field
@@ -173,6 +175,10 @@ func difFFTExt6(a []fext.E6, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.Element
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
+		if n == 1 << {{$kLog2Ext6Large}} {
+			kerDIFNP_{{$kSizeExt6Large}}Ext6(a, twiddles, stage-twiddlesStartStage)
+			return
+		}
 		if n == 1 << {{$kLog2Ext6}} {
 			kerDIFNP_{{$kSizeExt6}}Ext6(a, twiddles, stage-twiddlesStartStage)
 			return
@@ -229,8 +235,7 @@ func difFFTExt6(a []fext.E6, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.Element
 func innerDIFWithTwiddlesExt6(a []fext.E6, twiddles []{{ .FF }}.Element, start, end, m int) {
 	va0 := fext.VectorE6(a[start:end])
 	va1 := fext.VectorE6(a[start+m : end+m])
-	va0.Butterfly(va1)
-	va1.MulByElement(va1, twiddles[start:end])
+	va0.ButterflyThenMulByElement(va1, twiddles[start:end])
 }
 
 func innerDIFWithoutTwiddlesExt6(a []fext.E6, at, w {{ .FF }}.Element, start, end, m int) {
@@ -253,6 +258,10 @@ func ditFFTExt6(a []fext.E6, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.Element
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
+		if n == 1 << {{$kLog2Ext6Large}} {
+			kerDITNP_{{$kSizeExt6Large}}Ext6(a, twiddles, stage-twiddlesStartStage)
+			return
+		}
 		if n == 1 << {{$kLog2Ext6}} {
 			kerDITNP_{{$kSizeExt6}}Ext6(a, twiddles, stage-twiddlesStartStage)
 			return
@@ -312,14 +321,29 @@ func ditFFTExt6(a []fext.E6, w {{ .FF }}.Element, twiddles [][]{{ .FF }}.Element
 func innerDITWithTwiddlesExt6(a []fext.E6, twiddles []{{ .FF }}.Element, start, end, m int) {
 	va0 := fext.VectorE6(a[start:end])
 	va1 := fext.VectorE6(a[start+m : end+m])
-	va1.MulByElement(va1, twiddles[start:end])
-	va0.Butterfly(va1)
+	va0.MulByElementThenButterfly(va1, twiddles[start:end])
 }
 
+// The M2/M4 helpers below are hand-unrolled across the 6 fr lanes of E6:
+// ButterflyE6 alone is 96 instructions and the cross-coordinate Mul calls
+// exceed Go's inliner budget when called from these hot inner loops.
+
 func innerDITWithTwiddlesExt6M2(a []fext.E6, twiddles []{{ .FF }}.Element) {
-	fext.ButterflyE6(&a[0], &a[2])
-	a[3].MulByElement(&a[3], &twiddles[1])
-	fext.ButterflyE6(&a[1], &a[3])
+	{{butterflyE6Coords $.FF "a[0]" "a[2]"}}
+	{{mulE6Coords "a[3]" "&twiddles[1]"}}
+	{{butterflyE6Coords $.FF "a[1]" "a[3]"}}
+}
+
+func innerDITWithTwiddlesExt6M4(a []fext.E6, twiddles []{{ .FF }}.Element) {
+	for i := 1; i < 4; i++ {
+		t := &twiddles[i]
+		y := &a[i+4]
+		{{mulE6Coords "y" "t"}}
+	}
+	for i := 0; i < 4; i++ {
+		x, y := &a[i], &a[i+4]
+		{{butterflyE6Coords $.FF "x" "y"}}
+	}
 }
 
 
@@ -335,8 +359,45 @@ func innerDITWithoutTwiddlesExt6(a []fext.E6, at, w {{ .FF }}.Element, start, en
 	}
 }
 
+func innerDIFWithTwiddlesExt6M2(a []fext.E6, twiddles []{{ .FF }}.Element) {
+	{{butterflyE6Coords $.FF "a[0]" "a[2]"}}
+	{{butterflyE6Coords $.FF "a[1]" "a[3]"}}
+	{{mulE6Coords "a[3]" "&twiddles[1]"}}
+}
+
+func innerDIFWithTwiddlesExt6M4(a []fext.E6, twiddles []{{ .FF }}.Element) {
+	for i := 0; i < 4; i++ {
+		x, y := &a[i], &a[i+4]
+		{{butterflyE6Coords $.FF "x" "y"}}
+	}
+	for i := 1; i < 4; i++ {
+		t := &twiddles[i]
+		y := &a[i+4]
+		{{mulE6Coords "y" "t"}}
+	}
+}
+
+{{define "butterflyE6Coords FF X Y"}}
+	{{.FF}}.Butterfly(&{{.X}}.B0.A0, &{{.Y}}.B0.A0)
+	{{.FF}}.Butterfly(&{{.X}}.B0.A1, &{{.Y}}.B0.A1)
+	{{.FF}}.Butterfly(&{{.X}}.B1.A0, &{{.Y}}.B1.A0)
+	{{.FF}}.Butterfly(&{{.X}}.B1.A1, &{{.Y}}.B1.A1)
+	{{.FF}}.Butterfly(&{{.X}}.B2.A0, &{{.Y}}.B2.A0)
+	{{.FF}}.Butterfly(&{{.X}}.B2.A1, &{{.Y}}.B2.A1)
+{{end}}
+
+{{define "mulE6Coords Y T"}}
+	{{.Y}}.B0.A0.Mul(&{{.Y}}.B0.A0, {{.T}})
+	{{.Y}}.B0.A1.Mul(&{{.Y}}.B0.A1, {{.T}})
+	{{.Y}}.B1.A0.Mul(&{{.Y}}.B1.A0, {{.T}})
+	{{.Y}}.B1.A1.Mul(&{{.Y}}.B1.A1, {{.T}})
+	{{.Y}}.B2.A0.Mul(&{{.Y}}.B2.A0, {{.T}})
+	{{.Y}}.B2.A1.Mul(&{{.Y}}.B2.A1, {{.T}})
+{{end}}
+
 
 {{genKernelE6 $.FF $kSizeExt6 $kLog2Ext6}}
+{{genKernelE6 $.FF $kSizeExt6Large $kLog2Ext6Large}}
 
 {{define "genKernelE6 FF sizeKernel sizeKernelLog2"}}
 
@@ -356,6 +417,14 @@ func kerDIFNP_{{.sizeKernel}}Ext6(a []fext.E6, twiddles [][]{{ .FF }}.Element, s
 			{{- if eq $m 1}}
 				va := fext.VectorE6(a[:{{$bound}}])
 				va.ButterflyPair()
+			{{- else if eq $m 2}}
+				for offset := 0; offset < {{$bound}}; offset += {{$n}} {
+					innerDIFWithTwiddlesExt6M2(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}])
+				}
+			{{- else if eq $m 4}}
+				for offset := 0; offset < {{$bound}}; offset += {{$n}} {
+					innerDIFWithTwiddlesExt6M4(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}])
+				}
 			{{- else}}
 				for offset := 0; offset < {{$bound}}; offset += {{$n}} {
 					innerDIFWithTwiddlesExt6(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}], 0, {{$m}}, {{$m}})
@@ -387,6 +456,10 @@ func kerDITNP_{{.sizeKernel}}Ext6(a []fext.E6, twiddles [][]{{ .FF }}.Element, s
 			{{- else if eq $m 2}}
 				for offset := 0; offset < {{$bound}}; offset += {{$n}} {
 					innerDITWithTwiddlesExt6M2(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}])
+				}
+			{{- else if eq $m 4}}
+				for offset := 0; offset < {{$bound}}; offset += {{$n}} {
+					innerDITWithTwiddlesExt6M4(a[offset:offset + {{$n}}], twiddles[stage + {{$step}}])
 				}
 			{{- else}}
 				for offset := 0; offset < {{$bound}}; offset += {{$n}} {

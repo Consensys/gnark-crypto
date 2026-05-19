@@ -28,6 +28,16 @@ var maskPermDE6_0 = []uint32{0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2}
 var maskPermDE6_1 = []uint32{2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5}
 var maskPermDE6_2 = []uint32{5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7}
 
+// E6 adjacent-pair butterfly index tables for vectorButterflyPair_E6_avx512.
+//
+// Each outer iteration processes 8 E6 (= 48 fr lanes = 3 zmm). These masks
+// build the partner lane vector for each loaded zmm, so the regular vectorized
+// field add/sub can compute (x+y, x-y) for pairs E6[0:2], E6[2:4], ...
+var maskPermE6Pair0 = []uint32{6, 7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5, 18, 19, 20, 21}
+var maskPermE6Pair1A = []uint32{22, 23, 12, 13, 14, 15, 16, 17, 30, 31, 0, 1, 2, 3, 24, 25}
+var maskPermE6Pair1B = []uint32{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 17, 18, 19, 0, 0}
+var maskPermE6Pair2 = []uint32{10, 11, 12, 13, 26, 27, 28, 29, 30, 31, 20, 21, 22, 23, 24, 25}
+
 func init() {
 	indexGather4 = make([]uint32, 16)
 	for i := range 16 {
@@ -79,4 +89,13 @@ func vectorButterfly_avx512(a, b *E4, N uint64)
 func vectorButterflyPair_avx512(a *E4, N uint64)
 
 //go:noescape
+func vectorButterflyPair_E6_avx512(a *E6, N uint64)
+
+//go:noescape
 func vectorInnerProductByElement_avx512(res, a *E4, b *fr.Element, N uint64)
+
+//go:noescape
+func vectorDITWithTwiddles_E6_avx512(a0, a1 *E6, twiddles *fr.Element, N uint64)
+
+//go:noescape
+func vectorDIFWithTwiddles_E6_avx512(a0, a1 *E6, twiddles *fr.Element, N uint64)
