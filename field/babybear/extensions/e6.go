@@ -402,8 +402,16 @@ func (vector VectorE6) ButterflyPair() {
 	if N%2 != 0 {
 		panic("vectorE6.ButterflyPair: vector length must be even")
 	}
+	// Hand-inlined: ButterflyE6 alone is 96 instructions which exceeds the
+	// inliner's budget, so the call wasn't being inlined into the hot loop.
 	for i := 0; i < N; i += 2 {
-		ButterflyE6(&vector[i], &vector[i+1])
+		a, b := &vector[i], &vector[i+1]
+		fr.Butterfly(&a.B0.A0, &b.B0.A0)
+		fr.Butterfly(&a.B0.A1, &b.B0.A1)
+		fr.Butterfly(&a.B1.A0, &b.B1.A0)
+		fr.Butterfly(&a.B1.A1, &b.B1.A1)
+		fr.Butterfly(&a.B2.A0, &b.B2.A0)
+		fr.Butterfly(&a.B2.A1, &b.B2.A1)
 	}
 }
 

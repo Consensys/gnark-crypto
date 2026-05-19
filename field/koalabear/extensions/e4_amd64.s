@@ -525,6 +525,53 @@ loop_15:
 done_16:
 	RET
 
+TEXT ·vectorMulByElement_E6_avx512(SB), NOSPLIT, $0-32
+	MOVD         $const_q, AX
+	VPBROADCASTD AX, Z0
+	MOVD         $const_qInvNeg, AX
+	VPBROADCASTD AX, Z1
+	MOVQ         $0x0000000000005555, AX
+	KMOVD        AX, K3
+	MOVQ         res+0(FP), R13
+	MOVQ         a+8(FP), R14
+	MOVQ         b+16(FP), CX
+	MOVQ         N+24(FP), BX
+	MOVQ         ·maskPermDE6_0+0(SB), SI
+	VMOVDQU32    0(SI), Z6
+	MOVQ         ·maskPermDE6_1+0(SB), SI
+	VMOVDQU32    0(SI), Z7
+	MOVQ         ·maskPermDE6_2+0(SB), SI
+	VMOVDQU32    0(SI), Z8
+	SHRQ         $3, BX
+
+loop_17:
+	TESTQ     BX, BX
+	JEQ       done_18
+	DECQ      BX
+	VMOVDQU32 0(CX), Y3
+	VMOVDQU32 0(R14), Z2
+	VPERMD    Z3, Z6, Z4
+	MUL_5W(Z2, Z4, Z9, Z10, Z11, Z12, Z13, Z5, Z0, Z1)
+	REDUCE1Q(Z0, Z5, Z14)
+	VMOVDQU32 Z5, 0(R13)
+	VMOVDQU32 64(R14), Z2
+	VPERMD    Z3, Z7, Z4
+	MUL_5W(Z2, Z4, Z15, Z16, Z17, Z18, Z19, Z5, Z0, Z1)
+	REDUCE1Q(Z0, Z5, Z20)
+	VMOVDQU32 Z5, 64(R13)
+	VMOVDQU32 128(R14), Z2
+	VPERMD    Z3, Z8, Z4
+	MUL_5W(Z2, Z4, Z21, Z22, Z23, Z24, Z25, Z5, Z0, Z1)
+	REDUCE1Q(Z0, Z5, Z26)
+	VMOVDQU32 Z5, 128(R13)
+	ADDQ      $192, R14
+	ADDQ      $192, R13
+	ADDQ      $32, CX
+	JMP       loop_17
+
+done_18:
+	RET
+
 TEXT ·vectorButterfly_avx512(SB), NOSPLIT, $0-24
 	MOVD         $const_q, AX
 	VPBROADCASTD AX, Z0
@@ -533,9 +580,9 @@ TEXT ·vectorButterfly_avx512(SB), NOSPLIT, $0-24
 	MOVQ         N+16(FP), CX
 	SHRQ         $2, CX
 
-loop_17:
+loop_19:
 	TESTQ     CX, CX
-	JEQ       done_18
+	JEQ       done_20
 	DECQ      CX
 	VMOVDQU32 0(R13), Z1
 	VMOVDQU32 0(R14), Z2
@@ -545,9 +592,9 @@ loop_17:
 	VMOVDQU32 Z4, 0(R14)
 	ADDQ      $64, R13
 	ADDQ      $64, R14
-	JMP       loop_17
+	JMP       loop_19
 
-done_18:
+done_20:
 	RET
 
 TEXT ·vectorButterflyPair_avx512(SB), NOSPLIT, $0-16
@@ -567,9 +614,9 @@ TEXT ·vectorButterflyPair_avx512(SB), NOSPLIT, $0-16
 	VPBLENDMQ in0, in3, K2, in0 \
 	VPBLENDMQ in3, in1, K2, in1 \
 
-loop_19:
+loop_21:
 	TESTQ     R14, R14
-	JEQ       done_20
+	JEQ       done_22
 	DECQ      R14
 	VMOVDQU32 0(R13), Z1
 	VMOVDQA32 Z1, Z2
@@ -579,9 +626,9 @@ loop_19:
 	PERMUTE4X4(Z4, Z5, Z6, Z3)
 	VMOVDQU32 Z4, 0(R13)
 	ADDQ      $64, R13
-	JMP       loop_19
+	JMP       loop_21
 
-done_20:
+done_22:
 	RET
 
 TEXT ·vectorInnerProductByElement_avx512(SB), NOSPLIT, $0-32
@@ -600,9 +647,9 @@ TEXT ·vectorInnerProductByElement_avx512(SB), NOSPLIT, $0-32
 	VMOVDQU32    0(SI), Z6
 	VXORPS       Z3, Z3, Z3
 
-loop_21:
+loop_23:
 	TESTQ     BX, BX
-	JEQ       done_22
+	JEQ       done_24
 	DECQ      BX
 	VMOVDQU32 0(R14), Z0
 	VMOVDQU32 0(CX), X1
@@ -612,9 +659,9 @@ loop_21:
 	ADD(Z2, Z3, Z4, Z13, Z3)
 	ADDQ      $64, R14
 	ADDQ      $16, CX
-	JMP       loop_21
+	JMP       loop_23
 
-done_22:
+done_24:
 	VEXTRACTI64X4 $1, Z3, Y14
 	ADD(Y3, Y14, Y4, Y15, Y14)
 	VEXTRACTI64X2 $1, Y14, X3

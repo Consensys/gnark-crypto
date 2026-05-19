@@ -15,6 +15,19 @@ import (
 var indexGather4 []uint32
 var maskPermD []uint32
 
+// E6 broadcast index tables for vectorMulByElement_E6_avx512.
+//
+// Each outer iteration processes 8 E6 (= 48 fr lanes = 3 zmm). The 8 scalars
+// b[0..7] are loaded into the low 8 lanes of one zmm; the three index tables
+// pick the right index for VPERMD to produce the broadcast patterns:
+//
+//	zmm0 (lanes  0..15): [b0,b0,b0,b0,b0,b0, b1×6, b2×4]
+//	zmm1 (lanes 16..31): [b2×2, b3×6, b4×6, b5×2]
+//	zmm2 (lanes 32..47): [b5×4, b6×6, b7×6]
+var maskPermDE6_0 = []uint32{0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2}
+var maskPermDE6_1 = []uint32{2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5}
+var maskPermDE6_2 = []uint32{5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7}
+
 func init() {
 	indexGather4 = make([]uint32, 16)
 	for i := range 16 {
@@ -55,6 +68,9 @@ func vectorSum_avx512(res *[4]uint64, a *E4, N uint64)
 
 //go:noescape
 func vectorMulByElement_avx512(res, a *E4, b *fr.Element, N uint64)
+
+//go:noescape
+func vectorMulByElement_E6_avx512(res, a *E6, b *fr.Element, N uint64)
 
 //go:noescape
 func vectorButterfly_avx512(a, b *E4, N uint64)

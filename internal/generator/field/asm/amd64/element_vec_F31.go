@@ -778,6 +778,87 @@ func (_f *FFAmd64) generateButterflyVecE4() {
 	f.RET()
 }
 
+func (_f *FFAmd64) generateMulVecElementE6() {
+	// func vectorMulByElement_E6_avx512(res, a *E6, b *fr.Element, N uint64)
+	//
+	// Precondition: N % 8 == 0; processes 8 E6 (= 48 fr lanes = 3 zmm) per
+	// outer iteration. Each scalar b[i] is broadcast across the 6 fr lanes of
+	// E6[i] via three precomputed VPERMD index tables.
+
+	const argSize = 4 * 8
+	stackSize := _f.StackSize(_f.NbWords*4+2, 0, 0)
+
+	registers := _f.FnHeader("vectorMulByElement_E6_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrRes := registers.Pop()
+	addrA := registers.Pop()
+	addrB := registers.Pop()
+	N := registers.Pop()
+
+	f.loadQ()
+	f.loadQInvNeg()
+
+	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
+	f.MOVQ("res+0(FP)", addrRes)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("N+24(FP)", N)
+
+	va := registers.PopV()
+	vb := registers.PopV()
+	vbExp := registers.PopV()
+	vRes := registers.PopV()
+
+	vMask0 := registers.PopV()
+	vMask1 := registers.PopV()
+	vMask2 := registers.PopV()
+
+	addrMask := registers.Pop()
+	f.MOVQ("·maskPermDE6_0+0(SB)", addrMask)
+	f.VMOVDQU32(addrMask.At(0), vMask0)
+	f.MOVQ("·maskPermDE6_1+0(SB)", addrMask)
+	f.VMOVDQU32(addrMask.At(0), vMask1)
+	f.MOVQ("·maskPermDE6_2+0(SB)", addrMask)
+	f.VMOVDQU32(addrMask.At(0), vMask2)
+
+	// N % 8 == 0 (precondition); we process 8 E6 per outer iter.
+	f.SHRQ("$3", N)
+
+	f.Loop(N, func() {
+		// load 8 scalars (= 32 bytes) of b into the low ymm half of vb
+		f.VMOVDQU32(addrB.At(0), vb.Y())
+
+		// zmm 0 of res: broadcast pattern b[0]×6, b[1]×6, b[2]×4
+		f.VMOVDQU32(addrA.At(0), va)
+		f.VPERMD(vb, vMask0, vbExp)
+		f.mul(va, vbExp, vRes, true)
+		f.VMOVDQU32(vRes, addrRes.At(0))
+
+		// zmm 1: b[2]×2, b[3]×6, b[4]×6, b[5]×2
+		f.VMOVDQU32(addrA.At(8), va)
+		f.VPERMD(vb, vMask1, vbExp)
+		f.mul(va, vbExp, vRes, true)
+		f.VMOVDQU32(vRes, addrRes.At(8))
+
+		// zmm 2: b[5]×4, b[6]×6, b[7]×6
+		f.VMOVDQU32(addrA.At(16), va)
+		f.VPERMD(vb, vMask2, vbExp)
+		f.mul(va, vbExp, vRes, true)
+		f.VMOVDQU32(vRes, addrRes.At(16))
+
+		// advance: 8 E6 = 192 bytes of a/res; 8 fr scalars = 32 bytes of b
+		f.ADDQ("$192", addrA)
+		f.ADDQ("$192", addrRes)
+		f.ADDQ("$32", addrB)
+	})
+
+	f.RET()
+}
+
 func (_f *FFAmd64) generateMulVecElementE4() {
 	// func vectorMulByElement_avx512(res, a *E4, b *fr.Element, N uint64)
 

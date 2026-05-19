@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
+	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
 // E6 is a degree three finite field extension of fp2
@@ -390,7 +391,26 @@ func (vector VectorE6) Butterfly(other VectorE6) {
 	if len(other) != N {
 		panic("vectorE6.Butterfly: vectors don't have the same length")
 	}
-	for i := range N {
+	// Butterfly is fully componentwise on fr.Element: every fr lane in vector is
+	// added/subtracted with its counterpart in other. The existing E4 kernel
+	// performs that exact pattern on 64-byte (= 16 fr) chunks; reinterpret the
+	// pair as a (3/2 N)-length E4 array and reuse it. Requires N % 8 == 0 so
+	// 6N/4 is a multiple of the kernel's 4-E4 inner block.
+	const blockSize = 8
+	if !cpu.SupportAVX512 || N < blockSize {
+		for i := range N {
+			ButterflyE6(&vector[i], &other[i])
+		}
+		return
+	}
+	r := N % blockSize
+	nr := uint64(N - r)
+	vectorButterfly_avx512(
+		(*E4)(unsafe.Pointer(&vector[0])),
+		(*E4)(unsafe.Pointer(&other[0])),
+		nr*3/2,
+	)
+	for i := N - r; i < N; i++ {
 		ButterflyE6(&vector[i], &other[i])
 	}
 }
@@ -402,8 +422,16 @@ func (vector VectorE6) ButterflyPair() {
 	if N%2 != 0 {
 		panic("vectorE6.ButterflyPair: vector length must be even")
 	}
+	// Hand-inlined: ButterflyE6 alone is 96 instructions which exceeds the
+	// inliner's budget, so the call wasn't being inlined into the hot loop.
 	for i := 0; i < N; i += 2 {
-		ButterflyE6(&vector[i], &vector[i+1])
+		a, b := &vector[i], &vector[i+1]
+		fr.Butterfly(&a.B0.A0, &b.B0.A0)
+		fr.Butterfly(&a.B0.A1, &b.B0.A1)
+		fr.Butterfly(&a.B1.A0, &b.B1.A0)
+		fr.Butterfly(&a.B1.A1, &b.B1.A1)
+		fr.Butterfly(&a.B2.A0, &b.B2.A0)
+		fr.Butterfly(&a.B2.A1, &b.B2.A1)
 	}
 }
 
@@ -414,7 +442,17 @@ func (vector VectorE6) MulByElement(a VectorE6, b fr.Vector) {
 	if len(a) != N || len(b) != N {
 		panic("vectorE6.MulByElement: vectors don't have the same length")
 	}
-	for i := range N {
+	const blockSize = 8
+	if !cpu.SupportAVX512 || N < blockSize {
+		for i := range N {
+			vector[i].MulByElement(&a[i], &b[i])
+		}
+		return
+	}
+	r := N % blockSize
+	nr := uint64(N - r)
+	vectorMulByElement_E6_avx512(&vector[0], &a[0], &b[0], nr)
+	for i := N - r; i < N; i++ {
 		vector[i].MulByElement(&a[i], &b[i])
 	}
 }
