@@ -72,30 +72,13 @@ func (z *E6) SetOne() *E6 {
 	return z
 }
 
-// Lift sets the B0.A0 component of z to v
-func (z *E6) Lift(v *fr.Element) *E6 {
-	*z = E6{}
-	z.B0.A0.Set(v)
-	return z
-}
-
-// MulByElement multiplies an element in E6 by an element in fr
+// MulByElement multiplies an element in E6 by an element in fr.
+// y may alias a coordinate of x, so we copy it first.
 func (z *E6) MulByElement(x *E6, y *fr.Element) *E6 {
-	var yCopy fr.Element
-	yCopy.Set(y)
+	yCopy := *y
 	z.B0.MulByElement(&x.B0, &yCopy)
 	z.B1.MulByElement(&x.B1, &yCopy)
 	z.B2.MulByElement(&x.B2, &yCopy)
-	return z
-}
-
-// MulByE2 multiplies an element in E6 by an element in E2
-func (z *E6) MulByE2(x *E6, y *E2) *E6 {
-	var yCopy E2
-	yCopy.Set(y)
-	z.B0.Mul(&x.B0, &yCopy)
-	z.B1.Mul(&x.B1, &yCopy)
-	z.B2.Mul(&x.B2, &yCopy)
 	return z
 }
 
@@ -147,7 +130,7 @@ func (z *E6) SetRandom() (*E6, error) {
 }
 
 // MustSetRandom sets the element to a random value.
-// It panics if reading form crypto/rand fails
+// It panics if reading from crypto/rand fails.
 func (z *E6) MustSetRandom() *E6 {
 	if _, err := z.SetRandom(); err != nil {
 		panic(err)
@@ -410,15 +393,12 @@ func (z *E6) ExpInt64(x E6, k int64) *E6 {
 	}
 
 	z.Set(&x)
-
-	// Use bits.Len64 to iterate only over significant bits
 	for i := bits.Len64(uint64(exp)) - 2; i >= 0; i-- {
 		z.Square(z)
 		if (uint64(exp)>>uint(i))&1 != 0 {
 			z.Mul(z, &x)
 		}
 	}
-
 	return z
 }
 
@@ -442,13 +422,11 @@ func BatchInvertE6(a []E6) []E6 {
 		return res
 	}
 
-	zeroes := make([]bool, len(a))
 	var accumulator E6
 	accumulator.SetOne()
 
 	for i := 0; i < len(a); i++ {
 		if a[i].IsZero() {
-			zeroes[i] = true
 			continue
 		}
 		res[i].Set(&accumulator)
@@ -457,8 +435,10 @@ func BatchInvertE6(a []E6) []E6 {
 
 	accumulator.Inverse(&accumulator)
 
+	// Non-zero entries have res[i] set to a non-zero partial product on the forward
+	// pass; zero entries left res[i] at its zero value, so IsZero distinguishes them.
 	for i := len(a) - 1; i >= 0; i-- {
-		if zeroes[i] {
+		if res[i].IsZero() {
 			continue
 		}
 		res[i].Mul(&res[i], &accumulator)
