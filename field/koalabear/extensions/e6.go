@@ -165,51 +165,130 @@ func (z *E6) IsOne() bool {
 	return z.B0.IsOne() && z.B1.IsZero() && z.B2.IsZero()
 }
 
-// Mul sets z=x*y in E6 and returns z
+// Mul sets z=x*y in E6 and returns z.
+//
+// Inlined for 31-bit primes: every fr.Element is a single uint32, so an
+// element-by-element 6×6 schoolbook over the tower E6 = E2[v]/(v³-(u+1))
+// with E2 = Fr[u]/(u²-α) can be implemented with raw uint32×uint32 → uint64
+// products, deferred Montgomery reductions, and a final small-modulus reduce.
+// Each Montgomery-reduce input is bounded by 2·(q-1)² (= 2 partial products),
+// which fits in uint64 below the q·2³² safe range.
 func (z *E6) Mul(x, y *E6) *E6 {
-	// Algorithm 13 from https://eprint.iacr.org/2010/354.pdf
-	var t0, t1, t2, c0, c1, c2, tmp E2
-	t0.Mul(&x.B0, &y.B0)
-	t1.Mul(&x.B1, &y.B1)
-	t2.Mul(&x.B2, &y.B2)
+	a0 := uint64(x.B0.A0[0])
+	a1 := uint64(x.B0.A1[0])
+	a2 := uint64(x.B1.A0[0])
+	a3 := uint64(x.B1.A1[0])
+	a4 := uint64(x.B2.A0[0])
+	a5 := uint64(x.B2.A1[0])
 
-	c0.Add(&x.B1, &x.B2)
-	tmp.Add(&y.B1, &y.B2)
-	c0.Mul(&c0, &tmp).Sub(&c0, &t1).Sub(&c0, &t2).MulByCubicNonResidue(&c0).Add(&c0, &t0)
+	b0 := uint64(y.B0.A0[0])
+	b1 := uint64(y.B0.A1[0])
+	b2 := uint64(y.B1.A0[0])
+	b3 := uint64(y.B1.A1[0])
+	b4 := uint64(y.B2.A0[0])
+	b5 := uint64(y.B2.A1[0])
 
-	c1.Add(&x.B0, &x.B1)
-	tmp.Add(&y.B0, &y.B1)
-	c1.Mul(&c1, &tmp).Sub(&c1, &t0).Sub(&c1, &t1)
-	tmp.MulByCubicNonResidue(&t2)
-	c1.Add(&c1, &tmp)
+	// c0.re = (a0·b0 + a2·b4 + a4·b2) + α·(a1·b1 + a2·b5 + a3·b4 + a3·b5 + a4·b3 + a5·b2 + a5·b3)
+	r := uint64(montReduce(a0*b0+a2*b4)) + uint64(montReduce(a4*b2))
+	rA := uint64(montReduce(a1*b1+a2*b5)) + uint64(montReduce(a3*b4+a3*b5))
+	rA += uint64(montReduce(a4*b3+a5*b2)) + uint64(montReduce(a5*b3))
+	z.B0.A0[0] = reduceSmall(r + 3*rA)
 
-	tmp.Add(&x.B0, &x.B2)
-	c2.Add(&y.B0, &y.B2).Mul(&c2, &tmp).Sub(&c2, &t0).Sub(&c2, &t2).Add(&c2, &t1)
+	// c0.im = (a0·b1 + a1·b0 + a2·b4 + a2·b5 + a3·b4 + a4·b2 + a4·b3 + a5·b2) + α·(a3·b5 + a5·b3)
+	r = uint64(montReduce(a0*b1+a1*b0)) + uint64(montReduce(a2*b4+a2*b5))
+	r += uint64(montReduce(a3*b4+a4*b2)) + uint64(montReduce(a4*b3+a5*b2))
+	rA = uint64(montReduce(a3*b5 + a5*b3))
+	z.B0.A1[0] = reduceSmall(r + 3*rA)
 
-	z.B0.Set(&c0)
-	z.B1.Set(&c1)
-	z.B2.Set(&c2)
+	// c1.re = (a0·b2 + a2·b0 + a4·b4) + α·(a1·b3 + a3·b1 + a4·b5 + a5·b4 + a5·b5)
+	r = uint64(montReduce(a0*b2+a2*b0)) + uint64(montReduce(a4*b4))
+	rA = uint64(montReduce(a1*b3+a3*b1)) + uint64(montReduce(a4*b5+a5*b4))
+	rA += uint64(montReduce(a5 * b5))
+	z.B1.A0[0] = reduceSmall(r + 3*rA)
+
+	// c1.im = (a0·b3 + a1·b2 + a2·b1 + a3·b0 + a4·b4 + a4·b5 + a5·b4) + α·(a5·b5)
+	r = uint64(montReduce(a0*b3+a1*b2)) + uint64(montReduce(a2*b1+a3*b0))
+	r += uint64(montReduce(a4*b4+a4*b5)) + uint64(montReduce(a5*b4))
+	rA = uint64(montReduce(a5 * b5))
+	z.B1.A1[0] = reduceSmall(r + 3*rA)
+
+	// c2.re = (a0·b4 + a2·b2 + a4·b0) + α·(a1·b5 + a3·b3 + a5·b1)
+	r = uint64(montReduce(a0*b4+a2*b2)) + uint64(montReduce(a4*b0))
+	rA = uint64(montReduce(a1*b5+a3*b3)) + uint64(montReduce(a5*b1))
+	z.B2.A0[0] = reduceSmall(r + 3*rA)
+
+	// c2.im = (a0·b5 + a1·b4 + a2·b3 + a3·b2 + a4·b1 + a5·b0)
+	r = uint64(montReduce(a0*b5+a1*b4)) + uint64(montReduce(a2*b3+a3*b2))
+	r += uint64(montReduce(a4*b1 + a5*b0))
+	z.B2.A1[0] = reduceSmall(r)
 
 	return z
 }
 
-// Square sets z=x*x in E6 and returns z
+// Square sets z=x*x in E6 and returns z.
+//
+// Inlined for 31-bit primes. The 36 raw products of the general Mul collapse
+// to 21 distinct products (6 squares + 15 cross-products); each cross-product
+// p_ij = a_i·a_j is added to its accumulator twice (still ≤ 2·(q-1)² to keep
+// the Montgomery-reduce input bound respected).
 func (z *E6) Square(x *E6) *E6 {
+	a0 := uint64(x.B0.A0[0])
+	a1 := uint64(x.B0.A1[0])
+	a2 := uint64(x.B1.A0[0])
+	a3 := uint64(x.B1.A1[0])
+	a4 := uint64(x.B2.A0[0])
+	a5 := uint64(x.B2.A1[0])
 
-	// Algorithm 16 from https://eprint.iacr.org/2010/354.pdf
-	var c4, c5, c1, c2, c3, c0 E2
-	c4.Mul(&x.B0, &x.B1).Double(&c4)
-	c5.Square(&x.B2)
-	c1.MulByCubicNonResidue(&c5).Add(&c1, &c4)
-	c2.Sub(&c4, &c5)
-	c3.Square(&x.B0)
-	c4.Sub(&x.B0, &x.B1).Add(&c4, &x.B2)
-	c5.Mul(&x.B1, &x.B2).Double(&c5)
-	c4.Square(&c4)
-	c0.MulByCubicNonResidue(&c5).Add(&c0, &c3)
-	z.B2.Add(&c2, &c4).Add(&z.B2, &c5).Sub(&z.B2, &c3)
-	z.B0.Set(&c0)
-	z.B1.Set(&c1)
+	// Precompute the 15 distinct cross products.
+	p01 := a0 * a1
+	p02 := a0 * a2
+	p03 := a0 * a3
+	p04 := a0 * a4
+	p05 := a0 * a5
+	p12 := a1 * a2
+	p13 := a1 * a3
+	p14 := a1 * a4
+	p15 := a1 * a5
+	p23 := a2 * a3
+	p24 := a2 * a4
+	p25 := a2 * a5
+	p34 := a3 * a4
+	p35 := a3 * a5
+	p45 := a4 * a5
+
+	// c0.re = (a0² + 2·a2·a4) + α·(a1² + 2·a2·a5 + 2·a3·a4 + 2·a3·a5)
+	r := uint64(montReduce(a0*a0+p24)) + uint64(montReduce(p24))
+	rA := uint64(montReduce(a1*a1+p25)) + uint64(montReduce(p25+p34))
+	rA += uint64(montReduce(p34+p35)) + uint64(montReduce(p35))
+	z.B0.A0[0] = reduceSmall(r + 3*rA)
+
+	// c0.im = (2·a0·a1 + 2·a2·a4 + 2·a2·a5 + 2·a3·a4) + α·(2·a3·a5)
+	r = uint64(montReduce(p01+p01)) + uint64(montReduce(p24+p24))
+	r += uint64(montReduce(p25+p25)) + uint64(montReduce(p34+p34))
+	rA = uint64(montReduce(p35 + p35))
+	z.B0.A1[0] = reduceSmall(r + 3*rA)
+
+	// c1.re = (2·a0·a2 + a4²) + α·(2·a1·a3 + 2·a4·a5 + a5²)
+	r = uint64(montReduce(p02+p02)) + uint64(montReduce(a4*a4))
+	rA = uint64(montReduce(p13+p13)) + uint64(montReduce(p45+p45))
+	rA += uint64(montReduce(a5 * a5))
+	z.B1.A0[0] = reduceSmall(r + 3*rA)
+
+	// c1.im = (2·a0·a3 + 2·a1·a2 + a4² + 2·a4·a5) + α·(a5²)
+	r = uint64(montReduce(p03+p03)) + uint64(montReduce(p12+p12))
+	r += uint64(montReduce(a4*a4+p45)) + uint64(montReduce(p45))
+	rA = uint64(montReduce(a5 * a5))
+	z.B1.A1[0] = reduceSmall(r + 3*rA)
+
+	// c2.re = (2·a0·a4 + a2²) + α·(2·a1·a5 + a3²)
+	r = uint64(montReduce(p04+p04)) + uint64(montReduce(a2*a2))
+	rA = uint64(montReduce(p15+p15)) + uint64(montReduce(a3*a3))
+	z.B2.A0[0] = reduceSmall(r + 3*rA)
+
+	// c2.im = (2·a0·a5 + 2·a1·a4 + 2·a2·a3)
+	r = uint64(montReduce(p05+p05)) + uint64(montReduce(p14+p14))
+	r += uint64(montReduce(p23 + p23))
+	z.B2.A1[0] = reduceSmall(r)
 
 	return z
 }
