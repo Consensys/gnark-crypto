@@ -174,6 +174,10 @@ func difFFTExt6(a []fext.E6, w babybear.Element, twiddles [][]babybear.Element, 
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
+		if n == 1<<10 {
+			kerDIFNP_1024Ext6(a, twiddles, stage-twiddlesStartStage)
+			return
+		}
 		if n == 1<<9 {
 			kerDIFNP_512Ext6(a, twiddles, stage-twiddlesStartStage)
 			return
@@ -230,8 +234,7 @@ func difFFTExt6(a []fext.E6, w babybear.Element, twiddles [][]babybear.Element, 
 func innerDIFWithTwiddlesExt6(a []fext.E6, twiddles []babybear.Element, start, end, m int) {
 	va0 := fext.VectorE6(a[start:end])
 	va1 := fext.VectorE6(a[start+m : end+m])
-	va0.Butterfly(va1)
-	va1.MulByElement(va1, twiddles[start:end])
+	va0.ButterflyThenMulByElement(va1, twiddles[start:end])
 }
 
 func innerDIFWithoutTwiddlesExt6(a []fext.E6, at, w babybear.Element, start, end, m int) {
@@ -254,6 +257,10 @@ func ditFFTExt6(a []fext.E6, w babybear.Element, twiddles [][]babybear.Element, 
 	if n == 1 {
 		return
 	} else if stage >= twiddlesStartStage {
+		if n == 1<<10 {
+			kerDITNP_1024Ext6(a, twiddles, stage-twiddlesStartStage)
+			return
+		}
 		if n == 1<<9 {
 			kerDITNP_512Ext6(a, twiddles, stage-twiddlesStartStage)
 			return
@@ -312,14 +319,62 @@ func ditFFTExt6(a []fext.E6, w babybear.Element, twiddles [][]babybear.Element, 
 func innerDITWithTwiddlesExt6(a []fext.E6, twiddles []babybear.Element, start, end, m int) {
 	va0 := fext.VectorE6(a[start:end])
 	va1 := fext.VectorE6(a[start+m : end+m])
-	va1.MulByElement(va1, twiddles[start:end])
-	va0.Butterfly(va1)
+	va0.MulByElementThenButterfly(va1, twiddles[start:end])
 }
 
+// The M2/M4 helpers below are hand-unrolled across the 6 fr lanes of E6:
+// ButterflyE6 alone is 96 instructions and the cross-coordinate Mul calls
+// exceed Go's inliner budget when called from these hot inner loops.
+
 func innerDITWithTwiddlesExt6M2(a []fext.E6, twiddles []babybear.Element) {
-	fext.ButterflyE6(&a[0], &a[2])
-	a[3].MulByElement(&a[3], &twiddles[1])
-	fext.ButterflyE6(&a[1], &a[3])
+
+	babybear.Butterfly(&a[0].B0.A0, &a[2].B0.A0)
+	babybear.Butterfly(&a[0].B0.A1, &a[2].B0.A1)
+	babybear.Butterfly(&a[0].B1.A0, &a[2].B1.A0)
+	babybear.Butterfly(&a[0].B1.A1, &a[2].B1.A1)
+	babybear.Butterfly(&a[0].B2.A0, &a[2].B2.A0)
+	babybear.Butterfly(&a[0].B2.A1, &a[2].B2.A1)
+
+	a[3].B0.A0.Mul(&a[3].B0.A0, &twiddles[1])
+	a[3].B0.A1.Mul(&a[3].B0.A1, &twiddles[1])
+	a[3].B1.A0.Mul(&a[3].B1.A0, &twiddles[1])
+	a[3].B1.A1.Mul(&a[3].B1.A1, &twiddles[1])
+	a[3].B2.A0.Mul(&a[3].B2.A0, &twiddles[1])
+	a[3].B2.A1.Mul(&a[3].B2.A1, &twiddles[1])
+
+	babybear.Butterfly(&a[1].B0.A0, &a[3].B0.A0)
+	babybear.Butterfly(&a[1].B0.A1, &a[3].B0.A1)
+	babybear.Butterfly(&a[1].B1.A0, &a[3].B1.A0)
+	babybear.Butterfly(&a[1].B1.A1, &a[3].B1.A1)
+	babybear.Butterfly(&a[1].B2.A0, &a[3].B2.A0)
+	babybear.Butterfly(&a[1].B2.A1, &a[3].B2.A1)
+
+}
+
+func innerDITWithTwiddlesExt6M4(a []fext.E6, twiddles []babybear.Element) {
+	for i := 1; i < 4; i++ {
+		t := &twiddles[i]
+		y := &a[i+4]
+
+		y.B0.A0.Mul(&y.B0.A0, t)
+		y.B0.A1.Mul(&y.B0.A1, t)
+		y.B1.A0.Mul(&y.B1.A0, t)
+		y.B1.A1.Mul(&y.B1.A1, t)
+		y.B2.A0.Mul(&y.B2.A0, t)
+		y.B2.A1.Mul(&y.B2.A1, t)
+
+	}
+	for i := 0; i < 4; i++ {
+		x, y := &a[i], &a[i+4]
+
+		babybear.Butterfly(&x.B0.A0, &y.B0.A0)
+		babybear.Butterfly(&x.B0.A1, &y.B0.A1)
+		babybear.Butterfly(&x.B1.A0, &y.B1.A0)
+		babybear.Butterfly(&x.B1.A1, &y.B1.A1)
+		babybear.Butterfly(&x.B2.A0, &y.B2.A0)
+		babybear.Butterfly(&x.B2.A1, &y.B2.A1)
+
+	}
 }
 
 func innerDITWithoutTwiddlesExt6(a []fext.E6, at, w babybear.Element, start, end, m int) {
@@ -331,6 +386,57 @@ func innerDITWithoutTwiddlesExt6(a []fext.E6, at, w babybear.Element, start, end
 		a[i+m].MulByElement(&a[i+m], &at)
 		fext.ButterflyE6(&a[i], &a[i+m])
 		at.Mul(&at, &w)
+	}
+}
+
+func innerDIFWithTwiddlesExt6M2(a []fext.E6, twiddles []babybear.Element) {
+
+	babybear.Butterfly(&a[0].B0.A0, &a[2].B0.A0)
+	babybear.Butterfly(&a[0].B0.A1, &a[2].B0.A1)
+	babybear.Butterfly(&a[0].B1.A0, &a[2].B1.A0)
+	babybear.Butterfly(&a[0].B1.A1, &a[2].B1.A1)
+	babybear.Butterfly(&a[0].B2.A0, &a[2].B2.A0)
+	babybear.Butterfly(&a[0].B2.A1, &a[2].B2.A1)
+
+	babybear.Butterfly(&a[1].B0.A0, &a[3].B0.A0)
+	babybear.Butterfly(&a[1].B0.A1, &a[3].B0.A1)
+	babybear.Butterfly(&a[1].B1.A0, &a[3].B1.A0)
+	babybear.Butterfly(&a[1].B1.A1, &a[3].B1.A1)
+	babybear.Butterfly(&a[1].B2.A0, &a[3].B2.A0)
+	babybear.Butterfly(&a[1].B2.A1, &a[3].B2.A1)
+
+	a[3].B0.A0.Mul(&a[3].B0.A0, &twiddles[1])
+	a[3].B0.A1.Mul(&a[3].B0.A1, &twiddles[1])
+	a[3].B1.A0.Mul(&a[3].B1.A0, &twiddles[1])
+	a[3].B1.A1.Mul(&a[3].B1.A1, &twiddles[1])
+	a[3].B2.A0.Mul(&a[3].B2.A0, &twiddles[1])
+	a[3].B2.A1.Mul(&a[3].B2.A1, &twiddles[1])
+
+}
+
+func innerDIFWithTwiddlesExt6M4(a []fext.E6, twiddles []babybear.Element) {
+	for i := 0; i < 4; i++ {
+		x, y := &a[i], &a[i+4]
+
+		babybear.Butterfly(&x.B0.A0, &y.B0.A0)
+		babybear.Butterfly(&x.B0.A1, &y.B0.A1)
+		babybear.Butterfly(&x.B1.A0, &y.B1.A0)
+		babybear.Butterfly(&x.B1.A1, &y.B1.A1)
+		babybear.Butterfly(&x.B2.A0, &y.B2.A0)
+		babybear.Butterfly(&x.B2.A1, &y.B2.A1)
+
+	}
+	for i := 1; i < 4; i++ {
+		t := &twiddles[i]
+		y := &a[i+4]
+
+		y.B0.A0.Mul(&y.B0.A0, t)
+		y.B0.A1.Mul(&y.B0.A1, t)
+		y.B1.A0.Mul(&y.B1.A0, t)
+		y.B1.A1.Mul(&y.B1.A1, t)
+		y.B2.A0.Mul(&y.B2.A0, t)
+		y.B2.A1.Mul(&y.B2.A1, t)
+
 	}
 }
 
@@ -354,10 +460,10 @@ func kerDIFNP_512Ext6(a []fext.E6, twiddles [][]babybear.Element, stage int) {
 		innerDIFWithTwiddlesExt6(a[offset:offset+16], twiddles[stage+5], 0, 8, 8)
 	}
 	for offset := 0; offset < 512; offset += 8 {
-		innerDIFWithTwiddlesExt6(a[offset:offset+8], twiddles[stage+6], 0, 4, 4)
+		innerDIFWithTwiddlesExt6M4(a[offset:offset+8], twiddles[stage+6])
 	}
 	for offset := 0; offset < 512; offset += 4 {
-		innerDIFWithTwiddlesExt6(a[offset:offset+4], twiddles[stage+7], 0, 2, 2)
+		innerDIFWithTwiddlesExt6M2(a[offset:offset+4], twiddles[stage+7])
 	}
 	va := fext.VectorE6(a[:512])
 	va.ButterflyPair()
@@ -372,7 +478,7 @@ func kerDITNP_512Ext6(a []fext.E6, twiddles [][]babybear.Element, stage int) {
 		innerDITWithTwiddlesExt6M2(a[offset:offset+4], twiddles[stage+7])
 	}
 	for offset := 0; offset < 512; offset += 8 {
-		innerDITWithTwiddlesExt6(a[offset:offset+8], twiddles[stage+6], 0, 4, 4)
+		innerDITWithTwiddlesExt6M4(a[offset:offset+8], twiddles[stage+6])
 	}
 	for offset := 0; offset < 512; offset += 16 {
 		innerDITWithTwiddlesExt6(a[offset:offset+16], twiddles[stage+5], 0, 8, 8)
@@ -390,4 +496,68 @@ func kerDITNP_512Ext6(a []fext.E6, twiddles [][]babybear.Element, stage int) {
 		innerDITWithTwiddlesExt6(a[offset:offset+256], twiddles[stage+1], 0, 128, 128)
 	}
 	innerDITWithTwiddlesExt6(a[:512], twiddles[stage+0], 0, 256, 256)
+}
+
+func kerDIFNP_1024Ext6(a []fext.E6, twiddles [][]babybear.Element, stage int) {
+	// code unrolled & generated by internal/generator/field/template/fft/fftext6.go.tmpl
+
+	innerDIFWithTwiddlesExt6(a[:1024], twiddles[stage+0], 0, 512, 512)
+	for offset := 0; offset < 1024; offset += 512 {
+		innerDIFWithTwiddlesExt6(a[offset:offset+512], twiddles[stage+1], 0, 256, 256)
+	}
+	for offset := 0; offset < 1024; offset += 256 {
+		innerDIFWithTwiddlesExt6(a[offset:offset+256], twiddles[stage+2], 0, 128, 128)
+	}
+	for offset := 0; offset < 1024; offset += 128 {
+		innerDIFWithTwiddlesExt6(a[offset:offset+128], twiddles[stage+3], 0, 64, 64)
+	}
+	for offset := 0; offset < 1024; offset += 64 {
+		innerDIFWithTwiddlesExt6(a[offset:offset+64], twiddles[stage+4], 0, 32, 32)
+	}
+	for offset := 0; offset < 1024; offset += 32 {
+		innerDIFWithTwiddlesExt6(a[offset:offset+32], twiddles[stage+5], 0, 16, 16)
+	}
+	for offset := 0; offset < 1024; offset += 16 {
+		innerDIFWithTwiddlesExt6(a[offset:offset+16], twiddles[stage+6], 0, 8, 8)
+	}
+	for offset := 0; offset < 1024; offset += 8 {
+		innerDIFWithTwiddlesExt6M4(a[offset:offset+8], twiddles[stage+7])
+	}
+	for offset := 0; offset < 1024; offset += 4 {
+		innerDIFWithTwiddlesExt6M2(a[offset:offset+4], twiddles[stage+8])
+	}
+	va := fext.VectorE6(a[:1024])
+	va.ButterflyPair()
+}
+
+func kerDITNP_1024Ext6(a []fext.E6, twiddles [][]babybear.Element, stage int) {
+	// code unrolled & generated by internal/generator/field/template/fft/fftext6.go.tmpl
+
+	va := fext.VectorE6(a[:1024])
+	va.ButterflyPair()
+	for offset := 0; offset < 1024; offset += 4 {
+		innerDITWithTwiddlesExt6M2(a[offset:offset+4], twiddles[stage+8])
+	}
+	for offset := 0; offset < 1024; offset += 8 {
+		innerDITWithTwiddlesExt6M4(a[offset:offset+8], twiddles[stage+7])
+	}
+	for offset := 0; offset < 1024; offset += 16 {
+		innerDITWithTwiddlesExt6(a[offset:offset+16], twiddles[stage+6], 0, 8, 8)
+	}
+	for offset := 0; offset < 1024; offset += 32 {
+		innerDITWithTwiddlesExt6(a[offset:offset+32], twiddles[stage+5], 0, 16, 16)
+	}
+	for offset := 0; offset < 1024; offset += 64 {
+		innerDITWithTwiddlesExt6(a[offset:offset+64], twiddles[stage+4], 0, 32, 32)
+	}
+	for offset := 0; offset < 1024; offset += 128 {
+		innerDITWithTwiddlesExt6(a[offset:offset+128], twiddles[stage+3], 0, 64, 64)
+	}
+	for offset := 0; offset < 1024; offset += 256 {
+		innerDITWithTwiddlesExt6(a[offset:offset+256], twiddles[stage+2], 0, 128, 128)
+	}
+	for offset := 0; offset < 1024; offset += 512 {
+		innerDITWithTwiddlesExt6(a[offset:offset+512], twiddles[stage+1], 0, 256, 256)
+	}
+	innerDITWithTwiddlesExt6(a[:1024], twiddles[stage+0], 0, 512, 512)
 }
