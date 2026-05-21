@@ -81,36 +81,66 @@ func (z *E8) Lift(v *fr.Element) *E8 {
 
 // MulByElement multiplies an element in E8 by an element in fr.
 func (z *E8) MulByElement(x *E8, y *fr.Element) *E8 {
-	z.C0.MulByElement(&x.C0, y)
-	z.C1.MulByElement(&x.C1, y)
+	z.C0.B0.A0.Mul(&x.C0.B0.A0, y)
+	z.C0.B0.A1.Mul(&x.C0.B0.A1, y)
+	z.C0.B1.A0.Mul(&x.C0.B1.A0, y)
+	z.C0.B1.A1.Mul(&x.C0.B1.A1, y)
+	z.C1.B0.A0.Mul(&x.C1.B0.A0, y)
+	z.C1.B0.A1.Mul(&x.C1.B0.A1, y)
+	z.C1.B1.A0.Mul(&x.C1.B1.A0, y)
+	z.C1.B1.A1.Mul(&x.C1.B1.A1, y)
 	return z
 }
 
 // Add sets z=x+y in E8 and returns z.
 func (z *E8) Add(x, y *E8) *E8 {
-	z.C0.Add(&x.C0, &y.C0)
-	z.C1.Add(&x.C1, &y.C1)
+	z.C0.B0.A0.Add(&x.C0.B0.A0, &y.C0.B0.A0)
+	z.C0.B0.A1.Add(&x.C0.B0.A1, &y.C0.B0.A1)
+	z.C0.B1.A0.Add(&x.C0.B1.A0, &y.C0.B1.A0)
+	z.C0.B1.A1.Add(&x.C0.B1.A1, &y.C0.B1.A1)
+	z.C1.B0.A0.Add(&x.C1.B0.A0, &y.C1.B0.A0)
+	z.C1.B0.A1.Add(&x.C1.B0.A1, &y.C1.B0.A1)
+	z.C1.B1.A0.Add(&x.C1.B1.A0, &y.C1.B1.A0)
+	z.C1.B1.A1.Add(&x.C1.B1.A1, &y.C1.B1.A1)
 	return z
 }
 
 // Sub sets z=x-y in E8 and returns z.
 func (z *E8) Sub(x, y *E8) *E8 {
-	z.C0.Sub(&x.C0, &y.C0)
-	z.C1.Sub(&x.C1, &y.C1)
+	z.C0.B0.A0.Sub(&x.C0.B0.A0, &y.C0.B0.A0)
+	z.C0.B0.A1.Sub(&x.C0.B0.A1, &y.C0.B0.A1)
+	z.C0.B1.A0.Sub(&x.C0.B1.A0, &y.C0.B1.A0)
+	z.C0.B1.A1.Sub(&x.C0.B1.A1, &y.C0.B1.A1)
+	z.C1.B0.A0.Sub(&x.C1.B0.A0, &y.C1.B0.A0)
+	z.C1.B0.A1.Sub(&x.C1.B0.A1, &y.C1.B0.A1)
+	z.C1.B1.A0.Sub(&x.C1.B1.A0, &y.C1.B1.A0)
+	z.C1.B1.A1.Sub(&x.C1.B1.A1, &y.C1.B1.A1)
 	return z
 }
 
 // Double sets z=2*x and returns z.
 func (z *E8) Double(x *E8) *E8 {
-	z.C0.Double(&x.C0)
-	z.C1.Double(&x.C1)
+	z.C0.B0.A0.Double(&x.C0.B0.A0)
+	z.C0.B0.A1.Double(&x.C0.B0.A1)
+	z.C0.B1.A0.Double(&x.C0.B1.A0)
+	z.C0.B1.A1.Double(&x.C0.B1.A1)
+	z.C1.B0.A0.Double(&x.C1.B0.A0)
+	z.C1.B0.A1.Double(&x.C1.B0.A1)
+	z.C1.B1.A0.Double(&x.C1.B1.A0)
+	z.C1.B1.A1.Double(&x.C1.B1.A1)
 	return z
 }
 
 // Neg negates an E8 element.
 func (z *E8) Neg(x *E8) *E8 {
-	z.C0.Neg(&x.C0)
-	z.C1.Neg(&x.C1)
+	z.C0.B0.A0.Neg(&x.C0.B0.A0)
+	z.C0.B0.A1.Neg(&x.C0.B0.A1)
+	z.C0.B1.A0.Neg(&x.C0.B1.A0)
+	z.C0.B1.A1.Neg(&x.C0.B1.A1)
+	z.C1.B0.A0.Neg(&x.C1.B0.A0)
+	z.C1.B0.A1.Neg(&x.C1.B0.A1)
+	z.C1.B1.A0.Neg(&x.C1.B1.A0)
+	z.C1.B1.A1.Neg(&x.C1.B1.A1)
 	return z
 }
 
@@ -145,28 +175,97 @@ func (z *E8) IsOne() bool {
 
 // Mul sets z=x*y in E8 and returns z.
 func (z *E8) Mul(x, y *E8) *E8 {
-	var a, b, c, d E4
-	a.Mul(&x.C0, &y.C0)
-	b.Mul(&x.C1, &y.C1)
-	c.Add(&x.C0, &x.C1)
-	d.Add(&y.C0, &y.C1)
-	c.Mul(&c, &d).
-		Sub(&c, &a).
-		Sub(&c, &b)
-	z.C1.Set(&c)
-	b.MulByQuadraticNonResidue(&b)
-	z.C0.Add(&a, &b)
+	a0 := uint64(x.C0.B0.A0[0])
+	a1 := uint64(x.C1.B0.A0[0])
+	a2 := uint64(x.C0.B1.A0[0])
+	a3 := uint64(x.C1.B1.A0[0])
+	a4 := uint64(x.C0.B0.A1[0])
+	a5 := uint64(x.C1.B0.A1[0])
+	a6 := uint64(x.C0.B1.A1[0])
+	a7 := uint64(x.C1.B1.A1[0])
+
+	b0 := uint64(y.C0.B0.A0[0])
+	b1 := uint64(y.C1.B0.A0[0])
+	b2 := uint64(y.C0.B1.A0[0])
+	b3 := uint64(y.C1.B1.A0[0])
+	b4 := uint64(y.C0.B0.A1[0])
+	b5 := uint64(y.C1.B0.A1[0])
+	b6 := uint64(y.C0.B1.A1[0])
+	b7 := uint64(y.C1.B1.A1[0])
+
+	z.C0.B0.A0[0] = reduceSmall(montReduceLazy(a0*b0) +
+		3*(montReduceLazy(a1*b7+a2*b6)+
+			montReduceLazy(a3*b5+a4*b4)+
+			montReduceLazy(a5*b3+a6*b2)+
+			montReduceLazy(a7*b1)))
+	z.C1.B0.A0[0] = reduceSmall(montReduceLazy(a0*b1+a1*b0) +
+		3*(montReduceLazy(a2*b7+a3*b6)+
+			montReduceLazy(a4*b5+a5*b4)+
+			montReduceLazy(a6*b3+a7*b2)))
+	z.C0.B1.A0[0] = reduceSmall(montReduceLazy(a0*b2+a1*b1) +
+		montReduceLazy(a2*b0) +
+		3*(montReduceLazy(a3*b7+a4*b6)+
+			montReduceLazy(a5*b5+a6*b4)+
+			montReduceLazy(a7*b3)))
+	z.C1.B1.A0[0] = reduceSmall(montReduceLazy(a0*b3+a1*b2) +
+		montReduceLazy(a2*b1+a3*b0) +
+		3*(montReduceLazy(a4*b7+a5*b6)+
+			montReduceLazy(a6*b5+a7*b4)))
+	z.C0.B0.A1[0] = reduceSmall(montReduceLazy(a0*b4+a1*b3) +
+		montReduceLazy(a2*b2+a3*b1) +
+		montReduceLazy(a4*b0) +
+		3*(montReduceLazy(a5*b7+a6*b6)+
+			montReduceLazy(a7*b5)))
+	z.C1.B0.A1[0] = reduceSmall(montReduceLazy(a0*b5+a1*b4) +
+		montReduceLazy(a2*b3+a3*b2) +
+		montReduceLazy(a4*b1+a5*b0) +
+		3*montReduceLazy(a6*b7+a7*b6))
+	z.C0.B1.A1[0] = reduceSmall(montReduceLazy(a0*b6+a1*b5) +
+		montReduceLazy(a2*b4+a3*b3) +
+		montReduceLazy(a4*b2+a5*b1) +
+		montReduceLazy(a6*b0) +
+		3*montReduceLazy(a7*b7))
+	z.C1.B1.A1[0] = reduceSmall(montReduceLazy(a0*b7+a1*b6) +
+		montReduceLazy(a2*b5+a3*b4) +
+		montReduceLazy(a4*b3+a5*b2) +
+		montReduceLazy(a6*b1+a7*b0))
 	return z
 }
 
 // Square sets z=x*x in E8 and returns z.
 func (z *E8) Square(x *E8) *E8 {
-	var a, b, c E4
-	a.Square(&x.C0)
-	b.Square(&x.C1).MulByQuadraticNonResidue(&b)
-	c.Mul(&x.C0, &x.C1).Double(&c)
-	z.C0.Add(&a, &b)
-	z.C1.Set(&c)
+	a0 := uint64(x.C0.B0.A0[0])
+	a1 := uint64(x.C1.B0.A0[0])
+	a2 := uint64(x.C0.B1.A0[0])
+	a3 := uint64(x.C1.B1.A0[0])
+	a4 := uint64(x.C0.B0.A1[0])
+	a5 := uint64(x.C1.B0.A1[0])
+	a6 := uint64(x.C0.B1.A1[0])
+	a7 := uint64(x.C1.B1.A1[0])
+
+	z.C0.B0.A0[0] = reduceSmall(montReduceLazy(a0*a0) +
+		3*montReduceLazy(a4*a4) +
+		2*3*(montReduceLazy(a1*a7+a2*a6)+montReduceLazy(a3*a5)))
+	z.C1.B0.A0[0] = reduceSmall(2 * (montReduceLazy(a0*a1) +
+		3*(montReduceLazy(a2*a7+a3*a6)+montReduceLazy(a4*a5))))
+	z.C0.B1.A0[0] = reduceSmall(2*montReduceLazy(a0*a2) +
+		montReduceLazy(a1*a1) +
+		2*3*montReduceLazy(a3*a7+a4*a6) +
+		3*montReduceLazy(a5*a5))
+	z.C1.B1.A0[0] = reduceSmall(2 * (montReduceLazy(a0*a3+a1*a2) +
+		3*montReduceLazy(a4*a7+a5*a6)))
+	z.C0.B0.A1[0] = reduceSmall(2*montReduceLazy(a0*a4+a1*a3) +
+		montReduceLazy(a2*a2) +
+		2*3*montReduceLazy(a5*a7) +
+		3*montReduceLazy(a6*a6))
+	z.C1.B0.A1[0] = reduceSmall(2 * (montReduceLazy(a0*a5+a1*a4) +
+		montReduceLazy(a2*a3) +
+		3*montReduceLazy(a6*a7)))
+	z.C0.B1.A1[0] = reduceSmall(2*(montReduceLazy(a0*a6+a1*a5)+montReduceLazy(a2*a4)) +
+		montReduceLazy(a3*a3) +
+		3*montReduceLazy(a7*a7))
+	z.C1.B1.A1[0] = reduceSmall(2 * (montReduceLazy(a0*a7+a1*a6) +
+		montReduceLazy(a2*a5+a3*a4)))
 	return z
 }
 
@@ -177,7 +276,11 @@ func (z *E8) Inverse(x *E8) *E8 {
 	t1.Square(&x.C1).MulByQuadraticNonResidue(&t1)
 	t0.Sub(&t0, &t1).Inverse(&t0)
 	z.C0.Mul(&x.C0, &t0)
-	z.C1.Mul(&x.C1, &t0).Neg(&z.C1)
+	z.C1.Mul(&x.C1, &t0)
+	z.C1.B0.A0.Neg(&z.C1.B0.A0)
+	z.C1.B0.A1.Neg(&z.C1.B0.A1)
+	z.C1.B1.A0.Neg(&z.C1.B1.A0)
+	z.C1.B1.A1.Neg(&z.C1.B1.A1)
 	return z
 }
 
@@ -236,7 +339,10 @@ func (z *E8) ExpInt64(x E8, k int64) *E8 {
 // Conjugate sets z to x conjugated and returns z.
 func (z *E8) Conjugate(x *E8) *E8 {
 	z.C0 = x.C0
-	z.C1.Neg(&x.C1)
+	z.C1.B0.A0.Neg(&x.C1.B0.A0)
+	z.C1.B0.A1.Neg(&x.C1.B0.A1)
+	z.C1.B1.A0.Neg(&x.C1.B1.A0)
+	z.C1.B1.A1.Neg(&x.C1.B1.A1)
 	return z
 }
 

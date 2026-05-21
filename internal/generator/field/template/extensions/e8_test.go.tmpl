@@ -2,6 +2,8 @@ import (
 	"math/big"
 	"testing"
 
+	fr "{{ .FieldPackagePath }}"
+
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 )
@@ -165,4 +167,82 @@ func genE8() gopter.Gen {
 	).Map(func(values []any) E8 {
 		return E8{C0: values[0].(E4), C1: values[1].(E4)}
 	})
+}
+
+func BenchmarkE8Add(b *testing.B) {
+	var a, c E8
+	a.MustSetRandom()
+	c.MustSetRandom()
+	b.ResetTimer()
+	for range b.N {
+		a.Add(&a, &c)
+	}
+}
+
+func BenchmarkE8Sub(b *testing.B) {
+	var a, c E8
+	a.MustSetRandom()
+	c.MustSetRandom()
+	b.ResetTimer()
+	for range b.N {
+		a.Sub(&a, &c)
+	}
+}
+
+func BenchmarkE8Mul(b *testing.B) {
+	var a, c E8
+	a.MustSetRandom()
+	c.MustSetRandom()
+	b.ResetTimer()
+	for range b.N {
+		a.Mul(&a, &c)
+	}
+}
+
+func BenchmarkE8MulByElement(b *testing.B) {
+	var a E8
+	var c fr.Element
+	a.MustSetRandom()
+	_, _ = c.SetRandom()
+	b.ResetTimer()
+	for range b.N {
+		a.MulByElement(&a, &c)
+	}
+}
+
+func BenchmarkE8Square(b *testing.B) {
+	var a E8
+	a.MustSetRandom()
+	b.ResetTimer()
+	for range b.N {
+		a.Square(&a)
+	}
+}
+
+func BenchmarkE8Sqrt(b *testing.B) {
+	var a, c E8
+	a.MustSetRandom()
+	a.Square(&a)
+	b.ResetTimer()
+	for range b.N {
+		c.Sqrt(&a)
+	}
+}
+
+func BenchmarkE8Inverse(b *testing.B) {
+	var a E8
+	a.MustSetRandom()
+	b.ResetTimer()
+	for range b.N {
+		a.Inverse(&a)
+	}
+}
+
+func BenchmarkE8Conjugate(b *testing.B) {
+	var a E8
+	a.MustSetRandom()
+	b.ResetTimer()
+	for range b.N {
+		a.Conjugate(&a)
+	}
 }
