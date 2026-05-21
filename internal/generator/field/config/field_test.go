@@ -162,8 +162,17 @@ func TestExponentiationBls12381G2(t *testing.T) {
 	}
 }
 
+func TestNewFieldConfigSmallModulus(t *testing.T) {
+	t.Parallel()
+
+	if _, err := NewFieldConfig("dummy", "DummyElement", "0x3", false); err != nil {
+		t.Fatal(err)
+	}
+}
+
 const minNbWords = 1
 const maxNbWords = 15
+const minFieldBits = 3
 
 func genSmallUint8SliceSlice(outerSize int, max uint8) gopter.Gen {
 	return gen.SliceOfN(
@@ -204,7 +213,7 @@ func genField(t *testing.T) gopter.Gen {
 			nbWords := minNbWords + mrand.Intn(maxNbWords-minNbWords) //#nosec G404 -- This is a false positive
 			bitLen := max(
 				// #nosec G404 -- This is a false positive
-				nbWords*64-mrand.Intn(64), 2)
+				nbWords*64-mrand.Intn(64), minFieldBits)
 
 			modulus, err := rand.Prime(rand.Reader, bitLen)
 			if err != nil {
