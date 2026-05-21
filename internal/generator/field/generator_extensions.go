@@ -19,21 +19,11 @@ func generateExtensions(F *config.Field, outputDir string) error {
 
 	outputDir = filepath.Join(outputDir, "extensions")
 
-	isKoalaBear := F.Q[0] == 2130706433
-	isBabyBear := F.Q[0] == 2013265921
-
 	entries_ext2 := []bavard.Entry{
 		{File: filepath.Join(outputDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
 		{File: filepath.Join(outputDir, "utils.go"), Templates: []string{"utils.go.tmpl"}},
-	}
-	// koalabear has a hand-maintained recursive cube-root stack in its extension files.
-	// The generic extension templates don't reproduce it yet, so generation only refreshes
-	// the shared support files and leaves e2/e4/e8 implementation files untouched.
-	if !isKoalaBear {
-		entries_ext2 = append(entries_ext2,
-			bavard.Entry{File: filepath.Join(outputDir, "e2.go"), Templates: []string{"e2.go.tmpl"}},
-			bavard.Entry{File: filepath.Join(outputDir, "e2_test.go"), Templates: []string{"e2_test.go.tmpl"}},
-		)
+		{File: filepath.Join(outputDir, "e2.go"), Templates: []string{"e2.go.tmpl"}},
+		{File: filepath.Join(outputDir, "e2_test.go"), Templates: []string{"e2_test.go.tmpl"}},
 	}
 
 	type extensionsTemplateData struct {
@@ -43,16 +33,28 @@ func generateExtensions(F *config.Field, outputDir string) error {
 		Q, QInvNeg       uint64
 		IsKoalaBear      bool
 		IsBabyBear       bool
+		// QuadraticNonResidue is α, where E2 = Fr[u]/(u²-α).
+		QuadraticNonResidue uint64
 	}
 
+	isKoalaBear := F.Q[0] == 2130706433
+	isBabyBear := F.Q[0] == 2013265921
+	var quadraticNonResidue uint64
+	switch {
+	case isKoalaBear:
+		quadraticNonResidue = 3
+	case isBabyBear:
+		quadraticNonResidue = 11
+	}
 	data := &extensionsTemplateData{
-		FF:               F.PackageName,
-		FieldPackagePath: fieldImportPath,
-		F31:              F.F31,
-		IsKoalaBear:      isKoalaBear,
-		IsBabyBear:       isBabyBear,
-		Q:                F.Q[0],
-		QInvNeg:          F.QInverse[0],
+		FF:                  F.PackageName,
+		FieldPackagePath:    fieldImportPath,
+		F31:                 F.F31,
+		IsKoalaBear:         isKoalaBear,
+		IsBabyBear:          isBabyBear,
+		Q:                   F.Q[0],
+		QInvNeg:             F.QInverse[0],
+		QuadraticNonResidue: quadraticNonResidue,
 	}
 
 	g := NewGenerator(template.FS)
@@ -62,19 +64,11 @@ func generateExtensions(F *config.Field, outputDir string) error {
 	}
 	if F.F31 {
 		entries_ext4 := []bavard.Entry{
+			{File: filepath.Join(outputDir, "e4.go"), Templates: []string{"e4.go.tmpl"}},
 			{File: filepath.Join(outputDir, "vector.go"), Templates: []string{"vector.go.tmpl"}},
+			{File: filepath.Join(outputDir, "e4_test.go"), Templates: []string{"e4_test.go.tmpl"}},
 			{File: filepath.Join(outputDir, "e6.go"), Templates: []string{"e6.go.tmpl"}},
 			{File: filepath.Join(outputDir, "e6_test.go"), Templates: []string{"e6_test.go.tmpl"}},
-			{File: filepath.Join(outputDir, "e6_direct.go"), Templates: []string{"e6_direct.go.tmpl"}},
-			{File: filepath.Join(outputDir, "e6_direct_test.go"), Templates: []string{"e6_direct_test.go.tmpl"}},
-		}
-		// koalabear has a hand-maintained recursive cube-root stack in e2/e4/e8;
-		// skip generating e4 there so the template doesn't clobber the hand-maintained code.
-		if !isKoalaBear {
-			entries_ext4 = append(entries_ext4,
-				bavard.Entry{File: filepath.Join(outputDir, "e4.go"), Templates: []string{"e4.go.tmpl"}},
-				bavard.Entry{File: filepath.Join(outputDir, "e4_test.go"), Templates: []string{"e4_test.go.tmpl"}},
-			)
 		}
 
 		if isKoalaBear {
