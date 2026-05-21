@@ -2,6 +2,7 @@ package multisethash
 
 import (
 	"encoding/binary"
+	"errors"
 	"math/big"
 	"sync"
 
@@ -34,6 +35,8 @@ var pqDomainTag = [8]byte{'E', 'C', 'M', 'S', 'H', '_', 'P', 'Q'}
 // extracted from each squeezed koalabear element. With p = 2^31 - 2^24 + 1
 // and T = 256, this is floor(2130706433 / 512) = 4161536.
 var (
+	errPqSlotOutOfRange = errors.New("kb8 vector multiset hash: Poseidon2 slot out of range")
+
 	pqReducerBound = func() *big.Int {
 		p := koalabear.Modulus()
 		denom := big.NewInt(2 * pqT)
@@ -158,6 +161,9 @@ func MapPoseidon2(msg uint64) ([pqN]kb8.G1Affine, [pqN]uint8, error) {
 // pqT*s + (pqT-1) < p/2 to preserve inverse-freeness; this is automatic when
 // s < ⌊p/(2T)⌋.
 func MapAtSlot(slot uint64) (kb8.G1Affine, uint8, error) {
+	if slot >= pqReducerBound.Uint64() {
+		return kb8.G1Affine{}, 0, errPqSlotOutOfRange
+	}
 	_, b := kb8.CurveCoefficients()
 	return mapAtBase(slot*pqT, pqT, &b)
 }

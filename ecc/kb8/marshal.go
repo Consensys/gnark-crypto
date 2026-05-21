@@ -304,8 +304,12 @@ func (dec *Decoder) readUint64() (r uint64, err error) {
 
 // isMaskInvalid returns true if the mask is invalid
 func isMaskInvalid(msb byte) bool {
-	mData := msb & mMask
-	return ((mData == (0b111 << 5)) || (mData == (0b011 << 5)) || (mData == (0b001 << 5)))
+	switch msb & mMask {
+	case mUncompressed, mUncompressedInfinity, mCompressedSmallest, mCompressedLargest, mCompressedInfinity:
+		return false
+	default:
+		return true
+	}
 }
 
 func isCompressed(msb byte) bool {

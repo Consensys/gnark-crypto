@@ -207,6 +207,14 @@ func TestG1AffineInvalidBitMask(t *testing.T) {
 	if _, err := p.SetBytes(buf[:]); err != ErrInvalidEncoding {
 		t.Fatal("should error on invalid bit mask")
 	}
+
+	valid := g1GenAff.Bytes()
+	for _, invalidTag := range []byte{0x05, 0x06, 0xff} {
+		valid[0] = invalidTag
+		if _, err := p.SetBytes(valid[:]); err != ErrInvalidEncoding {
+			t.Fatal("should error on invalid encoding tag")
+		}
+	}
 }
 
 func TestG1AffineSerialization(t *testing.T) {

@@ -369,6 +369,22 @@ func TestPoseidon2BoundaryMessages(t *testing.T) {
 	}
 }
 
+func TestMapAtSlotRejectsOutOfRange(t *testing.T) {
+	bound := pqReducerBound.Uint64()
+
+	p, _, err := MapAtSlot(bound - 1)
+	require.NoError(t, err)
+	var y big.Int
+	p.Y.C0.B0.A0.BigInt(&y)
+	require.Negative(t, y.Cmp(halfModulus()))
+
+	_, _, err = MapAtSlot(bound)
+	require.ErrorIs(t, err, errPqSlotOutOfRange)
+
+	_, _, err = MapAtSlot(math.MaxUint64/pqT + 1)
+	require.ErrorIs(t, err, errPqSlotOutOfRange)
+}
+
 // ----- Linear per-coordinate slot range -----
 
 func TestLinearPerCoordinateSlotRange(t *testing.T) {
