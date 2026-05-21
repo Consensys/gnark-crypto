@@ -348,7 +348,7 @@ func BenchmarkFFTDITReferenceSmallExt(b *testing.B) {
 	domain := NewDomain(maxSize)
 
 	b.ResetTimer()
-	for range 1 {
+	for range b.N {
 		domain.FFTExt(pol, DIT)
 	}
 }

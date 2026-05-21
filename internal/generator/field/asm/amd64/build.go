@@ -411,9 +411,13 @@ func GenerateF31E4(w io.Writer) error {
 	f.generateMulVecE4(e4VecInnerProd)
 	f.generateSumVecE4()
 	f.generateMulVecElementE4()
+	f.generateMulVecElementE6()
 	f.generateButterflyVecE4()
 	f.generateButterflyPairVecE4()
+	f.generateButterflyPairVecE6()
 	f.generateInnerProdByElementE4()
+	f.generateDITWithTwiddlesVecE6()
+	f.generateDIFWithTwiddlesVecE6()
 
 	return nil
 
