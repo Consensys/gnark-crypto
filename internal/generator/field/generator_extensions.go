@@ -27,12 +27,13 @@ func generateExtensions(F *config.Field, outputDir string) error {
 	}
 
 	type extensionsTemplateData struct {
-		FF               string
-		FieldPackagePath string
-		F31              bool
-		Q, QInvNeg       uint64
-		IsKoalaBear      bool
-		IsBabyBear       bool
+		FF                  string
+		FieldPackagePath    string
+		F31                 bool
+		Q, QInvNeg          uint64
+		IsKoalaBear         bool
+		IsBabyBear          bool
+		CustomExtensionCbrt bool
 		// QuadraticNonResidue is α, where E2 = Fr[u]/(u²-α).
 		QuadraticNonResidue uint64
 	}
@@ -52,6 +53,7 @@ func generateExtensions(F *config.Field, outputDir string) error {
 		F31:                 F.F31,
 		IsKoalaBear:         isKoalaBear,
 		IsBabyBear:          isBabyBear,
+		CustomExtensionCbrt: F.CustomExtensionCbrt,
 		Q:                   F.Q[0],
 		QInvNeg:             F.QInverse[0],
 		QuadraticNonResidue: quadraticNonResidue,
@@ -69,6 +71,13 @@ func generateExtensions(F *config.Field, outputDir string) error {
 			{File: filepath.Join(outputDir, "e4_test.go"), Templates: []string{"e4_test.go.tmpl"}},
 			{File: filepath.Join(outputDir, "e6.go"), Templates: []string{"e6.go.tmpl"}},
 			{File: filepath.Join(outputDir, "e6_test.go"), Templates: []string{"e6_test.go.tmpl"}},
+		}
+
+		if F.GenerateExtensionE8 {
+			entries_ext4 = append(entries_ext4,
+				bavard.Entry{File: filepath.Join(outputDir, "e8.go"), Templates: []string{"e8.go.tmpl"}},
+				bavard.Entry{File: filepath.Join(outputDir, "e8_test.go"), Templates: []string{"e8_test.go.tmpl"}},
+			)
 		}
 
 		if isKoalaBear {

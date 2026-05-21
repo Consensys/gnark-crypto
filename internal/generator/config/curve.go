@@ -14,7 +14,10 @@ type Curve struct {
 	EnumID       string
 	FpModulus    string
 	FrModulus    string
-	ExistingFp   ExistingFieldPackage
+	// ExistingFp points to an already generated field package to alias as ecc/<curve>/fp.
+	// Set it when a curve is defined over a top-level field package rather than a
+	// curve-local generated base field.
+	ExistingFp ExistingFieldPackage
 
 	Fp           *config.Field
 	Fr           *config.Field
@@ -59,8 +62,11 @@ type Curve struct {
 	E2CbrtTorusLucasTopBit   int // bit length - 1
 }
 
+// ExistingFieldPackage describes an existing field package reused as a curve base field.
 type ExistingFieldPackage struct {
+	// PackagePath is the full Go import path of the existing field package.
 	PackagePath string
+	// PackageName is the local package identifier used for imports in generated aliases.
 	PackageName string
 }
 

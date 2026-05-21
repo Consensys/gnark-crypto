@@ -74,6 +74,8 @@ func main() {
 			defer wg.Done()
 			fc, err := fieldConfig.NewFieldConfig(f.Name, "Element", f.Modulus, true)
 			assertNoError(err)
+			fc.GenerateExtensionE8 = f.GenerateExtensionE8
+			fc.CustomExtensionCbrt = f.CustomExtensionCbrt
 			outputDir := filepath.Join(baseDir, "field", f.Name)
 			relAsmDir, err := filepath.Rel(outputDir, asmDirBuildPath)
 			assertNoError(err)
@@ -93,12 +95,6 @@ func main() {
 	// files with the "DO NOT EDIT" header are removed; hand-written files
 	// (without this header) are preserved.
 	for _, conf := range config.Curves {
-		if conf.Equal(config.KB8) {
-			curveDir := filepath.Join(baseDir, "ecc", conf.Name)
-			cleanGeneratedFiles(filepath.Join(curveDir, "fp"))
-			cleanGeneratedFiles(filepath.Join(curveDir, "fr"))
-			continue
-		}
 		curveDir := filepath.Join(baseDir, "ecc", conf.Name)
 		cleanGeneratedFiles(curveDir)
 	}

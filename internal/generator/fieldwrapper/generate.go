@@ -10,10 +10,10 @@ import (
 )
 
 func Generate(conf config.Curve, baseDir string) error {
-	entry := bavard.Entry{
-		File:      filepath.Join(baseDir, "fp.go"),
-		Templates: []string{"fp.go.tmpl"},
+	entries := []bavard.Entry{
+		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
+		{File: filepath.Join(baseDir, "fp.go"), Templates: []string{"fp.go.tmpl"}},
 	}
 	gen := common.NewDefaultGenerator(template.FS)
-	return gen.Generate(conf, "fp", "", "", entry)
+	return gen.Generate(conf, "fp", "", "", entries...)
 }

@@ -11,37 +11,50 @@ import (
 	koalabear "github.com/consensys/gnark-crypto/field/koalabear"
 )
 
+// Element is the base field element type for this curve.
 type Element = koalabear.Element
+
+// Vector is a slice of base field elements.
 type Vector = koalabear.Vector
 
 const (
-	Bits  = koalabear.Bits
+	// Bits is the bit length of the field modulus.
+	Bits = koalabear.Bits
+	// Bytes is the byte length needed to encode one field element.
 	Bytes = koalabear.Bytes
+	// Limbs is the number of machine words used by one field element.
 	Limbs = koalabear.Limbs
 )
 
+// BigEndian is the big-endian byte order implementation.
 var BigEndian = koalabear.BigEndian
 
+// Modulus returns a copy of the field modulus.
 func Modulus() *big.Int {
 	return koalabear.Modulus()
 }
 
+// One returns the field element one.
 func One() Element {
 	return koalabear.One()
 }
 
+// BatchInvert returns a new slice with every non-zero element inverted.
 func BatchInvert(a []Element) []Element {
 	return koalabear.BatchInvert(a)
 }
 
+// Generator returns a field generator for the requested multiplicative subgroup.
 func Generator(m uint64) (Element, error) {
 	return koalabear.Generator(m)
 }
 
+// Butterfly computes the in-place butterfly operation on a and b.
 func Butterfly(a, b *Element) {
 	koalabear.Butterfly(a, b)
 }
 
+// MulBy3 multiplies x by 3 in place.
 func MulBy3(x *Element) {
 	koalabear.MulBy3(x)
 }

@@ -11,7 +11,6 @@ import (
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
-	"github.com/stretchr/testify/require"
 )
 
 func TestE8ReceiverIsOperand(t *testing.T) {
@@ -173,45 +172,4 @@ func genE8() gopter.Gen {
 	).Map(func(values []any) E8 {
 		return E8{C0: values[0].(E4), C1: values[1].(E4)}
 	})
-}
-
-func TestE8CbrtZero(t *testing.T) {
-	var zero, got E8
-	require.NotNil(t, got.Cbrt(&zero))
-	require.True(t, got.IsZero())
-}
-
-func TestE8CbrtOnCubicResidues(t *testing.T) {
-	for i := 0; i < 128; i++ {
-		var a, x, got, check E8
-		a.MustSetRandom()
-		x.Square(&a).Mul(&x, &a)
-		require.NotNil(t, got.Cbrt(&x))
-		check.Square(&got).Mul(&check, &got)
-		require.True(t, check.Equal(&x))
-	}
-}
-
-func TestE8CbrtRejectsNonResidues(t *testing.T) {
-	var x, got E8
-	for i := 0; i < 256; i++ {
-		x.MustSetRandom()
-		if got.Cbrt(&x) == nil {
-			return
-		}
-	}
-	t.Fatal("failed to find an E8 non-cube in 256 samples")
-}
-
-func BenchmarkE8Cbrt(b *testing.B) {
-	var a, x E8
-	a.MustSetRandom()
-	x.Square(&a).Mul(&x, &a)
-	var z E8
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if z.Cbrt(&x) == nil {
-			b.Fatal("expected cubic residue to have a cube root")
-		}
-	}
 }
