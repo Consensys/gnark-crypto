@@ -1,12 +1,12 @@
 // Copyright 2020-2026 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
-// Package kb8 for efficient elliptic curve implementation for kb8 (koalabear-8).
+// Package octobear for efficient elliptic curve implementation for octobear (koalabear-8).
 // This curve is intended for circuit operations defined over the KoalaBear field.
 // In particular, it is used for multiset-hash constructions appearing in zkVM
 // memory arguments.
 //
-// kb8: A curve over 𝔽p⁸ with
+// octobear: A curve over 𝔽p⁸ with
 //
 //	𝔽p: p=2130706433 = 2³¹-2²⁴+1
 //	𝔽r: r=424804331891979973455971894938199991839487883914575852667663156896715214921
@@ -21,17 +21,17 @@
 // This code has not been audited and is provided as-is. In particular, there
 // is no security guarantee such as constant time implementation or side-channel
 // attack resistance.
-package kb8
+package octobear
 
 import (
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark-crypto/ecc/kb8/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc/octobear/internal/fptower"
 )
 
-// ID kb8 ID.
-const ID = ecc.KB8
+// ID octobear ID.
+const ID = ecc.OCTOBEAR
 
 // aCurveCoeff and bCurveCoeff are the coefficients of Y²=X³+ax+b.
 var aCurveCoeff, bCurveCoeff fptower.E8
@@ -43,7 +43,7 @@ var (
 	g1Infinity G1Jac
 )
 
-// xGen is only used by the generic mulBySeed helper. kb8 has no seed-based endomorphism,
+// xGen is only used by the generic mulBySeed helper. octobear has no seed-based endomorphism,
 // so keep it as the identity scalar.
 var xGen big.Int
 

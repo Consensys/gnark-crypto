@@ -8,7 +8,7 @@ import (
 	"github.com/consensys/gnark-crypto/field/koalabear/extensions"
 )
 
-// Cardano solver for the depressed cubic x^3 - 3x + c = 0 over kb8 Fp^8.
+// Cardano solver for the depressed cubic x^3 - 3x + c = 0 over octobear Fp^8.
 // This mirrors the structure of the secp256r1 Cardano solver in PR #831:
 // repeated-root case, square-discriminant case over the base field, and a
 // quadratic-extension fallback when the discriminant is not a square.
@@ -260,7 +260,7 @@ func findPrimitiveCubeRoot() extensions.E8 {
 			return w
 		}
 	}
-	panic("kb8 multiset hash: failed to find primitive cube root in Fp^8")
+	panic("octobear multiset hash: failed to find primitive cube root in Fp^8")
 }
 
 func e8SearchCandidates() []extensions.E8 {

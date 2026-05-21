@@ -3,7 +3,7 @@ package multisethash
 import (
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/kb8"
+	"github.com/consensys/gnark-crypto/ecc/octobear"
 	"github.com/consensys/gnark-crypto/field/koalabear/extensions"
 	"github.com/stretchr/testify/require"
 )
@@ -112,7 +112,7 @@ func TestDigestRoundTrip(t *testing.T) {
 	got, err := Hash(msgs)
 	require.NoError(t, err)
 	buf := got.Bytes()
-	var dec kb8.G1Affine
+	var dec octobear.G1Affine
 	_, err = dec.SetBytes(buf[:])
 	require.NoError(t, err)
 	require.True(t, dec.Equal(&got))

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/kb8"
+	"github.com/consensys/gnark-crypto/ecc/octobear"
 	"github.com/consensys/gnark-crypto/field/koalabear/extensions"
 )
 
@@ -23,12 +23,12 @@ const (
 	linearM = 1 << 18
 )
 
-var errLinearMsgOutOfRange = fmt.Errorf("kb8 vector multiset hash: linear message must be < 2^18 (= %d)", linearM)
+var errLinearMsgOutOfRange = fmt.Errorf("octobear vector multiset hash: linear message must be < 2^18 (= %d)", linearM)
 
 // LinearAccumulator holds the N affine accumulator points for the
 // linear-separator vector ECMSH.
 type LinearAccumulator struct {
-	sum [linearN]kb8.G1Affine
+	sum [linearN]octobear.G1Affine
 }
 
 // NewLinearAccumulator returns a zero (all-infinity) LinearAccumulator.
@@ -60,7 +60,7 @@ func (a *LinearAccumulator) Remove(msg uint32) error {
 	if err != nil {
 		return err
 	}
-	var neg kb8.G1Affine
+	var neg octobear.G1Affine
 	for i := range a.sum {
 		neg.Neg(&pts[i])
 		a.sum[i].Add(&a.sum[i], &neg)
@@ -69,7 +69,7 @@ func (a *LinearAccumulator) Remove(msg uint32) error {
 }
 
 // Digest returns the current vector of accumulator points.
-func (a *LinearAccumulator) Digest() [linearN]kb8.G1Affine {
+func (a *LinearAccumulator) Digest() [linearN]octobear.G1Affine {
 	return a.sum
 }
 
@@ -81,11 +81,11 @@ func (a *LinearAccumulator) Reset() {
 }
 
 // HashLinear returns the linear-separator vector ECMSH of msgs.
-func HashLinear(msgs []uint32) ([linearN]kb8.G1Affine, error) {
+func HashLinear(msgs []uint32) ([linearN]octobear.G1Affine, error) {
 	acc := NewLinearAccumulator()
 	for _, msg := range msgs {
 		if err := acc.Insert(msg); err != nil {
-			return [linearN]kb8.G1Affine{}, err
+			return [linearN]octobear.G1Affine{}, err
 		}
 	}
 	return acc.Digest(), nil
@@ -94,15 +94,15 @@ func HashLinear(msgs []uint32) ([linearN]kb8.G1Affine, error) {
 // MapLinear deterministically maps msg to N curve points using the linear
 // domain separator y_i(msg, k) = T*(msg + i*M) + k. It returns the N points
 // and the offsets k_i in [0, T) that produced them.
-func MapLinear(msg uint32) ([linearN]kb8.G1Affine, [linearN]uint8, error) {
+func MapLinear(msg uint32) ([linearN]octobear.G1Affine, [linearN]uint8, error) {
 	var (
-		pts     [linearN]kb8.G1Affine
+		pts     [linearN]octobear.G1Affine
 		offsets [linearN]uint8
 	)
 	if uint64(msg) >= linearM {
 		return pts, offsets, errLinearMsgOutOfRange
 	}
-	_, b := kb8.CurveCoefficients()
+	_, b := octobear.CurveCoefficients()
 	for i := 0; i < linearN; i++ {
 		baseY := (uint64(msg) + uint64(i)*linearM) * linearT
 		p, k, err := mapAtBase(baseY, linearT, &b)
@@ -118,7 +118,7 @@ func MapLinear(msg uint32) ([linearN]kb8.G1Affine, [linearN]uint8, error) {
 // mapAtBase scans k in [0, tweakBound) and returns the first curve point
 // whose ordinate is y = baseY + k in the base subfield. baseY + tweakBound
 // must remain strictly below p/2 to keep the image inverse-free.
-func mapAtBase(baseY uint64, tweakBound uint64, b *extensions.E8) (kb8.G1Affine, uint8, error) {
+func mapAtBase(baseY uint64, tweakBound uint64, b *extensions.E8) (octobear.G1Affine, uint8, error) {
 	for k := uint64(0); k < tweakBound; k++ {
 		var y, c, ySquared extensions.E8
 		y.C0.B0.A0.SetUint64(baseY + k)
@@ -131,10 +131,10 @@ func mapAtBase(baseY uint64, tweakBound uint64, b *extensions.E8) (kb8.G1Affine,
 			continue
 		}
 
-		p := kb8.G1Affine{X: x, Y: y}
+		p := octobear.G1Affine{X: x, Y: y}
 		if p.IsOnCurve() && p.IsInSubGroup() {
 			return p, uint8(k), nil
 		}
 	}
-	return kb8.G1Affine{}, 0, errors.New("kb8 vector multiset hash: failed to map message in tweak window")
+	return octobear.G1Affine{}, 0, errors.New("octobear vector multiset hash: failed to map message in tweak window")
 }

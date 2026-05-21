@@ -1,7 +1,7 @@
 // Copyright 2020-2026 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
-package kb8
+package octobear
 
 import (
 	"bytes"
@@ -15,9 +15,9 @@ import (
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
 
-	"github.com/consensys/gnark-crypto/ecc/kb8/fp"
-	"github.com/consensys/gnark-crypto/ecc/kb8/fr"
-	"github.com/consensys/gnark-crypto/ecc/kb8/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc/octobear/fp"
+	"github.com/consensys/gnark-crypto/ecc/octobear/fr"
+	"github.com/consensys/gnark-crypto/ecc/octobear/internal/fptower"
 )
 
 const (

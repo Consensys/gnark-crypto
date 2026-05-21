@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/consensys/gnark-crypto/ecc/kb8"
+	"github.com/consensys/gnark-crypto/ecc/octobear"
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/poseidon2"
 )
@@ -35,7 +35,7 @@ var pqDomainTag = [8]byte{'E', 'C', 'M', 'S', 'H', '_', 'P', 'Q'}
 // extracted from each squeezed koalabear element. With p = 2^31 - 2^24 + 1
 // and T = 256, this is floor(2130706433 / 512) = 4161536.
 var (
-	errPqSlotOutOfRange = errors.New("kb8 vector multiset hash: Poseidon2 slot out of range")
+	errPqSlotOutOfRange = errors.New("octobear vector multiset hash: Poseidon2 slot out of range")
 
 	pqReducerBound = func() *big.Int {
 		p := koalabear.Modulus()
@@ -59,7 +59,7 @@ func pqPerm() *poseidon2.Permutation {
 // Poseidon2Accumulator holds the N affine accumulator points for the
 // Poseidon2-sponge vector ECMSH.
 type Poseidon2Accumulator struct {
-	sum [pqN]kb8.G1Affine
+	sum [pqN]octobear.G1Affine
 }
 
 // NewPoseidon2Accumulator returns a zero (all-infinity) Poseidon2Accumulator.
@@ -91,7 +91,7 @@ func (a *Poseidon2Accumulator) Remove(msg uint64) error {
 	if err != nil {
 		return err
 	}
-	var neg kb8.G1Affine
+	var neg octobear.G1Affine
 	for i := range a.sum {
 		neg.Neg(&pts[i])
 		a.sum[i].Add(&a.sum[i], &neg)
@@ -100,7 +100,7 @@ func (a *Poseidon2Accumulator) Remove(msg uint64) error {
 }
 
 // Digest returns the current vector of accumulator points.
-func (a *Poseidon2Accumulator) Digest() [pqN]kb8.G1Affine {
+func (a *Poseidon2Accumulator) Digest() [pqN]octobear.G1Affine {
 	return a.sum
 }
 
@@ -112,11 +112,11 @@ func (a *Poseidon2Accumulator) Reset() {
 }
 
 // HashPoseidon2 returns the Poseidon2-sponge vector ECMSH of msgs.
-func HashPoseidon2(msgs []uint64) ([pqN]kb8.G1Affine, error) {
+func HashPoseidon2(msgs []uint64) ([pqN]octobear.G1Affine, error) {
 	acc := NewPoseidon2Accumulator()
 	for _, msg := range msgs {
 		if err := acc.Insert(msg); err != nil {
-			return [pqN]kb8.G1Affine{}, err
+			return [pqN]octobear.G1Affine{}, err
 		}
 	}
 	return acc.Digest(), nil
@@ -125,9 +125,9 @@ func HashPoseidon2(msgs []uint64) ([pqN]kb8.G1Affine, error) {
 // MapPoseidon2 deterministically maps msg to N curve points using a
 // Poseidon2 sponge over the koalabear field. It returns the N points and
 // the per-coordinate tweak offsets k_i in [0, T) that produced them.
-func MapPoseidon2(msg uint64) ([pqN]kb8.G1Affine, [pqN]uint8, error) {
+func MapPoseidon2(msg uint64) ([pqN]octobear.G1Affine, [pqN]uint8, error) {
 	var (
-		pts     [pqN]kb8.G1Affine
+		pts     [pqN]octobear.G1Affine
 		offsets [pqN]uint8
 	)
 
@@ -136,7 +136,7 @@ func MapPoseidon2(msg uint64) ([pqN]kb8.G1Affine, [pqN]uint8, error) {
 		return pts, offsets, err
 	}
 
-	_, b := kb8.CurveCoefficients()
+	_, b := octobear.CurveCoefficients()
 	var tmp big.Int
 	for i := 0; i < pqN; i++ {
 		squeezed[i].BigInt(&tmp)
@@ -156,15 +156,15 @@ func MapPoseidon2(msg uint64) ([pqN]kb8.G1Affine, [pqN]uint8, error) {
 // MapAtSlot is a public helper used by the gnark in-circuit Poseidon2 vector
 // ECMSH gadget. Given a slot s = u mod ⌊p/(2T)⌋ (already range-reduced by the
 // caller — typically the in-circuit code after a Poseidon2 squeeze), it scans
-// k in [0, pqT) and returns the first kb8 curve point whose ordinate is
+// k in [0, pqT) and returns the first octobear curve point whose ordinate is
 // y = pqT*s + k in the base subfield. The slot must satisfy
 // pqT*s + (pqT-1) < p/2 to preserve inverse-freeness; this is automatic when
 // s < ⌊p/(2T)⌋.
-func MapAtSlot(slot uint64) (kb8.G1Affine, uint8, error) {
+func MapAtSlot(slot uint64) (octobear.G1Affine, uint8, error) {
 	if slot >= pqReducerBound.Uint64() {
-		return kb8.G1Affine{}, 0, errPqSlotOutOfRange
+		return octobear.G1Affine{}, 0, errPqSlotOutOfRange
 	}
-	_, b := kb8.CurveCoefficients()
+	_, b := octobear.CurveCoefficients()
 	return mapAtBase(slot*pqT, pqT, &b)
 }
 

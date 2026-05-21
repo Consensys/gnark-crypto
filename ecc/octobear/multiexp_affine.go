@@ -1,9 +1,9 @@
 // Copyright 2020-2026 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
-package kb8
+package octobear
 
-import "github.com/consensys/gnark-crypto/ecc/kb8/internal/fptower"
+import "github.com/consensys/gnark-crypto/ecc/octobear/internal/fptower"
 
 type batchOpG1Affine struct {
 	bucketID uint16

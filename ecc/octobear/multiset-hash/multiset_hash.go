@@ -3,17 +3,17 @@ package multisethash
 import (
 	"errors"
 
-	"github.com/consensys/gnark-crypto/ecc/kb8"
+	"github.com/consensys/gnark-crypto/ecc/octobear"
 	"github.com/consensys/gnark-crypto/field/koalabear/extensions"
 )
 
 const tweakBound = 256
 
-var errMapFailure = errors.New("kb8 multiset hash: failed to map message after 256 y-increments")
+var errMapFailure = errors.New("octobear multiset hash: failed to map message after 256 y-increments")
 
 // Accumulator stores an additive multiset hash state in affine coordinates.
 type Accumulator struct {
-	sum kb8.G1Affine
+	sum octobear.G1Affine
 }
 
 // NewAccumulator returns a zero accumulator.
@@ -23,7 +23,7 @@ func NewAccumulator() Accumulator {
 	return a
 }
 
-// Insert maps msg to kb8 and adds it to the accumulator.
+// Insert maps msg to octobear and adds it to the accumulator.
 func (a *Accumulator) Insert(msg uint16) error {
 	p, _, err := Map(msg)
 	if err != nil {
@@ -33,7 +33,7 @@ func (a *Accumulator) Insert(msg uint16) error {
 	return nil
 }
 
-// Remove maps msg to kb8 and subtracts it from the accumulator.
+// Remove maps msg to octobear and subtracts it from the accumulator.
 func (a *Accumulator) Remove(msg uint16) error {
 	p, _, err := Map(msg)
 	if err != nil {
@@ -45,7 +45,7 @@ func (a *Accumulator) Remove(msg uint16) error {
 }
 
 // Digest returns the current accumulator state in affine coordinates.
-func (a *Accumulator) Digest() kb8.G1Affine {
+func (a *Accumulator) Digest() octobear.G1Affine {
 	return a.sum
 }
 
@@ -55,21 +55,21 @@ func (a *Accumulator) Reset() {
 }
 
 // Hash returns the multiset hash of msgs.
-func Hash(msgs []uint16) (kb8.G1Affine, error) {
+func Hash(msgs []uint16) (octobear.G1Affine, error) {
 	acc := NewAccumulator()
 	for _, msg := range msgs {
 		if err := acc.Insert(msg); err != nil {
-			return kb8.G1Affine{}, err
+			return octobear.G1Affine{}, err
 		}
 	}
 	return acc.Digest(), nil
 }
 
-// Map deterministically maps msg to a point on kb8 using the y-increment method.
+// Map deterministically maps msg to a point on octobear using the y-increment method.
 // It returns the mapped point and the first offset k in [0, 255] such that
-// y = msg*256 + k yields a point (x, y) on kb8.
-func Map(msg uint16) (kb8.G1Affine, uint8, error) {
-	_, b := kb8.CurveCoefficients()
+// y = msg*256 + k yields a point (x, y) on octobear.
+func Map(msg uint16) (octobear.G1Affine, uint8, error) {
+	_, b := octobear.CurveCoefficients()
 	baseY := uint64(msg) * tweakBound
 
 	for k := uint16(0); k < tweakBound; k++ {
@@ -85,11 +85,11 @@ func Map(msg uint16) (kb8.G1Affine, uint8, error) {
 			continue
 		}
 
-		p := kb8.G1Affine{X: x, Y: y}
+		p := octobear.G1Affine{X: x, Y: y}
 		if p.IsOnCurve() && p.IsInSubGroup() {
 			return p, uint8(k), nil
 		}
 	}
 
-	return kb8.G1Affine{}, 0, errMapFailure
+	return octobear.G1Affine{}, 0, errMapFailure
 }

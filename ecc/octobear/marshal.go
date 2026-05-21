@@ -1,7 +1,7 @@
 // Copyright 2020-2026 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
-package kb8
+package octobear
 
 import (
 	"encoding/binary"
@@ -10,9 +10,9 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/consensys/gnark-crypto/ecc/kb8/fp"
-	"github.com/consensys/gnark-crypto/ecc/kb8/fr"
-	"github.com/consensys/gnark-crypto/ecc/kb8/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc/octobear/fp"
+	"github.com/consensys/gnark-crypto/ecc/octobear/fr"
+	"github.com/consensys/gnark-crypto/ecc/octobear/internal/fptower"
 	"github.com/consensys/gnark-crypto/parallel"
 )
 
@@ -32,21 +32,21 @@ var (
 	ErrInvalidEncoding         = errors.New("invalid point encoding")
 )
 
-// Encoder writes kb8 object values to an output stream
+// Encoder writes octobear object values to an output stream
 type Encoder struct {
 	w   io.Writer
 	n   int64 // written bytes
 	raw bool  // raw vs compressed encoding
 }
 
-// Decoder reads kb8 object values from an inbound stream
+// Decoder reads octobear object values from an inbound stream
 type Decoder struct {
 	r             io.Reader
 	n             int64 // read bytes
 	subGroupCheck bool  // default to true
 }
 
-// NewDecoder returns a binary decoder supporting curve kb8 objects in both
+// NewDecoder returns a binary decoder supporting curve octobear objects in both
 // compressed and uncompressed (raw) forms
 func NewDecoder(r io.Reader, options ...func(*Decoder)) *Decoder {
 	d := &Decoder{r: r, subGroupCheck: true}
@@ -63,7 +63,7 @@ func NewDecoder(r io.Reader, options ...func(*Decoder)) *Decoder {
 func (dec *Decoder) Decode(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
-		return errors.New("kb8 decoder: unsupported type, need pointer")
+		return errors.New("octobear decoder: unsupported type, need pointer")
 	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
@@ -263,7 +263,7 @@ func (dec *Decoder) Decode(v any) (err error) {
 	default:
 		n := binary.Size(t)
 		if n == -1 {
-			return errors.New("kb8 encoder: unsupported type")
+			return errors.New("octobear encoder: unsupported type")
 		}
 		err = binary.Read(dec.r, binary.BigEndian, t)
 		if err == nil {
@@ -317,7 +317,7 @@ func isCompressed(msb byte) bool {
 	return mData != mUncompressed && mData != mUncompressedInfinity
 }
 
-// NewEncoder returns a binary encoder supporting curve kb8 objects
+// NewEncoder returns a binary encoder supporting curve octobear objects
 func NewEncoder(w io.Writer, options ...func(*Encoder)) *Encoder {
 	// default settings
 	enc := &Encoder{
@@ -380,7 +380,7 @@ func isZeroed(firstByte byte, buf []byte) bool {
 func (enc *Encoder) encode(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
-		return errors.New("kb8 encoder: can't encode <nil>")
+		return errors.New("octobear encoder: can't encode <nil>")
 	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
@@ -484,7 +484,7 @@ func (enc *Encoder) encode(v any) (err error) {
 	default:
 		n := binary.Size(t)
 		if n == -1 {
-			return errors.New("kb8 encoder: unsupported type")
+			return errors.New("octobear encoder: unsupported type")
 		}
 		err = binary.Write(enc.w, binary.BigEndian, t)
 		enc.n += int64(n)
@@ -495,7 +495,7 @@ func (enc *Encoder) encode(v any) (err error) {
 func (enc *Encoder) encodeRaw(v any) (err error) {
 	rv := reflect.ValueOf(v)
 	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
-		return errors.New("kb8 encoder: can't encode <nil>")
+		return errors.New("octobear encoder: can't encode <nil>")
 	}
 
 	// implementation note: code is a bit verbose (abusing code generation), but minimize allocations on the heap
@@ -599,7 +599,7 @@ func (enc *Encoder) encodeRaw(v any) (err error) {
 	default:
 		n := binary.Size(t)
 		if n == -1 {
-			return errors.New("kb8 encoder: unsupported type")
+			return errors.New("octobear encoder: unsupported type")
 		}
 		err = binary.Write(enc.w, binary.BigEndian, t)
 		enc.n += int64(n)

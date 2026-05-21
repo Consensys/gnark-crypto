@@ -1,7 +1,7 @@
 // Copyright 2020-2026 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
-package kb8
+package octobear
 
 import (
 	crand "crypto/rand"
@@ -10,9 +10,9 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/kb8/internal/fptower"
+	"github.com/consensys/gnark-crypto/ecc/octobear/internal/fptower"
 
-	"github.com/consensys/gnark-crypto/ecc/kb8/fr"
+	"github.com/consensys/gnark-crypto/ecc/octobear/fr"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/prop"
@@ -29,7 +29,7 @@ func TestIsOnG1(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[KB8] g1Gen (affine) should be on the curve", prop.ForAll(
+	properties.Property("[OCTOBEAR] g1Gen (affine) should be on the curve", prop.ForAll(
 		func(a fptower.E8) bool {
 			var op1, op2 G1Affine
 			op1.FromJacobian(&g1Gen)
@@ -40,7 +40,7 @@ func TestIsOnG1(t *testing.T) {
 		GenE8(),
 	))
 
-	properties.Property("[KB8] g1Gen (Jacobian) should be on the curve", prop.ForAll(
+	properties.Property("[OCTOBEAR] g1Gen (Jacobian) should be on the curve", prop.ForAll(
 		func(a fptower.E8) bool {
 			var op1, op2, op3 G1Jac
 			op1.Set(&g1Gen)
@@ -53,7 +53,7 @@ func TestIsOnG1(t *testing.T) {
 		GenE8(),
 	))
 
-	properties.Property("[KB8] IsInSubGroup and MulBy subgroup order should be the same", prop.ForAll(
+	properties.Property("[OCTOBEAR] IsInSubGroup and MulBy subgroup order should be the same", prop.ForAll(
 		func(a fptower.E8) bool {
 			var op1, op2 G1Jac
 			op1 = fuzzG1Jac(&g1Gen, a)
@@ -81,7 +81,7 @@ func TestIsInSubGroupBatchG1(t *testing.T) {
 	// number of points to test
 	const nbSamples = 100
 
-	properties.Property("[KB8] IsInSubGroupBatchG1 test should pass with high probability", prop.ForAll(
+	properties.Property("[OCTOBEAR] IsInSubGroupBatchG1 test should pass with high probability", prop.ForAll(
 		func(mixer fr.Element) bool {
 			// mixer ensures that all the words of a frElement are set
 			var sampleScalars [nbSamples]fr.Element
@@ -113,7 +113,7 @@ func TestG1Conversions(t *testing.T) {
 
 	properties := gopter.NewProperties(parameters)
 
-	properties.Property("[KB8] Affine representation should be independent of the Jacobian representative", prop.ForAll(
+	properties.Property("[OCTOBEAR] Affine representation should be independent of the Jacobian representative", prop.ForAll(
 		func(a fptower.E8) bool {
 			g := fuzzG1Jac(&g1Gen, a)
 			var op1 G1Affine
@@ -123,7 +123,7 @@ func TestG1Conversions(t *testing.T) {
 		GenE8(),
 	))
 
-	properties.Property("[KB8] Affine representation should be independent of a Extended Jacobian representative", prop.ForAll(
+	properties.Property("[OCTOBEAR] Affine representation should be independent of a Extended Jacobian representative", prop.ForAll(
 		func(a fptower.E8) bool {
 			var g g1JacExtended
 			g.X.Set(&g1Gen.X)
@@ -139,7 +139,7 @@ func TestG1Conversions(t *testing.T) {
 		GenE8(),
 	))
 
-	properties.Property("[KB8] Jacobian representation should be the same as the affine representative", prop.ForAll(
+	properties.Property("[OCTOBEAR] Jacobian representation should be the same as the affine representative", prop.ForAll(
 		func(a fptower.E8) bool {
 			var g G1Jac
 			var op1 G1Affine
@@ -156,7 +156,7 @@ func TestG1Conversions(t *testing.T) {
 		GenE8(),
 	))
 
-	properties.Property("[KB8] Converting affine symbol for infinity to Jacobian should output correct infinity in Jacobian", prop.ForAll(
+	properties.Property("[OCTOBEAR] Converting affine symbol for infinity to Jacobian should output correct infinity in Jacobian", prop.ForAll(
 		func() bool {
 			var g G1Affine
 			g.X.SetZero()
@@ -169,7 +169,7 @@ func TestG1Conversions(t *testing.T) {
 		},
 	))
 
-	properties.Property("[KB8] Converting infinity in extended Jacobian to affine should output infinity symbol in Affine", prop.ForAll(
+	properties.Property("[OCTOBEAR] Converting infinity in extended Jacobian to affine should output infinity symbol in Affine", prop.ForAll(
 		func() bool {
 			var g G1Affine
 			var op1 g1JacExtended
@@ -181,7 +181,7 @@ func TestG1Conversions(t *testing.T) {
 		},
 	))
 
-	properties.Property("[KB8] Converting infinity in extended Jacobian to Jacobian should output infinity in Jacobian", prop.ForAll(
+	properties.Property("[OCTOBEAR] Converting infinity in extended Jacobian to Jacobian should output infinity in Jacobian", prop.ForAll(
 		func() bool {
 			var g G1Jac
 			var op1 g1JacExtended
@@ -194,7 +194,7 @@ func TestG1Conversions(t *testing.T) {
 		},
 	))
 
-	properties.Property("[KB8] [Jacobian] Two representatives of the same class should be equal", prop.ForAll(
+	properties.Property("[OCTOBEAR] [Jacobian] Two representatives of the same class should be equal", prop.ForAll(
 		func(a, b fptower.E8) bool {
 			op1 := fuzzG1Jac(&g1Gen, a)
 			op2 := fuzzG1Jac(&g1Gen, b)
@@ -203,7 +203,7 @@ func TestG1Conversions(t *testing.T) {
 		GenE8(),
 		GenE8(),
 	))
-	properties.Property("[KB8] BatchJacobianToAffineG1 and FromJacobian should output the same result", prop.ForAll(
+	properties.Property("[OCTOBEAR] BatchJacobianToAffineG1 and FromJacobian should output the same result", prop.ForAll(
 		func(a, b fptower.E8) bool {
 			g1 := fuzzG1Jac(&g1Gen, a)
 			g2 := fuzzG1Jac(&g1Gen, b)
@@ -229,7 +229,7 @@ func TestG1AffineOps(t *testing.T) {
 
 	genScalar := GenFr()
 
-	properties.Property("[KB8] Add(P,-P) should return the point at infinity", prop.ForAll(
+	properties.Property("[OCTOBEAR] Add(P,-P) should return the point at infinity", prop.ForAll(
 		func(s fr.Element) bool {
 			var op1, op2 G1Affine
 			var sInt big.Int
@@ -245,7 +245,7 @@ func TestG1AffineOps(t *testing.T) {
 		GenFr(),
 	))
 
-	properties.Property("[KB8] Add(P,0) and Add(0,P) should return P", prop.ForAll(
+	properties.Property("[OCTOBEAR] Add(P,0) and Add(0,P) should return P", prop.ForAll(
 		func(s fr.Element) bool {
 			var op1, op2 G1Affine
 			var sInt big.Int
@@ -262,7 +262,7 @@ func TestG1AffineOps(t *testing.T) {
 		GenFr(),
 	))
 
-	properties.Property("[KB8] Add should call double when adding the same point", prop.ForAll(
+	properties.Property("[OCTOBEAR] Add should call double when adding the same point", prop.ForAll(
 		func(s fr.Element) bool {
 			var op1, op2 G1Affine
 			var sInt big.Int
@@ -278,7 +278,7 @@ func TestG1AffineOps(t *testing.T) {
 		GenFr(),
 	))
 
-	properties.Property("[KB8] [2]G = double(G) + G - G", prop.ForAll(
+	properties.Property("[OCTOBEAR] [2]G = double(G) + G - G", prop.ForAll(
 		func(s fr.Element) bool {
 			var sInt big.Int
 			g := g1GenAff
@@ -294,7 +294,7 @@ func TestG1AffineOps(t *testing.T) {
 		GenFr(),
 	))
 
-	properties.Property("[KB8] [-s]G = -[s]G", prop.ForAll(
+	properties.Property("[OCTOBEAR] [-s]G = -[s]G", prop.ForAll(
 		func(s fr.Element) bool {
 			g := g1GenAff
 			var gj G1Jac
@@ -326,7 +326,7 @@ func TestG1AffineOps(t *testing.T) {
 		GenFr(),
 	))
 
-	properties.Property("[KB8] [Jacobian] Add should call double when adding the same point", prop.ForAll(
+	properties.Property("[OCTOBEAR] [Jacobian] Add should call double when adding the same point", prop.ForAll(
 		func(a, b fptower.E8) bool {
 			fop1 := fuzzG1Jac(&g1Gen, a)
 			fop2 := fuzzG1Jac(&g1Gen, b)
@@ -339,7 +339,7 @@ func TestG1AffineOps(t *testing.T) {
 		GenE8(),
 	))
 
-	properties.Property("[KB8] [Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
+	properties.Property("[OCTOBEAR] [Jacobian] Adding the opposite of a point to itself should output inf", prop.ForAll(
 		func(a, b fptower.E8) bool {
 			fop1 := fuzzG1Jac(&g1Gen, a)
 			fop2 := fuzzG1Jac(&g1Gen, b)
@@ -351,7 +351,7 @@ func TestG1AffineOps(t *testing.T) {
 		GenE8(),
 	))
 
-	properties.Property("[KB8] [Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
+	properties.Property("[OCTOBEAR] [Jacobian] Adding the inf to a point should not modify the point", prop.ForAll(
 		func(a fptower.E8) bool {
 			fop1 := fuzzG1Jac(&g1Gen, a)
 			fop1.AddAssign(&g1Infinity)
@@ -363,7 +363,7 @@ func TestG1AffineOps(t *testing.T) {
 		GenE8(),
 	))
 
-	properties.Property("[KB8] [Jacobian Extended] addMixed (-G) should equal subMixed(G)", prop.ForAll(
+	properties.Property("[OCTOBEAR] [Jacobian Extended] addMixed (-G) should equal subMixed(G)", prop.ForAll(
 		func(a fptower.E8) bool {
 			fop1 := fuzzG1Jac(&g1Gen, a)
 			var p1, p1Neg G1Affine
@@ -382,7 +382,7 @@ func TestG1AffineOps(t *testing.T) {
 		GenE8(),
 	))
 
-	properties.Property("[KB8] [Jacobian Extended] doubleMixed (-G) should equal doubleNegMixed(G)", prop.ForAll(
+	properties.Property("[OCTOBEAR] [Jacobian Extended] doubleMixed (-G) should equal doubleNegMixed(G)", prop.ForAll(
 		func(a fptower.E8) bool {
 			fop1 := fuzzG1Jac(&g1Gen, a)
 			var p1, p1Neg G1Affine
@@ -401,7 +401,7 @@ func TestG1AffineOps(t *testing.T) {
 		GenE8(),
 	))
 
-	properties.Property("[KB8] [Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
+	properties.Property("[OCTOBEAR] [Jacobian] Addmix the negation to itself should output 0", prop.ForAll(
 		func(a fptower.E8) bool {
 			fop1 := fuzzG1Jac(&g1Gen, a)
 			fop1.Neg(&fop1)
@@ -413,7 +413,7 @@ func TestG1AffineOps(t *testing.T) {
 		GenE8(),
 	))
 
-	properties.Property("[KB8] scalar multiplication (double and add) should depend only on the scalar mod r", prop.ForAll(
+	properties.Property("[OCTOBEAR] scalar multiplication (double and add) should depend only on the scalar mod r", prop.ForAll(
 		func(s fr.Element) bool {
 
 			r := fr.Modulus()
@@ -436,7 +436,7 @@ func TestG1AffineOps(t *testing.T) {
 		genScalar,
 	))
 
-	properties.Property("[KB8] JointScalarMultiplicationBase and ScalarMultiplication should output the same results", prop.ForAll(
+	properties.Property("[OCTOBEAR] JointScalarMultiplicationBase and ScalarMultiplication should output the same results", prop.ForAll(
 		func(s1, s2 fr.Element) bool {
 
 			var op1, op2, temp G1Jac
@@ -472,7 +472,7 @@ func TestG1BatchScalarMultiplication(t *testing.T) {
 	// size of the multiExps
 	const nbSamples = 10
 
-	properties.Property("[KB8] BatchScalarMultiplication should be consistent with individual scalar multiplications", prop.ForAll(
+	properties.Property("[OCTOBEAR] BatchScalarMultiplication should be consistent with individual scalar multiplications", prop.ForAll(
 		func(mixer fr.Element) bool {
 			// mixer ensures that all the words of a fpElement are set
 			var sampleScalars [nbSamples]fr.Element

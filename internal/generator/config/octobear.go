@@ -1,9 +1,9 @@
 package config
 
-var KB8 = Curve{
-	Name:         "kb8",
-	CurvePackage: "kb8",
-	EnumID:       "KB8",
+var OCTOBEAR = Curve{
+	Name:         "octobear",
+	CurvePackage: "octobear",
+	EnumID:       "OCTOBEAR",
 	FpModulus:    "2130706433",
 	FrModulus:    "424804331891979973455971894938199991839487883914575852667663156896715214921",
 	NoFieldSuite: true,
@@ -25,5 +25,5 @@ var KB8 = Curve{
 }
 
 func init() {
-	addCurve(&KB8)
+	addCurve(&OCTOBEAR)
 }

@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/kb8"
+	"github.com/consensys/gnark-crypto/ecc/octobear"
 	"github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/stretchr/testify/require"
 )
@@ -282,7 +282,7 @@ func TestLinearHomomorphicAdditivity(t *testing.T) {
 	require.NoError(t, err)
 
 	for i := range full {
-		var sum kb8.G1Affine
+		var sum octobear.G1Affine
 		sum.Add(&dA[i], &dB[i])
 		require.True(t, sum.Equal(&full[i]),
 			"linear: Hash(A∪B)[%d] must equal Hash(A)+Hash(B)", i)
@@ -302,7 +302,7 @@ func TestPoseidon2HomomorphicAdditivity(t *testing.T) {
 	require.NoError(t, err)
 
 	for i := range full {
-		var sum kb8.G1Affine
+		var sum octobear.G1Affine
 		sum.Add(&dA[i], &dB[i])
 		require.True(t, sum.Equal(&full[i]),
 			"poseidon2: Hash(A∪B)[%d] must equal Hash(A)+Hash(B)", i)

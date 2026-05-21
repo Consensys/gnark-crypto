@@ -1,7 +1,7 @@
 // Copyright 2020-2026 Consensys Software Inc.
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
-package kb8
+package octobear
 
 func processChunkG1Jacobian[B ibg1JacExtended](chunk uint64,
 	chRes chan<- g1JacExtended,

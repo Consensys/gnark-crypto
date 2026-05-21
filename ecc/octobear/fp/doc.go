@@ -6,6 +6,6 @@
 // Package fp aliases github.com/consensys/gnark-crypto/field/koalabear for curves whose base field is
 // implemented in an existing top-level field package.
 //
-// It exists so packages under ecc/kb8 can use the same local fp import
+// It exists so packages under ecc/octobear can use the same local fp import
 // shape as curves with generated base fields.
 package fp

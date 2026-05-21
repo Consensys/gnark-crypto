@@ -1,12 +1,12 @@
 // Package multisethash implements y-increment elliptic-curve multiset
-// hashing (ECMSH) over kb8.
+// hashing (ECMSH) over octobear.
 //
 // The package exposes three variants:
 //
 //   - Classical one-point ECMSH (Accumulator, Hash, Map): 16-bit messages.
 //     Each message m is mapped by scanning k in [0, 256) and setting
 //     y = m*256 + k in the base subfield of Fp^8. The first resulting point
-//     (x, y) on kb8 is used as the image. Security is ~124 classical bits
+//     (x, y) on octobear is used as the image. Security is ~124 classical bits
 //     (no post-quantum security).
 //
 //   - Linear-separator vector ECMSH (LinearAccumulator, HashLinear,
