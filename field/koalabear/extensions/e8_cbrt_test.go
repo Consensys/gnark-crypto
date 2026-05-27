@@ -26,6 +26,18 @@ func TestE8CbrtOnCubicResidues(t *testing.T) {
 	}
 }
 
+func TestE8CbrtReceiverSafeAlias(t *testing.T) {
+	for i := 0; i < 32; i++ {
+		var a, x, inPlace, check E8
+		a.MustSetRandom()
+		x.Square(&a).Mul(&x, &a)
+		inPlace.Set(&x)
+		require.NotNil(t, inPlace.Cbrt(&inPlace))
+		check.Square(&inPlace).Mul(&check, &inPlace)
+		require.True(t, check.Equal(&x), "E8 in-place Cbrt must satisfy z^3 == x")
+	}
+}
+
 func TestE8CbrtRejectsNonResidues(t *testing.T) {
 	var x, got E8
 	for i := 0; i < 256; i++ {

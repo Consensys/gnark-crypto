@@ -20,6 +20,9 @@ func init() {
 
 // Cbrt sets z to the cube root of x and returns z.
 // It returns nil if x is not a cubic residue.
+//
+// The candidate is computed into a local E8 and only written to z at the
+// end, so x.Cbrt(&x) is safe (does not corrupt x mid-computation).
 func (z *E8) Cbrt(x *E8) *E8 {
 	if x.C1.IsZero() {
 		if z.C0.Cbrt(&x.C0) == nil {
@@ -29,15 +32,19 @@ func (z *E8) Cbrt(x *E8) *E8 {
 		return z
 	}
 
+	var y E8
+
 	if x.C0.IsZero() {
-		var y E8
 		var x1OverNR E4
 		x1OverNR.Mul(&x.C1, &cbrtE4NRInv)
 		if y.C1.Cbrt(&x1OverNR) == nil {
 			return nil
 		}
 		y.C0.SetZero()
-		return cbrtVerifyAndAdjustE8(z.Set(&y), x)
+		if cbrtVerifyAndAdjustE8(&y, x) == nil {
+			return nil
+		}
+		return z.Set(&y)
 	}
 
 	var x0sq, x1sq, betaX1sq, norm E4
@@ -86,7 +93,6 @@ func (z *E8) Cbrt(x *E8) *E8 {
 	var mInv E4
 	mInv.Square(&m).Mul(&mInv, &normInv)
 
-	var y E8
 	var t1, t2 E4
 	t1.Mul(&x.C0, &gamma0)
 	t2.Mul(&x.C1, &gamma1)
@@ -95,7 +101,10 @@ func (z *E8) Cbrt(x *E8) *E8 {
 	t1.Mul(&x.C1, &gamma0)
 	t2.Mul(&x.C0, &gamma1)
 	y.C1.Sub(&t1, &t2).Mul(&y.C1, &mInv)
-	return cbrtVerifyAndAdjustE8(z.Set(&y), x)
+	if cbrtVerifyAndAdjustE8(&y, x) == nil {
+		return nil
+	}
+	return z.Set(&y)
 }
 
 func cbrtVerifyAndAdjustE8(z, x *E8) *E8 {

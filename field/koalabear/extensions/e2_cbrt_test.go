@@ -20,6 +20,52 @@ func TestE2CbrtOnCubicResidues(t *testing.T) {
 	}
 }
 
+// Regression test for the receiver-aliasing bug where z.A0 was written
+// before x.A0 was read on the main path (and similarly in the x.A0==0
+// branch, where the verify-against-x step ran after z had been overwritten).
+// Ensures z == x is safe for E2/E4/E8 cube roots.
+func TestE2CbrtReceiverSafeAlias(t *testing.T) {
+	for i := 0; i < 64; i++ {
+		var a, x, expected, inPlace, check E2
+		a.MustSetRandom()
+		x.Square(&a).Mul(&x, &a)
+
+		if expected.Cbrt(&x) == nil {
+			t.Fatal("expected cubic residue to have a cube root")
+		}
+
+		inPlace.Set(&x)
+		if inPlace.Cbrt(&inPlace) == nil {
+			t.Fatal("in-place Cbrt returned nil on a cubic residue")
+		}
+		check.Square(&inPlace).Mul(&check, &inPlace)
+		if !check.Equal(&x) {
+			t.Fatal("in-place Cbrt does not verify against original x")
+		}
+	}
+}
+
+// Exercises the x.A0 == 0 branch (purely imaginary) under z == x aliasing.
+func TestE2CbrtReceiverSafeAliasPureImaginary(t *testing.T) {
+	for i := 0; i < 64; i++ {
+		var a, x, check E2
+		a.MustSetRandom()
+		a.A0.SetZero()
+		x.Square(&a).Mul(&x, &a)
+		if x.IsZero() {
+			continue
+		}
+		orig := x
+		if x.Cbrt(&x) == nil {
+			continue
+		}
+		check.Square(&x).Mul(&check, &x)
+		if !check.Equal(&orig) {
+			t.Fatal("in-place Cbrt does not verify on x with A0==0")
+		}
+	}
+}
+
 func TestE2CbrtRejectsNonResidues(t *testing.T) {
 	var x, got E2
 	for i := 0; i < 256; i++ {

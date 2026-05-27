@@ -358,6 +358,32 @@ func TestLinearBoundaryMessages(t *testing.T) {
 	}
 }
 
+// Regression test for the non-injective uint64 encoding bug: previously
+// squeezePoseidon2 absorbed msg as two 32-bit halves via SetUint64, but with
+// koalabear's p = 2^31 - 2^24 + 1 < 2^32 the low-half reduction collapsed
+// msg = 0 and msg = p into the same sponge input, yielding a trivial
+// single-element multiset collision. The encoding is now four 16-bit chunks
+// (each < 2^16 < p), so distinct uint64 values must produce distinct digests.
+func TestPoseidon2EncodingInjectiveAcrossModulus(t *testing.T) {
+	p := koalabear.Modulus().Uint64()
+	msgs := []uint64{0, p, p + 1, 1 << 32, 2 * p, math.MaxUint64}
+	seen := make(map[string]uint64, len(msgs))
+	for _, msg := range msgs {
+		digest, err := HashPoseidon2([]uint64{msg})
+		require.NoError(t, err)
+		var buf []byte
+		for i := range digest {
+			b := digest[i].Bytes()
+			buf = append(buf, b[:]...)
+		}
+		key := string(buf)
+		if prev, ok := seen[key]; ok {
+			t.Fatalf("Poseidon2 digest collision: msg=%d and msg=%d produce the same digest", prev, msg)
+		}
+		seen[key] = msg
+	}
+}
+
 func TestPoseidon2BoundaryMessages(t *testing.T) {
 	for _, msg := range []uint64{0, math.MaxUint64} {
 		pts, _, err := MapPoseidon2(msg)

@@ -39,6 +39,9 @@ func init() {
 
 // Cbrt sets z to the cube root of x and returns z.
 // It returns nil if x is not a cubic residue.
+//
+// The candidate is computed into a local E2 and only written to z at the
+// end, so x.Cbrt(&x) is safe (does not corrupt x mid-computation).
 func (z *E2) Cbrt(x *E2) *E2 {
 	if x.A1.IsZero() {
 		z.A0.Cbrt(&x.A0)
@@ -46,11 +49,16 @@ func (z *E2) Cbrt(x *E2) *E2 {
 		return z
 	}
 
+	var y E2
+
 	if x.A0.IsZero() {
-		z.A0.SetZero()
-		z.A1.Mul(&x.A1, &cbrtFpThreeInv)
-		z.A1.Cbrt(&z.A1)
-		return cbrtVerifyE2(z, x)
+		y.A0.SetZero()
+		y.A1.Mul(&x.A1, &cbrtFpThreeInv)
+		y.A1.Cbrt(&y.A1)
+		if cbrtVerifyE2(&y, x) == nil {
+			return nil
+		}
+		return z.Set(&y)
 	}
 
 	var x0sq, x1sq, betaX1sq, norm fr.Element
@@ -95,12 +103,12 @@ func (z *E2) Cbrt(x *E2) *E2 {
 	var t1, t2 fr.Element
 	t1.Mul(&x.A0, &gamma0)
 	t2.Mul(&x.A1, &gamma1).Mul(&t2, &cbrtFpThree)
-	z.A0.Sub(&t1, &t2).Mul(&z.A0, &mInv)
+	y.A0.Sub(&t1, &t2).Mul(&y.A0, &mInv)
 	t1.Mul(&x.A1, &gamma0)
 	t2.Mul(&x.A0, &gamma1)
-	z.A1.Sub(&t1, &t2).Mul(&z.A1, &mInv)
-	if out := cbrtVerifyE2(z, x); out != nil {
-		return out
+	y.A1.Sub(&t1, &t2).Mul(&y.A1, &mInv)
+	if cbrtVerifyE2(&y, x) != nil {
+		return z.Set(&y)
 	}
 
 	var sigma fr.Element
@@ -116,9 +124,12 @@ func (z *E2) Cbrt(x *E2) *E2 {
 	}
 	d0d1Inv.Inverse(&d0d1)
 
-	z.A0.Mul(&d1, &d0d1Inv).Mul(&z.A0, &x.A0)
-	z.A1.Mul(&d0, &d0d1Inv).Mul(&z.A1, &x.A1)
-	return cbrtVerifyE2(z, x)
+	y.A0.Mul(&d1, &d0d1Inv).Mul(&y.A0, &x.A0)
+	y.A1.Mul(&d0, &d0d1Inv).Mul(&y.A1, &x.A1)
+	if cbrtVerifyE2(&y, x) == nil {
+		return nil
+	}
+	return z.Set(&y)
 }
 
 func cbrtAndNormInverseE2(norm, x0sq, x1sq *fr.Element) (m, normInv, deltaInv fr.Element, ok bool) {

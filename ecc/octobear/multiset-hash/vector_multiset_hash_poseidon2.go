@@ -192,13 +192,21 @@ func squeezePoseidon2(msg uint64) ([pqPermutations * pqSqueezeRate]koalabear.Ele
 	)
 
 	// Absorb (domainTag, msg) into the rate part (state[0:pqSqueezeRate]).
-	// The 8-byte tag is split into two 32-bit big-endian halves and the
-	// 64-bit msg into two more halves, filling state[0..3]. state[4..7]
-	// and the capacity state[8..15] stay zero.
+	// The 8-byte tag occupies state[0..1] as two 32-bit big-endian halves
+	// (each < p, so SetUint64 is injective on the tag's domain). The 64-bit
+	// msg is split into four 16-bit big-endian chunks across state[2..5];
+	// each chunk is < 2^16 < p, so this encoding is injective for the full
+	// uint64 domain. state[6..7] and the capacity state[8..15] stay zero.
+	//
+	// Note: a 32-bit-half encoding would not be injective here because
+	// koalabear has p = 2^31 - 2^24 + 1 < 2^32, so e.g. msg = 0 and msg = p
+	// would absorb the same field elements (mod p) and collide.
 	state[0].SetUint64(uint64(binary.BigEndian.Uint32(pqDomainTag[0:4])))
 	state[1].SetUint64(uint64(binary.BigEndian.Uint32(pqDomainTag[4:8])))
-	state[2].SetUint64(msg & 0xFFFFFFFF)
-	state[3].SetUint64(msg >> 32)
+	state[2].SetUint64(uint64(uint16(msg >> 48)))
+	state[3].SetUint64(uint64(uint16(msg >> 32)))
+	state[4].SetUint64(uint64(uint16(msg >> 16)))
+	state[5].SetUint64(uint64(uint16(msg)))
 
 	perm := pqPerm()
 	for i := 0; i < pqPermutations; i++ {
