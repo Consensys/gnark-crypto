@@ -41,7 +41,7 @@ func (z *E4) Cbrt(x *E4) *E4 {
 			return nil
 		}
 		y.B0.SetZero()
-		if cbrtVerifyAndAdjustE4(&y, x) == nil {
+		if cbrtVerifyE4(&y, x) == nil {
 			return nil
 		}
 		return z.Set(&y)
@@ -101,35 +101,25 @@ func (z *E4) Cbrt(x *E4) *E4 {
 	t1.Mul(&x.B1, &gamma0)
 	t2.Mul(&x.B0, &gamma1)
 	y.B1.Sub(&t1, &t2).Mul(&y.B1, &mInv)
-	if cbrtVerifyAndAdjustE4(&y, x) == nil {
+	if cbrtVerifyE4(&y, x) == nil {
 		return nil
 	}
 	return z.Set(&y)
 }
 
-func cbrtVerifyAndAdjustE4(z, x *E4) *E4 {
+// cbrtVerifyE4 returns z iff z³ == x, else nil.
+//
+// The E4.Cbrt construction always returns a true cube root on the first try
+// when x is a cubic residue (verified empirically over many random cubes), so
+// no cube-root-of-unity rotation is needed — the verify is just a safety
+// check against non-residue inputs.
+func cbrtVerifyE4(z, x *E4) *E4 {
 	var check E4
 	check.Square(z).Mul(&check, z)
-	if check.Equal(x) {
-		return z
+	if !check.Equal(x) {
+		return nil
 	}
-
-	var y E4
-	y.B0.Mul(&z.B0, &cbrtE2Omega)
-	y.B1.Mul(&z.B1, &cbrtE2Omega)
-	check.Square(&y).Mul(&check, &y)
-	if check.Equal(x) {
-		return z.Set(&y)
-	}
-
-	y.B0.Mul(&z.B0, &cbrtE2Omega2)
-	y.B1.Mul(&z.B1, &cbrtE2Omega2)
-	check.Square(&y).Mul(&check, &y)
-	if check.Equal(x) {
-		return z.Set(&y)
-	}
-
-	return nil
+	return z
 }
 
 func lucasV2E2Cbrt(alpha *E2) (E2, E2) {

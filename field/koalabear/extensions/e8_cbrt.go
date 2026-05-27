@@ -3,19 +3,9 @@
 
 package extensions
 
-var (
-	cbrtE8Omega  E8
-	cbrtE8Omega2 E8
-)
-
 var cbrtE8LucasExponent = [2]uint64{
 	2930905110336765953,
 	372437575807401643,
-}
-
-func init() {
-	cbrtE8Omega.C0.B0 = cbrtE2Omega
-	cbrtE8Omega2.Square(&cbrtE8Omega)
 }
 
 // Cbrt sets z to the cube root of x and returns z.
@@ -41,7 +31,7 @@ func (z *E8) Cbrt(x *E8) *E8 {
 			return nil
 		}
 		y.C0.SetZero()
-		if cbrtVerifyAndAdjustE8(&y, x) == nil {
+		if cbrtVerifyE8(&y, x) == nil {
 			return nil
 		}
 		return z.Set(&y)
@@ -101,32 +91,21 @@ func (z *E8) Cbrt(x *E8) *E8 {
 	t1.Mul(&x.C1, &gamma0)
 	t2.Mul(&x.C0, &gamma1)
 	y.C1.Sub(&t1, &t2).Mul(&y.C1, &mInv)
-	if cbrtVerifyAndAdjustE8(&y, x) == nil {
+	if cbrtVerifyE8(&y, x) == nil {
 		return nil
 	}
 	return z.Set(&y)
 }
 
-func cbrtVerifyAndAdjustE8(z, x *E8) *E8 {
-	var check, y E8
+// cbrtVerifyE8 returns z iff z³ == x, else nil. See cbrtVerifyE4 for why no
+// cube-root-of-unity adjustment is needed.
+func cbrtVerifyE8(z, x *E8) *E8 {
+	var check E8
 	check.Square(z).Mul(&check, z)
-	if check.Equal(x) {
-		return z
+	if !check.Equal(x) {
+		return nil
 	}
-
-	y.Mul(z, &cbrtE8Omega)
-	check.Square(&y).Mul(&check, &y)
-	if check.Equal(x) {
-		return z.Set(&y)
-	}
-
-	y.Mul(z, &cbrtE8Omega2)
-	check.Square(&y).Mul(&check, &y)
-	if check.Equal(x) {
-		return z.Set(&y)
-	}
-
-	return nil
+	return z
 }
 
 func lucasV2E4Cbrt(alpha *E4) (E4, E4) {

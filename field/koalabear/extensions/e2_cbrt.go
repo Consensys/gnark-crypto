@@ -11,8 +11,6 @@ var (
 	cbrtFpThree    fr.Element
 	cbrtFpThreeInv fr.Element
 	cbrtE2One      E2
-	cbrtE2Omega    E2
-	cbrtE2Omega2   E2
 	cbrtE2NRInv    E2
 )
 
@@ -27,14 +25,6 @@ func init() {
 	cbrtE2One.SetOne()
 	cbrtE2NRInv.A0.SetZero()
 	cbrtE2NRInv.A1.Set(&cbrtFpThreeInv)
-
-	var sqrtMinusThree E2
-	sqrtMinusThree.A0.Neg(&cbrtFpThree)
-	sqrtMinusThree.Sqrt(&sqrtMinusThree)
-	cbrtE2Omega.Sub(&sqrtMinusThree, &cbrtE2One)
-	cbrtE2Omega.A0.Halve()
-	cbrtE2Omega.A1.Halve()
-	cbrtE2Omega2.Square(&cbrtE2Omega)
 }
 
 // Cbrt sets z to the cube root of x and returns z.
