@@ -210,9 +210,22 @@ func (z *E2) Exp(x E2, k *big.Int) *E2 {
 // on Intel and Cortex-M4" by Aardal et al.
 // https://eprint.iacr.org/2024/1563.pdf (algo 3)
 func (z *E2) Sqrt(a *E2) *E2 {
+	// Aardal Algorithm 3 has an unstated precondition a.A1 != 0:
+	// for a.A1 == 0 with a.A0 a non-residue in Fp the inner ExpBySqrtPp1o4 yields
+	// δ = -a.A0, then x0 = a.A0 + δ = 0 cascades to (0, 0). But (a.A0, 0) is
+	// always a square in Fp² for nonzero a.A0 (Euler), with sqrt (0, sqrt(a.A0/β))
+	// where β = u² is the Fp² QNR. Handle the purely-real branch explicitly.
 	if a.A1.IsZero() {
-		z.A0.Sqrt(&a.A0)
-		z.A1.SetZero()
+		if a.A0.Legendre() >= 0 {
+			z.A0.Sqrt(&a.A0)
+			z.A1.SetZero()
+			return z
+		}
+		var aOverBeta fp.Element
+		// β = -1 (CoordExtRoot = -1, or default 0): aOverBeta = -a
+		aOverBeta.Neg(&a.A0)
+		z.A0.SetZero()
+		z.A1.Sqrt(&aOverBeta)
 		return z
 	}
 

@@ -194,6 +194,26 @@ func (z *E2) Exp(x E2, k *big.Int) *E2 {
 // finite fields: Tricks of the Trade" by Michael Scott
 // https://eprint.iacr.org/2020/1497.pdf (Sec. 6.3)
 func (z *E2) Sqrt(x *E2) *E2 {
+	// Scott §6.3 has an unstated precondition x.A1 != 0: for x.A1 == 0 with
+	// x.A0 a non-residue in Fp the inner Fp.Sqrt fails silently and the
+	// final Div goes through zero, returning a wrong root. But (x.A0, 0) is
+	// always a square in Fp² for nonzero x.A0 (Euler). For bls24-315 we have
+	// u² = 13 so β = 13, and the true sqrt is (0, sqrt(x.A0 / 13)).
+	if x.A1.IsZero() {
+		if x.A0.Legendre() >= 0 {
+			z.A0.Sqrt(&x.A0)
+			z.A1.SetZero()
+			return z
+		}
+		var beta, aOverBeta fp.Element
+		beta.SetUint64(13)
+		aOverBeta.Inverse(&beta)
+		aOverBeta.Mul(&aOverBeta, &x.A0)
+		z.A0.SetZero()
+		z.A1.Sqrt(&aOverBeta)
+		return z
+	}
+
 	var x0, x1 fp.Element
 	x.norm(&x0)
 	x0.Sqrt(&x0)

@@ -341,6 +341,26 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
+	// Regression test for the silent failure of E2.Sqrt on purely-real
+	// inputs whose Fp coordinate is a non-residue. The Scott §6.3 formula
+	// divides by 2·y0 at the end; for x = (a, 0) with a non-QR in Fp the
+	// inner Fp.Sqrt returned 0 and the function fell through to 0/0,
+	// producing (0, 0) regardless of the actual square root. The fix
+	// special-cases x.A1 == 0 and looks for an E2 root of the form (0, b)
+	// with β·b² = a.
+	properties.Property("[babybear] square(sqrt) should be invariant for purely-real inputs", prop.ForAll(
+		func(a fr.Element) bool {
+			var x, root, sq E2
+			x.A0.Set(&a)
+			// (a, 0) is always an E2-square for a != 0: either a is QR in
+			// Fp, or a/β is (since β is itself a non-residue).
+			root.Sqrt(&x)
+			sq.Square(&root)
+			return sq.Equal(&x)
+		},
+		genFr(),
+	))
+
 	properties.Property("[babybear] neg(E2) == neg(E2.A0, E2.A1)", prop.ForAll(
 		func(a E2) bool {
 			var b, c E2
