@@ -1,7 +1,6 @@
 package multisethash
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/octobear"
@@ -115,11 +114,11 @@ func MapLinear(msg uint32) ([linearN]octobear.G1Affine, [linearN]uint8, error) {
 	return pts, offsets, nil
 }
 
-// mapAtBase scans k in [0, tweakBound) and returns the first curve point
-// whose ordinate is y = baseY + k in the base subfield. baseY + tweakBound
+// mapAtBase scans k in [0, bound) and returns the first curve point
+// whose ordinate is y = baseY + k in the base subfield. baseY + bound
 // must remain strictly below p/2 to keep the image inverse-free.
-func mapAtBase(baseY uint64, tweakBound uint64, b *extensions.E8) (octobear.G1Affine, uint8, error) {
-	for k := uint64(0); k < tweakBound; k++ {
+func mapAtBase(baseY uint64, bound uint64, b *extensions.E8) (octobear.G1Affine, uint8, error) {
+	for k := uint64(0); k < bound; k++ {
 		var y, c, ySquared extensions.E8
 		y.C0.B0.A0.SetUint64(baseY + k)
 
@@ -136,5 +135,5 @@ func mapAtBase(baseY uint64, tweakBound uint64, b *extensions.E8) (octobear.G1Af
 			return p, uint8(k), nil
 		}
 	}
-	return octobear.G1Affine{}, 0, errors.New("octobear vector multiset hash: failed to map message in tweak window")
+	return octobear.G1Affine{}, 0, errMapFailure
 }

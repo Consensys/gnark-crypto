@@ -4,12 +4,11 @@ import (
 	"errors"
 
 	"github.com/consensys/gnark-crypto/ecc/octobear"
-	"github.com/consensys/gnark-crypto/field/koalabear/extensions"
 )
 
 const tweakBound = 256
 
-var errMapFailure = errors.New("octobear multiset hash: failed to map message after 256 y-increments")
+var errMapFailure = errors.New("octobear multiset hash: failed to map message in tweak window")
 
 // Accumulator stores an additive multiset hash state in affine coordinates.
 type Accumulator struct {
@@ -70,26 +69,5 @@ func Hash(msgs []uint16) (octobear.G1Affine, error) {
 // y = msg*256 + k yields a point (x, y) on octobear.
 func Map(msg uint16) (octobear.G1Affine, uint8, error) {
 	_, b := octobear.CurveCoefficients()
-	baseY := uint64(msg) * tweakBound
-
-	for k := uint16(0); k < tweakBound; k++ {
-		var y, c, ySquared extensions.E8
-		y.SetZero()
-		y.C0.B0.A0.SetUint64(baseY + uint64(k))
-
-		ySquared.Square(&y)
-		c.Sub(&b, &ySquared)
-
-		x, ok := depressedCubicRoot(c)
-		if !ok {
-			continue
-		}
-
-		p := octobear.G1Affine{X: x, Y: y}
-		if p.IsOnCurve() && p.IsInSubGroup() {
-			return p, uint8(k), nil
-		}
-	}
-
-	return octobear.G1Affine{}, 0, errMapFailure
+	return mapAtBase(uint64(msg)*tweakBound, tweakBound, &b)
 }
