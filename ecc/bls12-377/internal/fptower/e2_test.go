@@ -357,6 +357,25 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
+	// Regression test for the silent failure of E2.Sqrt on purely-real
+	// inputs whose Fp coordinate is a non-residue. The Aardal Algorithm 3
+	// and Scott §6.3 formulas both have an unstated precondition that
+	// a.A1 != 0; for x = (a, 0) with a non-QR in Fp the algorithms
+	// silently returned (0, 0) instead of the true sqrt (0, sqrt(a/β))
+	// where β = u² is the Fp² QNR.
+	properties.Property("[BLS12-377] square(sqrt) should be invariant for purely-real inputs", prop.ForAll(
+		func(a fp.Element) bool {
+			var x, root, sq E2
+			x.A0.Set(&a)
+			// (a, 0) is always an E2-square for a != 0: either a is QR in
+			// Fp, or a/β is (since β is itself a non-residue).
+			root.Sqrt(&x)
+			sq.Square(&root)
+			return sq.Equal(&x)
+		},
+		genfp,
+	))
+
 	properties.Property("[BLS12-377] cube(cbrt) should leave an element invariant", prop.ForAll(
 		func(a *E2) bool {
 			var b, c, d E2
