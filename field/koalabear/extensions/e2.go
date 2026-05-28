@@ -204,6 +204,26 @@ func (z *E2) Exp(x E2, k *big.Int) *E2 {
 // finite fields: Tricks of the Trade" by Michael Scott
 // https://eprint.iacr.org/2020/1497.pdf (Sec. 6.3)
 func (z *E2) Sqrt(x *E2) *E2 {
+	// Scott's formula divides by 2·y0 at the end; for x.A1 == 0 with x.A0
+	// a non-residue in Fp the inner Fp.Sqrt silently fails and the
+	// division becomes 0/0, returning (0, 0) for any base-field
+	// non-residue. Handle the purely-real branch explicitly: with
+	// u² = β, sqrt((a, 0)) is either (sqrt_fp(a), 0) or (0, sqrt_fp(a/β))
+	// depending on which of a, a/β is a square in Fp.
+	if x.A1.IsZero() {
+		if x.A0.Legendre() >= 0 {
+			z.A0.Sqrt(&x.A0)
+			z.A1.SetZero()
+			return z
+		}
+		var beta, aOverBeta fr.Element
+		beta.SetUint64(3)
+		aOverBeta.Div(&x.A0, &beta)
+		z.A0.SetZero()
+		z.A1.Sqrt(&aOverBeta)
+		return z
+	}
+
 	var x0, x1 fr.Element
 	x.norm(&x0)
 	x0.Sqrt(&x0)

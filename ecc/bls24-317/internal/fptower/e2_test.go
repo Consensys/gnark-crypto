@@ -340,6 +340,26 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
+	// Regression test for the silent failure of E2.Sqrt on purely-real
+	// inputs whose Fp coordinate is a non-residue. Aardal et al. Algorithm 3
+	// has an unstated precondition a.A1 != 0; for a = (a0, 0) with a0
+	// non-QR in Fp it cascades to (0, 0). Since this curve's E2 is
+	// hand-written (not generated from the tower template), the
+	// template-level regression does not cover it; we add a curve-local
+	// property here.
+	properties.Property("[BLS24-317] square(sqrt) should be invariant for purely-real inputs", prop.ForAll(
+		func(a fp.Element) bool {
+			var x, root, sq E2
+			x.A0.Set(&a)
+			// (a, 0) is always an E2-square for a != 0: either a is QR in
+			// Fp, or a/β is (since β is itself a non-residue).
+			root.Sqrt(&x)
+			sq.Square(&root)
+			return sq.Equal(&x)
+		},
+		genfp,
+	))
+
 	properties.Property("[BLS24-317] neg(E2) == neg(E2.A0, E2.A1)", prop.ForAll(
 		func(a *E2) bool {
 			var b, c E2
