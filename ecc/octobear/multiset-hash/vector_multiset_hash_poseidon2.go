@@ -28,7 +28,7 @@ const (
 )
 
 // pqDomainTag is the 8-byte ASCII domain separator absorbed before the
-// message (paper §4.3, "ECMSH_PQ").
+// message.
 var pqDomainTag = [8]byte{'E', 'C', 'M', 'S', 'H', '_', 'P', 'Q'}
 
 // pqReducerBound = floor(p / (2*T)) is the upper bound on the slot s
@@ -176,7 +176,7 @@ func PqReducerBound() *big.Int {
 }
 
 // PqDomainTag returns the 8-byte ASCII domain separator absorbed before the
-// message by MapPoseidon2 (paper §4.3, "ECMSH_PQ"). Exported so the in-circuit
+// message by MapPoseidon2. Exported so the in-circuit
 // sponge can absorb the same bytes.
 func PqDomainTag() [8]byte {
 	return pqDomainTag

@@ -7,7 +7,8 @@
 //     Each message m is mapped by scanning k in [0, 256) and setting
 //     y = m*256 + k in the base subfield of Fp^8. The first resulting point
 //     (x, y) on octobear is used as the image. Security is ~124 classical bits
-//     (no post-quantum security).
+//     (no post-quantum security). It mainly follows "Elliptic Curve Multiset Hash"
+//     by Maitin-Shepard, Tibouchi and Aranha (https://arxiv.org/abs/1601.06502).
 //
 //   - Linear-separator vector ECMSH (LinearAccumulator, HashLinear,
 //     MapLinear): a digest of N = 23 curve points. Coordinate i uses
