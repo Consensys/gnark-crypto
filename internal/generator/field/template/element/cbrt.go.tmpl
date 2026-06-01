@@ -24,8 +24,13 @@ func init() {
 {{- end }}
 
 // Cbrt z = ∛x (mod q)
+{{- if .CbrtQ2Mod3}}
+// Since q ≡ 2 (mod 3), cubing is a bijection on Fq, so every input has a unique
+// cube root and Cbrt always returns z.
+{{- else}}
 // if the cube root doesn't exist (x is not a cube mod q)
 // Cbrt leaves z unchanged and returns nil
+{{- end}}
 func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 	{{- if .CbrtQ2Mod3}}
 		// q ≡ 2 (mod 3)
