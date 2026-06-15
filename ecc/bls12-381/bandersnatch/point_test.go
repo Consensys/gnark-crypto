@@ -855,6 +855,19 @@ func TestOps(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }
+func testSubgroupByOrder(p *PointAffine) bool {
+	params := GetEdwardsCurve()
+	var check PointAffine
+	check.ScalarMultiplication(p, &params.Order)
+	return check.IsZero()
+}
+
+func testRejectTorsionCoset(p, torsion *PointAffine) bool {
+	var q PointAffine
+	q.Add(p, torsion)
+	return !q.IsInSubGroup() && !testSubgroupByOrder(&q)
+}
+
 func TestIsInSubGroup(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
@@ -877,6 +890,14 @@ func TestIsInSubGroup(t *testing.T) {
 		},
 	))
 
+	properties.Property("The 2-torsion point (0,-1) should not be in subgroup", prop.ForAll(
+		func() bool {
+			var p PointAffine
+			p.Y.SetOne().Neg(&p.Y)
+			return !p.IsInSubGroup()
+		},
+	))
+
 	properties.Property("Test IsInSubGroup", prop.ForAll(
 		func(s big.Int) bool {
 
@@ -886,6 +907,36 @@ func TestIsInSubGroup(t *testing.T) {
 			p.ScalarMultiplication(&params.Base, &s)
 
 			return p.IsInSubGroup()
+		},
+		genS,
+	))
+
+	properties.Property("IsInSubGroup should agree with multiplication by subgroup order on subgroup points", prop.ForAll(
+		func(s big.Int) bool {
+			params := GetEdwardsCurve()
+
+			var p PointAffine
+			p.ScalarMultiplication(&params.Base, &s)
+
+			return p.IsInSubGroup() == testSubgroupByOrder(&p)
+		},
+		genS,
+	))
+
+	properties.Property("Torsion cosets should not be in subgroup", prop.ForAll(
+		func(s big.Int) bool {
+			params := GetEdwardsCurve()
+
+			var p PointAffine
+			p.ScalarMultiplication(&params.Base, &s)
+
+			var t2 PointAffine
+			t2.Y.SetOne().Neg(&t2.Y)
+			if !testRejectTorsionCoset(&p, &t2) { //nolint: staticcheck, we code generate and in some paths we don't return early
+				return false
+			}
+
+			return true
 		},
 		genS,
 	))
@@ -1153,8 +1204,25 @@ func BenchmarkIsInSubGroup(b *testing.B) {
 	var point PointAffine
 	point.ScalarMultiplication(&params.Base, &s)
 
-	b.ResetTimer()
-	for range b.N {
-		_ = point.IsInSubGroup()
+	if !point.IsInSubGroup() {
+		b.Fatal("point should be in subgroup")
 	}
+
+	b.Run("is_in_subgroup", func(b *testing.B) {
+		b.ResetTimer()
+		for range b.N {
+			_ = point.IsInSubGroup()
+		}
+	})
+
+	b.Run("mul_by_order", func(b *testing.B) {
+		var check PointAffine
+		b.ResetTimer()
+		for range b.N {
+			check.ScalarMultiplication(&point, &params.Order)
+			if !check.IsZero() {
+				b.Fatal("point should have prime order")
+			}
+		}
+	})
 }

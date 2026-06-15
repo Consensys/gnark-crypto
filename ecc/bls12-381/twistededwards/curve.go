@@ -36,8 +36,9 @@ func GetEdwardsCurve() CurveParams {
 }
 
 var (
-	initOnce    sync.Once
-	curveParams CurveParams
+	initOnce         sync.Once
+	curveParams      CurveParams
+	subgroupInitOnce sync.Once
 )
 
 func initCurveParams() {

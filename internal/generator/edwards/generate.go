@@ -2,8 +2,10 @@ package edwards
 
 import (
 	"path/filepath"
+	stdtemplate "text/template"
 
 	"github.com/consensys/bavard"
+	"github.com/consensys/gnark-crypto/internal/generator/addchain"
 	"github.com/consensys/gnark-crypto/internal/generator/common"
 	"github.com/consensys/gnark-crypto/internal/generator/config"
 	"github.com/consensys/gnark-crypto/internal/generator/edwards/template"
@@ -16,7 +18,16 @@ func Generate(conf config.TwistedEdwardsCurve, baseDir string, gen *common.Gener
 		{File: filepath.Join(baseDir, "doc.go"), Templates: []string{"doc.go.tmpl"}},
 		{File: filepath.Join(baseDir, "curve.go"), Templates: []string{"curve.go.tmpl"}},
 	}
+	if conf.HasNonSplitSubgroupCheck() {
+		entries = append(entries, bavard.Entry{File: filepath.Join(baseDir, "subgroup.go"), Templates: []string{"subgroup.go.tmpl"}})
+	}
 
 	edwardsGen := common.NewDefaultGenerator(template.FS)
-	return edwardsGen.Generate(conf, conf.Package, "", "", entries...)
+	funcs := make(stdtemplate.FuncMap)
+	for _, f := range addchain.Functions {
+		funcs[f.Name] = f.Func
+	}
+	return edwardsGen.GenerateWithOptions(conf, conf.Package, "", "", []func(*bavard.Bavard) error{
+		bavard.Funcs(funcs),
+	}, entries...)
 }

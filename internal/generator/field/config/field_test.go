@@ -55,6 +55,14 @@ func TestIntToMont(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
+func TestNewFieldConfigRejectsUnsupportedModulus(t *testing.T) {
+	t.Parallel()
+
+	if _, err := NewFieldConfig("dummy", "DummyElement", "0x2", false); err == nil {
+		t.Fatal("expected even modulus to be rejected")
+	}
+}
+
 func TestBigIntMatchUint64Slice(t *testing.T) {
 	t.Parallel()
 
