@@ -24,7 +24,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/fflonk"
 	"github.com/consensys/gnark-crypto/internal/generator/field"
 	fieldConfig "github.com/consensys/gnark-crypto/internal/generator/field/config"
-	"github.com/consensys/gnark-crypto/internal/generator/fri"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_curve"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_field"
 	"github.com/consensys/gnark-crypto/internal/generator/kzg"
@@ -202,7 +201,6 @@ func main() {
 				assertNoError(pedersen.Generate(conf, filepath.Join(curveDir, "fr", "pedersen"), gen))
 				assertNoError(tower.Generate(conf, filepath.Join(curveDir, "internal", "fptower"), gen))
 				assertNoError(pairing.Generate(conf, curveDir, gen))
-				assertNoError(fri.Generate(conf, filepath.Join(curveDir, "fr", "fri"), gen))
 				assertNoError(mpcsetup.Generate(conf, filepath.Join(curveDir, "mpcsetup"), gen))
 				assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), gen))
 				assertNoError(shplonk.Generate(conf, filepath.Join(curveDir, "shplonk"), gen))

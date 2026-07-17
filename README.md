@@ -18,7 +18,6 @@
   * [`stark-curve`]
 * [`field/generator`] - Finite field arithmetic code generator (blazingly fast big.Int)
 * [`fft`] - Fast Fourier Transform
-* [`fri`] - FRI (multiplicative) commitment scheme
 * [`fiatshamir`] - Fiat-Shamir transcript builder
 * [`mimc`] - MiMC hash function using Miyaguchi-Preneel construction
 * [`kzg`] - KZG commitment scheme
