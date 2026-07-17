@@ -93,7 +93,7 @@ func TestMpcSetupRejectsInconsistentG1Monomials(t *testing.T) {
 	mpcsetup.UpdateMonomialsG1(next.srs.Pk.G1, &contribution)
 
 	_, _, g1, _ := curve.Generators()
-	for i := 1; i < len(next.srs.Pk.G1); i++ {
+	for i := 2; i < len(next.srs.Pk.G1); i++ {
 		next.srs.Pk.G1[i] = g1
 	}
 
