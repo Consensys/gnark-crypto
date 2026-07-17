@@ -123,7 +123,6 @@ This project is licensed under the Apache 2 License - see the [LICENSE](LICENSE)
 [`twistededwards`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/twistededwards
 [`eddsa`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/twistededwards/eddsa
 [`fft`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/fr/fft
-[`fri`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/fr/fri
 [`mimc`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc
 [`kzg`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/fr/kzg
 [`plookup`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/fr/plookup
