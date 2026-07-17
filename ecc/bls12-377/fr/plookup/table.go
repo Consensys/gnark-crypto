@@ -87,15 +87,15 @@ func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, 
 	_nbColumns := max(len(f[0])+1, len(t[0]))
 	d := fft.NewDomain(uint64(_nbColumns))
 	nbColumns := d.Cardinality
-	lfs := make([][]fr.Element, nbRows)
-	cfs := make([][]fr.Element, nbRows)
-	lts := make([][]fr.Element, nbRows)
-	cts := make([][]fr.Element, nbRows)
+	lfs := make([]fr.Vector, nbRows)
+	cfs := make([]fr.Vector, nbRows)
+	lts := make([]fr.Vector, nbRows)
+	cts := make([]fr.Vector, nbRows)
 
 	for i := range nbRows {
 
-		cfs[i] = make([]fr.Element, nbColumns)
-		lfs[i] = make([]fr.Element, nbColumns)
+		cfs[i] = make(fr.Vector, nbColumns)
+		lfs[i] = make(fr.Vector, nbColumns)
 		copy(cfs[i], f[i])
 		copy(lfs[i], f[i])
 		for j := len(f[i]); j < int(nbColumns); j++ {
@@ -109,8 +109,8 @@ func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, 
 			return proof, err
 		}
 
-		cts[i] = make([]fr.Element, nbColumns)
-		lts[i] = make([]fr.Element, nbColumns)
+		cts[i] = make(fr.Vector, nbColumns)
+		lts[i] = make(fr.Vector, nbColumns)
 		copy(cts[i], t[i])
 		copy(lts[i], t[i])
 		for j := len(t[i]); j < int(d.Cardinality); j++ {
@@ -137,16 +137,8 @@ func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, 
 	if err != nil {
 		return proof, err
 	}
-	foldedf := make(fr.Vector, nbColumns)
-	foldedt := make(fr.Vector, nbColumns)
-	for i := range int(nbColumns) {
-		for j := nbRows - 1; j >= 0; j-- {
-			foldedf[i].Mul(&foldedf[i], &lambda).
-				Add(&foldedf[i], &lfs[j][i])
-			foldedt[i].Mul(&foldedt[i], &lambda).
-				Add(&foldedt[i], &lts[j][i])
-		}
-	}
+	foldedf := foldRows(lfs, int(nbColumns), lambda)
+	foldedt := foldRows(lts, int(nbColumns), lambda)
 
 	// generate a proof of permutation of the foldedt and sort(foldedt)
 	foldedtSorted := make(fr.Vector, nbColumns)
@@ -162,6 +154,20 @@ func ProveLookupTables(pk kzg.ProvingKey, f, t []fr.Vector) (ProofLookupTables, 
 	proof.foldedProof, err = ProveLookupVector(pk, foldedf[:len(foldedf)-1], foldedt)
 
 	return proof, err
+}
+
+func foldRows(rows []fr.Vector, nbColumns int, lambda fr.Element) fr.Vector {
+	folded := make(fr.Vector, nbColumns)
+	for i := range nbColumns {
+		for j := len(rows) - 1; j >= 0; j-- {
+			v := rows[j][len(rows[j])-1]
+			if i < len(rows[j]) {
+				v = rows[j][i]
+			}
+			folded[i].Mul(&folded[i], &lambda).Add(&folded[i], &v)
+		}
+	}
+	return folded
 }
 
 // VerifyLookupTables verifies that a ProofLookupTables proof is correct.
@@ -205,6 +211,12 @@ func VerifyLookupTables(vk kzg.VerifyingKey, proof ProofLookupTables) error {
 
 	// check that the folded commitment of the fs correspond to foldedProof.f
 	if !comf.Equal(&proof.foldedProof.f) {
+		return ErrFoldedCommitment
+	}
+	if !comt.Equal(&proof.permutationProof.ComT1) {
+		return ErrFoldedCommitment
+	}
+	if !proof.foldedProof.t.Equal(&proof.permutationProof.ComT2) {
 		return ErrFoldedCommitment
 	}
 

@@ -38,16 +38,16 @@ type Proof struct {
 
 	// commitments of t1 & t2, the permuted vectors, and z, the accumulation
 	// polynomial
-	t1, t2, z kzg.Digest
+	ComT1, ComT2, ComZ kzg.Digest
 
 	// commitment to the quotient polynomial
-	q kzg.Digest
+	ComQ kzg.Digest
 
 	// opening proofs of t1, t2, z, q (in that order)
-	batchedProof kzg.BatchOpeningProof
+	BatchedProof kzg.BatchOpeningProof
 
 	// shifted opening proof of z
-	shiftedProof kzg.OpeningProof
+	ShiftedProof kzg.OpeningProof
 }
 
 // evaluateAccumulationPolynomialBitReversed returns the accumulation polynomial in Lagrange basis.
@@ -157,17 +157,17 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 	d.FFTInverse(ct2, fft.DIF)
 	utils.BitReverse(ct1)
 	utils.BitReverse(ct2)
-	proof.t1, err = kzg.Commit(ct1, pk)
+	proof.ComT1, err = kzg.Commit(ct1, pk)
 	if err != nil {
 		return proof, err
 	}
-	proof.t2, err = kzg.Commit(ct2, pk)
+	proof.ComT2, err = kzg.Commit(ct2, pk)
 	if err != nil {
 		return proof, err
 	}
 
 	// derive challenge for z
-	epsilon, err := deriveRandomness(fs, "epsilon", &proof.t1, &proof.t2)
+	epsilon, err := deriveRandomness(fs, "epsilon", &proof.ComT1, &proof.ComT2)
 	if err != nil {
 		return proof, err
 	}
@@ -175,7 +175,7 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 	// compute Z and commit it
 	cz := evaluateAccumulationPolynomialBitReversed(t1, t2, epsilon)
 	d.FFTInverse(cz, fft.DIT)
-	proof.z, err = kzg.Commit(cz, pk)
+	proof.ComZ, err = kzg.Commit(cz, pk)
 	if err != nil {
 		return proof, err
 	}
@@ -196,7 +196,7 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 	lsNum := evaluateSecondPartNumReverse(lz, d)
 
 	// derive challenge used for the folding
-	omega, err := deriveRandomness(fs, "omega", &proof.z)
+	omega, err := deriveRandomness(fs, "omega", &proof.ComZ)
 	if err != nil {
 		return proof, err
 	}
@@ -213,19 +213,19 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 
 	// get the quotient and commit it
 	d.FFTInverse(lsNum, fft.DIT, fft.OnCoset())
-	proof.q, err = kzg.Commit(lsNum, pk)
+	proof.ComQ, err = kzg.Commit(lsNum, pk)
 	if err != nil {
 		return proof, err
 	}
 
 	// derive the evaluation challenge
-	eta, err := deriveRandomness(fs, "eta", &proof.q)
+	eta, err := deriveRandomness(fs, "eta", &proof.ComQ)
 	if err != nil {
 		return proof, err
 	}
 
 	// compute the opening proofs
-	proof.batchedProof, err = kzg.BatchOpenSinglePoint(
+	proof.BatchedProof, err = kzg.BatchOpenSinglePoint(
 		[][]fr.Element{
 			ct1,
 			ct2,
@@ -233,10 +233,10 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 			lsNum,
 		},
 		[]kzg.Digest{
-			proof.t1,
-			proof.t2,
-			proof.z,
-			proof.q,
+			proof.ComT1,
+			proof.ComT2,
+			proof.ComZ,
+			proof.ComQ,
 		},
 		eta,
 		hFunc,
@@ -248,7 +248,7 @@ func Prove(pk kzg.ProvingKey, t1, t2 []fr.Element) (Proof, error) {
 
 	var shiftedEta fr.Element
 	shiftedEta.Mul(&eta, &d.Generator)
-	proof.shiftedProof, err = kzg.Open(
+	proof.ShiftedProof, err = kzg.Open(
 		cz,
 		shiftedEta,
 		pk,
@@ -272,17 +272,17 @@ func Verify(vk kzg.VerifyingKey, proof Proof) error {
 	fs := fiatshamir.NewTranscript(hFunc, "epsilon", "omega", "eta")
 
 	// derive the challenges
-	epsilon, err := deriveRandomness(fs, "epsilon", &proof.t1, &proof.t2)
+	epsilon, err := deriveRandomness(fs, "epsilon", &proof.ComT1, &proof.ComT2)
 	if err != nil {
 		return err
 	}
 
-	omega, err := deriveRandomness(fs, "omega", &proof.z)
+	omega, err := deriveRandomness(fs, "omega", &proof.ComZ)
 	if err != nil {
 		return err
 	}
 
-	eta, err := deriveRandomness(fs, "eta", &proof.q)
+	eta, err := deriveRandomness(fs, "eta", &proof.ComQ)
 	if err != nil {
 		return err
 	}
@@ -295,13 +295,13 @@ func Verify(vk kzg.VerifyingKey, proof Proof) error {
 		Sub(&rhs, &one)
 	a.Sub(&eta, &one)
 	l0.Div(&rhs, &a)
-	rhs.Mul(&rhs, &proof.batchedProof.ClaimedValues[3])
-	a.Sub(&epsilon, &proof.batchedProof.ClaimedValues[1]).
-		Mul(&a, &proof.shiftedProof.ClaimedValue)
-	b.Sub(&epsilon, &proof.batchedProof.ClaimedValues[0]).
-		Mul(&b, &proof.batchedProof.ClaimedValues[2])
+	rhs.Mul(&rhs, &proof.BatchedProof.ClaimedValues[3])
+	a.Sub(&epsilon, &proof.BatchedProof.ClaimedValues[1]).
+		Mul(&a, &proof.ShiftedProof.ClaimedValue)
+	b.Sub(&epsilon, &proof.BatchedProof.ClaimedValues[0]).
+		Mul(&b, &proof.BatchedProof.ClaimedValues[2])
 	lhs.Sub(&a, &b)
-	a.Sub(&proof.batchedProof.ClaimedValues[2], &one).
+	a.Sub(&proof.BatchedProof.ClaimedValues[2], &one).
 		Mul(&a, &l0).
 		Mul(&a, &omega)
 	lhs.Add(&a, &lhs)
@@ -312,12 +312,12 @@ func Verify(vk kzg.VerifyingKey, proof Proof) error {
 	// check the opening proofs
 	err = kzg.BatchVerifySinglePoint(
 		[]kzg.Digest{
-			proof.t1,
-			proof.t2,
-			proof.z,
-			proof.q,
+			proof.ComT1,
+			proof.ComT2,
+			proof.ComZ,
+			proof.ComQ,
 		},
-		&proof.batchedProof,
+		&proof.BatchedProof,
 		eta,
 		hFunc,
 		vk,
@@ -328,7 +328,7 @@ func Verify(vk kzg.VerifyingKey, proof Proof) error {
 
 	var shiftedEta fr.Element
 	shiftedEta.Mul(&eta, &proof.g)
-	err = kzg.Verify(&proof.z, &proof.shiftedProof, shiftedEta, vk)
+	err = kzg.Verify(&proof.ComZ, &proof.ShiftedProof, shiftedEta, vk)
 	if err != nil {
 		return err
 	}

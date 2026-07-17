@@ -6,11 +6,16 @@
 package plookup
 
 import (
+	"crypto/sha256"
 	"math/big"
+	"sort"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/fft"
+	"github.com/consensys/gnark-crypto/ecc/bw6-633/fr/permutation"
 	"github.com/consensys/gnark-crypto/ecc/bw6-633/kzg"
+	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
 )
 
 func TestLookupVector(t *testing.T) {
@@ -106,6 +111,85 @@ func TestLookupTable(t *testing.T) {
 		}
 	}
 
+}
+
+func TestLookupTableCommitmentBinding(t *testing.T) {
+
+	kzgSrs, err := kzg.NewSRS(64, big.NewInt(13))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	claimedTable := make([]fr.Vector, 3)
+	fTable := make([]fr.Vector, 3)
+	for i := range 3 {
+		claimedTable[i] = make(fr.Vector, 8)
+		fTable[i] = make(fr.Vector, 7)
+		for j := range 8 {
+			claimedTable[i][j].SetUint64(uint64(1000 + 17*i + j))
+		}
+		for j := range 7 {
+			fTable[i][j].SetUint64(uint64(i + j + 1))
+		}
+	}
+
+	proof, err := ProveLookupTables(kzgSrs.Pk, fTable, claimedTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nbRows := len(proof.fs)
+	comms := make([]*kzg.Digest, 2*nbRows)
+	for i := range nbRows {
+		comms[i] = &proof.fs[i]
+		comms[nbRows+i] = &proof.ts[i]
+	}
+	lambda, err := deriveRandomness(fiatshamir.NewTranscript(sha256.New(), "lambda"), "lambda", comms...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nbColumns := int(fft.NewDomain(uint64(max(len(fTable[0])+1, len(claimedTable[0])))).Cardinality)
+	foldedf := foldRows(fTable, nbColumns, lambda)
+	foldedt := make(fr.Vector, nbColumns)
+	copy(foldedt, foldedf)
+	foldedtSorted := make(fr.Vector, nbColumns)
+	copy(foldedtSorted, foldedt)
+	sort.Sort(foldedtSorted)
+
+	proof.permutationProof, err = permutation.Prove(kzgSrs.Pk, foldedt, foldedtSorted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proof.foldedProof, err = ProveLookupVector(kzgSrs.Pk, foldedf[:len(foldedf)-1], foldedt)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = VerifyLookupTables(kzgSrs.Vk, proof)
+	if err != ErrFoldedCommitment {
+		t.Fatalf("expected %v, got %v", ErrFoldedCommitment, err)
+	}
+
+	validProof, err := ProveLookupTables(kzgSrs.Pk, fTable, foldRowsAsTableForTest(fTable))
+	if err != nil {
+		t.Fatal(err)
+	}
+	validProof.foldedProof.t.Set(&validProof.foldedProof.f)
+	err = VerifyLookupTables(kzgSrs.Vk, validProof)
+	if err != ErrFoldedCommitment {
+		t.Fatalf("expected %v after mutating folded table commitment, got %v", ErrFoldedCommitment, err)
+	}
+}
+
+func foldRowsAsTableForTest(rows []fr.Vector) []fr.Vector {
+	table := make([]fr.Vector, len(rows))
+	for i := range rows {
+		table[i] = make(fr.Vector, len(rows[i])+1)
+		copy(table[i], rows[i])
+		table[i][len(table[i])-1].Set(&rows[i][len(rows[i])-1])
+	}
+	return table
 }
 
 func BenchmarkPlookup(b *testing.B) {
