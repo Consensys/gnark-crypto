@@ -10,8 +10,9 @@ func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 	return proof.readFrom(r)
 }
 
-// UnsafeReadFrom decodes OpeningProof data from reader without checking
-// that points are in the correct subgroup.
+// UnsafeReadFrom decodes OpeningProof data from reader without validating
+// decoded points. Callers must validate the proof before use, for example with
+// BatchVerify.
 func (proof *OpeningProof) UnsafeReadFrom(r io.Reader) (int64, error) {
 
 	return proof.readFrom(r, {{ .CurvePackage }}.NoSubgroupChecks())
