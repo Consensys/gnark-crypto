@@ -6,6 +6,7 @@
 package shplonk
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"math/big"
 	"math/rand"
@@ -50,6 +51,17 @@ func TestSerialization(t *testing.T) {
 	}
 
 	t.Run("opening proof round trip", testutils.SerializationRoundTrip(&proof))
+	t.Run("opening proof raw round trip", testutils.SerializationRoundTripRaw(&proof))
+	t.Run("opening proof unsafe raw round trip", func(t *testing.T) {
+		var buf bytes.Buffer
+		_, err := proof.WriteRawTo(&buf)
+		require.NoError(t, err)
+
+		var reconstructed OpeningProof
+		_, err = reconstructed.UnsafeReadFrom(&buf)
+		require.NoError(t, err)
+		require.Equal(t, proof, reconstructed)
+	})
 }
 
 func TestOpening(t *testing.T) {

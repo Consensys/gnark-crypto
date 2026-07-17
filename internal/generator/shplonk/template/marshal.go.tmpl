@@ -6,7 +6,19 @@ import (
 
 func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 
-	dec := {{ .CurvePackage }}.NewDecoder(r)
+	return proof.readFrom(r)
+}
+
+// UnsafeReadFrom decodes OpeningProof data from reader without checking
+// that points are in the correct subgroup.
+func (proof *OpeningProof) UnsafeReadFrom(r io.Reader) (int64, error) {
+
+	return proof.readFrom(r, {{ .CurvePackage }}.NoSubgroupChecks())
+}
+
+func (proof *OpeningProof) readFrom(r io.Reader, options ...func(*{{ .CurvePackage }}.Decoder)) (int64, error) {
+
+	dec := {{ .CurvePackage }}.NewDecoder(r, options...)
 
 	toDecode := []any{
 		&proof.W,
@@ -21,12 +33,23 @@ func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 	}
 
 	return dec.BytesRead(), nil
-}   
+}
 
 // WriteTo writes binary encoding of a OpeningProof
 func (proof *OpeningProof) WriteTo(w io.Writer) (int64, error) {
 
-	enc := {{ .CurvePackage }}.NewEncoder(w)
+	return proof.writeTo(w)
+}
+
+// WriteRawTo writes binary encoding of OpeningProof to w without point compression.
+func (proof *OpeningProof) WriteRawTo(w io.Writer) (int64, error) {
+
+	return proof.writeTo(w, {{ .CurvePackage }}.RawEncoding())
+}
+
+func (proof *OpeningProof) writeTo(w io.Writer, options ...func(*{{ .CurvePackage }}.Encoder)) (int64, error) {
+
+	enc := {{ .CurvePackage }}.NewEncoder(w, options...)
 
 	toEncode := []any{
 		&proof.W,

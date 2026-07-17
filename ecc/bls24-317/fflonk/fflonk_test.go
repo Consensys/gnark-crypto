@@ -6,13 +6,16 @@
 package fflonk
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
+	bls24317 "github.com/consensys/gnark-crypto/ecc/bls24-317"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-317/kzg"
+	"github.com/consensys/gnark-crypto/utils/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,6 +27,44 @@ func init() {
 	const srsSize = 600
 	bAlpha = new(big.Int).SetInt64(42) // randomise ?
 	testSrs, _ = kzg.NewSRS(ecc.NextPowerOfTwo(srsSize), bAlpha)
+}
+
+func TestSerialization(t *testing.T) {
+
+	_, _, g, _ := bls24317.Generators()
+	var proof OpeningProof
+	proof.SOpeningProof.W.Set(&g)
+	proof.SOpeningProof.WPrime.Set(&g)
+	proof.SOpeningProof.ClaimedValues = make([][]fr.Element, 3)
+	for i := range proof.SOpeningProof.ClaimedValues {
+		proof.SOpeningProof.ClaimedValues[i] = make([]fr.Element, i+2)
+		for j := range proof.SOpeningProof.ClaimedValues[i] {
+			proof.SOpeningProof.ClaimedValues[i][j].MustSetRandom()
+		}
+	}
+	proof.ClaimedValues = make([][][]fr.Element, 2)
+	for i := range proof.ClaimedValues {
+		proof.ClaimedValues[i] = make([][]fr.Element, 3)
+		for j := range proof.ClaimedValues[i] {
+			proof.ClaimedValues[i][j] = make([]fr.Element, i+j+1)
+			for k := range proof.ClaimedValues[i][j] {
+				proof.ClaimedValues[i][j][k].MustSetRandom()
+			}
+		}
+	}
+
+	t.Run("opening proof round trip", testutils.SerializationRoundTrip(&proof))
+	t.Run("opening proof raw round trip", testutils.SerializationRoundTripRaw(&proof))
+	t.Run("opening proof unsafe raw round trip", func(t *testing.T) {
+		var buf bytes.Buffer
+		_, err := proof.WriteRawTo(&buf)
+		require.NoError(t, err)
+
+		var reconstructed OpeningProof
+		_, err = reconstructed.UnsafeReadFrom(&buf)
+		require.NoError(t, err)
+		require.Equal(t, proof, reconstructed)
+	})
 }
 
 func TestFflonk(t *testing.T) {
