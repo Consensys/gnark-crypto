@@ -208,10 +208,32 @@ w := b[i]
 // on Intel and Cortex-M4" by Aardal et al.
 // https://eprint.iacr.org/2024/1563.pdf (algo 3)
 func (z *E2) Sqrt(a *E2) *E2 {
+    // Aardal Algorithm 3 has an unstated precondition a.A1 != 0:
+    // for a.A1 == 0 with a.A0 a non-residue in Fp the inner ExpBySqrtPp1o4 yields
+    // δ = -a.A0, then x0 = a.A0 + δ = 0 cascades to (0, 0). But (a.A0, 0) is
+    // always a square in Fp² for nonzero a.A0 (Euler), with sqrt (0, sqrt(a.A0/β))
+    // where β = u² is the Fp² QNR. Handle the purely-real branch explicitly.
     if a.A1.IsZero() {
-        z.A0.Sqrt(&a.A0)
+        if a.A0.Legendre() >= 0 {
+            z.A0.Sqrt(&a.A0)
             z.A1.SetZero()
             return z
+        }
+        var aOverBeta fp.Element
+        {{- if eq .Curve.G2.CoordExtRoot -5 }}
+        // β = -5: aOverBeta = a / β = -a / 5
+        var beta fp.Element
+        beta.SetUint64(5)
+        beta.Neg(&beta)
+        aOverBeta.Inverse(&beta)
+        aOverBeta.Mul(&aOverBeta, &a.A0)
+        {{- else }}
+        // β = -1 (CoordExtRoot = -1, or default 0): aOverBeta = -a
+        aOverBeta.Neg(&a.A0)
+        {{- end }}
+        z.A0.SetZero()
+        z.A1.Sqrt(&aOverBeta)
+        return z
     }
 
     var delta, x0, x1, t0, t1 fp.Element
@@ -254,6 +276,35 @@ func (z *E2) Sqrt(a *E2) *E2 {
 // finite fields: Tricks of the Trade" by Michael Scott
 // https://eprint.iacr.org/2020/1497.pdf (Sec. 6.3)
 func (z *E2) Sqrt(x *E2) *E2 {
+	// Scott §6.3 has an unstated precondition x.A1 != 0:
+	// for x.A1 == 0 with x.A0 a non-residue in Fp the inner Fp.Sqrt fails
+	// silently and the final SqrtAndInverse goes through zero, returning
+	// (0, 0) for what is in fact a square in Fp². Its true sqrt is
+	// (0, sqrt(x.A0 / β)) where β = u² is the Fp² QNR. Handle the
+	// purely-real branch explicitly.
+	if x.A1.IsZero() {
+		if x.A0.Legendre() >= 0 {
+			z.A0.Sqrt(&x.A0)
+			z.A1.SetZero()
+			return z
+		}
+		var aOverBeta fp.Element
+		{{- if eq .Curve.G2.CoordExtRoot -5 }}
+		// β = -5: aOverBeta = x.A0 / β = -x.A0 / 5
+		var beta fp.Element
+		beta.SetUint64(5)
+		beta.Neg(&beta)
+		aOverBeta.Inverse(&beta)
+		aOverBeta.Mul(&aOverBeta, &x.A0)
+		{{- else }}
+		// β = -1: aOverBeta = -x.A0
+		aOverBeta.Neg(&x.A0)
+		{{- end }}
+		z.A0.SetZero()
+		z.A1.Sqrt(&aOverBeta)
+		return z
+	}
+
 	var x0, x1 fp.Element
 	x.norm(&x0)
 	x0.Sqrt(&x0)

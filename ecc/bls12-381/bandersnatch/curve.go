@@ -48,9 +48,8 @@ func GetEdwardsCurve() CurveParams {
 }
 
 var (
-	curveParamsOnce sync.Once
-	curveParams     CurveParams
-
+	curveParamsOnce    sync.Once
+	curveParams        CurveParams
 	fixedBaseTableOnce sync.Once
 	fixedBaseTable     [fixedBaseWindowCount][fixedBaseWindowEntries]PointAffine
 )

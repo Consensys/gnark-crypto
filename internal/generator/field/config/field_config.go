@@ -17,7 +17,8 @@ import (
 )
 
 var (
-	errParseModulus = errors.New("can't parse modulus")
+	errParseModulus   = errors.New("can't parse modulus")
+	errInvalidModulus = errors.New("modulus must be an odd integer greater than 2")
 )
 
 // Field precomputed values used in template for code generation of field element APIs
@@ -138,6 +139,9 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 	var bModulus big.Int
 	if _, ok := bModulus.SetString(modulus, 0); !ok {
 		return nil, errParseModulus
+	}
+	if bModulus.Cmp(big.NewInt(3)) < 0 || bModulus.Bit(0) == 0 {
+		return nil, errInvalidModulus
 	}
 
 	// field info
@@ -372,7 +376,7 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 		if F.UseAddChain {
 			F.CbrtQ2Mod3ExponentData = addchain.GetAddChain(&cbrtExponent)
 		}
-	} else {
+	} else if qMod3.Cmp(big.NewInt(1)) == 0 {
 		// q ≡ 1 (mod 3)
 		// use Tonelli-Shanks variant for cube roots
 		F.CbrtQ1Mod3 = true
@@ -556,6 +560,8 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 			}
 		}
 	}
+	// The only prime with q ≡ 0 (mod 3) is q = 3. There is no generated Cbrt
+	// specialization for that degenerate field, so leave the Cbrt flags unset.
 
 	// note: to simplify output files generated, we generated ASM code only for
 	// moduli that meet the condition F.NoCarry

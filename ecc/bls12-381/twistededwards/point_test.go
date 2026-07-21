@@ -836,6 +836,159 @@ func TestOps(t *testing.T) {
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }
+func testSubgroupByOrder(p *PointAffine) bool {
+	params := GetEdwardsCurve()
+	var check PointAffine
+	check.ScalarMultiplication(p, &params.Order)
+	return check.IsZero()
+}
+
+func testRejectTorsionCoset(p, torsion *PointAffine) bool {
+	var q PointAffine
+	q.Add(p, torsion)
+	return !q.IsInSubGroup() && !testSubgroupByOrder(&q)
+}
+func testTorsion8Point(t4 *PointAffine) (PointAffine, bool) {
+	var one, aInv, discr, discrSqrt, x2, y2, t fr.Element
+	one.SetOne()
+	aInv.Inverse(&curveParams.A)
+	discr.Set(&curveParams.D).Neg(&discr).Mul(&discr, &aInv).Add(&discr, &one)
+	if discrSqrt.Sqrt(&discr) == nil {
+		return PointAffine{}, false
+	}
+
+	var dInv fr.Element
+	dInv.Inverse(&curveParams.D)
+	tryT8 := func(root *fr.Element, negateY, negateX bool) (PointAffine, bool) {
+		var q, dbl PointAffine
+		t.Add(&one, root).
+			Mul(&t, &curveParams.A).
+			Mul(&t, &dInv)
+		if y2.Sqrt(&t) == nil {
+			return PointAffine{}, false
+		}
+		if negateY {
+			y2.Neg(&y2)
+		}
+		x2.Mul(&t, &aInv)
+		if q.X.Sqrt(&x2) == nil {
+			return PointAffine{}, false
+		}
+		if negateX {
+			q.X.Neg(&q.X)
+		}
+		q.Y.Set(&y2)
+		dbl.Double(&q)
+		if !dbl.Equal(t4) {
+			return PointAffine{}, false
+		}
+		return q, true
+	}
+
+	roots := [2]fr.Element{discrSqrt}
+	roots[1].Neg(&discrSqrt)
+	for i := range roots {
+		for _, negateY := range []bool{false, true} {
+			for _, negateX := range []bool{false, true} {
+				if q, ok := tryT8(&roots[i], negateY, negateX); ok {
+					return q, true
+				}
+			}
+		}
+	}
+	return PointAffine{}, false
+}
+
+func TestIsInSubGroup(t *testing.T) {
+	t.Parallel()
+	parameters := gopter.DefaultTestParameters()
+	if testing.Short() {
+		parameters.MinSuccessfulTests = nbFuzzShort
+	} else {
+		parameters.MinSuccessfulTests = nbFuzz
+	}
+
+	properties := gopter.NewProperties(parameters)
+	genS := GenBigInt()
+
+	properties.Property("Identity element (0,1) should be in subgroup", prop.ForAll(
+		func() bool {
+
+			var p PointAffine
+			p.setInfinity()
+
+			return p.IsInSubGroup()
+		},
+	))
+
+	properties.Property("The 2-torsion point (0,-1) should not be in subgroup", prop.ForAll(
+		func() bool {
+			var p PointAffine
+			p.Y.SetOne().Neg(&p.Y)
+			return !p.IsInSubGroup()
+		},
+	))
+
+	properties.Property("Test IsInSubGroup", prop.ForAll(
+		func(s big.Int) bool {
+
+			params := GetEdwardsCurve()
+
+			var p PointAffine
+			p.ScalarMultiplication(&params.Base, &s)
+
+			return p.IsInSubGroup()
+		},
+		genS,
+	))
+
+	properties.Property("IsInSubGroup should agree with multiplication by subgroup order on subgroup points", prop.ForAll(
+		func(s big.Int) bool {
+			params := GetEdwardsCurve()
+
+			var p PointAffine
+			p.ScalarMultiplication(&params.Base, &s)
+
+			return p.IsInSubGroup() == testSubgroupByOrder(&p)
+		},
+		genS,
+	))
+
+	properties.Property("Torsion cosets should not be in subgroup", prop.ForAll(
+		func(s big.Int) bool {
+			params := GetEdwardsCurve()
+
+			var p PointAffine
+			p.ScalarMultiplication(&params.Base, &s)
+
+			var t2 PointAffine
+			t2.Y.SetOne().Neg(&t2.Y)
+			if !testRejectTorsionCoset(&p, &t2) { //nolint: staticcheck, we code generate and in some paths we don't return early
+				return false
+			}
+			var sqrtA fr.Element
+			sqrtA.Set(&curveParams.A)
+			if sqrtA.Sqrt(&sqrtA) == nil {
+				return false
+			}
+			var t4 PointAffine
+			t4.Y.SetZero()
+			t4.X.Inverse(&sqrtA)
+			if !testRejectTorsionCoset(&p, &t4) { //nolint: staticcheck, we code generate and in some paths we don't return early
+				return false
+			}
+			t8, ok := testTorsion8Point(&t4)
+			if !ok || !testRejectTorsionCoset(&p, &t8) {
+				return false
+			}
+
+			return true
+		},
+		genS,
+	))
+
+	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
 
 func TestMarshal(t *testing.T) {
 	t.Parallel()
@@ -1180,6 +1333,36 @@ func BenchmarkIsOnCurve(b *testing.B) {
 		b.ResetTimer()
 		for range b.N {
 			_ = point.IsOnCurve()
+		}
+	})
+}
+func BenchmarkIsInSubGroup(b *testing.B) {
+	params := GetEdwardsCurve()
+	var s big.Int
+	s.SetString("52435875175126190479447705081859658376581184513", 10)
+
+	var point PointAffine
+	point.ScalarMultiplication(&params.Base, &s)
+
+	if !point.IsInSubGroup() {
+		b.Fatal("point should be in subgroup")
+	}
+
+	b.Run("is_in_subgroup", func(b *testing.B) {
+		b.ResetTimer()
+		for range b.N {
+			_ = point.IsInSubGroup()
+		}
+	})
+
+	b.Run("mul_by_order", func(b *testing.B) {
+		var check PointAffine
+		b.ResetTimer()
+		for range b.N {
+			check.ScalarMultiplication(&point, &params.Order)
+			if !check.IsZero() {
+				b.Fatal("point should have prime order")
+			}
 		}
 	})
 }
