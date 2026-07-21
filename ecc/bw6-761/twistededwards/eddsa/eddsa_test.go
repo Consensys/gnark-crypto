@@ -256,8 +256,36 @@ func TestEddsaSHA256(t *testing.T) {
 
 // benchmarks
 
-func BenchmarkVerify(b *testing.B) {
+func BenchmarkGenerateKey(b *testing.B) {
+	r := rand.New(rand.NewSource(0)) //#nosec G404 deterministic benchmark seed
 
+	for b.Loop() {
+		if _, err := GenerateKey(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSign(b *testing.B) {
+	r := rand.New(rand.NewSource(0)) //#nosec G404 deterministic benchmark seed
+	privKey, err := GenerateKey(r)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	var frMsg fr.Element
+	frMsg.SetString("44717650746155748460101257525078853138837311576962212923649547644148297035978")
+	msgBin := frMsg.Bytes()
+	hFunc := hash.MIMC_BW6_761.New()
+
+	for b.Loop() {
+		if _, err := privKey.Sign(msgBin[:], hFunc); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkVerify(b *testing.B) {
 	src := rand.NewSource(0)
 	r := rand.New(src) //#nosec G404 weak rng is fine here
 
@@ -274,8 +302,7 @@ func BenchmarkVerify(b *testing.B) {
 	msgBin := frMsg.Bytes()
 	signature, _ := privKey.Sign(msgBin[:], hFunc)
 
-	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		pubKey.Verify(signature, msgBin[:], hFunc)
 	}
 }

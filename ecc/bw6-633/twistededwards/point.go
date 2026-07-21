@@ -39,6 +39,10 @@ const (
 
 	// size in byte of a compressed point (point.Y --> fr.Element)
 	sizePointCompressed = fr.Bytes
+
+	fixedBaseWindowSize    = 4
+	fixedBaseWindowEntries = 1 << fixedBaseWindowSize
+	fixedBaseWindowCount   = fr.Bytes * 2
 )
 
 // Bytes returns the compressed point as a byte array
@@ -73,8 +77,6 @@ func (p *PointAffine) Marshal() []byte {
 }
 
 func computeX(y *fr.Element) (x fr.Element) {
-	initOnce.Do(initCurveParams)
-
 	var one, num, den fr.Element
 	one.SetOne()
 	num.Square(y)
@@ -150,8 +152,6 @@ func NewPointAffine(x, y fr.Element) PointAffine {
 
 // IsOnCurve checks if a point is on the twisted Edwards curve
 func (p *PointAffine) IsOnCurve() bool {
-	initOnce.Do(initCurveParams)
-
 	var lhs, rhs, tmp fr.Element
 
 	tmp.Mul(&p.Y, &p.Y)
@@ -180,9 +180,6 @@ func (p *PointAffine) Neg(p1 *PointAffine) *PointAffine {
 // Unified Addition from https://eprint.iacr.org/2008/522.pdf (Sec. 3.1)
 // https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-add-2008-hwcd
 func (p *PointAffine) Add(p1, p2 *PointAffine) *PointAffine {
-
-	initOnce.Do(initCurveParams)
-
 	var A, B, C, D, E, F, G, H, tmp fr.Element
 	A.Mul(&p1.X, &p2.X)
 	B.Mul(&p1.Y, &p2.Y)
@@ -259,6 +256,47 @@ func (p *PointAffine) FromExtended(p1 *PointExtended) *PointAffine {
 // p1 in affine coordinates with a scalar in big.Int
 func (p *PointAffine) ScalarMultiplication(p1 *PointAffine, scalar *big.Int) *PointAffine {
 	return p.scalarMulWindowed(p1, scalar)
+}
+
+// ScalarMultiplicationBase computes [scalar]Base in affine coordinates.
+func (p *PointAffine) ScalarMultiplicationBase(scalar *big.Int) *PointAffine {
+	_s := scalar
+	neg := scalar.Sign() == -1
+	var scalarAbs, scalarReduced big.Int
+	if neg {
+		scalarAbs.Neg(scalar)
+		_s = &scalarAbs
+	}
+	if _s.Cmp(&curveParams.Order) >= 0 {
+		scalarReduced.Mod(_s, &curveParams.Order)
+		_s = &scalarReduced
+	}
+
+	sWords := _s.Bits()
+
+	var resExtended PointExtended
+	resExtended.setInfinity()
+
+	const windowsPerWord = bits.UintSize / fixedBaseWindowSize
+	for wordIndex, word := range sWords {
+		for j := range windowsPerWord {
+			tableIndex := wordIndex*windowsPerWord + j
+			if tableIndex >= fixedBaseWindowCount {
+				break
+			}
+			digit := word & (fixedBaseWindowEntries - 1)
+			if digit != 0 {
+				resExtended.MixedAdd(&resExtended, &fixedBaseTable[tableIndex][digit])
+			}
+			word >>= fixedBaseWindowSize
+		}
+	}
+
+	if neg {
+		resExtended.Neg(&resExtended)
+	}
+	p.FromExtended(&resExtended)
+	return p
 }
 
 // scalarMulWindowed scalar multiplication of a point
@@ -368,8 +406,6 @@ func (p *PointProj) FromAffine(p1 *PointAffine) *PointProj {
 // Unified Addition from http://eprint.iacr.org/2008/013.pdf (Sec. 6)
 // https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#addition-add-2008-bbjlp
 func (p *PointProj) Add(p1, p2 *PointProj) *PointProj {
-	initOnce.Do(initCurveParams)
-
 	var A, B, C, D, E, F, G, H, I fr.Element
 	A.Mul(&p1.Z, &p2.Z)
 	B.Square(&A)
@@ -423,8 +459,6 @@ func (p *PointProj) Double(p1 *PointProj) *PointProj {
 // Mixed Addition from http://eprint.iacr.org/2008/013.pdf (Sec. 6)
 // https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#addition-madd-2008-bbjlp
 func (p *PointProj) MixedAdd(p1 *PointProj, p2 *PointAffine) *PointProj {
-	initOnce.Do(initCurveParams)
-
 	var B, C, D, E, F, G, H, I fr.Element
 	B.Square(&p1.Z)
 	C.Mul(&p1.X, &p2.X)
@@ -593,7 +627,6 @@ func (p *PointExtended) Double(p1 *PointExtended) *PointExtended {
 // Unified Mixed Addition from https://eprint.iacr.org/2008/522.pdf (Sec. 3.1)
 // https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-madd-2008-hwcd
 func (p *PointExtended) MixedAdd(p1 *PointExtended, p2 *PointAffine) *PointExtended {
-	initOnce.Do(initCurveParams)
 	var A, B, C, D, E, F, G, H, tmp fr.Element
 
 	A.Mul(&p1.X, &p2.X)

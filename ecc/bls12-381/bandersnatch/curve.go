@@ -28,7 +28,6 @@ type CurveParams struct {
 
 // GetEdwardsCurve returns the twisted Edwards curve on bls12-381/Fr
 func GetEdwardsCurve() CurveParams {
-	initOnce.Do(initCurveParams)
 	// copy to keep Order private
 	var res CurveParams
 
@@ -49,8 +48,10 @@ func GetEdwardsCurve() CurveParams {
 }
 
 var (
-	initOnce    sync.Once
-	curveParams CurveParams
+	curveParamsOnce    sync.Once
+	curveParams        CurveParams
+	fixedBaseTableOnce sync.Once
+	fixedBaseTable     [fixedBaseWindowCount][fixedBaseWindowEntries]PointAffine
 )
 
 func initCurveParams() {
@@ -68,6 +69,27 @@ func initCurveParams() {
 	curveParams.endo[1].SetString("49199877423542878313146170939139662862850515542392585932876811575731455068989")
 	curveParams.lambda.SetString("8913659658109529928382530854484400854125314752504019737736543920008458395397", 10)
 	ecc.PrecomputeLattice(&curveParams.Order, &curveParams.lambda, &curveParams.glvBasis)
+}
+
+func initFixedBaseTable() {
+	var base PointAffine
+	base.Set(&curveParams.Base)
+
+	for i := range fixedBaseWindowCount {
+		fixedBaseTable[i][0].setInfinity()
+		fixedBaseTable[i][1].Set(&base)
+		for j := 2; j < fixedBaseWindowEntries; j++ {
+			fixedBaseTable[i][j].Add(&fixedBaseTable[i][j-1], &base)
+		}
+		for range fixedBaseWindowSize {
+			base.Double(&base)
+		}
+	}
+}
+
+func init() {
+	curveParamsOnce.Do(initCurveParams)
+	fixedBaseTableOnce.Do(initFixedBaseTable)
 }
 
 // mulByA multiplies fr.Element by curveParams.A

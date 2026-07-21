@@ -50,8 +50,6 @@ type Signature struct {
 
 // GenerateKey generates a public and private key pair.
 func GenerateKey(r io.Reader) (*PrivateKey, error) {
-	c := twistededwards.GetEdwardsCurve()
-
 	var pub PublicKey
 	var priv PrivateKey
 	// The source of randomness and the secret scalar must come
@@ -88,7 +86,7 @@ func GenerateKey(r io.Reader) (*PrivateKey, error) {
 
 	var bScalar big.Int
 	bScalar.SetBytes(priv.scalar[:])
-	pub.A.ScalarMultiplication(&c.Base, &bScalar)
+	pub.A.ScalarMultiplicationBase(&bScalar)
 
 	priv.PublicKey = pub
 
@@ -143,7 +141,7 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 	blindingFactorBigInt.SetBytes(blindingFactorBytes[:sizeFr])
 
 	// compute R = randScalar*Base
-	res.R.ScalarMultiplication(&curveParams.Base, &blindingFactorBigInt)
+	res.R.ScalarMultiplicationBase(&blindingFactorBigInt)
 	if !res.R.IsOnCurve() {
 		return nil, errNotOnCurve
 	}
@@ -230,7 +228,7 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	var bCofactor, bs big.Int
 	curveParams.Cofactor.BigInt(&bCofactor)
 	bs.SetBytes(sig.S[:])
-	lhs.ScalarMultiplication(&curveParams.Base, &bs).
+	lhs.ScalarMultiplicationBase(&bs).
 		ScalarMultiplication(&lhs, &bCofactor)
 
 	if !lhs.IsOnCurve() {

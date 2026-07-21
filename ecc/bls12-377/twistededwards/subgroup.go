@@ -341,7 +341,6 @@ func (p *PointAffine) IsInSubGroup() bool {
 		return true
 	}
 
-	initOnce.Do(initCurveParams)
 	subgroupInitOnce.Do(initCofactorSubgroupParams)
 
 	var r weierstrassPointAffine

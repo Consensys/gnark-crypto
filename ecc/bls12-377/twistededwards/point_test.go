@@ -820,6 +820,19 @@ func TestOps(t *testing.T) {
 		genS1,
 	))
 
+	properties.Property("base scalar multiplication should be consistent", prop.ForAll(
+		func(s big.Int) bool {
+			params := GetEdwardsCurve()
+
+			var p1, p2 PointAffine
+			p1.ScalarMultiplicationBase(&s)
+			p2.ScalarMultiplication(&params.Base, &s)
+
+			return p1.Equal(&p2)
+		},
+		genS1,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }
@@ -903,7 +916,6 @@ func TestIsInSubGroup(t *testing.T) {
 			if !testRejectTorsionCoset(&p, &t2) { //nolint: staticcheck, we code generate and in some paths we don't return early
 				return false
 			}
-			initOnce.Do(initCurveParams)
 			var sqrtA fr.Element
 			sqrtA.Set(&curveParams.A)
 			if sqrtA.Sqrt(&sqrtA) == nil {
@@ -926,7 +938,6 @@ func TestIsInSubGroup(t *testing.T) {
 
 func TestMarshal(t *testing.T) {
 	t.Parallel()
-	initOnce.Do(initCurveParams)
 
 	var point, unmarshalPoint PointAffine
 	point.Set(&curveParams.Base)
@@ -953,6 +964,68 @@ func GenBigInt() gopter.Gen {
 		s.SetBytes(b[:])
 		genResult := gopter.NewGenResult(s, gopter.NoShrinker)
 		return genResult
+	}
+}
+
+func TestScalarMultiplicationBase(t *testing.T) {
+	t.Parallel()
+
+	params := GetEdwardsCurve()
+
+	testCases := []struct {
+		Name   string
+		Scalar *big.Int
+	}{
+		{"0", big.NewInt(0)},
+		{"1", big.NewInt(1)},
+		{"2", big.NewInt(2)},
+		{"-1", big.NewInt(-1)},
+		{"-2", big.NewInt(-2)},
+		{"16", big.NewInt(16)},
+		{"-16", big.NewInt(-16)},
+		{"p-1", new(big.Int).Sub(&params.Order, big.NewInt(1))},
+		{"p", new(big.Int).Set(&params.Order)},
+		{"p+1", new(big.Int).Add(&params.Order, big.NewInt(1))},
+		{"p+16", new(big.Int).Add(&params.Order, big.NewInt(16))},
+		{"-p-16", new(big.Int).Neg(new(big.Int).Add(&params.Order, big.NewInt(16)))},
+		{"-p+16", new(big.Int).Neg(new(big.Int).Add(&params.Order, big.NewInt(-16)))},
+		{"2^1000", new(big.Int).Lsh(big.NewInt(1), 1000)},
+		{"-2^1000", new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 1000))},
+	}
+
+	var allFF [fr.Bytes]byte
+	for i := range allFF {
+		allFF[i] = 0xff
+	}
+	testCases = append(testCases, struct {
+		Name   string
+		Scalar *big.Int
+	}{"allFF", new(big.Int).SetBytes(allFF[:])})
+
+	var highestNibble [fr.Bytes]byte
+	highestNibble[0] = 0xf0
+	testCases = append(testCases, struct {
+		Name   string
+		Scalar *big.Int
+	}{"highestNibble", new(big.Int).SetBytes(highestNibble[:])})
+
+	var lowestNibble [fr.Bytes]byte
+	lowestNibble[fr.Bytes-1] = 0x0f
+	testCases = append(testCases, struct {
+		Name   string
+		Scalar *big.Int
+	}{"lowestNibble", new(big.Int).SetBytes(lowestNibble[:])})
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			var fixed, generic PointAffine
+			fixed.ScalarMultiplicationBase(tc.Scalar)
+			generic.ScalarMultiplication(&params.Base, tc.Scalar)
+
+			if !fixed.Equal(&generic) {
+				t.Fatalf("fixed-base mismatch for scalar %s", tc.Scalar.String())
+			}
+		})
 	}
 }
 
@@ -1033,6 +1106,39 @@ func BenchmarkScalarMulProjective(b *testing.B) {
 	for range b.N {
 		doubleAndAdd.ScalarMultiplication(&a, &s)
 	}
+}
+
+func BenchmarkScalarMulAffineBase(b *testing.B) {
+	params := GetEdwardsCurve()
+
+	var scalar big.Int
+	scalar.SetString("52435875175126190479447705081859658376581184513", 10)
+	var scalarUnreduced big.Int
+	scalarUnreduced.Add(&scalar, &params.Order)
+
+	b.Run("generic", func(b *testing.B) {
+		var point PointAffine
+
+		for b.Loop() {
+			point.ScalarMultiplication(&params.Base, &scalar)
+		}
+	})
+
+	b.Run("fixed", func(b *testing.B) {
+		var point PointAffine
+
+		for b.Loop() {
+			point.ScalarMultiplicationBase(&scalar)
+		}
+	})
+
+	b.Run("fixed/unreduced", func(b *testing.B) {
+		var point PointAffine
+
+		for b.Loop() {
+			point.ScalarMultiplicationBase(&scalarUnreduced)
+		}
+	})
 }
 
 func BenchmarkNeg(b *testing.B) {
