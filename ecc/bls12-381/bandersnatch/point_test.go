@@ -852,6 +852,19 @@ func TestOps(t *testing.T) {
 		genS1,
 	))
 
+	properties.Property("base scalar multiplication should be consistent", prop.ForAll(
+		func(s big.Int) bool {
+			params := GetEdwardsCurve()
+
+			var p1, p2 PointAffine
+			p1.ScalarMultiplicationBase(&s)
+			p2.ScalarMultiplication(&params.Base, &s)
+
+			return p1.Equal(&p2)
+		},
+		genS1,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }
@@ -929,72 +942,60 @@ func TestScalarMultiplicationBase(t *testing.T) {
 
 	params := GetEdwardsCurve()
 
-	cases := make([]big.Int, 0, 9+nbFuzz)
-	cases = append(cases, *big.NewInt(0))
-	cases = append(cases, *big.NewInt(1))
-	cases = append(cases, *big.NewInt(2))
-	cases = append(cases, *big.NewInt(15))
-	cases = append(cases, *big.NewInt(16))
-	cases = append(cases, *big.NewInt(-16))
-
-	var orderMinusOne big.Int
-	orderMinusOne.Sub(&params.Order, big.NewInt(1))
-	cases = append(cases, orderMinusOne)
-
-	var order big.Int
-	order.Set(&params.Order)
-	cases = append(cases, order)
-
-	var orderPlusSixteen big.Int
-	orderPlusSixteen.Add(&params.Order, big.NewInt(16))
-	cases = append(cases, orderPlusSixteen)
-
-	var negativeOrderPlusSixteen big.Int
-	negativeOrderPlusSixteen.Neg(&orderPlusSixteen)
-	cases = append(cases, negativeOrderPlusSixteen)
-
-	var large big.Int
-	large.Lsh(big.NewInt(1), 300).Add(&large, big.NewInt(12345))
-	cases = append(cases, large)
-
-	var negativeLarge big.Int
-	negativeLarge.Neg(&large)
-	cases = append(cases, negativeLarge)
+	testCases := []struct {
+		Name   string
+		Scalar *big.Int
+	}{
+		{"0", big.NewInt(0)},
+		{"1", big.NewInt(1)},
+		{"2", big.NewInt(2)},
+		{"-1", big.NewInt(-1)},
+		{"-2", big.NewInt(-2)},
+		{"16", big.NewInt(16)},
+		{"-16", big.NewInt(-16)},
+		{"p-1", new(big.Int).Sub(&params.Order, big.NewInt(1))},
+		{"p", new(big.Int).Set(&params.Order)},
+		{"p+1", new(big.Int).Add(&params.Order, big.NewInt(1))},
+		{"p+16", new(big.Int).Add(&params.Order, big.NewInt(16))},
+		{"-p-16", new(big.Int).Neg(new(big.Int).Add(&params.Order, big.NewInt(16)))},
+		{"-p+16", new(big.Int).Neg(new(big.Int).Add(&params.Order, big.NewInt(-16)))},
+		{"2^1000", new(big.Int).Lsh(big.NewInt(1), 1000)},
+		{"-2^1000", new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 1000))},
+	}
 
 	var allFF [fr.Bytes]byte
 	for i := range allFF {
 		allFF[i] = 0xff
 	}
-	cases = append(cases, *new(big.Int).SetBytes(allFF[:]))
+	testCases = append(testCases, struct {
+		Name   string
+		Scalar *big.Int
+	}{"allFF", new(big.Int).SetBytes(allFF[:])})
 
 	var highestNibble [fr.Bytes]byte
 	highestNibble[0] = 0xf0
-	cases = append(cases, *new(big.Int).SetBytes(highestNibble[:]))
+	testCases = append(testCases, struct {
+		Name   string
+		Scalar *big.Int
+	}{"highestNibble", new(big.Int).SetBytes(highestNibble[:])})
 
 	var lowestNibble [fr.Bytes]byte
 	lowestNibble[fr.Bytes-1] = 0x0f
-	cases = append(cases, *new(big.Int).SetBytes(lowestNibble[:]))
+	testCases = append(testCases, struct {
+		Name   string
+		Scalar *big.Int
+	}{"lowestNibble", new(big.Int).SetBytes(lowestNibble[:])})
 
-	loops := nbFuzz
-	if testing.Short() {
-		loops = nbFuzzShort
-	}
-	for range loops {
-		var scalarBytes [fr.Bytes]byte
-		if _, err := rand.Read(scalarBytes[:]); err != nil {
-			t.Fatal(err)
-		}
-		cases = append(cases, *new(big.Int).SetBytes(scalarBytes[:]))
-	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			var fixed, generic PointAffine
+			fixed.ScalarMultiplicationBase(tc.Scalar)
+			generic.ScalarMultiplication(&params.Base, tc.Scalar)
 
-	for _, scalar := range cases {
-		var fixed, generic PointAffine
-		fixed.ScalarMultiplicationBase(&scalar)
-		generic.ScalarMultiplication(&params.Base, &scalar)
-
-		if !fixed.Equal(&generic) {
-			t.Fatalf("fixed-base mismatch for scalar %s", scalar.String())
-		}
+			if !fixed.Equal(&generic) {
+				t.Fatalf("fixed-base mismatch for scalar %s", tc.Scalar.String())
+			}
+		})
 	}
 }
 
@@ -1088,8 +1089,7 @@ func BenchmarkScalarMulAffineBase(b *testing.B) {
 	b.Run("generic", func(b *testing.B) {
 		var point PointAffine
 
-		b.ResetTimer()
-		for range b.N {
+		for b.Loop() {
 			point.ScalarMultiplication(&params.Base, &scalar)
 		}
 	})
@@ -1097,8 +1097,7 @@ func BenchmarkScalarMulAffineBase(b *testing.B) {
 	b.Run("fixed", func(b *testing.B) {
 		var point PointAffine
 
-		b.ResetTimer()
-		for range b.N {
+		for b.Loop() {
 			point.ScalarMultiplicationBase(&scalar)
 		}
 	})
@@ -1106,8 +1105,7 @@ func BenchmarkScalarMulAffineBase(b *testing.B) {
 	b.Run("fixed/unreduced", func(b *testing.B) {
 		var point PointAffine
 
-		b.ResetTimer()
-		for range b.N {
+		for b.Loop() {
 			point.ScalarMultiplicationBase(&scalarUnreduced)
 		}
 	})
