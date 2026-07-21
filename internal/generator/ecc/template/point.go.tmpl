@@ -6,16 +6,16 @@
 
 
 import (
-	{{- if eq .PointName "g2"}}
 	"crypto/rand"
-	{{- end}}
 	"math/big"
 	"runtime"
+	"sync/atomic"
+
 
 	{{- if .GLV}}
 	"github.com/consensys/gnark-crypto/ecc"
 	{{- end}}
-	"github.com/consensys/gnark-crypto/internal/parallel"
+	"github.com/consensys/gnark-crypto/parallel"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 	{{- if or (eq .CoordType "fptower.E2") (eq .CoordType "fptower.E4") }}
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/internal/fptower"
@@ -72,36 +72,49 @@ func (p *{{ $TAffine }}) SetInfinity() *{{ $TAffine }} {
 // ScalarMultiplication computes and returns p = [s]a
 // where p and a are affine points.
 func (p *{{ $TAffine }}) ScalarMultiplication(a *{{ $TAffine }}, s *big.Int) *{{ $TAffine }} {
-	var _p {{ $TJacobian }}
-	_p.FromAffine(a)
 	{{- if .GLV}}
 		if s.BitLen() >= {{ .PointName }}ScalarMulChoose {
+			{{- if and (eq .PointName "g2") (or (eq .Name "bn254") (eq .Name "bls12-381") (eq .Name "bls12-377"))}}
+            var _p {{ $TJacobian }}
+            _p.FromAffine(a)
+			_p.mulGLS(&_p, s)
+            p.FromJacobian(&_p)
+			{{- else }}
+            var _p {{ $TJacobian }}
+            _p.FromAffine(a)
 			_p.mulGLV(&_p, s)
+            p.FromJacobian(&_p)
+			{{- end }}
 		} else {
-			_p.mulWindowed(&_p, s)
+			p.mulWindowed(a, s)
 		}
+        return p
 	{{- else }}
-        _p.mulWindowed(&_p, s)
+        return p.mulWindowed(a, s)
 	{{- end }}
-	p.FromJacobian(&_p)
-	return p
 }
 
 // ScalarMultiplicationBase computes and returns p = [s]g
 // where g is the affine point generating the prime subgroup.
 func (p *{{ $TAffine }}) ScalarMultiplicationBase(s *big.Int) *{{ $TAffine }} {
-	var _p {{ $TJacobian }}
 	{{- if .GLV}}
 		if s.BitLen() >= {{ .PointName }}ScalarMulChoose {
+			{{- if and (eq .PointName "g2") (or (eq .Name "bn254") (eq .Name "bls12-381") (eq .Name "bls12-377"))}}
+            var _p {{ $TJacobian }}
+			_p.mulGLS(&{{ toLower .PointName}}Gen, s)
+            p.FromJacobian(&_p)
+			{{- else }}
+            var _p {{ $TJacobian }}
 			_p.mulGLV(&{{ toLower .PointName}}Gen, s)
+            p.FromJacobian(&_p)
+			{{- end }}
 		} else {
-			_p.mulWindowed(&{{ toLower .PointName}}Gen, s)
+			p.mulWindowed(&{{ toLower .PointName}}GenAff, s)
 		}
+        return p
 	{{- else }}
-        _p.mulWindowed(&{{ toLower .PointName}}Gen, s)
+        return p.mulWindowed(&{{ toLower .PointName}}GenAff, s)
 	{{- end }}
-	p.FromJacobian(&_p)
-	return p
 }
 
 
@@ -230,6 +243,13 @@ func (p *{{ $TAffine }}) IsOnCurve() bool {
 	var left, right  {{.CoordType}}
 	left.Square(&p.Y)
 	right.Square(&p.X).Mul(&right, &p.X)
+	{{- if not .IsZeroA}}
+	{
+		var aX {{.CoordType}}
+		aX.Mul(&p.X, &aCurveCoeff)
+		right.Add(&right, &aX)
+	}
+	{{- end}}
 	{{- if eq .PointName "g1"}}
     right.Add(&right, &bCurveCoeff)
     {{- else}}
@@ -240,10 +260,9 @@ func (p *{{ $TAffine }}) IsOnCurve() bool {
 
 // IsInSubGroup returns true if the affine point p is in the correct subgroup, false otherwise.
 func (p *{{ $TAffine }}) IsInSubGroup() bool {
-{{- if eq .Name "bn254"}}
-    {{- if eq .PointName "g1"}}
+{{- if and (not .CofactorCleaning) (eq .PointName "g1")}}
     return p.IsOnCurve()
-    {{- else if eq .PointName "g2"}}
+{{- else if and (eq .Name "bn254") (eq .PointName "g2")}}
     if !p.IsOnCurve() {
         return false
     }
@@ -260,7 +279,6 @@ func (p *{{ $TAffine }}) IsInSubGroup() bool {
         Double(&res)
 
     return res.Equal(&c)
-    {{- end}}
 {{- else if eq .Name "bls12-381"}}
     {{- if eq .PointName "g1"}}
     if !p.IsOnCurve() {
@@ -292,6 +310,81 @@ func (p *{{ $TAffine }}) IsInSubGroup() bool {
 {{- end}}
 }
 
+// IsInSubGroupBatch{{ toUpper .PointName}} checks if a batch of points P_i are in {{ toUpper .PointName}}.
+// It uses a deterministic naive method for batch size < 80 and a probabilistic
+// method otherwise.
+func IsInSubGroupBatch{{ toUpper .PointName}}(points []{{ $TAffine }}) bool {
+	{{- if eq .PointName "g1"}}
+	if len(points) < 80 {
+	{{- else if eq .PointName "g2"}}
+	if len(points) < 160 {
+	{{- end}}
+		return isInSubGroupBatch{{ toUpper .PointName}}Naive(points)
+	} else {
+		return isInSubGroupBatch{{ toUpper .PointName}}Prob(points)
+	}
+}
+
+// isInSubGroupBatch{{ toUpper .PointName}}Naive checks if a batch of points P_i are in {{ toUpper .PointName}}.
+// This is a naive method that checks each point individually using
+// IsInSubGroup method.
+func isInSubGroupBatch{{ toUpper .PointName}}Naive(points []{{ $TAffine }}) bool {
+	var nbErrors int64
+	parallel.Execute(len(points), func(start, end int) {
+		for i := start; i < end; i++ {
+			if !points[i].IsInSubGroup() {
+				atomic.AddInt64(&nbErrors, 1)
+				return
+			}
+		}
+	})
+	return nbErrors == 0
+}
+
+// isInSubGroupBatch{{ toUpper .PointName}}Prob probabilistically checks if a batch of points P_i are in
+// {{ toUpper .PointName}}.  It generates random scalars s_i in the range {0,1}, performs 64 MSM
+// Sj=∑[s_i]P_i of sizes N=len(points) and checks if Sj are on E[r] using
+// IsInSubGroup method. The error probability is < 1/2^64.
+func isInSubGroupBatch{{ toUpper .PointName}}Prob(points []{{ $TAffine }}) bool {
+	var nbErrors int64
+	const windowSize = 64
+	parallel.Execute(windowSize, func(start, end int) {
+
+		var br [windowSize / 8]byte
+
+		// Check Sj are on E[r]
+		for range end - start {
+			var sum {{ $TJacobianExtended }}
+            for j := range points {
+				pos := j % windowSize
+				if pos == 0 {
+					// re sample the random bytes every windowSize points
+					// as per the doc:
+					// Read fills b with cryptographically secure random bytes. It never returns an error, and always fills b entirely.
+					if _, err := rand.Read(br[:]); err != nil {
+						panic(err)
+					}
+				}
+				// check if the bit is set
+				if br[pos/8]&(1<<(pos%8)) != 0 {
+					// add the point to the sum
+					sum.addMixed(&points[j])
+				}
+			}
+
+			var p {{ $TJacobian }}
+			p.fromJacExtended(&sum)
+			if !p.IsInSubGroup() {
+				atomic.AddInt64(&nbErrors, 1)
+				return
+			}
+		}
+
+	})
+
+	return nbErrors == 0
+
+}
 
 // -------------------------------------------------------------------------------------------------
 // Jacobian coordinates
@@ -417,7 +510,10 @@ func (p *{{ $TJacobian }}) DoubleMixed(a *{{ $TAffine }}) *{{ $TJacobian }} {
 		Sub(&S, &YYYY).
 		Double(&S)
 	M.Double(&XX).
-		Add(&M, &XX) // -> + A, but A=0 here
+		Add(&M, &XX) // M = 3*XX
+	{{- if not .IsZeroA}}
+	M.Add(&M, &aCurveCoeff) // M = 3*XX + a (Z=1 for mixed doubling, so a*Z⁴ = a)
+	{{- end}}
 	T.Square(&M).
 		Sub(&T, &S).
 		Sub(&T, &S)
@@ -495,6 +591,45 @@ func (p *{{ $TJacobian }}) Double(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 }
 
 // DoubleAssign doubles p in Jacobian coordinates.
+{{- if .IsNeg3A}}
+//
+// https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#doubling-dbl-2001-b
+// ~Cost: 3M + 5S (using alpha = 3*(X-Z²)(X+Z²) when a=-3)
+func (p *{{ $TJacobian }}) DoubleAssign() *{{ $TJacobian }} {
+	var delta, gamma, beta, alpha, tmp {{.CoordType}}
+	delta.Square(&p.Z)
+	gamma.Square(&p.Y)
+	beta.Mul(&p.X, &gamma)
+	// alpha = 3*(X+Z²)(X-Z²) = 3*X² - 3*Z⁴ = 3*X² + a*Z⁴ (since a=-3)
+	alpha.Add(&p.X, &delta)
+	tmp.Sub(&p.X, &delta)
+	{{- if eq .CoordType "fp.Element"}}
+	fp.MulBy3(&tmp)
+	{{- else}}
+	{
+		t := tmp
+		tmp.Double(&tmp).Add(&tmp, &t)
+	}
+	{{- end}}
+	alpha.Mul(&alpha, &tmp)
+	p.X.Square(&alpha)
+	tmp.Double(&beta).Double(&tmp).Double(&tmp)
+	p.X.Sub(&p.X, &tmp)
+	p.Z.Add(&p.Y, &p.Z).
+		Square(&p.Z).
+		Sub(&p.Z, &gamma).
+		Sub(&p.Z, &delta)
+	p.Y.Double(&beta).
+		Double(&p.Y).
+		Sub(&p.Y, &p.X).
+		Mul(&p.Y, &alpha)
+	tmp.Square(&gamma).
+		Double(&tmp).Double(&tmp).Double(&tmp)
+	p.Y.Sub(&p.Y, &tmp)
+
+	return p
+}
+{{- else}}
 //
 // https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
 // ~Cost: 2M + 5S
@@ -509,7 +644,16 @@ func (p *{{ $TJacobian }}) DoubleAssign() *{{ $TJacobian }} {
 		Sub(&D, &C).
 		Double(&D)
 	E.Double(&A).
-		Add(&E, &A)
+		Add(&E, &A) // E = 3*A = 3*X²
+	{{- if not .IsZeroA}}
+	{
+		var aZ4 {{.CoordType}}
+		aZ4.Square(&p.Z)
+		aZ4.Square(&aZ4).
+			Mul(&aZ4, &aCurveCoeff)
+		E.Add(&E, &aZ4) // E = 3*X² + a*Z⁴
+	}
+	{{- end}}
 	F.Square(&E)
 	t.Double(&D)
 	p.Z.Mul(&p.Y, &p.Z).
@@ -524,10 +668,21 @@ func (p *{{ $TJacobian }}) DoubleAssign() *{{ $TJacobian }} {
 
  	return p
 }
-// Triple sets p to [3]q in Jacobian coordinates for j=0 curves.
+{{- end}}
+// Triple sets p to [3]q in Jacobian coordinates.
+{{- if .IsZeroA}}
 //
-// https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1
+// https://eprint.iacr.org/2024/1906.pdf, Proposition 2.1 (optimized for j=0 curves)
+{{- end}}
 func (p *{{ $TJacobian }}) Triple(q *{{ $TJacobian }}) *{{ $TJacobian }} {
+{{- if not .IsZeroA}}
+	// general case: double and add (use temp to handle p == q aliasing)
+	var tmp {{ $TJacobian }}
+	tmp.Double(q).AddAssign(q)
+	p.Set(&tmp)
+	return p
+}
+{{- else}}
 	// Helper functions for multiplication by 3 and 4.
 	mulBy3 := func(v *{{.CoordType}}) {
 		{{- if eq .CoordType "fp.Element"}}
@@ -591,19 +746,28 @@ func (p *{{ $TJacobian }}) Triple(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 
 	return p
 }
+{{- end}}
 
 // ScalarMultiplication computes and returns p = [s]a
 // where p and a are Jacobian points.
 {{- if .GLV}}
+    {{- if and (eq .PointName "g2") (or (eq .Name "bn254") (eq .Name "bls12-381") (eq .Name "bls12-377"))}}
+// using a GLV-GLS method.
+    {{- else }}
 // using the GLV technique.
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
+    {{- end }}
 {{- else }}
 // using a 2-bits windowed double-and-add method.
 {{- end }}
 func (p *{{ $TJacobian }}) ScalarMultiplication(q *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
 	{{- if .GLV}}
 		if s.BitLen() >= {{ .PointName }}ScalarMulChoose {
+			{{- if and (eq .PointName "g2") (or (eq .Name "bn254") (eq .Name "bls12-381") (eq .Name "bls12-377"))}}
+			return p.mulGLS(q, s)
+			{{- else }}
 			return p.mulGLV(q, s)
+			{{- end }}
 		} else {
 			return p.mulWindowed(q, s)
 		}
@@ -617,7 +781,11 @@ func (p *{{ $TJacobian }}) ScalarMultiplication(q *{{ $TJacobian }}, s *big.Int)
 func (p *{{ $TJacobian  }}) ScalarMultiplicationBase(s *big.Int) *{{ $TJacobian  }} {
     {{- if .GLV}}
 		if s.BitLen() >= {{ .PointName }}ScalarMulChoose {
+			{{- if and (eq .PointName "g2") (or (eq .Name "bn254") (eq .Name "bls12-381") (eq .Name "bls12-377"))}}
+			return p.mulGLS(&{{ toLower .PointName }}Gen, s)
+			{{- else }}
 			return p.mulGLV(&{{ toLower .PointName }}Gen, s)
+			{{- end }}
 		} else {
 			return p.mulWindowed(&{{ toLower .PointName }}Gen, s)
 		}
@@ -654,6 +822,16 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 	left.Square(&p.Y)
 	right.Square(&p.X).Mul(&right, &p.X)
 	ZZ.Square(&p.Z)
+	{{- if not .IsZeroA}}
+	{
+		// add a*X*Z⁴ term
+		var aXZ4 {{.CoordType}}
+		aXZ4.Mul(&ZZ, &ZZ).
+			Mul(&aXZ4, &p.X).
+			Mul(&aXZ4, &aCurveCoeff)
+		right.Add(&right, &aXZ4)
+	}
+	{{- end}}
     tmp.Square(&ZZ).Mul(&tmp, &ZZ)
 		{{- if eq .PointName "g1"}}
             {{- if or (eq .Name "bls12-381") (eq .Name "bls24-317") (eq .Name "bw6-633")}}
@@ -689,17 +867,14 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
 
 
-{{- if or (eq .Name "bn254") (eq .Name "secp256k1") (eq .Name "grumpkin")}}
-	{{- if eq .PointName "g1"}}
-		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
-        // the curve is of prime order i.e. E(𝔽p) is the full group
-        // so we just check that the point is on the curve.
-		func (p *{{ $TJacobian }}) IsInSubGroup() bool {
-
-			return p.IsOnCurve()
-
-		}
-	{{else if eq .PointName "g2"}}
+{{- if and (not .CofactorCleaning) (eq .PointName "g1")}}
+	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
+	// the curve is of prime order i.e. E(𝔽p) is the full group
+	// so we just check that the point is on the curve.
+	func (p *{{ $TJacobian }}) IsInSubGroup() bool {
+		return p.IsOnCurve()
+	}
+{{- else if and (eq .Name "bn254") (eq .PointName "g2")}}
 		// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
         // https://eprint.iacr.org/2022/348.pdf, sec. 3 and 5.1
         // [r]P == 0 <==> [x₀+1]P + ψ([x₀]P) + ψ²([x₀]P) = ψ³([2x₀]P)
@@ -720,7 +895,6 @@ func (p *{{ $TJacobian }}) IsOnCurve() bool {
 
             return res.Equal(&c)
 		}
-	{{- end}}
 {{else if eq .Name "bw6-761"}}
 	// IsInSubGroup returns true if p is on the r-torsion, false otherwise.
     {{ if .GLV}}
@@ -945,41 +1119,62 @@ func GeneratePointNotIn{{ toUpper .PointName}}(f E2) {{ $TJacobian }} {
 }
 {{- end}}
 
-// mulWindowed computes the 2-bits windowed double-and-add scalar
-// multiplication p=[s]q in Jacobian coordinates.
+// mulWindowed computes a double-and-add scalar multiplication p=[s]q in
+// Jacobian coordinates and using NAF encoding.
 func (p *{{ $TJacobian }}) mulWindowed(q *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
-
-	var res {{ $TJacobian }}
-	var ops [3]{{ $TJacobian }}
-
-	ops[0].Set(q)
-	if s.Sign() == -1 {
-		ops[0].Neg(&ops[0])
-	}
-	res.Set(&{{ toLower .PointName}}Infinity)
-	ops[1].Double(&ops[0])
-	ops[2].Triple(&ops[0])
-
-	b := s.Bytes()
-	for i := range b {
-		w := b[i]
-		mask := byte(0xc0)
-		for j := 0; j < 4; j++ {
-			res.DoubleAssign().DoubleAssign()
-			c := (w & mask) >> (6 - 2*j)
-			if c != 0 {
-				res.AddAssign(&ops[c-1])
-			}
-			mask = mask >> 2
-		}
-	}
-	p.Set(&res)
-
-	return p
-
+	var qAff {{ $TAffine }}
+	qAff.FromJacobian(q)
+	return p.mulWindowedMixed(&qAff, s)
 }
 
-{{- if not (eq .Name "secp256k1")}}
+// mulWindowed computes a double-and-add scalar multiplication p=[s]q in
+// affine coordinates and using NAF encoding.
+func (p *{{ $TAffine }}) mulWindowed(q *{{ $TAffine }}, s *big.Int) *{{ $TAffine }} {
+	var res {{ $TJacobian }}
+	res.mulWindowedMixed(q, s)
+	p.FromJacobian(&res)
+	return p
+}
+
+// mulWindowedMixed computes a double-and-add scalar multiplication p=[s]q
+// where q is in affine coordinates, using NAF encoding.
+func (p *{{ $TJacobian }}) mulWindowedMixed(q *{{ $TAffine }}, s *big.Int) *{{ $TJacobian }} {
+	if s.Sign() == 0 {
+		p.Set(&{{ toLower .PointName}}Infinity)
+		return p
+	}
+	var scalar big.Int
+	scalar.Set(s)
+	negScalar := scalar.Sign() < 0
+	if negScalar {
+		scalar.Neg(&scalar)
+	}
+	if scalar.BitLen() > fr.Bits {
+		scalar.Mod(&scalar, fr.Modulus())
+	}
+	var naf [fr.Bits + 1]int8
+	nafLen := ecc.NafDecomposition(&scalar, naf[:])
+	var qNeg {{ $TAffine }}
+	qNeg.Neg(q)
+	p.Set(&{{ toLower .PointName}}Infinity)
+	for i := nafLen - 1; i >= 0; i-- {
+		p.DoubleAssign()
+		switch naf[i] {
+		case 0:
+			continue
+		case 1:
+			p.AddMixed(q)
+		case -1:
+			p.AddMixed(&qNeg)
+		}
+	}
+	if negScalar {
+		p.Neg(p)
+	}
+	return p
+}
+
+{{- if .HasG2}}
 // mulBySeed multiplies the point q by the seed xGen in Jacobian coordinates
 // using an optimized addition chain.
 func (p *{{ $TJacobian }}) mulBySeed(q *{{ $TJacobian }}) *{{ $TJacobian }} {
@@ -989,23 +1184,23 @@ func (p *{{ $TJacobian }}) mulBySeed(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 
     var res {{ $TJacobian }}
     res.Triple(q)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		res.Double(&res)
 	}
 	res.AddAssign(q)
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		res.Double(&res)
 	}
 	res.AddAssign(q)
-	for i := 0; i < 9; i++ {
+	for range 9 {
 		res.Double(&res)
 	}
 	res.AddAssign(q)
-	for i := 0; i < 32; i++ {
+	for range 32 {
 		res.Double(&res)
 	}
 	res.AddAssign(q)
-	for i := 0; i < 16; i++ {
+	for range 16 {
 		res.Double(&res)
 	}
     p.Set(&res)
@@ -1027,15 +1222,15 @@ func (p *{{ $TJacobian }}) mulBySeed(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 	t0.Triple(z)
 	t0.AddAssign(t1)
 	t1.Double(t0)
-	for s := 0; s < 6; s++ {
+	for range 6 {
 		t1.Double(t1)
 	}
 	t0.AddAssign(t1)
-	for s := 0; s < 5; s++ {
+	for range 5 {
 		t0.Double(t0)
 	}
 	z.AddAssign(t0)
-	for s := 0; s < 46; s++ {
+	for range 46 {
 		z.Double(z)
 	}
 	z.AddAssign(q)
@@ -1067,37 +1262,37 @@ func (p *{{ $TJacobian }}) mulBySeed(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 	t6.Double(t2)
 	t1.AddAssign(t0)
 	t0.Set(t3).AddAssign(t1)
-	for s := 0; s < 6; s++ {
+	for range 6 {
 		t6.Double(t6)
 	}
 	t5.AddAssign(t6)
 	t5.AddAssign(t4)
-	for s := 0; s < 7; s++ {
+	for range 7 {
 		t5.Double(t5)
 	}
 	t4.AddAssign(t5)
-	for s := 0; s < 8; s++ {
+	for range 8 {
 		t4.Double(t4)
 	}
 	t4.AddAssign(t0)
 	t3.AddAssign(t4)
-	for s := 0; s < 6; s++ {
+	for range 6 {
 		t3.Double(t3)
 	}
 	t2.AddAssign(t3)
-	for s := 0; s < 8; s++ {
+	for range 8 {
 		t2.Double(t2)
 	}
 	t2.AddAssign(t0)
-	for s := 0; s < 6; s++ {
+	for range 6 {
 		t2.Double(t2)
 	}
 	t2.AddAssign(t0)
-	for s := 0; s < 10; s++ {
+	for range 10 {
 		t2.Double(t2)
 	}
 	t1.AddAssign(t2)
-	for s := 0; s < 6; s++ {
+	for range 6 {
 		t1.Double(t1)
 	}
 	t0.AddAssign(t1)
@@ -1149,68 +1344,72 @@ func (p *{{ $TJacobian }}) phi(q *{{ $TJacobian }}) *{{ $TJacobian }} {
 // see https://www.iacr.org/archive/crypto2001/21390189.pdf
 func (p *{{ $TJacobian }}) mulGLV(q *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
 
-	var table [15]{{ $TJacobian }}
 	var res {{ $TJacobian }}
-	var k1, k2 fr.Element
+	var q1, q2 {{ $TJacobian }}
 
 	res.Set(&{{ toLower .PointName}}Infinity)
 
-	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(q) + b1b0*q
-	table[0].Set(q)
-	table[3].phi(q)
+	// q1 = q, q2 = ϕ(q)
+	q1.Set(q)
+	q2.phi(q)
 
 	// split the scalar, modifies ±q, ϕ(q) accordingly
 	k := ecc.SplitScalar(s, &glvBasis)
 
 	if k[0].Sign() == -1 {
 		k[0].Neg(&k[0])
-		table[0].Neg(&table[0])
+		q1.Neg(&q1)
 	}
 	if k[1].Sign() == -1 {
 		k[1].Neg(&k[1])
-		table[3].Neg(&table[3])
+		q2.Neg(&q2)
 	}
 
-	// precompute table (2 bits sliding window)
-	// table[b3b2b1b0-1] = b3b2 ⋅ ϕ(q) + b1b0 ⋅ q if b3b2b1b0 != 0
-	table[1].Double(&table[0])
-	table[2].Triple(&table[0])
-	table[4].Set(&table[3]).AddAssign(&table[0])
-	table[5].Set(&table[3]).AddAssign(&table[1])
-	table[6].Set(&table[3]).AddAssign(&table[2])
-	table[7].Double(&table[3])
-	table[8].Set(&table[7]).AddAssign(&table[0])
-	table[9].Double(&table[4])
-	table[10].Set(&table[7]).AddAssign(&table[2])
-	table[11].Triple(&table[3])
-	table[12].Set(&table[11]).AddAssign(&table[0])
-	table[13].Set(&table[11]).AddAssign(&table[1])
-    table[14].Triple(&table[4])
+	const wnafWindow = 5
 
-	// bounds on the lattice base vectors guarantee that k1, k2 are len(r)/2 or len(r)/2+1 bits long max
-	// this is because we use a probabilistic scalar decomposition that replaces a division by a right-shift
-	k1 = k1.SetBigInt(&k[0]).Bits()
-	k2 = k2.SetBigInt(&k[1]).Bits()
-
-    // we don't target constant-timeness so we check first if we increase the bounds or not
-	maxBit := k1.BitLen()
-	if k2.BitLen() > maxBit {
-		maxBit = k2.BitLen()
+	var naf1 [fr.Bits + 1]int8
+	var naf2 [fr.Bits + 1]int8
+	nafLen1 := ecc.WnafDecomposition(&k[0], wnafWindow, naf1[:])
+	nafLen2 := ecc.WnafDecomposition(&k[1], wnafWindow, naf2[:])
+	maxLen := max(nafLen2, nafLen1)
+	if maxLen == 0 {
+		p.Set(&{{ toLower .PointName}}Infinity)
+		return p
 	}
-	hiWordIndex := (maxBit - 1) / 64
 
-	// loop starts from len(k1)/2 or len(k1)/2+1 due to the bounds
-	for i := hiWordIndex; i >= 0; i-- {
-		mask := uint64(3) << 62
-		for j := 0; j < 32; j++ {
-			res.Double(&res).Double(&res)
-			b1 := (k1[i] & mask) >> (62 - 2*j)
-			b2 := (k2[i] & mask) >> (62 - 2*j)
-			if b1|b2 != 0 {
-				s := (b2<<2 | b1)
-				res.AddAssign(&table[s-1])
+	var q1Table, q2Table [8]{{ $TJacobian }}
+	q1Table[0].Set(&q1)
+	q2Table[0].Set(&q2)
+	var q1Two, q2Two {{ $TJacobian }}
+	q1Two.Double(&q1)
+	q2Two.Double(&q2)
+	// q1Table[i] = (2*i+1)*q1 and q2Table[i] = (2*i+1)*q2 (odd multiples for wNAF).
+	for i := 1; i < len(q1Table); i++ {
+		q1Table[i].Set(&q1Table[i-1]).AddAssign(&q1Two)
+		q2Table[i].Set(&q2Table[i-1]).AddAssign(&q2Two)
+	}
+
+	for i := maxLen - 1; i >= 0; i-- {
+		res.DoubleAssign()
+		if i < nafLen1 {
+			d := naf1[i]
+			if d != 0 {
+				if d > 0 {
+					res.AddAssign(&q1Table[(d-1)/2])
+				} else {
+					res.SubAssign(&q1Table[(-d-1)/2])
+				}
 			}
-			mask = mask >> 2
+		}
+		if i < nafLen2 {
+			d := naf2[i]
+			if d != 0 {
+				if d > 0 {
+					res.AddAssign(&q2Table[(d-1)/2])
+				} else {
+					res.SubAssign(&q2Table[(-d-1)/2])
+				}
+			}
 		}
 	}
 
@@ -1218,6 +1417,91 @@ func (p *{{ $TJacobian }}) mulGLV(q *{{ $TJacobian }}, s *big.Int) *{{ $TJacobia
 	return p
 }
 
+{{- if and (eq .PointName "g2") (or (eq .Name "bn254") (eq .Name "bls12-381") (eq .Name "bls12-377")) }}
+// mulGLS computes the scalar multiplication using a 4-dimensional GLV-GLS method
+// leveraging the endomorphisms ϕ and ψ.
+func (p *{{ $TJacobian }}) mulGLS(q *{{ $TJacobian }}, s *big.Int) *{{ $TJacobian }} {
+	var table [15]{{ $TJacobian }}
+	var res {{ $TJacobian }}
+	var k0, k1, k2, k3 fr.Element
+	var bases [4]{{ $TJacobian }}
+
+	res.Set(&{{ toLower .PointName}}Infinity)
+
+	bases[0].Set(q)
+	bases[1].phi(q)
+	bases[2].psi(q)
+	bases[3].psi(&bases[1])
+
+	// split the scalar, modifies ±q, ϕ(q), ψ(q), ϕ(ψ(q)) accordingly
+	k := ecc.SplitScalarFour(s, &glsBasis)
+	if k[0].Sign() == -1 {
+		k[0].Neg(&k[0])
+		bases[0].Neg(&bases[0])
+	}
+	if k[1].Sign() == -1 {
+		k[1].Neg(&k[1])
+		bases[1].Neg(&bases[1])
+	}
+	if k[2].Sign() == -1 {
+		k[2].Neg(&k[2])
+		bases[2].Neg(&bases[2])
+	}
+	if k[3].Sign() == -1 {
+		k[3].Neg(&k[3])
+		bases[3].Neg(&bases[3])
+	}
+
+	// precompute 1-bit table for subsets of bases (idx in [1..15])
+	for idx := 1; idx < 16; idx++ {
+		acc := &table[idx-1]
+		acc.Set(&{{ toLower .PointName}}Infinity)
+		if idx&1 != 0 {
+			acc.AddAssign(&bases[0])
+		}
+		if idx&2 != 0 {
+			acc.AddAssign(&bases[1])
+		}
+		if idx&4 != 0 {
+			acc.AddAssign(&bases[2])
+		}
+		if idx&8 != 0 {
+			acc.AddAssign(&bases[3])
+		}
+	}
+
+	// bounds on the lattice base vectors guarantee that k0..k3 are len(r)/4 or len(r)/4+1 bits long max
+	// this is because we use a probabilistic scalar decomposition that replaces a division by a right-shift
+	k0 = k0.SetBigInt(&k[0]).Bits()
+	k1 = k1.SetBigInt(&k[1]).Bits()
+	k2 = k2.SetBigInt(&k[2]).Bits()
+	k3 = k3.SetBigInt(&k[3]).Bits()
+
+	maxBit := max(k0.BitLen(), k1.BitLen(), k2.BitLen(), k3.BitLen())
+	hiWordIndex := (maxBit - 1) / 64
+
+	for i := hiWordIndex; i >= 0; i-- {
+		mask := uint64(1) << 63
+		for j := range 64 {
+			shift := uint(63 - j)
+			res.Double(&res)
+			b0 := (k0[i] & mask) >> shift
+			b1 := (k1[i] & mask) >> shift
+			b2 := (k2[i] & mask) >> shift
+			b3 := (k3[i] & mask) >> shift
+			if b0|b1|b2|b3 != 0 {
+				idx := int(b0 | (b1 << 1) | (b2 << 2) | (b3 << 3))
+				res.AddAssign(&table[idx-1])
+			}
+			mask = mask >> 1
+		}
+	}
+
+	p.Set(&res)
+	return p
+}
+
+{{- end }}
 
 {{ end }}
 
@@ -1584,15 +1868,12 @@ func (p *{{$TJacobian}}) JointScalarMultiplication(a1, a2 *G1Affine, s1, s2 *big
 	s[0] = s[0].SetBigInt(&k1).Bits()
 	s[1] = s[1].SetBigInt(&k2).Bits()
 
-	maxBit := k1.BitLen()
-	if k2.BitLen() > maxBit {
-		maxBit = k2.BitLen()
-	}
+	maxBit := max(k1.BitLen(), k2.BitLen())
 	hiWordIndex := (maxBit - 1) / 64
 
 	for i := hiWordIndex; i >= 0; i-- {
 		mask := uint64(3) << 62
-		for j := 0; j < 32; j++ {
+		for j := range 32 {
 			res.Double(&res).Double(&res)
 			b1 := (s[0][i] & mask) >> (62 - 2*j)
 			b2 := (s[1][i] & mask) >> (62 - 2*j)
@@ -1736,20 +2017,42 @@ func (p *{{ $TJacobianExtended }}) add(q *{{ $TJacobianExtended }}) *{{ $TJacobi
 // double sets p to [2]q in Jacobian extended coordinates.
 //
 // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
-// ~Cost: 6M + 3S
 //
 // N.B.: since we consider any point on Z=0 as the point at infinity
 // this doubling formula works for infinity points as well.
 func (p *{{ $TJacobianExtended }}) double(q *{{ $TJacobianExtended }}) *{{ $TJacobianExtended }} {
-	var U, V, W, S, XX, M {{.CoordType}}
+	var U, V, W, S, M {{.CoordType}}
 
 	U.Double(&q.Y)
 	V.Square(&U)
 	W.Mul(&U, &V)
 	S.Mul(&q.X, &V)
-	XX.Square(&q.X)
-	M.Double(&XX).
-		Add(&M, &XX) // -> + A, but A=0 here
+	{{- if .IsNeg3A}}
+	// M = 3*X² + a*ZZ² = 3*(X-ZZ)(X+ZZ) when a=-3
+	{
+		var XZ {{.CoordType}}
+		M.Sub(&q.X, &q.ZZ)
+		XZ.Add(&q.X, &q.ZZ).
+			Mul(&XZ, &M)
+		M.Double(&XZ).
+			Add(&M, &XZ)
+	}
+	{{- else}}
+	{
+		var XX {{.CoordType}}
+		XX.Square(&q.X)
+		M.Double(&XX).
+			Add(&M, &XX) // M = 3*XX
+		{{- if not .IsZeroA}}
+		{
+			var aZZ2 {{.CoordType}}
+			aZZ2.Square(&q.ZZ).
+				Mul(&aZZ2, &aCurveCoeff)
+			M.Add(&M, &aZZ2) // M = 3*XX + a*ZZ²
+		}
+		{{- end}}
+	}
+	{{- end}}
 	U.Mul(&W, &q.Y)
 
 	p.X.Square(&M).
@@ -1808,7 +2111,10 @@ func (p *{{ $TJacobianExtended }}) doubleMixed(a *{{ $TAffine }}) *{{ $TJacobian
     S.Mul(&a.X, &V)
 	t.Square(&a.X)
 	M.Double(&t).
-		Add(&M, &t) // -> + A, but A=0 here
+		Add(&M, &t) // M = 3*X²
+	{{- if not .all.IsZeroA}}
+	M.Add(&M, &aCurveCoeff) // M = 3*X² + a (ZZ=1 for mixed doubling)
+	{{- end}}
 	p.X.Square(&M)
 	t.Double(&S)
 	p.X.Sub(&p.X, &t)
@@ -1936,7 +2242,7 @@ func BatchJacobianToAffine{{ toUpper .PointName }}(points []{{ $TJacobian }}) []
 
 	// batch invert all points[].Z coordinates with Montgomery batch inversion trick
 	// (stores points[].Z^-1 in result[i].X to avoid allocating a slice of fr.Elements)
-	for i:=0; i < len(points); i++ {
+	for i := range len(points) {
 		if points[i].Z.IsZero() {
 			zeroes[i] = true
 			continue
@@ -2002,10 +2308,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 
 	// last window may be slightly larger than c; in which case we need to compute one
 	// extra element in the baseTable
-	maxC := lastC(c)
-	if c > maxC {
-		maxC = c
-	}
+	maxC := max(c, lastC(c))
 
 	// precompute all powers of base for our window
 	// note here that if performance is critical, we can implement as in the msmX methods
@@ -2035,7 +2338,7 @@ func BatchScalarMultiplication{{ toUpper .PointName }}(base *{{ $TAffine }}, sca
 			p.Set(&{{ toLower .PointName}}Infinity)
 			for chunk := nbChunks - 1; chunk >=0; chunk-- {
 				if chunk != nbChunks -1 {
-					for j:=uint64(0); j<c; j++ {
+					for range c {
 						p.DoubleAssign()
 					}
 				}
@@ -2101,7 +2404,7 @@ func batchAdd{{ $TAffine }}[TP p{{ $TAffine }}, TPP pp{{ $TAffine }}, TC c{{ $TA
 	// first we compute the 1 / (X2 - X1) for all points using Montgomery batch inversion trick
 
 	// X2 - X1
-	for j := 0; j < batchSize; j++ {
+	for j := range batchSize {
 		lambdain[j].Sub(&(*P)[j].X, &(*R)[j].X)
 	}
 
@@ -2131,7 +2434,7 @@ func batchAdd{{ $TAffine }}[TP p{{ $TAffine }}, TPP pp{{ $TAffine }}, TC c{{ $TA
 	var t {{.CoordType}}
 	var Q {{ $TAffine }}
 
-	for j := 0; j < batchSize; j++ {
+	for j := range batchSize {
 		// λ  = (Y2 - Y1) / (X2 - X1)
 		t.Sub(&(*P)[j].Y, &(*R)[j].Y)
 		lambda[j].Mul(&lambda[j], &t)

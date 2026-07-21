@@ -15,12 +15,12 @@ func TestPoseidon2BlockCompression(t *testing.T) {
 	// This test ensures that the CompressPoseidon2 function is correctly implemented and produces the same output as
 	// the poseidon2.NewMerkleDamgardHasher(), which uses Write and Sum methods to get the final hash output
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		var zero [8]koalabear.Element
 		var input [8]koalabear.Element
 
 		var inputBytes [32]byte
-		for i := 0; i < 8; i++ {
+		for i := range 8 {
 			startIndex := i * 4
 			input[i].SetRandom()
 			valBytes := input[i].Bytes()
@@ -36,7 +36,7 @@ func TestPoseidon2BlockCompression(t *testing.T) {
 
 		var result [8]koalabear.Element // Array to store the 8 reconstructed Elements
 
-		for i := 0; i < 8; i++ {
+		for i := range 8 {
 			startIndex := i * 4
 			segment := newBytes[startIndex : startIndex+4]
 			var newElement koalabear.Element

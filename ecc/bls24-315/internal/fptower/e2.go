@@ -172,9 +172,9 @@ func (z *E2) Exp(x E2, k *big.Int) *E2 {
 
 	z.SetOne()
 	b := e.Bytes()
-	for i := 0; i < len(b); i++ {
+	for i := range b {
 		w := b[i]
-		for j := 0; j < 8; j++ {
+		for j := range 8 {
 			z.Square(z)
 			if (w & (0b10000000 >> j)) != 0 {
 				z.Mul(z, &x)
@@ -189,38 +189,42 @@ func (z *E2) Exp(x E2, k *big.Int) *E2 {
 // The function does not test whether the square root
 // exists or not, it's up to the caller to call
 // Legendre beforehand.
-// cf https://eprint.iacr.org/2012/685.pdf (algo 10)
+//
+// "A note on the calculation of some functions in
+// finite fields: Tricks of the Trade" by Michael Scott
+// https://eprint.iacr.org/2020/1497.pdf (Sec. 6.3)
 func (z *E2) Sqrt(x *E2) *E2 {
-
-	// precomputation
-	var b, c, d, e, f, x0 E2
-	var _b, o fp.Element
-
-	// c must be a non square (works for p=1 mod 12 hence 1 mod 4, only bls377 has such a p currently)
-	c.A1.SetOne()
-
-	q := fp.Modulus()
-	var exp, one big.Int
-	one.SetUint64(1)
-	exp.Set(q).Sub(&exp, &one).Rsh(&exp, 1)
-	d.Exp(c, &exp)
-	e.Mul(&d, &c).Inverse(&e)
-	f.Mul(&d, &c).Square(&f)
-
-	// computation
-	exp.Rsh(&exp, 1)
-	b.Exp(*x, &exp)
-	b.norm(&_b)
-	o.SetOne()
-	if _b.Equal(&o) {
-		x0.Square(&b).Mul(&x0, x)
-		_b.Set(&x0.A0).Sqrt(&_b)
-		z.Conjugate(&b).MulByElement(z, &_b)
+	// Scott §6.3 has an unstated precondition x.A1 != 0: for x.A1 == 0 with
+	// x.A0 a non-residue in Fp the inner Fp.Sqrt fails silently and the
+	// final Div goes through zero, returning a wrong root. But (x.A0, 0) is
+	// always a square in Fp² for nonzero x.A0 (Euler). For bls24-315 we have
+	// u² = 13 so β = 13, and the true sqrt is (0, sqrt(x.A0 / 13)).
+	if x.A1.IsZero() {
+		if x.A0.Legendre() >= 0 {
+			z.A0.Sqrt(&x.A0)
+			z.A1.SetZero()
+			return z
+		}
+		var beta, aOverBeta fp.Element
+		beta.SetUint64(13)
+		aOverBeta.Inverse(&beta)
+		aOverBeta.Mul(&aOverBeta, &x.A0)
+		z.A0.SetZero()
+		z.A1.Sqrt(&aOverBeta)
 		return z
 	}
-	x0.Square(&b).Mul(&x0, x).Mul(&x0, &f)
-	_b.Set(&x0.A0).Sqrt(&_b)
-	z.Conjugate(&b).MulByElement(z, &_b).Mul(z, &e)
+
+	var x0, x1 fp.Element
+	x.norm(&x0)
+	x0.Sqrt(&x0)
+	x1.Add(&x.A0, &x0).Halve()
+	if x1.Legendre() != 1 {
+		x1.Sub(&x.A0, &x0).Halve()
+	}
+	x1.Sqrt(&x1)
+	z.A0.Set(&x1)
+	x1.Double(&x1)
+	z.A1.Div(&x.A1, &x1)
 
 	return z
 }

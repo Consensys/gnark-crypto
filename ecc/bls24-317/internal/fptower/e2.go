@@ -172,9 +172,9 @@ func (z *E2) Exp(x E2, k *big.Int) *E2 {
 
 	z.SetOne()
 	b := e.Bytes()
-	for i := 0; i < len(b); i++ {
+	for i := range b {
 		w := b[i]
-		for j := 0; j < 8; j++ {
+		for j := range 8 {
 			z.Square(z)
 			if (w & (0b10000000 >> j)) != 0 {
 				z.Mul(z, &x)
@@ -196,34 +196,63 @@ func init() {
 
 var sqrtExp1, sqrtExp2 big.Int
 
-// Sqrt sets z to the square root of and returns z
+// Sqrt sets z to the square root of x and returns z
 // The function does not test whether the square root
 // exists or not, it's up to the caller to call
 // Legendre beforehand.
-// cf https://eprint.iacr.org/2012/685.pdf (algo 9)
-func (z *E2) Sqrt(x *E2) *E2 {
-
-	var a1, alpha, b, x0, minusone E2
-
-	minusone.SetOne().Neg(&minusone)
-
-	a1.Exp(*x, &sqrtExp1)
-	alpha.Square(&a1).
-		Mul(&alpha, x)
-	x0.Mul(x, &a1)
-	if alpha.Equal(&minusone) {
-		var c fp.Element
-		c.Set(&x0.A0)
-		z.A0.Neg(&x0.A1)
-		z.A1.Set(&c)
+//
+// "Optimized One-Dimensional SQIsign Verification
+// on Intel and Cortex-M4" by Aardal et al.
+// https://eprint.iacr.org/2024/1563.pdf (algo 3)
+func (z *E2) Sqrt(a *E2) *E2 {
+	// Aardal Algorithm 3 has an unstated precondition a.A1 != 0: for
+	// a.A1 == 0 with a.A0 a non-residue in Fp the inner ExpBySqrtPp1o4
+	// yields δ = -a.A0, then x0 = a.A0 + δ = 0 cascades to (0, 0). But
+	// (a.A0, 0) is always a square in Fp² for nonzero a.A0 (Euler). For
+	// bls24-317 we have u² = -1 so β = -1, and the true sqrt is
+	// (0, sqrt(-a.A0)).
+	if a.A1.IsZero() {
+		if a.A0.Legendre() >= 0 {
+			z.A0.Sqrt(&a.A0)
+			z.A1.SetZero()
+			return z
+		}
+		var aOverBeta fp.Element
+		aOverBeta.Neg(&a.A0)
+		z.A0.SetZero()
+		z.A1.Sqrt(&aOverBeta)
 		return z
 	}
-	a1.SetOne()
-	b.Add(&a1, &alpha)
 
-	b.Exp(b, &sqrtExp2).Mul(&x0, &b)
-	z.Set(&b)
-	return z
+	var delta, x0, x1, t0, t1 fp.Element
+
+	x0.Square(&a.A0)
+	delta.Square(&a.A1).
+		Add(&delta, &x0).
+		ExpBySqrtPp1o4(delta)
+
+	x0.Add(&a.A0, &delta)
+
+	t0.Double(&x0)
+
+	x1.ExpBySqrtPm3o4(t0)
+
+	x0.Mul(&x0, &x1)
+
+	x1.Mul(&a.A1, &x1)
+
+	t1.Double(&x0).
+		Square(&t1)
+
+	if t1.Equal(&t0) {
+		z.A0.Set(&x0)
+		z.A1.Set(&x1)
+		return z
+	} else {
+		z.A0.Set(&x1)
+		z.A1.Neg(&x0)
+		return z
+	}
 }
 
 // Select is conditional move.

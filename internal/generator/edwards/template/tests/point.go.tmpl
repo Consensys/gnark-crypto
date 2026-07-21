@@ -423,6 +423,94 @@ func TestOps(t *testing.T) {
 		genS1,
 	))
 
+	properties.Property("(affine) [random](0,1) == (0,1)", prop.ForAll(
+		func(s1 big.Int) bool {
+			var p1 PointAffine
+			p1.setInfinity()
+			p1.ScalarMultiplication(&p1, &s1)
+
+			return p1.IsZero()
+		},
+		genS1,
+	))
+
+	properties.Property("(affine) [0](x,y) == (0,1)", prop.ForAll(
+		func(s1 big.Int) bool {
+			params := GetEdwardsCurve()
+			var p1 PointAffine
+			p1.ScalarMultiplication(&params.Base, &s1)
+			zero := big.NewInt(0)
+			p1.ScalarMultiplication(&p1, zero)
+
+			return p1.IsZero()
+		},
+		genS1,
+	))
+
+	properties.Property("(affine) [1](x,y) == (x,y)", prop.ForAll(
+		func(s1 big.Int) bool {
+			params := GetEdwardsCurve()
+			var p1, p2 PointAffine
+			p1.ScalarMultiplication(&params.Base, &s1)
+			one := big.NewInt(1)
+			p2.ScalarMultiplication(&p1, one)
+
+			return p1.Equal(&p2)
+		},
+		genS1,
+	))
+
+	properties.Property("(affine) [2](x,y) == Double(x,y)", prop.ForAll(
+		func(s1 big.Int) bool {
+			params := GetEdwardsCurve()
+			var p1, p2 PointAffine
+			p1.ScalarMultiplication(&params.Base, &s1)
+			two := big.NewInt(2)
+			p2.ScalarMultiplication(&p1, two)
+			p1.Double(&p1)
+
+			return p1.Equal(&p2)
+		},
+		genS1,
+	))
+
+	properties.Property("(affine) [-1](x,y) == Neg(x,y)", prop.ForAll(
+		func(s1 big.Int) bool {
+			params := GetEdwardsCurve()
+			var p1, p2 PointAffine
+			p1.ScalarMultiplication(&params.Base, &s1)
+			mone := big.NewInt(-1)
+			p2.ScalarMultiplication(&p1, mone)
+			p1.Neg(&p1)
+
+			return p1.Equal(&p2)
+		},
+		genS1,
+	))
+
+	properties.Property("(affine) [2](0,1) == (0,1)", prop.ForAll(
+		func() bool {
+			var p1 PointAffine
+			p1.setInfinity()
+			p1.Double(&p1)
+
+			return p1.IsZero()
+		},
+	))
+
+	properties.Property("(affine) [order](x,y) == (0,1)", prop.ForAll(
+		func(s1 big.Int) bool {
+			params := GetEdwardsCurve()
+			var p1 PointAffine
+			p1.ScalarMultiplication(&params.Base, &s1)
+			p1.ScalarMultiplication(&p1, &curveParams.Order)
+
+			return p1.IsZero()
+		},
+		genS1,
+	))
+
+
 	// projective
 	properties.Property("(projective) 0+0=2*0=0", prop.ForAll(
 		func(s1 big.Int) bool {
@@ -652,26 +740,61 @@ func TestOps(t *testing.T) {
 		genS1,
 	))
 
-	properties.Property("(mixed affine+extended) P+P=2*P", prop.ForAll(
-		func(s big.Int) bool {
-
+	// mixed affine+projective
+	properties.Property("(affine/extended) (0,1)+(x,y,z,t) == (x,y,z,t)", prop.ForAll(
+		func(s1 big.Int) bool {
 			params := GetEdwardsCurve()
+			var p1 PointAffine
+			p1.setInfinity()
+			var p2 PointExtended
+			p2.FromAffine(&params.Base)
+			p2.ScalarMultiplication(&p2, &s1)
+			var res PointExtended
+			res.MixedAdd(&p2, &p1)
 
-			var baseExtended, pExtended, p, p2 PointExtended
-			var pAffine PointAffine
-			baseExtended.FromAffine(&params.Base)
-			pExtended.ScalarMultiplication(&baseExtended, &s)
-			pAffine.ScalarMultiplication(&params.Base, &s)
+			var p2Aff, resAff PointAffine
+			p2Aff.FromExtended(&p2)
+			resAff.FromExtended(&res)
 
-			p.MixedAdd(&pExtended, &pAffine)
-			p2.MixedDouble(&pExtended)
-
-			return p.Equal(&p2)
+			return resAff.Equal(&p2Aff)
 		},
 		genS1,
 	))
 
-	// mixed affine+projective
+	properties.Property("(affine/extended) (x,y)+(0,1,1,0) == (x,y)", prop.ForAll(
+		func(s1 big.Int) bool {
+			params := GetEdwardsCurve()
+			var p1 PointAffine
+			p1.ScalarMultiplication(&params.Base, &s1)
+			var p2 PointExtended
+			p2.setInfinity()
+			var res PointExtended
+			res.MixedAdd(&p2, &p1)
+
+			var resAff PointAffine
+			resAff.FromExtended(&res)
+
+			return resAff.Equal(&p1)
+		},
+		genS1,
+	))
+
+	properties.Property("(affine/extended) (0,1)+(0,1,1,0) == (0,1,1,0)", prop.ForAll(
+		func() bool {
+			var p1 PointAffine
+			p1.setInfinity()
+			var p2 PointExtended
+			p2.setInfinity()
+			var res PointExtended
+			res.MixedAdd(&p2, &p1)
+
+			var resAff PointAffine
+			resAff.FromExtended(&res)
+
+			return resAff.IsZero()
+		},
+	))
+
 	properties.Property("(mixed affine+proj) P+(-P)=O", prop.ForAll(
 		func(s big.Int) bool {
 
@@ -737,8 +860,74 @@ func TestOps(t *testing.T) {
 
 }
 
-{{- if eq .Cofactor "4"}}
-{{- if eq .Name "bls12-381"}}
+{{- if .HasSubgroupCheck}}
+func testSubgroupByOrder(p *PointAffine) bool {
+	params := GetEdwardsCurve()
+	var check PointAffine
+	check.ScalarMultiplication(p, &params.Order)
+	return check.IsZero()
+}
+
+func testRejectTorsionCoset(p, torsion *PointAffine) bool {
+	var q PointAffine
+	q.Add(p, torsion)
+	return !q.IsInSubGroup() && !testSubgroupByOrder(&q)
+}
+
+{{- if .HasOcticSubgroupCheck}}
+func testTorsion8Point(t4 *PointAffine) (PointAffine, bool) {
+	initOnce.Do(initCurveParams)
+	var one, aInv, discr, discrSqrt, x2, y2, t fr.Element
+	one.SetOne()
+	aInv.Inverse(&curveParams.A)
+	discr.Set(&curveParams.D).Neg(&discr).Mul(&discr, &aInv).Add(&discr, &one)
+	if discrSqrt.Sqrt(&discr) == nil {
+		return PointAffine{}, false
+	}
+
+	var dInv fr.Element
+	dInv.Inverse(&curveParams.D)
+	tryT8 := func(root *fr.Element, negateY, negateX bool) (PointAffine, bool) {
+		var q, dbl PointAffine
+		t.Add(&one, root).
+			Mul(&t, &curveParams.A).
+			Mul(&t, &dInv)
+		if y2.Sqrt(&t) == nil {
+			return PointAffine{}, false
+		}
+		if negateY {
+			y2.Neg(&y2)
+		}
+		x2.Mul(&t, &aInv)
+		if q.X.Sqrt(&x2) == nil {
+			return PointAffine{}, false
+		}
+		if negateX {
+			q.X.Neg(&q.X)
+		}
+		q.Y.Set(&y2)
+		dbl.Double(&q)
+		if !dbl.Equal(t4) {
+			return PointAffine{}, false
+		}
+		return q, true
+	}
+
+	roots := [2]fr.Element{discrSqrt}
+	roots[1].Neg(&discrSqrt)
+	for i := range roots {
+		for _, negateY := range []bool{false, true} {
+			for _, negateX := range []bool{false, true} {
+				if q, ok := tryT8(&roots[i], negateY, negateX); ok {
+					return q, true
+				}
+			}
+		}
+	}
+	return PointAffine{}, false
+}
+{{- end}}
+
 func TestIsInSubGroup(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
@@ -761,6 +950,14 @@ func TestIsInSubGroup(t *testing.T) {
 		},
 	))
 
+	properties.Property("The 2-torsion point (0,-1) should not be in subgroup", prop.ForAll(
+		func() bool {
+			var p PointAffine
+			p.Y.SetOne().Neg(&p.Y)
+			return !p.IsInSubGroup()
+		},
+	))
+
 	properties.Property("Test IsInSubGroup", prop.ForAll(
 		func(s big.Int) bool {
 
@@ -774,9 +971,60 @@ func TestIsInSubGroup(t *testing.T) {
 		genS,
 	))
 
+	properties.Property("IsInSubGroup should agree with multiplication by subgroup order on subgroup points", prop.ForAll(
+		func(s big.Int) bool {
+			params := GetEdwardsCurve()
+
+			var p PointAffine
+			p.ScalarMultiplication(&params.Base, &s)
+
+			return p.IsInSubGroup() == testSubgroupByOrder(&p)
+		},
+		genS,
+	))
+
+	properties.Property("Torsion cosets should not be in subgroup", prop.ForAll(
+		func(s big.Int) bool {
+			params := GetEdwardsCurve()
+
+			var p PointAffine
+			p.ScalarMultiplication(&params.Base, &s)
+
+			var t2 PointAffine
+			t2.Y.SetOne().Neg(&t2.Y)
+			if !testRejectTorsionCoset(&p, &t2) { //nolint: staticcheck, we code generate and in some paths we don't return early
+				return false
+			}
+
+			{{- if .HasNonSplitSubgroupCheck}}
+			initOnce.Do(initCurveParams)
+			var sqrtA fr.Element
+			sqrtA.Set(&curveParams.A)
+			if sqrtA.Sqrt(&sqrtA) == nil {
+				return false
+			}
+			var t4 PointAffine
+			t4.Y.SetZero()
+			t4.X.Inverse(&sqrtA)
+			if !testRejectTorsionCoset(&p, &t4) { //nolint: staticcheck, we code generate and in some paths we don't return early
+				return false
+			}
+
+			{{- if .HasOcticSubgroupCheck}}
+			t8, ok := testTorsion8Point(&t4)
+			if !ok || !testRejectTorsionCoset(&p, &t8) {
+				return false
+			}
+			{{- end}}
+			{{- end}}
+
+			return true
+		},
+		genS,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
-{{- end}}
 {{- end}}
 
 func TestMarshal(t *testing.T) {
@@ -785,7 +1033,7 @@ func TestMarshal(t *testing.T) {
 
 	var point, unmarshalPoint PointAffine
 	point.Set(&curveParams.Base)
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		b := point.Marshal()
 		unmarshalPoint.Unmarshal(b)
 		if !point.Equal(&unmarshalPoint) {
@@ -837,7 +1085,7 @@ func BenchmarkProjEqual(b *testing.B) {
 		}
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			a.Equal(&aZScaled)
 		}
 	})
@@ -852,7 +1100,7 @@ func BenchmarkProjEqual(b *testing.B) {
 		}
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			a.Equal(&aPlus1)
 		}
 	})
@@ -869,7 +1117,7 @@ func BenchmarkScalarMulExtended(b *testing.B) {
 	var doubleAndAdd PointExtended
 
 	b.ResetTimer()
-	for j := 0; j < b.N; j++ {
+	for range b.N {
 		doubleAndAdd.ScalarMultiplication(&a, &s)
 	}
 }
@@ -885,7 +1133,7 @@ func BenchmarkScalarMulProjective(b *testing.B) {
 	var doubleAndAdd PointProj
 
 	b.ResetTimer()
-	for j := 0; j < b.N; j++ {
+	for range b.N {
 		doubleAndAdd.ScalarMultiplication(&a, &s)
 	}
 }
@@ -900,7 +1148,7 @@ func BenchmarkNeg(b *testing.B) {
 		point.ScalarMultiplication(&params.Base, &s)
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			point.Neg(&point)
 		}
 	})
@@ -911,7 +1159,7 @@ func BenchmarkNeg(b *testing.B) {
 		point.ScalarMultiplication(&baseProj, &s)
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			point.Neg(&point)
 		}
 	})
@@ -922,7 +1170,7 @@ func BenchmarkNeg(b *testing.B) {
 		point.ScalarMultiplication(&baseProj, &s)
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			point.Neg(&point)
 		}
 	})
@@ -940,7 +1188,7 @@ func BenchmarkMixedAdd(b *testing.B) {
 		accum.setInfinity()
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			accum.MixedAdd(&accum , &point)
 		}
 	})
@@ -949,7 +1197,7 @@ func BenchmarkMixedAdd(b *testing.B) {
 		accum.setInfinity()
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			accum.MixedAdd(&accum , &point)
 		}
 	})
@@ -967,7 +1215,7 @@ func BenchmarkAdd(b *testing.B) {
 		accum.setInfinity()
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			accum.Add(&accum, &point)
 		}
 	})
@@ -979,7 +1227,7 @@ func BenchmarkAdd(b *testing.B) {
 		accum.setInfinity()
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			accum.Add(&accum, &point)
 		}
 	})
@@ -991,7 +1239,7 @@ func BenchmarkAdd(b *testing.B) {
 		accum.setInfinity()
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			accum.Add(&accum, &point)
 		}
 	})
@@ -1011,7 +1259,7 @@ func BenchmarkIsOnCurve(b *testing.B) {
 		}
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			_ = point.IsOnCurve()
 		}
 	})
@@ -1026,26 +1274,41 @@ func BenchmarkIsOnCurve(b *testing.B) {
 		}
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			_ = point.IsOnCurve()
 		}
 	})
 }
 
-{{- if eq .Cofactor "4"}}
-{{- if eq .Name "bls12-381"}}
+{{- if .HasSubgroupCheck}}
 func BenchmarkIsInSubGroup(b *testing.B) {
-       params := GetEdwardsCurve()
-       var s big.Int
-       s.SetString("52435875175126190479447705081859658376581184513", 10)
+	params := GetEdwardsCurve()
+	var s big.Int
+	s.SetString("52435875175126190479447705081859658376581184513", 10)
 
-       var point PointAffine
-       point.ScalarMultiplication(&params.Base, &s)
+	var point PointAffine
+	point.ScalarMultiplication(&params.Base, &s)
 
-       b.ResetTimer()
-       for i := 0; i < b.N; i++ {
-               _ = point.IsInSubGroup()
-       }
+	if !point.IsInSubGroup() {
+		b.Fatal("point should be in subgroup")
+	}
+
+	b.Run("is_in_subgroup", func(b *testing.B) {
+		b.ResetTimer()
+		for range b.N {
+			_ = point.IsInSubGroup()
+		}
+	})
+
+	b.Run("mul_by_order", func(b *testing.B) {
+		var check PointAffine
+		b.ResetTimer()
+		for range b.N {
+			check.ScalarMultiplication(&point, &params.Order)
+			if !check.IsZero() {
+				b.Fatal("point should have prime order")
+			}
+		}
+	})
 }
-{{- end}}
 {{- end}}

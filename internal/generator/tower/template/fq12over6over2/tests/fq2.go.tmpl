@@ -366,6 +366,55 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
+	// Regression test for the silent failure of E2.Sqrt on purely-real
+	// inputs whose Fp coordinate is a non-residue. The Aardal Algorithm 3
+	// and Scott §6.3 formulas both have an unstated precondition that
+	// a.A1 != 0; for x = (a, 0) with a non-QR in Fp the algorithms
+	// silently returned (0, 0) instead of the true sqrt (0, sqrt(a/β))
+	// where β = u² is the Fp² QNR.
+	properties.Property("[{{ toUpper $Name }}] square(sqrt) should be invariant for purely-real inputs", prop.ForAll(
+		func(a fp.Element) bool {
+			var x, root, sq E2
+			x.A0.Set(&a)
+			// (a, 0) is always an E2-square for a != 0: either a is QR in
+			// Fp, or a/β is (since β is itself a non-residue).
+			root.Sqrt(&x)
+			sq.Square(&root)
+			return sq.Equal(&x)
+		},
+		genfp,
+	))
+
+	properties.Property("[{{ toUpper $Name }}] cube(cbrt) should leave an element invariant", prop.ForAll(
+		func(a *E2) bool {
+			var b, c, d E2
+			b.Square(a).Mul(&b, a) // b = a³
+			result := c.Cbrt(&b)
+			if result == nil {
+				return false
+			}
+			d.Square(&c).Mul(&d, &c) // d = c³
+			return d.Equal(&b)
+		},
+		genA,
+	))
+
+	properties.Property("[{{ toUpper $Name }}] cbrt torus should produce a valid cube root", prop.ForAll(
+		func(a *E2) bool {
+			var b E2
+			b.Square(a).Mul(&b, a) // b = a³
+
+			var c E2
+			if c.cbrtTorus(&b) == nil {
+				return false
+			}
+			var check E2
+			check.Square(&c).Mul(&check, &c)
+			return check.Equal(&b)
+		},
+		genA,
+	))
+
 	properties.Property("[{{ toUpper $Name }}] neg(E2) == neg(E2.A0, E2.A1)", prop.ForAll(
 		func(a *E2) bool {
 			var b, c E2
@@ -406,7 +455,7 @@ func BenchmarkE2Add(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Add(&a, &c)
 	}
 }
@@ -416,7 +465,7 @@ func BenchmarkE2Sub(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Sub(&a, &c)
 	}
 }
@@ -426,7 +475,7 @@ func BenchmarkE2Mul(b *testing.B) {
 	a.MustSetRandom()
 	c.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Mul(&a, &c)
 	}
 }
@@ -437,7 +486,7 @@ func BenchmarkE2MulByElement(b *testing.B) {
 	c.MustSetRandom()
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.MulByElement(&a, &c)
 	}
 }
@@ -446,18 +495,33 @@ func BenchmarkE2Square(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Square(&a)
 	}
 }
 
 func BenchmarkE2Sqrt(b *testing.B) {
-	var a E2
+	var a, c E2
 	a.MustSetRandom()
+	a.Square(&a)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		a.Sqrt(&a)
+	for range b.N {
+		c.Sqrt(&a)
 	}
+}
+
+func BenchmarkE2Cbrt(b *testing.B) {
+	var a, t E2
+	t.MustSetRandom()
+	a.Square(&t).Mul(&a, &t) // a = t³
+
+	b.Run("Torus", func(b *testing.B) {
+		var c E2
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			c.cbrtTorus(&a)
+		}
+	})
 }
 
 func BenchmarkE2Exp(b *testing.B) {
@@ -465,7 +529,7 @@ func BenchmarkE2Exp(b *testing.B) {
 	x.MustSetRandom()
 	b1, _ := rand.Int(rand.Reader, fp.Modulus())
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		x.Exp(x, b1)
 	}
 }
@@ -476,7 +540,7 @@ func BenchmarkE2Inverse(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Inverse(&a)
 	}
 }
@@ -485,7 +549,7 @@ func BenchmarkE2MulNonRes(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.MulByNonResidue(&a)
 	}
 }
@@ -494,7 +558,7 @@ func BenchmarkE2MulNonResInv(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.MulByNonResidueInv(&a)
 	}
 }
@@ -503,7 +567,7 @@ func BenchmarkE2Conjugate(b *testing.B) {
 	var a E2
 	a.MustSetRandom()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		a.Conjugate(&a)
 	}
 }
