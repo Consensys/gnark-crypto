@@ -924,41 +924,56 @@ func GenBigInt() gopter.Gen {
 	}
 }
 
-func scalarBytesFromBigInt(s *big.Int) [fr.Bytes]byte {
-	var res [fr.Bytes]byte
-	s.FillBytes(res[:])
-	return res
-}
-
 func TestScalarMultiplicationBase(t *testing.T) {
 	t.Parallel()
 
 	params := GetEdwardsCurve()
 
-	cases := make([][fr.Bytes]byte, 0, 8+nbFuzz)
-	cases = append(cases, scalarBytesFromBigInt(big.NewInt(0)))
-	cases = append(cases, scalarBytesFromBigInt(big.NewInt(1)))
-	cases = append(cases, scalarBytesFromBigInt(big.NewInt(2)))
-	cases = append(cases, scalarBytesFromBigInt(big.NewInt(15)))
-	cases = append(cases, scalarBytesFromBigInt(big.NewInt(16)))
+	cases := make([]big.Int, 0, 9+nbFuzz)
+	cases = append(cases, *big.NewInt(0))
+	cases = append(cases, *big.NewInt(1))
+	cases = append(cases, *big.NewInt(2))
+	cases = append(cases, *big.NewInt(15))
+	cases = append(cases, *big.NewInt(16))
+	cases = append(cases, *big.NewInt(-16))
 
 	var orderMinusOne big.Int
 	orderMinusOne.Sub(&params.Order, big.NewInt(1))
-	cases = append(cases, scalarBytesFromBigInt(&orderMinusOne))
+	cases = append(cases, orderMinusOne)
+
+	var order big.Int
+	order.Set(&params.Order)
+	cases = append(cases, order)
+
+	var orderPlusSixteen big.Int
+	orderPlusSixteen.Add(&params.Order, big.NewInt(16))
+	cases = append(cases, orderPlusSixteen)
+
+	var negativeOrderPlusSixteen big.Int
+	negativeOrderPlusSixteen.Neg(&orderPlusSixteen)
+	cases = append(cases, negativeOrderPlusSixteen)
+
+	var large big.Int
+	large.Lsh(big.NewInt(1), 300).Add(&large, big.NewInt(12345))
+	cases = append(cases, large)
+
+	var negativeLarge big.Int
+	negativeLarge.Neg(&large)
+	cases = append(cases, negativeLarge)
 
 	var allFF [fr.Bytes]byte
 	for i := range allFF {
 		allFF[i] = 0xff
 	}
-	cases = append(cases, allFF)
+	cases = append(cases, *new(big.Int).SetBytes(allFF[:]))
 
 	var highestNibble [fr.Bytes]byte
 	highestNibble[0] = 0xf0
-	cases = append(cases, highestNibble)
+	cases = append(cases, *new(big.Int).SetBytes(highestNibble[:]))
 
 	var lowestNibble [fr.Bytes]byte
 	lowestNibble[fr.Bytes-1] = 0x0f
-	cases = append(cases, lowestNibble)
+	cases = append(cases, *new(big.Int).SetBytes(lowestNibble[:]))
 
 	loops := nbFuzz
 	if testing.Short() {
@@ -969,19 +984,16 @@ func TestScalarMultiplicationBase(t *testing.T) {
 		if _, err := rand.Read(scalarBytes[:]); err != nil {
 			t.Fatal(err)
 		}
-		cases = append(cases, scalarBytes)
+		cases = append(cases, *new(big.Int).SetBytes(scalarBytes[:]))
 	}
 
-	for _, scalarBytes := range cases {
-		var scalar big.Int
-		scalar.SetBytes(scalarBytes[:])
-
+	for _, scalar := range cases {
 		var fixed, generic PointAffine
-		fixed.ScalarMultiplicationBase(&scalarBytes)
+		fixed.ScalarMultiplicationBase(&scalar)
 		generic.ScalarMultiplication(&params.Base, &scalar)
 
 		if !fixed.Equal(&generic) {
-			t.Fatalf("fixed-base mismatch for scalar %x", scalarBytes)
+			t.Fatalf("fixed-base mismatch for scalar %s", scalar.String())
 		}
 	}
 }
@@ -1070,8 +1082,8 @@ func BenchmarkScalarMulAffineBase(b *testing.B) {
 
 	var scalar big.Int
 	scalar.SetString("52435875175126190479447705081859658376581184513", 10)
-	scalar.Add(&scalar, &params.Order)
-	scalarBytes := scalarBytesFromBigInt(&scalar)
+	var scalarUnreduced big.Int
+	scalarUnreduced.Add(&scalar, &params.Order)
 
 	b.Run("generic", func(b *testing.B) {
 		var point PointAffine
@@ -1087,7 +1099,16 @@ func BenchmarkScalarMulAffineBase(b *testing.B) {
 
 		b.ResetTimer()
 		for range b.N {
-			point.ScalarMultiplicationBase(&scalarBytes)
+			point.ScalarMultiplicationBase(&scalar)
+		}
+	})
+
+	b.Run("fixed/unreduced", func(b *testing.B) {
+		var point PointAffine
+
+		b.ResetTimer()
+		for range b.N {
+			point.ScalarMultiplicationBase(&scalarUnreduced)
 		}
 	})
 }

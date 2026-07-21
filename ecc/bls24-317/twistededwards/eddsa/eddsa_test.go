@@ -205,7 +205,7 @@ func TestVerifyFixedBaseMatchesGenericReference(t *testing.T) {
 	scalar.SetBytes(sig.S[:])
 
 	var lhsFixed, lhsGeneric twistededwards.PointAffine
-	lhsFixed.ScalarMultiplicationBase(&sig.S).
+	lhsFixed.ScalarMultiplicationBase(&scalar).
 		ScalarMultiplication(&lhsFixed, &cofactor)
 	lhsGeneric.ScalarMultiplication(&curveParams.Base, &scalar).
 		ScalarMultiplication(&lhsGeneric, &cofactor)

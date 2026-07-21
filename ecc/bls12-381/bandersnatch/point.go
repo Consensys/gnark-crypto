@@ -133,14 +133,6 @@ func (p *PointAffine) Set(p1 *PointAffine) *PointAffine {
 	return p
 }
 
-// selectPoint is a constant-time conditional move.
-// If c=0, p = p0. Else p = p1.
-func (p *PointAffine) selectPoint(c int, p0, p1 *PointAffine) *PointAffine {
-	p.X.Select(c, &p0.X, &p1.X)
-	p.Y.Select(c, &p0.Y, &p1.Y)
-	return p
-}
-
 // Equal returns true if p=p1 false otherwise
 func (p *PointAffine) Equal(p1 *PointAffine) bool {
 	return p.X.Equal(&p1.X) && p.Y.Equal(&p1.Y)
@@ -324,24 +316,42 @@ func (p *PointAffine) ScalarMultiplication(p1 *PointAffine, scalar *big.Int) *Po
 }
 
 // ScalarMultiplicationBase computes [scalar]Base in affine coordinates.
-// scalar is interpreted as a fixed-length big-endian unsigned integer.
-func (p *PointAffine) ScalarMultiplicationBase(scalar *[fr.Bytes]byte) *PointAffine {
+func (p *PointAffine) ScalarMultiplicationBase(scalar *big.Int) *PointAffine {
+	_s := scalar
+	neg := scalar.Sign() == -1
+	var scalarAbs, scalarReduced big.Int
+	if neg {
+		scalarAbs.Neg(scalar)
+		_s = &scalarAbs
+	}
+	if _s.Cmp(&curveParams.Order) >= 0 {
+		scalarReduced.Mod(_s, &curveParams.Order)
+		_s = &scalarReduced
+	}
+
+	sWords := _s.Bits()
+
 	var resExtended PointExtended
 	resExtended.setInfinity()
 
-	for i := range fixedBaseWindowCount {
-		digit := fixedBaseNibble(scalar, i)
-
-		var selected PointAffine
-		selected.setInfinity()
-		for j := range fixedBaseWindowEntries {
-			match := subtle.ConstantTimeByteEq(digit, byte(j))
-			selected.selectPoint(match, &selected, &fixedBaseTable[i][j])
+	const windowsPerWord = bits.UintSize / fixedBaseWindowSize
+	for wordIndex, word := range sWords {
+		for j := range windowsPerWord {
+			tableIndex := wordIndex*windowsPerWord + j
+			if tableIndex >= fixedBaseWindowCount {
+				break
+			}
+			digit := word & (fixedBaseWindowEntries - 1)
+			if digit != 0 {
+				resExtended.MixedAdd(&resExtended, &fixedBaseTable[tableIndex][digit])
+			}
+			word >>= fixedBaseWindowSize
 		}
-
-		resExtended.MixedAdd(&resExtended, &selected)
 	}
 
+	if neg {
+		resExtended.Neg(&resExtended)
+	}
 	p.FromExtended(&resExtended)
 	return p
 }
@@ -375,14 +385,6 @@ func (p *PointAffine) scalarMulWindowed(p1 *PointAffine, scalar *big.Int) *Point
 
 	p.FromExtended(&resExtended)
 	return p
-}
-
-func fixedBaseNibble(scalar *[fr.Bytes]byte, i int) byte {
-	b := scalar[fr.Bytes-1-(i>>1)]
-	if i&1 == 0 {
-		return b & (fixedBaseWindowEntries - 1)
-	}
-	return b >> fixedBaseWindowSize
 }
 
 // setInfinity sets p to O (0:1)

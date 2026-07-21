@@ -75,7 +75,9 @@ func GenerateKey(r io.Reader) (*PrivateKey, error) {
 		priv.scalar[i] = h[j]
 	}
 
-	pub.A.ScalarMultiplicationBase(&priv.scalar)
+	var bScalar big.Int
+	bScalar.SetBytes(priv.scalar[:])
+	pub.A.ScalarMultiplicationBase(&bScalar)
 
 	priv.PublicKey = pub
 
@@ -119,7 +121,6 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 	// blindingFactorBigInt must be the same size as the private key,
 	// blindingFactorBigInt = h(randomness_source||message)[:sizeFr]
 	var blindingFactorBigInt big.Int
-	var blindingFactorScalar [sizeFr]byte
 
 	// randSrc = privKey.randSrc || msg (-> message = MSB message .. LSB message)
 	randSrc := make([]byte, 32+len(message))
@@ -128,11 +129,10 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 
 	// randBytes = H(randSrc)
 	blindingFactorBytes := blake2b.Sum512(randSrc[:]) // TODO ensures that the hash used to build the key and the one used here is the same
-	copy(blindingFactorScalar[:], blindingFactorBytes[:sizeFr])
-	blindingFactorBigInt.SetBytes(blindingFactorScalar[:])
+	blindingFactorBigInt.SetBytes(blindingFactorBytes[:sizeFr])
 
 	// compute R = randScalar*Base
-	res.R.ScalarMultiplicationBase(&blindingFactorScalar)
+	res.R.ScalarMultiplicationBase(&blindingFactorBigInt)
 	if !res.R.IsOnCurve() {
 		return nil, errNotOnCurve
 	}
@@ -216,9 +216,10 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 
 	// lhs = cofactor*S*Base
 	var lhs twistededwards.PointAffine
-	var bCofactor big.Int
+	var bCofactor, bs big.Int
 	curveParams.Cofactor.BigInt(&bCofactor)
-	lhs.ScalarMultiplicationBase(&sig.S).
+	bs.SetBytes(sig.S[:])
+	lhs.ScalarMultiplicationBase(&bs).
 		ScalarMultiplication(&lhs, &bCofactor)
 
 	if !lhs.IsOnCurve() {
