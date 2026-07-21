@@ -826,7 +826,6 @@ func TestOps(t *testing.T) {
 
 func TestMarshal(t *testing.T) {
 	t.Parallel()
-	initOnce.Do(initCurveParams)
 
 	var point, unmarshalPoint PointAffine
 	point.Set(&curveParams.Base)
