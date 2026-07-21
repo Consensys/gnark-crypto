@@ -87,19 +87,21 @@ func (z *E6) ExptPlus1(x *E6) *E6 {
 }
 
 // ExptMinus1Div3 set z to x^(t-1)/3 in E6 and return z
-// (t-1)/3 = 3195374304363544576
+// (t-1)/3 = 3195374304363544576 = ((11<<7 + 11)<<5 + 1)<<46
+//
+// Operations: 15 squares, 46 compressed squares, 4 multiplications,
+// 1 decompression.
 func (z *E6) ExptMinus1Div3(x *E6) *E6 {
-	var result, t0 E6
+	var result, x11 E6
 
-	result.Set(x)
-	result.CyclotomicSquare(&result)
-	result.Mul(&result, x)
-	t0.Mul(&result, x)
-	t0.CyclotomicSquare(&t0)
-	result.Mul(&result, &t0)
-	t0.Set(&result)
-	t0.nSquare(7)
-	result.Mul(&result, &t0)
+	result.CyclotomicSquare(x)
+	result.CyclotomicSquare(&result) // x^4
+	result.Mul(&result, x)           // x^5
+	x11.CyclotomicSquare(&result)    // x^10
+	x11.Mul(&x11, x)                 // x^11
+	result.Set(&x11)
+	result.nSquare(7)
+	result.Mul(&result, &x11)
 	result.nSquare(5)
 	result.Mul(&result, x)
 	result.nSquareCompressed(46)

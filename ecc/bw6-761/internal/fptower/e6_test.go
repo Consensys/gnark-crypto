@@ -497,10 +497,32 @@ func TestE6ExptMinus1SquareGroundTruth(t *testing.T) {
 	}
 }
 
+func TestE6ExptMinus1Div3GroundTruth(t *testing.T) {
+	t.Parallel()
+	e := new(big.Int).SetUint64(3195374304363544576)
+	for i := 0; i < 20; i++ {
+		a := randomCyclotomicE6()
+		var expect, got E6
+		expect.CyclotomicExp(a, e)
+		got.ExptMinus1Div3(&a)
+		if !expect.Equal(&got) {
+			t.Fatal("ExptMinus1Div3 does not match generic exponentiation by (t-1)/3")
+		}
+	}
+}
+
 func BenchmarkE6ExptMinus1Square(b *testing.B) {
 	a := randomCyclotomicE6()
 	b.ResetTimer()
 	for range b.N {
 		a.ExptMinus1Square(&a)
+	}
+}
+
+func BenchmarkE6ExptMinus1Div3(b *testing.B) {
+	a := randomCyclotomicE6()
+	b.ResetTimer()
+	for range b.N {
+		a.ExptMinus1Div3(&a)
 	}
 }

@@ -143,22 +143,18 @@ func (z *E6) ExptSquarePlus1(x *E6) *E6 {
 }
 
 // ExptMinus1Div3 set z to x^((t-1)/3) in E6 and return z
-// (t-1)/3 = -1072693248
+// (t-1)/3 = -1072693248 = -(2^10-1)*2^20
+//
+// Subtraction chain for the absolute value: (1<<10 - 1)<<20, computed on x^-1
+// to absorb the sign; the subtraction is a multiplication by x itself.
+// Operations: 30 squares, 1 multiplication, 1 conjugate.
 func (z *E6) ExptMinus1Div3(x *E6) *E6 {
-	var result, t0, t1 E6
-	result.CyclotomicSquare(x)
-	result.Mul(x, &result)
-	t0.CyclotomicSquare(&result)
-	t0.CyclotomicSquare(&t0)
-	t0.Mul(&result, &t0)
-	t1.CyclotomicSquare(&t0)
-	t1.nSquare(3)
-	t0.Mul(&t0, &t1)
-	t0.nSquare(2)
-	result.Mul(&result, &t0)
-	result.nSquareCompressed(20)
-	result.DecompressKarabina(&result)
-	z.Conjugate(&result)
+	var result E6
+	result.Conjugate(x) // x^-1
+	result.nSquare(10)
+	result.Mul(&result, x) // (x^-1)^(2^10 - 1)
+	result.nSquare(20)
+	z.Set(&result)
 
 	return z
 }
