@@ -22,8 +22,8 @@ import (
 )
 
 // Domain with a power of 2 cardinality
-// compute a field element of order 2x and store it in FinerGenerator
-// all other values can be derived from x, GeneratorSqrt
+// compute a 2^k-th root of unity and store it in Generator
+// all other values are derived from it (e.g. GeneratorInv)
 type Domain struct {
 	Cardinality            uint64
 	CardinalityInv         koalabear.Element
