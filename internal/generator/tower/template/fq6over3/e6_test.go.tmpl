@@ -1,4 +1,7 @@
 import (
+{{- if or (eq .Name "bw6-633") (eq .Name "bw6-761")}}
+	"math/big"
+{{- end}}
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fp"
@@ -459,3 +462,107 @@ func BenchmarkE6Expt(b *testing.B) {
 		a.Expt(&a)
 	}
 }
+
+{{- if or (eq .Name "bw6-633") (eq .Name "bw6-761")}}
+
+// randomCyclotomicE6 returns a random element of the cyclotomic subgroup.
+func randomCyclotomicE6() E6 {
+	var a, b E6
+	a.MustSetRandom()
+	b.Conjugate(&a)
+	a.Inverse(&a)
+	b.Mul(&b, &a)
+	a.Frobenius(&b).Mul(&a, &b)
+	return a
+}
+{{- end}}
+
+{{- if eq .Name "bw6-633"}}
+
+func TestE6ExptGroundTruth(t *testing.T) {
+	t.Parallel()
+	// t = -3218079743: compare against conj(x^|t|).
+	tAbs := new(big.Int).SetUint64(3218079743)
+	for i := 0; i < 20; i++ {
+		a := randomCyclotomicE6()
+		var expect, got E6
+		expect.CyclotomicExp(a, tAbs).Conjugate(&expect)
+		got.Expt(&a)
+		if !expect.Equal(&got) {
+			t.Fatal("Expt does not match generic exponentiation by the seed")
+		}
+	}
+}
+
+func TestE6ExptMinus1SquaredGroundTruth(t *testing.T) {
+	t.Parallel()
+	e := new(big.Int).SetUint64(10356037238743105536)
+	for i := 0; i < 20; i++ {
+		a := randomCyclotomicE6()
+		var expect, got E6
+		expect.CyclotomicExp(a, e)
+		got.ExptMinus1Squared(&a)
+		if !expect.Equal(&got) {
+			t.Fatal("ExptMinus1Squared does not match generic exponentiation by (t-1)^2")
+		}
+	}
+}
+
+func TestE6ExptSquarePlus1GroundTruth(t *testing.T) {
+	t.Parallel()
+	e := new(big.Int).SetUint64(10356037232306946050)
+	for i := 0; i < 20; i++ {
+		a := randomCyclotomicE6()
+		var expect, got E6
+		expect.CyclotomicExp(a, e)
+		got.ExptSquarePlus1(&a)
+		if !expect.Equal(&got) {
+			t.Fatal("ExptSquarePlus1 does not match generic exponentiation by t^2+1")
+		}
+	}
+}
+
+func BenchmarkE6ExptMinus1Squared(b *testing.B) {
+	a := randomCyclotomicE6()
+	b.ResetTimer()
+	for range b.N {
+		a.ExptMinus1Squared(&a)
+	}
+}
+
+func BenchmarkE6ExptSquarePlus1(b *testing.B) {
+	a := randomCyclotomicE6()
+	b.ResetTimer()
+	for range b.N {
+		a.ExptSquarePlus1(&a)
+	}
+}
+{{- end}}
+
+{{- if eq .Name "bw6-761"}}
+
+func TestE6ExptMinus1SquareGroundTruth(t *testing.T) {
+	t.Parallel()
+	e, ok := new(big.Int).SetString("91893752504881257682351033800651177984", 10)
+	if !ok {
+		t.Fatal("bad exponent")
+	}
+	for i := 0; i < 20; i++ {
+		a := randomCyclotomicE6()
+		var expect, got E6
+		expect.CyclotomicExp(a, e)
+		got.ExptMinus1Square(&a)
+		if !expect.Equal(&got) {
+			t.Fatal("ExptMinus1Square does not match generic exponentiation by (t-1)^2")
+		}
+	}
+}
+
+func BenchmarkE6ExptMinus1Square(b *testing.B) {
+	a := randomCyclotomicE6()
+	b.ResetTimer()
+	for range b.N {
+		a.ExptMinus1Square(&a)
+	}
+}
+{{- end}}

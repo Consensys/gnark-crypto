@@ -26,29 +26,34 @@ func (z *E6) ExptMinus1(x *E6) *E6 {
 }
 
 // ExptMinus1Square set z to x^{(t-1)²} in E6 and return z
-// (t-1)² = 91893752504881257682351033800651177984
+// (t-1)² = 91893752504881257682351033800651177984 = 0x452217cc900000000000000000000000
+//
+// Addition chain: ((((69<<7 + 17)<<11 + 69 + 26)<<7 + 25)<<3 + 1)<<92 with
+// 17 = 1 + 2*(1<<3), 25 = 1<<3 + 17, 26 = 1 + 25, 69 = 17 + 2*26.
+// Operations: 125 squares, 9 multiplications, 1 decompression.
 func (z *E6) ExptMinus1Square(x *E6) *E6 {
-	var result, t0, t1, t2 E6
+	var result, x17, x25, x26, x69 E6
 
-	result.Set(x)
+	result.CyclotomicSquare(x)
 	result.CyclotomicSquare(&result)
-	t0.Mul(x, &result)
-	t1.CyclotomicSquare(&t0)
-	t0.Mul(&t0, &t1)
-	result.Mul(&result, &t0)
-	t1.Mul(&t1, &result)
-	t0.Mul(&t0, &t1)
-	t2.CyclotomicSquare(&t0)
-	t2.Mul(&t1, &t2)
-	t0.Mul(&t0, &t2)
-	t2.nSquare(7)
-	t1.Mul(&t1, &t2)
-	t1.nSquare(11)
-	t1.Mul(&t0, &t1)
-	t1.nSquare(9)
-	t0.Mul(&t0, &t1)
-	t0.CyclotomicSquare(&t0)
-	result.Mul(&result, &t0)
+	result.CyclotomicSquare(&result) // x^8
+	x17.CyclotomicSquare(&result)    // x^16
+	x17.Mul(x, &x17)                 // x^17
+	x25.Mul(&result, &x17)           // x^25
+	x26.Mul(x, &x25)                 // x^26
+	x69.CyclotomicSquare(&x26)       // x^52
+	x69.Mul(&x17, &x69)              // x^69
+
+	result.Set(&x69)
+	result.nSquare(7)
+	result.Mul(&result, &x17)
+	result.nSquare(11)
+	result.Mul(&result, &x69)
+	result.Mul(&result, &x26)
+	result.nSquare(7)
+	result.Mul(&result, &x25)
+	result.nSquare(3)
+	result.Mul(&result, x)
 	result.nSquareCompressed(92)
 	result.DecompressKarabina(&result)
 	z.Set(&result)

@@ -978,6 +978,31 @@ func Benchmark{{ $TAffine }}CofactorClearing(b *testing.B) {
 }
 {{end}}
 
+{{if .HasG2}}
+func Test{{ $TJacobian }}MulBySeed(t *testing.T) {
+	t.Parallel()
+	var q, expect, got {{ $TJacobian }}
+	q.Set(&{{.PointName}}Gen)
+	for i := 0; i < 5; i++ {
+		expect.ScalarMultiplication(&q, &xGen)
+		got.mulBySeed(&q)
+		if !expect.Equal(&got) {
+			t.Fatal("mulBySeed does not match ScalarMultiplication by xGen")
+		}
+		q.Set(&got)
+	}
+}
+
+func Benchmark{{ $TJacobian }}MulBySeed(b *testing.B) {
+	var q {{ $TJacobian }}
+	q.Set(&{{.PointName}}Gen)
+	b.ResetTimer()
+	for range b.N {
+		q.mulBySeed(&q)
+	}
+}
+{{end}}
+
 func Benchmark{{ $TJacobian }}Add(b *testing.B) {
 	var a {{ $TJacobian }}
 	a.Double(&{{.PointName}}Gen)

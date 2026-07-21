@@ -7,29 +7,26 @@ func (z *E24) nSquareCompressed(n int) {
 }
 
 // Expt set z to x^t in E24 and return z (t is the seed of the curve)
-// -2**32+2**30+2**22-2**20+1
+// t = -3218079743 = -2**32+2**30+2**22-2**20+1
+//
+// Addition-subtraction chain for |t|: (3<<10 - 3)<<20 - 1, computed on x^-1
+// to absorb the sign; subtraction is a multiplication by the conjugate.
+// Operations: 31 squares, 3 multiplications, 3 conjugates, 1 decompression.
 func (z *E24) Expt(x *E24) *E24 {
+	var result, t0, t1 E24
 
-	var result, x20, x22, x30, x32 E24
-	result.Set(x)
-
-	result.nSquareCompressed(20)
-	x20.Conjugate(&result)
-	result.nSquareCompressed(2)
-	x22.Set(&result)
-	result.nSquareCompressed(8)
-	x30.Set(&result)
-
-	batch := BatchDecompressKarabina([]E24{x20, x22, x30})
-
-	x32.CyclotomicSquare(&batch[2]).
-		CyclotomicSquare(&x32).
-		Conjugate(&x32)
-
-	z.Mul(x, &batch[0]).
-		Mul(z, &batch[1]).
-		Mul(z, &batch[2]).
-		Mul(z, &x32)
+	result.Conjugate(x) // x^-1; chain below computes (x^-1)^|t| = x^t
+	t0.CyclotomicSquare(&result)
+	result.Mul(&result, &t0) // ^3
+	t1.Conjugate(&result)    // ^-3
+	t0.Set(&result)
+	for range 10 {
+		t0.CyclotomicSquare(&t0)
+	}
+	t0.Mul(&t0, &t1) // ^(3*2^10 - 3)
+	t0.nSquareCompressed(20)
+	t0.DecompressKarabina(&t0)
+	z.Mul(&t0, x) // -1 on x^-1: multiply by x
 
 	return z
 }
