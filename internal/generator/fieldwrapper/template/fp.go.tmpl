@@ -1,0 +1,53 @@
+import (
+	"math/big"
+
+	{{ .ExistingFp.PackageName }} "{{ .ExistingFp.PackagePath }}"
+)
+
+// Element is the base field element type for this curve.
+type Element = {{ .ExistingFp.PackageName }}.Element
+
+// Vector is a slice of base field elements.
+type Vector = {{ .ExistingFp.PackageName }}.Vector
+
+const (
+	// Bits is the bit length of the field modulus.
+	Bits  = {{ .ExistingFp.PackageName }}.Bits
+	// Bytes is the byte length needed to encode one field element.
+	Bytes = {{ .ExistingFp.PackageName }}.Bytes
+	// Limbs is the number of machine words used by one field element.
+	Limbs = {{ .ExistingFp.PackageName }}.Limbs
+)
+
+// BigEndian is the big-endian byte order implementation.
+var BigEndian = {{ .ExistingFp.PackageName }}.BigEndian
+
+// Modulus returns a copy of the field modulus.
+func Modulus() *big.Int {
+	return {{ .ExistingFp.PackageName }}.Modulus()
+}
+
+// One returns the field element one.
+func One() Element {
+	return {{ .ExistingFp.PackageName }}.One()
+}
+
+// BatchInvert returns a new slice with every non-zero element inverted.
+func BatchInvert(a []Element) []Element {
+	return {{ .ExistingFp.PackageName }}.BatchInvert(a)
+}
+
+// Generator returns a field generator for the requested multiplicative subgroup.
+func Generator(m uint64) (Element, error) {
+	return {{ .ExistingFp.PackageName }}.Generator(m)
+}
+
+// Butterfly computes the in-place butterfly operation on a and b.
+func Butterfly(a, b *Element) {
+	{{ .ExistingFp.PackageName }}.Butterfly(a, b)
+}
+
+// MulBy3 multiplies x by 3 in place.
+func MulBy3(x *Element) {
+	{{ .ExistingFp.PackageName }}.MulBy3(x)
+}

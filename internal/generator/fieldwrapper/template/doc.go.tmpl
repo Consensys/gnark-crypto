@@ -1,0 +1,6 @@
+// Package fp aliases {{ .ExistingFp.PackagePath }} for curves whose base field is
+// implemented in an existing top-level field package.
+//
+// It exists so packages under ecc/{{ .Name }} can use the same local fp import
+// shape as curves with generated base fields.
+package fp

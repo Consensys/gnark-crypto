@@ -24,8 +24,13 @@ func init() {
 {{- end }}
 
 // Cbrt z = ∛x (mod q)
+{{- if .CbrtQ2Mod3}}
+// Since q ≡ 2 (mod 3), cubing is a bijection on Fq, so every input has a unique
+// cube root and Cbrt always returns z.
+{{- else}}
 // if the cube root doesn't exist (x is not a cube mod q)
 // Cbrt leaves z unchanged and returns nil
+{{- end}}
 func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 	{{- if .CbrtQ2Mod3}}
 		// q ≡ 2 (mod 3)
@@ -249,6 +254,9 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		// For e=2, check if x is a cubic residue: t^3 should equal 1
 		var check {{.ElementName}}
 		check.Cube(&t)
+		if check.IsZero() {
+			return z.SetZero()
+		}
 		if !check.IsOne() {
 			return nil
 		}
@@ -324,6 +332,9 @@ func (z *{{.ElementName}}) Cbrt(x *{{.ElementName}}) *{{.ElementName}} {
 		check = t
 		for i := uint64(0); i < r-1; i++ {
 			check.Cube(&check)
+		}
+		if check.IsZero() {
+			return z.SetZero()
 		}
 		if !check.IsOne() {
 			// x is not a cubic residue

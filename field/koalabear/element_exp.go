@@ -129,3 +129,65 @@ func (z *Element) ExpByCbrt2q1o3(x Element) *Element {
 
 	return z
 }
+
+// ExpByCbrtHelperQMinus2Div9 is equivalent to z.Exp(x, e1c71c7).
+// It raises x to the (q-2)/9 power using an addition chain.
+// This helper is used by extension-field cube-root computations.
+//
+// uses github.com/mmcloughlin/addchain v0.4.0 to generate a shorter addition chain
+func (z *Element) ExpByCbrtHelperQMinus2Div9(x Element) *Element {
+	// addition chain:
+	//
+	//	_10    = 2*1
+	//	_11    = 1 + _10
+	//	_110   = 2*_11
+	//	_111   = 1 + _110
+	//	i10    = _111 << 6
+	//	i11    = _111 + i10
+	//	return   ((i10 + i11) << 6 + _111) << 12 + i11
+	//
+	// Operations: 26 squares 6 multiplies
+	var t0, t1 Element
+
+	// Step 1: z = x^0x2
+	z.Square(&x)
+
+	// Step 2: z = x^0x3
+	z.Mul(&x, z)
+
+	// Step 3: z = x^0x6
+	z.Square(z)
+
+	// Step 4: t0 = x^0x7
+	t0.Mul(&x, z)
+
+	// Step 10: t1 = x^0x1c0
+	t1.Square(&t0)
+	for s := 1; s < 6; s++ {
+		t1.Square(&t1)
+	}
+
+	// Step 11: z = x^0x1c7
+	z.Mul(&t0, &t1)
+
+	// Step 12: t1 = x^0x387
+	t1.Mul(&t1, z)
+
+	// Step 18: t1 = x^0xe1c0
+	for range 6 {
+		t1.Square(&t1)
+	}
+
+	// Step 19: t0 = x^0xe1c7
+	t0.Mul(&t0, &t1)
+
+	// Step 31: t0 = x^0xe1c7000
+	for range 12 {
+		t0.Square(&t0)
+	}
+
+	// Step 32: z = x^0xe1c71c7
+	z.Mul(z, &t0)
+
+	return z
+}

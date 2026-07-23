@@ -238,6 +238,8 @@ func (z *E2) Sqrt(x *E2) *E2 {
 	return z
 }
 
+{{- if not .CustomExtensionCbrt}}
+
 // Cbrt sets z to the cube root of x and returns z
 // The function does not test whether the cube root
 // exists or not, it's up to the caller to verify.
@@ -261,6 +263,7 @@ func (z *E2) Cbrt(x *E2) *E2 {
 
 	return z
 }
+{{- end}}
 
 // BatchInvertE2 returns a new slice with every element in a inverted.
 // It uses Montgomery batch inversion trick.

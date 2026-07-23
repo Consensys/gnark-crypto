@@ -29,6 +29,10 @@
 	{{- end}}
 {{- end}}
 
+{{- if .CbrtQMinus2Div9Data}}
+	{{expByAddChain "CbrtHelperQMinus2Div9" .CbrtQMinus2Div9Data .ElementName}}
+{{- end}}
+
 {{- if .CbrtTorusHelperData}}
 	{{expByAddChain .CbrtTorusHelperName .CbrtTorusHelperData .ElementName}}
 {{- end}}
@@ -62,6 +66,9 @@
 {{- else if eq .name "CbrtQPlus8Div27"}}
 // It raises x to the (q+8)/27 power using a shorter addition chain.
 // This is used when q ≡ 19 (mod 27) for efficient cube root computation.
+{{- else if eq .name "CbrtHelperQMinus2Div9"}}
+// It raises x to the (q-2)/9 power using an addition chain.
+// This helper is used by extension-field cube-root computations.
 {{- else if eq .name "CbrtHelperQMinus7Div9"}}
 // It raises x to the (q-7)/9 power using an addition chain.
 // This helper is used by cbrtAndNormInverse to share exponentiation between

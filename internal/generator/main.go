@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/fflonk"
 	"github.com/consensys/gnark-crypto/internal/generator/field"
 	fieldConfig "github.com/consensys/gnark-crypto/internal/generator/field/config"
+	"github.com/consensys/gnark-crypto/internal/generator/fieldwrapper"
 	"github.com/consensys/gnark-crypto/internal/generator/fri"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_curve"
 	"github.com/consensys/gnark-crypto/internal/generator/hash_to_field"
@@ -73,6 +74,8 @@ func main() {
 			defer wg.Done()
 			fc, err := fieldConfig.NewFieldConfig(f.Name, "Element", f.Modulus, true)
 			assertNoError(err)
+			fc.GenerateExtensionE8 = f.GenerateExtensionE8
+			fc.CustomExtensionCbrt = f.CustomExtensionCbrt
 			outputDir := filepath.Join(baseDir, "field", f.Name)
 			relAsmDir, err := filepath.Rel(outputDir, asmDirBuildPath)
 			assertNoError(err)
@@ -135,7 +138,9 @@ func main() {
 			}
 
 			// fp
-			{
+			if conf.GenerateFpWrapper() {
+				assertNoError(fieldwrapper.Generate(conf, filepath.Join(curveDir, "fp")))
+			} else if conf.GenerateFp() {
 				outputDir := filepath.Join(curveDir, "fp")
 				relAsmDir, err := filepath.Rel(outputDir, asmDirBuildPath)
 				assertNoError(err)
@@ -164,7 +169,9 @@ func main() {
 			}
 
 			// generate ecdsa
-			assertNoError(ecdsa.Generate(conf, curveDir, gen))
+			if conf.GenerateECDSA() {
+				assertNoError(ecdsa.Generate(conf, curveDir, gen))
+			}
 
 			// generate G1, G2, multiExp, marshal, ...
 			if conf.GenerateECC() {

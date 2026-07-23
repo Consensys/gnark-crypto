@@ -71,6 +71,7 @@ type Field struct {
 
 	// Cbrt pre computes
 	CbrtQ2Mod3             bool     // q ≡ 2 (mod 3)
+	CbrtQ2Mod9             bool     // q ≡ 2 (mod 9), use (q-2)/9 helper for extension Cbrt
 	CbrtQ1Mod3             bool     // q ≡ 1 (mod 3), need special handling
 	CbrtQ7Mod9             bool     // q ≡ 7 (mod 9), use (q+2)/9 exponent
 	CbrtQ4Mod9             bool     // q ≡ 4 (mod 9), use (2q+1)/9 exponent
@@ -83,6 +84,7 @@ type Field struct {
 	Cbrt2QPlus1Div9        string   // (2q+1)/9 for q ≡ 4 (mod 9)
 	Cbrt2QPlus7Div27       string   // (2q+7)/27 for q ≡ 10 (mod 27)
 	CbrtQPlus8Div27        string   // (q+8)/27 for q ≡ 19 (mod 27)
+	CbrtQMinus2Div9        string   // (q-2)/9 for q ≡ 2 (mod 9)
 	CbrtSPlus1Div3         string   // (CbrtS+1)/3 for q ≡ 1 (mod 3) with CbrtS ≡ 2 (mod 3)
 	CbrtSMinus1Div3        string   // (CbrtS-1)/3 for q ≡ 1 (mod 3) with CbrtS ≡ 1 (mod 3)
 	CbrtG                  []uint64 // NonCubicResidue ^ CbrtS (montgomery form) -- primitive 3^CbrtE root of unity (ζ)
@@ -95,12 +97,17 @@ type Field struct {
 	Cbrt2QPlus1Div9Data    *addchain.AddChainData
 	Cbrt2QPlus7Div27Data   *addchain.AddChainData
 	CbrtQPlus8Div27Data    *addchain.AddChainData
+	CbrtQMinus2Div9Data    *addchain.AddChainData
 	CbrtSPlus1Div3Data     *addchain.AddChainData
 	CbrtSMinus1Div3Data    *addchain.AddChainData
 
 	// Torus cbrt helper (for E2 cbrt via algebraic torus)
 	CbrtTorusHelperData *addchain.AddChainData
 	CbrtTorusHelperName string // e.g. "CbrtHelperQMinus19Div27"
+
+	// Extension generation options.
+	GenerateExtensionE8 bool
+	CustomExtensionCbrt bool
 
 	Word Word // 32 iff Q < 2^32, else 64
 	F31  bool // 31 bits field
@@ -360,9 +367,14 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 
 	// Cbrt pre computes
 	// Check if q ≡ 1 (mod 3) or q ≡ 2 (mod 3)
+	three := big.NewInt(3)
+	nine := big.NewInt(9)
+	twentySeven := big.NewInt(27)
 	var qMod3 big.Int
-	qMod3.SetUint64(3)
-	qMod3.Mod(&bModulus, &qMod3)
+	qMod3.Mod(&bModulus, three)
+	var qMod9, qMod27 big.Int
+	qMod9.Mod(&bModulus, nine)
+	qMod27.Mod(&bModulus, twentySeven)
 
 	if qMod3.Cmp(new(big.Int).SetUint64(2)) == 0 {
 		// q ≡ 2 (mod 3)
@@ -376,6 +388,17 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 		if F.UseAddChain {
 			F.CbrtQ2Mod3ExponentData = addchain.GetAddChain(&cbrtExponent)
 		}
+		if qMod9.Cmp(big.NewInt(2)) == 0 {
+			// q ≡ 2 (mod 9): helper used by extension-field cube-root computations.
+			F.CbrtQ2Mod9 = true
+			var helperExponent big.Int
+			helperExponent.Sub(&bModulus, big.NewInt(2))
+			helperExponent.Div(&helperExponent, nine)
+			F.CbrtQMinus2Div9 = helperExponent.Text(16)
+			if F.UseAddChain {
+				F.CbrtQMinus2Div9Data = addchain.GetAddChain(&helperExponent)
+			}
+		}
 	} else if qMod3.Cmp(big.NewInt(1)) == 0 {
 		// q ≡ 1 (mod 3)
 		// use Tonelli-Shanks variant for cube roots
@@ -387,8 +410,6 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 		s.Sub(&bModulus, &one)
 
 		// Count the power of 3 in q-1
-		three := big.NewInt(3)
-		nine := big.NewInt(9)
 		e := uint64(0)
 		var remainder big.Int
 		for {
@@ -404,11 +425,6 @@ func NewFieldConfig(packageName, elementName, modulus string, useAddChain bool) 
 
 		// Check q mod 9 and q mod 27 for optimized exponentiation
 		// Reference: Lemma 3 of https://eprint.iacr.org/2021/1446.pdf
-		var qMod9, qMod27 big.Int
-		qMod9.Mod(&bModulus, nine)
-		twentySeven := big.NewInt(27)
-		qMod27.Mod(&bModulus, twentySeven)
-
 		if e == 1 && qMod9.Cmp(big.NewInt(7)) == 0 {
 			// q ≡ 7 (mod 9): use cbrt(x) = x^((q+2)/9)
 			F.CbrtQ7Mod9 = true
