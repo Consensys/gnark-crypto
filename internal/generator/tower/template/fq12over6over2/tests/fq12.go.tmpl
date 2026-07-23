@@ -531,4 +531,32 @@ func BenchmarkE12Expt(b *testing.B) {
 	}
 }
 
+{{- if eq $Name "bn254"}}
+
+// randomCyclotomicE12 returns a random element of the cyclotomic subgroup.
+func randomCyclotomicE12() E12 {
+	var a, b E12
+	a.MustSetRandom()
+	b.Conjugate(&a)
+	a.Inverse(&a)
+	b.Mul(&b, &a)
+	a.FrobeniusSquare(&b).Mul(&a, &b)
+	return a
+}
+
+func TestE12ExptGroundTruth(t *testing.T) {
+	t.Parallel()
+	e := new(big.Int).SetUint64(4965661367192848881)
+	for i := 0; i < 20; i++ {
+		a := randomCyclotomicE12()
+		var expect, got E12
+		expect.CyclotomicExp(a, e)
+		got.Expt(&a)
+		if !expect.Equal(&got) {
+			t.Fatal("Expt does not match generic exponentiation by the seed")
+		}
+	}
+}
+{{- end}}
+
 {{ template "base" .}}

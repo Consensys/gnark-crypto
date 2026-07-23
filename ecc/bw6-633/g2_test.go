@@ -807,6 +807,29 @@ func BenchmarkG2AffineCofactorClearing(b *testing.B) {
 	}
 }
 
+func TestG2JacMulBySeed(t *testing.T) {
+	t.Parallel()
+	var q, expect, got G2Jac
+	q.Set(&g2Gen)
+	for i := 0; i < 5; i++ {
+		expect.ScalarMultiplication(&q, &xGen)
+		got.mulBySeed(&q)
+		if !expect.Equal(&got) {
+			t.Fatal("mulBySeed does not match ScalarMultiplication by xGen")
+		}
+		q.Set(&got)
+	}
+}
+
+func BenchmarkG2JacMulBySeed(b *testing.B) {
+	var q G2Jac
+	q.Set(&g2Gen)
+	b.ResetTimer()
+	for range b.N {
+		q.mulBySeed(&q)
+	}
+}
+
 func BenchmarkG2JacAdd(b *testing.B) {
 	var a G2Jac
 	a.Double(&g2Gen)

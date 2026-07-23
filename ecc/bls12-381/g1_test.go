@@ -871,6 +871,29 @@ func BenchmarkG1AffineCofactorClearing(b *testing.B) {
 	}
 }
 
+func TestG1JacMulBySeed(t *testing.T) {
+	t.Parallel()
+	var q, expect, got G1Jac
+	q.Set(&g1Gen)
+	for i := 0; i < 5; i++ {
+		expect.ScalarMultiplication(&q, &xGen)
+		got.mulBySeed(&q)
+		if !expect.Equal(&got) {
+			t.Fatal("mulBySeed does not match ScalarMultiplication by xGen")
+		}
+		q.Set(&got)
+	}
+}
+
+func BenchmarkG1JacMulBySeed(b *testing.B) {
+	var q G1Jac
+	q.Set(&g1Gen)
+	b.ResetTimer()
+	for range b.N {
+		q.mulBySeed(&q)
+	}
+}
+
 func BenchmarkG1JacAdd(b *testing.B) {
 	var a G1Jac
 	a.Double(&g1Gen)

@@ -468,3 +468,61 @@ func BenchmarkE6Expt(b *testing.B) {
 		a.Expt(&a)
 	}
 }
+
+// randomCyclotomicE6 returns a random element of the cyclotomic subgroup.
+func randomCyclotomicE6() E6 {
+	var a, b E6
+	a.MustSetRandom()
+	b.Conjugate(&a)
+	a.Inverse(&a)
+	b.Mul(&b, &a)
+	a.Frobenius(&b).Mul(&a, &b)
+	return a
+}
+
+func TestE6ExptMinus1SquareGroundTruth(t *testing.T) {
+	t.Parallel()
+	e, ok := new(big.Int).SetString("91893752504881257682351033800651177984", 10)
+	if !ok {
+		t.Fatal("bad exponent")
+	}
+	for i := 0; i < 20; i++ {
+		a := randomCyclotomicE6()
+		var expect, got E6
+		expect.CyclotomicExp(a, e)
+		got.ExptMinus1Square(&a)
+		if !expect.Equal(&got) {
+			t.Fatal("ExptMinus1Square does not match generic exponentiation by (t-1)^2")
+		}
+	}
+}
+
+func TestE6ExptMinus1Div3GroundTruth(t *testing.T) {
+	t.Parallel()
+	e := new(big.Int).SetUint64(3195374304363544576)
+	for i := 0; i < 20; i++ {
+		a := randomCyclotomicE6()
+		var expect, got E6
+		expect.CyclotomicExp(a, e)
+		got.ExptMinus1Div3(&a)
+		if !expect.Equal(&got) {
+			t.Fatal("ExptMinus1Div3 does not match generic exponentiation by (t-1)/3")
+		}
+	}
+}
+
+func BenchmarkE6ExptMinus1Square(b *testing.B) {
+	a := randomCyclotomicE6()
+	b.ResetTimer()
+	for range b.N {
+		a.ExptMinus1Square(&a)
+	}
+}
+
+func BenchmarkE6ExptMinus1Div3(b *testing.B) {
+	a := randomCyclotomicE6()
+	b.ResetTimer()
+	for range b.N {
+		a.ExptMinus1Div3(&a)
+	}
+}

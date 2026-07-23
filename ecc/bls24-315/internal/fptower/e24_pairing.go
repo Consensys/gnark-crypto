@@ -7,29 +7,26 @@ func (z *E24) nSquareCompressed(n int) {
 }
 
 // Expt set z to x^t in E24 and return z (t is the seed of the curve)
-// -2**32+2**30+2**22-2**20+1
+// t = -3218079743 = -2**32+2**30+2**22-2**20+1
+//
+// Expanded signed form t = -3*2^30 + 3*2^20 + 1: a single compressed run on
+// x^3 with snapshots at 20 and 30, decompressed in one batch so both runs
+// share a single inversion. On this curve compressed squares pay for a
+// decompression after about 5 squares, so the runs stay compressed.
+// Operations: 1 square, 30 compressed squares, 1 batch decompression,
+// 3 multiplications, 1 conjugate.
 func (z *E24) Expt(x *E24) *E24 {
+	var c, s20, r E24
 
-	var result, x20, x22, x30, x32 E24
-	result.Set(x)
-
-	result.nSquareCompressed(20)
-	x20.Conjugate(&result)
-	result.nSquareCompressed(2)
-	x22.Set(&result)
-	result.nSquareCompressed(8)
-	x30.Set(&result)
-
-	batch := BatchDecompressKarabina([]E24{x20, x22, x30})
-
-	x32.CyclotomicSquare(&batch[2]).
-		CyclotomicSquare(&x32).
-		Conjugate(&x32)
-
-	z.Mul(x, &batch[0]).
-		Mul(z, &batch[1]).
-		Mul(z, &batch[2]).
-		Mul(z, &x32)
+	c.CyclotomicSquare(x)
+	c.Mul(&c, x) // x^3
+	c.nSquareCompressed(20)
+	s20.Set(&c)
+	c.nSquareCompressed(10)
+	batch := BatchDecompressKarabina([]E24{s20, c})
+	r.Conjugate(&batch[1]) // x^-(3*2^30)
+	r.Mul(&r, &batch[0])   // * x^(3*2^20)
+	z.Mul(&r, x)           // * x
 
 	return z
 }
