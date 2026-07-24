@@ -33,8 +33,8 @@ func doubleE2(res,x *E2)
 //go:noescape
 func negE2(res,x *E2)
 
-{{- $hasMulAsm := or (eq .Name "bn254") (eq .Name "bls12-381") (eq .Name "bls12-377")}}
-{{- $hasSquareAsm := or (eq .Name "bn254") (eq .Name "bls12-381") (eq .Name "bls12-377")}}
+{{- $hasMulAsm := or (eq .Name "bn254") (eq .Name "bls12-381") (eq .Name "bls12-377") (eq .Name "bls24-315") (eq .Name "bls24-317")}}
+{{- $hasSquareAsm := or (eq .Name "bn254") (eq .Name "bls12-381") (eq .Name "bls12-377") (eq .Name "bls24-317")}}
 {{if $hasMulAsm}}
 
 //go:noescape

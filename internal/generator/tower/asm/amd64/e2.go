@@ -61,6 +61,15 @@ func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 		fq2.generateMulByNonResidueE2Scalar(-5)
 		fq2.generateMulE2Lazy(-5, forceADXCheck)
 		fq2.generateSquareE2Scalar(-5, forceADXCheck)
+	} else if fq2.config.Equal(config.BLS24_315) {
+		// 𝔽p2 = 𝔽p[u]/(u² - 13)
+		fq2.generateMulByNonResidueE2Scalar(13)
+		fq2.generateMulE2Lazy(13, forceADXCheck)
+	} else if fq2.config.Equal(config.BLS24_317) {
+		// 𝔽p2 = 𝔽p[u]/(u² + 1), same shape as BLS12-381
+		fq2.generateMulByNonResidueE2BLS381()
+		fq2.generateMulE2Lazy(-1, forceADXCheck)
+		fq2.generateSquareE2(forceADXCheck)
 	}
 	return nil
 }
