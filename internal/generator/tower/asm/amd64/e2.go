@@ -56,6 +56,11 @@ func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 		fq2.generateMulByNonResidueE2BLS381()
 		fq2.generateMulE2Lazy(-1, forceADXCheck)
 		fq2.generateSquareE2(forceADXCheck)
+	} else if fq2.config.Equal(config.BLS12_377) {
+		// 𝔽p2 = 𝔽p[u]/(u² + 5)
+		fq2.generateMulByNonResidueE2Scalar(-5)
+		fq2.generateMulE2Lazy(-5, forceADXCheck)
+		fq2.generateSquareE2Scalar(-5, forceADXCheck)
 	}
 	return nil
 }
