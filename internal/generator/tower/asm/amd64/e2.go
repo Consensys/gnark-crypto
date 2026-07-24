@@ -49,6 +49,9 @@ func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
 	fq2.generateNegE2()
 
 	if fq2.config.Equal(config.BN254) {
+		// BN254 keeps the fused-CIOS mul: at 4 words the whole multiplication
+		// is register-resident and measured faster than the lazy-reduction
+		// variant (E2Mul 51.6 vs 53.4 ns on Zen 4).
 		fq2.generateMulByNonResidueE2BN254()
 		fq2.generateMulE2BN254(forceADXCheck)
 		fq2.generateSquareE2(forceADXCheck)
