@@ -31,7 +31,6 @@ import (
 	"github.com/consensys/gnark-crypto/internal/generator/pairing"
 	"github.com/consensys/gnark-crypto/internal/generator/pedersen"
 	"github.com/consensys/gnark-crypto/internal/generator/permutation"
-	"github.com/consensys/gnark-crypto/internal/generator/plookup"
 	"github.com/consensys/gnark-crypto/internal/generator/polynomial"
 	"github.com/consensys/gnark-crypto/internal/generator/shplonk"
 	"github.com/consensys/gnark-crypto/internal/generator/tower"
@@ -205,7 +204,6 @@ func main() {
 				assertNoError(kzg.Generate(conf, filepath.Join(curveDir, "kzg"), gen))
 				assertNoError(shplonk.Generate(conf, filepath.Join(curveDir, "shplonk"), gen))
 				assertNoError(fflonk.Generate(conf, filepath.Join(curveDir, "fflonk"), gen))
-				assertNoError(plookup.Generate(conf, filepath.Join(curveDir, "fr", "plookup"), gen))
 				assertNoError(permutation.Generate(conf, filepath.Join(curveDir, "fr", "permutation"), gen))
 			}
 

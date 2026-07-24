@@ -22,7 +22,6 @@
 * [`mimc`] - MiMC hash function using Miyaguchi-Preneel construction
 * [`kzg`] - KZG commitment scheme
 * [`permutation`] - Permutation proofs
-* [`plookup`] - Plookup proofs
 * [`eddsa`] - EdDSA signatures (on the companion [`twistededwards`] curves)
 
 `gnark-crypto` is actively developed and maintained by the team (<gnark@consensys.net> | [HackMD](https://hackmd.io/@gnark)) behind:
@@ -125,6 +124,5 @@ This project is licensed under the Apache 2 License - see the [LICENSE](LICENSE)
 [`fft`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/fr/fft
 [`mimc`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/fr/mimc
 [`kzg`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/fr/kzg
-[`plookup`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/fr/plookup
 [`permutation`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/ecc/bn254/fr/permutation
 [`fiatshamir`]: https://pkg.go.dev/github.com/consensys/gnark-crypto/fiat-shamir
