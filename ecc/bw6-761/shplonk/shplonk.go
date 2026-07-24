@@ -22,6 +22,7 @@ var (
 	ErrVerifyOpeningProof     = errors.New("can't verify batch opening proof")
 	ErrInvalidNumberOfDigests = errors.New("number of digests should be equal to the number of polynomials")
 	ErrPairingCheck           = errors.New("pairing product is not 1")
+	ErrNotInSubgroup          = errors.New("proof or digest is not in the correct subgroup")
 )
 
 // OpeningProof KZG proof for opening (fᵢ)_{i} at a different points (xᵢ)_{i}.
@@ -183,6 +184,13 @@ func BatchVerify(proof OpeningProof, digests []kzg.Digest, points [][]fr.Element
 	}
 	if len(digests) != len(points) {
 		return ErrInvalidNumberOfPoints
+	}
+
+	pointsToCheck := make([]bw6761.G1Affine, 0, len(digests)+2)
+	pointsToCheck = append(pointsToCheck, digests...)
+	pointsToCheck = append(pointsToCheck, proof.W, proof.WPrime)
+	if !bw6761.IsInSubGroupBatchG1(pointsToCheck) {
+		return ErrNotInSubgroup
 	}
 
 	// transcript

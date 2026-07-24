@@ -14,13 +14,26 @@ import (
 // ReadFrom decodes OpeningProof data from reader.
 func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 
-	dec := bw6633.NewDecoder(r)
+	return proof.readFrom(r)
+}
+
+// UnsafeReadFrom decodes OpeningProof data from reader without validating
+// decoded points. Callers must validate the proof before use, for example with
+// BatchVerify.
+func (proof *OpeningProof) UnsafeReadFrom(r io.Reader) (int64, error) {
+
+	return proof.readFrom(r, bw6633.NoSubgroupChecks())
+}
+
+func (proof *OpeningProof) readFrom(r io.Reader, options ...func(*bw6633.Decoder)) (int64, error) {
+
+	dec := bw6633.NewDecoder(r, options...)
 
 	toDecode := []any{
 		&proof.SOpeningProof.W,
 		&proof.SOpeningProof.WPrime,
-		proof.SOpeningProof.ClaimedValues,
-		proof.ClaimedValues,
+		&proof.SOpeningProof.ClaimedValues,
+		&proof.ClaimedValues,
 	}
 
 	for _, v := range toDecode {
@@ -35,7 +48,18 @@ func (proof *OpeningProof) ReadFrom(r io.Reader) (int64, error) {
 // WriteTo writes binary encoding of OpeningProof.
 func (proof *OpeningProof) WriteTo(w io.Writer) (int64, error) {
 
-	enc := bw6633.NewEncoder(w)
+	return proof.writeTo(w)
+}
+
+// WriteRawTo writes binary encoding of OpeningProof to w without point compression.
+func (proof *OpeningProof) WriteRawTo(w io.Writer) (int64, error) {
+
+	return proof.writeTo(w, bw6633.RawEncoding())
+}
+
+func (proof *OpeningProof) writeTo(w io.Writer, options ...func(*bw6633.Encoder)) (int64, error) {
+
+	enc := bw6633.NewEncoder(w, options...)
 
 	toEncode := []any{
 		&proof.SOpeningProof.W,
