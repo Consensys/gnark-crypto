@@ -117,8 +117,8 @@ func generateExtensions(F *config.Field, outputDir string) error {
 		}
 
 		if isKoalaBear {
-			entries_ext4 = append(entries_ext4, bavard.Entry{File: filepath.Join(outputDir, "e4_amd64.go"), Templates: []string{"e4.amd64.go.tmpl"}, BuildTag: "!purego"})
-			entries_ext4 = append(entries_ext4, bavard.Entry{File: filepath.Join(outputDir, "e4_purego.go"), Templates: []string{"e4.purego.go.tmpl"}, BuildTag: "purego || (!amd64)"})
+			entries_ext4 = append(entries_ext4, bavard.Entry{File: filepath.Join(outputDir, "ext_amd64.go"), Templates: []string{"ext.amd64.go.tmpl"}, BuildTag: "!purego"})
+			entries_ext4 = append(entries_ext4, bavard.Entry{File: filepath.Join(outputDir, "ext_purego.go"), Templates: []string{"ext.purego.go.tmpl"}, BuildTag: "purego || (!amd64)"})
 		}
 
 		if err := g.Generate(data, "extensions", "", "extensions", entries_ext4...); err != nil {
@@ -127,14 +127,14 @@ func generateExtensions(F *config.Field, outputDir string) error {
 
 		if isKoalaBear {
 			// generate the assembly file;
-			asmFile, err := os.Create(filepath.Join(outputDir, "e4_amd64.s"))
+			asmFile, err := os.Create(filepath.Join(outputDir, "ext_amd64.s"))
 			if err != nil {
 				return err
 			}
 
 			asmFile.WriteString("//go:build !purego\n")
 
-			if err := amd64.GenerateF31E4(asmFile); err != nil {
+			if err := amd64.GenerateF31Ext(asmFile); err != nil {
 				asmFile.Close()
 				return err
 			}

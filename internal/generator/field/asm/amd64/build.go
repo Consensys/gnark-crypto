@@ -391,7 +391,7 @@ func GenerateF31FFTKernels(w io.Writer, nbBits int, kernels []int) error {
 	return nil
 }
 
-func GenerateF31E4(w io.Writer) error {
+func GenerateF31Ext(w io.Writer) error {
 	f := NewFFAmd64(w, 1)
 
 	f.WriteLn("")

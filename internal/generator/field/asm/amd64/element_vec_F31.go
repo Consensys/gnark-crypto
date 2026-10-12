@@ -1143,7 +1143,7 @@ func e6ReplPlan(i, g int) e6ReplStep {
 //
 // These are compile-time constants; rather than emitting them as ~340 lines of
 // DATA/GLOBL in the .s file, they are rendered as plain Go slice literals in the
-// generated e4_amd64.go (see e4.amd64.go.tmpl) and referenced from assembly via
+// generated ext_amd64.go (see ext.amd64.go.tmpl) and referenced from assembly via
 // ·e6replA / ·e6replB, exactly like the maskPermDE6_* tables.
 //
 // A holds the 18 primary tables laid out row-major: table (i, g) starts at index
@@ -1202,7 +1202,7 @@ func (_f *FFAmd64) generateScalarMulVecE6(acc bool) {
 	f.MOVQ("N+24(FP)", N)
 
 	// The VPERMI2D index tables live in Go (·e6replA / ·e6replB, see
-	// e4.amd64.go.tmpl); load their base pointers once and index into them by
+	// ext.amd64.go.tmpl); load their base pointers once and index into them by
 	// offset in the loop rather than materializing an address per table.
 	f.MOVQ("·e6replA+0(SB)", addrTabA)
 	f.MOVQ("·e6replB+0(SB)", addrTabB)
