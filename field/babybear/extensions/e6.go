@@ -539,34 +539,94 @@ func (z *E6) Halve() {
 // if a[i] == 0, returns result[i] = a[i]
 func BatchInvertE6(a []E6) []E6 {
 	res := make([]E6, len(a))
-	if len(a) == 0 {
-		return res
-	}
-
-	var accumulator E6
-	accumulator.SetOne()
-
-	for i := 0; i < len(a); i++ {
-		if a[i].IsZero() {
-			continue
-		}
-		res[i].Set(&accumulator)
-		accumulator.Mul(&accumulator, &a[i])
-	}
-
-	accumulator.Inverse(&accumulator)
-
-	// Non-zero entries have res[i] set to a non-zero partial product on the forward
-	// pass; zero entries left res[i] at its zero value, so IsZero distinguishes them.
-	for i := len(a) - 1; i >= 0; i-- {
-		if res[i].IsZero() {
-			continue
-		}
-		res[i].Mul(&res[i], &accumulator)
-		accumulator.Mul(&accumulator, &a[i])
-	}
-
+	BatchInvertE6Into(res, a)
 	return res
+}
+
+// batchInvertE6Lanes is the number of interleaved product chains of
+// BatchInvertE6Into, the block size of the vectorised VectorE6.Mul.
+const batchInvertE6Lanes = 16
+
+// BatchInvertE6Into sets res[i] to the inverse of a[i], using Montgomery batch
+// inversion trick; if a[i] == 0, res[i] = 0. res may alias a.
+//
+// The trick runs as batchInvertE6Lanes interleaved chains, chain l taking the
+// elements l, l+batchInvertE6Lanes, ..., so that the running products of a block
+// are a single VectorE6.Mul; the chain products are then inverted together with
+// a single E6 inversion.
+func BatchInvertE6Into(res, a []E6) {
+	if len(res) != len(a) {
+		panic("BatchInvertE6Into: vectors don't have the same length")
+	}
+	const L = batchInvertE6Lanes
+	n := len(a)
+	if n == 0 {
+		return
+	}
+
+	// res first holds a with its zeros replaced by one, which the chains
+	// multiply through unchanged; prefix[i] is the product of the earlier
+	// elements of the chain of i.
+	var zeros []int
+	for i := range a {
+		if a[i].IsZero() {
+			zeros = append(zeros, i)
+			res[i].SetOne()
+		} else {
+			res[i] = a[i]
+		}
+	}
+	nz := VectorE6(res)
+	m := n / L * L
+
+	// forward pass; chain l ends in acc[l], and the tail in acc[L].
+	prefix := make(VectorE6, n)
+	var acc [L + 1]E6
+	for l := range acc {
+		acc[l].SetOne()
+	}
+	for j := 0; j < m; j += L {
+		copy(prefix[j:j+L], acc[:L])
+		VectorE6(acc[:L]).Mul(acc[:L], nz[j:j+L])
+	}
+	for i := m; i < n; i++ {
+		prefix[i] = acc[L]
+		acc[L].Mul(&acc[L], &nz[i])
+	}
+
+	// invert the L+1 chain products at once.
+	var accPrefix [L + 1]E6
+	var run E6
+	run.SetOne()
+	for l := range acc {
+		accPrefix[l] = run
+		run.Mul(&run, &acc[l])
+	}
+	run.Inverse(&run)
+	for l := len(acc) - 1; l >= 0; l-- {
+		var inv E6
+		inv.Mul(&run, &accPrefix[l])
+		run.Mul(&run, &acc[l])
+		acc[l] = inv
+	}
+
+	// backward pass: the inverse of element i is the running inverse of its
+	// chain times prefix[i]; nz[i] is read before res[i] is overwritten.
+	for i := n - 1; i >= m; i-- {
+		x := nz[i]
+		res[i].Mul(&acc[L], &prefix[i])
+		acc[L].Mul(&acc[L], &x)
+	}
+	var blk [L]E6
+	for j := m - L; j >= 0; j -= L {
+		copy(blk[:], nz[j:j+L])
+		VectorE6(res[j:j+L]).Mul(acc[:L], prefix[j:j+L])
+		VectorE6(acc[:L]).Mul(acc[:L], blk[:])
+	}
+
+	for _, i := range zeros {
+		res[i].SetZero()
+	}
 }
 
 // Div divides an element in E6 by an element in E6
@@ -606,6 +666,32 @@ func (vector VectorE6) MustSetRandom() {
 	for i := range vector {
 		vector[i].MustSetRandom()
 	}
+}
+
+// Mul sets vector[i] = a[i] * b[i]. vector may alias a or b.
+func (vector VectorE6) Mul(a, b VectorE6) {
+	N := len(vector)
+	if len(a) != N || len(b) != N {
+		panic("vectorE6.Mul: vectors don't have the same length")
+	}
+	for i := range vector {
+		vector[i].Mul(&a[i], &b[i])
+	}
+}
+
+// InnerProduct returns the sum of vector[i] * a[i].
+func (vector VectorE6) InnerProduct(a VectorE6) E6 {
+	N := len(vector)
+	if len(a) != N {
+		panic("vectorE6.InnerProduct: vectors don't have the same length")
+	}
+	var res E6
+	var t E6
+	for i := range vector {
+		t.Mul(&vector[i], &a[i])
+		res.Add(&res, &t)
+	}
+	return res
 }
 
 // Butterfly computes the in-place butterfly operation on two vectors of E6 elements.

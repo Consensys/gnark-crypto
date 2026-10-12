@@ -1712,6 +1712,215 @@ func (_f *FFAmd64) generateMulVecE4(op e4VecOp) {
 	f.RET()
 }
 
+type e6VecOp int
+
+const (
+	e6VecMul e6VecOp = iota
+	e6VecInnerProd
+)
+
+// generateMulVecE6 emits the element-wise E6 product (vectorMul_E6_avx512) and
+// the E6 inner product (vectorInnerProduct_E6_avx512).
+//
+// 16 E6 of a and of b are gathered into 6+6 zmm, one per fr coordinate, and
+// multiplied as in the tower 𝔽_{p^6} = 𝔽_{p^2}[v]/(v³ − ξ), ξ = 1 + u,
+// 𝔽_{p^2} = 𝔽_p[u]/(u² − 3), with Karatsuba at both levels: writing
+// X = X0 + X1·v + X2·v², Tj = Xj·Yj,
+//
+//	c0 = T0 + ξ·((X1+X2)(Y1+Y2) − T1 − T2)
+//	c1 = (X0+X1)(Y0+Y1) − T0 − T1 + ξ·T2
+//	c2 = (X0+X2)(Y0+Y2) − T0 − T2 + T1
+//
+// that is 6 E2 products of 3 base products each. Every intermediate is fully
+// reduced, so the results are the canonical ones of E6.Mul.
+//
+// Mul scatters the 6 result coordinates back to res. InnerProduct instead folds
+// each result coordinate into 4 uint64 lanes added to res (a *[24]uint64,
+// coordinate k at res[4k:4k+4]) and lets the caller reduce mod q; the
+// accumulators live in memory as the product uses nearly all 32 zmm.
+//
+// Precondition: N % 16 == 0.
+func (_f *FFAmd64) generateMulVecE6(op e6VecOp) {
+	const argSize = 4 * 8
+	stackSize := _f.StackSize(_f.NbWords*4+2, 0, 0)
+	var name string
+	switch op {
+	case e6VecMul:
+		name = "vectorMul_E6_avx512"
+	case e6VecInnerProd:
+		name = "vectorInnerProduct_E6_avx512"
+	default:
+		panic("invalid e6VecOp")
+	}
+	registers := _f.FnHeader(name, stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrRes := registers.Pop()
+	addrA := registers.Pop()
+	addrB := registers.Pop()
+	N := registers.Pop()
+
+	f.loadQ()
+	f.loadQInvNeg()
+
+	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
+	f.MOVQ("res+0(FP)", addrRes)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("N+24(FP)", N)
+
+	// transpose stuff
+	maskFFFF := registers.Pop()
+	addrIndexGather6 := registers.Pop()
+	vIndexGather := registers.PopV()
+	f.MOVQ("$0xffffffffffffffff", maskFFFF)
+	f.MOVQ("·indexGather6+0(SB)", addrIndexGather6)
+	f.VMOVDQU32(addrIndexGather6.At(0), vIndexGather)
+
+	a := registers.PopVN(6)
+	b := registers.PopVN(6)
+	t := registers.PopVN(6) // T0, T1, T2 as (A0, A1) pairs
+
+	// as for E4, u² = 3 and ξ = 1 + u only hold for koalabear.
+
+	// e2Mul sets (re, im) = (xr + xi·u)(yr + yi·u); x and y are kept.
+	e2Mul := func(xr, xi, yr, yi, re, im amd64.VectorRegister) {
+		s1, s2 := registers.PopV(), registers.PopV()
+		f.mul(xr, yr, re, true) // m0
+		f.mul(xi, yi, s1, true) // m1
+		f.add(xr, xi, s2)
+		f.add(yr, yi, im)
+		f.mul(s2, im, im, true) // m2
+		f.sub(im, re, im)
+		f.sub(im, s1, im) // im = m2 − m0 − m1
+		f.double(s1, s2)
+		f.add(s2, s1, s2)
+		f.add(re, s2, re) // re = m0 + 3·m1
+		registers.PushV(s1, s2)
+	}
+
+	// e2MulInPlace sets (xr, xi) = (xr + xi·u)(yr + yi·u); y is clobbered.
+	e2MulInPlace := func(xr, xi, yr, yi amd64.VectorRegister) {
+		s1, s2 := registers.PopV(), registers.PopV()
+		f.mul(xr, yr, s1, true) // m0
+		f.mul(xi, yi, s2, true) // m1
+		f.add(xr, xi, xr)
+		f.add(yr, yi, yr)
+		f.mul(xr, yr, xi, true) // m2
+		f.sub(xi, s1, xi)
+		f.sub(xi, s2, xi) // im = m2 − m0 − m1
+		f.double(s2, yr)
+		f.add(yr, s2, yr)
+		f.add(s1, yr, xr) // re = m0 + 3·m1
+		registers.PushV(s1, s2)
+	}
+
+	// cross returns (Xp + Xq)(Yp + Yq) − Tp − Tq in two fresh registers.
+	cross := func(p, q int) (mr, mi amd64.VectorRegister) {
+		mr, mi = registers.PopV(), registers.PopV()
+		yr, yi := registers.PopV(), registers.PopV()
+		f.add(a[2*p], a[2*q], mr)
+		f.add(a[2*p+1], a[2*q+1], mi)
+		f.add(b[2*p], b[2*q], yr)
+		f.add(b[2*p+1], b[2*q+1], yi)
+		e2MulInPlace(mr, mi, yr, yi)
+		registers.PushV(yr, yi)
+		f.sub(mr, t[2*p], mr)
+		f.sub(mr, t[2*q], mr)
+		f.sub(mi, t[2*p+1], mi)
+		f.sub(mi, t[2*q+1], mi)
+		return
+	}
+
+	// mulByXi sets (re, im) = ξ·(r + i·u) = (r + 3i) + (r + i)·u.
+	mulByXi := func(r, i, re, im amd64.VectorRegister) {
+		f.double(i, re)
+		f.add(re, i, re)
+		f.add(re, r, re)
+		f.add(r, i, im)
+	}
+
+	// store writes result coordinate k (16 lanes) to res.
+	store := func(v amd64.VectorRegister, k int) {
+		switch op {
+		case e6VecMul:
+			f.KMOVD(maskFFFF, amd64.K1)
+			f.VPSCATTERDD(k*4, addrRes, vIndexGather, 4, amd64.K1, v)
+		case e6VecInnerProd:
+			// fold the 16 lanes into 4 (< 2q) and add them, zero-extended,
+			// to the uint64 accumulators res[4k:4k+4].
+			hi, lo := registers.PopV(), registers.PopV()
+			f.VEXTRACTI64X4(1, v, hi.Y())
+			f.add(v, hi, hi, fY)
+			f.VEXTRACTI64X2(1, hi.Y(), lo.X())
+			f.VPADDD(hi.X(), lo.X(), lo.X())
+			f.VPMOVZXDQ(lo.X(), hi.Y())
+			f.VPADDQ(addrRes.At(4*k), hi.Y(), hi.Y())
+			f.VMOVDQU64(hi.Y(), addrRes.At(4*k))
+			registers.PushV(hi, lo)
+		}
+	}
+
+	// N % 16 == 0 (pre condition checked by caller)
+	// divide N by 16
+	f.SHRQ("$4", N)
+	f.Loop(N, func() {
+		// fetch 16 E6 values from a and from b, transposed into 2*6 vectors of
+		// 16 dwords such that a[0] == [a[0].B0.A0, a[1].B0.A0, ...]
+		for k := range 6 {
+			// interleave ops for better throughput
+			f.KMOVD(maskFFFF, amd64.K1)
+			f.KMOVD(maskFFFF, amd64.K2)
+			f.VPGATHERDD(k*4, addrA, vIndexGather, 4, amd64.K1, a[k])
+			f.VPGATHERDD(k*4, addrB, vIndexGather, 4, amd64.K2, b[k])
+		}
+
+		for j := range 3 {
+			e2Mul(a[2*j], a[2*j+1], b[2*j], b[2*j+1], t[2*j], t[2*j+1])
+		}
+
+		// c0 = T0 + ξ·((X1+X2)(Y1+Y2) − T1 − T2)
+		mr, mi := cross(1, 2)
+		cr, ci := registers.PopV(), registers.PopV()
+		mulByXi(mr, mi, cr, ci)
+		f.add(t[0], cr, cr)
+		f.add(t[1], ci, ci)
+		store(cr, 0)
+		store(ci, 1)
+		registers.PushV(mr, mi, cr, ci)
+
+		// c1 = (X0+X1)(Y0+Y1) − T0 − T1 + ξ·T2
+		mr, mi = cross(0, 1)
+		cr, ci = registers.PopV(), registers.PopV()
+		mulByXi(t[4], t[5], cr, ci)
+		f.add(mr, cr, cr)
+		f.add(mi, ci, ci)
+		store(cr, 2)
+		store(ci, 3)
+		registers.PushV(mr, mi, cr, ci)
+
+		// c2 = (X0+X2)(Y0+Y2) − T0 − T2 + T1
+		mr, mi = cross(0, 2)
+		f.add(mr, t[2], mr)
+		f.add(mi, t[3], mi)
+		store(mr, 4)
+		store(mi, 5)
+		registers.PushV(mr, mi)
+
+		// 16 E6 = 384 bytes
+		if op == e6VecMul {
+			f.ADDQ("$384", addrRes)
+		}
+		f.ADDQ("$384", addrA)
+		f.ADDQ("$384", addrB)
+	})
+
+	f.RET()
+}
+
 func (_f *FFAmd64) generateInnerProdByElementE4() {
 	// func vectorInnerProductByElement_avx512(res, a *E4, b *fr.Element, N uint64)
 
