@@ -545,6 +545,8 @@ func BatchInvertE6(a []E6) []E6 {
 
 // batchInvertE6Lanes is the number of interleaved product chains of
 // BatchInvertE6Into, the block size of the vectorised VectorE6.Mul.
+// BatchInvertE6Into is correct for any value ≥ 1; matching the block size
+// only lets each block of running products take the vectorised path.
 const batchInvertE6Lanes = 16
 
 // BatchInvertE6Into sets res[i] to the inverse of a[i], using Montgomery batch

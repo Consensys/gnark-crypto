@@ -1737,7 +1737,9 @@ const (
 // Mul scatters the 6 result coordinates back to res. InnerProduct instead folds
 // each result coordinate into 4 uint64 lanes added to res (a *[24]uint64,
 // coordinate k at res[4k:4k+4]) and lets the caller reduce mod q; the
-// accumulators live in memory as the product uses nearly all 32 zmm.
+// accumulators live in memory as the product uses nearly all 32 zmm. The fold
+// adds 16 lanes into 4 that are < 2q < 2³², so each uint64 accumulator grows
+// by < 2³² per block of 16 E6 and cannot overflow before N ≈ 2³⁶.
 //
 // Precondition: N % 16 == 0.
 func (_f *FFAmd64) generateMulVecE6(op e6VecOp) {
