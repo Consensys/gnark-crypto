@@ -1,0 +1,58 @@
+import (
+	fr "{{.BaseFieldPackagePath}}"
+	"{{.FieldPackagePath}}"
+	"github.com/consensys/gnark-crypto/hash"
+)
+{{range .Adapters}}
+// BaseFieldHashAdapter{{.ExtensionName}} hashes elements of {{.ElementType}} with a hasher over the base
+// field. The {{.ExtensionDegree}} coordinates of each element are written in the order of AppendBase.
+//
+// The coordinates are packed in blocks of the base hasher's block length before
+// they are written to it, so that a write of the base hasher does not correspond
+// to a write of the adapter. See [hash.SmallFieldHasher].
+type BaseFieldHashAdapter{{.ExtensionName}} struct {
+	hsh      hash.SmallFieldHasher[fr.Element]
+	blockLen int
+	buffer   []fr.Element // pending coordinates, fewer than blockLen between calls
+}
+
+// NewBaseFieldHashAdapter{{.ExtensionName}} returns an adapter over baseHasher. The digest of
+// baseHasher must have at least {{.ExtensionDegree}} elements.
+func NewBaseFieldHashAdapter{{.ExtensionName}}(baseHasher hash.SmallFieldHasher[fr.Element]) *BaseFieldHashAdapter{{.ExtensionName}} {
+	blockLen := baseHasher.BlockLen()
+	return &BaseFieldHashAdapter{{.ExtensionName}}{
+		hsh:      baseHasher,
+		blockLen: blockLen,
+		buffer:   make([]fr.Element, 0, blockLen-1+{{.ExtensionDegree}}),
+	}
+}
+
+// WriteField buffers the coordinates of e, and writes each full block to the
+// base hasher.
+func (h *BaseFieldHashAdapter{{.ExtensionName}}) WriteField(e ...{{.ElementType}}) {
+	for i := range e {
+		h.buffer = e[i].AppendBase(h.buffer)
+		for len(h.buffer) >= h.blockLen {
+			h.hsh.WriteField(h.buffer[:h.blockLen]...)
+			h.buffer = h.buffer[:copy(h.buffer, h.buffer[h.blockLen:])]
+		}
+	}
+}
+
+// SumField writes the buffered coordinates to the base hasher, and returns the
+// first {{.ExtensionDegree}} elements of its digest as an element of {{.ElementType}}.
+func (h *BaseFieldHashAdapter{{.ExtensionName}}) SumField() {{.ElementType}} {
+	if len(h.buffer) != 0 {
+		h.hsh.WriteField(h.buffer...)
+		h.buffer = h.buffer[:0]
+	}
+
+	d := h.hsh.SumSmallField()
+	if len(d) < {{.ExtensionDegree}} {
+		panic("BaseFieldHashAdapter{{.ExtensionName}}: the digest of the base hasher has fewer than {{.ExtensionDegree}} elements")
+	}
+
+	var res {{.ElementType}}
+	return *res.SetBase(d[:{{.ExtensionDegree}}])
+}
+{{end}}

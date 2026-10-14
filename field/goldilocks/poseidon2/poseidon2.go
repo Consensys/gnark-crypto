@@ -6,11 +6,8 @@
 package poseidon2
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
-	"slices"
 
 	"golang.org/x/crypto/sha3"
 
@@ -320,28 +317,49 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 		return nil, fmt.Errorf("left input should be %d bytes", desiredLen)
 	}
 
-	reader := io.MultiReader(bytes.NewReader(left), bytes.NewReader(right))
 	x := make([]fr.Element, h.params.Width)
-	var buf [fr.Bytes]byte
-
-	for i := range x {
-		if _, err := io.ReadFull(reader, buf[:]); err != nil {
-			return nil, err
-		}
-		if err := x[i].SetBytesCanonical(buf[:]); err != nil {
+	l, r := x[:n], x[n:]
+	for i := range n {
+		if err := l[i].SetBytesCanonical(left[i*fr.Bytes : (i+1)*fr.Bytes]); err != nil {
 			return nil, err
 		}
 	}
-
-	res := slices.Clone(x[n:]) // saved to feed forward later
-	if err := h.Permutation(x[:]); err != nil {
-		return nil, err
+	for i := range n {
+		if err := r[i].SetBytesCanonical(right[i*fr.Bytes : (i+1)*fr.Bytes]); err != nil {
+			return nil, err
+		}
 	}
 
-	outBytes := make([]byte, 0, n*fr.Bytes)
-	for i := range res {
-		outBytes = append(outBytes, res[i].Add(&res[i], &x[n+i]).Marshal()...)
-	}
+	h.CompressSmallField(l, l, r)
 
+	outBytes := make([]byte, 0, desiredLen)
+	for i := range n {
+		b := l[i].Bytes()
+		outBytes = append(outBytes, b[:]...)
+	}
 	return outBytes, nil
+}
+
+// BlockLen returns the number of field elements of the blocks compressed by
+// [Permutation.CompressSmallField], that is t/2 where t is the width of the permutation.
+func (h *Permutation) BlockLen() int {
+	return h.params.Width / 2
+}
+
+// CompressSmallField uses the permutation to compress left and right, each of
+// t/2 elements where t is the width of the permutation, into dst, in the same way
+// as [Permutation.Compress] does on bytes. dst may alias left or right.
+func (h *Permutation) CompressSmallField(dst, left, right []fr.Element) {
+	n := h.params.Width / 2
+
+	x := make([]fr.Element, h.params.Width)
+	copy(x, left)
+	copy(x[n:], right)
+
+	if err := h.Permutation(x); err != nil {
+		panic(err)
+	}
+	for i := range n {
+		dst[i].Add(&right[i], &x[n+i])
+	}
 }

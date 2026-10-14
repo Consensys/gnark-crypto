@@ -6,9 +6,11 @@
 package poseidon2
 
 import (
+	"bytes"
 	"testing"
 
 	fr "github.com/consensys/gnark-crypto/field/babybear"
+	gnarkHash "github.com/consensys/gnark-crypto/hash"
 	"github.com/consensys/gnark-crypto/utils/cpu"
 	"github.com/stretchr/testify/require"
 )
@@ -106,6 +108,77 @@ func TestMatricesMatchInPlace(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func randomElements(n int) []fr.Element {
+	e := make([]fr.Element, n)
+	fr.Vector(e).MustSetRandom()
+	return e
+}
+
+func marshalElements(e []fr.Element) []byte {
+	var b []byte
+	for i := range e {
+		b = append(b, e[i].Marshal()...)
+	}
+	return b
+}
+
+// TestMerkleDamgard checks that the hasher behaves as the Merkle-Damgard hasher
+// over the byte compression of the permutation, call by call, whether the elements
+// are written as bytes, or alternately as bytes and as field elements, as the two
+// interfaces share the state. It also checks that the state can be saved and restored.
+func TestMerkleDamgard(t *testing.T) {
+	p := NewDefaultPermutation()
+	blockLen := p.BlockLen()
+
+	for _, mode := range []struct {
+		name string
+		// writeField tells, for the i-th call, whether to write field elements
+		writeField func(i int) bool
+	}{
+		{"bytes", func(int) bool { return false }},
+		{"alternating", func(i int) bool { return i%2 == 0 }},
+	} {
+		t.Run(mode.name, func(t *testing.T) {
+			for _, sizes := range [][]int{{0}, {1}, {blockLen}, {blockLen - 1, 3}, {2*blockLen + 1, 5, 0, blockLen}, {37}} {
+				ref := gnarkHash.NewMerkleDamgardHasher(p, make([]byte, p.BlockSize()))
+				h := NewMerkleDamgardHasher()
+
+				for i, n := range sizes {
+					elems := randomElements(n)
+					b := marshalElements(elems)
+					if _, err := ref.Write(b); err != nil {
+						t.Fatal(err)
+					}
+					if mode.writeField(i) {
+						h.WriteField(elems...)
+					} else if _, err := h.Write(b); err != nil {
+						t.Fatal(err)
+					}
+
+					if !bytes.Equal(h.Sum(nil), ref.Sum(nil)) || !bytes.Equal(marshalElements(h.SumSmallField()), ref.Sum(nil)) || !bytes.Equal(h.State(), ref.State()) {
+						t.Fatalf("sizes %v, call %d: the hasher differs from the byte hasher", sizes, i)
+					}
+				}
+
+				restored := NewMerkleDamgardHasher()
+				if err := restored.SetState(h.State()); err != nil {
+					t.Fatal(err)
+				}
+				more := marshalElements(randomElements(blockLen + 2))
+				if _, err := h.Write(more); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := restored.Write(more); err != nil {
+					t.Fatal(err)
+				}
+				if !bytes.Equal(h.Sum(nil), restored.Sum(nil)) {
+					t.Fatalf("sizes %v: the restored state gives another digest", sizes)
+				}
+			}
+		})
 	}
 }
 
