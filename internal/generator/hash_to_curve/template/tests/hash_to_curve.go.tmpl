@@ -168,7 +168,7 @@ func BenchmarkEncodeTo{{$CurveTitle}}(b *testing.B) {
 
 	for range b.N {
 
-		bytes[rand.Int()%size] = byte(rand.Int()) //#nosec G404 weak rng is fine here
+		bytes[rand.Int()%size] = byte(rand.Int())
 
 		if _, err := EncodeTo{{$CurveTitle}}(bytes, dst); err != nil {
 			b.Fail()
@@ -184,7 +184,7 @@ func BenchmarkHashTo{{$CurveTitle}}(b *testing.B) {
 
 	for range b.N {
 
-		bytes[rand.Int()%size] = byte(rand.Int()) //#nosec G404 weak rng is fine here
+		bytes[rand.Int()%size] = byte(rand.Int())
 
 		if _, err := HashTo{{$CurveTitle}}(bytes, dst); err != nil {
 			b.Fail()

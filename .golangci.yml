@@ -17,6 +17,11 @@ linters:
         - G602
   exclusions:
     generated: disable
+    rules:
+      - linters:
+          - gosec
+        text: G404
+        path: _test\.go$
     presets:
       - comments
       - common-false-positives

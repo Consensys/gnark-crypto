@@ -47,12 +47,12 @@ func TestEncoder(t *testing.T) {
 	var inN [][][]fr.Element
 
 	// set values of inputs
-	inA = rand.Uint64() //#nosec G404 weak rng is fine here
+	inA = rand.Uint64()
 	inB.MustSetRandom()
 	inC.MustSetRandom()
-	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
+	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64()))
 	// inE --> infinity
-	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
+	inF.ScalarMultiplication(&g2GenAff, new(big.Int).SetUint64(rand.Uint64()))
 	inG = make([]G1Affine, 2)
 	inH = make([]G2Affine, 0)
 	inG[1] = inD
