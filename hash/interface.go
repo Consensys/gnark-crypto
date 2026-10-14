@@ -33,3 +33,13 @@ type Compressor interface {
 	// BlockSize returns the blocks size.
 	BlockSize() int
 }
+
+type FieldHasher[F any] interface {
+	WriteField(...F)
+	SumField() F
+}
+
+type SmallFieldHasher[F any] interface {
+	WriteSmallField(...F)
+	SumSmallField() []F
+}
