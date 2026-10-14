@@ -126,12 +126,31 @@ func marshalElements(e []fr.Element) []byte {
 }
 
 // TestMerkleDamgard checks that the hasher behaves as the Merkle-Damgard hasher
-// over the byte compression of the permutation, call by call, whether the elements
-// are written as bytes, or alternately as bytes and as field elements, as the two
-// interfaces share the state. It also checks that the state can be saved and restored.
+// over the byte compression of the permutation, call by call, whether the input is
+// written as bytes, or alternately as bytes and as field elements, as the two
+// interfaces share the state. The last block of a call may be partial, and may not
+// end on an element boundary. It also checks that the state can be saved and restored.
 func TestMerkleDamgard(t *testing.T) {
 	p := NewDefaultPermutation()
 	blockLen := p.BlockLen()
+
+	// A call writes k bytes of value 1, then n elements. A call with k != 0 can only
+	// be written as bytes. Its elements end on an element boundary once the last
+	// block is padded, so that all the inputs are canonical.
+	type call struct{ k, n int }
+	elements := func(sizes ...int) []call {
+		calls := make([]call, len(sizes))
+		for i, n := range sizes {
+			calls[i] = call{n: n}
+		}
+		return calls
+	}
+	cases := [][]call{elements(0), elements(1), elements(blockLen), elements(blockLen-1, 3), elements(2*blockLen+1, 5, 0, blockLen), elements(37)}
+	for k := 1; k < fr.Bytes; k++ {
+		for n := range blockLen {
+			cases = append(cases, []call{{n: blockLen}, {k: k, n: n}})
+		}
+	}
 
 	for _, mode := range []struct {
 		name string
@@ -142,24 +161,24 @@ func TestMerkleDamgard(t *testing.T) {
 		{"alternating", func(i int) bool { return i%2 == 0 }},
 	} {
 		t.Run(mode.name, func(t *testing.T) {
-			for _, sizes := range [][]int{{0}, {1}, {blockLen}, {blockLen - 1, 3}, {2*blockLen + 1, 5, 0, blockLen}, {37}} {
+			for _, calls := range cases {
 				ref := gnarkHash.NewMerkleDamgardHasher(p, make([]byte, p.BlockSize()))
 				h := NewMerkleDamgardHasher()
 
-				for i, n := range sizes {
-					elems := randomElements(n)
-					b := marshalElements(elems)
+				for i, c := range calls {
+					elems := randomElements(c.n)
+					b := append(bytes.Repeat([]byte{1}, c.k), marshalElements(elems)...)
 					if _, err := ref.Write(b); err != nil {
 						t.Fatal(err)
 					}
-					if mode.writeField(i) {
+					if c.k == 0 && mode.writeField(i) {
 						h.WriteField(elems...)
 					} else if _, err := h.Write(b); err != nil {
 						t.Fatal(err)
 					}
 
 					if !bytes.Equal(h.Sum(nil), ref.Sum(nil)) || !bytes.Equal(marshalElements(h.SumSmallField()), ref.Sum(nil)) || !bytes.Equal(h.State(), ref.State()) {
-						t.Fatalf("sizes %v, call %d: the hasher differs from the byte hasher", sizes, i)
+						t.Fatalf("calls %v, call %d: the hasher differs from the byte hasher", calls, i)
 					}
 				}
 
@@ -175,7 +194,7 @@ func TestMerkleDamgard(t *testing.T) {
 					t.Fatal(err)
 				}
 				if !bytes.Equal(h.Sum(nil), restored.Sum(nil)) {
-					t.Fatalf("sizes %v: the restored state gives another digest", sizes)
+					t.Fatalf("calls %v: the restored state gives another digest", calls)
 				}
 			}
 		})

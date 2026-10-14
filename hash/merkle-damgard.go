@@ -124,9 +124,9 @@ type SmallFieldMerkleDamgardHasher[F any, PF interface {
 // the left to a full block, so the digests of an input and of the input
 // preceded by zeros in its last block are the same.
 //
-// WriteField and Write behave the same way: every call compresses each block
-// of its input, and pads its last block, which may be partial, so that the digest
-// depends on how the input is split among the calls.
+// Write compresses each block of its input, and pads its last block, which may
+// be partial, with zeros on the left to a full block, so that the digest depends
+// on how the input is split among the calls.
 //
 // initialState is provided as initial input to the compression function. Its
 // preimage should not be known and thus it should be generated using a
@@ -153,7 +153,8 @@ func NewSmallFieldMerkleDamgardHasher[F any, PF interface {
 	}
 }
 
-// WriteField implements [SmallFieldHasher].
+// WriteField implements [SmallFieldHasher]. It pads a partial last block with
+// zeros on the left to a full block.
 func (h *SmallFieldMerkleDamgardHasher[F, PF]) WriteField(e ...F) {
 	blockLen := h.f.BlockLen()
 	for len(e) != 0 {
@@ -184,21 +185,13 @@ func (h *SmallFieldMerkleDamgardHasher[F, PF]) Write(p []byte) (n int, err error
 	blockSize := h.BlockSize()
 	block := make([]F, h.f.BlockLen())
 	for len(p) != 0 {
-		chunk := p
-		if len(chunk) < blockSize {
-			chunk = make([]byte, blockSize)
-			copy(chunk[blockSize-len(p):], p)
-			p = nil
-		} else {
-			chunk, p = p[:blockSize], p[blockSize:]
+		chunk := p[:min(len(p), blockSize)]
+		if err = h.parseBlock(block, chunk); err != nil {
+			return
 		}
-		for i := range block {
-			if err = PF(&block[i]).SetBytesCanonical(chunk[i*h.elemSize : (i+1)*h.elemSize]); err != nil {
-				return
-			}
-		}
-		h.f.CompressSmallField(h.state, h.state, block)
+		h.WriteField(block...)
 		n += blockSize
+		p = p[len(chunk):]
 	}
 	return
 }
@@ -220,27 +213,38 @@ func (h *SmallFieldMerkleDamgardHasher[F, PF]) BlockSize() int {
 }
 
 func (h *SmallFieldMerkleDamgardHasher[F, PF]) State() []byte {
-	return h.appendMarshalled(nil, h.state)
+	return h.Sum(nil)
 }
 
 // SetState sets h's state to state. If len(state) < BlockSize, h's state is set
 // to state, left padded with zeroes. len(state) > BlockSize will result in an
 // error.
 func (h *SmallFieldMerkleDamgardHasher[F, PF]) SetState(state []byte) error {
-	blockSize := h.BlockSize()
-	if len(state) > blockSize {
-		return fmt.Errorf("state/iv must not exceed the hash block size: %d > %d", len(state), blockSize)
-	}
-	padded := make([]byte, blockSize)
-	copy(padded[blockSize-len(state):], state)
-
 	newState := make([]F, len(h.state))
-	for i := range newState {
-		if err := PF(&newState[i]).SetBytesCanonical(padded[i*h.elemSize : (i+1)*h.elemSize]); err != nil {
+	if err := h.parseBlock(newState, state); err != nil {
+		return err
+	}
+	h.state = newState
+	return nil
+}
+
+// parseBlock parses b, padded with zeros on the left to a block, into the
+// elements of dst. It is an error if b is longer than a block.
+func (h *SmallFieldMerkleDamgardHasher[F, PF]) parseBlock(dst []F, b []byte) error {
+	blockSize := h.BlockSize()
+	if len(b) > blockSize {
+		return fmt.Errorf("state/iv must not exceed the hash block size: %d > %d", len(b), blockSize)
+	}
+	if len(b) < blockSize {
+		padded := make([]byte, blockSize)
+		copy(padded[blockSize-len(b):], b)
+		b = padded
+	}
+	for i := range dst {
+		if err := PF(&dst[i]).SetBytesCanonical(b[i*h.elemSize : (i+1)*h.elemSize]); err != nil {
 			return err
 		}
 	}
-	h.state = newState
 	return nil
 }
 
