@@ -171,7 +171,7 @@ func TestRejectSmallSubgroupEncoding(t *testing.T) {
 
 func TestPrivateKeyDeserializationChecksPublicKeyAndScalar(t *testing.T) {
 	src := rand.NewSource(0)
-	r := rand.New(src) //#nosec G404 weak rng is fine here
+	r := rand.New(src)
 
 	privKey, err := GenerateKey(r)
 	if err != nil {
@@ -226,7 +226,7 @@ func TestPrivateKeyDeserializationChecksPublicKeyAndScalar(t *testing.T) {
 func TestSerialization(t *testing.T) {
 
 	src := rand.NewSource(0)
-	r := rand.New(src) //#nosec G404 weak rng is fine here
+	r := rand.New(src)
 
 	privKey1, err := GenerateKey(r)
 	if err != nil {
@@ -268,7 +268,7 @@ func TestSerialization(t *testing.T) {
 func TestEddsaMIMC(t *testing.T) {
 
 	src := rand.NewSource(0)
-	r := rand.New(src) //#nosec G404 weak rng is fine here
+	r := rand.New(src)
 
 	// create eddsa obj and sign a message
 	privKey, err := GenerateKey(r)
@@ -311,7 +311,7 @@ func TestEddsaMIMC(t *testing.T) {
 func TestEddsaSHA256(t *testing.T) {
 
 	src := rand.NewSource(0)
-	r := rand.New(src) //#nosec G404 weak rng is fine here
+	r := rand.New(src)
 
 	hFunc := sha256.New()
 
@@ -352,7 +352,7 @@ func TestEddsaSHA256(t *testing.T) {
 // benchmarks
 
 func BenchmarkGenerateKey(b *testing.B) {
-	r := rand.New(rand.NewSource(0)) //#nosec G404 deterministic benchmark seed
+	r := rand.New(rand.NewSource(0))
 
 	for b.Loop() {
 		if _, err := GenerateKey(r); err != nil {
@@ -362,7 +362,7 @@ func BenchmarkGenerateKey(b *testing.B) {
 }
 
 func BenchmarkSign(b *testing.B) {
-	r := rand.New(rand.NewSource(0)) //#nosec G404 deterministic benchmark seed
+	r := rand.New(rand.NewSource(0))
 	privKey, err := GenerateKey(r)
 	if err != nil {
 		b.Fatal(err)
@@ -382,7 +382,7 @@ func BenchmarkSign(b *testing.B) {
 
 func BenchmarkVerify(b *testing.B) {
 	src := rand.NewSource(0)
-	r := rand.New(src) //#nosec G404 weak rng is fine here
+	r := rand.New(src)
 
 	hFunc := hash.MIMC_BLS12_381.New()
 

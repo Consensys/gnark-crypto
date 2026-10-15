@@ -37,8 +37,7 @@ func TestZeroMatrix(t *testing.T) {
 	var (
 		numCol = 16
 		numRow = 8
-		// #nosec G404 -- test case generation does not require a cryptographic PRNG
-		rng = rand.New(rand.NewChaCha8([32]byte{}))
+		rng    = rand.New(rand.NewChaCha8([32]byte{}))
 	)
 
 	var (
@@ -68,8 +67,7 @@ func TestFullRandom(t *testing.T) {
 	var (
 		numCol = 16
 		numRow = 8
-		// #nosec G404 -- test case generation does not require a cryptographic PRNG
-		rng = rand.New(rand.NewChaCha8([32]byte{}))
+		rng    = rand.New(rand.NewChaCha8([32]byte{}))
 	)
 
 	var (
@@ -372,7 +370,6 @@ func FuzzVortex(f *testing.F) {
 
 		var seed [32]byte
 		binary.PutVarint(seed[:], rngSeed)
-		// #nosec G404 -- fuzz does not require a cryptographic PRNG
 		rng := rand.New(rand.NewChaCha8(seed))
 
 		sisParams, err := sis.NewRSis(sisSeed, sisLog2Degree, sisLog2Bound, numRow)
@@ -432,10 +429,9 @@ func BenchmarkVortexReal(b *testing.B) {
 		wg                 sync.WaitGroup
 		sisParams, _       = sis.NewRSis(0, 9, 16, numRow)
 		params, _          = NewParams(numCol, numRow, sisParams, invRate, numSelectedColumns)
-		// #nosec G404 -- test case generation does not require a cryptographic PRNG
-		topRng          = rand.New(rand.NewChaCha8([32]byte{}))
-		alpha           = randFext(topRng)
-		selectedColumns = make([]int, 256)
+		topRng             = rand.New(rand.NewChaCha8([32]byte{}))
+		alpha              = randFext(topRng)
+		selectedColumns    = make([]int, 256)
 	)
 
 	for i := range selectedColumns {
@@ -451,7 +447,6 @@ func BenchmarkVortexReal(b *testing.B) {
 			seed := [32]byte{}
 			binary.PutVarint(seed[:], int64(row))
 
-			// #nosec G404 -- test case generation does not require a cryptographic PRNG
 			rng := rand.New(rand.NewChaCha8(seed))
 			for j := range m[row] {
 				m[row][j] = randElement(rng)

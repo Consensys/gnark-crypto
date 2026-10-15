@@ -148,7 +148,7 @@ func nonce(privateKey *PrivateKey, hash []byte) (csprng *cipher.StreamReader, er
 	// the output of the AES-CTR instance.
 	csprng = &cipher.StreamReader{
 		R: zeroReader,
-		S: cipher.NewCTR(block, []byte(aesIV)),
+		S: cipher.NewCTR(block, []byte(aesIV)), // #nosec G407 -- the CTR key is derived for each signature
 	}
 
 	return csprng, err

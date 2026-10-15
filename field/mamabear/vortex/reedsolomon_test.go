@@ -79,7 +79,6 @@ func TestReedSolomonProperty(t *testing.T) {
 		v            = make([]mamabear.Element, size)
 		encodedVFext = make([]fext.E3, size*invRate)
 
-		// #nosec G404 -- test case generation does not require a cryptographic PRNG
 		rng   = rand.New(rand.NewChaCha8([32]byte{}))
 		randX = randFext(rng)
 	)
@@ -119,7 +118,6 @@ func TestReedSolomonProperty(t *testing.T) {
 func TestReedSolomonAllRates(t *testing.T) {
 	assert := require.New(t)
 
-	// #nosec G404 -- test case generation does not require a cryptographic PRNG
 	rng := rand.New(rand.NewChaCha8([32]byte{}))
 
 	for _, invRate := range []int{2, 4, 8} {

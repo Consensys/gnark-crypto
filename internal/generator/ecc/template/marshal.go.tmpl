@@ -102,7 +102,7 @@ func NewDecoder(r io.Reader, options ...func(*Decoder)) *Decoder {
 // type must be *uint64, *fr.Element, *fp.Element, *G1Affine, {{- if .HasG2}} *G2Affine, {{- end}} *[]G1Affine {{- if .HasG2}} or *[]G2Affine {{- end}}
 func (dec *Decoder) Decode(v any) (err error) {
 	rv := reflect.ValueOf(v)
-	if v == nil || rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
+	if v == nil || rv.Kind() != reflect.Pointer || rv.IsNil() || !rv.Elem().CanSet() {
 		return errors.New("{{.Name}} decoder: unsupported type, need pointer")
 	}
 
@@ -615,7 +615,7 @@ func (enc *Encoder) writeUint32(a uint32) error {
 
 func (enc *Encoder) encode{{- $.Raw}}(v any) (err error) {
 	rv := reflect.ValueOf(v)
-	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
+	if v == nil || (rv.Kind() == reflect.Pointer && rv.IsNil()) {
 		return errors.New("{{.Name}} encoder: can't encode <nil>")
 	}
 
