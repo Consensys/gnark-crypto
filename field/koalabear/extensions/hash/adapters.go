@@ -46,14 +46,33 @@ func (h *BaseFieldHashAdapterE6) WriteField(e ...extensions.E6) {
 	}
 }
 
-// SumField writes the buffered coordinates to the base hasher, and returns the
-// first 6 elements of its digest as an element of extensions.E6.
-func (h *BaseFieldHashAdapterE6) SumField() extensions.E6 {
+// PadBlock writes the pending coordinates to the base hasher, which pads them to
+// a full block, and clears them. The coordinates written afterwards start a new
+// block.
+func (h *BaseFieldHashAdapterE6) PadBlock() {
 	if len(h.buffer) != 0 {
 		h.hsh.WriteField(h.buffer...)
 		h.buffer = h.buffer[:0]
 	}
+}
 
+// SumField returns the first 6 elements of the digest of the base hasher as
+// an element of extensions.E6. It does not change the state of the adapter.
+func (h *BaseFieldHashAdapterE6) SumField() extensions.E6 {
+	if len(h.buffer) == 0 {
+		return h.digest()
+	}
+
+	state := h.hsh.State()
+	h.hsh.WriteField(h.buffer...)
+	res := h.digest()
+	if err := h.hsh.SetState(state); err != nil {
+		panic(err)
+	}
+	return res
+}
+
+func (h *BaseFieldHashAdapterE6) digest() extensions.E6 {
 	d := h.hsh.SumSmallField()
 	if len(d) < 6 {
 		panic("BaseFieldHashAdapterE6: the digest of the base hasher has fewer than 6 elements")

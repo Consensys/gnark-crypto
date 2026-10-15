@@ -12,7 +12,8 @@ import (
 
 // TestBaseFieldHashAdapterE3OverPoseidon2 checks that, over the Poseidon2 hasher,
 // the adapter is transparent: its digest is that of the hasher fed the
-// coordinates of the elements in a single call, whatever the split among the calls.
+// coordinates of the elements in a single call, whatever the split among the calls
+// and the calls to SumField in between.
 func TestBaseFieldHashAdapterE3OverPoseidon2(t *testing.T) {
 	for n := range 12 {
 		es := make([]extensions.E3, n)
@@ -30,9 +31,15 @@ func TestBaseFieldHashAdapterE3OverPoseidon2(t *testing.T) {
 		for split := range n + 1 {
 			h := NewBaseFieldHashAdapterE3(poseidon2.NewMerkleDamgardHasher())
 			h.WriteField(es[:split]...)
+			h.SumField() // does not change the state
 			h.WriteField(es[split:]...)
 			got := h.SumField()
 			require.True(t, got.Equal(&want), "%d elements split at %d", n, split)
+
+			// the digest already includes the pending coordinates, padded
+			h.PadBlock()
+			padded := h.SumField()
+			require.True(t, padded.Equal(&want), "%d elements split at %d, after PadBlock", n, split)
 		}
 	}
 }

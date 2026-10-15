@@ -100,8 +100,8 @@ func cloneLeftPadded(b []byte, n int) ([]byte, error) {
 }
 
 // SmallFieldMerkleDamgardHasher is a Merkle-Damgard hash function over blocks of
-// elements of a small field F. It is both a [StateStorer], whose bytes are the
-// marshalled elements, and a [SmallFieldHasher]. See
+// elements of a small field F. It is a [SmallFieldHasher], and so a [StateStorer],
+// whose bytes are the marshalled elements. See
 // [NewSmallFieldMerkleDamgardHasher].
 type SmallFieldMerkleDamgardHasher[F any, PF interface {
 	*F

@@ -14,12 +14,15 @@ import (
 	"github.com/consensys/gnark-crypto/field/koalabear/extensions"
 )
 
-// recorder is a base hasher that records what is written to it, and returns a
-// given digest.
+// recorder is a base hasher that records what is written to it, returns a given
+// digest, and whose state is the number of writes. It is not a byte hasher.
 type recorder struct {
-	writes   [][]fr.Element
-	digest   []fr.Element
-	blockLen int
+	writes     [][]fr.Element
+	digest     []fr.Element
+	blockLen   int
+	atSum      []byte // the marshalled elements written when the digest was last asked for
+	stateCalls int
+	setCalls   int
 }
 
 func (r *recorder) WriteField(e ...fr.Element) {
@@ -27,11 +30,38 @@ func (r *recorder) WriteField(e ...fr.Element) {
 }
 
 func (r *recorder) SumSmallField() []fr.Element {
+	r.atSum = r.stream()
 	return r.digest
 }
 
 func (r *recorder) BlockLen() int {
 	return r.blockLen
+}
+
+func (r *recorder) State() []byte {
+	r.stateCalls++
+	return []byte{byte(len(r.writes))}
+}
+
+func (r *recorder) SetState(state []byte) error {
+	r.setCalls++
+	r.writes = r.writes[:state[0]]
+	return nil
+}
+
+func (r *recorder) Write([]byte) (int, error) { panic("not a byte hasher") }
+func (r *recorder) Sum([]byte) []byte         { panic("not a byte hasher") }
+func (r *recorder) Reset()                    { panic("not a byte hasher") }
+func (r *recorder) Size() int                 { panic("not a byte hasher") }
+func (r *recorder) BlockSize() int            { panic("not a byte hasher") }
+
+// stream returns the marshalled elements written so far.
+func (r *recorder) stream() []byte {
+	var b []byte
+	for _, w := range r.writes {
+		b = append(b, marshalBase(w)...)
+	}
+	return b
 }
 
 func marshalBase(e []fr.Element) []byte {
@@ -52,35 +82,70 @@ func newDigest(n int) []fr.Element {
 
 // TestBaseFieldHashAdapterE6 checks that the adapter writes the coordinates of the
 // elements to the base hasher in blocks, in the order of Marshal, whatever the split
-// among the calls, and that SumField returns the first coordinates of the digest.
+// among the calls; that SumField includes the pending coordinates in the digest without
+// changing the state of the adapter or of the base hasher; and that PadBlock writes them.
 func TestBaseFieldHashAdapterE6(t *testing.T) {
 	for _, blockLen := range []int{1, 3, 4, 8} {
 		for n := range 10 {
 			es := make([]extensions.E6, n)
-			var want []byte
 			for i := range es {
 				es[i].MustSetRandom()
-				want = append(want, es[i].Marshal()...)
+			}
+			marshal := func(es []extensions.E6) []byte {
+				var b []byte
+				for i := range es {
+					b = append(b, es[i].Marshal()...)
+				}
+				return b
 			}
 
 			for split := range n + 1 {
 				r := &recorder{digest: newDigest(16), blockLen: blockLen}
 				h := NewBaseFieldHashAdapterE6(r)
+				msg := []any{"block length %d, %d elements split at %d", blockLen, n, split}
+
 				h.WriteField(es[:split]...)
-				h.WriteField(es[split:]...)
-				sum := h.SumField()
-
-				var got []byte
-				for i, w := range r.writes {
-					require.LessOrEqual(t, len(w), blockLen)
-					if i != len(r.writes)-1 {
-						require.Len(t, w, blockLen, "a write before the last one must be a full block")
-					}
-					got = append(got, marshalBase(w)...)
+				first := marshal(es[:split])
+				pending := (split * 6) % blockLen
+				for _, w := range r.writes {
+					require.Len(t, w, blockLen, msg...)
 				}
-				require.Equal(t, want, got, "block length %d, %d elements split at %d", blockLen, n, split)
+				require.Equal(t, string(first[:len(first)-pending*fr.Bytes]), string(r.stream()), msg...)
 
-				require.Equal(t, marshalBase(r.digest[:6]), sum.Marshal())
+				// SumField includes the pending coordinates and leaves the base hasher as it was
+				nbWrites := len(r.writes)
+				sum := h.SumField()
+				require.Equal(t, marshalBase(r.digest[:6]), sum.Marshal(), msg...)
+				require.Equal(t, first, r.atSum, msg...)
+				require.Len(t, r.writes, nbWrites, msg...)
+				if pending == 0 {
+					require.Zero(t, r.stateCalls, msg...)
+				} else {
+					require.Equal(t, 1, r.stateCalls, msg...)
+					require.Equal(t, 1, r.setCalls, msg...)
+				}
+
+				// the pending coordinates stay pending: writing on continues the same stream
+				h.WriteField(es[split:]...)
+				all := marshal(es)
+				_ = h.SumField()
+				require.Equal(t, all, r.atSum, msg...)
+
+				// PadBlock writes them, as a last partial block
+				h.PadBlock()
+				require.Equal(t, all, r.stream(), msg...)
+				for i, w := range r.writes {
+					require.LessOrEqual(t, len(w), blockLen, msg...)
+					if i != len(r.writes)-1 {
+						require.Len(t, w, blockLen, msg...)
+					}
+				}
+
+				// nothing is pending: the digest is passed down
+				calls := r.stateCalls
+				sum = h.SumField()
+				require.Equal(t, marshalBase(r.digest[:6]), sum.Marshal(), msg...)
+				require.Equal(t, calls, r.stateCalls, msg...)
 			}
 		}
 	}

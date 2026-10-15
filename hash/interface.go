@@ -44,8 +44,10 @@ type FieldHasher[F any] interface {
 }
 
 // SmallFieldHasher hashes elements of a small field F into several elements,
-// as a single element is too small for a digest.
+// as a single element is too small for a digest. It is also a [StateStorer], whose
+// bytes are the marshalled elements.
 type SmallFieldHasher[F any] interface {
+	StateStorer
 	// WriteField absorbs the elements into the hash function.
 	WriteField(...F)
 	// SumSmallField returns the digest of the elements written so far.
