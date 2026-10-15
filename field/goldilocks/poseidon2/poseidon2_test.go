@@ -11,6 +11,7 @@ import (
 
 	fr "github.com/consensys/gnark-crypto/field/goldilocks"
 	gnarkHash "github.com/consensys/gnark-crypto/hash"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMulMulInternalInPlaceWidth8(t *testing.T) {
@@ -136,29 +137,33 @@ func TestMerkleDamgard(t *testing.T) {
 	// be written as bytes. Its elements end on an element boundary once the last
 	// block is padded, so that all the inputs are canonical.
 	type call struct{ k, n int }
-	elements := func(sizes ...int) []call {
-		calls := make([]call, len(sizes))
-		for i, n := range sizes {
-			calls[i] = call{n: n}
-		}
-		return calls
+	cases := [][]call{
+		{{n: 0}},
+		{{n: 1}},
+		{{n: blockLen}},
+		{{n: blockLen - 1}, {n: 3}},
+		{{n: 2*blockLen + 1}, {n: 5}, {n: 0}, {n: blockLen}},
+		{{n: 37}},
 	}
-	cases := [][]call{elements(0), elements(1), elements(blockLen), elements(blockLen-1, 3), elements(2*blockLen+1, 5, 0, blockLen), elements(37)}
 	for k := 1; k < fr.Bytes; k++ {
 		for n := range blockLen {
 			cases = append(cases, []call{{n: blockLen}, {k: k, n: n}})
 		}
 	}
 
-	for _, mode := range []struct {
-		name string
-		// writeField tells, for the i-th call, whether to write field elements
-		writeField func(i int) bool
-	}{
-		{"bytes", func(int) bool { return false }},
-		{"alternating", func(i int) bool { return i%2 == 0 }},
-	} {
-		t.Run(mode.name, func(t *testing.T) {
+	write := func(t *testing.T, h *MerkleDamgardHasher, b []byte) {
+		t.Helper()
+		n, err := h.Write(b)
+		require.NoError(t, err)
+		require.Equal(t, len(b), n)
+	}
+
+	for _, alternate := range []bool{false, true} {
+		name := "bytes"
+		if alternate {
+			name = "alternating"
+		}
+		t.Run(name, func(t *testing.T) {
 			for _, calls := range cases {
 				ref := gnarkHash.NewMerkleDamgardHasher(p, make([]byte, p.BlockSize()))
 				h := NewMerkleDamgardHasher()
@@ -166,34 +171,27 @@ func TestMerkleDamgard(t *testing.T) {
 				for i, c := range calls {
 					elems := randomElements(c.n)
 					b := append(bytes.Repeat([]byte{1}, c.k), marshalElements(elems)...)
-					if _, err := ref.Write(b); err != nil {
-						t.Fatal(err)
-					}
-					if c.k == 0 && mode.writeField(i) {
+					_, err := ref.Write(b)
+					require.NoError(t, err)
+					if c.k == 0 && alternate && i%2 == 0 {
 						h.WriteField(elems...)
-					} else if _, err := h.Write(b); err != nil {
-						t.Fatal(err)
+					} else {
+						write(t, h, b)
 					}
 
-					if !bytes.Equal(h.Sum(nil), ref.Sum(nil)) || !bytes.Equal(marshalElements(h.SumSmallField()), ref.Sum(nil)) || !bytes.Equal(h.State(), ref.State()) {
-						t.Fatalf("calls %v, call %d: the hasher differs from the byte hasher", calls, i)
-					}
+					msg := []any{"calls %v, call %d", calls, i}
+					want := ref.Sum(nil)
+					require.Equal(t, want, h.Sum(nil), msg...)
+					require.Equal(t, want, marshalElements(h.SumSmallField()), msg...)
+					require.Equal(t, ref.State(), h.State(), msg...)
 				}
 
 				restored := NewMerkleDamgardHasher()
-				if err := restored.SetState(h.State()); err != nil {
-					t.Fatal(err)
-				}
+				require.NoError(t, restored.SetState(h.State()))
 				more := marshalElements(randomElements(blockLen + 2))
-				if _, err := h.Write(more); err != nil {
-					t.Fatal(err)
-				}
-				if _, err := restored.Write(more); err != nil {
-					t.Fatal(err)
-				}
-				if !bytes.Equal(h.Sum(nil), restored.Sum(nil)) {
-					t.Fatalf("calls %v: the restored state gives another digest", calls)
-				}
+				write(t, h, more)
+				write(t, restored, more)
+				require.Equal(t, h.Sum(nil), restored.Sum(nil), "calls %v: the restored state gives another digest", calls)
 			}
 		})
 	}

@@ -14,9 +14,9 @@ import (
 // BaseFieldHashAdapterE6 hashes elements of extensions.E6 with a hasher over the base
 // field. The 6 coordinates of each element are written in the order of AppendBase.
 //
-// The coordinates are packed in blocks of the base hasher's block length before
-// they are written to it, so that a write of the base hasher does not correspond
-// to a write of the adapter. See [hash.SmallFieldHasher].
+// The digest does not depend on how the elements are split among the calls to
+// WriteField, nor on the calls to SumField in between. Only PadBlock starts a new
+// block.
 type BaseFieldHashAdapterE6 struct {
 	hsh      hash.SmallFieldHasher[fr.Element]
 	blockLen int

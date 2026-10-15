@@ -16,7 +16,9 @@ type merkleDamgardHasher struct {
 func (h *merkleDamgardHasher) Write(p []byte) (n int, err error) {
 	blockSize := h.f.BlockSize()
 	for len(p) != 0 {
+		nWritten := blockSize
 		if len(p) < blockSize {
+			nWritten = len(p)
 			if p, err = cloneLeftPadded(p, blockSize); err != nil {
 				panic(err) // this should not be possible
 			}
@@ -24,7 +26,7 @@ func (h *merkleDamgardHasher) Write(p []byte) (n int, err error) {
 		if h.state, err = h.f.Compress(h.state, p[:blockSize]); err != nil {
 			return
 		}
-		n += blockSize
+		n += nWritten
 		p = p[blockSize:]
 	}
 	return
@@ -99,15 +101,19 @@ func cloneLeftPadded(b []byte, n int) ([]byte, error) {
 	return res, nil
 }
 
+// fieldElementPtr is the set of operations on a pointer to a field element F
+// that the byte interface of the field Merkle-Damgard hasher needs.
+type fieldElementPtr[F any] interface {
+	*F
+	SetBytesCanonical([]byte) error
+	Marshal() []byte
+}
+
 // SmallFieldMerkleDamgardHasher is a Merkle-Damgard hash function over blocks of
 // elements of a small field F. It is a [SmallFieldHasher], and so a [StateStorer],
 // whose bytes are the marshalled elements. See
 // [NewSmallFieldMerkleDamgardHasher].
-type SmallFieldMerkleDamgardHasher[F any, PF interface {
-	*F
-	SetBytesCanonical([]byte) error
-	Marshal() []byte
-}] struct {
+type SmallFieldMerkleDamgardHasher[F any, PF fieldElementPtr[F]] struct {
 	f        SmallFieldCompressor[F]
 	iv       []F
 	state    []F
@@ -120,23 +126,17 @@ type SmallFieldMerkleDamgardHasher[F any, PF interface {
 // of the compression function, and its digest is a block.
 //
 // NB! The construction does not perform explicit padding on the input data,
-// see [NewMerkleDamgardHasher]. The last block of input is padded with zeros on
-// the left to a full block, so the digests of an input and of the input
-// preceded by zeros in its last block are the same.
-//
-// Write compresses each block of its input, and pads its last block, which may
-// be partial, with zeros on the left to a full block, so that the digest depends
-// on how the input is split among the calls.
+// see [NewMerkleDamgardHasher]. The last block of the input of each call to
+// Write or WriteField, if partial, is padded with zeros on the left to a full
+// block. The digest therefore depends on how the input is split among the calls,
+// and the digests of an input and of the input preceded by zeros in its last
+// block are the same.
 //
 // initialState is provided as initial input to the compression function. Its
 // preimage should not be known and thus it should be generated using a
 // deterministic method. If it is shorter than a block, it is padded with zeros
 // on the left. An oversized initialState causes a panic.
-func NewSmallFieldMerkleDamgardHasher[F any, PF interface {
-	*F
-	SetBytesCanonical([]byte) error
-	Marshal() []byte
-}](f SmallFieldCompressor[F], initialState []F) *SmallFieldMerkleDamgardHasher[F, PF] {
+func NewSmallFieldMerkleDamgardHasher[F any, PF fieldElementPtr[F]](f SmallFieldCompressor[F], initialState []F) *SmallFieldMerkleDamgardHasher[F, PF] {
 	blockLen := f.BlockLen()
 	if len(initialState) > blockLen {
 		panic(fmt.Errorf("state/iv must not exceed the hash block size: %d > %d", len(initialState), blockLen))
@@ -190,14 +190,18 @@ func (h *SmallFieldMerkleDamgardHasher[F, PF]) Write(p []byte) (n int, err error
 			return
 		}
 		h.WriteField(block...)
-		n += blockSize
+		n += len(chunk)
 		p = p[len(chunk):]
 	}
 	return
 }
 
 func (h *SmallFieldMerkleDamgardHasher[F, PF]) Sum(b []byte) []byte {
-	return h.appendMarshalled(b, h.SumSmallField())
+	d := h.SumSmallField()
+	for i := range d {
+		b = append(b, PF(&d[i]).Marshal()...)
+	}
+	return b
 }
 
 func (h *SmallFieldMerkleDamgardHasher[F, PF]) Reset() {
@@ -246,11 +250,4 @@ func (h *SmallFieldMerkleDamgardHasher[F, PF]) parseBlock(dst []F, b []byte) err
 		}
 	}
 	return nil
-}
-
-func (h *SmallFieldMerkleDamgardHasher[F, PF]) appendMarshalled(b []byte, e []F) []byte {
-	for i := range e {
-		b = append(b, PF(&e[i]).Marshal()...)
-	}
-	return b
 }

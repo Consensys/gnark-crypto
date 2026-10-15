@@ -6,152 +6,88 @@
 package hash
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/extensions"
+	"github.com/consensys/gnark-crypto/field/koalabear/poseidon2"
+	"github.com/consensys/gnark-crypto/hash"
 )
 
-// recorder is a base hasher that records what is written to it, returns a given
-// digest, and whose state is the number of writes. It is not a byte hasher.
-type recorder struct {
-	writes     [][]fr.Element
-	digest     []fr.Element
-	blockLen   int
-	atSum      []byte // the marshalled elements written when the digest was last asked for
-	stateCalls int
-	setCalls   int
-}
+// stubCompressor is a compression function over blocks of the given length.
+type stubCompressor int
 
-func (r *recorder) WriteField(e ...fr.Element) {
-	r.writes = append(r.writes, append([]fr.Element(nil), e...))
-}
+func (c stubCompressor) BlockLen() int { return int(c) }
 
-func (r *recorder) SumSmallField() []fr.Element {
-	r.atSum = r.stream()
-	return r.digest
-}
-
-func (r *recorder) BlockLen() int {
-	return r.blockLen
-}
-
-func (r *recorder) State() []byte {
-	r.stateCalls++
-	return []byte{byte(len(r.writes))}
-}
-
-func (r *recorder) SetState(state []byte) error {
-	r.setCalls++
-	r.writes = r.writes[:state[0]]
-	return nil
-}
-
-func (r *recorder) Write([]byte) (int, error) { panic("not a byte hasher") }
-func (r *recorder) Sum([]byte) []byte         { panic("not a byte hasher") }
-func (r *recorder) Reset()                    { panic("not a byte hasher") }
-func (r *recorder) Size() int                 { panic("not a byte hasher") }
-func (r *recorder) BlockSize() int            { panic("not a byte hasher") }
-
-// stream returns the marshalled elements written so far.
-func (r *recorder) stream() []byte {
-	var b []byte
-	for _, w := range r.writes {
-		b = append(b, marshalBase(w)...)
+// CompressSmallField sets dst[i] = 3·left[i] + right[i].
+func (c stubCompressor) CompressSmallField(dst, left, right []fr.Element) {
+	for i := range dst {
+		var t fr.Element
+		t.Double(&left[i]).Add(&t, &left[i]).Add(&t, &right[i])
+		dst[i] = t
 	}
-	return b
 }
 
-func marshalBase(e []fr.Element) []byte {
-	var b []byte
-	for i := range e {
-		b = append(b, e[i].Marshal()...)
+// wideDigest is a hasher whose digest repeats the one of the hasher it wraps, so
+// that it has enough elements for an adapter.
+type wideDigest struct {
+	*hash.SmallFieldMerkleDamgardHasher[fr.Element, *fr.Element]
+}
+
+func (w wideDigest) SumSmallField() []fr.Element {
+	return slices.Repeat(w.SmallFieldMerkleDamgardHasher.SumSmallField(), 16)
+}
+
+// baseHashers are constructors of base hashers: Poseidon2, and hashers over the
+// stub compressor, with block lengths below and above the degree of the extensions.
+var baseHashers = func() []func() hash.SmallFieldHasher[fr.Element] {
+	hashers := []func() hash.SmallFieldHasher[fr.Element]{
+		func() hash.SmallFieldHasher[fr.Element] { return poseidon2.NewMerkleDamgardHasher() },
 	}
-	return b
-}
-
-func newDigest(n int) []fr.Element {
-	d := make([]fr.Element, n)
-	for i := range d {
-		d[i].SetUint64(uint64(100 + i))
-	}
-	return d
-}
-
-// TestBaseFieldHashAdapterE6 checks that the adapter writes the coordinates of the
-// elements to the base hasher in blocks, in the order of Marshal, whatever the split
-// among the calls; that SumField includes the pending coordinates in the digest without
-// changing the state of the adapter or of the base hasher; and that PadBlock writes them.
-func TestBaseFieldHashAdapterE6(t *testing.T) {
 	for _, blockLen := range []int{1, 3, 4, 8} {
+		hashers = append(hashers, func() hash.SmallFieldHasher[fr.Element] {
+			return wideDigest{hash.NewSmallFieldMerkleDamgardHasher[fr.Element, *fr.Element](stubCompressor(blockLen), nil)}
+		})
+	}
+	return hashers
+}()
+
+// TestBaseFieldHashAdapterE6 checks that the digest of the adapter is that of the base hasher
+// fed the coordinates of the elements in a single call, whatever the split of the
+// elements among the calls to WriteField and the calls to SumField and PadBlock in between.
+func TestBaseFieldHashAdapterE6(t *testing.T) {
+	for hi, newHasher := range baseHashers {
 		for n := range 10 {
 			es := make([]extensions.E6, n)
+			var coords []fr.Element
 			for i := range es {
 				es[i].MustSetRandom()
+				coords = es[i].AppendBase(coords)
 			}
-			marshal := func(es []extensions.E6) []byte {
-				var b []byte
-				for i := range es {
-					b = append(b, es[i].Marshal()...)
-				}
-				return b
-			}
+
+			ref := newHasher()
+			ref.WriteField(coords...)
+			var want extensions.E6
+			want.SetBase(ref.SumSmallField()[:6])
 
 			for split := range n + 1 {
-				r := &recorder{digest: newDigest(16), blockLen: blockLen}
-				h := NewBaseFieldHashAdapterE6(r)
-				msg := []any{"block length %d, %d elements split at %d", blockLen, n, split}
-
+				h := NewBaseFieldHashAdapterE6(newHasher())
 				h.WriteField(es[:split]...)
-				first := marshal(es[:split])
-				pending := (split * 6) % blockLen
-				for _, w := range r.writes {
-					require.Len(t, w, blockLen, msg...)
-				}
-				require.Equal(t, string(first[:len(first)-pending*fr.Bytes]), string(r.stream()), msg...)
-
-				// SumField includes the pending coordinates and leaves the base hasher as it was
-				nbWrites := len(r.writes)
-				sum := h.SumField()
-				require.Equal(t, marshalBase(r.digest[:6]), sum.Marshal(), msg...)
-				require.Equal(t, first, r.atSum, msg...)
-				require.Len(t, r.writes, nbWrites, msg...)
-				if pending == 0 {
-					require.Zero(t, r.stateCalls, msg...)
-				} else {
-					require.Equal(t, 1, r.stateCalls, msg...)
-					require.Equal(t, 1, r.setCalls, msg...)
-				}
-
-				// the pending coordinates stay pending: writing on continues the same stream
+				h.SumField()
 				h.WriteField(es[split:]...)
-				all := marshal(es)
-				_ = h.SumField()
-				require.Equal(t, all, r.atSum, msg...)
+				got := h.SumField()
+				require.True(t, got.Equal(&want), "hasher %d, %d elements split at %d", hi, n, split)
 
-				// PadBlock writes them, as a last partial block
 				h.PadBlock()
-				require.Equal(t, all, r.stream(), msg...)
-				for i, w := range r.writes {
-					require.LessOrEqual(t, len(w), blockLen, msg...)
-					if i != len(r.writes)-1 {
-						require.Len(t, w, blockLen, msg...)
-					}
-				}
-
-				// nothing is pending: the digest is passed down
-				calls := r.stateCalls
-				sum = h.SumField()
-				require.Equal(t, marshalBase(r.digest[:6]), sum.Marshal(), msg...)
-				require.Equal(t, calls, r.stateCalls, msg...)
+				got = h.SumField()
+				require.True(t, got.Equal(&want), "hasher %d, %d elements split at %d, after PadBlock", hi, n, split)
 			}
 		}
 	}
 
-	// the digest is short, but has spare capacity: reslicing it would not panic
-	short := newDigest(6 + 3)[:6-1]
-	h := NewBaseFieldHashAdapterE6(&recorder{digest: short, blockLen: 8})
-	require.Panics(t, func() { h.SumField() }, "a digest with fewer than 6 elements")
+	short := NewBaseFieldHashAdapterE6(hash.NewSmallFieldMerkleDamgardHasher[fr.Element, *fr.Element](stubCompressor(6-1), nil))
+	require.Panics(t, func() { short.SumField() }, "a digest with fewer than 6 elements")
 }
