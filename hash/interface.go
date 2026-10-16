@@ -37,26 +37,26 @@ type Compressor interface {
 // FieldHasher hashes elements of a field F into a single element, which is
 // enough for a digest.
 type FieldHasher[F any] interface {
-	// WriteField absorbs the elements into the hash function.
+	// WriteField writes the elements to the hasher.
 	WriteField(...F)
 	// SumField returns the digest of the elements written so far.
 	SumField() F
 }
 
 // SmallFieldHasher hashes elements of a small field F into several elements,
-// as a single element is too small for a digest. It is also a [StateStorer], whose
-// bytes are the marshalled elements.
+// as a single element is too small for a digest.
 type SmallFieldHasher[F any] interface {
-	StateStorer
-	// WriteField absorbs the elements into the hash function.
+	// WriteField writes the elements to the hasher. The digest depends on the
+	// sequence of the elements and of the calls to PadBlock, and not on how the
+	// sequence is split among the calls to WriteField.
 	WriteField(...F)
-	// SumSmallField returns the digest of the elements written so far.
+	// PadBlock ends the current block, padding it with zeros on the left to a
+	// full block. The elements written afterwards start a new block.
+	PadBlock()
+	// SumSmallField returns the digest of the elements written so far, where an
+	// incomplete block is padded as by PadBlock. It does not change the state of
+	// the hasher.
 	SumSmallField() []F
-	// BlockLen returns the number of elements in a block of the hasher. If the
-	// hasher pads the last block of each write, the digest depends on how the
-	// input is split among the writes unless they are multiples of BlockLen. A
-	// hasher with no such requirement returns 1.
-	BlockLen() int
 }
 
 // SmallFieldCompressor is a 2-1 one-way function over blocks of elements of a

@@ -110,13 +110,14 @@ type fieldElementPtr[F any] interface {
 }
 
 // SmallFieldMerkleDamgardHasher is a Merkle-Damgard hash function over blocks of
-// elements of a small field F. It is a [SmallFieldHasher], and so a [StateStorer],
-// whose bytes are the marshalled elements. See
+// elements of a small field F. It is both a [SmallFieldHasher] and a
+// [StateStorer], whose bytes are the marshalled elements. See
 // [NewSmallFieldMerkleDamgardHasher].
 type SmallFieldMerkleDamgardHasher[F any, PF fieldElementPtr[F]] struct {
 	f        SmallFieldCompressor[F]
 	iv       []F
 	state    []F
+	pending  []F // elements written by WriteField and not compressed yet, fewer than a block
 	elemSize int // size of a marshaled element, in bytes
 }
 
@@ -126,11 +127,13 @@ type SmallFieldMerkleDamgardHasher[F any, PF fieldElementPtr[F]] struct {
 // of the compression function, and its digest is a block.
 //
 // NB! The construction does not perform explicit padding on the input data,
-// see [NewMerkleDamgardHasher]. The last block of the input of each call to
-// Write or WriteField, if partial, is padded with zeros on the left to a full
-// block. The digest therefore depends on how the input is split among the calls,
-// and the digests of an input and of the input preceded by zeros in its last
-// block are the same.
+// see [NewMerkleDamgardHasher]. A partial last block is padded with zeros on the
+// left to a full block, so the digests of an input and of the input preceded by
+// zeros in its last block are the same.
+//
+// A block can be written by several calls to WriteField, see [SmallFieldHasher].
+// Write ends the current block, and pads the last block of its input, so the
+// digest depends on how the input is split among the calls to Write.
 //
 // initialState is provided as initial input to the compression function. Its
 // preimage should not be known and thus it should be generated using a
@@ -149,39 +152,57 @@ func NewSmallFieldMerkleDamgardHasher[F any, PF fieldElementPtr[F]](f SmallField
 		f:        f,
 		iv:       iv,
 		state:    slices.Clone(iv),
+		pending:  make([]F, 0, blockLen),
 		elemSize: len(PF(&e).Marshal()),
 	}
 }
 
-// WriteField implements [SmallFieldHasher]. It pads a partial last block with
-// zeros on the left to a full block.
+// WriteField implements [SmallFieldHasher].
 func (h *SmallFieldMerkleDamgardHasher[F, PF]) WriteField(e ...F) {
 	blockLen := h.f.BlockLen()
 	for len(e) != 0 {
-		block := e
-		if len(e) >= blockLen {
-			block, e = e[:blockLen], e[blockLen:]
-		} else {
-			block = make([]F, blockLen)
-			copy(block[blockLen-len(e):], e)
-			e = nil
+		if len(h.pending) == 0 && len(e) >= blockLen {
+			h.f.CompressSmallField(h.state, h.state, e[:blockLen])
+			e = e[blockLen:]
+			continue
 		}
-		h.f.CompressSmallField(h.state, h.state, block)
+		n := min(blockLen-len(h.pending), len(e))
+		h.pending = append(h.pending, e[:n]...)
+		e = e[n:]
+		if len(h.pending) == blockLen {
+			h.f.CompressSmallField(h.state, h.state, h.pending)
+			h.pending = h.pending[:0]
+		}
 	}
 }
 
-// BlockLen implements [SmallFieldHasher].
-func (h *SmallFieldMerkleDamgardHasher[F, PF]) BlockLen() int {
-	return h.f.BlockLen()
+// PadBlock implements [SmallFieldHasher].
+func (h *SmallFieldMerkleDamgardHasher[F, PF]) PadBlock() {
+	if len(h.pending) != 0 {
+		h.f.CompressSmallField(h.state, h.state, h.paddedPending())
+		h.pending = h.pending[:0]
+	}
 }
 
 // SumSmallField implements [SmallFieldHasher].
 func (h *SmallFieldMerkleDamgardHasher[F, PF]) SumSmallField() []F {
-	return slices.Clone(h.state)
+	if len(h.pending) == 0 {
+		return slices.Clone(h.state)
+	}
+	res := make([]F, h.f.BlockLen())
+	h.f.CompressSmallField(res, h.state, h.paddedPending())
+	return res
+}
+
+func (h *SmallFieldMerkleDamgardHasher[F, PF]) paddedPending() []F {
+	block := make([]F, h.f.BlockLen())
+	copy(block[len(block)-len(h.pending):], h.pending)
+	return block
 }
 
 // Write implements hash.Write
 func (h *SmallFieldMerkleDamgardHasher[F, PF]) Write(p []byte) (n int, err error) {
+	h.PadBlock()
 	blockSize := h.BlockSize()
 	block := make([]F, h.f.BlockLen())
 	for len(p) != 0 {
@@ -197,15 +218,12 @@ func (h *SmallFieldMerkleDamgardHasher[F, PF]) Write(p []byte) (n int, err error
 }
 
 func (h *SmallFieldMerkleDamgardHasher[F, PF]) Sum(b []byte) []byte {
-	d := h.SumSmallField()
-	for i := range d {
-		b = append(b, PF(&d[i]).Marshal()...)
-	}
-	return b
+	return h.appendMarshalled(b, h.SumSmallField())
 }
 
 func (h *SmallFieldMerkleDamgardHasher[F, PF]) Reset() {
 	copy(h.state, h.iv)
+	h.pending = h.pending[:0]
 }
 
 func (h *SmallFieldMerkleDamgardHasher[F, PF]) Size() int {
@@ -216,20 +234,30 @@ func (h *SmallFieldMerkleDamgardHasher[F, PF]) BlockSize() int {
 	return h.f.BlockLen() * h.elemSize
 }
 
+// State returns the state after the last full block, without the elements of an
+// incomplete block. [SmallFieldMerkleDamgardHasher.PadBlock] ends the block first.
 func (h *SmallFieldMerkleDamgardHasher[F, PF]) State() []byte {
-	return h.Sum(nil)
+	return h.appendMarshalled(nil, h.state)
 }
 
-// SetState sets h's state to state. If len(state) < BlockSize, h's state is set
-// to state, left padded with zeroes. len(state) > BlockSize will result in an
-// error.
+// SetState sets h's state to state, and discards the elements of an incomplete
+// block. If len(state) < BlockSize, h's state is set to state, left padded with zeroes.
+// len(state) > BlockSize will result in an error.
 func (h *SmallFieldMerkleDamgardHasher[F, PF]) SetState(state []byte) error {
 	newState := make([]F, len(h.state))
 	if err := h.parseBlock(newState, state); err != nil {
 		return err
 	}
 	h.state = newState
+	h.pending = h.pending[:0]
 	return nil
+}
+
+func (h *SmallFieldMerkleDamgardHasher[F, PF]) appendMarshalled(b []byte, e []F) []byte {
+	for i := range e {
+		b = append(b, PF(&e[i]).Marshal()...)
+	}
+	return b
 }
 
 // parseBlock parses b, padded with zeros on the left to a block, into the

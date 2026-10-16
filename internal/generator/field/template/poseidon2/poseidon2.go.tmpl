@@ -593,15 +593,14 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 	return outBytes, nil
 }
 
-// BlockLen returns the number of field elements of the blocks compressed by
-// [Permutation.CompressSmallField], that is t/2 where t is the width of the permutation.
+// BlockLen returns the number of elements of the blocks of
+// [Permutation.CompressSmallField], t/2 for the width t of the permutation.
 func (h *Permutation) BlockLen() int {
 	return h.params.Width / 2
 }
 
-// CompressSmallField uses the permutation to compress left and right, each of
-// t/2 elements where t is the width of the permutation, into dst, in the same way
-// as [Permutation.Compress] does on bytes. dst may alias left or right.
+// CompressSmallField compresses left and right, each of BlockLen elements, into
+// dst, as [Permutation.Compress] does on bytes. dst may alias left or right.
 func (h *Permutation) CompressSmallField(dst, left, right []fr.Element) {
 	n := h.params.Width / 2
 

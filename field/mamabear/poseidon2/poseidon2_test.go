@@ -124,18 +124,15 @@ func marshalElements(e []fr.Element) []byte {
 	return b
 }
 
-// TestMerkleDamgard checks that the hasher behaves as the Merkle-Damgard hasher
-// over the byte compression of the permutation, call by call, whether the input is
-// written as bytes, or alternately as bytes and as field elements, as the two
-// interfaces share the state. The last block of a call may be partial, and may not
-// end on an element boundary. It also checks that the state can be saved and restored.
+// TestMerkleDamgard checks that, after each call, the hasher matches the byte
+// Merkle-Damgard hasher, whether the input is written as bytes or alternately as
+// bytes and field elements, and that its state can be saved and restored.
 func TestMerkleDamgard(t *testing.T) {
 	p := NewDefaultPermutation()
 	blockLen := p.BlockLen()
 
-	// A call writes k bytes of value 1, then n elements. A call with k != 0 can only
-	// be written as bytes. Its elements end on an element boundary once the last
-	// block is padded, so that all the inputs are canonical.
+	// A call writes k bytes of value 1, then n elements. With k != 0 it is written
+	// as bytes, and its last block does not end on an element boundary.
 	type call struct{ k, n int }
 	cases := [][]call{
 		{{n: 0}},
@@ -167,14 +164,19 @@ func TestMerkleDamgard(t *testing.T) {
 			for _, calls := range cases {
 				ref := gnarkHash.NewMerkleDamgardHasher(p, make([]byte, p.BlockSize()))
 				h := NewMerkleDamgardHasher()
+				h.WriteField(randomElements(1)...)
+				h.Reset() // discards the incomplete block
 
 				for i, c := range calls {
 					elems := randomElements(c.n)
 					b := append(bytes.Repeat([]byte{1}, c.k), marshalElements(elems)...)
 					_, err := ref.Write(b)
 					require.NoError(t, err)
-					if c.k == 0 && alternate && i%2 == 0 {
-						h.WriteField(elems...)
+					field := c.k == 0 && alternate && i%2 == 0
+					if field {
+						h.WriteField(elems[:c.n/2]...)
+						h.SumSmallField() // does not change the state
+						h.WriteField(elems[c.n/2:]...)
 					} else {
 						write(t, h, b)
 					}
@@ -183,10 +185,16 @@ func TestMerkleDamgard(t *testing.T) {
 					want := ref.Sum(nil)
 					require.Equal(t, want, h.Sum(nil), msg...)
 					require.Equal(t, want, marshalElements(h.SumSmallField()), msg...)
-					require.Equal(t, ref.State(), h.State(), msg...)
+					if !field { // State does not include the incomplete block left by WriteField
+						require.Equal(t, ref.State(), h.State(), msg...)
+					}
 				}
 
+				h.PadBlock()
+				require.Equal(t, ref.State(), h.State(), "calls %v", calls)
+
 				restored := NewMerkleDamgardHasher()
+				restored.WriteField(randomElements(1)...) // SetState discards the incomplete block
 				require.NoError(t, restored.SetState(h.State()))
 				more := marshalElements(randomElements(blockLen + 2))
 				write(t, h, more)

@@ -11,61 +11,32 @@ import (
 // WriteField, nor on the calls to SumField in between. Only PadBlock starts a new
 // block.
 type BaseFieldHashAdapter{{.ExtensionName}} struct {
-	hsh      hash.SmallFieldHasher[fr.Element]
-	blockLen int
-	buffer   []fr.Element // pending coordinates, fewer than blockLen between calls
+	hsh    hash.SmallFieldHasher[fr.Element]
+	coords []fr.Element // the coordinates of the element being written
 }
 
 // NewBaseFieldHashAdapter{{.ExtensionName}} returns an adapter over baseHasher. The digest of
 // baseHasher must have at least {{.ExtensionDegree}} elements.
 func NewBaseFieldHashAdapter{{.ExtensionName}}(baseHasher hash.SmallFieldHasher[fr.Element]) *BaseFieldHashAdapter{{.ExtensionName}} {
-	blockLen := baseHasher.BlockLen()
-	return &BaseFieldHashAdapter{{.ExtensionName}}{
-		hsh:      baseHasher,
-		blockLen: blockLen,
-		buffer:   make([]fr.Element, 0, blockLen-1+{{.ExtensionDegree}}),
-	}
+	return &BaseFieldHashAdapter{{.ExtensionName}}{hsh: baseHasher, coords: make([]fr.Element, 0, {{.ExtensionDegree}})}
 }
 
-// WriteField buffers the coordinates of e, and writes each full block to the
-// base hasher.
+// WriteField writes the coordinates of e to the base hasher.
 func (h *BaseFieldHashAdapter{{.ExtensionName}}) WriteField(e ...{{.ElementType}}) {
 	for i := range e {
-		h.buffer = e[i].AppendBase(h.buffer)
-		for len(h.buffer) >= h.blockLen {
-			h.hsh.WriteField(h.buffer[:h.blockLen]...)
-			h.buffer = h.buffer[:copy(h.buffer, h.buffer[h.blockLen:])]
-		}
+		h.coords = e[i].AppendBase(h.coords[:0])
+		h.hsh.WriteField(h.coords...)
 	}
 }
 
-// PadBlock writes the pending coordinates to the base hasher, which pads them to
-// a full block, and clears them. The coordinates written afterwards start a new
-// block.
+// PadBlock ends the current block of the base hasher, see [hash.SmallFieldHasher].
 func (h *BaseFieldHashAdapter{{.ExtensionName}}) PadBlock() {
-	if len(h.buffer) != 0 {
-		h.hsh.WriteField(h.buffer...)
-		h.buffer = h.buffer[:0]
-	}
+	h.hsh.PadBlock()
 }
 
 // SumField returns the first {{.ExtensionDegree}} elements of the digest of the base hasher as
-// an element of {{.ElementType}}. It does not change the state of the adapter.
+// an element of {{.ElementType}}.
 func (h *BaseFieldHashAdapter{{.ExtensionName}}) SumField() {{.ElementType}} {
-	if len(h.buffer) == 0 {
-		return h.digest()
-	}
-
-	state := h.hsh.State()
-	h.hsh.WriteField(h.buffer...)
-	res := h.digest()
-	if err := h.hsh.SetState(state); err != nil {
-		panic(err)
-	}
-	return res
-}
-
-func (h *BaseFieldHashAdapter{{.ExtensionName}}) digest() {{.ElementType}} {
 	d := h.hsh.SumSmallField()
 	if len(d) < {{.ExtensionDegree}} {
 		panic("BaseFieldHashAdapter{{.ExtensionName}}: the digest of the base hasher has fewer than {{.ExtensionDegree}} elements")
