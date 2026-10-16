@@ -18,13 +18,18 @@ import (
 // WriteField, nor on the calls to SumField in between. Only PadBlock starts a new
 // block.
 type BaseFieldHashAdapterE3 struct {
-	hsh    hash.SmallFieldHasher[fr.Element]
+	hsh    hash.FieldHasher[fr.Element, []fr.Element]
 	coords []fr.Element // the coordinates of the element being written
 }
 
+var _ hash.FieldHasher[extensions.E3, extensions.E3] = (*BaseFieldHashAdapterE3)(nil)
+
 // NewBaseFieldHashAdapterE3 returns an adapter over baseHasher. The digest of
-// baseHasher must have at least 3 elements.
-func NewBaseFieldHashAdapterE3(baseHasher hash.SmallFieldHasher[fr.Element]) *BaseFieldHashAdapterE3 {
+// baseHasher must have at least 3 elements; otherwise NewBaseFieldHashAdapterE3 panics.
+func NewBaseFieldHashAdapterE3(baseHasher hash.FieldHasher[fr.Element, []fr.Element]) *BaseFieldHashAdapterE3 {
+	if len(baseHasher.SumField()) < 3 {
+		panic("BaseFieldHashAdapterE3: the digest of the base hasher has fewer than 3 elements")
+	}
 	return &BaseFieldHashAdapterE3{hsh: baseHasher, coords: make([]fr.Element, 0, 3)}
 }
 
@@ -36,7 +41,7 @@ func (h *BaseFieldHashAdapterE3) WriteField(e ...extensions.E3) {
 	}
 }
 
-// PadBlock ends the current block of the base hasher, see [hash.SmallFieldHasher].
+// PadBlock ends the current block of the base hasher, see [hash.FieldHasher].
 func (h *BaseFieldHashAdapterE3) PadBlock() {
 	h.hsh.PadBlock()
 }
@@ -44,11 +49,6 @@ func (h *BaseFieldHashAdapterE3) PadBlock() {
 // SumField returns the first 3 elements of the digest of the base hasher as
 // an element of extensions.E3.
 func (h *BaseFieldHashAdapterE3) SumField() extensions.E3 {
-	d := h.hsh.SumSmallField()
-	if len(d) < 3 {
-		panic("BaseFieldHashAdapterE3: the digest of the base hasher has fewer than 3 elements")
-	}
-
 	var res extensions.E3
-	return *res.SetBase(d[:3])
+	return *res.SetBase(h.hsh.SumField()[:3])
 }

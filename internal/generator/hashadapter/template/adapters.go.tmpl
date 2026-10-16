@@ -11,13 +11,18 @@ import (
 // WriteField, nor on the calls to SumField in between. Only PadBlock starts a new
 // block.
 type BaseFieldHashAdapter{{.ExtensionName}} struct {
-	hsh    hash.SmallFieldHasher[fr.Element]
+	hsh    hash.FieldHasher[fr.Element, []fr.Element]
 	coords []fr.Element // the coordinates of the element being written
 }
 
+var _ hash.FieldHasher[{{.ElementType}}, {{.ElementType}}] = (*BaseFieldHashAdapter{{.ExtensionName}})(nil)
+
 // NewBaseFieldHashAdapter{{.ExtensionName}} returns an adapter over baseHasher. The digest of
-// baseHasher must have at least {{.ExtensionDegree}} elements.
-func NewBaseFieldHashAdapter{{.ExtensionName}}(baseHasher hash.SmallFieldHasher[fr.Element]) *BaseFieldHashAdapter{{.ExtensionName}} {
+// baseHasher must have at least {{.ExtensionDegree}} elements; otherwise NewBaseFieldHashAdapter{{.ExtensionName}} panics.
+func NewBaseFieldHashAdapter{{.ExtensionName}}(baseHasher hash.FieldHasher[fr.Element, []fr.Element]) *BaseFieldHashAdapter{{.ExtensionName}} {
+	if len(baseHasher.SumField()) < {{.ExtensionDegree}} {
+		panic("BaseFieldHashAdapter{{.ExtensionName}}: the digest of the base hasher has fewer than {{.ExtensionDegree}} elements")
+	}
 	return &BaseFieldHashAdapter{{.ExtensionName}}{hsh: baseHasher, coords: make([]fr.Element, 0, {{.ExtensionDegree}})}
 }
 
@@ -29,7 +34,7 @@ func (h *BaseFieldHashAdapter{{.ExtensionName}}) WriteField(e ...{{.ElementType}
 	}
 }
 
-// PadBlock ends the current block of the base hasher, see [hash.SmallFieldHasher].
+// PadBlock ends the current block of the base hasher, see [hash.FieldHasher].
 func (h *BaseFieldHashAdapter{{.ExtensionName}}) PadBlock() {
 	h.hsh.PadBlock()
 }
@@ -37,12 +42,7 @@ func (h *BaseFieldHashAdapter{{.ExtensionName}}) PadBlock() {
 // SumField returns the first {{.ExtensionDegree}} elements of the digest of the base hasher as
 // an element of {{.ElementType}}.
 func (h *BaseFieldHashAdapter{{.ExtensionName}}) SumField() {{.ElementType}} {
-	d := h.hsh.SumSmallField()
-	if len(d) < {{.ExtensionDegree}} {
-		panic("BaseFieldHashAdapter{{.ExtensionName}}: the digest of the base hasher has fewer than {{.ExtensionDegree}} elements")
-	}
-
 	var res {{.ElementType}}
-	return *res.SetBase(d[:{{.ExtensionDegree}}])
+	return *res.SetBase(h.hsh.SumField()[:{{.ExtensionDegree}}])
 }
 {{end}}

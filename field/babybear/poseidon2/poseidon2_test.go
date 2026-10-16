@@ -7,6 +7,7 @@ package poseidon2
 
 import (
 	"bytes"
+	"io"
 	"testing"
 
 	fr "github.com/consensys/gnark-crypto/field/babybear"
@@ -127,10 +128,11 @@ func marshalElements(e []fr.Element) []byte {
 
 // TestMerkleDamgard checks that, after each call, the hasher matches the byte
 // Merkle-Damgard hasher, whether the input is written as bytes or alternately as
-// bytes and field elements, and that its state can be saved and restored.
+// bytes and field elements, and that a hasher restored from State continues as
+// the original does after PadBlock.
 func TestMerkleDamgard(t *testing.T) {
 	p := NewDefaultPermutation()
-	blockLen := p.BlockLen()
+	blockLen := p.params.Width / 2
 
 	// A call writes k bytes of value 1, then n elements. With k != 0 it is written
 	// as bytes, and its last block does not end on an element boundary.
@@ -149,9 +151,9 @@ func TestMerkleDamgard(t *testing.T) {
 		}
 	}
 
-	write := func(t *testing.T, h *MerkleDamgardHasher, b []byte) {
+	write := func(t *testing.T, w io.Writer, b []byte) {
 		t.Helper()
-		n, err := h.Write(b)
+		n, err := w.Write(b)
 		require.NoError(t, err)
 		require.Equal(t, len(b), n)
 	}
@@ -171,12 +173,11 @@ func TestMerkleDamgard(t *testing.T) {
 				for i, c := range calls {
 					elems := randomElements(c.n)
 					b := append(bytes.Repeat([]byte{1}, c.k), marshalElements(elems)...)
-					_, err := ref.Write(b)
-					require.NoError(t, err)
+					write(t, ref, b)
 					field := c.k == 0 && alternate && i%2 == 0
 					if field {
 						h.WriteField(elems[:c.n/2]...)
-						h.SumSmallField() // does not change the state
+						h.SumField() // does not change the state
 						h.WriteField(elems[c.n/2:]...)
 					} else {
 						write(t, h, b)
@@ -185,18 +186,17 @@ func TestMerkleDamgard(t *testing.T) {
 					msg := []any{"calls %v, call %d", calls, i}
 					want := ref.Sum(nil)
 					require.Equal(t, want, h.Sum(nil), msg...)
-					require.Equal(t, want, marshalElements(h.SumSmallField()), msg...)
-					if !field { // State does not include the incomplete block left by WriteField
-						require.Equal(t, ref.State(), h.State(), msg...)
-					}
+					require.Equal(t, want, marshalElements(h.SumField()), msg...)
+					require.Equal(t, ref.State(), h.State(), msg...)
 				}
-
-				h.PadBlock()
-				require.Equal(t, ref.State(), h.State(), "calls %v", calls)
 
 				restored := NewMerkleDamgardHasher()
 				restored.WriteField(randomElements(1)...) // SetState discards the incomplete block
 				require.NoError(t, restored.SetState(h.State()))
+
+				h.PadBlock()
+				require.Equal(t, ref.State(), h.State(), "calls %v", calls)
+
 				more := marshalElements(randomElements(blockLen + 2))
 				write(t, h, more)
 				write(t, restored, more)
@@ -204,6 +204,14 @@ func TestMerkleDamgard(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestMerkleDamgardWriteFieldAllocs checks that writing a block of field elements
+// does not allocate.
+func TestMerkleDamgardWriteFieldAllocs(t *testing.T) {
+	h := NewMerkleDamgardHasher()
+	block := randomElements(NewDefaultPermutation().params.Width / 2)
+	require.Zero(t, testing.AllocsPerRun(100, func() { h.WriteField(block...) }))
 }
 
 func TestAVX512Width16(t *testing.T) {

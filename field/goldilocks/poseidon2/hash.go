@@ -15,14 +15,14 @@ import (
 
 // MerkleDamgardHasher is a Merkle-Damgard hasher over blocks of elements of the
 // field. It hashes both bytes and field elements.
-type MerkleDamgardHasher = gnarkHash.SmallFieldMerkleDamgardHasher[fr.Element, *fr.Element]
+type MerkleDamgardHasher = gnarkHash.FieldMerkleDamgardHasher[fr.Element, *fr.Element]
 
 // NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard
 // construction with the default parameters.
 func NewMerkleDamgardHasher() *MerkleDamgardHasher {
 	p := NewDefaultPermutation()
-	return gnarkHash.NewSmallFieldMerkleDamgardHasher(
-		p,
+	return gnarkHash.NewFieldMerkleDamgardHasher[fr.Element, *fr.Element](
+		NewCompressor(p),
 		make([]fr.Element, p.params.Width/2),
 	)
 }

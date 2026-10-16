@@ -34,18 +34,8 @@ type Compressor interface {
 	BlockSize() int
 }
 
-// FieldHasher hashes elements of a field F into a single element, which is
-// enough for a digest.
-type FieldHasher[F any] interface {
-	// WriteField writes the elements to the hasher.
-	WriteField(...F)
-	// SumField returns the digest of the elements written so far.
-	SumField() F
-}
-
-// SmallFieldHasher hashes elements of a small field F into several elements,
-// as a single element is too small for a digest.
-type SmallFieldHasher[F any] interface {
+// FieldHasher hashes values of type F into a digest of type D.
+type FieldHasher[F, D any] interface {
 	// WriteField writes the elements to the hasher. The digest depends on the
 	// sequence of the elements and of the calls to PadBlock, and not on how the
 	// sequence is split among the calls to WriteField.
@@ -53,19 +43,17 @@ type SmallFieldHasher[F any] interface {
 	// PadBlock ends the current block, padding it with zeros on the left to a
 	// full block. The elements written afterwards start a new block.
 	PadBlock()
-	// SumSmallField returns the digest of the elements written so far, where an
+	// SumField returns the digest of the elements written so far, where an
 	// incomplete block is padded as by PadBlock. It does not change the state of
 	// the hasher.
-	SumSmallField() []F
+	SumField() D
 }
 
-// SmallFieldCompressor is a 2-1 one-way function over blocks of elements of a
-// small field F. It is the analogue of [Compressor] on elements.
-type SmallFieldCompressor[F any] interface {
-	// CompressSmallField compresses left and right into dst. All three have
-	// [SmallFieldCompressor.BlockLen] elements, and dst may alias left or right.
-	// It must not modify left or right unless they alias dst.
-	CompressSmallField(dst, left, right []F)
-	// BlockLen returns the number of elements in a block.
-	BlockLen() int
+// FieldCompressor is a 2-1 one-way function on field elements, or on blocks of
+// them. It is the analogue of [Compressor] on elements. D is a pointer to an
+// element, or a slice of elements.
+type FieldCompressor[D any] interface {
+	// CompressField compresses left and right into dst. dst may alias left or
+	// right. It must not modify left or right unless they alias dst.
+	CompressField(dst, left, right D)
 }

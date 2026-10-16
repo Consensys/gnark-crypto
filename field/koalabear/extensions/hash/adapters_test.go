@@ -17,13 +17,11 @@ import (
 	"github.com/consensys/gnark-crypto/hash"
 )
 
-// stubCompressor is a compression function over blocks of the given length.
-type stubCompressor int
+// stubCompressor is a compression function over blocks of any length.
+type stubCompressor struct{}
 
-func (c stubCompressor) BlockLen() int { return int(c) }
-
-// CompressSmallField sets dst[i] = 3·left[i] + right[i].
-func (c stubCompressor) CompressSmallField(dst, left, right []fr.Element) {
+// CompressField sets dst[i] = 3·left[i] + right[i].
+func (stubCompressor) CompressField(dst, left, right []fr.Element) {
 	for i := range dst {
 		var t fr.Element
 		t.Double(&left[i]).Add(&t, &left[i]).Add(&t, &right[i])
@@ -34,30 +32,30 @@ func (c stubCompressor) CompressSmallField(dst, left, right []fr.Element) {
 // wideDigest is a hasher whose digest repeats the one of the hasher it wraps, so
 // that it has enough elements for an adapter.
 type wideDigest struct {
-	*hash.SmallFieldMerkleDamgardHasher[fr.Element, *fr.Element]
+	*hash.FieldMerkleDamgardHasher[fr.Element, *fr.Element]
 }
 
-func (w wideDigest) SumSmallField() []fr.Element {
-	return slices.Repeat(w.SmallFieldMerkleDamgardHasher.SumSmallField(), 16)
+func (w wideDigest) SumField() []fr.Element {
+	return slices.Repeat(w.FieldMerkleDamgardHasher.SumField(), 16)
+}
+
+func stubHasher(blockLen int) func() hash.FieldHasher[fr.Element, []fr.Element] {
+	return func() hash.FieldHasher[fr.Element, []fr.Element] {
+		return wideDigest{hash.NewFieldMerkleDamgardHasher[fr.Element, *fr.Element](stubCompressor{}, make([]fr.Element, blockLen))}
+	}
 }
 
 // baseHashers are constructors of base hashers: Poseidon2, and hashers over the
 // stub compressor, with block lengths below and above the degree of the extensions.
-var baseHashers = func() []func() hash.SmallFieldHasher[fr.Element] {
-	hashers := []func() hash.SmallFieldHasher[fr.Element]{
-		func() hash.SmallFieldHasher[fr.Element] { return poseidon2.NewMerkleDamgardHasher() },
-	}
-	for _, blockLen := range []int{1, 3, 4, 8} {
-		hashers = append(hashers, func() hash.SmallFieldHasher[fr.Element] {
-			return wideDigest{hash.NewSmallFieldMerkleDamgardHasher[fr.Element, *fr.Element](stubCompressor(blockLen), nil)}
-		})
-	}
-	return hashers
-}()
+var baseHashers = []func() hash.FieldHasher[fr.Element, []fr.Element]{
+	func() hash.FieldHasher[fr.Element, []fr.Element] { return poseidon2.NewMerkleDamgardHasher() },
+	stubHasher(1), stubHasher(3), stubHasher(4), stubHasher(8),
+}
 
 // TestBaseFieldHashAdapterE6 checks that the digest of the adapter is that of the base hasher
 // fed the coordinates of the elements in a single call, whatever the split of the
-// elements among the calls to WriteField and the calls to SumField and PadBlock in between.
+// elements among the calls to WriteField and the calls to SumField in between;
+// PadBlock between writes acts as on the base hasher.
 func TestBaseFieldHashAdapterE6(t *testing.T) {
 	for hi, newHasher := range baseHashers {
 		for n := range 10 {
@@ -71,7 +69,7 @@ func TestBaseFieldHashAdapterE6(t *testing.T) {
 			ref := newHasher()
 			ref.WriteField(coords...)
 			var want extensions.E6
-			want.SetBase(ref.SumSmallField()[:6])
+			want.SetBase(ref.SumField()[:6])
 
 			for split := range n + 1 {
 				h := NewBaseFieldHashAdapterE6(newHasher())
@@ -84,10 +82,25 @@ func TestBaseFieldHashAdapterE6(t *testing.T) {
 				h.PadBlock()
 				got = h.SumField()
 				require.True(t, got.Equal(&want), "hasher %d, %d elements split at %d, after PadBlock", hi, n, split)
+
+				refPadded := newHasher()
+				refPadded.WriteField(coords[:split*6]...)
+				refPadded.PadBlock()
+				refPadded.WriteField(coords[split*6:]...)
+				var wantPadded extensions.E6
+				wantPadded.SetBase(refPadded.SumField()[:6])
+
+				padded := NewBaseFieldHashAdapterE6(newHasher())
+				padded.WriteField(es[:split]...)
+				padded.PadBlock()
+				padded.WriteField(es[split:]...)
+				got = padded.SumField()
+				require.True(t, got.Equal(&wantPadded), "hasher %d, %d elements, PadBlock at %d", hi, n, split)
 			}
 		}
 	}
 
-	short := NewBaseFieldHashAdapterE6(hash.NewSmallFieldMerkleDamgardHasher[fr.Element, *fr.Element](stubCompressor(6-1), nil))
-	require.Panics(t, func() { short.SumField() }, "a digest with fewer than 6 elements")
+	require.Panics(t, func() {
+		NewBaseFieldHashAdapterE6(hash.NewFieldMerkleDamgardHasher[fr.Element, *fr.Element](stubCompressor{}, make([]fr.Element, 6-1)))
+	}, "a digest with fewer than 6 elements")
 }

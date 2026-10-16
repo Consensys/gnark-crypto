@@ -312,6 +312,9 @@ func (h *Permutation) addRoundKeyInPlace(round int, input []fr.Element) {
 	}
 }
 
+// BlockSize returns the size in bytes of the blocks of [Permutation.Compress].
+//
+// Deprecated: use [Compressor.CompressField].
 func (h *Permutation) BlockSize() int {
 	return h.params.Width / 2 * fr.Bytes
 }
@@ -366,6 +369,8 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 // Compress uses the permutation to compress the left and right input in a collision resistant manner.
 // left and right must each be concatenations of t/2 fr.Elements, where t is the width of the permutation.
 // The result is the concatenation of t/2 fr.Elements.
+//
+// Deprecated: use [Compressor.CompressField].
 func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 	n := h.params.Width / 2
 	if h.params.Width != 2*n {
@@ -390,7 +395,7 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 		}
 	}
 
-	h.CompressSmallField(l, l, r)
+	NewCompressor(h).CompressField(l, l, r)
 
 	outBytes := make([]byte, 0, desiredLen)
 	for i := range n {
@@ -400,26 +405,34 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 	return outBytes, nil
 }
 
-// BlockLen returns the number of elements of the blocks of
-// [Permutation.CompressSmallField], t/2 for the width t of the permutation.
-func (h *Permutation) BlockLen() int {
-	return h.params.Width / 2
+// Compressor compresses blocks of t/2 elements with a Poseidon2 permutation of
+// width t, in the same way as [Permutation.Compress] does on bytes. It holds a
+// buffer, so it is not safe for concurrent use; goroutines sharing a
+// [Permutation] should each create their own Compressor.
+type Compressor struct {
+	perm *Permutation
+	x    []fr.Element // buffer of the width of the permutation
 }
 
-// CompressSmallField compresses left and right, each of BlockLen elements, into
-// dst, as [Permutation.Compress] does on bytes. dst may alias left or right.
-func (h *Permutation) CompressSmallField(dst, left, right []fr.Element) {
-	n := h.params.Width / 2
+// NewCompressor returns a Compressor over p. The width of p must be even.
+func NewCompressor(p *Permutation) *Compressor {
+	if p.params.Width%2 != 0 {
+		panic("poseidon2: the width of the permutation must be even")
+	}
+	return &Compressor{perm: p, x: make([]fr.Element, p.params.Width)}
+}
 
-	x := make([]fr.Element, h.params.Width)
-	copy(x, left)
-	copy(x[n:], right)
-
-	if err := h.Permutation(x); err != nil {
+// CompressField implements hash.FieldCompressor. dst, left and right have t/2
+// elements, and dst may alias left or right.
+func (c *Compressor) CompressField(dst, left, right []fr.Element) {
+	n := len(c.x) / 2
+	copy(c.x, left)
+	copy(c.x[n:], right)
+	if err := c.perm.Permutation(c.x); err != nil {
 		panic(err)
 	}
 	for i := range n {
-		dst[i].Add(&right[i], &x[n+i])
+		dst[i].Add(&right[i], &c.x[n+i])
 	}
 }
 
