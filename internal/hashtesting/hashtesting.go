@@ -12,7 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Hasher is a Merkle-Damgard hasher over field elements F with digests D.
+// Hasher is a hasher of field elements of type F, with digests of type D, that
+// also hashes bytes.
 type Hasher[F, D any] interface {
 	hash.FieldHasher[F, D]
 	hash.StateStorer
@@ -56,24 +57,17 @@ func CheckMatchesByteHasher[F any, PF interface {
 }, D any](t *testing.T, newHasher func() Hasher[F, D], newRef func() hash.StateStorer, digestBytes func(D) []byte, calls []Call[F]) {
 	t.Helper()
 
-	write := func(w io.Writer, b []byte) {
-		t.Helper()
-		n, err := w.Write(b)
-		require.NoError(t, err)
-		require.Equal(t, len(b), n)
-	}
-
 	h := newHasher()
-	writeCalls(t, h, calls)
+	writeCalls[F, PF](t, calls, false, h)
 	h.Reset()
 
 	ref := newRef()
 	for i, c := range calls {
 		if c.Bytes != nil {
-			write(ref, c.Bytes)
-			write(h, c.Bytes)
+			write(t, ref, c.Bytes)
+			write(t, h, c.Bytes)
 		} else {
-			write(ref, Marshal[F, PF](c.Elements))
+			write(t, ref, Marshal[F, PF](c.Elements))
 			h.WriteField(c.Elements[:len(c.Elements)/2]...)
 			h.SumField()
 			h.WriteField(c.Elements[len(c.Elements)/2:]...)
@@ -87,31 +81,44 @@ func CheckMatchesByteHasher[F any, PF interface {
 	}
 
 	restored := newHasher()
-	writeCalls(t, restored, calls)
+	// writing the calls twice puts restored in a state other than h's, so that
+	// SetState must change it
+	writeCalls[F, PF](t, calls, false, restored)
+	writeCalls[F, PF](t, calls, false, restored)
 	require.NoError(t, restored.SetState(h.State()))
 
 	h.PadBlock()
 	require.Equal(t, ref.State(), h.State())
 
-	for _, c := range calls {
-		b := c.Bytes
-		if b == nil {
-			b = Marshal[F, PF](c.Elements)
-		}
-		write(h, b)
-		write(restored, b)
-	}
+	writeCalls[F, PF](t, calls, true, h, restored)
 	require.Equal(t, h.Sum(nil), restored.Sum(nil))
 }
 
-func writeCalls[F, D any](t *testing.T, h Hasher[F, D], calls []Call[F]) {
+// write writes b to w, and requires no error and that all of b is reported written.
+func write(t *testing.T, w io.Writer, b []byte) {
+	t.Helper()
+	n, err := w.Write(b)
+	require.NoError(t, err)
+	require.Equal(t, len(b), n)
+}
+
+// writeCalls writes calls to each of hs, as given, or all as bytes if asBytes.
+func writeCalls[F any, PF interface {
+	*F
+	Marshal() []byte
+}, D any](t *testing.T, calls []Call[F], asBytes bool, hs ...Hasher[F, D]) {
 	t.Helper()
 	for _, c := range calls {
-		if c.Bytes == nil {
-			h.WriteField(c.Elements...)
-			continue
+		for _, h := range hs {
+			if c.Bytes == nil && !asBytes {
+				h.WriteField(c.Elements...)
+				continue
+			}
+			b := c.Bytes
+			if b == nil {
+				b = Marshal[F, PF](c.Elements)
+			}
+			write(t, h, b)
 		}
-		_, err := h.Write(c.Bytes)
-		require.NoError(t, err)
 	}
 }

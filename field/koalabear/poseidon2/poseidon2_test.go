@@ -156,16 +156,18 @@ func TestMerkleDamgard(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			for _, cs := range cases {
-				calls := make([]hashtesting.Call[fr.Element], len(cs))
-				for i, c := range cs {
-					elems := randomElements(c.n)
-					if c.k == 0 && alternate && i%2 == 0 {
-						calls[i] = hashtesting.Call[fr.Element]{Elements: elems}
-					} else {
-						calls[i] = hashtesting.Call[fr.Element]{Bytes: append(bytes.Repeat([]byte{1}, c.k), hashtesting.Marshal(elems)...)}
+				t.Run(fmt.Sprint(cs), func(t *testing.T) {
+					calls := make([]hashtesting.Call[fr.Element], len(cs))
+					for i, c := range cs {
+						elems := randomElements(c.n)
+						if c.k == 0 && alternate && i%2 == 0 {
+							calls[i] = hashtesting.Call[fr.Element]{Elements: elems}
+						} else {
+							calls[i] = hashtesting.Call[fr.Element]{Bytes: append(bytes.Repeat([]byte{1}, c.k), hashtesting.Marshal(elems)...)}
+						}
 					}
-				}
-				hashtesting.CheckMatchesByteHasher(t, newHasher, newRef, hashtesting.Marshal[fr.Element, *fr.Element], calls)
+					hashtesting.CheckMatchesByteHasher(t, newHasher, newRef, hashtesting.Marshal[fr.Element, *fr.Element], calls)
+				})
 			}
 		})
 	}

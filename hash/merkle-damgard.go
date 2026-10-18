@@ -291,7 +291,7 @@ type LargeFieldMerkleDamgardHasher[F any, PF interface {
 	f        FieldCompressor[*F]
 	iv       F
 	state    F
-	block    F   // the element being compressed; WriteField copies its arguments here so that they do not escape to the heap
+	block    F   // the element being compressed, held here rather than in a local variable so that it does not escape to the heap
 	elemSize int // size of a marshaled element, in bytes
 }
 
