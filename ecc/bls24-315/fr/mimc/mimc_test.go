@@ -6,12 +6,15 @@
 package mimc_test
 
 import (
-	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls24-315/fr/mimc"
 	fiatshamir "github.com/consensys/gnark-crypto/fiat-shamir"
+	"github.com/consensys/gnark-crypto/hash"
+	"github.com/consensys/gnark-crypto/internal/hashtesting"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -78,43 +81,47 @@ func TestByteOrder(t *testing.T) {
 	}
 }
 
-func TestSetState(t *testing.T) {
-	// we use for hashing and retrieving the state
-	h1 := mimc.NewMiMC()
-	// only hashing
-	h2 := mimc.NewMiMC()
-	// we use for restoring from state
-	h3 := mimc.NewMiMC()
+// knownDigest is the digest of the elements 1, 2, 3 written as bytes.
+const knownDigest = "00dc43b5321160866937f9f11bfff239bec01757df11e4dbcfd020434e2482bb"
 
-	randInputs := make(fr.Vector, 10)
-	randInputs.MustSetRandom()
-
-	storedStates := make([][]byte, len(randInputs))
-
-	for i := range randInputs {
-		storedStates[i] = h1.State()
-
-		h1.Write(randInputs[i].Marshal())
-		h2.Write(randInputs[i].Marshal())
+// TestMerkleDamgard checks the digest of a fixed input, also through the
+// package-level Sum, and checks the hasher against the generic Merkle-Damgard
+// hasher over [mimc.Compressor], see [hashtesting.CheckMatchesByteHasher].
+func TestMerkleDamgard(t *testing.T) {
+	var msg []byte
+	for i := range uint64(3) {
+		var e fr.Element
+		e.SetUint64(i + 1)
+		msg = append(msg, e.Marshal()...)
 	}
-	dgst1 := h1.Sum(nil)
-	dgst2 := h2.Sum(nil)
-	if !bytes.Equal(dgst1, dgst2) {
-		t.Fatal("hashes do not match")
-	}
+	h := mimc.NewMiMC()
+	_, err := h.Write(msg)
+	require.NoError(t, err)
+	require.Equal(t, knownDigest, hex.EncodeToString(h.Sum(nil)), "digest of 1, 2, 3")
 
-	for i := range storedStates {
-		if err := h3.SetState(storedStates[i]); err != nil {
-			t.Fatal(err)
-		}
-		for j := i; j < len(randInputs); j++ {
-			h3.Write(randInputs[j].Marshal())
-		}
-		dgst3 := h3.Sum(nil)
-		if !bytes.Equal(dgst1, dgst3) {
-			t.Fatal("hashes do not match")
-		}
+	dgst, err := mimc.Sum(msg)
+	require.NoError(t, err)
+	require.Equal(t, knownDigest, hex.EncodeToString(dgst), "package-level Sum")
+
+	newRef := func() hash.StateStorer {
+		return hash.NewLargeFieldMerkleDamgardHasher[fr.Element, *fr.Element](mimc.Compressor{}, fr.Element{})
 	}
+	newHasher := func() hashtesting.Hasher[fr.Element, fr.Element] { return mimc.NewFieldHasher() }
+
+	elems := make([]fr.Element, 7)
+	fr.Vector(elems).MustSetRandom()
+	short := make([]byte, 10)
+	_, err = rand.Read(short)
+	require.NoError(t, err)
+	calls := []hashtesting.Call[fr.Element]{
+		{Bytes: hashtesting.Marshal(elems[:3])},
+		{Elements: elems[3:5]},
+		{Bytes: short[:5]},
+		{Bytes: append(elems[5].Marshal(), short[5:]...)},
+		{}, // no elements
+		{Elements: elems[6:]},
+	}
+	hashtesting.CheckMatchesByteHasher(t, newHasher, newRef, func(d fr.Element) []byte { return d.Marshal() }, calls)
 }
 
 func TestFieldHasher(t *testing.T) {
