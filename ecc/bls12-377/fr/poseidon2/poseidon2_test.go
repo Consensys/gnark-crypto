@@ -7,10 +7,12 @@ package poseidon2
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/hash"
+	"github.com/consensys/gnark-crypto/internal/hashtesting"
 	"github.com/stretchr/testify/require"
 )
 
@@ -70,24 +72,50 @@ func BenchmarkPoseidon2(b *testing.B) {
 
 const msbMask = 0xff >> (9 - (fr.Bits % 8)) // to make sure randomized buffers are smaller than the modulus
 
-func TestHashSmall(t *testing.T) {
-	// hash two elements using Merkle-Damgard
-	var b [2][fr.Bytes]byte
+// knownDigest is the digest of the elements 1, 2, 3 written as bytes.
+const knownDigest = "12004170811f1faa5f035957c834dea93d49da49facb959a3f0be5df15064589"
+
+// TestMerkleDamgard checks the digest of a fixed input, and checks the hasher
+// against the byte Merkle-Damgard hasher, see [hashtesting.CheckMatchesByteHasher].
+func TestMerkleDamgard(t *testing.T) {
 	h := NewMerkleDamgardHasher()
-	for i := range b {
-		_, err := rand.Read(b[i][:])
-		require.NoError(t, err)
-		b[i][0] &= msbMask
-		_, err = h.Write(b[i][:])
+	for i := range uint64(3) {
+		var e fr.Element
+		e.SetUint64(i + 1)
+		_, err := h.Write(e.Marshal())
 		require.NoError(t, err)
 	}
-	p := Permutation{GetDefaultParameters()}
-	res, err := p.Compress(make([]byte, fr.Bytes), b[0][:])
-	require.NoError(t, err)
-	res, err = p.Compress(res, b[1][:])
-	require.NoError(t, err)
+	require.Equal(t, knownDigest, hex.EncodeToString(h.Sum(nil)), "digest of 1, 2, 3")
 
-	require.Equal(t, res, h.Sum(nil))
+	p := NewDefaultPermutation()
+	var iv fr.Element
+	iv.SetUint64(1)
+	newRef := func() hash.StateStorer { return hash.NewMerkleDamgardHasher(p, iv.Marshal()) }
+	newHasher := func() hashtesting.Hasher[fr.Element, fr.Element] {
+		return hash.NewLargeFieldMerkleDamgardHasher[fr.Element, *fr.Element](NewCompressor(p), iv)
+	}
+
+	elems := make([]fr.Element, 6)
+	fr.Vector(elems).MustSetRandom()
+	short := make([]byte, 5)
+	_, err := rand.Read(short)
+	require.NoError(t, err)
+	calls := []hashtesting.Call[fr.Element]{
+		{Bytes: hashtesting.Marshal(elems[:3])},
+		{Elements: elems[3:5]},
+		{Bytes: short},
+		{}, // no elements
+		{Elements: elems[5:]},
+	}
+	hashtesting.CheckMatchesByteHasher(t, newHasher, newRef, func(d fr.Element) []byte { return d.Marshal() }, calls)
+}
+
+// TestMerkleDamgardWriteFieldAllocs checks that writing a field element does not allocate.
+func TestMerkleDamgardWriteFieldAllocs(t *testing.T) {
+	h := NewMerkleDamgardHasher()
+	var x fr.Element
+	x.MustSetRandom()
+	require.Zero(t, testing.AllocsPerRun(100, func() { h.WriteField(x) }))
 }
 
 func TestHashReset(t *testing.T) {

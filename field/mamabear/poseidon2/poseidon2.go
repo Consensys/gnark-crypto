@@ -317,8 +317,6 @@ func (h *Permutation) addRoundKeyInPlace(round int, input []fr.Element) {
 }
 
 // BlockSize returns the size in bytes of the blocks of [Permutation.Compress].
-//
-// Deprecated: use [Compressor.CompressField].
 func (h *Permutation) BlockSize() int {
 	return h.params.Width / 2 * fr.Bytes
 }
