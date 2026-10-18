@@ -384,14 +384,11 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 
 	x := make([]fr.Element, h.params.Width)
 	l, r := x[:n], x[n:]
-	for i := range n {
-		if err := l[i].SetBytesCanonical(left[i*fr.Bytes : (i+1)*fr.Bytes]); err != nil {
-			return nil, err
-		}
-	}
-	for i := range n {
-		if err := r[i].SetBytesCanonical(right[i*fr.Bytes : (i+1)*fr.Bytes]); err != nil {
-			return nil, err
+	for i, in := range [][]byte{left, right} {
+		for j := range n {
+			if err := x[i*n+j].SetBytesCanonical(in[j*fr.Bytes : (j+1)*fr.Bytes]); err != nil {
+				return nil, err
+			}
 		}
 	}
 

@@ -6,8 +6,6 @@
 package poseidon2
 
 import (
-	"bytes"
-	"fmt"
 	"testing"
 
 	fr "github.com/consensys/gnark-crypto/field/babybear"
@@ -120,57 +118,16 @@ func randomElements(n int) []fr.Element {
 }
 
 // TestMerkleDamgard checks the hasher against the byte Merkle-Damgard hasher, see
-// [hashtesting.CheckMatchesByteHasher], with input written as bytes, or alternately
-// as bytes and field elements, including last blocks that do not end on an
-// element boundary.
+// [hashtesting.CheckMerkleDamgard].
 func TestMerkleDamgard(t *testing.T) {
 	p := NewDefaultPermutation()
 	blockLen := p.params.Width / 2
-
-	// A call writes k bytes of value 1, then n elements. With k != 0 it is written
-	// as bytes, and its last block does not end on an element boundary.
-	type call struct{ k, n int }
-	cases := [][]call{
-		{{n: 0}},
-		{{n: 1}},
-		{{n: blockLen}},
-		{{n: blockLen - 1}, {n: 3}},
-		{{n: 2*blockLen + 1}, {n: 5}, {n: 0}, {n: blockLen}},
-		{{n: 37}},
-	}
-	for k := 1; k < fr.Bytes; k++ {
-		for n := range blockLen {
-			cases = append(cases, []call{{n: blockLen}, {k: k, n: n}})
-		}
-	}
 
 	newHasher := func() hashtesting.Hasher[fr.Element, []fr.Element] { return NewMerkleDamgardHasher() }
 	newRef := func() gnarkHash.StateStorer {
 		return gnarkHash.NewMerkleDamgardHasher(p, make([]byte, p.BlockSize()))
 	}
-
-	for _, alternate := range []bool{false, true} {
-		name := "bytes"
-		if alternate {
-			name = "alternating"
-		}
-		t.Run(name, func(t *testing.T) {
-			for _, cs := range cases {
-				t.Run(fmt.Sprint(cs), func(t *testing.T) {
-					calls := make([]hashtesting.Call[fr.Element], len(cs))
-					for i, c := range cs {
-						elems := randomElements(c.n)
-						if c.k == 0 && alternate && i%2 == 0 {
-							calls[i] = hashtesting.Call[fr.Element]{Elements: elems}
-						} else {
-							calls[i] = hashtesting.Call[fr.Element]{Bytes: append(bytes.Repeat([]byte{1}, c.k), hashtesting.Marshal(elems)...)}
-						}
-					}
-					hashtesting.CheckMatchesByteHasher(t, newHasher, newRef, hashtesting.Marshal[fr.Element, *fr.Element], calls)
-				})
-			}
-		})
-	}
+	hashtesting.CheckMerkleDamgard(t, newHasher, newRef, hashtesting.Marshal[fr.Element, *fr.Element], blockLen, randomElements)
 }
 
 // TestMerkleDamgardWriteFieldAllocs checks that writing a block of field elements

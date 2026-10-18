@@ -5,6 +5,8 @@
 package hashtesting
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"testing"
 
@@ -92,6 +94,59 @@ func CheckMatchesByteHasher[F any, PF interface {
 
 	writeCalls[F, PF](t, calls, true, h, restored)
 	require.Equal(t, h.Sum(nil), restored.Sum(nil))
+}
+
+// CheckMerkleDamgard runs CheckMatchesByteHasher on calls that write full and
+// partial blocks of blockLen elements, as bytes, or alternately as bytes and
+// field elements, including last blocks that do not end on an element boundary.
+func CheckMerkleDamgard[F any, PF interface {
+	*F
+	Marshal() []byte
+}, D any](t *testing.T, newHasher func() Hasher[F, D], newRef func() hash.StateStorer, digestBytes func(D) []byte, blockLen int, randomElements func(n int) []F) {
+	t.Helper()
+
+	var zero F
+	elemSize := len(PF(&zero).Marshal())
+
+	// A call writes k bytes of value 1, then n elements. With k != 0 it is written
+	// as bytes, and its last block does not end on an element boundary.
+	type call struct{ k, n int }
+	cases := [][]call{
+		{{n: 0}},
+		{{n: 1}},
+		{{n: blockLen}},
+		{{n: blockLen - 1}, {n: 3}},
+		{{n: 2*blockLen + 1}, {n: 5}, {n: 0}, {n: blockLen}},
+		{{n: 37}},
+	}
+	for k := 1; k < elemSize; k++ {
+		for n := range blockLen {
+			cases = append(cases, []call{{n: blockLen}, {k: k, n: n}})
+		}
+	}
+
+	for _, alternate := range []bool{false, true} {
+		name := "bytes"
+		if alternate {
+			name = "alternating"
+		}
+		t.Run(name, func(t *testing.T) {
+			for _, cs := range cases {
+				t.Run(fmt.Sprint(cs), func(t *testing.T) {
+					calls := make([]Call[F], len(cs))
+					for i, c := range cs {
+						elems := randomElements(c.n)
+						if c.k == 0 && alternate && i%2 == 0 {
+							calls[i] = Call[F]{Elements: elems}
+						} else {
+							calls[i] = Call[F]{Bytes: append(bytes.Repeat([]byte{1}, c.k), Marshal[F, PF](elems)...)}
+						}
+					}
+					CheckMatchesByteHasher[F, PF](t, newHasher, newRef, digestBytes, calls)
+				})
+			}
+		})
+	}
 }
 
 // write writes b to w, and requires no error and that all of b is reported written.
