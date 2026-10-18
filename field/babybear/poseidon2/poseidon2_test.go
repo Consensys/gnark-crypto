@@ -7,11 +7,11 @@ package poseidon2
 
 import (
 	"bytes"
-	"io"
 	"testing"
 
 	fr "github.com/consensys/gnark-crypto/field/babybear"
 	gnarkHash "github.com/consensys/gnark-crypto/hash"
+	"github.com/consensys/gnark-crypto/internal/hashtesting"
 	"github.com/consensys/gnark-crypto/utils/cpu"
 	"github.com/stretchr/testify/require"
 )
@@ -118,18 +118,10 @@ func randomElements(n int) []fr.Element {
 	return e
 }
 
-func marshalElements(e []fr.Element) []byte {
-	var b []byte
-	for i := range e {
-		b = append(b, e[i].Marshal()...)
-	}
-	return b
-}
-
-// TestMerkleDamgard checks that, after each call, the hasher matches the byte
-// Merkle-Damgard hasher, whether the input is written as bytes or alternately as
-// bytes and field elements, and that a hasher restored from State continues as
-// the original does after PadBlock.
+// TestMerkleDamgard checks the hasher against the byte Merkle-Damgard hasher, see
+// [hashtesting.CheckMatchesByteHasher], with input written as bytes, or alternately
+// as bytes and field elements, including last blocks that do not end on an
+// element boundary.
 func TestMerkleDamgard(t *testing.T) {
 	p := NewDefaultPermutation()
 	blockLen := p.params.Width / 2
@@ -151,11 +143,9 @@ func TestMerkleDamgard(t *testing.T) {
 		}
 	}
 
-	write := func(t *testing.T, w io.Writer, b []byte) {
-		t.Helper()
-		n, err := w.Write(b)
-		require.NoError(t, err)
-		require.Equal(t, len(b), n)
+	newHasher := func() hashtesting.Hasher[fr.Element, []fr.Element] { return NewMerkleDamgardHasher() }
+	newRef := func() gnarkHash.StateStorer {
+		return gnarkHash.NewMerkleDamgardHasher(p, make([]byte, p.BlockSize()))
 	}
 
 	for _, alternate := range []bool{false, true} {
@@ -164,43 +154,17 @@ func TestMerkleDamgard(t *testing.T) {
 			name = "alternating"
 		}
 		t.Run(name, func(t *testing.T) {
-			for _, calls := range cases {
-				ref := gnarkHash.NewMerkleDamgardHasher(p, make([]byte, p.BlockSize()))
-				h := NewMerkleDamgardHasher()
-				h.WriteField(randomElements(1)...)
-				h.Reset() // discards the incomplete block
-
-				for i, c := range calls {
+			for _, cs := range cases {
+				calls := make([]hashtesting.Call[fr.Element], len(cs))
+				for i, c := range cs {
 					elems := randomElements(c.n)
-					b := append(bytes.Repeat([]byte{1}, c.k), marshalElements(elems)...)
-					write(t, ref, b)
-					field := c.k == 0 && alternate && i%2 == 0
-					if field {
-						h.WriteField(elems[:c.n/2]...)
-						h.SumField() // does not change the state
-						h.WriteField(elems[c.n/2:]...)
+					if c.k == 0 && alternate && i%2 == 0 {
+						calls[i] = hashtesting.Call[fr.Element]{Elements: elems}
 					} else {
-						write(t, h, b)
+						calls[i] = hashtesting.Call[fr.Element]{Bytes: append(bytes.Repeat([]byte{1}, c.k), hashtesting.Marshal(elems)...)}
 					}
-
-					msg := []any{"calls %v, call %d", calls, i}
-					want := ref.Sum(nil)
-					require.Equal(t, want, h.Sum(nil), msg...)
-					require.Equal(t, want, marshalElements(h.SumField()), msg...)
-					require.Equal(t, ref.State(), h.State(), msg...)
 				}
-
-				restored := NewMerkleDamgardHasher()
-				restored.WriteField(randomElements(1)...) // SetState discards the incomplete block
-				require.NoError(t, restored.SetState(h.State()))
-
-				h.PadBlock()
-				require.Equal(t, ref.State(), h.State(), "calls %v", calls)
-
-				more := marshalElements(randomElements(blockLen + 2))
-				write(t, h, more)
-				write(t, restored, more)
-				require.Equal(t, h.Sum(nil), restored.Sum(nil), "calls %v: the restored state gives another digest", calls)
+				hashtesting.CheckMatchesByteHasher(t, newHasher, newRef, hashtesting.Marshal[fr.Element, *fr.Element], calls)
 			}
 		})
 	}
