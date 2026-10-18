@@ -149,4 +149,12 @@ func TestFieldHasher(t *testing.T) {
 	dgst3 = _dgst3.Bytes()
 	assert.Equal(dgst1, dgst3[:], "hashes do not match")
 
+	// test WriteField, SumField and PadBlock
+	h4 := mimc.NewFieldHasher()
+	h4.WriteField(randInputs[:3]...)
+	h4.SumField() // does not change the digest
+	h4.PadBlock()
+	h4.WriteField(randInputs[3:]...)
+	s := h4.SumField()
+	assert.Equal(dgst1, s.Marshal(), "hashes do not match")
 }
