@@ -6,8 +6,11 @@
 package extensions
 
 import (
+	"bytes"
 	"math/big"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	fr "github.com/consensys/gnark-crypto/field/babybear"
 	"github.com/leanovate/gopter"
@@ -401,5 +404,126 @@ func TestE6SetString(t *testing.T) {
 		if err == nil || err.Error() != wantErr.Error() {
 			t.Fatalf("coefficient %d error = %v, want %v", badAt, err, wantErr)
 		}
+	}
+}
+
+func TestE6MarshalSetBytesCanonicalRoundTrip(t *testing.T) {
+	for range 100 {
+		var x E6
+		x.MustSetRandom()
+
+		b := x.Marshal()
+		if len(b) != BytesE6 {
+			t.Fatalf("Marshal returned %d bytes, want %d", len(b), BytesE6)
+		}
+		coords := []*fr.Element{&x.B0.A0, &x.B0.A1, &x.B1.A0, &x.B1.A1, &x.B2.A0, &x.B2.A1}
+		for i, c := range coords {
+			cb := c.Bytes()
+			if !bytes.Equal(b[i*fr.Bytes:(i+1)*fr.Bytes], cb[:]) {
+				t.Fatalf("coefficient %d is not encoded at its expected offset", i)
+			}
+		}
+
+		var y E6
+		require.NoError(t, y.SetBytesCanonical(b))
+		if !y.Equal(&x) {
+			t.Fatal("SetBytesCanonical(Marshal(x)) != x")
+		}
+	}
+
+	for _, n := range []int{0, BytesE6 - 1, BytesE6 + 1} {
+		var z E6
+		if err := z.SetBytesCanonical(make([]byte, n)); err == nil {
+			t.Fatalf("SetBytesCanonical did not fail on %d bytes", n)
+		}
+	}
+}
+
+func TestE6SetBytesCanonicalRejectsNonCanonical(t *testing.T) {
+	var x E6
+	x.MustSetRandom()
+	good := x.Marshal()
+
+	q := fr.Modulus()
+	for i := range 6 {
+		b := append([]byte(nil), good...)
+		q.FillBytes(b[i*fr.Bytes : (i+1)*fr.Bytes])
+
+		y := x
+		require.Error(t, y.SetBytesCanonical(b), "coefficient %d equal to the modulus must be rejected", i)
+		require.True(t, y.Equal(&x), "E6 must be unchanged on error")
+	}
+}
+
+func TestE6ElementOps(t *testing.T) {
+	for range 100 {
+		var x, lifted, got, want E6
+		var e fr.Element
+		x.MustSetRandom()
+		e.MustSetRandom()
+
+		var z E6
+		z.SetElement(&e)
+		require.True(t, z.B0.A0.Equal(&e))
+		require.True(t, z.B0.A1.IsZero())
+		require.True(t, z.B1.A0.IsZero())
+		require.True(t, z.B1.A1.IsZero())
+		require.True(t, z.B2.A0.IsZero())
+		require.True(t, z.B2.A1.IsZero())
+		lifted = z
+
+		got.AddElement(&x, &e)
+		want.Add(&x, &lifted)
+		require.True(t, got.Equal(&want), "AddElement")
+
+		got.SubElement(&x, &e)
+		want.Sub(&x, &lifted)
+		require.True(t, got.Equal(&want), "SubElement")
+
+		got.SubFromElement(&e, &x)
+		want.Sub(&lifted, &x)
+		require.True(t, got.Equal(&want), "SubFromElement")
+
+		// aliasing of the receiver with the second operand
+		got.Set(&x)
+		got.SubFromElement(&e, &got)
+		require.True(t, got.Equal(&want), "SubFromElement alias")
+
+		// aliasing of the receiver with the first operand
+		got.Set(&x)
+		got.AddElement(&got, &e)
+		want.Add(&x, &lifted)
+		require.True(t, got.Equal(&want), "AddElement alias")
+		got.SubElement(&got, &e)
+		require.True(t, got.Equal(&x), "SubElement alias")
+	}
+}
+
+func TestE6Base(t *testing.T) {
+	for range 100 {
+		var x, y E6
+		x.MustSetRandom()
+
+		prefix := make([]fr.Element, 2)
+		prefix[0].MustSetRandom()
+		prefix[1].MustSetRandom()
+		base := x.AppendBase(append([]fr.Element(nil), prefix...))
+		require.Len(t, base, 2+6)
+		require.Equal(t, prefix, base[:2], "AppendBase must keep the prefix")
+
+		require.True(t, y.SetBase(base[2:]).Equal(&x), "SetBase(AppendBase(x)) != x")
+
+		// the coordinate order is the one of Marshal
+		var want []byte
+		for i := range base[2:] {
+			b := base[2+i].Bytes()
+			want = append(want, b[:]...)
+		}
+		require.Equal(t, want, x.Marshal())
+	}
+
+	var z E6
+	for _, n := range []int{0, 6 - 1, 6 + 1} {
+		require.Panics(t, func() { z.SetBase(make([]fr.Element, n)) }, "SetBase on %d elements", n)
 	}
 }
