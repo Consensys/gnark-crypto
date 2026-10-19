@@ -8,6 +8,7 @@ package kzg
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"math/big"
 	"slices"
 	"sync"
@@ -439,6 +440,30 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 				err = BatchVerifySinglePoint(digests, &proof, point, hf, srs.Vk)
 				if err == nil {
 					t.Fatal("verifying wrong proof should have failed")
+				}
+			}
+			{
+				// verify zero digests
+				err = BatchVerifySinglePoint(nil, &proof, point, hf, srs.Vk)
+				if !errors.Is(err, ErrZeroNbDigests) {
+					t.Fatalf("expected ErrZeroNbDigests from BatchVerifySinglePoint, got %v", err)
+				}
+				_, _, err = FoldProof(nil, &proof, point, hf)
+				if !errors.Is(err, ErrZeroNbDigests) {
+					t.Fatalf("expected ErrZeroNbDigests from FoldProof, got %v", err)
+				}
+				var emptyProof BatchOpeningProof
+				_, _, err = FoldProof(nil, &emptyProof, point, hf)
+				if !errors.Is(err, ErrZeroNbDigests) {
+					t.Fatalf("expected ErrZeroNbDigests from FoldProof with empty proof, got %v", err)
+				}
+				_, err = BatchOpenSinglePoint(nil, nil, point, hf, srs.Pk)
+				if !errors.Is(err, ErrZeroNbDigests) {
+					t.Fatalf("expected ErrZeroNbDigests from BatchOpenSinglePoint, got %v", err)
+				}
+				_, err = BatchOpenSinglePointWithCommitter(nil, nil, point, hf, srs.Pk)
+				if !errors.Is(err, ErrZeroNbDigests) {
+					t.Fatalf("expected ErrZeroNbDigests from BatchOpenSinglePointWithCommitter, got %v", err)
 				}
 			}
 		}
