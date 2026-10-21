@@ -715,6 +715,8 @@ func (p *G2Jac) mulWindowedMixed(q *G2Affine, s *big.Int) *G2Jac {
 // mulBySeed multiplies the point q by the seed xGen in Jacobian coordinates
 // using an optimized addition chain.
 func (p *G2Jac) mulBySeed(q *G2Jac) *G2Jac {
+	// Over E4 the mixed additions of the windowed NAF method beat an unrolled
+	// chain of full Jacobian additions.
 	p.mulWindowed(q, &xGen)
 	return p
 }

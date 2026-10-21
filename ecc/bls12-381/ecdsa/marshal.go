@@ -18,6 +18,8 @@ var errWrongSize = errors.New("wrong size buffer")
 var errRBiggerThanRMod = errors.New("r >= r_mod")
 var errSBiggerThanHalfRMod = errors.New("s > r_mod/2")
 var errZero = errors.New("zero value")
+var errIdentity = errors.New("public key is the identity point")
+var errNotInSubgroup = errors.New("public key is not in the correct subgroup")
 
 // Bytes returns the binary representation of the public key. The serialization
 // follows [ZCash serialization] format.
@@ -32,6 +34,12 @@ func (pk *PublicKey) Bytes() []byte {
 	pkBin := pk.A.Bytes()
 	subtle.ConstantTimeCopy(1, res[:sizePublicKey], pkBin[:])
 	return res[:]
+}
+
+// IsValid reports whether pk is a valid ECDSA public key: a curve point which
+// is neither the identity nor outside the prime-order subgroup.
+func (pk *PublicKey) IsValid() bool {
+	return !pk.A.IsInfinity() && pk.A.IsInSubGroup()
 }
 
 // SetBytes sets the public key from the serialized reprsentation obtained
@@ -51,6 +59,12 @@ func (pk *PublicKey) SetBytes(buf []byte) (int, error) {
 	}
 	if _, err := pk.A.SetBytes(buf[:sizePublicKey]); err != nil {
 		return 0, err
+	}
+	if !pk.IsValid() {
+		if pk.A.IsInfinity() {
+			return 0, errIdentity
+		}
+		return 0, errNotInSubgroup
 	}
 	n += sizePublicKey
 	return n, nil
@@ -83,7 +97,7 @@ func (privKey *PrivateKey) SetBytes(buf []byte) (int, error) {
 	if len(buf) < sizePrivateKey {
 		return n, io.ErrShortBuffer
 	}
-	if _, err := privKey.PublicKey.A.SetBytes(buf[:sizePublicKey]); err != nil {
+	if _, err := privKey.PublicKey.SetBytes(buf[:sizePublicKey]); err != nil {
 		return 0, err
 	}
 	n += sizePublicKey

@@ -22,7 +22,6 @@ type CurveParams struct {
 
 // GetEdwardsCurve returns the twisted Edwards curve on bls12-381/Fr
 func GetEdwardsCurve() CurveParams {
-	initOnce.Do(initCurveParams)
 	// copy to keep Order private
 	var res CurveParams
 
@@ -36,8 +35,11 @@ func GetEdwardsCurve() CurveParams {
 }
 
 var (
-	initOnce    sync.Once
-	curveParams CurveParams
+	curveParamsOnce    sync.Once
+	curveParams        CurveParams
+	fixedBaseTableOnce sync.Once
+	fixedBaseTable     [fixedBaseWindowCount][fixedBaseWindowEntries]PointAffine
+	subgroupInitOnce   sync.Once
 )
 
 func initCurveParams() {
@@ -46,8 +48,29 @@ func initCurveParams() {
 	curveParams.Cofactor.SetString("8")
 	curveParams.Order.SetString("6554484396890773809930967563523245729705921265872317281365359162392183254199", 10)
 
-	curveParams.Base.X.SetString("23426137002068529236790192115758361610982344002369094106619281483467893291614")
-	curveParams.Base.Y.SetString("39325435222430376843701388596190331198052476467368316772266670064146548432123")
+	curveParams.Base.X.SetString("8076246640662884909881801758704306714034609987455869804520522091855516602923")
+	curveParams.Base.Y.SetString("13262374693698910701929044844600465831413122818447359594527400194675274060458")
+}
+
+func initFixedBaseTable() {
+	var base PointAffine
+	base.Set(&curveParams.Base)
+
+	for i := range fixedBaseWindowCount {
+		fixedBaseTable[i][0].setInfinity()
+		fixedBaseTable[i][1].Set(&base)
+		for j := 2; j < fixedBaseWindowEntries; j++ {
+			fixedBaseTable[i][j].Add(&fixedBaseTable[i][j-1], &base)
+		}
+		for range fixedBaseWindowSize {
+			base.Double(&base)
+		}
+	}
+}
+
+func init() {
+	curveParamsOnce.Do(initCurveParams)
+	fixedBaseTableOnce.Do(initFixedBaseTable)
 }
 
 // mulByA multiplies fr.Element by curveParams.A

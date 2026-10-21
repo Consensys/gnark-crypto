@@ -7,6 +7,8 @@ package extensions
 
 import (
 	"bytes"
+	"encoding/binary"
+	"io"
 	"math/big"
 	"os"
 	"reflect"
@@ -291,8 +293,8 @@ func TestVectorOps(t *testing.T) {
 	}
 	properties := gopter.NewProperties(parameters)
 
-	addVector := func(a, b Vector) bool {
-		c := make(Vector, len(a))
+	addVector := func(a, b VectorE4) bool {
+		c := make(VectorE4, len(a))
 		c.Add(a, b)
 
 		for i := range len(a) {
@@ -305,8 +307,8 @@ func TestVectorOps(t *testing.T) {
 		return true
 	}
 
-	subVector := func(a, b Vector) bool {
-		c := make(Vector, len(a))
+	subVector := func(a, b VectorE4) bool {
+		c := make(VectorE4, len(a))
 		c.Sub(a, b)
 
 		for i := range len(a) {
@@ -319,8 +321,8 @@ func TestVectorOps(t *testing.T) {
 		return true
 	}
 
-	scalarMulVector := func(a Vector, b E4) bool {
-		c := make(Vector, len(a))
+	scalarMulVector := func(a VectorE4, b E4) bool {
+		c := make(VectorE4, len(a))
 		c.ScalarMul(a, &b)
 
 		for i := range len(a) {
@@ -333,7 +335,7 @@ func TestVectorOps(t *testing.T) {
 		return true
 	}
 
-	sumVector := func(a Vector) bool {
+	sumVector := func(a VectorE4) bool {
 		var sum E4
 		computed := a.Sum()
 		for i := range len(a) {
@@ -343,7 +345,7 @@ func TestVectorOps(t *testing.T) {
 		return sum.Equal(&computed)
 	}
 
-	innerProductVector := func(a, b Vector) bool {
+	innerProductVector := func(a, b VectorE4) bool {
 		computed := a.InnerProduct(b)
 		var innerProduct E4
 		for i := range len(a) {
@@ -355,8 +357,8 @@ func TestVectorOps(t *testing.T) {
 		return innerProduct.Equal(&computed)
 	}
 
-	mulVector := func(a, b Vector) bool {
-		c := make(Vector, len(a))
+	mulVector := func(a, b VectorE4) bool {
+		c := make(VectorE4, len(a))
 		a[0].B0.A0.SetUint64(0x24)
 		b[0].B0.A0.SetUint64(0x42)
 		c.Mul(a, b)
@@ -421,8 +423,8 @@ func TestVectorOps(t *testing.T) {
 			))
 
 			properties.Property(fmt.Sprintf("vector scalar multiplication by element %d - %s", size, gp.label), prop.ForAll(
-				func(a Vector, b fr.Element) bool {
-					c := make(Vector, len(a))
+				func(a VectorE4, b fr.Element) bool {
+					c := make(VectorE4, len(a))
 					c.ScalarMulByElement(a, &b)
 					for i := range len(a) {
 						var tmp E4
@@ -438,8 +440,8 @@ func TestVectorOps(t *testing.T) {
 			))
 
 			properties.Property(fmt.Sprintf("vector multiplication by element %d - %s", size, gp.label), prop.ForAll(
-				func(a Vector, b fr.Vector) bool {
-					c := make(Vector, len(a))
+				func(a VectorE4, b fr.Vector) bool {
+					c := make(VectorE4, len(a))
 					c.MulByElement(a, b)
 					for i := range len(a) {
 						var tmp E4
@@ -456,12 +458,12 @@ func TestVectorOps(t *testing.T) {
 
 			// checking that in-place butterfly works as intended;
 			properties.Property(fmt.Sprintf("vector butterfly %d - %s", size, gp.label), prop.ForAll(
-				func(a, b Vector) bool {
+				func(a, b VectorE4) bool {
 					if len(a) != len(b) {
 						return false
 					}
-					c := make(Vector, len(a))
-					d := make(Vector, len(a))
+					c := make(VectorE4, len(a))
+					d := make(VectorE4, len(a))
 					copy(c, a)
 					copy(d, b)
 					c.Butterfly(d)
@@ -483,11 +485,11 @@ func TestVectorOps(t *testing.T) {
 			))
 
 			properties.Property(fmt.Sprintf("vector butterfly pair %d - %s", size, gp.label), prop.ForAll(
-				func(a Vector) bool {
+				func(a VectorE4) bool {
 					if len(a)%2 != 0 {
 						return true // skip odd-sized vectors
 					}
-					c := make(Vector, len(a))
+					c := make(VectorE4, len(a))
 					copy(c, a)
 					c.ButterflyPair()
 					for i := 0; i < len(a); i += 2 {
@@ -505,7 +507,7 @@ func TestVectorOps(t *testing.T) {
 			))
 
 			properties.Property(fmt.Sprintf("vector inner product by element %d - %s", size, gp.label), prop.ForAll(
-				func(a Vector, b fr.Vector) bool {
+				func(a VectorE4, b fr.Vector) bool {
 					computed := a.InnerProductByElement(b)
 					var innerProduct E4
 					for i := range len(a) {
@@ -525,23 +527,23 @@ func TestVectorOps(t *testing.T) {
 	properties.TestingRun(t, gopter.NewFormatedReporter(false, 260, os.Stdout))
 }
 
-// TestVectorExp tests the Exp method for Vector type.
+// TestVectorExp tests the Exp method for VectorE4 type.
 func TestVectorExp(t *testing.T) {
 	assert := require.New(t)
 
 	// Test with empty vector
-	empty := make(Vector, 0)
-	expEmpty := make(Vector, 0)
+	empty := make(VectorE4, 0)
+	expEmpty := make(VectorE4, 0)
 	expEmpty.Exp(empty, 5)
 	assert.Equal(0, len(expEmpty), "Exp of empty vector should be empty")
 
 	// Test with vector of ones and exponent 0
 	const size = 32
-	v := make(Vector, size)
+	v := make(VectorE4, size)
 	for i := range v {
 		v[i].SetOne()
 	}
-	expZero := make(Vector, size)
+	expZero := make(VectorE4, size)
 	expZero.Exp(v, 0)
 	for i := range expZero {
 		assert.True(expZero[i].IsOne(), "Exp(x, 0) should be one for all elements")
@@ -551,14 +553,14 @@ func TestVectorExp(t *testing.T) {
 	for i := range v {
 		v[i].MustSetRandom()
 	}
-	expOne := make(Vector, size)
+	expOne := make(VectorE4, size)
 	expOne.Exp(v, 1)
 	for i := range v {
 		assert.True(expOne[i].Equal(&v[i]), "Exp(x, 1) should be x for all elements")
 	}
 
 	// Test with random vector and exponent 2
-	expTwo := make(Vector, size)
+	expTwo := make(VectorE4, size)
 	expTwo.Exp(v, 2)
 	for i := range v {
 		var sq E4
@@ -568,7 +570,7 @@ func TestVectorExp(t *testing.T) {
 
 	// Test with random vector and exponent k
 	k := int64(7)
-	expK := make(Vector, size)
+	expK := make(VectorE4, size)
 	expK.Exp(v, k)
 	for i := range v {
 		var mul E4
@@ -580,7 +582,7 @@ func TestVectorExp(t *testing.T) {
 	}
 
 	// Test to check v.Exp(v, k) is correct (no modification of v during the process)
-	vCopy := make(Vector, size)
+	vCopy := make(VectorE4, size)
 	copy(vCopy, v)
 	vCopy.Exp(vCopy, k)
 	for i := range v {
@@ -588,7 +590,7 @@ func TestVectorExp(t *testing.T) {
 	}
 
 	// Test with random vector and negative exponent -1
-	expNegOne := make(Vector, size)
+	expNegOne := make(VectorE4, size)
 	expNegOne.Exp(v, -1)
 	for i := range v {
 		var inv E4
@@ -599,7 +601,7 @@ func TestVectorExp(t *testing.T) {
 }
 
 // prefixProductGeneric computes the prefix product of the vector in place (single-threaded).
-func prefixProductGeneric(vector Vector) {
+func prefixProductGeneric(vector VectorE4) {
 	if len(vector) == 0 {
 		return
 	}
@@ -608,8 +610,8 @@ func prefixProductGeneric(vector Vector) {
 	}
 }
 
-func randomVector(size int) Vector {
-	v := make(Vector, size)
+func randomVector(size int) VectorE4 {
+	v := make(VectorE4, size)
 	for i := range v {
 		v[i].MustSetRandom()
 	}
@@ -618,8 +620,8 @@ func randomVector(size int) Vector {
 
 func TestPrefixProduct_EmptyVector(t *testing.T) {
 	assert := require.New(t)
-	v := make(Vector, 0)
-	expected := make(Vector, 0)
+	v := make(VectorE4, 0)
+	expected := make(VectorE4, 0)
 	prefixProductGeneric(expected)
 	v.PrefixProduct()
 	assert.Equal(expected, v)
@@ -632,7 +634,7 @@ func TestPrefixProduct_VariousNbTasks(t *testing.T) {
 	for _, size := range sizes {
 		for _, nbTasks := range nbTasksList {
 			v := randomVector(size)
-			expected := make(Vector, size)
+			expected := make(VectorE4, size)
 			copy(expected, v)
 			prefixProductGeneric(expected)
 			v.PrefixProduct(nbTasks)
@@ -646,8 +648,8 @@ func TestVectorEmptyOps(t *testing.T) {
 
 	var sum, inner, scalar E4
 	scalar.MustSetRandom()
-	empty := make(Vector, 0)
-	result := make(Vector, 0)
+	empty := make(VectorE4, 0)
+	result := make(VectorE4, 0)
 
 	assert.NotPanics(func() { result.Add(empty, empty) })
 	assert.NotPanics(func() { result.Sub(empty, empty) })
@@ -663,12 +665,12 @@ func TestVectorEmptyOps(t *testing.T) {
 func TestVectorSort(t *testing.T) {
 	assert := require.New(t)
 
-	v := make(Vector, 3)
+	v := make(VectorE4, 3)
 	v[0].B0.A0.SetUint64(2)
 	v[1].B0.A0.SetUint64(3)
 	v[2].B0.A0.SetUint64(1)
 
-	expected := make(Vector, 3)
+	expected := make(VectorE4, 3)
 	expected[0].B0.A0.SetUint64(1)
 	expected[1].B0.A0.SetUint64(2)
 	expected[2].B0.A0.SetUint64(3)
@@ -683,7 +685,7 @@ func TestVectorSort(t *testing.T) {
 func TestVectorRoundTrip(t *testing.T) {
 	assert := require.New(t)
 
-	v1 := make(Vector, 3)
+	v1 := make(VectorE4, 3)
 	v1[0].MustSetRandom()
 	v1[1].MustSetRandom()
 	v1[2].MustSetRandom()
@@ -691,7 +693,7 @@ func TestVectorRoundTrip(t *testing.T) {
 	b, err := v1.MarshalBinary()
 	assert.NoError(err)
 
-	var v2, v3 Vector
+	var v2, v3 VectorE4
 
 	err = v2.UnmarshalBinary(b)
 	assert.NoError(err)
@@ -706,12 +708,12 @@ func TestVectorRoundTrip(t *testing.T) {
 func TestVectorEmptyRoundTrip(t *testing.T) {
 	assert := require.New(t)
 
-	v1 := make(Vector, 0)
+	v1 := make(VectorE4, 0)
 
 	b, err := v1.MarshalBinary()
 	assert.NoError(err)
 
-	var v2, v3 Vector
+	var v2, v3 VectorE4
 
 	err = v2.UnmarshalBinary(b)
 	assert.NoError(err)
@@ -723,7 +725,106 @@ func TestVectorEmptyRoundTrip(t *testing.T) {
 	assert.True(reflect.DeepEqual(v3, v2))
 }
 
-func (vector *Vector) unmarshalBinaryAsync(data []byte) error {
+func TestVectorReuseSliceDeserialization(t *testing.T) {
+	assert := require.New(t)
+
+	v1 := make(VectorE4, 4)
+	for i := range v1 {
+		v1[i].MustSetRandom()
+	}
+	buf, err := v1.MarshalBinary()
+	assert.NoError(err)
+
+	const capacity = 16
+	v2 := make(VectorE4, capacity)
+	n, err, errCh := v2.AsyncReadFrom(bytes.NewReader(buf))
+	assert.Equal(int64(len(buf)), n)
+	assert.NoError(err)
+	assert.NoError(<-errCh)
+	assert.Len(v2, len(v1))
+	assert.Equal(capacity, cap(v2))
+	assert.True(reflect.DeepEqual(v1, v2))
+
+	v3 := make(VectorE4, capacity)
+	n, err = v3.ReadFrom(bytes.NewReader(buf))
+	assert.Equal(int64(len(buf)), n)
+	assert.NoError(err)
+	assert.Len(v3, len(v1))
+	assert.Equal(capacity, cap(v3))
+	assert.True(reflect.DeepEqual(v1, v3))
+}
+
+func TestVectorReadTamperedHeader(t *testing.T) {
+	assert := require.New(t)
+
+	var input [4]byte
+	binary.BigEndian.PutUint32(input[:], 1<<12)
+
+	newVector := func() VectorE4 {
+		v := make(VectorE4, 1)
+		v[0].SetOne()
+		return v
+	}
+	assertUnchanged := func(v VectorE4) {
+		assert.Len(v, 1)
+		assert.Equal(1, cap(v))
+		var one E4
+		one.SetOne()
+		assert.True(v[0].Equal(&one))
+	}
+
+	v := newVector()
+	n, err, errCh := v.AsyncReadFrom(bytes.NewReader(input[:]))
+	assert.Equal(int64(4), n)
+	assert.ErrorIs(err, io.ErrUnexpectedEOF)
+	_, open := <-errCh
+	assert.False(open)
+	assertUnchanged(v)
+
+	v = newVector()
+	n, err = v.ReadFrom(bytes.NewReader(input[:]))
+	assert.Equal(int64(4), n)
+	assert.ErrorIs(err, io.ErrUnexpectedEOF)
+	assertUnchanged(v)
+
+	v = newVector()
+	err = v.UnmarshalBinary(input[:])
+	assert.ErrorIs(err, io.ErrUnexpectedEOF)
+	assertUnchanged(v)
+}
+
+func TestVectorReadTamperedHeaderWithoutLen(t *testing.T) {
+	assert := require.New(t)
+
+	v1 := make(VectorE4, 4)
+	for i := range v1 {
+		v1[i].MustSetRandom()
+	}
+	buf, err := v1.MarshalBinary()
+	assert.NoError(err)
+	binary.BigEndian.PutUint32(buf[:4], 1<<12)
+
+	readerWithoutLen := func() io.Reader {
+		return struct{ io.Reader }{Reader: bytes.NewReader(buf)}
+	}
+
+	r := readerWithoutLen()
+	_, hasLen := r.(interface{ Len() int })
+	assert.False(hasLen)
+	var v2 VectorE4
+	n, err := v2.ReadFrom(r)
+	assert.Equal(int64(len(buf)), n)
+	assert.Error(err)
+
+	var v3 VectorE4
+	n, err, errCh := v3.AsyncReadFrom(readerWithoutLen())
+	assert.Equal(int64(len(buf)), n)
+	assert.Error(err)
+	_, open := <-errCh
+	assert.False(open)
+}
+
+func (vector *VectorE4) unmarshalBinaryAsync(data []byte) error {
 	r := bytes.NewReader(data)
 	_, err, chErr := vector.AsyncReadFrom(r)
 	if err != nil {
@@ -817,9 +918,9 @@ func BenchmarkVectorOps(b *testing.B) {
 	// note; to benchmark against "no asm" version, use the following
 	// build tag: -tags purego
 	const N = 1 << 20
-	a1 := make(Vector, N)
-	b1 := make(Vector, N)
-	c1 := make(Vector, N)
+	a1 := make(VectorE4, N)
+	b1 := make(VectorE4, N)
+	c1 := make(VectorE4, N)
 	b2 := make(fr.Vector, N)
 	for i := 1; i < N; i++ {
 		a1[i-1].MustSetRandom()
@@ -900,7 +1001,7 @@ func BenchmarkVectorOps(b *testing.B) {
 
 func BenchmarkPrefixProduct(b *testing.B) {
 	const N = 1 << 19
-	a1 := make(Vector, N)
+	a1 := make(VectorE4, N)
 	for i := range N {
 		a1[i].MustSetRandom()
 	}
@@ -923,7 +1024,7 @@ func BenchmarkPrefixProduct(b *testing.B) {
 
 func BenchmarkVectorSerialization(b *testing.B) {
 	const N = 1 << 15
-	a1 := make(Vector, N)
+	a1 := make(VectorE4, N)
 	for i := 1; i < N; i++ {
 		a1[i-1].MustSetRandom()
 	}
@@ -943,7 +1044,7 @@ func BenchmarkVectorSerialization(b *testing.B) {
 	}
 
 	b.Run("UnmarshalBinary", func(b *testing.B) {
-		var a2 Vector
+		var a2 VectorE4
 		b.ResetTimer()
 		for range b.N {
 			err := a2.UnmarshalBinary(data)
@@ -954,7 +1055,7 @@ func BenchmarkVectorSerialization(b *testing.B) {
 	})
 
 	b.Run("unmarshalBinaryAsync", func(b *testing.B) {
-		var a2 Vector
+		var a2 VectorE4
 		b.ResetTimer()
 		for range b.N {
 			err := a2.unmarshalBinaryAsync(data)
@@ -967,7 +1068,7 @@ func BenchmarkVectorSerialization(b *testing.B) {
 
 func genZeroVector(size int) gopter.Gen {
 	return func(*gopter.GenParameters) *gopter.GenResult {
-		return gopter.NewGenResult(make(Vector, size), gopter.NoShrinker)
+		return gopter.NewGenResult(make(VectorE4, size), gopter.NoShrinker)
 	}
 }
 
@@ -975,7 +1076,7 @@ func genMaxVector(size int) gopter.Gen {
 	return func(*gopter.GenParameters) *gopter.GenResult {
 		qMinusOne := fr.Element{2130706433}
 		qMinusOne[0]--
-		v := make(Vector, size)
+		v := make(VectorE4, size)
 		for i := range v {
 			v[i].B0.A0 = qMinusOne
 			v[i].B0.A1 = qMinusOne
@@ -988,7 +1089,7 @@ func genMaxVector(size int) gopter.Gen {
 
 func genVector(size int) gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
-		v := make(Vector, size)
+		v := make(VectorE4, size)
 		gen := genE4()
 		for i := range v {
 			val, ok := gen(genParams).Retrieve()
@@ -1023,5 +1124,197 @@ func genFrVector(size int) gopter.Gen {
 			v[i] = val.(fr.Element)
 		}
 		return gopter.NewGenResult(v, gopter.NoShrinker)
+	}
+}
+
+func TestE4SetString(t *testing.T) {
+	t.Parallel()
+
+	coeffs := [4]string{"1", "2", "3", "0x4"}
+	var want E4
+	leaves := []*fr.Element{&want.B0.A0, &want.B0.A1, &want.B1.A0, &want.B1.A1}
+	for i, s := range coeffs {
+		if _, err := leaves[i].SetString(s); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var z E4
+	got, err := z.SetString(coeffs[0], coeffs[1], coeffs[2], coeffs[3])
+	if err != nil {
+		t.Fatalf("valid coefficients: %v", err)
+	}
+	if got != &z {
+		t.Fatal("SetString did not return the receiver")
+	}
+	if !z.Equal(&want) {
+		t.Fatalf("got %s, want %s", z.String(), want.String())
+	}
+
+	_, wantErr := leaves[0].SetString("nope")
+	if wantErr == nil {
+		t.Fatal("subfield accepted an invalid coefficient")
+	}
+	for _, badAt := range []int{0, 3} {
+		bad := coeffs
+		bad[badAt] = "nope"
+		got, err = z.SetString(bad[0], bad[1], bad[2], bad[3])
+		if got != nil {
+			t.Fatalf("SetString returned a receiver with invalid coefficient %d", badAt)
+		}
+		if err == nil || err.Error() != wantErr.Error() {
+			t.Fatalf("coefficient %d error = %v, want %v", badAt, err, wantErr)
+		}
+	}
+}
+
+func TestE4MarshalSetBytesCanonicalRoundTrip(t *testing.T) {
+	for range 100 {
+		var x E4
+		x.MustSetRandom()
+
+		b := x.Marshal()
+		if len(b) != BytesE4 {
+			t.Fatalf("Marshal returned %d bytes, want %d", len(b), BytesE4)
+		}
+		coords := []*fr.Element{&x.B0.A0, &x.B0.A1, &x.B1.A0, &x.B1.A1}
+		for i, c := range coords {
+			cb := c.Bytes()
+			if !bytes.Equal(b[i*fr.Bytes:(i+1)*fr.Bytes], cb[:]) {
+				t.Fatalf("coefficient %d is not encoded at its expected offset", i)
+			}
+		}
+
+		var y E4
+		require.NoError(t, y.SetBytesCanonical(b))
+		if !y.Equal(&x) {
+			t.Fatal("SetBytesCanonical(Marshal(x)) != x")
+		}
+	}
+
+	for _, n := range []int{0, BytesE4 - 1, BytesE4 + 1} {
+		var z E4
+		if err := z.SetBytesCanonical(make([]byte, n)); err == nil {
+			t.Fatalf("SetBytesCanonical did not fail on %d bytes", n)
+		}
+	}
+}
+
+func TestE4SetInt64SetUint64(t *testing.T) {
+	for _, v := range []int64{0, 1, -1, 7, -12345, 1 << 40, -(1 << 40)} {
+		var z E4
+		z.SetInt64(v)
+		require.Truef(t, z.B0.A1.IsZero(), "coordinate B0.A1 is non-zero for %d", v)
+		require.Truef(t, z.B1.A0.IsZero(), "coordinate B1.A0 is non-zero for %d", v)
+		require.Truef(t, z.B1.A1.IsZero(), "coordinate B1.A1 is non-zero for %d", v)
+		var want fr.Element
+		want.SetInt64(v)
+		require.Truef(t, z.B0.A0.Equal(&want), "SetInt64(%d)", v)
+
+		// SetInt64 and SetBigInt agree
+		var zb E4
+		zb.SetBigInt(big.NewInt(v))
+		require.Truef(t, z.Equal(&zb), "SetInt64(%d) != SetBigInt(%d)", v, v)
+	}
+	for _, v := range []uint64{0, 1, 7, 12345, 1 << 40, 1<<64 - 1} {
+		var z E4
+		z.SetUint64(v)
+		require.Truef(t, z.B0.A1.IsZero(), "coordinate B0.A1 is non-zero for %d", v)
+		require.Truef(t, z.B1.A0.IsZero(), "coordinate B1.A0 is non-zero for %d", v)
+		require.Truef(t, z.B1.A1.IsZero(), "coordinate B1.A1 is non-zero for %d", v)
+		var want fr.Element
+		want.SetUint64(v)
+		require.Truef(t, z.B0.A0.Equal(&want), "SetUint64(%d)", v)
+
+		var zb E4
+		zb.SetBigInt(new(big.Int).SetUint64(v))
+		require.Truef(t, z.Equal(&zb), "SetUint64(%d) != SetBigInt(%d)", v, v)
+	}
+}
+
+func TestE4SetBytesCanonicalRejectsNonCanonical(t *testing.T) {
+	var x E4
+	x.MustSetRandom()
+	good := x.Marshal()
+
+	q := fr.Modulus()
+	for i := range 4 {
+		b := append([]byte(nil), good...)
+		q.FillBytes(b[i*fr.Bytes : (i+1)*fr.Bytes])
+
+		y := x
+		require.Error(t, y.SetBytesCanonical(b), "coefficient %d equal to the modulus must be rejected", i)
+		require.True(t, y.Equal(&x), "E4 must be unchanged on error")
+	}
+}
+
+func TestE4ElementOps(t *testing.T) {
+	for range 100 {
+		var x, lifted, got, want E4
+		var e fr.Element
+		x.MustSetRandom()
+		e.MustSetRandom()
+
+		var z E4
+		z.SetElement(&e)
+		require.True(t, z.B0.A0.Equal(&e))
+		require.True(t, z.B0.A1.IsZero())
+		require.True(t, z.B1.A0.IsZero())
+		require.True(t, z.B1.A1.IsZero())
+		lifted = z
+
+		got.AddElement(&x, &e)
+		want.Add(&x, &lifted)
+		require.True(t, got.Equal(&want), "AddElement")
+
+		got.SubElement(&x, &e)
+		want.Sub(&x, &lifted)
+		require.True(t, got.Equal(&want), "SubElement")
+
+		got.SubFromElement(&e, &x)
+		want.Sub(&lifted, &x)
+		require.True(t, got.Equal(&want), "SubFromElement")
+
+		// aliasing of the receiver with the second operand
+		got.Set(&x)
+		got.SubFromElement(&e, &got)
+		require.True(t, got.Equal(&want), "SubFromElement alias")
+
+		// aliasing of the receiver with the first operand
+		got.Set(&x)
+		got.AddElement(&got, &e)
+		want.Add(&x, &lifted)
+		require.True(t, got.Equal(&want), "AddElement alias")
+		got.SubElement(&got, &e)
+		require.True(t, got.Equal(&x), "SubElement alias")
+	}
+}
+
+func TestE4Base(t *testing.T) {
+	for range 100 {
+		var x, y E4
+		x.MustSetRandom()
+
+		prefix := make([]fr.Element, 2)
+		prefix[0].MustSetRandom()
+		prefix[1].MustSetRandom()
+		base := x.AppendBase(append([]fr.Element(nil), prefix...))
+		require.Len(t, base, 2+4)
+		require.Equal(t, prefix, base[:2], "AppendBase must keep the prefix")
+
+		require.True(t, y.SetBase(base[2:]).Equal(&x), "SetBase(AppendBase(x)) != x")
+
+		// the coordinate order is the one of Marshal
+		var want []byte
+		for i := range base[2:] {
+			b := base[2+i].Bytes()
+			want = append(want, b[:]...)
+		}
+		require.Equal(t, want, x.Marshal())
+	}
+
+	var z E4
+	for _, n := range []int{0, 4 - 1, 4 + 1} {
+		require.Panics(t, func() { z.SetBase(make([]fr.Element, n)) }, "SetBase on %d elements", n)
 	}
 }

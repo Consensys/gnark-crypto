@@ -515,14 +515,36 @@ func (f *FFAmd64) generateInnerProductW4() {
 		f.VPADDQ(PPH, hi, hi)           // accumulate high
 	}, true)
 
+	// MAC_LAST is identical to MAC, but uses a 4-byte broadcast load (VPBROADCASTD)
+	// instead of VPMULUDQ.BCST, which loads an 8-byte qword. The final dword of each
+	// element sits at offset 28 of a 32-byte element; an 8-byte broadcast there would
+	// read 4 bytes past the element. For interior elements those bytes belong to the
+	// next element and are harmless; for the last element of the input slice they may
+	// cross a page boundary and SIGSEGV.
+	macLast := f.Define("MAC_LAST", 3, func(inputs ...any) {
+		opLeft := inputs[0]
+		lo := inputs[1]
+		hi := inputs[2]
+
+		f.VPBROADCASTD(opLeft, PPL) // 4-byte broadcast: PPL[i] = a_dword in all 16 dword lanes
+		f.VPMULUDQ(PPL, Y, PPL)     // PPL = a_dword * b_dwords (uses low 32 of each qword)
+		f.VPSRLQ("$32", PPL, PPH)
+		f.VPANDQ(LSW, PPL, PPL)
+		f.VPADDQ(PPL, lo, lo)
+		f.VPADDQ(PPH, hi, hi)
+	}, true)
+
 	f.Loop(n, func() {
 		f.Comment("Load b[i]: 8 dwords -> 8 qwords via zero-extension")
 		f.VPMOVZXDQ("0("+addrB+")", Y)
 
 		f.Comment("Multiply each dword of a[i] (8 dwords) by b[i] and accumulate")
-		for i := range 8 {
+		for i := range 7 {
 			mac(fmt.Sprintf("%d(%s)", i*4, addrA), accL[i], accH[i])
 		}
+		// Use a 4-byte broadcast for the final dword (offset 28) to avoid
+		// reading past the 32-byte element boundary; see MAC_LAST above.
+		macLast(fmt.Sprintf("28(%s)", addrA), accL[7], accH[7])
 
 		f.ADDQ("$32", addrA)
 		f.ADDQ("$32", addrB)

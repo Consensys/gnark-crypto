@@ -19,6 +19,8 @@ import (
 )
 
 var errNotOnCurve = errors.New("point not on curve")
+var errNotInSubgroup = errors.New("point not in subgroup")
+var errIdentity = errors.New("identity point")
 var errHashNeeded = errors.New("hFunc cannot be nil. We need a hash for Fiat-Shamir")
 
 const (
@@ -48,10 +50,18 @@ type Signature struct {
 	S [sizeFr]byte
 }
 
+func validatePublicKeyPoint(p *twistededwards.PointAffine) error {
+	if p.IsZero() {
+		return errIdentity
+	}
+	if !p.IsInSubGroup() {
+		return errNotInSubgroup
+	}
+	return nil
+}
+
 // GenerateKey generates a public and private key pair.
 func GenerateKey(r io.Reader) (*PrivateKey, error) {
-	c := twistededwards.GetEdwardsCurve()
-
 	var pub PublicKey
 	var priv PrivateKey
 	// The source of randomness and the secret scalar must come
@@ -88,7 +98,7 @@ func GenerateKey(r io.Reader) (*PrivateKey, error) {
 
 	var bScalar big.Int
 	bScalar.SetBytes(priv.scalar[:])
-	pub.A.ScalarMultiplication(&c.Base, &bScalar)
+	pub.A.ScalarMultiplicationBase(&bScalar)
 
 	priv.PublicKey = pub
 
@@ -138,12 +148,13 @@ func (privKey *PrivateKey) Sign(message []byte, hFunc hash.Hash) ([]byte, error)
 	copy(randSrc, privKey.randSrc[:])
 	copy(randSrc[32:], message)
 
-	// randBytes = H(randSrc)
-	blindingFactorBytes := blake2b.Sum512(randSrc[:]) // TODO ensures that the hash used to build the key and the one used here is the same
+	// randBytes = H(randSrc). PrivateKey.SetBytes checks the serialized
+	// scalar pruning and public-key binding before randSrc is used here.
+	blindingFactorBytes := blake2b.Sum512(randSrc[:])
 	blindingFactorBigInt.SetBytes(blindingFactorBytes[:sizeFr])
 
 	// compute R = randScalar*Base
-	res.R.ScalarMultiplication(&curveParams.Base, &blindingFactorBigInt)
+	res.R.ScalarMultiplicationBase(&blindingFactorBigInt)
 	if !res.R.IsOnCurve() {
 		return nil, errNotOnCurve
 	}
@@ -194,9 +205,9 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 
 	curveParams := twistededwards.GetEdwardsCurve()
 
-	// verify that pubKey and R are on the curve
-	if !pub.A.IsOnCurve() {
-		return false, errNotOnCurve
+	// verify that pubKey is a non-identity point in the prime-order subgroup
+	if err := validatePublicKeyPoint(&pub.A); err != nil {
+		return false, err
 	}
 
 	// Deserialize the signature
@@ -230,7 +241,7 @@ func (pub *PublicKey) Verify(sigBin, message []byte, hFunc hash.Hash) (bool, err
 	var bCofactor, bs big.Int
 	curveParams.Cofactor.BigInt(&bCofactor)
 	bs.SetBytes(sig.S[:])
-	lhs.ScalarMultiplication(&curveParams.Base, &bs).
+	lhs.ScalarMultiplicationBase(&bs).
 		ScalarMultiplication(&lhs, &bCofactor)
 
 	if !lhs.IsOnCurve() {

@@ -339,6 +339,26 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
+	// Regression test for the silent failure of E2.Sqrt on purely-real
+	// inputs whose Fp coordinate is a non-residue. The Scott §6.3 formula
+	// has an unstated precondition x.A1 != 0; for x = (a, 0) with a non-QR
+	// in Fp the inner Fp.Sqrt failed silently and the function returned
+	// a wrong root. Since this curve's E2 is hand-written (not generated
+	// from the tower template), the template-level regression does not
+	// cover it; we add a curve-local property here.
+	properties.Property("[BLS24-315] square(sqrt) should be invariant for purely-real inputs", prop.ForAll(
+		func(a fp.Element) bool {
+			var x, root, sq E2
+			x.A0.Set(&a)
+			// (a, 0) is always an E2-square for a != 0: either a is QR in
+			// Fp, or a/β is (since β is itself a non-residue).
+			root.Sqrt(&x)
+			sq.Square(&root)
+			return sq.Equal(&x)
+		},
+		genfp,
+	))
+
 	properties.Property("[BLS24-315] neg(E2) == neg(E2.A0, E2.A1)", prop.ForAll(
 		func(a *E2) bool {
 			var b, c E2
@@ -499,4 +519,54 @@ func TestE2Div(t *testing.T) {
 	))
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
+}
+
+// TestE2AsmVsGeneric checks the assembly implementations against the generic
+// ones on boundary values (0, 1, p-1 components) and aliased arguments.
+func TestE2AsmVsGeneric(t *testing.T) {
+	one := fp.One()
+	var pMinus1 fp.Element
+	pMinus1.Neg(&one)
+	var zero fp.Element
+	specials := []fp.Element{zero, one, pMinus1}
+	var inputs []E2
+	for _, a0 := range specials {
+		for _, a1 := range specials {
+			inputs = append(inputs, E2{A0: a0, A1: a1})
+		}
+	}
+	for i := range inputs {
+		for j := range inputs {
+			var got, want E2
+			mulGenericE2(&want, &inputs[i], &inputs[j])
+			got.Mul(&inputs[i], &inputs[j])
+			if !got.Equal(&want) {
+				t.Fatalf("mul mismatch on boundary values (%d, %d)", i, j)
+			}
+		}
+	}
+
+	// aliasing
+	for i := 0; i < 100; i++ {
+		var x, y E2
+		x.A0.MustSetRandom()
+		x.A1.MustSetRandom()
+		y.A0.MustSetRandom()
+		y.A1.MustSetRandom()
+
+		xCopy, yCopy := x, y
+		var want E2
+		mulGenericE2(&want, &x, &y)
+
+		x.Mul(&x, &y)
+		if !x.Equal(&want) {
+			t.Fatal("aliasing z==x mismatch")
+		}
+		x = xCopy
+		y.Mul(&x, &y)
+		if !y.Equal(&want) {
+			t.Fatal("aliasing z==y mismatch")
+		}
+		y = yCopy
+	}
 }

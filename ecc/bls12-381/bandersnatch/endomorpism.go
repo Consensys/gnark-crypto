@@ -10,9 +10,6 @@ import (
 // phi endomorphism sqrt(-2) \in O(-8)
 // (x,y,z)->\lambda*(x,y,z) s.t. \lamba^2 = -2 mod Order
 func (p *PointProj) phi(p1 *PointProj) *PointProj {
-
-	initOnce.Do(initCurveParams)
-
 	var zz, yy, xy, f, g, h fr.Element
 	zz.Square(&p1.Z)
 	yy.Square(&p1.Y)
@@ -32,9 +29,6 @@ func (p *PointProj) phi(p1 *PointProj) *PointProj {
 // scalarMulGLV is the GLV scalar multiplication of a point
 // p1 in projective coordinates with a scalar in big.Int
 func (p *PointProj) scalarMulGLV(p1 *PointProj, scalar *big.Int) *PointProj {
-
-	initOnce.Do(initCurveParams)
-
 	var table [15]PointProj
 	var res PointProj
 	var k1, k2 fr.Element
@@ -104,8 +98,6 @@ func (p *PointProj) scalarMulGLV(p1 *PointProj, scalar *big.Int) *PointProj {
 // phi endomorphism sqrt(-2) \in O(-8)
 // (x,y,z)->\lambda*(x,y,z) s.t. \lamba^2 = -2 mod Order
 func (p *PointExtended) phi(p1 *PointExtended) *PointExtended {
-	initOnce.Do(initCurveParams)
-
 	var zz, yy, xy, f, g, h fr.Element
 	zz.Square(&p1.Z)
 	yy.Square(&p1.Y)
@@ -126,9 +118,6 @@ func (p *PointExtended) phi(p1 *PointExtended) *PointExtended {
 // scalarMulGLV is the GLV scalar multiplication of a point
 // p1 in projective coordinates with a scalar in big.Int
 func (p *PointExtended) scalarMulGLV(p1 *PointExtended, scalar *big.Int) *PointExtended {
-
-	initOnce.Do(initCurveParams)
-
 	var table [15]PointExtended
 	var res PointExtended
 	var k1, k2 fr.Element

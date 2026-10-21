@@ -6,11 +6,17 @@
 package extensions
 
 import (
+	"fmt"
 	"math/big"
 	"math/bits"
+	"unsafe"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
+	"github.com/consensys/gnark-crypto/utils/cpu"
 )
+
+// BytesE6 is the number of bytes needed to represent a E6
+const BytesE6 = 6 * fr.Bytes
 
 // E6 is a degree three finite field extension of fp2
 type E6 struct {
@@ -42,12 +48,19 @@ func (z *E6) String() string {
 	return (z.B0.String() + "+(" + z.B1.String() + ")*v+(" + z.B2.String() + ")*v**2")
 }
 
-// SetString sets a E6 from string
-func (z *E6) SetString(s1, s2, s3, s4, s5, s6 string) *E6 {
-	z.B0.SetString(s1, s2)
-	z.B1.SetString(s3, s4)
-	z.B2.SetString(s5, s6)
-	return z
+// SetString sets z from coefficient strings and returns z.
+// It returns nil and the subfield SetString error when a coefficient cannot be parsed.
+func (z *E6) SetString(s1, s2, s3, s4, s5, s6 string) (*E6, error) {
+	if _, err := z.B0.SetString(s1, s2); err != nil {
+		return nil, err
+	}
+	if _, err := z.B1.SetString(s3, s4); err != nil {
+		return nil, err
+	}
+	if _, err := z.B2.SetString(s5, s6); err != nil {
+		return nil, err
+	}
+	return z, nil
 }
 
 // Set copies x into z and returns z
@@ -71,30 +84,150 @@ func (z *E6) SetOne() *E6 {
 	return z
 }
 
-// Lift sets the B0.A0 component of z to v
-func (z *E6) Lift(v *fr.Element) *E6 {
+// SetInt64 sets z to v (embedded via the unique ring homomorphism ℤ→𝔽₆) and returns z
+func (z *E6) SetInt64(v int64) *E6 {
 	*z = E6{}
-	z.B0.A0.Set(v)
+	z.B0.A0.SetInt64(v)
 	return z
 }
 
-// MulByElement multiplies an element in E6 by an element in fr
+// SetUint64 sets z to v (embedded via the unique ring homomorphism ℤ→𝔽₆) and returns z
+func (z *E6) SetUint64(v uint64) *E6 {
+	*z = E6{}
+	z.B0.A0.SetUint64(v)
+	return z
+}
+
+// AddElement sets z to x + y, where y is an element of the base field embedded in E6, and returns z
+func (z *E6) AddElement(x *E6, y *fr.Element) *E6 {
+	yc := *y
+	z.B0.A0.Add(&x.B0.A0, &yc)
+	z.B0.A1 = x.B0.A1
+	z.B1.A0 = x.B1.A0
+	z.B1.A1 = x.B1.A1
+	z.B2.A0 = x.B2.A0
+	z.B2.A1 = x.B2.A1
+	return z
+}
+
+// SubElement sets z to x - y, where y is an element of the base field embedded in E6, and returns z
+func (z *E6) SubElement(x *E6, y *fr.Element) *E6 {
+	yc := *y
+	z.B0.A0.Sub(&x.B0.A0, &yc)
+	z.B0.A1 = x.B0.A1
+	z.B1.A0 = x.B1.A0
+	z.B1.A1 = x.B1.A1
+	z.B2.A0 = x.B2.A0
+	z.B2.A1 = x.B2.A1
+	return z
+}
+
+// SubFromElement sets z to x - y, where x is an element of the base field embedded in E6, and returns z
+func (z *E6) SubFromElement(x *fr.Element, y *E6) *E6 {
+	xc := *x
+	z.B0.A0.Sub(&xc, &y.B0.A0)
+	z.B0.A1.Neg(&y.B0.A1)
+	z.B1.A0.Neg(&y.B1.A0)
+	z.B1.A1.Neg(&y.B1.A1)
+	z.B2.A0.Neg(&y.B2.A0)
+	z.B2.A1.Neg(&y.B2.A1)
+	return z
+}
+
+// SetElement sets z to x, an element of the base field embedded in E6, and returns z
+func (z *E6) SetElement(x *fr.Element) *E6 {
+	v := *x
+	*z = E6{}
+	z.B0.A0 = v
+	return z
+}
+
+// SetBigInt sets z to v (embedded via the unique ring homomorphism ℤ→𝔽, reduced modulo the base field order) and returns z
+func (z *E6) SetBigInt(v *big.Int) *E6 {
+	*z = E6{}
+	z.B0.A0.SetBigInt(v)
+	return z
+}
+
+// BigInt sets res to the integer that z embeds, and returns res.
+// It returns nil if z is not in the image of the embedding ℤ→𝔽, i.e. if any coordinate other than the first is non-zero.
+func (z *E6) BigInt(res *big.Int) *big.Int {
+	if !z.B0.A1.IsZero() || !z.B1.A0.IsZero() || !z.B1.A1.IsZero() || !z.B2.A0.IsZero() || !z.B2.A1.IsZero() {
+		return nil
+	}
+	return z.B0.A0.BigInt(res)
+}
+
+// AppendBase appends the coordinates B0.A0, B0.A1, B1.A0, B1.A1, B2.A0, B2.A1 of z to s, and returns the extended slice
+func (z *E6) AppendBase(s []fr.Element) []fr.Element {
+	return append(s, z.B0.A0, z.B0.A1, z.B1.A0, z.B1.A1, z.B2.A0, z.B2.A1)
+}
+
+// SetBase sets the coordinates B0.A0, B0.A1, B1.A0, B1.A1, B2.A0, B2.A1 of z to s, and returns z.
+// It panics unless len(s) == 6.
+func (z *E6) SetBase(s []fr.Element) *E6 {
+	if len(s) != 6 {
+		panic("E6.SetBase: expected 6 elements")
+	}
+	z.B0.A0 = s[0]
+	z.B0.A1 = s[1]
+	z.B1.A0 = s[2]
+	z.B1.A1 = s[3]
+	z.B2.A0 = s[4]
+	z.B2.A1 = s[5]
+	return z
+}
+
+// Marshal returns the big-endian encodings of the coefficients
+// B0.A0, B0.A1, B1.A0, B1.A1, B2.A0, B2.A1 concatenated, BytesE6 bytes in total
+func (z *E6) Marshal() []byte {
+	res := make([]byte, BytesE6)
+	fr.BigEndian.PutElement((*[fr.Bytes]byte)(res[0*fr.Bytes:1*fr.Bytes]), z.B0.A0)
+	fr.BigEndian.PutElement((*[fr.Bytes]byte)(res[1*fr.Bytes:2*fr.Bytes]), z.B0.A1)
+	fr.BigEndian.PutElement((*[fr.Bytes]byte)(res[2*fr.Bytes:3*fr.Bytes]), z.B1.A0)
+	fr.BigEndian.PutElement((*[fr.Bytes]byte)(res[3*fr.Bytes:4*fr.Bytes]), z.B1.A1)
+	fr.BigEndian.PutElement((*[fr.Bytes]byte)(res[4*fr.Bytes:5*fr.Bytes]), z.B2.A0)
+	fr.BigEndian.PutElement((*[fr.Bytes]byte)(res[5*fr.Bytes:6*fr.Bytes]), z.B2.A1)
+	return res
+}
+
+// SetBytesCanonical sets z from the layout produced by Marshal, reading each coefficient with fr.Element.SetBytesCanonical.
+// It returns an error if len(b) != BytesE6 or if any coefficient is not the canonical encoding of a field element;
+// in that case z is left unchanged.
+func (z *E6) SetBytesCanonical(b []byte) error {
+	if len(b) != BytesE6 {
+		return fmt.Errorf("E6.SetBytesCanonical: got %d bytes, expected %d", len(b), BytesE6)
+	}
+	var r E6
+	if err := r.B0.A0.SetBytesCanonical(b[0*fr.Bytes : 1*fr.Bytes]); err != nil {
+		return err
+	}
+	if err := r.B0.A1.SetBytesCanonical(b[1*fr.Bytes : 2*fr.Bytes]); err != nil {
+		return err
+	}
+	if err := r.B1.A0.SetBytesCanonical(b[2*fr.Bytes : 3*fr.Bytes]); err != nil {
+		return err
+	}
+	if err := r.B1.A1.SetBytesCanonical(b[3*fr.Bytes : 4*fr.Bytes]); err != nil {
+		return err
+	}
+	if err := r.B2.A0.SetBytesCanonical(b[4*fr.Bytes : 5*fr.Bytes]); err != nil {
+		return err
+	}
+	if err := r.B2.A1.SetBytesCanonical(b[5*fr.Bytes : 6*fr.Bytes]); err != nil {
+		return err
+	}
+	*z = r
+	return nil
+}
+
+// MulByElement multiplies an element in E6 by an element in fr.
+// y may alias a coordinate of x, so we copy it first.
 func (z *E6) MulByElement(x *E6, y *fr.Element) *E6 {
-	var yCopy fr.Element
-	yCopy.Set(y)
+	yCopy := *y
 	z.B0.MulByElement(&x.B0, &yCopy)
 	z.B1.MulByElement(&x.B1, &yCopy)
 	z.B2.MulByElement(&x.B2, &yCopy)
-	return z
-}
-
-// MulByE2 multiplies an element in E6 by an element in E2
-func (z *E6) MulByE2(x *E6, y *E2) *E6 {
-	var yCopy E2
-	yCopy.Set(y)
-	z.B0.Mul(&x.B0, &yCopy)
-	z.B1.Mul(&x.B1, &yCopy)
-	z.B2.Mul(&x.B2, &yCopy)
 	return z
 }
 
@@ -146,7 +279,7 @@ func (z *E6) SetRandom() (*E6, error) {
 }
 
 // MustSetRandom sets the element to a random value.
-// It panics if reading form crypto/rand fails
+// It panics if reading from crypto/rand fails.
 func (z *E6) MustSetRandom() *E6 {
 	if _, err := z.SetRandom(); err != nil {
 		panic(err)
@@ -164,51 +297,158 @@ func (z *E6) IsOne() bool {
 	return z.B0.IsOne() && z.B1.IsZero() && z.B2.IsZero()
 }
 
-// Mul sets z=x*y in E6 and returns z
+// Mul sets z=x*y in E6 and returns z.
+//
+// Inlined for 31-bit primes: every fr.Element is a single uint32, so an
+// element-by-element 6×6 schoolbook over the tower E6 = E2[v]/(v³-(u+1))
+// with E2 = Fr[u]/(u²-α) is implemented with raw uint32×uint32 → uint64
+// products, deferred Montgomery reductions, and a final small-modulus reduce.
+// Each montReduce input is bounded by 2·(q-1)², which fits in uint64 below
+// the q·2³² safe range.
+//
+// Coefficient layout: (a0..a5) ↔ (B0.A0, B0.A1, B1.A0, B1.A1, B2.A0, B2.A1);
+// (a0,a1)+(a2,a3)·v+(a4,a5)·v² with v³ = u+1, u² = α.
+//
+//go:nosplit
 func (z *E6) Mul(x, y *E6) *E6 {
-	// Algorithm 13 from https://eprint.iacr.org/2010/354.pdf
-	var t0, t1, t2, c0, c1, c2, tmp E2
-	t0.Mul(&x.B0, &y.B0)
-	t1.Mul(&x.B1, &y.B1)
-	t2.Mul(&x.B2, &y.B2)
+	a0 := uint64(x.B0.A0[0])
+	a1 := uint64(x.B0.A1[0])
+	a2 := uint64(x.B1.A0[0])
+	a3 := uint64(x.B1.A1[0])
+	a4 := uint64(x.B2.A0[0])
+	a5 := uint64(x.B2.A1[0])
 
-	c0.Add(&x.B1, &x.B2)
-	tmp.Add(&y.B1, &y.B2)
-	c0.Mul(&c0, &tmp).Sub(&c0, &t1).Sub(&c0, &t2).MulByCubicNonResidue(&c0).Add(&c0, &t0)
+	b0 := uint64(y.B0.A0[0])
+	b1 := uint64(y.B0.A1[0])
+	b2 := uint64(y.B1.A0[0])
+	b3 := uint64(y.B1.A1[0])
+	b4 := uint64(y.B2.A0[0])
+	b5 := uint64(y.B2.A1[0])
 
-	c1.Add(&x.B0, &x.B1)
-	tmp.Add(&y.B0, &y.B1)
-	c1.Mul(&c1, &tmp).Sub(&c1, &t0).Sub(&c1, &t1)
-	tmp.MulByCubicNonResidue(&t2)
-	c1.Add(&c1, &tmp)
+	// c0.re = (a0·b0 + a2·b4 + a4·b2) + α·(a1·b1 + a2·b5 + a3·b4 + a3·b5 + a4·b3 + a5·b2 + a5·b3)
+	r := montReduceLazy(a0*b0+a2*b4) + montReduceLazy(a4*b2)
+	rA := montReduceLazy(a1*b1+a2*b5) + montReduceLazy(a3*b4+a3*b5)
+	rA += montReduceLazy(a4*b3+a5*b2) + montReduceLazy(a5*b3)
+	z.B0.A0[0] = reduceSmall(r + 3*rA)
 
-	tmp.Add(&x.B0, &x.B2)
-	c2.Add(&y.B0, &y.B2).Mul(&c2, &tmp).Sub(&c2, &t0).Sub(&c2, &t2).Add(&c2, &t1)
+	// c0.im = (a0·b1 + a1·b0 + a2·b4 + a2·b5 + a3·b4 + a4·b2 + a4·b3 + a5·b2) + α·(a3·b5 + a5·b3)
+	r = montReduceLazy(a0*b1+a1*b0) + montReduceLazy(a2*b4+a2*b5)
+	r += montReduceLazy(a3*b4+a4*b2) + montReduceLazy(a4*b3+a5*b2)
+	rA = montReduceLazy(a3*b5 + a5*b3)
+	z.B0.A1[0] = reduceSmall(r + 3*rA)
 
-	z.B0.Set(&c0)
-	z.B1.Set(&c1)
-	z.B2.Set(&c2)
+	// c1.re = (a0·b2 + a2·b0 + a4·b4) + α·(a1·b3 + a3·b1 + a4·b5 + a5·b4 + a5·b5)
+	r = montReduceLazy(a0*b2+a2*b0) + montReduceLazy(a4*b4)
+	rA = montReduceLazy(a1*b3+a3*b1) + montReduceLazy(a4*b5+a5*b4)
+	rA += montReduceLazy(a5 * b5)
+	z.B1.A0[0] = reduceSmall(r + 3*rA)
+
+	// c1.im = (a0·b3 + a1·b2 + a2·b1 + a3·b0 + a4·b4 + a4·b5 + a5·b4) + α·(a5·b5)
+	r = montReduceLazy(a0*b3+a1*b2) + montReduceLazy(a2*b1+a3*b0)
+	r += montReduceLazy(a4*b4+a4*b5) + montReduceLazy(a5*b4)
+	rA = montReduceLazy(a5 * b5)
+	z.B1.A1[0] = reduceSmall(r + 3*rA)
+
+	// c2.re = (a0·b4 + a2·b2 + a4·b0) + α·(a1·b5 + a3·b3 + a5·b1)
+	r = montReduceLazy(a0*b4+a2*b2) + montReduceLazy(a4*b0)
+	rA = montReduceLazy(a1*b5+a3*b3) + montReduceLazy(a5*b1)
+	z.B2.A0[0] = reduceSmall(r + 3*rA)
+
+	// c2.im = (a0·b5 + a1·b4 + a2·b3 + a3·b2 + a4·b1 + a5·b0)
+	r = montReduceLazy(a0*b5+a1*b4) + montReduceLazy(a2*b3+a3*b2)
+	r += montReduceLazy(a4*b1 + a5*b0)
+	z.B2.A1[0] = reduceSmall6(r)
 
 	return z
 }
 
-// Square sets z=x*x in E6 and returns z
-func (z *E6) Square(x *E6) *E6 {
+func montReduceLazy(v uint64) uint64 {
+	// v is bounded by 2*(q-1)^2, so REDC fits in uint64. Leaving the result
+	// in [0,2q) avoids a conditional subtract; final reduceSmall canonicalizes.
+	m := uint32(v) * qInvNeg
+	return (v + uint64(m)*uint64(q)) >> 32
+}
 
-	// Algorithm 16 from https://eprint.iacr.org/2010/354.pdf
-	var c4, c5, c1, c2, c3, c0 E2
-	c4.Mul(&x.B0, &x.B1).Double(&c4)
-	c5.Square(&x.B2)
-	c1.MulByCubicNonResidue(&c5).Add(&c1, &c4)
-	c2.Sub(&c4, &c5)
-	c3.Square(&x.B0)
-	c4.Sub(&x.B0, &x.B1).Add(&c4, &x.B2)
-	c5.Mul(&x.B1, &x.B2).Double(&c5)
-	c4.Square(&c4)
-	c0.MulByCubicNonResidue(&c5).Add(&c0, &c3)
-	z.B2.Add(&c2, &c4).Add(&z.B2, &c5).Sub(&z.B2, &c3)
-	z.B0.Set(&c0)
-	z.B1.Set(&c1)
+func reduceSmall6(z uint64) uint32 {
+	// c2.im accumulates three lazy reductions, hence z < 6q.
+	if z >= 4*uint64(q) {
+		z -= 4 * uint64(q)
+	}
+	if z >= 2*uint64(q) {
+		z -= 2 * uint64(q)
+	}
+	if z >= uint64(q) {
+		z -= uint64(q)
+	}
+	return uint32(z)
+}
+
+// Square sets z=x*x in E6 and returns z.
+//
+// Inlined for 31-bit primes. The 36 raw products of the general Mul collapse
+// to 21 distinct products (6 squares + 15 cross-products); each cross-product
+// p_ij = a_i·a_j is added to its accumulator twice (still ≤ 2·(q-1)² to keep
+// the Montgomery-reduce input bound respected).
+//
+//go:nosplit
+func (z *E6) Square(x *E6) *E6 {
+	a0 := uint64(x.B0.A0[0])
+	a1 := uint64(x.B0.A1[0])
+	a2 := uint64(x.B1.A0[0])
+	a3 := uint64(x.B1.A1[0])
+	a4 := uint64(x.B2.A0[0])
+	a5 := uint64(x.B2.A1[0])
+
+	// 15 distinct cross-products a_i·a_j (i<j); each gets accumulated twice.
+	p01 := a0 * a1
+	p02 := a0 * a2
+	p03 := a0 * a3
+	p04 := a0 * a4
+	p05 := a0 * a5
+	p12 := a1 * a2
+	p13 := a1 * a3
+	p14 := a1 * a4
+	p15 := a1 * a5
+	p23 := a2 * a3
+	p24 := a2 * a4
+	p25 := a2 * a5
+	p34 := a3 * a4
+	p35 := a3 * a5
+	p45 := a4 * a5
+
+	// c0.re = (a0² + 2·a2·a4) + α·(a1² + 2·a2·a5 + 2·a3·a4 + 2·a3·a5)
+	r := montReduceLazy(a0*a0+p24) + montReduceLazy(p24)
+	rA := montReduceLazy(a1*a1+p25) + montReduceLazy(p25+p34)
+	rA += montReduceLazy(p34+p35) + montReduceLazy(p35)
+	z.B0.A0[0] = reduceSmall(r + 3*rA)
+
+	// c0.im = (2·a0·a1 + 2·a2·a4 + 2·a2·a5 + 2·a3·a4) + α·(2·a3·a5)
+	r = montReduceLazy(p01+p01) + montReduceLazy(p24+p24)
+	r += montReduceLazy(p25+p25) + montReduceLazy(p34+p34)
+	rA = montReduceLazy(p35 + p35)
+	z.B0.A1[0] = reduceSmall(r + 3*rA)
+
+	// c1.re = (2·a0·a2 + a4²) + α·(2·a1·a3 + 2·a4·a5 + a5²)
+	r = montReduceLazy(p02+p02) + montReduceLazy(a4*a4)
+	rA = montReduceLazy(p13+p13) + montReduceLazy(p45+p45)
+	rA += montReduceLazy(a5 * a5)
+	z.B1.A0[0] = reduceSmall(r + 3*rA)
+
+	// c1.im = (2·a0·a3 + 2·a1·a2 + a4² + 2·a4·a5) + α·(a5²)
+	r = montReduceLazy(p03+p03) + montReduceLazy(p12+p12)
+	r += montReduceLazy(a4*a4+p45) + montReduceLazy(p45)
+	rA = montReduceLazy(a5 * a5)
+	z.B1.A1[0] = reduceSmall(r + 3*rA)
+
+	// c2.re = (2·a0·a4 + a2²) + α·(2·a1·a5 + a3²)
+	r = montReduceLazy(p04+p04) + montReduceLazy(a2*a2)
+	rA = montReduceLazy(p15+p15) + montReduceLazy(a3*a3)
+	z.B2.A0[0] = reduceSmall(r + 3*rA)
+
+	// c2.im = 2·a0·a5 + 2·a1·a4 + 2·a2·a3
+	r = montReduceLazy(p05+p05) + montReduceLazy(p14+p14)
+	r += montReduceLazy(p23 + p23)
+	z.B2.A1[0] = reduceSmall6(r)
 
 	return z
 }
@@ -302,15 +542,12 @@ func (z *E6) ExpInt64(x E6, k int64) *E6 {
 	}
 
 	z.Set(&x)
-
-	// Use bits.Len64 to iterate only over significant bits
 	for i := bits.Len64(uint64(exp)) - 2; i >= 0; i-- {
 		z.Square(z)
 		if (uint64(exp)>>uint(i))&1 != 0 {
 			z.Mul(z, &x)
 		}
 	}
-
 	return z
 }
 
@@ -330,34 +567,96 @@ func (z *E6) Halve() {
 // if a[i] == 0, returns result[i] = a[i]
 func BatchInvertE6(a []E6) []E6 {
 	res := make([]E6, len(a))
-	if len(a) == 0 {
-		return res
-	}
-
-	zeroes := make([]bool, len(a))
-	var accumulator E6
-	accumulator.SetOne()
-
-	for i := 0; i < len(a); i++ {
-		if a[i].IsZero() {
-			zeroes[i] = true
-			continue
-		}
-		res[i].Set(&accumulator)
-		accumulator.Mul(&accumulator, &a[i])
-	}
-
-	accumulator.Inverse(&accumulator)
-
-	for i := len(a) - 1; i >= 0; i-- {
-		if zeroes[i] {
-			continue
-		}
-		res[i].Mul(&res[i], &accumulator)
-		accumulator.Mul(&accumulator, &a[i])
-	}
-
+	BatchInvertE6Into(res, a)
 	return res
+}
+
+// batchInvertE6Lanes is the number of interleaved product chains of
+// BatchInvertE6Into, the block size of the vectorised VectorE6.Mul.
+// BatchInvertE6Into is correct for any value ≥ 1; matching the block size
+// only lets each block of running products take the vectorised path.
+const batchInvertE6Lanes = 16
+
+// BatchInvertE6Into sets res[i] to the inverse of a[i], using Montgomery batch
+// inversion trick; if a[i] == 0, res[i] = 0. res may alias a.
+//
+// The trick runs as batchInvertE6Lanes interleaved chains, chain l taking the
+// elements l, l+batchInvertE6Lanes, ..., so that the running products of a block
+// are a single VectorE6.Mul; the chain products are then inverted together with
+// a single E6 inversion.
+func BatchInvertE6Into(res, a []E6) {
+	if len(res) != len(a) {
+		panic("BatchInvertE6Into: vectors don't have the same length")
+	}
+	const L = batchInvertE6Lanes
+	n := len(a)
+	if n == 0 {
+		return
+	}
+
+	// res first holds a with its zeros replaced by one, which the chains
+	// multiply through unchanged; prefix[i] is the product of the earlier
+	// elements of the chain of i.
+	var zeros []int
+	for i := range a {
+		if a[i].IsZero() {
+			zeros = append(zeros, i)
+			res[i].SetOne()
+		} else {
+			res[i] = a[i]
+		}
+	}
+	nz := VectorE6(res)
+	m := n / L * L
+
+	// forward pass; chain l ends in acc[l], and the tail in acc[L].
+	prefix := make(VectorE6, n)
+	var acc [L + 1]E6
+	for l := range acc {
+		acc[l].SetOne()
+	}
+	for j := 0; j < m; j += L {
+		copy(prefix[j:j+L], acc[:L])
+		VectorE6(acc[:L]).Mul(acc[:L], nz[j:j+L])
+	}
+	for i := m; i < n; i++ {
+		prefix[i] = acc[L]
+		acc[L].Mul(&acc[L], &nz[i])
+	}
+
+	// invert the L+1 chain products at once.
+	var accPrefix [L + 1]E6
+	var run E6
+	run.SetOne()
+	for l := range acc {
+		accPrefix[l] = run
+		run.Mul(&run, &acc[l])
+	}
+	run.Inverse(&run)
+	for l := len(acc) - 1; l >= 0; l-- {
+		var inv E6
+		inv.Mul(&run, &accPrefix[l])
+		run.Mul(&run, &acc[l])
+		acc[l] = inv
+	}
+
+	// backward pass: the inverse of element i is the running inverse of its
+	// chain times prefix[i]; nz[i] is read before res[i] is overwritten.
+	for i := n - 1; i >= m; i-- {
+		x := nz[i]
+		res[i].Mul(&acc[L], &prefix[i])
+		acc[L].Mul(&acc[L], &x)
+	}
+	var blk [L]E6
+	for j := m - L; j >= 0; j -= L {
+		copy(blk[:], nz[j:j+L])
+		VectorE6(res[j:j+L]).Mul(acc[:L], prefix[j:j+L])
+		VectorE6(acc[:L]).Mul(acc[:L], blk[:])
+	}
+
+	for _, i := range zeros {
+		res[i].SetZero()
+	}
 }
 
 // Div divides an element in E6 by an element in E6
@@ -377,4 +676,407 @@ func ButterflyE6(a, b *E6) {
 
 	fr.Butterfly(&a.B2.A0, &b.B2.A0)
 	fr.Butterfly(&a.B2.A1, &b.B2.A1)
+}
+
+// VectorE6 represents a vector of E6 elements
+type VectorE6 []E6
+
+// SetRandom sets all elements of vector to random values, returning the first error encountered, if any.
+func (vector VectorE6) SetRandom() error {
+	for i := range vector {
+		if _, err := vector[i].SetRandom(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// MustSetRandom sets all elements of vector to random values, panicking if an error is encountered.
+func (vector VectorE6) MustSetRandom() {
+	for i := range vector {
+		vector[i].MustSetRandom()
+	}
+}
+
+// Mul sets vector[i] = a[i] * b[i]. vector may alias a or b.
+func (vector VectorE6) Mul(a, b VectorE6) {
+	N := len(vector)
+	if len(a) != N || len(b) != N {
+		panic("vectorE6.Mul: vectors don't have the same length")
+	}
+	const blockSize = 16
+	if cpu.SupportAVX512 && N >= blockSize {
+		r := N % blockSize
+		nr := N - r
+		vectorMul_E6_avx512(&vector[0], &a[0], &b[0], uint64(nr))
+		vector, a, b = vector[nr:], a[nr:], b[nr:]
+	}
+	for i := range vector {
+		vector[i].Mul(&a[i], &b[i])
+	}
+}
+
+// InnerProduct returns the sum of vector[i] * a[i].
+func (vector VectorE6) InnerProduct(a VectorE6) E6 {
+	N := len(vector)
+	if len(a) != N {
+		panic("vectorE6.InnerProduct: vectors don't have the same length")
+	}
+	var res E6
+	const blockSize = 16
+	if cpu.SupportAVX512 && N >= blockSize {
+		r := N % blockSize
+		nr := N - r
+		var t [6 * 4]uint64 // accumulators, 4 per coordinate (not reduced mod q)
+		vectorInnerProduct_E6_avx512(&t, &vector[0], &a[0], uint64(nr))
+		var c [6]uint32
+		for k := range c {
+			var s uint64
+			for _, v := range t[4*k : 4*k+4] {
+				s += v % q
+			}
+			c[k] = uint32(s % q)
+		}
+		res.B0.A0[0], res.B0.A1[0] = c[0], c[1]
+		res.B1.A0[0], res.B1.A1[0] = c[2], c[3]
+		res.B2.A0[0], res.B2.A1[0] = c[4], c[5]
+		vector, a = vector[nr:], a[nr:]
+	}
+	var t E6
+	for i := range vector {
+		t.Mul(&vector[i], &a[i])
+		res.Add(&res, &t)
+	}
+	return res
+}
+
+// Butterfly computes the in-place butterfly operation on two vectors of E6 elements.
+// If other overlaps with vector, the result is undefined; the caller should use a temp vector.
+func (vector VectorE6) Butterfly(other VectorE6) {
+	N := len(vector)
+	if len(other) != N {
+		panic("vectorE6.Butterfly: vectors don't have the same length")
+	}
+	// Butterfly is fully componentwise on fr.Element: every fr lane in vector is
+	// added/subtracted with its counterpart in other. The existing E4 kernel
+	// performs that exact pattern on 64-byte (= 16 fr) chunks; reinterpret the
+	// pair as a (3/2 N)-length E4 array and reuse it. Requires N % 8 == 0 so
+	// 6N/4 is a multiple of the kernel's 4-E4 inner block.
+	const blockSize = 8
+	if !cpu.SupportAVX512 || N < blockSize {
+		for i := range N {
+			ButterflyE6(&vector[i], &other[i])
+		}
+		return
+	}
+	r := N % blockSize
+	nr := uint64(N - r)
+	vectorButterfly_avx512(
+		(*E4)(unsafe.Pointer(&vector[0])),
+		(*E4)(unsafe.Pointer(&other[0])),
+		nr*3/2,
+	)
+	for i := N - r; i < N; i++ {
+		ButterflyE6(&vector[i], &other[i])
+	}
+}
+
+// ButterflyPair computes the in-place butterfly operation of each pair in the vector,
+// i.e. vector[0], vector[1]; vector[2], vector[3]; ...
+func (vector VectorE6) ButterflyPair() {
+	N := len(vector)
+	if N%2 != 0 {
+		panic("vectorE6.ButterflyPair: vector length must be even")
+	}
+	const blockSize = 8
+	if cpu.SupportAVX512 && N >= blockSize {
+		r := N % blockSize
+		nr := uint64(N - r)
+		vectorButterflyPair_E6_avx512(&vector[0], nr)
+		for i := N - r; i < N; i += 2 {
+			a, b := &vector[i], &vector[i+1]
+
+			fr.Butterfly(&a.B0.A0, &b.B0.A0)
+			fr.Butterfly(&a.B0.A1, &b.B0.A1)
+			fr.Butterfly(&a.B1.A0, &b.B1.A0)
+			fr.Butterfly(&a.B1.A1, &b.B1.A1)
+			fr.Butterfly(&a.B2.A0, &b.B2.A0)
+			fr.Butterfly(&a.B2.A1, &b.B2.A1)
+
+		}
+		return
+	}
+	// Hand-inlined: ButterflyE6 alone is 96 instructions which exceeds the
+	// inliner's budget, so the call wasn't being inlined into the hot loop.
+	for i := 0; i < N; i += 2 {
+		a, b := &vector[i], &vector[i+1]
+
+		fr.Butterfly(&a.B0.A0, &b.B0.A0)
+		fr.Butterfly(&a.B0.A1, &b.B0.A1)
+		fr.Butterfly(&a.B1.A0, &b.B1.A0)
+		fr.Butterfly(&a.B1.A1, &b.B1.A1)
+		fr.Butterfly(&a.B2.A0, &b.B2.A0)
+		fr.Butterfly(&a.B2.A1, &b.B2.A1)
+
+	}
+}
+
+// MulByElementThenButterfly multiplies each element of other by the corresponding
+// scalar in twiddles, then applies the in-place butterfly between vector and other.
+func (vector VectorE6) MulByElementThenButterfly(other VectorE6, twiddles fr.Vector) {
+	N := len(vector)
+	if len(other) != N || len(twiddles) != N {
+		panic("vectorE6.MulByElementThenButterfly: vectors don't have the same length")
+	}
+	const blockSize = 8
+	if cpu.SupportAVX512 && N >= blockSize {
+		r := N % blockSize
+		nr := uint64(N - r)
+		vectorDITWithTwiddles_E6_avx512(&vector[0], &other[0], &twiddles[0], nr)
+		for i := N - r; i < N; i++ {
+			other[i].MulByElement(&other[i], &twiddles[i])
+			ButterflyE6(&vector[i], &other[i])
+		}
+		return
+	}
+	for i := range N {
+		other[i].MulByElement(&other[i], &twiddles[i])
+		ButterflyE6(&vector[i], &other[i])
+	}
+}
+
+// ButterflyThenMulByElement applies the in-place butterfly between vector and
+// other, then multiplies each element of other by the corresponding scalar in twiddles.
+func (vector VectorE6) ButterflyThenMulByElement(other VectorE6, twiddles fr.Vector) {
+	N := len(vector)
+	if len(other) != N || len(twiddles) != N {
+		panic("vectorE6.ButterflyThenMulByElement: vectors don't have the same length")
+	}
+	const blockSize = 8
+	if cpu.SupportAVX512 && N >= blockSize {
+		r := N % blockSize
+		nr := uint64(N - r)
+		vectorDIFWithTwiddles_E6_avx512(&vector[0], &other[0], &twiddles[0], nr)
+		for i := N - r; i < N; i++ {
+			ButterflyE6(&vector[i], &other[i])
+			other[i].MulByElement(&other[i], &twiddles[i])
+		}
+		return
+	}
+	for i := range N {
+		ButterflyE6(&vector[i], &other[i])
+		other[i].MulByElement(&other[i], &twiddles[i])
+	}
+}
+
+// MulByElement multiplies each element of a by the corresponding scalar in b and
+// stores the result in vector.
+func (vector VectorE6) MulByElement(a VectorE6, b fr.Vector) {
+	N := len(vector)
+	if len(a) != N || len(b) != N {
+		panic("vectorE6.MulByElement: vectors don't have the same length")
+	}
+	const blockSize = 8
+	if !cpu.SupportAVX512 || N < blockSize {
+		for i := range N {
+			vector[i].MulByElement(&a[i], &b[i])
+		}
+		return
+	}
+	r := N % blockSize
+	nr := uint64(N - r)
+	vectorMulByElement_E6_avx512(&vector[0], &a[0], &b[0], nr)
+	for i := N - r; i < N; i++ {
+		vector[i].MulByElement(&a[i], &b[i])
+	}
+}
+
+// MulAccByElement accumulates a[i]*b[i] into each element of vector:
+// vector[i] += a[i] * b[i], where b[i] is a base field scalar.
+func (vector VectorE6) MulAccByElement(a VectorE6, b fr.Vector) {
+	N := len(vector)
+	if len(a) != N || len(b) != N {
+		panic("vectorE6.MulAccByElement: vectors don't have the same length")
+	}
+	const blockSize = 8
+	if !cpu.SupportAVX512 || N < blockSize {
+		mulAccByElementE6Generic(vector, a, b)
+		return
+	}
+	r := N % blockSize
+	nr := uint64(N - r)
+	vectorMulAccByElement_E6_avx512(&vector[0], &a[0], &b[0], nr)
+	mulAccByElementE6Generic(vector[N-r:], a[N-r:], b[N-r:])
+}
+
+func mulAccByElementE6Generic(vector, a VectorE6, b fr.Vector) {
+	var tmp E6
+	for i := range vector {
+		tmp.MulByElement(&a[i], &b[i])
+		vector[i].Add(&vector[i], &tmp)
+	}
+}
+
+// ScalarMulByElement multiplies each element of a by the same fr element b and
+// stores the result in vector.
+func (vector VectorE6) ScalarMulByElement(a VectorE6, b *fr.Element) {
+	if len(a) != len(vector) {
+		panic("vectorE6.ScalarMulByElement: vectors don't have the same length")
+	}
+	if len(vector) == 0 {
+		return
+	}
+
+	// E6 is laid out as 6 contiguous fr.Element; cast and reuse the optimized
+	// fr.Vector.ScalarMul.
+	M := len(a) * 6
+	vBase := fr.Vector(unsafe.Slice((*fr.Element)(unsafe.Pointer(&a[0])), M))
+	vRes := fr.Vector(unsafe.Slice((*fr.Element)(unsafe.Pointer(&vector[0])), M))
+	vRes.ScalarMul(vBase, b)
+}
+
+// ScalarMulAccByElement accumulates vector[i] += a[i] * s, where a is a
+// base-field vector and s a fixed E6 scalar.
+func (vector VectorE6) ScalarMulAccByElement(a fr.Vector, s *E6) {
+	N := len(vector)
+	if len(a) != N {
+		panic("vectorE6.ScalarMulAccByElement: vectors don't have the same length")
+	}
+	const blockSize = 8
+	if cpu.SupportAVX512 && N >= blockSize {
+		r := N % blockSize
+		nr := N - r
+		sTiled := tileE6Scalar(s)
+		vectorScalarMulAccByElement_E6_avx512(&vector[0], &a[0], &sTiled[0], uint64(nr))
+		if r != 0 {
+			scalarMulAccByElementE6Generic(vector[nr:], a[nr:], s)
+		}
+		return
+	}
+	scalarMulAccByElementE6Generic(vector, a, s)
+}
+
+func scalarMulAccByElementE6Generic(vector VectorE6, a fr.Vector, s *E6) {
+	var tmp E6
+	for i := range vector {
+		tmp.MulByElement(s, &a[i])
+		vector[i].Add(&vector[i], &tmp)
+	}
+}
+
+// ScalarMulAcc accumulates vector[i] += a[i] * s, where s is a fixed E6 scalar.
+func (vector VectorE6) ScalarMulAcc(a VectorE6, s *E6) {
+	N := len(vector)
+	if len(a) != N {
+		panic("vectorE6.ScalarMulAcc: vectors don't have the same length")
+	}
+	const blockSize = 8
+	if cpu.SupportAVX512 && N >= blockSize {
+		r := N % blockSize
+		nr := N - r
+		Kcol := e6ScalarMulKcol(s)
+		vectorScalarMulAcc_E6_avx512(&vector[0], &a[0], &Kcol[0], uint64(nr))
+		if r != 0 {
+			scalarMulAccE6Generic(vector[nr:], a[nr:], s)
+		}
+		return
+	}
+	scalarMulAccE6Generic(vector, a, s)
+}
+
+func scalarMulAccE6Generic(vector, a VectorE6, s *E6) {
+	var tmp E6
+	for i := range vector {
+		tmp.Mul(&a[i], s)
+		vector[i].Add(&vector[i], &tmp)
+	}
+}
+
+// ScalarMul sets vector[i] = a[i] * s, where s is a fixed E6 scalar.
+func (vector VectorE6) ScalarMul(a VectorE6, s *E6) {
+	N := len(vector)
+	if len(a) != N {
+		panic("vectorE6.ScalarMul: vectors don't have the same length")
+	}
+	const blockSize = 8
+	if cpu.SupportAVX512 && N >= blockSize {
+		r := N % blockSize
+		nr := N - r
+		Kcol := e6ScalarMulKcol(s)
+		vectorScalarMul_E6_avx512(&vector[0], &a[0], &Kcol[0], uint64(nr))
+		if r != 0 {
+			scalarMulE6Generic(vector[nr:], a[nr:], s)
+		}
+		return
+	}
+	scalarMulE6Generic(vector, a, s)
+}
+
+func scalarMulE6Generic(vector, a VectorE6, s *E6) {
+	for i := range vector {
+		vector[i].Mul(&a[i], s)
+	}
+}
+
+// tileE6Scalar tiles the six fr coordinates of s across 48 lanes (period 6, the
+// 8-E6 = 3-zmm broadcast window consumed by vectorScalarMulAccByElement_E6_avx512).
+func tileE6Scalar(s *E6) [48]fr.Element {
+	c := [6]fr.Element{s.B0.A0, s.B0.A1, s.B1.A0, s.B1.A1, s.B2.A0, s.B2.A1}
+	var out [48]fr.Element
+	for p := range out {
+		out[p] = c[p%6]
+	}
+	return out
+}
+
+// scalarMulE6Matrix builds the 6×6 constant matrix K (row-major) such that, for
+// a fixed E6 scalar s, the map a ↦ a·s is c = K·a over the six fr coordinates.
+// It mirrors E6.Mul(a, s) exactly, so the AVX-512 kernels stay bit-identical to
+// the scalar path. Coordinate order is (B0.A0, B0.A1, B1.A0, B1.A1, B2.A0, B2.A1)
+// with the tower E6 = E2[v]/(v³-(u+1)), E2 = Fr[u]/(u²-α), α = 3.
+func scalarMulE6Matrix(s *E6) [36]fr.Element {
+	b0, b1, b2, b3, b4, b5 := s.B0.A0, s.B0.A1, s.B1.A0, s.B1.A1, s.B2.A0, s.B2.A1
+
+	mul3 := func(x *fr.Element) fr.Element {
+		var r fr.Element
+		r.Add(x, x).Add(&r, x)
+		return r
+	}
+	add := func(x, y *fr.Element) fr.Element {
+		var r fr.Element
+		r.Add(x, y)
+		return r
+	}
+
+	m1, m2, m3, m4, m5 := mul3(&b1), mul3(&b2), mul3(&b3), mul3(&b4), mul3(&b5)
+	m23 := add(&m2, &m3)    // 3b2 + 3b3
+	m45 := add(&m4, &m5)    // 3b4 + 3b5
+	b45 := add(&b4, &b5)    // b4 + b5
+	b23 := add(&b2, &b3)    // b2 + b3
+	b4_3b5 := add(&b4, &m5) // b4 + 3b5
+	b2_3b3 := add(&b2, &m3) // b2 + 3b3
+
+	return [36]fr.Element{
+		b0, m1, b4_3b5, m45, b2_3b3, m23,
+		b1, b0, b45, b4_3b5, b23, b2_3b3,
+		b2, m3, b0, m1, b4_3b5, m45,
+		b3, b2, b1, b0, b45, b4_3b5,
+		b4, m5, b2, m3, b0, m1,
+		b5, b4, b3, b2, b1, b0,
+	}
+}
+
+// e6ScalarMulKcol builds the tiled K columns consumed by the AVX-512
+// vectorScalarMul(Acc)_E6_avx512 kernels: for source coordinate i, K's column i
+// is tiled across the 48-lane (8-E6 = 3-zmm) window with period 6, so
+// out[i*48 + p] = K[p%6][i]. See scalarMulE6Matrix for the layout of K.
+func e6ScalarMulKcol(s *E6) [6 * 48]fr.Element {
+	K := scalarMulE6Matrix(s)
+	var out [6 * 48]fr.Element
+	for i := range 6 {
+		for p := range 48 {
+			out[i*48+p] = K[(p%6)*6+i]
+		}
+	}
+	return out
 }

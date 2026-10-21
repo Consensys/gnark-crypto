@@ -51,3 +51,48 @@ func TestSerialization(t *testing.T) {
 
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
+
+func TestRejectIdentityPublicKey(t *testing.T) {
+	t.Parallel()
+	// Encode the infinity/identity point and verify SetBytes rejects it.
+	var pk PublicKey
+	// The compressed encoding of the identity has the infinity bit set and all
+	// other bytes zero; produce it via the zero-valued point's Bytes() method.
+	var identity PublicKey // zero value → identity point
+	encoded := identity.A.Bytes()
+	_, err := pk.SetBytes(encoded[:])
+	if err == nil {
+		t.Fatal("SetBytes should reject the identity public key")
+	}
+}
+
+func TestPublicKeyIsValid(t *testing.T) {
+	t.Parallel()
+
+	var identity PublicKey
+	if identity.IsValid() {
+		t.Fatal("Identity point must not be valid")
+	}
+
+	privKey, err := GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !privKey.PublicKey.IsValid() {
+		t.Fatal("Generated public key must be valid")
+	}
+}
+
+func TestPrivateKeySetBytesValidatesPublicKey(t *testing.T) {
+	t.Parallel()
+
+	// PrivateKey.SetBytes must inherit PublicKey.SetBytes's validation
+	var identity PublicKey
+	buf := make([]byte, sizePrivateKey)
+	copy(buf, identity.Bytes())
+
+	var privKey PrivateKey
+	if _, err := privKey.SetBytes(buf); err == nil {
+		t.Fatal("PrivateKey.SetBytes should reject an identity public key")
+	}
+}

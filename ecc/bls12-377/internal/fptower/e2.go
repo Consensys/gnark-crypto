@@ -52,11 +52,16 @@ func (z *E2) LexicographicallyLargest() bool {
 	return z.A1.LexicographicallyLargest()
 }
 
-// SetString sets a E2 element from strings
-func (z *E2) SetString(s1, s2 string) *E2 {
-	z.A0.SetString(s1)
-	z.A1.SetString(s2)
-	return z
+// SetString sets z from coefficient strings and returns z.
+// It returns nil and the subfield SetString error when a coefficient cannot be parsed.
+func (z *E2) SetString(s1, s2 string) (*E2, error) {
+	if _, err := z.A0.SetString(s1); err != nil {
+		return nil, err
+	}
+	if _, err := z.A1.SetString(s2); err != nil {
+		return nil, err
+	}
+	return z, nil
 }
 
 // SetZero sets an E2 elmt to zero
@@ -210,6 +215,30 @@ func (z *E2) Exp(x E2, k *big.Int) *E2 {
 // finite fields: Tricks of the Trade" by Michael Scott
 // https://eprint.iacr.org/2020/1497.pdf (Sec. 6.3)
 func (z *E2) Sqrt(x *E2) *E2 {
+	// Scott §6.3 has an unstated precondition x.A1 != 0:
+	// for x.A1 == 0 with x.A0 a non-residue in Fp the inner Fp.Sqrt fails
+	// silently and the final SqrtAndInverse goes through zero, returning
+	// (0, 0) for what is in fact a square in Fp². Its true sqrt is
+	// (0, sqrt(x.A0 / β)) where β = u² is the Fp² QNR. Handle the
+	// purely-real branch explicitly.
+	if x.A1.IsZero() {
+		if x.A0.Legendre() >= 0 {
+			z.A0.Sqrt(&x.A0)
+			z.A1.SetZero()
+			return z
+		}
+		var aOverBeta fp.Element
+		// β = -5: aOverBeta = x.A0 / β = -x.A0 / 5
+		var beta fp.Element
+		beta.SetUint64(5)
+		beta.Neg(&beta)
+		aOverBeta.Inverse(&beta)
+		aOverBeta.Mul(&aOverBeta, &x.A0)
+		z.A0.SetZero()
+		z.A1.Sqrt(&aOverBeta)
+		return z
+	}
+
 	var x0, x1 fp.Element
 	x.norm(&x0)
 	x0.Sqrt(&x0)

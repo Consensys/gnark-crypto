@@ -264,7 +264,6 @@ func FuzzFFTExt(f *testing.F) {
 
 		var seed [32]byte
 		binary.PutVarint(seed[:], rngSeed)
-		// #nosec G404 -- fuzz does not require a cryptographic PRNG
 		rng := rand.New(rand.NewChaCha8(seed))
 
 		cardinality := domain.Cardinality
@@ -348,7 +347,7 @@ func BenchmarkFFTDITReferenceSmallExt(b *testing.B) {
 	domain := NewDomain(maxSize)
 
 	b.ResetTimer()
-	for range 1 {
+	for range b.N {
 		domain.FFTExt(pol, DIT)
 	}
 }

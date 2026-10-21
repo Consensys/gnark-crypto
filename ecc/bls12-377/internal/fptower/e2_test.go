@@ -207,6 +207,69 @@ func TestE2MulMaxed(t *testing.T) {
 	}
 }
 
+// TestE2AsmVsGeneric checks the assembly implementations against the generic
+// ones on boundary values (0, 1, p-1 components) and aliased arguments.
+func TestE2AsmVsGeneric(t *testing.T) {
+	one := fp.One()
+	var pMinus1 fp.Element
+	pMinus1.Neg(&one)
+	var zero fp.Element
+	specials := []fp.Element{zero, one, pMinus1}
+	var inputs []E2
+	for _, a0 := range specials {
+		for _, a1 := range specials {
+			inputs = append(inputs, E2{A0: a0, A1: a1})
+		}
+	}
+	for i := range inputs {
+		for j := range inputs {
+			var got, want E2
+			mulGenericE2(&want, &inputs[i], &inputs[j])
+			got.Mul(&inputs[i], &inputs[j])
+			if !got.Equal(&want) {
+				t.Fatalf("mul mismatch on boundary values (%d, %d)", i, j)
+			}
+		}
+		var got, want E2
+		squareGenericE2(&want, &inputs[i])
+		got.Square(&inputs[i])
+		if !got.Equal(&want) {
+			t.Fatalf("square mismatch on boundary value %d", i)
+		}
+	}
+
+	// aliasing
+	for i := 0; i < 100; i++ {
+		var x, y E2
+		x.A0.MustSetRandom()
+		x.A1.MustSetRandom()
+		y.A0.MustSetRandom()
+		y.A1.MustSetRandom()
+
+		xCopy, yCopy := x, y
+		var want E2
+		mulGenericE2(&want, &x, &y)
+
+		x.Mul(&x, &y)
+		if !x.Equal(&want) {
+			t.Fatal("aliasing z==x mismatch")
+		}
+		x = xCopy
+		y.Mul(&x, &y)
+		if !y.Equal(&want) {
+			t.Fatal("aliasing z==y mismatch")
+		}
+		y = yCopy
+
+		var sqWant E2
+		squareGenericE2(&sqWant, &x)
+		x.Square(&x)
+		if !x.Equal(&sqWant) {
+			t.Fatal("aliasing z==x square mismatch")
+		}
+	}
+}
+
 func TestE2Ops(t *testing.T) {
 
 	t.Parallel()
@@ -257,6 +320,27 @@ func TestE2Ops(t *testing.T) {
 		},
 		genA,
 		genA,
+		genA,
+	))
+
+	properties.Property("[BLS12-377] mulGeneric & mul should be equal", prop.ForAll(
+		func(a, b *E2) bool {
+			var c, d E2
+			mulGenericE2(&c, a, b)
+			d.Mul(a, b)
+			return d.Equal(&c)
+		},
+		genA,
+		genB,
+	))
+
+	properties.Property("[BLS12-377] squareGeneric & square should be equal", prop.ForAll(
+		func(a *E2) bool {
+			var c, d E2
+			squareGenericE2(&c, a)
+			d.Square(a)
+			return d.Equal(&c)
+		},
 		genA,
 	))
 
@@ -355,6 +439,25 @@ func TestE2Ops(t *testing.T) {
 			return (c.Equal(a) || c.Equal(&e)) && d.Equal(&b)
 		},
 		genA,
+	))
+
+	// Regression test for the silent failure of E2.Sqrt on purely-real
+	// inputs whose Fp coordinate is a non-residue. The Aardal Algorithm 3
+	// and Scott §6.3 formulas both have an unstated precondition that
+	// a.A1 != 0; for x = (a, 0) with a non-QR in Fp the algorithms
+	// silently returned (0, 0) instead of the true sqrt (0, sqrt(a/β))
+	// where β = u² is the Fp² QNR.
+	properties.Property("[BLS12-377] square(sqrt) should be invariant for purely-real inputs", prop.ForAll(
+		func(a fp.Element) bool {
+			var x, root, sq E2
+			x.A0.Set(&a)
+			// (a, 0) is always an E2-square for a != 0: either a is QR in
+			// Fp, or a/β is (since β is itself a non-residue).
+			root.Sqrt(&x)
+			sq.Square(&root)
+			return sq.Equal(&x)
+		},
+		genfp,
 	))
 
 	properties.Property("[BLS12-377] cube(cbrt) should leave an element invariant", prop.ForAll(
@@ -539,6 +642,47 @@ func BenchmarkE2Conjugate(b *testing.B) {
 	b.ResetTimer()
 	for range b.N {
 		a.Conjugate(&a)
+	}
+}
+
+func TestE2SetString(t *testing.T) {
+	t.Parallel()
+
+	var want E2
+	if _, err := want.A0.SetString("0x10"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := want.A1.SetString("2"); err != nil {
+		t.Fatal(err)
+	}
+
+	var z E2
+	got, err := z.SetString("0x10", "2")
+	if err != nil {
+		t.Fatalf("valid coefficients: %v", err)
+	}
+	if got != &z {
+		t.Fatal("SetString did not return the receiver")
+	}
+	if !z.Equal(&want) {
+		t.Fatalf("got %s, want %s", z.String(), want.String())
+	}
+
+	_, wantErr := want.A0.SetString("nope")
+	if wantErr == nil {
+		t.Fatal("subfield accepted an invalid coefficient")
+	}
+	var cases [2][2]string
+	cases[0] = [2]string{"nope", "1"}
+	cases[1] = [2]string{"1", "nope"}
+	for _, coeffs := range cases {
+		got, err = z.SetString(coeffs[0], coeffs[1])
+		if got != nil {
+			t.Fatalf("SetString(%q, %q) returned a receiver", coeffs[0], coeffs[1])
+		}
+		if err == nil || err.Error() != wantErr.Error() {
+			t.Fatalf("SetString(%q, %q) error = %v, want %v", coeffs[0], coeffs[1], err, wantErr)
+		}
 	}
 }
 

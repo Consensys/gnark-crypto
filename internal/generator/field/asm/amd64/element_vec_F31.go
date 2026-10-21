@@ -726,6 +726,104 @@ func (_f *FFAmd64) generateButterflyPairVecE4() {
 
 }
 
+func (_f *FFAmd64) generateButterflyPairVecE6() {
+	// func vectorButterflyPair_E6_avx512(a *E6, N uint64)
+	//
+	// Precondition: N % 8 == 0; processes 8 E6 (= 48 fr lanes = 3 zmm) per
+	// outer iteration. For each zmm we build the partner lane vector with
+	// VPERMI2D and blend add/sub results into the original E6 order.
+	const argSize = 2 * 8
+	stackSize := _f.StackSize(_f.NbWords*2+2, 0, 0)
+	registers := _f.FnHeader("vectorButterflyPair_E6_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrA := registers.Pop()
+	N := registers.Pop()
+
+	f.loadQ()
+
+	f.MOVQ("a+0(FP)", addrA)
+	f.MOVQ("N+8(FP)", N)
+
+	// N % 8 == 0 (precondition); we process 8 E6 per outer iter.
+	f.SHRQ("$3", N)
+
+	f.MOVQ(uint64(0xf03f), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K1)
+	f.MOVQ(uint64(0x3f03), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K2)
+	f.MOVQ(uint64(0x03f0), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+	f.MOVQ(uint64(0x3c00), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K4)
+
+	addrMask := registers.Pop()
+	vMask0 := registers.PopV()
+	vMask1A := registers.PopV()
+	vMask1B := registers.PopV()
+	vMask2 := registers.PopV()
+
+	f.MOVQ("·maskPermE6Pair0+0(SB)", addrMask)
+	f.VMOVDQU32(addrMask.At(0), vMask0)
+	f.MOVQ("·maskPermE6Pair1A+0(SB)", addrMask)
+	f.VMOVDQU32(addrMask.At(0), vMask1A)
+	f.MOVQ("·maskPermE6Pair1B+0(SB)", addrMask)
+	f.VMOVDQU32(addrMask.At(0), vMask1B)
+	f.MOVQ("·maskPermE6Pair2+0(SB)", addrMask)
+	f.VMOVDQU32(addrMask.At(0), vMask2)
+
+	v0 := registers.PopV()
+	v1 := registers.PopV()
+	v2 := registers.PopV()
+	p0 := registers.PopV()
+	p1 := registers.PopV()
+	p1Cross := registers.PopV()
+	p2 := registers.PopV()
+	add0 := registers.PopV()
+	add1 := registers.PopV()
+	add2 := registers.PopV()
+	sub := registers.PopV()
+
+	f.Loop(N, func() {
+		f.VMOVDQU32(addrA.At(0), v0)
+		f.VMOVDQU32(addrA.At(8), v1)
+		f.VMOVDQU32(addrA.At(16), v2)
+
+		f.VMOVDQA32(vMask0, p0)
+		f.VPERMI2D(v1, v0, p0)
+
+		f.VMOVDQA32(vMask1A, p1)
+		f.VPERMI2D(v1, v0, p1)
+		f.VMOVDQA32(vMask1B, p1Cross)
+		f.VPERMI2D(v2, v1, p1Cross)
+		f.VPBLENDMD(p1Cross, p1, p1, amd64.K4)
+
+		f.VMOVDQA32(vMask2, p2)
+		f.VPERMI2D(v2, v1, p2)
+
+		f.add(v0, p0, add0)
+		f.sub(p0, v0, sub)
+		f.VPBLENDMD(add0, sub, add0, amd64.K1)
+
+		f.add(v1, p1, add1)
+		f.sub(p1, v1, sub)
+		f.VPBLENDMD(add1, sub, add1, amd64.K2)
+
+		f.add(v2, p2, add2)
+		f.sub(p2, v2, sub)
+		f.VPBLENDMD(add2, sub, add2, amd64.K3)
+
+		f.VMOVDQU32(add0, addrA.At(0))
+		f.VMOVDQU32(add1, addrA.At(8))
+		f.VMOVDQU32(add2, addrA.At(16))
+
+		f.ADDQ("$192", addrA)
+	})
+
+	f.RET()
+}
+
 func (_f *FFAmd64) generateButterflyVecE4() {
 	// func vectorButterfly_avx512(a, b *E4, N uint64)
 
@@ -773,6 +871,515 @@ func (_f *FFAmd64) generateButterflyVecE4() {
 		// increment result by 16uint32
 		f.ADDQ("$64", addrA)
 		f.ADDQ("$64", addrB)
+	})
+
+	f.RET()
+}
+
+// e6FusedMulPrologue emits the setup shared by every per-E6 vector op that
+// broadcasts a single fr scalar across the 6 fr lanes of one E6: load q and
+// qInvNeg, set K3 = 0x55 (low-bit lane mask used by mul), and load the three
+// maskPermDE6_{0,1,2} VPERMD index tables. Returns the three mask registers.
+// Caller is responsible for loading N from FP and dividing by 8 (one zmm holds
+// the broadcast lanes for 8 E6).
+func (f *fieldHelper) e6FusedMulPrologue() (vMask0, vMask1, vMask2 amd64.VectorRegister) {
+	f.loadQ()
+	f.loadQInvNeg()
+	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
+	vMask0 = f.registers.PopV()
+	vMask1 = f.registers.PopV()
+	vMask2 = f.registers.PopV()
+	addrMask := f.registers.Pop()
+	f.MOVQ("·maskPermDE6_0+0(SB)", addrMask)
+	f.VMOVDQU32(addrMask.At(0), vMask0)
+	f.MOVQ("·maskPermDE6_1+0(SB)", addrMask)
+	f.VMOVDQU32(addrMask.At(0), vMask1)
+	f.MOVQ("·maskPermDE6_2+0(SB)", addrMask)
+	f.VMOVDQU32(addrMask.At(0), vMask2)
+	f.registers.Push(addrMask)
+	return
+}
+
+func (_f *FFAmd64) generateMulVecElementE6() {
+	// func vectorMulByElement_E6_avx512(res, a *E6, b *fr.Element, N uint64)
+	//
+	// Precondition: N % 8 == 0; processes 8 E6 (= 48 fr lanes = 3 zmm) per
+	// outer iteration. Each scalar b[i] is broadcast across the 6 fr lanes of
+	// E6[i] via three precomputed VPERMD index tables.
+
+	const argSize = 4 * 8
+	stackSize := _f.StackSize(_f.NbWords*4+2, 0, 0)
+
+	registers := _f.FnHeader("vectorMulByElement_E6_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrRes := registers.Pop()
+	addrA := registers.Pop()
+	addrB := registers.Pop()
+	N := registers.Pop()
+
+	vMask0, vMask1, vMask2 := f.e6FusedMulPrologue()
+
+	f.MOVQ("res+0(FP)", addrRes)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("N+24(FP)", N)
+	f.SHRQ("$3", N)
+
+	va := registers.PopV()
+	vb := registers.PopV()
+	vbExp := registers.PopV()
+	vRes := registers.PopV()
+
+	process := func(offset int, mask amd64.VectorRegister) {
+		f.VMOVDQU32(addrA.At(offset), va)
+		f.VPERMD(vb, mask, vbExp)
+		f.mul(va, vbExp, vRes, true)
+		f.VMOVDQU32(vRes, addrRes.At(offset))
+	}
+
+	f.Loop(N, func() {
+		// load 8 scalars (= 32 bytes) of b into the low ymm half of vb
+		f.VMOVDQU32(addrB.At(0), vb.Y())
+		process(0, vMask0)
+		process(8, vMask1)
+		process(16, vMask2)
+		f.ADDQ("$192", addrA)
+		f.ADDQ("$192", addrRes)
+		f.ADDQ("$32", addrB)
+	})
+
+	f.RET()
+}
+
+func (_f *FFAmd64) generateMulAccVecElementE6() {
+	// func vectorMulAccByElement_E6_avx512(dst, a *E6, b *fr.Element, N uint64)
+	//
+	// dst[i] += a[i] * b[i]. Precondition: N % 8 == 0; processes 8 E6 (= 48 fr
+	// lanes = 3 zmm) per outer iteration. Each scalar b[i] is broadcast across
+	// the 6 fr lanes of E6[i] via three precomputed VPERMD index tables.
+
+	const argSize = 4 * 8
+	stackSize := _f.StackSize(_f.NbWords*4+2, 0, 0)
+
+	registers := _f.FnHeader("vectorMulAccByElement_E6_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrDst := registers.Pop()
+	addrA := registers.Pop()
+	addrB := registers.Pop()
+	N := registers.Pop()
+
+	vMask0, vMask1, vMask2 := f.e6FusedMulPrologue()
+
+	f.MOVQ("dst+0(FP)", addrDst)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("N+24(FP)", N)
+	f.SHRQ("$3", N)
+
+	va := registers.PopV()
+	vb := registers.PopV()
+	vbExp := registers.PopV()
+	vRes := registers.PopV()
+	vAcc := registers.PopV()
+
+	process := func(offset int, mask amd64.VectorRegister) {
+		f.VMOVDQU32(addrA.At(offset), va)
+		f.VPERMD(vb, mask, vbExp)
+		f.mul(va, vbExp, vRes, true)
+		f.VMOVDQU32(addrDst.At(offset), vAcc)
+		f.add(vAcc, vRes, vRes)
+		f.VMOVDQU32(vRes, addrDst.At(offset))
+	}
+
+	f.Loop(N, func() {
+		// load 8 scalars (= 32 bytes) of b into the low ymm half of vb
+		f.VMOVDQU32(addrB.At(0), vb.Y())
+		process(0, vMask0)
+		process(8, vMask1)
+		process(16, vMask2)
+		f.ADDQ("$192", addrA)
+		f.ADDQ("$192", addrDst)
+		f.ADDQ("$32", addrB)
+	})
+
+	f.RET()
+}
+
+func (_f *FFAmd64) generateScalarMulAccByElementE6() {
+	// func vectorScalarMulAccByElement_E6_avx512(vector *E6, a *fr.Element, sTiled *fr.Element, N uint64)
+	//
+	// vector[i] += a[i] * s, where a[i] is a base field scalar and s a fixed E6
+	// scalar. Each output E6 is (broadcast a[i]) × the fixed scalar s, so we
+	// broadcast the 8 base scalars across the 6 fr lanes of each E6 (via the same
+	// three VPERMD index tables used by the ByElement kernels) and multiply by
+	// the fixed scalar s tiled with period 6 (sTiled, 48 dwords = 3 zmm, built
+	// once by the caller). Precondition: N % 8 == 0; processes 8 E6 per iter.
+
+	const argSize = 4 * 8
+	stackSize := _f.StackSize(_f.NbWords*4+2, 0, 0)
+
+	registers := _f.FnHeader("vectorScalarMulAccByElement_E6_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrVec := registers.Pop()
+	addrA := registers.Pop()
+	addrS := registers.Pop()
+	N := registers.Pop()
+
+	vMask0, vMask1, vMask2 := f.e6FusedMulPrologue()
+
+	f.MOVQ("vector+0(FP)", addrVec)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("sTiled+16(FP)", addrS)
+	f.MOVQ("N+24(FP)", N)
+	f.SHRQ("$3", N)
+
+	// load the fixed scalar tiled across 3 zmm (period 6, 8 E6 worth)
+	vS0 := registers.PopV()
+	vS1 := registers.PopV()
+	vS2 := registers.PopV()
+	f.VMOVDQU32(addrS.AtD(0), vS0)
+	f.VMOVDQU32(addrS.AtD(16), vS1)
+	f.VMOVDQU32(addrS.AtD(32), vS2)
+
+	vBase := registers.PopV()
+	vExp := registers.PopV()
+	vRes := registers.PopV()
+	vAcc := registers.PopV()
+
+	process := func(offset int, mask, vS amd64.VectorRegister) {
+		f.VPERMD(vBase, mask, vExp)
+		f.mul(vS, vExp, vRes, true)
+		f.VMOVDQU32(addrVec.At(offset), vAcc)
+		f.add(vAcc, vRes, vRes)
+		f.VMOVDQU32(vRes, addrVec.At(offset))
+	}
+
+	f.Loop(N, func() {
+		// load 8 base scalars (= 32 bytes) into the low ymm half of vBase
+		f.VMOVDQU32(addrA.At(0), vBase.Y())
+		process(0, vMask0, vS0)
+		process(8, vMask1, vS1)
+		process(16, vMask2, vS2)
+		f.ADDQ("$192", addrVec)
+		f.ADDQ("$32", addrA)
+	})
+
+	f.RET()
+}
+
+// e6ReplStep describes how to build A_i for one output zmm g: replicate
+// coordinate i of every E6 across the 6 fr lanes of its group, within the
+// 48-lane (3 zmm = 8 E6) processing window. src(p) = 6·⌊p/6⌋ + i.
+type e6ReplStep struct {
+	lo, hi int // source zmm feeding the main VPERMI2D (index 0-15 → lo, 16-31 → hi)
+	idxA   [16]uint32
+	cross  bool       // straddling group needs a third source zmm (v2)
+	idxB   [16]uint32 // second VPERMI2D over (v1, v2)
+	maskV2 uint32     // lanes taking the v2 result in the final blend
+}
+
+// e6ReplPlan computes the permutation plan for output zmm g and coordinate i.
+func e6ReplPlan(i, g int) e6ReplStep {
+	src := func(l int) int { p := 16*g + l; return 6*(p/6) + i }
+	set := map[int]bool{}
+	for l := range 16 {
+		set[src(l)/16] = true
+	}
+	var st e6ReplStep
+	if len(set) <= 2 {
+		lo, hi := 2, 0
+		for z := range set {
+			if z < lo {
+				lo = z
+			}
+			if z > hi {
+				hi = z
+			}
+		}
+		st.lo, st.hi = lo, hi
+		for l := range 16 {
+			s := src(l)
+			if s/16 == lo {
+				st.idxA[l] = uint32(s % 16)
+			} else {
+				st.idxA[l] = uint32(s%16 + 16)
+			}
+		}
+		return st
+	}
+	// three sources {0,1,2}: main permute over (v0,v1), cross over (v1,v2).
+	st.cross = true
+	st.lo, st.hi = 0, 1
+	for l := range 16 {
+		s := src(l)
+		z, ln := s/16, s%16
+		if z == 2 {
+			st.maskV2 |= 1 << uint(l)
+			st.idxB[l] = uint32(ln + 16)
+		} else {
+			if z == 0 {
+				st.idxA[l] = uint32(ln)
+			} else {
+				st.idxA[l] = uint32(ln + 16)
+			}
+			if z == 1 {
+				st.idxB[l] = uint32(ln)
+			}
+		}
+	}
+	return st
+}
+
+// E6ReplicationTables returns the VPERMI2D index tables used by the gather-free
+// E6 scalar-mul kernels, flattened for a single base-pointer load in assembly.
+//
+// These are compile-time constants; rather than emitting them as ~340 lines of
+// DATA/GLOBL in the .s file, they are rendered as plain Go slice literals in the
+// generated ext_amd64.go (see ext.amd64.go.tmpl) and referenced from assembly via
+// ·e6replA / ·e6replB, exactly like the maskPermDE6_* tables.
+//
+// A holds the 18 primary tables laid out row-major: table (i, g) starts at index
+// (i*3+g)*16. B holds only the sparse "cross" tables (the groups straddling a
+// third source zmm), packed in (i, g) iteration order — the assembly walks them
+// with a running counter in the same order.
+func E6ReplicationTables() (A, B []uint32) {
+	A = make([]uint32, 6*3*16)
+	for i := range 6 {
+		for g := range 3 {
+			st := e6ReplPlan(i, g)
+			copy(A[(i*3+g)*16:], st.idxA[:])
+			if st.cross {
+				B = append(B, st.idxB[:]...)
+			}
+		}
+	}
+	return
+}
+
+// generateScalarMulVecE6 emits the gather/scatter-free full E6×(fixed E6
+// scalar) kernel. For a fixed scalar s, a ↦ a·s is linear: output coordinate
+// c_k of each E6 is Σ_i K[k][i]·a_i. We process 8 E6 (= 3 zmm) in place: for
+// each source coordinate i we replicate a_i across each E6's 6 lanes (A_i, built
+// with VPERMI2D) and multiply by K column i tiled with period 6 (Kcol,
+// runtime-built by the caller from s), accumulating directly in AoS order — so
+// no transpose, gather or scatter is needed. Precondition: N % 8 == 0.
+func (_f *FFAmd64) generateScalarMulVecE6(acc bool) {
+	name := "vectorScalarMul_E6_avx512"
+	if acc {
+		name = "vectorScalarMulAcc_E6_avx512"
+	}
+
+	const argSize = 4 * 8
+	stackSize := _f.StackSize(_f.NbWords*4+2, 0, 0)
+
+	registers := _f.FnHeader(name, stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrRes := registers.Pop()
+	addrA := registers.Pop()
+	addrKcol := registers.Pop()
+	N := registers.Pop()
+	addrTabA := registers.Pop()
+	addrTabB := registers.Pop()
+
+	f.loadQ()
+	f.loadQInvNeg()
+	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
+	f.MOVQ("res+0(FP)", addrRes)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("Kcol+16(FP)", addrKcol)
+	f.MOVQ("N+24(FP)", N)
+
+	// The VPERMI2D index tables live in Go (·e6replA / ·e6replB, see
+	// ext.amd64.go.tmpl); load their base pointers once and index into them by
+	// offset in the loop rather than materializing an address per table.
+	f.MOVQ("·e6replA+0(SB)", addrTabA)
+	f.MOVQ("·e6replB+0(SB)", addrTabB)
+
+	// permi2d loads a 16-lane index table and applies VPERMI2D over (lo, hi).
+	permi2d := f.Define("permi2d", 4, func(args ...any) {
+		idx, hi, lo, dst := args[0], args[1], args[2], args[3]
+		f.VMOVDQU32(idx, dst)
+		f.VPERMI2D(hi, lo, dst)
+	}, true)
+
+	v := registers.PopVN(3)    // input window (8 E6)
+	acc0 := registers.PopVN(3) // accumulators, one per output zmm
+	ao := registers.PopV()     // replicated A_i (also holds the VPERMI2D index)
+	pB := registers.PopV()     // cross permute scratch
+	vK := registers.PopV()     // K column tile
+	tmp := registers.PopV()
+
+	f.SHRQ("$3", N) // 8 E6 per iteration
+	f.Loop(N, func() {
+		f.VMOVDQU32(addrA.At(0), v[0])
+		f.VMOVDQU32(addrA.At(8), v[1])
+		f.VMOVDQU32(addrA.At(16), v[2])
+
+		bIdx := 0 // running index into the packed cross tables ·e6replB
+		for i := range 6 {
+			for g := range 3 {
+				st := e6ReplPlan(i, g)
+				// build A_i for output zmm g into ao
+				permi2d(addrTabA.AtD((i*3+g)*16), v[st.hi], v[st.lo], ao)
+				if st.cross {
+					permi2d(addrTabB.AtD(bIdx*16), v[2], v[1], pB)
+					bIdx++
+					f.MOVQ(uint64(st.maskV2), amd64.AX)
+					f.KMOVD(amd64.AX, amd64.K1)
+					f.VPBLENDMD(pB, ao, ao, amd64.K1)
+				}
+				// multiply by K column i (tiled, period 6) and accumulate
+				f.VMOVDQU32(addrKcol.AtD(i*48+g*16), vK)
+				if i == 0 {
+					f.mul(ao, vK, acc0[g], true)
+				} else {
+					f.mul(ao, vK, tmp, true)
+					f.add(acc0[g], tmp, acc0[g])
+				}
+			}
+		}
+
+		if acc {
+			f.VMOVDQU32(addrRes.At(0), tmp)
+			f.add(acc0[0], tmp, acc0[0])
+			f.VMOVDQU32(addrRes.At(8), tmp)
+			f.add(acc0[1], tmp, acc0[1])
+			f.VMOVDQU32(addrRes.At(16), tmp)
+			f.add(acc0[2], tmp, acc0[2])
+		}
+
+		f.VMOVDQU32(acc0[0], addrRes.At(0))
+		f.VMOVDQU32(acc0[1], addrRes.At(8))
+		f.VMOVDQU32(acc0[2], addrRes.At(16))
+
+		f.ADDQ("$192", addrA)   // 8 * E6 (24 bytes)
+		f.ADDQ("$192", addrRes) // 8 * E6 (24 bytes)
+	})
+
+	f.RET()
+}
+
+func (_f *FFAmd64) generateDITWithTwiddlesVecE6() {
+	// func vectorDITWithTwiddles_E6_avx512(a0, a1 *E6, twiddles *fr.Element, N uint64)
+	//
+	// Computes a1 *= twiddles followed by Butterfly(a0, a1). Precondition:
+	// N % 8 == 0; processes 8 E6 (= 48 fr lanes = 3 zmm) per outer iteration.
+	const argSize = 4 * 8
+	stackSize := _f.StackSize(_f.NbWords*4+2, 0, 0)
+
+	registers := _f.FnHeader("vectorDITWithTwiddles_E6_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrA0 := registers.Pop()
+	addrA1 := registers.Pop()
+	addrTwiddles := registers.Pop()
+	N := registers.Pop()
+
+	vMask0, vMask1, vMask2 := f.e6FusedMulPrologue()
+
+	f.MOVQ("a0+0(FP)", addrA0)
+	f.MOVQ("a1+8(FP)", addrA1)
+	f.MOVQ("twiddles+16(FP)", addrTwiddles)
+	f.MOVQ("N+24(FP)", N)
+	f.SHRQ("$3", N)
+
+	vTwiddles := registers.PopV()
+	vScale := registers.PopV()
+	vY := registers.PopV()
+	vYScaled := registers.PopV()
+	vX := registers.PopV()
+	vXOut := registers.PopV()
+	vYOut := registers.PopV()
+
+	process := func(offset int, mask amd64.VectorRegister) {
+		f.VMOVDQU32(addrA1.At(offset), vY)
+		f.VPERMD(vTwiddles, mask, vScale)
+		f.mul(vY, vScale, vYScaled, true)
+		f.VMOVDQU32(addrA0.At(offset), vX)
+		f.add(vX, vYScaled, vXOut)
+		f.sub(vX, vYScaled, vYOut)
+		f.VMOVDQU32(vXOut, addrA0.At(offset))
+		f.VMOVDQU32(vYOut, addrA1.At(offset))
+	}
+
+	f.Loop(N, func() {
+		f.VMOVDQU32(addrTwiddles.At(0), vTwiddles.Y())
+		process(0, vMask0)
+		process(8, vMask1)
+		process(16, vMask2)
+		f.ADDQ("$192", addrA0)
+		f.ADDQ("$192", addrA1)
+		f.ADDQ("$32", addrTwiddles)
+	})
+
+	f.RET()
+}
+
+func (_f *FFAmd64) generateDIFWithTwiddlesVecE6() {
+	// func vectorDIFWithTwiddles_E6_avx512(a0, a1 *E6, twiddles *fr.Element, N uint64)
+	//
+	// Computes Butterfly(a0, a1) followed by a1 *= twiddles. Precondition:
+	// N % 8 == 0; processes 8 E6 (= 48 fr lanes = 3 zmm) per outer iteration.
+	const argSize = 4 * 8
+	stackSize := _f.StackSize(_f.NbWords*4+2, 0, 0)
+
+	registers := _f.FnHeader("vectorDIFWithTwiddles_E6_avx512", stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrA0 := registers.Pop()
+	addrA1 := registers.Pop()
+	addrTwiddles := registers.Pop()
+	N := registers.Pop()
+
+	vMask0, vMask1, vMask2 := f.e6FusedMulPrologue()
+
+	f.MOVQ("a0+0(FP)", addrA0)
+	f.MOVQ("a1+8(FP)", addrA1)
+	f.MOVQ("twiddles+16(FP)", addrTwiddles)
+	f.MOVQ("N+24(FP)", N)
+	f.SHRQ("$3", N)
+
+	vTwiddles := registers.PopV()
+	vScale := registers.PopV()
+	vX := registers.PopV()
+	vY := registers.PopV()
+	vXOut := registers.PopV()
+	vYOut := registers.PopV()
+	vYScaled := registers.PopV()
+
+	process := func(offset int, mask amd64.VectorRegister) {
+		f.VMOVDQU32(addrA0.At(offset), vX)
+		f.VMOVDQU32(addrA1.At(offset), vY)
+		f.add(vX, vY, vXOut)
+		f.sub(vX, vY, vYOut)
+		f.VMOVDQU32(vXOut, addrA0.At(offset))
+		f.VPERMD(vTwiddles, mask, vScale)
+		f.mul(vYOut, vScale, vYScaled, true)
+		f.VMOVDQU32(vYScaled, addrA1.At(offset))
+	}
+
+	f.Loop(N, func() {
+		f.VMOVDQU32(addrTwiddles.At(0), vTwiddles.Y())
+		process(0, vMask0)
+		process(8, vMask1)
+		process(16, vMask2)
+		f.ADDQ("$192", addrA0)
+		f.ADDQ("$192", addrA1)
+		f.ADDQ("$32", addrTwiddles)
 	})
 
 	f.RET()
@@ -1101,6 +1708,217 @@ func (_f *FFAmd64) generateMulVecE4(op e4VecOp) {
 		f.VMOVDQU64(accInnerProd[2].Y(), addrRes.At(16))
 		f.VMOVDQU64(accInnerProd[3].Y(), addrRes.At(24))
 	}
+
+	f.RET()
+}
+
+type e6VecOp int
+
+const (
+	e6VecMul e6VecOp = iota
+	e6VecInnerProd
+)
+
+// generateMulVecE6 emits the element-wise E6 product (vectorMul_E6_avx512) and
+// the E6 inner product (vectorInnerProduct_E6_avx512).
+//
+// 16 E6 of a and of b are gathered into 6+6 zmm, one per fr coordinate, and
+// multiplied as in the tower 𝔽_{p^6} = 𝔽_{p^2}[v]/(v³ − ξ), ξ = 1 + u,
+// 𝔽_{p^2} = 𝔽_p[u]/(u² − 3), with Karatsuba at both levels: writing
+// X = X0 + X1·v + X2·v², Tj = Xj·Yj,
+//
+//	c0 = T0 + ξ·((X1+X2)(Y1+Y2) − T1 − T2)
+//	c1 = (X0+X1)(Y0+Y1) − T0 − T1 + ξ·T2
+//	c2 = (X0+X2)(Y0+Y2) − T0 − T2 + T1
+//
+// that is 6 E2 products of 3 base products each. Every intermediate is fully
+// reduced, so the results are the canonical ones of E6.Mul.
+//
+// Mul scatters the 6 result coordinates back to res. InnerProduct instead folds
+// each result coordinate into 4 uint64 lanes added to res (a *[24]uint64,
+// coordinate k at res[4k:4k+4]) and lets the caller reduce mod q; the
+// accumulators live in memory as the product uses nearly all 32 zmm. The fold
+// adds 16 lanes into 4 that are < 2q < 2³², so each uint64 accumulator grows
+// by < 2³² per block of 16 E6 and cannot overflow before N ≈ 2³⁶.
+//
+// Precondition: N % 16 == 0.
+func (_f *FFAmd64) generateMulVecE6(op e6VecOp) {
+	const argSize = 4 * 8
+	stackSize := _f.StackSize(_f.NbWords*4+2, 0, 0)
+	var name string
+	switch op {
+	case e6VecMul:
+		name = "vectorMul_E6_avx512"
+	case e6VecInnerProd:
+		name = "vectorInnerProduct_E6_avx512"
+	default:
+		panic("invalid e6VecOp")
+	}
+	registers := _f.FnHeader(name, stackSize, argSize, amd64.DX, amd64.AX)
+	defer _f.AssertCleanStack(stackSize, 0)
+	f := &fieldHelper{FFAmd64: _f, registers: &registers}
+
+	addrRes := registers.Pop()
+	addrA := registers.Pop()
+	addrB := registers.Pop()
+	N := registers.Pop()
+
+	f.loadQ()
+	f.loadQInvNeg()
+
+	f.MOVQ(uint64(0b01_01_01_01_01_01_01_01), amd64.AX)
+	f.KMOVD(amd64.AX, amd64.K3)
+
+	f.MOVQ("res+0(FP)", addrRes)
+	f.MOVQ("a+8(FP)", addrA)
+	f.MOVQ("b+16(FP)", addrB)
+	f.MOVQ("N+24(FP)", N)
+
+	// transpose stuff
+	maskFFFF := registers.Pop()
+	addrIndexGather6 := registers.Pop()
+	vIndexGather := registers.PopV()
+	f.MOVQ("$0xffffffffffffffff", maskFFFF)
+	f.MOVQ("·indexGather6+0(SB)", addrIndexGather6)
+	f.VMOVDQU32(addrIndexGather6.At(0), vIndexGather)
+
+	a := registers.PopVN(6)
+	b := registers.PopVN(6)
+	t := registers.PopVN(6) // T0, T1, T2 as (A0, A1) pairs
+
+	// as for E4, u² = 3 and ξ = 1 + u only hold for koalabear.
+
+	// e2Mul sets (re, im) = (xr + xi·u)(yr + yi·u); x and y are kept.
+	e2Mul := func(xr, xi, yr, yi, re, im amd64.VectorRegister) {
+		s1, s2 := registers.PopV(), registers.PopV()
+		f.mul(xr, yr, re, true) // m0
+		f.mul(xi, yi, s1, true) // m1
+		f.add(xr, xi, s2)
+		f.add(yr, yi, im)
+		f.mul(s2, im, im, true) // m2
+		f.sub(im, re, im)
+		f.sub(im, s1, im) // im = m2 − m0 − m1
+		f.double(s1, s2)
+		f.add(s2, s1, s2)
+		f.add(re, s2, re) // re = m0 + 3·m1
+		registers.PushV(s1, s2)
+	}
+
+	// e2MulInPlace sets (xr, xi) = (xr + xi·u)(yr + yi·u); y is clobbered.
+	e2MulInPlace := func(xr, xi, yr, yi amd64.VectorRegister) {
+		s1, s2 := registers.PopV(), registers.PopV()
+		f.mul(xr, yr, s1, true) // m0
+		f.mul(xi, yi, s2, true) // m1
+		f.add(xr, xi, xr)
+		f.add(yr, yi, yr)
+		f.mul(xr, yr, xi, true) // m2
+		f.sub(xi, s1, xi)
+		f.sub(xi, s2, xi) // im = m2 − m0 − m1
+		f.double(s2, yr)
+		f.add(yr, s2, yr)
+		f.add(s1, yr, xr) // re = m0 + 3·m1
+		registers.PushV(s1, s2)
+	}
+
+	// cross returns (Xp + Xq)(Yp + Yq) − Tp − Tq in two fresh registers.
+	cross := func(p, q int) (mr, mi amd64.VectorRegister) {
+		mr, mi = registers.PopV(), registers.PopV()
+		yr, yi := registers.PopV(), registers.PopV()
+		f.add(a[2*p], a[2*q], mr)
+		f.add(a[2*p+1], a[2*q+1], mi)
+		f.add(b[2*p], b[2*q], yr)
+		f.add(b[2*p+1], b[2*q+1], yi)
+		e2MulInPlace(mr, mi, yr, yi)
+		registers.PushV(yr, yi)
+		f.sub(mr, t[2*p], mr)
+		f.sub(mr, t[2*q], mr)
+		f.sub(mi, t[2*p+1], mi)
+		f.sub(mi, t[2*q+1], mi)
+		return
+	}
+
+	// mulByXi sets (re, im) = ξ·(r + i·u) = (r + 3i) + (r + i)·u.
+	mulByXi := func(r, i, re, im amd64.VectorRegister) {
+		f.double(i, re)
+		f.add(re, i, re)
+		f.add(re, r, re)
+		f.add(r, i, im)
+	}
+
+	// store writes result coordinate k (16 lanes) to res.
+	store := func(v amd64.VectorRegister, k int) {
+		switch op {
+		case e6VecMul:
+			f.KMOVD(maskFFFF, amd64.K1)
+			f.VPSCATTERDD(k*4, addrRes, vIndexGather, 4, amd64.K1, v)
+		case e6VecInnerProd:
+			// fold the 16 lanes into 4 (< 2q) and add them, zero-extended,
+			// to the uint64 accumulators res[4k:4k+4].
+			hi, lo := registers.PopV(), registers.PopV()
+			f.VEXTRACTI64X4(1, v, hi.Y())
+			f.add(v, hi, hi, fY)
+			f.VEXTRACTI64X2(1, hi.Y(), lo.X())
+			f.VPADDD(hi.X(), lo.X(), lo.X())
+			f.VPMOVZXDQ(lo.X(), hi.Y())
+			f.VPADDQ(addrRes.At(4*k), hi.Y(), hi.Y())
+			f.VMOVDQU64(hi.Y(), addrRes.At(4*k))
+			registers.PushV(hi, lo)
+		}
+	}
+
+	// N % 16 == 0 (pre condition checked by caller)
+	// divide N by 16
+	f.SHRQ("$4", N)
+	f.Loop(N, func() {
+		// fetch 16 E6 values from a and from b, transposed into 2*6 vectors of
+		// 16 dwords such that a[0] == [a[0].B0.A0, a[1].B0.A0, ...]
+		for k := range 6 {
+			// interleave ops for better throughput
+			f.KMOVD(maskFFFF, amd64.K1)
+			f.KMOVD(maskFFFF, amd64.K2)
+			f.VPGATHERDD(k*4, addrA, vIndexGather, 4, amd64.K1, a[k])
+			f.VPGATHERDD(k*4, addrB, vIndexGather, 4, amd64.K2, b[k])
+		}
+
+		for j := range 3 {
+			e2Mul(a[2*j], a[2*j+1], b[2*j], b[2*j+1], t[2*j], t[2*j+1])
+		}
+
+		// c0 = T0 + ξ·((X1+X2)(Y1+Y2) − T1 − T2)
+		mr, mi := cross(1, 2)
+		cr, ci := registers.PopV(), registers.PopV()
+		mulByXi(mr, mi, cr, ci)
+		f.add(t[0], cr, cr)
+		f.add(t[1], ci, ci)
+		store(cr, 0)
+		store(ci, 1)
+		registers.PushV(mr, mi, cr, ci)
+
+		// c1 = (X0+X1)(Y0+Y1) − T0 − T1 + ξ·T2
+		mr, mi = cross(0, 1)
+		cr, ci = registers.PopV(), registers.PopV()
+		mulByXi(t[4], t[5], cr, ci)
+		f.add(mr, cr, cr)
+		f.add(mi, ci, ci)
+		store(cr, 2)
+		store(ci, 3)
+		registers.PushV(mr, mi, cr, ci)
+
+		// c2 = (X0+X2)(Y0+Y2) − T0 − T2 + T1
+		mr, mi = cross(0, 2)
+		f.add(mr, t[2], mr)
+		f.add(mi, t[3], mi)
+		store(mr, 4)
+		store(mi, 5)
+		registers.PushV(mr, mi)
+
+		// 16 E6 = 384 bytes
+		if op == e6VecMul {
+			f.ADDQ("$384", addrRes)
+		}
+		f.ADDQ("$384", addrA)
+		f.ADDQ("$384", addrB)
+	})
 
 	f.RET()
 }

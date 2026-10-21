@@ -391,7 +391,7 @@ func GenerateF31FFTKernels(w io.Writer, nbBits int, kernels []int) error {
 	return nil
 }
 
-func GenerateF31E4(w io.Writer) error {
+func GenerateF31Ext(w io.Writer) error {
 	f := NewFFAmd64(w, 1)
 
 	f.WriteLn("")
@@ -411,9 +411,19 @@ func GenerateF31E4(w io.Writer) error {
 	f.generateMulVecE4(e4VecInnerProd)
 	f.generateSumVecE4()
 	f.generateMulVecElementE4()
+	f.generateMulVecElementE6()
+	f.generateMulVecE6(e6VecMul)
+	f.generateMulVecE6(e6VecInnerProd)
+	f.generateMulAccVecElementE6()
+	f.generateScalarMulAccByElementE6()
+	f.generateScalarMulVecE6(false)
+	f.generateScalarMulVecE6(true)
 	f.generateButterflyVecE4()
 	f.generateButterflyPairVecE4()
+	f.generateButterflyPairVecE6()
 	f.generateInnerProdByElementE4()
+	f.generateDITWithTwiddlesVecE6()
+	f.generateDIFWithTwiddlesVecE6()
 
 	return nil
 
@@ -473,7 +483,8 @@ func GenerateF31Poseidon2(w io.Writer, nbBits int, params []Poseidon2Parameters)
 			f.generatePoseidon2_F31_16x24(p)
 		}
 		if p.Width == 16 && p.HasCompressx16 {
-			f.generatePoseidon2_F31_16x16xN(p)
+			f.generatePoseidon2_F31_16x16xN(p, true)
+			f.generatePoseidon2_F31_16x16xN(p, false)
 		}
 	}
 
@@ -515,7 +526,7 @@ func ElementASMBaseDir(nbWords, nbBits int) string {
 	const fWN = "element_%dw"
 
 	if nbWords == 1 {
-		return fmt.Sprintf(fW1, 31)
+		return fmt.Sprintf(fW1, nbBits)
 	}
 	return fmt.Sprintf(fWN, nbWords)
 }

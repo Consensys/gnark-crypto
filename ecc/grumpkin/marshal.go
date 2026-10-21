@@ -64,7 +64,7 @@ func NewDecoder(r io.Reader, options ...func(*Decoder)) *Decoder {
 // type must be *uint64, *fr.Element, *fp.Element, *G1Affine, *[]G1Affine
 func (dec *Decoder) Decode(v any) (err error) {
 	rv := reflect.ValueOf(v)
-	if v == nil || rv.Kind() != reflect.Ptr || rv.IsNil() || !rv.Elem().CanSet() {
+	if v == nil || rv.Kind() != reflect.Pointer || rv.IsNil() || !rv.Elem().CanSet() {
 		return errors.New("grumpkin decoder: unsupported type, need pointer")
 	}
 
@@ -148,6 +148,9 @@ func (dec *Decoder) Decode(v any) (err error) {
 		for i := range *t {
 			read64, err = (*fr.Vector)(&(*t)[i]).ReadFrom(dec.r)
 			dec.n += read64
+			if err != nil {
+				return
+			}
 		}
 		return
 	case *[][][]fr.Element:
@@ -167,6 +170,9 @@ func (dec *Decoder) Decode(v any) (err error) {
 			for j := range (*t)[i] {
 				read64, err = (*fr.Vector)(&(*t)[i][j]).ReadFrom(dec.r)
 				dec.n += read64
+				if err != nil {
+					return
+				}
 			}
 		}
 		return
@@ -359,7 +365,7 @@ func isZeroed(firstByte byte, buf []byte) bool {
 
 func (enc *Encoder) encode(v any) (err error) {
 	rv := reflect.ValueOf(v)
-	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
+	if v == nil || (rv.Kind() == reflect.Pointer && rv.IsNil()) {
 		return errors.New("grumpkin encoder: can't encode <nil>")
 	}
 
@@ -474,7 +480,7 @@ func (enc *Encoder) encode(v any) (err error) {
 
 func (enc *Encoder) encodeRaw(v any) (err error) {
 	rv := reflect.ValueOf(v)
-	if v == nil || (rv.Kind() == reflect.Ptr && rv.IsNil()) {
+	if v == nil || (rv.Kind() == reflect.Pointer && rv.IsNil()) {
 		return errors.New("grumpkin encoder: can't encode <nil>")
 	}
 

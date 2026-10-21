@@ -736,6 +736,14 @@ TEXT ·innerProdVec(SB), NOSPLIT, $0-32
 	VPADDQ        Z2, in1, in1 \
 	VPADDQ        Z3, in2, in2 \
 
+#define MAC_LAST(in0, in1, in2) \
+	VPBROADCASTD in0, Z2      \
+	VPMULUDQ     Z2, Z4, Z2   \
+	VPSRLQ       $32, Z2, Z3  \
+	VPANDQ       Z5, Z2, Z2   \
+	VPADDQ       Z2, in1, in1 \
+	VPADDQ       Z3, in2, in2 \
+
 loop_14:
 	TESTQ CX, CX
 	JEQ   done_15
@@ -752,7 +760,7 @@ loop_14:
 	MAC(16(R13), Z20, Z28)
 	MAC(20(R13), Z21, Z29)
 	MAC(24(R13), Z22, Z30)
-	MAC(28(R13), Z23, Z31)
+	MAC_LAST(28(R13), Z23, Z31)
 	ADDQ $32, R13
 	ADDQ $32, R14
 	JMP  loop_14

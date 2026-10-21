@@ -16,6 +16,7 @@ import (
 	"golang.org/x/crypto/sha3"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
+	"github.com/consensys/gnark-crypto/internal/matrix"
 	"github.com/consensys/gnark-crypto/utils/cpu"
 )
 
@@ -128,6 +129,29 @@ func (p *Parameters) initRC(seed string) {
 type Permutation struct {
 	// parameters describing the instance
 	params *Parameters
+}
+
+// ExternalMatrix returns the dense external matrix M_E of the permutation, which
+// is applied to the state before the first round and after each full round.
+// With I and J the identity and the all-ones matrices, and M4 the 4×4 block of
+// Plonky3 (rows 2 3 1 1 / 1 2 3 1 / 1 1 2 3 / 3 1 1 2), M_E is
+//
+//   - I + J for width 2 and 3;
+//   - M4 for width 4;
+//   - circ(2·M4, M4, ..., M4) = (I + J) ⊗ M4 for width 4k with k > 1.
+func (p *Parameters) ExternalMatrix() [][]fr.Element {
+	return matrix.FromLinearMap(p.Width, (&Permutation{params: p}).matMulExternalInPlace)
+}
+
+// InternalMatrix returns the dense internal matrix M_I of the permutation, which
+// is applied to the state after each partial round. With J the all-ones matrix,
+//
+//	M_I = J + diag(d),
+//
+// that is, for a state x, (M_I·x)_i = Σ_j x_j + d_i·x_i, where d is the diagonal
+// of the permutation (diag16 for width 16, diag24 for width 24).
+func (p *Parameters) InternalMatrix() [][]fr.Element {
+	return matrix.FromLinearMap(p.Width, (&Permutation{params: p}).matMulInternalInPlace)
 }
 
 // NewPermutation returns a new Poseidon2 permutation instance.
@@ -271,14 +295,14 @@ func (h *Permutation) matMulInternalInPlace(input []fr.Element) {
 		input[13].Add(&sum, temp.Mul2ExpNegN(&input[13], 5))
 		input[14].Add(&sum, temp.Mul2ExpNegN(&input[14], 6))
 		input[15].Add(&sum, temp.Mul2ExpNegN(&input[15], 24))
-		input[16].Sub(&sum, temp.Mul2ExpNegN(&input[16], 8))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-		input[17].Sub(&sum, temp.Mul2ExpNegN(&input[17], 3))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-		input[18].Sub(&sum, temp.Mul2ExpNegN(&input[18], 4))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-		input[19].Sub(&sum, temp.Mul2ExpNegN(&input[19], 5))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-		input[20].Sub(&sum, temp.Mul2ExpNegN(&input[20], 6))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-		input[21].Sub(&sum, temp.Mul2ExpNegN(&input[21], 7))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-		input[22].Sub(&sum, temp.Mul2ExpNegN(&input[22], 9))  //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
-		input[23].Sub(&sum, temp.Mul2ExpNegN(&input[23], 24)) //nolint: gosec // incorrectly flagged by gosec as out of bounds read (G602)
+		input[16].Sub(&sum, temp.Mul2ExpNegN(&input[16], 8))
+		input[17].Sub(&sum, temp.Mul2ExpNegN(&input[17], 3))
+		input[18].Sub(&sum, temp.Mul2ExpNegN(&input[18], 4))
+		input[19].Sub(&sum, temp.Mul2ExpNegN(&input[19], 5))
+		input[20].Sub(&sum, temp.Mul2ExpNegN(&input[20], 6))
+		input[21].Sub(&sum, temp.Mul2ExpNegN(&input[21], 7))
+		input[22].Sub(&sum, temp.Mul2ExpNegN(&input[22], 9))
+		input[23].Sub(&sum, temp.Mul2ExpNegN(&input[23], 24))
 	default:
 		panic("only Width=16,24 are supported")
 	}
@@ -465,5 +489,91 @@ func (h *Permutation) compressx16Generic(matrix []fr.Element, colSize int, resul
 	}
 	for i := range 16 {
 		copy(result[i][:], x[i][:8])
+	}
+}
+
+// Compressx16Columns is a variant of Compressx16 that expects the input matrix
+// in column-major (leaf-contiguous) layout: matrix[col*16+lane] holds leaf
+// lane of column col, so the 16 leaves of a column are 16 contiguous elements.
+//
+// This is the layout a Merkle commitment naturally produces (16 contiguous
+// leaves per column) and lets the AVX-512 kernel load each Poseidon2 rate
+// coordinate with a single contiguous VMOVDQU32 instead of a gather. The gather
+// is the dominant cost of Compressx16 (VPGATHERDD is microcoded and saturates
+// the memory subsystem), so this variant is substantially faster and, unlike
+// the gather kernel, scales with the number of cores.
+//
+// The result is written in the same row-major [16][8] layout as Compressx16:
+// result[lane] is the 8-element digest of leaf lane.
+func (h *Permutation) Compressx16Columns(matrix []fr.Element, colSize int, result [][8]fr.Element) {
+	if len(matrix) != 16*colSize || len(result) != 16 || colSize == 0 || colSize%8 != 0 {
+		panic("invalid input: matrix must be 16*colSize, result must be 16, colSize must be multiple of 8")
+	}
+	h.compressx16Columns(nil, matrix, colSize, result)
+}
+
+// Compressx16ColumnsWithState runs 16 independent Poseidon2 compression
+// chains from caller-provided states. state[pos*16+lane] is coordinate pos of
+// lane's initial 8-element state, and matrix[(step*8+pos)*16+lane] is
+// coordinate pos of its block at step. Inputs are not mutated. result[lane]
+// receives the final state. result must not overlap state or matrix.
+func (h *Permutation) Compressx16ColumnsWithState(
+	state, matrix []fr.Element,
+	colSize int,
+	result [][8]fr.Element,
+) {
+	if len(state) != 16*8 || len(matrix) != 16*colSize || len(result) != 16 || colSize == 0 || colSize%8 != 0 {
+		panic("invalid input: state must be 16*8, matrix must be 16*colSize, result must be 16, colSize must be a positive multiple of 8")
+	}
+	h.compressx16Columns(state, matrix, colSize, result)
+}
+
+func (h *Permutation) compressx16Columns(
+	state, matrix []fr.Element,
+	colSize int,
+	result [][8]fr.Element,
+) {
+
+	if !h.params.hasFast16_6_21 || (runtime.GOARCH == "arm64" && state != nil) {
+		h.compressx16ColumnsGeneric(state, matrix, colSize, result)
+		return
+	}
+
+	nbSteps := uint64(colSize / 8)
+	if runtime.GOARCH == "arm64" {
+		permutation16x16xN_columns_arm64(&matrix[0], h.params.RoundKeys, &result[0][0], nbSteps)
+		return
+	}
+	var statePtr *fr.Element
+	if state != nil {
+		statePtr = &state[0]
+	}
+	permutation16x16xN_columns_avx512(&matrix[0], h.params.RoundKeys, &result[0][0], nbSteps, statePtr)
+}
+
+// compressx16ColumnsGeneric is the pure-Go fallback for Compressx16Columns.
+func (h *Permutation) compressx16ColumnsGeneric(state, matrix []fr.Element, colSize int, result [][8]fr.Element) {
+	var x [16][16]fr.Element
+	if state != nil {
+		for lane := range 16 {
+			for pos := range 8 {
+				x[lane][pos] = state[pos*16+lane]
+			}
+		}
+	}
+	nbSteps := colSize / 8
+	for step := range nbSteps {
+		for lane := range 16 {
+			for j := range 8 {
+				x[lane][8+j] = matrix[(step*8+j)*16+lane]
+			}
+			h.Permutation(x[lane][:])
+			for j := range 8 {
+				x[lane][j].Add(&x[lane][8+j], &matrix[(step*8+j)*16+lane])
+			}
+		}
+	}
+	for lane := range 16 {
+		copy(result[lane][:], x[lane][:8])
 	}
 }

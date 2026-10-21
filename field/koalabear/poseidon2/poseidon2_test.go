@@ -64,6 +64,52 @@ func TestMulMulInternalInPlaceWidth24(t *testing.T) {
 	}
 }
 
+// denseMatrixMul returns m·x.
+func denseMatrixMul(m [][]fr.Element, x []fr.Element) []fr.Element {
+	res := make([]fr.Element, len(m))
+	for i := range m {
+		var tmp fr.Element
+		for j := range m[i] {
+			tmp.Mul(&m[i][j], &x[j])
+			res[i].Add(&res[i], &tmp)
+		}
+	}
+	return res
+}
+
+// TestMatricesMatchInPlace checks that the dense matrices act on a random
+// state as the in-place multiplications of the permutation.
+func TestMatricesMatchInPlace(t *testing.T) {
+	for _, tc := range []struct {
+		width, nbFullRounds, nbPartialRounds int
+	}{
+		{16, 6, 21},
+		{24, 6, 21},
+	} {
+		h := NewPermutation(tc.width, tc.nbFullRounds, tc.nbPartialRounds)
+
+		for name, step := range map[string]struct {
+			dense   [][]fr.Element
+			inPlace func([]fr.Element)
+		}{
+			"external": {h.params.ExternalMatrix(), h.matMulExternalInPlace},
+			"internal": {h.params.InternalMatrix(), h.matMulInternalInPlace},
+		} {
+			x := make([]fr.Element, tc.width)
+			for i := range x {
+				x[i].MustSetRandom()
+			}
+			want := denseMatrixMul(step.dense, x)
+			step.inPlace(x)
+			for i := range x {
+				if !x[i].Equal(&want[i]) {
+					t.Fatalf("width %d, %s matrix: dense and in-place multiplications differ at index %d", tc.width, name, i)
+				}
+			}
+		}
+	}
+}
+
 func TestAVX512Width16(t *testing.T) {
 	if !cpu.SupportAVX512 {
 		t.Skip("AVX512 not supported")
@@ -434,6 +480,171 @@ func BenchmarkCompressx16VariableSize(b *testing.B) {
 			b.ResetTimer()
 			for range b.N {
 				h.Compressx16(matrix, colSize, result[:])
+			}
+		})
+	}
+}
+
+// toColumnMajor converts a row-major matrix (row = leaf, shape 16*colSize) into
+// the column-major layout expected by Compressx16Columns:
+// colMajor[col*16+lane] = rowMajor[lane*colSize+col].
+func toColumnMajor(rowMajor []fr.Element, colSize int) []fr.Element {
+	colMajor := make([]fr.Element, len(rowMajor))
+	for lane := range 16 {
+		for col := range colSize {
+			colMajor[col*16+lane] = rowMajor[lane*colSize+col]
+		}
+	}
+	return colMajor
+}
+
+func TestCompressx16Columns(t *testing.T) {
+	assert := require.New(t)
+
+	colSizes := []int{8, 16, 24, 40, 48, 80, 160, 256, 320, 392, 440, 512}
+	for _, colSize := range colSizes {
+		t.Run(fmt.Sprintf("colSize_%d", colSize), func(t *testing.T) {
+			const nbRows = 16
+			rowMajor := make([]fr.Element, nbRows*colSize)
+			for i := range rowMajor {
+				rowMajor[i].MustSetRandom()
+			}
+			colMajor := toColumnMajor(rowMajor, colSize)
+
+			// reference: the (validated) gather kernel on the equivalent row-major matrix.
+			var expected [16][8]fr.Element
+			h := NewPermutation(16, 6, 21)
+			h.Compressx16(rowMajor, colSize, expected[:])
+
+			// column-major kernel (AVX512 when available)
+			var result [16][8]fr.Element
+			h.Compressx16Columns(colMajor, colSize, result[:])
+
+			// pure-go column-major fallback
+			var resultGeneric [16][8]fr.Element
+			hg := NewPermutation(16, 6, 21)
+			hg.disableAVX512()
+			hg.Compressx16Columns(colMajor, colSize, resultGeneric[:])
+
+			for i := range 16 {
+				for j := range 8 {
+					assert.True(expected[i][j].Equal(&result[i][j]), "colSize=%d AVX512 mismatch at row %d col %d", colSize, i, j)
+					assert.True(expected[i][j].Equal(&resultGeneric[i][j]), "colSize=%d generic mismatch at row %d col %d", colSize, i, j)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkCompressx16Columns(b *testing.B) {
+	const colSize = 512
+	const nbRows = 16
+	matrix := make([]fr.Element, nbRows*colSize)
+	for i := range matrix {
+		matrix[i].MustSetRandom()
+	}
+	var result [16][8]fr.Element
+	h := NewPermutation(16, 6, 21)
+
+	b.ResetTimer()
+	for range b.N {
+		h.Compressx16Columns(matrix, colSize, result[:])
+	}
+}
+
+func BenchmarkCompressx16ColumnsVariableSize(b *testing.B) {
+	colSizes := []int{16, 48, 80, 160, 256, 392, 512}
+	h := NewPermutation(16, 6, 21)
+
+	for _, colSize := range colSizes {
+		b.Run(fmt.Sprintf("colSize_%d", colSize), func(b *testing.B) {
+			const nbRows = 16
+			matrix := make([]fr.Element, nbRows*colSize)
+			for i := range matrix {
+				matrix[i].MustSetRandom()
+			}
+			var result [16][8]fr.Element
+
+			b.ResetTimer()
+			for range b.N {
+				h.Compressx16Columns(matrix, colSize, result[:])
+			}
+		})
+	}
+}
+
+func TestCompressx16ColumnsWithState(t *testing.T) {
+	h := NewPermutation(16, 6, 21)
+	hGeneric := NewPermutation(16, 6, 21)
+	hGeneric.disableAVX512()
+
+	for _, colSize := range []int{8, 16, 48} {
+		for _, zeroState := range []bool{true, false} {
+			t.Run(fmt.Sprintf("colSize_%d/zeroState_%t", colSize, zeroState), func(t *testing.T) {
+				state := make([]fr.Element, 16*8)
+				matrix := make([]fr.Element, 16*colSize)
+				if !zeroState {
+					for i := range state {
+						state[i].SetUint64(uint64(i*40503 + 17))
+					}
+				}
+				for i := range matrix {
+					matrix[i].SetUint64(uint64(i*2654435761 + 23))
+				}
+				stateBefore := append([]fr.Element(nil), state...)
+				matrixBefore := append([]fr.Element(nil), matrix...)
+
+				var expected, got, gotGeneric [16][8]fr.Element
+				for lane := range 16 {
+					var x [16]fr.Element
+					for pos := range 8 {
+						x[pos] = state[pos*16+lane]
+					}
+					for step := range colSize / 8 {
+						for pos := range 8 {
+							x[8+pos] = matrix[(step*8+pos)*16+lane]
+						}
+						require.NoError(t, h.Permutation(x[:]))
+						for pos := range 8 {
+							x[pos].Add(&x[8+pos], &matrix[(step*8+pos)*16+lane])
+						}
+					}
+					copy(expected[lane][:], x[:8])
+				}
+
+				h.Compressx16ColumnsWithState(state, matrix, colSize, got[:])
+				hGeneric.Compressx16ColumnsWithState(state, matrix, colSize, gotGeneric[:])
+				require.Equal(t, expected, got)
+				require.Equal(t, expected, gotGeneric)
+				require.Equal(t, stateBefore, state)
+				require.Equal(t, matrixBefore, matrix)
+			})
+		}
+	}
+}
+
+func TestCompressx16ColumnsWithStateInvalidInput(t *testing.T) {
+	h := NewPermutation(16, 6, 21)
+	state := make([]fr.Element, 16*8)
+	matrix := make([]fr.Element, 16*8)
+	result := make([][8]fr.Element, 16)
+
+	require.Panics(t, func() { h.Compressx16ColumnsWithState(state[:len(state)-1], matrix, 8, result) })
+	require.Panics(t, func() { h.Compressx16ColumnsWithState(state, matrix[:len(matrix)-1], 8, result) })
+	require.Panics(t, func() { h.Compressx16ColumnsWithState(state, matrix, 0, result) })
+	require.Panics(t, func() { h.Compressx16ColumnsWithState(state, matrix, 8, result[:len(result)-1]) })
+}
+
+func BenchmarkCompressx16ColumnsWithStateVariableSize(b *testing.B) {
+	h := NewPermutation(16, 6, 21)
+	state := make([]fr.Element, 16*8)
+	for _, colSize := range []int{16, 48} {
+		b.Run(fmt.Sprintf("colSize_%d", colSize), func(b *testing.B) {
+			matrix := make([]fr.Element, 16*colSize)
+			var result [16][8]fr.Element
+			b.ResetTimer()
+			for b.Loop() {
+				h.Compressx16ColumnsWithState(state, matrix, colSize, result[:])
 			}
 		})
 	}

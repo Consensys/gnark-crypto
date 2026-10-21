@@ -40,6 +40,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -286,12 +287,14 @@ var Functions = []*Function{
 func initCache() {
 	mAddchains = make(map[string]*AddChainData)
 
-	// read existing files in addchain directory
-	path, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
+	// Resolve the cache directory from this source file's location so it is
+	// independent of the caller's working directory. The cache lives next to
+	// addchain.go (i.e. internal/generator/addchain/).
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		log.Fatal("addchain: unable to determine cache directory from runtime.Caller")
 	}
-	addChainDir = filepath.Join(path, "addchain")
+	addChainDir = filepath.Dir(thisFile)
 	_ = os.Mkdir(addChainDir, 0700)
 	files, err := os.ReadDir(addChainDir)
 	if err != nil {

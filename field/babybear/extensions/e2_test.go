@@ -6,9 +6,12 @@
 package extensions
 
 import (
+	"bytes"
 	"crypto/rand"
 	"math/big"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	fr "github.com/consensys/gnark-crypto/field/babybear"
 	"github.com/leanovate/gopter"
@@ -341,6 +344,26 @@ func TestE2Ops(t *testing.T) {
 		genA,
 	))
 
+	// Regression test for the silent failure of E2.Sqrt on purely-real
+	// inputs whose Fp coordinate is a non-residue. The Scott §6.3 formula
+	// divides by 2·y0 at the end; for x = (a, 0) with a non-QR in Fp the
+	// inner Fp.Sqrt returned 0 and the function fell through to 0/0,
+	// producing (0, 0) regardless of the actual square root. The fix
+	// special-cases x.A1 == 0 and looks for an E2 root of the form (0, b)
+	// with β·b² = a.
+	properties.Property("[babybear] square(sqrt) should be invariant for purely-real inputs", prop.ForAll(
+		func(a fr.Element) bool {
+			var x, root, sq E2
+			x.A0.Set(&a)
+			// (a, 0) is always an E2-square for a != 0: either a is QR in
+			// Fp, or a/β is (since β is itself a non-residue).
+			root.Sqrt(&x)
+			sq.Square(&root)
+			return sq.Equal(&x)
+		},
+		genFr(),
+	))
+
 	properties.Property("[babybear] neg(E2) == neg(E2.A0, E2.A1)", prop.ForAll(
 		func(a E2) bool {
 			var b, c E2
@@ -532,4 +555,190 @@ func genE2() gopter.Gen {
 	).Map(func(values []any) E2 {
 		return E2{A0: values[0].(fr.Element), A1: values[1].(fr.Element)}
 	})
+}
+
+func TestE2SetString(t *testing.T) {
+	t.Parallel()
+
+	var want E2
+	if _, err := want.A0.SetString("0x10"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := want.A1.SetString("2"); err != nil {
+		t.Fatal(err)
+	}
+
+	var z E2
+	got, err := z.SetString("0x10", "2")
+	if err != nil {
+		t.Fatalf("valid coefficients: %v", err)
+	}
+	if got != &z {
+		t.Fatal("SetString did not return the receiver")
+	}
+	if !z.Equal(&want) {
+		t.Fatalf("got %s, want %s", z.String(), want.String())
+	}
+
+	_, wantErr := want.A0.SetString("nope")
+	if wantErr == nil {
+		t.Fatal("subfield accepted an invalid coefficient")
+	}
+	var cases [2][2]string
+	cases[0] = [2]string{"nope", "1"}
+	cases[1] = [2]string{"1", "nope"}
+	for _, coeffs := range cases {
+		got, err = z.SetString(coeffs[0], coeffs[1])
+		if got != nil {
+			t.Fatalf("SetString(%q, %q) returned a receiver", coeffs[0], coeffs[1])
+		}
+		if err == nil || err.Error() != wantErr.Error() {
+			t.Fatalf("SetString(%q, %q) error = %v, want %v", coeffs[0], coeffs[1], err, wantErr)
+		}
+	}
+}
+
+func TestE2MarshalSetBytesCanonicalRoundTrip(t *testing.T) {
+	for range 100 {
+		var x E2
+		x.MustSetRandom()
+
+		b := x.Marshal()
+		if len(b) != BytesE2 {
+			t.Fatalf("Marshal returned %d bytes, want %d", len(b), BytesE2)
+		}
+		coords := []*fr.Element{&x.A0, &x.A1}
+		for i, c := range coords {
+			cb := c.Bytes()
+			if !bytes.Equal(b[i*fr.Bytes:(i+1)*fr.Bytes], cb[:]) {
+				t.Fatalf("coefficient %d is not encoded at its expected offset", i)
+			}
+		}
+
+		var y E2
+		require.NoError(t, y.SetBytesCanonical(b))
+		if !y.Equal(&x) {
+			t.Fatal("SetBytesCanonical(Marshal(x)) != x")
+		}
+	}
+
+	for _, n := range []int{0, BytesE2 - 1, BytesE2 + 1} {
+		var z E2
+		if err := z.SetBytesCanonical(make([]byte, n)); err == nil {
+			t.Fatalf("SetBytesCanonical did not fail on %d bytes", n)
+		}
+	}
+}
+
+func TestE2SetInt64SetUint64(t *testing.T) {
+	for _, v := range []int64{0, 1, -1, 7, -12345, 1 << 40, -(1 << 40)} {
+		var z E2
+		z.SetInt64(v)
+		require.Truef(t, z.A1.IsZero(), "coordinate A1 is non-zero for %d", v)
+		var want fr.Element
+		want.SetInt64(v)
+		require.Truef(t, z.A0.Equal(&want), "SetInt64(%d)", v)
+
+		// SetInt64 and SetBigInt agree
+		var zb E2
+		zb.SetBigInt(big.NewInt(v))
+		require.Truef(t, z.Equal(&zb), "SetInt64(%d) != SetBigInt(%d)", v, v)
+	}
+	for _, v := range []uint64{0, 1, 7, 12345, 1 << 40, 1<<64 - 1} {
+		var z E2
+		z.SetUint64(v)
+		require.Truef(t, z.A1.IsZero(), "coordinate A1 is non-zero for %d", v)
+		var want fr.Element
+		want.SetUint64(v)
+		require.Truef(t, z.A0.Equal(&want), "SetUint64(%d)", v)
+
+		var zb E2
+		zb.SetBigInt(new(big.Int).SetUint64(v))
+		require.Truef(t, z.Equal(&zb), "SetUint64(%d) != SetBigInt(%d)", v, v)
+	}
+}
+
+func TestE2SetBytesCanonicalRejectsNonCanonical(t *testing.T) {
+	var x E2
+	x.MustSetRandom()
+	good := x.Marshal()
+
+	q := fr.Modulus()
+	for i := range 2 {
+		b := append([]byte(nil), good...)
+		q.FillBytes(b[i*fr.Bytes : (i+1)*fr.Bytes])
+
+		y := x
+		require.Error(t, y.SetBytesCanonical(b), "coefficient %d equal to the modulus must be rejected", i)
+		require.True(t, y.Equal(&x), "E2 must be unchanged on error")
+	}
+}
+
+func TestE2ElementOps(t *testing.T) {
+	for range 100 {
+		var x, lifted, got, want E2
+		var e fr.Element
+		x.MustSetRandom()
+		e.MustSetRandom()
+
+		var z E2
+		z.SetElement(&e)
+		require.True(t, z.A0.Equal(&e))
+		require.True(t, z.A1.IsZero())
+		lifted = z
+
+		got.AddElement(&x, &e)
+		want.Add(&x, &lifted)
+		require.True(t, got.Equal(&want), "AddElement")
+
+		got.SubElement(&x, &e)
+		want.Sub(&x, &lifted)
+		require.True(t, got.Equal(&want), "SubElement")
+
+		got.SubFromElement(&e, &x)
+		want.Sub(&lifted, &x)
+		require.True(t, got.Equal(&want), "SubFromElement")
+
+		// aliasing of the receiver with the second operand
+		got.Set(&x)
+		got.SubFromElement(&e, &got)
+		require.True(t, got.Equal(&want), "SubFromElement alias")
+
+		// aliasing of the receiver with the first operand
+		got.Set(&x)
+		got.AddElement(&got, &e)
+		want.Add(&x, &lifted)
+		require.True(t, got.Equal(&want), "AddElement alias")
+		got.SubElement(&got, &e)
+		require.True(t, got.Equal(&x), "SubElement alias")
+	}
+}
+
+func TestE2Base(t *testing.T) {
+	for range 100 {
+		var x, y E2
+		x.MustSetRandom()
+
+		prefix := make([]fr.Element, 2)
+		prefix[0].MustSetRandom()
+		prefix[1].MustSetRandom()
+		base := x.AppendBase(append([]fr.Element(nil), prefix...))
+		require.Len(t, base, 2+2)
+		require.Equal(t, prefix, base[:2], "AppendBase must keep the prefix")
+
+		require.True(t, y.SetBase(base[2:]).Equal(&x), "SetBase(AppendBase(x)) != x")
+
+		// the coordinate order is the one of Marshal
+		var want []byte
+		for i := range base[2:] {
+			b := base[2+i].Bytes()
+			want = append(want, b[:]...)
+		}
+		require.Equal(t, want, x.Marshal())
+	}
+
+	var z E2
+	for _, n := range []int{0, 2 - 1, 2 + 1} {
+		require.Panics(t, func() { z.SetBase(make([]fr.Element, n)) }, "SetBase on %d elements", n)
+	}
 }

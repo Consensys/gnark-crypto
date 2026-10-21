@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/hash"
-	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/twistededwards"
+	{{if ne .Package "twistededwards"}}twistededwards {{end}}"github.com/consensys/gnark-crypto/ecc/{{.Name}}/{{.Package}}"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr/mimc"
 )
@@ -122,10 +122,105 @@ func TestNoZeros(t *testing.T) {
 	})
 }
 
+func TestRejectSmallSubgroupForgery(t *testing.T) {
+	cp := twistededwards.GetEdwardsCurve()
+
+	var pub PublicKey
+	pub.A.Y.SetOne().Neg(&pub.A.Y)
+	if !pub.A.IsOnCurve() {
+		t.Fatal("test public key should be on curve")
+	}
+	if pub.A.IsInSubGroup() {
+		t.Fatal("test public key should not be in the prime-order subgroup")
+	}
+
+	var sig Signature
+	sig.R.ScalarMultiplication(&cp.Base, big.NewInt(1))
+	big.NewInt(1).FillBytes(sig.S[:])
+
+	verified, err := pub.Verify(sig.Bytes(), []byte("forged message"), sha256.New())
+	if err == nil && verified {
+		t.Fatal("Verify accepted a forged signature under a small-subgroup public key")
+	}
+}
+
+func TestRejectSmallSubgroupEncoding(t *testing.T) {
+	var pub PublicKey
+	pub.A.Y.SetOne().Neg(&pub.A.Y)
+
+	var decodedPub PublicKey
+	if _, err := decodedPub.SetBytes(pub.Bytes()); err == nil {
+		t.Fatal("SetBytes accepted a small-subgroup public key")
+	}
+
+	var sig Signature
+	sig.R.Set(&pub.A)
+	big.NewInt(1).FillBytes(sig.S[:])
+
+	var decodedSig Signature
+	if _, err := decodedSig.SetBytes(sig.Bytes()); err == nil {
+		t.Fatal("SetBytes accepted a small-subgroup signature R")
+	}
+}
+
+func TestPrivateKeyDeserializationChecksPublicKeyAndScalar(t *testing.T) {
+	src := rand.NewSource(0)
+	r := rand.New(src)
+
+	privKey, err := GenerateKey(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherPrivKey, err := GenerateKey(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	privKeyBin := privKey.Bytes()
+
+	t.Run("public_key_mismatch", func(t *testing.T) {
+		tampered := append([]byte(nil), privKeyBin...)
+		copy(tampered[:sizeFr], otherPrivKey.PublicKey.Bytes())
+
+		var decoded PrivateKey
+		if _, err := decoded.SetBytes(tampered); err != errPublicKeyMismatch {
+			t.Fatalf("expected errPublicKeyMismatch, got %v", err)
+		}
+	})
+
+	t.Run("scalar_mismatch", func(t *testing.T) {
+		tampered := append([]byte(nil), privKeyBin...)
+		tampered[sizeFr+1] ^= 1
+
+		var decoded PrivateKey
+		if _, err := decoded.SetBytes(tampered); err != errPublicKeyMismatch {
+			t.Fatalf("expected errPublicKeyMismatch, got %v", err)
+		}
+	})
+
+	t.Run("invalid_scalar_pruning", func(t *testing.T) {
+		tampered := append([]byte(nil), privKeyBin...)
+		tampered[2*sizeFr-1] |= 1
+
+		var bScalar big.Int
+		bScalar.SetBytes(tampered[sizeFr : 2*sizeFr])
+		cp := twistededwards.GetEdwardsCurve()
+		var pub twistededwards.PointAffine
+		pub.ScalarMultiplication(&cp.Base, &bScalar)
+		pubBin := pub.Bytes()
+		copy(tampered[:sizeFr], pubBin[:])
+
+		var decoded PrivateKey
+		if _, err := decoded.SetBytes(tampered); err != errInvalidScalar {
+			t.Fatalf("expected errInvalidScalar, got %v", err)
+		}
+	})
+}
+
 func TestSerialization(t *testing.T) {
 
 	src := rand.NewSource(0)
-	r := rand.New(src) //#nosec G404 weak rng is fine here
+	r := rand.New(src)
 
 	privKey1, err := GenerateKey(r)
 	if err != nil {
@@ -167,7 +262,7 @@ func TestSerialization(t *testing.T) {
 func TestEddsaMIMC(t *testing.T) {
 
 	src := rand.NewSource(0)
-	r := rand.New(src) //#nosec G404 weak rng is fine here
+	r := rand.New(src)
 
 	// create eddsa obj and sign a message
 	privKey, err := GenerateKey(r)
@@ -210,7 +305,7 @@ func TestEddsaMIMC(t *testing.T) {
 func TestEddsaSHA256(t *testing.T) {
 
 	src := rand.NewSource(0)
-	r := rand.New(src) //#nosec G404 weak rng is fine here
+	r := rand.New(src)
 
 	hFunc := sha256.New()
 
@@ -250,10 +345,38 @@ func TestEddsaSHA256(t *testing.T) {
 
 // benchmarks
 
-func BenchmarkVerify(b *testing.B) {
+func BenchmarkGenerateKey(b *testing.B) {
+	r := rand.New(rand.NewSource(0))
 
+	for b.Loop() {
+		if _, err := GenerateKey(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkSign(b *testing.B) {
+	r := rand.New(rand.NewSource(0))
+	privKey, err := GenerateKey(r)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	var frMsg fr.Element
+	frMsg.SetString("44717650746155748460101257525078853138837311576962212923649547644148297035978")
+	msgBin := frMsg.Bytes()
+	hFunc := hash.MIMC_{{ .EnumID }}.New()
+
+	for b.Loop() {
+		if _, err := privKey.Sign(msgBin[:], hFunc); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkVerify(b *testing.B) {
 	src := rand.NewSource(0)
-	r := rand.New(src) //#nosec G404 weak rng is fine here
+	r := rand.New(src)
 
 	hFunc := hash.MIMC_{{ .EnumID }}.New()
 
@@ -268,8 +391,7 @@ func BenchmarkVerify(b *testing.B) {
 	msgBin := frMsg.Bytes()
 	signature, _ := privKey.Sign(msgBin[:], hFunc)
 
-	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		pubKey.Verify(signature, msgBin[:], hFunc)
 	}
 }

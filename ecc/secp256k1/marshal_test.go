@@ -44,10 +44,10 @@ func TestEncoder(t *testing.T) {
 	var inN [][][]fr.Element
 
 	// set values of inputs
-	inA = rand.Uint64() //#nosec G404 weak rng is fine here
+	inA = rand.Uint64()
 	inB.MustSetRandom()
 	inC.MustSetRandom()
-	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64())) //#nosec G404 weak rng is fine here
+	inD.ScalarMultiplication(&g1GenAff, new(big.Int).SetUint64(rand.Uint64()))
 	// inE --> infinity
 	inG = make([]G1Affine, 2)
 	inG[1] = inD
@@ -154,6 +154,52 @@ func TestEncoder(t *testing.T) {
 	testDecode(t, &buf, enc.BytesWritten())
 	testDecode(t, &bufRaw, encRaw.BytesWritten())
 
+}
+
+// TestDecoderNestedError ensures that an error raised while decoding a nested
+// vector is not masked by a subsequent, well formed (possibly empty) one. The
+// decoding loops used to overwrite err on each iteration, so a trailing empty
+// row reported success on input that was in fact malformed.
+func TestDecoderNestedError(t *testing.T) {
+	t.Parallel()
+
+	// an element larger than the modulus: rejected by fr.Vector.ReadFrom
+	noncanonical := make([]byte, fr.Bytes)
+	for i := range noncanonical {
+		noncanonical[i] = 0xff
+	}
+
+	// uint32 big endian length prefix, as written by the encoder
+	length := func(n uint32) []byte {
+		return []byte{byte(n >> 24), byte(n >> 16), byte(n >> 8), byte(n)}
+	}
+
+	t.Run("slice²(elements)", func(t *testing.T) {
+		var buf bytes.Buffer
+		buf.Write(length(2))    // 2 rows
+		buf.Write(length(1))    // row 0: 1 element...
+		buf.Write(noncanonical) // ...which is noncanonical
+		buf.Write(length(0))    // row 1: empty, used to reset err to nil
+
+		var out [][]fr.Element
+		if err := NewDecoder(&buf).Decode(&out); err == nil {
+			t.Fatal("decoding a noncanonical element followed by an empty row must fail")
+		}
+	})
+
+	t.Run("slice³(elements)", func(t *testing.T) {
+		var buf bytes.Buffer
+		buf.Write(length(1))    // 1 pack
+		buf.Write(length(2))    // pack 0: 2 rows
+		buf.Write(length(1))    // row 0: 1 element...
+		buf.Write(noncanonical) // ...which is noncanonical
+		buf.Write(length(0))    // row 1: empty, used to reset err to nil
+
+		var out [][][]fr.Element
+		if err := NewDecoder(&buf).Decode(&out); err == nil {
+			t.Fatal("decoding a noncanonical element followed by an empty row must fail")
+		}
+	})
 }
 
 func TestG1AffineSerialization(t *testing.T) {

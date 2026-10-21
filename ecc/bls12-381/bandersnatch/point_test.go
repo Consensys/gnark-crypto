@@ -852,9 +852,35 @@ func TestOps(t *testing.T) {
 		genS1,
 	))
 
+	properties.Property("base scalar multiplication should be consistent", prop.ForAll(
+		func(s big.Int) bool {
+			params := GetEdwardsCurve()
+
+			var p1, p2 PointAffine
+			p1.ScalarMultiplicationBase(&s)
+			p2.ScalarMultiplication(&params.Base, &s)
+
+			return p1.Equal(&p2)
+		},
+		genS1,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 
 }
+func testSubgroupByOrder(p *PointAffine) bool {
+	params := GetEdwardsCurve()
+	var check PointAffine
+	check.ScalarMultiplication(p, &params.Order)
+	return check.IsZero()
+}
+
+func testRejectTorsionCoset(p, torsion *PointAffine) bool {
+	var q PointAffine
+	q.Add(p, torsion)
+	return !q.IsInSubGroup() && !testSubgroupByOrder(&q)
+}
+
 func TestIsInSubGroup(t *testing.T) {
 	t.Parallel()
 	parameters := gopter.DefaultTestParameters()
@@ -877,6 +903,14 @@ func TestIsInSubGroup(t *testing.T) {
 		},
 	))
 
+	properties.Property("The 2-torsion point (0,-1) should not be in subgroup", prop.ForAll(
+		func() bool {
+			var p PointAffine
+			p.Y.SetOne().Neg(&p.Y)
+			return !p.IsInSubGroup()
+		},
+	))
+
 	properties.Property("Test IsInSubGroup", prop.ForAll(
 		func(s big.Int) bool {
 
@@ -890,12 +924,41 @@ func TestIsInSubGroup(t *testing.T) {
 		genS,
 	))
 
+	properties.Property("IsInSubGroup should agree with multiplication by subgroup order on subgroup points", prop.ForAll(
+		func(s big.Int) bool {
+			params := GetEdwardsCurve()
+
+			var p PointAffine
+			p.ScalarMultiplication(&params.Base, &s)
+
+			return p.IsInSubGroup() == testSubgroupByOrder(&p)
+		},
+		genS,
+	))
+
+	properties.Property("Torsion cosets should not be in subgroup", prop.ForAll(
+		func(s big.Int) bool {
+			params := GetEdwardsCurve()
+
+			var p PointAffine
+			p.ScalarMultiplication(&params.Base, &s)
+
+			var t2 PointAffine
+			t2.Y.SetOne().Neg(&t2.Y)
+			if !testRejectTorsionCoset(&p, &t2) { //nolint: staticcheck, we code generate and in some paths we don't return early
+				return false
+			}
+
+			return true
+		},
+		genS,
+	))
+
 	properties.TestingRun(t, gopter.ConsoleReporter(false))
 }
 
 func TestMarshal(t *testing.T) {
 	t.Parallel()
-	initOnce.Do(initCurveParams)
 
 	var point, unmarshalPoint PointAffine
 	point.Set(&curveParams.Base)
@@ -915,13 +978,75 @@ func GenBigInt() gopter.Gen {
 	return func(genParams *gopter.GenParameters) *gopter.GenResult {
 		var s big.Int
 		var b [fr.Bytes]byte
-		_, err := rand.Read(b[:]) //#nosec G404 weak rng is fine here
+		_, err := rand.Read(b[:])
 		if err != nil {
 			panic(err)
 		}
 		s.SetBytes(b[:])
 		genResult := gopter.NewGenResult(s, gopter.NoShrinker)
 		return genResult
+	}
+}
+
+func TestScalarMultiplicationBase(t *testing.T) {
+	t.Parallel()
+
+	params := GetEdwardsCurve()
+
+	testCases := []struct {
+		Name   string
+		Scalar *big.Int
+	}{
+		{"0", big.NewInt(0)},
+		{"1", big.NewInt(1)},
+		{"2", big.NewInt(2)},
+		{"-1", big.NewInt(-1)},
+		{"-2", big.NewInt(-2)},
+		{"16", big.NewInt(16)},
+		{"-16", big.NewInt(-16)},
+		{"p-1", new(big.Int).Sub(&params.Order, big.NewInt(1))},
+		{"p", new(big.Int).Set(&params.Order)},
+		{"p+1", new(big.Int).Add(&params.Order, big.NewInt(1))},
+		{"p+16", new(big.Int).Add(&params.Order, big.NewInt(16))},
+		{"-p-16", new(big.Int).Neg(new(big.Int).Add(&params.Order, big.NewInt(16)))},
+		{"-p+16", new(big.Int).Neg(new(big.Int).Add(&params.Order, big.NewInt(-16)))},
+		{"2^1000", new(big.Int).Lsh(big.NewInt(1), 1000)},
+		{"-2^1000", new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 1000))},
+	}
+
+	var allFF [fr.Bytes]byte
+	for i := range allFF {
+		allFF[i] = 0xff
+	}
+	testCases = append(testCases, struct {
+		Name   string
+		Scalar *big.Int
+	}{"allFF", new(big.Int).SetBytes(allFF[:])})
+
+	var highestNibble [fr.Bytes]byte
+	highestNibble[0] = 0xf0
+	testCases = append(testCases, struct {
+		Name   string
+		Scalar *big.Int
+	}{"highestNibble", new(big.Int).SetBytes(highestNibble[:])})
+
+	var lowestNibble [fr.Bytes]byte
+	lowestNibble[fr.Bytes-1] = 0x0f
+	testCases = append(testCases, struct {
+		Name   string
+		Scalar *big.Int
+	}{"lowestNibble", new(big.Int).SetBytes(lowestNibble[:])})
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			var fixed, generic PointAffine
+			fixed.ScalarMultiplicationBase(tc.Scalar)
+			generic.ScalarMultiplication(&params.Base, tc.Scalar)
+
+			if !fixed.Equal(&generic) {
+				t.Fatalf("fixed-base mismatch for scalar %s", tc.Scalar.String())
+			}
+		})
 	}
 }
 
@@ -1002,6 +1127,39 @@ func BenchmarkScalarMulProjective(b *testing.B) {
 	for range b.N {
 		doubleAndAdd.ScalarMultiplication(&a, &s)
 	}
+}
+
+func BenchmarkScalarMulAffineBase(b *testing.B) {
+	params := GetEdwardsCurve()
+
+	var scalar big.Int
+	scalar.SetString("52435875175126190479447705081859658376581184513", 10)
+	var scalarUnreduced big.Int
+	scalarUnreduced.Add(&scalar, &params.Order)
+
+	b.Run("generic", func(b *testing.B) {
+		var point PointAffine
+
+		for b.Loop() {
+			point.ScalarMultiplication(&params.Base, &scalar)
+		}
+	})
+
+	b.Run("fixed", func(b *testing.B) {
+		var point PointAffine
+
+		for b.Loop() {
+			point.ScalarMultiplicationBase(&scalar)
+		}
+	})
+
+	b.Run("fixed/unreduced", func(b *testing.B) {
+		var point PointAffine
+
+		for b.Loop() {
+			point.ScalarMultiplicationBase(&scalarUnreduced)
+		}
+	})
 }
 
 func BenchmarkNeg(b *testing.B) {
@@ -1153,8 +1311,25 @@ func BenchmarkIsInSubGroup(b *testing.B) {
 	var point PointAffine
 	point.ScalarMultiplication(&params.Base, &s)
 
-	b.ResetTimer()
-	for range b.N {
-		_ = point.IsInSubGroup()
+	if !point.IsInSubGroup() {
+		b.Fatal("point should be in subgroup")
 	}
+
+	b.Run("is_in_subgroup", func(b *testing.B) {
+		b.ResetTimer()
+		for range b.N {
+			_ = point.IsInSubGroup()
+		}
+	})
+
+	b.Run("mul_by_order", func(b *testing.B) {
+		var check PointAffine
+		b.ResetTimer()
+		for range b.N {
+			check.ScalarMultiplication(&point, &params.Order)
+			if !check.IsZero() {
+				b.Fatal("point should have prime order")
+			}
+		}
+	})
 }

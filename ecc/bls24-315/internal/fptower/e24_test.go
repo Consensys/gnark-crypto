@@ -584,3 +584,29 @@ func BenchmarkE24Expt(b *testing.B) {
 		a.Expt(&a)
 	}
 }
+
+// randomCyclotomicE24 returns a random element of the cyclotomic subgroup.
+func randomCyclotomicE24() E24 {
+	var a, b E24
+	a.MustSetRandom()
+	b.Conjugate(&a)
+	a.Inverse(&a)
+	b.Mul(&b, &a)
+	a.FrobeniusQuad(&b).Mul(&a, &b)
+	return a
+}
+
+func TestE24ExptGroundTruth(t *testing.T) {
+	t.Parallel()
+	// t = -3218079743: compare against conj(x^|t|).
+	tAbs := new(big.Int).SetUint64(3218079743)
+	for i := 0; i < 20; i++ {
+		a := randomCyclotomicE24()
+		var expect, got E24
+		expect.CyclotomicExp(a, tAbs).Conjugate(&expect)
+		got.Expt(&a)
+		if !expect.Equal(&got) {
+			t.Fatal("Expt does not match generic exponentiation by the seed")
+		}
+	}
+}

@@ -1,4 +1,82 @@
 
+<a name="v0.22.0"></a>
+## [v0.22.0] - 2026-10-02
+### Breaking
+- BLS12-381/Jubjub: correct the twisted-Edwards generator; regenerate keys and signatures derived from the previous generator ([#821](https://github.com/Consensys/gnark-crypto/pull/821))
+- BLS12-381/Bandersnatch EdDSA now uses Bandersnatch rather than Jubjub; regenerate keys and signatures ([#882](https://github.com/Consensys/gnark-crypto/pull/882))
+- MamaBear Poseidon2 uses its derived `R_F = 8`, `R_P = 32` round schedule; existing MamaBear Poseidon2 outputs are incompatible ([#900](https://github.com/Consensys/gnark-crypto/pull/900))
+
+### Security
+- ecdsa: reject identity and small-subgroup public keys during key deserialization ([#889](https://github.com/Consensys/gnark-crypto/pull/889))
+- kzg MPC setup: restore the omitted verifying-key G1 generator when reading a setup, preserving opening-proof binding ([#891](https://github.com/Consensys/gnark-crypto/pull/891))
+- Vortex: reject malformed opening proofs that could make an invalid evaluation claim verify (KoalaBear [#896](https://github.com/Consensys/gnark-crypto/pull/896); MamaBear)
+- shplonk and fflonk: reject malformed proof shapes rather than panicking in `BatchVerify` ([#892](https://github.com/Consensys/gnark-crypto/pull/892))
+- fft: reject invalid serialized domain cardinalities before panic or excessive allocation ([#893](https://github.com/Consensys/gnark-crypto/pull/893))
+- field vectors: reject lengths exceeding a knowable remaining input before allocating ([#878](https://github.com/Consensys/gnark-crypto/pull/878))
+
+### Feat
+- add the 49-bit MamaBear field, degree-3 extensions, FFT, Poseidon2, SIS, IOP, and experimental Vortex commitment scheme with AVX-512 IFMA acceleration ([#887](https://github.com/Consensys/gnark-crypto/pull/887))
+- kzg: add the `Committer` interface plus `OpenWithCommitter` and `BatchOpenSinglePointWithCommitter` for externally accelerated quotient commitments ([#879](https://github.com/Consensys/gnark-crypto/pull/879))
+
+### Perf
+- MamaBear AVX-512 IFMA vector arithmetic and FFT acceleration; optimized E3 arithmetic and Poseidon2 ([#887](https://github.com/Consensys/gnark-crypto/pull/887))
+
+### Fix
+- reject uncompressed all-zero point encodings whose infinity bit is clear ([#897](https://github.com/Consensys/gnark-crypto/pull/897))
+- correct MamaBear Poseidon2 parameters for 128-bit security ([#900](https://github.com/Consensys/gnark-crypto/pull/900))
+
+### Build
+- require Go 1.26.8 and update CI to Go 1.26.x
+- **deps:** update direct and tool dependencies
+
+<a name="v0.21.0"></a>
+## [v0.21.0] - 2026-08-10
+### Breaking
+- remove `fri` package from all curves; FRI primitives now live in `field/koalabear` ([#856](https://github.com/Consensys/gnark-crypto/issues/856), [#871](https://github.com/Consensys/gnark-crypto/issues/871))
+- remove `plookup` package from all curves ([#862](https://github.com/Consensys/gnark-crypto/issues/862))
+- `internal/parallel` is now public as `parallel`; the worker pool moved to `utils` ([#819](https://github.com/Consensys/gnark-crypto/issues/819), [#823](https://github.com/Consensys/gnark-crypto/issues/823))
+- eddsa `PublicKey.SetBytes` rejects points outside the prime-order subgroup; `PrivateKey.SetBytes` rejects malformed scalars and public keys that don't match the scalar ([#859](https://github.com/Consensys/gnark-crypto/issues/859))
+
+### Security
+- eddsa: reject small-subgroup public keys ([#859](https://github.com/Consensys/gnark-crypto/issues/859))
+- shplonk, fflonk: check digests and proof points are in the subgroup before verifying ([#858](https://github.com/Consensys/gnark-crypto/issues/858))
+- kzg: `MpcSetup.Verify` checked the ratio on the previous SRS instead of the contributed one, and did not bind the G1 update to the proof ([#857](https://github.com/Consensys/gnark-crypto/issues/857))
+- add subgroup membership tests to all `twistededwards` curves ([#833](https://github.com/Consensys/gnark-crypto/issues/833))
+
+### Feat
+- cube roots in `Fp` and `Fp2` ([#825](https://github.com/Consensys/gnark-crypto/issues/825))
+- FFT over degree-6 extension for koalabear and babybear ([#838](https://github.com/Consensys/gnark-crypto/issues/838), [#772](https://github.com/Consensys/gnark-crypto/issues/772))
+- generic `BitReverse`/`BitReverseCopy` (naive and Cobra) in `utils` ([#871](https://github.com/Consensys/gnark-crypto/issues/871))
+- koalabear: `Compressx16Columns`, `Compressx16ColumnsWithState` and `VectorE6.MulAccByElement` ([#865](https://github.com/Consensys/gnark-crypto/issues/865), [#866](https://github.com/Consensys/gnark-crypto/issues/866), [#871](https://github.com/Consensys/gnark-crypto/issues/871))
+- twistededwards: fixed-base `ScalarMultiplicationBase`, used by eddsa ([#839](https://github.com/Consensys/gnark-crypto/issues/839))
+- secp256r1: `Fp2` tower and Cardano cube-root solver ([#831](https://github.com/Consensys/gnark-crypto/issues/831))
+
+### Fix
+- `Fp2.Sqrt` returned a wrong result on `(non-QR, 0)` inputs ([#845](https://github.com/Consensys/gnark-crypto/issues/845))
+- amd64: 4-byte overread in the `innerProdVec` AVX-512 path ([#841](https://github.com/Consensys/gnark-crypto/issues/841))
+- restore `ExecuteAligned` behavior lost in the `Execute` refactor ([#836](https://github.com/Consensys/gnark-crypto/issues/836))
+- macOS build
+- fft/domain: stale `FinerGenerator`/`GeneratorSqrt` comment ([#744](https://github.com/Consensys/gnark-crypto/issues/744))
+
+### Perf
+- 4-bit sliding window exponentiation for all fields ([#817](https://github.com/Consensys/gnark-crypto/issues/817))
+- lazy-reduction 𝔽p2 multiplication assembly (BLS12-381, BLS12-377, BLS24-315, BLS24-317) ([#861](https://github.com/Consensys/gnark-crypto/issues/861))
+- add-sub chains in `Expt`/`mulBySeed` and optimal Karabina 0-runs ([#860](https://github.com/Consensys/gnark-crypto/issues/860))
+- hash-to-G1 in the highly 2-adic `Fp` case ([#830](https://github.com/Consensys/gnark-crypto/issues/830))
+- inline `E6.Mul`/`E6.Square` for 31-bit primes (2.07x) ([#842](https://github.com/Consensys/gnark-crypto/issues/842))
+- AVX-512 batch ops for E6 FFT on koalabear (2.97x) ([#843](https://github.com/Consensys/gnark-crypto/issues/843))
+- koalabear: unrolled FFT kernels and faster SIS `LimbIterator` ([#834](https://github.com/Consensys/gnark-crypto/issues/834))
+- koalabear: AVX-512 `VectorE6` scalar mul-acc kernels ([#868](https://github.com/Consensys/gnark-crypto/issues/868))
+- koalabear: NEON `Compressx16Columns` kernel (arm64) ([#870](https://github.com/Consensys/gnark-crypto/issues/870))
+- F31 Poseidon2: `permutation16_avx512` (-17%) ([#829](https://github.com/Consensys/gnark-crypto/issues/829))
+- generalize `Compressx16` AVX-512 for variable `colSize` ([#824](https://github.com/Consensys/gnark-crypto/issues/824))
+- kzg mpc setup: drop the parallel pool, use batch subgroup checks ([#823](https://github.com/Consensys/gnark-crypto/issues/823))
+
+### Build
+- **deps:** bump golang.org/x/crypto to 0.54.0, x/sys to 0.47.0, x/sync to 0.22.0
+- pin GitHub Actions to commit SHAs ([#837](https://github.com/Consensys/gnark-crypto/issues/837))
+- apply `go fix` modernizations ([#820](https://github.com/Consensys/gnark-crypto/issues/820))
+
 <a name="v0.20.1"></a>
 ## [v0.20.1] - 2026-03-16
 ### Fix
@@ -2241,6 +2319,8 @@
 - Merge pull request [#2](https://github.com/Consensys/gnark-crypto/issues/2) from ConsenSys/develop
 <a name="v0.0.1"></a>
 ## v0.0.1 - 2020-03-23
+[v0.22.0]: https://github.com/Consensys/gnark-crypto/compare/v0.21.0...v0.22.0
+[v0.21.0]: https://github.com/Consensys/gnark-crypto/compare/v0.20.1...v0.21.0
 [v0.20.1]: https://github.com/Consensys/gnark-crypto/compare/v0.20.0...v0.20.1
 [v0.20.0]: https://github.com/Consensys/gnark-crypto/compare/v0.19.2...v0.20.0
 [v0.19.2]: https://github.com/Consensys/gnark-crypto/compare/v0.19.1...v0.19.2

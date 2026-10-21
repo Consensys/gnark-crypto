@@ -713,7 +713,24 @@ func (p *G1Jac) mulWindowedMixed(q *G1Affine, s *big.Int) *G1Jac {
 // mulBySeed multiplies the point q by the seed xGen in Jacobian coordinates
 // using an optimized addition chain.
 func (p *G1Jac) mulBySeed(q *G1Jac) *G1Jac {
-	p.mulWindowed(q, &xGen)
+	// Addition-subtraction chain for the seed 3218079743 = 0xbfcfffff:
+	// (3<<10 - 3)<<20 - 1 (point negation is free, so subtractions cost the
+	// same as additions).
+	// Operations: 30 doublings, 1 tripling, 2 subtractions.
+
+	var t, res G1Jac
+
+	t.Triple(q)
+	res.Set(&t)
+	for range 10 {
+		res.Double(&res)
+	}
+	res.SubAssign(&t)
+	for range 20 {
+		res.Double(&res)
+	}
+	res.SubAssign(q)
+	p.Set(&res)
 	return p
 }
 

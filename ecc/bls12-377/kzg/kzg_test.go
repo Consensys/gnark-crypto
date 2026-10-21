@@ -8,6 +8,7 @@ package kzg
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"math/big"
 	"slices"
 	"sync"
@@ -20,6 +21,7 @@ import (
 	curve "github.com/consensys/gnark-crypto/ecc/bls12-377"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr/fft"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/mpcsetup"
 	"github.com/consensys/gnark-crypto/utils"
 
 	"github.com/consensys/gnark-crypto/utils/testutils"
@@ -78,6 +80,25 @@ func TestMpcSetup(t *testing.T) {
 		require.NoError(t, prev.Verify(&p))
 		prev = p
 	}
+}
+
+func TestMpcSetupRejectsInconsistentG1Monomials(t *testing.T) {
+	prev := InitializeSetup(srsSize)
+	next := InitializeSetup(srsSize)
+
+	var contribution fr.Element
+	contribution.SetUint64(2)
+	challenge := prev.hash()
+	next.challenge = challenge
+	next.proof = mpcsetup.UpdateValues(&contribution, append([]byte("KZG Setup"), challenge...), 0, &next.srs.Vk.G2[1])
+	mpcsetup.UpdateMonomialsG1(next.srs.Pk.G1, &contribution)
+
+	_, _, g1, _ := curve.Generators()
+	for i := 2; i < len(next.srs.Pk.G1); i++ {
+		next.srs.Pk.G1[i] = g1
+	}
+
+	require.Error(t, prev.Verify(&next))
 }
 
 func TestToLagrangeG1(t *testing.T) {
@@ -472,10 +493,115 @@ func TestBatchVerifySinglePoint(t *testing.T) {
 					t.Fatal("verifying wrong proof should have failed")
 				}
 			}
+			{
+				// verify zero digests
+				err = BatchVerifySinglePoint(nil, &proof, point, hf, srs.Vk)
+				if !errors.Is(err, ErrZeroNbDigests) {
+					t.Fatalf("expected ErrZeroNbDigests from BatchVerifySinglePoint, got %v", err)
+				}
+				_, _, err = FoldProof(nil, &proof, point, hf)
+				if !errors.Is(err, ErrZeroNbDigests) {
+					t.Fatalf("expected ErrZeroNbDigests from FoldProof, got %v", err)
+				}
+				var emptyProof BatchOpeningProof
+				_, _, err = FoldProof(nil, &emptyProof, point, hf)
+				if !errors.Is(err, ErrZeroNbDigests) {
+					t.Fatalf("expected ErrZeroNbDigests from FoldProof with empty proof, got %v", err)
+				}
+				_, err = BatchOpenSinglePoint(nil, nil, point, hf, srs.Pk)
+				if !errors.Is(err, ErrZeroNbDigests) {
+					t.Fatalf("expected ErrZeroNbDigests from BatchOpenSinglePoint, got %v", err)
+				}
+				_, err = BatchOpenSinglePointWithCommitter(nil, nil, point, hf, srs.Pk)
+				if !errors.Is(err, ErrZeroNbDigests) {
+					t.Fatalf("expected ErrZeroNbDigests from BatchOpenSinglePointWithCommitter, got %v", err)
+				}
+			}
 		}
 	}
 	t.Run("unsafe", test(testSrs))
 	t.Run("mpcsetup", test(mpcGetSrs(t)))
+}
+
+// recordingCommitter is a Committer that delegates to a ProvingKey and counts calls.
+type recordingCommitter struct {
+	pk    ProvingKey
+	calls int
+}
+
+func (c *recordingCommitter) Commit(p []fr.Element) (Digest, error) {
+	c.calls++
+	return c.pk.Commit(p)
+}
+
+func TestOpenWithCommitter(t *testing.T) {
+	assert := require.New(t)
+
+	// ProvingKey must satisfy Committer
+	var _ Committer = testSrs.Pk
+
+	f := randomPolynomial(60)
+	digest, err := Commit(f, testSrs.Pk)
+	assert.NoError(err)
+
+	var point fr.Element
+	point.SetString("4321")
+
+	// open with the default committer and with a custom committer
+	expected, err := Open(f, point, testSrs.Pk)
+	assert.NoError(err)
+
+	c := &recordingCommitter{pk: testSrs.Pk}
+	proof, err := OpenWithCommitter(f, point, c)
+	assert.NoError(err)
+	assert.Equal(1, c.calls, "custom committer should be called exactly once")
+
+	// both proofs must be identical and verify
+	assert.True(proof.H.Equal(&expected.H), "quotient commitments differ")
+	assert.True(proof.ClaimedValue.Equal(&expected.ClaimedValue), "claimed values differ")
+	assert.NoError(Verify(&digest, &proof, point, testSrs.Vk))
+
+	// polynomial larger than the SRS is rejected by the ProvingKey committer
+	tooLarge := randomPolynomial(len(testSrs.Pk.G1) + 2)
+	_, err = OpenWithCommitter(tooLarge, point, testSrs.Pk)
+	assert.ErrorIs(err, ErrInvalidPolynomialSize)
+}
+
+func TestBatchOpenSinglePointWithCommitter(t *testing.T) {
+	assert := require.New(t)
+
+	f := make([][]fr.Element, 10)
+	digests := make([]Digest, len(f))
+	var err error
+	for i := range f {
+		f[i] = randomPolynomial(40)
+		digests[i], err = Commit(f[i], testSrs.Pk)
+		assert.NoError(err)
+	}
+
+	hf := sha256.New()
+	var point, salt fr.Element
+	point.SetString("4321")
+	salt.MustSetRandom()
+
+	// open with the default committer and with a custom committer
+	expected, err := BatchOpenSinglePoint(f, digests, point, hf, testSrs.Pk, salt.Marshal())
+	assert.NoError(err)
+
+	c := &recordingCommitter{pk: testSrs.Pk}
+	proof, err := BatchOpenSinglePointWithCommitter(f, digests, point, hf, c, salt.Marshal())
+	assert.NoError(err)
+	assert.Equal(1, c.calls, "custom committer should be called exactly once")
+
+	// both proofs must be identical and verify
+	assert.True(proof.H.Equal(&expected.H), "quotient commitments differ")
+	assert.Equal(expected.ClaimedValues, proof.ClaimedValues)
+	assert.NoError(BatchVerifySinglePoint(digests, &proof, point, hf, testSrs.Vk, salt.Marshal()))
+
+	// polynomial larger than the SRS is rejected by the ProvingKey committer
+	tooLarge := [][]fr.Element{randomPolynomial(len(testSrs.Pk.G1) + 2)}
+	_, err = BatchOpenSinglePointWithCommitter(tooLarge, digests[:1], point, hf, testSrs.Pk)
+	assert.ErrorIs(err, ErrInvalidPolynomialSize)
 }
 
 func TestBatchVerifyMultiPoints(t *testing.T) {
