@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Consensys Software Inc.
+// Copyright 2020-2025 Consensys Incorporated
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
 // Package grumpkin efficient elliptic curve and hash to curve implementation for grumpkin. This curve appears forms a 2-cycle with bn254 [https://aztecprotocol.github.io/aztec-connect/primitives.html].

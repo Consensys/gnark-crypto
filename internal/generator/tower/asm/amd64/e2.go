@@ -1,4 +1,4 @@
-// Copyright 2020-2025 Consensys Software Inc.
+// Copyright 2020-2025 Consensys Incorporated
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
 package amd64
@@ -34,7 +34,7 @@ func NewFq2Amd64(w io.Writer, F *field.Field, config config.Curve) *Fq2Amd64 {
 
 // Generate ...
 func (fq2 *Fq2Amd64) Generate(forceADXCheck bool) error {
-	fq2.WriteLn(bavard.Apache2Header("Consensys Software Inc.", 2020))
+	fq2.WriteLn(bavard.Apache2Header("Consensys Incorporated", 2020))
 
 	fq2.WriteLn("#include \"textflag.h\"")
 	fq2.WriteLn("#include \"funcdata.h\"")

@@ -1,6 +1,6 @@
 //go:build !purego
 
-// Copyright 2020-2026 Consensys Software Inc.
+// Copyright 2020-2026 Consensys Incorporated
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
 // AVX-512IFMA FFT butterfly kernel for MamaBear: p = 2^49 − 2^34 + 1, R = 2^52.
