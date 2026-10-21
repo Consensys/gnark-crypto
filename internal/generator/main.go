@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	copyrightHolder = "Consensys Software Inc."
+	copyrightHolder = "Consensys Incorporated"
 	copyrightYear   = 2020
 )
 

@@ -40,7 +40,7 @@ func NewGenerator(fs embed.FS, copyrightHolder string, copyrightYear int, genera
 
 // NewDefaultGenerator returns a new Generator with default gnark-crypto settings
 func NewDefaultGenerator(fs embed.FS) *Generator {
-	return NewGenerator(fs, "Consensys Software Inc.", 2020, "consensys/gnark-crypto")
+	return NewGenerator(fs, "Consensys Incorporated", 2020, "consensys/gnark-crypto")
 }
 
 // Generate generates files using the provided data and entries
