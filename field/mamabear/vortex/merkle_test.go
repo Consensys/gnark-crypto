@@ -35,7 +35,6 @@ func TestMerkleTree(t *testing.T) {
 		assert := require.New(t)
 
 		var (
-			// #nosec G404 -- test case generation does not require a cryptographic PRNG
 			rng = rand.New(rand.NewChaCha8([32]byte{}))
 		)
 
@@ -62,7 +61,6 @@ func TestMerkleTree(t *testing.T) {
 		assert := require.New(t)
 
 		var (
-			// #nosec G404 -- test case generation does not require a cryptographic PRNG
 			rng = rand.New(rand.NewChaCha8([32]byte{}))
 		)
 

@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -39,7 +40,7 @@ func NewGenerator(fs embed.FS, copyrightHolder string, copyrightYear int, genera
 
 // NewDefaultGenerator returns a new Generator with default gnark-crypto settings
 func NewDefaultGenerator(fs embed.FS) *Generator {
-	return NewGenerator(fs, "Consensys Software Inc.", 2020, "consensys/gnark-crypto")
+	return NewGenerator(fs, "Consensys Incorporated", 2020, "consensys/gnark-crypto")
 }
 
 // Generate generates files using the provided data and entries
@@ -52,13 +53,15 @@ func (g *Generator) GenerateWithOptions(data any, packageName string, outputDir 
 	for _, entry := range entries {
 		var tmpls []string
 		for _, t := range entry.Templates {
-			path := t
+			name := t
 			if templateDir != "" {
-				path = filepath.Join(templateDir, t)
+				// embed.FS paths always use forward slashes, so use path rather
+				// than filepath, which joins with a backslash on Windows.
+				name = path.Join(templateDir, t)
 			}
-			b, err := g.fs.ReadFile(path)
+			b, err := g.fs.ReadFile(name)
 			if err != nil {
-				return fmt.Errorf("error reading template %s: %w", path, err)
+				return fmt.Errorf("error reading template %s: %w", name, err)
 			}
 			tmpls = append(tmpls, string(b)+"\n")
 		}
