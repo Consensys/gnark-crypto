@@ -6,9 +6,12 @@
 package poseidon2
 
 import (
+	"hash"
 	"testing"
 
 	fr "github.com/consensys/gnark-crypto/field/goldilocks"
+	gnarkHash "github.com/consensys/gnark-crypto/hash"
+	"github.com/consensys/gnark-crypto/internal/hashtesting"
 )
 
 func TestMulMulInternalInPlaceWidth8(t *testing.T) {
@@ -105,6 +108,48 @@ func TestMatricesMatchInPlace(t *testing.T) {
 			}
 		}
 	}
+}
+
+func randomElements(n int) []fr.Element {
+	e := make([]fr.Element, n)
+	fr.Vector(e).MustSetRandom()
+	return e
+}
+
+// TestVectors checks the byte hasher against the test vectors in testdata.
+func TestVectors(t *testing.T) {
+	hashtesting.CheckVectors(t, func() hash.Hash { return NewMerkleDamgardHasher() }, fr.Bytes, "testdata/vectors.json")
+}
+
+// TestMerkleDamgard checks the hasher against the byte Merkle-Damgard hasher, see
+// [hashtesting.CheckMerkleDamgard].
+func TestMerkleDamgard(t *testing.T) {
+	p := NewDefaultPermutation()
+	blockLen := p.params.Width / 2
+
+	newHasher := func() fr.FieldHasher[Digest] { return NewMerkleDamgardFieldHasher() }
+	newByteHasher := func() gnarkHash.StateStorer { return NewMerkleDamgardHasher() }
+	newRef := func() gnarkHash.StateStorer {
+		return gnarkHash.NewMerkleDamgardHasher(p, make([]byte, p.BlockSize()))
+	}
+	digestBytes := func(d Digest) []byte { return hashtesting.Marshal[fr.Element, *fr.Element](d[:]) }
+	hashtesting.CheckMerkleDamgard(t, newHasher, newByteHasher, newRef, digestBytes, blockLen, randomElements)
+}
+
+// TestFieldHasherAllocs checks that writing a field element and summing does not
+// allocate.
+func TestFieldHasherAllocs(t *testing.T) {
+	var x fr.Element
+	x.MustSetRandom()
+	hashtesting.CheckNoAllocs[fr.Element, Digest](t, NewMerkleDamgardFieldHasher(), x)
+}
+
+func TestCompressorConcurrent(t *testing.T) {
+	hashtesting.CheckCompressorConcurrent[Digest](t, NewCompressor(NewDefaultPermutation()), func() Digest {
+		var d Digest
+		fr.Vector(d[:]).MustSetRandom()
+		return d
+	})
 }
 func TestPoseidon2Width8(t *testing.T) {
 	var input, expected [8]fr.Element

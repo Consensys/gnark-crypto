@@ -317,6 +317,7 @@ func (h *Permutation) addRoundKeyInPlace(round int, input []fr.Element) {
 	}
 }
 
+// BlockSize returns the size in bytes of the blocks of [Permutation.Compress].
 func (h *Permutation) BlockSize() int {
 	return h.params.Width / 2 * fr.Bytes
 }
@@ -371,6 +372,8 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 // Compress uses the permutation to compress the left and right input in a collision resistant manner.
 // left and right must each be concatenations of t/2 fr.Elements, where t is the width of the permutation.
 // The result is the concatenation of t/2 fr.Elements.
+//
+// Deprecated: use [Compressor.CompressField].
 func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 	n := h.params.Width / 2
 	if h.params.Width != 2*n {
@@ -406,6 +409,41 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 	}
 
 	return outBytes, nil
+}
+
+const DefaultCompressionWidth = 16
+
+// Digest is a digest of the Merkle-Damgard hasher: half the default compression width of elements.
+type Digest = [DefaultCompressionWidth / 2]fr.Element
+
+// Compressor compresses [Digest]s, which are blocks of t/2 elements, with a
+// Poseidon2 permutation of width t, in the same way as [Permutation.Compress]
+// does on bytes. It is safe for concurrent use.
+type Compressor struct {
+	perm *Permutation
+}
+
+// NewCompressor returns a Compressor over p. The width of p must be the default
+// compression width.
+func NewCompressor(p *Permutation) *Compressor {
+	if p.params.Width != DefaultCompressionWidth {
+		panic("poseidon2: the width of the permutation must be the default compression width")
+	}
+	return &Compressor{perm: p}
+}
+
+// CompressField implements hash.FieldCompressor over [Digest]. dst may alias
+// left or right.
+func (c *Compressor) CompressField(dst, left, right *Digest) {
+	var x [DefaultCompressionWidth]fr.Element
+	copy(x[:], left[:])
+	copy(x[len(left):], right[:])
+	if err := c.perm.Permutation(x[:]); err != nil {
+		panic(err)
+	}
+	for i := range right {
+		dst[i].Add(&right[i], &x[len(right)+i])
+	}
 }
 
 // Permutation16x24 applies the permutation on input.

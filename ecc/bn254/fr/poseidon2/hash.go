@@ -13,11 +13,23 @@ import (
 	gnarkHash "github.com/consensys/gnark-crypto/hash"
 )
 
+var (
+	_ fr.FieldHasher                        = (*gnarkHash.LargeFieldMerkleDamgardHasher[fr.Element])(nil)
+	_ gnarkHash.StateStorer                 = (*gnarkHash.LargeFieldMerkleDamgardByteHasher[fr.Element, *fr.Element])(nil)
+	_ gnarkHash.FieldCompressor[fr.Element] = (*Compressor)(nil)
+)
+
+// NewMerkleDamgardFieldHasher returns a Poseidon2 field hasher using the Merkle-Damgard
+// construction with the default parameters.
+func NewMerkleDamgardFieldHasher() *gnarkHash.LargeFieldMerkleDamgardHasher[fr.Element] {
+	return gnarkHash.NewLargeFieldMerkleDamgardHasher[fr.Element](
+		NewCompressor(NewDefaultPermutation()), fr.Element{})
+}
+
 // NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard
 // construction with the default parameters.
-func NewMerkleDamgardHasher() gnarkHash.StateStorer {
-	return gnarkHash.NewMerkleDamgardHasher(
-		NewDefaultPermutation(), make([]byte, fr.Bytes))
+func NewMerkleDamgardHasher() *gnarkHash.LargeFieldMerkleDamgardByteHasher[fr.Element, *fr.Element] {
+	return gnarkHash.NewLargeFieldMerkleDamgardByteHasher[fr.Element, *fr.Element](NewMerkleDamgardFieldHasher())
 }
 
 // GetDefaultParameters returns a set of parameters for the Poseidon2 permutation.
@@ -32,5 +44,8 @@ var GetDefaultParameters = sync.OnceValue(func() *Parameters {
 func init() {
 	gnarkHash.RegisterHash(gnarkHash.POSEIDON2_BN254, func() hash.Hash {
 		return NewMerkleDamgardHasher()
+	})
+	gnarkHash.RegisterFieldHasher(gnarkHash.POSEIDON2_BN254, func() fr.FieldHasher {
+		return NewMerkleDamgardFieldHasher()
 	})
 }

@@ -5,14 +5,19 @@ import (
 	gnarkHash "github.com/consensys/gnark-crypto/hash"
 )
 
+// NewMerkleDamgardFieldHasher returns a Poseidon2 field hasher using the Merkle-Damgard
+// construction with the default parameters.
+func NewMerkleDamgardFieldHasher() *gnarkHash.FieldMerkleDamgardHasher[fr.Element, Digest] {
+	return gnarkHash.NewFieldMerkleDamgardHasher[fr.Element, Digest](
+		NewCompressor(NewDefaultPermutation()),
+		Digest{},
+	)
+}
+
 // NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard
 // construction with the default parameters.
-func NewMerkleDamgardHasher() gnarkHash.StateStorer {
-	p := NewDefaultPermutation()
-	return gnarkHash.NewMerkleDamgardHasher(
-		p,
-		make([]byte, p.params.Width/2*fr.Bytes),
-	)
+func NewMerkleDamgardHasher() *gnarkHash.FieldMerkleDamgardByteHasher[fr.Element, *fr.Element, Digest] {
+	return gnarkHash.NewFieldMerkleDamgardByteHasher[fr.Element, *fr.Element, Digest](NewMerkleDamgardFieldHasher())
 }
 
 // NewDefaultPermutation returns a Poseidon2 permutation with the default
@@ -34,7 +39,7 @@ func NewDefaultPermutation() *Permutation {
 //     - nbFullRounds: {{.ParamsSponge.FullRounds}}
 //     - nbPartialRounds: {{.ParamsSponge.PartialRounds}}
 var GetDefaultParameters = sync.OnceValue(func() *Parameters {
-	return NewParameters({{.ParamsCompression.Width}}, {{.ParamsCompression.FullRounds}}, {{.ParamsCompression.PartialRounds}})
+	return NewParameters(DefaultCompressionWidth, {{.ParamsCompression.FullRounds}}, {{.ParamsCompression.PartialRounds}})
 })
 
 {{- $w0 := .ParamsCompression.Width}}
@@ -62,5 +67,8 @@ func init() {
 
 	gnarkHash.RegisterHash(gnarkHash.POSEIDON2_{{toUpper .FF }}, func() hash.Hash {
 		return NewMerkleDamgardHasher()
+	})
+	gnarkHash.RegisterFieldHasher(gnarkHash.POSEIDON2_{{toUpper .FF }}, func() fr.FieldHasher[Digest] {
+		return NewMerkleDamgardFieldHasher()
 	})
 }
