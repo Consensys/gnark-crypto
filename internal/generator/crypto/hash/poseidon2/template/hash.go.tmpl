@@ -5,21 +5,103 @@ import (
 	gnarkHash "github.com/consensys/gnark-crypto/hash"
 )
 
-// MerkleDamgardHasher is a Merkle-Damgard hasher over elements of the field. It
-// hashes both bytes and field elements.
-type MerkleDamgardHasher = gnarkHash.LargeFieldMerkleDamgardHasher[fr.Element, *fr.Element]
-
 var (
-	_ gnarkHash.FieldHasher[fr.Element, fr.Element] = (*MerkleDamgardHasher)(nil)
-	_ gnarkHash.StateStorer                         = (*MerkleDamgardHasher)(nil)
-	_ gnarkHash.FieldCompressor[*fr.Element]        = (*Compressor)(nil)
+	_ gnarkHash.FieldHasher[fr.Element, fr.Element]         = (*Hasher)(nil)
+	_ gnarkHash.FieldCompressor[fr.Element]                 = (*Compressor)(nil)
+	_ gnarkHash.ByteHasherCodec[fr.Element, fr.Element]     = byteCodec{}
 )
 
-// NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard
-// construction with the default parameters.
-func NewMerkleDamgardHasher() *MerkleDamgardHasher {
-	return gnarkHash.NewLargeFieldMerkleDamgardHasher[fr.Element, *fr.Element](
-		NewCompressor(NewDefaultPermutation()), fr.Element{})
+// Hasher is a Merkle-Damgard hasher over elements of the field with the
+// Poseidon2 compression function of the default parameters. The field is large
+// enough for an element to be a block and a digest. It implements
+// [gnarkHash.FieldHasher]. Use [NewMerkleDamgardHasher] to hash bytes.
+//
+// The construction does not perform explicit padding on the input data. Every
+// block is a full element, so there is no incomplete block.
+//
+// A Hasher is not safe for concurrent use.
+type Hasher struct {
+	c     Compressor
+	state fr.Element
+}
+
+// NewHasher returns a [Hasher] with the default parameters, and the zero initial
+// state.
+func NewHasher() *Hasher {
+	return &Hasher{c: Compressor{perm: NewDefaultPermutation()}}
+}
+
+// Reset implements [gnarkHash.FieldHasher].
+func (h *Hasher) Reset() {
+	h.state = fr.Element{}
+}
+
+// WriteElement implements [gnarkHash.FieldHasher].
+func (h *Hasher) WriteElement(e fr.Element) {
+	h.c.CompressField(&h.state, &h.state, &e)
+}
+
+// WriteElements implements [gnarkHash.FieldHasher].
+func (h *Hasher) WriteElements(e ...fr.Element) {
+	for i := range e {
+		h.c.CompressField(&h.state, &h.state, &e[i])
+	}
+}
+
+// PadBlock implements [gnarkHash.FieldHasher]. A block is an element, so there
+// is never an incomplete block, and PadBlock does nothing.
+func (h *Hasher) PadBlock() {}
+
+// SumElement implements [gnarkHash.FieldHasher].
+func (h *Hasher) SumElement() fr.Element {
+	return h.state
+}
+
+// BlockLen implements [gnarkHash.FieldHasher]. It is 1.
+func (h *Hasher) BlockLen() int {
+	return 1
+}
+
+// NewMerkleDamgardHasher returns a Poseidon2 hasher of bytes using the
+// Merkle-Damgard construction with the default parameters. Its state and digest
+// are the digest of a [Hasher], as fr.Bytes bytes.
+//
+// Write pads the last element of its input with zeros on the left, so the digest
+// depends on how the input is split among the calls to Write.
+//
+// NB! The construction does not perform explicit padding on the input data. The
+// digests of an input and of the same input preceded by zeros in its last
+// element are the same, so the construction is not collision resistant for
+// generic data. For collision resistance the caller should encode the length of
+// the input, or pad it explicitly. See [gnarkHash.NewByteHasher].
+func NewMerkleDamgardHasher() gnarkHash.StateStorer {
+	h := NewHasher()
+	return gnarkHash.NewByteHasher(h, byteCodec{}, func(d fr.Element) {
+		h.state = d
+	})
+}
+
+// byteCodec is the encoding of elements and digests of [Hasher] as bytes, in
+// big-endian canonical form.
+type byteCodec struct{}
+
+func (byteCodec) ElementSize() int { return fr.Bytes }
+
+func (byteCodec) DigestSize() int { return fr.Bytes }
+
+func (byteCodec) DecodeElement(b []byte) (e fr.Element, err error) {
+	err = e.SetBytesCanonical(b)
+	return
+}
+
+func (byteCodec) AppendDigest(dst []byte, d fr.Element) []byte {
+	b := d.Bytes()
+	return append(dst, b[:]...)
+}
+
+func (byteCodec) DecodeDigest(b []byte) (d fr.Element, err error) {
+	err = d.SetBytesCanonical(b)
+	return
 }
 
 // GetDefaultParameters returns a set of parameters for the Poseidon2 permutation.
