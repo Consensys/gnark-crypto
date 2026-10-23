@@ -6,8 +6,10 @@
 package mimc_test
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
@@ -84,9 +86,28 @@ func TestByteOrder(t *testing.T) {
 // knownDigest is the digest of the elements 1, 2, 3 written as bytes.
 const knownDigest = "03868717a65a6849e28d9cf6fcc2340e9e00b8dee902ed252d8f4e986e2b8864"
 
+// byteCompressor is the MiMC compression function over bytes, to build a
+// reference byte hasher independent of [mimc.Hasher].
+type byteCompressor struct{}
+
+func (byteCompressor) BlockSize() int { return mimc.BlockSize }
+
+func (byteCompressor) Compress(left, right []byte) ([]byte, error) {
+	var l, r fr.Element
+	if err := l.SetBytesCanonical(left); err != nil {
+		return nil, err
+	}
+	if err := r.SetBytesCanonical(right); err != nil {
+		return nil, err
+	}
+	mimc.Compressor{}.CompressField(&l, &l, &r)
+	return l.Marshal(), nil
+}
+
 // TestMerkleDamgard checks the digest of a fixed input, also through the
-// package-level Sum, and checks the hasher against the generic Merkle-Damgard
-// hasher over [mimc.Compressor], see [hashtesting.CheckMatchesByteHasher].
+// package-level Sum, and checks the hasher against the generic byte
+// Merkle-Damgard hasher over the MiMC compression function, see
+// [hashtesting.CheckMatchesByteHasher].
 func TestMerkleDamgard(t *testing.T) {
 	var msg []byte
 	for i := range uint64(3) {
@@ -104,9 +125,9 @@ func TestMerkleDamgard(t *testing.T) {
 	require.Equal(t, knownDigest, hex.EncodeToString(dgst), "package-level Sum")
 
 	newRef := func() hash.StateStorer {
-		return hash.NewLargeFieldMerkleDamgardHasher[fr.Element, *fr.Element](mimc.Compressor{}, fr.Element{})
+		return hash.NewMerkleDamgardHasher(byteCompressor{}, nil)
 	}
-	newHasher := func() hashtesting.Hasher[fr.Element, fr.Element] { return mimc.NewFieldHasher() }
+	newHasher := func() hashtesting.Hasher[fr.Element, fr.Element] { return mimc.NewHasher() }
 
 	elems := make([]fr.Element, 7)
 	fr.Vector(elems).MustSetRandom()
@@ -155,4 +176,204 @@ func TestFieldHasher(t *testing.T) {
 	_dgst3 = h3.SumElements(randInputs)
 	dgst3 = _dgst3.Bytes()
 	assert.Equal(dgst1, dgst3[:], "hashes do not match")
+}
+
+// sumElements hashes elems through the generic interface.
+func sumElements[H hash.FieldHasher[fr.Element, fr.Element]](h H, elems []fr.Element) fr.Element {
+	h.Reset()
+	for i := range elems {
+		h.WriteElement(elems[i])
+	}
+	return h.SumElement()
+}
+
+// TestFieldHasherContract checks the [hash.FieldHasher] contract of
+// [mimc.Hasher].
+func TestFieldHasherContract(t *testing.T) {
+	assert := require.New(t)
+
+	elems := make([]fr.Element, 9)
+	for i := range elems {
+		elems[i].SetUint64(uint64(i + 1))
+	}
+
+	h := mimc.NewHasher()
+	assert.Equal(1, h.BlockLen())
+
+	// the digest does not depend on how the elements are split among the writes
+	want := sumElements(h, elems)
+	h.Reset()
+	for i := range elems {
+		h.WriteElement(elems[i])
+	}
+	got := h.SumElement()
+	assert.True(want.Equal(&got), "WriteElement and WriteElements differ")
+	h.Reset()
+	h.WriteElements()
+	h.WriteElements(elems[:4]...)
+	h.WriteElements(elems[4:5]...)
+	h.WriteElements(elems[5:]...)
+	got = h.SumElement()
+	assert.True(want.Equal(&got), "splitting the writes changes the digest")
+
+	// PadBlock does nothing, and SumElement does not change the state
+	h.PadBlock()
+	h.SumElement()
+	h.PadBlock()
+	got = h.SumElement()
+	assert.True(want.Equal(&got), "PadBlock or SumElement changes the state")
+	bigEndian := want.Bytes()
+	assert.Equal(bigEndian[:], h.Sum(nil))
+	assert.Equal(bigEndian[:], h.State())
+
+	// the empty digest is zero, and Reset restores it
+	var zero fr.Element
+	h.Reset()
+	got = h.SumElement()
+	assert.True(zero.Equal(&got), "digest of nothing is not zero")
+
+	// the element hashing is the byte hashing of the marshalled elements
+	hb := mimc.NewHasher()
+	for i := range elems {
+		_, err := hb.Write(elems[i].Marshal())
+		assert.NoError(err)
+	}
+	got = hb.SumElement()
+	assert.True(want.Equal(&got), "Write and WriteElements differ")
+
+	// the generic interface gives the same result as the concrete type
+	var generic hash.FieldHasher[fr.Element, fr.Element] = mimc.NewHasher()
+	got = sumElements(generic, elems)
+	assert.True(want.Equal(&got), "generic and concrete hashers differ")
+}
+
+// TestCompressor checks that [mimc.Compressor] is stateless, supports
+// aliasing, and does not modify its inputs.
+func TestCompressor(t *testing.T) {
+	assert := require.New(t)
+
+	var left, right, dst fr.Element
+	left.SetUint64(17)
+	right.SetUint64(29)
+	l, r := left, right
+
+	var c hash.FieldCompressor[fr.Element] = mimc.Compressor{}
+	c.CompressField(&dst, &left, &right)
+	assert.True(l.Equal(&left) && r.Equal(&right), "inputs modified")
+
+	// the compression is the one of a hasher in state left, written right
+	h := mimc.NewHasher()
+	assert.NoError(h.SetState(left.Marshal()))
+	h.WriteElement(right)
+	got := h.SumElement()
+	assert.True(dst.Equal(&got), "compression differs from the hasher's")
+
+	again := fr.Element{}
+	c.CompressField(&again, &left, &right)
+	assert.True(dst.Equal(&again), "compression is not deterministic")
+
+	// dst aliasing left
+	a := left
+	c.CompressField(&a, &a, &right)
+	assert.True(dst.Equal(&a), "dst aliasing left")
+	// dst aliasing right
+	a = right
+	c.CompressField(&a, &left, &a)
+	assert.True(dst.Equal(&a), "dst aliasing right")
+	// all aliased
+	a = left
+	c.CompressField(&a, &a, &a)
+	var want fr.Element
+	c.CompressField(&want, &left, &left)
+	assert.True(want.Equal(&a), "dst aliasing left and right")
+}
+
+func TestSetState(t *testing.T) {
+	assert := require.New(t)
+
+	var e fr.Element
+	e.SetUint64(12345)
+	h := mimc.NewHasher()
+	assert.NoError(h.SetState(e.Marshal()))
+	assert.Equal(e.Marshal(), h.State())
+
+	// a short state is padded on the left
+	assert.NoError(h.SetState([]byte{1, 2, 3}))
+	var short fr.Element
+	short.SetBigInt(new(big.Int).SetBytes([]byte{1, 2, 3}))
+	assert.Equal(short.Marshal(), h.State())
+
+	// failures leave the state unchanged
+	assert.Error(h.SetState(make([]byte, fr.Bytes+1)))
+	assert.Equal(short.Marshal(), h.State())
+	nonCanonical := bytes.Repeat([]byte{0xff}, fr.Bytes)
+	assert.Error(h.SetState(nonCanonical))
+	assert.Equal(short.Marshal(), h.State())
+}
+
+// TestHasherNoAllocations checks that hashing, as bytes and as elements, through
+// the concrete and the generic hasher, does not allocate.
+func TestHasherNoAllocations(t *testing.T) {
+	elems := make([]fr.Element, 4)
+	for i := range elems {
+		elems[i].SetUint64(uint64(i + 1))
+	}
+	msg := hashtesting.Marshal(elems)
+	msg = append(msg, 1, 2, 3) // a last block shorter than an element
+	sum := make([]byte, 0, mimc.BlockSize)
+
+	h := mimc.NewHasher()
+	var generic hash.FieldHasher[fr.Element, fr.Element] = h
+	for name, f := range map[string]func(){
+		"Write": func() {
+			if _, err := h.Write(msg); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"Sum":              func() { sum = h.Sum(sum[:0]) },
+		"WriteElement":     func() { h.WriteElement(elems[0]) },
+		"WriteElements":    func() { h.WriteElements(elems...) },
+		"SumElement":       func() { h.SumElement() },
+		"SumElements":      func() { h.SumElements(elems) },
+		"Reset":            h.Reset,
+		"generic":          func() { sumElements(generic, elems) },
+		"generic concrete": func() { sumElements(h, elems) },
+	} {
+		if n := testing.AllocsPerRun(10, f); n != 0 {
+			t.Errorf("%s: %v allocations per run", name, n)
+		}
+	}
+}
+
+func BenchmarkHasher(b *testing.B) {
+	elems := make([]fr.Element, 16)
+	fr.Vector(elems).MustSetRandom()
+	msg := hashtesting.Marshal(elems)
+
+	b.Run("elements/concrete", func(b *testing.B) {
+		b.ReportAllocs()
+		h := mimc.NewHasher()
+		for range b.N {
+			sumElements(h, elems)
+		}
+	})
+	b.Run("elements/generic", func(b *testing.B) {
+		b.ReportAllocs()
+		var h hash.FieldHasher[fr.Element, fr.Element] = mimc.NewHasher()
+		for range b.N {
+			sumElements(h, elems)
+		}
+	})
+	b.Run("bytes", func(b *testing.B) {
+		b.ReportAllocs()
+		h := mimc.NewHasher()
+		sum := make([]byte, 0, mimc.BlockSize)
+		for range b.N {
+			h.Reset()
+			if _, err := h.Write(msg); err != nil {
+				b.Fatal(err)
+			}
+			sum = h.Sum(sum[:0])
+		}
+	})
 }

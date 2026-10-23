@@ -308,7 +308,7 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 // left and right must each be concatenations of t/2 fr.Elements, where t is the width of the permutation.
 // The result is the concatenation of t/2 fr.Elements.
 //
-// Deprecated: use [Compressor.CompressField].
+// Deprecated: use [Compressor.CompressField], or [Hasher] to hash elements.
 func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 	n := h.params.Width / 2
 	if h.params.Width != 2*n {
@@ -321,7 +321,6 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 	}
 
 	x := make([]fr.Element, h.params.Width)
-	l, r := x[:n], x[n:]
 	for i, in := range [][]byte{left, right} {
 		for j := range n {
 			if err := x[i*n+j].SetBytesCanonical(in[j*fr.Bytes : (j+1)*fr.Bytes]); err != nil {
@@ -330,43 +329,53 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 		}
 	}
 
-	NewCompressor(h).CompressField(l, l, r)
-
+	// feed-forward: the digest is the right half of the input added to the
+	// right half of its image
+	y := make([]fr.Element, h.params.Width)
+	copy(y, x)
+	if err := h.Permutation(y); err != nil {
+		return nil, err
+	}
 	outBytes := make([]byte, 0, desiredLen)
 	for i := range n {
-		b := l[i].Bytes()
+		var out fr.Element
+		out.Add(&x[n+i], &y[n+i])
+		b := out.Bytes()
 		outBytes = append(outBytes, b[:]...)
 	}
 	return outBytes, nil
 }
 
-// Compressor compresses blocks of t/2 elements with a Poseidon2 permutation of
-// width t, in the same way as [Permutation.Compress] does on bytes. It holds a
-// buffer, so it is not safe for concurrent use; goroutines sharing a
-// [Permutation] should each create their own Compressor.
+// Compressor compresses two blocks of 4 elements into one with a Poseidon2
+// permutation of width 8: it applies the permutation on left followed by
+// right, and adds right to the second half of the result. It implements
+// hash.FieldCompressor over [4]fr.Element, and computes the same as
+// [Permutation.Compress] does on bytes.
+//
+// It holds no state besides the permutation, which is read-only, so it is safe
+// for concurrent use.
 type Compressor struct {
 	perm *Permutation
-	x    []fr.Element // buffer of the width of the permutation
 }
 
-// NewCompressor returns a Compressor over p. The width of p must be even.
+// NewCompressor returns a Compressor over p. The width of p must be 8, that
+// of the default compression permutation.
 func NewCompressor(p *Permutation) *Compressor {
-	if p.params.Width%2 != 0 {
-		panic("poseidon2: the width of the permutation must be even")
+	if p.params.Width != 2*blockLen {
+		panic(fmt.Sprintf("poseidon2: the width of the permutation must be %d", 2*blockLen))
 	}
-	return &Compressor{perm: p, x: make([]fr.Element, p.params.Width)}
+	return &Compressor{perm: p}
 }
 
-// CompressField implements hash.FieldCompressor. dst, left and right have t/2
-// elements, and dst may alias left or right.
-func (c *Compressor) CompressField(dst, left, right []fr.Element) {
-	n := len(c.x) / 2
-	copy(c.x, left)
-	copy(c.x[n:], right)
-	if err := c.perm.Permutation(c.x); err != nil {
+// CompressField implements hash.FieldCompressor. dst may alias left or right.
+func (c *Compressor) CompressField(dst, left, right *[blockLen]fr.Element) {
+	var x [2 * blockLen]fr.Element
+	copy(x[:blockLen], left[:])
+	copy(x[blockLen:], right[:])
+	if err := c.perm.Permutation(x[:]); err != nil {
 		panic(err)
 	}
-	for i := range n {
-		dst[i].Add(&right[i], &c.x[n+i])
+	for i := range dst {
+		dst[i].Add(&right[i], &x[blockLen+i])
 	}
 }
