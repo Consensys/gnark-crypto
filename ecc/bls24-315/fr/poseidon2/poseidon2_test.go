@@ -78,37 +78,42 @@ func TestVectors(t *testing.T) {
 }
 
 // TestMerkleDamgard checks the hasher against the byte Merkle-Damgard hasher, see
-// [hashtesting.CheckMatchesByteHasher].
+// [hashtesting.CheckMerkleDamgard].
 func TestMerkleDamgard(t *testing.T) {
 	p := NewDefaultPermutation()
 	var iv fr.Element
 	iv.SetUint64(1)
 	newRef := func() hash.StateStorer { return hash.NewMerkleDamgardHasher(p, iv.Marshal()) }
-	newHasher := func() hashtesting.Hasher[fr.Element, fr.Element] {
-		return hash.NewLargeFieldMerkleDamgardHasher[fr.Element, *fr.Element](NewCompressor(p), iv)
+	newHasher := func() fr.FieldHasher {
+		return hash.NewLargeFieldMerkleDamgardHasher[fr.Element](NewCompressor(p), iv)
 	}
-
-	elems := make([]fr.Element, 6)
-	fr.Vector(elems).MustSetRandom()
-	short := make([]byte, 5)
-	_, err := rand.Read(short)
-	require.NoError(t, err)
-	calls := []hashtesting.Call[fr.Element]{
-		{Bytes: hashtesting.Marshal(elems[:3])},
-		{Elements: elems[3:5]},
-		{Bytes: short},
-		{}, // no elements
-		{Elements: elems[5:]},
+	newByteHasher := func() hash.StateStorer {
+		return hash.NewLargeFieldMerkleDamgardByteHasher[fr.Element, *fr.Element](
+			hash.NewLargeFieldMerkleDamgardHasher[fr.Element](NewCompressor(p), iv))
 	}
-	hashtesting.CheckMatchesByteHasher(t, newHasher, newRef, func(d fr.Element) []byte { return d.Marshal() }, calls)
+	randomElements := func(n int) []fr.Element {
+		e := make([]fr.Element, n)
+		fr.Vector(e).MustSetRandom()
+		return e
+	}
+	hashtesting.CheckMerkleDamgard[fr.Element, *fr.Element](t, newHasher, newByteHasher, newRef,
+		func(d fr.Element) []byte { return d.Marshal() }, 1, randomElements)
 }
 
-// TestMerkleDamgardWriteFieldAllocs checks that writing a field element does not allocate.
-func TestMerkleDamgardWriteFieldAllocs(t *testing.T) {
-	h := NewMerkleDamgardHasher()
+// TestFieldHasherAllocs checks that writing a field element and summing does not
+// allocate.
+func TestFieldHasherAllocs(t *testing.T) {
 	var x fr.Element
 	x.MustSetRandom()
-	require.Zero(t, testing.AllocsPerRun(100, func() { h.WriteField(x) }))
+	hashtesting.CheckNoAllocs[fr.Element, fr.Element](t, NewMerkleDamgardFieldHasher(), x)
+}
+
+func TestCompressorConcurrent(t *testing.T) {
+	hashtesting.CheckCompressorConcurrent[fr.Element](t, NewCompressor(NewDefaultPermutation()), func() fr.Element {
+		var e fr.Element
+		e.MustSetRandom()
+		return e
+	})
 }
 
 func TestHashReset(t *testing.T) {

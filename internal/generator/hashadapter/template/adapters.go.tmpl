@@ -1,46 +1,77 @@
 import (
 	fr "{{.BaseFieldPackagePath}}"
+	"{{.BaseFieldPackagePath}}/poseidon2"
 	"{{.FieldPackagePath}}"
 	"github.com/consensys/gnark-crypto/hash"
 )
+
+func gcd(a, b int) int {
+	for b != 0 {
+		a, b = b, a%b
+	}
+	return a
+}
 {{range .Adapters}}
-// BaseFieldHashAdapter{{.ExtensionName}} hashes elements of {{.ElementType}} with a hasher over the base
+// ChallengeHasher{{.ExtensionName}} hashes elements of {{.ElementType}} with a hasher over the base
 // field. The {{.ExtensionDegree}} coordinates of each element are written in the order of AppendBase.
 //
+// It is for deriving Fiat-Shamir challenges. Its digest is the first {{.ExtensionDegree}} elements of the
+// digest of the base hasher, so its collision resistance is about half their total
+// bit size, which is not enough for binding commitments.
+//
 // It implements [hash.FieldHasher] over {{.ElementType}} digests.
-type BaseFieldHashAdapter{{.ExtensionName}} struct {
-	hsh    hash.FieldHasher[fr.Element, []fr.Element]
-	coords []fr.Element // the coordinates of the element being written
+type ChallengeHasher{{.ExtensionName}} struct {
+	hsh      fr.FieldHasher[poseidon2.Digest]
+	coords   []fr.Element // the coordinates of the element being written
+	blockLen int
 }
 
-var _ hash.FieldHasher[{{.ElementType}}, {{.ElementType}}] = (*BaseFieldHashAdapter{{.ExtensionName}})(nil)
+var _ hash.FieldHasher[{{.ElementType}}, {{.ElementType}}] = (*ChallengeHasher{{.ExtensionName}})(nil)
 
-// NewBaseFieldHashAdapter{{.ExtensionName}} returns an adapter over baseHasher. The digest of
-// baseHasher must have at least {{.ExtensionDegree}} elements; otherwise NewBaseFieldHashAdapter{{.ExtensionName}} panics.
-func NewBaseFieldHashAdapter{{.ExtensionName}}(baseHasher hash.FieldHasher[fr.Element, []fr.Element]) *BaseFieldHashAdapter{{.ExtensionName}} {
-	if len(baseHasher.SumField()) < {{.ExtensionDegree}} {
-		panic("BaseFieldHashAdapter{{.ExtensionName}}: the digest of the base hasher has fewer than {{.ExtensionDegree}} elements")
+// NewChallengeHasher{{.ExtensionName}} returns a challenge hasher over baseHasher.
+func NewChallengeHasher{{.ExtensionName}}(baseHasher fr.FieldHasher[poseidon2.Digest]) *ChallengeHasher{{.ExtensionName}} {
+	baseBlockLen := baseHasher.BlockLen()
+	return &ChallengeHasher{{.ExtensionName}}{
+		hsh:      baseHasher,
+		coords:   make([]fr.Element, 0, {{.ExtensionDegree}}),
+		blockLen: baseBlockLen / gcd({{.ExtensionDegree}}, baseBlockLen), // lcm({{.ExtensionDegree}}, baseBlockLen) / {{.ExtensionDegree}}
 	}
-	return &BaseFieldHashAdapter{{.ExtensionName}}{hsh: baseHasher, coords: make([]fr.Element, 0, {{.ExtensionDegree}})}
 }
 
-// WriteField writes the coordinates of e to the base hasher.
-func (h *BaseFieldHashAdapter{{.ExtensionName}}) WriteField(e ...{{.ElementType}}) {
+// Reset restores the initial state of the base hasher.
+func (h *ChallengeHasher{{.ExtensionName}}) Reset() {
+	h.hsh.Reset()
+}
+
+// WriteElement writes the coordinates of e to the base hasher.
+func (h *ChallengeHasher{{.ExtensionName}}) WriteElement(e {{.ElementType}}) {
+	h.coords = e.AppendBase(h.coords[:0])
+	h.hsh.WriteElements(h.coords...)
+}
+
+// WriteElements writes the coordinates of e to the base hasher.
+func (h *ChallengeHasher{{.ExtensionName}}) WriteElements(e ...{{.ElementType}}) {
 	for i := range e {
-		h.coords = e[i].AppendBase(h.coords[:0])
-		h.hsh.WriteField(h.coords...)
+		h.WriteElement(e[i])
 	}
 }
 
 // PadBlock ends the current block of the base hasher, see [hash.FieldHasher].
-func (h *BaseFieldHashAdapter{{.ExtensionName}}) PadBlock() {
+func (h *ChallengeHasher{{.ExtensionName}}) PadBlock() {
 	h.hsh.PadBlock()
 }
 
-// SumField returns the first {{.ExtensionDegree}} elements of the digest of the base hasher as
+// SumElement returns the first {{.ExtensionDegree}} elements of the digest of the base hasher as
 // an element of {{.ElementType}}.
-func (h *BaseFieldHashAdapter{{.ExtensionName}}) SumField() {{.ElementType}} {
+func (h *ChallengeHasher{{.ExtensionName}}) SumElement() {{.ElementType}} {
+	d := h.hsh.SumElement()
 	var res {{.ElementType}}
-	return *res.SetBase(h.hsh.SumField()[:{{.ExtensionDegree}}])
+	return *res.SetBase(d[:{{.ExtensionDegree}}])
+}
+
+// BlockLen implements [hash.FieldHasher]: writing a multiple of BlockLen elements
+// from a block boundary of the base hasher ends on a block boundary.
+func (h *ChallengeHasher{{.ExtensionName}}) BlockLen() int {
+	return h.blockLen
 }
 {{end}}

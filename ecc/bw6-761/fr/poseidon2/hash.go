@@ -13,21 +13,23 @@ import (
 	gnarkHash "github.com/consensys/gnark-crypto/hash"
 )
 
-// MerkleDamgardHasher is a Merkle-Damgard hasher over elements of the field. It
-// hashes both bytes and field elements.
-type MerkleDamgardHasher = gnarkHash.LargeFieldMerkleDamgardHasher[fr.Element, *fr.Element]
-
 var (
-	_ gnarkHash.FieldHasher[fr.Element, fr.Element] = (*MerkleDamgardHasher)(nil)
-	_ gnarkHash.StateStorer                         = (*MerkleDamgardHasher)(nil)
-	_ gnarkHash.FieldCompressor[*fr.Element]        = (*Compressor)(nil)
+	_ fr.FieldHasher                        = (*gnarkHash.LargeFieldMerkleDamgardHasher[fr.Element])(nil)
+	_ gnarkHash.StateStorer                 = (*gnarkHash.LargeFieldMerkleDamgardByteHasher[fr.Element, *fr.Element])(nil)
+	_ gnarkHash.FieldCompressor[fr.Element] = (*Compressor)(nil)
 )
+
+// NewMerkleDamgardFieldHasher returns a Poseidon2 field hasher using the Merkle-Damgard
+// construction with the default parameters.
+func NewMerkleDamgardFieldHasher() *gnarkHash.LargeFieldMerkleDamgardHasher[fr.Element] {
+	return gnarkHash.NewLargeFieldMerkleDamgardHasher[fr.Element](
+		NewCompressor(NewDefaultPermutation()), fr.Element{})
+}
 
 // NewMerkleDamgardHasher returns a Poseidon2 hasher using the Merkle-Damgard
 // construction with the default parameters.
-func NewMerkleDamgardHasher() *MerkleDamgardHasher {
-	return gnarkHash.NewLargeFieldMerkleDamgardHasher[fr.Element, *fr.Element](
-		NewCompressor(NewDefaultPermutation()), fr.Element{})
+func NewMerkleDamgardHasher() *gnarkHash.LargeFieldMerkleDamgardByteHasher[fr.Element, *fr.Element] {
+	return gnarkHash.NewLargeFieldMerkleDamgardByteHasher[fr.Element, *fr.Element](NewMerkleDamgardFieldHasher())
 }
 
 // GetDefaultParameters returns a set of parameters for the Poseidon2 permutation.
@@ -42,5 +44,8 @@ var GetDefaultParameters = sync.OnceValue(func() *Parameters {
 func init() {
 	gnarkHash.RegisterHash(gnarkHash.POSEIDON2_BW6_761, func() hash.Hash {
 		return NewMerkleDamgardHasher()
+	})
+	gnarkHash.RegisterFieldHasher(gnarkHash.POSEIDON2_BW6_761, func() fr.FieldHasher {
+		return NewMerkleDamgardFieldHasher()
 	})
 }

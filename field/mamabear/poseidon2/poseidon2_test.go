@@ -12,7 +12,6 @@ import (
 	fr "github.com/consensys/gnark-crypto/field/mamabear"
 	gnarkHash "github.com/consensys/gnark-crypto/hash"
 	"github.com/consensys/gnark-crypto/internal/hashtesting"
-	"github.com/stretchr/testify/require"
 )
 
 func TestMulMulInternalInPlaceWidth16(t *testing.T) {
@@ -128,19 +127,29 @@ func TestMerkleDamgard(t *testing.T) {
 	p := NewDefaultPermutation()
 	blockLen := p.params.Width / 2
 
-	newHasher := func() hashtesting.Hasher[fr.Element, []fr.Element] { return NewMerkleDamgardHasher() }
+	newHasher := func() fr.FieldHasher[Digest] { return NewMerkleDamgardFieldHasher() }
+	newByteHasher := func() gnarkHash.StateStorer { return NewMerkleDamgardHasher() }
 	newRef := func() gnarkHash.StateStorer {
 		return gnarkHash.NewMerkleDamgardHasher(p, make([]byte, p.BlockSize()))
 	}
-	hashtesting.CheckMerkleDamgard(t, newHasher, newRef, hashtesting.Marshal[fr.Element, *fr.Element], blockLen, randomElements)
+	digestBytes := func(d Digest) []byte { return hashtesting.Marshal[fr.Element, *fr.Element](d[:]) }
+	hashtesting.CheckMerkleDamgard(t, newHasher, newByteHasher, newRef, digestBytes, blockLen, randomElements)
 }
 
-// TestMerkleDamgardWriteFieldAllocs checks that writing a block of field elements
-// does not allocate.
-func TestMerkleDamgardWriteFieldAllocs(t *testing.T) {
-	h := NewMerkleDamgardHasher()
-	block := randomElements(NewDefaultPermutation().params.Width / 2)
-	require.Zero(t, testing.AllocsPerRun(100, func() { h.WriteField(block...) }))
+// TestFieldHasherAllocs checks that writing a field element and summing does not
+// allocate.
+func TestFieldHasherAllocs(t *testing.T) {
+	var x fr.Element
+	x.MustSetRandom()
+	hashtesting.CheckNoAllocs[fr.Element, Digest](t, NewMerkleDamgardFieldHasher(), x)
+}
+
+func TestCompressorConcurrent(t *testing.T) {
+	hashtesting.CheckCompressorConcurrent[Digest](t, NewCompressor(NewDefaultPermutation()), func() Digest {
+		var d Digest
+		fr.Vector(d[:]).MustSetRandom()
+		return d
+	})
 }
 
 func TestPoseidon2Width16(t *testing.T) {

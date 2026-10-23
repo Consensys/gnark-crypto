@@ -41,14 +41,17 @@ type FieldHasher interface {
 }
 
 var (
-	_ hash.FieldHasher[fr.Element, fr.Element] = (*Hasher)(nil)
-	_ FieldHasher                              = (*Hasher)(nil)
-	_ hash.FieldCompressor[*fr.Element]        = Compressor{}
+	_ fr.FieldHasher                   = (*Hasher)(nil)
+	_ FieldHasher                      = (*Hasher)(nil)
+	_ hash.FieldCompressor[fr.Element] = Compressor{}
 )
 
 func init() {
 	hash.RegisterHash(hash.MIMC_GRUMPKIN, func() stdhash.Hash {
 		return NewMiMC()
+	})
+	hash.RegisterFieldHasher(hash.MIMC_GRUMPKIN, func() fr.FieldHasher {
+		return NewFieldHasher()
 	})
 }
 
@@ -68,14 +71,16 @@ var (
 // with an initial state of zero. It implements [hash.FieldHasher] over
 // fr.Element digests and [hash.StateStorer].
 type Hasher struct {
-	md        *hash.LargeFieldMerkleDamgardHasher[fr.Element, *fr.Element]
+	core      *hash.LargeFieldMerkleDamgardHasher[fr.Element]
+	md        *hash.LargeFieldMerkleDamgardByteHasher[fr.Element, *fr.Element]
 	byteOrder fr.ByteOrder
+	block     [BlockSize]byte // the bytes being decoded, held here rather than in a local variable so that they do not escape to the heap
 }
 
 // Compressor is the MiMC compression function in Miyaguchi-Preneel mode: it
 // compresses left and right into E_left(right) + left + right, where E is the
 // MiMC block cipher keyed by left. It implements [hash.FieldCompressor] over
-// *fr.Element, and is safe for concurrent use.
+// fr.Element, and is safe for concurrent use.
 type Compressor struct{}
 
 // CompressField implements [hash.FieldCompressor]. dst may alias left or right.
@@ -108,15 +113,17 @@ func NewBinaryHasher(opts ...Option) hash.StateStorer {
 // NewMiMC returns a MiMC implementation, pure Go reference implementation.
 func NewMiMC(opts ...Option) hash.StateStorer {
 	cfg := mimcOptions(opts...)
+	core := hash.NewLargeFieldMerkleDamgardHasher[fr.Element](Compressor{}, fr.Element{})
 	return &Hasher{
-		md:        hash.NewLargeFieldMerkleDamgardHasher[fr.Element, *fr.Element](Compressor{}, fr.Element{}),
+		core:      core,
+		md:        hash.NewLargeFieldMerkleDamgardByteHasher[fr.Element, *fr.Element](core),
 		byteOrder: cfg.byteOrder,
 	}
 }
 
 // Reset resets the Hash to its initial state.
 func (d *Hasher) Reset() {
-	d.md.Reset()
+	d.core.Reset()
 }
 
 // Sum appends the current hash to b and returns the resulting slice.
@@ -127,7 +134,7 @@ func (d *Hasher) Sum(b []byte) []byte {
 
 // SumElement returns the current hash as a field element.
 func (d *Hasher) SumElement() fr.Element {
-	return d.md.SumField()
+	return d.core.SumElement()
 }
 
 // Size returns the number of bytes Sum will return.
@@ -156,13 +163,13 @@ func (d *Hasher) BlockSize() int {
 func (d *Hasher) Write(p []byte) (n int, err error) {
 	for len(p) != 0 {
 		chunk := p[:min(len(p), BlockSize)]
-		var block [BlockSize]byte
-		copy(block[BlockSize-len(chunk):], chunk)
+		d.block = [BlockSize]byte{}
+		copy(d.block[BlockSize-len(chunk):], chunk)
 		var e fr.Element
-		if e, err = d.byteOrder.Element(&block); err != nil {
+		if e, err = d.byteOrder.Element(&d.block); err != nil {
 			return
 		}
-		d.md.WriteField(e)
+		d.core.WriteElement(e)
 		n += len(chunk)
 		p = p[len(chunk):]
 	}
@@ -171,23 +178,23 @@ func (d *Hasher) Write(p []byte) (n int, err error) {
 
 // WriteElement adds a field element to the running hash.
 func (d *Hasher) WriteElement(e fr.Element) {
-	d.md.WriteField(e)
+	d.core.WriteElement(e)
 }
 
-// WriteField implements [hash.FieldHasher].
-func (d *Hasher) WriteField(e ...fr.Element) {
-	d.md.WriteField(e...)
+// WriteElements implements [hash.FieldHasher].
+func (d *Hasher) WriteElements(e ...fr.Element) {
+	d.core.WriteElements(e...)
 }
 
 // PadBlock implements [hash.FieldHasher]. A block is an element, so there is
 // never an incomplete block, and PadBlock does nothing.
 func (d *Hasher) PadBlock() {
-	d.md.PadBlock()
+	d.core.PadBlock()
 }
 
-// SumField implements [hash.FieldHasher].
-func (d *Hasher) SumField() fr.Element {
-	return d.md.SumField()
+// BlockLen implements [hash.FieldHasher]. A block is one element.
+func (d *Hasher) BlockLen() int {
+	return 1
 }
 
 // SumElements returns the current hash as a field element,
@@ -201,8 +208,8 @@ func (d *Hasher) SumField() fr.Element {
 //	}
 //	return h. SumElement()
 func (d *Hasher) SumElements(elems []fr.Element) fr.Element {
-	d.md.WriteField(elems...)
-	return d.md.SumField()
+	d.core.WriteElements(elems...)
+	return d.core.SumElement()
 }
 
 // plain execution of a mimc run
@@ -254,7 +261,7 @@ func (d *Hasher) WriteString(rawBytes []byte) error {
 	if elems, err := fr.Hash(rawBytes, []byte("string:"), 1); err != nil {
 		return err
 	} else {
-		d.md.WriteField(elems[0])
+		d.core.WriteElement(elems[0])
 	}
 	return nil
 }

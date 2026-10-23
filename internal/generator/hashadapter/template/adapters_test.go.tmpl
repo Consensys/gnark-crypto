@@ -6,17 +6,11 @@ import (
 	fr "{{.BaseFieldPackagePath}}"
 	"{{.BaseFieldPackagePath}}/poseidon2"
 	"{{.FieldPackagePath}}"
+	"github.com/consensys/gnark-crypto/internal/hashtesting"
 )
-
-// shortDigest is a hasher whose digest has the given number of elements.
-type shortDigest int
-
-func (shortDigest) WriteField(...fr.Element) {}
-func (shortDigest) PadBlock()                {}
-func (s shortDigest) SumField() []fr.Element { return make([]fr.Element, s) }
 {{range .Adapters}}
-// TestBaseFieldHashAdapter{{.ExtensionName}} checks that the adapter writes the coordinates of the elements in the order of AppendBase, forwards PadBlock, takes its digest from the first {{.ExtensionDegree}} elements of the base digest, and rejects a base hasher with a shorter digest.
-func TestBaseFieldHashAdapter{{.ExtensionName}}(t *testing.T) {
+// TestChallengeHasher{{.ExtensionName}} checks that the adapter writes the coordinates of the elements in the order of AppendBase, forwards PadBlock, and takes its digest from the first {{.ExtensionDegree}} elements of the base digest.
+func TestChallengeHasher{{.ExtensionName}}(t *testing.T) {
 	const D = {{.ExtensionDegree}}
 
 	es := make([]{{.ElementType}}, 5)
@@ -26,20 +20,23 @@ func TestBaseFieldHashAdapter{{.ExtensionName}}(t *testing.T) {
 		coords = es[i].AppendBase(coords)
 	}
 
-	ref := poseidon2.NewMerkleDamgardHasher()
-	ref.WriteField(coords[:2*D]...)
+	ref := poseidon2.NewMerkleDamgardFieldHasher()
+	ref.WriteElements(coords[:2*D]...)
 	ref.PadBlock()
-	ref.WriteField(coords[2*D:]...)
+	ref.WriteElements(coords[2*D:]...)
 	var want {{.ElementType}}
-	want.SetBase(ref.SumField()[:D])
+	d := ref.SumElement()
+	want.SetBase(d[:D])
 
-	h := NewBaseFieldHashAdapter{{.ExtensionName}}(poseidon2.NewMerkleDamgardHasher())
-	h.WriteField(es[:2]...)
+	h := NewChallengeHasher{{.ExtensionName}}(poseidon2.NewMerkleDamgardFieldHasher())
+	h.WriteElements(es[:2]...)
 	h.PadBlock()
-	h.WriteField(es[2:]...)
-	got := h.SumField()
+	h.WriteElements(es[2:]...)
+	got := h.SumElement()
 	require.True(t, got.Equal(&want))
 
-	require.Panics(t, func() { NewBaseFieldHashAdapter{{.ExtensionName}}(shortDigest(D - 1)) })
+	require.Equal(t, {{if eq .ExtensionDegree 6}}4{{else if eq .ExtensionDegree 3}}8{{end}}, h.BlockLen())
+
+	hashtesting.CheckNoAllocs[{{.ElementType}}, {{.ElementType}}](t, h, es[0])
 }
 {{end}}

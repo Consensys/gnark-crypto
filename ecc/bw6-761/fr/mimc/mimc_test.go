@@ -6,7 +6,6 @@
 package mimc_test
 
 import (
-	"crypto/rand"
 	stdhash "hash"
 	"testing"
 
@@ -88,7 +87,7 @@ func TestVectors(t *testing.T) {
 
 // TestMerkleDamgard checks the package-level Sum against the hasher, and checks
 // the hasher against the generic Merkle-Damgard hasher over [mimc.Compressor],
-// see [hashtesting.CheckMatchesByteHasher].
+// see [hashtesting.CheckMerkleDamgard].
 func TestMerkleDamgard(t *testing.T) {
 	var msg []byte
 	for i := range uint64(3) {
@@ -105,24 +104,22 @@ func TestMerkleDamgard(t *testing.T) {
 	require.Equal(t, h.Sum(nil), dgst, "package-level Sum")
 
 	newRef := func() hash.StateStorer {
-		return hash.NewLargeFieldMerkleDamgardHasher[fr.Element, *fr.Element](mimc.Compressor{}, fr.Element{})
+		return hash.NewLargeFieldMerkleDamgardByteHasher[fr.Element, *fr.Element](
+			hash.NewLargeFieldMerkleDamgardHasher[fr.Element](mimc.Compressor{}, fr.Element{}))
 	}
-	newHasher := func() hashtesting.Hasher[fr.Element, fr.Element] { return mimc.NewFieldHasher() }
+	newHasher := func() fr.FieldHasher { return mimc.NewFieldHasher() }
+	newByteHasher := func() hash.StateStorer { return mimc.NewMiMC() }
+	randomElements := func(n int) []fr.Element {
+		e := make([]fr.Element, n)
+		fr.Vector(e).MustSetRandom()
+		return e
+	}
+	hashtesting.CheckMerkleDamgard[fr.Element, *fr.Element](t, newHasher, newByteHasher, newRef,
+		func(d fr.Element) []byte { return d.Marshal() }, 1, randomElements)
 
-	elems := make([]fr.Element, 7)
-	fr.Vector(elems).MustSetRandom()
-	short := make([]byte, 10)
-	_, err = rand.Read(short)
-	require.NoError(t, err)
-	calls := []hashtesting.Call[fr.Element]{
-		{Bytes: hashtesting.Marshal(elems[:3])},
-		{Elements: elems[3:5]},
-		{Bytes: short[:5]},
-		{Bytes: append(elems[5].Marshal(), short[5:]...)},
-		{}, // no elements
-		{Elements: elems[6:]},
-	}
-	hashtesting.CheckMatchesByteHasher(t, newHasher, newRef, func(d fr.Element) []byte { return d.Marshal() }, calls)
+	var x fr.Element
+	x.MustSetRandom()
+	hashtesting.CheckNoAllocs[fr.Element, fr.Element](t, mimc.NewFieldHasher(), x)
 }
 
 func TestFieldHasher(t *testing.T) {
@@ -156,4 +153,9 @@ func TestFieldHasher(t *testing.T) {
 	_dgst3 = h3.SumElements(randInputs)
 	dgst3 = _dgst3.Bytes()
 	assert.Equal(dgst1, dgst3[:], "hashes do not match")
+
+	// test that Write does not allocate
+	h4 := mimc.NewMiMC()
+	input := make([]byte, 512)
+	assert.Zero(testing.AllocsPerRun(100, func() { h4.Write(input) }))
 }

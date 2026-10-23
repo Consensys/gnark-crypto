@@ -8,45 +8,76 @@ package hash
 import (
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/extensions"
+	"github.com/consensys/gnark-crypto/field/koalabear/poseidon2"
 	"github.com/consensys/gnark-crypto/hash"
 )
 
-// BaseFieldHashAdapterE6 hashes elements of extensions.E6 with a hasher over the base
+func gcd(a, b int) int {
+	for b != 0 {
+		a, b = b, a%b
+	}
+	return a
+}
+
+// ChallengeHasherE6 hashes elements of extensions.E6 with a hasher over the base
 // field. The 6 coordinates of each element are written in the order of AppendBase.
 //
+// It is for deriving Fiat-Shamir challenges. Its digest is the first 6 elements of the
+// digest of the base hasher, so its collision resistance is about half their total
+// bit size, which is not enough for binding commitments.
+//
 // It implements [hash.FieldHasher] over extensions.E6 digests.
-type BaseFieldHashAdapterE6 struct {
-	hsh    hash.FieldHasher[fr.Element, []fr.Element]
-	coords []fr.Element // the coordinates of the element being written
+type ChallengeHasherE6 struct {
+	hsh      fr.FieldHasher[poseidon2.Digest]
+	coords   []fr.Element // the coordinates of the element being written
+	blockLen int
 }
 
-var _ hash.FieldHasher[extensions.E6, extensions.E6] = (*BaseFieldHashAdapterE6)(nil)
+var _ hash.FieldHasher[extensions.E6, extensions.E6] = (*ChallengeHasherE6)(nil)
 
-// NewBaseFieldHashAdapterE6 returns an adapter over baseHasher. The digest of
-// baseHasher must have at least 6 elements; otherwise NewBaseFieldHashAdapterE6 panics.
-func NewBaseFieldHashAdapterE6(baseHasher hash.FieldHasher[fr.Element, []fr.Element]) *BaseFieldHashAdapterE6 {
-	if len(baseHasher.SumField()) < 6 {
-		panic("BaseFieldHashAdapterE6: the digest of the base hasher has fewer than 6 elements")
+// NewChallengeHasherE6 returns a challenge hasher over baseHasher.
+func NewChallengeHasherE6(baseHasher fr.FieldHasher[poseidon2.Digest]) *ChallengeHasherE6 {
+	baseBlockLen := baseHasher.BlockLen()
+	return &ChallengeHasherE6{
+		hsh:      baseHasher,
+		coords:   make([]fr.Element, 0, 6),
+		blockLen: baseBlockLen / gcd(6, baseBlockLen), // lcm(6, baseBlockLen) / 6
 	}
-	return &BaseFieldHashAdapterE6{hsh: baseHasher, coords: make([]fr.Element, 0, 6)}
 }
 
-// WriteField writes the coordinates of e to the base hasher.
-func (h *BaseFieldHashAdapterE6) WriteField(e ...extensions.E6) {
+// Reset restores the initial state of the base hasher.
+func (h *ChallengeHasherE6) Reset() {
+	h.hsh.Reset()
+}
+
+// WriteElement writes the coordinates of e to the base hasher.
+func (h *ChallengeHasherE6) WriteElement(e extensions.E6) {
+	h.coords = e.AppendBase(h.coords[:0])
+	h.hsh.WriteElements(h.coords...)
+}
+
+// WriteElements writes the coordinates of e to the base hasher.
+func (h *ChallengeHasherE6) WriteElements(e ...extensions.E6) {
 	for i := range e {
-		h.coords = e[i].AppendBase(h.coords[:0])
-		h.hsh.WriteField(h.coords...)
+		h.WriteElement(e[i])
 	}
 }
 
 // PadBlock ends the current block of the base hasher, see [hash.FieldHasher].
-func (h *BaseFieldHashAdapterE6) PadBlock() {
+func (h *ChallengeHasherE6) PadBlock() {
 	h.hsh.PadBlock()
 }
 
-// SumField returns the first 6 elements of the digest of the base hasher as
+// SumElement returns the first 6 elements of the digest of the base hasher as
 // an element of extensions.E6.
-func (h *BaseFieldHashAdapterE6) SumField() extensions.E6 {
+func (h *ChallengeHasherE6) SumElement() extensions.E6 {
+	d := h.hsh.SumElement()
 	var res extensions.E6
-	return *res.SetBase(h.hsh.SumField()[:6])
+	return *res.SetBase(d[:6])
+}
+
+// BlockLen implements [hash.FieldHasher]: writing a multiple of BlockLen elements
+// from a block boundary of the base hasher ends on a block boundary.
+func (h *ChallengeHasherE6) BlockLen() int {
+	return h.blockLen
 }

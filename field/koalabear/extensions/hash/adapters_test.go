@@ -13,17 +13,11 @@ import (
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
 	"github.com/consensys/gnark-crypto/field/koalabear/extensions"
 	"github.com/consensys/gnark-crypto/field/koalabear/poseidon2"
+	"github.com/consensys/gnark-crypto/internal/hashtesting"
 )
 
-// shortDigest is a hasher whose digest has the given number of elements.
-type shortDigest int
-
-func (shortDigest) WriteField(...fr.Element) {}
-func (shortDigest) PadBlock()                {}
-func (s shortDigest) SumField() []fr.Element { return make([]fr.Element, s) }
-
-// TestBaseFieldHashAdapterE6 checks that the adapter writes the coordinates of the elements in the order of AppendBase, forwards PadBlock, takes its digest from the first 6 elements of the base digest, and rejects a base hasher with a shorter digest.
-func TestBaseFieldHashAdapterE6(t *testing.T) {
+// TestChallengeHasherE6 checks that the adapter writes the coordinates of the elements in the order of AppendBase, forwards PadBlock, and takes its digest from the first 6 elements of the base digest.
+func TestChallengeHasherE6(t *testing.T) {
 	const D = 6
 
 	es := make([]extensions.E6, 5)
@@ -33,19 +27,22 @@ func TestBaseFieldHashAdapterE6(t *testing.T) {
 		coords = es[i].AppendBase(coords)
 	}
 
-	ref := poseidon2.NewMerkleDamgardHasher()
-	ref.WriteField(coords[:2*D]...)
+	ref := poseidon2.NewMerkleDamgardFieldHasher()
+	ref.WriteElements(coords[:2*D]...)
 	ref.PadBlock()
-	ref.WriteField(coords[2*D:]...)
+	ref.WriteElements(coords[2*D:]...)
 	var want extensions.E6
-	want.SetBase(ref.SumField()[:D])
+	d := ref.SumElement()
+	want.SetBase(d[:D])
 
-	h := NewBaseFieldHashAdapterE6(poseidon2.NewMerkleDamgardHasher())
-	h.WriteField(es[:2]...)
+	h := NewChallengeHasherE6(poseidon2.NewMerkleDamgardFieldHasher())
+	h.WriteElements(es[:2]...)
 	h.PadBlock()
-	h.WriteField(es[2:]...)
-	got := h.SumField()
+	h.WriteElements(es[2:]...)
+	got := h.SumElement()
 	require.True(t, got.Equal(&want))
 
-	require.Panics(t, func() { NewBaseFieldHashAdapterE6(shortDigest(D - 1)) })
+	require.Equal(t, 4, h.BlockLen())
+
+	hashtesting.CheckNoAllocs[extensions.E6, extensions.E6](t, h, es[0])
 }

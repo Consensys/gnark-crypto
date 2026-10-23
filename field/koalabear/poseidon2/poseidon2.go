@@ -6,9 +6,12 @@
 package poseidon2
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"runtime"
+	"slices"
 
 	"golang.org/x/crypto/sha3"
 
@@ -380,54 +383,64 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 		return nil, fmt.Errorf("left input should be %d bytes", desiredLen)
 	}
 
+	reader := io.MultiReader(bytes.NewReader(left), bytes.NewReader(right))
 	x := make([]fr.Element, h.params.Width)
-	l, r := x[:n], x[n:]
-	for i, in := range [][]byte{left, right} {
-		for j := range n {
-			if err := x[i*n+j].SetBytesCanonical(in[j*fr.Bytes : (j+1)*fr.Bytes]); err != nil {
-				return nil, err
-			}
+	var buf [fr.Bytes]byte
+
+	for i := range x {
+		if _, err := io.ReadFull(reader, buf[:]); err != nil {
+			return nil, err
+		}
+		if err := x[i].SetBytesCanonical(buf[:]); err != nil {
+			return nil, err
 		}
 	}
 
-	NewCompressor(h).CompressField(l, l, r)
-
-	outBytes := make([]byte, 0, desiredLen)
-	for i := range n {
-		b := l[i].Bytes()
-		outBytes = append(outBytes, b[:]...)
+	res := slices.Clone(x[n:]) // saved to feed forward later
+	if err := h.Permutation(x[:]); err != nil {
+		return nil, err
 	}
+
+	outBytes := make([]byte, 0, n*fr.Bytes)
+	for i := range res {
+		outBytes = append(outBytes, res[i].Add(&res[i], &x[n+i]).Marshal()...)
+	}
+
 	return outBytes, nil
 }
 
-// Compressor compresses blocks of t/2 elements with a Poseidon2 permutation of
-// width t, in the same way as [Permutation.Compress] does on bytes. It holds a
-// buffer, so it is not safe for concurrent use; goroutines sharing a
-// [Permutation] should each create their own Compressor.
+const DefaultCompressionWidth = 16
+
+// Digest is a digest of the Merkle-Damgard hasher: half the default compression width of elements.
+type Digest = [DefaultCompressionWidth / 2]fr.Element
+
+// Compressor compresses [Digest]s, which are blocks of t/2 elements, with a
+// Poseidon2 permutation of width t, in the same way as [Permutation.Compress]
+// does on bytes. It is safe for concurrent use.
 type Compressor struct {
 	perm *Permutation
-	x    []fr.Element // buffer of the width of the permutation
 }
 
-// NewCompressor returns a Compressor over p. The width of p must be even.
+// NewCompressor returns a Compressor over p. The width of p must be the default
+// compression width.
 func NewCompressor(p *Permutation) *Compressor {
-	if p.params.Width%2 != 0 {
-		panic("poseidon2: the width of the permutation must be even")
+	if p.params.Width != DefaultCompressionWidth {
+		panic("poseidon2: the width of the permutation must be the default compression width")
 	}
-	return &Compressor{perm: p, x: make([]fr.Element, p.params.Width)}
+	return &Compressor{perm: p}
 }
 
-// CompressField implements hash.FieldCompressor. dst, left and right have t/2
-// elements, and dst may alias left or right.
-func (c *Compressor) CompressField(dst, left, right []fr.Element) {
-	n := len(c.x) / 2
-	copy(c.x, left)
-	copy(c.x[n:], right)
-	if err := c.perm.Permutation(c.x); err != nil {
+// CompressField implements hash.FieldCompressor over [Digest]. dst may alias
+// left or right.
+func (c *Compressor) CompressField(dst, left, right *Digest) {
+	var x [DefaultCompressionWidth]fr.Element
+	copy(x[:], left[:])
+	copy(x[len(left):], right[:])
+	if err := c.perm.Permutation(x[:]); err != nil {
 		panic(err)
 	}
-	for i := range n {
-		dst[i].Add(&right[i], &c.x[n+i])
+	for i := range right {
+		dst[i].Add(&right[i], &x[len(right)+i])
 	}
 }
 

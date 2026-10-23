@@ -1,10 +1,9 @@
-// Copyright 2020-2026 Consensys Software Inc.
+// Copyright 2020-2026 Consensys Incorporated
 // Licensed under the Apache License, Version 2.0. See the LICENSE file for details.
 
 package hash_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/field/koalabear"
@@ -13,53 +12,73 @@ import (
 )
 
 // stubCompressor is a compression function over blocks of any length.
-type stubCompressor struct{}
+type stubCompressor[D hash.Block[koalabear.Element]] struct{}
 
 // CompressField sets dst[i] = 3·left[i] + right[i].
-func (stubCompressor) CompressField(dst, left, right []koalabear.Element) {
-	for i := range dst {
+func (stubCompressor[D]) CompressField(dst, left, right *D) {
+	var res D
+	for i := range len(res) {
 		var t koalabear.Element
-		t.Double(&left[i]).Add(&t, &left[i]).Add(&t, &right[i])
-		dst[i] = t
+		t.Double(&(*left)[i]).Add(&t, &(*left)[i]).Add(&t, &(*right)[i])
+		res[i] = t
 	}
+	*dst = res
 }
 
-// byteStub is stubCompressor on the marshalled elements of blocks of blockLen elements.
-type byteStub struct{ blockLen int }
+// byteStub is stubCompressor on the marshalled elements of blocks of type D.
+type byteStub[D hash.Block[koalabear.Element]] struct{}
 
-func (s byteStub) BlockSize() int { return s.blockLen * koalabear.Bytes }
+func (byteStub[D]) BlockSize() int {
+	var d D
+	return len(d) * koalabear.Bytes
+}
 
-func (s byteStub) Compress(left, right []byte) ([]byte, error) {
-	x := [2][]koalabear.Element{make([]koalabear.Element, s.blockLen), make([]koalabear.Element, s.blockLen)}
+func (s byteStub[D]) Compress(left, right []byte) ([]byte, error) {
+	var x [2]D
 	for i, in := range [][]byte{left, right} {
-		for j := range x[i] {
+		for j := range len(x[i]) {
 			if err := x[i][j].SetBytesCanonical(in[j*koalabear.Bytes : (j+1)*koalabear.Bytes]); err != nil {
 				return nil, err
 			}
 		}
 	}
-	dst := make([]koalabear.Element, s.blockLen)
-	stubCompressor{}.CompressField(dst, x[0], x[1])
-	return hashtesting.Marshal[koalabear.Element, *koalabear.Element](dst), nil
+	var dst D
+	stubCompressor[D]{}.CompressField(&dst, &x[0], &x[1])
+	return digestBytes(dst), nil
+}
+
+func digestBytes[D hash.Block[koalabear.Element]](d D) []byte {
+	var b []byte
+	for i := range len(d) {
+		b = append(b, d[i].Marshal()...)
+	}
+	return b
 }
 
 // TestFieldMerkleDamgardHasher checks the hasher at several block lengths, see
 // [hashtesting.CheckMerkleDamgard].
 func TestFieldMerkleDamgardHasher(t *testing.T) {
+	t.Run("4", testFieldMerkleDamgardHasher[[4]koalabear.Element])
+	t.Run("8", testFieldMerkleDamgardHasher[[8]koalabear.Element])
+}
+
+func testFieldMerkleDamgardHasher[D hash.Block[koalabear.Element]](t *testing.T) {
+	var zero D
+	blockLen := len(zero)
 	randomElements := func(n int) []koalabear.Element {
 		e := make([]koalabear.Element, n)
 		koalabear.Vector(e).MustSetRandom()
 		return e
 	}
-	for _, blockLen := range []int{1, 3, 4, 8} {
-		t.Run(fmt.Sprint(blockLen), func(t *testing.T) {
-			newHasher := func() hashtesting.Hasher[koalabear.Element, []koalabear.Element] {
-				return hash.NewFieldMerkleDamgardHasher[koalabear.Element, *koalabear.Element](stubCompressor{}, make([]koalabear.Element, blockLen))
-			}
-			newRef := func() hash.StateStorer {
-				return hash.NewMerkleDamgardHasher(byteStub{blockLen}, make([]byte, blockLen*koalabear.Bytes))
-			}
-			hashtesting.CheckMerkleDamgard(t, newHasher, newRef, hashtesting.Marshal[koalabear.Element, *koalabear.Element], blockLen, randomElements)
-		})
+	newFieldHasher := func() *hash.FieldMerkleDamgardHasher[koalabear.Element, D] {
+		return hash.NewFieldMerkleDamgardHasher[koalabear.Element, D](stubCompressor[D]{}, zero)
 	}
+	newHasher := func() hash.FieldHasher[koalabear.Element, D] { return newFieldHasher() }
+	newByteHasher := func() hash.StateStorer {
+		return hash.NewFieldMerkleDamgardByteHasher[koalabear.Element, *koalabear.Element, D](newFieldHasher())
+	}
+	newRef := func() hash.StateStorer {
+		return hash.NewMerkleDamgardHasher(byteStub[D]{}, make([]byte, blockLen*koalabear.Bytes))
+	}
+	hashtesting.CheckMerkleDamgard[koalabear.Element, *koalabear.Element](t, newHasher, newByteHasher, newRef, digestBytes[D], blockLen, randomElements)
 }

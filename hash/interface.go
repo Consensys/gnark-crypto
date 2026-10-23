@@ -36,24 +36,38 @@ type Compressor interface {
 
 // FieldHasher hashes values of type F into a digest of type D.
 type FieldHasher[F, D any] interface {
-	// WriteField writes the elements to the hasher. The digest depends on the
+	// Reset restores the initial state.
+	Reset()
+	// WriteElement writes one element.
+	WriteElement(F)
+	// WriteElements writes the elements to the hasher. The digest depends on the
 	// sequence of the elements and of the calls to PadBlock, and not on how the
-	// sequence is split among the calls to WriteField.
-	WriteField(...F)
+	// sequence is split among the calls to WriteElements. In generic code, a
+	// literal argument list allocates; prefer WriteElement there.
+	WriteElements(...F)
 	// PadBlock ends the current block, padding it with zeros on the left to a
 	// full block. The elements written afterwards start a new block.
 	PadBlock()
-	// SumField returns the digest of the elements written so far, where an
+	// SumElement returns the digest of the elements written so far, where an
 	// incomplete block is padded as by PadBlock. It does not change the state of
 	// the hasher.
-	SumField() D
+	SumElement() D
+	// BlockLen returns the smallest n > 0 such that writing a multiple of n
+	// elements from a block boundary ends on a block boundary.
+	BlockLen() int
 }
 
 // FieldCompressor is a 2-1 one-way function on field elements, or on blocks of
-// them. It is the analogue of [Compressor] on elements. D is a pointer to an
-// element, or a slice of elements.
+// them. It is the analogue of [Compressor] on elements. D is a digest value: an
+// element, or an array of elements. Implementations must be safe for concurrent
+// use.
 type FieldCompressor[D any] interface {
 	// CompressField compresses left and right into dst. dst may alias left or
 	// right. It must not modify left or right unless they alias dst.
-	CompressField(dst, left, right D)
+	CompressField(dst, left, right *D)
+}
+
+// Block is the set of array types of the blocks and digests of [FieldMerkleDamgardHasher].
+type Block[F any] interface {
+	~[4]F | ~[8]F | ~[12]F | ~[16]F
 }
