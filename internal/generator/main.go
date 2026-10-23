@@ -95,7 +95,7 @@ func main() {
 			// polynomial package (Polynomial, MultiLin, Pool, ...) over the base
 			// field. It is only needed by the polynomial packages over the
 			// extensions, whose FoldFromBase takes a base field MultiLin.
-			if len(f.ExtensionsWithUtilities) > 0 {
+			if len(f.PolynomialExtensions) > 0 {
 				assertNoError(polynomial.Generate(fieldConfig.FieldDependency{
 					FieldPackagePath: "github.com/consensys/gnark-crypto/field/" + f.Name,
 					FieldPackageName: f.Name,
@@ -103,10 +103,11 @@ func main() {
 				}, filepath.Join(outputDir, "polynomial"), true, true, gen))
 			}
 
-			// Polynomial utilities over the requested extensions.
+			// polynomial package (Polynomial, MultiLin, Pool, ...) over the
+			// requested extensions
 			extPolyDir := filepath.Join(outputDir, "extensions", "polynomial")
 			var extInfos []fieldConfig.FieldDependency
-			for i, degree := range f.ExtensionsWithUtilities {
+			for i, degree := range f.PolynomialExtensions {
 				extInfo := fieldConfig.FieldDependency{
 					FieldPackagePath:     "github.com/consensys/gnark-crypto/field/" + f.Name + "/extensions",
 					FieldPackageName:     "extensions",
