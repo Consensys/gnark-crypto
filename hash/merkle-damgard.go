@@ -15,7 +15,9 @@ type merkleDamgardHasher struct {
 func (h *merkleDamgardHasher) Write(p []byte) (n int, err error) {
 	blockSize := h.f.BlockSize()
 	for len(p) != 0 {
+		nWritten := blockSize
 		if len(p) < blockSize {
+			nWritten = len(p)
 			if p, err = cloneLeftPadded(p, blockSize); err != nil {
 				panic(err) // this should not be possible
 			}
@@ -23,7 +25,7 @@ func (h *merkleDamgardHasher) Write(p []byte) (n int, err error) {
 		if h.state, err = h.f.Compress(h.state, p[:blockSize]); err != nil {
 			return
 		}
-		n += blockSize
+		n += nWritten
 		p = p[blockSize:]
 	}
 	return

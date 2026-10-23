@@ -7,6 +7,7 @@ package mimc
 
 import (
 	"errors"
+	"fmt"
 	stdhash "hash"
 	"math/big"
 	"sync"
@@ -18,6 +19,9 @@ import (
 )
 
 // FieldHasher is an interface for a hash function that operates on field elements
+//
+// Deprecated: use [hash.FieldHasher] over fr.Element, which [Hasher] implements.
+// See [NewHasher].
 type FieldHasher interface {
 	hash.StateStorer
 
@@ -36,11 +40,15 @@ type FieldHasher interface {
 	//       h.WriteElement(e)
 	//   }
 	//   return h. SumElement()
-	//
-	// This avoids copying the elements into the data slice and
-	// is more efficient.
 	SumElements([]fr.Element) fr.Element
 }
+
+var (
+	_ hash.FieldHasher[fr.Element, fr.Element] = (*Hasher)(nil)
+	_ hash.StateStorer                         = (*Hasher)(nil)
+	_ FieldHasher                              = (*Hasher)(nil)
+	_ hash.FieldCompressor[fr.Element]         = Compressor{}
+)
 
 func init() {
 	hash.RegisterHash(hash.MIMC_BLS12_377, func() stdhash.Hash {
@@ -60,12 +68,29 @@ var (
 	once          sync.Once
 )
 
-// digest represents the partial evaluation of the checksum
-// along with the params of the mimc function
-type digest struct {
-	h         fr.Element
-	data      []fr.Element // data to hash
+// Hasher is the MiMC hash function: a Merkle-Damgard hasher over [Compressor],
+// with an initial state of zero. It implements [hash.FieldHasher] over
+// fr.Element digests, and [hash.StateStorer] over bytes. The state is the
+// digest, and it is not affected by SumElement, Sum or State.
+//
+// The zero value is not usable; construct a Hasher with [NewHasher].
+type Hasher struct {
+	md        hash.MerkleDamgardElement[fr.Element]
 	byteOrder fr.ByteOrder
+	block     [BlockSize]byte // scratch space of Write, held here so that it does not escape to the heap
+}
+
+// Compressor is the MiMC compression function in Miyaguchi-Preneel mode: it
+// compresses left and right into E_left(right) + left + right, where E is the
+// MiMC block cipher keyed by left. It implements [hash.FieldCompressor] over
+// fr.Element, and is safe for concurrent use.
+type Compressor struct{}
+
+// CompressField implements [hash.FieldCompressor]. dst may alias left or right.
+func (Compressor) CompressField(dst, left, right *fr.Element) {
+	r := encrypt(*left, *right)
+	r.Add(&r, left).Add(&r, right)
+	*dst = r
 }
 
 // GetConstants exposed to be used in gnark
@@ -78,118 +103,109 @@ func GetConstants() []big.Int {
 	return res
 }
 
+// NewHasher returns a MiMC hasher, which hashes both field elements and bytes.
+func NewHasher(opts ...Option) *Hasher {
+	cfg := mimcOptions(opts...)
+	return &Hasher{
+		md:        *hash.NewMerkleDamgardElement(Compressor{}, fr.Element{}),
+		byteOrder: cfg.byteOrder,
+	}
+}
+
 // NewFieldHasher returns a FieldHasher (works with typed field elements, not bytes)
+//
+// Deprecated: use [NewHasher], whose result implements [hash.FieldHasher].
 func NewFieldHasher(opts ...Option) FieldHasher {
-	r := NewMiMC(opts...)
-	return r.(FieldHasher)
+	return NewHasher(opts...)
 }
 
 // NewBinaryHasher returns a hash.StateStorer (works with bytes, not typed field elements)
 func NewBinaryHasher(opts ...Option) hash.StateStorer {
-	return NewMiMC(opts...)
+	return NewHasher(opts...)
 }
 
 // NewMiMC returns a MiMC implementation, pure Go reference implementation.
 func NewMiMC(opts ...Option) hash.StateStorer {
-	d := new(digest)
-	d.Reset()
-	cfg := mimcOptions(opts...)
-	d.byteOrder = cfg.byteOrder
-	return d
+	return NewHasher(opts...)
 }
 
 // Reset resets the Hash to its initial state.
-func (d *digest) Reset() {
-	d.data = d.data[:0]
-	d.h = fr.Element{0, 0, 0, 0}
+func (d *Hasher) Reset() {
+	d.md.Reset()
 }
 
 // Sum appends the current hash to b and returns the resulting slice.
 // It does not change the underlying hash state.
-func (d *digest) Sum(b []byte) []byte {
-	buffer := d.checksum()
-	d.data = d.data[:0]
-	hash := buffer.Bytes()
-	b = append(b, hash[:]...)
-	return b
+func (d *Hasher) Sum(b []byte) []byte {
+	e := d.md.SumElement()
+	digest := e.Bytes()
+	return append(b, digest[:]...)
 }
 
-// SumElement returns the current hash as a field element.
-func (d *digest) SumElement() fr.Element {
-	r := d.checksum()
-	d.data = d.data[:0]
-	return r
+// SumElement returns the current hash as a field element. It does not change
+// the underlying hash state.
+func (d *Hasher) SumElement() fr.Element {
+	return d.md.SumElement()
+}
+
+// Size returns the number of bytes Sum will return.
+func (d *Hasher) Size() int {
+	return BlockSize
 }
 
 // BlockSize returns the hash's underlying block size.
 // The Write method must be able to accept any amount
 // of data, but it may operate more efficiently if all writes
 // are a multiple of the block size.
-func (d *digest) Size() int {
+func (d *Hasher) BlockSize() int {
 	return BlockSize
 }
 
-// BlockSize returns the number of bytes Sum will return.
-func (d *digest) BlockSize() int {
-	return BlockSize
+// BlockLen implements [hash.FieldHasher]. A block is one element.
+func (d *Hasher) BlockLen() int {
+	return d.md.BlockLen()
 }
 
 // Write (via the embedded io.Writer interface) adds more data to the running hash.
 //
-// Each []byte block of size BlockSize represents a big endian fr.Element.
+// Each []byte block of size BlockSize represents a field element in the byte
+// order of the hasher, big endian by default. A last block shorter than
+// BlockSize is padded with zeros on the left.
 //
-// If len(p) is not a multiple of BlockSize and any of the []byte in p represent an integer
-// larger than fr.Modulus, this function returns an error.
+// If a block represents an integer larger than fr.Modulus, this function returns
+// an error.
 //
 // To hash arbitrary data ([]byte not representing canonical field elements) use fr.Hash first
-func (d *digest) Write(p []byte) (int, error) {
-	// we usually expect multiple of block size. But sometimes we hash short
-	// values (FS transcript). Instead of forcing to hash to field, we left-pad the
-	// input here.
-	if len(p) > 0 && len(p) < BlockSize {
-		pp := make([]byte, BlockSize)
-		copy(pp[len(pp)-len(p):], p)
-		p = pp
-	}
-
-	var start int
-	for start = 0; start < len(p); start += BlockSize {
-		if elem, err := d.byteOrder.Element((*[BlockSize]byte)(p[start : start+BlockSize])); err == nil {
-			d.data = append(d.data, elem)
-		} else {
-			return 0, err
+func (d *Hasher) Write(p []byte) (n int, err error) {
+	for len(p) != 0 {
+		chunk := p[:min(len(p), BlockSize)]
+		d.block = [BlockSize]byte{}
+		copy(d.block[BlockSize-len(chunk):], chunk)
+		var e fr.Element
+		if e, err = d.byteOrder.Element(&d.block); err != nil {
+			return
 		}
+		d.WriteElement(e)
+		n += len(chunk)
+		p = p[len(chunk):]
 	}
-
-	if start != len(p) {
-		return 0, errors.New("invalid input length: must represent a list of field elements, expects a []byte of len m*BlockSize")
-	}
-	return len(p), nil
+	return
 }
 
-// WriteElement adds a field element to the running hash.
-func (d *digest) WriteElement(e fr.Element) {
-	d.data = append(d.data, e)
+// WriteElement implements [hash.FieldHasher].
+func (d *Hasher) WriteElement(e fr.Element) {
+	d.md.WriteElement(e)
 }
 
-// Hash hash using Miyaguchi-Preneel:
-// https://en.wikipedia.org/wiki/One-way_compression_function
-// The XOR operation is replaced by field addition, data is in Montgomery form
-func (d *digest) checksum() fr.Element {
-	// Write guarantees len(data) % BlockSize == 0
+// WriteElements implements [hash.FieldHasher].
+func (d *Hasher) WriteElements(e ...fr.Element) {
+	d.md.WriteElements(e...)
+}
 
-	// TODO @ThomasPiellard shouldn't Sum() returns an error if there is no data?
-	// TODO: @Tabaie, @Thomas Piellard Now sure what to make of this
-	/*if len(d.data) == 0 {
-		d.data = make([]byte, BlockSize)
-	}*/
-
-	for i := range d.data {
-		r := d.encrypt(d.data[i])
-		d.h.Add(&r, &d.h).Add(&d.h, &d.data[i])
-	}
-
-	return d.h
+// PadBlock implements [hash.FieldHasher]. A block is an element, so there is
+// never an incomplete block, and PadBlock does nothing.
+func (d *Hasher) PadBlock() {
+	d.md.PadBlock()
 }
 
 // SumElements returns the current hash as a field element,
@@ -202,51 +218,38 @@ func (d *digest) checksum() fr.Element {
 //	    h.WriteElement(e)
 //	}
 //	return h. SumElement()
-//
-// This avoids copying the elements into the data slice and
-// is more efficient.
-func (d *digest) SumElements(elems []fr.Element) fr.Element {
-	for i := range d.data {
-		r := d.encrypt(d.data[i])
-		d.h.Add(&r, &d.h).Add(&d.h, &d.data[i])
-	}
-	for i := range elems {
-		r := d.encrypt(elems[i])
-		d.h.Add(&r, &d.h).Add(&d.h, &elems[i])
-	}
-	d.data = d.data[:0]
-	return d.h
+func (d *Hasher) SumElements(elems []fr.Element) fr.Element {
+	d.md.WriteElements(elems...)
+	return d.md.SumElement()
 }
 
 // plain execution of a mimc run
 // m: message
 // k: encryption key
-func (d *digest) encrypt(m fr.Element) fr.Element {
+func encrypt(key, m fr.Element) fr.Element {
 	once.Do(initConstants) // init constants
 
 	var tmp fr.Element
 	for i := range mimcNbRounds {
 		// m = (m+k+c)^**17
-		tmp.Add(&m, &d.h).Add(&tmp, &mimcConstants[i])
+		tmp.Add(&m, &key).Add(&tmp, &mimcConstants[i])
 		m.Square(&tmp).
 			Square(&m).
 			Square(&m).
 			Square(&m).
 			Mul(&m, &tmp)
 	}
-	m.Add(&m, &d.h)
+	m.Add(&m, &key)
 	return m
 }
 
-// Sum computes the mimc hash of msg from seed
+// Sum returns the MiMC digest of msg, read as by [Hasher.Write] in big endian.
 func Sum(msg []byte) ([]byte, error) {
-	var d digest
-	if _, err := d.Write(msg); err != nil {
+	h := NewHasher()
+	if _, err := h.Write(msg); err != nil {
 		return nil, err
 	}
-	h := d.checksum()
-	bytes := h.Bytes()
-	return bytes[:], nil
+	return h.Sum(nil), nil
 }
 
 func initConstants() {
@@ -267,35 +270,34 @@ func initConstants() {
 }
 
 // WriteString writes a string that doesn't necessarily consist of field elements
-func (d *digest) WriteString(rawBytes []byte) error {
-	if elems, err := fr.Hash(rawBytes, []byte("string:"), 1); err != nil {
+func (d *Hasher) WriteString(rawBytes []byte) error {
+	elems, err := fr.Hash(rawBytes, []byte("string:"), 1)
+	if err != nil {
 		return err
-	} else {
-		d.data = append(d.data, elems[0])
 	}
+	d.WriteElement(elems[0])
 	return nil
 }
 
-// SetState manually sets the state of the hasher to an user-provided value. In
-// the context of MiMC, the method expects a byte slice of 32 elements.
-func (d *digest) SetState(newState []byte) error {
-
-	if len(newState) != 32 {
-		return errors.New("the mimc state expects a state of 32 bytes")
+// SetState sets the state of the hasher to newState, the big endian encoding of
+// a field element. A shorter newState is padded with zeros on the left. A longer
+// one, or one that does not encode a canonical element, results in an error.
+func (d *Hasher) SetState(newState []byte) error {
+	if len(newState) > BlockSize {
+		return fmt.Errorf("the mimc state expects a state of at most %d bytes, got %d", BlockSize, len(newState))
 	}
-
-	if err := d.h.SetBytesCanonical(newState); err != nil {
+	var buf [BlockSize]byte
+	copy(buf[BlockSize-len(newState):], newState)
+	var e fr.Element
+	if err := e.SetBytesCanonical(buf[:]); err != nil {
 		return errors.New("the provided newState does not represent a valid state")
 	}
-
-	d.data = nil
-
+	d.md.SetStateElement(e)
 	return nil
 }
 
-// State returns the internal state of the hasher
-func (d *digest) State() []byte {
-	_ = d.Sum(nil) // this flushes the hasher
-	b := d.h.Bytes()
-	return b[:]
+// State returns the internal state of the hasher, the big endian encoding of
+// the digest.
+func (d *Hasher) State() []byte {
+	return d.Sum(nil)
 }
