@@ -72,6 +72,8 @@ var (
 // with an initial state of zero. It implements [hash.FieldHasher] over
 // fr.Element digests, and [hash.StateStorer] over bytes. The state is the
 // digest, and it is not affected by SumElement, Sum or State.
+//
+// The zero value is not usable; construct a Hasher with [NewHasher].
 type Hasher struct {
 	md        hash.MerkleDamgardElement[fr.Element]
 	byteOrder fr.ByteOrder

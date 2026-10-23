@@ -53,8 +53,12 @@ var (
 // incomplete last block is padded with zeros on the left, so the digests of an
 // input and of the input preceded by zeros in its last block are the same.
 //
-// A HasherGeneric is not safe for concurrent use.
-type HasherGeneric[D Digest] = gnarkHash.MerkleDamgardArray[fr.Element, D]
+// A HasherGeneric is not safe for concurrent use. Its zero value is not
+// usable; construct it with [NewHasher], [NewHasherGeneric] or
+// [NewHasherWithPermutation].
+type HasherGeneric[D Digest] struct {
+	gnarkHash.MerkleDamgardArray[fr.Element, D]
+}
 
 // Hasher is the [HasherGeneric] over blocks of 4 elements, with the
 // compression function of the default parameters (width 8).
@@ -89,7 +93,7 @@ func NewHasherGeneric[D Digest]() *HasherGeneric[D] {
 // 12 schedule, NewPermutation(12, 6, 17).
 func NewHasherWithPermutation[D Digest](p *Permutation) *HasherGeneric[D] {
 	var iv D
-	return gnarkHash.NewMerkleDamgardArray[fr.Element](NewCompressorGeneric[D](p), iv)
+	return &HasherGeneric[D]{*gnarkHash.NewMerkleDamgardArray[fr.Element](NewCompressorGeneric[D](p), iv)}
 }
 
 // GetSpongeParameters returns the cached parameters for the wider Poseidon2

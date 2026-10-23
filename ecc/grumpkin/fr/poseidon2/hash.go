@@ -27,13 +27,16 @@ var (
 // The construction does not perform explicit padding on the input data. Every
 // block is a full element, so there is no incomplete block.
 //
-// A Hasher is not safe for concurrent use.
-type Hasher = gnarkHash.MerkleDamgardElement[fr.Element]
+// A Hasher is not safe for concurrent use. Its zero value is not usable;
+// construct it with [NewHasher].
+type Hasher struct {
+	gnarkHash.MerkleDamgardElement[fr.Element]
+}
 
 // NewHasher returns a [Hasher] with the default parameters, and the zero initial
 // state.
 func NewHasher() *Hasher {
-	return gnarkHash.NewMerkleDamgardElement(NewCompressor(NewDefaultPermutation()), fr.Element{})
+	return &Hasher{*gnarkHash.NewMerkleDamgardElement(NewCompressor(NewDefaultPermutation()), fr.Element{})}
 }
 
 // NewMerkleDamgardHasher returns a Poseidon2 hasher of bytes using the
