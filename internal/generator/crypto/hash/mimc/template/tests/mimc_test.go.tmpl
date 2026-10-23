@@ -1,6 +1,6 @@
 import (
 	"crypto/rand"
-	"encoding/hex"
+	stdhash "hash"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/{{.Name}}/fr"
@@ -74,28 +74,14 @@ func TestByteOrder(t *testing.T) {
 	}
 }
 
-// knownDigest is the digest of the elements 1, 2, 3 written as bytes.
-{{- if eq .Name "bls12-377"}}
-const knownDigest = "0c35d2fccacb154c1c79cf240a5d42759dda556437f09ddaaa5e894d8302f1d7"
-{{- else if eq .Name "bls12-381"}}
-const knownDigest = "1618589b3fafe01e2080a4796148349cdcf5b830b2f2ac5c1b34aa62be38ae2b"
-{{- else if eq .Name "bls24-315"}}
-const knownDigest = "00dc43b5321160866937f9f11bfff239bec01757df11e4dbcfd020434e2482bb"
-{{- else if eq .Name "bls24-317"}}
-const knownDigest = "1ab7fdc2db167bd1099f17bde728e755a6bedbc1a3e33ba30a96acbc8df25162"
-{{- else if eq .Name "bn254"}}
-const knownDigest = "03868717a65a6849e28d9cf6fcc2340e9e00b8dee902ed252d8f4e986e2b8864"
-{{- else if eq .Name "bw6-633"}}
-const knownDigest = "04b9a04df18b4199162729ff3c05236447315f1bcf1256d20b2382cc5d4a84b991d1626772707ef3"
-{{- else if eq .Name "bw6-761"}}
-const knownDigest = "006114dde48463c88c9d58144cba372c906c3f2888a5d0fa7e995bc2d686b6c90ecb75167e62d9ce6e78780d9b29b27b"
-{{- else if eq .Name "grumpkin"}}
-const knownDigest = "0983dcf63c3ccf89ca10962ea6e41b5e662973c7992ffb10295383bbf719f885"
-{{- end}}
+// TestVectors checks the byte hasher against the test vectors in testdata.
+func TestVectors(t *testing.T) {
+	hashtesting.CheckVectors(t, func() stdhash.Hash { return mimc.NewMiMC() }, fr.Bytes, "testdata/vectors.json")
+}
 
-// TestMerkleDamgard checks the digest of a fixed input, also through the
-// package-level Sum, and checks the hasher against the generic Merkle-Damgard
-// hasher over [mimc.Compressor], see [hashtesting.CheckMatchesByteHasher].
+// TestMerkleDamgard checks the package-level Sum against the hasher, and checks
+// the hasher against the generic Merkle-Damgard hasher over [mimc.Compressor],
+// see [hashtesting.CheckMatchesByteHasher].
 func TestMerkleDamgard(t *testing.T) {
 	var msg []byte
 	for i := range uint64(3) {
@@ -106,11 +92,10 @@ func TestMerkleDamgard(t *testing.T) {
 	h := mimc.NewMiMC()
 	_, err := h.Write(msg)
 	require.NoError(t, err)
-	require.Equal(t, knownDigest, hex.EncodeToString(h.Sum(nil)), "digest of 1, 2, 3")
 
 	dgst, err := mimc.Sum(msg)
 	require.NoError(t, err)
-	require.Equal(t, knownDigest, hex.EncodeToString(dgst), "package-level Sum")
+	require.Equal(t, h.Sum(nil), dgst, "package-level Sum")
 
 	newRef := func() hash.StateStorer {
 		return hash.NewLargeFieldMerkleDamgardHasher[fr.Element, *fr.Element](mimc.Compressor{}, fr.Element{})

@@ -7,7 +7,7 @@ package mimc_test
 
 import (
 	"crypto/rand"
-	"encoding/hex"
+	stdhash "hash"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/grumpkin/fr"
@@ -81,12 +81,14 @@ func TestByteOrder(t *testing.T) {
 	}
 }
 
-// knownDigest is the digest of the elements 1, 2, 3 written as bytes.
-const knownDigest = "0983dcf63c3ccf89ca10962ea6e41b5e662973c7992ffb10295383bbf719f885"
+// TestVectors checks the byte hasher against the test vectors in testdata.
+func TestVectors(t *testing.T) {
+	hashtesting.CheckVectors(t, func() stdhash.Hash { return mimc.NewMiMC() }, fr.Bytes, "testdata/vectors.json")
+}
 
-// TestMerkleDamgard checks the digest of a fixed input, also through the
-// package-level Sum, and checks the hasher against the generic Merkle-Damgard
-// hasher over [mimc.Compressor], see [hashtesting.CheckMatchesByteHasher].
+// TestMerkleDamgard checks the package-level Sum against the hasher, and checks
+// the hasher against the generic Merkle-Damgard hasher over [mimc.Compressor],
+// see [hashtesting.CheckMatchesByteHasher].
 func TestMerkleDamgard(t *testing.T) {
 	var msg []byte
 	for i := range uint64(3) {
@@ -97,11 +99,10 @@ func TestMerkleDamgard(t *testing.T) {
 	h := mimc.NewMiMC()
 	_, err := h.Write(msg)
 	require.NoError(t, err)
-	require.Equal(t, knownDigest, hex.EncodeToString(h.Sum(nil)), "digest of 1, 2, 3")
 
 	dgst, err := mimc.Sum(msg)
 	require.NoError(t, err)
-	require.Equal(t, knownDigest, hex.EncodeToString(dgst), "package-level Sum")
+	require.Equal(t, h.Sum(nil), dgst, "package-level Sum")
 
 	newRef := func() hash.StateStorer {
 		return hash.NewLargeFieldMerkleDamgardHasher[fr.Element, *fr.Element](mimc.Compressor{}, fr.Element{})

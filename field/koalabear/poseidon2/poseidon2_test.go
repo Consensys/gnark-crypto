@@ -7,6 +7,7 @@ package poseidon2
 
 import (
 	"fmt"
+	"hash"
 	"testing"
 
 	fr "github.com/consensys/gnark-crypto/field/koalabear"
@@ -116,6 +117,11 @@ func randomElements(n int) []fr.Element {
 	e := make([]fr.Element, n)
 	fr.Vector(e).MustSetRandom()
 	return e
+}
+
+// TestVectors checks the byte hasher against the test vectors in testdata.
+func TestVectors(t *testing.T) {
+	hashtesting.CheckVectors(t, func() hash.Hash { return NewMerkleDamgardHasher() }, fr.Bytes, "testdata/vectors.json")
 }
 
 // TestMerkleDamgard checks the hasher against the byte Merkle-Damgard hasher, see

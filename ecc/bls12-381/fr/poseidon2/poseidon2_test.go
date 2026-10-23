@@ -7,7 +7,7 @@ package poseidon2
 
 import (
 	"crypto/rand"
-	"encoding/hex"
+	stdhash "hash"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-381/fr"
@@ -72,21 +72,14 @@ func BenchmarkPoseidon2(b *testing.B) {
 
 const msbMask = 0xff >> (9 - (fr.Bits % 8)) // to make sure randomized buffers are smaller than the modulus
 
-// knownDigest is the digest of the elements 1, 2, 3 written as bytes.
-const knownDigest = "10b13d671a35ac6c0bca4df6f5857ee8754b27b5801cf5e38f90787505af4835"
+// TestVectors checks the byte hasher against the test vectors in testdata.
+func TestVectors(t *testing.T) {
+	hashtesting.CheckVectors(t, func() stdhash.Hash { return NewMerkleDamgardHasher() }, fr.Bytes, "testdata/vectors.json")
+}
 
-// TestMerkleDamgard checks the digest of a fixed input, and checks the hasher
-// against the byte Merkle-Damgard hasher, see [hashtesting.CheckMatchesByteHasher].
+// TestMerkleDamgard checks the hasher against the byte Merkle-Damgard hasher, see
+// [hashtesting.CheckMatchesByteHasher].
 func TestMerkleDamgard(t *testing.T) {
-	h := NewMerkleDamgardHasher()
-	for i := range uint64(3) {
-		var e fr.Element
-		e.SetUint64(i + 1)
-		_, err := h.Write(e.Marshal())
-		require.NoError(t, err)
-	}
-	require.Equal(t, knownDigest, hex.EncodeToString(h.Sum(nil)), "digest of 1, 2, 3")
-
 	p := NewDefaultPermutation()
 	var iv fr.Element
 	iv.SetUint64(1)
