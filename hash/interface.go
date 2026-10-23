@@ -34,26 +34,33 @@ type Compressor interface {
 	BlockSize() int
 }
 
-// FieldHasher hashes values of type F into a digest of type D.
+// FieldHasher hashes a sequence of elements of type F into a digest of type D.
+// Hashers are mutable and must not be shared between concurrent callers.
 type FieldHasher[F, D any] interface {
-	// WriteField writes the elements to the hasher. The digest depends on the
-	// sequence of the elements and of the calls to PadBlock, and not on how the
-	// sequence is split among the calls to WriteField.
-	WriteField(...F)
-	// PadBlock ends the current block, padding it with zeros on the left to a
-	// full block. The elements written afterwards start a new block.
+	// Reset restores the initial state.
+	Reset()
+	// WriteElement writes one element without constructing a variadic slice.
+	WriteElement(F)
+	// WriteElements is equivalent to WriteElement on each element. The digest
+	// does not depend on how writes are split, only on elements and PadBlock calls.
+	// Literal argument lists may allocate through interfaces or generic callers;
+	// prefer WriteElement there, or expand an existing slice (h.WriteElements(es...)).
+	WriteElements(...F)
+	// PadBlock ends the current block, left-padding it with zeros. If there is
+	// no incomplete block, it does nothing.
 	PadBlock()
-	// SumField returns the digest of the elements written so far, where an
-	// incomplete block is padded as by PadBlock. It does not change the state of
-	// the hasher.
-	SumField() D
+	// SumElement returns the digest without changing the state. An incomplete
+	// block is padded as by PadBlock.
+	SumElement() D
+	// BlockLen returns the number of F elements in an input block, not bytes.
+	BlockLen() int
 }
 
-// FieldCompressor is a 2-1 one-way function on field elements, or on blocks of
-// them. It is the analogue of [Compressor] on elements. D is a pointer to an
-// element, or a slice of elements.
+// FieldCompressor is a stateless 2-to-1 one-way function over digests of value
+// type D (an element or a fixed-size array of elements). Implementations must
+// be safe for concurrent use.
 type FieldCompressor[D any] interface {
 	// CompressField compresses left and right into dst. dst may alias left or
-	// right. It must not modify left or right unless they alias dst.
-	CompressField(dst, left, right D)
+	// right. Inputs must not be modified, even temporarily, unless they alias dst.
+	CompressField(dst, left, right *D)
 }
