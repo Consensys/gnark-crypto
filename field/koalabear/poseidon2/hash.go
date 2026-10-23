@@ -14,98 +14,150 @@ import (
 	gnarkHash "github.com/consensys/gnark-crypto/hash"
 )
 
-// blockLen is the number of elements of a block and of a digest of [Hasher],
-// 8: half the width of the default compression permutation.
-const blockLen = 8
+const (
+	// BlockLen is the input block and digest length of [Hasher], in field
+	// elements, not bytes: half the default permutation width (16).
+	BlockLen = 8
 
-var (
-	_ gnarkHash.FieldHasher[fr.Element, [blockLen]fr.Element]     = (*Hasher)(nil)
-	_ gnarkHash.FieldCompressor[[blockLen]fr.Element]             = (*Compressor)(nil)
-	_ gnarkHash.ByteHasherCodec[fr.Element, [blockLen]fr.Element] = byteCodec{}
+	// WideBlockLen is the input block and digest length of a wider
+	// [HasherGeneric], in field elements, not bytes: half the wider
+	// permutation width (24). Use it as an array bound with [NewHasherGeneric].
+	WideBlockLen = 12
 )
 
-// Hasher is a Merkle-Damgard hasher over blocks of 8 elements of the field,
-// with the Poseidon2 compression function of the default parameters, and a
-// digest of 8 elements. It implements [gnarkHash.FieldHasher]. Use
+// Digest constrains the block and digest types of [HasherGeneric] and
+// [CompressorGeneric] to arrays of [BlockLen] = 8 elements (permutation of
+// width 16), or [WideBlockLen] = 12 elements (permutation of width 24).
+// Named array types are accepted.
+type Digest interface {
+	~[BlockLen]fr.Element | ~[WideBlockLen]fr.Element
+}
+
+var (
+	_ gnarkHash.FieldHasher[fr.Element, [BlockLen]fr.Element]     = (*Hasher)(nil)
+	_ gnarkHash.FieldHasher[fr.Element, [WideBlockLen]fr.Element] = (*HasherGeneric[[WideBlockLen]fr.Element])(nil)
+	_ gnarkHash.FieldCompressor[[BlockLen]fr.Element]             = (*Compressor)(nil)
+	_ gnarkHash.FieldCompressor[[WideBlockLen]fr.Element]         = (*CompressorGeneric[[WideBlockLen]fr.Element])(nil)
+
+	_ gnarkHash.ByteHasherCodec[fr.Element, [BlockLen]fr.Element] = byteCodec{}
+)
+
+// HasherGeneric is a Merkle-Damgard hasher over blocks of elements of the
+// field, with a Poseidon2 compression function, and a digest of the same size
+// as a block. D is [BlockLen] = 8 elements for a permutation of width 16, or
+// [WideBlockLen] = 12 elements for a permutation of width 24. It implements
+// [gnarkHash.FieldHasher]. [Hasher] is the default instance. Use
 // [NewMerkleDamgardHasher] to hash bytes.
 //
 // The construction does not perform explicit padding on the input data. An
 // incomplete last block is padded with zeros on the left, so the digests of an
 // input and of the input preceded by zeros in its last block are the same.
 //
-// A Hasher is not safe for concurrent use.
-type Hasher struct {
-	c     Compressor
-	state [blockLen]fr.Element
-	buf   [blockLen]fr.Element // the elements written and not compressed yet are buf[:n]
-	n     int                  // number of pending elements, less than blockLen
-}
+// A HasherGeneric is not safe for concurrent use.
+type HasherGeneric[D Digest] = gnarkHash.MerkleDamgardArray[fr.Element, D]
+
+// Hasher is the [HasherGeneric] over blocks of 8 elements, with the
+// compression function of the default parameters (width 16).
+type Hasher = HasherGeneric[[BlockLen]fr.Element]
 
 // NewHasher returns a [Hasher] with the default parameters, and the zero initial
 // state.
 func NewHasher() *Hasher {
-	return &Hasher{c: Compressor{perm: NewDefaultPermutation()}}
+	return NewHasherWithPermutation[[BlockLen]fr.Element](NewDefaultPermutation())
 }
 
-// Reset implements [gnarkHash.FieldHasher].
-func (h *Hasher) Reset() {
-	h.state = [blockLen]fr.Element{}
-	h.n = 0
+// NewHasherGeneric returns a [HasherGeneric] with the zero initial state, and
+// the compression function of cached parameters of the width 2*len(D):
+//
+//   - for blocks of 8 elements, those of [GetDefaultParameters] (width 16,
+//     6 full and 21 partial rounds), as [NewHasher];
+//   - for blocks of 12 elements, those of [GetSpongeParameters] (width 24, 6 full and 21 partial rounds).
+//
+// The wide default is the existing width 24 schedule, as in
+// NewPermutation(24, 6, 21).
+//
+// The width 24 parameters are computed on first use, once.
+func NewHasherGeneric[D Digest]() *HasherGeneric[D] {
+	var d D
+	return NewHasherWithPermutation[D](&Permutation{params: compressionParameters(len(d))})
 }
 
-// WriteElement implements [gnarkHash.FieldHasher].
-func (h *Hasher) WriteElement(e fr.Element) {
-	h.buf[h.n] = e
-	h.n++
-	if h.n == blockLen {
-		h.c.CompressField(&h.state, &h.state, &h.buf)
-		h.n = 0
+// NewHasherWithPermutation returns a [HasherGeneric] with the zero initial
+// state, and the compression function over p: see [CompressorGeneric]. It panics
+// if the width of p is not 2*len(D). Since the permutation is arbitrary, it
+// allows custom round numbers or seed, for instance the existing width
+// 24 schedule, NewPermutation(24, 6, 21).
+func NewHasherWithPermutation[D Digest](p *Permutation) *HasherGeneric[D] {
+	var iv D
+	return gnarkHash.NewMerkleDamgardArray[fr.Element](NewCompressorGeneric[D](p), iv)
+}
+
+// GetSpongeParameters returns the cached parameters for the wider Poseidon2
+// permutation used for sponge constructions and [WideBlockLen]-element MD blocks:
+// width 24, 6 full rounds and 21 partial rounds.
+// The returned parameters are shared; callers must not modify them.
+var GetSpongeParameters = sync.OnceValue(func() *Parameters {
+	return NewParameters(24, 6, 21)
+})
+
+// compressionParameters returns the cached parameters of the compression of
+// blocks of n elements.
+func compressionParameters(n int) *Parameters {
+	switch n {
+	case BlockLen:
+		return GetDefaultParameters()
+	case WideBlockLen:
+		return GetSpongeParameters()
 	}
+	panic(fmt.Sprintf("poseidon2: unsupported block length %d", n))
 }
 
-// WriteElements implements [gnarkHash.FieldHasher].
-func (h *Hasher) WriteElements(e ...fr.Element) {
-	if h.n != 0 {
-		k := copy(h.buf[h.n:], e)
-		e = e[k:]
-		h.n += k
-		if h.n < blockLen {
-			return
-		}
-		h.c.CompressField(&h.state, &h.state, &h.buf)
-	}
-	for len(e) >= blockLen {
-		h.c.CompressField(&h.state, &h.state, (*[blockLen]fr.Element)(e))
-		e = e[blockLen:]
-	}
-	h.n = copy(h.buf[:], e)
+// CompressorGeneric compresses two blocks of len(D) elements into one with a
+// Poseidon2 permutation of width 2*len(D): it applies the permutation on left
+// followed by right, and adds right to the second half of the result. It
+// implements [gnarkHash.FieldCompressor] over D, and computes the same as
+// [Permutation.Compress] does on bytes.
+//
+// It holds no state besides the permutation, which is read-only, so it is safe
+// for concurrent use.
+type CompressorGeneric[D Digest] struct {
+	perm *Permutation
 }
 
-// PadBlock implements [gnarkHash.FieldHasher].
-func (h *Hasher) PadBlock() {
-	if h.n == 0 {
-		return
-	}
-	copy(h.buf[blockLen-h.n:], h.buf[:h.n])
-	clear(h.buf[:blockLen-h.n])
-	h.c.CompressField(&h.state, &h.state, &h.buf)
-	h.n = 0
+// Compressor is the [CompressorGeneric] over blocks of 8 elements, for a
+// permutation of width 16.
+type Compressor = CompressorGeneric[[BlockLen]fr.Element]
+
+// NewCompressor returns a [Compressor] over p. The width of p must be 16, that
+// of the default compression permutation.
+func NewCompressor(p *Permutation) *Compressor {
+	return NewCompressorGeneric[[BlockLen]fr.Element](p)
 }
 
-// SumElement implements [gnarkHash.FieldHasher].
-func (h *Hasher) SumElement() [blockLen]fr.Element {
-	if h.n == 0 {
-		return h.state
+// NewCompressorGeneric returns a [CompressorGeneric] over p. The width of p
+// must be 2*len(D), otherwise it panics.
+func NewCompressorGeneric[D Digest](p *Permutation) *CompressorGeneric[D] {
+	var d D
+	if p.params.Width != 2*len(d) {
+		panic(fmt.Sprintf("poseidon2: the width of the permutation must be %d, got %d", 2*len(d), p.params.Width))
 	}
-	var block, res [blockLen]fr.Element
-	copy(block[blockLen-h.n:], h.buf[:h.n])
-	h.c.CompressField(&res, &h.state, &block)
-	return res
+	return &CompressorGeneric[D]{perm: p}
 }
 
-// BlockLen implements [gnarkHash.FieldHasher]. It is 8.
-func (h *Hasher) BlockLen() int {
-	return blockLen
+// CompressField implements [gnarkHash.FieldCompressor]. dst may alias left or right.
+func (c *CompressorGeneric[D]) CompressField(dst, left, right *D) {
+	var x [2 * WideBlockLen]fr.Element
+	n := len(*left)
+	for i := range n {
+		x[i] = (*left)[i]
+		x[n+i] = (*right)[i]
+	}
+	if err := c.perm.Permutation(x[:2*n]); err != nil {
+		panic(err)
+	}
+	for i := range n {
+		(*dst)[i].Add(&(*right)[i], &x[n+i])
+	}
 }
 
 // NewMerkleDamgardHasher returns a Poseidon2 hasher of bytes using the
@@ -123,10 +175,7 @@ func (h *Hasher) BlockLen() int {
 // pad it explicitly. See [gnarkHash.NewByteHasher].
 func NewMerkleDamgardHasher() gnarkHash.StateStorer {
 	h := NewHasher()
-	return gnarkHash.NewByteHasher(h, byteCodec{}, func(d [blockLen]fr.Element) {
-		h.state = d
-		h.n = 0
-	})
+	return gnarkHash.NewByteHasher(h, byteCodec{}, h.SetStateElement)
 }
 
 // byteCodec is the encoding of elements and digests of [Hasher] as bytes, in
@@ -135,14 +184,14 @@ type byteCodec struct{}
 
 func (byteCodec) ElementSize() int { return fr.Bytes }
 
-func (byteCodec) DigestSize() int { return blockLen * fr.Bytes }
+func (byteCodec) DigestSize() int { return BlockLen * fr.Bytes }
 
 func (byteCodec) DecodeElement(b []byte) (e fr.Element, err error) {
 	err = e.SetBytesCanonical(b)
 	return
 }
 
-func (byteCodec) AppendDigest(dst []byte, d [blockLen]fr.Element) []byte {
+func (byteCodec) AppendDigest(dst []byte, d [BlockLen]fr.Element) []byte {
 	for i := range d {
 		b := d[i].Bytes()
 		dst = append(dst, b[:]...)
@@ -150,13 +199,13 @@ func (byteCodec) AppendDigest(dst []byte, d [blockLen]fr.Element) []byte {
 	return dst
 }
 
-func (byteCodec) DecodeDigest(b []byte) (d [blockLen]fr.Element, err error) {
-	if len(b) != blockLen*fr.Bytes {
-		return d, fmt.Errorf("digest must be %d bytes, got %d", blockLen*fr.Bytes, len(b))
+func (byteCodec) DecodeDigest(b []byte) (d [BlockLen]fr.Element, err error) {
+	if len(b) != BlockLen*fr.Bytes {
+		return d, fmt.Errorf("digest must be %d bytes, got %d", BlockLen*fr.Bytes, len(b))
 	}
 	for i := range d {
 		if err = d[i].SetBytesCanonical(b[i*fr.Bytes : (i+1)*fr.Bytes]); err != nil {
-			return [blockLen]fr.Element{}, err
+			return [BlockLen]fr.Element{}, err
 		}
 	}
 	return
@@ -168,18 +217,11 @@ func NewDefaultPermutation() *Permutation {
 	return &Permutation{params: GetDefaultParameters()}
 }
 
-// GetDefaultParameters returns a set of parameters for the Poseidon2 permutation.
-// The default parameters are,
-//
-//  1. for compression:
-//     - width: 16
-//     - nbFullRounds: 6
-//     - nbPartialRounds: 21
-//
-//  2. for sponge:
-//     - width: 24
-//     - nbFullRounds: 6
-//     - nbPartialRounds: 21
+// GetDefaultParameters returns the cached compression parameters for the
+// Poseidon2 permutation: width 16, 6 full rounds and
+// 21 partial rounds, as used by [NewDefaultPermutation] and [NewHasher].
+// For the wider sponge parameters, use [GetSpongeParameters].
+// The returned parameters are shared; callers must not modify them.
 var GetDefaultParameters = sync.OnceValue(func() *Parameters {
 	return NewParameters(16, 6, 21)
 })

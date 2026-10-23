@@ -73,7 +73,7 @@ var (
 // fr.Element digests, and [hash.StateStorer] over bytes. The state is the
 // digest, and it is not affected by SumElement, Sum or State.
 type Hasher struct {
-	state     fr.Element
+	md        hash.MerkleDamgardElement[fr.Element]
 	byteOrder fr.ByteOrder
 	block     [BlockSize]byte // scratch space of Write, held here so that it does not escape to the heap
 }
@@ -104,7 +104,10 @@ func GetConstants() []big.Int {
 // NewHasher returns a MiMC hasher, which hashes both field elements and bytes.
 func NewHasher(opts ...Option) *Hasher {
 	cfg := mimcOptions(opts...)
-	return &Hasher{byteOrder: cfg.byteOrder}
+	return &Hasher{
+		md:        *hash.NewMerkleDamgardElement(Compressor{}, fr.Element{}),
+		byteOrder: cfg.byteOrder,
+	}
 }
 
 // NewFieldHasher returns a FieldHasher (works with typed field elements, not bytes)
@@ -126,20 +129,21 @@ func NewMiMC(opts ...Option) hash.StateStorer {
 
 // Reset resets the Hash to its initial state.
 func (d *Hasher) Reset() {
-	d.state = fr.Element{}
+	d.md.Reset()
 }
 
 // Sum appends the current hash to b and returns the resulting slice.
 // It does not change the underlying hash state.
 func (d *Hasher) Sum(b []byte) []byte {
-	digest := d.state.Bytes()
+	e := d.md.SumElement()
+	digest := e.Bytes()
 	return append(b, digest[:]...)
 }
 
 // SumElement returns the current hash as a field element. It does not change
 // the underlying hash state.
 func (d *Hasher) SumElement() fr.Element {
-	return d.state
+	return d.md.SumElement()
 }
 
 // Size returns the number of bytes Sum will return.
@@ -157,7 +161,7 @@ func (d *Hasher) BlockSize() int {
 
 // BlockLen implements [hash.FieldHasher]. A block is one element.
 func (d *Hasher) BlockLen() int {
-	return 1
+	return d.md.BlockLen()
 }
 
 // Write (via the embedded io.Writer interface) adds more data to the running hash.
@@ -188,19 +192,19 @@ func (d *Hasher) Write(p []byte) (n int, err error) {
 
 // WriteElement implements [hash.FieldHasher].
 func (d *Hasher) WriteElement(e fr.Element) {
-	Compressor{}.CompressField(&d.state, &d.state, &e)
+	d.md.WriteElement(e)
 }
 
 // WriteElements implements [hash.FieldHasher].
 func (d *Hasher) WriteElements(e ...fr.Element) {
-	for i := range e {
-		Compressor{}.CompressField(&d.state, &d.state, &e[i])
-	}
+	d.md.WriteElements(e...)
 }
 
 // PadBlock implements [hash.FieldHasher]. A block is an element, so there is
 // never an incomplete block, and PadBlock does nothing.
-func (d *Hasher) PadBlock() {}
+func (d *Hasher) PadBlock() {
+	d.md.PadBlock()
+}
 
 // SumElements returns the current hash as a field element,
 // after hashing all the provided elements (in addition to the already hashed ones).
@@ -213,8 +217,8 @@ func (d *Hasher) PadBlock() {}
 //	}
 //	return h. SumElement()
 func (d *Hasher) SumElements(elems []fr.Element) fr.Element {
-	d.WriteElements(elems...)
-	return d.state
+	d.md.WriteElements(elems...)
+	return d.md.SumElement()
 }
 
 // plain execution of a mimc run
@@ -284,7 +288,7 @@ func (d *Hasher) SetState(newState []byte) error {
 	if err := e.SetBytesCanonical(buf[:]); err != nil {
 		return errors.New("the provided newState does not represent a valid state")
 	}
-	d.state = e
+	d.md.SetStateElement(e)
 	return nil
 }
 

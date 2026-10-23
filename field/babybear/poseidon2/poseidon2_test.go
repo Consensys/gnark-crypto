@@ -131,29 +131,104 @@ func marshalElements(e []fr.Element) []byte {
 	return b
 }
 
-// lengths are numbers of elements around block boundaries.
-var lengths = []int{0, 1, blockLen - 1, blockLen, blockLen + 1, 2*blockLen + 3, 37}
+// lengthsFor returns numbers of elements around the block boundaries, for
+// blocks of n elements.
+func lengthsFor(n int) []int {
+	return []int{0, 1, n - 1, n, n + 1, 2*n + 3, 37}
+}
 
-// TestHasherSplitWrites checks that the digest does not depend on how the
-// elements are split among the writes.
-func TestHasherSplitWrites(t *testing.T) {
-	for _, n := range lengths {
-		elems := testElements(n, 1)
-		whole := NewHasher()
+var lengths = lengthsFor(BlockLen)
+
+// namedBlock and namedWideBlock are named array types, which a [Digest] accepts.
+type (
+	namedBlock     [BlockLen]fr.Element
+	namedWideBlock [WideBlockLen]fr.Element
+)
+
+// digestLen returns the number of elements of D, from its value so that named
+// array types are handled.
+func digestLen[D Digest]() int {
+	var d D
+	return len(d)
+}
+
+// digestOf returns the digest made of the first len(D) elements of e.
+func digestOf[D Digest](e []fr.Element) D {
+	var d D
+	for i := range len(d) {
+		d[i] = e[i]
+	}
+	return d
+}
+
+// elementsOf returns the elements of d.
+func elementsOf[D Digest](d D) []fr.Element {
+	e := make([]fr.Element, len(d))
+	for i := range e {
+		e[i] = d[i]
+	}
+	return e
+}
+
+// blockOf returns a deterministic digest, which differs with seed.
+func blockOf[D Digest](seed uint64) D {
+	return digestOf[D](testElements(digestLen[D](), seed))
+}
+
+// defaultPermutation returns the permutation of the default compression of
+// blocks of n elements, from its documented round numbers and not from the
+// cached parameters of the constructors.
+func defaultPermutation(n int) *Permutation {
+	switch n {
+	case BlockLen:
+		return NewPermutation(16, 8, 13)
+	case WideBlockLen:
+		return NewPermutation(24, 8, 21)
+	}
+	panic("unsupported block length")
+}
+
+// TestHasher runs the tests of the hasher for each type of digest: both
+// widths, and named array types.
+func TestHasher(t *testing.T) {
+	t.Run("default", testHasher[[BlockLen]fr.Element])
+	t.Run("wide", testHasher[[WideBlockLen]fr.Element])
+	t.Run("named default", testHasher[namedBlock])
+	t.Run("named wide", testHasher[namedWideBlock])
+}
+
+func testHasher[D Digest](t *testing.T) {
+	t.Run("split writes", testSplitWrites[D])
+	t.Run("sum", testSum[D])
+	t.Run("pad block", testPadBlock[D])
+	t.Run("reset", testReset[D])
+	t.Run("set state", testSetState[D])
+	t.Run("stale scratch", testStaleScratch[D])
+	t.Run("reference", testReference[D])
+	t.Run("allocs", testAllocs[D])
+}
+
+// testSplitWrites checks that the digest does not depend on how the elements
+// are split among the writes.
+func testSplitWrites[D Digest](t *testing.T) {
+	n := digestLen[D]()
+	for _, ln := range lengthsFor(n) {
+		elems := testElements(ln, 1)
+		whole := NewHasherGeneric[D]()
 		whole.WriteElements(elems...)
 		want := whole.SumElement()
 
-		h := NewHasher()
+		h := NewHasherGeneric[D]()
 		for _, e := range elems {
 			h.WriteElement(e)
 		}
-		require.Equal(t, want, h.SumElement(), "n=%d, one by one", n)
+		require.Equal(t, want, h.SumElement(), "n=%d, one by one", ln)
 
-		for split := 0; split <= n; split++ {
+		for split := 0; split <= ln; split++ {
 			h.Reset()
 			h.WriteElements(elems[:split]...)
 			h.WriteElements(elems[split:]...)
-			require.Equal(t, want, h.SumElement(), "n=%d, split at %d", n, split)
+			require.Equal(t, want, h.SumElement(), "n=%d, split at %d", ln, split)
 		}
 
 		h.Reset()
@@ -164,7 +239,7 @@ func TestHasherSplitWrites(t *testing.T) {
 				h.WriteElement(rest[0])
 				rest = rest[1:]
 			case 1:
-				k := min(len(rest), blockLen+1)
+				k := min(len(rest), n+1)
 				h.WriteElements(rest[:k]...)
 				rest = rest[k:]
 			default:
@@ -173,63 +248,161 @@ func TestHasherSplitWrites(t *testing.T) {
 				rest = rest[k:]
 			}
 		}
-		require.Equal(t, want, h.SumElement(), "n=%d, mixed", n)
+		require.Equal(t, want, h.SumElement(), "n=%d, mixed", ln)
 	}
 }
 
-// TestHasherSumElement checks that SumElement does not change the state, and
-// that it pads an incomplete block as PadBlock.
-func TestHasherSumElement(t *testing.T) {
-	elems := testElements(3*blockLen+1, 2)
-	h := NewHasher()
+// testSum checks that SumElement does not change the state, and that it pads an
+// incomplete block as PadBlock.
+func testSum[D Digest](t *testing.T) {
+	n := digestLen[D]()
+	elems := testElements(3*n+1, 2)
+	h := NewHasherGeneric[D]()
 	for i := range elems {
 		h.WriteElement(elems[i])
 		sum := h.SumElement()
 		require.Equal(t, sum, h.SumElement())
 
-		padded := NewHasher()
+		padded := NewHasherGeneric[D]()
 		padded.WriteElements(elems[:i+1]...)
 		padded.PadBlock()
 		require.Equal(t, sum, padded.SumElement(), "after %d elements", i+1)
 	}
-	whole := NewHasher()
+	whole := NewHasherGeneric[D]()
 	whole.WriteElements(elems...)
 	require.Equal(t, whole.SumElement(), h.SumElement())
 }
 
-// TestHasherPadBlock checks that PadBlock pads the incomplete block with zeros
-// on the left, and does nothing if there is no incomplete block.
-func TestHasherPadBlock(t *testing.T) {
-	tail := testElements(blockLen+2, 3)
-	for k := 0; k <= blockLen; k++ {
+// testPadBlock checks that PadBlock pads the incomplete block with zeros on the
+// left, and does nothing if there is no incomplete block.
+func testPadBlock[D Digest](t *testing.T) {
+	n := digestLen[D]()
+	tail := testElements(n+2, 3)
+	for k := 0; k <= n; k++ {
 		head := testElements(k, 4)
 
-		h := NewHasher()
+		h := NewHasherGeneric[D]()
 		h.WriteElements(head...)
 		h.PadBlock()
 		h.WriteElements(tail...)
 
-		want := NewHasher()
-		want.WriteElements(make([]fr.Element, (blockLen-k)%blockLen)...)
+		want := NewHasherGeneric[D]()
+		want.WriteElements(make([]fr.Element, (n-k)%n)...)
 		want.WriteElements(head...)
 		want.WriteElements(tail...)
 		require.Equal(t, want.SumElement(), h.SumElement(), "k=%d", k)
 	}
 }
 
-func TestHasherReset(t *testing.T) {
-	elems := testElements(2*blockLen+1, 5)
-	fresh := NewHasher()
+func testReset[D Digest](t *testing.T) {
+	n := digestLen[D]()
+	elems := testElements(2*n+1, 5)
+	fresh := NewHasherGeneric[D]()
 	fresh.WriteElements(elems...)
 
-	h := NewHasher()
-	h.WriteElements(testElements(blockLen+1, 6)...)
+	h := NewHasherGeneric[D]()
+	h.WriteElements(testElements(n+1, 6)...)
 	h.Reset()
 	h.WriteElements(elems...)
 	require.Equal(t, fresh.SumElement(), h.SumElement())
 
 	h.Reset()
-	require.Equal(t, NewHasher().SumElement(), h.SumElement())
+	var zero D
+	require.Equal(t, zero, h.SumElement())
+}
+
+// testSetState checks that core state restoration replaces the state, discards
+// pending elements, and that Reset still restores the zero state.
+func testSetState[D Digest](t *testing.T) {
+	n := digestLen[D]()
+	p := defaultPermutation(n)
+	h := NewHasherGeneric[D]()
+	h.WriteElements(testElements(n+2, 31)...) // two elements pending
+
+	state := blockOf[D](32)
+	h.SetStateElement(state)
+	require.Equal(t, state, h.SumElement(), "the pending elements are discarded")
+
+	next := blockOf[D](33)
+	h.WriteElements(elementsOf(next)...)
+	require.Equal(t, compressed(p, state, next), h.SumElement(), "the block is compressed from the state")
+
+	h.Reset()
+	var zero D
+	require.Equal(t, zero, h.SumElement())
+}
+
+// testStaleScratch checks that an incomplete block does not depend on what was
+// buffered before: a longer incomplete block is summed and padded, and a
+// shorter one follows. The digest must be that of the same elements with the
+// padding written explicitly, which leaves no incomplete block.
+func testStaleScratch[D Digest](t *testing.T) {
+	n := digestLen[D]()
+	for a := 1; a < n; a++ {
+		for b := 1; b <= a; b++ {
+			longTail := testElements(a, 40)
+			shortTail := testElements(b, 41)
+
+			var h gnarkHash.FieldHasher[fr.Element, D] = NewHasherGeneric[D]()
+			h.WriteElements(longTail...)
+			_ = h.SumElement()
+			h.PadBlock()
+			h.WriteElements(shortTail...)
+			got := h.SumElement()
+			require.Equal(t, got, h.SumElement())
+
+			want := NewHasherGeneric[D]()
+			want.WriteElements(make([]fr.Element, n-a)...)
+			want.WriteElements(longTail...)
+			want.WriteElements(make([]fr.Element, n-b)...)
+			want.WriteElements(shortTail...)
+			require.Equal(t, want.SumElement(), got, "tails %d then %d", a, b)
+
+			// after a reset, the shorter tail alone
+			h.Reset()
+			h.WriteElements(shortTail...)
+			alone := NewHasherGeneric[D]()
+			alone.WriteElements(make([]fr.Element, n-b)...)
+			alone.WriteElements(shortTail...)
+			require.Equal(t, alone.SumElement(), h.SumElement(), "tail %d after a reset", b)
+		}
+	}
+}
+
+// testReference checks the digests against the byte Merkle-Damgard hasher over
+// [Permutation.Compress] of the same permutation, for the default parameters of
+// the digest type and for custom permutations.
+func testReference[D Digest](t *testing.T) {
+	n := digestLen[D]()
+	type testCase struct {
+		name string
+		p    *Permutation
+		h    func() *HasherGeneric[D]
+	}
+	cases := []testCase{
+		{"default", defaultPermutation(n), NewHasherGeneric[D]},
+		{"custom rounds and seed", NewPermutationWithSeed(2*n, 4, 7, "custom seed"), nil},
+		{"existing rounds, custom seed", NewPermutationWithSeed(2*n, 8, 21, "another seed"), nil},
+	}
+	if n == WideBlockLen {
+		cases = append(cases, testCase{"existing schedule of width 24", NewPermutation(24, 8, 21), nil})
+	}
+	for _, tc := range cases {
+		if tc.h == nil {
+			tc.h = func() *HasherGeneric[D] { return NewHasherWithPermutation[D](tc.p) }
+		}
+		for _, ln := range lengthsFor(n) {
+			elems := testElements(ln, 50)
+			h := tc.h()
+			h.WriteElements(elems...)
+
+			ref := gnarkHash.NewMerkleDamgardHasher(tc.p, make([]byte, tc.p.BlockSize()))
+			written, err := ref.Write(marshalElements(elems))
+			require.NoError(t, err)
+			require.Equal(t, ln*fr.Bytes, written)
+			require.Equal(t, ref.Sum(nil), marshalElements(elementsOf(h.SumElement())), "%s, n=%d", tc.name, ln)
+		}
+	}
 }
 
 // TestMerkleDamgard checks the hasher of bytes against the digests of the field
@@ -273,7 +446,7 @@ func TestMerkleDamgard(t *testing.T) {
 		// a hasher restored from the state continues as the original
 		restored := NewMerkleDamgardHasher()
 		require.NoError(t, restored.SetState(h.State()))
-		more := marshalElements(testElements(blockLen+1, 8))
+		more := marshalElements(testElements(BlockLen+1, 8))
 		for _, w := range []gnarkHash.StateStorer{h, restored, ref} {
 			_, err := w.Write(more)
 			require.NoError(t, err)
@@ -289,21 +462,22 @@ func TestMerkleDamgard(t *testing.T) {
 
 // writeElements writes the elements with WriteElement, as a generic consumer of
 // any field hasher does.
-func writeElements[H gnarkHash.FieldHasher[fr.Element, [blockLen]fr.Element]](h H, e []fr.Element) {
+func writeElements[D Digest, H gnarkHash.FieldHasher[fr.Element, D]](h H, e []fr.Element) {
 	for i := range e {
 		h.WriteElement(e[i])
 	}
 }
 
-// TestHasherAllocs checks that hashing elements does not allocate, including
-// WriteElement called by a generic function, and SumElement with an incomplete
-// block.
-func TestHasherAllocs(t *testing.T) {
-	h := NewHasher()
-	elems := testElements(3*blockLen+1, 9)
-	var fh gnarkHash.FieldHasher[fr.Element, [blockLen]fr.Element] = h
+// testAllocs checks that hashing elements does not allocate, including
+// WriteElement called by a generic function, SumElement and PadBlock with
+// incomplete blocks of any length, and compression through the interface.
+func testAllocs[D Digest](t *testing.T) {
+	n := digestLen[D]()
+	h := NewHasherGeneric[D]()
+	elems := testElements(3*n+1, 9)
+	var fh gnarkHash.FieldHasher[fr.Element, D] = h
 
-	require.Zero(t, testing.AllocsPerRun(100, func() { writeElements(h, elems) }), "generic WriteElement on *Hasher")
+	require.Zero(t, testing.AllocsPerRun(100, func() { writeElements(h, elems) }), "generic WriteElement on *HasherGeneric")
 	require.Zero(t, testing.AllocsPerRun(100, func() { writeElements(fh, elems) }), "generic WriteElement on the interface")
 	require.Zero(t, testing.AllocsPerRun(100, func() { h.WriteElements(elems...) }), "WriteElements")
 	require.Zero(t, testing.AllocsPerRun(100, func() { fh.WriteElements(elems...) }), "WriteElements on the interface")
@@ -319,6 +493,24 @@ func TestHasherAllocs(t *testing.T) {
 		h.WriteElement(elems[0])
 		h.PadBlock()
 	}), "PadBlock of an incomplete block")
+
+	// incomplete blocks of every length, summed and padded in turn
+	k := 0
+	require.Zero(t, testing.AllocsPerRun(100, func() {
+		k = k%(n-1) + 1
+		fh.Reset()
+		fh.WriteElements(elems[:k]...)
+		_ = fh.SumElement()
+		fh.PadBlock()
+		fh.WriteElements(elems[:n-k]...)
+		_ = fh.SumElement()
+	}), "partial sums and padding on the interface")
+
+	var fc gnarkHash.FieldCompressor[D] = NewCompressorGeneric[D](defaultPermutation(n))
+	left, right := blockOf[D](60), blockOf[D](61)
+	var dst D
+	require.Zero(t, testing.AllocsPerRun(100, func() { fc.CompressField(&dst, &left, &right) }), "CompressField on the interface")
+	require.Zero(t, testing.AllocsPerRun(100, func() { fc.CompressField(&left, &left, &right) }), "CompressField with dst aliasing left")
 }
 
 // benchmarkSizes are numbers of elements written by the benchmarks of the hasher.
@@ -356,7 +548,7 @@ func BenchmarkHasherWriteElements(b *testing.B) {
 
 func BenchmarkMerkleDamgardWrite(b *testing.B) {
 	h := NewMerkleDamgardHasher()
-	data := marshalElements(testElements(blockLen*64, 10))
+	data := marshalElements(testElements(BlockLen*64, 10))
 	b.SetBytes(int64(len(data)))
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -369,31 +561,47 @@ func BenchmarkMerkleDamgardWrite(b *testing.B) {
 
 // compressed returns the compression of left and right by the permutation of
 // the compressor: right added to the second half of the image of left||right.
-func compressed(p *Permutation, left, right [blockLen]fr.Element) [blockLen]fr.Element {
-	var x [2 * blockLen]fr.Element
-	copy(x[:blockLen], left[:])
-	copy(x[blockLen:], right[:])
-	if err := p.Permutation(x[:]); err != nil {
+func compressed[D Digest](p *Permutation, left, right D) D {
+	n := len(left)
+	x := append(elementsOf(left), elementsOf(right)...)
+	if err := p.Permutation(x); err != nil {
 		panic(err)
 	}
-	var res [blockLen]fr.Element
-	for i := range res {
-		res[i].Add(&right[i], &x[blockLen+i])
+	var res D
+	for i := range n {
+		res[i].Add(&right[i], &x[n+i])
 	}
 	return res
 }
 
-func testBlock(seed uint64) [blockLen]fr.Element {
-	return [blockLen]fr.Element(testElements(blockLen, seed))
+// BenchmarkHasherWideWriteElements writes all elements at once, to the wide hasher.
+func BenchmarkHasherWideWriteElements(b *testing.B) {
+	for _, n := range benchmarkSizes {
+		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
+			h := NewHasherGeneric[[WideBlockLen]fr.Element]()
+			elems := testElements(n, 10)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for range b.N {
+				h.WriteElements(elems...)
+			}
+		})
+	}
 }
 
 func TestCompressorAliasing(t *testing.T) {
-	p := NewDefaultPermutation()
-	c := NewCompressor(p)
-	left, right := testBlock(11), testBlock(12)
+	p, pw := defaultPermutation(BlockLen), defaultPermutation(WideBlockLen)
+	t.Run("default", func(t *testing.T) { testCompressorAliasing(t, p, NewCompressor(p)) })
+	t.Run("wide", func(t *testing.T) { testCompressorAliasing(t, pw, NewCompressorGeneric[[WideBlockLen]fr.Element](pw)) })
+	t.Run("named default", func(t *testing.T) { testCompressorAliasing(t, p, NewCompressorGeneric[namedBlock](p)) })
+	t.Run("named wide", func(t *testing.T) { testCompressorAliasing(t, pw, NewCompressorGeneric[namedWideBlock](pw)) })
+}
+
+func testCompressorAliasing[D Digest](t *testing.T, p *Permutation, c *CompressorGeneric[D]) {
+	left, right := blockOf[D](11), blockOf[D](12)
 
 	want := compressed(p, left, right)
-	var dst [blockLen]fr.Element
+	var dst D
 	l, r := left, right
 	c.CompressField(&dst, &l, &r)
 	require.Equal(t, want, dst)
@@ -416,20 +624,27 @@ func TestCompressorAliasing(t *testing.T) {
 	require.Equal(t, wantSame, l, "dst, left and right are the same")
 }
 
-// TestCompressorConcurrent checks that goroutines can share a compressor.
+// TestCompressorConcurrent checks that goroutines can share a compressor, for
+// the alias of the default width and for the wide compressor.
 func TestCompressorConcurrent(t *testing.T) {
-	p := NewDefaultPermutation()
-	c := NewCompressor(p)
+	p, pw := defaultPermutation(BlockLen), defaultPermutation(WideBlockLen)
+	t.Run("default", func(t *testing.T) { testCompressorConcurrent(t, p, NewCompressor(p)) })
+	t.Run("wide", func(t *testing.T) {
+		testCompressorConcurrent(t, pw, NewCompressorGeneric[[WideBlockLen]fr.Element](pw))
+	})
+	t.Run("named wide", func(t *testing.T) { testCompressorConcurrent(t, pw, NewCompressorGeneric[namedWideBlock](pw)) })
+}
 
+func testCompressorConcurrent[D Digest](t *testing.T, p *Permutation, c *CompressorGeneric[D]) {
 	const nbGoroutines, nbIterations = 8, 20
 	var wg sync.WaitGroup
-	got := make([][nbIterations][blockLen]fr.Element, nbGoroutines)
+	got := make([][nbIterations]D, nbGoroutines)
 	for g := range nbGoroutines {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for i := range nbIterations {
-				left, right := testBlock(uint64(100*g+i)), testBlock(uint64(100*g+i+50))
+				left, right := blockOf[D](uint64(100*g+i)), blockOf[D](uint64(100*g+i+50))
 				c.CompressField(&got[g][i], &left, &right)
 			}
 		}()
@@ -438,10 +653,74 @@ func TestCompressorConcurrent(t *testing.T) {
 
 	for g := range nbGoroutines {
 		for i := range nbIterations {
-			want := compressed(p, testBlock(uint64(100*g+i)), testBlock(uint64(100*g+i+50)))
+			want := compressed(p, blockOf[D](uint64(100*g+i)), blockOf[D](uint64(100*g+i+50)))
 			require.Equal(t, want, got[g][i], "goroutine %d, iteration %d", g, i)
 		}
 	}
+}
+
+// TestNewHasherGenericConcurrent checks that goroutines can build hashers of
+// the cached parameters at the same time, and hash the same digests.
+func TestNewHasherGenericConcurrent(t *testing.T) {
+	elems := testElements(2*WideBlockLen+1, 70)
+	ref := NewHasherWithPermutation[[WideBlockLen]fr.Element](defaultPermutation(WideBlockLen))
+	ref.WriteElements(elems...)
+	refNarrow := NewHasherWithPermutation[[BlockLen]fr.Element](defaultPermutation(BlockLen))
+	refNarrow.WriteElements(elems...)
+
+	const nbGoroutines = 8
+	var wg sync.WaitGroup
+	got := make([][WideBlockLen]fr.Element, nbGoroutines)
+	gotNarrow := make([][BlockLen]fr.Element, nbGoroutines)
+	for g := range nbGoroutines {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			h := NewHasherGeneric[[WideBlockLen]fr.Element]()
+			h.WriteElements(elems...)
+			got[g] = h.SumElement()
+			hn := NewHasher()
+			hn.WriteElements(elems...)
+			gotNarrow[g] = hn.SumElement()
+		}()
+	}
+	wg.Wait()
+
+	for g := range nbGoroutines {
+		require.Equal(t, ref.SumElement(), got[g], "goroutine %d", g)
+		require.Equal(t, refNarrow.SumElement(), gotNarrow[g], "goroutine %d", g)
+	}
+}
+
+// TestWideDefaultSchedule checks the cached parameters of the wide hasher, and
+// compares its digest with the existing
+// NewPermutation(24, 8, 21) schedule.
+func TestWideDefaultSchedule(t *testing.T) {
+	elems := testElements(3*WideBlockLen+2, 20)
+	def := NewHasherGeneric[[WideBlockLen]fr.Element]()
+	def.WriteElements(elems...)
+	existing := NewHasherWithPermutation[[WideBlockLen]fr.Element](NewPermutation(24, 8, 21))
+	existing.WriteElements(elems...)
+
+	require.Equal(t, existing.SumElement(), def.SumElement())
+}
+
+// TestConstructorsRejectWidthMismatch checks that a permutation whose width is
+// not twice the length of the digest type is rejected.
+func TestConstructorsRejectWidthMismatch(t *testing.T) {
+	narrow := NewPermutationWithSeed(16, 4, 7, "seed")
+	wide := NewPermutationWithSeed(24, 4, 7, "seed")
+
+	require.Panics(t, func() { NewCompressor(wide) })
+	require.Panics(t, func() { NewCompressorGeneric[[BlockLen]fr.Element](wide) })
+	require.Panics(t, func() { NewCompressorGeneric[[WideBlockLen]fr.Element](narrow) })
+	require.Panics(t, func() { NewCompressorGeneric[namedBlock](wide) })
+	require.Panics(t, func() { NewCompressorGeneric[namedWideBlock](narrow) })
+	require.Panics(t, func() { NewHasherWithPermutation[[BlockLen]fr.Element](wide) })
+	require.Panics(t, func() { NewHasherWithPermutation[[WideBlockLen]fr.Element](narrow) })
+	require.Panics(t, func() { NewHasherWithPermutation[namedBlock](wide) })
+	require.Panics(t, func() { NewHasherWithPermutation[namedWideBlock](narrow) })
+
 }
 
 // TestPermutationCompress checks the compression of bytes, for each width of

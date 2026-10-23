@@ -368,7 +368,7 @@ func (h *Permutation) Permutation(input []fr.Element) error {
 // left and right must each be concatenations of t/2 fr.Elements, where t is the width of the permutation.
 // The result is the concatenation of t/2 fr.Elements.
 //
-// Deprecated: use [Compressor.CompressField], or [Hasher] to hash elements.
+// Deprecated: use [CompressorGeneric.CompressField], or [HasherGeneric] to hash elements.
 func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 	n := h.params.Width / 2
 	if h.params.Width != 2*n {
@@ -404,40 +404,6 @@ func (h *Permutation) Compress(left []byte, right []byte) ([]byte, error) {
 		outBytes = append(outBytes, b[:]...)
 	}
 	return outBytes, nil
-}
-
-// Compressor compresses two blocks of 8 elements into one with a Poseidon2
-// permutation of width 16: it applies the permutation on left followed by
-// right, and adds right to the second half of the result. It implements
-// hash.FieldCompressor over [8]fr.Element, and computes the same as
-// [Permutation.Compress] does on bytes.
-//
-// It holds no state besides the permutation, which is read-only, so it is safe
-// for concurrent use.
-type Compressor struct {
-	perm *Permutation
-}
-
-// NewCompressor returns a Compressor over p. The width of p must be 16, that
-// of the default compression permutation.
-func NewCompressor(p *Permutation) *Compressor {
-	if p.params.Width != 2*blockLen {
-		panic(fmt.Sprintf("poseidon2: the width of the permutation must be %d", 2*blockLen))
-	}
-	return &Compressor{perm: p}
-}
-
-// CompressField implements hash.FieldCompressor. dst may alias left or right.
-func (c *Compressor) CompressField(dst, left, right *[blockLen]fr.Element) {
-	var x [2 * blockLen]fr.Element
-	copy(x[:blockLen], left[:])
-	copy(x[blockLen:], right[:])
-	if err := c.perm.Permutation(x[:]); err != nil {
-		panic(err)
-	}
-	for i := range dst {
-		dst[i].Add(&right[i], &x[blockLen+i])
-	}
 }
 
 // Permutation16x24 applies the permutation on input.

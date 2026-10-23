@@ -320,6 +320,19 @@ func TestSetState(t *testing.T) {
 	assert.Equal(short.Marshal(), h.State())
 }
 
+// TestSetStateReset checks that Reset restores the zero initial state after
+// SetState.
+func TestSetStateReset(t *testing.T) {
+	assert := require.New(t)
+
+	var e fr.Element
+	e.SetUint64(12345)
+	h := mimc.NewHasher()
+	assert.NoError(h.SetState(e.Marshal()))
+	h.Reset()
+	assert.Equal(mimc.NewHasher().State(), h.State())
+}
+
 // TestHasherNoAllocations checks that hashing, as bytes and as elements, through
 // the concrete and the generic hasher, does not allocate.
 func TestHasherNoAllocations(t *testing.T) {

@@ -1,4 +1,20 @@
 
+## Unreleased
+
+### Feat
+- Add reusable `hash.MerkleDamgardElement[F]` and `hash.MerkleDamgardArray[F, D]` field cores with configurable initial states, reset and state restoration. MiMC and Poseidon2 use these shared cores instead of generated Merkle–Damgård implementations.
+- Add small-field Poseidon2 `Digest`, `HasherGeneric[D]`, `CompressorGeneric[D]`, `NewHasherGeneric[D]`, `NewHasherWithPermutation[D]` and `NewCompressorGeneric[D]`. Named array digests are supported: 8/12 elements for BabyBear, KoalaBear and MamaBear; 4/6 for Goldilocks.
+- Export small-field Poseidon2 `BlockLen` and `WideBlockLen` element counts for use as digest array bounds, without private duplicate constants.
+- Export cached small-field Poseidon2 `GetSpongeParameters`, used by wider typed hashers; `GetDefaultParameters` documents its compression parameters and links to the sponge accessor. Returned parameter objects are shared and must not be modified.
+
+### Perf
+- Reuse compression and padding scratch in the generic cores, avoiding allocations even through generic/interface consumers and for incomplete-block `SumElement` and `PadBlock`.
+- Poseidon2 field hashers alias the shared Merkle–Damgård cores directly, removing wrapper types and forwarding methods. Core methods, including `SetStateElement`, are available through the aliases; MiMC keeps its byte-aware wrapper.
+
+### Compatibility
+- Preserve runtime-width `Permutation`, its constructors and legacy byte compression. Default `Hasher` and `Compressor` names alias their default-width generic instances; default field/byte digests and deprecated MiMC APIs remain unchanged.
+- Wider typed constructors reuse the existing permutation parameters, including KoalaBear's width-24 6/21 schedule and its existing AVX-512 path. This refactor changes no round schedules.
+
 <a name="v0.22.0"></a>
 ## [v0.22.0] - 2026-10-02
 ### Breaking

@@ -28,46 +28,12 @@ var (
 // block is a full element, so there is no incomplete block.
 //
 // A Hasher is not safe for concurrent use.
-type Hasher struct {
-	c     Compressor
-	state fr.Element
-}
+type Hasher = gnarkHash.MerkleDamgardElement[fr.Element]
 
 // NewHasher returns a [Hasher] with the default parameters, and the zero initial
 // state.
 func NewHasher() *Hasher {
-	return &Hasher{c: Compressor{perm: NewDefaultPermutation()}}
-}
-
-// Reset implements [gnarkHash.FieldHasher].
-func (h *Hasher) Reset() {
-	h.state = fr.Element{}
-}
-
-// WriteElement implements [gnarkHash.FieldHasher].
-func (h *Hasher) WriteElement(e fr.Element) {
-	h.c.CompressField(&h.state, &h.state, &e)
-}
-
-// WriteElements implements [gnarkHash.FieldHasher].
-func (h *Hasher) WriteElements(e ...fr.Element) {
-	for i := range e {
-		h.c.CompressField(&h.state, &h.state, &e[i])
-	}
-}
-
-// PadBlock implements [gnarkHash.FieldHasher]. A block is an element, so there
-// is never an incomplete block, and PadBlock does nothing.
-func (h *Hasher) PadBlock() {}
-
-// SumElement implements [gnarkHash.FieldHasher].
-func (h *Hasher) SumElement() fr.Element {
-	return h.state
-}
-
-// BlockLen implements [gnarkHash.FieldHasher]. It is 1.
-func (h *Hasher) BlockLen() int {
-	return 1
+	return gnarkHash.NewMerkleDamgardElement(NewCompressor(NewDefaultPermutation()), fr.Element{})
 }
 
 // NewMerkleDamgardHasher returns a Poseidon2 hasher of bytes using the
@@ -84,9 +50,7 @@ func (h *Hasher) BlockLen() int {
 // the input, or pad it explicitly. See [gnarkHash.NewByteHasher].
 func NewMerkleDamgardHasher() gnarkHash.StateStorer {
 	h := NewHasher()
-	return gnarkHash.NewByteHasher(h, byteCodec{}, func(d fr.Element) {
-		h.state = d
-	})
+	return gnarkHash.NewByteHasher(h, byteCodec{}, h.SetStateElement)
 }
 
 // byteCodec is the encoding of elements and digests of [Hasher] as bytes, in
