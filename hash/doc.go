@@ -16,25 +16,10 @@
 // # Field-native hashing
 //
 // [FieldHasher] is the common interface for hashing field elements without byte
-// encoding. Construct it with poseidon2.NewHasher or mimc.NewHasher in the
-// corresponding field package. For large fields the digest is one element;
-// small-field Poseidon2 digests are fixed-size arrays (eight elements for
-// BabyBear, KoalaBear and MamaBear, four for Goldilocks).
-// Wider small-field digests are available with poseidon2.NewHasherGeneric[D]:
-// twelve elements for BabyBear, KoalaBear and MamaBear, six for Goldilocks.
-// Their public BlockLen and WideBlockLen constants count elements (not bytes)
-// and can be used as array bounds, e.g.
-//
-//	poseidon2.NewHasherGeneric[[poseidon2.WideBlockLen]fr.Element]().
-//
-// NewHasherWithPermutation[D] accepts custom seeded/round parameters while the
-// existing runtime-width Permutation type and its constructors stay unchanged.
-// GetDefaultParameters returns cached compression parameters; GetSpongeParameters
-// returns the wider cached parameters also used by wider MD hashers. Treat both
-// returned parameter objects as read-only.
-// Poseidon2's Hasher (element digests) and HasherGeneric[D] (array digests)
-// alias the shared cores directly, including their SetStateElement method.
-// MiMC retains a wrapper for its byte-order options and legacy byte methods.
+// encoding, and [FieldCompressor] the corresponding 2-to-1 compression function.
+// Construct field hashers with poseidon2.NewHasher or mimc.NewHasher in the
+// corresponding field package; see those packages for their block and digest
+// sizes.
 //
 // [MerkleDamgardElement] and [MerkleDamgardArray] provide reusable field cores.
 // The former absorbs one element per block into an element digest. The latter
@@ -42,10 +27,8 @@
 // Both take a compressor and initial chaining state; Reset restores that state.
 // Array construction needs an explicit element type, for example
 // NewMerkleDamgardArray[fr.Element](compressor, initialDigest), since Go cannot
-// infer it from a union-of-arrays constraint. Digest types can be inferred.
-// Internal padding/compression scratch is retained in each core to avoid
-// allocations through indirect compressor calls. Hashing after construction
-// does not allocate when the compressor itself does not allocate.
+// infer it from a union-of-arrays constraint. Hashing after construction does
+// not allocate when the compressor itself does not allocate.
 //
 // WriteElement avoids the temporary variadic slice when called through an
 // interface or generic type parameter. WriteElements accepts an existing slice.
@@ -54,11 +37,8 @@
 // should commit the block before continuing after a squeeze. BlockLen counts
 // input elements, whereas hash.Hash.BlockSize counts bytes.
 //
-// Poseidon2 field hashers do not implement hash.Hash. The existing
-// poseidon2.NewMerkleDamgardHasher constructor and registry return byte hashers,
-// with each Write ending on a block boundary. [NewByteHasher] implements that
-// encoding explicitly over the field core. MiMC retains its byte methods while
-// its legacy FieldHasher interface is deprecated.
+// [NewByteHasher] gives a field core a byte-oriented [StateStorer] view, with
+// each Write ending on a block boundary.
 //
 // Extension-field input encoding and challenge derivation belong to the caller:
 // absorb coordinates in a protocol-defined order, retain the full array digest
