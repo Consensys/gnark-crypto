@@ -13,6 +13,33 @@
 // the compression primitive. See the interface [Compressor] and the
 // corresponding initialization function [NewMerkleDamgardHasher].
 //
+// # Field-native hashing
+//
+// [FieldHasher] is the common interface for hashing field elements without byte
+// encoding. Construct it with poseidon2.NewHasher or mimc.NewHasher in the
+// corresponding field package. For large fields the digest is one element;
+// small-field Poseidon2 digests are fixed-size arrays (eight elements for
+// BabyBear, KoalaBear and MamaBear, four for Goldilocks).
+//
+// WriteElement avoids the temporary variadic slice when called through an
+// interface or generic type parameter. WriteElements accepts an existing slice.
+// Both absorb a continuous element stream. SumElement leaves the state unchanged;
+// PadBlock commits a partial block with zeros on the left. Transcript callers
+// should commit the block before continuing after a squeeze. BlockLen counts
+// input elements, whereas hash.Hash.BlockSize counts bytes.
+//
+// Poseidon2 field hashers do not implement hash.Hash. The existing
+// poseidon2.NewMerkleDamgardHasher constructor and registry return byte hashers,
+// with each Write ending on a block boundary. [NewByteHasher] implements that
+// encoding explicitly over the field core. MiMC retains its byte methods while
+// its legacy FieldHasher interface is deprecated.
+//
+// Extension-field input encoding and challenge derivation belong to the caller:
+// absorb coordinates in a protocol-defined order, retain the full array digest
+// for commitments, and convert to an extension element explicitly for challenges.
+// Converting only part of a digest reduces its collision security; it is not an
+// equivalent commitment digest.
+//
 // # Importing hash functions
 //
 // The package follows registration pattern for importing hash functions. To
@@ -59,11 +86,11 @@
 //
 // # Hash input format
 //
-// The MiMC hash function is defined over a field. The input to the hash
-// function is a byte slice. The byte slice is interpreted as a sequence of
-// field elements. Due to this interpretation, the input byte slice length must
-// be multiple of the field modulus size. And every sequence of byte slice for a
-// single field element must be strictly less than the field modulus.
+// MiMC byte input is interpreted as canonical field elements, strictly smaller
+// than the field modulus. Every Write left-pads a short final element with zeros.
+// Poseidon2 byte input is similarly left-padded to its full input block. These
+// encodings do not bind the length; callers hashing arbitrary bytes must provide
+// explicit padding or length encoding. Prefer [FieldHasher] for field inputs.
 //
 // See open issues:
 //   - https://github.com/Consensys/gnark-crypto/issues/504
